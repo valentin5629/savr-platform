@@ -12,6 +12,9 @@ import { render, screen } from '@testing-library/react';
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams('id=evt-1'),
 }));
+vi.mock('@/lib/use-user-role', () => ({
+  useUserRole: () => 'traiteur_manager',
+}));
 
 import ConfirmationProgrammationPage from './page';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';

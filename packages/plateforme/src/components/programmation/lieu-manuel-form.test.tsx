@@ -1,9 +1,10 @@
 /**
  * M0.6 — Quick-add lieu hors référentiel (BL-P1-BOA-03, §06.01).
- * Extension aux 7 champs avec colonne DB réelle (nom, adresse_acces, code_postal,
- * ville, stationnement, type_vehicule_max, acces_office). « Contact sur place »
- * volontairement absent — divergence _Divergences/BOA-LIEUX_20260702.md (pas de
- * colonne DB correspondante, ni V1 ni DDL cible V2).
+ * 4 champs : nom, adresse_acces, code_postal, ville. Type de véhicule max,
+ * stationnement et accès office retirés du formulaire de programmation (décision
+ * Val 2026-10-16) : l'équipe Savr les renseigne dans la fiche lieu Admin.
+ * « Contact sur place » volontairement absent — divergence
+ * _Divergences/BOA-LIEUX_20260702.md (pas de colonne DB correspondante).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -15,17 +16,18 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('M0.6 — rend les 3 champs optionnels supplémentaires (véhicule max, stationnement, accès office)', () => {
+  it('M0.6 / formulaire_simplifie — ne propose plus véhicule max, stationnement ni accès office', () => {
     render(<LieuManuelForm onSave={vi.fn()} onCancel={vi.fn()} />);
-    expect(screen.getByLabelText(/Type de véhicule max/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Stationnement/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Accès office/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Nom du lieu/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Type de véhicule max/)).toBeNull();
+    expect(screen.queryByLabelText(/Stationnement/)).toBeNull();
+    expect(screen.queryByLabelText(/Accès office/)).toBeNull();
     // Champ orphelin CDC non implémenté (divergence)
     expect(screen.queryByLabelText(/Contact sur place/)).toBeNull();
   });
 
   it(
-    'M0.6 — envoie les champs optionnels renseignés, omet ceux laissés vides',
+    'M0.6 / formulaire_simplifie — envoie les 4 champs du lieu, sans les champs retirés',
     async () => {
       const onSave = vi.fn();
       const fetchMock = vi.fn().mockResolvedValue({
@@ -48,10 +50,6 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
       fireEvent.change(screen.getByLabelText(/Ville/), {
         target: { value: 'Saint-Cloud' },
       });
-      // Combobox DS : ouvrir la liste puis choisir l'option (portail Radix).
-      fireEvent.click(screen.getByLabelText(/Type de véhicule max/));
-      fireEvent.click(screen.getByRole('option', { name: 'Fourgon' }));
-      // stationnement et acces_office laissés vides
 
       fireEvent.click(screen.getByRole('button', { name: /Ajouter ce lieu/ }));
 
@@ -63,9 +61,12 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
         string,
         unknown
       >;
-      expect(body.type_vehicule_max).toBe('fourgon');
-      expect(body.stationnement).toBeUndefined();
-      expect(body.acces_office).toBeUndefined();
+      expect(body).toEqual({
+        nom: 'Château de Saint-Cloud',
+        adresse_acces: '1 avenue de Paris',
+        code_postal: '92210',
+        ville: 'Saint-Cloud',
+      });
       await waitFor(() => expect(onSave).toHaveBeenCalled(), ATTENTE_UI);
     },
     ATTENTE_CAS_MS,

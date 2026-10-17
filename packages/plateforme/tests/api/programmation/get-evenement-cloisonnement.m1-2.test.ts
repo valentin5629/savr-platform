@@ -34,14 +34,20 @@ type Row = Record<string, unknown>;
  * Fake PostgREST minimal : applique les prédicats `.eq()` sur un store en mémoire
  * et modélise `.single()` comme PostgREST (0 ligne → data null + PGRST116). Il ne
  * modélise PAS la projection de colonnes — la ligne stockée est renvoyée telle
- * quelle : c'est le FILTRAGE que ce test doit prouver, pas le `select`.
+ * quelle : c'est le FILTRAGE que ce test doit prouver. Le `select` demandé est
+ * seulement relevé, pour vérifier les colonnes dont l'écran de confirmation a
+ * besoin.
  */
 function makeEvenementsStore(rows: Row[]) {
   const eqCalls: Array<[string, unknown]> = [];
+  const selectCalls: string[] = [];
   const builder = () => {
     const filters: Array<[string, unknown]> = [];
     const b = {
-      select: () => b,
+      select: (colonnes: string) => {
+        selectCalls.push(colonnes);
+        return b;
+      },
       eq: (col: string, val: unknown) => {
         filters.push([col, val]);
         eqCalls.push([col, val]);
@@ -85,6 +91,7 @@ function makeEvenementsStore(rows: Row[]) {
   };
   return {
     __eqCalls: eqCalls,
+    __selectCalls: selectCalls,
     __journalEq: journalEq,
     from: (table: string) => {
       if (table === 'emails_envoyes') return journal();
@@ -244,5 +251,30 @@ describe('M1.2 / GET détail événement — cloisonnement inter-organisation', 
       contact_principal_nom: PII_CONTACT_B,
     });
     expect(store.__eqCalls).toContainEqual(['organisation_id', ORG_B]);
+  });
+});
+
+describe('M1.2 / formulaire_simplifie — GET détail événement : colonnes du récapitulatif', () => {
+  // Décision Val 2026-10-16 : l'écran « Votre collecte est programmée » affiche le
+  // client et le téléphone des contacts. Sans ces colonnes dans le `select`, il
+  // afficherait « — » et « Non renseigné » pour des valeurs qui existent.
+  it('le select demande client, téléphones et contact de secours', async () => {
+    setupAuth('traiteur_manager', ORG_A, 'user-a');
+
+    await getEvenement('evt-org-a');
+
+    expect(store.__selectCalls).toHaveLength(1);
+    const colonnes = store.__selectCalls[0]!.split(/[\s,()]+/);
+    for (const colonne of [
+      'nom_client_organisateur',
+      'pax',
+      'contact_principal_nom',
+      'contact_principal_telephone',
+      'contact_secours_nom',
+      'contact_secours_telephone',
+      'date_collecte',
+      'heure_collecte',
+    ])
+      expect(colonnes).toContain(colonne);
   });
 });

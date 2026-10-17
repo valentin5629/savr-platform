@@ -11,13 +11,17 @@ import {
   CalendarPlus,
   Mail,
   AlertTriangle,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Heading } from '@/components/ui/heading';
 import { Text, textClasses } from '@/components/ui/text';
 import { InfoItem } from '@/components/ui/info-item';
-import { ROUTES } from '@/lib/routes';
+import { ContactLigne } from '@/components/collecte/fiche-blocs';
+import { ESPACE_PAR_ROLE, ROUTES } from '@/lib/routes';
+import { isStaff, type Role } from '@/lib/roles';
+import { useUserRole } from '@/lib/use-user-role';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import type { EtatRecapEmail } from '@/lib/programmation/suivi-recap-email';
 
@@ -42,8 +46,12 @@ type LieuRecap = {
 type EvenementRecap = {
   id: string;
   nom_evenement: string;
+  nom_client_organisateur: string | null;
   pax: number | null;
   contact_principal_nom: string | null;
+  contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
   // Relation to-one : PostgREST renvoie un objet, on tolère le tableau par sûreté.
   lieux: LieuRecap | LieuRecap[] | null;
   collectes: CollecteRecap[];
@@ -84,6 +92,25 @@ function formatHeure(heure: string | null): string {
   return heure ? heure.slice(0, 5) : '';
 }
 
+function formatDateHeure(c: CollecteRecap): string {
+  const heure = formatHeure(c.heure_collecte);
+  return `${formatDate(c.date_collecte)}${heure ? ` à ${heure}` : ''}`;
+}
+
+// « Modifier la collecte » (décision Val 2026-10-16) : la fiche de la collecte
+// s'ouvre en édition dans la liste Collectes de l'espace du rôle, comme le
+// crayon de cette liste. Staff : la fiche collecte Admin, éditée bloc par bloc.
+function lienModifierCollecte(
+  role: string | undefined,
+  collecteId: string,
+): string | null {
+  if (isStaff(role)) return ROUTES.admin.collecte(collecteId);
+  const espace = role ? ESPACE_PAR_ROLE[role as Role] : undefined;
+  if (espace !== 'traiteur' && espace !== 'agence' && espace !== 'gestionnaire')
+    return null;
+  return `${ROUTES[espace].collectes}?collecte=${encodeURIComponent(collecteId)}&edit=1`;
+}
+
 function formatLieu(lieux: EvenementRecap['lieux']): string {
   const lieu = Array.isArray(lieux) ? (lieux[0] ?? null) : lieux;
   if (!lieu) return '—';
@@ -99,6 +126,7 @@ function formatLieu(lieux: EvenementRecap['lieux']): string {
 function ConfirmationContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
+  const role = useUserRole();
 
   const [evenement, setEvenement] = useState<EvenementRecap | null>(null);
   const [loading, setLoading] = useState(true);
@@ -166,25 +194,36 @@ function ConfirmationContent() {
         </AlertBar>
       )}
 
-      {/* Détails de l'événement — lieu / pax / contact sont portés par
-          `evenements` (pas par collecte), cf. §04 Data Model. */}
+      {/* Récapitulatif (décision Val 2026-10-16, déplacé de l'étape 3) : client,
+          lieu, convives et contacts sont portés par `evenements`, la date et
+          l'heure par chaque collecte (§04 Data Model). */}
       {evenement && (
         <div className="space-y-3">
           <Heading level={2} size="sm" tone="faint" overline>
-            Événement
+            Récapitulatif
           </Heading>
-          <dl className="grid gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-4 py-3 sm:grid-cols-3">
+          <dl className="grid gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-4 py-3 sm:grid-cols-2">
+            <InfoItem
+              variant="hint"
+              label="Client"
+              pleineLargeur
+              className="space-y-0.5"
+              valueClassName={VALEUR_RECAP}
+            >
+              {evenement.nom_client_organisateur || '—'}
+            </InfoItem>
             <InfoItem
               variant="hint"
               label="Lieu"
-              className="space-y-0.5 sm:col-span-3"
+              pleineLargeur
+              className="space-y-0.5"
               valueClassName={VALEUR_RECAP}
             >
               {formatLieu(evenement.lieux)}
             </InfoItem>
             <InfoItem
               variant="hint"
-              label="Nombre de pax"
+              label="Convives"
               className="space-y-0.5"
               valueClassName={VALEUR_RECAP}
             >
@@ -192,17 +231,47 @@ function ConfirmationContent() {
             </InfoItem>
             <InfoItem
               variant="hint"
-              label="Contact principal"
-              className="space-y-0.5 sm:col-span-2"
+              label="Date et heure"
+              className="space-y-0.5"
               valueClassName={VALEUR_RECAP}
             >
-              {evenement.contact_principal_nom || '—'}
+              {collectes.length > 1
+                ? collectes.map((c) => (
+                    <span key={c.id} className="block">
+                      {libelleType(c.type)} : {formatDateHeure(c)}
+                    </span>
+                  ))
+                : collectes[0]
+                  ? formatDateHeure(collectes[0])
+                  : '—'}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Contact principal"
+              className="space-y-0.5"
+              valueClassName={VALEUR_RECAP}
+            >
+              <ContactLigne
+                nom={evenement.contact_principal_nom}
+                telephone={evenement.contact_principal_telephone}
+              />
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Contact de secours"
+              className="space-y-0.5"
+              valueClassName={VALEUR_RECAP}
+            >
+              <ContactLigne
+                nom={evenement.contact_secours_nom}
+                telephone={evenement.contact_secours_telephone}
+              />
             </InfoItem>
           </dl>
         </div>
       )}
 
-      {/* Récapitulatif des collectes créées */}
+      {/* Collectes créées : statut et accès à la modification */}
       {collectes.length > 0 && (
         <div className="space-y-3">
           <Heading level={2} size="sm" tone="faint" overline>
@@ -211,25 +280,30 @@ function ConfirmationContent() {
               : 'Collecte créée'}
           </Heading>
           <ul className="space-y-2">
-            {collectes.map((c) => (
-              <li
-                key={c.id}
-                className="flex items-center justify-between rounded-savr-md border border-savr-neutral-200 bg-savr-white px-4 py-3"
-              >
-                <div className="space-y-0.5">
-                  <Text tone="ink" className="font-semibold">
-                    {libelleType(c.type)}
-                  </Text>
-                  <Text variant="hint">
-                    {formatDate(c.date_collecte)}
-                    {formatHeure(c.heure_collecte)
-                      ? ` à ${formatHeure(c.heure_collecte)}`
-                      : ''}
-                  </Text>
-                </div>
-                <CollecteStatutBadge statut={c.statut} />
-              </li>
-            ))}
+            {collectes.map((c) => {
+              const lienModifier = lienModifierCollecte(role, c.id);
+              return (
+                <li
+                  key={c.id}
+                  className="flex flex-col gap-3 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <Text tone="ink" className="font-semibold">
+                      {libelleType(c.type)}
+                    </Text>
+                    <CollecteStatutBadge statut={c.statut} />
+                  </div>
+                  {lienModifier && (
+                    <Button asChild variant="secondary">
+                      <Link href={lienModifier}>
+                        <Pencil />
+                        Modifier la collecte
+                      </Link>
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

@@ -13,6 +13,7 @@ import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { PageHeader } from '@/components/ui/page-header';
 import { FormActions } from '@/components/ui/form-actions';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
+import { normaliserTypeCollecte } from '@/lib/libelles/type-collecte';
 
 export default function AjouterCollectePage() {
   const { evenement_id } = useParams<{ evenement_id: string }>();
@@ -64,16 +65,22 @@ export default function AjouterCollectePage() {
 
   const valid = data.date_collecte !== '' && data.heure_collecte !== '';
 
-  const handleSubmit = async () => {
+  // `doublonConfirme` : passé par « Confirmer quand même », dont le clic lirait
+  // sinon l'état d'avant la confirmation et rouvrirait l'avertissement.
+  const handleSubmit = async (doublonConfirme = agDoublonConfirm) => {
     // Vérification doublon AG : détecter si CET événement a déjà une collecte AG
-    if (type === 'ag' && !agDoublonConfirm) {
+    if (type === 'ag' && !doublonConfirme) {
       const check = await fetch(
         `/api/v1/programmation/evenements/${encodeURIComponent(evenement_id)}`,
       );
       const evt = (await check.json()) as {
         collectes?: { type: string }[];
       };
-      const hasAg = evt.collectes?.some((c) => c.type === 'ag');
+      // La route rend l'enum de la base (`anti_gaspi`), pas l'alias du
+      // formulaire (`ag`).
+      const hasAg = evt.collectes?.some(
+        (c) => normaliserTypeCollecte(c.type) === 'anti_gaspi',
+      );
       if (hasAg) {
         setAgDoublonWarning(true);
         return;
@@ -146,7 +153,7 @@ export default function AjouterCollectePage() {
               onClick: () => {
                 setAgDoublonConfirm(true);
                 setAgDoublonWarning(false);
-                void handleSubmit();
+                void handleSubmit(true);
               },
             }}
           />

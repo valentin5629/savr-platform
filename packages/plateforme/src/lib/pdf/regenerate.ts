@@ -12,11 +12,9 @@
 // Le rapport RSE porte en plus regenere_at / regenere_par_user_id / version → alimente
 // le picto ⟳ « Rapport régénéré » (§06.06 l.170 : version actuelle ≠ initiale).
 //
-// Rapport de recyclage ZD (gabarit @3) : la page 1 existe en deux versions, avec ou
-// sans le radar de comparaison au parc. La régénération est le seul endroit où cette
-// version se choisit (`version`, ci-dessous) ; sans choix, le dernier rendu est
-// reproduit tel quel. `rapports_rse.filtres_benchmark` dit laquelle est en vigueur :
-// les filtres figés si le rapport porte le radar, NULL sinon.
+// Le rapport de recyclage ZD n'en fait plus partie : il n'est plus stocké, chaque
+// téléchargement le fabrique au clic (décision Val 2026-10-16,
+// lib/collectes/rapport-a-la-demande).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
@@ -25,7 +23,6 @@ import {
   isPdfDocumentType,
   type PdfDocumentType,
 } from '@savr/shared/src/pdf/document-types.js';
-import type { RadarRapport } from './rapport-radar.js';
 
 interface DocEntity {
   /** Table plateforme.* portant la ligne document (clé collecte_id). */
@@ -39,10 +36,9 @@ interface DocEntity {
 // d'archivage §12 §1.6) et n'est jamais re-enqueue via ce flux → absente de la map.
 // 'rapport-evenement-sans-excedent' (§12 §1.3-bis l.198 « Régénération : Admin Savr
 // uniquement, correction motif chauffeur / plaque post-saisie ») est porté par
-// rapports_rse → régénérable comme le rapport de recyclage.
+// rapports_rse. Le rapport de recyclage ZD, fabriqué au clic, n'est pas ici.
 const DOC_ENTITY: Partial<Record<PdfDocumentType, DocEntity>> = {
   'bordereau-zd': { table: 'bordereaux_savr', entityType: 'bordereaux_savr' },
-  'rapport-recyclage-zd': { table: 'rapports_rse', entityType: 'rapports_rse' },
   'attestation-don': {
     table: 'attestations_don',
     entityType: 'attestations_don',
@@ -78,23 +74,11 @@ function dbError(err: unknown, event: string): RegenerateResult {
   return { ok: false, code: 'DB_ERROR', message: 'Erreur serveur' };
 }
 
-/**
- * Version demandée du rapport de recyclage ZD. Le radar est calculé par l'appelant,
- * sous l'identité du demandeur (`construireRadarRapport`) : cette fonction, qui
- * écrit en service-role, ne lit jamais le parc elle-même.
- */
-export type VersionRapportRecyclage =
-  | { avecRadar: false }
-  | { avecRadar: true; radar: RadarRapport };
-
 export async function regenerateCollecteDocument(
   supabase: SupabaseClient,
   collecteId: string,
   type: string,
   actor: { userId: string; role?: string },
-  // Uniquement pris en compte pour 'rapport-recyclage-zd'. Absent → le PDF est
-  // reproduit à l'identique depuis le payload figé (version comprise).
-  version?: VersionRapportRecyclage,
 ): Promise<RegenerateResult> {
   if (!isPdfDocumentType(type)) {
     return {
@@ -167,40 +151,6 @@ export async function regenerateCollecteDocument(
     }),
   };
 
-  // Rapport de recyclage ZD : version avec ou sans radar (§12 §1.2). Le snapshot
-  // `filtres_benchmark` est écrit plus bas, avec le marquage de la régénération.
-  // `undefined` = snapshot laissé tel quel (reproduction d'un rapport avec radar).
-  let filtresFiges: RadarRapport['filtres_benchmark'] | null | undefined;
-  if (type === 'rapport-recyclage-zd') {
-    // Aucun flux rapporté au nombre de convives (pax absent ou nul) : rien à
-    // comparer, le rapport sort sans radar et le snapshot le dit.
-    const radar =
-      version?.avecRadar &&
-      version.radar.benchmark_flux.some((g) => g.collecte_kg_pax != null)
-        ? version.radar
-        : null;
-    if (radar) {
-      payload.options = { benchmark: true };
-      payload.benchmark_flux = radar.benchmark_flux;
-      payload.benchmark_legende = radar.benchmark_legende;
-      filtresFiges = radar.filtres_benchmark;
-    } else if (version) {
-      // Radar décoché (ou sans objet) : ses données quittent le payload figé.
-      payload.options = { benchmark: false };
-      delete payload.benchmark_flux;
-      delete payload.benchmark_legende;
-      filtresFiges = null;
-    } else if (
-      (frozen.options as { benchmark?: unknown } | undefined)?.benchmark !==
-      true
-    ) {
-      // Reproduction d'un rapport sans radar (dont tout payload antérieur au
-      // gabarit @3, rendu désormais sans radar) : le snapshot ne doit pas dire
-      // le contraire.
-      filtresFiges = null;
-    }
-  }
-
   // Version courante du rapport, lue AVANT la mise en file : une lecture en échec
   // ne doit ni lancer un rendu, ni faire retomber la version à 2.
   let nextVersion = 0;
@@ -234,8 +184,8 @@ export async function regenerateCollecteDocument(
 
   // 6. Rapport RSE : marquer la régénération (picto ⟳ « Rapport régénéré », §06.06
   //    l.170) — regenere_at + regenere_par_user_id + bump version (≠ version initiale).
-  //    Couvre les deux documents portés par rapports_rse : recyclage ZD ET rapport
-  //    « Événement sans excédent » AG (§12 §1.3-bis, régénération Admin).
+  //    Document porté par rapports_rse régénérable : le rapport « Événement sans
+  //    excédent » AG (§12 §1.3-bis, régénération Admin).
   if (cfg.table === 'rapports_rse') {
     const { error: majErr } = await supabase
       .from('rapports_rse')
@@ -243,9 +193,6 @@ export async function regenerateCollecteDocument(
         regenere_at: new Date().toISOString(),
         regenere_par_user_id: actor.userId,
         version: nextVersion,
-        ...(filtresFiges !== undefined
-          ? { filtres_benchmark: filtresFiges }
-          : {}),
       })
       .eq('id', entityId);
     // Marquage en échec : la ligne dirait une version, le PDF à venir une autre.

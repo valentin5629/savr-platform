@@ -18,7 +18,7 @@ import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-c
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import {
   ficheClient,
-  regenerationsDemandees,
+  rapportsDemandes,
   stubFetchFiche,
   urlsAppelees,
 } from '@/test-utils/fiche-collecte-client';
@@ -170,7 +170,7 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   );
 
   it(
-    'M3.2/fiche_popup_gestionnaire_regeneration — le gestionnaire régénère le rapport ; sans radar pour la collecte (traiteur tiers) : pas de case, demande sans corps',
+    'M3.2/fiche_popup_gestionnaire_rapport — le gestionnaire télécharge le rapport fabriqué au clic ; sans radar pour la collecte (traiteur tiers) : pas de case, rapport sans radar',
     async () => {
       stubFetchFiche(
         ficheGestionnaire({
@@ -179,9 +179,6 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
           taux_recyclage: 70,
           co2_net_kg: 100,
           rapport_rse_disponible: true,
-          // Un traiteur a demandé le radar : le gestionnaire ne peut pas le
-          // recalculer, il ne doit pas non plus le retirer sans le vouloir.
-          rapport_avec_radar: true,
           actions: { modifier: 'absent', annuler: 'absent', annulation: null },
         }),
         { benchmark: 'indisponible' },
@@ -194,20 +191,15 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
       expect(screen.queryByTestId('option-rapport-radar')).toBeNull();
 
       fireEvent.click(
-        await screen.findByRole(
-          'button',
-          { name: 'Régénérer le rapport' },
-          ATTENTE_UI,
-        ),
+        await screen.findByRole('button', { name: 'Télécharger' }, ATTENTE_UI),
       );
       await waitFor(
-        () => expect(regenerationsDemandees()).toHaveLength(1),
+        () => expect(rapportsDemandes()).toHaveLength(1),
         ATTENTE_UI,
       );
-      // Aucun corps : le serveur reproduit le dernier rendu, radar compris.
-      expect(regenerationsDemandees()[0]).toEqual({
-        url: '/api/v1/gestionnaire/collectes/c1/documents/rapport-recyclage-zd/regenerate',
-        corps: undefined,
+      expect(rapportsDemandes()[0]).toEqual({
+        url: '/api/v1/gestionnaire/collectes/c1/rapport-rse',
+        corps: { options: { benchmark: false } },
       });
     },
     ATTENTE_CAS_MS,

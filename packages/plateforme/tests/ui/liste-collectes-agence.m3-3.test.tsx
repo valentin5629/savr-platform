@@ -21,6 +21,7 @@ import {
   within,
 } from '@testing-library/react';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { ficheClient } from '@/test-utils/fiche-collecte-client';
 
 const push = vi.fn();
 const replace = vi.fn();
@@ -99,7 +100,9 @@ const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
   // La route de téléchargement répond { url } (URL R2 pré-signée), sans `data`.
   const corps = url.includes('/rapport-rse/download')
     ? { url: 'https://r2.example/rapport.pdf' }
-    : { data };
+    : url.startsWith('/api/v1/agence/collectes/c-clot')
+      ? { data: ficheClient({ id: 'c-clot', statut: 'cloturee' }) }
+      : { data };
   return Promise.resolve({
     ok: true,
     json: () => Promise.resolve(corps),
@@ -283,7 +286,7 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
   );
 
   it(
-    'M3.3/liste_agence_telecharger_et_export — rapport via la route agence, export CSV aux filtres actifs',
+    'M3.3/liste_agence_telecharger_et_export — picto du rapport ZD : ouvre la fiche sur « Bilan & documents » (rapport fabriqué au clic) ; export CSV aux filtres actifs',
     async () => {
       searchParams = new URLSearchParams('onglet=historique&type=zero_dechet');
       const ouvrir = vi.fn();
@@ -295,23 +298,6 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
           await table.findByText('Palais des Congrès de Paris', {}, ATTENTE_UI)
         ).closest('tr') as HTMLElement,
       );
-      fireEvent.click(
-        ligne.getByRole('button', {
-          name: 'Télécharger le rapport de la collecte',
-        }),
-      );
-      await waitFor(
-        () =>
-          expect(ouvrir).toHaveBeenCalledWith(
-            'https://r2.example/rapport.pdf',
-            '_blank',
-          ),
-        ATTENTE_UI,
-      );
-      expect(urls()).toContain(
-        '/api/v1/agence/collectes/c-clot/rapport-rse/download',
-      );
-
       fireEvent.click(screen.getByRole('button', { name: 'Exporter CSV' }));
       const exportUrl = String(ouvrir.mock.calls.at(-1)?.[0] ?? '');
       expect(exportUrl.startsWith('/api/v1/exports/collectes?')).toBe(true);
@@ -321,6 +307,31 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
       expect(qs.get('statut')).toBe(
         'realisee,realisee_sans_collecte,cloturee,annulation_demandee,annulee,rejetee_par_prestataire',
       );
+      fireEvent.click(
+        ligne.getByRole('button', {
+          name: 'Télécharger le rapport de la collecte',
+        }),
+      );
+      // Le rapport de recyclage se fabrique dans la fiche, où l'on choisit le
+      // radar (décision Val 2026-10-16) : pas de téléchargement direct.
+      await waitFor(
+        () =>
+          expect(
+            urls().some((u) => u.startsWith('/api/v1/agence/collectes/c-clot')),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(urls()).not.toContain(
+        '/api/v1/agence/collectes/c-clot/rapport-rse/download',
+      );
+      // Seul l'export a ouvert un onglet ; la fiche s'ouvre sur le bilan.
+      expect(ouvrir).toHaveBeenCalledTimes(1);
+      const ongletBilan = await screen.findByRole(
+        'tab',
+        { name: 'Bilan & documents' },
+        ATTENTE_UI,
+      );
+      expect(ongletBilan.getAttribute('aria-selected')).toBe('true');
     },
     ATTENTE_CAS_MS,
   );

@@ -51,6 +51,7 @@ import {
 } from '@/lib/hooks/use-filtres-url';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
+import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
 import { fmtKg, fmtPax } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
@@ -182,12 +183,14 @@ const SqueletteListe = () => (
 function GestionnaireCollectesContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const [fiche, setFiche] = useState<{ id: string; edit: boolean } | null>(
-    () => {
-      const id = params.get('collecte');
-      return id ? { id, edit: params.get('edit') === '1' } : null;
-    },
-  );
+  const [fiche, setFiche] = useState<{
+    id: string;
+    edit: boolean;
+    onglet?: OngletFiche;
+  } | null>(() => {
+    const id = params.get('collecte');
+    return id ? { id, edit: params.get('edit') === '1' } : null;
+  });
   const {
     valeurs: f,
     set,
@@ -393,8 +396,8 @@ function GestionnaireCollectesContent() {
     const s = usp.toString();
     router.replace(`${ROUTES.gestionnaire.collectes}${s ? `?${s}` : ''}`);
   }
-  function ouvrirFiche(id: string) {
-    const f = { id, edit: false };
+  function ouvrirFiche(id: string, onglet?: OngletFiche) {
+    const f = { id, edit: false, onglet };
     setFiche(f);
     majUrlFiche(f);
   }
@@ -406,9 +409,11 @@ function GestionnaireCollectesContent() {
     charger();
   }
 
-  // Téléchargement du rapport de la collecte réalisée (ZD = rapport recyclage,
-  // AG = attestation de don) — miroir de la liste traiteur : URL R2 pré-signée,
-  // no-op silencieux si indisponible (embargo H+24, PDF non encore généré).
+  // Téléchargement du « Rapport de don » d'une collecte AG réalisée — miroir de la
+  // liste traiteur : URL R2 pré-signée, no-op silencieux si indisponible (embargo
+  // H+24, PDF non encore généré). Le rapport de recyclage ZD se fabrique dans la
+  // fiche, où l'on choisit le radar : le picto l'ouvre sur « Bilan & documents »
+  // (décision Val 2026-10-16).
   async function telechargerRapport(collecteId: string) {
     try {
       const res = await fetch(
@@ -476,7 +481,11 @@ function GestionnaireCollectesContent() {
           // Le gestionnaire est servi de tous les rapports des collectes tenues
           // sur ses lieux (§06.05) : jamais « réservé au donneur d'ordre ».
           c={{ ...c, rapport_reserve_donneur_ordre: false }}
-          onTelecharger={() => void telechargerRapport(c.id)}
+          onTelecharger={() =>
+            c.type === 'zero_dechet'
+              ? ouvrirFiche(c.id, 'bilan')
+              : void telechargerRapport(c.id)
+          }
         />
       ),
     },
@@ -665,6 +674,7 @@ function GestionnaireCollectesContent() {
         espace="gestionnaire"
         collecteId={fiche?.id ?? null}
         initialEditing={fiche?.edit ?? false}
+        initialOnglet={fiche?.onglet}
         onClose={fermerFiche}
       />
     </div>

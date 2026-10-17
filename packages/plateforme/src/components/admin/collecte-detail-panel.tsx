@@ -111,6 +111,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ChoiceCard } from '@/components/ui/choice-card';
 import { FileButton } from '@/components/ui/file-button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { telechargerRapportRecyclage } from '@/lib/collectes/rapport-telechargement-client';
 import { Label } from '@/components/ui/label';
 import { MAX_PHOTOS_CLIENT } from '@/lib/collectes/photos-client';
 import {
@@ -329,8 +330,8 @@ interface RapportDoc {
   regenere_at: string | null;
   consulte_par_user_at: string | null;
   pdf_url: string | null;
-  /** Rapport de recyclage en vigueur : porte-t-il le radar de comparaison ? */
-  avec_radar: boolean;
+  /** Téléchargeable maintenant (fin d'embargo ; rapport ZD fabriqué au clic). */
+  disponible: boolean;
 }
 interface BordereauDoc {
   id: string;
@@ -795,9 +796,10 @@ export function CollecteDetailPanel({
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [regenerating, setRegenerating] = useState<PdfType | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
-  // Version du rapport de recyclage ZD : avec ou sans le radar de comparaison.
-  // `null` tant que l'Admin n'a pas touché la case : elle suit le rapport en vigueur.
-  const [radarChoisi, setRadarChoisi] = useState<boolean | null>(null);
+  // Rapport de recyclage ZD : avec ou sans le radar de comparaison, au choix de
+  // celui qui le télécharge ; la case part décochée.
+  const [avecRadar, setAvecRadar] = useState(false);
+  const [fabrication, setFabrication] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoEnCours, setPhotoEnCours] = useState<string | null>(null);
   const nbPhotosClient = (documents?.photos ?? []).filter(
@@ -857,40 +859,41 @@ export function CollecteDetailPanel({
     void refetchAudit();
   }, [refetchDocuments, refetchAudit]);
 
-  const avecRadar = radarChoisi ?? documents?.rapport?.avec_radar ?? false;
+  // Rapport de recyclage ZD fabriqué au clic, avec ou sans le radar de l'onglet
+  // (décision Val 2026-10-16). Sans radar à l'écran, le serveur compare au
+  // segment de la collecte.
+  const telechargerRapportZd = async () => {
+    setDocError(null);
+    setFabrication(true);
+    const erreur = await telechargerRapportRecyclage(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/rapport-rse`,
+      {
+        options: { benchmark: avecRadar },
+        ...(avecRadar && choixRadarPossible && radar.filtres
+          ? {
+              benchmark_filters: {
+                lieu_ids: radar.filtres.lieu_ids,
+                type_evenement_ids: radar.filtres.type_evenement_ids,
+                taille_evenement_codes: radar.filtres.taille_evenement_codes,
+              },
+            }
+          : {}),
+      },
+    );
+    setFabrication(false);
+    setDocError(erreur);
+  };
 
-  // Régénération d'un PDF (§06.06 l.283-284) — ré-enqueue jobs_pdf côté serveur.
-  // Le rapport de recyclage ZD part avec la version choisie (avec ou sans radar).
+  // Régénération d'un PDF stocké (§06.06 l.283-284) — ré-enqueue jobs_pdf côté
+  // serveur : bordereau, attestation, rapport « sans excédent ».
   const handleRegenerate = async (type: PdfType) => {
     setRegenerating(type);
     setDocError(null);
     const res = await fetch(
       `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/documents/${encodeURIComponent(type)}/regenerate`,
-      type === 'rapport-recyclage-zd'
-        ? {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              options: { benchmark: avecRadar },
-              // Filtres réglés sur le radar de l'onglet. Sans radar à l'écran, le
-              // serveur reprend ceux du rapport en vigueur, sinon le segment.
-              ...(avecRadar && choixRadarPossible && radar.filtres
-                ? {
-                    benchmark_filters: {
-                      lieu_ids: radar.filtres.lieu_ids,
-                      type_evenement_ids: radar.filtres.type_evenement_ids,
-                      taille_evenement_codes:
-                        radar.filtres.taille_evenement_codes,
-                    },
-                  }
-                : {}),
-            }),
-          }
-        : { method: 'POST' },
+      { method: 'POST' },
     );
     if (res.ok) {
-      // La case reprend la version que le rapport porte désormais.
-      if (type === 'rapport-recyclage-zd') setRadarChoisi(null);
       await refetchDocuments();
       await refetchAudit();
     } else {
@@ -2756,7 +2759,8 @@ export function CollecteDetailPanel({
                     <div className="flex-1">
                       <p className="text-sm font-medium flex items-center gap-2">
                         {agSansExcedent ? 'Rapport de don' : 'Rapport RSE'}
-                        {documents?.rapport &&
+                        {agSansExcedent &&
+                          documents?.rapport &&
                           (documents.rapport.version > 1 ||
                             documents.rapport.regenere_at) && (
                             <span
@@ -2778,10 +2782,16 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {!documents?.rapport
                           ? DOCUMENT_A_VENIR
-                          : !documents.rapport.genere_at
-                            ? 'En attente de génération'
+                          : !documents.rapport.disponible
+                            ? agSansExcedent
+                              ? 'En attente de génération'
+                              : `Disponible le ${new Date(
+                                  documents.rapport.disponible_a ?? '',
+                                ).toLocaleDateString('fr-FR', {
+                                  timeZone: 'Europe/Paris',
+                                })}`
                             : documents.rapport.consulte_par_user_at
-                              ? `Consulté le ${new Date(
+                              ? `Téléchargé par le client le ${new Date(
                                   documents.rapport.consulte_par_user_at,
                                 ).toLocaleDateString('fr-FR', {
                                   timeZone: 'Europe/Paris',
@@ -2789,39 +2799,55 @@ export function CollecteDetailPanel({
                               : 'Disponible'}
                       </Text>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={!documents?.rapport?.genere_at}
-                      onClick={() =>
-                        documents?.rapport &&
-                        void handleDownload(
-                          `/api/v1/admin/rapports-rse/${encodeURIComponent(documents.rapport.id)}/download`,
-                        )
-                      }
-                    >
-                      <Download />
-                      Télécharger
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      // Radar demandé : on attend les filtres de l'onglet (sans
-                      // eux, le rapport ne comparerait pas à ce qu'il affiche).
-                      disabled={
-                        !documents?.rapport ||
-                        (avecRadar && choixRadarPossible && !radar.filtres)
-                      }
-                      loading={regenerating === typeRapport}
-                      loadingText="Régénérer"
-                      onClick={() => void handleRegenerate(typeRapport)}
-                    >
-                      <RotateCw />
-                      Régénérer
-                    </Button>
+                    {agSansExcedent ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={!documents?.rapport?.disponible}
+                          onClick={() =>
+                            documents?.rapport &&
+                            void handleDownload(
+                              `/api/v1/admin/rapports-rse/${encodeURIComponent(documents.rapport.id)}/download`,
+                            )
+                          }
+                        >
+                          <Download />
+                          Télécharger
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!documents?.rapport}
+                          loading={regenerating === typeRapport}
+                          loadingText="Régénérer"
+                          onClick={() => void handleRegenerate(typeRapport)}
+                        >
+                          <RotateCw />
+                          Régénérer
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        // Radar demandé : on attend les filtres de l'onglet (sans
+                        // eux, le rapport ne comparerait pas à ce qu'il affiche).
+                        disabled={
+                          !documents?.rapport?.disponible ||
+                          (avecRadar && choixRadarPossible && !radar.filtres)
+                        }
+                        loading={fabrication}
+                        loadingText="Préparation du PDF…"
+                        onClick={() => void telechargerRapportZd()}
+                      >
+                        <Download />
+                        Télécharger
+                      </Button>
+                    )}
                     {/* Version du rapport de recyclage : avec ou sans radar (ZD). */}
                     {typeRapport === 'rapport-recyclage-zd' &&
-                      documents?.rapport && (
+                      documents?.rapport?.disponible && (
                         <div
                           className="basis-full"
                           data-testid="option-rapport-radar-admin"
@@ -2834,16 +2860,14 @@ export function CollecteDetailPanel({
                             <Checkbox
                               id="rapport-avec-radar-admin"
                               checked={avecRadar}
-                              onCheckedChange={(v) =>
-                                setRadarChoisi(v === true)
-                              }
+                              onCheckedChange={(v) => setAvecRadar(v === true)}
                             />
                             Inclure le radar de comparaison dans le rapport
                           </Label>
                           <Text variant="hint" className="mt-1">
                             {choixRadarPossible
-                              ? 'Le radar du rapport reprend les filtres de comparaison réglés ci-dessus. Régénérez le rapport pour appliquer votre choix.'
-                              : 'Comparaison aux événements de même type et de même taille, ou avec les filtres déjà choisis par le client. Régénérez le rapport pour appliquer votre choix.'}
+                              ? 'Le radar du rapport reprend les filtres de comparaison réglés ci-dessus.'
+                              : 'Comparaison aux événements de même type et de même taille.'}
                           </Text>
                         </div>
                       )}

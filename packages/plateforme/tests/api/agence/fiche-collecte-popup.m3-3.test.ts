@@ -28,6 +28,15 @@ vi.mock('@savr/shared/src/email/index.js', () => ({ sendEmail: vi.fn() }));
 vi.mock('@/lib/pdf/r2-client.js', () => ({
   getPresignedUrl: (...a: unknown[]) => mockPresigned(...a),
 }));
+// Rapport de recyclage ZD fabriqué au clic (décision Val 2026-10-16).
+const mockPayload = vi.fn();
+const mockPdf = vi.fn();
+vi.mock('@/lib/pdf/payload-rapport.js', () => ({
+  construirePayloadRapport: (...a: unknown[]) => mockPayload(...a),
+}));
+vi.mock('@/lib/pdf/railway-client.js', () => ({
+  generatePdf: (...a: unknown[]) => mockPdf(...a),
+}));
 
 function req(path: string, method = 'GET') {
   return new NextRequest(`http://localhost${path}`, { method });
@@ -170,7 +179,15 @@ describe('M3.3 / fiche client agence', () => {
     expect(res.status).toBe(403);
   });
 
-  it('M3.3/rapport_download_agence — l’agence télécharge le rapport de sa collecte (embargo respecté)', async () => {
+  it('M3.3/rapport_download_agence — l’agence télécharge le rapport de recyclage de sa collecte, fabriqué au clic (embargo respecté)', async () => {
+    mockPayload.mockResolvedValue({
+      ok: true,
+      payload: {
+        options: { benchmark: false },
+        bordereau: { date_collecte: '28/09/2026' },
+      },
+    });
+    mockPdf.mockResolvedValue({ pdfBuffer: Buffer.from('%PDF') });
     rls.results.collectes = {
       data: { id: 'c1', type: 'zero_dechet', statut: 'cloturee' },
       error: null,
@@ -179,35 +196,30 @@ describe('M3.3 / fiche client agence', () => {
       data: {
         id: 'r1',
         disponible_a: '2020-01-01T00:00:00Z',
-        genere_at: '2020-01-01T00:00:00Z',
-        pdf_url: 'rapports/r1.pdf',
+        consulte_par_user_at: null,
       },
       error: null,
     };
-    const { GET } =
-      await import('@/app/api/v1/agence/collectes/[id]/rapport-rse/download/route.js');
-    let res = await GET(
-      req('/api/v1/agence/collectes/c1/rapport-rse/download'),
+    const { POST } =
+      await import('@/app/api/v1/agence/collectes/[id]/rapport-rse/route.js');
+    let res = await POST(
+      req('/api/v1/agence/collectes/c1/rapport-rse', 'POST'),
       params,
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({
-      url: 'https://r2.example/rapport.pdf',
-    });
-    // Documents lus sous la RLS de l'agence, jamais en service-role.
-    expect(admin.calls).toHaveLength(0);
+    expect(res.headers.get('Content-Type')).toBe('application/pdf');
+    // Accès établi sous la RLS du demandeur (collecte puis rapport).
+    expect(rls.calls).toEqual(['collectes', 'rapports_rse']);
+    // Service-role : seulement la marque « consulté » (données mesurées : mock).
+    expect(admin.calls).toEqual(['rapports_rse']);
+    expect(admin.updates.map((u) => u.table)).toEqual(['rapports_rse']);
 
     rls.results.rapports_rse = {
-      data: {
-        id: 'r1',
-        disponible_a: '2999-01-01T00:00:00Z',
-        genere_at: '2999-01-01T00:00:00Z',
-        pdf_url: 'rapports/r1.pdf',
-      },
+      data: { id: 'r1', disponible_a: '2999-01-01T00:00:00Z' },
       error: null,
     };
-    res = await GET(
-      req('/api/v1/agence/collectes/c1/rapport-rse/download'),
+    res = await POST(
+      req('/api/v1/agence/collectes/c1/rapport-rse', 'POST'),
       params,
     );
     expect(res.status).toBe(425);

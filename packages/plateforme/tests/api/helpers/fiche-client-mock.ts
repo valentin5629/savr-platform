@@ -13,6 +13,7 @@ export function makeClient() {
   const selects: Record<string, string[]> = {};
   const eqs: Record<string, Array<[string, unknown]>> = {};
   const inserts: Array<{ table: string; row: unknown }> = [];
+  const updates: Array<{ table: string; row: unknown }> = [];
   const rpcCalls: Array<{ name: string; args: unknown }> = [];
   let insertResult: Result = { data: null, error: null };
 
@@ -37,6 +38,10 @@ export function makeClient() {
         inserts.push({ table, row });
         return Promise.resolve(insertResult);
       },
+      update: (row: unknown) => {
+        updates.push({ table, row });
+        return c;
+      },
       then: (resolve: (v: Result) => unknown) => resolve(res()),
     };
     return c;
@@ -58,6 +63,7 @@ export function makeClient() {
     results,
     rpcResults,
     calls,
+    updates,
     selects,
     eqs,
     inserts,

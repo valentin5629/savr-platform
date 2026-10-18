@@ -1,0 +1,426 @@
+'use client';
+
+import { ErrorState } from '@/components/ui/error-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { CalendarDays } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  CelluleVide,
+  DataGrid,
+  type ColumnDef,
+  type SortingState,
+} from '@/components/ui/data-grid';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import { ListFooter } from '@/components/ui/list-footer';
+import { PageHero } from '@/components/ui/page-hero';
+import { Text } from '@/components/ui/text';
+import { CelluleLieu } from '@/components/collecte/collectes-traiteur-table';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
+import { ResultatsEvenement } from '@/components/gestionnaire/resultats-evenement';
+import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
+import { EVENEMENTS_PAGE_SIZE as PAGE_SIZE } from '@/lib/evenements-gestionnaire';
+import { libelleDateHeure } from '@/lib/format-date-collecte';
+import { fmtKg, fmtPax } from '@/lib/format';
+import {
+  entier,
+  liste,
+  navigation,
+  texte,
+  useFiltresUrl,
+} from '@/lib/hooks/use-filtres-url';
+import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
+import { variantStatutEvenement } from '@/lib/libelles/evenement';
+import { ROUTES } from '@/lib/routes';
+
+interface EvenementRow {
+  id: string;
+  nom_evenement: string | null;
+  date_evenement: string | null;
+  pax: number | null;
+  client_nom: string | null;
+  lieu_nom: string | null;
+  lieu_adresse: string | null;
+  traiteur_nom: string | null;
+  nb_collectes_zd: number;
+  nb_collectes_ag: number;
+  nb_realisees: number;
+  nb_sans_excedent: number;
+  tonnage_zd_kg: number | null;
+  taux_recyclage: number | null;
+  repas_donnes: number | null;
+  co2_evite_kg: number | null;
+  dechets_labo_kg: number | null;
+  statut_consolide: string;
+}
+
+/** Options de la barre (route `/gestionnaire/filtres`, même source que le dashboard). */
+interface OptionsFiltres {
+  lieux: { id: string; nom: string }[];
+  traiteurs: { id: string; nom: string }[];
+  types: { id: string; libelle: string }[];
+}
+const OPTIONS_VIDES: OptionsFiltres = { lieux: [], traiteurs: [], types: [] };
+
+// Filtres de la liste, miroir de l'URL : les clés et la barre de la liste
+// Collectes (type ZD / AG levable, Période · Lieu · Traiteur · Type et Taille
+// d'événement, tous à choix multiple), pour que les deux listes du gestionnaire
+// se lisent pareil. La période porte ici sur la date de l'événement. Pas de
+// filtre « Statut consolidé » (arbitrage C3 du 2026-10-07, non repris).
+const FILTRES = {
+  type: texte(),
+  from: texte(),
+  to: texte(),
+  lieu: liste(),
+  traiteur: liste(),
+  type_evenement_ids: liste(),
+  taille_evenements: liste(),
+  ordre: navigation(texte('desc')),
+  page: navigation(entier(1, 1)),
+};
+
+const SqueletteListe = () => (
+  <LoadingState variant="bloc" lignes={5} data-testid="evenements-skeleton" />
+);
+
+/** « 2 ZD · 1 AG » : nombre de collectes de l'événement, par type. */
+function libelleCollectes(
+  e: Pick<EvenementRow, 'nb_collectes_zd' | 'nb_collectes_ag'>,
+) {
+  const parts = [
+    e.nb_collectes_zd > 0 ? `${e.nb_collectes_zd} ZD` : null,
+    e.nb_collectes_ag > 0 ? `${e.nb_collectes_ag} AG` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+// Colonnes (§06.05 §2 « Vue liste »), au format de la liste Collectes. Seule la
+// date est triable : les autres colonnes sont des cumuls calculés par la route
+// sur la page servie.
+const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
+  {
+    id: 'date',
+    header: 'Date',
+    enableHiding: false,
+    accessorFn: (e) => e.date_evenement ?? '',
+    cell: ({ row: { original: e } }) =>
+      e.date_evenement ? (
+        <span className="whitespace-nowrap font-semibold text-savr-neutral-900 tabular-nums">
+          {libelleDateHeure(e.date_evenement, null)}
+        </span>
+      ) : (
+        <CelluleVide />
+      ),
+  },
+  {
+    id: 'evenement',
+    header: 'Événement',
+    enableSorting: false,
+    cell: ({ row: { original: e } }) => (
+      <div className="min-w-0">
+        <div className="font-medium">{e.nom_evenement || '—'}</div>
+        {e.client_nom && (
+          <Text as="div" variant="hint">
+            {e.client_nom}
+          </Text>
+        )}
+      </div>
+    ),
+  },
+  {
+    id: 'lieu',
+    header: 'Lieu',
+    enableSorting: false,
+    cell: ({ row: { original: e } }) => (
+      <CelluleLieu nom={e.lieu_nom} adresse={e.lieu_adresse} />
+    ),
+  },
+  {
+    id: 'traiteur',
+    header: 'Traiteur',
+    enableSorting: false,
+    cell: ({ row: { original: e } }) => e.traiteur_nom || <CelluleVide />,
+  },
+  {
+    id: 'pax',
+    header: 'Pax',
+    enableSorting: false,
+    meta: { className: 'text-right tabular-nums' },
+    cell: ({ row: { original: e } }) =>
+      e.pax != null ? fmtPax(e.pax) : <CelluleVide />,
+  },
+  {
+    id: 'collectes',
+    header: 'Collectes',
+    enableSorting: false,
+    cell: ({ row: { original: e } }) => {
+      const libelle = libelleCollectes(e);
+      return libelle ? (
+        <span className="whitespace-nowrap">{libelle}</span>
+      ) : (
+        <CelluleVide />
+      );
+    },
+  },
+  {
+    id: 'resultats',
+    header: 'Résultats',
+    enableSorting: false,
+    cell: ({ row: { original: e } }) => <ResultatsEvenement e={e} />,
+  },
+  {
+    // Estimation amont (§05 R_dechets_labo_estimes) : « — » si l'événement n'a
+    // aucune collecte ZD ou si le traiteur n'a pas communiqué de coefficient.
+    id: 'dechets_labo',
+    header: 'Déchets labo est.',
+    enableSorting: false,
+    meta: { className: 'text-right tabular-nums' },
+    cell: ({ row: { original: e } }) =>
+      e.dechets_labo_kg != null ? (
+        <span className="whitespace-nowrap">{fmtKg(e.dechets_labo_kg)}</span>
+      ) : (
+        <CelluleVide />
+      ),
+  },
+  {
+    id: 'statut',
+    header: 'Statut',
+    enableSorting: false,
+    cell: ({ row: { original: e } }) => (
+      <Badge
+        variant={variantStatutEvenement(e.statut_consolide)}
+        dot={false}
+        className="whitespace-nowrap"
+      >
+        {e.statut_consolide}
+      </Badge>
+    ),
+  },
+];
+
+function GestionnaireEvenementsContent() {
+  const router = useRouter();
+  const { valeurs: f, set, reset, actif } = useFiltresUrl(FILTRES);
+  const page = f.page;
+  const allerPage = (p: number) => set({ page: p });
+  const sorting: SortingState = [{ id: 'date', desc: f.ordre !== 'asc' }];
+
+  const urlListe = useMemo(() => {
+    const qs = new URLSearchParams();
+    if (f.type) qs.set('type', f.type);
+    if (f.from) qs.set('from', f.from);
+    if (f.to) qs.set('to', f.to);
+    if (f.lieu.length > 0) qs.set('lieu_ids', f.lieu.join(','));
+    if (f.traiteur.length > 0) qs.set('traiteur_ids', f.traiteur.join(','));
+    // La route lit Type et Taille d'événement en paramètre répété (`x[]`).
+    f.type_evenement_ids.forEach((v) => qs.append('type_evenement_ids[]', v));
+    f.taille_evenements.forEach((v) => qs.append('taille_evenements[]', v));
+    qs.set('tri', 'date');
+    qs.set('ordre', f.ordre === 'asc' ? 'asc' : 'desc');
+    if (page > 1) qs.set('page', String(page));
+    return `/api/v1/gestionnaire/evenements?${qs}`;
+  }, [
+    f.type,
+    f.from,
+    f.to,
+    f.lieu,
+    f.traiteur,
+    f.type_evenement_ids,
+    f.taille_evenements,
+    f.ordre,
+    page,
+  ]);
+
+  // Liste paginée serveur : garde anti-réponse périmée et état Error portés par
+  // `useListePaginee` — une panne ne se lit jamais comme un parc vide (§10 §7).
+  const {
+    data: rows,
+    total,
+    loading: chargement,
+    erreur,
+    recharger,
+  } = useListePaginee<EvenementRow>(urlListe, {
+    extraire: (j) => {
+      const r = j as { data?: EvenementRow[]; total?: number };
+      const data = r.data ?? [];
+      return {
+        data,
+        total: typeof r.total === 'number' ? r.total : data.length,
+      };
+    },
+    messageErreur: 'Le chargement des événements a échoué.',
+  });
+
+  const [options, setOptions] = useState<OptionsFiltres>(OPTIONS_VIDES);
+  useEffect(() => {
+    fetch('/api/v1/gestionnaire/filtres')
+      .then((r) => r.json())
+      .then((j: { data?: Partial<OptionsFiltres> }) => {
+        if (j?.data)
+          setOptions({
+            lieux: j.data.lieux ?? [],
+            traiteurs: j.data.traiteurs ?? [],
+            types: j.data.types ?? [],
+          });
+      })
+      .catch(() => {
+        /* options indisponibles : la barre reste utilisable (listes vides). */
+      });
+  }, []);
+
+  // Page devenue hors bornes (liste rétrécie, lien partagé) : le serveur rend
+  // une page vide AVEC le vrai total ; l'écran redescend sur la dernière page
+  // valide plutôt que d'afficher l'état vide d'un parc sans événement.
+  const dernierePage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const redirige =
+    !chargement &&
+    !erreur &&
+    rows.length === 0 &&
+    total > 0 &&
+    page > dernierePage;
+  // `enRedirection` couvre le rendu intermédiaire (page corrigée, réponse pas
+  // encore reçue) : sans lui, l'état vide passe un instant à l'écran. Il tombe
+  // à l'arrivée des lignes suivantes (nouveau tableau `rows`), pas au passage de
+  // `chargement` : une réponse immédiate peut ne jamais laisser voir
+  // `chargement` à vrai, et l'écran resterait en squelette. Déclaré AVANT
+  // l'effet de redirection : sur la réponse hors bornes, il passe le premier,
+  // puis la redirection le relève.
+  const [enRedirection, setEnRedirection] = useState(false);
+  useEffect(() => {
+    setEnRedirection(false);
+  }, [rows]);
+  useEffect(() => {
+    if (redirige) {
+      setEnRedirection(true);
+      allerPage(dernierePage);
+    }
+    // allerPage dépend de `set` (stable) : la condition seule compte.
+  }, [redirige, dernierePage]);
+  const loading = chargement || redirige || enRedirection;
+
+  const contenu = erreur ? (
+    <ErrorState
+      data-testid="evenements-erreur"
+      message={erreur}
+      onRetry={recharger}
+    />
+  ) : loading ? (
+    <SqueletteListe />
+  ) : rows.length === 0 ? (
+    <EmptyState
+      icon={<CalendarDays />}
+      title="Aucun événement"
+      description="Aucun événement sur vos lieux pour ce périmètre."
+    />
+  ) : (
+    <>
+      <DataGrid
+        data-testid="evenements-table"
+        columns={COLONNES}
+        data={rows}
+        getRowId={(e) => e.id}
+        manualSorting
+        sorting={sorting}
+        onSortingChange={(u) => {
+          const suivant = typeof u === 'function' ? u(sorting) : u;
+          const t = suivant[0];
+          // Tri retiré (cycle TanStack) = tri par défaut, date décroissante.
+          set({ ordre: t && !t.desc ? 'asc' : 'desc' });
+        }}
+        onRowClick={(e) => router.push(ROUTES.gestionnaire.evenement(e.id))}
+        rowLabel={(e) =>
+          `Ouvrir l'événement${e.nom_evenement ? ` ${e.nom_evenement}` : ''}`
+        }
+      />
+      <ListFooter
+        total={total}
+        page={page}
+        onPageChange={allerPage}
+        taillePage={PAGE_SIZE}
+      />
+    </>
+  );
+
+  return (
+    <div className="space-y-5">
+      <PageHero
+        icon={<CalendarDays className="h-6 w-6 text-savr-primary-200" />}
+        title="Événements"
+        subtitle="Événements tenus sur vos lieux, résultats cumulés sur leurs collectes · cliquez une ligne pour ouvrir l'événement"
+      />
+
+      <FilterBar
+        data-testid="evenements-filtres-bar"
+        toggle={
+          <ToggleTypeCollecte
+            avecTous
+            value={
+              f.type === 'zero_dechet' || f.type === 'anti_gaspi'
+                ? f.type
+                : 'tous'
+            }
+            onChange={(t) => set({ type: t === 'tous' ? '' : t })}
+          />
+        }
+        actif={actif}
+        onReset={reset}
+        count={
+          <span data-testid="evenements-resultats-count">
+            {total} événement{total > 1 ? 's' : ''} correspond
+            {total > 1 ? 'ent' : ''} à votre sélection
+          </span>
+        }
+      >
+        <DateRangePicker
+          titre="Période"
+          id="filtre-periode"
+          data-testid="filtre-periode"
+          value={{ from: f.from, to: f.to }}
+          onChange={(p) => set({ from: p.from, to: p.to })}
+        />
+        <FiltreCoches
+          label="Lieu"
+          testid="filtre-lieu"
+          options={options.lieux}
+          selected={f.lieu}
+          onChange={(ids) => set({ lieu: ids })}
+        />
+        <FiltreCoches
+          label="Traiteur"
+          testid="filtre-traiteur"
+          options={options.traiteurs}
+          selected={f.traiteur}
+          onChange={(ids) => set({ traiteur: ids })}
+        />
+        <FiltreCoches
+          label="Type d'événement"
+          testid="filtre-type-evenement"
+          options={options.types.map((t) => ({ id: t.id, nom: t.libelle }))}
+          selected={f.type_evenement_ids}
+          onChange={(ids) => set({ type_evenement_ids: ids })}
+        />
+        <FiltreCoches
+          label="Taille d'événement"
+          testid="filtre-taille-evenement"
+          options={TAILLE_OPTIONS}
+          selected={f.taille_evenements}
+          onChange={(ids) => set({ taille_evenements: ids })}
+        />
+      </FilterBar>
+
+      {contenu}
+    </div>
+  );
+}
+
+export default function GestionnaireEvenementsPage() {
+  return (
+    <Suspense fallback={<SqueletteListe />}>
+      <GestionnaireEvenementsContent />
+    </Suspense>
+  );
+}

@@ -53,6 +53,7 @@ import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
+import { ouvrirDocumentPresigne } from '@/lib/collectes/rapport-telechargement-client';
 import { fmtKg, fmtPax } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 
@@ -414,17 +415,10 @@ function GestionnaireCollectesContent() {
   // H+24, PDF non encore généré). Le rapport de recyclage ZD se fabrique dans la
   // fiche, où l'on choisit le radar : le picto l'ouvre sur « Bilan & documents »
   // (décision Val 2026-10-16).
-  async function telechargerRapport(collecteId: string) {
-    try {
-      const res = await fetch(
-        `/api/v1/gestionnaire/collectes/${encodeURIComponent(collecteId)}/rapport-rse/download`,
-      );
-      if (!res.ok) return;
-      const { url } = (await res.json()) as { url?: string };
-      if (url) window.open(url, '_blank');
-    } catch {
-      // Réseau indisponible : no-op silencieux (l'action reste réessayable).
-    }
+  function telechargerRapport(collecteId: string) {
+    return ouvrirDocumentPresigne(
+      `/api/v1/gestionnaire/collectes/${encodeURIComponent(collecteId)}/rapport-rse/download`,
+    );
   }
 
   // Mêmes colonnes que la liste traiteur (collectes-traiteur-table.tsx), plus

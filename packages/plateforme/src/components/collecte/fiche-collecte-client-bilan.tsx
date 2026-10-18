@@ -101,7 +101,8 @@ function GrapheEnAttente({ titre }: { titre: string }) {
 
 // Carte KPI : chiffre en grand + unité plus petite, sur UNE seule ligne
 // (retour Val 2026-09-30 : « −100 kg CO₂e » ne doit jamais passer à la ligne).
-function Kpi({
+// Reprise par le bilan consolidé de la fiche événement du gestionnaire.
+export function Kpi({
   label,
   nombre,
   unite,

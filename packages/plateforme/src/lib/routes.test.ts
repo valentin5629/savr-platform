@@ -87,6 +87,7 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
   gestionnaire_lieux: [
     ['Dashboard', '/gestionnaire'],
     ['Collectes', '/gestionnaire/collectes'],
+    ['Événements', '/gestionnaire/evenements'],
     ['Traiteurs', '/gestionnaire/traiteurs'],
     ['Mes lieux', '/gestionnaire/lieux'],
     ['Registre réglementaire', '/registre'],
@@ -184,6 +185,9 @@ describe('lib/routes — chemins', () => {
     expect(ROUTES.agence.collecte('1')).toBe('/agence/collectes/1');
     expect(ROUTES.gestionnaire.collecte('1')).toBe('/gestionnaire/collectes/1');
     expect(ROUTES.gestionnaire.lieu('1')).toBe('/gestionnaire/lieux/1');
+    expect(ROUTES.gestionnaire.evenement('1')).toBe(
+      '/gestionnaire/evenements/1',
+    );
     expect(ROUTES.gestionnaire.traiteur('1')).toBe('/gestionnaire/traiteurs/1');
     expect(ROUTES.programmer.brouillon('b')).toBe('/programmer/brouillon/b');
     expect(ROUTES.programmer.ajouterCollecte('e')).toBe(

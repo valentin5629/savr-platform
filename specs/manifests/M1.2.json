@@ -236,6 +236,14 @@
       "libelle": "Collecte AG sans pack actif (aucun, épuisé, ou pack sans crédit) : la case Anti-Gaspi ne se décoche plus ; information « Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité. » sous la case (étape 1) et dans le sous-bloc AG (étape 3), en teinte info, jamais en erreur (décision Val 2026-10-16, ex-blocage F5). Programmation de support Admin : pack du traiteur choisi, relu à chaque changement de traiteur, rien d'affiché tant qu'aucun n'est choisi ; réponse tardive du traiteur précédent ou en erreur ignorée. « Ajouter une collecte » à un événement : même information, sur le pack de l'organisation de l'événement. CDC à patcher : _Divergences/M2.1_20261016_pack-ag-non-bloquant.md."
     },
     {
+      "id": "M1.2-ajout-collecte-doublon-ag",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:254",
+      "artefact": "packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx",
+      "test": "M1.2 — ajouter une collecte : seconde collecte Anti-Gaspi > événement avec une collecte anti_gaspi : avertissement, rien n’est créé + M1.2 — ajouter une collecte : seconde collecte Anti-Gaspi > « Confirmer quand même » crée la seconde collecte AG + M1.2 — ajouter une collecte : seconde collecte Anti-Gaspi > événement sans collecte AG : la collecte AG est créée sans avertissement + M1.2 — ajouter une collecte : seconde collecte Anti-Gaspi > ajout d’une collecte ZD à un événement qui a une collecte AG : aucun avertissement",
+      "statut": "implemented",
+      "libelle": "« Ajouter une collecte » à un événement qui a déjà une collecte Anti-Gaspi : l'écran affiche « Cet événement a déjà une collecte Anti-Gaspi. Confirmer l'ajout d'une seconde ? » et ne crée rien ; « Confirmer quand même » crée la seconde collecte AG (scénario ajout_seconde_collecte_ag_avertissement). Le type lu sur l'événement est l'enum de la base (anti_gaspi) : comparé à l'alias du formulaire (ag), l'avertissement ne s'affichait jamais depuis le 2026-06-14, et le bouton de confirmation relisait l'état d'avant le clic. Toute collecte AG de l'événement compte, quel que soit son statut (lecture littérale du CDC). Aucun avertissement pour un ajout ZD ni pour un événement sans collecte AG."
+    },
+    {
       "id": "M1.2-ag-sans-pack-serveur",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/confirmer/route.ts",

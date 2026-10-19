@@ -219,26 +219,26 @@ export async function PATCH(
     });
 
   // Recompute de `informations_completes` (§04 Data Model) — BL-P1-TRAIT-04.
-  // Le badge « Info incomplète » (posé à la programmation quand contact principal
-  // ou client final manquait) se lève dès que ces champs sont renseignés à
-  // l'édition. Miroir strict de la règle de programmation (§programmation/
-  // evenements) : complet = contact_principal_telephone ET nom_client_organisateur
-  // renseignés. Les collectes à lieu_overrides restent incomplètes (override lieu
-  // non levé ici) → exclues du recompute.
-  if (
-    'contact_principal_telephone' in updates ||
-    'nom_client_organisateur' in updates
-  ) {
+  // À l'édition, le badge « Info incomplète » est recalculé sur le téléphone du
+  // contact principal ET le nom de l'événement ; le client final, facultatif,
+  // n'en fait pas partie (décision Val 2026-10-19). À la programmation, ces deux
+  // champs sont exigés (422) : seule une surcharge du lieu y pose le badge. Les
+  // collectes à lieu_overrides restent incomplètes (override lieu non levé ici)
+  // → exclues du recompute.
+  if ('contact_principal_telephone' in updates || 'nom_evenement' in updates) {
     const beforeRow = (before ?? {}) as Record<string, unknown>;
     const contactTel =
       'contact_principal_telephone' in updates
         ? updates.contact_principal_telephone
         : beforeRow.contact_principal_telephone;
-    const nomClient =
-      'nom_client_organisateur' in updates
-        ? updates.nom_client_organisateur
-        : beforeRow.nom_client_organisateur;
-    const complet = Boolean(contactTel) && Boolean(nomClient);
+    const nomEvenement =
+      'nom_evenement' in updates
+        ? updates.nom_evenement
+        : beforeRow.nom_evenement;
+    // Un nom fait d'espaces vaut un nom absent, comme à la création.
+    const nomRenseigne =
+      typeof nomEvenement === 'string' && nomEvenement.trim() !== '';
+    const complet = Boolean(contactTel) && nomRenseigne;
     await admin
       .from('collectes')
       .update({ informations_completes: complet })

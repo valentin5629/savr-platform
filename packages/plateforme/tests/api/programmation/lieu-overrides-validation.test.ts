@@ -110,6 +110,7 @@ const BODY_ZD = {
   lieu_id: 'lieu-1',
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+  nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
   collectes: [

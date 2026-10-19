@@ -91,8 +91,8 @@ export default function BrouillonsPage() {
             >
               <div className="min-w-0 space-y-0.5">
                 <p className="font-medium text-savr-neutral-900 truncate">
-                  {row.nom_client_organisateur ??
-                    row.nom_evenement ??
+                  {row.nom_evenement ??
+                    row.nom_client_organisateur ??
                     'Sans nom'}
                 </p>
                 <Text

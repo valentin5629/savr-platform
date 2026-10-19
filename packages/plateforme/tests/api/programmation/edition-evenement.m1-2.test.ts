@@ -19,14 +19,18 @@ type Result = { data: unknown; error: unknown };
 function makeChain() {
   const queue: Result[] = [];
   const calls: Record<string, unknown[][]> = {};
+  // Tous les appels, dans l'ordre : prouve qu'un UPDATE est suivi de ses filtres.
+  const ordre: [string, unknown[]][] = [];
   const record = (name: string, args: unknown[]) => {
     (calls[name] ??= []).push(args);
+    ordre.push([name, args]);
   };
   const next = (): Result => queue.shift() ?? { data: null, error: null };
 
   const chain: Record<string, unknown> = {
     __queue: queue,
     __calls: calls,
+    __ordre: ordre,
     push(r: Result) {
       queue.push(r);
       return chain;
@@ -61,6 +65,7 @@ function makeChain() {
   return chain as Record<string, unknown> & {
     push(r: Result): unknown;
     __calls: Record<string, unknown[][]>;
+    __ordre: [string, unknown[]][];
   };
 }
 
@@ -130,13 +135,14 @@ beforeEach(() => {
 function queueEventOk(
   evt: { organisation_id?: string; created_by?: string },
   editable = true,
+  avant: Record<string, unknown> = {},
 ) {
   rls.push({
     data: { id: 'e1', organisation_id: 'org-1', created_by: 'user-1', ...evt },
     error: null,
   }); // maybeSingle event
   rls.push({ data: editable, error: null }); // rpc f_collecte_editable
-  admin.push({ data: { id: 'e1' }, error: null }); // before select
+  admin.push({ data: { id: 'e1', ...avant }, error: null }); // before select
   admin.push({ data: { id: 'e1', pax: 300 }, error: null }); // rpc fn_modifier_evenement
   admin.push({ data: null, error: null }); // audit insert
 }
@@ -306,6 +312,7 @@ const BODY_PROGRAMMATION = {
   controle_acces_requis: false,
   contact_principal_nom: 'Alice',
   contact_principal_telephone: '+33611111111',
+  nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'ACME',
   collectes: [
     { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
@@ -735,13 +742,13 @@ describe('M1.2 / édition collecte gestionnaire', () => {
 
 // ── BL-P1-TRAIT-04 — recompute informations_completes sur édition événement ──
 describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04)', () => {
-  it('M3.1/recompute_infos_completes_true — contact + client renseignés → collectes.informations_completes=true', async () => {
+  it('M3.1/recompute_infos_completes_true — contact + nom de l’événement renseignés → collectes.informations_completes=true', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     queueEventOk({ organisation_id: 'org-1' });
     admin.push({ data: null, error: null }); // recompute update collectes
     const res = await patchEvent({
       contact_principal_telephone: '+33611111111',
-      nom_client_organisateur: 'ACME',
+      nom_evenement: 'Gala 2030',
     });
     expect(res.status).toBe(200);
     const updateCalls = admin.__calls.update ?? [];
@@ -760,11 +767,18 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
     expect(isCalls.some(([col]) => col === 'lieu_overrides')).toBe(true);
   });
 
-  it('M3.1/recompute_infos_completes_false — client final vidé → informations_completes=false', async () => {
+  // Décision Val 2026-10-19 : le nom de l'événement est obligatoire, le client
+  // final facultatif ; seul le premier compte dans « Info incomplète ».
+  it('M3.1/recompute_infos_completes_avant — téléphone seul, nom de l’événement lu sur la ligne avant modification → true', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
-    queueEventOk({ organisation_id: 'org-1' });
+    queueEventOk({ organisation_id: 'org-1' }, true, {
+      nom_evenement: 'Gala 2030',
+      nom_client_organisateur: null,
+    });
     admin.push({ data: null, error: null }); // recompute update collectes
-    const res = await patchEvent({ nom_client_organisateur: '' });
+    const res = await patchEvent({
+      contact_principal_telephone: '+33611111111',
+    });
     expect(res.status).toBe(200);
     const updateCalls = admin.__calls.update ?? [];
     const recompute = updateCalls.find(
@@ -775,6 +789,85 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
     expect(
       (recompute![0] as { informations_completes: boolean })
         .informations_completes,
+    ).toBe(true);
+  });
+
+  it('M3.1/recompute_infos_completes_false — nom de l’événement vidé → informations_completes=false', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' }, true, {
+      contact_principal_telephone: '+33611111111',
+      nom_evenement: 'Gala 2030',
+    });
+    admin.push({ data: null, error: null }); // recompute update collectes
+    const res = await patchEvent({ nom_evenement: '' });
+    expect(res.status).toBe(200);
+    const updateCalls = admin.__calls.update ?? [];
+    const recompute = updateCalls.find(
+      ([u]) =>
+        (u as { informations_completes?: boolean }).informations_completes !==
+        undefined,
+    );
+    expect(
+      (recompute![0] as { informations_completes: boolean })
+        .informations_completes,
+    ).toBe(false);
+  });
+
+  it('M3.1/recompute_infos_completes_espaces — nom de l’événement fait d’espaces → informations_completes=false', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' }, true, {
+      contact_principal_telephone: '+33611111111',
+      nom_evenement: 'Gala 2030',
+    });
+    admin.push({ data: null, error: null }); // recompute update collectes
+    const res = await patchEvent({ nom_evenement: '   ' });
+    expect(res.status).toBe(200);
+    const updateCalls = admin.__calls.update ?? [];
+    const recompute = updateCalls.find(
+      ([u]) =>
+        (u as { informations_completes?: boolean }).informations_completes !==
+        undefined,
+    );
+    expect(
+      (recompute![0] as { informations_completes: boolean })
+        .informations_completes,
+    ).toBe(false);
+  });
+
+  it('M3.1/recompute_borne_a_l_evenement — l’UPDATE du badge ne vise que les collectes de cet événement, sans surcharge de lieu', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' });
+    admin.push({ data: null, error: null }); // recompute update collectes
+    const res = await patchEvent({
+      contact_principal_telephone: '+33611111111',
+      nom_evenement: 'Gala 2030',
+    });
+    expect(res.status).toBe(200);
+    const ordre = admin.__ordre;
+    const i = ordre.findIndex(
+      ([m, args]) =>
+        m === 'update' &&
+        (args[0] as { informations_completes?: boolean })
+          .informations_completes !== undefined,
+    );
+    expect(i).toBeGreaterThan(0);
+    expect(ordre[i - 1]).toEqual(['from', ['collectes']]);
+    expect(ordre[i + 1]).toEqual(['eq', ['evenement_id', 'e1']]);
+    expect(ordre[i + 2]).toEqual(['is', ['lieu_overrides', null]]);
+  });
+
+  it('M3.1/recompute_absent_client_final_vide — client final vidé → pas de recompute (champ facultatif)', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' });
+    const res = await patchEvent({ nom_client_organisateur: '' });
+    expect(res.status).toBe(200);
+    const updateCalls = admin.__calls.update ?? [];
+    expect(
+      updateCalls.some(
+        ([u]) =>
+          (u as { informations_completes?: boolean }).informations_completes !==
+          undefined,
+      ),
     ).toBe(false);
   });
 

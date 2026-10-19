@@ -37,6 +37,7 @@ const SOURCE = {
   evenement: {
     pax: 1443,
     type_evenement_id: null,
+    nom_evenement: 'Salon annuel',
     nom_client_organisateur: 'Viparis',
     reference_affaire: null,
     contact_principal_nom: null,

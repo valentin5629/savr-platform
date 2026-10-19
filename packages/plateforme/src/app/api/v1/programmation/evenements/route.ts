@@ -152,10 +152,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Nom client obligatoire à la confirmation (pas bloquant en brouillon)
-  if (body.confirmer && !body.nom_client_organisateur) {
+  // Nom de l'événement obligatoire à la confirmation (pas bloquant en
+  // brouillon) ; le client final est facultatif (décision Val 2026-10-19).
+  // Une valeur qui n'est pas du texte est refusée ici, pas en erreur 500.
+  if (
+    body.confirmer &&
+    (typeof body.nom_evenement !== 'string' || !body.nom_evenement.trim())
+  ) {
     return NextResponse.json(
-      { error: 'Nom du client obligatoire pour confirmer la programmation' },
+      {
+        error: "Nom de l'événement obligatoire pour confirmer la programmation",
+      },
       { status: 422 },
     );
   }
@@ -417,12 +424,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // attendre le passage planifié (décision Val 2026-10-12).
     envoyerOrdresSansAttendre(collecteIds);
 
-    // Informations manquantes OU override lieu : badge info_incomplete.
-    const hasIncomplete =
-      !body.contact_principal_telephone ||
-      !body.nom_client_organisateur ||
-      hasOverride;
-    if (hasIncomplete) {
+    // Override lieu : badge info_incomplete. Le téléphone du contact principal
+    // et le nom de l'événement sont exigés plus haut (422) ; le client final,
+    // facultatif, n'en fait pas partie (décision Val 2026-10-19).
+    if (hasOverride) {
       await supabase
         .from('collectes')
         .update({ informations_completes: false })

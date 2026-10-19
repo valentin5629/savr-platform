@@ -45,6 +45,7 @@ const SOURCE = {
   evenement: {
     pax: 1000,
     type_evenement_id: 't1',
+    nom_evenement: 'Gala de printemps',
     nom_client_organisateur: 'Maison Dupont',
     reference_affaire: null,
     contact_principal_nom: 'Paul Arnaud',

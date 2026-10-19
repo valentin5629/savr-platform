@@ -92,6 +92,7 @@ interface SourceLieu {
 interface SourceEvenement {
   pax: number | null;
   type_evenement_id: string | null;
+  nom_evenement: string | null;
   nom_client_organisateur: string | null;
   reference_affaire: string | null;
   contact_principal_nom: string | null;
@@ -154,7 +155,9 @@ export default function NouveauProgrammationPage() {
   const adminTargetOrgId =
     isAdmin && traiteurOperationnelId ? traiteurOperationnelId : undefined;
 
-  // Étape 1
+  // Étape 1. Le nom de l'événement et le client final sont deux cases distinctes
+  // (décision Val 2026-10-19) : seul le premier est obligatoire.
+  const [nomEvenement, setNomEvenement] = useState('');
   const [nomClient, setNomClient] = useState('');
   const [pax, setPax] = useState('');
   const [typeEvenementId, setTypeEvenementId] = useState('');
@@ -261,6 +264,7 @@ export default function NouveauProgrammationPage() {
         }
         const lieuSrc = Array.isArray(evt.lieu) ? evt.lieu[0] : evt.lieu;
         const isZd = d.type === 'zero_dechet';
+        setNomEvenement(evt.nom_evenement ?? '');
         setNomClient(evt.nom_client_organisateur ?? '');
         setPax(evt.pax != null ? String(evt.pax) : '');
         setTypeEvenementId(evt.type_evenement_id ?? '');
@@ -352,7 +356,7 @@ export default function NouveauProgrammationPage() {
     typesCollecte.ag && packAg !== null && factureeAlUnite(packAg);
 
   const step1Valid =
-    nomClient.trim() !== '' &&
+    nomEvenement.trim() !== '' &&
     parseInt(pax) > 0 &&
     typeEvenementId !== '' &&
     (typesCollecte.zd || typesCollecte.ag) &&
@@ -422,7 +426,7 @@ export default function NouveauProgrammationPage() {
       const lieuOverrides =
         lieuBase && lieuEdits ? computeLieuOverrides(lieuBase, lieuEdits) : {};
       const body = {
-        nom_evenement: nomClient.trim() || undefined,
+        nom_evenement: nomEvenement.trim() || undefined,
         nom_client_organisateur: nomClient.trim() || undefined,
         pax: parseInt(pax),
         type_evenement_id: typeEvenementId,
@@ -496,13 +500,17 @@ export default function NouveauProgrammationPage() {
         <Card padding="lg" className="space-y-5">
           <Heading level={2}>Informations sur l'événement</Heading>
 
-          <FormField label="Nom du client final" htmlFor="nom-client" required>
+          <FormField
+            label="Nom de l'événement"
+            htmlFor="nom-evenement"
+            required
+          >
             <Input
-              id="nom-client"
+              id="nom-evenement"
               required
-              value={nomClient}
-              onChange={(e) => setNomClient(e.target.value)}
-              placeholder="Ex : Entreprise Dupont"
+              value={nomEvenement}
+              onChange={(e) => setNomEvenement(e.target.value)}
+              placeholder="Ex : Séminaire annuel"
             />
           </FormField>
 
@@ -602,14 +610,28 @@ export default function NouveauProgrammationPage() {
             </div>
           </div>
 
-          <FormField label="Référence client (optionnel)" htmlFor="ref-client">
-            <Input
-              id="ref-client"
-              value={referenceAffaire}
-              onChange={(e) => setReferenceAffaire(e.target.value)}
-              placeholder="Ex : CMD-2026-042"
-            />
-          </FormField>
+          <FormGrid>
+            <FormField label="Client final (optionnel)" htmlFor="nom-client">
+              <Input
+                id="nom-client"
+                value={nomClient}
+                onChange={(e) => setNomClient(e.target.value)}
+                placeholder="Ex : Entreprise Dupont"
+              />
+            </FormField>
+
+            <FormField
+              label="Référence client (optionnel)"
+              htmlFor="ref-client"
+            >
+              <Input
+                id="ref-client"
+                value={referenceAffaire}
+                onChange={(e) => setReferenceAffaire(e.target.value)}
+                placeholder="Ex : CMD-2026-042"
+              />
+            </FormField>
+          </FormGrid>
 
           {needsTraiteurSelector && (
             <FormField

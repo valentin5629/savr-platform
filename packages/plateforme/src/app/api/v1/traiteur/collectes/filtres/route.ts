@@ -42,8 +42,10 @@ const TRAITEUR_ROLES: ClientRole[] = [
  * sur `client_organisateur_organisation_id`) : ce dernier est un RATTACHEMENT
  * réservé à l'Admin (il ouvre un accès en lecture, cf. EVENT_LOCKED_FIELDS de
  * `programmation/evenements/[id]`) et reste donc NULL sur les événements programmés
- * par un traiteur, alors que le nom est obligatoire à la confirmation
- * (`programmation/evenements` POST). Le nom est le seul libellé réellement peuplé.
+ * par un traiteur, alors que le nom est saisi à la programmation
+ * (`programmation/evenements` POST ; facultatif depuis la décision Val
+ * 2026-10-19). Le nom est le seul libellé réellement peuplé ; un événement sans
+ * client ne donne aucune option.
  *
  * « Programmée par » a besoin du NOM d'organisations TIERCES (agence /
  * gestionnaire de lieux qui programment pour le traiteur opérationnel). Les

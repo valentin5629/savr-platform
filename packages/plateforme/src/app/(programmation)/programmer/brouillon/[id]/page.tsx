@@ -92,7 +92,7 @@ export default function RepriseBrouillonPage() {
 
       <div className="rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-5 space-y-3">
         <p className="font-medium text-savr-neutral-900">
-          {evt.nom_client_organisateur ?? evt.nom_evenement ?? 'Sans nom'}
+          {evt.nom_evenement ?? evt.nom_client_organisateur ?? 'Sans nom'}
         </p>
         <ul className="space-y-2">
           {brouillons.map((c) => (

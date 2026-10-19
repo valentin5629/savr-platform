@@ -178,7 +178,6 @@ describe('M1.5a / passage borné — cliquets sur les clients prestataires', () 
     expect(
       appels.filter((a) => a.garde).map((a) => `${a.fichier} | ${a.ligne}`),
     ).toEqual([
-      'everest/client.ts | const resp = await fetch(`${this.baseUrl}/auth`, {',
       'everest/client.ts | return fetch(`${this.baseUrl}${path}`, {',
       'everest/client.ts | return fetch(`${this.baseUrl}${path}`, {',
       'mts1/client.ts | res = await globalThis.fetch(`${this.baseUrl}${path}`, {',
@@ -194,8 +193,9 @@ describe('M1.5a / passage borné — cliquets sur les clients prestataires', () 
       ].map((m) => Number(m[1]!.replaceAll('_', '')));
     });
 
-    // 3 délais côté MTS-1 (healthcheck, photo, appels), 3 côté Everest.
-    expect(delais).toHaveLength(6);
+    // 3 délais côté MTS-1 (healthcheck, photo, appels), 2 côté Everest
+    // (POST et GET : le client n'appelle plus /auth).
+    expect(delais).toHaveLength(5);
     expect(Math.max(...delais)).toBe(DUREE_MAX_APPEL_MS);
   });
 });

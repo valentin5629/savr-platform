@@ -394,7 +394,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/card_traiteur_champs",
       "statut": "implemented",
-      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet FILTRES livré en R25a (cf. M3.1-liste-filtres). Volet AGENCE livré le 2026-09-30 (revue écran E2E) : même composant ListeCollectesClient, cf. M3.3-liste-onglets-etat."
+      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet FILTRES livré en R25a (cf. M3.1-liste-filtres). Volet AGENCE livré le 2026-09-30 (revue écran E2E) : même composant ListeCollectesClient, cf. M3.3-liste-onglets-etat. Onglets remplacés le 2026-10-19 par les vues « Collectes à venir » / « Collectes passées » rangées par date (décision Val), cf. M3.1-liste-tri-date-decroissante."
     },
     {
       "id": "M3.1-liste-carte-simplifiee",

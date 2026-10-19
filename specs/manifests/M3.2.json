@@ -105,6 +105,7 @@
     "packages/plateforme/src/components/ui/modal-verrou-defilement.test.tsx"
   ],
   "scenarios": [
+    "M3.2/collectes_vues_a_venir_passees_par_date",
     "M3.2/auth_guard_non_gestionnaire_401",
     "M3.2/auth_guard_non_authentifie_401",
     "M3.2/dashboard_kpi_zd_4_indicateurs",
@@ -444,6 +445,14 @@
     "M0.8/modal_verrou_defilement_valeur_initiale_rendue"
   ],
   "deliverables": [
+    {
+      "id": "M3.2-liste-vues-a-venir-passees",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:89",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx (lien des Top listes : onglet=passees) + packages/plateforme/src/lib/collectes/vue-temporelle.ts",
+      "test": "M3.2/collectes_vues_a_venir_passees_par_date + M3.2/drilldown_gestionnaire_tous_statuts_type_non_fige",
+      "statut": "implemented",
+      "libelle": "Liste Collectes du gestionnaire de lieux : vues « Collectes à venir » (par défaut) / « Collectes passées », rangées par date ; la borne de date et le sens du tri (croissant à venir, décroissant dans le passé) partent au serveur (liste paginée) et à l'export CSV ; le lien des Top listes du dashboard ouvre « passées » (décision Val 2026-10-19 ; fiche _Divergences/M3.1_20261019_collectes-a-venir-passees)."
+    },
     {
       "id": "M3.2-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",

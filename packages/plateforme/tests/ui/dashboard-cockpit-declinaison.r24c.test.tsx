@@ -194,6 +194,11 @@ describe('M3.4 / organisateur — déclinaison Cockpit', () => {
       ).toBeInTheDocument();
       expect(screen.getByText('CO₂ évité')).toBeInTheDocument();
       expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
+      // Le cadran mesure l'impact réalisé : son lien ouvre les collectes
+      // passées (décision Val 2026-10-19).
+      expect(
+        screen.getByText('Événements ZD').closest('a')?.getAttribute('href'),
+      ).toBe('/organisateur/collectes?onglet=passees&type=zero_dechet');
     },
     ATTENTE_CAS_MS,
   );

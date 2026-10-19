@@ -738,6 +738,62 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
   );
 
   it(
+    'M3.2/collectes_vues_a_venir_passees_par_date — « à venir » par défaut (aujourd’hui et après, date croissante), « passées » (avant aujourd’hui, date décroissante)',
+    async () => {
+      // Horloge seule figée (minuteries réelles) : 8 juillet 2026, 10 h à Paris.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-08T08:00:00Z'));
+      try {
+        const urls = fetchEspion({ data: LIGNES, total: LIGNES.length });
+        render(<CollectesPage />);
+        await screen.findByRole('table', {}, ATTENTE_UI);
+
+        // Les deux vues sont en tête de barre, « à venir » sélectionnée.
+        expect(
+          screen.getByRole('tab', { name: 'Collectes à venir' }),
+        ).toHaveAttribute('aria-selected', 'true');
+        // Liste paginée : la borne ET le sens du tri partent au serveur, sinon
+        // la page 1 ne montrerait pas les collectes les plus proches.
+        const aVenir = new URLSearchParams(
+          urls[urls.length - 1]!.split('?')[1],
+        );
+        expect(aVenir.get('from')).toBe('2026-07-08');
+        expect(aVenir.get('to')).toBeNull();
+        expect(aVenir.get('tri')).toBe('date');
+        expect(aVenir.get('ordre')).toBe('asc');
+
+        await act(async () => {
+          fireEvent.mouseDown(
+            screen.getByRole('tab', { name: 'Collectes passées' }),
+          );
+        });
+        const passees = new URLSearchParams(
+          urls[urls.length - 1]!.split('?')[1],
+        );
+        expect(passees.get('to')).toBe('2026-07-07');
+        expect(passees.get('from')).toBeNull();
+        expect(passees.get('ordre')).toBe('desc');
+        expect(new URLSearchParams(window.location.search).get('onglet')).toBe(
+          'passees',
+        );
+
+        // L'export CSV suit la vue : même borne que la liste.
+        const ouvrir = vi.fn();
+        vi.stubGlobal('open', ouvrir);
+        fireEvent.click(screen.getByRole('button', { name: /Exporter CSV/ }));
+        const exportQs = new URLSearchParams(
+          String(ouvrir.mock.calls.at(-1)?.[0] ?? '').split('?')[1],
+        );
+        expect(exportQs.get('to')).toBe('2026-07-07');
+        expect(exportQs.get('from')).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/collectes_pagination_absente_sous_le_seuil',
     async () => {
       fetchEspion({ data: LIGNES, total: LIGNES.length });

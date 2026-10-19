@@ -254,7 +254,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — vues « à venir » / « passées » : rangées par date, tous statuts (décision Val 2026-10-19)',
+    'M0.6/liste_vues_a_venir_passees_par_date — vues « à venir » / « passées » : rangées par date, tous statuts (décision Val 2026-10-19)',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
@@ -1311,6 +1311,39 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         () => expect(urls().at(-1)).toContain('tri=date&ordre=desc'),
         ATTENTE_UI,
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+  it(
+    'M0.6/liste_pastille_action_toutes_dates — une pastille d’action lève la borne de la vue, pas la période de la barre',
+    async () => {
+      // Période de la barre à cheval sur aujourd'hui, pastille d'action posée.
+      navState.search = new URLSearchParams(
+        'from=2020-01-01&to=2099-12-31&chip=attente_prestataire',
+      );
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      // File d'action : ses collectes en retard restent visibles (aucune
+      // borne « aujourd'hui »), la période choisie s'applique telle quelle.
+      let q = derniereRequeteListe(fetchMock);
+      expect(q.get('chip')).toBe('attente_prestataire');
+      expect(q.get('from')).toBe('2020-01-01');
+      expect(q.get('to')).toBe('2099-12-31');
+
+      // Sans pastille, la vue « à venir » borne de nouveau à aujourd'hui.
+      fireEvent.click(
+        within(
+          screen.getByRole('group', { name: 'Filtres rapides' }),
+        ).getByRole('button', { name: /^Toutes/ }),
+      );
+      await waitFor(() => {
+        q = derniereRequeteListe(fetchMock);
+        expect(q.get('chip')).toBeNull();
+      }, ATTENTE_UI);
+      expect(q.get('from')).toBe(jourParis());
+      expect(q.get('to')).toBe('2099-12-31');
     },
     ATTENTE_CAS_MS,
   );

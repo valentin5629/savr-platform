@@ -15,6 +15,7 @@
     "packages/plateforme/tests/api/organisateur/espace-organisateur.m3-4.test.ts"
   ],
   "scenarios": [
+    "M3.4/collectes_vues_a_venir_passees_par_date",
     "M3.4/auth_guard_non_organisateur_403",
     "M3.4/auth_guard_non_authentifie_401",
     "M3.4/collectes_liste_scope_organisateur",
@@ -29,6 +30,14 @@
     "M3.4/document_type_inconnu_400"
   ],
   "deliverables": [
+    {
+      "id": "M3.4-liste-vues-a-venir-passees",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:153",
+      "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx + packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx (liens des cadrans « Événements ZD / AG » : onglet=passees)",
+      "test": "M3.4/collectes_vues_a_venir_passees_par_date + M3.4/cockpit_declinaison_kpi_cards",
+      "statut": "implemented",
+      "libelle": "Page « Mes collectes » du client organisateur : vues « Collectes à venir » (par défaut, date croissante) / « Collectes passées » (date décroissante), rangées par date ; les cadrans du dashboard y renvoient sur « passées » (décision Val 2026-10-19 ; fiche _Divergences/M3.1_20261019_collectes-a-venir-passees)."
+    },
     {
       "id": "M3.4-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",

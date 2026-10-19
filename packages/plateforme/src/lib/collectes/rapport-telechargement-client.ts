@@ -50,6 +50,23 @@ export async function telechargerRapportRecyclage(
   return (await enregistrerReponsePdf(res)) ? null : ECHEC_FABRICATION;
 }
 
+/**
+ * Ouvre un document servi par URL R2 pré-signée (« Rapport de don » d'une
+ * collecte AG) : la route répond `{ url }`. No-op silencieux si le document est
+ * indisponible (embargo H+24, PDF pas encore fabriqué) ou si le réseau tombe —
+ * l'action reste réessayable.
+ */
+export async function ouvrirDocumentPresigne(route: string): Promise<void> {
+  try {
+    const res = await fetch(route);
+    if (!res.ok) return;
+    const { url } = (await res.json()) as { url?: string };
+    if (url) window.open(url, '_blank');
+  } catch {
+    // Réseau indisponible : no-op silencieux.
+  }
+}
+
 /** Enregistre le PDF d'une réponse sous le nom qu'elle donne. `false` si illisible. */
 export async function enregistrerReponsePdf(res: Response): Promise<boolean> {
   try {

@@ -139,16 +139,17 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
     },
   ],
 
-  // §06.05 §Navigation (l.66-76) : 8 sections, dont « Collectes » et « Registre
+  // §06.05 §Navigation (l.66-76) : 9 sections, dont « Collectes » et « Registre
   // réglementaire », réintégrées par Val le 2026-07-06 (CDC re-synchronisé depuis).
-  // « Événements » est retirée (décision Val 2026-10-07) : la liste Collectes,
-  // réintégrée depuis, la doublonnait.
+  // « Événements », retirée le 2026-10-07 (doublon de Collectes), est remise par
+  // Val le 2026-10-18 : vue consolidée d'un événement à plusieurs collectes.
   // « Mon pack AG » est masqué si l'organisation n'a aucun pack : `hiddenNavHrefs`
   // est calculé par `entreesNavMasquees` (lib/nav-masquee.ts) dans chaque layout
   // qui monte ce menu, puis appliqué dans Sidebar/BottomNav.
-  // Ordre fixé par Val le 2026-10-07 (il diffère de la liste du CDC). La barre
-  // mobile affiche les 4 premières entrées : Dashboard, Collectes, Traiteurs,
-  // Mes lieux.
+  // Ordre fixé par Val le 2026-10-07 (il diffère de la liste du CDC), où
+  // « Événements » s'insère sous « Collectes », sa voisine. La barre mobile
+  // affiche les 4 premières entrées : Dashboard, Collectes, Événements,
+  // Traiteurs.
   gestionnaire_lieux: [
     {
       items: [
@@ -161,6 +162,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           label: 'Collectes',
           href: ROUTES.gestionnaire.collectes,
           icon: ClipboardList,
+        },
+        {
+          label: 'Événements',
+          href: ROUTES.gestionnaire.evenements,
+          icon: CalendarDays,
         },
         {
           label: 'Traiteurs',

@@ -171,11 +171,13 @@ describe('M3.2 / nav « Mon pack AG » — sections transverses', () => {
   });
 });
 
+// « Événements », remise par Val le 2026-10-18, s'insère sous « Collectes ».
 describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () => {
   it('M3.2/nav_ordre_menu_gestionnaire — barre latérale dans l’ordre fixé, « Mon pack AG » avant « Mon organisation », barre mobile = 4 premières entrées', async () => {
     expect(await menuDe(GestionnaireLayout, '/gestionnaire')).toEqual([
       'Dashboard',
       'Collectes',
+      'Événements',
       'Traiteurs',
       'Mes lieux',
       'Registre réglementaire',
@@ -189,12 +191,13 @@ describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () =
       within(barreMobile)
         .getAllByRole('link')
         .map((lien) => lien.textContent ?? ''),
-    ).toEqual(['Dashboard', 'Collectes', 'Traiteurs', 'Mes lieux']);
+    ).toEqual(['Dashboard', 'Collectes', 'Événements', 'Traiteurs']);
 
     etat.nbPacks = 1;
     expect(await menuDe(GestionnaireLayout, '/gestionnaire')).toEqual([
       'Dashboard',
       'Collectes',
+      'Événements',
       'Traiteurs',
       'Mes lieux',
       'Registre réglementaire',

@@ -181,6 +181,8 @@ export const ROUTES = {
     lieu: (id: string) => `${G}/lieux/${id}`,
     collectes: `${G}/collectes`,
     collecte: (id: string) => `${G}/collectes/${id}`,
+    evenements: `${G}/evenements`,
+    evenement: (id: string) => `${G}/evenements/${id}`,
     traiteurs: `${G}/traiteurs`,
     traiteur: (id: string) => `${G}/traiteurs/${id}`,
     monPackAg: `${G}/mon-pack-ag`,

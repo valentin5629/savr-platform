@@ -31,6 +31,29 @@ interface ModalProps {
 // IMPORTANT (compat tests) : le <h2> du titre est un enfant DIRECT du panneau
 // `role="dialog"`, qui contient aussi le pied → `getByText(titre).closest('div')`
 // résout le panneau entier (bouton de confirmation inclus).
+// Verrou de défilement de la page, COMPTÉ. Plusieurs Modal peuvent être ouvertes
+// ensemble, sœurs (fiche collecte par-dessus la fiche événement du gestionnaire)
+// ou imbriquées (sous-modale d'une fiche). Chacune capturait la valeur à son
+// ouverture et la restaurait à sa fermeture : démontées ensemble — bouton
+// « Précédent » du navigateur avec les deux ouvertes —, la dernière restaurée
+// remettait « hidden » et la page suivante ne défilait plus (relevé en revue le
+// 2026-10-19, mesuré). Le compteur ne libère la page qu'à la dernière fermeture,
+// dans n'importe quel ordre.
+let verrousDefilement = 0;
+let overflowAvantVerrou = '';
+function verrouillerDefilement(): void {
+  if (verrousDefilement === 0) {
+    overflowAvantVerrou = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  verrousDefilement += 1;
+}
+function libererDefilement(): void {
+  verrousDefilement = Math.max(0, verrousDefilement - 1);
+  if (verrousDefilement === 0)
+    document.body.style.overflow = overflowAvantVerrou;
+}
+
 const Modal = ({
   open,
   title,
@@ -70,13 +93,12 @@ const Modal = ({
       onCloseRef.current();
     };
     document.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    verrouillerDefilement();
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(focusTimer);
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
+      libererDefilement();
     };
   }, [open]);
 

@@ -525,8 +525,9 @@ it('M0.8-20 — nav gestionnaire_lieux affiche les entrées gestionnaire de lieu
   for (const expected of NAV_EXPECTATIONS.gestionnaire_lieux) {
     expect(items).toContain(expected);
   }
-  // Décision Val 2026-10-07 : « Événements » doublonnait « Collectes », retirée.
-  expect(items).not.toContain('Événements');
+  // Retirée le 2026-10-07, remise par Val le 2026-10-18 (vue consolidée d'un
+  // événement à plusieurs collectes), juste après « Collectes ».
+  expect(items.indexOf('Événements')).toBe(items.indexOf('Collectes') + 1);
 });
 
 it('M0.8-21 — nav client_organisateur affiche les entrées client organisateur', () => {

@@ -436,7 +436,8 @@
     "M3.2/evenement_fiche_identifiant_invalide_sans_requete",
     "M3.2/evenement_fiche_redirect_modale",
     "M3.2/evenement_fiche_redirect_collecte",
-    "M3.2/evenement_fiche_redirect_encode"
+    "M3.2/evenement_fiche_redirect_encode",
+    "M3.2/evenement_fiche_rechargement_en_echec_garde_le_bilan"
   ],
   "deliverables": [
     {
@@ -1306,9 +1307,9 @@
       "id": "M3.2-evenement-fiche-popup",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:325-345",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx (ouverture, adresse `?evenement=` / `?collecte=`) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx (redirection)",
-      "test": "M3.2/evenements_liste_une_ligne_par_evenement + M3.2/evenements_liste_fiche_rouverte_depuis_adresse + M3.2/evenement_fiche_echap_ferme_d_abord_la_fiche_collecte + M3.2/evenement_fiche_identifiant_invalide_sans_requete + M3.2/evenement_fiche_rouverte_et_rechargee + M3.2/evenement_fiche_redirect_modale + M3.2/evenement_fiche_redirect_collecte + M3.2/evenement_fiche_redirect_encode",
+      "test": "M3.2/evenements_liste_une_ligne_par_evenement + M3.2/evenements_liste_fiche_rouverte_depuis_adresse + M3.2/evenement_fiche_echap_ferme_d_abord_la_fiche_collecte + M3.2/evenement_fiche_identifiant_invalide_sans_requete + M3.2/evenement_fiche_rouverte_et_rechargee + M3.2/evenement_fiche_redirect_modale + M3.2/evenement_fiche_redirect_collecte + M3.2/evenement_fiche_redirect_encode + M3.2/evenement_fiche_rechargement_en_echec_garde_le_bilan",
       "statut": "implemented",
-      "libelle": "Fiche événement du gestionnaire en pop-up sur la liste Événements (demande Val 2026-10-19 : « Je veux que la page événement soit en modale comme les pages collectes »), sur le cadre commun des fiches (FicheModal : grand en-tête, onglets, corps défilant, hauteur fixe) : le clic sur une ligne ouvre la fiche sans quitter la liste ; l'adresse la porte (`?evenement=<id>`, et `?collecte=<id>` pour la fiche collecte ouverte par-dessus), si bien qu'un lien direct ou un rechargement rouvrent les mêmes fiches ; l'ancienne route /gestionnaire/evenements/[id] redirige vers la liste avec la fiche ouverte. Tant que la fiche collecte est ouverte, Échap ne ferme qu'elle. Fermer la fiche événement retire les clés de l'adresse et recharge la liste ; fermer la fiche collecte recharge le bilan sans repasser par le squelette. Identifiant mal formé : « introuvable », sans requête.",
+      "libelle": "Fiche événement du gestionnaire en pop-up sur la liste Événements (demande Val 2026-10-19 : « Je veux que la page événement soit en modale comme les pages collectes »), sur le cadre commun des fiches (FicheModal : grand en-tête, onglets, corps défilant, hauteur fixe) : le clic sur une ligne ouvre la fiche sans quitter la liste ; l'adresse la porte (`?evenement=<id>`, et `?collecte=<id>` pour la fiche collecte ouverte par-dessus), si bien qu'un lien direct ou un rechargement rouvrent les mêmes fiches ; l'ancienne route /gestionnaire/evenements/[id] redirige vers la liste avec la fiche ouverte. Tant que la fiche collecte est ouverte, Échap ne ferme qu'elle. Fermer la fiche événement retire les clés de l'adresse et recharge la liste ; fermer la fiche collecte recharge le bilan sans repasser par le squelette ; si ce rechargement échoue, le bilan affiché reste à l'écran et un message le signale. Identifiant mal formé : « introuvable », sans requête.",
       "ref_divergence": "_Divergences/M3.2_20261018_retour-page-evenements-gestionnaire.md"
     }
   ],

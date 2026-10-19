@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BarChart3,
   CalendarDays,
@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Tooltip } from '@/components/ui/tooltip';
+import { useToast } from '@/components/ui/toast';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { ResultatsCollecte } from '@/components/collecte/collectes-traiteur-table';
@@ -298,6 +299,12 @@ export function FicheEvenementModal({
   const [etat, setEtat] = useState<Etat>('chargement');
   const [tentative, setTentative] = useState(0);
   const [logoKo, setLogoKo] = useState(false);
+  const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  // Une fiche déjà affichée : un rechargement en échec ne la remplace pas par
+  // l'état Error (le bilan resterait masqué), il le signale seulement.
+  const affichee = useRef(false);
   const [fiche, setFiche] = useState<{
     id: string;
     onglet?: OngletFiche;
@@ -331,9 +338,20 @@ export function FicheEvenementModal({
         }
         setEvt(j.data);
         setEtat('pret');
+        affichee.current = true;
       })
       .catch(() => {
-        if (!annule) setEtat('erreur');
+        if (annule) return;
+        if (affichee.current) {
+          toastRef.current({
+            variant: 'error',
+            title: 'Bilan non actualisé',
+            description:
+              'Le bilan affiché peut ne pas tenir compte de la dernière modification. Fermez puis rouvrez la fiche pour réessayer.',
+          });
+          return;
+        }
+        setEtat('erreur');
       });
     return () => {
       annule = true;

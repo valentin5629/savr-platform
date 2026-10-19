@@ -48,6 +48,7 @@ vi.mock('@/components/collecte/fiche-collecte-client-modal', () => ({
 import EvenementsPage from '@/app/(gestionnaire)/gestionnaire/evenements/page.js';
 import { FicheEvenementModal } from '@/components/gestionnaire/fiche-evenement-modal';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { renderAvecToasts } from '@/test-utils/toasts';
 
 const EVT_ID = '22222222-2222-4222-8222-222222222222';
 
@@ -688,6 +689,38 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       ).toHaveTextContent(
         'Aucun résultat n’est encore disponible sur la collecte de l’événement.',
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/evenement_fiche_rechargement_en_echec_garde_le_bilan — après la fiche collecte, une panne ne masque pas le bilan affiché',
+    async () => {
+      let appels = 0;
+      stubFetch(() => {
+        appels += 1;
+        return appels === 1
+          ? { body: { data: detail() } }
+          : { status: 500, body: {} };
+      });
+      // Sous ToastProvider (monté par app/layout.tsx en vrai) : le message
+      // doit s'afficher.
+      renderAvecToasts(
+        <FicheEvenementModal
+          evenementId={EVT_ID}
+          onClose={fermerEvenement}
+          onCollecteChange={changerCollecte}
+          collecteInitiale="c2"
+        />,
+      );
+      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      fireEvent.click(screen.getByRole('button', { name: 'Fermer la fiche' }));
+      await waitFor(() => expect(appels).toBe(2), ATTENTE_UI);
+      expect(
+        await screen.findByText('Bilan non actualisé', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('evenement-erreur')).toBeNull();
+      expect(screen.getByTestId('bilan-consolide')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

@@ -1,11 +1,8 @@
 /**
  * M3.2 — écrans Événements du gestionnaire de lieux (§06.05 §2), remis par Val
  * le 2026-10-18 : liste des événements de ses lieux, et fiche événement au
- * bilan CONSOLIDÉ sur toutes ses collectes.
- *
- * `use(params)` ne se résout jamais sous Suspense dans cet environnement de test
- * (jsdom + React 19 + RTL 16) : la fiche reçoit une promesse déjà marquée
- * résolue au sens de React (même geste que tests/ui/logo-organisation-proxy).
+ * bilan CONSOLIDÉ sur toutes ses collectes — en pop-up sur la liste depuis le
+ * 2026-10-19 (« en modale comme les pages collectes »).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -17,16 +14,10 @@ import {
   within,
 } from '@testing-library/react';
 
-const routerPush = vi.fn();
-const routerReplace = vi.fn();
 // Adresse lue par les écrans au montage (filtres, page, fiche ouverte).
 let adresse = new URLSearchParams();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: routerPush,
-    replace: routerReplace,
-    back: vi.fn(),
-  }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
   useSearchParams: () => adresse,
   usePathname: () => '/gestionnaire/evenements',
 }));
@@ -55,16 +46,28 @@ vi.mock('@/components/collecte/fiche-collecte-client-modal', () => ({
 }));
 
 import EvenementsPage from '@/app/(gestionnaire)/gestionnaire/evenements/page.js';
-import EvenementPage from '@/app/(gestionnaire)/gestionnaire/evenements/[id]/page.js';
+import { FicheEvenementModal } from '@/components/gestionnaire/fiche-evenement-modal';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const EVT_ID = '22222222-2222-4222-8222-222222222222';
 
-const params = (id: string) =>
-  Object.assign(Promise.resolve({ id }), {
-    status: 'fulfilled',
-    value: { id },
-  });
+const fermerEvenement = vi.fn();
+const changerCollecte = vi.fn();
+/** Monte la fiche événement en pop-up, comme la liste le fait au clic. */
+const monterFiche = (
+  props: Partial<Parameters<typeof FicheEvenementModal>[0]> = {},
+) =>
+  render(
+    <FicheEvenementModal
+      evenementId={EVT_ID}
+      onClose={fermerEvenement}
+      onCollecteChange={changerCollecte}
+      {...props}
+    />,
+  );
+/** Onglet de la fiche (Radix s'active au `mousedown`). */
+const onglet = (nom: RegExp | string) =>
+  fireEvent.mouseDown(screen.getByRole('tab', { name: nom }));
 
 const LIGNE = {
   id: EVT_ID,
@@ -197,7 +200,9 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
       stubFetch((url) =>
         url.includes('/gestionnaire/filtres')
           ? { body: OPTIONS }
-          : { body: { data: [LIGNE], total: 1 } },
+          : url.includes(`/gestionnaire/evenements/${EVT_ID}`)
+            ? { body: { data: detail() } }
+            : { body: { data: [LIGNE], total: 1 } },
       );
       render(<EvenementsPage />);
       const table = await screen.findByTestId(
@@ -222,10 +227,16 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
         screen.getByTestId('evenements-resultats-count'),
       ).toHaveTextContent('1 événement correspond à votre sélection');
 
+      // Le clic ouvre la fiche en pop-up, sur la liste, et l'adresse la porte.
       fireEvent.click(ligne);
-      expect(routerPush).toHaveBeenCalledWith(
-        `/gestionnaire/evenements/${EVT_ID}`,
+      const fiche = await screen.findByRole('dialog', undefined, ATTENTE_UI);
+      await within(fiche).findByTestId(
+        'bilan-consolide',
+        undefined,
+        ATTENTE_UI,
       );
+      expect(screen.getByTestId('evenements-table')).toBeInTheDocument();
+      expect(window.location.search).toContain(`evenement=${EVT_ID}`);
     },
     ATTENTE_CAS_MS,
   );
@@ -383,7 +394,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
     'M3.2/evenement_fiche_bilan_consolide_affiche — cumul ZD et AG, associations, couverture',
     async () => {
       stubFetch(() => ({ body: { data: detail() } }));
-      render(<EvenementPage params={params(EVT_ID)} />);
+      monterFiche();
       const bilan = await screen.findByTestId(
         'bilan-consolide',
         undefined,
@@ -417,7 +428,16 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(screen.getByTestId('statut-consolide')).toHaveTextContent(
         'Terminé',
       );
-      const entete = screen.getByTestId('evenement-entete');
+      // En-tête de la pop-up : nom, date, lieu, traiteur, pax.
+      expect(screen.getByTestId('fiche-evenement-infos')).toHaveTextContent(
+        /Paris Expo.*Kaspia.*800\s*pax/,
+      );
+      onglet('Informations');
+      const entete = await screen.findByTestId(
+        'evenement-entete',
+        undefined,
+        ATTENTE_UI,
+      );
       expect(entete).toHaveTextContent('Maison Lenôtre');
       expect(entete).toHaveTextContent('Cocktail repas complet');
       expect(entete).toHaveTextContent(/Déchets labo estimés\s*42\s*kg/);
@@ -430,7 +450,9 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
     'M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte — clic ligne, picto rapport ZD sur « Bilan »',
     async () => {
       stubFetch(() => ({ body: { data: detail() } }));
-      render(<EvenementPage params={params(EVT_ID)} />);
+      monterFiche();
+      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      onglet('Collectes (3)');
       const table = await screen.findByTestId(
         'evenement-collectes',
         undefined,
@@ -443,10 +465,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
         'c3',
       );
-      expect(routerReplace).toHaveBeenLastCalledWith(
-        `/gestionnaire/evenements/${EVT_ID}?collecte=c3`,
-        { scroll: false },
-      );
+      expect(changerCollecte).toHaveBeenLastCalledWith('c3');
 
       fireEvent.click(
         within(lignes[0]!).getByRole('button', {
@@ -485,7 +504,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
           },
         },
       }));
-      render(<EvenementPage params={params(EVT_ID)} />);
+      monterFiche();
       await screen.findByTestId('bandeau-bilan-attente', undefined, ATTENTE_UI);
       expect(
         screen.getByTestId('bilan-consolide-couverture'),
@@ -525,19 +544,26 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
           },
         },
       }));
-      render(<EvenementPage params={params(EVT_ID)} />);
-      const entete = await screen.findByTestId(
-        'evenement-entete',
-        undefined,
-        ATTENTE_UI,
-      );
-      expect(entete).toHaveTextContent(/Déchets labo estimés\s*—/);
+      monterFiche();
       expect(
-        screen.getByTestId('bilan-consolide-couverture'),
+        await screen.findByTestId(
+          'bilan-consolide-couverture',
+          undefined,
+          ATTENTE_UI,
+        ),
       ).toHaveTextContent('Aucune collecte n’est rattachée à cet événement.');
       expect(screen.queryByTestId('bandeau-bilan-attente')).toBeNull();
+      onglet('Informations');
       expect(
-        screen.getByText('Aucune collecte rattachée à cet événement.'),
+        await screen.findByTestId('evenement-entete', undefined, ATTENTE_UI),
+      ).toHaveTextContent(/Déchets labo estimés\s*—/);
+      onglet('Collectes');
+      expect(
+        await screen.findByText(
+          'Aucune collecte rattachée à cet événement.',
+          undefined,
+          ATTENTE_UI,
+        ),
       ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
@@ -550,7 +576,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         status: 404,
         body: { error: 'Événement non trouvé' },
       }));
-      render(<EvenementPage params={params(EVT_ID)} />);
+      monterFiche();
       await screen.findByText('Événement introuvable', undefined, ATTENTE_UI);
       expect(screen.queryByTestId('evenement-erreur')).toBeNull();
     },
@@ -567,7 +593,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
           ? { status: 500, body: {} }
           : { body: { data: detail() } };
       });
-      render(<EvenementPage params={params(EVT_ID)} />);
+      monterFiche();
       await screen.findByTestId('evenement-erreur', undefined, ATTENTE_UI);
       fireEvent.click(screen.getByRole('button', { name: /Réessayer/ }));
       await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
@@ -576,11 +602,10 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
   );
 
   it(
-    'M3.2/evenement_fiche_rouverte_et_rechargee — ?collecte= rouvre la fiche collecte ; sa fermeture recharge l’événement',
+    'M3.2/evenement_fiche_rouverte_et_rechargee — fiche collecte rouverte par-dessus ; sa fermeture recharge l’événement',
     async () => {
-      adresse = new URLSearchParams('collecte=c2');
       const fetchMock = stubFetch(() => ({ body: { data: detail() } }));
-      render(<EvenementPage params={params(EVT_ID)} />);
+      monterFiche({ collecteInitiale: 'c2' });
       await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
       expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
         'c2',
@@ -588,6 +613,9 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       const avant = fetchMock.mock.calls.length;
       fireEvent.click(screen.getByRole('button', { name: 'Fermer la fiche' }));
       expect(screen.queryByTestId('fiche-collecte-ouverte')).toBeNull();
+      expect(changerCollecte).toHaveBeenLastCalledWith(null);
+      // Rechargement sans retour au squelette : le bilan reste à l'écran.
+      expect(screen.getByTestId('bilan-consolide')).toBeInTheDocument();
       await waitFor(
         () => expect(fetchMock.mock.calls.length).toBeGreaterThan(avant),
         ATTENTE_UI,
@@ -619,7 +647,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
           },
         },
       }));
-      render(<EvenementPage params={params(EVT_ID)} />);
+      monterFiche();
       const zd = await screen.findByTestId(
         'bilan-consolide-zd',
         undefined,
@@ -650,7 +678,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
           },
         },
       }));
-      render(<EvenementPage params={params(EVT_ID)} />);
+      monterFiche();
       expect(
         await screen.findByTestId(
           'bilan-consolide-couverture',
@@ -660,6 +688,72 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       ).toHaveTextContent(
         'Aucun résultat n’est encore disponible sur la collecte de l’événement.',
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/evenement_fiche_echap_ferme_d_abord_la_fiche_collecte — la fiche événement reste ouverte tant que la fiche collecte l’est',
+    async () => {
+      stubFetch(() => ({ body: { data: detail() } }));
+      monterFiche({ collecteInitiale: 'c1' });
+      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(fermerEvenement).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: 'Fermer la fiche' }));
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(fermerEvenement).toHaveBeenCalledTimes(1);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/evenement_fiche_identifiant_invalide_sans_requete — adresse saisie à la main : « introuvable », aucun appel',
+    async () => {
+      const fetchMock = stubFetch(() => ({ body: { data: detail() } }));
+      monterFiche({ evenementId: 'pas-un-uuid' });
+      await screen.findByText('Événement introuvable', undefined, ATTENTE_UI);
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M3.2 / liste Événements gestionnaire — fiche en pop-up depuis l’adresse', () => {
+  it(
+    'M3.2/evenements_liste_fiche_rouverte_depuis_adresse — ?evenement= et ?collecte= rouvrent les deux fiches ; la fermeture nettoie l’adresse et recharge la liste',
+    async () => {
+      adresse = new URLSearchParams(`evenement=${EVT_ID}&collecte=c2`);
+      window.history.replaceState(
+        null,
+        '',
+        `/gestionnaire/evenements?evenement=${EVT_ID}&collecte=c2`,
+      );
+      const fetchMock = stubFetch((url) =>
+        url.includes('/gestionnaire/filtres')
+          ? { body: OPTIONS }
+          : url.includes(`/gestionnaire/evenements/${EVT_ID}`)
+            ? { body: { data: detail() } }
+            : { body: { data: [LIGNE], total: 1 } },
+      );
+      render(<EvenementsPage />);
+      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
+        'c2',
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Fermer la fiche' }));
+      expect(window.location.search).not.toContain('collecte=');
+      expect(window.location.search).toContain(`evenement=${EVT_ID}`);
+
+      const listes = () =>
+        fetchMock.mock.calls.filter(([u]) =>
+          String(u).includes('/gestionnaire/evenements?'),
+        ).length;
+      const avant = listes();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByTestId('bilan-consolide')).toBeNull();
+      expect(window.location.search).not.toContain('evenement=');
+      await waitFor(() => expect(listes()).toBeGreaterThan(avant), ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );

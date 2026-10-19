@@ -3,7 +3,7 @@
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -21,6 +21,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { CelluleLieu } from '@/components/collecte/collectes-traiteur-table';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
+import { FicheEvenementModal } from '@/components/gestionnaire/fiche-evenement-modal';
 import { ResultatsEvenement } from '@/components/gestionnaire/resultats-evenement';
 import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
 import { EVENEMENTS_PAGE_SIZE as PAGE_SIZE } from '@/lib/evenements-gestionnaire';
@@ -35,7 +36,6 @@ import {
 } from '@/lib/hooks/use-filtres-url';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { variantStatutEvenement } from '@/lib/libelles/evenement';
-import { ROUTES } from '@/lib/routes';
 
 interface EvenementRow {
   id: string;
@@ -202,9 +202,42 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
   },
 ];
 
+/**
+ * Pose (ou retire, valeur `null`) des clés de l'adresse courante sans toucher
+ * aux autres — les filtres, que `useFiltresUrl` tient de son côté. `null` comme
+ * état : Next.js resynchronise alors `useSearchParams` (cf. useFiltresUrl).
+ */
+function majAdresse(patch: Record<string, string | null>) {
+  const usp = new URLSearchParams(window.location.search);
+  for (const [cle, valeur] of Object.entries(patch)) {
+    if (valeur) usp.set(cle, valeur);
+    else usp.delete(cle);
+  }
+  const qs = usp.toString();
+  window.history.replaceState(
+    null,
+    '',
+    `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`,
+  );
+}
+
 function GestionnaireEvenementsContent() {
-  const router = useRouter();
+  const params = useSearchParams();
   const { valeurs: f, set, reset, actif } = useFiltresUrl(FILTRES);
+  // Fiche événement en pop-up (demande Val 2026-10-19, comme la fiche collecte
+  // sur la liste Collectes). L'adresse porte la fiche ouverte (?evenement=<id>,
+  // et ?collecte=<id> pour la fiche collecte ouverte par-dessus) : un lien
+  // direct, un rechargement ou l'ancienne route /gestionnaire/evenements/<id>
+  // (qui redirige ici) rouvrent les mêmes fiches.
+  const [ouverte, setOuverte] = useState<{
+    evenement: string;
+    collecte: string | null;
+  } | null>(() => {
+    const evenement = params?.get('evenement');
+    return evenement
+      ? { evenement, collecte: params?.get('collecte') || null }
+      : null;
+  });
   const page = f.page;
   const allerPage = (p: number) => set({ page: p });
   const sorting: SortingState = [{ id: 'date', desc: f.ordre !== 'asc' }];
@@ -302,6 +335,18 @@ function GestionnaireEvenementsContent() {
   }, [redirige, dernierePage]);
   const loading = chargement || redirige || enRedirection;
 
+  function ouvrirFiche(evenement: string) {
+    setOuverte({ evenement, collecte: null });
+    majAdresse({ evenement, collecte: null });
+  }
+  // Une modification faite depuis la fiche (fiche collecte) peut changer les
+  // résultats de la ligne : la liste est rechargée à la fermeture.
+  function fermerFiche() {
+    setOuverte(null);
+    majAdresse({ evenement: null, collecte: null });
+    recharger();
+  }
+
   const contenu = erreur ? (
     <ErrorState
       data-testid="evenements-erreur"
@@ -331,7 +376,7 @@ function GestionnaireEvenementsContent() {
           // Tri retiré (cycle TanStack) = tri par défaut, date décroissante.
           set({ ordre: t && !t.desc ? 'asc' : 'desc' });
         }}
-        onRowClick={(e) => router.push(ROUTES.gestionnaire.evenement(e.id))}
+        onRowClick={(e) => ouvrirFiche(e.id)}
         rowLabel={(e) =>
           `Ouvrir l'événement${e.nom_evenement ? ` ${e.nom_evenement}` : ''}`
         }
@@ -350,7 +395,7 @@ function GestionnaireEvenementsContent() {
       <PageHero
         icon={<CalendarDays className="h-6 w-6 text-savr-primary-200" />}
         title="Événements"
-        subtitle="Événements tenus sur vos lieux, résultats cumulés sur leurs collectes · cliquez une ligne pour ouvrir l'événement"
+        subtitle="Événements tenus sur vos lieux, résultats cumulés sur leurs collectes · cliquez une ligne pour ouvrir la fiche"
       />
 
       <FilterBar
@@ -413,6 +458,17 @@ function GestionnaireEvenementsContent() {
       </FilterBar>
 
       {contenu}
+
+      {ouverte && (
+        <FicheEvenementModal
+          // Une fiche par événement : changer d'événement repart de zéro.
+          key={ouverte.evenement}
+          evenementId={ouverte.evenement}
+          collecteInitiale={ouverte.collecte}
+          onCollecteChange={(collecte) => majAdresse({ collecte })}
+          onClose={fermerFiche}
+        />
+      )}
     </div>
   );
 }

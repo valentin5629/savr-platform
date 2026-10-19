@@ -438,6 +438,26 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     });
   });
 
+  it('M2.5/everest_contact_association_incomplet — contact de l’association sans téléphone : ni address_end_name ni address_end_tel', async () => {
+    const { payloads } = setupEverestMock();
+    const adapter = new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
+    );
+
+    await adapter.dispatchCollecte(
+      { ...COLLECTE_AG, association_contact_telephone: null },
+      1,
+    );
+
+    const payload = payloads.get('tournee-everest-new-001') ?? {};
+    expect(payload).toMatchObject({
+      address_end: '12 rue des Associations, Ivry-sur-Seine',
+    });
+    expect(payload).not.toHaveProperty('address_end_name');
+    expect(payload).not.toHaveProperty('address_end_tel');
+  });
+
   it('M2.5/everest_contrat_creation — la création n’envoie que des champs du swagger Everest', async () => {
     const { payloads } = setupEverestMock();
     const supabase = makeMockSupabase({

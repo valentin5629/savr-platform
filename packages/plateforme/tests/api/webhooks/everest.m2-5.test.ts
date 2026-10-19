@@ -875,14 +875,16 @@ describe('M2.5 / webhook Everest — re-fetch API (BL-P0-07)', () => {
     expect(missionUpdates.length).toBeGreaterThan(0);
     expect(missionUpdates.some((u) => 'cout_everest_ht' in u)).toBe(false);
     expect(missionUpdates.some((u) => 'preuve_course_url' in u)).toBe(false);
-    // Trace Ops pour réconciliation manuelle.
-    expect(
-      insertedLogs.some((l) =>
-        String((l as { erreur?: string }).erreur ?? '').includes(
-          'refetch_failed',
-        ),
-      ),
-    ).toBe(true);
+    // Trace Ops pour réconciliation manuelle, sur la route de relecture réelle.
+    expect(insertedLogs).toContainEqual(
+      expect.objectContaining({
+        integration: 'everest',
+        methode: 'POST',
+        endpoint: '/missions/get',
+        correlation_id: 'EVR-RF-2',
+        erreur: expect.stringContaining('refetch_failed'),
+      }),
+    );
   });
 });
 

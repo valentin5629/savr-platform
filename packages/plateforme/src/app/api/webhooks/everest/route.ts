@@ -61,8 +61,9 @@ function mapEverestStatut(apiStatus: string, fallback: string): string {
 // `Pas de commande` (rien à enlever) / `Client absent / Marchandise refusée`
 // (récupérée mais non livrée). Lus du RE-FETCH (jamais du payload non signé,
 // BL-P0-07). Une collecte AG sur l'un de ces statuts passe realisee_sans_collecte
-// (§05, AG only). Le wire exact (event_type porteur, photo du lieu) reste à
-// confirmer côté dev Everest → _Divergences/M2.5_R10a_20260629.md (type:ambigu).
+// (§05, AG only). Le libellé est le `status_text` de la mission relue. Restent à
+// confirmer sur le compte de test : la valeur de `event` qui porte le signal et
+// la photo du lieu → _Divergences/M2.5_R10a_20260629.md (type:ambigu).
 const COURSE_VIDE_MISSION_STATUSES = new Set([
   'pas de commande',
   'client absent / marchandise refusée',

@@ -161,6 +161,16 @@ describe('EverestClient — contrat du swagger Everest', () => {
     });
   });
 
+  it('M2.5/everest_contrat_get_sans_ref — relecture : réponse 200 sans mission.ref → erreur ambiguë', async () => {
+    fetchMock.mockResolvedValueOnce(json({ mission: { status: 'delivered' } }));
+
+    const lecture = client().getMission('REF-INVENTEE-1', 'corr-1');
+    await expect(lecture).rejects.toBeInstanceOf(LogistiqueAmbiguousError);
+    await expect(lecture).rejects.toThrow(
+      'Everest getMission : réponse sans référence de mission',
+    );
+  });
+
   it('M2.5/everest_contrat_get_minimal — mission sans libellé, prix, image ni coursier : slug du statut, champs vides', async () => {
     fetchMock.mockResolvedValueOnce(
       json({ mission: { ref: 'REF-INVENTEE-1', status: 'pending-dispatch' } }),

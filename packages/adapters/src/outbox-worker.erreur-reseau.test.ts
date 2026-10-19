@@ -16,10 +16,7 @@ import {
 } from '@savr/shared/src/alerting/slack.js';
 
 import { AdapterEverest } from './everest/adapter.js';
-import {
-  EverestClient,
-  _invalidateEverestTokenCache,
-} from './everest/client.js';
+import { EverestClient } from './everest/client.js';
 import { _setEverestHandlers } from './everest/mock.js';
 import { AdapterMts1 } from './mts1/adapter.js';
 import { Mts1Client } from './mts1/client.js';
@@ -31,7 +28,6 @@ const DEBUT = 'FAUSSE-CLE-DE-TEST';
 const FIN = 'SUITE-DE-LA-FAUSSE-CLE';
 const COLLECTE_ID = 'c0000000-0000-0000-0000-0000000000c1';
 const PRESTA_ID = 'aa000000-0000-0000-0000-0000000000a1';
-const CLIENT_EVEREST = 'client-worker-erreur-reseau';
 
 interface AppelRpc {
   name: string;
@@ -150,7 +146,6 @@ describe('Worker de la file d’envoi — un appel réseau en échec ne livre ja
     });
     _setMts1Handlers(null);
     _setEverestHandlers(null);
-    _invalidateEverestTokenCache(CLIENT_EVEREST);
   });
 
   afterEach(() => {
@@ -158,7 +153,6 @@ describe('Worker de la file d’envoi — un appel réseau en échec ne livre ja
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     setSlackSink(async () => {});
-    _invalidateEverestTokenCache(CLIENT_EVEREST);
   });
 
   it('M0.9/erreur_reseau_alerte_mts1 — clé MTS-1 mal formée, vrai `fetch` : ordre abandonné, ni last_error ni l’alerte ni le journal ne portent la clé', async () => {
@@ -203,11 +197,9 @@ describe('Worker de la file d’envoi — un appel réseau en échec ne livre ja
   });
 
   it('M0.9/erreur_reseau_alerte_everest — jeton Everest cité par l’erreur de `fetch` : ordre abandonné, ni last_error ni l’alerte ne portent le jeton', async () => {
+    vi.stubEnv('EVEREST_API_TOKEN', `${DEBUT}${FIN}`);
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ token: 't' }), { status: 200 }),
-      )
       .mockRejectedValueOnce(
         new TypeError(
           `Headers.append: "Bearer ${DEBUT}${FIN}" is an invalid header value.`,
@@ -217,11 +209,7 @@ describe('Worker de la file d’envoi — un appel réseau en échec ne livre ja
     const { supabase, rpcs } = fauxSupabase('a_toutes');
     vi.spyOn(AdapterEverest.prototype, 'dispatchCollecte').mockImplementation(
       async () => {
-        await new EverestClient(
-          CLIENT_EVEREST,
-          'secret',
-          supabase,
-        ).createMission(
+        await new EverestClient(supabase).createMission(
           {
             service_id: 71,
             client_ref: COLLECTE_ID,

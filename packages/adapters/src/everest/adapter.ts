@@ -33,7 +33,7 @@ import {
   retenirTourneesDuProvider,
 } from '../provider-tournees.js';
 import type { CreateMissionPayload } from './client.js';
-import { EverestClient } from './client.js';
+import { EverestClient, lireJetonEverest } from './client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 
 // Mapping branche_attribution → service_id Everest (§08 §3 V1, tableau l.264-269).
@@ -109,20 +109,13 @@ const MISSION_VIVANTE = new Set([
 
 export class AdapterEverest implements LogistiqueProvider {
   private readonly client: EverestClient;
-  private readonly clientId: string;
 
   constructor(
     private readonly transporteur: Transporteur,
     private readonly supabase: SupabaseClient,
   ) {
-    // Lit client_id depuis shared.prestataires via transporteur (injecté par la factory)
-    // et client_secret depuis env var (alimentée depuis Vault en production).
-    const clientId =
-      process.env['EVEREST_CLIENT_ID'] ?? 'everest-client-id-missing';
-    const clientSecret =
-      process.env['EVEREST_CLIENT_SECRET'] ?? 'everest-client-secret-missing';
-    this.clientId = clientId;
-    this.client = new EverestClient(clientId, clientSecret, supabase);
+    // Jeton fixe du compte A Toutes! lu dans EVEREST_API_TOKEN (cf. client.ts).
+    this.client = new EverestClient(supabase);
   }
 
   // ─── E1 collecte.creee ───────────────────────────────────────────────────────
@@ -227,7 +220,6 @@ export class AdapterEverest implements LogistiqueProvider {
         everest_mission_id: missionId,
         everest_service_id: serviceId,
         statut_everest: 'created',
-        everest_client_id: this.clientId,
         payload_create: payload,
         push_create_at: pushAt,
       });
@@ -396,16 +388,14 @@ export class AdapterEverest implements LogistiqueProvider {
 
   async healthCheck(): Promise<HealthCheckResult> {
     // Push-only (webhooks entrants) : aucun endpoint read-only de sonde en V1.
-    // On rapporte seulement la présence des credentials, sans appel réseau.
-    const configured =
-      !!process.env['EVEREST_CLIENT_ID'] &&
-      !!process.env['EVEREST_CLIENT_SECRET'];
+    // On rapporte seulement la présence du jeton, sans appel réseau.
+    const configured = lireJetonEverest() !== null;
     return {
       ok: true,
       etat: 'non_applicable',
       message: configured
         ? 'Everest push-only (webhooks entrants) — pas de sonde read-only V1.'
-        : 'Everest push-only — credentials EVEREST_CLIENT_ID / EVEREST_CLIENT_SECRET absents.',
+        : 'Everest push-only — jeton EVEREST_API_TOKEN absent.',
     };
   }
 
@@ -717,7 +707,6 @@ export class AdapterEverest implements LogistiqueProvider {
       everest_mission_id: string | null;
       everest_service_id: number;
       statut_everest: string;
-      everest_client_id?: string;
       payload_create?: unknown;
       push_create_at?: string;
     },
@@ -730,8 +719,6 @@ export class AdapterEverest implements LogistiqueProvider {
       statut_everest: fields.statut_everest,
       derniere_sync_at: new Date().toISOString(),
     };
-    if (fields.everest_client_id !== undefined)
-      row['everest_client_id'] = fields.everest_client_id;
     if (fields.payload_create !== undefined)
       row['payload_create'] = fields.payload_create;
     if (fields.push_create_at !== undefined)

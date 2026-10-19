@@ -704,6 +704,37 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
       ),
     ).toBe(false);
   });
+
+  it('M2.5/everest_jeton_refuse_sans_rejet — Everest 401 (jeton refusé) → erreur passagère, collecte ni rejetée ni signalée « rejetée », alerte Slack critique', async () => {
+    setupEverestMock({ createFails: true, createFailsStatus: 401 });
+    const slack: SlackPayload[] = [];
+    setSlackSink(async (p) => {
+      slack.push(p);
+    });
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    try {
+      await expect(adapter.dispatchCollecte(COLLECTE_AG, 1)).rejects.toThrow(
+        LogistiqueTransientError,
+      );
+    } finally {
+      setSlackSink(async () => {});
+    }
+
+    // Un réglage à corriger n'est pas un refus du transporteur : avant ce lot,
+    // un 401 persistant passait la collecte en rejetee_par_prestataire.
+    expect(supabase._applied['collectes']).toBeUndefined();
+    expect(alertesOps(supabase)).toEqual([]);
+    expect(slack).toEqual([
+      expect.objectContaining({
+        canal: 'critique',
+        titre: 'Jeton Everest refusé',
+      }),
+    ]);
+  });
 });
 
 // ─── Tests cancelCollecte ─────────────────────────────────────────────────────

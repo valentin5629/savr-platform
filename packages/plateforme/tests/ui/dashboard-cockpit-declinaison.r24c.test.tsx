@@ -143,9 +143,9 @@ describe('M3.3 / agence — déclinaison Cockpit', () => {
 
       expect(pushMock).toHaveBeenCalledTimes(1);
       const url = String(pushMock.mock.calls[0]![0]);
-      // Onglet Historique : la liste agence est celle du traiteur (§06.11),
-      // `cloturee` n'existe pas dans l'onglet Programmées.
-      expect(url).toContain('/agence/collectes?onglet=historique&lieu=A');
+      // Vue « Collectes passées » (décision Val 2026-10-19) : une collecte
+      // clôturée est datée d'avant aujourd'hui.
+      expect(url).toContain('/agence/collectes?onglet=passees&lieu=A');
       expect(url).toContain('type=zero_dechet');
       expect(url).toContain('statut=cloturee');
     },

@@ -16,6 +16,12 @@ import { PageHero } from '@/components/ui/page-hero';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { type CollecteType } from '@/components/dashboards/index.js';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
+import { OngletsVueCollectes } from '@/components/collecte/onglets-vue-collectes';
+import {
+  lireVueCollectes,
+  periodeDeLaVue,
+  triDateDescendant,
+} from '@/lib/collectes/vue-temporelle';
 import {
   CollecteFiltresBar,
   FILTRES_COLLECTE_VIDES,
@@ -148,6 +154,8 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
 // donc que « Période » (aucun filtre inventé). `type` est un axe de vue
 // (colonnes différentes) : hors « Réinitialiser les filtres », hors `actif`.
 const FILTRES = {
+  // Vue à venir (défaut) / passées, rangée par date (décision Val 2026-10-19).
+  onglet: navigation(texte('')),
   type: navigation(texte('zero_dechet')),
   from: texte(),
   to: texte(),
@@ -164,15 +172,17 @@ function CollectesContent() {
   const { valeurs: f, set, reset, actif } = useFiltresUrl(FILTRES);
   const tab: CollecteType =
     f.type === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
+  const vue = lireVueCollectes(f.onglet) ?? 'a_venir';
 
   // Paramètres partagés avec l'export CSV (§12 « l'export respecte les filtres
-  // actifs »).
+  // actifs ») ; la période de la barre est bornée à la vue.
   const qs = useMemo(() => {
     const usp = new URLSearchParams({ type: tab });
-    if (f.from) usp.set('from', f.from);
-    if (f.to) usp.set('to', f.to);
+    const periode = periodeDeLaVue(vue, { from: f.from, to: f.to });
+    if (periode.from) usp.set('from', periode.from);
+    if (periode.to) usp.set('to', periode.to);
     return usp.toString();
-  }, [tab, f.from, f.to]);
+  }, [tab, vue, f.from, f.to]);
   // Liste non paginée (la route ne l'est pas) : garde anti-réponse périmée et
   // état Error portés par `useListePaginee`.
   const {
@@ -210,9 +220,16 @@ function CollectesContent() {
         }
       />
 
-      {/* Barre de filtres DS (D10 : la même que traiteur / agence) : type
-          ZD / AG en en-tête, « Période », compteur et réinitialisation. */}
+      {/* Barre de filtres DS (D10 : la même que traiteur / agence) : vues
+          à venir / passées et type ZD / AG en en-tête, « Période », compteur
+          et réinitialisation. */}
       <CollecteFiltresBar
+        tabs={
+          <OngletsVueCollectes
+            value={vue}
+            onChange={(v) => set({ onglet: v })}
+          />
+        }
         toggle={
           <ToggleTypeCollecte value={tab} onChange={(t) => set({ type: t })} />
         }
@@ -232,8 +249,9 @@ function CollectesContent() {
         resultats={rows.length}
       />
 
+      {/* Tri par défaut : la plus proche d'aujourd'hui d'abord. */}
       <DataGrid
-        key={tab}
+        key={`${tab}-${vue}`}
         data-testid="collectes-table"
         columns={cols}
         data={rows}
@@ -241,7 +259,7 @@ function CollectesContent() {
         loading={loading}
         erreur={erreur}
         onRecharger={recharger}
-        initialSorting={[{ id: 'date', desc: true }]}
+        initialSorting={[{ id: 'date', desc: triDateDescendant(vue) }]}
         empty={
           <EmptyState
             icon={<Truck className="h-8 w-8" />}

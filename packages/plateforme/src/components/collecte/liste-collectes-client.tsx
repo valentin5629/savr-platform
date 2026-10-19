@@ -7,7 +7,6 @@ import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js
 import { PageHero } from '@/components/ui/page-hero';
 import { Button } from '@/components/ui/button';
 import type { CollecteType } from '@/components/dashboards/index.js';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   colonnesCollectesTraiteur,
@@ -35,12 +34,21 @@ import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { valeurUnique } from '@/lib/filtre-csv';
 import { API_COLLECTES as API_COLLECTES_ESPACE, ROUTES } from '@/lib/routes';
 import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
+import { OngletsVueCollectes } from '@/components/collecte/onglets-vue-collectes';
+import {
+  lireVueCollectes,
+  periodeDeLaVue,
+  triDateDescendant,
+  type VueCollectes,
+} from '@/lib/collectes/vue-temporelle';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
-// actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
-// Programmées / Historique (statut) × sélecteur ZD / AG (type), cartes
-// simplifiées, actions Modifier / Annuler / Dupliquer. Passée en Data Table
-// (décision Val 2026-09-28 : tableau plat, colonnes triables).
+// actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : vues ×
+// sélecteur ZD / AG (type), cartes simplifiées, actions Modifier / Annuler /
+// Dupliquer. Passée en Data Table (décision Val 2026-09-28 : tableau plat,
+// colonnes triables). Vues « Collectes à venir / passées » rangées par date, à
+// la place des onglets par état Programmées / Historique (décision Val
+// 2026-10-19, lib/collectes/vue-temporelle).
 //
 // Composant UNIQUE des listes traiteur et agence : §06.11 impose à l'agence la
 // liste du §06.04 « à l'identique » (« toute évolution du §06.04 s'applique
@@ -56,9 +64,10 @@ type EspaceListeCollectes = Extract<EspaceClient, 'traiteur' | 'agence'>;
 const API_COLLECTES: Record<EspaceListeCollectes, string> =
   API_COLLECTES_ESPACE;
 
-// Répartition des statuts par onglet (aligné Admin, + brouillon/annulation_demandee).
-const STATUTS_PROGRAMMEES = ['brouillon', 'programmee', 'validee', 'en_cours'];
-const STATUTS_HISTORIQUE = [
+// Statuts d'une collecte terminée ou annulée, puis tous ceux de la liste : les
+// deux vues proposent tous les statuts (une collecte de demain peut être
+// annulée, une d'hier encore « Validée »).
+const STATUTS_TERMINES = [
   'realisee',
   'realisee_sans_collecte',
   'cloturee',
@@ -66,8 +75,13 @@ const STATUTS_HISTORIQUE = [
   'annulee',
   'rejetee_par_prestataire',
 ];
-
-type Onglet = 'programmees' | 'historique';
+const STATUTS = [
+  'brouillon',
+  'programmee',
+  'validee',
+  'en_cours',
+  ...STATUTS_TERMINES,
+];
 
 /** Dimensions de drill-down dashboard sans contrôle dans la barre de filtres. */
 interface Drill {
@@ -113,17 +127,17 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-// Onglet de l'URL ; à défaut, déduit des statuts demandés : un lien sans
-// `onglet` dont tous les statuts relèvent de l'Historique (ancien format du
-// drill-down Top lieux agence, `?lieu=…&statut=cloturee`) ouvre l'Historique.
-function ongletInitial(params: URLSearchParams): Onglet {
-  const o = params.get('onglet');
-  if (o === 'historique' || o === 'programmees') return o;
+// Vue de l'URL (`onglet`) ; à défaut, déduite des statuts demandés : un lien
+// sans `onglet` dont tous les statuts sont terminés (ancien format du
+// drill-down Top lieux agence, `?lieu=…&statut=cloturee`) ouvre les passées.
+function ongletInitial(params: URLSearchParams): VueCollectes {
+  const vue = lireVueCollectes(params.get('onglet'));
+  if (vue) return vue;
   const statuts = (params.get('statut') ?? '').split(',').filter(Boolean);
   return statuts.length > 0 &&
-    statuts.every((s) => STATUTS_HISTORIQUE.includes(s))
-    ? 'historique'
-    : 'programmees';
+    statuts.every((s) => STATUTS_TERMINES.includes(s))
+    ? 'passees'
+    : 'a_venir';
 }
 
 function parseJwt(token: string): Record<string, unknown> {
@@ -148,7 +162,7 @@ export function ListeCollectesClient({
   const initialType: CollecteType =
     params.get('type') === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
   const [typeFiltre, setTypeFiltre] = useState<CollecteType>(initialType);
-  const [onglet, setOnglet] = useState<Onglet>(() =>
+  const [onglet, setOnglet] = useState<VueCollectes>(() =>
     ongletInitial(new URLSearchParams(params.toString())),
   );
   // Filtres §06.04 §3 (BL-P2-14), synchronisés dans l'URL : l'état local est la
@@ -226,16 +240,15 @@ export function ListeCollectesClient({
   }, [api]);
 
   // Paramètres de la liste — partagés avec l'export CSV (§12 « l'export respecte
-  // les filtres actifs »). Les statuts sélectionnés sont TOUJOURS bornés à
-  // l'onglet courant : l'onglet est une partition par état, un filtre ne doit
-  // jamais le déborder.
+  // les filtres actifs »). La période envoyée est TOUJOURS bornée à la vue
+  // courante (à venir : aujourd'hui et après ; passées : avant aujourd'hui) :
+  // un filtre ne doit jamais la déborder.
   const qsListe = useMemo(() => {
-    const statutsOnglet =
-      onglet === 'programmees' ? STATUTS_PROGRAMMEES : STATUTS_HISTORIQUE;
-    const choisis = filtres.statuts.filter((s) => statutsOnglet.includes(s));
-    // Jamais de `statut` vide (sélection hors onglet, lien fabriqué) : les
-    // routes et l'export ne filtreraient alors plus aucun statut.
-    const statuts = choisis.length > 0 ? choisis : statutsOnglet;
+    const choisis = filtres.statuts.filter((s) => STATUTS.includes(s));
+    // Jamais de `statut` vide (valeur inconnue, lien fabriqué) : la liste reste
+    // celle des statuts qu'elle sait afficher.
+    const statuts = choisis.length > 0 ? choisis : STATUTS;
+    const periode = periodeDeLaVue(onglet, filtres);
     const qs = new URLSearchParams({
       type: typeFiltre,
       statut: statuts.join(','),
@@ -248,8 +261,8 @@ export function ListeCollectesClient({
       qs.set('info_incomplete', filtres.infoIncomplete);
     if (filtres.programmeePar.length > 0)
       qs.set('programmee_par', filtres.programmeePar.join(','));
-    if (filtres.from) qs.set('from', filtres.from);
-    if (filtres.to) qs.set('to', filtres.to);
+    if (periode.from) qs.set('from', periode.from);
+    if (periode.to) qs.set('to', periode.to);
     // Drill-down depuis les Top listes du dashboard (pas des filtres d'UI).
     if (commercialFiltre) qs.set('commercial_id', commercialFiltre);
     if (associationFiltre) qs.set('association_id', associationFiltre);
@@ -300,7 +313,7 @@ export function ListeCollectesClient({
   // `useSearchParams`, en retard d'un rendu après un `router.replace` : deux
   // changements rapprochés — onglet puis type — perdraient le premier).
   function majUrl(etat: {
-    onglet?: Onglet;
+    onglet?: VueCollectes;
     type?: CollecteType;
     filtres?: CollecteFiltres;
     drill?: Drill;
@@ -364,11 +377,10 @@ export function ListeCollectesClient({
     setDrill(d);
     majUrl({ type: t, filtres: f, drill: d });
   }
-  function changeOnglet(o: Onglet) {
+  function changeOnglet(o: VueCollectes) {
     setOnglet(o);
-    // L'onglet partitionne les statuts : une sélection faite dans l'autre onglet
-    // n'a plus de sens ici (intersection vide). Changer d'onglet lève donc aussi
-    // la restriction `cloturee` du drill-down ; lieu + période restent.
+    // Changer de vue repart de tous les statuts : la sélection, dont la
+    // restriction `cloturee` du drill-down, est levée ; lieu + période restent.
     const f = { ...filtres, statuts: [] };
     setFiltresEtat(f);
     majUrl({ onglet: o, filtres: f });
@@ -408,7 +420,7 @@ export function ListeCollectesClient({
   })();
 
   // Mêmes paramètres que la liste affichée. Le builder d'export applique type,
-  // statuts de l'onglet, période, lieu, client, info incomplète, programmée
+  // statuts, période bornée à la vue, lieu, client, info incomplète, programmée
   // par ; il IGNORE encore les dimensions de drill-down traiteur
   // (commercial_id, association_id, perimetre) : après un clic depuis une Top
   // liste du dashboard, l'export peut contenir plus de lignes que la liste.
@@ -554,18 +566,11 @@ export function ListeCollectesClient({
         />
       )}
 
-      {/* Barre de filtres DS : onglets Programmées / Historique + type ZD / AG
-          en en-tête, puis Période / Statut / Lieu / Client / Info incomplète /
+      {/* Barre de filtres DS : vues à venir / passées + type ZD / AG en
+          en-tête, puis Période / Statut / Lieu / Client / Info incomplète /
           Programmée par (§06.04 §3), compteur et réinitialisation en pied. */}
       <CollecteFiltresBar
-        tabs={
-          <Tabs value={onglet} onValueChange={(v) => changeOnglet(v as Onglet)}>
-            <TabsList aria-label="Statut des collectes">
-              <TabsTrigger value="programmees">Programmées</TabsTrigger>
-              <TabsTrigger value="historique">Historique</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        }
+        tabs={<OngletsVueCollectes value={onglet} onChange={changeOnglet} />}
         toggle={
           <ToggleGroup
             type="single"
@@ -581,18 +586,17 @@ export function ListeCollectesClient({
             <ToggleGroupItem value="anti_gaspi">Anti-Gaspi</ToggleGroupItem>
           </ToggleGroup>
         }
-        statutsOnglet={
-          onglet === 'programmees' ? STATUTS_PROGRAMMEES : STATUTS_HISTORIQUE
-        }
+        statutsOnglet={STATUTS}
         options={options}
         value={filtres}
         onChange={setFiltres}
         resultats={rows.length}
       />
 
-      {/* Tri par défaut §06.04 §3 : date DÉCROISSANTE, sans exception d'onglet
-          (arbitrage Val 2026-09-21, cf. _Divergences/_traités/2026-09/
-          M3.1_20260921_tri_liste_collectes.md). Colonnes triables ensuite. */}
+      {/* Tri par défaut : de la plus proche à la plus lointaine — date
+          croissante à venir, décroissante dans le passé (décision Val
+          2026-10-19, remplace le tri décroissant unique du 2026-09-21).
+          Colonnes triables ensuite. */}
       <DataGrid
         key={onglet}
         data-testid="collectes-table"
@@ -600,9 +604,9 @@ export function ListeCollectesClient({
         data={lignes}
         getRowId={(c) => c.id}
         loading={loading}
-        initialSorting={[{ id: 'date', desc: true }]}
+        initialSorting={[{ id: 'date', desc: triDateDescendant(onglet) }]}
         initialColumnVisibility={
-          onglet === 'programmees' ? { resultats: false } : {}
+          onglet === 'a_venir' ? { resultats: false } : {}
         }
         onRowClick={(c) => ouvrirFiche(c.id)}
         rowLabel={(c) =>

@@ -1,8 +1,9 @@
 /**
  * Liste Collectes traiteur — filtres synchronisés dans l'URL (FilterBar DS).
  *
- * Régression constatée en preview : onglet « Historique » puis type
- * « Anti-Gaspi » en deux clics rapprochés → l'URL perdait `onglet=historique`,
+ * Régression constatée en preview : onglet « Historique » (aujourd'hui vue
+ * « Collectes passées ») puis type « Anti-Gaspi » en deux clics rapprochés →
+ * l'URL perdait l'onglet,
  * parce qu'elle était réécrite depuis `useSearchParams` (en retard d'un rendu
  * après `router.replace`). L'URL est désormais reconstruite depuis l'état : ce
  * cas l'épingle avec un routeur dont l'URL ne suit JAMAIS (`replace` inerte),
@@ -77,11 +78,13 @@ describe('Liste Collectes traiteur — filtres dans l’URL', () => {
     'url/onglet_puis_type_conserve_les_deux',
     async () => {
       render(<TraiteurCollectesPage />);
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
+      fireEvent.mouseDown(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      );
       fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
       await waitFor(() => expect(replace).toHaveBeenCalledTimes(2), ATTENTE_UI);
       const usp = derniereUrl();
-      expect(usp.get('onglet')).toBe('historique');
+      expect(usp.get('onglet')).toBe('passees');
       expect(usp.get('type')).toBe('anti_gaspi');
     },
     ATTENTE_CAS_MS,
@@ -115,7 +118,8 @@ describe('Liste Collectes traiteur — filtres dans l’URL', () => {
       );
       const usp = derniereUrl();
       expect(usp.get('collecte')).toBeNull();
-      expect(usp.get('onglet')).toBe('historique');
+      // Un lien d'avant (`onglet=historique`) est réécrit sous son nom actuel.
+      expect(usp.get('onglet')).toBe('passees');
       expect(usp.get('statut')).toBe('cloturee');
     },
     ATTENTE_CAS_MS,
@@ -147,7 +151,8 @@ describe('Liste Collectes traiteur — filtres dans l’URL', () => {
       expect(usp.get('lieu')).toBe('lieu-a');
       expect(usp.get('statut')).toBe('cloturee');
       expect(usp.get('from')).toBe('2026-09-01');
-      expect(usp.get('onglet')).toBe('historique');
+      // Un lien d'avant (`onglet=historique`) est réécrit sous son nom actuel.
+      expect(usp.get('onglet')).toBe('passees');
       expect(usp.get('commercial')).toBe('u1');
     },
     ATTENTE_CAS_MS,
@@ -174,7 +179,8 @@ describe('Liste Collectes traiteur — filtres dans l’URL', () => {
       expect(usp.get('statut')).toBeNull();
       expect(usp.get('from')).toBeNull();
       expect(usp.get('perimetre')).toBeNull();
-      expect(usp.get('onglet')).toBe('historique');
+      // Un lien d'avant (`onglet=historique`) est réécrit sous son nom actuel.
+      expect(usp.get('onglet')).toBe('passees');
       expect(screen.queryByTestId('filtre-actif')).toBeNull();
     },
     ATTENTE_CAS_MS,

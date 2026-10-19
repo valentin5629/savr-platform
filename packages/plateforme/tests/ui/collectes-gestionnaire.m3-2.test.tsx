@@ -705,8 +705,8 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
 
-      // Tri par défaut = celui de la route (date décroissante).
-      expect(urls[0]).toContain('tri=date&ordre=desc');
+      // Tri par défaut = celui de la vue « à venir » : la plus proche d'abord.
+      expect(urls[0]).toContain('tri=date&ordre=asc');
 
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
@@ -725,6 +725,14 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       const derniere = urls[urls.length - 1]!;
       expect(derniere).toMatch(/tri=statut&ordre=/);
       expect(derniere).not.toContain('page=');
+
+      // Changer de vue reprend son tri : « passées », la plus récente d'abord.
+      await act(async () => {
+        fireEvent.mouseDown(
+          screen.getByRole('tab', { name: 'Collectes passées' }),
+        );
+      });
+      expect(urls[urls.length - 1]).toContain('tri=date&ordre=desc');
     },
     ATTENTE_CAS_MS,
   );
@@ -1081,8 +1089,9 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         id: 'L1',
         label: 'Pavillon Royal',
       });
+      // Lien du dashboard : il ouvre la vue « Collectes passées ».
       urlParams.current =
-        'lieu=L1&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&taille_evenements[]=M';
+        'lieu=L1&onglet=passees&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&taille_evenements[]=M';
       const urls = fetchEspion(TROIS_LIGNES);
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
@@ -1102,7 +1111,9 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       expect(apres).not.toContain('lieu_id');
       expect(apres).not.toContain('type_evenement_ids');
       expect(apres).not.toContain('taille_evenements');
+      // La vue reste « passées » : plus de début de période, la fin = hier.
       expect(apres).not.toContain('from=');
+      expect(apres).not.toContain('to=2026-06-30');
       expect(chip()).toBeNull();
     },
     ATTENTE_CAS_MS,

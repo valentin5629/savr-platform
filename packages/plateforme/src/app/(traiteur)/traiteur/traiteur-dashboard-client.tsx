@@ -285,7 +285,7 @@ export function TraiteurDashboardClient({
   const acteurTitre =
     blocs?.acteurLabel === 'Traiteur' ? 'Top 5 traiteurs' : 'Top 5 commerciaux';
 
-  // Drill-down Top listes → liste Collectes (onglet Historique) filtrée. Miroir
+  // Drill-down Top listes → liste Collectes (vue « passées ») filtrée. Miroir
   // EXACT du chiffre du dashboard : même type, même période (from/to), et statut
   // `cloturee` seul (base du calcul Top listes) → le nombre de lignes = le chiffre.
   // Le libellé humain passe par sessionStorage (pas d'ID → nom en query string).
@@ -298,7 +298,7 @@ export function TraiteurDashboardClient({
     if (!l) return;
     setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
     router.push(
-      `${ROUTES.traiteur.collectes}?onglet=historique&lieu=${l.lieu_id}${drillScope}`,
+      `${ROUTES.traiteur.collectes}?onglet=passees&lieu=${l.lieu_id}${drillScope}`,
     );
   };
   const goToActeur = (i: number) => {
@@ -306,7 +306,7 @@ export function TraiteurDashboardClient({
     if (!a) return;
     setCollecteFiltreLabel({ kind: 'commercial', id: a.id, label: a.label });
     router.push(
-      `${ROUTES.traiteur.collectes}?onglet=historique&commercial=${a.id}${drillScope}`,
+      `${ROUTES.traiteur.collectes}?onglet=passees&commercial=${a.id}${drillScope}`,
     );
   };
   // Bloc 3 AG — clic sur une association bénéficiaire → collectes AG filtrées.
@@ -319,7 +319,7 @@ export function TraiteurDashboardClient({
       label: a.nom,
     });
     router.push(
-      `${ROUTES.traiteur.collectes}?onglet=historique&association=${a.association_id}${drillScope}`,
+      `${ROUTES.traiteur.collectes}?onglet=passees&association=${a.association_id}${drillScope}`,
     );
   };
 

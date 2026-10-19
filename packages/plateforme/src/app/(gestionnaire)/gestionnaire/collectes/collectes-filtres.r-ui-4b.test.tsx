@@ -22,6 +22,7 @@ vi.mock('next/navigation', () => ({
 
 import CollectesPage from './page';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 
 const API_LISTE = '/api/v1/gestionnaire/collectes';
 const LIGNES = [
@@ -314,8 +315,9 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
   it(
     '« Réinitialiser les filtres » vide tout : URL nue, appel sans filtre',
     async () => {
+      // Vue « passées » : la période choisie (révolue) part telle quelle.
       urlParams.current =
-        'lieu=L1&traiteur=T1&type=anti_gaspi&from=2026-01-01&to=2026-06-30&taille_evenements=M,XL';
+        'onglet=passees&lieu=L1&traiteur=T1&type=anti_gaspi&from=2026-01-01&to=2026-06-30&taille_evenements=M,XL';
       const urls = fetchEspion();
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
@@ -336,13 +338,14 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
         'traiteur_ids',
         'type',
         'from',
-        'to',
         'taille_evenements[]',
       ])
         expect(apres.get(k)).toBeNull();
+      // La vue est de la navigation : elle reste, et borne la liste à hier.
+      expect(apres.get('to')).toBe(decalerJour(jourParis(), -1));
       // Le tri par défaut reste envoyé (navigation, pas un filtre).
       expect(apres.get('tri')).toBe('date');
-      expect(window.location.search).toBe('');
+      expect(window.location.search).toBe('?onglet=passees');
       expect(screen.getByRole('radio', { name: 'Toutes' })).toHaveAttribute(
         'aria-checked',
         'true',

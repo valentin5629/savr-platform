@@ -22,6 +22,7 @@ vi.mock('next/navigation', () => ({
 
 import CollectesPage from './page';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 
 const LIGNES = [
   {
@@ -116,7 +117,9 @@ describe('R-UI-4b / liste Collectes organisateur — barre de filtres', () => {
   it(
     'période lue dans l’URL et transmise ; « Réinitialiser les filtres » la retire sans toucher au type',
     async () => {
-      urlParams.current = 'type=anti_gaspi&from=2026-01-01&to=2026-06-30';
+      // Vue « passées » : la période choisie (révolue) part telle quelle.
+      urlParams.current =
+        'onglet=passees&type=anti_gaspi&from=2026-01-01&to=2026-06-30';
       const urls = fetchEspion();
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
@@ -134,10 +137,11 @@ describe('R-UI-4b / liste Collectes organisateur — barre de filtres', () => {
       });
       const apres = demande(urls[urls.length - 1]!);
       expect(apres.get('from')).toBeNull();
-      expect(apres.get('to')).toBeNull();
+      // La vue « passées » reste (navigation) et borne la liste à hier.
+      expect(apres.get('to')).toBe(decalerJour(jourParis(), -1));
       // Le type est un axe de vue, pas un filtre : il survit au reset.
       expect(apres.get('type')).toBe('anti_gaspi');
-      expect(window.location.search).toBe('?type=anti_gaspi');
+      expect(window.location.search).toBe('?onglet=passees&type=anti_gaspi');
       expect(screen.queryByTestId('collecte-filtres-bar-reset')).toBeNull();
     },
     ATTENTE_CAS_MS,

@@ -808,6 +808,27 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
     ).toBe(false);
   });
 
+  it('M3.1/recompute_infos_completes_espaces — nom de l’événement fait d’espaces → informations_completes=false', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' }, true, {
+      contact_principal_telephone: '+33611111111',
+      nom_evenement: 'Gala 2030',
+    });
+    admin.push({ data: null, error: null }); // recompute update collectes
+    const res = await patchEvent({ nom_evenement: '   ' });
+    expect(res.status).toBe(200);
+    const updateCalls = admin.__calls.update ?? [];
+    const recompute = updateCalls.find(
+      ([u]) =>
+        (u as { informations_completes?: boolean }).informations_completes !==
+        undefined,
+    );
+    expect(
+      (recompute![0] as { informations_completes: boolean })
+        .informations_completes,
+    ).toBe(false);
+  });
+
   it('M3.1/recompute_absent_client_final_vide — client final vidé → pas de recompute (champ facultatif)', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     queueEventOk({ organisation_id: 'org-1' });

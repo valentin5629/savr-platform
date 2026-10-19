@@ -154,7 +154,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Nom de l'événement obligatoire à la confirmation (pas bloquant en
   // brouillon) ; le client final est facultatif (décision Val 2026-10-19).
-  if (body.confirmer && !body.nom_evenement?.trim()) {
+  // Une valeur qui n'est pas du texte est refusée ici, pas en erreur 500.
+  if (
+    body.confirmer &&
+    (typeof body.nom_evenement !== 'string' || !body.nom_evenement.trim())
+  ) {
     return NextResponse.json(
       {
         error: "Nom de l'événement obligatoire pour confirmer la programmation",

@@ -86,91 +86,101 @@ afterEach(() => {
   window.history.replaceState({}, '', '/');
 });
 
+/**
+ * Parcourt les trois étapes depuis « Dupliquer » et rend le corps envoyé à la
+ * confirmation. `clientFinal` remplace la valeur dupliquée de la case « Client
+ * final » juste avant de quitter l'étape 1.
+ */
+async function programmer(clientFinal: string) {
+  window.history.replaceState({}, '', '/programmer/nouveau?from=c-src');
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const corps = url.startsWith('/api/v1/traiteur/collectes/c-src')
+      ? { data: SOURCE }
+      : url.includes('/programmation/types-evenements')
+        ? [{ id: 't1', code: 'cocktail', libelle: 'Cocktail' }]
+        : init?.method === 'POST'
+          ? { evenement_id: 'evt-1' }
+          : [];
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(corps),
+    } as Response);
+  });
+  vi.stubGlobal('fetch', fetchMock);
+
+  render(<NouveauProgrammationPage />);
+
+  // La duplication remplit chaque case avec sa propre valeur.
+  const nomEvenement = await screen.findByLabelText(
+    /^Nom de l'événement/,
+    undefined,
+    ATTENTE_UI,
+  );
+  await waitFor(
+    () => expect(nomEvenement).toHaveValue('Gala de printemps'),
+    ATTENTE_UI,
+  );
+  const champClient = screen.getByLabelText('Client final (optionnel)');
+  expect(champClient).toHaveValue('Maison Dupont');
+  expect(nomEvenement).toBeRequired();
+  expect(champClient).not.toBeRequired();
+  expect(screen.queryByText(/Nom du client final/)).toBeNull();
+
+  const continuer = () => screen.getByRole('button', { name: /Continuer/ });
+
+  // Sans nom de l'événement, l'étape 1 ne se valide pas.
+  fireEvent.change(nomEvenement, { target: { value: '   ' } });
+  expect(continuer()).toBeDisabled();
+  fireEvent.change(nomEvenement, { target: { value: 'Gala de printemps' } });
+
+  fireEvent.change(champClient, { target: { value: clientFinal } });
+  expect(continuer()).toBeEnabled();
+  fireEvent.click(continuer());
+
+  // Étape 2 pré-remplie par la duplication.
+  await screen.findByRole('heading', { name: 'Lieu et contacts' }, ATTENTE_UI);
+  fireEvent.click(continuer());
+
+  // Étape 3 : la date, puis la confirmation.
+  fireEvent.change(
+    await screen.findByTestId('date-zd', undefined, ATTENTE_UI),
+    {
+      target: { value: '2030-01-15' },
+    },
+  );
+  fireEvent.click(
+    screen.getByRole('button', { name: /Confirmer la programmation/ }),
+  );
+
+  const envoi = await waitFor(() => {
+    const appel = fetchMock.mock.calls.find(
+      ([u, init]) =>
+        String(u) === '/api/v1/programmation/evenements' &&
+        init?.method === 'POST',
+    );
+    expect(appel).toBeTruthy();
+    return appel!;
+  }, ATTENTE_UI);
+  return JSON.parse(String(envoi[1]?.body)) as Record<string, unknown>;
+}
+
 describe('M1.2 / nom_evenement_client_final — étape 1', () => {
   it(
-    'deux cases : « Nom de l’événement » obligatoire, « Client final » facultatif, chacune envoyée dans sa colonne',
+    'client final renseigné : le nom de l’événement et le client final partent chacun dans sa colonne',
     async () => {
-      window.history.replaceState({}, '', '/programmer/nouveau?from=c-src');
-      const fetchMock = vi.fn(
-        (input: RequestInfo | URL, init?: RequestInit) => {
-          const url = String(input);
-          const corps = url.startsWith('/api/v1/traiteur/collectes/c-src')
-            ? { data: SOURCE }
-            : url.includes('/programmation/types-evenements')
-              ? [{ id: 't1', code: 'cocktail', libelle: 'Cocktail' }]
-              : init?.method === 'POST'
-                ? { evenement_id: 'evt-1' }
-                : [];
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(corps),
-          } as Response);
-        },
-      );
-      vi.stubGlobal('fetch', fetchMock);
+      const corps = await programmer('Maison Dupont');
+      expect(corps.nom_evenement).toBe('Gala de printemps');
+      expect(corps.nom_client_organisateur).toBe('Maison Dupont');
+      expect(corps.confirmer).toBe(true);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-      render(<NouveauProgrammationPage />);
-
-      // La duplication remplit chaque case avec sa propre valeur.
-      const nomEvenement = await screen.findByLabelText(
-        /^Nom de l'événement/,
-        undefined,
-        ATTENTE_UI,
-      );
-      await waitFor(
-        () => expect(nomEvenement).toHaveValue('Gala de printemps'),
-        ATTENTE_UI,
-      );
-      const clientFinal = screen.getByLabelText('Client final (optionnel)');
-      expect(clientFinal).toHaveValue('Maison Dupont');
-      expect(nomEvenement).toBeRequired();
-      expect(clientFinal).not.toBeRequired();
-      expect(screen.queryByText(/Nom du client final/)).toBeNull();
-
-      const continuer = () => screen.getByRole('button', { name: /Continuer/ });
-
-      // Sans nom de l'événement, l'étape 1 ne se valide pas.
-      fireEvent.change(nomEvenement, { target: { value: '   ' } });
-      expect(continuer()).toBeDisabled();
-      fireEvent.change(nomEvenement, {
-        target: { value: 'Gala de printemps' },
-      });
-
-      // Sans client final, elle se valide.
-      fireEvent.change(clientFinal, { target: { value: '' } });
-      expect(continuer()).toBeEnabled();
-      fireEvent.click(continuer());
-
-      // Étape 2 pré-remplie par la duplication.
-      await screen.findByRole(
-        'heading',
-        { name: 'Lieu et contacts' },
-        ATTENTE_UI,
-      );
-      fireEvent.click(continuer());
-
-      // Étape 3 : la date, puis la confirmation.
-      fireEvent.change(
-        await screen.findByTestId('date-zd', undefined, ATTENTE_UI),
-        { target: { value: '2030-01-15' } },
-      );
-      fireEvent.click(
-        screen.getByRole('button', { name: /Confirmer la programmation/ }),
-      );
-
-      const envoi = await waitFor(() => {
-        const appel = fetchMock.mock.calls.find(
-          ([u, init]) =>
-            String(u) === '/api/v1/programmation/evenements' &&
-            init?.method === 'POST',
-        );
-        expect(appel).toBeTruthy();
-        return appel!;
-      }, ATTENTE_UI);
-      const corps = JSON.parse(String(envoi[1]?.body)) as Record<
-        string,
-        unknown
-      >;
+  it(
+    'client final vide : l’étape 1 se valide et aucun client n’est envoyé',
+    async () => {
+      const corps = await programmer('');
       expect(corps.nom_evenement).toBe('Gala de printemps');
       expect(corps).not.toHaveProperty('nom_client_organisateur');
       expect(corps.confirmer).toBe(true);

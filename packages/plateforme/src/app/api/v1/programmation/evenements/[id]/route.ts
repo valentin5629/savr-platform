@@ -236,7 +236,10 @@ export async function PATCH(
       'nom_evenement' in updates
         ? updates.nom_evenement
         : beforeRow.nom_evenement;
-    const complet = Boolean(contactTel) && Boolean(nomEvenement);
+    // Un nom fait d'espaces vaut un nom absent, comme à la création.
+    const nomRenseigne =
+      typeof nomEvenement === 'string' && nomEvenement.trim() !== '';
+    const complet = Boolean(contactTel) && nomRenseigne;
     await admin
       .from('collectes')
       .update({ informations_completes: complet })

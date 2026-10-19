@@ -357,6 +357,50 @@ describe('M1.2 / Validations bloquantes', () => {
     expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
   });
 
+  it('validations_nom_evenement_non_texte — 422, jamais une erreur 500', async () => {
+    setupAuth('traiteur_commercial');
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', {
+        ...BODY_ZD,
+        nom_evenement: 42,
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+
+  it('client_final_renseigne — chaque nom écrit dans sa colonne', async () => {
+    setupAuth('traiteur_commercial');
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'entite-1' },
+      error: null,
+    });
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-avec-client', nom_evenement: 'Gala 2030' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({
+      data: 'collecte-avec-client',
+      error: null,
+    });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', BODY_ZD),
+    );
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nom_evenement: 'Gala 2030',
+        nom_client_organisateur: 'Traiteur Dupont',
+      }),
+    );
+  });
+
   it('client_final_facultatif — 201 sans client final, sans badge « Info incomplète »', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle.mockResolvedValueOnce({

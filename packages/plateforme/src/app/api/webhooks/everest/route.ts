@@ -218,7 +218,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   const params = new URLSearchParams(text);
   const missionId = params.get('ref') ?? '';
   const eventType = params.get('event') ?? '';
-  const occurredAt = params.get('date') ?? new Date().toISOString();
+  // `date` vide = absent : sinon la clé d'idempotence serait la même pour tous.
+  const occurredAt = params.get('date') || new Date().toISOString();
 
   const payload: Record<string, string> = {};
   for (const [k, v] of params.entries()) payload[k] = v;

@@ -161,6 +161,31 @@ describe('EverestClient — contrat du swagger Everest', () => {
     });
   });
 
+  it('M2.5/everest_contrat_get_types_inattendus — statut, images ou véhicule d’un autre type que le swagger : lus comme absents, sans erreur', async () => {
+    fetchMock.mockResolvedValueOnce(
+      json({
+        mission: {
+          ref: 'REF-INVENTEE-1',
+          status: 5,
+          status_text: { libelle: 'inattendu' },
+          medias: 'pas-un-tableau',
+          agent_vehicle: 'velo',
+          agent_name: 12,
+        },
+      }),
+    );
+
+    expect(await client().getMission('REF-INVENTEE-1', 'corr-1')).toEqual({
+      mission_id: 'REF-INVENTEE-1',
+      status: '',
+      cout_ht: null,
+      preuve_url: null,
+      coursier_nom: null,
+      coursier_telephone: null,
+      vehicule_type: null,
+    });
+  });
+
   it('M2.5/everest_contrat_get_sans_ref — relecture : réponse 200 sans mission.ref → erreur ambiguë', async () => {
     fetchMock.mockResolvedValueOnce(json({ mission: { status: 'delivered' } }));
 

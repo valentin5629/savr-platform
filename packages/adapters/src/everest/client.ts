@@ -353,13 +353,16 @@ export class EverestClient {
     const mission = await lireMission(resp, 'getMission');
     return {
       mission_id: mission.ref,
-      status: texteOuNull(mission.status_text) ?? mission.status ?? '',
+      // Réponse tierce : un champ d'un autre type que celui du swagger est lu
+      // comme absent (un statut non textuel ferait échouer la route).
+      status:
+        texteOuNull(mission.status_text) ?? texteOuNull(mission.status) ?? '',
       cout_ht: toNumberOrNull(mission.price_excl),
       // Le swagger ne dit pas quelle image (photos et signatures) prouve le
       // passage : la première qui a une adresse.
-      preuve_url: texteOuNull(
-        mission.medias?.find((m) => texteOuNull(m?.src))?.src,
-      ),
+      preuve_url: Array.isArray(mission.medias)
+        ? texteOuNull(mission.medias.find((m) => texteOuNull(m?.src))?.src)
+        : null,
       coursier_nom: texteOuNull(mission.agent_name),
       coursier_telephone: texteOuNull(mission.agent_tel),
       vehicule_type: texteOuNull(mission.agent_vehicle?.name),

@@ -424,6 +424,32 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     );
   });
 
+  it('M2.5/everest_notification_date_vide — date vide : la clé d’idempotence prend l’heure de réception, jamais « ref-event- »', async () => {
+    mockMissionRow = {
+      id: 'em-001',
+      tournee_id: 'tour-001',
+      collecte_id: 'col-001',
+      statut_everest: 'created',
+    };
+    mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        event: 'mission_dispatched',
+        ref: 'EVR-001',
+        date: '',
+      }),
+    );
+    expect(resp.status).toBe(200);
+
+    const [ligne] = (insertedRows['integrations_inbox'] ?? []) as Array<{
+      event_id_externe: string;
+    }>;
+    expect(ligne?.event_id_externe).toMatch(
+      /^EVR-001-mission_dispatched-\d{4}-\d{2}-\d{2}T/,
+    );
+  });
+
   it('mission_dispatched → statut_everest=assigned + statut_tms=acceptee', async () => {
     mockMissionRow = {
       id: 'em-001',

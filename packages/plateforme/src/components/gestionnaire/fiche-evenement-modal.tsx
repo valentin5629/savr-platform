@@ -300,8 +300,6 @@ export function FicheEvenementModal({
   const [tentative, setTentative] = useState(0);
   const [logoKo, setLogoKo] = useState(false);
   const { toast } = useToast();
-  const toastRef = useRef(toast);
-  toastRef.current = toast;
   // Une fiche déjà affichée : un rechargement en échec ne la remplace pas par
   // l'état Error (le bilan resterait masqué), il le signale seulement.
   const affichee = useRef(false);
@@ -343,7 +341,7 @@ export function FicheEvenementModal({
       .catch(() => {
         if (annule) return;
         if (affichee.current) {
-          toastRef.current({
+          toast({
             variant: 'error',
             title: 'Bilan non actualisé',
             description:
@@ -356,7 +354,8 @@ export function FicheEvenementModal({
     return () => {
       annule = true;
     };
-  }, [evenementId, tentative]);
+    // `toast` est stable (useCallback du ToastProvider) : il ne relance rien.
+  }, [evenementId, tentative, toast]);
 
   const recharger = useCallback(() => setTentative((n) => n + 1), []);
 

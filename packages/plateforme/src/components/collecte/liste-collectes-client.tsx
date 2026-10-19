@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Truck } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 import { PageHero } from '@/components/ui/page-hero';
 import { Button } from '@/components/ui/button';
 import type { CollecteType } from '@/components/dashboards/index.js';
@@ -243,12 +244,15 @@ export function ListeCollectesClient({
   // les filtres actifs »). La période envoyée est TOUJOURS bornée à la vue
   // courante (à venir : aujourd'hui et après ; passées : avant aujourd'hui) :
   // un filtre ne doit jamais la déborder.
+  // Jour lu à chaque rendu : une page restée ouverte passé minuit se recale
+  // au premier geste (fermeture de fiche comprise).
+  const aujourdhui = jourParis();
   const qsListe = useMemo(() => {
     const choisis = filtres.statuts.filter((s) => STATUTS.includes(s));
     // Jamais de `statut` vide (valeur inconnue, lien fabriqué) : la liste reste
     // celle des statuts qu'elle sait afficher.
     const statuts = choisis.length > 0 ? choisis : STATUTS;
-    const periode = periodeDeLaVue(onglet, filtres);
+    const periode = periodeDeLaVue(onglet, filtres, aujourdhui);
     const qs = new URLSearchParams({
       type: typeFiltre,
       statut: statuts.join(','),
@@ -271,6 +275,7 @@ export function ListeCollectesClient({
   }, [
     typeFiltre,
     onglet,
+    aujourdhui,
     filtres,
     commercialFiltre,
     associationFiltre,

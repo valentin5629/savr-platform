@@ -28,6 +28,7 @@ import {
   triDateDescendant,
   type VueCollectes,
 } from '@/lib/collectes/vue-temporelle';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 import {
   ToggleTypeCollecte,
   type TypeCollecteFiltre,
@@ -154,8 +155,8 @@ const FILTRES = {
 };
 
 // Toutes les colonnes du §06.06 §3 sont visibles par défaut (menu « Colonnes »
-// pour en masquer). Seule exception : le statut TMS n'a pas d'objet dans les
-// collectes passées.
+// pour en masquer). Seule exception : le statut TMS, masqué par défaut dans les
+// collectes passées (la plupart sont terminées) ; le menu « Colonnes » le rend.
 const COLONNES_MASQUEES: Record<VueCollectes, Record<string, boolean>> = {
   a_venir: {},
   passees: { statut_tms: false },
@@ -392,6 +393,9 @@ export default function CollectesPage() {
   // des mêmes paramètres (§12 §2 « l'export respecte les filtres actifs »).
   // `null` = croisement vide (ex. pastille Annulées + Statut Clôturée) : aucun
   // appel, liste vide, rien à exporter.
+  // Jour lu à chaque rendu : une page restée ouverte passé minuit se recale
+  // au premier geste.
+  const aujourdhui = jourParis();
   const filtresListe = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -417,7 +421,7 @@ export default function CollectesPage() {
     const periode =
       tab === 'a_venir' && quickFilter
         ? { from, to }
-        : periodeDeLaVue(tab, { from, to });
+        : periodeDeLaVue(tab, { from, to }, aujourdhui);
     // Type (segmenté) : même paramètre CSV qu'avant, absent pour « Toutes ».
     if (type !== 'tous') params.set('types', type);
 
@@ -436,6 +440,7 @@ export default function CollectesPage() {
     return params;
   }, [
     tab,
+    aujourdhui,
     quickFilter,
     type,
     statutsSel,

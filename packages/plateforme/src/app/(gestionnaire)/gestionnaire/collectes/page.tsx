@@ -57,6 +57,7 @@ import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
 import { ouvrirDocumentPresigne } from '@/lib/collectes/rapport-telechargement-client';
 import { fmtKg, fmtPax } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 import {
   lireVueCollectes,
   periodeDeLaVue,
@@ -277,10 +278,13 @@ function GestionnaireCollectesContent() {
   // une panne serveur se lisait comme un parc sans collecte (§10 §7).
   // Filtres de la liste, sans tri ni page : la liste ET l'export CSV partent de
   // la même chaîne, le fichier contient donc les lignes de la liste (§12 §2).
+  // Jour lu à chaque rendu : une page restée ouverte passé minuit se recale
+  // au premier geste.
+  const aujourdhui = jourParis();
   const qsFiltres = useMemo(() => {
     const qs = new URLSearchParams();
     // Période de la barre, bornée à la vue (à venir : aujourd'hui et après).
-    const periode = periodeDeLaVue(vue, { from: f.from, to: f.to });
+    const periode = periodeDeLaVue(vue, { from: f.from, to: f.to }, aujourdhui);
     if (f.lieu.length > 0) qs.set('lieu_ids', f.lieu.join(','));
     if (f.traiteur.length > 0) qs.set('traiteur_ids', f.traiteur.join(','));
     if (f.type) qs.set('type', f.type);
@@ -294,6 +298,7 @@ function GestionnaireCollectesContent() {
     return qs.toString();
   }, [
     vue,
+    aujourdhui,
     f.lieu,
     f.traiteur,
     f.type,

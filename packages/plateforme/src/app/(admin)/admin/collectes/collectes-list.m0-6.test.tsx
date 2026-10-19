@@ -3,7 +3,7 @@
  * La liste est une Data Table plate (DataGrid, décision Val 2026-09-28) : une
  * ligne par collecte, tri serveur par en-tête, actions dans le menu « ⋯ » :
  * - contenu ligne (traiteur, lieu, client organisateur, adresse, transporteur),
- * - segment Programmées / Historique (preset du filtre `statuts`),
+ * - vues « à venir » / « passées » (bornes de date, tous statuts),
  * - tuiles KPI « à dispatcher », chips + compteurs, barre de filtres toujours
  *   visible, sans recherche libre (traiteur / lieu → filtrage serveur),
  *   indicateurs Historique (poids/taux ZD, repas AG, rapport consulté).
@@ -1033,7 +1033,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
-      // Statut multi-sélection scopée à l'onglet Programmées : filtre en ligne
+      // Statut multi-sélection (mêmes options dans les deux vues) : filtre en ligne
       // « Statut  Tous ▾ » → liste à cocher (case distincte du badge de carte).
       fireEvent.click(screen.getByTestId('collectes-filtre-statut'));
       fireEvent.click(
@@ -1068,7 +1068,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
 
       await waitFor(() => {
         const q = derniereRequeteListe(fetchMock);
-        // La sélection remplace le preset de l'onglet.
+        // La sélection restreint la liste aux statuts cochés.
         expect(q.get('statuts')).toBe('creee');
       }, ATTENTE_UI);
     },
@@ -1178,7 +1178,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6/statut_admin_brouillon_absent — ?statut=brouillon sur Programmées : aucun résultat, sans appel API (jamais une liste élargie)',
+    'M0.6/statut_admin_brouillon_absent — ?statut=brouillon : aucun résultat, sans appel API (jamais une liste élargie)',
     async () => {
       navState.search = new URLSearchParams('statut=brouillon');
       const fetchMock = mockCollectesFetch();

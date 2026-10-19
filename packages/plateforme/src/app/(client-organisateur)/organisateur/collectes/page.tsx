@@ -22,6 +22,7 @@ import {
   periodeDeLaVue,
   triDateDescendant,
 } from '@/lib/collectes/vue-temporelle';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 import {
   CollecteFiltresBar,
   FILTRES_COLLECTE_VIDES,
@@ -173,16 +174,18 @@ function CollectesContent() {
   const tab: CollecteType =
     f.type === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
   const vue = lireVueCollectes(f.onglet) ?? 'a_venir';
+  // Jour lu à chaque rendu (page restée ouverte passé minuit).
+  const aujourdhui = jourParis();
 
   // Paramètres partagés avec l'export CSV (§12 « l'export respecte les filtres
   // actifs ») ; la période de la barre est bornée à la vue.
   const qs = useMemo(() => {
     const usp = new URLSearchParams({ type: tab });
-    const periode = periodeDeLaVue(vue, { from: f.from, to: f.to });
+    const periode = periodeDeLaVue(vue, { from: f.from, to: f.to }, aujourdhui);
     if (periode.from) usp.set('from', periode.from);
     if (periode.to) usp.set('to', periode.to);
     return usp.toString();
-  }, [tab, vue, f.from, f.to]);
+  }, [tab, vue, aujourdhui, f.from, f.to]);
   // Liste non paginée (la route ne l'est pas) : garde anti-réponse périmée et
   // état Error portés par `useListePaginee`.
   const {

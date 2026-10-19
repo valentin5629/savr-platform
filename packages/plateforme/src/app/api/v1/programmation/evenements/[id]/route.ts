@@ -219,13 +219,12 @@ export async function PATCH(
     });
 
   // Recompute de `informations_completes` (§04 Data Model) — BL-P1-TRAIT-04.
-  // Le badge « Info incomplète » (posé à la programmation quand contact principal
-  // ou nom de l'événement manquait) se lève dès que ces champs sont renseignés à
-  // l'édition. Miroir strict de la règle de programmation (§programmation/
-  // evenements) : complet = contact_principal_telephone ET nom_evenement
-  // renseignés ; le client final, facultatif, n'en fait pas partie (décision Val
-  // 2026-10-19). Les collectes à lieu_overrides restent incomplètes (override
-  // lieu non levé ici) → exclues du recompute.
+  // À l'édition, le badge « Info incomplète » est recalculé sur le téléphone du
+  // contact principal ET le nom de l'événement ; le client final, facultatif,
+  // n'en fait pas partie (décision Val 2026-10-19). À la programmation, ces deux
+  // champs sont exigés (422) : seule une surcharge du lieu y pose le badge. Les
+  // collectes à lieu_overrides restent incomplètes (override lieu non levé ici)
+  // → exclues du recompute.
   if ('contact_principal_telephone' in updates || 'nom_evenement' in updates) {
     const beforeRow = (before ?? {}) as Record<string, unknown>;
     const contactTel =

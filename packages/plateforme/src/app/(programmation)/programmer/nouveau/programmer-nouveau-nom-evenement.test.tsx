@@ -187,4 +187,43 @@ describe('M1.2 / nom_evenement_client_final — étape 1', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'dupliquer un événement sans nom : la case reste vide et l’étape 1 attend un nom',
+    async () => {
+      window.history.replaceState({}, '', '/programmer/nouveau?from=c-src');
+      const sansNom = {
+        ...SOURCE,
+        evenement: { ...SOURCE.evenement, nom_evenement: null },
+      };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((input: RequestInfo | URL) => {
+          const url = String(input);
+          const corps = url.startsWith('/api/v1/traiteur/collectes/c-src')
+            ? { data: sansNom }
+            : url.includes('/programmation/types-evenements')
+              ? [{ id: 't1', code: 'cocktail', libelle: 'Cocktail' }]
+              : [];
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(corps),
+          } as Response);
+        }),
+      );
+
+      render(<NouveauProgrammationPage />);
+
+      // Le client final dupliqué prouve que la source est chargée.
+      await screen.findByDisplayValue('Maison Dupont', undefined, ATTENTE_UI);
+      const nomEvenement = screen.getByLabelText(/^Nom de l'événement/);
+      expect(nomEvenement).toHaveValue('');
+      const continuer = screen.getByRole('button', { name: /Continuer/ });
+      expect(continuer).toBeDisabled();
+
+      fireEvent.change(nomEvenement, { target: { value: 'Gala d’automne' } });
+      expect(continuer).toBeEnabled();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

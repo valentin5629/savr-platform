@@ -19,14 +19,18 @@ type Result = { data: unknown; error: unknown };
 function makeChain() {
   const queue: Result[] = [];
   const calls: Record<string, unknown[][]> = {};
+  // Tous les appels, dans l'ordre : prouve qu'un UPDATE est suivi de ses filtres.
+  const ordre: [string, unknown[]][] = [];
   const record = (name: string, args: unknown[]) => {
     (calls[name] ??= []).push(args);
+    ordre.push([name, args]);
   };
   const next = (): Result => queue.shift() ?? { data: null, error: null };
 
   const chain: Record<string, unknown> = {
     __queue: queue,
     __calls: calls,
+    __ordre: ordre,
     push(r: Result) {
       queue.push(r);
       return chain;
@@ -61,6 +65,7 @@ function makeChain() {
   return chain as Record<string, unknown> & {
     push(r: Result): unknown;
     __calls: Record<string, unknown[][]>;
+    __ordre: [string, unknown[]][];
   };
 }
 
@@ -827,6 +832,28 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
       (recompute![0] as { informations_completes: boolean })
         .informations_completes,
     ).toBe(false);
+  });
+
+  it('M3.1/recompute_borne_a_l_evenement — l’UPDATE du badge ne vise que les collectes de cet événement, sans surcharge de lieu', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' });
+    admin.push({ data: null, error: null }); // recompute update collectes
+    const res = await patchEvent({
+      contact_principal_telephone: '+33611111111',
+      nom_evenement: 'Gala 2030',
+    });
+    expect(res.status).toBe(200);
+    const ordre = admin.__ordre;
+    const i = ordre.findIndex(
+      ([m, args]) =>
+        m === 'update' &&
+        (args[0] as { informations_completes?: boolean })
+          .informations_completes !== undefined,
+    );
+    expect(i).toBeGreaterThan(0);
+    expect(ordre[i - 1]).toEqual(['from', ['collectes']]);
+    expect(ordre[i + 1]).toEqual(['eq', ['evenement_id', 'e1']]);
+    expect(ordre[i + 2]).toEqual(['is', ['lieu_overrides', null]]);
   });
 
   it('M3.1/recompute_absent_client_final_vide — client final vidé → pas de recompute (champ facultatif)', async () => {

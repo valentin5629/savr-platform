@@ -1,5 +1,7 @@
 // Webhook entrant Everest — M2.5.
-// Everest envoie POST application/x-www-form-urlencoded.
+// Everest envoie POST application/x-www-form-urlencoded. Champs lus (swagger
+// Everest 1.291.1) : `ref` (référence de la mission), `event` (nom du webhook,
+// ex. `mission_dispatched`), `date` (horodatage Unix), `agent_name`.
 // Sécurisé par X-Webhook-Token (secret en Vault, non devinable — M14 D6).
 // Pattern W2 (M14) adapté V1 Plateforme (tables plateforme.* au lieu de tms.*).
 //
@@ -8,7 +10,7 @@
 //   • alerte Ops in-app quand une collecte est identifiée (anomalie fonctionnelle,
 //     JAMAIS Slack — CLAUDE.md §13) ;
 //   • l'inbox N'EST PAS marquée `traite` → réponse 500 générique, pour qu'un rejeu
-//     Everest du même event (même mission_id + event_type + occurred_at) retraite
+//     Everest du même event (même ref + event + date) retraite
 //     l'event au lieu d'être pris pour un doublon ;
 //   • les inserts `integrations_logs` restent best-effort (trace technique : leur
 //     perte ne fausse aucun état métier).
@@ -213,9 +215,9 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   // ── 2. Décodage payload form-urlencoded ────────────────────────────────────
   const text = await req.text();
   const params = new URLSearchParams(text);
-  const missionId = params.get('mission_id') ?? '';
-  const eventType = params.get('event_type') ?? '';
-  const occurredAt = params.get('occurred_at') ?? new Date().toISOString();
+  const missionId = params.get('ref') ?? '';
+  const eventType = params.get('event') ?? '';
+  const occurredAt = params.get('date') ?? new Date().toISOString();
 
   const payload: Record<string, string> = {};
   for (const [k, v] of params.entries()) payload[k] = v;
@@ -408,15 +410,10 @@ async function handleEventType(
         derniere_sync_at: now,
         payload_latest_update: payload,
       };
-      const coursierNom =
-        params.get('coursier_nom') ?? params.get('driver_name');
-      const coursierTel =
-        params.get('coursier_telephone') ?? params.get('driver_phone');
-      const vehiculeType =
-        params.get('vehicule_type') ?? params.get('vehicle_type');
+      // La notification ne porte que le nom du coursier ; son téléphone est relu
+      // sur l'API plus bas (tournée).
+      const coursierNom = params.get('agent_name');
       if (coursierNom) updates['coursier_nom'] = coursierNom;
-      if (coursierTel) updates['coursier_telephone'] = coursierTel;
-      if (vehiculeType) updates['vehicule_type_everest'] = vehiculeType;
 
       await majMission(updates, 'mission_dispatched');
 
@@ -476,7 +473,7 @@ async function handleEventType(
       // Best-effort (pas une transition d'état) : re-fetch KO ou UPDATE refusé
       // = tracé, rien d'écrit, réponse 200. Placé APRÈS la transition
       // `statut_tms → acceptee` (l'étape principale) : la relecture API (jusqu'à
-      // 80 s avec un 401 puis un nouvel essai) ne retarde pas l'acceptation.
+      // 30 s) ne retarde pas l'acceptation.
       if (lue.etat.statut === 'annulee') break;
       {
         let coursier: { nom: string; telephone: string | null } | null = null;
@@ -578,8 +575,8 @@ async function handleEventType(
         await supabase.from('integrations_logs').insert({
           integration: 'everest',
           direction: 'sortant',
-          methode: 'GET',
-          endpoint: `/missions/${missionId}`,
+          methode: 'POST',
+          endpoint: '/missions/get',
           erreur: `refetch_failed: ${err instanceof Error ? err.message : String(err)}`,
           correlation_id: missionId,
         });
@@ -671,8 +668,8 @@ async function handleEventType(
         direction: 'entrant',
         methode: 'POST',
         endpoint: '/api/webhooks/everest',
-        erreur: `mission_failed: mission_id=${String(params.get('mission_id'))}`,
-        correlation_id: String(params.get('mission_id')),
+        erreur: `mission_failed: mission_id=${missionId}`,
+        correlation_id: missionId,
       });
       // BL-P1-API-04 (c) : échec AVANT acceptation = rejet prestataire (webhook
       // async, §08 §3) → collecte rejetee_par_prestataire + réattribution Ops.
@@ -704,7 +701,7 @@ async function handleEventType(
         .select('id')
         .eq('action', 'CANCEL')
         .contains('new_values', {
-          everest_mission_id: params.get('mission_id'),
+          everest_mission_id: missionId,
         })
         .limit(1)
         .maybeSingle();
@@ -730,8 +727,8 @@ async function handleEventType(
           direction: 'entrant',
           methode: 'POST',
           endpoint: '/api/webhooks/everest',
-          erreur: `mission_cancelled_externally: mission_id=${String(params.get('mission_id'))}`,
-          correlation_id: String(params.get('mission_id')),
+          erreur: `mission_cancelled_externally: mission_id=${missionId}`,
+          correlation_id: missionId,
         });
         // BL-P1-API-04 (c) : annulation externe AVANT acceptation = refus
         // transporteur (§08 §3) → rejetee_par_prestataire + réattribution Ops.
@@ -773,7 +770,7 @@ async function handleEventType(
         methode: 'POST',
         endpoint: '/api/webhooks/everest',
         erreur: `event_type_inconnu: ${eventType}`,
-        correlation_id: String(params.get('mission_id')),
+        correlation_id: missionId,
       });
       break;
     }

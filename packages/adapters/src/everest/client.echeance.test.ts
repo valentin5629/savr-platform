@@ -40,7 +40,7 @@ describe('M1.5a / passage borné — client Everest', () => {
     );
 
     const annulation = avecEcheance(Date.now() - 1, () =>
-      client().cancelMission({ mission_id: 'm-1' }, 'corr'),
+      client().cancelMission({ ref: 'm-1' }, 'corr'),
     );
     await expect(annulation).rejects.toBeInstanceOf(LogistiqueTransientError);
     await expect(annulation).rejects.toThrow(
@@ -52,7 +52,7 @@ describe('M1.5a / passage borné — client Everest', () => {
     );
     await expect(lecture).rejects.toBeInstanceOf(LogistiqueTransientError);
     await expect(lecture).rejects.toThrow(
-      /^Échéance du passage atteinte : Everest GET \S+ non démarré$/,
+      /^Échéance du passage atteinte : Everest POST \/missions\/get non démarré$/,
     );
 
     expect(fetchMock).not.toHaveBeenCalled();

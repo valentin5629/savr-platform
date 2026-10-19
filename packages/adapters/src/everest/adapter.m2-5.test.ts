@@ -417,7 +417,7 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     expect(mission.client_ref).toBe('tournee-everest-new-001');
   });
 
-  it('M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans dropoff', async () => {
+  it('M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans address_end', async () => {
     const { payloads } = setupEverestMock();
     const supabase = makeMockSupabase({
       brancheAttribution: 'ag_velo_programme',
@@ -426,16 +426,44 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
 
     await adapter.dispatchCollecte(COLLECTE_AG, 1);
 
-    const payload = payloads.get('tournee-everest-new-001') as {
-      pickup?: { address: string };
-      dropoff?: { address: string; contact?: { name: string; phone: string } };
-    };
-    // Point A = lieu de collecte, point B = association (décision Val 2026-10-01).
-    expect(payload?.pickup?.address).toBe('45 rue La Boétie, 75008 Paris');
-    expect(payload?.dropoff).toEqual({
-      address: '12 rue des Associations, Ivry-sur-Seine',
-      contact: { name: 'Nadia Benali', phone: '+33699990001' },
+    // Point A = lieu de collecte, point B = association (décision Val 2026-10-01),
+    // aux noms de champs du swagger Everest.
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      address_start: '45 rue La Boétie, 75008 Paris',
+      address_start_name: COLLECTE_AG.contact_principal_nom,
+      address_start_tel: COLLECTE_AG.contact_principal_telephone,
+      address_end: '12 rue des Associations, Ivry-sur-Seine',
+      address_end_name: 'Nadia Benali',
+      address_end_tel: '+33699990001',
     });
+  });
+
+  it('M2.5/everest_contrat_creation — la création n’envoie que des champs du swagger Everest', async () => {
+    const { payloads } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+
+    // Propriétés de POST /missions/create (swagger 1.291.1) utilisées par Savr.
+    // Avant : pickup / dropoff / timeslot / notes / metadata, inconnus d'Everest,
+    // sans les deux adresses obligatoires.
+    expect(
+      Object.keys(payloads.get('tournee-everest-new-001') ?? {}).sort(),
+    ).toEqual([
+      'address_end',
+      'address_end_name',
+      'address_end_tel',
+      'address_start',
+      'address_start_name',
+      'address_start_tel',
+      'client_ref',
+      'comment',
+      'service_id',
+      'start_date',
+    ]);
   });
 
   it('M2.5 / dispatch — AG sans association attribuée → LogistiquePermanentError, aucune mission créée', async () => {
@@ -508,30 +536,54 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
 
     const mission = [...missions.values()][0]!;
     expect(mission.service_id).toBe(77);
-    // service 77 = créneau 1h (SERVICE_SLOT_MINUTES[77]=60)
-    const payload = payloads.get('tournee-everest-new-001') as {
-      timeslot?: { start: string; end: string };
-    };
-    expect(payload?.timeslot?.start).toBe('22:00');
-    expect(payload?.timeslot?.end).toBe('23:00');
+    // Le créneau d'1 h du 77 est porté par le service : seul son début part.
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      start_date: 1784577600,
+    });
   });
 
-  it('dispatch timeslot — start=22:00, end=22:30 (30 min service 71)', async () => {
+  it('M2.5/everest_start_date_heure_demandee — start_date = heure demandée par le traiteur, à Paris, en secondes Unix (heure d’été et d’hiver)', async () => {
     const { payloads } = setupEverestMock();
+    const adapter = new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
+    );
+
+    // 20/07/2026 22:00 à Paris (UTC+2) = 20:00 UTC.
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      start_date: 1784577600,
+    });
+
+    // 15/12/2026 22:00 à Paris (UTC+1) = 21:00 UTC.
+    const { payloads: hiver } = setupEverestMock();
+    await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
+    ).dispatchCollecte({ ...COLLECTE_AG, date_collecte: '2026-12-15' }, 1);
+    expect(hiver.get('tournee-everest-new-001')).toMatchObject({
+      start_date: 1797368400,
+    });
+  });
+
+  it('M2.5/everest_start_date_illisible — date de collecte illisible → LogistiquePermanentError avant tout envoi, collecte non rejetée', async () => {
+    const { missions } = setupEverestMock();
     const supabase = makeMockSupabase({
       brancheAttribution: 'ag_velo_programme',
     });
     const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
 
-    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+    await expect(
+      adapter.dispatchCollecte(
+        { ...COLLECTE_AG, date_collecte: 'pas-une-date' },
+        1,
+      ),
+    ).rejects.toThrow(/date ou heure de collecte illisible/);
 
-    // Le payload brut envoyé à createMission contient le timeslot
-    // client_ref = tournee.id → la clé du Map est 'tournee-everest-new-001'
-    const payload = payloads.get('tournee-everest-new-001') as {
-      timeslot?: { start: string; end: string };
-    };
-    expect(payload?.timeslot?.start).toBe('22:00');
-    expect(payload?.timeslot?.end).toBe('22:30');
+    // Sans start_date, Everest prendrait le prochain créneau libre : rien ne part.
+    expect(missions.size).toBe(0);
+    expect(supabase._inserted['tournees']).toBeUndefined();
+    expect(supabase._applied['collectes']).toBeUndefined();
   });
 
   it('idempotence — mission active existante → no createMission (no-op)', async () => {
@@ -1332,13 +1384,14 @@ describe('M2.5 / Garde-fou G3 — anti-couplage', () => {
   });
 });
 
-// ─── Commentaire au transporteur → `notes` Everest (Val 2026-10-15, C61) ──────
+// ─── Commentaire au transporteur → `comment` Everest (Val 2026-10-15, C61) ────
 //
 // Même texte que le `comment` MTS-1 : composé en amont par fetchCollecte
 // (composerCommentaireTransporteur, partagé par les DEUX adapters). Ce test
 // ferme le dernier maillon côté Everest : ce qui est composé atteint bien le
-// fil, dans `notes`, sans « Véhicule max » ni « Stationnement » (C60).
-describe('M1.5 / commentaire au transporteur → notes Everest', () => {
+// fil, dans `comment` après la consigne d'A Toutes! (Val 2026-10-19), sans
+// « Véhicule max » ni « Stationnement » (C60).
+describe('M1.5 / commentaire au transporteur → comment Everest', () => {
   afterEach(() => _setEverestHandlers(null));
 
   const LIEU_ACCES: Lieu = {
@@ -1351,7 +1404,7 @@ describe('M1.5 / commentaire au transporteur → notes Everest', () => {
     flux_autorises: ['biodéchets', 'carton'],
   };
 
-  it('le commentaire composé part tel quel dans notes du payload createMission', async () => {
+  it('le commentaire composé part tel quel dans comment, après la consigne d’A Toutes!', async () => {
     const { payloads } = setupEverestMock();
     const supabase = makeMockSupabase({
       brancheAttribution: 'ag_velo_programme',
@@ -1377,10 +1430,11 @@ describe('M1.5 / commentaire au transporteur → notes Everest', () => {
     );
 
     const payload = payloads.get('tournee-everest-new-001') as {
-      notes?: string;
+      comment?: string;
     };
-    expect(payload?.notes).toBe(
+    expect(payload?.comment).toBe(
       [
+        'Pesée obligatoire, photo marchandise obligatoire',
         'Traiteur : Traiteur Essai',
         'Nombre de pax : 80',
         "Instructions d'accès :",
@@ -1394,5 +1448,20 @@ describe('M1.5 / commentaire au transporteur → notes Everest', () => {
         "- Instructions d'accès : Sonner à l’accueil",
       ].join('\n'),
     );
+  });
+
+  it('M2.5/everest_comment_consigne_seule — sans commentaire composé, comment porte la seule consigne d’A Toutes!', async () => {
+    const { payloads } = setupEverestMock();
+    await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
+    ).dispatchCollecte(
+      { ...COLLECTE_AG, informations_supplementaires: '   ' },
+      1,
+    );
+
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      comment: 'Pesée obligatoire, photo marchandise obligatoire',
+    });
   });
 });

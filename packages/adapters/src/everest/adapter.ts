@@ -35,6 +35,7 @@ import {
 import type { CreateMissionPayload } from './client.js';
 import { EverestClient, lireJetonEverest } from './client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
+import { instantParis } from '@savr/shared/src/temps/index.js';
 
 // Mapping branche_attribution → service_id Everest (§08 §3 V1, tableau l.264-269).
 // BL-P1-API-04 — service 77 (camion express > 3,5h, Marathon indisponible) mappé
@@ -47,13 +48,21 @@ const BRANCHE_TO_SERVICE: Record<string, number> = {
   ag_marathon_volume_backup_camion: 91,
 };
 
-// Durée créneau par service (minutes)
-const SERVICE_SLOT_MINUTES: Record<number, number> = {
-  71: 30,
-  74: 30,
-  77: 60,
-  91: 30,
-};
+// Consigne demandée par A Toutes! le 2026-10-12, en tête du `comment` de chaque
+// mission (décision Val 2026-10-19), avant le commentaire au transporteur.
+export const CONSIGNE_A_TOUTES =
+  'Pesée obligatoire, photo marchandise obligatoire';
+
+// Début de mission envoyé à Everest : l'heure demandée par le traiteur, à Paris
+// (décision Val 2026-10-19), en secondes Unix. Le créneau (30 min, 1 h pour le
+// 77) est porté par le service. null si la date ou l'heure est illisible.
+function debutMissionEverest(collecte: Collecte): number | null {
+  const debut = instantParis(
+    collecte.date_collecte,
+    collecte.heure_collecte.slice(0, 5),
+  ).getTime();
+  return Number.isFinite(debut) ? Math.floor(debut / 1000) : null;
+}
 
 // `prestataire_logistique_id` : seule marque du provider exécutant portée par une
 // tournée — `external_ref_commande` est partagée (MTS-1 y stocke son
@@ -173,6 +182,14 @@ export class AdapterEverest implements LogistiqueProvider {
         `collecte AG ${collecte.id} sans association attribuée : aucune adresse de livraison à transmettre à Everest`,
       );
     }
+    // Même règle pour l'heure : sans start_date, Everest prendrait le prochain
+    // créneau libre.
+    const debutMission = debutMissionEverest(collecte);
+    if (debutMission === null) {
+      throw new LogistiquePermanentError(
+        `collecte AG ${collecte.id} : date ou heure de collecte illisible, aucune heure de mission à transmettre à Everest`,
+      );
+    }
 
     // Créer ou récupérer la tournée. Le rang déjà lié à une tournée A Toutes!
     // est repris tel quel : c'est le cas d'une mission refusée puis réattribuée,
@@ -208,6 +225,7 @@ export class AdapterEverest implements LogistiqueProvider {
         tournee.id,
         serviceId,
         adresseLivraison,
+        debutMission,
       );
       const pushAt = new Date().toISOString();
       const created = await this.client.createMission(payload, collecte.id);
@@ -311,10 +329,7 @@ export class AdapterEverest implements LogistiqueProvider {
       }
 
       await this.client.cancelMission(
-        {
-          mission_id: t.external_ref_commande!,
-          reason: 'collecte_annulee',
-        },
+        { ref: t.external_ref_commande! },
         `cancel-${collecte.id}-${t.id}`,
       );
 
@@ -431,53 +446,28 @@ export class AdapterEverest implements LogistiqueProvider {
     tourneeId: string,
     serviceId: number,
     adresseLivraison: string,
+    debutMission: number,
   ): CreateMissionPayload {
-    const slotMinutes = SERVICE_SLOT_MINUTES[serviceId] ?? 30;
-    const [h = '00', m = '00'] = (collecte.heure_collecte ?? '00:00:00')
-      .slice(0, 5)
-      .split(':');
-    const startHour = parseInt(h, 10);
-    const startMin = parseInt(m, 10);
-    const endMin = (startMin + slotMinutes) % 60;
-    const endHour = startHour + Math.floor((startMin + slotMinutes) / 60);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const timeStart = `${pad(startHour)}:${pad(startMin)}`;
-    const timeEnd = `${pad(endHour % 24)}:${pad(endMin)}`;
-
+    const commentaire = collecte.informations_supplementaires?.trim();
     return {
       service_id: serviceId,
       client_ref: tourneeId,
-      pickup: {
-        address: `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`,
-        contact: {
-          name: collecte.contact_principal_nom,
-          phone: collecte.contact_principal_telephone,
-        },
-      },
+      start_date: debutMission,
+      address_start: `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`,
+      address_start_name: collecte.contact_principal_nom,
+      address_start_tel: collecte.contact_principal_telephone,
       // Point B (adresse vérifiée non vide par dispatchCollecte).
-      dropoff: {
-        address: adresseLivraison,
-        ...(collecte.association_contact_nom &&
-        collecte.association_contact_telephone
-          ? {
-              contact: {
-                name: collecte.association_contact_nom,
-                phone: collecte.association_contact_telephone,
-              },
-            }
-          : {}),
-      },
-      timeslot: {
-        date: collecte.date_collecte,
-        start: timeStart,
-        end: timeEnd,
-      },
-      notes: collecte.informations_supplementaires ?? undefined,
-      metadata: {
-        savr_ref_type: 'collecte',
-        savr_collecte_id: collecte.id,
-        savr_transporteur_id: this.transporteur.id,
-      },
+      address_end: adresseLivraison,
+      ...(collecte.association_contact_nom &&
+      collecte.association_contact_telephone
+        ? {
+            address_end_name: collecte.association_contact_nom,
+            address_end_tel: collecte.association_contact_telephone,
+          }
+        : {}),
+      comment: commentaire
+        ? `${CONSIGNE_A_TOUTES}\n${commentaire}`
+        : CONSIGNE_A_TOUTES,
     };
   }
 

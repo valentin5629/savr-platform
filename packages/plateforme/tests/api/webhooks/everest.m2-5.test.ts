@@ -269,7 +269,7 @@ function makeWebhookRequest(
   params: Record<string, string>,
   token?: string,
 ): NextRequest {
-  lastMissionId = params['mission_id'] ?? '';
+  lastMissionId = params['ref'] ?? '';
   const body = new URLSearchParams(params).toString();
   const headers: Record<string, string> = {
     'content-type': 'application/x-www-form-urlencoded',
@@ -301,9 +301,9 @@ describe('M2.5 / webhook Everest — validation token', () => {
     mockMissionRow = null;
     const req = makeWebhookRequest(
       {
-        mission_id: 'EVR-001',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-001',
+        event: 'mission_dispatched',
+        date: '1784585100',
       },
       'secret-token-123',
     );
@@ -313,7 +313,7 @@ describe('M2.5 / webhook Everest — validation token', () => {
 
   it('token incorrect → 401', async () => {
     const req = makeWebhookRequest(
-      { mission_id: 'EVR-001', event_type: 'mission_dispatched' },
+      { ref: 'EVR-001', event: 'mission_dispatched' },
       'wrong-token',
     );
     const resp = await POST(req);
@@ -324,8 +324,8 @@ describe('M2.5 / webhook Everest — validation token', () => {
     vi.stubEnv('EVEREST_WEBHOOK_TOKEN', '');
     mockMissionRow = null;
     const req = makeWebhookRequest({
-      mission_id: 'EVR-002',
-      event_type: 'mission_dispatched',
+      ref: 'EVR-002',
+      event: 'mission_dispatched',
     });
     const resp = await POST(req);
     expect(resp.status).toBe(200);
@@ -351,9 +351,9 @@ describe('M2.5 / webhook Everest — déduplication inbox', () => {
       error: null,
     };
     const req = makeWebhookRequest({
-      mission_id: 'EVR-DUP',
-      event_type: 'mission_dispatched',
-      occurred_at: '2026-07-20T22:00:00Z',
+      ref: 'EVR-DUP',
+      event: 'mission_dispatched',
+      date: '1784584800',
     });
     const resp = await POST(req);
     expect(resp.status).toBe(200);
@@ -385,6 +385,45 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     vi.restoreAllMocks();
   });
 
+  it('M2.5/everest_notification_champs_swagger — ref, event, date et agent_name (swagger Everest) : clé d’idempotence ref-event-date, coursier de la mission = agent_name', async () => {
+    mockMissionRow = {
+      id: 'em-001',
+      tournee_id: 'tour-001',
+      collecte_id: 'col-001',
+      statut_everest: 'created',
+    };
+    mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
+
+    // Corps tel qu'Everest l'envoie (form-urlencoded, noms du swagger 1.291.1).
+    const resp = await POST(
+      makeWebhookRequest({
+        event: 'mission_dispatched',
+        ref: 'EVR-001',
+        date: '1784585100',
+        status: 'Assignée',
+        status_slug: 'assigned',
+        client_ref: 'tour-001',
+        agent_name: 'Jean Vélo',
+      }),
+    );
+    expect(resp.status).toBe(200);
+
+    expect(insertedRows['integrations_inbox']).toEqual([
+      expect.objectContaining({
+        event_type: 'mission_dispatched',
+        event_id_externe: 'EVR-001-mission_dispatched-1784585100',
+      }),
+    ]);
+    expect(updatedRows['everest_missions'] ?? []).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          statut_everest: 'assigned',
+          coursier_nom: 'Jean Vélo',
+        }),
+      ]),
+    );
+  });
+
   it('mission_dispatched → statut_everest=assigned + statut_tms=acceptee', async () => {
     mockMissionRow = {
       id: 'em-001',
@@ -395,11 +434,10 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
 
     const req = makeWebhookRequest({
-      mission_id: 'EVR-001',
-      event_type: 'mission_dispatched',
-      occurred_at: '2026-07-20T22:05:00Z',
-      coursier_nom: 'Jean Vélo',
-      coursier_telephone: '+33700000001',
+      ref: 'EVR-001',
+      event: 'mission_dispatched',
+      date: '1784585100',
+      agent_name: 'Jean Vélo',
     });
     const resp = await POST(req);
     expect(resp.status).toBe(200);
@@ -440,12 +478,11 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-001',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-001',
+        event: 'mission_dispatched',
+        date: '1784585100',
         // Valeurs du payload non signé : ne doivent JAMAIS atteindre la tournée.
-        coursier_nom: 'Attaquant Payload',
-        coursier_telephone: '+33600000000',
+        agent_name: 'Attaquant Payload',
       }),
     );
     expect(resp.status).toBe(200);
@@ -483,10 +520,10 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
 
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-001',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
-        coursier_nom: 'Jean Vélo',
+        ref: 'EVR-001',
+        event: 'mission_dispatched',
+        date: '1784585100',
+        agent_name: 'Jean Vélo',
       }),
     );
     expect(updatedRows['tournees'] ?? []).toEqual([]);
@@ -505,11 +542,10 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-001',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
-        coursier_nom: 'Jean Vélo',
-        coursier_telephone: '+33700000001',
+        ref: 'EVR-001',
+        event: 'mission_dispatched',
+        date: '1784585100',
+        agent_name: 'Jean Vélo',
       }),
     );
     expect(resp.status).toBe(200);
@@ -546,10 +582,9 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
 
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-001',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
-        coursier_telephone: '+33600000000',
+        ref: 'EVR-001',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
     expect(updatedRows['tournees'] ?? []).toEqual([
@@ -577,9 +612,9 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
 
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-001',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-001',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
     const evaluation = rpcCalls.find(
@@ -613,9 +648,9 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-001',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-001',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
     expect(resp.status).toBe(200);
@@ -654,9 +689,9 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-001',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-001',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
     expect(resp.status).toBe(200);
@@ -677,9 +712,9 @@ describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
     mockCollecteRow = { statut_tms: 'acceptee' };
 
     const req = makeWebhookRequest({
-      mission_id: 'EVR-002',
-      event_type: 'mission_dispatched',
-      occurred_at: '2026-07-20T22:05:00Z',
+      ref: 'EVR-002',
+      event: 'mission_dispatched',
+      date: '1784585100',
     });
     await POST(req);
 
@@ -710,9 +745,9 @@ describe('M2.5 / webhook Everest — statuts terminaux', () => {
     };
 
     const req = makeWebhookRequest({
-      mission_id: 'EVR-003',
-      event_type: 'mission_pickedup',
-      occurred_at: '2026-07-20T23:00:00Z',
+      ref: 'EVR-003',
+      event: 'mission_pickedup',
+      date: '1784588400',
     });
     const resp = await POST(req);
     expect(resp.status).toBe(200);
@@ -741,9 +776,9 @@ describe('M2.5 / webhook Everest — mission inconnue', () => {
 
   it('mission_id inconnu → 200 skipped=mission_inconnue', async () => {
     const req = makeWebhookRequest({
-      mission_id: 'EVR-UNKNOWN',
-      event_type: 'mission_dispatched',
-      occurred_at: '2026-07-20T22:00:00Z',
+      ref: 'EVR-UNKNOWN',
+      event: 'mission_dispatched',
+      date: '1784584800',
     });
     const resp = await POST(req);
     expect(resp.status).toBe(200);
@@ -792,9 +827,9 @@ describe('M2.5 / webhook Everest — re-fetch API (BL-P0-07)', () => {
     mockState.details.set('EVR-RF-1', apiDetail);
 
     const req = makeWebhookRequest({
-      mission_id: 'EVR-RF-1',
-      event_type: 'mission_finished',
-      occurred_at: '2026-07-20T23:30:00Z',
+      ref: 'EVR-RF-1',
+      event: 'mission_finished',
+      date: '1784590200',
       // Valeurs FRAUDULEUSES du payload — ne doivent JAMAIS être persistées.
       cost: '99.99',
       proof_url: 'https://attacker.example/PAYLOAD.pdf',
@@ -824,9 +859,9 @@ describe('M2.5 / webhook Everest — re-fetch API (BL-P0-07)', () => {
     setupEverestMock({ getMissionFails: true });
 
     const req = makeWebhookRequest({
-      mission_id: 'EVR-RF-2',
-      event_type: 'mission_success',
-      occurred_at: '2026-07-20T23:45:00Z',
+      ref: 'EVR-RF-2',
+      event: 'mission_success',
+      date: '1784591100',
       cost: '77.77',
       proof_url: 'https://attacker.example/PAYLOAD2.pdf',
     });
@@ -895,9 +930,9 @@ describe('M2.5 / webhook Everest — course sans marchandise (BL-P1-API-04 d)', 
     });
 
     const req = makeWebhookRequest({
-      mission_id: 'EVR-CV-1',
-      event_type: 'mission_finished',
-      occurred_at: '2026-07-20T23:30:00Z',
+      ref: 'EVR-CV-1',
+      event: 'mission_finished',
+      date: '1784590200',
     });
     const resp = await POST(req);
     expect(resp.status).toBe(200);
@@ -939,9 +974,9 @@ describe('M2.5 / webhook Everest — course sans marchandise (BL-P1-API-04 d)', 
     });
 
     const req = makeWebhookRequest({
-      mission_id: 'EVR-CV-2',
-      event_type: 'mission_success',
-      occurred_at: '2026-07-20T23:35:00Z',
+      ref: 'EVR-CV-2',
+      event: 'mission_success',
+      date: '1784590500',
     });
     await POST(req);
 
@@ -978,9 +1013,9 @@ describe('M2.5 / webhook Everest — course sans marchandise (BL-P1-API-04 d)', 
     });
 
     const req = makeWebhookRequest({
-      mission_id: 'EVR-CV-3',
-      event_type: 'mission_finished',
-      occurred_at: '2026-07-20T23:40:00Z',
+      ref: 'EVR-CV-3',
+      event: 'mission_finished',
+      date: '1784590800',
     });
     await POST(req);
 
@@ -1024,9 +1059,9 @@ describe('M2.5 / webhook Everest — rejet async avant acceptation (BL-P1-API-04
     };
 
     const req = makeWebhookRequest({
-      mission_id: 'EVR-REJ-1',
-      event_type: 'mission_failed',
-      occurred_at: '2026-07-20T22:30:00Z',
+      ref: 'EVR-REJ-1',
+      event: 'mission_failed',
+      date: '1784586600',
     });
     const resp = await POST(req);
     expect(resp.status).toBe(200);
@@ -1060,9 +1095,9 @@ describe('M2.5 / webhook Everest — rejet async avant acceptation (BL-P1-API-04
     };
 
     const req = makeWebhookRequest({
-      mission_id: 'EVR-REJ-2',
-      event_type: 'mission_failed',
-      occurred_at: '2026-07-20T22:35:00Z',
+      ref: 'EVR-REJ-2',
+      event: 'mission_failed',
+      date: '1784586900',
     });
     await POST(req);
 
@@ -1140,9 +1175,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-1',
-        event_type: 'mission_pickedup',
-        occurred_at: '2026-07-20T23:00:00Z',
+        ref: 'EVR-ERR-1',
+        event: 'mission_pickedup',
+        date: '1784588400',
       }),
     );
 
@@ -1173,9 +1208,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-T',
-        event_type: 'mission_late',
-        occurred_at: '2026-07-20T23:00:00Z',
+        ref: 'EVR-ERR-T',
+        event: 'mission_late',
+        date: '1784588400',
       }),
     );
 
@@ -1191,9 +1226,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-2',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-ERR-2',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
 
@@ -1207,9 +1242,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-3',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-ERR-3',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
 
@@ -1229,9 +1264,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-4',
-        event_type: 'mission_failed',
-        occurred_at: '2026-07-20T22:30:00Z',
+        ref: 'EVR-ERR-4',
+        event: 'mission_failed',
+        date: '1784586600',
       }),
     );
 
@@ -1261,9 +1296,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-4B',
-        event_type: 'mission_cancelled',
-        occurred_at: '2026-07-20T22:30:00Z',
+        ref: 'EVR-ERR-4B',
+        event: 'mission_cancelled',
+        date: '1784586600',
       }),
     );
 
@@ -1292,9 +1327,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-5',
-        event_type: 'mission_finished',
-        occurred_at: '2026-07-20T23:30:00Z',
+        ref: 'EVR-ERR-5',
+        event: 'mission_finished',
+        date: '1784590200',
       }),
     );
 
@@ -1315,9 +1350,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-6',
-        event_type: 'mission_failed',
-        occurred_at: '2026-07-20T22:30:00Z',
+        ref: 'EVR-ERR-6',
+        event: 'mission_failed',
+        date: '1784586600',
       }),
     );
 
@@ -1336,9 +1371,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-7',
-        event_type: 'mission_cancelled',
-        occurred_at: '2026-07-20T22:40:00Z',
+        ref: 'EVR-ERR-7',
+        event: 'mission_cancelled',
+        date: '1784587200',
       }),
     );
 
@@ -1358,9 +1393,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-8',
-        event_type: 'mission_pickedup',
-        occurred_at: '2026-07-20T23:00:00Z',
+        ref: 'EVR-ERR-8',
+        event: 'mission_pickedup',
+        date: '1784588400',
       }),
     );
 
@@ -1374,9 +1409,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-9',
-        event_type: 'mission_pickedup',
-        occurred_at: '2026-07-20T23:00:00Z',
+        ref: 'EVR-ERR-9',
+        event: 'mission_pickedup',
+        date: '1784588400',
       }),
     );
 
@@ -1390,9 +1425,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-10',
-        event_type: 'mission_pickedup',
-        occurred_at: '2026-07-20T23:00:00Z',
+        ref: 'EVR-ERR-10',
+        event: 'mission_pickedup',
+        date: '1784588400',
       }),
     );
 
@@ -1419,9 +1454,9 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-ERR-11',
-        event_type: 'mission_finished',
-        occurred_at: '2026-07-20T23:30:00Z',
+        ref: 'EVR-ERR-11',
+        event: 'mission_finished',
+        date: '1784590200',
       }),
     );
 
@@ -1464,9 +1499,9 @@ describe('M2.5 / webhook Everest — rejeu d’un event non traité', () => {
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-REJEU-1',
-        event_type: 'mission_pickedup',
-        occurred_at: '2026-07-20T23:00:00Z',
+        ref: 'EVR-REJEU-1',
+        event: 'mission_pickedup',
+        date: '1784588400',
       }),
     );
 
@@ -1480,7 +1515,7 @@ describe('M2.5 / webhook Everest — rejeu d’un event non traité', () => {
     >;
     expect(eqInbox).toHaveBeenCalledWith(
       'event_id_externe',
-      'EVR-REJEU-1-mission_pickedup-2026-07-20T23:00:00Z',
+      'EVR-REJEU-1-mission_pickedup-1784588400',
     );
   });
 
@@ -1490,9 +1525,9 @@ describe('M2.5 / webhook Everest — rejeu d’un event non traité', () => {
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-REJEU-2',
-        event_type: 'mission_pickedup',
-        occurred_at: '2026-07-20T23:00:00Z',
+        ref: 'EVR-REJEU-2',
+        event: 'mission_pickedup',
+        date: '1784588400',
       }),
     );
 
@@ -1572,9 +1607,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-OLD-1',
-        event_type: 'mission_failed',
-        occurred_at: '2026-07-20T22:30:00Z',
+        ref: 'EVR-OLD-1',
+        event: 'mission_failed',
+        date: '1784586600',
       }),
     );
 
@@ -1595,9 +1630,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-OLD-2',
-        event_type: 'mission_cancelled',
-        occurred_at: '2026-07-20T22:40:00Z',
+        ref: 'EVR-OLD-2',
+        event: 'mission_cancelled',
+        date: '1784587200',
       }),
     );
 
@@ -1613,9 +1648,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-OLD-3',
-        event_type: 'mission_failed',
-        occurred_at: '2026-07-20T22:30:00Z',
+        ref: 'EVR-OLD-3',
+        event: 'mission_failed',
+        date: '1784586600',
       }),
     );
 
@@ -1633,9 +1668,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-OLD-4',
-        event_type: 'mission_failed',
-        occurred_at: '2026-07-20T22:30:00Z',
+        ref: 'EVR-OLD-4',
+        event: 'mission_failed',
+        date: '1784586600',
       }),
     );
 
@@ -1662,10 +1697,10 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-OLD-6',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
-        coursier_nom: 'Jean Vélo',
+        ref: 'EVR-OLD-6',
+        event: 'mission_dispatched',
+        date: '1784585100',
+        agent_name: 'Jean Vélo',
       }),
     );
     expect(resp.status).toBe(200);
@@ -1679,9 +1714,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-OLD-5',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-OLD-5',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
 
@@ -1710,9 +1745,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-OLD-6',
-        event_type: 'mission_pickedup',
-        occurred_at: '2026-07-20T23:00:00Z',
+        ref: 'EVR-OLD-6',
+        event: 'mission_pickedup',
+        date: '1784588400',
       }),
     );
 
@@ -1725,9 +1760,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
   it('mission_pickedup de la mission courante → aucune alerte « course active »', async () => {
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-COUR-1',
-        event_type: 'mission_pickedup',
-        occurred_at: '2026-07-20T23:00:00Z',
+        ref: 'EVR-COUR-1',
+        event: 'mission_pickedup',
+        date: '1784588400',
       }),
     );
 
@@ -1741,9 +1776,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-OLD-7',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-OLD-7',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
 
@@ -1770,9 +1805,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-OLD-8',
-        event_type: 'mission_finished',
-        occurred_at: '2026-07-20T23:30:00Z',
+        ref: 'EVR-OLD-8',
+        event: 'mission_finished',
+        date: '1784590200',
       }),
     );
 
@@ -1793,9 +1828,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
       await POST(
         makeWebhookRequest({
-          mission_id: 'EVR-OLD-10',
-          event_type: 'mission_failed',
-          occurred_at: '2026-07-20T22:30:00Z',
+          ref: 'EVR-OLD-10',
+          event: 'mission_failed',
+          date: '1784586600',
         }),
       );
 
@@ -1809,9 +1844,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-SANS-REF',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-SANS-REF',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
 
@@ -1833,9 +1868,9 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
 
       const resp = await POST(
         makeWebhookRequest({
-          mission_id: 'EVR-OLD-9',
-          event_type: 'mission_failed',
-          occurred_at: '2026-07-20T22:30:00Z',
+          ref: 'EVR-OLD-9',
+          event: 'mission_failed',
+          date: '1784586600',
         }),
       );
 
@@ -1885,9 +1920,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-1',
-        event_type: 'mission_failed',
-        occurred_at: '2026-07-20T22:30:00Z',
+        ref: 'EVR-CONC-1',
+        event: 'mission_failed',
+        date: '1784586600',
       }),
     );
 
@@ -1905,9 +1940,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-2',
-        event_type: 'mission_failed',
-        occurred_at: '2026-07-20T22:30:00Z',
+        ref: 'EVR-CONC-2',
+        event: 'mission_failed',
+        date: '1784586600',
       }),
     );
 
@@ -1925,9 +1960,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-5',
-        event_type: 'mission_cancelled',
-        occurred_at: '2026-07-20T22:30:00Z',
+        ref: 'EVR-CONC-5',
+        event: 'mission_cancelled',
+        date: '1784586600',
       }),
     );
 
@@ -1944,9 +1979,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-3',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-CONC-3',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
 
@@ -1962,9 +1997,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-4',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-CONC-4',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
 
@@ -1977,9 +2012,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
   it('mission_dispatched nominal → la garde laisse passer (1 ligne, acceptee)', async () => {
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-5',
-        event_type: 'mission_dispatched',
-        occurred_at: '2026-07-20T22:05:00Z',
+        ref: 'EVR-CONC-5',
+        event: 'mission_dispatched',
+        date: '1784585100',
       }),
     );
 
@@ -2008,9 +2043,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-6',
-        event_type: 'mission_finished',
-        occurred_at: '2026-07-20T23:30:00Z',
+        ref: 'EVR-CONC-6',
+        event: 'mission_finished',
+        date: '1784590200',
       }),
     );
 
@@ -2041,9 +2076,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-7',
-        event_type: 'mission_finished',
-        occurred_at: '2026-07-20T23:30:00Z',
+        ref: 'EVR-CONC-7',
+        event: 'mission_finished',
+        date: '1784590200',
       }),
     );
 
@@ -2072,9 +2107,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-TYPE',
-        event_type: 'mission_finished',
-        occurred_at: '2026-07-20T23:30:00Z',
+        ref: 'EVR-CONC-TYPE',
+        event: 'mission_finished',
+        date: '1784590200',
       }),
     );
 
@@ -2098,9 +2133,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-TERM',
-        event_type: 'mission_late',
-        occurred_at: '2026-07-20T23:00:00Z',
+        ref: 'EVR-CONC-TERM',
+        event: 'mission_late',
+        date: '1784588400',
       }),
     );
 
@@ -2119,9 +2154,9 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     const resp = await POST(
       makeWebhookRequest({
-        mission_id: 'EVR-CONC-8',
-        event_type: 'mission_failed',
-        occurred_at: '2026-07-20T22:30:00Z',
+        ref: 'EVR-CONC-8',
+        event: 'mission_failed',
+        date: '1784586600',
       }),
     );
 

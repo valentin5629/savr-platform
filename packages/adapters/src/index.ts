@@ -105,8 +105,8 @@ export interface Collecte {
   readonly statut_tms: string;
   readonly controle_acces_requis: boolean;
   // Commentaire au transporteur composé par le worker (infos-acces.ts) : saisie
-  // du traiteur, informations d'accès, contacts, point B. Envoyé tel quel
-  // (`comment` MTS-1, `notes` Everest).
+  // du traiteur, informations d'accès, contacts, point B. Envoyé dans `comment`
+  // (MTS-1 tel quel ; Everest après la consigne d'A Toutes!).
   readonly informations_supplementaires?: string | null;
   readonly notes_internes?: string | null;
   // Nom du traiteur opérationnel de l'événement et nombre de pax : libellé de la

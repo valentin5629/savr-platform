@@ -309,7 +309,7 @@ function ajuster(blocs: Bloc[]): void {
  * Compose le commentaire transmis au transporteur (format en tête de fichier).
  *
  * @returns Le commentaire, ou `null` si rien à transmettre (`null` = pas de
- *   `comment` MTS-1, pas de `notes` Everest).
+ *   `comment` MTS-1 ; côté Everest, la seule consigne d'A Toutes!).
  */
 export function composerCommentaireTransporteur(
   e: EntreeCommentaire,

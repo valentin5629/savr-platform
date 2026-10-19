@@ -213,12 +213,10 @@ describe('Worker de la file d’envoi — un appel réseau en échec ne livre ja
           {
             service_id: 71,
             client_ref: COLLECTE_ID,
-            pickup: {
-              address: '1 rue du Test',
-              contact: { name: 'Contact Test', phone: '+33100000000' },
-            },
-            dropoff: { address: '2 rue du Test' },
-            timeslot: { date: '2027-01-01', start: '22:00', end: '23:00' },
+            start_date: 1798837200,
+            address_start: '1 rue du Test',
+            address_end: '2 rue du Test',
+            comment: 'Pesée obligatoire, photo marchandise obligatoire',
           },
           COLLECTE_ID,
         );

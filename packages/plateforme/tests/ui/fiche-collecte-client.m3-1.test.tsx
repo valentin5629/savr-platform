@@ -68,7 +68,7 @@ async function texteDesTroisOnglets(): Promise<string> {
 const ZD_REALISEE = {
   statut: 'cloturee',
   taux_recyclage: 78.4,
-  co2_net_kg: 312,
+  co2_evite_kg: 312,
   bilan_flux: {
     biodechet: 420,
     emballage: 180,
@@ -719,18 +719,18 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
   it(
     'M3.1/fiche_popup_kpi_une_ligne_donut_en_ligne — valeur KPI sur une ligne (unité à part), donut et légende côte à côte',
     async () => {
-      stubFetchFiche(ficheClient({ ...ZD_REALISEE, co2_net_kg: -100 }));
+      stubFetchFiche(ficheClient({ ...ZD_REALISEE, co2_evite_kg: 1250 }));
       render(fiche('c1'));
       await ouvrirOnglet('Bilan & documents');
 
       const kpi = await screen.findByTestId('kpi-zd', {}, ATTENTE_UI);
-      // « −100 kg CO₂e » (Q6 : « kg CO₂e », espace insécable) : chiffre et unité dans la même valeur insécable.
+      // « 1 250 kg CO₂e » (Q6 : « kg CO₂e », espace insécable) : chiffre et unité dans la même valeur insécable.
       const unite = within(kpi).getAllByText(/^kg\sCO₂e$/)[0]!;
       const valeur = unite.parentElement!;
       // Rangée flex sans retour à la ligne (StatCard R-UI-6b, ex-`whitespace-nowrap`).
       expect(valeur.className).toMatch(/\bflex\b.*items-baseline/);
       expect(valeur.textContent?.replace(/\s/g, ' ')).toMatch(
-        /^-100 ?kg CO₂e$/,
+        /^1 250 ?kg CO₂e$/,
       );
       // L'unité est plus petite que le chiffre (span dédié).
       expect(unite.className).toMatch(/text-(base|\[17px\])/); // unité plus petite que la valeur (34 px)

@@ -179,8 +179,10 @@ function BilanConsolide({
               unite={masse ? masse.unit : 'kg'}
             />
             <Kpi
-              label="CO₂ évité (net)"
-              nombre={b.co2_net_zd_kg != null ? fmtInt(b.co2_net_zd_kg) : '—'}
+              label="CO₂ évité"
+              nombre={
+                b.co2_evite_zd_kg != null ? fmtInt(b.co2_evite_zd_kg) : '—'
+              }
               unite={UNITE_KG_CO2E}
             />
             <Kpi

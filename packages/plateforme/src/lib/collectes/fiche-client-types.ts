@@ -161,7 +161,6 @@ export interface FicheCollecteClient {
   informations_completes: boolean;
   informations_supplementaires: string | null;
   taux_recyclage: number | null;
-  co2_net_kg: number | null;
   co2_evite_kg: number | null;
   realisee_at: string | null;
   aucun_repas_motif: string | null;

@@ -45,8 +45,6 @@ export interface CollecteAConsolider {
   date_collecte: string | null;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
-  /** CO₂ net (ZD) : lu par la fiche seulement. */
-  co2_net_kg?: number | null;
   collecte_flux?:
     | {
         poids_reel_kg: number | null;
@@ -84,7 +82,6 @@ export interface BilanEvenement {
   /** Σ par flux des collectes ZD réalisées (0 pour un flux jamais pesé). */
   flux_kg: Record<FluxZdCode, number>;
   taux_recyclage: number | null;
-  co2_net_zd_kg: number | null;
   co2_evite_zd_kg: number | null;
   /** null tant qu'aucune collecte AG n'est réalisée. */
   repas_donnes: number | null;
@@ -200,7 +197,6 @@ export function consoliderEvenement(
     tonnage_zd_kg: zdRealisees.length > 0 ? tonnage : null,
     flux_kg: flux,
     taux_recyclage: tauxDen > 0 ? tauxNum / tauxDen : null,
-    co2_net_zd_kg: sommeFigee(zdRealisees, (c) => c.co2_net_kg),
     co2_evite_zd_kg: sommeFigee(zdRealisees, (c) => c.co2_evite_kg),
     repas_donnes:
       agRealisees.length > 0

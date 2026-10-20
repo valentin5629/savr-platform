@@ -1,16 +1,18 @@
 -- pgTAP M4.3 — Trigger fn_trg_co2_zd_cloture (Reporting CO₂ ADEME ZD).
 -- Vérifie le calcul induit/évité/net/énergie + taux_recyclage + snapshots figés
 -- à la transition collecte.statut → 'cloturee' (type = zero_dechet).
--- Valeurs attendues calculées contre les facteurs seedés (bloc8) + forfait M4.3.
+-- Valeurs attendues calculées contre les facteurs du CDC (§04 Data Model, « Seed V1 »,
+-- posés par 20261020220000_plateforme_facteurs_co2_valeurs_cdc) + forfait collecte.
 --
--- Facteurs seedés utilisés :
---   parametres_facteurs_co2  : verre 10/300/400 ; carton 25/520/1800 ;
---                              biodechet 20/250/800 ; dechet_residuel 500/0/0 (kgCO₂/t + kWh/t)
+-- Facteurs utilisés (kgCO₂e/t induit / évité + kWh/t) :
+--   parametres_facteurs_co2  : verre 639/1158/4000 ; carton 670/390/10098 ;
+--                              biodechet 40/77/0 ; dechet_residuel 380/180/0
 --   parametres_taux_recyclage: verre 0.90 ; carton 0.80 ; biodechet 0.85 ; emballage 0.60
---   parametres_co2_divers    : km_collecte_aller_retour 50 ; fe_camion_benne_kg_km 2.1 → forfait 105
+--   parametres_co2_divers    : km_collecte_aller_retour 15 (décision Val 2026-10-20) ;
+--                              fe_camion_benne_kg_km 2.1 → forfait 31.5
 
 BEGIN;
-SELECT plan(20);
+SELECT plan(23);
 
 -- ── Helpers JWT ──────────────────────────────────────────────────────────────
 
@@ -40,6 +42,38 @@ SELECT ok(
       AND t.tgname = 'trg_co2_zd_cloture'
   ),
   'M4.3 : trigger trg_co2_zd_cloture existe sur collectes'
+);
+
+-- ── Facteurs en base = table « Seed V1 » du CDC (§04 Data Model) ─────────
+
+SELECT results_eq(
+  $$ SELECT code_flux::text, fe_induit_kg_t, fe_evite_kg_t, energie_primaire_evitee_kwh_t
+     FROM plateforme.parametres_facteurs_co2 ORDER BY code_flux::text $$,
+  $$ VALUES ('biodechet', 40.00, 77.00, 0.00),
+            ('carton', 670.00, 390.00, 10098.00),
+            ('dechet_residuel', 380.00, 180.00, 0.00),
+            ('emballage', 539.75, 1187.70, 7000.00),
+            ('verre', 639.00, 1158.00, 4000.00) $$,
+  'M4.3 / facteurs_cdc : les 5 flux portent les facteurs du CDC (emballage dérivé du mix)'
+);
+
+SELECT results_eq(
+  $$ SELECT code_materiau::text, part_pct, fe_induit_kg_t, fe_evite_kg_t
+     FROM plateforme.parametres_mix_emballages ORDER BY code_materiau::text $$,
+  $$ VALUES ('acier', 3.00, 75.00, 1600.00),
+            ('alu', 5.00, 200.00, 10000.00),
+            ('autres', 1.00, 380.00, 180.00),
+            ('briques', 1.00, 670.00, 390.00),
+            ('carton_papier', 60.00, 670.00, 390.00),
+            ('pehd', 10.00, 350.00, 1200.00),
+            ('pet', 20.00, 400.00, 1400.00) $$,
+  'M4.3 / mix_emballages_cdc : les 7 matériaux portent le mix du CDC'
+);
+
+SELECT is(
+  (SELECT valeur FROM plateforme.parametres_co2_divers WHERE cle = 'km_collecte_aller_retour'),
+  15::decimal,
+  'M4.3 / forfait_collecte_km : 15 km aller-retour (décision Val 2026-10-20)'
 );
 
 -- ── Fixtures (superuser) ──────────────────────────────────────────────────
@@ -124,23 +158,23 @@ WHERE id = 'cc000000-0000-0001-0000-000000000001'::uuid;
 
 SELECT is(
   (SELECT co2_induit_kg FROM plateforme.collectes WHERE id = 'cc000000-0000-0001-0000-000000000001'::uuid),
-  317.00::decimal,
-  'M4.3 / nominal_co2_induit : Σ(P_X/1000×fe_induit + forfait pro rata) = 317.00'
+  393.40::decimal,
+  'M4.3 / nominal_co2_induit : Σ(P_X/1000×fe_induit + forfait pro rata) = 393.40'
 );
 SELECT is(
   (SELECT co2_evite_kg FROM plateforme.collectes WHERE id = 'cc000000-0000-0001-0000-000000000001'::uuid),
-  209.00::decimal,
-  'M4.3 / nominal_co2_evite : Σ(P_X/1000×fe_evite) = 209.00'
+  288.90::decimal,
+  'M4.3 / nominal_co2_evite : Σ(P_X/1000×fe_evite) = 288.90'
 );
 SELECT is(
   (SELECT co2_net_kg FROM plateforme.collectes WHERE id = 'cc000000-0000-0001-0000-000000000001'::uuid),
-  108.00::decimal,
-  'M4.3 / nominal_co2_net : induit − evite = 108.00'
+  104.50::decimal,
+  'M4.3 / nominal_co2_net : induit − evite = 104.50'
 );
 SELECT is(
   (SELECT energie_primaire_evitee_kwh FROM plateforme.collectes WHERE id = 'cc000000-0000-0001-0000-000000000001'::uuid),
-  640.00::decimal,
-  'M4.3 / nominal_energie : Σ(P_X/1000×energie) = 640.00'
+  2419.60::decimal,
+  'M4.3 / nominal_energie : Σ(P_X/1000×energie) = 2419.60'
 );
 SELECT is(
   (SELECT taux_recyclage FROM plateforme.collectes WHERE id = 'cc000000-0000-0001-0000-000000000001'::uuid),
@@ -152,14 +186,14 @@ SELECT is(
 SELECT is(
   (SELECT (co2_facteurs_snapshot->'forfait_collecte'->>'km')::numeric
    FROM plateforme.collectes WHERE id = 'cc000000-0000-0001-0000-000000000001'::uuid),
-  50::numeric,
-  'M4.3 / snapshot_forfait_collecte : forfait_collecte.km = 50'
+  15::numeric,
+  'M4.3 / snapshot_forfait_collecte : forfait_collecte.km = 15'
 );
 SELECT is(
   (SELECT (co2_facteurs_snapshot->'facteurs'->'verre'->>'evite')::numeric
    FROM plateforme.collectes WHERE id = 'cc000000-0000-0001-0000-000000000001'::uuid),
-  300::numeric,
-  'M4.3 / snapshot_facteurs : facteurs.verre.evite = 300'
+  1158::numeric,
+  'M4.3 / snapshot_facteurs : facteurs.verre.evite = 1158'
 );
 SELECT is(
   (SELECT (caps_appliques->>'verre')::numeric
@@ -183,10 +217,12 @@ SELECT is(
   0.00::decimal,
   'M4.3 / taux_recyclage_zero_si_omr_seul : taux = 0.00 (et non NULL)'
 );
+-- induit = 0.5×380 + 31.5 = 221.50 ; évité = 0.5×180 = 90.00 (bénéfice incinération) ;
+-- énergie = 0 (anti-double-comptage, décision a1 Val 2026-06-04)
 SELECT ok(
-  (SELECT co2_evite_kg = 0 AND co2_induit_kg > 0
+  (SELECT co2_induit_kg = 221.50 AND co2_evite_kg = 90.00 AND energie_primaire_evitee_kwh = 0
    FROM plateforme.collectes WHERE id = 'cc000000-0000-0002-0000-000000000001'::uuid),
-  'M4.3 / omr_seul_co2 : evite = 0, induit > 0 (incinération + forfait)'
+  'M4.3 / omr_seul_co2 : induit 221.50, évité 90.00 (incinération), énergie 0'
 );
 
 -- ── T4 : pas de pesées → toutes grandeurs NULL (mise à NULL d'un résidu) ──
@@ -213,28 +249,28 @@ SELECT is(
   'M4.3 / ag_taux_recyclage_null : trigger ZD ne s''active pas pour type=anti_gaspi'
 );
 
--- ── T_fige_initial : C_fige clôturée avec km=50 → induit 107.50 ───────────
--- induit_carton = (100/1000)×25 + (100/100)×105 = 2.5 + 105 = 107.50
+-- ── T_fige_initial : C_fige clôturée avec km=15 → induit 98.50 ────────────
+-- induit_carton = (100/1000)×670 + (100/100)×31.5 = 67 + 31.5 = 98.50
 
 UPDATE plateforme.collectes SET statut = 'cloturee', updated_at = now()
 WHERE id = 'cc000000-0000-0004-0000-000000000001'::uuid;
 
 SELECT is(
   (SELECT co2_induit_kg FROM plateforme.collectes WHERE id = 'cc000000-0000-0004-0000-000000000001'::uuid),
-  107.50::decimal,
-  'M4.3 / fige_calcul_initial : C_fige co2_induit = 107.50 (km=50)'
+  98.50::decimal,
+  'M4.3 / fige_calcul_initial : C_fige co2_induit = 98.50 (km=15)'
 );
 
--- ── T_recalc_before : C_recalc clôturée avec km=50, verre 100 → 106.00 ────
--- induit_verre = (100/1000)×10 + (100/100)×105 = 1.0 + 105 = 106.00
+-- ── T_recalc_before : C_recalc clôturée avec km=15, verre 100 → 95.40 ─────
+-- induit_verre = (100/1000)×639 + (100/100)×31.5 = 63.9 + 31.5 = 95.40
 
 UPDATE plateforme.collectes SET statut = 'cloturee', updated_at = now()
 WHERE id = 'cc000000-0000-0005-0000-000000000001'::uuid;
 
 SELECT is(
   (SELECT co2_induit_kg FROM plateforme.collectes WHERE id = 'cc000000-0000-0005-0000-000000000001'::uuid),
-  106.00::decimal,
-  'M4.3 / recalc_avant : C_recalc co2_induit = 106.00 (km=50, verre 100)'
+  95.40::decimal,
+  'M4.3 / recalc_avant : C_recalc co2_induit = 95.40 (km=15, verre 100)'
 );
 
 -- ── T_idem : UPDATE sans changement de statut → pas de recalcul ───────────
@@ -244,11 +280,11 @@ WHERE id = 'cc000000-0000-0001-0000-000000000001'::uuid;
 
 SELECT is(
   (SELECT co2_induit_kg FROM plateforme.collectes WHERE id = 'cc000000-0000-0001-0000-000000000001'::uuid),
-  317.00::decimal,
+  393.40::decimal,
   'M4.3 / idempotence : UPDATE sans transition de statut ne recalcule pas (clause WHEN)'
 );
 
--- ── Modification d'un facteur APRÈS clôture (forfait km 50 → 100) ─────────
+-- ── Modification d'un facteur APRÈS clôture (forfait km 15 → 100) ─────────
 -- Désactivation de l'audit (auth.uid() NULL en contexte superuser).
 
 ALTER TABLE plateforme.parametres_co2_divers DISABLE TRIGGER trg_audit_parametres_co2_divers;
@@ -259,13 +295,13 @@ ALTER TABLE plateforme.parametres_co2_divers ENABLE TRIGGER trg_audit_parametres
 
 SELECT is(
   (SELECT co2_induit_kg FROM plateforme.collectes WHERE id = 'cc000000-0000-0004-0000-000000000001'::uuid),
-  107.50::decimal,
-  'M4.3 / modification_facteur_sans_effet_sur_collectes_figees : C_fige reste 107.50'
+  98.50::decimal,
+  'M4.3 / modification_facteur_sans_effet_sur_collectes_figees : C_fige reste 98.50'
 );
 
 -- ── T_recalc_after : correction pesée + re-clôture → facteurs DU MOMENT ───
 -- verre corrigé 100 → 200 ; km désormais 100 → forfait 210
--- induit_verre = (200/1000)×10 + (200/200)×210 = 2.0 + 210 = 212.00
+-- induit_verre = (200/1000)×639 + (200/200)×210 = 127.8 + 210 = 337.80
 
 UPDATE plateforme.collecte_flux SET poids_reel_kg = 200
 WHERE collecte_id = 'cc000000-0000-0005-0000-000000000001'::uuid
@@ -278,8 +314,8 @@ WHERE id = 'cc000000-0000-0005-0000-000000000001'::uuid;
 
 SELECT is(
   (SELECT co2_induit_kg FROM plateforme.collectes WHERE id = 'cc000000-0000-0005-0000-000000000001'::uuid),
-  212.00::decimal,
-  'M4.3 / recalcul_apres_correction_pesee_facteurs_du_moment : recalcul = 212.00 (km=100, verre 200)'
+  337.80::decimal,
+  'M4.3 / recalcul_apres_correction_pesee_facteurs_du_moment : recalcul = 337.80 (km=100, verre 200)'
 );
 
 SELECT * FROM finish();

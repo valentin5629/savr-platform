@@ -21,7 +21,6 @@ export function ficheClient(
     informations_completes: true,
     informations_supplementaires: 'Quai B, badge à l’accueil',
     taux_recyclage: null,
-    co2_net_kg: null,
     co2_evite_kg: null,
     realisee_at: null,
     aucun_repas_motif: null,

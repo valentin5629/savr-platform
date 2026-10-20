@@ -16,7 +16,8 @@
  *    d'association, repas additionnés) ;
  *  - deux associations, une par soir ;
  *  - le cas simple, 1 ZD + 1 AG le même soir ;
- *  - une AG « sans excédent » (réalisée, 0 repas, sans association), événement
+ *  - une AG « sans excédent » (réalisée, 0 repas : son association, attribuée
+ *    à 0 repas, n'apparaît pas au bilan), événement
  *    programmé par une agence ;
  *  - dominante AG, trois associations, sur un lieu d'un autre gestionnaire ;
  *  - ZD seul, dont une collecte annulée (comptée, sans résultat) ;
@@ -59,9 +60,11 @@ type DefCollecte = {
   type: 'zero_dechet' | 'anti_gaspi';
   /** Décalage en jours par rapport au premier jour de l'événement. */
   jour?: number;
-  /** Pax servis par cette collecte : base des pesées ZD. */
-  pax: number;
-  camions?: number;
+  /**
+   * ZD seulement : pax servis par cette collecte, base des pesées. Une AG prend
+   * le pax de l'événement, comme `fn_set_volume_estime_repas` en base.
+   */
+  pax?: number;
   statut?: 'cloturee' | 'realisee_sans_collecte' | 'annulee';
   association?: string;
   repas?: number;
@@ -90,7 +93,6 @@ const DEFINITIONS: DefEvenement[] = [
       {
         type: 'anti_gaspi',
         jour: 0,
-        pax: 800,
         association: 'asso_alpha',
         repas: 95,
       },
@@ -99,7 +101,6 @@ const DEFINITIONS: DefEvenement[] = [
       {
         type: 'anti_gaspi',
         jour: 2,
-        pax: 800,
         association: 'asso_alpha',
         repas: 70,
       },
@@ -120,7 +121,6 @@ const DEFINITIONS: DefEvenement[] = [
       {
         type: 'anti_gaspi',
         jour: 0,
-        pax: 900,
         association: 'asso_alpha',
         repas: 110,
       },
@@ -128,7 +128,6 @@ const DEFINITIONS: DefEvenement[] = [
       {
         type: 'anti_gaspi',
         jour: 1,
-        pax: 900,
         association: 'asso_charlie',
         repas: 85,
       },
@@ -146,7 +145,7 @@ const DEFINITIONS: DefEvenement[] = [
     ilYa: 12,
     collectes: [
       { type: 'zero_dechet', pax: 600 },
-      { type: 'anti_gaspi', pax: 600, association: 'asso_bravo', repas: 48 },
+      { type: 'anti_gaspi', association: 'asso_bravo', repas: 48 },
     ],
   },
   {
@@ -163,10 +162,9 @@ const DEFINITIONS: DefEvenement[] = [
       // Deux collectes ZD le même soir : salle plénière et espace exposants.
       { type: 'zero_dechet', pax: 550 },
       { type: 'zero_dechet', pax: 550 },
-      { type: 'anti_gaspi', pax: 550, association: 'asso_charlie', repas: 60 },
+      { type: 'anti_gaspi', association: 'asso_charlie', repas: 60 },
       {
         type: 'anti_gaspi',
-        pax: 550,
         statut: 'realisee_sans_collecte',
         association: 'asso_bravo',
         repas: 0,
@@ -190,21 +188,18 @@ const DEFINITIONS: DefEvenement[] = [
       {
         type: 'anti_gaspi',
         jour: 0,
-        pax: 750,
         association: 'asso_alpha',
         repas: 80,
       },
       {
         type: 'anti_gaspi',
         jour: 1,
-        pax: 750,
         association: 'asso_bravo',
         repas: 55,
       },
       {
         type: 'anti_gaspi',
         jour: 1,
-        pax: 750,
         association: 'asso_charlie',
         repas: 40,
       },
@@ -221,8 +216,8 @@ const DEFINITIONS: DefEvenement[] = [
     client: 'Banque Montclar',
     ilYa: 68,
     collectes: [
-      { type: 'zero_dechet', jour: 0, pax: 1600, camions: 2 },
-      { type: 'zero_dechet', jour: 1, pax: 1600, camions: 2 },
+      { type: 'zero_dechet', jour: 0, pax: 1600 },
+      { type: 'zero_dechet', jour: 1, pax: 1600 },
       // Collecte du démontage, annulée par le traiteur : comptée dans
       // l'événement, sans résultat.
       { type: 'zero_dechet', jour: 1, pax: 400, statut: 'annulee' },
@@ -239,8 +234,8 @@ const DEFINITIONS: DefEvenement[] = [
     client: null,
     ilYa: 19,
     collectes: [
-      { type: 'anti_gaspi', pax: 420, association: 'asso_alpha', repas: 30 },
-      { type: 'anti_gaspi', pax: 420, association: 'asso_charlie', repas: 22 },
+      { type: 'anti_gaspi', association: 'asso_alpha', repas: 30 },
+      { type: 'anti_gaspi', association: 'asso_charlie', repas: 22 },
     ],
   },
 ];
@@ -264,8 +259,8 @@ export function genererEvenementsMultiCollectes(ancre: string): {
         type: d.type,
         date: decalerJour(premierJour, d.jour ?? 0),
         lieu: evenement.lieu,
-        pax: d.pax,
-        camions: d.camions ?? 1,
+        pax: d.pax ?? evenement.pax,
+        camions: 1,
         statut,
         statutTms: statut === 'annulee' ? 'annulee_par_traiteur' : 'acceptee',
         ...(d.association ? { association: d.association } : {}),

@@ -825,6 +825,10 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     // passée sur le terrain.
     .filter((r) => r.type === 'zero_dechet' && estExecutee(r))
     .forEach((r, i) => {
+      // Les alertes de pesée (verre MIN, résiduel MAX) ne tombent jamais sur un
+      // événement multi-collectes : leurs index dépendent de l'ancre, et ces
+      // événements servent à lire un bilan attendu.
+      const alerte = !r.evenement;
       const profil = PROFILS_TRI[r.traiteur] ?? PROFIL_TRI_NEUTRE;
       const base = r.pax * 0.3 * profil.volume;
       const p = repartitionFlux(i, profil);
@@ -850,7 +854,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           `cf_${r.slug}_verre`,
           r.slug,
           F('verre'),
-          i % 40 === 0 ? 1.5 : round1(base * p.verre),
+          alerte && i % 40 === 0 ? 1.5 : round1(base * p.verre),
         ),
       );
       // dechet_residuel : normal, ou alerte MAX (1 collecte / 40)
@@ -859,7 +863,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           `cf_${r.slug}_residuel`,
           r.slug,
           F('dechet_residuel'),
-          i % 40 === 20 ? 5300 : round1(base * p.residuel),
+          alerte && i % 40 === 20 ? 5300 : round1(base * p.residuel),
         ),
       );
     });

@@ -14,7 +14,9 @@ import { seedUuid } from './uuid.js';
 import { genererEvenementsMultiCollectes } from './evenements-multi-collectes.js';
 import { decalerJour } from '../temps/index.js';
 
-const ANCRE = '2026-10-20';
+// Ancre où l'index des alertes de pesée (cf. SEED-EMC-10) tomberait sur un
+// événement multi-collectes si elles n'en étaient pas exclues (mesuré).
+const ANCRE = '2026-10-25';
 const { evenements, collectes } = genererEvenementsMultiCollectes(ANCRE);
 const de = (slug: string) => collectes.filter((c) => c.evenement === slug);
 const REALISEES = new Set(['cloturee', 'realisee_sans_collecte']);
@@ -62,6 +64,8 @@ describe('événements multi-collectes — générateur', () => {
       for (const c of de(e.slug)) {
         expect(c.traiteur, c.slug).toBe(e.traiteur);
         expect(c.lieu, c.slug).toBe(e.lieu);
+        // Une AG prend le pax de l'événement (fn_set_volume_estime_repas).
+        if (c.type === 'anti_gaspi') expect(c.pax, c.slug).toBe(e.pax);
       }
   });
 
@@ -211,18 +215,25 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
         seedUuid('ev_' + c.evenement),
       );
       expect(ecrite!['statut'], c.slug).toBe(c.statut);
+      if (c.type === 'anti_gaspi')
+        expect(ecrite!['volume_estime_repas'], c.slug).toBe(
+          Math.round(0.1 * evenements.find((e) => e.slug === c.evenement)!.pax),
+        );
     }
   });
 
-  it('SEED-EMC-10 — chaque ZD réalisée a ses pesées ; une ZD annulée n’en a aucune', () => {
+  it('SEED-EMC-10 — chaque ZD réalisée a ses pesées, sans alerte injectée ; une ZD annulée n’en a aucune', () => {
     const fluxDe = (slug: string) =>
       lignes('collecte_flux').filter(
         (f) => f['collecte_id'] === seedUuid(slug),
       );
     for (const c of collectes.filter((x) => x.type === 'zero_dechet')) {
-      if (c.statut === 'cloturee')
+      if (c.statut === 'cloturee') {
         expect(fluxDe(c.slug), c.slug).toHaveLength(5);
-      else expect(fluxDe(c.slug), c.slug).toHaveLength(0);
+        // Ni le verre MIN (1,5 kg) ni le résiduel MAX (5 300 kg) du seed.
+        for (const f of fluxDe(c.slug))
+          expect([1.5, 5300], c.slug).not.toContain(f['poids_reel_kg']);
+      } else expect(fluxDe(c.slug), c.slug).toHaveLength(0);
     }
   });
 
@@ -245,15 +256,24 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
     }
   });
 
-  it('SEED-EMC-12 — une AG sans excédent n’a pas d’attestation', () => {
-    for (const c of collectes.filter(
+  it('SEED-EMC-12 — une AG sans excédent porte motif et photo, ni pack ni attestation', () => {
+    const sansExcedent = collectes.filter(
       (x) => x.statut === 'realisee_sans_collecte',
-    ))
+    );
+    expect(sansExcedent.length).toBeGreaterThan(0);
+    for (const c of sansExcedent) {
+      const ecrite = lignes('collectes').find(
+        (l) => l['id'] === seedUuid(c.slug),
+      )!;
+      expect(ecrite['aucun_repas_motif'], c.slug).toBe(c.motifAucunRepas);
+      expect(ecrite['aucun_repas_photo_url'], c.slug).toBeTruthy();
+      expect(ecrite['pack_antgaspi_id'], c.slug).toBeNull();
       expect(
         lignes('attestations_don').some(
           (a) => a['collecte_id'] === seedUuid(c.slug),
         ),
         c.slug,
       ).toBe(false);
+    }
   });
 });

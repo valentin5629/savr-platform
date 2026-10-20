@@ -344,7 +344,8 @@ SELECT is(
   '28. appel en service_role (vue matérialisée, PDF) : non concerné par la garde');
 -- Fiche collecte : f_benchmark_single_collecte appelle le calcul sous le jeton
 -- du gestionnaire, sans lieu ni traiteur. Collecte programmée par A sur son lieu
--- (la fonction n'accepte que l'organisation programmatrice ou opérationnelle).
+-- (la fonction accepte l'organisation programmatrice ou opérationnelle et,
+-- depuis 20261020180000, le gestionnaire du lieu ; ici, A programme).
 SELECT _bfr_superuser();
 UPDATE plateforme.evenements
    SET organisation_id = 'ba9c0000-0000-0000-0000-0000000000a1'

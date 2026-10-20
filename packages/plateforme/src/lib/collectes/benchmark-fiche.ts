@@ -21,12 +21,16 @@ import { serverError } from '@/lib/api-helpers.js';
 //  · benchmark parc  = moyenne pondérée du segment, k-anonymat côté serveur
 //
 // `f_benchmark_single_collecte` porte le ratio ET la garde d'accès : elle
-// n'accepte que l'organisation programmatrice ou le traiteur opérationnel. Un
-// gestionnaire voit (RLS) des collectes de traiteurs tiers sur ses lieux que la
-// fonction refuse : ce n'est pas une erreur, c'est « pas de radar pour cette
-// collecte » (200, data null — l'écran masque le bloc). La garde n'est JAMAIS
-// élargie ni contournée en service-role (arbitrage 2026-09-29) ; la visibilité
-// RLS n'est lue QUE pour distinguer ce cas d'une collecte hors périmètre (404).
+// accepte l'organisation programmatrice, le traiteur opérationnel et, depuis la
+// décision Val du 2026-10-20, le gestionnaire dont l'organisation est rattachée
+// au lieu d'un événement daté (collectes de traiteurs tiers sur ses lieux). Une
+// collecte que la RLS montre pour une autre raison (`f_collecte_visible` : par
+// exemple l'organisation de l'appelant nommée client organisateur de
+// l'événement, rattachement fait par l'Admin) reste refusée
+// par la fonction : ce n'est pas une erreur, c'est « pas de radar pour cette
+// collecte » (200, data null — l'écran masque le bloc). La garde n'est jamais
+// contournée en service-role ; la visibilité RLS n'est lue QUE pour distinguer
+// ce cas d'une collecte hors périmètre (404).
 //
 // Le repère parc vient du MÊME loader que les dashboards (même garde
 // `traiteur_ids[]` par rôle, même garde de périmètre du gestionnaire, même
@@ -52,7 +56,7 @@ export interface FiltresBenchmarkFiche {
 
 export type BenchmarkFiche =
   | { etat: 'ok'; flux: FluxBenchmarkFiche }
-  /** Collecte visible, mais pas de radar pour elle (traiteur tiers vu par un gestionnaire). */
+  /** Collecte visible sous la RLS, mais refusée par la fonction : pas de radar pour elle. */
   | { etat: 'sans_radar' }
   | { etat: 'introuvable' }
   /**

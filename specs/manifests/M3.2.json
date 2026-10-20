@@ -5,6 +5,8 @@
   "fichiers_produits": [
     "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
     "supabase/tests/m3_2_gestionnaire_lieux.test.sql",
+    "supabase/migrations/20261020180000_plateforme_benchmark_single_collecte_gestionnaire_lieux.sql",
+    "supabase/tests/benchmark_single_collecte_gestionnaire_lieux.test.sql",
     "packages/plateforme/src/app/(gestionnaire)/layout.tsx",
     "packages/plateforme/src/lib/nav-masquee.ts",
     "packages/plateforme/tests/ui/nav-sections-transverses.test.tsx",
@@ -217,14 +219,15 @@
     "M3.2/fiche_get_documents_sous_rls",
     "M3.2/fiche_get_actions_gestionnaire",
     "M3.2/rapport_download_gestionnaire_sous_rls",
-    "M3.2/fiche_benchmark_tiers_masque",
+    "M3.2/fiche_benchmark_refus_fonction_sans_radar",
     "M3.2/fiche_benchmark_hors_perimetre_404",
     "M3.2/fiche_benchmark_filtre_hors_perimetre_403",
     "M3.2/fiche_benchmark_lieux_tout_le_parc_gestionnaire",
     "M3.2/fiche_benchmark_lieux_tous_traiteur",
     "M3.2/urgence_gestionnaire_ok",
     "M3.2/fiche_popup_gestionnaire_sans_annulation",
-    "M3.2/fiche_popup_gestionnaire_radar_masque_tiers",
+    "M3.2/fiche_popup_gestionnaire_radar_tiers_affiche",
+    "M3.2/fiche_popup_gestionnaire_radar_indisponible_masque",
     "M3.2/fiche_popup_gestionnaire_marque_blanche",
     "M3.2/fiche_get_repas_propre_programmation",
     "M3.2/collectes_route_renvoie_le_client_organisateur",
@@ -946,12 +949,12 @@
       "libelle": "Pied gestionnaire : jamais d'annulation (« la gestion des collectes reste exclusive au traiteur ») ; « Modifier la collecte » actif sur ses propres programmations, grisé sinon (miroir de la garde PATCH existante). API : M3.2/fiche_get_actions_gestionnaire. Écart §05 l.354 (« ne peut pas modifier ») vs synthèse M1.2 : droit existant conservé, tracé D7 (_Divergences/M3.1_20260929_popup-client-implementation.md)."
     },
     {
-      "id": "M3.2-popup-radar-tiers-masque",
+      "id": "M3.2-popup-radar-tiers-lieu-rattache",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:393",
-      "artefact": "packages/plateforme/src/lib/collectes/benchmark-fiche.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/benchmark/route.ts",
-      "test": "M3.2/fiche_benchmark_tiers_masque",
+      "artefact": "supabase/migrations/20261020180000_plateforme_benchmark_single_collecte_gestionnaire_lieux.sql, packages/plateforme/src/lib/collectes/benchmark-fiche.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/benchmark/route.ts",
+      "test": "M3.2/benchmark_single_collecte_tiers_lieu_rattache + M3.2/benchmark_single_collecte_tiers_sans_donnee_nouvelle + M3.2/benchmark_single_collecte_tiers_lieu_non_rattache_refuse + M3.2/benchmark_single_collecte_tiers_evenement_sans_date_refuse + M3.2/benchmark_single_collecte_tiers_autre_role_refuse + M3.2/fiche_popup_gestionnaire_radar_tiers_affiche + M3.2/fiche_benchmark_refus_fonction_sans_radar + M3.2/fiche_popup_gestionnaire_radar_indisponible_masque + M3.2/fiche_benchmark_hors_perimetre_404",
       "statut": "implemented",
-      "libelle": "Radar de la fiche : f_benchmark_single_collecte refuse les collectes de traiteurs tiers → réponse « pas de radar » (200, data null) et bloc masqué à l'écran (M3.2/fiche_popup_gestionnaire_radar_masque_tiers). Garde JAMAIS élargie ni contournée en service-role ; collecte invisible = 404 (M3.2/fiche_benchmark_hors_perimetre_404). Écart au CDC l.403 (radar prévu pour tous les rôles) tracé D13."
+      "libelle": "Radar de la fiche sur une collecte ZD programmée par une autre organisation (traiteur ou agence) et tenue sur un lieu du gestionnaire (décision Val 2026-10-20, retour au CDC §06.04 l.382 — pop-up commun à tous les rôles clients — et l.393 — radar de l'onglet Bilan & documents ZD ; fin du masquage tracé D13) : f_benchmark_single_collecte accepte en plus le rôle gestionnaire_lieux dont l'organisation est rattachée (organisations_lieux) au lieu d'un événement daté — borne du régime (b) de evt_gestionnaire_select, aucune collecte de plus que ce que la RLS lui montre. Aucune donnée nouvelle : sa session lit déjà poids_reel_kg (cf_select) et pax (liste blanche evenements), le ratio rendu en est le quotient (mesuré en pgTAP). Restent refusés : lieu non rattaché, événement sans date, tout autre rôle client sur ces collectes. La route ne contourne jamais la garde en service-role ; collecte visible mais refusée par la fonction = « pas de radar » (200, data null) et bloc masqué ; collecte invisible = 404."
     },
     {
       "id": "M3.2-popup-documents-sous-rls",
@@ -983,7 +986,7 @@
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.2/fiche_get_repas_tiers_par_vue + M3.2/fiche_get_repas_tiers_sans_attribution + M3.2/fiche_get_repas_propre_programmation",
       "statut": "implemented",
-      "libelle": "Bilan AG du gestionnaire sur une collecte programmée par un traiteur TIERS : « Repas donnés » / « Repas par pax » = volume de l'attribution, lu par la vue v_attributions_gestionnaire (§04) — la table lui est refusée sous sa RLS (aa_select, C-1, pgTAP T18, jamais élargie). Le repli sur l'attestation de don (D13, arbitrage Val 2026-09-30) est RETIRÉ avec la vue : l'attestation n'est plus lue que pour le document ; « — » quand la vue ne rend rien. Même source que la liste Collectes, le dashboard et l'export CSV. Preuve base : supabase/tests/SECU__v_attributions_gestionnaire.test.sql. Le radar ZD reste masqué sur les collectes tierces (garde f_benchmark_single_collecte non élargie)."
+      "libelle": "Bilan AG du gestionnaire sur une collecte programmée par un traiteur TIERS : « Repas donnés » / « Repas par pax » = volume de l'attribution, lu par la vue v_attributions_gestionnaire (§04) — la table lui est refusée sous sa RLS (aa_select, C-1, pgTAP T18, jamais élargie). Le repli sur l'attestation de don (D13, arbitrage Val 2026-09-30) est RETIRÉ avec la vue : l'attestation n'est plus lue que pour le document ; « — » quand la vue ne rend rien. Même source que la liste Collectes, le dashboard et l'export CSV. Preuve base : supabase/tests/SECU__v_attributions_gestionnaire.test.sql. Pas de radar sur une collecte AG (pas de benchmark AG, §06.04) ; radar des collectes ZD tierces : voir M3.2-popup-radar-tiers-lieu-rattache."
     },
     {
       "id": "M3.2-popup-contacts-tiers-masques",

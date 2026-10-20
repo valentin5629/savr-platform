@@ -158,7 +158,7 @@ export type BilanFiche = Pick<
  * Radar de la fiche (ZD réalisée) : repère parc recalculé à chaque changement
  * de filtre, lu sur `benchmarkUrl` (route `…/collectes/<id>/benchmark` de
  * l'espace). `null` renvoyé par la route = pas de radar pour cette collecte
- * (collecte d'un traiteur tiers vue par un gestionnaire) → bloc masqué. Les
+ * (visible, mais refusée par la garde de la fonction SQL) → bloc masqué. Les
  * filtres réglés servent aussi la régénération du rapport avec radar.
  */
 export function useRadarFiche(

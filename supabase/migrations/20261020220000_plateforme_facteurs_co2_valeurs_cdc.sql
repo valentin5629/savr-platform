@@ -41,6 +41,7 @@ DECLARE
   v_avant  jsonb;
   v_apres  jsonb;
   v_mix_avant jsonb;
+  v_mix_apres jsonb;
   v_n      int;
   v_induit decimal(8,2);
   v_evite  decimal(8,2);
@@ -99,6 +100,9 @@ BEGIN
     AND energie_primaire_evitee_kwh_t = 1200.00;
 
   -- ── 2. Mix emballages (7 matériaux, tous d'origine ou aucun) ─────────────
+  SELECT jsonb_agg(to_jsonb(m) ORDER BY m.code_materiau) INTO v_mix_avant
+  FROM plateforme.parametres_mix_emballages m;
+
   IF (SELECT count(*) FROM plateforme.parametres_mix_emballages m
       JOIN (VALUES
         ('carton_papier', 25.00, 25.00, 520.00),
@@ -114,9 +118,6 @@ BEGIN
        AND m.fe_induit_kg_t = o.induit
        AND m.fe_evite_kg_t = o.evite) = 7
   THEN
-    SELECT jsonb_agg(to_jsonb(m) ORDER BY m.code_materiau) INTO v_mix_avant
-    FROM plateforme.parametres_mix_emballages m;
-
     -- Validation Σ = 100 et recalcul de la ligne emballage différés à la fin
     -- (même mécanisme que rpc_maj_mix_emballages).
     PERFORM set_config('savr.mix_batch', '1', true);
@@ -159,13 +160,6 @@ BEGIN
         date_maj       = now(),
         updated_at     = now()
     WHERE code_flux = 'emballage';
-
-    INSERT INTO plateforme.audit_log (action, table_name, old_values, new_values, motif)
-    SELECT 'parametres_mix_emballages_correction', 'parametres_mix_emballages',
-           jsonb_build_object('mix', v_mix_avant),
-           jsonb_build_object('mix', jsonb_agg(to_jsonb(m) ORDER BY m.code_materiau)),
-           v_motif
-    FROM plateforme.parametres_mix_emballages m;
   ELSE
     RAISE NOTICE 'mix emballages : ne porte plus les valeurs d''origine, conservé tel quel';
   END IF;
@@ -182,6 +176,17 @@ BEGIN
   ) AS c(code, nom_0, nom)
   WHERE m.code_materiau::text = c.code AND m.nom_materiau = c.nom_0;
   PERFORM set_config('savr.mix_batch', '', true);
+
+  SELECT jsonb_agg(to_jsonb(m) ORDER BY m.code_materiau) INTO v_mix_apres
+  FROM plateforme.parametres_mix_emballages m;
+
+  IF v_mix_apres IS DISTINCT FROM v_mix_avant THEN
+    INSERT INTO plateforme.audit_log (action, table_name, old_values, new_values, motif)
+    VALUES ('parametres_mix_emballages_correction', 'parametres_mix_emballages',
+            jsonb_build_object('mix', v_mix_avant),
+            jsonb_build_object('mix', v_mix_apres),
+            v_motif);
+  END IF;
 
   ALTER TABLE plateforme.parametres_facteurs_co2 ENABLE TRIGGER trg_audit_facteurs_co2;
 

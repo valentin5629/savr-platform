@@ -297,6 +297,53 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
   );
 
   it(
+    'M3.2/evenements_changer_de_vue_reprend_son_tri — un tri choisi dans une vue ne passe pas à l’autre',
+    async () => {
+      const fetchMock = stubFetch((url) =>
+        url.includes('/gestionnaire/filtres')
+          ? { body: OPTIONS }
+          : { body: { data: [LIGNE], total: 1 } },
+      );
+      const ordreDemande = () =>
+        new URLSearchParams(
+          fetchMock.mock.calls
+            .map(([u]) => String(u))
+            .filter((u) => u.includes('/gestionnaire/evenements?'))
+            .at(-1)
+            ?.split('?')[1],
+        ).get('ordre');
+      const cliquerDate = async () =>
+        fireEvent.click(
+          within(
+            await screen.findByTestId(
+              'evenements-table',
+              undefined,
+              ATTENTE_UI,
+            ),
+          ).getByRole('button', { name: /Date/ }),
+        );
+      render(<EvenementsPage />);
+      expect(
+        await screen.findByTestId('evenements-table', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(ordreDemande()).toBe('asc');
+
+      // Deux clics sur « Date » : décroissant, puis croissant posé explicitement.
+      await cliquerDate();
+      await waitFor(() => expect(ordreDemande()).toBe('desc'), ATTENTE_UI);
+      await cliquerDate();
+      await waitFor(() => expect(ordreDemande()).toBe('asc'), ATTENTE_UI);
+
+      // « Passés » s'ouvre sur SON tri (décroissant), pas sur celui choisi.
+      fireEvent.mouseDown(
+        screen.getByRole('tab', { name: 'Événements passés' }),
+      );
+      await waitFor(() => expect(ordreDemande()).toBe('desc'), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/evenements_liste_type_collecte_transmis — le segmenté ZD / AG filtre la route',
     async () => {
       const fetchMock = stubFetch((url) =>

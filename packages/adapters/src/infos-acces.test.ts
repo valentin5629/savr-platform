@@ -105,7 +105,7 @@ describe('infos-acces / commentaire au transporteur', () => {
     expect(texte).not.toMatch(/Véhicule max|Stationnement|poids lourd/);
   });
 
-  it('aucune information du tout → null (ni comment MTS-1 ni notes Everest)', () => {
+  it('aucune information du tout → null (rien à ajouter au comment MTS-1 ni Everest)', () => {
     expect(composer({})).toBeNull();
   });
 

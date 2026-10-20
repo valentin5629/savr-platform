@@ -1,5 +1,6 @@
 // Commentaire transmis au transporteur : le SEUL canal libre routé vers les
-// transporteurs V1 (`comment` de la commande MTS-1, `notes` d'Everest).
+// transporteurs V1 (`comment` de la commande MTS-1 et de la mission Everest,
+// où il suit la consigne d'A Toutes!).
 //
 // Format décidé par Val le 2026-10-15 (C60, C61, C62), à la place de l'agrégat
 // « note du traiteur, puis — Infos Savr — » du 2026-09-15 :
@@ -44,7 +45,7 @@
 
 import type { Lieu } from './index.js';
 
-// Borne du canal libre. Ni MTS-1 (`comment`) ni Everest (`notes`) ne documentent
+// Borne du canal libre. Ni MTS-1 ni Everest (`comment` des deux) ne documentent
 // de longueur maximale ; la seule borne écrite est celle de la SOURCE, côté
 // Plateforme : §08 E1 « `informations_supplementaires` (text nullable, max 1000
 // car.) ». Le commentaire empruntant ce même champ, il respecte ce plafond plutôt
@@ -309,7 +310,7 @@ function ajuster(blocs: Bloc[]): void {
  * Compose le commentaire transmis au transporteur (format en tête de fichier).
  *
  * @returns Le commentaire, ou `null` si rien à transmettre (`null` = pas de
- *   `comment` MTS-1, pas de `notes` Everest).
+ *   `comment` MTS-1 ; côté Everest, la seule consigne d'A Toutes!).
  */
 export function composerCommentaireTransporteur(
   e: EntreeCommentaire,

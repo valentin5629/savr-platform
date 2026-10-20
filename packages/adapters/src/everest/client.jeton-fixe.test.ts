@@ -22,18 +22,18 @@ const JETON = 'jeton-fixe-de-test-0000';
 const MISSION = {
   service_id: 71,
   client_ref: 'c0000000-0000-0000-0000-0000000000c1',
-  pickup: {
-    address: '1 rue du Test, 75001 Paris',
-    contact: { name: 'Contact Test', phone: '+33100000000' },
-  },
-  dropoff: { address: '2 rue du Test, 94200 Ivry-sur-Seine' },
-  timeslot: { date: '2026-10-20', start: '22:00', end: '23:00' },
+  start_date: 1792526400,
+  address_start: '1 rue du Test, 75001 Paris',
+  address_start_name: 'Contact Test',
+  address_start_tel: '+33100000000',
+  address_end: '2 rue du Test, 94200 Ivry-sur-Seine',
+  comment: 'Pesée obligatoire, photo marchandise obligatoire',
 };
 
 type Operation = (client: EverestClient) => Promise<unknown>;
 const OPERATIONS: Array<[string, Operation]> = [
   ['createMission', (c) => c.createMission(MISSION, 'corr-1')],
-  ['cancelMission', (c) => c.cancelMission({ mission_id: 'm-1' }, 'corr-1')],
+  ['cancelMission', (c) => c.cancelMission({ ref: 'm-1' }, 'corr-1')],
   ['getMission', (c) => c.getMission('m-1', 'corr-1')],
 ];
 
@@ -80,7 +80,7 @@ describe('EverestClient — jeton fixe EVEREST_API_TOKEN', () => {
     'M2.5/everest_jeton_fixe_bearer — %s : le jeton part en Bearer, en un seul appel, jamais vers /auth',
     async (_nom, operation) => {
       vi.stubEnv('EVEREST_API_TOKEN', JETON);
-      fetchMock.mockResolvedValueOnce(json({ mission_id: 'm-1' }));
+      fetchMock.mockResolvedValueOnce(json({ mission: { ref: 'm-1' } }));
 
       await operation(new EverestClient(supabase));
 
@@ -94,7 +94,7 @@ describe('EverestClient — jeton fixe EVEREST_API_TOKEN', () => {
 
   it('M2.5/everest_jeton_fixe_blancs — jeton collé avec des blancs aux bords : envoyé sans eux', async () => {
     vi.stubEnv('EVEREST_API_TOKEN', `  ${JETON}\n`);
-    fetchMock.mockResolvedValueOnce(json({ mission_id: 'm-1' }));
+    fetchMock.mockResolvedValueOnce(json({ mission: { ref: 'm-1' } }));
 
     await new EverestClient(supabase).getMission('m-1', 'corr-1');
 

@@ -21,12 +21,12 @@ const FIN = 'SUITE-DU-FAUX-JETON';
 const MISSION = {
   service_id: 71,
   client_ref: 'c0000000-0000-0000-0000-0000000000c1',
-  pickup: {
-    address: '1 rue du Test, 75001 Paris',
-    contact: { name: 'Contact Test', phone: '+33100000000' },
-  },
-  dropoff: { address: '2 rue du Test, 94200 Ivry-sur-Seine' },
-  timeslot: { date: '2026-10-20', start: '22:00', end: '23:00' },
+  start_date: 1792526400,
+  address_start: '1 rue du Test, 75001 Paris',
+  address_start_name: 'Contact Test',
+  address_start_tel: '+33100000000',
+  address_end: '2 rue du Test, 94200 Ivry-sur-Seine',
+  comment: 'Pesée obligatoire, photo marchandise obligatoire',
 };
 
 /** L'erreur que le moteur lève pour un en-tête refusé, la valeur citée en entier. */
@@ -52,8 +52,7 @@ async function rejetDe(appel: () => Promise<unknown>): Promise<Error> {
 
 type Operation = (client: EverestClient) => Promise<unknown>;
 const creer: Operation = (c) => c.createMission(MISSION, 'corr-1');
-const annuler: Operation = (c) =>
-  c.cancelMission({ mission_id: 'm-1' }, 'corr-1');
+const annuler: Operation = (c) => c.cancelMission({ ref: 'm-1' }, 'corr-1');
 const lire: Operation = (c) => c.getMission('m-1', 'corr-1');
 
 describe('Client Everest — un appel sans réponse ne cite jamais le jeton', () => {

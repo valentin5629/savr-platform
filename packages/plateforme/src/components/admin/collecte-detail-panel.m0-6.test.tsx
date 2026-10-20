@@ -1313,6 +1313,74 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     ATTENTE_CAS_MS,
   );
 
+  // Même état en AG, chez un prestataire différent de la recommandation (top-1
+  // Strike) : le prestataire en place reste coché, aucun motif n'est demandé,
+  // l'envoi part vers lui à corps vide.
+  it(
+    'M0.6/ordre_envoi_aucun_ordre_en_file_ag — AG chez A Toutes!, aucun ordre en file ni référence : « Non envoyé », A Toutes! cochée, « Envoyer à A Toutes! » sans motif',
+    async () => {
+      const fetchMock = mockFetchPrestataire({
+        ...collecteAg,
+        prestataire_logistique_id: 'presta-atoutes',
+        prestataire_actuel: {
+          transporteur_id: 't-atoutes',
+          nom: 'A Toutes!',
+          type_tms: 'a_toutes',
+        },
+        attributions_antgaspi: {
+          ...collecteAg.attributions_antgaspi,
+          mode_validation: 'manuel_override',
+          valide_at: '2026-10-01T10:00:00Z',
+          transporteurs: {
+            id: 't-atoutes',
+            nom: 'A Toutes!',
+            type_tms: 'a_toutes',
+          },
+        },
+        collecte_tournees: [],
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(sousLigne).getByText('Non envoyé')).toBeInTheDocument();
+      expect(within(sousLigne).queryByText('Envoyée')).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      const carte = await screen.findByRole(
+        'radio',
+        { name: /A Toutes!/ },
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(carte).toHaveAttribute('aria-checked', 'true'),
+        ATTENTE_UI,
+      );
+      expect(screen.getByRole('radio', { name: /Strike/ })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
+      expect(screen.queryByText(/Collecte envoyée/)).toBeNull();
+      expect(screen.queryByLabelText(/Motif override/)).toBeNull();
+
+      const bouton = screen.getByRole('button', {
+        name: 'Envoyer à A Toutes!',
+      });
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+      await waitFor(() => {
+        const post = postDispatch(fetchMock);
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({});
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // Statut affiché Admin (décision Val 2026-10-07) : « Créée » tant que la
   // demande n'est pas partie, « Programmée » dès que l'Admin l'a envoyée — sans
   // attendre le passage du worker (badge « Envoyée » ci-dessus).

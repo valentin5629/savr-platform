@@ -16,6 +16,7 @@ type Reponse = { data: unknown; error: unknown };
 // Mock à réponses PAR TABLE (et non à file d'ordre) : chaque test dit ce que
 // renvoie chaque table, et relit les filtres réellement posés dessus.
 const reponses = new Map<string, Reponse>();
+const retenues = new Map<string, Promise<void>>();
 const appels: {
   cible: string;
   select: string;
@@ -29,8 +30,11 @@ function chaine(cible: string) {
     filtres: [] as [string, unknown][],
   };
   appels.push(appel);
+  // Une table « retenue » ne répond que quand le test la libère.
   const fin = (): Promise<Reponse> =>
-    Promise.resolve(reponses.get(cible) ?? { data: null, error: null });
+    (retenues.get(cible) ?? Promise.resolve()).then(
+      () => reponses.get(cible) ?? { data: null, error: null },
+    );
   const c = {
     select: (colonnes: string) => {
       appel.select = colonnes;
@@ -100,6 +104,7 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     reponses.clear();
+    retenues.clear();
     appels.length = 0;
     setupAuth('ops_savr');
   });
@@ -352,6 +357,7 @@ describe("M0.6 — GET admin/collectes/[id] : ordre d'envoi au prestataire", () 
   beforeEach(() => {
     vi.clearAllMocks();
     reponses.clear();
+    retenues.clear();
     appels.length = 0;
     setupAuth('ops_savr');
     reponses.set('plateforme.collectes', {
@@ -433,17 +439,30 @@ describe("M0.6 — GET admin/collectes/[id] : ordre d'envoi au prestataire", () 
   // qui se termine entre les deux lectures rend alors « ordre en file » +
   // référence, jamais « aucun ordre » + « aucune référence » (la fiche dirait
   // « Non envoyé » juste après un envoi réussi, et cesserait de se relire).
-  it('M0.6/ordre_envoi_lu_avant_collecte — la file d’envoi est lue avant la collecte', async () => {
+  it('M0.6/ordre_envoi_lu_avant_collecte — la collecte n’est lue qu’une fois la file d’envoi lue', async () => {
     reponses.set('plateforme.outbox_events', { data: [], error: null });
+    // La file ne répond que sur ordre : deux lectures lancées ensemble (ou la
+    // file attendue après coup) liraient la collecte pendant qu'elle attend.
+    let libererFile!: () => void;
+    retenues.set(
+      'plateforme.outbox_events',
+      new Promise<void>((resolve) => {
+        libererFile = resolve;
+      }),
+    );
 
-    const res = await getDetail();
+    const enCours = getDetail();
+    await vi.waitFor(() =>
+      expect(appelsSur('plateforme.outbox_events')).toHaveLength(1),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(appelsSur('plateforme.collectes')).toHaveLength(0);
+
+    libererFile();
+    const res = await enCours;
 
     expect(res.status).toBe(200);
-    const cibles = appels.map((a) => a.cible);
-    expect(cibles).toContain('plateforme.outbox_events');
-    expect(cibles.indexOf('plateforme.outbox_events')).toBeLessThan(
-      cibles.indexOf('plateforme.collectes'),
-    );
+    expect(appelsSur('plateforme.collectes')).toHaveLength(1);
   });
 
   it('lecture de la file en erreur : 500, message neutre (pas de fiche servie avec un état faux)', async () => {

@@ -23,7 +23,7 @@ export interface CollecteFiltresOptions {
 }
 
 export interface CollecteFiltres {
-  /** Statuts DB sélectionnés ; vide = tous ceux de l'onglet courant. */
+  /** Statuts DB sélectionnés ; vide = tous ceux que la liste propose. */
   statuts: string[];
   from: string;
   to: string;
@@ -124,7 +124,7 @@ export type FiltreCollecteStandard =
   | 'programmeePar';
 
 interface Props {
-  /** Statuts DB couverts par l'onglet actif (Programmées ou Historique). */
+  /** Statuts DB proposés par le filtre Statut. */
   statutsOnglet: readonly string[];
   options: CollecteFiltresOptions;
   value: CollecteFiltres;

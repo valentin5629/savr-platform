@@ -182,11 +182,13 @@ export default function ClientOrganisateurDashboardPage() {
             className="grid grid-cols-2 gap-4 lg:grid-cols-4"
             data-testid="organisateur-kpi-zd"
           >
+            {/* Les cadrans mesurent l'impact réalisé : le lien ouvre les
+                collectes passées (décision Val 2026-10-19). */}
             <StatCard
               label="Événements ZD"
               value={nbEvenements}
               dotColor={KPI_DOT.navy}
-              href={`${ROUTES.organisateur.collectes}?type=zero_dechet`}
+              href={`${ROUTES.organisateur.collectes}?onglet=passees&type=zero_dechet`}
             />
             <StatCard
               label="Déchets détournés"
@@ -253,7 +255,7 @@ export default function ClientOrganisateurDashboardPage() {
             label="Événements AG"
             value={nbEvenements}
             dotColor={KPI_DOT.navy}
-            href={`${ROUTES.organisateur.collectes}?type=anti_gaspi`}
+            href={`${ROUTES.organisateur.collectes}?onglet=passees&type=anti_gaspi`}
           />
           <StatCard
             label="Repas détournés"

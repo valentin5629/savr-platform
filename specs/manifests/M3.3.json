@@ -73,8 +73,8 @@
     "M3.3/rapport_download_agence_cloisonnement",
     "M3.3/urgence_agence_ok",
     "M3.3/benchmark_filtres_agence_liste_lieux",
-    "M3.3/liste_agence_onglets_programmees_historique",
-    "M3.3/liste_agence_lien_profond_historique",
+    "M3.3/liste_agence_vues_a_venir_passees",
+    "M3.3/liste_agence_lien_profond_passees",
     "M3.3/liste_agence_actions_ligne",
     "M3.3/liste_agence_routes_agence_seules",
     "M3.3/liste_agence_resultats",
@@ -83,7 +83,7 @@
     "M3.3/dupliquer_agence_traiteur_operationnel_preselectionne",
     "M3.3/liste_agence_telecharger_et_export",
     "M3.3/liste_agence_ancien_lien_sans_onglet",
-    "M3.3/liste_agence_statut_hors_onglet_jamais_vide",
+    "M3.3/liste_agence_statut_inconnu_jamais_vide",
     "M3.3/liste_agence_colonne_client",
     "M3.3/blocs_agence_ag_lit_la_table",
     "M3.3/evolution_agence_ag_lit_la_table",
@@ -331,7 +331,7 @@
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/cockpit_drilldown_top_lieux_url",
       "statut": "implemented",
-      "libelle": "R24c — Drill-down « Top lieux → liste Collectes filtrée » (#219) PRÉSERVÉ après migration TopLieuxBloc → TopRankList : onItemClick(index) → setCollecteFiltreLabel + router.push(/agence/collectes?onglet=historique&lieu=…&type=…&statut=cloturee&from&to) — miroir exact du chiffre du dashboard, périmètre donneur d'ordre (pas de perimetre=organisation)."
+      "libelle": "R24c — Drill-down « Top lieux → liste Collectes filtrée » (#219) PRÉSERVÉ après migration TopLieuxBloc → TopRankList : onItemClick(index) → setCollecteFiltreLabel + router.push(/agence/collectes?onglet=passees&lieu=…&type=…&statut=cloturee&from&to) — miroir exact du chiffre du dashboard, périmètre donneur d'ordre (pas de perimetre=organisation)."
     },
     {
       "id": "M3.3-kpi-sparkline-n1",
@@ -409,9 +409,9 @@
       "id": "M3.3-liste-onglets-etat",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:57 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:297",
       "artefact": "packages/plateforme/src/app/(agence)/agence/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
-      "test": "M3.3/liste_agence_onglets_programmees_historique",
+      "test": "M3.3/liste_agence_vues_a_venir_passees",
       "statut": "implemented",
-      "libelle": "Liste Collectes agence = liste traiteur (§06.11 l.57 « vue liste identique au §06.04 ») : onglets Programmées / Historique (partition des statuts) + sélecteur ZD / AG + barre de filtres, via le composant COMMUN ListeCollectesClient (la page agence en était une copie figée d'avant la refonte §06.04 2026-07-05 — revue écran E2E 2026-09-30)."
+      "libelle": "Liste Collectes agence = liste traiteur (§06.11 l.57 « vue liste identique au §06.04 ») : vues « Collectes à venir » / « Collectes passées » rangées par date (décision Val 2026-10-19 ; avant : onglets Programmées / Historique par état) + sélecteur ZD / AG + barre de filtres, via le composant COMMUN ListeCollectesClient (la page agence en était une copie figée d'avant la refonte §06.04 2026-07-05 — revue écran E2E 2026-09-30). Décision Val 2026-10-19 : les onglets par état deviennent les vues « Collectes à venir » (défaut, date croissante) / « Collectes passées » (date décroissante), rangées par DATE de collecte quel que soit le statut (aujourd'hui compte dans « à venir ») ; le filtre Statut propose tous les statuts dans les deux vues (lib/collectes/vue-temporelle)."
     },
     {
       "id": "M3.3-liste-actions-ligne",
@@ -457,9 +457,9 @@
       "id": "M3.3-liste-lien-profond-historique",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:188",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
-      "test": "M3.3/liste_agence_lien_profond_historique",
+      "test": "M3.3/liste_agence_lien_profond_passees",
       "statut": "implemented",
-      "libelle": "Drill-down Top lieux du dashboard agence → /agence/collectes?onglet=historique&lieu=…&statut=cloturee : la liste s'ouvre sur l'Historique (cloturee hors de l'onglet Programmées)."
+      "libelle": "Drill-down Top lieux du dashboard agence → /agence/collectes?onglet=passees&lieu=…&statut=cloturee : la liste s'ouvre sur la vue « Collectes passées » (une collecte clôturée est révolue — décision Val 2026-10-19). Les liens d'avant (`onglet=historique`) ouvrent la même vue."
     },
     {
       "id": "M3.3-dupliquer-agence",

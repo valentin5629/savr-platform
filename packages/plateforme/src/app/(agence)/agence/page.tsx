@@ -209,8 +209,8 @@ export default function AgenceDashboardPage() {
   // du calcul Top listes). Libellé humain via sessionStorage (pas d'ID → nom en
   // query string). Périmètre donneur d'ordre garanti par la RLS agence (jamais
   // opératrice) → pas de `perimetre=organisation`, contrairement au traiteur.
-  // Onglet Historique : `cloturee` n'appartient pas à l'onglet Programmées, où
-  // la liste (commune au traiteur) écarterait ce statut.
+  // Vue « passées » : une collecte clôturée est réalisée, donc datée d'avant
+  // aujourd'hui.
   const drillScope = `type=${tab}&statut=cloturee${
     filters ? `&from=${filters.from}&to=${filters.to}` : ''
   }`;
@@ -219,7 +219,7 @@ export default function AgenceDashboardPage() {
     if (!l) return;
     setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
     router.push(
-      `${ROUTES.agence.collectes}?onglet=historique&lieu=${l.lieu_id}&${drillScope}`,
+      `${ROUTES.agence.collectes}?onglet=passees&lieu=${l.lieu_id}&${drillScope}`,
     );
   };
 

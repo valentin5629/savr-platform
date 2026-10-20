@@ -90,7 +90,7 @@ export interface CollecteRow {
   packs_antgaspi?: { prix_unitaire_ht: number | null } | null;
 }
 
-// ── Statuts terminaux (= vue Historique). Source unique. ───────────────────────
+// ── Statuts terminaux. Source unique. ──────────────────────────────────────────
 export const STATUTS_TERMINAUX = new Set([
   'realisee',
   'realisee_sans_collecte',
@@ -176,7 +176,7 @@ function formatEuro(n: number, type: CollecteRow['type']): string {
   return type === 'zero_dechet' ? `${v} HT` : v;
 }
 
-// ── Indicateurs de résultat (vue Historique) — repas AG ou « Sans excédent » /
+// ── Indicateurs de résultat (collecte terminée) — repas AG ou « Sans excédent » /
 // kg + taux ZD / rapport. « Sans excédent » est le résultat d'une collecte AG
 // qui n'a rien donné, pas son statut (décision Val 2026-10-09).
 function IndicateursHistorique({ row }: { row: CollecteRow }) {

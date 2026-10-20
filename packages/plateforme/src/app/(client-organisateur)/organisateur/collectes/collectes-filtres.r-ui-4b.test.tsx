@@ -22,6 +22,7 @@ vi.mock('next/navigation', () => ({
 
 import CollectesPage from './page';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 
 const LIGNES = [
   {
@@ -76,7 +77,75 @@ afterEach(() => {
   window.history.replaceState(null, '', '/organisateur/collectes');
 });
 
+// Vues « Collectes à venir / passées » (décision Val 2026-10-19). La route
+// sert un ordre mélangé : l'ordre affiché prouve le tri de la page.
+const JOURS_VUES = ['2026-07-14', '2026-07-08', '2026-06-30', '2026-07-20'];
+const LIGNES_VUES = JOURS_VUES.map((jour) => ({
+  ...LIGNES[0]!,
+  id: `c-${jour}`,
+  date_collecte: jour,
+  evenements: { ...LIGNES[0]!.evenements, nom_evenement: `EVT-${jour}` },
+}));
+/** Dates des lignes, dans l'ordre du <table> (DataGrid double en cartes). */
+function ordreAffiche(): string[] {
+  return Array.from(
+    (document.querySelector('table')?.textContent ?? '').matchAll(
+      /EVT-(\d{4}-\d{2}-\d{2})/g,
+    ),
+    (m) => m[1] as string,
+  );
+}
+
 describe('R-UI-4b / liste Collectes organisateur — barre de filtres', () => {
+  it(
+    'M3.4/collectes_vues_a_venir_passees_par_date — « à venir » par défaut (aujourd’hui et après, date croissante), « passées » (avant aujourd’hui, date décroissante)',
+    async () => {
+      // Horloge seule figée (minuteries réelles) : 8 juillet 2026, 10 h à Paris.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-08T08:00:00Z'));
+      try {
+        const urls: string[] = [];
+        vi.stubGlobal(
+          'fetch',
+          vi.fn((url: string) => {
+            urls.push(String(url));
+            return Promise.resolve(
+              new Response(JSON.stringify({ data: LIGNES_VUES }), {
+                status: 200,
+              }),
+            );
+          }),
+        );
+        render(<CollectesPage />);
+        await screen.findByRole('table', {}, ATTENTE_UI);
+
+        expect(
+          screen.getByRole('tab', { name: 'Collectes à venir' }),
+        ).toHaveAttribute('aria-selected', 'true');
+        const aVenir = demande(urls[urls.length - 1]!);
+        expect(aVenir.get('from')).toBe('2026-07-08');
+        expect(aVenir.get('to')).toBeNull();
+        expect(ordreAffiche()).toEqual([...JOURS_VUES].sort());
+
+        await act(async () => {
+          fireEvent.mouseDown(
+            screen.getByRole('tab', { name: 'Collectes passées' }),
+          );
+        });
+        const passees = demande(urls[urls.length - 1]!);
+        expect(passees.get('to')).toBe('2026-07-07');
+        expect(passees.get('from')).toBeNull();
+        expect(new URLSearchParams(window.location.search).get('onglet')).toBe(
+          'passees',
+        );
+        expect(ordreAffiche()).toEqual([...JOURS_VUES].sort().reverse());
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'barre rendue : Période seule, type ZD / AG en en-tête, compteur en pied ; rien que ce que la route accepte',
     async () => {
@@ -116,7 +185,9 @@ describe('R-UI-4b / liste Collectes organisateur — barre de filtres', () => {
   it(
     'période lue dans l’URL et transmise ; « Réinitialiser les filtres » la retire sans toucher au type',
     async () => {
-      urlParams.current = 'type=anti_gaspi&from=2026-01-01&to=2026-06-30';
+      // Vue « passées » : la période choisie (révolue) part telle quelle.
+      urlParams.current =
+        'onglet=passees&type=anti_gaspi&from=2026-01-01&to=2026-06-30';
       const urls = fetchEspion();
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
@@ -134,10 +205,11 @@ describe('R-UI-4b / liste Collectes organisateur — barre de filtres', () => {
       });
       const apres = demande(urls[urls.length - 1]!);
       expect(apres.get('from')).toBeNull();
-      expect(apres.get('to')).toBeNull();
+      // La vue « passées » reste (navigation) et borne la liste à hier.
+      expect(apres.get('to')).toBe(decalerJour(jourParis(), -1));
       // Le type est un axe de vue, pas un filtre : il survit au reset.
       expect(apres.get('type')).toBe('anti_gaspi');
-      expect(window.location.search).toBe('?type=anti_gaspi');
+      expect(window.location.search).toBe('?onglet=passees&type=anti_gaspi');
       expect(screen.queryByTestId('collecte-filtres-bar-reset')).toBeNull();
     },
     ATTENTE_CAS_MS,

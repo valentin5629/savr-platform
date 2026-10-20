@@ -15,8 +15,7 @@ import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  useSearchParams: () =>
-    new URLSearchParams('onglet=historique&type=anti_gaspi'),
+  useSearchParams: () => new URLSearchParams('onglet=passees&type=anti_gaspi'),
   usePathname: () => '/traiteur/collectes',
 }));
 

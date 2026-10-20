@@ -62,7 +62,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createSupabaseServerClient();
 
   // Périmètre visible de l'appelant (RLS `col_select`) — aucune borne de date : les
-  // options doivent couvrir l'onglet Historique autant que Programmées.
+  // options doivent couvrir les collectes passées autant que celles à venir.
   // `max_rows = 1000` (supabase/config.toml) tronque SILENCIEUSEMENT au-delà du
   // millier. Sans `order`, le sous-ensemble retenu serait non déterministe et les
   // options varieraient d'un appel à l'autre. On ordonne par date DÉCROISSANTE (et

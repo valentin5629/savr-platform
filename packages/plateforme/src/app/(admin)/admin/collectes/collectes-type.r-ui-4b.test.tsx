@@ -104,7 +104,9 @@ describe('R-UI-4b — Collectes admin : un seul contrôle de type, FilterBar com
         name: 'Type de collecte',
       });
       expect(
-        within(barre).getByRole('tablist', { name: 'Vue collectes' }),
+        within(barre).getByRole('tablist', {
+          name: 'Collectes à venir ou passées',
+        }),
       ).toBeInTheDocument();
       // Aucun autre contrôle de type : ni pilules « Filtrer par type », ni
       // liste à cocher « Type », ni pastilles Anti-Gaspi / Zéro Déchet.

@@ -20,8 +20,15 @@ import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import { OngletsVueCollectes } from '@/components/collecte/onglets-vue-collectes';
+import {
+  lireVueCollectes,
+  periodeDeLaVue,
+  triDateDescendant,
+  type VueCollectes,
+} from '@/lib/collectes/vue-temporelle';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 import {
   ToggleTypeCollecte,
   type TypeCollecteFiltre,
@@ -56,23 +63,31 @@ import { Text } from '@/components/ui/text';
 import { ROUTES } from '@/lib/routes';
 import { ChoiceCard } from '@/components/ui/choice-card';
 
-// Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
-// Clés d'affichage Admin : le statut DB `programmee` s'y lit « Créée » (`creee`)
+// Vues « Collectes à venir / passées » (décision Val 2026-10-19) : rangées par
+// DATE de collecte, quel que soit le statut (lib/collectes/vue-temporelle).
+// Le filtre Statut propose donc les mêmes statuts dans les deux vues. Clés
+// d'affichage Admin : le statut DB `programmee` s'y lit « Créée » (`creee`)
 // puis « Programmée » (décision Val 2026-10-07, lib/statut-collecte-admin).
-const STATUTS_PROGRAMMEES = ['creee', 'programmee', 'validee', 'en_cours'];
 // « Réalisée » couvre aussi la collecte AG sans excédent (`filtreStatutsAdmin`) :
 // le filtre ne propose pas deux fois le même libellé (décision Val 2026-10-09).
-const STATUTS_HISTORIQUE = [
+const STATUTS_FILTRE = [
+  'creee',
+  'programmee',
+  'validee',
+  'en_cours',
   'realisee',
   'cloturee',
   'annulee',
   'rejetee_par_prestataire',
 ];
 
-// Catalogue des chips Programmées (§06.06 §3) — `key` = valeur du paramètre `chip`.
+// Catalogue des chips de la vue « à venir » (§06.06 §3) — `key` = valeur du
+// paramètre `chip`. Ce sont des files d'action : une pastille montre TOUTES les
+// collectes concernées, même datées d'avant aujourd'hui (décision Val
+// 2026-10-19) — son chiffre reste celui de la liste.
 // Inclut des chips MASQUÉS de la rangée par défaut mais conservés comme cibles de
 // drill-down depuis le Dashboard Admin (?chip=…, cartes Bloc 1). Prédicats : lib/collectes-chips.
-const CHIPS_PROGRAMMEES_CATALOGUE = [
+const CHIPS_A_VENIR_CATALOGUE = [
   { key: '', label: 'Toutes' },
   { key: 'non_transmises_zd', label: 'Non transmises ZD' },
   { key: 'non_transmises_ag', label: 'Non transmises AG' },
@@ -89,7 +104,7 @@ const CHIPS_PROGRAMMEES_CATALOGUE = [
 // serait filtrée sans indicateur visible) — ce qui préserve les cibles de
 // drill-down Dashboard Admin (non_transmises_zd/ag, zd_48h, ag_48h) et celles
 // des tuiles « AG / ZD à dispatcher ».
-const CHIPS_PROGRAMMEES_MASQUES = new Set([
+const CHIPS_A_VENIR_MASQUES = new Set([
   'non_transmises_zd',
   'non_transmises_ag',
   'zd_48h',
@@ -98,19 +113,17 @@ const CHIPS_PROGRAMMEES_MASQUES = new Set([
   'ag_attente_attribution',
 ]);
 
-const CHIPS_PROGRAMMEES = CHIPS_PROGRAMMEES_CATALOGUE.filter(
-  (c) => !CHIPS_PROGRAMMEES_MASQUES.has(c.key),
+const CHIPS_A_VENIR = CHIPS_A_VENIR_CATALOGUE.filter(
+  (c) => !CHIPS_A_VENIR_MASQUES.has(c.key),
 );
 
-// Filtres rapides Historique — mappés sur les statuts (pas de chip serveur).
+// Filtres rapides de la vue « passées » — mappés sur les statuts (pas de chip serveur).
 // Les anciennes pastilles Anti-Gaspi / Zéro Déchet sont retirées (R-UI-4b, D1) :
 // le type se filtre par LE segmenté `ToggleTypeCollecte` de la FilterBar.
-const CHIPS_HISTORIQUE = [
+const CHIPS_PASSEES = [
   { key: '', label: 'Toutes' },
   { key: 'annulee', label: 'Annulées' },
 ];
-
-type Tab = 'programmees' | 'historique';
 
 // Filtres de la liste, miroir dans l'URL (R-UI-4a, D6) : les mêmes clés que
 // les liens de drill-down des dashboards (`?lieu=`, `?traiteur=`, `?chip=`,
@@ -118,8 +131,8 @@ type Tab = 'programmees' | 'historique';
 // `chip` (pastille rapide), `page`, `tri`, `ordre` sont de la navigation :
 // hors « Réinitialiser les filtres », qui n'efface que la barre (la pastille
 // et les filtres se cumulent, décision Val 2026-09-30). `tri`/`ordre` vides =
-// tri par défaut de l'onglet ; `tab` vide = Historique si drill-down, sinon
-// Programmées. `tab` reste de la navigation (R-UI-4b, D2) : les onglets sont
+// tri par défaut de la vue ; `tab` vide = passées si drill-down, sinon à
+// venir. `tab` reste de la navigation (R-UI-4b, D2) : les onglets sont
 // un changement de VUE (Tabs, DS règle 6), pas un filtre — « Réinitialiser les
 // filtres » ne change pas de vue et l'onglet ne compte pas dans `actif`.
 // `type` (R-UI-4b, D1) : UN seul contrôle, le segmenté `ToggleTypeCollecte`
@@ -141,20 +154,12 @@ const FILTRES = {
   ordre: navigation(texte('')),
 };
 
-// Tri par défaut de chaque onglet : les prochaines collectes d'abord pour
-// « Programmées » (sinon la page 1 montrerait les plus lointaines), les plus
-// récentes d'abord pour « Historique ».
-const TRI_DEFAUT: Record<Tab, SortingState> = {
-  programmees: [{ id: 'date', desc: false }],
-  historique: [{ id: 'date', desc: true }],
-};
-
 // Toutes les colonnes du §06.06 §3 sont visibles par défaut (menu « Colonnes »
-// pour en masquer). Seule exception : le statut TMS, sans état terminal, n'a
-// pas d'objet dans l'Historique.
-const COLONNES_MASQUEES: Record<Tab, Record<string, boolean>> = {
-  programmees: {},
-  historique: { statut_tms: false },
+// pour en masquer). Seule exception : le statut TMS, masqué par défaut dans les
+// collectes passées (la plupart sont terminées) ; le menu « Colonnes » le rend.
+const COLONNES_MASQUEES: Record<VueCollectes, Record<string, boolean>> = {
+  a_venir: {},
+  passees: { statut_tms: false },
 };
 
 type KpiTone = 'warning' | 'success' | 'info' | 'error';
@@ -234,8 +239,8 @@ export default function CollectesPage() {
   const [{ drillLieu, drillTraiteur, drillStatut }] = useState(() => ({
     drillLieu: params.get('lieu'),
     drillTraiteur: params.get('traiteur'),
-    // Drill-down depuis les cartes-actions du Dashboard Admin (Bloc 1) : chip
-    // prédéfini « Programmées » pré-sélectionné à l'arrivée (miroir exact du compteur).
+    // Statut du drill-down (Top listes du Dashboard Client : `cloturee`),
+    // annoncé dans le chip « Filtre actif ».
     drillStatut: params.get('statut'),
   }));
   // Périmètre d'organisations propagé par le drill-down (miroir exact du chiffre
@@ -252,19 +257,19 @@ export default function CollectesPage() {
     reset,
     actif: filtresActifs,
   } = useFiltresUrl(FILTRES);
-  // Onglet : explicite dans l'URL, sinon Historique à l'arrivée d'un drill-down.
-  const [tabDefaut] = useState<Tab>(hasDrill ? 'historique' : 'programmees');
-  const tab: Tab =
-    f.tab === 'historique' || f.tab === 'programmees' ? f.tab : tabDefaut;
-  // Filtre rapide de l'onglet actif : chip Programmées OU filtre Historique.
+  // Vue : explicite dans l'URL (anciens liens `programmees` / `historique`
+  // compris), sinon « passées » à l'arrivée d'un drill-down.
+  const [tabDefaut] = useState<VueCollectes>(hasDrill ? 'passees' : 'a_venir');
+  const tab = lireVueCollectes(f.tab) ?? tabDefaut;
+  // Filtre rapide de la vue : chip « à venir » OU filtre « passées ».
   // Pré-sélectionné depuis le drill-down Dashboard Admin (`?chip=`) s'il désigne
-  // un chip « Programmées » connu → la liste s'ouvre déjà filtrée + chip actif.
+  // un chip « à venir » connu → la liste s'ouvre déjà filtrée + chip actif.
   const quickFilter =
-    tab === 'programmees'
-      ? CHIPS_PROGRAMMEES_CATALOGUE.some((c) => c.key === f.chip)
+    tab === 'a_venir'
+      ? CHIPS_A_VENIR_CATALOGUE.some((c) => c.key === f.chip)
         ? f.chip
         : ''
-      : CHIPS_HISTORIQUE.some((c) => c.key === f.chip)
+      : CHIPS_PASSEES.some((c) => c.key === f.chip)
         ? f.chip
         : '';
   // Type : UN seul contrôle (`ToggleTypeCollecte`, R-UI-4b D1) ; toute autre
@@ -277,17 +282,21 @@ export default function CollectesPage() {
   const lieuIds = f.lieu;
   const from = f.from;
   const to = f.to;
-  // Statut (multi-sélection, §06.06 §3) : scopé aux valeurs valides de l'onglet
-  // actif ; vide = preset de l'onglet. Info incomplète / rapport non consulté :
-  // booléens indépendants de l'onglet.
+  // Statut (multi-sélection, §06.06 §3) : vide = tous les statuts. Info
+  // incomplète / rapport non consulté : booléens indépendants de la vue.
   const statutsSel = f.statut;
   const infoIncomplete = f.info_incomplete === '1';
   const controleAcces = f.controle_acces === '1';
   const rapportNonConsulte = f.rapport_non_consulte === '1';
   const page = f.page;
-  // Tri de la Data Table : explicite dans l'URL, sinon défaut de l'onglet.
+  // Tri de la Data Table : explicite dans l'URL, sinon celui de la vue (la
+  // collecte la plus proche d'aujourd'hui d'abord).
   const sorting: SortingState = useMemo(
-    () => (f.tri ? [{ id: f.tri, desc: f.ordre === 'desc' }] : TRI_DEFAUT[tab]),
+    () => [
+      f.tri
+        ? { id: f.tri, desc: f.ordre === 'desc' }
+        : { id: 'date', desc: triDateDescendant(tab) },
+    ],
     [f.tri, f.ordre, tab],
   );
   // Libellé humain du filtre de drill-down (lieu / traiteur), lu du sessionStorage
@@ -384,35 +393,35 @@ export default function CollectesPage() {
   // des mêmes paramètres (§12 §2 « l'export respecte les filtres actifs »).
   // `null` = croisement vide (ex. pastille Annulées + Statut Clôturée) : aucun
   // appel, liste vide, rien à exporter.
+  // Jour lu à chaque rendu : une page restée ouverte passé minuit se recale
+  // au premier geste.
+  const aujourdhui = jourParis();
   const filtresListe = useMemo(() => {
     const params = new URLSearchParams();
 
     // Pastille rapide ET filtres de la barre se cumulent (décision Val
     // 2026-09-30) : ce qui est affiché s'applique toujours. Sans filtre posé,
     // la liste reste le miroir exact du compteur de la pastille.
-    if (tab === 'programmees') {
-      // Chemin chip serveur (les chips sont tous à portée « Programmées ») ; le
-      // Statut n'y raffine qu'avec une sélection explicite. Sinon : preset de
-      // l'onglet, croisé avec la sélection (une valeur d'URL étrangère à
-      // l'onglet = aucun résultat, comme en Historique).
-      if (quickFilter) params.set('chip', quickFilter);
-      if (statutsSel.length > 0 || !quickFilter) {
-        const statutsEff = intersection(STATUTS_PROGRAMMEES, statutsSel);
-        if (statutsEff.length === 0) return null;
-        params.set('statuts', statutsEff.join(','));
-      }
-    } else {
-      // Historique : preset terminaux ; la pastille Annulées se croise avec le
-      // Statut de la barre.
+    if (tab === 'a_venir' && quickFilter) params.set('chip', quickFilter);
+    // Statuts : la sélection de la barre (une valeur d'URL inconnue = aucun
+    // résultat), croisée avec la pastille « Annulées » des passées ; rien de
+    // posé = tous les statuts.
+    const annulees = tab === 'passees' && quickFilter === 'annulee';
+    if (statutsSel.length > 0 || annulees) {
       const statutsEff = intersection(
-        quickFilter === 'annulee'
-          ? ['annulee', 'rejetee_par_prestataire']
-          : STATUTS_HISTORIQUE,
+        annulees ? ['annulee', 'rejetee_par_prestataire'] : STATUTS_FILTRE,
         statutsSel,
       );
       if (statutsEff.length === 0) return null;
       params.set('statuts', statutsEff.join(','));
     }
+    // Période de la barre bornée à la vue — sauf sous une pastille « à
+    // venir » : une file d'action garde ses collectes en retard (décision Val
+    // 2026-10-19), son chiffre reste celui de la liste.
+    const periode =
+      tab === 'a_venir' && quickFilter
+        ? { from, to }
+        : periodeDeLaVue(tab, { from, to }, aujourdhui);
     // Type (segmenté) : même paramètre CSV qu'avant, absent pour « Toutes ».
     if (type !== 'tous') params.set('types', type);
 
@@ -421,8 +430,8 @@ export default function CollectesPage() {
     if (traiteurIds.length > 0)
       params.set('traiteur_operationnel_ids', traiteurIds.join(','));
     if (lieuIds.length > 0) params.set('lieu_ids', lieuIds.join(','));
-    if (from) params.set('from', from);
-    if (to) params.set('to', to);
+    if (periode.from) params.set('from', periode.from);
+    if (periode.to) params.set('to', periode.to);
     // Périmètre d'organisations du drill-down (miroir exact du chiffre borné).
     for (const id of perimetreOrgIds) params.append('perimetre_org_ids[]', id);
     if (infoIncomplete) params.set('info_incomplete', 'true');
@@ -431,6 +440,7 @@ export default function CollectesPage() {
     return params;
   }, [
     tab,
+    aujourdhui,
     quickFilter,
     type,
     statutsSel,
@@ -509,7 +519,7 @@ export default function CollectesPage() {
     void loadChipCounts();
   }, [setCollecteParam, fetchCollectes, loadChipCounts]);
 
-  const changeTab = (next: Tab) => {
+  const changeTab = (next: VueCollectes) => {
     set({ tab: next, chip: '', type: 'tous', statut: [], tri: '', ordre: '' });
   };
 
@@ -541,14 +551,14 @@ export default function CollectesPage() {
   // Rangée de chips : masqués retirés par défaut ; si le filtre actif EST un chip
   // masqué (drill-down dashboard), on le rajoute pour rendre son état actif visible.
   const chips =
-    tab === 'programmees'
-      ? quickFilter && CHIPS_PROGRAMMEES_MASQUES.has(quickFilter)
+    tab === 'a_venir'
+      ? quickFilter && CHIPS_A_VENIR_MASQUES.has(quickFilter)
         ? [
-            ...CHIPS_PROGRAMMEES,
-            ...CHIPS_PROGRAMMEES_CATALOGUE.filter((c) => c.key === quickFilter),
+            ...CHIPS_A_VENIR,
+            ...CHIPS_A_VENIR_CATALOGUE.filter((c) => c.key === quickFilter),
           ]
-        : CHIPS_PROGRAMMEES
-      : CHIPS_HISTORIQUE;
+        : CHIPS_A_VENIR
+      : CHIPS_PASSEES;
   // Efface le filtre de drill-down (lieu / traiteur venu du dashboard) → liste
   // nue : filtres au défaut (le chip « Filtre actif » s'éteint avec le lieu /
   // traiteur), périmètre d'organisations retiré de l'URL.
@@ -615,12 +625,12 @@ export default function CollectesPage() {
         />
       )}
 
-      {/* KPI de tête (Programmées uniquement) : 4 files d'action sur une ligne.
+      {/* KPI de tête (vue « à venir » uniquement) : 4 files d'action sur une ligne.
           Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01).
           Un clic sur « AG / ZD à dispatcher » pose le chip « Non transmises
           AG / ZD » et efface le filtre Type : la liste montre les collectes
           comptées (décisions Val 2026-10-01) ; un re-clic retire le chip. */}
-      {tab === 'programmees' && (
+      {tab === 'a_venir' && (
         <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           <KpiTile
             icon={UtensilsCrossed}
@@ -664,9 +674,7 @@ export default function CollectesPage() {
       {/* Filtres rapides (pastilles à compteur, DS §5.7) */}
       <FilterChips
         chips={chips.map((c) =>
-          tab === 'programmees' && c.key
-            ? { ...c, count: chipCounts[c.key] }
-            : c,
+          tab === 'a_venir' && c.key ? { ...c, count: chipCounts[c.key] } : c,
         )}
         activeKey={quickFilter}
         ariaLabel="Filtres rapides"
@@ -675,19 +683,12 @@ export default function CollectesPage() {
 
       {/* Barre de filtres toujours visible — ni recherche libre ni repli
           « Filtres avancés » (décision Val 2026-09-30, §06.06 §3 « Filtres »).
-          FilterBar complet (R-UI-4b, D5) : onglets Programmées / Historique
-          (Tabs, changer de vue) + segmenté de type (ToggleGroup, filtrer) en
+          FilterBar complet (R-UI-4b, D5) : vues à venir / passées (Tabs,
+          changer de vue) + segmenté de type (ToggleGroup, filtrer) en
           en-tête, compteur en pied — seul emplacement du compteur. */}
       <FilterBar
         data-testid="collectes-filtres"
-        tabs={
-          <Tabs value={tab} onValueChange={(v) => changeTab(v as Tab)}>
-            <TabsList aria-label="Vue collectes">
-              <TabsTrigger value="programmees">Programmées</TabsTrigger>
-              <TabsTrigger value="historique">Historique</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        }
+        tabs={<OngletsVueCollectes value={tab} onChange={changeTab} />}
         toggle={
           <ToggleTypeCollecte
             avecTous
@@ -728,14 +729,11 @@ export default function CollectesPage() {
           onChange={(ids) => set({ lieu: ids })}
         />
 
-        {/* Statut — multi-sélection scopée aux valeurs de l'onglet actif */}
+        {/* Statut — multi-sélection, mêmes statuts dans les deux vues */}
         <FiltreCoches
           label="Statut"
           testid="collectes-filtre-statut"
-          options={(tab === 'programmees'
-            ? STATUTS_PROGRAMMEES
-            : STATUTS_HISTORIQUE
-          ).map((s) => ({
+          options={STATUTS_FILTRE.map((s) => ({
             id: s,
             nom: statutCollecteDisplay(s, 'admin').label,
           }))}

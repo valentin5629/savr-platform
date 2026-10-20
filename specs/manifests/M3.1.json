@@ -123,7 +123,7 @@
     "M3.1/blocs_traiteur_ag_associations_et_top7",
     "M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
     "M3.1/dash_cockpit_co2_ag_carte_modale",
-    "M3.1/tri_liste_collectes_date_decroissante_deux_onglets",
+    "M3.1/tri_liste_collectes_par_vue_plus_proche_d_abord",
     "M3.1/fiche_entete_type_et_taille_bracket",
     "M3.1/fiche_entete_taille_null_sans_pax",
     "M3.1/fiche_entete_programmee_par_tiers",
@@ -394,7 +394,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/card_traiteur_champs",
       "statut": "implemented",
-      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet FILTRES livré en R25a (cf. M3.1-liste-filtres). Volet AGENCE livré le 2026-09-30 (revue écran E2E) : même composant ListeCollectesClient, cf. M3.3-liste-onglets-etat."
+      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet FILTRES livré en R25a (cf. M3.1-liste-filtres). Volet AGENCE livré le 2026-09-30 (revue écran E2E) : même composant ListeCollectesClient, cf. M3.3-liste-onglets-etat. Onglets remplacés le 2026-10-19 par les vues « Collectes à venir » / « Collectes passées » rangées par date (décision Val), cf. M3.1-liste-tri-date-decroissante."
     },
     {
       "id": "M3.1-liste-carte-simplifiee",
@@ -649,9 +649,9 @@
       "id": "M3.1-liste-tri-date-decroissante",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:315 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:376",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
-      "test": "M3.1/tri_liste_collectes_date_decroissante_deux_onglets",
+      "test": "M3.1/tri_liste_collectes_par_vue_plus_proche_d_abord",
       "statut": "implemented",
-      "libelle": "Tri par défaut de la liste Collectes (§06.04 §3 Data Table l.329 + « Tri par défaut » l.389) : date DÉCROISSANTE, les plus récentes en premier, SANS exception d'onglet — au niveau des groupes-semaines COMME à l'intérieur d'une semaine. Ferme l'écart code/CDC relevé le 2026-09-21 (le code triait les semaines en croissant sur l'onglet Programmées, et les cartes intra-semaine toujours en croissant dans les deux onglets) : arbitrage Val 2026-09-21, option B — le CDC était juste, c'est le code qui s'aligne, cf. _Divergences/_traités/2026-09/M3.1_20260921_tri_liste_collectes.md. Le tri est porté par `initialSorting` (date décroissante) de la Data Table du composant partagé liste-collectes-client (traiteur + agence) : la liste Admin (§06.06) garde son propre groupBySemaine(asc|desc) avec remontée des urgences AG §06.09, hors périmètre de cet arbitrage."
+      "libelle": "Tri par défaut de la liste Collectes — REMPLACÉ par la décision Val 2026-10-19 : vues « Collectes à venir » / « Collectes passées » rangées par date, chacune de la plus proche à la plus lointaine (date croissante à venir, décroissante dans le passé ; `initialSorting` piloté par triDateDescendant, lib/collectes/vue-temporelle). Historique : (§06.04 §3 Data Table l.329 + « Tri par défaut » l.389) : date DÉCROISSANTE, les plus récentes en premier, SANS exception d'onglet — au niveau des groupes-semaines COMME à l'intérieur d'une semaine. Ferme l'écart code/CDC relevé le 2026-09-21 (le code triait les semaines en croissant sur l'onglet Programmées, et les cartes intra-semaine toujours en croissant dans les deux onglets) : arbitrage Val 2026-09-21, option B — le CDC était juste, c'est le code qui s'aligne, cf. _Divergences/_traités/2026-09/M3.1_20260921_tri_liste_collectes.md. Le tri est porté par `initialSorting` (date décroissante) de la Data Table du composant partagé liste-collectes-client (traiteur + agence) : la liste Admin (§06.06) garde son propre groupBySemaine(asc|desc) avec remontée des urgences AG §06.09, hors périmètre de cet arbitrage."
     },
     {
       "id": "M3.1-lieux-autocomplete-preuve-comportement",

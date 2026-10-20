@@ -385,8 +385,13 @@ for (const { module, espace, api, Page } of ESPACES) {
           () => expect(derniereListe().has('lieu_ids')).toBe(false),
           ATTENTE_UI,
         );
-        // Plus aucun filtre visible : plus aucun filtre appliqué, hors onglet et type.
-        expect([...derniereListe().keys()].sort()).toEqual(['statut', 'type']);
+        // Plus aucun filtre visible : plus aucun filtre appliqué, hors type et
+        // vue (les collectes passées s'arrêtent à hier : `to`).
+        expect([...derniereListe().keys()].sort()).toEqual([
+          'statut',
+          'to',
+          'type',
+        ]);
         expect(derniereUrl().has('perimetre')).toBe(false);
         expect(screen.queryByTestId('filtre-actif')).toBeNull();
       },

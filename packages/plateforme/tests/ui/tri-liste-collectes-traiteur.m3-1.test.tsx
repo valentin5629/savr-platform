@@ -1,15 +1,14 @@
 /**
- * M3.1 — Tri par défaut de la liste Collectes traiteur (§06.04 §3 « Vue cartes »).
+ * M3.1 — Tri par défaut de la liste Collectes traiteur (§06.04 §3).
  *
- * Le CDC énonce le tri SANS réserve : « date décroissante (les plus récentes en
- * premier) ». Le code triait en réalité les semaines de façon conditionnelle
- * (décroissant sur Historique, croissant sur Programmées) et les cartes
- * intra-semaine toujours en croissant. Arbitrage Val 2026-09-21 (option B) : le
- * CDC était juste, c'est le code qui s'aligne.
- * Cf. _Divergences/_traités/2026-09/M3.1_20260921_tri_liste_collectes.md.
+ * Décision Val 2026-10-19 : les onglets par état « Programmées / Historique »
+ * deviennent les vues « Collectes à venir / passées », rangées par DATE, et
+ * chacune s'ouvre de la plus proche à la plus lointaine : date croissante à
+ * venir, décroissante dans le passé (remplace le tri décroissant unique de
+ * l'arbitrage du 2026-09-21).
  *
- * Ce cas épingle LES DEUX niveaux de tri DANS LES DEUX onglets : sans lui,
- * l'écart se reformerait sans qu'aucun mécanisme ne le signale.
+ * Ce cas épingle, DANS LES DEUX vues, le tri du composant et la borne de date
+ * envoyée à la route (aujourd'hui compte dans « à venir »).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
@@ -65,9 +64,9 @@ const JOURS = [
   '2026-07-14',
 ];
 
-// Attendu CDC : décroissant strict (Data Table plate depuis 2026-09-28 : plus
-// de groupement par semaine, l'ordre des lignes suffit).
-const ATTENDU_DECROISSANT = [...JOURS].sort().reverse();
+// Data Table plate depuis 2026-09-28 : l'ordre des lignes suffit.
+const ATTENDU_CROISSANT = [...JOURS].sort();
+const ATTENDU_DECROISSANT = [...ATTENDU_CROISSANT].reverse();
 
 // Le lieu porte la date ISO : c'est le marqueur qui rend l'ORDRE du DOM lisible
 // (le libellé de date de la carte est localisé, donc impropre à l'assertion).
@@ -97,12 +96,12 @@ function collecte(jour: string, statut: string) {
   };
 }
 
-// La route renvoie déjà date_collecte DESC ; on sert volontairement l'ordre
-// INVERSE (croissant) pour que le test prouve le tri du composant et non celui
-// de l'API — sans ça, un composant qui ne trierait rien passerait au vert.
-function rowsPour(statuts: string): unknown[] {
-  const historique = statuts.includes('realisee');
-  return JOURS.map((j) => collecte(j, historique ? 'realisee' : 'programmee'));
+// La route sert ici un ordre mélangé, ni croissant ni décroissant : le test
+// prouve le tri du composant et non celui de l'API — sans ça, un composant qui
+// ne trierait rien passerait au vert dans l'une des deux vues.
+const ORDRE_ROUTE = [3, 0, 5, 1, 4, 2].map((i) => JOURS[i] as string);
+function rowsPour(): unknown[] {
+  return ORDRE_ROUTE.map((j) => collecte(j, 'validee'));
 }
 
 function jsonResponse(obj: unknown): Promise<Response> {
@@ -120,9 +119,7 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
       data: { lieux: [], clients: [], programmateurs: [] },
     });
   if (url.includes('/traiteur/collectes'))
-    return jsonResponse({
-      data: rowsPour(new URL(url, 'http://t').searchParams.get('statut') ?? ''),
-    });
+    return jsonResponse({ data: rowsPour() });
   return jsonResponse({ data: null });
 });
 
@@ -137,33 +134,57 @@ function ordreDesCartes(container: HTMLElement): string[] {
   ).filter((d): d is string => Boolean(d));
 }
 
+/** Paramètres du dernier appel de la liste (hors options des filtres). */
+function dernierAppelListe(): URLSearchParams {
+  const urls = fetchMock.mock.calls
+    .map(([u]) => String(u))
+    .filter((u) => u.includes('/traiteur/collectes?'));
+  return new URL(urls.at(-1) ?? '', 'http://t').searchParams;
+}
+
 describe('M3.1 — liste Collectes traiteur : tri par défaut (§06.04 §3)', () => {
   beforeEach(() => {
+    // Seule l'horloge est figée (les minuteries restent réelles pour waitFor) :
+    // le 8 juillet 2026 à 10 h à Paris.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-08T08:00:00Z'));
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockClear();
   });
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it(
-    'M3.1/tri_liste_collectes_date_decroissante_deux_onglets',
+    'M3.1/tri_liste_collectes_par_vue_plus_proche_d_abord',
     async () => {
       const { container } = render(<TraiteurCollectesPage />);
 
-      // ── Onglet Historique ────────────────────────────────────────────────
-      // Onglets Radix : activation au mousedown (pas au click).
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
+      // ── Vue « Collectes à venir » (par défaut) : date croissante ─────────
+      expect(
+        screen.getByRole('tab', { name: 'Collectes à venir' }),
+      ).toHaveAttribute('aria-selected', 'true');
       await waitFor(
         () => expect(ordreDesCartes(container)).toHaveLength(JOURS.length),
         ATTENTE_UI,
       );
+      expect(ordreDesCartes(container)).toEqual(ATTENDU_CROISSANT);
+      // Aujourd'hui compte dans « à venir » ; aucune borne haute.
+      expect(dernierAppelListe().get('from')).toBe('2026-07-08');
+      expect(dernierAppelListe().get('to')).toBeNull();
 
-      expect(ordreDesCartes(container)).toEqual(ATTENDU_DECROISSANT);
-
-      // ── Onglet Programmées — MÊME tri, aucune exception d'onglet ─────────
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Programmées' }));
+      // ── Vue « Collectes passées » : date décroissante ────────────────────
+      // Onglets Radix : activation au mousedown (pas au click).
+      fireEvent.mouseDown(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      );
+      await waitFor(
+        () => expect(dernierAppelListe().get('to')).toBe('2026-07-07'),
+        ATTENTE_UI,
+      );
+      expect(dernierAppelListe().get('from')).toBeNull();
       await waitFor(
         () => expect(ordreDesCartes(container)).toEqual(ATTENDU_DECROISSANT),
         ATTENTE_UI,

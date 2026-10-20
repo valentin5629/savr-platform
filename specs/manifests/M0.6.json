@@ -541,6 +541,14 @@
   "notes": "Module M0.6 complet : 64 tests pgTAP couvrant 100% des tables plateforme.*/shared.*. Catégories 1-7 avec tous les scénarios P1+P2. Assertions E3 garde-fou TMS-Ready incluses. T63/T64 ajoutés 2026-06-22 (fix fuite PII cross-org ct_read sur contacts_traiteurs, migration 20260622150000). R22a (BL-P2-31/32) : idempotence serveur des PUT paramètres + erreurs typées (typedRpcError) + coef perte labo route nested organisations/{id} ; résiduels §9ter.6 nécessitant une migration tracés M0.6-co2-typed-errors-residuels (batch-404 / emballage-409 / CHECK DB valeur>0).",
   "deliverables": [
     {
+      "id": "M0.6-liste-vues-a-venir-passees",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:160",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx + packages/plateforme/src/lib/collectes/vue-temporelle.ts + packages/plateforme/src/components/collecte/onglets-vue-collectes.tsx",
+      "test": "M0.6/liste_vues_a_venir_passees_par_date + M0.6/liste_pastille_action_toutes_dates",
+      "statut": "implemented",
+      "libelle": "Liste Collectes Admin : vues « Collectes à venir » (date de collecte ≥ aujourd'hui, date croissante) / « Collectes passées » (avant aujourd'hui, date décroissante), rangées par date quel que soit le statut, à la place des onglets Programmées / Historique ; une pastille d'action active lève la borne de la vue (ses collectes en retard restent visibles), la période de la barre continue de s'appliquer (décision Val 2026-10-19, C1 + C2 ; fiche _Divergences/M3.1_20261019_collectes-a-venir-passees)."
+    },
+    {
       "id": "M0.6-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
       "artefact": null,
@@ -1712,7 +1720,7 @@
     {
       "id": "M0.6-liste-filtre-statut-une-seule-realisee",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:204",
-      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (STATUTS_HISTORIQUE : le filtre « Statut » de l'onglet Historique ne propose plus `realisee_sans_collecte`, qui porterait un second « Réalisée ») + packages/plateforme/src/lib/statut-collecte-admin.ts (filtreStatutsAdmin : la clé `realisee` couvre les statuts DB `realisee` ET `realisee_sans_collecte`, pour la liste et son export CSV ; l'ancienne clé reste lue, sans doublon)",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (STATUTS_FILTRE, ex-STATUTS_HISTORIQUE : le filtre « Statut » ne propose plus `realisee_sans_collecte`, qui porterait un second « Réalisée ») + packages/plateforme/src/lib/statut-collecte-admin.ts (filtreStatutsAdmin : la clé `realisee` couvre les statuts DB `realisee` ET `realisee_sans_collecte`, pour la liste et son export CSV ; l'ancienne clé reste lue, sans doublon)",
       "test": "M0.6/liste_filtre_statut_une_seule_realisee + M0.6/statut_admin_filtre_realisee_couvre_sans_excedent + packages/plateforme/tests/api/exports/exports.m4-1.test.ts « M4.1/export_collectes_admin_filtres_liste — statut … »",
       "statut": "implemented",
       "libelle": "Liste Collectes Admin : une seule option « Réalisée » dans le filtre Statut, qui couvre les collectes avec et sans excédent ; on ne peut plus isoler les collectes sans excédent par ce filtre (arbitrage Val 2026-10-09 : « Une seule Réalisée »)"

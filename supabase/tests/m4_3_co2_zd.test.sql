@@ -12,7 +12,7 @@
 --                              fe_camion_benne_kg_km 2.1 → forfait 31.5
 
 BEGIN;
-SELECT plan(23);
+SELECT plan(24);
 
 -- ── Helpers JWT ──────────────────────────────────────────────────────────────
 
@@ -47,26 +47,26 @@ SELECT ok(
 -- ── Facteurs en base = table « Seed V1 » du CDC (§04 Data Model) ─────────
 
 SELECT results_eq(
-  $$ SELECT code_flux::text, fe_induit_kg_t, fe_evite_kg_t, energie_primaire_evitee_kwh_t
+  $$ SELECT code_flux::text, nom_flux, fe_induit_kg_t, fe_evite_kg_t, energie_primaire_evitee_kwh_t
      FROM plateforme.parametres_facteurs_co2 ORDER BY code_flux::text $$,
-  $$ VALUES ('biodechet', 40.00, 77.00, 0.00),
-            ('carton', 670.00, 390.00, 10098.00),
-            ('dechet_residuel', 380.00, 180.00, 0.00),
-            ('emballage', 539.75, 1187.70, 7000.00),
-            ('verre', 639.00, 1158.00, 4000.00) $$,
+  $$ VALUES ('biodechet', 'Biodéchets (méthanisation)', 40.00, 77.00, 0.00),
+            ('carton', 'Carton', 670.00, 390.00, 10098.00),
+            ('dechet_residuel', 'Déchet résiduel (OMR)', 380.00, 180.00, 0.00),
+            ('emballage', 'Emballages ménagers (mix)', 539.75, 1187.70, 7000.00),
+            ('verre', 'Verre', 639.00, 1158.00, 4000.00) $$,
   'M4.3 / facteurs_cdc : les 5 flux portent les facteurs du CDC (emballage dérivé du mix)'
 );
 
 SELECT results_eq(
-  $$ SELECT code_materiau::text, part_pct, fe_induit_kg_t, fe_evite_kg_t
+  $$ SELECT code_materiau::text, nom_materiau, part_pct, fe_induit_kg_t, fe_evite_kg_t
      FROM plateforme.parametres_mix_emballages ORDER BY code_materiau::text $$,
-  $$ VALUES ('acier', 3.00, 75.00, 1600.00),
-            ('alu', 5.00, 200.00, 10000.00),
-            ('autres', 1.00, 380.00, 180.00),
-            ('briques', 1.00, 670.00, 390.00),
-            ('carton_papier', 60.00, 670.00, 390.00),
-            ('pehd', 10.00, 350.00, 1200.00),
-            ('pet', 20.00, 400.00, 1400.00) $$,
+  $$ VALUES ('acier', 'Acier', 3.00, 75.00, 1600.00),
+            ('alu', 'Aluminium', 5.00, 200.00, 10000.00),
+            ('autres', 'Autres / refus (→ OMR)', 1.00, 380.00, 180.00),
+            ('briques', 'Briques alimentaires', 1.00, 670.00, 390.00),
+            ('carton_papier', 'Carton-papier', 60.00, 670.00, 390.00),
+            ('pehd', 'PEhd', 10.00, 350.00, 1200.00),
+            ('pet', 'PET', 20.00, 400.00, 1400.00) $$,
   'M4.3 / mix_emballages_cdc : les 7 matériaux portent le mix du CDC'
 );
 
@@ -74,6 +74,17 @@ SELECT is(
   (SELECT valeur FROM plateforme.parametres_co2_divers WHERE cle = 'km_collecte_aller_retour'),
   15::decimal,
   'M4.3 / forfait_collecte_km : 15 km aller-retour (décision Val 2026-10-20)'
+);
+
+-- La correction des valeurs d'origine (migration 20261020220000) est tracée.
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.audit_log
+    WHERE action IN ('parametres_facteurs_co2_correction',
+                     'parametres_mix_emballages_correction',
+                     'parametres_co2_divers_update')
+      AND motif LIKE 'Correction des valeurs d''origine%'),
+  3,
+  'M4.3 / correction_valeurs_origine_tracee : facteurs, mix et forfait dans audit_log'
 );
 
 -- ── Fixtures (superuser) ──────────────────────────────────────────────────

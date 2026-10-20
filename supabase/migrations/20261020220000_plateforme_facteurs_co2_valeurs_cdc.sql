@@ -13,6 +13,8 @@
 --
 -- Une valeur n'est remplacée que si elle est encore celle du seed d'origine :
 -- un facteur déjà modifié par un admin (RPC tracée) est conservé (NOTICE).
+-- Les libellés (`nom_flux`, `nom_materiau`) passent à ceux du CDC s'ils sont
+-- encore ceux de bloc8.
 -- Le mix n'est remplacé que si ses 7 lignes sont toutes d'origine (sinon
 -- Σ part_pct = 100 ne tiendrait pas).
 --
@@ -24,6 +26,12 @@
 --
 -- Les collectes déjà clôturées gardent leurs valeurs figées
 -- (R_co2_snapshot_fige) : aucune n'est recalculée ici.
+--
+-- Retour arrière : les lignes d'origine sont dans `audit_log` (actions
+-- `parametres_facteurs_co2_correction` et `parametres_mix_emballages_correction`,
+-- `old_values->'facteurs'` et `old_values->'mix'`). Les réécrire, déclencheurs
+-- d'historique suspendus et `savr.mix_batch` = '1' comme ci-dessous, puis
+-- remettre `km_collecte_aller_retour` à 50.
 
 DO $migration$
 DECLARE
@@ -69,8 +77,18 @@ BEGIN
     AND f.energie_primaire_evitee_kwh_t = c.energie_0;
   GET DIAGNOSTICS v_n = ROW_COUNT;
   IF v_n < 4 THEN
-    RAISE NOTICE 'facteurs CO₂ : % ligne(s) sur 4 corrigée(s), les autres avaient déjà été modifiées', v_n;
+    RAISE NOTICE 'facteurs CO₂ : % ligne(s) sur 4 corrigée(s) ; les autres ne portaient plus les valeurs d''origine, conservées', v_n;
   END IF;
+
+  UPDATE plateforme.parametres_facteurs_co2 f
+  SET nom_flux = c.nom, updated_at = now()
+  FROM (VALUES
+    ('carton',          'Cartons',                   'Carton'),
+    ('biodechet',       'Biodéchets',                'Biodéchets (méthanisation)'),
+    ('emballage',       'Emballages',                'Emballages ménagers (mix)'),
+    ('dechet_residuel', 'Déchet résiduel',           'Déchet résiduel (OMR)')
+  ) AS c(code, nom_0, nom)
+  WHERE f.code_flux::text = c.code AND f.nom_flux = c.nom_0;
 
   UPDATE plateforme.parametres_facteurs_co2
   SET energie_primaire_evitee_kwh_t = 7000.00,
@@ -149,8 +167,21 @@ BEGIN
            v_motif
     FROM plateforme.parametres_mix_emballages m;
   ELSE
-    RAISE NOTICE 'mix emballages : déjà modifié, conservé tel quel';
+    RAISE NOTICE 'mix emballages : ne porte plus les valeurs d''origine, conservé tel quel';
   END IF;
+
+  -- Libellés du mix (sans effet sur Σ part_pct ni sur la ligne emballage :
+  -- validation et recalcul suspendus le temps de l'UPDATE).
+  PERFORM set_config('savr.mix_batch', '1', true);
+  UPDATE plateforme.parametres_mix_emballages m
+  SET nom_materiau = c.nom, updated_at = now()
+  FROM (VALUES
+    ('carton_papier', 'Carton / papier',  'Carton-papier'),
+    ('pehd',          'PEHD',             'PEhd'),
+    ('autres',        'Autres matériaux', 'Autres / refus (→ OMR)')
+  ) AS c(code, nom_0, nom)
+  WHERE m.code_materiau::text = c.code AND m.nom_materiau = c.nom_0;
+  PERFORM set_config('savr.mix_batch', '', true);
 
   ALTER TABLE plateforme.parametres_facteurs_co2 ENABLE TRIGGER trg_audit_facteurs_co2;
 
@@ -171,7 +202,7 @@ BEGIN
   WHERE cle = 'km_collecte_aller_retour' AND valeur = 50;
   GET DIAGNOSTICS v_n = ROW_COUNT;
   IF v_n = 0 THEN
-    RAISE NOTICE 'forfait collecte : valeur déjà modifiée, conservée';
+    RAISE NOTICE 'forfait collecte : ne vaut plus 50 km, conservé';
   END IF;
 
   PERFORM set_config('savr.audit_motif', '', true);

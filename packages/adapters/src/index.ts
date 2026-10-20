@@ -105,8 +105,8 @@ export interface Collecte {
   readonly statut_tms: string;
   readonly controle_acces_requis: boolean;
   // Commentaire au transporteur composé par le worker (infos-acces.ts) : saisie
-  // du traiteur, informations d'accès, contacts, point B. Envoyé tel quel
-  // (`comment` MTS-1, `notes` Everest).
+  // du traiteur, informations d'accès, contacts, point B. Envoyé dans `comment`
+  // (MTS-1 tel quel ; Everest après la consigne d'A Toutes!).
   readonly informations_supplementaires?: string | null;
   readonly notes_internes?: string | null;
   // Nom du traiteur opérationnel de l'événement et nombre de pax : libellé de la
@@ -120,7 +120,7 @@ export interface Collecte {
   readonly contact_secours_nom?: string | null;
   readonly contact_secours_telephone?: string | null;
   // Véhicule souhaité par l'Admin (enum plateforme.type_vehicule, nullable).
-  // Transmis dans le canal libre (comment / notes), composé par le worker.
+  // Transmis dans le canal libre (`comment`), composé par le worker.
   readonly type_vehicule_souhaite?: string | null;
   // AG uniquement — association destinataire (point B = livraison du don),
   // résolue par le worker via attributions_antgaspi → associations. Composée

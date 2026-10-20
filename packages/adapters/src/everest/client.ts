@@ -39,27 +39,70 @@ export function lireJetonEverest(): string | null {
   return jeton ? jeton : null;
 }
 
+// Contrat : swagger Everest (https://a-toute.everst.io/api/swagger.json, version
+// 1.291.1, relevé le 2026-10-19). Toutes les routes sont des POST JSON ; une
+// mission se désigne par sa `ref` (chaîne), et les réponses de création,
+// annulation et relecture portent `{ mission: Mission }`.
+
+// Corps de POST /missions/create. Seuls service_id, address_start et
+// address_end sont obligatoires ; sans start_date, Everest prendrait le prochain
+// créneau libre : le client en envoie toujours un.
 export interface CreateMissionPayload {
   service_id: number;
   client_ref: string;
-  pickup: {
-    address: string;
-    contact: { name: string; phone: string };
-  };
+  /** Début de la mission, horodatage Unix en SECONDES. */
+  start_date: number;
+  address_start: string;
+  address_start_name?: string;
+  address_start_tel?: string;
   // Point B = adresse de livraison du don (association destinataire). Toujours
   // présent sur une mission AG : une course sans destination n'a pas de sens.
-  dropoff: {
-    address: string;
-    contact?: { name: string; phone: string };
-  };
-  timeslot: { date: string; start: string; end: string };
-  notes?: string;
-  metadata?: Record<string, string | null>;
+  address_end: string;
+  address_end_name?: string;
+  address_end_tel?: string;
+  /** Consigne affichée au coursier sur la mission. */
+  comment: string;
 }
 
 export interface CancelMissionPayload {
-  mission_id: string;
-  reason?: string;
+  ref: string;
+}
+
+// Champs de l'objet `Mission` du swagger que la Plateforme lit.
+interface MissionEverest {
+  ref?: string;
+  client_ref?: string;
+  service_id?: number;
+  status?: string;
+  status_text?: string;
+  price_excl?: number;
+  agent_name?: string;
+  agent_tel?: string;
+  agent_vehicle?: { name?: string } | null;
+  medias?: Array<{ src?: string }>;
+}
+
+// La référence est ce qui rend une mission annulable et rapprochable : une
+// réponse 200 qui ne la porte pas ne prouve pas qu'aucune mission n'existe, d'où
+// une erreur ambiguë (comme un appel resté sans réponse), jamais un succès.
+async function lireMission(
+  resp: Response,
+  operation: string,
+): Promise<MissionEverest & { ref: string }> {
+  const corps = (await resp.json().catch(() => null)) as {
+    mission?: MissionEverest;
+  } | null;
+  const mission = corps?.mission;
+  if (!mission || typeof mission.ref !== 'string' || mission.ref === '') {
+    throw new LogistiqueAmbiguousError(
+      `Everest ${operation} : réponse sans référence de mission`,
+    );
+  }
+  return { ...mission, ref: mission.ref };
+}
+
+function texteOuNull(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() !== '' ? v : null;
 }
 
 export class EverestClient {
@@ -175,7 +218,13 @@ export class EverestClient {
       );
     }
 
-    return (await resp.json()) as EverestCreatedMission;
+    const mission = await lireMission(resp, 'createMission');
+    return {
+      mission_id: mission.ref,
+      client_ref: mission.client_ref ?? payload.client_ref,
+      service_id: mission.service_id ?? payload.service_id,
+      status: mission.status ?? '',
+    };
   }
 
   async cancelMission(
@@ -236,10 +285,11 @@ export class EverestClient {
       );
     }
 
-    return (await resp.json()) as EverestCancelResponse;
+    const mission = await lireMission(resp, 'cancelMission');
+    return { mission_id: mission.ref, status: mission.status ?? '' };
   }
 
-  // ─── GET mission (re-fetch — BL-P0-07) ─────────────────────────────────────
+  // ─── Relecture d'une mission (re-fetch — BL-P0-07) ─────────────────────────
   // Webhook Everest = simple signal ; la vérité (coût, preuve, statut) est lue
   // ici par re-fetch API, jamais depuis le payload non signé (CDC 08 - APIs §3
   // l.241/279 « ne jamais faire confiance au payload »).
@@ -269,17 +319,20 @@ export class EverestClient {
       return result.data;
     }
 
-    const path = `/missions/${encodeURIComponent(missionId)}`;
     const jeton = await this.jetonOuAlerte('getMission');
-    const resp = await this.getJson(path, jeton).catch((err: unknown) => {
+    const resp = await this.postJson(
+      '/missions/get',
+      { ref: missionId },
+      jeton,
+    ).catch((err: unknown) => {
       throw new LogistiqueAmbiguousError(
         `Everest getMission timeout : ${libelleErreurReseau(err)}`,
       );
     });
 
     await this.log({
-      methode: 'GET',
-      endpoint: path,
+      methode: 'POST',
+      endpoint: '/missions/get',
       statut_http: resp.status,
       duree_ms: Date.now() - t0,
       correlation_id: correlationId,
@@ -295,36 +348,30 @@ export class EverestClient {
       throw new LogistiquePermanentError(`Everest getMission ${resp.status}`);
     }
 
-    // Mapping réponse API → EverestMissionDetail. Noms de champs provisoires
-    // (endpoint gelé tant que dev Everest n'a pas répondu — CDC §3 l.241) ;
-    // jamais exercé en test (mock handlers). On reste tolérant aux variantes.
-    const raw = (await resp.json()) as Record<string, unknown>;
+    // `status` est le slug du statut, `status_text` son libellé : la route lit
+    // le LIBELLÉ (« Pas de commande », CLAUDE.md §7), le slug ne sert qu'à défaut.
+    const mission = await lireMission(resp, 'getMission');
     return {
-      mission_id: String(raw['mission_id'] ?? raw['id'] ?? missionId),
-      status: String(raw['status'] ?? raw['mission_status'] ?? ''),
-      cout_ht: toNumberOrNull(raw['cost'] ?? raw['cout_ht']),
-      preuve_url:
-        (raw['proof_url'] as string | undefined) ??
-        (raw['preuve_url'] as string | undefined) ??
-        null,
-      coursier_nom:
-        (raw['driver_name'] as string | undefined) ??
-        (raw['coursier_nom'] as string | undefined) ??
-        null,
-      coursier_telephone:
-        (raw['driver_phone'] as string | undefined) ??
-        (raw['coursier_telephone'] as string | undefined) ??
-        null,
-      vehicule_type:
-        (raw['vehicle_type'] as string | undefined) ??
-        (raw['vehicule_type'] as string | undefined) ??
-        null,
+      mission_id: mission.ref,
+      // Réponse tierce : un champ d'un autre type que celui du swagger est lu
+      // comme absent (un statut non textuel ferait échouer la route).
+      status:
+        texteOuNull(mission.status_text) ?? texteOuNull(mission.status) ?? '',
+      cout_ht: toNumberOrNull(mission.price_excl),
+      // Le swagger ne dit pas quelle image (photos et signatures) prouve le
+      // passage : la première qui a une adresse.
+      preuve_url: Array.isArray(mission.medias)
+        ? texteOuNull(mission.medias.find((m) => texteOuNull(m?.src))?.src)
+        : null,
+      coursier_nom: texteOuNull(mission.agent_name),
+      coursier_telephone: texteOuNull(mission.agent_tel),
+      vehicule_type: texteOuNull(mission.agent_vehicle?.name),
     };
   }
 
   // ─── Primitives HTTP ───────────────────────────────────────────────────────
 
-  // postJson et getJson ne sont PAS `async`, à dessein : un refus à l'échéance
+  // postJson n'est PAS `async`, à dessein : un refus à l'échéance
   // est levé avant qu'une promesse existe. Il ne passe donc pas par les `.catch`
   // des appelants, qui le rhabilleraient en « timeout » ambigu.
   private postJson(
@@ -340,15 +387,6 @@ export class EverestClient {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30_000),
-    });
-  }
-
-  private getJson(path: string, token: string): Promise<Response> {
-    verifierEcheance(`Everest GET ${path}`);
-    return fetch(`${this.baseUrl}${path}`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(30_000),
     });
   }

@@ -629,11 +629,11 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
 //
 // Les 6 informations d'accès du lieu n'ont pas de champ natif MTS-1/Everest :
 // elles sont agrégées dans `informations_supplementaires`, seul champ libre
-// routé (`comment` MTS-1 / `notes` Everest). L'agrégation est faite UNE fois
+// routé (`comment` MTS-1 et Everest). L'agrégation est faite UNE fois
 // dans fetchCollecte — garde-fou 2 : même sémantique pour l'adapter V1 et le TMS
 // V2, et le drift par adapter a déjà été vécu sur `dirty_tms` (#196). Ces tests
 // verrouillent donc le caractère PARTAGÉ de la composition, provider par
-// provider ; la présence sur le fil (`comment` / `notes`) est vérifiée dans
+// provider ; la présence sur le fil (`comment`) est vérifiée dans
 // mts1/adapter.m1-5a.test.ts et everest/adapter.m2-5.test.ts.
 
 const LIEU_ACCES_COMPLET = {

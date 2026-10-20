@@ -113,7 +113,7 @@ interface CollecteRow {
   pax: number | null;
   // AG uniquement (BL-P1-API-02) — association destinataire (point B), résolue
   // via attributions_antgaspi → associations : placeId favori MTS-1 + adresse
-  // postale (adresse inline MTS-1 sans point favori, dropoff Everest).
+  // postale (adresse inline MTS-1 sans point favori, address_end Everest).
   association_id_point_collecte_mts1: string | null;
   association_adresse: string | null;
   association_contact_nom: string | null;

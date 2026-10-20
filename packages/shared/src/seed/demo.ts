@@ -25,6 +25,7 @@ import {
   type ProfilHorairesSeed,
 } from './constants.js';
 import { genererPipelineVivant } from './pipeline-vivant.js';
+import { genererEvenementsMultiCollectes } from './evenements-multi-collectes.js';
 import { codeMts1Seed, modeIntegrationSeed } from './codes-mts1.js';
 import { instantParis } from '../temps/index.js';
 
@@ -75,6 +76,12 @@ type CsvCollecte = {
   sansAttribution?: boolean;
   sansPrestataire?: boolean;
   motifAucunRepas?: string;
+  // ── Champs portés uniquement par les événements multi-collectes
+  // (evenements-multi-collectes.ts). Sans `evenement`, la ligne crée son propre
+  // événement.
+  evenement?: string;
+  association?: string;
+  repas?: number;
 };
 type CsvTournee = {
   slug: string;
@@ -687,12 +694,20 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   // ── Événements + collectes (matrice figée + lot « pipeline vivant ») ──────
   // La matrice CSV (478 lignes, 2025-06 → 2026-05) porte la profondeur d'historique ;
   // le lot vivant comble le trou jusqu'à aujourd'hui puis pose le pipeline autour du
-  // jour J (récentes, en cours, à venir). Tout ce qui suit traite les deux à égalité.
+  // jour J (récentes, en cours, à venir). Chacune de leurs lignes crée son propre
+  // événement. Les événements multi-collectes, eux, regroupent plusieurs collectes
+  // sous un même événement. Tout ce qui suit traite les trois à égalité ; ces
+  // derniers sont placés en fin de liste pour ne décaler aucun index des autres.
   const ancre = ancreSeed();
   const vivantes = genererPipelineVivant(ancre);
-  const rows: CsvCollecte[] = [...parseCollectes(), ...vivantes];
+  const multi = genererEvenementsMultiCollectes(ancre);
+  const rows: CsvCollecte[] = [
+    ...parseCollectes(),
+    ...vivantes,
+    ...multi.collectes,
+  ];
   console.log(
-    `[seed:demo] ancre = ${ancre} · 478 collectes figées + ${vivantes.length} vivantes = ${rows.length}.`,
+    `[seed:demo] ancre = ${ancre} · 478 collectes figées + ${vivantes.length} vivantes + ${multi.collectes.length} sur ${multi.evenements.length} événements multi-collectes = ${rows.length}.`,
   );
   const mgr = (t: string) => U(`user_manager_${t}`);
   const evRows: Row[] = [];
@@ -700,26 +715,29 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   const prestaParSlug = new Map<string, string>();
   rows.forEach((r, i) => {
     const t = r.traiteur.replace(/^org_tr_/, '');
-    const evId = U('ev_' + r.slug);
+    const evId = U('ev_' + (r.evenement ?? r.slug));
     const isAg = r.type === 'anti_gaspi';
     // ~1 événement / 9 est PROGRAMMÉ par une agence (donneur d'ordre) et exécuté par
     // le traiteur → alimente le dashboard agence (scopé sur evenements.organisation_id).
     const isAgenceEvent = i % 9 === 0;
-    evRows.push({
-      id: evId,
-      organisation_id: isAgenceEvent ? U('org_ag_caromy') : U(r.traiteur),
-      traiteur_operationnel_organisation_id: U(r.traiteur),
-      entite_facturation_id: U(`entite_${t}`),
-      lieu_id: U(r.lieu),
-      created_by: isAgenceEvent ? U('user_agence_caromy') : mgr(t),
-      nom_evenement: `${cap(t)} — ${r.date}`,
-      nom_client_organisateur: clientOrganisateurSeed(r.slug),
-      type_evenement_id: isAg ? tEvAg : tEvZd,
-      date_evenement: r.date,
-      pax: r.pax,
-      contact_principal_nom: `Contact ${cap(t)}`,
-      contact_principal_telephone: fakePhone(300 + (i % 90)),
-    });
+    // Collecte d'un événement multi-collectes : l'événement est écrit une seule
+    // fois, depuis sa définition (après cette boucle).
+    if (!r.evenement)
+      evRows.push({
+        id: evId,
+        organisation_id: isAgenceEvent ? U('org_ag_caromy') : U(r.traiteur),
+        traiteur_operationnel_organisation_id: U(r.traiteur),
+        entite_facturation_id: U(`entite_${t}`),
+        lieu_id: U(r.lieu),
+        created_by: isAgenceEvent ? U('user_agence_caromy') : mgr(t),
+        nom_evenement: `${cap(t)} — ${r.date}`,
+        nom_client_organisateur: clientOrganisateurSeed(r.slug),
+        type_evenement_id: isAg ? tEvAg : tEvZd,
+        date_evenement: r.date,
+        pax: r.pax,
+        contact_principal_nom: `Contact ${cap(t)}`,
+        contact_principal_telephone: fakePhone(300 + (i % 90)),
+      });
     const statut = statutDe(r);
     const presta =
       r.lieu === 'lieu_rouen_normandie'
@@ -777,6 +795,25 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       ...extra,
     });
   });
+  // Mêmes colonnes, dans le même ordre, que les événements d'une seule collecte.
+  multi.evenements.forEach((e, k) => {
+    const t = e.traiteur.replace(/^org_tr_/, '');
+    evRows.push({
+      id: U('ev_' + e.slug),
+      organisation_id: e.parAgence ? U('org_ag_caromy') : U(e.traiteur),
+      traiteur_operationnel_organisation_id: U(e.traiteur),
+      entite_facturation_id: U(`entite_${t}`),
+      lieu_id: U(e.lieu),
+      created_by: e.parAgence ? U('user_agence_caromy') : mgr(t),
+      nom_evenement: e.nom,
+      nom_client_organisateur: e.client,
+      type_evenement_id: typeEv.get(e.typeEvenement)!,
+      date_evenement: e.date,
+      pax: e.pax,
+      contact_principal_nom: `Contact ${cap(t)}`,
+      contact_principal_telephone: fakePhone(390 + k),
+    });
+  });
   await upsert(client, 'plateforme.evenements', evRows, ['id']);
   // Insertion des collectes par lots (limite de paramètres SQL).
   await batchUpsert(client, 'plateforme.collectes', colRows, ['id'], 200);
@@ -788,6 +825,10 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     // passée sur le terrain.
     .filter((r) => r.type === 'zero_dechet' && estExecutee(r))
     .forEach((r, i) => {
+      // Les alertes de pesée (verre MIN, résiduel MAX) ne tombent jamais sur un
+      // événement multi-collectes : leurs index dépendent de l'ancre, et ces
+      // événements servent à lire un bilan attendu.
+      const alerte = !r.evenement;
       const profil = PROFILS_TRI[r.traiteur] ?? PROFIL_TRI_NEUTRE;
       const base = r.pax * 0.3 * profil.volume;
       const p = repartitionFlux(i, profil);
@@ -813,7 +854,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           `cf_${r.slug}_verre`,
           r.slug,
           F('verre'),
-          i % 40 === 0 ? 1.5 : round1(base * p.verre),
+          alerte && i % 40 === 0 ? 1.5 : round1(base * p.verre),
         ),
       );
       // dechet_residuel : normal, ou alerte MAX (1 collecte / 40)
@@ -822,7 +863,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           `cf_${r.slug}_residuel`,
           r.slug,
           F('dechet_residuel'),
-          i % 40 === 20 ? 5300 : round1(base * p.residuel),
+          alerte && i % 40 === 20 ? 5300 : round1(base * p.residuel),
         ),
       );
     });
@@ -864,12 +905,14 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           : i % 7 === 0
             ? 'manuel_override'
             : 'manuel_top1';
-      // Repas donnés ≈ 8-12 % du pax (varie pour une courbe ratio non plate).
-      const volumeRepas = Math.round(r.pax * (0.08 + (i % 6) * 0.008));
+      // Repas donnés ≈ 8-12 % du pax (varie pour une courbe ratio non plate),
+      // sauf sur un événement multi-collectes, qui les fixe.
+      const volumeRepas =
+        r.repas ?? Math.round(r.pax * (0.08 + (i % 6) * 0.008));
       const a = attr(
         `attr_${r.slug}`,
         r.slug,
-        assos[i % assos.length]!,
+        r.association ?? assos[i % assos.length]!,
         U('transp_' + tr),
         isProvince ? 'province' : 'idf',
         mode,
@@ -1060,7 +1103,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   // y compris celles déjà acceptées par le prestataire.
   const tourVivantes: Row[] = [];
   const ctVivantes: Row[] = [];
-  for (const r of vivantes) {
+  for (const r of [...vivantes, ...multi.collectes]) {
     const presta = prestaParSlug.get(r.slug);
     if (!presta) continue; // pas encore dispatchée : aucune tournée
     const st = statutDe(r);
@@ -1132,7 +1175,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     zdClot.map((r, i) => ({
       id: U(`rapport_${r.slug}`),
       collecte_id: U(r.slug),
-      evenement_id: U('ev_' + r.slug),
+      evenement_id: U('ev_' + (r.evenement ?? r.slug)),
       version: 1,
       disponible_a: tsAt(r.date, 23),
       envoye_client: i % 2 === 0,

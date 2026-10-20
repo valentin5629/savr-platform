@@ -21,6 +21,10 @@ import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { CelluleLieu } from '@/components/collecte/collectes-traiteur-table';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
+import {
+  LIBELLES_EVENEMENTS,
+  OngletsVueCollectes,
+} from '@/components/collecte/onglets-vue-collectes';
 import { FicheEvenementModal } from '@/components/gestionnaire/fiche-evenement-modal';
 import { ResultatsEvenement } from '@/components/gestionnaire/resultats-evenement';
 import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
@@ -36,6 +40,12 @@ import {
 } from '@/lib/hooks/use-filtres-url';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { variantStatutEvenement } from '@/lib/libelles/evenement';
+import {
+  lireVueCollectes,
+  periodeDeLaVue,
+  triDateDescendant,
+} from '@/lib/collectes/vue-temporelle';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 interface EvenementRow {
   id: string;
@@ -71,7 +81,11 @@ const OPTIONS_VIDES: OptionsFiltres = { lieux: [], traiteurs: [], types: [] };
 // d'événement, tous à choix multiple), pour que les deux listes du gestionnaire
 // se lisent pareil. La période porte ici sur la date de l'événement. Pas de
 // filtre « Statut consolidé » (arbitrage C3 du 2026-10-07, non repris).
+// Vues « Événements à venir / passés » (`onglet`, décision Val 2026-10-20) :
+// même règle que la liste Collectes, sur la date de l'événement ; un événement
+// sans date (brouillon) n'est dans aucune des deux.
 const FILTRES = {
+  onglet: navigation(texte('')),
   type: texte(),
   from: texte(),
   to: texte(),
@@ -79,7 +93,8 @@ const FILTRES = {
   traiteur: liste(),
   type_evenement_ids: liste(),
   taille_evenements: liste(),
-  ordre: navigation(texte('desc')),
+  // `ordre` vide = celui de la vue : le plus proche d'aujourd'hui d'abord.
+  ordre: navigation(texte('')),
   page: navigation(entier(1, 1)),
 };
 
@@ -240,23 +255,32 @@ function GestionnaireEvenementsContent() {
   });
   const page = f.page;
   const allerPage = (p: number) => set({ page: p });
-  const sorting: SortingState = [{ id: 'date', desc: f.ordre !== 'asc' }];
+  const vue = lireVueCollectes(f.onglet) ?? 'a_venir';
+  const ordre = f.ordre || (triDateDescendant(vue) ? 'desc' : 'asc');
+  const sorting: SortingState = [{ id: 'date', desc: ordre === 'desc' }];
+  // Jour lu à chaque rendu : une page restée ouverte passé minuit se recale
+  // au premier geste.
+  const aujourdhui = jourParis();
 
   const urlListe = useMemo(() => {
     const qs = new URLSearchParams();
+    // Période de la barre, bornée à la vue (à venir : aujourd'hui et après).
+    const periode = periodeDeLaVue(vue, { from: f.from, to: f.to }, aujourdhui);
     if (f.type) qs.set('type', f.type);
-    if (f.from) qs.set('from', f.from);
-    if (f.to) qs.set('to', f.to);
+    if (periode.from) qs.set('from', periode.from);
+    if (periode.to) qs.set('to', periode.to);
     if (f.lieu.length > 0) qs.set('lieu_ids', f.lieu.join(','));
     if (f.traiteur.length > 0) qs.set('traiteur_ids', f.traiteur.join(','));
     // La route lit Type et Taille d'événement en paramètre répété (`x[]`).
     f.type_evenement_ids.forEach((v) => qs.append('type_evenement_ids[]', v));
     f.taille_evenements.forEach((v) => qs.append('taille_evenements[]', v));
     qs.set('tri', 'date');
-    qs.set('ordre', f.ordre === 'asc' ? 'asc' : 'desc');
+    qs.set('ordre', ordre === 'asc' ? 'asc' : 'desc');
     if (page > 1) qs.set('page', String(page));
     return `/api/v1/gestionnaire/evenements?${qs}`;
   }, [
+    vue,
+    aujourdhui,
     f.type,
     f.from,
     f.to,
@@ -264,7 +288,7 @@ function GestionnaireEvenementsContent() {
     f.traiteur,
     f.type_evenement_ids,
     f.taille_evenements,
-    f.ordre,
+    ordre,
     page,
   ]);
 
@@ -373,8 +397,8 @@ function GestionnaireEvenementsContent() {
         onSortingChange={(u) => {
           const suivant = typeof u === 'function' ? u(sorting) : u;
           const t = suivant[0];
-          // Tri retiré (cycle TanStack) = tri par défaut, date décroissante.
-          set({ ordre: t && !t.desc ? 'asc' : 'desc' });
+          // Tri retiré (cycle TanStack) = tri par défaut de la vue.
+          set({ ordre: t ? (t.desc ? 'desc' : 'asc') : '' });
         }}
         onRowClick={(e) => ouvrirFiche(e.id)}
         rowLabel={(e) =>
@@ -400,6 +424,14 @@ function GestionnaireEvenementsContent() {
 
       <FilterBar
         data-testid="evenements-filtres-bar"
+        tabs={
+          <OngletsVueCollectes
+            value={vue}
+            // Changer de vue reprend son tri par défaut (et la page 1).
+            onChange={(v) => set({ onglet: v, ordre: '' })}
+            libelles={LIBELLES_EVENEMENTS}
+          />
+        }
         toggle={
           <ToggleTypeCollecte
             avecTous

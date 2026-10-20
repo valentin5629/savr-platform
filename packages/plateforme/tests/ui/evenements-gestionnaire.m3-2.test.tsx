@@ -243,6 +243,107 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
   );
 
   it(
+    'M3.2/evenements_vues_a_venir_passes_par_date — « Événements à venir » par défaut (aujourd’hui et après, date croissante), « passés » (avant aujourd’hui, date décroissante)',
+    async () => {
+      // Horloge seule figée (minuteries réelles) : 8 juillet 2026, 10 h à Paris.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-08T08:00:00Z'));
+      try {
+        const fetchMock = stubFetch((url) =>
+          url.includes('/gestionnaire/filtres')
+            ? { body: OPTIONS }
+            : { body: { data: [LIGNE], total: 1 } },
+        );
+        const derniereListe = () =>
+          new URLSearchParams(
+            fetchMock.mock.calls
+              .map(([u]) => String(u))
+              .filter((u) => u.includes('/gestionnaire/evenements?'))
+              .at(-1)
+              ?.split('?')[1],
+          );
+        render(<EvenementsPage />);
+        await screen.findByTestId('evenements-table', undefined, ATTENTE_UI);
+
+        const vues = screen.getByRole('tablist', {
+          name: 'Événements à venir ou passés',
+        });
+        expect(
+          within(vues).getByRole('tab', { name: 'Événements à venir' }),
+        ).toHaveAttribute('aria-selected', 'true');
+        // Liste paginée : la borne ET le sens du tri partent au serveur.
+        let q = derniereListe();
+        expect(q.get('from')).toBe('2026-07-08');
+        expect(q.get('to')).toBeNull();
+        expect(q.get('ordre')).toBe('asc');
+
+        fireEvent.mouseDown(
+          within(vues).getByRole('tab', { name: 'Événements passés' }),
+        );
+        await waitFor(() => {
+          q = derniereListe();
+          expect(q.get('to')).toBe('2026-07-07');
+        }, ATTENTE_UI);
+        expect(q.get('from')).toBeNull();
+        expect(q.get('ordre')).toBe('desc');
+        expect(new URLSearchParams(window.location.search).get('onglet')).toBe(
+          'passees',
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/evenements_changer_de_vue_reprend_son_tri — un tri choisi dans une vue ne passe pas à l’autre',
+    async () => {
+      const fetchMock = stubFetch((url) =>
+        url.includes('/gestionnaire/filtres')
+          ? { body: OPTIONS }
+          : { body: { data: [LIGNE], total: 1 } },
+      );
+      const ordreDemande = () =>
+        new URLSearchParams(
+          fetchMock.mock.calls
+            .map(([u]) => String(u))
+            .filter((u) => u.includes('/gestionnaire/evenements?'))
+            .at(-1)
+            ?.split('?')[1],
+        ).get('ordre');
+      const cliquerDate = async () =>
+        fireEvent.click(
+          within(
+            await screen.findByTestId(
+              'evenements-table',
+              undefined,
+              ATTENTE_UI,
+            ),
+          ).getByRole('button', { name: /Date/ }),
+        );
+      render(<EvenementsPage />);
+      expect(
+        await screen.findByTestId('evenements-table', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(ordreDemande()).toBe('asc');
+
+      // Deux clics sur « Date » : décroissant, puis croissant posé explicitement.
+      await cliquerDate();
+      await waitFor(() => expect(ordreDemande()).toBe('desc'), ATTENTE_UI);
+      await cliquerDate();
+      await waitFor(() => expect(ordreDemande()).toBe('asc'), ATTENTE_UI);
+
+      // « Passés » s'ouvre sur SON tri (décroissant), pas sur celui choisi.
+      fireEvent.mouseDown(
+        screen.getByRole('tab', { name: 'Événements passés' }),
+      );
+      await waitFor(() => expect(ordreDemande()).toBe('desc'), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/evenements_liste_type_collecte_transmis — le segmenté ZD / AG filtre la route',
     async () => {
       const fetchMock = stubFetch((url) =>

@@ -417,6 +417,8 @@
     "M3.2/evenement_bilan_sans_collecte",
     "M3.2/evenement_bilan_embed_en_tableau",
     "M3.2/evenements_liste_une_ligne_par_evenement",
+    "M3.2/evenements_vues_a_venir_passes_par_date",
+    "M3.2/evenements_changer_de_vue_reprend_son_tri",
     "M3.2/evenements_liste_type_collecte_transmis",
     "M3.2/evenements_liste_erreur_distincte_du_vide",
     "M3.2/evenements_liste_vide",
@@ -445,6 +447,14 @@
     "M0.8/modal_verrou_defilement_valeur_initiale_rendue"
   ],
   "deliverables": [
+    {
+      "id": "M3.2-evenements-vues-a-venir-passes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:310",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx + packages/plateforme/src/components/collecte/onglets-vue-collectes.tsx (LIBELLES_EVENEMENTS) + packages/plateforme/src/lib/collectes/vue-temporelle.ts",
+      "test": "M3.2/evenements_vues_a_venir_passes_par_date + M3.2/evenements_changer_de_vue_reprend_son_tri",
+      "statut": "implemented",
+      "libelle": "Liste Événements du gestionnaire de lieux : vues « Événements à venir » (par défaut, date de l'événement ≥ aujourd'hui, date croissante) / « Événements passés » (avant aujourd'hui, date décroissante), même règle que la liste Collectes ; la borne de date et le sens du tri partent au serveur (liste paginée) ; un événement sans date (brouillon) n'est dans aucune des deux (décision Val 2026-10-20 ; fiche _Divergences/M3.2_20261020_evenements-a-venir-passes)."
+    },
     {
       "id": "M3.2-liste-vues-a-venir-passees",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:89",
@@ -1313,7 +1323,7 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/lib/nav-config.ts",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu des écrans Événements remis le 2026-10-18, desktop ET mobile < 640 px : entrée « Événements » sous « Collectes » dans le menu latéral et 3e entrée de la barre mobile ; liste (colonnes, résultats cumulés, badge de statut consolidé, barre de filtres) ; fiche événement en pop-up (grand en-tête, onglets « Bilan » (bilan consolidé, donut ZD et associations AG), « Collectes » ouvrant la fiche collecte par-dessus, « Informations »), hauteur fixe de la pop-up d'un onglet à l'autre. GO visuel de Val donné en session le 2026-10-19 (« Ok je valide »), sur l'aperçu Vercel de la branche au commit 297bfef4 — menu, liste Événements et fiche en pop-up, que Claude Code lui avait proposé de vérifier —, sans capture jointe au dépôt (dépôt public) : Claude Code ne s'est pas connecté à l'aperçu ; les captures sur données simulées lui avaient été envoyées en session (2026-10-18 et 2026-10-19). Les commits suivants ne changent pas le rendu (verrou de défilement de Modal, dépendance du toast).",
+      "libelle": "Rendu des écrans Événements remis le 2026-10-18, desktop ET mobile < 640 px : entrée « Événements » sous « Collectes » dans le menu latéral et 3e entrée de la barre mobile ; liste (colonnes, résultats cumulés, badge de statut consolidé, barre de filtres) ; fiche événement en pop-up (grand en-tête, onglets « Bilan » (bilan consolidé, donut ZD et associations AG), « Collectes » ouvrant la fiche collecte par-dessus, « Informations »), hauteur fixe de la pop-up d'un onglet à l'autre. GO visuel de Val donné en session le 2026-10-19 (« Ok je valide »), sur l'aperçu Vercel de la branche au commit 297bfef4 — menu, liste Événements et fiche en pop-up, que Claude Code lui avait proposé de vérifier —, sans capture jointe au dépôt (dépôt public) : Claude Code ne s'est pas connecté à l'aperçu ; les captures sur données simulées lui avaient été envoyées en session (2026-10-18 et 2026-10-19). Les commits suivants ne changent pas le rendu (verrou de défilement de Modal, dépendance du toast). Le lot `feat/evenements-a-venir-passes` (2026-10-20) CHANGE le rendu de la liste : boutons « Événements à venir / passés » dans l'en-tête de la barre de filtres — GO visuel à redonner sur ce point (livrable M3.2-evenements-vues-a-venir-passes).",
       "ref_divergence": "_Divergences/M3.2_20261018_retour-page-evenements-gestionnaire.md"
     },
     {

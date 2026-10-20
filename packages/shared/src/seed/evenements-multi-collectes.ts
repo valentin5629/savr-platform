@@ -17,11 +17,14 @@
  *  - deux associations, une par soir ;
  *  - le cas simple, 1 ZD + 1 AG le même soir ;
  *  - une AG « sans excédent » (réalisée, 0 repas : son association, attribuée
- *    à 0 repas, n'apparaît pas au bilan), événement
- *    programmé par une agence ;
+ *    à 0 repas, n'apparaît pas au bilan), événement programmé par une agence ;
  *  - dominante AG, trois associations, sur un lieu d'un autre gestionnaire ;
  *  - ZD seul, dont une collecte annulée (comptée, sans résultat) ;
  *  - AG seul, sans client organisateur.
+ *
+ * Les collectes ZD d'un même événement n'ont pas le même pax : à poids égaux, un
+ * taux de recyclage pondéré par le tonnage ne se distinguerait pas d'une moyenne
+ * simple.
  *
  * Les valeurs sont écrites en clair (pas de tirage) pour que le résultat
  * attendu à l'écran se lise ici. Dates relatives à l'ancre, toutes avant J-8 :
@@ -89,15 +92,15 @@ const DEFINITIONS: DefEvenement[] = [
     client: 'Groupe Zéphirane',
     ilYa: 41,
     collectes: [
-      { type: 'zero_dechet', jour: 0, pax: 800 },
+      { type: 'zero_dechet', jour: 0, pax: 900 },
       {
         type: 'anti_gaspi',
         jour: 0,
         association: 'asso_alpha',
         repas: 95,
       },
-      { type: 'zero_dechet', jour: 1, pax: 800 },
-      { type: 'zero_dechet', jour: 2, pax: 800 },
+      { type: 'zero_dechet', jour: 1, pax: 700 },
+      { type: 'zero_dechet', jour: 2, pax: 500 },
       {
         type: 'anti_gaspi',
         jour: 2,
@@ -117,14 +120,14 @@ const DEFINITIONS: DefEvenement[] = [
     client: 'Laboratoires Sénéor',
     ilYa: 26,
     collectes: [
-      { type: 'zero_dechet', jour: 0, pax: 900 },
+      { type: 'zero_dechet', jour: 0, pax: 1100 },
       {
         type: 'anti_gaspi',
         jour: 0,
         association: 'asso_alpha',
         repas: 110,
       },
-      { type: 'zero_dechet', jour: 1, pax: 900 },
+      { type: 'zero_dechet', jour: 1, pax: 700 },
       {
         type: 'anti_gaspi',
         jour: 1,
@@ -160,8 +163,8 @@ const DEFINITIONS: DefEvenement[] = [
     ilYa: 54,
     collectes: [
       // Deux collectes ZD le même soir : salle plénière et espace exposants.
-      { type: 'zero_dechet', pax: 550 },
-      { type: 'zero_dechet', pax: 550 },
+      { type: 'zero_dechet', pax: 700 },
+      { type: 'zero_dechet', pax: 400 },
       { type: 'anti_gaspi', association: 'asso_charlie', repas: 60 },
       {
         type: 'anti_gaspi',
@@ -216,8 +219,8 @@ const DEFINITIONS: DefEvenement[] = [
     client: 'Banque Montclar',
     ilYa: 68,
     collectes: [
-      { type: 'zero_dechet', jour: 0, pax: 1600 },
-      { type: 'zero_dechet', jour: 1, pax: 1600 },
+      { type: 'zero_dechet', jour: 0, pax: 2000 },
+      { type: 'zero_dechet', jour: 1, pax: 1200 },
       // Collecte du démontage, annulée par le traiteur : comptée dans
       // l'événement, sans résultat.
       { type: 'zero_dechet', jour: 1, pax: 400, statut: 'annulee' },

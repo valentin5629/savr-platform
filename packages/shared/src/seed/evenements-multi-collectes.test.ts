@@ -107,6 +107,15 @@ describe('événements multi-collectes — générateur', () => {
     expect(cas.some((c) => c.e.client === null)).toBe(true);
   });
 
+  it('SEED-EMC-6b — les ZD réalisées d’un même événement n’ont pas le même pax (taux pondéré ≠ moyenne simple)', () => {
+    for (const e of evenements) {
+      const pax = de(e.slug)
+        .filter((c) => c.type === 'zero_dechet' && c.statut === 'cloturee')
+        .map((c) => c.pax);
+      expect(new Set(pax).size, e.slug).toBe(pax.length);
+    }
+  });
+
   it('SEED-EMC-7 — une AG porte son association et ses repas ; une AG sans excédent a 0 repas et un motif', () => {
     for (const c of collectes.filter((x) => x.type === 'anti_gaspi')) {
       expect(c.association, c.slug).toMatch(/^asso_/);

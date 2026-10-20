@@ -17,10 +17,6 @@ export interface EverestCancelResponse {
   cancelled_at: string;
 }
 
-export interface EverestAuthResponse {
-  token: string;
-}
-
 // Détail mission re-fetché par GET /missions/{id} (BL-P0-07).
 // Source de vérité du coût + de la preuve : webhook = signal, API = vérité
 // (CDC 08 - APIs §3 l.241/279 « ne jamais faire confiance au payload »).
@@ -41,9 +37,6 @@ export type EverestResult<T> = EverestPostSuccess<T> | EverestPostError;
 // ─── Handlers injectables ─────────────────────────────────────────────────────
 
 export interface EverestHandlers {
-  auth: (
-    payload: Record<string, unknown>,
-  ) => Promise<EverestResult<EverestAuthResponse>>;
   createMission: (
     payload: Record<string, unknown>,
   ) => Promise<EverestResult<EverestCreatedMission>>;
@@ -78,7 +71,6 @@ export interface MockMissionState {
 
 export function setupEverestMock(
   opts: {
-    authFails?: boolean;
     createFails?: boolean;
     createFailsStatus?: number;
     cancelFails?: boolean;
@@ -96,13 +88,6 @@ export function setupEverestMock(
   let missionCounter = 0;
 
   _setEverestHandlers({
-    auth: async (_payload) => {
-      if (opts.authFails) {
-        return { ok: false, status: 401, error: 'Unauthorized' };
-      }
-      return { ok: true, data: { token: 'mock-bearer-token' } };
-    },
-
     createMission: async (payload) => {
       if (opts.createFails) {
         return {

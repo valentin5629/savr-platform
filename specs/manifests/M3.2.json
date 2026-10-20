@@ -417,6 +417,7 @@
     "M3.2/evenement_bilan_sans_collecte",
     "M3.2/evenement_bilan_embed_en_tableau",
     "M3.2/evenements_liste_une_ligne_par_evenement",
+    "M3.2/evenements_vues_a_venir_passes_par_date",
     "M3.2/evenements_liste_type_collecte_transmis",
     "M3.2/evenements_liste_erreur_distincte_du_vide",
     "M3.2/evenements_liste_vide",
@@ -445,6 +446,14 @@
     "M0.8/modal_verrou_defilement_valeur_initiale_rendue"
   ],
   "deliverables": [
+    {
+      "id": "M3.2-evenements-vues-a-venir-passes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:310",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx + packages/plateforme/src/components/collecte/onglets-vue-collectes.tsx (LIBELLES_EVENEMENTS) + packages/plateforme/src/lib/collectes/vue-temporelle.ts",
+      "test": "M3.2/evenements_vues_a_venir_passes_par_date",
+      "statut": "implemented",
+      "libelle": "Liste Événements du gestionnaire de lieux : vues « Événements à venir » (par défaut, date de l'événement ≥ aujourd'hui, date croissante) / « Événements passés » (avant aujourd'hui, date décroissante), même règle que la liste Collectes ; la borne de date et le sens du tri partent au serveur (liste paginée) ; un événement sans date (brouillon) n'est dans aucune des deux (décision Val 2026-10-20 ; fiche _Divergences/M3.2_20261020_evenements-a-venir-passes)."
+    },
     {
       "id": "M3.2-liste-vues-a-venir-passees",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:89",

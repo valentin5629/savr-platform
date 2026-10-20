@@ -5,7 +5,9 @@ import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 // état « Programmées / Historique ». Une collecte y est rangée par sa DATE de
 // collecte, quel que soit son statut : aujourd'hui compte dans « à venir »
 // (jour parisien). Chaque vue s'ouvre de la plus proche à la plus lointaine :
-// date croissante à venir, décroissante dans le passé.
+// date croissante à venir, décroissante dans le passé. Même règle sur la page
+// Événements du gestionnaire, sur la date de l'événement (décision Val
+// 2026-10-20).
 
 export type VueCollectes = 'a_venir' | 'passees';
 

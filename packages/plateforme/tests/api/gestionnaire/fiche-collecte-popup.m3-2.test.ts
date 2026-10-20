@@ -6,8 +6,9 @@
  *  · attribution AG (repas, association) lue par la vue
  *    v_attributions_gestionnaire (§04) — jamais par la table (aa_select jamais
  *    élargie), jamais en service-role ;
- *  · radar : f_benchmark_single_collecte refuse les collectes de traiteurs tiers →
- *    « pas de radar » (200, data null), JAMAIS de contournement ;
+ *  · radar : collecte visible mais refusée par f_benchmark_single_collecte →
+ *    « pas de radar » (200, data null), JAMAIS de contournement (depuis le
+ *    2026-10-20, la fonction accepte aussi le gestionnaire du lieu) ;
  *  · documents lus sous la RLS du gestionnaire, jamais en service-role ;
  *  · aucune annulation (§05 : gestion exclusive au traiteur).
  */
@@ -342,8 +343,8 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
   });
 });
 
-describe('M3.2 / fiche client gestionnaire — radar (garde non élargie)', () => {
-  it('M3.2/fiche_benchmark_tiers_masque — collecte visible refusée par la fonction : 200 data null, pas de contournement', async () => {
+describe('M3.2 / fiche client gestionnaire — radar (garde de la fonction, jamais contournée)', () => {
+  it('M3.2/fiche_benchmark_refus_fonction_sans_radar — collecte visible refusée par la fonction : 200 data null, pas de contournement', async () => {
     rls.rpcResults.f_benchmark_single_collecte = {
       data: null,
       error: { message: 'Collecte not accessible' },

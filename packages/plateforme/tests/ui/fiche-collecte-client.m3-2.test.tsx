@@ -2,8 +2,9 @@
  * M3.2 — Pop-up fiche collecte client, espace gestionnaire de lieux (§06.05 :
  * « la fiche collecte reprend le pop-up client §06.04 », refonte Val
  * 2026-09-29). Écarts propres au rôle : jamais d'annulation (§05), pas de bloc
- * Association bénéficiaire (Q7), radar masqué pour une collecte de traiteur
- * tiers (garde SQL non élargie).
+ * Association bénéficiaire (Q7). Radar affiché aussi sur une collecte de
+ * traiteur tiers tenue sur ses lieux (décision Val 2026-10-20) ; masqué
+ * seulement quand la route répond « pas de radar ».
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -136,7 +137,56 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   );
 
   it(
-    'M3.2/fiche_popup_gestionnaire_radar_masque_tiers — radar indisponible (traiteur tiers) : bloc masqué, KPI conservés',
+    'M3.2/fiche_popup_gestionnaire_radar_tiers_affiche — collecte d’un traiteur tiers sur son lieu : radar et case « radar dans le rapport » affichés',
+    async () => {
+      const base = ficheGestionnaire({
+        statut: 'cloturee',
+        bilan_flux: { biodechet: 420 },
+        taux_recyclage: 70,
+        co2_net_kg: 100,
+        rapport_rse_disponible: true,
+        // Collecte d'un tiers : ni modification, ni contacts sur place.
+        actions: { modifier: 'absent', annuler: 'absent', annulation: null },
+      });
+      stubFetchFiche({
+        ...base,
+        evenement: {
+          ...base.evenement!,
+          contacts_visibles: false,
+          contact_principal_nom: null,
+          contact_principal_telephone: null,
+        },
+      });
+      render(fiche());
+      await ouvrirOnglet('Bilan & documents');
+
+      // La route radar a répondu, et le bloc porte une valeur venue de sa
+      // réponse (0,4 kg/pax) : il ne s'agit pas du bloc affiché d'emblée.
+      await waitFor(() => {
+        expect(
+          urlsAppelees().some((c) =>
+            c.url.startsWith('/api/v1/gestionnaire/collectes/c1/benchmark?'),
+          ),
+        ).toBe(true);
+        const radar = screen.getByTestId('bloc-3-zd-fiche');
+        expect(radar.textContent).toContain(
+          'Votre collecte face aux événements comparables',
+        );
+        expect(radar.textContent).toContain('0,40 kg/pax');
+      }, ATTENTE_UI);
+      expect(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Inclure le radar de comparaison dans le rapport' },
+          ATTENTE_UI,
+        ),
+      ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/fiche_popup_gestionnaire_radar_indisponible_masque — route « pas de radar » : bloc masqué, KPI conservés',
     async () => {
       stubFetchFiche(
         ficheGestionnaire({
@@ -170,7 +220,7 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   );
 
   it(
-    'M3.2/fiche_popup_gestionnaire_rapport — le gestionnaire télécharge le rapport fabriqué au clic ; sans radar pour la collecte (traiteur tiers) : pas de case, rapport sans radar',
+    'M3.2/fiche_popup_gestionnaire_rapport — le gestionnaire télécharge le rapport fabriqué au clic ; route « pas de radar » : pas de case, rapport sans radar',
     async () => {
       stubFetchFiche(
         ficheGestionnaire({

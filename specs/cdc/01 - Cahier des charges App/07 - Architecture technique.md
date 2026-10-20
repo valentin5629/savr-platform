@@ -1,7 +1,5 @@
 # 07 - Architecture technique
 
-**Statut** : Validé V1 — mise à jour majeure 2026-04-23 (atelier tech avec frère)
-**Dernière mise à jour** : 2026-06-10 (addendum scope V1)
 
 ---
 
@@ -165,7 +163,7 @@ Supabase est le cœur de l'architecture : base de données, authentification, st
 | | | | **❌ NE PAS DÉVELOPPER V1 (audit RLS 2026-06-11, Bloc E)** — V1 = polling MTS-1 (§08 §3bis : « aucun endpoint entrant, surface d'attaque entrante nulle ») + Everest V1.1 + TMS V2. Seul webhook entrant V1 = `POST /webhooks/resend/events` (signé svix, §08 §4). Rangée conservée comme cible V1.1/V2 (HMAC, `integrations_inbox`). |
 | `GET /api/sync/poll` | Vercel (Next.js API Route) | Cron 15 min **24/7** | Polling MTS-1 (§08 §3bis.7) — *V1 c'est LE chemin entrant, pas un fallback* |
 | | | | **❌ Webhook V2 (TMS natif).** En V1, la même logique métier (bordereau/attestation, PDF, brouillon Pennylane, badge `realisee_sans_collecte`) est déclenchée **par le cron de polling** quand il détecte l'état terminal MTS-1 — pas par un endpoint entrant. La logique décrite reste valide, le déclencheur change. |
-| `on-pack-ag-epuise` | Vercel (trigger DB → webhook) | Trigger DB sur `plateforme.packs_antgaspi` | Bloque la programmation AG + notif Admin |
+| `on-pack-ag-epuise` | Vercel (trigger DB → webhook) | Trigger DB sur `plateforme.packs_antgaspi` | Notif Admin (la programmation AG reste possible : facturation à l'unité) |
 | `on-statut-collecte-change` | Vercel (trigger DB → webhook) | Trigger DB sur `plateforme.collectes.statut` | Dispatch emails transactionnels via Resend |
 | `scheduler-attestations` | Vercel Cron | J+1 6h | Batch génération attestations de don AG |
 | `scheduler-bordereaux` | Vercel Cron | J+1 6h | Batch génération bordereaux ZD |

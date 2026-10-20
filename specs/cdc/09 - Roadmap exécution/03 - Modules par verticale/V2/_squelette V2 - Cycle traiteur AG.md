@@ -6,7 +6,7 @@
 
 | Module | Périmètre | Sources `_DEV-FACING/` | Tests | Budget (≈) |
 |---|---|---|---|---|
-| M2.1 — Packs AG | CRUD Admin packs, crédits, **FIFO strict `created_at`**, `trg_pack_debit_annulation_tardive` (annulation <12h débite le crédit) | §06/06, §05, §04 | `tests/06.06-...` | M ~400k |
+| M2.1 — Packs AG | CRUD Admin packs, crédits, **FIFO strict `created_at`**, `trg_pack_debit_annulation_tardive` (annulation <4h débite le crédit) | §06/06, §05, §04 | `tests/06.06-...` | M ~400k |
 | M2.2 — Formulaire AG + vérif pack | Volet AG du formulaire unifié, vérif pack actif (sans pack = **alerte seule**, F3 06.01), blocage coche étape 1 | §06/01, §05 | `tests/06.01-...` | M ~450k |
 | M2.3 — Algo attribution AG | Recommandation top 3 asso/transporteurs, validation Admin, auto-accept par combinaison (`config_auto_accept_ag`) ; poids V1 = Ops manuel photos pesées (F1) ; refus asso = override standard (F2) | §06/09, §04, §09 | `tests/06.09-...` | L ~700k |
 | M2.4 — Attestation don AG | Cerfa 2041-GE batch J+1 6h, mention fiscale si `association.habilitee_fiscale`, réutilise moteur PDF (A) ; `realisee_sans_collecte` = pas d'attestation | §05, §12, §06/03 | `tests/06.09-...`, génération | M ~450k |

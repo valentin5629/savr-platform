@@ -1,7 +1,5 @@
 # 08 - Performance / 03 - Cibles techniques transverses
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-06-08 (skill `cdc-perf-load`)
 **Stack** : Next.js 15 App Router (Vercel) + Supabase Pro + Railway (PDF). Pas d'Edge Functions Supabase par défaut (cf. CLAUDE.md §2).
 
 ---

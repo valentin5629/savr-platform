@@ -36,8 +36,8 @@ Convention d'ID : slugs déterministes (cf. [[05 - Spec d'injection]]). `★` = 
 | Débit d'un crédit à la collecte | `pack_fleurdemets_actif` (crédits partiellement consommés) | ★ |
 | **Blocage création si pack épuisé** | `pack_lenotre_epuise` (0 crédit) — demo ; `pack_epuise_01` ★ |
 | Badge pack bas ≤ 10 % relatif (F2 §06.04) | `pack_butard_bas` (3/30) | ★ |
-| Annulation AG < 12 h = **débit crédit pack** (trigger `trg_pack_debit_annulation_tardive`, F2 §06.01 — §4bis fait foi) | `ev_ag_annule_tardif` (annulé H-6) | ★ |
-| Annulation > 12 h = recrédit | `ev_ag_annule_recredite` | ★ |
+| Annulation AG < 4 h = **débit crédit pack** (trigger `trg_pack_debit_annulation_tardive`, F2 §06.01 — §4bis fait foi) | `ev_ag_annule_tardif` (annulé H-2) | ★ |
+| Annulation ≥ 4 h = recrédit | `ev_ag_annule_recredite` | ★ |
 | Sans pack actif = alerte seule, pas de blocage (F3 §06.01) | `org_tr_grandchemin` (aucun pack) + `ev_ag_sans_pack` | ★ |
 | Hors pack (négociation directe) | `facture_ag_hors_pack_potel` | demo |
 

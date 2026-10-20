@@ -238,7 +238,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Espace Client', gras: true },
           {
             texte:
-              " désigne l'interface accessible depuis la Plateforme permettant au Client de programmer des Demandes de Collecte, consulter ses documents réglementaires (Bordereaux, Attestations, Rapports RSE), gérer ses données et paramètres.",
+              " désigne l'interface accessible depuis la Plateforme permettant au Client de programmer des Demandes de Collecte, consulter ses documents réglementaires (Bordereaux, Rapports de don, Rapports RSE), gérer ses données et paramètres.",
             gras: false,
           },
         ],
@@ -569,10 +569,10 @@ export const CGU_SECTIONS: SectionCgu[] = [
       {
         type: 'p',
         segments: [
-          { texte: 'Attestation de don', gras: true },
+          { texte: 'Rapport de don', gras: true },
           {
             texte:
-              " : à l'issue de chaque Collecte AG, la Plateforme génère automatiquement une Attestation de don, disponible dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou vérification en cours des informations du Client. Si l'Association est habilitée au titre de l'article 238 bis du CGI, l'Attestation mentionne les informations permettant au Client de bénéficier de la réduction fiscale prévue par l'article 2041-GE.",
+              " : à l'issue de chaque Collecte AG, la Plateforme génère automatiquement un Rapport de don, disponible dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou vérification en cours des informations du Client. Lorsque des Excédents ont été donnés, le Rapport de don vaut attestation de don : si l'Association est habilitée au titre de l'article 238 bis du CGI, il mentionne les informations permettant au Client de bénéficier de la réduction fiscale prévue par l'article 2041-GE. Lorsqu'aucun Excédent n'a été collecté, le Rapport de don constate l'absence d'excédent et ne vaut pas reçu fiscal.",
             gras: false,
           },
         ],
@@ -598,7 +598,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'AG', gras: true },
           {
             texte:
-              " : le Client souscrit un Pack Anti-Gaspi prépayé ou commande à l'unité. Le Client détient au plus un Pack actif à un instant T ; les crédits sont défalqués sur ce Pack à chaque Collecte AG réalisée. En cas d'épuisement du Pack, la programmation de nouvelles Collectes AG est suspendue jusqu'à l'acquisition d'un nouveau Pack. En cas de renouvellement anticipé, les crédits restants de l'ancien Pack sont reportés sur le nouveau par SAVR sur demande du Client.",
+              " : le Client souscrit un Pack Anti-Gaspi prépayé ou commande à l'unité. Le Client détient au plus un Pack actif à un instant T ; les crédits sont défalqués sur ce Pack à chaque Collecte AG réalisée. Sans Pack actif, notamment après son épuisement, les Collectes AG restent programmables et sont facturées à l'unité jusqu'à l'acquisition d'un nouveau Pack. En cas de renouvellement anticipé, les crédits restants de l'ancien Pack sont reportés sur le nouveau par SAVR sur demande du Client.",
             gras: false,
           },
         ],
@@ -670,7 +670,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
         segments: [
           {
             texte:
-              'Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Attestation, Rapport RSE) dans les 48 heures suivant la Collecte, sauf incident de pesée, de génération ou vérification en cours des informations du Client ;',
+              'Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Rapport de don, Rapport RSE) dans les 48 heures suivant la Collecte, sauf incident de pesée, de génération ou vérification en cours des informations du Client ;',
             gras: false,
           },
         ],
@@ -738,7 +738,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
         type: 'li',
         segments: [
           { texte: 'Annulation reçue ', gras: false },
-          { texte: '≥ 12h avant le créneau', gras: true },
+          { texte: '≥ 4h avant le créneau', gras: true },
           { texte: ' : aucune facturation.', gras: false },
         ],
       },
@@ -746,9 +746,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
         type: 'li',
         segments: [
           { texte: 'Annulation reçue ', gras: false },
-          { texte: '< 12h avant le créneau', gras: true },
-          { texte: ' ou ', gras: false },
-          { texte: 'après mandat du Prestataire', gras: true },
+          { texte: '< 4h avant le créneau', gras: true },
           {
             texte:
               " : facturation au tarif plein (ZD) ou débit d'un crédit Pack (AG), sans remboursement.",
@@ -1374,7 +1372,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: '24.8. Conservation.', gras: true },
           {
             texte:
-              ' Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Attestations à valeur réglementaire). Les données personnelles non soumises à obligation légale sont anonymisées dans les 12 mois suivant la résiliation du Contrat.',
+              ' Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Rapports de don à valeur réglementaire). Les données personnelles non soumises à obligation légale sont anonymisées dans les 12 mois suivant la résiliation du Contrat.',
             gras: false,
           },
         ],

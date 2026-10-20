@@ -86,7 +86,7 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 | `packs_antgaspi` épuisés | 1 | 4 | + 1 pack bas ≤ 10 % (minimal et demo) |
 | `evenements` à venir | 4 | 30 | dont 1 `date_evenement` NULL, 1 AG bloqué coche étape 1 |
 | `evenements` passés | 14 | ~440 | support des 478 collectes (qq événements multi-collectes) |
-| `evenements` annulés | 2 | 12 | dont 1 AG < 12 h (débit crédit pack) |
+| `evenements` annulés | 2 | 12 | dont 1 AG < 4 h (débit crédit pack) |
 | `evenements.nom_client_organisateur` | non posé | ~70 % des événements | *(ajout 2026-10-01, décision Val)* 8 noms inventés réutilisés, les ~30 % restants à NULL — alimente la colonne « Client » des listes Collectes et le filtre « Client organisateur ». `client_organisateur_organisation_id` (rattachement réservé Admin) jamais posé par le seed. |
 | `collectes` brouillon | 2 | 6 | dont 1 brouillon tiers (exclu vues gestionnaire) |
 | `collectes` à venir (programmee/acceptee) | 3 | 20 | |

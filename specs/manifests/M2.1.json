@@ -122,7 +122,7 @@
     },
     {
       "id": "BL-P1-FACT-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1782",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1780",
       "artefact": "supabase/migrations/20260625000003_plateforme_reseed_tarifs_packs_ag.sql",
       "test": "supabase/tests/r8_reseed_tarifs_packs_ag.test.sql (pgTAP : 4 credits 1/10/30/60 + 4 PU 590/500/460/390)",
       "statut": "implemented",
@@ -130,7 +130,7 @@
     },
     {
       "id": "BL-P1-FACT-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1818",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1816",
       "artefact": "packages/plateforme/src/lib/facturation/tarif-ag.ts",
       "test": "M1.7 FACT-02 : collecte Pack 30 par_collecte → PU = prix unitaire du pack (460 €, pas 590)",
       "statut": "implemented",
@@ -142,7 +142,7 @@
       "artefact": "supabase/migrations/20261016140000_plateforme_rattacher_collecte_pack.sql",
       "test": "M2.1 / rattacher-pack — POST + M2.1 / rattacher-pack — GET + M2.1 / rattacher-pack — fiche + supabase/tests/rattacher_collecte_pack.test.sql",
       "statut": "implemented",
-      "libelle": "Rattachement Admin après coup d'une collecte AG programmée sans pack au pack actif pris plus tard (décision Val 2026-10-16) : réalisée, clôturée ou annulée tardivement ; débit d'un crédit sur le pack actif de la seule organisation programmatrice, brouillon de facture unitaire SANS numéro retiré, facture numérotée (partie chez Pennylane, ou rejetée et revenue en brouillon avec son numéro) jamais retirée et signalée (avoir à émettre ou correction : séquence gapless), alertes « sans pack » de la collecte résolues, audit_log avec auteur et rôle (lu aussi par l'historique « Mon pack AG » pour une annulée tardive rattachée) ; admin_savr seul. Le déclencheur de débit à la réalisation lève la réservation périmée (pack réservé à l'envoi puis épuisé) : la collecte est facturée à l'unité et rattachable. CDC à patcher : fiche _Divergences/M2.1_20261016_rattacher-collecte-pack.md."
+      "libelle": "Rattachement Admin après coup d'une collecte AG programmée sans pack au pack actif pris plus tard (décision Val 2026-10-16) : réalisée, clôturée ou annulée tardivement ; débit d'un crédit sur le pack actif de la seule organisation programmatrice, brouillon de facture unitaire SANS numéro retiré, facture numérotée (partie chez Pennylane, ou rejetée et revenue en brouillon avec son numéro) jamais retirée et signalée (avoir à émettre ou correction : séquence gapless), alertes « sans pack » de la collecte résolues, audit_log avec auteur et rôle (lu aussi par l'historique « Mon pack AG » pour une annulée tardive rattachée) ; admin_savr seul. Le déclencheur de débit à la réalisation lève la réservation périmée (pack réservé à l'envoi puis épuisé) : la collecte est facturée à l'unité et rattachable. CDC patché au sync du 2026-10-20 (fiche _Divergences/M2.1_20261016_rattacher-collecte-pack.md)."
     },
     {
       "id": "M2.1-annulation-tardive-pack-actif",
@@ -154,6 +154,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "25a3b96b12a6e02fbd55ffb1a9c11f6348bdaa57c0e0d4519cc6223576fc686d"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "0b8259656b44c137c7b9ac767009005666c13a8ae98b2755e7f5d5985cc4c1f4",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8d594e7c173a5c9ed31c81e1e4df67fbd35658bd50d837b77a715ba72f42ea04"
   }
 }

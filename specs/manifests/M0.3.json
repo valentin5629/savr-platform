@@ -65,7 +65,7 @@
     },
     {
       "id": "M0.3-alerte-aucune-asso",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:63",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:61",
       "artefact": "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/recommandation/route.ts + lib/attribution-ag/notif-alerte.ts : quand l'algo retourne no_asso=true → f_upsert_alerte_admin('attribution_aucune_asso', …, entity=collecte). §05 l.61 « alerte Admin Savr immédiate ». In-app (§07/03 : alerte fonctionnelle, pas Slack). Idempotent + best-effort.",
       "test": "M0.3-1 ; M0.3-4",
       "statut": "implemented",
@@ -73,7 +73,7 @@
     },
     {
       "id": "M0.3-alerte-aucun-prestataire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:85",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:83",
       "artefact": "recommandation/route.ts : quand l'algo retourne no_prestataire=true (branche aucun_prestataire, incl. province tri distance) → f_upsert_alerte_admin('attribution_aucun_prestataire', …). §05 l.83/l.104/l.120.",
       "test": "M0.3-2 ; M0.3-4",
       "statut": "implemented",
@@ -81,7 +81,7 @@
     },
     {
       "id": "M0.3-alerte-pack-bas",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1025",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1039",
       "artefact": "supabase/migrations/20260709120000 : fn_trg_pack_debit_realisee + fn_trg_pack_debit_annulation_tardive — détection franchissement du seuil 10% (restants avant >10% ET après ≤10% ET non épuisé) → f_upsert_alerte_admin('pack_ag_bas', …, entity=pack). Le pack_ag_epuise in-app préexistant est conservé.",
       "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
       "statut": "implemented",
@@ -89,7 +89,7 @@
     },
     {
       "id": "M0.3-rearm-pack-alerte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:210",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:206",
       "artefact": "supabase/migrations/20260709120000 : fn_trg_pack_recredit + rpc_annuler_credit_collecte — un recrédit qui repasse le solde >10% RÉSOUT (statut='resolue') l'alerte ouverte pack_ag_bas/pack_ag_epuise → ré-arme le déclencheur (F4 tranchée Val 2026-06-07).",
       "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
       "statut": "implemented",
@@ -97,7 +97,7 @@
     },
     {
       "id": "M0.3-tpl9-email",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:205",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:201",
       "artefact": "packages/plateforme/src/app/api/cron/notify-pack-etat/route.ts + lib/packs/notify-pack-etat.ts : scanne alertes_admin (code pack_ag_bas/pack_ag_epuise, statut ouverte, email_notifie_at IS NULL) → sendEmail('admin_pack_ag_etat','contact@gosavr.io', {niveau, etat_libelle, organisation_nom, credits_restants/initiaux, pct_restant, niveau_bas, niveau_epuise, …}) → pose email_notifie_at (idempotent). Destinataire = tous admin_savr via inbox partagée (§06.02 l.202). vercel.json cron.",
       "test": "M0.3-5 ; M0.3-6 ; M0.3-7 ; M0.3-8",
       "statut": "implemented",
@@ -105,7 +105,7 @@
     },
     {
       "id": "M0.3-alertes-admin-email-notifie-at",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md:34",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md:35",
       "artefact": "supabase/migrations/20260709120000 : ALTER TABLE plateforme.alertes_admin ADD COLUMN email_notifie_at timestamptz + index partiel (code pack_ag_* WHERE email_notifie_at IS NULL). Table V1-only (hors DDL cible V2) — pont trigger→email, idempotence du cron.",
       "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
       "statut": "implemented",
@@ -113,7 +113,7 @@
     },
     {
       "id": "M0.3-alertes-admin-lecteur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md:43",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md:44",
       "artefact": "Lecteur manquant de plateforme.alertes_admin (émetteurs présents depuis M1.6, 0 lecteur applicatif → alertes write-only). packages/plateforme/src/app/api/v1/admin/alertes/route.ts (GET liste, filtre statut), /count/route.ts (compteur ouvertes pour pastille nav), /[id]/route.ts (PATCH action=resoudre → statut resolue + resolue_par) ; page (admin)/admin/alertes/page.tsx (file + résolution + sévérité par code via lib/alertes-admin) ; entrée nav « Alertes » + pastille compteur ((admin)/layout fetch count → AppShell/Sidebar navBadges). Admin Savr uniquement (RLS aa_admin admin-only, gate requireAdmin). §07/03 §3 « le canal d'action des alertes fonctionnelles est l'écran Admin, pas Slack ».",
       "test": "packages/plateforme/tests/api/admin/alertes.test.ts ; packages/plateforme/tests/lib/alertes-admin.test.ts ; packages/plateforme/tests/ui/alertes-page.m0-3.test.tsx ; packages/plateforme/tests/ui/sidebar-nav-badge.test.tsx",
       "statut": "à-vérifier",
@@ -125,13 +125,13 @@
       "artefact": "packages/plateforme/src/lib/alertes-admin.ts (sévérité) + supabase/migrations/20261016120000_plateforme_pack_ag_non_bloquant.sql (message)",
       "test": "severiteParCode — catalogue explicite > collecte AG réalisée sans pack → info + T3a bis : le message annonce la facturation",
       "statut": "implemented",
-      "libelle": "Alerte ag_realisee_sans_pack_actif : sévérité « Info » (ex « critique ») et message « elle sera facturée à l'unité » (ex « Vérifier et imputer manuellement ») — sans pack actif, la collecte est facturée à l'unité, plus rien à arbitrer ; l'alerte reste pour retrouver les collectes à rattacher à un pack pris plus tard (décision Val 2026-10-16). CDC à patcher : _Divergences/M2.1_20261016_pack-ag-non-bloquant.md."
+      "libelle": "Alerte ag_realisee_sans_pack_actif : sévérité « Info » (ex « critique ») et message « elle sera facturée à l'unité » (ex « Vérifier et imputer manuellement ») — sans pack actif, la collecte est facturée à l'unité, plus rien à arbitrer ; l'alerte reste pour retrouver les collectes à rattacher à un pack pris plus tard (décision Val 2026-10-16). CDC patché au sync du 2026-10-20 (_Divergences/M2.1_20261016_pack-ag-non-bloquant.md)."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "25a3b96b12a6e02fbd55ffb1a9c11f6348bdaa57c0e0d4519cc6223576fc686d",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a0d825c816bf6c002e0eba67940a12fd6e4ed805efbe0665b58513a780287d4d",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "049fe1c8b74bd0b313c4ba7dbb4acc63b6b72a32fca276618ae1be55a344d893",
-    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "96af8a05693a840b57cce0193a735f2c9290079c6b9f3bc24a21471f1afcfb5a"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "0b8259656b44c137c7b9ac767009005666c13a8ae98b2755e7f5d5985cc4c1f4",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8d594e7c173a5c9ed31c81e1e4df67fbd35658bd50d837b77a715ba72f42ea04",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "bb0b06961f9aa41b21efa59bb0c2dd41834c4b187b1f682f9261639b54b22845",
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "67536ff643130ed80eeae822fd0a46c108ddda9e05630f29ed06bcff7cb33032"
   }
 }

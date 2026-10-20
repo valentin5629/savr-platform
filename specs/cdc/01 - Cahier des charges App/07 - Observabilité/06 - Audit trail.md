@@ -42,7 +42,8 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 | `action` | `table_cible` | Déclencheur |
 |---|---|---|
 | `pack_recredite_annulation_collecte` | `packs_antgaspi` | Trigger recrédit (déjà §04) |
-| `pack_debite_annulation_tardive` | `packs_antgaspi` | Trigger débit < 12h (déjà §04) |
+| `pack_rattache_collecte` | `collectes` | RPC `rpc_rattacher_collecte_pack` — rattachement Admin après coup (ajout 2026-10-16) |
+| `pack_debite_annulation_tardive` | `packs_antgaspi` | Trigger débit < 4h (déjà §04) |
 | `pack_ajuste_manuel` | `packs_antgaspi` | Ajustement Ops/Admin |
 | `annulation_pack` | `packs_antgaspi` | Action Admin « Annuler le pack » (§06.06 §8) — `ancienne_valeur` `{statut:'actif'}`, `nouvelle_valeur` `{statut:'annule'}`, motif obligatoire (≥ 10 car.), auteur `admin_savr`/`ops_savr` |
 

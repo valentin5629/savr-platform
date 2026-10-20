@@ -1,7 +1,5 @@
 # 02 - Personas et cas d'usage
 
-**Statut** : ✅ Complété
-**Dernière mise à jour** : 2026-06-03 (revue sobriété : dédup RLS → §09, purge contenu obsolète, correctif `client_organisateur_organisation_id`)
 
 ---
 
@@ -50,7 +48,7 @@ Commercial chez un traiteur (ex: chargé de projet événementiel chez Kaspia, B
 
 ### Cas d'usage critiques
 1. **Programmer une collecte** : saisit les infos événement (lieu, date, heure, pax estimés, type de prestation) → l'app pré-remplit les données connues du lieu (accès, contact, contraintes) + autocomplete des contacts sur le référentiel traiteur → il valide → ordre envoyé à Savr ops
-2. **Consulter un rapport RSE** : accède à l'historique → télécharge le PDF de son événement → peut régénérer si besoin
+2. **Consulter un rapport RSE** : accède à l'historique → télécharge le PDF de son événement → choisit d'y inclure ou non le radar de comparaison (rapport fabriqué au clic — décision Val 2026-10-16)
 3. **Suivre ses collectes du mois** : vue calendrier ou liste des événements à venir / passés avec statut
 4. **Accès coordonnées chauffeur/plaque** : visibles depuis la fiche collecte de son espace client (section logistique) une fois la tournée créée et la plaque saisie côté TMS. Pas de notification automatique T+3h en V1.
 
@@ -104,7 +102,7 @@ Responsable RSE ou facility manager chez un opérateur de lieux (Viparis, Sodexo
 - Attribution configurée manuellement par Admin Savr (ex: profil Viparis → accès à 15 lieux Viparis)
 
 ### Ce qu'il peut faire
-- Consulter l'historique complet des **collectes** sur ses lieux (tous traiteurs) — le détail (pesées par flux, repas, bordereaux, attestations) est accessible dans la fiche collecte (décision Val 2026-10-07 : la page Événements est retirée, la page Collectes est la vue de consultation)
+- Consulter l'historique complet des **collectes** sur ses lieux (tous traiteurs) — le détail (pesées par flux, repas, bordereaux, attestations) est accessible dans la fiche collecte (décision Val 2026-10-07 : la page Collectes est la vue de consultation ; la page Événements, retirée ce jour-là, est remise le 2026-10-18 pour la vue consolidée d'un événement à plusieurs collectes)
 - Voir les volumes agrégés par lieu, par flux, par période via le Dashboard (onglets ZD/AG, bloc radar kg/pax × benchmark parc)
 - Comparer les performances entre ses différents lieux et au parc Savr (barre filtre benchmark dédiée 5 dimensions sur le Bloc 3 ZD)
 - Télécharger des rapports RSE par lieu ou agrégés (PDF) + export CSV niveau collecte sur la liste Collectes
@@ -165,7 +163,7 @@ Agence événementielle qui organise des événements pour le compte de ses clie
 - **Périmètre data strict** : l'agence voit uniquement ses propres collectes. Si un traiteur accède aussi à la collecte (via sa propre fiche commercial), la facture reste adressée à l'agence
 - **Liste déroulante traiteurs + ajout manuel** : combo search dans le référentiel Savr avec fallback saisie libre si inconnu (workflow shadow §06.01 cas Agence)
 - **Conflit de modification agence/traiteur** : l'agence est propriétaire de la collecte (créatrice). Le traiteur rattaché peut consulter en lecture seule depuis son espace, mais ne peut pas modifier ni supprimer. Si besoin d'intervention, passage par un admin ou édition directe par l'agence
-- **Notification info-only au traiteur opérationnel (2026-05-07)** : le traiteur reçoit un email récap quand une collecte est programmée chez lui par l'agence, pas de validation requise. Droit de retrait conservé via workflow annulation existant. Cf. §05 §9.
+- **Notification info-only au traiteur opérationnel (2026-05-07)** : le traiteur reçoit un email récap quand une collecte est programmée chez lui par l'agence, pas de validation requise. Pas de droit de modification ni d'annulation sur la programmation d'un tiers depuis l'espace traiteur (décision Val 2026-10-10) : il passe par le programmateur ou l'équipe Savr. Cf. §05 §9.
 - **Branding agence prioritaire sur PDF rapport RSE (2026-05-07)** : logo agence en couverture, pas celui du traiteur. L'agence partage le rapport avec son client final.
 - **Extension Pack AG (2026-05-07)** : l'agence peut acheter un pack AG, décompté sur ses propres collectes programmées (pas sur les packs des traiteurs opérationnels).
 

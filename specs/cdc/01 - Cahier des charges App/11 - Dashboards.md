@@ -1,7 +1,5 @@
 # 11 - Dashboards
 
-**Statut** : Validé
-**Dernière mise à jour** : 2026-06-07 (**Session test-scenarios lot ⑫ — F5 tranchée Val** : histogramme Revenus Bloc 2 = statuts factures `emise|payee`, avoirs en négatif. Scénarios : `tests/11-12-dashboards-reporting-scenarios.md`.) / Antérieure : 2026-06-03 (**Revue de sobriété §11 Dashboards — 4 items, zéro dette** : **A1** suppression des 4 vues matérialisées `mv_kpi_*` + cron 15 min (fantômes, absentes §04) → vues SQL non matérialisées `v_kpi_*` à la volée ; **B1** préférences filtres/période → `localStorage` (plus de table serveur) ; **B2** retrait onglet « Vue consolidée » du dashboard `client_organisateur` → bandeau de tête + nettoyage références stale (décisions L208 + agence) ; **C1** dédup « Export PDF dashboards Puppeteer » → source unique §12. Toutes modifs locales §11.) — *ex 2026-05-06 : Taux de recyclage indicateur unique ZD-only, cf. [[04 - Data Model]] addendum 2026-05-06 + [[05 - Règles métier#R_taux_recyclage]]*
 
 ---
 
@@ -138,7 +136,7 @@ Spec détaillée : voir [[06 - Fonctionnalités détaillées/06 - Back-office Ad
 - **Bloc 8 *(refonte 2026-05-10)*** : remplacé par bouton "Exporter une synthèse PDF" pré-rempli (filtres globaux + type de collecte selon onglet). Ex-bloc "Dernier rapport de synthèse" supprimé (orphelin refonte 2026-05-05 : rapports auto + table `rapports_synthese` supprimés).
 - **Cartes KPI non cliquables** *(décision Val GO-VISUAL 2026-07-10)*. **Correction 2026-07-14** : la page Collectes gestionnaire **existe** (nav §06.05 §1 + section « Liste Collectes ») — l'affirmation « page Collectes supprimée » (modèle Événements, refonte 2026-05-03) est périmée. Drill-down Top 5 lieux / traiteurs (Blocs 6/7) → liste Collectes filtrée (décision Val 2026-07-14).
 - **Pas de tarifs ZD négociés** côté gestionnaire en V1 (volet Admin uniquement).
-- **Bouton "Programmer un événement" *(refonte 2026-05-21 — formulaire unique, ex 2 sous-boutons ZD/AG)*** : ouvre le formulaire unique §06.01 (choix ☐ZD ☐AG en étape 1) cas Gestionnaire (combobox lieu filtrée à `organisations_lieux`, combobox traiteur opérationnel restreinte au référentiel sans option shadow). Si Anti-Gaspi coché sans pack actif, soumission AG bloquée (ZD reste programmable). Cf. [[06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux#Navigation]].
+- **Bouton "Programmer un événement" *(refonte 2026-05-21 — formulaire unique, ex 2 sous-boutons ZD/AG)*** : ouvre le formulaire unique §06.01 (choix ☐ZD ☐AG en étape 1) cas Gestionnaire (combobox lieu filtrée à `organisations_lieux`, combobox traiteur opérationnel restreinte au référentiel sans option shadow). Si Anti-Gaspi coché sans pack actif, la collecte AG reste programmable et sera facturée à l'unité (décision Val 2026-10-16). Cf. [[06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux#Navigation]].
 - **Bloc Mon pack AG** *(ajout 2026-05-07)* : affiché si l'orga a un pack actif, ou si son dernier pack est épuisé sans nouveau pack actif (cf. nav §06.05 onglet "Mon pack AG"). Côté gestionnaire, le bloc est un résumé en texte : crédits restants / crédits initiaux, badge au seuil, mention « Contactez votre responsable Savr pour renouveler votre pack » (ni jauge, ni type de pack, ni date d'achat, ni bouton de renouvellement : le détail est sur l'écran « Mon pack AG »). Décompte sur les collectes AG programmées par le gestionnaire (`evenements.organisation_id = current_org`).
 - **Exports** : Bouton Export CSV sur la liste Collectes (grain collecte) ; PDFs via section Rapports.
 
@@ -171,6 +169,8 @@ Onglet **AG** / Onglet **ZD**. *(Onglet « Vue consolidée » retiré — revue 
 - Accès aux rapports RSE / bordereaux PDF
 
 **Pas de données financières, pas de benchmark** (un client organisateur n'a pas d'intérêt à se comparer).
+
+**Page « Mes collectes »** (lecture seule) : vues « Collectes à venir » (par défaut) / « Collectes passées », rangées par date et triées de la plus proche à la plus lointaine comme au §06.04 (décision Val 2026-10-19), sélecteur ZD / AG, filtre Période, export CSV. Les cadrans « Événements ZD / AG » du dashboard y renvoient sur « Collectes passées ».
 
 ---
 

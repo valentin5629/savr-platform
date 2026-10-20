@@ -10,7 +10,7 @@
   "deliverables": [
     {
       "id": "BL-P0-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:24",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:22",
       "artefact": "packages/plateforme/src/app/api/v1/admin/dashboard/kpi/route.ts",
       "test": "M3.5 / Bloc 1 — N collectes zero_dechet → carte ZD = N (oracle BL-P0-05, pas 0)",
       "statut": "implemented",
@@ -18,7 +18,7 @@
     },
     {
       "id": "M3.5-chips-collectes-enum",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:24",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:22",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/route.ts",
       "test": "M3.5 / chip zd_48h → filtre type=zero_dechet (count 7, pas 0)",
       "statut": "implemented",
@@ -26,7 +26,7 @@
     },
     {
       "id": "BL-P1-PARITE-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:65",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:63",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_auth_401_sans_jwt + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
@@ -34,7 +34,7 @@
     },
     {
       "id": "M3.5-charts-lib",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:84",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:82",
       "artefact": "packages/plateforme/src/components/dashboards/charts/",
       "test": "TonnagesDonut — rend le total au centre et la légende des 5 flux",
       "statut": "implemented",
@@ -42,7 +42,7 @@
     },
     {
       "id": "M3.5-evolution-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:127",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:125",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts",
       "test": "M3.5/evolution_zd_barres_5_flux_taux_pondere — sommes par flux + taux pondéré (exclut NULL)",
       "statut": "implemented",
@@ -50,7 +50,7 @@
     },
     {
       "id": "BL-P1-PARITE-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:200",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:198",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts + packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + apps/pdf-renderer/src/templates/synthese-dashboard.ts",
       "test": "M3.5 / route synthèse PDF — génération synchrone + M3.5 / synthèse PDF — snapshot §12 §1.6 + M3.5 / renderer synthèse §12 §1.6 — template agrégé",
       "statut": "implemented",
@@ -58,7 +58,7 @@
     },
     {
       "id": "BL-P2-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:38",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:36",
       "artefact": "packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts",
       "test": "M3.5/admin_revenus_6_colonnes — nom · type · nb/CA ZD · nb/CA AG",
       "statut": "implemented",
@@ -66,7 +66,7 @@
     },
     {
       "id": "M3.5-kpi-admin-ca-eco-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:38",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:36",
       "artefact": "supabase/migrations/20260707120000_plateforme_r20a_kpi_admin_ca_economique_ag.sql",
       "test": "supabase/tests/m3_5_v_kpi_admin_ca_eco_ag.test.sql — v_kpi_admin CA AG économique (pack) + non-régression ZD + exclusion facture/avoir pack",
       "statut": "implemented",
@@ -74,7 +74,7 @@
     },
     {
       "id": "BL-P2-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:94",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -82,7 +82,7 @@
     },
     {
       "id": "BL-P2-43",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:94",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -90,7 +90,7 @@
     },
     {
       "id": "M3.5-blocs-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:78",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_sans_prochaines_collectes",
       "statut": "implemented",
@@ -98,7 +98,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "1fc245abae161c2b5e153ca8a276faab3cd2e1aa8fc956a2ae33f54d2aa6c323",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "b15bfa4991600d2bb45df6a7c35c2b451f36afa02067d01b339266d94fcffad7"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "d6c51715098915f5991d6c20b4ed114a7e39940d32fe3aaba695e7bbbb73dca5",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "bafd32a6b2b58b696ccf29172bdcb428548d522508d4c63a0523c2b8ef202c92"
   }
 }

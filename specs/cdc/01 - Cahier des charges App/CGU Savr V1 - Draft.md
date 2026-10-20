@@ -1,6 +1,5 @@
 # CGU Savr V1 — Conditions Générales d'Utilisation
 
-**Statut** : Draft V1 (2026-04-28) — à valider avec un juriste avant mise en production
 **Périmètre** : Activités Zéro-Déchet (ZD) + Anti-Gaspi (AG)
 **Remplace** : CGU AG uniquement (version contrat bilatéral signé)
 
@@ -46,7 +45,7 @@ Chaque fois qu'ils sont utilisés dans le Contrat, les termes suivants, employé
 
 **DLC** désigne la date limite de consommation d'une Denrée alimentaire. En l'absence d'information communiquée par le Client, SAVR applique par défaut une DLC de 24 heures.
 
-**Espace Client** désigne l'interface accessible depuis la Plateforme permettant au Client de programmer des Demandes de Collecte, consulter ses documents réglementaires (Bordereaux, Attestations, Rapports RSE), gérer ses données et paramètres.
+**Espace Client** désigne l'interface accessible depuis la Plateforme permettant au Client de programmer des Demandes de Collecte, consulter ses documents réglementaires (Bordereaux, Rapports de don, Rapports RSE), gérer ses données et paramètres.
 
 **Exutoire** désigne le site de valorisation ou d'élimination des Déchets auprès duquel SAVR ou ses Prestataires acheminent les Déchets collectés (entrepôt Veolia, centre de tri, etc.).
 
@@ -116,13 +115,13 @@ Le Client peut souscrire à l'une ou aux deux Activités.
 
 **Enlèvement et acheminement** : SAVR ou son Prestataire se présente sur le Point de Collecte pour retirer les Excédents déclarés par le Client, dans un délai n'excédant pas 30 minutes après l'heure prévue de la Collecte, et les livre à l'Association sélectionnée dans des conditions permettant le respect de la chaîne du froid.
 
-**Attestation de don** : à l'issue de chaque Collecte AG, la Plateforme génère automatiquement une Attestation de don, disponible dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou vérification en cours des informations du Client. Si l'Association est habilitée au titre de l'article 238 bis du CGI, l'Attestation mentionne les informations permettant au Client de bénéficier de la réduction fiscale prévue par l'article 2041-GE.
+**Rapport de don** : à l'issue de chaque Collecte AG, la Plateforme génère automatiquement un Rapport de don, disponible dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou vérification en cours des informations du Client. Lorsque des Excédents ont été donnés, le Rapport de don vaut attestation de don : si l'Association est habilitée au titre de l'article 238 bis du CGI, il mentionne les informations permettant au Client de bénéficier de la réduction fiscale prévue par l'article 2041-GE. Lorsqu'aucun Excédent n'a été collecté, le Rapport de don constate l'absence d'excédent et ne vaut pas reçu fiscal.
 
 ### 4.3. Offres et tarification
 
 **ZD** : le Client est facturé à l'unité par Collecte ZD, selon la grille tarifaire applicable à la date de programmation, calculée en fonction du nombre de participants à l'événement. Des tarifs préférentiels peuvent être négociés avec SAVR pour les Clients dont les événements se tiennent sur des lieux gérés par un Gestionnaire de lieux partenaire.
 
-**AG** : le Client souscrit un Pack Anti-Gaspi prépayé ou commande à l'unité. Le Client détient au plus un Pack actif à un instant T ; les crédits sont défalqués sur ce Pack à chaque Collecte AG réalisée. En cas d'épuisement du Pack, la programmation de nouvelles Collectes AG est suspendue jusqu'à l'acquisition d'un nouveau Pack. En cas de renouvellement anticipé, les crédits restants de l'ancien Pack sont reportés sur le nouveau par SAVR sur demande du Client.
+**AG** : le Client souscrit un Pack Anti-Gaspi prépayé ou commande à l'unité. Le Client détient au plus un Pack actif à un instant T ; les crédits sont défalqués sur ce Pack à chaque Collecte AG réalisée. Sans Pack actif, notamment après son épuisement, les Collectes AG restent programmables et sont facturées à l'unité jusqu'à l'acquisition d'un nouveau Pack. En cas de renouvellement anticipé, les crédits restants de l'ancien Pack sont reportés sur le nouveau par SAVR sur demande du Client.
 
 Les Offres et tarifs applicables sont précisés en Annexe 1.
 
@@ -139,7 +138,7 @@ SAVR s'engage à :
 - Fournir les Services avec loyauté dans les conditions décrites à l'article 4 ;
 - **ZD** : transporter les Déchets dans des véhicules conformes à la réglementation relative au transport de déchets, et les acheminer vers des Exutoires autorisés ;
 - **AG** : transporter les Excédents dans des véhicules adaptés, propres et respectant la réglementation relative au transport de Denrées alimentaires ;
-- Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Attestation, Rapport RSE) dans les 48 heures suivant la Collecte, sauf incident de pesée, de génération ou vérification en cours des informations du Client ;
+- Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Rapport de don, Rapport RSE) dans les 48 heures suivant la Collecte, sauf incident de pesée, de génération ou vérification en cours des informations du Client ;
 - Informer le Client en cas de difficulté dans l'exécution du Service.
 
 ---
@@ -153,8 +152,8 @@ SAVR s'engage à :
 **6.3. Préparation des Excédents (AG).** Le Client s'engage à emballer et étiqueter ses Excédents conformément à la réglementation applicable aux dons alimentaires, et à garantir que leur DLC n'est pas dépassée. SAVR et/ou son Prestataire peuvent refuser de prendre possession d'Excédents non emballés ou non conformes ; dans cette hypothèse, la Collecte reste due et facturée au tarif applicable.
 
 **6.4. Annulation d'une Collecte.** Le Client peut annuler une Collecte depuis l'Espace Client selon les conditions suivantes :
-- Annulation reçue **≥ 12h avant le créneau** : aucune facturation.
-- Annulation reçue **< 12h avant le créneau** ou **après mandat du Prestataire** : facturation au tarif plein (ZD) ou débit d'un crédit Pack (AG), sans remboursement.
+- Annulation reçue **≥ 4h avant le créneau** : aucune facturation.
+- Annulation reçue **< 4h avant le créneau** : facturation au tarif plein (ZD) ou débit d'un crédit Pack (AG), sans remboursement.
 
 **6.5. Respect de la réglementation.** Le Client est seul responsable du respect de la réglementation applicable à ses Déchets (nature, conditionnement, déclaration) et à ses Excédents (hygiène, DLC, emballage) jusqu'à leur remise à SAVR ou à son Prestataire, moment à partir duquel le transfert de responsabilité s'opère.
 
@@ -316,7 +315,7 @@ SAVR est seule titulaire des droits de propriété intellectuelle sur la Platefo
 
 **24.7. Droits des personnes.** SAVR s'engage à assister le Client dans le respect des droits des personnes concernées (accès, rectification, effacement, portabilité, opposition) dans un délai raisonnable. Les demandes peuvent être adressées à : gestion@gosavr.io.
 
-**24.8. Conservation.** Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Attestations à valeur réglementaire). Les données personnelles non soumises à obligation légale sont anonymisées dans les 12 mois suivant la résiliation du Contrat.
+**24.8. Conservation.** Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Rapports de don à valeur réglementaire). Les données personnelles non soumises à obligation légale sont anonymisées dans les 12 mois suivant la résiliation du Contrat.
 
 **24.9. Notification des violations.** SAVR notifie au Client toute violation de données à caractère personnel dans les 72 heures suivant sa constatation.
 

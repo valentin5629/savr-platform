@@ -94,6 +94,10 @@
 --     rapprochant ses ordres de la même façon).
 --   Une colonne sur un CREATE TABLE existant n'ajoute aucun statement ; l'index en ajoute UN.
 --   Comptes : 93 tables / 56 enums / 162 FK / **321 statements** (+1).
+-- Regelé le : 2026-10-20 (cdc-patch-divergences — M1.5_20261013_tournees-tms-reference-unique-ddl-cible, option A Val) :
+--   + index UNIQUE partiel uniq_tournee_par_tms_reference sur plateforme.tournees.tms_reference
+--     (invariant V1 migration 20261013210000, découle de tms.tournees.plateforme_tournee_id UNIQUE).
+--   Comptes : 93 tables / 56 enums / 162 FK / **322 statements** (+1). Revalidation pglast à rejouer.
 --   ⚠ DETTE TRACÉE — écarts du même type NON traités, faute de divergence dédiée :
 --     · plateforme.collecte_tournees.rang et sa contrainte uniq_collecte_tournee_rang existent dans
 --       les migrations V1 mais PAS dans ce fichier (le CREATE TABLE ci-dessous n'a que
@@ -751,6 +755,7 @@ CREATE TABLE plateforme.collectes (
   pack_antgaspi_id         uuid,                           -- FK -> packs_antgaspi
   lieu_overrides           jsonb,
   realisee_at              timestamptz,                    -- base embargo H+24
+  annulation_demandee_at   timestamptz,                    -- demande d'annulation du client (base du délai d'annulation tardive, Val 2026-10-15)
   created_at               timestamptz NOT NULL DEFAULT now(),
   updated_at               timestamptz NOT NULL DEFAULT now()
 );
@@ -1961,6 +1966,15 @@ CREATE UNIQUE INDEX uq_file_revalidation_siret_active
 CREATE UNIQUE INDEX uniq_tournee_par_external_ref
   ON plateforme.tournees (external_ref_commande)
   WHERE external_ref_commande IS NOT NULL;
+
+-- Partial unique index (une référence de tournée prestataire = au plus une ligne tournees
+--   — divergence M1.5_20261013_tournees-tms-reference-unique-ddl-cible)
+--   La reprise d'un envoi refuse de reprendre une tournée qu'une ligne porte déjà, par une lecture
+--   suivie d'une écriture : l'index ferme la course entre deux passages simultanés.
+--   Partiel : une tournée dont le tour n'est pas encore créé n'a pas de référence (NULL multiples).
+CREATE UNIQUE INDEX uniq_tournee_par_tms_reference
+  ON plateforme.tournees (tms_reference)
+  WHERE tms_reference IS NOT NULL;
 
 -- ---------------------------------------------------------------------
 -- 5. FOREIGN KEYS  (toutes différées en fin de fichier — ordre-indépendant)

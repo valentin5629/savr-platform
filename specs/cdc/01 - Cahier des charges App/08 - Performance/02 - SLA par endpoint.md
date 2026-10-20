@@ -1,7 +1,5 @@
 # 08 - Performance / 02 - SLA par endpoint
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-06-08 (skill `cdc-perf-load`)
 **Périmètre** : V1 uniquement (MTS-1 polling + Everest direct + Pennylane polling). Les webhooks contrat §08 S1-S11 = cible V2 gelée, SLA listés en §6 pour référence.
 
 ---

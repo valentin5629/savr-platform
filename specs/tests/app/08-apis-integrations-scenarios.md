@@ -1138,7 +1138,7 @@ Scénario : everest_confirmation_positive_statut_tms_acceptee
 Scénario : everest_course_vide_refetch_realisee_sans_collecte
   Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut=en_cours, non terminal)
     Et Everest envoie un webhook terminal (mission_failed)
-    Et le re-fetch de la mission retourne mission_status="Client absent / Marchandise refusée"
+    Et le re-fetch de la mission retourne status_text="Client absent / Marchandise refusée"
   Quand l'adapter Everest traite le webhook (re-fetch mission, jamais le payload)
   Alors collectes.statut = realisee_sans_collecte
     Et collectes.realisee_at = now()
@@ -1159,7 +1159,7 @@ Scénario : everest_course_vide_refetch_realisee_sans_collecte
 Scénario : everest_mission_failed_avant_acceptation_rejetee
   Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut_tms=attribuee_en_attente_acceptation)
     Et Everest envoie mission_failed / annulation externe avant acceptation
-  Quand l'adapter Everest traite le webhook (re-fetch mission_status)
+  Quand l'adapter Everest traite le webhook (re-fetch status_text)
   Alors collectes.statut_tms = rejetee_par_prestataire
     Et collectes.statut = rejetee_par_prestataire (visibilité dashboard)
     Et une alerte Admin in-app « réattribution requise » est créée

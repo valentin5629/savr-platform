@@ -2,7 +2,6 @@
 
 **Source CDC** : [[11 - Dashboards]] + [[12 - Reporting et exports]] + [[05 - Règles métier]] (R_taux_recyclage, R_co2_calcul, R_co2_ag, R_co2_snapshot_fige, R_marge_zd_traiteur, R_revenus_imputation_organisation) + [[04 - Data Model]] (`rapports_rse`, `bordereaux_savr`, `attestations_don`, `exports_registre`, `documents_generaux_savr`, `f_benchmark_kg_pax_zd`, vues `v_kpi_*`, `v_registre_dechets`) + [[09 - Authentification et permissions]] (A8, A9, A10, matrices bordereaux/attestations)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests des modules §11 Dashboards et §12 Reporting/exports.
 > Pour chaque scénario :
@@ -509,7 +508,7 @@ Scénario : regeneration_bordereau_et_attestation_interdites_traiteur
   Étant donné un traiteur_manager
   Quand il tente de régénérer un bordereau de pesée §1.1, une attestation de don §1.3 ou un rapport sans excédent §1.3-bis
   Alors les trois tentatives sont refusées (régénération admin_savr uniquement)
-  Et la régénération du rapport RSE §1.2 lui reste, elle, accessible
+  Et le rapport de recyclage §1.2 ne se régénère pas non plus : il se télécharge, fabriqué au clic (décision Val 2026-10-16)
 ```
 
 ```gherkin
@@ -713,13 +712,12 @@ Scénario : synthese_perimetre_rls_du_demandeur
 # Couche : api
 # Priorité : P1-critique
 
-Scénario : regeneration_rapport_rse_versionnee_pas_dupliquee
-  Étant donné un rapport RSE version=1 généré automatiquement
-  Quand l'admin corrige une pesée et régénère
-  Alors la MÊME ligne `rapports_rse` est mise à jour : version=2, regenere_at posé, regenere_par_user_id renseigné (UPDATE, pas de 2e ligne)
-  Et l'UI affiche le picto ⟳ + "Mis à jour le …"
-  Et le PDF du rapport de recyclage ne porte AUCUNE mention de régénération (le bordereau unitaire conserve "Version mise à jour — générée le …")
-  Et l'audit_log trace qui / quel profil / quand
+Scénario : rapport_recyclage_correction_pesee_reprise_au_telechargement
+  Étant donné une collecte ZD clôturée dont le rapport a déjà été téléchargé
+  Quand l'admin corrige une pesée
+  Alors aucune régénération n'est lancée et aucune ligne `rapports_rse` n'est modifiée (version, regenere_at, pdf_url inchangés)
+  Et le téléchargement suivant fabrique un rapport qui reprend la pesée corrigée (décision Val 2026-10-16)
+  Et le PDF du rapport de recyclage ne porte AUCUNE mention de régénération
 ```
 
 ```gherkin
@@ -848,15 +846,17 @@ Scénario : consulte_par_user_at_pose_une_seule_fois
 # Couche : api + ui
 # Priorité : P1-critique
 
-Scénario : regeneration_rapport_blocs_optionnels_figes
-  Étant donné un rapport de recyclage généré par le batch J+1 (options_rapport NULL = tout affiché)
-  Quand un utilisateur autorisé à télécharger le rapport (traiteur, agence, gestionnaire de lieux — programmateur ou gestionnaire du lieu de la collecte —, client organisateur) ouvre la boîte de dialogue de régénération
-  Alors les cases « Comparaison au parc », « Benchmark » et « Photos » sont cochées par défaut
-  Quand il décoche « Benchmark » et « Photos » et régénère
-  Alors rapports_rse.options_rapport = {"comparaison_parc": true, "benchmark": false, "photos": false} et version = version + 1
-  Et le PDF ne contient ni radar benchmark ni photos, mais toujours le taux, les tonnages, le bloc carbone, l'en-tête, la méthodologie et la page 2
-  Et tout téléchargement ultérieur reproduit le même document
-  Et une régénération demandée par un utilisateur d'une autre organisation répond 403
+Scénario : telechargement_rapport_avec_ou_sans_radar
+  Étant donné une collecte ZD clôturée dont l'embargo H+24 est écoulé (ligne rapports_rse posée par le batch J+1, aucun PDF fabriqué)
+  Quand un utilisateur autorisé à lire le rapport (traiteur manager ou commercial, agence, gestionnaire de lieux) ouvre l'onglet « Bilan & documents » de la fiche collecte
+  Alors la case « Inclure le radar de comparaison dans le rapport » est décochée
+  Quand il règle les filtres de comparaison, coche la case et clique sur « Télécharger »
+  Alors il reçoit un PDF qui porte le radar calculé avec ces filtres sous son identité
+  Et le PDF contient toujours le taux, les tonnages, le bloc carbone, l'en-tête, la méthodologie et la page 2
+  Quand un autre utilisateur télécharge le rapport case décochée
+  Alors il reçoit un PDF sans radar, et le premier n'en est pas modifié (rien n'est stocké)
+  Et le premier téléchargement par un client pose rapports_rse.consulte_par_user_at
+  Et un téléchargement demandé par un utilisateur d'une autre organisation répond 403
 ```
 
 ---
@@ -1064,4 +1064,29 @@ Scénario : export_collectes_sans_excedent_zero_repas
   Quand un export CSV Collectes ou Impact RSE est produit
   Alors la colonne Statut vaut « Réalisée » (export Collectes)
   Et la colonne « Repas AG » vaut 0
+```
+
+## Ajouts divergences 2026-10-20 (run cdc-patch-divergences — Rapport de don, M2.4)
+
+```gherkin
+Scénario : rapport_de_don_titre_imprime_des_deux_pdf
+  Étant donné une collecte AG clôturée avec une attestation de don émise
+  Quand son PDF est rendu
+  Alors le titre imprimé est « Rapport de don » et le sous-titre « Attestation de don »
+  Et le numéro ATT-DON et les mentions fiscales sont ceux d'avant
+  Étant donné une collecte AG au statut « réalisée sans collecte »
+  Quand son PDF est rendu
+  Alors le titre imprimé est « Rapport de don » et le sous-titre « Événement sans excédent alimentaire »
+  Et le bloc Conséquences dit « Aucun don n'ayant eu lieu, ce rapport ne vaut pas reçu fiscal. »
+
+Scénario : rapport_de_don_nom_du_fichier_servi
+  Étant donné une collecte AG clôturée dont l'attestation porte le numéro ATT-DON-2026-00001
+  Quand un utilisateur autorisé télécharge son document
+  Alors le fichier servi s'appelle « rapport-de-don-ATT-DON-2026-00001.pdf »
+  Étant donné une collecte AG « réalisée sans collecte » de l'événement « Gala » du 2026-10-09
+  Quand un utilisateur autorisé télécharge son document
+  Alors le fichier servi s'appelle « rapport-de-don-2026-10-09-gala.pdf »
+  Étant donné une collecte ZD
+  Quand un utilisateur autorisé télécharge son rapport de recyclage
+  Alors aucun nom de fichier n'est imposé
 ```

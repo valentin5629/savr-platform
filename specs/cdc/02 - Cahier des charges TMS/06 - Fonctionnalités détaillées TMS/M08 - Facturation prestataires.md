@@ -1,6 +1,5 @@
 # M08 — Facturation prestataires
 
-**Statut** : V1 rédigée 2026-04-24, **revue de sobriété 2026-04-30** (16 simplifications appliquées : Bloc A 6 suppressions + Bloc B 6 simplifications + Bloc C 3 fusions + Bloc D enums) + **revue §05 2026-05-01** (cron W11 supprimé, auto-validation match exact) + **revue de sobriété M08 2026-06-05** (0 suppr fonctionnelle ; C1 dédup viewer PDF E2 Zone 3/5 + D1-D6 purge refs mortes `rejetee_pour_correction`/`rapproche_ok`/lignes/W4/param escalade)
 **Persona principal** : Ops Savr (upload province + contestation + validation + règlement + export Pennylane) + Admin TMS (validation + déverrouillage factures)
 **Dépend de** : [[M07 - Pilotage financier logistique]] (coût TMS = référence rapprochement), [[M06 - Référentiel prestataires]] (prestataire + contact facturation), [[M03 - Portail prestataire self-service]] (W10 upload manager), [[M04 - Gestion des tournées]] (périmètre tournées facturées)
 **Bloque** : export comptable mensuel Pennylane + pilotage trésorerie logistique

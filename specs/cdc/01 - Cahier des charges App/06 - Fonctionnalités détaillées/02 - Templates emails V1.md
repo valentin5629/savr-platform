@@ -1,7 +1,5 @@
 # 06.02 - Templates emails V1
 
-**Statut** : Draft V1 (proposition Claude, à valider Val)
-**Dernière mise à jour** : 2026-06-07 (**Session test-scenarios §06.02 — 4 specs floues tranchées Val** : **F1** `email_templates` + `emails_envoyes` intégrées §04 + policies §09 (write SERVICE_ROLE seul, SELECT admin_savr) · **F2** 3 templates ajoutés (20 `collecte_programmee_tiers`, 21 `collecte_modifiee_tiers` — couvre aussi l'annulation par tiers via `type_changement`, 22 `admin_collecte_annulee`) pour solder l'écart matrice §05 §9 ↔ templates ; total 16 → **19 actifs** · **F3** cycle échecs spécifié §08 §4 (statut `echec`, 3 retries 1min/10min/1h, signature svix, event inconnu = 200 + log, variable manquante = refus + log) · **F4** alerte pack bas déclenchée **au franchissement seul** (transition > 10 % → ≤ 10 %, recrédit ré-arme). Scénarios : `tests/06.02-templates-emails-scenarios.md`.)
 *(historique 2026-06-03 ci-dessous)* (**Revue de sobriété §06.02 (skill `cdc-review-sobriete`) — 6 items appliqués zéro dette** : **A1** UI Admin d'édition des templates + colonne `version` reportées V1.1 (templates en seed DB V1, éditables via SQL/migration sans redéploiement) · **A2** template 2 `completion_profil_requise` retiré V1 (gate déjà in-app, modal §05 §888) · **A3** template 8 `admin_orga_a_valider` retiré V1 (alerte purement informative, onboarding 100% auto sans gating → liste back-office) · **B1** templates 9 `admin_pack_ag_bas` + 14bis `admin_pack_epuise` fusionnés en `admin_pack_ag_etat` (variable `niveau` `bas`/`epuise`) · **C1** compteur corrigé (13 → **16 templates actifs**, dérive jamais recomptée depuis 2026-05-04) · **D1** colonne `email_templates.destinataire_type` supprimée (enum descriptif, adresse résolue au déclenchement, aucun comportement applicatif distinct). **C2 écarté** (faux positif : template 13 `admin_demande_ajout_lieu` cohérent avec le workflow « Normaliser un lieu » toujours actif §06.06). **3 fichiers App édités** : §06.02 + §05 (matrice notifications) + §03 + §00 Index. Cross-CDC : 0 divergence (templates internes Plateforme).)
 
 ---
@@ -48,7 +46,6 @@ L'équipe Savr
 ## 2. Email rappel completion profil entreprise **Retiré V1 (revue de sobriété 2026-06-03, A2)**
 
 **Slug** : `completion_profil_requise`
-**Statut** : retiré V1
 **Motif** : le blocage de la programmation sans organisation complétée est déjà géré **in-app** (modal « Complétez votre profil entreprise » qui liste les champs manquants et redirige vers le formulaire de complétion — cf. [[../05 - Règles métier]] §9 UX). L'email doublait une information déjà affichée à l'instant T → confort. Décision Val 2026-06-03 : in-app uniquement, pas d'email V1.
 
 ---
@@ -127,7 +124,7 @@ Si cette annulation est une erreur, contactez-nous au plus vite en répondant à
 L'équipe Savr
 ```
 
-**Variables** : `prenom`, `date_collecte`, `lieu_nom`, `info_facturation` (adaptatif : "Aucune facturation ne sera émise." OU — ZD : "L'annulation intervenant à moins de 12h du créneau, le plein tarif sera facturé conformément aux CGV." OU — AG sous pack : "L'annulation intervenant à moins de 12h du créneau, un crédit de votre pack Anti-Gaspi est décompté conformément aux CGV." *(variante AG ajoutée 2026-06-07 — F2 test scenarios §06.01)*)
+**Variables** : `prenom`, `date_collecte`, `lieu_nom`, `info_facturation` (adaptatif : "Aucune facturation ne sera émise." OU — ZD : "L'annulation intervenant à moins de 4h du créneau, le plein tarif sera facturé conformément aux CGV." OU — AG sous pack : "L'annulation intervenant à moins de 4h du créneau, un crédit de votre pack Anti-Gaspi est décompté conformément aux CGV." *(variante AG ajoutée 2026-06-07 — F2 test scenarios §06.01)*)
 
 ---
 
@@ -142,16 +139,16 @@ L'équipe Savr
 ```
 Bonjour {{prenom}},
 
-Le rapport de votre collecte du {{date_collecte}} est prêt.
+Le rapport de recyclage de votre collecte du {{date_collecte}} peut être téléchargé sur la plateforme.
 
 Résumé impact :
 — {{poids_total}} kg détournés
 — {{co2_evite}} kg CO₂e évités
 — Taux de recyclage : {{taux_recyclage}} %
 
-Vous pouvez consulter le rapport complet et le télécharger en PDF directement depuis votre espace.
+Depuis la fiche de la collecte, vous choisissez d'y inclure ou non le radar de comparaison avec les autres événements Savr, puis vous téléchargez le PDF.
 
-[Bouton : Voir le rapport]
+[Bouton : Télécharger le rapport]
 
 Belle suite,
 L'équipe Savr
@@ -197,7 +194,6 @@ L'équipe Savr
 ## 8. Email alerte Admin — Nouvelle organisation à valider **Retiré V1 (revue de sobriété 2026-06-03, A3)**
 
 **Slug** : `admin_orga_a_valider`
-**Statut** : retiré V1
 **Motif** : alerte purement informative (l'email lui-même précisait « l'organisation est déjà active, cette alerte sert à vérifier a posteriori »). L'onboarding est 100% automatisé sans validation amont (§05 §851) → aucun gating, aucune action requise à l'instant T. Le push email génère du bruit à volume. La vérification de cohérence a posteriori se fait via le **filtre « nouvelles organisations » du back-office** (orgs déjà listées, revue à la cadence Admin). Décision Val 2026-06-03.
 
 ---
@@ -210,7 +206,7 @@ L'équipe Savr
 - `niveau = bas` : **franchissement** du seuil 10 % — transition `> 10 %` → `≤ 10 %` des crédits initiaux restants. Pas de répétition à chaque décrément sous le seuil ; un recrédit qui repasse au-dessus de 10 % ré-arme le déclencheur *(F4 tranchée Val 2026-06-07)*
 - `niveau = epuise` : `packs_antgaspi.statut` passe à `epuise` (`credits_consommes = credits_initiaux`)
 
-> **Sobriété B1 2026-06-03** : fusion des ex-templates 9 (`admin_pack_ag_bas`) et 14bis (`admin_pack_epuise`) — même destinataire, même objet métier (consommation de pack), CTA identique. Le bloc « programmation bloquée » est conditionnel sur `niveau = epuise`.
+> **Sobriété B1 2026-06-03** : fusion des ex-templates 9 (`admin_pack_ag_bas`) et 14bis (`admin_pack_epuise`) — même destinataire, même objet métier (consommation de pack), CTA identique. Le bloc « facturation à l'unité » est conditionnel sur `niveau = epuise`.
 
 **Objet** : `[Admin] Pack AG {{etat_libelle}} — {{organisation_nom}}` *(`etat_libelle` = « bientôt épuisé » si `bas`, « épuisé » si `epuise`)*
 
@@ -225,7 +221,7 @@ Le pack Anti-Gaspi de {{organisation_nom}} est {{etat_libelle}}.
 Il est temps de lancer la négociation du pack suivant.
 {{/if}}
 {{#if niveau_epuise}}
-La programmation de nouvelles collectes Anti-Gaspi est désormais bloquée pour cette organisation jusqu'à l'acquisition d'un nouveau pack.
+Les prochaines collectes Anti-Gaspi de cette organisation seront facturées à l'unité jusqu'à l'acquisition d'un nouveau pack.
 {{/if}}
 
 [Bouton : Voir la fiche organisation]
@@ -353,14 +349,13 @@ Un traiteur a soumis une demande de renouvellement de pack Anti-Gaspi.
 ## 14bis. Email Admin — Pack AG épuisé **Fusionné dans le template 9 (revue de sobriété 2026-06-03, B1)**
 
 **Slug** : → remplacé par `admin_pack_ag_etat` avec `niveau = epuise` (voir template 9).
-**Motif** : doublon fonctionnel avec l'alerte pack bas (même destinataire, même objet métier, même CTA). Le cas « épuisé » devient une variante `niveau` du template unifié, avec son bloc « programmation bloquée » conditionnel.
+**Motif** : doublon fonctionnel avec l'alerte pack bas (même destinataire, même objet métier, même CTA). Le cas « épuisé » devient une variante `niveau` du template unifié, avec son bloc « facturation à l'unité » conditionnel.
 
 ---
 
 ## 15. Email relance facture en retard **Retiré V1 (revue de sobriété 2026-05-08)**
 
 **Slug** : `facture_relance`
-**Statut** : retiré V1
 **Motif** : les relances de factures en retard sont gérées **directement dans Pennylane** (décision 2026-04-28). Aucun flux relance V1 côté plateforme Savr — donc pas de template email Savr associé. Voir [[06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin)]] §8.
 
 ---
@@ -603,7 +598,7 @@ Une collecte a été annulée.
 — Facturation : {{info_facturation}}
 
 {{#if annulation_tardive}}
-ATTENTION : annulation à moins de 12h du créneau — plein tarif applicable, vérifier le relais logistique.
+ATTENTION : annulation à moins de 4h du créneau — plein tarif applicable, vérifier le relais logistique.
 {{/if}}
 
 [Bouton : Voir la collecte sur le back-office]
@@ -666,7 +661,7 @@ L'équipe Savr
 - **+1 template ajout 2026-05-04** : `admin_modification_collecte_traiteur` (n°19). Décision : variante "urgence" pilotée par flag, pas de slug séparé pour éviter duplication.
 - **Compteur corrigé 2026-06-03 (sobriété C1)** : l'ancien total « 13 templates actifs » était une dérive jamais recomptée depuis le 2026-05-04 (les templates 14bis, 16, 17, 18, 18ter, 19 ont été ajoutés ensuite). **Total V1 = 16 templates actifs** après la revue de sobriété 2026-06-03 :
   1. `bienvenue` · 3. `collecte_programmee` · 4. `collecte_modifiee` · 5. `collecte_annulee` · 6. `rapport_disponible` · 9. `admin_pack_ag_etat` *(fusion bas+épuisé)* · 10. `admin_incident_collecte` · 11. `reset_password` · 12. `verification_email` · 13. `admin_demande_ajout_lieu` · 14. `admin_demande_renouvellement_pack` · 16. `ag_attribution_association` · 17. `invitation_utilisateur` · 18. `ag_attribution_transporteur` · 18ter. `ag_a_toutes_indispo` · 19. `admin_modification_collecte_traiteur` · 20. `admin_demande_annulation` *(ajouté M3.1 2026-06-17)*. **Total réel = 20 slugs actifs** (vérifier SELECT count(*) WHERE actif=true en dev).
-- **+1 template ajouté au catalogue 2026-09-14 (régularisation, divergence M2.4)** : `attestation_don_disponible` — existait en base et était envoyé par le batch AG J+1 sans figurer dans ce catalogue. **Destinataire tranché Val 2026-09-14 : `organisations.email_principal` de l'organisation programmatrice**, par symétrie avec `rapport_disponible` (le batch lisait `evenements.contact_principal_email`, colonne inexistante → destinataire vide → **aucune attestation n'a jamais été envoyée**, sans trace). Déclencheur : émission de l'attestation de don AG au batch J+1 6h.
+- **+1 template ajouté au catalogue 2026-09-14 (régularisation, divergence M2.4)** : `attestation_don_disponible` — existait en base et était envoyé par le batch AG J+1 sans figurer dans ce catalogue. **Destinataire tranché Val 2026-09-14 : `organisations.email_principal` de l'organisation programmatrice**, par symétrie avec `rapport_disponible` (le batch lisait `evenements.contact_principal_email`, colonne inexistante → destinataire vide → **aucune attestation n'a jamais été envoyée**, sans trace). Déclencheur : émission de l'attestation de don AG au batch J+1 6h. **Texte (décision Val 2026-10-13, document nommé « Rapport de don »)** — objet : « Votre rapport de don est disponible — {{nom_evenement}} » ; corps : « Bonjour {{prenom}}, » (prénom du programmeur s'il appartient à l'organisation destinataire ; « Bonjour, » sinon) / « Le rapport de don de votre événement « {{nom_evenement}} » du {{date_evenement}} est prêt. » / « Vous pouvez le consulter et le télécharger en PDF directement depuis votre espace. » / bouton « Voir le rapport de don » vers {{lien_rapport}} (fiche collecte de l'espace du programmeur) / « Belle suite, L'équipe Savr ». Variables exigées : `nom_evenement` (« Votre événement » si l'événement n'a pas de nom), `date_evenement`, `lien_rapport` ; `prenom` facultatif. L'ancien gabarit exigeait `prenom`, `association_nom` et `lien_pdf`, que le batch ne fournissait pas : aucun de ces emails n'était parti.
   - **Slots retirés** : 2 (`completion_profil_requise`, A2) · 7 (`plaque_chauffeur`) · 8 (`admin_orga_a_valider`, A3) · 14bis (`admin_pack_epuise`, fusionné → 9) · 15 (`facture_relance`) · 18bis (`ag_recalcul_branche`).
 - **+3 templates ajoutés 2026-06-07 (F2 tranchée Val, session test-scenarios)** : 20. `collecte_programmee_tiers` · 21. `collecte_modifiee_tiers` *(modification + annulation par tiers, variable `type_changement`)* · 22. `admin_collecte_annulee`. Ils soldent l'écart matrice §05 §9 (règle 2026-05-07 tiers + destinataire Admin annulation) ↔ templates. **Total V1 = 19 templates actifs.**
 - **+1 template ajouté 2026-07-15 (divergence PLAQUES, décision Val)** : 23. `infos_acces_collecte` — réintroduction V1 de la notification client des infos d'accès chauffeur (nom + téléphone + accompagnant), déclenchée à complétude par tournée, destinataire `evenements.created_by`. **Total V1 = 21 templates actifs** (20 slugs seed listés + `infos_acces_collecte`). *(NB : le compteur historique « 19 » ci-dessus est un résidu non recompté ; le seed §tests liste 20 slugs → 21 après ajout. Recompter en dev via `SELECT count(*) WHERE actif=true`.)*

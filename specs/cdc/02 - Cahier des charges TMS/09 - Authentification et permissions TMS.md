@@ -2,7 +2,6 @@
 
 **Objectif** : spécifier l'authentification, la gestion des comptes, les rôles, le cumul de rôles, les policies RLS Supabase détaillées et la conformité RGPD sur le Savr TMS (tms.gosavr.io).
 
-**Dernière mise à jour** : 2026-06-04 (**propagation Bloc 3 — workflow RGPD géoloc** — refonte A5 : base légale géoloc requalifiée intérêt légitime (ex-consentement Art. 7), écran d'information à l'inscription + trace `users_tms.consentements.geoloc_notice`, suppression révocation/notification manager in-app, table « Droits des personnes » requalifiée manuelle Admin TMS sans self-service (alignement §15.5.1), purge docs cron seule sans demande anticipée (3a), correction réf table géoloc `tournees.positions_gps` → `tms.chauffeurs_geolocalisation`) / 2026-04-25 (**propagation M13 Administration TMS** — addendum politique session 30j glissantes admin+ops device trusted **sans re-MFA actions sensibles** (R_M13.12, R_M13.13, D10 risque assumé), MFA TOTP admin 1ère fois device (D11), cap 3 devices trusted/user (D14 R_M13.11), RLS 4 nouvelles tables `users_tms_devices_trusted`/`alertes_codes_overrides`/`secrets_metadata`/`impersonation_sessions`, helper SQL `auth.is_impersonating()`, contraintes impersonation R_M13.9+R_M13.10) / 2026-04-25 propagation M10 Gestion exutoires Veolia — section 13 enrichie avec `recomptages_stocks_entrepot_log` append-only, 5 policies RLS + trigger BEFORE UPDATE/DELETE + 5 tests pgTAP bloquants / 2026-04-24 propagation M03 Portail prestataire — email+password manager+chauffeur, politique password unifiée 8 car min, magic link retournement chauffeur→password, Ops/Admin inchangés SSO Google+MFA TOTP
 
 **Sources croisées** :
 - [[04 - Data Model TMS]] — table `users_tms`, matrice RLS, fonctions helpers
@@ -614,7 +613,6 @@ On y ajoute des custom claims via un hook Supabase Auth (ou via `raw_app_meta_da
 }
 ```
 
-**Mise à jour** : les claims sont rafraîchis à chaque login et à chaque refresh token. Toute modification de `users_tms.roles` par l'Admin TMS force un invalidate session (cf. A4).
 
 **Fallback** : pour les policies qui ne peuvent pas s'appuyer sur le JWT (cas complexes), on lit `users_tms` via une fonction `SECURITY DEFINER` cachée pendant la transaction.
 

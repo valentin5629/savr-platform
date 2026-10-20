@@ -131,7 +131,7 @@
     },
     {
       "id": "M4.2-registre-filtres-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:45",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:43",
       "artefact": "packages/plateforme/src/app/(registre)/registre/page.tsx (Lieu / Traiteur / Bordereau en FiltreCoches ; Période déjà en premier) + packages/plateforme/src/lib/registre/registre.ts (parseRegistreFilters : lieu / traiteur validés UUID, flux en liste blanche)",
       "test": "M4.2 — Lieu : options du périmètre entier + M4.2 — Bordereau : Disponible + M4.2/registre_filtres_lieu_traiteur_csv + M4.2/registre_filtres_valeurs_toutes_invalides",
       "statut": "à-vérifier",
@@ -139,7 +139,7 @@
     },
     {
       "id": "M4.2-registre-options-perimetre",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:45-46",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:43-44",
       "artefact": "packages/plateforme/src/app/api/v1/registre/options/route.ts (requireRegistreUser) + packages/plateforme/src/lib/registre/registre.ts (fetchRegistreOptions : vue RLS v_registre_dechets lue par tranches jusqu'à une tranche vide)",
       "test": "M4.2/registre_options_perimetre_complet + M4.2/registre_options_garde + M4.2 — Lieu : options du périmètre entier + M4.2 — options en échec",
       "statut": "implemented",
@@ -147,7 +147,7 @@
     },
     {
       "id": "M4.2-export-csv-ligne-par-flux",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:118-122",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:116-120",
       "artefact": "packages/plateforme/src/lib/registre/csv.ts (buildRegistreCsv : une ligne par flux pesé, les 20 colonnes du modèle + la colonne Lieu après le producteur ; fetchFluxDetail : lecture par tranches de 100 collectes) + packages/plateforme/src/app/api/v1/registre/export-csv/route.ts (nb_lignes = lignes du fichier) + packages/plateforme/src/lib/registre/registre.ts (FILIERE_LABELS) + packages/plateforme/src/app/api/v1/registre/[id]/route.ts (filière en clair)",
       "test": "M4.2/export_csv_ligne_par_flux + M4.2/export_csv_flux_par_tranches + M4.2/export_csv_adresse_exutoire + M4.2/export_csv_filtre_flux + M4.2/export_csv_bordereau_non_emis + M4.2/export_csv_erreur_tranche + M4.2/export_csv_registre_ampute + M4.2/export_csv_agence_denied + M4.2/detail_registre_filiere_en_clair",
       "statut": "implemented",
@@ -155,7 +155,7 @@
     },
     {
       "id": "M4.2-flux-referentiel-exutoires-codes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1037",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1034",
       "artefact": "supabase/migrations/20261004203000_plateforme_flux_dechets_exutoires_codes.sql (flux_dechets : + code_traitement ; exutoire, adresse, code déchet, code de traitement et filière des 5 flux)",
       "test": "flux_referentiel_adresse_decoupable + flux_referentiel_codes + flux_referentiel_lisible_client",
       "statut": "implemented",
@@ -163,7 +163,7 @@
     },
     {
       "id": "M4.2-flux-referentiel-unite-kg",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1064-1068",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1061-1065",
       "artefact": "supabase/migrations/20261006130000_plateforme_flux_dechets_emballage_unite_kg.sql (flux_dechets : unité de mesure des Emballages passée de bac à kg)",
       "test": "flux_referentiel_unite_kg",
       "statut": "implemented",
@@ -171,7 +171,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "25a3b96b12a6e02fbd55ffb1a9c11f6348bdaa57c0e0d4519cc6223576fc686d",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "b232b2d28ffa857b13a454e7985efd5cbd4f4006803ccd578d0c3146ec046efc"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "0b8259656b44c137c7b9ac767009005666c13a8ae98b2755e7f5d5985cc4c1f4",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "de055d9ab68aa68592e0b13538b8731758af7e395bcfedb813cd36005634e747"
   }
 }

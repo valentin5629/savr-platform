@@ -66,7 +66,7 @@ Ordre d'exécution : **Niveau 0 → V1 → V2 → V3 → V4 → V5**. Audit dev 
 
 **Périmètre fonctionnel CDC** :
 - Plateforme : §06/01 (volet AG du formulaire), §06/06 (packs AG, paramètres algo), §06/09 (flux algo attribution AG), §06/08 (facture AG)
-- Règles métier : §05 — pack FIFO strict sur `created_at`, débit crédit si annulation < 12h (`trg_pack_debit_annulation_tardive`), `realisee_sans_collecte` (AG only), attestation conditionnée `association.habilitee_fiscale`
+- Règles métier : §05 — pack FIFO strict sur `created_at`, débit crédit si annulation < 4h (`trg_pack_debit_annulation_tardive`), `realisee_sans_collecte` (AG only), attestation conditionnée `association.habilitee_fiscale`
 - API : §08 — course Everest (A Toutes!, vélo cargo) **🔒 derrière le GATE Everest (CLAUDE.md §7)**
 
 **Hors périmètre verticale** : ZD (fait en V1). Multi-vélo AG gros volume = manuel V1 (0 data model). Split auto = V2 produit.

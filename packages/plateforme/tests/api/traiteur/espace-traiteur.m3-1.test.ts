@@ -217,7 +217,7 @@ describe('M3.1 / collectes liste', () => {
     ).toBe(true);
   });
 
-  it('M3.1/liste_collectes_filtre_statut_onglet — .in(statut, [...]) pour l’onglet Programmées', async () => {
+  it('M3.1/liste_collectes_filtre_statut_onglet — .in(statut, [...]) pour les statuts demandés', async () => {
     setupAuth('traiteur_manager', 'org-1');
     rls.push({ data: [], error: null });
     const { GET } = await import('@/app/api/v1/traiteur/collectes/route.js');

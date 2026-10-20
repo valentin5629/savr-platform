@@ -249,6 +249,9 @@ describe('M3.2 / drill-down Top listes gestionnaire (§06.05 l.209)', () => {
         // Ces deux-là sont exactement ce que le code posait à tort.
         expect(p.get('statut')).toBeNull();
         expect(p.get('type')).toBeNull();
+        // Le dashboard mesure le collecté : la liste s'ouvre sur les
+        // collectes passées (décision Val 2026-10-19).
+        expect(p.get('onglet')).toBe('passees');
       },
       ATTENTE_CAS_MS,
     );

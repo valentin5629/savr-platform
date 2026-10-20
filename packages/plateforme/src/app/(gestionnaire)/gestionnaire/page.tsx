@@ -203,8 +203,10 @@ export default function GestionnaireDashboardPage() {
   // ouvrir large sur son parc. Ne pas « harmoniser » en remettant type/statut ici :
   // c'est précisément la règle traiteur qui avait été appliquée par erreur au
   // gestionnaire (53bec7c, 2026-07-14), contre le texte du §06.05.
+  // Le dashboard mesure ce qui a été collecté : le lien ouvre la vue
+  // « Collectes passées » (décision Val 2026-10-19).
   const drillUrl = (cle: 'lieu' | 'traiteur', id: string): string => {
-    const qs = new URLSearchParams({ [cle]: id });
+    const qs = new URLSearchParams({ [cle]: id, onglet: 'passees' });
     if (filters) {
       qs.set('from', filters.from);
       qs.set('to', filters.to);

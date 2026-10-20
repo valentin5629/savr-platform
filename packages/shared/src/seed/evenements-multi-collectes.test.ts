@@ -129,20 +129,18 @@ describe('événements multi-collectes — générateur', () => {
 
 // ── Ce que seedDemo écrit en base ───────────────────────────────────────────
 type Ligne = Record<string, unknown>;
-const ecrites = new Map<string, Ligne[]>(
-  [
-    'plateforme.evenements',
-    'plateforme.collectes',
-    'plateforme.collecte_flux',
-    'plateforme.attributions_antgaspi',
-    'plateforme.attestations_don',
-  ].map((t) => [t, []]),
-);
-const lignes = (t: string) => ecrites.get(`plateforme.${t}`)!;
+const TABLES = [
+  'plateforme.evenements',
+  'plateforme.collectes',
+  'plateforme.collecte_flux',
+  'plateforme.attributions_antgaspi',
+  'plateforme.attestations_don',
+];
 
-beforeAll(async () => {
-  vi.stubEnv('SEED_TODAY', ANCRE);
-  vi.spyOn(console, 'log').mockImplementation(() => undefined);
+/** Lignes que `seedDemo` écrirait à cette ancre, lues sur un client factice. */
+async function ecrireSeedDemo(ancre: string): Promise<Map<string, Ligne[]>> {
+  const ecrites = new Map<string, Ligne[]>(TABLES.map((t) => [t, []]));
+  vi.stubEnv('SEED_TODAY', ancre);
   const referentiel: [RegExp, Record<string, string>[]][] = [
     [/grilles_tarifaires_zd/, [{ id: 'grille', nom: 'Grille standard V1' }]],
     [
@@ -179,7 +177,7 @@ beforeAll(async () => {
             Object.fromEntries(colonnes.map((c, k) => [c, valeurs[k]])),
           );
         }
-      } else if (lignes('attestations_don').length > 0) {
+      } else if (ecrites.get('plateforme.attestations_don')!.length > 0) {
         return Promise.reject(new AttestationsEcrites());
       }
       const rows = referentiel.find(([re]) => re.test(sql))?.[1] ?? [];
@@ -189,6 +187,15 @@ beforeAll(async () => {
   await expect(seedDemo(client as unknown as pg.Client)).rejects.toBeInstanceOf(
     AttestationsEcrites,
   );
+  return ecrites;
+}
+
+let ecrites = new Map<string, Ligne[]>();
+const lignes = (t: string) => ecrites.get(`plateforme.${t}`)!;
+
+beforeAll(async () => {
+  vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  ecrites = await ecrireSeedDemo(ANCRE);
 });
 
 afterAll(() => {
@@ -244,6 +251,19 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
           expect([1.5, 5300], c.slug).not.toContain(f['poids_reel_kg']);
       } else expect(fluxDe(c.slug), c.slug).toHaveLength(0);
     }
+  });
+
+  it('SEED-EMC-10b — à l’ancre où l’alerte verre MIN tomberait sur un événement multi-collectes, elle n’y tombe pas', async () => {
+    // Mesuré : au 2026-11-02, l'index de l'alerte verre (1,5 kg) désignerait
+    // une collecte ZD du Gala Fondation Horizon.
+    const flux = (await ecrireSeedDemo('2026-11-02')).get(
+      'plateforme.collecte_flux',
+    )!;
+    const multi = new Set(collectes.map((c) => seedUuid(c.slug)));
+    const pesees = flux.filter((f) => multi.has(f['collecte_id'] as string));
+    expect(pesees.length).toBeGreaterThan(0);
+    for (const f of pesees)
+      expect([1.5, 5300]).not.toContain(f['poids_reel_kg']);
   });
 
   it('SEED-EMC-11 — chaque AG clôturée a l’attribution et l’attestation définies (association, repas)', () => {

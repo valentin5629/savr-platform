@@ -90,6 +90,17 @@ const collecteAg = {
   ],
 };
 
+// Ordre de création qui attend dans la file d'envoi, tel que la route détail le
+// rend (`ordre_envoi`) juste après « Envoyer » : sans lui, la fiche ne dit plus
+// la collecte envoyée (décision Val 2026-10-20, C1).
+const ORDRE_EN_FILE = {
+  etat: 'en_attente',
+  nature: 'creation',
+  tentatives: 0,
+  prochaine_tentative_at: null,
+  erreur: null,
+};
+
 const transporteurs = [
   {
     id: 't-mts1',
@@ -400,6 +411,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           nom: 'A Toutes!',
           type_tms: 'a_toutes',
         },
+        ordre_envoi: ORDRE_EN_FILE,
         attributions_antgaspi: {
           id: 'attr-1',
           mode_validation: 'manuel_override',
@@ -622,6 +634,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           nom: 'Marathon',
           type_tms: 'mts1',
         },
+        ordre_envoi: ORDRE_EN_FILE,
       });
       render(<CollecteDetailPanel collecteId="c1" />);
 
@@ -739,6 +752,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           nom: 'A Toutes!',
           type_tms: 'a_toutes',
         },
+        ordre_envoi: ORDRE_EN_FILE,
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
@@ -784,6 +798,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       type_tms: 'mts1',
     },
     collecte_tournees: [],
+    ordre_envoi: ORDRE_EN_FILE,
   };
 
   it(
@@ -834,11 +849,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   // ──────────────────────────────────────────────────────────────────────────
 
   const ordreEnvoi = (over: Record<string, unknown> = {}) => ({
-    etat: 'en_attente',
-    nature: 'creation',
-    tentatives: 0,
-    prochaine_tentative_at: null,
-    erreur: null,
+    ...ORDRE_EN_FILE,
     ...over,
   });
 
@@ -1241,6 +1252,63 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       }
 
       expect(compteur.lectures).toBe(16);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Prestataire posé, mais aucun ordre dans la file ni référence reçue : rien
+  // n'est parti (ordre mis à l'écart sans envoi, par exemple). La fiche le dit
+  // et rouvre l'envoi, au lieu d'afficher « Envoyée » à jamais (décision Val
+  // 2026-10-20, C1).
+  it(
+    'M0.6/ordre_envoi_aucun_ordre_en_file — prestataire posé, aucun ordre en file ni référence : « Non envoyé », cartes et « Envoyer à MTS-1 », sans relecture',
+    async () => {
+      const compteur = mockLectures(() => ({
+        ...collecteEnFileMts1,
+        type: 'zero_dechet',
+        attributions_antgaspi: null,
+        ordre_envoi: null,
+      }));
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(sousLigne).getByText('Non envoyé')).toBeInTheDocument();
+      expect(within(sousLigne).queryByText('Envoyée')).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      const carte = await screen.findByRole(
+        'radio',
+        { name: /Strike/ },
+        ATTENTE_UI,
+      );
+      expect(carte).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByText('Prestataire à attribuer')).toBeInTheDocument();
+      expect(screen.queryByText(/Collecte envoyée/)).toBeNull();
+      const ligne = screen.getByText('Statut TMS').parentElement!;
+      expect(within(ligne).getByText('Non envoyé')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeNull();
+
+      // Rien en file : la fiche ne se relit pas.
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+      expect(compteur.lectures).toBe(1);
+
+      // L'envoi repart vers le prestataire en place, sans motif.
+      const bouton = screen.getByRole('button', { name: 'Envoyer à MTS-1' });
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+      await waitFor(() => {
+        const post = postDispatch(
+          globalThis.fetch as unknown as ReturnType<typeof vi.fn>,
+        );
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({});
+      }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );

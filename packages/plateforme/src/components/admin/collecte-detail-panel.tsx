@@ -469,13 +469,15 @@ function CarteChoix({
 const RELECTURE_MS = 2_000;
 const RELECTURES_MAX = 15;
 
-// Ordre en file d'envoi : le dispatch a posé le prestataire chez un adapter et la
-// commande n'est pas encore revenue avec sa référence (détail au point d'usage).
+// Ordre en file d'envoi : le dispatch a posé le prestataire chez un adapter, un
+// ordre attend dans la file et la commande n'est pas encore revenue avec sa
+// référence (détail au point d'usage).
 function ordreEnFile(collecte: CollecteDetail): boolean {
   return (
     collecte.prestataire_logistique_id != null &&
     envoiAutomatique(collecte.prestataire_actuel?.type_tms) &&
-    estADispatcher(collecte)
+    estADispatcher(collecte) &&
+    collecte.ordre_envoi != null
   );
 }
 
@@ -1628,6 +1630,13 @@ export function CollecteDetailPanel({
   // automatiquement pour eux.
   // « À dispatcher » au sens canonique (§11 §1.1, `estADispatcher` : non envoyée,
   // sans référence, programmée ou validée) — mais l'ordre est déjà en file.
+  // Et un ordre doit réellement attendre dans la file (`ordre_envoi` non nul) :
+  // sans ordre dans la file ni référence, aucun envoi n'est enregistré (ordre mis
+  // à l'écart sans envoi, par exemple). La fiche dit alors « Non envoyé » et
+  // rouvre les cartes et l'envoi, au lieu d'afficher « Envoyée » à jamais
+  // (décision Val 2026-10-20, C1). Exceptions connues : un ordre de création
+  // résolu à la main (commande passée hors de l'application), et le rejeu
+  // A Toutes! qui retrouve sa mission sans réécrire la référence de la collecte.
   const ordreEnFileEnvoi = ordreEnFile(collecte);
   // État réel de l'ordre de tête, lu dans la file (décision Val 2026-10-12, C6).
   const ordreEnvoi = collecte.ordre_envoi ?? null;

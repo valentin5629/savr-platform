@@ -88,6 +88,19 @@ modification de la collecte. La référence de la tournée peut rester vide : à
 modification suivante, l'adapter relit la commande et reprend sa tournée sans en
 créer d'autre, ni la sortir d'une tournée où l'Admin l'a placée.
 
+⚠ Faire cet alignement AVANT de rendre la main à l'équipe Ops (décision Val
+2026-10-20). Après un resolve, la fiche collecte Admin ne trouve plus d'ordre
+dans la file : tant que la collecte n'a pas de référence, elle affiche
+« Non envoyé » et propose « Envoyer à MTS-1 » en bouton principal. Sans
+alignement, ce clic émet un nouvel ordre de création, donc une seconde commande
+chez MTS-1. Aligné, il émet une modification à la place
+(`fn_collecte_commandee_chez_provider`), à quatre conditions : la ligne
+`tournees` du rang existe (l'adapter ne la crée qu'après une commande réussie :
+un ordre mort avant tout envoi n'en a pas, le développeur la crée), elle est
+liée à la collecte par `collecte_tournees`, elle porte `external_ref_commande`
+= identifiant de la commande MTS-1, et son `prestataire_logistique_id` est
+celui d'un transporteur MTS-1.
+
 ⚠ L'index `uniq_tournee_par_tms_reference` (migration `20261013210000`) refuse
 toujours (erreur `23505`) d'écrire sur une ligne `tournees` une référence de
 tournée qu'une AUTRE ligne porte déjà. Une tournée regroupée par l'Admin

@@ -37,6 +37,15 @@ async function getHandler(
   const { id } = await params;
   const supabase = createAdminSupabaseClient();
 
+  // Ordre d'envoi au prestataire : ce qu'il est advenu de l'ordre mis en file,
+  // lu dans la file elle-même — `statut_tms` reste « non envoyé » que l'ordre
+  // attende, soit en échec ou abandonné (décision Val 2026-10-12). Lu AVANT la
+  // collecte (décision Val 2026-10-20, C3) : un envoi qui se termine entre les
+  // deux lectures donne alors un ordre en file ET une référence déjà écrite,
+  // jamais « aucun ordre » et « aucune référence », que la fiche lirait
+  // « Non envoyé » juste après un envoi réussi.
+  const ordres = await lireOrdresCollecte(supabase, id);
+
   const { data, error } = await supabase
     .from('collectes')
     .select(
@@ -162,10 +171,7 @@ async function getHandler(
     );
   }
 
-  // Ordre d'envoi au prestataire : ce qu'il est advenu de l'ordre mis en file,
-  // lu dans la file elle-même — `statut_tms` reste « non envoyé » que l'ordre
-  // attende, soit en échec ou abandonné (décision Val 2026-10-12).
-  const ordres = await lireOrdresCollecte(supabase, id);
+  // Ordres lus en tête de route (voir plus haut).
   if (ordres.error) return serverError(ordres.error, 'admin.collectes.get');
 
   // Rattachement après coup à un pack pris plus tard (décision Val 2026-10-16) :

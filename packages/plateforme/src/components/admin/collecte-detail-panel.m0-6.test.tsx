@@ -3436,7 +3436,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ...baseZd,
     statut: 'cloturee',
     taux_recyclage: 62.5,
-    co2_net_kg: 140,
+    co2_evite_kg: 140,
     realisee_at: '2026-05-10T23:00:00Z',
     evenements: { ...baseZd.evenements, pax: 800, type_evenement_id: 't1' },
     collecte_flux: [
@@ -3481,6 +3481,10 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(within(kpi).getByText('200')).toBeInTheDocument();
       expect(within(kpi).getByText('Taux de recyclage')).toBeInTheDocument();
       expect(within(kpi).getByText('62,5')).toBeInTheDocument();
+      // CO₂ évité figé (décision Val 2026-10-20), jamais le bilan net.
+      expect(within(kpi).getByText('CO₂ évité')).toBeInTheDocument();
+      expect(within(kpi).getByText('140')).toBeInTheDocument();
+      expect(kpi.textContent).not.toContain('(net)');
       const radar = screen.getByTestId('bloc-3-zd-fiche');
       expect(
         within(radar).getByText(

@@ -105,7 +105,6 @@ export function ligneCollecte(over: Record<string, unknown> = {}) {
     informations_completes: true,
     informations_supplementaires: null,
     taux_recyclage: null,
-    co2_net_kg: null,
     co2_evite_kg: null,
     realisee_at: null,
     aucun_repas_motif: null,

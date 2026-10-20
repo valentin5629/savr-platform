@@ -701,6 +701,9 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       // StatCard (R-UI-6b) : chiffre et unité dans deux spans d'une même rangée flex.
       expect(t).toMatch(/870\s*kg/);
       expect(t).toMatch(/312\s*kg\sCO₂e/);
+      // CO₂ évité figé (décision Val 2026-10-20), jamais le bilan net.
+      expect(t).toMatch(/CO₂ évité\s*312/);
+      expect(t).not.toContain('(net)');
       expect(t).toMatch(/78,4\s*%/);
       // 870 kg / 4 200 pax = 207 g
       expect(t).toMatch(/207\s*g/);

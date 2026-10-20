@@ -1631,12 +1631,12 @@ export function CollecteDetailPanel({
   // « À dispatcher » au sens canonique (§11 §1.1, `estADispatcher` : non envoyée,
   // sans référence, programmée ou validée) — mais l'ordre est déjà en file.
   // Et un ordre doit réellement attendre dans la file (`ordre_envoi` non nul) :
-  // les adapters écrivent la référence avant que l'ordre soit clos (référence
-  // non écrite = ordre en échec, donc encore dans la file), donc un prestataire
-  // posé sans ordre vivant ni référence = rien n'est parti (ordre mis à l'écart
-  // sans envoi, par exemple). La fiche dit alors « Non envoyé » et rouvre les
-  // cartes et l'envoi, au lieu d'afficher « Envoyée » à jamais (décision Val
-  // 2026-10-20, C1).
+  // sans ordre dans la file ni référence, aucun envoi n'est enregistré (ordre mis
+  // à l'écart sans envoi, par exemple). La fiche dit alors « Non envoyé » et
+  // rouvre les cartes et l'envoi, au lieu d'afficher « Envoyée » à jamais
+  // (décision Val 2026-10-20, C1). Exceptions connues : un ordre de création
+  // résolu à la main (commande passée hors de l'application), et le rejeu
+  // A Toutes! qui retrouve sa mission sans réécrire la référence de la collecte.
   const ordreEnFileEnvoi = ordreEnFile(collecte);
   // État réel de l'ordre de tête, lu dans la file (décision Val 2026-10-12, C6).
   const ordreEnvoi = collecte.ordre_envoi ?? null;

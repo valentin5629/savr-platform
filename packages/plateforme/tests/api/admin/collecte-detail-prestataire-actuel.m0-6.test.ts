@@ -429,6 +429,23 @@ describe("M0.6 — GET admin/collectes/[id] : ordre d'envoi au prestataire", () 
     ).toBeNull();
   });
 
+  // Décision Val 2026-10-20 (C3) : la file est lue AVANT la collecte. Un envoi
+  // qui se termine entre les deux lectures rend alors « ordre en file » +
+  // référence, jamais « aucun ordre » + « aucune référence » (la fiche dirait
+  // « Non envoyé » juste après un envoi réussi, et cesserait de se relire).
+  it('M0.6/ordre_envoi_lu_avant_collecte — la file d’envoi est lue avant la collecte', async () => {
+    reponses.set('plateforme.outbox_events', { data: [], error: null });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    const cibles = appels.map((a) => a.cible);
+    expect(cibles).toContain('plateforme.outbox_events');
+    expect(cibles.indexOf('plateforme.outbox_events')).toBeLessThan(
+      cibles.indexOf('plateforme.collectes'),
+    );
+  });
+
   it('lecture de la file en erreur : 500, message neutre (pas de fiche servie avec un état faux)', async () => {
     reponses.set('plateforme.outbox_events', {
       data: null,

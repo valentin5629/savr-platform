@@ -119,7 +119,7 @@ async function refusPax(res: NextResponse): Promise<void> {
   expect(mockRpc).not.toHaveBeenCalled();
 }
 
-const INVALIDES: unknown[] = [0, -3, 12.5, '80', null, undefined];
+const INVALIDES: unknown[] = [0, -3, 12.5, 100_001, '80', null, undefined];
 
 const CORPS_PROGRAMMATION = {
   type_evenement_id: 'type-1',
@@ -344,7 +344,7 @@ describe('M1.2/pax_par_collecte — modification', () => {
   ] as const;
 
   for (const { espace, role, charger } of ROUTES) {
-    for (const pax of [0, 12.5, '80', null]) {
+    for (const pax of [0, 12.5, 100_001, '80', null]) {
       it(`PATCH /${espace}/collectes/[id] : refuse un pax ${JSON.stringify(pax)} en 422`, async () => {
         setupAuth(role);
         const { PATCH } = await charger();

@@ -144,7 +144,7 @@ export function EditerCollecteForm({
     // collecte reprise de Bubble à pax 0 (inconnu) reste modifiable pour le reste.
     if (pax !== String(collecte.pax) && !paxSaisiValide(pax)) {
       setError(
-        'Nombre de convives : saisissez un nombre entier supérieur ou égal à 1.',
+        'Nombre de convives : saisissez un nombre entier de 1 à 100 000.',
       );
       return;
     }

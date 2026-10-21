@@ -6,8 +6,8 @@ import { paxCollecteValide, refusPaxCollecte } from './pax-collecte';
 // de l'événement (C1) vit en base (`plateforme.f_pax_evenement`), prouvée par
 // supabase/tests/collectes_pax.test.sql.
 
-describe('paxCollecteValide — entier >= 1', () => {
-  it.each([1, 80, 1800, 2_147_483_647])('accepte %s', (v) => {
+describe('paxCollecteValide — entier de 1 à 100 000 (plafond métier)', () => {
+  it.each([1, 80, 1800, 100_000])('accepte %s', (v) => {
     expect(paxCollecteValide(v)).toBe(true);
   });
 
@@ -15,7 +15,7 @@ describe('paxCollecteValide — entier >= 1', () => {
     ['zéro', 0],
     ['négatif', -5],
     ['décimal', 12.5],
-    ['au-delà de l’entier SQL', 2_147_483_648],
+    ['au-delà du plafond métier (100 000)', 100_001],
     ['texte', '80'],
     ['nul', null],
     ['absent', undefined],

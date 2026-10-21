@@ -33,7 +33,7 @@
 --      armerait toutes ses collectes).
 --   6. RPC : `fn_creer_collecte` et `fn_ajouter_collecte_evenement` prennent
 --      `p_pax` (défaut NULL = règle du point 2) ; `fn_modifier_collecte`
---      accepte `pax` (entier >= 1) et émet son E2 générique ;
+--      accepte `pax` (entier de 1 à 100 000) et émet son E2 générique ;
 --      `fn_modifier_evenement` refuse `pax` (PAX_SUR_COLLECTE).
 --
 -- HORS LOT 1 (lots 2 et 3) : facturation, algorithme AG, benchmark, déchets
@@ -117,8 +117,10 @@ BEGIN
 END $$;
 
 ALTER TABLE plateforme.collectes ALTER COLUMN pax SET NOT NULL;
+-- Plafond métier 100 000 convives par collecte (décision Val 2026-10-21) :
+-- la somme des jours d'un événement reste loin de l'entier SQL.
 ALTER TABLE plateforme.collectes
-  ADD CONSTRAINT collectes_pax_positif CHECK (pax >= 0);
+  ADD CONSTRAINT collectes_pax_bornes CHECK (pax >= 0 AND pax <= 100000);
 -- Défaut 0 = « inconnu » (valeur déjà admise pour la reprise Bubble), posé
 -- APRÈS la recopie (sinon les lignes existantes le recevraient avant elle). Il
 -- sert les INSERT qui ne déclenchent rien (fixtures de test en
@@ -127,7 +129,7 @@ ALTER TABLE plateforme.collectes
 ALTER TABLE plateforme.collectes ALTER COLUMN pax SET DEFAULT 0;
 
 COMMENT ON COLUMN plateforme.collectes.pax IS
-  'Nombre de convives de la collecte (décision Val 2026-10-20), saisi avec sa date. Absent ou 0 à l''INSERT : celui de la dernière collecte non annulée de l''événement, sinon celui de l''événement (trg_collectes_pax_par_defaut). 0 = inconnu (reprise Bubble sans pax ; défaut de la colonne).';
+  'Nombre de convives de la collecte (décision Val 2026-10-20), saisi avec sa date. Absent ou 0 à l''INSERT : celui de la dernière collecte non annulée de l''événement, sinon celui de l''événement (trg_collectes_pax_par_defaut). 0 = inconnu (reprise Bubble sans pax ; défaut de la colonne). Plafond 100 000 (décision Val 2026-10-21).';
 
 -- ─── 2. Pax absent à l'INSERT : celui de la dernière collecte ──────────────
 -- Nom choisi pour passer AVANT trg_set_volume_estime_repas (les déclencheurs
@@ -405,9 +407,9 @@ BEGIN
     ELSE p_type::plateforme.collecte_type
   END;
 
-  IF p_pax IS NOT NULL AND p_pax < 1 THEN
+  IF p_pax IS NOT NULL AND (p_pax < 1 OR p_pax > 100000) THEN
     RAISE EXCEPTION
-      'PAX_INVALIDE: le nombre de convives doit être un entier >= 1 (reçu %)', p_pax
+      'PAX_INVALIDE: le nombre de convives doit être un entier de 1 à 100 000 (reçu %)', p_pax
       USING ERRCODE = 'P0001';
   END IF;
 
@@ -571,20 +573,20 @@ BEGIN
     END IF;
   END IF;
 
-  -- ── Pax de la collecte (décision Val 2026-10-20) : entier >= 1 ─────────────
+  -- ── Pax de la collecte (décision Val 2026-10-20) : entier de 1 à 100 000 ───
   -- La colonne admet 0 (reprise Bubble sans pax) ; une modification, jamais.
   -- CASE (et non OR) : l'ordre d'évaluation d'un OR n'est pas garanti en SQL, et
   -- le cast d'une valeur non numérique sortirait en 22P02 au lieu de ce refus.
   -- Calculé à part : dans un IF, PL/pgSQL couperait la condition au THEN du CASE.
   v_pax_invalide := CASE WHEN jsonb_typeof(p_updates->'pax') = 'number'
                          THEN (p_updates->>'pax')::numeric < 1
-                           OR (p_updates->>'pax')::numeric > 2147483647
+                           OR (p_updates->>'pax')::numeric > 100000
                            OR (p_updates->>'pax')::numeric <> trunc((p_updates->>'pax')::numeric)
                          ELSE true
                     END;
   IF p_updates ? 'pax' AND v_pax_invalide THEN
     RAISE EXCEPTION
-      'PAX_INVALIDE: le nombre de convives doit être un entier >= 1 (reçu %)', p_updates->'pax'
+      'PAX_INVALIDE: le nombre de convives doit être un entier de 1 à 100 000 (reçu %)', p_updates->'pax'
       USING ERRCODE = 'P0001';
   END IF;
 

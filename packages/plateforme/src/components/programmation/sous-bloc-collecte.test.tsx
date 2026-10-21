@@ -128,12 +128,12 @@ describe('M1.2 / formulaire_simplifie — alerte programmation à moins de 24 h'
   });
 });
 
-describe('M1.2/pax_par_collecte — paxSaisiValide : entier de 1 à 2 147 483 647 (borne de la colonne)', () => {
-  it.each(['1', '80', ' 80 ', '2147483647'])('accepte « %s »', (v) => {
+describe('M1.2/pax_par_collecte — paxSaisiValide : entier de 1 à 100 000 (plafond métier)', () => {
+  it.each(['1', '80', ' 80 ', '100000'])('accepte « %s »', (v) => {
     expect(paxSaisiValide(v)).toBe(true);
   });
 
-  it.each(['', '0', '-5', '12.5', '1e3', 'abc', '2147483648'])(
+  it.each(['', '0', '-5', '12.5', '1e3', 'abc', '100001'])(
     'refuse « %s »',
     (v) => {
       expect(paxSaisiValide(v)).toBe(false);

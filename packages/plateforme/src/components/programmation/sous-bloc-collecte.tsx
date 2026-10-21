@@ -18,6 +18,7 @@ import { TelephoneLien } from '@/components/collecte/fiche-blocs';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+import { PAX_COLLECTE_MAX } from '@/lib/pax-collecte-borne';
 
 export interface CollecteFormData {
   type: 'zd' | 'ag';
@@ -25,15 +26,15 @@ export interface CollecteFormData {
   heure_collecte: string;
   // Nombre de convives de CETTE collecte, saisi avec sa date (décision Val
   // 2026-10-20) : celui de l'événement en est calculé. Texte du champ ; entier
-  // >= 1 exigé avant l'envoi (`paxSaisiValide`).
+  // de 1 à 100 000 exigé avant l'envoi (`paxSaisiValide`).
   pax: string;
   informations_supplementaires: string;
 }
 
-/** Le pax saisi est-il un entier >= 1 ? (même règle que la route, borne SQL comprise). */
+/** Le pax saisi est-il un entier de 1 à PAX_COLLECTE_MAX ? (même règle que la route et la base). */
 export function paxSaisiValide(pax: string): boolean {
   const texte = pax.trim();
-  return /^[1-9]\d*$/.test(texte) && Number(texte) <= 2_147_483_647;
+  return /^[1-9]\d*$/.test(texte) && Number(texte) <= PAX_COLLECTE_MAX;
 }
 
 interface SousBlocCollecteProps {
@@ -144,6 +145,7 @@ export function SousBlocCollecte({
             type="number"
             inputMode="numeric"
             min="1"
+            max={PAX_COLLECTE_MAX}
             step="1"
             required
             value={data.pax}

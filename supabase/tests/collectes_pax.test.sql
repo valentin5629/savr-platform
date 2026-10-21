@@ -20,7 +20,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(41);
+SELECT plan(44);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
 RETURNS void LANGUAGE plpgsql AS $$
@@ -68,7 +68,10 @@ SELECT col_not_null('plateforme', 'collectes', 'pax', 'collectes.pax est NOT NUL
 SELECT col_default_is('plateforme', 'collectes', 'pax', '0', 'collectes.pax a 0 pour défaut (inconnu)');
 SELECT throws_ok(
   $$ UPDATE plateforme.collectes SET pax = -1 WHERE id = (SELECT commandee FROM t) $$,
-  '23514', NULL, 'un pax négatif est refusé (collectes_pax_positif)');
+  '23514', NULL, 'un pax négatif est refusé (collectes_pax_bornes)');
+SELECT throws_ok(
+  $$ UPDATE plateforme.collectes SET pax = 100001 WHERE id = (SELECT commandee FROM t) $$,
+  '23514', NULL, 'un pax au-delà du plafond métier (100 000) est refusé (collectes_pax_bornes)');
 
 -- ── Pax absent : première collecte → celui de l'événement ; sinon la dernière ─
 SELECT is(pg_temp.pax((SELECT commandee FROM t)), 100,
@@ -90,8 +93,12 @@ SELECT is(ARRAY[pg_temp.pax((SELECT zd_a FROM t)), pg_temp.pax((SELECT ag_a FROM
   ARRAY[1800, 1800, 1200], 'fn_creer_collecte écrit le pax passé');
 SELECT throws_ok(
   $$ SELECT pg_temp.collecte((SELECT evt FROM t), 'zd', 42, 0) $$,
-  'P0001', 'PAX_INVALIDE: le nombre de convives doit être un entier >= 1 (reçu 0)',
+  'P0001', 'PAX_INVALIDE: le nombre de convives doit être un entier de 1 à 100 000 (reçu 0)',
   'fn_creer_collecte refuse un pax < 1');
+SELECT throws_ok(
+  $$ SELECT pg_temp.collecte((SELECT evt FROM t), 'zd', 42, 100001) $$,
+  'P0001', 'PAX_INVALIDE: le nombre de convives doit être un entier de 1 à 100 000 (reçu 100001)',
+  'fn_creer_collecte refuse un pax au-delà du plafond métier (100 000)');
 
 -- ── Volume AG : 10 % du pax de la collecte ───────────────────────────────────
 SELECT is(
@@ -132,6 +139,9 @@ SELECT is(pg_temp.pax((SELECT zd_a FROM t)), 1800,
 SELECT throws_ok(
   $$ SELECT plateforme.fn_modifier_collecte((SELECT zd_a FROM t), '{"pax": 0}'::jsonb, ARRAY['pax']) $$,
   'P0001', NULL, 'fn_modifier_collecte refuse un pax à 0');
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_modifier_collecte((SELECT zd_a FROM t), '{"pax": 100001}'::jsonb, ARRAY['pax']) $$,
+  'P0001', NULL, 'fn_modifier_collecte refuse un pax au-delà du plafond métier (100 000)');
 SELECT throws_ok(
   $$ SELECT plateforme.fn_modifier_collecte((SELECT zd_a FROM t), '{"pax": 12.5}'::jsonb, ARRAY['pax']) $$,
   'P0001', NULL, 'fn_modifier_collecte refuse un pax décimal');

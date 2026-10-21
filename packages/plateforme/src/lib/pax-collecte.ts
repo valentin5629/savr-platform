@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { PAX_COLLECTE_MAX } from './pax-collecte-borne';
+
 // ─── Pax porté par la collecte (décision Val 2026-10-20) ─────────────────────
 //
 // Chaque collecte porte son nombre de convives (`collectes.pax`), saisi avec sa
@@ -9,13 +11,13 @@ import { NextResponse } from 'next/server';
 // collectes non annulées de ce jour, puis la somme des jours. Une ZD et une AG
 // du même soir comptent donc une fois ; deux soirées s'additionnent.
 
-/** Entier >= 1 (borne haute = entier SQL), comme la garde de `fn_modifier_collecte`. */
+/** Entier de 1 à PAX_COLLECTE_MAX (plafond métier), comme les gardes en base. */
 export function paxCollecteValide(valeur: unknown): valeur is number {
   return (
     typeof valeur === 'number' &&
     Number.isInteger(valeur) &&
     valeur >= 1 &&
-    valeur <= 2_147_483_647
+    valeur <= PAX_COLLECTE_MAX
   );
 }
 
@@ -25,7 +27,7 @@ export function refusPaxCollecte(valeur: unknown): NextResponse | null {
   return NextResponse.json(
     {
       error:
-        'Saisie invalide : nombre de convives (obligatoire, nombre entier supérieur ou égal à 1).',
+        'Saisie invalide : nombre de convives (obligatoire, nombre entier de 1 à 100 000).',
       champs_invalides: ['pax'],
     },
     { status: 422 },

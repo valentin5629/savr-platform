@@ -584,6 +584,15 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
         date_collecte: '2030-02-01',
         heure_collecte: '10:00',
         pax: 80,
+        // Champs hostiles : aucun ne doit atteindre la création (un autre
+        // événement, une autre organisation, des camions, des notes internes,
+        // une adresse, un contrôle d'accès que l'événement n'exige pas).
+        evenement_id: 'evt-autre-org',
+        organisation_id: 'org-autre',
+        nb_camions: 3,
+        notes: 'note hostile',
+        lieu_overrides: { adresse_acces: 'adresse hostile' },
+        controle_acces_requis: true,
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
@@ -591,16 +600,20 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
     const json = (await res.json()) as { collecte_id: string };
     expect(json.collecte_id).toBe('new-collecte-1');
     // Rattachement explicite au MÊME événement, par la fonction qui émet E1.
-    // Paramètres exacts : aucun autre champ du corps n'atteint la création.
-    expect(mockRpc).toHaveBeenCalledWith('fn_creer_collecte', {
-      p_evenement_id: 'evt-1',
-      p_type: 'zd',
-      p_date_collecte: '2030-02-01',
-      p_heure_collecte: '10:00',
-      p_controle_acces: false,
-      p_info_suppl: null,
-      p_pax: 80,
-    });
+    // Paramètres exacts (toStrictEqual : une clé de plus, même `undefined`,
+    // fait échouer) : seuls ces champs atteignent la création.
+    expect(mockRpc.mock.calls[0]).toStrictEqual([
+      'fn_creer_collecte',
+      {
+        p_evenement_id: 'evt-1',
+        p_type: 'zd',
+        p_date_collecte: '2030-02-01',
+        p_heure_collecte: '10:00',
+        p_controle_acces: false,
+        p_info_suppl: null,
+        p_pax: 80,
+      },
+    ]);
   });
 
   // Niveau événement figé (§06.01 « Ajouter une collecte à un événement

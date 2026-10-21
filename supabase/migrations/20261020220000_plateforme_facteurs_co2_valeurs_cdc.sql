@@ -210,6 +210,15 @@ BEGIN
     RAISE NOTICE 'forfait collecte : ne vaut plus 50 km, conservé';
   END IF;
 
+  -- Contrôle de fin, en forme positive : sous RLS forcée, un rôle sans
+  -- BYPASSRLS ne verrait aucune ligne et n'écrirait rien, sans erreur.
+  IF (SELECT count(*) FROM plateforme.parametres_facteurs_co2) <> 5
+     OR (SELECT count(*) FROM plateforme.parametres_mix_emballages) <> 7
+     OR (SELECT count(*) FROM plateforme.parametres_co2_divers
+         WHERE cle = 'km_collecte_aller_retour') <> 1 THEN
+    RAISE EXCEPTION 'paramètres CO₂ invisibles au rôle de migration : rien n''a été corrigé';
+  END IF;
+
   PERFORM set_config('savr.audit_motif', '', true);
 END
 $migration$;

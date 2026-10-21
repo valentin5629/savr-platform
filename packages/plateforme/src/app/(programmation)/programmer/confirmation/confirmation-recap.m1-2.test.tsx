@@ -139,6 +139,64 @@ describe('M1.2 / formulaire_simplifie — récapitulatif de l’écran de confir
   );
 });
 
+// Pax porté par la collecte (décision Val 2026-10-20) : l'écran de fin montre
+// celui de chaque collecte, pas celui de l'événement (calculé).
+describe('M1.2/pax_par_collecte — écran de confirmation : convives', () => {
+  it(
+    'une collecte : son pax, pas celui de l’événement',
+    async () => {
+      await afficher({ ...EVENEMENT, collectes: [{ ...ZD, pax: 650 }] });
+      expect(valeur('Convives')).toHaveTextContent('650');
+      expect(valeur('Convives')).not.toHaveTextContent('1000');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'deux collectes : un pax par type de collecte',
+    async () => {
+      await afficher({
+        ...EVENEMENT,
+        collectes: [
+          { ...ZD, pax: 700 },
+          { ...AG, pax: 400 },
+        ],
+      });
+      const convives = valeur('Convives');
+      expect(convives).toHaveTextContent('Zéro Déchet : 700');
+      expect(convives).toHaveTextContent('Anti-Gaspi : 400');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'deux collectes du même type : la date les distingue',
+    async () => {
+      await afficher({
+        ...EVENEMENT,
+        collectes: [
+          { ...ZD, pax: 700 },
+          {
+            ...ZD,
+            id: 'col-zd-2',
+            date_collecte: '2030-01-16',
+            heure_collecte: '22:00:00',
+            pax: 500,
+          },
+        ],
+      });
+      const convives = valeur('Convives');
+      expect(convives).toHaveTextContent(
+        'Zéro Déchet (15 janvier 2030 à 08:30) : 700',
+      );
+      expect(convives).toHaveTextContent(
+        'Zéro Déchet (16 janvier 2030 à 22:00) : 500',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('M1.2 / formulaire_simplifie — bouton « Modifier la collecte »', () => {
   it.each([
     ['traiteur_manager', '/traiteur/collectes?collecte=col-zd&edit=1'],

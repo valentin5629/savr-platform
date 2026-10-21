@@ -6,7 +6,7 @@
  */
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { SousBlocCollecte } from './sous-bloc-collecte';
+import { SousBlocCollecte, paxSaisiValide } from './sous-bloc-collecte';
 
 const INFO =
   "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.";
@@ -15,6 +15,7 @@ const donnees = {
   type: 'ag' as const,
   date_collecte: '',
   heure_collecte: '',
+  pax: '',
   informations_supplementaires: '',
 };
 
@@ -77,6 +78,7 @@ describe('M1.2 / formulaire_simplifie — alerte programmation à moins de 24 h'
           type: 'zd',
           date_collecte: date,
           heure_collecte: heure,
+          pax: '',
           informations_supplementaires: '',
         }}
         onChange={vi.fn()}
@@ -124,4 +126,17 @@ describe('M1.2 / formulaire_simplifie — alerte programmation à moins de 24 h'
     rendreA(MAINTENANT, '2026-10-17', '');
     expect(screen.queryByText(MESSAGE)).toBeNull();
   });
+});
+
+describe('M1.2/pax_par_collecte — paxSaisiValide : entier de 1 à 2 147 483 647 (borne de la colonne)', () => {
+  it.each(['1', '80', ' 80 ', '2147483647'])('accepte « %s »', (v) => {
+    expect(paxSaisiValide(v)).toBe(true);
+  });
+
+  it.each(['', '0', '-5', '12.5', '1e3', 'abc', '2147483648'])(
+    'refuse « %s »',
+    (v) => {
+      expect(paxSaisiValide(v)).toBe(false);
+    },
+  );
 });

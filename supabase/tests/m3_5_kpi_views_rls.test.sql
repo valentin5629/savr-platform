@@ -101,22 +101,25 @@ DO $$ BEGIN
   -- C1 : E1, taux_recyclage=80%, tonnage=100kg (via collecte_flux)
   -- C2 : E2, taux_recyclage=60%, tonnage=50kg
   -- C3 : E1, sans taux (pesées = 0) — exclue de la pondération
+  -- Pax porté par la collecte (décision Val 2026-10-20) : le pax de l'événement
+  -- est la somme, jour par jour, de celui de ses collectes. E1 garde ses 200
+  -- convives sur trois jours (C1 100 · AG 50 · C3 50), E2 ses 100 (C2).
   INSERT INTO plateforme.collectes (
     id, evenement_id, type, statut,
-    date_collecte, heure_collecte, taux_recyclage, co2_induit_kg, co2_evite_kg, co2_net_kg
+    date_collecte, heure_collecte, taux_recyclage, co2_induit_kg, co2_evite_kg, co2_net_kg, pax
   ) VALUES
     ('d7000000-0000-0000-0000-000000000001'::uuid,
      'd5000000-0000-0000-0000-000000000001'::uuid,
      'zero_dechet', 'cloturee',
-     '2026-05-15', '08:00', 80.00, 10.00, 5.00, -5.00),
+     '2026-05-15', '08:00', 80.00, 10.00, 5.00, -5.00, 100),
     ('d7000000-0000-0000-0000-000000000002'::uuid,
      'd5000000-0000-0000-0000-000000000002'::uuid,
      'zero_dechet', 'cloturee',
-     '2026-05-20', '08:00', 60.00, 8.00, 3.00, -5.00),
+     '2026-05-20', '08:00', 60.00, 8.00, 3.00, -5.00, 100),
     ('d7000000-0000-0000-0000-000000000003'::uuid,
      'd5000000-0000-0000-0000-000000000001'::uuid,
      'zero_dechet', 'cloturee',
-     '2026-05-25', '08:00', NULL, 0.00, 0.00, 0.00);
+     '2026-05-25', '08:00', NULL, 0.00, 0.00, 0.00, 50);
 
   -- Collecte ZD cloturee pour Kaspia (même mois)
   INSERT INTO plateforme.collectes (
@@ -152,12 +155,12 @@ DO $$ BEGIN
   -- Collecte AG cloturee pour Kardamome
   INSERT INTO plateforme.collectes (
     id, evenement_id, type, statut,
-    date_collecte, heure_collecte, co2_evite_kg
+    date_collecte, heure_collecte, co2_evite_kg, pax
   ) VALUES
     ('d7000000-0000-0000-0000-000000000005'::uuid,
      'd5000000-0000-0000-0000-000000000001'::uuid,
      'anti_gaspi', 'cloturee',
-     '2026-05-22', '08:00', 200.00);
+     '2026-05-22', '08:00', 200.00, 50);
 
   -- Attribution AG (volume_repas_realise vit ici, pas dans collectes)
   INSERT INTO plateforme.attributions_antgaspi (

@@ -1091,6 +1091,7 @@ export type Database = {
           nb_camions_demande: number
           notes_internes: string | null
           pack_antgaspi_id: string | null
+          pax: number
           prestataire_logistique_id: string | null
           realisee_at: string | null
           statut: Database["plateforme"]["Enums"]["collecte_statut"]
@@ -1138,6 +1139,7 @@ export type Database = {
           nb_camions_demande?: number
           notes_internes?: string | null
           pack_antgaspi_id?: string | null
+          pax?: number
           prestataire_logistique_id?: string | null
           realisee_at?: string | null
           statut?: Database["plateforme"]["Enums"]["collecte_statut"]
@@ -1185,6 +1187,7 @@ export type Database = {
           nb_camions_demande?: number
           notes_internes?: string | null
           pack_antgaspi_id?: string | null
+          pax?: number
           prestataire_logistique_id?: string | null
           realisee_at?: string | null
           statut?: Database["plateforme"]["Enums"]["collecte_statut"]
@@ -5099,6 +5102,7 @@ export type Database = {
         Args: { p_annee: number; p_serie: string }
         Returns: number
       }
+      f_pax_evenement: { Args: { p_evenement_id: string }; Returns: number }
       f_purge_logs: { Args: { p_now?: string }; Returns: Json }
       f_rapport_benchmark_zd: {
         Args: {
@@ -5192,6 +5196,7 @@ export type Database = {
           p_evenement_id: string
           p_heure_collecte: string
           p_info_suppl?: string
+          p_pax?: number
           p_type: string
         }
         Returns: string
@@ -5275,6 +5280,7 @@ export type Database = {
           p_lieu_overrides?: Json
           p_nb_camions?: number
           p_notes?: string
+          p_pax?: number
           p_type: string
         }
         Returns: string

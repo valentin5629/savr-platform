@@ -193,10 +193,11 @@ SELECT is(plateforme.f_collecte_editable('09f80000-0000-0000-0000-00000000e0a1':
 SELECT test_as_superuser();
 SET LOCAL role service_role;
 SELECT lives_ok(
-  $$ SELECT plateforme.fn_modifier_evenement('09f80000-0000-0000-0000-00000000e0a1'::uuid, '{"pax": 180}'::jsonb, ARRAY['pax']) $$,
+  $$ SELECT plateforme.fn_modifier_evenement('09f80000-0000-0000-0000-00000000e0a1'::uuid, '{"reference_affaire": "C4B-180"}'::jsonb, ARRAY['reference_affaire']) $$,
   'C4b route admin (service_role) — fn_modifier_evenement reussit hors fenetre');
 RESET role;
-SELECT is((SELECT pax FROM plateforme.evenements WHERE id = '09f80000-0000-0000-0000-00000000e0a1'::uuid), 180,
+-- Champ porté par l'événement (le pax ne l'est plus depuis le 2026-10-20).
+SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id = '09f80000-0000-0000-0000-00000000e0a1'::uuid), 'C4B-180',
   'C4c la mise a jour hors fenetre est effective');
 
 -- =============================================================================
@@ -211,10 +212,10 @@ SELECT is(plateforme.f_collecte_editable('09f80000-0000-0000-0000-00000000e0c1':
 SELECT test_as_superuser();
 SET LOCAL role service_role;
 SELECT lives_ok(
-  $$ SELECT plateforme.fn_modifier_evenement('09f80000-0000-0000-0000-00000000e0c1'::uuid, '{"pax": 140}'::jsonb, ARRAY['pax']) $$,
+  $$ SELECT plateforme.fn_modifier_evenement('09f80000-0000-0000-0000-00000000e0c1'::uuid, '{"reference_affaire": "C5C-140"}'::jsonb, ARRAY['reference_affaire']) $$,
   'C5c route (service_role) — fn_modifier_evenement reussit dans la fenetre');
 RESET role;
-SELECT is((SELECT pax FROM plateforme.evenements WHERE id = '09f80000-0000-0000-0000-00000000e0c1'::uuid), 140,
+SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id = '09f80000-0000-0000-0000-00000000e0c1'::uuid), 'C5C-140',
   'C5d la mise a jour est effective');
 
 -- =============================================================================
@@ -329,13 +330,13 @@ SELECT is((SELECT count(*)::int FROM plateforme.audit_log WHERE record_id = '09f
 SELECT test_as_superuser();
 SET LOCAL role service_role;
 SELECT lives_ok(
-  $$ SELECT plateforme.fn_modifier_evenement('09f80000-0000-0000-0000-00000000e0e1'::uuid, '{"pax": 160}'::jsonb, ARRAY['pax']) $$,
+  $$ SELECT plateforme.fn_modifier_evenement('09f80000-0000-0000-0000-00000000e0e1'::uuid, '{"reference_affaire": "C9G-160"}'::jsonb, ARRAY['reference_affaire']) $$,
   'C9g route (service_role) — la modification reussit');
 SELECT lives_ok(
   $$ INSERT INTO plateforme.audit_log (table_name, record_id, action, user_id, impersonator_id, old_values, new_values)
        VALUES ('evenements', '09f80000-0000-0000-0000-00000000e0e1'::uuid, 'UPDATE',
                '09f80000-0000-0000-0000-0000000000a1'::uuid, '09f80000-0000-0000-0000-0000000000f1'::uuid,
-               '{}'::jsonb, '{"updates": {"pax": 160}}'::jsonb) $$,
+               '{}'::jsonb, '{"updates": {"reference_affaire": "C9G-160"}}'::jsonb) $$,
   'C9h schema — audit_log accepte user_id + impersonator_id sous service_role (la valeur ecrite par la route est prouvee par le test de route, pas ici)');
 RESET role;
 SELECT test_set_jwt('admin_savr', '09f80000-0000-0000-0000-000000000005'::uuid, '09f80000-0000-0000-0000-0000000000f1'::uuid);

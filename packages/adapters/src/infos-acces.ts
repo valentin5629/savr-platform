@@ -213,7 +213,7 @@ export interface ContactCommentaire {
 export interface EntreeCommentaire {
   /** Nom de l'organisation traiteur opérationnelle de l'événement. */
   readonly traiteurNom: string | null | undefined;
-  /** `evenements.pax`. */
+  /** Pax de LA collecte (`collectes.pax`, décision Val 2026-10-20). */
   readonly pax: number | null | undefined;
   /**
    * Lieu **FUSIONNÉ** (sortie de `applyLieuOverrides`), jamais le lieu officiel :

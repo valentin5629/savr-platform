@@ -173,14 +173,13 @@ describe('M1.2 / édition événement — 4 rôles programmateurs', () => {
       const res = await patchEvent({
         contact_principal_nom: 'Bob',
         contact_principal_telephone: '+33611111111',
-        pax: 300,
       });
       expect(res.status).toBe(200);
       const rpcCalls = admin.__calls.rpc ?? [];
       const call = rpcCalls.find(([fn]) => fn === 'fn_modifier_evenement');
       expect(call).toBeTruthy();
       const args = call![1] as { p_champs_modifies: string[] };
-      expect(args.p_champs_modifies).toContain('pax');
+      expect(args.p_champs_modifies).toContain('contact_principal_telephone');
       expect(args.p_champs_modifies).toContain('contact_principal_nom');
     });
   }
@@ -247,7 +246,6 @@ describe('M1.2 / édition événement — réponse filtrée', () => {
           'logo_client_organisateur_url',
           'nom_client_organisateur',
           'nom_evenement',
-          'pax',
           'reference_affaire',
           'type_evenement_id',
         ].sort(),
@@ -268,7 +266,7 @@ describe('§09 / manager_update_dans_fenetre_edition_ok', () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     queueEventOk({ organisation_id: 'org-1' }, true);
 
-    const res = await patchEvent({ pax: 300 });
+    const res = await patchEvent({ reference_affaire: 'AFF-300' });
 
     expect(res.status).toBe(200);
     // La fenêtre est lue sous le JWT du manager…
@@ -315,7 +313,12 @@ const BODY_PROGRAMMATION = {
   nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'ACME',
   collectes: [
-    { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+    {
+      type: 'zd',
+      date_collecte: '2030-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+    },
   ],
   confirmer: true,
 };
@@ -333,7 +336,7 @@ describe('§09 / écriture evenements par la route', () => {
     setupAuth('traiteur_manager', 'org-kaspia', 'manager-kaspia');
     queueEventOk({ organisation_id: 'org-agence-d', created_by: 'agence-d' });
 
-    const res = await patchEvent({ pax: 300 });
+    const res = await patchEvent({ reference_affaire: 'AFF-300' });
 
     expect(res.status).toBe(403);
     // Refus AVANT la lecture de la fenêtre : aucune RPC, même de lecture.
@@ -346,7 +349,7 @@ describe('§09 / écriture evenements par la route', () => {
     setupAuth('traiteur_manager', 'org-kaspia', 'manager-kaspia');
     queueEventOk({ organisation_id: 'org-kaspia' }, false);
 
-    const res = await patchEvent({ pax: 300 });
+    const res = await patchEvent({ reference_affaire: 'AFF-300' });
 
     expect(res.status).toBe(422);
     expect(rls.__calls.rpc?.map(([fn]) => fn)).toEqual(['f_collecte_editable']);
@@ -362,7 +365,7 @@ describe('§09 / écriture evenements par la route', () => {
       false,
     );
 
-    const res = await patchEvent({ pax: 300 });
+    const res = await patchEvent({ reference_affaire: 'AFF-300' });
 
     expect(res.status).toBe(422);
     expect(rls.__calls.rpc?.map(([fn]) => fn)).toEqual(['f_collecte_editable']);
@@ -375,7 +378,7 @@ describe('§09 / écriture evenements par la route', () => {
     setupAuth('admin_savr', 'org-savr', 'val');
     admin.push({ data: { id: 'e1', pax: 180 }, error: null }); // rpc fn_modifier_evenement
 
-    const res = await patchEventAdmin({ pax: 180 });
+    const res = await patchEventAdmin({ reference_affaire: 'AFF-180' });
 
     expect(res.status).toBe(200);
     expect(rls.__calls.rpc).toBeUndefined();
@@ -384,7 +387,7 @@ describe('§09 / écriture evenements par la route', () => {
     ]);
     expect(admin.__calls.rpc?.[0]?.[1]).toMatchObject({
       p_id: 'e1',
-      p_updates: { pax: 180 },
+      p_updates: { reference_affaire: 'AFF-180' },
     });
   });
 
@@ -392,7 +395,7 @@ describe('§09 / écriture evenements par la route', () => {
     // Le forçage passe par le back-office, jamais par la route programmateur.
     setupAuth('admin_savr', 'org-savr', 'val');
 
-    const res = await patchEvent({ pax: 180 });
+    const res = await patchEvent({ reference_affaire: 'AFF-180' });
 
     expect(res.status).toBe(403);
     expectAucuneEcriture();
@@ -406,7 +409,7 @@ describe('§09 / écriture evenements par la route', () => {
       true,
     );
 
-    const res = await patchEvent({ pax: 140 });
+    const res = await patchEvent({ reference_affaire: 'AFF-140' });
 
     expect(res.status).toBe(200);
     expect(rls.__calls.update).toBeUndefined();
@@ -425,7 +428,7 @@ describe('§09 / écriture evenements par la route', () => {
       true,
     );
 
-    const res = await patchEvent({ pax: 300 });
+    const res = await patchEvent({ reference_affaire: 'AFF-300' });
 
     expect(res.status).toBe(403);
     expect(rls.__calls.rpc).toBeUndefined();
@@ -527,7 +530,7 @@ describe('§09 / écriture evenements par la route', () => {
     });
     queueEventOk({ organisation_id: 'org-kaspia' }, true);
 
-    const res = await patchEvent({ pax: 160 });
+    const res = await patchEvent({ reference_affaire: 'AFF-160' });
 
     expect(res.status).toBe(200);
     const audit = (admin.__calls.insert ?? []).map(([row]) => row);
@@ -546,7 +549,7 @@ describe('§09 / écriture evenements par la route', () => {
     setupAuth('traiteur_manager', 'org-kaspia', 'manager-kaspia');
     queueEventOk({ organisation_id: 'org-kaspia' }, true);
 
-    const res = await patchEvent({ pax: 160 });
+    const res = await patchEvent({ reference_affaire: 'AFF-160' });
 
     expect(res.status).toBe(200);
     const [row] = (admin.__calls.insert ?? []).map(([r]) => r);
@@ -563,7 +566,7 @@ describe('§09 / écriture evenements par la route', () => {
     });
     rls.push({ data: null, error: null }); // maybeSingle : invisible
 
-    const res = await patchEvent({ pax: 160 });
+    const res = await patchEvent({ reference_affaire: 'AFF-160' });
 
     expect(res.status).toBe(404);
     expectAucuneEcriture();
@@ -582,7 +585,7 @@ describe('M1.2 / édition événement — gardes', () => {
   it('M1.2 — édition événement hors fenêtre (f_collecte_editable=false) → 422', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     queueEventOk({ organisation_id: 'org-1' }, false);
-    const res = await patchEvent({ pax: 250 });
+    const res = await patchEvent({ reference_affaire: 'AFF-250' });
     expect(res.status).toBe(422);
   });
 
@@ -592,7 +595,7 @@ describe('M1.2 / édition événement — gardes', () => {
       data: { id: 'e1', organisation_id: 'org-1', created_by: 'marie' },
       error: null,
     });
-    const res = await patchEvent({ pax: 250 });
+    const res = await patchEvent({ reference_affaire: 'AFF-250' });
     expect(res.status).toBe(403);
   });
 
@@ -602,7 +605,7 @@ describe('M1.2 / édition événement — gardes', () => {
       data: { id: 'e1', organisation_id: 'org-AUTRE', created_by: 'x' },
       error: null,
     });
-    const res = await patchEvent({ pax: 250 });
+    const res = await patchEvent({ reference_affaire: 'AFF-250' });
     expect(res.status).toBe(403);
   });
 
@@ -871,10 +874,10 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
     ).toBe(false);
   });
 
-  it('M3.1/recompute_absent_si_champs_hors_completude — édition pax seule → pas de recompute', async () => {
+  it('M3.1/recompute_absent_si_champs_hors_completude — édition de la référence d’affaire seule → pas de recompute', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     queueEventOk({ organisation_id: 'org-1' });
-    const res = await patchEvent({ pax: 250 });
+    const res = await patchEvent({ reference_affaire: 'AFF-250' });
     expect(res.status).toBe(200);
     const updateCalls = admin.__calls.update ?? [];
     expect(
@@ -893,7 +896,10 @@ describe('M3.1 / notes internes Admin — route événement programmateur', () =
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     queueEventOk({ organisation_id: 'org-1' });
 
-    const res = await patchEvent({ pax: 300, notes_internes: 'écrasement' });
+    const res = await patchEvent({
+      reference_affaire: 'AFF-300',
+      notes_internes: 'écrasement',
+    });
 
     expect(res.status).toBe(200);
     const modif = (admin.__calls.rpc ?? []).find(
@@ -901,7 +907,7 @@ describe('M3.1 / notes internes Admin — route événement programmateur', () =
     );
     const updates = (modif?.[1] as { p_updates: Record<string, unknown> })
       .p_updates;
-    expect(updates).toMatchObject({ pax: 300 });
+    expect(updates).toMatchObject({ reference_affaire: 'AFF-300' });
     expect(updates).not.toHaveProperty('notes_internes');
   });
 
@@ -926,16 +932,24 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
   });
   afterEach(() => setEmailCaptureSink(null));
 
-  // PATCH { pax: 1500 } réussi sur un événement à 2000 pax. `collecte` : ce que
+  // PATCH { reference_affaire: 'AFF-1500' } réussi sur un événement dont la
+  // référence était 'AFF-2000' (le pax est porté par la collecte depuis le
+  // 2026-10-20 : il n'est plus un champ de l'événement). `collecte` : ce que
   // rend la recherche de la collecte nommée parmi celles de l'événement.
-  function queuePaxModifie(collecte: { id: string } | null | undefined) {
+  function queueReferenceModifiee(collecte: { id: string } | null | undefined) {
     rls.push({
       data: { id: 'e1', organisation_id: 'org-1', created_by: 'user-1' },
       error: null,
     }); // maybeSingle event
     rls.push({ data: true, error: null }); // rpc f_collecte_editable
-    admin.push({ data: { id: 'e1', pax: 2000 }, error: null }); // before select
-    admin.push({ data: { id: 'e1', pax: 1500 }, error: null }); // rpc fn_modifier_evenement
+    admin.push({
+      data: { id: 'e1', reference_affaire: 'AFF-2000' },
+      error: null,
+    }); // before select
+    admin.push({
+      data: { id: 'e1', reference_affaire: 'AFF-1500' },
+      error: null,
+    }); // rpc fn_modifier_evenement
     admin.push({ data: null, error: null }); // audit insert
     admin.push({ data: null, error: null }); // collecte représentative (tpl 21) : aucune
     if (collecte === undefined) return;
@@ -951,8 +965,8 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
         date_collecte: '2099-01-14',
         heure_collecte: '16:45:00',
         attributions_antgaspi: null,
+        pax: 2000,
         evenement: {
-          pax: 1500,
           created_by: 'user-1',
           organisation: { nom: 'Kaspia' },
         },
@@ -965,10 +979,13 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
     }); // email : programmateur
   }
 
-  it('M3.1/email_modification_un_seul_email — événement seul, traiteur : un email, pax avant / après', async () => {
+  it('M3.1/email_modification_un_seul_email — événement seul, traiteur : un email, référence avant / après', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
-    queuePaxModifie({ id: 'c1' });
-    const res = await patchEvent({ pax: 1500, collecte_id: 'c1' });
+    queueReferenceModifiee({ id: 'c1' });
+    const res = await patchEvent({
+      reference_affaire: 'AFF-1500',
+      collecte_id: 'c1',
+    });
     expect(res.status).toBe(200);
     expect(recus).toHaveLength(1);
     // La collecte nommée n'est pas un champ de l'événement : elle n'atteint pas
@@ -977,14 +994,16 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
       ([fn]) => fn === 'fn_modifier_evenement',
     );
     expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
-      pax: 1500,
+      reference_affaire: 'AFF-1500',
     });
     expect(recus[0]!.slug).toBe('admin_modification_collecte_traiteur');
     expect(recus[0]!.variables).toEqual({
       organisation_nom: 'Kaspia',
       date_initiale: '14/01/2099',
+      // Pax de la collecte (décision Val 2026-10-20).
       pax_initial: '2000',
-      liste_modifications: '<ul><li>Nombre de pax : de 2000 à 1500</li></ul>',
+      liste_modifications:
+        "<ul><li>Référence d'affaire : avant AFF-2000. Maintenant AFF-1500</li></ul>",
       programmateur: 'Julie Martin',
       statut_collecte: 'Validée',
       priorite_urgence: 'false',
@@ -994,8 +1013,11 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
 
   it('M3.1/email_modification_un_seul_email — collecte d’un autre événement : aucun email', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
-    queuePaxModifie(null);
-    const res = await patchEvent({ pax: 1500, collecte_id: 'c-autre' });
+    queueReferenceModifiee(null);
+    const res = await patchEvent({
+      reference_affaire: 'AFF-1500',
+      collecte_id: 'c-autre',
+    });
     expect(res.status).toBe(200);
     expect(recus).toEqual([]);
     // La collecte nommée par la requête est cherchée PARMI celles de l'événement
@@ -1012,8 +1034,8 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
 
   it('M3.1/email_modification_un_seul_email — sans collecte nommée (la requête collecte suit) : aucun email ici', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
-    queuePaxModifie(undefined);
-    const res = await patchEvent({ pax: 1500 });
+    queueReferenceModifiee(undefined);
+    const res = await patchEvent({ reference_affaire: 'AFF-1500' });
     expect(res.status).toBe(200);
     expect(recus).toEqual([]);
   });
@@ -1021,8 +1043,10 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
   it('M3.1/email_modification_un_seul_email — la ligne d’audit écrite par la route événement est celle que relit la route collecte', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     // 1. Requête événement ; la requête collecte suit, donc aucune collecte nommée.
-    queuePaxModifie(undefined);
-    expect((await patchEvent({ pax: 1500 })).status).toBe(200);
+    queueReferenceModifiee(undefined);
+    expect((await patchEvent({ reference_affaire: 'AFF-1500' })).status).toBe(
+      200,
+    );
     expect(recus).toEqual([]);
     const audit = (admin.__calls.insert ?? [])
       .map(([ligne]) => ligne as Record<string, unknown>)
@@ -1064,8 +1088,8 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
         date_collecte: '2099-01-14',
         heure_collecte: '16:45:00',
         attributions_antgaspi: null,
+        pax: 2000,
         evenement: {
-          pax: 1500,
           created_by: 'user-1',
           organisation: { nom: 'Kaspia' },
         },
@@ -1090,7 +1114,7 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
     expect(res.status).toBe(200);
     expect(recus).toHaveLength(1);
     expect(recus[0]!.variables.liste_modifications).toBe(
-      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
+      "<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Référence d'affaire : avant AFF-2000. Maintenant AFF-1500</li></ul>",
     );
     expect(recus[0]!.variables.pax_initial).toBe('2000');
   });
@@ -1101,12 +1125,15 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
     'M3.1/email_modification_un_seul_email — événement seul, %s : le même email',
     async (role) => {
       setupAuth(role, 'org-1', 'user-1');
-      queuePaxModifie({ id: 'c1' });
-      const res = await patchEvent({ pax: 1500, collecte_id: 'c1' });
+      queueReferenceModifiee({ id: 'c1' });
+      const res = await patchEvent({
+        reference_affaire: 'AFF-1500',
+        collecte_id: 'c1',
+      });
       expect(res.status).toBe(200);
       expect(recus).toHaveLength(1);
       expect(recus[0]!.variables.liste_modifications).toBe(
-        '<ul><li>Nombre de pax : de 2000 à 1500</li></ul>',
+        "<ul><li>Référence d'affaire : avant AFF-2000. Maintenant AFF-1500</li></ul>",
       );
     },
   );
@@ -1124,8 +1151,8 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
         date_collecte: '2099-01-14',
         heure_collecte: '16:45:00',
         attributions_antgaspi: null,
+        pax: 2000,
         evenement: {
-          pax: 1500,
           created_by: 'user-1',
           lieu: { nom: 'Pavillon Gabriel' },
           organisation: { nom: 'Agence Lumière' },
@@ -1160,7 +1187,7 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
     ['agence', 'agence', false],
     ['gestionnaire', 'gestionnaire_lieux', true],
   ] as const)(
-    'M3.1/email_modification_un_seul_email — %s, pax et date du même enregistrement : un seul email, les deux champs',
+    'M3.1/email_modification_un_seul_email — %s, référence et date du même enregistrement : un seul email, les deux champs',
     async (espace, role, ecritAudit) => {
       setupAuth(role, 'org-1', 'user-1');
       rls.push({ data: COLLECTE_VISIBLE, error: null }); // collecte visible
@@ -1168,8 +1195,8 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
       admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
       if (ecritAudit) admin.push({ data: null, error: null }); // audit insert
       queueLecturesEmail({
-        old_values: { pax: 2000 },
-        new_values: { updates: { pax: 1500 } },
+        old_values: { reference_affaire: 'AFF-2000' },
+        new_values: { updates: { reference_affaire: 'AFF-1500' } },
       });
       const { PATCH } =
         espace === 'agence'
@@ -1185,7 +1212,7 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
       expect(res.status).toBe(200);
       expect(recus).toHaveLength(1);
       expect(recus[0]!.variables.liste_modifications).toBe(
-        '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
+        "<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Référence d'affaire : avant AFF-2000. Maintenant AFF-1500</li></ul>",
       );
       // Le signalement n'est pas un champ de la collecte : il n'atteint pas la RPC.
       const rpc = (admin.__calls.rpc ?? []).find(

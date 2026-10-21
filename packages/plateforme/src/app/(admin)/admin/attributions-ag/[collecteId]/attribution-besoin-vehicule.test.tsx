@@ -249,3 +249,22 @@ describe('M2.3 / Attribution AG (écran dédié) — besoin véhicule jamais env
     ATTENTE_CAS_MS,
   );
 });
+
+describe('M1.2/pax_par_collecte — écran Attribution AG dédié : le volume affiche le pax de la collecte', () => {
+  it(
+    'collecte à 80 pax, événement à 150 : « 80 pax », jamais celui de l’événement',
+    async () => {
+      installFetch(() =>
+        Promise.resolve({ ok: true, body: { ...COLLECTE_OPS, pax: 80 } }),
+      );
+      render(<AttributionDetailPage />);
+      await attendreFormulairePret();
+      const volume = screen.getByLabelText('Volume estimé') as HTMLInputElement;
+      await waitFor(
+        () => expect(volume.value).toBe('80\u00a0pax · ≈ 120 repas'),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+});

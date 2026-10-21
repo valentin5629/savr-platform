@@ -34,6 +34,8 @@ type CollecteRecap = {
   statut: string;
   date_collecte: string | null;
   heure_collecte: string | null;
+  // Pax de la collecte (décision Val 2026-10-20).
+  pax: number | null;
 };
 
 type LieuRecap = {
@@ -227,7 +229,19 @@ function ConfirmationContent() {
               className="space-y-0.5"
               valueClassName={VALEUR_RECAP}
             >
-              {evenement.pax ?? '—'}
+              {/* Un pax par collecte (décision Val 2026-10-20), comme la date. */}
+              {collectes.length > 1
+                ? collectes.map((c) => (
+                    <span key={c.id} className="block">
+                      {libelleType(c.type)}
+                      {/* Deux collectes du même type : la date les distingue. */}
+                      {collectes.filter((x) => x.type === c.type).length > 1
+                        ? ` (${formatDateHeure(c)})`
+                        : ''}{' '}
+                      : {c.pax ?? '—'}
+                    </span>
+                  ))
+                : (collectes[0]?.pax ?? evenement.pax ?? '—')}
             </InfoItem>
             <InfoItem
               variant="hint"

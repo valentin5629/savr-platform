@@ -39,13 +39,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   let query = supabase
     .from('collectes')
     .select(
-      `id, type, statut, statut_tms, date_collecte, heure_collecte,
+      `id, type, statut, statut_tms, date_collecte, heure_collecte, pax,
        informations_completes, taux_recyclage, co2_evite_kg, realisee_at,
        collecte_flux(poids_reel_kg),
        attributions_antgaspi(volume_repas_realise),
        evenements!inner(
          id, organisation_id, traiteur_operationnel_organisation_id,
-         nom_evenement, pax, nom_client_organisateur,
+         nom_evenement, nom_client_organisateur,
          lieux!lieu_id(id, nom, adresse_acces, code_postal, ville)
        )`,
     )

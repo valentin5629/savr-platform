@@ -8,6 +8,7 @@ import {
 import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { refusPaxCollecte } from '@/lib/pax-collecte.js';
 import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
 import {
   CHAMPS_COLLECTE_EDITABLES,
@@ -192,6 +193,13 @@ export async function PATCH(
   if (Object.hasOwn(updates, 'heure_collecte')) {
     const refusHeure = refusHeureCollecte(updates.heure_collecte);
     if (refusHeure) return refusHeure;
+  }
+
+  // Pax de la collecte (décision Val 2026-10-20) : entier >= 1, refusé en 422
+  // avant la RPC (qui le refuserait aussi, mais en erreur serveur).
+  if (Object.hasOwn(updates, 'pax')) {
+    const refusPax = refusPaxCollecte(updates.pax);
+    if (refusPax) return refusPax;
   }
 
   const collecte = await loadCollecteForUser(id);

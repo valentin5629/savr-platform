@@ -109,7 +109,8 @@ export interface Collecte {
   // (MTS-1 tel quel ; Everest après la consigne d'A Toutes!).
   readonly informations_supplementaires?: string | null;
   readonly notes_internes?: string | null;
-  // Nom du traiteur opérationnel de l'événement et nombre de pax : libellé de la
+  // Nom du traiteur opérationnel de l'événement et nombre de pax de la collecte
+  // (porté par la collecte depuis la décision Val du 2026-10-20) : libellé de la
   // commande MTS-1 (« Traiteur - Lieu - N pax », décision Val 2026-10-15, C59)
   // et tête du commentaire au transporteur.
   readonly traiteur_nom?: string | null;

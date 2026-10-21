@@ -286,6 +286,9 @@ export function AttributionAgForm({
         heure_collecte?: string | null;
         nb_camions_demande?: number;
         type_vehicule_souhaite?: string | null;
+        // Pax de la collecte (décision Val 2026-10-20) ; celui de l'événement
+        // en repli.
+        pax?: number | null;
         evenements?: { pax?: number | null } | null;
       };
       if (typeof row.nb_camions_demande !== 'number') {
@@ -293,7 +296,7 @@ export function AttributionAgForm({
       }
       setContexte({
         volume_estime_repas: row.volume_estime_repas ?? null,
-        pax: row.evenements?.pax ?? null,
+        pax: row.pax ?? row.evenements?.pax ?? null,
         date_collecte: row.date_collecte ?? null,
         heure_collecte: row.heure_collecte ?? null,
         nb_camions_demande: row.nb_camions_demande,

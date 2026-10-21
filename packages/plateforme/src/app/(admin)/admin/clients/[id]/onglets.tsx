@@ -78,9 +78,10 @@ interface CollecteRow {
   attributions_antgaspi: unknown;
   date_collecte: string | null;
   heure_collecte?: string | null;
+  // Pax de LA collecte (décision Val 2026-10-20).
+  pax?: number | null;
   evenements: {
     nom_evenement: string | null;
-    pax: number | null;
     lieux: { nom: string; ville: string | null } | null;
   } | null;
 }
@@ -165,7 +166,7 @@ export function OngletCollectes({
       id: 'pax',
       header: 'Pax',
       meta: { className: 'text-right tabular-nums' },
-      cell: ({ row: { original: row } }) => row.evenements?.pax ?? '—',
+      cell: ({ row: { original: row } }) => row.pax ?? '—',
     },
     {
       id: 'statut',

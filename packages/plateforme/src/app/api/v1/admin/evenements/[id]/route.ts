@@ -50,10 +50,23 @@ export async function PATCH(
   const { id } = await params;
   const body = (await req.json()) as Record<string, unknown>;
 
+  // Le pax n'est plus un champ de l'événement (décision Val 2026-10-20) : il est
+  // porté par chaque collecte, et celui de l'événement en est calculé. Refusé
+  // plutôt qu'ignoré, comme sur la route des programmateurs.
+  if ('pax' in body) {
+    return NextResponse.json(
+      {
+        error:
+          'Le nombre de convives se modifie sur chaque collecte, pas sur l’événement.',
+        champs_verrouilles: ['pax'],
+      },
+      { status: 422 },
+    );
+  }
+
   const ALLOWED_FIELDS = [
     'nom_evenement',
     'date_evenement',
-    'pax',
     'lieu_id',
     'type_evenement_id',
     'contact_principal_nom',
@@ -84,8 +97,8 @@ export async function PATCH(
   Object.assign(updates, texteValide.valeurs);
 
   // Écriture via fn_modifier_evenement : émet E2 (collecte.modifiee) par collecte
-  // dispatchée + recalcule volume_estime_repas si pax change (fix trou Admin —
-  // l'ancien .update() direct n'émettait aucun event TMS). M1.1b / M1.5a.
+  // dispatchée (fix trou Admin — l'ancien .update() direct n'émettait aucun event
+  // TMS). M1.1b / M1.5a.
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase.rpc('fn_modifier_evenement', {
     p_id: id,

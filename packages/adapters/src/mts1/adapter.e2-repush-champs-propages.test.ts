@@ -394,6 +394,9 @@ const MAPPING_E2: Record<string, { cle: string } | { exclu: string }> = {
   heure_collecte: { cle: 'place.timeslots' },
   lieu_overrides: { cle: 'place.address' },
   informations_supplementaires: { cle: 'comment' },
+  // Pax de la collecte (décision Val 2026-10-20) : il part dans le numéro de
+  // commande (« Traiteur - Lieu - N pax ») et en tête du commentaire.
+  pax: { cle: 'orderNumber' },
   // MTS-1 n'a aucun champ natif pour le contrôle d'accès (concern V2 TMS via
   // validate_tournee_controle_acces) — hors payload sortant V1, déjà tracé.
   controle_acces_requis: { exclu: 'aucun champ natif MTS-1 (V1)' },
@@ -471,6 +474,7 @@ describe('Cliquet — tout champ « propagé au TMS » a une contrepartie E2', (
         { informations_supplementaires: 'Quai 3' },
         { informations_supplementaires: 'Quai 4' },
       ],
+      pax: [{ pax: 120 }, { pax: 480 }],
     };
 
     for (const [champ, [va, vb]] of Object.entries(variantes)) {

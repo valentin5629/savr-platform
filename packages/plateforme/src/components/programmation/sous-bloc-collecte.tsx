@@ -9,6 +9,7 @@ import { factureeAlUnite, type PackInfo } from './use-pack-ag';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
 import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
@@ -22,7 +23,17 @@ export interface CollecteFormData {
   type: 'zd' | 'ag';
   date_collecte: string;
   heure_collecte: string;
+  // Nombre de convives de CETTE collecte, saisi avec sa date (décision Val
+  // 2026-10-20) : celui de l'événement en est calculé. Texte du champ ; entier
+  // >= 1 exigé avant l'envoi (`paxSaisiValide`).
+  pax: string;
   informations_supplementaires: string;
+}
+
+/** Le pax saisi est-il un entier >= 1 ? (même règle que la route, borne SQL comprise). */
+export function paxSaisiValide(pax: string): boolean {
+  const texte = pax.trim();
+  return /^[1-9]\d*$/.test(texte) && Number(texte) <= 2_147_483_647;
 }
 
 interface SousBlocCollecteProps {
@@ -123,6 +134,21 @@ export function SousBlocCollecte({
             value={data.heure_collecte}
             onChange={(v) => onChange({ ...data, heure_collecte: v })}
             required
+          />
+        </FormField>
+
+        <FormField label="Nombre de convives" htmlFor={`pax-${type}`} required>
+          <Input
+            id={`pax-${type}`}
+            data-testid={`pax-${type}`}
+            type="number"
+            inputMode="numeric"
+            min="1"
+            step="1"
+            required
+            value={data.pax}
+            onChange={(e) => onChange({ ...data, pax: e.target.value })}
+            placeholder="Ex : 80"
           />
         </FormField>
       </FormGrid>

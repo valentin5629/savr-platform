@@ -40,7 +40,6 @@ interface Lieu {
 }
 interface Evenement {
   nom_evenement: string | null;
-  pax: number | null;
   lieux: Lieu | Lieu[] | null;
 }
 interface CollecteRow {
@@ -49,6 +48,8 @@ interface CollecteRow {
   statut: string;
   date_collecte: string;
   heure_collecte: string | null;
+  // Pax de LA collecte (décision Val 2026-10-20).
+  pax?: number | null;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
   traiteur_nom: string | null;
@@ -109,10 +110,9 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
     {
       id: 'pax',
       header: 'Pax',
-      accessorFn: (c) => one(c.evenements)?.pax ?? -1,
+      accessorFn: (c) => c.pax ?? -1,
       meta: { className: 'text-right tabular-nums' },
-      cell: ({ row: { original: c } }) =>
-        one(c.evenements)?.pax ?? <CelluleVide />,
+      cell: ({ row: { original: c } }) => c.pax ?? <CelluleVide />,
     },
     isZd
       ? {

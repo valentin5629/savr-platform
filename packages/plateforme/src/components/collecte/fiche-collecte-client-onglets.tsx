@@ -116,9 +116,7 @@ export function OngletInformations({
             {dateCourte}
             {heure ? `, ${heure}` : ''}
           </InfoItem>
-          <InfoItem label="Pax">
-            {evt?.pax != null ? fmtInt(evt.pax) : <Vide />}
-          </InfoItem>
+          <InfoItem label="Pax">{fmtInt(c.pax)}</InfoItem>
           <InfoItem label="Type d’événement">
             <span className="flex flex-wrap items-center gap-2">
               {evt?.type_evenement?.libelle ?? <Vide />}

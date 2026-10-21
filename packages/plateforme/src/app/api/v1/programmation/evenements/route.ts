@@ -16,6 +16,7 @@ import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { paxEvenement, refusPaxCollecte } from '@/lib/pax-collecte.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 
@@ -66,6 +67,9 @@ interface CollecteInput {
   type: 'zd' | 'ag';
   date_collecte: string;
   heure_collecte: string;
+  // Nombre de convives de la collecte, saisi avec sa date (décision Val
+  // 2026-10-20) ; celui de l'événement en est calculé (lib/pax-collecte).
+  pax: number;
   informations_supplementaires?: string | null;
 }
 
@@ -87,7 +91,6 @@ interface ProgrammationBody {
   // Étape 1
   nom_evenement?: string;
   nom_client_organisateur?: string;
-  pax: number;
   type_evenement_id: string;
   reference_affaire?: string;
   logo_client_organisateur_url?: string;
@@ -133,10 +136,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Validation champs obligatoires
+  // Validation champs obligatoires (le pax est validé par collecte, plus bas).
   if (
-    !body.pax ||
-    body.pax < 1 ||
     !body.type_evenement_id ||
     !body.lieu_id ||
     !body.contact_principal_nom ||
@@ -146,7 +147,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         error:
-          'Champs obligatoires : pax (≥1), type_evenement_id, lieu_id, contact_principal_nom, contact_principal_telephone, collectes',
+          'Champs obligatoires : type_evenement_id, lieu_id, contact_principal_nom, contact_principal_telephone, collectes',
       },
       { status: 422 },
     );
@@ -216,6 +217,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     const refusHeure = refusHeureCollecte(c.heure_collecte);
     if (refusHeure) return refusHeure;
+
+    const refusPax = refusPaxCollecte(c.pax);
+    if (refusPax) return refusPax;
 
     const infosValides = validerChampsTexteLibre(c);
     if ('error' in infosValides) return infosValides.error;
@@ -359,7 +363,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       created_by: auth.ctx.userId,
       nom_evenement: body.nom_evenement ?? null,
       type_evenement_id: body.type_evenement_id,
-      pax: body.pax,
+      // `evenements.pax` est NOT NULL et calculé en base depuis les collectes
+      // (trg_set_pax_evenement) : on pose dès l'INSERT la même valeur.
+      // (au moins une collecte, chacune validée : jamais `null` ici.)
+      pax: paxEvenement(body.collectes) ?? 0,
       contact_principal_nom: body.contact_principal_nom,
       contact_principal_telephone: body.contact_principal_telephone,
       contact_secours_nom: body.contact_secours_nom ?? null,
@@ -407,6 +414,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           p_notes: null,
           p_info_suppl: c.informations_supplementaires ?? null,
           p_lieu_overrides: hasOverride ? lieuOverrides : null,
+          p_pax: c.pax,
         },
       );
 
@@ -465,7 +473,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       programmeurUserId: auth.ctx.userId,
       evenementId,
       nomEvenement: evt.nom_evenement,
-      pax: body.pax,
       organisationId: effectiveOrgId,
       lieuId: body.lieu_id,
       collectes: body.collectes,
@@ -502,6 +509,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           informations_supplementaires: c.informations_supplementaires ?? null,
           lieu_overrides: hasOverride ? lieuOverrides : null,
           nb_camions_demande: 1,
+          pax: c.pax,
         })
         .select('id')
         .single();

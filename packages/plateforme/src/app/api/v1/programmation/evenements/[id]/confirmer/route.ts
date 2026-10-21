@@ -33,7 +33,7 @@ export async function PATCH(
   // le poser en prédicat ne cloisonnerait rien, ça masquerait tout).
   const evtQuery = supabase
     .from('evenements')
-    .select('id, organisation_id, nom_evenement, pax, lieu_id, created_by')
+    .select('id, organisation_id, nom_evenement, lieu_id, created_by')
     .eq('id', evenementId);
 
   const { data: evt, error: evtErr } = await (
@@ -70,7 +70,7 @@ export async function PATCH(
   // Vérification collectes brouillon présentes
   const { data: collectes } = await supabase
     .from('collectes')
-    .select('id, type, date_collecte, lieu_overrides')
+    .select('id, type, date_collecte, lieu_overrides, pax')
     .eq('evenement_id', evenementId)
     .eq('statut', 'brouillon');
 
@@ -139,12 +139,12 @@ export async function PATCH(
     programmeurUserId: auth.ctx.userId,
     evenementId,
     nomEvenement: evt.nom_evenement,
-    pax: evt.pax,
     organisationId: evt.organisation_id,
     lieuId: evt.lieu_id,
     collectes: collectes.map((c) => ({
       type: c.type,
       date_collecte: c.date_collecte,
+      pax: c.pax,
     })),
   }).catch(() => undefined); // non-bloquant
 

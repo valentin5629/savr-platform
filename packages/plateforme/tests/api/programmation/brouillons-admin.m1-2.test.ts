@@ -194,7 +194,12 @@ async function creerBrouillon(type: string) {
         contact_principal_telephone: '0600000000',
         controle_acces_requis: false,
         collectes: [
-          { type, date_collecte: '2099-08-01', heure_collecte: '14:30' },
+          {
+            type,
+            date_collecte: '2099-08-01',
+            heure_collecte: '14:30',
+            pax: 80,
+          },
         ],
         confirmer: false,
       }),

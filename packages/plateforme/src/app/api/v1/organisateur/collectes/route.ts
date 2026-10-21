@@ -29,11 +29,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   let query = supabase
     .from('collectes')
     .select(
-      `id, type, statut, date_collecte, heure_collecte, taux_recyclage,
+      `id, type, statut, date_collecte, heure_collecte, pax, taux_recyclage,
        co2_induit_kg, co2_evite_kg, co2_net_kg, energie_primaire_evitee_kwh,
        evenements!inner(
          id, client_organisateur_organisation_id, traiteur_operationnel_organisation_id,
-         nom_evenement, pax,
+         nom_evenement,
          lieux!lieu_id(id, nom, code_postal, ville)
        )`,
     )

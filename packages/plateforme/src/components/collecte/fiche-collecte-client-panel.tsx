@@ -268,7 +268,8 @@ export function FicheCollecteClientPanel({
           },
           {
             icon: Users,
-            texte: evt?.pax != null ? fmtPax(evt.pax) : '— pax',
+            // Pax de la collecte (décision Val 2026-10-20).
+            texte: fmtPax(c.pax),
           },
         ]}
         statut={<FriseStatutClient statut={c.statut} />}
@@ -285,13 +286,13 @@ export function FicheCollecteClientPanel({
               statut_tms: c.statut_tms,
               date_collecte: c.date_collecte,
               heure_collecte: c.heure_collecte,
+              pax: c.pax,
               controle_acces_requis: c.controle_acces_requis,
               informations_supplementaires: c.informations_supplementaires,
               lieu_nom: lieu?.nom ?? null,
               evenement: {
                 id: evt.id,
                 nom_evenement: evt.nom_evenement,
-                pax: evt.pax,
                 type_evenement_id: evt.type_evenement_id,
                 nom_client_organisateur: evt.nom_client_organisateur,
                 reference_affaire: evt.reference_affaire,

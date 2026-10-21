@@ -25,13 +25,13 @@ const COLLECTE: CollecteEditData = {
   statut: 'programmee',
   date_collecte: '2099-06-15',
   heure_collecte: '10:10:00',
+  pax: 80,
   controle_acces_requis: false,
   informations_supplementaires: null,
   lieu_nom: 'Pavillon Gabriel',
   evenement: {
     id: 'evt-1',
     nom_evenement: 'Soirée',
-    pax: 80,
     type_evenement_id: null,
     nom_client_organisateur: 'Client',
     reference_affaire: null,
@@ -115,11 +115,11 @@ describe('M3.1 / EditerCollecteForm — un seul email par enregistrement', () =>
   }
 
   it(
-    'M3.1/email_modification_un_seul_email — pax et heure : la requête collecte signale que l’événement vient d’être modifié',
+    'M3.1/email_modification_un_seul_email — client final et heure : la requête collecte signale que l’événement vient d’être modifié',
     async () => {
       const { container, onSaved, patchs } = monter();
-      fireEvent.change(container.querySelector('#edit-evt-pax')!, {
-        target: { value: '120' },
+      fireEvent.change(container.querySelector('#edit-evt-client')!, {
+        target: { value: 'Autre client' },
       });
       fireEvent.click(container.querySelector('#edit-heure-collecte')!);
       fireEvent.click(screen.getByRole('option', { name: '18:45' }));
@@ -128,7 +128,10 @@ describe('M3.1 / EditerCollecteForm — un seul email par enregistrement', () =>
       );
       await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
       expect(patchs()).toEqual([
-        ['/api/v1/programmation/evenements/evt-1', { pax: 120 }],
+        [
+          '/api/v1/programmation/evenements/evt-1',
+          { nom_client_organisateur: 'Autre client' },
+        ],
         [
           '/api/v1/traiteur/collectes/col-1',
           { heure_collecte: '18:45:00', evenement_modifie: true },
@@ -139,11 +142,11 @@ describe('M3.1 / EditerCollecteForm — un seul email par enregistrement', () =>
   );
 
   it(
-    'M3.1/email_modification_un_seul_email — pax seul : la requête événement nomme la collecte, aucune requête collecte',
+    'M3.1/email_modification_un_seul_email — client final seul : la requête événement nomme la collecte, aucune requête collecte',
     async () => {
       const { container, onSaved, patchs } = monter();
-      fireEvent.change(container.querySelector('#edit-evt-pax')!, {
-        target: { value: '120' },
+      fireEvent.change(container.querySelector('#edit-evt-client')!, {
+        target: { value: 'Autre client' },
       });
       fireEvent.click(
         screen.getByRole('button', { name: 'Confirmer la modification' }),
@@ -152,9 +155,87 @@ describe('M3.1 / EditerCollecteForm — un seul email par enregistrement', () =>
       expect(patchs()).toEqual([
         [
           '/api/v1/programmation/evenements/evt-1',
-          { pax: 120, collecte_id: 'col-1' },
+          { nom_client_organisateur: 'Autre client', collecte_id: 'col-1' },
         ],
       ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Pax porté par la collecte (décision Val 2026-10-20) : il se modifie sur la
+  // collecte, jamais sur l'événement (dont le pax est calculé en base).
+  it(
+    'M1.2/pax_par_collecte — le pax part dans la requête collecte, jamais dans celle de l’événement',
+    async () => {
+      const { container, onSaved, patchs } = monter();
+      const champ = container.querySelector<HTMLInputElement>('#edit-col-pax')!;
+      expect(champ.value).toBe('80');
+      expect(container.querySelector('#edit-evt-pax')).toBeNull();
+      fireEvent.change(champ, { target: { value: '120' } });
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Confirmer la modification' }),
+      );
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(patchs()).toEqual([
+        ['/api/v1/traiteur/collectes/col-1', { pax: 120 }],
+      ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/pax_par_collecte — collecte reprise de Bubble à pax 0 (inconnu) : les autres champs restent modifiables',
+    async () => {
+      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+        if (url.includes('types-evenements')) return new Response('[]');
+        return new Response('{}', { status: 200 });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const onSaved = vi.fn();
+      const { container } = render(
+        <EditerCollecteForm
+          collecte={{ ...COLLECTE, pax: 0 }}
+          collecteEndpoint="/api/v1/traiteur/collectes/col-1"
+          onSaved={onSaved}
+        />,
+      );
+      fireEvent.click(container.querySelector('#edit-heure-collecte')!);
+      fireEvent.click(screen.getByRole('option', { name: '18:45' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Confirmer la modification' }),
+      );
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      const patch = fetchMock.mock.calls.find(
+        ([url]) => url === '/api/v1/traiteur/collectes/col-1',
+      );
+      expect(JSON.parse(String(patch?.[1]?.body))).toEqual({
+        heure_collecte: '18:45:00',
+      });
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Un cas par valeur : chacun part d'un formulaire neuf, sans message laissé
+  // par le précédent.
+  it.each(['', '0'])(
+    'M1.2/pax_par_collecte — un pax vidé ou à 0 est refusé à l’écran, rien n’est envoyé — valeur « %s »',
+    async (valeur) => {
+      const { container, onSaved, patchs } = monter();
+      fireEvent.change(container.querySelector('#edit-col-pax')!, {
+        target: { value: valeur },
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Confirmer la modification' }),
+      );
+      expect(
+        await screen.findByText(
+          /Nombre de convives : saisissez/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(onSaved).not.toHaveBeenCalled();
+      expect(patchs()).toEqual([]);
     },
     ATTENTE_CAS_MS,
   );

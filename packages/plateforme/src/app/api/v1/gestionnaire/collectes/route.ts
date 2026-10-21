@@ -32,12 +32,13 @@ function un<T>(v: UnOuListe<T>): T | null {
 type LigneBrute = Record<string, unknown> & {
   type: string;
   evenement_id: string | null;
+  // Pax de LA collecte (décision Val 2026-10-20), pas celui de l'événement.
+  pax: number | null;
   collecte_flux: { poids_reel_kg: number | null }[] | null;
   attributions_antgaspi: UnOuListe<{ volume_repas_realise: number | null }>;
   evenements: UnOuListe<{
     nom_evenement: string | null;
     nom_client_organisateur: string | null;
-    pax: number | null;
     lieux: UnOuListe<{
       nom: string | null;
       adresse_acces: string | null;
@@ -122,11 +123,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // écrans du rôle.
     let q = supabase.from('collectes').select(
       `id, evenement_id, type, statut, statut_tms, date_collecte,
-       heure_collecte, taux_recyclage, co2_evite_kg, realisee_at,
+       heure_collecte, pax, taux_recyclage, co2_evite_kg, realisee_at,
        collecte_flux(poids_reel_kg),
        attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise),
        evenements!inner(
-         nom_evenement, nom_client_organisateur, pax, lieu_id,
+         nom_evenement, nom_client_organisateur, lieu_id,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, adresse_acces, code_postal, ville),
          organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(nom)
@@ -240,7 +241,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       // saisie faite d'espaces vaut « non renseigné ».
       client_nom: evt?.nom_client_organisateur?.trim() || null,
       traiteur_nom: un(evt?.organisations ?? null)?.nom ?? null,
-      pax: evt?.pax ?? null,
+      pax: c.pax ?? null,
       lieu_nom: lieu?.nom ?? null,
       lieu_adresse:
         [lieu?.adresse_acces, lieu?.code_postal, lieu?.ville]

@@ -13,13 +13,14 @@ export interface RecapCollecteInput {
   // ('zero_dechet'/'anti_gaspi') selon le chemin appelant.
   type: string;
   date_collecte: string;
+  // Pax de la collecte (décision Val 2026-10-20) : base du tarif ZD annoncé.
+  pax: number;
 }
 
 export interface RecapProgrammationParams {
   programmeurUserId: string;
   evenementId: string;
   nomEvenement: string | null;
-  pax: number;
   organisationId: string | null;
   lieuId: string | null;
   collectes: RecapCollecteInput[];
@@ -63,7 +64,7 @@ export async function envoyerRecapProgrammation(
   if (collecteZd) {
     try {
       const tarif = await calculer_tarif_zd(
-        params.pax,
+        collecteZd.pax,
         params.organisationId,
         new Date(collecteZd.date_collecte),
         supabase,

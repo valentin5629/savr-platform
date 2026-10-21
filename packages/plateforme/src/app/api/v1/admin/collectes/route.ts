@@ -48,7 +48,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     : 'rapports_rse!collecte_id(disponible_a, genere_at, regenere_at, consulte_par_user_at, version)';
 
   let query = supabase.from('collectes').select(
-    `id, type, statut, statut_tms, dirty_tms, date_collecte, heure_collecte,
+    `id, type, statut, statut_tms, dirty_tms, date_collecte, heure_collecte, pax,
        nb_camions_demande, tms_reference, prestataire_logistique_id, created_at,
        controle_acces_requis, informations_completes, taux_recyclage,
        attributions_antgaspi!collecte_id(id, valide_at, mode_validation, volume_repas_realise, transporteurs!transporteur_id(nom)),
@@ -58,7 +58,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
        collecte_flux(poids_reel_kg),
        ${rapportEmbed},
        evenements!inner(
-         organisation_id, lieu_id, nom_evenement, pax, nom_client_organisateur,
+         organisation_id, lieu_id, nom_evenement, nom_client_organisateur,
          organisations!organisation_id(raison_sociale),
          client_organisateur:organisations!client_organisateur_organisation_id(raison_sociale),
          lieux!lieu_id(nom, adresse_acces, code_postal, ville)

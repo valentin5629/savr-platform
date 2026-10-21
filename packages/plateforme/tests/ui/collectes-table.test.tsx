@@ -36,6 +36,7 @@ function row(over: Partial<CollecteRow> = {}): CollecteRow {
     dirty_tms: false,
     date_collecte: '2026-07-08',
     heure_collecte: '20:00:00',
+    pax: 120,
     controle_acces_requis: false,
     informations_completes: true,
     taux_recyclage: null,
@@ -44,7 +45,6 @@ function row(over: Partial<CollecteRow> = {}): CollecteRow {
     rapports_rse: [],
     evenements: {
       nom_evenement: 'Gala',
-      pax: 120,
       nom_client_organisateur: null,
       organisations: { raison_sociale: 'Traiteur Test' },
       client_organisateur: null,
@@ -284,5 +284,23 @@ describe('collectes-table / colonne Statut — Créée puis Programmée', () => 
         }),
       ),
     ).toBe('Validée');
+  });
+});
+
+// Pax porté par la collecte (décision Val 2026-10-20) : la colonne « Pax » lit
+// celui de la collecte ; celui de l'événement est la somme des jours.
+describe('collectes-table / colonne Pax — M1.2/pax_par_collecte', () => {
+  it('M1.2/pax_par_collecte — liste Admin : le pax de la collecte (650), jamais celui de l’événement (1 200)', () => {
+    const colonne = colonnesCollectesAdmin({ onOpen: () => {} }).find(
+      (c) => c.id === 'pax',
+    );
+    const cell = colonne?.cell as (ctx: {
+      row: { original: CollecteRow };
+    }) => ReactElement;
+    const r = row({ pax: 650 });
+    // Valeur de l'événement présente dans la ligne : la colonne ne doit pas la lire.
+    (r.evenements as unknown as { pax: number }).pax = 1200;
+    const { container } = render(<>{cell({ row: { original: r } })}</>);
+    expect(container.textContent).toBe('650');
   });
 });

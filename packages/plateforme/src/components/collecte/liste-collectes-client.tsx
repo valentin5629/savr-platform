@@ -103,7 +103,6 @@ interface Lieu {
 }
 interface Evenement {
   created_by: string | null;
-  pax: number | null;
   nom_client_organisateur: string | null;
   lieux: Lieu | Lieu[] | null;
 }
@@ -113,6 +112,8 @@ interface CollecteRow {
   statut: string;
   date_collecte: string;
   heure_collecte: string | null;
+  // Pax de LA collecte (décision Val 2026-10-20).
+  pax?: number | null;
   programmee_par_tiers: boolean;
   rapport_reserve_donneur_ordre: boolean;
   // Résultats de la collecte réalisée (renvoyés par la route, agrégés côté serveur).
@@ -504,7 +505,8 @@ export function ListeCollectesClient({
               .join(' ') || null,
           // Texte libre : une saisie faite d'espaces vaut « non renseigné ».
           client_nom: evt?.nom_client_organisateur?.trim() || null,
-          pax: evt?.pax ?? null,
+          // Pax de LA collecte (décision Val 2026-10-20).
+          pax: c.pax ?? null,
           programmee_par_tiers: c.programmee_par_tiers,
           rapport_reserve_donneur_ordre: c.rapport_reserve_donneur_ordre,
           canWrite: canWrite(c),

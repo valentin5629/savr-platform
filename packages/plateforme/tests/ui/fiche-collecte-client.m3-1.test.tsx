@@ -196,6 +196,31 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
   );
 });
 
+// Pax porté par la collecte (décision Val 2026-10-20) : la fiche montre celui de
+// la collecte (650), jamais celui de son événement (4 200, calculé).
+describe('M1.2/pax_par_collecte — pop-up fiche collecte client : pax', () => {
+  it(
+    'en-tête et onglet Informations : le pax de la collecte, pas celui de l’événement',
+    async () => {
+      stubFetchFiche(ficheClient({ pax: 650 }));
+      render(fiche('c1'));
+
+      const ligne = await sousLigne();
+      expect(ligne).toContain('650 pax');
+      expect(ligne).not.toContain('4 200');
+
+      await ouvrirOnglet('Informations');
+      const libelle = await screen.findByText(
+        'Pax',
+        { selector: 'dt' },
+        ATTENTE_UI,
+      );
+      expect(libelle.nextElementSibling?.textContent).toBe('650');
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('M3.1 / pop-up — onglet Informations', () => {
   it(
     'M3.1/fiche_ui_entete_type_et_taille — type d’événement + bracket affichés',

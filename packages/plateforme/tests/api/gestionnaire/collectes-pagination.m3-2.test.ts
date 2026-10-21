@@ -209,9 +209,12 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
             { poids_reel_kg: null },
           ],
           attributions_antgaspi: null,
+          // Pax de LA collecte (500), pas celui de l'événement (1 200, somme
+          // des jours) : décision Val 2026-10-20.
+          pax: 500,
           evenements: {
             ...base.evenements,
-            pax: 500,
+            pax: 1200,
             lieux: {
               nom: 'Musée des Arts Forains',
               adresse_acces: '53 Avenue des Terroirs de France',
@@ -288,6 +291,10 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
     // Ni la table (refusée sur un traiteur tiers), ni le repli attestation (D13).
     expect(select).not.toMatch(/attributions_antgaspi\s*\(/);
     expect(select).not.toContain('attestations_don');
+    // Le pax est demandé sur la collecte, jamais dans l'embed de l'événement.
+    const [colonnesCollecte, embedEvenement] = select.split('evenements!inner');
+    expect(colonnesCollecte).toMatch(/\bpax\b/);
+    expect(embedEvenement).not.toMatch(/\bpax\b/);
 
     expect(data[0]).toMatchObject({
       id: 'zd',

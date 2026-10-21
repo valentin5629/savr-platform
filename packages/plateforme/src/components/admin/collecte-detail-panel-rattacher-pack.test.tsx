@@ -46,6 +46,7 @@ const collecte = (surcharge: Record<string, unknown> = {}) => ({
   packs_antgaspi: null,
   prestataire_logistique_id: null,
   attributions_antgaspi: null,
+  pax: 80,
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,

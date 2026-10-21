@@ -58,6 +58,9 @@ import NouveauProgrammationPage from './page';
 const SOURCE = {
   type: 'zero_dechet',
   heure_collecte: '08:30:00',
+  // Pax de la collecte dupliquée (décision Val 2026-10-20), repris par
+  // « Dupliquer » ; celui de l'événement n'y sert plus.
+  pax: 1000,
   controle_acces_requis: false,
   informations_supplementaires: null,
   evenement: {

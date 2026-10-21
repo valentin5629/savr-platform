@@ -17,6 +17,8 @@ export function ficheClient(
     tms_reference: null,
     date_collecte: '2026-10-28',
     heure_collecte: '22:00:00',
+    // Pax de la collecte (décision Val 2026-10-20) : celui de l'événement ici.
+    pax: 4200,
     controle_acces_requis: true,
     informations_completes: true,
     informations_supplementaires: 'Quai B, badge à l’accueil',

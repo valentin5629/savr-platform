@@ -1,6 +1,8 @@
 -- =============================================================================
 -- R22c / BL-P2-10 — fn_modifier_evenement : émission E2 (collecte.modifiee) sur
 -- modification de contacts/pax d'un événement, ÉTENDUE aux collectes `en_cours`.
+-- (2026-10-20 : le pax est porté par la collecte ; R22c-3/4 le modifient par
+-- fn_modifier_collecte, qui garde la même fenêtre et le même gate E2.)
 -- =============================================================================
 -- Prouve la décision Val 2026-07-08 (cf. _Divergences/M1.4_20260708.md) :
 --   • contacts/pax propagés au TMS via le modèle IMMÉDIAT M1.2 (§05 l.325), PAS via
@@ -120,8 +122,10 @@ SELECT is(
   false, 'R22c-8 authenticated n''a pas EXECUTE sur fn_modifier_evenement (service_role only)');
 
 -- ── R22c-3 : pax sur collecte EN_COURS AG dispatchée → E2 émis ────────────────
-SELECT plateforme.fn_modifier_evenement(
-  'c22c0000-0000-0000-0000-0000000000e3'::uuid,
+-- Depuis le 2026-10-20 (décision Val), le pax est porté par la collecte : il se
+-- modifie par fn_modifier_collecte, dont l'E2 générique couvre aussi `en_cours`.
+SELECT plateforme.fn_modifier_collecte(
+  'c22c0000-0000-0000-0000-0000000000c3'::uuid,
   '{"pax": 300}'::jsonb, ARRAY['pax']);
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events

@@ -58,6 +58,7 @@ const COLLECTE_OPS = {
   heure_collecte: '22:00:00',
   nb_camions_demande: 3,
   type_vehicule_souhaite: null,
+  pax: 150,
   evenements: { pax: 150 },
 };
 
@@ -245,6 +246,25 @@ describe('M2.3 / Attribution AG (écran dédié) — besoin véhicule jamais env
         expect(sent?.nb_camions_demande).toBe(2);
         expect(sent?.type_vehicule_souhaite).toBe('fourgon');
       }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M1.2/pax_par_collecte — écran Attribution AG dédié : le volume affiche le pax de la collecte', () => {
+  it(
+    'collecte à 80 pax, événement à 150 : « 80 pax », jamais celui de l’événement',
+    async () => {
+      installFetch(() =>
+        Promise.resolve({ ok: true, body: { ...COLLECTE_OPS, pax: 80 } }),
+      );
+      render(<AttributionDetailPage />);
+      await attendreFormulairePret();
+      const volume = screen.getByLabelText('Volume estimé') as HTMLInputElement;
+      await waitFor(
+        () => expect(volume.value).toBe('80\u00a0pax · ≈ 120 repas'),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

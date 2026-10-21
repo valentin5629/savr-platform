@@ -128,7 +128,12 @@ const BODY_ZD = {
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
   collectes: [
-    { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+    {
+      type: 'zd',
+      date_collecte: '2030-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+    },
   ],
   confirmer: true,
 };
@@ -391,7 +396,12 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       makeReq('POST', '/api/v1/programmation/evenements', {
         ...BODY_ZD,
         collectes: [
-          { type: 'ag', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+          {
+            type: 'ag',
+            date_collecte: '2030-01-15',
+            heure_collecte: '08:00',
+            pax: 80,
+          },
         ],
       }),
     );
@@ -479,6 +489,7 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
         type: 'ag',
         date_collecte: '2030-02-01',
         heure_collecte: '10:00',
+        pax: 80,
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );

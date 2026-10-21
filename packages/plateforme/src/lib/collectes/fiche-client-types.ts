@@ -162,6 +162,9 @@ export interface FicheCollecteClient {
   tms_reference: string | null;
   date_collecte: string;
   heure_collecte: string | null;
+  // Nombre de convives de la collecte (décision Val 2026-10-20) ; celui de
+  // l'événement (`evenement.pax`) en est calculé.
+  pax: number;
   controle_acces_requis: boolean;
   informations_completes: boolean;
   informations_supplementaires: string | null;

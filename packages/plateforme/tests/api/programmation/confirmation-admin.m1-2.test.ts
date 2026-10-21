@@ -138,6 +138,7 @@ const EVT = {
       statut: 'programmee',
       date_collecte: '2099-08-01',
       heure_collecte: '14:30:00',
+      pax: 80,
     },
   ],
 };
@@ -165,6 +166,7 @@ async function ajouterCollecte(type: string) {
           type,
           date_collecte: '2099-01-01',
           heure_collecte: '14:30',
+          pax: 80,
         }),
         headers: { 'content-type': 'application/json' },
       },

@@ -8,6 +8,7 @@ import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { refusPaxCollecte } from '@/lib/pax-collecte.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 
@@ -36,16 +37,21 @@ export async function POST(
 
   const { id: evenementId } = await params;
   const body = (await req.json()) as Record<string, unknown>;
-  const { type, date_collecte, heure_collecte } = body;
+  const { type, date_collecte, heure_collecte, pax } = body;
 
   if (!type || !date_collecte || !heure_collecte) {
     return NextResponse.json(
-      { error: 'Champs obligatoires : type, date_collecte, heure_collecte' },
+      {
+        error: 'Champs obligatoires : type, date_collecte, heure_collecte',
+      },
       { status: 422 },
     );
   }
   const refusHeure = refusHeureCollecte(heure_collecte);
   if (refusHeure) return refusHeure;
+  // Pax de la collecte, saisi avec sa date (décision Val 2026-10-20).
+  const refusPax = refusPaxCollecte(pax);
+  if (refusPax) return refusPax;
 
   // Borne d'entrée du texte libre transmis au transporteur (voir la route de
   // programmation initiale) : la RPC stocke `p_info_suppl` sans rien vérifier.
@@ -66,7 +72,7 @@ export async function POST(
   // Vérification de propriété — même cloisonnement que le GET.
   const evtQuery = supabase
     .from('evenements')
-    .select('id, organisation_id, lieu_id, nom_evenement, pax')
+    .select('id, organisation_id, lieu_id, nom_evenement')
     .eq('id', evenementId);
 
   const { data: evt } = await (
@@ -104,6 +110,7 @@ export async function POST(
       p_heure_collecte: String(heure_collecte),
       p_controle_acces: body.controle_acces_requis ?? false,
       p_info_suppl: infoSuppl,
+      p_pax: pax,
     },
   );
 
@@ -128,10 +135,15 @@ export async function POST(
     programmeurUserId: auth.ctx.userId,
     evenementId,
     nomEvenement: evt.nom_evenement,
-    pax: evt.pax,
     organisationId: evt.organisation_id,
     lieuId: evt.lieu_id,
-    collectes: [{ type: String(type), date_collecte: String(date_collecte) }],
+    collectes: [
+      {
+        type: String(type),
+        date_collecte: String(date_collecte),
+        pax: pax as number,
+      },
+    ],
   }).catch(() => undefined); // non-bloquant
 
   // BL-P2-22 (tpl 20) : info-only au traiteur opérationnel si la collecte est

@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import {
   SousBlocCollecte,
+  paxSaisiValide,
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
 import { usePackAg } from '@/components/programmation/use-pack-ag';
@@ -25,6 +26,7 @@ export default function AjouterCollectePage() {
     type: 'zd',
     date_collecte: '',
     heure_collecte: '',
+    pax: '',
     informations_supplementaires: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -44,10 +46,37 @@ export default function AjouterCollectePage() {
       `/api/v1/programmation/evenements/${encodeURIComponent(evenement_id)}`,
     )
       .then((res) =>
-        res.ok ? (res.json() as Promise<{ organisation_id?: string }>) : null,
+        res.ok
+          ? (res.json() as Promise<{
+              organisation_id?: string;
+              collectes?: {
+                statut?: string | null;
+                date_collecte: string | null;
+                heure_collecte: string | null;
+                pax: number | null;
+              }[];
+            }>)
+          : null,
       )
       .then((evt) => {
-        if (!ignore) setOrgEvenement(evt?.organisation_id ?? null);
+        if (ignore) return;
+        setOrgEvenement(evt?.organisation_id ?? null);
+        // Pax pré-rempli avec celui de la dernière collecte non annulée de
+        // l'événement au pax connu (décision Val 2026-10-20 ; même règle que le
+        // défaut en base), modifiable ; jamais écrasé s'il est saisi. Un pax
+        // à 0 (inconnu, reprise Bubble) ne se pré-remplit pas.
+        const derniere = [...(evt?.collectes ?? [])]
+          .filter((c) => c.statut !== 'annulee' && c.pax != null && c.pax > 0)
+          .sort((a, b) =>
+            `${a.date_collecte ?? ''} ${a.heure_collecte ?? ''}`.localeCompare(
+              `${b.date_collecte ?? ''} ${b.heure_collecte ?? ''}`,
+            ),
+          )
+          .pop();
+        if (derniere?.pax != null)
+          setData((d) =>
+            d.pax === '' ? { ...d, pax: String(derniere.pax) } : d,
+          );
       })
       .catch(() => undefined);
     return () => {
@@ -63,7 +92,10 @@ export default function AjouterCollectePage() {
     setAgDoublonConfirm(false);
   };
 
-  const valid = data.date_collecte !== '' && data.heure_collecte !== '';
+  const valid =
+    data.date_collecte !== '' &&
+    data.heure_collecte !== '' &&
+    paxSaisiValide(data.pax);
 
   // `doublonConfirme` : passé par « Confirmer quand même », dont le clic lirait
   // sinon l'état d'avant la confirmation et rouvrirait l'avertissement.
@@ -99,6 +131,7 @@ export default function AjouterCollectePage() {
             type,
             date_collecte: data.date_collecte,
             heure_collecte: data.heure_collecte,
+            pax: Number.parseInt(data.pax, 10),
             informations_supplementaires:
               data.informations_supplementaires || undefined,
           }),

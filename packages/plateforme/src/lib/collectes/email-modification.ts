@@ -94,8 +94,10 @@ export function lignesModifications(
     lignes.push(
       `Heure de collecte : de ${heure(c0.heure_collecte)} à ${heure(c.heure_collecte)}`,
     );
-  if (change(e0, e, 'pax'))
-    lignes.push(`Nombre de pax : de ${texte(e0.pax)} à ${texte(e.pax)}`);
+  // Pax de la collecte (décision Val 2026-10-20 : il n'est plus un champ de
+  // l'événement).
+  if (change(c0, c, 'pax'))
+    lignes.push(`Nombre de pax : de ${texte(c0.pax)} à ${texte(c.pax)}`);
 
   // Nom et téléphone d'un contact se lisent ensemble : une seule ligne dès que
   // l'un des deux change.
@@ -202,12 +204,12 @@ interface CollecteApres {
   prestataire_logistique_id: string | null;
   date_collecte: string;
   heure_collecte: string | null;
+  pax: number;
   attributions_antgaspi: unknown;
   evenement: unknown;
 }
 
 interface EvenementApres {
-  pax: number | null;
   created_by: string | null;
   lieu: { nom: string } | { nom: string }[] | null;
   organisation: { nom: string } | { nom: string }[] | null;
@@ -247,9 +249,9 @@ export async function notifierEquipeModificationCollecte(
       .from('collectes')
       .select(
         `id, evenement_id, statut, statut_tms, tms_reference,
-         prestataire_logistique_id, date_collecte, heure_collecte,
+         prestataire_logistique_id, date_collecte, heure_collecte, pax,
          attributions_antgaspi!collecte_id(id),
-         evenement:evenements!inner(pax, created_by,
+         evenement:evenements!inner(created_by,
            lieu:lieux!lieu_id(nom),
            organisation:organisations!organisation_id(nom))`,
       )
@@ -314,7 +316,7 @@ export async function notifierEquipeModificationCollecte(
     const heureInitiale = (c0.heure_collecte ?? collecte.heure_collecte) as
       | string
       | null;
-    const paxInitial = 'pax' in e0 ? e0.pax : evenement?.pax;
+    const paxInitial = 'pax' in c0 ? c0.pax : collecte.pax;
     const lieuNom = un(evenement?.lieu)?.nom;
 
     // Le corps du template est du HTML interpolé tel quel : tout texte saisi

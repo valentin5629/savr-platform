@@ -42,6 +42,7 @@ import {
 } from '@/components/programmation/contact-combobox';
 import {
   SousBlocCollecte,
+  paxSaisiValide,
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
 import {
@@ -104,6 +105,8 @@ interface SourceEvenement {
 interface SourceCollecte {
   type: string;
   heure_collecte: string | null;
+  /** Pax de la collecte source (décision Val 2026-10-20). */
+  pax?: number | null;
   controle_acces_requis: boolean;
   informations_supplementaires: string | null;
   evenement: SourceEvenement | SourceEvenement[] | null;
@@ -115,6 +118,7 @@ const emptyCollecte = (type: 'zd' | 'ag'): CollecteFormData => ({
   type,
   date_collecte: '',
   heure_collecte: '',
+  pax: '',
   informations_supplementaires: '',
 });
 
@@ -159,7 +163,6 @@ export default function NouveauProgrammationPage() {
   // (décision Val 2026-10-19) : seul le premier est obligatoire.
   const [nomEvenement, setNomEvenement] = useState('');
   const [nomClient, setNomClient] = useState('');
-  const [pax, setPax] = useState('');
   const [typeEvenementId, setTypeEvenementId] = useState('');
   const [typesEvenements, setTypesEvenements] = useState<TypeEvenement[]>([]);
   const [typesCollecte, setTypesCollecte] = useState<{
@@ -266,7 +269,6 @@ export default function NouveauProgrammationPage() {
         const isZd = d.type === 'zero_dechet';
         setNomEvenement(evt.nom_evenement ?? '');
         setNomClient(evt.nom_client_organisateur ?? '');
-        setPax(evt.pax != null ? String(evt.pax) : '');
         setTypeEvenementId(evt.type_evenement_id ?? '');
         setReferenceAffaire(evt.reference_affaire ?? '');
         setControleAcces(Boolean(d.controle_acces_requis));
@@ -302,6 +304,9 @@ export default function NouveauProgrammationPage() {
             type: isZd ? 'zd' : 'ag',
             date_collecte: '',
             heure_collecte: (d.heure_collecte ?? '').slice(0, 5),
+            // Pax de la collecte dupliquée ; inconnu (0) : champ vide, jamais
+            // celui de l'événement (somme des jours).
+            pax: d.pax != null && d.pax > 0 ? String(d.pax) : '',
             informations_supplementaires: d.informations_supplementaires ?? '',
           },
         ]);
@@ -357,7 +362,6 @@ export default function NouveauProgrammationPage() {
 
   const step1Valid =
     nomEvenement.trim() !== '' &&
-    parseInt(pax) > 0 &&
     typeEvenementId !== '' &&
     (typesCollecte.zd || typesCollecte.ag) &&
     (!needsTraiteurSelector || traiteurOperationnelId !== '');
@@ -365,7 +369,10 @@ export default function NouveauProgrammationPage() {
   const step2Valid = lieu !== null && contactPrincipal !== null;
 
   const step3Valid = collectes.every(
-    (c) => c.date_collecte !== '' && c.heure_collecte !== '',
+    (c) =>
+      c.date_collecte !== '' &&
+      c.heure_collecte !== '' &&
+      paxSaisiValide(c.pax),
   );
 
   const handleAddContactInline = async (target: 'principal' | 'secours') => {
@@ -428,7 +435,6 @@ export default function NouveauProgrammationPage() {
       const body = {
         nom_evenement: nomEvenement.trim() || undefined,
         nom_client_organisateur: nomClient.trim() || undefined,
-        pax: parseInt(pax),
         type_evenement_id: typeEvenementId,
         reference_affaire: referenceAffaire || undefined,
         lieu_id: lieu!.id,
@@ -446,6 +452,7 @@ export default function NouveauProgrammationPage() {
           type: c.type,
           date_collecte: c.date_collecte,
           heure_collecte: c.heure_collecte,
+          pax: Number.parseInt(c.pax, 10),
           informations_supplementaires:
             c.informations_supplementaires || undefined,
         })),
@@ -514,39 +521,23 @@ export default function NouveauProgrammationPage() {
             />
           </FormField>
 
-          <FormGrid>
-            <FormField label="Nombre de convives" htmlFor="pax" required>
-              <Input
-                id="pax"
-                type="number"
-                min="1"
-                required
-                value={pax}
-                onChange={(e) => setPax(e.target.value)}
-                placeholder="Ex : 80"
-              />
-            </FormField>
-
-            <FormField
-              label="Type d'événement"
-              htmlFor="type-evenement"
+          {/* Le nombre de convives se saisit avec la date de chaque collecte
+              (étape 3, décision Val 2026-10-20). */}
+          <FormField label="Type d'événement" htmlFor="type-evenement" required>
+            <Combobox
+              id="type-evenement"
+              icon={null}
               required
-            >
-              <Combobox
-                id="type-evenement"
-                icon={null}
-                required
-                placeholder="Choisir…"
-                searchPlaceholder="Rechercher un type…"
-                options={typesEvenements.map((t) => ({
-                  value: t.id,
-                  label: t.libelle,
-                }))}
-                value={typeEvenementId}
-                onChange={setTypeEvenementId}
-              />
-            </FormField>
-          </FormGrid>
+              placeholder="Choisir…"
+              searchPlaceholder="Rechercher un type…"
+              options={typesEvenements.map((t) => ({
+                value: t.id,
+                label: t.libelle,
+              }))}
+              value={typeEvenementId}
+              onChange={setTypeEvenementId}
+            />
+          </FormField>
 
           <div className="space-y-2">
             <Label required>Type(s) de collecte</Label>

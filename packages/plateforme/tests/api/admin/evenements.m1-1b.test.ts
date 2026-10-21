@@ -51,16 +51,20 @@ describe('M1.1b / admin evenements PATCH', () => {
     setupAuth('admin_savr');
     const { PATCH } =
       await import('@/app/api/v1/admin/evenements/[id]/route.js');
-    const res = await PATCH(makeReq({ pax: 250, contact_principal_nom: 'X' }), {
-      params: Promise.resolve({ id: 'e1' }),
-    });
+    const res = await PATCH(
+      makeReq({ reference_affaire: 'AFF-250', contact_principal_nom: 'X' }),
+      {
+        params: Promise.resolve({ id: 'e1' }),
+      },
+    );
     expect(res.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith(
       'fn_modifier_evenement',
       expect.objectContaining({ p_id: 'e1' }),
     );
     const args = rpc.mock.calls[0]![1] as { p_champs_modifies: string[] };
-    expect(args.p_champs_modifies).toContain('pax');
+    // Le pax n'est plus un champ de l'événement (décision Val 2026-10-20).
+    expect(args.p_champs_modifies).toContain('reference_affaire');
   });
 
   it('M1.1b/admin_evenement_edit_aucun_champ — 422 si rien à modifier', async () => {

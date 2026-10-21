@@ -114,7 +114,12 @@ const BODY_ZD = {
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
   collectes: [
-    { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+    {
+      type: 'zd',
+      date_collecte: '2030-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+    },
   ],
   confirmer: true,
 };

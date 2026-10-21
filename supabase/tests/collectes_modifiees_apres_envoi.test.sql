@@ -3,10 +3,12 @@
 -- =============================================================================
 -- Scénario `M0.6/dirty_tms_apres_envoi` (couche db), arbitrage Val 2026-10-09 :
 -- le drapeau s'arme dès que la demande est partie vers le prestataire (clic de
--- l'Admin), pour les champs de la collecte comme pour le pax et les contacts de
+-- l'Admin), pour les champs de la collecte comme pour les contacts de
 -- l'événement ; il ne s'arme pas avant l'envoi, ni pour une collecte terminée,
 -- ni pour un autre événement, ni pour un champ hors de la liste ; le renvoi le
--- vide. Migration 20261009210000.
+-- vide. Migration 20261009210000. Depuis 20261021073000 (décision Val
+-- 2026-10-20), le pax est un champ de la COLLECTE : il arme la seule collecte
+-- modifiée, et le recalcul du pax de l'événement n'arme pas ses voisines.
 --
 -- Sous rôle : les deux fonctions de modification appelées sous `service_role`
 -- (le chemin des routes) arment le drapeau ; un client ne peut ni l'armer ni le
@@ -134,20 +136,20 @@ SELECT is(plateforme.fn_dispatcher_collecte((SELECT commandee FROM t)), 'collect
 SELECT ok(NOT pg_temp.drapeau((SELECT commandee FROM t)),
   'commande existante : le renvoi vide le drapeau');
 
--- ── Pax de l'événement : qui est armé, qui ne l'est pas ──────────────────────
-UPDATE plateforme.evenements SET pax = pax + 10 WHERE id = (SELECT evt FROM t);
+-- ── Pax de la collecte : qui est armé, qui ne l'est pas ──────────────────────
+SELECT pg_temp.baisser();
+UPDATE plateforme.collectes SET pax = pax + 10 WHERE id = (SELECT commandee FROM t);
+SELECT ok(pg_temp.drapeau((SELECT commandee FROM t)),
+  'changer le pax d''une collecte partie arme son drapeau');
 SELECT is(
-  ARRAY[pg_temp.drapeau((SELECT en_file FROM t)), pg_temp.drapeau((SELECT commandee FROM t)), pg_temp.drapeau((SELECT en_cours FROM t))],
-  ARRAY[true, true, true],
-  'changer le pax arme les collectes de l''événement déjà parties et encore à réaliser (programmée, validée, en cours)');
-SELECT ok(NOT pg_temp.drapeau((SELECT non_partie FROM t)) AND NOT pg_temp.drapeau((SELECT ag FROM t)),
-  'changer le pax n''arme pas les collectes de l''événement pas encore envoyées');
-SELECT is(
-  ARRAY[pg_temp.drapeau((SELECT realisee FROM t)), pg_temp.drapeau((SELECT cloturee FROM t)), pg_temp.drapeau((SELECT terminee FROM t))],
-  ARRAY[false, false, false],
-  'changer le pax n''arme pas une collecte partie puis terminée (réalisée, clôturée, annulée)');
+  ARRAY[pg_temp.drapeau((SELECT en_file FROM t)), pg_temp.drapeau((SELECT en_cours FROM t))],
+  ARRAY[false, false],
+  'changer le pax d''une collecte n''arme pas les autres collectes parties de l''événement (le pax de l''événement est recalculé)');
+UPDATE plateforme.collectes SET pax = pax + 10 WHERE id = (SELECT non_partie FROM t);
+SELECT ok(NOT pg_temp.drapeau((SELECT non_partie FROM t)),
+  'changer le pax d''une collecte pas encore envoyée n''arme rien');
 SELECT ok(NOT pg_temp.drapeau((SELECT temoin FROM t)),
-  'changer le pax n''arme pas la collecte d''un autre événement');
+  'changer le pax d''une collecte n''arme pas la collecte d''un autre événement');
 
 -- ── Contacts : chacun des quatre champs ──────────────────────────────────────
 SELECT pg_temp.baisser();
@@ -173,7 +175,7 @@ UPDATE plateforme.evenements SET nom_evenement = 'Renommé', reference_affaire =
 SELECT ok(NOT pg_temp.drapeau((SELECT en_file FROM t)),
   'renommer l''événement ou changer sa référence n''arme rien');
 
-UPDATE plateforme.evenements SET pax = pax WHERE id = (SELECT evt FROM t);
+UPDATE plateforme.collectes SET pax = pax WHERE id = (SELECT en_file FROM t);
 SELECT ok(NOT pg_temp.drapeau((SELECT en_file FROM t)),
   'un pax renvoyé à l''identique n''arme rien');
 
@@ -199,7 +201,7 @@ UPDATE plateforme.collectes SET informations_supplementaires = 'Quai B' WHERE id
 SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
   'référence de commande seule : changer les informations supplémentaires arme le drapeau');
 SELECT pg_temp.baisser();
-UPDATE plateforme.evenements SET pax = pax + 1 WHERE id = (SELECT evt FROM t);
+UPDATE plateforme.collectes SET pax = pax + 1 WHERE id = (SELECT ag FROM t);
 SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
   'référence de commande seule : changer le pax arme le drapeau');
 
@@ -239,7 +241,7 @@ UPDATE plateforme.collectes SET heure_collecte = '13:00' WHERE id = (SELECT ag F
 SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
   'AG attribuée, sans prestataire relié : changer l''heure arme le drapeau');
 SELECT pg_temp.baisser();
-UPDATE plateforme.evenements SET pax = pax + 5 WHERE id = (SELECT evt FROM t);
+UPDATE plateforme.collectes SET pax = pax + 5 WHERE id = (SELECT ag FROM t);
 SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
   'AG attribuée, sans prestataire relié : changer le pax arme le drapeau');
 

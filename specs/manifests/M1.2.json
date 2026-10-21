@@ -1,7 +1,7 @@
 {
   "module": "M1.2",
   "titre": "Édition événement + collecte par les rôles programmateurs (depuis la fiche collecte)",
-  "description": "Décision produit Val 2026-06-26 : TOUS les rôles programmateurs (traiteur_manager, traiteur_commercial, agence, gestionnaire_lieux) éditent les champs métier de l'ÉVÉNEMENT et de la COLLECTE depuis la fiche collecte, fenêtre brouillon/programmee/validee, verrou dès en_cours ; client_organisateur = lecture seule. PATCH événement unifié sous programmation/ (requireProgrammateur) + RPC fn_modifier_evenement (émet E2 par collecte dispatchée, recalcule volume_estime_repas si pax change). Édition collecte : routes par espace (traiteur/agence existantes + gestionnaire ajoutée), via fn_modifier_collecte. lieu_id / type_collecte verrouillés (§05 l.314). Champs verrouillés et système refusés. UI : formulaire d'édition partagé sur les 3 fiches collecte (traiteur/agence/gestionnaire).",
+  "description": "Décision produit Val 2026-06-26 : TOUS les rôles programmateurs (traiteur_manager, traiteur_commercial, agence, gestionnaire_lieux) éditent les champs métier de l'ÉVÉNEMENT et de la COLLECTE depuis la fiche collecte, fenêtre brouillon/programmee/validee, verrou dès en_cours ; client_organisateur = lecture seule. PATCH événement unifié sous programmation/ (requireProgrammateur) + RPC fn_modifier_evenement (émet E2 par collecte dispatchée ; depuis le 2026-10-20 le pax est un champ de la collecte, modifié par fn_modifier_collecte). Édition collecte : routes par espace (traiteur/agence existantes + gestionnaire ajoutée), via fn_modifier_collecte. lieu_id / type_collecte verrouillés (§05 l.314). Champs verrouillés et système refusés. UI : formulaire d'édition partagé sur les 3 fiches collecte (traiteur/agence/gestionnaire).",
   "scenarios": [
     "M1.2 — édition événement par traiteur_manager : 200 + fn_modifier_evenement (E2 par collecte)",
     "M1.2 — édition événement par traiteur_commercial : 200 + fn_modifier_evenement (E2 par collecte)",
@@ -40,8 +40,8 @@
     {
       "id": "M1.2-rpc-fn-modifier-evenement",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:158",
-      "artefact": "supabase/migrations/20260626000000_plateforme_fn_modifier_evenement.sql",
-      "test": "T14 fn_modifier_evenement : E2 par collecte dispatchee sur edition pax",
+      "artefact": "supabase/migrations/20260626000000_plateforme_fn_modifier_evenement.sql + supabase/migrations/20261021073000_plateforme_collectes_pax.sql",
+      "test": "T14 fn_modifier_evenement : E2 par collecte dispatchee sur edition du contact",
       "statut": "implemented",
       "libelle": "RPC fn_modifier_evenement : UPDATE événement + E2 par collecte dispatchée (transactional outbox)"
     },
@@ -56,10 +56,10 @@
     {
       "id": "M1.2-recalc-volume-pax",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:322",
-      "artefact": "supabase/migrations/20260626000000_plateforme_fn_modifier_evenement.sql",
-      "test": "T15 recalcul volume_estime_repas sur edition pax",
+      "artefact": "supabase/migrations/20261021073000_plateforme_collectes_pax.sql",
+      "test": "supabase/tests/collectes_pax.test.sql « le volume AG suit le pax modifié de la collecte »",
       "statut": "implemented",
-      "libelle": "Recalcul volume_estime_repas des collectes éditables sur changement de pax (via trigger)"
+      "libelle": "Recalcul volume_estime_repas d'une collecte AG à chaque changement de SON pax (trigger fn_set_volume_estime_repas, 10 % de NEW.pax) — le pax est porté par la collecte depuis la décision Val du 2026-10-20 ; fn_modifier_evenement ne le recalcule plus."
     },
     {
       "id": "M1.2-col-edit-gestionnaire",
@@ -285,6 +285,22 @@
       "statut": "partial",
       "ref_divergence": "_Divergences/M1.2_20261019_nom-evenement-client-final.md",
       "libelle": "Nom de l'événement obligatoire à la confirmation d'un brouillon (§06.01 l.333 ; §04 `evenements.nom_evenement` : « obligatoire à la confirmation de la programmation, NULL admis en brouillon », décision Val 2026-10-19). Non codé : la route PATCH /api/v1/programmation/evenements/[id]/confirmer lit le nom sans le contrôler ; écart consigné dans la fiche et dans le libellé de M1.2-nom-evenement-client-final."
+    },
+    {
+      "id": "M1.2-pax-par-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:63 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1195 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1453",
+      "artefact": "supabase/migrations/20261021073000_plateforme_collectes_pax.sql + packages/plateforme/src/lib/pax-collecte.ts + packages/plateforme/src/components/programmation/sous-bloc-collecte.tsx + packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx + packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts + packages/plateforme/src/components/collecte/editer-collecte-form.tsx + packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts + packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx + packages/plateforme/src/lib/programmation/recap-email.ts + packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx + packages/plateforme/src/app/api/v1/admin/collectes/route.ts + packages/plateforme/src/app/api/v1/traiteur/collectes/route.ts + packages/plateforme/src/app/api/v1/agence/collectes/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts + packages/plateforme/src/app/api/v1/organisateur/collectes/route.ts + packages/plateforme/src/components/admin/collectes-table.tsx + packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.tsx + packages/plateforme/src/components/collecte/liste-collectes-client.tsx + packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
+      "test": "M1.2/pax_par_collecte — formulaire de programmation > le nombre de convives se saisit avec la date de la collecte (étape 3), plus à l’étape 1 + M1.2/pax_par_collecte — création + M1.2/pax_par_collecte — modification + M1.2/pax_par_collecte — ajouter une collecte : le pax + M3.1 / EditerCollecteForm — un seul email par enregistrement > M1.2/pax_par_collecte — le pax part dans la requête collecte, jamais dans celle de l’événement + M3.1 / EditerCollecteForm — un seul email par enregistrement > M1.2/pax_par_collecte — un pax vidé ou à 0 est refusé à l’écran, rien n’est envoyé + supabase/tests/collectes_pax.test.sql + supabase/tests/collectes_modifiees_apres_envoi.test.sql + M1.2/pax_par_collecte — écran de confirmation : convives + M1.2/pax_par_collecte — email récapitulatif : tarif ZD + M1.2/pax_par_collecte — pop-up fiche collecte client : pax + M1.2/pax_par_collecte — listes de collectes : le pax de la collecte, jamais celui de l’événement + M1.2/pax_par_collecte — liste Admin : le pax de la collecte (650) + M1.2/pax_par_collecte — onglet Collectes : le pax de la collecte (650) + M1.2/pax_par_collecte — liste agence (composant commun du traiteur) + M1.2/pax_par_collecte — liste organisateur : le pax de la collecte (650) + M3.2/collectes_route_colonnes_liste_traiteur + M1.2/pax_par_collecte — fiche Admin : titre, en-tête",
+      "statut": "implemented",
+      "libelle": "Pax porté par la collecte, lot 1 « saisie et transmission » (décisions Val 2026-10-20 : C1 = pax de l'événement calculé par jour (le plus grand pax des collectes non annulées du jour) puis somme des jours ; C3 = le nombre de convives se saisit avec la date de chaque collecte). Colonne collectes.pax (NOT NULL, 0 à 100 000, défaut 0 = inconnu ; absent ou 0 à l'INSERT = pax de la dernière collecte non annulée de l'événement au pax connu, à défaut celui de l'événement), recopiée depuis l'événement pour l'existant ; evenements.pax calculé par déclencheur (f_pax_evenement) et recalculé une fois pour l'existant. Formulaire : plus de pax à l'étape 1, un champ par collecte à l'étape 3 (exigé pour confirmer ou enregistrer) ; « Ajouter une collecte » le demande, pré-rempli avec la dernière collecte non annulée au pax connu ; listes de collectes (Admin, fiche client Admin, traiteur, agence, gestionnaire, client organisateur) et fiche Admin : le pax de la collecte ; « Modifier » d'une fiche collecte ne change plus que cette collecte (fn_modifier_collecte, entier de 1 à 100 000 — plafond métier décidé par Val le 2026-10-21 ; contrôlé seulement s'il est modifié, une collecte reprise à pax 0 reste modifiable pour le reste) ; les PATCH d'événement (programmation et back-office) et fn_modifier_evenement refusent le pax. Écran de fin : un pax par collecte (avec la date si deux collectes ont le même type). Email récapitulatif : tarif ZD annoncé sur le pax de la collecte ZD. Volume AG = 10 % du pax de la collecte ; signal dirty_tms et E2 sur la seule collecte modifiée (transmission au transporteur : livrable M1.2-pax-par-collecte-transmission). Hors lot (lots 2 et 3) : facturation, algorithme AG, benchmark, taille XS–XL, déchets labo, registre, PDF, dashboards. CDC à patcher : fiche _Divergences/ M1.2_20261020_pax-par-collecte.md."
+    },
+    {
+      "id": "M1.2-pax-par-collecte-transmission",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:387 + specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:400",
+      "artefact": "packages/adapters/src/outbox-worker.ts + packages/adapters/src/index.ts + supabase/migrations/20261021073000_plateforme_collectes_pax.sql",
+      "test": "type_tms=a_toutes — traiteur, pax, contact et point B de l’association atteignent l’adapter + type_tms=mts1 — traiteur, pax, contact et point B de l’association atteignent l’adapter + cliquet — chaque champ mappé fait effectivement varier le PUT",
+      "statut": "implemented",
+      "libelle": "Transmission au transporteur du pax de LA collecte (décision Val 2026-10-20) : l'outbox-worker demande `collectes.pax` (hors de l'embed de l'événement) et le passe aux deux adapters — numéro de commande MTS-1 « Traiteur - Lieu - N pax » et ligne « Nombre de pax : N » du commentaire (MTS-1 `comment`, Everest `notes`). Le pax entre dans la liste normative des champs comparés par `fn_set_collectes_dirty_tms` ; sa contrepartie E2 est le numéro de commande (cliquet). Preuve : la collecte simulée porte 80 pax et son événement 120 ; le test exige 80 et la colonne dans le select de la collecte."
     },
     {
       "id": "M1.2-ajout-collecte-depuis-fiches",

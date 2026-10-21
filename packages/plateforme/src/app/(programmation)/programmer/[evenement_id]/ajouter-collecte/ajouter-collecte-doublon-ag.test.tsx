@@ -23,7 +23,15 @@ import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 const AVERTISSEMENT =
   "Cet événement a déjà une collecte Anti-Gaspi. Confirmer l'ajout d'une seconde ?";
 
-function installFetch(collectes: { type: string; statut: string }[]) {
+function installFetch(
+  collectes: {
+    type: string;
+    statut: string;
+    pax?: number;
+    date_collecte?: string;
+    heure_collecte?: string;
+  }[],
+) {
   const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
     const json = (corps: unknown) =>
@@ -92,6 +100,10 @@ function remplirEtAjouter(type: 'zd' | 'ag') {
   );
   fireEvent.click(screen.getByTestId(`heure-${type}`));
   fireEvent.click(screen.getByRole('option', { name: '22:00' }));
+  // Pax de la collecte, saisi avec sa date (décision Val 2026-10-20).
+  fireEvent.change(screen.getByTestId(`pax-${type}`), {
+    target: { value: '650' },
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Ajouter la collecte' }));
 }
 
@@ -174,9 +186,104 @@ describe('M1.2 — ajouter une collecte : seconde collecte Anti-Gaspi', () => {
 
       await waitFor(() => expect(back).toHaveBeenCalledTimes(1), ATTENTE_UI);
       expect(creations(fetchMock)).toEqual([
-        expect.objectContaining({ type: 'zd' }),
+        expect.objectContaining({ type: 'zd', pax: 650 }),
       ]);
       expect(screen.queryByText(AVERTISSEMENT)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M1.2/pax_par_collecte — ajouter une collecte : le pax', () => {
+  it(
+    'pré-rempli avec le pax de la dernière collecte de l’événement (par date puis heure), modifiable',
+    async () => {
+      installFetch([
+        // Dans le désordre : la dernière (par date puis heure) est l'AG du
+        // 11/01 à 22:00, ni la première ni la dernière du tableau.
+        {
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          pax: 300,
+          date_collecte: '2030-01-11',
+          heure_collecte: '08:00:00',
+        },
+        {
+          type: 'anti_gaspi',
+          statut: 'programmee',
+          pax: 1200,
+          date_collecte: '2030-01-11',
+          heure_collecte: '22:00:00',
+        },
+        {
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          pax: 900,
+          date_collecte: '2030-01-10',
+          heure_collecte: '22:00:00',
+        },
+      ]);
+      render(<AjouterCollectePage />);
+      const champ = await screen.findByDisplayValue(
+        '1200',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(champ).toBe(screen.getByTestId('pax-zd'));
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'jamais le pax d’une collecte annulée ni un pax inconnu (0) : la dernière collecte non annulée au pax connu',
+    async () => {
+      installFetch([
+        {
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          pax: 900,
+          date_collecte: '2030-01-10',
+          heure_collecte: '22:00:00',
+        },
+        // Plus tardives, mais annulée ou au pax inconnu (reprise Bubble).
+        {
+          type: 'anti_gaspi',
+          statut: 'annulee',
+          pax: 1200,
+          date_collecte: '2030-01-11',
+          heure_collecte: '22:00:00',
+        },
+        {
+          type: 'zero_dechet',
+          statut: 'programmee',
+          pax: 0,
+          date_collecte: '2030-01-11',
+          heure_collecte: '23:00:00',
+        },
+      ]);
+      render(<AjouterCollectePage />);
+      const champ = await screen.findByDisplayValue(
+        '900',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(champ).toBe(screen.getByTestId('pax-zd'));
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'sans pax saisi, la collecte ne peut pas être ajoutée',
+    async () => {
+      const fetchMock = installFetch([]);
+      render(<AjouterCollectePage />);
+      fireEvent.change(screen.getByTestId('pax-zd'), {
+        target: { value: '' },
+      });
+      expect(
+        screen.getByRole('button', { name: 'Ajouter la collecte' }),
+      ).toBeDisabled();
+      expect(creations(fetchMock)).toEqual([]);
     },
     ATTENTE_CAS_MS,
   );

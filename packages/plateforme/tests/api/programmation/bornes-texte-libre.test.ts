@@ -186,7 +186,12 @@ const BODY_ZD = {
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
   collectes: [
-    { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+    {
+      type: 'zd',
+      date_collecte: '2030-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+    },
   ],
   confirmer: true,
 };
@@ -615,6 +620,7 @@ describe('bornes texte libre — routes collecte', () => {
         type: 'zd',
         date_collecte: '2030-01-15',
         heure_collecte: '08:00',
+        pax: 80,
         informations_supplementaires: INFOS_1001,
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
@@ -636,6 +642,7 @@ describe('bornes texte libre — routes collecte', () => {
         type: 'zero_dechet',
         date_collecte: '2030-01-15',
         heure_collecte: '08:00',
+        pax: 80,
         informations_supplementaires: INFOS_1001,
       }),
     );
@@ -906,6 +913,7 @@ describe('bornes texte libre — routes collecte', () => {
         type: 'zero_dechet',
         date_collecte: '2030-01-15',
         heure_collecte: '08:00',
+        pax: 80,
         informations_supplementaires: '  Cuisine au sous-sol, ascenseur B  ',
       }),
     );
@@ -939,6 +947,7 @@ describe('bornes texte libre — routes collecte', () => {
         type: 'zd',
         date_collecte: '2030-01-15',
         heure_collecte: '08:00',
+        pax: 80,
         informations_supplementaires: '  Sonner au 3e, porte droite  ',
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },

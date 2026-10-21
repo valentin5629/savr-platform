@@ -237,6 +237,30 @@ describe('M0.6 — onglet Collectes', () => {
   );
 
   it(
+    'M1.2/pax_par_collecte — onglet Collectes : le pax de la collecte (650), jamais celui de l’événement (1 200)',
+    async () => {
+      mockFetch({
+        '/api/v1/admin/collectes': {
+          data: [
+            {
+              ...collecte,
+              pax: 650,
+              evenements: { ...collecte.evenements, pax: 1200 },
+            },
+          ],
+        },
+      });
+      render(<OngletCollectes organisationId="org-1" />);
+      const ligne = (
+        await screen.findAllByText('Gala ZD', undefined, ATTENTE_UI)
+      )[0]?.closest('tr') as HTMLElement;
+      expect(within(ligne).getByText('650')).toBeTruthy();
+      expect(within(ligne).queryByText(/1\s?200/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'clic sur une ligne → navigue vers la fiche collecte',
     async () => {
       mockFetch({ '/api/v1/admin/collectes': { data: [collecte] } });

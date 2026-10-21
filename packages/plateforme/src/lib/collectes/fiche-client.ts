@@ -103,6 +103,7 @@ interface CollecteRow {
   tms_reference: string | null;
   date_collecte: string;
   heure_collecte: string | null;
+  pax: number;
   controle_acces_requis: boolean;
   informations_completes: boolean;
   informations_supplementaires: string | null;
@@ -201,7 +202,7 @@ export async function chargerFicheCollecteClient(
     .from('collectes')
     .select(
       `id, type, statut, statut_tms, tms_reference, date_collecte, heure_collecte,
-       controle_acces_requis, informations_completes, informations_supplementaires,
+       pax, controle_acces_requis, informations_completes, informations_supplementaires,
        taux_recyclage, co2_evite_kg, realisee_at, aucun_repas_motif,
        lieu_overrides,
        evenement:evenements!inner(
@@ -443,6 +444,7 @@ export async function chargerFicheCollecteClient(
     tms_reference: c.tms_reference,
     date_collecte: c.date_collecte,
     heure_collecte: c.heure_collecte,
+    pax: c.pax,
     controle_acces_requis: c.controle_acces_requis,
     informations_completes: c.informations_completes,
     informations_supplementaires: c.informations_supplementaires,

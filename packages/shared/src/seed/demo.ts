@@ -787,6 +787,9 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       statut_tms: r.statutTms ?? 'acceptee',
       date_collecte: r.date,
       heure_collecte: '22:00:00',
+      // Pax de la collecte (décision Val 2026-10-20) ; celui de l'événement en
+      // est calculé en base (trg_set_pax_evenement).
+      pax: r.pax,
       // Une collecte pas encore dispatchée n'a pas de prestataire : c'est ce qui
       // fait apparaître le bouton « Dispatcher » et la corbeille Ops.
       prestataire_logistique_id: r.sansPrestataire

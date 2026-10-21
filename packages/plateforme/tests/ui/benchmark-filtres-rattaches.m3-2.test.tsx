@@ -200,7 +200,7 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
 const ZD_CLOTUREE = {
   statut: 'cloturee',
   taux_recyclage: 78.4,
-  co2_net_kg: 312,
+  co2_evite_kg: 312,
   bilan_flux: { biodechet: 420, emballage: 180 },
   actions: { modifier: 'absent', annuler: 'absent', annulation: null },
 } as const;

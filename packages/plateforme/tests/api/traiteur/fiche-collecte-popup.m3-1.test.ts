@@ -258,7 +258,7 @@ describe('M3.1 / fiche client — contenu servi', () => {
       data: ligneCollecte({
         statut: 'cloturee',
         taux_recyclage: 78.4,
-        co2_net_kg: 312,
+        co2_evite_kg: 312,
         collecte_flux: [
           { poids_reel_kg: 400, flux_dechets: { code: 'biodechet' } },
           { poids_reel_kg: 20, flux_dechets: { code: 'biodechet' } },
@@ -271,7 +271,7 @@ describe('M3.1 / fiche client — contenu servi', () => {
     const { json } = await getFiche();
     expect(json.data.bilan_flux).toEqual({ biodechet: 420, verre: 90 });
     expect(json.data.taux_recyclage).toBe(78.4);
-    expect(json.data.co2_net_kg).toBe(312);
+    expect(json.data.co2_evite_kg).toBe(312);
   });
 
   it('M3.1/fiche_get_bilan_flux_avant_realisation — pas de bilan avant « Réalisée »', async () => {

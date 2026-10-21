@@ -107,7 +107,6 @@ interface CollecteRow {
   informations_completes: boolean;
   informations_supplementaires: string | null;
   taux_recyclage: number | null;
-  co2_net_kg: number | null;
   co2_evite_kg: number | null;
   realisee_at: string | null;
   aucun_repas_motif: string | null;
@@ -196,7 +195,7 @@ export async function chargerFicheCollecteClient(
     .select(
       `id, type, statut, statut_tms, tms_reference, date_collecte, heure_collecte,
        controle_acces_requis, informations_completes, informations_supplementaires,
-       taux_recyclage, co2_net_kg, co2_evite_kg, realisee_at, aucun_repas_motif,
+       taux_recyclage, co2_evite_kg, realisee_at, aucun_repas_motif,
        lieu_overrides,
        evenement:evenements!inner(
          id, organisation_id, traiteur_operationnel_organisation_id, created_by,
@@ -441,7 +440,6 @@ export async function chargerFicheCollecteClient(
     informations_completes: c.informations_completes,
     informations_supplementaires: c.informations_supplementaires,
     taux_recyclage: c.taux_recyclage,
-    co2_net_kg: c.co2_net_kg,
     co2_evite_kg: c.co2_evite_kg,
     realisee_at: c.realisee_at,
     aucun_repas_motif: c.aucun_repas_motif,

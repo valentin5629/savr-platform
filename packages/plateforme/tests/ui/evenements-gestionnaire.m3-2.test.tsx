@@ -121,7 +121,6 @@ function detail(over: Record<string, unknown> = {}) {
       tonnage_zd_kg: 1000,
       flux_kg: { ...FLUX_VIDES, biodechet: 600, carton: 300, verre: 100 },
       taux_recyclage: 74,
-      co2_net_zd_kg: 65,
       co2_evite_zd_kg: 100,
       repas_donnes: 230,
       co2_evite_ag_kg: 575,
@@ -513,7 +512,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(zd).toHaveTextContent(/Taux de recyclage.*74,0\s*%/);
       // 1 000 kg pour 800 pax.
       expect(zd).toHaveTextContent(/Pesée par pax\s*1\s250\s*g/);
-      expect(zd).toHaveTextContent(/CO₂ évité \(net\)\s*65/);
+      expect(zd).toHaveTextContent(/CO₂ évité\s*100/);
       // Donut de répartition des flux, sur le cumul de l'événement.
       expect(zd).toHaveTextContent('Répartition des tonnages');
       expect(zd).toHaveTextContent(/Biodéchets\s*600\s*kg/);
@@ -596,7 +595,6 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
               tonnage_zd_kg: null,
               flux_kg: FLUX_VIDES,
               taux_recyclage: null,
-              co2_net_zd_kg: null,
               co2_evite_zd_kg: null,
               repas_donnes: null,
               co2_evite_ag_kg: null,

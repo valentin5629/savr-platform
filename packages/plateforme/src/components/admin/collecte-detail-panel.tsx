@@ -221,7 +221,6 @@ interface CollecteDetail {
   annulee_cote_savr: boolean;
   // Bilan de l'onglet Documents (valeurs figées à la clôture).
   taux_recyclage?: number | null;
-  co2_net_kg?: number | null;
   co2_evite_kg?: number | null;
   realisee_at?: string | null;
   aucun_repas_motif?: string | null;
@@ -1508,7 +1507,6 @@ export function CollecteDetailPanel({
     statut: collecte.statut,
     date_collecte: collecte.date_collecte,
     taux_recyclage: collecte.taux_recyclage ?? null,
-    co2_net_kg: collecte.co2_net_kg ?? null,
     co2_evite_kg: collecte.co2_evite_kg ?? null,
     realisee_at: collecte.realisee_at ?? null,
     aucun_repas_motif: collecte.aucun_repas_motif ?? null,

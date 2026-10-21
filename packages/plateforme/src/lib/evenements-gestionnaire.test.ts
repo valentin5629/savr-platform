@@ -26,7 +26,6 @@ function zd(
     date_collecte: '2026-09-10',
     taux_recyclage: null,
     co2_evite_kg: null,
-    co2_net_kg: null,
     collecte_flux: pesees,
     ...extra,
   };
@@ -61,11 +60,9 @@ describe('M3.2 / bilan consolidé d’un événement', () => {
   it('M3.2/evenement_bilan_cumule_les_collectes_zd — tonnage, flux et CO₂ sommés sur les collectes réalisées', () => {
     const b = consoliderEvenement([
       zd('cloturee', [flux('biodechet', 100), flux('verre', 50)], {
-        co2_net_kg: 30,
         co2_evite_kg: 40,
       }),
       zd('cloturee', [flux('biodechet', 20), flux('carton', 30)], {
-        co2_net_kg: 10,
         co2_evite_kg: 15,
       }),
     ]);
@@ -79,7 +76,6 @@ describe('M3.2 / bilan consolidé d’un événement', () => {
       verre: 50,
       dechet_residuel: 0,
     });
-    expect(b.co2_net_zd_kg).toBe(40);
     expect(b.co2_evite_zd_kg).toBe(55);
   });
 

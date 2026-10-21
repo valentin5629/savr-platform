@@ -144,7 +144,6 @@ export type BilanFiche = Pick<
   | 'statut'
   | 'date_collecte'
   | 'taux_recyclage'
-  | 'co2_net_kg'
   | 'co2_evite_kg'
   | 'realisee_at'
   | 'aucun_repas_motif'
@@ -356,9 +355,11 @@ export function BilanCollecte({
               unite={masse ? masse.unit : 'kg'}
             />
             <Kpi
-              label="CO₂ évité (net)"
+              label="CO₂ évité"
               nombre={
-                realisee && c.co2_net_kg != null ? fmtInt(c.co2_net_kg) : '—'
+                realisee && c.co2_evite_kg != null
+                  ? fmtInt(c.co2_evite_kg)
+                  : '—'
               }
               unite={UNITE_KG_CO2E}
             />

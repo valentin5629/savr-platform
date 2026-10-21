@@ -88,6 +88,7 @@
 #   check-migration-timestamp.sh --merge      # pré-merge : (A + B + C), cible re-fetchée
 #   check-migration-timestamp.sh --no-remote  # (A) seul — sans réseau
 #   check-migration-timestamp.sh --self-test  # prouve que (A), (B) ET (C) rougissent vraiment (non-vacuité)
+#                                             # code 2 : auto-test en échec ; code 3 : auto-test non joué
 set -euo pipefail
 
 MIG_DIR="supabase/migrations"
@@ -352,22 +353,26 @@ controle_inter_branches() {
     fi
   fi
 
-  local catalogue
-  catalogue=$(mktemp)
-  # Quotes SIMPLES : la commande du trap ne doit pas être construite par
-  # interpolation à la définition (une apostrophe dans le chemin s'en échapperait).
-  trap 'rm -f "$catalogue"' RETURN
-
-  local ref
-  for ref in $(refs_candidats); do
-    # Le nom du ref passe par `awk -v` (affectation de variable), jamais dans un
-    # script `sed` : `#` est un caractère LÉGAL dans un nom de branche (`fix/issue#322`)
-    # et cassait le délimiteur, rendant ce ref invisible au contrôle — un garde
-    # d'intégrité muet, soit la panne même qu'il corrige.
-    git ls-tree -r --name-only "$ref" -- "$MIG_DIR" 2>/dev/null \
-      | grep -E "^${MIG_DIR}/[0-9]{14}_.*\.sql$" \
-      | awk -v r="$ref" '{print r " " $0}' >> "$catalogue"
-  done
+  # Le catalogue — une ligne « ref fichier » par migration de chaque ref candidat —
+  # est gardé en mémoire, sans fichier temporaire. Il l'était dans un fichier créé
+  # par `mktemp` : un `mktemp` en échec, ou qui rendait 0 sans écrire de chemin,
+  # laissait (B) sans catalogue, et une collision réelle avec une branche en vol
+  # sortait en 0, en pré-commit comme en --branch et en --merge (mesuré le
+  # 2026-10-21). L'auto-test refuse d'ailleurs tout `mktemp` hors commentaire dans
+  # ce script (`pieges_tenus`, dans .claude/hooks/lib-auto-test.sh). Taille
+  # relevée le 2026-10-21 : 818 865 octets pour 68 refs candidats.
+  local catalogue ref
+  catalogue=$(
+    for ref in $(refs_candidats); do
+      # Le nom du ref passe par `awk -v` (affectation de variable), jamais dans un
+      # script `sed` : `#` est un caractère LÉGAL dans un nom de branche (`fix/issue#322`)
+      # et cassait le délimiteur, rendant ce ref invisible au contrôle — un garde
+      # d'intégrité muet, soit la panne même qu'il corrige.
+      git ls-tree -r --name-only "$ref" -- "$MIG_DIR" 2>/dev/null \
+        | grep -E "^${MIG_DIR}/[0-9]{14}_.*\.sql$" \
+        | awk -v r="$ref" '{print r " " $0}'
+    done
+  )
 
   local f ts mien conflits
   while IFS= read -r f; do
@@ -378,10 +383,13 @@ controle_inter_branches() {
     # autre ref (ma branche déjà poussée, une branche squash-mergée) désigne LA
     # MÊME migration : une seule `version`, donc rien à signaler — même si son
     # contenu diffère, ce qui relève du merge, pas de schema_migrations.
-    conflits=$(awk -v ts="$ts" -v mien="$mien" \
+    # awk lit le catalogue jusqu'au bout : ce tube ne peut pas manquer une ligne
+    # comme celui de `liste_contient`, où c'est `grep -q` qui sort au premier
+    # résultat.
+    conflits=$(printf '%s\n' "$catalogue" | awk -v ts="$ts" -v mien="$mien" \
       '{n=split($2,a,"/"); b=a[n];
         if (substr(b,1,14)==ts && b!=mien) print "      " $1 "  →  " b}' \
-      "$catalogue" | sort -u)
+      | sort -u)
     if [ -n "$conflits" ]; then
       echo "" >&2
       echo "❌  Collision de timestamp $ts avec une branche NON MERGÉE :" >&2
@@ -473,6 +481,18 @@ EOF
 # Auto-test : prouve que (B) rougit sur une vraie collision, reste vert sinon,
 # et ne se signale pas lui-même une fois la branche poussée. Sans ça le gate
 # pourrait être inerte et personne ne le saurait.
+#
+# Pour ne rien écrire hors du dossier jetable : les parades de
+# .claude/hooks/lib-auto-test.sh, épinglées par ses rejeux sous pièges
+# (`pieges_tenus`, en fin d'auto-test ; la bibliothèque dit ce qu'ils ne
+# couvrent pas). Mesuré le 2026-10-21 sur une copie de ce script d'avant ces
+# parades, lancée hors du dépôt avec un dépôt témoin :
+# sous les variables GIT_* du premier rejeu, il commitait le travail non commité
+# du dépôt qu'elles désignent et poussait vers son `origin` une branche portant
+# ce commit ; sous GIT_INDEX_FILE seul, il écrasait l'index de ce dépôt et
+# rendait « auto-test OK » ; sous la configuration git piégée, des objets de ce
+# dépôt disparaissaient.
+# Code 3 : auto-test non joué. Code 2 : auto-test en échec.
 # ---------------------------------------------------------------------------
 # NB : corps entre parenthèses = SOUS-SHELL. Aucun `cd` ne peut fuir vers
 # l'appelant, et si le clone échoue le script ne peut pas se mettre à muter le
@@ -480,18 +500,31 @@ EOF
 # `set -e` ne protège pas ici : `self_test` est appelée en partie gauche d'un `||`,
 # ce qui le neutralise dans tout le corps — d'où les gardes explicites.
 self_test() (
-  local script_abs tmp origine clone rc echec=false
-  script_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-  tmp=$(mktemp -d) || { echo "🔴 AUTO-TEST : mktemp -d impossible." >&2; return 2; }
-  [ -n "$tmp" ] && [ -d "$tmp" ] || { echo "🔴 AUTO-TEST : répertoire jetable invalide." >&2; return 2; }
+  local script_abs lib tmp origine clone rc echec=false
+  script_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/$(basename "${BASH_SOURCE[0]}")"
+  # Le `unset` et `git_isole` viennent avant tout appel à git.
+  # shellcheck disable=SC2086  # découpage voulu : un nom de variable par mot
+  unset ${!GIT_*}
+  lib="$(dirname "$script_abs")/../.claude/hooks/lib-auto-test.sh"
+  [ -f "$lib" ] || { echo "🔴 check-migration-timestamp : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
+  # shellcheck source=/dev/null
+  . "$lib"
+  tmp="$(bac_jetable)" || { echo "🔴 check-migration-timestamp : pas de dossier temporaire — auto-test non joué." >&2; exit 3; }
   trap 'rm -rf "$tmp"' EXIT
+  git_isole "$tmp" || { echo "🔴 check-migration-timestamp : dossier d'isolement non créé — auto-test non joué." >&2; exit 3; }
   origine="$tmp/origine.git"
   clone="$tmp/clone"
 
   git init --quiet --bare --initial-branch=main "$origine"
   git init --quiet --initial-branch=main "$tmp/amorce"
+  # Le `cd` est gardé, et le code du sous-shell lu : un `cd` refusé, comme une
+  # poussée finale en échec, arrête l'auto-test (code 3). Sans cette garde, un
+  # `git init` qui échoue sans créer le dossier laissait la suite de ce bloc
+  # s'exécuter dans le dossier de lancement. Mesuré le 2026-10-21, ce dossier
+  # étant un dépôt muni d'un `origin` : migrations écrites, travail non commité
+  # commité, branche poussée vers cet `origin`. Cas 8bis le prouve.
   (
-    cd "$tmp/amorce"
+    cd "$tmp/amorce" || exit 1
     git config user.email t@t.t && git config user.name t && git config commit.gpgsign false
     mkdir -p "$MIG_DIR"
     echo "-- socle" > "$MIG_DIR/20260101100000_plateforme_socle.sql"
@@ -503,16 +536,19 @@ self_test() (
     echo "-- concurrente" > "$MIG_DIR/20260101130000_plateforme_concurrente.sql"
     git add -A && git -c core.hooksPath=/dev/null commit --quiet --no-verify -m concurrente
     git push --quiet origin concurrente
-  ) >/dev/null 2>&1
+  ) >/dev/null 2>&1 || {
+    echo "🔴 AUTO-TEST : dépôt d'amorce non construit — test non joué." >&2
+    return 3
+  }
 
   # Gardes non négociables : sans elles, un clone en échec (par ex. sous
   # `protocol.file.allow=never`, le durcissement post-CVE-2022-39253) laisse les
   # commandes mutantes de ce test s'appliquer au dépôt RÉEL. Cas 8 le prouve.
   if ! git clone --quiet "$origine" "$clone"; then
     echo "🔴 AUTO-TEST : clone du dépôt jetable impossible — test non joué." >&2
-    return 2
+    return 3
   fi
-  cd "$clone" || { echo "🔴 AUTO-TEST : accès au dépôt jetable impossible." >&2; return 2; }
+  cd "$clone" || { echo "🔴 AUTO-TEST : accès au dépôt jetable impossible — test non joué." >&2; return 3; }
   git config user.email t@t.t && git config user.name t && git config commit.gpgsign false
   git checkout --quiet -b mon-lot
 
@@ -854,7 +890,7 @@ self_test() (
   # Sauté dans le sous-test qu'il lance lui-même : sans ce garde-fou, un script
   # dont les gardes ont sauté relance le cas 8 en boucle au lieu de rougir.
   if [ -n "${MIGRATION_SELFTEST_INTERNE:-}" ]; then
-    [ "$echec" = true ] && return 1
+    [ "$echec" = true ] && return 2
     return 0
   fi
   # Sans les gardes sur `clone`/`cd`, les commandes mutantes des cas précédents
@@ -888,20 +924,73 @@ self_test() (
     echo "🔴 AUTO-TEST : un clone en échec a créé des branches dans le dépôt appelant." >&2
     echec=true
   fi
-  if [ "$rc" -eq 0 ]; then
-    echo "🔴 AUTO-TEST : clone en échec non signalé (exit 0) — le test se croit joué." >&2
+  if [ "$rc" -ne 3 ]; then
+    echo "🔴 AUTO-TEST : clone en échec non signalé comme auto-test non joué (exit $rc, attendu 3)." >&2
     echec=true
   fi
 
-  [ "$echec" = true ] && return 1
-  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch, ref « # », cible qui avance au merge (C), très grosse liste de référence, dépôt appelant intact)."
+  # Cas 8bis — un dépôt d'amorce qui n'a pas pu être créé ne doit RIEN muter dans
+  # le dépôt APPELANT, ni dans son `origin`. Faux `git` : son `init` du dossier
+  # d'amorce sort en 1 sans le créer ; tout le reste passe au vrai git. Les deux
+  # dépôts sont comparés par empreinte (cf. lib-auto-test.sh).
+  local appelant_b distant_b faux_init avant_appelant avant_distant
+  appelant_b="$tmp/appelant-amorce"
+  distant_b="$tmp/distant-amorce.git"
+  faux_init="$tmp/faux-init"
+  mkdir -p "$appelant_b/$MIG_DIR" "$faux_init"
+  # shellcheck disable=SC2016  # voulu : "$1", "$@" et "$a" sont lus par le faux git
+  printf '#!/bin/sh\nif [ "$1" = init ]; then\n  for a in "$@"; do case "$a" in */amorce) exit 1 ;; esac; done\nfi\nexec "%s" "$@"\n' "$git_reel" > "$faux_init/git"
+  chmod +x "$faux_init/git"
+  (
+    cd "$appelant_b" \
+      && git init --quiet --initial-branch=main . \
+      && git config user.email appelant@t.t && git config user.name appelant \
+      && echo "-- socle" > "$MIG_DIR/20260101100000_plateforme_socle.sql" \
+      && git add -A \
+      && git -c core.hooksPath=/dev/null commit --quiet --no-verify -m socle \
+      && git init --quiet --bare --initial-branch=main "$distant_b" \
+      && git remote add origin "$distant_b" \
+      && git push --quiet origin main
+  ) >/dev/null 2>&1
+  echo "TRAVAIL NON COMMITE" > "$appelant_b/temoin.txt"
+  # Garde anti-fixture-vacante : sans dépôt appelant ni `origin` construits, le
+  # cas ne prouverait rien.
+  if ! git -C "$appelant_b" rev-parse --verify -q HEAD >/dev/null 2>&1 \
+     || ! git -C "$distant_b" rev-parse --verify -q main >/dev/null 2>&1; then
+    echo "🔴 AUTO-TEST : cas 8bis VACANT — dépôt appelant ou son origin non construits." >&2
+    echec=true
+  fi
+  avant_appelant="$(empreinte_dossier "$appelant_b")"
+  avant_distant="$(empreinte_dossier "$distant_b")"
+  rc=0
+  ( cd "$appelant_b" && PATH="$faux_init:$PATH" MIGRATION_SELFTEST_INTERNE=1 \
+      bash "$script_abs" --self-test ) >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 3 ]; then
+    echo "🔴 AUTO-TEST : dépôt d'amorce non construit non signalé comme auto-test non joué (exit $rc, attendu 3)." >&2
+    echec=true
+  fi
+  if [ "$(empreinte_dossier "$appelant_b")" != "$avant_appelant" ] \
+     || [ "$(empreinte_dossier "$distant_b")" != "$avant_distant" ]; then
+    echo "🔴 AUTO-TEST : un dépôt d'amorce non construit a fait écrire dans le dépôt appelant ou dans son origin." >&2
+    echec=true
+  fi
+
+  pieges_tenus "$script_abs" "$tmp" || echec=true
+  # L'appel ci-dessus est lui-même épinglé : hors d'un rejeu, son bilan doit être posé.
+  [ -n "${SAVR_AUTO_TEST_SOUS_PIEGE:-}" ] || [ -n "$PIEGES_BILAN" ] \
+    || { echo "🔴 AUTO-TEST : pieges_tenus n'a pas posé son bilan." >&2; echec=true; }
+
+  [ "$echec" = true ] && return 2
+  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch, ref « # », cible qui avance au merge (C), très grosse liste de référence, dépôt appelant intact sous un clone ou une amorce en échec${PIEGES_BILAN})."
   return 0
 )
 
 # ---------------------------------------------------------------------------
+# Code de l'auto-test rendu tel quel : 0 réussi, 2 en échec, 3 non joué.
 if [ "$SELF_TEST" = true ]; then
-  self_test || exit 2
-  exit 0
+  rc=0
+  self_test || rc=$?
+  exit "$rc"
 fi
 
 [ -d "$MIG_DIR" ] || exit 0

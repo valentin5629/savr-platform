@@ -20,7 +20,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(39);
+SELECT plan(41);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
 RETURNS void LANGUAGE plpgsql AS $$
@@ -169,6 +169,17 @@ DELETE FROM plateforme.collectes
  WHERE evenement_id = (SELECT evt FROM t) AND date_collecte = CURRENT_DATE + 42;
 SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 2150,
   'evenements.pax revenu à 2 150 après suppression de la collecte ajoutée');
+-- Une collecte au pax inconnu (0, reprise Bubble), la plus tardive, n'est pas
+-- prise non plus : une collecte créée sans pax prend celui de J+40.
+ALTER TABLE t ADD COLUMN inconnue uuid;
+UPDATE t SET inconnue = pg_temp.collecte(evt, 'zd', 44, 500);
+UPDATE plateforme.collectes SET pax = 0 WHERE id = (SELECT inconnue FROM t);
+SELECT ok(pg_temp.pax(pg_temp.collecte((SELECT evt FROM t), 'zd', 45, NULL)) IN (1800, 2000),
+  'collecte créée sans pax : jamais le pax inconnu (0) d''une collecte existante');
+DELETE FROM plateforme.collectes
+ WHERE evenement_id = (SELECT evt FROM t) AND date_collecte IN (CURRENT_DATE + 44, CURRENT_DATE + 45);
+SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 2150,
+  'evenements.pax revenu à 2 150 après suppression des deux collectes ajoutées');
 
 -- ── fn_ajouter_collecte_evenement : p_pax ────────────────────────────────────
 UPDATE t SET ajoutee = plateforme.fn_ajouter_collecte_evenement(

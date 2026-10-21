@@ -272,8 +272,8 @@ interface CollecteDetail {
   // la référence `lieux` pour cette collecte seulement.
   lieu_overrides?: Record<string, unknown> | null;
   // Nombre de convives de la collecte (décision Val 2026-10-20) ; celui de
-  // l'événement en est calculé. Optionnel : repli sur l'événement.
-  pax?: number | null;
+  // l'événement en est calculé (somme des jours) : jamais affiché à sa place.
+  pax: number;
   evenements: {
     nom_evenement: string | null;
     pax: number;
@@ -1469,7 +1469,7 @@ export function CollecteDetailPanel({
       : '';
     const lieu = collecte.evenements.lieux;
     onLoaded?.({
-      title: `Collecte ${libelleTypeCollecte(collecte.type)} · ${d}${h} · ${collecte.evenements.organisations.raison_sociale} · ${lieu.nom} (${lieu.ville}) · jusqu'à ${fmtPax(collecte.pax ?? collecte.evenements.pax)}`,
+      title: `Collecte ${libelleTypeCollecte(collecte.type)} · ${d}${h} · ${collecte.evenements.organisations.raison_sociale} · ${lieu.nom} (${lieu.ville}) · jusqu'à ${fmtPax(collecte.pax)}`,
     });
   }, [collecte, onLoaded]);
 
@@ -1778,7 +1778,7 @@ export function CollecteDetailPanel({
           },
           {
             icon: Users,
-            texte: `jusqu'à ${fmtPax(collecte.pax ?? collecte.evenements.pax)}`,
+            texte: `jusqu'à ${fmtPax(collecte.pax)}`,
           },
           {
             icon: Building2,
@@ -1847,7 +1847,7 @@ export function CollecteDetailPanel({
                   {collecte.evenements.organisations.raison_sociale}
                 </InfoItem>
                 <InfoItem label="Nombre de pax">
-                  jusqu&apos;à {collecte.pax ?? collecte.evenements.pax}
+                  jusqu&apos;à {collecte.pax}
                 </InfoItem>
                 {/* Client final = client organisateur, distinct du traiteur. */}
                 <InfoItem label="Client final">
@@ -1978,7 +1978,7 @@ export function CollecteDetailPanel({
                   collecteId={collecte.id}
                   collecte={{
                     volume_estime_repas: collecte.volume_estime_repas ?? null,
-                    pax: collecte.pax ?? collecte.evenements.pax ?? null,
+                    pax: collecte.pax,
                     date_collecte: collecte.date_collecte,
                     heure_collecte: collecte.heure_collecte,
                     nb_camions_demande: collecte.nb_camions_demande,

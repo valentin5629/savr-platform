@@ -25,6 +25,9 @@ const ZD = {
   statut: 'programmee',
   date_collecte: '2030-01-15',
   heure_collecte: '08:30:00',
+  // Pax de la collecte (décision Val 2026-10-20) : c'est lui qu'affiche le
+  // récapitulatif, jamais celui de l'événement.
+  pax: 1000,
 };
 const AG = {
   id: 'col-ag',

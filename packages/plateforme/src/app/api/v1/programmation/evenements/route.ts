@@ -16,7 +16,7 @@ import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
-import { paxEvenement, refusPaxCollecte } from '@/lib/pax-collecte.js';
+import { refusPaxCollecte } from '@/lib/pax-collecte.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 
@@ -363,10 +363,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       created_by: auth.ctx.userId,
       nom_evenement: body.nom_evenement ?? null,
       type_evenement_id: body.type_evenement_id,
-      // `evenements.pax` est NOT NULL et calculé en base depuis les collectes
-      // (trg_set_pax_evenement) : on pose dès l'INSERT la même valeur.
-      // (au moins une collecte, chacune validée : jamais `null` ici.)
-      pax: paxEvenement(body.collectes) ?? 0,
+      // Provisoire (0 = inconnu) : `evenements.pax` est NOT NULL, et
+      // trg_set_pax_evenement le calcule dès la première collecte insérée.
+      pax: 0,
       contact_principal_nom: body.contact_principal_nom,
       contact_principal_telephone: body.contact_principal_telephone,
       contact_secours_nom: body.contact_secours_nom ?? null,

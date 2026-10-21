@@ -58,6 +58,7 @@ const COLLECTE_OPS = {
   heure_collecte: '22:00:00',
   nb_camions_demande: 3,
   type_vehicule_souhaite: null,
+  pax: 150,
   evenements: { pax: 150 },
 };
 

@@ -8,9 +8,6 @@ import { NextResponse } from 'next/server';
 // règle C1 de Val : pour chaque jour de collecte, le plus grand pax des
 // collectes non annulées de ce jour, puis la somme des jours. Une ZD et une AG
 // du même soir comptent donc une fois ; deux soirées s'additionnent.
-//
-// `paxEvenement` en est le miroir côté application : la route de programmation
-// crée l'événement avant ses collectes, et `evenements.pax` est NOT NULL.
 
 /** Entier >= 1 (borne haute = entier SQL), comme la garde de `fn_modifier_collecte`. */
 export function paxCollecteValide(valeur: unknown): valeur is number {
@@ -33,24 +30,4 @@ export function refusPaxCollecte(valeur: unknown): NextResponse | null {
     },
     { status: 422 },
   );
-}
-
-/** Pax d'un événement à partir de ses collectes (règle C1, cf. en-tête). */
-export function paxEvenement(
-  collectes: readonly {
-    date_collecte: string | null;
-    pax: number;
-    statut?: string | null;
-  }[],
-): number | null {
-  const parJour = new Map<string, number>();
-  for (const c of collectes) {
-    if (c.statut === 'annulee') continue;
-    const jour = c.date_collecte ?? '';
-    parJour.set(jour, Math.max(parJour.get(jour) ?? 0, c.pax));
-  }
-  if (parJour.size === 0) return null;
-  let total = 0;
-  for (const pax of parJour.values()) total += pax;
-  return total;
 }

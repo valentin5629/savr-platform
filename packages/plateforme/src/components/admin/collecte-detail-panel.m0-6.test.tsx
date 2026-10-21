@@ -62,6 +62,7 @@ const collecteAg = {
     associations: { nom: 'Les Restos du Cœur' },
     transporteurs: null,
   },
+  pax: 80,
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
@@ -2221,6 +2222,7 @@ const baseAg = {
     transporteurs: { nom: 'A Toutes!' },
   },
   prestataire_logistique_id: null,
+  pax: 80,
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,

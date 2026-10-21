@@ -241,7 +241,7 @@ function ConfirmationContent() {
                       : {c.pax ?? '—'}
                     </span>
                   ))
-                : (collectes[0]?.pax ?? evenement.pax ?? '—')}
+                : (collectes[0]?.pax ?? '—')}
             </InfoItem>
             <InfoItem
               variant="hint"

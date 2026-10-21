@@ -168,4 +168,42 @@ describe('M1.2/pax_par_collecte — formulaire de programmation', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'dupliquer une collecte au pax inconnu (0, reprise Bubble) : le champ reste vide, jamais le pax de l’événement',
+    async () => {
+      window.history.replaceState({}, '', '/programmer/nouveau?from=c-src');
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((input: RequestInfo | URL) => {
+          const url = String(input);
+          const corps = url.startsWith('/api/v1/traiteur/collectes/c-src')
+            ? { data: { ...SOURCE, pax: 0 } }
+            : url.includes('/programmation/types-evenements')
+              ? [{ id: 't1', code: 'cocktail', libelle: 'Cocktail' }]
+              : [];
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(corps),
+          } as Response);
+        }),
+      );
+      render(<NouveauProgrammationPage />);
+      await screen.findByDisplayValue(
+        'Gala de printemps',
+        undefined,
+        ATTENTE_UI,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Continuer/ }));
+      await screen.findByRole(
+        'heading',
+        { name: 'Lieu et contacts' },
+        ATTENTE_UI,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Continuer/ }));
+      const pax = await screen.findByTestId('pax-zd', undefined, ATTENTE_UI);
+      expect(pax).toHaveValue(null);
+    },
+    ATTENTE_CAS_MS,
+  );
 });

@@ -173,7 +173,7 @@ describe('M1.2/pax_par_collecte — création', () => {
     });
   }
 
-  it('POST /programmation/evenements : chaque collecte part avec son pax, et l’événement avec le pax calculé (règle C1)', async () => {
+  it('POST /programmation/evenements : chaque collecte part avec son pax ; l’événement est créé à 0, calculé ensuite par la base', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle.mockResolvedValueOnce({
       data: { id: 'entite-1' },
@@ -209,9 +209,10 @@ describe('M1.2/pax_par_collecte — création', () => {
       }),
     );
     expect(res.status).toBe(201);
-    // Deux jours : 1 800 + 1 200.
+    // Pax de l'événement provisoire (0) : le déclencheur le calcule depuis les
+    // collectes (règle C1, prouvée par supabase/tests/collectes_pax.test.sql).
     expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ pax: 3000 }),
+      expect.objectContaining({ pax: 0 }),
     );
     expect(mockRpc).toHaveBeenCalledWith(
       'fn_creer_collecte',

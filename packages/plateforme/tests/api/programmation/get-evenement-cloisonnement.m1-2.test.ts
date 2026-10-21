@@ -278,3 +278,66 @@ describe('M1.2 / formulaire_simplifie — GET détail événement : colonnes du 
       expect(colonnes).toContain(colonne);
   });
 });
+
+describe('M1.2 / ajout_collecte_niveau_evenement — GET détail événement : niveau événement figé', () => {
+  // §06.01 « Ajouter une collecte à un événement existant » : la page affiche le
+  // niveau événement figé et pré-rempli (client, date de l'événement, type
+  // d'événement, lieu, contacts, contrôle d'accès).
+  it('le select demande la date et le type de l’événement, et le contrôle d’accès de ses collectes', async () => {
+    setupAuth('traiteur_manager', ORG_A, 'user-a');
+
+    await getEvenement('evt-org-a');
+
+    const select = store.__selectCalls[0]!;
+    expect(select).toContain('date_evenement');
+    expect(select).toContain(
+      'type_evenement:types_evenements!type_evenement_id(libelle)',
+    );
+    expect(select).toMatch(/collectes\([^)]*controle_acces_requis[^)]*\)/);
+  });
+
+  it('rend le libellé du type d’événement et le contrôle d’accès de l’événement (requis dès qu’une collecte l’exige)', async () => {
+    store = makeEvenementsStore([
+      {
+        ...EVT_ORG_A,
+        date_evenement: '2030-01-15',
+        type_evenement: { libelle: 'Repas assis' },
+        collectes: [
+          { id: 'c1', statut: 'programmee', controle_acces_requis: false },
+          { id: 'c2', statut: 'validee', controle_acces_requis: true },
+        ],
+      },
+    ]);
+    setupAuth('traiteur_manager', ORG_A, 'user-a');
+
+    const res = await getEvenement('evt-org-a');
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      date_evenement: '2030-01-15',
+      type_evenement: 'Repas assis',
+      controle_acces_requis: true,
+    });
+  });
+
+  it('aucune collecte n’exige de contrôle d’accès → non requis ; type absent → null', async () => {
+    store = makeEvenementsStore([
+      {
+        ...EVT_ORG_A,
+        type_evenement: null,
+        collectes: [
+          { id: 'c1', statut: 'programmee', controle_acces_requis: false },
+        ],
+      },
+    ]);
+    setupAuth('traiteur_manager', ORG_A, 'user-a');
+
+    const json = (await (await getEvenement('evt-org-a')).json()) as Record<
+      string,
+      unknown
+    >;
+
+    expect(json.controle_acces_requis).toBe(false);
+    expect(json.type_evenement).toBeNull();
+  });
+});

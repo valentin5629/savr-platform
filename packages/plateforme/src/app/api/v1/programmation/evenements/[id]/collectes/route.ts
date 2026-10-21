@@ -11,6 +11,10 @@ import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { refusPaxCollecte } from '@/lib/pax-collecte.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
+import {
+  controleAccesEvenement,
+  evenementEnBrouillon,
+} from '@/lib/programmation/niveau-evenement.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -23,11 +27,13 @@ export const maxDuration = 60;
 // l'événement (`evt.organisation_id`), ce qui vaut identité pour un rôle client
 // (garanti par le prédicat org ci-dessous) et désigne l'org cible pour le staff.
 //
-// Ajout possible sur TOUT événement, quel que soit l'état de ses autres
-// collectes (en cours, réalisées, clôturées, annulées), tant que la nouvelle
-// collecte est datée d'aujourd'hui ou après (décision Val 2026-10-21). La
-// fenêtre d'édition de l'événement (`f_collecte_editable`) ne s'applique donc
-// pas ici : elle reste celle de la modification.
+// Ajout possible sur TOUT événement confirmé, quel que soit l'état de ses
+// autres collectes (en cours, réalisées, clôturées, annulées), tant que la
+// nouvelle collecte est datée d'aujourd'hui ou après (décision Val 2026-10-21).
+// La fenêtre d'édition de l'événement (`f_collecte_editable`) ne s'applique
+// donc pas ici : elle reste celle de la modification. Un événement en
+// brouillon est refusé, et le niveau événement (contrôle d'accès compris) est
+// lu sur l'événement, jamais dans le corps (§06.01, décisions Val 2026-10-21).
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -69,10 +75,14 @@ export async function POST(
 
   const supabase = createAdminSupabaseClient();
 
-  // Vérification de propriété — même cloisonnement que le GET.
+  // Vérification de propriété — même cloisonnement que le GET. Les collectes
+  // de l'événement portent son contrôle d'accès (cf. lib/programmation/
+  // niveau-evenement).
   const evtQuery = supabase
     .from('evenements')
-    .select('id, organisation_id, lieu_id, nom_evenement')
+    .select(
+      'id, organisation_id, lieu_id, nom_evenement, collectes(statut, controle_acces_requis)',
+    )
     .eq('id', evenementId);
 
   const { data: evt } = await (
@@ -85,6 +95,19 @@ export async function POST(
     return NextResponse.json(
       { error: 'Événement introuvable ou accès refusé' },
       { status: 404 },
+    );
+  }
+
+  // Événement pas encore confirmé : refusé (décision Val 2026-10-21), le
+  // bouton étant déjà masqué sur un brouillon. Après la garde de propriété,
+  // pour ne rien dire d'un événement hors périmètre.
+  if (evenementEnBrouillon(evt.collectes)) {
+    return NextResponse.json(
+      {
+        error:
+          'Événement en brouillon : confirmez-le avant d’y ajouter une collecte.',
+      },
+      { status: 422 },
     );
   }
 
@@ -108,7 +131,9 @@ export async function POST(
       p_type: String(type),
       p_date_collecte: String(date_collecte),
       p_heure_collecte: String(heure_collecte),
-      p_controle_acces: body.controle_acces_requis ?? false,
+      // Niveau événement figé (§06.01) : le contrôle d'accès est celui de
+      // l'événement, jamais une valeur du navigateur.
+      p_controle_acces: controleAccesEvenement(evt.collectes),
       p_info_suppl: infoSuppl,
       p_pax: pax,
     },

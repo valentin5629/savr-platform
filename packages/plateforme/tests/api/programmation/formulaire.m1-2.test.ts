@@ -584,6 +584,15 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
         date_collecte: '2030-02-01',
         heure_collecte: '10:00',
         pax: 80,
+        // Champs hostiles : aucun ne doit atteindre la création (un autre
+        // événement, une autre organisation, des camions, des notes internes,
+        // une adresse, un contrôle d'accès que l'événement n'exige pas).
+        evenement_id: 'evt-autre-org',
+        organisation_id: 'org-autre',
+        nb_camions: 3,
+        notes: 'note hostile',
+        lieu_overrides: { adresse_acces: 'adresse hostile' },
+        controle_acces_requis: true,
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
@@ -591,15 +600,196 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
     const json = (await res.json()) as { collecte_id: string };
     expect(json.collecte_id).toBe('new-collecte-1');
     // Rattachement explicite au MÊME événement, par la fonction qui émet E1.
-    expect(mockRpc).toHaveBeenCalledWith(
+    // Paramètres exacts (toStrictEqual : une clé de plus, même `undefined`,
+    // fait échouer) : seuls ces champs atteignent la création.
+    expect(mockRpc.mock.calls[0]).toStrictEqual([
       'fn_creer_collecte',
-      expect.objectContaining({
+      {
         p_evenement_id: 'evt-1',
         p_type: 'zd',
         p_date_collecte: '2030-02-01',
         p_heure_collecte: '10:00',
         p_controle_acces: false,
+        p_info_suppl: null,
+        p_pax: 80,
+      },
+    ]);
+  });
+
+  // Niveau événement figé (§06.01 « Ajouter une collecte à un événement
+  // existant ») : le contrôle d'accès de la collecte ajoutée est celui de
+  // l'événement, lu sur ses collectes, jamais celui du corps.
+  it('ajout_collecte_controle_acces_evenement — l’événement exige plaque et nom du chauffeur : la collecte ajoutée aussi', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-1',
+        organisation_id: 'org-traiteur-1',
+        collectes: [
+          { statut: 'programmee', controle_acces_requis: false },
+          { statut: 'validee', controle_acces_requis: true },
+        ],
+      },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: 'col-acces', error: null }); // fn_creer_collecte
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
+        type: 'zd',
+        date_collecte: '2030-02-01',
+        heure_collecte: '10:00',
+        pax: 80,
+        // Valeur du navigateur : ignorée.
+        controle_acces_requis: false,
       }),
+      { params: Promise.resolve({ id: 'evt-1' }) },
+    );
+    expect(res.status).toBe(201);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_creer_collecte',
+      expect.objectContaining({ p_controle_acces: true }),
+    );
+    // Lu sur les collectes de l'événement, dans la requête de propriété.
+    expect(mockSupabaseChain.select).toHaveBeenCalledWith(
+      expect.stringContaining('collectes(statut, controle_acces_requis)'),
+    );
+  });
+
+  // Décision Val 2026-10-21 : un événement en brouillon (pas encore confirmé)
+  // est refusé par le serveur, pas seulement par le bouton masqué. Sinon une
+  // collecte programmée — un ordre au transporteur pour une ZD — naîtrait à
+  // côté d'un brouillon, y compris celui d'un collègue commercial, qu'il ne
+  // peut pas confirmer lui-même.
+  it('ajout_collecte_evenement_brouillon — 422, rien n’est créé', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1', 'user-collegue');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-brouillon',
+        organisation_id: 'org-traiteur-1',
+        collectes: [{ statut: 'brouillon', controle_acces_requis: false }],
+      },
+      error: null,
+    });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-brouillon/collectes',
+        {
+          type: 'zd',
+          date_collecte: '2030-02-01',
+          heure_collecte: '10:00',
+          pax: 80,
+        },
+      ),
+      { params: Promise.resolve({ id: 'evt-brouillon' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'Événement en brouillon : confirmez-le avant d’y ajouter une collecte.',
+    );
+    // Aucune création, donc ni ordre E1 ni envoi immédiat.
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  // Une seule collecte en brouillon suffit : avant ce lot, l'ajout sur un
+  // brouillon créait une collecte programmée à côté, d'où des événements
+  // mixtes, toujours pas confirmés.
+  it('ajout_collecte_evenement_brouillon_mixte — une collecte programmée, une en brouillon : 422, rien n’est créé', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-mixte',
+        organisation_id: 'org-traiteur-1',
+        collectes: [
+          { statut: 'programmee', controle_acces_requis: false },
+          { statut: 'brouillon', controle_acces_requis: false },
+        ],
+      },
+      error: null,
+    });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements/evt-mixte/collectes', {
+        type: 'zd',
+        date_collecte: '2030-02-01',
+        heure_collecte: '10:00',
+        pax: 80,
+      }),
+      { params: Promise.resolve({ id: 'evt-mixte' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('ajout_collecte_evenement_brouillon_admin — l’équipe Savr aussi : 422, rien n’est créé', async () => {
+    setupAuth('admin_savr', 'org-savr');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-brouillon',
+        organisation_id: 'org-traiteur-1',
+        collectes: [
+          { statut: 'brouillon', controle_acces_requis: false },
+          { statut: 'brouillon', controle_acces_requis: false },
+        ],
+      },
+      error: null,
+    });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-brouillon/collectes',
+        {
+          type: 'ag',
+          date_collecte: '2030-02-01',
+          heure_collecte: '10:00',
+          pax: 80,
+        },
+      ),
+      { params: Promise.resolve({ id: 'evt-brouillon' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('ajout_collecte_controle_acces_navigateur_ignore — événement sans contrôle d’accès : le corps ne peut pas l’imposer', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-1',
+        organisation_id: 'org-traiteur-1',
+        collectes: [{ statut: 'programmee', controle_acces_requis: false }],
+      },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: 'col-sans-acces', error: null }); // fn_creer_collecte
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
+        type: 'zd',
+        date_collecte: '2030-02-01',
+        heure_collecte: '10:00',
+        pax: 80,
+        controle_acces_requis: true,
+      }),
+      { params: Promise.resolve({ id: 'evt-1' }) },
+    );
+    expect(res.status).toBe(201);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_creer_collecte',
+      expect.objectContaining({ p_controle_acces: false }),
     );
   });
 

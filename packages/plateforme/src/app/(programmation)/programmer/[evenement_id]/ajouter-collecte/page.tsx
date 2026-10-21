@@ -15,6 +15,61 @@ import { PageHeader } from '@/components/ui/page-header';
 import { FormActions } from '@/components/ui/form-actions';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import { normaliserTypeCollecte } from '@/lib/libelles/type-collecte';
+import { Heading } from '@/components/ui/heading';
+import { InfoItem } from '@/components/ui/info-item';
+import { textClasses } from '@/components/ui/text';
+import { ContactLigne } from '@/components/collecte/fiche-blocs';
+import { formatJourLong, isoVersDate } from '@/lib/date-iso';
+
+// Valeur du niveau événement : texte courant neutral-900, comme le
+// récapitulatif de l'écran de confirmation.
+const VALEUR_EVENEMENT = textClasses({ tone: 'ink' });
+
+type LieuEvenement = {
+  nom: string | null;
+  adresse_acces: string | null;
+  code_postal: string | null;
+  ville: string | null;
+};
+
+// Événement tel que le rend GET /api/v1/programmation/evenements/[id].
+type EvenementExistant = {
+  organisation_id?: string;
+  nom_evenement?: string | null;
+  nom_client_organisateur?: string | null;
+  date_evenement?: string | null;
+  type_evenement?: string | null;
+  contact_principal_nom?: string | null;
+  contact_principal_telephone?: string | null;
+  contact_secours_nom?: string | null;
+  contact_secours_telephone?: string | null;
+  controle_acces_requis?: boolean;
+  // Relation to-one : PostgREST renvoie un objet, on tolère le tableau.
+  lieux?: LieuEvenement | LieuEvenement[] | null;
+  collectes?: {
+    statut?: string | null;
+    date_collecte: string | null;
+    heure_collecte: string | null;
+    pax: number | null;
+  }[];
+};
+
+function formatLieu(lieux: EvenementExistant['lieux']): string {
+  const lieu = Array.isArray(lieux) ? (lieux[0] ?? null) : lieux;
+  if (!lieu) return '—';
+  const adresse = [
+    lieu.adresse_acces,
+    [lieu.code_postal, lieu.ville].filter(Boolean).join(' '),
+  ]
+    .filter(Boolean)
+    .join(', ');
+  return [lieu.nom, adresse].filter(Boolean).join(' — ') || '—';
+}
+
+function formatDateEvenement(iso: string | null | undefined): string {
+  const d = isoVersDate(iso);
+  return d ? formatJourLong(d) : '—';
+}
 
 export default function AjouterCollectePage() {
   const { evenement_id } = useParams<{ evenement_id: string }>();
@@ -40,26 +95,21 @@ export default function AjouterCollectePage() {
   // honoré que pour le staff ; un rôle client lit toujours son propre pack, qui
   // est celui de l'événement (la route d'ajout l'impose).
   const [orgEvenement, setOrgEvenement] = useState<string | null>(null);
+  // Niveau événement figé et pré-rempli (§06.01 « Ajouter une collecte à un
+  // événement existant ») : affiché en lecture seule, jamais renvoyé par la
+  // page. La route d'ajout relit l'événement, contrôle d'accès compris.
+  const [evenement, setEvenement] = useState<EvenementExistant | null>(null);
   useEffect(() => {
     let ignore = false;
     fetch(
       `/api/v1/programmation/evenements/${encodeURIComponent(evenement_id)}`,
     )
       .then((res) =>
-        res.ok
-          ? (res.json() as Promise<{
-              organisation_id?: string;
-              collectes?: {
-                statut?: string | null;
-                date_collecte: string | null;
-                heure_collecte: string | null;
-                pax: number | null;
-              }[];
-            }>)
-          : null,
+        res.ok ? (res.json() as Promise<EvenementExistant>) : null,
       )
       .then((evt) => {
         if (ignore) return;
+        setEvenement(evt);
         setOrgEvenement(evt?.organisation_id ?? null);
         // Pax pré-rempli avec celui de la dernière collecte non annulée de
         // l'événement au pax connu (décision Val 2026-10-20 ; même règle que le
@@ -154,6 +204,96 @@ export default function AjouterCollectePage() {
   return (
     <div className="max-w-xl mx-auto space-y-6">
       <PageHeader title="Ajouter une collecte" tone="neutral" size="xl" />
+
+      {evenement && (
+        <section aria-labelledby="niveau-evenement" className="space-y-3">
+          <Heading
+            level={2}
+            size="sm"
+            tone="faint"
+            overline
+            id="niveau-evenement"
+          >
+            Événement
+          </Heading>
+          <dl className="grid gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-4 py-3 sm:grid-cols-2">
+            <InfoItem
+              variant="hint"
+              label="Nom de l’événement"
+              pleineLargeur
+              className="space-y-0.5"
+              valueClassName={VALEUR_EVENEMENT}
+            >
+              {evenement.nom_evenement || '—'}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Client"
+              className="space-y-0.5"
+              valueClassName={VALEUR_EVENEMENT}
+            >
+              {evenement.nom_client_organisateur || '—'}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Date de l’événement"
+              className="space-y-0.5"
+              valueClassName={VALEUR_EVENEMENT}
+            >
+              {formatDateEvenement(evenement.date_evenement)}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Type d’événement"
+              className="space-y-0.5"
+              valueClassName={VALEUR_EVENEMENT}
+            >
+              {evenement.type_evenement || '—'}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Contrôle d’accès"
+              className="space-y-0.5"
+              valueClassName={VALEUR_EVENEMENT}
+            >
+              {evenement.controle_acces_requis
+                ? 'Plaque et nom du chauffeur requis'
+                : 'Non requis'}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Lieu"
+              pleineLargeur
+              className="space-y-0.5"
+              valueClassName={VALEUR_EVENEMENT}
+            >
+              {formatLieu(evenement.lieux)}
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Contact principal"
+              className="space-y-0.5"
+              valueClassName={VALEUR_EVENEMENT}
+            >
+              <ContactLigne
+                nom={evenement.contact_principal_nom}
+                telephone={evenement.contact_principal_telephone}
+              />
+            </InfoItem>
+            <InfoItem
+              variant="hint"
+              label="Contact de secours"
+              className="space-y-0.5"
+              valueClassName={VALEUR_EVENEMENT}
+            >
+              <ContactLigne
+                nom={evenement.contact_secours_nom}
+                telephone={evenement.contact_secours_telephone}
+              />
+            </InfoItem>
+          </dl>
+        </section>
+      )}
 
       <ToggleTypeCollecte
         value={type === 'zd' ? 'zero_dechet' : 'anti_gaspi'}

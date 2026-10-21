@@ -199,8 +199,8 @@ if [ -n "$ARG" ]; then
   [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)" = "$BRANCHE" ] || abstention "aucun worktree ne porte la branche '$BRANCHE'"
 else
   # Sans argument, `gh` vise la PR de la branche du répertoire d'où part la
-  # commande. `.cwd` du payload est cette information — le cwd du hook, lui, est
-  # celui du clone principal. db-guard.sh lit déjà ce champ.
+  # commande. `.cwd` du payload est cette information ; db-guard.sh lit déjà ce
+  # champ.
   CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)"
   CD_DIR="$(printf '%s' "$CMD" | sed -nE 's/^[[:space:]]*cd[[:space:]]+([^&;|]+).*/\1/p' | head -1 | xargs 2>/dev/null || true)"
   cd_worktree_for "${CD_DIR:-$CWD}"

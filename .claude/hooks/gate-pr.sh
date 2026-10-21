@@ -569,16 +569,21 @@ CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')"
 gate_pr_matche "$CMD" || exit 0
 
 # Résolu AVANT tout `cd` : le dossier du hook RÉELLEMENT exécuté. Les commandes de
-# settings.json sont relatives — c'est donc le clone principal pour une session
-# qui y est enracinée, et le worktree de la session sinon. C'est la version de
+# settings.json le désignent par "$CLAUDE_PROJECT_DIR" : la racine de
+# configuration quand l'hôte en a posé une (`--project-config-root`), sinon le
+# dossier où la session a été ouverte (mesuré le 2026-10-21 : le clone principal,
+# pour une session ouverte là puis entrée dans un worktree). C'est la version de
 # suite-verte.sh de CE dossier qui doit servir, pas celle de la branche visée par
 # la commande : une branche ouverte avant ce lot ne porte pas le script.
 HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Worktree-aware (cf. lib-worktree.sh) : ce hook tourne dans le dossier où la
-# session est enracinée — le clone principal (souvent `main`) ou un autre
-# worktree. On se place dans le worktree de la branche RÉELLEMENT PR'd (--head,
-# sinon la cible d'un `cd … &&`) pour évaluer SES markers/tests/branche.
+# Worktree-aware (cf. lib-worktree.sh) : ce hook démarre à la racine du dépôt du
+# dossier où Claude Code le lance — cas relevés : le dossier courant de la
+# session, ou la racine de configuration posée par l'hôte —, quand ce dossier est
+# dans un dépôt (settings.json s'y place avant de le lancer) : le clone principal
+# (souvent `main`) ou un autre worktree. On se place dans le worktree de la
+# branche RÉELLEMENT PR'd (--head, sinon la cible d'un `cd … &&`) pour évaluer
+# SES markers/tests/branche.
 . "$HOOKS/lib-worktree.sh"
 HEAD_BRANCH="$(printf '%s' "$CMD" | sed -nE "s/.*--head[= ]+([^ \"']+).*/\1/p" | head -1)"
 if [ -n "$HEAD_BRANCH" ]; then

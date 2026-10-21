@@ -2,6 +2,7 @@
 
 **Source CDC** : §08 APIs et intégrations + §05 Règles métier (retry, idempotence) + §09 RLS (integrations_logs, emails_envoyes, parametres_*)
 **Généré le** : 2026-06-07
+**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module §08.
 > Pour chaque scénario :
@@ -232,7 +233,7 @@ Scénario : s11_collecte_rejetee_par_tms_alerte_admin
 ---
 
 ```gherkin
-# Source : §08 §3bis — MTS-1 flux nominal (create order → tour → dispatch → validate)
+# Source : §08 §3bis.5 — MTS-1 flux nominal (create order → tour unitaire, ni dispatch ni validate — décision Val 2026-10-15)
 # Couche : api
 # Priorité : P1-critique
 
@@ -242,18 +243,16 @@ Scénario : mts1_flux_nominal_creation_ordre_tournee_dispatch
     Et MTS-1 DEMO retourne 201 sur POST /v3/customerOrders avec la réponse {customerOrderId:CO_42XZ, orderNumber:.., customerOrderStatus:..}
     Et MTS-1 DEMO retourne 201 sur POST /v3/tours avec tourId=T_99AB
     Et MTS-1 DEMO retourne 200 sur PUT /v3/tours/addCustomerOrder
-    Et MTS-1 DEMO retourne 200 sur POST /v3/dispatch/T_99AB/toCarrier
-    Et MTS-1 DEMO retourne 200 sur PUT /v3/tours/T_99AB/validate
   Quand le flux de création MTS-1 est déclenché
-  Alors collectes.statut_tms = attribuee_en_attente_acceptation
-    Et attributions_antgaspi.confirmation_transporteur = {statut:.., reference_externe:CO_42XZ, tour_id:T_99AB, recu_at:.., brut:..}
+  Alors collectes.statut_tms = a_attribuer
+    Et aucun appel n'est fait à POST /v3/dispatch/{tourId}/toCarrier ni à PUT /v3/tours/{tourId}/validate
     Et les headers MTS-1 contiennent Authorization: Bearer <token_vault>
     Et le payload POST /v3/customerOrders contient orderNumber = collecte.reference + '-' + rang (clé de corrélation)
     Et tournees.external_ref_commande = CO_42XZ (id lu sur `customerOrderId` de la réponse, JAMAIS sur `id`)
     Et le payload POST /v3/tours contient tourDate = date_collecte au format yyyy-MM-dd (champ obligatoire)
     Et le payload POST /v3/tours ne contient NI customerOrderId, NI stuffs, NI deliveryPlace (ignorés par TourInput)
     Et le rattachement passe par PUT /v3/tours/addCustomerOrder body {tourId:T_99AB, customerOrderId:CO_42XZ}
-    Et 5 lignes integrations_logs sont créées (system=mts1, direction=sortant, actions: create_order, create_tour, add_customer_order, dispatch, validate)
+    Et 3 lignes integrations_logs sont créées, une par appel : POST /v3/customerOrders, POST /v3/tours, PUT /v3/tours/addCustomerOrder
 ```
 
 ---
@@ -1167,20 +1166,20 @@ Scénario : everest_mission_failed_avant_acceptation_rejetee
 ---
 
 ```gherkin
-# Source : §08 §3bis.7 — MTS-1 chaîne polling complète : create → dispatch → poll STARTED → poll OK
+# Source : §08 §3bis.7 — MTS-1 chaîne polling complète : create → tournée confiée par l'Admin → poll STARTED → poll OK
 # Couche : api + db
 # Priorité : P1-critique
 
 Scénario : mts1_chaine_polling_complete
   Étant donné une collecte ZD Strike (type_tms=mts1)
   Quand :
-    1. Création commande+tour+dispatch+validate MTS-1 → statut_tms=attribuee_en_attente_acceptation
+    1. Création commande + tournée unitaire MTS-1 → statut_tms=a_attribuer ; l'Admin confie et valide la tournée dans la console
     2. Polling : customerOrderStatus=PLANNED, tour.status.dispatch=ACCEPTED → statut_tms=acceptee, statut=validee
-    3. Polling : customerOrderProgressionStatus=STARTED → statut=en_cours
-    4. Polling : customerOrderStatus=OK, GET /v3/tours/{id} → pesées[stops.weight] → statut=realisee + collecte_flux créés
+    3. Polling : customerOrderStatus=IN_PROGRESSION → statut=en_cours
+    4. Polling : customerOrderStatus=OK, GET /v3/tours/{id} → pesées (`quantityAfterPickup` de chaque marchandise de l'arrêt d'enlèvement) → statut=realisee + collecte_flux créés
     5. Photos téléchargées + ré-uploadées Storage Plateforme
   Alors l'état final est collectes.statut=realisee avec collecte_flux et photos stockées
-    Et integrations_inbox contient 3 entrées (PLANNED, STARTED, OK) avec statut=traite
+    Et integrations_inbox contient 3 entrées (PLANNED, IN_PROGRESSION, OK) avec statut=traite
 ```
 
 ```gherkin

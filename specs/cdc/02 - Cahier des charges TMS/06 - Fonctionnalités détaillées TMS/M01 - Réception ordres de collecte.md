@@ -2,6 +2,7 @@
 
 **Persona principal** : Système (traitement auto) + Admin TMS (supervision) + Ops Savr (consommateur indirect via M02).
 **Contexte d'usage** : backend permanent 24/7, supervision occasionnelle Admin TMS.
+**Dernière mise à jour** : 2026-06-04 (**Revue de sobriété M01 (skill `cdc-review-sobriete`)** — purge de la dette de propagation polling/S6 : A1 W5 cold-start supprimé (lisait table morte `integrations_polling_state` + appelait W2 polling supprimé) → détection passive boot only ; B1 cap 72h/forcer-polling/runbook curl effondrés sur règle gap unique 24h ; C1 references polling E6 du corps purgées (KPI L78, §2, E1 Zone1, W2, §6 table, §10, edge case 7.16) ; C2 paramètre mort `polling_e6_active` retiré §04 ; C3 §11 D9 aligné webhook-only ; C4 webhook S6 fantôme W4 + Liens remplacé par trigger DB `plateforme.fn_recalc_marge_tournee()`. 0 enum (Bloc D RAS). 3 fichiers TMS (M01, §04, §11), cross-CDC 0.) / 2026-05-01 (propagation revue sobriété §08 Bloc A — suppression complète polling E6/S10, B_M01_02 obsolète)
 
 ---
 

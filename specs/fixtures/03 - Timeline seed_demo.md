@@ -2,9 +2,10 @@
 
 **Créé** : 2026-06-07. **Révisé 2026-09-16 (divergence M0.7_20260914).**
 
-**Deux couches temporelles.**
+**Deux couches temporelles**, et un lot d'événements multi-collectes daté sur la seconde (3.).
 1. *Socle figé* — la matrice CSV committée (`fixtures/data/matrix_collectes.csv`, 478 collectes, 2025-06 → 2026-05) porte la profondeur d'historique ; ses dates sont absolues et ne bougent jamais. `seed:check` garde des **comptes exacts** dessus.
 2. *Lot « pipeline vivant »* — les collectes récentes, en cours et à venir sont calculées relativement à une **ancre** = le jour d'exécution du seed (helper `ancreSeed()`, override `SEED_TODAY=YYYY-MM-DD` pour épingler la CI et les tests). Le déterminisme est garanti **à ancre donnée** (PRNG de graine l'ancre), ce que la constante figée visait, sans payer la péremption.
+3. *Événements multi-collectes* *(ajout 2026-10-20, demande Val)* — 7 événements passés (J-12 à J-68 de l'ancre), 24 collectes terminées (22 `cloturee`, 1 AG `realisee_sans_collecte`, 1 ZD `annulee`), définis en clair dans `packages/shared/src/seed/evenements-multi-collectes.ts`. Chacun isole un cas du bilan consolidé d'un événement (page Événements du gestionnaire) : plusieurs jours avec la même association servie deux fois ; deux associations ; 1 ZD + 1 AG le même soir ; AG sans excédent sur un événement programmé par une agence ; dominante AG sur le lieu d'un autre gestionnaire (Arts Forains) ; ZD seul avec une collecte annulée ; AG seul sans client organisateur. Les collectes ZD d'un même événement ont des pax distincts (un taux pondéré par le tonnage se distingue ainsi d'une moyenne simple). Une AG prend le pax de l'événement. Les alertes de pesée injectées par le seed (verre MIN, résiduel MAX) ne tombent jamais sur ces collectes.
 
 > ⚠ Un état transitoire (`realisee` en attente de clôture, `en_cours`, `programmee`) **ne peut pas** être figé dans le passé : les crons le consomment (embargo H+24). C'est ce qui faisait échouer `pnpm seed:check` (attendu 426 `cloturee` / 52 `realisee`, base réelle 478 / 0).
 

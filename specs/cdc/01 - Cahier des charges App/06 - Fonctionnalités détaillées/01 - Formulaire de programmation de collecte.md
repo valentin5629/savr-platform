@@ -1,5 +1,7 @@
 # 06.01 - Formulaire de programmation de collecte
 
+**Statut** : Draft V1 (refonte formulaire unique événement-centré 2026-05-21)
+**Dernière mise à jour** : 2026-05-29 (revue de sobriété — A1/A2/B1/C1-C5)
 
 ---
 
@@ -39,7 +41,7 @@ Le traiteur raisonne en **événement** (un gala, un mariage, un sommet). Un év
 - **Date + heure de collecte** (`collectes.date_collecte` + `collectes.heure_collecte`) : moment où le prestataire intervient. C'est la vérité logistique transmise au TMS et **l'unique date saisie par l'utilisateur**. Chaque collecte porte la sienne.
 - `evenements.date_evenement` : champ **backend uniquement**, auto-calculé = `MIN(collectes.date_collecte)` de l'événement (trigger `fn_set_date_evenement`). Jamais affiché dans les formulaires. Sert de référence pour les rapports PDF client (§12).
 
-**Retiré V1 (2026-05-29)** — le pax reste **unique au niveau événement** (`evenements.pax`), non modifiable par collecte. Le cas multi-jours à pax variable est reporté V2.
+**Pax porté par la collecte (décision Val 2026-10-20)** — chaque collecte porte son nombre de convives (`collectes.pax`), saisi avec sa date à l'étape 3 (§ 3.a). Le pax de l'événement (`evenements.pax`) n'est plus saisi : il est calculé depuis ses collectes, pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (une ZD et une AG du même soir comptent une fois ; deux ZD ou deux AG du même jour s'additionnent ; deux soirées s'additionnent — règle révisée par Val le 2026-10-21). Annule le retrait du 2026-05-29 (pax unique au niveau événement, multi-jours à pax variable reporté V2).
 
 ---
 
@@ -49,7 +51,7 @@ Le traiteur raisonne en **événement** (un gala, un mariage, un sommet). Un év
 2. **Formulaire en 3 étapes** :
    - **Étape 1 — Événement** : infos événement + choix du ou des types de collecte (☐ Zéro-Déchet ☐ Anti-Gaspi, au moins un coché).
    - **Étape 2 — Lieu, contacts, contrôle d'accès** : communs à l'événement (saisis une fois, hérités par toutes les collectes).
-   - **Étape 3 — Date et heure de collecte** : pour chaque type coché, sa date+heure de collecte et ses informations propres, puis confirmation. Pas de récapitulatif à cette étape : il est affiché sur l'écran de confirmation (décision Val 2026-10-16).
+   - **Étape 3 — Date et heure de collecte** : pour chaque type coché, sa date+heure de collecte, son nombre de convives (décision Val 2026-10-20) et ses informations propres, puis confirmation. Pas de récapitulatif à cette étape : il est affiché sur l'écran de confirmation (décision Val 2026-10-16).
 3. **Une soumission crée l'événement + 1 ou 2 collectes** (selon les types cochés), avec un appel webhook E1 `POST /collectes` par collecte vers le TMS.
 4. **Ajout ultérieur** : une collecte peut être ajoutée à un événement existant après coup (cas ZD aujourd'hui, AG la semaine suivante) — voir §"Ajouter une collecte à un événement existant". *(Le cas « camion supplémentaire » est retiré — multi-camions interne TMS, révisé 2026-05-25 Sujet 1.)*
 
@@ -60,7 +62,7 @@ Le traiteur raisonne en **événement** (un gala, un mariage, un sommet). Un év
 | #   | Champ                                     | Obligatoire | Composant                                           | Règle                                                                                                                                                                                                                                                                          |
 | --- | ----------------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1   | **Nom de l'événement**                    | Oui         | Input text libre                                    | Ex: "Gala de printemps", "Séminaire annuel". Nom de l'événement dans l'historique, les listes, les emails et les rapports → `evenements.nom_evenement`. Seul nom exigé à la confirmation. *(Décision Val 2026-10-19 : remplace « Nom du client final (= nom événement) », qui remplissait aussi le client final.)* |
-| 2   | **Nombre de pax**                         | Oui         | Input number                                        | ≥ 1. Pax par défaut de l'événement (repris en étape 3, modifiable par collecte si pax varie jour à jour). Base de la tarification ZD et du calcul auto **backend invisible** du volume AG (10% du pax — sert uniquement à l'algo d'attribution association, pas affiché côté traiteur).                                                                                            |
+| 2   | *(Nombre de pax : retiré de l'étape 1 — décision Val 2026-10-20)* | — | — | Le nombre de convives se saisit avec la date de chaque collecte (étape 3, § 3.a). Le pax de l'événement en est calculé (cf. note « Pax porté par la collecte » ci-dessus). |
 | 3   | **Type d'événement**                      | Oui         | Select (depuis `types_evenements`)                  | 4 catégories de **format de service** : Cocktail apéritif, Cocktail repas complet, Repas assis, Autre. **Refonte Sujet 4 (2026-05-26)** : « Autre » est une simple catégorie fourre-tout sélectionnable — **plus de champ texte libre ni de notification de normalisation** (`type_evenement_libre` + `R_type_evenement_libre` retirés V1). Le type ne porte plus de nombre ; la **taille** se dérive du `pax` (`taille_evenement_bracket()`). Référentiel extensible par ajout direct de ligne (Admin/Supabase).                            |
 | -   | Client final                              | Non         | Input text libre                                    | Nom du client organisateur (ex: "Entreprise Dupont") → `evenements.nom_client_organisateur`. Affiché « Client » / « Client final » dans les listes et fiches, filtre « Client », titre du rapport de recyclage (à défaut : nom de l'événement). N'entre pas dans « Info incomplète ». *(Décision Val 2026-10-19.)* |
 | 4   | **Référence client**                      | Non         | Input text libre                                    | Référence interne client (ex: numéro d'affaire Potel & Chabot). Reportée sur la facture Pennylane (champ "Référence") et sur le PDF Savr. → `evenements.reference_affaire`                                                                                                     |
@@ -136,7 +138,7 @@ Référentiel autocomplete depuis `contacts_traiteurs` (scoped organisation). Ni
 | Champ             | Obligatoire | Composant                                                                              | Règle                               |
 | ----------------- | ----------- | -------------------------------------------------------------------------------------- | ----------------------------------- |
 | Contact principal | Oui         | Combobox autocomplete (prenom + nom + téléphone) + option "Ajouter un nouveau contact" | Référentiel filtré par organisation. **Bornes (2026-09-16)** — nom : texte libre, **120 car. max**, mono-ligne, **non vide** ; téléphone : texte libre, **40 car. max**, **non vide**, aucun format imposé (E.164 reporté). Ces deux champs alimentent les champs natifs de contact de la commande (`contact` MTS-1 / `pickup.contact` Everest) ; ils sont obligatoires (cf. validations bloquantes) et leurs colonnes sont `NOT NULL` → une saisie faite de blancs (`'   '`) rend **422**, jamais un 500. |
-| Contact secours   | Non         | Idem                                                                                   | **Bornes (2026-09-16)** — nom : texte libre, **120 car. max**, mono-ligne ; téléphone : texte libre, **40 car. max**. Ces deux champs sont **concaténés dans le canal de texte libre** transmis au transporteur (`comment` MTS-1 / `notes` Everest) et le **nom ouvre l'agrégat** : une saisie démesurée y évince toutes les lignes suivantes (dont l'adresse d'accès) et une valeur multiligne y forge une fausse ligne d'en-tête. Bornes posées route (422) **et** base (CHECK, migration `20260915180000`). |
+| Contact secours   | Non         | Idem                                                                                   | **Bornes (2026-09-16)** — nom : texte libre, **120 car. max**, mono-ligne ; téléphone : texte libre, **40 car. max**. Ces deux champs sont **concaténés dans le canal de texte libre** transmis au transporteur (`comment` MTS-1 et Everest) et le **nom ouvre l'agrégat** : une saisie démesurée y évince toutes les lignes suivantes (dont l'adresse d'accès) et une valeur multiligne y forge une fausse ligne d'en-tête. Bornes posées route (422) **et** base (CHECK, migration `20260915180000`). |
 
 **Comportement "Ajouter un nouveau contact"** : sous-formulaire inline (prenom / nom / téléphone / fonction optionnelle) → enregistré dans `contacts_traiteurs` à la validation. Chaque sélection incrémente `contacts_traiteurs.utilise_nb_fois`.
 
@@ -170,7 +172,7 @@ Référentiel autocomplete depuis `contacts_traiteurs` (scoped organisation). Ni
 
 ---
 
-## Étape 3 — Spécificités par collecte et récapitulatif
+## Étape 3 — Date et heure de collecte
 
 Pour **chaque type de collecte coché** en étape 1, un sous-bloc dédié est affiché. Une collecte distincte est créée par sous-bloc.
 
@@ -180,7 +182,8 @@ Pour **chaque type de collecte coché** en étape 1, un sous-bloc dédié est af
 | ----- | ----------- | --------- | ----- |
 | **Date de collecte** | Oui | Date picker | **Sans défaut (refonte 2026-05-29)** — saisie obligatoire, aucune valeur pré-remplie. (supprimé : `date_evenement` est désormais dérivé de cette date, pas l'inverse). ≥ aujourd'hui. Stockée dans `collectes.date_collecte`. |
 | **Heure de collecte** | Oui | `TimePicker` — liste de créneaux toutes les 15 min, de 00:00 à 23:45 | Heure unique de présence prestataire (point fixe V1, pas de fenêtre). Stockée dans `collectes.heure_collecte`. Propre à chaque collecte. |
-| **Informations supplémentaires concernant la collecte** | Non | Textarea (1000 car. max) | Texte libre, niveau **collecte**. Ex: "Sonner interphone B au RDC", "Quai N°2 fermé le lundi". Stocké sur `collectes.informations_supplementaires`. Chaque collecte (ZD/AG) porte les siennes. **Plafond 1000 car. désormais appliqué en ÉCRITURE (2026-09-16)** — route (422) + CHECK base (migration `20260915180000`) ; auparavant seul le compteur client tronquait. Sauts de ligne et tabulation admis. ⚠ **Ce champ est le SEUL canal routé vers les deux transporteurs** (`comment` MTS-1 / `notes` Everest) : il agrège aussi le nom du contact de secours et les informations d'accès du lieu (cf. [[08 - APIs et intégrations]]). |
+| **Nombre de convives** | Oui | Input number (entier de 1 à 100 000) | Pax de **cette** collecte → `collectes.pax` (décision Val 2026-10-20). Base du calcul backend invisible du volume AG (10 %, cf. 3.c). Chaque collecte cochée a son propre champ, sans recopie de l'une à l'autre. Exigé pour confirmer comme pour enregistrer en brouillon. |
+| **Informations supplémentaires concernant la collecte** | Non | Textarea (1000 car. max) | Texte libre, niveau **collecte**. Ex: "Sonner interphone B au RDC", "Quai N°2 fermé le lundi". Stocké sur `collectes.informations_supplementaires`. Chaque collecte (ZD/AG) porte les siennes. **Plafond 1000 car. désormais appliqué en ÉCRITURE (2026-09-16)** — route (422) + CHECK base (migration `20260915180000`) ; auparavant seul le compteur client tronquait. Sauts de ligne et tabulation admis. ⚠ **Ce champ est le SEUL canal routé vers les deux transporteurs** (`comment` MTS-1 et Everest) : il agrège aussi le nom du contact de secours et les informations d'accès du lieu (cf. [[08 - APIs et intégrations]]). |
 
 **Visibilité aval des informations supplémentaires** :
 
@@ -205,22 +208,11 @@ Aucun champ ZD additionnel V1 au-delà du sous-bloc commun. Les flux sont peupl�
 
 **État du pack AG** : "Pack AG 50 crédits — il vous reste 12 crédits" ou (si pas de pack actif) « Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité. » — information, jamais bloquante.
 
-> **Note** : le volume estimé de repas n'est pas saisi. Calculé en backend invisible `round(0.10 × evenements.pax)` à l'INSERT collecte AG, stocké dans `collectes.volume_estime_repas`, utilisé uniquement par l'algo d'attribution association (R_capacite_min_50pct). Le traiteur ne le voit jamais. Voir [[05 - Règles métier#R_volume_estime_ag_calcule]].
+> **Note** : le volume estimé de repas n'est pas saisi. Calculé en backend invisible `round(0.10 × collectes.pax)` (pax de la collecte, décision Val 2026-10-20) à l'INSERT collecte AG, stocké dans `collectes.volume_estime_repas`, utilisé uniquement par l'algo d'attribution association (R_capacite_min_50pct). Le traiteur ne le voit jamais. Voir [[05 - Règles métier#R_volume_estime_ag_calcule]].
 
-### 3.d — Récapitulatif et confirmation
+### 3.d — Confirmation
 
-Affichage fiche récap + bouton "Modifier" (retour étape 1 ou 2).
-
-| Bloc récap                 | Contenu                                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Client / Événement         | Nom du client final, pax, type, référence client. **Date de l'événement affichée uniquement si l'événement porte >1 collecte à dates différentes** (revue sobriété 2026-05-29, B1) — en mono-collecte `date_evenement = date_collecte`, l'afficher deux fois est redondant. |
-| Lieu et contacts           | Lieu, adresses, contact principal, contact secours                                                     |
-| Contrôle d'accès           | "Plaque + nom chauffeur requis" si `controle_acces_requis = true`, sinon ligne masquée                 |
-| **Collecte Zéro-Déchet** (si cochée) | Date de collecte, heure de collecte, informations supplémentaires (masqué si vide), **tarif non affiché** (réduction friction — communiqué dans l'email récap après confirmation, cf. §3.b) |
-| **Collecte Anti-Gaspi** (si cochée) | Date de collecte, heure de collecte, informations supplémentaires (masqué si vide), pack AG décompté |
-| **Partage avec collègues** | Emails des collègues partagés (optionnel, voir §ci-dessous)                                            |
-
-> **Note** : le récap distingue clairement la **date de l'événement** (bloc Client) des **dates de collecte** (par collecte) pour lever toute ambiguïté quand elles diffèrent.
+Pas de récapitulatif à l'étape 3 (décision Val 2026-10-16) : le récapitulatif est affiché après confirmation, sur l'écran « Votre collecte est programmée » (cf. § Actions post-confirmation, point 13). Le bouton « Retour » ramène à l'étape 2.
 
 ### Section optionnelle — Partager avec un collègue → Reportée V1.1 *(audit sobriété §04 2026-05-25, A4)*
 
@@ -241,13 +233,15 @@ Affichage fiche récap + bouton "Modifier" (retour étape 1 ou 2).
 
 Couvre le cas : ajouter l'autre type de collecte plus tard (ZD programmé aujourd'hui, AG la semaine suivante). **Retiré — Révisé 2026-05-25 (Sujet 1, option A)** : le gros volume nécessitant plusieurs camions est désormais géré **en interne par le TMS** (1 collecte ZD traiteur → N tournées prestataire, décidées par l'Admin Savr au dispatch) et ne crée plus de collectes ZD supplémentaires côté traiteur.
 
-**Workflow** : depuis la fiche événement (page détail), bouton "Ajouter une collecte" → rouvre le formulaire avec le **niveau événement figé et pré-rempli** (client, date événement, pax, type d'événement, lieu, contacts, contrôle d'accès). L'utilisateur :
+**Workflow** : depuis la fiche événement (page détail), bouton "Ajouter une collecte", ou depuis la fiche collecte, action « Ajouter une collecte à cet événement » (pied de la fiche collecte des rôles qui programment — traiteur manager et commercial, agence, gestionnaire de lieux — et de la fiche collecte Admin, programmation de support) *(décision Val 2026-10-21)* → rouvre le formulaire avec le **niveau événement figé et pré-rempli** (client, date événement, type d'événement, lieu, contacts, contrôle d'accès). Le **nombre de convives** de la nouvelle collecte se saisit avec sa date, pré-rempli avec celui de la dernière collecte de l'événement, modifiable (décision Val 2026-10-20). L'utilisateur :
 
 1. Choisit le type de collecte à ajouter (ZD ou AG).
 2. Saisit le sous-bloc spécifique (date+heure de collecte, infos supplémentaires) — étape 3. Collecte AG : le sous-bloc affiche l'état du pack de l'organisation de l'événement — sans pack actif, l'information « Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité. », jamais bloquante (décision Val 2026-10-16).
 3. Confirme → création d'une nouvelle `collectes` rattachée à l'`evenement_id` existant + webhook E1.
 
 **Rattachement explicite** : la nouvelle collecte pointe sur l'`evenement_id` (plus de matching textuel date+lieu+client, supprimé 2026-05-21). Zéro risque de doublon d'événement.
+
+**Événements éligibles** *(décision Val 2026-10-21)* : l'ajout est possible sur **tout événement**, quel que soit l'état de ses autres collectes (en cours, réalisées, clôturées, annulées), tant que la nouvelle collecte est datée d'aujourd'hui ou après (jour en heure de Paris, l'heure de collecte n'entrant pas dans la comparaison ; date passée → refus « Date de collecte dans le passé », rien n'est créé). La fenêtre d'édition `f_collecte_editable` ne s'applique pas à l'ajout : elle reste celle de la modification. L'action n'est proposée que sur un événement de l'organisation de l'utilisateur (périmètre de `col_insert`, [[09 - Authentification et permissions]]) — jamais sur l'événement d'un traiteur tiers tenu sur les lieux d'un gestionnaire, ni au traiteur opérationnel d'une collecte programmée par un tiers, ni au client organisateur. Sur la fiche collecte, elle est proposée quel que soit le statut de la collecte affichée, annulée comprise (seule action alors proposée), sauf un brouillon (événement pas encore confirmé). L'Admin y a accès sur toute collecte hors brouillon (programmation de support).
 
 **Contrainte** : pas de doublon de type implicite — si l'événement a déjà une collecte AG, en ajouter une seconde reste possible (cas multi-points AG rare) mais l'UI avertit "Cet événement a déjà une collecte Anti-Gaspi. Confirmer l'ajout d'une seconde ?".
 
@@ -327,7 +321,7 @@ Si la case **Anti-Gaspi** est cochée en étape 1, le formulaire vérifie l'exis
 
 ### Validations bloquantes (à la confirmation)
 
-- Pax ≥ 1
+- Nombre de convives : entier de 1 à 100 000 sur chaque collecte (décision Val 2026-10-20 : il se saisit à l'étape 3 ; plafond décidé par Val le 2026-10-21)
 - **Retiré (revue sobriété 2026-05-29, C1)** — `date_evenement` n'est plus saisie (dérivée de `MIN(date_collecte)`). La contrainte est portée par la validation "date de collecte ≥ aujourd'hui" ci-dessous.
 - Au moins un type de collecte coché (ZD et/ou AG)
 - Nom de l'événement renseigné (le client final est facultatif — décision Val 2026-10-19)
@@ -352,7 +346,7 @@ Soumission possible sans ces champs ; au moins un manquant → `collectes.inform
 
 ### Validations non bloquantes (warnings inline)
 
-- Date de collecte dans les 48h → "Attention, vous programmez à moins de 48h. La disponibilité du prestataire n'est pas garantie."
+- Date et heure de collecte à moins de 24h de maintenant, en heure de Paris → « Programmation à moins de 24h — Nous vous demandons de nous appeler pour valider la faisabilité — 07 61 91 29 97 » (numéro cliquable). Tant que l'heure n'est pas choisie, seule une collecte le jour même déclenche l'alerte (validé par Val le 2026-10-20). *(Décision Val 2026-10-16 : remplace l'alerte « à moins de 48h, disponibilité non garantie ».)*
   - **Pas de délai minimum bloquant V1 (tranché Val 2026-06-10, challenge logistique — ne pas re-proposer)** : une collecte peut être programmée à n'importe quelle échéance, y compris < 1h. Le filet assumé est **l'acceptation explicite** (la collecte reste `programmee`/`attribuee_en_attente_acceptation` tant que le transporteur n'a pas confirmé — jamais d'acceptation par délai, cf. [[../08 - APIs et intégrations]] §3) + le **monitoring Admin des collectes non confirmées** (§06.06) pour relance Ops. La latence outbox (envoi immédiat après toute mutation qui écrit un ordre de collecte depuis le 2026-10-12 ; worker 15 min en filet, pour les reprises et pour l'ordre « lieu ») est couverte par ce même filet.
 - **Retiré (refonte 2026-05-29)** : `date_evenement` est auto-dérivé, plus de divergence à signaler. L'info "collecte le lendemain" est implicitement correcte (le programmeur saisit directement la bonne date de collecte).
 - Champs non bloquants vides → "Certaines informations ne sont pas encore renseignées. Vous pourrez les compléter plus tard depuis votre espace."
@@ -369,7 +363,6 @@ Soumission possible sans ces champs ; au moins un manquant → `collectes.inform
 │                                                      │
 │  [ Nom de l'événement : _______________________ ]    │
 │  (Agence/Gestionnaire) [ Traiteur opérant : ____ ▼ ] │
-│  [ Pax : ___ ]                                       │
 │  [ Type d'événement : Cocktail repas complet ▼ ]     │
 │      (Cocktail apéritif / Cocktail repas complet /   │
 │       Repas assis / Autre — pas de texte libre)      │
@@ -386,16 +379,18 @@ Soumission possible sans ces champs ; au moins un manquant → `collectes.inform
 │  Étape 2/3 — Lieu, contacts, contrôle d'accès        │
 │   (communs à l'événement)                            │
 ├─────────────────────────────────────────────────────┤
-│  Étape 3/3 — Spécificités par collecte + récap       │
+│  Étape 3/3 — Date et heure de collecte               │
 │   ┌ Collecte Zéro-Déchet ────────────────────┐       │
 │   │ Date collecte __/__/__ (oblig., sans déf.)│       │
 │   │ Heure __h__   Infos supplémentaires ...   │       │
+│   │ Convives ___ (oblig.)                     │       │
 │   └───────────────────────────────────────────┘       │
 │   ┌ Collecte Anti-Gaspi ──────────────────────┐       │
 │   │ Date collecte __/__/__   Heure __h__      │       │
+│   │ Convives ___ (oblig.)                     │       │
 │   │ Pack AG : 12 crédits restants             │       │
 │   └───────────────────────────────────────────┘       │
-│   [ Récapitulatif ]   [ Confirmer la programmation ] │
+│   [ Brouillon ]       [ Confirmer la programmation ] │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -405,8 +400,8 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 
 ## Actions post-confirmation
 
-1. Création `evenements` (1) avec `pax`, `type_evenement_id`, contacts, contrôle d'accès, traiteur opérationnel. `date_evenement` est auto-calculé par trigger après l'insertion des collectes.
-2. Création de **N `collectes`** (1 par type coché), chacune avec son `date_collecte` + `heure_collecte` + `informations_supplementaires`, rattachées à l'`evenement_id` (rattachement explicite).
+1. Création `evenements` (1) avec `type_evenement_id`, contacts, contrôle d'accès, traiteur opérationnel. `date_evenement` et `pax` sont auto-calculés par trigger après l'insertion des collectes (`pax` : pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (une ZD et une AG du même soir comptent une fois ; deux ZD ou deux AG du même jour s'additionnent ; deux soirées s'additionnent — règle révisée par Val le 2026-10-21) — décision Val 2026-10-20).
+2. Création de **N `collectes`** (1 par type coché), chacune avec son `date_collecte` + `heure_collecte` + `pax` + `informations_supplementaires`, rattachées à l'`evenement_id` (rattachement explicite).
 3. Copie de `controle_acces_requis` (niveau événement) sur chaque collecte.
 4. Upsert des contacts saisis dans `contacts_traiteurs`.
 5. Upsert du lieu saisi manuellement dans `lieux` (`actif = false`).
@@ -417,7 +412,7 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 10. Email récap au programmeur (un seul email couvrant l'événement et ses collectes — [[05 - Règles métier#9. Notifications V1]]).
 11. Si AG : lancement algo attribution → notification Admin pour validation.
 12. Si `controle_acces_requis = true` côté TMS : R_M04.CONTROLE_ACCES active.
-13. Redirection vers un **écran de confirmation dédié** `/programmer/confirmation?id=…` (bandeau succès + récapitulatif des collectes créées + rappel email récap), offrant les actions « Ajouter une collecte à cet événement », « Programmer un autre événement » et « Accueil ». _(Décision Val 2026-07-16, divergence M1.2 : écran de succès dédié plutôt que redirection directe vers le détail événement.)_
+13. Redirection vers un **écran de confirmation dédié** `/programmer/confirmation?id=…` (bandeau succès + récapitulatif — client, lieu, convives, date et heure de chaque collecte, contact principal et contact de secours avec leur téléphone — + collectes créées avec leur statut et, pour chacune, un bouton « Modifier la collecte » qui ouvre sa fiche en édition dans l'espace du rôle, la fiche collecte Admin pour le staff + rappel email récap), offrant les actions « Ajouter une collecte à cet événement », « Programmer un autre événement » et « Accueil ». _(Récapitulatif et bouton « Modifier la collecte » : décision Val 2026-10-16.)_ _(Décision Val 2026-07-16, divergence M1.2 : écran de succès dédié plutôt que redirection directe vers le détail événement.)_
     - **Rappel email récap = issue réelle de l'envoi** *(décision Val 2026-10-08)* : l'écran ne dit « envoyé » que si l'email est réellement parti. L'état est lu dans `emails_envoyes` (dernier envoi `collecte_programmee` de l'événement) et servi aux rôles programmateurs, et au staff en programmation de support, sous la forme d'un état seul — ni adresse du destinataire, ni message d'erreur.
         - Email accepté par Resend : « Un email récapitulatif vient de vous être envoyé. »
         - Email refusé pour l'instant, reprise automatique en cours ([[08 - APIs et intégrations]] §4) : « L'email récapitulatif n'a pas pu partir pour l'instant. Nous le renvoyons automatiquement. »
@@ -434,7 +429,7 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 - **Contrôle d'accès niveau événement (2026-05-21)** : saisi une fois, copié sur chaque collecte (la contrainte vient du site, pas de la collecte). Cascade lieu upgrade-only conservée. Exception vélo cargo AG conservée.
 - **Révisé 2026-05-25 (Sujet 1, option A)** : multi-camions interne au TMS — 1 collecte ZD traiteur → N tournées prestataire (Admin au dispatch), agrégation des pesées au niveau de la collecte ZD. Plus de collectes ZD multiples côté traiteur ni d'agrégation niveau événement.
 - **Ajout d'une collecte à un événement existant (2026-05-21)** : bouton depuis la fiche événement, niveau événement pré-rempli figé.
-- **3 étapes** : événement → lieu/contacts/contrôle d'accès → spécificités par collecte + récap.
+- **3 étapes** : événement → lieu/contacts/contrôle d'accès → date et heure de collecte (sans récapitulatif ; il est affiché sur l'écran de confirmation — décision Val 2026-10-16).
 - **Nom de l'événement et client final distincts (décision Val 2026-10-19)** : « Nom de l'événement » obligatoire (`evenements.nom_evenement`), « Client final » facultatif (`evenements.nom_client_organisateur`), comme au formulaire de modification. Remplace la règle « Nom du client = nom de l'événement » (une seule case écrite dans les deux colonnes).
 - **Heure de collecte unique** (point fixe, pas de fenêtre) — par collecte, choisie dans une liste de créneaux de 15 min (00:00 → 23:45).
 - **Caduc (revue sobriété 2026-05-29, C3)** — "Autre" est une catégorie sèche sélectionnable depuis Sujet 4 (2026-05-26) : plus de texte libre ni de notification de normalisation.
@@ -442,9 +437,9 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 - **Lieu existant éditable** (override collecte + patch en attente Admin, option C).
 - **Contacts niveau événement** (autocomplete `contacts_traiteurs`).
 - **Informations supplémentaires niveau collecte** (chaque collecte ZD/AG les siennes).
-- **Volume AG = 10% pax** auto-calculé backend invisible.
+- **Volume AG = 10% du pax de la collecte** auto-calculé backend invisible.
 - **Pack AG jamais bloquant** : sans pack actif, la collecte AG se programme et est facturée à l'unité (décision Val 2026-10-16).
-- **Récap distinguant date événement et dates de collecte**.
+- **Récapitulatif sur l'écran de confirmation** (décision Val 2026-10-16) : client, lieu, convives, date et heure de chaque collecte, contacts principal et de secours avec téléphone ; plus de récapitulatif à l'étape 3.
 - **Tarif ZD non affiché au formulaire (Sujet 5, 2026-05-26)** : aucun montant pendant la saisie ni au récap (réduction de friction). Le tarif applicable est calculé en backend et communiqué **après confirmation** (email récap `collecte_programmee` + facture). Option A retenue (Val). Lève la contradiction §3.b vs §3.d et solde la référence obsolète `tarifs_zd_par_gestionnaire` → `tarifs_negocie`. Question ouverte 5 (nom gestionnaire vs anonyme) rendue caduque.
 - **Suppression case CGV** : couvertes à la création de compte.
 - **Brouillon persistant** : suppression explicite par user.
@@ -499,6 +494,8 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 | **2026-05-21** | **Ajout d'une collecte à un événement existant** (bouton fiche événement)                             | **Refonte Val 2026-05-21 (sous-arbitrage 1)** |
 | **2026-05-25** | **Révision D3/4a — multi-camions interne TMS (option A)** : 1 collecte ZD traiteur → N tournées prestataire (Admin au dispatch), agrégation pesées niveau collecte ZD. Annule N collectes ZD niveau événement. | **Révision Val 2026-05-25 (Sujet 1)** |
 | **2026-05-29** | **Retrait de l'override pax par collecte** : `collectes.pax_collecte` supprimé V1. Pax unique au niveau événement (`evenements.pax`). Cas multi-jours à pax variable reporté V2. Annule l'ajout du 2026-05-29 (même jour). | **Val 2026-05-29** |
+| **2026-10-20** | **Pax porté par la collecte** : `collectes.pax`, saisi avec la date de chaque collecte (étape 3, plus à l'étape 1) ; `evenements.pax` calculé depuis les collectes (pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (une ZD et une AG du même soir comptent une fois ; deux ZD ou deux AG du même jour s'additionnent ; deux soirées s'additionnent — règle révisée par Val le 2026-10-21)). « Ajouter une collecte » demande le pax, pré-rempli avec celui de la dernière collecte. Annule le retrait du 2026-05-29. | **Val 2026-10-20** |
+| **2026-10-21** | **Pax de l'événement — règle du jour révisée** : par jour, le plus grand des deux totaux (Σ pax des ZD, Σ pax des AG) des collectes non annulées, puis la somme des jours ; remplace le « plus grand pax du jour » du 2026-10-20 (contre-cas assumé : un déjeuner et un dîner pour les mêmes convives comptent deux fois). L'équipe Savr modifie le pax d'une collecte depuis la fiche collecte Admin (lot à livrer avant le lot 2 de facturation). Code à aligner (`f_pax_evenement`). | **Val 2026-10-21** |
 | **2026-05-26** | **Tarif ZD non affiché au formulaire (Sujet 5, option A)** : alignement §3.b sur §3.d (non affiché, réduction friction). Tarif communiqué post-confirmation (email récap + facture). Question ouverte 5 caduque. Réf obsolète `tarifs_zd_par_gestionnaire` → `tarifs_negocie`. | **Sujet 5 — Val 2026-05-26** |
 | **2026-05-29** | **Duplication de collecte → V1.1** (Q1). **Normalisation lieux saisis manuellement = best-effort sans SLA** (Q2). **Matching AG = géo + capacité créneau uniquement** (Q4). Q3 (SLA modifs lieu) caduque — workflow `lieux_modifications_en_attente` supprimé. | **Arbitrages micro-points — Val 2026-05-29** |
 | **2026-05-29** | **Revue de sobriété §06.01** : A1 cas "N packs actifs" supprimé (impossible — index unique DB) · A2 autosave 30s retiré (sauvegarde manuelle V1) · B1 date événement au récap conditionnée (mono-collecte) · C1 validation "date événement ≥ aujourd'hui" retirée (champ dérivé) · C2 validation type "Autre" texte libre corrigée · C3 décision "Autre → notif Admin" caduque · C4 décision "date collecte défaut = date événement" réalignée · C5 wireframe màj. | **Revue sobriété — Val 2026-05-29** |

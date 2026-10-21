@@ -4,6 +4,7 @@
 
 **Persona principal** : Ops Savr (Val, Louis, +1 recrue prévue V1.1)
 **Contexte d'usage** : desktop bureau, pic d'activité 6h-10h (préparation journée) + ajustements continus jusqu'à 20h.
+**Dernière mise à jour** : 2026-04-29 (revue de sobriété M02 — coupes radicales : suppression SLA dispatch, bulk actions W4/W5, auto-relance refus W3, lock optimiste, audit override avec motifs, push navigateur, vues jour+semaine fusionnées en vue mois, KPIs J-7, tuiles exutoires E1, sélecteur Ops actif. Email seul pour les notifications. Last-write-wins assumé sur concurrence multi-Ops.)
 
 ---
 

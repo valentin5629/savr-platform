@@ -85,7 +85,7 @@
     },
     {
       "id": "M1.8-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1564",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1568",
       "artefact": "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql",
       "test": "supabase/tests/m1_8_collecte_flux_derive.test.sql (S1 : 3 tours → SUM par flux ; idempotence)",
       "statut": "implemented",
@@ -93,7 +93,7 @@
     },
     {
       "id": "BL-P0-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1564",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1568",
       "artefact": "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql, packages/plateforme/src/app/api/v1/admin/collectes/[id]/flux/route.ts",
       "test": "supabase/tests/m1_8_collecte_flux_derive.test.sql ; M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
       "statut": "implemented",
@@ -101,7 +101,7 @@
     },
     {
       "id": "BL-P1-RM-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:277",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:279",
       "artefact": "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql",
       "test": "supabase/tests/m1_8_collecte_flux_derive.test.sql (S2 : 2 OK + 1 KO → SUM des 2 OK, pesée du KO exclue) ; 2 ordres OK+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie",
       "statut": "implemented",
@@ -109,7 +109,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "0b8259656b44c137c7b9ac767009005666c13a8ae98b2755e7f5d5985cc4c1f4",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8d594e7c173a5c9ed31c81e1e4df67fbd35658bd50d837b77a715ba72f42ea04"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "794b4405f45b1396892c734054947b7fcd138dda6a369ebbd5c52d2342cab365",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "735d70969bf2e538475e52815282902c5fb8ce66f503838d1caf17150291c06b"
   }
 }

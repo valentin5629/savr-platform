@@ -29,6 +29,8 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 | `tarif_refacture_pax_zd_update` | `organisations` | Modif tarif refacturé (route Admin, service_role — câblé R15) |
 | `parametres_algo_update` | `parametres_algo` | Modif paramètre algo/tarif (déjà tracé §04) |
 | `parametres_co2_divers_update` | `parametres_co2_divers` | Modif facteur CO₂ (déjà tracé §04) |
+| `parametres_facteurs_co2_correction` | `parametres_facteurs_co2` | Correction des valeurs d'origine par migration (`20261020220000`, 2026-10-20) : lignes avant / après + motif, sans auteur (aucune ligne `parametres_facteurs_co2_history`) |
+| `parametres_mix_emballages_correction` | `parametres_mix_emballages` | Idem pour le mix emballages (aucune ligne `parametres_mix_emballages_history`) |
 
 ### Fiscal / réglementaire
 | `action` | `table_cible` | Déclencheur |

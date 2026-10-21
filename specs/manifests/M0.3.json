@@ -65,7 +65,7 @@
     },
     {
       "id": "M0.3-alerte-aucune-asso",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:61",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:63",
       "artefact": "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/recommandation/route.ts + lib/attribution-ag/notif-alerte.ts : quand l'algo retourne no_asso=true → f_upsert_alerte_admin('attribution_aucune_asso', …, entity=collecte). §05 l.61 « alerte Admin Savr immédiate ». In-app (§07/03 : alerte fonctionnelle, pas Slack). Idempotent + best-effort.",
       "test": "M0.3-1 ; M0.3-4",
       "statut": "implemented",
@@ -73,7 +73,7 @@
     },
     {
       "id": "M0.3-alerte-aucun-prestataire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:83",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:85",
       "artefact": "recommandation/route.ts : quand l'algo retourne no_prestataire=true (branche aucun_prestataire, incl. province tri distance) → f_upsert_alerte_admin('attribution_aucun_prestataire', …). §05 l.83/l.104/l.120.",
       "test": "M0.3-2 ; M0.3-4",
       "statut": "implemented",
@@ -81,7 +81,7 @@
     },
     {
       "id": "M0.3-alerte-pack-bas",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1039",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1041",
       "artefact": "supabase/migrations/20260709120000 : fn_trg_pack_debit_realisee + fn_trg_pack_debit_annulation_tardive — détection franchissement du seuil 10% (restants avant >10% ET après ≤10% ET non épuisé) → f_upsert_alerte_admin('pack_ag_bas', …, entity=pack). Le pack_ag_epuise in-app préexistant est conservé.",
       "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
       "statut": "implemented",
@@ -89,7 +89,7 @@
     },
     {
       "id": "M0.3-rearm-pack-alerte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:206",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:210",
       "artefact": "supabase/migrations/20260709120000 : fn_trg_pack_recredit + rpc_annuler_credit_collecte — un recrédit qui repasse le solde >10% RÉSOUT (statut='resolue') l'alerte ouverte pack_ag_bas/pack_ag_epuise → ré-arme le déclencheur (F4 tranchée Val 2026-06-07).",
       "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
       "statut": "implemented",
@@ -97,7 +97,7 @@
     },
     {
       "id": "M0.3-tpl9-email",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:201",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:205",
       "artefact": "packages/plateforme/src/app/api/cron/notify-pack-etat/route.ts + lib/packs/notify-pack-etat.ts : scanne alertes_admin (code pack_ag_bas/pack_ag_epuise, statut ouverte, email_notifie_at IS NULL) → sendEmail('admin_pack_ag_etat','contact@gosavr.io', {niveau, etat_libelle, organisation_nom, credits_restants/initiaux, pct_restant, niveau_bas, niveau_epuise, …}) → pose email_notifie_at (idempotent). Destinataire = tous admin_savr via inbox partagée (§06.02 l.202). vercel.json cron.",
       "test": "M0.3-5 ; M0.3-6 ; M0.3-7 ; M0.3-8",
       "statut": "implemented",
@@ -129,9 +129,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "0b8259656b44c137c7b9ac767009005666c13a8ae98b2755e7f5d5985cc4c1f4",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8d594e7c173a5c9ed31c81e1e4df67fbd35658bd50d837b77a715ba72f42ea04",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "bb0b06961f9aa41b21efa59bb0c2dd41834c4b187b1f682f9261639b54b22845",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "794b4405f45b1396892c734054947b7fcd138dda6a369ebbd5c52d2342cab365",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "735d70969bf2e538475e52815282902c5fb8ce66f503838d1caf17150291c06b",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9704aa851a9accf548350bdb8381258da408f7328b8922be0f43a34999960bf",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "67536ff643130ed80eeae822fd0a46c108ddda9e05630f29ed06bcff7cb33032"
   }
 }

@@ -734,6 +734,7 @@ CREATE TABLE plateforme.collectes (
   heure_debut_reelle       timestamptz,                    -- time→timestamptz (2026-06-11 audit : collectes de nuit, passage minuit ; aligné tms)
   heure_fin_reelle         timestamptz,                    -- time→timestamptz (2026-06-11 idem)
   volume_estime_repas      integer,
+  pax                      integer NOT NULL DEFAULT 0 CHECK (pax >= 0 AND pax <= 100000), -- pax de la collecte (décision Val 2026-10-20) ; evenements.pax en est calculé
   controle_acces_requis    boolean NOT NULL DEFAULT false,
   infos_acces_email_envoye_at timestamptz,                 -- infos accès chauffeur V1 (réintro Val 2026-07-15) — suivi d'envoi de l'email récap (ex-`email_plaque_envoye_at`)
   notes_internes           text,

@@ -32,7 +32,7 @@
   "deliverables": [
     {
       "id": "M3.4-liste-vues-a-venir-passees",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:151",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:153",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx + packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx (liens des cadrans « Événements ZD / AG » : onglet=passees)",
       "test": "M3.4/collectes_vues_a_venir_passees_par_date + M3.4/cockpit_declinaison_kpi_cards",
       "statut": "implemented",
@@ -136,7 +136,7 @@
     },
     {
       "id": "M3.4-cockpit-declinaison",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:151",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:153",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx",
       "test": "M3.4/cockpit_declinaison_kpi_cards",
       "statut": "implemented",
@@ -144,7 +144,7 @@
     },
     {
       "id": "M3.4-documents-ag-rapport-de-don",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:75",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:77",
       "artefact": "packages/plateforme/src/app/api/v1/organisateur/documents/route.ts (champ `nom` décidé par la route : « Rapport de don » pour l'attestation d'une collecte AG et pour le rapport d'une collecte AG sans excédents, « Rapport RSE » pour une collecte ZD ; une ligne rapports_rse d'une collecte AG avec excédents n'est pas listée) + packages/plateforme/src/app/(client-organisateur)/organisateur/documents/page.tsx (affiche `nom`)",
       "test": "packages/plateforme/tests/api/organisateur/espace-organisateur.m3-4.test.ts « M3.4/documents_collecte_ag_un_seul_rapport_de_don »",
       "statut": "implemented",
@@ -152,7 +152,7 @@
     },
     {
       "id": "M3.4-liste-organisateur-sans-excedent",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:163",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:165",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx (liste Collectes du client organisateur, onglet Anti-Gaspi, colonne « Repas » : « Sans excédent » pour une collecte AG `realisee_sans_collecte`, à la place du 0 que rend la route ; colonne Statut = « Réalisée » via le mapping client)",
       "test": "M3.4/liste_organisateur_sans_excedent",
       "statut": "implemented",
@@ -160,7 +160,7 @@
     },
     {
       "id": "M3.4-liste-organisateur-sans-excedent-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:163",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:165",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx (colonne « Repas », alignée à droite : le texte « Sans excédent » dans une colonne de nombres ; aucun style nouveau)",
       "test": "M3.4/liste_organisateur_sans_excedent",
       "statut": "à-vérifier",
@@ -168,7 +168,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "bafd32a6b2b58b696ccf29172bdcb428548d522508d4c63a0523c2b8ef202c92",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "2730a8092e5cf2b929dea9f94e0906cac3e80c06710d6b06f867fdbc31abee6d"
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "48ca393a35702554e87979a8a68a46a5a5d114315df42a0e69bae37817a54027",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "b1ce7f07f4ff2c9f18cacf248c16a704f2c7e02d9ecd705e1ea2f568f7e05650"
   }
 }

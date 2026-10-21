@@ -28,7 +28,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-brief.sh"
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-brief.sh",
+            "onFailure": "block"
           }
         ]
       },
@@ -37,11 +38,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/db-guard.sh"
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/db-guard.sh",
+            "onFailure": "block"
           },
           {
             "type": "command",
-            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-destructive.sh"
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-destructive.sh",
+            "onFailure": "block"
           },
           {
             "type": "command",
@@ -49,7 +52,8 @@
           },
           {
             "type": "command",
-            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-pr.sh"
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-pr.sh",
+            "onFailure": "block"
           },
           {
             "type": "command",

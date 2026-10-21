@@ -2,7 +2,7 @@
  * M1.2 — Tests Vitest API : Formulaire programmation collecte
  * Scénarios P1 : création ZD/AG, validations bloquantes, pack AG, facturation.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import * as emailModule from '@savr/shared/src/email/index.js';
 
@@ -566,6 +566,7 @@ describe('M1.2 / Validations bloquantes', () => {
 
 describe('M1.2 / Ajout collecte à événement existant', () => {
   beforeEach(resetChain);
+  afterEach(() => vi.useRealTimers());
 
   it('ajout_collecte_zd_evenement_existant — 201 collecte ajoutée', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
@@ -573,9 +574,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       data: { id: 'evt-1', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockRpc
-      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
-      .mockResolvedValueOnce({ data: 'new-collecte-1', error: null }); // fn_ajouter_collecte_evenement
+    mockRpc.mockResolvedValueOnce({ data: 'new-collecte-1', error: null }); // fn_creer_collecte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
@@ -591,15 +590,36 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
     expect(res.status).toBe(201);
     const json = (await res.json()) as { collecte_id: string };
     expect(json.collecte_id).toBe('new-collecte-1');
+    // Rattachement explicite au MÊME événement, par la fonction qui émet E1.
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_creer_collecte',
+      expect.objectContaining({
+        p_evenement_id: 'evt-1',
+        p_type: 'zd',
+        p_date_collecte: '2030-02-01',
+        p_heure_collecte: '10:00',
+        p_controle_acces: false,
+      }),
+    );
   });
 
-  it('ajout_collecte_non_editable — 422 si événement terminal', async () => {
-    setupAuth('traiteur_commercial', 'org-traiteur-1');
+  // Décision Val 2026-10-21 : l'ajout vaut sur TOUT événement, quel que soit
+  // l'état de ses autres collectes — la fenêtre d'édition de l'événement
+  // (f_collecte_editable) n'est plus consultée, ni la fonction qui l'imposait.
+  it('ajout_collecte_evenement_termine — 201 même si toutes les collectes sont en cours ou clôturées', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-2', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: false, error: null }); // f_collecte_editable=false
+    // Toute garde de statut lirait `false` ici : seule la création répond.
+    mockRpc.mockImplementation((fn: string) =>
+      Promise.resolve(
+        fn === 'fn_creer_collecte'
+          ? { data: 'collecte-apres-coup', error: null }
+          : { data: false, error: null },
+      ),
+    );
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
@@ -612,7 +632,92 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       }),
       { params: Promise.resolve({ id: 'evt-2' }) },
     );
+    expect(res.status).toBe(201);
+    const appels = mockRpc.mock.calls.map(([fn]) => fn);
+    expect(appels).toContain('fn_creer_collecte');
+    expect(appels).not.toContain('f_collecte_editable');
+    expect(appels).not.toContain('fn_ajouter_collecte_evenement');
+  });
+
+  it('ajout_collecte_date_passee — 422, rien n’est créé', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements/evt-2/collectes', {
+        type: 'zd',
+        date_collecte: '2020-01-01',
+        heure_collecte: '10:00',
+        pax: 80,
+      }),
+      { params: Promise.resolve({ id: 'evt-2' }) },
+    );
     expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'Date de collecte dans le passé',
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  // « Aujourd'hui ou après » se lit sur le jour en heure de Paris ; l'heure de
+  // collecte n'entre pas dans la comparaison.
+  it('ajout_collecte_aujourdhui_heure_passee — 201 : collecte datée du jour de Paris, heure déjà passée', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-21T18:00:00Z')); // 20:00 à Paris
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-2', organisation_id: 'org-traiteur-1' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-du-jour', error: null }); // fn_creer_collecte
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements/evt-2/collectes', {
+        type: 'zd',
+        date_collecte: '2026-10-21',
+        heure_collecte: '09:00',
+        pax: 80,
+      }),
+      { params: Promise.resolve({ id: 'evt-2' }) },
+    );
+    expect(res.status).toBe(201);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_creer_collecte',
+      expect.objectContaining({ p_date_collecte: '2026-10-21' }),
+    );
+  });
+
+  it('ajout_collecte_jour_de_paris — à 00:30 à Paris (22:30 UTC la veille) : la veille est refusée, le jour même accepté', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-21T22:30:00Z')); // 22/10 00:30 à Paris
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const ajouter = (date: string) =>
+      POST(
+        makeReq('POST', '/api/v1/programmation/evenements/evt-2/collectes', {
+          type: 'zd',
+          date_collecte: date,
+          heure_collecte: '23:00',
+          pax: 80,
+        }),
+        { params: Promise.resolve({ id: 'evt-2' }) },
+      );
+
+    // Encore le 21 en UTC, déjà le 22 à Paris : le 21 est passé.
+    const refus = await ajouter('2026-10-21');
+    expect(refus.status).toBe(422);
+    expect(mockRpc).not.toHaveBeenCalled();
+
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-2', organisation_id: 'org-traiteur-1' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-22', error: null }); // fn_creer_collecte
+    expect((await ajouter('2026-10-22')).status).toBe(201);
   });
 
   it('ajout_collecte_org_mismatch — 404 si organisation différente', async () => {
@@ -817,9 +922,7 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
       data: { id: 'evt-sec', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockRpc
-      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
-      .mockResolvedValueOnce({ data: 'collecte-sec-ag', error: null }); // fn_ajouter_collecte_evenement
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-sec-ag', error: null }); // fn_creer_collecte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');

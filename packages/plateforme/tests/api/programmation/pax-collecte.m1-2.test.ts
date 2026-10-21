@@ -265,9 +265,7 @@ describe('M1.2/pax_par_collecte — création', () => {
       data: { id: 'evt-1', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockRpc
-      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
-      .mockResolvedValueOnce({ data: 'new-collecte-1', error: null }); // fn_ajouter_collecte_evenement
+    mockRpc.mockResolvedValueOnce({ data: 'new-collecte-1', error: null }); // fn_creer_collecte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
@@ -282,7 +280,7 @@ describe('M1.2/pax_par_collecte — création', () => {
     );
     expect(res.status).toBe(201);
     expect(mockRpc).toHaveBeenCalledWith(
-      'fn_ajouter_collecte_evenement',
+      'fn_creer_collecte',
       expect.objectContaining({ p_pax: 420 }),
     );
   });

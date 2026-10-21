@@ -10,9 +10,12 @@ import {
   Heart,
   Info,
   MapPin,
+  PlusCircle,
   Users,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
   CelluleVide,
@@ -22,7 +25,11 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { EnTetePuce, FicheEnTete } from '@/components/ui/fiche/fiche-en-tete';
-import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
+import {
+  FicheCorps,
+  FicheModal,
+  FichePied,
+} from '@/components/ui/fiche/fiche-modal';
 import { InfoItem } from '@/components/ui/info-item';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -50,11 +57,14 @@ import {
   UNITE_KG_CO2E,
 } from '@/lib/format';
 import { variantStatutEvenement } from '@/lib/libelles/evenement';
+import { ROUTES } from '@/lib/routes';
 
 // Fiche événement du gestionnaire de lieux, en pop-up sur la liste Événements
 // (demande Val 2026-10-19 : « en modale comme les pages collectes »), sur le
 // cadre commun des fiches (FicheModal : grand en-tête, onglets, corps défilant).
-// Lecture seule (§06.05 §2). Onglets : « Bilan » (bilan consolidé, ouvert par défaut :
+// Lecture seule (§06.05 §2), à une action près : « Ajouter une collecte »
+// (§06.01), sur les événements que le gestionnaire a programmés lui-même, quel
+// que soit l'état de leurs collectes (décision Val 2026-10-21). Onglets : « Bilan » (bilan consolidé, ouvert par défaut :
 // c'est l'objet de la page, cf. lib/evenements-gestionnaire), « Collectes » et
 // « Informations ». Un clic sur une collecte ouvre sa fiche (pop-up client
 // commun) par-dessus : tant qu'elle est ouverte, la fiche événement ne se ferme
@@ -85,6 +95,8 @@ interface EvenementDetail {
   lieu_adresse: string | null;
   traiteur: { id: string; nom: string | null; a_logo: boolean } | null;
   dechets_labo_kg: number | null;
+  // Événement programmé par l'organisation de l'utilisateur (cf. la route).
+  ajouter_collecte: boolean;
   bilan: BilanEvenement;
   collectes: CollecteLigne[];
 }
@@ -652,6 +664,16 @@ export function FicheEvenementModal({
                 </TabsContent>
               </Tabs>
             </FicheCorps>
+            {evt.ajouter_collecte && (
+              <FichePied>
+                <Button asChild data-testid="action-ajouter-collecte">
+                  <Link href={ROUTES.programmer.ajouterCollecte(evt.id)}>
+                    <PlusCircle />
+                    Ajouter une collecte
+                  </Link>
+                </Button>
+              </FichePied>
+            )}
           </>
         )}
       </FicheModal>

@@ -147,6 +147,11 @@ export interface ActionsFiche {
   annuler: EtatAction;
   // directe (brouillon/programmee) ou demande validée par l'Admin (validee).
   annulation: 'directe' | 'demande' | null;
+  // « Ajouter une collecte à cet événement » : seulement sur un événement de
+  // l'organisation de l'utilisateur (la route d'ajout répond 404 sinon), quel
+  // que soit le statut de la collecte hors brouillon (décision Val 2026-10-21).
+  // Toujours posé par le serveur ; absent (fixtures d'écran) = non.
+  ajouter_collecte?: boolean;
 }
 
 export interface FicheCollecteClient {

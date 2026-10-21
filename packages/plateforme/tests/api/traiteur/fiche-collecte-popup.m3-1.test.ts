@@ -351,6 +351,7 @@ describe('M3.1 / fiche client — contenu servi', () => {
       modifier: 'actif',
       annuler: 'actif',
       annulation: 'demande',
+      ajouter_collecte: true,
     });
 
     auth('traiteur_commercial', 'org-1', 'user-autre');
@@ -359,6 +360,8 @@ describe('M3.1 / fiche client — contenu servi', () => {
       modifier: 'grise',
       annuler: 'grise',
       annulation: 'demande',
+      // L'ajout suit l'organisation de l'événement, pas son créateur (§09).
+      ajouter_collecte: true,
     });
 
     auth();
@@ -380,7 +383,59 @@ describe('M3.1 / fiche client — contenu servi', () => {
       modifier: 'absent',
       annuler: 'absent',
       annulation: null,
+      // Collecte terminée : l'ajout à l'événement reste ouvert (Val 2026-10-21).
+      ajouter_collecte: true,
     });
+  });
+
+  it('M1.2/ajout_collecte_depuis_fiche_collecte — traiteur opérationnel d’une collecte programmée par un tiers : pas d’ajout', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-agence',
+          traiteur_operationnel_organisation_id: 'org-1',
+        },
+      }),
+      error: null,
+    };
+    const { json } = await getFiche();
+    // La route d'ajout répondrait 404 : l'événement n'est pas le sien.
+    expect(
+      (json.data.actions as { ajouter_collecte: boolean }).ajouter_collecte,
+    ).toBe(false);
+  });
+
+  // Collecte annulée : ni annulation ni modification, mais l'ajout reste
+  // proposé — c'est le seul point d'entrée du traiteur quand l'unique collecte
+  // de l'événement est annulée (décision Val 2026-10-21, point I2 de la fiche
+  // de divergence M1.2_20261021).
+  it.each(['annulee', 'annulation_demandee'])(
+    'M1.2/ajout_collecte_depuis_fiche_annulee — %s : seule l’action d’ajout reste',
+    async (statut) => {
+      rls.results.collectes = {
+        data: ligneCollecte({ statut }),
+        error: null,
+      };
+      const { json } = await getFiche();
+      expect(json.data.actions).toEqual({
+        modifier: 'absent',
+        annuler: 'absent',
+        annulation: null,
+        ajouter_collecte: true,
+      });
+    },
+  );
+
+  it('M1.2/ajout_collecte_depuis_fiche_brouillon — collecte en brouillon de son organisation : pas d’ajout, l’événement n’est pas confirmé', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ statut: 'brouillon' }),
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(
+      (json.data.actions as { ajouter_collecte: boolean }).ajouter_collecte,
+    ).toBe(false);
   });
 });
 

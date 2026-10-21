@@ -17,10 +17,17 @@ import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 export const maxDuration = 60;
 
 // Cible de l'action « Ajouter une collecte à cet événement » de l'écran de
-// confirmation (§06.01 étape 13) → ouverte à l'admin en mode support comme le POST
-// de création. L'org de rattachement n'est jamais celle du JWT ici : elle est lue
-// sur l'événement (`evt.organisation_id`), ce qui vaut identité pour un rôle client
+// confirmation (§06.01 étape 13), de la fiche événement du gestionnaire et des
+// fiches collecte → ouverte à l'admin en mode support comme le POST de création.
+// L'org de rattachement n'est jamais celle du JWT ici : elle est lue sur
+// l'événement (`evt.organisation_id`), ce qui vaut identité pour un rôle client
 // (garanti par le prédicat org ci-dessous) et désigne l'org cible pour le staff.
+//
+// Ajout possible sur TOUT événement, quel que soit l'état de ses autres
+// collectes (en cours, réalisées, clôturées, annulées), tant que la nouvelle
+// collecte est datée d'aujourd'hui ou après (décision Val 2026-10-21). La
+// fenêtre d'édition de l'événement (`f_collecte_editable`) ne s'applique donc
+// pas ici : elle reste celle de la modification.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -62,7 +69,7 @@ export async function POST(
 
   const supabase = createAdminSupabaseClient();
 
-  // Vérification propriété et éditabilité — même cloisonnement que le GET.
+  // Vérification de propriété — même cloisonnement que le GET.
   const evtQuery = supabase
     .from('evenements')
     .select('id, organisation_id, lieu_id, nom_evenement')
@@ -81,17 +88,6 @@ export async function POST(
     );
   }
 
-  const { data: editable } = await supabase.rpc('f_collecte_editable', {
-    p_evenement_id: evenementId,
-  });
-
-  if (!editable) {
-    return NextResponse.json(
-      { error: 'Cet événement ne peut plus être modifié (statut terminal)' },
-      { status: 422 },
-    );
-  }
-
   // Aucune garde pack AG (décision Val 2026-10-16) : sans pack actif, la collecte
   // AG ajoutée sera facturée à l'unité.
 
@@ -102,9 +98,11 @@ export async function POST(
   });
   if (frein) return frein;
 
-  // fn_ajouter_collecte_evenement : délègue à fn_creer_collecte (gère E1 pour ZD)
+  // fn_creer_collecte (gère E1 pour ZD), sans garde de statut. Pas
+  // fn_ajouter_collecte_evenement : elle refuse l'ajout dès qu'aucune collecte
+  // de l'événement n'est en brouillon, programmée ou validée.
   const { data: collecteId, error: rpcErr } = await supabase.rpc(
-    'fn_ajouter_collecte_evenement',
+    'fn_creer_collecte',
     {
       p_evenement_id: evenementId,
       p_type: String(type),

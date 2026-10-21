@@ -16,7 +16,9 @@
     "M1.2 — édition collecte gestionnaire champ verrouillé lieu_id → 422",
     "M1.2 — édition collecte gestionnaire cloisonnement cross-org → 403",
     "M1.2 — édition collecte gestionnaire hors fenêtre (en_cours) → 422",
-    "M1.2 — édition collecte gestionnaire réacceptation prestataire (date + statut_tms=acceptee)"
+    "M1.2 — édition collecte gestionnaire réacceptation prestataire (date + statut_tms=acceptee)",
+    "ajout_collecte_zd_evenement_existant — 201 collecte ajoutée",
+    "M1.2/ajout_collecte_fiche_evenement_lien"
   ],
   "deliverables": [
     {
@@ -299,6 +301,22 @@
       "test": "type_tms=a_toutes — traiteur, pax, contact et point B de l’association atteignent l’adapter + type_tms=mts1 — traiteur, pax, contact et point B de l’association atteignent l’adapter + cliquet — chaque champ mappé fait effectivement varier le PUT",
       "statut": "implemented",
       "libelle": "Transmission au transporteur du pax de LA collecte (décision Val 2026-10-20) : l'outbox-worker demande `collectes.pax` (hors de l'embed de l'événement) et le passe aux deux adapters — numéro de commande MTS-1 « Traiteur - Lieu - N pax » et ligne « Nombre de pax : N » du commentaire (MTS-1 `comment`, Everest `notes`). Le pax entre dans la liste normative des champs comparés par `fn_set_collectes_dirty_tms` ; sa contrepartie E2 est le numéro de commande (cliquet). Preuve : la collecte simulée porte 80 pax et son événement 120 ; le test exige 80 et la colonne dans le select de la collecte."
+    },
+    {
+      "id": "M1.2-ajout-collecte-depuis-fiches",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:244",
+      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx + packages/plateforme/src/lib/collectes/fiche-client.ts + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
+      "test": "M1.2 — ajouter une collecte depuis la fiche événement du gestionnaire + M1.2 — ajouter une collecte depuis la fiche collecte (espaces clients) + M1.2 — ajouter une collecte depuis la fiche collecte de l’Admin + M1.2/ajout_collecte_depuis_fiche_collecte + M3.2/fiche_get_actions_gestionnaire + M3.3/fiche_get_socle_commun + M1.2/ajout_collecte_depuis_fiche_brouillon + M1.2/ajout_collecte_depuis_fiche_annulee",
+      "statut": "implemented",
+      "libelle": "« Ajouter une collecte » à un événement existant depuis la fiche événement (scénario ajout_collecte_zd_evenement_existant) : bouton sur la fiche événement du gestionnaire de lieux, seulement sur les événements que son organisation a programmés (la route d'ajout répond 404 sur l'événement d'un traiteur tiers tenu sur ses lieux ; la route de la fiche rend ajouter_collecte, jamais l'organisation). Étendu par décision Val 2026-10-21 à la fiche collecte : « Ajouter une collecte à cet événement » dans le pied de la fiche collecte client (traiteur manager et commercial, agence, gestionnaire), sur un événement de l'organisation de l'utilisateur quel que soit le statut de la collecte, annulée comprise (seule action alors proposée), hors brouillon (événement non confirmé) (droit calculé par le serveur, actions.ajouter_collecte), et dans le pied de la fiche collecte Admin (programmation de support), hors brouillon aussi. Le client organisateur ne programme pas : aucune action. Toutes mènent à la page /programmer/[evenement_id]/ajouter-collecte. Fiche _Divergences/M1.2_20261021_ajout-collecte-depuis-fiches.md (le §06.01 ne cite que la fiche événement)."
+    },
+    {
+      "id": "M1.2-ajout-collecte-tout-evenement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:240",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts",
+      "test": "M1.2 / Ajout collecte à événement existant > ajout_collecte_zd_evenement_existant + M1.2 / Ajout collecte à événement existant > ajout_collecte_evenement_termine + M1.2 / Ajout collecte à événement existant > ajout_collecte_date_passee + M1.2 / Ajout collecte à événement existant > ajout_collecte_aujourdhui_heure_passee + M1.2 / Ajout collecte à événement existant > ajout_collecte_jour_de_paris",
+      "statut": "implemented",
+      "libelle": "Ajout d'une collecte possible sur TOUT événement, quel que soit l'état de ses autres collectes (en cours, réalisées, clôturées, annulées), tant que la nouvelle collecte est datée d'aujourd'hui ou après, jour en heure de Paris, l'heure de collecte n'entrant pas dans la comparaison (décision Val 2026-10-21) : la route ne consulte plus la fenêtre d'édition de l'événement (f_collecte_editable, qui exigeait une collecte en brouillon, programmée ou validée) et crée la collecte par fn_creer_collecte (E1 pour une ZD, aucune garde de statut) au lieu de fn_ajouter_collecte_evenement, qui portait la même garde. Date passée : 422 « Date de collecte dans le passé », rien n'est créé. f_collecte_editable reste la fenêtre de la modification. Fiche _Divergences/M1.2_20261021_ajout-collecte-depuis-fiches.md (le §06.01 ne fixe aucune règle de statut pour l'ajout)."
     }
   ],
   "cdc_source_hash": {

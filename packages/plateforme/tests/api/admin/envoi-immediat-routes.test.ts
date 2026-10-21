@@ -953,12 +953,22 @@ const CAS: CasRoute[] = [
       heure_collecte: '22:00',
       pax: 80,
     },
-    emetteur: 'fn_ajouter_collecte_evenement',
+    emetteur: 'fn_creer_collecte',
     rend: 'col-neuve',
     attendu: ['col-neuve'],
-    // Dernière garde avant le frein : événement non modifiable (la garde pack
-    // AG, qui la suivait, est retirée — décision Val 2026-10-16).
-    refusGarde: { autresRpc: { f_collecte_editable: false } },
+    // Garde de refus avant le frein : date de collecte passée (422), pax
+    // valide pour que ce soit bien elle qui refuse. L'ajout vaut sur tout
+    // événement (décision Val 2026-10-21) : plus de garde de fenêtre
+    // d'édition, et la garde suivante, événement d'une autre organisation,
+    // répond 404.
+    refusGarde: {
+      corps: {
+        type: 'zd',
+        date_collecte: '2020-01-20',
+        heure_collecte: '22:00',
+        pax: 80,
+      },
+    },
   },
   {
     nom: 'Programmation — brouillon confirmé',

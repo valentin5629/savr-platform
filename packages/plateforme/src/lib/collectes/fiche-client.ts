@@ -182,6 +182,13 @@ export function droitsFiche(
           ? 'actif'
           : 'grise',
     annulation: espace === 'gestionnaire' ? null : mode,
+    // Périmètre de la route d'ajout : l'organisation de l'événement, pour tous
+    // les rôles (§09, un commercial ajoute à l'événement d'un collègue). Le
+    // traiteur opérationnel d'une collecte programmée par un tiers, ou le
+    // gestionnaire sur celle d'un traiteur, n'y ont pas droit. Pas depuis un
+    // brouillon : l'événement n'est pas encore confirmé.
+    ajouter_collecte:
+      statut !== 'brouillon' && evt.organisation_id === ctx.organisationId,
   };
 }
 
@@ -469,7 +476,12 @@ export async function chargerFicheCollecteClient(
           organisation_id: evt.organisation_id,
           created_by: evt.created_by,
         })
-      : { modifier: 'absent', annuler: 'absent', annulation: null },
+      : {
+          modifier: 'absent',
+          annuler: 'absent',
+          annulation: null,
+          ajouter_collecte: false,
+        },
   };
 
   return {

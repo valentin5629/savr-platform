@@ -233,8 +233,7 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
   it('admin_savr peut ajouter une collecte à un événement (action §06.01 étape 13)', async () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null }); // select événement
-    admin.push({ data: true, error: null }); // rpc f_collecte_editable
-    admin.push({ data: 'col-new', error: null }); // rpc fn_ajouter_collecte_evenement
+    admin.push({ data: 'col-new', error: null }); // rpc fn_creer_collecte
 
     const res = await ajouterCollecte('zd');
 
@@ -245,8 +244,7 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
   it('une collecte AG s’ajoute sans lire aucun pack (facturée à l’unité sans pack actif)', async () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null }); // select événement
-    admin.push({ data: true, error: null }); // rpc f_collecte_editable
-    admin.push({ data: 'col-new', error: null }); // rpc fn_ajouter_collecte_evenement
+    admin.push({ data: 'col-new', error: null }); // rpc fn_creer_collecte
 
     const res = await ajouterCollecte('ag');
 
@@ -262,7 +260,6 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
   it("l'admin agit AU NOM de l'org cible (pas de notification « tiers » parasite)", async () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null });
-    admin.push({ data: true, error: null });
     admin.push({ data: 'col-new', error: null });
 
     await ajouterCollecte('zd');
@@ -278,7 +275,6 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
   it('un rôle client reste cloisonné sur son organisation', async () => {
     setupAuth('traiteur_manager', 'org-kaspia');
     admin.push({ data: EVT, error: null });
-    admin.push({ data: true, error: null });
     admin.push({ data: 'col-new', error: null });
 
     const res = await ajouterCollecte('zd');

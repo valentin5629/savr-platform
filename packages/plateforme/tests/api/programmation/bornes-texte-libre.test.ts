@@ -927,7 +927,7 @@ describe('bornes texte libre — routes collecte', () => {
     );
   });
 
-  it('POST /programmation/evenements/[id]/collectes : passe à fn_ajouter_collecte_evenement la valeur NORMALISÉE', async () => {
+  it('POST /programmation/evenements/[id]/collectes : passe à fn_creer_collecte la valeur NORMALISÉE', async () => {
     setupAuth('traiteur_manager');
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -937,10 +937,8 @@ describe('bornes texte libre — routes collecte', () => {
         pax: 80,
       },
       error: null,
-    }); // vérification propriété/éditabilité de l'événement
-    mockRpc
-      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
-      .mockResolvedValueOnce({ data: 'col-neuve', error: null }); // fn_ajouter_collecte_evenement
+    }); // vérification de propriété de l'événement
+    mockRpc.mockResolvedValueOnce({ data: 'col-neuve', error: null }); // fn_creer_collecte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
@@ -957,7 +955,7 @@ describe('bornes texte libre — routes collecte', () => {
 
     expect(res.status).toBe(201);
     expect(mockRpc).toHaveBeenCalledWith(
-      'fn_ajouter_collecte_evenement',
+      'fn_creer_collecte',
       expect.objectContaining({
         p_info_suppl: 'Sonner au 3e, porte droite',
       }),

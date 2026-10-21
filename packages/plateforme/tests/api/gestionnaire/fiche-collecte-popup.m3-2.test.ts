@@ -277,6 +277,8 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
       modifier: 'grise',
       annuler: 'absent',
       annulation: null,
+      // Événement d'un traiteur tiers : la route d'ajout répondrait 404.
+      ajouter_collecte: false,
     });
 
     rls.results.collectes = {
@@ -293,6 +295,7 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
       modifier: 'actif',
       annuler: 'absent',
       annulation: null,
+      ajouter_collecte: true,
     });
   });
 

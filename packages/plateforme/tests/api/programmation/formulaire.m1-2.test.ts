@@ -684,6 +684,38 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
+  // Une seule collecte en brouillon suffit : avant ce lot, l'ajout sur un
+  // brouillon créait une collecte programmée à côté, d'où des événements
+  // mixtes, toujours pas confirmés.
+  it('ajout_collecte_evenement_brouillon_mixte — une collecte programmée, une en brouillon : 422, rien n’est créé', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-mixte',
+        organisation_id: 'org-traiteur-1',
+        collectes: [
+          { statut: 'programmee', controle_acces_requis: false },
+          { statut: 'brouillon', controle_acces_requis: false },
+        ],
+      },
+      error: null,
+    });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements/evt-mixte/collectes', {
+        type: 'zd',
+        date_collecte: '2030-02-01',
+        heure_collecte: '10:00',
+        pax: 80,
+      }),
+      { params: Promise.resolve({ id: 'evt-mixte' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it('ajout_collecte_evenement_brouillon_admin — l’équipe Savr aussi : 422, rien n’est créé', async () => {
     setupAuth('admin_savr', 'org-savr');
     mockSingle.mockResolvedValueOnce({

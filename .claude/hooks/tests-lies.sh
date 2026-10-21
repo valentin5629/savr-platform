@@ -20,10 +20,11 @@
 #      travail, fichiers non suivis), pas seulement l'index : le hook se déclenche
 #      AVANT la commande, donc avant le `git add` d'un `git add … && git commit …`.
 #   2. Les cliquets de SÉCURITÉ (`packages/plateforme/tests/securite/`), à chaque
-#      commit dès que la branche change quoi que ce soit. Quatre des six LISENT le
-#      dépôt au lieu de l'importer (routes gardées, middleware, crons) : le graphe
-#      d'imports ne les relie à rien, et une route d'API ajoutée sans garde
-#      passait le commit (mesuré en revue). Une dizaine de secondes.
+#      commit dès que la branche change quoi que ce soit. Cinq des sept LISENT le
+#      dépôt au lieu de l'importer (routes gardées, middleware, crons, commandes
+#      de hook de `.claude/settings.json`) : le graphe d'imports ne les relie à
+#      rien, et une route d'API ajoutée sans garde passait le commit (mesuré en
+#      revue). Une dizaine de secondes.
 #
 # CE QUE ÇA NE RETIRE PAS
 # -----------------------

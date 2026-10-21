@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/session-hygiene.sh",
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-hygiene.sh",
             "timeout": 20
           }
         ]
@@ -15,7 +15,10 @@
       {
         "matcher": "Write|Edit",
         "hooks": [
-          { "type": "command", "command": "bash .claude/hooks/format-file.sh" }
+          {
+            "type": "command",
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-file.sh"
+          }
         ]
       }
     ],
@@ -23,23 +26,35 @@
       {
         "matcher": "Write|Edit",
         "hooks": [
-          { "type": "command", "command": "bash .claude/hooks/gate-brief.sh" }
+          {
+            "type": "command",
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-brief.sh"
+          }
         ]
       },
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "bash .claude/hooks/db-guard.sh" },
           {
             "type": "command",
-            "command": "bash .claude/hooks/block-destructive.sh"
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/db-guard.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/pre-commit-gate.sh"
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-destructive.sh"
           },
-          { "type": "command", "command": "bash .claude/hooks/gate-pr.sh" },
-          { "type": "command", "command": "bash .claude/hooks/gate-merge.sh" }
+          {
+            "type": "command",
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre-commit-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-pr.sh"
+          },
+          {
+            "type": "command",
+            "command": "racine=$(git rev-parse --show-toplevel 2>/dev/null) && cd \"$racine\"; bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gate-merge.sh"
+          }
         ]
       }
     ],

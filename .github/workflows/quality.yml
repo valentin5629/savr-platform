@@ -140,6 +140,13 @@ jobs:
           bash scripts/test-pgtap.sh --self-test
           bash scripts/check-query-perf.sh --self-test
           bash scripts/smoke-test-db.sh --self-test
+      # Le script de synchro des specs n'est joué par aucun job : le Vault n'est pas
+      # en CI. Jusqu'au 2026-10-21, une copie qui n'aboutissait pas passait sans
+      # bruit, specs/SYNC.md était quand même daté du jour, et l'option --auto
+      # committait sur la branche extraite. Dépôt et Vault jetables ; un faux rsync
+      # simule la copie en échec.
+      - name: Auto-test du script de synchro des specs
+        run: bash scripts/sync-specs.sh --self-test
       - name: Collision de timestamp, y compris avec une branche non mergee
         run: bash scripts/check-migration-timestamp.sh --branch
 

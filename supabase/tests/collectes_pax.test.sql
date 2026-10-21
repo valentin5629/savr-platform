@@ -20,7 +20,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(44);
+SELECT plan(45);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
 RETURNS void LANGUAGE plpgsql AS $$
@@ -227,6 +227,11 @@ SELECT is(pg_temp.pax_evt((SELECT evt_seul FROM t)), 250,
 SELECT plateforme.fn_modifier_collecte((SELECT seule FROM t), '{"statut": "annulee"}'::jsonb, ARRAY['statut']);
 SELECT is(pg_temp.pax_evt((SELECT evt_seul FROM t)), 250,
   'toutes ses collectes annulées : l''événement garde son dernier pax');
+-- Pax de l'événement au-delà du plafond (somme de plusieurs jours) et plus
+-- aucune collecte active : le défaut est borné à 100 000, jamais refusé.
+UPDATE plateforme.evenements SET pax = 150000 WHERE id = (SELECT evt_seul FROM t);
+SELECT is(pg_temp.pax(pg_temp.collecte((SELECT evt_seul FROM t), 'zd', 46, NULL)), 100000,
+  'collecte créée sans pax, événement à 150 000 sans collecte active : 100 000 (plafond)');
 
 -- ── Suppression des collectes d'un événement ─────────────────────────────────
 -- La dernière collecte supprimée laisse l'événement sans collecte : son pax est

@@ -155,8 +155,11 @@ BEGIN
        AND c.pax > 0
      ORDER BY c.date_collecte DESC, c.heure_collecte DESC, c.created_at DESC
      LIMIT 1;
+    -- À défaut, celui de l'événement, borné au plafond : un événement dont la
+    -- somme des jours dépasse 100 000 et qui n'a plus de collecte active ne doit
+    -- pas faire refuser la nouvelle par collectes_pax_bornes.
     IF NEW.pax IS NULL THEN
-      SELECT e.pax INTO NEW.pax
+      SELECT LEAST(e.pax, 100000) INTO NEW.pax
         FROM plateforme.evenements e
        WHERE e.id = NEW.evenement_id;
     END IF;

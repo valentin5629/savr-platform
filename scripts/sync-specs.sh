@@ -7,8 +7,10 @@
 #   bash scripts/sync-specs.sh --self-test    # auto-test, dépôt et Vault jetables
 #
 # Le script copie et ne committe RIEN. Il refuse de tourner sur la branche
-# `main` : la synchro se fait dans un worktree dédié créé depuis origin/main
-# (commandes affichées par le refus), puis part par une PR « specs: sync ».
+# `main`, et quand le parent de son dossier n'est pas la racine d'un dépôt git
+# (sa place : scripts/ du dépôt). La synchro se fait dans un worktree dédié créé
+# depuis origin/main (commandes affichées par le refus de main), puis part par
+# une PR « specs: sync ».
 #
 # Pourquoi (2026-10-21) : l'option --auto, retirée ce jour-là, committait sur la
 # branche extraite. Un agent macOS la lançait sur le clone principal, dont le
@@ -38,61 +40,90 @@ copie() {
 }
 
 # ── Auto-test (`--self-test`) — joué en CI (job `migration-timestamp`) ────────
-# Rejoue le script entier dans un dépôt git et un Vault jetables (dossier
-# temporaire) : ni le dépôt réel ni le vrai Vault ne sont lus. Un faux `pnpm`
-# (gen:cdc-metadata n'a pas d'objet dans le dépôt jetable) et, pour la copie en
-# échec, un faux `rsync` qui sort en 23 sont placés en tête du PATH.
+# Rejoue le script entier dans un dépôt git jetable (reconstruit par
+# `depot_neuf`) et un Vault jetable : ni le dépôt réel ni le vrai Vault ne sont
+# lus. En tête du PATH : un faux `pnpm` (gen:cdc-metadata n'a pas d'objet dans un
+# dépôt jetable) et un faux `rsync`, qui sort en 23 quand l'un de ses arguments
+# contient $FAUX_RSYNC_ECHEC et passe la main au vrai rsync sinon.
+# Pour ne rien écrire hors du dossier jetable : les parades de
+# .claude/hooks/lib-auto-test.sh, épinglées par ses rejeux sous pièges
+# (`pieges_tenus` ; la bibliothèque dit ce qu'ils ne couvrent pas). En plus de
+# `git_isole`, la configuration git du système n'est pas lue (GIT_CONFIG_NOSYSTEM).
+# Code 3 : auto-test non joué. Code 2 : auto-test en échec.
 self_test() (
   set +e
-  local script_abs bac depot vault tete rc sortie echec=false d
-  script_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-  # Rien hors du dossier jetable — les trois parades de .claude/hooks/lib-auto-test.sh,
-  # écrites sur place : variables GIT_* héritées retirées, chemin rendu par mktemp
-  # contrôlé avant tout usage, configuration git de l'utilisateur (et ici aussi
-  # celle du système) non lue avant le premier appel à git.
+  local ici lib bac depot vault vrai_rsync echec_rsync="" tete rc sortie echec=false src paire n i
+  ici="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/$(basename "${BASH_SOURCE[0]}")"
   # shellcheck disable=SC2086  # découpage voulu : un nom de variable par mot
   unset ${!GIT_*}
-  bac=$(mktemp -d) || { echo "🔴 AUTO-TEST : mktemp -d impossible." >&2; return 2; }
-  { [ -n "$bac" ] && [ -d "$bac" ]; } || { echo "🔴 AUTO-TEST : dossier jetable invalide." >&2; return 2; }
-  bac=$(cd "$bac" && pwd -P) || { echo "🔴 AUTO-TEST : dossier jetable illisible." >&2; return 2; }
+  lib="$(dirname "$ici")/../.claude/hooks/lib-auto-test.sh"
+  [ -f "$lib" ] || { echo "🔴 sync-specs : lib-auto-test.sh introuvable — auto-test non joué." >&2; exit 3; }
+  # shellcheck source=/dev/null
+  . "$lib"
+  bac="$(bac_jetable)" || { echo "🔴 sync-specs : pas de dossier temporaire — auto-test non joué." >&2; exit 3; }
   trap 'rm -rf "$bac"' EXIT
-  mkdir "$bac/maison" || { echo "🔴 AUTO-TEST : dossier jetable non inscriptible." >&2; return 2; }
-  # shellcheck disable=SC2030  # voulu : HOME ne change que dans le sous-shell de l'auto-test
-  export HOME="$bac/maison" XDG_CONFIG_HOME="$bac/maison/.config" GIT_CONFIG_NOSYSTEM=1
+  git_isole "$bac" || { echo "🔴 sync-specs : dossier d'isolement non créé — auto-test non joué." >&2; exit 3; }
+  export GIT_CONFIG_NOSYSTEM=1
+  vrai_rsync="$(command -v rsync)" || { echo "🔴 sync-specs : rsync introuvable — auto-test non joué." >&2; exit 3; }
   depot="$bac/depot"
   vault="$bac/vault"
-  mkdir -p "$bac/bin" "$bac/bin-ko" "$depot/scripts" "$depot/specs/cdc"
+  mkdir -p "$bac/bin" "$bac/hors-depot/scripts" "$bac/autre" \
+    || { echo "🔴 sync-specs : dossier jetable non inscriptible — auto-test non joué." >&2; exit 3; }
   printf '#!/bin/sh\nexit 0\n' > "$bac/bin/pnpm"
-  cat > "$bac/bin-ko/rsync" <<'FAUX'
+  cat > "$bac/bin/rsync" << 'FAUX'
 #!/bin/sh
-echo "faux rsync : lecture refusée" >&2
-: > "$FAUX_TRACE"
-exit 23
+if [ -n "$FAUX_RSYNC_ECHEC" ]; then
+  for a in "$@"; do
+    case "$a" in
+      *"$FAUX_RSYNC_ECHEC"*)
+        echo "faux rsync : lecture refusée" >&2
+        : > "$FAUX_TRACE"
+        exit 23
+        ;;
+    esac
+  done
+fi
+exec "$FAUX_VRAI_RSYNC" "$@"
 FAUX
-  chmod +x "$bac/bin/pnpm" "$bac/bin-ko/rsync"
+  chmod +x "$bac/bin/pnpm" "$bac/bin/rsync"
 
-  for d in "_DEV-FACING" "01 - Cahier des charges App/tests" "02 - Cahier des charges TMS/tests" \
-    "_DDL-CIBLE-V2" "05 - Fixtures"; do
-    mkdir -p "$vault/$d" && echo "contenu du Vault" > "$vault/$d/f.md"
+  # Un nombre de fichiers différent par source (2 à 6 avec a.md) : chaque compte
+  # écrit dans specs/SYNC.md se vérifie à part.
+  for paire in "_DEV-FACING|1" "01 - Cahier des charges App/tests|3" "02 - Cahier des charges TMS/tests|4" \
+    "_DDL-CIBLE-V2|5" "05 - Fixtures|6"; do
+    src="${paire%|*}"
+    n="${paire#*|}"
+    i=0
+    mkdir -p "$vault/$src" || { echo "🔴 sync-specs : Vault jetable non construit — auto-test non joué." >&2; exit 3; }
+    while [ "$i" -lt "$n" ]; do
+      echo "contenu du Vault" > "$vault/$src/f$i.md"
+      i=$((i + 1))
+    done
   done
   echo "nouveau" > "$vault/_DEV-FACING/a.md"
+  (cd "$bac/autre" && git init -q -b lot . && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m autre) \
+    > /dev/null 2>&1 || { echo "🔴 sync-specs : dépôt témoin non construit — auto-test non joué." >&2; exit 3; }
 
-  cp "$script_abs" "$depot/scripts/sync-specs.sh"
-  echo "ancien" > "$depot/specs/cdc/a.md"
-  echo "retiré depuis du Vault" > "$depot/specs/cdc/retire.md"
-  echo "Dernier sync : avant" > "$depot/specs/SYNC.md"
-  (cd "$depot" && git init -q -b main . && git add -A \
-    && git -c user.email=t@t -c user.name=t commit -qm base) > /dev/null 2>&1 \
-    || { echo "🔴 AUTO-TEST : dépôt jetable non construit." >&2; return 2; }
-  tete=$(git -C "$depot" rev-parse HEAD)
-
-  # joue <tête du PATH> <arguments…> : rejoue le script du dépôt jetable → $rc, $sortie
+  # depot_neuf <branche> : reconstruit le dépôt jetable sur <branche> — le script,
+  # un specs/ ancien dont un fichier retiré depuis du Vault, un specs/SYNC.md daté
+  # « avant », un commit — et garde son HEAD dans $tete.
+  depot_neuf() {
+    { rm -rf "$depot" && mkdir -p "$depot/scripts" "$depot/specs/cdc" \
+      && cp "$ici" "$depot/scripts/sync-specs.sh" \
+      && echo "ancien" > "$depot/specs/cdc/a.md" \
+      && echo "retiré depuis du Vault" > "$depot/specs/cdc/retire.md" \
+      && echo "Dernier sync : avant" > "$depot/specs/SYNC.md" \
+      && (cd "$depot" && git init -q -b "$1" . && git add -A \
+        && git -c user.email=t@t -c user.name=t commit -qm base) > /dev/null 2>&1; } \
+      || { echo "🔴 sync-specs : dépôt jetable non construit — auto-test non joué." >&2; exit 3; }
+    tete=$(git -C "$depot" rev-parse HEAD)
+  }
+  # joue <arguments…> : lance le script du dépôt jetable depuis sa racine → $rc,
+  # $sortie. $echec_rsync nomme la source dont la copie échoue (vide : aucune).
   joue() {
-    local avant="$1"
-    shift
     rc=0
-    sortie=$(cd "$depot" && PATH="$avant:$PATH" FAUX_TRACE="$bac/faux-rsync-appele" \
-      bash "$depot/scripts/sync-specs.sh" "$@" 2>&1) || rc=$?
+    sortie=$(cd "$depot" && PATH="$bac/bin:$PATH" FAUX_VRAI_RSYNC="$vrai_rsync" FAUX_RSYNC_ECHEC="$echec_rsync" \
+      FAUX_TRACE="$bac/faux-rsync-appele" bash "$depot/scripts/sync-specs.sh" "$@" 2>&1) || rc=$?
   }
   ko() {
     echo "🔴 AUTO-TEST [$1] : $2" >&2
@@ -102,51 +133,124 @@ FAUX
     [ "$rc" -eq "$2" ] || ko "$1" "sortie $rc, $2 attendu — $sortie"
     case "$sortie" in *"$3"*) ;; *) ko "$1" "la sortie ne dit pas « $3 »" ;; esac
   }
-  intact() { # intact <cas> : aucun fichier écrit dans le dépôt jetable, aucun commit
+  intact() { # intact <cas> : `git status` vide et HEAD inchangé dans le dépôt jetable
     [ -z "$(git -C "$depot" status --porcelain)" ] \
       || ko "$1" "fichiers écrits : $(git -C "$depot" status --porcelain | tr '\n' ' ')"
     [ "$(git -C "$depot" rev-parse HEAD)" = "$tete" ] || ko "$1" "un commit a été créé"
   }
 
-  joue "$bac/bin" "$vault"
+  depot_neuf main
+  joue "$vault"
   attendu "sur main" 2 "refuse de tourner sur main"
   intact "sur main"
 
-  git -C "$depot" checkout -q -b specs/sync-essai
-  joue "$bac/bin" --auto "$vault"
+  # Un GIT_DIR hérité désigne un autre dépôt, sur une autre branche : la garde lit
+  # quand même la branche du dépôt qui porte le script.
+  rc=0
+  sortie=$(cd "$depot" && GIT_DIR="$bac/autre/.git" PATH="$bac/bin:$PATH" FAUX_VRAI_RSYNC="$vrai_rsync" \
+    FAUX_RSYNC_ECHEC="" FAUX_TRACE="$bac/faux-rsync-appele" bash "$depot/scripts/sync-specs.sh" "$vault" 2>&1) || rc=$?
+  attendu "sur main, GIT_DIR vers un autre dépôt" 2 "refuse de tourner sur main"
+  intact "sur main, GIT_DIR vers un autre dépôt"
+
+  # Copié hors d'un dépôt git : refus, rien d'écrit.
+  cp "$ici" "$bac/hors-depot/scripts/sync-specs.sh"
+  rc=0
+  sortie=$(cd "$bac/hors-depot" && PATH="$bac/bin:$PATH" FAUX_VRAI_RSYNC="$vrai_rsync" FAUX_RSYNC_ECHEC="" \
+    FAUX_TRACE="$bac/faux-rsync-appele" bash "$bac/hors-depot/scripts/sync-specs.sh" "$vault" 2>&1) || rc=$?
+  attendu "hors d'un dépôt git" 2 "n'est pas la racine d'un dépôt git"
+  [ ! -e "$bac/hors-depot/specs" ] || ko "hors d'un dépôt git" "specs/ a été écrit"
+
+  # Placé dans un sous-dossier d'un autre dépôt (le parent de son dossier n'est pas
+  # la racine de ce dépôt) : refus, rien d'écrit.
+  { mkdir -p "$bac/autre/sous/scripts" && cp "$ici" "$bac/autre/sous/scripts/sync-specs.sh"; } \
+    || { echo "🔴 sync-specs : copie dans le dépôt témoin impossible — auto-test non joué." >&2; exit 3; }
+  rc=0
+  sortie=$(cd "$bac/autre/sous" && PATH="$bac/bin:$PATH" FAUX_VRAI_RSYNC="$vrai_rsync" FAUX_RSYNC_ECHEC="" \
+    FAUX_TRACE="$bac/faux-rsync-appele" bash "$bac/autre/sous/scripts/sync-specs.sh" "$vault" 2>&1) || rc=$?
+  attendu "dans un sous-dossier d'un dépôt" 2 "n'est pas la racine d'un dépôt git"
+  [ ! -e "$bac/autre/sous/specs" ] || ko "dans un sous-dossier d'un dépôt" "specs/ a été écrit"
+
+  # Lancé par un chemin qui passe par un lien vers le dépôt : c'est le même dépôt
+  # (chemins comparés une fois les liens résolus), donc le refus de main s'applique.
+  ln -s "$depot" "$bac/lien-vers-depot" \
+    || { echo "🔴 sync-specs : lien vers le dépôt jetable non créé — auto-test non joué." >&2; exit 3; }
+  rc=0
+  sortie=$(cd "$bac/lien-vers-depot" && PATH="$bac/bin:$PATH" FAUX_VRAI_RSYNC="$vrai_rsync" FAUX_RSYNC_ECHEC="" \
+    FAUX_TRACE="$bac/faux-rsync-appele" bash "$bac/lien-vers-depot/scripts/sync-specs.sh" "$vault" 2>&1) || rc=$?
+  attendu "sur main, par un lien vers le dépôt" 2 "refuse de tourner sur main"
+  intact "sur main, par un lien vers le dépôt"
+
+  depot_neuf specs/sync-essai
+  joue --auto "$vault"
   attendu "--auto" 2 "--auto est retiré"
   intact "--auto"
 
-  joue "$bac/bin-ko:$bac/bin" "$vault"
-  [ -e "$bac/faux-rsync-appele" ] || ko "copie en échec" "VACANT : le faux rsync n'a pas été appelé"
-  attendu "copie en échec" 1 "Copie en échec"
-  intact "copie en échec"
+  joue -x "$vault"
+  attendu "option inconnue" 2 "Option inconnue : -x"
+  intact "option inconnue"
 
-  mv "$vault/05 - Fixtures" "$bac/fixtures-de-cote"
-  joue "$bac/bin" "$vault"
-  mv "$bac/fixtures-de-cote" "$vault/05 - Fixtures"
-  attendu "source absente" 1 "Source absente du Vault"
-  intact "source absente"
+  rm -f "$bac/faux-rsync-appele"
+  echec_rsync="_DEV-FACING"
+  joue "$vault"
+  echec_rsync=""
+  [ -e "$bac/faux-rsync-appele" ] || ko "copie en échec, 1re cible" "VACANT : le faux rsync n'a pas refusé la copie"
+  attendu "copie en échec, 1re cible" 1 "Copie en échec"
+  intact "copie en échec, 1re cible"
 
-  joue "$bac/bin" "$vault"
+  # Échec à la 2e cible : la 1re reste copiée, specs/SYNC.md n'est pas réécrit.
+  rm -f "$bac/faux-rsync-appele"
+  echec_rsync="01 - Cahier des charges App/tests"
+  joue "$vault"
+  echec_rsync=""
+  [ -e "$bac/faux-rsync-appele" ] || ko "copie en échec, 2e cible" "VACANT : le faux rsync n'a pas refusé la copie"
+  attendu "copie en échec, 2e cible" 1 "les cibles déjà copiées le restent"
+  [ "$(cat "$depot/specs/cdc/a.md")" = "nouveau" ] || ko "copie en échec, 2e cible" "la 1re cible n'a pas été copiée"
+  [ "$(cat "$depot/specs/SYNC.md")" = "Dernier sync : avant" ] || ko "copie en échec, 2e cible" "specs/SYNC.md a été réécrit"
+  [ "$(git -C "$depot" rev-parse HEAD)" = "$tete" ] || ko "copie en échec, 2e cible" "un commit a été créé"
+
+  # Chacune des 5 sources absente, l'une après l'autre : arrêt avant toute copie.
+  for src in "_DEV-FACING" "01 - Cahier des charges App/tests" "02 - Cahier des charges TMS/tests" \
+    "_DDL-CIBLE-V2" "05 - Fixtures"; do
+    depot_neuf specs/sync-essai
+    mv "$vault/$src" "$bac/source-de-cote"
+    joue "$vault"
+    mv "$bac/source-de-cote" "$vault/$src"
+    attendu "source absente : $src" 1 "Source absente du Vault"
+    case "$sortie" in *"$src"*) ;; *) ko "source absente : $src" "la source absente n'est pas nommée" ;; esac
+    intact "source absente : $src"
+  done
+
+  depot_neuf specs/sync-essai
+  joue "$vault"
   attendu "copie réussie" 0 "Rien n'est commité"
   [ "$(cat "$depot/specs/cdc/a.md")" = "nouveau" ] || ko "copie réussie" "specs/cdc/a.md n'a pas été recopié"
   [ ! -e "$depot/specs/cdc/retire.md" ] || ko "copie réussie" "un fichier retiré du Vault est resté (--delete)"
   grep -q '^Dernier sync : 2' "$depot/specs/SYNC.md" || ko "copie réussie" "specs/SYNC.md n'est pas daté"
+  for src in "cdc       : 2" "tests/app : 3" "tests/tms : 4" "ddl-cible : 5" "fixtures  : 6"; do
+    grep -qF "  specs/$src fichiers" "$depot/specs/SYNC.md" \
+      || ko "copie réussie" "specs/SYNC.md ne dit pas « specs/$src fichiers »"
+  done
   [ "$(git -C "$depot" rev-parse HEAD)" = "$tete" ] || ko "copie réussie" "un commit a été créé"
+  [ -n "$(git -C "$depot" status --porcelain)" ] || ko "copie réussie" "VACANT : rien n'a changé dans le dépôt"
 
-  [ "$echec" = true ] && return 1
-  echo "✅ sync-specs : auto-test OK (refus sur main, refus de --auto, copie en échec et source absente sans rien écrire, copie réussie sans commit)."
-  return 0
+  pieges_tenus "$ici" "$bac" || echec=true
+  # Le retrait de l'appel ci-dessus se voit : hors d'un rejeu, son bilan doit être
+  # posé (retirer aussi ce contrôle ne se verrait pas).
+  [ -n "${SAVR_AUTO_TEST_SOUS_PIEGE:-}" ] || [ -n "$PIEGES_BILAN" ] \
+    || ko "rejeux sous pièges" "pieges_tenus n'a pas posé son bilan"
+
+  [ "$echec" = true ] && exit 2
+  echo "✅ sync-specs : auto-test OK (refus sur main, y compris sous un GIT_DIR qui désigne un autre dépôt et par un chemin qui passe par un lien ; refus hors d'un dépôt git et dans un sous-dossier d'un autre dépôt ; refus de --auto et d'une option inconnue ; copie en échec à la 1re cible et chacune des 5 sources absente : git status vide, HEAD inchangé ; copie en échec à la 2e cible : 1re cible copiée, specs/SYNC.md non réécrit ; copie réussie sans commit, comptes de specs/SYNC.md compris${PIEGES_BILAN})."
+  exit 0
 )
 
 if [[ "${1:-}" == "--self-test" ]]; then
-  self_test || exit 2
-  exit 0
+  rc=0
+  self_test || rc=$?
+  exit "$rc"
 fi
 
 # ── Paramètres ──────────────────────────────────────────────────────────────
-# shellcheck disable=SC2031  # le HOME de l'auto-test ne sort pas de son sous-shell
 VAULT="${HOME}/Desktop/Obsidian Savr"
 for arg in "$@"; do
   case "$arg" in
@@ -163,11 +267,22 @@ for arg in "$@"; do
   esac
 done
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$REPO_ROOT"
 
-# ── Jamais sur main ──────────────────────────────────────────────────────────
-branche="$(git branch --show-current 2> /dev/null || true)"
+# ── À la racine du dépôt qui porte ce script, jamais sur main ────────────────
+# Variables GIT_* retirées : un GIT_DIR hérité ferait lire la branche d'un autre
+# dépôt. Le parent du dossier du script doit être la racine d'un dépôt git (sa
+# place : scripts/) ; sinon — copie ou lien hors d'un dépôt, copie plus profond
+# dans un dépôt — il refuse.
+# shellcheck disable=SC2086  # découpage voulu : un nom de variable par mot
+unset ${!GIT_*}
+racine="$(git rev-parse --show-toplevel 2> /dev/null || true)"
+if [[ "$racine" != "$REPO_ROOT" ]]; then
+  echo "❌  sync-specs refuse : ${REPO_ROOT} n'est pas la racine d'un dépôt git (script copié ou lancé par un lien ?) — rien n'est copié." >&2
+  exit 2
+fi
+branche="$(git branch --show-current)"
 if [[ "$branche" == "main" ]]; then
   jour="$(date +%Y%m%d)"
   echo "❌  sync-specs refuse de tourner sur main : la synchro se fait dans un worktree dédié, puis part par PR." >&2

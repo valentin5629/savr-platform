@@ -14,6 +14,7 @@ import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresEvenementSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
+import { controleAccesEvenement } from '@/lib/programmation/niveau-evenement.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -53,7 +54,7 @@ export async function GET(
   const query = supabase
     .from('evenements')
     .select(
-      'id, organisation_id, nom_evenement, nom_client_organisateur, pax, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone, lieux(nom, adresse_acces, code_postal, ville), collectes(id, type, statut, date_collecte, heure_collecte, pax)',
+      'id, organisation_id, nom_evenement, nom_client_organisateur, date_evenement, pax, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone, type_evenement:types_evenements!type_evenement_id(libelle), lieux(nom, adresse_acces, code_postal, ville), collectes(id, type, statut, date_collecte, heure_collecte, pax, controle_acces_requis)',
     )
     .eq('id', evenementId);
 
@@ -74,7 +75,20 @@ export async function GET(
   // de l'appelant.
   const emailRecap = await lireEtatRecapEmail(supabase, evenementId);
 
-  return NextResponse.json({ ...data, email_recap: emailRecap });
+  // Niveau événement de la page « Ajouter une collecte » (§06.01), affiché figé :
+  // le contrôle d'accès est celui que la route d'ajout imposera.
+  // Relation to-one : PostgREST renvoie un objet, on tolère le tableau.
+  const typeEvenement = (
+    Array.isArray(data.type_evenement)
+      ? data.type_evenement[0]
+      : data.type_evenement
+  ) as { libelle: string | null } | null | undefined;
+  return NextResponse.json({
+    ...data,
+    type_evenement: typeEvenement?.libelle ?? null,
+    controle_acces_requis: controleAccesEvenement(data.collectes),
+    email_recap: emailRecap,
+  });
 }
 
 // Édition des champs métier de l'événement par un rôle programmateur (4 rôles).

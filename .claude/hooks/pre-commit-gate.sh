@@ -109,8 +109,11 @@ commit_matche() {
 }
 
 # ── Les dossiers ou la commande commite ─────────────────────────────────────
-# Le hook tourne dans le dossier ou la session est enracinee, avant que la
-# commande n'ait fait son `cd`. Il doit juger chaque worktree VISE, pas le sien.
+# Le hook demarre a la racine du depot du dossier ou Claude Code le lance (cas
+# releves : le dossier courant de la session, ou la racine de configuration
+# posee par l'hote), quand ce dossier est dans un depot (settings.json s'y place
+# avant de le lancer), et avant que la commande n'ait fait son `cd`. Il doit
+# juger chaque worktree VISE, pas le sien.
 # TOUTES les occurrences du motif sont lues, pas seulement la premiere, et
 # chacune donne un dossier a juger :
 #   • sans `-C` : la cible du `cd … &&` de tete, sinon le dossier du hook — ce
@@ -648,16 +651,19 @@ CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')"
 commit_matche "$CMD" || exit 0
 
 # Resolu AVANT tout `cd` : le dossier du hook REELLEMENT execute. Les commandes de
-# settings.json sont relatives — c'est donc le clone principal pour une session
-# qui y est enracinee, et le worktree de la session sinon. C'est la version de
+# settings.json le designent par "$CLAUDE_PROJECT_DIR" : la racine de
+# configuration quand l'hote en a pose une (`--project-config-root`), sinon le
+# dossier ou la session a ete ouverte (mesure le 2026-10-21 : le clone principal,
+# pour une session ouverte la puis entree dans un worktree). C'est la version de
 # tests-lies.sh de CE dossier qui doit servir, pas celle de la branche visee par
 # la commande : une branche ouverte avant ce lot ne porte pas le script.
 HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Worktree-aware (cf. lib-worktree.sh) : ce hook tourne dans le dossier ou la
-# session est enracinee (clone principal ou autre worktree). Chaque dossier vise
-# par la commande (cf. cibles_du_commit) est ramene a la racine de son worktree ;
-# une racine citee plusieurs fois n'est jugee qu'une fois.
+# Worktree-aware (cf. lib-worktree.sh) : ce hook demarre a la racine du depot du
+# dossier ou Claude Code le lance (cf. « Les dossiers ou la commande commite ») :
+# clone principal ou autre worktree. Chaque dossier vise par la commande (cf.
+# cibles_du_commit) est ramene a la racine de son worktree ; une racine citee
+# plusieurs fois n'est jugee qu'une fois.
 . "$HOOKS/lib-worktree.sh"
 RACINES="$(cibles_du_commit "$CMD" | while IFS= read -r cible; do (
   cd_worktree_for "${cible#=}" > /dev/null 2>&1

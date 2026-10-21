@@ -31,7 +31,7 @@ if [ -f ".claude/divergences-ambigu" ]; then
   echo "  Des décisions métier sont en attente avant de toucher du code." >&2
   echo "  1. Réponds aux questions ambiguës dans _Divergences/" >&2
   echo "  2. Lance cdc-patch-divergences + cdc-devfacing-export dans Cowork" >&2
-  echo "  3. Dis 'specs sync' → sync-specs.sh se lance et débloque" >&2
+  echo "  3. Dis 'specs sync' → sync-specs.sh se lance dans un worktree dédié depuis origin/main, part en PR « specs: sync », puis les verrous sont levés" >&2
   echo "" >&2
   exit 2
 fi
@@ -42,7 +42,7 @@ if [ -f ".claude/divergences-clair" ]; then
   echo "" >&2
   echo "  Des patches clairs attendent d'être appliqués dans le Vault." >&2
   echo "  1. Lance cdc-patch-divergences + cdc-devfacing-export dans Cowork" >&2
-  echo "  2. Dis 'specs sync' → sync-specs.sh se lance et débloque" >&2
+  echo "  2. Dis 'specs sync' → sync-specs.sh se lance dans un worktree dédié depuis origin/main, part en PR « specs: sync », puis les verrous sont levés" >&2
   echo "" >&2
   exit 2
 fi

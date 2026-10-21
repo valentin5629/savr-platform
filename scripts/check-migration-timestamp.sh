@@ -517,8 +517,14 @@ self_test() (
 
   git init --quiet --bare --initial-branch=main "$origine"
   git init --quiet --initial-branch=main "$tmp/amorce"
+  # Le `cd` est gardé, et le code du sous-shell lu : un `cd` refusé, comme une
+  # poussée finale en échec, arrête l'auto-test (code 3). Sans cette garde, un
+  # `git init` qui échoue sans créer le dossier laissait la suite de ce bloc
+  # s'exécuter dans le dossier de lancement. Mesuré le 2026-10-21, ce dossier
+  # étant un dépôt muni d'un `origin` : migrations écrites, travail non commité
+  # commité, branche poussée vers cet `origin`. Cas 8bis le prouve.
   (
-    cd "$tmp/amorce"
+    cd "$tmp/amorce" || exit 1
     git config user.email t@t.t && git config user.name t && git config commit.gpgsign false
     mkdir -p "$MIG_DIR"
     echo "-- socle" > "$MIG_DIR/20260101100000_plateforme_socle.sql"
@@ -530,7 +536,10 @@ self_test() (
     echo "-- concurrente" > "$MIG_DIR/20260101130000_plateforme_concurrente.sql"
     git add -A && git -c core.hooksPath=/dev/null commit --quiet --no-verify -m concurrente
     git push --quiet origin concurrente
-  ) >/dev/null 2>&1
+  ) >/dev/null 2>&1 || {
+    echo "🔴 AUTO-TEST : dépôt d'amorce non construit — test non joué." >&2
+    return 3
+  }
 
   # Gardes non négociables : sans elles, un clone en échec (par ex. sous
   # `protocol.file.allow=never`, le durcissement post-CVE-2022-39253) laisse les
@@ -920,13 +929,59 @@ self_test() (
     echec=true
   fi
 
+  # Cas 8bis — un dépôt d'amorce qui n'a pas pu être créé ne doit RIEN muter dans
+  # le dépôt APPELANT, ni dans son `origin`. Faux `git` : son `init` du dossier
+  # d'amorce sort en 1 sans le créer ; tout le reste passe au vrai git. Les deux
+  # dépôts sont comparés par empreinte (cf. lib-auto-test.sh).
+  local appelant_b distant_b faux_init avant_appelant avant_distant
+  appelant_b="$tmp/appelant-amorce"
+  distant_b="$tmp/distant-amorce.git"
+  faux_init="$tmp/faux-init"
+  mkdir -p "$appelant_b/$MIG_DIR" "$faux_init"
+  # shellcheck disable=SC2016  # voulu : "$1", "$@" et "$a" sont lus par le faux git
+  printf '#!/bin/sh\nif [ "$1" = init ]; then\n  for a in "$@"; do case "$a" in */amorce) exit 1 ;; esac; done\nfi\nexec "%s" "$@"\n' "$git_reel" > "$faux_init/git"
+  chmod +x "$faux_init/git"
+  (
+    cd "$appelant_b" \
+      && git init --quiet --initial-branch=main . \
+      && git config user.email appelant@t.t && git config user.name appelant \
+      && echo "-- socle" > "$MIG_DIR/20260101100000_plateforme_socle.sql" \
+      && git add -A \
+      && git -c core.hooksPath=/dev/null commit --quiet --no-verify -m socle \
+      && git init --quiet --bare --initial-branch=main "$distant_b" \
+      && git remote add origin "$distant_b" \
+      && git push --quiet origin main
+  ) >/dev/null 2>&1
+  echo "TRAVAIL NON COMMITE" > "$appelant_b/temoin.txt"
+  # Garde anti-fixture-vacante : sans dépôt appelant ni `origin` construits, le
+  # cas ne prouverait rien.
+  if ! git -C "$appelant_b" rev-parse --verify -q HEAD >/dev/null 2>&1 \
+     || ! git -C "$distant_b" rev-parse --verify -q main >/dev/null 2>&1; then
+    echo "🔴 AUTO-TEST : cas 8bis VACANT — dépôt appelant ou son origin non construits." >&2
+    echec=true
+  fi
+  avant_appelant="$(empreinte_dossier "$appelant_b")"
+  avant_distant="$(empreinte_dossier "$distant_b")"
+  rc=0
+  ( cd "$appelant_b" && PATH="$faux_init:$PATH" MIGRATION_SELFTEST_INTERNE=1 \
+      bash "$script_abs" --self-test ) >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 3 ]; then
+    echo "🔴 AUTO-TEST : dépôt d'amorce non construit non signalé comme auto-test non joué (exit $rc, attendu 3)." >&2
+    echec=true
+  fi
+  if [ "$(empreinte_dossier "$appelant_b")" != "$avant_appelant" ] \
+     || [ "$(empreinte_dossier "$distant_b")" != "$avant_distant" ]; then
+    echo "🔴 AUTO-TEST : un dépôt d'amorce non construit a fait écrire dans le dépôt appelant ou dans son origin." >&2
+    echec=true
+  fi
+
   pieges_tenus "$script_abs" "$tmp" || echec=true
   # L'appel ci-dessus est lui-même épinglé : hors d'un rejeu, son bilan doit être posé.
   [ -n "${SAVR_AUTO_TEST_SOUS_PIEGE:-}" ] || [ -n "$PIEGES_BILAN" ] \
     || { echo "🔴 AUTO-TEST : pieges_tenus n'a pas posé son bilan." >&2; echec=true; }
 
   [ "$echec" = true ] && return 2
-  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch, ref « # », cible qui avance au merge (C), très grosse liste de référence, dépôt appelant intact${PIEGES_BILAN})."
+  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch, ref « # », cible qui avance au merge (C), très grosse liste de référence, dépôt appelant intact sous un clone ou une amorce en échec${PIEGES_BILAN})."
   return 0
 )
 

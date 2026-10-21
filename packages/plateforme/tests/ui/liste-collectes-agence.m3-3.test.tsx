@@ -70,6 +70,9 @@ function collecte(
     taux_recyclage: null,
     co2_evite_kg: null,
     nb_repas_donnes: 0,
+    // Pax de LA collecte (décision Val 2026-10-20) ; celui de l'événement
+    // (1 443, somme des jours) ne doit jamais s'afficher sur la ligne.
+    pax: 650,
     evenements: {
       pax: 1443,
       nom_client_organisateur: client,
@@ -145,6 +148,21 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
+
+  it(
+    'M1.2/pax_par_collecte — liste agence (composant commun du traiteur) : le pax de la collecte, jamais celui de l’événement',
+    async () => {
+      render(<AgenceCollectesPage />);
+      const table = within(await screen.findByRole('table', {}, ATTENTE_UI));
+      await waitFor(
+        () =>
+          expect(table.getAllByText(/^650\spax$/).length).toBeGreaterThan(0),
+        ATTENTE_UI,
+      );
+      expect(table.queryByText(/1\s?443/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   it(
     'M3.3/liste_agence_vues_a_venir_passees — vues par date, « à venir » par défaut, tous statuts dans les deux',

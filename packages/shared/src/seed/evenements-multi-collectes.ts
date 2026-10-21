@@ -26,6 +26,12 @@
  * taux de recyclage pondéré par le tonnage ne se distinguerait pas d'une moyenne
  * simple.
  *
+ * Pax porté par la collecte (décision Val 2026-10-20) : chaque collecte écrit le
+ * sien ; celui de l'événement en est calculé en base, par jour le plus grand pax
+ * des collectes non annulées, puis la somme des jours (règle C1). Une AG sans
+ * pax prend celui de la ZD du même jour (même service), sinon le pax par défaut
+ * de l'événement.
+ *
  * Les valeurs sont écrites en clair (pas de tirage) pour que le résultat
  * attendu à l'écran se lise ici. Dates relatives à l'ancre, toutes avant J-8 :
  * comme l'historique comblé du pipeline vivant, ces collectes sont clôturées.
@@ -46,6 +52,10 @@ export type EvenementMultiCollectes = {
   typeEvenement: 'cocktail_repas_complet' | 'repas_assis';
   /** Jour de la première collecte non annulée (cf. `fn_set_date_evenement`). */
   date: string;
+  /**
+   * Pax de l'événement : celui que la base calcule depuis ses collectes (règle
+   * C1). Dans DEFINITIONS, pax par défaut d'une collecte d'un jour sans ZD.
+   */
   pax: number;
   client: string | null;
 };
@@ -64,8 +74,8 @@ type DefCollecte = {
   /** Décalage en jours par rapport au premier jour de l'événement. */
   jour?: number;
   /**
-   * ZD seulement : pax servis par cette collecte, base des pesées. Une AG prend
-   * le pax de l'événement, comme `fn_set_volume_estime_repas` en base.
+   * Pax de cette collecte (base des pesées ZD). Absent : celui de la ZD non
+   * annulée du même jour, sinon le pax par défaut de l'événement.
    */
   pax?: number;
   statut?: 'cloturee' | 'realisee_sans_collecte' | 'annulee';
@@ -92,7 +102,8 @@ const DEFINITIONS: DefEvenement[] = [
     client: 'Groupe Zéphirane',
     ilYa: 41,
     collectes: [
-      { type: 'zero_dechet', jour: 0, pax: 900 },
+      // 1 200 + 700 + 500 = les 2 400 convives de l'événement (règle C1).
+      { type: 'zero_dechet', jour: 0, pax: 1200 },
       {
         type: 'anti_gaspi',
         jour: 0,
@@ -162,9 +173,11 @@ const DEFINITIONS: DefEvenement[] = [
     client: 'Institut Kervalen',
     ilYa: 54,
     collectes: [
-      // Deux collectes ZD le même soir : salle plénière et espace exposants.
-      { type: 'zero_dechet', pax: 700 },
-      { type: 'zero_dechet', pax: 400 },
+      // Deux collectes ZD le même soir (salle plénière, puis espace exposants)
+      // pour les mêmes 1 100 convives : le pax de l'événement ne les compte
+      // qu'une fois (règle C1).
+      { type: 'zero_dechet', pax: 1100 },
+      { type: 'zero_dechet', pax: 1100 },
       { type: 'anti_gaspi', association: 'asso_charlie', repas: 60 },
       {
         type: 'anti_gaspi',
@@ -252,7 +265,30 @@ export function genererEvenementsMultiCollectes(ancre: string): {
   const collectes: CollecteEvenementMulti[] = [];
   for (const { ilYa, collectes: defs, ...evenement } of DEFINITIONS) {
     const premierJour = decalerJour(ancre, -ilYa);
-    evenements.push({ ...evenement, date: premierJour });
+    // Pax de la ZD non annulée de chaque jour : celui d'une AG du même service.
+    const paxZdDuJour = new Map<number, number>();
+    for (const d of defs)
+      if (d.type === 'zero_dechet' && d.statut !== 'annulee' && d.pax)
+        paxZdDuJour.set(
+          d.jour ?? 0,
+          Math.max(paxZdDuJour.get(d.jour ?? 0) ?? 0, d.pax),
+        );
+    const paxDe = (d: DefCollecte): number =>
+      d.pax ?? paxZdDuJour.get(d.jour ?? 0) ?? evenement.pax;
+    // Pax de l'événement tel que la base le calcule (règle C1).
+    const parJour = new Map<number, number>();
+    for (const d of defs)
+      if (d.statut !== 'annulee')
+        parJour.set(
+          d.jour ?? 0,
+          Math.max(parJour.get(d.jour ?? 0) ?? 0, paxDe(d)),
+        );
+    const paxEvenement = [...parJour.values()].reduce((s, v) => s + v, 0);
+    evenements.push({
+      ...evenement,
+      pax: paxEvenement || evenement.pax,
+      date: premierJour,
+    });
     defs.forEach((d, k) => {
       const statut = d.statut ?? 'cloturee';
       collectes.push({
@@ -262,7 +298,7 @@ export function genererEvenementsMultiCollectes(ancre: string): {
         type: d.type,
         date: decalerJour(premierJour, d.jour ?? 0),
         lieu: evenement.lieu,
-        pax: d.pax ?? evenement.pax,
+        pax: paxDe(d),
         camions: 1,
         statut,
         statutTms: statut === 'annulee' ? 'annulee_par_traiteur' : 'acceptee',

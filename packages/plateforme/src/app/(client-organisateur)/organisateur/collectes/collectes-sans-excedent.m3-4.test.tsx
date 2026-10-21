@@ -95,3 +95,49 @@ describe('M3.4 / liste Collectes organisateur — collecte AG sans excédent', (
     ATTENTE_CAS_MS,
   );
 });
+
+describe('M1.2/pax_par_collecte — liste Collectes organisateur', () => {
+  it(
+    'M1.2/pax_par_collecte — liste organisateur : le pax de la collecte (650), jamais celui de l’événement (1 200)',
+    async () => {
+      urlParams.current = 'type=anti_gaspi';
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({
+                data: [
+                  ligne({
+                    id: 'c3',
+                    pax: 650,
+                    evenements: {
+                      nom_evenement: 'Congrès',
+                      pax: 1200,
+                      lieux: {
+                        nom: 'Palais',
+                        code_postal: '75017',
+                        ville: 'Paris',
+                      },
+                    },
+                  }),
+                ],
+              }),
+              { status: 200 },
+            ),
+          ),
+        ),
+      );
+      render(<CollectesPage />);
+      const table = within(await screen.findByRole('table', {}, ATTENTE_UI));
+      const ligneCongres = within(
+        (
+          await table.findAllByText('Congrès', undefined, ATTENTE_UI)
+        )[0]!.closest('tr') as HTMLElement,
+      );
+      expect(ligneCongres.getByText('650')).toBeTruthy();
+      expect(ligneCongres.queryByText(/1\s?200/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});

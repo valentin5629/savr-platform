@@ -19,6 +19,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { FormActions } from '@/components/ui/form-actions';
+import { paxSaisiValide } from '@/components/programmation/sous-bloc-collecte';
 
 interface TypeEvenement {
   id: string;
@@ -34,7 +35,6 @@ interface TypeEvenement {
 export interface EvenementEditData {
   id: string;
   nom_evenement: string | null;
-  pax: number | null;
   type_evenement_id: string | null;
   nom_client_organisateur: string | null;
   reference_affaire: string | null;
@@ -53,6 +53,9 @@ export interface CollecteEditData {
   statut_tms?: string;
   date_collecte: string;
   heure_collecte: string | null;
+  // Nombre de convives de la collecte (décision Val 2026-10-20) : il se modifie
+  // ici, sur la collecte ; celui de l'événement en est calculé en base.
+  pax: number;
   controle_acces_requis: boolean;
   informations_supplementaires: string | null;
   lieu_nom: string | null;
@@ -79,7 +82,6 @@ export function EditerCollecteForm({
   const e = collecte.evenement;
   // État formulaire — événement
   const [nomEvenement, setNomEvenement] = useState(e.nom_evenement ?? '');
-  const [pax, setPax] = useState(e.pax != null ? String(e.pax) : '');
   const [typeEvtId, setTypeEvtId] = useState(e.type_evenement_id ?? '');
   const [types, setTypes] = useState<TypeEvenement[]>([]);
   const [nomClient, setNomClient] = useState(e.nom_client_organisateur ?? '');
@@ -90,6 +92,7 @@ export function EditerCollecteForm({
   const [csTel, setCsTel] = useState(e.contact_secours_telephone ?? '');
   // État formulaire — collecte
   const [dateCollecte, setDateCollecte] = useState(collecte.date_collecte);
+  const [pax, setPax] = useState(String(collecte.pax));
   const [heureCollecte, setHeureCollecte] = useState(
     collecte.heure_collecte?.slice(0, 5) ?? '',
   );
@@ -136,6 +139,15 @@ export function EditerCollecteForm({
   // applicables (priorité urgence < 12h + réacceptation prestataire). Si aucun
   // avertissement → sauvegarde directe sans modal.
   function onSubmitClick() {
+    // Le pax est un entier >= 1 (même règle que la route) : refusé ici plutôt
+    // que renvoyé par le serveur. Contrôlé seulement s'il a été modifié : une
+    // collecte reprise de Bubble à pax 0 (inconnu) reste modifiable pour le reste.
+    if (pax !== String(collecte.pax) && !paxSaisiValide(pax)) {
+      setError(
+        'Nombre de convives : saisissez un nombre entier de 1 à 100 000.',
+      );
+      return;
+    }
     if (urgence || reacceptation) setConfirmOpen(true);
     else void save();
   }
@@ -148,8 +160,6 @@ export function EditerCollecteForm({
       const evtUpdates: Record<string, unknown> = {};
       if (nomEvenement !== (e.nom_evenement ?? ''))
         evtUpdates.nom_evenement = nomEvenement || null;
-      if (pax !== (e.pax != null ? String(e.pax) : ''))
-        evtUpdates.pax = pax === '' ? null : Number(pax);
       if (typeEvtId && typeEvtId !== (e.type_evenement_id ?? ''))
         evtUpdates.type_evenement_id = typeEvtId;
       if (nomClient !== (e.nom_client_organisateur ?? ''))
@@ -173,6 +183,8 @@ export function EditerCollecteForm({
         colUpdates.heure_collecte = heureCollecte
           ? `${heureCollecte}:00`
           : null;
+      if (pax !== String(collecte.pax))
+        colUpdates.pax = Number.parseInt(pax, 10);
       if (controleAcces !== collecte.controle_acces_requis)
         colUpdates.controle_acces_requis = controleAcces;
       if (infosSuppl !== (collecte.informations_supplementaires ?? ''))
@@ -256,24 +268,13 @@ export function EditerCollecteForm({
               onChange={(ev) => setNomEvenement(ev.target.value)}
             />
           </FormField>
-          <FormGrid>
-            <FormField label="Nombre de convives (pax)" htmlFor="edit-evt-pax">
-              <Input
-                id="edit-evt-pax"
-                type="number"
-                min={0}
-                value={pax}
-                onChange={(ev) => setPax(ev.target.value)}
-              />
-            </FormField>
-            <FormField label="Client final" htmlFor="edit-evt-client">
-              <Input
-                id="edit-evt-client"
-                value={nomClient}
-                onChange={(ev) => setNomClient(ev.target.value)}
-              />
-            </FormField>
-          </FormGrid>
+          <FormField label="Client final" htmlFor="edit-evt-client">
+            <Input
+              id="edit-evt-client"
+              value={nomClient}
+              onChange={(ev) => setNomClient(ev.target.value)}
+            />
+          </FormField>
           <FormField label="Type d'événement" htmlFor="edit-evt-type">
             <Combobox
               id="edit-evt-type"
@@ -360,6 +361,17 @@ export function EditerCollecteForm({
                 id="edit-heure-collecte"
                 value={heureCollecte}
                 onChange={setHeureCollecte}
+              />
+            </FormField>
+            <FormField label="Nombre de convives" htmlFor="edit-col-pax">
+              <Input
+                id="edit-col-pax"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                value={pax}
+                onChange={(ev) => setPax(ev.target.value)}
               />
             </FormField>
           </FormGrid>

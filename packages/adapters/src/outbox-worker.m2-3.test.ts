@@ -76,6 +76,9 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     date_collecte: '2026-07-20',
     heure_collecte: '22:00:00',
     nb_camions_demande: opts.nbCamions ?? 1,
+    // Pax de la collecte (décision Val 2026-10-20), distinct de celui de
+    // l'événement (120) : c'est lui qui doit partir au transporteur.
+    pax: 80,
     statut_tms: 'non_envoye',
     controle_acces_requis: false,
     type_vehicule_souhaite: opts.typeVehiculeSouhaite ?? null,
@@ -717,16 +720,25 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
         pax?: number | null;
       };
       expect(collecte.traiteur_nom).toBe('Traiteur Essai');
-      expect(collecte.pax).toBe(120);
+      // Le pax de LA collecte (80), pas celui de l'événement (120).
+      expect(collecte.pax).toBe(80);
       expect(collecte.informations_supplementaires).toBe(
         [
           'Traiteur : Traiteur Essai',
-          'Nombre de pax : 120',
+          'Nombre de pax : 80',
           'Contact : Alice, +33600000001',
           'Livraison :',
           "- Instructions d'accès : Sonner à l’accueil",
         ].join('\n'),
       );
+      // Le pax est demandé sur la collecte elle-même, hors de l'embed de
+      // l'événement (un mock ne filtre pas : sans cette assertion, retirer la
+      // colonne du select passerait inaperçu).
+      expect(
+        supabase._selects['collectes']?.some((s) =>
+          /nb_camions_demande,\s*pax,/.test(s.split('evenement:')[0] ?? ''),
+        ),
+      ).toBe(true);
       // Les colonnes sont bien DEMANDÉES à PostgREST (un mock ne filtre pas).
       expect(
         supabase._selects['collectes']?.some(

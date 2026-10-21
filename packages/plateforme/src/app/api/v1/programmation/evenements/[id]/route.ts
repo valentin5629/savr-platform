@@ -53,7 +53,7 @@ export async function GET(
   const query = supabase
     .from('evenements')
     .select(
-      'id, organisation_id, nom_evenement, nom_client_organisateur, pax, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone, lieux(nom, adresse_acces, code_postal, ville), collectes(id, type, statut, date_collecte, heure_collecte)',
+      'id, organisation_id, nom_evenement, nom_client_organisateur, pax, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone, lieux(nom, adresse_acces, code_postal, ville), collectes(id, type, statut, date_collecte, heure_collecte, pax)',
     )
     .eq('id', evenementId);
 
@@ -103,6 +103,20 @@ export async function PATCH(
         error:
           'Pour changer le lieu, annulez la ou les collectes et reprogrammez. Les autres champs structurants sont immuables.',
         champs_verrouilles: lockedAttempt,
+      },
+      { status: 422 },
+    );
+  }
+
+  // Le pax n'est plus un champ de l'événement (décision Val 2026-10-20) : il se
+  // modifie sur chaque collecte, et celui de l'événement en est calculé en base.
+  // Refusé plutôt qu'ignoré, pour qu'un appelant resté à l'ancien contrat le sache.
+  if ('pax' in body) {
+    return NextResponse.json(
+      {
+        error:
+          'Le nombre de convives se modifie sur chaque collecte, pas sur l’événement.',
+        champs_verrouilles: ['pax'],
       },
       { status: 422 },
     );
@@ -177,8 +191,8 @@ export async function PATCH(
   });
   if (frein) return frein;
 
-  // Écriture via RPC service-role : UPDATE événement + recalcul volume si pax +
-  // émission E2 par collecte dispatchée (atomique, row lock avant outbox — G4).
+  // Écriture via RPC service-role : UPDATE événement + émission E2 par collecte
+  // dispatchée (atomique, row lock avant outbox — G4).
   const admin = createAdminSupabaseClient();
   const { data: before } = await admin
     .from('evenements')

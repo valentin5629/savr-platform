@@ -106,9 +106,10 @@ const COLLECTE_APRES = {
   prestataire_logistique_id: 'presta-strike',
   date_collecte: '2099-01-14',
   heure_collecte: '16:45:00',
+  // Pax porté par la collecte (décision Val 2026-10-20).
+  pax: 1500,
   attributions_antgaspi: null,
   evenement: {
-    pax: 1500,
     created_by: 'user-prog',
     lieu: { nom: 'Paris Convention Centre' },
     organisation: { nom: 'Kaspia' },
@@ -120,18 +121,21 @@ const PROGRAMMATEUR = {
   telephone: '0601020304',
 };
 
-// Le cas de Val : date, pax et contact changés dans le même enregistrement.
+// Le cas de Val : date, pax et contact changés dans le même enregistrement. Le
+// pax est un champ de la collecte depuis le 2026-10-20 (décision Val).
 const CAS_VAL = {
   collecteId: 'c1',
-  collecteAvant: { date_collecte: '2099-01-15', heure_collecte: '16:45:00' },
-  majCollecte: { date_collecte: '2099-01-14' },
-  evenementAvant: {
+  collecteAvant: {
+    date_collecte: '2099-01-15',
+    heure_collecte: '16:45:00',
     pax: 2000,
+  },
+  majCollecte: { date_collecte: '2099-01-14', pax: 1500 },
+  evenementAvant: {
     contact_principal_nom: 'Paul Il',
     contact_principal_telephone: '0611111111',
   },
   majEvenement: {
-    pax: 1500,
     contact_principal_nom: 'Arthus',
     contact_principal_telephone: '0699990002',
   },
@@ -174,14 +178,16 @@ describe('M3.1/email_modification_lignes — une ligne par champ modifié', () =
           date_collecte: '2099-01-15',
           heure_collecte: '16:45:00',
           controle_acces_requis: true,
+          pax: 2000,
         },
         majCollecte: {
           date_collecte: '2099-01-15',
           heure_collecte: '16:45',
           controle_acces_requis: true,
+          pax: '2000',
         },
-        evenementAvant: { pax: 2000, reference_affaire: null },
-        majEvenement: { pax: '2000', reference_affaire: '' },
+        evenementAvant: { reference_affaire: null },
+        majEvenement: { reference_affaire: '' },
       }),
     ).toEqual([]);
   });
@@ -448,8 +454,10 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     const { admin } = fauxAdmin({
       collectes: {
         ...COLLECTE_APRES,
+        // Pax illisible (base en retard sur la migration) : le bloc « pour …
+        // pax » disparaît, l'email part quand même.
+        pax: null,
         evenement: {
-          pax: null,
           created_by: 'user-prog',
           organisation: [{ nom: 'Kaspia' }],
         },
@@ -482,7 +490,7 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     expect(recus[0]!.variables.programmateur).toBe('Julie Martin');
   });
 
-  it('modification de l’événement seul : date et pax d’origine lus sur la collecte et l’événement', async () => {
+  it('modification de l’événement seul : date et pax d’origine lus sur la collecte', async () => {
     capter();
     const { admin } = fauxAdmin({
       collectes: COLLECTE_APRES,
@@ -490,14 +498,15 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     });
     await notifierEquipeModificationCollecte(admin, REQ, {
       collecteId: 'c1',
-      evenementAvant: { pax: 2000 },
-      majEvenement: { pax: 1500 },
+      evenementAvant: { reference_affaire: 'AFF-1' },
+      majEvenement: { reference_affaire: 'AFF-2' },
     });
     const { variables } = recus[0]!;
     expect(variables.date_initiale).toBe('14/01/2099');
-    expect(variables.pax_initial).toBe('2000');
+    // Pax de la collecte, inchangé par cet enregistrement.
+    expect(variables.pax_initial).toBe('1500');
     expect(variables.liste_modifications).toBe(
-      '<ul><li>Nombre de pax : de 2000 à 1500</li></ul>',
+      "<ul><li>Référence d'affaire : avant AFF-1. Maintenant AFF-2</li></ul>",
     );
   });
 
@@ -596,7 +605,10 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
       'de la collecte',
       { collecteAvant: null, majCollecte: { date_collecte: '2099-01-14' } },
     ],
-    ['de l’événement', { evenementAvant: null, majEvenement: { pax: 1500 } }],
+    [
+      'de l’événement',
+      { evenementAvant: null, majEvenement: { reference_affaire: 'AFF-2' } },
+    ],
   ])(
     'état d’avant %s illisible : aucun email (il inventerait ses valeurs « avant »)',
     async (_cas, modification) => {
@@ -650,13 +662,22 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
 describe('M3.1/email_modification_un_seul_email — modification d’événement du même enregistrement', () => {
   const DEMANDE = {
     collecteId: 'c1',
-    collecteAvant: { date_collecte: '2099-01-15', heure_collecte: '16:45:00' },
+    collecteAvant: {
+      date_collecte: '2099-01-15',
+      heure_collecte: '16:45:00',
+      pax: 2000,
+    },
     majCollecte: { date_collecte: '2099-01-14' },
     evenementModifiePar: 'user-1',
   };
-  const AUDIT_PAX = {
-    old_values: { pax: 2000, contact_principal_nom: 'Paul Il' },
-    new_values: { updates: { pax: 1500 } },
+  // Champ de l'événement relu dans son journal d'audit (le pax est porté par la
+  // collecte depuis le 2026-10-20).
+  const AUDIT_EVT = {
+    old_values: {
+      reference_affaire: 'AFF-1',
+      contact_principal_nom: 'Paul Il',
+    },
+    new_values: { updates: { reference_affaire: 'AFF-2' } },
   };
 
   it('relue dans le journal d’audit de CET utilisateur, pour l’événement de CETTE collecte', async () => {
@@ -665,12 +686,12 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
     const { admin, appels } = fauxAdmin({
       collectes: COLLECTE_APRES,
       users: PROGRAMMATEUR,
-      audit_log: [AUDIT_PAX],
+      audit_log: [AUDIT_EVT],
     });
     await notifierEquipeModificationCollecte(admin, REQ, DEMANDE);
 
     expect(recus[0]!.variables.liste_modifications).toBe(
-      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
+      "<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Référence d'affaire : avant AFF-1. Maintenant AFF-2</li></ul>",
     );
     expect(recus[0]!.variables.pax_initial).toBe('2000');
 
@@ -702,14 +723,17 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
       collectes: COLLECTE_APRES,
       users: PROGRAMMATEUR,
       audit_log: [
-        AUDIT_PAX,
+        AUDIT_EVT,
         // Le formulaire renvoie le même écart : la base vaut déjà 1500.
-        { old_values: { pax: 1500 }, new_values: { updates: { pax: 1500 } } },
+        {
+          old_values: { reference_affaire: 'AFF-2' },
+          new_values: { updates: { reference_affaire: 'AFF-2' } },
+        },
       ],
     });
     await notifierEquipeModificationCollecte(admin, REQ, DEMANDE);
     expect(recus[0]!.variables.liste_modifications).toBe(
-      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1500</li></ul>',
+      "<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Référence d'affaire : avant AFF-1. Maintenant AFF-2</li></ul>",
     );
     expect(recus[0]!.variables.pax_initial).toBe('2000');
   });
@@ -720,18 +744,24 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
       collectes: COLLECTE_APRES,
       users: PROGRAMMATEUR,
       audit_log: [
-        AUDIT_PAX,
+        AUDIT_EVT,
         {
-          old_values: { pax: 1500, contact_principal_nom: 'Paul Il' },
+          old_values: {
+            reference_affaire: 'AFF-2',
+            contact_principal_nom: 'Paul Il',
+          },
           new_values: {
-            updates: { pax: 1800, contact_principal_nom: 'Arthus' },
+            updates: {
+              reference_affaire: 'AFF-3',
+              contact_principal_nom: 'Arthus',
+            },
           },
         },
       ],
     });
     await notifierEquipeModificationCollecte(admin, REQ, DEMANDE);
     expect(recus[0]!.variables.liste_modifications).toBe(
-      '<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nombre de pax : de 2000 à 1800</li><li>Contact : avant Paul Il. Maintenant Arthus</li></ul>',
+      "<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Contact : avant Paul Il. Maintenant Arthus</li><li>Référence d'affaire : avant AFF-1. Maintenant AFF-3</li></ul>",
     );
   });
 
@@ -754,7 +784,7 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
       {
         collectes: COLLECTE_APRES,
         users: PROGRAMMATEUR,
-        audit_log: [AUDIT_PAX],
+        audit_log: [AUDIT_EVT],
       },
       { audit_log: 'délai dépassé' },
     );

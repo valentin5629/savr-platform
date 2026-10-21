@@ -55,12 +55,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // (colonne collectes, ZD+AG), poids ZD (Σ collecte_flux) et repas AG
   // (Σ attributions_antgaspi.volume_repas_realise) — mêmes sources que la fiche
   // et les dashboards, agrégées ci-dessous par ligne.
-  const selectBase: string = `id, type, statut, statut_tms, date_collecte, heure_collecte,
+  const selectBase: string = `id, type, statut, statut_tms, date_collecte, heure_collecte, pax,
        informations_completes, taux_recyclage, co2_evite_kg, realisee_at,
        collecte_flux(poids_reel_kg),
        evenements!inner(
          id, organisation_id, traiteur_operationnel_organisation_id, created_by,
-         nom_evenement, pax, nom_client_organisateur,
+         nom_evenement, nom_client_organisateur,
          lieux!lieu_id(id, nom, adresse_acces, code_postal, ville)
        )`;
   // Embed inner sur attributions_antgaspi UNIQUEMENT si on filtre par association

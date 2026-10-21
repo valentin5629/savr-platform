@@ -62,6 +62,7 @@ const collecteAg = {
     associations: { nom: 'Les Restos du Cœur' },
     transporteurs: null,
   },
+  pax: 80,
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
@@ -293,6 +294,41 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         attribution.compareDocumentPosition(dispatch) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/pax_par_collecte — fiche Admin : titre, en-tête, « Nombre de pax » et attribution intégrée lisent le pax de la collecte (650), pas celui de l’événement (1 200)',
+    async () => {
+      const onLoaded = vi.fn();
+      mockFetch({
+        ...collecteAg,
+        attributions_antgaspi: null,
+        pax: 650,
+        evenements: { ...collecteAg.evenements, pax: 1200 },
+      });
+      render(<CollecteDetailPanel collecteId="c1" onLoaded={onLoaded} />);
+
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        {},
+        ATTENTE_UI,
+      );
+      expect(sousLigne).toHaveTextContent("jusqu'à 650 pax");
+      expect(sousLigne).not.toHaveTextContent(/1\s?200/);
+      await waitFor(() => expect(onLoaded).toHaveBeenCalled(), ATTENTE_UI);
+      const arg = onLoaded.mock.calls.at(-1)?.[0] as { title: string };
+      expect(arg.title).toContain("jusqu'à 650\u00a0pax");
+
+      const infos = screen.getByRole('tabpanel');
+      expect(within(infos).getByText(/jusqu.à 650/)).toBeInTheDocument();
+      expect(within(infos).queryByText(/jusqu.à 1\s?200/)).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      await screen.findByRole('combobox', { name: 'Association' }, ATTENTE_UI);
+      const volume = screen.getByLabelText('Volume estimé') as HTMLInputElement;
+      expect(volume.value).toBe('650\u00a0pax · ≈ 12 repas');
     },
     ATTENTE_CAS_MS,
   );
@@ -2186,6 +2222,7 @@ const baseAg = {
     transporteurs: { nom: 'A Toutes!' },
   },
   prestataire_logistique_id: null,
+  pax: 80,
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,

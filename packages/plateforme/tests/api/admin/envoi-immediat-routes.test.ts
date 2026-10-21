@@ -603,6 +603,7 @@ const LIGNE = {
   type: 'zero_dechet',
   date_collecte: '2099-01-20',
   heure_collecte: '22:00:00',
+  pax: 80,
   nb_camions_demande: 1,
   evenement_id: 'evt-1',
   prestataire_logistique_id: null,
@@ -657,7 +658,6 @@ interface CasRoute {
 }
 
 const PROGRAMMATION = {
-  pax: 80,
   type_evenement_id: 'type-1',
   lieu_id: 'lieu-1',
   contact_principal_nom: 'Jean Martin',
@@ -666,7 +666,12 @@ const PROGRAMMATION = {
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
   collectes: [
-    { type: 'zd', date_collecte: '2099-01-15', heure_collecte: '08:00' },
+    {
+      type: 'zd',
+      date_collecte: '2099-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+    },
   ],
   confirmer: true,
 };
@@ -684,6 +689,7 @@ const CAS: CasRoute[] = [
       type: 'zero_dechet',
       date_collecte: '2099-01-20',
       heure_collecte: '22:00',
+      pax: 80,
     },
     emetteur: 'fn_creer_collecte',
     rend: 'col-neuve',
@@ -736,7 +742,9 @@ const CAS: CasRoute[] = [
     role: 'ops_savr',
     url: '/api/v1/admin/evenements/evt-1',
     params: { id: 'evt-1' },
-    corps: { pax: 120 },
+    // Contact = champ de l'événement transmis au prestataire (le pax est porté
+    // par la collecte depuis le 2026-10-20).
+    corps: { contact_principal_telephone: '0699000120' },
     emetteur: 'fn_modifier_evenement',
     rend: { id: 'evt-1' },
     attendu: ['col-1'],
@@ -861,7 +869,12 @@ const CAS: CasRoute[] = [
       corps: {
         ...PROGRAMMATION,
         collectes: [
-          { type: 'zd', date_collecte: '2000-01-15', heure_collecte: '08:00' },
+          {
+            type: 'zd',
+            date_collecte: '2000-01-15',
+            heure_collecte: '08:00',
+            pax: 80,
+          },
         ],
       },
     },
@@ -876,8 +889,18 @@ const CAS: CasRoute[] = [
     corps: {
       ...PROGRAMMATION,
       collectes: [
-        { type: 'zd', date_collecte: '2099-01-15', heure_collecte: '08:00' },
-        { type: 'zd', date_collecte: '2099-01-16', heure_collecte: '08:00' },
+        {
+          type: 'zd',
+          date_collecte: '2099-01-15',
+          heure_collecte: '08:00',
+          pax: 80,
+        },
+        {
+          type: 'zd',
+          date_collecte: '2099-01-16',
+          heure_collecte: '08:00',
+          pax: 80,
+        },
       ],
     },
     emetteur: 'fn_creer_collecte',
@@ -891,7 +914,12 @@ const CAS: CasRoute[] = [
       corps: {
         ...PROGRAMMATION,
         collectes: [
-          { type: 'zd', date_collecte: '2000-01-15', heure_collecte: '08:00' },
+          {
+            type: 'zd',
+            date_collecte: '2000-01-15',
+            heure_collecte: '08:00',
+            pax: 80,
+          },
         ],
       },
     },
@@ -903,7 +931,9 @@ const CAS: CasRoute[] = [
     role: 'traiteur_manager',
     url: '/api/v1/programmation/evenements/evt-1',
     params: { id: 'evt-1' },
-    corps: { pax: 120 },
+    // Contact = champ de l'événement transmis au prestataire (le pax est porté
+    // par la collecte depuis le 2026-10-20).
+    corps: { contact_principal_telephone: '0699000120' },
     emetteur: 'fn_modifier_evenement',
     rend: { id: 'evt-1' },
     attendu: ['col-1'],
@@ -917,7 +947,12 @@ const CAS: CasRoute[] = [
     role: 'traiteur_manager',
     url: '/api/v1/programmation/evenements/evt-1/collectes',
     params: { id: 'evt-1' },
-    corps: { type: 'zd', date_collecte: '2099-01-20', heure_collecte: '22:00' },
+    corps: {
+      type: 'zd',
+      date_collecte: '2099-01-20',
+      heure_collecte: '22:00',
+      pax: 80,
+    },
     emetteur: 'fn_ajouter_collecte_evenement',
     rend: 'col-neuve',
     attendu: ['col-neuve'],

@@ -58,6 +58,9 @@ export interface CollecteRow {
   dirty_tms: boolean;
   date_collecte: string;
   heure_collecte: string;
+  // Pax de LA collecte (décision Val 2026-10-20) ; celui de l'événement est la
+  // somme des jours, il n'a pas sa place sur une ligne de collecte.
+  pax?: number | null;
   controle_acces_requis: boolean;
   informations_completes: boolean;
   taux_recyclage: number | null;
@@ -71,7 +74,6 @@ export interface CollecteRow {
   rapports_rse: RapportRse[];
   evenements: {
     nom_evenement: string | null;
-    pax: number | null;
     nom_client_organisateur: string | null;
     organisations: { raison_sociale: string };
     client_organisateur: { raison_sociale: string } | null;
@@ -375,7 +377,7 @@ export function colonnesCollectesAdmin({
       id: 'pax',
       header: 'Pax',
       meta: { className: 'text-right tabular-nums' },
-      cell: ({ row: { original: r } }) => r.evenements.pax ?? <CelluleVide />,
+      cell: ({ row: { original: r } }) => r.pax ?? <CelluleVide />,
     },
     {
       id: 'client',

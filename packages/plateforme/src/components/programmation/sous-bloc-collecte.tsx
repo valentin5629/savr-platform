@@ -9,6 +9,7 @@ import { factureeAlUnite, type PackInfo } from './use-pack-ag';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
 import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
@@ -17,12 +18,23 @@ import { TelephoneLien } from '@/components/collecte/fiche-blocs';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+import { PAX_COLLECTE_MAX } from '@/lib/pax-collecte-borne';
 
 export interface CollecteFormData {
   type: 'zd' | 'ag';
   date_collecte: string;
   heure_collecte: string;
+  // Nombre de convives de CETTE collecte, saisi avec sa date (décision Val
+  // 2026-10-20) : celui de l'événement en est calculé. Texte du champ ; entier
+  // de 1 à 100 000 exigé avant l'envoi (`paxSaisiValide`).
+  pax: string;
   informations_supplementaires: string;
+}
+
+/** Le pax saisi est-il un entier de 1 à PAX_COLLECTE_MAX ? (même règle que la route et la base). */
+export function paxSaisiValide(pax: string): boolean {
+  const texte = pax.trim();
+  return /^[1-9]\d*$/.test(texte) && Number(texte) <= PAX_COLLECTE_MAX;
 }
 
 interface SousBlocCollecteProps {
@@ -123,6 +135,22 @@ export function SousBlocCollecte({
             value={data.heure_collecte}
             onChange={(v) => onChange({ ...data, heure_collecte: v })}
             required
+          />
+        </FormField>
+
+        <FormField label="Nombre de convives" htmlFor={`pax-${type}`} required>
+          <Input
+            id={`pax-${type}`}
+            data-testid={`pax-${type}`}
+            type="number"
+            inputMode="numeric"
+            min="1"
+            max={PAX_COLLECTE_MAX}
+            step="1"
+            required
+            value={data.pax}
+            onChange={(e) => onChange({ ...data, pax: e.target.value })}
+            placeholder="Ex : 80"
           />
         </FormField>
       </FormGrid>

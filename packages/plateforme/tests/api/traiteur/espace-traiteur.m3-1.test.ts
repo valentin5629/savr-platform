@@ -362,6 +362,8 @@ describe('M3.1 / édition collecte', () => {
         evenement_id: 'e1',
         date_collecte: dateCollecte,
         heure_collecte: '10:00:00',
+        // Pax porté par la collecte (décision Val 2026-10-20).
+        pax: 120,
         informations_supplementaires: null,
       },
       error: null,
@@ -378,9 +380,9 @@ describe('M3.1 / édition collecte', () => {
         prestataire_logistique_id: null,
         date_collecte: dateApres,
         heure_collecte: '10:00:00',
+        pax: 120,
         attributions_antgaspi: null,
         evenement: {
-          pax: 120,
           created_by: 'user-1',
           organisation: { nom: 'Traiteur Test' },
         },
@@ -507,19 +509,17 @@ describe('M3.1 / édition collecte', () => {
     expect(emailEquipe()?.priorite_urgence).toBe('true');
   });
 
-  it('M3.1/email_modification_un_seul_email — pax et contact du même enregistrement : un seul email, tous les champs', async () => {
+  it('M3.1/email_modification_un_seul_email — pax de la collecte et contact de l’événement du même enregistrement : un seul email, tous les champs', async () => {
     // Un manager (user-2) modifie la collecte programmée par un collègue
     // (user-1) : session et créateur de l'événement sont deux personnes.
     setupAuth('traiteur_manager', 'org-1', 'user-2');
     queueEditOk('2030-12-31', {
       old_values: {
-        pax: 2000,
         contact_principal_nom: 'Paul Il',
         contact_principal_telephone: '0611111111',
       },
       new_values: {
         updates: {
-          pax: 1500,
           contact_principal_nom: 'Arthus',
           contact_principal_telephone: '0699990002',
         },
@@ -527,21 +527,23 @@ describe('M3.1 / édition collecte', () => {
     });
     const res = await patchCollecte({
       date_collecte: '2030-12-30',
+      pax: 1500,
       evenement_modifie: true,
     });
     expect(res.status).toBe(200);
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
     const variables = emailEquipe();
     expect(variables?.liste_modifications).toBe(
-      '<ul><li>Date de collecte : du 31/12/2030 au 30/12/2030</li><li>Nombre de pax : de 2000 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li></ul>',
+      '<ul><li>Date de collecte : du 31/12/2030 au 30/12/2030</li><li>Nombre de pax : de 120 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li></ul>',
     );
-    expect(variables?.pax_initial).toBe('2000');
+    expect(variables?.pax_initial).toBe('120');
     // Le signalement n'est pas un champ de la collecte : il n'atteint pas la RPC.
     const rpc = (admin.__calls.rpc ?? []).find(
       ([fn]) => fn === 'fn_modifier_collecte',
     );
     expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
       date_collecte: '2030-12-30',
+      pax: 1500,
     });
     // La modification d'événement relue est celle de l'utilisateur de la
     // session, jamais celle du créateur de l'événement.

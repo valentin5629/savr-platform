@@ -64,9 +64,29 @@ describe('événements multi-collectes — générateur', () => {
       for (const c of de(e.slug)) {
         expect(c.traiteur, c.slug).toBe(e.traiteur);
         expect(c.lieu, c.slug).toBe(e.lieu);
-        // Une AG prend le pax de l'événement (fn_set_volume_estime_repas).
-        if (c.type === 'anti_gaspi') expect(c.pax, c.slug).toBe(e.pax);
+        // Pax porté par la collecte (décision Val 2026-10-20) : une AG prend
+        // celui de la ZD non annulée du même jour (même service).
+        const zdDuJour = de(e.slug).find(
+          (z) =>
+            z.type === 'zero_dechet' &&
+            z.statut !== 'annulee' &&
+            z.date === c.date,
+        );
+        if (c.type === 'anti_gaspi' && zdDuJour)
+          expect(c.pax, c.slug).toBe(zdDuJour.pax);
+        expect(c.pax, c.slug).toBeGreaterThan(0);
       }
+  });
+
+  it('SEED-EMC-5b — le pax de l’événement suit la règle C1 (par jour le plus grand pax, puis la somme des jours)', () => {
+    for (const e of evenements) {
+      const parJour = new Map<string, number>();
+      for (const c of de(e.slug))
+        if (c.statut !== 'annulee')
+          parJour.set(c.date, Math.max(parJour.get(c.date) ?? 0, c.pax));
+      const attendu = [...parJour.values()].reduce((s, v) => s + v, 0);
+      expect(e.pax, e.slug).toBe(attendu);
+    }
   });
 
   it('SEED-EMC-6 — chaque cas du bilan consolidé est couvert', () => {
@@ -107,11 +127,14 @@ describe('événements multi-collectes — générateur', () => {
     expect(cas.some((c) => c.e.client === null)).toBe(true);
   });
 
-  it('SEED-EMC-6b — les ZD réalisées d’un même événement n’ont pas le même pax (taux pondéré ≠ moyenne simple)', () => {
+  it('SEED-EMC-6b — les ZD réalisées d’un même événement, sur des jours différents, n’ont pas le même pax (taux pondéré ≠ moyenne simple)', () => {
     for (const e of evenements) {
-      const pax = de(e.slug)
-        .filter((c) => c.type === 'zero_dechet' && c.statut === 'cloturee')
-        .map((c) => c.pax);
+      // Deux ZD du même soir couvrent les mêmes convives (règle C1) : même pax.
+      const parJour = new Map<string, number>();
+      for (const c of de(e.slug))
+        if (c.type === 'zero_dechet' && c.statut === 'cloturee')
+          parJour.set(c.date, c.pax);
+      const pax = [...parJour.values()];
       expect(new Set(pax).size, e.slug).toBe(pax.length);
     }
   });
@@ -231,9 +254,12 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
         seedUuid('ev_' + c.evenement),
       );
       expect(ecrite!['statut'], c.slug).toBe(c.statut);
+      // Pax de la collecte écrit sur sa ligne (décision Val 2026-10-20) ; le
+      // volume AG en est 10 %.
+      expect(ecrite!['pax'], c.slug).toBe(c.pax);
       if (c.type === 'anti_gaspi')
         expect(ecrite!['volume_estime_repas'], c.slug).toBe(
-          Math.round(0.1 * evenements.find((e) => e.slug === c.evenement)!.pax),
+          Math.round(0.1 * c.pax),
         );
     }
   });

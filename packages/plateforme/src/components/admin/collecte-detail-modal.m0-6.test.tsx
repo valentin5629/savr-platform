@@ -40,6 +40,7 @@ const collecteAg = {
   packs_antgaspi: null,
   attributions_antgaspi: null,
   prestataire_logistique_id: null,
+  pax: 80,
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,

@@ -6,9 +6,12 @@
 // Collecte. Le type, le lieu et l'organisation sont verrouillés (§05 l.314) ;
 // `notes_internes` n'en fait pas partie : commentaire Admin Savr « non visible
 // par le client » (§04 Data Model, arbitrage Val C1 2026-09-29).
+// `pax` : le nombre de convives est porté par la collecte depuis la décision
+// Val du 2026-10-20 (le pax de l'événement en est calculé en base).
 export const CHAMPS_COLLECTE_EDITABLES: readonly string[] = [
   'date_collecte',
   'heure_collecte',
+  'pax',
   'controle_acces_requis',
   'informations_supplementaires',
 ];
@@ -24,10 +27,10 @@ export const CHAMPS_COLLECTE_VERROUILLES: readonly string[] = [
 
 // Événement parent. Le lieu se change en annulant puis en reprogrammant ;
 // organisation, traiteur opérationnel et entité de facturation sont immuables
-// par construction, donc jamais exposés.
+// par construction, donc jamais exposés. Le pax n'en fait plus partie : il se
+// modifie sur chaque collecte, et celui de l'événement en est calculé.
 export const CHAMPS_EVENEMENT_EDITABLES: readonly string[] = [
   'nom_evenement',
-  'pax',
   'type_evenement_id',
   'contact_principal_nom',
   'contact_principal_telephone',

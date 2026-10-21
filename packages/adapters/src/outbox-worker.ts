@@ -678,11 +678,10 @@ async function fetchCollecte(
     .from('collectes')
     .select(
       `
-      id, type, date_collecte, heure_collecte, nb_camions_demande,
+      id, type, date_collecte, heure_collecte, nb_camions_demande, pax,
       statut_tms, controle_acces_requis, informations_supplementaires, notes_internes,
       prestataire_logistique_id, lieu_overrides,
       evenement:evenements!inner(
-        pax,
         contact_principal_nom, contact_principal_telephone,
         contact_secours_nom, contact_secours_telephone,
         traiteur:organisations!traiteur_operationnel_organisation_id(nom),
@@ -701,7 +700,6 @@ async function fetchCollecte(
   // `evenements.lieu_id`) : PostgREST renvoie un OBJET. Le déballage reste
   // défensif (Array.isArray) — il couvre les deux formes.
   type EvenementJoin = {
-    pax: number | null;
     traiteur: { nom: string | null } | { nom: string | null }[] | null;
     contact_principal_nom: string;
     contact_principal_telephone: string;
@@ -721,9 +719,13 @@ async function fetchCollecte(
   > & {
     evenement: EvenementJoin | EvenementJoin[];
     lieu_overrides: Record<string, unknown> | null;
+    pax: number | null;
   };
 
   const evt = Array.isArray(raw.evenement) ? raw.evenement[0]! : raw.evenement;
+  // Pax de LA collecte (décision Val 2026-10-20), jamais celui de l'événement :
+  // c'est la somme des jours.
+  const pax = raw.pax;
   const traiteur = Array.isArray(evt.traiteur) ? evt.traiteur[0] : evt.traiteur;
   const lieuOfficiel = Array.isArray(evt.lieux) ? evt.lieux[0]! : evt.lieux;
   // PROG-01/PROG-03 — l'adresse d'accès corrigée par collecte (lieu_overrides,
@@ -767,7 +769,7 @@ async function fetchCollecte(
     // 2026-10-01) et le point B n'ont aucun champ natif MTS-1/Everest en V1.
     informations_supplementaires: composerCommentaireTransporteur({
       traiteurNom: traiteur?.nom,
-      pax: evt.pax,
+      pax,
       lieu,
       informationsSupplementaires: raw.informations_supplementaires,
       contact: {
@@ -787,7 +789,7 @@ async function fetchCollecte(
         : null,
     }),
     traiteur_nom: traiteur?.nom ?? null,
-    pax: evt.pax,
+    pax,
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
     type_vehicule_souhaite: typeVehiculeSouhaite,

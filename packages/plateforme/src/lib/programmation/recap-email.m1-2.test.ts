@@ -41,10 +41,9 @@ const PARAMS = {
   programmeurUserId: 'user-1',
   evenementId: 'evt-1',
   nomEvenement: 'Gala',
-  pax: 80,
   organisationId: 'org-1',
   lieuId: 'lieu-1',
-  collectes: [{ type: 'ag', date_collecte: '2030-01-15' }],
+  collectes: [{ type: 'ag', date_collecte: '2030-01-15', pax: 80 }],
 };
 
 const CORPS = (() => {

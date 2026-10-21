@@ -95,8 +95,10 @@ function fausseBase(
     notes_internes: null,
     prestataire_logistique_id: PRESTA_ID,
     lieu_overrides: null,
+    // Pax de LA collecte (décision Val 2026-10-20) : c'est lui qui part au
+    // transporteur, l'événement n'en porte plus dans ce que lit le worker.
+    pax: 120,
     evenement: {
-      pax: 120,
       traiteur: { nom: 'Traiteur Essai' },
       contact_principal_nom: 'Alice Martin',
       contact_principal_telephone: '+33600000001',

@@ -221,6 +221,7 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
         type: 'ag',
         date_collecte: '2030-03-10',
         heure_collecte: '09:00',
+        pax: 80,
       }),
       { params: Promise.resolve({ id: 'evt-add-ag' }) },
     );
@@ -249,7 +250,12 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-no-credit/collectes',
-        { type: 'ag', date_collecte: '2030-03-15', heure_collecte: '10:00' },
+        {
+          type: 'ag',
+          date_collecte: '2030-03-15',
+          heure_collecte: '10:00',
+          pax: 80,
+        },
       ),
       { params: Promise.resolve({ id: 'evt-no-credit' }) },
     );

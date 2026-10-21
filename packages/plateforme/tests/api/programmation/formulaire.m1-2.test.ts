@@ -145,7 +145,6 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
 }
 
 const BODY_ZD = {
-  pax: 80,
   type_evenement_id: 'type-1',
   lieu_id: 'lieu-1',
   contact_principal_nom: 'Jean Martin',
@@ -154,7 +153,12 @@ const BODY_ZD = {
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
   collectes: [
-    { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+    {
+      type: 'zd',
+      date_collecte: '2030-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+    },
   ],
   confirmer: true,
 };
@@ -162,15 +166,30 @@ const BODY_ZD = {
 const BODY_AG = {
   ...BODY_ZD,
   collectes: [
-    { type: 'ag', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+    {
+      type: 'ag',
+      date_collecte: '2030-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+    },
   ],
 };
 
 const BODY_MIXTE = {
   ...BODY_ZD,
   collectes: [
-    { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
-    { type: 'ag', date_collecte: '2030-01-15', heure_collecte: '09:00' },
+    {
+      type: 'zd',
+      date_collecte: '2030-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+    },
+    {
+      type: 'ag',
+      date_collecte: '2030-01-15',
+      heure_collecte: '09:00',
+      pax: 80,
+    },
   ],
 };
 
@@ -313,7 +332,9 @@ describe('M1.2 / Programmation mixte ZD+AG', () => {
 describe('M1.2 / Validations bloquantes', () => {
   beforeEach(resetChain);
 
-  it('validations_champs_manquants — 422 si pax absent', async () => {
+  // Pax porté par la collecte (décision Val 2026-10-20) : il est exigé sur
+  // chaque collecte, plus sur l'événement.
+  it('validations_champs_manquants — 422 si le pax de la collecte est absent', async () => {
     setupAuth('traiteur_commercial');
     // Pas de mock DB — la route court-circuite avant toute requête
 
@@ -330,7 +351,7 @@ describe('M1.2 / Validations bloquantes', () => {
         ],
         confirmer: true,
         controle_acces_requis: false,
-        // pax absent → 422 avant tout appel DB
+        // pax de la collecte absent → 422 avant tout appel DB
       }),
     );
     expect(res.status).toBe(422);
@@ -444,7 +465,12 @@ describe('M1.2 / Validations bloquantes', () => {
       makeReq('POST', '/api/v1/programmation/evenements', {
         ...BODY_ZD,
         collectes: [
-          { type: 'zd', date_collecte: '2020-01-01', heure_collecte: '08:00' },
+          {
+            type: 'zd',
+            date_collecte: '2020-01-01',
+            heure_collecte: '08:00',
+            pax: 80,
+          },
         ],
       }),
     );
@@ -558,6 +584,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
         type: 'zd',
         date_collecte: '2030-02-01',
         heure_collecte: '10:00',
+        pax: 80,
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
@@ -581,6 +608,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
         type: 'zd',
         date_collecte: '2030-02-01',
         heure_collecte: '10:00',
+        pax: 80,
       }),
       { params: Promise.resolve({ id: 'evt-2' }) },
     );
@@ -598,6 +626,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
         type: 'zd',
         date_collecte: '2030-02-01',
         heure_collecte: '10:00',
+        pax: 80,
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
@@ -799,6 +828,7 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
         type: 'ag',
         date_collecte: '2030-02-01',
         heure_collecte: '10:00',
+        pax: 80,
       }),
       { params: Promise.resolve({ id: 'evt-sec' }) },
     );

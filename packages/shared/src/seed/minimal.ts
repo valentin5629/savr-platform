@@ -705,7 +705,9 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
 
   // ── 11. Collectes (20) ────────────────────────────────────────────────────
   const collectes: ColSpec[] = [
-    // Kaspia ZD
+    // Kaspia ZD. ev_k1 a deux jours de collecte : chaque collecte porte son
+    // pax (décision Val 2026-10-20), et les 500 convives de ev_k1 en sont la
+    // somme (règle C1 : par jour, puis somme des jours).
     col(
       'col_zd_cloturee_01',
       'ev_k1',
@@ -713,7 +715,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'cloturee',
       -200,
       PS('strike'),
-      { taux_recyclage: 78.5 },
+      { taux_recyclage: 78.5, pax: 300 },
     ),
     col(
       'col_zd_palier_haut',
@@ -731,7 +733,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'cloturee',
       -210,
       PS('strike'),
-      { historique_partiel: true, taux_recyclage: 68.0 },
+      { historique_partiel: true, taux_recyclage: 68.0, pax: 200 },
     ),
     col(
       'col_zd_cloturee_nonfac',
@@ -821,7 +823,8 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'programmee',
       5,
       PS('strike'),
-      { statut_tms: 'non_envoye' },
+      // ev_f6 (300 convives) sur deux jours : 150 par collecte.
+      { statut_tms: 'non_envoye', pax: 150 },
     ),
     col(
       'col_dispatch_dirty',
@@ -830,7 +833,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'programmee',
       8,
       PS('marathon'),
-      { statut_tms: 'acceptee', dirty_tms: true },
+      { statut_tms: 'acceptee', dirty_tms: true, pax: 150 },
     ),
     col(
       'col_dispatch_rejetee',

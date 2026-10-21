@@ -406,6 +406,27 @@ describe('M3.1 / fiche client — contenu servi', () => {
     ).toBe(false);
   });
 
+  // Collecte annulée : ni annulation ni modification, mais l'ajout reste
+  // proposé — c'est le seul point d'entrée du traiteur quand l'unique collecte
+  // de l'événement est annulée (décision Val 2026-10-21, point I2 de la fiche
+  // de divergence M1.2_20261021).
+  it.each(['annulee', 'annulation_demandee'])(
+    'M1.2/ajout_collecte_depuis_fiche_annulee — %s : seule l’action d’ajout reste',
+    async (statut) => {
+      rls.results.collectes = {
+        data: ligneCollecte({ statut }),
+        error: null,
+      };
+      const { json } = await getFiche();
+      expect(json.data.actions).toEqual({
+        modifier: 'absent',
+        annuler: 'absent',
+        annulation: null,
+        ajouter_collecte: true,
+      });
+    },
+  );
+
   it('M1.2/ajout_collecte_depuis_fiche_brouillon — collecte en brouillon de son organisation : pas d’ajout, l’événement n’est pas confirmé', async () => {
     rls.results.collectes = {
       data: ligneCollecte({ statut: 'brouillon' }),

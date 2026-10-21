@@ -109,6 +109,30 @@ describe('M1.2 — ajouter une collecte depuis la fiche collecte (espaces client
   );
 
   it(
+    'M1.2/ajout_collecte_fiche_collecte_annulee — collecte annulée : le pied ne porte que l’ajout',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          statut: 'annulee',
+          actions: {
+            modifier: 'absent',
+            annuler: 'absent',
+            annulation: null,
+            ajouter_collecte: true,
+          },
+        }),
+      );
+      render(ficheCollecte('agence'));
+      expect(
+        await screen.findByTestId('action-ajouter-collecte', {}, ATTENTE_UI),
+      ).toHaveAttribute('href', '/programmer/e1/ajouter-collecte');
+      expect(screen.queryByTestId('action-modifier')).toBeNull();
+      expect(screen.queryByTestId('action-annuler')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M1.2/ajout_collecte_fiche_collecte_sans_droit — événement d’une autre organisation : aucun lien',
     async () => {
       stubFetchFiche(

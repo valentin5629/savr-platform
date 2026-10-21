@@ -43,7 +43,7 @@
   "deliverables": [
     {
       "id": "BL-P0-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:245-283",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:247-285",
       "artefact": "packages/adapters/src/everest/client.ts (EverestClient.getMission + fetchEverestMissionDetails) ; packages/adapters/src/everest/mock.ts (handler getMission) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (mission_finished/success : cout/preuve/statut depuis l'API re-fetchée, jamais le payload)",
       "test": "M2.5 / webhook Everest — re-fetch API (BL-P0-07) (packages/plateforme/tests/api/webhooks/everest.m2-5.test.ts) — payload.cost ≠ API.cost prouve la valeur API persistée",
       "statut": "implemented",
@@ -51,7 +51,7 @@
     },
     {
       "id": "BL-P1-API-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:273",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:275",
       "artefact": "packages/adapters/src/everest/adapter.ts, packages/plateforme/src/app/api/webhooks/everest/route.ts, supabase/migrations/20260629110000_plateforme_r10a_everest_service_77.sql",
       "test": "service 77 (ag_everest_camion_express) [adapter.m2-5.test.ts] + course-vide→realisee_sans_collecte (AG) + rejet→rejetee_par_prestataire [everest.m2-5.test.ts] + ALTER CHECK 71/74/77/91 [r10a_everest_service_77.test.sql]",
       "statut": "implemented",
@@ -59,7 +59,7 @@
     },
     {
       "id": "M2.5-acceptation-manuelle-reference",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:273-293",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:275-295",
       "artefact": "supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql (fn_accepter_mission_everest_manuelle : tournees.external_ref_commande + collectes.tms_reference + everest_missions created_manually, atomique) ; packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts + packages/plateforme/src/lib/acceptation-manuelle-mission.ts (référence obligatoire, bornée) ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (modale « Acceptation manuelle »)",
       "test": "everest_acceptation_manuelle_reference.test.sql (A1 422 sans référence, A2 référence posée, A3 sort des non transmises, A4 renvoi = E2, A7 uniq_tournee_par_external_ref atomique, A9 annulation = E3, A11 tournée Everest visée) + adapter.m2-5.test.ts « mission acceptée manuellement AVEC référence » (cancelCollecte annule chez A Toutes!, E1 no-op) + everest-manual-accept.m2-5.test.ts + collecte-detail-panel.m0-6.test.tsx §06.06 Bloc 0",
       "statut": "implemented",
@@ -67,7 +67,7 @@
     },
     {
       "id": "M2.5-created-manually-cycle-de-vie",
-      "ref_cdc": "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md:407",
+      "ref_cdc": "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md:408",
       "artefact": "supabase/migrations/20260916170000_plateforme_everest_created_manually_implication.sql (chk_everest_created_manually en implication) ; packages/adapters/src/everest/adapter.ts (echecEcritureLocale : écriture locale refusée après A Toutes! → alerte Ops in-app f_upsert_alerte_admin + levée)",
       "test": "everest_created_manually_cycle_de_vie.test.sql (B2-B9 cancelled/assigned/in_progress/completed avec manual_* conservés, B10-B14 23514 si un seul champ) + m2_5_everest_missions_rls.test.sql T10-T12 (T_M14.5 sous admin_savr) + adapter.m2-5.test.ts « écritures locales refusées après A Toutes! » (UPDATE everest_missions en 23514 → Permanent + alerte, jamais Slack)",
       "statut": "implemented",
@@ -75,7 +75,7 @@
     },
     {
       "id": "M2.5-acceptation-manuelle-plans",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:283-289",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:285-291",
       "artefact": "supabase/migrations/20260916180000_plateforme_everest_acceptation_manuelle_refus_rejetee.sql (refus P0003 depuis rejetee_par_prestataire)",
       "test": "everest_acceptation_manuelle_plans.test.sql (statut_depart : a_attribuer / attribuee_en_attente_acceptation → acceptee, rejetee_par_prestataire → refus ; refus_409 : realisee / cloturee / annulee, aucune écriture) + everest_acceptation_manuelle_reference.test.sql (non_envoye A2c, non a_toutes A8b, mission API A8, autre référence A5c, référence d'une autre tournée A7) + everest-manual-accept.m2-5.test.ts (P0003 → 409, formats 422)",
       "statut": "implemented",
@@ -83,7 +83,7 @@
     },
     {
       "id": "M2.5-point-b-dropoff-association",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:163",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:165",
       "artefact": "packages/adapters/src/everest/adapter.ts (dispatchCollecte : refus permanent sans association attribuée, hors du try ; buildMissionPayload : address_end, address_end_name, address_end_tel = adresse et contact de l'association) ; packages/adapters/src/everest/client.ts (CreateMissionPayload.address_end) ; packages/adapters/src/outbox-worker.ts (résolution association via attributions_antgaspi → associations, composée une fois pour les deux adapters)",
       "test": "M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans address_end + M2.5 / dispatch — AG sans association attribuée → LogistiquePermanentError, aucune mission créée [adapter.m2-5.test.ts]",
       "statut": "implemented",
@@ -91,7 +91,7 @@
     },
     {
       "id": "M2.5-coursier-propage-tournee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:283",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:285",
       "artefact": "packages/plateforme/src/app/api/webhooks/everest/route.ts (mission_dispatched, après la garde mission courante : coursier RELU sur l'API Everest via fetchEverestMissionDetails — jamais pris du payload — → UPDATE tournees.chauffeur_nom + chauffeur_telephone WHERE id = tournee de la mission AND external_ref_commande = mission_id ; API sans coursier = aucune écriture ; re-fetch KO ou UPDATE refusé = tracé, 200) ; téléphone écrit seulement s'il est fourni par l'API (même règle que MTS-1 : saisie Admin jamais effacée) ; après écriture, evaluerInfosAccesEtEnvoyer (email récap infos d'accès si requis + complet) ; collecte annulee → rien (ni écriture, ni email, ni appel API) ; packages/adapters/src/everest/adapter.ts (dispatch : une tournée créée par l'Admin avant dispatch — C2 Val 2026-10-06, type_vehicule NULL — est reprise telle quelle et reçoit son type de véhicule d'après le service Everest, jamais une seconde tournée)",
       "test": "mission_dispatched — coursier relu sur l’API Everest → tournees.chauffeur_nom / chauffeur_telephone, garde WHERE sur la mission, JAMAIS depuis le payload + mission_dispatched — API Everest sans coursier (ou téléphone seul) → la tournée n’est pas touchée (saisie Admin conservée) + mission_dispatched — re-fetch Everest en échec → rien d’écrit sur la tournée (payload ignoré), mission quand même assigned, 200 + mission_dispatched après réattribution, coursier présent sur l’API → aucune écriture sur la tournée ni appel API (garde mission courante AVANT la propagation) + mission_dispatched — coursier écrit → l’email récap « infos d’accès » est réévalué (fn_infos_acces_marquer_si_complet sur la collecte) + mission_dispatched — UPDATE tournees refusé → 200, tracé coursier_non_propage, pas de réévaluation email + mission_dispatched — API sans téléphone → seul le nom est écrit (le téléphone, peut-être saisi par l’Admin, n’est pas touché — même règle que MTS-1) + mission_dispatched — collecte déjà annulée côté Savr → ni coursier écrit, ni email récap, ni appel API (annulation pas encore parvenue à Everest) + tournée créée par l’Admin (type_vehicule NULL, saisie chauffeur avant dispatch — C2 Val 2026-10-06) : reprise telle quelle, type de véhicule posé, une seule mission + tournée existante dont le type de véhicule n’a pas été lu : aucune écriture de type_vehicule",
       "statut": "implemented",
@@ -99,7 +99,7 @@
     },
     {
       "id": "M2.5-jeton-fixe",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:283",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:285",
       "artefact": "packages/adapters/src/everest/client.ts (lireJetonEverest : EVEREST_API_TOKEN, blancs des bords retirés ; aucun appel à POST /auth ; jeton absent ou réponse 401 = LogistiqueTransientError + alerte Slack critique « Jeton Everest absent » / « Jeton Everest refusé », sans le jeton) ; packages/adapters/src/everest/adapter.ts (constructeur et sonde de santé sur le jeton ; everest_missions.everest_client_id n'est plus écrit) ; .env.example (section Everest)",
       "test": "M2.5/everest_jeton_fixe_bearer + M2.5/everest_jeton_fixe_blancs + M2.5/everest_jeton_absent + M2.5/everest_jeton_refuse + M2.5/everest_jeton_alerte_en_echec + M2.5/everest_jeton_refuse_sans_rejet",
       "statut": "implemented",
@@ -107,7 +107,7 @@
     },
     {
       "id": "M2.5-contrat-swagger",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:283",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:285",
       "artefact": "packages/adapters/src/everest/client.ts (CreateMissionPayload au format du swagger : service_id, client_ref, start_date en secondes Unix, address_start/_name/_tel, address_end/_name/_tel, comment ; annulation POST /missions/cancel { ref } ; relecture POST /missions/get { ref } ; lireMission : réponse { mission }, référence = mission.ref, 200 sans ref = erreur ambiguë ; détail relu : status_text (à défaut status), price_excl, première image de medias, agent_name, agent_tel, agent_vehicle.name) ; packages/adapters/src/everest/adapter.ts (start_date = heure demandée à Paris via instantParis, illisible = refus permanent avant tout envoi ; comment = consigne d'A Toutes! « Pesée obligatoire, photo marchandise obligatoire » puis commentaire au transporteur composé ; annulation par ref) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (notification lue sur ref, event, date et agent_name ; clé d'idempotence ref-event-date)",
       "test": "M2.5/everest_contrat_create + M2.5/everest_contrat_create_sans_ref + M2.5/everest_contrat_cancel + M2.5/everest_contrat_get + M2.5/everest_contrat_get_minimal + M2.5/everest_contrat_get_sans_ref + M2.5/everest_contrat_get_types_inattendus + M2.5/everest_notification_date_vide + M2.5/everest_contact_association_incomplet + M2.5/everest_contrat_creation + M2.5/everest_start_date_heure_demandee + M2.5/everest_start_date_illisible + M2.5/everest_comment_consigne_seule + M2.5/everest_notification_champs_swagger + le commentaire composé part tel quel dans comment, après la consigne d’A Toutes!",
       "statut": "implemented",
@@ -115,9 +115,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1ee5fb0ca29cc7c22a2b09eaa980faccaea4f7f127939935df0722a8cdf53480",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "613f157237ded886045e2f3f5d7bf02b99a02096e9b313cb8fd297e05e0c13bc",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "16f9342ee7f859d6ede5a4f89925e3ee483720eff54dc13c484055753a3afced",
-    "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "f27893604204edd42c80f59795ff3e93e81eecf9557ccd9904f3dbac6c071cde"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "c50652d575d95c2229646393d3197108b3f1ba16969bb3ae6a5d545708714c1a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "f308640dbe0902f0570a0f9017a32874e932693f0adc95bfe817d36c344a50f6",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "778b8713e188a36235719d81e29041b68c9ab663486ef81e42891d32f587d747",
+    "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "028f6fffba163cfd2cf3c486945d65d32746d040694e6ea4a2607134f52f3c24"
   }
 }

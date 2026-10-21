@@ -2,6 +2,7 @@
 
 **Source CDC** : §06/M03 + §05 R_M03.1 à R_M03.12 + §04 (`collectes_tms`, `tournees`, `chauffeurs`, `vehicules`, `types_vehicules`, `factures_prestataires`) + §09 RLS TMS
 **Généré le** : 2026-06-05
+**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M03.
 > Pour chaque scénario :

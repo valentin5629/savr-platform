@@ -30,7 +30,7 @@
         "nb_pax": {
           "type": "integer",
           "minimum": 0,
-          "description": "= evenements.pax (pax unique niveau événement). collectes.pax_collecte retiré V1 (2026-05-29)."
+          "description": "= collectes.pax (pax de la collecte, décision Val 2026-10-20 ; avant : evenements.pax)."
         },
         "controle_acces_requis": {
           "type": "boolean",

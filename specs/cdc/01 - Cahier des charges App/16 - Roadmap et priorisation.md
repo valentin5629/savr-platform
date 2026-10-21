@@ -1,5 +1,7 @@
 # 16 - Roadmap et priorisation
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-04-20
 
 ---
 
@@ -64,7 +66,7 @@ Le back-office Admin est la colonne vertébrale opérationnelle. À construire a
 
 Le use case central de la plateforme — ce que fait le traiteur commercial au quotidien.
 
-- Formulaire 3 étapes : événement (nom client, logo, date, pax, type) → lieu/contacts → récap
+- Formulaire 3 étapes : événement (nom client, logo, date, pax, type) → lieu/contacts → date et heure de collecte (récapitulatif sur l'écran de confirmation, décision Val 2026-10-16)
 - Autocomplétion lieux (référentiel) + saisie manuelle si hors référentiel
 - Autocomplétion contacts traiteurs
 - Gestion collecte ZD + AG sur le même événement (**formulaire unique événement-centré** — choix ☐ZD ☐AG en étape 1, rattachement explicite `evenement_id`, refonte 2026-05-21) + date événement distincte de date collecte *(multi-camions retiré du périmètre App 2026-05-25 — devenu interne TMS, Sujet 1 option A)*

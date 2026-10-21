@@ -2,6 +2,7 @@
 
 **Source CDC** : §09 (matrice §3 + matrice étendue ops_savr + §3ter audit RLS V1 + Bloc D) + §04 (RLS inline `sequences_facturation`, `audit_log`, `config_auto_accept_ag`, tables history) + §05 (`f_collecte_editable`) + §06.06 (matrice écrans) + §11 (Bloc 7)
 **Généré le** : 2026-06-07
+**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests RLS transverses de la Plateforme.
 > Pour chaque scénario :
@@ -350,7 +351,7 @@ Scénario : benchmark_listes_filtres_garde_role
 Scénario : rpc_security_definer_pas_oracle_existence
   # Source : §09 3quinquies (2) — interdiction d'oracle d'existence ; §04 f_benchmark_single_collecte
   # Priorité : P2-important
-  Étant donné une collecte C1 appartenant à l'organisation Kaspia
+  Étant donné une collecte C1 appartenant à l'organisation Kaspia, tenue sur un lieu qui n'est pas rattaché à Viparis
   Quand `gest_viparis` exécute `plateforme.f_benchmark_single_collecte(C1)`, puis `f_benchmark_single_collecte(<uuid inexistant>)`
   Alors les deux appels lèvent EXACTEMENT le même message `Collecte not accessible` — le message ne permet pas de distinguer « n'existe pas » de « appartient à une autre organisation »
   Quand un jeton SANS claim `user_role` exécute `f_benchmark_single_collecte(C1)`

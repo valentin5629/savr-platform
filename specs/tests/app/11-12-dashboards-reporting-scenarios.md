@@ -753,7 +753,19 @@ Scénario : modification_facteur_sans_effet_sur_collectes_figees
   Étant donné une collecte cloturee avec taux_recyclage=78,4 % et co2_* figés (snapshots caps_appliques + co2_facteurs_snapshot)
   Quand l'admin modifie un taux de captation et un facteur CO₂
   Alors taux_recyclage, co2_* et les snapshots de la collecte restent strictement inchangés
-  Et le PDF re-téléchargé est identique
+  Et le rapport re-téléchargé reprend ces valeurs figées (taux de recyclage, CO₂)
+```
+
+```gherkin
+# Source : §04 parametres_co2_divers (km_collecte_aller_retour = 15, décision Val 2026-10-20) + §05 R_co2_calcul
+# Couche : db
+# Priorité : P2-important
+
+Scénario : co2_forfait_transport_15km
+  Étant donné km_collecte_aller_retour = 15 et un facteur transport de 2,1 kgCO₂e/km
+  Quand une collecte ZD est clôturée
+  Alors la part transport de co2_induit_kg vaut 31,5 kg CO₂e, quelle que soit la taille de la collecte
+  Et une collecte déjà clôturée avant le changement garde ses valeurs figées
 ```
 
 ```gherkin
@@ -769,14 +781,15 @@ Scénario : recalcul_apres_correction_pesee_facteurs_du_moment
 ```
 
 ```gherkin
-# Source : §12 §1.2 + §04 rapports_rse.filtres_benchmark
+# Source : §12 §1.2 — rapport de recyclage fabriqué au clic, rien n'est stocké (décision Val 2026-10-16 ; remplace benchmark_pdf_reproductible_via_snapshot)
 # Couche : api
 # Priorité : P1-critique
 
-Scénario : benchmark_pdf_reproductible_via_snapshot
-  Étant donné un rapport RSE généré avec filtres benchmark figés dans `rapports_rse.filtres_benchmark`
-  Quand de nouvelles collectes parc modifient la moyenne benchmark, puis le traiteur re-télécharge le même PDF
-  Alors le radar benchmark du PDF et sa liste par flux affichent exactement les valeurs d'origine (snapshot)
+Scénario : rapport_radar_calcule_au_telechargement
+  Étant donné un rapport de recyclage ZD déjà téléchargé avec le radar
+  Quand de nouvelles collectes du parc modifient la moyenne benchmark, puis le traiteur télécharge à nouveau le rapport avec d'autres filtres
+  Alors le radar du PDF et sa liste par flux reflètent la moyenne et les filtres du moment du téléchargement
+  Et `rapports_rse.filtres_benchmark` n'est pas écrit et aucun PDF n'est stocké
   Et la légende sous le graphe liste les filtres appliqués (période, lieux, type, taille — jamais traiteurs)
 ```
 

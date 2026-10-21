@@ -2,6 +2,7 @@
 
 **Source CDC** : §06/M02 + §05 R1.1, R1.2, R1.3, R1.4, R2.7, R2.7bis, R6.1 + §09 RLS `collectes_tms` + §08 E1/E3/S1/S2
 **Généré le** : 2026-06-05
+**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M02.
 > Pour chaque scénario :

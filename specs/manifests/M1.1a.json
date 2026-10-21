@@ -190,7 +190,7 @@
     },
     {
       "id": "M1.1a-25",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:731",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:734",
       "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
       "test": "M1.1a/orgas/grille-tarifaire-admin-only",
       "statut": "implemented",
@@ -342,7 +342,7 @@
     },
     {
       "id": "M1.1a-orgas-creation-champs-obligatoires",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:697",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:700",
       "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/route.ts",
       "test": "M1.1a/orgas/creation — 422 + champs_invalides",
       "statut": "implemented",
@@ -350,7 +350,7 @@
     },
     {
       "id": "M1.1a-logo-fiche-proxy",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:726",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:729",
       "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/page.tsx",
       "test": "M1.1a/logo_fiche_client_admin_par_proxy",
       "statut": "implemented",
@@ -358,7 +358,7 @@
     },
     {
       "id": "M1.1a-clients-filtres-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:692",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:695",
       "artefact": "packages/plateforme/src/app/(admin)/admin/clients/page.tsx (Type / Statut en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/admin/organisations/route.ts (types CSV en liste blanche organisation_type ; l'ancien type lu comme une liste d'un élément) + packages/plateforme/src/lib/filtre-csv.ts",
       "test": "M1.1a — Type : 2 types + M1.1a — Statut : Actifs + M1.1a/orgas_liste_types_csv + M1.1a/orgas_liste_types_hors_enum_ecartes + M1.1a/orgas_liste_type_mono_conserve + M1.1a/orgas_liste_types_prioritaire_sur_mono + M1.1a — une réponse plus ancienne arrivée en dernier",
       "statut": "à-vérifier",
@@ -366,6 +366,6 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1ee5fb0ca29cc7c22a2b09eaa980faccaea4f7f127939935df0722a8cdf53480"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "c50652d575d95c2229646393d3197108b3f1ba16969bb3ae6a5d545708714c1a"
   }
 }

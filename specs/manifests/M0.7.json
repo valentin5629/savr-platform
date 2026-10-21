@@ -129,7 +129,7 @@
     },
     {
       "id": "BL-P2-22",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:525",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:530",
       "artefact": "supabase/migrations/20260708150000_plateforme_r22f_seed_templates_tiers_conditionnels.sql ; packages/shared/src/email/index.ts (interpolateur {{#if}}) ; packages/plateforme/src/lib/notifications/traiteur-operationnel.ts (émission tpl 20/21/22, câblée routes programmation/modification/annulation)",
       "test": "M0.7/bl-p2-22-emission-programmation — template 20",
       "statut": "implemented",
@@ -137,7 +137,7 @@
     },
     {
       "id": "M0.7-reset-referentiel-preserve",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1323",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1326",
       "artefact": "packages/shared/src/seed/reset.ts (TABLES_REFERENTIEL_PRESERVEES : parametres_algo + parametres_co2_divers photographiées avant le vidage et restaurées après, valide_par neutralisé — le CASCADE posé sur users les emportait via leur FK valide_par et le seed ne les réinsère jamais ; mesuré 0 ligne sur savr-dev le 2026-10-02) — référentiel « seed technique placeholder, identique dans les 2 datasets » (Fixtures §01 Catalogue l.15, Vault) ; packages/shared/src/seed/check.ts (check « Référentiel préservé par le reset »)",
       "test": "packages/shared/src/seed/seed-reset-audit-log.test.ts — préserve les tables référentiel emportées par le CASCADE (photo AVANT, restauration APRÈS, valide_par neutralisé) ; émet EXACTEMENT la séquence attendue",
       "statut": "implemented",
@@ -145,7 +145,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "0b8259656b44c137c7b9ac767009005666c13a8ae98b2755e7f5d5985cc4c1f4",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "bb0b06961f9aa41b21efa59bb0c2dd41834c4b187b1f682f9261639b54b22845"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "794b4405f45b1396892c734054947b7fcd138dda6a369ebbd5c52d2342cab365",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9704aa851a9accf548350bdb8381258da408f7328b8922be0f43a34999960bf"
   }
 }

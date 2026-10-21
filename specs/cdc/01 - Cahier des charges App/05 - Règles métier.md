@@ -1,5 +1,7 @@
 # 05 - Règles métier
 
+**Statut** : Validé
+**Dernière mise à jour** : 2026-04-20
 
 ---
 
@@ -216,7 +218,7 @@ Le crédit pack étant débité **uniquement au statut `realisee`** (cf. règle 
   4. Audit_log automatique : `action = 'pack_recredite_annulation_collecte'`, `collecte_id`, `pack_antgaspi_id`, motif d'annulation hérité de `collectes.motif_annulation` (obligatoire pour annulation post-`realisee`)
 - Trigger DB pour atomicité (vs validation applicative) — pas de race condition possible entre annulation et débit concurrent.
 
-**Cas particulier — Annulation client < 4h avant créneau** (cf. §4bis Annulation last minute) — *révisé 2026-06-07 (test scenarios §06.01 F2, arbitrage Val : §4bis fait foi)* : **Le « plein tarif » AG = débit d'un crédit pack** : trigger dédié `trg_pack_debit_annulation_tardive` sur la transition `→ annulee` (cf. « Débit d'un crédit », déclencheur 2). Pas de facture standalone si un pack est actif. Si **aucun pack actif** à cet instant → aucun débit ; plein tarif au tarif unitaire, facturé à la main par l'Admin (ou geste commercial), alerte Admin (F3, révisé 2026-10-16) *(interprétation Claude Code, à valider par Val)*. L'ancien invariant « 1 crédit pack = 1 collecte effectivement réalisée » est **amendé** : 1 crédit = 1 collecte réalisée OU annulée tardivement.
+**Cas particulier — Annulation client < 4h avant créneau** (cf. §4bis Annulation last minute) — *révisé 2026-06-07 (test scenarios §06.01 F2, arbitrage Val : §4bis fait foi)* : **Le « plein tarif » AG = débit d'un crédit pack** : trigger dédié `trg_pack_debit_annulation_tardive` sur la transition `→ annulee` (cf. « Débit d'un crédit », déclencheur 2). Pas de facture standalone si un pack est actif. Si **aucun pack actif** à cet instant → aucun débit ; plein tarif au tarif unitaire, facturé à la main par l'Admin (ou geste commercial), alerte Admin (F3, révisé 2026-10-16 ; validé par Val le 2026-10-20). L'ancien invariant « 1 crédit pack = 1 collecte effectivement réalisée » est **amendé** : 1 crédit = 1 collecte réalisée OU annulée tardivement.
 
 **Articulation avec le recrédit** : une collecte débitée par annulation tardive porte `pack_antgaspi_id` renseigné et est déjà `annulee` → le trigger de recrédit (`realisee → annulee`) ne s'applique pas (transition différente), aucun double mouvement possible. Un recrédit exceptionnel reste possible via l'override Admin « Ajuster crédits ».
 
@@ -305,7 +307,7 @@ Une collecte peut être servie par N tournées (relation N↔N via `collecte_tou
 
 **Depuis `en_cours` ou `realisee`** : Admin Savr uniquement, cas exceptionnel, avec champ obligatoire `motif_annulation`.
 
-**Annulation faite par l'Admin sans demande du client dans l'application** (quel que soit le statut, y compris après le créneau) : elle se juge, pour la règle de l'annulation tardive (§4bis), à l'instant où l'Admin la fait. Un problème du côté de Savr passe par la déclaration d'incident « imputable à Savr », qui ne débite ni ne facture rien (RM-09) ; une collecte déjà `realisee` annulée re-crédite le pack *(interprétation de la décision Val 2026-10-15, à valider)*
+**Annulation faite par l'Admin sans demande du client dans l'application** (quel que soit le statut, y compris après le créneau) : elle se juge, pour la règle de l'annulation tardive (§4bis), à l'instant où l'Admin la fait. Un problème du côté de Savr passe par la déclaration d'incident « imputable à Savr », qui ne débite ni ne facture rien (RM-09) ; une collecte déjà `realisee` annulée re-crédite le pack *(décision Val 2026-10-15, interprétation validée par Val le 2026-10-20)*
 
 **Depuis `cloturee`** : impossible. Une collecte clôturée est archivée définitivement. Si erreur de clôture → émission d'un avoir (module facturation).
 
@@ -339,7 +341,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 > **Refus TMS possible (V2 — ajout audit cohérence 2026-07-06, arbitrage Val RC-M04-07)** : même dans la fenêtre autorisée ci-dessus, le TMS répond **`409 collecte_sur_tournee_active`** si la collecte est rattachée via `collecte_tournees` à au moins une tournée `acceptee`/`en_cours` (le gate de cette section ne voit que les statuts de la **collecte**, pas ceux des tournées ; en multi-camions, une seule tournée active suffit). Traitement : **alerte Ops, pas de retry**, la modification locale Plateforme reste enregistrée, arbitrage manuel Ops avec le prestataire (téléphone + M04 W2/W7). **Aucune notification automatique au traiteur** (doctrine « Ops fait le filtre », cf. Notification client organisateur infra).
 
-> **Précision M1.2 (2026-06-26)** : la modification d'un champ ÉVÉNEMENT TMS-pertinent (`contact_principal_*`, `contact_secours_*`, `nb_pax`) émet également E2 par collecte dispatchée rattachée à l'événement (push silencieux, pas de réacceptation). E2 est catch-all et inclut contacts + nb_pax (§08 l.156). `lieu_id` reste verrouillé — jamais de PATCH lieu (§08 l.158). Implémenté via `fn_modifier_evenement` (RPC, transactional outbox, row lock sur collecte avant INSERT `outbox_events`). Patch M1.2_20260626.
+> **Précision M1.2 (2026-06-26)** : la modification d'un champ ÉVÉNEMENT TMS-pertinent (`contact_principal_*`, `contact_secours_*`) émet également E2 par collecte dispatchée rattachée à l'événement ; le pax, champ de la collecte depuis le 2026-10-20 (décision Val 2026-10-20), émet l'E2 de cette seule collecte (push silencieux, pas de réacceptation). E2 est catch-all et inclut contacts + nb_pax (§08 l.156). `lieu_id` reste verrouillé — jamais de PATCH lieu (§08 l.158). Implémenté via `fn_modifier_evenement` (RPC, transactional outbox, row lock sur collecte avant INSERT `outbox_events`). Patch M1.2_20260626.
 
 **Réacceptation prestataire** : si modification de `date_collecte` ou `heure_collecte` sur collecte `statut_tms = acceptee`, le statut TMS repasse à `attribuee_en_attente_acceptation` (réutilisation enum existant + flag `flags_jsonb.re_confirmation_requise = true` côté TMS, cf. M04 W10) → notification au prestataire pour re-confirmation. **Conséquence côté statut métier (Sujet 2, 2026-05-26)** : le trigger `fn_sync_statut_collecte_from_tms` ramène alors `statut` de `validee` à `programmee` (la collecte n'est plus acceptée tant que le prestataire n'a pas re-confirmé) — côté traiteur, la fiche repasse de « Confirmée » à « En cours d'organisation », ce qui reflète fidèlement l'état réel. Au retour `acceptee`, le trigger repasse `programmee`→`validee`. Modifications mineures (notes, contact secours, etc.) : push silencieux sans réacceptation, `statut` inchangé.
 
@@ -373,7 +375,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 **Règles V1** :
 - Si annulation reçue **≥ 4h avant l'heure de collecte** : pas de facturation, même si le prestataire est déjà mandaté *(décision Val 2026-10-15 : seuil 4h au lieu de 12h, condition « après mandat prestataire » retirée ; vaut pour ZD et AG)*
-- Si annulation reçue **< 4h avant l'heure de collecte** : facturation **plein tarif** — ZD : facture standard ; AG : **débit d'un crédit pack** via trigger `trg_pack_debit_annulation_tardive` *(confirmé Val 2026-06-07 — F2, cette section fait foi ; mécanique détaillée §3 « Débit d'un crédit » déclencheur 2 ; sans pack actif → plein tarif au tarif unitaire, facturé à la main par l'Admin (ou geste commercial), alerte Admin, F3 révisé 2026-10-16 *(interprétation Claude Code, à valider par Val)*)*
+- Si annulation reçue **< 4h avant l'heure de collecte** : facturation **plein tarif** — ZD : facture standard ; AG : **débit d'un crédit pack** via trigger `trg_pack_debit_annulation_tardive` *(confirmé Val 2026-06-07 — F2, cette section fait foi ; mécanique détaillée §3 « Débit d'un crédit » déclencheur 2 ; sans pack actif → plein tarif au tarif unitaire, facturé à la main par l'Admin (ou geste commercial), alerte Admin, F3 révisé 2026-10-16 (validé par Val le 2026-10-20))*
 - **Pas de facturation partielle ni de pénalité** au-delà de ces règles en V1 (pas de dégressivité J-3/J-1)
 - **Instant de l'annulation** : celui de la demande du client. Une annulation demandée par le client puis confirmée par l'Admin (`annulation_demandee` → `annulee`) se juge à l'heure de la demande (`collectes.annulation_demandee_at`) ; une annulation directe, à l'heure où elle est faite *(décision Val 2026-10-15)*
 - Notification automatique au client avec mention explicite de la règle de facturation
@@ -706,12 +708,12 @@ Où :
 **Formule V1** :
 
 ```
-collectes.volume_estime_repas = round(0.10 × evenements.pax)
+collectes.volume_estime_repas = round(0.10 × collectes.pax)   -- pax de la collecte (décision Val 2026-10-20)
 ```
 
 **Trigger** :
 - Calculée à l'INSERT d'une collecte AG (trigger DB `set_volume_estime_repas` sur `collectes BEFORE INSERT WHERE type = 'ag'`).
-- Recalculée à l'UPDATE de `evenements.pax` si la collecte AG associée n'est pas encore en statut `realisee` (trigger `update_volume_estime_repas`).
+- Recalculée à l'UPDATE de `collectes.pax` (pax de la collecte, décision Val 2026-10-20) si la collecte AG n'est pas encore réalisée (trigger `trg_set_volume_estime_repas`).
 - Verrouillée à partir du statut `realisee` (la valeur réelle `volume_repas_realise` prend le relais).
 
 **Visibilité** :
@@ -922,9 +924,9 @@ Chaque séquence repart à 00001 au 1er janvier. La combinaison (préfixe + ann�
 
 **Règle** :
 
-> Si `transporteurs.type_tms = 'mts1'`, alors `transporteurs.code_transporteur_mts1` doit être renseigné (non NULL, non vide). Contrôle bloquant à la saisie/édition du transporteur (Back-office §06 §6) et avant tout envoi MTS-1.
+> Si `transporteurs.type_tms = 'mts1'`, alors `transporteurs.code_transporteur_mts1` doit être renseigné (non NULL, non vide). Contrôle bloquant à la saisie/édition du transporteur (Back-office §06 §6).
 
-**Implémentation** : CHECK applicatif côté formulaire transporteur + garde dans la fonction d'envoi MTS-1 (si `code_transporteur_mts1` manquant → erreur explicite Admin, collecte non poussée, statut reste `non_envoye`). V1 only (déprécié V2). Voir [[04 - Data Model#Table : transporteurs]] et [[08 - APIs et intégrations#3bis. API Plateforme ↔ MTS-1]].
+**Implémentation** : CHECK applicatif côté formulaire transporteur. Depuis le 2026-10-15, l'envoi MTS-1 ne confie plus la tournée au transporteur ([[08 - APIs et intégrations]] §3bis.5) : le code sert à reconnaître le transporteur que l'Admin a choisi dans la console. V1 only (déprécié V2). Voir [[04 - Data Model#Table : transporteurs]] et [[08 - APIs et intégrations#3bis. API Plateforme ↔ MTS-1]].
 
 ---
 
@@ -1147,6 +1149,7 @@ Issu de la refonte du formulaire de programmation §06.01. Les règles ci-dessou
 
 > **Retirée V1 (Sujet 4, 2026-05-26)** : le mécanisme « Autre + texte libre + normalisation Admin » est supprimé. `types_evenements` est figé à 4 catégories de format de service (`cocktail_aperitif`, `cocktail_repas_complet`, `repas_assis`, `autre`), `autre` étant un fourre-tout sélectionnable **sans saisie**. Plus de colonne `type_evenement_libre`, plus de file de normalisation back-office. Les événements `autre` sont comptés comme un bucket benchmark normal. Extension du référentiel = ajout direct d'une ligne dans `types_evenements` (Supabase), sans UI. Cf. [[04 - Data Model]] table `types_evenements` + [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]].
 >
+> Contenu historique conservé pour traçabilité :
 >
 
 ### R_lieu_modif_pending *(simplifié 2026-05-25 — audit sobriété §04 B1)*
@@ -1192,9 +1195,9 @@ WHERE id = [id de l'événement];
 
 ---
 
-### R_pax_collecte *(ajout 2026-05-29 — Retiré V1 2026-05-29)*
+### R_pax_collecte *(ajout 2026-05-29 — retiré le même jour — rétabli le 2026-10-20, décision Val 2026-10-20)*
 
-> **Retiré V1 (2026-05-29)** — règle supprimée. Le pax est **unique au niveau événement** (`evenements.pax`), non modifiable par collecte. La tarification ZD, les rapports de recyclage (§12) et le payload E1 lisent directement `evenements.pax`. Cas multi-jours à pax variable reporté V2.
+> **Rétablie (décision Val 2026-10-20)** — chaque collecte porte son nombre de convives (`collectes.pax`, entier de 1 à 100 000 à la saisie — plafond décidé par Val le 2026-10-21 ; 0 = inconnu, reprise Bubble). Il se saisit avec la date de collecte (§06.01 étape 3) et se modifie sur la collecte (fiche collecte, `fn_modifier_collecte`), y compris par l'équipe Savr depuis la fiche collecte Admin *(décision Val 2026-10-21 : lot à livrer avant le lot 2 de facturation au pax de la collecte ; motif obligatoire comme toute route staff, cf. 07 - Observabilité / 06 - Audit trail §5)* ; la modification d'un événement le refuse. **Pax de l'événement** (`evenements.pax`) = pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (une ZD et une AG du même soir comptent une fois ; deux ZD ou deux AG du même jour s'additionnent ; deux soirées s'additionnent — règle révisée par Val le 2026-10-21) ; recalculé par trigger à chaque création, modification, annulation ou suppression d'une collecte ; inchangé si l'événement n'a plus de collecte non annulée. Le volume estimé de repas AG et ce qui part au transporteur (libellé « N pax », commentaire) lisent le pax de la collecte ; l'événement outbox E1 de la V1 ne porte pas de pax (l'adapter relit la collecte), et le `nb_pax` du contrat E1 cible V2 est celui de la collecte (§08 TMS). La tarification ZD et les rapports de recyclage (§12) lisent encore `evenements.pax` : leur passage au pax de la collecte est décidé (C2, C4 du 2026-10-20) et relève d'une fiche ultérieure. *(⚠ Code à aligner sur la règle révisée le 2026-10-21 : `f_pax_evenement` (PR #599) applique encore le plus grand pax du jour ; le seed `evenements-multi-collectes` porte deux ZD du même soir à 1 100 convives chacune, soit 2 200 sous la nouvelle règle.)*
 
 
 

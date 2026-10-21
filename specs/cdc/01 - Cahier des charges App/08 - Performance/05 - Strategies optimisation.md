@@ -1,5 +1,7 @@
 # 08 - Performance / 05 - Strategies optimisation
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-06-08 (skill `cdc-perf-load`)
 **Principe directeur** : pas de premature optimization. La liste autorisée reste sobre ; tout ce qui ajoute de l'infra ou de la complexité attend une validation Val.
 
 ---

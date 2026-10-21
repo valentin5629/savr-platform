@@ -554,3 +554,41 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
     expect(data.dechets_labo_kg).toBeNull();
   });
 });
+
+// « Ajouter une collecte » depuis la fiche événement (§06.01, décision Val
+// 2026-10-21) : la route dit si l'action est permise, l'écran ne la devine pas.
+describe('M1.2 — ajouter une collecte depuis la fiche événement du gestionnaire (route)', () => {
+  it('M1.2/ajout_collecte_fiche_evenement_programme_par_soi — événement programmé par son organisation : ajout permis, même collectes terminées', async () => {
+    rls.__set({
+      data: evenementBrut({ organisation_id: 'org-gl' }),
+      error: null,
+    });
+    const res = await fiche();
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as {
+      data: { ajouter_collecte: boolean };
+    };
+    // Deux collectes clôturées sur trois : l'ajout reste ouvert.
+    expect(data.ajouter_collecte).toBe(true);
+    // La colonne de l'événement, pas la clé du traiteur opérationnel
+    // (`…!traiteur_operationnel_organisation_id(`), qui la contient.
+    expect(String(rls.__calls.select?.[0]?.[0])).toMatch(
+      /(?:^|,)\s*organisation_id\s*,/,
+    );
+  });
+
+  it('M1.2/ajout_collecte_fiche_evenement_traiteur_tiers — événement d’un traiteur tiers sur ses lieux : pas d’ajout, ni l’organisation exposée', async () => {
+    rls.__set({
+      data: evenementBrut({ organisation_id: 'org-traiteur-tiers' }),
+      error: null,
+    });
+    const res = await fiche();
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as {
+      data: { ajouter_collecte: boolean };
+    };
+    // La route d'ajout répondrait 404 sur cet événement.
+    expect(data.ajouter_collecte).toBe(false);
+    expect(JSON.stringify(data)).not.toContain('org-traiteur-tiers');
+  });
+});

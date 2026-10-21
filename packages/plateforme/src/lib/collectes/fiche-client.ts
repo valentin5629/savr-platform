@@ -181,6 +181,11 @@ export function droitsFiche(
           ? 'actif'
           : 'grise',
     annulation: espace === 'gestionnaire' ? null : mode,
+    // Périmètre de la route d'ajout : l'organisation de l'événement, pour tous
+    // les rôles (§09, un commercial ajoute à l'événement d'un collègue). Le
+    // traiteur opérationnel d'une collecte programmée par un tiers, ou le
+    // gestionnaire sur celle d'un traiteur, n'y ont pas droit.
+    ajouter_collecte: evt.organisation_id === ctx.organisationId,
   };
 }
 

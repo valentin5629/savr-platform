@@ -28,6 +28,7 @@ type CollecteBrute = CollecteAConsolider & {
 
 type EvenementBrut = {
   id: string;
+  organisation_id: string;
   nom_evenement: string | null;
   date_evenement: string | null;
   pax: number | null;
@@ -78,7 +79,8 @@ export async function GET(
   const { data, error } = await supabase
     .from('evenements')
     .select(
-      `id, nom_evenement, date_evenement, pax, nom_client_organisateur,
+      `id, organisation_id, nom_evenement, date_evenement, pax,
+       nom_client_organisateur,
        lieux!lieu_id(nom, adresse_acces, code_postal, ville),
        organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url),
        types_evenements!type_evenement_id(libelle),
@@ -140,6 +142,10 @@ export async function GET(
         ? { id: traiteur.id, nom: traiteur.nom, a_logo: !!traiteur.logo_url }
         : null,
       dechets_labo_kg: dechetsLaboKg,
+      // « Ajouter une collecte » : sur ses propres programmations seulement —
+      // la route d'ajout répond 404 sur l'événement d'un traiteur tiers tenu
+      // sur ses lieux.
+      ajouter_collecte: evt.organisation_id === auth.ctx.organisationId,
       bilan,
       // Résultats par collecte, dans la forme de la liste Collectes (colonne
       // « Résultats ») : rien avant la réalisation.

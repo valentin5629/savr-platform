@@ -465,8 +465,7 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       error: null,
     });
     mockRpc
-      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
-      .mockResolvedValueOnce({ data: 'new-collecte-ag', error: null }) // fn_ajouter_collecte_evenement
+      .mockResolvedValueOnce({ data: 'new-collecte-ag', error: null }) // fn_creer_collecte
       .mockResolvedValueOnce({ data: { auto_accepted: false }, error: null }); // rpc_evaluer_auto_accept_ag
     mockMaybeSingle.mockResolvedValueOnce({
       data: { email: 'prog@x.fr' },

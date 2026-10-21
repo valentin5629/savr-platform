@@ -108,6 +108,8 @@ describe('M3.3 / fiche client agence', () => {
       modifier: 'actif',
       annuler: 'actif',
       annulation: 'demande',
+      // Donneur d'ordre : l'événement est le sien (décision Val 2026-10-21).
+      ajouter_collecte: true,
     });
     expect(JSON.stringify(data)).not.toContain('notes_internes');
   });

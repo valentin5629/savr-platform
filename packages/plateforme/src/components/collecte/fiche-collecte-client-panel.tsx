@@ -7,7 +7,8 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { CalendarDays, Pencil, Users, XCircle } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarDays, Pencil, PlusCircle, Users, XCircle } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
@@ -35,6 +36,7 @@ import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
 import { refCourteCollecte } from '@/lib/collecte-ref';
+import { ROUTES } from '@/lib/routes';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
 import { fmtPax } from '@/lib/format';
@@ -240,8 +242,16 @@ export function FicheCollecteClientPanel({
   const heure = c.heure_collecte?.slice(0, 5) ?? null;
   const { actions } = c;
   const demande = actions.annulation === 'demande';
+  // Ajout d'une collecte à l'événement : la page d'ajout, hors de la fiche.
+  const lienAjouterCollecte =
+    actions.ajouter_collecte && evt
+      ? ROUTES.programmer.ajouterCollecte(evt.id)
+      : null;
   const piedVisible =
-    !editing && (actions.annuler !== 'absent' || actions.modifier !== 'absent');
+    !editing &&
+    (actions.annuler !== 'absent' ||
+      actions.modifier !== 'absent' ||
+      lienAjouterCollecte !== null);
   const motifGrise =
     espace === 'traiteur'
       ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
@@ -366,6 +376,18 @@ export function FicheCollecteClientPanel({
 
       {piedVisible && (
         <FichePied>
+          {lienAjouterCollecte && (
+            <Button
+              asChild
+              variant="secondary"
+              data-testid="action-ajouter-collecte"
+            >
+              <Link href={lienAjouterCollecte}>
+                <PlusCircle className="h-4 w-4" aria-hidden="true" />
+                Ajouter une collecte à cet événement
+              </Link>
+            </Button>
+          )}
           {actions.annuler !== 'absent' && (
             <Button
               variant="outline-destructive"

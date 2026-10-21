@@ -29,7 +29,9 @@ import {
   Users,
   Building2,
   UserRound,
+  PlusCircle,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -104,6 +106,7 @@ import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { refCourteCollecte } from '@/lib/collecte-ref';
+import { ROUTES } from '@/lib/routes';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { Text } from '@/components/ui/text';
 import { FormActions } from '@/components/ui/form-actions';
@@ -198,6 +201,7 @@ interface LieuDetail {
 
 interface CollecteDetail {
   id: string;
+  evenement_id: string;
   type: 'zero_dechet' | 'anti_gaspi';
   statut: string;
   statut_tms: string;
@@ -3194,9 +3198,20 @@ export function CollecteDetailPanel({
         </Tabs>
       </FicheCorps>
 
-      {/* Pied d'actions (cadre commun des fiches) — RM-08 forçage manuel du
-          statut (motif obligatoire). */}
+      {/* Pied d'actions (cadre commun des fiches) — ajout d'une collecte à
+          l'événement (programmation de support, sur tout événement, décision
+          Val 2026-10-21) et RM-08 forçage manuel du statut (motif obligatoire). */}
       <FichePied>
+        <Button
+          asChild
+          variant="secondary"
+          data-testid="action-ajouter-collecte"
+        >
+          <Link href={ROUTES.programmer.ajouterCollecte(collecte.evenement_id)}>
+            <PlusCircle />
+            Ajouter une collecte à cet événement
+          </Link>
+        </Button>
         <Button
           variant="secondary"
           onClick={() => {

@@ -206,9 +206,7 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
       data: { id: 'evt-add-ag', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    // f_collecte_editable → true
-    mockSupabaseChain.rpc.mockResolvedValueOnce({ data: true, error: null });
-    // fn_ajouter_collecte_evenement → collecte créée
+    // fn_creer_collecte → collecte créée
     mockSupabaseChain.rpc.mockResolvedValueOnce({
       data: 'collecte-ag-add-1',
       error: null,
@@ -239,9 +237,10 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
       data: { id: 'evt-no-credit', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockSupabaseChain.rpc
-      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
-      .mockResolvedValueOnce({ data: 'collecte-ag-unite', error: null }); // fn_ajouter_collecte_evenement
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte-ag-unite',
+      error: null,
+    }); // fn_creer_collecte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');

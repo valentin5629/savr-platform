@@ -351,6 +351,7 @@ describe('M3.1 / fiche client — contenu servi', () => {
       modifier: 'actif',
       annuler: 'actif',
       annulation: 'demande',
+      ajouter_collecte: true,
     });
 
     auth('traiteur_commercial', 'org-1', 'user-autre');
@@ -359,6 +360,8 @@ describe('M3.1 / fiche client — contenu servi', () => {
       modifier: 'grise',
       annuler: 'grise',
       annulation: 'demande',
+      // L'ajout suit l'organisation de l'événement, pas son créateur (§09).
+      ajouter_collecte: true,
     });
 
     auth();
@@ -380,7 +383,27 @@ describe('M3.1 / fiche client — contenu servi', () => {
       modifier: 'absent',
       annuler: 'absent',
       annulation: null,
+      // Collecte terminée : l'ajout à l'événement reste ouvert (Val 2026-10-21).
+      ajouter_collecte: true,
     });
+  });
+
+  it('M1.2/ajout_collecte_depuis_fiche_collecte — traiteur opérationnel d’une collecte programmée par un tiers : pas d’ajout', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-agence',
+          traiteur_operationnel_organisation_id: 'org-1',
+        },
+      }),
+      error: null,
+    };
+    const { json } = await getFiche();
+    // La route d'ajout répondrait 404 : l'événement n'est pas le sien.
+    expect(
+      (json.data.actions as { ajouter_collecte: boolean }).ajouter_collecte,
+    ).toBe(false);
   });
 });
 

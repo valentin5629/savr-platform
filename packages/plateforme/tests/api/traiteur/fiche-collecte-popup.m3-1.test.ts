@@ -405,6 +405,17 @@ describe('M3.1 / fiche client — contenu servi', () => {
       (json.data.actions as { ajouter_collecte: boolean }).ajouter_collecte,
     ).toBe(false);
   });
+
+  it('M1.2/ajout_collecte_depuis_fiche_brouillon — collecte en brouillon de son organisation : pas d’ajout, l’événement n’est pas confirmé', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ statut: 'brouillon' }),
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(
+      (json.data.actions as { ajouter_collecte: boolean }).ajouter_collecte,
+    ).toBe(false);
+  });
 });
 
 describe('M3.1 / documents de la fiche — lus sous la RLS du traiteur (D12)', () => {

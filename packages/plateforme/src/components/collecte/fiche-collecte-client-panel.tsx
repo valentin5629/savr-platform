@@ -381,6 +381,9 @@ export function FicheCollecteClientPanel({
               asChild
               variant="secondary"
               data-testid="action-ajouter-collecte"
+              // Libellé long : il passe à la ligne sur un téléphone au lieu
+              // de déborder du pied de la fiche.
+              className="max-sm:h-auto max-sm:min-h-11 max-sm:whitespace-normal max-sm:text-center"
             >
               <Link href={lienAjouterCollecte}>
                 <PlusCircle className="h-4 w-4" aria-hidden="true" />

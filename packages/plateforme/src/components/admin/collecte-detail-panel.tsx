@@ -3199,19 +3199,27 @@ export function CollecteDetailPanel({
       </FicheCorps>
 
       {/* Pied d'actions (cadre commun des fiches) — ajout d'une collecte à
-          l'événement (programmation de support, sur tout événement, décision
-          Val 2026-10-21) et RM-08 forçage manuel du statut (motif obligatoire). */}
+          l'événement (programmation de support, sur tout événement confirmé,
+          décision Val 2026-10-21 ; pas depuis un brouillon) et RM-08 forçage
+          manuel du statut (motif obligatoire). */}
       <FichePied>
-        <Button
-          asChild
-          variant="secondary"
-          data-testid="action-ajouter-collecte"
-        >
-          <Link href={ROUTES.programmer.ajouterCollecte(collecte.evenement_id)}>
-            <PlusCircle />
-            Ajouter une collecte à cet événement
-          </Link>
-        </Button>
+        {collecte.statut !== 'brouillon' && (
+          <Button
+            asChild
+            variant="secondary"
+            data-testid="action-ajouter-collecte"
+            // Libellé long : il passe à la ligne sur un téléphone au lieu de
+            // déborder du pied de la fiche.
+            className="max-sm:h-auto max-sm:min-h-11 max-sm:whitespace-normal max-sm:text-center"
+          >
+            <Link
+              href={ROUTES.programmer.ajouterCollecte(collecte.evenement_id)}
+            >
+              <PlusCircle />
+              Ajouter une collecte à cet événement
+            </Link>
+          </Button>
+        )}
         <Button
           variant="secondary"
           onClick={() => {

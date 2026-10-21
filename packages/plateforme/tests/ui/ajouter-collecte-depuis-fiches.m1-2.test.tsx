@@ -270,30 +270,50 @@ const COLLECTE_ADMIN = {
   factures_collectes: [],
 };
 
+function stubFetchAdmin(collecte: Record<string, unknown>) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/documents'))
+        return Promise.resolve(
+          reponse({
+            rapport: null,
+            bordereau: null,
+            attestation: null,
+            photos: [],
+          }),
+        );
+      if (url.endsWith('/audit'))
+        return Promise.resolve(reponse({ data: [], recredit_at: null }));
+      if (url === `/api/v1/admin/collectes/${String(collecte.id)}`)
+        return Promise.resolve(reponse(collecte));
+      return Promise.resolve(reponse({ data: [] }));
+    }),
+  );
+}
+
 describe('M1.2 — ajouter une collecte depuis la fiche collecte de l’Admin', () => {
+  it(
+    'M1.2/ajout_collecte_fiche_admin_brouillon — collecte en brouillon : pas de lien, l’événement n’est pas confirmé',
+    async () => {
+      stubFetchAdmin({ ...COLLECTE_ADMIN, statut: 'brouillon' });
+      render(<CollecteDetailPanel collecteId="c9" />);
+      // Le pied est rendu (« Forcer le statut ») : seule l'action d'ajout manque.
+      await screen.findByRole(
+        'button',
+        { name: /Forcer le statut/ },
+        ATTENTE_UI,
+      );
+      expect(screen.queryByTestId('action-ajouter-collecte')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'M1.2/ajout_collecte_fiche_admin_lien — collecte clôturée : lien vers la page d’ajout de son événement',
     async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn((input: RequestInfo | URL) => {
-          const url = String(input);
-          if (url.endsWith('/documents'))
-            return Promise.resolve(
-              reponse({
-                rapport: null,
-                bordereau: null,
-                attestation: null,
-                photos: [],
-              }),
-            );
-          if (url.endsWith('/audit'))
-            return Promise.resolve(reponse({ data: [], recredit_at: null }));
-          if (url === '/api/v1/admin/collectes/c9')
-            return Promise.resolve(reponse(COLLECTE_ADMIN));
-          return Promise.resolve(reponse({ data: [] }));
-        }),
-      );
+      stubFetchAdmin(COLLECTE_ADMIN);
       render(<CollecteDetailPanel collecteId="c9" />);
       const lien = await screen.findByRole(
         'link',

@@ -269,7 +269,7 @@ Scénario : mts1_routes_v3_reelles_cliquet
   Et quand il appelle POST /v3/tours/{tourId}/dispatch (ancienne route du relevé Bubble)
   Alors MTS-1 répond 404 {"reasons":["BAD_ROUTE"]} — la route n'existe pas en V3
   Et quand il omet PUT /v3/tours/addCustomerOrder
-  Alors la tournée est dispatchée VIDE (aucune commande rattachée) — régression interdite
+  Alors la tournée reste VIDE (aucune commande rattachée) — régression interdite
   Et les URL réelles sont pinnées par des tests « wire » (niveau qui attrape un 404 invisible aux mocks de handlers)
 ```
 

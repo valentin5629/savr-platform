@@ -148,7 +148,7 @@ Aucune nouvelle table requise. Réutilise :
 - `users` (rôle `agence`)
 - `evenements` (`organisation_id` = agence, `traiteur_operationnel_organisation_id` ≠ agence)
 - `collectes`, `packs_antgaspi`, `entites_facturation`, `factures` — réutilisation directe
-- `rapports_rse` (colonne `filtres_benchmark` jsonb mutualisée avec §06.04 — snapshot des filtres benchmark persisté pour reproductibilité PDF)
+- `rapports_rse` (colonne `filtres_benchmark` jsonb mutualisée avec §06.04 — plus écrite pour un rapport ZD depuis le 2026-10-16 : le rapport est fabriqué à chaque téléchargement, rien n'est stocké, cf. [[12 - Reporting et exports]] §1.2)
 
 ---
 

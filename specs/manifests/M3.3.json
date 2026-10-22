@@ -519,8 +519,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "92c485607d4d59ac820777a552d0381563968aee1d6817aab362dbcdc26e2292",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "33332c93a93efd866e9339502864d4c56182c41ff3f4abb4f1bb034e102a90d1",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "95039c8fa90700a26e11e65c06d9b172f9ce8f316f0930bb2eeac03c4c9a3188",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "c0d01b7db16e4b93fdaca5fe1fa791e0d5de732d8afca0e1f981b67d890eb300",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "df6a09ee0027774c486af5c9ff934a8d1481fe9d311cfc8ab8a6f4ee62b7c5a6"
   }
 }

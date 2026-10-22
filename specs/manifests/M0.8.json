@@ -517,7 +517,7 @@
     },
     {
       "id": "BL-P3-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:751",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:753",
       "artefact": "packages/plateforme/src/components/compte/preferences-langue.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/page.tsx",
       "test": "M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)",
       "statut": "implemented",
@@ -533,7 +533,7 @@
     },
     {
       "id": "BL-P3-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:892",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:896",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -622,15 +622,15 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "735d70969bf2e538475e52815282902c5fb8ce66f503838d1caf17150291c06b",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "fc4f9123e04e03e35d1a87bea3845c8c8342a47c9d327683c0c963396025257e",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9704aa851a9accf548350bdb8381258da408f7328b8922be0f43a34999960bf",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "b232b2d28ffa857b13a454e7985efd5cbd4f4006803ccd578d0c3146ec046efc",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "92c485607d4d59ac820777a552d0381563968aee1d6817aab362dbcdc26e2292",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "c50652d575d95c2229646393d3197108b3f1ba16969bb3ae6a5d545708714c1a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "95039c8fa90700a26e11e65c06d9b172f9ce8f316f0930bb2eeac03c4c9a3188",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1dc5514eeb022c85122714cef2f72fdbd7924fbb4980e5a9f5c28b2d0342ea3e",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "1cd2954c07607d598743704ecc9aafdb984e63d8cdd6e7751b1d6798f3a839ec",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "df6a09ee0027774c486af5c9ff934a8d1481fe9d311cfc8ab8a6f4ee62b7c5a6",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "48ca393a35702554e87979a8a68a46a5a5d114315df42a0e69bae37817a54027",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "b1ce7f07f4ff2c9f18cacf248c16a704f2c7e02d9ecd705e1ea2f568f7e05650",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "393faa2b9b2143c6a15b316dab8f870735c0b61a3da809a107e5df93b2fac279",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "7f992793a126541f7a93ee0921da42f29c2b5feee2682b03cc26fdd7a267a0c6"
   }
 }

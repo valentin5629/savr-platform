@@ -109,6 +109,8 @@ Pas d'automatisation V1 (pas de batch de rattrapage, pas de flag fallback) — l
 
 La facture brouillon est générée **automatiquement à la clôture de la collecte** (`collectes.statut = cloturee`), au batch J+1 à 6h du matin.
 
+> ⚠ **Go-live : batch éteint (décision Val 2026-10-22)** — facturation faite hors plateforme : le batch répond sans préparer de brouillon (interrupteur `facturationPlateformeActive()`). Avant de le rallumer, le borner à une date de départ : sinon il préparerait un brouillon pour chaque collecte clôturée sans facture, historique migré compris, déjà facturée hors plateforme.
+
 ### ZD
 - 1 facture brouillon par collecte (mode défaut `par_collecte`)
 - Si l'organisation a le mode `mensuelle` activé : la collecte est ajoutée à un brouillon en cours pour le mois en cours (agrégation `factures_collectes`)

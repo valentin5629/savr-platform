@@ -366,7 +366,7 @@
     },
     {
       "id": "BL-P1-TRAIT-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:765-775",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:767-777",
       "artefact": "packages/plateforme/src/app/api/me/profil/route.ts",
       "test": "M3.1/profil_telephone_editable",
       "statut": "implemented",
@@ -502,7 +502,7 @@
     },
     {
       "id": "M3.1-trait-monorga-facturation-params-contact",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:716-730",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:718-732",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/factures/route.ts",
       "test": "M3.1/trait_monorga_factures_filtres",
       "statut": "partial",
@@ -983,7 +983,7 @@
     },
     {
       "id": "M3.1-facturation-filtres-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:730",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:732",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/mon-organisation-client.tsx (FacturationTab : Période en premier, Statut / Type en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/traiteur/factures/route.ts (statuts / types CSV en liste blanche des enums, statut / type lus comme des listes d'un élément ; RLS et .neq brouillon inchangés)",
       "test": "M3.1 — Facturation : Période en premier + M3.1/trait_monorga_factures_filtres_choix_multiple + M3.1/trait_monorga_factures_filtres_valeurs_toutes_invalides + M3.1/trait_monorga_factures_filtres_listes_prioritaires_sur_mono + M3.1 — Facturation : une réponse plus ancienne",
       "statut": "à-vérifier",
@@ -1071,10 +1071,10 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "794b4405f45b1396892c734054947b7fcd138dda6a369ebbd5c52d2342cab365",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "ac684d011882ac7a60064859650e1a8ad23296de89e0ecc25f60a1c97d20e073",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "e5f19d7dbe3e86980a2d8039fbece8def758e9b62cf8515dee72424151d244e3",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "75f25088455885f29328c2f91d3201165f50c3d988844fad4b7a3bce9f4434a7",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9704aa851a9accf548350bdb8381258da408f7328b8922be0f43a34999960bf",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "92c485607d4d59ac820777a552d0381563968aee1d6817aab362dbcdc26e2292",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "95039c8fa90700a26e11e65c06d9b172f9ce8f316f0930bb2eeac03c4c9a3188",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "1cd2954c07607d598743704ecc9aafdb984e63d8cdd6e7751b1d6798f3a839ec",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "df6a09ee0027774c486af5c9ff934a8d1481fe9d311cfc8ab8a6f4ee62b7c5a6"
   }

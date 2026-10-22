@@ -209,7 +209,7 @@
     },
     {
       "id": "BL-P1-FACT-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:144",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:146",
       "artefact": "packages/plateforme/src/lib/facturation/edition-facture.ts ; packages/plateforme/src/app/api/v1/admin/factures/[id]/lignes/route.ts ; packages/plateforme/src/app/(admin)/admin/factures/[id]/page.tsx",
       "test": "M1.7 FACT-01 : ajout d’une ligne libre valide → insérée + totaux recalculés",
       "statut": "implemented",
@@ -217,7 +217,7 @@
     },
     {
       "id": "BL-P1-FACT-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:204",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:206",
       "artefact": "packages/plateforme/src/lib/facturation/tarif-ag.ts ; packages/plateforme/src/lib/facturation/batch-brouillons.ts",
       "test": "M1.7 FACT-02 : collecte Pack 30 par_collecte → PU = prix unitaire du pack (460 €, pas 590)",
       "statut": "implemented",
@@ -225,7 +225,7 @@
     },
     {
       "id": "BL-P1-FACT-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:207",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:209",
       "artefact": "packages/plateforme/src/lib/facturation/tarif-ag.ts",
       "test": "M1.7 FACT-03 : AG hors pack avec remise négociée 10 % → PU réduit à 531 €",
       "statut": "implemented",
@@ -241,7 +241,7 @@
     },
     {
       "id": "BL-P1-FACT-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:209",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:211",
       "artefact": "packages/plateforme/src/lib/facturation/edition-facture.ts (modifierLigne)",
       "test": "M1.7 FACT-05 : override PU d’une ligne brouillon → montant figé + audit_log + totaux recalculés",
       "statut": "implemented",
@@ -265,7 +265,7 @@
     },
     {
       "id": "BL-P1-FACT-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:263",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:265",
       "artefact": "packages/plateforme/src/lib/facturation/avoirs.ts ; packages/plateforme/src/app/(admin)/admin/factures/[id]/page.tsx",
       "test": "M1.7 FACT-08 : payload avoir = type credit_note (jamais is_credit_note)",
       "statut": "implemented",
@@ -289,7 +289,7 @@
     },
     {
       "id": "BL-P2-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:307",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:309",
       "artefact": "packages/shared/src/pdf/document-types.ts (type 'facture' + facture@1) ; apps/pdf-renderer/src/templates/facture.ts ; apps/pdf-renderer/src/render.ts (dispatch) ; packages/plateforme/src/lib/pdf/pdf-worker.ts (linkFichierToEntity branche factures → pdf_url_savr) ; packages/plateforme/src/lib/facturation/validation-admin.ts (enqueue jobs_pdf à l'émission) ; packages/plateforme/src/app/api/v1/admin/factures/[id]/pdf-savr/download/route.ts ; packages/plateforme/src/lib/facturation/facture-ui.ts (pastillePennylane2h, tempsEcouleFr) ; packages/plateforme/src/app/(admin)/admin/factures/page.tsx (colonne PDF Savr + pastille) ; packages/plateforme/src/app/(admin)/admin/factures/[id]/page.tsx (bandeau)",
       "test": "M1.7 / R22b fact-col-pdf-savr + fact-pastille-orange-2h + fact-bandeau-en-attente [packages/plateforme/tests/lib/facturation.m1-7.test.ts] ; M1.7 / R22b Facture copie de travail [apps/pdf-renderer/src/render.test.ts]",
       "statut": "implemented",
@@ -297,7 +297,7 @@
     },
     {
       "id": "BL-P2-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:140",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:142",
       "artefact": "packages/plateforme/src/app/api/v1/admin/factures/route.ts (filtres statut/organisation_id/type/période/en_erreur + pdf_url_savr + factures_collectes(count)) ; packages/plateforme/src/app/(admin)/admin/factures/page.tsx (filtres statut incl. annulée + organisation + type + période + en-erreur ; colonnes §4 Lignes/Montant HT/Créée le) ; packages/plateforme/src/lib/facturation/facture-ui.ts (estEnRetard)",
       "test": "M1.7 / R22b fact-suivi-en-retard [packages/plateforme/tests/lib/facturation.m1-7.test.ts] ; M1.7 / R22b fact-mention-tva-293b [apps/pdf-renderer/src/render.test.ts]",
       "statut": "implemented",
@@ -329,11 +329,11 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "735d70969bf2e538475e52815282902c5fb8ce66f503838d1caf17150291c06b",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "c50652d575d95c2229646393d3197108b3f1ba16969bb3ae6a5d545708714c1a",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": "770b5cac49b256dc3f6bf8ddf18506353e43186ca16f9548bc41a44535924862",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "778b8713e188a36235719d81e29041b68c9ab663486ef81e42891d32f587d747",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "fc4f9123e04e03e35d1a87bea3845c8c8342a47c9d327683c0c963396025257e",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1dc5514eeb022c85122714cef2f72fdbd7924fbb4980e5a9f5c28b2d0342ea3e",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": "493cc39ac5436ece2da4079fba87f40162d437d0723ed03f15d0e9ca9a4232d7",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "b860b9914ab3fca3e668bdb5d5fe525311561a986ea6ffdfaac185717c3cfa07",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "1cd2954c07607d598743704ecc9aafdb984e63d8cdd6e7751b1d6798f3a839ec",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "b1ce7f07f4ff2c9f18cacf248c16a704f2c7e02d9ecd705e1ea2f568f7e05650"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "393faa2b9b2143c6a15b316dab8f870735c0b61a3da809a107e5df93b2fac279"
   }
 }

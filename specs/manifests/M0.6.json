@@ -1753,11 +1753,10 @@
     {
       "id": "M0.6-pax-collecte-modification-admin",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:364 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1200",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "ref_divergence": "_Divergences/M1.2_20261020_pax-par-collecte.md",
-      "libelle": "Modification du pax d'une collecte par l'équipe Savr depuis la fiche collecte Admin, avec motif comme toute route staff (décision Val 2026-10-21 ; §06.06 « Actions Admin/Ops », §05 R_pax_collecte ; lot à livrer avant le lot 2 de facturation au pax de la collecte). Non codé : le pax est en lecture seule dans la fiche collecte Admin, et la route PATCH /api/v1/admin/collectes/[id] ne l'accepte pas (absent de ALLOWED_FIELDS)."
+      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
+      "test": "packages/plateforme/tests/api/admin/collecte-pax-admin.m0-6.test.ts + packages/plateforme/src/components/admin/collecte-detail-panel-pax.m0-6.test.tsx",
+      "statut": "implemented",
+      "libelle": "Modification du pax d'une collecte par l'équipe Savr depuis la fiche collecte Admin, avec motif comme toute route staff (décision Val 2026-10-21 ; §06.06 « Actions Admin/Ops », §05 R_pax_collecte). Route PATCH /api/v1/admin/collectes/[id] : pax accepté (entier de 1 à 100 000, refusPaxCollecte), motif d'au moins 10 caractères exigé et écrit dans la ligne d'audit UPDATE, pax et statut refusés ensemble (422), rôles clients refusés (requireStaff) ; fn_modifier_collecte recalcule le pax de l'événement et émet l'E2 si une commande existe. Fiche Admin, onglet Informations : bouton « Modifier » à côté du nombre de pax, fenêtre « Modifier le nombre de pax » (champ pré-rempli, vide si le pax est inconnu ; motif ; « Enregistrer » désactivé tant que l'un des deux est invalide)."
     }
   ],
   "cdc_source_hash": {

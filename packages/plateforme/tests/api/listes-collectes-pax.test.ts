@@ -1,7 +1,7 @@
 /**
  * Pax porté par la collecte (décision Val 2026-10-20) — listes de collectes.
  *
- * Le pax de l'événement est désormais la somme des jours (règle C1) : une ligne
+ * Le pax de l'événement est désormais la somme des jours (règle du jour) : une ligne
  * de collecte qui l'affiche montrerait 1 400 pour une soirée à 700. Chaque route
  * de liste demande donc le pax sur la collecte, jamais dans l'embed de
  * l'événement. Les mocks PostgREST ne filtrent pas les colonnes : seul le texte

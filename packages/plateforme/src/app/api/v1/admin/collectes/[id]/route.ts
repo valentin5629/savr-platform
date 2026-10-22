@@ -15,6 +15,7 @@ import {
 import { validerLieuOverrides } from '@/lib/programmation/lieu-override.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { refusPaxCollecte } from '@/lib/pax-collecte.js';
 import {
   deriverSuiviEmail,
   lireDernierEmailInfosAcces,
@@ -243,6 +244,9 @@ async function patchHandler(
     'date_collecte',
     'heure_collecte',
     'nb_camions_demande',
+    // Nombre de convives de la collecte (décision Val 2026-10-21) : motif
+    // obligatoire, cf. plus bas.
+    'pax',
     'controle_acces_requis',
     'notes_internes',
     'informations_supplementaires',
@@ -317,6 +321,33 @@ async function patchHandler(
     );
   }
 
+  // Nombre de convives (décision Val 2026-10-21, §05 R_pax_collecte) : modifié
+  // par l'équipe Savr avec un motif, comme toute correction staff (§07/06 §5).
+  // Il se modifie seul : un forçage de statut écrit sa propre ligne d'audit, et
+  // le motif d'une requête ne doit justifier qu'un seul geste.
+  const paxModifie = Object.hasOwn(updates, 'pax');
+  if (paxModifie) {
+    if (forceStatut) {
+      return NextResponse.json(
+        {
+          error: 'Le nombre de convives et le statut se modifient séparément',
+        },
+        { status: 422 },
+      );
+    }
+    const refusPax = refusPaxCollecte(updates.pax);
+    if (refusPax) return refusPax;
+    if (motif.length < 10) {
+      return NextResponse.json(
+        {
+          error:
+            'Un motif d’au moins 10 caractères est requis pour modifier le nombre de convives',
+        },
+        { status: 422 },
+      );
+    }
+  }
+
   const supabase = createAdminSupabaseClient();
   const { data: before, error: fetchErr } = await supabase
     .from('collectes')
@@ -380,26 +411,30 @@ async function patchHandler(
 
   const data = updatedJson as Record<string, unknown>;
 
-  if (forceStatut) {
-    await supabase.from('audit_log').insert({
-      table_name: 'collectes',
-      record_id: id,
-      action: 'collecte_statut_force',
-      user_id: auth.ctx.userId,
-      motif,
-      old_values: { statut: (before as { statut?: unknown }).statut },
-      new_values: { statut: updates.statut },
-    });
-  } else {
-    await supabase.from('audit_log').insert({
-      table_name: 'collectes',
-      record_id: id,
-      action: 'UPDATE',
-      user_id: auth.ctx.userId,
-      old_values: before,
-      new_values: data,
-    });
-  }
+  // La modification est déjà écrite : une ligne d'audit refusée ne l'annule
+  // pas, mais elle est la seule trace du motif — l'échec est journalisé.
+  const { error: auditErr } = await supabase.from('audit_log').insert(
+    forceStatut
+      ? {
+          table_name: 'collectes',
+          record_id: id,
+          action: 'collecte_statut_force',
+          user_id: auth.ctx.userId,
+          motif,
+          old_values: { statut: (before as { statut?: unknown }).statut },
+          new_values: { statut: updates.statut },
+        }
+      : {
+          table_name: 'collectes',
+          record_id: id,
+          action: 'UPDATE',
+          user_id: auth.ctx.userId,
+          ...(paxModifie ? { motif } : {}),
+          old_values: before,
+          new_values: data,
+        },
+  );
+  if (auditErr) erreurInterne(auditErr, 'admin.collectes.update.audit');
 
   // ─── Notifications d'annulation (§06.02 tpl 5/21/22 + §05 machine à états) ────
   // Annulation en 2 temps : la bascule finale annulation_demandee → annulee est

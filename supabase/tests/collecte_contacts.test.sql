@@ -84,13 +84,13 @@ SELECT ok(has_table_privilege('service_role', 'plateforme.collecte_contacts', 'S
 
 -- ── Valeurs reprises de l'événement à la création ───────────────────────────
 SELECT is(pg_temp.contact((SELECT commandee FROM t)), 'Contact Fixture / 0600000000 / - / -',
-  'collecte créée : contacts repris de l''événement');
+  'collecte créée : contacts repris de l’événement');
 SELECT is(pg_temp.contact((SELECT seconde FROM t)), 'Contact Fixture / 0600000000 / - / -',
-  'seconde collecte de l''événement : mêmes contacts repris');
+  'seconde collecte de l’événement : mêmes contacts repris');
 SELECT is(pg_temp.type_evt((SELECT commandee FROM t)), (SELECT type_evt FROM t),
-  'collecte créée : type d''événement repris de l''événement');
+  'collecte créée : type d’événement repris de l’événement');
 SELECT is(pg_temp.type_evt((SELECT seconde FROM t)), (SELECT type_evt FROM t),
-  'seconde collecte : type d''événement repris de l''événement');
+  'seconde collecte : type d’événement repris de l’événement');
 
 -- Un type donné à l'insertion est gardé.
 ALTER TABLE t ADD COLUMN typee uuid;
@@ -98,9 +98,9 @@ INSERT INTO plateforme.collectes (evenement_id, type, date_collecte, heure_colle
 SELECT evt, 'zero_dechet', CURRENT_DATE + 32, '20:00', 'programmee', 'non_envoye', 50, autre_type FROM t;
 UPDATE t SET typee = (SELECT id FROM plateforme.collectes WHERE evenement_id = t.evt AND date_collecte = CURRENT_DATE + 32);
 SELECT is(pg_temp.type_evt((SELECT typee FROM t)), (SELECT autre_type FROM t),
-  'type donné à l''insertion : gardé');
+  'type donné à l’insertion : gardé');
 SELECT is(pg_temp.contact((SELECT typee FROM t)), 'Contact Fixture / 0600000000 / - / -',
-  'collecte insérée directement : contacts repris de l''événement');
+  'collecte insérée directement : contacts repris de l’événement');
 
 -- ── fn_modifier_evenement : recopie sur toutes les collectes ────────────────
 SELECT plateforme.fn_modifier_evenement(
@@ -108,11 +108,11 @@ SELECT plateforme.fn_modifier_evenement(
   '{"contact_principal_nom": "Zoé Martin", "contact_principal_telephone": "0611223344", "contact_secours_nom": "Paul", "contact_secours_telephone": "0699887766"}'::jsonb,
   ARRAY['contact_principal_nom', 'contact_principal_telephone', 'contact_secours_nom', 'contact_secours_telephone']);
 SELECT is(pg_temp.contact((SELECT commandee FROM t)), 'Zoé Martin / 0611223344 / Paul / 0699887766',
-  'contacts modifiés sur l''événement : recopiés sur la collecte commandée');
+  'contacts modifiés sur l’événement : recopiés sur la collecte commandée');
 SELECT is(pg_temp.contact((SELECT seconde FROM t)), 'Zoé Martin / 0611223344 / Paul / 0699887766',
-  'contacts modifiés sur l''événement : recopiés sur la seconde collecte');
+  'contacts modifiés sur l’événement : recopiés sur la seconde collecte');
 SELECT is(pg_temp.contact((SELECT typee FROM t)), 'Zoé Martin / 0611223344 / Paul / 0699887766',
-  'contacts modifiés sur l''événement : recopiés sur la troisième collecte');
+  'contacts modifiés sur l’événement : recopiés sur la troisième collecte');
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
     WHERE aggregate_id = (SELECT commandee FROM t) AND event_type = 'collecte.modifiee'),
@@ -121,9 +121,9 @@ SELECT is(
 SELECT plateforme.fn_modifier_evenement(
   (SELECT evt FROM t), jsonb_build_object('type_evenement_id', (SELECT autre_type FROM t)), ARRAY['type_evenement_id']);
 SELECT is(pg_temp.type_evt((SELECT commandee FROM t)), (SELECT autre_type FROM t),
-  'type modifié sur l''événement : recopié sur la collecte commandée');
+  'type modifié sur l’événement : recopié sur la collecte commandée');
 SELECT is(pg_temp.type_evt((SELECT seconde FROM t)), (SELECT autre_type FROM t),
-  'type modifié sur l''événement : recopié sur la seconde collecte');
+  'type modifié sur l’événement : recopié sur la seconde collecte');
 
 -- Un autre champ de l'événement ne touche ni contacts ni type.
 UPDATE plateforme.collecte_contacts SET contact_secours_nom = 'Propre à la seconde'
@@ -132,9 +132,9 @@ UPDATE plateforme.collectes SET type_evenement_id = (SELECT type_evt FROM t)
  WHERE id = (SELECT seconde FROM t);
 SELECT plateforme.fn_modifier_evenement((SELECT evt FROM t), '{"nom_evenement": "Gala renommé"}'::jsonb, ARRAY['nom_evenement']);
 SELECT is(pg_temp.contact((SELECT seconde FROM t)), 'Zoé Martin / 0611223344 / Propre à la seconde / 0699887766',
-  'renommer l''événement ne recopie pas les contacts');
+  'renommer l’événement ne recopie pas les contacts');
 SELECT is(pg_temp.type_evt((SELECT seconde FROM t)), (SELECT type_evt FROM t),
-  'renommer l''événement ne recopie pas le type');
+  'renommer l’événement ne recopie pas le type');
 
 -- ── Bornes ───────────────────────────────────────────────────────────────────
 SELECT throws_ok(
@@ -159,11 +159,11 @@ SELECT is((SELECT count(*)::int FROM plateforme.collecte_contacts WHERE collecte
 GRANT SELECT ON t TO authenticated;
 SELECT test_set_jwt('traiteur_manager', (SELECT org FROM t));
 SELECT throws_ok($$ SELECT count(*) FROM plateforme.collecte_contacts $$,
-  '42501', NULL, 'traiteur_manager de l''organisation : lecture refusée');
+  '42501', NULL, 'traiteur_manager de l’organisation : lecture refusée');
 SELECT throws_ok(
   $$ INSERT INTO plateforme.collecte_contacts (collecte_id, contact_principal_nom, contact_principal_telephone)
      VALUES ((SELECT seconde FROM t), 'Intrus', '0600000001') $$,
-  '42501', NULL, 'traiteur_manager de l''organisation : écriture refusée');
+  '42501', NULL, 'traiteur_manager de l’organisation : écriture refusée');
 SELECT test_set_jwt('traiteur_commercial', (SELECT org FROM t));
 SELECT throws_ok($$ SELECT count(*) FROM plateforme.collecte_contacts $$,
   '42501', NULL, 'traiteur_commercial : lecture refusée');

@@ -64,29 +64,53 @@ describe('événements multi-collectes — générateur', () => {
       for (const c of de(e.slug)) {
         expect(c.traiteur, c.slug).toBe(e.traiteur);
         expect(c.lieu, c.slug).toBe(e.lieu);
-        // Pax porté par la collecte (décision Val 2026-10-20) : une AG prend
-        // celui de la ZD non annulée du même jour (même service).
-        const zdDuJour = de(e.slug).find(
-          (z) =>
-            z.type === 'zero_dechet' &&
-            z.statut !== 'annulee' &&
-            z.date === c.date,
-        );
-        if (c.type === 'anti_gaspi' && zdDuJour)
-          expect(c.pax, c.slug).toBe(zdDuJour.pax);
         expect(c.pax, c.slug).toBeGreaterThan(0);
       }
   });
 
-  it('SEED-EMC-5b — le pax de l’événement suit la règle C1 (par jour le plus grand pax, puis la somme des jours)', () => {
+  it('SEED-EMC-5a — un jour qui a des ZD et des AG compte les mêmes convives des deux côtés (même service)', () => {
     for (const e of evenements) {
-      const parJour = new Map<string, number>();
+      const totaux = new Map<string, { zd: number; ag: number }>();
       for (const c of de(e.slug))
-        if (c.statut !== 'annulee')
-          parJour.set(c.date, Math.max(parJour.get(c.date) ?? 0, c.pax));
-      const attendu = [...parJour.values()].reduce((s, v) => s + v, 0);
+        if (c.statut !== 'annulee') {
+          const t = totaux.get(c.date) ?? { zd: 0, ag: 0 };
+          if (c.type === 'zero_dechet') t.zd += c.pax;
+          else t.ag += c.pax;
+          totaux.set(c.date, t);
+        }
+      for (const [jour, t] of totaux)
+        if (t.zd > 0 && t.ag > 0) expect(t.ag, `${e.slug} ${jour}`).toBe(t.zd);
+    }
+  });
+
+  it('SEED-EMC-5b — le pax de l’événement suit la règle du jour (par jour le plus grand des totaux ZD et AG, puis la somme des jours)', () => {
+    for (const e of evenements) {
+      const totaux = new Map<string, { zd: number; ag: number }>();
+      for (const c of de(e.slug))
+        if (c.statut !== 'annulee') {
+          const t = totaux.get(c.date) ?? { zd: 0, ag: 0 };
+          if (c.type === 'zero_dechet') t.zd += c.pax;
+          else t.ag += c.pax;
+          totaux.set(c.date, t);
+        }
+      const attendu = [...totaux.values()].reduce(
+        (s, t) => s + Math.max(t.zd, t.ag),
+        0,
+      );
       expect(e.pax, e.slug).toBe(attendu);
     }
+  });
+
+  it('SEED-EMC-5c — deux collectes du même type le même jour existent, et portent chacune leur part des convives', () => {
+    // Forum Ingénieurs : plénière 700 + exposants 400 en ZD comme en AG.
+    const forum = evenements.find(
+      (e) => e.slug === 'evt_multi_forum_ingenieurs',
+    );
+    expect(forum?.pax).toBe(1100);
+    const zd = de('evt_multi_forum_ingenieurs')
+      .filter((c) => c.type === 'zero_dechet')
+      .map((c) => c.pax);
+    expect(zd).toEqual([700, 400]);
   });
 
   it('SEED-EMC-6 — chaque cas du bilan consolidé est couvert', () => {
@@ -127,14 +151,11 @@ describe('événements multi-collectes — générateur', () => {
     expect(cas.some((c) => c.e.client === null)).toBe(true);
   });
 
-  it('SEED-EMC-6b — les ZD réalisées d’un même événement, sur des jours différents, n’ont pas le même pax (taux pondéré ≠ moyenne simple)', () => {
+  it('SEED-EMC-6b — les ZD réalisées d’un même événement n’ont pas le même pax (taux pondéré ≠ moyenne simple)', () => {
     for (const e of evenements) {
-      // Deux ZD du même soir couvrent les mêmes convives (règle C1) : même pax.
-      const parJour = new Map<string, number>();
-      for (const c of de(e.slug))
-        if (c.type === 'zero_dechet' && c.statut === 'cloturee')
-          parJour.set(c.date, c.pax);
-      const pax = [...parJour.values()];
+      const pax = de(e.slug)
+        .filter((c) => c.type === 'zero_dechet' && c.statut === 'cloturee')
+        .map((c) => c.pax);
       expect(new Set(pax).size, e.slug).toBe(pax.length);
     }
   });

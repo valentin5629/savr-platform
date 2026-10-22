@@ -1,6 +1,8 @@
 -- =============================================================================
--- pgTAP — pax porté par la collecte (décision Val 2026-10-20), migration
--- 20261021073000_plateforme_collectes_pax.sql
+-- pgTAP — pax porté par la collecte (décision Val 2026-10-20), migrations
+-- 20261021073000_plateforme_collectes_pax.sql et
+-- 20261022150000_plateforme_pax_evenement_regle_du_jour.sql (règle du jour
+-- révisée par Val le 2026-10-21)
 -- =============================================================================
 -- Prouve :
 --   • la colonne `collectes.pax` (NOT NULL, >= 0, défaut 0) ; un pax absent ou 0
@@ -9,9 +11,10 @@
 --   • `fn_creer_collecte` / `fn_ajouter_collecte_evenement` écrivent `p_pax` et
 --     refusent un pax < 1 ;
 --   • le pax de l'événement est calculé depuis ses collectes non annulées
---     (règle C1 : par jour, le plus grand pax ; puis la somme des jours), y
---     compris après modification, annulation et ajout ; un événement sans
---     collecte non annulée garde son pax ;
+--     (pour chaque jour, le plus grand des deux totaux — somme des pax ZD,
+--     somme des pax AG — ; puis la somme des jours), y compris après
+--     modification, annulation et ajout ; deux collectes du même type le même
+--     jour s'additionnent ; un événement sans collecte non annulée garde son pax ;
 --   • le volume de repas estimé AG = 10 % du pax de LA collecte ;
 --   • `fn_modifier_collecte` modifie le pax (entier >= 1, refus sinon) et émet
 --     son E2 quand une commande existe ; `fn_modifier_evenement` refuse le pax ;
@@ -20,7 +23,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(45);
+SELECT plan(50);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
 RETURNS void LANGUAGE plpgsql AS $$
@@ -105,10 +108,10 @@ SELECT is(
   (SELECT volume_estime_repas FROM plateforme.collectes WHERE id = (SELECT ag_a FROM t)),
   180, 'volume de repas estimé AG = 10 % du pax de la collecte (1 800), pas de l''événement');
 
--- ── Pax de l'événement (règle C1) ────────────────────────────────────────────
--- J+30 : 100 ; J+40 : max(1 800, 1 800) ; J+41 : 1 200 → 3 100.
+-- ── Pax de l'événement (règle du jour révisée le 2026-10-21) ─────────────────
+-- J+30 : 100 ; J+40 : max(Σ ZD 1 800, Σ AG 1 800) ; J+41 : 1 200 → 3 100.
 SELECT is(plateforme.f_pax_evenement((SELECT evt FROM t)), 3100,
-  'pax_par_collecte_evenement_calcule — f_pax_evenement : par jour le plus grand pax, puis la somme des jours');
+  'pax_par_collecte_evenement_calcule — f_pax_evenement : par jour le plus grand des totaux ZD et AG, puis la somme des jours');
 SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 3100,
   'evenements.pax recalculé à la création des collectes');
 
@@ -135,6 +138,27 @@ SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 3300,
   'evenements.pax recalculé après modification (100 + 2 000 + 1 200)');
 SELECT is(pg_temp.pax((SELECT zd_a FROM t)), 1800,
   'modifier le pax d''une collecte ne touche pas celui de sa voisine du même jour');
+
+-- ── Deux collectes du même type le même jour s'additionnent ─────────────────
+-- Scénario `pax_par_collecte_evenement_calcule` (fin) : une seconde ZD à 400 le
+-- jour J+40 donne max(1 800 + 400, 2 000) = 2 200 ce jour-là. L'ancienne règle
+-- (plus grand pax du jour) donnait 2 000 ; une somme de toutes les collectes,
+-- 4 200 : ce cas départage les trois.
+ALTER TABLE t ADD COLUMN zd_a2 uuid, ADD COLUMN ag_a2 uuid;
+UPDATE t SET zd_a2 = pg_temp.collecte(evt, 'zd', 40, 400);
+SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 3500,
+  'pax_par_collecte_evenement_calcule — deux ZD du même jour s''additionnent : 100 + max(1 800 + 400, 2 000) + 1 200');
+UPDATE t SET ag_a2 = pg_temp.collecte(evt, 'ag', 40, 500);
+SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 3800,
+  'deux AG du même jour s''additionnent aussi : 100 + max(2 200, 2 000 + 500) + 1 200');
+SELECT is(plateforme.f_pax_evenement((SELECT evt FROM t)), 3800,
+  'f_pax_evenement rend la même valeur que celle posée par le déclencheur');
+SELECT plateforme.fn_modifier_collecte((SELECT ag_a2 FROM t), '{"statut": "annulee"}'::jsonb, ARRAY['statut']);
+SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 3500,
+  'une AG annulée sort de la somme de son jour : 100 + max(2 200, 2 000) + 1 200');
+DELETE FROM plateforme.collectes WHERE id IN (SELECT zd_a2 FROM t UNION ALL SELECT ag_a2 FROM t);
+SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 3300,
+  'evenements.pax revenu à 3 300 après suppression des deux collectes ajoutées');
 
 SELECT throws_ok(
   $$ SELECT plateforme.fn_modifier_collecte((SELECT zd_a FROM t), '{"pax": 0}'::jsonb, ARRAY['pax']) $$,

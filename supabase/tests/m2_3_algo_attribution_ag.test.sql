@@ -112,7 +112,11 @@ VALUES ('a0000000-0000-0000-0000-000000000043'::uuid, 'Manuel Test', '555555555'
 
 -- ── Événements + collectes de test ────────────────────────────────────────
 
--- Événement IDF (200 pax, heure matin)
+-- Événement IDF (200 pax, heure matin). Ses quatre collectes AG tombent le même
+-- jour : depuis la règle du jour révisée par Val le 2026-10-21, leurs pax
+-- s'additionnent dans celui de l'événement, que l'algorithme lit (jusqu'au lot 2
+-- du pax par collecte). Elles portent donc 50 pax chacune (4 × 50 = 200) : à
+-- 200 chacune, l'événement passerait à 800, au-dessus du seuil vélo de 600.
 INSERT INTO plateforme.evenements (
   id, organisation_id, traiteur_operationnel_organisation_id,
   entite_facturation_id, created_by, lieu_id, type_evenement_id,
@@ -181,21 +185,21 @@ INSERT INTO plateforme.evenements (
 );
 
 -- Collecte AG IDF — heure 10:00, futur lointain (délai > 90 min)
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas, pax)
 VALUES (
   'a0000000-0000-0000-0000-000000000070'::uuid,
   'a0000000-0000-0000-0000-000000000060'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
-  CURRENT_DATE + 7, '10:00', 200
+  CURRENT_DATE + 7, '10:00', 200, 50
 );
 
 -- Collecte AG IDF — nuit (heure 22:00)
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas, pax)
 VALUES (
   'a0000000-0000-0000-0000-000000000071'::uuid,
   'a0000000-0000-0000-0000-000000000060'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
-  CURRENT_DATE + 7, '22:00', 200
+  CURRENT_DATE + 7, '22:00', 200, 50
 );
 
 -- Collecte AG IDF — grand volume (600 pax = seuil, heure 12:00) — liée à événement 0062 (pax=600)
@@ -208,12 +212,12 @@ VALUES (
 );
 
 -- Collecte AG IDF — volume 599 pax (sous seuil vélo)
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas, pax)
 VALUES (
   'a0000000-0000-0000-0000-000000000073'::uuid,
   'a0000000-0000-0000-0000-000000000060'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
-  CURRENT_DATE + 7, '12:00', 599
+  CURRENT_DATE + 7, '12:00', 599, 50
 );
 
 -- Collecte pour test RLS cross-org (org2)
@@ -289,12 +293,12 @@ UPDATE plateforme.parametres_algo SET valeur = 'false'::jsonb WHERE cle = 'a_tou
 
 -- ── T5 : Heure 07:00 exactement = plage début = JOUR (pas nuit) ──────────
 
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas, pax)
 VALUES (
   'a0000000-0000-0000-0000-000000000075'::uuid,
   'a0000000-0000-0000-0000-000000000060'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
-  CURRENT_DATE + 7, '07:00', 200
+  CURRENT_DATE + 7, '07:00', 200, 50
 );
 
 SELECT ok(

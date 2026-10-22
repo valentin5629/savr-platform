@@ -321,11 +321,10 @@
     {
       "id": "M1.2-pax-evenement-regle-revisee",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1200 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1456",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "ref_divergence": "_Divergences/M1.2_20261020_pax-par-collecte.md",
-      "libelle": "Pax de l'événement, règle du jour révisée par Val le 2026-10-21 (§05 R_pax_collecte, §04 evenements.pax) : pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (deux ZD ou deux AG du même jour s'additionnent). Non codé : f_pax_evenement (migration 20261021073000, PR #599) prend encore le plus grand pax des collectes du jour. Restent à faire : la fonction, le recalcul des événements existants, supabase/tests/collectes_pax.test.sql, et le seed packages/shared/src/seed/evenements-multi-collectes.ts, qui calcule le pax attendu de l'événement selon l'ancienne règle (deux ZD du même soir à 1 100 convives : 1 100 aujourd'hui, 2 200 sous la règle révisée)."
+      "artefact": "supabase/migrations/20261022150000_plateforme_pax_evenement_regle_du_jour.sql + packages/shared/src/seed/evenements-multi-collectes.ts",
+      "test": "supabase/tests/collectes_pax.test.sql « pax_par_collecte_evenement_calcule — deux ZD du même jour » + supabase/tests/collectes_pax.test.sql « deux AG du même jour » + SEED-EMC-5b + SEED-EMC-5c",
+      "statut": "implemented",
+      "libelle": "Pax de l'événement, règle du jour révisée par Val le 2026-10-21 (§05 R_pax_collecte, §04 evenements.pax) : pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (deux ZD ou deux AG du même jour s'additionnent). f_pax_evenement remplacée par la migration 20261022150000, qui recalcule aussi les événements existants (contrôle positif) sans armer de collecte « modifiée après envoi » ni écrire d'ordre ; le jeu de démonstration donne à deux collectes du même type le même jour chacune sa part des convives (Forum Ingénieurs 700 + 400, Festival 900 + 600, Dîner des mécènes 250 + 170) et calcule le pax attendu selon la nouvelle règle."
     },
     {
       "id": "M1.2-ajout-collecte-niveau-evenement-pre-rempli",

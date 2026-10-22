@@ -78,6 +78,8 @@ import {
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import { FLUX_ZD } from '@/lib/libelles/flux';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
+import { PAX_COLLECTE_MAX } from '@/lib/pax-collecte-borne';
+import { paxSaisiValide } from '@/components/programmation/sous-bloc-collecte';
 import { estADispatcher, estModifieeSansRenvoi } from '@/lib/collectes-chips';
 import { TENTATIVES_MAX_ORDRE, type OrdreEnvoi } from '@/lib/ordre-envoi';
 import {
@@ -789,6 +791,13 @@ export function CollecteDetailPanel({
   const [nbCamionsValue, setNbCamionsValue] = useState('1');
   const [nbCamionsSubmitting, setNbCamionsSubmitting] = useState(false);
   const [nbCamionsError, setNbCamionsError] = useState<string | null>(null);
+  // Nombre de pax de la collecte, modifié par l'équipe Savr avec un motif
+  // (décision Val 2026-10-21, §05 R_pax_collecte).
+  const [paxModal, setPaxModal] = useState(false);
+  const [paxValue, setPaxValue] = useState('');
+  const [paxMotif, setPaxMotif] = useState('');
+  const [paxSubmitting, setPaxSubmitting] = useState(false);
+  const [paxError, setPaxError] = useState<string | null>(null);
   // §06.06 §3 Bloc 0 — acceptation manuelle Everest (A Toutes! indisponible).
   const [acceptationModal, setAcceptationModal] = useState(false);
   const [acceptationSaisie, setAcceptationSaisie] = useState({
@@ -1232,6 +1241,30 @@ export function CollecteDetailPanel({
     setNbCamionsSubmitting(false);
   };
 
+  // Pax de la collecte : la route valide l'entier (1 à 100 000) et le motif
+  // (≥ 10 car.), et trace le motif dans l'audit.
+  const handleModifierPax = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPaxSubmitting(true);
+    setPaxError(null);
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pax: Number(paxValue), motif: paxMotif }),
+      },
+    );
+    if (res.ok) {
+      await refetch();
+      setPaxModal(false);
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setPaxError(body.error ?? 'Modification impossible');
+    }
+    setPaxSubmitting(false);
+  };
+
   // §06.06 §3 Bloc 0 — la référence de mission est OBLIGATOIRE : elle est écrite
   // comme au dispatch normal (tournée + référence TMS), ce qui sort la collecte
   // des « non transmises » et rend l'annulation possible.
@@ -1483,6 +1516,7 @@ export function CollecteDetailPanel({
     rattacherPackModal ||
     forceStatutModal ||
     nbCamionsModal ||
+    paxModal ||
     acceptationModal;
   if (blockCloseRef) blockCloseRef.current = anySubModalOpen;
 
@@ -1850,8 +1884,26 @@ export function CollecteDetailPanel({
                 <InfoItem label="Traiteur">
                   {collecte.evenements.organisations.raison_sociale}
                 </InfoItem>
-                <InfoItem label="Nombre de pax">
+                <InfoItem
+                  label="Nombre de pax"
+                  valueClassName="flex items-center gap-2"
+                >
                   jusqu&apos;à {collecte.pax}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Modifier le nombre de pax"
+                    onClick={() => {
+                      // Pax inconnu (0, reprise Bubble) : champ vide.
+                      setPaxValue(collecte.pax > 0 ? String(collecte.pax) : '');
+                      setPaxMotif('');
+                      setPaxError(null);
+                      setPaxModal(true);
+                    }}
+                  >
+                    Modifier
+                  </Button>
                 </InfoItem>
                 {/* Client final = client organisateur, distinct du traiteur. */}
                 <InfoItem label="Client final">
@@ -3476,6 +3528,69 @@ export function CollecteDetailPanel({
               disabled: acceptationIncomplete,
             }}
             loading={acceptationSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
+        </form>
+      </Modal>
+
+      {/* Modale — Modifier le nombre de pax (décision Val 2026-10-21) */}
+      <Modal
+        open={paxModal}
+        title="Modifier le nombre de pax"
+        onClose={() => setPaxModal(false)}
+      >
+        {paxError && (
+          <AlertBar variant="err" className="mb-4">
+            {paxError}
+          </AlertBar>
+        )}
+        <form onSubmit={(e) => void handleModifierPax(e)} className="space-y-4">
+          <Text>
+            Le nombre de pax de l&apos;événement est recalculé. Si la demande
+            est déjà partie chez le prestataire, la modification lui est
+            renvoyée. L&apos;action est tracée dans l&apos;audit (motif
+            obligatoire).
+          </Text>
+          <FormField label="Nombre de pax" htmlFor="pax-input" required>
+            <Input
+              id="pax-input"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={PAX_COLLECTE_MAX}
+              step={1}
+              value={paxValue}
+              onChange={(e) => setPaxValue(e.target.value)}
+              className="w-32"
+              required
+            />
+          </FormField>
+          <FormField
+            label="Motif (≥ 10 caractères)"
+            htmlFor="pax-motif"
+            required
+          >
+            <Textarea
+              id="pax-motif"
+              value={paxMotif}
+              onChange={(e) => setPaxMotif(e.target.value)}
+              rows={3}
+              minLength={10}
+              required
+            />
+          </FormField>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setPaxModal(false),
+            }}
+            submit={{
+              label: 'Enregistrer',
+              disabled:
+                !paxSaisiValide(paxValue) || paxMotif.trim().length < 10,
+            }}
+            loading={paxSubmitting}
             loadingText="Enregistrement…"
             bordered
           />

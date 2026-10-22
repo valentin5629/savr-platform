@@ -707,7 +707,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
   const collectes: ColSpec[] = [
     // Kaspia ZD. ev_k1 a deux jours de collecte : chaque collecte porte son
     // pax (décision Val 2026-10-20), et les 500 convives de ev_k1 en sont la
-    // somme (règle C1 : par jour, puis somme des jours).
+    // somme (règle du jour : par jour, puis somme des jours).
     col(
       'col_zd_cloturee_01',
       'ev_k1',

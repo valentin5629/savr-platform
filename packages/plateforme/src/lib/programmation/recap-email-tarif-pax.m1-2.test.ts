@@ -13,6 +13,12 @@ const tarif = vi.hoisted(() => ({
   calculer: vi.fn(async () => ({ montant_ht: 412, montant_brut_ht: 412 })),
 }));
 vi.mock('@/lib/tarif-zd.js', () => ({ calculer_tarif_zd: tarif.calculer }));
+// Facturation sur la plateforme allumée : ce fichier vérifie la ligne de tarif
+// telle qu'elle reviendra. Au go-live elle est retirée (décision Val 2026-10-22),
+// ce que prouve tests/api/facturation-hors-plateforme.test.ts.
+vi.mock('@/lib/facturation-plateforme.js', () => ({
+  facturationPlateformeActive: () => true,
+}));
 
 import { envoyerRecapProgrammation } from './recap-email.js';
 

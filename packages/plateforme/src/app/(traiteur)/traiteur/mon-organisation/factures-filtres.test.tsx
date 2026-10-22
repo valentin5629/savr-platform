@@ -18,6 +18,13 @@ import {
 import { MonOrganisationClient } from './mon-organisation-client';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
+// Facturation sur la plateforme allumée : ce fichier vérifie l'onglet tel qu'il
+// reviendra. Au go-live il est éteint (décision Val 2026-10-22), ce que prouve
+// tests/ui/facturation-hors-plateforme.test.tsx.
+vi.mock('@/lib/facturation-plateforme', () => ({
+  facturationPlateformeActive: () => true,
+}));
+
 function urlsFactures(fetchMock: ReturnType<typeof vi.fn>): string[] {
   return fetchMock.mock.calls
     .map((c) => String(c[0]))

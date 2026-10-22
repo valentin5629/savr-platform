@@ -4,6 +4,7 @@
 import { runBatchBrouillonsJ1 } from '../../../../lib/facturation/batch-brouillons.js';
 
 import { withCronObservability } from '@/lib/cron-observabilite.js';
+import { facturationPlateformeActive } from '@/lib/facturation-plateforme.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,13 @@ export const maxDuration = 300;
 export const POST = withCronObservability(
   'batch_brouillons_j1',
   async ({ supabase }) => {
+    // Facturation hors plateforme au go-live (décision Val 2026-10-22) : aucun
+    // brouillon préparé. Garde placée après l'authentification du cron (portée
+    // par withCronObservability). Avant de rallumer : borner le batch à une date
+    // de départ, sinon il facturerait aussi les collectes facturées hors plateforme.
+    if (!facturationPlateformeActive()) {
+      return { desactive: true, nb_traite: 0 };
+    }
     const result = await runBatchBrouillonsJ1(supabase);
     const nb_traite =
       result.zd_par_collecte + result.zd_mensuel + result.ag_par_collecte;

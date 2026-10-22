@@ -18,6 +18,13 @@ import { messageDeRole } from '@/test-utils/message-role';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import { renderAvecToasts } from '@/test-utils/toasts';
 
+// Facturation sur la plateforme allumée : ce fichier vérifie aussi l'onglet
+// Factures tel qu'il reviendra. Au go-live il est masqué (décision Val
+// 2026-10-22), ce que prouve tests/ui/facturation-hors-plateforme.test.tsx.
+vi.mock('@/lib/facturation-plateforme', () => ({
+  facturationPlateformeActive: () => true,
+}));
+
 const PROFIL = {
   id: 'org-viparis',
   nom: 'Viparis',

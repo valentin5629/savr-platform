@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { useToast } from '@/components/ui/toast';
 import { fmtEuro } from '@/lib/format';
+import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import {
   libelleVerificationSiret,
@@ -122,7 +123,10 @@ export function MonOrganisationClient({
           <TabsTrigger value="infos">Informations légales</TabsTrigger>
           {/* Équipe : masquée au commercial (CDC §6 l.653) */}
           {isManager && <TabsTrigger value="equipe">Équipe</TabsTrigger>}
-          <TabsTrigger value="facturation">Facturation</TabsTrigger>
+          {/* Facturation hors plateforme au go-live (décision Val 2026-10-22). */}
+          {facturationPlateformeActive() && (
+            <TabsTrigger value="facturation">Facturation</TabsTrigger>
+          )}
           <TabsTrigger value="preferences">Préférences</TabsTrigger>
         </TabsList>
 
@@ -134,9 +138,11 @@ export function MonOrganisationClient({
             <EquipeTab userId={userId} />
           </TabsContent>
         )}
-        <TabsContent value="facturation">
-          <FacturationTab isManager={isManager} />
-        </TabsContent>
+        {facturationPlateformeActive() && (
+          <TabsContent value="facturation">
+            <FacturationTab isManager={isManager} />
+          </TabsContent>
+        )}
         <TabsContent value="preferences">
           <PreferencesTab />
         </TabsContent>

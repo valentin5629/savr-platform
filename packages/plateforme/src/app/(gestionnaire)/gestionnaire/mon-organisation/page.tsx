@@ -4,6 +4,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { fmtEuro } from '@/lib/format';
+import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -163,7 +164,7 @@ export default function MonOrganisationPage() {
       } else if (tab === 'membres') {
         const d = await fetchData<UserRow[]>(`${base}/users`);
         if (actif) setUsers(d);
-      } else {
+      } else if (facturationPlateformeActive()) {
         const d = await fetchData<FactureRow[]>(`${base}/factures`);
         if (actif) setFactures(d);
       }
@@ -268,7 +269,10 @@ export default function MonOrganisationPage() {
         <TabsList className="w-full justify-start">
           <TabsTrigger value="profil">Profil</TabsTrigger>
           <TabsTrigger value="membres">Membres</TabsTrigger>
-          <TabsTrigger value="factures">Factures</TabsTrigger>
+          {/* Facturation hors plateforme au go-live (décision Val 2026-10-22). */}
+          {facturationPlateformeActive() && (
+            <TabsTrigger value="factures">Factures</TabsTrigger>
+          )}
         </TabsList>
 
         {loading && <LoadingState className="mt-4" />}
@@ -338,7 +342,7 @@ export default function MonOrganisationPage() {
         )}
 
         {/* Onglet Factures */}
-        {!loading && !erreur && (
+        {facturationPlateformeActive() && !loading && !erreur && (
           <TabsContent value="factures">
             <OngletFactures factures={factures} />
           </TabsContent>

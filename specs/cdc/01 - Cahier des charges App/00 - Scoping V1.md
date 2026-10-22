@@ -20,6 +20,7 @@ Tous les modules documentés §01→§15, soit :
 - [ ] **Intégration logistique V1** (voir MODIFY ci-dessous) : MTS-1 API V3 + Everest derrière l'abstraction `logistique_provider`
 - [ ] **Génération PDF** : bordereau pesée ZD, rapport recyclage ZD, attestation don AG, batch J+1 6h, embargo H+24 (§06, §12)
 - [ ] **Pennylane v2** : brouillons factures ZD (par collecte + mensuel groupé) + AG, **polling J+1** (webhook → V1.1) (§08)
+  - ⚠ **Go-live : facturation hors plateforme (décision Val 2026-10-22)**. Interrupteur `facturationPlateformeActive()` éteint : le batch J+1 ne prépare aucun brouillon ; le traiteur, l'agence et le gestionnaire de lieux ne voient ni leurs factures ni le badge « en attente de facturation » ; l'email `collecte_programmee` ne donne plus le tarif ZD. Back-office Admin inchangé. Retour sur la plateforme plus tard (échéance non fixée), après : date de départ du batch J+1, raccord de la numérotation avec les factures émises hors plateforme, correction du contrat Pennylane v2.
 - [ ] **Dashboards par rôle** : manager, commercial, gestionnaire lieux, agence, client organisateur (§11)
 - [ ] **Reporting + exports CSV** tous profils (§12)
 - [ ] **Registre réglementaire ZD-only** (Module 20 MVP), bordereaux + attestations batch J+1 (§06.03)

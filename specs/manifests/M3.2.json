@@ -1340,12 +1340,12 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "794b4405f45b1396892c734054947b7fcd138dda6a369ebbd5c52d2342cab365",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "735d70969bf2e538475e52815282902c5fb8ce66f503838d1caf17150291c06b",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "92c485607d4d59ac820777a552d0381563968aee1d6817aab362dbcdc26e2292",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "e5f19d7dbe3e86980a2d8039fbece8def758e9b62cf8515dee72424151d244e3",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "fc4f9123e04e03e35d1a87bea3845c8c8342a47c9d327683c0c963396025257e",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "95039c8fa90700a26e11e65c06d9b172f9ce8f316f0930bb2eeac03c4c9a3188",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "363a7c0447359e2b5acfc659c6ed5765ef75479650e5ff168c409395aa29b01a",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "df6a09ee0027774c486af5c9ff934a8d1481fe9d311cfc8ab8a6f4ee62b7c5a6",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "48ca393a35702554e87979a8a68a46a5a5d114315df42a0e69bae37817a54027",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "b1ce7f07f4ff2c9f18cacf248c16a704f2c7e02d9ecd705e1ea2f568f7e05650"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "393faa2b9b2143c6a15b316dab8f870735c0b61a3da809a107e5df93b2fac279"
   }
 }

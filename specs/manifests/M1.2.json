@@ -143,7 +143,7 @@
     },
     {
       "id": "BL-P1-PROG-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:266",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:268",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/organisations/traiteurs/route.ts",
       "test": "M1.2 — PROG-02 shadow traiteur créé par agence (201)",
       "statut": "implemented",
@@ -151,7 +151,7 @@
     },
     {
       "id": "BL-P1-PROG-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:411",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:413",
       "artefact": "supabase/migrations/20260708120000_plateforme_r12b_programmation_e1_payload.sql",
       "test": "T1b (PROG-03) : payload E1 inclut controle_acces_requis + informations_supplementaires + lieu_overrides",
       "statut": "implemented",
@@ -159,7 +159,7 @@
     },
     {
       "id": "BL-P1-PROG-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:412",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:414",
       "artefact": "packages/plateforme/src/lib/programmation/recap-email.ts",
       "test": "M1.2 — PROG-04 récap programmation envoyé au programmeur avec tarif ZD",
       "statut": "implemented",
@@ -175,7 +175,7 @@
     },
     {
       "id": "BL-P1-PROG-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:413",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:415",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/confirmer/route.ts",
       "test": "M1.2 — PROG-05 auto-accept AG déclenché à la confirmation",
       "statut": "implemented",
@@ -183,7 +183,7 @@
     },
     {
       "id": "M1.2-brouillon-admin",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:316",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:318",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/route.ts",
       "test": "M1.2 — liste des brouillons (mode admin support) > admin_savr est cloisonné sur ses propres créations, pas sur son org interne",
       "statut": "implemented",
@@ -191,7 +191,7 @@
     },
     {
       "id": "M1.2-brouillon-creation-enum",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:225",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:227",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/route.ts",
       "test": "M1.2 — création d’un brouillon : normalisation du type > l’alias UI « zd » est normalisé en « zero_dechet » avant INSERT",
       "statut": "implemented",
@@ -199,7 +199,7 @@
     },
     {
       "id": "M1.2-brouillon-suppression",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:320",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:322",
       "artefact": "supabase/migrations/20260717154800_plateforme_m1_2_supprimer_brouillon.sql",
       "test": "T16 : fn_supprimer_brouillon supprime un brouillon AVEC collectes (la FK n'est pas ON DELETE CASCADE — un DELETE nu échouait)",
       "statut": "implemented",
@@ -207,7 +207,7 @@
     },
     {
       "id": "M1.2-confirmation-admin",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:415",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:417",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — confirmation de programmation : détail événement (mode admin support) > admin_savr obtient le récapitulatif (et non plus 403 « Rôle insuffisant »)",
       "statut": "implemented",
@@ -215,7 +215,7 @@
     },
     {
       "id": "M1.2-ui-confirmation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:415",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:417",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -223,7 +223,7 @@
     },
     {
       "id": "M1.2-confirmation-email-recap-issue-reelle",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:415-420",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:417-422",
       "artefact": "packages/plateforme/src/lib/programmation/suivi-recap-email.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (GET : champ email_recap, lu après la garde de périmètre) + packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
       "test": "M1.2/confirmation_email_recap_issue_reelle — état dérivé du dernier envoi + M1.2/confirmation_email_recap_issue_reelle — lecture du journal des emails + M1.2/confirmation_email_recap_issue_reelle — GET détail événement + M1.2/confirmation_email_recap_issue_reelle — écran de confirmation",
       "statut": "implemented",
@@ -239,7 +239,7 @@
     },
     {
       "id": "M1.2-ajout-collecte-doublon-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:246",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:248",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx",
       "test": "M1.2 — ajouter une collecte : seconde collecte Anti-Gaspi > événement avec une collecte anti_gaspi : avertissement, rien n’est créé + M1.2 — ajouter une collecte : seconde collecte Anti-Gaspi > « Confirmer quand même » crée la seconde collecte AG + M1.2 — ajouter une collecte : seconde collecte Anti-Gaspi > événement sans collecte AG : la collecte AG est créée sans avertissement + M1.2 — ajouter une collecte : seconde collecte Anti-Gaspi > ajout d’une collecte ZD à un événement qui a une collecte AG : aucun avertissement",
       "statut": "implemented",
@@ -255,7 +255,7 @@
     },
     {
       "id": "M1.2-formulaire-simplifie",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:108 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:175 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:349",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:108 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:175 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:351",
       "artefact": "packages/plateforme/src/components/programmation/lieu-champs-editables.tsx + packages/plateforme/src/components/programmation/lieu-manuel-form.tsx + packages/plateforme/src/components/programmation/sous-bloc-collecte.tsx + packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
       "test": "M1.2 / formulaire_simplifie — étapes 2 et 3 + M1.2 / PROG-01 lieu override (front) > M1.2 / formulaire_simplifie — stationnement, accès office, véhicule max, contraintes horaires et flux acceptés ne sont plus éditables + M0.6 — quick-add lieu manuel (BL-P1-BOA-03) > M0.6 / formulaire_simplifie — ne propose plus véhicule max, stationnement ni accès office + M0.6 — quick-add lieu manuel (BL-P1-BOA-03) > M0.6 / formulaire_simplifie — envoie les 4 champs du lieu, sans les champs retirés + M1.2 / formulaire_simplifie — alerte programmation à moins de 24 h",
       "statut": "implemented",
@@ -263,7 +263,7 @@
     },
     {
       "id": "M1.2-confirmation-recap-modifier",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:415",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:417",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (GET : nom_client_organisateur + téléphones des contacts)",
       "test": "M1.2 / formulaire_simplifie — récapitulatif de l’écran de confirmation + M1.2 / formulaire_simplifie — bouton « Modifier la collecte » + M1.2 / formulaire_simplifie — le reste de l’écran est conservé + M1.2 / formulaire_simplifie — GET détail événement : colonnes du récapitulatif",
       "statut": "à-vérifier",
@@ -271,7 +271,7 @@
     },
     {
       "id": "M1.2-nom-evenement-client-final",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:64 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:327",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:64 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:329",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts + packages/plateforme/src/app/(programmation)/brouillons/page.tsx + packages/plateforme/src/app/(programmation)/programmer/brouillon/[id]/page.tsx",
       "test": "M1.2 / nom_evenement_client_final — étape 1 > client final renseigné : le nom de l’événement et le client final partent chacun dans sa colonne + M1.2 / nom_evenement_client_final — étape 1 > client final vide : l’étape 1 se valide et aucun client n’est envoyé + M1.2 / Validations bloquantes > validations_nom_evenement_vide — 422 à la confirmation, même avec un client final + M1.2 / Validations bloquantes > validations_nom_evenement_non_texte — 422, jamais une erreur 500 + M1.2 / Validations bloquantes > client_final_renseigne — chaque nom écrit dans sa colonne + M1.2 / Validations bloquantes > client_final_facultatif — 201 sans client final, sans badge « Info incomplète » + M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04) > M3.1/recompute_infos_completes_false — nom de l’événement vidé → informations_completes=false + M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04) > M3.1/recompute_infos_completes_espaces — nom de l’événement fait d’espaces → informations_completes=false + M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04) > M3.1/recompute_absent_client_final_vide — client final vidé → pas de recompute (champ facultatif) + M1.2 / nom_evenement_client_final — titres des brouillons > liste : nom de l’événement, à défaut client final, à défaut « Sans nom » + M1.2 / nom_evenement_client_final — titres des brouillons > reprise : titre = nom de l’événement, pas le client final + M1.2 / nom_evenement_client_final — étape 1 > dupliquer un événement sans nom : la case reste vide et l’étape 1 attend un nom + M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04) > M3.1/recompute_borne_a_l_evenement — l’UPDATE du badge ne vise que les collectes de cet événement, sans surcharge de lieu",
       "statut": "implemented",
@@ -279,7 +279,7 @@
     },
     {
       "id": "M1.2-confirmation-brouillon-nom-evenement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:327",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:329",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -304,7 +304,7 @@
     },
     {
       "id": "M1.2-ajout-collecte-depuis-fiches",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:236",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:238",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx + packages/plateforme/src/lib/collectes/fiche-client.ts + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
       "test": "M1.2 — ajouter une collecte depuis la fiche événement du gestionnaire + M1.2 — ajouter une collecte depuis la fiche collecte (espaces clients) + M1.2 — ajouter une collecte depuis la fiche collecte de l’Admin + M1.2/ajout_collecte_depuis_fiche_collecte + M3.2/fiche_get_actions_gestionnaire + M3.3/fiche_get_socle_commun + M1.2/ajout_collecte_depuis_fiche_brouillon + M1.2/ajout_collecte_depuis_fiche_annulee",
       "statut": "implemented",
@@ -312,7 +312,7 @@
     },
     {
       "id": "M1.2-ajout-collecte-tout-evenement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:244",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:246",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts",
       "test": "M1.2 / Ajout collecte à événement existant > ajout_collecte_zd_evenement_existant + M1.2 / Ajout collecte à événement existant > ajout_collecte_evenement_termine + M1.2 / Ajout collecte à événement existant > ajout_collecte_date_passee + M1.2 / Ajout collecte à événement existant > ajout_collecte_aujourdhui_heure_passee + M1.2 / Ajout collecte à événement existant > ajout_collecte_jour_de_paris + M1.2 / Ajout collecte à événement existant > ajout_collecte_evenement_brouillon — 422 + M1.2 / Ajout collecte à événement existant > ajout_collecte_evenement_brouillon_admin + M1.2 / Ajout collecte à événement existant > ajout_collecte_evenement_brouillon_mixte",
       "statut": "implemented",
@@ -328,7 +328,7 @@
     },
     {
       "id": "M1.2-ajout-collecte-niveau-evenement-pre-rempli",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:236",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:238",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts + packages/plateforme/src/lib/programmation/niveau-evenement.ts",
       "test": "M1.2 — ajouter une collecte : niveau événement figé et pré-rempli + M1.2 / ajout_collecte_niveau_evenement — GET détail événement : niveau événement figé + M1.2 / Ajout collecte à événement existant > ajout_collecte_controle_acces_evenement + M1.2 / Ajout collecte à événement existant > ajout_collecte_controle_acces_navigateur_ignore + M1.2 / Ajout collecte à événement existant > ajout_collecte_zd_evenement_existant",
       "statut": "implemented",
@@ -345,12 +345,12 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "735d70969bf2e538475e52815282902c5fb8ce66f503838d1caf17150291c06b",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "ac684d011882ac7a60064859650e1a8ad23296de89e0ecc25f60a1c97d20e073",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "fc4f9123e04e03e35d1a87bea3845c8c8342a47c9d327683c0c963396025257e",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "75f25088455885f29328c2f91d3201165f50c3d988844fad4b7a3bce9f4434a7",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9704aa851a9accf548350bdb8381258da408f7328b8922be0f43a34999960bf",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "92c485607d4d59ac820777a552d0381563968aee1d6817aab362dbcdc26e2292",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "95039c8fa90700a26e11e65c06d9b172f9ce8f316f0930bb2eeac03c4c9a3188",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "363a7c0447359e2b5acfc659c6ed5765ef75479650e5ff168c409395aa29b01a",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "778b8713e188a36235719d81e29041b68c9ab663486ef81e42891d32f587d747",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "b860b9914ab3fca3e668bdb5d5fe525311561a986ea6ffdfaac185717c3cfa07",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "1cd2954c07607d598743704ecc9aafdb984e63d8cdd6e7751b1d6798f3a839ec"
   }
 }

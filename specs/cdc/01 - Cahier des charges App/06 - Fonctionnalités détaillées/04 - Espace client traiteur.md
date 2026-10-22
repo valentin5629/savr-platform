@@ -483,7 +483,7 @@ Bouton "Réinitialiser" pour revenir aux valeurs par défaut.
 > - **Écran** : règle déjà en place (`aggregateBenchmarkPerFlux`), commune aux 4 écrans à jauges (traiteur, gestionnaire, agence, dashboard-client admin) et à la fiche collecte — inchangée.
 > - **PDF** : depuis le gabarit `@3` (2026-10-13), le PDF n'a plus de fonction propre. Il appelle la fonction de l'écran (`f_benchmark_single_collecte` + `f_benchmark_kg_pax_zd`, agrégation `aggregateBenchmarkPerFlux`) sous l'identité du demandeur : un seul helper sert les deux chemins, la pondération par `nb_collectes_segment` est la même par construction. `f_rapport_benchmark_zd` (alignée le 2026-09-22) n'est plus appelée.
 > - **Option (b) écartée** (pondération au tonnage `SUM(poids)/SUM(pax)` de la lettre du §04) : elle supposerait d'exposer `SUM(pax)` en sortie de `f_benchmark_kg_pax_zd`, fonction partagée par tous les dashboards — coût et surface de revue hors de proportion avec l'écart constaté. Option (c) (assumer deux chiffres différents) écartée : le PDF part au client final.
-> - **Effet sur les rapports existants** : le changement modifie la valeur des rapports **régénérés**, pas celle des PDF déjà rendus (`rapports_rse.filtres_benchmark` fige les filtres, pas le résultat).
+> - **Effet sur les rapports existants** : le changement modifie la valeur des rapports **régénérés**, pas celle des PDF déjà rendus (`rapports_rse.filtres_benchmark` fige les filtres, pas le résultat). *(Depuis le 2026-10-16, le rapport ZD est fabriqué à chaque téléchargement : la règle s'applique à tout rapport téléchargé, rien n'est stocké.)*
 
 **Source de données** : fonction `f_benchmark_kg_pax_zd` étendue (refonte 2026-05-05) — signature accepte un grain `single_collecte` (paramètre `p_collecte_id` uuid) en plus du grain agrégé existant. Cf. [[04 - Data Model]].
 
@@ -711,6 +711,8 @@ Ces règles sont rappelées dans la modal avant confirmation, avec une mention e
 
 **Facturation** (refonte 2026-05-05 — fusion ex-onglet Factures + ex-sous-section Facturation Mon organisation)
 
+> ⚠ **Go-live : masqué (décision Val 2026-10-22)** — facturation faite hors plateforme. Interrupteur `facturationPlateformeActive()` éteint : pas de sous-section Facturation, pas de bouton « Télécharger la facture » dans la fiche collecte, pas de badge « X collectes en attente de facturation » au dashboard. Vaut aussi pour l'agence (§06.11) et le gestionnaire de lieux (§06.05), qui reprennent cette sous-section. La carte « Entités de facturation » des Informations légales reste (son SIRET vérifié est requis pour l'attestation de don AG). Retour plus tard (échéance non fixée).
+
 Sous-section unifiée. *(Révision 2026-05-29)* : édition des **paramètres de facturation** = Manager only ; **vue liste + fiche facture** accessibles au commercial en **lecture seule** (toutes les factures de l'orga).
 
 **Paramètres de facturation** (haut de page) :
@@ -868,6 +870,8 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 > **Impact §04 Data Model** : retirer la définition de cette table (jamais arrivée en migration prod, V1 de toute façon).
 
 ### Champ `rapports_rse.filtres_benchmark` (jsonb, nullable) — rétabli 2026-06-03
+
+> **Depuis le 2026-10-16 (décision Val)** : la colonne n'est plus écrite pour un rapport ZD — le rapport est fabriqué à chaque téléchargement, avec les filtres réglés à ce moment, et rien n'est stocké (§1.2 de [[12 - Reporting et exports]]). Le snapshot décrit ci-dessous ne vaut que pour les rapports antérieurs.
 
 > **Rétabli 2026-06-03 (session sobriété §06.04, arbitrage Val — annulation revue §12 B2)** : colonne `rapports_rse.filtres_benchmark` **conservée/rétablie**. Le bloc benchmark du rapport RSE (§1.2) est **figé par snapshot** : les filtres benchmark choisis par le traiteur au moment de la génération sont persistés, le re-téléchargement du même PDF redonne exactement les mêmes valeurs (PDF reproductible). Une **légende affichée sous le graphe benchmark du PDF** précise les filtres appliqués (période / lieux / type d'événement / taille). Motif Val : permettre un benchmark personnalisé reproductible sur le rapport client, sans ambiguïté sur le segment de comparaison.
 >

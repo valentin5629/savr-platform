@@ -47,6 +47,15 @@
  * fichier ne porte que `hooks` : un réglage de premier niveau ajouté, comme
  * `disableAllHooks` (il coupe tous les hooks), le fait rougir aussi.
  *
+ * Plus aucun hook sans script : le hook Stop (rappel de mise à jour de la
+ * mémoire après un commit, commande écrite en ligne) a été retiré le 2026-10-22
+ * (décision de Val, C2). Dans un worktree, son repère
+ * `.git/.claude-last-commit-checked` ne pouvait pas s'écrire (`.git` y est un
+ * fichier, mesuré le 2026-10-21), et le rappel ne partait donc pas ; dernier
+ * rappel relevé dans les transcripts : 2026-10-09. Tout hook, quel que soit son
+ * évènement, doit lancer un script dans la forme imposée et figurer dans
+ * `GARDES_ATTENDUES`.
+ *
  * Les cas qui lancent des commandes ne rejouent que la forme imposée des gardes
  * attendues, jamais une commande lue dans settings.json : un hook ajouté ou
  * modifié par erreur fait rougir le cas « gardes attendues » sans être exécuté
@@ -201,32 +210,6 @@ const GARDES_ATTENDUES: ReadonlyArray<{
   { evenement: 'PreToolUse', matcher: 'Bash', script: 'gate-merge.sh' },
 ];
 
-/**
- * Hooks qui ne lancent AUCUN script du dépôt, figés par leur commande, mot pour
- * mot. Un changement de cette commande fait rougir ce cliquet : vérifier alors
- * qu'elle ne lance toujours aucun script par un chemin relatif, puis la recopier
- * ici. Leurs autres champs ne sont pas figés.
- *   • Stop : rappel de mise à jour de la mémoire après un commit. Il lit `git log`
- *     du dossier où il démarre. Son repère `.git/.claude-last-commit-checked` est
- *     relatif à ce dossier : dans un worktree, `.git` est un fichier et
- *     l'écriture échoue (mesuré le 2026-10-21) ; dernier rappel relevé dans les
- *     transcripts : 2026-10-09. Laissé tel quel : le ranimer est une décision à
- *     part.
- */
-const SANS_SCRIPT: ReadonlyArray<{ evenement: string; commande: string }> = [
-  {
-    evenement: 'Stop',
-    commande: `bash -c 'last=$(git log -1 --format="%H" 2>/dev/null); [ -z "$last" ] && exit 0; marker=".git/.claude-last-commit-checked"; [ -f "$marker" ] && [ "$(cat $marker)" = "$last" ] && exit 0; recent=$(git log --since="90 seconds ago" --oneline 2>/dev/null | wc -l | tr -d " "); [ "$recent" -gt 0 ] && echo "$last" > "$marker" && exit 2 || exit 0'`,
-  },
-];
-const estFige = (e: Entree) =>
-  SANS_SCRIPT.some(
-    (f) => f.evenement === e.evenement && f.commande === e.hook.command,
-  );
-
-/** Tout hook non figé doit lancer un script dans la forme imposée. */
-const AVEC_SCRIPT = ENTREES.filter((e) => !estFige(e));
-
 /** Lance une commande de hook comme Claude Code : un shell, un dossier de départ, CLAUDE_PROJECT_DIR. */
 function lancer(
   commande: string,
@@ -290,7 +273,7 @@ describe('hooks de .claude/settings.json — script trouvé et démarrage à la 
       }
     }
     expect(
-      AVEC_SCRIPT.map((e) => ({
+      ENTREES.map((e) => ({
         evenement: e.evenement,
         ...(e.matcher === undefined ? {} : { matcher: e.matcher }),
         hook: e.hook,
@@ -305,7 +288,7 @@ describe('hooks de .claude/settings.json — script trouvé et démarrage à la 
   });
 
   it.each(
-    AVEC_SCRIPT.map(
+    ENTREES.map(
       (e) =>
         [
           `${e.evenement} ${e.matcher ?? ''}`.trim(),
@@ -327,15 +310,6 @@ describe('hooks de .claude/settings.json — script trouvé et démarrage à la 
       ).toBe(true);
     },
   );
-
-  it('les hooks figés sans script sont tous présents, mot pour mot', () => {
-    expect(
-      ENTREES.filter(estFige).map((e) => ({
-        evenement: e.evenement,
-        commande: e.hook.command,
-      })),
-    ).toEqual(SANS_SCRIPT);
-  });
 
   it(
     'depuis la racine et deux sous-dossiers, chaque commande trouve son script et le lance à la racine du dépôt',

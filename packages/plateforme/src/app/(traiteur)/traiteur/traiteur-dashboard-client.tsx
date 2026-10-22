@@ -58,6 +58,7 @@ import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
+import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
 import { fmtPct, uniteCo2 } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 
@@ -418,8 +419,10 @@ export function TraiteurDashboardClient({
           </div>
 
           {/* Collectes en attente de facturation — info ops relogée depuis la
-              carte Marge (retirée de la rangée KPI, retour Val). */}
-          {nbAttente >= 1 && (
+              carte Marge (retirée de la rangée KPI, retour Val). Masqué tant que
+              la facturation se fait hors plateforme (décision Val 2026-10-22) :
+              sans facture émise ici, le compteur ne ferait que grossir. */}
+          {facturationPlateformeActive() && nbAttente >= 1 && (
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="info">
                 {nbAttente} collecte{nbAttente > 1 ? 's' : ''} en attente de

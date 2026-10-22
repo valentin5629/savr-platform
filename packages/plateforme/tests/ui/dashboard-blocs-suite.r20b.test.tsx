@@ -27,6 +27,18 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/',
 }));
 
+// Interrupteur de la facturation : vraie valeur par défaut, forçable par cas
+// (badge « en attente de facturation », décision Val 2026-10-22).
+const interrupteur = vi.hoisted(() => ({ force: null as boolean | null }));
+vi.mock('@/lib/facturation-plateforme', async (importOriginal) => {
+  const reel =
+    await importOriginal<typeof import('@/lib/facturation-plateforme')>();
+  return {
+    facturationPlateformeActive: () =>
+      interrupteur.force ?? reel.facturationPlateformeActive(),
+  };
+});
+
 import { TraiteurDashboardClient } from '@/app/(traiteur)/traiteur/traiteur-dashboard-client';
 import AgenceDashboardPage from '@/app/(agence)/agence/page.js';
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
@@ -563,6 +575,49 @@ describe('M3.2 / gestionnaire — top traiteurs', () => {
       ).toBeInTheDocument();
       // Onglet AG : le Bloc 5 « Prochaines collectes » est retiré lui aussi.
       expect(screen.queryByText('Prochaines collectes')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// Facturation hors plateforme au go-live (décision Val 2026-10-22) : sans facture
+// émise sur la plateforme, le compteur « en attente de facturation » ne ferait
+// que grossir. Masqué interrupteur éteint, de retour interrupteur allumé.
+describe('facturation_hors_plateforme — badge « en attente de facturation »', () => {
+  beforeEach(() => {
+    interrupteur.force = null;
+  });
+
+  function renderAvecAttente(nb: number) {
+    useTraiteurFetch(payloadAg(blocsAg()));
+    return render(
+      <TraiteurDashboardClient
+        initialData={{ ...payloadZd(blocsZd()), marge: { nb_en_attente: nb } }}
+        initialFilters={PERIOD}
+        benchmark={BENCH_PROP}
+      />,
+    );
+  }
+
+  it(
+    'éteint : 3 collectes en attente, aucun badge',
+    async () => {
+      renderAvecAttente(3);
+      await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
+      expect(screen.queryByText(/en attente de\s+facturation/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'allumé : le même tableau de bord affiche le badge',
+    async () => {
+      interrupteur.force = true;
+      renderAvecAttente(3);
+      await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
+      expect(
+        screen.getByText(/3 collectes en attente de\s+facturation/),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

@@ -40,7 +40,8 @@
     "apps/pdf-renderer/src/templates/facture.ts",
     "packages/plateforme/src/lib/facturation/facture-ui.ts",
     "packages/plateforme/src/app/api/v1/admin/factures/[id]/pdf-savr/download/route.ts",
-    "specs/manifests/M1.7.json"
+    "specs/manifests/M1.7.json",
+    "packages/plateforme/src/lib/facturation-plateforme.ts"
   ],
   "variables_env_requises": [
     "PENNYLANE_API_KEY"
@@ -317,6 +318,14 @@
       "test": "M1.7/export_factures_organisation_ids_types + M1.7/export_factures_type_mono_conserve + M1.7/export_factures_types_prioritaire_sur_mono + M1.7 — Période en premier ; Organisation / Type cochés + M1.7/export_factures_periode_et_en_erreur_comme_la_liste + M1.7/export_factures_periode_admin_hors_staff_ignoree",
       "statut": "implemented",
       "libelle": "Export CSV Factures Admin — respecte TOUS les filtres actifs de la liste (§12 « l'export respecte les filtres actifs ») : Organisation et Type cochés (arbitrage Val F3 2026-10-01 : l'export ignorait déjà l'organisation), Période sur created_at comme la liste (date_debut / date_fin, fin inclusive) et pastille « En erreur » (arbitrage Val 2026-10-01, option a de _Divergences/M1.7_20261001_export-factures-periode). Période et « En erreur » réservées au staff (colonne de synchro masquée aux clients F5) ; les exports clients gardent from / to sur date_emission."
+    },
+    {
+      "id": "M1.7-facturation-hors-plateforme-go-live",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:110",
+      "artefact": "packages/plateforme/src/lib/facturation-plateforme.ts (facturationPlateformeActive, éteint) + packages/plateforme/src/app/api/cron/batch-brouillons-j1/route.ts + packages/plateforme/src/lib/programmation/recap-email.ts + écrans clients : (traiteur)/traiteur/mon-organisation/mon-organisation-client.tsx, (traiteur)/traiteur/traiteur-dashboard-client.tsx, (agence)/agence/mon-organisation/page.tsx, (gestionnaire)/gestionnaire/mon-organisation/page.tsx, components/collecte/fiche-collecte-client-bilan.tsx",
+      "test": "packages/plateforme/tests/ui/facturation-hors-plateforme.test.tsx + packages/plateforme/tests/api/facturation-hors-plateforme.test.ts + facturation_hors_plateforme — badge « en attente de facturation »",
+      "statut": "implemented",
+      "libelle": "Facturation hors plateforme au go-live (décision Val 2026-10-22, _Divergences/M1.7_20261022_facturation-hors-plateforme-go-live) : interrupteur éteint. Le traitement de nuit ne prépare aucun brouillon de facture ; l'email récapitulatif de programmation ne donne plus le tarif ZD ; le traiteur, l'agence et le gestionnaire de lieux ne voient plus leurs factures (onglet, carte, ligne « Facture » de la fiche collecte) ni le badge « en attente de facturation ». Inchangés : back-office Admin, entité de facturation et son SIRET (requis pour l'attestation de don AG), phrases qui disent au client comment Savr le facture. Les tests existants des écrans de facturation tournent interrupteur allumé."
     }
   ],
   "cdc_source_hash": {

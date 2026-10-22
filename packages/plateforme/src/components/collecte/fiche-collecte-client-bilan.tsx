@@ -27,6 +27,7 @@ import {
   fmtInt,
   fmtMasse,
 } from '@/components/dashboards/charts/cockpit/fmt';
+import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
 import { UNITE_KG_CO2E } from '@/lib/format';
 import {
   LIBELLE_ETAT_RAPPORT,
@@ -509,9 +510,14 @@ export function OngletBilan({
   // excédents (décision Val 2026-10-09). Deux PDF distincts derrière ce nom :
   // l'attestation de don, ou le rapport « Événement sans excédent alimentaire ».
   const rapportNom = isAg ? 'Rapport de don' : 'Rapport RSE';
-  const factures = (c.factures ?? []).filter(
-    (f) => f.statut !== 'brouillon' && (f.pdf_url_pennylane || f.pdf_url_savr),
-  );
+  // Factures masquées tant que la facturation se fait hors plateforme
+  // (décision Val 2026-10-22).
+  const factures = facturationPlateformeActive()
+    ? (c.factures ?? []).filter(
+        (f) =>
+          f.statut !== 'brouillon' && (f.pdf_url_pennylane || f.pdf_url_savr),
+      )
+    : [];
 
   return (
     <div className="space-y-3">

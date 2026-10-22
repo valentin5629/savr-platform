@@ -49,6 +49,12 @@ vi.mock('@/lib/tarif-zd.js', () => ({
     .mockResolvedValue({ montant_ht: 120, montant_brut_ht: 120 }),
   TarifZdError: class extends Error {},
 }));
+// Facturation sur la plateforme allumée : PROG-04 vérifie la ligne de tarif telle
+// qu'elle reviendra. Au go-live elle est retirée (décision Val 2026-10-22), ce que
+// prouve tests/api/facturation-hors-plateforme.test.ts.
+vi.mock('@/lib/facturation-plateforme.js', () => ({
+  facturationPlateformeActive: () => true,
+}));
 
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;

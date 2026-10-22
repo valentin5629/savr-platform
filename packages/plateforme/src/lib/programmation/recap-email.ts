@@ -1,5 +1,6 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { facturationPlateformeActive } from '@/lib/facturation-plateforme.js';
 import { calculer_tarif_zd } from '@/lib/tarif-zd.js';
 import {
   ENTITE_RECAP_PROGRAMMATION,
@@ -29,6 +30,34 @@ export interface RecapProgrammationParams {
 const estZd = (t: string): boolean => t === 'zd' || t === 'zero_dechet';
 
 /**
+ * Ligne « tarif ZD » du récap (une seule collecte ZD par programmation — Sujet 1
+ * 2026-05-25). Le montant n'est jamais affiché au formulaire, seulement communiqué
+ * ici (CDC §06.01 l.180).
+ */
+async function ligneTarifZd(
+  supabase: AdminSupabase,
+  params: RecapProgrammationParams,
+): Promise<string> {
+  const collecteZd = params.collectes.find((c) => estZd(c.type));
+  if (!collecteZd) {
+    return 'Cet événement ne comporte pas de collecte Zéro Déchet facturable.';
+  }
+  try {
+    const tarif = await calculer_tarif_zd(
+      collecteZd.pax,
+      params.organisationId,
+      new Date(collecteZd.date_collecte),
+      supabase,
+      params.lieuId,
+    );
+    return `Tarif Zéro Déchet applicable : ${tarif.montant_ht.toFixed(2)} € HT.`;
+  } catch {
+    // Grille/tarif introuvable ou pax invalide : ne bloque pas le récap.
+    return 'Le tarif Zéro Déchet applicable vous sera communiqué prochainement.';
+  }
+}
+
+/**
  * Email récap de programmation au PROGRAMMEUR — BL-P1-PROG-04.
  * CDC §06.01 l.397 : « un seul email couvrant l'événement et ses collectes ».
  * CDC §05 l.240 + l.1240 : destinataire = le programmeur de la collecte (utilisateur
@@ -56,27 +85,11 @@ export async function envoyerRecapProgrammation(
 
   const dateRecap = params.collectes[0]?.date_collecte ?? '';
 
-  // Tarif ZD (une seule collecte ZD par programmation — Sujet 1 2026-05-25). Le montant
-  // n'est jamais affiché au formulaire, seulement communiqué ici (CDC §06.01 l.180).
-  let tarifLigne =
-    'Cet événement ne comporte pas de collecte Zéro Déchet facturable.';
-  const collecteZd = params.collectes.find((c) => estZd(c.type));
-  if (collecteZd) {
-    try {
-      const tarif = await calculer_tarif_zd(
-        collecteZd.pax,
-        params.organisationId,
-        new Date(collecteZd.date_collecte),
-        supabase,
-        params.lieuId,
-      );
-      tarifLigne = `Tarif Zéro Déchet applicable : ${tarif.montant_ht.toFixed(2)} € HT.`;
-    } catch {
-      // Grille/tarif introuvable ou pax invalide : ne bloque pas le récap.
-      tarifLigne =
-        'Le tarif Zéro Déchet applicable vous sera communiqué prochainement.';
-    }
-  }
+  // Facturation hors plateforme au go-live (décision Val 2026-10-22) : aucune ligne
+  // de tarif, le paragraphe du gabarit reste vide.
+  const tarifLigne = facturationPlateformeActive()
+    ? await ligneTarifZd(supabase, params)
+    : '';
 
   await sendEmail(
     TEMPLATE_RECAP_PROGRAMMATION,

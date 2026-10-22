@@ -1,4 +1,5 @@
 import { requirePageSession } from '@/lib/page-auth';
+import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FacturesAgenceTable } from './factures-table';
 import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
@@ -22,14 +23,17 @@ export default async function MonOrganisationAgencePage() {
 
       <InfosLegalesOrganisation urlProfil="/api/v1/agence/mon-organisation/profil" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Facturation</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FacturesAgenceTable />
-        </CardContent>
-      </Card>
+      {/* Facturation hors plateforme au go-live (décision Val 2026-10-22). */}
+      {facturationPlateformeActive() && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Facturation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FacturesAgenceTable />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

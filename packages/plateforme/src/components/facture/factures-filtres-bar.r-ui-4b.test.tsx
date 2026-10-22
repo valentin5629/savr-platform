@@ -19,6 +19,13 @@ import { FacturesAgenceTable } from '@/app/(agence)/agence/mon-organisation/fact
 import MonOrganisationGestionnairePage from '@/app/(gestionnaire)/gestionnaire/mon-organisation/page';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
+// Facturation sur la plateforme allumée : ce fichier vérifie les listes de
+// factures telles qu'elles reviendront. Au go-live elles sont masquées (décision
+// Val 2026-10-22), ce que prouve tests/ui/facturation-hors-plateforme.test.tsx.
+vi.mock('@/lib/facturation-plateforme', () => ({
+  facturationPlateformeActive: () => true,
+}));
+
 const VIDES: FiltresFactures = {
   statuts: [],
   types: [],

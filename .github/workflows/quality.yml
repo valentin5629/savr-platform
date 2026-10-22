@@ -149,9 +149,10 @@ jobs:
       # muet, bibliothèque absente).
       - name: Auto-test du script de synchro des specs
         run: bash scripts/sync-specs.sh --self-test
-      # Démarrage de la pile Supabase de la CI : repli sur public.ecr.aws quand
-      # ghcr.io refuse (incident du 2026-10-22, 429 sur supabase/postgres pendant
-      # des heures). Faux CLI Supabase en tête du PATH, pas de Docker.
+      # Démarrage de la pile Supabase de la CI : repli sur public.ecr.aws puis
+      # docker.io quand ghcr.io refuse, deux tours au plus (incident du
+      # 2026-10-22, 429 sur supabase/postgres pendant des heures, puis refus de
+      # public.ecr.aws aussi). Faux CLI Supabase en tête du PATH, pas de Docker.
       - name: Auto-test du démarrage Supabase de la CI (repli de registre)
         run: bash scripts/ci-supabase-start.sh --self-test
       - name: Collision de timestamp, y compris avec une branche non mergee
@@ -312,7 +313,9 @@ jobs:
   # check REQUIS sur `main`, qu'un `if` faux ferait passer sans rien controler.
   migrations:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 30 et non 10 : le démarrage de la pile peut faire jusqu'à six essais de
+    # registre (scripts/ci-supabase-start.sh), 1 à 4 min chacun quand il échoue.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }

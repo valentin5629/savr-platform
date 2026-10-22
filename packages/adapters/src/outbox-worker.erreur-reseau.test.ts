@@ -51,12 +51,14 @@ function fauxSupabase(typeTms: 'mts1' | 'a_toutes') {
       informations_supplementaires: null,
       notes_internes: null,
       prestataire_logistique_id: PRESTA_ID,
+      contacts: {
+        contact_principal_nom: 'Contact Test',
+        contact_principal_telephone: '+33100000000',
+        contact_secours_nom: null,
+        contact_secours_telephone: null,
+      },
       evenement: [
         {
-          contact_principal_nom: 'Contact Test',
-          contact_principal_telephone: '+33100000000',
-          contact_secours_nom: null,
-          contact_secours_telephone: null,
           lieux: [
             {
               id: 'lieu-001',

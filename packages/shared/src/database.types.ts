@@ -937,6 +937,58 @@ export type Database = {
           },
         ]
       }
+      collecte_contacts: {
+        Row: {
+          collecte_id: string
+          contact_principal_nom: string
+          contact_principal_telephone: string
+          contact_secours_nom: string | null
+          contact_secours_telephone: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          collecte_id: string
+          contact_principal_nom: string
+          contact_principal_telephone: string
+          contact_secours_nom?: string | null
+          contact_secours_telephone?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          collecte_id?: string
+          contact_principal_nom?: string
+          contact_principal_telephone?: string
+          contact_secours_nom?: string | null
+          contact_secours_telephone?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collecte_contacts_collecte_id_fkey"
+            columns: ["collecte_id"]
+            isOneToOne: true
+            referencedRelation: "collectes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collecte_contacts_collecte_id_fkey"
+            columns: ["collecte_id"]
+            isOneToOne: true
+            referencedRelation: "v_collectes_gestionnaire_lieux"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collecte_contacts_collecte_id_fkey"
+            columns: ["collecte_id"]
+            isOneToOne: true
+            referencedRelation: "v_registre_dechets"
+            referencedColumns: ["collecte_id"]
+          },
+        ]
+      }
       collecte_flux: {
         Row: {
           collecte_id: string
@@ -1101,6 +1153,7 @@ export type Database = {
           tms_reference: string | null
           type_vehicule_souhaite: Database["plateforme"]["Enums"]["type_vehicule"] | null
           type: Database["plateforme"]["Enums"]["collecte_type"]
+          type_evenement_id: string | null
           updated_at: string
           volume_estime_repas: number | null
         }
@@ -1149,6 +1202,7 @@ export type Database = {
           tms_reference?: string | null
           type_vehicule_souhaite?: Database["plateforme"]["Enums"]["type_vehicule"] | null
           type: Database["plateforme"]["Enums"]["collecte_type"]
+          type_evenement_id?: string | null
           updated_at?: string
           volume_estime_repas?: number | null
         }
@@ -1197,6 +1251,7 @@ export type Database = {
           tms_reference?: string | null
           type_vehicule_souhaite?: Database["plateforme"]["Enums"]["type_vehicule"] | null
           type?: Database["plateforme"]["Enums"]["collecte_type"]
+          type_evenement_id?: string | null
           updated_at?: string
           volume_estime_repas?: number | null
         }
@@ -1227,6 +1282,13 @@ export type Database = {
             columns: ["evenement_id"]
             isOneToOne: false
             referencedRelation: "evenements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collectes_type_evenement_id_fkey"
+            columns: ["type_evenement_id"]
+            isOneToOne: false
+            referencedRelation: "types_evenements"
             referencedColumns: ["id"]
           },
           {

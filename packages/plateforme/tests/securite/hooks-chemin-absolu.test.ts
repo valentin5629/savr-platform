@@ -47,6 +47,40 @@
  * fichier ne porte que `hooks` : un réglage de premier niveau ajouté, comme
  * `disableAllHooks` (il coupe tous les hooks), le fait rougir aussi.
  *
+ * Les cas qui lancent des commandes ne rejouent que la forme imposée des gardes
+ * attendues, jamais une commande lue dans settings.json : un hook ajouté ou
+ * modifié par erreur fait rougir le cas « gardes attendues » sans être exécuté
+ * ici. Relevé le 2026-10-21 : quand ces cas rejouaient les commandes du
+ * fichier, un hook ajouté y était exécuté (mesuré avec un témoin) ; c'est ainsi
+ * qu'une sonde qui ajoutait un hook lançant `scripts/scan-divergences.sh` a posé
+ * le verrou des divergences (`.claude/divergences-*`) dans le dépôt où elle
+ * tournait.
+ *
+ * Garde qui ne peut pas tourner : db-guard, block-destructive, gate-pr et
+ * gate-brief portent `onFailure: "block"` (décisions de Val : C1 du 2026-10-21
+ * pour les deux premières, C5 du 2026-10-22 pour les deux autres) ; les autres
+ * hooks laissent passer. La CI ne contrôle ni les commandes Bash d'une session
+ * (destructives, ou qui écrivent dans la base partagée), ni les relectures
+ * (seul gate-pr lit leurs marqueurs ; GitHub exige 0 approbation, relevé le
+ * 2026-10-22), ni le verrou des divergences et l'accusé de lecture du brief
+ * (gate-brief) ; elle rejoue en revanche les contrôles de commit et l'ordre des
+ * migrations au merge, que pre-commit-gate et gate-merge font en local.
+ * Avec cette option, selon le code de Claude Code 2.1.304 (même description du
+ * champ dans 2.1.299), l'action est bloquée quand le hook n'a pas pu démarrer
+ * (script manquant), a dépassé son délai, a rendu un code autre que 0 ou 2, ou
+ * un JSON invalide ; l'option est ignorée pour un hook asynchrone. Essai dans
+ * une vraie session (2.1.304, 2026-10-21, cinq scripts d'essai, pas les vraies
+ * gardes, sur des commandes Bash) : script introuvable avec l'option → commande
+ * bloquée (« blocking because onFailure is "block" ») ; sans l'option → commande
+ * exécutée (code 127, erreur non bloquante) ; garde saine avec l'option →
+ * exécutée ; garde qui refuse (code 2) avec l'option → bloquée ; garde qui rend
+ * 1 avec l'option → bloquée. Pour gate-brief (écriture de fichier), l'effet est
+ * lu dans le code, pas essayé.
+ * L'option ne voit pas une panne qu'une garde avale. Mesuré sur ce poste, sans
+ * `jq` : block-destructive, gate-pr et gate-brief rendent 127 (avec l'option,
+ * elles bloquent donc toute commande Bash, ou toute écriture de fichier pour
+ * gate-brief) ; db-guard rend 0, comme son en-tête le prévoit, et laisse passer.
+ *
  * Non couvert ici, notamment :
  *   • des hooks déclarés ailleurs (`.claude/settings.local.json`, réglages de
  *     l'utilisateur) ;
@@ -62,8 +96,16 @@
  *     gate-merge ne rejoue que ses deux fonctions d'analyse de la commande et
  *     reste vert ; gate-brief, format-file et session-hygiene n'ont pas
  *     d'auto-test ;
- *   • une session dont le dossier `CLAUDE_PROJECT_DIR` a été supprimé (la garde
- *     redevient introuvable, et Claude Code laisse passer).
+ *   • une session dont le dossier `CLAUDE_PROJECT_DIR` a été supprimé : ses
+ *     gardes redeviennent introuvables ; db-guard, block-destructive et gate-pr
+ *     bloqueraient alors toute commande Bash, et gate-brief toute écriture de
+ *     fichier (déduit de l'essai « script introuvable », non essayé avec un
+ *     dossier supprimé) ; les autres laissent passer ;
+ *   • ce que fait `onFailure` sur les vraies gardes : ce cliquet fige le champ,
+ *     il ne rejoue pas Claude Code, et l'essai a porté sur des scripts d'essai ;
+ *   • un hook qui démarre hors de tout dépôt : pour un fichier dont le chemin
+ *     contient `/packages/` hors de tout dépôt, gate-brief rend 128 (mesuré le
+ *     2026-10-22) et bloque donc l'écriture.
  */
 import { spawnSync } from 'node:child_process';
 import {
@@ -113,7 +155,7 @@ const SCRIPT_LANCE = /\.claude\/hooks\/([a-z0-9-]+\.sh)$/;
  * Les gardes attendues, dans l'ordre de settings.json : évènement, filtre
  * (`matcher`), script et champs propres (`timeout`…). Ajouter, retirer, déplacer
  * ou échanger une garde, ou changer ses champs, fait rougir ce cliquet : le faire
- * exprès, ici.
+ * exprès, ici. Les cas qui lancent des commandes ne rejouent que celles-ci.
  */
 const GARDES_ATTENDUES: ReadonlyArray<{
   evenement: string;
@@ -131,11 +173,31 @@ const GARDES_ATTENDUES: ReadonlyArray<{
     matcher: 'Write|Edit',
     script: 'format-file.sh',
   },
-  { evenement: 'PreToolUse', matcher: 'Write|Edit', script: 'gate-brief.sh' },
-  { evenement: 'PreToolUse', matcher: 'Bash', script: 'db-guard.sh' },
-  { evenement: 'PreToolUse', matcher: 'Bash', script: 'block-destructive.sh' },
+  {
+    evenement: 'PreToolUse',
+    matcher: 'Write|Edit',
+    script: 'gate-brief.sh',
+    champs: { onFailure: 'block' },
+  },
+  {
+    evenement: 'PreToolUse',
+    matcher: 'Bash',
+    script: 'db-guard.sh',
+    champs: { onFailure: 'block' },
+  },
+  {
+    evenement: 'PreToolUse',
+    matcher: 'Bash',
+    script: 'block-destructive.sh',
+    champs: { onFailure: 'block' },
+  },
   { evenement: 'PreToolUse', matcher: 'Bash', script: 'pre-commit-gate.sh' },
-  { evenement: 'PreToolUse', matcher: 'Bash', script: 'gate-pr.sh' },
+  {
+    evenement: 'PreToolUse',
+    matcher: 'Bash',
+    script: 'gate-pr.sh',
+    champs: { onFailure: 'block' },
+  },
   { evenement: 'PreToolUse', matcher: 'Bash', script: 'gate-merge.sh' },
 ];
 
@@ -183,7 +245,10 @@ function lancer(
 }
 
 /** Une action anodine, dans la forme que reçoit le hook (commande Bash ou fichier écrit). */
-function chargeAnodine({ matcher }: Entree, dossier: string): object {
+function chargeAnodine(
+  { matcher }: { matcher?: string },
+  dossier: string,
+): object {
   return matcher === 'Bash'
     ? { tool_input: { command: 'ls' }, cwd: dossier }
     : {
@@ -197,9 +262,7 @@ const factice = mkdtempSync(join(tmpdir(), 'hooks-chemin-absolu-'));
 afterAll(() => rmSync(factice, { recursive: true, force: true }));
 function projetFactice(): string {
   mkdirSync(join(factice, 'projet/.claude/hooks'), { recursive: true });
-  for (const { hook } of AVEC_SCRIPT) {
-    const script = SCRIPT_LANCE.exec(hook.command ?? '')?.[1];
-    if (!script) continue;
+  for (const { script } of GARDES_ATTENDUES) {
     const chemin = join(factice, 'projet/.claude/hooks', script);
     writeFileSync(
       chemin,
@@ -280,24 +343,23 @@ describe('hooks de .claude/settings.json — script trouvé et démarrage à la 
       const projet = projetFactice();
       const racinePhysique = realpathSync(RACINE);
       for (const dossier of DOSSIERS) {
-        for (const entree of AVEC_SCRIPT) {
-          const script = SCRIPT_LANCE.exec(entree.hook.command!)![1];
+        for (const garde of GARDES_ATTENDUES) {
           const r = lancer(
-            entree.hook.command!,
+            forme(garde.script),
             dossier,
             projet,
-            chargeAnodine(entree, dossier),
+            chargeAnodine(garde, dossier),
           );
           expect({
             dossier,
-            script,
+            script: garde.script,
             code: r.code,
             sortie: r.sortie.trim(),
           }).toEqual({
             dossier,
-            script,
+            script: garde.script,
             code: 0,
-            sortie: `${script} @ ${racinePhysique}`,
+            sortie: `${garde.script} @ ${racinePhysique}`,
           });
         }
       }
@@ -316,18 +378,21 @@ describe('hooks de .claude/settings.json — script trouvé et démarrage à la 
           .status,
         `${horsDepot} appartient à un dépôt git : ce cas ne prouverait rien`,
       ).not.toBe(0);
-      for (const entree of AVEC_SCRIPT) {
-        const script = SCRIPT_LANCE.exec(entree.hook.command!)![1];
+      for (const garde of GARDES_ATTENDUES) {
         const r = lancer(
-          entree.hook.command!,
+          forme(garde.script),
           horsDepot,
           projet,
-          chargeAnodine(entree, horsDepot),
+          chargeAnodine(garde, horsDepot),
         );
-        expect({ script, code: r.code, sortie: r.sortie.trim() }).toEqual({
-          script,
+        expect({
+          script: garde.script,
+          code: r.code,
+          sortie: r.sortie.trim(),
+        }).toEqual({
+          script: garde.script,
           code: 0,
-          sortie: `${script} @ ${horsDepot}`,
+          sortie: `${garde.script} @ ${horsDepot}`,
         });
       }
     },
@@ -337,9 +402,7 @@ describe('hooks de .claude/settings.json — script trouvé et démarrage à la 
   it(
     'de bout en bout : depuis la racine et deux sous-dossiers, la vraie garde destructive bloque, et laisse passer une commande anodine',
     () => {
-      const commande = AVEC_SCRIPT.find((e) =>
-        e.hook.command?.endsWith('/block-destructive.sh'),
-      )!.hook.command!;
+      const commande = forme('block-destructive.sh');
       const destructive = ['trunc', 'ate plateforme.t'].join('');
       for (const dossier of DOSSIERS) {
         expect({
@@ -364,23 +427,23 @@ describe('hooks de .claude/settings.json — script trouvé et démarrage à la 
     () => {
       // session-hygiene n'est pas lancé : il purge des branches et des worktrees.
       for (const dossier of DOSSIERS) {
-        for (const entree of AVEC_SCRIPT.filter(
-          (e) => e.evenement !== 'SessionStart',
+        for (const garde of GARDES_ATTENDUES.filter(
+          (g) => g.script !== 'session-hygiene.sh',
         )) {
           const r = lancer(
-            entree.hook.command!,
+            forme(garde.script),
             dossier,
             RACINE,
-            chargeAnodine(entree, dossier),
+            chargeAnodine(garde, dossier),
           );
           expect({
             dossier,
-            commande: entree.hook.command,
+            script: garde.script,
             code: r.code,
             erreur: r.erreur,
           }).toEqual({
             dossier,
-            commande: entree.hook.command,
+            script: garde.script,
             code: 0,
             erreur: '',
           });

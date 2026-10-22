@@ -9,7 +9,7 @@
 #
 # FAIL-SAFE : tout ce qui n'est pas un conflit AVÉRÉ → exit 0 (jamais de blocage
 # d'un travail légitime). Commande non-DB, session hors savr-dev (local/jetable),
-# lease libre/périmé/à soi, hors git, jq absent → passent instantanément.
+# lease libre/périmé/à soi/illisible, hors git, jq absent → passent instantanément.
 #
 # Le lease vit dans le `.git` COMMUN → partagé par tous les worktrees du clone.
 # Libérer le lease d'une session morte :  pnpm session:db-unlock
@@ -47,7 +47,8 @@ if [ "${1:-}" = "--self-test" ]; then
   bac="$(cd "$bac" && pwd -P)" || { echo "🔴 db-guard : dossier jetable inaccessible." >&2; exit 1; }
   trap 'rm -rf "$bac"' EXIT
   depot="$bac/depot"
-  git init -q "$depot" > /dev/null 2>&1
+  # Un second dépôt jetable, dont le chemin contient `|` (cf. « lease à soi »).
+  depot_barre="$bac/avec|barre"
   # Seconde vérification, après la construction. Le hook rejoué part de l'arbre de
   # travail que git lui montre, puis pose son lease dans le `.git` commun de cet
   # arbre. On s'arrête avant de poser un lease — le vrai est partagé entre les
@@ -59,30 +60,33 @@ if [ "${1:-}" = "--self-test" ]; then
   # quand il porte un fichier `commondir`. Les deux dernières vérifications sont
   # épinglées par les rejeux de la fin ; la première, non : retirée, l'auto-test
   # reste vert.
-  commun_vu="$(git -C "$depot" rev-parse --git-common-dir 2> /dev/null || true)"
-  case "$commun_vu" in
-    /*) : ;;
-    *) commun_vu="$(cd "$depot" 2> /dev/null && cd "$commun_vu" 2> /dev/null && pwd -P)" ;;
-  esac
-  [ "$(git -C "$depot" rev-parse --absolute-git-dir 2> /dev/null)" = "$depot/.git" ] \
-    || { echo "🔴 db-guard : dépôt jetable non construit, ou git en voit un autre." >&2; exit 1; }
-  [ "$(git -C "$depot" rev-parse --show-toplevel 2> /dev/null)" = "$depot" ] \
-    || { echo "🔴 db-guard : git place l'arbre de travail du dépôt jetable ailleurs." >&2; exit 1; }
-  [ "$commun_vu" = "$depot/.git" ] \
-    || { echo "🔴 db-guard : git place le .git commun du dépôt jetable ailleurs." >&2; exit 1; }
-  printf 'NEXT_PUBLIC_SUPABASE_URL=https://%s.supabase.co\n' "$SAVR_DEV_REF" > "$depot/.env.local"
+  for d in "$depot" "$depot_barre"; do
+    git init -q "$d" > /dev/null 2>&1
+    commun_vu="$(git -C "$d" rev-parse --git-common-dir 2> /dev/null || true)"
+    case "$commun_vu" in
+      /*) : ;;
+      *) commun_vu="$(cd "$d" 2> /dev/null && cd "$commun_vu" 2> /dev/null && pwd -P)" ;;
+    esac
+    [ "$(git -C "$d" rev-parse --absolute-git-dir 2> /dev/null)" = "$d/.git" ] \
+      || { echo "🔴 db-guard : dépôt jetable non construit, ou git en voit un autre." >&2; exit 1; }
+    [ "$(git -C "$d" rev-parse --show-toplevel 2> /dev/null)" = "$d" ] \
+      || { echo "🔴 db-guard : git place l'arbre de travail du dépôt jetable ailleurs." >&2; exit 1; }
+    [ "$commun_vu" = "$d/.git" ] \
+      || { echo "🔴 db-guard : git place le .git commun du dépôt jetable ailleurs." >&2; exit 1; }
+    printf 'NEXT_PUBLIC_SUPABASE_URL=https://%s.supabase.co\n' "$SAVR_DEV_REF" > "$d/.env.local"
+  done
   lease="$depot/.git/.savr-dev.lease"
   lease_autre="/une/autre/session|branche-autre|$(date +%s)"
   echec=false
   nb=0; np=0; ng=0
-  passe() {  # passe <commande> : le hook entier sur cette commande ; son code dans $rc
-    local charge
+  passe() {  # passe <commande> [dépôt] : le hook entier sur cette commande, depuis ce dépôt ($depot sans 2e argument) ; son code dans $rc
+    local charge d="${2:-$depot}"
     rc=0
     # La commande passe par l'entrée standard de jq, jamais en argument : sous
     # Linux un argument de 131 072 caractères ne lance plus le programme
     # (« Argument list too long », mesuré sur Ubuntu 22.04).
-    charge="$(jq -Rs --arg d "$depot" '{tool_input: {command: .}, cwd: $d}' <<< "$1")" || { rc='« charge JSON non construite : jq absent ? »'; return 0; }
-    (cd "$depot" && "$BASH" "$ICI" <<< "$charge" > /dev/null 2>&1) || rc=$?
+    charge="$(jq -Rs --arg d "$d" '{tool_input: {command: .}, cwd: $d}' <<< "$1")" || { rc='« charge JSON non construite : jq absent ? »'; return 0; }
+    (cd "$d" && "$BASH" "$ICI" <<< "$charge" > /dev/null 2>&1) || rc=$?
   }
   joue() {  # joue <B|P> <commande> — le lease de l'autre session est reposé avant chaque cas
     local voulu
@@ -127,11 +131,46 @@ FORMES
   joue P "$(printf 'supabase db push --dry-run\n%s' "$remplissage")"
   joue P "$(printf 'git status --short\n%s' "$remplissage")"
 
+  # Le lease frais d'une autre session dont la BRANCHE, puis le CHEMIN, contient
+  # `|` (un nom de branche git le permet) : l'écriture doit être bloquée. Avec la
+  # lecture d'avant, ces deux leases rendaient 0 sous macOS et 1 sous Ubuntu (cf.
+  # la lecture du lease, plus bas).
+  nbarre=0
+  for tenant in '/une/autre/session|fix/a|b' '/une/autre|session|branche-autre'; do
+    printf '%s|%s\n' "$tenant" "$(date +%s)" > "$lease"
+    passe 'supabase db push'
+    nbarre=$((nbarre + 1))
+    [ "$rc" = 2 ] || { echo "🔴 db-guard [lease frais d'une autre session, « $tenant »] : code $rc (attendu 2)" >&2; echec=true; }
+  done
+  # Le lease frais d'un arbre dont le chemin prolonge celui de la session — un
+  # worktree de .claude/worktrees/ vu depuis le clone principal — n'est pas à soi :
+  # le `|` qui suit le chemin de la session compte. L'écriture est bloquée.
+  printf '%s|%s|%s\n' "$depot/.claude/worktrees/x" branche-autre "$(date +%s)" > "$lease"
+  passe 'supabase db push'
+  [ "$rc" = 2 ] || { echo "🔴 db-guard [lease frais d'un worktree de ce dépôt] : code $rc (attendu 2)" >&2; echec=true; }
+  # Un horodatage à zéros de tête reste un nombre, lu en base 10 : bloqué aussi.
+  printf '/une/autre/session|branche-autre|00%s\n' "$(date +%s)" > "$lease"
+  passe 'supabase db push'
+  [ "$rc" = 2 ] || { echo "🔴 db-guard [lease frais d'une autre session, horodatage à zéros de tête] : code $rc (attendu 2)" >&2; echec=true; }
+  # Un lease ILLISIBLE d'une autre session (dernier champ qui n'est pas un nombre)
+  # n'est pas un conflit avéré : l'écriture passe, et la session le remplace par
+  # le sien (cf. la lecture du lease, plus bas).
+  printf '%s\n' '/une/autre/session|branche-autre|abc' > "$lease"
+  passe 'supabase db push'
+  ligne_lease="$(head -1 "$lease")"
+  { [ "$rc" = 0 ] && [ "${ligne_lease%%|*}" = "$depot" ]; } \
+    || { echo "🔴 db-guard [lease illisible d'une autre session] : code $rc (attendu 0), lease après : [$ligne_lease] (attendu : celui de ce dépôt)" >&2; echec=true; }
+
   # Le même lease, tenu cette fois par CE dépôt : la même écriture passe. Le code 2
-  # des cas B vient donc de qui tient le lease, pas de sa seule présence.
+  # des cas B vient donc de qui tient le lease, pas de sa seule présence. Même
+  # chose depuis le second dépôt, dont le chemin contient `|` : un lease est à soi
+  # quand sa ligne commence par le chemin de la session suivi d'un `|`.
   printf '%s|%s|%s\n' "$depot" branche-a-soi "$(date +%s)" > "$lease"
   passe 'supabase db push'
   [ "$rc" = 0 ] || { echo "🔴 db-guard [lease à soi] : code $rc (attendu 0)" >&2; echec=true; }
+  printf '%s|%s|%s\n' "$depot_barre" branche-a-soi "$(date +%s)" > "$depot_barre/.git/.savr-dev.lease"
+  passe 'supabase db push' "$depot_barre"
+  [ "$rc" = 0 ] || { echo "🔴 db-guard [lease à soi, chemin avec « | »] : code $rc (attendu 0)" >&2; echec=true; }
 
   # L'auto-test lui-même, rejoué sous trois sortes de piège (quatre rejeux). Il ne
   # doit rien écrire hors de son bac. Les deux premières sortes désignent un SECOND
@@ -181,7 +220,7 @@ FORMES
     echo "🔴 db-guard : auto-test EN ÉCHEC — la garde peut être muette ou bloquer à tort." >&2
     exit 2
   fi
-  echo "✅ db-guard : auto-test OK ($nb écritures bloquées sous le lease d'une autre session, $np autres commandes laissées passer, hook rejoué en entier ; dont $ng commandes de plus de 300 000 caractères ; lease à soi : écriture passée$sous_leurre)."
+  echo "✅ db-guard : auto-test OK ($nb écritures bloquées sous le lease d'une autre session, $np autres commandes laissées passer, hook rejoué en entier ; dont $ng commandes de plus de 300 000 caractères ; $nbarre écritures bloquées sous le lease frais d'une autre session dont la branche, puis le chemin, contient « | », une sous celui d'un worktree de ce dépôt, une sous un horodatage à zéros de tête ; lease illisible d'une autre session : écriture passée et lease remplacé ; lease à soi, y compris depuis un dépôt dont le chemin contient « | » : écriture passée$sous_leurre)."
   exit 0
 fi
 
@@ -269,25 +308,57 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Lecture du lease : une ligne « chemin|branche|horodatage », écrite en fin de
+# script. Le chemin et la branche peuvent contenir `|` (un nom de branche git le
+# permet) : l'horodatage est donc le DERNIER champ, et il doit être un nombre.
+# Avant, la ligne était coupée au premier puis au deuxième `|` : avec un `|` dans
+# la branche ou le chemin, le troisième morceau n'était plus un nombre, et l'issue
+# de son calcul dépendait de son contenu. Mesuré le 2026-10-22 sur une copie de la
+# version précédente, dans un dépôt jetable, avec le lease frais d'une AUTRE
+# session : branche `fix/a|b`, ou chemin `/une/autre|session`, arrêt sur
+# « unbound variable », code 0 sous macOS (/bin/bash 3.2) — l'écriture passait —
+# et code 1 sous Ubuntu 24.04 (bash 5.2) ; branches `x|1761100000`, `queue|` et
+# `x||y` (relevées par la relecture sécurité), code 0 et lease remplacé sous macOS
+# comme sous Ubuntu 24.04 et 22.04 : âge calculé faux, ou erreur de syntaxe qui
+# sautait le contrôle.
+# Le lease est À SOI quand sa ligne commence par le chemin de cette session suivi
+# d'un `|`. C'est exact tant qu'aucun des deux chemins — celui de la session et
+# celui de l'arbre qui a écrit le lease — ne contient de `|` ; sinon la ligne ne
+# sépare pas sans ambiguïté le chemin de la branche, et le lease d'un autre arbre
+# peut passer pour soi.
+# Un lease ILLISIBLE — vide, sans ses deux `|`, ou dont le dernier champ n'est pas
+# un nombre — n'est pas un conflit avéré : la garde passe et le remplace, comme un
+# lease libre (cf. l'en-tête). Seule la première ligne du fichier est lue : si le
+# chemin écrit contient un retour à la ligne, seul ce qui le précède est jugé.
 if [ -f "$lease" ]; then
-  IFS='|' read -r l_wt l_branch l_epoch <"$lease" 2>/dev/null || true
-  l_epoch="${l_epoch:-0}"
-  age=$((now - l_epoch))
-  if [ "${l_wt:-}" != "$top" ] && [ "$age" -ge 0 ] && [ "$age" -lt "$LEASE_STALE" ]; then
-    {
-      echo "🔴 CONFLIT savr-dev : la DB partagée est déjà utilisée par une AUTRE session."
-      echo "   Détenteur : branche '$l_branch'  ($l_wt)  — lease posé il y a ${age}s."
-      echo "   Ta session ('$branch') s'apprête à ÉCRIRE dans savr-dev (seed/migration) → risque de clobber."
-      echo "   Options :"
-      echo "     • attends que l'autre session finisse, puis relance ;"
-      echo "     • si cette autre session est MORTE : 'pnpm session:db-unlock' puis relance ;"
-      echo "     • ou isole cette session sur une base jetable / Supabase local (aucun lease requis)."
-      echo "   Diagnostic complet : 'pnpm session:doctor'."
-    } >&2
-    exit 2
+  l_ligne=""
+  IFS= read -r l_ligne <"$lease" 2>/dev/null || true
+  l_tenant="${l_ligne%|*}" # chemin|branche
+  l_epoch="${l_ligne##*|}"
+  case "$l_ligne" in *'|'*'|'*) : ;; *) l_epoch="" ;; esac
+  case "$l_epoch" in '' | *[!0-9]*) l_epoch="" ;; esac
+  case "$l_tenant" in "$top|"*) l_a_soi=true ;; *) l_a_soi=false ;; esac
+  if [ -n "$l_epoch" ] && [ "$l_a_soi" = false ]; then
+    age=$((now - 10#$l_epoch))
+    if [ "$age" -ge 0 ] && [ "$age" -lt "$LEASE_STALE" ]; then
+      # Pour le message seulement : coupé au premier `|`, exact quand le chemin n'en contient pas.
+      l_wt="${l_tenant%%|*}"
+      l_branch="${l_tenant#*|}"
+      {
+        echo "🔴 CONFLIT savr-dev : la DB partagée est déjà utilisée par une AUTRE session."
+        echo "   Détenteur : branche '$l_branch'  ($l_wt)  — lease posé il y a ${age}s."
+        echo "   Ta session ('$branch') s'apprête à ÉCRIRE dans savr-dev (seed/migration) → risque de clobber."
+        echo "   Options :"
+        echo "     • attends que l'autre session finisse, puis relance ;"
+        echo "     • si cette autre session est MORTE : 'pnpm session:db-unlock' puis relance ;"
+        echo "     • ou isole cette session sur une base jetable / Supabase local (aucun lease requis)."
+        echo "   Diagnostic complet : 'pnpm session:doctor'."
+      } >&2
+      exit 2
+    fi
   fi
 fi
 
-# Libre / périmé / à moi → acquiert (ou rafraîchit) le lease, puis laisse passer.
+# Libre / périmé / à moi / illisible → acquiert (ou rafraîchit) le lease, puis laisse passer.
 printf '%s|%s|%s\n' "$top" "$branch" "$now" >"$lease" 2>/dev/null || true
 exit 0

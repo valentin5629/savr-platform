@@ -214,6 +214,14 @@ bout_en_bout() (
 echo "$*" >> "$FAUX_JOURNAL"
 case "$*" in
   *seed:check*)
+    if [ -n "${FAUX_SEED_PEND:-}" ]; then
+      # Ne rend pas la main : lance un petit-enfant qui ignore TERM (son numéro
+      # dans le fichier FAUX_SEED_PEND), puis l'attend.
+      echo "Dataset détecté : minimal (20 collectes)"
+      sh -c 'trap "" TERM; echo $$ > "$1"; exec sleep 60' sh "$FAUX_SEED_PEND" &
+      wait
+      exit 0
+    fi
     [ -n "${FAUX_SEED_SORTIE:-}" ] && echo "$FAUX_SEED_SORTIE"
     exit "${FAUX_SEED_CODE:-0}"
     ;;
@@ -276,6 +284,7 @@ FAUX
   code 'tout en règle' 0 "$depot" "$creer"
   dit 'tout en règle' 'GATE PR OK'
   dit 'tout en règle' 'seed OK'
+  dit 'tout en règle' '(informatif, arrêté passé 30 s)'
   attendu 'tout en règle → suite complète jouée' "$(appels 'test:unit')" 1
   attendu 'tout en règle → seed interrogé' "$(appels 'seed:check')" 1
 
@@ -343,6 +352,74 @@ FAUX
   code 'seed : délai dépassé' 0 "$depot" "$creer" FAUX_SEED_CODE=1 \
     'FAUX_SEED_SORTIE=[seed:check] erreur : connect ETIMEDOUT 10.0.0.1:5432'
   dit 'seed : délai dépassé' 'NON JOUÉ'
+
+  # 6bis. Un seed:check qui ne rend pas la main (base de dev muette) : arrêté
+  # passé la borne, et la création de PR n'est pas bloquée. Le faux lance un
+  # petit-enfant qui ignore TERM : seul le KILL envoyé à tout le groupe l'arrête.
+  local petit="$bac/petit-enfant.pid" debut duree attente pid_petit pid_hook rc_hook f
+  petit_arrete() {  # petit_arrete <libellé> : le petit-enfant ne tourne plus (3 s laissées pour finir)
+    pid_petit="$(cat "$petit" 2>/dev/null || true)"
+    attente=0
+    while [ -n "$pid_petit" ] && kill -0 "$pid_petit" 2>/dev/null && [ "$attente" -lt 30 ]; do
+      sleep 0.1
+      attente=$((attente + 1))
+    done
+    if [ -z "$pid_petit" ]; then
+      echo "🔴 flux [$1] : le faux seed:check n'a pas lancé son petit-enfant" >&2; ko=true
+    elif kill -0 "$pid_petit" 2>/dev/null; then
+      echo "🔴 flux [$1] : le petit-enfant de seed:check, qui ignore TERM, tourne encore" >&2; ko=true
+      kill -KILL "$pid_petit" 2>/dev/null || true
+    fi
+    for f in "$depot/.git"/gate-pr-seed-check.*; do
+      [ ! -e "$f" ] || { echo "🔴 flux [$1] : la sortie de seed:check est restée dans le .git ($f)" >&2; ko=true; }
+    done
+  }
+  rm -f "$petit"
+  debut=$SECONDS
+  code 'seed qui ne rend pas la main' 0 "$depot" "$creer" GATE_PR_SEED_DELAI=1 "FAUX_SEED_PEND=$petit"
+  duree=$((SECONDS - debut))
+  [ "$duree" -lt 20 ] \
+    || { echo "🔴 flux [seed qui ne rend pas la main] : le hook a rendu la main au bout de ${duree} s (borne de 1 s, puis 1 s de grâce)" >&2; ko=true; }
+  dit 'seed qui ne rend pas la main' 'ARRÊTÉ passé 1 s'
+  tait 'seed qui ne rend pas la main' 'seed OK'
+  dit 'seed qui ne rend pas la main' 'GATE PR OK'
+  petit_arrete 'seed qui ne rend pas la main'
+  # Le hook lui-même arrêté (TERM) pendant l'attente : le groupe de seed:check,
+  # qui n'est plus le sien, est tué d'abord.
+  rm -f "$petit"
+  jq -n --arg c "$creer" '{tool_input: {command: $c}}' > "$bac/charge.json"
+  (cd "$depot" && exec env PATH="$bac/bin:$PATH" FAUX_JOURNAL="$journal" GATE_PR_SEED_DELAI=25 "FAUX_SEED_PEND=$petit" \
+    "$BASH" "$ICI" < "$bac/charge.json" > "$sortie" 2>&1) &
+  pid_hook=$!
+  attente=0
+  while [ ! -s "$petit" ] && [ "$attente" -lt 100 ]; do
+    sleep 0.1
+    attente=$((attente + 1))
+  done
+  kill -TERM "$pid_hook" 2>/dev/null || true
+  rc_hook=0
+  wait "$pid_hook" || rc_hook=$?
+  attendu 'hook arrêté pendant seed:check → son code' "$rc_hook" 143
+  petit_arrete 'hook arrêté pendant seed:check'
+  # La variable ne peut que raccourcir la borne : 31, juste au-dessus, et 600 sont
+  # ignorés.
+  code 'délai demandé à 31 s' 0 "$depot" "$creer" GATE_PR_SEED_DELAI=31
+  dit 'délai demandé à 31 s' '(informatif, arrêté passé 30 s)'
+  code 'délai demandé à 600 s' 0 "$depot" "$creer" GATE_PR_SEED_DELAI=600
+  dit 'délai demandé à 600 s' '(informatif, arrêté passé 30 s)'
+  # Pas de fichier pour la sortie de seed:check : il n'est pas lancé, et la
+  # création de PR n'est pas bloquée. Un faux `git` refuse le seul appel qui donne
+  # le dossier .git ; tous les autres vont au vrai.
+  local avant_seed
+  mkdir -p "$bac/faux-git"
+  printf '#!/bin/sh\nfor a in "$@"; do [ "$a" = --absolute-git-dir ] && exit 128; done\nexec "$VRAI_GIT" "$@"\n' > "$bac/faux-git/git"
+  chmod +x "$bac/faux-git/git"
+  avant_seed="$(appels 'seed:check')"
+  code 'seed : pas de fichier pour sa sortie' 0 "$depot" "$creer" "PATH=$bac/faux-git:$bac/bin:$PATH" "VRAI_GIT=$(command -v git)"
+  dit 'seed : pas de fichier pour sa sortie' 'NON JOUÉ — sa sortie ne peut pas être écrite'
+  tait 'seed : pas de fichier pour sa sortie' 'seed OK'
+  dit 'seed : pas de fichier pour sa sortie' 'GATE PR OK'
+  attendu 'seed : pas de fichier pour sa sortie → seed:check non lancé' "$(appels 'seed:check')" "$avant_seed"
 
   # 7. Ce sont les markers et le contenu de la branche VISÉE qui sont jugés —
   # `--head <branche>`, sinon la cible d'un `cd … &&` — pas ceux du dossier où
@@ -559,7 +636,7 @@ FORMES
     echo "🔴 gate-pr : auto-test EN ÉCHEC — le hook peut être muet ou bloquer à tort." >&2
     exit 2
   fi
-  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues ; flux de bout en bout : commande ignorée, suite rouge, contrat outbox, markers absent / vide / NON-GO / périmé pour chaque relecteur, seed qui ne dit plus OK à tort, branche visée par --head ou par cd${PIEGES_BILAN})."
+  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues ; flux de bout en bout : commande ignorée, suite rouge, contrat outbox, markers absent / vide / NON-GO / périmé pour chaque relecteur, seed qui ne dit plus OK à tort, seed:check qui ne rend pas la main arrêté passé la borne avec tout son groupe sans bloquer la PR, puis quand le hook est lui-même arrêté, borne de 30 s que la variable n'allonge pas (31 et 600 essayés), seed:check non lancé faute de fichier pour sa sortie sans bloquer la PR, branche visée par --head ou par cd${PIEGES_BILAN})."
   exit 0
 fi
 
@@ -665,16 +742,76 @@ echo "  ✅ tests OK" >&2
 # dépend pas de la PR. Le bloc reste non bloquant, comme il l'est en fait depuis
 # le 2026-06-17 ; ce qui change, c'est qu'il n'affiche plus « OK » sans l'avoir
 # constaté. Le rendre bloquant, ou le retirer d'ici, est une décision de Val.
+#
+# Il est BORNÉ dans le temps (2026-10-22, relevé par la relecture sécurité de
+# #608). Ce hook a le délai par défaut de 600 s (son entrée de settings.json ne
+# fixe pas de `timeout` ; cf. la PR #608), et depuis `onFailure: "block"` (#608)
+# un dépassement bloque la création de PR — même après un
+# `bash .claude/hooks/suite-verte.sh`, qui ne raccourcit que la suite de tests.
+# Or `seed:check` se connecte à la base de dev par un client `pg` réglé sans délai,
+# ni de connexion ni de requête (`connect()` de packages/shared/src/seed/db.ts).
+# Témoin du 2026-10-22 : le même réglage (pg 8.21.0), face à un serveur local qui
+# accepte la connexion sans jamais répondre, attendait encore au bout de 20 s.
+# Durée habituelle relevée dans l'historique des sessions : de 1,5 à 5,0 s (7
+# commandes de juillet à octobre 2026 qui lançaient `pnpm seed:check` sans autre
+# commande `pnpm` ni `psql`, et en ont reçu un verdict ; commande entière). La
+# borne est de 30 s ; GATE_PR_SEED_DELAI ne peut que la raccourcir (de 1 à 29 s)
+# et ne sert qu'à l'auto-test.
+# `seed:check` est lancé en arrière-plan dans son propre groupe de processus
+# (`set -m`), sa sortie dans un fichier du `.git` de l'arbre jugé, jamais sur
+# celle de ce hook, qu'un processus resté en vie garderait ouverte. Passé la
+# borne, tout le groupe reçoit TERM, puis KILL une seconde plus tard. Mesuré le
+# 2026-10-22 avec un témoin lancé de la même façon (`pnpm run` puis `tsx`, pnpm
+# 9.12.0, sous macOS) : `pnpm`, `tsx`, le `node` du script et le service
+# `esbuild` sont dans ce groupe, et ce `node` s'arrête avec lui. Si ce hook reçoit
+# lui-même TERM pendant l'attente, il tue d'abord ce groupe, qui n'est plus le
+# sien.
 sortie_contient() {  # <texte> <motif> — lu sans pipefail, comme dans gate_pr_matche
   (
     set +o pipefail
     printf '%s' "$1" 2>&- | grep -qE "$2"
   )
 }
-echo "  → pnpm seed:check (informatif)..." >&2
+SEED_DELAI=30
+case "${GATE_PR_SEED_DELAI:-}" in [1-9] | [12][0-9]) SEED_DELAI="$GATE_PR_SEED_DELAI" ;; esac
+echo "  → pnpm seed:check (informatif, arrêté passé ${SEED_DELAI} s)..." >&2
 SEED_EXIT=0
-SEED_OUTPUT="$(pnpm seed:check 2>&1)" || SEED_EXIT=$?
-if [ "$SEED_EXIT" -eq 0 ]; then
+SEED_OUTPUT=""
+SEED_ETAT=fini
+SEED_FICHIER="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+[ -z "$SEED_FICHIER" ] || SEED_FICHIER="$SEED_FICHIER/gate-pr-seed-check.$$"
+if [ -n "$SEED_FICHIER" ] && { : > "$SEED_FICHIER"; } 2>/dev/null; then
+  set -m
+  pnpm seed:check < /dev/null > "$SEED_FICHIER" 2>&1 &
+  SEED_PID=$!
+  set +m
+  trap '{ kill -KILL -- "-$SEED_PID" "$SEED_PID" || true; } 2>/dev/null; rm -f "$SEED_FICHIER" || true; exit 143' TERM
+  SEED_FIN=$((SECONDS + SEED_DELAI + 1))
+  while kill -0 "$SEED_PID" 2>/dev/null; do
+    if [ "$SECONDS" -ge "$SEED_FIN" ]; then
+      SEED_ETAT=arrete
+      {
+        kill -TERM -- "-$SEED_PID" "$SEED_PID" || true
+        sleep 1 || true
+        kill -KILL -- "-$SEED_PID" "$SEED_PID" || true
+      } 2>/dev/null
+      break
+    fi
+    sleep 0.1 || true
+  done
+  { wait "$SEED_PID" || SEED_EXIT=$?; } 2>/dev/null
+  trap - TERM
+  SEED_OUTPUT="$(cat "$SEED_FICHIER" 2>/dev/null || true)"
+  rm -f "$SEED_FICHIER" || true
+else
+  SEED_ETAT=sans-fichier
+fi
+if [ "$SEED_ETAT" = sans-fichier ]; then
+  echo "  ⚠️  seed:check NON JOUÉ — sa sortie ne peut pas être écrite dans le .git de ce dossier. Rien n'a été contrôlé." >&2
+elif [ "$SEED_ETAT" = arrete ]; then
+  printf '%s\n' "$SEED_OUTPUT" | tail -3 >&2 || true
+  echo "  ⚠️  seed:check ARRÊTÉ passé ${SEED_DELAI} s, sans verdict — base de dev injoignable, ou lente ? Rien n'est établi sur la base de dev. Non bloquant." >&2
+elif [ "$SEED_EXIT" -eq 0 ]; then
   echo "  ✅ seed OK" >&2
 elif sortie_contient "$SEED_OUTPUT" "ENOENT.*\.env\.local|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|getaddrinfo"; then
   echo "  ⚠️  seed:check NON JOUÉ — pas de .env.local dans ce dossier, ou base de dev injoignable. Rien n'a été contrôlé." >&2

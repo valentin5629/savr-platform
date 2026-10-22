@@ -23,7 +23,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(50);
+SELECT plan(52);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
 RETURNS void LANGUAGE plpgsql AS $$
@@ -159,6 +159,15 @@ SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 3500,
 DELETE FROM plateforme.collectes WHERE id IN (SELECT zd_a2 FROM t UNION ALL SELECT ag_a2 FROM t);
 SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 3300,
   'evenements.pax revenu à 3 300 après suppression des deux collectes ajoutées');
+-- Un jour sans ZD : ses AG s'additionnent seules (le total ZD absent ne compte pas).
+SELECT pg_temp.collecte(evt, 'ag', 47, 150) FROM t;
+SELECT pg_temp.collecte(evt, 'ag', 47, 200) FROM t;
+SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 3650,
+  'deux AG seules le même jour s''additionnent : 3 300 + (150 + 200)');
+DELETE FROM plateforme.collectes
+ WHERE evenement_id = (SELECT evt FROM t) AND date_collecte = CURRENT_DATE + 47;
+SELECT is(pg_temp.pax_evt((SELECT evt FROM t)), 3300,
+  'evenements.pax revenu à 3 300 après suppression des deux AG du jour sans ZD');
 
 SELECT throws_ok(
   $$ SELECT plateforme.fn_modifier_collecte((SELECT zd_a FROM t), '{"pax": 0}'::jsonb, ARRAY['pax']) $$,

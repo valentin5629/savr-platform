@@ -210,7 +210,7 @@ describe('M1.2/pax_par_collecte — création', () => {
     );
     expect(res.status).toBe(201);
     // Pax de l'événement provisoire (0) : le déclencheur le calcule depuis les
-    // collectes (règle C1, prouvée par supabase/tests/collectes_pax.test.sql).
+    // collectes (règle du jour, prouvée par supabase/tests/collectes_pax.test.sql).
     expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
       expect.objectContaining({ pax: 0 }),
     );

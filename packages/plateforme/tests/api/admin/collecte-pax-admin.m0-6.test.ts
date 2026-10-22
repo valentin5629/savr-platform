@@ -197,6 +197,27 @@ describe('M0.6-pax-collecte-modification-admin — PATCH /admin/collectes/[id] {
     expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
 
+  it('ligne d’audit refusée : la modification est faite (200) et l’échec est journalisé', async () => {
+    setupAuth('admin_savr');
+    preparerModification({ ...AVANT, pax: 650 });
+    mockSupabaseChain.insert.mockResolvedValueOnce({
+      error: { message: 'audit indisponible', code: '57014' },
+    });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const res = await patch({ pax: 650, motif: MOTIF });
+      expect(res.status).toBe(200);
+      const logs = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(logs).toContain('api_route.error');
+      expect(logs).toContain('admin.collectes.update.audit');
+    } finally {
+      // Seulement ces deux espions : la chaîne Supabase simulée garde ses retours.
+      logSpy.mockRestore();
+      errSpy.mockRestore();
+    }
+  });
+
   it('une modification sans pax reste tracée sans motif (inchangé)', async () => {
     setupAuth('admin_savr');
     preparerModification({ ...AVANT, heure_collecte: '21:30:00' });

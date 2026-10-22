@@ -3547,10 +3547,9 @@ export function CollecteDetailPanel({
         )}
         <form onSubmit={(e) => void handleModifierPax(e)} className="space-y-4">
           <Text>
-            Le nombre de pax de l&apos;événement est recalculé. Si la demande
-            est déjà partie chez le prestataire, la modification lui est
-            renvoyée. L&apos;action est tracée dans l&apos;audit (motif
-            obligatoire).
+            Le nombre de pax de l&apos;événement est recalculé. Si une commande
+            existe déjà chez le prestataire, la modification lui est envoyée.
+            L&apos;action est tracée dans l&apos;audit (motif obligatoire).
           </Text>
           <FormField label="Nombre de pax" htmlFor="pax-input" required>
             <Input

@@ -411,27 +411,30 @@ async function patchHandler(
 
   const data = updatedJson as Record<string, unknown>;
 
-  if (forceStatut) {
-    await supabase.from('audit_log').insert({
-      table_name: 'collectes',
-      record_id: id,
-      action: 'collecte_statut_force',
-      user_id: auth.ctx.userId,
-      motif,
-      old_values: { statut: (before as { statut?: unknown }).statut },
-      new_values: { statut: updates.statut },
-    });
-  } else {
-    await supabase.from('audit_log').insert({
-      table_name: 'collectes',
-      record_id: id,
-      action: 'UPDATE',
-      user_id: auth.ctx.userId,
-      ...(paxModifie ? { motif } : {}),
-      old_values: before,
-      new_values: data,
-    });
-  }
+  // La modification est déjà écrite : une ligne d'audit refusée ne l'annule
+  // pas, mais elle est la seule trace du motif — l'échec est journalisé.
+  const { error: auditErr } = await supabase.from('audit_log').insert(
+    forceStatut
+      ? {
+          table_name: 'collectes',
+          record_id: id,
+          action: 'collecte_statut_force',
+          user_id: auth.ctx.userId,
+          motif,
+          old_values: { statut: (before as { statut?: unknown }).statut },
+          new_values: { statut: updates.statut },
+        }
+      : {
+          table_name: 'collectes',
+          record_id: id,
+          action: 'UPDATE',
+          user_id: auth.ctx.userId,
+          ...(paxModifie ? { motif } : {}),
+          old_values: before,
+          new_values: data,
+        },
+  );
+  if (auditErr) erreurInterne(auditErr, 'admin.collectes.update.audit');
 
   // ─── Notifications d'annulation (§06.02 tpl 5/21/22 + §05 machine à états) ────
   // Annulation en 2 temps : la bascule finale annulation_demandee → annulee est

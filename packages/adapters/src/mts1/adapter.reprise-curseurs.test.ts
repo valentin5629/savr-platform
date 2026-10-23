@@ -98,12 +98,14 @@ function fausseBase(
     // Pax de LA collecte (décision Val 2026-10-20) : c'est lui qui part au
     // transporteur, l'événement n'en porte plus dans ce que lit le worker.
     pax: 120,
-    evenement: {
-      traiteur: { nom: 'Traiteur Essai' },
+    contacts: {
       contact_principal_nom: 'Alice Martin',
       contact_principal_telephone: '+33600000001',
       contact_secours_nom: null,
       contact_secours_telephone: null,
+    },
+    evenement: {
+      traiteur: { nom: 'Traiteur Essai' },
       lieux: {
         id: 'lieu-001',
         nom: 'Lieu',

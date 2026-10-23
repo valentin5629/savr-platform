@@ -342,6 +342,33 @@
       "statut": "partial",
       "ref_divergence": "_Divergences/M1.2_20261020_pax-par-collecte.md",
       "libelle": "Lots 2 et 3 du pax porté par la collecte (décisions Val 2026-10-20 C2 et C4 ; Q3 tranchée le 2026-10-21 : le lot 2 est livré avant le premier client réel). Non codés : la tarification et la facturation ZD lisent encore evenements.pax (C2 : chaque collecte ZD facturée sur son propre pax), de même que les rapports de recyclage (§12), l'algorithme AG et l'auto-acceptation (seuil 600 pax), la taille XS–XL (C4 : celle de la collecte pour le radar, la fiche et la liste Collectes ; celle de l'événement pour la liste et la fiche Événements), le benchmark et le radar (f_benchmark_kg_pax_zd, f_benchmark_single_collecte), les déchets labo estimés, le registre, les PDF, la marge et les dashboards, la liste et l'export Événements. Leur passage au pax de la collecte est décidé (§05 R_pax_collecte) et attend sa fiche."
+    },
+    {
+      "id": "M1.2-collecte-type-contacts-donnees",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1454 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1457 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:134 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:179",
+      "artefact": "supabase/migrations/20261022210000_plateforme_collecte_contacts_type_evenement.sql + packages/shared/src/database.types.ts",
+      "test": "supabase/tests/collecte_contacts.test.sql « la table collecte_contacts existe » « collecte créée : contacts repris de l’événement » « collecte créée : type d’événement repris de l’événement » « type donné à l’insertion : gardé » « collecte insérée directement : contacts repris de l’événement » « contacts modifiés sur l’événement : recopiés sur la seconde collecte » « type modifié sur l’événement : recopié sur la seconde collecte » « renommer l’événement ne recopie pas les contacts » « contact principal au-delà de 120 caractères : refusé » « contact de secours sur deux lignes : refusé » « supprimer une collecte supprime ses contacts » « contacts modifiés sur un événement : la collecte d’un autre événement garde les siens » « type modifié sur un événement : la collecte d’un autre événement garde le sien » « contact principal sur deux lignes : refusé » « téléphone principal fait de blancs : refusé » « contact de secours au-delà de 120 caractères : refusé » « téléphone de secours au-delà de 40 caractères : refusé » « téléphone de secours sur deux lignes : refusé »",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261022_refonte-formulaire-collectes-par-type.md",
+      "libelle": "Refonte du formulaire, lot A « données » (décisions Val 2026-10-22, C1 et C2) : chaque collecte porte son type d'événement (collectes.type_evenement_id, nullable ; NULL à l'insertion = celui de l'événement, par déclencheur) et ses contacts (table plateforme.collecte_contacts, 1–1 avec collectes, contact principal exigé, contact de secours facultatif, mêmes bornes que les contacts de l'événement : 120 caractères pour un nom, 40 pour un téléphone, ni blanc seul ni retour à la ligne). Reprise de l'existant depuis l'événement, avec contrôle de fin ; une collecte insérée sans contacts (seed, brouillon, reprise Bubble) reçoit ceux de son événement. Transition (I8) : tant que les fiches modifient type et contacts au niveau de l'événement, fn_modifier_evenement les recopie sur toutes les collectes de l'événement (dans la fonction, jamais par déclencheur) ; renommer l'événement ne recopie rien, et la recopie ne touche jamais les collectes d'un autre événement. Hors lot : lecture et modification sur les fiches collecte (lot B1), formulaire et routes de création (lot B2), filtres (lot C)."
+    },
+    {
+      "id": "M1.2-collecte-contacts-fermes-aux-clients",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:201",
+      "artefact": "supabase/migrations/20261022210000_plateforme_collecte_contacts_type_evenement.sql",
+      "test": "supabase/tests/collecte_contacts.test.sql « une seule policy sur collecte_contacts, qui refuse tout » « authenticated : pas de SELECT » « authenticated : ni INSERT, ni UPDATE, ni DELETE » « anon : aucun droit » « traiteur_manager de l’organisation : lecture refusée » « traiteur_manager de l’organisation : écriture refusée » « traiteur_commercial : lecture refusée » « agence : lecture refusée » « gestionnaire_lieux : lecture refusée » « client_organisateur : lecture refusée » « fonctions de déclencheur : EXECUTE refusé à authenticated »",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261022_refonte-formulaire-collectes-par-type.md",
+      "libelle": "Contacts d'une collecte lus par le serveur seul (décision Val 2026-10-22, C2) : plateforme.collecte_contacts a la RLS activée et forcée, une seule policy qui refuse tout, aucun droit pour anon ni authenticated (ni lecture, ni écriture), lecture et écriture pour service_role seul ; les fonctions de ses déclencheurs ne sont pas exécutables par authenticated. Prouvé sous chaque rôle client (traiteur manager et commercial, agence, gestionnaire de lieux, client organisateur). Les routes qui les servent (fiche collecte, règles des contacts de l'événement) viennent au lot B1."
+    },
+    {
+      "id": "M1.2-collecte-contacts-transmission",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:395",
+      "artefact": "packages/adapters/src/outbox-worker.ts",
+      "test": "M1.2-collecte-contacts-transmission — le transporteur reçoit les contacts de LA collecte",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261022_refonte-formulaire-collectes-par-type.md",
+      "libelle": "L'envoi aux transporteurs lit les contacts de la collecte, plus ceux de l'événement (décision Val 2026-10-22, C1) : l'outbox-worker demande collecte_contacts (l'embed de l'événement ne demande plus aucune colonne de contact) et les passe aux deux adapters, MTS-1 et Everest, sans changer le format envoyé. Une collecte sans ligne de contacts n'est jamais envoyée avec ceux de l'événement : l'ordre part en échec définitif (dead) avec un message qui nomme la collecte."
     }
   ],
   "cdc_source_hash": {

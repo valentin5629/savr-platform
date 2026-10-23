@@ -23,8 +23,12 @@ interface WorkerMockOpts {
   lieuOfficiel?: Record<string, unknown>;
   /** `collectes.informations_supplementaires` — saisie du traiteur. */
   infosSuppl?: string | null;
-  /** `evenements.contact_secours_nom` — porté par l'événement parent. */
+  /** `collecte_contacts.contact_secours_nom` — porté par LA collecte (refonte Val 2026-10-22). */
   contactSecoursNom?: string | null;
+  /** L'embed de l'événement porte d'AUTRES contacts : un code qui les lirait encore les transmettrait. */
+  leurreEvenement?: boolean;
+  /** Aucune ligne `collecte_contacts` pour la collecte. */
+  contactsAbsents?: boolean;
   /** Lecture `attributions_antgaspi` : attribution présente (défaut), absente, ou en erreur (blip PostgREST). */
   attribution?: 'presente' | 'absente' | 'erreur';
   /** `collectes.type_vehicule_souhaite` (décision Val 2026-10-01). */
@@ -68,8 +72,8 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     requires_reconciliation: false,
   };
 
-  // Contacts + lieu portés par l'événement parent (fetchCollecte les lit via la
-  // jointure evenements!inner — fix M1.5a 2026-06-26 ; §06.04 l.375 / §08 l.411).
+  // Lieu porté par l'événement parent (jointure evenements!inner) ; contacts
+  // portés par LA collecte (`collecte_contacts`, refonte Val 2026-10-22).
   const collecteRow = {
     id: COLLECTE_ID,
     type: opts.typeCollecte ?? 'anti_gaspi',
@@ -86,16 +90,28 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     notes_internes: null,
     prestataire_logistique_id: opts.prestataireLogistiqueId,
     lieu_overrides: opts.lieuOverrides ?? null,
+    contacts: opts.contactsAbsents
+      ? null
+      : {
+          contact_principal_nom: 'Alice',
+          contact_principal_telephone: '+33600000001',
+          contact_secours_nom: opts.contactSecoursNom ?? null,
+          contact_secours_telephone: null,
+        },
     evenement: [
       {
         pax: 120,
+        ...(opts.leurreEvenement
+          ? {
+              contact_principal_nom: 'Contact Événement',
+              contact_principal_telephone: '+33611111111',
+              contact_secours_nom: 'Secours Événement',
+              contact_secours_telephone: '+33622222222',
+            }
+          : {}),
         // Embed du traiteur opérationnel servi en tableau : le déballage du
         // worker couvre les deux formes.
         traiteur: [{ nom: 'Traiteur Essai' }],
-        contact_principal_nom: 'Alice',
-        contact_principal_telephone: '+33600000001',
-        contact_secours_nom: opts.contactSecoursNom ?? null,
-        contact_secours_telephone: null,
         lieux: [
           {
             id: 'lieu-001',
@@ -1028,5 +1044,77 @@ describe('M1.5 / fetchCollecte demande bien les colonnes d’accès du lieu', ()
       supabase as unknown as { _selects: Record<string, string[]> }
     )._selects['collectes'];
     expect(selects?.join(' ')).toContain(colonne);
+  });
+});
+
+// ─── Refonte lot A : contacts de LA collecte (décisions Val 2026-10-22, C1–C2) ─
+
+describe('M1.2-collecte-contacts-transmission — le transporteur reçoit les contacts de LA collecte', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ['mts1', AdapterMts1],
+    ['a_toutes', AdapterEverest],
+  ] as const)(
+    'type_tms=%s — l’événement porte d’autres contacts : ceux de la collecte partent, demandés à collecte_contacts',
+    async (typeTms, Adapter) => {
+      const spy = vi
+        .spyOn(Adapter.prototype, 'dispatchCollecte')
+        .mockResolvedValue('noop_no_remote');
+
+      const supabase = makeWorkerSupabase({
+        typeTms,
+        prestataireLogistiqueId: PRESTA_ID,
+        contactSecoursNom: 'Bruno',
+        leurreEvenement: true,
+      });
+      await runOutboxWorker(supabase);
+
+      const collecte = spy.mock.calls[0]![0] as {
+        contact_principal_nom: string;
+        contact_principal_telephone: string;
+        contact_secours_nom: string | null;
+        informations_supplementaires: string | null;
+      };
+      expect(collecte.contact_principal_nom).toBe('Alice');
+      expect(collecte.contact_principal_telephone).toBe('+33600000001');
+      expect(collecte.contact_secours_nom).toBe('Bruno');
+      expect(collecte.informations_supplementaires).toContain(
+        'Contact : Alice, +33600000001',
+      );
+      expect(collecte.informations_supplementaires).not.toMatch(/Événement/);
+      // Demandés à la table de la collecte, plus à l'embed de l'événement.
+      const select = supabase._selects['collectes']?.find((x) =>
+        x.includes('evenement:'),
+      );
+      expect(select).toMatch(
+        /contacts:collecte_contacts\(\s*contact_principal_nom, contact_principal_telephone,\s*contact_secours_nom, contact_secours_telephone\s*\)/,
+      );
+      expect(select?.split('evenement:')[1]).not.toMatch(/contact_/);
+    },
+  );
+
+  it('aucune ligne de contacts : la commande ne part pas (dead), jamais avec les contacts de l’événement', async () => {
+    const mts1Spy = vi
+      .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_mts1');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'mts1',
+      prestataireLogistiqueId: PRESTA_ID,
+      contactsAbsents: true,
+      leurreEvenement: true,
+    });
+    const result = await runOutboxWorker(supabase);
+
+    expect(mts1Spy).not.toHaveBeenCalled();
+    expect(result.dead).toBe(1);
+    const resultat = (
+      supabase.rpc as unknown as { mock: { calls: unknown[][] } }
+    ).mock.calls.find((c) => c[0] === 'fn_result_outbox');
+    expect(resultat?.[1]).toMatchObject({ p_statut: 'dead' });
+    expect(
+      String((resultat?.[1] as { p_last_error: string }).p_last_error),
+    ).toMatch(/contacts de la collecte introuvables/);
   });
 });

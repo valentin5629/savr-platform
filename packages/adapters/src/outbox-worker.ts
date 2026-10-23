@@ -670,10 +670,12 @@ async function fetchCollecte(
   supabase: SupabaseClient,
   collecteId: string,
 ): Promise<CollecteRow> {
-  // Contacts + lieu sont portés par l'ÉVÉNEMENT parent (§06.04 l.375 « Pas de
-  // duplication côté collectes » ; §08 l.411 contacts ← evenements.contact_*).
-  // On les lit donc via la jointure evenements → un re-dispatch E2 propage bien
-  // les champs événement édités (requirement B1, fix M1.5a 2026-06-26).
+  // Le lieu est porté par l'ÉVÉNEMENT parent ; les contacts, par LA collecte
+  // (`collecte_contacts`, refonte Val 2026-10-22, C1–C2) : deux collectes d'un
+  // même événement peuvent avoir des contacts différents. Une modification des
+  // contacts au niveau de l'événement est recopiée sur ses collectes
+  // (fn_modifier_evenement), donc un re-dispatch E2 propage bien les champs
+  // édités (requirement B1, fix M1.5a 2026-06-26).
   const { data, error } = await supabase
     .from('collectes')
     .select(
@@ -681,9 +683,11 @@ async function fetchCollecte(
       id, type, date_collecte, heure_collecte, nb_camions_demande, pax,
       statut_tms, controle_acces_requis, informations_supplementaires, notes_internes,
       prestataire_logistique_id, lieu_overrides,
-      evenement:evenements!inner(
+      contacts:collecte_contacts(
         contact_principal_nom, contact_principal_telephone,
-        contact_secours_nom, contact_secours_telephone,
+        contact_secours_nom, contact_secours_telephone
+      ),
+      evenement:evenements!inner(
         traiteur:organisations!traiteur_operationnel_organisation_id(nom),
         lieux:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, latitude, longitude, acces_details, type_vehicule_max, contraintes_horaires, stationnement, acces_office, flux_autorises)
       )
@@ -701,11 +705,13 @@ async function fetchCollecte(
   // défensif (Array.isArray) — il couvre les deux formes.
   type EvenementJoin = {
     traiteur: { nom: string | null } | { nom: string | null }[] | null;
+    lieux: CollecteRow['lieux'] | CollecteRow['lieux'][];
+  };
+  type ContactsJoin = {
     contact_principal_nom: string;
     contact_principal_telephone: string;
     contact_secours_nom: string | null;
     contact_secours_telephone: string | null;
-    lieux: CollecteRow['lieux'] | CollecteRow['lieux'][];
   };
   const raw = data as unknown as Omit<
     CollecteRow,
@@ -718,11 +724,23 @@ async function fetchCollecte(
     | 'contact_secours_telephone'
   > & {
     evenement: EvenementJoin | EvenementJoin[];
+    contacts: ContactsJoin | ContactsJoin[] | null;
     lieu_overrides: Record<string, unknown> | null;
     pax: number | null;
   };
 
   const evt = Array.isArray(raw.evenement) ? raw.evenement[0]! : raw.evenement;
+  // Relation 1–1 (la clé étrangère est aussi la clé primaire) : PostgREST rend
+  // un objet ; le déballage reste défensif. Absente = jamais le contact d'une
+  // autre collecte ni celui de l'événement : la commande ne part pas.
+  const contacts = Array.isArray(raw.contacts)
+    ? (raw.contacts[0] ?? null)
+    : raw.contacts;
+  if (!contacts) {
+    throw new LogistiquePermanentError(
+      `contacts de la collecte introuvables : ${collecteId}`,
+    );
+  }
   // Pax de LA collecte (décision Val 2026-10-20), jamais celui de l'événement :
   // c'est la somme des jours.
   const pax = raw.pax;
@@ -773,12 +791,12 @@ async function fetchCollecte(
       lieu,
       informationsSupplementaires: raw.informations_supplementaires,
       contact: {
-        nom: evt.contact_principal_nom,
-        telephone: evt.contact_principal_telephone,
+        nom: contacts.contact_principal_nom,
+        telephone: contacts.contact_principal_telephone,
       },
       contactSecours: {
-        nom: evt.contact_secours_nom,
-        telephone: evt.contact_secours_telephone,
+        nom: contacts.contact_secours_nom,
+        telephone: contacts.contact_secours_telephone,
       },
       vehicule:
         raw.type === 'anti_gaspi'
@@ -800,10 +818,10 @@ async function fetchCollecte(
       : null,
     association_contact_nom: association?.contact_nom ?? null,
     association_contact_telephone: association?.contact_telephone ?? null,
-    contact_principal_nom: evt.contact_principal_nom,
-    contact_principal_telephone: evt.contact_principal_telephone,
-    contact_secours_nom: evt.contact_secours_nom,
-    contact_secours_telephone: evt.contact_secours_telephone,
+    contact_principal_nom: contacts.contact_principal_nom,
+    contact_principal_telephone: contacts.contact_principal_telephone,
+    contact_secours_nom: contacts.contact_secours_nom,
+    contact_secours_telephone: contacts.contact_secours_telephone,
     lieux: lieu,
   };
 }

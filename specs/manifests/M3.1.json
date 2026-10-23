@@ -667,7 +667,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/fiche_entete_type_et_taille_bracket",
       "statut": "implemented",
-      "libelle": "Bloc d'entête §06.04 — « Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax) », jamais rendu jusqu'ici : libellé embarqué depuis types_evenements et bracket dérivé côté serveur avec le helper canonique tailleBracket (mêmes bornes que §04 taille_evenement_bracket, pas de 8e copie de la règle). Pax absent (informations_completes=false) ⇒ pas de bracket inventé."
+      "libelle": "Bloc d'entête §06.04 — « Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax) », jamais rendu jusqu'ici : libellé embarqué depuis types_evenements et bracket dérivé côté serveur avec le helper canonique tailleBracket (mêmes bornes que §04 taille_evenement_bracket, pas de 8e copie de la règle). Pax absent (informations_completes=false) ⇒ pas de bracket inventé. ⚠ Contacts et type d'événement lus au niveau de l'événement, d'avant la refonte du 2026-10-22 : à reprendre au lot B1 (contacts et type de LA collecte, livrable M1.2-refonte-formulaire-lots-b-c)."
     },
     {
       "id": "M3.1-fiche-entete-programmee-par",
@@ -763,7 +763,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_popup_informations_blocs",
       "statut": "implemented",
-      "libelle": "Onglet Informations : Événement (Client, Date et heure, Pax, Type d'événement + taille), Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur = détails d'accès EFFECTIFS du lieu — applyLieuOverrides, même fusion que le transporteur — + informations supplémentaires de la collecte ; jamais les notes internes Admin), Contacts sur place (téléphones tel:). Lieu effectif prouvé côté API par M3.1/fiche_get_lieu_effectif."
+      "libelle": "Onglet Informations : Événement (Client, Date et heure, Pax, Type d'événement + taille), Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur = détails d'accès EFFECTIFS du lieu — applyLieuOverrides, même fusion que le transporteur — + informations supplémentaires de la collecte ; jamais les notes internes Admin), Contacts sur place (téléphones tel:). Lieu effectif prouvé côté API par M3.1/fiche_get_lieu_effectif. ⚠ Contacts et type d'événement lus au niveau de l'événement, d'avant la refonte du 2026-10-22 : à reprendre au lot B1 (contacts et type de LA collecte, livrable M1.2-refonte-formulaire-lots-b-c)."
     },
     {
       "id": "M3.1-popup-client-contact-secours",
@@ -771,7 +771,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": "M3.1/fiche_popup_contact_secours",
       "statut": "implemented",
-      "libelle": "Contact de secours + téléphone (Q4 : evenements.contact_secours_* existent déjà — migration 20260611171638) ; ligne masquée seulement si vide. Aucune migration."
+      "libelle": "Contact de secours + téléphone (Q4 : evenements.contact_secours_* existent déjà — migration 20260611171638) ; ligne masquée seulement si vide. Aucune migration. ⚠ Contacts et type d'événement lus au niveau de l'événement, d'avant la refonte du 2026-10-22 : à reprendre au lot B1 (contacts et type de LA collecte, livrable M1.2-refonte-formulaire-lots-b-c)."
     },
     {
       "id": "M3.1-popup-client-logistique-savr",
@@ -803,7 +803,7 @@
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/fiche-client-types.ts",
       "test": "M3.1/fiche_get_reference_affaire_programmateur_seul + M3.1/fiche_get_contacts_service_role + M3.1/fiche_get_contacts_erreur_500",
       "statut": "implemented",
-      "libelle": "Chargeur commun de la fiche collecte : contacts sur place et référence d'affaire (colonnes d'evenements hors GRANT SELECT authenticated) lus en service-role sur le seul événement de la collecte, après la lecture RLS ; référence d'affaire servie à l'organisation programmatrice seule (arbitrages Val C3/C5 2026-10-01 — M3.1/fiche_get_contacts_service_role, M3.1/fiche_get_contacts_erreur_500, M3.3/fiche_get_contacts_agence)"
+      "libelle": "Chargeur commun de la fiche collecte : contacts sur place et référence d'affaire (colonnes d'evenements hors GRANT SELECT authenticated) lus en service-role sur le seul événement de la collecte, après la lecture RLS ; référence d'affaire servie à l'organisation programmatrice seule (arbitrages Val C3/C5 2026-10-01 — M3.1/fiche_get_contacts_service_role, M3.1/fiche_get_contacts_erreur_500, M3.3/fiche_get_contacts_agence) ⚠ Contacts et type d'événement lus au niveau de l'événement, d'avant la refonte du 2026-10-22 : à reprendre au lot B1 (contacts et type de LA collecte, livrable M1.2-refonte-formulaire-lots-b-c)."
     },
     {
       "id": "M3.1-fiche-telephone-fenetre-serveur",
@@ -867,7 +867,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx, packages/plateforme/src/components/ui/filtre-en-ligne.tsx, packages/plateforme/src/lib/collectes/benchmark-fiche.ts",
       "test": "M3.1/fiche_ui_bloc3_filtres_initialises_sur_la_collecte",
       "statut": "implemented",
-      "libelle": "Radar « Votre collecte face aux événements comparables » (BenchmarkRadar réutilisé, titre/sous-titre paramétrables) + filtres Type d'événement / Taille / Lieux en titres cliquables ouvrant une liste à cocher (Popover + Checkbox DS, aucun <select>), une seule ligne, sans filtre Traiteurs même pour un rôle qui y a droit ; initialisés sur le segment de la collecte ; période fixe 24 mois imposée serveur."
+      "libelle": "Radar « Votre collecte face aux événements comparables » (BenchmarkRadar réutilisé, titre/sous-titre paramétrables) + filtres Type d'événement / Taille / Lieux en titres cliquables ouvrant une liste à cocher (Popover + Checkbox DS, aucun <select>), une seule ligne, sans filtre Traiteurs même pour un rôle qui y a droit ; initialisés sur le segment de la collecte ; période fixe 24 mois imposée serveur. ⚠ Filtre « type d'événement » au niveau de l'événement : à reprendre au lot C (chaque collecte selon son propre type, C3 ; livrable M1.2-refonte-formulaire-lots-b-c)."
     },
     {
       "id": "M3.1-popup-client-bilan-ag",

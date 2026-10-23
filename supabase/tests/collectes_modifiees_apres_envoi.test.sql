@@ -158,7 +158,7 @@ SELECT pg_temp.baisser();
 UPDATE plateforme.collecte_contacts SET contact_principal_nom = 'Autre Contact' WHERE collecte_id = (SELECT en_file FROM t);
 SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)), 'changer le nom du contact arme le drapeau');
 SELECT ok(NOT pg_temp.drapeau((SELECT en_cours FROM t)),
-  'changer le contact d''une collecte n''arme pas les autres collectes parties de l''événement');
+  'changer le contact d’une collecte n’arme pas les autres collectes parties de l’événement');
 
 SELECT pg_temp.baisser();
 UPDATE plateforme.collecte_contacts SET contact_principal_telephone = '0699990003' WHERE collecte_id = (SELECT en_file FROM t);
@@ -177,7 +177,7 @@ SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)), 'changer le téléphone du c
 SELECT pg_temp.baisser();
 UPDATE plateforme.evenements SET contact_principal_nom = 'Copie Evenement' WHERE id = (SELECT evt FROM t);
 SELECT ok(NOT pg_temp.drapeau((SELECT en_file FROM t)),
-  'changer la copie des contacts sur l''événement n''arme rien');
+  'changer la copie des contacts sur l’événement n’arme rien');
 
 -- Hors de la liste : le nom et la référence de l'événement.
 SELECT pg_temp.baisser();

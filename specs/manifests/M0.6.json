@@ -1756,7 +1756,15 @@
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
       "test": "packages/plateforme/tests/api/admin/collecte-pax-admin.m0-6.test.ts + packages/plateforme/src/components/admin/collecte-detail-panel-pax.m0-6.test.tsx",
       "statut": "implemented",
-      "libelle": "Modification du pax d'une collecte par l'équipe Savr depuis la fiche collecte Admin, avec motif comme toute route staff (décision Val 2026-10-21 ; §06.06 « Actions Admin/Ops », §05 R_pax_collecte). Route PATCH /api/v1/admin/collectes/[id] : pax accepté (entier de 1 à 100 000, refusPaxCollecte), motif d'au moins 10 caractères exigé et écrit dans la ligne d'audit UPDATE, pax et statut refusés ensemble (422), rôles clients refusés (requireStaff) ; fn_modifier_collecte recalcule le pax de l'événement et émet l'E2 si une commande existe. Fiche Admin, onglet Informations : bouton « Modifier » à côté du nombre de pax, fenêtre « Modifier le nombre de pax » (champ pré-rempli, vide si le pax est inconnu ; motif ; « Enregistrer » désactivé tant que l'un des deux est invalide)."
+      "libelle": "Modification du pax d'une collecte par l'équipe Savr depuis la fiche collecte Admin, avec motif comme toute route staff (décision Val 2026-10-21 ; §06.06 « Actions Admin/Ops », §05 R_pax_collecte). Route PATCH /api/v1/admin/collectes/[id] : pax accepté (entier de 1 à 100 000, refusPaxCollecte), motif d'au moins 10 caractères exigé et écrit dans la ligne d'audit UPDATE, pax et statut refusés ensemble (422), rôles clients refusés (requireStaff) ; fn_modifier_collecte recalcule le pax de l'événement et émet l'E2 si une commande existe (aucun pour une collecte réalisée, clôturée ou annulée : livrable M0.6-e2-aucun-ordre-collecte-terminee). Fiche Admin, onglet Informations : bouton « Modifier » à côté du nombre de pax, fenêtre « Modifier le nombre de pax » (champ pré-rempli, vide si le pax est inconnu ; motif ; « Enregistrer » désactivé tant que l'un des deux est invalide)."
+    },
+    {
+      "id": "M0.6-e2-aucun-ordre-collecte-terminee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:136 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:338",
+      "artefact": "supabase/migrations/20261022200000_plateforme_e2_aucun_ordre_collecte_terminee.sql + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
+      "test": "supabase/tests/e2_collecte_terminee.test.sql + supabase/tests/r22c_evenement_e2_en_cours.test.sql « R22c-6 modif contact sur collecte cloturee »",
+      "statut": "implemented",
+      "libelle": "Aucun ordre de modification (E2) pour une collecte réalisée, réalisée sans collecte, clôturée ou annulée, même si sa commande existe chez le prestataire (décision Val 2026-10-22, Q1) : une correction faite après coup (pax, date, heure, informations) reste locale. fn_modifier_collecte n'écrit l'E2 que si le statut d'avant ET celui d'après sont actifs (une collecte rouverte ou close d'office dans la même modification n'en reçoit pas) ; fn_modifier_evenement ne parcourt déjà que les collectes programmées, validées ou en cours. L'annulation garde son E3. Fiche Admin, onglet Informations : le texte d'aide du pax le dit."
     }
   ],
   "cdc_source_hash": {

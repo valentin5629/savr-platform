@@ -126,6 +126,13 @@ describe('M0.6-pax-collecte-modification-admin — fiche collecte Admin : « Mod
       const modale = await ouvrirModale();
       const champ = within(modale).getByLabelText(/Nombre de pax/);
       expect(champ).toHaveValue(80);
+      // Texte d'aide (décision Val 2026-10-22) : rien n'est envoyé au
+      // prestataire pour une collecte terminée ou annulée.
+      expect(
+        within(modale).getByText(
+          /la modification lui est envoyée, sauf pour une collecte réalisée, clôturée ou annulée\./,
+        ),
+      ).toBeInTheDocument();
       const enregistrer = within(modale).getByRole('button', {
         name: 'Enregistrer',
       });

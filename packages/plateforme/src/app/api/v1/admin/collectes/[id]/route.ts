@@ -24,7 +24,10 @@ import {
 import { deriverOrdreEnvoi, lireOrdresCollecte } from '@/lib/ordre-envoi.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { CHAMPS_TYPE_CONTACTS_COLLECTE } from '@/lib/collectes/champs-editables.js';
-import { lireContactsCollecte } from '@/lib/collectes/contacts-collecte.js';
+import {
+  CHAMPS_CONTACTS_COLLECTE,
+  lireContactsCollecte,
+} from '@/lib/collectes/contacts-collecte.js';
 import { refusTypeContactsCollecte } from '@/lib/collectes/type-contacts-collecte.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
@@ -436,6 +439,13 @@ async function patchHandler(
   envoyerOrdresSansAttendre(id);
 
   const data = updatedJson as Record<string, unknown>;
+  // Les contacts vivent dans collecte_contacts, absents de la ligne rendue par
+  // la RPC : la ligne d'audit porte à part ceux qui ont été modifiés (lot B1).
+  const contactsModifies = Object.fromEntries(
+    CHAMPS_CONTACTS_COLLECTE.filter((f) => Object.hasOwn(updates, f)).map(
+      (f) => [f, updates[f]],
+    ),
+  );
 
   // La modification est déjà écrite : une ligne d'audit refusée ne l'annule
   // pas, mais elle est la seule trace du motif — l'échec est journalisé.
@@ -457,7 +467,7 @@ async function patchHandler(
           user_id: auth.ctx.userId,
           ...(paxModifie ? { motif } : {}),
           old_values: before,
-          new_values: data,
+          new_values: { ...data, ...contactsModifies },
         },
   );
   if (auditErr) erreurInterne(auditErr, 'admin.collectes.update.audit');

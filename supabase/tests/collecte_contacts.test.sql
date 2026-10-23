@@ -10,13 +10,14 @@
 --     type donné à l'insertion est gardé ;
 --   • lot B1 (2026-10-23) : fn_modifier_evenement refuse type et contacts ;
 --     fn_modifier_collecte les écrit sur la seule collecte visée, émet l'E2 d'une
---     collecte active commandée sur un changement de contact, aucun sur un
---     changement de type seul, et refuse de vider le type ;
+--     collecte active commandée sur un changement de contact (seul ou avec le
+--     type), aucun sur un changement de type seul, refuse de vider le type et
+--     refuse les contacts d'une collecte sans ligne de contacts ;
 --   • les fonctions de déclencheur ne sont exécutables par aucun rôle client.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(43);
+SELECT plan(45);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
 RETURNS void LANGUAGE plpgsql AS $$
@@ -149,6 +150,15 @@ SELECT is(
     WHERE aggregate_id = (SELECT commandee FROM t) AND event_type = 'collecte.modifiee'),
   1, 'collecte commandée : changer seulement son type d’événement n’émet pas d’E2 (il ne part pas au prestataire)');
 
+SELECT plateforme.fn_modifier_collecte(
+  (SELECT commandee FROM t),
+  jsonb_build_object('type_evenement_id', (SELECT type_evt FROM t), 'contact_principal_nom', 'Inès Ensemble'),
+  ARRAY['type_evenement_id', 'contact_principal_nom']);
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.outbox_events
+    WHERE aggregate_id = (SELECT commandee FROM t) AND event_type = 'collecte.modifiee'),
+  2, 'collecte commandée : type d’événement et contact changés ensemble, l’E2 du contact part');
+
 SELECT throws_ok(
   format($$ SELECT plateforme.fn_modifier_collecte(%L::uuid,
        '{"type_evenement_id": null}'::jsonb, ARRAY['type_evenement_id']) $$, (SELECT seconde FROM t)),
@@ -161,6 +171,20 @@ SELECT is(pg_temp.contact((SELECT seconde FROM t)), 'Zoé Martin / 0611223344 / 
   'renommer l’événement ne recopie pas les contacts');
 SELECT is(pg_temp.type_evt((SELECT seconde FROM t)), (SELECT autre_type FROM t),
   'renommer l’événement ne recopie pas le type');
+
+-- Une collecte sans ligne de contacts (anomalie) : la modification de ses
+-- contacts est refusée, jamais écrite ailleurs.
+CREATE TEMP TABLE sans_contacts ON COMMIT DROP AS
+SELECT plateforme.fn_creer_collecte(
+  p_evenement_id := (SELECT evt FROM t), p_type := 'zd',
+  p_date_collecte := CURRENT_DATE + 41, p_heure_collecte := '21:00'::time, p_pax := 80) AS id;
+DELETE FROM plateforme.collecte_contacts WHERE collecte_id = (SELECT id FROM sans_contacts);
+SELECT throws_ok(
+  format($$ SELECT plateforme.fn_modifier_collecte(%L::uuid,
+       '{"contact_principal_nom": "Nadia Nulle"}'::jsonb, ARRAY['contact_principal_nom']) $$,
+       (SELECT id FROM sans_contacts)),
+  'P0002', format('CONTACTS_COLLECTE_ABSENTS: aucune ligne de contacts pour la collecte %s', (SELECT id FROM sans_contacts)),
+  'collecte sans ligne de contacts : la modification de ses contacts est refusée');
 
 -- ── Bornes ───────────────────────────────────────────────────────────────────
 SELECT throws_ok(

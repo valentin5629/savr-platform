@@ -1449,19 +1449,23 @@ describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, 
     },
   );
 
-  it('M1.2/collecte_type_evenement_inconnu — type absent du référentiel : 422, la collecte n’est ni lue ni écrite', async () => {
-    setupAuth('traiteur_manager', 'org-1', 'user-1');
-    admin.push({ data: null, error: null }); // type d'événement : inconnu
-    const res = await patchCollecteEspace(ROUTES_COLLECTE[0], {
-      type_evenement_id: TYPE_APRES,
-    });
-    expect(res.status).toBe(422);
-    expect(((await res.json()) as { champ?: string }).champ).toBe(
-      'type_evenement_id',
-    );
-    expect(rls.__calls.from).toBeUndefined();
-    expect(admin.__calls.rpc).toBeUndefined();
-  });
+  it.each(ROUTES_COLLECTE)(
+    'M1.2/collecte_type_evenement_inconnu — PATCH /$espace/collectes/[id], type absent du référentiel : 422, la collecte n’est ni lue ni écrite',
+    async (route) => {
+      setupAuth(route.role, 'org-1', 'user-1');
+      admin.push({ data: null, error: null }); // type d'événement : inconnu
+      const res = await patchCollecteEspace(route, {
+        type_evenement_id: TYPE_APRES,
+      });
+      expect(res.status).toBe(422);
+      expect(((await res.json()) as { champ?: string }).champ).toBe(
+        'type_evenement_id',
+      );
+      expect(rls.__calls.from).toBeUndefined();
+      expect(admin.__calls.from).toEqual([['types_evenements']]);
+      expect(admin.__calls.rpc).toBeUndefined();
+    },
+  );
 
   it('M1.2/collecte_type_evenement_invalide — identifiant mal formé ou vidé : 422 sans interroger le référentiel', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
@@ -1522,8 +1526,34 @@ describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, 
       table_name: 'collectes',
       action: 'UPDATE',
       old_values: expect.objectContaining(CONTACTS_AVANT),
+      // Les contacts ne sont pas dans la ligne rendue par la RPC : la ligne
+      // d'audit porte à part la nouvelle valeur.
+      new_values: expect.objectContaining({
+        contact_principal_telephone: '0699990003',
+      }),
     });
     expect(audit).not.toHaveProperty('motif');
+  });
+
+  it('M1.2/admin_collecte_type_evenement_inconnu — PATCH /admin/collectes/[id], type absent du référentiel : 422, rien n’est lu ni écrit', async () => {
+    setupAuth('admin_savr', 'org-savr', 'val');
+    admin.push({ data: null, error: null }); // type d'événement : inconnu
+    const res = await patchCollecteAdmin({ type_evenement_id: TYPE_APRES });
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { champ?: string }).champ).toBe(
+      'type_evenement_id',
+    );
+    expect(admin.__calls.from).toEqual([['types_evenements']]);
+    expect(admin.__calls.rpc).toBeUndefined();
+    expect(admin.__calls.insert).toBeUndefined();
+  });
+
+  it('M1.2/admin_collecte_contact_principal_vide — PATCH /admin/collectes/[id], contact principal vidé : 422, rien n’est écrit', async () => {
+    setupAuth('admin_savr', 'org-savr', 'val');
+    const res = await patchCollecteAdmin({ contact_principal_nom: '   ' });
+    expect(res.status).toBe(422);
+    expect(admin.__calls.rpc).toBeUndefined();
+    expect(admin.__calls.insert).toBeUndefined();
   });
 
   it('M1.2/admin_collecte_contacts_non_lus — PATCH /admin/collectes/[id] sans type ni contact : collecte_contacts n’est pas lue', async () => {

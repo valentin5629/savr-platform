@@ -9,11 +9,13 @@
 --     ne la change pas) ;
 --   • une collecte n°1 annulée passe la main à la suivante ; sans Zéro-Déchet,
 --     l'Anti-Gaspi la plus tôt ; sans collecte non annulée, la copie reste ;
+--   • départage par date, puis heure, puis création, chaque critère prouvé
+--     seul ; suppression et changement d'événement d'une collecte n°1 ;
 --   • les fonctions de la copie ne sont exécutables par aucun rôle client.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(11);
+SELECT plan(17);
 
 -- ── Jeu d'essai : un événement, trois collectes aux dates maîtrisées ─────────
 -- zd_tard : Zéro-Déchet à J+20 (celle du jeu d'essai commun, commandée) ;
@@ -88,6 +90,73 @@ SELECT is(pg_temp.copie(), 'Ana Gaspi / 0610000003',
 UPDATE plateforme.collectes SET statut = 'annulee' WHERE id = (SELECT ag_tot FROM t);
 SELECT is(pg_temp.copie(), 'Ana Gaspi / 0610000003',
   'toutes les collectes annulées : la copie reste telle quelle');
+
+-- ── Départage : date, puis heure, puis création (second événement) ──────────
+-- Chaque cas est construit pour qu'un critère retiré ou inversé change la
+-- gagnante : l'heure la plus tôt est la collecte créée en dernier ; à date et
+-- heure égales, la plus ancienne création porte le plus grand identifiant ; la
+-- date la plus tôt porte l'heure la plus tardive.
+CREATE TEMP TABLE t2 (evt uuid, soir uuid, matin uuid, jumelle uuid,
+                      ancienne uuid, recente uuid, veille uuid) ON COMMIT DROP;
+WITH nouvel AS (
+  INSERT INTO plateforme.evenements (
+    organisation_id, lieu_id, traiteur_operationnel_organisation_id,
+    entite_facturation_id, created_by, type_evenement_id, date_evenement, pax,
+    contact_principal_nom, contact_principal_telephone)
+  SELECT organisation_id, lieu_id, traiteur_operationnel_organisation_id,
+         entite_facturation_id, created_by, type_evenement_id, date_evenement, pax,
+         contact_principal_nom, contact_principal_telephone
+    FROM plateforme.evenements WHERE id = (SELECT evt FROM t)
+  RETURNING id)
+INSERT INTO t2 (evt) SELECT id FROM nouvel;
+UPDATE t2 SET soir = plateforme.fn_creer_collecte(
+  p_evenement_id := evt, p_type := 'zd',
+  p_date_collecte := CURRENT_DATE + 30, p_heure_collecte := '18:00'::time, p_pax := 80);
+UPDATE plateforme.collectes SET created_at = now() - interval '3 hours'
+ WHERE id = (SELECT soir FROM t2);
+UPDATE t2 SET matin = plateforme.fn_creer_collecte(
+  p_evenement_id := evt, p_type := 'zd',
+  p_date_collecte := CURRENT_DATE + 30, p_heure_collecte := '09:00'::time, p_pax := 80);
+
+CREATE FUNCTION pg_temp.copie_de(p_evt uuid) RETURNS text LANGUAGE sql AS $$
+  SELECT e.contact_principal_nom FROM plateforme.evenements e WHERE e.id = p_evt
+$$;
+
+SELECT pg_temp.contact((SELECT soir FROM t2), 'Alice Soir', '0620000001');
+SELECT pg_temp.contact((SELECT matin FROM t2), 'Bruno Matin', '0620000002');
+SELECT is(pg_temp.copie_de((SELECT evt FROM t2)), 'Bruno Matin',
+  'même jour : l’heure la plus tôt l’emporte, même créée après');
+
+UPDATE t2 SET jumelle = plateforme.fn_creer_collecte(
+  p_evenement_id := evt, p_type := 'zd',
+  p_date_collecte := CURRENT_DATE + 30, p_heure_collecte := '09:00'::time, p_pax := 80);
+UPDATE t2 SET ancienne = greatest(matin, jumelle), recente = least(matin, jumelle);
+UPDATE plateforme.collectes SET created_at = now() - interval '2 hours' WHERE id = (SELECT ancienne FROM t2);
+UPDATE plateforme.collectes SET created_at = now() - interval '1 hour' WHERE id = (SELECT recente FROM t2);
+SELECT pg_temp.contact((SELECT recente FROM t2), 'Rita Recente', '0620000003');
+SELECT pg_temp.contact((SELECT ancienne FROM t2), 'Anne Ancienne', '0620000004');
+SELECT is(pg_temp.copie_de((SELECT evt FROM t2)), 'Anne Ancienne',
+  'même date et même heure : la plus ancienne création l’emporte');
+
+UPDATE t2 SET veille = plateforme.fn_creer_collecte(
+  p_evenement_id := evt, p_type := 'zd',
+  p_date_collecte := CURRENT_DATE + 29, p_heure_collecte := '23:00'::time, p_pax := 80);
+SELECT pg_temp.contact((SELECT veille FROM t2), 'Victor Veille', '0620000005');
+SELECT is(pg_temp.copie_de((SELECT evt FROM t2)), 'Victor Veille',
+  'date plus tôt : l’emporte même à une heure plus tardive');
+
+-- ── Suppression et changement d'événement ──────────────────────────────────
+DELETE FROM plateforme.collecte_flux WHERE collecte_id = (SELECT veille FROM t2);
+DELETE FROM plateforme.collectes WHERE id = (SELECT veille FROM t2);
+SELECT is(pg_temp.copie_de((SELECT evt FROM t2)), 'Anne Ancienne',
+  'collecte n°1 supprimée : la suivante prend le relais');
+
+UPDATE plateforme.collectes SET evenement_id = (SELECT evt FROM t)
+ WHERE id = (SELECT ancienne FROM t2);
+SELECT is(pg_temp.copie_de((SELECT evt FROM t)), 'Anne Ancienne',
+  'collecte rattachée à un autre événement : elle devient la n°1 de celui-ci');
+SELECT is(pg_temp.copie_de((SELECT evt FROM t2)), 'Rita Recente',
+  'collecte n°1 rattachée à un autre événement : son ancien événement passe à la suivante');
 
 -- ── Aucun rôle client n'exécute les fonctions de la copie ───────────────────
 SELECT ok(NOT has_function_privilege('authenticated',

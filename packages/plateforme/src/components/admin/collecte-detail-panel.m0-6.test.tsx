@@ -4615,8 +4615,9 @@ describe('M1.2 / fiche Admin — type d’événement et contacts de la collecte
       status: 200,
       corps: {},
     },
+    initiale: object = AVANT,
   ) {
-    let courante: object = AVANT;
+    let courante: object = initiale;
     const parDefaut = mockFetch(() => courante).getMockImplementation()!;
     const fetchMock = vi.fn(
       (
@@ -4701,6 +4702,22 @@ describe('M1.2 / fiche Admin — type d’événement et contacts de la collecte
           ATTENTE_UI,
         );
       }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each(['realisee', 'cloturee', 'annulee'])(
+    'M1.2/type_contacts_par_collecte — fiche Admin : « Modifier » reste offert sur une collecte %s (correction interne)',
+    async (statut) => {
+      monter(undefined, { ...AVANT, statut });
+      const infos = await screen.findByRole('tabpanel', undefined, ATTENTE_UI);
+      await within(infos).findByText(
+        'Cocktail apéritif',
+        undefined,
+        ATTENTE_UI,
+      );
+      const dialog = await ouvrir('Modifier les contacts');
+      expect(champ(dialog, '#infos-cp-nom')).toHaveValue('Alice Martin');
     },
     ATTENTE_CAS_MS,
   );

@@ -15,7 +15,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(34);
+SELECT plan(42);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
 RETURNS void LANGUAGE plpgsql AS $$
@@ -136,6 +136,35 @@ SELECT is(pg_temp.contact((SELECT seconde FROM t)), 'Zoé Martin / 0611223344 / 
 SELECT is(pg_temp.type_evt((SELECT seconde FROM t)), (SELECT type_evt FROM t),
   'renommer l’événement ne recopie pas le type');
 
+-- ── La recopie reste dans l'événement modifié ───────────────────────────────
+-- Un second événement de la même organisation, avec ses propres contacts et son
+-- type, et sa collecte : modifier le premier événement ne la touche pas.
+INSERT INTO plateforme.evenements (organisation_id, lieu_id, nom_evenement, pax, type_evenement_id,
+  contact_principal_nom, contact_principal_telephone, entite_facturation_id,
+  traiteur_operationnel_organisation_id, created_by, created_at, updated_at)
+SELECT e.organisation_id, e.lieu_id, 'Lot A autre événement', 10, t.type_evt,
+       'Autre Contact', '0700000000', e.entite_facturation_id,
+       e.traiteur_operationnel_organisation_id, e.created_by, now(), now()
+  FROM plateforme.evenements e, t WHERE e.id = t.evt;
+ALTER TABLE t ADD COLUMN autre_collecte uuid, ADD COLUMN troisieme_type uuid;
+UPDATE t SET autre_collecte = plateforme.fn_creer_collecte(
+  p_evenement_id := (SELECT id FROM plateforme.evenements WHERE nom_evenement = 'Lot A autre événement'),
+  p_type := 'ag', p_date_collecte := CURRENT_DATE + 31, p_heure_collecte := '21:00'::time, p_pax := 80);
+INSERT INTO plateforme.types_evenements (code, libelle, created_at, updated_at)
+VALUES ('LOT_A_TROISIEME_TYPE', 'Lot A troisième type', now(), now())
+ON CONFLICT (code) DO UPDATE SET libelle = EXCLUDED.libelle;
+UPDATE t SET troisieme_type = (SELECT id FROM plateforme.types_evenements WHERE code = 'LOT_A_TROISIEME_TYPE');
+SELECT plateforme.fn_modifier_evenement(
+  (SELECT evt FROM t),
+  '{"contact_principal_nom": "Léa Durand", "contact_principal_telephone": "0655443322"}'::jsonb,
+  ARRAY['contact_principal_nom', 'contact_principal_telephone']);
+SELECT plateforme.fn_modifier_evenement(
+  (SELECT evt FROM t), jsonb_build_object('type_evenement_id', (SELECT troisieme_type FROM t)), ARRAY['type_evenement_id']);
+SELECT is(pg_temp.contact((SELECT autre_collecte FROM t)), 'Autre Contact / 0700000000 / - / -',
+  'contacts modifiés sur un événement : la collecte d’un autre événement garde les siens');
+SELECT is(pg_temp.type_evt((SELECT autre_collecte FROM t)), (SELECT type_evt FROM t),
+  'type modifié sur un événement : la collecte d’un autre événement garde le sien');
+
 -- ── Bornes ───────────────────────────────────────────────────────────────────
 SELECT throws_ok(
   $$ UPDATE plateforme.collecte_contacts SET contact_principal_nom = '   ' WHERE collecte_id = (SELECT seconde FROM t) $$,
@@ -149,6 +178,24 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$ UPDATE plateforme.collecte_contacts SET contact_principal_telephone = repeat('1', 41) WHERE collecte_id = (SELECT seconde FROM t) $$,
   '23514', NULL, 'téléphone principal au-delà de 40 caractères : refusé');
+SELECT throws_ok(
+  $$ UPDATE plateforme.collecte_contacts SET contact_principal_nom = E'Zoé\nMartin' WHERE collecte_id = (SELECT seconde FROM t) $$,
+  '23514', NULL, 'contact principal sur deux lignes : refusé');
+SELECT throws_ok(
+  $$ UPDATE plateforme.collecte_contacts SET contact_principal_telephone = '   ' WHERE collecte_id = (SELECT seconde FROM t) $$,
+  '23514', NULL, 'téléphone principal fait de blancs : refusé');
+SELECT throws_ok(
+  $$ UPDATE plateforme.collecte_contacts SET contact_principal_telephone = E'0611\n223344' WHERE collecte_id = (SELECT seconde FROM t) $$,
+  '23514', NULL, 'téléphone principal sur deux lignes : refusé');
+SELECT throws_ok(
+  $$ UPDATE plateforme.collecte_contacts SET contact_secours_nom = repeat('a', 121) WHERE collecte_id = (SELECT seconde FROM t) $$,
+  '23514', NULL, 'contact de secours au-delà de 120 caractères : refusé');
+SELECT throws_ok(
+  $$ UPDATE plateforme.collecte_contacts SET contact_secours_telephone = repeat('1', 41) WHERE collecte_id = (SELECT seconde FROM t) $$,
+  '23514', NULL, 'téléphone de secours au-delà de 40 caractères : refusé');
+SELECT throws_ok(
+  $$ UPDATE plateforme.collecte_contacts SET contact_secours_telephone = E'06\n99887766' WHERE collecte_id = (SELECT seconde FROM t) $$,
+  '23514', NULL, 'téléphone de secours sur deux lignes : refusé');
 
 -- ── Suppression en cascade ───────────────────────────────────────────────────
 DELETE FROM plateforme.collectes WHERE id = (SELECT typee FROM t);

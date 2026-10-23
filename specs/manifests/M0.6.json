@@ -1347,7 +1347,7 @@
       "artefact": "supabase/migrations/20261001103000_plateforme_evenements_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 14 colonnes)",
       "test": "supabase/tests/SECU__evenements_select_liste_blanche.test.sql (1-5 privilèges + liste blanche exacte ; 6 non-vacuité ; 7-27 gestionnaire / traiteur opérationnel / agence / client organisateur : ligne visible, 7 colonnes retirées → 42501 ; 28 ligne tierce invisible ; 29-37 policies d'autres tables et vues security_invoker toujours lisibles ; 38-41 admin_savr JWT fermé, service_role intact ; 42-43 fail-closed colonne ajoutée ; recalés dans le même lot : SECU__evenements_ecriture_client_fermee A4, bornes_texte_libre, liste_collectes_agence_lecture)",
       "statut": "implemented",
-      "libelle": "evenements : SELECT authenticated en liste blanche — contacts sur place (nom + téléphone, principal et secours), référence d'affaire, notes internes et entité de facturation hors privilège (arbitrages Val C1-C5 2026-10-01) ⚠ Contacts et type d'événement lus au niveau de l'événement, d'avant la refonte du 2026-10-22 : à reprendre au lot B1 (contacts et type de LA collecte, livrable M1.2-refonte-formulaire-lots-b-c)."
+      "libelle": "evenements : SELECT authenticated en liste blanche — contacts sur place (nom + téléphone, principal et secours), référence d'affaire, notes internes et entité de facturation hors privilège (arbitrages Val C1-C5 2026-10-01) Lot B1 livré (2026-10-23) : le type d'événement et les contacts sont ceux de LA collecte (collectes.type_evenement_id, collecte_contacts lue en service-role, même règle de service des contacts) ; l'événement n'en garde qu'une copie, celle de sa collecte n°1 (livrables M1.2-collecte-type-contacts-modifiables et M1.2-fiches-collecte-type-contacts)."
     },
     {
       "id": "M0.6-associations-select-liste-blanche",
@@ -1765,6 +1765,15 @@
       "test": "supabase/tests/e2_collecte_terminee.test.sql + supabase/tests/r22c_evenement_e2_en_cours.test.sql « R22c-6 modif contact sur collecte cloturee »",
       "statut": "implemented",
       "libelle": "Aucun ordre de modification (E2) pour une collecte réalisée, réalisée sans collecte, clôturée ou annulée, même si sa commande existe chez le prestataire (décision Val 2026-10-22, Q1) : une correction faite après coup (pax, date, heure, informations) reste locale. fn_modifier_collecte n'écrit l'E2 que si le statut d'avant ET celui d'après sont actifs (une collecte rouverte ou close d'office dans la même modification n'en reçoit pas) ; fn_modifier_evenement ne parcourt déjà que les collectes programmées, validées ou en cours. L'annulation garde son E3. Fiche Admin, onglet Informations : le texte d'aide du pax le dit."
+    },
+    {
+      "id": "M0.6-collecte-type-contacts-admin",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:364",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx + packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts",
+      "test": "M1.2 / fiche Admin — type d’événement et contacts de la collecte (lot B1) + M1.2/admin_collecte_contacts_sans_motif + M1.2/admin_collecte_contacts_illisibles_500",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261023_refonte-lot-b1-type-contacts-par-collecte.md",
+      "libelle": "Fiche collecte Admin, onglet Informations (décisions Val 2026-10-23, B1-Q1 et B1-Q3) : type d'événement et contacts de LA collecte, avec « Modifier » (à côté du type et sous les contacts) qui ouvre la fenêtre « Modifier le type d'événement et les contacts » : seuls les champs modifiés partent au PATCH /api/v1/admin/collectes/[id], sans motif, ligne d'audit UPDATE dont l'état « avant » des contacts est lu dans collecte_contacts, E2 si la collecte est commandée ; contact principal et type obligatoires."
     }
   ],
   "cdc_source_hash": {

@@ -133,7 +133,7 @@ Une tournée = 1 camion. Relation **N↔N** entre `collectes` et `tournees` (ref
 
 > **Contexte** : refonte 2026-05-04 §06.04 Espace traiteur — ouverture de la modification libre des informations collectes futures côté Plateforme. Ce paragraphe spécifie le comportement attendu côté contrat API quand la Plateforme déclenche `PATCH /collectes/:id` vers le TMS suite à une modification utilisateur.
 
-**Déclencheur** : `UPDATE` côté Plateforme sur les champs métier d'une collecte avec `collectes.statut_tms ≠ non_envoye` (collecte déjà poussée via `POST /collectes`, statut TMS connu — voir [[02 - Cahier des charges TMS/08 - Contrat API Plateforme-TMS]]). Si `statut_tms = non_envoye` (collecte `programmee` dont l'envoi E1 n'a pas encore réussi — état transitoire avant succès E1, ou en retry) → modification locale Plateforme uniquement, pas d'appel TMS. **Exception (décision Val 2026-10-22)** : collecte `realisee`, `realisee_sans_collecte`, `cloturee` ou `annulee` → modification locale Plateforme uniquement, pas d'appel TMS, même si une commande existe chez le prestataire (vaut pour `fn_modifier_collecte` et `fn_modifier_evenement`, cf. [[05 - Règles métier]] Cascade TMS).
+**Déclencheur** : `UPDATE` côté Plateforme sur les champs métier d'une collecte avec `collectes.statut_tms ≠ non_envoye` (collecte déjà poussée via `POST /collectes`, statut TMS connu — voir [[02 - Cahier des charges TMS/08 - Contrat API Plateforme-TMS]]). Si `statut_tms = non_envoye` (collecte `programmee` dont l'envoi E1 n'a pas encore réussi — état transitoire avant succès E1, ou en retry) → modification locale Plateforme uniquement, pas d'appel TMS. **Exception (décision Val 2026-10-22)** : collecte `realisee`, `realisee_sans_collecte`, `cloturee` ou `annulee` → modification locale Plateforme uniquement, pas d'appel TMS, même si une commande existe chez le prestataire (vaut pour `fn_modifier_collecte` et `fn_modifier_evenement`, cf. [[05 - Règles métier]] Cascade TMS). Le statut compte avant comme après la modification : réouverture ou clôture d'office dans la même modification, pas d'appel TMS non plus.
 
 **Payload** *(sobriété B5 2026-05-04 — `side_effects` retiré, le TMS calcule sa propre logique sur le diff)* : diff JSON avec champs modifiés uniquement (PATCH partiel) :
 
@@ -392,7 +392,7 @@ Plateforme (validation attribution AG IDF/province par Admin Savr ou auto-accept
                           (schéma Timeslot, format `HH:mm` ; point fixe V1 : start = end = heure_collecte),
                   contact  ← OBJET UNIQUE `CustomerOrderContactInput`, PAS un tableau `contacts`
                           { firstname, lastname, phone, phoneAlternatives }
-                          — nom complet `evenements.contact_principal_nom` scindé : 1er mot = firstname,
+                          — nom complet `collecte_contacts.contact_principal_nom` (contacts de LA collecte, refonte 2026-10-22) scindé : 1er mot = firstname,
                             reste = lastname ; téléphone du contact de SECOURS → `phoneAlternatives`,
                             et son NOM avec son téléphone repris dans `comment` (ligne « Contact de secours »),
                   stuffs (ZD : 1 par flux + stuff camion `<volume_du_camion>` ;
@@ -530,7 +530,7 @@ Spécificités MTS-1 (mapping concret de la règle §3) :
 | Modifier une commande | `PUT /v3/customerOrders/{customerOrderId}` | **Re-push de tout champ armant `dirty_tms`** (cf. [[04 - Data Model#Table : `collectes`]], trigger `fn_set_collectes_dirty_tms`) **ayant une contrepartie MTS-1** : `orderDate`, `place.address`, `place.timeslots`, `comment`, `orderNumber` (pax de la collecte, décision Val 2026-10-20) — plus le `contact` de l'événement (modèle immédiat, R22c). *(Oracle figé 2026-09-16, divergence M1.5_20260915_e2-payload-champs-propages — remplace « créneau, volume, contact », liste dont on ne savait pas si elle était exhaustive : le créneau et le canal libre n'atteignaient en fait jamais le prestataire.)* |
 | Annuler une commande | `DELETE /v3/customerOrders/{customerOrderId}` | **Bloqué si < 1h avant le début de la mission** (règle MTS-1). Au-delà : contact opérationnel direct transporteur. La tournée associée (3bis.5 étape 2) est annulée avec la commande. **Mesuré en DEMO le 2026-10-13** (UNE commande de test sans tour, loin de sa date, créée puis supprimée) : le `DELETE` répond 200 avec `customerOrderStatus: "CANCELED"` ; la commande n'est alors plus rendue par `GET /v3/customerOrders` (ni par identifiants, ni par dates) mais reste lisible au détail, au statut `CANCELED` ; un second `DELETE` répond 200 aussi. |
 
-Toute modification d'une collecte côté Plateforme déjà poussée à MTS-1 (`statut_tms ∈ {attribuee_en_attente_acceptation, acceptee}`) déclenche un re-push `PUT` (cf. règle existante `PATCH /collectes/:id` E2 + flag `dirty_tms`).
+Toute modification d'une collecte côté Plateforme déjà poussée à MTS-1 (`statut_tms ∈ {attribuee_en_attente_acceptation, acceptee}`) déclenche un re-push `PUT` (cf. règle existante `PATCH /collectes/:id` E2 + flag `dirty_tms`), sauf pour une collecte `realisee`, `realisee_sans_collecte`, `cloturee` ou `annulee` (décision Val 2026-10-22, cf. [[05 - Règles métier]] Cascade TMS).
 
 > **Règles de composition du payload E2** *(2026-09-16)*
 >

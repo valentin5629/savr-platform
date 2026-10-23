@@ -281,7 +281,7 @@ Scénario : mts1_routes_v3_reelles_cliquet
 # Priorité : P1-critique
 
 Scénario : mts1_payload_commande_contact_et_creneau
-  Étant donné une collecte dont l'événement porte contact_principal_nom="Paul Pol", contact_principal_telephone="+33600000001"
+  Étant donné une collecte qui porte (collecte_contacts) contact_principal_nom="Paul Pol", contact_principal_telephone="+33600000001"
     Et un contact de secours nommé "Marie Dubois", téléphone "+33600000002"
     Et heure_collecte = 22:30
   Quand l'adapter construit le payload POST /v3/customerOrders

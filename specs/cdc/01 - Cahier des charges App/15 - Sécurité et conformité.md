@@ -83,7 +83,7 @@ Depuis l'envoi immédiat au clic ([[04 - Data Model#Table : `outbox_events`]]), 
 - **V1 = compteurs en mémoire, par instance de serveur, non partagés** — même choix que la limite de l'inscription (§2.6). Ils repartent de zéro à chaque démarrage d'instance ; avec plusieurs instances, la limite réelle est multipliée d'autant. Un compteur tenu en base reste à arbitrer.
 - **Journal** : chaque refus écrit `frein_ecritures_client.refus` (organisation, compteur atteint, attente). Aucune alerte Slack.
 
-**Restent à arbitrer** : ne plus écrire d'event `collecte.modifiee` quand rien n'a changé (aujourd'hui `fn_modifier_collecte` l'écrit à chaque appel sur une collecte commandée, et `fn_modifier_evenement` se fie aux champs déclarés par la requête) ; fusionner les events de modification encore en file ; compteur tenu en base.
+**Restent à arbitrer** : ne plus écrire d'event `collecte.modifiee` quand rien n'a changé (aujourd'hui `fn_modifier_collecte` l'écrit à chaque appel sur une collecte commandée qui n'est ni réalisée, ni clôturée, ni annulée, et `fn_modifier_evenement` se fie aux champs déclarés par la requête) ; fusionner les events de modification encore en file ; compteur tenu en base.
 
 ---
 

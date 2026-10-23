@@ -1,8 +1,9 @@
 -- =============================================================================
--- R22c / BL-P2-10 — fn_modifier_evenement : émission E2 (collecte.modifiee) sur
--- modification de contacts/pax d'un événement, ÉTENDUE aux collectes `en_cours`.
--- (2026-10-20 : le pax est porté par la collecte ; R22c-3/4 le modifient par
--- fn_modifier_collecte, qui garde la même fenêtre et le même gate E2.)
+-- R22c / BL-P2-10 — émission E2 (collecte.modifiee) sur modification des
+-- contacts ou du pax, ÉTENDUE aux collectes `en_cours`.
+-- (2026-10-20 : le pax est porté par la collecte ; 2026-10-23, lot B1 : les
+-- contacts aussi. Les deux se modifient par fn_modifier_collecte, qui garde la
+-- même fenêtre et le même gate E2 ; fn_modifier_evenement n'émet plus d'E2.)
 -- =============================================================================
 -- Prouve la décision Val 2026-07-08 (cf. _Divergences/M1.4_20260708.md) :
 --   • contacts/pax propagés au TMS via le modèle IMMÉDIAT M1.2 (§05 l.325), PAS via
@@ -13,7 +14,8 @@
 --   par une tournée portant `external_ref_commande` (ce que l'adapter écrit), plus
 --   par `collectes.tms_reference` posée à la main — colonne qu'aucun code de
 --   production n'écrit, et sur laquelle le gate E2 portait à tort.
--- fn_modifier_evenement est SECURITY DEFINER / service_role → appelée ici en superuser.
+-- fn_modifier_collecte / fn_modifier_evenement sont SECURITY DEFINER / service_role
+-- → appelées ici en superuser.
 -- =============================================================================
 
 BEGIN;
@@ -95,18 +97,18 @@ SELECT ('c22c0000-0000-0000-0000-0000000000c' || right(n,1))::uuid,
 FROM unnest(ARRAY['a1','a2','a3','a5','a6']) AS n;
 
 -- ── R22c-1 : contact sur collecte EN_COURS dispatchée → E2 émis (le fix) ──────
-SELECT plateforme.fn_modifier_evenement(
-  'c22c0000-0000-0000-0000-0000000000e1'::uuid,
+SELECT plateforme.fn_modifier_collecte(
+  'c22c0000-0000-0000-0000-0000000000c1'::uuid,
   '{"contact_principal_nom": "Alice Modifiee"}'::jsonb, ARRAY['contact_principal_nom']);
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
      WHERE aggregate_id = 'c22c0000-0000-0000-0000-0000000000c1'::uuid
-       AND event_type = 'collecte.modifiee' AND payload->>'source' = 'evenement'),
+       AND event_type = 'collecte.modifiee'),
   1, 'R22c-1 modif contact sur collecte en_cours dispatchee -> E2 emis');
 
 -- ── R22c-2 : contact sur collecte PROGRAMMEE dispatchée → E2 (régression) ─────
-SELECT plateforme.fn_modifier_evenement(
-  'c22c0000-0000-0000-0000-0000000000e2'::uuid,
+SELECT plateforme.fn_modifier_collecte(
+  'c22c0000-0000-0000-0000-0000000000c2'::uuid,
   '{"contact_principal_telephone": "0699"}'::jsonb, ARRAY['contact_principal_telephone']);
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
@@ -139,8 +141,8 @@ SELECT is(
   30, 'R22c-4 recalcul volume_estime_repas sur pax en_cours (ROUND(0.10*300)=30)');
 
 -- ── R22c-5 : contact sur collecte EN_COURS NON dispatchée (0 commande) → pas d'E2 ─
-SELECT plateforme.fn_modifier_evenement(
-  'c22c0000-0000-0000-0000-0000000000e4'::uuid,
+SELECT plateforme.fn_modifier_collecte(
+  'c22c0000-0000-0000-0000-0000000000c4'::uuid,
   '{"contact_principal_nom": "Dina Modifiee"}'::jsonb, ARRAY['contact_principal_nom']);
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
@@ -149,8 +151,8 @@ SELECT is(
   0, 'R22c-5 modif contact sur collecte non dispatchee (aucune commande) -> pas d''E2');
 
 -- ── R22c-6 : contact sur collecte CLOTUREE (terminal) → pas d'E2 ──────────────
-SELECT plateforme.fn_modifier_evenement(
-  'c22c0000-0000-0000-0000-0000000000e5'::uuid,
+SELECT plateforme.fn_modifier_collecte(
+  'c22c0000-0000-0000-0000-0000000000c5'::uuid,
   '{"contact_principal_nom": "Eve Modifiee"}'::jsonb, ARRAY['contact_principal_nom']);
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events

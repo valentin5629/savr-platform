@@ -107,20 +107,28 @@ export async function filtresRadarParDefaut(
   admin: SupabaseClient,
   collecteId: string,
 ): Promise<FiltresRadar> {
+  // Type d'événement de LA collecte (lot B1, décision Val 2026-10-23), comme
+  // le filtre sur lequel s'ouvre le radar de la fiche ; taille de l'événement.
   const { data: collecte, error: colErr } = await admin
     .from('collectes')
-    .select('evenements!inner ( pax, type_evenement_id )')
+    .select('type_evenement_id, evenements!inner ( pax )')
     .eq('id', collecteId)
     .maybeSingle();
   if (colErr) throw colErr;
-  const brut = (collecte as { evenements: unknown } | null)?.evenements;
+  const ligne = collecte as {
+    type_evenement_id: string | null;
+    evenements: unknown;
+  } | null;
+  const brut = ligne?.evenements;
   const evt = (Array.isArray(brut) ? brut[0] : brut) as
-    | { pax: number | null; type_evenement_id: string | null }
+    | { pax: number | null }
     | null
     | undefined;
   return {
     lieu_ids: [],
-    type_evenement_ids: evt?.type_evenement_id ? [evt.type_evenement_id] : [],
+    type_evenement_ids: ligne?.type_evenement_id
+      ? [ligne.type_evenement_id]
+      : [],
     taille_evenement_codes:
       evt?.pax != null && evt.pax > 0 ? [tailleBracket(evt.pax)] : [],
   };

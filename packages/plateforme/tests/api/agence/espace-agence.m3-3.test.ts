@@ -317,6 +317,7 @@ describe('M3.3 / collectes', () => {
     setupAuth('agence');
     rls.push({ data: collecteLue, error: null });
     admin.push({ data: LUE, error: null }); // état d'avant l'écriture
+    admin.push({ data: null, error: null }); // contacts de la collecte (lot B1)
     admin.push({ data: { id: 'c1' }, error: null }); // fn_modifier_collecte
     admin.push({
       data: {

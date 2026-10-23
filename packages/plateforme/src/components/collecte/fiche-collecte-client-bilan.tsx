@@ -152,7 +152,9 @@ export type BilanFiche = Pick<
   | 'bilan_flux'
   | 'repas_donnes'
   | 'association'
-> & { evenement: Pick<EvenementFiche, 'pax' | 'type_evenement_id'> | null };
+  // Type d'événement de LA collecte (lot B1) : filtre du radar par défaut.
+  | 'type_evenement_id'
+> & { evenement: Pick<EvenementFiche, 'pax'> | null };
 
 /**
  * Radar de la fiche (ZD réalisée) : repère parc recalculé à chaque changement
@@ -409,9 +411,7 @@ export function BilanCollecte({
                       // réglés. Fiche client : null au montage, sans effet.
                       initialFilters={radar.filtres ?? undefined}
                       initialTypeEvenementIds={
-                        c.evenement?.type_evenement_id
-                          ? [c.evenement.type_evenement_id]
-                          : []
+                        c.type_evenement_id ? [c.type_evenement_id] : []
                       }
                       initialTailleCodes={
                         c.taille_bracket ? [c.taille_bracket] : []

@@ -92,18 +92,20 @@ interface SourceLieu {
 }
 interface SourceEvenement {
   pax: number | null;
-  type_evenement_id: string | null;
   nom_evenement: string | null;
   nom_client_organisateur: string | null;
   reference_affaire: string | null;
-  contact_principal_nom: string | null;
-  contact_principal_telephone: string | null;
-  contact_secours_nom: string | null;
-  contact_secours_telephone: string | null;
   lieu: SourceLieu | SourceLieu[] | null;
 }
 interface SourceCollecte {
   type: string;
+  // Type d'événement et contacts de LA collecte source (lot B1, décision Val
+  // 2026-10-23) : la fiche collecte les sert au niveau de la collecte.
+  type_evenement_id?: string | null;
+  contact_principal_nom?: string | null;
+  contact_principal_telephone?: string | null;
+  contact_secours_nom?: string | null;
+  contact_secours_telephone?: string | null;
   heure_collecte: string | null;
   /** Pax de la collecte source (décision Val 2026-10-20). */
   pax?: number | null;
@@ -269,7 +271,7 @@ export default function NouveauProgrammationPage() {
         const isZd = d.type === 'zero_dechet';
         setNomEvenement(evt.nom_evenement ?? '');
         setNomClient(evt.nom_client_organisateur ?? '');
-        setTypeEvenementId(evt.type_evenement_id ?? '');
+        setTypeEvenementId(d.type_evenement_id ?? '');
         setReferenceAffaire(evt.reference_affaire ?? '');
         setControleAcces(Boolean(d.controle_acces_requis));
         if (lieuSrc) {
@@ -282,20 +284,20 @@ export default function NouveauProgrammationPage() {
             controle_acces_requis_default: false,
           });
         }
-        if (evt.contact_principal_nom) {
+        if (d.contact_principal_nom) {
           setContactPrincipal({
             id: '',
             prenom: '',
-            nom: evt.contact_principal_nom,
-            telephone: evt.contact_principal_telephone ?? '',
+            nom: d.contact_principal_nom,
+            telephone: d.contact_principal_telephone ?? '',
           });
         }
-        if (evt.contact_secours_nom) {
+        if (d.contact_secours_nom) {
           setContactSecours({
             id: '',
             prenom: '',
-            nom: evt.contact_secours_nom,
-            telephone: evt.contact_secours_telephone ?? '',
+            nom: d.contact_secours_nom,
+            telephone: d.contact_secours_telephone ?? '',
           });
         }
         setTypesCollecte({ zd: isZd, ag: !isZd });

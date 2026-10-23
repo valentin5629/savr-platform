@@ -19,6 +19,10 @@ import {
   type FicheCollecteClient,
   type TourneeFiche,
 } from './fiche-client-types.js';
+import {
+  COLONNES_CONTACTS_COLLECTE,
+  type ContactsCollecte,
+} from './contacts-collecte';
 
 // Chargeur UNIQUE de la fiche collecte des rôles clients (pop-up commun, §06.04
 // « Fiche collecte (vue détail) », refonte Val 2026-09-29). Les trois routes GET
@@ -37,24 +41,18 @@ import {
 //  4. gestionnaire : l'attribution AG (repas, association) est lue par la vue
 //     v_attributions_gestionnaire (§04) — aa_select n'est jamais élargie, la
 //     vue ne rend que les collectes de SES lieux et 5 colonnes ;
-//  5. contacts sur place et référence d'affaire : colonnes d'`evenements` hors
-//     GRANT SELECT authenticated (migration 20261001103000), lues en
-//     service-role sur CET événement et seulement pour qui y a titre —
-//     contacts : traiteur et agence, gestionnaire sur ses seules programmations
+//  5. contacts sur place : ceux de LA collecte (`collecte_contacts`, fermée aux
+//     clients — lots A et B1 de la refonte, 2026-10-22/23), lus en service-role
+//     sur CETTE collecte et seulement pour qui y a titre : traiteur (programmateur
+//     ou opérationnel) et agence, gestionnaire sur ses seules programmations
 //     (§06.05 : rien de personnel sur un traiteur tiers) ; référence d'affaire :
-//     organisation programmatrice seule (arbitrages Val C2/C3 2026-10-01).
+//     colonne d'`evenements` hors GRANT SELECT authenticated, servie à
+//     l'organisation programmatrice seule (arbitrages Val C2/C3/C5 2026-10-01).
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 
-const COLONNES_CONTACTS =
-  'contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone';
-
 interface EvenementReserve {
-  contact_principal_nom: string | null;
-  contact_principal_telephone: string | null;
-  contact_secours_nom: string | null;
-  contact_secours_telephone: string | null;
-  reference_affaire?: string | null;
+  reference_affaire: string | null;
 }
 
 function one<T>(v: T | T[] | null | undefined): T | null {
@@ -69,12 +67,7 @@ interface EvenementRow {
   created_by: string | null;
   nom_evenement: string | null;
   pax: number | null;
-  type_evenement_id: string | null;
   nom_client_organisateur: string | null;
-  type_evenement:
-    | { libelle: string | null }
-    | { libelle: string | null }[]
-    | null;
   lieu:
     | {
         id: string;
@@ -112,6 +105,12 @@ interface CollecteRow {
   realisee_at: string | null;
   aucun_repas_motif: string | null;
   lieu_overrides: Record<string, unknown> | null;
+  // Type d'événement de LA collecte (lot B1).
+  type_evenement_id: string | null;
+  type_evenement:
+    | { libelle: string | null }
+    | { libelle: string | null }[]
+    | null;
   evenement: EvenementRow | EvenementRow[] | null;
   collecte_flux?:
     | {
@@ -204,11 +203,11 @@ export async function chargerFicheCollecteClient(
       `id, type, statut, statut_tms, tms_reference, date_collecte, heure_collecte,
        pax, controle_acces_requis, informations_completes, informations_supplementaires,
        taux_recyclage, co2_evite_kg, realisee_at, aucun_repas_motif,
-       lieu_overrides,
+       lieu_overrides, type_evenement_id,
+       type_evenement:types_evenements!type_evenement_id(libelle),
        evenement:evenements!inner(
          id, organisation_id, traiteur_operationnel_organisation_id, created_by,
-         nom_evenement, pax, type_evenement_id, nom_client_organisateur,
-         type_evenement:types_evenements!type_evenement_id(libelle),
+         nom_evenement, pax, nom_client_organisateur,
          lieu:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, acces_details)
        ),
        collecte_flux(poids_reel_kg, flux_dechets(code))`,
@@ -240,81 +239,87 @@ export async function chargerFicheCollecteClient(
   // téléchargement. Le traiteur opérationnel d'une collecte AG programmée par
   // une agence ne lit donc pas l'attestation de don du donneur d'ordre (D12,
   // arbitrage Val 2026-09-30) ; le rapport RSE ZD lui reste servi (rr_select).
-  const [ctRes, rapRes, attRes, aaRes, alerteRes, evtRes] = await Promise.all([
-    avecCamions
-      ? admin
-          .from('collecte_tournees')
-          .select(
-            'rang, tournee:tournees(plaque_immatriculation, chauffeur_nom, chauffeur_telephone, type_vehicule)',
-          )
-          .eq('collecte_id', id)
-          .order('rang', { ascending: true })
-      : Promise.resolve({ data: [] as unknown[], error: null }),
-    useRapportsRse
-      ? rls
-          .from('rapports_rse')
-          .select('disponible_a, genere_at, regenere_at')
-          .eq('collecte_id', id)
-          .order('version', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-    useRapportsRse
-      ? Promise.resolve({ data: null, error: null })
-      : rls
-          .from('attestations_don')
-          .select('eligible_at, pdf_url')
-          .eq('collecte_id', id)
-          .order('version', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-    // Attribution AG sous la RLS de l'utilisateur. Traiteur et agence : la table
-    // (aa_select). Gestionnaire : la vue v_attributions_gestionnaire, seul chemin
-    // qui lui rende une collecte programmée par un traiteur tiers (C-1) — nom et
-    // ville de l'association à plat, sa description par l'`association_id` de la
-    // vue (associations, policy asso_read).
-    avecAssociation
-      ? espace === 'gestionnaire'
+  const [ctRes, rapRes, attRes, aaRes, alerteRes, evtRes, contactsRes] =
+    await Promise.all([
+      avecCamions
+        ? admin
+            .from('collecte_tournees')
+            .select(
+              'rang, tournee:tournees(plaque_immatriculation, chauffeur_nom, chauffeur_telephone, type_vehicule)',
+            )
+            .eq('collecte_id', id)
+            .order('rang', { ascending: true })
+        : Promise.resolve({ data: [] as unknown[], error: null }),
+      useRapportsRse
         ? rls
-            .from('v_attributions_gestionnaire')
-            .select(
-              'volume_repas_realise, association_nom, association_ville, association:associations(description_rapport_impact)',
-            )
+            .from('rapports_rse')
+            .select('disponible_a, genere_at, regenere_at')
             .eq('collecte_id', id)
+            .order('version', { ascending: false })
+            .limit(1)
             .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      useRapportsRse
+        ? Promise.resolve({ data: null, error: null })
         : rls
-            .from('attributions_antgaspi')
-            .select(
-              'volume_repas_realise, association:associations!association_id(nom, ville, description_rapport_impact)',
-            )
+            .from('attestations_don')
+            .select('eligible_at, pdf_url')
+            .eq('collecte_id', id)
+            .order('version', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+      // Attribution AG sous la RLS de l'utilisateur. Traiteur et agence : la table
+      // (aa_select). Gestionnaire : la vue v_attributions_gestionnaire, seul chemin
+      // qui lui rende une collecte programmée par un traiteur tiers (C-1) — nom et
+      // ville de l'association à plat, sa description par l'`association_id` de la
+      // vue (associations, policy asso_read).
+      avecAssociation
+        ? espace === 'gestionnaire'
+          ? rls
+              .from('v_attributions_gestionnaire')
+              .select(
+                'volume_repas_realise, association_nom, association_ville, association:associations(description_rapport_impact)',
+              )
+              .eq('collecte_id', id)
+              .maybeSingle()
+          : rls
+              .from('attributions_antgaspi')
+              .select(
+                'volume_repas_realise, association:associations!association_id(nom, ville, description_rapport_impact)',
+              )
+              .eq('collecte_id', id)
+              .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      avecCamions
+        ? admin
+            .from('alertes_admin')
+            .select('id')
+            .eq('code', CODE_ALERTE_COORDONNEES_URGENCE)
+            .eq('entity_id', id)
+            .eq('statut', 'ouverte')
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      programmeParSoi && evt
+        ? admin
+            .from('evenements')
+            .select('reference_affaire')
+            .eq('id', evt.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      contactsVisibles
+        ? admin
+            .from('collecte_contacts')
+            .select(COLONNES_CONTACTS_COLLECTE)
             .eq('collecte_id', id)
             .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-    avecCamions
-      ? admin
-          .from('alertes_admin')
-          .select('id')
-          .eq('code', CODE_ALERTE_COORDONNEES_URGENCE)
-          .eq('entity_id', id)
-          .eq('statut', 'ouverte')
-          .limit(1)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-    contactsVisibles && evt
-      ? admin
-          .from('evenements')
-          .select(
-            programmeParSoi
-              ? `${COLONNES_CONTACTS}, reference_affaire`
-              : COLONNES_CONTACTS,
-          )
-          .eq('id', evt.id)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-  ]);
-  // Un échec de cette lecture ne doit pas se lire comme « aucun contact ».
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+  // Un échec de ces lectures ne doit pas se lire comme « aucun contact ».
   if (evtRes.error) return { erreur: evtRes.error };
+  if (contactsRes.error) return { erreur: contactsRes.error };
   const reserve = evtRes.data as EvenementReserve | null;
+  const contacts = contactsRes.data as ContactsCollecte | null;
 
   // ── Camions (Logistique) ────────────────────────────────────────────────
   type TourneeRow = TourneeFiche;
@@ -413,16 +418,8 @@ export async function chargerFicheCollecteClient(
         id: evt.id,
         nom_evenement: evt.nom_evenement,
         pax: evt.pax,
-        type_evenement_id: evt.type_evenement_id,
-        type_evenement: one(evt.type_evenement),
         nom_client_organisateur: evt.nom_client_organisateur,
         reference_affaire: reserve?.reference_affaire ?? null,
-        contacts_visibles: contactsVisibles,
-        contact_principal_nom: reserve?.contact_principal_nom ?? null,
-        contact_principal_telephone:
-          reserve?.contact_principal_telephone ?? null,
-        contact_secours_nom: reserve?.contact_secours_nom ?? null,
-        contact_secours_telephone: reserve?.contact_secours_telephone ?? null,
         lieu: lieuEffectif
           ? {
               id: lieuEffectif.id,
@@ -452,6 +449,13 @@ export async function chargerFicheCollecteClient(
     co2_evite_kg: c.co2_evite_kg,
     realisee_at: c.realisee_at,
     aucun_repas_motif: c.aucun_repas_motif,
+    type_evenement_id: c.type_evenement_id,
+    type_evenement: one(c.type_evenement),
+    contacts_visibles: contactsVisibles,
+    contact_principal_nom: contacts?.contact_principal_nom ?? null,
+    contact_principal_telephone: contacts?.contact_principal_telephone ?? null,
+    contact_secours_nom: contacts?.contact_secours_nom ?? null,
+    contact_secours_telephone: contacts?.contact_secours_telephone ?? null,
     // Entête §06.04 « Type d'événement + taille » : bracket canonique, jamais
     // inventé sans pax.
     taille_bracket: evt?.pax != null ? tailleBracket(evt.pax) : null,

@@ -10,6 +10,7 @@ import {
   makeClient,
   ligneCollecte,
   reserveEvenement,
+  contactsCollecte,
 } from '../helpers/fiche-client-mock';
 
 let rls = makeClient();
@@ -126,17 +127,27 @@ describe('M3.3 / fiche client agence', () => {
       error: null,
     };
     admin.results.evenements = { data: reserveEvenement(), error: null };
+    // Contacts de LA collecte (lot B1, décision Val 2026-10-23).
+    admin.results.collecte_contacts = {
+      data: contactsCollecte(),
+      error: null,
+    };
     const { GET } = await import('@/app/api/v1/agence/collectes/[id]/route.js');
     const res = await GET(req('/api/v1/agence/collectes/c1'), params);
     const { data } = (await res.json()) as { data: Record<string, unknown> };
-    expect(data.evenement).toMatchObject({
+    expect(data).toMatchObject({
       contacts_visibles: true,
       contact_principal_nom: 'Paul',
       contact_secours_telephone: '0655443322',
+    });
+    expect(data.evenement).toMatchObject({
       reference_affaire: 'AFF-2026-042',
     });
     expect(rls.selects.collectes?.[0]).not.toContain('contact_');
     expect(rls.selects.collectes?.[0]).not.toContain('reference_affaire');
+    // Lus en service-role, bornés à CETTE collecte et à CET événement.
+    expect(admin.eqs.collecte_contacts).toEqual([['collecte_id', 'c1']]);
+    expect(admin.eqs.evenements).toEqual([['id', 'e1']]);
   });
 
   it('M3.3/fiche_benchmark_agence — radar de la fiche servi à l’agence (programmatrice)', async () => {

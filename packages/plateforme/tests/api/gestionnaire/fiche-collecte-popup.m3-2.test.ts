@@ -18,6 +18,7 @@ import {
   makeClient,
   ligneCollecte,
   reserveEvenement,
+  contactsCollecte,
 } from '../helpers/fiche-client-mock';
 import { ERREUR_FILTRE_HORS_PERIMETRE } from '@/lib/dashboards/loaders.js';
 
@@ -121,28 +122,38 @@ describe('M3.2 / fiche client gestionnaire — association (vue v_attributions_g
 
 // §06.05 : le gestionnaire ne voit pas les données personnelles / commerciales
 // des traiteurs au-delà du nom et du logo (arbitrages Val C2/C3 2026-10-01).
+// Depuis le lot B1 (décision Val 2026-10-23), les contacts sont ceux de LA
+// collecte (`collecte_contacts`), servis au niveau de la collecte ; la référence
+// d'affaire reste une colonne de l'événement.
 describe('M3.2 / fiche client gestionnaire — contacts et référence d’affaire', () => {
   it('M3.2/fiche_get_contacts_tiers_masques — collecte d’un traiteur tiers : contacts et référence ni lus ni servis', async () => {
     rls.results.collectes = { data: ligneCollecte(TIERS), error: null };
     // Piège : la base renverrait tout si on la lisait.
     admin.results.evenements = { data: reserveEvenement(), error: null };
+    admin.results.collecte_contacts = {
+      data: contactsCollecte(),
+      error: null,
+    };
     const { res, json } = await getFiche();
     expect(res.status).toBe(200);
-    expect(json.data.evenement).toMatchObject({
+    expect(json.data).toMatchObject({
       contacts_visibles: false,
       contact_principal_nom: null,
       contact_principal_telephone: null,
       contact_secours_nom: null,
       contact_secours_telephone: null,
-      reference_affaire: null,
     });
+    expect(json.data.evenement).toMatchObject({ reference_affaire: null });
     const texte = JSON.stringify(json);
+    expect(texte).not.toContain('Paul');
     expect(texte).not.toContain('0611223344');
     expect(texte).not.toContain('0655443322');
     expect(texte).not.toContain('AFF-2026-042');
     // Pas seulement caché : aucune lecture, ni sous RLS ni en service-role.
     expect(admin.calls).not.toContain('evenements');
+    expect(admin.calls).not.toContain('collecte_contacts');
     expect(rls.calls).not.toContain('evenements');
+    expect(rls.calls).not.toContain('collecte_contacts');
     expect(rls.selects.collectes?.[0]).not.toContain('contact_');
     expect(rls.selects.collectes?.[0]).not.toContain('reference_affaire');
   });
@@ -158,14 +169,21 @@ describe('M3.2 / fiche client gestionnaire — contacts et référence d’affai
       error: null,
     };
     admin.results.evenements = { data: reserveEvenement(), error: null };
+    admin.results.collecte_contacts = {
+      data: contactsCollecte(),
+      error: null,
+    };
     const { json } = await getFiche();
-    expect(json.data.evenement).toMatchObject({
+    expect(json.data).toMatchObject({
       contacts_visibles: true,
       contact_principal_nom: 'Paul',
       contact_principal_telephone: '0611223344',
+    });
+    expect(json.data.evenement).toMatchObject({
       reference_affaire: 'AFF-2026-042',
     });
     expect(admin.eqs.evenements).toEqual([['id', 'e1']]);
+    expect(admin.eqs.collecte_contacts).toEqual([['collecte_id', 'c1']]);
   });
 });
 

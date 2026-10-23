@@ -271,11 +271,8 @@ describe('M3.1 / pop-up — onglet Informations', () => {
     async () => {
       stubFetchFiche(
         ficheClient({
-          evenement: {
-            ...ficheClient().evenement!,
-            contact_secours_nom: 'Léa Secours',
-            contact_secours_telephone: '+33 6 55 44 33 22',
-          },
+          contact_secours_nom: 'Léa Secours',
+          contact_secours_telephone: '+33 6 55 44 33 22',
         }),
       );
       const { unmount } = render(fiche('c1'));

@@ -201,6 +201,21 @@ interface LieuDetail {
   contraintes_horaires?: string | null;
 }
 
+interface ContactsCollecteDetail {
+  contact_principal_nom: string | null;
+  contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
+}
+
+// PostgREST rend l'embed 1–1 en objet ; le tableau reste accepté.
+function contactsDe(
+  v: ContactsCollecteDetail | ContactsCollecteDetail[] | null | undefined,
+): ContactsCollecteDetail | null {
+  if (!v) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
 interface CollecteDetail {
   id: string;
   evenement_id: string;
@@ -280,6 +295,11 @@ interface CollecteDetail {
   // Nombre de convives de la collecte (décision Val 2026-10-20) ; celui de
   // l'événement en est calculé (somme des jours) : jamais affiché à sa place.
   pax: number;
+  // Type d'événement et contacts de LA collecte (refonte du formulaire, lot B1,
+  // décision Val 2026-10-23) ; l'événement n'en garde qu'une copie.
+  type_evenement_id?: string | null;
+  type_evenement?: { libelle: string } | null;
+  contacts?: ContactsCollecteDetail | ContactsCollecteDetail[] | null;
   evenements: {
     nom_evenement: string | null;
     pax: number;
@@ -798,6 +818,19 @@ export function CollecteDetailPanel({
   const [paxMotif, setPaxMotif] = useState('');
   const [paxSubmitting, setPaxSubmitting] = useState(false);
   const [paxError, setPaxError] = useState<string | null>(null);
+  // Type d'événement et contacts de la collecte, modifiés par l'équipe Savr
+  // sans motif (décisions Val 2026-10-23, B1-Q1 et B1-Q3).
+  const [infosModal, setInfosModal] = useState(false);
+  const [infosType, setInfosType] = useState('');
+  const [infosCpNom, setInfosCpNom] = useState('');
+  const [infosCpTel, setInfosCpTel] = useState('');
+  const [infosCsNom, setInfosCsNom] = useState('');
+  const [infosCsTel, setInfosCsTel] = useState('');
+  const [infosSubmitting, setInfosSubmitting] = useState(false);
+  const [infosError, setInfosError] = useState<string | null>(null);
+  const [typesEvenement, setTypesEvenement] = useState<
+    Array<{ id: string; libelle: string }>
+  >([]);
   // §06.06 §3 Bloc 0 — acceptation manuelle Everest (A Toutes! indisponible).
   const [acceptationModal, setAcceptationModal] = useState(false);
   const [acceptationSaisie, setAcceptationSaisie] = useState({
@@ -1265,6 +1298,72 @@ export function CollecteDetailPanel({
     setPaxSubmitting(false);
   };
 
+  // Type d'événement et contacts : seuls les champs modifiés partent ; la route
+  // les valide (contact principal jamais vide, type du référentiel) et trace la
+  // modification dans l'audit.
+  const ouvrirInfosCollecte = () => {
+    if (!collecte) return;
+    const ct = contactsDe(collecte.contacts);
+    setInfosType(collecte.type_evenement_id ?? '');
+    setInfosCpNom(ct?.contact_principal_nom ?? '');
+    setInfosCpTel(ct?.contact_principal_telephone ?? '');
+    setInfosCsNom(ct?.contact_secours_nom ?? '');
+    setInfosCsTel(ct?.contact_secours_telephone ?? '');
+    setInfosError(null);
+    setInfosModal(true);
+    if (typesEvenement.length === 0) {
+      void fetch('/api/v1/programmation/types-evenements')
+        .then((r) => (r.ok ? r.json() : []))
+        .then((j: unknown) =>
+          setTypesEvenement(
+            Array.isArray(j)
+              ? (j as Array<{ id: string; libelle: string }>)
+              : [],
+          ),
+        )
+        .catch(() => setTypesEvenement([]));
+    }
+  };
+
+  const handleModifierInfos = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!collecte) return;
+    const ct = contactsDe(collecte.contacts);
+    const maj: Record<string, unknown> = {};
+    if (infosType && infosType !== (collecte.type_evenement_id ?? ''))
+      maj.type_evenement_id = infosType;
+    if (infosCpNom !== (ct?.contact_principal_nom ?? ''))
+      maj.contact_principal_nom = infosCpNom;
+    if (infosCpTel !== (ct?.contact_principal_telephone ?? ''))
+      maj.contact_principal_telephone = infosCpTel;
+    if (infosCsNom !== (ct?.contact_secours_nom ?? ''))
+      maj.contact_secours_nom = infosCsNom || null;
+    if (infosCsTel !== (ct?.contact_secours_telephone ?? ''))
+      maj.contact_secours_telephone = infosCsTel || null;
+    if (Object.keys(maj).length === 0) {
+      setInfosModal(false);
+      return;
+    }
+    setInfosSubmitting(true);
+    setInfosError(null);
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(maj),
+      },
+    );
+    if (res.ok) {
+      await refetch();
+      setInfosModal(false);
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setInfosError(body.error ?? 'Modification impossible');
+    }
+    setInfosSubmitting(false);
+  };
+
   // §06.06 §3 Bloc 0 — la référence de mission est OBLIGATOIRE : elle est écrite
   // comme au dispatch normal (tournée + référence TMS), ce qui sort la collecte
   // des « non transmises » et rend l'annulation possible.
@@ -1517,6 +1616,7 @@ export function CollecteDetailPanel({
     forceStatutModal ||
     nbCamionsModal ||
     paxModal ||
+    infosModal ||
     acceptationModal;
   if (blockCloseRef) blockCloseRef.current = anySubModalOpen;
 
@@ -1555,9 +1655,10 @@ export function CollecteDetailPanel({
       collecte.evenements.pax != null
         ? tailleBracket(collecte.evenements.pax)
         : null,
+    // Type d'événement de LA collecte (lot B1) : filtre du radar par défaut.
+    type_evenement_id: collecte.type_evenement_id ?? null,
     evenement: {
       pax: collecte.evenements.pax,
-      type_evenement_id: collecte.evenements.type_evenement_id ?? null,
     },
     bilan_flux: collecte.collecte_flux.reduce<Record<string, number>>(
       (acc, cf) => {
@@ -1912,7 +2013,16 @@ export function CollecteDetailPanel({
                     '—'}
                 </InfoItem>
                 <InfoItem label="Type d'événement">
-                  {collecte.evenements.types_evenements?.libelle ?? '—'}
+                  {collecte.type_evenement?.libelle ?? '—'}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Modifier le type d'événement"
+                    onClick={ouvrirInfosCollecte}
+                  >
+                    Modifier
+                  </Button>
                 </InfoItem>
                 {collecte.evenements.nom_evenement && (
                   <InfoItem label="Nom de l'événement">
@@ -2006,17 +2116,30 @@ export function CollecteDetailPanel({
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <InfoItem label="Contact principal">
                   <ContactLigne
-                    nom={collecte.evenements.contact_principal_nom}
-                    telephone={collecte.evenements.contact_principal_telephone}
+                    nom={contactsDe(collecte.contacts)?.contact_principal_nom}
+                    telephone={
+                      contactsDe(collecte.contacts)?.contact_principal_telephone
+                    }
                   />
                 </InfoItem>
                 <InfoItem label="Contact de secours">
                   <ContactLigne
-                    nom={collecte.evenements.contact_secours_nom}
-                    telephone={collecte.evenements.contact_secours_telephone}
+                    nom={contactsDe(collecte.contacts)?.contact_secours_nom}
+                    telephone={
+                      contactsDe(collecte.contacts)?.contact_secours_telephone
+                    }
                   />
                 </InfoItem>
               </dl>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Modifier les contacts"
+                onClick={ouvrirInfosCollecte}
+              >
+                Modifier
+              </Button>
             </Card>
           </TabsContent>
 
@@ -3591,6 +3714,106 @@ export function CollecteDetailPanel({
                 !paxSaisiValide(paxValue) || paxMotif.trim().length < 10,
             }}
             loading={paxSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
+        </form>
+      </Modal>
+
+      {/* Modale — Type d'événement et contacts de la collecte (lot B1) */}
+      <Modal
+        open={infosModal}
+        title="Modifier le type d'événement et les contacts"
+        onClose={() => setInfosModal(false)}
+      >
+        {infosError && (
+          <AlertBar variant="err" className="mb-4">
+            {infosError}
+          </AlertBar>
+        )}
+        <form
+          onSubmit={(e) => void handleModifierInfos(e)}
+          className="space-y-4"
+        >
+          <Text>
+            Ces informations sont celles de cette collecte. Si une commande
+            existe déjà chez le prestataire, un changement de contact lui est
+            envoyé, sauf pour une collecte réalisée, clôturée ou annulée. Le
+            type d&apos;événement ne lui est pas transmis. L&apos;action est
+            tracée dans l&apos;audit.
+          </Text>
+          <FormField label="Type d'événement" htmlFor="infos-type" required>
+            <Combobox
+              id="infos-type"
+              icon={null}
+              placeholder="Choisir un type"
+              searchPlaceholder="Rechercher un type…"
+              options={
+                typesEvenement.length === 0 && infosType
+                  ? [
+                      {
+                        value: infosType,
+                        label: collecte?.type_evenement?.libelle ?? '—',
+                      },
+                    ]
+                  : typesEvenement.map((t) => ({
+                      value: t.id,
+                      label: t.libelle,
+                    }))
+              }
+              value={infosType}
+              onChange={setInfosType}
+            />
+          </FormField>
+          <FormGrid>
+            <FormField
+              label="Contact principal"
+              htmlFor="infos-cp-nom"
+              required
+            >
+              <Input
+                id="infos-cp-nom"
+                value={infosCpNom}
+                onChange={(e) => setInfosCpNom(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="Téléphone" htmlFor="infos-cp-tel" required>
+              <Input
+                id="infos-cp-tel"
+                value={infosCpTel}
+                onChange={(e) => setInfosCpTel(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="Contact de secours" htmlFor="infos-cs-nom">
+              <Input
+                id="infos-cs-nom"
+                value={infosCsNom}
+                onChange={(e) => setInfosCsNom(e.target.value)}
+              />
+            </FormField>
+            <FormField label="Téléphone de secours" htmlFor="infos-cs-tel">
+              <Input
+                id="infos-cs-tel"
+                value={infosCsTel}
+                onChange={(e) => setInfosCsTel(e.target.value)}
+              />
+            </FormField>
+          </FormGrid>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setInfosModal(false),
+            }}
+            submit={{
+              label: 'Enregistrer',
+              disabled:
+                infosCpNom.trim() === '' ||
+                infosCpTel.trim() === '' ||
+                infosType === '',
+            }}
+            loading={infosSubmitting}
             loadingText="Enregistrement…"
             bordered
           />

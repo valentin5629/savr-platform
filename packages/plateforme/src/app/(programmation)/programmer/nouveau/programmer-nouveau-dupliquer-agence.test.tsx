@@ -32,18 +32,20 @@ import NouveauProgrammationPage from './page';
 const SOURCE = {
   type: 'zero_dechet',
   heure_collecte: '22:00:00',
+  // Type d'événement et contacts de LA collecte dupliquée (lot B1, décision
+  // Val 2026-10-23) : la fiche collecte les sert au niveau de la collecte.
+  type_evenement_id: null,
+  contact_principal_nom: null,
+  contact_principal_telephone: null,
+  contact_secours_nom: null,
+  contact_secours_telephone: null,
   controle_acces_requis: false,
   informations_supplementaires: null,
   evenement: {
     pax: 1443,
-    type_evenement_id: null,
     nom_evenement: 'Salon annuel',
     nom_client_organisateur: 'Viparis',
     reference_affaire: null,
-    contact_principal_nom: null,
-    contact_principal_telephone: null,
-    contact_secours_nom: null,
-    contact_secours_telephone: null,
     lieu: null,
   },
   traiteur_operationnel: { id: 't-shadow', nom: 'Maison Bertrand' },

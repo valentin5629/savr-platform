@@ -27,21 +27,20 @@ interface TypeEvenement {
 }
 
 // Décision produit Val 2026-06-26 : depuis la fiche collecte, un rôle programmateur
-// édite TOUS les champs métier de l'événement parent ET de la collecte (§06.04 l.444,
-// §05 §4). lieu / type = verrouillés (§05 l.314). L'enregistrement appelle 2 endpoints :
-//   • événement → PATCH /api/v1/programmation/evenements/:id (unifié 4 rôles, émet E2)
-//   • collecte  → PATCH {collecteEndpoint} (par espace : traiteur/agence/gestionnaire)
+// édite les champs métier de l'événement parent ET de la collecte (§06.04 l.444,
+// §05 §4). lieu / type = verrouillés (§05 l.314). Le type d'événement et les
+// contacts sont ceux de LA collecte (refonte du formulaire, lot B1, décision Val
+// 2026-10-23). L'enregistrement appelle 2 endpoints :
+//   • événement → PATCH /api/v1/programmation/evenements/:id (nom, client,
+//     référence ; unifié 4 rôles)
+//   • collecte  → PATCH {collecteEndpoint} (par espace : traiteur/agence/
+//     gestionnaire ; émet l'E2 de cette collecte si elle est commandée)
 
 export interface EvenementEditData {
   id: string;
   nom_evenement: string | null;
-  type_evenement_id: string | null;
   nom_client_organisateur: string | null;
   reference_affaire: string | null;
-  contact_principal_nom: string | null;
-  contact_principal_telephone: string | null;
-  contact_secours_nom: string | null;
-  contact_secours_telephone: string | null;
 }
 
 export interface CollecteEditData {
@@ -58,6 +57,12 @@ export interface CollecteEditData {
   pax: number;
   controle_acces_requis: boolean;
   informations_supplementaires: string | null;
+  // Type d'événement et contacts de LA collecte (lot B1).
+  type_evenement_id: string | null;
+  contact_principal_nom: string | null;
+  contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
   lieu_nom: string | null;
   evenement: EvenementEditData;
 }
@@ -82,15 +87,17 @@ export function EditerCollecteForm({
   const e = collecte.evenement;
   // État formulaire — événement
   const [nomEvenement, setNomEvenement] = useState(e.nom_evenement ?? '');
-  const [typeEvtId, setTypeEvtId] = useState(e.type_evenement_id ?? '');
-  const [types, setTypes] = useState<TypeEvenement[]>([]);
   const [nomClient, setNomClient] = useState(e.nom_client_organisateur ?? '');
   const [refAffaire, setRefAffaire] = useState(e.reference_affaire ?? '');
-  const [cpNom, setCpNom] = useState(e.contact_principal_nom ?? '');
-  const [cpTel, setCpTel] = useState(e.contact_principal_telephone ?? '');
-  const [csNom, setCsNom] = useState(e.contact_secours_nom ?? '');
-  const [csTel, setCsTel] = useState(e.contact_secours_telephone ?? '');
-  // État formulaire — collecte
+  // État formulaire — collecte (type d'événement et contacts : lot B1)
+  const [typeEvtId, setTypeEvtId] = useState(collecte.type_evenement_id ?? '');
+  const [types, setTypes] = useState<TypeEvenement[]>([]);
+  const [cpNom, setCpNom] = useState(collecte.contact_principal_nom ?? '');
+  const [cpTel, setCpTel] = useState(
+    collecte.contact_principal_telephone ?? '',
+  );
+  const [csNom, setCsNom] = useState(collecte.contact_secours_nom ?? '');
+  const [csTel, setCsTel] = useState(collecte.contact_secours_telephone ?? '');
   const [dateCollecte, setDateCollecte] = useState(collecte.date_collecte);
   const [pax, setPax] = useState(String(collecte.pax));
   const [heureCollecte, setHeureCollecte] = useState(
@@ -148,6 +155,15 @@ export function EditerCollecteForm({
       );
       return;
     }
+    // Contact principal : nom et téléphone obligatoires (même règle que la
+    // route, contrôlée seulement s'ils ont été modifiés).
+    const cpModifie =
+      cpNom !== (collecte.contact_principal_nom ?? '') ||
+      cpTel !== (collecte.contact_principal_telephone ?? '');
+    if (cpModifie && (cpNom.trim() === '' || cpTel.trim() === '')) {
+      setError('Le contact principal et son téléphone sont obligatoires.');
+      return;
+    }
     if (urgence || reacceptation) setConfirmOpen(true);
     else void save();
   }
@@ -160,23 +176,23 @@ export function EditerCollecteForm({
       const evtUpdates: Record<string, unknown> = {};
       if (nomEvenement !== (e.nom_evenement ?? ''))
         evtUpdates.nom_evenement = nomEvenement || null;
-      if (typeEvtId && typeEvtId !== (e.type_evenement_id ?? ''))
-        evtUpdates.type_evenement_id = typeEvtId;
       if (nomClient !== (e.nom_client_organisateur ?? ''))
         evtUpdates.nom_client_organisateur = nomClient || null;
       if (refAffaire !== (e.reference_affaire ?? ''))
         evtUpdates.reference_affaire = refAffaire || null;
-      if (cpNom !== (e.contact_principal_nom ?? ''))
-        evtUpdates.contact_principal_nom = cpNom;
-      if (cpTel !== (e.contact_principal_telephone ?? ''))
-        evtUpdates.contact_principal_telephone = cpTel;
-      if (csNom !== (e.contact_secours_nom ?? ''))
-        evtUpdates.contact_secours_nom = csNom || null;
-      if (csTel !== (e.contact_secours_telephone ?? ''))
-        evtUpdates.contact_secours_telephone = csTel || null;
 
-      // 2. Champs COLLECTE modifiés.
+      // 2. Champs COLLECTE modifiés (type d'événement et contacts compris).
       const colUpdates: Record<string, unknown> = {};
+      if (typeEvtId && typeEvtId !== (collecte.type_evenement_id ?? ''))
+        colUpdates.type_evenement_id = typeEvtId;
+      if (cpNom !== (collecte.contact_principal_nom ?? ''))
+        colUpdates.contact_principal_nom = cpNom;
+      if (cpTel !== (collecte.contact_principal_telephone ?? ''))
+        colUpdates.contact_principal_telephone = cpTel;
+      if (csNom !== (collecte.contact_secours_nom ?? ''))
+        colUpdates.contact_secours_nom = csNom || null;
+      if (csTel !== (collecte.contact_secours_telephone ?? ''))
+        colUpdates.contact_secours_telephone = csTel || null;
       if (dateCollecte !== collecte.date_collecte)
         colUpdates.date_collecte = dateCollecte;
       if (heureCollecte !== (collecte.heure_collecte?.slice(0, 5) ?? ''))
@@ -275,9 +291,50 @@ export function EditerCollecteForm({
               onChange={(ev) => setNomClient(ev.target.value)}
             />
           </FormField>
-          <FormField label="Type d'événement" htmlFor="edit-evt-type">
+          <FormField label="Référence affaire" htmlFor="edit-evt-ref-affaire">
+            <Input
+              id="edit-evt-ref-affaire"
+              value={refAffaire}
+              onChange={(ev) => setRefAffaire(ev.target.value)}
+            />
+          </FormField>
+        </section>
+
+        {/* ── Champs collecte ───────────────────────────────────────── */}
+        <section className="space-y-4">
+          <Heading level={3} size="sm">
+            Collecte
+          </Heading>
+          <FormGrid>
+            <FormField label="Date de collecte" htmlFor="edit-date-collecte">
+              <DatePicker
+                id="edit-date-collecte"
+                value={dateCollecte}
+                onChange={setDateCollecte}
+              />
+            </FormField>
+            <FormField label="Heure de collecte" htmlFor="edit-heure-collecte">
+              <TimePicker
+                id="edit-heure-collecte"
+                value={heureCollecte}
+                onChange={setHeureCollecte}
+              />
+            </FormField>
+            <FormField label="Nombre de convives" htmlFor="edit-col-pax">
+              <Input
+                id="edit-col-pax"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                value={pax}
+                onChange={(ev) => setPax(ev.target.value)}
+              />
+            </FormField>
+          </FormGrid>
+          <FormField label="Type d'événement" htmlFor="edit-col-type">
             <Combobox
-              id="edit-evt-type"
+              id="edit-col-type"
               icon={null}
               placeholder="Choisir un type"
               searchPlaceholder="Rechercher un type…"
@@ -288,13 +345,6 @@ export function EditerCollecteForm({
               }
               value={typeEvtId}
               onChange={setTypeEvtId}
-            />
-          </FormField>
-          <FormField label="Référence affaire" htmlFor="edit-evt-ref-affaire">
-            <Input
-              id="edit-evt-ref-affaire"
-              value={refAffaire}
-              onChange={(ev) => setRefAffaire(ev.target.value)}
             />
           </FormField>
           {/* Contact principal (sous-bloc) */}
@@ -341,40 +391,6 @@ export function EditerCollecteForm({
               </FormField>
             </FormGrid>
           </div>
-        </section>
-
-        {/* ── Champs collecte ───────────────────────────────────────── */}
-        <section className="space-y-4">
-          <Heading level={3} size="sm">
-            Collecte
-          </Heading>
-          <FormGrid>
-            <FormField label="Date de collecte" htmlFor="edit-date-collecte">
-              <DatePicker
-                id="edit-date-collecte"
-                value={dateCollecte}
-                onChange={setDateCollecte}
-              />
-            </FormField>
-            <FormField label="Heure de collecte" htmlFor="edit-heure-collecte">
-              <TimePicker
-                id="edit-heure-collecte"
-                value={heureCollecte}
-                onChange={setHeureCollecte}
-              />
-            </FormField>
-            <FormField label="Nombre de convives" htmlFor="edit-col-pax">
-              <Input
-                id="edit-col-pax"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                value={pax}
-                onChange={(ev) => setPax(ev.target.value)}
-              />
-            </FormField>
-          </FormGrid>
           <Label variant="choice" className="flex items-center gap-3">
             <Checkbox
               checked={controleAcces}

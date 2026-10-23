@@ -96,8 +96,9 @@ export function OngletInformations({
   const instructions = [lieu?.acces_details, c.informations_supplementaires]
     .map((v) => v?.trim())
     .filter(Boolean);
+  // Contacts et type d'événement : ceux de LA collecte (lot B1).
   const avecSecours = Boolean(
-    evt?.contact_secours_nom?.trim() || evt?.contact_secours_telephone?.trim(),
+    c.contact_secours_nom?.trim() || c.contact_secours_telephone?.trim(),
   );
   const traiteurOp = c.traiteur_operationnel;
   const progTypeLabel = c.programmee_par
@@ -119,7 +120,7 @@ export function OngletInformations({
           <InfoItem label="Pax">{fmtInt(c.pax)}</InfoItem>
           <InfoItem label="Type d’événement">
             <span className="flex flex-wrap items-center gap-2">
-              {evt?.type_evenement?.libelle ?? <Vide />}
+              {c.type_evenement?.libelle ?? <Vide />}
               {c.taille_bracket && (
                 <Badge
                   variant="neutral"
@@ -194,24 +195,24 @@ export function OngletInformations({
 
       {/* Bloc absent pour le gestionnaire sur la collecte d'un traiteur tiers
           (§06.05 : rien de personnel sur un traiteur tiers) — décidé serveur. */}
-      {evt?.contacts_visibles && (
+      {c.contacts_visibles && (
         <Card padding="md" className="space-y-4" data-testid="bloc-contacts">
           <SectionHeader icon={Users} title="Contacts sur place" />
           <dl className={GRILLE_4}>
             <InfoItem label="Contact principal">
-              {evt.contact_principal_nom ?? <Vide />}
+              {c.contact_principal_nom ?? <Vide />}
             </InfoItem>
             <InfoItem label="Téléphone">
-              <TelephoneLien telephone={evt.contact_principal_telephone} />
+              <TelephoneLien telephone={c.contact_principal_telephone} />
             </InfoItem>
             {/* Contact de secours (Q4) : ligne masquée seulement si vide. */}
             {avecSecours && (
               <>
                 <InfoItem label="Contact de secours">
-                  {evt.contact_secours_nom ?? <Vide />}
+                  {c.contact_secours_nom ?? <Vide />}
                 </InfoItem>
                 <InfoItem label="Téléphone">
-                  <TelephoneLien telephone={evt.contact_secours_telephone} />
+                  <TelephoneLien telephone={c.contact_secours_telephone} />
                 </InfoItem>
               </>
             )}

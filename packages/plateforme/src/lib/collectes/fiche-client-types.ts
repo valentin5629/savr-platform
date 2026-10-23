@@ -116,18 +116,9 @@ export interface EvenementFiche {
   id: string;
   nom_evenement: string | null;
   pax: number | null;
-  type_evenement_id: string | null;
-  type_evenement: { libelle: string | null } | null;
   nom_client_organisateur: string | null;
   // Servie à l'organisation programmatrice seule (null sinon).
   reference_affaire: string | null;
-  // false = bloc « Contacts sur place » masqué : gestionnaire sur la collecte
-  // d'un traiteur tiers (§06.05). Les quatre champs contact sont alors null.
-  contacts_visibles: boolean;
-  contact_principal_nom: string | null;
-  contact_principal_telephone: string | null;
-  contact_secours_nom: string | null;
-  contact_secours_telephone: string | null;
   lieu: LieuFiche | null;
 }
 
@@ -172,6 +163,17 @@ export interface FicheCollecteClient {
   co2_evite_kg: number | null;
   realisee_at: string | null;
   aucun_repas_motif: string | null;
+  // Type d'événement et contacts sur place de LA collecte (refonte du
+  // formulaire, lot B1, décision Val 2026-10-23).
+  type_evenement_id: string | null;
+  type_evenement: { libelle: string | null } | null;
+  // false = bloc « Contacts sur place » masqué : gestionnaire sur la collecte
+  // d'un traiteur tiers (§06.05). Les quatre champs contact sont alors null.
+  contacts_visibles: boolean;
+  contact_principal_nom: string | null;
+  contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
   taille_bracket: string | null;
   evenement: EvenementFiche | null;
   tournees: TourneeFiche[];

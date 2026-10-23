@@ -742,9 +742,10 @@ const CAS: CasRoute[] = [
     role: 'ops_savr',
     url: '/api/v1/admin/evenements/evt-1',
     params: { id: 'evt-1' },
-    // Contact = champ de l'événement transmis au prestataire (le pax est porté
-    // par la collecte depuis le 2026-10-20).
-    corps: { contact_principal_telephone: '0699000120' },
+    // Champ encore porté par l'événement : le pax (2026-10-20), le type
+    // d'événement et les contacts (lot B1, 2026-10-23) se modifient sur chaque
+    // collecte, et la route les refuse en 422.
+    corps: { reference_affaire: 'AFF-0120' },
     emetteur: 'fn_modifier_evenement',
     rend: { id: 'evt-1' },
     attendu: ['col-1'],
@@ -931,9 +932,10 @@ const CAS: CasRoute[] = [
     role: 'traiteur_manager',
     url: '/api/v1/programmation/evenements/evt-1',
     params: { id: 'evt-1' },
-    // Contact = champ de l'événement transmis au prestataire (le pax est porté
-    // par la collecte depuis le 2026-10-20).
-    corps: { contact_principal_telephone: '0699000120' },
+    // Champ encore porté par l'événement : le pax (2026-10-20), le type
+    // d'événement et les contacts (lot B1, 2026-10-23) se modifient sur chaque
+    // collecte, et la route les refuse en 422.
+    corps: { reference_affaire: 'AFF-0120' },
     emetteur: 'fn_modifier_evenement',
     rend: { id: 'evt-1' },
     attendu: ['col-1'],

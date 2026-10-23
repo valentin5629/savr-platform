@@ -4,6 +4,7 @@ import { requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { envoyerOrdresEvenementSansAttendre } from '@/lib/envoi-immediat.js';
+import { CHAMPS_TYPE_CONTACTS_COLLECTE } from '@/lib/collectes/champs-editables.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -64,15 +65,25 @@ export async function PATCH(
     );
   }
 
+  // Le type d'événement et les contacts se modifient sur chaque collecte (lot
+  // B1, décision Val 2026-10-23) ; l'événement garde la copie de sa collecte
+  // n°1, tenue par la base. Refusés plutôt qu'ignorés.
+  const typeContacts = CHAMPS_TYPE_CONTACTS_COLLECTE.filter((f) => f in body);
+  if (typeContacts.length > 0) {
+    return NextResponse.json(
+      {
+        error:
+          'Le type d’événement et les contacts se modifient sur chaque collecte, pas sur l’événement.',
+        champs_verrouilles: typeContacts,
+      },
+      { status: 422 },
+    );
+  }
+
   const ALLOWED_FIELDS = [
     'nom_evenement',
     'date_evenement',
     'lieu_id',
-    'type_evenement_id',
-    'contact_principal_nom',
-    'contact_principal_telephone',
-    'contact_secours_nom',
-    'contact_secours_telephone',
     'nom_client_organisateur',
     'logo_client_organisateur_url',
     'client_organisateur_organisation_id',
@@ -90,15 +101,16 @@ export async function PATCH(
     );
   }
 
-  // Borne d'entrée du contact de secours (canal de texte libre transmis au
-  // transporteur) : `fn_modifier_evenement` écrit `p_updates->>'champ'` tel quel.
+  // Bornes d'entrée du texte libre : `fn_modifier_evenement` écrit
+  // `p_updates->>'champ'` tel quel.
   const texteValide = validerChampsTexteLibre(updates);
   if ('error' in texteValide) return texteValide.error;
   Object.assign(updates, texteValide.valeurs);
 
-  // Écriture via fn_modifier_evenement : émet E2 (collecte.modifiee) par collecte
-  // dispatchée (fix trou Admin — l'ancien .update() direct n'émettait aucun event
-  // TMS). M1.1b / M1.5a.
+  // Écriture via fn_modifier_evenement (M1.1b / M1.5a). Depuis le lot B1
+  // (2026-10-23), aucun champ de l'événement ne part au prestataire : la
+  // fonction n'émet plus d'E2 (les contacts, transmis, sont portés par chaque
+  // collecte).
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase.rpc('fn_modifier_evenement', {
     p_id: id,

@@ -449,6 +449,16 @@ CREATE TABLE plateforme.tournees (
   updated_at               timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE plateforme.collecte_contacts (
+  collecte_id                 uuid PRIMARY KEY,
+  contact_principal_nom       text NOT NULL,
+  contact_principal_telephone text NOT NULL,
+  contact_secours_nom         text,
+  contact_secours_telephone   text,
+  created_at                  timestamptz NOT NULL DEFAULT now(),
+  updated_at                  timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE plateforme.collecte_tournees (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   collecte_id uuid NOT NULL,
@@ -735,6 +745,7 @@ CREATE TABLE plateforme.collectes (
   heure_fin_reelle         timestamptz,                    -- time→timestamptz (2026-06-11 idem)
   volume_estime_repas      integer,
   pax                      integer NOT NULL DEFAULT 0 CHECK (pax >= 0 AND pax <= 100000), -- pax de la collecte (décision Val 2026-10-20) ; evenements.pax en est calculé
+  type_evenement_id        uuid,                           -- type d'événement de la collecte (refonte Val 2026-10-22) ; NULL à l'insertion = celui de l'événement
   controle_acces_requis    boolean NOT NULL DEFAULT false,
   infos_acces_email_envoye_at timestamptz,                 -- infos accès chauffeur V1 (réintro Val 2026-07-15) — suivi d'envoi de l'email récap (ex-`email_plaque_envoye_at`)
   notes_internes           text,
@@ -2022,6 +2033,8 @@ ALTER TABLE plateforme.collectes                ADD FOREIGN KEY (evenement_id)  
 ALTER TABLE plateforme.collectes                ADD FOREIGN KEY (prestataire_logistique_id) REFERENCES shared.prestataires(id);
 ALTER TABLE plateforme.collectes                ADD FOREIGN KEY (collecte_remplacee_id)    REFERENCES plateforme.collectes(id);
 ALTER TABLE plateforme.collectes                ADD FOREIGN KEY (pack_antgaspi_id)         REFERENCES plateforme.packs_antgaspi(id);
+ALTER TABLE plateforme.collectes                ADD FOREIGN KEY (type_evenement_id)        REFERENCES plateforme.types_evenements(id);
+ALTER TABLE plateforme.collecte_contacts        ADD FOREIGN KEY (collecte_id)              REFERENCES plateforme.collectes(id) ON DELETE CASCADE;
 ALTER TABLE plateforme.collecte_flux            ADD FOREIGN KEY (collecte_id)              REFERENCES plateforme.collectes(id);
 ALTER TABLE plateforme.collecte_flux            ADD FOREIGN KEY (flux_id)                  REFERENCES plateforme.flux_dechets(id);
 ALTER TABLE plateforme.pesees_tournees          ADD FOREIGN KEY (tournee_id)               REFERENCES plateforme.tournees(id) ON DELETE CASCADE;  -- ajout 2026-06-11 (INC-0)

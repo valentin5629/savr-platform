@@ -82,7 +82,7 @@
 
 **Clé de corrélation** : `orderNumber = collecte.reference` (`#1601…`) — sert à rapprocher commandes/tournées MTS-1 ↔ collectes Plateforme.
 
-> ⚠ **Source des contacts + lieu dans le payload V1** : les champs `contacts` et `place` du `POST /v3/customerOrders` sont peuplés depuis l'**ÉVÉNEMENT parent** (`evenements.contact_principal_*` / `contact_secours_*` / `evenements.lieu_id`), **jamais depuis `collectes`** (pas de duplication en V1, §06.04 l.375). Le worker `outbox-worker.fetchCollecte` doit requêter `evenements!inner(contact_principal_nom, contact_principal_prenom, contact_principal_telephone, contact_secours_*, lieu_id, lieux!inner(adresse_complete))`. `mts1/adapter.updateLieu` filtre via `evenements.lieu_id`, non `collectes.lieu_id`. Patch appliqué suite à divergence M1.5a_20260626.
+> ⚠ **Source des contacts + lieu dans le payload V1** : le champ `place` du `POST /v3/customerOrders` est peuplé depuis l'**ÉVÉNEMENT parent** (`evenements.lieu_id`), jamais depuis `collectes`. Les `contacts` viennent de **LA collecte** (`collecte_contacts.contact_principal_*` / `contact_secours_*`) depuis la refonte Val du 2026-10-22 (avant : `evenements.contact_*`). Le worker `outbox-worker.fetchCollecte` lit les contacts sur `collecte_contacts` et le lieu sur l'événement ; une collecte sans ligne de contacts n'est jamais envoyée avec ceux de l'événement (erreur définitive). `mts1/adapter.updateLieu` filtre via `evenements.lieu_id`, non `collectes.lieu_id`. Patch appliqué suite à divergence M1.5a_20260626.
 
 ## 5. Everest (A Toutes! / AG vélo cargo) — hors pilote Kaspia ZD
 - `POST Create mission` + `GET Get mission` (même pattern create + poll). À détailler quand l'AG entre dans le périmètre.

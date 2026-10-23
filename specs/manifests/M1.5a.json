@@ -221,7 +221,7 @@
     },
     {
       "id": "M1.5a-alerte-anticipee-lieu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2486",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2502",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "alerte anticipée events lieu (E5) : date de référence = plus proche collecte future non terminale du lieu, seuil/canal inchangés, 1 alerte par event, pas de doublon DLQ (vrai runOutboxWorker — G5) [outbox-worker.alerte-anticipee-lieu.test.ts]",
       "statut": "implemented",
@@ -270,7 +270,7 @@
     },
     {
       "id": "M1.5a-envoi-immediat-au-clic",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2480",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2496",
       "artefact": "supabase/migrations/20261012113000_plateforme_outbox_claim_collecte.sql (fn_claim_outbox_collecte : réservation lease/claim bornée à une collecte, mêmes règles et même ligne rendue que fn_claim_outbox_batch, 0 ou 1 ordre, service_role seul), packages/adapters/src/outbox-worker.ts (runOutboxWorkerPourCollecte : un ordre à la fois dans l'ordre de la file, jusqu'à la réservation vide ; une seconde tentative si la première réservation est vide, plafond 5 ordres, budget 40 s ; jamais de reaper), packages/plateforme/src/lib/envoi-immediat.ts (envoyerOrdresSansAttendre : tâche programmée après la réponse, jamais d'exception, y compris quand la tâche ne peut pas être programmée), packages/plateforme/src/app/api/v1/admin/collectes/[id]/dispatch/route.ts et packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts (déclenchement après mutation réussie, maxDuration = 60)",
       "test": "M1.5a/envoi_immediat_clic_envoyer + M1.5a/envoi_immediat_validation_ag + M1.5a/envoi_immediat_refus_sans_envoi + M1.5a/envoi_immediat_echec_silencieux + M1.5a/envoi_immediat_non_programme + M1.5a/envoi_immediat_refus_de_role + M1.5a/envoi_immediat_reconciliation + M1.5a/envoi_immediat_routes_declencheuses + M1.5a/envoi_immediat_duree_bornee + M1.5a/envoi_immediat_duree_sous_le_bail + M1.5a/envoi_immediat_appel_depuis_une_route + packages/adapters/src/outbox-worker.envoi-immediat.test.ts + supabase/tests/outbox_claim_collecte.test.sql",
       "statut": "implemented",
@@ -278,7 +278,7 @@
     },
     {
       "id": "M1.5a-passage-borne-par-echeance",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2478",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2494",
       "artefact": "packages/adapters/src/echeance-passage.ts (bail de 120 s, échéance des appels à 80 s, limite d'écriture à 115 s, comptées depuis le départ de la réservation ; avecEcheance / verifierEcheance), packages/adapters/src/outbox-worker.ts (runOutboxWorker : un ordre par réservation, au plus 10 ordres, aucune réservation après 40 s, reaper ou réservation en erreur remontés à l'appelant ; traiterEvent : traitement sous l'échéance de l'ordre, aucun résultat écrit passé la limite ; bail passé explicitement aux deux réservations), packages/adapters/src/mts1/client.ts et packages/adapters/src/everest/client.ts (contrôle d'échéance avant chaque appel réseau d'un passage)",
       "test": "M1.5a/passage_borne_calcul + M1.5a/passage_borne_refus + M1.5a/passage_borne_tous_les_appels + M1.5a/passage_borne_duree_appel + M1.5a/passage_borne_bail_explicite + M1.5a/passage_borne_echeance_appel + M1.5a/passage_borne_instant_avant_reservation + M1.5a/passage_borne_un_bail_par_ordre + M1.5a/passage_borne_pas_d_ecriture_hors_bail + M1.5a/passage_borne_pas_d_echec_hors_bail + M1.5a/passage_borne_un_ordre_a_la_fois + M1.5a/passage_borne_reservation_en_erreur + M1.5a/passage_borne_reaper_en_erreur + M1.5a/passage_borne_seconde_reservation + M1.5a/passage_borne_client_mts1 + M1.5a/passage_borne_client_everest + packages/adapters/src/outbox-worker.echeance.test.ts",
       "statut": "implemented",
@@ -286,7 +286,7 @@
     },
     {
       "id": "M1.5a-envoi-immediat-autres-emetteurs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2480",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2496",
       "artefact": "packages/plateforme/src/lib/envoi-immediat.ts (envoyerOrdresSansAttendre : une ou plusieurs collectes, une seule tâche, l'une après l'autre, sans doublon ; envoyerOrdresEvenementSansAttendre : toutes les collectes d'un événement, lues dans la tâche), quatorze routes sous packages/plateforme/src/app/api/v1 (admin/collectes, admin/collectes/[id], admin/collectes/[id]/incident, admin/attributions-ag/[collecteId]/auto-accept, admin/evenements/[id], traiteur/collectes/[id], traiteur/collectes/[id]/annulation, agence/collectes/[id], agence/collectes/[id]/annulation, gestionnaire/collectes/[id], programmation/evenements, programmation/evenements/[id], programmation/evenements/[id]/collectes, programmation/evenements/[id]/confirmer : déclenchement après mutation réussie, maxDuration = 60)",
       "test": "M1.5a/envoi_immediat_autres_emetteurs + M1.5a/envoi_immediat_autres_emetteurs_refus + M1.5a/envoi_immediat_plusieurs_collectes + M1.5a/envoi_immediat_par_evenement + M1.5a/envoi_immediat_emetteurs_complets + M1.5a/envoi_immediat_enveloppes + M1.5a/envoi_immediat_emetteurs_sql + M1.5a/envoi_immediat_routes_declencheuses + M1.5a/envoi_immediat_duree_bornee + M1.5a/envoi_immediat_appel_depuis_une_route",
       "statut": "implemented",
@@ -294,7 +294,7 @@
     },
     {
       "id": "M1.5a-envoi-immediat-frein-clients",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2480",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2496",
       "artefact": "packages/plateforme/src/lib/frein-ecritures-client.ts (freinerEcritureCliente : deux compteurs en mémoire sur une fenêtre glissante de 10 minutes, 100 écritures par organisation et 10 modifications par collecte ou par événement ; réponse 429 avec Retry-After ; équipe Savr jamais freinée sous son propre rôle), neuf routes clientes sous packages/plateforme/src/app/api/v1 (traiteur/collectes/[id], traiteur/collectes/[id]/annulation, agence/collectes/[id], agence/collectes/[id]/annulation, gestionnaire/collectes/[id], programmation/evenements, programmation/evenements/[id], programmation/evenements/[id]/collectes, programmation/evenements/[id]/confirmer : frein après les gardes, avant la première écriture ; compteur par objet et envoi sur l'identifiant que rend la base), packages/plateforme/src/lib/onboarding-guards.ts (lireEntiteFacturation : lecture seule ; l'entité de facturation par défaut d'une organisation qui n'en a pas n'est créée qu'après le frein), packages/plateforme/src/lib/envoi-immediat.ts (tâche bornée : la file est lue avant tout passage, identifiants comparés sous leur forme standard, 50 collectes consultées et 10 traitées au plus par tâche, aucune commencée après 40 s ; file illisible ou réponse au plafond de lignes = collectes traitées quand même)",
       "test": "M1.5a/frein_ecritures_seuils + M1.5a/frein_ecritures_par_organisation + M1.5a/frein_ecritures_par_objet + M1.5a/frein_ecritures_fenetre_glissante + M1.5a/frein_ecritures_refus_non_compte + M1.5a/frein_ecritures_equipe_savr_non_comptee + M1.5a/frein_ecritures_cle_active_gardee + M1.5a/frein_ecritures_memoire_bornee + M1.5a/frein_ecritures_routes_clientes + M1.5a/frein_ecritures_apres_les_gardes + M1.5a/frein_ecritures_modification_par_objet + M1.5a/frein_ecritures_hors_modification + M1.5a/frein_ecritures_equipe_savr + M1.5a/frein_ecritures_brouillon + M1.5a/frein_ecritures_impersonation + M1.5a/frein_ecritures_identifiant_de_la_base + M1.5a/frein_ecritures_envoi_identifiant_de_la_base + M1.5a/frein_ecritures_organisation_du_jeton + M1.5a/frein_ecritures_avant_entite_facturation + M1.5a/frein_ecritures_routes_completes + M1.5a/frein_tache_sans_ordre + M1.5a/frein_tache_ordre_partiel + M1.5a/frein_tache_identifiant_autre_ecriture + M1.5a/frein_tache_reponse_tronquee + M1.5a/frein_tache_file_illisible + M1.5a/frein_tache_plafond + M1.5a/frein_tache_budget + packages/plateforme/tests/lib/onboarding-guards.m0-4.test.ts",
       "statut": "implemented",
@@ -410,10 +410,10 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "e5f19d7dbe3e86980a2d8039fbece8def758e9b62cf8515dee72424151d244e3",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "fc4f9123e04e03e35d1a87bea3845c8c8342a47c9d327683c0c963396025257e",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "b860b9914ab3fca3e668bdb5d5fe525311561a986ea6ffdfaac185717c3cfa07",
-    "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md": "9cab92f9a9312398f2c5f0cef3559a23152501aef5d302151f7668a3b0870a38",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "d06476bd2f7c72dabaca7a4273b5261fbd1ab1a34d138e7cd40b75b0657f6f08",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8fb9d6aaf334912acdd09d740312e04c5f9074b79e6bc0a28bb8177d458f0617",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "3bc44b53a1081924824f62d419ffafe3c68f42c53e4fb9c35954c9098b13c97f",
+    "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md": "760800aa1c0b318f4322548e88712312a10ea71a854be1c9363a43e657438e7d",
     "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "96f0a616a17a6228b6a3c75d3cb6b05e57037e70ec356eebb1809aa0829b8210"
   }
 }

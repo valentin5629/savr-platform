@@ -20,8 +20,9 @@ type Ligne = Record<string, unknown>;
  *
  * UN email par enregistrement, qui liste chaque champ modifié avec son ancienne
  * et sa nouvelle valeur. Le formulaire d'édition enregistre en deux requêtes :
- * l'événement (pax, contacts…) puis la collecte (date, heure…). L'email part de
- * la dernière des deux :
+ * l'événement (nom, client, référence) puis la collecte (date, heure, pax, type
+ * d'événement, contacts — portés par la collecte depuis le lot B1, décision Val
+ * 2026-10-23). L'email part de la dernière des deux :
  *   · la route collecte, qui fait relire ici, dans le journal d'audit, ce que
  *     le même utilisateur vient d'enregistrer sur l'événement
  *     (`evenementModifiePar`) ;
@@ -36,7 +37,8 @@ const ADRESSE_EQUIPE = 'contact@gosavr.io';
 
 /** Ce qu'un enregistrement a changé, avec l'état d'avant. */
 export interface ModificationCollecte {
-  /** Ligne `collectes` avant l'écriture. */
+  /** Ligne `collectes` avant l'écriture, complétée de ses contacts
+   *  (`collecte_contacts`) : cf. lireContactsCollecte. */
   collecteAvant?: Ligne | null;
   majCollecte?: Ligne;
   /** Ligne `evenements` avant l'écriture. */
@@ -83,7 +85,8 @@ export function lignesModifications(
   const c = m.majCollecte ?? {};
   const e0 = m.evenementAvant ?? {};
   const e = m.majEvenement ?? {};
-  const apres = (champ: string): unknown => (champ in e ? e[champ] : e0[champ]);
+  // Contacts et type d'événement : portés par la collecte (lot B1).
+  const apres = (champ: string): unknown => (champ in c ? c[champ] : c0[champ]);
   const lignes: string[] = [];
 
   if (change(c0, c, 'date_collecte'))
@@ -107,9 +110,9 @@ export function lignesModifications(
   ] as const) {
     const nom = `${prefixe}_nom`;
     const telephone = `${prefixe}_telephone`;
-    if (change(e0, e, nom) || change(e0, e, telephone))
+    if (change(c0, c, nom) || change(c0, c, telephone))
       lignes.push(
-        `${libelle} : avant ${contact(e0[nom], e0[telephone])}. Maintenant ${contact(apres(nom), apres(telephone))}`,
+        `${libelle} : avant ${contact(c0[nom], c0[telephone])}. Maintenant ${contact(apres(nom), apres(telephone))}`,
       );
   }
 
@@ -130,9 +133,9 @@ export function lignesModifications(
         `${libelle} : avant ${texte(avant[champ])}. Maintenant ${texte(maj[champ])}`,
       );
 
-  if (change(e0, e, 'type_evenement_id'))
+  if (change(c0, c, 'type_evenement_id'))
     lignes.push(
-      `Type d'événement : avant ${texte(typesEvenement[String(e0.type_evenement_id)])}. Maintenant ${texte(typesEvenement[String(e.type_evenement_id)])}`,
+      `Type d'événement : avant ${texte(typesEvenement[String(c0.type_evenement_id)])}. Maintenant ${texte(typesEvenement[String(c.type_evenement_id)])}`,
     );
   if (change(e0, e, 'logo_client_organisateur_url'))
     lignes.push('Logo du client organisateur : modifié');
@@ -274,12 +277,12 @@ export async function notifierEquipeModificationCollecte(
           )),
         }
       : demande;
-    const e0 = m.evenementAvant ?? {};
-    const e = m.majEvenement ?? {};
+    const c0Types = m.collecteAvant ?? {};
+    const cTypes = m.majCollecte ?? {};
 
     let typesEvenement: Record<string, string> = {};
-    if ('type_evenement_id' in e) {
-      const ids = [e0.type_evenement_id, e.type_evenement_id].filter(
+    if ('type_evenement_id' in cTypes) {
+      const ids = [c0Types.type_evenement_id, cTypes.type_evenement_id].filter(
         (v): v is string => typeof v === 'string',
       );
       const { data: types } = await admin

@@ -240,6 +240,15 @@ describe('M3.1 / collectes liste', () => {
 });
 
 // ── Édition collecte ────────────────────────────────────────────────────────
+// Contacts sur place de la collecte avant l'écriture (`collecte_contacts`, lot
+// B1, décision Val 2026-10-23) : la route les lit à chaque modification.
+const CONTACTS_AVANT = {
+  contact_principal_nom: 'Paul Il',
+  contact_principal_telephone: '0611111111',
+  contact_secours_nom: null,
+  contact_secours_telephone: null,
+};
+
 describe('M3.1 / édition collecte', () => {
   it('M3.1/champs_verrouilles_type_lieu_traiteur — 422 sur type/lieu_id', async () => {
     setupAuth('traiteur_commercial');
@@ -292,6 +301,7 @@ describe('M3.1 / édition collecte', () => {
       error: null,
     });
     admin.push({ data: { id: 'c1' }, error: null }); // before select
+    admin.push({ data: CONTACTS_AVANT, error: null }); // contacts de la collecte (avant)
     admin.push({
       data: { id: 'c1', informations_supplementaires: 'x' },
       error: null,
@@ -368,6 +378,7 @@ describe('M3.1 / édition collecte', () => {
       },
       error: null,
     }); // before
+    admin.push({ data: CONTACTS_AVANT, error: null }); // contacts de la collecte (avant)
     admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
     admin.push({ data: null, error: null }); // audit insert
     admin.push({
@@ -509,32 +520,29 @@ describe('M3.1 / édition collecte', () => {
     expect(emailEquipe()?.priorite_urgence).toBe('true');
   });
 
-  it('M3.1/email_modification_un_seul_email — pax de la collecte et contact de l’événement du même enregistrement : un seul email, tous les champs', async () => {
+  // Depuis le lot B1 (décision Val 2026-10-23), le contact est un champ de la
+  // collecte : son « avant » est lu dans `collecte_contacts`, et l'événement
+  // n'apporte plus au même enregistrement que ses propres champs (référence).
+  it('M3.1/email_modification_un_seul_email — pax et contact de la collecte, référence de l’événement du même enregistrement : un seul email, tous les champs', async () => {
     // Un manager (user-2) modifie la collecte programmée par un collègue
     // (user-1) : session et créateur de l'événement sont deux personnes.
     setupAuth('traiteur_manager', 'org-1', 'user-2');
     queueEditOk('2030-12-31', {
-      old_values: {
-        contact_principal_nom: 'Paul Il',
-        contact_principal_telephone: '0611111111',
-      },
-      new_values: {
-        updates: {
-          contact_principal_nom: 'Arthus',
-          contact_principal_telephone: '0699990002',
-        },
-      },
+      old_values: { reference_affaire: 'AFF-2000' },
+      new_values: { updates: { reference_affaire: 'AFF-1500' } },
     });
     const res = await patchCollecte({
       date_collecte: '2030-12-30',
       pax: 1500,
+      contact_principal_nom: 'Arthus',
+      contact_principal_telephone: '0699990002',
       evenement_modifie: true,
     });
     expect(res.status).toBe(200);
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
     const variables = emailEquipe();
     expect(variables?.liste_modifications).toBe(
-      '<ul><li>Date de collecte : du 31/12/2030 au 30/12/2030</li><li>Nombre de pax : de 120 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li></ul>',
+      "<ul><li>Date de collecte : du 31/12/2030 au 30/12/2030</li><li>Nombre de pax : de 120 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li><li>Référence d'affaire : avant AFF-2000. Maintenant AFF-1500</li></ul>",
     );
     expect(variables?.pax_initial).toBe('120');
     // Le signalement n'est pas un champ de la collecte : il n'atteint pas la RPC.
@@ -544,11 +552,41 @@ describe('M3.1 / édition collecte', () => {
     expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
       date_collecte: '2030-12-30',
       pax: 1500,
+      contact_principal_nom: 'Arthus',
+      contact_principal_telephone: '0699990002',
     });
+    // Les contacts « avant » sont ceux de CETTE collecte, lus en service-role.
+    expect(admin.__calls.from).toContainEqual(['collecte_contacts']);
+    expect(admin.__calls.eq).toContainEqual(['collecte_id', 'c1']);
     // La modification d'événement relue est celle de l'utilisateur de la
     // session, jamais celle du créateur de l'événement.
     expect(admin.__calls.eq).toContainEqual(['user_id', 'user-2']);
     expect(admin.__calls.eq).not.toContainEqual(['user_id', 'user-1']);
+  });
+
+  it('M3.1/edition_contacts_avant_illisibles_500 — lecture des contacts de la collecte en échec : 500, rien n’est écrit ni envoyé', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    rls.push({
+      data: {
+        id: 'c1',
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        date_collecte: '2030-12-31',
+        heure_collecte: '10:00:00',
+        evenement: { created_by: 'user-1', organisation_id: 'org-1' },
+      },
+      error: null,
+    });
+    admin.push({
+      data: { id: 'c1', date_collecte: '2030-12-31' },
+      error: null,
+    }); // before
+    admin.push({ data: null, error: { message: 'boom' } }); // contacts : échec
+    const res = await patchCollecte({ contact_principal_nom: 'Arthus' });
+    expect(res.status).toBe(500);
+    expect(admin.__calls.rpc).toBeUndefined();
+    expect(admin.__calls.insert).toBeUndefined();
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
   it('M3.1/email_modification_un_seul_email — sans signalement, le journal d’audit n’est pas relu', async () => {

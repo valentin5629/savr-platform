@@ -122,20 +122,21 @@ const PROGRAMMATEUR = {
 };
 
 // Le cas de Val : date, pax et contact changés dans le même enregistrement. Le
-// pax est un champ de la collecte depuis le 2026-10-20 (décision Val).
+// pax est un champ de la collecte depuis le 2026-10-20 (décision Val), le
+// contact depuis le lot B1 (décision Val 2026-10-23) : l'état d'avant de la
+// collecte est complété de ses contacts (`collecte_contacts`).
 const CAS_VAL = {
   collecteId: 'c1',
   collecteAvant: {
     date_collecte: '2099-01-15',
     heure_collecte: '16:45:00',
     pax: 2000,
-  },
-  majCollecte: { date_collecte: '2099-01-14', pax: 1500 },
-  evenementAvant: {
     contact_principal_nom: 'Paul Il',
     contact_principal_telephone: '0611111111',
   },
-  majEvenement: {
+  majCollecte: {
+    date_collecte: '2099-01-14',
+    pax: 1500,
     contact_principal_nom: 'Arthus',
     contact_principal_telephone: '0699990002',
   },
@@ -160,11 +161,11 @@ describe('M3.1/email_modification_lignes — une ligne par champ modifié', () =
   it('un contact dont seul le téléphone change garde son nom dans la ligne', () => {
     expect(
       lignesModifications({
-        evenementAvant: {
+        collecteAvant: {
           contact_principal_nom: 'Paul Il',
           contact_principal_telephone: '0611111111',
         },
-        majEvenement: { contact_principal_telephone: '0622222222' },
+        majCollecte: { contact_principal_telephone: '0622222222' },
       }),
     ).toEqual([
       'Contact : avant Paul Il (0611111111). Maintenant Paul Il (0622222222)',
@@ -196,32 +197,34 @@ describe('M3.1/email_modification_lignes — une ligne par champ modifié', () =
     expect(
       lignesModifications(
         {
+          // Contact de secours et type d'événement : champs de la collecte
+          // (lot B1, décision Val 2026-10-23).
           collecteAvant: {
             heure_collecte: '16:45:00',
             controle_acces_requis: false,
             informations_supplementaires: null,
+            contact_secours_nom: null,
+            contact_secours_telephone: null,
+            type_evenement_id: 't-cocktail',
           },
           majCollecte: {
             heure_collecte: '17:30:00',
             controle_acces_requis: true,
             informations_supplementaires: 'Quai B',
+            contact_secours_nom: 'Léa',
+            contact_secours_telephone: '0633333333',
+            type_evenement_id: 't-diner',
           },
           evenementAvant: {
-            contact_secours_nom: null,
-            contact_secours_telephone: null,
             nom_evenement: 'Gala',
             nom_client_organisateur: 'Hermès',
             reference_affaire: 'A-1',
-            type_evenement_id: 't-cocktail',
             logo_client_organisateur_url: null,
           },
           majEvenement: {
-            contact_secours_nom: 'Léa',
-            contact_secours_telephone: '0633333333',
             nom_evenement: 'Gala annuel',
             nom_client_organisateur: null,
             reference_affaire: 'A-2',
-            type_evenement_id: 't-diner',
             logo_client_organisateur_url: 'https://exemple.test/logo.png',
           },
         },
@@ -247,6 +250,54 @@ describe('M3.1/email_modification_lignes — une ligne par champ modifié', () =
         majCollecte: { statut: 'programmee' },
       }),
     ).toEqual([]);
+  });
+
+  it('contact et type d’événement lus sur la collecte (lot B1) ; leur copie sur l’événement ne fait aucune ligne', () => {
+    expect(
+      lignesModifications(
+        {
+          collecteAvant: {
+            contact_principal_nom: 'Paul Il',
+            contact_principal_telephone: '0611111111',
+            type_evenement_id: 't-cocktail',
+          },
+          majCollecte: {
+            contact_principal_nom: 'Arthus',
+            type_evenement_id: 't-diner',
+          },
+          // Copie de la collecte n°1 tenue par la base sur l'événement : la
+          // lister doublerait la ligne de la collecte, ou en inventerait une.
+          evenementAvant: {
+            contact_principal_nom: 'Paul Il',
+            contact_secours_nom: null,
+            type_evenement_id: 't-cocktail',
+          },
+          majEvenement: {
+            contact_principal_nom: 'Arthus',
+            contact_secours_nom: 'Léa',
+            type_evenement_id: 't-diner',
+          },
+        },
+        { 't-cocktail': 'Cocktail', 't-diner': 'Dîner assis' },
+      ),
+    ).toEqual([
+      // Téléphone inchangé : repris de l'état d'avant de la collecte.
+      'Contact : avant Paul Il (0611111111). Maintenant Arthus (0611111111)',
+      "Type d'événement : avant Cocktail. Maintenant Dîner assis",
+    ]);
+  });
+
+  it('type d’événement et contacts : éditables sur la collecte, plus sur l’événement (lot B1)', () => {
+    for (const champ of [
+      'type_evenement_id',
+      'contact_principal_nom',
+      'contact_principal_telephone',
+      'contact_secours_nom',
+      'contact_secours_telephone',
+    ]) {
+      expect(CHAMPS_COLLECTE_EDITABLES).toContain(champ);
+      expect(CHAMPS_EVENEMENT_EDITABLES).not.toContain(champ);
+    }
   });
 
   // Cliquet : un champ ajouté à la liste éditable des routes sans sa ligne ici
@@ -567,6 +618,66 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
 
   it('le type d’événement est nommé par son libellé', async () => {
     capter();
+    const { admin, appels, lues } = fauxAdmin({
+      collectes: COLLECTE_APRES,
+      users: PROGRAMMATEUR,
+      types_evenements: [
+        { id: 't-cocktail', libelle: 'Cocktail' },
+        { id: 't-diner', libelle: 'Dîner assis' },
+      ],
+    });
+    // Type d'événement de LA collecte (lot B1, décision Val 2026-10-23).
+    await notifierEquipeModificationCollecte(admin, REQ, {
+      collecteId: 'c1',
+      collecteAvant: { type_evenement_id: 't-cocktail' },
+      majCollecte: { type_evenement_id: 't-diner' },
+    });
+    expect(lues()).toContain('types_evenements');
+    // Les deux libellés, l'ancien et le nouveau, sont lus.
+    expect(appels).toContainEqual([
+      'types_evenements',
+      'in',
+      'id',
+      ['t-cocktail', 't-diner'],
+    ]);
+    expect(recus[0]!.variables.liste_modifications).toBe(
+      "<ul><li>Type d'événement : avant Cocktail. Maintenant Dîner assis</li></ul>",
+    );
+  });
+
+  it('contact et type d’événement de la collecte : chacun sa ligne dans l’email (lot B1)', async () => {
+    capter();
+    const { admin } = fauxAdmin({
+      collectes: COLLECTE_APRES,
+      users: PROGRAMMATEUR,
+      types_evenements: [
+        { id: 't-cocktail', libelle: 'Cocktail' },
+        { id: 't-diner', libelle: 'Dîner assis' },
+      ],
+    });
+    await notifierEquipeModificationCollecte(admin, REQ, {
+      collecteId: 'c1',
+      collecteAvant: {
+        date_collecte: '2099-01-15',
+        heure_collecte: '16:45:00',
+        pax: 2000,
+        contact_secours_nom: 'Léa',
+        contact_secours_telephone: '0633333333',
+        type_evenement_id: 't-cocktail',
+      },
+      majCollecte: {
+        contact_secours_nom: 'Louis',
+        type_evenement_id: 't-diner',
+      },
+    });
+    expect(recus).toHaveLength(1);
+    expect(recus[0]!.variables.liste_modifications).toBe(
+      "<ul><li>Contact de secours : avant Léa (0633333333). Maintenant Louis (0633333333)</li><li>Type d'événement : avant Cocktail. Maintenant Dîner assis</li></ul>",
+    );
+  });
+
+  it('type d’événement présent sur l’événement seul : ni libellé lu, ni ligne (la copie n’est plus éditée là)', async () => {
+    capter();
     const { admin, lues } = fauxAdmin({
       collectes: COLLECTE_APRES,
       users: PROGRAMMATEUR,
@@ -577,12 +688,15 @@ describe('M3.1/email_modification_rendu — email envoyé', () => {
     });
     await notifierEquipeModificationCollecte(admin, REQ, {
       collecteId: 'c1',
-      evenementAvant: { type_evenement_id: 't-cocktail' },
-      majEvenement: { type_evenement_id: 't-diner' },
+      evenementAvant: {
+        type_evenement_id: 't-cocktail',
+        reference_affaire: 'A-1',
+      },
+      majEvenement: { type_evenement_id: 't-diner', reference_affaire: 'A-2' },
     });
-    expect(lues()).toContain('types_evenements');
+    expect(lues()).not.toContain('types_evenements');
     expect(recus[0]!.variables.liste_modifications).toBe(
-      "<ul><li>Type d'événement : avant Cocktail. Maintenant Dîner assis</li></ul>",
+      "<ul><li>Référence d'affaire : avant A-1. Maintenant A-2</li></ul>",
     );
   });
 
@@ -671,11 +785,12 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
     evenementModifiePar: 'user-1',
   };
   // Champ de l'événement relu dans son journal d'audit (le pax est porté par la
-  // collecte depuis le 2026-10-20).
+  // collecte depuis le 2026-10-20, le type d'événement et les contacts depuis
+  // le lot B1, 2026-10-23).
   const AUDIT_EVT = {
     old_values: {
       reference_affaire: 'AFF-1',
-      contact_principal_nom: 'Paul Il',
+      nom_evenement: 'Gala',
     },
     new_values: { updates: { reference_affaire: 'AFF-2' } },
   };
@@ -748,12 +863,12 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
         {
           old_values: {
             reference_affaire: 'AFF-2',
-            contact_principal_nom: 'Paul Il',
+            nom_evenement: 'Gala',
           },
           new_values: {
             updates: {
               reference_affaire: 'AFF-3',
-              contact_principal_nom: 'Arthus',
+              nom_evenement: 'Gala annuel',
             },
           },
         },
@@ -761,7 +876,55 @@ describe('M3.1/email_modification_un_seul_email — modification d’événement
     });
     await notifierEquipeModificationCollecte(admin, REQ, DEMANDE);
     expect(recus[0]!.variables.liste_modifications).toBe(
-      "<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Contact : avant Paul Il. Maintenant Arthus</li><li>Référence d'affaire : avant AFF-1. Maintenant AFF-3</li></ul>",
+      "<ul><li>Date de collecte : du 15/01/2099 au 14/01/2099</li><li>Nom de l'événement : avant Gala. Maintenant Gala annuel</li><li>Référence d'affaire : avant AFF-1. Maintenant AFF-3</li></ul>",
+    );
+  });
+
+  it('contact et type d’événement modifiés sur la collecte : une ligne chacun, jamais doublée par leur copie sur l’événement (lot B1)', async () => {
+    capter();
+    const { admin } = fauxAdmin({
+      collectes: COLLECTE_APRES,
+      users: PROGRAMMATEUR,
+      types_evenements: [
+        { id: 't-cocktail', libelle: 'Cocktail' },
+        { id: 't-diner', libelle: 'Dîner assis' },
+      ],
+      // Si le journal de l'événement porte la copie de sa collecte n°1, tenue
+      // par la base, elle ne fait aucune ligne de plus.
+      audit_log: [
+        {
+          old_values: {
+            contact_principal_nom: 'Paul Il',
+            type_evenement_id: 't-cocktail',
+          },
+          new_values: {
+            updates: {
+              contact_principal_nom: 'Arthus',
+              type_evenement_id: 't-diner',
+            },
+          },
+        },
+      ],
+    });
+    await notifierEquipeModificationCollecte(admin, REQ, {
+      collecteId: 'c1',
+      collecteAvant: {
+        date_collecte: '2099-01-15',
+        heure_collecte: '16:45:00',
+        pax: 2000,
+        contact_principal_nom: 'Paul Il',
+        contact_principal_telephone: '0611111111',
+        type_evenement_id: 't-cocktail',
+      },
+      majCollecte: {
+        contact_principal_nom: 'Arthus',
+        type_evenement_id: 't-diner',
+      },
+      evenementModifiePar: 'user-1',
+    });
+    expect(recus).toHaveLength(1);
+    expect(recus[0]!.variables.liste_modifications).toBe(
+      "<ul><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0611111111)</li><li>Type d'événement : avant Cocktail. Maintenant Dîner assis</li></ul>",
     );
   });
 

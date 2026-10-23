@@ -16,7 +16,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(36);
+SELECT plan(38);
 
 -- Helpers de rôle, signatures de rls_0_4_smoke.test.sql.
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -151,22 +151,33 @@ SELECT ok(NOT pg_temp.drapeau((SELECT non_partie FROM t)),
 SELECT ok(NOT pg_temp.drapeau((SELECT temoin FROM t)),
   'changer le pax d''une collecte n''arme pas la collecte d''un autre événement');
 
--- ── Contacts : chacun des quatre champs ──────────────────────────────────────
+-- ── Contacts de la collecte : chacun des quatre champs ──────────────────────
+-- Lot B1 (2026-10-23) : les contacts sont portés par la collecte
+-- (collecte_contacts) ; seule la collecte modifiée est marquée.
 SELECT pg_temp.baisser();
-UPDATE plateforme.evenements SET contact_principal_nom = 'Autre Contact' WHERE id = (SELECT evt FROM t);
+UPDATE plateforme.collecte_contacts SET contact_principal_nom = 'Autre Contact' WHERE collecte_id = (SELECT en_file FROM t);
 SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)), 'changer le nom du contact arme le drapeau');
+SELECT ok(NOT pg_temp.drapeau((SELECT en_cours FROM t)),
+  'changer le contact d’une collecte n’arme pas les autres collectes parties de l’événement');
 
 SELECT pg_temp.baisser();
-UPDATE plateforme.evenements SET contact_principal_telephone = '0699990003' WHERE id = (SELECT evt FROM t);
+UPDATE plateforme.collecte_contacts SET contact_principal_telephone = '0699990003' WHERE collecte_id = (SELECT en_file FROM t);
 SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)), 'changer le téléphone du contact arme le drapeau');
 
 SELECT pg_temp.baisser();
-UPDATE plateforme.evenements SET contact_secours_nom = 'Secours Fixture' WHERE id = (SELECT evt FROM t);
+UPDATE plateforme.collecte_contacts SET contact_secours_nom = 'Secours Fixture' WHERE collecte_id = (SELECT en_file FROM t);
 SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)), 'changer le nom du contact de secours arme le drapeau');
 
 SELECT pg_temp.baisser();
-UPDATE plateforme.evenements SET contact_secours_telephone = '0699990004' WHERE id = (SELECT evt FROM t);
+UPDATE plateforme.collecte_contacts SET contact_secours_telephone = '0699990004' WHERE collecte_id = (SELECT en_file FROM t);
 SELECT ok(pg_temp.drapeau((SELECT en_file FROM t)), 'changer le téléphone du contact de secours arme le drapeau');
+
+-- La copie gardée par l'événement ne part plus au prestataire : la changer
+-- n'arme rien.
+SELECT pg_temp.baisser();
+UPDATE plateforme.evenements SET contact_principal_nom = 'Copie Evenement' WHERE id = (SELECT evt FROM t);
+SELECT ok(NOT pg_temp.drapeau((SELECT en_file FROM t)),
+  'changer la copie des contacts sur l’événement n’arme rien');
 
 -- Hors de la liste : le nom et la référence de l'événement.
 SELECT pg_temp.baisser();
@@ -214,7 +225,7 @@ UPDATE plateforme.collectes SET controle_acces_requis = NOT controle_acces_requi
 SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
   'statut TMS sorti de « non envoyé », seul : changer le contrôle d''accès arme le drapeau');
 SELECT pg_temp.baisser();
-UPDATE plateforme.evenements SET contact_principal_nom = 'Encore Autre' WHERE id = (SELECT evt FROM t);
+UPDATE plateforme.collecte_contacts SET contact_principal_nom = 'Encore Autre' WHERE collecte_id = (SELECT ag FROM t);
 SELECT ok(pg_temp.drapeau((SELECT ag FROM t)),
   'statut TMS sorti de « non envoyé », seul : changer le contact arme le drapeau');
 
@@ -267,14 +278,15 @@ SELECT ok(NOT pg_temp.drapeau((SELECT cloturee FROM t)),
 -- elles, n'écrivent que par ces deux fonctions, appelées sous `service_role`.
 SELECT pg_temp.baisser();
 SELECT set_config('role', 'service_role', true);
-SELECT plateforme.fn_modifier_evenement(
-  (SELECT evt FROM t),
+SELECT plateforme.fn_modifier_collecte(
+  (SELECT en_file FROM t),
   '{"contact_principal_telephone": "0699990005"}'::jsonb, ARRAY['contact_principal_telephone']);
 SELECT test_as_superuser();
 SELECT is(
-  ARRAY[pg_temp.drapeau((SELECT en_file FROM t)), pg_temp.drapeau((SELECT temoin FROM t))],
-  ARRAY[true, false],
-  'service_role, fn_modifier_evenement (contact) : la collecte en file d''envoi est marquée, pas celle de l''autre événement');
+  ARRAY[pg_temp.drapeau((SELECT en_file FROM t)), pg_temp.drapeau((SELECT en_cours FROM t)),
+        pg_temp.drapeau((SELECT temoin FROM t))],
+  ARRAY[true, false, false],
+  'service_role, fn_modifier_collecte (contact) : la collecte modifiée est marquée, ni ses sœurs ni celle de l''autre événement');
 
 SELECT pg_temp.baisser();
 SELECT set_config('role', 'service_role', true);

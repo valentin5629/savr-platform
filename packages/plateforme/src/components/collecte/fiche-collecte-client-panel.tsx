@@ -299,17 +299,17 @@ export function FicheCollecteClientPanel({
               pax: c.pax,
               controle_acces_requis: c.controle_acces_requis,
               informations_supplementaires: c.informations_supplementaires,
+              type_evenement_id: c.type_evenement_id,
+              contact_principal_nom: c.contact_principal_nom,
+              contact_principal_telephone: c.contact_principal_telephone,
+              contact_secours_nom: c.contact_secours_nom,
+              contact_secours_telephone: c.contact_secours_telephone,
               lieu_nom: lieu?.nom ?? null,
               evenement: {
                 id: evt.id,
                 nom_evenement: evt.nom_evenement,
-                type_evenement_id: evt.type_evenement_id,
                 nom_client_organisateur: evt.nom_client_organisateur,
                 reference_affaire: evt.reference_affaire,
-                contact_principal_nom: evt.contact_principal_nom,
-                contact_principal_telephone: evt.contact_principal_telephone,
-                contact_secours_nom: evt.contact_secours_nom,
-                contact_secours_telephone: evt.contact_secours_telephone,
               },
             }}
             collecteEndpoint={base}

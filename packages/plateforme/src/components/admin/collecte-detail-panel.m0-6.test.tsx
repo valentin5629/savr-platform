@@ -63,6 +63,10 @@ const collecteAg = {
     transporteurs: null,
   },
   pax: 80,
+  // Type d'événement de LA collecte (lot B1, décision Val 2026-10-23), servi
+  // par le GET Admin (`type_evenement:types_evenements!type_evenement_id`).
+  type_evenement_id: 't1',
+  type_evenement: { libelle: 'Cocktail apéritif' },
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
@@ -70,6 +74,7 @@ const collecteAg = {
     organisations: { raison_sociale: 'Traiteur Beta' },
     client_organisateur: { raison_sociale: 'Org Cliente SA' },
     lieux: { nom: 'Pavillon', ville: 'Paris', adresse_acces: '1 rue X' },
+    // Copie de la collecte n°1, tenue par la base : jamais affichée.
     types_evenements: { libelle: 'Cocktail apéritif' },
   },
   collecte_flux: [],
@@ -2125,13 +2130,22 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   it(
     'M0.6 — rend type d’événement (libelle), tournée (statut) et facture (factures.statut)',
     async () => {
-      mockFetch();
+      // Type de LA collecte (lot B1) ; l'événement porte la copie d'une autre
+      // collecte (sa n°1), qui ne doit jamais s'afficher à sa place.
+      mockFetch({
+        ...collecteAg,
+        evenements: {
+          ...collecteAg.evenements,
+          types_evenements: { libelle: 'Dîner assis' },
+        },
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
 
-      // types_evenements.libelle (onglet Informations, ouvert par défaut)
+      // type_evenement.libelle (onglet Informations, ouvert par défaut)
       expect(
         await screen.findByText('Cocktail apéritif', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
+      expect(screen.queryByText('Dîner assis')).toBeNull();
       // tournees.statut (onglet Logistique — liste multi-camions), libellé FR (R-UI-0 B2)
       await ouvrirOnglet('Logistique');
       expect(
@@ -2223,6 +2237,10 @@ const baseAg = {
   },
   prestataire_logistique_id: null,
   pax: 80,
+  // Type d'événement de LA collecte (lot B1, décision Val 2026-10-23), servi
+  // par le GET Admin (`type_evenement:types_evenements!type_evenement_id`).
+  type_evenement_id: 't1',
+  type_evenement: { libelle: 'Cocktail apéritif' },
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
@@ -2230,6 +2248,7 @@ const baseAg = {
     organisations: { raison_sociale: 'Traiteur Beta' },
     client_organisateur: { raison_sociale: 'Org Cliente SA' },
     lieux: { nom: 'Pavillon', ville: 'Paris', adresse_acces: '1 rue X' },
+    // Copie de la collecte n°1, tenue par la base : jamais affichée.
     types_evenements: { libelle: 'Cocktail apéritif' },
   },
   collecte_flux: [],
@@ -3208,12 +3227,20 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
           notes_internes: 'Client exigeant',
           // Surcharge per-collecte : prime sur la référence `lieux`.
           lieu_overrides: { acces_details: 'Badge au PC sécurité' },
-          evenements: {
-            ...baseAg.evenements,
+          // Contacts de LA collecte (lot B1, embed `collecte_contacts`) ;
+          // l'événement porte ceux de sa collecte n°1, jamais affichés ici.
+          contacts: {
             contact_principal_nom: 'Alice Martin',
             contact_principal_telephone: '06 11 22 33 44',
             contact_secours_nom: null,
             contact_secours_telephone: null,
+          },
+          evenements: {
+            ...baseAg.evenements,
+            contact_principal_nom: 'Bruno Copie',
+            contact_principal_telephone: '01 00 00 00 00',
+            contact_secours_nom: 'Chloé Copie',
+            contact_secours_telephone: '01 99 99 99 99',
             lieux: {
               nom: 'Pavillon',
               ville: 'Paris',
@@ -3260,12 +3287,14 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(within(infos).queryByText('Code 1234')).toBeNull();
       expect(within(infos).getByText('Sonner deux fois')).toBeInTheDocument();
       expect(within(infos).getByText('Client exigeant')).toBeInTheDocument();
-      // Contacts : principal appelable, secours absent.
+      // Contacts : principal appelable, secours absent — ceux de la collecte,
+      // jamais la copie de l'événement.
       expect(within(infos).getByText('Alice Martin')).toBeInTheDocument();
       expect(
         within(infos).getByRole('link', { name: '06 11 22 33 44' }),
       ).toHaveAttribute('href', 'tel:0611223344');
       expect(within(infos).getByText('Non renseigné')).toBeInTheDocument();
+      expect(within(infos).queryByText(/Bruno Copie|Chloé Copie/)).toBeNull();
       // Les coordonnées chauffeur ont quitté l'onglet Informations pour le bloc
       // « Chauffeur » de l'onglet Logistique (décision Val 2026-10-02).
       expect(within(infos).queryByText(/Informations chauffeur/)).toBeNull();
@@ -3475,7 +3504,10 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     taux_recyclage: 62.5,
     co2_evite_kg: 140,
     realisee_at: '2026-05-10T23:00:00Z',
-    evenements: { ...baseZd.evenements, pax: 800, type_evenement_id: 't1' },
+    // Type de LA collecte (lot B1) : filtre du radar par défaut ; l'événement
+    // porte celui de sa collecte n°1, ici un autre.
+    type_evenement_id: 't1',
+    evenements: { ...baseZd.evenements, pax: 800, type_evenement_id: 't9' },
     collecte_flux: [
       {
         flux_id: 'f1',
@@ -4530,6 +4562,285 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
           chauffeur_telephone: '0612345678',
         });
       }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// ============================================================================
+// Refonte du formulaire, lot B1 (décisions Val 2026-10-23, B1-Q1 et B1-Q3) : le
+// type d'événement et les contacts sont ceux de LA collecte ; l'équipe Savr les
+// modifie dans une fenêtre, sans motif (PATCH /api/v1/admin/collectes/:id).
+// ============================================================================
+describe('M1.2 / fiche Admin — type d’événement et contacts de la collecte (lot B1)', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const TITRE = "Modifier le type d'événement et les contacts";
+  const URL_FICHE = '/api/v1/admin/collectes/c1';
+  const TYPES = [
+    { id: 't1', libelle: 'Cocktail apéritif' },
+    { id: 't2', libelle: 'Dîner assis' },
+  ];
+  const AVANT = {
+    ...collecteAg,
+    // PostgREST peut rendre l'embed 1–1 en tableau : la fiche le lit aussi.
+    contacts: [
+      {
+        contact_principal_nom: 'Alice Martin',
+        contact_principal_telephone: '06 11 22 33 44',
+        contact_secours_nom: null,
+        contact_secours_telephone: null,
+      },
+    ],
+  };
+  const APRES = {
+    ...AVANT,
+    type_evenement_id: 't2',
+    type_evenement: { libelle: 'Dîner assis' },
+    contacts: [
+      {
+        contact_principal_nom: 'Alice Martin',
+        contact_principal_telephone: '07 00 00 00 01',
+        contact_secours_nom: 'Léa Secours',
+        contact_secours_telephone: null,
+      },
+    ],
+  };
+
+  // Faux serveur : après un PATCH accepté, la fiche relue rend `APRES`.
+  function monter(
+    reponsePatch: { ok: boolean; status: number; corps: unknown } = {
+      ok: true,
+      status: 200,
+      corps: {},
+    },
+    initiale: object = AVANT,
+  ) {
+    let courante: object = initiale;
+    const parDefaut = mockFetch(() => courante).getMockImplementation()!;
+    const fetchMock = vi.fn(
+      (
+        url: string,
+        opts?: { method?: string; body?: string },
+      ): Promise<unknown> => {
+        if (url === '/api/v1/programmation/types-evenements')
+          return Promise.resolve({ ok: true, json: async () => TYPES });
+        if (url === URL_FICHE && opts?.method === 'PATCH') {
+          if (reponsePatch.ok) courante = APRES;
+          return Promise.resolve({
+            ok: reponsePatch.ok,
+            status: reponsePatch.status,
+            json: async () => reponsePatch.corps,
+          });
+        }
+        return parDefaut(url, opts);
+      },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const patchs = () =>
+      fetchMock.mock.calls
+        .filter(([u, o]) => u === URL_FICHE && o?.method === 'PATCH')
+        .map(([, o]) => JSON.parse(String(o!.body)) as Record<string, unknown>);
+    const lectures = () =>
+      fetchMock.mock.calls.filter(
+        ([u, o]) => u === URL_FICHE && (o?.method ?? 'GET') === 'GET',
+      ).length;
+    const typesCharges = () =>
+      fetchMock.mock.calls.some(
+        ([u]) => u === '/api/v1/programmation/types-evenements',
+      );
+    render(<CollecteDetailPanel collecteId="c1" />);
+    return { patchs, lectures, typesCharges };
+  }
+
+  async function ouvrir(bouton: string): Promise<HTMLElement> {
+    fireEvent.click(
+      await screen.findByRole('button', { name: bouton }, ATTENTE_UI),
+    );
+    return screen.findByRole('dialog', { name: TITRE }, ATTENTE_UI);
+  }
+
+  const champ = (dialog: HTMLElement, id: string) =>
+    dialog.querySelector<HTMLInputElement>(id)!;
+
+  it(
+    'M1.2/type_contacts_par_collecte — fiche Admin : boutons « Modifier » du type et des contacts, fenêtre pré-remplie avec ceux de la collecte',
+    async () => {
+      monter();
+      const infos = await screen.findByRole('tabpanel', undefined, ATTENTE_UI);
+      await within(infos).findByText(
+        'Cocktail apéritif',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(infos).getByText('Alice Martin')).toBeInTheDocument();
+      expect(
+        within(infos).getByRole('button', {
+          name: "Modifier le type d'événement",
+        }),
+      ).toBeInTheDocument();
+
+      for (const bouton of [
+        "Modifier le type d'événement",
+        'Modifier les contacts',
+      ]) {
+        const dialog = await ouvrir(bouton);
+        expect(champ(dialog, '#infos-type')).toHaveTextContent(
+          'Cocktail apéritif',
+        );
+        expect(champ(dialog, '#infos-cp-nom')).toHaveValue('Alice Martin');
+        expect(champ(dialog, '#infos-cp-tel')).toHaveValue('06 11 22 33 44');
+        expect(champ(dialog, '#infos-cs-nom')).toHaveValue('');
+        expect(champ(dialog, '#infos-cs-tel')).toHaveValue('');
+        // Aucun motif demandé.
+        expect(within(dialog).queryByLabelText(/Motif/)).toBeNull();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Retour' }));
+        await waitFor(
+          () =>
+            expect(screen.queryByRole('dialog', { name: TITRE })).toBeNull(),
+          ATTENTE_UI,
+        );
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each(['realisee', 'cloturee', 'annulee'])(
+    'M1.2/type_contacts_par_collecte — fiche Admin : « Modifier » reste offert sur une collecte %s (correction interne)',
+    async (statut) => {
+      monter(undefined, { ...AVANT, statut });
+      const infos = await screen.findByRole('tabpanel', undefined, ATTENTE_UI);
+      await within(infos).findByText(
+        'Cocktail apéritif',
+        undefined,
+        ATTENTE_UI,
+      );
+      const dialog = await ouvrir('Modifier les contacts');
+      expect(champ(dialog, '#infos-cp-nom')).toHaveValue('Alice Martin');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/type_contacts_par_collecte — fiche Admin : la fenêtre envoie les seuls champs modifiés, sans motif, puis la fiche est relue',
+    async () => {
+      const { patchs, lectures, typesCharges } = monter();
+      const dialog = await ouvrir('Modifier les contacts');
+      await waitFor(() => expect(typesCharges()).toBe(true), ATTENTE_UI);
+
+      fireEvent.click(champ(dialog, '#infos-type'));
+      fireEvent.click(
+        await screen.findByRole('option', { name: 'Dîner assis' }, ATTENTE_UI),
+      );
+      fireEvent.change(champ(dialog, '#infos-cp-tel'), {
+        target: { value: '07 00 00 00 01' },
+      });
+      fireEvent.change(champ(dialog, '#infos-cs-nom'), {
+        target: { value: 'Léa Secours' },
+      });
+      const lecturesAvant = lectures();
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Enregistrer' }),
+      );
+
+      // Seuls les champs modifiés, et aucun motif.
+      await waitFor(
+        () =>
+          expect(patchs()).toEqual([
+            {
+              type_evenement_id: 't2',
+              contact_principal_telephone: '07 00 00 00 01',
+              contact_secours_nom: 'Léa Secours',
+            },
+          ]),
+        ATTENTE_UI,
+      );
+      // Fiche relue, fenêtre fermée, nouvelles valeurs affichées.
+      await waitFor(
+        () => expect(screen.queryByRole('dialog', { name: TITRE })).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(lectures()).toBeGreaterThan(lecturesAvant);
+      const infos = screen.getByRole('tabpanel');
+      expect(
+        await within(infos).findByText('Dîner assis', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(within(infos).queryByText('Cocktail apéritif')).toBeNull();
+      expect(within(infos).getByText('Léa Secours')).toBeInTheDocument();
+      expect(
+        within(infos).getByRole('link', { name: '07 00 00 00 01' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/type_contacts_par_collecte — fiche Admin : rien de modifié, la fenêtre se ferme sans requête',
+    async () => {
+      const { patchs } = monter();
+      const dialog = await ouvrir("Modifier le type d'événement");
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Enregistrer' }),
+      );
+      await waitFor(
+        () => expect(screen.queryByRole('dialog', { name: TITRE })).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(patchs()).toEqual([]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each([
+    ['nom', '#infos-cp-nom'],
+    ['téléphone', '#infos-cp-tel'],
+  ])(
+    'M1.2/type_contacts_par_collecte — fiche Admin : contact principal sans %s, « Enregistrer » désactivé, rien n’est envoyé',
+    async (_cas, id) => {
+      const { patchs } = monter();
+      const dialog = await ouvrir('Modifier les contacts');
+      const enregistrer = within(dialog).getByRole('button', {
+        name: 'Enregistrer',
+      });
+      expect(enregistrer).toBeEnabled();
+      fireEvent.change(champ(dialog, id), { target: { value: '  ' } });
+      expect(enregistrer).toBeDisabled();
+      fireEvent.click(enregistrer);
+      expect(patchs()).toEqual([]);
+      expect(screen.getByRole('dialog', { name: TITRE })).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/type_contacts_par_collecte — fiche Admin : refus de la route, message affiché, fenêtre ouverte, fiche inchangée',
+    async () => {
+      const { patchs, lectures } = monter({
+        ok: false,
+        status: 422,
+        corps: {
+          error: 'Le contact principal et son téléphone sont obligatoires.',
+        },
+      });
+      const dialog = await ouvrir('Modifier les contacts');
+      fireEvent.change(champ(dialog, '#infos-cp-nom'), {
+        target: { value: 'Marie Durand' },
+      });
+      const lecturesAvant = lectures();
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Enregistrer' }),
+      );
+      expect(
+        await within(dialog).findByText(
+          'Le contact principal et son téléphone sont obligatoires.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(patchs()).toEqual([{ contact_principal_nom: 'Marie Durand' }]);
+      expect(screen.getByRole('dialog', { name: TITRE })).toBeInTheDocument();
+      expect(lectures()).toBe(lecturesAvant);
     },
     ATTENTE_CAS_MS,
   );

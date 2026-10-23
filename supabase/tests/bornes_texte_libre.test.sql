@@ -192,13 +192,15 @@ SELECT throws_ok(
 -- tel quel, sous service_role, hors de toute route Next : c'est exactement le trou
 -- que ces contraintes ferment.
 
+-- Lot B1 (2026-10-23) : les contacts se modifient sur la collecte, dans
+-- `collecte_contacts`, qui porte les mêmes bornes.
 SELECT throws_ok(
-  format($$ SELECT plateforme.fn_modifier_evenement(
-       'b0c0ea06-0000-0000-0000-000000000001'::uuid,
+  format($$ SELECT plateforme.fn_modifier_collecte(
+       'b0c0ea07-0000-0000-0000-000000000001'::uuid,
        jsonb_build_object('contact_secours_nom', %L),
        ARRAY['contact_secours_nom']) $$, repeat('a', 5000)),
   '23514', NULL,
-  'fn_modifier_evenement ne peut plus poser un nom de 5 000 caractères');
+  'fn_modifier_collecte ne peut plus poser un nom de 5 000 caractères');
 
 SELECT throws_ok(
   format($$ SELECT plateforme.fn_modifier_collecte(

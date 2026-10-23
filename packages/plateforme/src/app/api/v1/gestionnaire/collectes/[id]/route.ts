@@ -16,6 +16,8 @@ import {
   CHAMPS_COLLECTE_VERROUILLES,
 } from '@/lib/collectes/champs-editables.js';
 import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
+import { lireContactsCollecte } from '@/lib/collectes/contacts-collecte.js';
+import { refusTypeContactsCollecte } from '@/lib/collectes/type-contacts-collecte.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 
@@ -125,6 +127,14 @@ export async function PATCH(
     if (refusPax) return refusPax;
   }
 
+  // Type d'événement et contacts de la collecte (lot B1, décision Val
+  // 2026-10-23) : refusés en 422 avant la RPC s'ils sont vides ou inconnus.
+  const refusTypeContacts = await refusTypeContactsCollecte(
+    createAdminSupabaseClient(),
+    updates,
+  );
+  if (refusTypeContacts) return refusTypeContacts;
+
   const collecte = await loadCollecteForUser(id);
   if (!collecte)
     return NextResponse.json(
@@ -168,11 +178,22 @@ export async function PATCH(
   }
 
   const admin = createAdminSupabaseClient();
-  const { data: before } = await admin
+  const { data: beforeCollecte } = await admin
     .from('collectes')
     .select('*')
     .eq('id', id)
     .single();
+  // Contacts de la collecte (collecte_contacts, lot B1) : valeurs « avant » de
+  // l'email à l'équipe Savr et de l'audit.
+  const lectureContacts = await lireContactsCollecte(admin, id);
+  if ('erreur' in lectureContacts)
+    return serverError(
+      lectureContacts.erreur,
+      'gestionnaire.collectes.contacts',
+    );
+  const before = beforeCollecte
+    ? { ...beforeCollecte, ...(lectureContacts.contacts ?? {}) }
+    : beforeCollecte;
 
   const { data: updated, error } = await admin.rpc('fn_modifier_collecte', {
     p_id: id,

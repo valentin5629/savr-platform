@@ -61,18 +61,20 @@ const SOURCE = {
   // Pax de la collecte dupliquée (décision Val 2026-10-20), repris par
   // « Dupliquer » ; celui de l'événement n'y sert plus.
   pax: 1000,
+  // Type d'événement et contacts de LA collecte dupliquée (lot B1, décision
+  // Val 2026-10-23) : la fiche collecte les sert au niveau de la collecte.
+  type_evenement_id: 't1',
+  contact_principal_nom: 'Paul Arnaud',
+  contact_principal_telephone: '06 12 34 56 78',
+  contact_secours_nom: null,
+  contact_secours_telephone: null,
   controle_acces_requis: false,
   informations_supplementaires: null,
   evenement: {
     pax: 1000,
-    type_evenement_id: 't1',
     nom_evenement: 'Gala de printemps',
     nom_client_organisateur: 'Maison Dupont',
     reference_affaire: null,
-    contact_principal_nom: 'Paul Arnaud',
-    contact_principal_telephone: '06 12 34 56 78',
-    contact_secours_nom: null,
-    contact_secours_telephone: null,
     lieu: {
       id: 'lieu-1',
       nom: 'Musée des Arts Forains',
@@ -92,14 +94,15 @@ afterEach(() => {
 /**
  * Parcourt les trois étapes depuis « Dupliquer » et rend le corps envoyé à la
  * confirmation. `clientFinal` remplace la valeur dupliquée de la case « Client
- * final » juste avant de quitter l'étape 1.
+ * final » juste avant de quitter l'étape 1. `source` remplace la collecte
+ * dupliquée.
  */
-async function programmer(clientFinal: string) {
+async function programmer(clientFinal: string, source: object = SOURCE) {
   window.history.replaceState({}, '', '/programmer/nouveau?from=c-src');
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const corps = url.startsWith('/api/v1/traiteur/collectes/c-src')
-      ? { data: SOURCE }
+      ? { data: source }
       : url.includes('/programmation/types-evenements')
         ? [{ id: 't1', code: 'cocktail', libelle: 'Cocktail' }]
         : init?.method === 'POST'
@@ -226,6 +229,36 @@ describe('M1.2 / nom_evenement_client_final — étape 1', () => {
 
       fireEvent.change(nomEvenement, { target: { value: 'Gala d’automne' } });
       expect(continuer).toBeEnabled();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M1.2 / dupliquer — type d’événement et contacts de la collecte (lot B1)', () => {
+  it(
+    'dupliquer reprend le type d’événement et les contacts de LA collecte source, jamais ceux de son événement',
+    async () => {
+      // L'événement porte encore d'autres valeurs (copie de sa collecte n°1) :
+      // elles ne doivent jamais remplacer celles de la collecte dupliquée.
+      const source = {
+        ...SOURCE,
+        contact_secours_nom: 'Léa Secours',
+        contact_secours_telephone: '07 11 22 33 44',
+        evenement: {
+          ...SOURCE.evenement,
+          type_evenement_id: 't-evenement',
+          contact_principal_nom: 'Contact Événement',
+          contact_principal_telephone: '01 00 00 00 00',
+          contact_secours_nom: 'Secours Événement',
+          contact_secours_telephone: '01 99 99 99 99',
+        },
+      };
+      const corps = await programmer('Maison Dupont', source);
+      expect(corps.type_evenement_id).toBe('t1');
+      expect(corps.contact_principal_nom).toBe('Paul Arnaud');
+      expect(corps.contact_principal_telephone).toBe('06 12 34 56 78');
+      expect(corps.contact_secours_nom).toBe('Léa Secours');
+      expect(corps.contact_secours_telephone).toBe('07 11 22 33 44');
     },
     ATTENTE_CAS_MS,
   );

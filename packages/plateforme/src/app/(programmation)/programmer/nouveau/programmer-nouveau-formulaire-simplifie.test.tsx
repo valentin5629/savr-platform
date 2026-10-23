@@ -40,18 +40,20 @@ import NouveauProgrammationPage from './page';
 const SOURCE = {
   type: 'zero_dechet',
   heure_collecte: '08:30:00',
+  // Type d'événement et contacts de LA collecte dupliquée (lot B1, décision
+  // Val 2026-10-23) : la fiche collecte les sert au niveau de la collecte.
+  type_evenement_id: 't1',
+  contact_principal_nom: 'Paul Arnaud',
+  contact_principal_telephone: '06 12 34 56 78',
+  contact_secours_nom: null,
+  contact_secours_telephone: null,
   controle_acces_requis: false,
   informations_supplementaires: null,
   evenement: {
     pax: 1000,
-    type_evenement_id: 't1',
     nom_evenement: 'Gala de printemps',
     nom_client_organisateur: 'Maison Dupont',
     reference_affaire: null,
-    contact_principal_nom: 'Paul Arnaud',
-    contact_principal_telephone: '06 12 34 56 78',
-    contact_secours_nom: null,
-    contact_secours_telephone: null,
     lieu: {
       id: 'lieu-1',
       nom: 'Musée des Arts Forains',

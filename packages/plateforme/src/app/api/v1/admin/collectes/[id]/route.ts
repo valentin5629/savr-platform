@@ -23,6 +23,12 @@ import {
 } from '@/lib/infos-acces/suivi-email.js';
 import { deriverOrdreEnvoi, lireOrdresCollecte } from '@/lib/ordre-envoi.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { CHAMPS_TYPE_CONTACTS_COLLECTE } from '@/lib/collectes/champs-editables.js';
+import {
+  CHAMPS_CONTACTS_COLLECTE,
+  lireContactsCollecte,
+} from '@/lib/collectes/contacts-collecte.js';
+import { refusTypeContactsCollecte } from '@/lib/collectes/type-contacts-collecte.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -51,6 +57,8 @@ async function getHandler(
     .from('collectes')
     .select(
       `*,
+       type_evenement:types_evenements!type_evenement_id(libelle),
+       contacts:collecte_contacts(contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone),
        evenements!inner(
          *, organisations!organisation_id(raison_sociale, siret),
          client_organisateur:organisations!client_organisateur_organisation_id(raison_sociale),
@@ -250,6 +258,11 @@ async function patchHandler(
     'controle_acces_requis',
     'notes_internes',
     'informations_supplementaires',
+    // Type d'événement et contacts de LA collecte (lot B1, décisions Val
+    // 2026-10-23 B1-Q1 et B1-Q3) : modifiés par l'équipe Savr sans motif, comme
+    // les autres informations ; ligne d'audit UPDATE, E2 si la collecte est
+    // commandée (fn_modifier_collecte).
+    ...CHAMPS_TYPE_CONTACTS_COLLECTE,
     // `prestataire_logistique_id` est VOLONTAIREMENT absent : le changement de
     // prestataire passe par `POST …/dispatch` (fn_dispatcher_collecte), seul
     // chemin qui décide ensuite du bon event — `collecte.creee` quand la bascule
@@ -296,6 +309,13 @@ async function patchHandler(
     const refusHeure = refusHeureCollecte(updates.heure_collecte);
     if (refusHeure) return refusHeure;
   }
+
+  // Type d'événement et contacts : refusés en 422 s'ils sont vides ou inconnus.
+  const refusTypeContacts = await refusTypeContactsCollecte(
+    createAdminSupabaseClient(),
+    updates,
+  );
+  if (refusTypeContacts) return refusTypeContacts;
 
   // §07/06 collecte_statut_force — une bascule MANUELLE de statut exige un motif
   // (≥ 10 car., §07/06 pt2). Les éditions de routine (date, notes, camions…)
@@ -349,17 +369,26 @@ async function patchHandler(
   }
 
   const supabase = createAdminSupabaseClient();
-  const { data: before, error: fetchErr } = await supabase
+  const { data: beforeCollecte, error: fetchErr } = await supabase
     .from('collectes')
     .select('*')
     .eq('id', id)
     .single();
 
-  if (fetchErr?.code === 'PGRST116' || !before) {
+  if (fetchErr?.code === 'PGRST116' || !beforeCollecte) {
     return NextResponse.json(
       { error: 'Collecte introuvable' },
       { status: 404 },
     );
+  }
+  // Contacts de la collecte (collecte_contacts, lot B1) : état « avant » de la
+  // ligne d'audit quand ils changent.
+  let before: Record<string, unknown> = beforeCollecte;
+  if (CHAMPS_TYPE_CONTACTS_COLLECTE.some((f) => Object.hasOwn(updates, f))) {
+    const lectureContacts = await lireContactsCollecte(supabase, id);
+    if ('erreur' in lectureContacts)
+      return serverError(lectureContacts.erreur, 'admin.collectes.contacts');
+    before = { ...beforeCollecte, ...(lectureContacts.contacts ?? {}) };
   }
 
   // fn_modifier_collecte : UPDATE + outbox E2 conditionnel dans la même transaction (G4)
@@ -410,6 +439,13 @@ async function patchHandler(
   envoyerOrdresSansAttendre(id);
 
   const data = updatedJson as Record<string, unknown>;
+  // Les contacts vivent dans collecte_contacts, absents de la ligne rendue par
+  // la RPC : la ligne d'audit porte à part ceux qui ont été modifiés (lot B1).
+  const contactsModifies = Object.fromEntries(
+    CHAMPS_CONTACTS_COLLECTE.filter((f) => Object.hasOwn(updates, f)).map(
+      (f) => [f, updates[f]],
+    ),
+  );
 
   // La modification est déjà écrite : une ligne d'audit refusée ne l'annule
   // pas, mais elle est la seule trace du motif — l'échec est journalisé.
@@ -431,7 +467,7 @@ async function patchHandler(
           user_id: auth.ctx.userId,
           ...(paxModifie ? { motif } : {}),
           old_values: before,
-          new_values: data,
+          new_values: { ...data, ...contactsModifies },
         },
   );
   if (auditErr) erreurInterne(auditErr, 'admin.collectes.update.audit');

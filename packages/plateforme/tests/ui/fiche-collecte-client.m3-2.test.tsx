@@ -148,14 +148,13 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
         // Collecte d'un tiers : ni modification, ni contacts sur place.
         actions: { modifier: 'absent', annuler: 'absent', annulation: null },
       });
+      // Contacts sur place : ceux de LA collecte (lot B1, décision Val
+      // 2026-10-23).
       stubFetchFiche({
         ...base,
-        evenement: {
-          ...base.evenement!,
-          contacts_visibles: false,
-          contact_principal_nom: null,
-          contact_principal_telephone: null,
-        },
+        contacts_visibles: false,
+        contact_principal_nom: null,
+        contact_principal_telephone: null,
       });
       render(fiche());
       await ouvrirOnglet('Bilan & documents');
@@ -259,14 +258,13 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
     'M3.2/fiche_popup_gestionnaire_contacts_tiers_masques — collecte d’un traiteur tiers : pas de bloc Contacts sur place',
     async () => {
       const base = ficheGestionnaire();
+      // Contacts sur place : ceux de LA collecte (lot B1, décision Val
+      // 2026-10-23).
       stubFetchFiche({
         ...base,
-        evenement: {
-          ...base.evenement!,
-          contacts_visibles: false,
-          contact_principal_nom: null,
-          contact_principal_telephone: null,
-        },
+        contacts_visibles: false,
+        contact_principal_nom: null,
+        contact_principal_telephone: null,
       });
       render(fiche());
 

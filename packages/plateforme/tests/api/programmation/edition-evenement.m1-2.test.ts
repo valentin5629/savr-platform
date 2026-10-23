@@ -131,6 +131,16 @@ beforeEach(() => {
   _reinitialiserFreinEcritures();
 });
 
+// Contacts sur place d'une collecte avant l'écriture (`collecte_contacts`, lot
+// B1, décision Val 2026-10-23) : les routes collecte des espaces clients les
+// lisent à chaque modification (état « avant » de l'email et de l'audit).
+const CONTACTS_AVANT = {
+  contact_principal_nom: 'Paul Il',
+  contact_principal_telephone: '0611111111',
+  contact_secours_nom: null,
+  contact_secours_telephone: null,
+};
+
 // Queue le chemin nominal d'un PATCH événement réussi.
 function queueEventOk(
   evt: { organisation_id?: string; created_by?: string },
@@ -166,21 +176,33 @@ describe('M1.2 / édition événement — 4 rôles programmateurs', () => {
     ['gestionnaire_lieux', { organisation_id: 'org-1' }],
   ];
 
+  // Titre cité par le manifeste M1.2, gardé tel quel. Depuis le lot B1
+  // (décision Val 2026-10-23), le type d'événement et les contacts se modifient
+  // sur chaque collecte et fn_modifier_evenement n'émet plus d'E2 (aucun champ
+  // de l'événement ne part au prestataire) : ce cas prouve l'édition des champs
+  // qui restent à l'événement, par les quatre rôles.
   for (const [role, evt] of ROLES) {
     it(`M1.2 — édition événement par ${role} : 200 + fn_modifier_evenement (E2 par collecte)`, async () => {
       setupAuth(role, 'org-1', 'user-1');
       queueEventOk(evt);
       const res = await patchEvent({
-        contact_principal_nom: 'Bob',
-        contact_principal_telephone: '+33611111111',
+        nom_evenement: 'Gala 2031',
+        nom_client_organisateur: 'Maison Client',
       });
       expect(res.status).toBe(200);
       const rpcCalls = admin.__calls.rpc ?? [];
       const call = rpcCalls.find(([fn]) => fn === 'fn_modifier_evenement');
       expect(call).toBeTruthy();
-      const args = call![1] as { p_champs_modifies: string[] };
-      expect(args.p_champs_modifies).toContain('contact_principal_telephone');
-      expect(args.p_champs_modifies).toContain('contact_principal_nom');
+      const args = call![1] as {
+        p_updates: Record<string, unknown>;
+        p_champs_modifies: string[];
+      };
+      expect(args.p_champs_modifies).toContain('nom_evenement');
+      expect(args.p_champs_modifies).toContain('nom_client_organisateur');
+      expect(args.p_updates).toEqual({
+        nom_evenement: 'Gala 2031',
+        nom_client_organisateur: 'Maison Client',
+      });
     });
   }
 });
@@ -235,19 +257,16 @@ describe('M1.2 / édition événement — réponse filtrée', () => {
       expect(texte).not.toContain('NOTE ADMIN SECRÈTE');
       expect(texte).not.toContain('entite_facturation_id');
       expect(texte).not.toContain('ef-secrete');
-      // Liste blanche exacte : l'id et les champs éditables, rien d'autre.
+      // Liste blanche exacte : l'id et les champs éditables, rien d'autre. Le
+      // type d'événement et les contacts n'en sont plus (lot B1, 2026-10-23) :
+      // la copie qu'en garde l'événement n'est pas un champ qu'il modifie.
       expect(Object.keys(json.data).sort()).toEqual(
         [
-          'contact_principal_nom',
-          'contact_principal_telephone',
-          'contact_secours_nom',
-          'contact_secours_telephone',
           'id',
           'logo_client_organisateur_url',
           'nom_client_organisateur',
           'nom_evenement',
           'reference_affaire',
-          'type_evenement_id',
         ].sort(),
       );
       // Non-vacuité : la valeur éditée est bien rendue.
@@ -640,6 +659,7 @@ describe('M1.2 / édition collecte gestionnaire', () => {
       error: null,
     });
     admin.push({ data: { id: 'c1' }, error: null }); // before
+    admin.push({ data: CONTACTS_AVANT, error: null }); // contacts de la collecte (avant)
     admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
     admin.push({ data: null, error: null }); // (reacceptation update — date non modifiée ici, pas appelé) / audit
     admin.push({ data: null, error: null }); // audit insert
@@ -668,6 +688,7 @@ describe('M1.2 / édition collecte gestionnaire', () => {
       error: null,
     });
     admin.push({ data: { id: 'c1' }, error: null }); // before
+    admin.push({ data: CONTACTS_AVANT, error: null }); // contacts de la collecte (avant)
     admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
     admin.push({ data: null, error: null }); // update statut_tms (réacceptation)
     admin.push({ data: null, error: null }); // audit insert
@@ -744,15 +765,18 @@ describe('M1.2 / édition collecte gestionnaire', () => {
 });
 
 // ── BL-P1-TRAIT-04 — recompute informations_completes sur édition événement ──
+// Depuis le lot B1 (décision Val 2026-10-23), le téléphone du contact n'est plus
+// un champ que la route événement reçoit (422) : il est lu sur la ligne avant
+// modification, copie de la collecte n°1 tenue par la base.
 describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04)', () => {
   it('M3.1/recompute_infos_completes_true — contact + nom de l’événement renseignés → collectes.informations_completes=true', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
-    queueEventOk({ organisation_id: 'org-1' });
-    admin.push({ data: null, error: null }); // recompute update collectes
-    const res = await patchEvent({
+    queueEventOk({ organisation_id: 'org-1' }, true, {
       contact_principal_telephone: '+33611111111',
-      nom_evenement: 'Gala 2030',
+      nom_evenement: null,
     });
+    admin.push({ data: null, error: null }); // recompute update collectes
+    const res = await patchEvent({ nom_evenement: 'Gala 2030' });
     expect(res.status).toBe(200);
     const updateCalls = admin.__calls.update ?? [];
     const recompute = updateCalls.find(
@@ -772,16 +796,17 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
 
   // Décision Val 2026-10-19 : le nom de l'événement est obligatoire, le client
   // final facultatif ; seul le premier compte dans « Info incomplète ».
-  it('M3.1/recompute_infos_completes_avant — téléphone seul, nom de l’événement lu sur la ligne avant modification → true', async () => {
+  // Contre-épreuve du cas précédent : le téléphone vient bien de la ligne avant
+  // modification, il n'est pas supposé présent.
+  it('M3.1/recompute_infos_completes_avant — nom de l’événement seul, téléphone lu sur la ligne avant modification : absent → false', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     queueEventOk({ organisation_id: 'org-1' }, true, {
-      nom_evenement: 'Gala 2030',
+      contact_principal_telephone: null,
+      nom_evenement: null,
       nom_client_organisateur: null,
     });
     admin.push({ data: null, error: null }); // recompute update collectes
-    const res = await patchEvent({
-      contact_principal_telephone: '+33611111111',
-    });
+    const res = await patchEvent({ nom_evenement: 'Gala 2030' });
     expect(res.status).toBe(200);
     const updateCalls = admin.__calls.update ?? [];
     const recompute = updateCalls.find(
@@ -792,7 +817,7 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
     expect(
       (recompute![0] as { informations_completes: boolean })
         .informations_completes,
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('M3.1/recompute_infos_completes_false — nom de l’événement vidé → informations_completes=false', async () => {
@@ -839,12 +864,11 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
 
   it('M3.1/recompute_borne_a_l_evenement — l’UPDATE du badge ne vise que les collectes de cet événement, sans surcharge de lieu', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
-    queueEventOk({ organisation_id: 'org-1' });
-    admin.push({ data: null, error: null }); // recompute update collectes
-    const res = await patchEvent({
+    queueEventOk({ organisation_id: 'org-1' }, true, {
       contact_principal_telephone: '+33611111111',
-      nom_evenement: 'Gala 2030',
     });
+    admin.push({ data: null, error: null }); // recompute update collectes
+    const res = await patchEvent({ nom_evenement: 'Gala 2030' });
     expect(res.status).toBe(200);
     const ordre = admin.__ordre;
     const i = ordre.findIndex(
@@ -1075,6 +1099,7 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
       },
       error: null,
     }); // before
+    admin.push({ data: CONTACTS_AVANT, error: null }); // contacts de la collecte (avant)
     admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
     admin.push({ data: null, error: null }); // audit insert
     admin.push({
@@ -1192,6 +1217,7 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
       setupAuth(role, 'org-1', 'user-1');
       rls.push({ data: COLLECTE_VISIBLE, error: null }); // collecte visible
       admin.push({ data: AVANT, error: null }); // before
+      admin.push({ data: CONTACTS_AVANT, error: null }); // contacts de la collecte (avant)
       admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
       if (ecritAudit) admin.push({ data: null, error: null }); // audit insert
       queueLecturesEmail({
@@ -1223,4 +1249,337 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
       });
     },
   );
+});
+
+// ── Lot B1 (décisions Val 2026-10-23) : type d'événement et contacts portés par
+// chaque collecte. La route événement les refuse ; les routes collecte les
+// acceptent, les valident, et l'email à l'équipe les compare au niveau de la
+// collecte (« avant » lu dans `collecte_contacts`). ─────────────────────────────
+describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, refusés sur l’événement', () => {
+  const CHAMPS_B1 = [
+    'type_evenement_id',
+    'contact_principal_nom',
+    'contact_principal_telephone',
+    'contact_secours_nom',
+    'contact_secours_telephone',
+  ];
+  const TYPE_AVANT = '11111111-1111-4111-8111-111111111111';
+  const TYPE_APRES = '22222222-2222-4222-8222-222222222222';
+
+  let recus: CapturedEmail[] = [];
+  beforeEach(() => {
+    recus = [];
+    setEmailCaptureSink((email) => recus.push(email));
+  });
+  afterEach(() => setEmailCaptureSink(null));
+
+  it.each(CHAMPS_B1)(
+    'M1.2/evenement_type_contacts_refuses — PATCH /programmation/evenements/[id] avec %s : 422 champs_verrouilles, rien n’est lu ni écrit',
+    async (champ) => {
+      setupAuth('traiteur_manager', 'org-1', 'user-1');
+      // Piège : tout le chemin d'écriture réussirait s'il était parcouru.
+      queueEventOk({ organisation_id: 'org-1' });
+      const res = await patchEvent({
+        nom_evenement: 'Gala 2031',
+        [champ]: 'x',
+      });
+      expect(res.status).toBe(422);
+      const json = (await res.json()) as { champs_verrouilles?: string[] };
+      expect(json.champs_verrouilles).toEqual([champ]);
+      // Refusé avant la lecture de l'événement : le nom, valide, n'est pas
+      // écrit seul (refusé plutôt qu'ignoré).
+      expect(rls.__calls.from).toBeUndefined();
+      expectAucuneEcriture();
+    },
+  );
+
+  // Ordre de lecture identique sur les trois routes collecte des espaces clients.
+  const ROUTES_COLLECTE = [
+    {
+      espace: 'traiteur',
+      role: 'traiteur_manager',
+      ecritAudit: true,
+      charger: () => import('@/app/api/v1/traiteur/collectes/[id]/route.js'),
+    },
+    {
+      espace: 'agence',
+      role: 'agence',
+      ecritAudit: false,
+      charger: () => import('@/app/api/v1/agence/collectes/[id]/route.js'),
+    },
+    {
+      espace: 'gestionnaire',
+      role: 'gestionnaire_lieux',
+      ecritAudit: true,
+      charger: () =>
+        import('@/app/api/v1/gestionnaire/collectes/[id]/route.js'),
+    },
+  ] as const;
+  const COLLECTE_VISIBLE = {
+    id: 'c1',
+    statut: 'programmee',
+    statut_tms: 'non_envoye',
+    date_collecte: '2099-01-15',
+    heure_collecte: '16:45:00',
+    evenement: { created_by: 'user-1', organisation_id: 'org-1' },
+  };
+  const AVANT = {
+    id: 'c1',
+    evenement_id: 'e1',
+    date_collecte: '2099-01-15',
+    heure_collecte: '16:45:00',
+    type_evenement_id: TYPE_AVANT,
+  };
+  const CONTACTS_AVANT_AVEC_SECOURS = {
+    ...CONTACTS_AVANT,
+    contact_secours_nom: 'Léa',
+    contact_secours_telephone: '0655443322',
+  };
+
+  async function patchCollecteEspace(
+    route: (typeof ROUTES_COLLECTE)[number],
+    body: Record<string, unknown>,
+  ) {
+    const { PATCH } = await route.charger();
+    return PATCH(
+      makeReq('PATCH', `/api/v1/${route.espace}/collectes/c1`, body),
+      { params: Promise.resolve({ id: 'c1' }) },
+    );
+  }
+
+  it.each(ROUTES_COLLECTE)(
+    'M1.2/collecte_type_contacts_modifiables — PATCH /$espace/collectes/[id] : type et contacts passent à fn_modifier_collecte, normalisés, et l’email compare ceux de la collecte',
+    async (route) => {
+      setupAuth(route.role, 'org-1', 'user-1');
+      admin.push({ data: { id: TYPE_APRES }, error: null }); // type d'événement connu ?
+      rls.push({ data: COLLECTE_VISIBLE, error: null }); // collecte visible
+      admin.push({ data: AVANT, error: null }); // before
+      admin.push({ data: CONTACTS_AVANT_AVEC_SECOURS, error: null }); // contacts de la collecte (avant)
+      admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
+      if (route.ecritAudit) admin.push({ data: null, error: null }); // audit insert
+      admin.push({
+        data: {
+          id: 'c1',
+          evenement_id: 'e1',
+          statut: 'programmee',
+          statut_tms: 'non_envoye',
+          tms_reference: null,
+          prestataire_logistique_id: null,
+          date_collecte: '2099-01-15',
+          heure_collecte: '16:45:00',
+          attributions_antgaspi: null,
+          pax: 200,
+          evenement: {
+            created_by: 'user-1',
+            organisation: { nom: 'Kaspia' },
+          },
+        },
+        error: null,
+      }); // email : collecte après écriture
+      admin.push({
+        data: [
+          { id: TYPE_AVANT, libelle: 'Cocktail apéritif' },
+          { id: TYPE_APRES, libelle: 'Dîner assis' },
+        ],
+        error: null,
+      }); // email : libellés des types d'événement
+      admin.push({
+        data: { prenom: 'Julie', nom: 'Martin', telephone: null },
+        error: null,
+      }); // email : programmateur
+
+      const res = await patchCollecteEspace(route, {
+        type_evenement_id: TYPE_APRES,
+        contact_principal_nom: '  Arthus  ',
+        contact_principal_telephone: '0699990002',
+        // Secours vidé : `''` comme blancs valent « absent » (null).
+        contact_secours_nom: '',
+        contact_secours_telephone: '   ',
+      });
+
+      expect(res.status).toBe(200);
+      // Le type est vérifié dans le référentiel avant toute lecture de la collecte.
+      expect(admin.__ordre[0]).toEqual(['from', ['types_evenements']]);
+      expect(admin.__calls.eq?.[0]).toEqual(['id', TYPE_APRES]);
+      // Les contacts « avant » sont ceux de CETTE collecte.
+      expect(admin.__calls.from).toContainEqual(['collecte_contacts']);
+      expect(admin.__calls.eq).toContainEqual(['collecte_id', 'c1']);
+      const rpc = (admin.__calls.rpc ?? []).find(
+        ([fn]) => fn === 'fn_modifier_collecte',
+      );
+      expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
+        type_evenement_id: TYPE_APRES,
+        contact_principal_nom: 'Arthus',
+        contact_principal_telephone: '0699990002',
+        contact_secours_nom: null,
+        contact_secours_telephone: null,
+      });
+      // Aucune écriture sur l'événement.
+      expect(admin.__calls.rpc?.map(([fn]) => fn)).toEqual([
+        'fn_modifier_collecte',
+      ]);
+      if (route.ecritAudit) {
+        const audit = (admin.__calls.insert ?? [])
+          .map(([ligne]) => ligne as Record<string, unknown>)
+          .find((ligne) => ligne.table_name === 'collectes');
+        // L'état « avant » de l'audit porte les contacts de la collecte.
+        expect(audit?.old_values).toMatchObject(CONTACTS_AVANT_AVEC_SECOURS);
+      }
+      expect(recus).toHaveLength(1);
+      expect(recus[0]!.variables.liste_modifications).toBe(
+        "<ul><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li><li>Contact de secours : avant Léa (0655443322). Maintenant non renseigné</li><li>Type d'événement : avant Cocktail apéritif. Maintenant Dîner assis</li></ul>",
+      );
+    },
+  );
+
+  it.each(ROUTES_COLLECTE)(
+    'M1.2/collecte_contacts_avant_illisibles_500 — PATCH /$espace/collectes/[id] : lecture des contacts en échec → 500, rien n’est écrit ni envoyé',
+    async (route) => {
+      setupAuth(route.role, 'org-1', 'user-1');
+      rls.push({ data: COLLECTE_VISIBLE, error: null }); // collecte visible
+      admin.push({ data: AVANT, error: null }); // before
+      admin.push({ data: null, error: { message: 'boom' } }); // contacts : échec
+      const res = await patchCollecteEspace(route, {
+        contact_principal_telephone: '0699990002',
+      });
+      expect(res.status).toBe(500);
+      expect(admin.__calls.rpc).toBeUndefined();
+      expect(admin.__calls.insert).toBeUndefined();
+      expect(recus).toEqual([]);
+    },
+  );
+
+  it.each(ROUTES_COLLECTE)(
+    'M1.2/collecte_type_evenement_inconnu — PATCH /$espace/collectes/[id], type absent du référentiel : 422, la collecte n’est ni lue ni écrite',
+    async (route) => {
+      setupAuth(route.role, 'org-1', 'user-1');
+      admin.push({ data: null, error: null }); // type d'événement : inconnu
+      const res = await patchCollecteEspace(route, {
+        type_evenement_id: TYPE_APRES,
+      });
+      expect(res.status).toBe(422);
+      expect(((await res.json()) as { champ?: string }).champ).toBe(
+        'type_evenement_id',
+      );
+      expect(rls.__calls.from).toBeUndefined();
+      expect(admin.__calls.from).toEqual([['types_evenements']]);
+      expect(admin.__calls.rpc).toBeUndefined();
+    },
+  );
+
+  it('M1.2/collecte_type_evenement_invalide — identifiant mal formé ou vidé : 422 sans interroger le référentiel', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    for (const valeur of ['type-1', null, '']) {
+      admin = makeChain();
+      const res = await patchCollecteEspace(ROUTES_COLLECTE[0], {
+        type_evenement_id: valeur,
+      });
+      expect(res.status).toBe(422);
+      expect(admin.__calls.from).toBeUndefined();
+      expect(admin.__calls.rpc).toBeUndefined();
+    }
+  });
+
+  it('M1.2/collecte_type_evenement_lecture_500 — lecture du référentiel en échec : 500, rien n’est écrit', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    admin.push({ data: null, error: { message: 'boom' } }); // référentiel : échec
+    const res = await patchCollecteEspace(ROUTES_COLLECTE[0], {
+      type_evenement_id: TYPE_APRES,
+    });
+    expect(res.status).toBe(500);
+    expect(admin.__calls.rpc).toBeUndefined();
+  });
+
+  // Back-office : l'équipe Savr modifie type et contacts sans motif (B1-Q3) ;
+  // les contacts « avant » ne sont lus que si l'un d'eux est envoyé.
+  async function patchCollecteAdmin(body: Record<string, unknown>) {
+    const { PATCH } =
+      await import('@/app/api/v1/admin/collectes/[id]/route.js');
+    return PATCH(makeReq('PATCH', '/api/v1/admin/collectes/c1', body), {
+      params: Promise.resolve({ id: 'c1' }),
+    });
+  }
+
+  it('M1.2/admin_collecte_contacts_sans_motif — PATCH /admin/collectes/[id] : contact modifié sans motif, « avant » de l’audit lu dans collecte_contacts', async () => {
+    setupAuth('admin_savr', 'org-savr', 'val');
+    admin.push({ data: { id: 'c1', statut: 'programmee' }, error: null }); // before
+    admin.push({ data: CONTACTS_AVANT, error: null }); // contacts de la collecte (avant)
+    admin.push({ data: { id: 'c1', statut: 'programmee' }, error: null }); // rpc fn_modifier_collecte
+    admin.push({ data: null, error: null }); // audit insert
+
+    const res = await patchCollecteAdmin({
+      contact_principal_telephone: '  0699990003  ',
+    });
+
+    expect(res.status).toBe(200);
+    const rpc = (admin.__calls.rpc ?? []).find(
+      ([fn]) => fn === 'fn_modifier_collecte',
+    );
+    expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
+      contact_principal_telephone: '0699990003',
+    });
+    expect(admin.__calls.eq).toContainEqual(['collecte_id', 'c1']);
+    const [audit] = (admin.__calls.insert ?? []).map(
+      ([ligne]) => ligne as Record<string, unknown>,
+    );
+    expect(audit).toMatchObject({
+      table_name: 'collectes',
+      action: 'UPDATE',
+      old_values: expect.objectContaining(CONTACTS_AVANT),
+      // Les contacts ne sont pas dans la ligne rendue par la RPC : la ligne
+      // d'audit porte à part la nouvelle valeur.
+      new_values: expect.objectContaining({
+        contact_principal_telephone: '0699990003',
+      }),
+    });
+    expect(audit).not.toHaveProperty('motif');
+  });
+
+  it('M1.2/admin_collecte_type_evenement_inconnu — PATCH /admin/collectes/[id], type absent du référentiel : 422, rien n’est lu ni écrit', async () => {
+    setupAuth('admin_savr', 'org-savr', 'val');
+    admin.push({ data: null, error: null }); // type d'événement : inconnu
+    const res = await patchCollecteAdmin({ type_evenement_id: TYPE_APRES });
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { champ?: string }).champ).toBe(
+      'type_evenement_id',
+    );
+    expect(admin.__calls.from).toEqual([['types_evenements']]);
+    expect(admin.__calls.rpc).toBeUndefined();
+    expect(admin.__calls.insert).toBeUndefined();
+  });
+
+  it('M1.2/admin_collecte_contact_principal_vide — PATCH /admin/collectes/[id], contact principal vidé : 422, rien n’est écrit', async () => {
+    setupAuth('admin_savr', 'org-savr', 'val');
+    const res = await patchCollecteAdmin({ contact_principal_nom: '   ' });
+    expect(res.status).toBe(422);
+    expect(admin.__calls.rpc).toBeUndefined();
+    expect(admin.__calls.insert).toBeUndefined();
+  });
+
+  it('M1.2/admin_collecte_contacts_non_lus — PATCH /admin/collectes/[id] sans type ni contact : collecte_contacts n’est pas lue', async () => {
+    setupAuth('admin_savr', 'org-savr', 'val');
+    admin.push({ data: { id: 'c1', statut: 'programmee' }, error: null }); // before
+    admin.push({ data: { id: 'c1', statut: 'programmee' }, error: null }); // rpc fn_modifier_collecte
+    admin.push({ data: null, error: null }); // audit insert
+
+    const res = await patchCollecteAdmin({
+      informations_supplementaires: 'Quai B',
+    });
+
+    expect(res.status).toBe(200);
+    expect(admin.__calls.from).not.toContainEqual(['collecte_contacts']);
+    expect(admin.__calls.from).not.toContainEqual(['types_evenements']);
+  });
+
+  it('M1.2/admin_collecte_contacts_illisibles_500 — PATCH /admin/collectes/[id] : lecture des contacts en échec → 500, rien n’est écrit', async () => {
+    setupAuth('admin_savr', 'org-savr', 'val');
+    admin.push({ data: { id: 'c1', statut: 'programmee' }, error: null }); // before
+    admin.push({ data: null, error: { message: 'boom' } }); // contacts : échec
+
+    const res = await patchCollecteAdmin({ contact_secours_nom: 'Léa' });
+
+    expect(res.status).toBe(500);
+    expect(admin.__calls.rpc).toBeUndefined();
+    expect(admin.__calls.insert).toBeUndefined();
+  });
 });

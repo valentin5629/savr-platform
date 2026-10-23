@@ -462,8 +462,9 @@ SELECT is(
 -- D2 le chemin NOMINAL (route → RPC) émet bien : c'est ce que l'écriture directe
 -- contournait. Sans cette assertion, D1/D3 seraient compatibles avec « E2 n'est
 -- jamais émis de toute façon » — le test ne prouverait rien.
-SELECT plateforme.fn_modifier_evenement(
-  '5e4e0000-0000-0000-0000-0000000000e1'::uuid,
+-- Lot B1 (2026-10-23) : les contacts se modifient sur la collecte.
+SELECT plateforme.fn_modifier_collecte(
+  '5e4e0000-0000-0000-0000-0000000000c1'::uuid,
   '{"contact_secours_nom": "Nom de secours corrige"}'::jsonb,
   ARRAY['contact_secours_nom']);
 SELECT is(
@@ -471,7 +472,7 @@ SELECT is(
     WHERE aggregate_id = '5e4e0000-0000-0000-0000-0000000000c1'::uuid
       AND event_type = 'collecte.modifiee'),
   1,
-  'D2 le chemin nominal (fn_modifier_evenement) emet bien un E2'
+  'D2 le chemin nominal (fn_modifier_collecte) emet bien un E2'
 );
 
 -- D3 l'UPDATE direct sous service_role, lui, reste muet : la RPC est le SEUL

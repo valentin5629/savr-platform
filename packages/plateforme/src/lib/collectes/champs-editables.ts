@@ -8,12 +8,24 @@
 // par le client » (§04 Data Model, arbitrage Val C1 2026-09-29).
 // `pax` : le nombre de convives est porté par la collecte depuis la décision
 // Val du 2026-10-20 (le pax de l'événement en est calculé en base).
+// Type d'événement et contacts : portés par la collecte depuis le lot B1
+// (décision Val 2026-10-23, B1-Q1) ; l'événement garde la copie de sa collecte
+// n°1, tenue par la base.
+export const CHAMPS_TYPE_CONTACTS_COLLECTE: readonly string[] = [
+  'type_evenement_id',
+  'contact_principal_nom',
+  'contact_principal_telephone',
+  'contact_secours_nom',
+  'contact_secours_telephone',
+];
+
 export const CHAMPS_COLLECTE_EDITABLES: readonly string[] = [
   'date_collecte',
   'heure_collecte',
   'pax',
   'controle_acces_requis',
   'informations_supplementaires',
+  ...CHAMPS_TYPE_CONTACTS_COLLECTE,
 ];
 
 // Refusés explicitement (422) plutôt qu'ignorés : pour changer le lieu ou le
@@ -27,15 +39,11 @@ export const CHAMPS_COLLECTE_VERROUILLES: readonly string[] = [
 
 // Événement parent. Le lieu se change en annulant puis en reprogrammant ;
 // organisation, traiteur opérationnel et entité de facturation sont immuables
-// par construction, donc jamais exposés. Le pax n'en fait plus partie : il se
-// modifie sur chaque collecte, et celui de l'événement en est calculé.
+// par construction, donc jamais exposés. Le pax, le type d'événement et les
+// contacts n'en font plus partie : ils se modifient sur chaque collecte
+// (CHAMPS_TYPE_CONTACTS_COLLECTE), et l'événement en garde une copie calculée.
 export const CHAMPS_EVENEMENT_EDITABLES: readonly string[] = [
   'nom_evenement',
-  'type_evenement_id',
-  'contact_principal_nom',
-  'contact_principal_telephone',
-  'contact_secours_nom',
-  'contact_secours_telephone',
   'nom_client_organisateur',
   'logo_client_organisateur_url',
   'reference_affaire',

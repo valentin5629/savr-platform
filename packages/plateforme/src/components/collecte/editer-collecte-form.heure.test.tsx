@@ -28,17 +28,17 @@ const COLLECTE: CollecteEditData = {
   pax: 80,
   controle_acces_requis: false,
   informations_supplementaires: null,
+  type_evenement_id: null,
+  contact_principal_nom: 'Jean',
+  contact_principal_telephone: '0600000000',
+  contact_secours_nom: null,
+  contact_secours_telephone: null,
   lieu_nom: 'Pavillon Gabriel',
   evenement: {
     id: 'evt-1',
     nom_evenement: 'Soirée',
-    type_evenement_id: null,
     nom_client_organisateur: 'Client',
     reference_affaire: null,
-    contact_principal_nom: 'Jean',
-    contact_principal_telephone: '0600000000',
-    contact_secours_nom: null,
-    contact_secours_telephone: null,
   },
 };
 
@@ -236,6 +236,213 @@ describe('M3.1 / EditerCollecteForm — un seul email par enregistrement', () =>
       ).toBeInTheDocument();
       expect(onSaved).not.toHaveBeenCalled();
       expect(patchs()).toEqual([]);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// Type d'événement et contacts sur place : portés par CHAQUE collecte (refonte
+// du formulaire, lot B1, décisions Val 2026-10-23). Ils se modifient dans la
+// section « Collecte » et partent dans la requête de la collecte ; celle de
+// l'événement ne porte plus que nom, client final et référence d'affaire.
+describe('M1.2 / EditerCollecteForm — type d’événement et contacts de la collecte (lot B1)', () => {
+  const TYPES = [
+    { id: 't1', code: 'cocktail', libelle: 'Cocktail' },
+    { id: 't2', code: 'diner', libelle: 'Dîner assis' },
+  ];
+  const AVEC_TYPE: CollecteEditData = {
+    ...COLLECTE,
+    type_evenement_id: 't1',
+    contact_secours_nom: 'Léa',
+    contact_secours_telephone: '0633333333',
+  };
+
+  async function monterB1(collecte: CollecteEditData = AVEC_TYPE) {
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+      if (url.includes('types-evenements'))
+        return new Response(JSON.stringify(TYPES));
+      return new Response('{}', { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const onSaved = vi.fn();
+    const rendu = render(
+      <EditerCollecteForm
+        collecte={collecte}
+        collecteEndpoint="/api/v1/traiteur/collectes/col-1"
+        onSaved={onSaved}
+      />,
+    );
+    const typeTrigger =
+      rendu.container.querySelector<HTMLButtonElement>('#edit-col-type')!;
+    // Référentiel chargé : le type de la collecte est affiché par son libellé.
+    if (collecte.type_evenement_id)
+      await waitFor(
+        () => expect(typeTrigger).toHaveTextContent('Cocktail'),
+        ATTENTE_UI,
+      );
+    const patchs = () =>
+      fetchMock.mock.calls
+        .filter(([, init]) => init?.method === 'PATCH')
+        .map(([url, init]) => [url, JSON.parse(String(init?.body))]);
+    const saisir = (selecteur: string, valeur: string) =>
+      fireEvent.change(rendu.container.querySelector(selecteur)!, {
+        target: { value: valeur },
+      });
+    const confirmer = () =>
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Confirmer la modification' }),
+      );
+    return { ...rendu, onSaved, patchs, saisir, confirmer, typeTrigger };
+  }
+
+  it(
+    'M1.2/type_contacts_par_collecte — type et contacts dans la section « Collecte », pré-remplis avec ceux de la collecte',
+    async () => {
+      const { container, typeTrigger } = await monterB1();
+      const sectionCollecte = screen
+        .getByRole('heading', { name: 'Collecte' })
+        .closest('section')!;
+      const sectionEvenement = screen
+        .getByRole('heading', { name: 'Événement' })
+        .closest('section')!;
+      for (const id of [
+        '#edit-col-type',
+        '#edit-cp-nom',
+        '#edit-cp-tel',
+        '#edit-cs-nom',
+        '#edit-cs-tel',
+      ]) {
+        expect(sectionCollecte.querySelector(id)).not.toBeNull();
+        expect(sectionEvenement.querySelector(id)).toBeNull();
+      }
+      // Plus aucun champ de type au niveau de l'événement.
+      expect(container.querySelector('#edit-evt-type')).toBeNull();
+      expect(typeTrigger).toHaveTextContent('Cocktail');
+      expect(container.querySelector('#edit-cp-nom')).toHaveValue('Jean');
+      expect(container.querySelector('#edit-cp-tel')).toHaveValue('0600000000');
+      expect(container.querySelector('#edit-cs-nom')).toHaveValue('Léa');
+      expect(container.querySelector('#edit-cs-tel')).toHaveValue('0633333333');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/type_contacts_par_collecte — type et contacts partent dans la requête de la collecte, jamais dans celle de l’événement',
+    async () => {
+      const { onSaved, patchs, saisir, confirmer, typeTrigger } =
+        await monterB1();
+      // Un champ de l'événement change aussi : les deux requêtes partent.
+      saisir('#edit-evt-client', 'Autre client');
+      fireEvent.click(typeTrigger);
+      fireEvent.click(screen.getByRole('option', { name: 'Dîner assis' }));
+      saisir('#edit-cp-nom', 'Marie Durand');
+      saisir('#edit-cp-tel', '0611223344');
+      saisir('#edit-cs-nom', 'Louis Secours');
+      saisir('#edit-cs-tel', '0699887766');
+      confirmer();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(patchs()).toEqual([
+        [
+          '/api/v1/programmation/evenements/evt-1',
+          { nom_client_organisateur: 'Autre client' },
+        ],
+        [
+          '/api/v1/traiteur/collectes/col-1',
+          {
+            type_evenement_id: 't2',
+            contact_principal_nom: 'Marie Durand',
+            contact_principal_telephone: '0611223344',
+            contact_secours_nom: 'Louis Secours',
+            contact_secours_telephone: '0699887766',
+            evenement_modifie: true,
+          },
+        ],
+      ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/type_contacts_par_collecte — un contact seul modifié : la seule requête est celle de la collecte, avec ce seul champ',
+    async () => {
+      const { onSaved, patchs, saisir, confirmer } = await monterB1();
+      saisir('#edit-cp-tel', '0611223344');
+      confirmer();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(patchs()).toEqual([
+        [
+          '/api/v1/traiteur/collectes/col-1',
+          { contact_principal_telephone: '0611223344' },
+        ],
+      ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/type_contacts_par_collecte — contact de secours vidé : accepté, envoyé vide (null)',
+    async () => {
+      const { onSaved, patchs, saisir, confirmer } = await monterB1();
+      saisir('#edit-cs-nom', '');
+      saisir('#edit-cs-tel', '');
+      confirmer();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(patchs()).toEqual([
+        [
+          '/api/v1/traiteur/collectes/col-1',
+          { contact_secours_nom: null, contact_secours_telephone: null },
+        ],
+      ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Un cas par champ vidé : chacun part d'un formulaire neuf.
+  it.each([
+    ['nom vidé', '#edit-cp-nom', ''],
+    ['nom fait de blancs', '#edit-cp-nom', '   '],
+    ['téléphone vidé', '#edit-cp-tel', ''],
+  ])(
+    'M1.2/type_contacts_par_collecte — contact principal %s : refusé à l’écran, rien n’est envoyé',
+    async (_cas, champ, valeur) => {
+      const { onSaved, patchs, saisir, confirmer } = await monterB1();
+      saisir(champ, valeur);
+      confirmer();
+      expect(
+        await screen.findByText(
+          'Le contact principal et son téléphone sont obligatoires.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(onSaved).not.toHaveBeenCalled();
+      expect(patchs()).toEqual([]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/type_contacts_par_collecte — collecte sans contact principal (reprise) non modifié : les autres champs restent modifiables',
+    async () => {
+      const { onSaved, patchs, saisir, confirmer } = await monterB1({
+        ...AVEC_TYPE,
+        contact_principal_nom: null,
+        contact_principal_telephone: null,
+      });
+      saisir('#edit-evt-ref-affaire', 'AFF-9');
+      confirmer();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(
+        screen.queryByText(
+          'Le contact principal et son téléphone sont obligatoires.',
+        ),
+      ).toBeNull();
+      expect(patchs()).toEqual([
+        [
+          '/api/v1/programmation/evenements/evt-1',
+          { reference_affaire: 'AFF-9', collecte_id: 'col-1' },
+        ],
+      ]);
     },
     ATTENTE_CAS_MS,
   );

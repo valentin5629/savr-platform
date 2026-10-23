@@ -342,7 +342,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts",
       "test": "M1.1b/admin_evenement_edit_emet_e2 — PATCH passe par fn_modifier_evenement",
       "statut": "implemented",
-      "libelle": "PATCH /admin/evenements via fn_modifier_evenement (émet E2 par collecte dispatchée — fix trou Admin, ex .update() silencieux)"
+      "libelle": "PATCH /admin/evenements via fn_modifier_evenement (émet E2 par collecte dispatchée — fix trou Admin, ex .update() silencieux) Depuis le lot B1 (2026-10-23) : fn_modifier_evenement n'émet plus d'E2 (aucun champ de l'événement ne part au prestataire) et la route refuse le type d'événement et les contacts (422) — le titre du test, cité tel quel, garde sa mention d'origine."
     },
     {
       "id": "M1.1b-numero-rup",

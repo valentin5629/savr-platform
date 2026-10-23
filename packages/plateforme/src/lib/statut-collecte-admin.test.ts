@@ -249,9 +249,13 @@ describe('M0.6/dirty_tms_apres_envoi — « demande partie » : mêmes signaux �
     ]);
   });
 
+  // Lot B1 (2026-10-23) : les contacts sont portés par la collecte ; c'est le
+  // déclencheur de `collecte_contacts` qui arme le drapeau, celui de
+  // l'événement est sans effet (sa copie des contacts ne part pas au
+  // prestataire).
   it.each([
     'fn_set_collectes_dirty_tms',
-    'fn_evenement_marque_collectes_modifiees',
+    'fn_collecte_contacts_marque_collecte_modifiee',
   ])('%s les lit tous les quatre', (fonction) => {
     const sql = corps(fonction);
     for (const signal of signaux) expect(sql).toContain(signal);
@@ -259,19 +263,25 @@ describe('M0.6/dirty_tms_apres_envoi — « demande partie » : mêmes signaux �
 
   it('les deux fonctions lues sont bien deux corps distincts (cliquet non vacant)', () => {
     const collecte = corps('fn_set_collectes_dirty_tms');
-    const evenement = corps('fn_evenement_marque_collectes_modifiees');
+    const contacts = corps('fn_collecte_contacts_marque_collecte_modifiee');
     expect(collecte).toContain('NEW.dirty_tms := true');
     expect(collecte).not.toContain('UPDATE plateforme.collectes');
-    expect(evenement).toContain('UPDATE plateforme.collectes');
-    expect(evenement).not.toContain('NEW.dirty_tms := true');
+    expect(contacts).toContain('UPDATE plateforme.collectes');
+    expect(contacts).not.toContain('NEW.dirty_tms := true');
   });
 
-  it('le déclencheur d’événement arme les statuts que la pastille compte, et eux seuls', () => {
-    const liste = corps('fn_evenement_marque_collectes_modifiees').match(
+  it('le déclencheur des contacts de collecte arme les statuts que la pastille compte, et eux seuls', () => {
+    const liste = corps('fn_collecte_contacts_marque_collecte_modifiee').match(
       /c\.statut IN \(([^)]*)\)/,
     );
     expect(liste).not.toBeNull();
     const statuts = [...liste![1]!.matchAll(/'(\w+)'/g)].map((m) => m[1]!);
     expect(statuts.sort()).toEqual([...STATUTS_A_RENVOYER].sort());
+  });
+
+  it('le déclencheur de l’événement n’arme plus rien (lot B1 : sa copie des contacts ne part pas au prestataire)', () => {
+    const evenement = corps('fn_evenement_marque_collectes_modifiees');
+    expect(evenement).not.toContain('UPDATE plateforme.collectes');
+    expect(evenement).toContain('RETURN NULL');
   });
 });

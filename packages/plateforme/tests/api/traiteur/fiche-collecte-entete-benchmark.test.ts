@@ -77,13 +77,18 @@ function makeReq(qs = ''): NextRequest {
   );
 }
 
-/** Collecte RLS-visible, avec l'événement portant pax / type / organisations. */
-function collecteAvecEvenement(evt: Record<string, unknown>) {
+/** Collecte RLS-visible, avec l'événement portant pax / organisations ; le
+ *  type d'événement est celui de la collecte (lot B1). */
+function collecteAvecEvenement(
+  evt: Record<string, unknown>,
+  collecteEnPlus: Record<string, unknown> = {},
+) {
   return {
     data: {
       id: 'c1',
       type: 'zero_dechet',
       statut: 'cloturee',
+      ...collecteEnPlus,
       evenement: {
         id: 'e1',
         organisation_id: 'org-1',
@@ -110,10 +115,12 @@ beforeEach(() => {
 
 describe('M3.1 / fiche collecte — bloc d’entête (§06.04)', () => {
   it('M3.1/fiche_entete_type_et_taille_bracket — pax 300 ⇒ bracket S', async () => {
-    rls.results.collectes = collecteAvecEvenement({
-      pax: 300,
-      type_evenement: { libelle: 'Cocktail apéritif' },
-    });
+    // Type d'événement de LA collecte (lot B1) ; l'événement en garde une copie
+    // (celle de sa collecte n°1), jamais affichée à sa place.
+    rls.results.collectes = collecteAvecEvenement(
+      { pax: 300, type_evenement: { libelle: 'Dîner assis' } },
+      { type_evenement: { libelle: 'Cocktail apéritif' } },
+    );
 
     const { GET } =
       await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
@@ -121,12 +128,12 @@ describe('M3.1 / fiche collecte — bloc d’entête (§06.04)', () => {
     const { data } = (await res.json()) as {
       data: {
         taille_bracket: string | null;
-        evenement: { type_evenement: { libelle: string } };
+        type_evenement: { libelle: string };
       };
     };
     // Bornes §04 taille_evenement_bracket : 250 ≤ 300 < 500 ⇒ S (et pas XS).
     expect(data.taille_bracket).toBe('S');
-    expect(data.evenement.type_evenement.libelle).toBe('Cocktail apéritif');
+    expect(data.type_evenement.libelle).toBe('Cocktail apéritif');
   });
 
   it('M3.1/fiche_entete_taille_null_sans_pax — informations incomplètes ⇒ pas de bracket inventé', async () => {

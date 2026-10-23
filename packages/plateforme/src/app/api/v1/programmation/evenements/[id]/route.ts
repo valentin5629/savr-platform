@@ -8,7 +8,10 @@ import {
 } from '@/lib/api-auth.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
-import { CHAMPS_EVENEMENT_EDITABLES } from '@/lib/collectes/champs-editables.js';
+import {
+  CHAMPS_EVENEMENT_EDITABLES,
+  CHAMPS_TYPE_CONTACTS_COLLECTE,
+} from '@/lib/collectes/champs-editables.js';
 import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
@@ -94,7 +97,10 @@ export async function GET(
 // Édition des champs métier de l'événement par un rôle programmateur (4 rôles).
 // Décision produit Val 2026-06-26 : édition événement + collecte depuis la fiche
 // collecte, fenêtre brouillon/programmee/validee, verrou dès en_cours (§06.04 l.444,
-// §05 §4). E2 par collecte déjà dispatchée émis par fn_modifier_evenement.
+// §05 §4). Le type d'événement et les contacts se modifient sur chaque collecte
+// depuis le lot B1 (décision Val 2026-10-23) : refusés ici (422), et
+// fn_modifier_evenement n'émet plus d'E2 (aucun champ restant ne part au
+// prestataire).
 // Reste volontairement fermé au staff (contrairement au GET) : editer-collecte-form
 // n'est monté que sur les fiches traiteur/agence/gestionnaire, l'admin éditant par
 // le back-office (/api/v1/admin/evenements/[id], requireStaff). Aucun chemin admin
@@ -131,6 +137,21 @@ export async function PATCH(
         error:
           'Le nombre de convives se modifie sur chaque collecte, pas sur l’événement.',
         champs_verrouilles: ['pax'],
+      },
+      { status: 422 },
+    );
+  }
+
+  // Le type d'événement et les contacts se modifient sur chaque collecte (lot
+  // B1, décision Val 2026-10-23) ; l'événement garde la copie de sa collecte
+  // n°1, tenue par la base. Refusés plutôt qu'ignorés.
+  const typeContacts = CHAMPS_TYPE_CONTACTS_COLLECTE.filter((f) => f in body);
+  if (typeContacts.length > 0) {
+    return NextResponse.json(
+      {
+        error:
+          'Le type d’événement et les contacts se modifient sur chaque collecte, pas sur l’événement.',
+        champs_verrouilles: typeContacts,
       },
       { status: 422 },
     );
@@ -205,8 +226,8 @@ export async function PATCH(
   });
   if (frein) return frein;
 
-  // Écriture via RPC service-role : UPDATE événement + émission E2 par collecte
-  // dispatchée (atomique, row lock avant outbox — G4).
+  // Écriture via RPC service-role : UPDATE de l'événement (aucun E2 depuis le
+  // lot B1, cf. ci-dessus).
   const admin = createAdminSupabaseClient();
   const { data: before } = await admin
     .from('evenements')
@@ -249,7 +270,11 @@ export async function PATCH(
   // Recompute de `informations_completes` (§04 Data Model) — BL-P1-TRAIT-04.
   // À l'édition, le badge « Info incomplète » est recalculé sur le téléphone du
   // contact principal ET le nom de l'événement ; le client final, facultatif,
-  // n'en fait pas partie (décision Val 2026-10-19). À la programmation, ces deux
+  // n'en fait pas partie (décision Val 2026-10-19). Depuis le lot B1, le
+  // téléphone ne se modifie plus ici : c'est celui de la copie gardée par
+  // l'événement (collecte n°1), jamais vide pour une collecte créée depuis
+  // (collecte_contacts l'exige) ; seule une modification du nom déclenche ce
+  // recalcul. À la programmation, ces deux
   // champs sont exigés (422) : seule une surcharge du lieu y pose le badge. Les
   // collectes à lieu_overrides restent incomplètes (override lieu non levé ici)
   // → exclues du recompute.

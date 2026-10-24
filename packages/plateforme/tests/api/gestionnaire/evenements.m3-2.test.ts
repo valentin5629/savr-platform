@@ -36,6 +36,7 @@ function makeChain() {
     'eq',
     'in',
     'not',
+    'neq',
     'or',
     'gte',
     'lte',
@@ -249,14 +250,32 @@ describe('M3.2 / liste Événements gestionnaire — route', () => {
       'attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)',
     );
     expect(select).toContain('v_traiteurs_gestionnaire!');
-    // Brouillons écartés, total exact demandé, tri date décroissante + id.
+    // Brouillons écartés (cf. evenements_route_brouillons_ecartes), total exact
+    // demandé, tri date décroissante + id.
     expect(rls.__calls.not).toEqual([['date_evenement', 'is', null]]);
+    expect(rls.__calls.or).toEqual([
+      ['hors_brouillon.not.is.null,collectes.is.null'],
+    ]);
     expect(rls.__calls.select?.[0]?.[1]).toEqual({ count: 'exact' });
     expect(rls.__calls.order).toEqual([
       ['date_evenement', { ascending: false }],
       ['id', { ascending: false }],
     ]);
     expect(rls.__calls.range?.[0]).toEqual([0, PAGE_SIZE - 1]);
+  });
+
+  it('M3.2/evenements_route_brouillons_ecartes — un brouillon a une date : écarté parce que ses collectes sont toutes des brouillons, pas par sa date', async () => {
+    rls.__set({ data: [], error: null, count: 0 });
+    await liste();
+    // Embed dédié, filtré sur les collectes hors brouillon ; l'événement passe
+    // s'il en garde une, ou s'il n'a aucune collecte. Le premier embed
+    // `collectes(...)` reste entier : le bilan est celui de l'événement.
+    const select = String(rls.__calls.select?.[0]?.[0]);
+    expect(select).toContain('hors_brouillon:collectes(id)');
+    expect(rls.__calls.neq).toEqual([['hors_brouillon.statut', 'brouillon']]);
+    expect(rls.__calls.or?.[0]).toEqual([
+      'hors_brouillon.not.is.null,collectes.is.null',
+    ]);
   });
 
   it('M3.2/evenements_route_filtres_traduits_en_sql', async () => {
@@ -282,8 +301,13 @@ describe('M3.2 / liste Événements gestionnaire — route', () => {
     expect(String(rls.__calls.select?.[0]?.[0])).toContain(
       'filtre_type_evt:collectes!inner(id)',
     );
-    // Taille : prédicats sur `pax` de l'événement (C4), pax NULL compté XS.
-    expect(rls.__calls.or).toEqual([['pax.is.null,pax.lt.250,pax.gte.1000']]);
+    // Taille : prédicats sur `pax` de l'événement (C4), pax NULL compté XS. Le
+    // premier `or` est celui qui écarte les brouillons : les deux paramètres
+    // `or` se cumulent (ET), mesuré contre PostgREST v14 le 2026-10-24.
+    expect(rls.__calls.or).toEqual([
+      ['hors_brouillon.not.is.null,collectes.is.null'],
+      ['pax.is.null,pax.lt.250,pax.gte.1000'],
+    ]);
     expect(rls.__calls.range?.[0]).toEqual([2 * PAGE_SIZE, 3 * PAGE_SIZE - 1]);
     expect(rls.__calls.order?.[0]).toEqual([
       'date_evenement',
@@ -423,6 +447,19 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
     const absent = await fiche();
     expect(absent.status).toBe(404);
     expect(rls.__calls.not).toEqual([['date_evenement', 'is', null]]);
+  });
+
+  it('M3.2/evenement_fiche_brouillon_404 — même filtre que la liste : un événement aux collectes toutes brouillons n’est pas rendu', async () => {
+    rls.__set({ data: null, error: null });
+    const res = await fiche();
+    expect(res.status).toBe(404);
+    expect(String(rls.__calls.select?.[0]?.[0])).toContain(
+      'hors_brouillon:collectes(id)',
+    );
+    expect(rls.__calls.neq).toEqual([['hors_brouillon.statut', 'brouillon']]);
+    expect(rls.__calls.or).toEqual([
+      ['hors_brouillon.not.is.null,collectes.is.null'],
+    ]);
   });
 
   it('M3.2/evenement_fiche_types_de_ses_collectes — « Type d’événement » : types de ses collectes, ordre de la collecte n°1, sans doublon ni collecte annulée (lot C1, Q2)', async () => {

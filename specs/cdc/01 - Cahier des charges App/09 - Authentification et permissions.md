@@ -202,7 +202,7 @@ Principe : chaque table sensible a une policy qui filtre les lignes visibles sel
 
 ### Table `collecte_contacts` *(ajout refonte Val 2026-10-22)*
 
-RLS activée et forcée, **une seule policy, qui refuse tout** (`collecte_contacts_ferme`, `USING (false) WITH CHECK (false)` — règle « au moins une policy par table ») ; `REVOKE ALL` à `anon`, `authenticated` et `PUBLIC` ; `service_role` seul (routes et RPC, il contourne la RLS). *(Avec les fiches collecte, lot B1)* les contacts d'une collecte sont servis par la route de la fiche collecte selon les mêmes règles que ceux de `evenements` (arbitrages Val C2 et C5 du 2026-10-01 : traiteur et agence de l'organisation programmatrice ; gestionnaire sur ses seules programmations ; jamais au client organisateur ni au traiteur opérationnel tiers). pgTAP : chaque rôle client est refusé.
+RLS activée et forcée, **une seule policy, qui refuse tout** (`collecte_contacts_ferme`, `USING (false) WITH CHECK (false)` — règle « au moins une policy par table ») ; `REVOKE ALL` à `anon`, `authenticated` et `PUBLIC` ; `service_role` seul (routes et RPC, il contourne la RLS). Les contacts d'une collecte sont servis par la route de la fiche collecte selon les arbitrages Val C2 et C5 du 2026-10-01 : au traiteur (programmateur ou opérationnel) et à l'agence toujours, au gestionnaire sur ses seules programmations ; jamais au client organisateur, qui n'a pas de fiche collecte. *(Correction du 2026-10-23 : la rédaction du 2026-10-22 excluait à tort le traiteur opérationnel et restreignait l'agence à l'organisation programmatrice ; le code et §06.04 suivaient déjà l'arbitrage.)* pgTAP : chaque rôle client est refusé.
 
 ### Table `collectes`
 

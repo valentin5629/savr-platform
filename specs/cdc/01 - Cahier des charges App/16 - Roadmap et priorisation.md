@@ -66,10 +66,10 @@ Le back-office Admin est la colonne vertébrale opérationnelle. À construire a
 
 Le use case central de la plateforme — ce que fait le traiteur commercial au quotidien.
 
-- Formulaire 3 étapes : événement (nom client, logo, date, type) → lieu/contacts → date, heure et nombre de convives de chaque collecte (récapitulatif sur l'écran de confirmation, décision Val 2026-10-16)
+- Formulaire en deux écrans (refonte Val 2026-10-22) : événement (nom, client final, référence interne, lieu, contrôle d'accès, nombre de collectes par type) → une carte par collecte (date, heure, convives, type d'événement, contacts, informations) ; récapitulatif sur la page de confirmation
 - Autocomplétion lieux (référentiel) + saisie manuelle si hors référentiel
 - Autocomplétion contacts traiteurs
-- Gestion collecte ZD + AG sur le même événement (**formulaire unique événement-centré** — choix ☐ZD ☐AG en étape 1, rattachement explicite `evenement_id`, refonte 2026-05-21) + date événement distincte de date collecte *(multi-camions retiré du périmètre App 2026-05-25 — devenu interne TMS, Sujet 1 option A)*
+- Gestion collecte ZD + AG sur le même événement (**formulaire unique événement-centré** — nombre de collectes ZD et AG à l'écran 1 (refonte Val 2026-10-22), rattachement explicite `evenement_id`, refonte 2026-05-21) + date événement distincte de date collecte *(multi-camions retiré du périmètre App 2026-05-25 — devenu interne TMS, Sujet 1 option A)*
 - Calcul automatique tarif ZD selon pax + tarifs préférentiels gestionnaire
 - Vérification pack AG disponible (blocage si épuisé)
 - Email de confirmation programmation

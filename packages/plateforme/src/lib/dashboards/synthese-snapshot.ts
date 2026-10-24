@@ -145,6 +145,8 @@ interface CollecteRow {
   type: string;
   taux_recyclage: number | null;
   date_collecte: string;
+  /** Convives de la COLLECTE : porte le filtre Taille (lot C1, Q3 Val 2026-10-24). */
+  pax?: number | null;
   co2_evite_kg: number | null;
   co2_induit_kg: number | null;
   co2_net_kg: number | null;
@@ -163,7 +165,7 @@ interface CollecteRow {
 // pour traiteur et agence.
 const selectPour = (
   role: SyntheseRole,
-): string => `id, type, taux_recyclage, date_collecte,
+): string => `id, type, taux_recyclage, date_collecte, pax,
   co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh, co2_facteurs_snapshot,
   evenements!inner(id, nom_evenement, date_evenement, lieu_id, pax, organisation_id,
     client_organisateur_organisation_id, type_evenement_id,
@@ -220,13 +222,13 @@ export async function buildSyntheseSnapshot(
 
   const rows = await fetchScopedRows(supabase, ctx, params, clock.cutoffIso);
 
-  // Filtre taille d'événement (bracket sur pax) — post-fetch comme les endpoints blocs.
+  // Filtre taille d'événement (bracket sur le pax de la COLLECTE, Q3 Val
+  // 2026-10-24) — post-fetch comme les endpoints blocs.
   const filtered = rows.filter((c) => {
     const evt = evtOf(c);
     if (!evt) return false;
     if (params.tailleEvts.length > 0) {
-      if (!params.tailleEvts.includes(tailleBracket(evt.pax ?? 0)))
-        return false;
+      if (!params.tailleEvts.includes(tailleBracket(c.pax ?? 0))) return false;
     }
     return true;
   });
@@ -350,8 +352,9 @@ async function fetchScopedRows(
     if (params.types.length === 1) x = x.eq('type', params.types[0] as string);
     if (params.from) x = x.gte('date_collecte', params.from);
     if (params.to) x = x.lte('date_collecte', params.to);
+    // Type d'événement de la COLLECTE (décision Val C3 du 2026-10-22).
     if (params.typeEvtIds.length > 0)
-      x = x.in('evenements.type_evenement_id', params.typeEvtIds);
+      x = x.in('type_evenement_id', params.typeEvtIds);
     if (params.clientOrgaIds.length > 0)
       x = x.in(
         'evenements.client_organisateur_organisation_id',

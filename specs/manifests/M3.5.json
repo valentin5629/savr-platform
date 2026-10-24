@@ -95,6 +95,14 @@
       "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_sans_prochaines_collectes",
       "statut": "implemented",
       "libelle": "Endpoint partagé GET /api/v1/dashboards/blocs (traiteur/agence/gestionnaire) : Bloc 6 top 5 lieux, Bloc 7 top 5 acteurs, Bloc 3 AG associations, kg/pax par flux ZD. Périmètre par rôle (org / organisations_lieux) EN PLUS de la RLS f_collecte_visible, agrégation TS (aucune vue nouvelle), normalisation to-one PostgREST. Bloc 5 « Prochaines collectes » retiré le 2026-10-01 (décision Val) : la réponse ne porte plus de liste `prochaines`."
+    },
+    {
+      "id": "M3.5-filtres-type-taille-grain-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:80",
+      "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, loadEvolution) + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (fetchScopedRows, buildSyntheseSnapshot)",
+      "test": "M3.5/blocs_filtres_type_et_taille_de_la_collecte + M3.5/evolution_filtres_type_et_taille_de_la_collecte + M3.5/synthese_filtres_type_et_taille_de_la_collecte",
+      "statut": "implemented",
+      "libelle": "Filtres globaux « Type d'événement » et « Taille d'événement » des dashboards traiteur, agence et gestionnaire (blocs, évolution) et de la synthèse PDF au grain de la COLLECTE (lot C1, 2026-10-24 ; C3 du 2026-10-22, Q3 Val 2026-10-24 « Collecte, dès C1 ») : `.in('type_evenement_id')` sur collectes, taille en JS sur collectes.pax. Les cumuls de pax (kg/pax, repas/pax) restent ceux des événements distincts jusqu'au lot 3."
     }
   ],
   "cdc_source_hash": {

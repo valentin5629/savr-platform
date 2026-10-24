@@ -77,7 +77,7 @@ export interface AdminDashboardClientPayload {
   };
 }
 
-const SELECT_HISTORIQUE = `id, type, taux_recyclage, date_collecte,
+const SELECT_HISTORIQUE = `id, type, taux_recyclage, date_collecte, pax,
    co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh,
    evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
      traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
@@ -162,8 +162,10 @@ export async function loadAdminDashboardClient(
         'evenements.traiteur_operationnel_organisation_id',
         traiteurIds,
       );
+    // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
+    // 2026-10-22, Q3 du 2026-10-24 « Collecte, dès C1 »).
     if (typeEvtIds.length > 0)
-      query = query.in('evenements.type_evenement_id', typeEvtIds);
+      query = query.in('type_evenement_id', typeEvtIds);
     return query;
   };
 
@@ -187,15 +189,15 @@ export async function loadAdminDashboardClient(
   if (histRes.error)
     throw erreurInterne(histRes.error, 'admin.dashboard_client.historique');
 
-  // Filtre taille (pax) en JS — parité §06.05.
-  const tailleOk = (evt: { pax?: number | null } | null): boolean => {
-    if (!evt) return false;
+  // Filtre taille en JS — parité §06.05 — sur le pax de la COLLECTE (Q3).
+  const tailleOk = (c: BlocsCollecteRow): boolean => {
+    if (!firstOf(c.evenements)) return false;
     if (tailleEvts.length === 0) return true;
-    return tailleEvts.includes(tailleBracket(evt.pax ?? 0));
+    return tailleEvts.includes(tailleBracket(c.pax ?? 0));
   };
 
   const histAll = (histRes.data ?? []) as unknown as BlocsCollecteRow[];
-  const histRows = histAll.filter((c) => tailleOk(firstOf(c.evenements)));
+  const histRows = histAll.filter(tailleOk);
 
   const kpi =
     histRows.length > 0
@@ -268,9 +270,11 @@ export interface AdminBenchmarkFiltres {
 }
 
 export interface AdminBenchmarkComparaison {
-  /** kg/pax par code de flux sur le périmètre de référence (Σ kg flux / Σ pax). */
+  /** kg/pax par code de flux sur le périmètre de référence (Σ kg flux / Σ pax des
+   *  collectes, collectes à 0 convive écartées — Q4 Val 2026-10-24). */
   kgParPaxParFlux: Record<string, number>;
-  /** Collectes clôturées ZD qui composent la référence (taille d'échantillon). */
+  /** Collectes clôturées ZD qui composent la référence (taille d'échantillon,
+   *  sans les collectes à 0 convive). */
   nbCollectes: number;
   /** Bornes de la période fixe 24 mois glissants (affichage). */
   periode: { debut: string; fin: string };
@@ -279,7 +283,7 @@ export interface AdminBenchmarkComparaison {
 /** Taille de page = plafond PostgREST `max_rows` (supabase/config.toml). */
 export const PAGE_REFERENCE = 1000;
 
-const SELECT_REFERENCE = `id, type, taux_recyclage, date_collecte,
+const SELECT_REFERENCE = `id, type, taux_recyclage, date_collecte, pax,
    evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
      traiteur_operationnel_organisation_id),
    collecte_flux(poids_reel_kg, flux_dechets(code))`;
@@ -294,8 +298,14 @@ const SELECT_REFERENCE = `id, type, taux_recyclage, date_collecte,
  * clair (sélecteur de périmètre) ; masquer un segment ne protégerait rien et
  * empêcherait la comparaison « un traiteur contre un autre ». La fonction SQL
  * `f_benchmark_kg_pax_zd` (k ≥ 5 collectes et ≥ 3 acteurs) reste la seule source
- * des dashboards CLIENTS, inchangée. Même formule que la ligne « Vous »
- * (`kgParPaxParFluxFrom`) : les deux lignes se comparent à grain identique.
+ * des dashboards CLIENTS. Même règle qu'elle depuis le lot C1 (décision Val Q4
+ * du 2026-10-24) : Σ poids du flux / Σ pax des COLLECTES, type et taille de la
+ * collecte, collecte à 0 convive (inconnu) écartée. La ligne « Vous » garde le
+ * pax des événements distincts jusqu'au lot 3 (cumuls des dashboards) : les deux
+ * diffèrent dès que ce pax n'est pas la somme des pax des collectes ZD clôturées
+ * retenues — une collecte AG du même jour plus grosse que ses ZD, une ZD pas
+ * encore clôturée, un filtre type ou taille qui ne retient qu'une partie des
+ * collectes d'un événement.
  */
 export async function loadAdminBenchmarkComparaison(
   admin: AdminDbClient,
@@ -321,8 +331,7 @@ export async function loadAdminBenchmarkComparaison(
     if (traiteurIds.length > 0)
       q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
     if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
-    if (typeEvtIds.length > 0)
-      q = q.in('evenements.type_evenement_id', typeEvtIds);
+    if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
     const res = await q.order('id').range(offset, offset + PAGE_REFERENCE - 1);
     if (res.error)
       throw erreurInterne(
@@ -334,16 +343,19 @@ export async function loadAdminBenchmarkComparaison(
     if (page.length < PAGE_REFERENCE) break;
   }
 
-  // Filtre taille (pax) en JS — même règle que le dashboard (parité §06.05).
+  // Collecte à 0 convive écartée (Q4), puis filtre taille en JS sur le pax de la
+  // collecte — même règle que le dashboard (parité §06.05).
   const tailleEvts = filtres.tailleEvts;
   const rows = toutes.filter((c) => {
+    const pax = c.pax ?? 0;
+    if (pax <= 0) return false;
     if (tailleEvts.length === 0) return true;
-    const evt = firstOf(c.evenements);
-    return evt != null && tailleEvts.includes(tailleBracket(evt.pax ?? 0));
+    return tailleEvts.includes(tailleBracket(pax));
   });
+  const paxCollectes = rows.reduce((s, c) => s + (c.pax ?? 0), 0);
 
   return {
-    kgParPaxParFlux: kgParPaxParFluxFrom(rows),
+    kgParPaxParFlux: kgParPaxParFluxFrom(rows, paxCollectes),
     nbCollectes: rows.length,
     periode,
   };

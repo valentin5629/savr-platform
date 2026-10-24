@@ -149,14 +149,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
     if (traiteurIds.length > 0)
       q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
-    if (typeEvtIds.length > 0)
-      q = q.in('evenements.type_evenement_id', typeEvtIds);
+    // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
+    // 2026-10-22 et C4 du 2026-10-20, lot C1) — une collecte « Repas assis » d'un
+    // événement « Cocktail » sort sous « Repas assis », et une soirée de 300
+    // convives d'un événement de deux soirées est rangée selon ses 300 convives.
+    if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
     // Un seul `.or()` pour tous les brackets retenus : ses termes sont OU-és entre
     // eux et l'ensemble est ET-é avec les filtres ci-dessus. Mesuré contre le
     // PostgREST local : `lieu_id` seul = 7 lignes, `lieu_id` + taille M = 6 — le
-    // `.or()` ne désarme pas les filtres voisins.
-    if (predicatsTaille.length > 0)
-      q = q.or(predicatsTaille.join(','), { referencedTable: 'evenements' });
+    // `.or()` ne désarme pas les filtres voisins. Sans `referencedTable` : il
+    // porte sur `collectes.pax`.
+    if (predicatsTaille.length > 0) q = q.or(predicatsTaille.join(','));
     return q;
   };
 

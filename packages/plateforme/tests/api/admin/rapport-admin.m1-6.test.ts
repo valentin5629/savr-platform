@@ -116,8 +116,9 @@ async function rapport(corps?: unknown) {
 
 /**
  * Collecte ZD de 600 convives (taille M), type connu, rapport sorti d'embargo.
- * Le type d'événement est celui de LA collecte (lot B1, décision Val
- * 2026-10-23) ; piège : l'événement porte celui de sa collecte n°1, qui diffère.
+ * Le type d'événement (lot B1, décision Val 2026-10-23) et la taille (lot C1,
+ * C4 du 2026-10-20) sont ceux de LA collecte ; piège : l'événement porte le type
+ * de sa collecte n°1, qui diffère, et 1 500 convives sur deux soirées (XL).
  */
 const TYPE_COLLECTE_N1 = '22222222-2222-4222-8222-222222222222';
 function collecteDisponible() {
@@ -126,7 +127,8 @@ function collecteDisponible() {
       id: 'c1',
       type: 'zero_dechet',
       type_evenement_id: TYPE_ID,
-      evenements: { pax: 600, type_evenement_id: TYPE_COLLECTE_N1 },
+      pax: 600,
+      evenements: { pax: 1500, type_evenement_id: TYPE_COLLECTE_N1 },
     },
     error: null,
   };
@@ -209,14 +211,15 @@ describe('M1.6 / rapport fabriqué au clic par l’Admin — avec ou sans radar'
     expect(invalide.status).toBe(422);
   });
 
-  it('événement sans type ni convives → filtres vides (le calcul dira s’il y a de quoi comparer)', async () => {
+  it('collecte sans type ni convives connus (0) → filtres vides (le calcul dira s’il y a de quoi comparer)', async () => {
     collecteDisponible();
     admin.results.collectes = {
       data: {
         id: 'c1',
         type: 'zero_dechet',
         type_evenement_id: null,
-        evenements: [{ pax: null }],
+        pax: 0,
+        evenements: [{ pax: 400 }],
       },
       error: null,
     };

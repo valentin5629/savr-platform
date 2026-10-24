@@ -17,7 +17,8 @@ import { serverError } from '@/lib/api-helpers.js';
 
 // Radar ZD de la FICHE collecte (§06.04, grain `single_collecte`) — commun aux
 // routes /api/v1/{traiteur,agence,gestionnaire}/collectes/[id]/benchmark :
-//  · ratio_user      = kg du flux SUR CETTE COLLECTE / pax de l'événement
+//  · ratio_user      = kg du flux SUR CETTE COLLECTE / pax de CETTE collecte
+//                      (lot C1 ; NULL à 0 convive)
 //  · benchmark parc  = moyenne pondérée du segment, k-anonymat côté serveur
 //
 // `f_benchmark_single_collecte` porte le ratio ET la garde d'accès : elle

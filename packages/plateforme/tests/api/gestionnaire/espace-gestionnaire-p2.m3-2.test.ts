@@ -183,9 +183,12 @@ describe('M3.2 / P2 liste traiteurs', () => {
 
 // ── Dashboard : filtre global honoré ──────────────────────────────────────────
 describe('M3.2 / P2 dashboard filtres globaux', () => {
-  it('M3.2/P2_dashboard_filtre_taille — seules les collectes du bracket comptent', async () => {
+  it('M3.2/P2_dashboard_filtre_taille — seules les collectes du bracket comptent, selon le pax de la COLLECTE (Q3 Val 2026-10-24)', async () => {
     setupAuth();
     rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
+    // Deux soirées d'un même événement de 900 convives (XL) : 300 (S) puis 600
+    // (M). Lu à l'événement, le filtre M n'en retiendrait aucune.
+    const evt = { id: 'e-1', lieu_id: 'lieu-1', pax: 900 };
     rls.push({
       data: [
         {
@@ -193,7 +196,8 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
           type: 'zero_dechet',
           taux_recyclage: 0.8,
           realisee_at: null,
-          evenements: { id: 'e-s', lieu_id: 'lieu-1', pax: 300 }, // S
+          pax: 300, // S
+          evenements: evt,
           collecte_flux: [
             { poids_reel_kg: 100, flux_dechets: { code: 'carton' } },
           ],
@@ -204,7 +208,8 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
           type: 'zero_dechet',
           taux_recyclage: 0.8,
           realisee_at: null,
-          evenements: { id: 'e-m', lieu_id: 'lieu-1', pax: 600 }, // M
+          pax: 600, // M
+          evenements: evt,
           collecte_flux: [
             { poids_reel_kg: 400, flux_dechets: { code: 'carton' } },
           ],
@@ -227,5 +232,41 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
     };
     expect(json.data.kpis.nb_collectes).toBe(1);
     expect(json.data.kpis.tonnage_kg).toBe(400);
+  });
+
+  it('M3.2/P2_dashboard_filtre_type_sur_la_collecte — le filtre type porte sur collectes.type_evenement_id (C3, lot C1)', async () => {
+    setupAuth();
+    const appelsIn: unknown[][] = [];
+    const appelsSelect: unknown[][] = [];
+    const chaine = rls as unknown as Record<string, unknown>;
+    chaine.in = (...args: unknown[]) => {
+      appelsIn.push(args);
+      return chaine;
+    };
+    chaine.select = (...args: unknown[]) => {
+      appelsSelect.push(args);
+      return chaine;
+    };
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
+    rls.push({ data: [], error: null }); // collectes
+    rls.push({ data: null, error: null }); // packs_antgaspi maybeSingle
+    const TYPE = '7e000000-0000-4000-8000-0000000000b1';
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/dashboard/route.js');
+    await GET(
+      makeReq(
+        `/api/v1/gestionnaire/dashboard?type=zero_dechet&type_evenement_ids[]=${TYPE}`,
+      ),
+    );
+    expect(appelsIn).toContainEqual(['type_evenement_id', [TYPE]]);
+    expect(
+      appelsIn.some(([col]) => col === 'evenements.type_evenement_id'),
+    ).toBe(false);
+    // Pax et type de la COLLECTE demandés hors de l'embed evenements (taille).
+    expect(
+      appelsSelect.some(([s]) =>
+        /realisee_at, pax, type_evenement_id,/.test(String(s)),
+      ),
+    ).toBe(true);
   });
 });

@@ -72,17 +72,20 @@ export async function GET(
     };
   });
 
-  // 4. Données événement / lieu (bloc 1 + 3).
+  // 4. Données événement / lieu (bloc 1 + 3). Pax et type d'événement : ceux de
+  // LA collecte (lot C1 : décisions Val C3 du 2026-10-22 et C4 du 2026-10-20),
+  // comme la ligne du registre.
   const { data: collecte } = await supabase
     .from('collectes')
     .select(
-      'heure_collecte, evenements!evenement_id(nom_evenement, date_evenement, pax, nom_client_organisateur, types_evenements!type_evenement_id(libelle), lieux!lieu_id(nom, adresse_acces, code_postal, ville))',
+      'heure_collecte, pax, type_evenement:types_evenements!type_evenement_id(libelle), evenements!evenement_id(nom_evenement, date_evenement, nom_client_organisateur, lieux!lieu_id(nom, adresse_acces, code_postal, ville))',
     )
     .eq('id', id)
     .maybeSingle();
-  const evt = unwrap((collecte as Record<string, unknown> | null)?.evenements);
+  const ligneCollecte = collecte as Record<string, unknown> | null;
+  const evt = unwrap(ligneCollecte?.evenements);
   const lieu = unwrap(evt.lieux);
-  const typeEvt = unwrap(evt.types_evenements);
+  const typeEvt = unwrap(ligneCollecte?.type_evenement);
 
   // 8. Historique (audit_log) — staff seulement (RLS), vide pour les clients.
   const auditIds = [id, (bordereau as { id?: string } | null)?.id].filter(
@@ -102,7 +105,7 @@ export async function GET(
       heure:
         (collecte as { heure_collecte?: string } | null)?.heure_collecte ??
         null,
-      pax: evt.pax ?? null,
+      pax: (ligneCollecte?.pax as number | null | undefined) ?? null,
       type_evenement: typeEvt.libelle ?? null,
       client_organisateur: evt.nom_client_organisateur ?? null,
     },

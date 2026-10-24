@@ -45,8 +45,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   let q = supabase
     .from('collectes')
     .select(
-      `id, type, taux_recyclage, realisee_at,
-       evenements!inner(id, lieu_id, pax, type_evenement_id,
+      `id, type, taux_recyclage, realisee_at, pax, type_evenement_id,
+       evenements!inner(id, lieu_id, pax,
          traiteur_operationnel_organisation_id),
        collecte_flux(poids_reel_kg, flux_dechets(code)),
        attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)`,
@@ -62,8 +62,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (to) q = q.lte('date_collecte', to);
   if (traiteurIds.length > 0)
     q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
-  if (typeEvtIds.length > 0)
-    q = q.in('evenements.type_evenement_id', typeEvtIds);
+  // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
+  // 2026-10-22, lot C1 Q3 du 2026-10-24 « Collecte, dès C1 »). Les totaux de pax
+  // ci-dessous (kg/pax, repas/pax) restent ceux des événements distincts : lot 3.
+  if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
 
   const { data: collectes, error } = await q;
   if (error) return serverError(error, 'gestionnaire.dashboard.list');
@@ -72,7 +74,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
     if (!evt) return false;
     if (tailleEvts.length > 0) {
-      const bracket = tailleBracket(evt.pax as number);
+      const bracket = tailleBracket(c.pax ?? 0);
       if (!tailleEvts.includes(bracket)) return false;
     }
     return true;

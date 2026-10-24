@@ -564,6 +564,47 @@ describe('M4.2 / détail du registre', () => {
   });
 });
 
+describe('M4.2 / détail registre — convives et type de la collecte (lot C1)', () => {
+  it('M4.2/detail_registre_pax_et_type_de_la_collecte — bloc 1 : convives et type d’événement de LA collecte, pas ceux de l’événement', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({ data: LIGNE_REGISTRE, error: null }); // ligne registre
+    rls.push({ data: null, error: null }); // bordereau
+    rls.push({ data: [], error: null }); // flux
+    // Collecte n°2 d'un événement de deux soirées : 300 convives, « Repas
+    // assis » ; l'événement compte 900 convives et garde le type de sa n°1.
+    rls.push({
+      data: {
+        heure_collecte: '22:00',
+        pax: 300,
+        type_evenement: { libelle: 'Repas assis' },
+        evenements: {
+          nom_evenement: 'Salon',
+          date_evenement: '2026-04-10',
+          pax: 900,
+          nom_client_organisateur: null,
+          types_evenements: { libelle: 'Cocktail apéritif' },
+          lieux: {
+            nom: 'Pavillon',
+            adresse_acces: '1 rue',
+            code_postal: '75001',
+            ville: 'Paris',
+          },
+        },
+      },
+      error: null,
+    }); // collecte
+    rls.push({ data: [], error: null }); // audit
+
+    const res = await callDetail('c1');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      evenement: { pax: number | null; type_evenement: string | null };
+    };
+    expect(body.evenement.pax).toBe(300);
+    expect(body.evenement.type_evenement).toBe('Repas assis');
+  });
+});
+
 // ── Export ZIP (P1 export_zip_bordereaux_periode + cas limites) ──────────────
 describe('M4.2 / export_zip_bordereaux_periode', () => {
   function pushRows() {

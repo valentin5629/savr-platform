@@ -727,7 +727,8 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       expect(t).toMatch(/CO₂ évité\s*312/);
       expect(t).not.toContain('(net)');
       expect(t).toMatch(/78,4\s*%/);
-      // 870 kg / 4 200 pax = 207 g
+      // 870 kg / 4 200 pax de LA collecte = 207 g (lot C1) — l'événement, de
+      // deux soirées, en compte 8 400 : lu à l'événement, ce serait 104 g.
       expect(t).toMatch(/207\s*g/);
       expect(screen.getByText('Répartition des tonnages')).toBeTruthy();
       expect(

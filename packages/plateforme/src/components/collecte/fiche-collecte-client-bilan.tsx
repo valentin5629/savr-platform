@@ -34,7 +34,6 @@ import {
   STATUTS_ANNULES,
   STATUT_BILAN,
   type EspaceClient,
-  type EvenementFiche,
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
@@ -154,7 +153,10 @@ export type BilanFiche = Pick<
   | 'association'
   // Type d'événement de LA collecte (lot B1) : filtre du radar par défaut.
   | 'type_evenement_id'
-> & { evenement: Pick<EvenementFiche, 'pax'> | null };
+  // Convives de LA collecte (lot C1, C4 du 2026-10-20) : « Repas par pax » et
+  // « Pesée par pax » se divisent par eux, jamais par le total de l'événement.
+  | 'pax'
+>;
 
 /**
  * Radar de la fiche (ZD réalisée) : repère parc recalculé à chaque changement
@@ -233,7 +235,7 @@ export function BilanCollecte({
   const sansExcedent = c.statut === 'realisee_sans_collecte';
   const realisee = c.statut === STATUT_BILAN;
   const bilanDispo = realisee || sansExcedent;
-  const pax = c.evenement?.pax ?? null;
+  const pax = c.pax ?? null;
   const bench = radar.bench;
 
   // ── Bilan ZD ────────────────────────────────────────────────────────────

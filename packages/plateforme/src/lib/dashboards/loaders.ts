@@ -383,6 +383,9 @@ export interface EvoCollecteRow {
   type: string;
   taux_recyclage: number | null;
   date_collecte: string;
+  /** Convives de la COLLECTE : porte le filtre Taille (lot C1, Q3 Val 2026-10-24).
+   *  Les totaux de pax des séries restent ceux des événements distincts (lot 3). */
+  pax?: number | null;
   /** CO₂ évité figé (sélectionné par le loader Admin « Dashboard Client »
    *  seulement) — alimente la sparkline de la carte CO₂. */
   co2_evite_kg?: number | string | null;
@@ -466,7 +469,7 @@ export async function loadEvolution(
   let q = supabase
     .from('collectes')
     .select(
-      `id, type, taux_recyclage, date_collecte,
+      `id, type, taux_recyclage, date_collecte, pax,
        evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
          traiteur_operationnel_organisation_id),
        collecte_flux(poids_reel_kg, flux_dechets(code)),
@@ -485,8 +488,9 @@ export async function loadEvolution(
   }
   if (from) q = q.gte('date_collecte', from);
   if (to) q = q.lte('date_collecte', to);
-  if (typeEvtIds.length > 0)
-    q = q.in('evenements.type_evenement_id', typeEvtIds);
+  // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
+  // 2026-10-22, Q3 du 2026-10-24 « Collecte, dès C1 »).
+  if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
 
   const { data, error } = await q;
   if (error) throw loaderDbError(error, 'dashboards.evolution');
@@ -495,7 +499,7 @@ export async function loadEvolution(
     const evt = firstOf(c.evenements);
     if (!evt) return false;
     if (tailleEvts.length > 0) {
-      if (!tailleEvts.includes(tailleBracket(evt.pax ?? 0))) return false;
+      if (!tailleEvts.includes(tailleBracket(c.pax ?? 0))) return false;
     }
     return true;
   });
@@ -649,6 +653,10 @@ export interface BlocsCollecteRow {
   type: string;
   taux_recyclage: number | null;
   date_collecte: string;
+  /** Convives de la COLLECTE : porte le filtre Taille (lot C1, Q3 Val 2026-10-24)
+   *  et le repère parc de l'Admin (Q4). Les cumuls de pax des blocs restent ceux
+   *  des événements distincts (`paxDistinct`, lot 3). */
+  pax?: number | null;
   evenements: BlocsEvtEmbed | BlocsEvtEmbed[] | null;
   collecte_flux:
     | { poids_reel_kg: number | null; flux_dechets?: { code: string } | null }[]
@@ -931,10 +939,15 @@ export function topAssociationsFrom(
   return list.slice(0, TOP_N);
 }
 
+/**
+ * kg/pax par flux : Σ poids du flux / `pax`. Par défaut `pax` = Σ pax des
+ * événements distincts (blocs, lot 3) ; le repère parc de l'Admin passe la Σ pax
+ * de ses collectes (décision Val Q4 du 2026-10-24).
+ */
 export function kgParPaxParFluxFrom(
   rows: BlocsCollecteRow[],
+  pax: number = paxDistinct(rows),
 ): Record<string, number> {
-  const pax = paxDistinct(rows);
   if (pax <= 0) return {};
   const poidsParFlux: Record<string, number> = {};
   for (const c of rows) {
@@ -1034,24 +1047,26 @@ export async function loadBlocs(
       query = query.eq('evenements.organisation_id', ctx.organisationId);
       if (lieuIds.length > 0) query = query.in('evenements.lieu_id', lieuIds);
     }
+    // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
+    // 2026-10-22, Q3 du 2026-10-24 « Collecte, dès C1 »).
     if (typeEvtIds.length > 0)
-      query = query.in('evenements.type_evenement_id', typeEvtIds);
+      query = query.in('type_evenement_id', typeEvtIds);
     return query as unknown as T;
   };
 
-  const tailleOk = (evt: BlocsEvtEmbed | null): boolean => {
-    if (!evt) return false;
+  const tailleOk = (c: BlocsCollecteRow): boolean => {
+    if (!firstOf(c.evenements)) return false;
     if (tailleEvts.length === 0) return true;
-    return tailleEvts.includes(tailleBracket(evt.pax ?? 0));
+    return tailleEvts.includes(tailleBracket(c.pax ?? 0));
   };
 
   const selectHistorique =
     type === 'zero_dechet'
-      ? `id, type, taux_recyclage, date_collecte,
+      ? `id, type, taux_recyclage, date_collecte, pax,
          evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
            traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
          collecte_flux(poids_reel_kg, flux_dechets(code))`
-      : `id, type, taux_recyclage, date_collecte,
+      : `id, type, taux_recyclage, date_collecte, pax,
          evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
            traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
          ${embedAttributionsAg(role)}`;
@@ -1069,7 +1084,7 @@ export async function loadBlocs(
   if (histErr) throw loaderDbError(histErr, 'dashboards.blocs.hist_err');
 
   const histRows = ((histData ?? []) as unknown as BlocsCollecteRow[]).filter(
-    (c) => tailleOk(firstOf(c.evenements)),
+    (c) => tailleOk(c),
   );
 
   const topLieux = topLieuxFrom(histRows, type);

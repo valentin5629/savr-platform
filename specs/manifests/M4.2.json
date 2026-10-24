@@ -168,6 +168,14 @@
       "test": "flux_referentiel_unite_kg",
       "statut": "implemented",
       "libelle": "Unité de mesure des 5 flux V1 = kg, comme l'écrit le CDC (« Valeurs initiales »). Le seed bloc8 avait semé les Emballages en bac ; décision Val 2026-10-06 : la spec a raison, la base est corrigée (une ligne de référentiel, l'enum garde ses trois valeurs)."
+    },
+    {
+      "id": "M4.2-registre-grain-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:72",
+      "artefact": "supabase/migrations/20261024120000_plateforme_benchmark_registre_grain_collecte.sql (v_registre_dechets) + packages/plateforme/src/app/api/v1/registre/[id]/route.ts",
+      "test": "C1/registre_pax_taille_type_de_la_collecte + M4.2/detail_registre_pax_et_type_de_la_collecte",
+      "statut": "implemented",
+      "libelle": "Registre au grain de la COLLECTE (lot C1, 2026-10-24) : la vue v_registre_dechets expose le pax, la taille (taille_bracket) et le type d'événement de la collecte (mêmes colonnes, CREATE OR REPLACE VIEW, security_invoker = false et cloisonnement f_collecte_visible inchangés) ; le détail d'une ligne (bloc 1 « Données événement ») affiche les convives et le type de LA collecte, pas ceux de l'événement."
     }
   ],
   "cdc_source_hash": {

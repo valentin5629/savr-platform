@@ -1651,15 +1651,15 @@ export function CollecteDetailPanel({
     co2_evite_kg: collecte.co2_evite_kg ?? null,
     realisee_at: collecte.realisee_at ?? null,
     aucun_repas_motif: collecte.aucun_repas_motif ?? null,
+    // Taille et convives de LA collecte (lot C1, C4 du 2026-10-20) : badge,
+    // radar par défaut, « Repas par pax » et « Pesée par pax ».
     taille_bracket:
-      collecte.evenements.pax != null
-        ? tailleBracket(collecte.evenements.pax)
+      collecte.pax != null && collecte.pax > 0
+        ? tailleBracket(collecte.pax)
         : null,
     // Type d'événement de LA collecte (lot B1) : filtre du radar par défaut.
     type_evenement_id: collecte.type_evenement_id ?? null,
-    evenement: {
-      pax: collecte.evenements.pax,
-    },
+    pax: collecte.pax ?? null,
     bilan_flux: collecte.collecte_flux.reduce<Record<string, number>>(
       (acc, cf) => {
         const code = cf.flux_dechets?.code;

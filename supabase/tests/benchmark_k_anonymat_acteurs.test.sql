@@ -197,7 +197,7 @@ SELECT is(
   (SELECT COUNT(*)::int FROM plateforme.collectes c
      JOIN plateforme.evenements e ON e.id = c.evenement_id
      JOIN plateforme.collecte_flux cf ON cf.collecte_id = c.id
-    WHERE e.type_evenement_id = 'ac000000-0000-0000-0000-0000000000d1'::uuid
+    WHERE c.type_evenement_id = 'ac000000-0000-0000-0000-0000000000d1'::uuid
       AND c.statut = 'cloturee' AND c.type = 'zero_dechet' AND cf.poids_reel_kg IS NOT NULL),
   5,
   'KANON-4 : non-vacuité — le segment MONO porte bien 5 collectes clôturées et pesées (le seuil ≥5 est satisfait, seul celui des acteurs masque)'
@@ -220,7 +220,7 @@ SELECT is(
                 COUNT(DISTINCT c.id)::int]
      FROM plateforme.collectes c
      JOIN plateforme.evenements e ON e.id = c.evenement_id
-    WHERE e.type_evenement_id = 'ac000000-0000-0000-0000-0000000000d2'::uuid
+    WHERE c.type_evenement_id = 'ac000000-0000-0000-0000-0000000000d2'::uuid
       AND c.statut = 'cloturee'),
   ARRAY[2, 2, 5],
   'KANON-6 : non-vacuité — le segment DUO porte bien 2 programmateurs, 2 traiteurs et 5 collectes'
@@ -243,7 +243,7 @@ SELECT is(
                 COUNT(DISTINCT e.traiteur_operationnel_organisation_id)::int]
      FROM plateforme.collectes c
      JOIN plateforme.evenements e ON e.id = c.evenement_id
-    WHERE e.type_evenement_id = 'ac000000-0000-0000-0000-0000000000d4'::uuid
+    WHERE c.type_evenement_id = 'ac000000-0000-0000-0000-0000000000d4'::uuid
       AND c.statut = 'cloturee'),
   ARRAY[3, 1],
   'KANON-8 : non-vacuité — TOP1 a bien 3 organisations programmatrices : le masquage ne peut venir que du compteur traiteur'
@@ -265,7 +265,7 @@ SELECT is(
                 COUNT(DISTINCT e.traiteur_operationnel_organisation_id)::int]
      FROM plateforme.collectes c
      JOIN plateforme.evenements e ON e.id = c.evenement_id
-    WHERE e.type_evenement_id = 'ac000000-0000-0000-0000-0000000000d5'::uuid
+    WHERE c.type_evenement_id = 'ac000000-0000-0000-0000-0000000000d5'::uuid
       AND c.statut = 'cloturee'),
   ARRAY[1, 3],
   'KANON-10 : non-vacuité — ORG1 a bien 3 traiteurs opérationnels : le masquage ne peut venir que du compteur programmateur'

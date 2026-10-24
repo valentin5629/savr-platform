@@ -182,10 +182,10 @@ export async function buildCollectesExport(
           'evenements.traiteur_operationnel_organisation_id',
           traiteurIds,
         );
-      if (typeEvtIds.length > 0)
-        q = q.in('evenements.type_evenement_id', typeEvtIds);
-      if (predicatsTaille.length > 0)
-        q = q.or(predicatsTaille.join(','), { referencedTable: 'evenements' });
+      // Type et taille de la COLLECTE, comme la liste (décisions Val C3 du
+      // 2026-10-22 et C4 du 2026-10-20, lot C1) : `.or()` sur `collectes.pax`.
+      if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
+      if (predicatsTaille.length > 0) q = q.or(predicatsTaille.join(','));
     }
     return q;
   };

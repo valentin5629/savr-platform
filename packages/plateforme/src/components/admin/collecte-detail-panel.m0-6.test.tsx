@@ -3507,7 +3507,10 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     // Type de LA collecte (lot B1) : filtre du radar par défaut ; l'événement
     // porte celui de sa collecte n°1, ici un autre.
     type_evenement_id: 't1',
-    evenements: { ...baseZd.evenements, pax: 800, type_evenement_id: 't9' },
+    // Pax de LA collecte (lot C1, C4 du 2026-10-20) : 800 ⇒ taille L, « Pesée
+    // par pax » sur 800 ; l'événement (deux soirées) en compte 1 500 (XL).
+    pax: 800,
+    evenements: { ...baseZd.evenements, pax: 1500, type_evenement_id: 't9' },
     collecte_flux: [
       {
         flux_id: 'f1',

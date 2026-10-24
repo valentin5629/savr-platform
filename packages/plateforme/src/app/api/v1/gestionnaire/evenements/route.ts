@@ -92,6 +92,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // reste celui de l'événement entier. Mesuré contre le PostgREST local
     // (2026-10-18) : un événement à 3 ZD + 6 AG filtré sur ZD rend ses 9
     // collectes, et compte pour 1 dans le total.
+    // `filtre_type_evt` : troisième embed, même principe, pour le filtre « type
+    // d'événement » — l'événement sort si l'UNE de ses collectes a ce type (C3 du
+    // 2026-10-22), et ce filtre est une condition SÉPARÉE du filtre ZD/AG (décision
+    // Val 2026-10-24, lot C1, Q1 « Deux conditions séparées ») : « ZD » + « Cocktail »
+    // retient un événement qui a une collecte ZD ET une collecte Cocktail, ZD ou AG,
+    // pas forcément la même.
     let q = supabase.from('evenements').select(
       `id, nom_evenement, date_evenement, pax, nom_client_organisateur,
        lieux!lieu_id(nom, adresse_acces, code_postal, ville),
@@ -99,7 +105,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
        collectes(id, type, statut, date_collecte, taux_recyclage, co2_evite_kg,
          collecte_flux(poids_reel_kg),
          attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise))
-       ${type ? ', filtre_type:collectes!inner(id)' : ''}`,
+       ${type ? ', filtre_type:collectes!inner(id)' : ''}
+       ${typeEvtIds.length > 0 ? ', filtre_type_evt:collectes!inner(id)' : ''}`,
       { count: 'exact' },
     );
     for (const c of tri.colonnes) q = q.order(c, { ascending: tri.ascendant });
@@ -113,9 +120,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (lieuIds.length > 0) q = q.in('lieu_id', lieuIds);
     if (traiteurIds.length > 0)
       q = q.in('traiteur_operationnel_organisation_id', traiteurIds);
-    if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
+    if (typeEvtIds.length > 0)
+      q = q.in('filtre_type_evt.type_evenement_id', typeEvtIds);
     // Mêmes prédicats que la liste Collectes (pax NULL = XS), ici sur la table
-    // interrogée elle-même.
+    // interrogée elle-même : la taille de la liste Événements reste celle de
+    // l'ÉVÉNEMENT (décision Val C4 du 2026-10-20).
     if (predicatsTaille.length > 0) q = q.or(predicatsTaille.join(','));
     return q;
   };

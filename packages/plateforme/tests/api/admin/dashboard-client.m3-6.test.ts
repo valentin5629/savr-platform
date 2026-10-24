@@ -177,6 +177,53 @@ describe('M3.6 / Dashboard Client / périmètre', () => {
 
 // ─── Filtre de période ─────────────────────────────────────────────────────────
 
+describe('M3.6 / Dashboard Client / filtres type et taille', () => {
+  it('M3.6/kpi_filtres_type_et_taille_de_la_collecte — type en SQL sur la collecte, taille en JS sur son pax (Q3 Val 2026-10-24)', async () => {
+    setupAuth('admin_savr');
+    // Un événement de 900 convives (XL) sur deux soirées : 300 (S) puis 600 (M).
+    const evt = { id: 'e1', lieu_id: LIEU1, pax: 900, organisation_id: T1 };
+    queryResult = {
+      data: [
+        {
+          id: 'c-s',
+          pax: 300,
+          taux_recyclage: 80,
+          evenements: evt,
+          collecte_flux: [{ poids_reel_kg: 50 }],
+          attributions_antgaspi: [],
+        },
+        {
+          id: 'c-m',
+          pax: 600,
+          taux_recyclage: 80,
+          evenements: evt,
+          collecte_flux: [{ poids_reel_kg: 150 }],
+          attributions_antgaspi: [],
+        },
+      ],
+      error: null,
+    };
+    const { GET } =
+      await import('@/app/api/v1/admin/dashboard-client/route.js');
+    const res = await GET(
+      makeReq(
+        `/api/v1/admin/dashboard-client?type=zero_dechet&type_evenement_ids[]=${TYPE1}&taille_evenements[]=M`,
+      ),
+    );
+    expect(res.status).toBe(200);
+    expect(inCalls()).toContainEqual(['type_evenement_id', [TYPE1]]);
+    expect(
+      inCalls().find((c) => c[0] === 'evenements.type_evenement_id'),
+    ).toBeUndefined();
+    const body = (await res.json()) as {
+      data: { kpi: Record<string, number> };
+    };
+    // Lu à l'événement (XL), le filtre M ne retiendrait rien.
+    expect(body.data.kpi.nb_collectes).toBe(1);
+    expect(body.data.kpi.tonnage_kg).toBe(150);
+  });
+});
+
 describe('M3.6 / Dashboard Client / filtre période', () => {
   it('M3.6/kpi_filtre_periode_date_collecte — from/to ciblent date_collecte (pas realisee_at)', async () => {
     setupAuth('admin_savr');
@@ -357,24 +404,32 @@ const T1 = '11111111-1111-4111-8111-111111111111';
 const T2 = '22222222-2222-4222-8222-222222222222';
 const LIEU1 = '33333333-3333-4333-8333-333333333333';
 
-// Deux collectes du MÊME traiteur (k-anonymat clients : segment masqué), pax
-// INÉGAUX pour distinguer la formule parc (Σ kg / Σ pax) d'une moyenne des
+const TYPE1 = '7e000000-0000-4000-8000-0000000000c1';
+
+// Deux soirées du MÊME événement et du MÊME traiteur (k-anonymat clients :
+// segment masqué), pax de la COLLECTE inégaux (lot C1, Q4 Val 2026-10-24) pour
+// distinguer la formule parc (Σ kg / Σ pax des collectes) d'une moyenne des
 // ratios : biodéchets 20 + 10 kg sur 100 + 300 pax → 30/400 = 0,075 kg/pax
 // (moyenne des ratios = (0,20 + 0,033)/2 = 0,117 ≠) ; cartons 5/400 = 0,0125.
+// Une troisième collecte à 0 convive (inconnu, reprise Bubble) porte 999 kg :
+// elle sort du repère. L'événement compte 400 convives (taille S) : lu à
+// l'événement, la référence vaudrait (20 + 10 + 999) / 400.
+const EVT_REFERENCE = {
+  id: 'e1',
+  lieu_id: LIEU1,
+  pax: 400,
+  organisation_id: T1,
+  type_evenement_id: TYPE1,
+  traiteur_operationnel_organisation_id: T1,
+};
 const COLLECTES_REFERENCE = [
   {
     id: 'c1',
     type: 'zero_dechet',
     taux_recyclage: 80,
     date_collecte: '2026-06-01',
-    evenements: {
-      id: 'e1',
-      lieu_id: LIEU1,
-      pax: 100,
-      organisation_id: T1,
-      type_evenement_id: 'ty1',
-      traiteur_operationnel_organisation_id: T1,
-    },
+    pax: 100,
+    evenements: EVT_REFERENCE,
     collecte_flux: [
       { poids_reel_kg: 20, flux_dechets: { code: 'biodechet' } },
       { poids_reel_kg: 5, flux_dechets: { code: 'cartons' } },
@@ -385,16 +440,22 @@ const COLLECTES_REFERENCE = [
     id: 'c2',
     type: 'zero_dechet',
     taux_recyclage: 70,
-    date_collecte: '2026-07-01',
-    evenements: {
-      id: 'e2',
-      lieu_id: LIEU1,
-      pax: 300,
-      organisation_id: T1,
-      type_evenement_id: 'ty1',
-      traiteur_operationnel_organisation_id: T1,
-    },
+    date_collecte: '2026-06-02',
+    pax: 300,
+    evenements: EVT_REFERENCE,
     collecte_flux: [{ poids_reel_kg: 10, flux_dechets: { code: 'biodechet' } }],
+    attributions_antgaspi: null,
+  },
+  {
+    id: 'c3',
+    type: 'zero_dechet',
+    taux_recyclage: 70,
+    date_collecte: '2026-06-03',
+    pax: 0,
+    evenements: EVT_REFERENCE,
+    collecte_flux: [
+      { poids_reel_kg: 999, flux_dechets: { code: 'biodechet' } },
+    ],
     attributions_antgaspi: null,
   },
 ];
@@ -414,6 +475,7 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
         periode: { debut: string; fin: string };
       };
     };
+    // Σ kg / Σ pax des COLLECTES, collecte à 0 convive écartée (Q4).
     expect(body.data.kgParPaxParFlux.biodechet).toBeCloseTo(0.075, 6);
     expect(body.data.kgParPaxParFlux.cartons).toBeCloseTo(0.0125, 6);
     expect(body.data.nbCollectes).toBe(2);
@@ -451,7 +513,7 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
     const ligne = (i: number) => ({
       ...COLLECTES_REFERENCE[0]!,
       id: `c${i}`,
-      evenements: { ...COLLECTES_REFERENCE[0]!.evenements, id: `e${i}` },
+      evenements: { ...EVT_REFERENCE, id: `e${i}` },
     });
     const pages: unknown[][] = [
       Array.from({ length: PAGE_REFERENCE }, (_, i) => ligne(i)),
@@ -481,7 +543,7 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
       [PAGE_REFERENCE, 2 * PAGE_REFERENCE - 1],
     ]);
     expect(res.nbCollectes).toBe(PAGE_REFERENCE + 1);
-    // 1 001 événements de 100 pax, 20 kg de biodéchets chacun → 0,20 kg/pax.
+    // 1 001 collectes de 100 pax, 20 kg de biodéchets chacune → 0,20 kg/pax.
     expect(res.kgParPaxParFlux.biodechet).toBeCloseTo(0.2, 6);
   });
 
@@ -507,16 +569,23 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
     ]);
     expect(inCalls()).toContainEqual(['evenements.lieu_id', [LIEU1]]);
     expect(
-      inCalls().find((c) => c[0] === 'evenements.type_evenement_id'),
+      inCalls().find(
+        (c) =>
+          c[0] === 'type_evenement_id' ||
+          c[0] === 'evenements.type_evenement_id',
+      ),
     ).toBeUndefined();
-    // Taille en JS (parité §06.05) : 100 pax = XS et 300 pax = S → hors M/L →
-    // référence vide, mais la réponse reste 200 (axes « n/d »), pas une erreur.
+    // Taille en JS (parité §06.05) sur le pax de la COLLECTE : 100 pax = XS et
+    // 300 pax = S → hors M/L → référence vide, mais la réponse reste 200 (axes
+    // « n/d »), pas une erreur.
     expect(body.data.nbCollectes).toBe(0);
     expect(body.data.kgParPaxParFlux).toEqual({});
     expect(adminClient.rpc).not.toHaveBeenCalled();
 
     // Même traiteur, taille XS : la seule collecte de 100 pax (20 kg) d'UN SEUL
     // acteur → publiée (0,20 kg/pax), là où le client aurait un segment masqué.
+    // Son événement (400 pax) est de taille S : la taille est bien celle de la
+    // collecte, et la collecte à 0 convive (XS par son pax) reste écartée.
     const res2 = await GET(
       makeReq(
         `/api/v1/admin/dashboard-client/benchmark?traiteur_ids=${T1}&taille_evenement_codes=XS`,
@@ -527,6 +596,23 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
     };
     expect(body2.data.nbCollectes).toBe(1);
     expect(body2.data.kgParPaxParFlux.biodechet).toBeCloseTo(0.2, 6);
+  });
+
+  it('M3.6/benchmark_admin_reference_type_de_la_collecte — le filtre type porte sur collectes.type_evenement_id (C3, lot C1)', async () => {
+    setupAuth('admin_savr');
+    queryResult = { data: COLLECTES_REFERENCE, error: null };
+    const { GET } =
+      await import('@/app/api/v1/admin/dashboard-client/benchmark/route.js');
+    const res = await GET(
+      makeReq(
+        `/api/v1/admin/dashboard-client/benchmark?type_evenement_ids=${TYPE1}`,
+      ),
+    );
+    expect(res.status).toBe(200);
+    expect(inCalls()).toContainEqual(['type_evenement_id', [TYPE1]]);
+    expect(
+      inCalls().find((c) => c[0] === 'evenements.type_evenement_id'),
+    ).toBeUndefined();
   });
 
   it('M3.6/benchmark_staff_service_role — 401 sans session', async () => {

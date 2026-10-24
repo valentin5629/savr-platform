@@ -456,9 +456,10 @@ export async function chargerFicheCollecteClient(
     contact_principal_telephone: contacts?.contact_principal_telephone ?? null,
     contact_secours_nom: contacts?.contact_secours_nom ?? null,
     contact_secours_telephone: contacts?.contact_secours_telephone ?? null,
-    // Entête §06.04 « Type d'événement + taille » : bracket canonique, jamais
-    // inventé sans pax.
-    taille_bracket: evt?.pax != null ? tailleBracket(evt.pax) : null,
+    // Entête §06.04 « Type d'événement + taille » : bracket canonique sur le pax
+    // de LA collecte (décision Val C4 du 2026-10-20, lot C1), jamais inventé sans
+    // pax (0 = convives inconnus : pas de taille).
+    taille_bracket: c.pax != null && c.pax > 0 ? tailleBracket(c.pax) : null,
     evenement,
     tournees,
     coordonnees_urgence_demandee: Boolean(alerteRes.data),

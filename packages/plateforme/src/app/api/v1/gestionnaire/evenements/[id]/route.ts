@@ -18,12 +18,15 @@ import {
   type UnOuListe,
 } from '@/lib/evenements-gestionnaire.js';
 import { estUuid } from '@/lib/filtre-csv.js';
+import { typesEvenementDesCollectes } from '@/lib/collectes/types-evenement-collectes.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 type CollecteBrute = CollecteAConsolider & {
   id: string;
   heure_collecte: string | null;
+  created_at: string | null;
+  type_evenement: UnOuListe<{ libelle: string | null }>;
 };
 
 type EvenementBrut = {
@@ -84,8 +87,9 @@ export async function GET(
        lieux!lieu_id(nom, adresse_acces, code_postal, ville),
        organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url),
        types_evenements!type_evenement_id(libelle),
-       collectes(id, type, statut, date_collecte, heure_collecte,
+       collectes(id, type, statut, date_collecte, heure_collecte, created_at,
          taux_recyclage, co2_evite_kg,
+         type_evenement:types_evenements!type_evenement_id(libelle),
          collecte_flux(poids_reel_kg, flux_dechets!flux_id(code)),
          attributions_antgaspi:v_attributions_gestionnaire(
            volume_repas_realise, association_id, association_nom,
@@ -133,7 +137,12 @@ export async function GET(
       date_evenement: evt.date_evenement,
       pax: evt.pax,
       taille_bracket: tailleBracket(evt.pax ?? 0),
-      type_evenement: un(evt.types_evenements)?.libelle ?? null,
+      // Types de SES COLLECTES, dans l'ordre de la collecte n°1 (décision Val
+      // 2026-10-24, lot C1, Q2) ; la copie de l'événement n'est qu'un repli.
+      type_evenement: typesEvenementDesCollectes(
+        collectes,
+        un(evt.types_evenements)?.libelle ?? null,
+      ),
       // « Client Organisateur si renseigné par le traiteur » (§06.05 §2).
       client_nom: evt.nom_client_organisateur?.trim() || null,
       lieu_nom: lieu?.nom ?? null,

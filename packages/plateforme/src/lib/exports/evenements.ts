@@ -15,6 +15,10 @@ import {
 } from './shared.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { statutEvenementConsolide } from '@/lib/libelles/evenement.js';
+import {
+  typesEvenementDesCollectes,
+  type CollecteTypee,
+} from '@/lib/collectes/types-evenement-collectes.js';
 
 // Export Événements — grain ÉVÉNEMENT (1 ligne = 1 événement, données agrégées).
 // Colonnes FIGÉES par §12 §2. Servi par l'endpoint unifié (tous rôles autorisés,
@@ -24,13 +28,11 @@ const EVENEMENTS_SELECT = `id, nom_evenement, date_evenement, pax,
   traiteur_operationnel_organisation_id,
   lieux!lieu_id(nom),
   types_evenements!type_evenement_id(libelle),
-  collectes(id, type, statut, date_collecte, taux_recyclage,
+  collectes(id, type, statut, date_collecte, heure_collecte, created_at,
+    taux_recyclage, type_evenement:types_evenements!type_evenement_id(libelle),
     collecte_flux(poids_reel_kg))`;
 
-interface CollecteAgg {
-  id: string;
-  type: string;
-  statut: string;
+interface CollecteAgg extends CollecteTypee {
   date_collecte: string | null;
   taux_recyclage: number | null;
   collecte_flux: { poids_reel_kg?: number | null }[];
@@ -148,7 +150,13 @@ async function evenementsToCsv(
       traiteur:
         traiteurNoms.get(e.traiteur_operationnel_organisation_id as string) ??
         '',
-      type_evenement: (typeEvt.libelle as string) ?? '',
+      // Types de SES COLLECTES (décision Val 2026-10-24, lot C1, Q2) ; la copie
+      // de l'événement n'est qu'un repli.
+      type_evenement:
+        typesEvenementDesCollectes(
+          collectes,
+          (typeEvt.libelle as string | null) ?? null,
+        ) ?? '',
       taille_bracket: tailleBracket(pax),
       pax,
       nb_collectes_zd: zd.length,

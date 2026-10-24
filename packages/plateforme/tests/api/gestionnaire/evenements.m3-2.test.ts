@@ -108,6 +108,8 @@ function sansSession() {
 
 const EVT_ID = '22222222-2222-4222-8222-222222222222';
 const LIEU_1 = '11111111-1111-4111-8111-111111111111';
+/** Type d'événement (UUID : la route écarte les identifiants mal formés, lot C1). */
+const TE1 = '7e000000-0000-4000-8000-0000000000e1';
 
 const flux = (code: string, kg: number) => ({
   poids_reel_kg: kg,
@@ -262,7 +264,7 @@ describe('M3.2 / liste Événements gestionnaire — route', () => {
     await liste(
       `?from=2026-01-01&to=2026-06-30&lieu_ids=${LIEU_1}` +
         '&traiteur_ids=33333333-3333-4333-8333-333333333333' +
-        '&type_evenement_ids[]=te1&taille_evenements[]=XS&taille_evenements[]=XL' +
+        `&type_evenement_ids[]=${TE1}&taille_evenements[]=XS&taille_evenements[]=XL` +
         '&page=3&tri=date&ordre=asc',
     );
     expect(rls.__calls.gte).toEqual([['date_evenement', '2026-01-01']]);
@@ -273,17 +275,38 @@ describe('M3.2 / liste Événements gestionnaire — route', () => {
         'traiteur_operationnel_organisation_id',
         ['33333333-3333-4333-8333-333333333333'],
       ],
-      ['type_evenement_id', ['te1']],
+      // Type : celui des COLLECTES de l'événement, par un embed `!inner` dédié
+      // (C3 du 2026-10-22, lot C1) — jamais la copie de l'événement.
+      ['filtre_type_evt.type_evenement_id', [TE1]],
     ]);
-    // Taille : prédicats sur `pax` de l'événement, pax NULL compté XS.
+    expect(String(rls.__calls.select?.[0]?.[0])).toContain(
+      'filtre_type_evt:collectes!inner(id)',
+    );
+    // Taille : prédicats sur `pax` de l'événement (C4), pax NULL compté XS.
     expect(rls.__calls.or).toEqual([['pax.is.null,pax.lt.250,pax.gte.1000']]);
     expect(rls.__calls.range?.[0]).toEqual([2 * PAGE_SIZE, 3 * PAGE_SIZE - 1]);
     expect(rls.__calls.order?.[0]).toEqual([
       'date_evenement',
       { ascending: true },
     ]);
-    // Sans type de collecte, pas de second embed.
-    expect(String(rls.__calls.select?.[0]?.[0])).not.toContain('filtre_type');
+    // Sans type de collecte, pas d'embed du filtre ZD/AG.
+    expect(String(rls.__calls.select?.[0]?.[0])).not.toContain(
+      'filtre_type:collectes',
+    );
+  });
+
+  it('M3.2/evenements_route_zd_et_type_deux_conditions_separees — « ZD » + un type : une collecte ZD ET une collecte de ce type, pas forcément la même (Q1 Val 2026-10-24)', async () => {
+    rls.__set({ data: [], error: null, count: 0 });
+    await liste(`?type=zero_dechet&type_evenement_ids[]=${TE1}`);
+    const select = String(rls.__calls.select?.[0]?.[0]);
+    // Deux embeds `!inner` distincts : chacun retient l'événement sur sa propre
+    // collecte. Un seul embed filtré deux fois exigerait la même collecte.
+    expect(select).toContain('filtre_type:collectes!inner(id)');
+    expect(select).toContain('filtre_type_evt:collectes!inner(id)');
+    expect(rls.__calls.eq).toEqual([['filtre_type.type', 'zero_dechet']]);
+    expect(rls.__calls.in).toEqual([
+      ['filtre_type_evt.type_evenement_id', [TE1]],
+    ]);
   });
 
   it('M3.2/evenements_route_type_collecte_par_second_embed', async () => {
@@ -400,6 +423,48 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
     const absent = await fiche();
     expect(absent.status).toBe(404);
     expect(rls.__calls.not).toEqual([['date_evenement', 'is', null]]);
+  });
+
+  it('M3.2/evenement_fiche_types_de_ses_collectes — « Type d’événement » : types de ses collectes, ordre de la collecte n°1, sans doublon ni collecte annulée (lot C1, Q2)', async () => {
+    const brut = evenementBrut();
+    const avecType = (c: Record<string, unknown>, libelle: string) => ({
+      ...c,
+      created_at: '2026-09-01T00:00:00Z',
+      type_evenement: { libelle },
+    });
+    const [c2, c1, c3] = brut.collectes as Record<string, unknown>[];
+    rls.__set({
+      data: {
+        ...brut,
+        collectes: [
+          avecType(c2!, 'Repas assis'),
+          avecType(c1!, 'Cocktail apéritif'),
+          avecType(c3!, 'Cocktail apéritif'),
+          avecType(
+            {
+              ...c3!,
+              id: 'c4',
+              type: 'zero_dechet',
+              statut: 'annulee',
+              date_collecte: '2026-09-01',
+            },
+            'Autre',
+          ),
+        ],
+      },
+      error: null,
+    });
+    const res = await fiche();
+    const { data } = (await res.json()) as {
+      data: { type_evenement: string | null };
+    };
+    // c1 (ZD, 10/09) est la collecte n°1, puis c2 (ZD, 11/09) ; l'AG c3 répète
+    // un type déjà nommé ; c4, annulée, n'en apporte aucun.
+    expect(data.type_evenement).toBe('Cocktail apéritif, Repas assis');
+    const select = String(rls.__calls.select?.[0]?.[0]);
+    expect(select).toContain(
+      'type_evenement:types_evenements!type_evenement_id(libelle)',
+    );
   });
 
   it('M3.2/evenement_fiche_bilan_consolide_et_collectes_triees', async () => {

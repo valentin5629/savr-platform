@@ -78,7 +78,7 @@ function makeReq(qs = ''): NextRequest {
 }
 
 /** Collecte RLS-visible, avec l'événement portant pax / organisations ; le
- *  type d'événement est celui de la collecte (lot B1). */
+ *  type d'événement (lot B1) et la taille (lot C1) sont ceux de la collecte. */
 function collecteAvecEvenement(
   evt: Record<string, unknown>,
   collecteEnPlus: Record<string, unknown> = {},
@@ -114,12 +114,13 @@ beforeEach(() => {
 });
 
 describe('M3.1 / fiche collecte — bloc d’entête (§06.04)', () => {
-  it('M3.1/fiche_entete_type_et_taille_bracket — pax 300 ⇒ bracket S', async () => {
+  it('M3.1/fiche_entete_type_et_taille_bracket — pax de la collecte 300 ⇒ bracket S, l’événement en compte 1 200 (lot C1)', async () => {
     // Type d'événement de LA collecte (lot B1) ; l'événement en garde une copie
-    // (celle de sa collecte n°1), jamais affichée à sa place.
+    // (celle de sa collecte n°1), jamais affichée à sa place. Taille : celle de
+    // LA collecte (C4 du 2026-10-20) — l'événement de deux soirées serait XL.
     rls.results.collectes = collecteAvecEvenement(
-      { pax: 300, type_evenement: { libelle: 'Dîner assis' } },
-      { type_evenement: { libelle: 'Cocktail apéritif' } },
+      { pax: 1200, type_evenement: { libelle: 'Dîner assis' } },
+      { pax: 300, type_evenement: { libelle: 'Cocktail apéritif' } },
     );
 
     const { GET } =
@@ -136,8 +137,10 @@ describe('M3.1 / fiche collecte — bloc d’entête (§06.04)', () => {
     expect(data.type_evenement.libelle).toBe('Cocktail apéritif');
   });
 
-  it('M3.1/fiche_entete_taille_null_sans_pax — informations incomplètes ⇒ pas de bracket inventé', async () => {
-    rls.results.collectes = collecteAvecEvenement({ pax: null });
+  it('M3.1/fiche_entete_taille_null_sans_pax — convives de la collecte inconnus (0) ⇒ pas de bracket inventé', async () => {
+    // 0 = convives inconnus (reprise Bubble) : aucune taille, même si
+    // l'événement porte un pax.
+    rls.results.collectes = collecteAvecEvenement({ pax: 500 }, { pax: 0 });
 
     const { GET } =
       await import('@/app/api/v1/traiteur/collectes/[id]/route.js');

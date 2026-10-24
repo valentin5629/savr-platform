@@ -18,7 +18,9 @@ import { estUuid, listeCsv } from '@/lib/filtre-csv';
 export const COLLECTES_PAGE_SIZE = 50;
 
 // Brackets « Taille d'événement » (§06.05 l.115) traduits en prédicats PostgREST
-// sur `evenements.pax`. Table de CONSTANTES : la valeur reçue du client sert de
+// sur une colonne `pax` : celle de la COLLECTE pour la liste Collectes et son
+// export, celle de l'ÉVÉNEMENT pour la liste Événements (décision Val C4 du
+// 2026-10-20, lot C1). Table de CONSTANTES : la valeur reçue du client sert de
 // clé, elle n'est jamais interpolée dans la chaîne `.or()`.
 //
 // Les clés héritées (`toString`, `constructor`, `__proto__`, `valueOf`…) sont
@@ -36,7 +38,8 @@ export const COLLECTES_PAGE_SIZE = 50;
 //
 // ⚠ `pax` NULL compte **XS**, parce que le dashboard du même espace calcule
 // `tailleBracket(pax ?? 0)`. Sans `pax.is.null` ici, le même filtre donnerait deux
-// périmètres différents selon l'écran qu'on regarde.
+// périmètres différents selon l'écran qu'on regarde. (`collectes.pax` est NOT
+// NULL ; 0 = convives inconnus compte XS, comme `tailleBracket(0)`.)
 //
 // ⚠ Ces prédicats doivent rester **en SQL** : la liste est paginée, un filtrage
 // après `.range()` filtrerait une PAGE au lieu de l'ensemble et laisserait
@@ -61,6 +64,11 @@ const PREDICAT_TAILLE = new Map<string, string>([
  * et Taille d'événement arrivent en paramètre répété (`x[]`), noms propagés par
  * le drill-down des Top listes du dashboard (§06.05 l.209).
  *
+ * Type d'événement : celui de la COLLECTE (`collectes.type_evenement_id`,
+ * décision Val C3 du 2026-10-22) pour la liste Collectes et son export ; la liste
+ * Événements le lit sur ses collectes. Identifiants lus comme UUID, comme Lieu
+ * et Traiteur (lot C1).
+ *
  * `aucunResultat` : un filtre a été demandé et AUCUNE de ses valeurs n'est
  * lisible (identifiant mal formé, code de taille hors XS…XL). Ignorer le filtre
  * rendrait un périmètre plus large que celui annoncé ; la réponse honnête est
@@ -77,6 +85,8 @@ export function lireFiltresCollectesGestionnaire(sp: URLSearchParams) {
   );
   const lieuIds = lieuxDemandes.filter(estUuid);
   const traiteurIds = traiteursDemandes.filter(estUuid);
+  const typesDemandes = sp.getAll('type_evenement_ids[]');
+  const typeEvtIds = typesDemandes.filter(estUuid);
   const taillesDemandees = sp.getAll('taille_evenements[]');
   const predicatsTaille = taillesDemandees
     .map((code) => PREDICAT_TAILLE.get(code))
@@ -84,11 +94,12 @@ export function lireFiltresCollectesGestionnaire(sp: URLSearchParams) {
   return {
     lieuIds,
     traiteurIds,
-    typeEvtIds: sp.getAll('type_evenement_ids[]'),
+    typeEvtIds,
     predicatsTaille,
     aucunResultat:
       (taillesDemandees.length > 0 && predicatsTaille.length === 0) ||
       (lieuxDemandes.length > 0 && lieuIds.length === 0) ||
-      (traiteursDemandes.length > 0 && traiteurIds.length === 0),
+      (traiteursDemandes.length > 0 && traiteurIds.length === 0) ||
+      (typesDemandes.length > 0 && typeEvtIds.length === 0),
   };
 }

@@ -17,7 +17,9 @@ export function ficheClient(
     tms_reference: null,
     date_collecte: '2026-10-28',
     heure_collecte: '22:00:00',
-    // Pax de la collecte (décision Val 2026-10-20) : celui de l'événement ici.
+    // Pax de la collecte (décision Val 2026-10-20) : il porte la taille et les
+    // ratios « par pax » du bilan (lot C1). L'événement, sur deux soirées, en
+    // compte le double : un écran qui lirait l'événement se trahit.
     pax: 4200,
     controle_acces_requis: true,
     informations_completes: true,
@@ -38,7 +40,7 @@ export function ficheClient(
     evenement: {
       id: 'e1',
       nom_evenement: 'Salon',
-      pax: 4200,
+      pax: 8400,
       nom_client_organisateur: 'Maison Client',
       reference_affaire: null,
       lieu: {

@@ -234,6 +234,61 @@ describe('M3.5 / dashboards/evolution', () => {
     expect(bucket.ratio).toBeCloseTo(0.7, 5);
   });
 
+  it('M3.5/evolution_filtres_type_et_taille_de_la_collecte — type en SQL sur collectes.type_evenement_id, taille sur le pax de la collecte (Q3 Val 2026-10-24)', async () => {
+    setupAuth('traiteur_manager');
+    const TYPE = '7e000000-0000-4000-8000-0000000000d2';
+    // Deux soirées d'un même événement de 900 convives (XL) : 300 (S), 600 (M).
+    const soirees = evt('evt-1', { pax: 900 });
+    results['collectes'] = {
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          taux_recyclage: 80,
+          date_collecte: '2026-06-15',
+          pax: 300,
+          evenements: soirees,
+          collecte_flux: [
+            { poids_reel_kg: 100, flux_dechets: { code: 'biodechet' } },
+          ],
+          attributions_antgaspi: [],
+        },
+        {
+          id: 'c2',
+          type: 'zero_dechet',
+          taux_recyclage: 80,
+          date_collecte: '2026-06-16',
+          pax: 600,
+          evenements: soirees,
+          collecte_flux: [
+            { poids_reel_kg: 250, flux_dechets: { code: 'biodechet' } },
+          ],
+          attributions_antgaspi: [],
+        },
+      ],
+      error: null,
+    };
+    const GET = await loadGET();
+    const res = await GET(
+      req(
+        `/api/v1/dashboards/evolution?type=zero_dechet&from=2025-06-01&to=2026-06-30&type_evenement_ids[]=${TYPE}&taille_evenements[]=M`,
+      ),
+    );
+    const json = (await res.json()) as {
+      data: { series: Array<Record<string, number | null>> };
+    };
+    expect(calls.in ?? []).toContainEqual(['type_evenement_id', [TYPE]]);
+    expect(
+      (calls.in ?? []).some((a) => a[0] === 'evenements.type_evenement_id'),
+    ).toBe(false);
+    // Seule la soirée de 600 convives (M) compte.
+    const total = json.data.series.reduce(
+      (s, b) => s + (b.tonnage_total ?? 0),
+      0,
+    );
+    expect(total).toBe(250);
+  });
+
   it('M3.5/evolution_granularite_auto — jour <30j / semaine <12mois / mois sinon', async () => {
     setupAuth('traiteur_manager');
     results['collectes'] = { data: [], error: null };

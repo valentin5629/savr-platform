@@ -606,13 +606,15 @@ describe('M4.1 / export collectes — filtres de la liste gestionnaire', () => {
       'evenements.traiteur_operationnel_organisation_id',
       [TRAITEUR_1],
     ]);
-    expect(inn).toContainEqual(['evenements.type_evenement_id', [TYPE_EVT]]);
-    // Un seul `.or()` sur l'embed, prédicats de la table de constantes.
+    // Type et taille de la COLLECTE, comme la liste (C3 du 2026-10-22, C4 du
+    // 2026-10-20, lot C1).
+    expect(inn).toContainEqual(['type_evenement_id', [TYPE_EVT]]);
+    expect(inn.some(([col]) => col === 'evenements.type_evenement_id')).toBe(
+      false,
+    );
+    // Un seul `.or()`, sans `referencedTable` : sur `collectes.pax`.
     expect(rls.__calls.or).toEqual([
-      [
-        'and(pax.gte.500,pax.lt.750),pax.is.null,pax.lt.250',
-        { referencedTable: 'evenements' },
-      ],
+      ['and(pax.gte.500,pax.lt.750),pax.is.null,pax.lt.250'],
     ]);
   });
 
@@ -621,6 +623,7 @@ describe('M4.1 / export collectes — filtres de la liste gestionnaire', () => {
     ['clé héritée', '?taille_evenements[]=toString'],
     ['traiteur mal formé', '?traiteur_ids=pas-un-uuid'],
     ['lieu mal formé', '?lieu_ids=pas-un-uuid'],
+    ['type d’événement mal formé', '?type_evenement_ids[]=pas-un-uuid'],
   ])(
     'M4.1/export_collectes_gestionnaire_filtre_illisible_vide — %s : fichier sans ligne, jamais le périmètre entier',
     async (_cas, query) => {
@@ -1023,6 +1026,81 @@ describe('M4.1 / evenements', () => {
     expect(header).toContain('Statut consolidé');
     expect(line1).toContain('50'); // 40 + 10 kg
     expect(line1).toContain(';Tr;'); // libellé unique de la vue
+  });
+});
+
+describe('M4.1 / evenements — type d’événement de ses collectes (lot C1, Q2)', () => {
+  it('M4.1/export_evenements_type_des_collectes — colonne « Type d’événement » : types de ses collectes, ordre de la collecte n°1, sans doublon ni collecte annulée', async () => {
+    setupAuth('traiteur_manager');
+    const col = (o: Record<string, unknown>) => ({
+      taux_recyclage: null,
+      heure_collecte: '20:00:00',
+      created_at: '2026-01-01T00:00:00Z',
+      collecte_flux: [],
+      ...o,
+    });
+    rls.push({
+      data: [
+        {
+          id: 'e1',
+          nom_evenement: 'Salon',
+          date_evenement: '2026-02-01',
+          pax: 300,
+          traiteur_operationnel_organisation_id: 'tr-1',
+          lieux: { nom: 'Dock' },
+          // Copie de la collecte n°1 : jamais seule affichée.
+          types_evenements: { libelle: 'Cocktail apéritif' },
+          collectes: [
+            // AG la veille : après les ZD (règle de la collecte n°1).
+            col({
+              id: 'c0',
+              type: 'anti_gaspi',
+              statut: 'validee',
+              date_collecte: '2026-01-31',
+              type_evenement: { libelle: 'Autre' },
+            }),
+            col({
+              id: 'c1',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-01',
+              type_evenement: { libelle: 'Cocktail apéritif' },
+            }),
+            col({
+              id: 'c2',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-02',
+              type_evenement: { libelle: 'Repas assis' },
+            }),
+            col({
+              id: 'c3',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-03',
+              type_evenement: { libelle: 'Repas assis' },
+            }),
+            col({
+              id: 'c4',
+              type: 'zero_dechet',
+              statut: 'annulee',
+              date_collecte: '2026-01-30',
+              type_evenement: { libelle: 'Cocktail repas complet' },
+            }),
+          ],
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [{ id: 'tr-1', nom: 'Tr' }], error: null });
+
+    const res = await call('evenements');
+    const text = new TextDecoder().decode(
+      new Uint8Array(await res.arrayBuffer()),
+    );
+    expect(res.status).toBe(200);
+    expect(text).toContain(';Cocktail apéritif, Repas assis, Autre;');
+    expect(text).not.toContain('Cocktail repas complet');
   });
 });
 

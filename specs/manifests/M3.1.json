@@ -1071,10 +1071,10 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "cc6b7038b23c8a46f436653b3553db581270cbd5668a37dd25940599b22c4bef",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "08480c96d4f2d76df30ca1e449da64898de1acf86892b42013cec2f1de621103",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "f0050ece5dc6cb9d1b7fda6ee2f62bfe96897836368935ca47a81027ba5cf001",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9e638e9ea91e21e550a2cfcbc68a2f9d832d203cd0dc58dcea31162942abf3f",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "075614cb902bb28ae1c26a57b341bd91423d97aae6c05607e79193d95420ba97",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "801825df25e1273307024ffa52be6f73bb55ad8c3f016fb327be790a0319d474",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "71ca20cab248229ca8cd9e0bf1fcf5f0fbe20aae1aa418faba74885b7cc13e63",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "df6a09ee0027774c486af5c9ff934a8d1481fe9d311cfc8ab8a6f4ee62b7c5a6"
   }

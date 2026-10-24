@@ -77,7 +77,7 @@ Chaque onglet affiche son propre jeu de blocs adaptés au métier. La barre de f
 | Lieux                | Multi-select                   | Lieux où le traiteur est intervenu sur les 24 derniers mois — défaut "Tous"                                              |
 | Client organisateur  | Multi-select                   | Clients organisateurs renseignés sur ses collectes — défaut "Tous"                                                       |
 | Type d'événement     | Multi-select                   | `types_evenements.libelle` — référentiel extensible Admin                                                                |
-| Taille d'événement   | Multi-select                   | Bracket calculé sur `evenements.pax` : **XS** [0-249], **S** [250-499], **M** [500-749], **L** [750-999], **XL** [1000+] |
+| Taille d'événement   | Multi-select                   | Bracket calculé sur `collectes.pax` (taille de la collecte, décision Val Q3 du 2026-10-24) : **XS** [0-249], **S** [250-499], **M** [500-749], **L** [750-999], **XL** [1000+] |
 
 Bouton "Réinitialiser" ramène aux valeurs par défaut. Compteur "X collectes correspondent" sous la barre.
 
@@ -416,7 +416,7 @@ Infos pilotantes affichées en bloc compact :
 - Contact secours collecte (`collecte_contacts.contact_secours_nom` + téléphone, affiché uniquement si renseigné)
 
 > **Email de contact terrain : hors périmètre V1** (correction 2026-09-22). La colonne `evenements.contact_principal_email` a été supprimée à la refonte 2026-04-28 (§04 Data Model, audit cohérence inter-CDC A2) et reportée V1.1 — le téléphone seul suffit le jour J. Si V1.1 la réintroduit : le formulaire de programmation (§06.01) devra la saisir et le payload E1 vers le transporteur la transmettre.
-- Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax)
+- Type d'événement + taille (XS/S/M/L/XL bracket calculé sur le pax de la collecte, `collectes.pax` ; 0 convive = pas de taille — lot C1, C4 du 2026-10-20)
 - Heure de collecte
 - Statut (badge)
 - **Programmée par** (badge orange — affiché uniquement si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id`, ajout 2026-05-07) : "Programmée par {{nom organisation programmatrice}} ({{type : agence | gestionnaire de lieux}})". Cliquable → modal info "Cette collecte a été programmée par {{nom}}, {{type}}. Vous êtes le traiteur opérationnel sur place. Pour toute question : {{email contact organisation programmatrice}}." Pas d'action depuis cette modal. Le traiteur opérationnel ne modifie ni n'annule une collecte programmée par un tiers : ces actions restent à l'organisation qui a programmé (matrice [[09 - Authentification et permissions]]). Les boutons « Modifier la collecte » et « Demander l'annulation » sont affichés grisés ; pour un changement, il s'adresse au programmateur (email de la modale) ou à l'équipe Savr *(décision Val 2026-10-10)*.
@@ -459,7 +459,7 @@ Cette valeur est **également imprimée sur le PDF Rapport RSE** §1.2 page 1 (S
 Affiché uniquement sur collectes **ZD clôturées** (`statut = cloturee` — « Réalisée » client ; `realisee` retiré, D4 2026-09-30). Permet au traiteur de visualiser les performances de cette collecte unique vs benchmark parc Savr.
 
 Structure (radar, 1 axe par flux ZD = 5 axes — même représentation que le Bloc 3 ZD du dashboard) :
-- **Valeur traiteur** : ratio `kg du flux sur cette collecte / pax de cet événement` (grain `single collecte`)
+- **Valeur traiteur** : ratio `kg du flux sur cette collecte / pax de cette collecte` (`collectes.pax` ; grain `single collecte`, lot C1 ; pas de point « Vous » si la collecte compte 0 convive)
 - **Échelle** : indice parc = 100 par flux (identique Bloc 3 ZD dashboard)
 - **Point rouge benchmark** : moyenne parc Savr selon **filtres benchmark dédiés** (4 dimensions, voir §2 Bloc 3 ZD pour la liste)
 - **K-anonymat parc appliqué côté serveur — ≥ 5 collectes ET ≥ 3 acteurs distincts** (durci 2026-09-22, cf. §04 « RLS / k-anonymat »). Si l'un des deux seuils n'est pas atteint → point rouge masqué + tooltip "Données insuffisantes pour benchmark" (libellé neutre : il ne cite pas la cause)
@@ -472,7 +472,7 @@ Mêmes critères qu'au dashboard (Lieux / Type événement / Taille événement 
 **Initialisation** : à l'ouverture de la fiche collecte, les filtres benchmark sont pré-remplis avec les caractéristiques de la collecte courante :
 - Période benchmark = 24 mois glissants (fixe, non modifiable — 2026-09-28)
 - Lieux benchmark = "Tous"
-- Type événement benchmark = type de cette collecte (`collectes.type_evenement_id`, lot B1 du 2026-10-23). ⚠ Jusqu'au passage du benchmark au grain collecte (lot C de la refonte), le segment parc (`f_benchmark_kg_pax_zd`) et le point « Vous » (`f_benchmark_single_collecte`) restent calculés sur le type et le pax de l'événement, c'est-à-dire de sa collecte n°1 : pour une collecte d'un autre type que la n°1, le filtre affiché et le segment du point « Vous » peuvent différer.
+- Type événement benchmark = type de cette collecte (`collectes.type_evenement_id`, lot B1 du 2026-10-23). Depuis le lot C1 (2026-10-24), le segment parc (`f_benchmark_kg_pax_zd`) et le point « Vous » (`f_benchmark_single_collecte`) sont calculés sur le type et le pax de cette collecte : le filtre affiché et le segment du point « Vous » sont ceux de la collecte. Une collecte à 0 convive (inconnu) n'a pas de taille sur la fiche, pas de filtre de taille par défaut et pas de point « Vous ».
 - Taille événement benchmark = bracket calculé sur le pax de cette collecte
 
 Bouton "Réinitialiser" pour revenir aux valeurs par défaut.

@@ -393,6 +393,87 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
   );
 
   it(
+    'M1.2/formulaire_nombre_vide — un nombre de collectes s’efface au clavier : le champ vide vaut 0, les cartes ne sont retirées qu’en quittant le champ',
+    async () => {
+      installerFetch();
+      render(<NouveauProgrammationPage />);
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: ECRAN_1 },
+        ATTENTE_UI,
+      );
+      fireEvent.change(nomEvenement(), { target: { value: 'Gala' } });
+      await choisirLieu();
+
+      // Effacé au clavier : le champ reste vide et vaut 0 collecte.
+      demander('zd', 1);
+      expect(continuer()).toBeEnabled();
+      demander('zd', '');
+      expect(champNombre('zd')).toHaveValue(null);
+      expect(continuer()).toBeDisabled();
+      // En quittant le champ, il affiche 0.
+      fireEvent.blur(champNombre('zd'));
+      expect(champNombre('zd')).toHaveValue(0);
+      expect(continuer()).toBeDisabled();
+      // « 0 » se tape aussi.
+      demander('zd', 2);
+      demander('zd', 0);
+      expect(champNombre('zd')).toHaveValue(0);
+      expect(continuer()).toBeDisabled();
+
+      // Effacer « 1 » pour taper « 3 » garde ce qui a été saisi dans les
+      // cartes.
+      demander('zd', 1);
+      fireEvent.click(continuer());
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: ECRAN_2 },
+        ATTENTE_UI,
+      );
+      saisir('pax', 'zd-1', '80');
+      fireEvent.change(infos('zd-1'), { target: { value: 'Quai n°4' } });
+      fireEvent.click(screen.getByRole('button', { name: /Retour/ }));
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: ECRAN_1 },
+        ATTENTE_UI,
+      );
+      demander('zd', '');
+      demander('zd', 3);
+      fireEvent.blur(champNombre('zd'));
+      fireEvent.click(continuer());
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: ECRAN_2 },
+        ATTENTE_UI,
+      );
+      expect(suffixesCartes()).toEqual(['zd-1', 'zd-2', 'zd-3']);
+      expect(champCarte('pax', 'zd-1')).toHaveValue(80);
+      expect(infos('zd-1')).toHaveValue('Quai n°4');
+
+      // Effacé puis quitté : les cartes de ce type sont retirées.
+      fireEvent.click(screen.getByRole('button', { name: /Retour/ }));
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: ECRAN_1 },
+        ATTENTE_UI,
+      );
+      demander('ag', 1);
+      demander('zd', '');
+      fireEvent.blur(champNombre('zd'));
+      expect(champNombre('zd')).toHaveValue(0);
+      fireEvent.click(continuer());
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: ECRAN_2 },
+        ATTENTE_UI,
+      );
+      expect(suffixesCartes()).toEqual(['ag-1']);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M1.2/formulaire_suivi_collecte_1 — les cartes reprennent la collecte n°1 champ par champ ; un champ modifié dans une carte n’en bouge plus',
     async () => {
       installerFetch();

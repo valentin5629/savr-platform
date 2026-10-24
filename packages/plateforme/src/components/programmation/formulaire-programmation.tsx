@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type ChangeEvent,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserRole } from '@/lib/use-user-role';
 import { isStaff } from '@/lib/roles';
@@ -235,6 +241,26 @@ export function FormulaireProgrammation({
   const affichees = valeursEffectives(cartes);
   const nbZd = nombreParType(cartes, 'zd');
   const nbAg = nombreParType(cartes, 'ag');
+  // Champ « nombre de collectes » vidé au clavier : il reste vide et vaut 0
+  // collecte (retour Val du 2026-10-24) ; les cartes de ce type ne sont
+  // retirées qu'en quittant le champ, pour qu'effacer « 2 » et taper « 3 »
+  // ne fasse pas perdre ce qui a été saisi dans les cartes.
+  const [nombreVide, setNombreVide] = useState({ zd: false, ag: false });
+  const nbZdSaisi = nombreVide.zd ? 0 : nbZd;
+  const nbAgSaisi = nombreVide.ag ? 0 : nbAg;
+  const changerNombre =
+    (type: 'zd' | 'ag') => (e: ChangeEvent<HTMLInputElement>) => {
+      const brut = e.target.value;
+      setNombreVide((v) => ({ ...v, [type]: brut === '' }));
+      if (brut !== '') {
+        setCartes((prev) => ajusterNombre(prev, type, Number(brut) || 0));
+      }
+    };
+  const quitterNombre = (type: 'zd' | 'ag') => () => {
+    if (!nombreVide[type]) return;
+    setNombreVide((v) => ({ ...v, [type]: false }));
+    setCartes((prev) => ajusterNombre(prev, type, 0));
+  };
   const [typesEvenements, setTypesEvenements] = useState<TypeEvenementOption[]>(
     [],
   );
@@ -473,12 +499,13 @@ export function FormulaireProgrammation({
         ? traiteurOperationnelId || null
         : PACK_PROPRE,
   );
-  const agSansPack = nbAg > 0 && packAg !== null && factureeAlUnite(packAg);
+  const agSansPack =
+    nbAgSaisi > 0 && packAg !== null && factureeAlUnite(packAg);
 
   const ecran1Valide =
     nomEvenement.trim() !== '' &&
     lieu !== null &&
-    nbZd + nbAg >= 1 &&
+    nbZdSaisi + nbAgSaisi >= 1 &&
     (!needsTraiteurSelector || traiteurOperationnelId !== '');
   const ecran2Valide =
     affichees.length >= 1 && affichees.every((c) => carteComplete(c));
@@ -852,15 +879,9 @@ export function FormulaireProgrammation({
                   min="0"
                   max={PLAFOND_PAR_TYPE}
                   step="1"
-                  value={String(nbZd)}
-                  onChange={(e) => {
-                    // Champ vidé en cours de frappe : rien ne change (les
-                    // cartes et leur contenu restent).
-                    if (e.target.value === '') return;
-                    setCartes((prev) =>
-                      ajusterNombre(prev, 'zd', Number(e.target.value) || 0),
-                    );
-                  }}
+                  value={nombreVide.zd ? '' : String(nbZd)}
+                  onChange={changerNombre('zd')}
+                  onBlur={quitterNombre('zd')}
                 />
               </FormField>
               <FormField
@@ -874,16 +895,10 @@ export function FormulaireProgrammation({
                   min="0"
                   max={PLAFOND_PAR_TYPE}
                   step="1"
-                  value={String(nbAg)}
+                  value={nombreVide.ag ? '' : String(nbAg)}
                   aria-describedby={agSansPack ? 'nombre-ag-info' : undefined}
-                  onChange={(e) => {
-                    // Champ vidé en cours de frappe : rien ne change (les
-                    // cartes et leur contenu restent).
-                    if (e.target.value === '') return;
-                    setCartes((prev) =>
-                      ajusterNombre(prev, 'ag', Number(e.target.value) || 0),
-                    );
-                  }}
+                  onChange={changerNombre('ag')}
+                  onBlur={quitterNombre('ag')}
                 />
               </FormField>
             </FormGrid>

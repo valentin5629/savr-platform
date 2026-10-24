@@ -181,11 +181,11 @@ SELECT is(
              FROM plateforme.collecte_flux cf
             WHERE cf.collecte_id = 'b5c1d000-0000-0000-0000-0000000004c1'
               AND cf.flux_id = current_setting('bsg.flux_bio')::uuid)
-        / (SELECT e.pax
-             FROM plateforme.evenements e
-            WHERE e.id = 'b5c1d000-0000-0000-0000-0000000003e1')),
+        / (SELECT c.pax
+             FROM plateforme.collectes c
+            WHERE c.id = 'b5c1d000-0000-0000-0000-0000000004c1')),
   0.5::numeric,
-  'M3.2/benchmark_single_collecte_tiers_sans_donnee_nouvelle — la session du gestionnaire lit déjà le poids du flux et les pax : leur quotient est le ratio rendu');
+  'M3.2/benchmark_single_collecte_tiers_sans_donnee_nouvelle — la session du gestionnaire lit déjà le poids du flux et le pax de la collecte (lot C1) : leur quotient est le ratio rendu');
 
 SELECT is(
   (SELECT count(*)::int

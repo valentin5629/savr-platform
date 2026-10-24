@@ -69,7 +69,7 @@ Clic sur une ligne → page de détail de la collecte avec :
 
 ### Bloc 1 — Données événement (snapshot)
 
-Nom, date, horaire, pax, type d'événement, client organisateur.
+Nom, date, horaire, pax et type d'événement de la collecte (lot C1, 2026-10-24 : ceux de LA collecte, pas de l'événement), client organisateur.
 
 ### Bloc 2 — Producteur de déchets (snapshot)
 

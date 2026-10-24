@@ -810,6 +810,25 @@ Scénario : benchmark_agregation_segments_ponderee_ecran_et_pdf
 ```
 
 ```gherkin
+# Source : §04 f_benchmark_kg_pax_zd + f_benchmark_single_collecte + f_rapport_benchmark_zd (lot C1 — décisions Val C3 2026-10-22, C4 2026-10-20, Q4 2026-10-24)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : benchmark_grain_collecte_type_taille_pax_zero
+  Étant donné un événement « Gala » de deux soirées : collecte ZD n°1 « Cocktail apéritif » 300 convives et collecte ZD « Repas assis » 600 convives, toutes deux clôturées (événement à 900 convives, type recopié « Cocktail apéritif »)
+  Quand f_benchmark_kg_pax_zd agrège le parc
+  Alors la collecte « Repas assis » entre dans le segment (Repas assis, M) avec son poids et ses 600 convives
+  Et la collecte n°1 entre dans le segment (Cocktail apéritif, S) avec ses 300 convives
+  Et aucune des deux n'entre dans un segment L ni n'est divisée par 900
+  Quand f_benchmark_single_collecte est appelée sur la collecte « Repas assis »
+  Alors ratio_user = poids du flux / 600, sur le segment (Repas assis, M)
+  Et f_rapport_benchmark_zd compare le PDF de cette collecte au même segment que l'écran
+  Étant donné une collecte ZD clôturée à 0 convive (inconnu, reprise Bubble) avec 80 kg de biodéchet
+  Alors elle n'entre dans aucun segment : ni son poids, ni ses convives, ni dans nb_collectes_segment
+  Et f_benchmark_single_collecte rend ratio_user = NULL pour elle (pas de point « Vous »)
+```
+
+```gherkin
 # Source : §12 §1.3 (snapshot habilitation)
 # Couche : db
 # Priorité : P2-important

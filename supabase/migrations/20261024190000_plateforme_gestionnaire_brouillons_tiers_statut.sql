@@ -32,8 +32,10 @@
 -- Inchangés : le régime « événement programmé par mon organisation » (le
 -- programmeur voit toujours son brouillon) ; les branches traiteur
 -- opérationnel et client organisateur de f_collecte_visible ; la vue
--- v_attributions_gestionnaire (une attribution n'existe que sur une collecte
--- confirmée, et l'Admin ne peut pas remettre une collecte en brouillon).
+-- v_attributions_gestionnaire, qui garde sa seule garde de date
+-- (rpc_valider_attribution_ag, seule fonction SQL qui crée une attribution,
+-- exige le statut `programmee`, et la route Admin de modification d'une
+-- collecte refuse le retour en brouillon ; la base, elle, ne l'interdit pas).
 --
 -- Droits : CREATE OR REPLACE FUNCTION et ALTER POLICY conservent propriétaire,
 -- droits d'exécution et rôles de la policy ; aucun GRANT n'est ajouté.

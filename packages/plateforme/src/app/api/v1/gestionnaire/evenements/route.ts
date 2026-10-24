@@ -51,8 +51,11 @@ type LigneBrute = {
 // tenus sur ses lieux) et, pour les collectes imbriquées, par celle de
 // `collectes`. Ce sont les événements des collectes de la liste Collectes, plus
 // ceux qui n'ont aucune collecte visible (la liste Collectes, qui part des
-// collectes, ne peut pas les montrer). Un brouillon (sans date) n'est pas un
-// événement : écarté.
+// collectes, ne peut pas les montrer). Un brouillon n'est pas un événement
+// (§06.05 « un brouillon n'y figure pas ») : est écarté tout événement dont les
+// collectes sont toutes des brouillons, y compris ceux de son organisation, que
+// la RLS lui laisse lire. Un brouillon a une date (celle de ses collectes) : la
+// date seule ne l'écarte pas (mesuré le 2026-10-24).
 //
 // Paramètres — ceux de la liste Collectes, pour que les deux barres de filtres
 // se lisent pareil : from, to (sur la date de l'événement), lieu_ids,
@@ -104,7 +107,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
        organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(nom),
        collectes(id, type, statut, date_collecte, taux_recyclage, co2_evite_kg,
          collecte_flux(poids_reel_kg),
-         attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise))
+         attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)),
+       hors_brouillon:collectes(id)
        ${type ? ', filtre_type:collectes!inner(id)' : ''}
        ${typeEvtIds.length > 0 ? ', filtre_type_evt:collectes!inner(id)' : ''}`,
       { count: 'exact' },
@@ -114,6 +118,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     q = q.order('id', { ascending: tri.ascendant });
 
     q = q.not('date_evenement', 'is', null);
+    // Brouillon écarté : l'événement garde au moins une collecte hors brouillon
+    // (`hors_brouillon`, embed filtré), ou n'a aucune collecte. Un événement aux
+    // collectes toutes brouillons ne passe ni l'un ni l'autre.
+    q = q
+      .neq('hors_brouillon.statut', 'brouillon')
+      .or('hors_brouillon.not.is.null,collectes.is.null');
     if (type) q = q.eq('filtre_type.type', type);
     if (from) q = q.gte('date_evenement', from);
     if (to) q = q.lte('date_evenement', to);

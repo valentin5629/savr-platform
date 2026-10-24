@@ -82,6 +82,13 @@ INSERT INTO plateforme.evenements (
    '0f1a0005-0000-0000-0000-000000000003'::uuid, '0f1a0002-0000-0000-0000-000000000003'::uuid,
    '0f1a0006-0000-0000-0000-000000000001'::uuid, current_date + 7, 90, 'Alice', '0601020304');
 
+-- Une collecte confirmée, à la date de l'événement : le gestionnaire ne lit
+-- l'événement d'un tiers sur son lieu que s'il porte une collecte hors
+-- brouillon (20261024190000, décision Val 2026-10-24).
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
+VALUES ('0f1a0007-0000-0000-0000-000000000001'::uuid, '0f1a0004-0000-0000-0000-000000000001'::uuid,
+        'zero_dechet', 'programmee', 'non_envoye', current_date + 7, '20:00');
+
 -- ── A. Écriture directe refusée par le PRIVILÈGE ─────────────────────────────
 SELECT olf_jwt('admin_savr', NULL);
 

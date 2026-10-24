@@ -64,7 +64,9 @@ const NON_TROUVE = () =>
 //
 // Périmètre = RLS de la session (evenements puis collectes), comme la liste.
 // Un événement hors périmètre, un brouillon ou un identifiant mal formé → 404,
-// sans distinguer « n'existe pas » de « pas à vous ».
+// sans distinguer « n'existe pas » de « pas à vous ». Brouillon = événement dont
+// les collectes sont toutes des brouillons, même filtre que la liste (un
+// brouillon a une date : la date seule ne l'écarte pas).
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -93,10 +95,13 @@ export async function GET(
          collecte_flux(poids_reel_kg, flux_dechets!flux_id(code)),
          attributions_antgaspi:v_attributions_gestionnaire(
            volume_repas_realise, association_id, association_nom,
-           association_ville))`,
+           association_ville)),
+       hors_brouillon:collectes(id)`,
     )
     .eq('id', id)
     .not('date_evenement', 'is', null)
+    .neq('hors_brouillon.statut', 'brouillon')
+    .or('hors_brouillon.not.is.null,collectes.is.null')
     .maybeSingle();
 
   if (error) return serverError(error, 'gestionnaire.evenements.get');

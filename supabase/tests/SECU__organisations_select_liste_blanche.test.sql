@@ -111,6 +111,13 @@ INSERT INTO plateforme.evenements (
   'SECU Gala', '2026-06-15', 200, 'Contact', '0600000009'
 );
 
+-- Une collecte confirmée, à la date de l'événement : le traiteur n'est
+-- « intervenu » sur le lieu que par un événement qui porte une collecte hors
+-- brouillon (20261024190000, décision Val 2026-10-24).
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
+VALUES ('5e1ec001-0000-0000-0000-0000000000b1'::uuid, '5e1ee001-0000-0000-0000-0000000000b1'::uuid,
+        'zero_dechet', 'cloturee', 'non_envoye', '2026-06-15', '20:00');
+
 -- =============================================================================
 -- 1-6 — gestionnaire_lieux → traiteur intervenu : colonnes staff fermées
 -- =============================================================================

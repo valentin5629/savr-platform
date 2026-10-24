@@ -160,8 +160,8 @@ SELECT ('ba9c0000-0000-0000-0000-0000000003e' || p.n)::uuid,
        current_date - (30 + p.n), 600, 'C', '060000000' || p.n
   FROM _bfr_plan p;
 
--- Événement daté sur LA, sans collecte : l'agence y est son propre traiteur
--- opérationnel. Aucun effet sur les segments (pas de collecte).
+-- Événement daté sur LA : l'agence y est son propre traiteur opérationnel.
+-- Aucun effet sur les segments (sa seule collecte, ci-dessous, est AG).
 INSERT INTO plateforme.evenements (
   id, organisation_id, traiteur_operationnel_organisation_id, entite_facturation_id,
   created_by, lieu_id, type_evenement_id, nom_evenement, date_evenement, pax,
@@ -171,6 +171,15 @@ VALUES ('ba9c0000-0000-0000-0000-0000000003ea',
         'ba9c0000-0000-0000-0000-0000000002e1', 'ba9c0000-0000-0000-0000-0000000001e1',
         'ba9c0000-0000-0000-0000-0000000000c1', 'ba9c0000-0000-0000-0000-0000000000d1',
         'BFR Evt agence', current_date - 20, 600, 'C', '0600000099');
+
+-- Une collecte AG programmée, à la date de l'événement de l'agence : sans
+-- collecte hors brouillon, l'agence ne serait pas « intervenue » au sens de la
+-- fonction (20261024190000, décision Val 2026-10-24). Anti-Gaspi et sans pesée :
+-- toujours aucun effet sur les segments ZD.
+INSERT INTO plateforme.collectes
+  (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
+VALUES ('ba9c0000-0000-0000-0000-0000000004ca', 'ba9c0000-0000-0000-0000-0000000003ea',
+        'anti_gaspi', 'programmee', 'non_envoye', current_date - 20, '20:00');
 
 INSERT INTO plateforme.collectes
   (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, dirty_tms, annulee_cote_savr)

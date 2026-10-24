@@ -60,8 +60,9 @@
 -- `e.type_evenement_id` à la place des colonnes de la collecte (celui de
 -- 20260619120000 ne se rejoue pas tel quel : il cite `collecte_statut_enum` et
 -- `collecte_type_enum`, renommées depuis en `collecte_statut` / `collecte_type`).
--- Aucune donnée n'est touchée ; le benchmark et le registre reviennent au type et
--- au pax de l'événement.
+-- Rejouer aussi les COMMENT ON de ces quatre migrations (celui de la vue, sinon,
+-- garde le texte du lot C1). Aucune donnée n'est touchée ; le benchmark et le
+-- registre reviennent au type et au pax de l'événement.
 -- =============================================================================
 
 BEGIN;

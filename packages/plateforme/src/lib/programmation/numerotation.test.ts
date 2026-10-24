@@ -33,6 +33,31 @@ describe('M1.2/numerotation_collectes', () => {
     ]);
   });
 
+  it('même date et même heure : l’heure de création départage, pas l’identifiant', () => {
+    // Identifiants dans l'ordre inverse des créations : seul `created_at`
+    // peut donner l'ordre des cartes.
+    const libelles = numeroterCollectes([
+      c(
+        'zzz-cree-en-premier',
+        'zero_dechet',
+        '2030-11-12',
+        '19:00:00',
+        '2030-01-01T10:00:00.001Z',
+      ),
+      c(
+        'aaa-cree-en-second',
+        'zero_dechet',
+        '2030-11-12',
+        '19:00:00',
+        '2030-01-01T10:00:00.002Z',
+      ),
+    ]).map((l) => `${l.collecte.id}=${l.libelle}`);
+    expect(libelles).toEqual([
+      'zzz-cree-en-premier=Collecte Zéro Déchet #1',
+      'aaa-cree-en-second=Collecte Zéro Déchet #2',
+    ]);
+  });
+
   it('une collecte annulée garde son numéro : les autres ne changent pas de nom', () => {
     const avant = numeroterCollectes([
       c('a', 'zero_dechet', '2030-11-12'),

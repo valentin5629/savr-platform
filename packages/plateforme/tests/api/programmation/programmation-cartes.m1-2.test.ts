@@ -1216,6 +1216,40 @@ describe('M1.2 / programmation par cartes — GET détail événement', () => {
     ]);
   });
 
+  it('M1.2/get_evenement_collectes_ordre_creation — collectes rendues dans l’ordre de création, pas dans celui des identifiants', async () => {
+    // Identifiants dans l'ordre inverse des créations : seul `created_at`
+    // donne l'ordre d'enregistrement des cartes (reprise d'un brouillon).
+    evenements = [
+      {
+        ...EVT_GET,
+        collectes: [
+          {
+            ...EVT_GET.collectes[0],
+            id: 'aaa',
+            created_at: '2030-01-01T10:00:00.003Z',
+          },
+          {
+            ...EVT_GET.collectes[1],
+            id: 'bbb',
+            created_at: '2030-01-01T10:00:00.001Z',
+          },
+          {
+            ...EVT_GET.collectes[2],
+            id: 'ccc',
+            created_at: '2030-01-01T10:00:00.002Z',
+          },
+        ],
+      },
+    ];
+    setupAuth('traiteur_manager', ORG, 'user-1');
+
+    const res = await lire('evt-g');
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { collectes: Array<{ id: string }> };
+    expect(json.collectes.map((c) => c.id)).toEqual(['bbb', 'ccc', 'aaa']);
+  });
+
   it('M1.2/get_evenement_contacts_par_collecte — lecture des contacts en échec : 500, jamais « aucun contact »', async () => {
     setupAuth('traiteur_manager', ORG, 'user-1');
     erreurContacts = { code: '42501', message: 'permission denied for table' };

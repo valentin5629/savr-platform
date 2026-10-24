@@ -20,7 +20,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(47);
+SELECT plan(49);
 
 -- ── Jeu d'essai : l'organisation, le lieu et l'entité de facturation d'un
 -- événement existant, deux types d'événement.
@@ -230,6 +230,15 @@ SELECT is(
   'brouillon : une carte zd devient une Zéro-Déchet, une carte ag une Anti-Gaspi');
 
 -- ── Colonnes écrites : heure, téléphones, brouillon complet ─────────────────
+-- La carte 2 a des convives (donc un téléphone) distincts de la carte n°1,
+-- dont l'événement recopie les contacts : ses valeurs ne peuvent venir que de
+-- son écriture.
+SELECT is(
+  (SELECT contact_principal_telephone || ' / ' || coalesce(contact_secours_telephone, '-')
+     FROM plateforme.collecte_contacts WHERE collecte_id = pg_temp.cid(2)),
+  '0600000080 / -', 'confirmée : téléphone principal de la carte 2, sans secours');
+SELECT is((SELECT date_collecte FROM plateforme.collectes WHERE id = pg_temp.cid(2)), CURRENT_DATE + 13,
+  'confirmée : la date de la carte');
 SELECT is((SELECT heure_collecte FROM plateforme.collectes WHERE id = pg_temp.cid(3)), '22:00'::time,
   'confirmée : l’heure de la carte');
 SELECT is(

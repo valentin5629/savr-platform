@@ -291,10 +291,10 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8fb9d6aaf334912acdd09d740312e04c5f9074b79e6bc0a28bb8177d458f0617",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "4c700ea71b8c545d80f1054d743d2f779407f72b2ef357f78bf85e95745d563e",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "c1b4c8c5e6ce75c1cc9ae552139b260a716d4daa2517e185e6bc24c86baac249",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "71ca20cab248229ca8cd9e0bf1fcf5f0fbe20aae1aa418faba74885b7cc13e63",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "df6a09ee0027774c486af5c9ff934a8d1481fe9d311cfc8ab8a6f4ee62b7c5a6",
-    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "8bf5074739b0c063ea5a89183455cd2d0b329c49c6ebe3343c0f78e945ce7b66",
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "d3691b468643c37d7a0df179e75f06f852dcdff973a93e263a9c685c29cb7445",
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "9c8e452cfd3ae22b4e8a60d159fc92bb7eca47eeec8e5b04c945bff21ee6bd9e"
   }
 }

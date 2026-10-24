@@ -153,7 +153,7 @@
     },
     {
       "id": "M2.4-rapport-de-don-email-disponibilite",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:669",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:663",
       "artefact": "supabase/migrations/20261013180000_plateforme_email_template_rapport_de_don.sql + packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts (étape 10)",
       "test": "M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible ; supabase/tests/email_template_rapport_de_don.test.sql « objet : », « variables déclarées = celles que le batch AG fournit », « objet et corps : plus aucun » ; M2.4 / gabarit « rapport de don disponible » — migration 20261013180000",
       "statut": "implemented",
@@ -170,10 +170,10 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "d06476bd2f7c72dabaca7a4273b5261fbd1ab1a34d138e7cd40b75b0657f6f08",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8fb9d6aaf334912acdd09d740312e04c5f9074b79e6bc0a28bb8177d458f0617",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9704aa851a9accf548350bdb8381258da408f7328b8922be0f43a34999960bf",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1dc5514eeb022c85122714cef2f72fdbd7924fbb4980e5a9f5c28b2d0342ea3e",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "cc6b7038b23c8a46f436653b3553db581270cbd5668a37dd25940599b22c4bef",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "c1b4c8c5e6ce75c1cc9ae552139b260a716d4daa2517e185e6bc24c86baac249",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9e638e9ea91e21e550a2cfcbc68a2f9d832d203cd0dc58dcea31162942abf3f",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "3ae14ab53a4e7ecab5d691bebe82055095367a43bc9e2293b6bd600c5ca3b3e7",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "f308640dbe0902f0570a0f9017a32874e932693f0adc95bfe817d36c344a50f6",
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "393faa2b9b2143c6a15b316dab8f870735c0b61a3da809a107e5df93b2fac279"
   }

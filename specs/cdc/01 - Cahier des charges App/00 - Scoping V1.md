@@ -15,7 +15,7 @@ Tous les modules documentés §01→§15, soit :
 - [ ] **6 rôles** : `admin_savr`, `traiteur_manager`, `traiteur_commercial`, `agence`, `gestionnaire_lieux`, `client_organisateur` (§09)
 - [ ] **Auth + onboarding** : email/password Supabase, inscription self-service (SIRET INSEE + TVA VIES), rattachement orga par domaine email (§09)
 - [ ] **Back-office Admin Savr** : CRUD orgas / users / lieux / événements / collectes, dashboard Admin, packs AG, brouillons factures, paramètres algo (§06.06)
-- [ ] **Formulaire programmation collecte** : 3 étapes, ZD + AG event-centré, tarif ZD base+remises, vérif pack AG (§06.01)
+- [ ] **Formulaire programmation collecte** : deux écrans puis une page de confirmation (refonte Val 2026-10-22), N collectes ZD et AG event-centrées, tarif ZD base+remises, vérif pack AG (§06.01)
 - [ ] **Machine à états collecte unifiée** ZD+AG : `programmee → validee → en_cours → realisee → cloturee` (§05)
 - [ ] **Intégration logistique V1** (voir MODIFY ci-dessous) : MTS-1 API V3 + Everest derrière l'abstraction `logistique_provider`
 - [ ] **Génération PDF** : bordereau pesée ZD, rapport recyclage ZD, attestation don AG, batch J+1 6h, embargo H+24 (§06, §12)

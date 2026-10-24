@@ -45,7 +45,7 @@ Identique au §06.04 §1 — **4 entrées** : Dashboard · Collectes (liste + pr
 
 Différence : **pas de Registre réglementaire** (non producteur, cf. différence #5). L'export RSE se fait via le Bloc 8 du dashboard (comme §06.04), il n'y a pas de section nav dédiée. Le pack AG est consultable dans l'onglet AG du dashboard (comme §06.04), pas en section nav dédiée.
 
-**Bouton primaire « Programmer un événement »** : formulaire unique §06.01 (choix ☐ZD ☐AG en étape 1), **cas Agence** (combobox traiteur opérationnel : référentiel + option shadow ; combobox lieu : ouverte sans restriction). Si Anti-Gaspi coché sans pack actif, la collecte AG reste programmable et sera facturée à l'unité (information non bloquante, décision Val 2026-10-16).
+**Bouton primaire « Programmer un événement »** : formulaire unique §06.01 (nombre de collectes Zéro-Déchet et Anti-Gaspi à l'écran 1 — refonte Val 2026-10-22), **cas Agence** (combobox traiteur opérationnel : référentiel + option shadow ; combobox lieu : ouverte sans restriction). Si une collecte Anti-Gaspi est demandée sans pack actif, elle reste programmable et sera facturée à l'unité (information non bloquante, décision Val 2026-10-16).
 
 ---
 

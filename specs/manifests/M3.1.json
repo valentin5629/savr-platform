@@ -639,7 +639,7 @@
     },
     {
       "id": "M3.1-lieux-autocomplete-programmation-rls",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:96",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:98",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/lieux/route.ts + supabase/tests/lieux_clients_select_cliquet.test.sql",
       "test": "M1.2 / Lieux — alignement sur la RLS (7 scénarios Vitest) + supabase/tests/lieux_clients_select_cliquet.test.sql",
       "statut": "implemented",
@@ -1023,7 +1023,7 @@
     },
     {
       "id": "M3.1-email-modification-contenu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:486",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:480",
       "artefact": "packages/plateforme/src/lib/collectes/email-modification.ts, packages/plateforme/src/lib/collectes/urgence-modification.ts, supabase/migrations/20261009160000_plateforme_email_modification_collecte_avant_apres.sql, supabase/migrations/20261009190000_plateforme_email_modification_collecte_lieu_lien.sql",
       "test": "M3.1/email_modification_rendu",
       "statut": "implemented",
@@ -1071,11 +1071,11 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "d06476bd2f7c72dabaca7a4273b5261fbd1ab1a34d138e7cd40b75b0657f6f08",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "29f3e08628ef1714fa2cc5b6c937310b968115de29416f9750eabae1386551a8",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9704aa851a9accf548350bdb8381258da408f7328b8922be0f43a34999960bf",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "95039c8fa90700a26e11e65c06d9b172f9ce8f316f0930bb2eeac03c4c9a3188",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "4c700ea71b8c545d80f1054d743d2f779407f72b2ef357f78bf85e95745d563e",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "cc6b7038b23c8a46f436653b3553db581270cbd5668a37dd25940599b22c4bef",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "f0050ece5dc6cb9d1b7fda6ee2f62bfe96897836368935ca47a81027ba5cf001",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9e638e9ea91e21e550a2cfcbc68a2f9d832d203cd0dc58dcea31162942abf3f",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "075614cb902bb28ae1c26a57b341bd91423d97aae6c05607e79193d95420ba97",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "71ca20cab248229ca8cd9e0bf1fcf5f0fbe20aae1aa418faba74885b7cc13e63",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "df6a09ee0027774c486af5c9ff934a8d1481fe9d311cfc8ab8a6f4ee62b7c5a6"
   }
 }

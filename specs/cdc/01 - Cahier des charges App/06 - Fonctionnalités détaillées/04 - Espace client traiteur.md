@@ -51,7 +51,7 @@ Mutualisation logique : 1 dashboard, 2 contextes (gestionnaire / traiteur), filt
 
 ### Bandeau actions rapides (au-dessus des onglets, toujours visible)
 
-**Refonte 2026-05-21 (formulaire unique événement-centré)** : bouton unique **[ Programmer un événement ]** (action transversale aux deux onglets). Ouvre le formulaire unique §06.01 où l'utilisateur choisit le ou les types de collecte (☐ Zéro-Déchet ☐ Anti-Gaspi) en étape 1. Pour préserver l'économie de clic du contexte d'onglet, l'ouverture depuis l'onglet ZD pré-coche Zéro-Déchet, depuis l'onglet AG pré-coche Anti-Gaspi (l'utilisateur peut cocher l'autre type pour programmer les deux en une passe).
+**Refonte 2026-05-21 (formulaire unique événement-centré)** : bouton unique **[ Programmer un événement ]** (action transversale aux deux onglets). Ouvre le formulaire unique §06.01 où l'utilisateur saisit le nombre de collectes Zéro-Déchet et Anti-Gaspi à l'écran 1 (refonte Val 2026-10-22). Pour préserver l'économie de clic du contexte d'onglet, l'ouverture depuis l'onglet ZD propose une collecte Zéro-Déchet, depuis l'onglet AG une collecte Anti-Gaspi, nombres modifiables *(décision Val 2026-10-24, I11 : à coder — dette code ouverte)*.
 
 **Retiré V1 (refonte formulaire unique 2026-05-21)** — l'entrée se fait désormais par un bouton unique ouvrant le formulaire événement-centré.
 
@@ -307,9 +307,9 @@ La page Collectes adopte le modèle de la **liste Admin, épuré**. Deux niveaux
 
 ### Bouton "Programmer une collecte" (contextuel par sélecteur de type — refonte 2026-07-05)
 
-Au-dessus de la liste, à droite, **un bouton unique [ Programmer un événement ]**. Clic → ouvre le formulaire unique §06.01 avec le **type pré-coché selon le sélecteur de type actif** (Zéro-Déchet ou Anti-Gaspi), l'utilisateur pouvant cocher l'autre type.
+Au-dessus de la liste, à droite, **un bouton unique [ Programmer un événement ]**. Clic → ouvre le formulaire unique §06.01 avec une collecte du **type du sélecteur actif** proposée (Zéro-Déchet ou Anti-Gaspi), l'utilisateur pouvant changer le nombre de collectes de chaque type *(décision Val 2026-10-24, I11 : à coder — dette code ouverte)*.
 
-> **Cas pack AG épuisé** : si la case Anti-Gaspi est cochée sans pack actif (pack épuisé), la case reste cochée et la soumission AG passe ; le formulaire affiche « Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité. » (décision Val 2026-10-16, ex-blocage). Cohérent avec §06.01 Sélection pack AG.
+> **Cas pack AG épuisé** : si une collecte Anti-Gaspi est demandée sans pack actif (pack épuisé), le nombre reste saisi et la soumission AG passe ; le formulaire affiche « Pas de pack Anti-Gaspi actif : les collectes Anti-Gaspi seront facturées à l'unité. » à l'écran 1 et « Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité. » dans chaque carte Anti-Gaspi (refonte du formulaire, lot B2, fiche M1.2_20261024 I10) (décision Val 2026-10-16, ex-blocage). Cohérent avec §06.01 Sélection pack AG.
 
 ### Vue liste (Data Table, décision Val 2026-09-28 — remplace la vue cartes)
 
@@ -386,7 +386,7 @@ Pour le `traiteur_commercial` *(révision 2026-05-29)* : la liste affiche **tout
 > - **En-tête** : badge type (**ZD navy `primary-700`** / **AG orange `accent-500`**, texte `primary-950` — aligné DS dataviz-1/2 ; remplace le cadre orange/vert) + « Réf. », titre = nom du lieu, sous-ligne « Mercredi 28 octobre 2026 · 22:00 · 4 200 pax » (pax de la collecte, décision Val 2026-10-20) ; **frise de statut discrète en vocabulaire client** en haut à droite (Créée · Validée · En cours · Réalisée — une collecte AG sans excédent s'y lit « Réalisée » comme les autres, décision Val 2026-10-09 —, « Annulée » — jamais Programmée/Clôturée, collapse 2026-06-30 ; étape courante pleine opacité + gras) ; croix de fermeture isolée. Le composite « Date - Lieu - Client organisateur - pax » est remplacé ; le client organisateur passe en champ « Client » de l'onglet Informations.
 > - **Navigation** : onglets en **barre horizontale** sous l'en-tête, fixe au défilement — cadre commun des fiches, décision Val 2026-10-01 (modale `max-w-5xl`, hauteur fixe) : **Informations / Logistique / Bilan & documents**.
 > - **Pied** : « Ajouter une collecte à cet événement » (secondaire — sur un événement de l'organisation de l'utilisateur, hors brouillon, *décision Val 2026-10-21*, §06.01), puis « Demander l'annulation » (contour rouge), puis « Modifier la collecte » (primaire), en bas à droite — selon les droits du rôle.
-> - **Informations** : Événement (Client, Date et heure, Pax de la collecte — décision Val 2026-10-20, Type) ; Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur = `acces_details` effectif du lieu, surcharge `lieu_overrides` de la collecte comprise, + `collectes.informations_supplementaires` ; jamais les notes internes — D5 2026-09-30) ; Contacts sur place (contact principal + téléphone ; **contact de secours + téléphone** (`evenements.contact_secours_*`) — ligne masquée si vide, D6 2026-09-30). *(Arbitrages Val C2/C3/C5 2026-10-01)* Les contacts sont servis par la route de la fiche (jamais lisibles par PostgREST direct) : au traiteur (programmateur ou opérationnel) et à l'agence toujours, au gestionnaire sur ses seules programmations — bloc absent sinon. La référence d'affaire n'est servie qu'à l'organisation programmatrice (formulaire d'édition).
+> - **Informations** : Événement (Client, Date et heure, Pax de la collecte — décision Val 2026-10-20, Type) ; Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur = `acces_details` effectif du lieu, surcharge `lieu_overrides` de la collecte comprise, + `collectes.informations_supplementaires` ; jamais les notes internes — D5 2026-09-30) ; Contacts sur place (contact principal + téléphone ; **contact de secours + téléphone** — ligne masquée si vide, D6 2026-09-30) : ceux de LA collecte (`collecte_contacts`), comme le type d'événement (`collectes.type_evenement_id`) — lot B1, décision Val 2026-10-23. *(Arbitrages Val C2/C3/C5 2026-10-01)* Les contacts sont servis par la route de la fiche (jamais lisibles par PostgREST direct) : au traiteur (programmateur ou opérationnel) et à l'agence toujours, au gestionnaire sur ses seules programmations — bloc absent sinon. La référence d'affaire n'est servie qu'à l'organisation programmatrice (formulaire d'édition).
 > - **Logistique** : voir bloc « Logistique » ci-dessous (chauffeur / plaque / téléphone). Wording 100 % « Savr » : aucun libellé client ne mentionne le transporteur ni un prestataire (« Nous affectons votre chauffeur avant la collecte… »). Bouton **« Demander les coordonnées en urgence »** → alerte **in-app Ops seule** (pas d'email, pas de Slack), **1 demande OUVERTE à la fois par collecte** (D10 2026-09-30 : tant que l'alerte Ops est ouverte, un nouveau clic ne crée rien ; après clôture — coordonnées reçues puis perdues, ou clôture manuelle Ops — une nouvelle demande ouvre une nouvelle alerte), confirmation « Demande envoyée à l'équipe Savr », alerte **clôturée automatiquement** à réception des coordonnées. AG : bloc **Association bénéficiaire** (nom, ville, présentation = `associations.description_rapport_impact`) dès la validation — pour le gestionnaire de lieux, lu par la vue `v_attributions_gestionnaire` (cf. §06.05 « Fiche collecte »).
 > - **Collecte annulée** (`annulee`, `annulation_demandee`) *(C3 2026-09-29)* : frise « Créée · Annulée », onglet Bilan « Collecte annulée : aucun bilan ni document. », aucune action en pied hormis « Ajouter une collecte à cet événement » sur un événement de l'organisation de l'utilisateur *(décision Val 2026-10-21 : l'ajout vaut sur tout événement, y compris celui dont les collectes sont annulées ; la fiche de la collecte annulée est alors le seul point d'entrée du traiteur et de l'agence)*.
 > - **Bilan affiché quand la collecte est « Réalisée » côté client (`cloturee`)** ; `realisee` DB (« En cours » client) = blocs estompés *(D4 2026-09-30)*.
@@ -412,8 +412,8 @@ Composition : `<Date collecte> - <Nom du lieu> - <Nom du client organisateur> - 
 
 Infos pilotantes affichées en bloc compact :
 - Adresse complète du lieu (`lieux.adresse` + complément si fourni)
-- Contact principal collecte (`evenements.contact_principal_nom` + téléphone)
-- Contact secours collecte (`evenements.contact_secours_nom` + téléphone, affiché uniquement si renseigné)
+- Contact principal collecte (`collecte_contacts.contact_principal_nom` + téléphone — contacts de LA collecte depuis le lot B1)
+- Contact secours collecte (`collecte_contacts.contact_secours_nom` + téléphone, affiché uniquement si renseigné)
 
 > **Email de contact terrain : hors périmètre V1** (correction 2026-09-22). La colonne `evenements.contact_principal_email` a été supprimée à la refonte 2026-04-28 (§04 Data Model, audit cohérence inter-CDC A2) et reportée V1.1 — le téléphone seul suffit le jour J. Si V1.1 la réintroduit : le formulaire de programmation (§06.01) devra la saisir et le payload E1 vers le transporteur la transmettre.
 - Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax)
@@ -421,7 +421,7 @@ Infos pilotantes affichées en bloc compact :
 - Statut (badge)
 - **Programmée par** (badge orange — affiché uniquement si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id`, ajout 2026-05-07) : "Programmée par {{nom organisation programmatrice}} ({{type : agence | gestionnaire de lieux}})". Cliquable → modal info "Cette collecte a été programmée par {{nom}}, {{type}}. Vous êtes le traiteur opérationnel sur place. Pour toute question : {{email contact organisation programmatrice}}." Pas d'action depuis cette modal. Le traiteur opérationnel ne modifie ni n'annule une collecte programmée par un tiers : ces actions restent à l'organisation qui a programmé (matrice [[09 - Authentification et permissions]]). Les boutons « Modifier la collecte » et « Demander l'annulation » sont affichés grisés ; pour un changement, il s'adresse au programmateur (email de la modale) ou à l'équipe Savr *(décision Val 2026-10-10)*.
 
-> **Cohérence cross-CDC** : ces champs sont les contacts portés par l'événement parent (cf. décision 2026-04-28 audit cohérence — contacts relogés sur `evenements.contact_principal_*` + `contact_secours_*`, plus sur `lieux`). Pas de duplication côté `collectes`.
+> **Cohérence cross-CDC** : ces champs sont les contacts de LA collecte (`collecte_contacts`, refonte du formulaire, lots A et B1 — décisions Val 2026-10-22 et 2026-10-23) ; l'événement n'en garde qu'une copie, celle de sa collecte n°1 (cf. [[04 - Data Model]] `evenements`). Historique : relogés de `lieux` sur `evenements` le 2026-04-28 (audit cohérence).
 
 **Actions possibles (traiteur)**
 
@@ -472,7 +472,7 @@ Mêmes critères qu'au dashboard (Lieux / Type événement / Taille événement 
 **Initialisation** : à l'ouverture de la fiche collecte, les filtres benchmark sont pré-remplis avec les caractéristiques de la collecte courante :
 - Période benchmark = 24 mois glissants (fixe, non modifiable — 2026-09-28)
 - Lieux benchmark = "Tous"
-- Type événement benchmark = type de cette collecte (`evenements.type_evenement_id`)
+- Type événement benchmark = type de cette collecte (`collectes.type_evenement_id`, lot B1 du 2026-10-23). ⚠ Jusqu'au passage du benchmark au grain collecte (lot C de la refonte), le segment parc (`f_benchmark_kg_pax_zd`) et le point « Vous » (`f_benchmark_single_collecte`) restent calculés sur le type et le pax de l'événement, c'est-à-dire de sa collecte n°1 : pour une collecte d'un autre type que la n°1, le filtre affiché et le segment du point « Vous » peuvent différer.
 - Taille événement benchmark = bracket calculé sur le pax de cette collecte
 
 Bouton "Réinitialiser" pour revenir aux valeurs par défaut.
@@ -497,8 +497,8 @@ Bouton "Réinitialiser" pour revenir aux valeurs par défaut.
 
 Tous les champs métier de la collecte et de l'événement parent :
 - Date, heure de collecte
-- Pax, type d'événement, taille
-- Contacts principal / secours (événement)
+- Pax, taille
+- Type d'événement et contacts principal / secours de LA collecte (`collectes.type_evenement_id`, `collecte_contacts` — lot B1, décision Val 2026-10-23 ; ils ne se modifient plus sur l'événement)
 - Flag `controle_acces_requis`
 - **Informations supplémentaires concernant la collecte** (text 1000 car., refonte 2026-05-06 §06.01 §2.a)
 
@@ -528,7 +528,7 @@ Tous les champs métier de la collecte et de l'événement parent :
 - Manager (`role = traiteur_manager` même orga) : oui
 - Autre commercial de la même orga : **non** (lecture seule — il voit la collecte mais ne peut pas la modifier ; révision 2026-05-29)
 
-> **Synthèse d'implémentation M1.2 (2026-06-26)** : les 4 rôles programmateurs (`traiteur_manager`, `traiteur_commercial`, `agence`, `gestionnaire_lieux`) peuvent éditer les champs événement ET collecte depuis la fiche collecte (une seule modale, `editer-collecte-form.tsx`). `client_organisateur` = lecture seule. Route événement unifiée : `PATCH /api/v1/programmation/evenements/:id` (RPC `fn_modifier_evenement`, `requireProgrammateur`, transactional outbox E2 par collecte dispatchée rattachée). Périmètre d'écriture : `traiteur_commercial` = ses créations (`created_by`) ; les 3 autres = leur organisation. Patch M1.2_20260626.
+> **Synthèse d'implémentation M1.2 (2026-06-26)** : les 4 rôles programmateurs (`traiteur_manager`, `traiteur_commercial`, `agence`, `gestionnaire_lieux`) peuvent éditer les champs événement ET collecte depuis la fiche collecte (une seule modale, `editer-collecte-form.tsx`) ; depuis le lot B1 (décision Val 2026-10-23), le type d'événement et les contacts sont des champs de la collecte, envoyés à la route de la collecte (contact principal obligatoire, contact de secours vide = absent, type du référentiel). `client_organisateur` = lecture seule. Route événement unifiée : `PATCH /api/v1/programmation/evenements/:id` (RPC `fn_modifier_evenement`, `requireProgrammateur` : nom, client final, référence ; type d'événement et contacts refusés en 422 ; aucun E2). Périmètre d'écriture : `traiteur_commercial` = ses créations (`created_by`) ; les 3 autres = leur organisation. Patch M1.2_20260626.
 
 **Audit** : `audit_log` global rempli (champs `user_id`, `collecte_id`, `champ_modifie`, `ancienne_valeur`, `nouvelle_valeur`, `timestamp`, `cascade_tms`, `priorite_urgence`). Pas d'onglet front traiteur (sobriété A2 2026-05-04). Audit accessible Admin Savr uniquement via back-office §06.06.
 
@@ -588,7 +588,7 @@ Le bloc s'affiche dans la fiche collecte uniquement si `collectes.controle_acces
 
 Voir [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]]. Le formulaire est accessible :
 - Via les boutons du dashboard (accueil — bandeau actions rapides §2)
-- Via le bouton **unique** `[ Programmer un événement ]` en haut de la liste Collectes (refonte 2026-05-21 — formulaire unique événement-centré). Le **type est pré-coché selon l'onglet actif** (onglet ZD → Zéro-Déchet pré-coché ; onglet AG → Anti-Gaspi pré-coché), l'utilisateur pouvant cocher l'autre type en étape 1 du formulaire §06.01.
+- Via le bouton **unique** `[ Programmer un événement ]` en haut de la liste Collectes (refonte 2026-05-21 — formulaire unique événement-centré). Une collecte du **type de l'onglet actif** est proposée (onglet ZD → une collecte Zéro-Déchet ; onglet AG → une collecte Anti-Gaspi), l'utilisateur pouvant changer le nombre de collectes de chaque type à l'écran 1 du formulaire §06.01 *(décision Val 2026-10-24, I11 : à coder — dette code ouverte)*.
 
 **Rappel** : la programmation est possible même avec des champs non bloquants vides (voir sous-page 01 §Champs non bloquants). La collecte est créée avec `informations_completes = false` et peut être complétée ultérieurement depuis la fiche collecte.
 
@@ -942,7 +942,7 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 | **Périmètre coût marge ZD = factures statut `emise` + `payee`** | Inclure brouillons / facturer_dans_factures | Cohérent avec lecture financière Mon organisation > Facturation. Brouillon = encore éditable par Savr, ne devrait pas dégrader la marge prématurément |
 | **Liste Collectes : suppression vue "Toutes les collectes" → 2 onglets ZD/AG (2026-05-07)** | Conserver filtre Type 3 valeurs | Cohérence dashboard §2 (déjà 2 onglets ZD/AG) → 1 seul pattern UI traiteur. Réduit charge cognitive et 1 zone à maintenir |
 | **Bouton "Programmer une collecte" contextuel par onglet (2026-05-07)** | Bouton générique avec popup de choix type | Économise 1 clic, exploite le contexte de l'onglet, cohérent avec le bandeau dashboard (déjà 2 boutons ZD + AG) |
-| **Bouton unique "Programmer un événement" + type pré-coché selon l'onglet (refonte 2026-05-21)** | Conservation des 2 boutons distincts ZD/AG | Formulaire unique événement-centré (D1) : un seul point d'entrée, choix ☐ZD ☐AG en étape 1. Le pré-cochage selon l'onglet conserve l'économie de clic du contexte. |
+| **Bouton unique "Programmer un événement" (refonte 2026-05-21) + collecte du type de l'onglet proposée (décision Val 2026-10-24, I11 : à coder — dette code ouverte)** | Conservation des 2 boutons distincts ZD/AG | Formulaire unique événement-centré (D1) : un seul point d'entrée, nombre de collectes par type à l'écran 1 (refonte Val 2026-10-22). Le pré-remplissage selon l'onglet conserve l'économie de clic du contexte (décision Val 2026-10-24, I11 : à coder — dette code ouverte). |
 | **Invitation collaborateur : n'importe quelle adresse email autorisée (2026-05-29)** | Restreindre aux emails du domaine de l'organisation | Le manager gate déjà l'invitation manuellement (saisie explicite email + rôle). La restriction domaine bloque des cas légitimes (commercial freelance en email perso) et ajoute une logique de validation pour un gain de sécurité marginal. |
 | **Transfert de collectes entre commerciaux : réassignation simple + `audit_log` (2026-05-29)** | Table d'historique dédiée `collectes_transferts` | Cas départ d'un commercial : le manager réassigne les collectes (mise à jour `cree_par_user_id`), l'opération est tracée dans `audit_log` global. Pas de table d'historique dédiée — `audit_log` couvre déjà la trace (cohérent avec la décision « Audit modifications via `audit_log` global » ci-dessus). |
 | — **DESCOPÉ V1 (décision Val 2026-07-10)** | | **DESCOPÉ V1** : rapports RSE téléchargeables individuellement depuis la fiche collecte (bouton « Télécharger le rapport RSE », route `GET /api/v1/traiteur/collectes/:id/rapport-rse/download`, canal V1 livré BL-P1-TRAIT-03). L'export groupé alourdit l'UI (multi-sélection liste collectes) sans valeur ajoutée démontrée. Réévaluable V1.1. |

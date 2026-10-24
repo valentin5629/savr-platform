@@ -57,30 +57,24 @@ L'équipe Savr
 
 **Slug** : `collecte_programmee`
 **Destinataire** : programmeur de la collecte (`collectes.created_by`)
-**Objet** : Votre collecte est programmée — {{date_collecte}} à {{lieu_nom}}
+**Objet** : Votre collecte a été programmée — Savr
 
 ```
 Bonjour {{prenom}},
 
-Votre collecte est bien programmée. Voici le récapitulatif :
+Votre événement « {{nom_evenement}} » est programmé. Nous réaliserons {{nombre_collectes}} :
+{{liste_collectes}}
 
-— Date : {{date_collecte}}
-— Horaire de collecte : {{horaire_collecte}}
-— Lieu : {{lieu_nom}}, {{lieu_adresse}}
-— Contact principal : {{contact_nom}} — {{contact_telephone}}
-— Pax : {{pax}}
-— Type : {{type_collecte}} ({{flux_list}})
-— Tarif estimé : {{montant_ht}} € HT{{pack_info}}
+{{tarif_ligne}}
 
-Nous transmettons immédiatement l'ordre à notre équipe logistique. Vous recevrez un email dès que le rapport post-collecte sera disponible (dans les 48h suivant la collecte).
+[Bouton : Voir mes collectes]
 
-[Bouton : Voir la collecte]
-
-Excellente journée,
 L'équipe Savr
 ```
 
-**Variables** : `prenom`, `date_collecte`, `horaire_collecte`, `lieu_nom`, `lieu_adresse`, `contact_nom`, `contact_telephone`, `pax`, `type_collecte`, `flux_list`, `montant_ht`, `pack_info`, `lien_collecte`
+**Variables** : `prenom` (facultatif : « Bonjour, » sans prénom), `nom_evenement`, `nombre_collectes` (« 3 collectes », « 1 collecte »), `liste_collectes` (une puce par collecte annoncée : « Collecte Zéro Déchet #1 — jeudi 12 novembre 2026 à 19:00 — 120 convives », libellé et numéro identiques à ceux de la page de confirmation), `tarif_ligne` (vide tant que la facturation est faite hors plateforme — décision Val 2026-10-22), `lien_collectes` (facultatif : liste Collectes de l'espace du programmeur).
+
+*(Décision Val 2026-10-24, B2-Q3 : une ligne par collecte. Un email par programmation ; pour une collecte ajoutée à un événement existant, l'email annonce cette seule collecte, avec son numéro dans l'événement. Objet et corps alignés sur le gabarit en base, qui avait déjà quitté la forme d'origine ci-dessus.)*
 
 ---
 

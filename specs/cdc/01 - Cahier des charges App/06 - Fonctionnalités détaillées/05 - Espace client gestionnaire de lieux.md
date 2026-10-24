@@ -119,7 +119,7 @@ Chaque onglet affiche son propre jeu de blocs adaptés au métier (les flux ZD s
 | Lieux              | Multi-select                   | Liste des lieux rattachés à l'organisation (`organisations_lieux`) — défaut "Tous"                                           |
 | Traiteurs          | Multi-select                   | Traiteurs intervenus sur au moins une collecte sur les lieux de l'organisation sur les 24 derniers mois                      |
 | Type d'événement   | Multi-select                   | `types_evenements.libelle` (4 catégories de format de service : Cocktail apéritif, Cocktail repas complet, Repas assis, Autre) — référentiel extensible Admin par ajout direct de ligne |
-| Taille d'événement | Multi-select                   | Bracket calculé sur `evenements.pax` : **XS** [0-249], **S** [250-499], **M** [500-749], **L** [750-999], **XL** [1000+]     |
+| Taille d'événement | Multi-select                   | Bracket calculé sur `collectes.pax` (taille de la collecte : liste Collectes, dashboard — décisions Val C4 du 2026-10-20 et Q3 du 2026-10-24) : **XS** [0-249], **S** [250-499], **M** [500-749], **L** [750-999], **XL** [1000+]     |
 |                    |                                |                                                                                                                              |
 
 Bouton "Réinitialiser" ramène aux valeurs par défaut. Compteur "X collectes correspondent" sous la barre.
@@ -285,7 +285,7 @@ Clic → ouvre la modal de génération §4 Génération de synthèse PDF en ét
 
 *(Section remise par Val le 2026-10-18 — retirée le 2026-10-07 en doublon de Collectes : le gestionnaire veut une vision consolidée d'un événement sur lequel il y a plusieurs collectes. Écran `/gestionnaire/evenements` : la liste, et la fiche d'un événement en pop-up sur la liste *(demande Val 2026-10-19, comme les fiches collecte ; l'adresse porte la fiche ouverte, `?evenement=<id>` ; l'ancienne route `/gestionnaire/evenements/[id]` redirige vers la liste avec la fiche ouverte)*. Périmètre : les événements datés tenus sur les lieux de l'organisation et ceux qu'elle a programmés — ceux des collectes de la liste Collectes, plus ceux qui n'ont aucune collecte visible ; un brouillon n'y figure pas.)*
 
-> **Barre de filtres de la liste Événements** *(2026-10-18)* : celle de la liste Collectes, pour que les deux listes se lisent pareil — type de collecte ZD / AG levable (« Toutes » ; « ZD » = événements ayant au moins une collecte ZD, idem AG), puis Période (sur la date de l'événement) · Lieu · Traiteur · Type d'événement · Taille d'événement, à choix multiple. Pas de filtre « Statut consolidé » ni de partition « ZD seul / AG seul / ZD et AG » (arbitrage C3 du 2026-10-07, maintenu). Liste paginée côté serveur, 50 événements par page, total exact affiché. Le tableau ci-dessous décrit l'ancienne barre.
+> **Barre de filtres de la liste Événements** *(2026-10-18)* : celle de la liste Collectes, pour que les deux listes se lisent pareil — type de collecte ZD / AG levable (« Toutes » ; « ZD » = événements ayant au moins une collecte ZD, idem AG), puis Période (sur la date de l'événement) · Lieu · Traiteur · Type d'événement · Taille d'événement, à choix multiple. « Type d'événement » : l'événement sort si l'une de ses collectes a ce type (C3 du 2026-10-22) ; combiné au filtre ZD / AG, ce sont deux conditions séparées — « ZD » + « Cocktail » retient un événement qui a une collecte ZD et une collecte Cocktail, ZD ou AG, pas forcément la même *(décision Val 2026-10-24, Q1)*. « Taille d'événement » : celle de l'événement (C4). Pas de filtre « Statut consolidé » ni de partition « ZD seul / AG seul / ZD et AG » (arbitrage C3 du 2026-10-07, maintenu). Liste paginée côté serveur, 50 événements par page, total exact affiché. Le tableau ci-dessous décrit l'ancienne barre.
 
 ### Barre de filtres (5 critères, identiques à la barre globale du Dashboard)
 
@@ -337,7 +337,7 @@ Clic sur une ligne → vue consolidée en lecture seule (consultation pure, aucu
 **Bloc bilan consolidé** *(ajout Val 2026-10-18)* : cumul des collectes RÉALISÉES de l'événement (statut `cloturee`, et AG `realisee_sans_collecte` à 0 repas) — mêmes règles que la colonne Résultats de la liste Collectes et l'onglet Bilan de la fiche collecte. ZD : poids total collecté, CO₂ évité (somme des `co2_evite_kg` figés — décision Val 2026-10-20, ex « CO₂ évité net »), taux de recyclage = moyenne des taux figés pondérée par le poids, pesée par pax, répartition par flux. AG : repas donnés, repas par pax, CO₂ évité, associations bénéficiaires avec leurs repas. La couverture est affichée (« Cumul des N collectes réalisées, sur M collectes de l'événement ») ; tant qu'aucune n'a de résultat, un bandeau annonce les résultats. « Réalisée » s'entend ici au sens des résultats : une collecte `realisee` qui attend sa clôture n'en a pas encore, alors qu'elle compte déjà « Terminé » dans le statut consolidé. L'onglet « Informations » affiche toujours les déchets labo estimés (« — » sans collecte ZD).
 
 **Bloc en-tête événement** :
-- Nom, date de début, lieu, pax, type d'événement, taille bracket
+- Nom, date de début, lieu, pax, type d'événement (les types de ses collectes non annulées, sans doublon, dans l'ordre de la collecte n°1 ; toutes annulées : les types de ses collectes annulées — décision Val Q2 du 2026-10-24), taille bracket
 - Traiteur (nom + logo, pas d'email / téléphone / SIRET)
 - Client Organisateur si renseigné par le traiteur
 - **Déchets labo estimés (kg)** *(ajout 2026-05-22)* — estimation du déchet produit en amont au laboratoire du traiteur = `pax × coefficient` du traiteur opérationnel pour l'année − 1 (cf. [[05 - Règles métier#R_dechets_labo_estimes]]). Affiché avec tooltip explicatif ("estimation amont, distincte des déchets collectés sur l'événement ci-dessous"). `—` si le traiteur n'a pas communiqué de coefficient pour l'année applicable, ou si l'événement n'a aucune collecte ZD *(arbitrage Val 2026-10-07)*. Le coefficient brut n'est jamais affiché, seule l'estimation kg.
@@ -575,7 +575,7 @@ Fonction agrégée dédiée au Bloc 3 ZD (jauges) avec **filtres benchmark dédi
 - `lieu_ids[]` : multi-select facultatif, borné aux lieux rattachés du gestionnaire ; vide = tout le parc Savr
 - `traiteur_ids[]` : multi-select facultatif, borné aux traiteurs de `v_traiteurs_gestionnaire` ; vide = tout le parc Savr
 
-**Calcul** : pour chaque tuple `(flux, type_evenement, taille)` correspondant aux paramètres, moyenne pondérée `SUM(collecte_flux.poids_reel_kg) / SUM(evenements.pax)` sur le sous-ensemble du parc Savr filtré.
+**Calcul** : pour chaque tuple `(flux, type_evenement, taille)` correspondant aux paramètres, moyenne pondérée `SUM(collecte_flux.poids_reel_kg) / SUM(collectes.pax)` (type et taille de la collecte ; collecte à 0 convive exclue — lot C1, Q4 du 2026-10-24) sur le sous-ensemble du parc Savr filtré.
 
 **Filtre RLS** : deux seuils cumulatifs dans le `HAVING` final de la fonction — `nb_collectes_segment >= 5` **ET** ≥ 3 acteurs distincts (minimum entre organisations programmatrices et traiteurs opérationnels ; durci 2026-09-22, migration `20260922210000`). Un segment qui ne franchit pas les deux n'apparaît pas dans la réponse SQL. ⚠ Le seuil de collectes **seul** ne garantissait pas la non-identifiabilité : 5 collectes d'un acteur unique le franchissaient et la moyenne publiée décrivait alors cet acteur. Plus le gestionnaire restreint les filtres benchmark, plus le risque de masquage augmente — c'est le compromis assumé de l'option D (cf. Décisions prises).
 
@@ -583,7 +583,7 @@ Fonction agrégée dédiée au Bloc 3 ZD (jauges) avec **filtres benchmark dédi
 
 ### Bracket `taille_evenement`
 
-Champ calculé (non stocké) sur `evenements` à partir de `pax` :
+Champ calculé (non stocké) à partir de `pax` : celui de la collecte (`collectes.pax`) pour le benchmark, la fiche collecte, la liste Collectes et les filtres Taille des dashboards (lot C1, décisions Val C4 du 2026-10-20 et Q3 du 2026-10-24), celui de l'événement (`evenements.pax`) pour la liste et la fiche Événements :
 - `XS` : `pax < 250`
 - `S` : `pax >= 250 AND pax < 500`
 - `M` : `pax >= 500 AND pax < 750`

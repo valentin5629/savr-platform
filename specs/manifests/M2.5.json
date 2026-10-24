@@ -115,7 +115,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "3ae14ab53a4e7ecab5d691bebe82055095367a43bc9e2293b6bd600c5ca3b3e7",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "cb8c915a97e77a8f4c33db712c71d9ff1391fc5441b259120de940743878571f",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "f308640dbe0902f0570a0f9017a32874e932693f0adc95bfe817d36c344a50f6",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5cb254930295bc6b4f30ae90b3245e4088a9aac3dbd211b3061ad208140713df",
     "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "69a5b17d9b786f3b30191c8634808bf2d579d9776bd213d69c3aab30478467dd"

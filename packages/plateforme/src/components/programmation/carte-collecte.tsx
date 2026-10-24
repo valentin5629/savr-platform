@@ -181,14 +181,16 @@ export function CarteCollecte({
           <Input
             id={`pax-${suffixe}`}
             data-testid={`pax-${suffixe}`}
-            type="number"
+            // Champ de saisie, chiffres seuls, ni flèches ni molette (retour
+            // Val du 2026-10-24) ; la borne reste vérifiée par paxSaisiValide.
+            type="text"
             inputMode="numeric"
-            min="1"
-            max={PAX_COLLECTE_MAX}
-            step="1"
+            pattern="[0-9]*"
+            maxLength={String(PAX_COLLECTE_MAX).length}
+            autoComplete="off"
             required
             value={carte.pax}
-            onChange={(e) => onChange('pax', e.target.value)}
+            onChange={(e) => onChange('pax', e.target.value.replace(/\D/g, ''))}
             placeholder="Ex : 80"
           />
         </FormField>

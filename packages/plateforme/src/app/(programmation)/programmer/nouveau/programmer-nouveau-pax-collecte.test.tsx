@@ -126,7 +126,7 @@ describe('M1.2/pax_par_collecte — formulaire de programmation', () => {
       // Écran 2 : sur la carte de la collecte, avec sa date, le pax de la
       // collecte dupliquée (650), pas celui de son événement (1 000).
       const pax = await screen.findByTestId('pax-zd-1', undefined, ATTENTE_UI);
-      expect(pax).toHaveValue(650);
+      expect(pax).toHaveValue('650');
       expect(screen.getByTestId('carte-zd-1')).toContainElement(pax);
       expect(screen.getByTestId('carte-zd-1')).toContainElement(
         screen.getByTestId('date-zd-1'),
@@ -198,7 +198,7 @@ describe('M1.2/pax_par_collecte — formulaire de programmation', () => {
       );
       fireEvent.click(screen.getByRole('button', { name: /Continuer/ }));
       const pax = await screen.findByTestId('pax-zd-1', undefined, ATTENTE_UI);
-      expect(pax).toHaveValue(null);
+      expect(pax).toHaveValue('');
     },
     ATTENTE_CAS_MS,
   );

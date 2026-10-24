@@ -10,7 +10,7 @@
  * avertissement non bloquant (C4).
  */
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { CarteCollecte } from './carte-collecte';
 import {
   carteVide,
@@ -157,6 +157,28 @@ describe('M1.2/pax_par_collecte — paxSaisiValide : entier de 1 à 100 000 (pla
       expect(paxSaisiValide(v)).toBe(false);
     },
   );
+
+  it('M1.2/pax_champ_saisie — champ de saisie sans flèches ni molette : clavier numérique, chiffres seuls', () => {
+    const onChange = vi.fn();
+    render(
+      <CarteCollecte
+        carte={carteVide('zd')}
+        libelle="Collecte de test"
+        suffixe="zd-1"
+        estModele
+        typesEvenements={[]}
+        doublon={false}
+        onChange={onChange}
+        onAjouterContact={vi.fn()}
+      />,
+    );
+    const pax = screen.getByTestId('pax-zd-1');
+    expect(pax).toHaveAttribute('type', 'text');
+    expect(pax).toHaveAttribute('inputmode', 'numeric');
+    expect(pax).toHaveAttribute('maxlength', '6');
+    fireEvent.change(pax, { target: { value: '12a0' } });
+    expect(onChange).toHaveBeenLastCalledWith('pax', '120');
+  });
 });
 
 describe('M1.2 — carte d’une collecte : identifiants, reprise de la collecte n°1, doublon', () => {

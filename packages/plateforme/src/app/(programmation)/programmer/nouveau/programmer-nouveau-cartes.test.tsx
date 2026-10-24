@@ -458,7 +458,7 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
         ATTENTE_UI,
       );
       expect(suffixesCartes()).toEqual(['zd-1', 'zd-2', 'zd-3']);
-      expect(champCarte('pax', 'zd-1')).toHaveValue(80);
+      expect(champCarte('pax', 'zd-1')).toHaveValue('80');
       expect(infos('zd-1')).toHaveValue('Quai n°4');
 
       // Effacé puis « Continuer » touché sans quitter le champ (mobile) : les
@@ -505,7 +505,7 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       // Convives, type d'événement, contact et informations repris ; date et
       // heure jamais.
       for (const suffixe of ['zd-2', 'ag-1']) {
-        expect(champCarte('pax', suffixe)).toHaveValue(120);
+        expect(champCarte('pax', suffixe)).toHaveValue('120');
         expect(typeAffiche(suffixe)).toHaveTextContent('Cocktail');
         expect(contactAffiche(suffixe, 'principal')).toHaveTextContent(
           'Paul Arnaud — 06 12 34 56 78',
@@ -518,7 +518,7 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       // Modifiés dans la carte n°2 : ses convives et son contact.
       saisir('pax', 'zd-2', '60');
       await choisirContact('zd-2', 'principal', 'Léa Martin');
-      expect(champCarte('pax', 'zd-1')).toHaveValue(120);
+      expect(champCarte('pax', 'zd-1')).toHaveValue('120');
       expect(contactAffiche('zd-1', 'principal')).toHaveTextContent(
         'Paul Arnaud',
       );
@@ -529,14 +529,14 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       fireEvent.change(infos('zd-1'), { target: { value: 'Quai n°3' } });
 
       // Carte n°2 : ses champs modifiés restent, les autres suivent encore.
-      expect(champCarte('pax', 'zd-2')).toHaveValue(60);
+      expect(champCarte('pax', 'zd-2')).toHaveValue('60');
       expect(contactAffiche('zd-2', 'principal')).toHaveTextContent(
         'Léa Martin — 07 11 22 33 44',
       );
       expect(typeAffiche('zd-2')).toHaveTextContent('Dîner assis');
       expect(infos('zd-2')).toHaveValue('Quai n°3');
       // Carte Anti-Gaspi jamais modifiée : tout suit.
-      expect(champCarte('pax', 'ag-1')).toHaveValue(150);
+      expect(champCarte('pax', 'ag-1')).toHaveValue('150');
       expect(contactAffiche('ag-1', 'principal')).toHaveTextContent(
         'Paul Arnaud',
       );
@@ -621,7 +621,7 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       expect(
         within(carte('ag-1')).getByRole('heading', { level: 3 }),
       ).toHaveTextContent('Collecte Anti-Gaspi #1');
-      expect(champCarte('pax', 'ag-1')).toHaveValue(120);
+      expect(champCarte('pax', 'ag-1')).toHaveValue('120');
       expect(typeAffiche('ag-1')).toHaveTextContent('Cocktail');
       expect(contactAffiche('ag-1', 'principal')).toHaveTextContent(
         'Paul Arnaud',
@@ -631,7 +631,7 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       expect(champCarte('heure', 'ag-1')).toHaveValue('');
       // Elle continue de suivre la collecte n°1.
       saisir('pax', 'zd-1', '90');
-      expect(champCarte('pax', 'ag-1')).toHaveValue(90);
+      expect(champCarte('pax', 'ag-1')).toHaveValue('90');
       // Le choix se referme ; le bouton revient.
       expect(ajouter()).toBeInTheDocument();
       expect(
@@ -927,7 +927,7 @@ describe('M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)', 
       expect(suffixesCartes()).toEqual(['zd-1', 'ag-1']);
       expect(champCarte('date', 'zd-1')).toHaveValue('2030-01-15');
       expect(champCarte('heure', 'zd-1')).toHaveValue('22:00');
-      expect(champCarte('pax', 'zd-1')).toHaveValue(120);
+      expect(champCarte('pax', 'zd-1')).toHaveValue('120');
       expect(typeAffiche('zd-1')).toHaveTextContent('Cocktail');
       expect(contactAffiche('zd-1', 'principal')).toHaveTextContent(
         'Paul Arnaud — 06 12 34 56 78',
@@ -938,7 +938,7 @@ describe('M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)', 
       expect(infos('zd-1')).toHaveValue('Quai n°2');
       expect(champCarte('date', 'ag-1')).toHaveValue('2030-01-16');
       expect(champCarte('heure', 'ag-1')).toHaveValue('08:00');
-      expect(champCarte('pax', 'ag-1')).toHaveValue(40);
+      expect(champCarte('pax', 'ag-1')).toHaveValue('40');
       expect(typeAffiche('ag-1')).toHaveTextContent('Cocktail');
       expect(contactAffiche('ag-1', 'principal')).toHaveTextContent(
         'Léa Martin — 07 11 22 33 44',
@@ -951,7 +951,7 @@ describe('M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)', 
       // Champs égaux à la collecte n°1 : repris ; différents : gardés.
       await choisirType('zd-1', 'Dîner assis');
       expect(typeAffiche('ag-1')).toHaveTextContent('Dîner assis');
-      expect(champCarte('pax', 'ag-1')).toHaveValue(40);
+      expect(champCarte('pax', 'ag-1')).toHaveValue('40');
       expect(contactAffiche('ag-1', 'principal')).toHaveTextContent(
         'Léa Martin',
       );

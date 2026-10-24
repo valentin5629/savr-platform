@@ -307,19 +307,20 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
         await screen.findByText(/Traiteur opérant/i, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
 
-      // Cocher Anti-Gaspi sans pack actif → la case reste cochée, une simple
-      // information annonce la facturation à l'unité (décision Val 2026-10-16,
-      // ex-blocage).
-      const caseAg = screen.getByRole('checkbox', { name: /Anti-Gaspi/i });
-      fireEvent.click(caseAg);
+      // Une collecte Anti-Gaspi demandée sans pack actif → le nombre reste
+      // saisi, une simple information annonce la facturation à l'unité
+      // (décision Val 2026-10-16, ex-blocage ; nombre de collectes par type au
+      // lieu de la case à cocher depuis le lot B2).
+      const nombreAg = screen.getByRole('spinbutton', { name: /Anti-Gaspi/i });
+      fireEvent.change(nombreAg, { target: { value: '1' } });
       await waitFor(
         () =>
           expect(
-            screen.getByText(/cette collecte sera facturée à l.unité/i),
+            screen.getByText(/seront facturées à l.unité/i),
           ).toBeInTheDocument(),
         ATTENTE_UI,
       );
-      expect(caseAg).toBeChecked();
+      expect(nombreAg).toHaveValue(1);
     },
     ATTENTE_CAS_MS,
   );

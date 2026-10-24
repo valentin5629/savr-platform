@@ -15,6 +15,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
@@ -35,8 +36,8 @@ function makeToken(claims: Record<string, unknown>): string {
   return `${b64url({ alg: 'HS256' })}.${b64url(claims)}.sig`;
 }
 
-// fetch router : types-evenements + liste traiteurs (le reste n'est pas sollicité
-// à l'étape 1). Toute autre URL → 200 [] par défaut (dégradation gracieuse).
+// fetch router : types-evenements + liste traiteurs + lieux du traiteur choisi.
+// Toute autre URL → 200 [] par défaut (dégradation gracieuse).
 function installFetch() {
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
@@ -46,6 +47,22 @@ function installFetch() {
         json: () =>
           Promise.resolve([
             { id: 't1', code: 'cocktail', libelle: 'Cocktail' },
+          ]),
+      } as Response);
+    }
+    if (url.includes('/programmation/lieux')) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              id: 'lieu-1',
+              nom: 'Musée des Arts Forains',
+              adresse_acces: '53 avenue des Terroirs de France',
+              code_postal: '75012',
+              ville: 'Paris',
+              controle_acces_requis_default: false,
+            },
           ]),
       } as Response);
     }
@@ -78,6 +95,18 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+// Information de l'écran 1, sous le nombre de collectes Anti-Gaspi (refonte du
+// formulaire, lot B2) ; chaque carte Anti-Gaspi de l'écran 2 porte la sienne.
+const INFO_ECRAN_1 =
+  "Pas de pack Anti-Gaspi actif : les collectes Anti-Gaspi seront facturées à l'unité.";
+const INFO_CARTE =
+  "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.";
+
+/** Nombre de collectes Anti-Gaspi demandées (écran 1). */
+const nombreAg = () => document.getElementById('nombre-ag') as HTMLInputElement;
+const demanderUneAg = () =>
+  fireEvent.change(nombreAg(), { target: { value: '1' } });
 
 describe('M1.2 — programmation formulaire : mode admin support', () => {
   it(
@@ -124,9 +153,11 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
   // Décision Val 2026-10-16 : sans pack actif, la collecte AG se programme et sera
   // facturée à l'unité — une information, jamais un blocage. En support, le pack
   // est celui du traiteur choisi : tant qu'aucun ne l'est, il est inconnu (avant,
-  // l'admin lisait « aucun pack » à tort et la case se décochait).
+  // l'admin lisait « aucun pack » à tort et la case se décochait). Refonte du
+  // formulaire (lot B2) : la case est devenue le nombre de collectes Anti-Gaspi
+  // (écran 1), l'information est sous ce nombre puis sur chaque carte AG.
   it(
-    "admin : la case AG reste cochée ; l'information « facturée à l'unité » attend le traiteur choisi",
+    "admin : le nombre de collectes AG reste saisi ; l'information « facturée à l'unité » attend le traiteur choisi",
     async () => {
       mockGetSession.mockResolvedValue({
         data: {
@@ -153,36 +184,67 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
         ATTENTE_UI,
       );
 
-      const caseAg = screen.getByRole('checkbox', { name: /Anti-Gaspi/i });
-      fireEvent.click(caseAg);
-      expect(caseAg).toBeChecked();
-      expect(screen.queryByText(/facturée à l.unité/i)).not.toBeInTheDocument();
+      demanderUneAg();
+      expect(nombreAg()).toHaveValue(1);
+      expect(
+        screen.queryByText(/facturées? à l.unité/i),
+      ).not.toBeInTheDocument();
       const lecturesPack = () =>
         fetchMock.mock.calls
           .map(([u]) => String(u))
           .filter((u) => u.includes('/programmation/pack-ag'));
       expect(lecturesPack()).toEqual([]);
 
-      fireEvent.click(
-        screen.getByRole('combobox', {
-          name: /Traiteur \(pour le compte de\)/,
-        }),
-      );
+      const selecteur = screen.getByRole('combobox', {
+        name: /Traiteur \(pour le compte de\)/,
+      });
+      fireEvent.click(selecteur);
       fireEvent.click(
         await screen.findByRole('option', { name: 'Kaspia' }, ATTENTE_UI),
       );
+      // Radix rend le focus au sélecteur une tâche plus tard : s'il arrivait
+      // pendant que la liste des lieux est ouverte, il la refermerait.
+      await waitFor(() => expect(selecteur).toHaveFocus(), ATTENTE_UI);
 
       expect(
-        await screen.findByText(
-          "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.",
-          undefined,
-          ATTENTE_UI,
-        ),
+        await screen.findByText(INFO_ECRAN_1, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(caseAg).toBeChecked();
+      expect(nombreAg()).toHaveValue(1);
       expect(lecturesPack()).toEqual([
         '/api/v1/programmation/pack-ag?organisation_id=org-kaspia',
       ]);
+
+      // Écran 2 : la carte Anti-Gaspi porte la même information, sans relire
+      // le pack. Les lieux proposés sont ceux du traiteur choisi.
+      fireEvent.change(screen.getByLabelText(/^Nom de l'événement/), {
+        target: { value: 'Gala' },
+      });
+      const declencheurLieu = screen
+        .getByText('Rechercher un lieu…')
+        .closest('button')!;
+      fireEvent.click(declencheurLieu);
+      fireEvent.click(
+        await screen.findByRole(
+          'option',
+          { name: /Musée des Arts Forains/ },
+          ATTENTE_UI,
+        ),
+      );
+      await waitFor(() => expect(declencheurLieu).toHaveFocus(), ATTENTE_UI);
+      expect(
+        fetchMock.mock.calls
+          .map(([u]) => String(u))
+          .filter((u) => u.includes('/programmation/lieux'))
+          .every((u) => u.includes('organisation_id=org-kaspia')),
+      ).toBe(true);
+      fireEvent.click(screen.getByRole('button', { name: /Continuer/ }));
+      const carteAg = await screen.findByTestId(
+        'carte-ag-1',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(carteAg).getByText(INFO_CARTE)).toBeInTheDocument();
+      expect(lecturesPack()).toHaveLength(1);
     },
     ATTENTE_CAS_MS,
   );
@@ -240,8 +302,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
         }
         return routeur(input);
       });
-      const INFO =
-        "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.";
+      const INFO = INFO_ECRAN_1;
       const choisir = async (nom: string) => {
         fireEvent.click(
           screen.getByRole('combobox', {
@@ -259,8 +320,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
         undefined,
         ATTENTE_UI,
       );
-      const caseAg = screen.getByRole('checkbox', { name: /Anti-Gaspi/i });
-      fireEvent.click(caseAg);
+      demanderUneAg();
 
       // Sans pack : l'information exacte.
       await choisir('Kaspia');
@@ -290,7 +350,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       expect(
         await screen.findByText(INFO, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(caseAg).toBeChecked();
+      expect(nombreAg()).toHaveValue(1);
     },
     ATTENTE_CAS_MS,
   );
@@ -355,8 +415,9 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
         }
         return routeur(input);
       });
-      const INFO =
-        "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.";
+      // Toute information « facturée(s) à l'unité », de l'écran 1 comme d'une
+      // carte : son absence est prouvée quel que soit le libellé.
+      const INFO = /facturées? à l.unité/i;
       const choisir = async (nom: string) => {
         fireEvent.click(
           screen.getByRole('combobox', {
@@ -376,7 +437,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
         undefined,
         ATTENTE_UI,
       );
-      fireEvent.click(screen.getByRole('checkbox', { name: /Anti-Gaspi/i }));
+      demanderUneAg();
 
       await choisir('Kaspia');
       await choisir('Potel');
@@ -407,14 +468,23 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
           },
         },
       });
-      installFetch();
+      const fetchMock = installFetch();
 
       render(<NouveauProgrammationPage />);
 
-      // Attendre que le rôle soit lu (le type d'événement est chargé dans tous les cas).
-      await screen.findByText(
-        "Informations sur l'événement",
-        undefined,
+      // Attendre que le rôle soit lu : avec une collecte Anti-Gaspi demandée, le
+      // formulaire lit alors le pack de l'appelant (sans organisation cible).
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: "Informations sur l'événement" },
+        ATTENTE_UI,
+      );
+      demanderUneAg();
+      await waitFor(
+        () =>
+          expect(fetchMock.mock.calls.map(([u]) => String(u))).toContain(
+            '/api/v1/programmation/pack-ag',
+          ),
         ATTENTE_UI,
       );
       expect(

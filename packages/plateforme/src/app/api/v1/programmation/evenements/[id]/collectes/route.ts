@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
-import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
-import { refusHeureCollecte } from '@/lib/heure-collecte.js';
-import { refusPaxCollecte } from '@/lib/pax-collecte.js';
+import { validerCartes } from '@/lib/programmation/cartes.js';
+import { lienCollectesProgrammeur } from '@/lib/programmation/apres-confirmation.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 import {
@@ -43,37 +41,16 @@ export async function POST(
 
   const { id: evenementId } = await params;
   const body = (await req.json()) as Record<string, unknown>;
-  const { type, date_collecte, heure_collecte, pax } = body;
-
-  if (!type || !date_collecte || !heure_collecte) {
-    return NextResponse.json(
-      {
-        error: 'Champs obligatoires : type, date_collecte, heure_collecte',
-      },
-      { status: 422 },
-    );
-  }
-  const refusHeure = refusHeureCollecte(heure_collecte);
-  if (refusHeure) return refusHeure;
-  // Pax de la collecte, saisi avec sa date (décision Val 2026-10-20).
-  const refusPax = refusPaxCollecte(pax);
-  if (refusPax) return refusPax;
-
-  // Borne d'entrée du texte libre transmis au transporteur (voir la route de
-  // programmation initiale) : la RPC stocke `p_info_suppl` sans rien vérifier.
-  const texteValide = validerChampsTexteLibre(body);
-  if ('error' in texteValide) return texteValide.error;
-  const infoSuppl = texteValide.valeurs.informations_supplementaires ?? null;
-
-  const today = jourParis();
-  if (String(date_collecte) < today) {
-    return NextResponse.json(
-      { error: 'Date de collecte dans le passé' },
-      { status: 422 },
-    );
-  }
-
   const supabase = createAdminSupabaseClient();
+
+  // Carte de la collecte ajoutée (refonte du formulaire, lot B2) : date,
+  // heure, convives, type d'événement, contacts et informations
+  // supplémentaires, validés comme ceux du formulaire de création (422).
+  const cartesValides = await validerCartes(supabase, [body], {
+    plafond: false,
+  });
+  if ('error' in cartesValides) return cartesValides.error;
+  const carte = cartesValides.cartes[0]!;
 
   // Vérification de propriété — même cloisonnement que le GET. Les collectes
   // de l'événement portent son contrôle d'accès (cf. lib/programmation/
@@ -121,21 +98,21 @@ export async function POST(
   });
   if (frein) return frein;
 
-  // fn_creer_collecte (gère E1 pour ZD), sans garde de statut. Pas
-  // fn_ajouter_collecte_evenement : elle refuse l'ajout dès qu'aucune collecte
-  // de l'événement n'est en brouillon, programmée ou validée.
+  // fn_creer_collecte_carte : fn_creer_collecte (ordre E1 pour une ZD), puis
+  // type d'événement et contacts de la carte, dans la même transaction ; sans
+  // garde de statut. Pas fn_ajouter_collecte_evenement : elle refuse l'ajout
+  // dès qu'aucune collecte de l'événement n'est en brouillon, programmée ou
+  // validée.
   const { data: collecteId, error: rpcErr } = await supabase.rpc(
-    'fn_creer_collecte',
+    'fn_creer_collecte_carte',
     {
       p_evenement_id: evenementId,
-      p_type: String(type),
-      p_date_collecte: String(date_collecte),
-      p_heure_collecte: String(heure_collecte),
+      p_carte: carte,
       // Niveau événement figé (§06.01) : le contrôle d'accès est celui de
       // l'événement, jamais une valeur du navigateur.
       p_controle_acces: controleAccesEvenement(evt.collectes),
-      p_info_suppl: infoSuppl,
-      p_pax: pax,
+      p_lieu_overrides: null,
+      p_confirmer: true,
     },
   );
 
@@ -148,28 +125,25 @@ export async function POST(
   if (collecteId) envoyerOrdresSansAttendre(collecteId as string);
 
   // PROG-05 : auto-accept si la collecte ajoutée est AG (§06.01 l.398 + §09 §6).
-  if (String(type) === 'ag' && collecteId) {
+  if (carte.type === 'ag' && collecteId) {
     await evaluerAutoAcceptAg(collecteId as string).then(
       () => undefined,
       () => undefined,
     );
   }
 
-  // PROG-04 : email récap au programmeur pour la collecte ajoutée (tarif ZD inclus).
-  await envoyerRecapProgrammation(supabase, {
-    programmeurUserId: auth.ctx.userId,
-    evenementId,
-    nomEvenement: evt.nom_evenement,
-    organisationId: evt.organisation_id,
-    lieuId: evt.lieu_id,
-    collectes: [
-      {
-        type: String(type),
-        date_collecte: String(date_collecte),
-        pax: pax as number,
-      },
-    ],
-  }).catch(() => undefined); // non-bloquant
+  // PROG-04 : email récap au programmeur pour la collecte ajoutée.
+  if (collecteId) {
+    await envoyerRecapProgrammation(supabase, {
+      programmeurUserId: auth.ctx.userId,
+      evenementId,
+      nomEvenement: evt.nom_evenement,
+      organisationId: evt.organisation_id,
+      lieuId: evt.lieu_id,
+      collecteIds: [collecteId as string],
+      lienCollectes: lienCollectesProgrammeur(req, auth.ctx.role),
+    }).catch(() => undefined); // non-bloquant
+  }
 
   // BL-P2-22 (tpl 20) : info-only au traiteur opérationnel si la collecte est
   // programmée par un tiers (garde tiers-non-shadow dans le helper). Best-effort.

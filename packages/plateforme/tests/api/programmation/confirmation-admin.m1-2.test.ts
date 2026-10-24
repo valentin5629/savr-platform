@@ -154,6 +154,12 @@ async function getEvenement() {
   );
 }
 
+// Carte de la collecte ajoutée (refonte du formulaire, lot B2) : son type
+// d'événement est vérifié dans le référentiel AVANT la lecture de l'événement —
+// première réponse de la file.
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+const TYPES_ACTIFS = { data: [{ id: TYPE_EVT }], error: null };
+
 async function ajouterCollecte(type: string) {
   const { POST } =
     await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
@@ -167,6 +173,9 @@ async function ajouterCollecte(type: string) {
           date_collecte: '2099-01-01',
           heure_collecte: '14:30',
           pax: 80,
+          type_evenement_id: TYPE_EVT,
+          contact_principal_nom: 'Marie Dupont',
+          contact_principal_telephone: '0600000000',
         }),
         headers: { 'content-type': 'application/json' },
       },
@@ -232,19 +241,22 @@ describe('M1.2 — confirmation de programmation : détail événement (mode adm
 describe('M1.2 — confirmation de programmation : action « Ajouter une collecte » (mode admin support)', () => {
   it('admin_savr peut ajouter une collecte à un événement (action §06.01 étape 13)', async () => {
     setupAuth('admin_savr', 'org-savr');
+    admin.push(TYPES_ACTIFS); // référentiel des types
     admin.push({ data: EVT, error: null }); // select événement
-    admin.push({ data: 'col-new', error: null }); // rpc fn_creer_collecte
+    admin.push({ data: 'col-new', error: null }); // rpc fn_creer_collecte_carte
 
     const res = await ajouterCollecte('zd');
 
     expect(res.status).toBe(201);
     expect(orgPredicates()).toEqual([]);
+    expect(admin.__calls.rpc?.[0]?.[0]).toBe('fn_creer_collecte_carte');
   });
 
   it('une collecte AG s’ajoute sans lire aucun pack (facturée à l’unité sans pack actif)', async () => {
     setupAuth('admin_savr', 'org-savr');
+    admin.push(TYPES_ACTIFS); // référentiel des types
     admin.push({ data: EVT, error: null }); // select événement
-    admin.push({ data: 'col-new', error: null }); // rpc fn_creer_collecte
+    admin.push({ data: 'col-new', error: null }); // rpc fn_creer_collecte_carte
 
     const res = await ajouterCollecte('ag');
 
@@ -259,10 +271,11 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
 
   it("l'admin agit AU NOM de l'org cible (pas de notification « tiers » parasite)", async () => {
     setupAuth('admin_savr', 'org-savr');
+    admin.push(TYPES_ACTIFS);
     admin.push({ data: EVT, error: null });
     admin.push({ data: 'col-new', error: null });
 
-    await ajouterCollecte('zd');
+    expect((await ajouterCollecte('zd')).status).toBe(201);
 
     // Miroir du POST de création (#223), qui passe l'org cible en acteurOrgId :
     // avec `org-savr`, le traiteur opérationnel serait notifié à tort d'un tiers.
@@ -274,6 +287,7 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
 
   it('un rôle client reste cloisonné sur son organisation', async () => {
     setupAuth('traiteur_manager', 'org-kaspia');
+    admin.push(TYPES_ACTIFS);
     admin.push({ data: EVT, error: null });
     admin.push({ data: 'col-new', error: null });
 

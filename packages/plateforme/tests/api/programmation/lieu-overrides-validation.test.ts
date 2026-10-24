@@ -87,7 +87,9 @@ function setupAuth(
 
 function resetChain(): void {
   vi.clearAllMocks();
-  mockSupabaseChain.from.mockReturnThis();
+  mockSupabaseChain.from.mockImplementation((table: string) =>
+    table === 'types_evenements' ? lectureTypesEvenements() : mockSupabaseChain,
+  );
   mockSupabaseChain.select.mockReturnThis();
   mockSupabaseChain.insert.mockReturnThis();
   mockSupabaseChain.update.mockReturnThis();
@@ -104,12 +106,44 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
   });
 }
 
+// Cartes du formulaire (refonte, lot B2) : chaque collecte porte son type
+// d'événement et ses contacts ; le type est vérifié dans le référentiel en une
+// lecture attendue sans terminal (`.in('id', …).eq('actif', true)`).
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+
+interface LectureTypes {
+  select: () => LectureTypes;
+  in: (col: string, ids: string[]) => LectureTypes;
+  eq: (col: string, valeur: unknown) => LectureTypes;
+  then: (
+    ok: (r: { data: { id: string }[]; error: null }) => unknown,
+    ko?: (e: unknown) => unknown,
+  ) => Promise<unknown>;
+}
+
+function lectureTypesEvenements(): LectureTypes {
+  let lignes = [{ id: TYPE_EVT, actif: true }];
+  const q: LectureTypes = {
+    select: () => q,
+    in: (_col, ids) => {
+      lignes = lignes.filter((l) => ids.includes(l.id));
+      return q;
+    },
+    eq: (_col, valeur) => {
+      lignes = lignes.filter((l) => l.actif === valeur);
+      return q;
+    },
+    then: (ok, ko) =>
+      Promise.resolve({
+        data: lignes.map(({ id }) => ({ id })),
+        error: null as null,
+      }).then(ok, ko),
+  };
+  return q;
+}
+
 const BODY_ZD = {
-  pax: 80,
-  type_evenement_id: 'type-1',
   lieu_id: 'lieu-1',
-  contact_principal_nom: 'Jean Martin',
-  contact_principal_telephone: '0612345678',
   nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
@@ -119,6 +153,9 @@ const BODY_ZD = {
       date_collecte: '2030-01-15',
       heure_collecte: '08:00',
       pax: 80,
+      type_evenement_id: TYPE_EVT,
+      contact_principal_nom: 'Jean Martin',
+      contact_principal_telephone: '0612345678',
     },
   ],
   confirmer: true,
@@ -257,12 +294,11 @@ describe('lieu_overrides — validation d’entrée (POST /programmation/eveneme
     mockMaybeSingle
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // récap
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala' },
-      error: null,
-    });
     mockRpc
-      .mockResolvedValueOnce({ data: 'collecte-zd-1', error: null }) // fn_creer_collecte
+      .mockResolvedValueOnce({
+        data: { evenement_id: 'evt-1', collecte_ids: ['collecte-zd-1'] },
+        error: null,
+      }) // fn_enregistrer_programmation
       .mockResolvedValueOnce({ data: null, error: null }); // f_upsert_alerte_admin
 
     const res = await postProgrammation({
@@ -272,14 +308,18 @@ describe('lieu_overrides — validation d’entrée (POST /programmation/eveneme
     });
 
     expect(res.status).toBe(201);
+    // Override normalisé, transmis à l'enregistrement (qui le pose sur chaque
+    // collecte via fn_creer_collecte).
     expect(mockRpc).toHaveBeenCalledWith(
-      'fn_creer_collecte',
+      'fn_enregistrer_programmation',
       expect.objectContaining({
-        p_lieu_overrides: {
-          adresse_acces: '12 rue Neuve',
-          flux_autorises: ['bio', 'carton'],
-          type_vehicule_max: null,
-        },
+        p_evenement: expect.objectContaining({
+          lieu_overrides: {
+            adresse_acces: '12 rue Neuve',
+            flux_autorises: ['bio', 'carton'],
+            type_vehicule_max: null,
+          },
+        }),
       }),
     );
   });

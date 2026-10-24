@@ -65,9 +65,52 @@ function setupAuth(
   });
 }
 
+// Carte de la collecte ajoutée (refonte, lot B2) : type d'événement et contacts
+// compris ; le type est vérifié dans le référentiel en une lecture attendue sans
+// terminal (`.in('id', …).eq('actif', true)`).
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+const CARTE = {
+  type_evenement_id: TYPE_EVT,
+  contact_principal_nom: 'Jean Martin',
+  contact_principal_telephone: '0612345678',
+};
+
+interface LectureTypes {
+  select: () => LectureTypes;
+  in: (col: string, ids: string[]) => LectureTypes;
+  eq: (col: string, valeur: unknown) => LectureTypes;
+  then: (
+    ok: (r: { data: { id: string }[]; error: null }) => unknown,
+    ko?: (e: unknown) => unknown,
+  ) => Promise<unknown>;
+}
+
+function lectureTypesEvenements(): LectureTypes {
+  let lignes = [{ id: TYPE_EVT, actif: true }];
+  const q: LectureTypes = {
+    select: () => q,
+    in: (_col, ids) => {
+      lignes = lignes.filter((l) => ids.includes(l.id));
+      return q;
+    },
+    eq: (_col, valeur) => {
+      lignes = lignes.filter((l) => l.actif === valeur);
+      return q;
+    },
+    then: (ok, ko) =>
+      Promise.resolve({
+        data: lignes.map(({ id }) => ({ id })),
+        error: null as null,
+      }).then(ok, ko),
+  };
+  return q;
+}
+
 function resetChain() {
   vi.resetAllMocks();
-  mockSupabaseChain.from.mockReturnThis();
+  mockSupabaseChain.from.mockImplementation((table: string) =>
+    table === 'types_evenements' ? lectureTypesEvenements() : mockSupabaseChain,
+  );
   mockSupabaseChain.select.mockReturnThis();
   mockSupabaseChain.insert.mockReturnThis();
   mockSupabaseChain.update.mockReturnThis();
@@ -206,7 +249,7 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
       data: { id: 'evt-add-ag', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    // fn_creer_collecte → collecte créée
+    // fn_creer_collecte_carte → collecte créée
     mockSupabaseChain.rpc.mockResolvedValueOnce({
       data: 'collecte-ag-add-1',
       error: null,
@@ -220,6 +263,7 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
         date_collecte: '2030-03-10',
         heure_collecte: '09:00',
         pax: 80,
+        ...CARTE,
       }),
       { params: Promise.resolve({ id: 'evt-add-ag' }) },
     );
@@ -227,6 +271,13 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
     expect(res.status).toBe(201);
     const json = (await res.json()) as { collecte_id: string };
     expect(json.collecte_id).toBe('collecte-ag-add-1');
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+      'fn_creer_collecte_carte',
+      expect.objectContaining({
+        p_evenement_id: 'evt-add-ag',
+        p_carte: expect.objectContaining({ type: 'ag' }),
+      }),
+    );
   });
 
   // Décision Val 2026-10-16 : sans pack actif ou sans crédit, la collecte AG
@@ -241,7 +292,7 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
     mockSupabaseChain.rpc.mockResolvedValueOnce({
       data: 'collecte-ag-unite',
       error: null,
-    }); // fn_creer_collecte
+    }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
@@ -254,6 +305,7 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
           date_collecte: '2030-03-15',
           heure_collecte: '10:00',
           pax: 80,
+          ...CARTE,
         },
       ),
       { params: Promise.resolve({ id: 'evt-no-credit' }) },

@@ -89,12 +89,30 @@ function makeEvenementsStore(rows: Row[]) {
     };
     return j;
   };
+  // Contacts de chaque collecte (refonte du formulaire, lot B2) : lus une fois
+  // l'événement trouvé, par `.in('collecte_id', …)` attendue sans terminal.
+  // Aucune ligne ici ; seuls les identifiants demandés sont tracés.
+  const contactsIn: Array<[string, unknown[]]> = [];
+  const contacts = () => {
+    const c = {
+      select: () => c,
+      in: (col: string, ids: unknown[]) => {
+        contactsIn.push([col, ids]);
+        return c;
+      },
+      then: (ok: (r: unknown) => unknown, ko?: (e: unknown) => unknown) =>
+        Promise.resolve({ data: [], error: null }).then(ok, ko),
+    };
+    return c;
+  };
   return {
     __eqCalls: eqCalls,
     __selectCalls: selectCalls,
     __journalEq: journalEq,
+    __contactsIn: contactsIn,
     from: (table: string) => {
       if (table === 'emails_envoyes') return journal();
+      if (table === 'collecte_contacts') return contacts();
       if (table !== 'evenements')
         throw new Error(`table inattendue dans le GET : ${table}`);
       return builder();
@@ -210,8 +228,10 @@ describe('M1.2 / GET détail événement — cloisonnement inter-organisation', 
     // ci-dessous qui prouve que le filtre SUIT le JWT au lieu d'être figé.)
     expect(store.__eqCalls).toContainEqual(['organisation_id', ORG_A]);
     // Le journal des emails n'est jamais lu pour un événement hors périmètre :
-    // même un état à trois valeurs trahirait l'existence de l'événement.
+    // même un état à trois valeurs trahirait l'existence de l'événement. Ni les
+    // contacts de ses collectes (lot B2).
     expect(store.__journalEq).toEqual([]);
+    expect(store.__contactsIn).toEqual([]);
   });
 
   it('M1.2 — GET événement de sa propre organisation → 200 + détail (contre-épreuve : le fake sait renvoyer une ligne)', async () => {
@@ -318,6 +338,8 @@ describe('M1.2 / ajout_collecte_niveau_evenement — GET détail événement : n
       type_evenement: 'Repas assis',
       controle_acces_requis: true,
     });
+    // Contacts de CES collectes, demandés une fois l'événement trouvé.
+    expect(store.__contactsIn).toEqual([['collecte_id', ['c1', 'c2']]]);
   });
 
   it('aucune collecte n’exige de contrôle d’accès → non requis ; type absent → null', async () => {

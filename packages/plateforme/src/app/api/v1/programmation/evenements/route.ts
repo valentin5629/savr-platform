@@ -5,20 +5,13 @@ import {
   lireEntiteFacturation,
   requireCompletedOrganisation,
 } from '@/lib/onboarding-guards.js';
-import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
-import {
-  notifierOverrideLieu,
-  validerLieuOverrides,
-} from '@/lib/programmation/lieu-override.js';
-import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
-import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
-import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { validerLieuOverrides } from '@/lib/programmation/lieu-override.js';
 import { serverError } from '@/lib/api-helpers.js';
-import { refusHeureCollecte } from '@/lib/heure-collecte.js';
-import { refusPaxCollecte } from '@/lib/pax-collecte.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
+import { validerCartes } from '@/lib/programmation/cartes.js';
+import { verifierPerimetreProgrammation } from '@/lib/programmation/perimetre-programmation.js';
+import { apresConfirmation } from '@/lib/programmation/apres-confirmation.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -63,52 +56,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ data: data ?? [] });
 }
 
-interface CollecteInput {
-  type: 'zd' | 'ag';
-  date_collecte: string;
-  heure_collecte: string;
-  // Nombre de convives de la collecte, saisi avec sa date (décision Val
-  // 2026-10-20) ; celui de l'événement en est calculé (lib/pax-collecte).
-  pax: number;
-  informations_supplementaires?: string | null;
-}
-
-// Normalisation alias d'entrée → valeurs de l'enum `collecte_type`, miroir exact du
-// CASE de `fn_creer_collecte` (chemin confirmé). L'UI envoie 'zd'/'ag' ; l'enum ne
-// connaît que 'zero_dechet'/'anti_gaspi'. Le chemin confirmé passe par la RPC, qui
-// normalise ; le chemin brouillon INSÈRE en direct et n'avait aucune normalisation
-// → « invalid input value for enum » → 500 + rollback de l'événement. « Enregistrer
-// en brouillon » n'a donc jamais fonctionné, pour aucun rôle — /brouillons était
-// structurellement vide, ce qui masquait les défauts des routes en aval.
-// `?? type` conserve la tolérance de la RPC (ELSE p_type::enum) si l'appelant envoie
-// déjà la valeur de l'enum.
-const TYPE_COLLECTE_ENUM: Record<string, string> = {
-  zd: 'zero_dechet',
-  ag: 'anti_gaspi',
-};
-
+// Programmation (refonte du formulaire, lot B2 ; décisions Val 2026-10-22 et
+// 2026-10-24) : le niveau événement (nom, client final, référence interne,
+// lieu, contrôle d'accès, traiteur opérant) et une carte par collecte, chacune
+// avec sa date, son heure, ses convives, son type d'événement, ses contacts et
+// ses informations supplémentaires (cf. lib/programmation/cartes).
 interface ProgrammationBody {
-  // Étape 1
   nom_evenement?: string;
   nom_client_organisateur?: string;
-  type_evenement_id: string;
   reference_affaire?: string;
   logo_client_organisateur_url?: string;
-  // Étape 2
   lieu_id: string;
   lieu_overrides?: Record<string, unknown>;
   controle_acces_requis: boolean;
-  contact_principal_nom: string;
-  contact_principal_telephone: string;
-  contact_secours_nom?: string | null;
-  contact_secours_telephone?: string | null;
-  // Rôles agence/gestionnaire uniquement
+  // Rôles agence/gestionnaire et staff
   traiteur_operationnel_organisation_id?: string;
   // Admin support : organisation cible
   organisation_id?: string;
-  // Étape 3
-  collectes: CollecteInput[];
-  // Mode
+  collectes: unknown;
   confirmer: boolean; // true = programmee, false = brouillon
 }
 
@@ -136,19 +101,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Validation champs obligatoires (le pax est validé par collecte, plus bas).
-  if (
-    !body.type_evenement_id ||
-    !body.lieu_id ||
-    !body.contact_principal_nom ||
-    !body.contact_principal_telephone ||
-    !body.collectes?.length
-  ) {
+  if (!body.lieu_id) {
     return NextResponse.json(
-      {
-        error:
-          'Champs obligatoires : type_evenement_id, lieu_id, contact_principal_nom, contact_principal_telephone, collectes',
-      },
+      { error: 'Champs obligatoires : lieu_id, collectes' },
       { status: 422 },
     );
   }
@@ -170,161 +125,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // `lieu_overrides` est un jsonb libre (aucun CHECK en base) et ses valeurs finissent
   // concaténées dans l'adresse transmise au transporteur : on borne ici les clés
-  // (§06.01 l.104) ET le type/la longueur des valeurs, AVANT toute écriture — un
-  // override refusé ne doit pas laisser un événement orphelin derrière lui.
+  // (§06.01 § 2.a) ET le type/la longueur des valeurs, AVANT toute écriture.
   const overridesValides = validerLieuOverrides(body.lieu_overrides);
   if ('error' in overridesValides) return overridesValides.error;
   const lieuOverrides = overridesValides.overrides;
 
-  // Même borne d'entrée sur les champs texte libre qui partent au transporteur :
-  // les contacts (principal ET secours) sont au niveau ÉVÉNEMENT, les informations
-  // supplémentaires au niveau de CHAQUE collecte (validées dans la boucle
-  // ci-dessous). Vérifié AVANT toute écriture, pour la même raison que les
-  // overrides : un refus ne doit pas laisser un événement orphelin derrière lui.
-  //
-  // Le contrôle « obligatoire » ci-dessus ne teste que la présence (`!body.x`) :
-  // il laisse passer `'   '`, un objet ou 5 000 caractères. C'est ici que les deux
-  // contacts PRINCIPAUX sont réellement bornés, et que leur valeur est trimée avant
-  // d'atteindre l'INSERT — `obligatoire: true` fait du vide un 422, jamais un `null`
-  // (la colonne est NOT NULL : un `null` sortirait en 23502, donc en 500).
-  const contactsValides = validerChampsTexteLibre(body);
-  if ('error' in contactsValides) return contactsValides.error;
-  // Non-null asserté : `obligatoire: true` garantit que le validateur a rendu une
-  // chaîne non vide pour ces deux clés, que le contrôle de présence ci-dessus a
-  // rendues obligatoirement présentes.
-  body.contact_principal_nom = contactsValides.valeurs.contact_principal_nom!;
-  body.contact_principal_telephone =
-    contactsValides.valeurs.contact_principal_telephone!;
-  body.contact_secours_nom =
-    contactsValides.valeurs.contact_secours_nom ?? null;
-  body.contact_secours_telephone =
-    contactsValides.valeurs.contact_secours_telephone ?? null;
-
-  // Validation date_collecte >= aujourd'hui
-  const today = jourParis();
-  for (const c of body.collectes) {
-    // Le contrôle de forme reste EN PREMIER : sur un élément qui n'est pas un
-    // objet, écrire la valeur normalisée lèverait un TypeError (module ES =
-    // mode strict) et sortirait en 500, là où ce 422 est la bonne réponse.
-    if (!c.date_collecte || !c.heure_collecte || !c.type) {
-      return NextResponse.json(
-        {
-          error:
-            'Chaque collecte requiert : type, date_collecte, heure_collecte',
-        },
-        { status: 422 },
-      );
-    }
-    const refusHeure = refusHeureCollecte(c.heure_collecte);
-    if (refusHeure) return refusHeure;
-
-    const refusPax = refusPaxCollecte(c.pax);
-    if (refusPax) return refusPax;
-
-    const infosValides = validerChampsTexteLibre(c);
-    if ('error' in infosValides) return infosValides.error;
-    c.informations_supplementaires =
-      infosValides.valeurs.informations_supplementaires ?? null;
-
-    if (c.date_collecte < today) {
-      return NextResponse.json(
-        { error: `Date de collecte dans le passé : ${c.date_collecte}` },
-        { status: 422 },
-      );
-    }
-  }
-
   const supabase = createAdminSupabaseClient();
 
-  // Résolution traiteur opérationnel
-  const traiteurOperationnelId =
-    auth.ctx.role === 'agence' ||
-    auth.ctx.role === 'gestionnaire_lieux' ||
-    auth.ctx.isAdmin
-      ? (body.traiteur_operationnel_organisation_id ?? effectiveOrgId)
-      : effectiveOrgId;
+  // Cartes des collectes : date, heure, convives, type d'événement, contacts,
+  // informations supplémentaires ; au plus 10 par type (B2-Q4). Refus 422 avant
+  // toute écriture.
+  const cartesValides = await validerCartes(supabase, body.collectes, {
+    plafond: true,
+  });
+  if ('error' in cartesValides) return cartesValides.error;
+  const { cartes } = cartesValides;
 
-  if (!traiteurOperationnelId) {
-    return NextResponse.json(
-      { error: 'traiteur_operationnel_organisation_id requis pour ce rôle' },
-      { status: 422 },
-    );
-  }
-
-  // Gap A : gestionnaire_lieux — valider que le lieu est dans son périmètre géré
-  if (auth.ctx.role === 'gestionnaire_lieux') {
-    const { data: lieuLink } = await supabase
-      .from('organisations_lieux')
-      .select('id')
-      .eq('organisation_id', effectiveOrgId)
-      .eq('lieu_id', body.lieu_id)
-      .maybeSingle();
-    if (!lieuLink) {
-      return NextResponse.json(
-        {
-          error:
-            'Lieu non autorisé : ce lieu ne fait pas partie de votre périmètre',
-        },
-        { status: 403 },
-      );
-    }
-  }
-
-  // Gap C : gestionnaire_lieux — le traiteur opérant est obligatoire et choisi dans
-  // le référentiel : traiteur actif, NON shadow (§06.01 l.294 « pas d'option hors
-  // référentiel », miroir du WITH CHECK de evt_gestionnaire_insert). La policy est
-  // inerte depuis le REVOKE INSERT sur `evenements` (20260915190000) : cette garde
-  // est le seul rempart. Sans elle, un traiteur shadow passait, et un body sans
-  // traiteur retombait sur l'organisation du gestionnaire elle-même.
-  if (auth.ctx.role === 'gestionnaire_lieux') {
-    if (!body.traiteur_operationnel_organisation_id) {
-      return NextResponse.json(
-        { error: 'traiteur_operationnel_organisation_id requis pour ce rôle' },
-        { status: 422 },
-      );
-    }
-    const { data: traiteurReference } = await supabase
-      .from('organisations')
-      .select('id')
-      .eq('id', traiteurOperationnelId)
-      .eq('actif', true)
-      .eq('type', 'traiteur')
-      .eq('est_shadow', false)
-      .maybeSingle();
-    if (!traiteurReference) {
-      return NextResponse.json(
-        {
-          error:
-            'Traiteur opérationnel non autorisé : choisissez un traiteur du référentiel',
-        },
-        { status: 403 },
-      );
-    }
-  }
-
-  // Gap B : agence — le traiteur opérationnel doit être soit un shadow de cette agence,
-  // soit un traiteur réel actif référencé sur la plateforme (non-shadow, type=traiteur)
-  if (auth.ctx.role === 'agence' && traiteurOperationnelId !== effectiveOrgId) {
-    const { data: traiteurInfo } = await supabase
-      .from('organisations')
-      .select('id, type, est_shadow, cree_par_organisation_id')
-      .eq('id', traiteurOperationnelId)
-      .eq('actif', true)
-      .maybeSingle();
-
-    const isShadowPropre =
-      traiteurInfo?.est_shadow === true &&
-      traiteurInfo?.cree_par_organisation_id === effectiveOrgId;
-    const isTraiteurReel =
-      traiteurInfo?.est_shadow === false && traiteurInfo?.type === 'traiteur';
-
-    if (!traiteurInfo || (!isShadowPropre && !isTraiteurReel)) {
-      return NextResponse.json(
-        { error: 'Traiteur opérationnel non autorisé pour cette agence' },
-        { status: 403 },
-      );
-    }
-  }
+  const perimetre = await verifierPerimetreProgrammation(supabase, auth.ctx, {
+    effectiveOrgId,
+    lieuId: body.lieu_id,
+    traiteurDemande: body.traiteur_operationnel_organisation_id,
+  });
+  if ('error' in perimetre) return perimetre.error;
 
   // Entité de facturation de l'orga programmatrice (evenements.entite_facturation_id
   // NOT NULL). Le SIRET n'est PAS exigé pour programmer (décision Val 2026-09-28) ;
@@ -352,174 +174,59 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   );
   if (!completude.ok) return completude.error;
 
-  // INSERT événement
-  const { data: evt, error: evtErr } = await supabase
-    .from('evenements')
-    .insert({
-      organisation_id: effectiveOrgId,
-      traiteur_operationnel_organisation_id: traiteurOperationnelId,
-      entite_facturation_id: completude.entiteFacturationId,
-      lieu_id: body.lieu_id,
-      created_by: auth.ctx.userId,
-      nom_evenement: body.nom_evenement ?? null,
-      type_evenement_id: body.type_evenement_id,
-      // Provisoire (0 = inconnu) : `evenements.pax` est NOT NULL, et
-      // trg_set_pax_evenement le calcule dès la première collecte insérée.
-      pax: 0,
-      contact_principal_nom: body.contact_principal_nom,
-      contact_principal_telephone: body.contact_principal_telephone,
-      contact_secours_nom: body.contact_secours_nom ?? null,
-      contact_secours_telephone: body.contact_secours_telephone ?? null,
-      nom_client_organisateur: body.nom_client_organisateur ?? null,
-      logo_client_organisateur_url: body.logo_client_organisateur_url ?? null,
-      reference_affaire: body.reference_affaire ?? null,
-    })
-    .select('id, nom_evenement')
-    .single();
-
-  if (evtErr) return serverError(evtErr, 'programmation.evenements.create');
-
-  const evenementId = evt.id;
-  const collecteIds: string[] = [];
-
-  // Mise à jour contrôle d'accès lieu (cascade upgrade-only, R9)
-  if (body.controle_acces_requis) {
-    await supabase
-      .from('lieux')
-      .update({ controle_acces_requis_default: true })
-      .eq('id', body.lieu_id)
-      .eq('controle_acces_requis_default', false);
-  }
-
   const hasOverride = !!(
     lieuOverrides && Object.keys(lieuOverrides).length > 0
   );
 
+  // Événement et collectes en UNE transaction (fn_enregistrer_programmation) :
+  // une carte refusée par la base n'en laisse aucune, ni l'événement. Chaque
+  // collecte confirmée passe par fn_creer_collecte (ordre de création E1 pour
+  // une ZD, dans la même transaction) ; un brouillon n'émet rien.
+  const { data: resultat, error: rpcErr } = await supabase.rpc(
+    'fn_enregistrer_programmation',
+    {
+      p_evenement: {
+        organisation_id: effectiveOrgId,
+        traiteur_operationnel_organisation_id: perimetre.traiteurOperationnelId,
+        entite_facturation_id: completude.entiteFacturationId,
+        lieu_id: body.lieu_id,
+        created_by: auth.ctx.userId,
+        nom_evenement: body.nom_evenement ?? null,
+        nom_client_organisateur: body.nom_client_organisateur ?? null,
+        logo_client_organisateur_url: body.logo_client_organisateur_url ?? null,
+        reference_affaire: body.reference_affaire ?? null,
+        controle_acces_requis: body.controle_acces_requis === true,
+        lieu_overrides: hasOverride ? lieuOverrides : null,
+      },
+      p_collectes: cartes,
+      p_confirmer: body.confirmer === true,
+    },
+  );
+  if (rpcErr) return serverError(rpcErr, 'programmation.evenements.create');
+
+  const { evenement_id: evenementId, collecte_ids: collecteIds } = resultat as {
+    evenement_id: string;
+    collecte_ids: string[];
+  };
+
   if (body.confirmer) {
-    // Chemin confirmation : fn_creer_collecte (SECURITY DEFINER, gère E1 pour ZD).
-    // PROG-01/PROG-03 : lieu_overrides passé à la RPC → écrit sur la ligne ET inclus
-    // dans le payload E1 (collecte.creee) dans la MÊME transaction (« transmis au TMS
-    // via E1 », CDC §06.01 l.110), aux côtés de controle_acces_requis + info_suppl.
-    for (const c of body.collectes) {
-      const { data: collecteId, error: cErr } = await supabase.rpc(
-        'fn_creer_collecte',
-        {
-          p_evenement_id: evenementId,
-          p_type: c.type,
-          p_date_collecte: c.date_collecte,
-          p_heure_collecte: c.heure_collecte,
-          p_nb_camions: 1,
-          p_controle_acces: body.controle_acces_requis,
-          p_notes: null,
-          p_info_suppl: c.informations_supplementaires ?? null,
-          p_lieu_overrides: hasOverride ? lieuOverrides : null,
-          p_pax: c.pax,
-        },
-      );
-
-      if (cErr) {
-        // Rollback partiel : supprimer l'événement déjà créé
-        await supabase.from('evenements').delete().eq('id', evenementId);
-        return serverError(cErr, 'programmation.evenements.collecte.confirmer');
-      }
-
-      collecteIds.push(collecteId as string);
-    }
-
     // Les ordres de création sont en file (et, après l'acceptation automatique
-    // AG plus bas, l'ordre d'envoi) : ils sont traités après la réponse, sans
-    // attendre le passage planifié (décision Val 2026-10-12).
+    // AG, l'ordre d'envoi) : traités après la réponse, sans attendre le passage
+    // planifié (décision Val 2026-10-12).
     envoyerOrdresSansAttendre(collecteIds);
 
-    // Override lieu : badge info_incomplete. Le téléphone du contact principal
-    // et le nom de l'événement sont exigés plus haut (422) ; le client final,
-    // facultatif, n'en fait pas partie (décision Val 2026-10-19).
-    if (hasOverride) {
-      await supabase
-        .from('collectes')
-        .update({ informations_completes: false })
-        .in('id', collecteIds);
-    }
-
-    // PROG-01 : override lieu → signalement léger Admin + trace audit_log (l.111).
-    if (hasOverride) {
-      await notifierOverrideLieu(supabase, {
-        evenementId,
-        lieuId: body.lieu_id,
-        overrides: lieuOverrides as Record<string, unknown>,
-        userId: auth.ctx.userId,
-        role: auth.ctx.role,
-      });
-    }
-
-    // PROG-05 : à la confirmation, évaluer l'auto-accept de chaque collecte AG (CDC
-    // §06.01 l.398 + §09 §6). Best-effort : sans config active → la collecte reste en
-    // file d'attribution Admin ; avec config match → attribution auto-validée + cascade.
-    await Promise.all(
-      body.collectes.map((c, i) => {
-        const cid = collecteIds[i];
-        return c.type === 'ag' && cid
-          ? evaluerAutoAcceptAg(cid).then(
-              () => undefined,
-              () => undefined,
-            )
-          : Promise.resolve();
-      }),
-    );
-
-    // PROG-04 : email récap au programmeur (un seul email, tarif ZD inclus).
-    await envoyerRecapProgrammation(supabase, {
-      programmeurUserId: auth.ctx.userId,
+    await apresConfirmation(supabase, req, {
+      ctx: auth.ctx,
       evenementId,
-      nomEvenement: evt.nom_evenement,
+      nomEvenement: body.nom_evenement ?? null,
       organisationId: effectiveOrgId,
       lieuId: body.lieu_id,
-      collectes: body.collectes,
-    }).catch(() => undefined); // non-bloquant
-
-    // BL-P2-22 (tpl 20) : info-only au traiteur opérationnel si programmé par un
-    // tiers. Une notification par programmation (collecte représentative), comme
-    // le récap. Garde tiers-non-shadow dans le helper. Best-effort.
-    if (collecteIds[0]) {
-      void notifierTraiteurOperationnel(supabase, {
-        collecteId: collecteIds[0],
-        acteurOrgId: effectiveOrgId,
-        changement: {
-          kind: 'programmation',
-          programmeurUserId: auth.ctx.userId,
-        },
-      }).catch(() => undefined);
-    }
-  } else {
-    // Chemin brouillon : INSERT direct avec statut='brouillon'.
-    // PROG-01 : lieu_overrides persisté ici aussi (sinon perdu à la confirmation) ;
-    // le signalement Admin est émis à la confirmation (PATCH .../confirmer).
-    for (const c of body.collectes) {
-      const { data: newCollecte, error: cErr } = await supabase
-        .from('collectes')
-        .insert({
-          evenement_id: evenementId,
-          type: TYPE_COLLECTE_ENUM[c.type] ?? c.type,
-          date_collecte: c.date_collecte,
-          heure_collecte: c.heure_collecte,
-          statut: 'brouillon',
-          statut_tms: 'non_envoye',
-          controle_acces_requis: body.controle_acces_requis,
-          informations_supplementaires: c.informations_supplementaires ?? null,
-          lieu_overrides: hasOverride ? lieuOverrides : null,
-          nb_camions_demande: 1,
-          pax: c.pax,
-        })
-        .select('id')
-        .single();
-
-      if (cErr) {
-        await supabase.from('evenements').delete().eq('id', evenementId);
-        return serverError(cErr, 'programmation.evenements.collecte.brouillon');
-      }
-
-      collecteIds.push(newCollecte.id);
-    }
+      collectes: collecteIds.map((id, rang) => ({
+        id,
+        type: cartes[rang]!.type,
+      })),
+      lieuOverrides: hasOverride ? lieuOverrides : null,
+    });
   }
 
   return NextResponse.json(

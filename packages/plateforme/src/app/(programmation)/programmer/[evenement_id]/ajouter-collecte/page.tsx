@@ -1,25 +1,39 @@
 'use client';
 
 import { AlertBar } from '@/components/ui/alert-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import {
-  SousBlocCollecte,
-  paxSaisiValide,
-  type CollecteFormData,
-} from '@/components/programmation/sous-bloc-collecte';
+  CarteCollecte,
+  type TypeEvenementOption,
+} from '@/components/programmation/carte-collecte';
+import type { ContactOption } from '@/components/programmation/contact-combobox';
 import { usePackAg } from '@/components/programmation/use-pack-ag';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { PageHeader } from '@/components/ui/page-header';
 import { FormActions } from '@/components/ui/form-actions';
+import { FormField } from '@/components/ui/form-field';
+import { FormGrid } from '@/components/ui/form-grid';
+import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
-import { normaliserTypeCollecte } from '@/lib/libelles/type-collecte';
+import {
+  libelleTypeCollecte,
+  normaliserTypeCollecte,
+} from '@/lib/libelles/type-collecte';
 import { Heading } from '@/components/ui/heading';
 import { InfoItem } from '@/components/ui/info-item';
 import { textClasses } from '@/components/ui/text';
-import { ContactLigne } from '@/components/collecte/fiche-blocs';
 import { formatJourLong, isoVersDate } from '@/lib/date-iso';
+import {
+  carteComplete,
+  carteVersCorps,
+  carteVide,
+  clesEnDoublon,
+  contactDepuis,
+  type CarteSaisie,
+} from '@/lib/programmation/cartes-saisie';
 
 // Valeur du niveau événement : texte courant neutral-900, comme le
 // récapitulatif de l'écran de confirmation.
@@ -32,26 +46,34 @@ type LieuEvenement = {
   ville: string | null;
 };
 
+type ContactsCollecte = {
+  contact_principal_nom: string | null;
+  contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
+};
+
+type CollecteExistante = {
+  type: string;
+  statut?: string | null;
+  date_collecte: string | null;
+  heure_collecte: string | null;
+  pax: number | null;
+  type_evenement_id?: string | null;
+  contacts?: ContactsCollecte | null;
+  created_at?: string | null;
+};
+
 // Événement tel que le rend GET /api/v1/programmation/evenements/[id].
 type EvenementExistant = {
   organisation_id?: string;
   nom_evenement?: string | null;
   nom_client_organisateur?: string | null;
   date_evenement?: string | null;
-  type_evenement?: string | null;
-  contact_principal_nom?: string | null;
-  contact_principal_telephone?: string | null;
-  contact_secours_nom?: string | null;
-  contact_secours_telephone?: string | null;
   controle_acces_requis?: boolean;
   // Relation to-one : PostgREST renvoie un objet, on tolère le tableau.
   lieux?: LieuEvenement | LieuEvenement[] | null;
-  collectes?: {
-    statut?: string | null;
-    date_collecte: string | null;
-    heure_collecte: string | null;
-    pax: number | null;
-  }[];
+  collectes?: CollecteExistante[];
 };
 
 function formatLieu(lieux: EvenementExistant['lieux']): string {
@@ -71,33 +93,44 @@ function formatDateEvenement(iso: string | null | undefined): string {
   return d ? formatJourLong(d) : '—';
 }
 
+const typeCarte = (type: string): 'zd' | 'ag' =>
+  normaliserTypeCollecte(type) === 'zero_dechet' ? 'zd' : 'ag';
+
+// Collectes non annulées de l'événement, de la plus ancienne à la plus
+// tardive : par date, heure, puis création.
+function nonAnnuleesDansLOrdre(
+  collectes: readonly CollecteExistante[],
+): CollecteExistante[] {
+  const cle = (c: CollecteExistante) =>
+    `${c.date_collecte ?? ''}|${(c.heure_collecte ?? '').slice(0, 5)}|${c.created_at ?? ''}`;
+  return collectes
+    .filter((c) => c.statut !== 'annulee')
+    .sort((a, b) => cle(a).localeCompare(cle(b)));
+}
+
+const CONTACT_VIDE = { prenom: '', nom: '', telephone: '', fonction: '' };
+
 export default function AjouterCollectePage() {
   const { evenement_id } = useParams<{ evenement_id: string }>();
   const router = useRouter();
-  const [type, setType] = useState<'zd' | 'ag'>('zd');
+  // Carte de la nouvelle collecte (§06.01 « Ajouter une collecte à un
+  // événement existant », § 3.a) : une seule, Zéro Déchet par défaut.
+  const [carte, setCarte] = useState<CarteSaisie>(() => carteVide('zd'));
   // Logo Savr vert tant que l'onglet ZD est actif ; orange sur Anti-Gaspi.
-  useSignalZdSelection(type === 'zd');
-  const [data, setData] = useState<CollecteFormData>({
-    type: 'zd',
-    date_collecte: '',
-    heure_collecte: '',
-    pax: '',
-    informations_supplementaires: '',
-  });
+  useSignalZdSelection(carte.type === 'zd');
+  const [typesEvenements, setTypesEvenements] = useState<TypeEvenementOption[]>(
+    [],
+  );
+  const [contactCible, setContactCible] = useState<
+    'principal' | 'secours' | null
+  >(null);
+  const [newContact, setNewContact] = useState(CONTACT_VIDE);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [agDoublonConfirm, setAgDoublonConfirm] = useState(false);
-  const [agDoublonWarning, setAgDoublonWarning] = useState(false);
 
-  // Pack AG de l'organisation de l'événement, celle qui paie : sans pack actif,
-  // la collecte AG ajoutée sera facturée à l'unité, information affichée dans le
-  // sous-bloc (décision Val 2026-10-16). Le paramètre `organisation_id` n'est
-  // honoré que pour le staff ; un rôle client lit toujours son propre pack, qui
-  // est celui de l'événement (la route d'ajout l'impose).
-  const [orgEvenement, setOrgEvenement] = useState<string | null>(null);
-  // Niveau événement figé et pré-rempli (§06.01 « Ajouter une collecte à un
-  // événement existant ») : affiché en lecture seule, jamais renvoyé par la
-  // page. La route d'ajout relit l'événement, contrôle d'accès compris.
+  // Niveau événement figé (§06.01) : nom, client, date de l'événement, lieu et
+  // contrôle d'accès, affichés en lecture seule, jamais renvoyés par la page.
+  // La route d'ajout relit l'événement, contrôle d'accès compris.
   const [evenement, setEvenement] = useState<EvenementExistant | null>(null);
   useEffect(() => {
     let ignore = false;
@@ -110,65 +143,103 @@ export default function AjouterCollectePage() {
       .then((evt) => {
         if (ignore) return;
         setEvenement(evt);
-        setOrgEvenement(evt?.organisation_id ?? null);
-        // Pax pré-rempli avec celui de la dernière collecte non annulée de
-        // l'événement au pax connu (décision Val 2026-10-20 ; même règle que le
-        // défaut en base), modifiable ; jamais écrasé s'il est saisi. Un pax
-        // à 0 (inconnu, reprise Bubble) ne se pré-remplit pas.
-        const derniere = [...(evt?.collectes ?? [])]
-          .filter((c) => c.statut !== 'annulee' && c.pax != null && c.pax > 0)
-          .sort((a, b) =>
-            `${a.date_collecte ?? ''} ${a.heure_collecte ?? ''}`.localeCompare(
-              `${b.date_collecte ?? ''} ${b.heure_collecte ?? ''}`,
-            ),
-          )
+        // Convives, type d'événement et contacts pré-remplis avec ceux de la
+        // dernière collecte non annulée (décisions Val 2026-10-20 et
+        // 2026-10-22), modifiables ; la date reste vide. Le pax est celui de la
+        // dernière collecte non annulée au pax connu (même règle que le défaut
+        // en base) : un pax à 0 (inconnu, reprise Bubble) ne se pré-remplit
+        // pas. Un champ déjà saisi n'est jamais écrasé.
+        const ordre = nonAnnuleesDansLOrdre(evt?.collectes ?? []);
+        const derniere = ordre[ordre.length - 1];
+        const derniereAuPax = ordre
+          .filter((c) => c.pax != null && c.pax > 0)
           .pop();
-        if (derniere?.pax != null)
-          setData((d) =>
-            d.pax === '' ? { ...d, pax: String(derniere.pax) } : d,
-          );
+        setCarte((c) => ({
+          ...c,
+          pax:
+            c.pax === '' && derniereAuPax ? String(derniereAuPax.pax) : c.pax,
+          type_evenement_id:
+            c.type_evenement_id || (derniere?.type_evenement_id ?? ''),
+          contact_principal:
+            c.contact_principal ??
+            contactDepuis(
+              derniere?.contacts?.contact_principal_nom,
+              derniere?.contacts?.contact_principal_telephone,
+            ),
+          contact_secours:
+            c.contact_secours ??
+            contactDepuis(
+              derniere?.contacts?.contact_secours_nom,
+              derniere?.contacts?.contact_secours_telephone,
+            ),
+        }));
       })
       .catch(() => undefined);
     return () => {
       ignore = true;
     };
   }, [evenement_id]);
-  const pack = usePackAg(type === 'ag' ? orgEvenement : null);
 
-  const handleTypeChange = (t: 'zd' | 'ag') => {
-    setType(t);
-    setData({ ...data, type: t });
-    setAgDoublonWarning(false);
-    setAgDoublonConfirm(false);
+  useEffect(() => {
+    void fetch('/api/v1/programmation/types-evenements')
+      .then((r) => r.json() as Promise<TypeEvenementOption[]>)
+      .then((t) => setTypesEvenements(Array.isArray(t) ? t : []))
+      .catch(() => {});
+  }, []);
+
+  // Organisation de l'événement, celle qui paie et dont on lit les contacts.
+  // Le paramètre `organisation_id` n'est honoré que pour le staff ; un rôle
+  // client lit toujours son propre pack et ses propres contacts, qui sont ceux
+  // de l'événement (la route d'ajout l'impose).
+  const orgEvenement = evenement?.organisation_id ?? null;
+  // Pack AG : sans pack actif, la collecte AG ajoutée sera facturée à l'unité,
+  // information affichée dans la carte (décision Val 2026-10-16).
+  const pack = usePackAg(carte.type === 'ag' ? orgEvenement : null);
+
+  // Même type, même date et même heure qu'une collecte non annulée de
+  // l'événement : avertissement non bloquant (décision Val 2026-10-22, C4).
+  const existantes = useMemo(
+    () =>
+      nonAnnuleesDansLOrdre(evenement?.collectes ?? []).map((c) => ({
+        ...carteVide(typeCarte(c.type)),
+        date_collecte: c.date_collecte ?? '',
+        heure_collecte: c.heure_collecte ?? '',
+      })),
+    [evenement],
+  );
+  const doublon = clesEnDoublon([...existantes, carte]).has(carte.cle);
+
+  const changerCarte = <K extends keyof CarteSaisie>(
+    champ: K,
+    valeur: CarteSaisie[K],
+  ) => setCarte((c) => ({ ...c, [champ]: valeur }));
+
+  const handleAddContactInline = async () => {
+    if (!contactCible) return;
+    if (!newContact.prenom || !newContact.nom || !newContact.telephone) return;
+    const res = await fetch('/api/v1/programmation/contacts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(
+        orgEvenement
+          ? { ...newContact, organisation_id: orgEvenement }
+          : newContact,
+      ),
+    });
+    if (!res.ok) return;
+    const created = (await res.json()) as ContactOption;
+    changerCarte(
+      contactCible === 'principal' ? 'contact_principal' : 'contact_secours',
+      created,
+    );
+    setContactCible(null);
+    setNewContact(CONTACT_VIDE);
   };
 
-  const valid =
-    data.date_collecte !== '' &&
-    data.heure_collecte !== '' &&
-    paxSaisiValide(data.pax);
+  const valid = carteComplete(carte);
 
-  // `doublonConfirme` : passé par « Confirmer quand même », dont le clic lirait
-  // sinon l'état d'avant la confirmation et rouvrirait l'avertissement.
-  const handleSubmit = async (doublonConfirme = agDoublonConfirm) => {
-    // Vérification doublon AG : détecter si CET événement a déjà une collecte AG
-    if (type === 'ag' && !doublonConfirme) {
-      const check = await fetch(
-        `/api/v1/programmation/evenements/${encodeURIComponent(evenement_id)}`,
-      );
-      const evt = (await check.json()) as {
-        collectes?: { type: string }[];
-      };
-      // La route rend l'enum de la base (`anti_gaspi`), pas l'alias du
-      // formulaire (`ag`).
-      const hasAg = evt.collectes?.some(
-        (c) => normaliserTypeCollecte(c.type) === 'anti_gaspi',
-      );
-      if (hasAg) {
-        setAgDoublonWarning(true);
-        return;
-      }
-    }
-
+  const handleSubmit = async () => {
+    if (!valid) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -177,17 +248,10 @@ export default function AjouterCollectePage() {
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            type,
-            date_collecte: data.date_collecte,
-            heure_collecte: data.heure_collecte,
-            pax: Number.parseInt(data.pax, 10),
-            informations_supplementaires:
-              data.informations_supplementaires || undefined,
-          }),
+          body: JSON.stringify(carteVersCorps(carte)),
         },
       );
-      const result = (await res.json()) as {
+      const result = (await res.json().catch(() => ({}))) as {
         collecte_id?: string;
         error?: string;
       };
@@ -202,7 +266,7 @@ export default function AjouterCollectePage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <PageHeader title="Ajouter une collecte" tone="neutral" size="xl" />
 
       {evenement && (
@@ -244,24 +308,6 @@ export default function AjouterCollectePage() {
             </InfoItem>
             <InfoItem
               variant="hint"
-              label="Type d’événement"
-              className="space-y-0.5"
-              valueClassName={VALEUR_EVENEMENT}
-            >
-              {evenement.type_evenement || '—'}
-            </InfoItem>
-            <InfoItem
-              variant="hint"
-              label="Contrôle d’accès"
-              className="space-y-0.5"
-              valueClassName={VALEUR_EVENEMENT}
-            >
-              {evenement.controle_acces_requis
-                ? 'Plaque et nom du chauffeur requis'
-                : 'Non requis'}
-            </InfoItem>
-            <InfoItem
-              variant="hint"
               label="Lieu"
               pleineLargeur
               className="space-y-0.5"
@@ -271,67 +317,108 @@ export default function AjouterCollectePage() {
             </InfoItem>
             <InfoItem
               variant="hint"
-              label="Contact principal"
+              label="Contrôle d’accès"
+              pleineLargeur
               className="space-y-0.5"
               valueClassName={VALEUR_EVENEMENT}
             >
-              <ContactLigne
-                nom={evenement.contact_principal_nom}
-                telephone={evenement.contact_principal_telephone}
-              />
-            </InfoItem>
-            <InfoItem
-              variant="hint"
-              label="Contact de secours"
-              className="space-y-0.5"
-              valueClassName={VALEUR_EVENEMENT}
-            >
-              <ContactLigne
-                nom={evenement.contact_secours_nom}
-                telephone={evenement.contact_secours_telephone}
-              />
+              {evenement.controle_acces_requis
+                ? 'Plaque et nom du chauffeur requis'
+                : 'Non requis'}
             </InfoItem>
           </dl>
         </section>
       )}
 
       <ToggleTypeCollecte
-        value={type === 'zd' ? 'zero_dechet' : 'anti_gaspi'}
-        onChange={(v) => handleTypeChange(v === 'zero_dechet' ? 'zd' : 'ag')}
+        value={carte.type === 'zd' ? 'zero_dechet' : 'anti_gaspi'}
+        onChange={(v) =>
+          changerCarte('type', v === 'zero_dechet' ? 'zd' : 'ag')
+        }
         className="w-full [&>*]:flex-1"
       />
 
-      <SousBlocCollecte
-        type={type}
-        data={{ ...data, type }}
-        onChange={(updated) => setData(updated)}
-        pack={type === 'ag' ? pack : undefined}
+      <CarteCollecte
+        carte={carte}
+        libelle={`Collecte ${libelleTypeCollecte(carte.type)}`}
+        suffixe={`${carte.type}-1`}
+        estModele
+        typesEvenements={typesEvenements}
+        pack={carte.type === 'ag' ? pack : undefined}
+        doublon={doublon}
+        organisationId={orgEvenement ?? undefined}
+        onChange={changerCarte}
+        onAjouterContact={setContactCible}
       />
 
-      {agDoublonWarning && (
-        <div className="space-y-3">
-          <AlertBar variant="warn" icon={<AlertTriangle />}>
-            Cet événement a déjà une collecte Anti-Gaspi. Confirmer l&apos;ajout
-            d&apos;une seconde&nbsp;?
-          </AlertBar>
+      <Modal
+        open={contactCible !== null}
+        title="Nouveau contact"
+        onClose={() => setContactCible(null)}
+        footer={
           <FormActions
             cancel={{
               label: 'Annuler',
-              size: 'sm',
-              onClick: () => setAgDoublonWarning(false),
+              onClick: () => setContactCible(null),
             }}
             submit={{
-              label: 'Confirmer quand même',
-              size: 'sm',
-              onClick: () => {
-                setAgDoublonConfirm(true);
-                setAgDoublonWarning(false);
-                void handleSubmit(true);
-              },
+              label: 'Ajouter',
+              onClick: () => void handleAddContactInline(),
+              disabled:
+                !newContact.prenom || !newContact.nom || !newContact.telephone,
             }}
           />
+        }
+      >
+        <div className="space-y-4">
+          <FormGrid>
+            <FormField label="Prénom" htmlFor="contact-prenom" required>
+              <Input
+                id="contact-prenom"
+                required
+                value={newContact.prenom}
+                onChange={(e) =>
+                  setNewContact((p) => ({ ...p, prenom: e.target.value }))
+                }
+                placeholder="Prénom"
+              />
+            </FormField>
+            <FormField label="Nom" htmlFor="contact-nom" required>
+              <Input
+                id="contact-nom"
+                required
+                value={newContact.nom}
+                onChange={(e) =>
+                  setNewContact((p) => ({ ...p, nom: e.target.value }))
+                }
+                placeholder="Nom"
+              />
+            </FormField>
+          </FormGrid>
+          <FormField label="Téléphone" htmlFor="contact-tel" required>
+            <Input
+              id="contact-tel"
+              type="tel"
+              required
+              value={newContact.telephone}
+              onChange={(e) =>
+                setNewContact((p) => ({ ...p, telephone: e.target.value }))
+              }
+              placeholder="06 12 34 56 78"
+            />
+          </FormField>
+          <FormField label="Fonction (optionnel)" htmlFor="contact-fonction">
+            <Input
+              id="contact-fonction"
+              value={newContact.fonction}
+              onChange={(e) =>
+                setNewContact((p) => ({ ...p, fonction: e.target.value }))
+              }
+              placeholder="Ex : Responsable salle"
+            />
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {error && (
         <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
@@ -348,7 +435,7 @@ export default function AjouterCollectePage() {
             </>
           ),
           onClick: () => void handleSubmit(),
-          disabled: !valid || submitting || agDoublonWarning,
+          disabled: !valid || submitting,
         }}
         className="gap-3"
       />

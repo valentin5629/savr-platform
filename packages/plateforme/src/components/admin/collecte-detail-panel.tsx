@@ -79,7 +79,7 @@ import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import { FLUX_ZD } from '@/lib/libelles/flux';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 import { PAX_COLLECTE_MAX } from '@/lib/pax-collecte-borne';
-import { paxSaisiValide } from '@/components/programmation/sous-bloc-collecte';
+import { paxSaisiValide } from '@/lib/programmation/cartes-saisie';
 import { estADispatcher, estModifieeSansRenvoi } from '@/lib/collectes-chips';
 import { TENTATIVES_MAX_ORDRE, type OrdreEnvoi } from '@/lib/ordre-envoi';
 import {

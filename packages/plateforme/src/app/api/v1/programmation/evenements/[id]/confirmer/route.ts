@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
+import { lienCollectesProgrammeur } from '@/lib/programmation/apres-confirmation.js';
 import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
@@ -70,7 +71,7 @@ export async function PATCH(
   // Vérification collectes brouillon présentes
   const { data: collectes } = await supabase
     .from('collectes')
-    .select('id, type, date_collecte, lieu_overrides, pax')
+    .select('id, type, lieu_overrides')
     .eq('evenement_id', evenementId)
     .eq('statut', 'brouillon');
 
@@ -134,18 +135,15 @@ export async function PATCH(
       ),
   );
 
-  // PROG-04 : email récap au programmeur (un seul email, tarif ZD inclus).
+  // PROG-04 : email récap au programmeur (un seul email, une ligne par collecte).
   await envoyerRecapProgrammation(supabase, {
     programmeurUserId: auth.ctx.userId,
     evenementId,
     nomEvenement: evt.nom_evenement,
     organisationId: evt.organisation_id,
     lieuId: evt.lieu_id,
-    collectes: collectes.map((c) => ({
-      type: c.type,
-      date_collecte: c.date_collecte,
-      pax: c.pax,
-    })),
+    collecteIds: collectes.map((c) => c.id),
+    lienCollectes: lienCollectesProgrammeur(req, auth.ctx.role),
   }).catch(() => undefined); // non-bloquant
 
   // BL-P2-22 (tpl 20) : info-only au traiteur opérationnel si programmé par un

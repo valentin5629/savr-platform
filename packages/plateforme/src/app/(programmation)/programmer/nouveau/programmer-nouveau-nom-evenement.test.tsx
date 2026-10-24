@@ -2,7 +2,8 @@
  * M1.2 / nom de l'événement et client final — décision Val 2026-10-19, pour
  * tous les rôles : l'étape 1 sépare « Nom de l'événement » (obligatoire) et
  * « Client final (optionnel) », qui n'étaient qu'une case « Nom du client
- * final » écrite dans les deux colonnes.
+ * final » écrite dans les deux colonnes. Depuis la refonte du formulaire (lot
+ * B2), l'étape 1 est l'écran « Informations sur l'événement ».
  *
  * Le formulaire est pré-rempli par « Dupliquer » (?from=). Le sélecteur de date,
  * un calendrier dans une fenêtre surgissante, est remplacé par un champ texte :
@@ -92,9 +93,9 @@ afterEach(() => {
 });
 
 /**
- * Parcourt les trois étapes depuis « Dupliquer » et rend le corps envoyé à la
+ * Parcourt les deux écrans depuis « Dupliquer » et rend le corps envoyé à la
  * confirmation. `clientFinal` remplace la valeur dupliquée de la case « Client
- * final » juste avant de quitter l'étape 1. `source` remplace la collecte
+ * final » juste avant de quitter l'écran 1. `source` remplace la collecte
  * dupliquée.
  */
 async function programmer(clientFinal: string, source: object = SOURCE) {
@@ -144,13 +145,10 @@ async function programmer(clientFinal: string, source: object = SOURCE) {
   expect(continuer()).toBeEnabled();
   fireEvent.click(continuer());
 
-  // Étape 2 pré-remplie par la duplication.
-  await screen.findByRole('heading', { name: 'Lieu et contacts' }, ATTENTE_UI);
-  fireEvent.click(continuer());
-
-  // Étape 3 : la date, puis la confirmation.
+  // Écran 2 : la carte de la collecte dupliquée (heure, convives, type
+  // d'événement et contacts repris) ; seule la date reste à saisir.
   fireEvent.change(
-    await screen.findByTestId('date-zd', undefined, ATTENTE_UI),
+    await screen.findByTestId('date-zd-1', undefined, ATTENTE_UI),
     {
       target: { value: '2030-01-15' },
     },
@@ -254,11 +252,27 @@ describe('M1.2 / dupliquer — type d’événement et contacts de la collecte (
         },
       };
       const corps = await programmer('Maison Dupont', source);
-      expect(corps.type_evenement_id).toBe('t1');
-      expect(corps.contact_principal_nom).toBe('Paul Arnaud');
-      expect(corps.contact_principal_telephone).toBe('06 12 34 56 78');
-      expect(corps.contact_secours_nom).toBe('Léa Secours');
-      expect(corps.contact_secours_telephone).toBe('07 11 22 33 44');
+      // Refonte du formulaire (lot B2) : type d'événement et contacts partent
+      // avec la collecte, jamais au niveau de l'événement.
+      const collectes = corps.collectes as Record<string, unknown>[];
+      expect(collectes).toHaveLength(1);
+      expect(collectes[0]).toMatchObject({
+        type: 'zd',
+        type_evenement_id: 't1',
+        contact_principal_nom: 'Paul Arnaud',
+        contact_principal_telephone: '06 12 34 56 78',
+        contact_secours_nom: 'Léa Secours',
+        contact_secours_telephone: '07 11 22 33 44',
+      });
+      for (const champ of [
+        'type_evenement_id',
+        'contact_principal_nom',
+        'contact_principal_telephone',
+        'contact_secours_nom',
+        'contact_secours_telephone',
+      ]) {
+        expect(corps).not.toHaveProperty(champ);
+      }
     },
     ATTENTE_CAS_MS,
   );

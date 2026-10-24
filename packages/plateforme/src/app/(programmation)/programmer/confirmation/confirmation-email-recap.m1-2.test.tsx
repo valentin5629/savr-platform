@@ -56,9 +56,14 @@ const EN_REPRISE =
 const NON_ENVOYE =
   'L’email récapitulatif n’a pas pu vous être envoyé. Votre programmation est bien enregistrée : vous la retrouvez dans vos collectes. Pour toute question, écrivez-nous à contact@gosavr.io.';
 
-// Le bandeau de succès prouve que l'écran a fini de charger.
+// L'en-tête « Votre événement « Gala » est programmé » prouve que l'écran a
+// fini de charger.
 const ecranCharge = () =>
-  screen.findByText('Votre collecte est programmée', undefined, ATTENTE_UI);
+  screen.findByText(
+    'Votre événement « Gala » est programmé',
+    undefined,
+    ATTENTE_UI,
+  );
 
 afterEach(() => vi.unstubAllGlobals());
 

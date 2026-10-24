@@ -918,7 +918,16 @@ export function FormulaireProgrammation({
           </fieldset>
 
           <div className="flex justify-end pt-1">
-            <Button onClick={() => setStep(1)} disabled={!ecran1Valide}>
+            <Button
+              onClick={() => {
+                // Sur mobile, toucher le bouton ne fait pas toujours quitter
+                // le champ : un nombre vidé est appliqué ici aussi.
+                quitterNombre('zd')();
+                quitterNombre('ag')();
+                setStep(1);
+              }}
+              disabled={!ecran1Valide}
+            >
               Continuer
               <ChevronRight />
             </Button>

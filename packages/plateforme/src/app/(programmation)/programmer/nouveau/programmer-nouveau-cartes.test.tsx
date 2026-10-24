@@ -451,7 +451,8 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       expect(champCarte('pax', 'zd-1')).toHaveValue(80);
       expect(infos('zd-1')).toHaveValue('Quai n°4');
 
-      // Effacé puis quitté : les cartes de ce type sont retirées.
+      // Effacé puis « Continuer » touché sans quitter le champ (mobile) : les
+      // cartes de ce type sont retirées quand même.
       fireEvent.click(screen.getByRole('button', { name: /Retour/ }));
       await screen.findByRole(
         'heading',
@@ -460,8 +461,6 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       );
       demander('ag', 1);
       demander('zd', '');
-      fireEvent.blur(champNombre('zd'));
-      expect(champNombre('zd')).toHaveValue(0);
       fireEvent.click(continuer());
       await screen.findByRole(
         'heading',

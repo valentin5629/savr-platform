@@ -20,7 +20,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(37);
+SELECT plan(47);
 
 -- ── Jeu d'essai : l'organisation, le lieu et l'entité de facturation d'un
 -- événement existant, deux types d'événement.
@@ -228,6 +228,99 @@ SELECT is(
     WHERE evenement_id = ((SELECT res FROM d)->>'evenement_id')::uuid),
   ARRAY['zero_dechet', 'anti_gaspi'],
   'brouillon : une carte zd devient une Zéro-Déchet, une carte ag une Anti-Gaspi');
+
+-- ── Colonnes écrites : heure, téléphones, brouillon complet ─────────────────
+SELECT is((SELECT heure_collecte FROM plateforme.collectes WHERE id = pg_temp.cid(3)), '22:00'::time,
+  'confirmée : l’heure de la carte');
+SELECT is(
+  (SELECT contact_principal_telephone || ' / ' || contact_secours_telephone
+     FROM plateforme.collecte_contacts WHERE collecte_id = pg_temp.cid(1)),
+  '0600000120 / 0700000000', 'confirmée : téléphones principal et de secours de la carte');
+
+CREATE TEMP TABLE b3 ON COMMIT DROP AS
+SELECT plateforme.fn_enregistrer_programmation(
+  (SELECT evt FROM t) || '{"controle_acces_requis": true, "lieu_overrides": {"ville": "Saint-Ouen"}}'::jsonb,
+  jsonb_build_array(pg_temp.carte('zd', 21, '07:30', 45, (SELECT type_b FROM t), 'Nora', 'Omar')),
+  false) AS res;
+SELECT is(
+  (SELECT jsonb_build_object('date', date_collecte, 'heure', heure_collecte, 'pax', pax,
+            'controle', controle_acces_requis, 'ville', lieu_overrides->>'ville',
+            'infos', informations_supplementaires, 'type', type_evenement_id, 'statut', statut)
+     FROM plateforme.collectes WHERE id = ((SELECT res FROM b3)->'collecte_ids'->>0)::uuid),
+  jsonb_build_object('date', CURRENT_DATE + 21, 'heure', '07:30:00', 'pax', 45,
+            'controle', true, 'ville', 'Saint-Ouen', 'infos', 'Quai Nora',
+            'type', (SELECT type_b FROM t), 'statut', 'brouillon'),
+  'brouillon : date, heure, convives, contrôle d’accès, lieu modifié, informations et type de la carte');
+SELECT is(
+  (SELECT contact_principal_nom || ' ' || contact_principal_telephone || ' / ' || contact_secours_nom || ' ' || contact_secours_telephone
+     FROM plateforme.collecte_contacts WHERE collecte_id = ((SELECT res FROM b3)->'collecte_ids'->>0)::uuid),
+  'Nora 0600000045 / Omar 0700000000', 'brouillon : contacts et téléphones de la carte');
+
+-- ── Reprise : le lieu et le traiteur opérant suivent le formulaire ──────────
+CREATE TEMP TABLE autres ON COMMIT DROP AS
+SELECT NULL::uuid AS lieu, NULL::uuid AS org;
+WITH l AS (
+  INSERT INTO plateforme.lieux
+  SELECT (jsonb_populate_record(NULL::plateforme.lieux,
+            to_jsonb(x) || jsonb_build_object('id', gen_random_uuid(), 'nom', 'Lieu B2 bis'))).*
+    FROM plateforme.lieux x WHERE x.id = ((SELECT evt FROM t)->>'lieu_id')::uuid
+  RETURNING id)
+UPDATE autres SET lieu = (SELECT id FROM l);
+WITH o AS (
+  INSERT INTO plateforme.organisations
+  SELECT (jsonb_populate_record(NULL::plateforme.organisations,
+            to_jsonb(x) || jsonb_build_object('id', gen_random_uuid(), 'nom', 'Traiteur B2 bis', 'siret', NULL))).*
+    FROM plateforme.organisations x WHERE x.id = ((SELECT evt FROM t)->>'organisation_id')::uuid
+  RETURNING id)
+UPDATE autres SET org = (SELECT id FROM o);
+SELECT plateforme.fn_enregistrer_programmation(
+  (SELECT evt FROM t) || jsonb_build_object('lieu_id', (SELECT lieu FROM autres),
+                                            'traiteur_operationnel_organisation_id', (SELECT org FROM autres)),
+  jsonb_build_array(pg_temp.carte('zd', 22, '18:00', 40, (SELECT type_a FROM t), 'Paul')), false,
+  ((SELECT res FROM b3)->>'evenement_id')::uuid);
+SELECT is(
+  (SELECT jsonb_build_object('lieu', lieu_id, 'traiteur', traiteur_operationnel_organisation_id)
+     FROM plateforme.evenements WHERE id = ((SELECT res FROM b3)->>'evenement_id')::uuid),
+  jsonb_build_object('lieu', (SELECT lieu FROM autres), 'traiteur', (SELECT org FROM autres)),
+  'reprise : le lieu et le traiteur opérant du formulaire remplacent ceux du brouillon');
+
+-- ── Brouillon : convives et type de collecte contrôlés aussi en base ────────
+SELECT throws_ok(
+  format($$ SELECT plateforme.fn_enregistrer_programmation(%L::jsonb, %L::jsonb, false) $$,
+    (SELECT evt FROM t),
+    jsonb_build_array(pg_temp.carte('zd', 23, '19:00', 0, (SELECT type_a FROM t), 'Zéro'))),
+  'P0001', NULL, 'brouillon aux convives invalides : refusé par la base');
+SELECT throws_ok(
+  format($$ SELECT plateforme.fn_enregistrer_programmation(%L::jsonb, %L::jsonb, false) $$,
+    (SELECT evt FROM t),
+    jsonb_build_array(pg_temp.carte('zd', 23, '19:00', 50, (SELECT type_a FROM t), 'Typ') || '{"type": "xx"}'::jsonb)),
+  'P0001', 'TYPE_COLLECTE_INVALIDE: type de collecte attendu zd ou ag (reçu xx)',
+  'type de collecte inconnu : refusé par la base, jamais écrit en Anti-Gaspi');
+
+-- ── Plafond Zéro-Déchet et ordre de création des cartes ─────────────────────
+SELECT throws_ok(
+  format($$ SELECT plateforme.fn_enregistrer_programmation(%L::jsonb, %L::jsonb, false) $$,
+    (SELECT evt FROM t),
+    (SELECT jsonb_agg(pg_temp.carte('zd', 20 + g, '19:00', 50, (SELECT type_a FROM t), 'Zd' || g))
+       FROM generate_series(1, 11) g)),
+  'P0001', 'PLAFOND_COLLECTES: au plus 10 collectes Zéro-Déchet et 10 Anti-Gaspi par programmation',
+  'onze collectes Zéro-Déchet : refusé');
+
+CREATE TEMP TABLE m ON COMMIT DROP AS
+SELECT plateforme.fn_enregistrer_programmation((SELECT evt FROM t),
+  jsonb_build_array(
+    pg_temp.carte('zd', 25, '19:00', 100, (SELECT type_a FROM t), 'Un'),
+    pg_temp.carte('zd', 25, '19:00', 200, (SELECT type_a FROM t), 'Deux'),
+    pg_temp.carte('zd', 25, '19:00', 300, (SELECT type_a FROM t), 'Trois')), true) AS res;
+SELECT is(
+  (SELECT array_agg(pax ORDER BY created_at) FROM plateforme.collectes
+    WHERE evenement_id = ((SELECT res FROM m)->>'evenement_id')::uuid),
+  ARRAY[100, 200, 300],
+  'même date et même heure : les collectes se suivent dans l’ordre des cartes (numérotation et collecte n°1 départagées)');
+SELECT is(
+  (SELECT count(DISTINCT created_at)::int FROM plateforme.collectes
+    WHERE evenement_id = ((SELECT res FROM m)->>'evenement_id')::uuid),
+  3, 'même opération : trois heures de création distinctes');
 
 -- ── Fermées aux rôles clients ───────────────────────────────────────────────
 SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.fn_enregistrer_programmation(jsonb, jsonb, boolean, uuid)', 'EXECUTE')

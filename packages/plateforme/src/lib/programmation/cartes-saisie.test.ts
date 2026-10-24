@@ -282,6 +282,23 @@ describe('M1.2/formulaire_cartes — nombre de collectes (écran 1) et ajout (é
   });
 });
 
+describe('M1.2/formulaire_cartes — ancienne collecte n°1', () => {
+  it('M1.2/formulaire_cartes_ancien_modele_ne_suit_plus — après l’arrivée d’une Zéro Déchet, l’ancienne AG #1 garde sa saisie quand la nouvelle n°1 change ; l’AG #2 suit la nouvelle n°1', () => {
+    let cartes = ajusterNombre([], 'ag', 2);
+    const ag1 = cartes[0]!.cle;
+    cartes = modifierCarte(cartes, ag1, 'pax', '80');
+    cartes = ajusterNombre(cartes, 'zd', 1);
+    const zd1 = cartes.find((c) => c.type === 'zd')!.cle;
+    cartes = modifierCarte(cartes, zd1, 'pax', '150');
+
+    const affichees = valeursEffectives(cartes);
+    expect(affichees.find((c) => c.cle === zd1)!.pax).toBe('150');
+    expect(affichees.find((c) => c.cle === ag1)!.pax).toBe('80');
+    const ag2 = affichees.filter((c) => c.type === 'ag')[1]!;
+    expect(ag2.pax).toBe('150');
+  });
+});
+
 describe('M1.2/formulaire_cartes — avertissement même date même heure (C4)', () => {
   it('M1.2/formulaire_cartes_doublon — même type, même date et même heure seulement', () => {
     const zd1 = carte('zd', {

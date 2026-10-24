@@ -114,10 +114,15 @@ BEGIN
     ) RETURNING id INTO v_id;
   END IF;
 
+  -- Type d'événement de la carte ; `created_at` à l'heure réelle de création
+  -- (clock_timestamp, et non now() figé au début de la transaction) : les
+  -- collectes d'une même programmation se suivent dans l'ordre des cartes, ce
+  -- qui départage la collecte n°1 et la numérotation « Collecte Zéro Déchet
+  -- #n » à date et heure égales.
   UPDATE plateforme.collectes
-     SET type_evenement_id = v_type_evt
-   WHERE id = v_id
-     AND type_evenement_id IS DISTINCT FROM v_type_evt;
+     SET type_evenement_id = v_type_evt,
+         created_at        = clock_timestamp()
+   WHERE id = v_id;
 
   UPDATE plateforme.collecte_contacts
      SET contact_principal_nom       = p_carte->>'contact_principal_nom',

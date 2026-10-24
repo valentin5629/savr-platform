@@ -171,7 +171,7 @@
       "artefact": "supabase/migrations/20261008150000_plateforme_email_recap_programmation_prenom.sql + packages/plateforme/src/lib/programmation/recap-email.ts",
       "test": "M1.2/email_recap_bonjour_prenom + supabase/tests/email_template_collecte_programmee.test.sql",
       "statut": "implemented",
-      "libelle": "Email récap de programmation : formule d'appel « Bonjour Prénom, » (§06.02 §3, demande Val 2026-10-08), vouvoiement conservé. Prénom du programmeur lu dans plateforme.users et porté par un bloc conditionnel du template : prénom vide → « Bonjour, ». `prenom` n'est pas une variable exigée à l'envoi. Seule la première ligne du corps change ; le reste du gabarit n°3 du CDC (horaire, lieu, contact, pax, lien) reste un écart antérieur, hors de ce livrable."
+      "libelle": "Email récap de programmation : formule d'appel « Bonjour Prénom, » (§06.02 §3, demande Val 2026-10-08), vouvoiement conservé. Prénom du programmeur lu dans plateforme.users et porté par un bloc conditionnel du template : prénom vide → « Bonjour, ». `prenom` n'est pas une variable exigée à l'envoi. Seule la première ligne du corps change ; le reste du gabarit n°3 du CDC (horaire, lieu, contact, pax, lien) reste un écart antérieur, hors de ce livrable. Lot B2 (2026-10-24) : le corps du gabarit est remplacé (une ligne par collecte, livrable M1.2-email-recap-une-ligne-par-collecte) ; la formule d'appel « Bonjour {{prenom}}, » en bloc conditionnel est conservée."
     },
     {
       "id": "BL-P1-PROG-05",
@@ -378,13 +378,13 @@
       "test": "supabase/tests/programmation_par_carte.test.sql + M1.2/programmation_cartes_par_collecte + M1.2/programmation_cartes_validation + M1.2/programmation_plafond_par_type + M1.2/programmation_atomique",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261024_refonte-lot-b2-formulaire-collectes.md",
-      "libelle": "Refonte du formulaire, lot B2 « création » (décisions Val 2026-10-22 C1–C2 et 2026-10-24 B2-Q4) : une programmation crée l'événement et une collecte par carte, chacune avec sa date, son heure, ses convives, son type d'événement (actif), ses contacts (collecte_contacts) et ses informations supplémentaires, EN UNE TRANSACTION (fn_enregistrer_programmation ; avant : événement inséré par la route puis fn_creer_collecte par collecte, rattrapage par DELETE qui échouait faute de cascade). Validation 422 avant toute écriture (au moins une carte, au plus 10 par type, date réelle d'aujourd'hui ou après, heure, convives, type actif, contact principal). Chaque collecte confirmée passe par fn_creer_collecte (E1 pour une ZD, même transaction) ; un brouillon n'émet rien. L'événement reçoit le type et les contacts de la première carte, puis la copie de sa collecte n°1 (lot B1)."
+      "libelle": "Refonte du formulaire, lot B2 « création » (décisions Val 2026-10-22 C1–C2 et 2026-10-24 B2-Q4) : une programmation crée l'événement et une collecte par carte, chacune avec sa date, son heure, ses convives, son type d'événement (actif), ses contacts (collecte_contacts) et ses informations supplémentaires, EN UNE TRANSACTION (fn_enregistrer_programmation ; avant : événement inséré par la route puis fn_creer_collecte par collecte, rattrapage par DELETE qui échouait faute de cascade). Validation 422 avant toute écriture (au moins une carte, au plus 10 par type, date réelle d'aujourd'hui ou après, heure, convives, type actif, contact principal). Chaque collecte confirmée passe par fn_creer_collecte (E1 pour une ZD, même transaction) ; un brouillon n'émet rien. L'événement reçoit le type et les contacts de la première carte, puis la copie de sa collecte n°1 (lot B1). Les collectes d'une même programmation reçoivent des heures de création successives dans l'ordre des cartes (départage de la collecte n°1 et de la numérotation à date et heure égales)."
     },
     {
       "id": "M1.2-formulaire-deux-ecrans-cartes",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:178",
       "artefact": "packages/plateforme/src/components/programmation/formulaire-programmation.tsx + packages/plateforme/src/components/programmation/carte-collecte.tsx + packages/plateforme/src/lib/programmation/cartes-saisie.ts + packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
-      "test": "M1.2 / formulaire de programmation en deux écrans (lot B2) + M1.2 — carte d’une collecte : identifiants, reprise de la collecte n°1, doublon + M1.2/formulaire_cartes_modele + M1.2/formulaire_cartes_suivi + M1.2/formulaire_cartes_suivi_arrete + M1.2/formulaire_cartes_date_heure_jamais_reprises + M1.2/formulaire_cartes_ajuster_nombre + M1.2/formulaire_cartes_ajouter_plafond + M1.2/formulaire_cartes_figer_zd_ajoutee + M1.2/formulaire_cartes_doublon + M1.2/formulaire_cartes_corps",
+      "test": "M1.2 / formulaire de programmation en deux écrans (lot B2) + M1.2 — carte d’une collecte : identifiants, reprise de la collecte n°1, doublon + M1.2/formulaire_cartes_modele + M1.2/formulaire_cartes_suivi + M1.2/formulaire_cartes_suivi_arrete + M1.2/formulaire_cartes_date_heure_jamais_reprises + M1.2/formulaire_cartes_ajuster_nombre + M1.2/formulaire_cartes_ajouter_plafond + M1.2/formulaire_cartes_figer_zd_ajoutee + M1.2/formulaire_cartes_doublon + M1.2/formulaire_cartes_corps + M1.2/formulaire_cartes_ancien_modele_ne_suit_plus",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261024_refonte-lot-b2-formulaire-collectes.md",
       "libelle": "Formulaire de programmation en deux écrans (décisions Val 2026-10-22 C4–C5 et 2026-10-24 B2-Q1, B2-Q4) : écran 1 = nom, client final, « Référence interne », traiteur (agence, gestionnaire, staff), lieu et ses champs modifiables, contrôle d'accès, nombre de collectes Zéro Déchet et Anti-Gaspi (0 à 10 chacun, au moins une au total), seulement « Continuer » ; écran 2 = une carte par collecte (date, heure, convives, type d'événement, contact principal et de secours, informations), les cartes reprenant champ par champ la collecte n°1 tant qu'on ne les modifie pas (date et heure jamais), « Ajouter une collecte » (type au choix, jusqu'au plafond), avertissement non bloquant même type même date même heure, « Enregistrer en brouillon » et « Confirmer la programmation / les programmations ». Une Zéro Déchet ajoutée devant des Anti-Gaspi devient la collecte n°1 en reprenant les champs de l'ancienne : aucune carte ne perd ce qu'elle affichait."
@@ -393,10 +393,10 @@
       "id": "M1.2-brouillon-reprise-formulaire",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:325",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/brouillon/route.ts + packages/plateforme/src/app/(programmation)/programmer/brouillon/[id]/page.tsx + packages/plateforme/src/components/programmation/formulaire-programmation.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
-      "test": "M1.2/brouillon_reprise_put + M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)",
+      "test": "M1.2/brouillon_reprise_put + M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2) + M1.2/brouillon_reprise_traiteur",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261024_refonte-lot-b2-formulaire-collectes.md",
-      "libelle": "Reprise d'un brouillon dans le formulaire complet, modifiable (décision Val 2026-10-24, B2-Q2) : la page du brouillon rouvre les écrans 1 et 2 pré-remplis (événement, lieu et ses modifications, contrôle d'accès, traiteur, chaque carte avec son type et ses contacts) ; « Enregistrer en brouillon » ou « Confirmer » envoie PUT /api/v1/programmation/evenements/:id/brouillon, qui remplace ses collectes en une transaction (fn_enregistrer_programmation avec l'identifiant), avec les validations et les contrôles de périmètre de la création ; propriétaire seul pour le commercial, l'agence et le gestionnaire (403), événement déjà confirmé refusé (422) ; pour l'équipe Savr, le traiteur pour le compte duquel elle programme est figé."
+      "libelle": "Reprise d'un brouillon dans le formulaire complet, modifiable (décision Val 2026-10-24, B2-Q2) : la page du brouillon rouvre les écrans 1 et 2 pré-remplis (événement, lieu et ses modifications, contrôle d'accès, traiteur, chaque carte avec son type et ses contacts) ; « Enregistrer en brouillon » ou « Confirmer » envoie PUT /api/v1/programmation/evenements/:id/brouillon, qui remplace ses collectes en une transaction (fn_enregistrer_programmation avec l'identifiant), avec les validations et les contrôles de périmètre de la création ; propriétaire seul pour le commercial, l'agence et le gestionnaire (403), événement déjà confirmé refusé (422) ; pour l'équipe Savr, le traiteur pour le compte duquel elle programme est figé. Traiteur opérant absent du formulaire : celui du brouillon est gardé, puis revalidé (agence, gestionnaire) ; jamais l'organisation programmatrice par défaut."
     },
     {
       "id": "M1.2-confirmation-refonte",
@@ -420,7 +420,7 @@
       "id": "M1.2-email-recap-une-ligne-par-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:56",
       "artefact": "packages/plateforme/src/lib/programmation/recap-email.ts + packages/plateforme/src/lib/programmation/numerotation.ts + supabase/migrations/20261024100000_plateforme_programmation_collectes_par_carte.sql",
-      "test": "M1.2/email_recap_une_ligne_par_collecte + M1.2/numerotation_collectes + supabase/tests/email_template_collecte_programmee.test.sql",
+      "test": "M1.2/email_recap_une_ligne_par_collecte + M1.2/numerotation_collectes + supabase/tests/email_template_collecte_programmee.test.sql + M1.2/email_recap_lien_collectes",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261024_refonte-lot-b2-formulaire-collectes.md",
       "libelle": "Email récapitulatif d'une programmation (décision Val 2026-10-24, B2-Q3) : « Votre événement « X » est programmé. Nous réaliserons N collectes : » puis une puce par collecte annoncée (« Collecte Zéro Déchet #1 — jeudi 12 novembre 2026 à 19:00 — 120 convives », numérotation de la page de confirmation), ligne de tarif (vide tant que la facturation est hors plateforme), lien « Voir mes collectes » vers la liste de l'espace du programmeur. Collectes relues en base ; collecte ajoutée : elle seule, avec son numéro dans l'événement."
@@ -433,6 +433,15 @@
       "statut": "à-vérifier",
       "ref_divergence": "_Divergences/M1.2_20261024_refonte-lot-b2-formulaire-collectes.md",
       "libelle": "Rendu, dans l'app, des deux écrans du formulaire (nombre de collectes, cartes, avertissement de doublon, « Ajouter une collecte »), de la page de confirmation (cartes, « Modifier », « Annuler la collecte ») et de la page « Ajouter une collecte », en 1440 px et sous 640 px. Les tests de rendu (jsdom) prouvent le contenu et les envois, pas la mise en page : GO-VISUAL à donner par Val."
+    },
+    {
+      "id": "M1.2-email-recap-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:56",
+      "artefact": "packages/plateforme/src/lib/programmation/recap-email.ts + supabase/migrations/20261024100000_plateforme_programmation_collectes_par_carte.sql",
+      "test": null,
+      "statut": "à-vérifier",
+      "ref_divergence": "_Divergences/M1.2_20261024_refonte-lot-b2-formulaire-collectes.md",
+      "libelle": "Rendu de l'email récapitulatif dans un vrai client mail (Resend dev, adresse de redirection) : une programmation de 3 collectes puis une collecte ajoutée — objet, formule d'appel, liste à puces, paragraphe de tarif vide, lien « Voir mes collectes », signature. GO-VISUAL à donner par Val."
     },
     {
       "id": "M1.2-refonte-formulaire-lots-b-c",

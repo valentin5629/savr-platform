@@ -68,6 +68,8 @@ let appelsRpc: Array<{ nom: string; args: Record<string, unknown> }> = [];
 let reponsesRpc: Record<string, Resultat> = {};
 let evenements: Record<string, unknown>[] = [];
 let contacts: Record<string, unknown>[] = [];
+let organisations: Record<string, unknown>[] = [];
+let liensLieux: Record<string, unknown>[] = [];
 let erreurTypes: unknown = null;
 let erreurContacts: unknown = null;
 
@@ -115,6 +117,14 @@ function resoudre(r: Requete): Resultat {
     }
     case 'entites_facturation':
       return { data: { id: 'ef-1' }, error: null };
+    // Gardes de périmètre (agence, gestionnaire) : lignes filtrées par `.eq`.
+    case 'organisations':
+    case 'organisations_lieux': {
+      const lignes = (
+        r.table === 'organisations' ? organisations : liensLieux
+      ).filter((l) => filtresEq(r).every(([c, v]) => l[c] === v));
+      return { data: lignes[0] ?? null, error: null };
+    }
     default:
       return { data: null, error: null };
   }
@@ -334,6 +344,8 @@ beforeEach(() => {
   reponsesRpc = {};
   evenements = [];
   contacts = [];
+  organisations = [];
+  liensLieux = [];
   erreurTypes = null;
   erreurContacts = null;
 });
@@ -890,6 +902,128 @@ describe('M1.2 / programmation par cartes — reprise d’un brouillon', () => {
       admin,
       expect.objectContaining({ organisationId: ORG }),
     );
+  });
+});
+
+// ── Reprise d'un brouillon : traiteur opérant ───────────────────────────────
+
+const TRAITEUR_REEL = {
+  id: 'trt-reel',
+  type: 'traiteur',
+  est_shadow: false,
+  actif: true,
+  cree_par_organisation_id: null,
+};
+const TRAITEUR_AUTRE = { ...TRAITEUR_REEL, id: 'trt-autre' };
+
+describe('M1.2 / programmation par cartes — reprise d’un brouillon : traiteur opérant', () => {
+  const brouillonDe = (organisation_id: string, created_by: string) => ({
+    id: 'evt-t',
+    organisation_id,
+    created_by,
+    traiteur_operationnel_organisation_id: 'trt-reel',
+    collectes: [{ statut: 'brouillon' }],
+  });
+  const traiteurEcrit = () =>
+    (
+      rpc('fn_enregistrer_programmation')[0]!.args.p_evenement as Record<
+        string,
+        unknown
+      >
+    ).traiteur_operationnel_organisation_id;
+
+  beforeEach(() => {
+    organisations = [TRAITEUR_REEL, TRAITEUR_AUTRE];
+    liensLieux = [
+      { id: 'lien-1', organisation_id: 'org-gest', lieu_id: 'lieu-1' },
+    ];
+  });
+
+  it('M1.2/brouillon_reprise_traiteur — agence : le traiteur opérant du formulaire remplace celui du brouillon', async () => {
+    evenements = [brouillonDe('org-agence', 'user-agence')];
+    setupAuth('agence', 'org-agence', 'user-agence');
+    enregistrementRend('evt-t', 'col-1');
+
+    const res = await reprendre(
+      'evt-t',
+      corps([carte('zd')], {
+        confirmer: false,
+        traiteur_operationnel_organisation_id: 'trt-autre',
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(traiteurEcrit()).toBe('trt-autre');
+  });
+
+  it('M1.2/brouillon_reprise_traiteur — agence sans traiteur dans le corps : celui du brouillon est gardé, jamais l’agence', async () => {
+    evenements = [brouillonDe('org-agence', 'user-agence')];
+    setupAuth('agence', 'org-agence', 'user-agence');
+    enregistrementRend('evt-t', 'col-1');
+
+    const res = await reprendre(
+      'evt-t',
+      corps([carte('zd')], { confirmer: false }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(traiteurEcrit()).toBe('trt-reel');
+  });
+
+  it('M1.2/brouillon_reprise_traiteur — gestionnaire : traiteur du référentiel accepté ; absent du corps, celui du brouillon est gardé', async () => {
+    evenements = [brouillonDe('org-gest', 'user-gest')];
+    setupAuth('gestionnaire_lieux', 'org-gest', 'user-gest');
+    enregistrementRend('evt-t', 'col-1');
+
+    const avec = await reprendre(
+      'evt-t',
+      corps([carte('zd')], {
+        confirmer: false,
+        traiteur_operationnel_organisation_id: 'trt-autre',
+      }),
+    );
+    expect(avec.status).toBe(200);
+    expect(traiteurEcrit()).toBe('trt-autre');
+
+    appelsRpc = [];
+    const sans = await reprendre(
+      'evt-t',
+      corps([carte('zd')], { confirmer: false }),
+    );
+    expect(sans.status).toBe(200);
+    expect(traiteurEcrit()).toBe('trt-reel');
+  });
+
+  it('M1.2/brouillon_reprise_traiteur — gestionnaire : traiteur shadow refusé (403), rien n’est écrit', async () => {
+    evenements = [brouillonDe('org-gest', 'user-gest')];
+    organisations = [TRAITEUR_REEL, { ...TRAITEUR_AUTRE, est_shadow: true }];
+    setupAuth('gestionnaire_lieux', 'org-gest', 'user-gest');
+    enregistrementRend('evt-t', 'col-1');
+
+    const res = await reprendre(
+      'evt-t',
+      corps([carte('zd')], {
+        confirmer: false,
+        traiteur_operationnel_organisation_id: 'trt-autre',
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    aucuneEcriture();
+  });
+
+  it('M1.2/brouillon_reprise_traiteur — équipe Savr qui reprend le brouillon d’une agence : le traiteur opérant ne change pas (I8)', async () => {
+    evenements = [brouillonDe('org-agence', 'user-agence')];
+    setupAuth('admin_savr', 'org-savr', 'user-admin');
+    enregistrementRend('evt-t', 'col-1');
+
+    const res = await reprendre(
+      'evt-t',
+      corps([carte('zd')], { confirmer: false }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(traiteurEcrit()).toBe('trt-reel');
   });
 });
 

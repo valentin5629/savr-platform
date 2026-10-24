@@ -56,7 +56,9 @@ export async function PUT(
 
   const evtQuery = supabase
     .from('evenements')
-    .select('id, organisation_id, created_by, collectes(statut)')
+    .select(
+      'id, organisation_id, created_by, traiteur_operationnel_organisation_id, collectes(statut)',
+    )
     .eq('id', evenementId);
   const { data: evt } = await (
     auth.ctx.isAdmin
@@ -116,10 +118,17 @@ export async function PUT(
   if ('error' in cartesValides) return cartesValides.error;
   const { cartes } = cartesValides;
 
+  // Traiteur opérant : celui du corps (agence, gestionnaire) ; absent, celui
+  // du brouillon, jamais l'organisation programmatrice par défaut (l'équipe
+  // Savr qui reprend le brouillon d'une agence ne le change pas). Revalidé par
+  // les gardes de périmètre comme à la création.
   const perimetre = await verifierPerimetreProgrammation(supabase, auth.ctx, {
     effectiveOrgId: evt.organisation_id,
     lieuId: body.lieu_id,
-    traiteurDemande: body.traiteur_operationnel_organisation_id,
+    traiteurDemande:
+      body.traiteur_operationnel_organisation_id ??
+      evt.traiteur_operationnel_organisation_id ??
+      undefined,
   });
   if ('error' in perimetre) return perimetre.error;
 

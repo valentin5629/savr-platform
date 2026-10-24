@@ -84,9 +84,20 @@ export async function GET(
   // l'équipe Savr) : il voit les contacts de ses programmations (§09,
   // arbitrages C2/C5 du 2026-10-01). Un échec de lecture est une erreur,
   // jamais « aucun contact ».
-  const collectesBrutes = (data.collectes ?? []) as Array<
-    Record<string, unknown> & { id: string; type_evenement?: unknown }
-  >;
+  // Ordre de création (puis identifiant) : la reprise d'un brouillon rouvre
+  // ses cartes dans l'ordre où elles ont été enregistrées ; la lecture
+  // embarquée n'a pas d'ordre garanti.
+  const collectesBrutes = [
+    ...((data.collectes ?? []) as Array<
+      Record<string, unknown> & {
+        id: string;
+        type_evenement?: unknown;
+        created_at?: string | null;
+      }
+    >),
+  ].sort((a, b) =>
+    `${a.created_at ?? ''}|${a.id}` < `${b.created_at ?? ''}|${b.id}` ? -1 : 1,
+  );
   const contactsParCollecte = new Map<string, Record<string, unknown>>();
   if (collectesBrutes.length > 0) {
     const { data: contacts, error: contactsErr } = await supabase

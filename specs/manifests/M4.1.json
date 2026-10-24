@@ -140,7 +140,7 @@
       "artefact": "packages/plateforme/src/lib/exports/shared.ts (EXPORT_MATRIX.collectes) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport) + packages/plateforme/src/lib/collectes-gestionnaire.ts",
       "test": "M4.1/export_collectes_gestionnaire_autorise + M4.1/export_collectes_gestionnaire_filtres_liste + M4.1/export_collectes_gestionnaire_filtre_illisible_vide + M4.1/export_collectes_filtres_gestionnaire_bornes_au_role",
       "statut": "implemented",
-      "libelle": "Export Collectes ouvert au gestionnaire de lieux (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md ; le CDC §12 l.365/l.387 le bornait au grain événement). Le rôle entre dans la matrice de l'export Collectes : même requête que les autres rôles clients, sous la RLS de sa session (jamais service_role), donc le périmètre de sa liste — ses programmations et les collectes tenues sur ses lieux. L'export lit en plus les filtres propres à sa liste (traiteurs, type et taille d'événement) par la même fonction que la route de la liste ; un filtre demandé dont aucune valeur n'est lisible rend un fichier sans ligne, sans envoyer la requête. Ces filtres sont bornés au rôle : les exports traiteur et agence gardent leur règle « valeur illisible = filtre ignoré »."
+      "libelle": "Export Collectes ouvert au gestionnaire de lieux (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md ; le CDC §12 l.365/l.387 le bornait au grain événement). Le rôle entre dans la matrice de l'export Collectes : même requête que les autres rôles clients, sous la RLS de sa session (jamais service_role), donc le périmètre de sa liste — ses programmations et les collectes tenues sur ses lieux. L'export lit en plus les filtres propres à sa liste (traiteurs, type et taille d'événement) par la même fonction que la route de la liste ; un filtre demandé dont aucune valeur n'est lisible rend un fichier sans ligne, sans envoyer la requête. Ces filtres sont bornés au rôle : les exports traiteur et agence gardent leur règle « valeur illisible = filtre ignoré ». Lot C1 (2026-10-24) : type et taille sont ceux de la COLLECTE, comme la liste (`.in('type_evenement_id')`, `.or()` sur collectes.pax) ; un identifiant de type mal formé rend un fichier sans ligne."
     },
     {
       "id": "M4.1-export-collectes-admin-filtres-liste",
@@ -165,6 +165,14 @@
       "test": "M4.1/export_collectes_sans_excedent_zero_repas + M4.1/export_impact_rse_sans_excedent_zero_repas",
       "statut": "implemented",
       "libelle": "Exports CSV Collectes et Impact RSE : « Repas AG » = 0 pour une collecte AG sans excédent — c'est là que l'export garde l'information, l'export Collectes la disant « Réalisée » (arbitrage Val 2026-10-09 : « Repas AG = 0 »)"
+    },
+    {
+      "id": "M4.1-export-evenements-types-des-collectes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:388",
+      "artefact": "packages/plateforme/src/lib/exports/evenements.ts + packages/plateforme/src/lib/collectes/types-evenement-collectes.ts",
+      "test": "M4.1/export_evenements_type_des_collectes",
+      "statut": "implemented",
+      "libelle": "Export Événements, colonne « Type d'événement » (lot C1, Q2 Val 2026-10-24 « Types de ses collectes ») : les types de ses collectes non annulées, sans doublon, ordre de la collecte n°1 ; la copie de l'événement n'est qu'un repli. Taille et pax de la ligne restent ceux de l'événement (C4)."
     }
   ],
   "cdc_source_hash": {

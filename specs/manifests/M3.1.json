@@ -667,7 +667,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/fiche_entete_type_et_taille_bracket",
       "statut": "implemented",
-      "libelle": "Bloc d'entête §06.04 — « Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax) », jamais rendu jusqu'ici : libellé embarqué depuis types_evenements et bracket dérivé côté serveur avec le helper canonique tailleBracket (mêmes bornes que §04 taille_evenement_bracket, pas de 8e copie de la règle). Pax absent (informations_completes=false) ⇒ pas de bracket inventé. Lot B1 livré (2026-10-23) : le type d'événement et les contacts sont ceux de LA collecte (collectes.type_evenement_id, collecte_contacts lue en service-role, même règle de service des contacts) ; l'événement n'en garde qu'une copie, celle de sa collecte n°1 (livrables M1.2-collecte-type-contacts-modifiables et M1.2-fiches-collecte-type-contacts)."
+      "libelle": "Bloc d'entête §06.04 — « Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax) », jamais rendu jusqu'ici : libellé embarqué depuis types_evenements et bracket dérivé côté serveur avec le helper canonique tailleBracket (mêmes bornes que §04 taille_evenement_bracket, pas de 8e copie de la règle). Pax absent (informations_completes=false) ⇒ pas de bracket inventé. Lot B1 livré (2026-10-23) : le type d'événement et les contacts sont ceux de LA collecte (collectes.type_evenement_id, collecte_contacts lue en service-role, même règle de service des contacts) ; l'événement n'en garde qu'une copie, celle de sa collecte n°1 (livrables M1.2-collecte-type-contacts-modifiables et M1.2-fiches-collecte-type-contacts). Lot C1 (2026-10-24) : la taille est celle de LA collecte (bracket sur collectes.pax, C4 du 2026-10-20), plus celle de l'événement ; 0 convive (inconnu) ⇒ pas de taille."
     },
     {
       "id": "M3.1-fiche-entete-programmee-par",
@@ -857,9 +857,9 @@
       "id": "M3.1-popup-client-bilan-zd",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:394",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
-      "test": "M3.1/fiche_popup_bilan_zd_realisee",
+      "test": "M3.1/fiche_popup_bilan_zd_realisee + M3.1/fiche_ui_bloc3_masque_en_ag",
       "statut": "implemented",
-      "libelle": "Bilan & documents ZD (collecte « Réalisée » côté client = cloturee) : 4 KPI (Poids total collecté, CO₂ évité — `co2_evite_kg` figé, décision Val 2026-10-20 : la carte « CO₂ évité net » affichait le bilan net induit − évité sous le libellé « évité » ; le bilan net reste au Rapport RSE —, Taux de recyclage figé + tooltip UE, Pesée par pax en g), donut TonnagesDonut réutilisé, document « Rapport RSE » seul (bordereau intégré au PDF). Pesées par flux : M3.1/fiche_get_bilan_flux_zd. Retour visuel Val 2026-09-30 : donut et légende sur la même ligne (TonnagesDonut disposition=\"ligne\", repli en colonne sous 640px ; dashboards inchangés) et valeur des cartes KPI sur une seule ligne (chiffre + unité plus petite, insécable) — M3.1/fiche_popup_kpi_une_ligne_donut_en_ligne."
+      "libelle": "Bilan & documents ZD (collecte « Réalisée » côté client = cloturee) : 4 KPI (Poids total collecté, CO₂ évité — `co2_evite_kg` figé, décision Val 2026-10-20 : la carte « CO₂ évité net » affichait le bilan net induit − évité sous le libellé « évité » ; le bilan net reste au Rapport RSE —, Taux de recyclage figé + tooltip UE, Pesée par pax en g), donut TonnagesDonut réutilisé, document « Rapport RSE » seul (bordereau intégré au PDF). Pesées par flux : M3.1/fiche_get_bilan_flux_zd. Retour visuel Val 2026-09-30 : donut et légende sur la même ligne (TonnagesDonut disposition=\"ligne\", repli en colonne sous 640px ; dashboards inchangés) et valeur des cartes KPI sur une seule ligne (chiffre + unité plus petite, insécable) — M3.1/fiche_popup_kpi_une_ligne_donut_en_ligne. Lot C1 (2026-10-24) : « Pesée par pax » (et « Repas par pax » de l'AG) se divisent par le pax de LA collecte, jamais par le total de l'événement (fixture : collecte 4 200, événement 8 400)."
     },
     {
       "id": "M3.1-popup-client-radar-filtres-ligne",
@@ -867,7 +867,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx, packages/plateforme/src/components/ui/filtre-en-ligne.tsx, packages/plateforme/src/lib/collectes/benchmark-fiche.ts",
       "test": "M3.1/fiche_ui_bloc3_filtres_initialises_sur_la_collecte",
       "statut": "implemented",
-      "libelle": "Radar « Votre collecte face aux événements comparables » (BenchmarkRadar réutilisé, titre/sous-titre paramétrables) + filtres Type d'événement / Taille / Lieux en titres cliquables ouvrant une liste à cocher (Popover + Checkbox DS, aucun <select>), une seule ligne, sans filtre Traiteurs même pour un rôle qui y a droit ; initialisés sur le segment de la collecte ; période fixe 24 mois imposée serveur. ⚠ Filtre « type d'événement » au niveau de l'événement : à reprendre au lot C (chaque collecte selon son propre type, C3 ; livrable M1.2-refonte-formulaire-lots-b-c)."
+      "libelle": "Radar « Votre collecte face aux événements comparables » (BenchmarkRadar réutilisé, titre/sous-titre paramétrables) + filtres Type d'événement / Taille / Lieux en titres cliquables ouvrant une liste à cocher (Popover + Checkbox DS, aucun <select>), une seule ligne, sans filtre Traiteurs même pour un rôle qui y a droit ; initialisés sur le segment de la collecte ; période fixe 24 mois imposée serveur. Lot C1 (2026-10-24) : les filtres initiaux (type et taille de LA collecte) et le segment du point « Vous » sont calculés au grain de la collecte, côté SQL comme côté écran (livrable M1.2-benchmark-grain-collecte)."
     },
     {
       "id": "M3.1-popup-client-bilan-ag",

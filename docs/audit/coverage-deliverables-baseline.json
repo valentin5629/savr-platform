@@ -243,8 +243,7 @@
       "M1.6-10": "Download rapport Admin après embargo → URL pré-signée 15min",
       "M1.6-11": "f_next_numero_bordereau gapless BSAV-YYYY-NNNNN",
       "M1.6-12": "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)",
-      "BL-P2-16": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs",
-      "BL-P2-19": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19) : programmateur agence → logo agence dans le payload"
+      "BL-P2-16": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs"
     },
     "M1.7": {
       "M1.7-01": "Collecte ZD cloturee SIRET verifie → batch J+1 → brouillon FZD créé",

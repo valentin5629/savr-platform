@@ -1,7 +1,5 @@
 # 16 - Roadmap et priorisation
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-04-20
 
 ---
 

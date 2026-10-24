@@ -237,7 +237,7 @@
     },
     {
       "id": "BL-P1-RPT-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:71",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:69",
       "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (gabarit @3 : radarSvg, corpsAvecRadar) + packages/plateforme/src/lib/pdf/rapport-radar.ts (construireRadarRapport) + packages/plateforme/src/lib/collectes/benchmark-fiche.ts (chargerBenchmarkFiche, source commune à l'écran et au PDF) + packages/plateforme/src/lib/collectes/rapport-a-la-demande.ts (radar demandé au clic)",
       "test": "apps/pdf-renderer/src/render.test.ts « option cochée → version avec radar », « BL-P1-RPT-01 : un flux au repère masqué sort du radar », « BL-P1-RPT-01 : moins de 3 flux comparables » ; packages/plateforme/tests/lib/rapport-radar.m1-6.test.ts « M1.6 / construireRadarRapport — mêmes chiffres que le radar de l’écran » ; packages/plateforme/tests/api/traiteur/rapport-a-la-demande.m1-6.test.ts « M1.6 / rapport fabriqué au clic — avec ou sans radar, au choix de celui qui télécharge »",
       "statut": "implemented",
@@ -245,7 +245,7 @@
     },
     {
       "id": "BL-P2-18",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:65",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:63",
       "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (gabarit @3 : carbone, tonnages — barre empilée ou tableau + anneau, méthodologie) ; packages/plateforme/src/lib/pdf/payload-rapport.ts (buildEquivalences, données @3 rassemblées au clic) ; item (3) AG = attestation → voir M2.4-p2-18-ag-attestation",
       "test": "apps/pdf-renderer/src/render.test.ts « BL-P2-18 : carbone — évité en chiffre principal », « BL-P2-18 : tonnages — barre empilée (avec radar) », « méthodologie : taux de captation figés affichés » ; packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts « M1.6 / buildEquivalences (§12 §1.2) », « M1.6 / données du rapport @3 rassemblées au clic »",
       "statut": "implemented",
@@ -253,7 +253,7 @@
     },
     {
       "id": "BL-P2-16",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:33",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:31",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (select+map nb_bacs/equivalent_roll) + apps/pdf-renderer/src/templates/bordereau-zd.ts (bacsRolls)",
       "test": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs",
       "statut": "implemented",
@@ -261,7 +261,7 @@
     },
     {
       "id": "BL-P2-20",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:210",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:208",
       "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le) + apps/pdf-renderer/src/templates/{bordereau-zd,attestation-don}.ts (mention pied de page) ; rapport-recyclage-zd.ts ne la rend plus",
       "test": "apps/pdf-renderer/src/render.test.ts « BL-P2-20 : aucune mention de régénération sur le rapport », « BL-P2-20 : mention de régénération sur bordereau régénéré », « mention pied de page présente uniquement si régénérée » ; packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — succès rapport porté par rapports_rse (« sans excédent » AG) : ré-enqueue jobs_pdf (payload copié) + audit_log + bump regenere_at/version »",
       "statut": "implemented",
@@ -269,7 +269,7 @@
     },
     {
       "id": "BL-P1-RPT-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:93",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:91",
       "artefact": "packages/plateforme/src/lib/collectes/rapport-a-la-demande.ts (repondreRapportClient, repondreRapportStaff, lireVersionDemandee, fabriquerRapport) + packages/plateforme/src/lib/pdf/payload-rapport.ts + packages/plateforme/src/app/api/v1/{traiteur,agence,gestionnaire,admin}/collectes/[id]/rapport-rse/route.ts + packages/plateforme/src/lib/collectes/fiche-client.ts (rapport_rse_disponible = fin d'embargo) + packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (« Télécharger » + case « Inclure le radar ») + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (même choix dans l'onglet Documents) + listes Collectes (picto du rapport ZD → fiche sur « Bilan & documents ») + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (plus de rapport fabriqué la nuit) + supabase/migrations/20261016200000_plateforme_email_rapport_disponible_a_telecharger.sql",
       "test": "packages/plateforme/tests/api/traiteur/rapport-a-la-demande.m1-6.test.ts « M1.6 / rapport de recyclage fabriqué au clic — accès (RPT-04) », « M1.6 / rapport fabriqué au clic — avec ou sans radar, au choix de celui qui télécharge » ; packages/plateforme/tests/api/admin/rapport-admin.m1-6.test.ts « M1.6 / rapport fabriqué au clic par l’Admin — avec ou sans radar », « M1.6 / rapport ZD : les anciennes voies du fichier stocké le refusent », « M1.6 / GET admin/collectes/[id]/documents — rapport téléchargeable » ; packages/plateforme/tests/ui/fiche-collecte-client.m3-1.test.tsx « M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans radar) » ; M3.2/fiche_popup_gestionnaire_rapport ; M3.1/fiche_get_rapport_zd_disponible_sans_pdf ; packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 : rapport de recyclage ZD, l’Admin choisit la version — case décochée à l’ouverture, le bouton Télécharger envoie le choix », « M0.6/documents_regeneration_filtres_radar » ; packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts « R-PDF1 : collecte ZD cloturee avec flux → bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic » ; packages/shared/src/seed/template-rapport-disponible.m1-6.test.ts « M1.6/email_rapport_disponible_a_telecharger — migration 20261016200000 (Val 2026-10-16) »",
       "statut": "implemented",
@@ -277,7 +277,7 @@
     },
     {
       "id": "BL-P2-21",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:95",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:93",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.1/rapport_download_ok — URL pré-signée (embargo levé) + M3.1/rapport_download_embargo — 425",
       "statut": "implemented",
@@ -285,7 +285,7 @@
     },
     {
       "id": "BL-P2-19",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:50-52",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:48-50",
       "artefact": "packages/plateforme/src/lib/pdf/logo-cascade.ts (resolveRapportLogo, resolveRapportLogos) + packages/plateforme/src/lib/pdf/payload-rapport.ts (logo_client_url / logo_traiteur_url, budget commun des deux logos) ; cascade à un logo réutilisée par batch-pdf-sans-excedent.ts",
       "test": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / logos du rapport de recyclage @3 — client et traiteur ; packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts « BL-P2-19 : agence programmatrice → son logo dans l’emplacement client », « deux logos lourds → le traiteur cède sa place »",
       "statut": "implemented",
@@ -293,7 +293,7 @@
     },
     {
       "id": "M1.6-rpt-01-sql",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:71",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:69",
       "artefact": "supabase/migrations/20260707130000_plateforme_r21a_rapport_benchmark.sql",
       "test": "supabase/tests/m1_6_rapport_benchmark.test.sql (pgTAP : f_rapport_benchmark_zd grain flux + k-anonymat ; f_taux_recyclage_moyen_parc gate ≥3 ; service_role only)",
       "statut": "implemented",
@@ -301,7 +301,7 @@
     },
     {
       "id": "M1.6-email-rapport-disponible",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:128",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:125",
       "artefact": "supabase/migrations/20261002100000_plateforme_email_template_rapport_disponible.sql + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (étape 9) + packages/shared/src/seed/constants.ts",
       "test": "envoi_rapport_disponible_apres_batch_j1 + M1.6/seed_slug_rapport_disponible_pas_bordereau + supabase/tests/email_template_rapport_disponible.test.sql",
       "statut": "implemented",
@@ -309,7 +309,7 @@
     },
     {
       "id": "M1.6-stockage-bucket-environnement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md:140",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md:138",
       "artefact": "packages/shared/src/r2/bucket.ts (bucketEnvironnement) + packages/shared/src/r2/upload.ts (uploadObject, getObject sans paramètre bucket) + packages/plateforme/src/lib/pdf/r2-client.ts (cleDeLEnvironnement) + packages/plateforme/src/lib/logo-key.ts + packages/plateforme/src/app/api/v1/admin/collectes/[id]/photos/route.ts",
       "test": "stockage R2 — le bucket est celui de l'environnement + stockage R2 — R2_BUCKET_NAME absent : échec explicite, aucun repli + stockage R2 — périmètre des accès (cliquet de structure) + packages/plateforme/src/lib/pdf/r2-client.test.ts « getPresignedUrl signe une clé du bucket de l'environnement », « getObjectBytes lit une clé du bucket de l'environnement », « R2_BUCKET_NAME absent → lève, aucune URL signée (pas de repli) », « savr-prod/bordereaux/b1/doc.pdf → refusée : ni URL signée, ni lecture » + collectes-photos-import.m0-6.test.ts « R2_BUCKET_NAME absent → 503, rien envoyé, aucune ligne »",
       "statut": "implemented",
@@ -317,7 +317,7 @@
     },
     {
       "id": "M1.6-stockage-dossier-par-document",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md:203",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md:201",
       "artefact": "packages/shared/src/pdf/document-types.ts (DOSSIER_STOCKAGE) + packages/plateforme/src/lib/pdf/pdf-worker.ts + packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts",
       "test": "M1.6 / PdfWorker / un dossier par nature de document (décision Val 2026-10-07) + R-PDF-W4 : type rapport → dossier rapports/, pdf_url = clé R2",
       "statut": "implemented",
@@ -325,7 +325,7 @@
     },
     {
       "id": "M1.6-rapport-radar-segment-de-la-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:71",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:69",
       "artefact": "supabase/migrations/20261024120000_plateforme_benchmark_registre_grain_collecte.sql (f_rapport_benchmark_zd) + packages/plateforme/src/lib/pdf/rapport-radar.ts (filtresRadarParDefaut)",
       "test": "C1/benchmark_rapport_defaut_type_et_taille_de_la_collecte + C1/benchmark_rapport_pax_zero_sans_ratio + radar coché sans filtres (aucun radar à l’écran) → segment de la collecte, calculé sous l’identité de l’appelant",
       "statut": "implemented",
@@ -333,9 +333,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9e638e9ea91e21e550a2cfcbc68a2f9d832d203cd0dc58dcea31162942abf3f",
-    "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": "00b34bb225b4b14e46b4a45a964bd6e24a0ea551de3f9d04c01a4d3c1579890e",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5cb254930295bc6b4f30ae90b3245e4088a9aac3dbd211b3061ad208140713df",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "d8143d36f158146676509441105c82c6c667acb145ede1dc813808ab68064732"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "1f9a66804c7309040755b078f25cedf174e98402019fe82085777aa047702e60",
+    "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": "e74d41f0693355036b17c1c1fcd5712bc1c0689ba1e1ba473d911e3c443d7bc3",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "c00588023806cfc94db794c3a9a843d94f220d384a3a5faf5f687fb86c51f400"
   }
 }

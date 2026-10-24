@@ -78,7 +78,7 @@
     },
     {
       "id": "M1.5b-photo-entity-type",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:803",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:802",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule + collectes-documents-photos.m0-6.test.ts « photo remontée par le transporteur listée avec les imports manuels »",
       "statut": "implemented",
@@ -86,7 +86,7 @@
     },
     {
       "id": "M1.5b-photo-cle-opaque",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:520",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:518",
       "artefact": "packages/adapters/src/mts1/adapter.ts (clePhoto)",
       "test": "M1.5b-photo-cle-opaque / la clé ne porte aucun identifiant du transporteur + photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement) + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule",
       "statut": "implemented",
@@ -118,7 +118,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:503",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:501",
       "artefact": "packages/adapters/src/mts1/adapter.ts (reserverStatut)",
       "test": "M1.5b/releve_reservation_statut_insert + clé déjà posée (23505) et statut traité → statut non rejoué + clé déjà posée (23505) mais statut NON traité (crash-recovery A4-A2) → REJOUE + erreur DB ≠ 23505 sur le claim → propagée + M1.5b/releve_base_reservation_doublon + M1.5b/releve_base_on_conflict_refuse",
       "statut": "implemented",
@@ -126,7 +126,7 @@
     },
     {
       "id": "BL-P1-API-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:321",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:319",
       "artefact": "packages/adapters/src/mts1/client.ts, packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque_immatriculation + chauffeur_nom [adapter.m1-5b.test.ts]",
       "statut": "implemented",
@@ -134,7 +134,7 @@
     },
     {
       "id": "M1.5b-photo-aucun-repas-lecture-equipe-savr",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:803",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:802",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -143,7 +143,7 @@
     },
     {
       "id": "M1.5b-releve-recherche-forme-reelle",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:500",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:498",
       "artefact": "packages/adapters/src/mts1/adapter.ts (sync : fenêtre du cron convertie en jours comptés à Paris ; processOrder : customerOrderId et customerOrderStatus ; processTourDetails : réponse de tour sans stops tolérée), packages/adapters/src/mts1/client.ts (getCarrier : tableau nu)",
       "test": "M1.5b/releve_fenetre_en_jours_paris + M1.5b/releve_fil_statut_relaye + M1.5b/releve_fil_recherche_en_echec + M1.5b/releve_tour_sans_arrets + M1.5b/releve_fil_referentiel_transporteurs + M1.5b/releve_fil_referentiel_forme",
       "statut": "implemented",
@@ -152,7 +152,7 @@
     },
     {
       "id": "M1.5b-pesees-photos-forme-reelle",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:501",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:499",
       "artefact": "packages/adapters/src/mts1/adapter.ts (arretEnlevement, identifiantPhoto, processTourDetails, relevePesees, processPhotos), packages/adapters/src/mts1/client.ts (downloadPhoto ; getPhotos retiré), packages/adapters/src/mts1/mock.ts (Mts1Tour, Mts1TourStop, Mts1StopStuff, Mts1StopPhoto), fixtures/api/mts1/tours_*.json et pesees_photos.json",
       "test": "M1.5b/releve_fil_pesees_enlevement_seul + M1.5b/releve_fil_depot_avant_enlevement + M1.5b/releve_fil_don_alimentaire_ignore + M1.5b/releve_fil_flux_repete + M1.5b/releve_fil_poids_absent_ou_nul + M1.5b/releve_fil_deux_commandes_meme_tour + M1.5b/releve_tour_enregistre_a_defaut + M1.5b/releve_pesee_non_ecrite + M1.5b/releve_fil_photos_detail_du_tour + M1.5b/releve_fil_photo_absente_ou_illisible + M1.5b/releve_fil_photo_autre_commande + M1.5b/releve_photo_adresse_inattendue + M1.5b/releve_photos_apres_fin_de_mission + M1.5b/releve_fil_photo_arret_commun + M1.5b/releve_fil_photo_dedup_en_echec + M1.5b/releve_fil_photo_enregistrement_en_echec + M1.5b/releve_fil_entrees_vides + M1.5b/photo_fil_cle_et_base64 + M1.5b/photo_fil_binaire + M1.5b/photo_fil_absente + M1.5b/photo_fil_corps_lent + M1.5b/photo_fil_plafond + M1.5b/photo_fil_illisible + M1.5b/photo_fil_refus + M1.5b/photo_fil_hors_connecteur + M1.5b/photo_fil_erreur_sans_cle + M1.5b/releve_base_upsert_pesee + M1.5b/releve_base_explain_voit_42p10",
       "statut": "implemented",
@@ -161,7 +161,7 @@
     },
     {
       "id": "M1.5b-releve-tour-chaque-passage",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:505",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:503",
       "artefact": "packages/adapters/src/mts1/adapter.ts (processOrder étape 4, relevePesees, premiereFois, agregerCollecte)",
       "test": "M1.5b/releve_tour_relu_a_chaque_passage + M1.5b/releve_pesee_hors_seuil_une_fois + M1.5b/releve_pesee_corrigee_avant_cloture + M1.5b/releve_divergence_post_cloture_une_fois + M1.5b-2 / même ordre même statut → statut non rejoué, tour relu quand même",
       "statut": "implemented",
@@ -170,7 +170,7 @@
     },
     {
       "id": "M1.5b-releve-fin-de-mission-arret",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:468",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:466",
       "artefact": "packages/adapters/src/mts1/adapter.ts (processOrder étape 5, processTourDetails)",
       "test": "M1.5b/releve_fin_de_mission_sur_arret + M1.5b/releve_fin_sur_arret_bornee + M1.5b/releve_fin_par_statut_inchangee + M1.5b/releve_fin_par_statut_partial + M1.5b/releve_refus_deja_traite + M1.5b/releve_tournee_non_ecrite",
       "statut": "implemented",
@@ -179,7 +179,7 @@
     },
     {
       "id": "M1.5b-releve-fenetre-trois-jours",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:496",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:494",
       "artefact": "packages/plateforme/src/app/api/cron/polling-mts1/route.ts",
       "test": "M1.5b/releve_fenetre_trois_jours + M1.5b/releve_une_fois_par_compte",
       "statut": "implemented",
@@ -188,7 +188,7 @@
     },
     {
       "id": "M1.5b-notifications-mts1-enregistrement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:360",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:358",
       "artefact": "packages/plateforme/src/app/api/webhooks/mts1/[[...chemin]]/route.ts (POST : jeton partagé MTS1_WEBHOOK_TOKEN comparé en temps constant, en-tête X-Mts1-Webhook-Token ou Authorization ; refus de tout sans jeton configuré, chaque refus journalisé sans le jeton ; enregistrement dans integrations_inbox sous source 'mts1_notification', type lu dans le chemin, empreinte chemin + contenu ; aucune autre table touchée)",
       "test": "M1.5b/notifications_mts1_non_configurees + M1.5b/notifications_mts1_jeton_refuse + M1.5b/notifications_mts1_enregistree + M1.5b/notifications_mts1_sans_effet_metier + M1.5b/notifications_mts1_rejeu + M1.5b/notifications_mts1_taille + M1.5b/notifications_mts1_structure",
       "statut": "implemented",
@@ -197,7 +197,7 @@
     },
     {
       "id": "M1.5b-acceptee-transporteur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:474",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:472",
       "artefact": "packages/adapters/src/mts1/adapter.ts (MTS1_STATUS_TO_TMS : le statut de la commande ne vaut plus acceptation ; NIVEAU_ATTRIBUTION, suivreAttribution, niveauAttribution, niveauDesCamions, noterAttribution)",
       "test": "M1.5b/attribution_tournee_proposee + M1.5b/attribution_tournee_acceptee + M1.5b/attribution_commande_validee_tournee_proposee + M1.5b/attribution_a_attribuer + M1.5b/attribution_etat_inconnu + M1.5b/attribution_garde + M1.5b/attribution_reacceptation_requise + M1.5b/attribution_commande_deplacee + M1.5b/attribution_multi_camions_un_seul_accepte + M1.5b/attribution_multi_camions_tous_acceptes + M1.5b/attribution_multi_camions_un_hors_tournee + M1.5b/attribution_multi_camions_mission_finie + M1.5b/attribution_hors_garde_non_notee + M1.5b/collecte_hors_mts1",
       "statut": "implemented",
@@ -215,7 +215,7 @@
     },
     {
       "id": "M1.5b-acceptation-commande-demarree",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:474",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:472",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -224,7 +224,7 @@
     },
     {
       "id": "M1.5b-notifications-mts1-traitement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:360",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:358",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -233,9 +233,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "780774046b39d601a002c5795761957828078d0f6ed2b832b631437d8e19d4a4",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5cb254930295bc6b4f30ae90b3245e4088a9aac3dbd211b3061ad208140713df",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "71ca20cab248229ca8cd9e0bf1fcf5f0fbe20aae1aa418faba74885b7cc13e63",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "df310c3d0635d39e305c6116826dd966f615acd783599c779c6c48ea946f2c9d",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "30a5755a4e0d6ef3e6fbce6d31255f606d704eb30978c51e8489f5b3b4f9ca55",
     "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md": "760800aa1c0b318f4322548e88712312a10ea71a854be1c9363a43e657438e7d"
   }
 }

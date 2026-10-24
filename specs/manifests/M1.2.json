@@ -23,7 +23,7 @@
   "deliverables": [
     {
       "id": "M1.2-evt-patch-unifie",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:498",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:496",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — édition événement par traiteur_manager : 200 + fn_modifier_evenement (E2 par collecte)",
       "statut": "implemented",
@@ -31,7 +31,7 @@
     },
     {
       "id": "M1.2-evt-get-cloisonnement-org",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:182-199",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:180-197",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — GET événement d'une autre organisation → 404 sans aucune donnée (cloisonnement org, route service-role)",
       "statut": "implemented",
@@ -39,7 +39,7 @@
     },
     {
       "id": "M1.2-rpc-fn-modifier-evenement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:160",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:158",
       "artefact": "supabase/migrations/20260626000000_plateforme_fn_modifier_evenement.sql + supabase/migrations/20261021073000_plateforme_collectes_pax.sql",
       "test": "T14b fn_modifier_evenement refuse les contacts (portes par la collecte) + T14 fn_modifier_collecte : E2 pour la collecte dispatchee dont un contact change",
       "statut": "implemented",
@@ -47,7 +47,7 @@
     },
     {
       "id": "M1.2-patch-evenement-reponse-filtree",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:505",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:503",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2/edition_evenement_reponse_filtree",
       "statut": "implemented",
@@ -55,7 +55,7 @@
     },
     {
       "id": "M1.2-recalc-volume-pax",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:324",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:322",
       "artefact": "supabase/migrations/20261021073000_plateforme_collectes_pax.sql",
       "test": "supabase/tests/collectes_pax.test.sql « le volume AG suit le pax modifié de la collecte »",
       "statut": "implemented",
@@ -63,7 +63,7 @@
     },
     {
       "id": "M1.2-col-edit-gestionnaire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:513",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:511",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/route.ts",
       "test": "M1.2 — édition collecte gestionnaire : 200 + fn_modifier_collecte",
       "statut": "implemented",
@@ -71,7 +71,7 @@
     },
     {
       "id": "M1.2-champs-verrouilles",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:331",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:329",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — édition événement champ verrouillé lieu_id → 422",
       "statut": "implemented",
@@ -79,7 +79,7 @@
     },
     {
       "id": "M1.2-fenetre-edition",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:321",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:319",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — édition événement hors fenêtre (f_collecte_editable=false) → 422",
       "statut": "implemented",
@@ -87,7 +87,7 @@
     },
     {
       "id": "M1.2-rls-evt-update-4-roles",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:193",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:191",
       "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql",
       "test": "T1 evt_manager_update applique (orga + fenetre)",
       "statut": "implemented",
@@ -95,7 +95,7 @@
     },
     {
       "id": "M1.2-rls-col-update-4-roles",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:195",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:193",
       "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql",
       "test": "T10 col_update_client agence",
       "statut": "implemented",
@@ -103,7 +103,7 @@
     },
     {
       "id": "M1.2-perimetre-ecriture",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:527",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:525",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — édition événement commercial non-créateur → 403",
       "statut": "implemented",
@@ -111,7 +111,7 @@
     },
     {
       "id": "M1.2-evt-delete-cloisonnement-org",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:182-199",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:180-197",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — DELETE événement d'une autre organisation → 404 et AUCUNE suppression (cloisonnement org, route service-role)",
       "statut": "implemented",
@@ -119,7 +119,7 @@
     },
     {
       "id": "M1.2-ui-edition-fiche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:490",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:488",
       "artefact": "packages/plateforme/src/components/collecte/editer-collecte-form.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -127,7 +127,7 @@
     },
     {
       "id": "M1.2-reacceptation-creneau",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:346",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:344",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/route.ts",
       "test": "M1.2 — édition collecte gestionnaire réacceptation prestataire (date + statut_tms=acceptee)",
       "statut": "implemented",
@@ -135,7 +135,7 @@
     },
     {
       "id": "BL-P1-PROG-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:113",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:111",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
       "test": "M1.2 — PROG-01 override lieu : lieu_overrides passé à fn_enregistrer_programmation + notif Admin + audit_log",
       "statut": "implemented",
@@ -143,7 +143,7 @@
     },
     {
       "id": "BL-P1-PROG-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:280",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:278",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/organisations/traiteurs/route.ts",
       "test": "M1.2 — PROG-02 shadow traiteur créé par agence (201)",
       "statut": "implemented",
@@ -151,7 +151,7 @@
     },
     {
       "id": "BL-P1-PROG-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:421",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:419",
       "artefact": "supabase/migrations/20260708120000_plateforme_r12b_programmation_e1_payload.sql",
       "test": "T1b (PROG-03) : payload E1 inclut controle_acces_requis + informations_supplementaires + lieu_overrides",
       "statut": "implemented",
@@ -159,7 +159,7 @@
     },
     {
       "id": "BL-P1-PROG-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:422",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:420",
       "artefact": "packages/plateforme/src/lib/programmation/recap-email.ts",
       "test": "M1.2 — PROG-04 récap programmation envoyé au programmeur avec tarif ZD",
       "statut": "implemented",
@@ -167,7 +167,7 @@
     },
     {
       "id": "M1.2-recap-email-bonjour-prenom",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:63",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:60",
       "artefact": "supabase/migrations/20261008150000_plateforme_email_recap_programmation_prenom.sql + packages/plateforme/src/lib/programmation/recap-email.ts",
       "test": "M1.2/email_recap_bonjour_prenom + supabase/tests/email_template_collecte_programmee.test.sql",
       "statut": "implemented",
@@ -175,7 +175,7 @@
     },
     {
       "id": "BL-P1-PROG-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:423",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:421",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/confirmer/route.ts",
       "test": "M1.2 — PROG-05 auto-accept AG déclenché à la confirmation",
       "statut": "implemented",
@@ -183,7 +183,7 @@
     },
     {
       "id": "M1.2-brouillon-admin",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:330",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:328",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/route.ts",
       "test": "M1.2 — liste des brouillons (mode admin support) > admin_savr est cloisonné sur ses propres créations, pas sur son org interne",
       "statut": "implemented",
@@ -191,7 +191,7 @@
     },
     {
       "id": "M1.2-brouillon-creation-enum",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:239",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:237",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/route.ts",
       "test": "M1.2 — création d’un brouillon : normalisation du type > l’alias UI « zd » part tel quel à fn_enregistrer_programmation, normalisé en « zero_dechet » par la base — aucun INSERT direct",
       "statut": "implemented",
@@ -199,7 +199,7 @@
     },
     {
       "id": "M1.2-brouillon-suppression",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:334",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:332",
       "artefact": "supabase/migrations/20260717154800_plateforme_m1_2_supprimer_brouillon.sql",
       "test": "T16 : fn_supprimer_brouillon supprime un brouillon AVEC collectes (la FK n'est pas ON DELETE CASCADE — un DELETE nu échouait)",
       "statut": "implemented",
@@ -207,7 +207,7 @@
     },
     {
       "id": "M1.2-confirmation-admin",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:425",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:423",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — confirmation de programmation : détail événement (mode admin support) > admin_savr obtient le récapitulatif (et non plus 403 « Rôle insuffisant »)",
       "statut": "implemented",
@@ -215,7 +215,7 @@
     },
     {
       "id": "M1.2-ui-confirmation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:425",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:423",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -223,7 +223,7 @@
     },
     {
       "id": "M1.2-confirmation-email-recap-issue-reelle",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:425-434",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:423-432",
       "artefact": "packages/plateforme/src/lib/programmation/suivi-recap-email.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (GET : champ email_recap, lu après la garde de périmètre) + packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
       "test": "M1.2/confirmation_email_recap_issue_reelle — état dérivé du dernier envoi + M1.2/confirmation_email_recap_issue_reelle — lecture du journal des emails + M1.2/confirmation_email_recap_issue_reelle — GET détail événement + M1.2/confirmation_email_recap_issue_reelle — écran de confirmation",
       "statut": "implemented",
@@ -239,7 +239,7 @@
     },
     {
       "id": "M1.2-ajout-collecte-doublon-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:260",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:258",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx",
       "test": "M1.2 — ajouter une collecte : deux collectes du même type au même moment (C4)",
       "statut": "implemented",
@@ -256,7 +256,7 @@
     },
     {
       "id": "M1.2-formulaire-simplifie",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:113 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:180 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:363",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:111 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:178 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:361",
       "artefact": "packages/plateforme/src/components/programmation/lieu-champs-editables.tsx + packages/plateforme/src/components/programmation/lieu-manuel-form.tsx + packages/plateforme/src/components/programmation/carte-collecte.tsx + packages/plateforme/src/components/programmation/formulaire-programmation.tsx + packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
       "test": "M1.2 / formulaire_simplifie — écrans 1 et 2 + M1.2 / PROG-01 lieu override (front) > M1.2 / formulaire_simplifie — stationnement, accès office, véhicule max, contraintes horaires et flux acceptés ne sont plus éditables + M0.6 — quick-add lieu manuel (BL-P1-BOA-03) > M0.6 / formulaire_simplifie — ne propose plus véhicule max, stationnement ni accès office + M0.6 — quick-add lieu manuel (BL-P1-BOA-03) > M0.6 / formulaire_simplifie — envoie les 4 champs du lieu, sans les champs retirés + M1.2 / formulaire_simplifie — alerte programmation à moins de 24 h",
       "statut": "implemented",
@@ -264,7 +264,7 @@
     },
     {
       "id": "M1.2-confirmation-recap-modifier",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:425",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:423",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (GET : nom_client_organisateur + téléphones des contacts)",
       "test": "M1.2 / formulaire_simplifie — récapitulatif de l’écran de confirmation + M1.2 / formulaire_simplifie — bouton « Modifier » + M1.2 / formulaire_simplifie — le reste de l’écran est conservé + M1.2 / formulaire_simplifie — GET détail événement : colonnes du récapitulatif",
       "statut": "à-vérifier",
@@ -272,7 +272,7 @@
     },
     {
       "id": "M1.2-nom-evenement-client-final",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:64 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:341",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:62 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:339",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts + packages/plateforme/src/app/(programmation)/brouillons/page.tsx + packages/plateforme/src/app/(programmation)/programmer/brouillon/[id]/page.tsx",
       "test": "M1.2 / nom_evenement_client_final — étape 1 > client final renseigné : le nom de l’événement et le client final partent chacun dans sa colonne + M1.2 / nom_evenement_client_final — étape 1 > client final vide : l’étape 1 se valide et aucun client n’est envoyé + M1.2 / Validations bloquantes > validations_nom_evenement_vide — 422 à la confirmation, même avec un client final + M1.2 / Validations bloquantes > validations_nom_evenement_non_texte — 422, jamais une erreur 500 + M1.2 / Validations bloquantes > client_final_renseigne — chaque nom écrit dans sa colonne + M1.2 / Validations bloquantes > client_final_facultatif — 201 sans client final, sans badge « Info incomplète » + M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04) > M3.1/recompute_infos_completes_false — nom de l’événement vidé → informations_completes=false + M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04) > M3.1/recompute_infos_completes_espaces — nom de l’événement fait d’espaces → informations_completes=false + M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04) > M3.1/recompute_absent_client_final_vide — client final vidé → pas de recompute (champ facultatif) + M1.2 / nom_evenement_client_final — titres des brouillons > liste : nom de l’événement, à défaut client final, à défaut « Sans nom » + M1.2 / nom_evenement_client_final — titres des brouillons > reprise : le nom de l’événement et le client final rouvrent chacun dans sa case + M1.2 / nom_evenement_client_final — étape 1 > dupliquer un événement sans nom : la case reste vide et l’étape 1 attend un nom + M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04) > M3.1/recompute_borne_a_l_evenement — l’UPDATE du badge ne vise que les collectes de cet événement, sans surcharge de lieu",
       "statut": "implemented",
@@ -280,7 +280,7 @@
     },
     {
       "id": "M1.2-confirmation-brouillon-nom-evenement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:341",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:339",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -289,7 +289,7 @@
     },
     {
       "id": "M1.2-pax-par-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:65 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1198 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1456",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:63 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1195 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1453",
       "artefact": "supabase/migrations/20261021073000_plateforme_collectes_pax.sql + packages/plateforme/src/lib/pax-collecte.ts + packages/plateforme/src/components/programmation/carte-collecte.tsx + packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx + packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts + packages/plateforme/src/components/collecte/editer-collecte-form.tsx + packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts + packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx + packages/plateforme/src/lib/programmation/recap-email.ts + packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx + packages/plateforme/src/app/api/v1/admin/collectes/route.ts + packages/plateforme/src/app/api/v1/traiteur/collectes/route.ts + packages/plateforme/src/app/api/v1/agence/collectes/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts + packages/plateforme/src/app/api/v1/organisateur/collectes/route.ts + packages/plateforme/src/components/admin/collectes-table.tsx + packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.tsx + packages/plateforme/src/components/collecte/liste-collectes-client.tsx + packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
       "test": "M1.2/pax_par_collecte — formulaire de programmation > le nombre de convives se saisit avec la date de la collecte (carte de l’écran 2), plus à l’écran 1 + M1.2/pax_par_collecte — création + M1.2/pax_par_collecte — modification + M1.2/pax_par_collecte — ajouter une collecte : le pax + M3.1 / EditerCollecteForm — un seul email par enregistrement > M1.2/pax_par_collecte — le pax part dans la requête collecte, jamais dans celle de l’événement + M3.1 / EditerCollecteForm — un seul email par enregistrement > M1.2/pax_par_collecte — un pax vidé ou à 0 est refusé à l’écran, rien n’est envoyé + supabase/tests/collectes_pax.test.sql + supabase/tests/collectes_modifiees_apres_envoi.test.sql + M1.2/pax_par_collecte — écran de confirmation : convives + M1.2/pax_par_collecte — email récapitulatif : tarif ZD + M1.2/pax_par_collecte — pop-up fiche collecte client : pax + M1.2/pax_par_collecte — listes de collectes : le pax de la collecte, jamais celui de l’événement + M1.2/pax_par_collecte — liste Admin : le pax de la collecte (650) + M1.2/pax_par_collecte — onglet Collectes : le pax de la collecte (650) + M1.2/pax_par_collecte — liste agence (composant commun du traiteur) + M1.2/pax_par_collecte — liste organisateur : le pax de la collecte (650) + M3.2/collectes_route_colonnes_liste_traiteur + M1.2/pax_par_collecte — fiche Admin : titre, en-tête",
       "statut": "implemented",
@@ -297,7 +297,7 @@
     },
     {
       "id": "M1.2-pax-par-collecte-transmission",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:389 + specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:387 + specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:400",
       "artefact": "packages/adapters/src/outbox-worker.ts + packages/adapters/src/index.ts + supabase/migrations/20261021073000_plateforme_collectes_pax.sql",
       "test": "type_tms=a_toutes — traiteur, pax, contact et point B de l’association atteignent l’adapter + type_tms=mts1 — traiteur, pax, contact et point B de l’association atteignent l’adapter + cliquet — chaque champ mappé fait effectivement varier le PUT",
       "statut": "implemented",
@@ -305,7 +305,7 @@
     },
     {
       "id": "M1.2-ajout-collecte-depuis-fiches",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:250",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:248",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx + packages/plateforme/src/lib/collectes/fiche-client.ts + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
       "test": "M1.2 — ajouter une collecte depuis la fiche événement du gestionnaire + M1.2 — ajouter une collecte depuis la fiche collecte (espaces clients) + M1.2 — ajouter une collecte depuis la fiche collecte de l’Admin + M1.2/ajout_collecte_depuis_fiche_collecte + M3.2/fiche_get_actions_gestionnaire + M3.3/fiche_get_socle_commun + M1.2/ajout_collecte_depuis_fiche_brouillon + M1.2/ajout_collecte_depuis_fiche_annulee",
       "statut": "implemented",
@@ -313,7 +313,7 @@
     },
     {
       "id": "M1.2-ajout-collecte-tout-evenement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:258",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:256",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts",
       "test": "M1.2 / Ajout collecte à événement existant > ajout_collecte_zd_evenement_existant + M1.2 / Ajout collecte à événement existant > ajout_collecte_evenement_termine + M1.2 / Ajout collecte à événement existant > ajout_collecte_date_passee + M1.2 / Ajout collecte à événement existant > ajout_collecte_aujourdhui_heure_passee + M1.2 / Ajout collecte à événement existant > ajout_collecte_jour_de_paris + M1.2 / Ajout collecte à événement existant > ajout_collecte_evenement_brouillon — 422 + M1.2 / Ajout collecte à événement existant > ajout_collecte_evenement_brouillon_admin + M1.2 / Ajout collecte à événement existant > ajout_collecte_evenement_brouillon_mixte",
       "statut": "implemented",
@@ -321,7 +321,7 @@
     },
     {
       "id": "M1.2-pax-evenement-regle-revisee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1200 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1456",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1197 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1453",
       "artefact": "supabase/migrations/20261022150000_plateforme_pax_evenement_regle_du_jour.sql + packages/shared/src/seed/evenements-multi-collectes.ts",
       "test": "supabase/tests/collectes_pax.test.sql « pax_par_collecte_evenement_calcule — deux ZD du même jour » + supabase/tests/collectes_pax.test.sql « deux AG du même jour » + SEED-EMC-5b + SEED-EMC-5c",
       "statut": "implemented",
@@ -329,7 +329,7 @@
     },
     {
       "id": "M1.2-ajout-collecte-niveau-evenement-pre-rempli",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:250",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:248",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts + packages/plateforme/src/lib/programmation/niveau-evenement.ts",
       "test": "M1.2 — ajouter une collecte : niveau événement figé et pré-rempli + M1.2 / ajout_collecte_niveau_evenement — GET détail événement : niveau événement figé + M1.2 / Ajout collecte à événement existant > ajout_collecte_controle_acces_evenement + M1.2 / Ajout collecte à événement existant > ajout_collecte_controle_acces_navigateur_ignore + M1.2 / Ajout collecte à événement existant > ajout_collecte_zd_evenement_existant",
       "statut": "implemented",
@@ -337,7 +337,7 @@
     },
     {
       "id": "M1.2-pax-par-collecte-lots-2-3",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1200",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1197",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -346,7 +346,7 @@
     },
     {
       "id": "M1.2-collecte-type-contacts-donnees",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1454 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1457 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:139 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:188",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1451 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1454 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:137 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:186",
       "artefact": "supabase/migrations/20261022210000_plateforme_collecte_contacts_type_evenement.sql + packages/shared/src/database.types.ts",
       "test": "supabase/tests/collecte_contacts.test.sql « la table collecte_contacts existe » « collecte créée : contacts repris de l’événement » « collecte créée : type d’événement repris de l’événement » « type donné à l’insertion : gardé » « collecte insérée directement : contacts repris de l’événement » « renommer l’événement ne recopie pas les contacts » « contact principal au-delà de 120 caractères : refusé » « contact de secours sur deux lignes : refusé » « supprimer une collecte supprime ses contacts » « contact principal sur deux lignes : refusé » « téléphone principal fait de blancs : refusé » « contact de secours au-delà de 120 caractères : refusé » « téléphone de secours au-delà de 40 caractères : refusé » « téléphone de secours sur deux lignes : refusé »",
       "statut": "implemented",
@@ -355,7 +355,7 @@
     },
     {
       "id": "M1.2-collecte-contacts-fermes-aux-clients",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:203",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:201",
       "artefact": "supabase/migrations/20261022210000_plateforme_collecte_contacts_type_evenement.sql",
       "test": "supabase/tests/collecte_contacts.test.sql « une seule policy sur collecte_contacts, qui refuse tout » « authenticated : pas de SELECT » « authenticated : ni INSERT, ni UPDATE, ni DELETE » « anon : aucun droit » « traiteur_manager de l’organisation : lecture refusée » « traiteur_manager de l’organisation : écriture refusée » « traiteur_commercial : lecture refusée » « agence : lecture refusée » « gestionnaire_lieux : lecture refusée » « client_organisateur : lecture refusée » « fonctions de déclencheur : EXECUTE refusé à authenticated »",
       "statut": "implemented",
@@ -364,7 +364,7 @@
     },
     {
       "id": "M1.2-collecte-contacts-transmission",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:395",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:393",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "M1.2-collecte-contacts-transmission — le transporteur reçoit les contacts de LA collecte",
       "statut": "implemented",
@@ -373,7 +373,7 @@
     },
     {
       "id": "M1.2-programmation-cartes-atomique",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:55",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:53",
       "artefact": "supabase/migrations/20261024100000_plateforme_programmation_collectes_par_carte.sql + packages/plateforme/src/app/api/v1/programmation/evenements/route.ts + packages/plateforme/src/lib/programmation/cartes.ts + packages/plateforme/src/lib/programmation/perimetre-programmation.ts + packages/plateforme/src/lib/programmation/apres-confirmation.ts",
       "test": "supabase/tests/programmation_par_carte.test.sql + M1.2/programmation_cartes_par_collecte + M1.2/programmation_cartes_validation + M1.2/programmation_plafond_par_type + M1.2/programmation_atomique",
       "statut": "implemented",
@@ -382,7 +382,7 @@
     },
     {
       "id": "M1.2-formulaire-deux-ecrans-cartes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:180",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:178",
       "artefact": "packages/plateforme/src/components/programmation/formulaire-programmation.tsx + packages/plateforme/src/components/programmation/carte-collecte.tsx + packages/plateforme/src/lib/programmation/cartes-saisie.ts + packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
       "test": "M1.2 / formulaire de programmation en deux écrans (lot B2) + M1.2 — carte d’une collecte : identifiants, reprise de la collecte n°1, doublon + M1.2/formulaire_cartes_modele + M1.2/formulaire_cartes_suivi + M1.2/formulaire_cartes_suivi_arrete + M1.2/formulaire_cartes_date_heure_jamais_reprises + M1.2/formulaire_cartes_ajuster_nombre + M1.2/formulaire_cartes_ajouter_plafond + M1.2/formulaire_cartes_figer_zd_ajoutee + M1.2/formulaire_cartes_doublon + M1.2/formulaire_cartes_corps + M1.2/formulaire_cartes_ancien_modele_ne_suit_plus + M1.2/pax_champ_saisie",
       "statut": "implemented",
@@ -391,7 +391,7 @@
     },
     {
       "id": "M1.2-brouillon-reprise-formulaire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:327",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:325",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/brouillon/route.ts + packages/plateforme/src/app/(programmation)/programmer/brouillon/[id]/page.tsx + packages/plateforme/src/components/programmation/formulaire-programmation.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2/brouillon_reprise_put + M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2) + M1.2/brouillon_reprise_traiteur + M1.2/get_evenement_collectes_ordre_creation",
       "statut": "implemented",
@@ -400,7 +400,7 @@
     },
     {
       "id": "M1.2-confirmation-refonte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:425",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:423",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts + packages/plateforme/src/lib/programmation/numerotation.ts",
       "test": "M1.2 / refonte_formulaire — page de confirmation : en-tête et récapitulatif de l’événement + M1.2 / refonte_formulaire — page de confirmation : une carte par collecte + M1.2 / refonte_formulaire — page de confirmation : « Annuler la collecte » + M1.2/get_evenement_contacts_par_collecte",
       "statut": "implemented",
@@ -409,7 +409,7 @@
     },
     {
       "id": "M1.2-ajout-collecte-carte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:246",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:244",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts",
       "test": "M1.2 — ajouter une collecte : carte pré-remplie depuis la dernière collecte non annulée + M1.2/ajout_collecte_carte",
       "statut": "implemented",
@@ -418,7 +418,7 @@
     },
     {
       "id": "M1.2-email-recap-une-ligne-par-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:56",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:53",
       "artefact": "packages/plateforme/src/lib/programmation/recap-email.ts + packages/plateforme/src/lib/programmation/numerotation.ts + supabase/migrations/20261024100000_plateforme_programmation_collectes_par_carte.sql",
       "test": "M1.2/email_recap_une_ligne_par_collecte + M1.2/numerotation_collectes + supabase/tests/email_template_collecte_programmee.test.sql + M1.2/email_recap_lien_collectes",
       "statut": "implemented",
@@ -427,7 +427,7 @@
     },
     {
       "id": "M1.2-formulaire-cartes-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:371",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:369",
       "artefact": "packages/plateforme/src/components/programmation/formulaire-programmation.tsx + packages/plateforme/src/components/programmation/carte-collecte.tsx + packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx + packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -436,7 +436,7 @@
     },
     {
       "id": "M1.2-email-recap-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:56",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:53",
       "artefact": "packages/plateforme/src/lib/programmation/recap-email.ts + supabase/migrations/20261024100000_plateforme_programmation_collectes_par_carte.sql",
       "test": null,
       "statut": "à-vérifier",
@@ -445,7 +445,7 @@
     },
     {
       "id": "M1.2-refonte-formulaire-lots-b-c",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:180 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:425",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:178 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:423",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -454,7 +454,7 @@
     },
     {
       "id": "M1.2-formulaire-preremplissage-onglet",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:80",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:78",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -463,7 +463,7 @@
     },
     {
       "id": "M1.2-collecte-type-contacts-modifiables",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1454 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1509 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:344",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1451 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1506 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:342",
       "artefact": "supabase/migrations/20261023100000_plateforme_collecte_type_contacts_modifiables.sql",
       "test": "supabase/tests/collecte_contacts.test.sql « contacts modifiés sur une collecte : écrits sur elle » « contacts modifiés sur une collecte : ses sœurs gardent les leurs » « collecte active commandée : le changement de contact émet toujours son E2 » « le type d’événement ne se modifie plus sur l’événement » « le type d’événement d’une collecte ne peut pas être vidé » « collecte commandée : type d’événement et contact changés ensemble, l’E2 du contact part » « collecte sans ligne de contacts : la modification de ses contacts est refusée » + supabase/tests/collecte_n1_evenement.test.sql « contacts de la collecte n°1 (Zéro-Déchet la plus tôt) : copiés sur l’événement » « contacts d’une Anti-Gaspi plus tôt : la copie ne bouge pas (Zéro-Déchet d’abord) » « collecte n°1 annulée : la Zéro-Déchet suivante prend le relais » « toutes les collectes annulées : la copie reste telle quelle » « même jour : l’heure la plus tôt l’emporte, même créée après » « même date et même heure : la plus ancienne création l’emporte » « date plus tôt : l’emporte même à une heure plus tardive » « collecte n°1 supprimée : la suivante prend le relais » « collecte n°1 rattachée à un autre événement : son ancien événement passe à la suivante » + supabase/tests/collectes_modifiees_apres_envoi.test.sql « changer le contact d’une collecte n’arme pas les autres collectes parties de l’événement » « changer la copie des contacts sur l’événement n’arme rien » + supabase/tests/edition_evenement.test.sql « T14b fn_modifier_evenement refuse les contacts (portes par la collecte) »",
       "statut": "implemented",
@@ -472,7 +472,7 @@
     },
     {
       "id": "M1.2-fiches-collecte-type-contacts",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:389 + specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:203",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:387 + specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:201",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts + packages/plateforme/src/lib/collectes/champs-editables.ts + packages/plateforme/src/lib/collectes/type-contacts-collecte.ts + packages/plateforme/src/components/collecte/editer-collecte-form.tsx + packages/plateforme/src/lib/collectes/email-modification.ts",
       "test": "M1.2/evenement_type_contacts_refuses + M1.2/collecte_type_contacts_modifiables + M1.2/collecte_contacts_avant_illisibles_500 + M1.2/collecte_type_evenement_inconnu + M1.2/collecte_type_evenement_invalide + M1.2/collecte_type_evenement_lecture_500 + M3.1/fiche_get_type_evenement_collecte + M3.1/edition_contacts_avant_illisibles_500 + M1.2 / EditerCollecteForm — type d’événement et contacts de la collecte (lot B1) + M1.2 / dupliquer — type d’événement et contacts de la collecte (lot B1) + packages/plateforme/src/lib/collectes/email-modification.m3-1.test.ts « contact et type d’événement de la collecte : chacun sa ligne dans l’email (lot B1) »",
       "statut": "implemented",
@@ -481,7 +481,7 @@
     },
     {
       "id": "M1.2-benchmark-grain-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2154-2155",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2151-2152",
       "artefact": "supabase/migrations/20261024120000_plateforme_benchmark_registre_grain_collecte.sql (f_benchmark_kg_pax_zd, f_benchmark_single_collecte, f_rapport_benchmark_zd)",
       "test": "C1/benchmark_grain_collecte_fixture + C1/benchmark_parc_segment_type_et_taille_de_la_collecte + C1/benchmark_parc_filtre_type_sur_la_collecte + C1/benchmark_parc_filtre_taille_sur_la_collecte + C1/benchmark_parc_pax_zero_ecarte + C1/benchmark_fiche_point_vous_de_la_collecte + C1/benchmark_fiche_pax_zero_sans_point_vous + BENCH-PDF-9 : collectes à 0 convive hors du parc + BENCH-PDF-10 : les collectes à 0 convive ne comptent plus dans le parc + M3.2/benchmark_single_collecte_tiers_sans_donnee_nouvelle",
       "statut": "implemented",
@@ -489,13 +489,13 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "08480c96d4f2d76df30ca1e449da64898de1acf86892b42013cec2f1de621103",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "780774046b39d601a002c5795761957828078d0f6ed2b832b631437d8e19d4a4",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "f0050ece5dc6cb9d1b7fda6ee2f62bfe96897836368935ca47a81027ba5cf001",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "a9e638e9ea91e21e550a2cfcbc68a2f9d832d203cd0dc58dcea31162942abf3f",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "801825df25e1273307024ffa52be6f73bb55ad8c3f016fb327be790a0319d474",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "9152312b4496194e1bb1d45dd48d4fa1cb65d3863956392b7274f6d05061b7f3",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5cb254930295bc6b4f30ae90b3245e4088a9aac3dbd211b3061ad208140713df",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "71ca20cab248229ca8cd9e0bf1fcf5f0fbe20aae1aa418faba74885b7cc13e63"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "d71b8ea4384fbfe1ec5cc44e7de744701250b2285c76621640f2e94947eba320",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "df310c3d0635d39e305c6116826dd966f615acd783599c779c6c48ea946f2c9d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "b661024dd5ca08590b3465576ab5b7c791e7dbf1bf907c4e6003129a308b34dd",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "1f9a66804c7309040755b078f25cedf174e98402019fe82085777aa047702e60",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "438ac388b432fc96e70a110a7e7e4fb49eb41100ca683ecb19cee3c95b4bca39",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "d544481da04c2be0f433d20afc94cb6a395277a54d1ba507cd5c469865756a7f",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "30a5755a4e0d6ef3e6fbce6d31255f606d704eb30978c51e8489f5b3b4f9ca55"
   }
 }

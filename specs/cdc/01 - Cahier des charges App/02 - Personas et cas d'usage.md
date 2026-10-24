@@ -1,7 +1,5 @@
 # 02 - Personas et cas d'usage
 
-**Statut** : ✅ Complété
-**Dernière mise à jour** : 2026-06-03 (revue sobriété : dédup RLS → §09, purge contenu obsolète, correctif `client_organisateur_organisation_id`)
 
 ---
 

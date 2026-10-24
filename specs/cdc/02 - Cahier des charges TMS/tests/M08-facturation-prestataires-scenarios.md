@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M08 + §05 R3.1-3.8 / R6.3 + §04 `factures_prestataires` (addendum §11) + §09 RLS section 12
 **Généré le** : 2026-06-06
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M08.
 > Pour chaque scénario :

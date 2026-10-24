@@ -2,7 +2,6 @@
 
 **Source CDC** : §09 (matrice §3 + matrice étendue ops_savr + §3ter audit RLS V1 + Bloc D) + §04 (RLS inline `sequences_facturation`, `audit_log`, `config_auto_accept_ag`, tables history) + §05 (`f_collecte_editable`) + §06.06 (matrice écrans) + §11 (Bloc 7)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests RLS transverses de la Plateforme.
 > Pour chaque scénario :
@@ -104,10 +103,10 @@ Scénario : traiteur_operationnel_ne_peut_pas_modifier_programmation_tierce
   Alors 0 ligne est affectée (UPDATE limité à organisation_id = self)
 
 Scénario : gestionnaire_brouillon_tiers_exclu (evenements_brouillon_tiers_denied)
-  Étant donné un brouillon Kaspia (date_evenement NULL) sur le lieu L1 de Viparis
+  Étant donné un brouillon Kaspia (collectes au statut `brouillon`, daté) sur le lieu L1 de Viparis
   Quand `gest_viparis` exécute SELECT sur `evenements`
   Alors le brouillon n'apparaît pas (anti-fuite d'intention commerciale — décision F3 lot ⑤)
-  Et son propre brouillon (organisation_id = Viparis, date NULL) reste visible
+  Et son propre brouillon (organisation_id = Viparis) reste visible
 
 Scénario : manager_update_dans_fenetre_edition_ok (F3 lot ⑪ — révisé 2026-09-16, REVOKE evenements)
   Étant donné un événement Kaspia dont une collecte est au statut `programmee`

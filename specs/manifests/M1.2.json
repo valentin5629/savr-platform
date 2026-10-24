@@ -459,7 +459,7 @@
       "test": null,
       "statut": "partial",
       "ref_divergence": "_Divergences/M1.2_20261024_refonte-lot-b2-formulaire-collectes.md",
-      "libelle": "CDC en avance sur le code (décision Val du 2026-10-24, I11 de la fiche du lot B2) : ouvert depuis l'onglet ZD d'un dashboard, le formulaire doit proposer une collecte Zéro-Déchet ; depuis l'onglet AG, une collecte Anti-Gaspi ; les deux nombres restent modifiables (§06.01 « Valeurs à l'ouverture selon l'onglet », §06.04, repris par §06.05 et §06.11). Non codé au sync du 2026-10-24 : le formulaire s'ouvre toujours à 0 collecte de chaque type (`formulaire-programmation.tsx`, cartes initiales vides) et le bouton « Programmer un événement » ne transmet pas l'onglet actif."
+      "libelle": "CDC en avance sur le code (décision Val du 2026-10-24, I11 de la fiche du lot B2) : ouvert depuis l'onglet ZD d'un dashboard, le formulaire doit proposer une collecte Zéro-Déchet ; depuis l'onglet AG, une collecte Anti-Gaspi ; les deux nombres restent modifiables (§06.01 « Valeurs à l'ouverture selon l'onglet », §06.04). Non codé au sync du 2026-10-24 : le formulaire s'ouvre à 0 collecte de chaque type (cartes initiales vides, `formulaire-programmation.tsx`) et ne lit que `?from=` ; le bouton de la liste Collectes envoie déjà `?type=` (`liste-collectes-client.tsx`) mais le formulaire l'ignore ; les boutons des dashboards (traiteur, agence, gestionnaire) n'envoient rien."
     },
     {
       "id": "M1.2-collecte-type-contacts-modifiables",

@@ -46,15 +46,30 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
 import { GET } from '../../src/app/api/cron/batch-brouillons-j1/route.js';
 
+// Le récapitulatif lit le programmeur (`users`), puis relit les collectes de
+// l'événement (une ligne par collecte, refonte du formulaire, lot B2).
+const COLLECTES_EVT = [
+  {
+    id: 'col-zd-1',
+    type: 'zero_dechet',
+    date_collecte: '2030-01-15',
+    heure_collecte: '19:00:00',
+    pax: 650,
+    created_at: '2030-01-01T10:00:00Z',
+  },
+];
 const supabase = {
-  from: () => ({
+  from: (table: string) => ({
     select: () => ({
-      eq: () => ({
-        maybeSingle: async () => ({
-          data: { email: 'julie@traiteur.local', prenom: 'Julie' },
-          error: null,
-        }),
-      }),
+      eq: () =>
+        table === 'users'
+          ? {
+              maybeSingle: async () => ({
+                data: { email: 'julie@traiteur.local', prenom: 'Julie' },
+                error: null,
+              }),
+            }
+          : Promise.resolve({ data: COLLECTES_EVT, error: null }),
     }),
   }),
 } as unknown as Parameters<typeof envoyerRecapProgrammation>[0];
@@ -65,7 +80,7 @@ const PROGRAMMATION_ZD = {
   nomEvenement: 'Gala',
   organisationId: 'org-1',
   lieuId: 'lieu-1',
-  collectes: [{ type: 'zd', date_collecte: '2030-01-15', pax: 650 }],
+  collecteIds: ['col-zd-1'],
 };
 
 function appelCron(authorization?: string): Promise<Response> {
@@ -116,6 +131,14 @@ describe('facturation_hors_plateforme — email récapitulatif de programmation'
     await envoyerRecapProgrammation(supabase, PROGRAMMATION_ZD);
 
     expect(tarif.calculer).toHaveBeenCalledTimes(1);
+    // Sur le pax de la collecte Zéro Déchet relue en base.
+    expect(tarif.calculer).toHaveBeenCalledWith(
+      650,
+      'org-1',
+      expect.any(Date),
+      supabase,
+      'lieu-1',
+    );
     expect(emails[0]!.variables.tarif_ligne).toBe(
       'Tarif Zéro Déchet applicable : 412.00 € HT.',
     );

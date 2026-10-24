@@ -118,7 +118,7 @@ function resetChain() {
   vi.resetAllMocks();
   // Restore default chaining behavior after reset
   vi.mocked(emailModule.sendEmail).mockResolvedValue({ statut: 'sent' });
-  mockSupabaseChain.from.mockReturnThis();
+  routerTables();
   mockSupabaseChain.select.mockReturnThis();
   mockSupabaseChain.insert.mockReturnThis();
   mockSupabaseChain.update.mockReturnThis();
@@ -144,11 +144,78 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
   });
 }
 
-const BODY_ZD = {
-  type_evenement_id: 'type-1',
-  lieu_id: 'lieu-1',
+// ── Cartes du formulaire (refonte, lot B2 ; décisions Val 2026-10-22/24) ────
+// Chaque collecte est une carte qui porte son type d'événement et ses contacts.
+// La route vérifie les types dans le référentiel en UNE lecture
+// (`.in('id', …).eq('actif', true)`), attendue sans terminal : cette chaîne
+// dédiée applique ses deux filtres, comme PostgREST.
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+const TYPES_EVENEMENTS = [{ id: TYPE_EVT, actif: true }];
+
+interface LectureTypes {
+  select: () => LectureTypes;
+  in: (col: string, ids: string[]) => LectureTypes;
+  eq: (col: string, valeur: unknown) => LectureTypes;
+  then: (
+    ok: (r: { data: { id: string }[]; error: null }) => unknown,
+    ko?: (e: unknown) => unknown,
+  ) => Promise<unknown>;
+}
+
+function lectureTypesEvenements(): LectureTypes {
+  let lignes = TYPES_EVENEMENTS;
+  const q: LectureTypes = {
+    select: () => q,
+    in: (col, ids) => {
+      if (col !== 'id') throw new Error(`filtre inattendu : ${col}`);
+      lignes = lignes.filter((l) => ids.includes(l.id));
+      return q;
+    },
+    eq: (col, valeur) => {
+      if (col !== 'actif') throw new Error(`filtre inattendu : ${col}`);
+      lignes = lignes.filter((l) => l.actif === valeur);
+      return q;
+    },
+    then: (ok, ko) =>
+      Promise.resolve({
+        data: lignes.map(({ id }) => ({ id })),
+        error: null as null,
+      }).then(ok, ko),
+  };
+  return q;
+}
+
+/** Le référentiel des types à part ; toute autre table sur la chaîne partagée. */
+function routerTables() {
+  mockSupabaseChain.from.mockImplementation((table: string) =>
+    table === 'types_evenements' ? lectureTypesEvenements() : mockSupabaseChain,
+  );
+}
+
+/** Champs propres à chaque carte, en plus de la date, de l'heure et du pax. */
+const CARTE = {
+  type_evenement_id: TYPE_EVT,
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+};
+
+/** Réponse de fn_enregistrer_programmation (événement + collectes, une transaction). */
+const enregistree = (evenement_id: string, ...collecte_ids: string[]) => ({
+  data: { evenement_id, collecte_ids },
+  error: null,
+});
+
+/** Arguments du premier appel de fn_enregistrer_programmation. */
+function argsEnregistrement(): Record<string, unknown> {
+  const appel = mockRpc.mock.calls.find(
+    ([fn]) => fn === 'fn_enregistrer_programmation',
+  );
+  expect(appel, 'fn_enregistrer_programmation jamais appelée').toBeDefined();
+  return appel?.[1] as Record<string, unknown>;
+}
+
+const BODY_ZD = {
+  lieu_id: 'lieu-1',
   nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
@@ -158,6 +225,7 @@ const BODY_ZD = {
       date_collecte: '2030-01-15',
       heure_collecte: '08:00',
       pax: 80,
+      ...CARTE,
     },
   ],
   confirmer: true,
@@ -171,6 +239,7 @@ const BODY_AG = {
       date_collecte: '2030-01-15',
       heure_collecte: '08:00',
       pax: 80,
+      ...CARTE,
     },
   ],
 };
@@ -183,15 +252,27 @@ const BODY_MIXTE = {
       date_collecte: '2030-01-15',
       heure_collecte: '08:00',
       pax: 80,
+      ...CARTE,
     },
     {
       type: 'ag',
       date_collecte: '2030-01-15',
       heure_collecte: '09:00',
       pax: 80,
+      ...CARTE,
     },
   ],
 };
+
+/** Corps d'une collecte ajoutée à un événement existant : une carte. */
+const ajout = (date_collecte: string, extra: Record<string, unknown> = {}) => ({
+  type: 'zd',
+  date_collecte,
+  heure_collecte: '10:00',
+  pax: 80,
+  ...CARTE,
+  ...extra,
+});
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
@@ -204,11 +285,9 @@ describe('M1.2 / Programmation ZD — flux confirmé', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala 2030' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-zd-1', error: null });
+    // Événement et collectes en une transaction ; l'ordre E1 de la collecte ZD
+    // y est émis par fn_creer_collecte (supabase/tests/programmation_par_carte).
+    mockRpc.mockResolvedValueOnce(enregistree('evt-1', 'collecte-zd-1'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -222,6 +301,9 @@ describe('M1.2 / Programmation ZD — flux confirmé', () => {
     };
     expect(json.evenement_id).toBe('evt-1');
     expect(json.collecte_ids).toContain('collecte-zd-1');
+    expect(argsEnregistrement()).toMatchObject({ p_confirmer: true });
+    // Création : aucun identifiant d'événement (réservé à la reprise d'un brouillon).
+    expect(argsEnregistrement()).not.toHaveProperty('p_evenement_id');
   });
 
   it('programmation_zd_brouillon — 201 sans appel fn_creer_collecte', async () => {
@@ -230,12 +312,7 @@ describe('M1.2 / Programmation ZD — flux confirmé', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle
-      .mockResolvedValueOnce({
-        data: { id: 'evt-2', nom_evenement: null },
-        error: null,
-      })
-      .mockResolvedValueOnce({ data: { id: 'brouillon-1' }, error: null });
+    mockRpc.mockResolvedValueOnce(enregistree('evt-2', 'brouillon-1'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -250,6 +327,12 @@ describe('M1.2 / Programmation ZD — flux confirmé', () => {
       'fn_creer_collecte',
       expect.anything(),
     );
+    // Un brouillon n'émet rien et n'a aucune suite : une seule RPC, sans
+    // confirmation.
+    expect(mockRpc.mock.calls.map(([fn]) => fn)).toEqual([
+      'fn_enregistrer_programmation',
+    ]);
+    expect(argsEnregistrement()).toMatchObject({ p_confirmer: false });
   });
 });
 
@@ -262,11 +345,7 @@ describe('M1.2 / Programmation AG — pack actif ou non', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-ag-1', nom_evenement: 'AG Test' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-ag-1', error: null });
+    mockRpc.mockResolvedValueOnce(enregistree('evt-ag-1', 'collecte-ag-1'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -285,11 +364,7 @@ describe('M1.2 / Programmation AG — pack actif ou non', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-ag-2', nom_evenement: 'AG sans pack' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-ag-2', error: null });
+    mockRpc.mockResolvedValueOnce(enregistree('evt-ag-2', 'collecte-ag-2'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -310,13 +385,9 @@ describe('M1.2 / Programmation mixte ZD+AG', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-mixte-1', nom_evenement: 'Mixte' },
-      error: null,
-    });
-    mockRpc
-      .mockResolvedValueOnce({ data: 'collecte-zd-m', error: null })
-      .mockResolvedValueOnce({ data: 'collecte-ag-m', error: null });
+    mockRpc.mockResolvedValueOnce(
+      enregistree('evt-mixte-1', 'collecte-zd-m', 'collecte-ag-m'),
+    );
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -325,7 +396,10 @@ describe('M1.2 / Programmation mixte ZD+AG', () => {
     );
     expect(res.status).toBe(201);
     const json = (await res.json()) as { collecte_ids: string[] };
-    expect(json.collecte_ids).toHaveLength(2);
+    expect(json.collecte_ids).toEqual(['collecte-zd-m', 'collecte-ag-m']);
+    // Les deux cartes partent dans le même appel, dans l'ordre du formulaire.
+    const cartes = argsEnregistrement().p_collectes as { type: string }[];
+    expect(cartes.map((c) => c.type)).toEqual(['zd', 'ag']);
   });
 });
 
@@ -342,12 +416,15 @@ describe('M1.2 / Validations bloquantes', () => {
       await import('@/app/api/v1/programmation/evenements/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements', {
-        type_evenement_id: 'type-1',
         lieu_id: 'lieu-1',
-        contact_principal_nom: 'Jean',
-        contact_principal_telephone: '0612345678',
+        nom_evenement: 'Gala 2030',
         collectes: [
-          { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+          {
+            type: 'zd',
+            date_collecte: '2030-01-15',
+            heure_collecte: '08:00',
+            ...CARTE,
+          },
         ],
         confirmer: true,
         controle_acces_requis: false,
@@ -355,6 +432,10 @@ describe('M1.2 / Validations bloquantes', () => {
       }),
     );
     expect(res.status).toBe(422);
+    expect(
+      ((await res.json()) as { champs_invalides?: string[] }).champs_invalides,
+    ).toEqual(['pax']);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   // Décision Val 2026-10-19 : le formulaire sépare « Nom de l'événement »
@@ -376,6 +457,7 @@ describe('M1.2 / Validations bloquantes', () => {
       "Nom de l'événement obligatoire pour confirmer la programmation",
     );
     expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('validations_nom_evenement_non_texte — 422, jamais une erreur 500', async () => {
@@ -391,6 +473,7 @@ describe('M1.2 / Validations bloquantes', () => {
     );
     expect(res.status).toBe(422);
     expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('client_final_renseigne — chaque nom écrit dans sa colonne', async () => {
@@ -399,14 +482,9 @@ describe('M1.2 / Validations bloquantes', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-avec-client', nom_evenement: 'Gala 2030' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({
-      data: 'collecte-avec-client',
-      error: null,
-    });
+    mockRpc.mockResolvedValueOnce(
+      enregistree('evt-avec-client', 'collecte-avec-client'),
+    );
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -414,12 +492,11 @@ describe('M1.2 / Validations bloquantes', () => {
       makeReq('POST', '/api/v1/programmation/evenements', BODY_ZD),
     );
     expect(res.status).toBe(201);
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        nom_evenement: 'Gala 2030',
-        nom_client_organisateur: 'Traiteur Dupont',
-      }),
-    );
+    // Niveau événement de fn_enregistrer_programmation : une clé par colonne.
+    expect(argsEnregistrement().p_evenement).toMatchObject({
+      nom_evenement: 'Gala 2030',
+      nom_client_organisateur: 'Traiteur Dupont',
+    });
   });
 
   it('client_final_facultatif — 201 sans client final, sans badge « Info incomplète »', async () => {
@@ -428,14 +505,9 @@ describe('M1.2 / Validations bloquantes', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-sans-client', nom_evenement: 'Gala 2030' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({
-      data: 'collecte-sans-client',
-      error: null,
-    });
+    mockRpc.mockResolvedValueOnce(
+      enregistree('evt-sans-client', 'collecte-sans-client'),
+    );
     const sansClient: Record<string, unknown> = { ...BODY_ZD };
     delete sansClient.nom_client_organisateur;
 
@@ -445,12 +517,10 @@ describe('M1.2 / Validations bloquantes', () => {
       makeReq('POST', '/api/v1/programmation/evenements', sansClient),
     );
     expect(res.status).toBe(201);
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        nom_evenement: 'Gala 2030',
-        nom_client_organisateur: null,
-      }),
-    );
+    expect(argsEnregistrement().p_evenement).toMatchObject({
+      nom_evenement: 'Gala 2030',
+      nom_client_organisateur: null,
+    });
     expect(mockSupabaseChain.update).not.toHaveBeenCalledWith({
       informations_completes: false,
     });
@@ -470,11 +540,16 @@ describe('M1.2 / Validations bloquantes', () => {
             date_collecte: '2020-01-01',
             heure_collecte: '08:00',
             pax: 80,
+            ...CARTE,
           },
         ],
       }),
     );
     expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'Date de collecte dans le passé : 2020-01-01',
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('validations_sans_collectes — 422 si tableau collectes vide', async () => {
@@ -489,6 +564,7 @@ describe('M1.2 / Validations bloquantes', () => {
       }),
     );
     expect(res.status).toBe(422);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('programmation_sans_entite_facturation_non_bloquee — entité créée à la volée (SIRET en_attente), jamais de refus', async () => {
@@ -496,9 +572,9 @@ describe('M1.2 / Validations bloquantes', () => {
     mockMaybeSingle
       .mockResolvedValueOnce({ data: null, error: null }) // aucune entité active
       .mockResolvedValueOnce({ data: { nom: 'Agence AREP' }, error: null }); // org
-    mockSingle
-      .mockResolvedValueOnce({ data: { id: 'ef-creee' }, error: null }) // INSERT entité
-      .mockResolvedValueOnce({ data: null, error: { message: 'stop' } }); // INSERT événement : on s'arrête là
+    mockSingle.mockResolvedValueOnce({ data: { id: 'ef-creee' }, error: null }); // INSERT entité
+    // Enregistrement de l'événement : on s'arrête là.
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'stop' } });
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -514,9 +590,9 @@ describe('M1.2 / Validations bloquantes', () => {
         siret_verification: 'en_attente',
       }),
     ); // …et c'est CETTE entité qui est rattachée à l'événement.
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ entite_facturation_id: 'ef-creee' }),
-    );
+    expect(argsEnregistrement().p_evenement).toMatchObject({
+      entite_facturation_id: 'ef-creee',
+    });
   });
 
   it('programmation_admin_sans_org — 422 si admin_savr sans organisation_id dans le body', async () => {
@@ -574,44 +650,54 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       data: { id: 'evt-1', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: 'new-collecte-1', error: null }); // fn_creer_collecte
+    mockRpc.mockResolvedValueOnce({ data: 'new-collecte-1', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
-        type: 'zd',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-        pax: 80,
-        // Champs hostiles : aucun ne doit atteindre la création (un autre
-        // événement, une autre organisation, des camions, des notes internes,
-        // une adresse, un contrôle d'accès que l'événement n'exige pas).
-        evenement_id: 'evt-autre-org',
-        organisation_id: 'org-autre',
-        nb_camions: 3,
-        notes: 'note hostile',
-        lieu_overrides: { adresse_acces: 'adresse hostile' },
-        controle_acces_requis: true,
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-1/collectes',
+        ajout('2030-02-01', {
+          // Champs hostiles : aucun ne doit atteindre la création (un autre
+          // événement, une autre organisation, des camions, des notes internes,
+          // une adresse, un contrôle d'accès que l'événement n'exige pas).
+          evenement_id: 'evt-autre-org',
+          organisation_id: 'org-autre',
+          nb_camions: 3,
+          notes: 'note hostile',
+          lieu_overrides: { adresse_acces: 'adresse hostile' },
+          controle_acces_requis: true,
+        }),
+      ),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
     expect(res.status).toBe(201);
     const json = (await res.json()) as { collecte_id: string };
     expect(json.collecte_id).toBe('new-collecte-1');
-    // Rattachement explicite au MÊME événement, par la fonction qui émet E1.
-    // Paramètres exacts (toStrictEqual : une clé de plus, même `undefined`,
-    // fait échouer) : seuls ces champs atteignent la création.
+    // Rattachement explicite au MÊME événement, par la fonction qui crée la
+    // collecte (fn_creer_collecte, donc l'E1) avec sa carte. Paramètres exacts
+    // (toStrictEqual : une clé de plus, même `undefined`, fait échouer) : seuls
+    // ces champs atteignent la création.
     expect(mockRpc.mock.calls[0]).toStrictEqual([
-      'fn_creer_collecte',
+      'fn_creer_collecte_carte',
       {
         p_evenement_id: 'evt-1',
-        p_type: 'zd',
-        p_date_collecte: '2030-02-01',
-        p_heure_collecte: '10:00',
+        p_carte: {
+          type: 'zd',
+          date_collecte: '2030-02-01',
+          heure_collecte: '10:00',
+          pax: 80,
+          informations_supplementaires: null,
+          type_evenement_id: TYPE_EVT,
+          contact_principal_nom: 'Jean Martin',
+          contact_principal_telephone: '0612345678',
+          contact_secours_nom: null,
+          contact_secours_telephone: null,
+        },
         p_controle_acces: false,
-        p_info_suppl: null,
-        p_pax: 80,
+        p_lieu_overrides: null,
+        p_confirmer: true,
       },
     ]);
   });
@@ -632,24 +718,22 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: 'col-acces', error: null }); // fn_creer_collecte
+    mockRpc.mockResolvedValueOnce({ data: 'col-acces', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
-        type: 'zd',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-        pax: 80,
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-1/collectes',
         // Valeur du navigateur : ignorée.
-        controle_acces_requis: false,
-      }),
+        ajout('2030-02-01', { controle_acces_requis: false }),
+      ),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
     expect(res.status).toBe(201);
     expect(mockRpc).toHaveBeenCalledWith(
-      'fn_creer_collecte',
+      'fn_creer_collecte_carte',
       expect.objectContaining({ p_controle_acces: true }),
     );
     // Lu sur les collectes de l'événement, dans la requête de propriété.
@@ -680,12 +764,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-brouillon/collectes',
-        {
-          type: 'zd',
-          date_collecte: '2030-02-01',
-          heure_collecte: '10:00',
-          pax: 80,
-        },
+        ajout('2030-02-01'),
       ),
       { params: Promise.resolve({ id: 'evt-brouillon' }) },
     );
@@ -717,15 +796,17 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-mixte/collectes', {
-        type: 'zd',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-        pax: 80,
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-mixte/collectes',
+        ajout('2030-02-01'),
+      ),
       { params: Promise.resolve({ id: 'evt-mixte' }) },
     );
     expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'Événement en brouillon : confirmez-le avant d’y ajouter une collecte.',
+    );
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
@@ -749,16 +830,14 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-brouillon/collectes',
-        {
-          type: 'ag',
-          date_collecte: '2030-02-01',
-          heure_collecte: '10:00',
-          pax: 80,
-        },
+        ajout('2030-02-01', { type: 'ag' }),
       ),
       { params: Promise.resolve({ id: 'evt-brouillon' }) },
     );
     expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'Événement en brouillon : confirmez-le avant d’y ajouter une collecte.',
+    );
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
@@ -772,23 +851,21 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: 'col-sans-acces', error: null }); // fn_creer_collecte
+    mockRpc.mockResolvedValueOnce({ data: 'col-sans-acces', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
-        type: 'zd',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-        pax: 80,
-        controle_acces_requis: true,
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-1/collectes',
+        ajout('2030-02-01', { controle_acces_requis: true }),
+      ),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
     expect(res.status).toBe(201);
     expect(mockRpc).toHaveBeenCalledWith(
-      'fn_creer_collecte',
+      'fn_creer_collecte_carte',
       expect.objectContaining({ p_controle_acces: false }),
     );
   });
@@ -805,7 +882,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
     // Toute garde de statut lirait `false` ici : seule la création répond.
     mockRpc.mockImplementation((fn: string) =>
       Promise.resolve(
-        fn === 'fn_creer_collecte'
+        fn === 'fn_creer_collecte_carte'
           ? { data: 'collecte-apres-coup', error: null }
           : { data: false, error: null },
       ),
@@ -814,17 +891,16 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-2/collectes', {
-        type: 'zd',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-        pax: 80,
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-2/collectes',
+        ajout('2030-02-01'),
+      ),
       { params: Promise.resolve({ id: 'evt-2' }) },
     );
     expect(res.status).toBe(201);
     const appels = mockRpc.mock.calls.map(([fn]) => fn);
-    expect(appels).toContain('fn_creer_collecte');
+    expect(appels).toContain('fn_creer_collecte_carte');
     expect(appels).not.toContain('f_collecte_editable');
     expect(appels).not.toContain('fn_ajouter_collecte_evenement');
   });
@@ -835,17 +911,16 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-2/collectes', {
-        type: 'zd',
-        date_collecte: '2020-01-01',
-        heure_collecte: '10:00',
-        pax: 80,
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-2/collectes',
+        ajout('2020-01-01'),
+      ),
       { params: Promise.resolve({ id: 'evt-2' }) },
     );
     expect(res.status).toBe(422);
     expect(((await res.json()) as { error: string }).error).toBe(
-      'Date de collecte dans le passé',
+      'Date de collecte dans le passé : 2020-01-01',
     );
     expect(mockRpc).not.toHaveBeenCalled();
   });
@@ -860,23 +935,27 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       data: { id: 'evt-2', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-du-jour', error: null }); // fn_creer_collecte
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-du-jour', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-2/collectes', {
-        type: 'zd',
-        date_collecte: '2026-10-21',
-        heure_collecte: '09:00',
-        pax: 80,
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-2/collectes',
+        ajout('2026-10-21', { heure_collecte: '09:00' }),
+      ),
       { params: Promise.resolve({ id: 'evt-2' }) },
     );
     expect(res.status).toBe(201);
     expect(mockRpc).toHaveBeenCalledWith(
-      'fn_creer_collecte',
-      expect.objectContaining({ p_date_collecte: '2026-10-21' }),
+      'fn_creer_collecte_carte',
+      expect.objectContaining({
+        p_carte: expect.objectContaining({
+          date_collecte: '2026-10-21',
+          heure_collecte: '09:00',
+        }),
+      }),
     );
   });
 
@@ -888,12 +967,11 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const ajouter = (date: string) =>
       POST(
-        makeReq('POST', '/api/v1/programmation/evenements/evt-2/collectes', {
-          type: 'zd',
-          date_collecte: date,
-          heure_collecte: '23:00',
-          pax: 80,
-        }),
+        makeReq(
+          'POST',
+          '/api/v1/programmation/evenements/evt-2/collectes',
+          ajout(date, { heure_collecte: '23:00' }),
+        ),
         { params: Promise.resolve({ id: 'evt-2' }) },
       );
 
@@ -906,7 +984,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       data: { id: 'evt-2', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-22', error: null }); // fn_creer_collecte
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-22', error: null }); // fn_creer_collecte_carte
     expect((await ajouter('2026-10-22')).status).toBe(201);
   });
 
@@ -917,15 +995,15 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
-        type: 'zd',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-        pax: 80,
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-1/collectes',
+        ajout('2030-02-01'),
+      ),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
     expect(res.status).toBe(404);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 });
 
@@ -1085,6 +1163,7 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
     expect(res.status).toBe(403);
     const json = (await res.json()) as { error: string };
     expect(json.error).toMatch(/lieu/i);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('agence_traiteur_non_autorise — 403 si agence spécifie un traiteur non shadow de son compte', async () => {
@@ -1103,6 +1182,7 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
     expect(res.status).toBe(403);
     const json = (await res.json()) as { error: string };
     expect(json.error).toMatch(/traiteur/i);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('ajout_collecte_ag_sans_pack_existant — 201 si AG ajouté sans pack actif (facturée à l’unité)', async () => {
@@ -1112,17 +1192,16 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
       data: { id: 'evt-sec', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-sec-ag', error: null }); // fn_creer_collecte
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-sec-ag', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-sec/collectes', {
-        type: 'ag',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-        pax: 80,
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-sec/collectes',
+        ajout('2030-02-01', { type: 'ag' }),
+      ),
       { params: Promise.resolve({ id: 'evt-sec' }) },
     );
     // Décision Val 2026-10-16 : aucun pack n'est lu, aucun n'est exigé.
@@ -1145,11 +1224,9 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
       })
       // Gate entité de facturation
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-agence-1', nom_evenement: 'Gala Agence' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-agence-1', error: null });
+    mockRpc.mockResolvedValueOnce(
+      enregistree('evt-agence-1', 'collecte-agence-1'),
+    );
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -1160,6 +1237,10 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
       }),
     );
     expect(res.status).toBe(201);
+    expect(argsEnregistrement().p_evenement).toMatchObject({
+      organisation_id: 'org-agence-1',
+      traiteur_operationnel_organisation_id: 'traiteur-reel-1',
+    });
   });
 });
 

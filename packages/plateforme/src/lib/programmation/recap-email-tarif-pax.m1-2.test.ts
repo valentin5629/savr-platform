@@ -22,15 +22,37 @@ vi.mock('@/lib/facturation-plateforme.js', () => ({
 
 import { envoyerRecapProgrammation } from './recap-email.js';
 
+// users(id) → le programmeur ; collectes(evenement_id) → une AG et une ZD.
+const COLLECTES = [
+  {
+    id: 'col-ag',
+    type: 'anti_gaspi',
+    date_collecte: '2030-01-15',
+    heure_collecte: '22:00:00',
+    pax: 1200,
+    created_at: null,
+  },
+  {
+    id: 'col-zd',
+    type: 'zero_dechet',
+    date_collecte: '2030-01-15',
+    heure_collecte: '19:00:00',
+    pax: 650,
+    created_at: null,
+  },
+];
 const supabase = {
-  from: () => ({
+  from: (table: string) => ({
     select: () => ({
-      eq: () => ({
-        maybeSingle: async () => ({
-          data: { email: 'julie@traiteur.local', prenom: 'Julie' },
-          error: null,
-        }),
-      }),
+      eq: () =>
+        table === 'users'
+          ? {
+              maybeSingle: async () => ({
+                data: { email: 'julie@traiteur.local', prenom: 'Julie' },
+                error: null,
+              }),
+            }
+          : Promise.resolve({ data: COLLECTES, error: null }),
     }),
   }),
 } as unknown as Parameters<typeof envoyerRecapProgrammation>[0];
@@ -51,10 +73,7 @@ describe('M1.2/pax_par_collecte — email récapitulatif : tarif ZD', () => {
       nomEvenement: 'Gala',
       organisationId: 'org-1',
       lieuId: 'lieu-1',
-      collectes: [
-        { type: 'ag', date_collecte: '2030-01-15', pax: 1200 },
-        { type: 'zd', date_collecte: '2030-01-15', pax: 650 },
-      ],
+      collecteIds: ['col-ag', 'col-zd'],
     });
 
     expect(tarif.calculer).toHaveBeenCalledTimes(1);

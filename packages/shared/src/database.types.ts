@@ -5347,6 +5347,16 @@ export type Database = {
         }
         Returns: string
       }
+      fn_creer_collecte_carte: {
+        Args: {
+          p_carte: Json
+          p_confirmer: boolean
+          p_controle_acces: boolean
+          p_evenement_id: string
+          p_lieu_overrides: Json
+        }
+        Returns: string
+      }
       fn_custom_access_token: { Args: { event: Json }; Returns: Json }
       fn_dispatcher_collecte: {
         Args: {
@@ -5355,6 +5365,15 @@ export type Database = {
           p_prestataire_logistique_id?: string
         }
         Returns: string
+      }
+      fn_enregistrer_programmation: {
+        Args: {
+          p_collectes: Json
+          p_confirmer: boolean
+          p_evenement: Json
+          p_evenement_id?: string
+        }
+        Returns: Json
       }
       fn_est_debit_pack_attendu: {
         Args: {

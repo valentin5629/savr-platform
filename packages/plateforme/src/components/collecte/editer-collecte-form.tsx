@@ -19,7 +19,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { FormActions } from '@/components/ui/form-actions';
-import { paxSaisiValide } from '@/components/programmation/sous-bloc-collecte';
+import { paxSaisiValide } from '@/lib/programmation/cartes-saisie';
 
 interface TypeEvenement {
   id: string;

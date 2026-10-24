@@ -322,13 +322,15 @@ async function patchEventAdmin(body: unknown) {
   });
 }
 
+// Une carte par collecte (refonte du formulaire, lot B2) : son type
+// d'événement est vérifié dans le référentiel AVANT les gardes de périmètre —
+// première lecture de la route, première réponse de la file.
+const TYPE_EVT_CARTE = '11111111-1111-4111-8111-111111111111';
+const TYPES_ACTIFS = { data: [{ id: TYPE_EVT_CARTE }], error: null };
+
 const BODY_PROGRAMMATION = {
-  pax: 120,
-  type_evenement_id: 'type-1',
   lieu_id: 'lieu-1',
   controle_acces_requis: false,
-  contact_principal_nom: 'Alice',
-  contact_principal_telephone: '+33611111111',
   nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'ACME',
   collectes: [
@@ -337,6 +339,9 @@ const BODY_PROGRAMMATION = {
       date_collecte: '2030-01-15',
       heure_collecte: '08:00',
       pax: 80,
+      type_evenement_id: TYPE_EVT_CARTE,
+      contact_principal_nom: 'Alice',
+      contact_principal_telephone: '+33611111111',
     },
   ],
   confirmer: true,
@@ -457,6 +462,7 @@ describe('§09 / écriture evenements par la route', () => {
   it('gestionnaire_insert_evenement_lieu_hors_perimetre_refuse — 403, aucun INSERT', async () => {
     // organisations_lieux (gestionnaire × L4) → 0 ligne (C6).
     setupAuth('gestionnaire_lieux', 'org-viparis', 'gest-viparis');
+    admin.push(TYPES_ACTIFS); // référentiel des types (cartes)
     admin.push({ data: null, error: null }); // lookup organisations_lieux
 
     const res = await postProgrammation({
@@ -467,9 +473,11 @@ describe('§09 / écriture evenements par la route', () => {
 
     expect(res.status).toBe(403);
     expect(admin.__calls.from?.map(([t]) => t)).toEqual([
+      'types_evenements',
       'organisations_lieux',
     ]);
     expect(admin.__calls.eq).toEqual([
+      ['actif', true], // référentiel des types
       ['organisation_id', 'org-viparis'],
       ['lieu_id', 'lieu-L4'],
     ]);
@@ -479,6 +487,7 @@ describe('§09 / écriture evenements par la route', () => {
   it('gestionnaire_insert_evenement_traiteur_shadow_refuse — 403, aucun INSERT', async () => {
     // Lieu dans le parc (C6b), traiteur shadow → 0 ligne au lookup référentiel (C7).
     setupAuth('gestionnaire_lieux', 'org-viparis', 'gest-viparis');
+    admin.push(TYPES_ACTIFS); // référentiel des types (cartes)
     admin.push({ data: { id: 'ol-1' }, error: null }); // organisations_lieux
     admin.push({ data: null, error: null }); // organisations (référentiel)
 
@@ -492,11 +501,13 @@ describe('§09 / écriture evenements par la route', () => {
       /référentiel/,
     );
     expect(admin.__calls.from?.map(([t]) => t)).toEqual([
+      'types_evenements',
       'organisations_lieux',
       'organisations',
     ]);
-    // Le lookup porte le prédicat de evt_gestionnaire_insert (C7e) + actif.
-    expect(admin.__calls.eq?.slice(2)).toEqual([
+    // Le lookup porte le prédicat de evt_gestionnaire_insert (C7e) + actif
+    // (après le filtre du référentiel des types et les deux du parc).
+    expect(admin.__calls.eq?.slice(3)).toEqual([
       ['id', 'org-shadow'],
       ['actif', true],
       ['type', 'traiteur'],
@@ -508,6 +519,7 @@ describe('§09 / écriture evenements par la route', () => {
   it('gestionnaire_insert_evenement_traiteur_shadow_refuse — sans traiteur opérant : 422, jamais l’organisation du gestionnaire', async () => {
     // Ancien défaut : traiteur_operationnel = organisation du gestionnaire (C7d).
     setupAuth('gestionnaire_lieux', 'org-viparis', 'gest-viparis');
+    admin.push(TYPES_ACTIFS); // référentiel des types (cartes)
     admin.push({ data: { id: 'ol-1' }, error: null }); // organisations_lieux
 
     const res = await postProgrammation(BODY_PROGRAMMATION);
@@ -518,6 +530,7 @@ describe('§09 / écriture evenements par la route', () => {
     );
     // Refus avant le profil entreprise : le 422 n'est pas celui du SIRET.
     expect(admin.__calls.from?.map(([t]) => t)).toEqual([
+      'types_evenements',
       'organisations_lieux',
     ]);
     expectAucuneEcriture();
@@ -525,6 +538,7 @@ describe('§09 / écriture evenements par la route', () => {
 
   it('gestionnaire_insert_evenement_traiteur_shadow_refuse — contre-épreuve : traiteur référencé, la garde laisse passer', async () => {
     setupAuth('gestionnaire_lieux', 'org-viparis', 'gest-viparis');
+    admin.push(TYPES_ACTIFS); // référentiel des types (cartes)
     admin.push({ data: { id: 'ol-1' }, error: null }); // organisations_lieux
     admin.push({ data: { id: 'org-kaspia' }, error: null }); // référentiel (C7c)
 
@@ -536,7 +550,8 @@ describe('§09 / écriture evenements par la route', () => {
     // La suite (profil entreprise, mocké vide) répond autre chose que le 403 traiteur.
     const json = (await res.json()) as { error?: string };
     expect(json.error ?? '').not.toMatch(/Traiteur opérationnel non autorisé/);
-    expect(admin.__calls.from?.map(([t]) => t).slice(0, 3)).toEqual([
+    expect(admin.__calls.from?.map(([t]) => t).slice(0, 4)).toEqual([
+      'types_evenements',
       'organisations_lieux',
       'organisations',
       'entites_facturation',

@@ -179,6 +179,10 @@ async function listerBrouillons() {
   );
 }
 
+// Type d'événement de la carte (refonte du formulaire, lot B2) : vérifié par la
+// route dans le référentiel, une lecture servie par la file de réponses.
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+
 async function creerBrouillon(type: string) {
   const { POST } =
     await import('@/app/api/v1/programmation/evenements/route.js');
@@ -187,11 +191,7 @@ async function creerBrouillon(type: string) {
       method: 'POST',
       body: JSON.stringify({
         organisation_id: 'org-kaspia',
-        pax: 120,
-        type_evenement_id: 'te-1',
         lieu_id: 'lieu-1',
-        contact_principal_nom: 'Marie Dupont',
-        contact_principal_telephone: '0600000000',
         controle_acces_requis: false,
         collectes: [
           {
@@ -199,6 +199,9 @@ async function creerBrouillon(type: string) {
             date_collecte: '2099-08-01',
             heure_collecte: '14:30',
             pax: 80,
+            type_evenement_id: TYPE_EVT,
+            contact_principal_nom: 'Marie Dupont',
+            contact_principal_telephone: '0600000000',
           },
         ],
         confirmer: false,
@@ -241,30 +244,40 @@ beforeEach(() => {
 });
 
 describe('M1.2 — création d’un brouillon : normalisation du type', () => {
-  // Le chemin CONFIRMÉ passe par fn_creer_collecte, qui normalise 'zd'/'ag' vers
-  // l'enum (CASE). Le chemin BROUILLON insérait en direct, sans normalisation :
-  // « invalid input value for enum plateforme.collecte_type: "zd" » → 500 +
-  // rollback de l'événement. « Enregistrer en brouillon » ne fonctionnait donc pour
-  // AUCUN rôle, et /brouillons était structurellement vide — ce qui a masqué les
-  // défauts des routes en aval (dont un DELETE mort depuis toujours).
+  // Historique : le chemin BROUILLON insérait en direct, sans normaliser
+  // 'zd'/'ag' vers l'enum : « invalid input value for enum
+  // plateforme.collecte_type: "zd" » → 500. « Enregistrer en brouillon » ne
+  // fonctionnait pour AUCUN rôle, et /brouillons était structurellement vide.
+  // Depuis le lot B2 (décision Val 2026-10-24), brouillon et confirmation
+  // passent par la même RPC (fn_enregistrer_programmation) : la route n'insère
+  // plus rien, l'alias part tel quel dans la carte, et c'est
+  // fn_creer_collecte_carte qui le normalise (CASE) avant l'INSERT du brouillon
+  // (supabase/tests/programmation_par_carte.test.sql).
   it.each([
     ['zd', 'zero_dechet'],
     ['ag', 'anti_gaspi'],
   ])(
-    'l’alias UI « %s » est normalisé en « %s » avant INSERT',
-    async (alias, attendu) => {
+    'l’alias UI « %s » part tel quel à fn_enregistrer_programmation, normalisé en « %s » par la base — aucun INSERT direct',
+    async (alias) => {
       setupAuth('admin_savr', 'org-savr');
-      admin.push({ data: { id: 'e1', nom_evenement: null }, error: null }); // insert evenement
-      admin.push({ data: { id: 'col-1' }, error: null }); // insert collecte
+      admin.push({ data: [{ id: TYPE_EVT }], error: null }); // types_evenements
+      admin.push({
+        data: { evenement_id: 'e1', collecte_ids: ['col-1'] },
+        error: null,
+      }); // rpc fn_enregistrer_programmation
 
       const res = await creerBrouillon(alias);
 
       expect(res.status).toBe(201);
-      // [0] = INSERT evenements, [1] = INSERT collectes.
-      expect((admin.__calls.insert ?? [])[1]?.[0]).toMatchObject({
-        type: attendu,
-        statut: 'brouillon',
-      });
+      expect(admin.__calls.insert).toBeUndefined();
+      expect(admin.__calls.rpc).toHaveLength(1);
+      const [nom, args] = admin.__calls.rpc![0]! as [
+        string,
+        { p_collectes: { type: string }[]; p_confirmer: boolean },
+      ];
+      expect(nom).toBe('fn_enregistrer_programmation');
+      expect(args.p_confirmer).toBe(false);
+      expect(args.p_collectes.map((c) => c.type)).toEqual([alias]);
     },
   );
 });

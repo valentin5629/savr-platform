@@ -11,6 +11,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ROUTES } from '@/lib/routes';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
 interface BrouillonRow {
   id: string;
@@ -105,7 +106,9 @@ export default function BrouillonsPage() {
                     {row.collectes[0]?.date_collecte ?? 'Date à définir'}
                   </span>
                   <span>
-                    {row.collectes.map((c) => c.type.toUpperCase()).join(' + ')}
+                    {row.collectes
+                      .map((c) => libelleTypeCollecte(c.type))
+                      .join(' + ')}
                   </span>
                 </Text>
               </div>

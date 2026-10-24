@@ -120,8 +120,10 @@ function resetChain(): void {
   mockSingle.mockReset();
   mockMaybeSingle.mockReset();
   argsRpcCaptures.length = 0;
+  mockSupabaseChain.from.mockImplementation((table: string) =>
+    table === 'types_evenements' ? lectureTypesEvenements() : mockSupabaseChain,
+  );
   for (const m of [
-    'from',
     'select',
     'insert',
     'update',
@@ -186,23 +188,59 @@ function argsRpc(nom: string): unknown {
 const NOM_DEMESURE = 'a'.repeat(5000);
 const INFOS_1001 = 'x'.repeat(1001);
 
-const BODY_ZD = {
+// Cartes du formulaire (refonte, lot B2 ; décisions Val 2026-10-22/24) : les
+// contacts et les informations supplémentaires sont portés par CHAQUE collecte
+// (une carte), plus par l'événement. Le type d'événement de la carte est
+// vérifié dans le référentiel en une lecture attendue sans terminal.
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+
+interface LectureTypes {
+  select: () => LectureTypes;
+  in: (col: string, ids: string[]) => LectureTypes;
+  eq: (col: string, valeur: unknown) => LectureTypes;
+  then: (
+    ok: (r: { data: { id: string }[]; error: null }) => unknown,
+    ko?: (e: unknown) => unknown,
+  ) => Promise<unknown>;
+}
+
+function lectureTypesEvenements(): LectureTypes {
+  let lignes = [{ id: TYPE_EVT, actif: true }];
+  const q: LectureTypes = {
+    select: () => q,
+    in: (_col, ids) => {
+      lignes = lignes.filter((l) => ids.includes(l.id));
+      return q;
+    },
+    eq: (_col, valeur) => {
+      lignes = lignes.filter((l) => l.actif === valeur);
+      return q;
+    },
+    then: (ok, ko) =>
+      Promise.resolve({
+        data: lignes.map(({ id }) => ({ id })),
+        error: null as null,
+      }).then(ok, ko),
+  };
+  return q;
+}
+
+const CARTE_ZD = {
+  type: 'zd',
+  date_collecte: '2030-01-15',
+  heure_collecte: '08:00',
   pax: 80,
-  type_evenement_id: 'type-1',
-  lieu_id: 'lieu-1',
+  type_evenement_id: TYPE_EVT,
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+};
+
+const BODY_ZD = {
+  lieu_id: 'lieu-1',
   nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
-  collectes: [
-    {
-      type: 'zd',
-      date_collecte: '2030-01-15',
-      heure_collecte: '08:00',
-      pax: 80,
-    },
-  ],
+  collectes: [CARTE_ZD],
   confirmer: true,
 };
 
@@ -219,6 +257,27 @@ async function postProgrammation(
   );
 }
 
+/** POST d'une programmation dont l'unique carte reçoit `champs`. */
+function postCarte(champs: Record<string, unknown>): Promise<NextResponse> {
+  return postProgrammation({ collectes: [{ ...CARTE_ZD, ...champs }] });
+}
+
+/** Réponse de fn_enregistrer_programmation, arguments capturés par copie. */
+function repondreEnregistrement(): void {
+  repondreRpc({
+    data: { evenement_id: 'evt-1', collecte_ids: ['collecte-zd-1'] },
+    error: null,
+  });
+}
+
+/** Première carte transmise à fn_enregistrer_programmation. */
+function carteTransmise(): Record<string, unknown> {
+  const args = argsRpc('fn_enregistrer_programmation') as {
+    p_collectes: Record<string, unknown>[];
+  };
+  return args.p_collectes[0]!;
+}
+
 // ── Programmation initiale ────────────────────────────────────────────────────
 describe('bornes texte libre — POST /programmation/evenements', () => {
   beforeEach(resetChain);
@@ -226,7 +285,7 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
   it('refuse le contact de secours de 5 000 caractères — sans créer d’événement', async () => {
     setupAuth('traiteur_commercial');
 
-    const res = await postProgrammation({ contact_secours_nom: NOM_DEMESURE });
+    const res = await postCarte({ contact_secours_nom: NOM_DEMESURE });
 
     expect(await champsInvalides(res)).toEqual(['contact_secours_nom']);
     aucuneEcriture();
@@ -240,7 +299,7 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
   it('refuse un nom de secours multiligne — sans lui, le CHECK le rendrait en 500', async () => {
     setupAuth('traiteur_commercial');
 
-    const res = await postProgrammation({
+    const res = await postCarte({
       contact_secours_nom: 'Jean Martin\nAccès : porte de service',
     });
 
@@ -251,11 +310,7 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
   it('refuse des informations supplémentaires au-delà du plafond CDC de 1000 caractères', async () => {
     setupAuth('traiteur_commercial');
 
-    const res = await postProgrammation({
-      collectes: [
-        { ...BODY_ZD.collectes[0], informations_supplementaires: INFOS_1001 },
-      ],
-    });
+    const res = await postCarte({ informations_supplementaires: INFOS_1001 });
 
     expect(await champsInvalides(res)).toEqual([
       'informations_supplementaires',
@@ -280,37 +335,22 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
     mockMaybeSingle
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // récap
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-zd-1', error: null });
+    repondreEnregistrement();
 
-    const res = await postProgrammation({
+    const res = await postCarte({
       contact_secours_nom: '  Marie Durand  ',
       contact_secours_telephone: ' 06 12 34 56 78 ',
-      collectes: [
-        {
-          ...BODY_ZD.collectes[0],
-          informations_supplementaires:
-            '  Quai N°2 fermé\nSonner interphone B ',
-        },
-      ],
+      informations_supplementaires: '  Quai N°2 fermé\nSonner interphone B ',
     });
 
     expect(res.status).toBe(201);
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contact_secours_nom: 'Marie Durand',
-        contact_secours_telephone: '06 12 34 56 78',
-      }),
-    );
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_creer_collecte',
-      expect.objectContaining({
-        p_info_suppl: 'Quai N°2 fermé\nSonner interphone B',
-      }),
-    );
+    // Valeurs figées à l'appel : la carte qui part à la RPC (seule écriture de
+    // la route) porte les valeurs normalisées, jamais le corps brut.
+    expect(carteTransmise()).toMatchObject({
+      contact_secours_nom: 'Marie Durand',
+      contact_secours_telephone: '06 12 34 56 78',
+      informations_supplementaires: 'Quai N°2 fermé\nSonner interphone B',
+    });
   });
 });
 
@@ -318,17 +358,15 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
 // Ces deux champs partent dans le champ NATIF de contact de la commande, pas dans
 // le canal libre : pas de risque d'ÉVICTION, mais un nom de 5 000 caractères reste
 // une donnée aberrante transmise au transporteur. Ils sont `obligatoire` : le
-// contrôle de présence en tête de route ne teste que `!body.x`, il laisse passer
-// `'   '`, un objet, ou 5 000 caractères.
+// contrôle de présence de la carte (lib/programmation/cartes) ne teste que la
+// clé, il laisse passer `'   '`, un objet, ou 5 000 caractères.
 describe('bornes texte libre — contacts principaux', () => {
   beforeEach(resetChain);
 
   it('POST : refuse le nom principal de 5 000 caractères — sans créer d’événement', async () => {
     setupAuth('traiteur_commercial');
 
-    const res = await postProgrammation({
-      contact_principal_nom: NOM_DEMESURE,
-    });
+    const res = await postCarte({ contact_principal_nom: NOM_DEMESURE });
 
     expect(await champsInvalides(res)).toEqual(['contact_principal_nom']);
     aucuneEcriture();
@@ -337,7 +375,7 @@ describe('bornes texte libre — contacts principaux', () => {
   it('POST : refuse un contact principal BLANC — le « truthy » de la route le laissait passer', async () => {
     setupAuth('traiteur_commercial');
 
-    const res = await postProgrammation({ contact_principal_nom: '   ' });
+    const res = await postCarte({ contact_principal_nom: '   ' });
 
     expect(await champsInvalides(res)).toEqual(['contact_principal_nom']);
     aucuneEcriture();
@@ -348,24 +386,21 @@ describe('bornes texte libre — contacts principaux', () => {
     mockMaybeSingle
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // récap
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-zd-1', error: null });
+    repondreEnregistrement();
 
-    const res = await postProgrammation({
+    const res = await postCarte({
       contact_principal_nom: '  Jean Martin  ',
       contact_principal_telephone: '  06 12 34 56 78  ',
     });
 
     expect(res.status).toBe(201);
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contact_principal_nom: 'Jean Martin',
-        contact_principal_telephone: '06 12 34 56 78',
-      }),
-    );
+    // L'INSERT est fait par fn_enregistrer_programmation, avec la carte reçue :
+    // c'est elle qui doit porter la valeur normalisée.
+    expect(carteTransmise()).toMatchObject({
+      contact_principal_nom: 'Jean Martin',
+      contact_principal_telephone: '06 12 34 56 78',
+    });
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
   });
 
   // Depuis le lot B1, le contact principal se modifie sur la collecte : c'est
@@ -732,10 +767,7 @@ describe('bornes texte libre — routes collecte', () => {
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
-        type: 'zd',
-        date_collecte: '2030-01-15',
-        heure_collecte: '08:00',
-        pax: 80,
+        ...CARTE_ZD,
         informations_supplementaires: INFOS_1001,
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
@@ -1045,7 +1077,7 @@ describe('bornes texte libre — routes collecte', () => {
     );
   });
 
-  it('POST /programmation/evenements/[id]/collectes : passe à fn_creer_collecte la valeur NORMALISÉE', async () => {
+  it('POST /programmation/evenements/[id]/collectes : passe à fn_creer_collecte_carte la valeur NORMALISÉE', async () => {
     setupAuth('traiteur_manager');
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -1056,27 +1088,25 @@ describe('bornes texte libre — routes collecte', () => {
       },
       error: null,
     }); // vérification de propriété de l'événement
-    mockRpc.mockResolvedValueOnce({ data: 'col-neuve', error: null }); // fn_creer_collecte
+    repondreRpc({ data: 'col-neuve', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
-        type: 'zd',
-        date_collecte: '2030-01-15',
-        heure_collecte: '08:00',
-        pax: 80,
+        ...CARTE_ZD,
         informations_supplementaires: '  Sonner au 3e, porte droite  ',
+        contact_secours_nom: '  Marie Durand  ',
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
 
     expect(res.status).toBe(201);
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_creer_collecte',
-      expect.objectContaining({
-        p_info_suppl: 'Sonner au 3e, porte droite',
-      }),
-    );
+    expect(argsRpc('fn_creer_collecte_carte')).toMatchObject({
+      p_carte: {
+        informations_supplementaires: 'Sonner au 3e, porte droite',
+        contact_secours_nom: 'Marie Durand',
+      },
+    });
   });
 });

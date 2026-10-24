@@ -57,7 +57,7 @@ export async function GET(
   const query = supabase
     .from('evenements')
     .select(
-      'id, organisation_id, nom_evenement, nom_client_organisateur, date_evenement, pax, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone, type_evenement:types_evenements!type_evenement_id(libelle), lieux(nom, adresse_acces, code_postal, ville), collectes(id, type, statut, date_collecte, heure_collecte, pax, controle_acces_requis)',
+      'id, organisation_id, traiteur_operationnel_organisation_id, lieu_id, nom_evenement, nom_client_organisateur, reference_affaire, date_evenement, pax, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone, type_evenement:types_evenements!type_evenement_id(libelle), traiteur_operationnel:organisations!traiteur_operationnel_organisation_id(id, nom, raison_sociale), organisation:organisations!organisation_id(id, nom, raison_sociale), lieux(nom, adresse_acces, code_postal, ville, acces_details, controle_acces_requis_default), collectes(id, type, statut, date_collecte, heure_collecte, pax, controle_acces_requis, type_evenement_id, informations_supplementaires, lieu_overrides, created_at, type_evenement:types_evenements!type_evenement_id(libelle))',
     )
     .eq('id', evenementId);
 
@@ -78,6 +78,57 @@ export async function GET(
   // de l'appelant.
   const emailRecap = await lireEtatRecapEmail(supabase, evenementId);
 
+  // Contacts de CHAQUE collecte (refonte du formulaire, lot B2) : table
+  // `collecte_contacts`, fermée aux clients, lue ici en service-role après la
+  // garde. L'appelant programme pour l'organisation de l'événement (ou est
+  // l'équipe Savr) : il voit les contacts de ses programmations (§09,
+  // arbitrages C2/C5 du 2026-10-01). Un échec de lecture est une erreur,
+  // jamais « aucun contact ».
+  // Ordre de création (puis identifiant) : la reprise d'un brouillon rouvre
+  // ses cartes dans l'ordre où elles ont été enregistrées ; la lecture
+  // embarquée n'a pas d'ordre garanti.
+  const collectesBrutes = [
+    ...((data.collectes ?? []) as Array<
+      Record<string, unknown> & {
+        id: string;
+        type_evenement?: unknown;
+        created_at?: string | null;
+      }
+    >),
+  ].sort((a, b) =>
+    `${a.created_at ?? ''}|${a.id}` < `${b.created_at ?? ''}|${b.id}` ? -1 : 1,
+  );
+  const contactsParCollecte = new Map<string, Record<string, unknown>>();
+  if (collectesBrutes.length > 0) {
+    const { data: contacts, error: contactsErr } = await supabase
+      .from('collecte_contacts')
+      .select(
+        'collecte_id, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone',
+      )
+      .in(
+        'collecte_id',
+        collectesBrutes.map((c) => c.id),
+      );
+    if (contactsErr)
+      return serverError(contactsErr, 'programmation.evenements.contacts');
+    for (const ligne of (contacts ?? []) as Array<
+      Record<string, unknown> & { collecte_id: string }
+    >) {
+      const { collecte_id, ...valeurs } = ligne;
+      contactsParCollecte.set(collecte_id, valeurs);
+    }
+  }
+  const collectes = collectesBrutes.map((c) => {
+    const type = (
+      Array.isArray(c.type_evenement) ? c.type_evenement[0] : c.type_evenement
+    ) as { libelle: string | null } | null | undefined;
+    return {
+      ...c,
+      type_evenement: type?.libelle ?? null,
+      contacts: contactsParCollecte.get(c.id) ?? null,
+    };
+  });
+
   // Niveau événement de la page « Ajouter une collecte » (§06.01), affiché figé :
   // le contrôle d'accès est celui que la route d'ajout imposera.
   // Relation to-one : PostgREST renvoie un objet, on tolère le tableau.
@@ -86,8 +137,28 @@ export async function GET(
       ? data.type_evenement[0]
       : data.type_evenement
   ) as { libelle: string | null } | null | undefined;
+  // Traiteur opérant (reprise d'un brouillon d'agence ou de gestionnaire) et
+  // organisation programmatrice (reprise par l'équipe Savr, qui programme pour
+  // son compte) : leur nom d'affichage seul, comme la liste du sélecteur.
+  type OrgLue = {
+    id: string;
+    nom: string | null;
+    raison_sociale: string | null;
+  };
+  const nomAffiche = (o: unknown): { id: string; nom: string } | null => {
+    const org = (Array.isArray(o) ? o[0] : o) as OrgLue | null | undefined;
+    return org
+      ? {
+          id: org.id,
+          nom: (org.nom ?? '').trim() || (org.raison_sociale ?? ''),
+        }
+      : null;
+  };
   return NextResponse.json({
     ...data,
+    traiteur_operationnel: nomAffiche(data.traiteur_operationnel),
+    organisation: nomAffiche(data.organisation),
+    collectes,
     type_evenement: typeEvenement?.libelle ?? null,
     controle_acces_requis: controleAccesEvenement(data.collectes),
     email_recap: emailRecap,

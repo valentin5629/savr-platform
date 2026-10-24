@@ -1,11 +1,16 @@
 /**
  * M1.2 / formulaire_simplifie — décisions Val 2026-10-16, pour tous les rôles :
- * l'étape 2 ne propose plus stationnement, accès office, type de véhicule max,
- * contraintes horaires ni flux acceptés ; l'étape 3 s'appelle « Date et heure de
- * collecte » et n'a plus de récapitulatif (il est montré après confirmation).
+ * les champs du lieu ne proposent plus stationnement, accès office, type de
+ * véhicule max, contraintes horaires ni flux acceptés ; l'écran des collectes
+ * n'a pas de récapitulatif (il est montré après confirmation).
  *
- * Le formulaire est pré-rempli par « Dupliquer » (?from=) pour franchir les
- * étapes 1 et 2 sans saisie.
+ * Refonte du formulaire (lot B2, décisions Val 2026-10-22) : deux écrans,
+ * « Informations sur l'événement » (dont le lieu et ses champs) puis
+ * « Informations sur les collectes » (une carte par collecte). Les anciennes
+ * étapes « Lieu & contacts » et « Date et heure de collecte » n'existent plus.
+ *
+ * Le formulaire est pré-rempli par « Dupliquer » (?from=) pour franchir
+ * l'écran 1 sans saisie.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
@@ -70,9 +75,17 @@ afterEach(() => {
   window.history.replaceState({}, '', '/');
 });
 
-describe('M1.2 / formulaire_simplifie — étapes 2 et 3', () => {
+const RETIRES = [
+  'Stationnement',
+  'Accès office',
+  'Type de véhicule max',
+  'Contraintes horaires',
+  'Flux acceptés',
+];
+
+describe('M1.2 / formulaire_simplifie — écrans 1 et 2', () => {
   it(
-    'étape 2 sans les 5 champs retirés ; étape 3 « Date et heure de collecte » sans récapitulatif',
+    'écran 1 : champs du lieu sans les 5 retirés ; écran 2 « Informations sur les collectes » sans récapitulatif',
     async () => {
       window.history.replaceState({}, '', '/programmer/nouveau?from=c-src');
       vi.stubGlobal(
@@ -93,45 +106,53 @@ describe('M1.2 / formulaire_simplifie — étapes 2 et 3', () => {
 
       render(<NouveauProgrammationPage />);
 
-      // Indicateur d'étapes : le nouveau libellé, plus « Collecte(s) ».
-      expect(screen.getByText('Date et heure de collecte')).toBeInTheDocument();
-      expect(screen.queryByText('Collecte(s)')).toBeNull();
+      // Indicateur d'étapes : les deux écrans, plus les trois anciennes étapes.
+      const etapes = screen.getByRole('navigation', {
+        name: 'Étapes du formulaire',
+      });
+      expect(
+        within(etapes).getByText("Informations sur l'événement"),
+      ).toBeInTheDocument();
+      expect(
+        within(etapes).getByText('Informations sur les collectes'),
+      ).toBeInTheDocument();
+      for (const ancienne of [
+        'Lieu & contacts',
+        'Date et heure de collecte',
+        'Collecte(s)',
+      ]) {
+        expect(within(etapes).queryByText(ancienne)).toBeNull();
+      }
 
       await screen.findByDisplayValue('Maison Dupont', undefined, ATTENTE_UI);
-      fireEvent.click(screen.getByRole('button', { name: /Continuer/ }));
 
-      // Étape 2 : les champs du lieu restants, sans les 5 retirés.
-      await screen.findByRole(
-        'heading',
-        { name: 'Lieu et contacts' },
-        ATTENTE_UI,
-      );
+      // Écran 1 : les champs du lieu restants, sans les 5 retirés.
       expect(screen.getByLabelText("Adresse d'accès livraison")).toHaveValue(
         '53 avenue des Terroirs de France',
       );
       expect(screen.getByLabelText("Détails d'accès")).toBeInTheDocument();
-      for (const retire of [
-        'Stationnement',
-        'Accès office',
-        'Type de véhicule max',
-        'Contraintes horaires',
-        'Flux acceptés',
-      ]) {
+      for (const retire of RETIRES) {
         expect(screen.queryByText(retire)).toBeNull();
       }
       fireEvent.click(screen.getByRole('button', { name: /Continuer/ }));
 
-      // Étape 3 : titre renommé, pas de récapitulatif.
+      // Écran 2 : une carte par collecte, ni récapitulatif ni champ retiré.
       const titre = await screen.findByRole(
         'heading',
-        { level: 2, name: 'Date et heure de collecte' },
+        { level: 2, name: 'Informations sur les collectes' },
         ATTENTE_UI,
       );
-      const carte = titre.parentElement as HTMLElement;
-      expect(within(carte).queryByText('Récapitulatif')).toBeNull();
-      expect(within(carte).queryByText('Maison Dupont')).toBeNull();
+      const ecran = titre.parentElement as HTMLElement;
+      expect(within(ecran).getByTestId('carte-zd-1')).toBeInTheDocument();
+      expect(within(ecran).queryByText('Récapitulatif')).toBeNull();
+      expect(within(ecran).queryByText(/Maison Dupont/)).toBeNull();
+      expect(within(ecran).queryByText(/Gala de printemps/)).toBeNull();
+      expect(within(ecran).queryByText(/Musée des Arts Forains/)).toBeNull();
+      for (const retire of RETIRES) {
+        expect(screen.queryByText(retire)).toBeNull();
+      }
       expect(
-        within(carte).getByRole('button', {
+        within(ecran).getByRole('button', {
           name: /Confirmer la programmation/,
         }),
       ).toBeInTheDocument();

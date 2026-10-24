@@ -84,8 +84,10 @@ function setupAuth(
 
 function resetChain(): void {
   vi.clearAllMocks();
+  mockSupabaseChain.from.mockImplementation((table: string) =>
+    table === 'types_evenements' ? lectureTypesEvenements() : mockSupabaseChain,
+  );
   for (const m of [
-    'from',
     'select',
     'insert',
     'update',
@@ -121,11 +123,59 @@ async function refusPax(res: NextResponse): Promise<void> {
 
 const INVALIDES: unknown[] = [0, -3, 12.5, 100_001, '80', null, undefined];
 
-const CORPS_PROGRAMMATION = {
-  type_evenement_id: 'type-1',
-  lieu_id: 'lieu-1',
+// Cartes du formulaire (refonte, lot B2) : chaque collecte porte aussi son type
+// d'événement et ses contacts. Les corps de refus sont complets hors pax, pour
+// que le 422 ne puisse venir que du pax. Le type est vérifié dans le
+// référentiel en une lecture attendue sans terminal (`.in().eq('actif')`).
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+const CARTE = {
+  type_evenement_id: TYPE_EVT,
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+};
+
+interface LectureTypes {
+  select: () => LectureTypes;
+  in: (col: string, ids: string[]) => LectureTypes;
+  eq: (col: string, valeur: unknown) => LectureTypes;
+  then: (
+    ok: (r: { data: { id: string }[]; error: null }) => unknown,
+    ko?: (e: unknown) => unknown,
+  ) => Promise<unknown>;
+}
+
+function lectureTypesEvenements(): LectureTypes {
+  let lignes = [{ id: TYPE_EVT, actif: true }];
+  const q: LectureTypes = {
+    select: () => q,
+    in: (_col, ids) => {
+      lignes = lignes.filter((l) => ids.includes(l.id));
+      return q;
+    },
+    eq: (_col, valeur) => {
+      lignes = lignes.filter((l) => l.actif === valeur);
+      return q;
+    },
+    then: (ok, ko) =>
+      Promise.resolve({
+        data: lignes.map(({ id }) => ({ id })),
+        error: null as null,
+      }).then(ok, ko),
+  };
+  return q;
+}
+
+/** Cartes transmises à fn_enregistrer_programmation (premier appel). */
+function cartesEnregistrees(): Record<string, unknown>[] {
+  const appel = mockRpc.mock.calls.find(
+    ([fn]) => fn === 'fn_enregistrer_programmation',
+  );
+  expect(appel, 'fn_enregistrer_programmation jamais appelée').toBeDefined();
+  return (appel?.[1] as { p_collectes: Record<string, unknown>[] }).p_collectes;
+}
+
+const CORPS_PROGRAMMATION = {
+  lieu_id: 'lieu-1',
   nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
@@ -148,6 +198,7 @@ describe('M1.2/pax_par_collecte — création', () => {
               type: 'zd',
               date_collecte: '2030-01-15',
               heure_collecte: '22:00',
+              ...CARTE,
               ...(pax === undefined ? {} : { pax }),
             },
           ],
@@ -165,6 +216,7 @@ describe('M1.2/pax_par_collecte — création', () => {
           type: 'zd',
           date_collecte: '2030-01-15',
           heure_collecte: '22:00',
+          ...CARTE,
           ...(pax === undefined ? {} : { pax }),
         }),
         { params: Promise.resolve({ id: 'evt-1' }) },
@@ -173,19 +225,16 @@ describe('M1.2/pax_par_collecte — création', () => {
     });
   }
 
-  it('POST /programmation/evenements : chaque collecte part avec son pax ; l’événement est créé à 0, calculé ensuite par la base', async () => {
+  it('POST /programmation/evenements : chaque carte part avec son pax ; l’événement n’en reçoit aucun, la base le calcule', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle.mockResolvedValueOnce({
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala 2030' },
+    mockRpc.mockResolvedValueOnce({
+      data: { evenement_id: 'evt-1', collecte_ids: ['col-zd-1', 'col-ag-1'] },
       error: null,
     });
-    mockRpc
-      .mockResolvedValueOnce({ data: 'col-zd-1', error: null })
-      .mockResolvedValueOnce({ data: 'col-ag-1', error: null });
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -198,29 +247,38 @@ describe('M1.2/pax_par_collecte — création', () => {
             date_collecte: '2030-01-15',
             heure_collecte: '22:00',
             pax: 1800,
+            ...CARTE,
           },
           {
             type: 'ag',
             date_collecte: '2030-01-16',
             heure_collecte: '22:00',
             pax: 1200,
+            ...CARTE,
           },
         ],
       }),
     );
     expect(res.status).toBe(201);
-    // Pax de l'événement provisoire (0) : le déclencheur le calcule depuis les
-    // collectes (règle du jour, prouvée par supabase/tests/collectes_pax.test.sql).
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ pax: 0 }),
+    expect(
+      cartesEnregistrees().map(({ type, pax }) => ({ type, pax })),
+    ).toEqual([
+      { type: 'zd', pax: 1800 },
+      { type: 'ag', pax: 1200 },
+    ]);
+    // Aucun pax au niveau de l'événement : fn_enregistrer_programmation le crée
+    // à 0 et le déclencheur le calcule depuis les collectes (règle du jour,
+    // prouvée par supabase/tests/collectes_pax.test.sql).
+    const appel = mockRpc.mock.calls.find(
+      ([fn]) => fn === 'fn_enregistrer_programmation',
     );
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(appel?.[1]).toHaveProperty('p_evenement');
+    expect(appel?.[1].p_evenement).not.toHaveProperty('pax');
+    // Ni INSERT direct, ni création collecte par collecte depuis la route.
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalledWith(
       'fn_creer_collecte',
-      expect.objectContaining({ p_type: 'zd', p_pax: 1800 }),
-    );
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_creer_collecte',
-      expect.objectContaining({ p_type: 'ag', p_pax: 1200 }),
+      expect.anything(),
     );
   });
 
@@ -230,12 +288,10 @@ describe('M1.2/pax_par_collecte — création', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle
-      .mockResolvedValueOnce({
-        data: { id: 'evt-2', nom_evenement: null },
-        error: null,
-      })
-      .mockResolvedValueOnce({ data: { id: 'brouillon-1' }, error: null });
+    mockRpc.mockResolvedValueOnce({
+      data: { evenement_id: 'evt-2', collecte_ids: ['brouillon-1'] },
+      error: null,
+    });
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -249,14 +305,21 @@ describe('M1.2/pax_par_collecte — création', () => {
             date_collecte: '2030-01-15',
             heure_collecte: '22:00',
             pax: 650,
+            ...CARTE,
           },
         ],
       }),
     );
     expect(res.status).toBe(201);
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ statut: 'brouillon', pax: 650 }),
+    // Brouillon : la même RPC, sans confirmation (fn_creer_collecte_carte écrit
+    // la collecte en brouillon avec son pax).
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_enregistrer_programmation',
+      expect.objectContaining({ p_confirmer: false }),
     );
+    expect(cartesEnregistrees()).toEqual([
+      expect.objectContaining({ type: 'zd', pax: 650 }),
+    ]);
   });
 
   it('POST /programmation/evenements/[id]/collectes : la collecte ajoutée part avec son pax', async () => {
@@ -265,7 +328,7 @@ describe('M1.2/pax_par_collecte — création', () => {
       data: { id: 'evt-1', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: 'new-collecte-1', error: null }); // fn_creer_collecte
+    mockRpc.mockResolvedValueOnce({ data: 'new-collecte-1', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
@@ -275,13 +338,16 @@ describe('M1.2/pax_par_collecte — création', () => {
         date_collecte: '2030-02-01',
         heure_collecte: '10:00',
         pax: 420,
+        ...CARTE,
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
     expect(res.status).toBe(201);
     expect(mockRpc).toHaveBeenCalledWith(
-      'fn_creer_collecte',
-      expect.objectContaining({ p_pax: 420 }),
+      'fn_creer_collecte_carte',
+      expect.objectContaining({
+        p_carte: expect.objectContaining({ pax: 420 }),
+      }),
     );
   });
 });

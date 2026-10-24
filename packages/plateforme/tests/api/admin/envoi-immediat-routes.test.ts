@@ -621,7 +621,7 @@ const AUTRES_RPC: Record<string, unknown> = {
 interface CasRoute {
   nom: string;
   module: string;
-  methode: 'POST' | 'PATCH';
+  methode: 'POST' | 'PATCH' | 'PUT';
   role: string;
   url: string;
   params: Record<string, string>;
@@ -657,22 +657,27 @@ interface CasRoute {
   entiteFacturation?: 'absente' | 'illisible';
 }
 
-const PROGRAMMATION = {
-  type_evenement_id: 'type-1',
-  lieu_id: 'lieu-1',
+// Type d'événement de chaque carte : un type actif du référentiel (lu par
+// `validerCartes`, cf. `base`).
+const TYPE_EVENEMENT = '11111111-1111-4111-8111-111111111111';
+
+/** Carte d'une collecte (refonte du formulaire, lot B2). */
+const carte = (date_collecte: string) => ({
+  type: 'zd',
+  date_collecte,
+  heure_collecte: '08:00',
+  pax: 80,
+  type_evenement_id: TYPE_EVENEMENT,
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+});
+
+const PROGRAMMATION = {
+  lieu_id: 'lieu-1',
   nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
-  collectes: [
-    {
-      type: 'zd',
-      date_collecte: '2099-01-15',
-      heure_collecte: '08:00',
-      pax: 80,
-    },
-  ],
+  collectes: [carte('2099-01-15')],
   confirmer: true,
 };
 
@@ -860,24 +865,14 @@ const CAS: CasRoute[] = [
     url: '/api/v1/programmation/evenements',
     params: {},
     corps: PROGRAMMATION,
-    emetteur: 'fn_creer_collecte',
-    rend: 'col-neuve',
+    emetteur: 'fn_enregistrer_programmation',
+    rend: { evenement_id: 'evt-1', collecte_ids: ['col-neuve'] },
     attendu: ['col-neuve'],
     // Dernière garde 4xx avant le frein pour ce rôle : date de collecte passée
     // (la garde pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
     // La lecture de l'entité de facturation, après elle, ne refuse qu'en 500.
     refusGarde: {
-      corps: {
-        ...PROGRAMMATION,
-        collectes: [
-          {
-            type: 'zd',
-            date_collecte: '2000-01-15',
-            heure_collecte: '08:00',
-            pax: 80,
-          },
-        ],
-      },
+      corps: { ...PROGRAMMATION, collectes: [carte('2000-01-15')] },
     },
   },
   {
@@ -889,40 +884,35 @@ const CAS: CasRoute[] = [
     params: {},
     corps: {
       ...PROGRAMMATION,
-      collectes: [
-        {
-          type: 'zd',
-          date_collecte: '2099-01-15',
-          heure_collecte: '08:00',
-          pax: 80,
-        },
-        {
-          type: 'zd',
-          date_collecte: '2099-01-16',
-          heure_collecte: '08:00',
-          pax: 80,
-        },
-      ],
+      collectes: [carte('2099-01-15'), carte('2099-01-16')],
     },
-    emetteur: 'fn_creer_collecte',
-    rend: 'col-a',
-    rendSuccessifs: ['col-a', 'col-b'],
+    // Une seule fonction pour l'événement et ses collectes (lot B2) : elle
+    // rend les deux collectes créées.
+    emetteur: 'fn_enregistrer_programmation',
+    rend: { evenement_id: 'evt-1', collecte_ids: ['col-a', 'col-b'] },
     attendu: ['col-a', 'col-b'],
     // Dernière garde 4xx avant le frein pour ce rôle : date de collecte passée
     // (la garde pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
     // La lecture de l'entité de facturation, après elle, ne refuse qu'en 500.
     refusGarde: {
-      corps: {
-        ...PROGRAMMATION,
-        collectes: [
-          {
-            type: 'zd',
-            date_collecte: '2000-01-15',
-            heure_collecte: '08:00',
-            pax: 80,
-          },
-        ],
-      },
+      corps: { ...PROGRAMMATION, collectes: [carte('2000-01-15')] },
+    },
+  },
+  {
+    nom: 'Programmation — brouillon repris et confirmé',
+    module: '@/app/api/v1/programmation/evenements/[id]/brouillon/route.js',
+    methode: 'PUT',
+    role: 'traiteur_manager',
+    url: '/api/v1/programmation/evenements/evt-1/brouillon',
+    params: { id: 'evt-1' },
+    ligne: { statut: 'brouillon', collectes: [{ statut: 'brouillon' }] },
+    corps: PROGRAMMATION,
+    emetteur: 'fn_enregistrer_programmation',
+    rend: { evenement_id: 'evt-1', collecte_ids: ['col-neuve'] },
+    attendu: ['col-neuve'],
+    // Dernière garde 4xx avant le frein : date de collecte passée.
+    refusGarde: {
+      corps: { ...PROGRAMMATION, collectes: [carte('2000-01-15')] },
     },
   },
   {
@@ -949,13 +939,8 @@ const CAS: CasRoute[] = [
     role: 'traiteur_manager',
     url: '/api/v1/programmation/evenements/evt-1/collectes',
     params: { id: 'evt-1' },
-    corps: {
-      type: 'zd',
-      date_collecte: '2099-01-20',
-      heure_collecte: '22:00',
-      pax: 80,
-    },
-    emetteur: 'fn_creer_collecte',
+    corps: carte('2099-01-20'),
+    emetteur: 'fn_creer_collecte_carte',
     rend: 'col-neuve',
     attendu: ['col-neuve'],
     // Garde de refus avant le frein : date de collecte passée (422), pax
@@ -963,14 +948,7 @@ const CAS: CasRoute[] = [
     // événement (décision Val 2026-10-21) : plus de garde de fenêtre
     // d'édition, et la garde suivante, événement d'une autre organisation,
     // répond 404.
-    refusGarde: {
-      corps: {
-        type: 'zd',
-        date_collecte: '2020-01-20',
-        heure_collecte: '22:00',
-        pax: 80,
-      },
-    },
+    refusGarde: { corps: carte('2020-01-20') },
   },
   {
     nom: 'Programmation — brouillon confirmé',
@@ -1042,6 +1020,7 @@ function base(cas: CasRoute, reponse: Reponse) {
   const listes: Record<string, () => unknown> = {
     collectes: () => cas.collectes ?? [ligne],
     outbox_events: () => ordresEnFile(...cas.attendu).data,
+    types_evenements: () => [{ id: TYPE_EVENEMENT }],
   };
   chaine.then = (resolve) =>
     resolve({ data: (listes[table] ?? (() => [ligneLue()]))(), error: null });
@@ -1616,16 +1595,27 @@ describe('M1.5a / frein de débit — routes des espaces clients', () => {
       )!,
       corps: { ...PROGRAMMATION, confirmer: false },
     };
-    base(brouillon, { data: null, error: null });
+    base(brouillon, {
+      data: { evenement_id: 'evt-1', collecte_ids: ['col-1'] },
+      error: null,
+    });
     dejaEcrit(MAX_ECRITURES_PAR_ORGANISATION - 1, { organisationId: ORG });
+    // Le brouillon s'écrit par la même fonction que la confirmation (lot B2),
+    // sans confirmer.
+    const brouillonEcrit = () =>
+      mockSupabaseChain.rpc.mock.calls.some(
+        ([nom, args]) =>
+          nom === 'fn_enregistrer_programmation' &&
+          (args as { p_confirmer?: boolean }).p_confirmer === false,
+      );
 
     // La centième écriture de la fenêtre : le brouillon est enregistré…
     expect((await appeler(brouillon)).status).toBeLessThan(300);
-    expect(mockSupabaseChain.insert).toHaveBeenCalled();
+    expect(brouillonEcrit()).toBe(true);
     // … et compté : le suivant est freiné, sans rien écrire.
     vi.clearAllMocks();
     expect((await appeler(brouillon)).status).toBe(429);
-    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+    expect(brouillonEcrit()).toBe(false);
   });
 
   it.each(CAS_MODIFICATION)(
@@ -1648,6 +1638,7 @@ describe('M1.5a / frein de débit — routes des espaces clients', () => {
       '@/app/api/v1/programmation/evenements/route.js',
       '@/app/api/v1/programmation/evenements/[id]/collectes/route.js',
       '@/app/api/v1/programmation/evenements/[id]/confirmer/route.js',
+      '@/app/api/v1/programmation/evenements/[id]/brouillon/route.js',
     ].includes(c.module),
   ).flatMap((c) =>
     ['admin_savr', 'ops_savr'].map((role) => ({
@@ -1696,7 +1687,9 @@ const EMETTEURS_SQL = [
   'fn_ajouter_collecte_evenement', // appelle fn_creer_collecte
   'fn_confirmer_programmation_brouillon',
   'fn_creer_collecte',
+  'fn_creer_collecte_carte', // appelle fn_creer_collecte
   'fn_dispatcher_collecte',
+  'fn_enregistrer_programmation', // appelle fn_creer_collecte_carte
   'fn_modifier_collecte',
   'fn_modifier_evenement',
   'rpc_evaluer_auto_accept_ag', // appelle rpc_valider_attribution_ag
@@ -1824,7 +1817,7 @@ describe('M1.5a / envoi immédiat — cliquets de durée et de complétude', () 
   }));
   const declencheuses = toutes.filter((r) => DECLENCHEUR.test(r.source));
 
-  it('M1.5a/envoi_immediat_routes_declencheuses — les seize routes qui écrivent un ordre de collecte déclenchent l’envoi immédiat', () => {
+  it('M1.5a/envoi_immediat_routes_declencheuses — les dix-sept routes qui écrivent un ordre de collecte déclenchent l’envoi immédiat', () => {
     expect(declencheuses.map((r) => r.chemin).sort()).toEqual([
       'v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts',
       'v1/admin/attributions-ag/[collecteId]/valider/route.ts',
@@ -1836,6 +1829,7 @@ describe('M1.5a / envoi immédiat — cliquets de durée et de complétude', () 
       'v1/agence/collectes/[id]/annulation/route.ts',
       'v1/agence/collectes/[id]/route.ts',
       'v1/gestionnaire/collectes/[id]/route.ts',
+      'v1/programmation/evenements/[id]/brouillon/route.ts',
       'v1/programmation/evenements/[id]/collectes/route.ts',
       'v1/programmation/evenements/[id]/confirmer/route.ts',
       'v1/programmation/evenements/[id]/route.ts',
@@ -1889,7 +1883,7 @@ describe('M1.5a / envoi immédiat — cliquets de durée et de complétude', () 
     const admin = (r: { chemin: string }) => r.chemin.startsWith('v1/admin/');
     const clientes = declencheuses.filter((r) => !admin(r));
 
-    expect(clientes).toHaveLength(9);
+    expect(clientes).toHaveLength(10);
     expect(
       clientes.filter((r) => !FREIN.test(r.source)).map((r) => r.chemin),
     ).toEqual([]);

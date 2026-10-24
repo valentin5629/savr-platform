@@ -1,7 +1,9 @@
 /**
  * M1.2 / pax porté par la collecte — décision Val 2026-10-20 : le nombre de
- * convives se saisit avec la date de chaque collecte (étape 3), plus à
- * l'étape 1 ; il part avec la collecte, l'événement en calcule le sien.
+ * convives se saisit avec la date de chaque collecte, plus avec l'événement ;
+ * il part avec la collecte, l'événement en calcule le sien. Depuis la refonte
+ * du formulaire (lot B2) : sur la carte de chaque collecte (écran 2), plus à
+ * l'écran 1 « Informations sur l'événement ».
  *
  * Même montage que programmer-nouveau-nom-evenement.test.tsx (duplication
  * ?from= et calendrier remplacé par un champ texte).
@@ -89,7 +91,7 @@ afterEach(() => {
 
 describe('M1.2/pax_par_collecte — formulaire de programmation', () => {
   it(
-    'le nombre de convives se saisit avec la date de la collecte (étape 3), plus à l’étape 1',
+    'le nombre de convives se saisit avec la date de la collecte (carte de l’écran 2), plus à l’écran 1',
     async () => {
       window.history.replaceState({}, '', '/programmer/nouveau?from=c-src');
       const fetchMock = vi.fn(
@@ -112,7 +114,7 @@ describe('M1.2/pax_par_collecte — formulaire de programmation', () => {
 
       render(<NouveauProgrammationPage />);
 
-      // Étape 1 : aucun champ « Nombre de convives ».
+      // Écran 1 : aucun champ « Nombre de convives ».
       await screen.findByDisplayValue(
         'Gala de printemps',
         undefined,
@@ -120,18 +122,16 @@ describe('M1.2/pax_par_collecte — formulaire de programmation', () => {
       );
       expect(screen.queryByLabelText(/Nombre de convives/)).toBeNull();
       fireEvent.click(screen.getByRole('button', { name: /Continuer/ }));
-      await screen.findByRole(
-        'heading',
-        { name: 'Lieu et contacts' },
-        ATTENTE_UI,
-      );
-      fireEvent.click(screen.getByRole('button', { name: /Continuer/ }));
 
-      // Étape 3 : le pax de la collecte dupliquée (650), pas celui de son
-      // événement (1 000).
-      const pax = await screen.findByTestId('pax-zd', undefined, ATTENTE_UI);
+      // Écran 2 : sur la carte de la collecte, avec sa date, le pax de la
+      // collecte dupliquée (650), pas celui de son événement (1 000).
+      const pax = await screen.findByTestId('pax-zd-1', undefined, ATTENTE_UI);
       expect(pax).toHaveValue(650);
-      fireEvent.change(screen.getByTestId('date-zd'), {
+      expect(screen.getByTestId('carte-zd-1')).toContainElement(pax);
+      expect(screen.getByTestId('carte-zd-1')).toContainElement(
+        screen.getByTestId('date-zd-1'),
+      );
+      fireEvent.change(screen.getByTestId('date-zd-1'), {
         target: { value: '2030-01-15' },
       });
       const confirmer = screen.getByRole('button', {
@@ -197,13 +197,7 @@ describe('M1.2/pax_par_collecte — formulaire de programmation', () => {
         ATTENTE_UI,
       );
       fireEvent.click(screen.getByRole('button', { name: /Continuer/ }));
-      await screen.findByRole(
-        'heading',
-        { name: 'Lieu et contacts' },
-        ATTENTE_UI,
-      );
-      fireEvent.click(screen.getByRole('button', { name: /Continuer/ }));
-      const pax = await screen.findByTestId('pax-zd', undefined, ATTENTE_UI);
+      const pax = await screen.findByTestId('pax-zd-1', undefined, ATTENTE_UI);
       expect(pax).toHaveValue(null);
     },
     ATTENTE_CAS_MS,

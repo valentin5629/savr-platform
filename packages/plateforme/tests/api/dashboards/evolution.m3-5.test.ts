@@ -281,6 +281,8 @@ describe('M3.5 / dashboards/evolution', () => {
     expect(
       (calls.in ?? []).some((a) => a[0] === 'evenements.type_evenement_id'),
     ).toBe(false);
+    // Le pax de la COLLECTE est demandé à la base (hors de l'embed evenements).
+    expect(String(calls.select?.[0]?.[0])).toMatch(/date_collecte, pax,/);
     // Seule la soirée de 600 convives (M) compte.
     const total = json.data.series.reduce(
       (s, b) => s + (b.tonnage_total ?? 0),

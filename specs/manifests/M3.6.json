@@ -167,7 +167,7 @@
     },
     {
       "id": "M3.6-kpi-filtres-type-taille-grain-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:141",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:137",
       "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (applyScope, tailleOk)",
       "test": "M3.6/kpi_filtres_type_et_taille_de_la_collecte",
       "statut": "implemented",

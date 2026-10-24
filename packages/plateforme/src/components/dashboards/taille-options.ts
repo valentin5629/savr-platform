@@ -1,6 +1,8 @@
 import type { OptionFiltre } from '@/components/ui/filtre-en-ligne';
 
-// Brackets « Taille d'événement » calculés sur evenements.pax (§06.05 l.107 / l.559).
+// Brackets « Taille d'événement » (§06.05 l.107 / l.559), calculés sur le pax de la
+// COLLECTE (liste Collectes, dashboards, benchmark — lot C1) ou de l'événement
+// (liste Événements, C4).
 // Partagé par la barre de filtres globale (dashboard), l'encart benchmark et la
 // liste Collectes du gestionnaire — source unique pour éviter la dérive des seuils. `court` =
 // valeur affichée dans le déclencheur du filtre (« Taille d'événement  XL »).

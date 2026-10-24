@@ -302,8 +302,10 @@ const SELECT_REFERENCE = `id, type, taux_recyclage, date_collecte, pax,
  * du 2026-10-24) : Σ poids du flux / Σ pax des COLLECTES, type et taille de la
  * collecte, collecte à 0 convive (inconnu) écartée. La ligne « Vous » garde le
  * pax des événements distincts jusqu'au lot 3 (cumuls des dashboards) : les deux
- * ne diffèrent que pour un événement dont une collecte AG du même jour a plus de
- * convives que ses collectes ZD.
+ * diffèrent dès que ce pax n'est pas la somme des pax des collectes ZD clôturées
+ * retenues — une collecte AG du même jour plus grosse que ses ZD, une ZD pas
+ * encore clôturée, un filtre type ou taille qui ne retient qu'une partie des
+ * collectes d'un événement.
  */
 export async function loadAdminBenchmarkComparaison(
   admin: AdminDbClient,

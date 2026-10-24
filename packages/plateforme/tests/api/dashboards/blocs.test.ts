@@ -277,7 +277,7 @@ describe('M3.1 / blocs traiteur ZD', () => {
   });
 });
 
-describe('C1 / blocs — type et taille de la collecte', () => {
+describe('M3.5 / blocs — type et taille de la collecte (lot C1)', () => {
   it('M3.5/blocs_filtres_type_et_taille_de_la_collecte — type en SQL sur collectes.type_evenement_id, taille sur le pax de la collecte (Q3 Val 2026-10-24)', async () => {
     setupAuth('traiteur_manager', 'org-1');
     const TYPE = '7e000000-0000-4000-8000-0000000000d1';
@@ -304,6 +304,9 @@ describe('C1 / blocs — type et taille de la collecte', () => {
     expect(
       (calls.in ?? []).some((a) => a[0] === 'evenements.type_evenement_id'),
     ).toBe(false);
+    // Le pax de la COLLECTE est demandé à la base (hors de l'embed evenements) :
+    // sans lui, le filtre Taille lirait 0 pour chaque collecte.
+    expect(String(calls.select?.[0]?.[0])).toMatch(/date_collecte, pax,/);
     expect(j.data.topLieux).toHaveLength(1);
     expect(j.data.topLieux[0]!.tonnage_kg).toBe(400);
   });

@@ -18,7 +18,7 @@ const col = (
   type_evenement: libelle == null ? null : { libelle },
 });
 
-describe('C1 / types d’événement au niveau de l’événement (Q2 Val 2026-10-24)', () => {
+describe('M3.2 / types d’événement au niveau de l’événement (lot C1, Q2 Val 2026-10-24)', () => {
   it('C1/types_evenement_ordre_collecte_n1 — Zéro-Déchet avant Anti-Gaspi, puis date et heure : le premier type est celui de la collecte n°1', () => {
     expect(
       typesEvenementDesCollectes(

@@ -186,6 +186,8 @@ describe('M3.5 / synthèse PDF — snapshot §12 §1.6', () => {
     expect(
       (calls.in ?? []).some((a) => a[0] === 'evenements.type_evenement_id'),
     ).toBe(false);
+    // Le pax de la COLLECTE est demandé à la base (hors de l'embed evenements).
+    expect(String(calls.select?.[0]?.[0])).toMatch(/date_collecte, pax,/);
     // Lu à l'événement (XL), le filtre M ne retiendrait aucune collecte.
     expect(snap.nb_collectes).toBe(1);
     expect(snap.tonnage_zd_kg).toBe(180);

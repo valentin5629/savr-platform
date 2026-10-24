@@ -13,7 +13,9 @@
 --   n°3 (événements 1 à 5) : ZD, type B, 0 convive (inconnu), 999 kg.
 -- L'événement, lui, est de type A (copie de la n°1) et compte 1 100 convives
 -- (taille XL). Lu à l'événement, le parc ne rendrait qu'un segment (A, XL) :
--- chaque assertion ci-dessous échoue sur l'ancienne lecture.
+-- les assertions 3 à 5 et 7 à 13 échouent sur l'ancienne lecture ; 1 et 2
+-- vérifient la fixture ; 6 garde la règle Q4 (elle rougit si l'exclusion des
+-- collectes à 0 convive est retirée).
 --
 -- Deux types d'événement DÉDIÉS bornent le parc aux lignes de ce test, quel que
 -- soit le seed de la base. Trois organisations tournent sur les six événements :
@@ -21,7 +23,7 @@
 -- ---------------------------------------------------------------------------
 
 BEGIN;
-SELECT plan(12);
+SELECT plan(13);
 
 SET LOCAL role = 'postgres';
 
@@ -208,7 +210,7 @@ SELECT is(
 
 SELECT _bgc_superuser();
 
--- 9-10. Rapport (f_rapport_benchmark_zd, service_role) ---------------------------
+-- 9-11. Rapport (f_rapport_benchmark_zd, service_role) ---------------------------
 SELECT results_eq(
   $$ SELECT taille_evenement, round(collecte_kg_pax, 4), round(benchmark_kg_pax, 4), nb_collectes_segment
        FROM plateforme.f_rapport_benchmark_zd('c1c00000-0000-0000-0000-0000000c2010'::uuid) $$,
@@ -221,7 +223,13 @@ SELECT results_eq(
   $$ VALUES ('S'::text, 0.0667::numeric, 0.1000::numeric, 6) $$,
   '10. la collecte n°1 du même événement garde son propre segment (A, S) : 20 kg / 300 convives');
 
--- 11-12. Registre (v_registre_dechets, jeton Admin) ------------------------------
+SELECT is(
+  (SELECT bool_and(collecte_kg_pax IS NULL) AND count(*) = 1
+     FROM plateforme.f_rapport_benchmark_zd('c1c00000-0000-0000-0000-0000000c3010'::uuid)),
+  true,
+  'C1/benchmark_rapport_pax_zero_sans_ratio — rapport d''une collecte à 0 convive : flux rendu, sans ratio kg/pax');
+
+-- 12-13. Registre (v_registre_dechets, jeton Admin) ------------------------------
 SELECT _bgc_jwt('admin_savr', NULL);
 
 SELECT results_eq(
@@ -234,7 +242,7 @@ SELECT results_eq(
   $$ SELECT pax, taille_bracket, type_evenement_id FROM plateforme.v_registre_dechets
       WHERE collecte_id = 'c1c00000-0000-0000-0000-0000000c1001'::uuid $$,
   $$ VALUES (300, 'S'::text, 'c1c00000-0000-0000-0000-0000000000d1'::uuid) $$,
-  '12. la ligne de la collecte n°1 du même événement porte 300 convives, taille S, type A');
+  '13. la ligne de la collecte n°1 du même événement porte 300 convives, taille S, type A');
 
 SELECT _bgc_superuser();
 

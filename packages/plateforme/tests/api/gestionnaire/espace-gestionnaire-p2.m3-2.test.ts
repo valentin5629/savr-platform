@@ -237,9 +237,14 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
   it('M3.2/P2_dashboard_filtre_type_sur_la_collecte — le filtre type porte sur collectes.type_evenement_id (C3, lot C1)', async () => {
     setupAuth();
     const appelsIn: unknown[][] = [];
+    const appelsSelect: unknown[][] = [];
     const chaine = rls as unknown as Record<string, unknown>;
     chaine.in = (...args: unknown[]) => {
       appelsIn.push(args);
+      return chaine;
+    };
+    chaine.select = (...args: unknown[]) => {
+      appelsSelect.push(args);
       return chaine;
     };
     rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
@@ -257,5 +262,11 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
     expect(
       appelsIn.some(([col]) => col === 'evenements.type_evenement_id'),
     ).toBe(false);
+    // Pax et type de la COLLECTE demandés hors de l'embed evenements (taille).
+    expect(
+      appelsSelect.some(([s]) =>
+        /realisee_at, pax, type_evenement_id,/.test(String(s)),
+      ),
+    ).toBe(true);
   });
 });

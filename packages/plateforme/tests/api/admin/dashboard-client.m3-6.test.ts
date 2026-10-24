@@ -218,6 +218,12 @@ describe('M3.6 / Dashboard Client / filtres type et taille', () => {
     const body = (await res.json()) as {
       data: { kpi: Record<string, number> };
     };
+    // Le pax de la COLLECTE est demandé à la base (hors de l'embed evenements).
+    expect(
+      String(
+        (adminClient.select as ReturnType<typeof vi.fn>).mock.calls[0]?.[0],
+      ),
+    ).toMatch(/date_collecte, pax,/);
     // Lu à l'événement (XL), le filtre M ne retiendrait rien.
     expect(body.data.kpi.nb_collectes).toBe(1);
     expect(body.data.kpi.tonnage_kg).toBe(150);
@@ -503,6 +509,8 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
       (adminClient.select as ReturnType<typeof vi.fn>).mock.calls[0]?.[0],
     );
     expect(selectArg).toContain('evenements!inner(');
+    // Pax de la COLLECTE demandé hors de l'embed : il porte le repère (Q4).
+    expect(selectArg).toMatch(/date_collecte, pax,/);
     // Pagination explicite (plafond PostgREST max_rows = 1 000) : tri stable + page.
     expect(adminClient.order).toHaveBeenCalledWith('id');
     expect(adminClient.range).toHaveBeenCalledWith(0, PAGE_REFERENCE - 1);

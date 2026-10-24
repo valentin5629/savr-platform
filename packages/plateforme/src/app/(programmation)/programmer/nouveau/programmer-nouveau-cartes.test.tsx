@@ -335,12 +335,15 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       expect(continuer()).toBeEnabled();
 
       // Au plus 10 collectes de chaque type (B2-Q4).
-      expect(champNombre('zd')).toHaveAttribute('max', '10');
-      expect(champNombre('ag')).toHaveAttribute('max', '10');
+      // Champs de saisie sans flèches ni molette (retour Val du 2026-10-24).
+      for (const type of ['zd', 'ag'] as const) {
+        expect(champNombre(type)).toHaveAttribute('type', 'text');
+        expect(champNombre(type)).toHaveAttribute('inputmode', 'numeric');
+      }
       demander('zd', 12);
-      expect(champNombre('zd')).toHaveValue(10);
+      expect(champNombre('zd')).toHaveValue('10');
       demander('zd', 2);
-      expect(champNombre('zd')).toHaveValue(2);
+      expect(champNombre('zd')).toHaveValue('2');
 
       fireEvent.click(continuer());
       await screen.findByRole(
@@ -374,8 +377,8 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
         ATTENTE_UI,
       );
       expect(nomEvenement()).toHaveValue('Gala');
-      expect(champNombre('zd')).toHaveValue(2);
-      expect(champNombre('ag')).toHaveValue(1);
+      expect(champNombre('zd')).toHaveValue('2');
+      expect(champNombre('ag')).toHaveValue('1');
       demander('zd', 10);
       demander('ag', 10);
       fireEvent.click(continuer());
@@ -409,17 +412,24 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       demander('zd', 1);
       expect(continuer()).toBeEnabled();
       demander('zd', '');
-      expect(champNombre('zd')).toHaveValue(null);
+      expect(champNombre('zd')).toHaveValue('');
       expect(continuer()).toBeDisabled();
       // En quittant le champ, il affiche 0.
       fireEvent.blur(champNombre('zd'));
-      expect(champNombre('zd')).toHaveValue(0);
+      expect(champNombre('zd')).toHaveValue('0');
       expect(continuer()).toBeDisabled();
       // « 0 » se tape aussi.
       demander('zd', 2);
       demander('zd', 0);
-      expect(champNombre('zd')).toHaveValue(0);
+      expect(champNombre('zd')).toHaveValue('0');
       expect(continuer()).toBeDisabled();
+      // Seuls les chiffres comptent.
+      demander('zd', '2a');
+      expect(champNombre('zd')).toHaveValue('2');
+      demander('zd', 'x');
+      expect(champNombre('zd')).toHaveValue('');
+      fireEvent.blur(champNombre('zd'));
+      expect(champNombre('zd')).toHaveValue('0');
 
       // Effacer « 1 » pour taper « 3 » garde ce qui a été saisi dans les
       // cartes.
@@ -635,8 +645,8 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
         { level: 2, name: ECRAN_1 },
         ATTENTE_UI,
       );
-      expect(champNombre('zd')).toHaveValue(1);
-      expect(champNombre('ag')).toHaveValue(1);
+      expect(champNombre('zd')).toHaveValue('1');
+      expect(champNombre('ag')).toHaveValue('1');
 
       // 10 ZD : le choix Zéro Déchet est fermé, Anti-Gaspi reste possible.
       demander('zd', 10);
@@ -901,8 +911,8 @@ describe('M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)', 
       expect(
         screen.getByRole('checkbox', { name: /Plaque d'immatriculation/ }),
       ).toBeChecked();
-      expect(champNombre('zd')).toHaveValue(1);
-      expect(champNombre('ag')).toHaveValue(1);
+      expect(champNombre('zd')).toHaveValue('1');
+      expect(champNombre('ag')).toHaveValue('1');
       expect(
         screen.queryByRole('button', { name: /Enregistrer en brouillon/ }),
       ).toBeNull();

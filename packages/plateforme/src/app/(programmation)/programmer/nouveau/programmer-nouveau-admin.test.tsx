@@ -185,7 +185,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       );
 
       demanderUneAg();
-      expect(nombreAg()).toHaveValue(1);
+      expect(nombreAg()).toHaveValue('1');
       expect(
         screen.queryByText(/facturées? à l.unité/i),
       ).not.toBeInTheDocument();
@@ -209,7 +209,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       expect(
         await screen.findByText(INFO_ECRAN_1, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(nombreAg()).toHaveValue(1);
+      expect(nombreAg()).toHaveValue('1');
       expect(lecturesPack()).toEqual([
         '/api/v1/programmation/pack-ag?organisation_id=org-kaspia',
       ]);
@@ -350,7 +350,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       expect(
         await screen.findByText(INFO, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(nombreAg()).toHaveValue(1);
+      expect(nombreAg()).toHaveValue('1');
     },
     ATTENTE_CAS_MS,
   );

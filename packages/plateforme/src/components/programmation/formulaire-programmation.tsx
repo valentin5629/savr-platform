@@ -250,7 +250,9 @@ export function FormulaireProgrammation({
   const nbAgSaisi = nombreVide.ag ? 0 : nbAg;
   const changerNombre =
     (type: 'zd' | 'ag') => (e: ChangeEvent<HTMLInputElement>) => {
-      const brut = e.target.value;
+      // Chiffres seuls : le champ est un texte (ni flèches ni molette, retour
+      // Val du 2026-10-24) ; au-delà de 10, le nombre est ramené à 10.
+      const brut = e.target.value.replace(/\D/g, '');
       setNombreVide((v) => ({ ...v, [type]: brut === '' }));
       if (brut !== '') {
         setCartes((prev) => ajusterNombre(prev, type, Number(brut) || 0));
@@ -874,11 +876,11 @@ export function FormulaireProgrammation({
               >
                 <Input
                   id="nombre-zd"
-                  type="number"
+                  type="text"
                   inputMode="numeric"
-                  min="0"
-                  max={PLAFOND_PAR_TYPE}
-                  step="1"
+                  pattern="[0-9]*"
+                  maxLength={2}
+                  autoComplete="off"
                   value={nombreVide.zd ? '' : String(nbZd)}
                   onChange={changerNombre('zd')}
                   onBlur={quitterNombre('zd')}
@@ -890,11 +892,11 @@ export function FormulaireProgrammation({
               >
                 <Input
                   id="nombre-ag"
-                  type="number"
+                  type="text"
                   inputMode="numeric"
-                  min="0"
-                  max={PLAFOND_PAR_TYPE}
-                  step="1"
+                  pattern="[0-9]*"
+                  maxLength={2}
+                  autoComplete="off"
                   value={nombreVide.ag ? '' : String(nbAg)}
                   aria-describedby={agSansPack ? 'nombre-ag-info' : undefined}
                   onChange={changerNombre('ag')}

@@ -333,7 +333,9 @@ describe('M1.2 — ajouter une collecte : carte pré-remplie depuis la dernière
       ).toBeInTheDocument();
       expect(within(carte()).queryByText(/Jean Annulé|Marc Buffet/)).toBeNull();
       // Les informations supplémentaires ne sont pas reprises.
-      expect(within(carte()).getByRole('textbox')).toHaveValue('');
+      expect(
+        within(carte()).getByRole('textbox', { name: /^Informations/ }),
+      ).toHaveValue('');
       // Tout est pré-rempli sauf la date et l'heure : rien ne part encore.
       expect(boutonAjouter()).toBeDisabled();
     },

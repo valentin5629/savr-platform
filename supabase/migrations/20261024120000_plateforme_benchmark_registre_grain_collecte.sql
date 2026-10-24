@@ -28,10 +28,12 @@
 --      poids du flux / pax de la collecte ; NULL si pax = 0, comme avant pour un
 --      pax nul). Gardes de tête, contrôle d'accès et droits d'exécution recopiés
 --      de 20261020180000. AUCUNE DONNÉE NOUVELLE pour un rôle client : `pax` et
---      `type_evenement_id` de la collecte sont lus par sa propre session (SELECT
---      table-level sur `collectes`, policy `f_collecte_visible`) — le pgTAP
---      `benchmark_single_collecte_gestionnaire_lieux` le mesure sous
---      `authenticated`.
+--      `type_evenement_id` de la collecte font partie du SELECT table-level de
+--      `collectes` que sa propre session lit sous la policy `f_collecte_visible`.
+--      Le pgTAP `benchmark_single_collecte_gestionnaire_lieux` mesure sous
+--      `authenticated` que le ratio rendu est le quotient du poids du flux et du
+--      pax de la collecte lus par la session (le grain collecte du point « Vous »
+--      est prouvé par `benchmark_registre_grain_collecte`).
 --   3. f_rapport_benchmark_zd (PDF, service_role seul) : défaut type + taille de
 --      la collecte et ratio sur son pax. Corps et ACL recopiés de 20260922120000.
 --   4. v_registre_dechets : `pax`, `taille_bracket` et `type_evenement_id` de la
@@ -46,12 +48,18 @@
 -- `f_benchmark_traiteurs_parc`.
 --
 -- CETTE MIGRATION N'OUVRE AUCUN ACCÈS (CLAUDE.md §12 2bis) : CREATE OR REPLACE
--- conserve l'ACL des fonctions et les privilèges de la vue ; `SECURITY DEFINER`,
--- `SET search_path` et les REVOKE / GRANT sont ré-énoncés à l'identique.
+-- conserve l'ACL des fonctions et les privilèges de la vue ; `SECURITY DEFINER`
+-- et `SET search_path` sont ré-énoncés à l'identique, ainsi que les REVOKE /
+-- GRANT de f_benchmark_single_collecte et f_rapport_benchmark_zd ;
+-- f_benchmark_kg_pax_zd et la vue gardent les leurs, sans en ré-énoncer.
 --
 -- ROLLBACK : rejouer par CREATE OR REPLACE les corps de 20261006220000
--- (f_benchmark_kg_pax_zd), 20261020180000 (f_benchmark_single_collecte),
--- 20260922120000 (f_rapport_benchmark_zd) et 20260619120000 (v_registre_dechets).
+-- (f_benchmark_kg_pax_zd), 20261020180000 (f_benchmark_single_collecte) et
+-- 20260922120000 (f_rapport_benchmark_zd) ; pour v_registre_dechets, le corps du
+-- §4 ci-dessous avec `e.pax`, `taille_evenement_bracket(e.pax)` et
+-- `e.type_evenement_id` à la place des colonnes de la collecte (celui de
+-- 20260619120000 ne se rejoue pas tel quel : il cite `collecte_statut_enum` et
+-- `collecte_type_enum`, renommées depuis en `collecte_statut` / `collecte_type`).
 -- Aucune donnée n'est touchée ; le benchmark et le registre reviennent au type et
 -- au pax de l'événement.
 -- =============================================================================

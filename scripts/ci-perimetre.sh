@@ -25,6 +25,9 @@
 # =============================================================================
 set -euo pipefail
 
+# Chemin absolu de ce script, pris avant tout `cd` (l'auto-test le rejoue).
+ICI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
 # Lit une liste de chemins (un par ligne) sur l'entrée standard, écrit
 # « base=… » puis « build=… ». Liste vide = rien à juger = tout tourne.
 classer() {
@@ -71,11 +74,25 @@ if [ "${1:-}" = "--self-test" ]; then
   cas 'dépendances' 'base=false build=true' 'pnpm-lock.yaml'
   cas 'config racine' 'base=false build=true' 'vitest.config.ts'
   cas 'liste vide' 'base=true build=true'
+  cas 'chemin accentué sous supabase' 'base=true build=false' 'supabase/tests/données_é.test.sql'
+  cas 'synchro des specs accentuée' 'base=false build=false' 'specs/cdc/01 - Cahier des charges App/05 - Règles métier.md'
+  # Le vrai `git diff` du script, sur un commit de fusion qui ajoute un fichier
+  # accentué sous supabase/ : il doit voir la base.
+  depot="$(mktemp -d "${TMPDIR:-/tmp}/ci-perimetre.XXXXXX")"
+  (
+    cd "$depot" && git init -q -b main . && git config user.email t@t && git config user.name t &&
+      echo a > a.ts && git add -A && git commit -qm base &&
+      git checkout -qb pr && mkdir -p supabase/tests && echo x > 'supabase/tests/é.test.sql' &&
+      git add -A && git commit -qm pr && git checkout -q main && git merge -q --no-ff pr -m fusion
+  ) > /dev/null 2>&1 || { echo "🔴 ci-perimetre : dépôt jetable non construit." >&2; ko=1; }
+  sortie="$(cd "$depot" && GITHUB_EVENT_NAME=pull_request GITHUB_OUTPUT=/dev/null bash "$ICI" 2>/dev/null | tr '\n' ' ')"
+  [ "$sortie" = "base=true build=false " ] || { echo "🔴 ci-perimetre [git diff, chemin accentué] : « $sortie»" >&2; ko=1; }
+  rm -r "$depot"
   # Le classement réel : hors PR, tout tourne.
-  sortie="$(GITHUB_EVENT_NAME=push GITHUB_OUTPUT=/dev/null bash "${BASH_SOURCE[0]}" | tr '\n' ' ')"
+  sortie="$(GITHUB_EVENT_NAME=push GITHUB_OUTPUT=/dev/null bash "$ICI" | tr '\n' ' ')"
   [ "$sortie" = "base=true build=true " ] || { echo "🔴 ci-perimetre [hors PR] : « $sortie»" >&2; ko=1; }
   [ "$ko" -eq 0 ] || { echo "🔴 ci-perimetre : auto-test EN ÉCHEC." >&2; exit 1; }
-  echo "✅ ci-perimetre : auto-test OK (15 cas de classement, hors PR = tout)."
+  echo "✅ ci-perimetre : auto-test OK (17 cas de classement, git diff réel sur un chemin accentué, hors PR = tout)."
   exit 0
 fi
 
@@ -91,7 +108,10 @@ if [ "${GITHUB_EVENT_NAME:-}" != "pull_request" ]; then
 fi
 
 # Checkout d'une PR = commit de fusion : son 1er parent est la base de la PR.
-if ! fichiers="$(git diff --name-only HEAD^1 HEAD 2>/dev/null)"; then
+# `core.quotepath=false` : sans lui, git écrit un chemin non ASCII entre guillemets
+# et en octal (« "supabase/tests/\303\251.sql" »), qui ne correspondrait plus à
+# `supabase/*` — la base serait sautée à tort.
+if ! fichiers="$(git -c core.quotepath=false diff --name-only HEAD^1 HEAD 2>/dev/null)"; then
   echo "::warning::Fichiers de la PR illisibles (fetch-depth: 2 ?) — tout tourne." >&2
   ecrire base=true; ecrire build=true
   exit 0

@@ -74,18 +74,28 @@ jobs:
   # Build de tout le monorepo SANS variables d'environnement, comme avant dans
   # lint-typecheck-test : il attrape un client Supabase créé au chargement d'un
   # module (le build casse sans .env). Le budget du bundle se lit sur ce build au
-  # lieu d'en refaire un.
+  # lieu d'en refaire un. Sauté (job vert) quand la PR ne touche que specs/,
+  # docs/, fixtures/, supabase/, .claude/ ou des .md (scripts/ci-perimetre.sh).
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+        with: { fetch-depth: 2 } # commit de fusion + sa base : fichiers de la PR
+      - id: perimetre
+        name: Périmètre de la PR (scripts/ci-perimetre.sh)
+        run: bash scripts/ci-perimetre.sh
+      - if: steps.perimetre.outputs.build == 'true'
+        uses: pnpm/action-setup@v4
+      - if: steps.perimetre.outputs.build == 'true'
+        uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm -w build
+      - if: steps.perimetre.outputs.build == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.perimetre.outputs.build == 'true'
+        run: pnpm -w build
       # Seuil V1 minimal : taille .next/static < 5 MB.
-      - name: Vérification budget bundle
+      - if: steps.perimetre.outputs.build == 'true'
+        name: Vérification budget bundle
         run: |
           SIZE=$(du -sb packages/plateforme/.next/static 2>/dev/null | cut -f1 || echo 0)
           echo "Bundle static size: ${SIZE} bytes"
@@ -203,6 +213,10 @@ jobs:
       # public.ecr.aws aussi). Faux CLI Supabase en tête du PATH, pas de Docker.
       - name: Auto-test du démarrage Supabase de la CI (repli de registre)
         run: bash scripts/ci-supabase-start.sh --self-test
+      # Le classement des fichiers d'une PR décide des étapes sautées : un classement
+      # faux sauterait la base ou le build à tort.
+      - name: Auto-test du périmètre de la CI (étapes sautées selon les fichiers)
+        run: bash scripts/ci-perimetre.sh --self-test
       - name: Collision de timestamp, y compris avec une branche non mergee
         run: bash scripts/check-migration-timestamp.sh --branch
 
@@ -270,7 +284,10 @@ jobs:
   # Le rapport G6 (schéma V1 vs DDL cible V2) ne tourne plus en CI : il signalait
   # les mêmes écarts à chaque passage sans rien bloquer. À la demande, sur une base
   # locale : `pnpm check:schema-vs-cible` (DATABASE_URL + CIBLE_DATABASE_URL).
-  # Joue sans condition : status check REQUIS.
+  # Joue sans condition : status check REQUIS. Ses étapes de base sont sautées (job
+  # vert) quand la PR ne touche ni supabase/, ni .github/, ni scripts/ : le résultat
+  # des tests pgTAP ne dépend que de supabase/, déjà vérifié sur main
+  # (scripts/ci-perimetre.sh, décision Val 2026-10-25).
   pgtap-rls-outbox:
     runs-on: ubuntu-latest
     # 30 et non 10 : le démarrage de la pile peut faire jusqu'à six essais de
@@ -278,16 +295,23 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
+        with: { fetch-depth: 2 } # commit de fusion + sa base : fichiers de la PR
+      - id: perimetre
+        name: Périmètre de la PR (scripts/ci-perimetre.sh)
+        run: bash scripts/ci-perimetre.sh
+      - if: steps.perimetre.outputs.base == 'true'
+        uses: supabase/setup-cli@v1
         with: { version: 2.105.0 }
-      - run: bash scripts/ci-supabase-start.sh
+      - if: steps.perimetre.outputs.base == 'true'
+        run: bash scripts/ci-supabase-start.sh
         env:
           SUPABASE_NO_ANALYTICS: 'true'
       # `supabase start` rend la main avant que Postgres soit pleinement stable.
       # On attend que pg_isready réponde 3x d'affilée AVANT le reset : sans ce
       # filet, le conteneur chute parfois au passage migrate→seed (faux positif
       # infra récurrent, ≠ erreur SQL — cf. PR #62 run 27772196968).
-      - name: Attente Postgres prêt et stable (avant reset)
+      - if: steps.perimetre.outputs.base == 'true'
+        name: Attente Postgres prêt et stable (avant reset)
         run: |
           ok=0
           for i in $(seq 1 30); do
@@ -307,7 +331,8 @@ jobs:
       # donc re-tenter est idempotent. On redémarre le stack entre tentatives
       # pour repartir d'un conteneur sain. --debug seulement à la dernière
       # tentative (diagnostic), sinon firehose de logs qui charge le runner.
-      - name: Run supabase db reset (retry sur chute conteneur infra)
+      - if: steps.perimetre.outputs.base == 'true'
+        name: Run supabase db reset (retry sur chute conteneur infra)
         run: |
           set -uo pipefail
           for attempt in 1 2 3; do
@@ -332,8 +357,10 @@ jobs:
           exit 1
         env:
           SUPABASE_NO_ANALYTICS: 'true'
-      - run: supabase test db # RLS, outbox par mutation, G9, integration-contracts
-      - name: Plans des requêtes critiques (informatif)
+      - if: steps.perimetre.outputs.base == 'true'
+        run: supabase test db # RLS, outbox par mutation, G9, integration-contracts
+      - if: steps.perimetre.outputs.base == 'true'
+        name: Plans des requêtes critiques (informatif)
         continue-on-error: true
         run: bash scripts/check-query-perf.sh
         env:
@@ -343,35 +370,47 @@ jobs:
   # (Next.js 15 en mode dev depasse les 120s de compilation a froid sur le runner).
   # Build distinct de `build` : les NEXT_PUBLIC_* sont figées dans le bundle au
   # build, il faut celles du serveur local. Seul Chromium est installé (navigateur
-  # par défaut du projet Playwright).
+  # par défaut du projet Playwright). Sauté comme `build` (scripts/ci-perimetre.sh).
   e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+        with: { fetch-depth: 2 } # commit de fusion + sa base : fichiers de la PR
+      - id: perimetre
+        name: Périmètre de la PR (scripts/ci-perimetre.sh)
+        run: bash scripts/ci-perimetre.sh
+      - if: steps.perimetre.outputs.build == 'true'
+        uses: pnpm/action-setup@v4
+      - if: steps.perimetre.outputs.build == 'true'
+        uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - name: Build Next.js pour les tests E2E
+      - if: steps.perimetre.outputs.build == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.perimetre.outputs.build == 'true'
+        name: Build Next.js pour les tests E2E
         run: pnpm --filter @savr/plateforme build
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
           SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
-      - name: Démarrer le serveur Next.js en arrière-plan
+      - if: steps.perimetre.outputs.build == 'true'
+        name: Démarrer le serveur Next.js en arrière-plan
         run: pnpm --filter @savr/plateforme start &
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
           SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
-      - run: pnpm exec playwright install --with-deps chromium
-      - name: Attendre que le serveur soit prêt
+      - if: steps.perimetre.outputs.build == 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - if: steps.perimetre.outputs.build == 'true'
+        name: Attendre que le serveur soit prêt
         run: |
           for i in $(seq 1 30); do
             curl -sf http://localhost:3001 > /dev/null 2>&1 && break
             sleep 1
           done
-      - run: pnpm -w test:e2e
+      - if: steps.perimetre.outputs.build == 'true'
+        run: pnpm -w test:e2e
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3001
 

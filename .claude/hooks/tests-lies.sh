@@ -28,11 +28,11 @@
 #
 # CE QUE ÇA NE RETIRE PAS
 # -----------------------
-# La suite complète reste jouée, sur le contenu exact qui part en revue :
-#   • avant la PR, par `gate-pr` (via `suite-verte.sh`) ;
-#   • en CI, par le job `lint-typecheck-test` — status check REQUIS sur `main`.
-# Ce qui échappe encore au commit est donc vu à la PR — plus tard dans la même
-# session, jamais après le merge : les autres tests qui lisent le dépôt sans
+# La suite complète reste jouée, sur le contenu exact qui part en revue, en CI
+# par le job `lint-typecheck-test` — status check REQUIS sur `main`. Depuis le
+# 2026-10-25, `gate-pr` ne la joue plus (décision Val) ; à la main :
+# `bash .claude/hooks/suite-verte.sh`. Ce qui échappe encore au commit est donc vu
+# à la PR, jamais après le merge : les autres tests qui lisent le dépôt sans
 # l'importer (une migration SQL ouverte par `readFileSync`, par exemple), et
 # tout ce qu'un changement SQL, HTML ou Markdown peut casser.
 #

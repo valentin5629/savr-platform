@@ -1,55 +1,39 @@
 name: Quality Gate
+# Sur les PR seulement (décision Val 2026-10-25, audit CI). La protection de `main`
+# exige une branche à jour (`strict: true`) et les checks requis verts : l'arbre
+# fusionné par squash est exactement celui que le passage de la PR a testé. Le
+# passage `push: main` qui suivait chaque fusion (42 % des passages) ne prouvait
+# rien de plus et occupait la file. `push: dev` ne se déclenchait plus : sync-dev
+# pousse avec le GITHUB_TOKEN. `workflow_dispatch` permet un passage à la main.
 on:
   pull_request:
-  push:
-    branches: [main, dev]
+  workflow_dispatch:
 
 # Un nouveau push sur une PR rend le passage en cours sans objet : son verdict
-# porte sur un commit qui n'est plus la tête de la branche. On l'annule au lieu de
-# le laisser occuper la file — mesuré le 2026-10-08 : 2,6 passages par PR en
-# moyenne, 20 jobs simultanés au plus sur ce compte, et un p90 à 11 min pour une
-# médiane à 5,8.
-# Les push sur main / dev ne sont JAMAIS annulés ni mis en attente derrière un
-# autre : leur groupe est propre à chaque passage (`run_id`). Un groupe partagé
-# sans annulation ferait pire — GitHub ne garde qu'un seul passage en attente par
-# groupe et annule les autres.
+# porte sur un commit qui n'est plus la tête de la branche. On l'annule.
 concurrency:
   group: quality-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Noms des 8 checks REQUIS sur `main` (BRANCH_PROTECTION.md) : `detect-prereqs`,
+# `lint-typecheck-test`, `anti-coupling`, `migration-timestamp`, `security`,
+# `pgtap-rls-outbox`, `migrations`, `gate-ratchet`. Renommer ou retirer l'un d'eux
+# laisse toutes les PR bloquées en « Expected » tant que la protection n'est pas
+# modifiée. Un job requis ne doit jamais être sauté par un `if` (statut « Success »).
 jobs:
-  # Detection des prerequis pour les jobs differes (modules 0.3 / 0.4).
-  # `hashFiles()` n'est pas autorise au niveau `jobs.<job_id>.if` — on passe
-  # par un job de detection + outputs reutilises via `needs`. Pattern propre,
-  # pas de continue-on-error : un job sans prerequis = simplement non execute.
+  # Check requis historique : il détectait migrations / Playwright / Next pour des
+  # jobs différés du module 0.1. Ces trois prérequis existent depuis longtemps ; le
+  # job ne fait plus que rendre son statut, il n'est plus en tête d'aucun autre.
   detect-prereqs:
     runs-on: ubuntu-latest
-    outputs:
-      has_migrations: ${{ steps.detect.outputs.has_migrations }}
-      has_playwright: ${{ steps.detect.outputs.has_playwright }}
-      has_next: ${{ steps.detect.outputs.has_next }}
     steps:
-      - uses: actions/checkout@v4
-      - id: detect
-        run: |
-          set -e
-          if compgen -G "supabase/migrations/*.sql" > /dev/null; then
-            echo "has_migrations=true"  >> "$GITHUB_OUTPUT"
-          else
-            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
-          fi
-          if compgen -G "playwright.config.*" > /dev/null; then
-            echo "has_playwright=true"  >> "$GITHUB_OUTPUT"
-          else
-            echo "has_playwright=false" >> "$GITHUB_OUTPUT"
-          fi
-          if compgen -G "packages/plateforme/next.config.*" > /dev/null; then
-            echo "has_next=true"  >> "$GITHUB_OUTPUT"
-          else
-            echo "has_next=false" >> "$GITHUB_OUTPUT"
-          fi
+      - run: echo "Prérequis permanents (migrations, Playwright, Next) — rien à détecter."
 
-  lint-typecheck-test:
+  # ── lint-typecheck-test (requis) = statique + unit + build ─────────────────
+  # Les trois tournent en parallèle ; `lint-typecheck-test` les agrège. Il passe
+  # TOUJOURS (`!cancelled()`) et vérifie lui-même chaque résultat : un job requis
+  # sauté parce qu'une dépendance a échoué compterait comme « Success ».
+  statique:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +44,6 @@ jobs:
       - run: pnpm -w format:check
       - run: pnpm -w typecheck
       - run: pnpm -w lint
-      - run: pnpm -w test:unit
       # check:coverage ne tourne qu'en local (/goal) : sans cet auto-test, rien ne
       # verrait le detecteur redevenir muet (ENOBUFS au-dela de 1 Mio le 2026-09-30 :
       # tous les scenarios « MANQUANT » sur tous les modules). Faux Vitest, 3 s.
@@ -71,15 +54,80 @@ jobs:
         run: |
           git fetch --quiet --depth=1 origin main:refs/remotes/origin/main
           pnpm check:coverage --verifier-baseline origin/main
+
+  # Suite Vitest complète, en deux parts sur deux runners (la suite est limitée
+  # par le CPU : 130 à 230 s sur un seul runner, mesuré le 2026-10-25).
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -w test:unit --shard=${{ matrix.part }}/2
+
+  # Build de tout le monorepo SANS variables d'environnement, comme avant dans
+  # lint-typecheck-test : il attrape un client Supabase créé au chargement d'un
+  # module (le build casse sans .env). Le budget du bundle se lit sur ce build au
+  # lieu d'en refaire un.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
       - run: pnpm -w build
+      # Seuil V1 minimal : taille .next/static < 5 MB.
+      - name: Vérification budget bundle
+        run: |
+          SIZE=$(du -sb packages/plateforme/.next/static 2>/dev/null | cut -f1 || echo 0)
+          echo "Bundle static size: ${SIZE} bytes"
+          if [ "${SIZE}" -gt 5242880 ]; then
+            echo "::error::Bundle trop lourd (${SIZE} bytes > 5 MB)" ; exit 1
+          fi
+
+  lint-typecheck-test:
+    needs: [statique, unit, build]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Statique, tests unitaires et build tous verts
+        run: |
+          echo "statique=${{ needs.statique.result }} unit=${{ needs.unit.result }} build=${{ needs.build.result }}"
+          [ "${{ needs.statique.result }}" = success ] &&
+          [ "${{ needs.unit.result }}" = success ] &&
+          [ "${{ needs.build.result }}" = success ]
 
   # Garde-fou 3 TMS-Ready : anti-couplage MTS-1/Everest (deterministe, sans DB).
   # Echec = reference directe a un transporteur hors packages/adapters/.
+  # Porte aussi trois gardes légères qui se disaient « bloquantes » sans être
+  # requises (décision Val 2026-10-25, C4) — elles le sont désormais :
+  #   • pdf-contract : liste des type_document du worker ↔ renderer PDF (le
+  #     renderer, build Docker hors workspace, la duplique) ;
+  #   • G8 primitives orphelines (logger / sendAlert / captureException) ;
+  #   • contrats outbox V2 (garde-fou G2 TMS-Ready, schémas E1/E2/E3/E5).
   anti-coupling:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: bash scripts/check-coupling.sh
+      - name: G8 — primitives orphelines
+        run: bash scripts/check-primitive-orpheline.sh
+      - name: Contrats outbox V2
+        run: bash scripts/check-outbox-contracts.sh
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Contrat worker ↔ renderer PDF
+        run: pnpm -w check:pdf-contract
 
   # Anti-collision de timestamp de migration (R0d) — 5 occurrences vecues.
   # Le hook pre-commit ne voit que le dossier de SA branche : aveugle a une
@@ -158,53 +206,14 @@ jobs:
       - name: Collision de timestamp, y compris avec une branche non mergee
         run: bash scripts/check-migration-timestamp.sh --branch
 
-  # Contrat d'integration worker <-> renderer PDF (R2 / BL-P0-03). Le renderer
-  # (apps/pdf-renderer) est auto-suffisant (build Docker hors workspace) et ne peut
-  # importer le contrat partage @savr/shared : il duplique la liste des type_document.
-  # Ce gate BLOQUANT empeche la derive silencieuse (type enqueue mais non rendu => 400).
-  pdf-contract:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm -w check:pdf-contract
-
-  # Lockfile npm du renderer PDF. Le renderer est dans le workspace pnpm (vitest),
-  # mais son build Railway fait `npm ci` sur apps/pdf-renderer/package-lock.json.
-  # Un package.json modifié via pnpm sans régénérer ce lockfile ne se voit qu'au
-  # build Railway. Le lockfile committé doit être EXACTEMENT celui que produit la
-  # commande documentée dans le Dockerfile (même image node:22-slim, donc même npm).
-  # `npm ci --dry-run` ne suffit pas : il laisse passer une dépendance retirée ou
-  # déplacée en devDependencies (le build passe, puis `npm prune --omit=dev` retire
-  # le module et le conteneur crashe au démarrage).
-  pdf-renderer-lockfile:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/pdf-renderer
-    steps:
-      - uses: actions/checkout@v4
-      - name: Régénère le lockfile avec la commande du Dockerfile
-        run: |
-          docker run --rm -v "$PWD":/w -w /w node:22-slim \
-            npm install --package-lock-only --ignore-scripts
-      - name: package-lock.json synchronisé avec package.json
-        run: |
-          if ! git diff --exit-code -- package-lock.json; then
-            echo "::error file=apps/pdf-renderer/package-lock.json::package-lock.json désynchronisé de package.json. Depuis apps/pdf-renderer/ : docker run --rm -v \"\$PWD\":/w -w /w node:22-slim npm install --package-lock-only --ignore-scripts, puis commiter package-lock.json."
-            exit 1
-          fi
-
-  # Build Docker du renderer + démarrage du conteneur. Attrape ce que le job
-  # lockfile ne voit pas : Dockerfile cassé (#272 : `tsc` absent, aucun PDF généré
-  # pendant des mois), dépendance d'exécution rangée en devDependencies (retirée par
-  # `npm prune --omit=dev`), compilation sur l'arbre npm (les tests tournent sur
-  # l'arbre pnpm). Le contexte de build est apps/pdf-renderer/ seul : sur une PR
-  # qui n'y touche pas, le build est sauté (le job reste vert).
-  pdf-renderer-docker:
+  # Renderer PDF (apps/pdf-renderer), sauté quand la PR n'y touche pas.
+  #   • Lockfile npm : le build Railway fait `npm ci` sur apps/pdf-renderer/
+  #     package-lock.json ; il doit être EXACTEMENT celui que produit la commande du
+  #     Dockerfile (même image node:22-slim). `npm ci --dry-run` ne suffit pas : il
+  #     laisse passer une dépendance retirée ou déplacée en devDependencies.
+  #   • Build Docker + démarrage : Dockerfile cassé (#272), dépendance d'exécution en
+  #     devDependencies, compilation sur l'arbre npm.
+  pdf-renderer:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -215,10 +224,24 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ] &&
              git diff --quiet "${{ github.event.pull_request.base.sha }}...HEAD" -- \
                apps/pdf-renderer .github/workflows/quality.yml; then
-            echo "apps/pdf-renderer/ inchangé : build Docker sauté."
+            echo "apps/pdf-renderer/ inchangé : contrôles du renderer sautés."
             echo "run=false" >> "$GITHUB_OUTPUT"
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Régénère le lockfile avec la commande du Dockerfile
+        if: steps.changed.outputs.run == 'true'
+        working-directory: apps/pdf-renderer
+        run: |
+          docker run --rm -v "$PWD":/w -w /w node:22-slim \
+            npm install --package-lock-only --ignore-scripts
+      - name: package-lock.json synchronisé avec package.json
+        if: steps.changed.outputs.run == 'true'
+        working-directory: apps/pdf-renderer
+        run: |
+          if ! git diff --exit-code -- package-lock.json; then
+            echo "::error file=apps/pdf-renderer/package-lock.json::package-lock.json désynchronisé de package.json. Depuis apps/pdf-renderer/ : docker run --rm -v \"\$PWD\":/w -w /w node:22-slim npm install --package-lock-only --ignore-scripts, puis commiter package-lock.json."
+            exit 1
           fi
       - if: steps.changed.outputs.run == 'true'
         run: docker build -t savr-pdf-renderer apps/pdf-renderer
@@ -234,94 +257,32 @@ jobs:
           docker logs pdf-renderer
           exit 1
 
-  # Tests pgTAP : RLS (sous role 'authenticated', non negociable) + garde-fou 4
-  # TMS-Ready (outbox par mutation : supabase/tests/outbox_par_mutation.test.sql).
-  # `supabase test db` execute TOUS les *.test.sql via pg_prove → les deux sont
-  # couverts par ce job bloquant.
-  # Joue sans condition : c'est un status check REQUIS sur `main`, et un job
-  # saute par son `if` rend le statut « Success » (documentation GitHub des
-  # status checks requis). Jusqu'au 2026-10-08 il portait `needs: detect-prereqs`
-  # + `if: has_migrations`, herite du module 0.1 (aucune migration a l'epoque) :
-  # une PR qui aurait vide ou deplace `supabase/migrations/` l'aurait fait sauter.
+  # La base, démarrée UNE fois (au lieu de six jobs qui la démarraient chacun,
+  # ~2 min par démarrage, mesuré le 2026-10-25) :
+  #   • application de toutes les migrations sur une base neuve (`db reset`, trois
+  #     essais sur chute de conteneur) — ce que faisait le job `migrations` ;
+  #   • `supabase test db` : TOUS les *.test.sql de supabase/tests/ — RLS sous rôle
+  #     'authenticated' (non négociable), garde-fou 4 (outbox par mutation), et
+  #     depuis le 2026-10-25 (décision Val C3) les oracles sémantiques G9 et les
+  #     postconditions integration-contracts, sortis du mode rapport ;
+  #   • plans des requêtes critiques (perf-check), informatif comme avant : il
+  #     n'était pas requis, il ne bloque pas.
+  # Le rapport G6 (schéma V1 vs DDL cible V2) ne tourne plus en CI : il signalait
+  # les mêmes écarts à chaque passage sans rien bloquer. À la demande, sur une base
+  # locale : `pnpm check:schema-vs-cible` (DATABASE_URL + CIBLE_DATABASE_URL).
+  # Joue sans condition : status check REQUIS.
   pgtap-rls-outbox:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with: { version: 2.105.0 }
-      - run: bash scripts/ci-supabase-start.sh
-      - run: supabase db reset
-        env:
-          SUPABASE_NO_ANALYTICS: 'true'
-      - run: supabase test db # pgTAP RLS (role 'authenticated') + outbox par mutation
-
-  # Skip 0.1 : pas de Playwright config (verticales UI, modules > 0.1).
-  # Build + start en mode production pour eviter le timeout du webServer dev
-  # (Next.js 15 en mode dev depasse les 120s de compilation a froid sur le runner).
-  e2e:
-    needs: detect-prereqs
-    if: needs.detect-prereqs.outputs.has_playwright == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - name: Build Next.js pour les tests E2E
-        run: pnpm --filter @savr/plateforme build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
-          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
-      - name: Démarrer le serveur Next.js en arrière-plan
-        run: pnpm --filter @savr/plateforme start &
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
-          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
-      - run: pnpm exec playwright install --with-deps
-      - name: Attendre que le serveur soit prêt
-        run: |
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:3001 > /dev/null 2>&1 && break
-            sleep 1
-          done
-      - run: pnpm -w test:e2e
-        env:
-          PLAYWRIGHT_BASE_URL: http://localhost:3001
-
-  # Install du binaire gitleaks directement : `gitleaks-action@v2` exige une
-  # licence (faux positif sur repos perso). Le CLI open source ne l'exige pas.
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - name: Install gitleaks
-        run: |
-          GITLEAKS_VERSION=8.21.2
-          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz -C /usr/local/bin gitleaks
-          gitleaks version
-      - name: Run gitleaks
-        run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact --verbose --exit-code 1
-      - uses: pnpm/action-setup@v4
-      - run: pnpm audit --audit-level=high || true
-
-  # Joue sans condition, pour la meme raison que `pgtap-rls-outbox` : status
-  # check REQUIS sur `main`, qu'un `if` faux ferait passer sans rien controler.
-  migrations:
     runs-on: ubuntu-latest
     # 30 et non 10 : le démarrage de la pile peut faire jusqu'à six essais de
     # registre (scripts/ci-supabase-start.sh), 1 à 4 min chacun quand il échoue.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
       - uses: supabase/setup-cli@v1
         with: { version: 2.105.0 }
       - run: bash scripts/ci-supabase-start.sh
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
       # `supabase start` rend la main avant que Postgres soit pleinement stable.
       # On attend que pg_isready réponde 3x d'affilée AVANT le reset : sans ce
       # filet, le conteneur chute parfois au passage migrate→seed (faux positif
@@ -371,6 +332,75 @@ jobs:
           exit 1
         env:
           SUPABASE_NO_ANALYTICS: 'true'
+      - run: supabase test db # RLS, outbox par mutation, G9, integration-contracts
+      - name: Plans des requêtes critiques (informatif)
+        continue-on-error: true
+        run: bash scripts/check-query-perf.sh
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
+
+  # Build + start en mode production pour eviter le timeout du webServer dev
+  # (Next.js 15 en mode dev depasse les 120s de compilation a froid sur le runner).
+  # Build distinct de `build` : les NEXT_PUBLIC_* sont figées dans le bundle au
+  # build, il faut celles du serveur local. Seul Chromium est installé (navigateur
+  # par défaut du projet Playwright).
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Build Next.js pour les tests E2E
+        run: pnpm --filter @savr/plateforme build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+      - name: Démarrer le serveur Next.js en arrière-plan
+        run: pnpm --filter @savr/plateforme start &
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Attendre que le serveur soit prêt
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3001 > /dev/null 2>&1 && break
+            sleep 1
+          done
+      - run: pnpm -w test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3001
+
+  # Install du binaire gitleaks directement : `gitleaks-action@v2` exige une
+  # licence (faux positif sur repos perso). Le CLI open source ne l'exige pas.
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Install gitleaks
+        run: |
+          GITLEAKS_VERSION=8.21.2
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: Run gitleaks
+        run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact --verbose --exit-code 1
+      - uses: pnpm/action-setup@v4
+      - run: pnpm audit --audit-level=high || true
+
+  # Garde anti-destructif des migrations nouvelles (sans base). L'application des
+  # migrations sur une base neuve est faite par `pgtap-rls-outbox`, qui démarre la
+  # seule base de la CI. Joue sans condition : status check REQUIS.
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - name: Garde anti-destructif
         run: |
           FILES=$(git diff --name-only origin/main... -- 'supabase/migrations/**')
@@ -390,313 +420,6 @@ jobs:
             fi
           done
           if [ "$FAIL" = "true" ]; then exit 1; fi
-
-  # Vérifie les plans d'exécution des requêtes critiques (SLA §16 : p95 < 200ms listes).
-  # Détecte les Sequential Scans sur tables volumineuses avant qu'ils atteignent la prod.
-  # Skip tant qu'aucune migration n'existe. seed:minimal non lancé (guard project-ref dev) :
-  # EXPLAIN fonctionne sur tables vides — le plan révèle l'absence d'index.
-  perf-check:
-    needs: detect-prereqs
-    if: needs.detect-prereqs.outputs.has_migrations == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with: { version: 2.105.0 }
-      - run: bash scripts/ci-supabase-start.sh
-        env:
-          SUPABASE_NO_ANALYTICS: 'true'
-      - run: supabase db reset
-        env:
-          SUPABASE_NO_ANALYTICS: 'true'
-      - name: Vérification plans requêtes critiques
-        run: bash scripts/check-query-perf.sh
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
-
-  # Vérifie la conformité de la structure outbox_events et la présence des schémas
-  # JSON E1/E2/E3/E5 (garde-fou G2 TMS-Ready — payload V2 compatible).
-  outbox-contracts:
-    needs: detect-prereqs
-    if: needs.detect-prereqs.outputs.has_migrations == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Vérification contrats outbox V2
-        run: bash scripts/check-outbox-contracts.sh
-
-  # Skip tant que next.config.* absent. Mesure le poids du bundle statique Next.js.
-  # size-limit sera configuré quand le bundle sera non-trivial (modules UI).
-  # Pour l'instant : build réussi + taille .next/static < 5 MB = seuil V1 minimal.
-  bundle-budget:
-    needs: detect-prereqs
-    if: needs.detect-prereqs.outputs.has_next == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - name: Build Next.js
-        run: pnpm --filter @savr/plateforme build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
-      - name: Vérification budget bundle
-        run: |
-          SIZE=$(du -sb packages/plateforme/.next/static 2>/dev/null | cut -f1 || echo 0)
-          echo "Bundle static size: ${SIZE} bytes"
-          if [ "${SIZE}" -gt 5242880 ]; then
-            echo "::error::Bundle trop lourd (${SIZE} bytes > 5 MB)" ; exit 1
-          fi
-
-  # ===========================================================================
-  # Lot 0 (remédiation post-audit) — GARDE-FOUS EN MODE RAPPORT (T0)
-  # ===========================================================================
-  # Les ~118 écarts de l'audit code-vs-CDC rendraient ces gates rouges en
-  # permanence s'ils bloquaient d'emblée. On les câble donc en mode RAPPORT :
-  # `continue-on-error: true` (le workflow reste vert), résumé dans
-  # $GITHUB_STEP_SUMMARY + compteur de burn-down. Flip bloquant (T1) = retrait
-  # de `continue-on-error` par périmètre, derrière le lot de fix correspondant
-  # (cliquet). Cf. `30. Review Code/Backlog final priorisé/Lot 0 …`.
-
-  # Les NEUF rapports sans base de données du Lot 0, dans UN job. Ils en occupaient
-  # neuf, chacun payant son checkout et son `pnpm install` pour quelques secondes
-  # de contrôle : avec 28 jobs par passage et 20 jobs simultanés au plus sur ce
-  # compte, deux PR poussées en même temps se mettaient mutuellement en file.
-  #
-  # Rien ne change dans ce qui est contrôlé ni dans ce que ça bloque :
-  #   • MODE RAPPORT conservé — `continue-on-error: true` au niveau du job, le
-  #     workflow ne rougit jamais sur ces rapports ; l'enforcement reste le
-  #     méta-cliquet `gate-ratchet`, qui rejoue lui-même chaque compteur ;
-  #   • chaque rapport garde son étape, son résumé ($GITHUB_STEP_SUMMARY), et tourne
-  #     même si un précédent a échoué (`if: !cancelled()`) ;
-  #   • `fetch-depth: 0` pour tout le job : G12 (blame) et G11 (diff vs origin/main)
-  #     l'exigent, les autres n'y sont pas sensibles ;
-  #   • G11 passe EN DERNIER : il régénère `.cdc-metadata.json`, et les autres
-  #     rapports doivent lire, comme avant, le fichier tel qu'il est commité.
-  rapports-lot0:
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 } # G12 : blame → ancre ; G11 : diff vs origin/main
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-
-      # ── column-db ─────────────────────────────────────────────────────────
-      # G7 — Cohérence colonne-DB par route. Recompile l'app avec le client Supabase
-      # TYPÉ contre le schéma réel (`packages/shared/src/database.types.ts`, snapshot
-      # HEAD régénérable via `pnpm db:types:local`). Toute colonne/RPC inexistante
-      # ciblée par .eq/.select/.insert/.update/.rpc devient une erreur compilée →
-      # comptée par le runner. NB : sans DB (snapshot committé). La FRAÎCHEUR de ce
-      # snapshot est le prérequis du gate : une table absente n'est pas mal typée,
-      # elle est invisible (ses écritures échappent à G7). Elle est désormais
-      # cliquetée par `check:types-snapshot` dans le job `gate-ratchet` — et non
-      # par G11 (cdc-drift), qui compare CDC ↔ manifeste, pas migrations ↔ snapshot.
-      - name: G7 — rapport colonne-DB
-        if: ${{ !cancelled() }}
-        run: pnpm check:column-db
-
-      # ── manifest-grain ────────────────────────────────────────────────────
-      # G2 — Manifeste au grain LIVRABLE (R0b). Valide chaque specs/manifests/M*.json
-      # contre specs/manifests/_schema.json (validateur de sous-ensemble JSON Schema
-      # embarqué, sans dépendance) et SIGNALE le grain scénario-seul (= deliverables[]
-      # absent → livrable CDC non transcrit invisible, cause racine de l'audit). Pur
-      # Node (tsx), sans DB. Flip bloquant (T1) quand tous les manifestes portent un
-      # deliverables[] valide (durcissement par cliquet).
-      - name: G2 — rapport grain livrable
-        if: ${{ !cancelled() }}
-        run: pnpm check:manifest-grain
-
-      # ── manifest-ref-anchor ───────────────────────────────────────────────
-      # G12 — Ancrage des `ref_cdc` LIGNÉS des manifestes. `specs/manifests/` est
-      # authored, `specs/cdc/**` est DÉRIVÉ (re-sync depuis le Vault) : un sync qui
-      # insère des lignes en amont décale le fichier et les refs figées pointent un
-      # passage sans rapport, en silence. Ni manifest-grain (structure seule) ni
-      # cdc-drift (hash de fichier entier) ne regardent le numéro de ligne. Reconstruit
-      # l'ancre par `git blame` du manifeste, puis SUIT la ligne de version en version
-      # du CDC par la carte de lignes des diffs (réécrite sur place = suivie ; remaniée
-      # ou supprimée = « à relire », compteur distinct). Pur Node (tsx), sans DB.
-      # ⚠ `fetch-depth: 0` OBLIGATOIRE : sur un clone tronqué, aucune ancre n'est
-      # reconstructible — le gate sort en erreur sans compteur, le cliquet rougit.
-      # Enforcement via le méta-cliquet gate-ratchet (baseline 0 : parc recalé).
-      - name: G12 — rapport ancrage des ref_cdc
-        if: ${{ !cancelled() }}
-        run: pnpm check:manifest-ref-anchor
-
-      # ── renamed-type-refs ─────────────────────────────────────────────────
-      # check:renamed-type-refs — anti-récidive cluster C3 / #259. Rejoue les
-      # `ALTER TYPE … RENAME` de toutes les migrations et flagge toute référence
-      # EXÉCUTABLE (cast, décl. colonne/variable/arg, y compris dans un corps $$)
-      # à un ancien nom de type déjà renommé → `db reset` échouerait TARD. Pur Node
-      # (tsx), sans DB. Enforcement via le méta-cliquet (baseline 0) ; ce job donne
-      # le détail fichier:ligne dans le PR summary.
-      - name: Rapport références à un type Postgres renommé
-        if: ${{ !cancelled() }}
-        run: pnpm check:renamed-type-refs
-
-      # ── spec-deliverables ─────────────────────────────────────────────────
-      # G1 — check:spec-deliverables (R0b). Diff livrables CDC (index seedé depuis
-      # l'audit : specs/manifests/cdc-deliverables.index.json) ↔ union des
-      # deliverables[] des manifestes. Un livrable CDC absent de tous les manifestes
-      # (et non descopé) = non transcrit → SIGNALÉ. Ferme la cause racine (gates
-      # code-vs-manifeste, jamais code-vs-CDC). Pur Node (tsx), sans DB. Flip bloquant
-      # (T1) PAR MODULE dès que son manifeste est re-grainé et à jour.
-      - name: G1 — rapport couverture livrables CDC
-        if: ${{ !cancelled() }}
-        run: pnpm check:spec-deliverables
-
-      # ── test-mocks ────────────────────────────────────────────────────────
-      # G5 — check:test-mocks (durci R9, cluster C7). Interdit de mocker le VRAI chemin
-      # du worker outbox (runOutboxWorker / handleError / getNextRetryAt) dans ses
-      # propres tests (co-localisés adapters). Mocker le client Supabase, sendAlert ou
-      # la frontière HTTP de l'adapter reste autorisé. Pur Node (tsx), sans DB. Aussi
-      # enforced par gate-ratchet (baseline 0 → toute régression bloque).
-      - name: G5 — rapport mock du vrai chemin worker outbox
-        if: ${{ !cancelled() }}
-        run: pnpm check:test-mocks
-
-      # ── manifest-completeness ─────────────────────────────────────────────
-      # G10 — Complétude inverse des manifestes (L2 : index incomplet). Chaque module
-      # roadmap V1 a-t-il un manifeste ? Chaque manifeste porte-t-il cdc_source_hash ?
-      # Pur Node (tsx), sans DB.
-      - name: G10 — rapport complétude manifestes
-        if: ${{ !cancelled() }}
-        run: pnpm check:manifest-completeness
-
-      # ── preuve-visuelle ───────────────────────────────────────────────────
-      # preuve-visuelle (L5) — catalogue des livrables présentationnels (à-vérifier)
-      # exigeant une preuve screenshot/Loom en PR + vérif backstop go-live
-      # (docs/audit/AUDIT_SCOPE.json). Discipline humaine ; ce job rend le catalogue
-      # non-contournable (compté). Pur Node (tsx), sans DB.
-      - name: L5 — rapport catalogue preuve-visuelle
-        if: ${{ !cancelled() }}
-        run: pnpm check:preuve-visuelle
-
-      # ── cdc-drift ─────────────────────────────────────────────────────────
-      # G11 — Drift CDC (L3 : CDC patché, manifeste figé). Compare cdc_source_hash
-      # figé ↔ .cdc-metadata.json courant ; annote les fichiers modifiés dans la PR.
-      # fetch-depth: 0 pour le git diff vs origin/main. Pur Node (tsx), sans DB.
-      # Régénère .cdc-metadata.json depuis specs/cdc AVANT le diff : sinon G11
-      # compare contre un metadata commité potentiellement périmé (R0d finding #10).
-      - id: cdc_drift_prealable
-        if: ${{ !cancelled() }}
-        run: pnpm gen:cdc-metadata
-      - name: G11 — rapport drift CDC ↔ manifeste
-        if: ${{ !cancelled() && steps.cdc_drift_prealable.outcome == 'success' }}
-        run: pnpm check:cdc-drift
-
-  # G8 (volet léger) — Primitives orphelines : logger/sendAlert/captureException
-  # exportés de @savr/shared mais sans call-site de production (chaînes
-  # event→log/alerte muettes). Pur grep, sans DB. Le volet process de G8 =
-  # mandat du reviewer `reviewer-conformite-spec` (item-par-item, GO-VISUAL).
-  # BLOQUANT depuis R15 (T1) : les 3 primitives sont câblées → toute régression
-  # à l'état orphelin rougit la CI (exit 1).
-  primitive-orpheline:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: G8 — primitives orphelines (bloquant)
-        run: bash scripts/check-primitive-orpheline.sh
-
-  # ===========================================================================
-  # Lot 0 / R0c — Garde-fous de 2e ordre (red-team), MODE RAPPORT (T0)
-  # ===========================================================================
-  # Ferment les fuites résiduelles que G1-G8 laissent : L1 sémantique fausse,
-  # L2 index incomplet, L3 drift CDC, L4 test complaisant, L5 jugement humain.
-  # Tous `continue-on-error: true` (le workflow reste vert) + $GITHUB_STEP_SUMMARY.
-
-  # G6 — Schéma V1 (migrations réelles, après db reset) vs DDL cible V2
-  # (specs/ddl-cible/schema_cible_v2.sql chargé dans une base scratch). Diff via
-  # pg_catalog (décision Val 2026-06-24 : zéro dépendance npm). Garde-fou 1
-  # TMS-Ready : anti-renommage/migration silencieuse en V2. Distinct de G7
-  # (qui compare au schéma RÉEL V1). Hors allowlist v1-divergences-allowlist.txt
-  # = signalé. Skip tant qu'aucune migration n'existe.
-  schema-vs-cible:
-    needs: detect-prereqs
-    if: needs.detect-prereqs.outputs.has_migrations == 'true'
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - uses: supabase/setup-cli@v1
-        with: { version: 2.105.0 }
-      - run: bash scripts/ci-supabase-start.sh
-        env:
-          SUPABASE_NO_ANALYTICS: 'true'
-      - run: supabase db reset
-        env:
-          SUPABASE_NO_ANALYTICS: 'true'
-      - name: Charger le DDL cible V2 dans une base scratch
-        run: |
-          V1_URL='postgresql://postgres:postgres@localhost:54322/postgres'
-          psql "$V1_URL" -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS cible_v2;"
-          psql "$V1_URL" -v ON_ERROR_STOP=1 -c "CREATE DATABASE cible_v2;"
-          # Le DDL cible est self-contained (CREATE EXTENSION/SCHEMA/TYPE/TABLE/FK).
-          # En mode rapport : on log l'échec de chargement sans rougir le job.
-          psql 'postgresql://postgres:postgres@localhost:54322/cible_v2' \
-            -v ON_ERROR_STOP=1 -f specs/ddl-cible/schema_cible_v2.sql \
-            || echo "::warning::Chargement DDL cible partiel — diff sur ce qui a chargé."
-      - name: G6 — rapport schéma vs cible
-        run: pnpm check:schema-vs-cible
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
-          CIBLE_DATABASE_URL: postgresql://postgres:postgres@localhost:54322/cible_v2
-
-  # G9 — Oracles sémantiques (L1 : règle métier fausse malgré test vert). Exécute
-  # supabase/tests-report/g9_semantic_oracle.test.sql (HORS supabase/tests/ pour
-  # ne pas être ramassé par le job bloquant pgtap-rls-outbox) : oracles fn_est_*
-  # comparés au comportement RÉEL aux cas-limites. Skip tant qu'aucune migration.
-  semantic-oracle:
-    needs: detect-prereqs
-    if: needs.detect-prereqs.outputs.has_migrations == 'true'
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with: { version: 2.105.0 }
-      - run: bash scripts/ci-supabase-start.sh
-        env:
-          SUPABASE_NO_ANALYTICS: 'true'
-      - run: supabase db reset
-        env:
-          SUPABASE_NO_ANALYTICS: 'true'
-      - name: G9 — rapport oracles sémantiques
-        run: bash scripts/run-report-pgtap.sh supabase/tests-report/g9_semantic_oracle.test.sql "G9 — Oracles sémantiques"
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
-
-  # integration-contracts — Postconditions sur VRAIE DB (L4 : test complaisant).
-  # n° facture gapless + ligne alerte réellement écrite. R2/Storage reporté preprod
-  # (skip tracé). Exécute supabase/tests-report/integration_contracts.test.sql.
-  integration-contracts:
-    needs: detect-prereqs
-    if: needs.detect-prereqs.outputs.has_migrations == 'true'
-    runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with: { version: 2.105.0 }
-      - run: bash scripts/ci-supabase-start.sh
-        env:
-          SUPABASE_NO_ANALYTICS: 'true'
-      - run: supabase db reset
-        env:
-          SUPABASE_NO_ANALYTICS: 'true'
-      - name: integration-contracts — rapport postconditions DB réelles
-        run: bash scripts/run-report-pgtap.sh supabase/tests-report/integration_contracts.test.sql "integration-contracts — postconditions DB"
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
 
   # ===========================================================================
   # R0d — MÉTA-CLIQUET anti-régression. SEUL gate Lot 0 BLOQUANT (continue-on-error

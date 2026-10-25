@@ -1,5 +1,5 @@
 -- =============================================================================
--- integration-contracts (Lot 0 / R0c, L4) — MODE RAPPORT.
+-- integration-contracts (Lot 0 / R0c, L4) — BLOQUANT depuis le 2026-10-25.
 -- =============================================================================
 -- Ferme L4 : « test complaisant — CI verte sur chemin mocké ». Ces assertions
 -- portent sur l'ÉTAT RÉEL d'une base Postgres (pas de mock du client Supabase) :
@@ -11,8 +11,9 @@
 -- prod Cloudflare). Elle est ici déclarée NON-COUVERTE via skip() — pas de cap
 -- silencieux (principe « no silent caps »).
 --
--- ⚠ HORS supabase/tests/ À DESSEIN (cf. g9_semantic_oracle). Exécuté par le job
--- mode-rapport `integration-contracts` via psql -f.
+-- BLOQUANT (T1) depuis le 2026-10-25 (décision Val C3, audit CI) : déplacé de
+-- supabase/tests-report/ dans supabase/tests/, joué par `supabase test db` dans
+-- le job requis `pgtap-rls-outbox`. Il était vert (6/6) en mode rapport.
 -- =============================================================================
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;

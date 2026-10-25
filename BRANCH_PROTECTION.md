@@ -17,9 +17,18 @@ Rend l'enforcement indépendant de l'agent (re-vérif serveur, pas contournable 
       `anti-coupling`, `detect-prereqs`, `lint-typecheck-test`, `security`, `gate-ratchet`, `migration-timestamp`,
       `pgtap-rls-outbox`, `migrations`. Les autres jobs de `quality.yml` tournent sans être requis (dont `e2e` et
       `bundle-budget`, à ajouter quand ils seront stables).
-      - `lint-typecheck-test` = format, typecheck, lint, suite Vitest complète et build — le filet des gardes locales de commit et de PR
+      - `lint-typecheck-test` = agrégateur (depuis le 2026-10-25) de `statique` (format, typecheck, lint), `unit`
+        (suite Vitest complète en 2 parts) et `build` (build sans variables d'environnement + budget du bundle) — le
+        filet des gardes locales de commit et de PR. Il tourne toujours (`!cancelled()`) et vérifie lui-même que les
+        trois sont « success » : un job requis sauté parce qu'une dépendance a échoué compterait comme « Success »
       - `anti-coupling` = garde-fou 3 TMS-Ready (0 réf directe MTS-1/Everest hors `packages/adapters/`)
-      - `pgtap-rls-outbox` = RLS (rôle `authenticated`) **+** garde-fou 4 TMS-Ready (outbox par mutation)
+      - `pgtap-rls-outbox` = la seule base de la CI (depuis le 2026-10-25) : application de toutes les migrations sur
+        base neuve, puis RLS (rôle `authenticated`) **+** garde-fou 4 TMS-Ready (outbox par mutation) **+** oracles G9
+        et integration-contracts (sortis du mode rapport, décision Val C3)
+      - `migrations` = garde anti-destructif des migrations nouvelles (sans base depuis le 2026-10-25 ; l'application
+        des migrations est faite par `pgtap-rls-outbox`)
+      - La CI ne tourne plus sur `push: main` (décision Val 2026-10-25, C2) : avec `strict: true`, l'arbre fusionné est
+        celui que le passage de la PR a testé
       - `migration-timestamp` = anti-collision de préfixe `YYYYMMDDHHMMSS`, **y compris avec une branche en vol non mergée** — le hook pré-commit ne compare qu'au dossier de sa propre branche et ne peut pas voir ce cas
       - `pgtap-rls-outbox` et `migrations` sont joués **sans condition** depuis le 2026-10-08. Ils portaient un
         `if: has_migrations` hérité du module 0.1 : un job requis sauté par son `if` rend le statut « Success »

@@ -56,6 +56,10 @@ export default defineConfig({
       '**/e2e/**',
     ],
     globals: true,
+    // Threads plutôt que processus (défaut `forks`) : suite complète 166,6 s →
+    // 143,5 s en local, 5 628 tests verts, aucun autre changement (mesuré le
+    // 2026-10-25, audit CI). Aucun test n'appelle `process.chdir`, interdit en threads.
+    pool: 'threads',
     setupFiles: ['./vitest.setup.ts'],
     environmentMatchGlobs: [['**/*.test.tsx', 'jsdom']],
     // ⚠ `minWorkers` est OBLIGATOIRE dès qu'on pose `maxWorkers` : laissé libre, il

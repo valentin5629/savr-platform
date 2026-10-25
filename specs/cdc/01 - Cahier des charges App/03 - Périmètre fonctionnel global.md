@@ -1,7 +1,5 @@
 # 03 - Périmètre fonctionnel global
 
-**Statut** : ✅ Complété
-**Dernière mise à jour** : 2026-04-27 (propagation §11 TMS Dashboards — sous-section « Cumul cross-app Plateforme ↔ TMS » Module 9)
 
 ---
 

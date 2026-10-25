@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M13 + §05 règles R_M13.1 à R_M13.20 + §04 (parametres_tms, users_tms, users_tms_devices_trusted, secrets_metadata, impersonation_sessions, audit_logs, integrations_logs/inbox) + §09 addendum M13 + §13 Migration MTS-1 (§13.4 migration_mode_active)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code — **5 specs floues TRANCHÉES Val 2026-06-07 + propagées (cf. dernière section)**
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M13.
 > Pour chaque scénario :

@@ -1,7 +1,5 @@
 # 11 - Dashboards
 
-**Statut** : Validé
-**Dernière mise à jour** : 2026-06-07 (**Session test-scenarios lot ⑫ — F5 tranchée Val** : histogramme Revenus Bloc 2 = statuts factures `emise|payee`, avoirs en négatif. Scénarios : `tests/11-12-dashboards-reporting-scenarios.md`.) / Antérieure : 2026-06-03 (**Revue de sobriété §11 Dashboards — 4 items, zéro dette** : **A1** suppression des 4 vues matérialisées `mv_kpi_*` + cron 15 min (fantômes, absentes §04) → vues SQL non matérialisées `v_kpi_*` à la volée ; **B1** préférences filtres/période → `localStorage` (plus de table serveur) ; **B2** retrait onglet « Vue consolidée » du dashboard `client_organisateur` → bandeau de tête + nettoyage références stale (décisions L208 + agence) ; **C1** dédup « Export PDF dashboards Puppeteer » → source unique §12. Toutes modifs locales §11.) — *ex 2026-05-06 : Taux de recyclage indicateur unique ZD-only, cf. [[04 - Data Model]] addendum 2026-05-06 + [[05 - Règles métier#R_taux_recyclage]]*
 
 ---
 

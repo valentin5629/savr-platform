@@ -542,7 +542,7 @@
   "deliverables": [
     {
       "id": "M0.6-liste-vues-a-venir-passees",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:160",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:158",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx + packages/plateforme/src/lib/collectes/vue-temporelle.ts + packages/plateforme/src/components/collecte/onglets-vue-collectes.tsx",
       "test": "M0.6/liste_vues_a_venir_passees_par_date + M0.6/liste_pastille_action_toutes_dates",
       "statut": "implemented",
@@ -1086,7 +1086,7 @@
     },
     {
       "id": "BL-P1-BOA-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:467-512",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:465-510",
       "artefact": "packages/plateforme/src/components/admin/association-modal.tsx (modale « Fiche association » ouverte depuis la liste /admin/associations — décisions Val 2026-09-30 : grand en-tête commun FicheEnTete, onglets seuls sans colonne résumé, 4 onglets Informations / Logistique / Rapport client / Administratif, compteur d'erreurs par onglet OngletAvecErreurs) ; géocodage serveur ; R17b (décisions Val 2026-07-02) : logo (LogoUpload + POST /api/v1/admin/uploads/logo → R2), instructions_acces, siren (non oblig., admin-only), date_expiration_habilitation — colonnes ajoutées migration 20260702020100 + DDL cible ; ADMIN_FIELDS re-inclut siren + date (trigger trg_ops_immutable_cols étendu)",
       "test": "packages/plateforme/src/components/admin/association-modal.test.tsx « M1.1 — Modale association (revue E2E) » (19 scénarios : champs R17b logo/instructions/SIREN/date, SIREN 9 chiffres, description ≥30, POST, PATCH, onglets, compteurs + focus sur l'onglet fautif, grand en-tête, pas de colonne résumé) + packages/plateforme/tests/api/admin/associations.m1-1b.test.ts",
       "statut": "à-vérifier",
@@ -1094,7 +1094,7 @@
     },
     {
       "id": "BL-P1-BOA-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:557-573",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:555-571",
       "artefact": "packages/plateforme/src/components/admin/transporteur-modal.tsx (modale « Fiche transporteur » ouverte depuis la liste /admin/transporteurs ; format du pop-up fiche collecte, décision Val 2026-09-30 : en-tête type de TMS/SIREN/nom/ville/véhicules/téléphone/statut — brique commune FicheEnTete de components/collecte/fiche-blocs.tsx, partagée avec les fiches lieu et association (« grand en-tête partout », Val 2026-09-30) + 3 onglets Identité & contact / Capacités / Connexion logistique (barre horizontale commune aux fiches Admin depuis la décision Val 2026-09-30 « onglets seuls », compteur d'erreurs + focus sur l'onglet fautif) + pied d'actions, bascule sur le premier onglet en erreur, coordonnées ignorées par Bitwarden) ; géocodage serveur ; R17b (Val 2026-07-02) : types_collecte text[] (AG/ZD multi), description_process_collecte, type_tms += par_mail/par_telephone (migration 20260702020000/020100 + DDL cible) ; routing par_mail/par_telephone→provider_manual (packages/adapters/src/index.ts + dispatch SQL 20260702020200)",
       "test": "packages/plateforme/src/components/admin/transporteur-modal.test.tsx « M1.1b — modale transporteur (BL-P1-BOA-02) » (23 scénarios : code MTS-1 conditionnel, validation mts1, SIREN 9 chiffres exactement, POST/PATCH, Désactiver/Réactiver n'écrivant que actif, lien prestataire, immuabilité type_tms/prestataire, 3 onglets, bascule sur l'onglet en erreur, en-tête, erreur serveur dans le pied, Bitwarden) + packages/adapters/src/outbox-worker.m2-3.test.ts (par_mail/par_telephone→ProviderManual) + packages/plateforme/tests/api/admin/transporteurs.m1-1b.test.ts",
       "statut": "à-vérifier",
@@ -1102,7 +1102,7 @@
     },
     {
       "id": "BL-P1-BOA-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:557-665 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:100-111",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:555-663 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:98-109",
       "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx (modale « Fiche lieu » — décisions Val 2026-09-30 : grand en-tête commun, onglets seuls sans colonne résumé : Informations / Accès & logistique / Interne Savr / Activité ; 8 champs prog. + 4 admin/ops + sélecteur Gestionnaire mono → organisations_lieux) ; extension LieuManuelForm (composant packages/plateforme/src/components/programmation/lieu-manuel-form.tsx) + suggestions d'adresse BAN sur « Adresse d'accès livraison » remplissant CP + ville (demande Val E2E 2026-09-28, hors CDC §06.01 → divergence ambigu à tracer en fin de lot : composant adresse-autocomplete-input.tsx, relais serveur GET /api/v1/programmation/adresses — l'IGN ne voit jamais l'IP utilisateur, arbitrage Val C1 —, lib/adresse-suggestions.ts) ; email admin_demande_ajout_lieu (migration 20260702010000) ; liste lieux réordonnée Nom/Adresse/Contrôle accès/Statut (page.tsx) ; routes lieux POST/PATCH/GET écrivent/exposent organisations_lieux (single, Val 2026-07-02)",
       "test": "packages/plateforme/src/components/admin/lieu-modal.test.tsx « M1.1b — modale lieu (BL-P1-BOA-03) » (19 scénarios dont sélecteur Gestionnaire, onglets, grand en-tête, compteurs d'erreurs, réponse tardive d'un autre lieu) + packages/plateforme/src/components/programmation/lieu-manuel-form.test.tsx (5 scénarios quick-add, dont sélection suggestion BAN souris/clavier → CP + ville, Échap ferme la liste sans fermer la modale, blur) + packages/plateforme/tests/api/programmation/adresses-suggestions.m0-6.test.ts (4 scénarios relais : 401 sans appel BAN, mapping, troncature 200 car., fail-open) + packages/plateforme/src/lib/adresse-suggestions.test.ts (4 scénarios) + packages/plateforme/tests/api/admin/lieux.m1-1b.test.ts",
       "statut": "à-vérifier",
@@ -1118,7 +1118,7 @@
     },
     {
       "id": "BL-P1-BOA-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:158-213",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:156-211",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (colonnes Client organisateur + Contrôle accès, colonne Indicateurs : rapport RSE dispo/consulté/régénéré, poids total ZD, taux recyclage, repas AG, badge Info incomplète, statut attribution AG En attente/Validée/Auto-accept via mode_validation ; filtres traiteur/lieu autocomplete, statut multi, plage de dates, Info incomplète, Rapport non consulté) + packages/plateforme/src/components/ui/autocomplete.tsx (nouveau) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (GET enrichi : jointures client_organisateur/collecte_flux/rapports_rse/attributions.mode_validation + filtres organisation_id/lieu_id/statuts/info_incomplete/rapport_non_consulte ; prédicat chip « Non transmises TMS » corrigé → statut=programmee ET tms_reference IS NULL)",
       "test": "packages/plateforme/src/app/(admin)/admin/collectes/collectes-list.m0-6.test.tsx « M0.6 — liste collectes Admin (BL-P1-BOA-05) » (7 scénarios : colonnes client-orga/contrôle-accès, indicateurs rapport dispo/consulté/régénéré + poids/taux ZD, statut attribution En attente/Validée/Auto-accept + repas AG, filtres statut multi/info_incomplete/rapport_non_consulte, autocomplete traiteur/lieu) + packages/plateforme/tests/api/admin/collectes-liste.m0-6.test.ts « M0.6 — API GET collectes filtres (BL-P1-BOA-05) » (5 scénarios : prédicat chip non_transmises corrigé, in(statut), info_incomplete, organisation/lieu, rapport_non_consulte) + non-régression collectes.m1-1b.test.ts",
       "statut": "à-vérifier",
@@ -1126,7 +1126,7 @@
     },
     {
       "id": "M0.6-collectes-filtres-multiples",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:198",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:196",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (barre toujours visible, Période en premier, Type / Traiteur / Lieu en FiltreCoches) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (types / traiteur_operationnel_ids / lieu_ids CSV validés) + packages/plateforme/src/components/ui/filtre-en-ligne.tsx (case « Tous »)",
       "test": "M0.6 — barre de filtres visible par défaut : traiteur/lieu peuplés + filtrage serveur + M0.6 — filtre Type à choix multiple : un type → types=… ; les deux cochés = « Tous » + M0.6 — choix multiple : types / traiteur_operationnel_ids / lieu_ids (CSV) → in(…) prioritaires sur le mono + ds/filtre_coches_case_tous_cochee_par_defaut_efface_la_selection + M0.6 — pastille rapide ET barre se cumulent (décision Val 2026-09-30) + M0.6 — Historique : pastille Anti-Gaspi × Type Zéro Déchet = aucun résultat, sans appel API + M0.6 — drill-down Dashboard Client (?traiteur / ?type / ?statut / ?perimetre) → filtres multiples pré-cochés + M0.6 — une réponse plus ancienne arrivée en dernier n’écrase pas la liste + M0.6 — pastille (chip) ET filtres de la barre se cumulent côté route (décision Val 2026-09-30, E5)",
       "statut": "à-vérifier",
@@ -1134,7 +1134,7 @@
     },
     {
       "id": "BL-P1-BOA-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:243-318",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:241-316",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (Bloc 0 : prestataire actuel résolu via pont transporteurs.prestataire_logistique_id, statut_tms + statut_tms_at, sélecteur transporteurs actifs (AG), champ motif override conditionnel, bouton d'envoi forké par type_tms — Envoyer à MTS-1 / A Toutes! / Dispatcher manuel) ; handleDispatch POST /dispatch { prestataire_logistique_id, motif_override_prestataire }. FIX BL-P0 crash fiche : le GET packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts référençait 3 colonnes DB inexistantes (types_evenements.nom→libelle, tournees.statut_tms→statut, factures_collectes.statut→factures!facture_id(statut)) → HTTP 400 → écran blanc (collecte.type.toUpperCase() sur undefined). Corrigé + durcissement du fetch (vérif res.ok avant désérialisation). FIX 2026-10-01 « prestataire non attribué » affiché à tort : le prestataire actuel est servi par ce même GET (`prestataire_actuel` = transporteur lié par le pont R5, ACTIF OU DÉSACTIVÉ, repli sur shared.prestataires.nom) — packages/plateforme/src/components/admin/collecte-detail-panel.tsx ne le cherche plus dans la liste des transporteurs actifs (désactivé depuis / liste absente ou en échec → « non attribué » sur une collecte attribuée). Transporteur SANS pont prestataire (par_mail / par_telephone / autre, `collectes.prestataire_logistique_id` resté NULL) : `prestataire_actuel` = transporteur de l'attribution AG validée (arbitrage Val 2026-10-01) ; la reco algo ne pré-sélectionne plus de carte sur une collecte déjà attribuée.",
       "test": "packages/plateforme/tests/api/admin/collecte-detail-prestataire-actuel.m0-6.test.ts « M0.6 — GET admin/collectes/[id] : prestataire actuel » (désactivé nommé sans filtre actif, repli shared.prestataires, 500 si lecture en erreur) + packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « collecte attribuée à un transporteur désactivé depuis » (nom affiché, jamais « non attribué », pas de carte ni de badge « Actuel », bouton forké) + packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « AG attribuée à un transporteur sans pont prestataire » (prestataire actuel nommé, carte « Actuel » cochée malgré la reco, bouton « Dispatcher (manuel) ») + packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — fiche collecte Bloc 0 dispatch + RM-08 » (reco algo affichée prestataire+asso + pré-sélection top-1 sans motif ; choix ≠ top-1 → motif override obligatoire ≥5 ; forçage statut motif≥10 ; rend type d'événement libelle + tournée statut + facture statut) + packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts « M0.6/dispatch AG — motif override vs top-1 algo » (422 si ≠ top-1 sans motif ; 200 si accepte le top-1 sans motif) + packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Logistique AG : le bloc « Attribution AG » précède « Prestataire & Dispatch » » + « M0.6 — AG sans attribution : le formulaire d’attribution intégré remplace le dispatch » + « M0.6 — Bloc 5 : la recommandation n°1 affiche ses scores détaillés » + « M0.6 — attribution validée sur un autre transporteur : le bloc dispatch coche l’actuel, jamais le recommandé » + « M0.6 — AG sans attribution hors « programmee » : consigne, ni formulaire ni bouton d’envoi » + « Attribution AG déjà validée : plus de cartes « Choisir » » + packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts « M0.6/dispatch AG — 422 si aucune association attribuée (adresse de livraison inconnue) » — GET fiche + RPC algo re-vérifiés HTTP 200 contre savr-dev",
       "statut": "à-vérifier",
@@ -1142,7 +1142,7 @@
     },
     {
       "id": "BL-P1-RM-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:369 + specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:367 + specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (bouton « Forcer le statut » dans le pied de la fiche depuis le 2026-10-01 — components/admin/collecte-detail-panel.tsx — + modale : Select 9 statuts + Textarea motif ≥ 10 → PATCH /admin/collectes/[id] { statut, motif }). L'API (route.ts : forceStatut = 'statut' in updates, garde motif.length < 10, audit collecte_statut_force) était déjà en place — volet UI uniquement (drift, non recodé).",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères » (soumission désactivée motif court, PATCH { statut, motif } émis) + non-régression packages/plateforme/tests/api/admin/collectes-machine-etats.r16.test.ts",
       "statut": "à-vérifier",
@@ -1150,7 +1150,7 @@
     },
     {
       "id": "BL-P1-BOA-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:326",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:324",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (Bloc 3 Documents + Bloc 4 Pack AG + Bloc 5 Attribution AG réelle remplaçant le stub « algo V2 » + Bloc 7 Historique/Timeline) ; endpoints packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/route.ts (GET), /photos/route.ts (POST import), /audit/route.ts (GET timeline + recredit_at), /documents/[type]/regenerate/route.ts (POST) ; packages/plateforme/src/app/api/v1/admin/attestations/[id]/download/route.ts (nouvelle route download attestation admin) ; packages/plateforme/src/lib/pdf/regenerate.ts (helper ré-enqueue jobs_pdf) ; main GET /[id]/route.ts enrichi (packs_antgaspi.statut + embed attributions_antgaspi asso/transporteur pour Bloc 5)",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA-07) » (Bloc 3 rapport/attestation/régénérer/picto/bordereau-ZD/galerie-photos/import, Bloc 5 association-transporteur + scores, Bloc 7 timeline ; plus aucun test du Bloc 4 Pack AG depuis son retrait de la fiche, PR #257 — cf. M0.6-col-bloc4-pack) + packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — régénération PDF collecte » (5) + packages/plateforme/tests/api/admin/attestations-download.m0-6.test.ts « M0.6 — download attestation AG » (4 : embargo/200/202/404) — routes reproduites HTTP 200 contre savr-dev (embeds pack/attribution + shared.fichiers + filtre JSON recredit + reads régén)",
       "statut": "implemented",
@@ -1158,7 +1158,7 @@
     },
     {
       "id": "M0.6-col-bloc3-documents",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:326",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:324",
       "artefact": "Bloc 3 Documents (page.tsx) : liste Rapport RSE (statut disponible/consulté + picto ⟳ si version≠initiale l.170) / Bordereau ZD (ZD) / Rapport de don (AG — attestation de don s'il y a eu des excédents, rapport « sans excédent » sinon ; décision Val 2026-10-09) avec Télécharger (routes /admin/rapports-rse|bordereaux|attestations/[id]/download) + Régénérer ; galerie photos (shared.fichiers via GET /documents, URL R2 pré-signée) + bouton « Importer des photos » (POST /photos multipart → R2 + shared.fichiers entity_type='plateforme.collectes'). Nouvelle route packages/plateforme/src/app/api/v1/admin/attestations/[id]/download/route.ts (embargo eligible_at, pdf_url=storageKey).",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 Documents : collecte AG avec excédents, une seule ligne Rapport de don (attestation) ; Régénérer demande l’attestation », « M0.6 — Bloc 3 Documents : collecte ZD, Rapport RSE fabriqué au clic (plus de Régénérer) et Bordereau ZD régénérable », « M0.6 — Bloc 3 : picto « régénéré » sur le rapport de don “sans excédent” régénéré, jamais sur le rapport ZD fabriqué au clic », « M0.6 — Bloc 3 : bordereau ZD affiché pour une collecte ZD (numéro + statut) ; pas d’attestation AG », « M0.6 — Bloc 3 : la galerie affiche les photos importées (shared.fichiers, URL R2) », « M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos » + packages/plateforme/tests/api/admin/attestations-download.m0-6.test.ts « M0.6 — download attestation AG (BL-P1-BOA-07) » (embargo H+24 → 425, 200 URL R2, 202, 404)",
       "statut": "implemented",
@@ -1166,7 +1166,7 @@
     },
     {
       "id": "M0.6-photos-client-selection-ecran",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:326",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:324",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Documents, galerie photos : case « Visible du client » sous chaque photo, compteur « X sur 2 choisies », cases non cochées grisées une fois 2 photos choisies, erreur de l'API affichée dans la barre d'alerte du bloc)",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx (3 tests « M0.6 — Bloc 3 : galerie — … » : cases, compteur et limite ; place libre ; PATCH /photos/<id> avec identifiant encodé)",
       "statut": "à-vérifier",
@@ -1174,7 +1174,7 @@
     },
     {
       "id": "M0.6-photos-client-selection-api",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:366",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:364",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/photos/[photoId]/route.ts (PATCH choisir / retirer, requireStaff, 422 à la 3e photo, audit photo_choisie_client / photo_retiree_client) ; packages/plateforme/src/app/api/v1/admin/collectes/[id]/photos/route.ts (import manuel : photo choisie d'office s'il reste une place) ; packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/route.ts (visible_client par photo) ; packages/plateforme/src/lib/collectes/photos-client.ts",
       "test": "packages/plateforme/tests/api/admin/collectes-photos-selection.m0-6.test.ts + packages/plateforme/tests/api/admin/collectes-documents-photos.m0-6.test.ts + M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes",
       "statut": "implemented",
@@ -1182,7 +1182,7 @@
     },
     {
       "id": "M0.6-photos-client-selection-rls",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:794-799",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:793-798",
       "artefact": "supabase/migrations/20261007203000_shared_fichiers_photos_rang_client.sql (colonne shared.fichiers.rang_client, CHECK rangs 1/2 réservés aux photos de collecte, index unique partiel uniq_fichiers_photo_client_rang, policy fichiers_select resserrée par ALTER POLICY)",
       "test": "supabase/tests/SECU__fichiers_photos_selection_client.test.sql",
       "statut": "implemented",
@@ -1190,7 +1190,7 @@
     },
     {
       "id": "M0.6-col-doc-regenerate-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:373",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:371",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (POST, requireStaff, [type] ∈ PDF_DOCUMENT_TYPES → 422 sinon, 409 si document jamais généré / aucun rendu antérieur, 202 sinon) + packages/plateforme/src/lib/pdf/regenerate.ts (ré-enqueue jobs_pdf statut pending copie du dernier payload figé de l'entité + audit_log action document_regenere ; rapport « sans excédent » AG porté par rapports_rse : regenere_at + regenere_par_user_id + version+1 ; le rapport de recyclage ZD n'est plus régénérable — fabriqué au clic, décision Val 2026-10-16 → 409)",
       "test": "packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — régénération PDF collecte (BL-P1-BOA-07) » (5 scénarios : UNKNOWN_TYPE, NO_DOCUMENT, NO_PRIOR_JOB, succès rapport “sans excédent” insert jobs_pdf payload copié + audit_log + bump regenere_at/version, succès attestation sans bump), « M1.6 / régénération — le rapport de recyclage ZD n’en fait plus partie »",
       "statut": "implemented",
@@ -1198,7 +1198,7 @@
     },
     {
       "id": "M0.6-col-bloc4-pack",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:327",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:325",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -1207,7 +1207,7 @@
     },
     {
       "id": "M0.6-col-bloc5-attribution",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:329",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:327",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx — onglet Logistique, AG attribuée : résumé « Attribution AG » (association retenue + transporteur retenu via embed attributions_antgaspi, validation mode_validation + valide_at, volume estimé/réalisé) AVANT « Prestataire & Dispatch » ; AG sans attribution : formulaire intégré packages/plateforme/src/components/admin/attribution-ag-form.tsx (recommandation n°1 avec scores distance/capacité, liste triée par distance). Top 3 en cartes et lien « Ouvrir l'attribution complète » supprimés le 2026-10-01 (attribution intégrée, décision Val).",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 5 Attribution AG : association + transporteur retenus (attribution intégrée à la fiche, plus de stub « algo V2 ») », « M0.6 — Bloc 5 Attribution AG : validation en attente (valide_at nul) et volume réalisé absent », « M0.6 — Bloc 5 : la recommandation n°1 affiche ses scores détaillés », « Attribution AG déjà validée : plus de cartes « Choisir » »",
       "statut": "implemented",
@@ -1215,7 +1215,7 @@
     },
     {
       "id": "M0.6-col-bloc7-timeline",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:355",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:353",
       "artefact": "Bloc 7 Historique + Audit (page.tsx) alimenté par packages/plateforme/src/app/api/v1/admin/collectes/[id]/audit/route.ts (audit_log table_name='collectes' AND record_id=collecteId, tri created_at DESC) : timeline action + transition de statut (old→new) + auteur (rôle) + horodatage + motif + marqueur impersonation.",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 7 Timeline : les entrées d’audit sont rendues (action + transition de statut) »",
       "statut": "implemented",
@@ -1223,7 +1223,7 @@
     },
     {
       "id": "BL-P1-BOA-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:691",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:688",
       "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.tsx (onglets Collectes/Factures/Grille ZD/Tarif refacturé/Coefficient perte labo) monté dans packages/plateforme/src/app/(admin)/admin/clients/[id]/page.tsx (remplace l'EmptyState « À venir »). Bandeau lecture seule ops (OpsReadOnlyBanner) + actions admin-only (édition tarif, sélecteur grille, ajout/édition coefficient) gatées par le claim user_role (packages/plateforme/src/lib/use-user-role.ts). Fix route packages/plateforme/src/app/api/v1/admin/grilles-tarifaires-zd/route.ts (colonnes réelles).",
       "test": "packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.m0-6.test.tsx « M0.6 — onglet Collectes/Factures/Grille tarifaire ZD/Tarif refacturé/Coefficient de perte labo » (rendu des données + bandeau read-only ops + PATCH/POST admin-only) ; packages/plateforme/src/lib/use-user-role.m0-6.test.tsx (décodage claim user_role)",
       "statut": "à-vérifier",
@@ -1231,7 +1231,7 @@
     },
     {
       "id": "BL-P1-BOA-09",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:840",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:837",
       "artefact": "packages/plateforme/src/app/(admin)/admin/settings/users/invite-user-modal.tsx (modale prénom/nom/email/rôle/organisation → POST /api/v1/admin/users, option admin_savr gatée) montée dans packages/plateforme/src/app/(admin)/admin/settings/users/page.tsx (remplace l'alert placeholder). Volet impersonation déjà livré (M0.6-impersonation-launcher-ui).",
       "test": "packages/plateforme/src/app/(admin)/admin/settings/users/invite-user-modal.m0-6.test.tsx « M0.6 — modale invitation » (POST users provisioning + gating option admin_savr + erreur serveur)",
       "statut": "à-vérifier",
@@ -1255,7 +1255,7 @@
     },
     {
       "id": "BL-P2-31",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:894",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:892",
       "artefact": "packages/plateforme/src/lib/idempotency.ts",
       "test": "packages/plateforme/tests/api/admin/idempotency-params.m0-6.test.ts",
       "statut": "implemented",
@@ -1263,7 +1263,7 @@
     },
     {
       "id": "M0.6-co2-typed-errors-residuels",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:955",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:953",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/co2-divers/route.ts",
       "test": null,
       "statut": "partial",
@@ -1271,7 +1271,7 @@
     },
     {
       "id": "M0.6-idempotency-store",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:828",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:826",
       "artefact": "packages/plateforme/src/lib/idempotency.ts",
       "test": "packages/plateforme/tests/api/admin/idempotency-params.m0-6.test.ts",
       "statut": "implemented",
@@ -1279,7 +1279,7 @@
     },
     {
       "id": "BL-P2-32",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:959",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:957",
       "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/[id]/coefficients-perte-labo/route.ts",
       "test": "packages/plateforme/tests/api/admin/coefficients-perte-labo.m0-6.test.ts",
       "statut": "implemented",
@@ -1311,7 +1311,7 @@
     },
     {
       "id": "BL-P1-API-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:441",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:439",
       "artefact": "supabase/migrations/20260629120000_plateforme_r10b_rls_ops_column_level.sql + supabase/migrations/20260903120000_plateforme_anti_escalade_role_staff.sql + supabase/migrations/20260921170000_plateforme_users_role_auto_changement.sql (volet 3, pgTAP supabase/tests/SECU__users_role_auto_changement.test.sql)",
       "test": "P0 — traiteur_manager NE PEUT PAS s'auto-promouvoir ops_savr (la faille corrigée)",
       "statut": "implemented",
@@ -1319,7 +1319,7 @@
     },
     {
       "id": "M0.6-impersonation-banner-mount",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:46",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:44",
       "artefact": "packages/plateforme/src/components/ui/impersonation-banner-mount.tsx (monté layout racine) + supabase/migrations/20260701120000_plateforme_r14_impersonation_claim.sql (hook injecte impersonator_id)",
       "test": "packages/plateforme/src/components/ui/impersonation-banner-mount.test.tsx « M0.6 — bandeau impersonation » + supabase/tests/r14_impersonation_claim.test.sql",
       "statut": "implemented",
@@ -1327,7 +1327,7 @@
     },
     {
       "id": "M0.6-tournee-siblings-not-exposed",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:314",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:312",
       "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql (policy t_select via f_collecte_visible)",
       "test": "supabase/tests/r14_tournee_siblings.test.sql (tournee_siblings_not_exposed)",
       "statut": "implemented",
@@ -1335,7 +1335,7 @@
     },
     {
       "id": "M0.6-tournees-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:314",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:312",
       "artefact": "supabase/migrations/20260930160000_plateforme_tournees_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 11 colonnes ; trigger fn_cloturer_alerte_coordonnees_urgence passé SECURITY DEFINER)",
       "test": "supabase/tests/SECU__tournees_select_liste_blanche.test.sql (1-6 privilèges + liste blanche exacte ; 7 non-vacuité ; 8-26 gestionnaire / traiteur opérationnel / agence : ligne visible, 11 colonnes retirées → 42501 ; 27 ligne tierce invisible ; 28-32 admin_savr JWT fermé en lecture mais UPDATE conservé, service_role intact ; 33-34 fail-closed colonne ajoutée) + supabase/tests/infos_acces_chauffeur.test.sql (recalé : 42501 au lieu de lecture)",
       "statut": "implemented",
@@ -1343,7 +1343,7 @@
     },
     {
       "id": "M0.6-evenements-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:196",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:194",
       "artefact": "supabase/migrations/20261001103000_plateforme_evenements_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 14 colonnes)",
       "test": "supabase/tests/SECU__evenements_select_liste_blanche.test.sql (1-5 privilèges + liste blanche exacte ; 6 non-vacuité ; 7-27 gestionnaire / traiteur opérationnel / agence / client organisateur : ligne visible, 7 colonnes retirées → 42501 ; 28 ligne tierce invisible ; 29-37 policies d'autres tables et vues security_invoker toujours lisibles ; 38-41 admin_savr JWT fermé, service_role intact ; 42-43 fail-closed colonne ajoutée ; recalés dans le même lot : SECU__evenements_ecriture_client_fermee A4, bornes_texte_libre, liste_collectes_agence_lecture)",
       "statut": "implemented",
@@ -1351,7 +1351,7 @@
     },
     {
       "id": "M0.6-associations-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:298",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:296",
       "artefact": "supabase/migrations/20261004200000_plateforme_associations_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 7 colonnes : id, nom, ville, region, latitude, longitude, description_rapport_impact)",
       "test": "supabase/tests/SECU__associations_select_liste_blanche.test.sql (1-4 privilèges + liste blanche exacte ; 5 non-vacuité ; 6-20 gestionnaire : ligne visible, 7 colonnes lues avec leurs valeurs, 19 colonnes refusées en 42501 par SELECT réel de chaque colonne, select=* refusé, embeds attestations_don et attributions ; 21-27 traiteur : lectures réelles de la fiche collecte, de l'export CSV, des dashboards et du détail événement ; 28-36 traiteur_commercial / agence / client organisateur / traiteur sans lien : mêmes 7 lues, mêmes 19 refusées, ligne visible ; 37-40 aucune écriture cliente ; 41-47 admin_savr et ops_savr JWT fermés en lecture, UPDATE staff par JWT conservé mais RETURNING d'une colonne fermée refusé, service_role lit les 26 colonnes ; 48-49 fail-closed colonne ajoutée)",
       "statut": "implemented",
@@ -1359,7 +1359,7 @@
     },
     {
       "id": "M0.6-transporteurs-lecture-cliente-fermee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:636",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:635",
       "artefact": "supabase/migrations/20261005100000_plateforme_transporteurs_lecture_cliente_fermee.sql (retrait de la policy transp_read — auth.role() = 'authenticated' — qui rendait toutes les lignes à tout utilisateur connecté ; restent transp_admin, transp_ops_select, transp_ops_write)",
       "test": "supabase/tests/SECU__transporteurs_lecture_cliente_fermee.test.sql (1-8 catalogue : transp_read absente, cliquet sur chaque policy prédicat compris, RLS activée et forcée, privilèges, aucune vue dépendante, aucune fonction SECURITY DEFINER atteignant la table exécutable par un client ; 9-11 non-vacuité ; 12-17 gestionnaire : JWT conforme, 0 ligne, aucune colonne ne rend la ligne par SELECT réel de chaque colonne, pas d'oracle par filtre, témoin types_evenements ; 18-23 traiteur programmateur : 0 ligne, et l'embed depuis sa propre attribution rend l'attribution sans le transporteur ; 24-33 traiteur_commercial / agence / client organisateur / traiteur sans lien : 0 ligne ; 34-37 aucune écriture cliente, par des ordres sans WHERE ni RETURNING ; 38-44 admin_savr et ops_savr par JWT : lecture des 22 colonnes et écriture conservées ; 45-49 service_role : fiche entière, résolution par prestataire, embed depuis l'attribution)",
       "statut": "implemented",
@@ -1367,7 +1367,7 @@
     },
     {
       "id": "M0.6-attestation-delete-deny",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:265",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:263",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql",
       "test": "supabase/tests/rls_attestations_don_m2_4.test.sql (delete_attestation_deny)",
       "statut": "implemented",
@@ -1375,7 +1375,7 @@
     },
     {
       "id": "M0.6-impersonation-launcher-ui",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1005",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1004",
       "artefact": "packages/plateforme/src/components/ui/impersonation-launcher.tsx (select users + bouton Impersoner, admin_savr only) monté sur packages/plateforme/src/app/(admin)/admin/clients/page.tsx",
       "test": "packages/plateforme/src/components/ui/impersonation-launcher.test.tsx « M0.6 — lanceur impersonation admin (BL-P1-BOA-09) » (masqué non-admin, liste hors-soi, POST impersoner + navigation)",
       "statut": "implemented",
@@ -1383,7 +1383,7 @@
     },
     {
       "id": "BL-P2-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:906",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:903",
       "artefact": "packages/plateforme/src/app/api/v1/admin/grilles-tarifaires-zd/route.ts",
       "test": "packages/plateforme/tests/api/admin/grilles-tarifaires-zd.m0-6.test.ts",
       "statut": "implemented",
@@ -1391,7 +1391,7 @@
     },
     {
       "id": "BL-P2-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:914",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:911",
       "artefact": "packages/plateforme/src/app/api/v1/admin/tarifs-negocie/route.ts",
       "test": "packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.m0-6.test.tsx",
       "statut": "implemented",
@@ -1399,7 +1399,7 @@
     },
     {
       "id": "BL-P2-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:934",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:931",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/taux-recyclage.m0-6.test.tsx",
       "statut": "implemented",
@@ -1407,7 +1407,7 @@
     },
     {
       "id": "BL-P2-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:873",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:870",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/tarifs-ag/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/tarifs-ag/tarifs-ag-history.m0-6.test.tsx",
       "statut": "partial",
@@ -1415,7 +1415,7 @@
     },
     {
       "id": "M0.6-grille-mode-col",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:906",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:903",
       "artefact": "supabase/migrations/20260704170000_plateforme_r18_grilles_zd_mode.sql",
       "test": "supabase/tests/R18__grilles_zd_mode_rpc.test.sql",
       "statut": "implemented",
@@ -1423,7 +1423,7 @@
     },
     {
       "id": "M0.6-grille-rpc-post",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:912",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:909",
       "artefact": "packages/plateforme/src/app/api/v1/admin/grilles-tarifaires-zd/route.ts",
       "test": "packages/plateforme/tests/api/admin/grilles-tarifaires-zd.m0-6.test.ts",
       "statut": "implemented",
@@ -1431,7 +1431,7 @@
     },
     {
       "id": "M0.6-grille-catalogue",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:907",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:904",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/grilles-zd/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/grilles-zd/grilles-zd.m0-6.test.tsx",
       "statut": "implemented",
@@ -1439,7 +1439,7 @@
     },
     {
       "id": "M0.6-taux-history-modal",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:965",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:962",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/taux-recyclage.m0-6.test.tsx",
       "statut": "implemented",
@@ -1447,7 +1447,7 @@
     },
     {
       "id": "M0.6-taux-idempotency",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:952",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:949",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/taux-recyclage.m0-6.test.tsx",
       "statut": "implemented",
@@ -1455,7 +1455,7 @@
     },
     {
       "id": "M0.6-parametres-nav-hub",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:858",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:855",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/parametres-hub.m0-6.test.tsx",
       "statut": "implemented",
@@ -1463,7 +1463,7 @@
     },
     {
       "id": "M0.6-tarifs-ag-history",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:895",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:892",
       "artefact": "packages/plateforme/src/app/api/v1/admin/tarifs-packs-ag/history/route.ts",
       "test": "packages/plateforme/tests/api/admin/tarifs-packs-ag-history.m0-6.test.ts",
       "statut": "implemented",
@@ -1471,7 +1471,7 @@
     },
     {
       "id": "M0.6-templates-viewer",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:989",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:986",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/templates/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/templates/templates.m0-6.test.tsx",
       "statut": "implemented",
@@ -1479,7 +1479,7 @@
     },
     {
       "id": "M0.6-ops-readonly-banner",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:28",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:26",
       "artefact": "packages/plateforme/src/components/ui/ops-read-only-banner.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/grilles-zd/grilles-zd.m0-6.test.tsx",
       "statut": "implemented",
@@ -1487,7 +1487,7 @@
     },
     {
       "id": "M0.6-fiche-collecte-entete-frise-pied",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:230",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:228",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/components/admin/collecte-statut-frise.tsx, packages/plateforme/src/components/collecte/fiche-collecte-modal-cadre.tsx, packages/plateforme/src/components/collecte/frise-etapes.tsx",
       "test": "Grand en-tête AG (décision Val 2026-10-01) + Grand en-tête ZD : badge Zéro Déchet + M0.6 — CollecteStatutFrise (frise de la fiche collecte Admin)",
       "statut": "implemented",
@@ -1495,7 +1495,7 @@
     },
     {
       "id": "M0.6-fiche-collecte-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:388",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:386",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/components/collecte/fiche-blocs.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1503,7 +1503,7 @@
     },
     {
       "id": "M0.6-kpi-a-dispatcher-predicat-unique",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:28",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:26",
       "artefact": "packages/plateforme/src/lib/collectes-chips.ts (définition sous deux formes : filtre de requête aDispatcher + test de ligne estADispatcher, statuts partagés) + packages/plateforme/src/app/api/v1/admin/collectes/chip-counts/route.ts (ag_a_dispatcher / zd_a_dispatcher = compteur du chip non_transmises_ag / non_transmises_zd, plus de requête propre) + packages/plateforme/src/components/admin/collectes-table.tsx (aDispatcherZd = type ZD + estADispatcher, tms_reference lu)",
       "test": "M0.6 — kpi_a_dispatcher_predicat_unique + M0.6 — la liste sert tms_reference",
       "statut": "implemented",
@@ -1511,7 +1511,7 @@
     },
     {
       "id": "M0.6-tuile-a-dispatcher-clic",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:209",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:207",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (basculerADispatcher : clic sur une tuile « AG / ZD à dispatcher » = chip non_transmises_ag / non_transmises_zd + filtre Type effacé)",
       "test": "M0.6 — kpi_a_dispatcher_predicat_unique : clic sur une tuile « à dispatcher »",
       "statut": "implemented",
@@ -1519,7 +1519,7 @@
     },
     {
       "id": "M0.6-tuile-a-dispatcher-rendu-actif",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:295",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:293",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1527,7 +1527,7 @@
     },
     {
       "id": "M0.6-bloc-dispatch-ordre-en-file-envoi",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:260",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:258",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (état dérivé ordreEnFileEnvoi : collecte AG ou ZD programmee/validee + prestataire_logistique_id posé chez un adapter mts1/a_toutes + tms_reference NULL + statut_tms non_envoye + ordre de tête dans la file d'envoi (ordre_envoi non nul, décision Val 2026-10-20, C1) → badge « Envoyée » en en-tête et ligne Statut TMS, encart « Collecte envoyée à … », cartes + bouton d'envoi masqués, action secondaire « Changer de prestataire » (titre « Changer de prestataire », « Renvoyer à … » si même prestataire, « Garder le prestataire actuel », focus clavier géré) ; transporteurs manuels et sans pont exclus ; ZD comprise depuis le choix du prestataire par l'Admin, 2026-10-07), packages/plateforme/src/lib/type-tms-labels.ts (libelleCanalEnvoi)",
       "test": "AG en file d’envoi : « Envoyée » en en-tête et au bloc, collecte dite envoyée au prestataire, ni carte ni bouton d’envoi + AG en file d’envoi : « Changer de prestataire » rouvre les cartes (titre « Changer de prestataire », actuel coché), « Garder le prestataire actuel » referme sans rien envoyer + AG en file d’envoi : envoyer chez un autre prestataire (motif override) POST le dispatch, puis le mode « changer » se referme + M0.6/dispatch_zd_envoyee_programmee + pas d’état « en file d’envoi »",
       "statut": "implemented",
@@ -1535,7 +1535,7 @@
     },
     {
       "id": "M0.6-fiche-etat-reel-ordre-envoi",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:272",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:270",
       "artefact": "packages/plateforme/src/lib/ordre-envoi.ts (ordre de tête de la collecte dans la file : plus ancien ordre logistique non terminé, même prédicat que la réservation SQL ; états en_attente / en_cours / echec_reprise / echec_definitif ; nature création / modification / annulation ; erreur tronquée), packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (champ ordre_envoi, lu dans outbox_events sur les ordres de la collecte, AVANT la collecte — décision Val 2026-10-20, C3 : un envoi terminé entre les deux lectures ne donne jamais « aucun ordre » et « aucune référence » ; lecture en erreur = 500), packages/plateforme/src/components/admin/collecte-detail-panel.tsx (EncartOrdreEnvoi : collecte dite envoyée tant que l'ordre est en file ou en cours ; échec avec reprise = tentative comptée et date de la prochaine tentative ; ordre abandonné = collecte dite non transmise et renvoi annoncé bloqué ; hors file d'envoi, seul un échec est signalé : modification ou annulation non transmise, nommée par sa nature ; ordre de création en échec alors qu'une référence TMS est enregistrée = « un ordre d'envoi reste en échec alors que la commande porte déjà une référence », sans dire la collecte non transmise ; ordre de création en échec sans référence (collecte annulée avant l'envoi) = collecte dite non transmise ; pastilles « Envoi en reprise » / « Échec d’envoi » en en-tête et ligne Statut TMS, en file d'envoi seulement ; date de reprise passée non affichée ; relecture automatique toutes les 2 s, 15 fois au plus, tant que l'ordre est en file ou en cours ; prestataire posé sans ordre dans la file ni référence TMS — ordre mis à l'écart sans envoi, par exemple — = « Non envoyé » en en-tête et ligne Statut TMS, cartes et bouton d'envoi rouverts, aucune relecture, décision Val 2026-10-20, C1)",
       "test": "M0.6/ordre_envoi_tete + M0.6/ordre_envoi_route + M0.6/ordre_envoi_encart_en_file + M0.6/ordre_envoi_echec_reprise + M0.6/ordre_envoi_echec_definitif + M0.6/ordre_envoi_hors_file + M0.6/ordre_envoi_hors_file_creation + M0.6/ordre_envoi_sans_reference + M0.6/ordre_envoi_textes_limites + M0.6/ordre_envoi_predicat_sql + M0.6/ordre_envoi_relecture + M0.6/ordre_envoi_pas_de_relecture_en_echec + M0.6/ordre_envoi_relecture_bornee + M0.6/ordre_envoi_aucun_ordre_en_file + M0.6/ordre_envoi_aucun_ordre_en_file_ag + M0.6/ordre_envoi_lu_avant_collecte",
       "statut": "à-vérifier",
@@ -1543,7 +1543,7 @@
     },
     {
       "id": "M0.6-bloc-chauffeur-onglet-logistique",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:253",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Logistique : bloc « Chauffeur » par camion — nom, plaque (« Sans objet (vélo cargo) »), téléphone tel:, accompagnant, « En attente » ; une ligne par camion demandé (nb_camions_demande, rangs 1..N — C2 Val 2026-10-06) : camion sans tournée « Tournée pas encore créée par le prestataire — la saisie la crée », sans prestataire posé saisie impossible (« Attribuez d’abord un prestataire ») ; « Modifier les coordonnées » → formulaire existant → PATCH …/infos-acces (item { tournee_id } ou { rang } : la route crée alors la tournée ADM-{collecte}-{rang} planifiée + lien collecte_tournees, validation complète AVANT toute écriture ; 422 si rang > N, rang déjà lié, collecte terminée, collecte sans prestataire ou item { rang } sans aucune coordonnée ; lien en INSERT strict, 409 « rechargez la fiche » si l'adapter a pris le rang entre-temps (tournée Admin retirée) ; les coordonnées d'un camion créé sont écrites aussitôt après son lien ; le formulaire n'envoie pas un camion sans tournée laissé vide et, après une erreur, recharge la fiche et ré-ancre la saisie champ par champ sur la tournée créée entre-temps (camions disparus retirés) — tests/api/admin/infos-acces.m0-6.test.ts) ; mention email récap si controle_acces_requis ; sinon texte selon le cas : 0 tournée / canal MTS-1 ou A Toutes! / sinon « Coordonnées à saisir par l'équipe Ops » ; card « Informations chauffeur » retirée de l'onglet Informations), packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (tournees.type_vehicule dans l'embed) ; plaque retirée de la liste « Tournées » du bloc Prestataire & Dispatch (le bloc Chauffeur en est la source) ; collecte terminale sans tournée : « Aucun chauffeur enregistré » ; picto « Plaque TMS » : vélo cargo = complet (lib/statut-tms-labels plaqueTmsComplete) ; téléphone de l'accompagnant retiré de l'affichage et du formulaire (Val 2026-10-06 ; colonne et route PATCH inchangées)",
       "test": "sans tournée ni prestataire : une ligne « Camion » en attente, saisie impossible (« Attribuez d’abord un prestataire ») + tournée MTS-1 renseignée : nom, plaque et téléphone cliquable ; sans contrôle d’accès, pas de mention email + vélo cargo sans plaque, coursier pas encore communiqué : « Sans objet (vélo cargo) » et « En attente » sur nom et téléphone + contrôle d’accès requis : mention de l’email récap, « Modifier les coordonnées » ouvre le formulaire et PATCH infos-acces + deux camions chez un transporteur manuel : « Chauffeurs », en-tête « Camion N », accompagnant affiché, coordonnées « à saisir par l’équipe Ops » + deux camions demandés, une seule tournée : deux lignes, la saisie du camion 2 crée sa tournée (PATCH avec rang) + deux camions demandés, une seule tournée, seul le camion 1 corrigé : le camion 2 laissé vide n’est pas envoyé (aucune tournée vide créée) + collecte terminée, deux camions demandés, une seule tournée : une seule ligne, et la saisie ne concerne que la tournée existante (PATCH sans rang) + erreur à l’enregistrement (le prestataire a créé la tournée du camion 2 entre-temps) : message affiché, fiche rechargée, la saisie se rattache à la tournée créée — nom saisi conservé, plaque remontée reprise + collecte terminée sans tournée : « Aucun chauffeur enregistré », aucune phrase au futur",
       "statut": "à-vérifier",
@@ -1551,7 +1551,7 @@
     },
     {
       "id": "M0.6-statut-admin-creee-programmee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:174",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:172",
       "artefact": "packages/plateforme/src/lib/statut-collecte-admin.ts (règle sous deux formes : test d'une ligne chargée statutCollecteAdmin + filtre PostgREST filtreStatutsAdmin ; signaux « demande partie » : prestataire_logistique_id posé, attribution AG validée, statut_tms ≠ non_envoye, tms_reference renseignée), packages/plateforme/src/lib/statut-collecte-labels.ts (clé d'affichage Admin creee, libellés, frise à 6 étapes, brouillon → « Brouillon » en repli), packages/plateforme/src/components/admin/collecte-statut-frise.tsx + collecte-detail-panel.tsx (frise de la fiche, menu « Forcer le statut » sans brouillon, entrée « Créée / Programmée »), packages/plateforme/src/components/admin/collectes-table.tsx + packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (badge de la liste, filtre « Statut » Créée / Programmée / Validée / En cours, sélection bornée à l'onglet), packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.tsx (onglet Collectes de la fiche client), packages/plateforme/src/app/api/v1/admin/collectes/route.ts (GET : prestataire_logistique_id servi, brouillons toujours exclus, paramètre statuts lu en clés d'affichage Admin — creee / programmee = les deux moitiés du statut DB programmee ; rien de valide demandé = aucune ligne), packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (PATCH : forçage du statut vers brouillon refusé en 422), packages/plateforme/src/app/api/v1/admin/collectes/chip-counts/route.ts (tuiles « Infos accès à envoyer » et « Infos à récupérer » : brouillons exclus, miroir de la liste), packages/plateforme/src/lib/exports/builders.ts (export CSV collectes côté staff : statut affiché, brouillons exclus)",
       "test": "M0.6/statut_admin_creee_avant_envoi + M0.6/statut_admin_programmee_apres_envoi + M0.6/statut_admin_programmee_transporteur_manuel + M0.6/statut_admin_frise_six_etapes + M0.6/statut_admin_filtre_creee_programmee + M0.6/statut_admin_brouillon_absent + M0.6/statut_admin_export_staff",
       "statut": "à-vérifier",
@@ -1559,7 +1559,7 @@
     },
     {
       "id": "M0.6-dispatch-zd-choix-prestataire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:259",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:257",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (Bloc 0 d'une ZD : cartes de choix du prestataire sans recommandation, présélection seulement quand un seul transporteur est proposable, limitées aux transporteurs reliés à un prestataire, hors A Toutes!, et, si types_collecte est renseigné, prenant les ZD ; choix offert seulement sur une collecte programmee ou rejetée par son prestataire, jamais sur une commande en cours (référence reçue, non rejetée) ; bouton d'envoi inactif tant qu'aucun prestataire n'est choisi ni posé ; motif demandé seulement pour changer un prestataire déjà posé ; état « ordre en file d'envoi » étendu à la ZD), packages/plateforme/src/app/api/v1/admin/collectes/[id]/dispatch/route.ts (ZD sans prestataire choisi ni posé : 422 avant toute RPC ; premier choix d'un prestataire ZD = pas un override, sans motif, ouvert à ops ; changement d'un prestataire posé = motif ≥ 5 car., admin seul ; prestataire choisi validé côté serveur — inconnu, inactif ou A Toutes! : 422 ; statut hors programmee / rejetee_par_prestataire ou commande en cours : 409)",
       "test": "M0.6/dispatch_zd_choix_prestataire + M0.6/dispatch_zd_sans_prestataire_refuse + M0.6/dispatch_zd_envoyee_programmee + M0.6/dispatch_zd_changement_motif + M0.6/dispatch_zd_a_toutes_refuse + M0.6/dispatch_zd_commande_en_cours + M0.6/dispatch_zd_prestataire_unique_preselectionne",
       "statut": "à-vérifier",
@@ -1567,7 +1567,7 @@
     },
     {
       "id": "M0.6-liste-collectes-export-csv",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:397",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:395",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (bouton « Exporter CSV » du bandeau ; filtresListe : les mêmes paramètres servent à la liste et à l'export) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (filtres lus et appliqués par packages/plateforme/src/lib/collectes-admin.ts, partagé avec l'export)",
       "test": "M0.6/export_csv_liste_admin_filtres_de_la_liste + M0.6/export_csv_liste_admin_croisement_vide",
       "statut": "implemented",
@@ -1575,7 +1575,7 @@
     },
     {
       "id": "M0.6-liste-collectes-export-csv-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:292",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:290",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1583,7 +1583,7 @@
     },
     {
       "id": "M0.6-infos-acces-email-etat-reel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:253",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
       "artefact": "packages/plateforme/src/lib/infos-acces/suivi-email.ts (lireDernierEmailInfosAcces : dernier envoi `infos_acces_collecte` de la collecte dans emails_envoyes, sans destinataire ni message d'erreur ; deriverSuiviEmail : a_envoyer / envoye / en_reprise / non_remis + motif) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (GET sert `infos_acces_email`, null sans contrôle d'accès) + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (bloc Chauffeur : « Email envoyé au programmateur le … » seulement si l'email est parti ; avertissement « pas encore parti » avec le nombre de tentatives pendant la reprise ; erreur « non remis » avec le motif ; « Coordonnées complètes : l'email n'a pas encore été envoyé » ; message de confirmation selon l'issue) + packages/plateforme/src/lib/infos-acces/notify.ts (evaluerInfosAccesEtEnvoyer rend `issue` ; `envoye` n'est vrai que si Resend a accepté l'email) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/infos-acces/route.ts (PATCH rend `email`)",
       "test": "tampon posé mais email en reprise → « en_reprise », pas « envoyé » + tampon ENCORE posé mais 4 tentatives épuisées → « non_remis » + seuls les emails « infos d’accès » de CETTE collecte comptent + tampon posé mais aucun envoi tracé (envoi interrompu avant d’être écrit) → « a_envoyer » : jamais « envoyé » sans trace + collecte sans contrôle d’accès → null, et le journal des emails n’est pas lu + ni l’adresse du programmateur ni le message d’erreur de Resend ne sortent (fiche servie aussi à ops_savr) + ne demande ni l’adresse du destinataire ni le message d’erreur (fiche servie aussi à ops_savr) + 4e tentative en échec → non remis, MÊME si le tampon « envoyé » est encore posé + tampon posé MAIS email en reprise → jamais « envoyé » : avertissement, nombre de tentatives, pas de bouton de renvoi + 4 tentatives épuisées → erreur annoncée (role alert) + bouton « Renvoyer l’email » + aucune exception, l’envoi n’est PAS annoncé : en reprise, claim conservé, récapitulatif figé dans la ligne + email « en_reprise » → le message dit que l’email n’est pas parti + email 'en_reprise' → 200, email_envoye=false et `email` dit pourquoi",
       "statut": "implemented",
@@ -1591,7 +1591,7 @@
     },
     {
       "id": "M0.6-infos-acces-email-perdu-tampon-alerte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1538",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1535",
       "artefact": "packages/plateforme/src/lib/infos-acces/suivi-email.ts (signalerInfosAccesNonRemises : tampon retiré + alerte in-app `infos_acces_email_non_remis`, sans effet si un envoi plus récent existe ; cloreAlerteInfosAcces ; alerterInfosAccesEnRepriseAvantCollecte : 2 tentatives en échec ET collecte à venir dans les 24 h, une seule alerte par envoi) + packages/plateforme/src/lib/infos-acces/notify.ts (claim conservé si le worker de retry porte l'envoi, relâché si rien ne le reprendra, alerte close quand l'email part) + packages/plateforme/src/lib/emails/email-perdu.ts + packages/plateforme/src/app/api/cron/email-retry/route.ts + packages/plateforme/src/app/api/webhooks/resend/route.ts",
       "test": "la variable ne revient jamais → échec définitif après 4 tentatives : tampon retiré, alerte ouverte, fiche « non remis » + pendant la reprise, une nouvelle saisie Admin ne fait pas partir un second email + alerte dès la 2e tentative en échec, sans attendre les 25 h — le claim reste posé + Resend revient → l’email part à la reprise suivante et l’alerte est close toute seule + après l’échec définitif, un nouvel envoi repart (claim libre), arrive, et clôt l’alerte + une seule tentative en échec → pas encore (un incident passager ne doit pas alerter) + alerte résolue par l’Admin (programmateur prévenu) → pas rouverte tant que le même envoi est en reprise + un envoi plus récent existe pour la collecte → rien : le refus tardif de l’ancien email ne défait pas le renvoi + infos d’accès chauffeur refusées → tampon de la collecte retiré + alerte dédiée (pas l’alerte générique) + hors production sans adresse de redirection → claim relâché, aucune ligne, la fiche reste « à envoyer » + Resend refuse ET la ligne d’envoi ne s’écrit pas → claim relâché : aucune reprise n’est possible + tampon non retiré (erreur base) → comptée dans `errors`, journalisée sans adresse, réponse 200",
       "statut": "implemented",
@@ -1599,7 +1599,7 @@
     },
     {
       "id": "M0.6-infos-acces-renvoi-email",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:253",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/infos-acces/renvoi/route.ts (POST, requireStaff : 404 collecte inconnue, 422 sans contrôle d'accès ou collecte terminée, 409 pendant une reprise automatique ; claim précédent retiré seulement s'il n'a pas bougé depuis la lecture, puis même chemin que l'envoi automatique — fn_infos_acces_marquer_si_complet ; réponse { email }) + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (bouton « Renvoyer l'email » — « Envoyer l'email » si rien n'est encore parti et que les coordonnées sont complètes ; absent pendant une reprise et sur une collecte terminée ; fiche rechargée après le clic)",
       "test": "non-staff → refus d’auth, rien n’est touché + collecte sans contrôle d’accès → 422, aucun envoi + collecte annulee → 422 : l’email ne se renvoie plus + reprise automatique en cours (tentative 1 en échec) → 409, claim intact, aucun envoi : deux emails partiraient + email déjà envoyé (coordonnées changées depuis) → claim retiré puis nouvel envoi + deux renvois en même temps : le claim a bougé depuis la lecture → 409, pas de second envoi + identifiant mal formé → 404, sans interroger la base + email non remis (4 tentatives épuisées) → un email part, la fiche passe à « envoyé », l’alerte est close + email déjà envoyé, chauffeur changé depuis → un second email part avec les coordonnées ACTUELLES + Resend refuse le renvoi → « en_reprise » : claim conservé pour le worker, la fiche ne dit pas « envoyé », l’alerte reste ouverte + clic → POST …/infos-acces/renvoi, toast de succès, fiche rechargée : l’état affiché devient « envoyé » + renvoi refusé (409 : reprise en cours) → le motif du refus est affiché, aucun toast de succès + collecte terminée → plus de bouton de renvoi + rien d’envoyé, coordonnées complètes → l’écran le dit et propose « Envoyer l’email »",
       "statut": "implemented",
@@ -1607,7 +1607,7 @@
     },
     {
       "id": "M0.6-infos-acces-email-etat-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:253",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Logistique, bloc « Chauffeur » : ligne verte « Email envoyé au programmateur le … », bandeau d'avertissement « pas encore parti » pendant une reprise, bandeau d'erreur « non remis », ligne « Coordonnées complètes : l'email n'a pas encore été envoyé », bouton secondaire « Renvoyer l'email » / « Envoyer l'email » sous l'état ; messages de confirmation — 4 variantes après la saisie, 4 après un renvoi) + packages/plateforme/src/lib/alertes-admin.ts et écran Alertes (les deux nouveaux codes `infos_acces_email_non_remis` et `email_echec_definitif` : badge « Critique », message, lien vers la fiche collecte quand l'alerte en porte une)",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel-email-infos-acces.m0-6.test.tsx (18 tests « M0.6 — fiche collecte Admin : … » : textes, rôles, présence du bouton selon l'état)",
       "statut": "à-vérifier",
@@ -1615,7 +1615,7 @@
     },
     {
       "id": "M0.6-col-bloc3-document-a-venir-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:326",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:324",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Documents : constante DOCUMENT_A_VENIR, affichée sous les lignes Rapport RSE, Bordereau ZD et Rapport de don tant que le document n'existe pas, à la place de « Non encore généré » / « Non encore générée » ; même texte pour chaque ligne affichée, quel que soit le statut de la collecte ; boutons « Télécharger » et « Régénérer » inchangés, grisés)",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 : document absent, collecte AG réalisée : texte unique sous chaque ligne, boutons grisés », « M0.6 — Bloc 3 : document absent, collecte ZD réalisée : texte unique sous chaque ligne, boutons grisés », « M0.6 — Bloc 3 : document absent, collecte AG pas encore réalisée : texte unique sous chaque ligne, boutons grisés », « M0.6 — Bloc 3 : document absent, collecte ZD annulée : texte unique sous chaque ligne, boutons grisés », « M0.6 — Bloc 3 : document présent : le texte du document absent ne s’affiche pas »",
       "statut": "à-vérifier",
@@ -1623,7 +1623,7 @@
     },
     {
       "id": "M0.6-col-bloc3-rapport-de-don-ligne-unique",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:326",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:324",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Documents, `agSansExcedent` / `afficherRapport` / `typeRapport`) : une collecte AG n'a qu'UNE ligne de document, nommée « Rapport de don ». Avec excédents, elle sert l'attestation de don (téléchargement /admin/attestations/[id]/download, régénération `attestation-don`). Sans excédents (`realisee_sans_collecte`), elle sert le rapport « Événement sans excédent alimentaire » porté par rapports_rse (téléchargement /admin/rapports-rse/[id]/download, régénération `rapport-evenement-sans-excedent`). La ligne « Rapport RSE » n'existe que pour une collecte ZD ; une ligne rapports_rse laissée en base pour une collecte AG avec excédents n'est jamais affichée.",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 Documents : collecte AG avec excédents, une seule ligne Rapport de don (attestation) ; Régénérer demande l’attestation », « M0.6 — Bloc 3 : collecte AG avec excédents, rapport en base sans PDF : aucune ligne Rapport RSE », « M0.6 — Bloc 3 : collecte AG sans excédents, une seule ligne Rapport de don servie par le rapport sans excédent », « M0.6 — Bloc 3 : collecte AG sans excédents, rapport pas encore produit : texte unique sous Rapport de don », « M0.6 — Bloc 3 Documents : collecte ZD, Rapport RSE fabriqué au clic (plus de Régénérer) et Bordereau ZD régénérable »",
       "statut": "implemented",
@@ -1631,7 +1631,7 @@
     },
     {
       "id": "M0.6-col-bloc3-rapport-de-don-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:326",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:324",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Documents d'une collecte AG : une seule ligne « Rapport de don », numéro de l'attestation quand il y a eu des excédents, état du rapport sinon ; aucun style nouveau)",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 Documents : collecte AG avec excédents, une seule ligne Rapport de don (attestation) ; Régénérer demande l’attestation », « M0.6 — Bloc 3 : collecte AG sans excédents, une seule ligne Rapport de don servie par le rapport sans excédent »",
       "statut": "à-vérifier",
@@ -1639,7 +1639,7 @@
     },
     {
       "id": "M0.6-col-bloc3-bilan-client",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:326",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:324",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (BilanCollecte + useRadarFiche, extraits de l'onglet « Bilan & documents » de la fiche client) + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Documents : BilanCollecte au-dessus de la carte Documents, barre « Comparer avec » sur les options du radar Admin, sans filtre Traiteurs ni avertissement « comparaison à soi-même » ; régénération du rapport avec radar = benchmark_filters réglés sur l'onglet) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/benchmark/route.ts (GET, requireStaff, repondreBenchmarkFiche sous l'identité de l'appelant) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (association : ville et description)",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6/documents_bilan_client_zd », « M0.6/documents_regeneration_filtres_radar », « M0.6/documents_regeneration_radar_retire », « M0.6/documents_radar_retour_onglet », « M0.6/documents_bilan_client_ag », « M0.6/documents_bilan_client_attente » ; packages/plateforme/tests/api/admin/collecte-benchmark-fiche.m0-6.test.ts « M0.6/admin_fiche_benchmark_sous_identite », « M0.6/admin_fiche_benchmark_non_staff »",
       "statut": "implemented",
@@ -1647,7 +1647,7 @@
     },
     {
       "id": "M0.6-col-bloc3-bilan-client-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:326",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:324",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Documents : bilan du client au-dessus de la carte Documents ; aucun style nouveau, composants de la fiche client)",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6/documents_bilan_client_zd », « M0.6/documents_bilan_client_ag »",
       "statut": "à-vérifier",
@@ -1655,7 +1655,7 @@
     },
     {
       "id": "M0.6-liste-rapport-non-consulte-hors-ag-avec-excedents",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:207",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:205",
       "artefact": "packages/plateforme/src/components/admin/collectes-table.tsx (IndicateursHistorique : l'indicateur « Rapport consulté / non consulté » n'est rendu que pour une collecte ZD ou une collecte AG sans excédents) + packages/plateforme/src/lib/collectes-admin.ts (filtre « Rapport non consulté » : `.or('type.eq.zero_dechet,statut.eq.realisee_sans_collecte')`, partagé par la liste et son export CSV). Mesuré sur savr-dev le 2026-10-09 : 79 collectes sans cette règle (dont 24 AG clôturées avec une ligne rapports_rse jamais rendue), 55 avec.",
       "test": "packages/plateforme/tests/api/admin/collectes-liste.m0-6.test.ts « M0.6 — filtre rapport_non_consulte=true → seulement ZD et AG sans excédents », « M0.6 — sans le filtre rapport_non_consulte, aucune restriction de type n’est posée » + packages/plateforme/src/app/(admin)/admin/collectes/collectes-list.m0-6.test.tsx « M0.6 — indicateur de rapport de la liste, AG clôturée avec excédents », « M0.6 — indicateur de rapport de la liste, AG sans excédents »",
       "statut": "implemented",
@@ -1663,7 +1663,7 @@
     },
     {
       "id": "M0.6-dirty-tms-arme-des-envoi",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:249",
       "artefact": "supabase/migrations/20261009210000_plateforme_collectes_modifiees_apres_envoi.sql",
       "test": "supabase/tests/collectes_modifiees_apres_envoi.test.sql",
       "statut": "implemented",
@@ -1671,7 +1671,7 @@
     },
     {
       "id": "M0.6-dirty-tms-compteurs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:211",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:209",
       "artefact": "packages/plateforme/src/lib/collectes-chips.ts, packages/plateforme/src/app/api/v1/admin/dashboard/kpi/route.ts, packages/plateforme/src/app/api/v1/dashboards/kpi-admin/route.ts",
       "test": "M0.6/dirty_tms_apres_envoi",
       "statut": "implemented",
@@ -1679,7 +1679,7 @@
     },
     {
       "id": "M0.6-dirty-tms-renvoyer-en-file",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:249",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/lib/collectes-chips.ts",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6/dirty_tms_apres_envoi — ZD en file d’envoi modifiée par le client … s’affiche à côté de … et part sans prestataire », « M0.6/dirty_tms_apres_envoi — ZD en file d’envoi non modifiée : pas de bouton de renvoi », « M0.6/dirty_tms_apres_envoi — collecte … au drapeau encore levé : pas de badge »",
       "statut": "implemented",
@@ -1687,7 +1687,7 @@
     },
     {
       "id": "M0.6-dirty-tms-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:249",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/app/(admin)/admin/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1695,7 +1695,7 @@
     },
     {
       "id": "M0.6-statut-sans-excedent-affiche-realisee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:174",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:172",
       "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts (vues admin et client : `realisee_sans_collecte` → « Réalisée », même badge que « Réalisée » — celui de `realisee` côté Admin, de `cloturee` côté client ; aucun libellé de statut ne dit « Sans excédent » ; constante LIBELLE_SANS_EXCEDENT = « Sans excédent », résultat et non statut)",
       "test": "M0.6/statut_sans_excedent_affiche_realisee",
       "statut": "implemented",
@@ -1703,7 +1703,7 @@
     },
     {
       "id": "M0.6-fiche-sans-excedent-frise-et-volume",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:230",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:228",
       "artefact": "packages/plateforme/src/components/admin/collecte-statut-frise.tsx (frise de la fiche : une collecte `realisee_sans_collecte` est sur l'étape courante « Réalisée », sans libellé propre) + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Logistique, bloc « Attribution AG », ligne « Volume repas (estimé / réalisé) » : « Sans excédent » à la place du volume réalisé)",
       "test": "M0.6/fiche_sans_excedent_volume_repas + M0.6/statut_sans_excedent_affiche_realisee",
       "statut": "implemented",
@@ -1711,7 +1711,7 @@
     },
     {
       "id": "M0.6-liste-sans-excedent-en-indicateur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:192",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:190",
       "artefact": "packages/plateforme/src/components/admin/collectes-table.tsx (IndicateursHistorique : une collecte AG `realisee_sans_collecte` affiche « Sans excédent » dans la colonne Indicateurs, à la place du nombre de repas — jamais « 0 repas » ; colonne Statut = « Réalisée »)",
       "test": "M0.6/liste_sans_excedent_en_indicateur",
       "statut": "implemented",
@@ -1719,7 +1719,7 @@
     },
     {
       "id": "M0.6-liste-filtre-statut-une-seule-realisee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:204",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:202",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (STATUTS_FILTRE, ex-STATUTS_HISTORIQUE : le filtre « Statut » ne propose plus `realisee_sans_collecte`, qui porterait un second « Réalisée ») + packages/plateforme/src/lib/statut-collecte-admin.ts (filtreStatutsAdmin : la clé `realisee` couvre les statuts DB `realisee` ET `realisee_sans_collecte`, pour la liste et son export CSV ; l'ancienne clé reste lue, sans doublon)",
       "test": "M0.6/liste_filtre_statut_une_seule_realisee + M0.6/statut_admin_filtre_realisee_couvre_sans_excedent + packages/plateforme/tests/api/exports/exports.m4-1.test.ts « M4.1/export_collectes_admin_filtres_liste — statut … »",
       "statut": "implemented",
@@ -1727,7 +1727,7 @@
     },
     {
       "id": "M0.6-forcer-statut-sans-excedent-distinct",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:231",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:229",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (modale « Forcer le statut » : l'option `realisee_sans_collecte` se lit « Réalisée — sans excédent », l'option `realisee` « Réalisée » — le forçage pose un statut DB, le choix doit dire lequel)",
       "test": "packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères »",
       "statut": "implemented",
@@ -1735,7 +1735,7 @@
     },
     {
       "id": "M0.6-statut-sans-excedent-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:192",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:190",
       "artefact": "packages/plateforme/src/components/admin/collectes-table.tsx (colonne Indicateurs : « Sans excédent » précédé du picto des repas, même style que « N repas ») + packages/plateforme/src/components/admin/collecte-statut-frise.tsx (frise : étape « Réalisée ») + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (ligne « Volume repas (estimé / réalisé) » : « 50 / Sans excédent » ; liste de choix de « Forcer le statut » : option « Réalisée — sans excédent ») — aucun style nouveau",
       "test": "M0.6/liste_sans_excedent_en_indicateur + M0.6/statut_sans_excedent_affiche_realisee + M0.6/fiche_sans_excedent_volume_repas",
       "statut": "à-vérifier",
@@ -1743,7 +1743,7 @@
     },
     {
       "id": "M0.6-ordre-envoi-motif-admin-savr-seul",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:549",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:548",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -1752,7 +1752,7 @@
     },
     {
       "id": "M0.6-pax-collecte-modification-admin",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:364 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1200",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:362 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1197",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
       "test": "packages/plateforme/tests/api/admin/collecte-pax-admin.m0-6.test.ts + packages/plateforme/src/components/admin/collecte-detail-panel-pax.m0-6.test.tsx",
       "statut": "implemented",
@@ -1760,7 +1760,7 @@
     },
     {
       "id": "M0.6-e2-aucun-ordre-collecte-terminee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:136 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:338",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:134 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:336",
       "artefact": "supabase/migrations/20261022200000_plateforme_e2_aucun_ordre_collecte_terminee.sql + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
       "test": "supabase/tests/e2_collecte_terminee.test.sql + supabase/tests/r22c_evenement_e2_en_cours.test.sql « R22c-6 modif contact sur collecte cloturee »",
       "statut": "implemented",
@@ -1768,7 +1768,7 @@
     },
     {
       "id": "M0.6-collecte-type-contacts-admin",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:364",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:362",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx + packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts",
       "test": "M1.2 / fiche Admin — type d’événement et contacts de la collecte (lot B1) + M1.2/admin_collecte_contacts_sans_motif + M1.2/admin_collecte_type_evenement_inconnu + M1.2/admin_collecte_contacts_illisibles_500",
       "statut": "implemented",
@@ -1777,7 +1777,7 @@
     },
     {
       "id": "M0.6-collecte-type-contacts-admin-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:364",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:362",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1786,14 +1786,13 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "08480c96d4f2d76df30ca1e449da64898de1acf86892b42013cec2f1de621103",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "780774046b39d601a002c5795761957828078d0f6ed2b832b631437d8e19d4a4",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "cb8c915a97e77a8f4c33db712c71d9ff1391fc5441b259120de940743878571f",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5cb254930295bc6b4f30ae90b3245e4088a9aac3dbd211b3061ad208140713df",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "71ca20cab248229ca8cd9e0bf1fcf5f0fbe20aae1aa418faba74885b7cc13e63",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "df6a09ee0027774c486af5c9ff934a8d1481fe9d311cfc8ab8a6f4ee62b7c5a6",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "22c8c9c78508b5aed2cd5155af84f7b052302f37f6f8789c8182009e48ded1fa",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "d8143d36f158146676509441105c82c6c667acb145ede1dc813808ab68064732",
-    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "d3691b468643c37d7a0df179e75f06f852dcdff973a93e263a9c685c29cb7445"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "d71b8ea4384fbfe1ec5cc44e7de744701250b2285c76621640f2e94947eba320",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "8bff1923169fd273961333229b6442d09f29b1a7bf3286c12935d1dba86e4e9a",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "30a5755a4e0d6ef3e6fbce6d31255f606d704eb30978c51e8489f5b3b4f9ca55",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "09a1ad3dfcbb19dc2404851eb78fffe68d9308e24ae5fe59895f993db70e2588",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "713c131ec0ba46743760b0b449cc17dace6935f63c7c1099227101fb972a78ee",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "c00588023806cfc94db794c3a9a843d94f220d384a3a5faf5f687fb86c51f400",
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "72354cf3ada95db18b66b1a0933cc5de3d28a2ab704c205c3f4aab3a279c9bef"
   }
 }

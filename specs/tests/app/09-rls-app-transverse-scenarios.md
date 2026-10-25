@@ -104,10 +104,10 @@ Scénario : traiteur_operationnel_ne_peut_pas_modifier_programmation_tierce
   Alors 0 ligne est affectée (UPDATE limité à organisation_id = self)
 
 Scénario : gestionnaire_brouillon_tiers_exclu (evenements_brouillon_tiers_denied)
-  Étant donné un brouillon Kaspia (date_evenement NULL) sur le lieu L1 de Viparis
+  Étant donné un brouillon Kaspia (collectes au statut `brouillon`, daté) sur le lieu L1 de Viparis
   Quand `gest_viparis` exécute SELECT sur `evenements`
   Alors le brouillon n'apparaît pas (anti-fuite d'intention commerciale — décision F3 lot ⑤)
-  Et son propre brouillon (organisation_id = Viparis, date NULL) reste visible
+  Et son propre brouillon (organisation_id = Viparis) reste visible
 
 Scénario : manager_update_dans_fenetre_edition_ok (F3 lot ⑪ — révisé 2026-09-16, REVOKE evenements)
   Étant donné un événement Kaspia dont une collecte est au statut `programmee`

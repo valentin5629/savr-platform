@@ -100,7 +100,8 @@ Puis charger le contexte de l'écran dans l'ordre des sources ci-dessus. Identif
   (`get_runtime_errors`, puis `get_runtime_logs` sur le déploiement de l'environnement testé) donne la réponse
   de la route API. Identifier l'organisation et le projet par leurs outils de liste (`find_projects`,
   `list_projects`), jamais deviner. Lecture seule : aucune action sur une issue ou un déploiement sans demande
-  de Val. Aucune trace = constat à noter (le défaut est alors côté rendu ou donnée, pas une exception).
+  de Val. Une trace peut contenir des données personnelles (email, nom, contenu de requête) : ne jamais la
+  recopier dans un commit, une PR ou une fiche (dépôt public), la résumer. Aucune trace = constat à noter (le défaut est alors côté rendu ou donnée, pas une exception).
 - **Trancher** : écart visuel/logique isolé = bug de code → étape 3. Comportement conforme au code mais
   divergent du CDC, ou règle métier non couverte = **question de spec** → `spec-resolver`, sinon STOP + Val.
   Bug/ambiguïté de spec détecté → écrire un fichier `_Divergences/` (cf. CLAUDE.md §4), ne pas patcher `specs/`.

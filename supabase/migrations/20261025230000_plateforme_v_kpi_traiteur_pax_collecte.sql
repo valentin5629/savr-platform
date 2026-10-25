@@ -135,4 +135,5 @@ COMMENT ON VIEW plateforme.v_kpi_traiteur IS
 
 -- ROLLBACK : CREATE OR REPLACE ne peut pas revenir au corps de 20260918100000 (il
 -- retirerait les deux colonnes de fin) : supprimer la vue, la recréer avec ce corps
--- (WITH security_invoker = true), puis reposer GRANT SELECT TO authenticated.
+-- (WITH security_invoker = true), puis reposer les droits relevés avant ce lot :
+-- GRANT SELECT TO authenticated ; GRANT SELECT, INSERT, UPDATE, DELETE TO service_role.

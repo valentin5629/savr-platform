@@ -335,7 +335,7 @@
       "id": "M1.6-convives-de-la-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:28 + specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:59",
       "artefact": "packages/plateforme/src/lib/pdf/convives-imprimes.ts + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts + packages/plateforme/src/lib/pdf/payload-rapport.ts + apps/pdf-renderer/src/templates/bordereau-zd.ts (type nb_pax : number | null)",
-      "test": "M1.6 / BatchPdfJ1 / Convives de la collecte + M1.6 / bordereau ZD §1.1 — convives de la collecte + packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts « convives de LA collecte en page 1 »",
+      "test": "M1.6 / BatchPdfJ1 / Convives de la collecte + M1.6 / bordereau ZD §1.1 — convives de la collecte + packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts « convives de LA collecte en page 1 » + M1.6 / rapport recyclage §1.2 — convives de la collecte",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
       "libelle": "Bordereau ZD (batch J+1) et rapport de recyclage fabriqué au clic (page 1 et bordereau de la page 2) impriment les convives de LA collecte (lot C2, décision Val Q5 du 2026-10-24), plus ceux de l'événement : ils correspondent au kg/pax du radar, déjà calculé sur la collecte (lot C1). Libellé imprimé inchangé (« convives ») ; une collecte à 0 convive (inconnu, reprise Bubble) rend nb_pax null : le bordereau omet la mention, le rapport affiche « — » (convivesImprimes)."

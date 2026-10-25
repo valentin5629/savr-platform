@@ -172,7 +172,7 @@
       "id": "M2.4-sans-excedent-convives-de-la-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:176",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts",
-      "test": "M2.4 / batch sans-excédent — convives de la collecte",
+      "test": "M2.4 / batch sans-excédent — convives de la collecte + M2.4 / renderer — rapport sans excédent : convives de la collecte",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
       "libelle": "Rapport « Événement sans excédent alimentaire » : convives de LA collecte AG, plus ceux de l'événement (lot C2, décision Val Q5 du 2026-10-24) ; 0 convive (inconnu) → nb_pax null, la mention « N convives » est omise. L'attestation de don n'imprime pas de pax : rien à changer."

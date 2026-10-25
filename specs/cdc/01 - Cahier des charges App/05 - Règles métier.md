@@ -29,7 +29,7 @@ Le palier > 1 000 (1 €/pax) est désormais exprimé proprement en affine (`pri
 
 **Exemple grille « Forfait + variable »** : une ligne `[1, null]` avec `prix_base_ht=200`, `prix_par_couvert_ht=1` → 200 € + 1 €/pax. Affectée à une organisation via `grille_tarifaire_zd_id`.
 
-**Règle d'application** : la grille (donc la base de prix) est déterminée par l'organisation programmatrice et le `evenements.pax` au moment de la facturation. **Retiré V1 (2026-05-29)** : pax unique au niveau événement, pas d'override par collecte ; multi-jours à pax variable reporté V2. La composition base + remises est figée dans `factures_collectes.tarif_detail` + `montant_ligne_ht`. Si la grille évolue entre programmation et facturation, c'est la grille en vigueur à la facturation qui s'applique (sauf engagement contractuel — CGV). Voir la résolution complète ci-dessous, [[#Tarifs et remises — résolution du prix]].
+**Règle d'application** : la grille (donc la base de prix) est déterminée par l'organisation programmatrice et le pax de LA collecte facturée (`collectes.pax`) : chaque collecte ZD est facturée sur son propre pax *(décision Val C2 du 2026-10-20, livrée au lot C2 le 2026-10-25)*. **Rétabli (lot C2, 2026-10-25)** : le pax est porté par la collecte (§R_pax_collecte) ; un événement de plusieurs soirées à pax variable facture chaque collecte sur ses propres convives. La composition base + remises est figée dans `factures_collectes.tarif_detail` + `montant_ligne_ht`. Si la grille évolue entre programmation et facturation, c'est la grille en vigueur à la date de la collecte (`collectes.date_collecte`) qui s'applique, comme les remises et le tarif AG unitaire (sauf engagement contractuel — CGV) *(décision Val Q4 du 2026-10-24 : l'email récapitulatif de programmation annonce déjà le tarif à cette date)*. Voir la résolution complète ci-dessous, [[#Tarifs et remises — résolution du prix]].
 
 **Modification tarifaire** : pour modifier une grille, l'Admin Savr ferme la grille (`grilles_tarifaires_zd.valide_jusqu`) et en crée une nouvelle (entête + lignes). Pas de modification rétroactive ; les collectes passées conservent leur calcul via `tarif_detail`.
 
@@ -90,7 +90,7 @@ Logique figée alignée sur les contrats opérationnels A Toutes! (vélo cargo I
 
 **Inputs lus par la règle** :
 - `lieux.region = 'IDF'` (déclencheur du basculement règles dur, sinon scoring province ci-dessus)
-- `evenements.nb_pax`
+- `collectes.pax` — pax de LA collecte AG *(lot C2, décision Val Q2 du 2026-10-24 : une soirée de 300 convives dans un événement de 900 suit la branche vélo)*
 - `collectes.heure_collecte`
 - Délai en minutes entre `now()` et `collectes.heure_collecte` (sous-branche express vs programmé)
 - `parametres_algo.a_toutes_indisponible` (flag opérationnel manuel)
@@ -104,22 +104,22 @@ Logique figée alignée sur les contrats opérationnels A Toutes! (vélo cargo I
 - **Backup V1** : aucun (A Toutes! fermé la nuit). Si Marathon exclu → `branche_attribution = 'aucun_prestataire'`, alerte Admin Savr.
 
 #### Branche 2 — Grand événement jour (Marathon)
-- **Condition** : plage jour ET `nb_pax ≥ regle_ag_seuil_pax_velo` (défaut 600)
+- **Condition** : plage jour ET `collectes.pax ≥ regle_ag_seuil_pax_velo` (défaut 600)
 - **Résultat** : `transporteur_id = Marathon`, `branche_attribution = 'ag_marathon_volume'`
 - **Backup** : si Marathon exclu, A Toutes! camion (service Everest) si toutes les conditions remplies — plage horaire jour active (mêmes bornes que vélo, décision 2026-05-09) + `a_toutes_indisponible = false` + adresse couverte Everest. Si OK → `ag_marathon_volume_backup_camion`. Sinon → `aucun_prestataire`.
 
 #### Branche 3 — AG vélo jour (A Toutes! par défaut)
-- **Condition** : plage jour ET `nb_pax < regle_ag_seuil_pax_velo`
+- **Condition** : plage jour ET `collectes.pax < regle_ag_seuil_pax_velo`
 - **Sous-branche selon délai** : délai `< regle_ag_seuil_h2_minutes` (défaut 90 min) → A Toutes! vélo express (Everest **74**, corrigé 2026-06-15 ex-75) `ag_velo_express` ; sinon → A Toutes! vélo programmé (Everest 71) `ag_velo_programme`.
 - **Bascules** : `a_toutes_indisponible = true` OU adresse hors zone Everest → Marathon `ag_velo_fallback_marathon`. Si Marathon aussi exclu → `aucun_prestataire`.
 
 #### Branche 4 — Camion express last-minute Everest *(DIV-3, décision Val 2026-06-15)*
-- **Condition** : plage jour ET `nb_pax ≥ regle_ag_seuil_pax_velo` ET Marathon exclu/indisponible ET `a_toutes_indisponible = false` ET adresse couverte Everest ET délai `< regle_ag_seuil_h2_minutes`
+- **Condition** : plage jour ET `collectes.pax ≥ regle_ag_seuil_pax_velo` ET Marathon exclu/indisponible ET `a_toutes_indisponible = false` ET adresse couverte Everest ET délai `< regle_ag_seuil_h2_minutes`
 - **Résultat** : `transporteur_id = A Toutes!`, service Everest **77** (camion express), `branche_attribution = 'ag_everest_camion_express'`
 - **Usage** : last-minute camion quand Marathon ne peut pas répondre. Distinct de `ag_marathon_volume_backup_camion` (service 91, hors last-minute).
 - **Fallback** : `a_toutes_indisponible = true` aussi → `aucun_prestataire`, alerte Admin.
 
-**Modification `nb_pax` post-attribution (refonte audit sobriété 2026-05-09 A2)** : aucun re-calcul automatique de la branche, aucun template dédié. Si l'Admin souhaite changer de transporteur après modif `nb_pax`, il rouvre l'écran d'attribution et applique un override standard (motif libre `autre`). Justification : edge case rare en pratique.
+**Modification du pax de la collecte (`collectes.pax`, lot C2) post-attribution (refonte audit sobriété 2026-05-09 A2)** : aucun re-calcul automatique de la branche, aucun template dédié. Si l'Admin souhaite changer de transporteur après modification du pax, il rouvre l'écran d'attribution et applique un override standard (motif libre `autre`). Justification : edge case rare en pratique.
 
 **Stockage de la branche** : `attributions_antgaspi.branche_attribution` (text NOT NULL, **9 valeurs canoniques** + `province` pour hors IDF — +1 `ag_everest_camion_express` 2026-06-15).
 
@@ -142,7 +142,7 @@ Ces tarifs sont remontés via Everest (tarifs réels exposés par l'API). Seed V
 
 ### Auto-accept
 
-Configurable par l'Admin Savr par combinaison `(association_id, type_evenement_id)`. Quand activé, l'attribution recommandée par l'algorithme est automatiquement validée sans intervention humaine, et les emails sont envoyés directement.
+Configurable par l'Admin Savr par combinaison organisation programmatrice × association (`organisation_id`, `association_id` obligatoire), éventuellement restreinte à un transporteur et à une fourchette de pax de LA collecte (`collectes.pax`) ; aucun critère de type d'événement *(décision Val Q1 du 2026-10-24, lot C2 ; association obligatoire — décision Val I4 du 2026-10-25 ; cf. §04 `config_auto_accept_ag` et §06.09 §6)*. Quand activé, l'attribution recommandée par l'algorithme est automatiquement validée sans intervention humaine, et les emails sont envoyés directement.
 
 **Condition d'activation** : décision Admin Savr via le tableau de bord (pas de règle algorithmique d'activation automatique).
 
@@ -662,7 +662,7 @@ Où :
 
 **Objectif** : afficher au gestionnaire de lieux une **estimation** du déchet généré en amont, au laboratoire/cuisine du traiteur (épluchures, parures, surplus de production), distinct du déchet collecté sur l'événement (pesées réelles). Permet de matérialiser l'empreinte déchet totale d'un événement au-delà de ce que Savr collecte sur site.
 
-**Périmètre** : affichage **espace gestionnaire de lieux uniquement** (détail événement + colonne de la liste Événements + colonne de la liste Collectes *(ajout Val 2026-10-07)* — cf. [[06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux]]). **Hors PDF rapport** et **hors espace traiteur** en V1. S'applique à tout événement disposant d'un `pax`, d'un coefficient pour l'année applicable et d'**au moins une collecte ZD** *(arbitrages Val 2026-10-07 : la notion ne tient pas pour les collectes AG)*. Un événement qui n'a que des collectes AG n'a pas d'estimation (`—`) ; sur la liste Collectes, l'estimation ne s'affiche que sur les lignes de collecte ZD, une ligne AG affiche `—`.
+**Périmètre** : affichage **espace gestionnaire de lieux uniquement** (détail événement + colonne de la liste Événements + colonne de la liste Collectes *(ajout Val 2026-10-07)* — cf. [[06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux]]). **Hors PDF rapport** et **hors espace traiteur** en V1. S'applique à tout événement disposant d'un `pax`, d'un coefficient pour l'année applicable et d'**au moins une collecte ZD** *(arbitrages Val 2026-10-07 : la notion ne tient pas pour les collectes AG)*. Un événement qui n'a que des collectes AG n'a pas d'estimation (`—`) ; sur la liste Collectes, l'estimation ne s'affiche que sur les lignes de collecte ZD, une ligne AG affiche `—` ; celle d'une ligne ZD est la part de LA collecte = `collectes.pax × C` *(décision Val Q3 du 2026-10-24, lot C2)*, la liste et le détail Événements gardant l'estimation de l'événement (`evenements.pax × C`).
 
 **Source du coefficient** : table `coefficients_perte_labo` (cf. [[04 - Data Model#⚠ Addendum 2026-05-22 — Coefficient de perte labo (estimation déchets amont, gestionnaire-only)]]). Le coefficient (`kg/couvert`) est calculé une fois par an par le traiteur sur les données de l'année N, communiqué à Savr, et **saisi par l'Admin Savr** (pas de saisie traiteur V1). Il s'applique aux événements de l'année **N+1**.
 
@@ -1096,7 +1096,7 @@ KPIs supplémentaires ajoutés au fil des demandes terrain (design extensible).
 Le prix d'une collecte se compose en **deux couches** : une **base** (méthode de calcul du prix) puis des **remises** (% accordés par-dessus). Modélisation : `grilles_tarifaires_zd` + `tarifs_packs_ag` (bases) et `tarifs_negocie` (remises) dans [[04 - Data Model]].
 
 **Couche base**
-- **ZD** : grille du catalogue affectée à l'organisation programmatrice (`organisations.grille_tarifaire_zd_id`, NULL → grille `est_defaut`). Base = `prix_base_ht + prix_par_couvert_ht × pax` sur la ligne couvrant `evenements.pax` **(pax_collecte retiré V1 le 2026-05-29 — pax unique niveau événement)**.
+- **ZD** : grille du catalogue affectée à l'organisation programmatrice (`organisations.grille_tarifaire_zd_id`, NULL → grille `est_defaut`). Base = `prix_base_ht + prix_par_couvert_ht × pax` sur la ligne couvrant le pax de LA collecte (`collectes.pax` — décision Val C2 du 2026-10-20, lot C2) *(grille et remises en vigueur à la date de la collecte, `collectes.date_collecte` — décision Val Q4 du 2026-10-24 ; une collecte à 0 convive, inconnu, n'est pas tarifée automatiquement : l'Admin la facture à la main)*.
 - **AG** : tarif **unitaire** (`tarifs_packs_ag` type `unitaire`) pour une collecte facturée à l'unité. Une collecte qui décrémente un pack prépayé n'est pas facturée à la collecte → pas de base à la collecte (donc pas de remise).
 
 **Couche remise** (`tarifs_negocie`, % uniquement) — deux scopes :
@@ -1104,7 +1104,7 @@ Le prix d'une collecte se compose en **deux couches** : une **base** (méthode d
 - **scope gestionnaire** : remise accordée par un gestionnaire de lieux (cas Viparis −5 %) — s'applique à tout traiteur programmant sur un lieu rattaché au gestionnaire (`lieu_id` = ce lieu OU null).
 
 **Algorithme de résolution** (à la facturation) :
-1. Identifier l'activité (`zd`/`ag`), l'organisation programmatrice, `evenements.pax`, `evenements.lieu_id`.
+1. Identifier l'activité (`zd`/`ag`), l'organisation programmatrice, le pax de la collecte (`collectes.pax`), sa date (`collectes.date_collecte`, qui choisit la grille et les remises en vigueur), `evenements.lieu_id` *(lot C2, décisions Val C2 du 2026-10-20 et Q4 du 2026-10-24)*.
 2. Calculer la **base** : ZD → grille de l'org ; AG → tarif unitaire (si facturée à l'unité).
 3. Collecter les **remises éligibles** de même `activite`, en vigueur :
    - `scope=organisation` avec `organisation_id` = programmateur
@@ -1194,7 +1194,7 @@ WHERE id = [id de l'événement];
 
 ### R_pax_collecte *(ajout 2026-05-29 — retiré le même jour — rétabli le 2026-10-20, décision Val 2026-10-20)*
 
-> **Rétablie (décision Val 2026-10-20)** — chaque collecte porte son nombre de convives (`collectes.pax`, entier de 1 à 100 000 à la saisie — plafond décidé par Val le 2026-10-21 ; 0 = inconnu, reprise Bubble). Il se saisit avec la date de collecte (§06.01 étape 3) et se modifie sur la collecte (fiche collecte, `fn_modifier_collecte`), y compris par l'équipe Savr depuis la fiche collecte Admin *(décision Val 2026-10-21 : lot à livrer avant le lot 2 de facturation au pax de la collecte ; motif obligatoire comme toute route staff, cf. 07 - Observabilité / 06 - Audit trail §5)* ; la modification d'un événement le refuse. **Pax de l'événement** (`evenements.pax`) = pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (une ZD et une AG du même soir comptent une fois ; deux ZD ou deux AG du même jour s'additionnent ; deux soirées s'additionnent — règle révisée par Val le 2026-10-21) ; recalculé par trigger à chaque création, modification, annulation ou suppression d'une collecte ; inchangé si l'événement n'a plus de collecte non annulée. Le volume estimé de repas AG et ce qui part au transporteur (libellé « N pax », commentaire) lisent le pax de la collecte ; l'événement outbox E1 de la V1 ne porte pas de pax (l'adapter relit la collecte), et le `nb_pax` du contrat E1 cible V2 est celui de la collecte (§08 TMS). La tarification ZD et les rapports de recyclage (§12) lisent encore `evenements.pax` : leur passage au pax de la collecte est décidé (C2, C4 du 2026-10-20) et relève d'une fiche ultérieure (lot C2). Depuis le lot C1 (2026-10-24), la taille XS–XL d'une collecte (fiche, radar, liste Collectes, filtres Taille des dashboards — décision Val Q3 du 2026-10-24), le benchmark kg/pax et le registre lisent le pax de la collecte ; une collecte à 0 convive sort du benchmark (Q4). Les cumuls de pax des dashboards (KPI, kg/pax et repas/pax des blocs), la marge et la liste, la fiche et l'export Événements restent sur `evenements.pax` (lot 3).
+> **Rétablie (décision Val 2026-10-20)** — chaque collecte porte son nombre de convives (`collectes.pax`, entier de 1 à 100 000 à la saisie — plafond décidé par Val le 2026-10-21 ; 0 = inconnu, reprise Bubble). Il se saisit avec la date de collecte (§06.01 étape 3) et se modifie sur la collecte (fiche collecte, `fn_modifier_collecte`), y compris par l'équipe Savr depuis la fiche collecte Admin *(décision Val 2026-10-21 : lot à livrer avant le lot 2 de facturation au pax de la collecte ; motif obligatoire comme toute route staff, cf. 07 - Observabilité / 06 - Audit trail §5)* ; la modification d'un événement le refuse. **Pax de l'événement** (`evenements.pax`) = pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (une ZD et une AG du même soir comptent une fois ; deux ZD ou deux AG du même jour s'additionnent ; deux soirées s'additionnent — règle révisée par Val le 2026-10-21) ; recalculé par trigger à chaque création, modification, annulation ou suppression d'une collecte ; inchangé si l'événement n'a plus de collecte non annulée. Le volume estimé de repas AG et ce qui part au transporteur (libellé « N pax », commentaire) lisent le pax de la collecte ; l'événement outbox E1 de la V1 ne porte pas de pax (l'adapter relit la collecte), et le `nb_pax` du contrat E1 cible V2 est celui de la collecte (§08 TMS). Depuis le lot C2 (2026-10-25, décisions Val Q1 à Q6 du 2026-10-24), lisent aussi le pax de la collecte : la tarification ZD (avec la date de la collecte pour la grille et les remises), le seuil grand volume de l'algorithme d'attribution AG et la fourchette de pax de l'auto-acceptation, les convives imprimés sur le bordereau ZD, le rapport de recyclage et le rapport « sans excédent » (0 convive : mention omise), et l'estimation des déchets labo d'une ligne de la liste Collectes du gestionnaire. Depuis le lot C1 (2026-10-24), la taille XS–XL d'une collecte (fiche, radar, liste Collectes, filtres Taille des dashboards — décision Val Q3 du 2026-10-24), le benchmark kg/pax et le registre lisent le pax de la collecte ; une collecte à 0 convive sort du benchmark (Q4). Les cumuls de pax des dashboards (KPI, kg/pax et repas/pax des blocs), la marge et la liste, la fiche et l'export Événements restent sur `evenements.pax` (lot 3).
 
 
 

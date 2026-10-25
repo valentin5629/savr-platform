@@ -33,7 +33,8 @@
     "packages/plateforme/src/app/(admin)/admin/parametres/auto-accept/page.tsx",
     "packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts",
     "packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts",
-    "specs/manifests/M2.3.json"
+    "specs/manifests/M2.3.json",
+    "supabase/migrations/20261025200000_plateforme_auto_accept_association_obligatoire.sql"
   ],
   "tables_concernees": [
     "plateforme.attributions_antgaspi (INSERT via RPC, UPDATE poids_repas_kg → trigger volume)",
@@ -306,7 +307,7 @@
     },
     {
       "id": "BL-P1-ALGO-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:196-224",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:196-226",
       "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_evaluer_auto_accept_ag : algo → match config_auto_accept_ag → rpc_valider_attribution_ag mode auto_accept valide_par NULL, sinon SINON) ; packages/plateforme/src/lib/attribution-ag/auto-accept.ts ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts (admin only) ; supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql (fourchette de pax lue sur le nb_pax de l'algorithme = pax de la collecte)",
       "test": "R11-T7 + R11-T8 + R11-T9 + C2-AUTO-1 + C2-AUTO-2 + M2.3 / R11 ALGO-06 auto-accept",
       "statut": "implemented",
@@ -363,7 +364,7 @@
     },
     {
       "id": "M2.3-parametres-algo-validation-type",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:241",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:243",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres-algo/route.ts + packages/plateforme/src/lib/parametres-algo/validation.ts (PATCH : valeur validée selon le type_valeur de la ligne — bool/int/decimal/time HH:MM/text[] — 422 sinon, 404 clé inconnue, jamais de scalaire JSON à la place d'une liste) ; packages/plateforme/src/lib/parametres-algo/saisie.ts + packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/page.tsx (saisie convertie par type avant l'envoi, message lisible sinon)",
       "test": "M2.3 / PATCH /parametres-algo (packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts) — 422 liste text[] en chaîne, 422 heure/entier/décimal/booléen non conformes, 200 text[] tableau transmis tel quel, 200 heure HH:MM, 404 clé inconnue sans update ; M2.3 / Paramètres algorithme AG — conversion de la saisie + M2.3 / convertirSaisie (packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/algo-ag.m2-3.test.tsx) — tableau JSON dans le PATCH, refus sans appel réseau",
       "statut": "implemented",
@@ -371,17 +372,25 @@
     },
     {
       "id": "M2.3-algo-pax-de-la-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:243",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:245",
       "artefact": "supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql (fn_calculer_algo_attribution_ag : c.pax au lieu de e.pax)",
       "test": "C2-F + C2-ALGO-1 + C2-ALGO-2 + C2-ALGO-3 + C2-SECU",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
       "libelle": "Algorithme d'attribution AG au pax de LA collecte AG (lot C2, décision Val Q2 du 2026-10-24) : le seuil grand volume (regle_ag_seuil_pax_velo, 600) et le nb_pax rendu — lu par l'auto-acceptation et affiché « N PAX » sur l'écran d'attribution, dont l'en-tête montrait déjà le pax de la collecte — se lisent sur collectes.pax, plus sur evenements.pax. Une soirée de 300 convives dans un événement de 900 part en branche vélo, plus en camion grand volume. La lecture de e.type_evenement_id, jamais utilisée, est retirée. ACL (service_role seul), SECURITY DEFINER et search_path inchangés. Preuve pgTAP sur un événement de 900 convives (ZD 900 et deux AG de 300 le même soir), contrôle à 700."
+    },
+    {
+      "id": "M2.3-auto-accept-association-obligatoire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:211",
+      "artefact": "supabase/migrations/20261025200000_plateforme_auto_accept_association_obligatoire.sql (association_id SET NOT NULL, arrêt explicite si une règle sans association existe) ; packages/plateforme/src/app/api/v1/admin/config-auto-accept/route.ts (POST et PATCH : 422 « association_id obligatoire » sans écriture) ; packages/plateforme/src/app/(admin)/admin/parametres/auto-accept/page.tsx (colonne « Association fixe » sans « Algo »)",
+      "test": "I4-API (tests/api/admin/config-auto-accept-association.m2-3.test.ts) + I4-PGTAP (supabase/tests/auto_accept_association_obligatoire.test.sql)",
+      "statut": "implemented",
+      "libelle": "Auto-accept AG : association obligatoire (décision Val I4 du 2026-10-25, §04 config_auto_accept_ag et §06.09 §6). Une règle sans association ne se déclenchait jamais (rpc_evaluer_auto_accept_ag exige association_id = association top 1). La base pose NOT NULL ; l'API Admin refuse une création ou une modification sans association ; l'écran n'affiche plus « Algo » pour l'association (« Algo » ne vaut que pour le transporteur). Lignes existantes contrôlées le 2026-10-25 : dev 3 règles, 0 sans association ; prod 0 règle."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "d71b8ea4384fbfe1ec5cc44e7de744701250b2285c76621640f2e94947eba320",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "df310c3d0635d39e305c6116826dd966f615acd783599c779c6c48ea946f2c9d",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "613f157237ded886045e2f3f5d7bf02b99a02096e9b313cb8fd297e05e0c13bc"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "5f9b4af5d6ff4dc624f8edc94ec0c6378e49c04c2a3812b59071fb9816e7f7b5",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "e45d4dc673ae737cb51ddfee41da4a7d07d9ace566ad448fa505ecb0493340a7",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "e64979835e2cd7e6ac87f2e770090b7c96313f39e334f57310f7908f5996ebb5"
   }
 }

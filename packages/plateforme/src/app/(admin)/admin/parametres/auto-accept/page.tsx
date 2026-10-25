@@ -38,10 +38,10 @@ const columns: Column<ConfigAutoAccept>[] = [
   {
     key: 'associations',
     header: 'Association fixe',
+    // Toujours renseignée (décision Val I4 du 2026-10-25) : « Algo » ne vaut que
+    // pour le transporteur.
     render: (row) =>
-      row.associations?.nom ?? (
-        <span className="text-savr-neutral-400">Algo</span>
-      ),
+      row.associations?.nom ?? <span className="text-savr-neutral-400">—</span>,
   },
   {
     key: 'transporteurs',

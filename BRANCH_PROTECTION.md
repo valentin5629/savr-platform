@@ -15,8 +15,8 @@ Rend l'enforcement indépendant de l'agent (re-vérif serveur, pas contournable 
 - [ ] Require approvals : **1** minimum — ⚠ `required_approving_review_count` = **0** au 2026-10-08 : NON tenu
 - [x] Require status checks to pass — **8 checks requis** (`required_status_checks.contexts` au 2026-10-08) :
       `anti-coupling`, `detect-prereqs`, `lint-typecheck-test`, `security`, `gate-ratchet`, `migration-timestamp`,
-      `pgtap-rls-outbox`, `migrations`. Les autres jobs de `quality.yml` tournent sans être requis (dont `e2e` et
-      `bundle-budget`, à ajouter quand ils seront stables).
+      `pgtap-rls-outbox`, `migrations`. Les autres jobs de `quality.yml` tournent sans être requis (dont `e2e`, à
+      ajouter quand il sera stable ; le budget du bundle est une étape du job `build`).
       - `lint-typecheck-test` = agrégateur (depuis le 2026-10-25) de `statique` (format, typecheck, lint), `unit`
         (suite Vitest complète en 2 parts) et `build` (build sans variables d'environnement + budget du bundle) — le
         filet des gardes locales de commit et de PR. Il tourne toujours (`!cancelled()`) et vérifie lui-même que les
@@ -27,6 +27,10 @@ Rend l'enforcement indépendant de l'agent (re-vérif serveur, pas contournable 
         et integration-contracts (sortis du mode rapport, décision Val C3)
       - `migrations` = garde anti-destructif des migrations nouvelles (sans base depuis le 2026-10-25 ; l'application
         des migrations est faite par `pgtap-rls-outbox`)
+      - Étapes sautées selon les fichiers de la PR (depuis le 2026-10-25, `scripts/ci-perimetre.sh`) : le job reste
+        joué et rend son statut ; la base ne démarre que si `supabase/`, `.github/` ou `scripts/` changent, build et e2e
+        sont sautés pour une PR de specs / docs / fixtures / supabase / .claude / .md. Sens sûr : hors PR, ou fichiers
+        illisibles, tout tourne
       - La CI ne tourne plus sur `push: main` (décision Val 2026-10-25, C2) : avec `strict: true`, l'arbre fusionné est
         celui que le passage de la PR a testé
       - `migration-timestamp` = anti-collision de préfixe `YYYYMMDDHHMMSS`, **y compris avec une branche en vol non mergée** — le hook pré-commit ne compare qu'au dossier de sa propre branche et ne peut pas voir ce cas

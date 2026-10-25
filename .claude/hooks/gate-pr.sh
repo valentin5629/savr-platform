@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Gate points 2 + 4 : bloque gh pr create sans tests verts + conformite-spec GO.
+# Gate points 2 + 4 : bloque gh pr create sans GO des relecteurs (conformité, sécurité)
+# ni contrat outbox. La suite de tests complète n'est plus jouée ici depuis le
+# 2026-10-25 (décision Val) : `lint-typecheck-test`, check requis sur `main`, la
+# joue en CI en ~2 min contre ~7 en local ; le commit joue déjà les tests liés.
 # Point 3 (divergences) est couvert par le reviewer conformite-spec qui doit les flaguer.
 set -euo pipefail
 
@@ -285,29 +288,29 @@ FAUX
   dit 'tout en règle' 'GATE PR OK'
   dit 'tout en règle' 'seed OK'
   dit 'tout en règle' '(informatif, arrêté passé 30 s)'
-  attendu 'tout en règle → suite complète jouée' "$(appels 'test:unit')" 1
+  attendu 'tout en règle → suite NON jouée (la CI la joue)' "$(appels 'test:unit')" 0
   attendu 'tout en règle → seed interrogé' "$(appels 'seed:check')" 1
 
-  # 3. Deuxième tentative sur le même contenu : la suite n'est pas rejouée.
+  # 3. Deuxième tentative sur le même contenu : toujours aucune suite.
   code '2e tentative, même contenu' 0 "$depot" "$creer"
-  attendu '2e tentative → suite non rejouée' "$(appels 'test:unit')" 1
+  attendu '2e tentative → suite non jouée' "$(appels 'test:unit')" 0
 
   # 4. Suite rouge sur un contenu nouveau, puis contrat outbox en échec.
   (cd "$depot" && echo c > f.ts && git commit -qam c) >/dev/null 2>&1
   go "$depot" lot
-  code 'suite rouge' 2 "$depot" "$creer" FAUX_TESTS_CODE=1
-  dit 'suite rouge' 'test:unit échoue'
-  tait 'suite rouge' 'GATE PR OK'
+  # Une suite qui serait rouge ne bloque plus ici : la CI requise la juge.
+  code 'suite rouge non jouée' 0 "$depot" "$creer" FAUX_TESTS_CODE=1
+  tait 'suite rouge non jouée' 'test:unit échoue'
+  attendu 'suite rouge → suite non jouée' "$(appels 'test:unit')" 0
   code 'contrat outbox en échec' 2 "$depot" "$creer" FAUX_OUTBOX_CODE=1
   dit 'contrat outbox en échec' 'check-outbox-contracts échoue'
 
   # 5. Markers de revue : absent, vide, NON-GO, périmé — pour chacun des deux.
-  # Sur un contenu NOUVEAU : un marker en défaut refuse la PR AVANT la suite et
-  # le seed (ni l'une ni l'autre ne sont lancés), la suite n'est jouée qu'une fois
-  # les markers en règle.
+  # Sur un contenu NOUVEAU : un marker en défaut refuse la PR AVANT le seed (il
+  # n'est pas lancé) ; la suite n'est jamais jouée par ce hook.
   (cd "$depot" && echo d > f.ts && git commit -qam d) >/dev/null 2>&1
-  local m suites_avant seeds_avant
-  suites_avant="$(appels 'test:unit')"; seeds_avant="$(appels 'seed:check')"
+  local m seeds_avant
+  seeds_avant="$(appels 'seed:check')"
   for m in conformite securite; do
     go "$depot" lot
     rm "$depot/.claude/$m-ok-lot"
@@ -322,11 +325,11 @@ FAUX
     code "marker $m sur un autre commit" 2 "$depot" "$creer"
     dit "marker $m sur un autre commit" 'périmé'
   done
-  attendu 'marker en défaut → suite non lancée' "$(appels 'test:unit')" "$suites_avant"
+  attendu 'marker en défaut → suite non lancée' "$(appels 'test:unit')" 0
   attendu 'marker en défaut → seed non lancé' "$(appels 'seed:check')" "$seeds_avant"
   go "$depot" lot
   code 'markers rétablis' 0 "$depot" "$creer"
-  attendu 'markers rétablis → suite jouée' "$(appels 'test:unit')" "$((suites_avant + 1))"
+  attendu 'markers rétablis → suite non jouée' "$(appels 'test:unit')" 0
 
   # 6. Vérification du seed : dit ce qu'elle constate, ne bloque pas, et ne dit
   # jamais « OK » sans l'avoir constaté (le défaut d'origine : `|| true` puis `$?`).
@@ -644,7 +647,7 @@ FORMES
     echo "🔴 gate-pr : auto-test EN ÉCHEC — le hook peut être muet ou bloquer à tort." >&2
     exit 2
   fi
-  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues ; flux de bout en bout : commande ignorée, suite rouge, contrat outbox, markers absent / vide / NON-GO / périmé pour chaque relecteur, seed qui ne dit plus OK à tort, seed:check qui ne rend pas la main arrêté passé la borne avec tout son groupe sans bloquer la PR, puis quand le hook est lui-même arrêté, borne de 30 s que la variable n'allonge pas (31 et 600 essayés), seed:check non lancé faute de fichier pour sa sortie sans bloquer la PR, branche visée par --head ou par cd${PIEGES_BILAN})."
+  echo "✅ gate-pr : auto-test OK ($nv créations de PR vues, $nn mentions ignorées, $nf refus à tort assumés, $nl limites connues ; flux de bout en bout : commande ignorée, suite jamais jouée (la CI la juge), contrat outbox, markers absent / vide / NON-GO / périmé pour chaque relecteur, seed qui ne dit plus OK à tort, seed:check qui ne rend pas la main arrêté passé la borne avec tout son groupe sans bloquer la PR, puis quand le hook est lui-même arrêté, borne de 30 s que la variable n'allonge pas (31 et 600 essayés), seed:check non lancé faute de fichier pour sa sortie sans bloquer la PR, branche visée par --head ou par cd${PIEGES_BILAN})."
   exit 0
 fi
 
@@ -658,8 +661,8 @@ gate_pr_matche "$CMD" || exit 0
 # configuration quand l'hôte en a posé une (`--project-config-root`), sinon le
 # dossier où la session a été ouverte (mesuré le 2026-10-21 : le clone principal,
 # pour une session ouverte là puis entrée dans un worktree). C'est la version de
-# suite-verte.sh de CE dossier qui doit servir, pas celle de la branche visée par
-# la commande : une branche ouverte avant ce lot ne porte pas le script.
+# lib-worktree.sh de CE dossier qui doit servir, pas celle de la branche visée par
+# la commande : une branche ancienne ne porte pas forcément le script.
 HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Worktree-aware (cf. lib-worktree.sh) : ce hook démarre à la racine du dépôt du
@@ -719,25 +722,18 @@ echo "" >&2
 
 # 0. Markers des relecteurs D'ABORD : un marker absent, vide, NON-GO ou périmé
 # refuse la PR tout de suite, au lieu de la refuser après la suite complète
-# (~7 min en local, rejouée à chaque contenu nouveau). Les contrôles sont les
-# mêmes, seul leur ordre change (décision Val 2026-10-25, audit des sessions).
+# (~7 min en local, rejouée à chaque contenu nouveau). Décision Val 2026-10-25,
+# audit des sessions ; la suite elle-même a ensuite quitté ce hook (cf. 1.).
 # Reviewer conformite-spec — existence + 'GO' + SHA HEAD (R0d).
 check_marker "$MARKER_CONFORMITE" "CONFORMITE-SPEC" "reviewer-conformite-spec"
 # Reviewer rls-securite — existence + 'GO' + SHA HEAD (R0d).
 check_marker "$MARKER_SECURITE" "RLS-SECURITE" "reviewer-rls-securite"
 
-# 1. Tests unitaires — la suite COMPLÈTE, une fois par contenu. Le commit n'en
-# joue plus que la part liée au changement (tests-lies.sh) : c'est ici que tout
-# le reste est joué avant la PR. Une suite déjà verte sur le contenu exact de HEAD
-# n'est pas rejouée (cf. suite-verte.sh) — typiquement la 2e tentative, après un
-# premier refus sur un marker de revue.
-echo "  → suite de tests complète (une fois par contenu)..." >&2
-if ! bash "$HOOKS/suite-verte.sh" >&2 2>&1; then
-  echo "" >&2
-  echo "❌ test:unit échoue — PR bloquée. Corrige les tests avant de créer la PR." >&2
-  exit 2
-fi
-echo "  ✅ tests OK" >&2
+# 1. Tests unitaires : plus joués ici (décision Val 2026-10-25). La suite complète
+# est jouée en CI par `lint-typecheck-test`, check REQUIS sur `main` (strict :
+# branche à jour) ; le commit joue les tests liés au changement (tests-lies.sh).
+# Une suite rouge se voit donc après la création de la PR, jamais après la fusion.
+# Pour la jouer en local avant : `bash .claude/hooks/suite-verte.sh`.
 
 # 2. Vérification du seed — INFORMATIVE : elle dit ce qu'elle constate, elle ne
 # bloque pas.
@@ -764,7 +760,8 @@ echo "  ✅ tests OK" >&2
 # #608). Ce hook a le délai par défaut de 600 s (son entrée de settings.json ne
 # fixe pas de `timeout` ; cf. la PR #608), et depuis `onFailure: "block"` (#608)
 # un dépassement bloque la création de PR — même après un
-# `bash .claude/hooks/suite-verte.sh`, qui ne raccourcit que la suite de tests.
+# `bash .claude/hooks/suite-verte.sh` (la suite n'est plus jouée ici depuis le
+# 2026-10-25, mais le délai de 600 s vaut toujours pour le hook entier).
 # Or `seed:check` se connecte à la base de dev par un client `pg` réglé sans délai,
 # ni de connexion ni de requête (`connect()` de packages/shared/src/seed/db.ts).
 # Témoin du 2026-10-22 : le même réglage (pg 8.21.0), face à un serveur local qui

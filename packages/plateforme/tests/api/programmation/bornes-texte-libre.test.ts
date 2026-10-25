@@ -227,7 +227,7 @@ function lectureTypesEvenements(): LectureTypes {
 
 const CARTE_ZD = {
   type: 'zd',
-  date_collecte: '2030-01-15',
+  date_collecte: '2097-01-15',
   heure_collecte: '08:00',
   pax: 80,
   type_evenement_id: TYPE_EVT,
@@ -324,7 +324,7 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
     // La normalisation écrit la valeur sur l'élément : sur une chaîne, en mode
     // strict, l'affectation lèverait un TypeError → 500. Le contrôle de forme
     // doit donc rester AVANT elle.
-    const res = await postProgrammation({ collectes: ['2030-01-15'] });
+    const res = await postProgrammation({ collectes: ['2097-01-15'] });
 
     expect(res.status).toBe(422);
     aucuneEcriture();
@@ -685,7 +685,7 @@ describe('bornes texte libre — contacts sur les routes collecte', () => {
           id: 'col-1',
           statut: 'programmee',
           statut_tms: 'non_envoye',
-          date_collecte: '2030-01-15',
+          date_collecte: '2097-01-15',
           heure_collecte: '08:00:00',
           evenement: {
             created_by: 'user-1',
@@ -787,7 +787,7 @@ describe('bornes texte libre — routes collecte', () => {
       makeReq('POST', '/api/v1/admin/collectes', {
         evenement_id: 'evt-1',
         type: 'zero_dechet',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00',
         pax: 80,
         informations_supplementaires: INFOS_1001,
@@ -926,7 +926,7 @@ describe('bornes texte libre — routes collecte', () => {
         id: 'col-1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00:00',
         evenement: {
           created_by: 'user-1',
@@ -969,7 +969,7 @@ describe('bornes texte libre — routes collecte', () => {
         id: 'col-1',
         statut: 'validee',
         statut_tms: 'non_envoye',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00:00',
         // Périmètre d'écriture gestionnaire : l'org de l'événement DOIT être la
         // sienne, sinon la route rend 403 avant la RPC.
@@ -1010,7 +1010,7 @@ describe('bornes texte libre — routes collecte', () => {
         id: 'col-1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00:00',
         evenement: { organisation_id: 'org-agence-1' },
       },
@@ -1061,7 +1061,7 @@ describe('bornes texte libre — routes collecte', () => {
       makeReq('POST', '/api/v1/admin/collectes', {
         evenement_id: 'evt-1',
         type: 'zero_dechet',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00',
         pax: 80,
         informations_supplementaires: '  Cuisine au sous-sol, ascenseur B  ',

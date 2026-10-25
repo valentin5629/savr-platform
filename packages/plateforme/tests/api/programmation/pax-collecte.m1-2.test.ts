@@ -196,7 +196,7 @@ describe('M1.2/pax_par_collecte — création', () => {
           collectes: [
             {
               type: 'zd',
-              date_collecte: '2030-01-15',
+              date_collecte: '2097-01-15',
               heure_collecte: '22:00',
               ...CARTE,
               ...(pax === undefined ? {} : { pax }),
@@ -214,7 +214,7 @@ describe('M1.2/pax_par_collecte — création', () => {
       const res = await POST(
         makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
           type: 'zd',
-          date_collecte: '2030-01-15',
+          date_collecte: '2097-01-15',
           heure_collecte: '22:00',
           ...CARTE,
           ...(pax === undefined ? {} : { pax }),
@@ -244,14 +244,14 @@ describe('M1.2/pax_par_collecte — création', () => {
         collectes: [
           {
             type: 'zd',
-            date_collecte: '2030-01-15',
+            date_collecte: '2097-01-15',
             heure_collecte: '22:00',
             pax: 1800,
             ...CARTE,
           },
           {
             type: 'ag',
-            date_collecte: '2030-01-16',
+            date_collecte: '2097-01-16',
             heure_collecte: '22:00',
             pax: 1200,
             ...CARTE,
@@ -302,7 +302,7 @@ describe('M1.2/pax_par_collecte — création', () => {
         collectes: [
           {
             type: 'zd',
-            date_collecte: '2030-01-15',
+            date_collecte: '2097-01-15',
             heure_collecte: '22:00',
             pax: 650,
             ...CARTE,
@@ -335,7 +335,7 @@ describe('M1.2/pax_par_collecte — création', () => {
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
         type: 'zd',
-        date_collecte: '2030-02-01',
+        date_collecte: '2097-02-01',
         heure_collecte: '10:00',
         pax: 420,
         ...CARTE,

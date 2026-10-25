@@ -949,7 +949,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ordre_envoi: ordreEnvoi({
           etat: 'echec_reprise',
           tentatives: 2,
-          prochaine_tentative_at: '2030-01-15T09:35:00Z',
+          prochaine_tentative_at: '2097-01-15T09:35:00Z',
           erreur: '503 Service Unavailable',
         }),
       });
@@ -976,7 +976,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       // 09:35 UTC = 10:35 à Paris un 15 janvier.
       expect(
         screen.getByText(
-          'Nouvelle tentative automatique le 15/01/2030 à 10:35.',
+          'Nouvelle tentative automatique le 15/01/2097 à 10:35.',
         ),
       ).toBeInTheDocument();
       expect(
@@ -1082,7 +1082,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ordre_envoi: ordreEnvoi({
           etat: 'echec_reprise',
           tentatives: 2,
-          prochaine_tentative_at: '2030-01-15T09:35:00Z',
+          prochaine_tentative_at: '2097-01-15T09:35:00Z',
         }),
       });
       const premiere = render(<CollecteDetailPanel collecteId="c1" />);

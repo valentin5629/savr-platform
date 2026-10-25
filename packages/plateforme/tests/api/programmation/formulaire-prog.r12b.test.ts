@@ -224,7 +224,7 @@ const BODY_ZD = {
   collectes: [
     {
       type: 'zd',
-      date_collecte: '2030-01-15',
+      date_collecte: '2097-01-15',
       heure_collecte: '08:00',
       pax: 80,
       ...CARTE,
@@ -435,10 +435,10 @@ describe('M1.2 / PROG-04 récap programmation', () => {
       {
         id: 'collecte-zd-1',
         type: 'zero_dechet',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00:00',
         pax: 80,
-        created_at: '2030-01-01T10:00:00Z',
+        created_at: '2097-01-01T10:00:00Z',
       },
     ]);
     mockMaybeSingle
@@ -513,7 +513,7 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
         collectes: [
           {
             type: 'ag',
-            date_collecte: '2030-01-15',
+            date_collecte: '2097-01-15',
             heure_collecte: '08:00',
             pax: 80,
             ...CARTE,
@@ -548,7 +548,7 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       {
         id: 'c1',
         type: 'anti_gaspi',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         lieu_overrides: null,
       },
     ];
@@ -585,10 +585,10 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       {
         id: 'new-collecte-ag',
         type: 'anti_gaspi',
-        date_collecte: '2030-02-01',
+        date_collecte: '2097-02-01',
         heure_collecte: '10:00:00',
         pax: 80,
-        created_at: '2030-01-01T10:00:00Z',
+        created_at: '2097-01-01T10:00:00Z',
       },
     ]);
     mockSingle.mockResolvedValueOnce({
@@ -613,7 +613,7 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
         type: 'ag',
-        date_collecte: '2030-02-01',
+        date_collecte: '2097-02-01',
         heure_collecte: '10:00',
         pax: 80,
         ...CARTE,

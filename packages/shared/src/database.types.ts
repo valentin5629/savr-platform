@@ -1302,7 +1302,7 @@ export type Database = {
       }
       config_auto_accept_ag: {
         Row: {
-          association_id: string | null
+          association_id: string
           auto_accept_actif: boolean
           created_at: string
           id: string
@@ -1314,7 +1314,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          association_id?: string | null
+          association_id: string
           auto_accept_actif?: boolean
           created_at?: string
           id?: string
@@ -1326,7 +1326,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          association_id?: string | null
+          association_id?: string
           auto_accept_actif?: boolean
           created_at?: string
           id?: string

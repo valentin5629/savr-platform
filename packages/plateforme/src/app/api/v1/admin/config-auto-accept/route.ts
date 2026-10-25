@@ -3,6 +3,14 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireAdmin } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 
+// Une règle sans association ne se déclenche jamais : l'auto-accept exige que
+// l'association top 1 soit celle de la règle (décision Val I4 du 2026-10-25).
+const ASSOCIATION_OBLIGATOIRE = 'association_id obligatoire';
+
+function associationRenseignee(valeur: unknown): valeur is string {
+  return typeof valeur === 'string' && valeur.trim() !== '';
+}
+
 // GET /api/v1/admin/config-auto-accept
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAdmin(req);
@@ -48,13 +56,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 422 },
     );
   }
+  if (!associationRenseignee(body.association_id)) {
+    return NextResponse.json(
+      { error: ASSOCIATION_OBLIGATOIRE },
+      { status: 422 },
+    );
+  }
 
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('config_auto_accept_ag')
     .insert({
       organisation_id: body.organisation_id,
-      association_id: body.association_id ?? null,
+      association_id: body.association_id,
       transporteur_id: body.transporteur_id ?? null,
       auto_accept_actif: body.auto_accept_actif ?? false,
       seuil_pax_min: body.seuil_pax_min ?? null,
@@ -95,6 +109,16 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const update = Object.fromEntries(
     Object.entries(body).filter(([k]) => allowed.includes(k)),
   );
+
+  if (
+    'association_id' in update &&
+    !associationRenseignee(update.association_id)
+  ) {
+    return NextResponse.json(
+      { error: ASSOCIATION_OBLIGATOIRE },
+      { status: 422 },
+    );
+  }
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json(

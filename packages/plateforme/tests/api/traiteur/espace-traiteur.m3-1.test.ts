@@ -270,7 +270,7 @@ describe('M3.1 / édition collecte', () => {
         id: 'c1',
         statut: 'en_cours',
         statut_tms: 'acceptee',
-        date_collecte: '2030-01-01',
+        date_collecte: '2097-01-01',
         heure_collecte: '10:00:00',
         evenement: { created_by: 'user-1', organisation_id: 'org-1' },
       },
@@ -294,7 +294,7 @@ describe('M3.1 / édition collecte', () => {
         id: 'c1',
         statut: 'validee',
         statut_tms: 'acceptee',
-        date_collecte: '2030-12-31',
+        date_collecte: '2097-12-31',
         heure_collecte: '10:00:00',
         evenement: { created_by: 'user-1', organisation_id: 'org-1' },
       },
@@ -329,7 +329,7 @@ describe('M3.1 / édition collecte', () => {
         id: 'c1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
-        date_collecte: '2030-12-31',
+        date_collecte: '2097-12-31',
         heure_collecte: '10:00:00',
         evenement: { created_by: 'marie', organisation_id: 'org-1' },
       },
@@ -350,7 +350,7 @@ describe('M3.1 / édition collecte', () => {
   // d'une collecte à venir »). `auditEvenement` : ligne du journal d'audit lue
   // quand la requête signale que l'événement vient d'être modifié.
   function queueEditOk(
-    dateCollecte = '2030-12-31',
+    dateCollecte = '2097-12-31',
     auditEvenement?: Record<string, unknown>,
     // Date de la collecte relue APRÈS l'écriture (par défaut : inchangée).
     dateApres = dateCollecte,
@@ -425,12 +425,12 @@ describe('M3.1 / édition collecte', () => {
 
   it('M3.1/edition_alerte_ops_priorite_normale — email à l’équipe sans ligne ATTENTION (>= 12h)', async () => {
     setupAuth('traiteur_commercial', 'org-1', 'user-1');
-    queueEditOk('2030-12-31');
+    queueEditOk('2097-12-31');
     const res = await patchCollecte({ informations_supplementaires: 'x' });
     expect(res.status).toBe(200);
     expect(emailEquipe()).toEqual({
       organisation_nom: 'Traiteur Test',
-      date_initiale: '31/12/2030',
+      date_initiale: '31/12/2097',
       pax_initial: '120',
       liste_modifications:
         '<ul><li>Informations supplémentaires : avant non renseigné. Maintenant x</li></ul>',
@@ -444,7 +444,7 @@ describe('M3.1 / édition collecte', () => {
   it('M3.1/email_modification_urgence_12h — collecte lointaine rapprochée à moins de 12h : drapeau, audit et email urgents', async () => {
     setupAuth('traiteur_commercial', 'org-1', 'user-1');
     // Créneau d'origine lointain ; le nouveau est déjà passé → moins de 12h.
-    queueEditOk('2030-12-31', undefined, '2020-01-01');
+    queueEditOk('2097-12-31', undefined, '2020-01-01');
     const res = await patchCollecte({ date_collecte: '2020-01-01' });
     expect(res.status).toBe(200);
     const corps = (await res.json()) as {
@@ -465,11 +465,11 @@ describe('M3.1 / édition collecte', () => {
     // 08h00, elle est dans 11 h. Seule l'horloge est figée.
     vi.useFakeTimers({
       toFake: ['Date'],
-      now: new Date('2030-12-30T20:00:00Z'),
+      now: new Date('2097-12-30T20:00:00Z'),
     });
     try {
       setupAuth('traiteur_commercial', 'org-1', 'user-1');
-      queueEditOk('2030-12-31');
+      queueEditOk('2097-12-31');
       const res = await patchCollecte({ heure_collecte: '08:00:00' });
       expect(res.status).toBe(200);
       const corps = (await res.json()) as {
@@ -484,8 +484,8 @@ describe('M3.1 / édition collecte', () => {
   it('M3.1/email_modification_urgence_12h — collecte imminente repoussée au loin : drapeau, audit et email urgents', async () => {
     setupAuth('traiteur_commercial', 'org-1', 'user-1');
     // Créneau d'origine déjà passé → moins de 12h ; le nouveau est lointain.
-    queueEditOk('2020-01-01', undefined, '2030-12-31');
-    const res = await patchCollecte({ date_collecte: '2030-12-31' });
+    queueEditOk('2020-01-01', undefined, '2097-12-31');
+    const res = await patchCollecte({ date_collecte: '2097-12-31' });
     expect(res.status).toBe(200);
     const corps = (await res.json()) as {
       flags: { priorite_urgence: boolean };
@@ -502,8 +502,8 @@ describe('M3.1 / édition collecte', () => {
 
   it('M3.1/email_modification_urgence_12h — ancien et nouveau créneaux lointains : rien d’urgent', async () => {
     setupAuth('traiteur_commercial', 'org-1', 'user-1');
-    queueEditOk('2030-12-31', undefined, '2030-12-30');
-    const res = await patchCollecte({ date_collecte: '2030-12-30' });
+    queueEditOk('2097-12-31', undefined, '2097-12-30');
+    const res = await patchCollecte({ date_collecte: '2097-12-30' });
     const corps = (await res.json()) as {
       flags: { priorite_urgence: boolean };
     };
@@ -527,12 +527,12 @@ describe('M3.1 / édition collecte', () => {
     // Un manager (user-2) modifie la collecte programmée par un collègue
     // (user-1) : session et créateur de l'événement sont deux personnes.
     setupAuth('traiteur_manager', 'org-1', 'user-2');
-    queueEditOk('2030-12-31', {
+    queueEditOk('2097-12-31', {
       old_values: { reference_affaire: 'AFF-2000' },
       new_values: { updates: { reference_affaire: 'AFF-1500' } },
     });
     const res = await patchCollecte({
-      date_collecte: '2030-12-30',
+      date_collecte: '2097-12-30',
       pax: 1500,
       contact_principal_nom: 'Arthus',
       contact_principal_telephone: '0699990002',
@@ -542,7 +542,7 @@ describe('M3.1 / édition collecte', () => {
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
     const variables = emailEquipe();
     expect(variables?.liste_modifications).toBe(
-      "<ul><li>Date de collecte : du 31/12/2030 au 30/12/2030</li><li>Nombre de pax : de 120 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li><li>Référence d'affaire : avant AFF-2000. Maintenant AFF-1500</li></ul>",
+      "<ul><li>Date de collecte : du 31/12/2097 au 30/12/2097</li><li>Nombre de pax : de 120 à 1500</li><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li><li>Référence d'affaire : avant AFF-2000. Maintenant AFF-1500</li></ul>",
     );
     expect(variables?.pax_initial).toBe('120');
     // Le signalement n'est pas un champ de la collecte : il n'atteint pas la RPC.
@@ -550,7 +550,7 @@ describe('M3.1 / édition collecte', () => {
       ([fn]) => fn === 'fn_modifier_collecte',
     );
     expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
-      date_collecte: '2030-12-30',
+      date_collecte: '2097-12-30',
       pax: 1500,
       contact_principal_nom: 'Arthus',
       contact_principal_telephone: '0699990002',
@@ -571,14 +571,14 @@ describe('M3.1 / édition collecte', () => {
         id: 'c1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
-        date_collecte: '2030-12-31',
+        date_collecte: '2097-12-31',
         heure_collecte: '10:00:00',
         evenement: { created_by: 'user-1', organisation_id: 'org-1' },
       },
       error: null,
     });
     admin.push({
-      data: { id: 'c1', date_collecte: '2030-12-31' },
+      data: { id: 'c1', date_collecte: '2097-12-31' },
       error: null,
     }); // before
     admin.push({ data: null, error: { message: 'boom' } }); // contacts : échec
@@ -591,11 +591,11 @@ describe('M3.1 / édition collecte', () => {
 
   it('M3.1/email_modification_un_seul_email — sans signalement, le journal d’audit n’est pas relu', async () => {
     setupAuth('traiteur_commercial', 'org-1', 'user-1');
-    queueEditOk('2030-12-31');
-    const res = await patchCollecte({ date_collecte: '2030-12-30' });
+    queueEditOk('2097-12-31');
+    const res = await patchCollecte({ date_collecte: '2097-12-30' });
     expect(res.status).toBe(200);
     expect(emailEquipe()?.liste_modifications).toBe(
-      '<ul><li>Date de collecte : du 31/12/2030 au 30/12/2030</li></ul>',
+      '<ul><li>Date de collecte : du 31/12/2097 au 30/12/2097</li></ul>',
     );
     expect(admin.__calls.eq).not.toEqual(
       expect.arrayContaining([['table_name', 'evenements']]),
@@ -612,7 +612,7 @@ describe('M3.1 / annulation', () => {
         id: 'c1',
         statut: 'programmee',
         statut_tms: 'attribuee_en_attente_acceptation',
-        date_collecte: '2030-12-31',
+        date_collecte: '2097-12-31',
         tms_reference: 'TMS-1',
         evenement: {
           created_by: 'user-1',
@@ -644,7 +644,7 @@ describe('M3.1 / annulation', () => {
         id: 'c2',
         statut: 'validee',
         statut_tms: 'acceptee',
-        date_collecte: '2030-12-31',
+        date_collecte: '2097-12-31',
         tms_reference: 'TMS-2',
         evenement: {
           created_by: 'user-9',
@@ -675,7 +675,7 @@ describe('M3.1 / annulation', () => {
         id: 'c3',
         statut: 'cloturee',
         statut_tms: 'cloturee',
-        date_collecte: '2030-12-31',
+        date_collecte: '2097-12-31',
         tms_reference: 'TMS-3',
         evenement: {
           created_by: 'user-1',

@@ -222,7 +222,7 @@ const BODY_ZD = {
   collectes: [
     {
       type: 'zd',
-      date_collecte: '2030-01-15',
+      date_collecte: '2097-01-15',
       heure_collecte: '08:00',
       pax: 80,
       ...CARTE,
@@ -236,7 +236,7 @@ const BODY_AG = {
   collectes: [
     {
       type: 'ag',
-      date_collecte: '2030-01-15',
+      date_collecte: '2097-01-15',
       heure_collecte: '08:00',
       pax: 80,
       ...CARTE,
@@ -249,14 +249,14 @@ const BODY_MIXTE = {
   collectes: [
     {
       type: 'zd',
-      date_collecte: '2030-01-15',
+      date_collecte: '2097-01-15',
       heure_collecte: '08:00',
       pax: 80,
       ...CARTE,
     },
     {
       type: 'ag',
-      date_collecte: '2030-01-15',
+      date_collecte: '2097-01-15',
       heure_collecte: '09:00',
       pax: 80,
       ...CARTE,
@@ -421,7 +421,7 @@ describe('M1.2 / Validations bloquantes', () => {
         collectes: [
           {
             type: 'zd',
-            date_collecte: '2030-01-15',
+            date_collecte: '2097-01-15',
             heure_collecte: '08:00',
             ...CARTE,
           },
@@ -658,7 +658,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-1/collectes',
-        ajout('2030-02-01', {
+        ajout('2097-02-01', {
           // Champs hostiles : aucun ne doit atteindre la création (un autre
           // événement, une autre organisation, des camions, des notes internes,
           // une adresse, un contrôle d'accès que l'événement n'exige pas).
@@ -685,7 +685,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
         p_evenement_id: 'evt-1',
         p_carte: {
           type: 'zd',
-          date_collecte: '2030-02-01',
+          date_collecte: '2097-02-01',
           heure_collecte: '10:00',
           pax: 80,
           informations_supplementaires: null,
@@ -727,7 +727,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
         'POST',
         '/api/v1/programmation/evenements/evt-1/collectes',
         // Valeur du navigateur : ignorée.
-        ajout('2030-02-01', { controle_acces_requis: false }),
+        ajout('2097-02-01', { controle_acces_requis: false }),
       ),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
@@ -764,7 +764,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-brouillon/collectes',
-        ajout('2030-02-01'),
+        ajout('2097-02-01'),
       ),
       { params: Promise.resolve({ id: 'evt-brouillon' }) },
     );
@@ -799,7 +799,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-mixte/collectes',
-        ajout('2030-02-01'),
+        ajout('2097-02-01'),
       ),
       { params: Promise.resolve({ id: 'evt-mixte' }) },
     );
@@ -830,7 +830,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-brouillon/collectes',
-        ajout('2030-02-01', { type: 'ag' }),
+        ajout('2097-02-01', { type: 'ag' }),
       ),
       { params: Promise.resolve({ id: 'evt-brouillon' }) },
     );
@@ -859,7 +859,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-1/collectes',
-        ajout('2030-02-01', { controle_acces_requis: true }),
+        ajout('2097-02-01', { controle_acces_requis: true }),
       ),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
@@ -894,7 +894,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-2/collectes',
-        ajout('2030-02-01'),
+        ajout('2097-02-01'),
       ),
       { params: Promise.resolve({ id: 'evt-2' }) },
     );
@@ -998,7 +998,7 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-1/collectes',
-        ajout('2030-02-01'),
+        ajout('2097-02-01'),
       ),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
@@ -1029,7 +1029,7 @@ describe('M1.2 / Confirmation brouillon', () => {
     // La query collectes n'a pas de terminal .single() — elle est awaitable directement.
     // On surcharge `from` pour intercepter la table 'collectes' et retourner un thenable.
     const collectesData = [
-      { id: 'c1', type: 'zd', date_collecte: '2030-01-15' },
+      { id: 'c1', type: 'zd', date_collecte: '2097-01-15' },
     ];
     const collectesChain = {
       select: () => collectesChain,
@@ -1083,7 +1083,7 @@ describe('M1.2 / Confirmation brouillon', () => {
         }) => void,
       ) =>
         Promise.resolve({
-          data: [{ id: 'c1', type: 'zd', date_collecte: '2030-01-15' }],
+          data: [{ id: 'c1', type: 'zd', date_collecte: '2097-01-15' }],
           error: null,
         }).then(resolve),
     };
@@ -1200,7 +1200,7 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
       makeReq(
         'POST',
         '/api/v1/programmation/evenements/evt-sec/collectes',
-        ajout('2030-02-01', { type: 'ag' }),
+        ajout('2097-02-01', { type: 'ag' }),
       ),
       { params: Promise.resolve({ id: 'evt-sec' }) },
     );

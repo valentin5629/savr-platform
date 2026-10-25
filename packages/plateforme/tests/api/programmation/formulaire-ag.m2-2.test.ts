@@ -260,7 +260,7 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements/evt-add-ag/collectes', {
         type: 'ag',
-        date_collecte: '2030-03-10',
+        date_collecte: '2097-03-10',
         heure_collecte: '09:00',
         pax: 80,
         ...CARTE,
@@ -302,7 +302,7 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
         '/api/v1/programmation/evenements/evt-no-credit/collectes',
         {
           type: 'ag',
-          date_collecte: '2030-03-15',
+          date_collecte: '2097-03-15',
           heure_collecte: '10:00',
           pax: 80,
           ...CARTE,

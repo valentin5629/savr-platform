@@ -1245,10 +1245,13 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         date_collecte: jourParis(new Date(Date.now() + 2 * 60 * 60 * 1000)),
         heure_collecte: '10:00:00',
       });
-      // AG à attribuer, mais loin (> 48h) : pas urgente.
+      // AG à attribuer, mais loin (> 48h) : pas urgente. Posée à J+10 depuis
+      // l'heure courante : une date fixe deviendrait urgente 48 h avant elle.
       const lointaine = ag({
         id: 'ag-lointaine',
-        date_collecte: '2027-01-15',
+        date_collecte: jourParis(
+          new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+        ),
         heure_collecte: '10:00:00',
       });
       const fetchMock = vi.fn((url: string) => {

@@ -270,7 +270,7 @@ function carte(
 ): Record<string, unknown> {
   return {
     type,
-    date_collecte: '2030-01-15',
+    date_collecte: '2097-01-15',
     heure_collecte: '19:00',
     pax: 120,
     type_evenement_id: TYPE_A,
@@ -375,7 +375,7 @@ describe('M1.2 / programmation par cartes — création', () => {
           informations_supplementaires: '  Quai 2\nSonner B  ',
         }),
         carte('ag', {
-          date_collecte: '2030-01-16',
+          date_collecte: '2097-01-16',
           heure_collecte: '23:30',
           pax: 80,
           type_evenement_id: TYPE_B,
@@ -422,7 +422,7 @@ describe('M1.2 / programmation par cartes — création', () => {
       p_collectes: [
         {
           type: 'zd',
-          date_collecte: '2030-01-15',
+          date_collecte: '2097-01-15',
           heure_collecte: '19:00',
           pax: 120,
           informations_supplementaires: 'Quai 2\nSonner B',
@@ -434,7 +434,7 @@ describe('M1.2 / programmation par cartes — création', () => {
         },
         {
           type: 'ag',
-          date_collecte: '2030-01-16',
+          date_collecte: '2097-01-16',
           heure_collecte: '23:30',
           pax: 80,
           informations_supplementaires: null,
@@ -528,7 +528,7 @@ const CAS_INVALIDES: Array<{
   },
   {
     nom: 'date de collecte qui n’existe pas',
-    collectes: [carte('zd', { date_collecte: '2030-02-30' })],
+    collectes: [carte('zd', { date_collecte: '2097-02-30' })],
     attendu: { champ: 'date_collecte', collecte: 0 },
   },
   {
@@ -591,7 +591,7 @@ describe('M1.2 / programmation par cartes — plafond par type', () => {
   const serie = (type: string, n: number) =>
     Array.from({ length: n }, (_, i) =>
       carte(type, {
-        date_collecte: `2030-02-${String(i + 1).padStart(2, '0')}`,
+        date_collecte: `2097-02-${String(i + 1).padStart(2, '0')}`,
       }),
     );
 
@@ -1226,17 +1226,17 @@ describe('M1.2 / programmation par cartes — GET détail événement', () => {
           {
             ...EVT_GET.collectes[0],
             id: 'aaa',
-            created_at: '2030-01-01T10:00:00.003Z',
+            created_at: '2097-01-01T10:00:00.003Z',
           },
           {
             ...EVT_GET.collectes[1],
             id: 'bbb',
-            created_at: '2030-01-01T10:00:00.001Z',
+            created_at: '2097-01-01T10:00:00.001Z',
           },
           {
             ...EVT_GET.collectes[2],
             id: 'ccc',
-            created_at: '2030-01-01T10:00:00.002Z',
+            created_at: '2097-01-01T10:00:00.002Z',
           },
         ],
       },

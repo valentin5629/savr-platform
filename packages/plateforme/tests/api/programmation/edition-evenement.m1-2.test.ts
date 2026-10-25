@@ -336,7 +336,7 @@ const BODY_PROGRAMMATION = {
   collectes: [
     {
       type: 'zd',
-      date_collecte: '2030-01-15',
+      date_collecte: '2097-01-15',
       heure_collecte: '08:00',
       pax: 80,
       type_evenement_id: TYPE_EVT_CARTE,
@@ -667,7 +667,7 @@ describe('M1.2 / édition collecte gestionnaire', () => {
         id: 'c1',
         statut: 'validee',
         statut_tms: 'acceptee',
-        date_collecte: '2030-12-31',
+        date_collecte: '2097-12-31',
         heure_collecte: '10:00:00',
         evenement: { organisation_id: 'org-1' },
       },
@@ -696,7 +696,7 @@ describe('M1.2 / édition collecte gestionnaire', () => {
         id: 'c1',
         statut: 'validee',
         statut_tms: 'acceptee',
-        date_collecte: '2030-12-31',
+        date_collecte: '2097-12-31',
         heure_collecte: '10:00:00',
         evenement: { organisation_id: 'org-1' },
       },
@@ -708,7 +708,7 @@ describe('M1.2 / édition collecte gestionnaire', () => {
     admin.push({ data: null, error: null }); // update statut_tms (réacceptation)
     admin.push({ data: null, error: null }); // audit insert
     const res = await patchGestionnaireCollecte({
-      date_collecte: '2031-01-15',
+      date_collecte: '2098-01-15',
     });
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
@@ -747,7 +747,7 @@ describe('M1.2 / édition collecte gestionnaire', () => {
         id: 'c1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
-        date_collecte: '2030-12-31',
+        date_collecte: '2097-12-31',
         heure_collecte: '10:00:00',
         evenement: { organisation_id: 'org-AUTRE' },
       },
@@ -766,7 +766,7 @@ describe('M1.2 / édition collecte gestionnaire', () => {
         id: 'c1',
         statut: 'en_cours',
         statut_tms: 'acceptee',
-        date_collecte: '2030-12-31',
+        date_collecte: '2097-12-31',
         heure_collecte: '10:00:00',
         evenement: { organisation_id: 'org-1' },
       },

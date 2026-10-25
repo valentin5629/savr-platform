@@ -76,7 +76,7 @@ La sélection du transporteur AG suit **deux logiques distinctes selon la régio
 
 **Affichage Admin Savr** : pour une attribution AG IDF, l'écran affiche un bandeau au-dessus du bloc transporteur indiquant la branche calculée (ex : "Branche AG vélo express — A Toutes! vélo, délai 1h12 avant collecte") + le transporteur résultant. Pas de top 3 transporteurs (la branche détermine un transporteur unique, pas un classement). Override via la liste déroulante « Transporteur » (tous les transporteurs actifs, le recommandé pré-sélectionné) + motif obligatoire si le choix ≠ recommandation (cf. §3 Override). *(décision Val 2026-09-17, remplace la recherche libre)*
 
-**Cas modification `nb_pax` post-attribution (refonte sobriété A2 2026-05-09)** : aucun workflow dédié V1. Si un Admin modifie `nb_pax` après validation et que la branche calculée diffère, la collecte n'est **pas re-routée automatiquement** ni notifiée par template dédié. Si l'Admin souhaite changer de transporteur, il rouvre l'écran d'attribution et applique un override standard (motif libre `autre`). Justification : edge case rare en pratique, l'audit cohérence + la file d'attente standard suffisent.
+**Cas modification `nb_pax` post-attribution (refonte sobriété A2 2026-05-09)** : aucun workflow dédié V1. Si un Admin modifie le pax de la collecte (`collectes.pax`, lot C2) après validation et que la branche calculée diffère, la collecte n'est **pas re-routée automatiquement** ni notifiée par template dédié. Si l'Admin souhaite changer de transporteur, il rouvre l'écran d'attribution et applique un override standard (motif libre `autre`). Justification : edge case rare en pratique, l'audit cohérence + la file d'attente standard suffisent.
 
 **Cas `ag_everest_camion_express`** (branche 9, ajout 2026-06-15 DIV-8, tranché Val) : rescue grand volume urgent IDF. Se déclenche quand la branche initiale aurait retourné `aucun_prestataire` **ET** `nb_pax ≥ seuil_pax_velo (600)` **ET** `a_toutes_indisponible = false` **ET** `delai_minutes < seuil_h2_minutes (90)`. Dans ce cas, A Toutes! est sollicitée via le service Everest **77 (camion express)** au lieu de laisser la collecte en traitement manuel. L'écran affiche le bandeau "Branche AG Everest camion express — A Toutes!, délai urgent". L'Admin peut overrider avec motif.
 
@@ -196,32 +196,34 @@ L'Admin voit la valeur mise à jour dans l'onglet "Attributions validées" sans 
 ## 6. Auto-accept
 
 ### Définition
-Pour certaines combinaisons `(association_id, type_evenement_id)` connues et fiables, l'Admin peut activer le mode **auto-accept** : l'attribution est validée automatiquement sans intervention humaine.
+Pour certaines combinaisons connues et fiables — organisation programmatrice × association (`organisation_id`, `association_id`), éventuellement restreintes à un transporteur (`transporteur_id`) et à une fourchette de pax de LA collecte (`seuil_pax_min`, `seuil_pax_max`) —, l'Admin peut activer le mode **auto-accept** : l'attribution est validée automatiquement sans intervention humaine. Aucun critère de type d'événement *(décision Val Q1 du 2026-10-24, lot C2 : la configuration réalisée est gardée ; la version « association × type d'événement » n'a jamais été construite)*.
 
 ### Écran de configuration
 Accessible via : Back-office Admin → Paramètres → Auto-accept AG
 
 Tableau de ~40 lignes maximum (V1) :
 
-| Association | Type d'événement | Activé | Modifié par | Modifié le |
-|------------|-----------------|--------|------------|-----------|
-| Les Restos du Cœur | Mariage | ✓ | Admin A | 12 avr 2026 |
-| Secours Pop | Cocktail | | | |
+| Traiteur | Association fixe | Transporteur fixe | Seuil PAX | Auto-accept | Notes |
+|---------|------------------|-------------------|-----------|-------------|-------|
+| Kaspia | Les Restos du Cœur | Algo | 100 – 400 | ✓ | |
+| Fleurdemets | Secours Pop | Marathon | Tous | | |
+
+*Association fixe obligatoire à la saisie (décision Val I4 du 2026-10-25) : une ligne sans association ne peut jamais se déclencher (le top 1 doit égaler l'association configurée) ; « Algo » ne vaut que pour le transporteur (NULL = tout transporteur).*
 
 - Bouton toggle par ligne
 - Pas de pagination en V1 (< 50 lignes)
-- Filtre rapide par association ou type d'événement
+- Pas de filtre ; tri sur les colonnes « Auto-accept » et « Notes »
 
 ### Comportement en auto-accept
 1. Algorithme tourne normalement
-2. Si top 1 = association concernée ET type_evenement correspond : validation immédiate
+2. Si une configuration active porte l'organisation programmatrice de l'événement et l'association top 1, le transporteur recommandé (quand la configuration en fixe un) et une fourchette contenant le pax de LA collecte (bornes facultatives) : validation immédiate *(lot C2 : pax de la collecte, décision Val Q2 du 2026-10-24)*
 3. `attributions_antgaspi.mode_validation = 'auto_accept'` + `valide_par = null` (aucun humain) — refonte 2026-05-09 sobriété D2
 4. La collecte passe en statut `programmee` (et **non** `validee` — alignement ZD/AG 2026-05-29, cf. §3) + débit pack AG (cf. §3 transaction synchrone). `statut_tms = non_envoye` jusqu'à l'envoi de l'ordre (étape 5). `validee` dérivé à l'acceptation transporteur par le trigger.
 5. **Cascade asynchrone** déclenchée (cf. §3) : envoi emails + ordre transporteur via job queue (positionne `statut_tms = attribuee_en_attente_acceptation` à l'envoi, puis `acceptee` à l'acceptation → trigger → `validee`)
 6. L'Admin voit la ligne dans l'onglet "Attributions validées" avec badge "Auto" (pas dans la file à valider)
 
 ### Cas de non-déclenchement de l'auto-accept
-Si le top 1 ne correspond pas à l'association configurée en auto-accept (ex : association exclue pour horaires ce jour-là), le workflow revient en validation manuelle normale. Aucun fallback automatique sur une autre association.
+Si aucune configuration active ne correspond (top 1 différent de l'association configurée — ex : association exclue pour horaires ce jour-là —, transporteur recommandé différent du transporteur fixé, pax de la collecte hors de la fourchette), le workflow revient en validation manuelle normale. Aucun fallback automatique sur une autre association.
 
 ---
 
@@ -240,7 +242,7 @@ Pilotables par l'Admin Savr sans redéploiement. **Source de vérité unique = P
 
 | Paramètre | Type | Défaut | Description |
 |-----------|------|--------|-------------|
-| `regle_ag_seuil_pax_velo` | int | 600 | Seuil `evenements.nb_pax` au-delà duquel grand événement jour → Marathon (branche 2) |
+| `regle_ag_seuil_pax_velo` | int | 600 | Seuil du pax de LA collecte AG (`collectes.pax`, lot C2 — décision Val Q2 du 2026-10-24) au-delà duquel grand événement jour → Marathon (branche 2) |
 | `regle_ag_plage_velo_debut` | time | 07:00 | Début plage horaire jour (A Toutes! ouvert) |
 | `regle_ag_plage_velo_fin` | time | 20:00 | Fin plage horaire jour (A Toutes! ouvert) — couvre vélo cargo **et** camion (décision 2026-05-09) |
 | `regle_ag_seuil_h2_minutes` | int | 90 | Frontière express vs programmé (minutes restantes avant collecte) — sous-branche 3 |

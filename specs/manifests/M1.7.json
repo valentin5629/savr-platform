@@ -338,11 +338,11 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "df310c3d0635d39e305c6116826dd966f615acd783599c779c6c48ea946f2c9d",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "e45d4dc673ae737cb51ddfee41da4a7d07d9ace566ad448fa505ecb0493340a7",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "8bff1923169fd273961333229b6442d09f29b1a7bf3286c12935d1dba86e4e9a",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": "ed95d17c83888213a600e9e83f51e6206254f3aad821bc54ca4625ca5f6cbe7c",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": "05539f712e35566191aa2b0d163e7b47f2d58bd83109da5ab6e2c2b16a18fd76",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "30a5755a4e0d6ef3e6fbce6d31255f606d704eb30978c51e8489f5b3b4f9ca55",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "c00588023806cfc94db794c3a9a843d94f220d384a3a5faf5f687fb86c51f400"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "d99d27b28eafd7dc2aba264c81d1f5bf992deeb5565ed925cb1ac0f0d462f212"
   }
 }

@@ -20,12 +20,12 @@
       "bytes": 26708
     },
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": {
-      "sha256": "d71b8ea4384fbfe1ec5cc44e7de744701250b2285c76621640f2e94947eba320",
-      "bytes": 346092
+      "sha256": "5f9b4af5d6ff4dc624f8edc94ec0c6378e49c04c2a3812b59071fb9816e7f7b5",
+      "bytes": 347313
     },
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": {
-      "sha256": "df310c3d0635d39e305c6116826dd966f615acd783599c779c6c48ea946f2c9d",
-      "bytes": 134842
+      "sha256": "e45d4dc673ae737cb51ddfee41da4a7d07d9ace566ad448fa505ecb0493340a7",
+      "bytes": 136688
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": {
       "sha256": "b661024dd5ca08590b3465576ab5b7c791e7dbf1bf907c4e6003129a308b34dd",
@@ -44,20 +44,20 @@
       "bytes": 122297
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": {
-      "sha256": "d544481da04c2be0f433d20afc94cb6a395277a54d1ba507cd5c469865756a7f",
-      "bytes": 77521
+      "sha256": "1369db5329a479122136ddd1b61bcec82d95e734a9b2608019f7ac3dc90259f6",
+      "bytes": 77690
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": {
       "sha256": "8bff1923169fd273961333229b6442d09f29b1a7bf3286c12935d1dba86e4e9a",
       "bytes": 152340
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": {
-      "sha256": "ed95d17c83888213a600e9e83f51e6206254f3aad821bc54ca4625ca5f6cbe7c",
-      "bytes": 23735
+      "sha256": "05539f712e35566191aa2b0d163e7b47f2d58bd83109da5ab6e2c2b16a18fd76",
+      "bytes": 23889
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": {
-      "sha256": "613f157237ded886045e2f3f5d7bf02b99a02096e9b313cb8fd297e05e0c13bc",
-      "bytes": 40753
+      "sha256": "e64979835e2cd7e6ac87f2e770090b7c96313f39e334f57310f7908f5996ebb5",
+      "bytes": 41951
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": {
       "sha256": "2155247f98fdf00d13747f74b8a7682a098c4d1699a9621f0e680e66cd27c0ef",
@@ -136,8 +136,8 @@
       "bytes": 31193
     },
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": {
-      "sha256": "c00588023806cfc94db794c3a9a843d94f220d384a3a5faf5f687fb86c51f400",
-      "bytes": 59059
+      "sha256": "d99d27b28eafd7dc2aba264c81d1f5bf992deeb5565ed925cb1ac0f0d462f212",
+      "bytes": 59370
     },
     "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md": {
       "sha256": "9601497c35602100d8e89c2365836657a3071768da18e3a63116ed861bc4baf7",
@@ -172,8 +172,8 @@
       "bytes": 11920
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
-      "sha256": "12e1193f666fc7f4dfae317234c5346e7fb21a956a4b96c0d9d01b01b9f9b2ee",
-      "bytes": 56136
+      "sha256": "cfe4fb145a7d150b172fb30ffa5b800b2c2451bba0d352ea64ec0c7cb19afbd5",
+      "bytes": 56205
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.02-templates-emails-scenarios.md": {
       "sha256": "cf530ebe4940a0018b20071574c788eedd065dc5be2fedc066a2790358a4189a",
@@ -188,8 +188,8 @@
       "bytes": 65305
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.05-espace-gestionnaire-lieux-scenarios.md": {
-      "sha256": "58fee4228d6944f3bafb91395dac895e79da78ac7b2428912dcf94cda0c52b92",
-      "bytes": 60360
+      "sha256": "3019ff66d76c411c1ab6a2aec61c69f91ced0ddc15bd8d09fa861f24e4d6afa0",
+      "bytes": 60500
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.06-back-office-admin-scenarios.md": {
       "sha256": "9234db8590041d17022ef0794cb258305f3e1a2a31138331b574ad00eea8892d",
@@ -200,8 +200,8 @@
       "bytes": 35242
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.09-algo-attribution-ag-scenarios.md": {
-      "sha256": "79211c4fa0fd14737e25bd4d52afb517d2b54cd47cc04ef6ceed84d959d2bc5f",
-      "bytes": 36022
+      "sha256": "72a39b1f2130a018133418abd24b612d04401f402cb447c22e8dd6b9b1f4a100",
+      "bytes": 36372
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.11-espace-agence-scenarios.md": {
       "sha256": "ff781810e465e5f58d782247b29147f199d5a9f8959d6dbc7b7ebae08ae61b16",

@@ -173,7 +173,7 @@
       "id": "M4.2-registre-grain-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:70",
       "artefact": "supabase/migrations/20261024120000_plateforme_benchmark_registre_grain_collecte.sql (v_registre_dechets) + packages/plateforme/src/app/api/v1/registre/[id]/route.ts",
-      "test": "C1/registre_pax_taille_type_de_la_collecte + M4.2/detail_registre_pax_et_type_de_la_collecte",
+      "test": "C1/registre_pax_taille_type_de_la_collecte + M4.2/detail_registre_pax_et_type_de_la_collecte + 14. v_registre_dechets garde security_invoker + 15. droits de v_registre_dechets inchangés",
       "statut": "implemented",
       "libelle": "Registre au grain de la COLLECTE (lot C1, 2026-10-24) : la vue v_registre_dechets expose le pax, la taille (taille_bracket) et le type d'événement de la collecte (mêmes colonnes, CREATE OR REPLACE VIEW, security_invoker = false et cloisonnement f_collecte_visible inchangés) ; le détail d'une ligne (bloc 1 « Données événement ») affiche les convives et le type de LA collecte, pas ceux de l'événement."
     }

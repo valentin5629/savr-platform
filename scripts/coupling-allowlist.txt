@@ -283,3 +283,10 @@ packages/plateforme/tests/api/cron/polling-mts1-fenetre.test.ts
 # préfixe de la clé de réservation d'un statut, plus un chemin cité en commentaire.
 # Écritures DB en transaction annulée, aucun appel HTTP transporteur. 'customerOrders' banni.
 supabase/tests/releve_mts1_ecritures_base.test.sql
+# Lot C2, pax de la collecte (2026-10-25) : corps de fn_calculer_algo_attribution_ag de
+# 20260929100000 recopié VERBATIM hors la lecture du pax (c.pax au lieu de e.pax).
+# 'mts1'/'Everest' = valeur enum type_tms + libellés de branches/commentaires existants ;
+# aucun appel HTTP transporteur. Le pgTAP du lot pose un transporteur de type 'mts1'
+# (valeur d'enum de la fixture), en transaction annulée. 'customerOrders' banni.
+supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql
+supabase/tests/pax_collecte_lot_c2.test.sql

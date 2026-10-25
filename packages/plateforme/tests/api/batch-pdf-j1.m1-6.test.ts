@@ -190,6 +190,65 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
   });
 });
 
+// Lot C2 (décision Val Q5 du 2026-10-24) : le bordereau imprime les convives de
+// LA collecte, jamais ceux de l'événement (tous jours et toutes collectes).
+describe('M1.6 / BatchPdfJ1 / Convives de la collecte', () => {
+  async function payloadBordereau(collecte: Record<string, unknown>) {
+    const sb = makeSupabase([
+      { data: [collecte], error: null }, // select collectes
+      { data: [], error: null }, // select bordereaux existants
+      { count: 1, error: null }, // count collecte_flux
+      {
+        data: [
+          {
+            flux_id: 'f1',
+            poids_reel_kg: 12,
+            nb_bacs: 3,
+            equivalent_roll: null,
+            flux: { nom: 'Biodéchets' },
+          },
+        ],
+      }, // select flux
+      { data: 'BSAV-2026-00001', error: null }, // rpc numero
+      { data: { nom: 'Strike Transport', siret: '98765432100011' } }, // prestataire
+      { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr
+      { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
+      { data: null, error: null }, // insert job bordereau
+    ]);
+    await runBatchPdfJ1(sb as never);
+    const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    const select = String(
+      (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls[0]?.[0],
+    );
+    const job = insertCalls.find(
+      (c) => c[0].type_document === 'bordereau-zd',
+    )?.[0];
+    return { payload: job!.payload as Record<string, unknown>, select };
+  }
+  const evenement900 = {
+    ...(makeCollecte().evenements as Record<string, unknown>),
+    pax: 900,
+  };
+
+  it('bordereau : nb_pax = convives de LA collecte (300), pas ceux de l’événement (900)', async () => {
+    const { payload, select } = await payloadBordereau(
+      makeCollecte({ pax: 300, evenements: evenement900 }),
+    );
+    expect(payload.nb_pax).toBe(300);
+    const [colonnesCollecte, embedEvenement] = select.split('evenements (');
+    expect(colonnesCollecte).toMatch(/\bpax\b/);
+    expect(embedEvenement).not.toMatch(/\bpax\b/);
+  });
+
+  it('bordereau : collecte à 0 convive (inconnu, reprise Bubble) → nb_pax null, mention omise', async () => {
+    const { payload } = await payloadBordereau(
+      makeCollecte({ pax: 0, evenements: evenement900 }),
+    );
+    expect(payload.nb_pax).toBeNull();
+  });
+});
+
 describe('M1.6 / BatchPdfJ1 / Skip pesées vides', () => {
   it('R-PDF3 : 0 ligne collecte_flux → skip, aucun job créé', async () => {
     const collecte = makeCollecte({

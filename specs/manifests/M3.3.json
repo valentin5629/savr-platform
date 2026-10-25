@@ -516,6 +516,15 @@
       "test": "M3.3/annulation_autre_organisation_403",
       "statut": "implemented",
       "libelle": "Annulation d'une collecte par l'agence bornée par la route à ses propres programmations : 403 « Annulation non autorisée » quand l'événement n'appartient pas à son organisation ou n'est pas rendu par la lecture, avant l'examen du statut ; le client de service ne lit ni n'écrit rien, aucun email ne part."
+    },
+    {
+      "id": "M3.3-bordereau-siret-convives-de-la-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:65",
+      "artefact": "supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql (fn_trg_cerfa_debloque_siret : NULLIF(c.pax, 0) au lieu de e.pax)",
+      "test": "C2-BORD-1 + C2-BORD-2 + C2-BORD-3 + C2-SECU",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
+      "libelle": "Bordereau ZD refait par trg_cerfa_debloque_siret quand le SIRET d'un traiteur shadow arrive : le payload du PDF porte les convives de LA collecte, comme le batch J+1 (lot C2, décision Val Q5 du 2026-10-24) ; 0 convive → null, mention omise. Preuve pgTAP sur un événement de deux soirées (900 puis 300 convives) : le bordereau de la 2e soirée porte 300, plus 1 200."
     }
   ],
   "cdc_source_hash": {

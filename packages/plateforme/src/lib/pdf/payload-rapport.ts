@@ -15,6 +15,7 @@ import { formatDateParis } from '@savr/shared/src/temps/index.js';
 
 import { resolveRapportLogos } from './logo-cascade.js';
 import { bornerLogosRapport, makeLogoResolver } from './logo-inline.js';
+import { convivesImprimes } from './convives-imprimes.js';
 
 /**
  * Équivalences pédagogiques du rapport (§12 §1.2). Les facteurs sont figés dans
@@ -51,6 +52,9 @@ export function buildEquivalences(
 
 interface CollecteRapportRow {
   date_collecte: string;
+  // Convives de LA collecte, imprimés en page 1 et sur le bordereau de la page 2
+  // (Val Q5 du 2026-10-24), comme le kg/pax du radar.
+  pax: number | null;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
   co2_induit_kg: number | null;
@@ -61,7 +65,6 @@ interface CollecteRapportRow {
   evenements: {
     nom_evenement: string;
     date_evenement: string;
-    pax: number | null;
     logo_client_organisateur_url: string | null;
     nom_client_organisateur: string | null;
     organisations: {
@@ -120,10 +123,10 @@ export async function construirePayloadRapport(
       .from('collectes')
       .select(
         `
-      date_collecte, taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg,
+      date_collecte, pax, taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg,
       energie_primaire_evitee_kwh, co2_facteurs_snapshot, caps_appliques,
       evenements (
-        nom_evenement, date_evenement, pax,
+        nom_evenement, date_evenement,
         logo_client_organisateur_url, nom_client_organisateur,
         organisations!organisation_id ( nom, type, logo_url ),
         traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( nom, logo_url ),
@@ -201,7 +204,7 @@ export async function construirePayloadRapport(
       date_evenement: dateEvenement,
       lieu_nom: lieu?.nom ?? '',
       lieu_adresse: adresseLieu,
-      nb_pax: ev.pax,
+      nb_pax: convivesImprimes(collecte.pax),
       logo_client_url: logosInline.client ?? undefined,
       logo_traiteur_url: logosInline.traiteur ?? undefined,
       taux_recyclage: collecte.taux_recyclage,
@@ -234,7 +237,7 @@ export async function construirePayloadRapport(
         producteur_adresse: bordereau.producteur_adresse ?? '',
         transporteur_nom: bordereau.transporteur_nom ?? 'Non renseigné',
         exutoire_nom: bordereau.exutoire_nom ?? '',
-        nb_pax: ev.pax,
+        nb_pax: convivesImprimes(collecte.pax),
         flux: Array.isArray(bordereau.detail_flux) ? bordereau.detail_flux : [],
         poids_total_kg: Number(bordereau.poids_total_kg ?? poidsTotalKg),
       },

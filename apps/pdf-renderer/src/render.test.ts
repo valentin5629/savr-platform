@@ -897,6 +897,19 @@ describe('M1.6 / bordereau ZD §1.1 — équivalent bacs/rolls (BL-P2-16)', () =
   });
 });
 
+// Lot C2 (décision Val Q5 du 2026-10-24) : le bordereau imprime les convives de
+// LA collecte ; inconnus (null, collecte à 0 convive), la mention est omise.
+describe('M1.6 / bordereau ZD §1.1 — convives de la collecte', () => {
+  it('300 convives imprimés ; null → aucune mention « convives »', () => {
+    expect(
+      renderByType('bordereau-zd', bordereauData({ nb_pax: 300 })),
+    ).toContain('300 convives');
+    expect(
+      renderByType('bordereau-zd', bordereauData({ nb_pax: null })),
+    ).not.toContain('convives');
+  });
+});
+
 // §12 §1.3-bis, décision Val 2026-10-13 : le document d'une collecte AG s'appelle
 // « Rapport de don » jusque dans le titre imprimé de ses deux PDF.
 describe('M2.4 / renderer — titre imprimé « Rapport de don » des deux PDF AG', () => {

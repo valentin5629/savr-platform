@@ -47,7 +47,9 @@ const LOGO_TRAITEUR = 'savr-dev/logos/b8f2d3e4-5c6d-4e7f-9a81-92b3c4d5e6f7.png';
 const evenement = (surcharge: Record<string, unknown> = {}) => ({
   nom_evenement: 'Gala Kaspia',
   date_evenement: '2026-06-13',
-  pax: 250,
+  // Pax de l'événement (tous jours et toutes collectes) : jamais imprimé, le
+  // rapport imprime les convives de LA collecte (lot C2, Q5).
+  pax: 1200,
   logo_client_organisateur_url: null,
   nom_client_organisateur: null,
   organisations: { nom: 'Kaspia Réceptions', type: 'traiteur', logo_url: null },
@@ -81,11 +83,13 @@ const BORDEREAU = {
 function tables(
   evt: Record<string, unknown> | null = evenement(),
   surcharge: Record<string, Res> = {},
+  paxCollecte = 250,
 ): Record<string, Res> {
   return {
     collectes: {
       data: {
         date_collecte: '2026-06-13',
+        pax: paxCollecte,
         taux_recyclage: 72.5,
         co2_evite_kg: 312,
         co2_induit_kg: 41,
@@ -175,6 +179,24 @@ describe('M1.6 / données du rapport @3 rassemblées au clic', () => {
       flux: BORDEREAU.detail_flux,
       poids_total_kg: 16,
     });
+  });
+
+  it('convives de LA collecte en page 1 et sur le bordereau ; 0 convive (inconnu) → null, mention omise', async () => {
+    // Événement de 1 200 convives, collecte de 250 : ci-dessus. Ici la lecture
+    // demandée, puis une collecte reprise de Bubble à 0 convive.
+    const { selects } = await payload();
+    const [colonnesCollecte, embedEvenement] = String(selects.collectes).split(
+      'evenements',
+    );
+    expect(colonnesCollecte).toMatch(/\bpax\b/);
+    expect(embedEvenement).not.toMatch(/\bpax\b/);
+
+    const { r } = await payload(tables(evenement(), {}, 0));
+    if (!r.ok) throw new Error('attendu ok');
+    expect(r.payload.nb_pax).toBeNull();
+    expect(
+      (r.payload.bordereau as { nb_pax: number | null }).nb_pax,
+    ).toBeNull();
   });
 
   it('client : nom saisi à la programmation, sinon nom du compte client, sinon absent (le gabarit affiche l’événement)', async () => {

@@ -214,7 +214,7 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
           pax: 500,
           evenements: {
             ...base.evenements,
-            pax: 1200,
+            pax_evenement: 1200,
             lieux: {
               nom: 'Musée des Arts Forains',
               adresse_acces: '53 Avenue des Terroirs de France',
@@ -291,10 +291,11 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
     // Ni la table (refusée sur un traiteur tiers), ni le repli attestation (D13).
     expect(select).not.toMatch(/attributions_antgaspi\s*\(/);
     expect(select).not.toContain('attestations_don');
-    // Le pax est demandé sur la collecte, jamais dans l'embed de l'événement.
-    const [colonnesCollecte, embedEvenement] = select.split('evenements!inner');
+    // Le pax de la ligne est demandé sur la collecte (500 ci-dessous, pas les
+    // 1 200 de l'événement) ; celui de l'événement n'est lu que pour tirer la
+    // part de la collecte des déchets labo estimés (lot C2, Q3).
+    const [colonnesCollecte] = select.split('evenements!inner');
     expect(colonnesCollecte).toMatch(/\bpax\b/);
-    expect(embedEvenement).not.toMatch(/\bpax\b/);
 
     expect(data[0]).toMatchObject({
       id: 'zd',
@@ -455,11 +456,25 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
 });
 
 // Colonne « Déchets labo est. » de la liste (décisions Val 2026-10-07, §05
-// R_dechets_labo_estimes). L'estimation est celle de l'ÉVÉNEMENT (couverts ×
-// coefficient annuel du traiteur) : la route la demande à la fonction
-// `f_dechets_labo_estimes`, qui ne rend que des kg — pour les collectes ZÉRO
-// DÉCHET seulement (« la notion ne tient pas pour les collectes AG »).
+// R_dechets_labo_estimes). La ligne porte l'estimation de LA collecte (pax de la
+// collecte × coefficient annuel du traiteur, Val Q3 du 2026-10-24) : la route
+// demande celle de l'événement à la fonction `f_dechets_labo_estimes`, qui ne
+// rend que des kg, et en tire la part de la collecte au prorata des pax — pour
+// les collectes ZÉRO DÉCHET seulement (« la notion ne tient pas pour les
+// collectes AG »).
 describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () => {
+  /** Une ligne au pax de la collecte et de l'événement donnés. */
+  function avecPax(
+    ligne: ReturnType<typeof lignes>[number],
+    paxCollecte: number,
+    paxEvenement: number,
+  ) {
+    return {
+      ...ligne,
+      pax: paxCollecte,
+      evenements: { ...ligne.evenements, pax_evenement: paxEvenement },
+    };
+  }
   /** Estimation rendue par événement ; absent de la table = non communiqué. */
   function estimations(parEvenement: Record<string, number | null>) {
     mockRpc.mockImplementation(
@@ -475,24 +490,28 @@ describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () =>
       (a) => `${a[0]}(${(a[1] as { p_evenement_id: string }).p_evenement_id})`,
     );
 
-  it('M3.2/collectes_route_dechets_labo_par_evenement — une estimation par événement, partagée par ses collectes ZD', async () => {
+  it('M3.2/collectes_route_dechets_labo_part_de_la_collecte — pax de la collecte × coefficient, un appel par événement', async () => {
     const base = lignes(3);
-    const zd = base[0]!;
-    const autre = base[1]!;
-    const zero = base[2]!;
+    // e0 : 1 000 convives, deux collectes ZD de 600 et 400 convives.
+    const zd = avecPax(base[0]!, 600, 1000);
+    const autre = avecPax(base[1]!, 300, 300);
+    const zero = avecPax(base[2]!, 200, 200);
     rls.__set({
       data: [
         zd,
         // Seconde collecte ZD du MÊME événement que la ligne ci-dessus.
-        { ...zd, id: 'zd-bis-e0' },
+        { ...zd, id: 'zd-bis-e0', pax: 400 },
+        // Collecte à 0 convive (inconnu, reprise Bubble) du même événement.
+        { ...zd, id: 'zd-sans-pax-e0', pax: 0 },
         autre,
         zero,
       ],
       error: null,
-      count: 4,
+      count: 5,
     });
-    // e0 : estimation ; e1 : coefficient non communiqué ; e2 : déclaré à zéro.
-    estimations({ e0: 95.76, e2: 0 });
+    // e0 : 1 000 × 0,1596 = 159,6 kg ; e1 : coefficient non communiqué ;
+    // e2 : déclaré à zéro.
+    estimations({ e0: 159.6, e2: 0 });
     const res = await appel();
     const corps = await res.text();
     const { data } = JSON.parse(corps) as {
@@ -513,12 +532,14 @@ describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () =>
       'f_dechets_labo_estimes(e1)',
       'f_dechets_labo_estimes(e2)',
     ]);
-    // Les deux collectes ZD de e0 portent la même valeur ; « non communiqué »
-    // reste null (l'écran affiche « — ») et ne se confond pas avec le zéro
-    // déclaré, qui est une valeur.
+    // Chaque collecte ZD de e0 porte SA part (600 × 0,1596 et 400 × 0,1596),
+    // pas l'estimation de l'événement ; 0 convive se lit « — », comme la règle
+    // §05 pour un pax nul. « Non communiqué » reste null (l'écran affiche « — »)
+    // et ne se confond pas avec le zéro déclaré, qui est une valeur.
     expect(data.map((c) => [c.id, c.dechets_labo_kg])).toEqual([
       ['c0', 95.76],
-      ['zd-bis-e0', 95.76],
+      ['zd-bis-e0', 63.84],
+      ['zd-sans-pax-e0', null],
       ['c1', null],
       ['c2', 0],
     ]);
@@ -526,8 +547,8 @@ describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () =>
 
   it('M3.2/collectes_route_dechets_labo_zd_seulement — aucune estimation, ni appel, pour une collecte anti-gaspi', async () => {
     const base = lignes(2);
-    const zd = base[0]!;
-    const autre = base[1]!;
+    const zd = avecPax(base[0]!, 600, 600);
+    const autre = avecPax(base[1]!, 250, 250);
     rls.__set({
       data: [
         zd,
@@ -558,7 +579,11 @@ describe('M3.2 / liste Collectes gestionnaire — déchets labo estimés', () =>
 
   it('M3.2/collectes_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
-    rls.__set({ data: lignes(2), error: null, count: 2 });
+    rls.__set({
+      data: lignes(2).map((l) => avecPax(l, 100, 100)),
+      error: null,
+      count: 2,
+    });
     mockRpc.mockImplementation(
       (_fn: string, args: { p_evenement_id: string }) =>
         Promise.resolve(

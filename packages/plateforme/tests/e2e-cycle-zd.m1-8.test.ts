@@ -81,11 +81,12 @@ function makeCollectePdf(overrides: Record<string, unknown> = {}) {
     energie_primaire_evitee_kwh: 120,
     co2_facteurs_snapshot: { version_parametres_at: 'ADEME 2024' },
     nb_camions_demande: 1,
+    // Convives de LA collecte, imprimés sur le bordereau (lot C2, Q5).
+    pax: 250,
     evenements: {
       id: 'ev-m18-001',
       nom_evenement: 'Gala M1.8 Test',
       date_evenement: '2026-07-15',
-      pax: 250,
       organisation_id: 'org-m18-001',
       traiteur_operationnel_organisation_id: null,
       organisations: {
@@ -113,11 +114,12 @@ const COLLECTE_ZD_CLOTUREE_BROUILLON = {
   statut: 'cloturee',
   annulee_cote_savr: false,
   pack_antgaspi_id: null,
+  // Pax et date de LA collecte : base et date du tarif (lot C2, C2 et Q4).
+  pax: 250,
+  date_collecte: '2026-07-15',
   evenements: {
     id: 'ev-m18-001',
     organisation_id: 'org-m18-001',
-    pax: 250,
-    date_evenement: '2026-07-15',
     organisations: {
       mode_facturation_zd: 'par_collecte',
       grille_tarifaire_zd_id: null,

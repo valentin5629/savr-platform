@@ -293,7 +293,6 @@
       "BL-P1-ALGO-02": "M2.3 / R11 ALGO-02 file criticité (packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts) — criticite true <48h / false sinon (même logique que estUrgente). Badge URGENT + fond rose sur Collectes = preuve-visuelle (GO-VISUAL)",
       "BL-P1-ALGO-04": "M2.3 / Attribution AG — liste déroulante transporteur (attribution-transporteur-select.test.tsx) — liste tous les transporteurs actifs, reco pré-sélectionné sans motif ; autre transporteur → motif obligatoire puis POST transporteur choisi. Rendu liste déroulante = preuve-visuelle (GO-VISUAL)",
       "BL-P1-ALGO-05": "M2.3 / R11 ALGO-05 cron registration (algo-attribution-ag-r11.m2-3.test.ts) — vercel.json déclare le cron ; emails couverts par M2.3 job + dispatch par BL-P0-08 (R5)",
-      "BL-P1-ALGO-06": "R11-T7/T8/T9 (supabase/tests/r11_algo_ag.test.sql) déclenche=true / mode auto_accept valide_par NULL / SINON=false ; M2.3 / R11 ALGO-06 auto-accept (algo-attribution-ag-r11.m2-3.test.ts) endpoint + 403 ops",
       "BL-P1-ALGO-07": "Everest 422 (rejet permanent) → statut_tms = rejetee_par_prestataire + Everest 5xx (transient) → PAS de rejet (packages/adapters/src/everest/adapter.m2-5.test.ts) ; mission_dispatched → statut_tms=acceptee (webhooks/everest.m2-5.test.ts)"
     },
     "M2.4": {

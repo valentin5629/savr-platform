@@ -326,6 +326,15 @@
       "test": "packages/plateforme/tests/ui/facturation-hors-plateforme.test.tsx + packages/plateforme/tests/api/facturation-hors-plateforme.test.ts + facturation_hors_plateforme — badge « en attente de facturation »",
       "statut": "implemented",
       "libelle": "Facturation hors plateforme au go-live (décision Val 2026-10-22, _Divergences/M1.7_20261022_facturation-hors-plateforme-go-live) : interrupteur éteint. Le traitement de nuit ne prépare aucun brouillon de facture ; l'email récapitulatif de programmation ne donne plus le tarif ZD ; le traiteur, l'agence et le gestionnaire de lieux ne voient plus leurs factures (onglet, carte, ligne « Facture » de la fiche collecte) ni le badge « en attente de facturation ». Inchangés : back-office Admin, entité de facturation et son SIRET (requis pour l'attestation de don AG), phrases qui disent au client comment Savr le facture. Les tests existants des écrans de facturation tournent interrupteur allumé."
+    },
+    {
+      "id": "M1.7-brouillons-pax-date-de-la-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1099 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:199",
+      "artefact": "packages/plateforme/src/lib/facturation/batch-brouillons.ts (traiterCollecteZd, traiterCollecteAg)",
+      "test": "M1.7 / BatchBrouillons / pax et date de la collecte (lot C2)",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
+      "libelle": "Brouillons de facture du batch J+1 au pax et à la date de LA collecte (lot C2 ; décisions Val C2 du 2026-10-20 et Q4 du 2026-10-24) : chaque collecte ZD est tarifée sur son propre pax (collectes.pax), plus sur celui de l'événement (somme des soirées, max ZD/AG du jour) ; la date qui choisit la grille, les remises et le tarif AG unitaire en vigueur est la date de la collecte (collectes.date_collecte), comme l'email récapitulatif, plus la date de l'événement ; le brouillon mensuel groupé garde une ligne par collecte, chacune sur son pax. Une collecte à 0 convive (inconnu, reprise Bubble) est refusée par calculer_tarif_zd : pas de brouillon, l'erreur remonte au rapport du batch, sans repli sur le pax de l'événement. Le batch reste éteint au go-live par facturationPlateformeActive() (livrable M1.7-facturation-hors-plateforme-go-live) : le code est corrigé sans être rallumé."
     }
   ],
   "cdc_source_hash": {

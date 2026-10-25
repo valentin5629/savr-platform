@@ -22,6 +22,7 @@ import {
   fatalSiAucuneProduite,
   logCollecteEnEchec,
 } from './batch-fatal.js';
+import { convivesImprimes } from './convives-imprimes.js';
 import {
   TAILLE_PAGE,
   lireParPages,
@@ -49,10 +50,11 @@ interface CollecteSansExcedentRow {
   evenement_id: string;
   controle_acces_requis: boolean;
   aucun_repas_motif: string | null;
+  // Convives de LA collecte, imprimés sur le rapport (Val Q5 du 2026-10-24).
+  pax: number | null;
   evenements: {
     nom_evenement: string;
     date_evenement: string;
-    pax: number | null;
     nom_client_organisateur: string | null;
     organisation_id: string;
     traiteur_operationnel_organisation_id: string | null;
@@ -94,9 +96,9 @@ export async function runBatchSansExcedent(
         .from('collectes')
         .select(
           `
-      id, evenement_id, controle_acces_requis, aucun_repas_motif,
+      id, evenement_id, controle_acces_requis, aucun_repas_motif, pax,
       evenements (
-        nom_evenement, date_evenement, pax, nom_client_organisateur,
+        nom_evenement, date_evenement, nom_client_organisateur,
         organisation_id, traiteur_operationnel_organisation_id,
         client_organisateur_organisation_id, logo_client_organisateur_url,
         organisations!organisation_id ( raison_sociale, type, logo_url ),
@@ -245,7 +247,7 @@ export async function runBatchSansExcedent(
         lieu_nom: lieu?.nom ?? '',
         lieu_adresse: adresseLieu,
         traiteur_nom: traiteurNom,
-        nb_pax: ev.pax,
+        nb_pax: convivesImprimes(collecte.pax),
         client_organisateur_nom: ev.nom_client_organisateur,
         logo_url: (await resolveLogoUri(logo.logo_url)) ?? null,
         presentation_datetime: presentationDatetime,

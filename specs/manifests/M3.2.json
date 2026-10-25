@@ -233,7 +233,7 @@
     "M3.2/collectes_route_renvoie_le_client_organisateur",
     "M3.2/collectes_route_colonnes_liste_traiteur",
     "M3.2/collectes_colonnes_identiques_liste_traiteur",
-    "M3.2/collectes_route_dechets_labo_par_evenement",
+    "M3.2/collectes_route_dechets_labo_part_de_la_collecte",
     "M3.2/collectes_route_dechets_labo_zd_seulement",
     "M3.2/collectes_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste",
     "M3.2/collectes_route_dechets_labo_aucun_appel_sans_ligne",
@@ -1032,10 +1032,10 @@
     {
       "id": "M3.2-liste-collectes-colonne-dechets-labo",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:661",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
-      "test": "M3.2/collectes_route_dechets_labo_par_evenement + M3.2/collectes_route_dechets_labo_zd_seulement + M3.2/collectes_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste + M3.2/collectes_route_dechets_labo_aucun_appel_sans_ligne + M3.2/collectes_colonne_dechets_labo_estimes + M3.2/collectes_colonnes_identiques_liste_traiteur",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx (partDeLaCollecte)",
+      "test": "M3.2/collectes_route_dechets_labo_part_de_la_collecte + M3.2/collectes_route_dechets_labo_zd_seulement + M3.2/collectes_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste + M3.2/collectes_route_dechets_labo_aucun_appel_sans_ligne + M3.2/collectes_colonne_dechets_labo_estimes + M3.2/collectes_colonnes_identiques_liste_traiteur",
       "statut": "implemented",
-      "libelle": "Colonne « Déchets labo est. » de la liste Collectes gestionnaire, après « Résultats » (décision Val, revue écran E2E 2026-10-07 — divergence M3.2_20261007_colonne-dechets-labo-liste-collectes ; le CDC bornait l'affichage au détail événement et à la liste Événements). Sur les collectes ZÉRO DÉCHET seulement (arbitrage Val 2026-10-07 : « la notion ne tient pas pour les collectes AG ») : une ligne anti-gaspi affiche « — » et la fonction n'est pas appelée pour elle. Estimation de l'ÉVÉNEMENT de la collecte (§05 R_dechets_labo_estimes : couverts × coefficient annuel du traiteur opérationnel), répétée sur chacune de ses collectes ZD. La route ajoute dechets_labo_kg à chaque ligne en appelant la fonction existante f_dechets_labo_estimes une fois par événement distinct porté par une collecte ZD de la page (50 au plus) : aucune migration, aucun droit modifié, le coefficient brut ne sort jamais. Format : kg sans décimale, « — » si coefficient non communiqué (ou collecte AG), « 0 kg » si déclaré à zéro. Non triable (tri serveur sur les seules colonnes de collectes). Un appel en échec rend « — » pour l'événement et laisse la liste s'afficher ; il est journalisé. Colonne propre au gestionnaire : les listes traiteur, agence et client organisateur ne la portent pas. Écarts connus de la fonction, repris tels quels : coefficient le plus récent au lieu de « année − 1 », et pax = 0 → « 0 kg » (_Divergences/M3.2_20260921_dechets-labo-pax-zero.md)."
+      "libelle": "Colonne « Déchets labo est. » de la liste Collectes gestionnaire, après « Résultats » (décision Val, revue écran E2E 2026-10-07 — divergence M3.2_20261007_colonne-dechets-labo-liste-collectes ; le CDC bornait l'affichage au détail événement et à la liste Événements). Sur les collectes ZÉRO DÉCHET seulement (arbitrage Val 2026-10-07 : « la notion ne tient pas pour les collectes AG ») : une ligne anti-gaspi affiche « — » et la fonction n'est pas appelée pour elle. Estimation de LA collecte (pax de la collecte ZD × coefficient annuel du traiteur opérationnel, décision Val Q3 du 2026-10-24, lot C2), tirée au prorata des pax de l'estimation de l'événement que rend la fonction : deux collectes ZD d'un même événement portent chacune leur part ; 0 convive → « — ». La route ajoute dechets_labo_kg à chaque ligne en appelant la fonction existante f_dechets_labo_estimes une fois par événement distinct porté par une collecte ZD de la page (50 au plus) : aucune migration, aucun droit modifié, le coefficient brut ne sort jamais. Format : kg sans décimale, « — » si coefficient non communiqué (ou collecte AG), « 0 kg » si déclaré à zéro. Non triable (tri serveur sur les seules colonnes de collectes). Un appel en échec rend « — » pour l'événement et laisse la liste s'afficher ; il est journalisé. Colonne propre au gestionnaire : les listes traiteur, agence et client organisateur ne la portent pas. Les deux écarts de la fonction (coefficient le plus récent au lieu de « année − 1 », pax = 0 → « 0 kg ») sont fermés au lot C2 (livrable M3.2-dechets-labo-annee-moins-un-pax-zero)."
     },
     {
       "id": "M3.2-liste-collectes-colonne-dechets-labo-rendu-visuel",
@@ -1361,6 +1361,15 @@
       "test": "M3.2/brouillons_tiers_dates_evenements_invisibles + M3.2/brouillons_tiers_dates_collectes_invisibles + M3.2/brouillons_tiers_dates_traiteur_brouillon_seul_absent + M3.2/brouillons_tiers_dates_benchmark_refuse + M3.2/brouillons_tiers_dates_evenement_mixte + M3.2/brouillons_tiers_dates_propre_brouillon_lu + M3.2/brouillons_tiers_dates_sans_collecte_non_lu + M3.2/brouillons_tiers_dates_proprietaire_lit + M3.2/evenements_route_brouillons_ecartes + M3.2/evenement_fiche_brouillon_404",
       "statut": "implemented",
       "libelle": "Brouillons tiers exclus de la lecture du gestionnaire (F3) — garde sur le statut (décision Val 2026-10-24). Un brouillon a une date d'événement (date_collecte NOT NULL, date calculée sur les collectes non annulées) : la garde `date_evenement IS NOT NULL` n'en écartait aucun (mesuré le 2026-10-24). Dans le régime « événement d'une autre organisation tenu sur un lieu de mon parc », il faut en plus une collecte hors brouillon : f_collecte_visible (la collecte elle-même), evt_gestionnaire_select (au moins une collecte hors brouillon, lue sous la RLS de la session), f_traiteur_intervenu_lieux_gestionnaire (vue v_traiteurs_gestionnaire), f_benchmark_single_collecte. Le programmeur voit toujours son brouillon. Conséquence acceptée par Val : un événement tiers daté sans aucune collecte n'est pas lu tant qu'aucune collecte n'y est confirmée. Liste et fiche Événements du gestionnaire : un événement dont les collectes sont toutes des brouillons est écarté, les siens compris (§06.05 « un brouillon n'y figure pas ») ; la liste Collectes « tous statuts » est inchangée."
+    },
+    {
+      "id": "M3.2-dechets-labo-annee-moins-un-pax-zero",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:676 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:686",
+      "artefact": "supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql (f_dechets_labo_estimes)",
+      "test": "C2-LABO-1 + C2-LABO-2 + C2-LABO-3 + C2-LABO-4 + C2-LABO-5 + C2-LABO-6 + C2-SECU",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
+      "libelle": "f_dechets_labo_estimes aligné sur §05 R_dechets_labo_estimes (lot C2) : coefficient du traiteur opérationnel pour l'année de l'événement − 1, sans repli sur une autre année (décision Val Q6 du 2026-10-24 ; la fonction prenait le plus récent) ; pax de l'événement à 0 → NULL, « — » à l'écran (arbitrage Val du 2026-09-21, fiche M3.2_20260921_dechets-labo-pax-zero). Valeur d'événement inchangée sinon (pax de l'événement × coefficient, Q3). Garde de périmètre, ACL, SECURITY DEFINER et search_path inchangés."
     }
   ],
   "cdc_source_hash": {

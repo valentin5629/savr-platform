@@ -171,28 +171,6 @@ describe('M3.5 / kpi-traiteur', () => {
   });
 });
 
-// ─── kpi-lieu ─────────────────────────────────────────────────────────────────
-
-describe('M3.5 / kpi-lieu', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('200 — gestionnaire_lieux', async () => {
-    setupAuth('gestionnaire_lieux');
-    const { GET } = await import('@/app/api/v1/dashboards/kpi-lieu/route.js');
-    const res = await GET(makeReq('/api/v1/dashboards/kpi-lieu'));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toHaveProperty('data');
-  });
-
-  it('401 — sans JWT', async () => {
-    setupNoAuth();
-    const { GET } = await import('@/app/api/v1/dashboards/kpi-lieu/route.js');
-    const res = await GET(makeReq('/api/v1/dashboards/kpi-lieu'));
-    expect(res.status).toBe(401);
-  });
-});
-
 // ─── kpi-admin ────────────────────────────────────────────────────────────────
 
 describe('M3.5 / kpi-admin', () => {

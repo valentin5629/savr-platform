@@ -343,10 +343,6 @@ export function is4xx(err: PennylaneError): boolean {
   return err.status >= 400 && err.status < 500;
 }
 
-export function is5xx(err: PennylaneError): boolean {
-  return err.status >= 500 || err.status === 0;
-}
-
 // VOLET 3 R22g (défensif) : 429 est un 4xx NON terminal — un rate-limit Pennylane doit
 // être RETENTÉ (via en_attente_pennylane/retry_1), jamais figé en echec_4xx/brouillon.
 // Les appelants excluent donc 429 du terminal 4xx : `is4xx(err) && !is429(err)`.

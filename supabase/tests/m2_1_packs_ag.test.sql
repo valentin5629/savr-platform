@@ -2,7 +2,7 @@
 -- Tests : schéma, triggers (débit réalisation, débit tardif, recrédit), RLS.
 
 BEGIN;
-SELECT plan(33);
+SELECT plan(37);
 
 -- ── Helpers JWT (identiques aux autres fichiers de test) ──────────────────
 
@@ -242,14 +242,21 @@ SELECT is(
 );
 
 -- ── 8bis. Seuil 4h ancré Europe/Paris (fix E2, seuil Val 2026-10-15) ─────
--- Bornes déterministes quel que soit le fuseau de la session de test : on
--- construit date_collecte/heure_collecte comme l'heure murale de Paris de
--- l'instant now()+3h59 (doit débiter, < 4h), now()+4h pile (ne doit pas
--- débiter, seuil strict) puis now()+4h01 (ne doit pas débiter). L'instant est
--- calculé avant la conversion en heure de Paris : un changement d'heure dans les
--- 4h ne décale pas la borne. now() est figé dans la transaction, d'où le « pile ».
--- Avant le fix E2 (cast naïf interprété en UTC) le seuil était décalé de 1-2h et
--- ces cas tombaient du mauvais côté de la frontière.
+-- Les créneaux de 8bis et 8ter (sauf C, à J+2) sont l'heure murale de Paris de
+-- l'instant now()+X, quel que soit le fuseau de la session de test. now() est
+-- figé dans la transaction, d'où le « pile ». Le déclencheur relit cette heure
+-- murale au même instant, sauf la nuit du passage à l'heure d'hiver : le
+-- dernier dimanche d'octobre, les heures murales 02:00-02:59 existent deux fois
+-- et PostgreSQL les relit à la seconde (heure d'hiver). Un instant de la
+-- première (00:00-01:00 UTC) est donc relu une heure plus tard ; mesuré minute
+-- par minute sur 2026 et 2027, aucun instant n'est relu plus tôt. D'où la
+-- règle, comptée depuis l'instant qui juge l'annulation : un cas qui attend un
+-- débit place le créneau à moins de 3h (relu au pire à moins de 4h), un cas qui
+-- n'en attend pas à 4h ou plus (relu plus tard, toujours sans débit). Échec du
+-- 2026-10-24, fichier joué en CI à 21:01 UTC : un créneau à now()+3h, relu 4h
+-- après, n'a pas débité. Le seuil exact (3h59 et 4h pile), cette nuit-là et
+-- l'ancrage en heure d'été sont prouvés sur des instants fixes en 8quater.
+-- Avant le fix E2 (cast naïf interprété en UTC) le seuil était décalé de 1-2h.
 SELECT test_as_superuser();
 
 -- Org + pack frais (évite le conflit uniq_pack_actif_par_org avec le pack 005),
@@ -288,7 +295,7 @@ INSERT INTO plateforme.packs_antgaspi (
   1300.00, 'par_collecte', 'actif', CURRENT_DATE
 );
 
--- Collecte A : créneau = now() + 3h59 → < 4h → DOIT débiter.
+-- Collecte A : créneau = now() + 2h59 (relu au pire à 3h59) → < 4h → DOIT débiter.
 INSERT INTO plateforme.collectes (
   id, evenement_id, type, statut, date_collecte, heure_collecte,
   nb_camions_demande, statut_tms, pack_antgaspi_id
@@ -296,8 +303,8 @@ INSERT INTO plateforme.collectes (
   '00000000-0000-0000-0000-000000000040'::uuid,
   '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
-  ((now() + INTERVAL '3 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::date,
-  ((now() + INTERVAL '3 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::time,
+  ((now() + INTERVAL '2 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::date,
+  ((now() + INTERVAL '2 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::time,
   1, 'non_envoye',
   '00000000-0000-0000-0000-000000000030'::uuid
 );
@@ -309,11 +316,12 @@ SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
   1,
-  'E2 : annulation à H-3h59 (heure de Paris) < 4h → débit (credits_consommes=1)'
+  'annulation directe à H-2h59 (heure de Paris) < 4h → débit (credits_consommes=1)'
 );
 
 -- Collecte P : créneau = now() + 4h exactement → pas < 4h → NE DOIT PAS débiter.
--- Détecte un `<` devenu `<=` dans le trigger.
+-- Détecte un `<` devenu `<=` dans le trigger, sauf l'heure de l'année où ce
+-- créneau est relu à 5h : le 4h pile sur instant fixe (8quater) le couvre.
 INSERT INTO plateforme.collectes (
   id, evenement_id, type, statut, date_collecte, heure_collecte,
   nb_camions_demande, statut_tms, pack_antgaspi_id
@@ -395,8 +403,9 @@ SELECT is(
 -- anciennes » sont simulées en reculant annulation_demandee_at (UPDATE qui ne
 -- touche pas `statut`, donc ne ré-horodate pas).
 
--- Collecte D : créneau à now()+3h ; demande faite à now()-2h (5h avant le
--- créneau), confirmée maintenant (3h avant) → NE DOIT PAS débiter.
+-- Collecte D : créneau à now()+2h59 ; demande faite à now()-2h01 (5h avant le
+-- créneau), confirmée maintenant (2h59 avant, donc à moins de 4h même relu une
+-- heure plus tard) → NE DOIT PAS débiter.
 INSERT INTO plateforme.collectes (
   id, evenement_id, type, statut, date_collecte, heure_collecte,
   nb_camions_demande, statut_tms, pack_antgaspi_id
@@ -404,8 +413,8 @@ INSERT INTO plateforme.collectes (
   '00000000-0000-0000-0000-000000000044'::uuid,
   '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
-  ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::date,
-  ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::time,
+  ((now() + INTERVAL '2 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::date,
+  ((now() + INTERVAL '2 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::time,
   1, 'acceptee',
   '00000000-0000-0000-0000-000000000030'::uuid
 );
@@ -420,7 +429,7 @@ SELECT is(
   'passage en annulation_demandee → annulation_demandee_at horodaté au moment de la demande'
 );
 
-UPDATE plateforme.collectes SET annulation_demandee_at = now() - INTERVAL '2 hours'
+UPDATE plateforme.collectes SET annulation_demandee_at = now() - INTERVAL '2 hours 1 minute'
 WHERE id = '00000000-0000-0000-0000-000000000044'::uuid;
 UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000044'::uuid;
@@ -429,10 +438,10 @@ SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
   1,
-  'demande à H-5h, confirmation Admin à H-3h → pas de débit, le délai se juge à la demande (credits_consommes reste 1)'
+  'demande à H-5h, confirmation Admin à H-2h59 → pas de débit, le délai se juge à la demande (credits_consommes reste 1)'
 );
 
--- Collecte E : créneau à now()+3h ; demande faite maintenant (3h avant),
+-- Collecte E : créneau à now()+2h59 ; demande faite maintenant (2h59 avant),
 -- confirmée maintenant → DOIT débiter.
 INSERT INTO plateforme.collectes (
   id, evenement_id, type, statut, date_collecte, heure_collecte,
@@ -441,8 +450,8 @@ INSERT INTO plateforme.collectes (
   '00000000-0000-0000-0000-000000000045'::uuid,
   '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
-  ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::date,
-  ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::time,
+  ((now() + INTERVAL '2 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::date,
+  ((now() + INTERVAL '2 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::time,
   1, 'acceptee',
   '00000000-0000-0000-0000-000000000030'::uuid
 );
@@ -456,7 +465,7 @@ SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
   2,
-  'demande à H-3h confirmée à H-3h → débit (credits_consommes=2)'
+  'demande à H-2h59 confirmée aussitôt → débit (credits_consommes=2)'
 );
 
 -- Collecte F : créneau passé depuis 1h ; demande faite à now()-6h (5h avant le
@@ -488,9 +497,10 @@ SELECT is(
   'demande à H-5h confirmée après le créneau → pas de débit (credits_consommes reste 2)'
 );
 
--- Collecte G : créneau à now()+3h ; demande faite à now()-2h puis REFUSÉE par
--- l'Admin (retour à validee) ; l'Admin annule ensuite directement → la demande
--- refusée ne compte plus, l'annulation se juge maintenant (3h avant) → débit.
+-- Collecte G : créneau à now()+2h59 ; demande faite à now()-2h01 (5h avant)
+-- puis REFUSÉE par l'Admin (retour à validee) ; l'Admin annule ensuite
+-- directement → la demande refusée ne compte plus, l'annulation se juge
+-- maintenant (2h59 avant) → débit.
 INSERT INTO plateforme.collectes (
   id, evenement_id, type, statut, date_collecte, heure_collecte,
   nb_camions_demande, statut_tms, pack_antgaspi_id
@@ -498,15 +508,15 @@ INSERT INTO plateforme.collectes (
   '00000000-0000-0000-0000-000000000047'::uuid,
   '00000000-0000-0000-0000-000000000033'::uuid,
   'anti_gaspi', 'validee',
-  ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::date,
-  ((now() + INTERVAL '3 hours') AT TIME ZONE 'Europe/Paris')::time,
+  ((now() + INTERVAL '2 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::date,
+  ((now() + INTERVAL '2 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::time,
   1, 'acceptee',
   '00000000-0000-0000-0000-000000000030'::uuid
 );
 
 UPDATE plateforme.collectes SET statut = 'annulation_demandee'
 WHERE id = '00000000-0000-0000-0000-000000000047'::uuid;
-UPDATE plateforme.collectes SET annulation_demandee_at = now() - INTERVAL '2 hours'
+UPDATE plateforme.collectes SET annulation_demandee_at = now() - INTERVAL '2 hours 1 minute'
 WHERE id = '00000000-0000-0000-0000-000000000047'::uuid;
 UPDATE plateforme.collectes SET statut = 'validee'
 WHERE id = '00000000-0000-0000-0000-000000000047'::uuid;
@@ -517,7 +527,112 @@ SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
   3,
-  'demande refusée puis annulation directe à H-3h → jugée maintenant, débit (credits_consommes=3)'
+  'demande refusée puis annulation directe à H-2h59 → jugée maintenant, débit (credits_consommes=3)'
+);
+
+-- ── 8quater. Instants fixes : passage à l'heure d'hiver, puis un jour d'été ──
+-- La règle jouée sans dépendre de l'heure réelle : l'instant de référence est
+-- celui d'une demande d'annulation, posé à la main (cf. 8ter), et le créneau
+-- est fixe. Nuit du 24 au 25 octobre 2026 : à 01:00 UTC, Paris passe de 03:00
+-- (heure d'été) à 02:00 (heure d'hiver), l'heure murale 02:xx existe deux fois.
+
+-- Collecte H : la recette de 8bis-8ter (heure murale de Paris de l'instant
+-- « maintenant + 2h59 »), jouée avec maintenant = 2026-10-24 21:31 UTC, une
+-- minute où cet écart tombe dans l'heure répétée : 21:31 + 2h59 = 00:30 UTC
+-- = 02:30 heure d'été, relue 01:30 UTC (heure d'hiver), soit 3h59 après
+-- maintenant → DOIT débiter. Avec l'écart de 3h d'avant ce lot, le créneau
+-- (02:31) serait relu 4h après : pas de débit, comme le 2026-10-24.
+INSERT INTO plateforme.collectes (
+  id, evenement_id, type, statut, date_collecte, heure_collecte,
+  nb_camions_demande, statut_tms, pack_antgaspi_id
+) VALUES (
+  '00000000-0000-0000-0000-000000000048'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
+  'anti_gaspi', 'validee',
+  (('2026-10-24 21:31:00+00'::timestamptz + INTERVAL '2 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::date,
+  (('2026-10-24 21:31:00+00'::timestamptz + INTERVAL '2 hours 59 minutes') AT TIME ZONE 'Europe/Paris')::time,
+  1, 'acceptee',
+  '00000000-0000-0000-0000-000000000030'::uuid
+);
+
+SELECT is(
+  (SELECT (date_collecte + heure_collecte) AT TIME ZONE 'Europe/Paris'
+   FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000048'::uuid),
+  '2026-10-25 01:30:00+00'::timestamptz,
+  'Préalable : le créneau du 2026-10-25 à 02:30 (heure répétée) est relu 01:30 UTC, soit 02:30 UTC+1'
+);
+
+UPDATE plateforme.collectes SET statut = 'annulation_demandee'
+WHERE id = '00000000-0000-0000-0000-000000000048'::uuid;
+UPDATE plateforme.collectes SET annulation_demandee_at = '2026-10-24 21:31:00+00'::timestamptz
+WHERE id = '00000000-0000-0000-0000-000000000048'::uuid;
+UPDATE plateforme.collectes SET statut = 'annulee'
+WHERE id = '00000000-0000-0000-0000-000000000048'::uuid;
+
+SELECT is(
+  (SELECT credits_consommes FROM plateforme.packs_antgaspi
+   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
+  4,
+  'nuit du 25 octobre 2026, heure répétée : créneau relu 3h59 après la demande → débit (credits_consommes=4)'
+);
+
+-- Collecte I : le même créneau (2026-10-25 02:30, relu 01:30 UTC), demande à
+-- 21:30 UTC, 4h pile avant → NE DOIT PAS débiter : seuil strict, prouvé à
+-- toute heure. Relu en heure d'été (00:30 UTC), il serait à 3h et débiterait.
+INSERT INTO plateforme.collectes (
+  id, evenement_id, type, statut, date_collecte, heure_collecte,
+  nb_camions_demande, statut_tms, pack_antgaspi_id
+) VALUES (
+  '00000000-0000-0000-0000-000000000049'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
+  'anti_gaspi', 'validee', '2026-10-25'::date, '02:30:00'::time,
+  1, 'acceptee',
+  '00000000-0000-0000-0000-000000000030'::uuid
+);
+
+UPDATE plateforme.collectes SET statut = 'annulation_demandee'
+WHERE id = '00000000-0000-0000-0000-000000000049'::uuid;
+UPDATE plateforme.collectes SET annulation_demandee_at = '2026-10-24 21:30:00+00'::timestamptz
+WHERE id = '00000000-0000-0000-0000-000000000049'::uuid;
+UPDATE plateforme.collectes SET statut = 'annulee'
+WHERE id = '00000000-0000-0000-0000-000000000049'::uuid;
+
+SELECT is(
+  (SELECT credits_consommes FROM plateforme.packs_antgaspi
+   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
+  4,
+  'nuit du 25 octobre 2026, heure répétée : demande 4h pile avant le créneau relu → pas de débit, seuil strict (credits_consommes reste 4)'
+);
+
+-- Collecte J : un jour d'été, créneau le 2026-07-20 à 18:00 (UTC+2, soit 16:00
+-- UTC), demande à 12:01 UTC, 3h59 avant → DOIT débiter. Tient l'ancrage en
+-- heure d'été à toute heure de lancement, que A (2h59) ne tient plus : lu en
+-- UTC+1 (17:00 UTC, 4h59) ou en UTC (18:00 UTC), ce créneau ne débiterait pas.
+-- Mêmes instants que le test de estAnnulationTardive (traiteur-operationnel.m0-7).
+INSERT INTO plateforme.collectes (
+  id, evenement_id, type, statut, date_collecte, heure_collecte,
+  nb_camions_demande, statut_tms, pack_antgaspi_id
+) VALUES (
+  '00000000-0000-0000-0000-000000000050'::uuid,
+  '00000000-0000-0000-0000-000000000033'::uuid,
+  'anti_gaspi', 'validee', '2026-07-20'::date, '18:00:00'::time,
+  1, 'acceptee',
+  '00000000-0000-0000-0000-000000000030'::uuid
+);
+
+UPDATE plateforme.collectes SET statut = 'annulation_demandee'
+WHERE id = '00000000-0000-0000-0000-000000000050'::uuid;
+UPDATE plateforme.collectes SET annulation_demandee_at = '2026-07-20 12:01:00+00'::timestamptz
+WHERE id = '00000000-0000-0000-0000-000000000050'::uuid;
+UPDATE plateforme.collectes SET statut = 'annulee'
+WHERE id = '00000000-0000-0000-0000-000000000050'::uuid;
+
+SELECT is(
+  (SELECT credits_consommes FROM plateforme.packs_antgaspi
+   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
+  5,
+  'été, instant fixe : demande 3h59 avant un créneau de 18:00 (heure de Paris, UTC+2) → débit (credits_consommes=5)'
 );
 
 -- ── 9. CHECK constraint credits_consommes >= 0 ───────────────────────────

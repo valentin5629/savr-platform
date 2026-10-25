@@ -84,17 +84,17 @@ jobs:
       - id: perimetre
         name: Périmètre de la PR (scripts/ci-perimetre.sh)
         run: bash scripts/ci-perimetre.sh
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         uses: pnpm/action-setup@v4
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         run: pnpm install --frozen-lockfile
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         run: pnpm -w build
       # Seuil V1 minimal : taille .next/static < 5 MB.
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         name: Vérification budget bundle
         run: |
           SIZE=$(du -sb packages/plateforme/.next/static 2>/dev/null | cut -f1 || echo 0)
@@ -299,10 +299,10 @@ jobs:
       - id: perimetre
         name: Périmètre de la PR (scripts/ci-perimetre.sh)
         run: bash scripts/ci-perimetre.sh
-      - if: steps.perimetre.outputs.base == 'true'
+      - if: steps.perimetre.outputs.base != 'false'
         uses: supabase/setup-cli@v1
         with: { version: 2.105.0 }
-      - if: steps.perimetre.outputs.base == 'true'
+      - if: steps.perimetre.outputs.base != 'false'
         run: bash scripts/ci-supabase-start.sh
         env:
           SUPABASE_NO_ANALYTICS: 'true'
@@ -310,7 +310,7 @@ jobs:
       # On attend que pg_isready réponde 3x d'affilée AVANT le reset : sans ce
       # filet, le conteneur chute parfois au passage migrate→seed (faux positif
       # infra récurrent, ≠ erreur SQL — cf. PR #62 run 27772196968).
-      - if: steps.perimetre.outputs.base == 'true'
+      - if: steps.perimetre.outputs.base != 'false'
         name: Attente Postgres prêt et stable (avant reset)
         run: |
           ok=0
@@ -331,7 +331,7 @@ jobs:
       # donc re-tenter est idempotent. On redémarre le stack entre tentatives
       # pour repartir d'un conteneur sain. --debug seulement à la dernière
       # tentative (diagnostic), sinon firehose de logs qui charge le runner.
-      - if: steps.perimetre.outputs.base == 'true'
+      - if: steps.perimetre.outputs.base != 'false'
         name: Run supabase db reset (retry sur chute conteneur infra)
         run: |
           set -uo pipefail
@@ -357,9 +357,9 @@ jobs:
           exit 1
         env:
           SUPABASE_NO_ANALYTICS: 'true'
-      - if: steps.perimetre.outputs.base == 'true'
+      - if: steps.perimetre.outputs.base != 'false'
         run: supabase test db # RLS, outbox par mutation, G9, integration-contracts
-      - if: steps.perimetre.outputs.base == 'true'
+      - if: steps.perimetre.outputs.base != 'false'
         name: Plans des requêtes critiques (informatif)
         continue-on-error: true
         run: bash scripts/check-query-perf.sh
@@ -379,37 +379,37 @@ jobs:
       - id: perimetre
         name: Périmètre de la PR (scripts/ci-perimetre.sh)
         run: bash scripts/ci-perimetre.sh
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         uses: pnpm/action-setup@v4
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         run: pnpm install --frozen-lockfile
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         name: Build Next.js pour les tests E2E
         run: pnpm --filter @savr/plateforme build
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
           SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         name: Démarrer le serveur Next.js en arrière-plan
         run: pnpm --filter @savr/plateforme start &
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
           SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         run: pnpm exec playwright install --with-deps chromium
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         name: Attendre que le serveur soit prêt
         run: |
           for i in $(seq 1 30); do
             curl -sf http://localhost:3001 > /dev/null 2>&1 && break
             sleep 1
           done
-      - if: steps.perimetre.outputs.build == 'true'
+      - if: steps.perimetre.outputs.build != 'false'
         run: pnpm -w test:e2e
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3001

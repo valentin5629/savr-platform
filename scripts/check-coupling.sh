@@ -35,19 +35,42 @@ PAT_CUSTORDERS="${WB}customerOrders${WE}"
 # Fichiers suivis hors zone autorisee, filtres sur les extensions scannees.
 # Un seul `git grep` par motif au lieu de deux `grep` par fichier : 20 s → ~1 s
 # (mesure 2026-10-25). Hors d'un depot git, repli sur `grep -r`.
+#   -z : nom de fichier suivi d'un octet NUL, tel quel (un `:` ou un caractere
+#        non ASCII dans le nom ne fait plus sauter la ligne) ;
+#   -a : un fichier juge binaire (octet NUL, attribut `-diff`/`binary` de
+#        .gitattributes) est lu comme du texte — sinon il echapperait a la garde.
+# Une recherche en echec (code > 1) fait echouer la garde : jamais de faux OK.
 EXCLUS=(':(exclude)packages/adapters/*' ':(exclude)scripts/check-coupling.sh' ":(exclude)$ALLOWLIST")
+SORTIE="$(mktemp "${TMPDIR:-/tmp}/couplage.XXXXXX")"
+trap 'rm -f "$SORTIE"' EXIT
 
-# Sortie « fichier:ligne:texte » pour le motif $1, fichiers des extensions scannees.
+# Sortie « fichier NUL ligne:texte » pour le motif $1, fichiers des extensions scannees.
 chercher() {
+  local rc=0 mode
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git grep -nIiE "$1" -- "${EXCLUS[@]}" 2>/dev/null || true
+    mode=git
+    git grep -z -n -a -i -E "$1" -- "${EXCLUS[@]}" > "$SORTIE" 2>/dev/null || rc=$?
   else
-    grep -rnIiE "$1" . 2>/dev/null | sed 's#^\./##' \
-      | grep -vE '^(packages/adapters/|scripts/check-coupling\.sh:|scripts/coupling-allowlist\.txt:)' || true
-  fi | while IFS= read -r hit; do
-    f="${hit%%:*}"
-    [[ "$f" =~ $EXTS_REGEX ]] && printf '%s\n' "$hit"
-  done
+    mode=grep
+    grep -r -n -a -i -E --null "$1" . > "$SORTIE" 2>/dev/null || rc=$?
+  fi
+  if [ "$rc" -gt 1 ]; then
+    echo "Garde-fou 3 anti-couplage : la recherche a echoue (code $rc) — rien n'est etabli, commit refuse." >&2
+    exit 1
+  fi
+  EXTS_REGEX="$EXTS_REGEX" ALLOWLIST="$ALLOWLIST" perl -e '
+    my ($mode) = @ARGV; my $ext = $ENV{EXTS_REGEX}; my $allow = $ENV{ALLOWLIST};
+    while (my $l = <STDIN>) {
+      chomp $l;
+      my ($p, $r);
+      if ($mode eq "git") { my ($f, $n, $t) = split /\0/, $l, 3; ($p, $r) = ($f, "$n:" . ($t // "")); }
+      else {
+        ($p, $r) = split /\0/, $l, 2; $p =~ s{^\./}{};
+        next if $p =~ m{^packages/adapters/} || $p eq "scripts/check-coupling.sh" || $p eq $allow;
+      }
+      next unless $p =~ /$ext/;
+      print "$p\0$r\n";
+    }' "$mode" < "$SORTIE"
 }
 
 # Vrai si le chemin $1 correspond a un glob de l'allowlist (# = commentaire).
@@ -70,26 +93,30 @@ allowed() {
 
 violations=0
 
+# Les resultats sont lus dans un fichier, pas par `< <(…)` : un echec de la
+# recherche doit arreter la garde, ce qu'une substitution de processus tairait.
+RESULTATS="$(mktemp "${TMPDIR:-/tmp}/couplage-res.XXXXXX")"
+trap 'rm -f "$SORTIE" "$RESULTATS"' EXIT
+
 # customerOrders : interdit partout, zero exception.
-while IFS= read -r hit; do
-  [ -n "$hit" ] || continue
-  echo "COUPLAGE [customerOrders] ${hit%%:*}:${hit#*:}"
+chercher "$PAT_CUSTORDERS" > "$RESULTATS"
+while IFS= read -r -d '' f && IFS= read -r reste; do
+  echo "COUPLAGE [customerOrders] $f:$reste"
   violations=1
-done < <(chercher "$PAT_CUSTORDERS")
+done < "$RESULTATS"
 
 # mts1 / everest : exception possible via allowlist (jugee une fois par fichier).
+chercher "$PAT_PROVIDER" > "$RESULTATS"
 dernier=""; exempt=1
-while IFS= read -r hit; do
-  [ -n "$hit" ] || continue
-  f="${hit%%:*}"
+while IFS= read -r -d '' f && IFS= read -r reste; do
   if [ "$f" != "$dernier" ]; then
     dernier="$f"
     if allowed "$f"; then exempt=0; else exempt=1; fi
   fi
   [ "$exempt" -eq 0 ] && continue
-  echo "COUPLAGE [mts1|everest] $f:${hit#*:}"
+  echo "COUPLAGE [mts1|everest] $f:$reste"
   violations=1
-done < <(chercher "$PAT_PROVIDER")
+done < "$RESULTATS"
 
 if [ "$violations" -ne 0 ]; then
   {

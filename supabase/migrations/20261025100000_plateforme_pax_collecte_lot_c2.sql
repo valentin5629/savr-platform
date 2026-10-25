@@ -37,8 +37,12 @@
 --   l'identique (le remplacement réécrit `proconfig`). L'ACL de l'algorithme est
 --   ré-émise à l'identique de 20260929100000 (service_role seul) ; celles des
 --   deux autres ne sont pas touchées. Garde de périmètre de
---   `f_dechets_labo_estimes` inchangée : la fonction rend NULL plus souvent,
---   jamais une valeur qu'elle ne rendait pas.
+--   `f_dechets_labo_estimes` inchangée : un appel qui rendait NULL rend
+--   toujours NULL (aucun passage de NULL à une valeur, mesuré sous
+--   `authenticated` et `anon`) ; pour un appelant autorisé, la valeur suit la
+--   règle (coefficient de l'année − 1, NULL à pax 0), et le coefficient qu'il
+--   peut en déduire (valeur / pax) est celui de l'année − 1, plus le plus
+--   récent.
 --
 -- Backward-compatible et non destructive : signatures inchangées, aucun objet
 -- créé, renommé ni supprimé. Hors du diff structurel DDL cible V2 (corps de

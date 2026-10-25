@@ -102,6 +102,9 @@ Puis charger le contexte de l'écran dans l'ordre des sources ci-dessus. Identif
   `list_projects`), jamais deviner. Lecture seule : aucune action sur une issue ou un déploiement sans demande
   de Val. Une trace peut contenir des données personnelles (email, nom, contenu de requête) : ne jamais la
   recopier dans un commit, une PR ou une fiche (dépôt public), la résumer. Aucune trace = constat à noter (le défaut est alors côté rendu ou donnée, pas une exception).
+- **Constat de lenteur** (« ça rame », « met du temps à charger ») : mesurer avec Chrome DevTools MCP avant de
+  supposer une cause (trace de performance, durée des appels `/api/…`, à la deuxième visite). Quand l'utiliser
+  et ce que vaut une mesure locale : `docs/claude/navigateurs.md`.
 - **Trancher** : écart visuel/logique isolé = bug de code → étape 3. Comportement conforme au code mais
   divergent du CDC, ou règle métier non couverte = **question de spec** → `spec-resolver`, sinon STOP + Val.
   Bug/ambiguïté de spec détecté → écrire un fichier `_Divergences/` (cf. CLAUDE.md §4), ne pas patcher `specs/`.
@@ -143,6 +146,10 @@ Reconnaître l'état AVANT tout : `git fetch --quiet && git branch -a && git wor
   ⚠️ La preview tourne depuis le **clone principal**, pas le worktree → une route worktree-only renvoie 404 en
   preview. Pour valider visuellement une branche worktree, c'est un **checkpoint avec Val** (GO-VISUAL), pas une preview auto.
   Connexion en local : personas `<role>.<slug>@savr-test.local` / `savr` (agence = `agence.caromy`), après `pnpm seed:minimal && pnpm seed:auth`, dev sur `:3001`.
+- **Mesure de performance** (Chrome DevTools MCP), en plus de la preuve navigateur, quand le fix touche le
+  chargement des données d'un écran (requête, filtre, pagination), un écran « À optimiser » du CDC (dashboard
+  Admin, exports, inscription), ou corrige une lenteur : durée des appels `/api/…` avant / après, sur le même
+  poste. Une mesure locale détecte une régression, elle ne prouve pas un SLA. Détail : `docs/claude/navigateurs.md`.
 - **Tests** : `pnpm test:module <M>` + `pnpm check:coverage <M>` (jamais `pnpm test --filter`). Reproduire chaque
   GET/POST touché contre `savr-dev` — les mocks masquent les 400 réels.
 - **Reviewers à contexte neuf**, lancés **séquentiellement** (jamais en parallèle = corruption git), read-only :

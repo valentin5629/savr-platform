@@ -94,6 +94,14 @@ Puis charger le contexte de l'écran dans l'ordre des sources ci-dessus. Identif
   une autre session (une branche `feat/…` active). Si oui → signaler à Val, ne pas entrer en collision.
 - **Localiser** le fichier via la route (`packages/plateforme/src/app/…`). Confirmer le symbole réel
   (`grep -rn`), ne jamais se fier à un chemin supposé.
+- **Traces réelles d'abord** (connecteurs Sentry et Vercel, s'ils sont chargés dans la session) : avant de
+  supposer une cause, chercher l'erreur de l'écran à l'heure du constat. Sentry (`search_issues` /
+  `search_errors`, sur la route ou le message affiché) donne la pile et la requête fautive ; Vercel
+  (`get_runtime_errors`, puis `get_runtime_logs` sur le déploiement de l'environnement testé) donne la réponse
+  de la route API. Identifier l'organisation et le projet par leurs outils de liste (`find_projects`,
+  `list_projects`), jamais deviner. Lecture seule : aucune action sur une issue ou un déploiement sans demande
+  de Val. Une trace peut contenir des données personnelles (email, nom, contenu de requête) : ne jamais la
+  recopier dans un commit, une PR ou une fiche (dépôt public), la résumer. Aucune trace = constat à noter (le défaut est alors côté rendu ou donnée, pas une exception).
 - **Trancher** : écart visuel/logique isolé = bug de code → étape 3. Comportement conforme au code mais
   divergent du CDC, ou règle métier non couverte = **question de spec** → `spec-resolver`, sinon STOP + Val.
   Bug/ambiguïté de spec détecté → écrire un fichier `_Divergences/` (cf. CLAUDE.md §4), ne pas patcher `specs/`.
@@ -156,6 +164,7 @@ Reconnaître l'état AVANT tout : `git fetch --quiet && git branch -a && git wor
 
 - ✅ Pré-vol collision de session passé en tête ; si une session concurrente est détectée, ALERTE + décision de Val (reporter/continuer) AVANT de démarrer.
 - ✅ Rôle + route + attendu établis avant de coder ; module CDC lu dans `specs/cdc/…`.
+- ✅ Traces Sentry / Vercel lues avant de supposer une cause (quand les connecteurs sont là).
 - ✅ Diagnostic explicite bug-de-code vs question-de-spec ; STOP + Val si non couvert (jamais d'interprétation).
 - ✅ Zone figée / session parallèle vérifiée et signalée AVANT de coder.
 - ✅ Branche neuve, unique (local + remote), en worktree dédié ; `main` jamais touché ; branche re-vérifiée avant commit.

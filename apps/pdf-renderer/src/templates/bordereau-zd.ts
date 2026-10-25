@@ -28,7 +28,8 @@ export interface BordereauZdData {
   producteur_adresse: string;
   transporteur_nom: string;
   exutoire_nom: string;
-  nb_pax?: number;
+  // Convives de LA collecte ; null = inconnu (0, reprise Bubble) : mention omise.
+  nb_pax?: number | null;
   flux: FluxDetail[];
   poids_total_kg: number;
   /** Mention de régénération (§12 §1.4) — présente uniquement sur un document régénéré. */

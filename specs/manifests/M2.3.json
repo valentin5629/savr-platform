@@ -307,10 +307,11 @@
     {
       "id": "BL-P1-ALGO-06",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:196-224",
-      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_evaluer_auto_accept_ag : algo → match config_auto_accept_ag → rpc_valider_attribution_ag mode auto_accept valide_par NULL, sinon SINON) ; packages/plateforme/src/lib/attribution-ag/auto-accept.ts ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts (admin only)",
-      "test": "R11-T7/T8/T9 (supabase/tests/r11_algo_ag.test.sql) déclenche=true / mode auto_accept valide_par NULL / SINON=false ; M2.3 / R11 ALGO-06 auto-accept (algo-attribution-ag-r11.m2-3.test.ts) endpoint + 403 ops",
+      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_evaluer_auto_accept_ag : algo → match config_auto_accept_ag → rpc_valider_attribution_ag mode auto_accept valide_par NULL, sinon SINON) ; packages/plateforme/src/lib/attribution-ag/auto-accept.ts ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts (admin only) ; supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql (fourchette de pax lue sur le nb_pax de l'algorithme = pax de la collecte)",
+      "test": "R11-T7 + R11-T8 + R11-T9 + C2-AUTO-1 + C2-AUTO-2 + M2.3 / R11 ALGO-06 auto-accept",
       "statut": "implemented",
-      "libelle": "Auto-accept déclenchement/non-déclenchement (évaluation config_auto_accept_ag + branche SINON) ⚠ Filtre « type d'événement » au niveau de l'événement : à reprendre au lot C2 (chaque collecte selon son propre type, C3 ; livrable M1.2-refonte-formulaire-lots-b-c)."
+      "libelle": "Auto-accept déclenchement/non-déclenchement (évaluation config_auto_accept_ag + branche SINON) : configuration = organisation programmatrice × association top 1, transporteur facultatif, fourchette de pax ; aucun critère de type d'événement (décision Val Q1 du 2026-10-24 : la configuration réelle est gardée, le CDC §04 et §06.09, qui décrivent des couples association × type d'événement, est corrigé par la fiche du lot C2). Depuis le lot C2, la fourchette de pax se lit sur le pax de LA collecte AG (Q2).",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md"
     },
     {
       "id": "M2.3-emplacement",
@@ -367,6 +368,15 @@
       "test": "M2.3 / PATCH /parametres-algo (packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts) — 422 liste text[] en chaîne, 422 heure/entier/décimal/booléen non conformes, 200 text[] tableau transmis tel quel, 200 heure HH:MM, 404 clé inconnue sans update ; M2.3 / Paramètres algorithme AG — conversion de la saisie + M2.3 / convertirSaisie (packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/algo-ag.m2-3.test.tsx) — tableau JSON dans le PATCH, refus sans appel réseau",
       "statut": "implemented",
       "libelle": "Paramètres algo AG : valeur validée serveur selon son type (bug 2026-10-02 — liste text[] stockée en scalaire ⇒ fn_calculer_algo_attribution_ag levait sur toutes les collectes AG)"
+    },
+    {
+      "id": "M2.3-algo-pax-de-la-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:243",
+      "artefact": "supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql (fn_calculer_algo_attribution_ag : c.pax au lieu de e.pax)",
+      "test": "C2-F + C2-ALGO-1 + C2-ALGO-2 + C2-ALGO-3 + C2-SECU",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
+      "libelle": "Algorithme d'attribution AG au pax de LA collecte AG (lot C2, décision Val Q2 du 2026-10-24) : le seuil grand volume (regle_ag_seuil_pax_velo, 600) et le nb_pax rendu — lu par l'auto-acceptation et affiché « N PAX » sur l'écran d'attribution, dont l'en-tête montrait déjà le pax de la collecte — se lisent sur collectes.pax, plus sur evenements.pax. Une soirée de 300 convives dans un événement de 900 part en branche vélo, plus en camion grand volume. La lecture de e.type_evenement_id, jamais utilisée, est retirée. ACL (service_role seul), SECURITY DEFINER et search_path inchangés. Preuve pgTAP sur un événement de 900 convives (ZD 900 et deux AG de 300 le même soir), contrôle à 700."
     }
   ],
   "cdc_source_hash": {

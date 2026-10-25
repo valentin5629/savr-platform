@@ -14,6 +14,7 @@ import {
   fatalSiAucuneProduite,
   logCollecteEnEchec,
 } from './batch-fatal.js';
+import { convivesImprimes } from './convives-imprimes.js';
 import {
   TAILLE_PAGE,
   lireParPages,
@@ -49,6 +50,8 @@ interface CollecteRow {
   // affichée « Intervention le … » sur bordereau + rapport (§12 §1.1 / §1.2) et
   // variable `date_collecte` de l'email rapport_disponible (§06.02 §6).
   date_collecte: string;
+  // Convives de LA collecte, imprimés sur le bordereau (Val Q5 du 2026-10-24).
+  pax: number | null;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
   nb_camions_demande: number;
@@ -59,7 +62,6 @@ interface CollecteRow {
     id: string;
     nom_evenement: string;
     date_evenement: string;
-    pax: number | null;
     organisation_id: string;
     // Programmeur de la collecte (evenements.created_by → users, FK unique
     // evenements_created_by_fkey) → variable `prenom` de l'email (§06.02 §6).
@@ -116,10 +118,10 @@ export async function runBatchPdfJ1(
         .from('collectes')
         .select(
           `
-      id, evenement_id, realisee_at, date_collecte,
+      id, evenement_id, realisee_at, date_collecte, pax,
       taux_recyclage, co2_evite_kg, nb_camions_demande, prestataire_logistique_id,
       evenements (
-        id, nom_evenement, date_evenement, pax,
+        id, nom_evenement, date_evenement,
         organisation_id, traiteur_operationnel_organisation_id,
         programmeur:users!created_by ( prenom ),
         organisations!organisation_id ( nom, raison_sociale, siret, adresse, email_principal, type ),
@@ -297,7 +299,7 @@ export async function runBatchPdfJ1(
         producteur_adresse: organisationProd?.adresse ?? '',
         transporteur_nom: transporteurNom,
         exutoire_nom: 'Prestataire Savr',
-        nb_pax: ev.pax,
+        nb_pax: convivesImprimes(collecte.pax),
         flux: fluxDetails,
         poids_total_kg: poidsTotalKg,
       };

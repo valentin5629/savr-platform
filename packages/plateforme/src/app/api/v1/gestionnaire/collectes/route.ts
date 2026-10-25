@@ -22,6 +22,25 @@ const TRIS = {
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
+// Déchets labo estimés de LA collecte = pax de la collecte × coefficient (Val Q3
+// du 2026-10-24). `f_dechets_labo_estimes` rend celui de l'événement (pax de
+// l'événement × coefficient) sans exposer le coefficient : la part de la
+// collecte en est tirée au prorata des pax. Pax de la collecte ou de
+// l'événement à 0 (inconnu) → NULL, « — » à l'écran, comme la règle §05.
+function partDeLaCollecte(
+  estimationEvenement: number | null,
+  paxCollecte: number | null,
+  paxEvenement: number | null,
+): number | null {
+  if (estimationEvenement == null) return null;
+  if (!paxCollecte || paxCollecte <= 0 || !paxEvenement || paxEvenement <= 0)
+    return null;
+  const kg = (Number(estimationEvenement) * paxCollecte) / paxEvenement;
+  // Le coefficient a 4 décimales : arrondir au même pas efface l'erreur de calcul
+  // en virgule flottante sans changer la valeur.
+  return Math.round(kg * 10000) / 10000;
+}
+
 // Embed to-one PostgREST : objet ou tableau selon le cache de schéma.
 type UnOuListe<T> = T | T[] | null;
 function un<T>(v: UnOuListe<T>): T | null {
@@ -39,6 +58,10 @@ type LigneBrute = Record<string, unknown> & {
   evenements: UnOuListe<{
     nom_evenement: string | null;
     nom_client_organisateur: string | null;
+    // Pax de l'événement, lu sous un autre nom pour ne jamais être pris pour
+    // celui de la ligne : sert seulement à tirer des déchets labo estimés de
+    // l'événement la part de la collecte (voir `partDeLaCollecte`).
+    pax_evenement: number | null;
     lieux: UnOuListe<{
       nom: string | null;
       adresse_acces: string | null;
@@ -127,7 +150,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
        collecte_flux(poids_reel_kg),
        attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise),
        evenements!inner(
-         nom_evenement, nom_client_organisateur, lieu_id,
+         nom_evenement, nom_client_organisateur, pax_evenement:pax, lieu_id,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, adresse_acces, code_postal, ville),
          organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(nom)
@@ -194,12 +217,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // décision Val 2026-10-07 : sur les collectes ZÉRO DÉCHET seulement (« la
   // notion ne tient pas pour les collectes AG »). Une collecte anti-gaspi ne
   // porte donc aucune estimation, et la fonction n'est pas appelée pour elle.
-  // C'est une estimation de l'ÉVÉNEMENT (couverts × coefficient annuel du
-  // traiteur opérationnel) : deux collectes ZD d'un même événement portent la
-  // même valeur, calculée une seule fois. Fonction SECURITY DEFINER : la
-  // session ne lit jamais `coefficients_perte_labo`, seuls les kg sortent. Elle n'est appelée que
-  // pour les événements de la page que la RLS vient de rendre, soit PAGE_SIZE
-  // appels au plus.
+  // La ligne porte l'estimation de LA collecte (pax de la collecte × coefficient,
+  // décision Val Q3 du 2026-10-24), tirée de celle de l'événement que rend la
+  // fonction (`partDeLaCollecte`), appelée une fois par événement. Fonction
+  // SECURITY DEFINER : la session ne lit jamais `coefficients_perte_labo`,
+  // seuls les kg sortent. Elle n'est appelée que pour les événements de la page
+  // que la RLS vient de rendre, soit PAGE_SIZE appels au plus.
   // NULL = coefficient non communiqué → « — » à l'écran ; 0 = coefficient
   // déclaré à zéro, une vraie valeur. Un appel en échec vaut NULL lui aussi —
   // l'estimation est un complément, elle ne fait pas tomber la liste — mais il
@@ -261,7 +284,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       nb_repas_donnes: un(attributions_antgaspi)?.volume_repas_realise ?? null,
       dechets_labo_kg:
         porteEstimation(c) && c.evenement_id
-          ? (dechetsLabo.get(c.evenement_id) ?? null)
+          ? partDeLaCollecte(
+              dechetsLabo.get(c.evenement_id) ?? null,
+              c.pax,
+              evt?.pax_evenement ?? null,
+            )
           : null,
     };
   });

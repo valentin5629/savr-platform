@@ -246,6 +246,36 @@ describe('M2.4 / batch sans-excédent — génération (BL-P1-RPT-02)', () => {
   });
 });
 
+// Lot C2 (décision Val Q5 du 2026-10-24) : le rapport imprime les convives de LA
+// collecte AG, jamais ceux de l'événement.
+describe('M2.4 / batch sans-excédent — convives de la collecte', () => {
+  it('nb_pax = convives de LA collecte (150), pas ceux de l’événement (200) ; sélection sur la collecte', async () => {
+    const sb = makeSupabase(
+      happyResponses(makeCollecteSansExcedent({ pax: 150 })),
+    );
+    await runBatchSansExcedent(sb as never);
+    expect((jobInsert(sb)!.payload as Record<string, unknown>).nb_pax).toBe(
+      150,
+    );
+    const select = String(
+      (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls[0]?.[0],
+    );
+    const [colonnesCollecte, embedEvenement] = select.split('evenements (');
+    expect(colonnesCollecte).toMatch(/\bpax\b/);
+    expect(embedEvenement).not.toMatch(/\bpax\b/);
+  });
+
+  it('collecte à 0 convive (inconnu, reprise Bubble) → nb_pax null, « N convives » omis', async () => {
+    const sb = makeSupabase(
+      happyResponses(makeCollecteSansExcedent({ pax: 0 })),
+    );
+    await runBatchSansExcedent(sb as never);
+    expect(
+      (jobInsert(sb)!.payload as Record<string, unknown>).nb_pax,
+    ).toBeNull();
+  });
+});
+
 describe('M2.4 / batch sans-excédent — cascade logo §1.2 (BL-P2-19 cohérence AG)', () => {
   it('programmateur agence → logo agence posé dans le payload', async () => {
     const collecte = makeCollecteSansExcedent({

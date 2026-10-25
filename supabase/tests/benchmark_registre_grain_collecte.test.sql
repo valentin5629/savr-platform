@@ -23,7 +23,7 @@
 -- ---------------------------------------------------------------------------
 
 BEGIN;
-SELECT plan(13);
+SELECT plan(15);
 
 SET LOCAL role = 'postgres';
 
@@ -245,6 +245,27 @@ SELECT results_eq(
   '13. la ligne de la collecte n°1 du même événement porte 300 convives, taille S, type A');
 
 SELECT _bgc_superuser();
+
+-- 14-15. Options et droits de la vue, que CREATE OR REPLACE VIEW peut défaire en
+-- silence (une clause WITH omise remet les options à zéro ; relecture du lot C1).
+-- Égalité d'ensemble, qui mord dans les deux sens (droit retiré ou ajouté).
+SELECT is(
+  (SELECT c.reloptions FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'plateforme' AND c.relname = 'v_registre_dechets'),
+  ARRAY['security_invoker=false'],
+  '14. v_registre_dechets garde security_invoker = false');
+
+SELECT is(
+  (SELECT string_agg(coalesce(r.rolname, 'PUBLIC') || ':' || a.privilege_type, ','
+                     ORDER BY coalesce(r.rolname, 'PUBLIC'), a.privilege_type)
+     FROM pg_class c
+     JOIN pg_namespace n ON n.oid = c.relnamespace,
+     LATERAL aclexplode(c.relacl) a
+     LEFT JOIN pg_roles r ON r.oid = a.grantee
+    WHERE n.nspname = 'plateforme' AND c.relname = 'v_registre_dechets'
+      AND coalesce(r.rolname, 'PUBLIC') <> 'postgres'),
+  'authenticated:SELECT,service_role:DELETE,service_role:INSERT,service_role:SELECT,service_role:UPDATE',
+  '15. droits de v_registre_dechets inchangés : SELECT pour authenticated, rien pour anon ni PUBLIC');
 
 SELECT * FROM finish();
 ROLLBACK;

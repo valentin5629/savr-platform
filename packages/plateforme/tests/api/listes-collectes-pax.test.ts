@@ -59,7 +59,13 @@ describe('M1.2/pax_par_collecte — listes de collectes : le pax de la collecte,
     (espace) => {
       const { collecte, evenement } = selectDeLaListe(espace);
       expect(collecte).toMatch(/\bpax\b/);
-      expect(evenement).not.toMatch(/\bpax\b/);
+      // Seule exception, la liste du gestionnaire lit le pax de l'événement
+      // sous un autre nom (`pax_evenement`), pour tirer la part de la collecte
+      // des déchets labo estimés (lot C2, Q3) : il ne peut pas devenir celui de
+      // la ligne. Aucune autre lecture du pax dans l'embed.
+      const alias = 'pax_evenement:pax';
+      if (espace === 'gestionnaire') expect(evenement).toContain(alias);
+      expect(evenement.replace(alias, '')).not.toMatch(/\bpax\b/);
     },
   );
 });

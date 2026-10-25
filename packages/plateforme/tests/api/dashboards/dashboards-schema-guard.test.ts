@@ -74,12 +74,6 @@ const ROUTES = [
     url: '/api/v1/dashboards/kpi-traiteur?from=2025-10-31&to=2026-06-17&type=zero_dechet',
   },
   {
-    nom: 'kpi-lieu',
-    chemin: '@/app/api/v1/dashboards/kpi-lieu/route.js',
-    role: 'gestionnaire_lieux',
-    url: '/api/v1/dashboards/kpi-lieu?from=2025-10-31&to=2026-06-17',
-  },
-  {
     nom: 'kpi-client-organisateur',
     chemin: '@/app/api/v1/dashboards/kpi-client-organisateur/route.js',
     role: 'client_organisateur',

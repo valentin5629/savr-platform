@@ -68,16 +68,6 @@ export const STATUT = {
   },
 } as const;
 
-// ── Badge de variation KPI (▲/▼) ──────────────────────────────────────────
-export const VAR_POS = {
-  color: 'var(--color-savr-success-strong)',
-  bg: 'var(--color-savr-success-subtle)',
-};
-export const VAR_NEG = {
-  color: 'var(--color-savr-error)',
-  bg: 'var(--color-savr-error-subtle)',
-};
-
 // ── Badge d'alerte du pack (épuisé = rouge, solde faible = orange) ────────
 export const PACK_BADGE = {
   epuise: {

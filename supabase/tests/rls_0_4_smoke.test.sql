@@ -551,8 +551,8 @@ SELECT results_eq(
 -- T32 : ops_admin_only_writes_denied — ops_savr ne peut pas écrire config_auto_accept_ag
 SELECT test_set_jwt('ops_savr', NULL);
 SELECT throws_ok(
-  $$INSERT INTO plateforme.config_auto_accept_ag (id, organisation_id, auto_accept_actif)
-    VALUES (gen_random_uuid(), '11111111-0000-0000-0000-000000000001', true)$$,
+  $$INSERT INTO plateforme.config_auto_accept_ag (id, organisation_id, association_id, auto_accept_actif)
+    VALUES (gen_random_uuid(), '11111111-0000-0000-0000-000000000001', gen_random_uuid(), true)$$,
   '42501', NULL, 'T32 ops_admin_only_config_auto_accept_denied'
 );
 

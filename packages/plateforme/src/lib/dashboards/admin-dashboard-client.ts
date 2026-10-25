@@ -79,7 +79,7 @@ export interface AdminDashboardClientPayload {
 
 const SELECT_HISTORIQUE = `id, type, taux_recyclage, date_collecte, pax,
    co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh,
-   evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
+   evenements!inner(id, lieu_id, organisation_id, type_evenement_id,
      traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
    collecte_flux(poids_reel_kg, flux_dechets(code)),
    attributions_antgaspi(volume_repas_realise, association_id,
@@ -284,7 +284,7 @@ export interface AdminBenchmarkComparaison {
 export const PAGE_REFERENCE = 1000;
 
 const SELECT_REFERENCE = `id, type, taux_recyclage, date_collecte, pax,
-   evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
+   evenements!inner(id, lieu_id, organisation_id, type_evenement_id,
      traiteur_operationnel_organisation_id),
    collecte_flux(poids_reel_kg, flux_dechets(code))`;
 
@@ -300,12 +300,9 @@ const SELECT_REFERENCE = `id, type, taux_recyclage, date_collecte, pax,
  * `f_benchmark_kg_pax_zd` (k ≥ 5 collectes et ≥ 3 acteurs) reste la seule source
  * des dashboards CLIENTS. Même règle qu'elle depuis le lot C1 (décision Val Q4
  * du 2026-10-24) : Σ poids du flux / Σ pax des COLLECTES, type et taille de la
- * collecte, collecte à 0 convive (inconnu) écartée. La ligne « Vous » garde le
- * pax des événements distincts jusqu'au lot 3 (cumuls des dashboards) : les deux
- * diffèrent dès que ce pax n'est pas la somme des pax des collectes ZD clôturées
- * retenues — une collecte AG du même jour plus grosse que ses ZD, une ZD pas
- * encore clôturée, un filtre type ou taille qui ne retient qu'une partie des
- * collectes d'un événement.
+ * collecte, collecte à 0 convive (inconnu) écartée. La ligne « Vous » suit la
+ * même formule depuis le lot 3 (`kgParPaxParFluxFrom`, décision Val Q1 du
+ * 2026-10-25) : les deux lignes ne diffèrent plus que par leur périmètre.
  */
 export async function loadAdminBenchmarkComparaison(
   admin: AdminDbClient,
@@ -352,10 +349,9 @@ export async function loadAdminBenchmarkComparaison(
     if (tailleEvts.length === 0) return true;
     return tailleEvts.includes(tailleBracket(pax));
   });
-  const paxCollectes = rows.reduce((s, c) => s + (c.pax ?? 0), 0);
 
   return {
-    kgParPaxParFlux: kgParPaxParFluxFrom(rows, paxCollectes),
+    kgParPaxParFlux: kgParPaxParFluxFrom(rows),
     nbCollectes: rows.length,
     periode,
   };

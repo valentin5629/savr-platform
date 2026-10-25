@@ -512,9 +512,7 @@ export function DashboardClientView() {
               }
               unit={zdKpi.kg_par_pax != null ? 'kg/pax' : undefined}
               dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromSeries(zdSeries, (p) =>
-                p.pax ? p.tonnage_total / p.pax : 0,
-              )}
+              sparkPoints={sparkFromSeries(zdSeries, (p) => p.kg_par_pax)}
             />
             <StatCard
               label="CO₂ évité"

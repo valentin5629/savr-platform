@@ -192,16 +192,26 @@ describe('loaders — transforms pures §11', () => {
     expect(out[0]!.ville).toBe('Paris');
   });
 
-  it('kgParPaxParFluxFrom divise le poids du flux par le pax distinct', () => {
+  it('Lot3/kg_par_pax_par_flux_collectes — poids du flux / pax des collectes à convives connus, pas le pax de l’événement', () => {
+    // Événement de 100 convives (embed de coll()) ; ses deux collectes ZD : 40
+    // convives, puis 0 (reprise Bubble). Le poids de la seconde sort du ratio.
     const rows = [
       coll({
+        pax: 40,
         collecte_flux: [
           { poids_reel_kg: 200, flux_dechets: { code: 'biodechet' } },
         ],
       }),
+      coll({
+        id: 'c2',
+        pax: 0,
+        collecte_flux: [
+          { poids_reel_kg: 90, flux_dechets: { code: 'biodechet' } },
+        ],
+      }),
     ];
     const out = kgParPaxParFluxFrom(rows as never);
-    expect(out.biodechet).toBeCloseTo(200 / 100, 5); // pax = 100
+    expect(out.biodechet).toBeCloseTo(200 / 40, 5);
   });
 });
 

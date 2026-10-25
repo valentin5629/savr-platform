@@ -1068,6 +1068,24 @@
       "test": "M3.1/liste_sans_excedent_resultats + M3.1/frise_client_sans_excedents + M3.1/filtre_statut_realisee_cochee_sur_lien_cloturee",
       "statut": "à-vérifier",
       "libelle": "Rendu, côté espaces clients, de « Sans excédent » dans la colonne Résultats, de la frise « Réalisée » de la fiche et de la case « Réalisée » du filtre. GO visuel de Val en attente. Contrôlée le 2026-10-09 sur un aperçu local à données simulées (capture transmise à Val dans la conversation) : la colonne Résultats — ce contrôle prouve le rendu, pas l'application connectée. NON capturées : la frise de la fiche collecte client et la case « Réalisée » cochée à l'arrivée depuis un tableau de bord."
+    },
+    {
+      "id": "M3.1-kpi-cartes-pax-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:90",
+      "artefact": "packages/plateforme/src/lib/dashboards/cockpit-derive.ts (TraiteurKpiRow, aggregateKpis, kgParPaxDeLigne, repasParPaxDeLigne) + packages/plateforme/src/app/(traiteur)/traiteur/traiteur-dashboard-client.tsx (cartes kg/pax moyen, Pax cumulés, Repas/pax moyen)",
+      "test": "Lot3/cockpit_repas_par_pax_collectes_a_convives + M3.1/dash_cockpit_agrege_kpis_taux_pondere_marge",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "Cartes KPI du dashboard traiteur au pax des collectes (lot 3, décisions Val Q1 à Q5 du 2026-10-25) : kg/pax moyen = Σ tonnage_kg_pax_connu / Σ pax_total, Repas/pax moyen = Σ nb_repas_pax_connu / Σ pax_total (lignes de v_kpi_traiteur), sparklines par ligne mensuelle (0 sans pax). Pax cumulés = Σ pax_total."
+    },
+    {
+      "id": "M3.1-marge-zd-pax-collectes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:634",
+      "artefact": "supabase/migrations/20261025230000_plateforme_v_kpi_traiteur_pax_collecte.sql (v_kpi_traiteur.marge_zd_ht)",
+      "test": "supabase/tests/v_kpi_traiteur_pax_collecte.test.sql « L3-VUE-9 : marge de mars » + supabase/tests/m3_5_kpi_views_rls.test.sql « T3 : marge ZD »",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "Marge générée ZD (R_marge_zd_traiteur) = tarif_refacture_pax_zd × Σ pax des collectes ZD clôturées du périmètre − Σ factures HT ZD émises ou payées (lot 3, décision Val Q3 du 2026-10-25), et non plus le pax des événements distincts. La carte reste retirée de la rangée KPI (décision Val 2026-07-13) et la facturation se fait hors plateforme au go-live : aucun écran ne l'affiche ; seule la vue la calcule (tarif lu par f_tarif_refacture_pax_zd, inchangé)."
     }
   ],
   "cdc_source_hash": {

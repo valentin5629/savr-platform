@@ -173,6 +173,15 @@
       "test": "M4.1/export_evenements_type_des_collectes",
       "statut": "implemented",
       "libelle": "Export Événements, colonne « Type d'événement » (lot C1, Q2 Val 2026-10-24 « Types de ses collectes ») : les types de ses collectes non annulées, sans doublon, ordre de la collecte n°1 ; la copie de l'événement n'est qu'un repli. Taille et pax de la ligne restent ceux de l'événement (C4)."
+    },
+    {
+      "id": "M4.1-export-evenements-pax-de-l-evenement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:386",
+      "artefact": "packages/plateforme/src/lib/exports/evenements.ts (inchangé : evenements.pax et sa taille)",
+      "test": "Lot3/export_evenements_pax_et_taille_de_l_evenement",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "Export Événements : colonnes Taille et Pax = celles de l'ÉVÉNEMENT, son pax calculé (par jour le plus grand des totaux ZD et AG, puis somme des jours), et non la somme des pax de ses collectes (lot 3, décision Val Q4 du 2026-10-25). Rien à coder ; le test fige la décision."
     }
   ],
   "cdc_source_hash": {

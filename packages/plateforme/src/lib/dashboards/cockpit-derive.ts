@@ -19,7 +19,12 @@ export interface TraiteurKpiRow {
   taux_recyclage_pondere: number | null;
   nb_repas_donnes: number | null;
   marge_zd_ht: number | null;
+  /** Σ pax des collectes clôturées de la ligne (lot 3, décisions Val du 2026-10-25). */
   pax_total: number;
+  /** Poids (ZD) et repas (AG) des seules collectes à convives connus :
+   *  numérateurs de kg/pax et repas/pax (collecte à 0 convive écartée). */
+  tonnage_kg_pax_connu?: number | null;
+  nb_repas_pax_connu?: number | null;
   co2_evite_kg?: number | null;
   co2_induit_kg?: number | null;
   co2_net_kg?: number | null;
@@ -59,8 +64,10 @@ export interface KpiAgg {
   repas: number;
   /** Taux de recyclage pondéré par tonnage (%) — null si aucun tonnage tracé. */
   taux: number | null;
-  /** kg/pax moyen — null si pax = 0. */
+  /** kg/pax moyen (collectes à convives connus) — null si pax = 0. */
   kgPax: number | null;
+  /** Repas/pax moyen (collectes à convives connus) — null si pax = 0. */
+  repasPax: number | null;
   /** Marge ZD HT (€) — null si aucune ligne ne porte de marge. */
   marge: number | null;
 }
@@ -84,13 +91,35 @@ export function aggregateKpis(rows: TraiteurKpiRow[]): KpiAgg {
     0,
   );
   const taux = tauxDen > 0 ? tauxNum / tauxDen : null;
-  const kgPax = pax > 0 ? tonnage / pax : null;
+  const kgPax = ratioLignes(rows, (r) => r.tonnage_kg_pax_connu);
+  const repasPax = ratioLignes(rows, (r) => r.nb_repas_pax_connu);
   const margeRows = rows.filter((r) => r.marge_zd_ht != null);
   const marge =
     margeRows.length > 0
       ? margeRows.reduce((s, r) => s + num(r.marge_zd_ht), 0)
       : null;
-  return { nbCollectes, tonnage, pax, repas, taux, kgPax, marge };
+  return { nbCollectes, tonnage, pax, repas, taux, kgPax, repasPax, marge };
+}
+
+/** Σ numérateur / Σ pax_total des lignes ; null si aucun pax. */
+function ratioLignes(
+  rows: TraiteurKpiRow[],
+  numerateur: (r: TraiteurKpiRow) => number | string | null | undefined,
+): number | null {
+  const pax = rows.reduce((s, r) => s + num(r.pax_total), 0);
+  return pax > 0
+    ? rows.reduce((s, r) => s + num(numerateur(r)), 0) / pax
+    : null;
+}
+
+/** Point de sparkline kg/pax d'une ligne mensuelle (0 si aucun pax). */
+export function kgParPaxDeLigne(r: TraiteurKpiRow): number {
+  return ratioLignes([r], (x) => x.tonnage_kg_pax_connu) ?? 0;
+}
+
+/** Point de sparkline repas/pax d'une ligne mensuelle (0 si aucun pax). */
+export function repasParPaxDeLigne(r: TraiteurKpiRow): number {
+  return ratioLignes([r], (x) => x.nb_repas_pax_connu) ?? 0;
 }
 
 export interface Co2Totals {

@@ -42,6 +42,8 @@ import {
 import {
   aggregateKpis,
   co2Totals,
+  kgParPaxDeLigne,
+  repasParPaxDeLigne,
   variationPct,
   sparkFromRows,
   aggregateBenchmarkPerFlux,
@@ -392,9 +394,7 @@ export function TraiteurDashboardClient({
               value={agg.kgPax != null ? fmtDec(agg.kgPax, 2) : '—'}
               unit={agg.kgPax != null ? 'kg/pax' : undefined}
               dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromRows(rows, (r) =>
-                r.pax_total > 0 ? (r.tonnage_kg ?? 0) / r.pax_total : 0,
-              )}
+              sparkPoints={sparkFromRows(rows, kgParPaxDeLigne)}
             />
             {/* CO₂ évité des collectes réalisées sur la période (retour Val —
                 remplace « Marge générée », divergence §06.04 tracée). Cliquable :
@@ -527,11 +527,9 @@ export function TraiteurDashboardClient({
             />
             <StatCard
               label="Repas/pax moyen"
-              value={agg.pax > 0 ? fmtDec(agg.repas / agg.pax, 2) : '—'}
+              value={agg.repasPax != null ? fmtDec(agg.repasPax, 2) : '—'}
               dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromRows(rows, (r) =>
-                r.pax_total > 0 ? (r.nb_repas_donnes ?? 0) / r.pax_total : 0,
-              )}
+              sparkPoints={sparkFromRows(rows, repasParPaxDeLigne)}
             />
             {/* CO₂ évité AG (évité seul V1, §11 l.163) — même UX que le ZD :
                 cliquable → modale « Impact carbone » (héros + méthode AG) UNIQUEMENT

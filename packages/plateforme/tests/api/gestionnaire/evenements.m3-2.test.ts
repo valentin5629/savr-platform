@@ -659,6 +659,28 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
 
 // « Ajouter une collecte » depuis la fiche événement (§06.01, décision Val
 // 2026-10-21) : la route dit si l'action est permise, l'écran ne la devine pas.
+// Lot 3 du pax porté par la collecte, décision Val Q4 du 2026-10-25 : la liste et
+// la fiche Événements gardent le pax CALCULÉ de l'événement (par jour le plus grand
+// des totaux ZD et AG, puis somme des jours) et sa taille — pas la somme des pax
+// de ses collectes.
+describe('Lot 3 / Événements gestionnaire — pax et taille de l’événement (Q4)', () => {
+  it('Lot3/evenement_fiche_pax_et_taille_de_l_evenement — 800 convives calculés, taille L, même si ses collectes en portent 300 et 200', async () => {
+    const brut = evenementBrut();
+    brut.collectes = brut.collectes.map((c, i) => ({
+      ...c,
+      pax: i === 0 ? 300 : 200,
+    }));
+    rls.__set({ data: brut, error: null });
+    const res = await fiche();
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as {
+      data: { pax: number; taille_bracket: string };
+    };
+    expect(data.pax).toBe(800);
+    expect(data.taille_bracket).toBe('L');
+  });
+});
+
 describe('M1.2 — ajouter une collecte depuis la fiche événement du gestionnaire (route)', () => {
   it('M1.2/ajout_collecte_fiche_evenement_programme_par_soi — événement programmé par son organisation : ajout permis, même collectes terminées', async () => {
     rls.__set({

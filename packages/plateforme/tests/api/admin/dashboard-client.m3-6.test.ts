@@ -265,6 +265,7 @@ describe('M3.6 / Dashboard Client / KPI', () => {
         {
           taux_recyclage: 80,
           co2_evite_kg: 40,
+          pax: 100,
           evenements: [{ pax: 100 }],
           collecte_flux: [{ poids_reel_kg: 50 }],
           attributions_antgaspi: [],
@@ -272,6 +273,7 @@ describe('M3.6 / Dashboard Client / KPI', () => {
         {
           taux_recyclage: 60,
           co2_evite_kg: 60,
+          pax: 100,
           evenements: [{ pax: 100 }],
           collecte_flux: [{ poids_reel_kg: 150 }],
           attributions_antgaspi: [],
@@ -279,6 +281,7 @@ describe('M3.6 / Dashboard Client / KPI', () => {
         {
           taux_recyclage: null,
           co2_evite_kg: 20,
+          pax: 100,
           evenements: [{ pax: 100 }],
           collecte_flux: [{ poids_reel_kg: 100 }],
           attributions_antgaspi: [],
@@ -318,12 +321,14 @@ describe('M3.6 / Dashboard Client / KPI', () => {
       data: [
         {
           taux_recyclage: null,
+          pax: 100,
           evenements: [{ pax: 100 }],
           collecte_flux: [],
           attributions_antgaspi: [{ volume_repas_realise: 40 }],
         },
         {
           taux_recyclage: null,
+          pax: 100,
           evenements: [{ pax: 100 }],
           collecte_flux: [],
           attributions_antgaspi: [{ volume_repas_realise: 60 }],
@@ -349,6 +354,53 @@ describe('M3.6 / Dashboard Client / KPI', () => {
 });
 
 // ─── Organisations (sélecteur) ─────────────────────────────────────────────────
+
+// Lot 3 du pax porté par la collecte (décisions Val Q1 et Q2 du 2026-10-25) :
+// KPI et ligne « Vous » du radar sur le pax des COLLECTES, celles à 0 convive
+// écartées des ratios — la même formule que la ligne de référence (lot C1, Q4).
+describe('M3.6 / Dashboard Client / pax des collectes (lot 3)', () => {
+  it('Lot3/admin_kpi_et_vous_pax_collectes — une soirée de 300 convives (événement de 800) et une collecte à 0 convive : kg/pax 600 / 300', async () => {
+    setupAuth('admin_savr');
+    queryResult = {
+      data: [
+        {
+          taux_recyclage: 80,
+          pax: 300,
+          evenements: [{ id: 'e1', pax: 800 }],
+          collecte_flux: [
+            { poids_reel_kg: 600, flux_dechets: { code: 'biodechet' } },
+          ],
+          attributions_antgaspi: [],
+        },
+        {
+          taux_recyclage: 80,
+          pax: 0,
+          evenements: [{ id: 'e2', pax: 0 }],
+          collecte_flux: [
+            { poids_reel_kg: 90, flux_dechets: { code: 'biodechet' } },
+          ],
+          attributions_antgaspi: [],
+        },
+      ],
+      error: null,
+    };
+    const { GET } =
+      await import('@/app/api/v1/admin/dashboard-client/route.js');
+    const res = await GET(
+      makeReq('/api/v1/admin/dashboard-client?type=zero_dechet'),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: {
+        kpi: Record<string, number>;
+        kgParPaxParFlux: Record<string, number>;
+      };
+    };
+    expect(body.data.kpi.tonnage_kg).toBe(690);
+    expect(body.data.kpi.kg_par_pax).toBeCloseTo(2, 5);
+    expect(body.data.kgParPaxParFlux.biodechet).toBeCloseTo(2, 5);
+  });
+});
 
 describe('M3.6 / Dashboard Client / organisations', () => {
   it('M3.6/organisations_liste_pour_selecteur — liste id/raison_sociale/type', async () => {

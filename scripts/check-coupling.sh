@@ -32,53 +32,64 @@ WE='([^A-Za-z0-9_]|$)'
 PAT_PROVIDER="${WB}(mts1|everest)${WE}"
 PAT_CUSTORDERS="${WB}customerOrders${WE}"
 
-list_files() {
+# Fichiers suivis hors zone autorisee, filtres sur les extensions scannees.
+# Un seul `git grep` par motif au lieu de deux `grep` par fichier : 20 s → ~1 s
+# (mesure 2026-10-25). Hors d'un depot git, repli sur `grep -r`.
+EXCLUS=(':(exclude)packages/adapters/*' ':(exclude)scripts/check-coupling.sh' ":(exclude)$ALLOWLIST")
+
+# Sortie « fichier:ligne:texte » pour le motif $1, fichiers des extensions scannees.
+chercher() {
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git ls-files
+    git grep -nIiE "$1" -- "${EXCLUS[@]}" 2>/dev/null || true
   else
-    find . -type f | sed 's#^\./##'
-  fi
+    grep -rnIiE "$1" . 2>/dev/null | sed 's#^\./##' \
+      | grep -vE '^(packages/adapters/|scripts/check-coupling\.sh:|scripts/coupling-allowlist\.txt:)' || true
+  fi | while IFS= read -r hit; do
+    f="${hit%%:*}"
+    [[ "$f" =~ $EXTS_REGEX ]] && printf '%s\n' "$hit"
+  done
 }
 
 # Vrai si le chemin $1 correspond a un glob de l'allowlist (# = commentaire).
-allowed() {
-  local f="$1" pat
-  [ -f "$ALLOWLIST" ] || return 1
+ALLOW_PATS=()
+if [ -f "$ALLOWLIST" ]; then
   while IFS= read -r pat; do
     case "$pat" in ''|\#*) continue ;; esac
+    ALLOW_PATS+=("$pat")
+  done < "$ALLOWLIST"
+fi
+allowed() {
+  local f="$1" pat
+  [ "${#ALLOW_PATS[@]}" -gt 0 ] || return 1
+  for pat in "${ALLOW_PATS[@]}"; do
     # shellcheck disable=SC2254
     case "$f" in $pat) return 0 ;; esac
-  done < "$ALLOWLIST"
+  done
   return 1
 }
 
 violations=0
 
-while IFS= read -r f; do
-  [[ "$f" =~ $EXTS_REGEX ]] || continue
-  case "$f" in
-    packages/adapters/*) continue ;;        # zone autorisee (les adapters)
-    scripts/check-coupling.sh) continue ;;  # le garde-fou lui-meme
-    "$ALLOWLIST") continue ;;
-  esac
+# customerOrders : interdit partout, zero exception.
+while IFS= read -r hit; do
+  [ -n "$hit" ] || continue
+  echo "COUPLAGE [customerOrders] ${hit%%:*}:${hit#*:}"
+  violations=1
+done < <(chercher "$PAT_CUSTORDERS")
 
-  # customerOrders : interdit partout, zero exception.
-  if hits="$(grep -nEi "$PAT_CUSTORDERS" "$f" 2>/dev/null)"; then
-    while IFS= read -r line; do
-      echo "COUPLAGE [customerOrders] $f:$line"
-    done <<< "$hits"
-    violations=1
+# mts1 / everest : exception possible via allowlist (jugee une fois par fichier).
+dernier=""; exempt=1
+while IFS= read -r hit; do
+  [ -n "$hit" ] || continue
+  f="${hit%%:*}"
+  if [ "$f" != "$dernier" ]; then
+    dernier="$f"
+    if allowed "$f"; then exempt=0; else exempt=1; fi
   fi
-
-  # mts1 / everest : exception possible via allowlist.
-  if allowed "$f"; then continue; fi
-  if hits="$(grep -nEi "$PAT_PROVIDER" "$f" 2>/dev/null)"; then
-    while IFS= read -r line; do
-      echo "COUPLAGE [mts1|everest] $f:$line"
-    done <<< "$hits"
-    violations=1
-  fi
-done < <(list_files)
+  [ "$exempt" -eq 0 ] && continue
+  echo "COUPLAGE [mts1|everest] $f:${hit#*:}"
+  violations=1
+done < <(chercher "$PAT_PROVIDER")
 
 if [ "$violations" -ne 0 ]; then
   {

@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@1.12.0",
+        "--allowedUrlPattern",
+        "http://localhost:*/*",
+        "--allowedUrlPattern",
+        "http://127.0.0.1:*/*",
+        "--allowedUrlPattern",
+        "https://nvbyuajdvtuezcvyxtkd.supabase.co/*",
+        "--allowedUrlPattern",
+        "wss://nvbyuajdvtuezcvyxtkd.supabase.co/*",
+        "--no-usage-statistics",
+        "--no-performance-crux",
+        "--redactNetworkHeaders"
+      ]
+    }
+  }
+}

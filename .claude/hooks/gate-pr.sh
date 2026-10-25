@@ -302,7 +302,12 @@ FAUX
   dit 'contrat outbox en échec' 'check-outbox-contracts échoue'
 
   # 5. Markers de revue : absent, vide, NON-GO, périmé — pour chacun des deux.
-  local m
+  # Sur un contenu NOUVEAU : un marker en défaut refuse la PR AVANT la suite et
+  # le seed (ni l'une ni l'autre ne sont lancés), la suite n'est jouée qu'une fois
+  # les markers en règle.
+  (cd "$depot" && echo d > f.ts && git commit -qam d) >/dev/null 2>&1
+  local m suites_avant seeds_avant
+  suites_avant="$(appels 'test:unit')"; seeds_avant="$(appels 'seed:check')"
   for m in conformite securite; do
     go "$depot" lot
     rm "$depot/.claude/$m-ok-lot"
@@ -317,8 +322,11 @@ FAUX
     code "marker $m sur un autre commit" 2 "$depot" "$creer"
     dit "marker $m sur un autre commit" 'périmé'
   done
+  attendu 'marker en défaut → suite non lancée' "$(appels 'test:unit')" "$suites_avant"
+  attendu 'marker en défaut → seed non lancé' "$(appels 'seed:check')" "$seeds_avant"
   go "$depot" lot
   code 'markers rétablis' 0 "$depot" "$creer"
+  attendu 'markers rétablis → suite jouée' "$(appels 'test:unit')" "$((suites_avant + 1))"
 
   # 6. Vérification du seed : dit ce qu'elle constate, ne bloque pas, et ne dit
   # jamais « OK » sans l'avoir constaté (le défaut d'origine : `|| true` puis `$?`).
@@ -709,6 +717,15 @@ echo "" >&2
 echo "🔒 GATE PR — vérification avant création PR ($BRANCH)" >&2
 echo "" >&2
 
+# 0. Markers des relecteurs D'ABORD : un marker absent, vide, NON-GO ou périmé
+# refuse la PR tout de suite, au lieu de la refuser après la suite complète
+# (~7 min en local, rejouée à chaque contenu nouveau). Les contrôles sont les
+# mêmes, seul leur ordre change (décision Val 2026-10-25, audit des sessions).
+# Reviewer conformite-spec — existence + 'GO' + SHA HEAD (R0d).
+check_marker "$MARKER_CONFORMITE" "CONFORMITE-SPEC" "reviewer-conformite-spec"
+# Reviewer rls-securite — existence + 'GO' + SHA HEAD (R0d).
+check_marker "$MARKER_SECURITE" "RLS-SECURITE" "reviewer-rls-securite"
+
 # 1. Tests unitaires — la suite COMPLÈTE, une fois par contenu. Le commit n'en
 # joue plus que la part liée au changement (tests-lies.sh) : c'est ici que tout
 # le reste est joué avant la PR. Une suite déjà verte sur le contenu exact de HEAD
@@ -831,12 +848,6 @@ if ! bash scripts/check-outbox-contracts.sh >&2 2>&1; then
   exit 2
 fi
 echo "  ✅ outbox contracts OK" >&2
-
-# 4. Reviewer conformite-spec — existence + 'GO' + SHA HEAD (R0d).
-check_marker "$MARKER_CONFORMITE" "CONFORMITE-SPEC" "reviewer-conformite-spec"
-
-# 5. Reviewer rls-securite — existence + 'GO' + SHA HEAD (R0d).
-check_marker "$MARKER_SECURITE" "RLS-SECURITE" "reviewer-rls-securite"
 
 echo "" >&2
 echo "✅ GATE PR OK — création autorisée." >&2

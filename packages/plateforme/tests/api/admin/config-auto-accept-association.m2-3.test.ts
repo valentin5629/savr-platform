@@ -112,6 +112,22 @@ describe('M2.3 — config auto-accept : association obligatoire (I4)', () => {
     expect(mockSupabaseChain.update).not.toHaveBeenCalled();
   });
 
+  it('PATCH avec une autre association : elle est écrite', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'cfg-1', auto_accept_actif: false },
+      error: null,
+    });
+    const { PATCH } = await import(routePath);
+    const res = await PATCH(
+      makeReq('PATCH', `${URL}?id=cfg-1`, { association_id: 'asso-2' }),
+    );
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.update).toHaveBeenCalledWith({
+      association_id: 'asso-2',
+    });
+  });
+
   it('PATCH sans association dans le corps (bascule du toggle) : passe', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce({

@@ -8,17 +8,20 @@ Tu es l'agent de diagnostic CI pour le projet Savr.
 
 ## Jobs CI à connaître (workflow quality.yml)
 
-- **anti-coupling** : vérifie 0 référence `mts1|everest|customerOrders` hors `packages/adapters/` (garde-fou G3). Échec = violation réelle ou allowlist manquante.
-- **detect-prereqs** : vérifie les prérequis (node, pnpm, etc.)
-- **lint-typecheck-test** : ESLint + Prettier + TypeScript + Vitest. Échec = erreur de code.
-- **migrations** : applique les migrations sur une DB locale Supabase + garde anti-destructif (grep `drop +(table|column)|truncate`). Causes courantes d'échec :
-  - `fatal: bad revision 'origin/main...'` → `fetch-depth: 0` manquant sur `actions/checkout@v4`
-  - Erreur SQL → syntax error dans une migration
-  - Secret manquant → `SUPABASE_DB_URL` ou `SUPABASE_ACCESS_TOKEN` absent de GitHub Secrets
-- **pgtap-rls-outbox** : tests pgTAP RLS + outbox par mutation (garde-fou G4). Échec = policy RLS manquante ou outbox non émise.
-- **security** : scan secrets (gitleaks). Échec = secret committé dans le code.
-- **bundle-budget** : taille du bundle Next.js. Skippé si pas de changement front.
-- **e2e** : Playwright. Skippé si pas de changement front.
+Jobs de `.github/workflows/quality.yml` (sur les PR seulement depuis le 2026-10-25) :
+
+- **anti-coupling** (requis) : 0 référence `mts1|everest|customerOrders` hors `packages/adapters/` (garde-fou G3), puis G8 primitives orphelines, contrats outbox V2, contrat worker ↔ renderer PDF. Échec = violation réelle ou allowlist manquante.
+- **detect-prereqs** (requis) : ne fait plus que rendre son statut (nom gardé, check requis).
+- **lint-typecheck-test** (requis) : agrège `statique` (Prettier, TypeScript, ESLint, `check:coverage`), `unit` (Vitest en 2 parts) et `build` (build du monorepo SANS variables d'environnement + budget du bundle). Il échoue si l'un des trois n'est pas « success » : lire le job en échec, pas l'agrégateur.
+- **migrations** (requis) : garde anti-destructif seule (grep `drop +(table|column)|truncate` sur les migrations nouvelles). Causes courantes d'échec : `fatal: bad revision 'origin/main...'` → `fetch-depth: 0` manquant.
+- **pgtap-rls-outbox** (requis) : la seule base de la CI. Applique toutes les migrations (`db reset`, 3 essais), puis `supabase test db` (RLS, outbox par mutation G4, oracles G9, integration-contracts), puis plans des requêtes critiques (informatif). Échec au reset = erreur SQL d'une migration ; échec aux tests = policy manquante, outbox non émise, règle métier fausse.
+- **migration-timestamp** (requis) : collisions de timestamp de migration + auto-tests des gardes.
+- **security** (requis) : scan secrets (gitleaks). Échec = secret committé.
+- **gate-ratchet** (requis) : méta-cliquet des gardes du Lot 0.
+- **e2e** : Playwright (Chromium seul), non requis.
+- **pdf-renderer** : lockfile npm + build Docker du renderer, sauté si `apps/pdf-renderer/` n'a pas changé, non requis.
+
+Aucun secret d'Actions n'existe sur ce dépôt : un échec ne vient jamais d'un secret manquant.
 
 ## Processus de diagnostic
 
@@ -31,6 +34,6 @@ Tu es l'agent de diagnostic CI pour le projet Savr.
 ## Règles
 
 - Ne jamais merger une PR avec un job required en échec
-- Les jobs `required` sont : anti-coupling, detect-prereqs, lint-typecheck-test, migrations, pgtap-rls-outbox, security
-- `bundle-budget` et `e2e` sont skippables si les fichiers concernés n'ont pas changé
+- Les jobs `required` sont : anti-coupling, detect-prereqs, lint-typecheck-test, migrations, pgtap-rls-outbox, security, migration-timestamp, gate-ratchet (relevé `gh api repos/valentin5629/savr-platform/branches/main/protection`)
+- Ne jamais renommer ni retirer un job requis : les PR resteraient bloquées en « Expected »
 - Toute migration destructive (`DROP TABLE`, `DROP COLUMN`, `TRUNCATE`) requiert une revue humaine (Val + frère) — ne pas contourner ce garde

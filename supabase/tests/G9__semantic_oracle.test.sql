@@ -1,17 +1,16 @@
 -- =============================================================================
--- G9 — Oracles sémantiques (Lot 0 / R0c) — MODE RAPPORT.
+-- G9 — Oracles sémantiques (Lot 0 / R0c) — BLOQUANT depuis le 2026-10-25.
 -- =============================================================================
 -- Ferme L1 : « livrable présent + test vert MAIS règle métier fausse ». Pour
 -- chaque règle SI/ALORS à risque, on compare le comportement RÉEL (trigger/RPC)
 -- à l'oracle `fn_est_*` (migration 20260624120000) aux CAS-LIMITES — c'est là
 -- que le test « heureux » rate la divergence.
 --
--- ⚠ HORS supabase/tests/ À DESSEIN : ce fichier ne doit PAS être ramassé par le
--- job bloquant `pgtap-rls-outbox` (`supabase test db`). Il est exécuté par le job
--- mode-rapport `semantic-oracle` (continue-on-error) via psql -f → ne rougit
--- jamais le build en T0. Flip bloquant (T1) = déplacer dans supabase/tests/.
+-- BLOQUANT (T1) depuis le 2026-10-25 (décision Val C3, audit CI) : déplacé de
+-- supabase/tests-report/ dans supabase/tests/, il est joué par `supabase test db`
+-- dans le job requis `pgtap-rls-outbox`. Il était vert (21/21) en mode rapport.
 --
--- Lancement local : psql "$DATABASE_URL" -f supabase/tests-report/g9_semantic_oracle.test.sql
+-- Lancement local : pnpm test:pgtap, ou psql "$DATABASE_URL" -f supabase/tests/G9__semantic_oracle.test.sql
 -- =============================================================================
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;

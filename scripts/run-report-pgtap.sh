@@ -6,9 +6,10 @@
 # CREATE EXTENSION pgtap), parse la sortie TAP, écrit un résumé dans
 # $GITHUB_STEP_SUMMARY + un compteur de burn-down, et SORT TOUJOURS 0.
 #
-# Utilisé par les jobs mode-rapport `semantic-oracle` (G9) et
-# `integration-contracts` (L4) — ces tests vivent HORS supabase/tests/ pour ne
-# PAS être ramassés par le job bloquant `pgtap-rls-outbox`.
+# Plus appelé par la CI depuis le 2026-10-25 : G9 et integration-contracts sont
+# passés en bloquant (déplacés dans supabase/tests/, joués par le job requis
+# `pgtap-rls-outbox`). Reste disponible pour un rapport à la main
+# (`pnpm check:semantic-oracle`, `pnpm check:integration-contracts`).
 #
 # Usage : bash scripts/run-report-pgtap.sh <fichier.test.sql> "<Titre du gate>"
 # Pré-requis : $DATABASE_URL + psql sur le PATH.

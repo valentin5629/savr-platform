@@ -33,7 +33,8 @@
     "packages/plateforme/src/app/(admin)/admin/parametres/auto-accept/page.tsx",
     "packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts",
     "packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts",
-    "specs/manifests/M2.3.json"
+    "specs/manifests/M2.3.json",
+    "supabase/migrations/20261025200000_plateforme_auto_accept_association_obligatoire.sql"
   ],
   "tables_concernees": [
     "plateforme.attributions_antgaspi (INSERT via RPC, UPDATE poids_repas_kg → trigger volume)",
@@ -377,6 +378,14 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
       "libelle": "Algorithme d'attribution AG au pax de LA collecte AG (lot C2, décision Val Q2 du 2026-10-24) : le seuil grand volume (regle_ag_seuil_pax_velo, 600) et le nb_pax rendu — lu par l'auto-acceptation et affiché « N PAX » sur l'écran d'attribution, dont l'en-tête montrait déjà le pax de la collecte — se lisent sur collectes.pax, plus sur evenements.pax. Une soirée de 300 convives dans un événement de 900 part en branche vélo, plus en camion grand volume. La lecture de e.type_evenement_id, jamais utilisée, est retirée. ACL (service_role seul), SECURITY DEFINER et search_path inchangés. Preuve pgTAP sur un événement de 900 convives (ZD 900 et deux AG de 300 le même soir), contrôle à 700."
+    },
+    {
+      "id": "M2.3-auto-accept-association-obligatoire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:211",
+      "artefact": "supabase/migrations/20261025200000_plateforme_auto_accept_association_obligatoire.sql (association_id SET NOT NULL, arrêt explicite si une règle sans association existe) ; packages/plateforme/src/app/api/v1/admin/config-auto-accept/route.ts (POST et PATCH : 422 « association_id obligatoire » sans écriture) ; packages/plateforme/src/app/(admin)/admin/parametres/auto-accept/page.tsx (colonne « Association fixe » sans « Algo »)",
+      "test": "I4-API (tests/api/admin/config-auto-accept-association.m2-3.test.ts) + I4-PGTAP (supabase/tests/auto_accept_association_obligatoire.test.sql)",
+      "statut": "implemented",
+      "libelle": "Auto-accept AG : association obligatoire (décision Val I4 du 2026-10-25, §04 config_auto_accept_ag et §06.09 §6). Une règle sans association ne se déclenchait jamais (rpc_evaluer_auto_accept_ag exige association_id = association top 1). La base pose NOT NULL ; l'API Admin refuse une création ou une modification sans association ; l'écran n'affiche plus « Algo » pour l'association (« Algo » ne vaut que pour le transporteur). Lignes existantes contrôlées le 2026-10-25 : dev 3 règles, 0 sans association ; prod 0 règle."
     }
   ],
   "cdc_source_hash": {

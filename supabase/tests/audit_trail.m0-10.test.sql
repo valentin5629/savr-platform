@@ -113,9 +113,16 @@ VALUES ('a09f000c-0000-0000-0000-000000000001'::uuid, 'seuil_test_audit', '"42"'
 INSERT INTO plateforme.parametres_co2_divers (id, cle, valeur, unite, description)
 VALUES ('a09f000d-0000-0000-0000-000000000001'::uuid, 'co2_test_audit', 1.5, 'kgCO2e', 'CO2 test audit');
 
--- Config auto-accept (pour trigger config)
-INSERT INTO plateforme.config_auto_accept_ag (id, organisation_id, auto_accept_actif)
-VALUES ('a09f000e-0000-0000-0000-000000000001'::uuid, 'a09f0001-0000-0000-0000-000000000001'::uuid, false);
+-- Config auto-accept (pour trigger config). L'association est obligatoire
+-- (décision Val I4 du 2026-10-25, migration 20261025200000).
+INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, capacite_max_beneficiaires,
+  actif, description_rapport_impact, latitude, longitude)
+VALUES ('a09f000f-0000-0000-0000-000000000001'::uuid, 'Asso audit', '1 rue Audit', 'Paris', 'idf', 'asso@audit.test', 100,
+  true, 'Association des tests de l''audit trail.', 48.8600, 2.3500);
+
+INSERT INTO plateforme.config_auto_accept_ag (id, organisation_id, association_id, auto_accept_actif)
+VALUES ('a09f000e-0000-0000-0000-000000000001'::uuid, 'a09f0001-0000-0000-0000-000000000001'::uuid,
+  'a09f000f-0000-0000-0000-000000000001'::uuid, false);
 
 -- =====================================================================
 -- T01 : audit_log a la colonne impersonator_id

@@ -196,7 +196,7 @@ Bouton "Ajouter une ligne" → ouvre un sélecteur :
 
 ### ZD *(refonte 2026-05-26 — base de grille + remises)*
 Pré-rempli = **base × remises** (cf. [[05 - Règles métier#Tarifs et remises — résolution du prix]]) :
-- **Base** : grille du catalogue affectée à l'organisation (`organisations.grille_tarifaire_zd_id`, NULL = grille défaut), ligne couvrant le pax → `montant_fixe_ht + montant_par_pax_ht × pax`.
+- **Base** : grille du catalogue affectée à l'organisation (`organisations.grille_tarifaire_zd_id`, NULL = grille défaut), ligne couvrant le pax de LA collecte (`collectes.pax`) → `montant_fixe_ht + montant_par_pax_ht × pax` ; grille et remises en vigueur à la date de la collecte *(lot C2, décisions Val C2 du 2026-10-20 et Q4 du 2026-10-24)*.
 - **Remises** éligibles (`tarifs_negocie`, scope organisation et/ou gestionnaire du lieu) cumulées multiplicativement.
 - Exemple : Butard (grille « Forfait + variable » 200 € + 1 €/pax), 300 pax chez Viparis (−5 %) → 500 × 0,95 = **475 € HT**.
 

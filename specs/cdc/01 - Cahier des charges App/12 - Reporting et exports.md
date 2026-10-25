@@ -25,7 +25,7 @@ Deux types de sorties documentaires dans la Plateforme Savr :
 **Déclenchement** : batch automatique J+1 à 6h (le lendemain matin de la collecte).
 
 **Contenu** :
-- En-tête : nom événement, **date de l'événement** (référence client), **date de collecte** (mention "intervention le {{date_collecte}}" si ≠ date événement — vérité réglementaire du bordereau), lieu, traiteur, nombre de pax
+- En-tête : nom événement, **date de l'événement** (référence client), **date de collecte** (mention "intervention le {{date_collecte}}" si ≠ date événement — vérité réglementaire du bordereau), lieu, traiteur, nombre de convives de LA collecte (`collectes.pax` ; 0 = inconnu → mention omise — lot C2, décision Val Q5 du 2026-10-24)
 - Tableau des pesées par flux (5 flux ZD V1 : biodéchets, emballages, carton, verre, déchet résiduel), avec pour chaque flux le **code déchet européen**, le **code de traitement R/D** et le **mode de traitement** (snapshot depuis `flux_dechets.code_dechet_europeen` / `code_traitement` / `mode_traitement`, ajout 2026-10-02). **Aucune valeur en dur ici** : les codes et les sites de traitement sont ceux du référentiel `flux_dechets` (cf. [[04 - Data Model]] § Table `flux_dechets`, tableau seed — codes Veolia, décision Val 2026-10-04).
 - Filière de traitement : **un site de traitement par flux** (`flux_dechets.exutoire` / `exutoire_adresse`), copié par flux dans `bordereaux_savr.detail_flux` à l'émission (plus d'exutoire unique pour la collecte — décision Val 2026-10-04, divergence M4.2). Mention : « Ce bordereau permet de répondre aux exigences du décret n° 2016-288 du 10 mars 2016 ».
 - Poids en kg + équivalent en nombre de bacs/rolls
@@ -56,7 +56,7 @@ Le PDF dit "rapport RSE" est désormais un document unique multi-pages qui agrè
 **Portée (révisé 2026-05-25, Sujet 1 option A — annule D3/4a)** : le rapport de recyclage est généré **au niveau de la collecte ZD** (unité programmée par le traiteur). Le taux de recyclage, les tonnages et le benchmark kg/pax sont calculés sur cette collecte. Si la collecte a mobilisé plusieurs camions, l'éclatement et l'agrégation des pesées sont **internes au TMS** : la Plateforme reçoit, via webhook S5, les pesées déjà **agrégées par flux pour la `collecte_id`** (somme des N camions). Le taux figé exploité est `collectes.taux_recyclage` (cf. [[05 - Règles métier#R_taux_recyclage]]). La page Bordereau de pesée intégré (page 2) reproduit le bordereau de la collecte. Plus d'agrégation niveau événement.
 
 - **Page 1 (toujours présente)** — Synthèse RSE :
-  - En-tête (maquettes validées 2026-10-13) : logo Savr, titre « Rapport de recyclage », **nom du client organisateur** (`evenements.nom_client_organisateur`, sinon nom du compte client lié, sinon nom de l'événement) suivi de « × {{traiteur}} » (nom du traiteur opérationnel, omis s'il est identique), logo du client et logo du traiteur (voir « Logos » ci-dessous) ; puis **date de l'événement** (`evenements.date_evenement`), lieu et adresse, nombre de convives. La date de collecte reste en page Bordereau.
+  - En-tête (maquettes validées 2026-10-13) : logo Savr, titre « Rapport de recyclage », **nom du client organisateur** (`evenements.nom_client_organisateur`, sinon nom du compte client lié, sinon nom de l'événement) suivi de « × {{traiteur}} » (nom du traiteur opérationnel, omis s'il est identique), logo du client et logo du traiteur (voir « Logos » ci-dessous) ; puis **date de l'événement** (`evenements.date_evenement`), lieu et adresse, nombre de convives de LA collecte (`collectes.pax`, « — » à 0 — lot C2, décision Val Q5 du 2026-10-24). La date de collecte reste en page Bordereau.
   - **Taux de recyclage** (%) — indicateur principal, **formule à captation par filière** méthode UE 2019/1004 (cf. [[05 - Règles métier#R_taux_recyclage]]). Lu depuis `collectes.taux_recyclage` (figé à la clôture, reproductibilité PDF). Tooltip côté UI espace traiteur ; en PDF = mention discrète "Calculé selon la méthode UE 2019/1004 — taux de captation par filière. Voir Méthodologie."
   - Tonnage et part par flux (5 flux ZD V1 — sans calcul de "taux par flux", supprimé 2026-05-06 : la métrique unique est le taux de recyclage global de la collecte)
   - **Bloc impact carbone (refonte 2026-06-04, Sujet 3)** — lu depuis les colonnes figées `collectes.co2_*` (snapshot `co2_facteurs_snapshot`, reproductible). Présentation conforme **règle ABC** :
@@ -173,7 +173,7 @@ Justification : l'agence partage ce rapport avec son client final, son branding 
 
 **Contenu (texte seul, pas de photos — décision Val 2026-05-04)** :
 
-- En-tête événement : nom, **date de l'événement** (`evenements.date_evenement`, référence client), lieu, traiteur, nombre de pax, client organisateur si renseigné
+- En-tête événement : nom, **date de l'événement** (`evenements.date_evenement`, référence client), lieu, traiteur, nombre de convives de LA collecte AG (`collectes.pax` ; 0 → mention omise — lot C2, décision Val Q5 du 2026-10-24), client organisateur si renseigné
 - Bloc "Constat" :
   - **Date et heure de présentation chauffeur sur site** (`tournees.heure_debut_reelle`) — c'est ici qu'apparaît la date d'intervention réelle (peut différer de la date événement)
   - Identification chauffeur (nom)

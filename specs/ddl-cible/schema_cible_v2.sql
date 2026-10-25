@@ -105,6 +105,13 @@
 --     · scripts/check-schema-vs-cible.ts (G6) ne compare que les COLONNES via pg_attribute — il ne
 --       voit ni les contraintes ni les index, donc ce type d'écart continuera de passer inaperçu.
 --       Élargir G6 aux contraintes et index = lot dédié.
+-- Regelé le : 2026-10-25 (décision Val I4 + alignement §04 App, table plateforme.config_auto_accept_ag) :
+--   association_id passe NOT NULL (une règle sans association ne se déclenchait jamais) ;
+--   modifie_par / modifie_le remplacés par created_at / updated_at (structure réalisée V1, auteur
+--   tracé dans audit_log) → FK modifie_par → plateforme.users retirée.
+--   Comptes MESURÉS pglast v7.14 : 94 tables (59 plateforme, 33 tms, 2 shared) / 56 enums /
+--   **163 FK** (−1) / **324 statements** (−1). Avant ce regel, mesuré 94 / 164 / 325 : les comptes
+--   « 93 / 162 / 322 » des regels précédents avaient dérivé (non recomptés depuis le 2026-07-06).
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -1233,14 +1240,14 @@ CREATE TABLE plateforme.audit_log (
 CREATE TABLE plateforme.config_auto_accept_ag (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organisation_id     uuid NOT NULL,
-  association_id      uuid,
+  association_id      uuid NOT NULL,
   transporteur_id     uuid,
   auto_accept_actif   boolean NOT NULL DEFAULT false,
   seuil_pax_min       integer,
   seuil_pax_max       integer,
   notes               text,
-  modifie_par         uuid,
-  modifie_le          timestamptz NOT NULL DEFAULT now()
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now()
 );
 
 -- ---------------------------------------------------------------------
@@ -2083,7 +2090,6 @@ ALTER TABLE plateforme.audit_log                ADD FOREIGN KEY (impersonator_id
 ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (organisation_id)          REFERENCES plateforme.organisations(id);
 ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (association_id)           REFERENCES plateforme.associations(id);
 ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (transporteur_id)          REFERENCES plateforme.transporteurs(id);
-ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (modifie_par)              REFERENCES plateforme.users(id);
 
 -- 5b. tms.* (intra-schéma + vers shared.prestataires uniquement)
 ALTER TABLE tms.users_tms                    ADD FOREIGN KEY (prestataire_id)         REFERENCES shared.prestataires(id);

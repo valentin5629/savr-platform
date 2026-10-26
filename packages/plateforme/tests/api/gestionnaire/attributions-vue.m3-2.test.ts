@@ -79,7 +79,11 @@ const TABLE = /attributions_antgaspi\s*\(/;
 
 // Collecte AG clôturée d'un traiteur TIERS sur un lieu du gestionnaire, telle
 // que PostgREST la rend : l'embed de la vue est un OBJET (to-one, mesuré).
-function collecteAg(id: string, repas: number | null, evt: object) {
+function collecteAg(
+  id: string,
+  repas: number | null,
+  evt: { pax?: number; [cle: string]: unknown },
+) {
   return {
     id,
     type: 'anti_gaspi',
@@ -87,6 +91,8 @@ function collecteAg(id: string, repas: number | null, evt: object) {
     date_collecte: jourParis(new Date()),
     taux_recyclage: null,
     realisee_at: null,
+    // Convives de la collecte (lot 3) : ceux de son événement à une collecte.
+    pax: evt.pax ?? 0,
     evenements: evt,
     collecte_flux: [],
     attributions_antgaspi:

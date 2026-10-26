@@ -192,7 +192,7 @@ describe('M3.5 / dashboards/evolution', () => {
     expect(bucket.taux_recyclage).toBe(80);
   });
 
-  it('M3.5/evolution_ag_ratio_pax_distinct — repas sommés, pax compté une fois par événement', async () => {
+  it('Lot3/evolution_ag_ratio_pax_collectes — repas sommés, pax de chaque collecte (deux soirées de 60 et 40), pas celui de l’événement', async () => {
     setupAuth('traiteur_manager');
     results['collectes'] = {
       data: [
@@ -201,6 +201,7 @@ describe('M3.5 / dashboards/evolution', () => {
           type: 'anti_gaspi',
           taux_recyclage: null,
           date_collecte: '2026-06-10',
+          pax: 60,
           evenements: evt('evt-1', { pax: 100 }),
           collecte_flux: [],
           // Relation to-one : PostgREST renvoie un OBJET (pas un tableau). Le endpoint
@@ -212,7 +213,9 @@ describe('M3.5 / dashboards/evolution', () => {
           type: 'anti_gaspi',
           taux_recyclage: null,
           date_collecte: '2026-06-12',
-          evenements: evt('evt-1', { pax: 100 }), // MÊME événement → pax compté 1×
+          pax: 40,
+          // MÊME événement (100 convives) : chaque collecte compte les siennes
+          evenements: evt('evt-1', { pax: 100 }),
           collecte_flux: [],
           attributions_antgaspi: [{ volume_repas_realise: 40 }], // forme tableau aussi supportée
         },
@@ -230,8 +233,39 @@ describe('M3.5 / dashboards/evolution', () => {
     };
     const bucket = json.data.series[0]!;
     expect(bucket.repas_donnes).toBe(70); // 30 + 40
-    expect(bucket.pax).toBe(100); // même événement → 1 seule fois
+    expect(bucket.pax).toBe(100); // 60 + 40 (même total que l'événement ici)
     expect(bucket.ratio).toBeCloseTo(0.7, 5);
+  });
+
+  it('Lot3/evolution_ag_filtre_partiel — une seule soirée retenue : ratio sur ses 60 convives, pas les 100 de l’événement', async () => {
+    setupAuth('traiteur_manager');
+    results['collectes'] = {
+      data: [
+        {
+          id: 'c1',
+          type: 'anti_gaspi',
+          taux_recyclage: null,
+          date_collecte: '2026-06-10',
+          pax: 60,
+          evenements: evt('evt-1', { pax: 100 }),
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 30 },
+        },
+      ],
+      error: null,
+    };
+    const GET = await loadGET();
+    const res = await GET(
+      req(
+        '/api/v1/dashboards/evolution?type=anti_gaspi&from=2025-06-01&to=2026-06-30',
+      ),
+    );
+    const json = (await res.json()) as {
+      data: { series: Array<Record<string, number | null>> };
+    };
+    const bucket = json.data.series[0]!;
+    expect(bucket.pax).toBe(60);
+    expect(bucket.ratio).toBeCloseTo(0.5, 5);
   });
 
   it('M3.5/evolution_filtres_type_et_taille_de_la_collecte — type en SQL sur collectes.type_evenement_id, taille sur le pax de la collecte (Q3 Val 2026-10-24)', async () => {
@@ -338,6 +372,7 @@ describe('dashboards/evolution AG — attributions lues par rôle', () => {
     type: 'anti_gaspi',
     taux_recyclage: null,
     date_collecte: '2026-06-10',
+    pax: 1000,
     evenements: evt(e, { pax: 1000 }),
     collecte_flux: [],
     attributions_antgaspi: { volume_repas_realise: repas },
@@ -385,5 +420,40 @@ describe('dashboards/evolution AG — attributions lues par rôle', () => {
     );
     expect(selectCollectes()).not.toContain('v_attributions_gestionnaire');
     expect(json.data.series[0]!.repas_donnes).toBe(30);
+  });
+});
+
+// Lot 3 (reliquat C1/C2) : un filtre Type sans identifiant lisible rend une série
+// vide, jamais une série non filtrée ni une erreur de PostgREST.
+describe('Lot 3 / dashboards/evolution — filtre Type', () => {
+  it('Lot3/evolution_type_evenement_illisible_vide — type_evenement_ids[] sans UUID lisible : série vide, aucune lecture des collectes', async () => {
+    setupAuth('traiteur_manager');
+    results['collectes'] = {
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          taux_recyclage: 80,
+          date_collecte: '2026-06-10',
+          pax: 100,
+          evenements: evt('evt-1'),
+          collecte_flux: [
+            { poids_reel_kg: 50, flux_dechets: { code: 'biodechet' } },
+          ],
+          attributions_antgaspi: null,
+        },
+      ],
+      error: null,
+    };
+    const GET = await loadGET();
+    const res = await GET(
+      req(
+        '/api/v1/dashboards/evolution?type=zero_dechet&from=2025-06-01&to=2026-06-30&type_evenement_ids[]=pas-un-uuid',
+      ),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { series: unknown[] } };
+    expect(json.data.series).toEqual([]);
+    expect((calls.from ?? []).some((a) => a[0] === 'collectes')).toBe(false);
   });
 });

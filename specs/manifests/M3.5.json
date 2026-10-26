@@ -102,7 +102,34 @@
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, loadEvolution) + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (fetchScopedRows, buildSyntheseSnapshot)",
       "test": "M3.5/blocs_filtres_type_et_taille_de_la_collecte + M3.5/evolution_filtres_type_et_taille_de_la_collecte + M3.5/synthese_filtres_type_et_taille_de_la_collecte",
       "statut": "implemented",
-      "libelle": "Filtres globaux « Type d'événement » et « Taille d'événement » des dashboards traiteur, agence et gestionnaire (blocs, évolution) et de la synthèse PDF au grain de la COLLECTE (lot C1, 2026-10-24 ; C3 du 2026-10-22, Q3 Val 2026-10-24 « Collecte, dès C1 ») : `.in('type_evenement_id')` sur collectes, taille en JS sur collectes.pax. Les cumuls de pax (kg/pax, repas/pax) restent ceux des événements distincts jusqu'au lot 3."
+      "libelle": "Filtres globaux « Type d'événement » et « Taille d'événement » des dashboards traiteur, agence et gestionnaire (blocs, évolution) et de la synthèse PDF au grain de la COLLECTE (lot C1, 2026-10-24 ; C3 du 2026-10-22, Q3 Val 2026-10-24 « Collecte, dès C1 ») : `.in('type_evenement_id')` sur collectes, taille en JS sur collectes.pax. Les cumuls de pax (kg/pax, repas/pax) sont au pax des collectes depuis le lot 3 (livrable M3.5-cumuls-pax-collecte)."
+    },
+    {
+      "id": "M3.5-cumuls-pax-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
+      "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts (aDesConvives, paxCumules, ratioParPax, computeDashboardKpi) + packages/plateforme/src/lib/dashboards/loaders.ts (buildEvolutionSeries, topLieuxFrom, aggregateActeurs, kgParPaxParFluxFrom, loadBlocs, loadEvolution) + packages/plateforme/src/components/dashboards/useEvolutionBlocs.ts (FluxSeriePoint.kg_par_pax)",
+      "test": "Lot3/kpi_pax_deux_soirees + Lot3/kpi_zd_kg_par_pax_filtre_partiel + Lot3/kpi_zd_collecte_sans_convives_ecartee + Lot3/kpi_ag_collecte_sans_convives_ecartee + Lot3/kpi_ratio_aucun_convive + Lot3/kg_par_pax_par_flux_collectes + Lot3/blocs_ag_repas_par_pax_collectes + Lot3/blocs_zd_kg_par_pax_par_flux_collectes + Lot3/evolution_ag_ratio_pax_collectes + Lot3/evolution_ag_filtre_partiel + M3.2/kpi_sparkline_serie_zd_nb_collectes_pax_co2_par_bucket + M3.2/kpi_sparkline_serie_ag_nb_collectes_par_bucket",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "Cumuls de pax des dashboards au grain de la COLLECTE (lot 3, décisions Val Q1 à Q5 du 2026-10-25) : pax cumulés = Σ collectes.pax des collectes retenues par les filtres, chaque onglet ne comptant que ses propres collectes ; kg/pax, repas/pax, kg/pax par flux (ligne « Vous » des radars) = Σ valeur / Σ pax des seules collectes à convives connus — une collecte à 0 convive (reprise Bubble) sort du numérateur ET du dénominateur, comme du benchmark (lot C1, Q4). Corrige I5 de la fiche M1.2_20261024_lot-c1 : un filtre Type ou Taille ne sous-estime plus kg/pax et repas/pax. Les séries d'évolution portent pax et kg_par_pax par bucket (sparklines). Les sélections ne lisent plus evenements.pax."
+    },
+    {
+      "id": "M3.5-v-kpi-traiteur-pax-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:196",
+      "artefact": "supabase/migrations/20261025230000_plateforme_v_kpi_traiteur_pax_collecte.sql (v_kpi_traiteur : pax_total = Σ collectes.pax, colonnes tonnage_kg_pax_connu et nb_repas_pax_connu ajoutées en fin) + packages/shared/src/database.types.ts",
+      "test": "supabase/tests/v_kpi_traiteur_pax_collecte.test.sql « L3-VUE-1 : deux soirées » « L3-VUE-2 : deux soirées » « L3-VUE-3 : même soir » « L3-VUE-5 : collecte ZD à 0 convive » « L3-VUE-6 : collecte AG à 0 convive » « L3-VUE-7 : une ligne AG » « L3-VUE-8 : deux mois » « L3-VUE-10 : v_kpi_traiteur reste security_invoker » « L3-VUE-11 : droits inchangés »",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "Vue v_kpi_traiteur (cartes et sparklines des dashboards traiteur et agence) au pax des collectes (lot 3, Q5 du 2026-10-25) : pax_total = Σ collectes.pax des collectes clôturées du mois et du type de la ligne ; tonnage_kg_pax_connu / nb_repas_pax_connu = numérateurs de kg/pax et repas/pax sur les seules collectes à convives connus. CREATE OR REPLACE VIEW : colonnes existantes, security_invoker et droits inchangés (mesurés avant / après sur base jetable). v_kpi_lieu non touchée : elle ne renvoie aucun pax et aucun code ne la lit."
+    },
+    {
+      "id": "M3.5-filtre-type-evenement-uuid",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:77",
+      "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, loadEvolution : typeEvtIds filtrés par estUuid)",
+      "test": "Lot3/blocs_type_evenement_illisible_vide + Lot3/blocs_type_evenement_valeurs_mal_formees_ecartees + Lot3/evolution_type_evenement_illisible_vide",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "Reliquat des lots C1 et C2 : type_evenement_ids[] des routes /dashboards/blocs et /dashboards/evolution (et des chargeurs SSR) lu comme UUID, comme lireFiltresCollectesGestionnaire : les valeurs mal formées sont écartées ; un filtre Type sans aucun identifiant lisible rend des blocs ou une série vides, sans lire les collectes — jamais un filtre ignoré, jamais une erreur 500 de PostgREST."
     }
   ],
   "cdc_source_hash": {

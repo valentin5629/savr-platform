@@ -113,6 +113,8 @@ function zd(
     type: 'zero_dechet',
     taux_recyclage: taux,
     date_collecte: '2026-06-15',
+    // Convives de la collecte (lot 3) : ceux de son événement à une collecte.
+    pax: e.pax ?? 100,
     evenements: evt(e),
     collecte_flux: flux.map(([code, kg]) => ({
       poids_reel_kg: kg,
@@ -132,6 +134,7 @@ function ag(
     type: 'anti_gaspi',
     taux_recyclage: null,
     date_collecte: '2026-06-15',
+    pax: e.pax ?? 100,
     evenements: evt(e),
     collecte_flux: [],
     // Relation to-one : PostgREST renvoie un OBJET, pas un tableau.
@@ -215,7 +218,7 @@ describe('M3.1 / blocs traiteur ZD', () => {
     expect(a.tonnage_kg).toBe(400);
     // Taux pondéré Lieu A = (80*300 + 60*100)/400 = 75.
     expect(a.taux_recyclage).toBe(75);
-    // kg/pax par flux : pax distinct = e1,e2,e3 = 300 ; biodechet=(200+100)/300=1.
+    // kg/pax par flux : pax des collectes c1,c2,c3 = 300 ; biodechet=(200+100)/300=1.
     expect(j.data.kgParPaxParFlux.biodechet).toBeCloseTo(1, 5);
     expect(j.data.kgParPaxParFlux.carton).toBeCloseTo(500 / 300, 5);
   });
@@ -351,7 +354,7 @@ describe('M3.1 / blocs traiteur AG', () => {
     ]);
     const la = j.data.topLieux.find((l) => l.lieu_nom === 'Lieu A')!;
     expect(la.repas_donnes).toBe(130);
-    // repas/pax = 130 / (pax distinct e1,e3 = 200) = 0.65.
+    // repas/pax = 130 / (pax des collectes c1,c3 = 200) = 0.65.
     expect(la.repas_par_pax).toBeCloseTo(0.65, 5);
   });
 });
@@ -557,5 +560,99 @@ describe('blocs AG — attributions lues par rôle (vue gestionnaire / table)', 
       nom: 'Asso Un',
       repas_recus: 30,
     });
+  });
+});
+
+// Lot 3 du pax porté par la collecte (décisions Val Q1 et Q2 du 2026-10-25) : les
+// cumuls de pax des blocs sont ceux des COLLECTES (collecte à 0 convive écartée des
+// ratios), et un filtre Type sans identifiant lisible rend des blocs vides.
+describe('Lot 3 / blocs — pax des collectes et filtre Type', () => {
+  const UUID_TYPE = '7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+
+  it('Lot3/blocs_ag_repas_par_pax_collectes — deux soirées au même lieu (300 convives puis 0) : repas/pax 60 / 300, pas 80 / 800 de l’événement', async () => {
+    setupAuth('traiteur_manager', 'org-1');
+    const asso = { id: 'a1', nom: 'Asso Un', ville: 'Paris' };
+    queues['collectes'] = [
+      {
+        data: [
+          {
+            ...ag('c1', { id: 'e1', lieu_id: 'A', pax: 800 }, 60, asso),
+            pax: 300,
+          },
+          {
+            ...ag('c2', { id: 'e1', lieu_id: 'A', pax: 800 }, 20, asso),
+            pax: 0,
+          },
+        ],
+        error: null,
+      },
+    ];
+    queues['users'] = [{ data: [], error: null }];
+    const GET = await loadGET();
+    const res = await GET(
+      req(
+        '/api/v1/dashboards/blocs?type=anti_gaspi&from=2026-06-01&to=2026-06-30',
+      ),
+    );
+    const j = (await res.json()) as BlocsJson;
+    const lieu = j.data.topLieux[0]!;
+    expect(lieu.repas_donnes).toBe(80);
+    expect(lieu.repas_par_pax as number).toBeCloseTo(0.2, 5);
+  });
+
+  it('Lot3/blocs_zd_kg_par_pax_par_flux_collectes — une soirée de 300 convives d’un événement de 800 : 600 kg / 300, pas / 800', async () => {
+    setupAuth('traiteur_manager', 'org-1');
+    queues['collectes'] = [
+      {
+        data: [
+          {
+            ...zd('c1', { id: 'e1', pax: 800 }, 80, [['biodechet', 600]]),
+            pax: 300,
+          },
+        ],
+        error: null,
+      },
+    ];
+    queues['users'] = [{ data: [], error: null }];
+    const GET = await loadGET();
+    const res = await GET(
+      req(
+        '/api/v1/dashboards/blocs?type=zero_dechet&from=2026-06-01&to=2026-06-30',
+      ),
+    );
+    const j = (await res.json()) as BlocsJson;
+    expect(j.data.kgParPaxParFlux.biodechet).toBeCloseTo(2, 5);
+  });
+
+  it('Lot3/blocs_type_evenement_illisible_vide — type_evenement_ids[] sans UUID lisible : blocs vides, aucune lecture des collectes', async () => {
+    setupAuth('traiteur_manager', 'org-1');
+    queues['collectes'] = [
+      {
+        data: [zd('c1', { id: 'e1' }, 80, [['biodechet', 100]])],
+        error: null,
+      },
+    ];
+    const GET = await loadGET();
+    const res = await GET(
+      req(
+        "/api/v1/dashboards/blocs?type=zero_dechet&type_evenement_ids[]=1'%20or%201=1",
+      ),
+    );
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as BlocsJson;
+    expect(j.data.topLieux).toEqual([]);
+    expect(j.data.kgParPaxParFlux).toEqual({});
+    expect(calls.from ?? []).not.toContainEqual(['collectes']);
+  });
+
+  it('Lot3/blocs_type_evenement_valeurs_mal_formees_ecartees — seuls les UUID lisibles atteignent PostgREST', async () => {
+    setupAuth('traiteur_manager', 'org-1');
+    const GET = await loadGET();
+    await GET(
+      req(
+        `/api/v1/dashboards/blocs?type=zero_dechet&type_evenement_ids[]=abc&type_evenement_ids[]=${UUID_TYPE}`,
+      ),
+    );
+    expect(calls.in ?? []).toContainEqual(['type_evenement_id', [UUID_TYPE]]);
   });
 });

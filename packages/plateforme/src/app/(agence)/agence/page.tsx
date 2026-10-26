@@ -35,6 +35,8 @@ import {
   aggregateBenchmarkPerFlux,
   aggregateKpis,
   benchmarkItems,
+  kgParPaxDeLigne,
+  repasParPaxDeLigne,
   sparkFromRows,
   variationPct,
   type BenchmarkRow,
@@ -161,7 +163,7 @@ export default function AgenceDashboardPage() {
 
   const agg = aggregateKpis(rows);
   const prev = aggregateKpis(prevRows);
-  const { nbCollectes, tonnage, pax, repas, taux, kgPax } = agg;
+  const { nbCollectes, tonnage, pax, repas, taux, kgPax, repasPax } = agg;
 
   const seuilBas =
     pack?.pack_actif &&
@@ -296,9 +298,7 @@ export default function AgenceDashboardPage() {
               value={kgPax != null ? fmtDec(kgPax, 2) : '—'}
               unit={kgPax != null ? 'kg/pax' : undefined}
               dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromRows(rows, (r) =>
-                r.pax_total > 0 ? (r.tonnage_kg ?? 0) / r.pax_total : 0,
-              )}
+              sparkPoints={sparkFromRows(rows, kgParPaxDeLigne)}
             />
           </div>
 
@@ -369,11 +369,9 @@ export default function AgenceDashboardPage() {
             />
             <StatCard
               label="Repas/pax moyen"
-              value={pax > 0 ? fmtDec(repas / pax, 2) : '—'}
+              value={repasPax != null ? fmtDec(repasPax, 2) : '—'}
               dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromRows(rows, (r) =>
-                r.pax_total > 0 ? (r.nb_repas_donnes ?? 0) / r.pax_total : 0,
-              )}
+              sparkPoints={sparkFromRows(rows, repasParPaxDeLigne)}
             />
           </div>
 

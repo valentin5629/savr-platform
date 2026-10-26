@@ -227,19 +227,21 @@ SELECT is(
   'T2 : 3 collectes ZD Kardamome (dont 1 sans taux) — toutes comptées dans nb_collectes'
 );
 
--- ─── T3 : Marge ZD Kardamome — pax distincts par événement ───────────────
+-- ─── T3 : Marge ZD Kardamome — pax des collectes ZD (lot 3, Q3 du 2026-10-25) ─
 
--- E1 (pax=200) et E2 (pax=100) → pax_total = 300
--- tarif = 1.50 → 1.50 × 300 = 450
--- facture emise = 150 → marge = 450 - 150 = 300
+-- Collectes ZD clôturées C1 (100) + C2 (100) + C3 (50) → pax_total = 250 (l'AG
+-- de 50 convives de E1 n'entre plus dans l'onglet ZD : avant le lot 3, la vue
+-- lisait les 200 + 100 convives des événements)
+-- tarif = 1.50 → 1.50 × 250 = 375
+-- facture emise = 150 → marge = 375 - 150 = 225
 SELECT is(
   (SELECT ROUND(marge_zd_ht::numeric, 2)
    FROM plateforme.v_kpi_traiteur
    WHERE organisation_id = 'd0000000-0000-0000-0000-000000000001'::uuid
      AND type_collecte = 'zero_dechet'
      AND mois = '2026-05-01'::date),
-  300.00::numeric,
-  'T3 : marge ZD = 1.50×300pax − 150€ facture = 300€'
+  225.00::numeric,
+  'T3 : marge ZD = 1.50×250 pax des collectes ZD − 150€ facture = 225€'
 );
 
 -- ─── T4 : nb_repas_donnes AG ──────────────────────────────────────────────

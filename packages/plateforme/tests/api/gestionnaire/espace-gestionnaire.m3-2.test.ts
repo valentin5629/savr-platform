@@ -233,7 +233,10 @@ describe('M3.2 / dashboard', () => {
           type: 'zero_dechet',
           statut: 'cloturee',
           taux_recyclage: 0.8,
-          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 100 },
+          // Pax de la collecte (lot 3) ; l'événement en compte 400 sur ses
+          // autres soirées, hors du ratio.
+          pax: 100,
+          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 400 },
           collecte_flux: [
             { poids_reel_kg: 50, flux_dechets: { code: 'biodechet' } },
             { poids_reel_kg: 20, flux_dechets: { code: 'verre' } },
@@ -401,6 +404,128 @@ describe('M3.2 / dashboard', () => {
     expect(colonnes).toEqual(
       expect.arrayContaining(['credits_initiaux', 'credits_restants']),
     );
+  });
+});
+
+// Lot 3 du pax porté par la collecte (décisions Val Q1 et Q2 du 2026-10-25) et
+// reliquat C1/C2 (filtre Type lu comme UUID) — route KPI du gestionnaire.
+describe('Lot 3 / dashboard gestionnaire — pax des collectes et filtre Type', () => {
+  it('Lot3/gestionnaire_kpi_zd_filtre_partiel — filtre Type qui ne retient qu’une soirée de 300 convives : kg/pax 600 / 300, pas / 800 de l’événement (I5)', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          taux_recyclage: 80,
+          pax: 300,
+          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 800 },
+          collecte_flux: [
+            { poids_reel_kg: 600, flux_dechets: { code: 'biodechet' } },
+          ],
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: null, error: null }); // pack AG
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/dashboard/route.js');
+    const res = await GET(
+      makeReq(
+        'GET',
+        '/api/v1/gestionnaire/dashboard?type=zero_dechet&type_evenement_ids[]=7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+      ),
+    );
+    const json = (await res.json()) as {
+      data: {
+        kpis: { kg_par_pax: number };
+        kg_par_pax_par_flux: Record<string, number>;
+      };
+    };
+    expect(json.data.kpis.kg_par_pax).toBeCloseTo(2, 5);
+    expect(json.data.kg_par_pax_par_flux.biodechet).toBeCloseTo(2, 5);
+  });
+
+  it('Lot3/gestionnaire_kpi_ag_pax_collectes — deux soirées AG (300 convives puis 0) : 300 pax cumulés, repas/pax 60 / 300', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          pax: 300,
+          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 800 },
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 60 },
+        },
+        {
+          id: 'c2',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          pax: 0,
+          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 800 },
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 20 },
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: null, error: null }); // pack AG
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/dashboard/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/dashboard?type=anti_gaspi'),
+    );
+    const json = (await res.json()) as {
+      data: {
+        kpis: {
+          nb_repas_donnes: number;
+          pax_total: number;
+          repas_par_pax: number;
+        };
+      };
+    };
+    expect(json.data.kpis).toMatchObject({
+      nb_repas_donnes: 80,
+      pax_total: 300,
+    });
+    expect(json.data.kpis.repas_par_pax).toBeCloseTo(0.2, 5);
+  });
+
+  it('Lot3/gestionnaire_type_evenement_illisible_vide — type_evenement_ids[] sans UUID lisible : aucune collecte retenue, aucune lecture des collectes', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          pax: 100,
+          evenements: { id: 'e1', lieu_id: 'lieu-1' },
+          collecte_flux: [{ poids_reel_kg: 50 }],
+        },
+      ],
+      error: null,
+    });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/dashboard/route.js');
+    const res = await GET(
+      makeReq(
+        'GET',
+        '/api/v1/gestionnaire/dashboard?type=zero_dechet&type_evenement_ids[]=abc',
+      ),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: { kpis: { nb_collectes: number; tonnage_kg: number } };
+    };
+    expect(json.data.kpis).toMatchObject({ nb_collectes: 0, tonnage_kg: 0 });
+    expect(rls.__calls.from ?? []).not.toContainEqual(['collectes']);
   });
 });
 

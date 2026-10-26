@@ -311,8 +311,13 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
       // saisi, une simple information annonce la facturation à l'unité
       // (décision Val 2026-10-16, ex-blocage ; nombre de collectes par type au
       // lieu de la case à cocher depuis le lot B2).
-      const nombreAg = screen.getByRole('textbox', { name: /Anti-Gaspi/i });
-      fireEvent.change(nombreAg, { target: { value: '1' } });
+      // Compteur − / + depuis le retour Val du 2026-10-26.
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Ajouter une collecte Anti-Gaspi (AG)',
+        }),
+      );
+      const nombreAg = screen.getByRole('status', { name: /Anti-Gaspi/i });
       await waitFor(
         () =>
           expect(
@@ -320,7 +325,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
           ).toBeInTheDocument(),
         ATTENTE_UI,
       );
-      expect(nombreAg).toHaveValue('1');
+      expect(nombreAg).toHaveTextContent(/^1$/);
     },
     ATTENTE_CAS_MS,
   );

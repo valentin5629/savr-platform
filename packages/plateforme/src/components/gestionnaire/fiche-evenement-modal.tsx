@@ -877,7 +877,7 @@ export function FicheEvenementModal({
                         <span className="block font-normal text-savr-neutral-600">
                           {adresseLieu === undefined
                             ? SELON_LA_COLLECTE
-                            : adresseLieu}
+                            : (adresseLieu ?? VIDE)}
                         </span>
                       </InfoItem>
                       {/* Le contrôle d'accès se pose par collecte : « Oui »

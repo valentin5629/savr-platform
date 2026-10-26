@@ -2,7 +2,9 @@
  * M3.2 — écrans Événements du gestionnaire de lieux (§06.05 §2), remis par Val
  * le 2026-10-18 : liste des événements de ses lieux, et fiche événement au
  * bilan CONSOLIDÉ sur toutes ses collectes — en pop-up sur la liste depuis le
- * 2026-10-19 (« en modale comme les pages collectes »).
+ * 2026-10-19 (« en modale comme les pages collectes »), en trois onglets depuis
+ * le 2026-10-26 (Informations générales, Informations chauffeurs, Bilan &
+ * documents) avec une frise Créé → Réalisé.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -69,6 +71,14 @@ const monterFiche = (
 /** Onglet de la fiche (Radix s'active au `mousedown`). */
 const onglet = (nom: RegExp | string) =>
   fireEvent.mouseDown(screen.getByRole('tab', { name: nom }));
+/** Fiche chargée : sa frise d'avancement est à l'écran. */
+const ficheChargee = () =>
+  screen.findByTestId('frise-statut-evenement', undefined, ATTENTE_UI);
+/** Étape courante de la frise de l'événement. */
+const etapeCourante = () =>
+  screen
+    .getByTestId('frise-statut-evenement')
+    .querySelector('[aria-current="step"]');
 
 const LIGNE = {
   id: EVT_ID,
@@ -98,6 +108,54 @@ const FLUX_VIDES = {
   verre: 0,
   dechet_residuel: 0,
 };
+
+/** Fiche d'une collecte, telle que la route de la fiche collecte la sert. */
+function ficheCollecte(over: Record<string, unknown> = {}) {
+  return {
+    id: 'c1',
+    type: 'zero_dechet',
+    statut: 'cloturee',
+    statut_tms: 'termine',
+    tms_reference: null,
+    date_collecte: '2026-09-10',
+    heure_collecte: '23:00:00',
+    pax: 400,
+    controle_acces_requis: false,
+    informations_completes: true,
+    informations_supplementaires: null,
+    taux_recyclage: null,
+    co2_evite_kg: null,
+    realisee_at: null,
+    aucun_repas_motif: null,
+    type_evenement_id: null,
+    type_evenement: null,
+    contacts_visibles: true,
+    contact_principal_nom: 'Léa Martin',
+    contact_principal_telephone: '06 12 34 56 78',
+    contact_secours_nom: null,
+    contact_secours_telephone: null,
+    taille_bracket: null,
+    evenement: {
+      id: EVT_ID,
+      nom_evenement: 'Salon Équip’Hôtel',
+      pax: 800,
+      nom_client_organisateur: 'Maison Lenôtre',
+      reference_affaire: 'AFF-2026-12',
+      lieu: null,
+    },
+    tournees: [],
+    coordonnees_urgence_demandee: false,
+    bilan_flux: null,
+    repas_donnes: null,
+    association: null,
+    rapport_rse_disponible: true,
+    rapport_rse_regenere: false,
+    rapport_reserve_donneur_ordre: false,
+    rapport_etat: 'disponible',
+    actions: { modifier: 'absent', annuler: 'absent', annulation: null },
+    ...over,
+  };
+}
 
 function detail(over: Record<string, unknown> = {}) {
   return {
@@ -132,40 +190,22 @@ function detail(over: Record<string, unknown> = {}) {
       derniere_collecte: '2026-09-12',
       statut_consolide: 'Terminé',
     },
-    collectes: [
-      {
-        id: 'c1',
-        type: 'zero_dechet',
-        statut: 'cloturee',
-        date_collecte: '2026-09-10',
-        heure_collecte: '23:00:00',
-        poids_total_kg: 900,
-        taux_recyclage: 80,
-        co2_evite_kg: 90,
-        nb_repas_donnes: null,
-      },
-      {
+    ajouter_collecte: false,
+    lieu_acces_details: 'Quai de livraison n°3',
+    fiches: [
+      ficheCollecte({ id: 'c1' }),
+      ficheCollecte({
         id: 'c2',
-        type: 'zero_dechet',
-        statut: 'cloturee',
         date_collecte: '2026-09-11',
         heure_collecte: null,
-        poids_total_kg: 100,
-        taux_recyclage: 20,
-        co2_evite_kg: 10,
-        nb_repas_donnes: null,
-      },
-      {
+        controle_acces_requis: true,
+      }),
+      ficheCollecte({
         id: 'c3',
         type: 'anti_gaspi',
-        statut: 'cloturee',
         date_collecte: '2026-09-12',
         heure_collecte: null,
-        poids_total_kg: null,
-        taux_recyclage: null,
-        co2_evite_kg: 575,
-        nb_repas_donnes: 230,
-      },
+      }),
     ],
     ...over,
   };
@@ -231,7 +271,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
       fireEvent.click(ligne);
       const fiche = await screen.findByRole('dialog', undefined, ATTENTE_UI);
       await within(fiche).findByTestId(
-        'bilan-consolide',
+        'frise-statut-evenement',
         undefined,
         ATTENTE_UI,
       );
@@ -496,6 +536,19 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
     async () => {
       stubFetch(() => ({ body: { data: detail() } }));
       monterFiche();
+      await ficheChargee();
+      // En-tête de la pop-up : nom, date, lieu, traiteur, pax.
+      expect(screen.getByTestId('fiche-evenement-infos')).toHaveTextContent(
+        /Paris Expo.*Kaspia.*800\s*pax/,
+      );
+      // Onglet ouvert d'emblée : Informations générales.
+      const entete = screen.getByTestId('evenement-entete');
+      expect(entete).toHaveTextContent('Salon Équip’Hôtel');
+      expect(entete).toHaveTextContent('Maison Lenôtre');
+      expect(entete).toHaveTextContent('Cocktail repas complet');
+      expect(entete).toHaveTextContent(/Déchets labo estimés\s*42\s*kg/);
+
+      onglet('Bilan & documents');
       const bilan = await screen.findByTestId(
         'bilan-consolide',
         undefined,
@@ -524,58 +577,289 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       const assos = within(ag).getByTestId('associations-beneficiaires');
       expect(assos).toHaveTextContent('Restos du Cœur · Paris150 repas');
       expect(assos).toHaveTextContent('Linkee80 repas');
-
-      // En-tête : statut consolidé, client, estimation labo, période.
-      expect(screen.getByTestId('statut-consolide')).toHaveTextContent(
-        'Terminé',
-      );
-      // En-tête de la pop-up : nom, date, lieu, traiteur, pax.
-      expect(screen.getByTestId('fiche-evenement-infos')).toHaveTextContent(
-        /Paris Expo.*Kaspia.*800\s*pax/,
-      );
-      onglet('Informations');
-      const entete = await screen.findByTestId(
-        'evenement-entete',
-        undefined,
-        ATTENTE_UI,
-      );
-      expect(entete).toHaveTextContent('Maison Lenôtre');
-      expect(entete).toHaveTextContent('Cocktail repas complet');
-      expect(entete).toHaveTextContent(/Déchets labo estimés\s*42\s*kg/);
-      expect(entete).toHaveTextContent('→');
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte — clic ligne, picto rapport ZD sur « Bilan »',
+    'EVT/frise_avancement — l’événement passe à l’étape suivante quand toutes ses collectes l’ont passée',
     async () => {
-      stubFetch(() => ({ body: { data: detail() } }));
+      stubFetch(() => ({
+        body: {
+          data: detail({
+            fiches: [
+              ficheCollecte({ id: 'c1', statut: 'cloturee' }),
+              ficheCollecte({ id: 'c2', statut: 'validee' }),
+              ficheCollecte({ id: 'c3', statut: 'annulee' }),
+            ],
+          }),
+        },
+      }));
       monterFiche();
-      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
-      onglet('Collectes (3)');
-      const table = await screen.findByTestId(
-        'evenement-collectes',
+      await ficheChargee();
+      expect(screen.getByTestId('frise-statut-evenement')).toHaveTextContent(
+        /Créé.*Validé.*En cours.*Réalisé/,
+      );
+      expect(etapeCourante()).toHaveTextContent('Validé');
+      expect(screen.queryByTestId('statut-consolide')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/informations_generales — événement, lieu et une carte par collecte ; contacts d’une collecte de traiteur tiers masqués',
+    async () => {
+      stubFetch(() => ({
+        body: {
+          data: detail({
+            ajouter_collecte: true,
+            fiches: [
+              ficheCollecte({
+                id: 'c1',
+                informations_supplementaires: 'Sonner à l’interphone',
+                contact_secours_nom: 'Paul Roux',
+                contact_secours_telephone: '07 00 00 00 01',
+              }),
+              ficheCollecte({
+                id: 'c2',
+                date_collecte: '2026-09-11',
+                statut: 'validee',
+                controle_acces_requis: true,
+                contacts_visibles: false,
+                contact_principal_nom: null,
+                contact_principal_telephone: null,
+              }),
+            ],
+          }),
+        },
+      }));
+      monterFiche();
+      await ficheChargee();
+      const entete = screen.getByTestId('evenement-entete');
+      expect(entete).toHaveTextContent(/Référence interne\s*AFF-2026-12/);
+
+      const lieu = screen.getByTestId('bloc-lieu');
+      expect(lieu).toHaveTextContent('1 place de la Porte de Versailles');
+      expect(lieu).toHaveTextContent(/Contrôle d’accès\s*Oui/);
+      expect(lieu).toHaveTextContent('Quai de livraison n°3');
+
+      const cartes = screen.getAllByTestId('carte-collecte');
+      expect(cartes).toHaveLength(2);
+      expect(cartes[0]).toHaveTextContent(/Collecte du Jeu 10 Sept · 23h00/i);
+      expect(cartes[0]).toHaveTextContent(/Contact principal\s*Léa Martin/);
+      expect(
+        within(cartes[0]!).getByRole('link', { name: '06 12 34 56 78' }),
+      ).toBeInTheDocument();
+      expect(cartes[0]).toHaveTextContent(/Contact de secours\s*Paul Roux/);
+      expect(cartes[0]).toHaveTextContent('Sonner à l’interphone');
+      expect(cartes[0]).toHaveTextContent('Réalisée');
+      expect(cartes[1]).toHaveTextContent('Validée');
+      expect(cartes[1]).toHaveTextContent(
+        'Réservés au traiteur qui a programmé la collecte.',
+      );
+      expect(cartes[1]).not.toHaveTextContent('Contact principal');
+
+      fireEvent.click(
+        within(cartes[1]!).getByRole('button', { name: 'Voir la collecte' }),
+      );
+      expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
+        'c2',
+      );
+      expect(changerCollecte).toHaveBeenLastCalledWith('c2');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/reference_interne_tiers_absente — événement d’un traiteur tiers : ni référence interne ni contrôle d’accès exigé',
+    async () => {
+      stubFetch(() => ({
+        body: {
+          data: detail({
+            fiches: [ficheCollecte({ id: 'c1', controle_acces_requis: false })],
+          }),
+        },
+      }));
+      monterFiche();
+      await ficheChargee();
+      expect(screen.getByTestId('evenement-entete')).not.toHaveTextContent(
+        'Référence interne',
+      );
+      expect(screen.getByTestId('bloc-lieu')).toHaveTextContent(
+        /Contrôle d’accès\s*Non/,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/informations_chauffeurs — une carte par collecte titrée par sa date ; demande urgente sur la bonne collecte',
+    async () => {
+      const fetchMock = stubFetch((url) =>
+        url.includes('/coordonnees-urgence')
+          ? { body: { ok: true } }
+          : {
+              body: {
+                data: detail({
+                  fiches: [
+                    ficheCollecte({
+                      id: 'c1',
+                      statut: 'validee',
+                      tournees: [
+                        {
+                          chauffeur_nom: 'Karim B.',
+                          plaque_immatriculation: 'AB-123-CD',
+                          chauffeur_telephone: '06 98 76 54 32',
+                          type_vehicule: 'camion',
+                        },
+                      ],
+                    }),
+                    ficheCollecte({
+                      id: 'c2',
+                      date_collecte: '2026-09-11',
+                      heure_collecte: '07:30:00',
+                      statut: 'validee',
+                    }),
+                  ],
+                }),
+              },
+            },
+      );
+      monterFiche();
+      await ficheChargee();
+      onglet('Informations chauffeurs');
+      const cartes = await screen.findAllByTestId(
+        'bloc-logistique',
         undefined,
         ATTENTE_UI,
       );
-      const lignes = within(table).getAllByRole('row').slice(1);
-      expect(lignes).toHaveLength(3);
-
-      fireEvent.click(lignes[2]!);
-      expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
-        'c3',
-      );
-      expect(changerCollecte).toHaveBeenLastCalledWith('c3');
+      expect(cartes).toHaveLength(2);
+      expect(cartes[0]).toHaveTextContent(/Collecte du Jeu 10 Sept · 23h00/i);
+      expect(cartes[0]).toHaveTextContent('Karim B.');
+      expect(cartes[0]).toHaveTextContent('AB-123-CD');
+      // Coordonnées complètes : pas de demande urgente.
+      expect(within(cartes[0]!).queryByTestId('zone-urgence')).toBeNull();
+      expect(cartes[1]).toHaveTextContent(/Collecte du Ven 11 Sept · 07h30/i);
 
       fireEvent.click(
-        within(lignes[0]!).getByRole('button', {
-          name: 'Télécharger le rapport de la collecte',
+        within(cartes[1]!).getByRole('button', {
+          name: /Demander les coordonnées en urgence/,
         }),
       );
-      expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
-        'c1:bilan',
+      expect(
+        await within(cartes[1]!).findByText(
+          'Demande envoyée à l’équipe Savr.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      const post = fetchMock.mock.calls.find(([u]) =>
+        String(u).includes('/coordonnees-urgence'),
       );
+      expect(String(post?.[0])).toBe(
+        '/api/v1/gestionnaire/collectes/c2/coordonnees-urgence',
+      );
+      expect((post as unknown[] | undefined)?.[1]).toMatchObject({
+        method: 'POST',
+      });
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte — bilan : un lien par collecte quand un type en compte plusieurs, ouvert sur « Bilan »',
+    async () => {
+      stubFetch(() => ({ body: { data: detail() } }));
+      monterFiche();
+      await ficheChargee();
+      onglet('Bilan & documents');
+      const zd = await screen.findByTestId(
+        'bilan-consolide-zd',
+        undefined,
+        ATTENTE_UI,
+      );
+      const liens = within(zd).getAllByRole('button', {
+        name: /Accéder au bilan de la collecte du/,
+      });
+      expect(liens).toHaveLength(2);
+      // Une seule collecte AG : le cumul est son bilan, pas de lien.
+      expect(
+        within(screen.getByTestId('bilan-consolide-ag')).queryByTestId(
+          'liens-bilans',
+        ),
+      ).toBeNull();
+
+      fireEvent.click(liens[1]!);
+      expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
+        'c2:bilan',
+      );
+      expect(changerCollecte).toHaveBeenLastCalledWith('c2');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/documents_par_collecte — un rapport par collecte non annulée ; Rapport de don téléchargé par URL pré-signée',
+    async () => {
+      const ouvrir = vi.spyOn(window, 'open').mockImplementation(() => null);
+      const fetchMock = stubFetch((url) =>
+        url.includes('/rapport-rse/download')
+          ? { body: { url: 'https://r2.example/rapport.pdf' } }
+          : {
+              body: {
+                data: detail({
+                  fiches: [
+                    ficheCollecte({ id: 'c1' }),
+                    ficheCollecte({
+                      id: 'c2',
+                      statut: 'validee',
+                      rapport_rse_disponible: false,
+                      rapport_etat: 'a_venir',
+                    }),
+                    ficheCollecte({ id: 'c3', type: 'anti_gaspi' }),
+                    ficheCollecte({ id: 'c4', statut: 'annulee' }),
+                  ],
+                }),
+              },
+            },
+      );
+      monterFiche();
+      await ficheChargee();
+      onglet('Bilan & documents');
+      const lignes = await screen.findAllByTestId(
+        'document-collecte',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(lignes).toHaveLength(3);
+      expect(lignes[0]).toHaveTextContent('Rapport RSE');
+      expect(lignes[1]).toHaveTextContent(
+        'Document disponible dans les 48h après la collecte',
+      );
+      expect(
+        within(lignes[1]!).getByRole('button', { name: 'Télécharger' }),
+      ).toBeDisabled();
+      expect(lignes[2]).toHaveTextContent('Rapport de don');
+
+      fireEvent.click(
+        within(lignes[2]!).getByRole('button', { name: 'Télécharger' }),
+      );
+      await waitFor(
+        () =>
+          expect(ouvrir).toHaveBeenCalledWith(
+            'https://r2.example/rapport.pdf',
+            '_blank',
+          ),
+        ATTENTE_UI,
+      );
+      expect(
+        fetchMock.mock.calls.some(
+          ([u]) =>
+            String(u) ===
+            '/api/v1/gestionnaire/collectes/c3/rapport-rse/download',
+        ),
+      ).toBe(true);
+      ouvrir.mockRestore();
     },
     ATTENTE_CAS_MS,
   );
@@ -605,6 +889,8 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         },
       }));
       monterFiche();
+      await ficheChargee();
+      onglet('Bilan & documents');
       await screen.findByTestId('bandeau-bilan-attente', undefined, ATTENTE_UI);
       expect(
         screen.getByTestId('bilan-consolide-couverture'),
@@ -640,11 +926,20 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
               premiere_collecte: null,
               derniere_collecte: null,
             },
-            collectes: [],
+            fiches: [],
           },
         },
       }));
       monterFiche();
+      await ficheChargee();
+      expect(etapeCourante()).toHaveTextContent('Créé');
+      expect(screen.getByTestId('evenement-entete')).toHaveTextContent(
+        /Déchets labo estimés\s*—/,
+      );
+      expect(
+        screen.getByText('Aucune collecte rattachée à cet événement.'),
+      ).toBeInTheDocument();
+      onglet('Bilan & documents');
       expect(
         await screen.findByTestId(
           'bilan-consolide-couverture',
@@ -653,18 +948,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         ),
       ).toHaveTextContent('Aucune collecte n’est rattachée à cet événement.');
       expect(screen.queryByTestId('bandeau-bilan-attente')).toBeNull();
-      onglet('Informations');
-      expect(
-        await screen.findByTestId('evenement-entete', undefined, ATTENTE_UI),
-      ).toHaveTextContent(/Déchets labo estimés\s*—/);
-      onglet('Collectes');
-      expect(
-        await screen.findByText(
-          'Aucune collecte rattachée à cet événement.',
-          undefined,
-          ATTENTE_UI,
-        ),
-      ).toBeInTheDocument();
+      expect(screen.queryByTestId('documents-evenement')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -696,7 +980,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       monterFiche();
       await screen.findByTestId('evenement-erreur', undefined, ATTENTE_UI);
       fireEvent.click(screen.getByRole('button', { name: /Réessayer/ }));
-      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      await ficheChargee();
     },
     ATTENTE_CAS_MS,
   );
@@ -706,7 +990,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
     async () => {
       const fetchMock = stubFetch(() => ({ body: { data: detail() } }));
       monterFiche({ collecteInitiale: 'c2' });
-      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      await ficheChargee();
       expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
         'c2',
       );
@@ -714,8 +998,8 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Fermer la fiche' }));
       expect(screen.queryByTestId('fiche-collecte-ouverte')).toBeNull();
       expect(changerCollecte).toHaveBeenLastCalledWith(null);
-      // Rechargement sans retour au squelette : le bilan reste à l'écran.
-      expect(screen.getByTestId('bilan-consolide')).toBeInTheDocument();
+      // Rechargement sans retour au squelette : la fiche reste à l'écran.
+      expect(screen.getByTestId('frise-statut-evenement')).toBeInTheDocument();
       await waitFor(
         () => expect(fetchMock.mock.calls.length).toBeGreaterThan(avant),
         ATTENTE_UI,
@@ -743,11 +1027,13 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
               nb_realisees_zd: 1,
               nb_realisees_ag: 0,
             },
-            collectes: [d.collectes[0]],
+            fiches: [d.fiches[0]],
           },
         },
       }));
       monterFiche();
+      await ficheChargee();
+      onglet('Bilan & documents');
       const zd = await screen.findByTestId(
         'bilan-consolide-zd',
         undefined,
@@ -759,6 +1045,8 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       ).toHaveTextContent(
         'Cumul de 1 collecte réalisée, sur 1 collecte de l’événement.',
       );
+      // Une seule collecte ZD : aucun lien vers son bilan.
+      expect(within(zd).queryByTestId('liens-bilans')).toBeNull();
       cleanup();
 
       // Une seule collecte, pas encore réalisée : « la collecte ».
@@ -774,11 +1062,13 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
               nb_realisees_ag: 0,
               tonnage_zd_kg: null,
             },
-            collectes: [{ ...d.collectes[0], statut: 'validee' }],
+            fiches: [ficheCollecte({ statut: 'validee' })],
           },
         },
       }));
       monterFiche();
+      await ficheChargee();
+      onglet('Bilan & documents');
       expect(
         await screen.findByTestId(
           'bilan-consolide-couverture',
@@ -793,7 +1083,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
   );
 
   it(
-    'M3.2/evenement_fiche_rechargement_en_echec_garde_le_bilan — après la fiche collecte, une panne ne masque pas le bilan affiché',
+    'M3.2/evenement_fiche_rechargement_en_echec_garde_le_bilan — après la fiche collecte, une panne ne masque pas la fiche affichée',
     async () => {
       let appels = 0;
       stubFetch(() => {
@@ -812,14 +1102,14 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
           collecteInitiale="c2"
         />,
       );
-      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      await ficheChargee();
       fireEvent.click(screen.getByRole('button', { name: 'Fermer la fiche' }));
       await waitFor(() => expect(appels).toBe(2), ATTENTE_UI);
       expect(
-        await screen.findByText('Bilan non actualisé', undefined, ATTENTE_UI),
+        await screen.findByText('Fiche non actualisée', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(screen.queryByTestId('evenement-erreur')).toBeNull();
-      expect(screen.getByTestId('bilan-consolide')).toBeInTheDocument();
+      expect(screen.getByTestId('evenement-entete')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -829,7 +1119,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
     async () => {
       stubFetch(() => ({ body: { data: detail() } }));
       monterFiche({ collecteInitiale: 'c1' });
-      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      await ficheChargee();
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(fermerEvenement).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole('button', { name: 'Fermer la fiche' }));
@@ -869,7 +1159,7 @@ describe('M3.2 / liste Événements gestionnaire — fiche en pop-up depuis l’
             : { body: { data: [LIGNE], total: 1 } },
       );
       render(<EvenementsPage />);
-      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      await ficheChargee();
       expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
         'c2',
       );
@@ -883,7 +1173,7 @@ describe('M3.2 / liste Événements gestionnaire — fiche en pop-up depuis l’
         ).length;
       const avant = listes();
       fireEvent.keyDown(document, { key: 'Escape' });
-      expect(screen.queryByTestId('bilan-consolide')).toBeNull();
+      expect(screen.queryByTestId('frise-statut-evenement')).toBeNull();
       expect(window.location.search).not.toContain('evenement=');
       await waitFor(() => expect(listes()).toBeGreaterThan(avant), ATTENTE_UI);
     },

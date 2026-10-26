@@ -434,7 +434,7 @@
     "M3.2/evenements_liste_resultats_sans_excedent",
     "M3.2/evenements_liste_page_hors_bornes_ramenee",
     "M3.2/evenement_fiche_labo_tiret_sans_zd",
-    "M3.2/evenement_fiche_resultats_vides_avant_realisation",
+    "M3.2/evenement_fiche_echec_d_une_fiche_500",
     "M3.2/evenement_fiche_collectes_meme_jour_par_heure",
     "M3.2/evenement_fiche_rouverte_et_rechargee",
     "M3.2/evenement_fiche_pax_absent_et_singulier",
@@ -454,7 +454,15 @@
     "M3.2/gestionnaire_annulation_statut_terminal_422",
     "M3.2/gestionnaire_annulation_collecte_introuvable_404",
     "M3.2/gestionnaire_annulation_role_403",
-    "M3.2/fiche_popup_gestionnaire_annulation_sa_programmation"
+    "M3.2/fiche_popup_gestionnaire_annulation_sa_programmation",
+    "EVT/frise_avancement",
+    "EVT/informations_generales",
+    "EVT/reference_interne_tiers_absente",
+    "EVT/informations_chauffeurs",
+    "EVT/documents_par_collecte",
+    "EVT-FRISE/etape_la_plus_basse",
+    "EVT-FRISE/annulees_ignorees",
+    "EVT-FRISE/sans_collecte"
   ],
   "deliverables": [
     {
@@ -869,9 +877,9 @@
       "id": "M3.2-detail-evenement-lecture-seule",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-353",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts",
-      "test": "M3.2/evenement_fiche_bilan_consolide_affiche + M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte + M3.2/evenement_fiche_bilan_consolide_et_collectes_triees + M3.2/evenement_fiche_404_hors_perimetre_ou_identifiant_invalide + M3.2/evenement_fiche_introuvable + M3.2/evenement_fiche_erreur + M3.2/evenement_fiche_labo_tiret_sans_zd + M3.2/evenement_fiche_resultats_vides_avant_realisation + M3.2/evenement_fiche_collectes_meme_jour_par_heure + M3.2/evenement_fiche_rouverte_et_rechargee",
+      "test": "M3.2/evenement_fiche_bilan_consolide_affiche + M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte + M3.2/evenement_fiche_bilan_consolide_et_collectes_triees + M3.2/evenement_fiche_404_hors_perimetre_ou_identifiant_invalide + M3.2/evenement_fiche_introuvable + M3.2/evenement_fiche_erreur + M3.2/evenement_fiche_labo_tiret_sans_zd + M3.2/evenement_fiche_echec_d_une_fiche_500 + M3.2/evenement_fiche_collectes_meme_jour_par_heure + M3.2/evenement_fiche_rouverte_et_rechargee",
       "statut": "implemented",
-      "libelle": "Fiche événement du gestionnaire en consultation pure (CDC §2 « Détail événement »), en pop-up sur la liste Événements depuis le 2026-10-19 (livrable M3.2-evenement-fiche-popup), remise par Val le 2026-10-18 (« une vision consolidée d'un événement sur lequel il y a plusieurs collectes »), après son retrait du 2026-10-07 : grand en-tête (nom, taille, date, lieu, traiteur, pax, statut consolidé), puis trois onglets : « Bilan » (bilan consolidé, ouvert par défaut, livrable M3.2-evenement-bilan-consolide), « Collectes » et « Informations » (date, lieu et adresse, traiteur nom + logo par le proxy du rôle, type d'événement, client organisateur s'il est renseigné, pax, déchets labo estimés — toujours affichés, « — » sans collecte ZD (CDC l.333) —, période de collecte). L'onglet « Collectes » liste ses collectes, par date et heure, dont les résultats ne sortent qu'une fois la collecte réalisée — un clic ouvre la fiche collecte (pop-up client commun, rouverte depuis l'adresse `?collecte=`, l'événement rechargé à sa fermeture), qui porte pesées par flux, association et documents ; aucune action sur l'événement, hormis « Ajouter une collecte » sur ses propres programmations (décision Val 2026-10-21, livrable M1.2-ajout-collecte-depuis-fiches). Événement hors périmètre, brouillon ou identifiant mal formé → 404. Pas de bloc documents propre ni de « rapport de recyclage agrégé par événement » : les rapports restent par collecte, dans la fiche collecte (CDC patché au sync du 2026-10-20, §06.05 « Bloc documents »). Lot C1 (2026-10-24, décision Val Q2) : le type d'événement affiché nomme les types de ses collectes, cf. livrable M3.2-evenement-fiche-types-des-collectes.",
+      "libelle": "Fiche événement du gestionnaire en consultation pure (CDC §2 « Détail événement »), en pop-up sur la liste Événements depuis le 2026-10-19 (livrable M3.2-evenement-fiche-popup), remise par Val le 2026-10-18 (« une vision consolidée d'un événement sur lequel il y a plusieurs collectes »), après son retrait du 2026-10-07 : grand en-tête (nom, taille, date, lieu, traiteur, pax, statut consolidé), puis trois onglets : « Bilan » (bilan consolidé, ouvert par défaut, livrable M3.2-evenement-bilan-consolide), « Collectes » et « Informations » (date, lieu et adresse, traiteur nom + logo par le proxy du rôle, type d'événement, client organisateur s'il est renseigné, pax, déchets labo estimés — toujours affichés, « — » sans collecte ZD (CDC l.333) —, période de collecte). L'onglet « Collectes » liste ses collectes, par date et heure, dont les résultats ne sortent qu'une fois la collecte réalisée — un clic ouvre la fiche collecte (pop-up client commun, rouverte depuis l'adresse `?collecte=`, l'événement rechargé à sa fermeture), qui porte pesées par flux, association et documents ; aucune action sur l'événement, hormis « Ajouter une collecte » sur ses propres programmations (décision Val 2026-10-21, livrable M1.2-ajout-collecte-depuis-fiches). Événement hors périmètre, brouillon ou identifiant mal formé → 404. Pas de bloc documents propre ni de « rapport de recyclage agrégé par événement » : les rapports restent par collecte, dans la fiche collecte (CDC patché au sync du 2026-10-20, §06.05 « Bloc documents »). Lot C1 (2026-10-24, décision Val Q2) : le type d'événement affiché nomme les types de ses collectes, cf. livrable M3.2-evenement-fiche-types-des-collectes. Depuis le 2026-10-26, les onglets sont ceux du livrable M3.2-evenement-fiche-trois-onglets (« Informations générales », « Informations chauffeurs », « Bilan & documents ») : l'onglet « Collectes » disparaît, chaque collecte devient une carte, et la route sert la fiche de chaque collecte au lieu de ses résultats ; une collecte illisible fait échouer la fiche (500).",
       "ref_divergence": "_Divergences/M3.2_20261018_retour-page-evenements-gestionnaire.md"
     },
     {
@@ -1352,6 +1360,24 @@
       "statut": "implemented",
       "libelle": "Fiche événement du gestionnaire en pop-up sur la liste Événements (demande Val 2026-10-19 : « Je veux que la page événement soit en modale comme les pages collectes »), sur le cadre commun des fiches (FicheModal : grand en-tête, onglets, corps défilant, hauteur fixe) : le clic sur une ligne ouvre la fiche sans quitter la liste ; l'adresse la porte (`?evenement=<id>`, et `?collecte=<id>` pour la fiche collecte ouverte par-dessus), si bien qu'un lien direct ou un rechargement rouvrent les mêmes fiches ; l'ancienne route /gestionnaire/evenements/[id] redirige vers la liste avec la fiche ouverte. Tant que la fiche collecte est ouverte, Échap ne ferme qu'elle. Fermer la fiche événement retire les clés de l'adresse et recharge la liste ; fermer la fiche collecte recharge le bilan sans repasser par le squelette ; si ce rechargement échoue, le bilan affiché reste à l'écran et un message le signale. Identifiant mal formé : « introuvable », sans requête. Les deux pop-ups étant sœurs, le verrou de défilement de la page posé par `Modal` est désormais compté : fermées ensemble (bouton « Précédent » du navigateur), elles rendent le défilement à la page.",
       "ref_divergence": "_Divergences/M3.2_20261018_retour-page-evenements-gestionnaire.md"
+    },
+    {
+      "id": "M3.2-evenement-fiche-trois-onglets",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-353",
+      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts (fiches des collectes par chargerFicheCollecteClient, lieu_acces_details) + packages/plateforme/src/lib/statut-collecte-labels.ts (friseStatutEvenement) + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx (CarteChauffeurs)",
+      "test": "EVT/frise_avancement + EVT/informations_generales + EVT/reference_interne_tiers_absente + EVT/informations_chauffeurs + EVT/documents_par_collecte + M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte + EVT-FRISE/etape_la_plus_basse + EVT-FRISE/annulees_ignorees + EVT-FRISE/sans_collecte + M3.2/evenement_fiche_echec_d_une_fiche_500",
+      "statut": "implemented",
+      "libelle": "Fiche événement du gestionnaire en trois onglets (décision Val 2026-10-26, revue d'écran) : « Informations générales » (Événement : nom, client final, référence interne sur ses propres programmations, traiteur, type d'événement, déchets labo estimés ; Lieu : adresse, contrôle d'accès « Oui » dès qu'une collecte non annulée l'exige, instructions d'accès du lieu ; une carte par collecte : date et heure, contacts principal et de secours — masqués sur la collecte d'un traiteur tiers —, informations supplémentaires, statut, « Voir la collecte »), « Informations chauffeurs » (une carte « Collecte du … » par collecte, carte chauffeur de la fiche collecte, demande urgente comprise) et « Bilan & documents » (bilan consolidé ; un lien « Accéder au bilan de la collecte du … » par collecte quand un type en compte plusieurs ; le rapport de chaque collecte non annulée — Rapport RSE ZD fabriqué au clic, Rapport de don AG). En-tête : frise Créé · Validé · En cours · Réalisé à la place du badge de statut consolidé ; l'événement passe à l'étape suivante quand toutes ses collectes non annulées l'ont passée ; toutes annulées : Créé · Annulé. Les rapports PDF cumulés sur l'événement sont un lot à part (Val 2026-10-26).",
+      "ref_divergence": "_Divergences/M3.2_20261026_fiche-evenement-trois-onglets.md"
+    },
+    {
+      "id": "M3.2-evenement-fiche-trois-onglets-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-353",
+      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la fiche événement en trois onglets, desktop ET mobile < 640 px : frise d'avancement dans l'en-tête, cartes collecte, cartes chauffeur, liens vers les bilans et lignes de documents. GO visuel de Val à donner sur l'aperçu de la branche.",
+      "ref_divergence": "_Divergences/M3.2_20261026_fiche-evenement-trois-onglets.md"
     },
     {
       "id": "M3.2-evenements-filtre-type-deux-conditions",

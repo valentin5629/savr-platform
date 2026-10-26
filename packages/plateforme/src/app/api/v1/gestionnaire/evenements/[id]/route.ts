@@ -9,16 +9,15 @@ import { serverError } from '@/lib/api-helpers.js';
 import { tailleBracket } from '@/lib/dashboard-kpi.js';
 import {
   adresseLieu,
-  collecteRealisee,
   consoliderEvenement,
-  poidsCollecte,
-  repasCollecte,
   un,
   type CollecteAConsolider,
   type UnOuListe,
 } from '@/lib/evenements-gestionnaire.js';
 import { estUuid } from '@/lib/filtre-csv.js';
 import { typesEvenementDesCollectes } from '@/lib/collectes/types-evenement-collectes.js';
+import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
+import type { FicheCollecteClient } from '@/lib/collectes/fiche-client-types.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -41,6 +40,7 @@ type EvenementBrut = {
     adresse_acces: string | null;
     code_postal: string | null;
     ville: string | null;
+    acces_details: string | null;
   }>;
   organisations: UnOuListe<{
     id: string;
@@ -57,10 +57,12 @@ const NON_TROUVE = () =>
 // GET /api/v1/gestionnaire/evenements/[id]
 // Fiche événement du gestionnaire, en lecture seule (§06.05 §2 « Détail
 // événement », remise par Val le 2026-10-18) : en-tête de l'événement, bilan
-// CONSOLIDÉ sur ses collectes (lib/evenements-gestionnaire) et liste de ses
-// collectes. Le détail d'une collecte (pesées, association, documents) reste
-// celui de la fiche collecte, que l'écran ouvre au clic : pas de second chemin
-// de téléchargement des documents.
+// CONSOLIDÉ sur ses collectes (lib/evenements-gestionnaire) et, pour chaque
+// collecte, sa fiche telle que la sert la route de la fiche collecte (contacts,
+// chauffeurs, état des rapports — onglets de la fiche événement, décision Val
+// 2026-10-26). Même chargeur, donc mêmes règles de visibilité : contacts d'une
+// collecte de traiteur tiers masqués, référence interne réservée à
+// l'organisation qui a programmé.
 //
 // Périmètre = RLS de la session (evenements puis collectes), comme la liste.
 // Un événement hors périmètre, un brouillon ou un identifiant mal formé → 404,
@@ -86,7 +88,7 @@ export async function GET(
     .select(
       `id, organisation_id, nom_evenement, date_evenement, pax,
        nom_client_organisateur,
-       lieux!lieu_id(nom, adresse_acces, code_postal, ville),
+       lieux!lieu_id(nom, adresse_acces, code_postal, ville, acces_details),
        organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url),
        types_evenements!type_evenement_id(libelle),
        collectes(id, type, statut, date_collecte, heure_collecte, created_at,
@@ -132,6 +134,20 @@ export async function GET(
     else dechetsLaboKg = kg as number | null;
   }
 
+  // Une fiche par collecte, sous la même session : rien de plus que ce que la
+  // fiche collecte lui servirait.
+  const resultats = await Promise.all(
+    collectes.map((c) =>
+      chargerFicheCollecteClient(c.id, auth.ctx, 'gestionnaire'),
+    ),
+  );
+  const fiches: FicheCollecteClient[] = [];
+  for (const r of resultats) {
+    if ('erreur' in r)
+      return serverError(r.erreur, 'gestionnaire.evenements.get.fiches');
+    if ('fiche' in r) fiches.push(r.fiche);
+  }
+
   const traiteur = un(evt.organisations);
   const lieu = un(evt.lieux);
 
@@ -161,24 +177,10 @@ export async function GET(
       // sur ses lieux.
       ajouter_collecte: evt.organisation_id === auth.ctx.organisationId,
       bilan,
-      // Résultats par collecte, dans la forme de la liste Collectes (colonne
-      // « Résultats ») : rien avant la réalisation.
-      collectes: collectes.map((c) => {
-        const realisee = collecteRealisee(c);
-        return {
-          id: c.id,
-          type: c.type,
-          statut: c.statut,
-          date_collecte: c.date_collecte,
-          heure_collecte: c.heure_collecte,
-          poids_total_kg:
-            realisee && c.type === 'zero_dechet' ? poidsCollecte(c) : null,
-          taux_recyclage: realisee ? c.taux_recyclage : null,
-          co2_evite_kg: realisee ? c.co2_evite_kg : null,
-          nb_repas_donnes:
-            realisee && c.type === 'anti_gaspi' ? repasCollecte(c) : null,
-        };
-      }),
+      // Instructions d'accès du lieu de référence (les précisions propres à
+      // une collecte sont sur sa fiche).
+      lieu_acces_details: lieu?.acces_details?.trim() || null,
+      fiches,
     },
   });
 }

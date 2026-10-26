@@ -208,3 +208,32 @@ export function friseStatutClient(statut: string): EtapeFriseClient[] {
     etat: i < courant ? 'passee' : i === courant ? 'courante' : 'a_venir',
   }));
 }
+
+const STATUTS_ANNULES_FRISE = new Set(['annulee', 'annulation_demandee']);
+
+/**
+ * Frise de la fiche événement du gestionnaire (décision Val 2026-10-26) : mêmes
+ * étapes que la frise client, au masculin. L'événement passe à l'étape suivante
+ * quand TOUTES ses collectes l'ont passée : son étape est la plus basse de ses
+ * collectes. Les collectes annulées n'y comptent pas ; toutes annulées, la frise
+ * se lit « Créé · Annulé ». Sans collecte : « Créé ».
+ */
+export function friseStatutEvenement(
+  statuts: readonly string[],
+): EtapeFriseClient[] {
+  const actives = statuts.filter((s) => !STATUTS_ANNULES_FRISE.has(s));
+  if (statuts.length > 0 && actives.length === 0) {
+    return [
+      { label: 'Créé', etat: 'passee' },
+      { label: 'Annulé', etat: 'courante' },
+    ];
+  }
+  const courant =
+    actives.length === 0
+      ? 0
+      : Math.min(...actives.map((s) => RANG_FRISE_CLIENT[s] ?? 0));
+  return ['Créé', 'Validé', 'En cours', 'Réalisé'].map((label, i) => ({
+    label,
+    etat: i < courant ? 'passee' : i === courant ? 'courante' : 'a_venir',
+  }));
+}

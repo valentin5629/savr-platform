@@ -256,17 +256,37 @@ function EnAttente() {
   return <span className="text-savr-neutral-400">En attente</span>;
 }
 
-export function OngletLogistique({
+interface PropsChauffeurs {
+  c: FicheCollecteClient;
+  urgence: 'idle' | 'envoi' | 'envoyee';
+  urgenceErreur: string | null;
+  onDemanderUrgence: () => void;
+}
+
+export function OngletLogistique(props: PropsChauffeurs) {
+  const { c } = props;
+  return (
+    <div className="space-y-3">
+      <CarteChauffeurs {...props} />
+      {c.type === 'anti_gaspi' && c.association && (
+        <BlocAssociation association={c.association} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Carte « chauffeur » d'une collecte : coordonnées par camion et demande
+ * urgente. Reprise par la fiche événement du gestionnaire (une carte par
+ * collecte, titrée par sa date, décision Val 2026-10-26).
+ */
+export function CarteChauffeurs({
   c,
   urgence,
   urgenceErreur,
   onDemanderUrgence,
-}: {
-  c: FicheClientDonnees;
-  urgence: 'idle' | 'envoi' | 'envoyee';
-  urgenceErreur: string | null;
-  onDemanderUrgence: () => void;
-}) {
+  titre,
+}: PropsChauffeurs & { titre?: string }) {
   const fenetre = STATUTS_LOGISTIQUE.includes(c.statut);
   const tournees = c.tournees;
   const complet = coordonneesCompletes(tournees);
@@ -274,135 +294,130 @@ export function OngletLogistique({
     urgence === 'envoyee' || c.coordonnees_urgence_demandee;
 
   return (
-    <div className="space-y-3">
-      <Card padding="md" className="space-y-4" data-testid="bloc-logistique">
-        <SectionHeader
-          icon={Truck}
-          title={
-            !fenetre
-              ? 'Logistique'
-              : tournees.length === 0
-                ? 'Chauffeur pas encore affecté'
-                : tournees.length > 1
-                  ? 'Vos chauffeurs'
-                  : 'Votre chauffeur'
-          }
+    <Card padding="md" className="space-y-4" data-testid="bloc-logistique">
+      <SectionHeader
+        icon={Truck}
+        title={
+          titre ??
+          (!fenetre
+            ? 'Logistique'
+            : tournees.length === 0
+              ? 'Chauffeur pas encore affecté'
+              : tournees.length > 1
+                ? 'Vos chauffeurs'
+                : 'Votre chauffeur')
+        }
+      />
+      {!fenetre ? (
+        <EmptyState
+          size="inline"
+          title="Aucune information logistique à afficher pour cette collecte."
         />
-        {!fenetre ? (
-          <EmptyState
-            size="inline"
-            title="Aucune information logistique à afficher pour cette collecte."
-          />
-        ) : tournees.length === 0 ? (
-          <>
-            <Text tone="soft" className="leading-relaxed">
-              Nous affectons votre chauffeur avant la collecte. Son nom, la
-              plaque du véhicule et son téléphone apparaîtront ici dès qu’il
-              sera désigné.
-            </Text>
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-3">
-              <InfoItem label="Chauffeur">
-                <Vide />
-              </InfoItem>
-              <InfoItem label="Plaque">
-                <Vide />
-              </InfoItem>
-              <InfoItem label="Téléphone">
-                <Vide />
-              </InfoItem>
-            </dl>
-          </>
-        ) : (
-          <div className="space-y-2">
-            {tournees.map((t, i) => (
-              <div
-                key={i}
-                data-testid="camion"
-                className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
-              >
-                {tournees.length > 1 && (
-                  <p className="mb-1.5 font-medium">Camion {i + 1}</p>
-                )}
-                <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3">
-                  <InfoItem label="Chauffeur">
-                    {t.chauffeur_nom?.trim() || <EnAttente />}
-                  </InfoItem>
-                  <InfoItem label="Plaque d’immatriculation">
-                    {t.plaque_immatriculation?.trim() ||
-                      (t.type_vehicule === 'velo_cargo' ? (
-                        // Vélo cargo : jamais de plaque, jamais « En attente ».
-                        <span className="text-savr-neutral-400">
-                          Sans objet (vélo cargo)
-                        </span>
-                      ) : (
-                        <EnAttente />
-                      ))}
-                  </InfoItem>
-                  <InfoItem label="Téléphone">
-                    {t.chauffeur_telephone?.trim() ? (
-                      <TelephoneLien telephone={t.chauffeur_telephone} />
+      ) : tournees.length === 0 ? (
+        <>
+          <Text tone="soft" className="leading-relaxed">
+            Nous affectons votre chauffeur avant la collecte. Son nom, la plaque
+            du véhicule et son téléphone apparaîtront ici dès qu’il sera
+            désigné.
+          </Text>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-3">
+            <InfoItem label="Chauffeur">
+              <Vide />
+            </InfoItem>
+            <InfoItem label="Plaque">
+              <Vide />
+            </InfoItem>
+            <InfoItem label="Téléphone">
+              <Vide />
+            </InfoItem>
+          </dl>
+        </>
+      ) : (
+        <div className="space-y-2">
+          {tournees.map((t, i) => (
+            <div
+              key={i}
+              data-testid="camion"
+              className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
+            >
+              {tournees.length > 1 && (
+                <p className="mb-1.5 font-medium">Camion {i + 1}</p>
+              )}
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+                <InfoItem label="Chauffeur">
+                  {t.chauffeur_nom?.trim() || <EnAttente />}
+                </InfoItem>
+                <InfoItem label="Plaque d’immatriculation">
+                  {t.plaque_immatriculation?.trim() ||
+                    (t.type_vehicule === 'velo_cargo' ? (
+                      // Vélo cargo : jamais de plaque, jamais « En attente ».
+                      <span className="text-savr-neutral-400">
+                        Sans objet (vélo cargo)
+                      </span>
                     ) : (
                       <EnAttente />
-                    )}
-                  </InfoItem>
-                </dl>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Demande urgente (Q3) : alerte in-app Ops seule, 1 par collecte. */}
-        {fenetre && !complet && (
-          <div
-            data-testid="zone-urgence"
-            className="flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:items-center"
-          >
-            {demandeEnvoyee ? (
-              <Text
-                variant="body"
-                className="flex flex-1 items-start gap-2"
-                role="status"
-              >
-                <CheckCircle2
-                  className="mt-0.5 h-4 w-4 shrink-0 text-savr-success-strong"
-                  aria-hidden="true"
-                />
-                <span>
-                  <strong className="text-savr-neutral-900">
-                    Demande envoyée à l’équipe Savr.
-                  </strong>{' '}
-                  Nous revenons vers vous au plus vite avec les coordonnées du
-                  chauffeur.
-                </span>
-              </Text>
-            ) : (
-              <>
-                <Text variant="body" className="flex-1">
-                  Besoin de ces informations rapidement (accès au site, liste de
-                  sécurité) ?
-                </Text>
-                <Button
-                  variant="outline-warning"
-                  onClick={onDemanderUrgence}
-                  disabled={urgence === 'envoi'}
-                >
-                  <BellRing className="h-4 w-4" aria-hidden="true" />
-                  Demander les coordonnées en urgence
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-        {urgenceErreur && (
-          <AlertBar variant="err" role="alert">
-            {urgenceErreur}
-          </AlertBar>
-        )}
-      </Card>
-
-      {c.type === 'anti_gaspi' && c.association && (
-        <BlocAssociation association={c.association} />
+                    ))}
+                </InfoItem>
+                <InfoItem label="Téléphone">
+                  {t.chauffeur_telephone?.trim() ? (
+                    <TelephoneLien telephone={t.chauffeur_telephone} />
+                  ) : (
+                    <EnAttente />
+                  )}
+                </InfoItem>
+              </dl>
+            </div>
+          ))}
+        </div>
       )}
-    </div>
+
+      {/* Demande urgente (Q3) : alerte in-app Ops seule, 1 par collecte. */}
+      {fenetre && !complet && (
+        <div
+          data-testid="zone-urgence"
+          className="flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:items-center"
+        >
+          {demandeEnvoyee ? (
+            <Text
+              variant="body"
+              className="flex flex-1 items-start gap-2"
+              role="status"
+            >
+              <CheckCircle2
+                className="mt-0.5 h-4 w-4 shrink-0 text-savr-success-strong"
+                aria-hidden="true"
+              />
+              <span>
+                <strong className="text-savr-neutral-900">
+                  Demande envoyée à l’équipe Savr.
+                </strong>{' '}
+                Nous revenons vers vous au plus vite avec les coordonnées du
+                chauffeur.
+              </span>
+            </Text>
+          ) : (
+            <>
+              <Text variant="body" className="flex-1">
+                Besoin de ces informations rapidement (accès au site, liste de
+                sécurité) ?
+              </Text>
+              <Button
+                variant="outline-warning"
+                onClick={onDemanderUrgence}
+                disabled={urgence === 'envoi'}
+              >
+                <BellRing className="h-4 w-4" aria-hidden="true" />
+                Demander les coordonnées en urgence
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      {urgenceErreur && (
+        <AlertBar variant="err" role="alert">
+          {urgenceErreur}
+        </AlertBar>
+      )}
+    </Card>
   );
 }

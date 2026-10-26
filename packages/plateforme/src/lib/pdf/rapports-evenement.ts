@@ -11,9 +11,13 @@
 // sa couverture dite (« Cumul des N collectes réalisées, sur M »).
 //
 // Indépendant du rôle : la route de l'espace établit l'accès sous l'identité du
-// demandeur (`lireEvenementVisible`) et passe les collectes qu'il voit ; les
-// mesures de CES collectes sont ensuite lues en service-role, comme le rapport
-// d'une collecte (payload-rapport).
+// demandeur (`lireEvenementVisible`) et passe les collectes qu'il voit.
+//  - ZD : les mesures figées de CES collectes sont relues en service-role, comme
+//    le rapport d'une collecte (payload-rapport) ;
+//  - AG : relues SOUS L'IDENTITÉ du demandeur, par le chemin de la fiche
+//    collecte (attribution par rôle — la vue v_attributions_gestionnaire pour
+//    le gestionnaire —, attestation sous sa RLS) : le PDF n'imprime jamais un
+//    repas, une association ou un numéro que l'écran ne lui montre pas.
 
 import { NextResponse } from 'next/server';
 
@@ -24,7 +28,13 @@ import {
 } from '@savr/shared/src/supabase-client.js';
 import { formatDateParis } from '@savr/shared/src/temps/index.js';
 
+import type { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { messageErreur, serverError } from '@/lib/api-helpers.js';
+import {
+  attributionsAgOf,
+  embedAttributionsAg,
+  type AttributionsAgLues,
+} from '@/lib/dashboards/attributions-ag.js';
 import type { VersionRapport } from '@/lib/collectes/rapport-a-la-demande.js';
 import {
   collecteRealisee,
@@ -80,15 +90,11 @@ type CollecteMesuree = Omit<CollecteAConsolider, 'collecte_flux'> & {
     | {
         numero: string | null;
         version: number;
-        genere_at: string | null;
+        pdf_url: string | null;
         eligible_at: string | null;
       }[]
     | null;
-  attributions_brutes?: UnOuListe<{
-    volume_repas_realise: number | null;
-    association_id: string | null;
-    associations: UnOuListe<{ nom: string | null; ville: string | null }>;
-  }>;
+  attributions_lues?: AttributionsAgLues;
 };
 
 const SELECT_ZD = `id, type, statut, date_collecte, heure_collecte, pax,
@@ -97,11 +103,11 @@ const SELECT_ZD = `id, type, statut, date_collecte, heure_collecte, pax,
   collecte_flux(poids_reel_kg, flux_dechets!flux_id(code, nom)),
   bordereaux_savr(numero, version)`;
 
-const SELECT_AG = `id, type, statut, date_collecte, heure_collecte,
-  taux_recyclage, co2_evite_kg,
-  attributions_brutes:attributions_antgaspi(volume_repas_realise, association_id,
-    associations!association_id(nom, ville)),
-  attestations_don(numero, version, genere_at, eligible_at)`;
+/** Collectes AG, lues sous l'identité du demandeur (cf. en-tête). */
+const selectAg = (role: string) =>
+  `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
+  ${embedAttributionsAg(role).replace(/^attributions_antgaspi/, 'attributions_lues')},
+  attestations_don(numero, version, pdf_url, eligible_at)`;
 
 const dateFr = (v: string | null | undefined) => (v ? formatDateParis(v) : '');
 
@@ -128,7 +134,7 @@ function derniere<T extends { version: number }>(
 
 /** Attribution aplatie au format du bilan consolidé (association à plat). */
 function aplatir(c: CollecteMesuree): CollecteMesuree {
-  const a = un(c.attributions_brutes);
+  const a = attributionsAgOf(c.attributions_lues)[0];
   if (!a) return c;
   const asso = un(a.associations);
   return {
@@ -210,7 +216,7 @@ function payloadAg(
       const att = sansExcedent ? null : derniere(c.attestations_don);
       const emise =
         att?.numero &&
-        att.genere_at &&
+        att.pdf_url &&
         att.eligible_at &&
         new Date(att.eligible_at).getTime() <= maintenant;
       return {
@@ -233,9 +239,13 @@ export async function fabriquerRapportEvenement(params: {
   type: TypeRapportEvenement;
   collectes: readonly { id: string; type: string; statut: string }[];
   version: VersionRapport;
+  /** Client et rôle du demandeur : lecture des collectes AG (cf. en-tête). */
+  rls: ReturnType<typeof createSupabaseServerClient>;
+  role: string;
   evenementLog: string;
 }): Promise<NextResponse> {
-  const { evenementId, type, collectes, version, evenementLog } = params;
+  const { evenementId, type, collectes, version, rls, role, evenementLog } =
+    params;
   const duType = collectes.filter((c) => c.type === type);
   const realisees = duType.filter(collecteRealisee);
   if (realisees.length === 0) return refus(AUCUN_RESULTAT, 409);
@@ -247,13 +257,13 @@ export async function fabriquerRapportEvenement(params: {
       .select(`pax, ${SELECT_EVENEMENT_RAPPORT}`)
       .eq('id', evenementId)
       .maybeSingle(),
-    admin
-      .from('collectes')
-      .select(type === ZD ? SELECT_ZD : SELECT_AG)
-      .in(
-        'id',
-        realisees.map((c) => c.id),
-      ),
+    (type === ZD
+      ? admin.from('collectes').select(SELECT_ZD)
+      : rls.from('collectes').select(selectAg(role))
+    ).in(
+      'id',
+      realisees.map((c) => c.id),
+    ),
   ]);
   if (evRes.error) return serverError(evRes.error, evenementLog);
   if (colRes.error) return serverError(colRes.error, evenementLog);
@@ -262,8 +272,8 @@ export async function fabriquerRapportEvenement(params: {
     | null;
   if (!ev) return refus('Événement introuvable', 404);
 
-  // Relues en service-role : seules celles qui ont encore un résultat comptent
-  // (une collecte qui en change entre les deux lectures n'est pas imprimée).
+  // Relues : seules celles qui ont encore un résultat comptent (une collecte qui
+  // en change entre les deux lectures n'est pas imprimée).
   const mesurees = ((colRes.data ?? []) as unknown as CollecteMesuree[])
     .map(aplatir)
     .filter((c) => c.type === type && collecteRealisee(c))

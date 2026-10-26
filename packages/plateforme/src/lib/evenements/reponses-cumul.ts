@@ -117,6 +117,8 @@ export async function repondreRapportEvenement(
     type,
     collectes: evenement.collectes,
     version: version.version,
+    rls: supabase,
+    role: ctx.role,
     evenementLog,
   });
 }

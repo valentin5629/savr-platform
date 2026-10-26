@@ -17,11 +17,20 @@ type Result = { data: unknown; error: unknown };
 function makeClient() {
   const results: Record<string, Result> = {};
   const inAppels: { table: string; col: string; valeurs: unknown }[] = [];
+  const filtres: { table: string; methode: string; args: unknown[] }[] = [];
+  const selects: { table: string; texte: string }[] = [];
   function chain(table: string): Record<string, unknown> {
     const res = (): Result => results[table] ?? { data: null, error: null };
     const c: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'not', 'neq', 'or', 'order', 'limit'])
-      c[m] = () => c;
+    for (const m of ['eq', 'not', 'neq', 'or', 'order', 'limit'])
+      c[m] = (...args: unknown[]) => {
+        filtres.push({ table, methode: m, args });
+        return c;
+      };
+    c.select = (texte: string) => {
+      selects.push({ table, texte });
+      return c;
+    };
     c.in = (col: string, valeurs: unknown) => {
       inAppels.push({ table, col, valeurs });
       return c;
@@ -30,7 +39,7 @@ function makeClient() {
     c.then = (resolve: (v: Result) => unknown) => resolve(res());
     return c;
   }
-  return { from: (t: string) => chain(t), results, inAppels };
+  return { from: (t: string) => chain(t), results, inAppels, filtres, selects };
 }
 
 let rls = makeClient();
@@ -95,23 +104,28 @@ async function benchmark(qs = '', id = EVT) {
   });
 }
 
-/** Ce que le gestionnaire voit : 2 ZD (1 clôturée, 1 validée), 2 AG réalisées, 1 AG annulée. */
-function evenementVisible(pax: number | null = 500) {
+/**
+ * Ce que le gestionnaire voit : 2 ZD de 500 convives (1 clôturée, 1 validée),
+ * 2 AG réalisées, 1 AG annulée. `evenements.pax` = 1000 (les deux soirées ZD) :
+ * le radar ne doit PAS diviser par lui (cumul partiel).
+ */
+function evenementVisible(paxZ1: number | null = 500) {
   rls.results.evenements = {
     data: {
       id: EVT,
-      pax,
+      pax: 1000,
       collectes: [
         {
           id: 'z1',
           type: 'zero_dechet',
           statut: 'cloturee',
+          pax: paxZ1,
           collecte_flux: [
             { poids_reel_kg: 100, flux_dechets: { code: 'biodechet' } },
             { poids_reel_kg: 50, flux_dechets: { code: 'verre' } },
           ],
         },
-        { id: 'z2', type: 'zero_dechet', statut: 'validee' },
+        { id: 'z2', type: 'zero_dechet', statut: 'validee', pax: 500 },
         { id: 'a1', type: 'anti_gaspi', statut: 'cloturee' },
         { id: 'a2', type: 'anti_gaspi', statut: 'realisee_sans_collecte' },
         { id: 'a3', type: 'anti_gaspi', statut: 'annulee' },
@@ -182,8 +196,9 @@ function collectesZdAdmin() {
   };
 }
 
-function collectesAgAdmin(eligibleAt = '2020-01-01T00:00:00Z') {
-  admin.results.collectes = {
+/** Collectes AG relues SOUS L'IDENTITÉ du demandeur (vue du gestionnaire). */
+function collectesAgVisibles(pdfUrl: string | null = 'attestations/a.pdf') {
+  rls.results.collectes = {
     data: [
       {
         id: 'a2',
@@ -192,7 +207,7 @@ function collectesAgAdmin(eligibleAt = '2020-01-01T00:00:00Z') {
         date_collecte: '2026-10-15',
         heure_collecte: null,
         co2_evite_kg: 0,
-        attributions_brutes: null,
+        attributions_lues: [],
         attestations_don: [],
       },
       {
@@ -202,17 +217,19 @@ function collectesAgAdmin(eligibleAt = '2020-01-01T00:00:00Z') {
         date_collecte: '2026-10-14',
         heure_collecte: null,
         co2_evite_kg: 250,
-        attributions_brutes: {
+        // Forme de v_attributions_gestionnaire : association à plat.
+        attributions_lues: {
           volume_repas_realise: 100,
           association_id: 'as1',
-          associations: { nom: 'Les Restos du Cœur', ville: 'Paris' },
+          association_nom: 'Les Restos du Cœur',
+          association_ville: 'Paris',
         },
         attestations_don: [
           {
             numero: 'ATT-DON-2026-00001',
             version: 1,
-            genere_at: '2026-10-15',
-            eligible_at: eligibleAt,
+            pdf_url: pdfUrl,
+            eligible_at: '2020-01-01T00:00:00Z',
           },
         ],
       },
@@ -267,6 +284,26 @@ describe('M3.2 — accès aux routes cumulées', () => {
   it('EVT/api_id_mal_forme — identifiant mal formé → 404 sans requête', async () => {
     expect((await rapport('rapport-de-don', undefined, 'abc')).status).toBe(
       404,
+    );
+  });
+});
+
+describe('M3.2 — lecture de l’événement sous la RLS', () => {
+  it('EVT/api_filtres_anti_brouillon — l’événement est lu par son identifiant, daté, brouillons écartés comme la fiche', async () => {
+    evenementVisible();
+    evenementAdmin();
+    collectesZdAdmin();
+    await rapport('rapport-rse');
+    const surEvenement = rls.filtres
+      .filter((f) => f.table === 'evenements')
+      .map((f) => [f.methode, ...f.args]);
+    expect(surEvenement).toEqual(
+      expect.arrayContaining([
+        ['eq', 'id', EVT],
+        ['not', 'date_evenement', 'is', null],
+        ['neq', 'hors_brouillon.statut', 'brouillon'],
+        ['or', 'hors_brouillon.not.is.null,collectes.is.null'],
+      ]),
     );
   });
 });
@@ -333,6 +370,16 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
     (admin.results.collectes!.data as { statut: string }[])[0]!.statut =
       'realisee';
     expect((await rapport('rapport-rse')).status).toBe(409);
+  });
+
+  it('EVT/api_zd_refiltre_type — une ligne relue d’un autre type n’est jamais cumulée', async () => {
+    evenementVisible();
+    evenementAdmin();
+    collectesZdAdmin();
+    (admin.results.collectes!.data as { type: string }[])[0]!.type =
+      'anti_gaspi';
+    expect((await rapport('rapport-rse')).status).toBe(409);
+    expect(mockPdf).not.toHaveBeenCalled();
   });
 
   it('EVT/api_zd_radar_filtres — avec radar : kg par convive de l’événement face au parc des filtres envoyés, sous l’identité du demandeur', async () => {
@@ -407,7 +454,7 @@ describe('M3.2 — rapport de don cumulé (AG)', () => {
   it('EVT/api_ag_recapitulatif — récapitulatif : sans excédent à 0 repas, numéro des attestations émises, associations cumulées', async () => {
     evenementVisible();
     evenementAdmin();
-    collectesAgAdmin();
+    collectesAgVisibles();
     const res = await rapport('rapport-de-don', {
       options: { benchmark: false },
     });
@@ -416,9 +463,15 @@ describe('M3.2 — rapport de don cumulé (AG)', () => {
       'attachment; filename="rapport-de-don-evenement-2026-10-14.pdf"',
     );
     // L'annulée n'est jamais relue.
-    expect(admin.inAppels).toEqual([
+    // Relues sous l'identité du demandeur, par la vue du gestionnaire ;
+    // l'annulée n'est jamais relue ; rien en service-role sur les collectes.
+    expect(rls.inAppels).toEqual([
       { table: 'collectes', col: 'id', valeurs: ['a1', 'a2'] },
     ]);
+    expect(admin.inAppels).toEqual([]);
+    expect(rls.selects.find((x) => x.table === 'collectes')?.texte).toContain(
+      'attributions_lues:v_attributions_gestionnaire(',
+    );
     expect(mockPdf.mock.calls[0]![0]).toBe('rapport-don-evenement');
     const p = payloadEnvoye();
     expect(p).toMatchObject({
@@ -447,10 +500,10 @@ describe('M3.2 — rapport de don cumulé (AG)', () => {
     ]);
   });
 
-  it('EVT/api_ag_attestation_embargo — attestation encore sous embargo : son numéro n’est pas imprimé', async () => {
+  it('EVT/api_ag_attestation_embargo — attestation pas encore téléchargeable (aucun PDF) : son numéro n’est pas imprimé', async () => {
     evenementVisible();
     evenementAdmin();
-    collectesAgAdmin('2999-01-01T00:00:00Z');
+    collectesAgVisibles(null);
     await rapport('rapport-de-don');
     expect(payloadEnvoye().collectes[0]!.attestation_numero).toBeNull();
   });
@@ -466,8 +519,18 @@ describe('M3.2 — rapport de don cumulé (AG)', () => {
 });
 
 describe('M3.2 — radar du bilan consolidé (écran)', () => {
-  it('EVT/api_benchmark_ecran — kg par convive de l’événement et repère parc des filtres de l’URL', async () => {
+  it('EVT/api_benchmark_ecran — kg par convive des collectes ZD réalisées (pas evenements.pax, cumul partiel) et repère parc des filtres de l’URL', async () => {
     evenementVisible();
+    // Une collecte ZD réalisée à 0 convive (inconnu) sort des deux sommes.
+    (rls.results.evenements!.data as { collectes: unknown[] }).collectes.push({
+      id: 'z3',
+      type: 'zero_dechet',
+      statut: 'cloturee',
+      pax: 0,
+      collecte_flux: [
+        { poids_reel_kg: 900, flux_dechets: { code: 'biodechet' } },
+      ],
+    });
     const res = await benchmark('?taille_evenement_codes=M,L&lieu_ids=x');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({

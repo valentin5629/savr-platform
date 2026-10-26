@@ -1448,7 +1448,7 @@
       "id": "M3.2-evenement-rapport-recyclage-cumule",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:350",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-rse/route.ts + packages/plateforme/src/lib/evenements/reponses-cumul.ts + packages/plateforme/src/lib/pdf/rapports-evenement.ts + apps/pdf-renderer/src/templates/rapport-recyclage-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (DocumentsEvenement)",
-      "test": "EVT/api_zd_cumul_collectes_visibles + EVT/api_zd_sans_resultat_409 + EVT/api_zd_relecture_sans_resultat + EVT/api_hors_perimetre_404 + EVT/api_rendu_echec_502 + EVT/rapport_cumule_zd + EVT/rapport_cumule_attente + page de synthèse du rapport @3, sous-titre « Bilan cumulé »",
+      "test": "EVT/api_zd_cumul_collectes_visibles + EVT/api_zd_sans_resultat_409 + EVT/api_zd_relecture_sans_resultat + EVT/api_zd_refiltre_type + EVT/api_filtres_anti_brouillon + EVT/api_hors_perimetre_404 + EVT/api_rendu_echec_502 + EVT/rapport_cumule_zd + EVT/rapport_cumule_attente + page de synthèse du rapport @3, sous-titre « Bilan cumulé »",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
       "libelle": "Rapport RSE de l'événement (Zéro Déchet), en tête des documents de l'onglet « Bilan & documents » de la fiche événement du gestionnaire (décision Val 2026-10-26) : page de synthèse du rapport de recyclage d'une collecte (@3) sur les chiffres cumulés des collectes ZD réalisées (mêmes règles que le bilan consolidé), puis le détail des collectes ; les bordereaux restent dans le rapport de chaque collecte. Cumul partiel dès la première collecte réalisée, couverture imprimée ; fabriqué au clic, jamais stocké. Accès = l'événement lu sous l'identité du demandeur, seules ses collectes visibles relues."
@@ -1460,7 +1460,7 @@
       "test": "EVT/api_ag_recapitulatif + EVT/api_ag_attestation_embargo + EVT/api_ag_jamais_de_radar + EVT/rapport_cumule_ag + titre « Rapport de don », sous-titre « Récapitulatif », mention sans valeur fiscale + renvoie aux attestations : numéro émis",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
-      "libelle": "Rapport de don de l'événement (Anti-Gaspi), décision Val 2026-10-26 : récapitulatif SANS valeur fiscale des collectes AG réalisées (repas, CO₂ évité, repas par association), qui renvoie aux attestations de don numérotées de chaque collecte, seules pièces fiscales (numéro imprimé une fois l'attestation téléchargeable) ; une collecte sans excédent y figure à 0 repas. Fabriqué au clic, jamais stocké."
+      "libelle": "Rapport de don de l'événement (Anti-Gaspi), décision Val 2026-10-26 : récapitulatif SANS valeur fiscale des collectes AG réalisées (repas, CO₂ évité, repas par association), qui renvoie aux attestations de don numérotées de chaque collecte, seules pièces fiscales (numéro imprimé une fois l'attestation téléchargeable) ; une collecte sans excédent y figure à 0 repas. Fabriqué au clic, jamais stocké. Repas, associations et attestations relus sous l'identité du demandeur, par le chemin de la fiche collecte (vue v_attributions_gestionnaire pour le gestionnaire)."
     },
     {
       "id": "M3.2-evenement-radar-bilan-consolide",
@@ -1469,7 +1469,7 @@
       "test": "EVT/api_benchmark_ecran + EVT/api_benchmark_sans_radar + EVT/api_benchmark_filtre_hors_perimetre + EVT/api_zd_radar_filtres + EVT/api_zd_radar_sans_convives_422 + EVT/api_zd_radar_filtre_hors_perimetre + EVT/radar_evenement",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
-      "libelle": "Radar de comparaison du bilan consolidé ZD de la fiche événement, à l'écran et dans le Rapport RSE de l'événement au choix (case « Inclure le radar »), décision Val 2026-10-26 : kg par convive de l'événement (pesées cumulées des collectes ZD réalisées / convives de l'événement) face au repère parc, avec la barre « Comparer avec » (lieux rattachés, types, tailles) ouverte sur les types des collectes ZD et la taille de l'événement. Même loader, même k-anonymat et même garde de périmètre que la fiche collecte."
+      "libelle": "Radar de comparaison du bilan consolidé ZD de la fiche événement, à l'écran et dans le Rapport RSE de l'événement au choix (case « Inclure le radar »), décision Val 2026-10-26 : kg par convive de l'événement (pesées cumulées des collectes ZD réalisées / somme de leurs convives, au grain du repère parc ; collecte à 0 convive écartée) face au repère parc, avec la barre « Comparer avec » (lieux rattachés, types, tailles) ouverte sur les types des collectes ZD et la taille de l'événement. Même loader, même k-anonymat et même garde de périmètre que la fiche collecte."
     },
     {
       "id": "M3.2-evenement-rapports-cumules-rendu-visuel",

@@ -6,8 +6,9 @@
 //    demandeur (RLS evenements puis collectes), brouillons écartés comme dans
 //    la liste et la fiche. C'est la seule preuve d'accès des routes cumulées.
 //  - `kgParConviveEvenement` : point « Vous » du radar = pesées cumulées des
-//    collectes ZD réalisées, divisées par les convives de l'événement (comme le
-//    KPI « Pesée par pax » du bilan consolidé).
+//    collectes ZD réalisées, divisées par la somme de LEURS convives — le grain
+//    du repère parc (kg par convive de collecte). Pas `evenements.pax`, qui
+//    compte aussi les collectes pas encore réalisées et les convives AG.
 //  - `chargerBenchmarkEvenement` : ce point et le repère parc des filtres
 //    réglés, lu par le même loader que la fiche collecte (même k-anonymat,
 //    même garde de périmètre).
@@ -30,7 +31,10 @@ import {
 
 type ClientSousRls = ReturnType<typeof createSupabaseServerClient>;
 
-export type CollecteVisible = CollecteAConsolider & { id: string };
+export type CollecteVisible = CollecteAConsolider & {
+  id: string;
+  pax?: number | null;
+};
 
 export interface EvenementVisible {
   id: string;
@@ -55,7 +59,7 @@ export async function lireEvenementVisible(
     .from('evenements')
     .select(
       `id, pax,
-       collectes(id, type, statut, date_collecte, taux_recyclage, co2_evite_kg,
+       collectes(id, type, statut, pax, date_collecte, taux_recyclage, co2_evite_kg,
          collecte_flux(poids_reel_kg, flux_dechets!flux_id(code))),
        hors_brouillon:collectes(id)`,
     )
@@ -78,23 +82,27 @@ export async function lireEvenementVisible(
 }
 
 /**
- * kg par convive de l'événement, par code de flux pesé sur une collecte ZD
- * réalisée. Vide sans convives (rien à comparer).
+ * kg par convive de l'événement, par code de flux pesé : Σ des pesées des
+ * collectes ZD réalisées / Σ de leurs convives. Une collecte à 0 convive
+ * (inconnu) est écartée des deux sommes, comme dans les ratios du dashboard.
+ * Vide si aucune collecte ne porte de convives (rien à comparer).
  */
 export function kgParConviveEvenement(
-  collectes: readonly CollecteAConsolider[],
-  pax: number | null,
+  collectes: readonly CollecteVisible[],
 ): Record<string, number> {
-  if (!pax || pax <= 0) return {};
+  let pax = 0;
   const kg: Record<string, number> = {};
   for (const c of collectes) {
     if (c.type !== 'zero_dechet' || !collecteRealisee(c)) continue;
+    if (!c.pax || c.pax <= 0) continue;
+    pax += c.pax;
     for (const f of c.collecte_flux ?? []) {
       const code = un(f.flux_dechets)?.code;
       if (!code || f.poids_reel_kg == null) continue;
       kg[code] = (kg[code] ?? 0) + Number(f.poids_reel_kg);
     }
   }
+  if (pax === 0) return {};
   return Object.fromEntries(
     Object.entries(kg).map(([code, total]) => [code, total / pax]),
   );
@@ -111,7 +119,7 @@ export async function chargerBenchmarkEvenement(
   evenement: EvenementVisible,
   filtres: FiltresBenchmarkFiche,
 ): Promise<BenchmarkFiche> {
-  const ratios = kgParConviveEvenement(evenement.collectes, evenement.pax);
+  const ratios = kgParConviveEvenement(evenement.collectes);
   if (Object.keys(ratios).length === 0) return { etat: 'sans_radar' };
   const parc = await chargerParcBenchmark(supabase, ctx, filtres);
   if (parc.etat !== 'ok') return parc;

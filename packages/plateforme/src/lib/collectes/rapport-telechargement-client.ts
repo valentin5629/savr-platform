@@ -67,6 +67,30 @@ export async function ouvrirDocumentPresigne(route: string): Promise<void> {
   }
 }
 
+/**
+ * Ouvre le « Rapport de don » d'une collecte AG (fichier déjà fabriqué, URL
+ * pré-signée servie par `<base>/rapport-rse/download`). Rend `null` s'il est
+ * ouvert, sinon le message à afficher. Commun aux fiches collecte et événement.
+ */
+export async function ouvrirRapportDeDon(base: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${base}/rapport-rse/download`);
+    const j = (await res.json().catch(() => ({}))) as { url?: string };
+    if (res.ok && j.url) {
+      window.open(j.url, '_blank');
+      return null;
+    }
+    return res.status === 425 || res.status === 202
+      ? 'Le rapport n’est pas encore disponible.'
+      : ECHEC_TELECHARGEMENT;
+  } catch {
+    return ECHEC_TELECHARGEMENT;
+  }
+}
+
+const ECHEC_TELECHARGEMENT =
+  'Le téléchargement a échoué. Réessayez dans un instant.';
+
 /** Enregistre le PDF d'une réponse sous le nom qu'elle donne. `false` si illisible. */
 export async function enregistrerReponsePdf(res: Response): Promise<boolean> {
   try {

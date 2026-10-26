@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   ETAPES_STATUT_COLLECTE,
   friseStatutClient,
+  friseStatutEvenement,
   LIBELLE_SANS_EXCEDENT,
   LIBELLE_STATUT_COLLECTE,
   RANG_STATUT_COLLECTE,
@@ -213,5 +214,38 @@ describe('R-UI-2 C1 — source unique statut collecte (étapes, rangs, export)',
     expect(LIBELLE_STATUT_COLLECTE.realisee_sans_collecte).toBe('Réalisée');
     // Les 10 statuts DB + la clé d'affichage Admin « Créée ».
     expect(Object.keys(LIBELLE_STATUT_COLLECTE)).toHaveLength(11);
+  });
+});
+
+describe('Fiche événement — frise Créé → Réalisé (Val 2026-10-26)', () => {
+  const courante = (statuts: string[]) =>
+    friseStatutEvenement(statuts).find((e) => e.etat === 'courante')?.label;
+
+  it('EVT-FRISE/etape_la_plus_basse — l’événement avance quand TOUTES ses collectes ont avancé', () => {
+    expect(courante(['validee', 'programmee'])).toBe('Créé');
+    expect(courante(['validee', 'en_cours'])).toBe('Validé');
+    expect(courante(['cloturee', 'en_cours'])).toBe('En cours');
+    // `realisee` attend sa clôture : « En cours » côté client.
+    expect(courante(['cloturee', 'realisee'])).toBe('En cours');
+    expect(courante(['cloturee', 'realisee_sans_collecte'])).toBe('Réalisé');
+    expect(friseStatutEvenement(['cloturee']).map((e) => e.label)).toEqual([
+      'Créé',
+      'Validé',
+      'En cours',
+      'Réalisé',
+    ]);
+  });
+
+  it('EVT-FRISE/annulees_ignorees — une collecte annulée ne retient pas l’événement ; toutes annulées : « Annulé »', () => {
+    expect(courante(['cloturee', 'annulee'])).toBe('Réalisé');
+    expect(courante(['validee', 'annulation_demandee'])).toBe('Validé');
+    expect(friseStatutEvenement(['annulee', 'annulee'])).toEqual([
+      { label: 'Créé', etat: 'passee' },
+      { label: 'Annulé', etat: 'courante' },
+    ]);
+  });
+
+  it('EVT-FRISE/sans_collecte — aucune collecte : « Créé »', () => {
+    expect(courante([])).toBe('Créé');
   });
 });

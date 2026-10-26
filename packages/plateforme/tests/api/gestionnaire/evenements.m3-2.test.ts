@@ -73,6 +73,12 @@ vi.mock('@supabase/ssr', () => ({
 vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
 }));
+// Fiche de chaque collecte (onglets de la fiche événement, Val 2026-10-26) : le
+// chargeur commun de la fiche collecte, testé avec sa route.
+const mockCharger = vi.fn();
+vi.mock('@/lib/collectes/fiche-client.js', () => ({
+  chargerFicheCollecteClient: (...a: unknown[]) => mockCharger(...a),
+}));
 
 import { GET as LISTE } from '@/app/api/v1/gestionnaire/evenements/route.js';
 import { GET as FICHE } from '@/app/api/v1/gestionnaire/evenements/[id]/route.js';
@@ -130,6 +136,7 @@ function evenementBrut(over: Record<string, unknown> = {}) {
       adresse_acces: '1 place de la Porte de Versailles',
       code_postal: '75015',
       ville: 'Paris',
+      acces_details: ' Quai 3, badge à l’accueil ',
     },
     organisations: { id: 'T1', nom: 'Kaspia', logo_url: 'logos/kaspia.png' },
     types_evenements: { libelle: 'Cocktail repas complet' },
@@ -186,6 +193,10 @@ beforeEach(() => {
   rls = makeChain();
   mockRpc.mockReset();
   mockRpc.mockResolvedValue({ data: 42, error: null });
+  mockCharger.mockReset();
+  mockCharger.mockImplementation((id: string) =>
+    Promise.resolve({ fiche: { id } }),
+  );
   mockGetUser.mockResolvedValue({
     data: { user: { id: 'user-gl' } },
     error: null,
@@ -515,7 +526,8 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
         type_evenement: string | null;
         dechets_labo_kg: number | null;
         bilan: Record<string, unknown>;
-        collectes: Record<string, unknown>[];
+        fiches: { id: string }[];
+        lieu_acces_details: string | null;
       };
     };
     // Le logo est une clé R2 : il ne sort pas, seul son existence est dite.
@@ -538,43 +550,18 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
       derniere_collecte: '2026-09-12',
       statut_consolide: 'En cours',
     });
-    // Collectes dans l'ordre chronologique, résultats seulement une fois
-    // réalisées (comme la colonne « Résultats » de la liste Collectes).
-    expect(data.collectes).toEqual([
-      {
-        id: 'c1',
-        type: 'zero_dechet',
-        statut: 'cloturee',
-        date_collecte: '2026-09-10',
-        heure_collecte: '23:00:00',
-        poids_total_kg: 900,
-        taux_recyclage: 80,
-        co2_evite_kg: 90,
-        nb_repas_donnes: null,
-      },
-      {
-        id: 'c2',
-        type: 'zero_dechet',
-        statut: 'cloturee',
-        date_collecte: '2026-09-11',
-        heure_collecte: '08:00:00',
-        poids_total_kg: 100,
-        taux_recyclage: 20,
-        co2_evite_kg: 10,
-        nb_repas_donnes: null,
-      },
-      {
-        id: 'c3',
-        type: 'anti_gaspi',
-        statut: 'validee',
-        date_collecte: '2026-09-12',
-        heure_collecte: null,
-        poids_total_kg: null,
-        taux_recyclage: null,
-        co2_evite_kg: null,
-        nb_repas_donnes: null,
-      },
-    ]);
+    // Une fiche par collecte, dans l'ordre chronologique, chargée par le
+    // chargeur de la fiche collecte sous la session et l'espace du rôle : mêmes
+    // règles de visibilité (contacts, référence interne).
+    expect(data.fiches.map((f) => f.id)).toEqual(['c1', 'c2', 'c3']);
+    for (const appel of mockCharger.mock.calls) {
+      expect(appel[1]).toMatchObject({ organisationId: 'org-gl' });
+      expect(appel[2]).toBe('gestionnaire');
+    }
+    expect(data.lieu_acces_details).toBe('Quai 3, badge à l’accueil');
+    expect(String(rls.__calls.select?.[0]?.[0])).toContain(
+      'lieux!lieu_id(nom, adresse_acces, code_postal, ville, acces_details)',
+    );
     // Repas et association lus par la vue du rôle, jamais la table.
     const select = String(rls.__calls.select?.[0]?.[0]);
     expect(select).toContain(
@@ -584,39 +571,22 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
     expect(select).toContain('v_traiteurs_gestionnaire!');
   });
 
-  it('M3.2/evenement_fiche_resultats_vides_avant_realisation — valeurs déjà reçues mais non affichables : null', async () => {
-    const [c2, , c3] = evenementBrut().collectes;
-    rls.__set({
-      data: evenementBrut({
-        collectes: [
-          // Pesées et valeurs déjà présentes sur une collecte `realisee` (embargo
-          // non levé) et sur une AG validée : rien ne sort avant la clôture.
-          { ...c2, statut: 'realisee' },
-          {
-            ...c3,
-            co2_evite_kg: 25,
-            attributions_antgaspi: {
-              volume_repas_realise: 10,
-              association_id: 'a1',
-              association_nom: 'Linkee',
-              association_ville: null,
-            },
-          },
-        ],
-      }),
-      error: null,
-    });
-    const { data } = (await (await fiche()).json()) as {
-      data: { collectes: Record<string, unknown>[] };
-    };
-    for (const c of data.collectes) {
-      expect(c).toMatchObject({
-        poids_total_kg: null,
-        taux_recyclage: null,
-        co2_evite_kg: null,
-        nb_repas_donnes: null,
-      });
-    }
+  it('M3.2/evenement_fiche_echec_d_une_fiche_500 — une collecte illisible fait échouer la fiche, jamais une fiche à trous', async () => {
+    rls.__set({ data: evenementBrut(), error: null });
+    mockCharger.mockImplementation((id: string) =>
+      Promise.resolve(
+        id === 'c2' ? { erreur: { code: 'XX000' } } : { fiche: { id } },
+      ),
+    );
+    expect((await fiche()).status).toBe(500);
+  });
+
+  it('M3.2/evenement_fiche_collecte_introuvable_500 — une collecte disparue entre les deux lectures : 500, jamais N−1 cartes sur un bilan de N', async () => {
+    rls.__set({ data: evenementBrut(), error: null });
+    mockCharger.mockImplementation((id: string) =>
+      Promise.resolve(id === 'c3' ? { introuvable: true } : { fiche: { id } }),
+    );
+    expect((await fiche()).status).toBe(500);
   });
 
   it('M3.2/evenement_fiche_collectes_meme_jour_par_heure — à date égale, l’heure départage', async () => {
@@ -638,9 +608,9 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
       error: null,
     });
     const { data } = (await (await fiche()).json()) as {
-      data: { collectes: { id: string }[] };
+      data: { fiches: { id: string }[] };
     };
-    expect(data.collectes.map((c) => c.id)).toEqual(['z-matin', 'a-soir']);
+    expect(data.fiches.map((c) => c.id)).toEqual(['z-matin', 'a-soir']);
   });
 
   it('M3.2/evenement_fiche_sans_zd_pas_d_estimation_labo', async () => {

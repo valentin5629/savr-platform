@@ -195,19 +195,9 @@ function evenement(ajouterCollecte: boolean) {
       derniere_collecte: '2026-10-22',
       statut_consolide: 'Terminé',
     },
-    collectes: [
-      {
-        id: 'c1',
-        type: 'zero_dechet',
-        statut: 'cloturee',
-        date_collecte: '2026-10-22',
-        heure_collecte: '23:00:00',
-        poids_total_kg: 100,
-        taux_recyclage: 80,
-        co2_evite_kg: 10,
-        nb_repas_donnes: null,
-      },
-    ],
+    lieu_acces_details: null,
+    // Fiches des collectes : sans objet pour le lien d'ajout.
+    fiches: [],
   };
 }
 
@@ -245,7 +235,7 @@ describe('M1.2 — ajouter une collecte depuis la fiche événement du gestionna
         vi.fn(() => Promise.resolve(reponse({ data: evenement(false) }))),
       );
       render(ficheEvenement());
-      await screen.findByTestId('bilan-consolide', {}, ATTENTE_UI);
+      await screen.findByTestId('frise-statut-evenement', {}, ATTENTE_UI);
       expect(screen.queryByTestId('action-ajouter-collecte')).toBeNull();
       expect(
         screen.queryByRole('link', { name: 'Ajouter une collecte' }),

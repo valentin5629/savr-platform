@@ -2,26 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  BarChart3,
   CalendarDays,
   ChefHat,
-  ClipboardList,
-  Clock3,
-  Heart,
+  FileText,
+  HandHeart,
   Info,
   MapPin,
   PlusCircle,
+  Truck,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import {
-  CelluleVide,
-  DataGrid,
-  type ColumnDef,
-} from '@/components/ui/data-grid';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { EnTetePuce, FicheEnTete } from '@/components/ui/fiche/fiche-en-tete';
@@ -30,6 +25,7 @@ import {
   FicheModal,
   FichePied,
 } from '@/components/ui/fiche/fiche-modal';
+import { Heading } from '@/components/ui/heading';
 import { InfoItem } from '@/components/ui/info-item';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,12 +35,32 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { useToast } from '@/components/ui/toast';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
-import { ResultatsCollecte } from '@/components/collecte/collectes-traiteur-table';
-import { Kpi } from '@/components/collecte/fiche-collecte-client-bilan';
+import { TelephoneLien } from '@/components/collecte/fiche-blocs';
+import {
+  BandeauBilanAttente,
+  Estompe,
+  GrapheEnAttente,
+  Kpi,
+} from '@/components/collecte/fiche-collecte-client-bilan';
+import { Chauffeurs } from '@/components/collecte/fiche-collecte-client-onglets';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
+import { FriseEtapes } from '@/components/collecte/frise-etapes';
+import {
+  ToggleTypeCollecte,
+  type CollecteType,
+} from '@/components/collecte/toggle-type-collecte';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
-import { ouvrirDocumentPresigne } from '@/lib/collectes/rapport-telechargement-client';
+import {
+  LIBELLE_ETAT_RAPPORT,
+  STATUTS_ANNULES,
+  type FicheCollecteClient,
+} from '@/lib/collectes/fiche-client-types';
+import {
+  ouvrirRapportDeDon,
+  telechargerRapportRecyclage,
+} from '@/lib/collectes/rapport-telechargement-client';
 import type { BilanEvenement } from '@/lib/evenements-gestionnaire';
 import { estUuid } from '@/lib/filtre-csv';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
@@ -56,32 +72,23 @@ import {
   fmtPax,
   UNITE_KG_CO2E,
 } from '@/lib/format';
-import { variantStatutEvenement } from '@/lib/libelles/evenement';
 import { ROUTES } from '@/lib/routes';
+import { friseStatutEvenement } from '@/lib/statut-collecte-labels';
 
-// Fiche événement du gestionnaire de lieux, en pop-up sur la liste Événements
-// (demande Val 2026-10-19 : « en modale comme les pages collectes »), sur le
-// cadre commun des fiches (FicheModal : grand en-tête, onglets, corps défilant).
-// Lecture seule (§06.05 §2), à une action près : « Ajouter une collecte »
-// (§06.01), sur les événements que le gestionnaire a programmés lui-même, quel
-// que soit l'état de leurs collectes (décision Val 2026-10-21). Onglets : « Bilan » (bilan consolidé, ouvert par défaut :
-// c'est l'objet de la page, cf. lib/evenements-gestionnaire), « Collectes » et
-// « Informations ». Un clic sur une collecte ouvre sa fiche (pop-up client
-// commun) par-dessus : tant qu'elle est ouverte, la fiche événement ne se ferme
-// pas (les deux écoutent Échap et le clic hors panneau), et sa fermeture
-// recharge le bilan, qu'une modification peut changer.
-
-interface CollecteLigne {
-  id: string;
-  type: string;
-  statut: string;
-  date_collecte: string | null;
-  heure_collecte: string | null;
-  poids_total_kg: number | null;
-  taux_recyclage: number | null;
-  co2_evite_kg: number | null;
-  nb_repas_donnes: number | null;
-}
+// Fiche événement du gestionnaire de lieux, en pop-up sur la liste Événements,
+// sur le cadre commun des fiches (FicheModal : grand en-tête, onglets, corps
+// défilant). Trois onglets (décision Val 2026-10-26), au format de la fiche
+// collecte : « Informations générales » (événement, lieu, une carte par
+// collecte), « Informations chauffeurs » (une carte par collecte, demande
+// urgente comprise) et « Bilan & documents » (bilan consolidé, rapports de
+// chaque collecte). En-tête : frise Créé → Réalisé, dérivée des collectes.
+//
+// Consultation (§06.05 §2), à deux gestes près : « Ajouter une collecte » sur
+// les événements que le gestionnaire a programmés lui-même (décision Val
+// 2026-10-21), et la demande urgente des coordonnées d'un chauffeur, la même que
+// sur la fiche collecte. Une fiche collecte s'ouvre par-dessus (« Voir la
+// collecte », « Accéder au bilan… ») : tant qu'elle est ouverte, la fiche
+// événement ne se ferme pas, et sa fermeture recharge l'événement.
 
 interface EvenementDetail {
   id: string;
@@ -89,19 +96,22 @@ interface EvenementDetail {
   date_evenement: string | null;
   pax: number | null;
   taille_bracket: string;
-  type_evenement: string | null;
   client_nom: string | null;
   lieu_nom: string | null;
   lieu_adresse: string | null;
+  lieu_acces_details: string | null;
   traiteur: { id: string; nom: string | null; a_logo: boolean } | null;
   dechets_labo_kg: number | null;
   // Événement programmé par l'organisation de l'utilisateur (cf. la route).
   ajouter_collecte: boolean;
   bilan: BilanEvenement;
-  collectes: CollecteLigne[];
+  // Fiche de chaque collecte, dans l'ordre chronologique.
+  fiches: FicheCollecteClient[];
 }
 
 type Etat = 'chargement' | 'erreur' | 'introuvable' | 'pret';
+type Onglet = 'informations' | 'collectes' | 'bilan';
+type Urgence = { etat: 'idle' | 'envoi' | 'envoyee'; erreur: string | null };
 
 // Infobulle du taux consolidé : la règle de calcul, pour qu'un écart avec la
 // moyenne simple des taux affichés sur chaque collecte ne surprenne pas.
@@ -110,38 +120,127 @@ const AIDE_TAUX =
 const AIDE_LABO =
   'Estimation amont, distincte des déchets collectés sur l’événement.';
 
+const GRILLE =
+  'grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3';
+
 const VIDE = <span className="text-savr-neutral-400">—</span>;
+
+const annulee = (f: FicheCollecteClient) => STATUTS_ANNULES.includes(f.statut);
+
+/** Adresse et instructions d'accès EFFECTIVES d'une collecte (lieu + surcharges
+ * saisies à la programmation, telles que la fiche collecte les sert). */
+const adresseDe = (f: FicheCollecteClient) => {
+  const l = f.evenement?.lieu;
+  return (
+    [l?.adresse_acces, l?.code_postal, l?.ville].filter(Boolean).join(' ') ||
+    null
+  );
+};
+const accesDe = (f: FicheCollecteClient) =>
+  f.evenement?.lieu?.acces_details?.trim() || null;
+
+/** Valeur commune aux collectes ; `undefined` si elles diffèrent ou s'il n'y en a pas. */
+function commune(
+  fiches: FicheCollecteClient[],
+  lire: (f: FicheCollecteClient) => string | null,
+): string | null | undefined {
+  const valeurs = new Set(fiches.map(lire));
+  return valeurs.size === 1 ? [...valeurs][0] : undefined;
+}
+
+const SELON_LA_COLLECTE = (
+  <span className="font-normal text-savr-neutral-500">
+    Propre à chaque collecte, voir ci-dessous.
+  </span>
+);
+
+/** « Collecte du Lun 26 Oct · 08h00 » : titre de carte d'une collecte. */
+function titreCollecte(f: FicheCollecteClient): string {
+  return `Collecte du ${libelleDateHeure(f.date_collecte, f.heure_collecte)}`;
+}
 
 // Phrase de couverture du bilan, accordée au singulier comme au pluriel.
 // « Réalisée » s'entend au sens des résultats (clôturée, ou AG sans excédent) :
-// une collecte `realisee` qui attend sa clôture compte déjà « Terminé » dans le
-// statut consolidé, sans avoir encore de résultat.
-function couverture(nbRealisees: number, nbCollectes: number): string {
+// une collecte `realisee` qui attend sa clôture n'a pas encore de résultat.
+function couverture(
+  nbRealisees: number,
+  nbCollectes: number,
+  // « Zéro Déchet » / « Anti-Gaspi » quand le bilan ne porte que sur un type
+  // d'un événement qui mêle les deux.
+  type = '',
+): string {
   if (nbCollectes === 0)
     return 'Aucune collecte n’est rattachée à cet événement.';
+  const t = type ? ` ${type}` : '';
   const total =
-    nbCollectes === 1 ? 'la collecte' : `les ${nbCollectes} collectes`;
+    nbCollectes === 1 ? `la collecte${t}` : `les ${nbCollectes} collectes${t}`;
   if (nbRealisees === 0)
     return `Aucun résultat n’est encore disponible sur ${total} de l’événement.`;
   const realisees =
     nbRealisees === 1
       ? 'Cumul de 1 collecte réalisée'
       : `Cumul des ${nbRealisees} collectes réalisées`;
-  return `${realisees}, sur ${nbCollectes === 1 ? '1 collecte' : `${nbCollectes} collectes`} de l’événement.`;
+  return `${realisees}, sur ${nbCollectes === 1 ? `1 collecte${t}` : `${nbCollectes} collectes${t}`} de l’événement.`;
 }
 
-/** Bilan consolidé : cumul des collectes réalisées de l'événement. */
+/**
+ * Liens vers le bilan de chaque collecte d'un type, quand l'événement en compte
+ * plus d'une (décision Val 2026-10-26) : avec une seule, le cumul EST son bilan.
+ */
+function LiensBilans({
+  fiches,
+  onOuvrir,
+}: {
+  fiches: FicheCollecteClient[];
+  onOuvrir: (id: string) => void;
+}) {
+  if (fiches.length < 2) return null;
+  return (
+    <ul className="space-y-1" data-testid="liens-bilans">
+      {fiches.map((f) => (
+        <li key={f.id}>
+          <Button
+            variant="link"
+            className="h-auto min-h-11 px-0 text-left sm:min-h-0"
+            onClick={() => onOuvrir(f.id)}
+          >
+            Accéder au bilan de la collecte du{' '}
+            {libelleDateHeure(f.date_collecte, f.heure_collecte)}
+          </Button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Bilan consolidé : cumul des collectes réalisées de l'événement, au format de
+ * l'onglet « Bilan & documents » de la fiche collecte (décision Val
+ * 2026-10-26) — bandeau d'attente, chiffres clés estompés tant qu'aucune
+ * collecte du type n'est réalisée, répartition des tonnages. Le radar de
+ * comparaison reste propre à chaque collecte (filtres par collecte).
+ */
 function BilanConsolide({
   b,
+  type,
+  deuxTypes,
   pax,
   dateEvenement,
+  actives,
+  onOuvrirBilan,
 }: {
   b: BilanEvenement;
+  // Type affiché : le seul de l'événement, ou celui du sous-onglet.
+  type: CollecteType;
+  deuxTypes: boolean;
   pax: number | null;
   dateEvenement: string | null;
+  actives: FicheCollecteClient[];
+  onOuvrirBilan: (id: string) => void;
 }) {
-  const nbCollectes = b.nb_collectes_zd + b.nb_collectes_ag;
-  const nbRealisees = b.nb_realisees_zd + b.nb_realisees_ag;
+  const zd = type === 'zero_dechet';
+  const nbCollectes = zd ? b.nb_collectes_zd : b.nb_collectes_ag;
+  const nbRealisees = zd ? b.nb_realisees_zd : b.nb_realisees_ag;
   const masse = b.tonnage_zd_kg != null ? fmtMasse(b.tonnage_zd_kg) : null;
   const serieDonut = [
     {
@@ -153,145 +252,343 @@ function BilanConsolide({
   ];
 
   return (
-    <section className="space-y-4" data-testid="bilan-consolide">
-      <SectionHeader icon={BarChart3} title="Bilan consolidé" level={3} />
-      <Text tone="soft" data-testid="bilan-consolide-couverture">
-        {couverture(nbRealisees, nbCollectes)}
+    <section className="space-y-3" data-testid="bilan-consolide">
+      {nbCollectes > 0 && nbRealisees === 0 && (
+        <BandeauBilanAttente titre="Votre bilan sera disponible après les collectes">
+          Poids collectés, CO₂ évité, repas donnés et répartition par flux
+          s’afficheront ici le lendemain de chaque collecte, et se cumuleront au
+          fil des collectes de l’événement.
+        </BandeauBilanAttente>
+      )}
+      <Text variant="hint" data-testid="bilan-consolide-couverture">
+        {couverture(
+          nbRealisees,
+          nbCollectes,
+          deuxTypes ? libelleTypeCollecte(type) : '',
+        )}
       </Text>
 
-      {nbCollectes > 0 && nbRealisees === 0 && (
-        <div
-          data-testid="bandeau-bilan-attente"
-          className="flex items-start gap-3 rounded-savr-lg bg-savr-primary-50 px-5 py-4"
-        >
-          <Clock3
-            className="mt-0.5 h-5 w-5 shrink-0 text-savr-primary-700"
-            aria-hidden="true"
-          />
-          <Text tone="soft">
-            Les résultats s’afficheront ici le lendemain de chaque collecte, et
-            se cumuleront au fil des collectes de l’événement.
-          </Text>
-        </div>
-      )}
-
-      {b.nb_collectes_zd > 0 && (
+      {zd && nbCollectes > 0 && (
         <div className="space-y-3" data-testid="bilan-consolide-zd">
-          <div className="flex items-center gap-2">
-            <TypeCollecteBadge type="zero_dechet" forme="badge" />
-            <Text variant="hint">
-              {b.nb_realisees_zd} réalisée{b.nb_realisees_zd > 1 ? 's' : ''} sur{' '}
-              {b.nb_collectes_zd}
-            </Text>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Kpi
-              label="Poids total collecté"
-              nombre={masse ? masse.value : '—'}
-              unite={masse ? masse.unit : 'kg'}
-            />
-            <Kpi
-              label="CO₂ évité"
-              nombre={
-                b.co2_evite_zd_kg != null ? fmtInt(b.co2_evite_zd_kg) : '—'
-              }
-              unite={UNITE_KG_CO2E}
-            />
-            <Kpi
-              label="Taux de recyclage"
-              aide={AIDE_TAUX}
-              nombre={
-                b.taux_recyclage != null ? fmtDec(b.taux_recyclage, 1) : '—'
-              }
-              unite="%"
-            />
-            <Kpi
-              label="Pesée par pax"
-              nombre={
-                b.tonnage_zd_kg != null && pax
-                  ? fmtInt((b.tonnage_zd_kg / pax) * 1000)
-                  : '—'
-              }
-              unite="g"
-            />
-          </div>
-          {b.tonnage_zd_kg != null && b.tonnage_zd_kg > 0 && (
-            <TonnagesDonut series={serieDonut} disposition="ligne" />
-          )}
+          <Estompe actif={b.nb_realisees_zd === 0}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Kpi
+                label="Poids total collecté"
+                nombre={masse ? masse.value : '—'}
+                unite={masse ? masse.unit : 'kg'}
+              />
+              <Kpi
+                label="CO₂ évité"
+                nombre={
+                  b.co2_evite_zd_kg != null ? fmtInt(b.co2_evite_zd_kg) : '—'
+                }
+                unite={UNITE_KG_CO2E}
+              />
+              <Kpi
+                label="Taux de recyclage"
+                aide={AIDE_TAUX}
+                nombre={
+                  b.taux_recyclage != null ? fmtDec(b.taux_recyclage, 1) : '—'
+                }
+                unite="%"
+              />
+              <Kpi
+                label="Pesée par pax"
+                nombre={
+                  b.tonnage_zd_kg != null && pax
+                    ? fmtInt((b.tonnage_zd_kg / pax) * 1000)
+                    : '—'
+                }
+                unite="g"
+              />
+            </div>
+            {b.nb_realisees_zd === 0 ? (
+              <GrapheEnAttente titre="Répartition des tonnages" />
+            ) : (
+              b.tonnage_zd_kg != null &&
+              b.tonnage_zd_kg > 0 && (
+                <TonnagesDonut series={serieDonut} disposition="ligne" />
+              )
+            )}
+          </Estompe>
+          <LiensBilans
+            fiches={actives.filter((f) => f.type === 'zero_dechet')}
+            onOuvrir={onOuvrirBilan}
+          />
         </div>
       )}
 
-      {b.nb_collectes_ag > 0 && (
+      {!zd && nbCollectes > 0 && (
         <div className="space-y-3" data-testid="bilan-consolide-ag">
-          <div className="flex items-center gap-2">
-            <TypeCollecteBadge type="anti_gaspi" forme="badge" />
-            <Text variant="hint">
-              {b.nb_realisees_ag} réalisée{b.nb_realisees_ag > 1 ? 's' : ''} sur{' '}
-              {b.nb_collectes_ag}
-            </Text>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Kpi
-              label="Repas donnés"
-              nombre={b.repas_donnes != null ? fmtInt(b.repas_donnes) : '—'}
-              unite="repas"
-            />
-            <Kpi
-              label="Repas par pax"
-              nombre={
-                b.repas_donnes != null && pax
-                  ? fmtDec(b.repas_donnes / pax, 2)
-                  : '—'
-              }
-            />
-            <Kpi
-              label="CO₂ évité"
-              nombre={
-                b.co2_evite_ag_kg != null ? fmtInt(b.co2_evite_ag_kg) : '—'
-              }
-              unite={UNITE_KG_CO2E}
-            />
-          </div>
-          {b.associations.length > 0 && (
-            <Card padding="md" className="space-y-3">
-              <SectionHeader
-                icon={Heart}
-                title={
-                  b.associations.length > 1
-                    ? 'Associations bénéficiaires'
-                    : 'Association bénéficiaire'
-                }
-                level={3}
+          <Estompe actif={b.nb_realisees_ag === 0}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Kpi
+                label="Repas donnés"
+                nombre={b.repas_donnes != null ? fmtInt(b.repas_donnes) : '—'}
+                unite="repas"
               />
-              <ul
-                className="divide-y divide-savr-neutral-100 text-sm"
-                data-testid="associations-beneficiaires"
-              >
-                {b.associations.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex items-center justify-between gap-3 py-2"
-                  >
-                    <span>
-                      <span className="font-medium">{a.nom}</span>
-                      {a.ville && (
-                        <Text as="span" variant="hint">
-                          {' '}
-                          · {a.ville}
-                        </Text>
-                      )}
-                    </span>
-                    <span className="whitespace-nowrap tabular-nums">
-                      {fmtInt(a.repas)} repas
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
+              <Kpi
+                label="Repas par pax"
+                nombre={
+                  b.repas_donnes != null && pax
+                    ? fmtDec(b.repas_donnes / pax, 2)
+                    : '—'
+                }
+              />
+              <Kpi
+                label="CO₂ évité"
+                nombre={
+                  b.co2_evite_ag_kg != null ? fmtInt(b.co2_evite_ag_kg) : '—'
+                }
+                unite={UNITE_KG_CO2E}
+              />
+            </div>
+            {b.associations.length > 0 && (
+              <Card padding="md" className="space-y-4">
+                <SectionHeader
+                  icon={HandHeart}
+                  title={
+                    b.associations.length > 1
+                      ? 'Associations bénéficiaires'
+                      : 'Association bénéficiaire'
+                  }
+                  level={3}
+                />
+                <ul
+                  className="divide-y divide-savr-neutral-100 text-sm"
+                  data-testid="associations-beneficiaires"
+                >
+                  {b.associations.map((a) => (
+                    <li
+                      key={a.id}
+                      className="flex items-center justify-between gap-3 py-2"
+                    >
+                      <span>
+                        <span className="font-medium">{a.nom}</span>
+                        {a.ville && (
+                          <Text as="span" variant="hint">
+                            {' '}
+                            · {a.ville}
+                          </Text>
+                        )}
+                      </span>
+                      <span className="whitespace-nowrap tabular-nums">
+                        {fmtInt(a.repas)} repas
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+          </Estompe>
+          <LiensBilans
+            fiches={actives.filter((f) => f.type === 'anti_gaspi')}
+            onOuvrir={onOuvrirBilan}
+          />
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Rapports de l'événement : celui de chaque collecte non annulée (Rapport RSE
+ * en ZD, fabriqué au clic ; Rapport de don en AG, fichier déjà fabriqué). Les
+ * rapports cumulés sur l'événement sont un lot à part (Val 2026-10-26).
+ */
+function DocumentsEvenement({ actives }: { actives: FicheCollecteClient[] }) {
+  const [enCours, setEnCours] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  if (actives.length === 0) return null;
+
+  // Mêmes chemins que l'onglet Bilan de la fiche collecte (rapport ZD sans
+  // radar : ses filtres de comparaison sont propres à chaque collecte).
+  async function telecharger(f: FicheCollecteClient) {
+    const base = `/api/v1/gestionnaire/collectes/${encodeURIComponent(f.id)}`;
+    setErreur(null);
+    setEnCours(f.id);
+    const message =
+      f.type === 'anti_gaspi'
+        ? await ouvrirRapportDeDon(base)
+        : await telechargerRapportRecyclage(`${base}/rapport-rse`, {
+            options: { benchmark: false },
+          });
+    setEnCours(null);
+    setErreur(message ? `${titreCollecte(f)} : ${message}` : null);
+  }
+
+  return (
+    <section className="space-y-3">
+      <SectionHeader icon={FileText} title="Documents" level={3} />
+      <Card
+        className="divide-y divide-savr-neutral-100 p-0"
+        data-testid="documents-evenement"
+      >
+        {actives.map((f) => (
+          <div
+            key={f.id}
+            className="flex flex-wrap items-center gap-3 px-5 py-3.5"
+            data-testid="document-collecte"
+          >
+            <FileText
+              className="h-5 w-5 shrink-0 text-savr-primary-700"
+              aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold text-savr-neutral-900">
+                {f.type === 'anti_gaspi' ? 'Rapport de don' : 'Rapport RSE'}
+              </p>
+              <Text>
+                {titreCollecte(f)} · {LIBELLE_ETAT_RAPPORT[f.rapport_etat]}
+                {f.rapport_rse_regenere && ' · Rapport mis à jour'}
+              </Text>
+            </div>
+            <Button
+              variant="secondary"
+              disabled={!f.rapport_rse_disponible || enCours !== null}
+              loading={enCours === f.id}
+              loadingText="Préparation du PDF…"
+              onClick={() => void telecharger(f)}
+            >
+              Télécharger
+            </Button>
+          </div>
+        ))}
+        {erreur && (
+          <AlertBar variant="err" role="alert" className="mx-5 my-3">
+            {erreur}
+          </AlertBar>
+        )}
+      </Card>
+    </section>
+  );
+}
+
+/**
+ * Carte d'une collecte dans « Informations collectes » : ses informations
+ * (pax, type d'événement, contacts, informations supplémentaires) et sa
+ * logistique (chauffeur, plaque, téléphone, demande urgente) réunies
+ * (décision Val 2026-10-26).
+ */
+function CarteCollecte({
+  f,
+  avecAdresse,
+  avecAcces,
+  urgence,
+  onDemanderUrgence,
+  onOuvrir,
+}: {
+  f: FicheCollecteClient;
+  // Adresse / instructions d'accès différentes d'une collecte à l'autre : la
+  // carte porte les siennes, le bloc Lieu renvoie ici.
+  avecAdresse: boolean;
+  avecAcces: boolean;
+  urgence: Urgence | undefined;
+  onDemanderUrgence: () => void;
+  onOuvrir: () => void;
+}) {
+  const secours = Boolean(
+    f.contact_secours_nom?.trim() || f.contact_secours_telephone?.trim(),
+  );
+  return (
+    <Card
+      padding="md"
+      className="flex flex-col gap-4"
+      data-testid="carte-collecte"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <TypeCollecteBadge type={f.type} />
+          <Heading level={3} size="base" weight="extrabold">
+            {titreCollecte(f)}
+          </Heading>
+        </div>
+        <CollecteStatutBadge statut={f.statut} />
+      </div>
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+        <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
+        <InfoItem label="Type d’événement">
+          {f.type_evenement?.libelle ?? VIDE}
+        </InfoItem>
+        {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
+            traiteur tiers (§06.05), décidé par le serveur. */}
+        {f.contacts_visibles ? (
+          <>
+            <InfoItem label="Contact principal">
+              {f.contact_principal_nom ?? VIDE}
+              <span className="block font-normal">
+                <TelephoneLien telephone={f.contact_principal_telephone} />
+              </span>
+            </InfoItem>
+            <InfoItem label="Contact de secours">
+              {secours ? (
+                <>
+                  {f.contact_secours_nom ?? VIDE}
+                  <span className="block font-normal">
+                    <TelephoneLien telephone={f.contact_secours_telephone} />
+                  </span>
+                </>
+              ) : (
+                VIDE
+              )}
+            </InfoItem>
+          </>
+        ) : (
+          <InfoItem label="Contacts sur place" className="sm:col-span-2">
+            <span className="font-normal text-savr-neutral-500">
+              Réservés au traiteur qui a programmé la collecte.
+            </span>
+          </InfoItem>
+        )}
+        {avecAdresse && (
+          <InfoItem label="Adresse" className="sm:col-span-2">
+            {adresseDe(f) ?? VIDE}
+          </InfoItem>
+        )}
+        {avecAcces && (
+          <InfoItem
+            variant="texte"
+            label="Instructions d’accès"
+            className="sm:col-span-2"
+            valueClassName="whitespace-pre-line"
+          >
+            {accesDe(f) ?? VIDE}
+          </InfoItem>
+        )}
+        <InfoItem
+          variant="texte"
+          label="Informations supplémentaires"
+          className="sm:col-span-2"
+          valueClassName="whitespace-pre-line"
+        >
+          {f.informations_supplementaires?.trim() || VIDE}
+        </InfoItem>
+      </dl>
+      <div
+        className="space-y-3 border-t border-dashed border-savr-neutral-200 pt-4"
+        data-testid="bloc-logistique"
+      >
+        <Text
+          as="p"
+          tone="ink"
+          className="flex items-center gap-2 font-semibold"
+        >
+          <Truck className="h-4 w-4 text-savr-primary-700" aria-hidden="true" />
+          {f.tournees.length > 1 ? 'Chauffeurs' : 'Chauffeur'}
+        </Text>
+        <Chauffeurs
+          c={f}
+          urgence={urgence?.etat ?? 'idle'}
+          urgenceErreur={urgence?.erreur ?? null}
+          onDemanderUrgence={onDemanderUrgence}
+        />
+      </div>
+      <div className="mt-auto flex justify-end">
+        <Button variant="secondary" onClick={onOuvrir}>
+          Voir la collecte
+        </Button>
+      </div>
+    </Card>
   );
 }
 
@@ -313,9 +610,14 @@ export function FicheEvenementModal({
   const [etat, setEtat] = useState<Etat>('chargement');
   const [tentative, setTentative] = useState(0);
   const [logoKo, setLogoKo] = useState(false);
+  const [onglet, setOnglet] = useState<Onglet>('informations');
+  // Demande urgente des coordonnées du chauffeur, par collecte.
+  const [urgences, setUrgences] = useState<Record<string, Urgence>>({});
+  // Sous-onglet du bilan (événement qui mêle ZD et AG).
+  const [typeBilan, setTypeBilan] = useState<CollecteType>('zero_dechet');
   const { toast } = useToast();
   // Une fiche déjà affichée : un rechargement en échec ne la remplace pas par
-  // l'état Error (le bilan resterait masqué), il le signale seulement.
+  // l'état Error, il le signale seulement.
   const affichee = useRef(false);
   const [fiche, setFiche] = useState<{
     id: string;
@@ -357,9 +659,9 @@ export function FicheEvenementModal({
         if (affichee.current) {
           toast({
             variant: 'error',
-            title: 'Bilan non actualisé',
+            title: 'Fiche non actualisée',
             description:
-              'Le bilan affiché peut ne pas tenir compte de la dernière modification. Fermez puis rouvrez la fiche pour réessayer.',
+              'La fiche affichée peut ne pas tenir compte de la dernière modification. Fermez puis rouvrez-la pour réessayer.',
           });
           return;
         }
@@ -380,8 +682,8 @@ export function FicheEvenementModal({
     onClose();
   }, [fiche, onClose]);
 
-  function ouvrirCollecte(collecteId: string, onglet?: OngletFiche) {
-    setFiche({ id: collecteId, onglet });
+  function ouvrirCollecte(collecteId: string, ongletFiche?: OngletFiche) {
+    setFiche({ id: collecteId, onglet: ongletFiche });
     onCollecteChange?.(collecteId);
   }
   function fermerCollecte() {
@@ -390,59 +692,53 @@ export function FicheEvenementModal({
     recharger();
   }
 
-  // Rapport de don d'une collecte AG réalisée (URL R2 pré-signée) — même geste
-  // que la liste Collectes ; le rapport de recyclage ZD se fabrique dans la
-  // fiche collecte, ouverte sur « Bilan & documents ».
-  function telechargerRapport(collecteId: string) {
-    return ouvrirDocumentPresigne(
-      `/api/v1/gestionnaire/collectes/${encodeURIComponent(collecteId)}/rapport-rse/download`,
-    );
+  async function demanderUrgence(collecteId: string) {
+    setUrgences((u) => ({
+      ...u,
+      [collecteId]: { etat: 'envoi', erreur: null },
+    }));
+    let erreur = 'La demande n’a pas pu être envoyée.';
+    try {
+      const res = await fetch(
+        `/api/v1/gestionnaire/collectes/${encodeURIComponent(collecteId)}/coordonnees-urgence`,
+        { method: 'POST' },
+      );
+      if (res.ok) {
+        setUrgences((u) => ({
+          ...u,
+          [collecteId]: { etat: 'envoyee', erreur: null },
+        }));
+        return;
+      }
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      erreur = j.error ?? erreur;
+    } catch {
+      // Réseau indisponible : message générique, la demande reste possible.
+    }
+    setUrgences((u) => ({ ...u, [collecteId]: { etat: 'idle', erreur } }));
   }
 
-  const colonnes: ColumnDef<CollecteLigne, unknown>[] = [
-    {
-      id: 'date',
-      header: 'Date',
-      cell: ({ row: { original: c } }) =>
-        c.date_collecte ? (
-          <span className="whitespace-nowrap font-semibold text-savr-neutral-900 tabular-nums">
-            {libelleDateHeure(c.date_collecte, c.heure_collecte)}
-          </span>
-        ) : (
-          <CelluleVide />
-        ),
-    },
-    {
-      id: 'type',
-      header: 'Type',
-      cell: ({ row: { original: c } }) => <TypeCollecteBadge type={c.type} />,
-    },
-    {
-      id: 'resultats',
-      header: 'Résultats',
-      cell: ({ row: { original: c } }) => (
-        <ResultatsCollecte
-          // Le gestionnaire est servi de tous les rapports des collectes tenues
-          // sur ses lieux (§06.05) : jamais « réservé au donneur d'ordre ».
-          c={{ ...c, rapport_reserve_donneur_ordre: false }}
-          onTelecharger={() =>
-            c.type === 'zero_dechet'
-              ? ouvrirCollecte(c.id, 'bilan')
-              : void telechargerRapport(c.id)
-          }
-        />
-      ),
-    },
-    {
-      id: 'statut',
-      header: 'Statut',
-      cell: ({ row: { original: c } }) => (
-        <CollecteStatutBadge statut={c.statut} />
-      ),
-    },
-  ];
-
   const b = evt?.bilan;
+  // Bloc Lieu : valeurs EFFECTIVES des collectes non annulées (un événement
+  // peut surcharger l'adresse ou les instructions d'accès du lieu) ; sans
+  // collecte active, celles du lieu de référence.
+  const actives = evt?.fiches.filter((f) => !annulee(f)) ?? [];
+  const deuxTypes = !!b && b.nb_collectes_zd > 0 && b.nb_collectes_ag > 0;
+  const typeAffiche: CollecteType =
+    b && b.nb_collectes_zd === 0
+      ? 'anti_gaspi'
+      : b && b.nb_collectes_ag === 0
+        ? 'zero_dechet'
+        : typeBilan;
+  const activesDuType = actives.filter((f) => f.type === typeAffiche);
+  const adresseLieu =
+    actives.length > 0
+      ? commune(actives, adresseDe)
+      : (evt?.lieu_adresse ?? null);
+  const accesLieu =
+    actives.length > 0
+      ? commune(actives, accesDe)
+      : (evt?.lieu_acces_details ?? null);
   const periodeCollecte =
     b?.premiere_collecte && b.derniere_collecte
       ? b.premiere_collecte === b.derniere_collecte
@@ -528,83 +824,60 @@ export function FicheEvenementModal({
                   : []),
               ]}
               statut={
-                <Badge
-                  variant={variantStatutEvenement(b.statut_consolide)}
-                  dot={false}
-                  className="whitespace-nowrap"
-                  data-testid="statut-consolide"
-                >
-                  {b.statut_consolide}
-                </Badge>
+                <FriseEtapes
+                  etapes={friseStatutEvenement(evt.fiches.map((f) => f.statut))}
+                  label="Avancement de l’événement"
+                  testId="frise-statut-evenement"
+                />
               }
+              statutLarge
             />
             <FicheCorps>
-              <Tabs defaultValue="bilan">
-                {/* Défile sur petit écran plutôt que de rogner le dernier
-                    onglet (même réglage que la fiche client de l'Admin). */}
-                <TabsList className="w-full justify-start overflow-x-auto">
-                  <TabsTrigger value="bilan">Bilan</TabsTrigger>
-                  <TabsTrigger value="collectes">
-                    Collectes
-                    {evt.collectes.length > 0
-                      ? ` (${evt.collectes.length})`
-                      : ''}
+              <Tabs
+                value={onglet}
+                onValueChange={(v) => setOnglet(v as Onglet)}
+              >
+                <TabsList
+                  aria-label="Sections de la fiche événement"
+                  className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
+                >
+                  <TabsTrigger value="informations" className="px-3 sm:px-4">
+                    Informations générales
                   </TabsTrigger>
-                  <TabsTrigger value="informations">Informations</TabsTrigger>
+                  <TabsTrigger value="collectes" className="px-3 sm:px-4">
+                    Informations collectes
+                  </TabsTrigger>
+                  <TabsTrigger value="bilan" className="px-3 sm:px-4">
+                    Bilan & documents
+                  </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="bilan">
-                  <BilanConsolide
-                    b={b}
-                    pax={evt.pax}
-                    dateEvenement={evt.date_evenement}
-                  />
-                </TabsContent>
-
-                <TabsContent value="collectes" className="space-y-3">
-                  <SectionHeader
-                    icon={ClipboardList}
-                    title="Collectes de l’événement"
-                    level={3}
-                  />
-                  {evt.collectes.length === 0 ? (
-                    <EmptyState
-                      size="inline"
-                      title="Aucune collecte rattachée à cet événement."
+                <TabsContent value="informations" className="space-y-3">
+                  <Card
+                    padding="md"
+                    className="space-y-4"
+                    data-testid="bloc-evenement"
+                  >
+                    <SectionHeader
+                      icon={CalendarDays}
+                      title="Événement"
+                      level={3}
                     />
-                  ) : (
-                    <DataGrid
-                      data-testid="evenement-collectes"
-                      columns={colonnes}
-                      data={evt.collectes}
-                      getRowId={(c) => c.id}
-                      onRowClick={(c) => ouvrirCollecte(c.id)}
-                      rowLabel={(c) =>
-                        `Ouvrir la collecte du ${c.date_collecte ? libelleDateHeure(c.date_collecte, c.heure_collecte) : 'jour non renseigné'}`
-                      }
-                    />
-                  )}
-                </TabsContent>
-
-                <TabsContent value="informations">
-                  <Card padding="md">
-                    <dl
-                      className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm lg:grid-cols-3"
-                      data-testid="evenement-entete"
-                    >
-                      <InfoItem label="Date">
-                        {evt.date_evenement
-                          ? libelleDateHeure(evt.date_evenement, null)
-                          : VIDE}
+                    <dl className={GRILLE} data-testid="evenement-entete">
+                      <InfoItem label="Nom de l’événement">
+                        {evt.nom_evenement ?? VIDE}
                       </InfoItem>
-                      <InfoItem label="Lieu">
-                        {evt.lieu_nom ?? VIDE}
-                        {evt.lieu_adresse && (
-                          <Text as="div" variant="hint" className="font-normal">
-                            {evt.lieu_adresse}
-                          </Text>
-                        )}
+                      <InfoItem label="Client final">
+                        {evt.client_nom ?? VIDE}
                       </InfoItem>
+                      {/* Référence interne : servie à l'organisation qui a
+                          programmé (Frontière 5), jamais sur l'événement d'un
+                          traiteur tiers. */}
+                      {evt.ajouter_collecte && (
+                        <InfoItem label="Référence interne">
+                          {evt.fiches[0]?.evenement?.reference_affaire ?? VIDE}
+                        </InfoItem>
+                      )}
                       {/* §06.05 §2 : traiteur = nom + logo, pas d'email /
                           téléphone / SIRET. Le logo passe par le proxy du rôle
                           (clé R2 non exposée). */}
@@ -622,23 +895,9 @@ export function FicheEvenementModal({
                         )}
                         {evt.traiteur?.nom ?? VIDE}
                       </InfoItem>
-                      <InfoItem label="Type d'événement">
-                        {evt.type_evenement ?? VIDE}
-                      </InfoItem>
-                      {/* « Client Organisateur si renseigné par le traiteur »
-                          (§06.05 §2). */}
-                      {evt.client_nom && (
-                        <InfoItem label="Client organisateur">
-                          {evt.client_nom}
-                        </InfoItem>
-                      )}
-                      <InfoItem label="Pax">
-                        {evt.pax != null ? fmtPax(evt.pax) : VIDE}
-                      </InfoItem>
                       {/* Estimation amont (§05 R_dechets_labo_estimes),
-                          toujours affichée (§06.05 §2) : « — » si l'événement
-                          n'a aucune collecte ZD (la route ne la calcule pas)
-                          ou si le coefficient n'est pas communiqué. */}
+                          toujours affichée (§06.05 §2) : « — » sans collecte
+                          ZD ou sans coefficient communiqué. */}
                       <InfoItem
                         label="Déchets labo estimés"
                         valueClassName="flex items-center gap-1.5"
@@ -656,11 +915,95 @@ export function FicheEvenementModal({
                           </span>
                         </Tooltip>
                       </InfoItem>
-                      {periodeCollecte && (
-                        <InfoItem label="Collectes">{periodeCollecte}</InfoItem>
-                      )}
+                      <InfoItem label="Période de collecte">
+                        {periodeCollecte ?? VIDE}
+                      </InfoItem>
                     </dl>
                   </Card>
+
+                  <Card
+                    padding="md"
+                    className="space-y-4"
+                    data-testid="bloc-lieu"
+                  >
+                    <SectionHeader icon={MapPin} title="Lieu" level={3} />
+                    <dl className={GRILLE}>
+                      <InfoItem label="Adresse" className="sm:col-span-2">
+                        {evt.lieu_nom ?? VIDE}
+                        <span className="block font-normal text-savr-neutral-600">
+                          {adresseLieu === undefined
+                            ? SELON_LA_COLLECTE
+                            : (adresseLieu ?? VIDE)}
+                        </span>
+                      </InfoItem>
+                      {/* Le contrôle d'accès se pose par collecte : « Oui »
+                          dès qu'une collecte non annulée l'exige. */}
+                      <InfoItem label="Contrôle d’accès">
+                        {evt.fiches.some(
+                          (f) => !annulee(f) && f.controle_acces_requis,
+                        )
+                          ? 'Oui'
+                          : 'Non'}
+                      </InfoItem>
+                      <InfoItem
+                        variant="texte"
+                        label="Instructions d’accès"
+                        className="sm:col-span-2 lg:col-span-3"
+                        valueClassName="whitespace-pre-line"
+                      >
+                        {accesLieu === undefined
+                          ? SELON_LA_COLLECTE
+                          : (accesLieu ?? VIDE)}
+                      </InfoItem>
+                    </dl>
+                  </Card>
+                </TabsContent>
+
+                {/* Une carte par collecte, deux par ligne sur grand écran. */}
+                <TabsContent value="collectes">
+                  {evt.fiches.length === 0 ? (
+                    <EmptyState
+                      size="inline"
+                      title="Aucune collecte rattachée à cet événement."
+                    />
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                      {evt.fiches.map((f) => (
+                        <CarteCollecte
+                          key={f.id}
+                          f={f}
+                          avecAdresse={adresseLieu === undefined}
+                          avecAcces={accesLieu === undefined}
+                          urgence={urgences[f.id]}
+                          onDemanderUrgence={() => void demanderUrgence(f.id)}
+                          onOuvrir={() => ouvrirCollecte(f.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Événement qui mêle ZD et AG : un sous-onglet par type
+                    (décision Val 2026-10-26), bilan et rapports du type. */}
+                <TabsContent value="bilan" className="space-y-3">
+                  {deuxTypes && (
+                    <ToggleTypeCollecte
+                      value={typeAffiche}
+                      onChange={setTypeBilan}
+                      aria-label="Bilan par type de collecte"
+                      data-testid="bilan-sous-onglets"
+                    />
+                  )}
+                  <BilanConsolide
+                    b={b}
+                    type={typeAffiche}
+                    deuxTypes={deuxTypes}
+                    pax={evt.pax}
+                    dateEvenement={evt.date_evenement}
+                    actives={activesDuType}
+                    onOuvrirBilan={(id) => ouvrirCollecte(id, 'bilan')}
+                  />
+                  <DocumentsEvenement actives={activesDuType} />
                 </TabsContent>
               </Tabs>
             </FicheCorps>

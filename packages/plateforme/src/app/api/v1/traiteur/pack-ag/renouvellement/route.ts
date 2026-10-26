@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { requireUser, type ClientRole } from '@/lib/api-auth.js';
+import { lireCompte } from '@/lib/notifications/annulation-client.js';
 
 // Action ouverte au manager, au commercial ET à l'agence (§06.04 Bloc 4 AG,
 // répliqué à l'identique pour l'agence — §06.11 l.36/l.44 « pack AG fondu dans
@@ -29,13 +31,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('nom')
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
+  const demandeur = await lireCompte(admin, auth.ctx.userId);
 
+  // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
   await sendEmail('admin_demande_renouvellement_pack', 'contact@gosavr.io', {
-    organisation_nom: org?.nom ?? '',
-    demandeur_nom: auth.ctx.userId,
-    demandeur_email: '',
-    pack_souhaite: body.pack_souhaite ?? '',
-    message: body.message ?? '',
+    organisation_nom: escapeHtml(org?.nom ?? ''),
+    demandeur_nom: escapeHtml(demandeur?.nomComplet ?? ''),
+    demandeur_email: escapeHtml(demandeur?.email ?? ''),
+    pack_souhaite: escapeHtml(body.pack_souhaite ?? ''),
+    message: escapeHtml(body.message ?? ''),
   });
 
   return NextResponse.json({ data: { demande: 'envoyee' } }, { status: 201 });

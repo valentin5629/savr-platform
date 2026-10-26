@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -77,9 +78,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     if (userProfile?.prenom) {
+      const { data: org } = userProfile.organisation_id
+        ? await adminClient
+            .from('organisations')
+            .select('nom')
+            .eq('id', userProfile.organisation_id)
+            .maybeSingle()
+        : { data: null };
+      // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
       await sendEmail('bienvenue_organisation', data.user.email!, {
-        prenom: userProfile.prenom as string,
-        organisation_nom: '',
+        prenom: escapeHtml(userProfile.prenom as string),
+        organisation_nom: escapeHtml(
+          (org as { nom?: string } | null)?.nom ?? '',
+        ),
       });
     }
   } catch {

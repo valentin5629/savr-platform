@@ -15,6 +15,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { sendEmail } from '@savr/shared/src/email/index.js';
 
 type Resp = { data?: unknown; error?: unknown };
 
@@ -143,5 +144,27 @@ describe('M0.4 — verify-email : le clic prouve le domaine', () => {
 
     expect(res.headers.get('location')).toContain('verification_echouee');
     expect(updateCalls).toHaveLength(0);
+  });
+
+  it('l’email de bienvenue porte le nom de l’organisation (échappé)', async () => {
+    maybeSingleQueue['organisations'] = [
+      { data: { nom: 'Traiteur <Test> & Fils' }, error: null },
+    ];
+    await (
+      await import('@/app/api/auth/verify-email/route.js')
+    ).GET(makeReq('?token_hash=tok&type=signup'));
+
+    expect(sendEmail).toHaveBeenCalledWith(
+      'bienvenue_organisation',
+      'marie@dalloyau.fr',
+      {
+        prenom: 'Marie',
+        organisation_nom: 'Traiteur &lt;Test&gt; &amp; Fils',
+      },
+    );
+    expect(eqCalls).toContainEqual({
+      table: 'organisations',
+      args: ['id', 'org-1'],
+    });
   });
 });

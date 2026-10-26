@@ -619,11 +619,16 @@ describe('M3.1 / annulation', () => {
           organisation_id: 'org-1',
           nom_evenement: 'Gala',
           organisation: { nom: 'Kaspia' },
+          lieu: [{ nom: 'Salle Wagram' }],
         },
       },
       error: null,
     });
     admin.push({ data: null, error: null }); // rpc fn_modifier (statut annulee)
+    admin.push({
+      data: { email: 'prog@savr-test.local', prenom: 'Paul', nom: null },
+      error: null,
+    }); // users (programmateur)
     const { POST } =
       await import('@/app/api/v1/traiteur/collectes/[id]/annulation/route.js');
     const res = await POST(
@@ -634,7 +639,23 @@ describe('M3.1 / annulation', () => {
     );
     const json = (await res.json()) as { data: { statut: string } };
     expect(json.data.statut).toBe('annulee');
-    expect(mockSendEmail).toHaveBeenCalled();
+    // Template 5 : au programmateur, plus jamais à l'adresse de l'équipe Savr
+    // sans date ni lieu (l'envoi était refusé faute de variables).
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      'annulation_collecte',
+      'prog@savr-test.local',
+      {
+        prenom: 'Paul',
+        date_collecte: '2097-12-31',
+        lieu_nom: 'Salle Wagram',
+        motif: '',
+      },
+    );
+    expect(mockSendEmail).not.toHaveBeenCalledWith(
+      'annulation_collecte',
+      'contact@gosavr.io',
+      expect.anything(),
+    );
   });
 
   it('M3.1/demande_annulation_collecte_validee — statut annulation_demandee', async () => {
@@ -656,6 +677,10 @@ describe('M3.1 / annulation', () => {
       error: null,
     });
     admin.push({ data: null, error: null });
+    admin.push({
+      data: { email: 'claire@savr-test.local', prenom: null, nom: null },
+      error: null,
+    }); // users (demandeur, sans prénom ni nom)
     const { POST } =
       await import('@/app/api/v1/traiteur/collectes/[id]/annulation/route.js');
     const res = await POST(
@@ -666,6 +691,12 @@ describe('M3.1 / annulation', () => {
     );
     const json = (await res.json()) as { data: { statut: string } };
     expect(json.data.statut).toBe('annulation_demandee');
+    // Sans prénom ni nom, le demandeur est désigné par son email.
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      'admin_demande_annulation',
+      'contact@gosavr.io',
+      expect.objectContaining({ demandeur_nom: 'claire@savr-test.local' }),
+    );
   });
 
   it('M3.1/annulation_depuis_cloturee_impossible — 422', async () => {
@@ -826,18 +857,30 @@ describe('M3.1 / renouvellement pack', () => {
   it('M3.1/demande_renouvellement_pack — 201 email admin', async () => {
     setupAuth('traiteur_commercial', 'org-kaspia');
     admin.push({ data: { nom: 'Kaspia' }, error: null });
+    admin.push({
+      data: { email: 'paul@savr-test.local', prenom: 'Paul', nom: 'Martin' },
+      error: null,
+    }); // users (demandeur)
     const { POST } =
       await import('@/app/api/v1/traiteur/pack-ag/renouvellement/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/traiteur/pack-ag/renouvellement', {
-        pack_souhaite: 'Pack 20',
+        pack_souhaite: 'Pack <20>',
       }),
     );
     expect(res.status).toBe(201);
+    // Le demandeur est nommé avec son email (plus d'identifiant technique ni
+    // d'email vide) ; le texte saisi est échappé.
     expect(mockSendEmail).toHaveBeenCalledWith(
       'admin_demande_renouvellement_pack',
-      expect.any(String),
-      expect.any(Object),
+      'contact@gosavr.io',
+      {
+        organisation_nom: 'Kaspia',
+        demandeur_nom: 'Paul Martin',
+        demandeur_email: 'paul@savr-test.local',
+        pack_souhaite: 'Pack &lt;20&gt;',
+        message: '',
+      },
     );
   });
 });

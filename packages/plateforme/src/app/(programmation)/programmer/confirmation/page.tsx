@@ -37,10 +37,7 @@ import { AnnulationCollecteDialog } from '@/components/collecte/annulation-colle
 import { ESPACES, ESPACE_PAR_ROLE, ROUTES } from '@/lib/routes';
 import { isStaff, type Role } from '@/lib/roles';
 import { useUserRole } from '@/lib/use-user-role';
-import {
-  libelleTypeCollecte,
-  normaliserTypeCollecte,
-} from '@/lib/libelles/type-collecte';
+import { normaliserTypeCollecte } from '@/lib/libelles/type-collecte';
 import {
   estZeroDechet,
   numeroterCollectes,
@@ -94,6 +91,9 @@ type EvenementRecap = {
   nom_client_organisateur: string | null;
   // « Référence interne » à l'écran (§06.01 étape 1).
   reference_affaire?: string | null;
+  // Traiteur opérant et organisation programmatrice (nom d'affichage seul).
+  traiteur_operationnel?: { id: string; nom: string } | null;
+  organisation?: { id: string; nom: string } | null;
   // Requis dès qu'une collecte de l'événement l'exige (calculé par la route).
   controle_acces_requis?: boolean;
   // Relation to-one : PostgREST renvoie un objet, on tolère le tableau par sûreté.
@@ -451,25 +451,21 @@ function ConfirmationContent() {
   // récapitulatif ; les collectes annulées gardent leur numéro.
   const numerotees = numeroterCollectes(collectes);
   const actives = collectes.filter(estActive);
-  const parType = [
-    {
-      type: 'zero_dechet',
-      nombre: actives.filter((c) => estZeroDechet(c.type)).length,
-    },
-    {
-      type: 'anti_gaspi',
-      nombre: actives.filter((c) => !estZeroDechet(c.type)).length,
-    },
-  ].filter((t) => t.nombre > 0);
   const titreCollectes =
     actives.length === 0
       ? 'Aucune collecte à réaliser'
       : actives.length === 1
         ? 'Votre collecte'
         : `Vos ${actives.length} collectes`;
-  const resumeCollectes = parType
-    .map((t) => `${t.nombre} ${libelleTypeCollecte(t.type)}`)
-    .join(' · ');
+  // Traiteur opérant : choisi à l'écran 1 par l'agence, le gestionnaire de
+  // lieux ou l'équipe Savr. Quand le traiteur programme pour lui-même, c'est
+  // sa propre organisation : la ligne n'apprendrait rien, elle est omise.
+  const traiteurOperant =
+    evenement?.traiteur_operationnel &&
+    evenement.traiteur_operationnel.id !== evenement.organisation?.id &&
+    renseigne(evenement.traiteur_operationnel.nom)
+      ? evenement.traiteur_operationnel.nom
+      : null;
   const etatEmail = evenement?.email_recap ?? null;
 
   return (
@@ -605,7 +601,9 @@ function ConfirmationContent() {
 
         <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-2">
           {/* Récapitulatif de l'événement : client final et référence interne
-              s'ils sont renseignés, contrôle d'accès, collectes par type (non
+              s'ils sont renseignés, traiteur opérant s'il n'est pas l'organisation
+              programmatrice, contrôle d'accès (le nombre de collectes est dans le
+              titre « Vos N collectes », non
               annulées). Le lieu est sous le titre. */}
           {evenement && (
             <section className="space-y-2.5">
@@ -630,6 +628,9 @@ function ConfirmationContent() {
                       {evenement.reference_affaire}
                     </Ligne>
                   )}
+                  {traiteurOperant && (
+                    <Ligne label="Traiteur opérant">{traiteurOperant}</Ligne>
+                  )}
                   <Ligne label="Contrôle d’accès">
                     {evenement.controle_acces_requis ? (
                       <span className="inline-flex items-center gap-1.5">
@@ -640,7 +641,6 @@ function ConfirmationContent() {
                       'Non requis'
                     )}
                   </Ligne>
-                  <Ligne label="Collectes">{resumeCollectes || '—'}</Ligne>
                 </dl>
               </Card>
             </section>

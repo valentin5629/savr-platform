@@ -256,9 +256,9 @@ describe('M1.2 / refonte_formulaire — page de confirmation : en-tête et réca
       expect(valeur('Contrôle d’accès')).toHaveTextContent(
         'Plaque et nom du chauffeur requis',
       );
-      expect(valeur('Collectes')).toHaveTextContent(
-        '1 Zéro Déchet · 1 Anti-Gaspi',
-      );
+      // Le nombre de collectes est dans « Vos N collectes », pas ici
+      // (Val 2026-10-26).
+      expect(screen.queryByText('Collectes', { selector: 'dt' })).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -293,6 +293,37 @@ describe('M1.2 / refonte_formulaire — page de confirmation : en-tête et réca
   );
 
   it(
+    'traiteur opérant choisi par une agence : affiché ; traiteur qui programme pour lui-même : omis',
+    async () => {
+      await afficher(
+        {
+          ...EVENEMENT,
+          organisation: { id: 'org-agence', nom: 'Agence Lumière' },
+          traiteur_operationnel: { id: 'org-traiteur', nom: 'Traiteur Martin' },
+        },
+        'agence',
+      );
+      expect(valeur('Traiteur opérant')).toHaveTextContent('Traiteur Martin');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'traiteur opérant = organisation programmatrice : ligne omise',
+    async () => {
+      await afficher({
+        ...EVENEMENT,
+        organisation: { id: 'org-traiteur', nom: 'Traiteur Martin' },
+        traiteur_operationnel: { id: 'org-traiteur', nom: 'Traiteur Martin' },
+      });
+      expect(
+        screen.queryByText('Traiteur opérant', { selector: 'dt' }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'collecte annulée : ni comptée par type, ni dans « Vos N collectes », mais sa carte reste avec son numéro',
     async () => {
       await afficher({
@@ -309,9 +340,6 @@ describe('M1.2 / refonte_formulaire — page de confirmation : en-tête et réca
         ],
       });
 
-      expect(valeur('Collectes')).toHaveTextContent(
-        '1 Zéro Déchet · 1 Anti-Gaspi',
-      );
       expect(
         screen.getByRole('heading', {
           level: 2,
@@ -611,7 +639,6 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
           name: 'Votre collecte',
         }),
       ).toBeInTheDocument();
-      expect(valeur('Collectes')).not.toHaveTextContent('Zéro Déchet');
     },
     ATTENTE_CAS_MS,
   );

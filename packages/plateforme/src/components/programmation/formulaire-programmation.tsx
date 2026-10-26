@@ -829,10 +829,9 @@ export function FormulaireProgrammation({
 
           <div className="space-y-2">
             <Label>Contrôle d'accès</Label>
-            <div className="flex items-start gap-3">
+            <div className="flex items-center gap-3">
               <Checkbox
                 id="controle-acces"
-                className="mt-0.5"
                 checked={controleAcces}
                 onCheckedChange={(c) => setControleAcces(c === true)}
               />
@@ -846,8 +845,9 @@ export function FormulaireProgrammation({
               au moins une au total, au plus 10 de chaque (B2-Q4). */}
           {/* Espace triple (60 px au lieu de 20) avant le nombre de
               collectes, pour le détacher du contrôle d'accès (retour Val du
-              2026-10-26). */}
-          <fieldset className="space-y-2 pt-10">
+              2026-10-26). Marge et non padding : le padding d'un fieldset
+              passe sous sa légende. */}
+          <fieldset className="mt-15 space-y-2">
             <legend>
               <Label required>Nombre de collectes souhaitées</Label>
             </legend>

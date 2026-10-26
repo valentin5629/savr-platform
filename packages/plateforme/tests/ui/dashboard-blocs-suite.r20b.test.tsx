@@ -44,7 +44,7 @@ import AgenceDashboardPage from '@/app/(agence)/agence/page.js';
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
 import { FACTEURS_CO2_DEFAUT } from '@/lib/dashboards/cockpit-derive';
 import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { periodeDerniers } from '@/lib/periodes-raccourcis';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 function jsonResponse(obj: unknown): Promise<Response> {
@@ -154,16 +154,12 @@ function blocsAg(overrides: Record<string, unknown> = {}) {
 }
 
 // ── Traiteur : rendu client SSR (initialData) + re-fetch consolidé ────────────
-function defaultPeriod(): { from: string; to: string } {
-  const to = new Date();
-  const from = new Date();
-  from.setMonth(from.getMonth() - 12);
-  return {
-    from: jourParis(from),
-    to: jourParis(to),
-  };
-}
-const PERIOD = defaultPeriod();
+// Période par défaut = celle de l'écran (page SSR et barre de filtres :
+// `periodeDerniers(12, 'mois')`, jours de Paris). Un calcul propre au test
+// (`setMonth` en heure locale) en diffère certains soirs sous TZ=UTC : la barre
+// émet alors une autre période, l'écran recharge sans le compteur et le badge
+// disparaît.
+const PERIOD = periodeDerniers(12, 'mois')!;
 
 function kpiResult(rows: unknown[]): TraiteurDashboardPayload['kpi'] {
   return {

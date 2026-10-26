@@ -663,7 +663,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       );
       expect(cartes).toHaveLength(2);
       expect(cartes[0]).toHaveTextContent(/Collecte du Jeu 10 Sept · 23h00/i);
-      expect(cartes[0]).toHaveTextContent(/Pax\s*400\s*pax/);
+      expect(cartes[0]).toHaveTextContent(/Pax\s*400/);
       expect(cartes[0]).toHaveTextContent(
         /Type d’événement\s*Cocktail apéritif/,
       );

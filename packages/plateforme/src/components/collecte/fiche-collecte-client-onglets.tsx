@@ -383,9 +383,10 @@ export function Chauffeurs({
       {fenetre && !complet && (
         <div
           data-testid="zone-urgence"
-          // Passe à la ligne quand la place manque (carte étroite de la fiche
-          // événement), sur une ligne sinon.
-          className="flex flex-wrap items-center gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3"
+          // Mobile : bouton pleine largeur sous le texte. Au-delà, sur une
+          // ligne, qui passe à la ligne si la place manque (carte étroite de la
+          // fiche événement).
+          className="flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center"
         >
           {demandeEnvoyee ? (
             <Text

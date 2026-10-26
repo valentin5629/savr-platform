@@ -1396,7 +1396,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + packages/plateforme/src/lib/collectes/types-evenement-collectes.ts",
       "test": "M3.2/evenement_fiche_types_de_ses_collectes + C1/types_evenement_ordre_collecte_n1 + C1/types_evenement_sans_doublon_ni_annulee + C1/types_evenement_toutes_annulees_ou_sans_type",
       "statut": "implemented",
-      "libelle": "Fiche Événement du gestionnaire, « Type d'événement » (lot C1, Q2 Val 2026-10-24 « Types de ses collectes ») : les types de toutes ses collectes non annulées, sans doublon, dans l'ordre de la collecte n°1 (Zéro-Déchet avant Anti-Gaspi, puis date, heure, création — le premier nommé est celui que l'événement recopie) ; toutes annulées : leurs types ; aucun type lisible : la copie de l'événement. Même règle pour la colonne de l'export Événements (livrable M4.1-export-evenements-types-des-collectes)."
+      "libelle": "Fiche Événement du gestionnaire, « Type d'événement » (lot C1, Q2 Val 2026-10-24 « Types de ses collectes ») : les types de toutes ses collectes non annulées, sans doublon, dans l'ordre de la collecte n°1 (Zéro-Déchet avant Anti-Gaspi, puis date, heure, création — le premier nommé est celui que l'événement recopie) ; toutes annulées : leurs types ; aucun type lisible : la copie de l'événement. Même règle pour la colonne de l'export Événements (livrable M4.1-export-evenements-types-des-collectes). Depuis le 2026-10-26 (décision Val), la fiche événement n'affiche plus ce type dans la carte Événement : le type d'événement se lit sur chaque carte collecte (livrable M3.2-evenement-fiche-trois-onglets). La route sert toujours le type calculé par cette règle."
     },
     {
       "id": "M3.2-brouillons-tiers-dates-invisibles",

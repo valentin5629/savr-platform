@@ -498,7 +498,7 @@ function CarteCollecte({
         <CollecteStatutBadge statut={f.statut} />
       </div>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-        <InfoItem label="Pax">{fmtPax(f.pax)}</InfoItem>
+        <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
         <InfoItem label="Type d’événement">
           {f.type_evenement?.libelle ?? VIDE}
         </InfoItem>

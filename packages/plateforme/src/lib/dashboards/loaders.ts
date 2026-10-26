@@ -18,6 +18,8 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { messageErreur } from '@/lib/api-helpers.js';
 import { FLUX_ZD_CODES } from '@/lib/libelles/flux.js';
+import { estUuid } from '@/lib/filtre-csv.js';
+import { aDesConvives, paxCumules, ratioParPax } from '@/lib/dashboard-kpi.js';
 import {
   createSupabaseServerClient,
   type UserAuthContext,
@@ -372,7 +374,6 @@ type Granularite = 'jour' | 'semaine' | 'mois';
 interface EvoEvtEmbed {
   id: string;
   lieu_id: string | null;
-  pax: number | null;
   organisation_id: string;
   type_evenement_id: string | null;
   traiteur_operationnel_organisation_id: string | null;
@@ -383,8 +384,8 @@ export interface EvoCollecteRow {
   type: string;
   taux_recyclage: number | null;
   date_collecte: string;
-  /** Convives de la COLLECTE : porte le filtre Taille (lot C1, Q3 Val 2026-10-24).
-   *  Les totaux de pax des séries restent ceux des événements distincts (lot 3). */
+  /** Convives de la COLLECTE : porte le filtre Taille (lot C1, Q3 Val 2026-10-24)
+   *  et les pax des séries (lot 3, décisions Val Q1 et Q2 du 2026-10-25). */
   pax?: number | null;
   /** CO₂ évité figé (sélectionné par le loader Admin « Dashboard Client »
    *  seulement) — alimente la sparkline de la carte CO₂. */
@@ -444,10 +445,17 @@ export async function loadEvolution(
   const to = params.to;
   const lieuIds = params.lieuIds ?? [];
   const traiteurIds = params.traiteurIds ?? [];
-  const typeEvtIds = params.typeEvtIds ?? [];
+  const typesDemandes = params.typeEvtIds ?? [];
+  const typeEvtIds = typesDemandes.filter(estUuid);
   const tailleEvts = params.tailleEvts ?? [];
 
   const isGestionnaire = ctx.role === 'gestionnaire_lieux';
+
+  // Filtre Type demandé sans identifiant lisible : série vide, jamais un filtre
+  // ignoré ni une erreur de PostgREST (comme lireFiltresCollectesGestionnaire).
+  if (typesDemandes.length > 0 && typeEvtIds.length === 0) {
+    return { granularite: granulariteFor(from ?? '', to ?? ''), series: [] };
+  }
 
   // Périmètre gestionnaire = lieux de l'organisation (RLS sur organisations_lieux).
   let perimetreLieuIds: string[] = [];
@@ -470,7 +478,7 @@ export async function loadEvolution(
     .from('collectes')
     .select(
       `id, type, taux_recyclage, date_collecte, pax,
-       evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
+       evenements!inner(id, lieu_id, organisation_id, type_evenement_id,
          traiteur_operationnel_organisation_id),
        collecte_flux(poids_reel_kg, flux_dechets(code)),
        ${embedRepasAg(ctx.role)}`,
@@ -539,7 +547,7 @@ export function buildEvolutionSeries(
         tauxDen: number;
         nb: number;
         co2: number;
-        paxParEvt: Map<string, number>;
+        collectes: EvoCollecteRow[];
       }
     >();
     for (const c of rows) {
@@ -553,7 +561,7 @@ export function buildEvolutionSeries(
           tauxDen: 0,
           nb: 0,
           co2: 0,
-          paxParEvt: new Map(),
+          collectes: [],
         };
         for (const fc of FLUX_CODES) b.flux[fc] = 0;
         buckets.set(key, b);
@@ -569,9 +577,7 @@ export function buildEvolutionSeries(
       b.tonnage += kgCollecte;
       b.nb += 1;
       b.co2 += Number(c.co2_evite_kg ?? 0) || 0;
-      const evtZd = firstOf(c.evenements);
-      if (evtZd?.id && !b.paxParEvt.has(evtZd.id))
-        b.paxParEvt.set(evtZd.id, evtZd.pax ?? 0);
+      b.collectes.push(c);
       if (c.taux_recyclage != null && kgCollecte > 0) {
         b.tauxNum += c.taux_recyclage * kgCollecte;
         b.tauxDen += kgCollecte;
@@ -585,50 +591,57 @@ export function buildEvolutionSeries(
         tonnage_total: b.tonnage,
         taux_recyclage: b.tauxDen > 0 ? b.tauxNum / b.tauxDen : null,
         // Sparklines des cartes KPI (gestionnaire / Dashboard Client Admin) :
-        // nombre de collectes et pax distincts par événement du bucket.
+        // nombre de collectes, pax et kg/pax des collectes du bucket (lot 3).
         nb_collectes: b.nb,
-        pax: [...b.paxParEvt.values()].reduce((s, p) => s + p, 0),
+        pax: paxCumules(b.collectes),
+        kg_par_pax: ratioParPax(b.collectes, kgEvo),
         co2_evite_kg: b.co2,
       }));
   }
 
-  // anti_gaspi — repas donnés + pax distinct par événement par bucket.
+  // anti_gaspi — repas donnés + pax et repas/pax des collectes du bucket (lot 3).
   const buckets = new Map<
     string,
-    { repas: number; nb: number; co2: number; paxParEvt: Map<string, number> }
+    { repas: number; nb: number; co2: number; collectes: EvoCollecteRow[] }
   >();
   for (const c of rows) {
     const key = bucketKey(c.date_collecte, g);
     let b = buckets.get(key);
     if (!b) {
-      b = { repas: 0, nb: 0, co2: 0, paxParEvt: new Map() };
+      b = { repas: 0, nb: 0, co2: 0, collectes: [] };
       buckets.set(key, b);
     }
-    const attrs = Array.isArray(c.attributions_antgaspi)
-      ? c.attributions_antgaspi
-      : c.attributions_antgaspi
-        ? [c.attributions_antgaspi]
-        : [];
-    for (const a of attrs) b.repas += a.volume_repas_realise ?? 0;
+    b.repas += repasEvo(c);
     b.nb += 1;
     b.co2 += Number(c.co2_evite_kg ?? 0) || 0;
-    const evt = firstOf(c.evenements);
-    if (evt?.id && !b.paxParEvt.has(evt.id))
-      b.paxParEvt.set(evt.id, evt.pax ?? 0);
+    b.collectes.push(c);
   }
   return [...buckets.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([periode, b]) => {
-      const pax = [...b.paxParEvt.values()].reduce((s, p) => s + p, 0);
-      return {
-        periode,
-        repas_donnes: b.repas,
-        pax,
-        nb_collectes: b.nb,
-        co2_evite_kg: b.co2,
-        ratio: pax > 0 ? b.repas / pax : null,
-      };
-    });
+    .map(([periode, b]) => ({
+      periode,
+      repas_donnes: b.repas,
+      pax: paxCumules(b.collectes),
+      nb_collectes: b.nb,
+      co2_evite_kg: b.co2,
+      ratio: ratioParPax(b.collectes, repasEvo),
+    }));
+}
+
+/** Poids d'une collecte (Σ poids_reel_kg de ses flux). */
+function kgEvo(c: EvoCollecteRow): number {
+  const flux = Array.isArray(c.collecte_flux) ? c.collecte_flux : [];
+  return flux.reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
+}
+
+/** Repas donnés d'une collecte AG (embed objet ou tableau). */
+function repasEvo(c: EvoCollecteRow): number {
+  const attrs = Array.isArray(c.attributions_antgaspi)
+    ? c.attributions_antgaspi
+    : c.attributions_antgaspi
+      ? [c.attributions_antgaspi]
+      : [];
+  return attrs.reduce((s, a) => s + (a.volume_repas_realise ?? 0), 0);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -640,7 +653,6 @@ const TOP_N = 5;
 interface BlocsEvtEmbed {
   id: string;
   lieu_id: string | null;
-  pax: number | null;
   organisation_id: string;
   type_evenement_id: string | null;
   traiteur_operationnel_organisation_id: string | null;
@@ -653,9 +665,9 @@ export interface BlocsCollecteRow {
   type: string;
   taux_recyclage: number | null;
   date_collecte: string;
-  /** Convives de la COLLECTE : porte le filtre Taille (lot C1, Q3 Val 2026-10-24)
-   *  et le repère parc de l'Admin (Q4). Les cumuls de pax des blocs restent ceux
-   *  des événements distincts (`paxDistinct`, lot 3). */
+  /** Convives de la COLLECTE : porte le filtre Taille (lot C1, Q3 Val 2026-10-24),
+   *  le repère parc de l'Admin (Q4) et les cumuls de pax des blocs (lot 3,
+   *  décisions Val Q1 et Q2 du 2026-10-25 : `ratioParPax`). */
   pax?: number | null;
   evenements: BlocsEvtEmbed | BlocsEvtEmbed[] | null;
   collecte_flux:
@@ -674,20 +686,8 @@ function kgOf(c: BlocsCollecteRow): number {
   return flux.reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
 }
 
-// Somme des pax sur événements DISTINCTS (réplique v_kpi_traiteur).
-function paxDistinct(rows: BlocsCollecteRow[]): number {
-  const parEvt = new Map<string, number>();
-  let sansId = 0;
-  for (const c of rows) {
-    const evt = firstOf(c.evenements);
-    const pax = evt?.pax ?? 0;
-    const id = evt?.id ?? null;
-    if (id == null) sansId += pax;
-    else if (!parEvt.has(id)) parEvt.set(id, pax);
-  }
-  let total = sansId;
-  for (const p of parEvt.values()) total += p;
-  return total;
+function repasOf(c: BlocsCollecteRow): number {
+  return attrsOf(c).reduce((s, a) => s + (a.volume_repas_realise ?? 0), 0);
 }
 
 export interface LieuRow {
@@ -758,7 +758,6 @@ export function topLieuxFrom(
         repas_par_pax: null,
       };
     }
-    const pax = paxDistinct(g.rowsForPax);
     return {
       lieu_id,
       lieu_nom: g.nom,
@@ -766,7 +765,7 @@ export function topLieuxFrom(
       tonnage_kg: null,
       taux_recyclage: null,
       repas_donnes: g.repas,
-      repas_par_pax: pax > 0 ? g.repas / pax : null,
+      repas_par_pax: ratioParPax(g.rowsForPax, repasOf),
     };
   });
   list.sort((a, b) =>
@@ -845,7 +844,6 @@ export function aggregateActeurs(
         repas_par_pax: null,
       };
     }
-    const pax = paxDistinct(g.rowsForPax);
     return {
       id,
       label: '',
@@ -853,7 +851,7 @@ export function aggregateActeurs(
       tonnage_kg: null,
       taux_recyclage: null,
       repas_donnes: g.repas,
-      repas_par_pax: pax > 0 ? g.repas / pax : null,
+      repas_par_pax: ratioParPax(g.rowsForPax, repasOf),
     };
   });
   list.sort((a, b) => b.nb_collectes - a.nb_collectes);
@@ -940,17 +938,18 @@ export function topAssociationsFrom(
 }
 
 /**
- * kg/pax par flux : Σ poids du flux / `pax`. Par défaut `pax` = Σ pax des
- * événements distincts (blocs, lot 3) ; le repère parc de l'Admin passe la Σ pax
- * de ses collectes (décision Val Q4 du 2026-10-24).
+ * kg/pax par flux : Σ poids du flux / Σ pax des seules collectes à convives
+ * connus — une collecte à 0 convive sort des deux (lot 3, décision Val Q1 du
+ * 2026-10-25 ; même formule que le repère parc, lot C1 Q4).
  */
 export function kgParPaxParFluxFrom(
   rows: BlocsCollecteRow[],
-  pax: number = paxDistinct(rows),
 ): Record<string, number> {
+  const avecPax = rows.filter(aDesConvives);
+  const pax = paxCumules(avecPax);
   if (pax <= 0) return {};
   const poidsParFlux: Record<string, number> = {};
-  for (const c of rows) {
+  for (const c of avecPax) {
     const flux = Array.isArray(c.collecte_flux) ? c.collecte_flux : [];
     for (const f of flux) {
       const fd = (
@@ -1008,12 +1007,19 @@ export async function loadBlocs(
   const to = params.to;
   const lieuIds = params.lieuIds ?? [];
   const traiteurIds = params.traiteurIds ?? [];
-  const typeEvtIds = params.typeEvtIds ?? [];
+  const typesDemandes = params.typeEvtIds ?? [];
+  const typeEvtIds = typesDemandes.filter(estUuid);
   const tailleEvts = params.tailleEvts ?? [];
 
   const role = ctx.role;
   const isGestionnaire = role === 'gestionnaire_lieux';
   const isAgence = role === 'agence';
+
+  // Filtre Type demandé sans identifiant lisible : blocs vides, jamais un filtre
+  // ignoré ni une erreur de PostgREST (comme lireFiltresCollectesGestionnaire).
+  if (typesDemandes.length > 0 && typeEvtIds.length === 0) {
+    return emptyBlocs(type, isGestionnaire, isAgence) as BlocsResult;
+  }
 
   let perimetreLieuIds: string[] = [];
   if (isGestionnaire) {
@@ -1063,11 +1069,11 @@ export async function loadBlocs(
   const selectHistorique =
     type === 'zero_dechet'
       ? `id, type, taux_recyclage, date_collecte, pax,
-         evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
+         evenements!inner(id, lieu_id, organisation_id, type_evenement_id,
            traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
          collecte_flux(poids_reel_kg, flux_dechets(code))`
       : `id, type, taux_recyclage, date_collecte, pax,
-         evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
+         evenements!inner(id, lieu_id, organisation_id, type_evenement_id,
            traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
          ${embedAttributionsAg(role)}`;
 

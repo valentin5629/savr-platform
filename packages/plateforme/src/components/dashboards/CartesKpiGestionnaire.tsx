@@ -83,9 +83,7 @@ export function CartesKpiGestionnaire({
             value={kpi.kg_par_pax != null ? fmtDec(kpi.kg_par_pax, 2) : '—'}
             unit={kpi.kg_par_pax != null ? 'kg/pax' : undefined}
             dotColor={KPI_DOT.navy3}
-            sparkPoints={sparkFromSeries(zdSeries, (p) =>
-              p.pax ? p.tonnage_total / p.pax : 0,
-            )}
+            sparkPoints={sparkFromSeries(zdSeries, (p) => p.kg_par_pax)}
           />
         </>
       ) : (

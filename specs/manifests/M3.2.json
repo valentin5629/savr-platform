@@ -715,7 +715,7 @@
       "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx",
       "test": "M3.2/P2_dashboard_barre_5_filtres + M3.2/P2_dashboard_compteur_collectes + M3.2/P2_dashboard_carte_kpi_non_cliquable + M3.2/P2_dashboard_filtre_taille + M3.2/P2_dashboard_filtre_type_sur_la_collecte + M3.2/P2_filtres_options_parc + M3.2/P2_filtres_vide_si_aucun_perimetre + M3.2/P2_lieux_colonne_capacite + M3.2/P2_lieu_detail_capacite_photos_collectes + M3.2/P2_traiteurs_colonne_lieux + M3.2/P2_traiteurs_lieux_intervention_noms + M3.2/P2_encart_herite_type_taille + supabase/tests/r19b_p2_v_lieux_clients_capacite.test.sql (GRANT colonne capacite_maximum — régression P0 vue SECURITY INVOKER)",
       "statut": "implemented",
-      "libelle": "Listes + filtres gestionnaire (§06.05 §1/§2/§3/§5) : (1) barre de filtres GLOBALE dashboard 5 filtres — Période + Lieux + Traiteurs + Type d'événement + Taille (l.99-107), compteur « X collectes correspondent » (l.110), cartes KPI NON cliquables (décision Val GO-VISUAL 2026-07-10, ex-l.130) ; (2) liste Événements — RETIRÉE avec sa barre de filtres et son export CSV (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md) : la liste Collectes porte désormais l'export (M3.2-collectes-export-csv) ; REMISE le 2026-10-18 avec la barre de filtres de la liste Collectes et sans export (livrable M3.2-evenements-liste) ; (3) liste Lieux — colonne Capacité (capacite_maximum exposée via v_lieux_clients ; colonne Type OMISE, cf. _Divergences/M3.2_20260706_lieux_type.md) + détail lieu Capacité/Stationnement/Photos/graphique évolution 12 mois (l.366-372) ; (4) liste Traiteurs — colonne Lieux d'intervention (l.432) (détail traiteur : fiche en pop-up sans historique depuis le 2026-10-07, cf. livrables M3.2-fiche-traiteur-*) ; (5) endpoint /api/v1/gestionnaire/filtres (options parc org) ; (6) héritage Type/Taille de l'encart benchmark débloqué (l.160). Lot C1 (2026-10-24) : filtres Type et Taille du dashboard sur la COLLECTE (C3 ; Q3 Val 2026-10-24 « Collecte, dès C1 ») ; les totaux de pax des KPI restent ceux des événements distincts jusqu'au lot 3."
+      "libelle": "Listes + filtres gestionnaire (§06.05 §1/§2/§3/§5) : (1) barre de filtres GLOBALE dashboard 5 filtres — Période + Lieux + Traiteurs + Type d'événement + Taille (l.99-107), compteur « X collectes correspondent » (l.110), cartes KPI NON cliquables (décision Val GO-VISUAL 2026-07-10, ex-l.130) ; (2) liste Événements — RETIRÉE avec sa barre de filtres et son export CSV (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md) : la liste Collectes porte désormais l'export (M3.2-collectes-export-csv) ; REMISE le 2026-10-18 avec la barre de filtres de la liste Collectes et sans export (livrable M3.2-evenements-liste) ; (3) liste Lieux — colonne Capacité (capacite_maximum exposée via v_lieux_clients ; colonne Type OMISE, cf. _Divergences/M3.2_20260706_lieux_type.md) + détail lieu Capacité/Stationnement/Photos/graphique évolution 12 mois (l.366-372) ; (4) liste Traiteurs — colonne Lieux d'intervention (l.432) (détail traiteur : fiche en pop-up sans historique depuis le 2026-10-07, cf. livrables M3.2-fiche-traiteur-*) ; (5) endpoint /api/v1/gestionnaire/filtres (options parc org) ; (6) héritage Type/Taille de l'encart benchmark débloqué (l.160). Lot C1 (2026-10-24) : filtres Type et Taille du dashboard sur la COLLECTE (C3 ; Q3 Val 2026-10-24 « Collecte, dès C1 ») ; les totaux de pax des KPI sont au pax des collectes depuis le lot 3 (livrable M3.2-dashboard-kpi-pax-collecte)."
     },
     {
       "id": "M3.2-evenements-repas-tiers",
@@ -1370,6 +1370,24 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
       "libelle": "f_dechets_labo_estimes aligné sur §05 R_dechets_labo_estimes (lot C2) : coefficient du traiteur opérationnel pour l'année de l'événement − 1, sans repli sur une autre année (décision Val Q6 du 2026-10-24 ; la fonction prenait le plus récent) ; pax de l'événement à 0 → NULL, « — » à l'écran (arbitrage Val du 2026-09-21, fiche M3.2_20260921_dechets-labo-pax-zero). Valeur d'événement inchangée sinon (pax de l'événement × coefficient, Q3). Garde de périmètre, ACL, SECURITY DEFINER et search_path inchangés."
+    },
+    {
+      "id": "M3.2-dashboard-kpi-pax-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:135",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts (GET : computeDashboardKpi + kgParPaxParFluxFrom, type_evenement_ids[] lu comme UUID) + packages/plateforme/src/components/dashboards/CartesKpiGestionnaire.tsx (sparkline kg/pax)",
+      "test": "Lot3/gestionnaire_kpi_zd_filtre_partiel + Lot3/gestionnaire_kpi_ag_pax_collectes + Lot3/gestionnaire_type_evenement_illisible_vide + M3.2/GEST04_dashboard_kg_pax_par_flux",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "KPI du dashboard gestionnaire (Pax cumulés, kg/pax moyen, Repas/pax moyen, kg/pax par flux de la jauge) au pax des collectes, collecte à 0 convive écartée des ratios (lot 3, décisions Val Q1 à Q5 du 2026-10-25) : la route réutilise le calcul du Dashboard Client Admin (computeDashboardKpi) au lieu de sa copie « événements distincts ». Corrige I5 (filtre Type ou Taille). type_evenement_ids[] lu comme UUID : aucun identifiant lisible = aucune collecte retenue, sans lecture."
+    },
+    {
+      "id": "M3.2-evenements-pax-de-l-evenement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:584",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts (inchangés : evenements.pax)",
+      "test": "Lot3/evenement_fiche_pax_et_taille_de_l_evenement + M3.2/evenements_route_une_ligne_par_evenement_bilan_cumule",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "Liste et fiche Événements du gestionnaire : pax et taille de l'ÉVÉNEMENT, c'est-à-dire son pax calculé (par jour le plus grand des totaux ZD et AG, puis somme des jours), et non la somme des pax de ses collectes (lot 3, décision Val Q4 du 2026-10-25, confirmant C4 du 2026-10-20). Rien à coder ; le test fige la décision."
     }
   ],
   "cdc_source_hash": {

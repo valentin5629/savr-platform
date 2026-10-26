@@ -4662,10 +4662,12 @@ export type Database = {
           mois: string | null
           nb_collectes: number | null
           nb_repas_donnes: number | null
+          nb_repas_pax_connu: number | null
           organisation_id: string | null
           pax_total: number | null
           taux_recyclage_pondere: number | null
           tonnage_kg: number | null
+          tonnage_kg_pax_connu: number | null
           type_collecte: Database["plateforme"]["Enums"]["collecte_type"] | null
         }
         Relationships: [

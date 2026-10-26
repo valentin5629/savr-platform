@@ -1029,6 +1029,68 @@ describe('M4.1 / evenements', () => {
   });
 });
 
+// Lot 3 du pax porté par la collecte, décision Val Q4 du 2026-10-25 : l'export
+// Événements garde le pax CALCULÉ de l'événement et sa taille.
+describe('Lot 3 / export Événements — pax et taille de l’événement (Q4)', () => {
+  it('Lot3/export_evenements_pax_et_taille_de_l_evenement — colonnes Taille et Pax : L et 800 de l’événement, pas M et 500 de ses collectes', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({
+      data: [
+        {
+          id: 'e1',
+          nom_evenement: 'Salon',
+          date_evenement: '2026-02-01',
+          pax: 800,
+          traiteur_operationnel_organisation_id: 'tr-1',
+          lieux: { nom: 'Dock' },
+          types_evenements: { libelle: 'Salon pro' },
+          collectes: [
+            {
+              id: 'c1',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-01',
+              pax: 300,
+              taux_recyclage: 80,
+              collecte_flux: [{ poids_reel_kg: 40 }],
+            },
+            {
+              id: 'c2',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-02',
+              pax: 200,
+              taux_recyclage: 80,
+              collecte_flux: [{ poids_reel_kg: 10 }],
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [{ id: 'tr-1', nom: 'Tr' }], error: null });
+
+    const res = await call('evenements');
+    const text = new TextDecoder().decode(
+      new Uint8Array(await res.arrayBuffer()),
+    );
+    const [header, line1] = text.split('\r\n');
+    expect(res.status).toBe(200);
+    const colonnes = (header ?? '').split(';');
+    const valeurs = (line1 ?? '').split(';');
+    expect(valeurs[colonnes.findIndex((c) => /^Pax$/i.test(c.trim()))]).toBe(
+      '800',
+    );
+    expect(
+      valeurs[
+        colonnes.findIndex((c) =>
+          /^Taille/i.test(c.replace(/^\uFEFF/, '').trim()),
+        )
+      ],
+    ).toBe('L');
+  });
+});
+
 describe('M4.1 / evenements — type d’événement de ses collectes (lot C1, Q2)', () => {
   it('M4.1/export_evenements_type_des_collectes — colonne « Type d’événement » : types de ses collectes, ordre de la collecte n°1, sans doublon ni collecte annulée', async () => {
     setupAuth('traiteur_manager');

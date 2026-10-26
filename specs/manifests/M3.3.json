@@ -525,6 +525,15 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
       "libelle": "Bordereau ZD refait par trg_cerfa_debloque_siret quand le SIRET d'un traiteur shadow arrive : le payload du PDF porte les convives de LA collecte, comme le batch J+1 (lot C2, décision Val Q5 du 2026-10-24) ; 0 convive → null, mention omise. Preuve pgTAP sur un événement de deux soirées (900 puis 300 convives) : le bordereau de la 2e soirée porte 300, plus 1 200."
+    },
+    {
+      "id": "M3.3-kpi-cartes-pax-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:110",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx (cartes kg/pax moyen, Repas/pax moyen, sparklines) + packages/plateforme/src/lib/dashboards/cockpit-derive.ts (aggregateKpis)",
+      "test": "Lot3/agence_carte_kg_par_pax_collectes_a_convives",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "Cartes KPI du dashboard agence au pax des collectes (lot 3, décisions Val Q1 à Q5 du 2026-10-25) : mêmes lignes v_kpi_traiteur et mêmes dérivations que le traiteur — kg/pax et repas/pax sur les collectes à convives connus, pax cumulés = Σ pax des collectes. Toujours sans carte Marge (§06.11 diff #7)."
     }
   ],
   "cdc_source_hash": {

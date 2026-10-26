@@ -76,6 +76,7 @@ const SERIE_ZD = [
     taux_recyclage: 60,
     nb_collectes: 3,
     pax: 400,
+    kg_par_pax: 1,
     co2_evite_kg: 100,
   },
   {
@@ -84,6 +85,7 @@ const SERIE_ZD = [
     taux_recyclage: 70,
     nb_collectes: 4,
     pax: 500,
+    kg_par_pax: 1,
     co2_evite_kg: 150,
   },
   {
@@ -92,6 +94,7 @@ const SERIE_ZD = [
     taux_recyclage: 75,
     nb_collectes: 5,
     pax: 300,
+    kg_par_pax: 1,
     co2_evite_kg: 120,
   },
 ];
@@ -115,19 +118,22 @@ describe('Série d’évolution enrichie pour les sparklines', () => {
         taux_recyclage: 50,
         date_collecte: '2026-05-03',
         co2_evite_kg: 10,
+        pax: 70,
         evenements: evt('e1', 100),
         collecte_flux: [
           { poids_reel_kg: 40, flux_dechets: { code: 'biodechet' } },
         ],
         attributions_antgaspi: null,
       },
-      // Même événement, même mois : pax compté UNE fois.
+      // Même événement (100 convives), même mois : chaque collecte compte ses
+      // propres convives (lot 3, décisions Val Q1 et Q2 du 2026-10-25).
       {
         id: 'c2',
         type: 'zero_dechet',
         taux_recyclage: 50,
         date_collecte: '2026-05-20',
         co2_evite_kg: '5',
+        pax: 50,
         evenements: evt('e1', 100),
         collecte_flux: [
           { poids_reel_kg: 60, flux_dechets: { code: 'carton' } },
@@ -139,6 +145,7 @@ describe('Série d’évolution enrichie pour les sparklines', () => {
         type: 'zero_dechet',
         taux_recyclage: null,
         date_collecte: '2026-06-01',
+        pax: 0, // reprise Bubble sans convives (l'événement en annonce 30)
         evenements: evt('e2', 30),
         collecte_flux: [],
         attributions_antgaspi: null,
@@ -149,11 +156,14 @@ describe('Série d’évolution enrichie pour les sparklines', () => {
     expect(s[0]).toMatchObject({
       tonnage_total: 100,
       nb_collectes: 2,
-      pax: 100,
+      pax: 120,
       co2_evite_kg: 15,
     });
+    expect(s[0]!.kg_par_pax as number).toBeCloseTo(100 / 120, 6);
+    // Collecte sans convives (c3) : aucun kg/pax, jamais une division par 0.
+    expect(s[1]!.kg_par_pax).toBeNull();
     // Sans co2 sélectionné (loader gestionnaire) : 0, pas NaN.
-    expect(s[1]).toMatchObject({ nb_collectes: 1, pax: 30, co2_evite_kg: 0 });
+    expect(s[1]).toMatchObject({ nb_collectes: 1, pax: 0, co2_evite_kg: 0 });
   });
 
   it('M3.2/kpi_sparkline_serie_ag_nb_collectes_par_bucket', () => {
@@ -164,6 +174,7 @@ describe('Série d’évolution enrichie pour les sparklines', () => {
         taux_recyclage: null,
         date_collecte: '2026-05-03',
         co2_evite_kg: 25,
+        pax: 80,
         evenements: evt('e1', 100),
         collecte_flux: null,
         attributions_antgaspi: [{ volume_repas_realise: 40 }],
@@ -173,6 +184,7 @@ describe('Série d’évolution enrichie pour les sparklines', () => {
         type: 'anti_gaspi',
         taux_recyclage: null,
         date_collecte: '2026-05-09',
+        pax: 50,
         evenements: evt('e2', 50),
         collecte_flux: null,
         attributions_antgaspi: { volume_repas_realise: 10 },
@@ -181,10 +193,11 @@ describe('Série d’évolution enrichie pour les sparklines', () => {
     const [b] = buildEvolutionSeries(rows, 'anti_gaspi', 'mois');
     expect(b).toMatchObject({
       repas_donnes: 50,
-      pax: 150,
+      pax: 130,
       nb_collectes: 2,
       co2_evite_kg: 25,
     });
+    expect(b!.ratio as number).toBeCloseTo(50 / 130, 6);
   });
 
   it('M3.2/kpi_sparkline_moins_de_deux_points_masquee', () => {
@@ -399,6 +412,63 @@ describe('M3.6 / dashboard-client Admin — sparkline + variation N-1', () => {
         carte('Tonnage collecté').querySelector('polyline'),
       ).not.toBeNull();
       expect(carte('kg/pax moyen').textContent).not.toMatch(/[▲▼]/);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// Lot 3 du pax porté par la collecte (décisions Val Q1, Q2 et Q5 du 2026-10-25) :
+// les cartes agence (lignes de v_kpi_traiteur) divisent le poids et les repas des
+// seules collectes à convives connus par les pax des collectes.
+describe('Lot 3 / agence — ratios par pax des collectes à convives', () => {
+  it(
+    'Lot3/agence_carte_kg_par_pax_collectes_a_convives — kg/pax 600 / 300 (et non 1 000 / 300)',
+    async () => {
+      const ligneZd = {
+        mois: '2026-06-01',
+        type_collecte: 'zero_dechet',
+        nb_collectes: 3,
+        tonnage_kg: 1000,
+        tonnage_kg_pax_connu: 600,
+        taux_recyclage_pondere: 70,
+        nb_repas_donnes: null,
+        nb_repas_pax_connu: null,
+        marge_zd_ht: null,
+        pax_total: 300,
+      };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((input: RequestInfo | URL) => {
+          const url = String(input);
+          if (url.includes('/dashboards/kpi-traiteur'))
+            return jsonResponse({
+              data: [ligneZd],
+              previous: [],
+            });
+          if (url.includes('/dashboards/blocs'))
+            return jsonResponse({
+              data: {
+                topLieux: [],
+                topActeurs: null,
+                acteurLabel: null,
+                topAssociations: [],
+                kgParPaxParFlux: {},
+              },
+            });
+          if (url.includes('/dashboards/benchmark/filtres'))
+            return jsonResponse({
+              data: { lieux: [], traiteurs: [], types: [] },
+            });
+          if (url.includes('/dashboards/benchmark'))
+            return jsonResponse({ data: [] });
+          if (url.includes('/dashboards/evolution'))
+            return jsonResponse({ data: { granularite: 'mois', series: [] } });
+          return jsonResponse({});
+        }),
+      );
+      render(<AgenceDashboardPage />);
+      await screen.findByText('kg/pax moyen', undefined, ATTENTE_UI);
+      expect(carte('kg/pax moyen')).toHaveTextContent('2,00');
     },
     ATTENTE_CAS_MS,
   );

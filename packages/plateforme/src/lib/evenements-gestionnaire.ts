@@ -212,6 +212,30 @@ export function consoliderEvenement(
   };
 }
 
+// Phrase de couverture du bilan, accordée au singulier comme au pluriel.
+// « Réalisée » s'entend au sens des résultats (clôturée, ou AG sans excédent) :
+// une collecte `realisee` qui attend sa clôture n'a pas encore de résultat.
+export function couvertureBilan(
+  nbRealisees: number,
+  nbCollectes: number,
+  // « Zéro Déchet » / « Anti-Gaspi » quand le bilan ne porte que sur un type
+  // d'un événement qui mêle les deux.
+  type = '',
+): string {
+  if (nbCollectes === 0)
+    return 'Aucune collecte n’est rattachée à cet événement.';
+  const t = type ? ` ${type}` : '';
+  const total =
+    nbCollectes === 1 ? `la collecte${t}` : `les ${nbCollectes} collectes${t}`;
+  if (nbRealisees === 0)
+    return `Aucun résultat n’est encore disponible sur ${total} de l’événement.`;
+  const realisees =
+    nbRealisees === 1
+      ? 'Cumul de 1 collecte réalisée'
+      : `Cumul des ${nbRealisees} collectes réalisées`;
+  return `${realisees}, sur ${nbCollectes === 1 ? `1 collecte${t}` : `${nbCollectes} collectes${t}`} de l’événement.`;
+}
+
 /** CO₂ évité total (ZD + AG), tel que la liste l'affiche. */
 export function co2EviteTotal(b: BilanEvenement): number | null {
   if (b.co2_evite_zd_kg == null && b.co2_evite_ag_kg == null) return null;

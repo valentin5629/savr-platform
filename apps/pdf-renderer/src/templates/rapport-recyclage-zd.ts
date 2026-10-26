@@ -115,20 +115,20 @@ function refFlux(code: string | undefined | null, nom: string): RefFlux {
 }
 
 // ─── Formats ─────────────────────────────────────────────────────────────────
-const INSECABLE = ' ';
-const dec = (n: number, d: number) => n.toFixed(d).replace('.', ',');
-const entier = (n: number) =>
+export const INSECABLE = ' ';
+export const dec = (n: number, d: number) => n.toFixed(d).replace('.', ',');
+export const entier = (n: number) =>
   Math.round(n)
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, INSECABLE);
-const kg = (n: number) => `${dec(n, 1)}${INSECABLE}kg`;
-const pct = (n: number) => `${dec(n, 1)}${INSECABLE}%`;
-const tonnesCo2 = (kilos: number) =>
+export const kg = (n: number) => `${dec(n, 1)}${INSECABLE}kg`;
+export const pct = (n: number) => `${dec(n, 1)}${INSECABLE}%`;
+export const tonnesCo2 = (kilos: number) =>
   `${dec(kilos / 1000, 3)}${INSECABLE}t${INSECABLE}CO₂e`;
 /** kg par convive : 3 décimales sous 0,1 (sinon « 0,06 » et « 0,05 » se confondent). */
 const kgPax = (n: number) => dec(n, n < 0.1 ? 3 : 2);
 
-function esc(s: string | number | undefined | null): string {
+export function esc(s: string | number | undefined | null): string {
   if (s == null) return '';
   return String(s)
     .replace(/&/g, '&amp;')
@@ -138,10 +138,10 @@ function esc(s: string | number | undefined | null): string {
 }
 
 // ─── Logo Savr (masque de luminance, cf. assets/marque.ts) ───────────────────
-const LOGO_DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><mask id="rz-logo-masque"><image href="${SAVR_LOGO_MASK}" width="551" height="150" preserveAspectRatio="none"/></mask><clipPath id="rz-logo-coin"><rect x="52" y="0" width="46" height="98"/><rect x="52" y="52" width="98" height="46"/></clipPath></defs></svg>`;
+export const LOGO_DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><mask id="rz-logo-masque"><image href="${SAVR_LOGO_MASK}" width="551" height="150" preserveAspectRatio="none"/></mask><clipPath id="rz-logo-coin"><rect x="52" y="0" width="46" height="98"/><rect x="52" y="52" width="98" height="46"/></clipPath></defs></svg>`;
 
 /** Croix « + » du logo Savr ; `base` = couleur du logo, coin vert (contexte ZD). */
-function logoSavr(taille: number, base: string): string {
+export function logoSavr(taille: number, base: string): string {
   return `<svg class="rz-logo-savr" viewBox="2 2 146 146" width="${taille}" height="${taille}" role="img" aria-label="Savr"><rect width="551" height="150" fill="${base}" mask="url(#rz-logo-masque)"/><g clip-path="url(#rz-logo-coin)"><rect width="551" height="150" fill="#16a34a" mask="url(#rz-logo-masque)"/></g></svg>`;
 }
 
@@ -236,18 +236,65 @@ function radarSvg(axes: { libelle: string; ratio: number }[]): string {
       </svg>`;
 }
 
+/** Données de la page de synthèse (page 1), sans le bordereau de la page 2. */
+export type SyntheseRecyclageData = Omit<RapportRecyclageZdData, 'bordereau'>;
+
+/** Ce qui distingue le rapport d'une collecte de celui d'un événement. */
+export interface OptionsSynthese {
+  titre: string;
+  /** Ligne sous le nom du client, dans le bandeau (rien si absente). */
+  sousTitre?: string;
+  /** Phrase sous le taux de recyclage. */
+  mentionTaux: string;
+  /** Styles et HTML des pages qui suivent la page 1. */
+  cssSuite: string;
+  suite: string;
+}
+
+const MENTION_TAUX_COLLECTE =
+  'Calculé selon la méthode UE 2019/1004 — taux de captation par filière, figé à la clôture de la collecte. Voir Méthodologie.';
+
 export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
-  const total = data.poids_total_kg;
+  return renderSyntheseRecyclage(data, {
+    titre: 'Rapport de recyclage',
+    mentionTaux: MENTION_TAUX_COLLECTE,
+    cssSuite: `
+  /* ── Page 2 : bordereau de pesée (styles du gabarit bordereau) ─────────── */
+  .bz { break-before: page; }
+${limiterALaPortee(BORDEREAU_CSS, '.bz')}
+  /* Sélecteur à deux classes : il l'emporte sur la remise à zéro du bordereau (.bz *). */
+  .bz .bz-annexe { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 14px; margin-bottom: 16px; font-size: 10px; color: #15803d; font-weight: 600; }
+`,
+    suite: `<!-- PAGE 2 — Bordereau de pesée intégré -->
+<div class="bz">
+  <div class="bz-annexe">Annexe — Bordereau de pesée Savr (${esc(data.bordereau.numero)})</div>
+  ${renderBordereauBody(data.bordereau)}
+</div>
+`,
+  });
+}
 
-  // Flux pesés, du plus lourd au plus léger (ordre de la planche avec radar).
-  const flux = data.flux
-    .map((f) => ({
-      ...f,
-      ref: refFlux(f.code, f.nom),
-      part: total > 0 ? (f.poids_kg / total) * 100 : 0,
-    }))
-    .sort((a, b) => b.poids_kg - a.poids_kg || a.ref.rang - b.ref.rang);
+/** Ce que l'en-tête des rapports imprime (bandeau et ligne date · lieu · convives). */
+export type EnTeteRapportData = Pick<
+  RapportRecyclageZdData,
+  | 'client_nom'
+  | 'nom_evenement'
+  | 'traiteur_nom'
+  | 'date_evenement'
+  | 'lieu_nom'
+  | 'lieu_adresse'
+  | 'nb_pax'
+  | 'logo_client_url'
+  | 'logo_traiteur_url'
+  | 'logo_url'
+>;
 
+/** Bandeau navy et ligne date · lieu · convives, communs aux rapports. */
+export function enTeteRapport(
+  data: EnTeteRapportData,
+  titre: string,
+  sousTitre?: string,
+): { bandeau: string; meta: string } {
   // ── Bandeau ────────────────────────────────────────────────────────────────
   const titreClient = data.client_nom?.trim() || data.nom_evenement;
   const traiteur =
@@ -262,8 +309,8 @@ export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
   <div class="rz-band">
     <div class="rz-band-savr">${logoSavr(64, '#ffffff')}</div>
     <div class="rz-band-titre">
-      <div class="rz-ttl">Rapport de recyclage</div>
-      <div class="rz-client"><span>${esc(titreClient)}</span>${traiteur}</div>
+      <div class="rz-ttl">${esc(titre)}</div>
+      <div class="rz-client"><span>${esc(titreClient)}</span>${traiteur}</div>${sousTitre ? `<div class="rz-sous-titre">${esc(sousTitre)}</div>` : ''}
     </div>
     ${logos ? `<div class="rz-logos">${logos}</div>` : ''}
   </div>`;
@@ -275,6 +322,155 @@ export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
       <div><div class="rz-k">Convives</div><div class="rz-v">${data.nb_pax ? entier(data.nb_pax) : '—'}</div></div>
     </div>`;
 
+  return { bandeau, meta };
+}
+
+/**
+ * Styles de la page de synthèse (identité Savr : Nunito, bandeau navy, cartes),
+ * communs aux rapports d'une collecte et d'un événement.
+ */
+export const CSS_MARQUE = `  @font-face { font-family: 'Nunito'; font-style: normal; font-weight: 200 1000; src: url(data:font/woff2;base64,${NUNITO_WOFF2_BASE64}) format('woff2'); }
+  @page { size: A4; margin: 0; }
+  html, body { margin: 0; padding: 0; }
+
+  /* ── Page 1 ───────────────────────────────────────────────────────────── */
+  .rz-page, .rz-page * { margin: 0; padding: 0; box-sizing: border-box; }
+  .rz-page { width: 794px; height: 1122px; overflow: hidden; display: flex; flex-direction: column; background: #fff; font-family: 'Nunito', system-ui, sans-serif; color: #161a26; font-size: 12px; line-height: 1.45; }
+  .rz-page svg text { font-family: 'Nunito', system-ui, sans-serif; }
+  .rz-band { background: #223870; color: #fff; padding: 18px 48px 16px; display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+  .rz-band-savr { flex-shrink: 0; width: 64px; height: 64px; }
+  .rz-band-titre { flex: 1; min-width: 0; }
+  .rz-ttl { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; white-space: nowrap; }
+  .rz-client { font-size: 15px; font-weight: 700; margin-top: 8px; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+  .rz-client span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .rz-x { color: #bdc8e5; font-weight: 600; }
+  .rz-logos { display: flex; gap: 8px; flex-shrink: 0; }
+  .rz-logo { width: 100px; height: 48px; border-radius: 8px; background: #fff; display: flex; align-items: center; justify-content: center; padding: 6px; }
+  .rz-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .rz-body { flex: 1; padding: 16px 48px 16px; display: flex; flex-direction: column; }
+  /* Écart minimal 12px ; l'espace restant se répartit (≈ 20px au cas nominal). */
+  .rz-body-radar { gap: 12px; justify-content: space-between; }
+  .rz-body-simple { gap: 18px; padding-top: 22px; justify-content: space-between; }
+  .rz-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding-bottom: 6px; border-bottom: 1px solid #dde1eb; text-align: center; }
+  .rz-meta > div { padding: 0 16px; min-width: 0; }
+  .rz-v, .rz-vs { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rz-meta > div + div { border-left: 1px solid #dde1eb; }
+  .rz-k { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6e7790; margin-bottom: 3px; }
+  .rz-v { font-size: 15px; font-weight: 700; color: #161a26; margin-top: 1px; }
+  .rz-vs { font-size: 12px; color: #515a72; }
+  .rz-card { border: 1px solid #dde1eb; border-radius: 8px; padding: 11px 16px; background: #fff; }
+  .rz-card-large { padding: 20px 22px; }
+  .rz-hero { background: #eff2f9; border-color: #dee4f2; }
+  .rz-h2 { font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #515a72; margin-bottom: 7px; }
+  .rz-duo { display: grid; grid-template-columns: 1.7fr 1fr; gap: 11px; }
+  .rz-duo-egal { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; align-items: start; }
+  .rz-pave { display: flex; flex-direction: column; justify-content: flex-start; gap: 10px; padding: 20px 22px; }
+  .rz-chiffre-ligne { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .rz-chiffre { font-size: 50px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: #223870; white-space: nowrap; }
+  .rz-chiffre-64 { font-size: 64px; }
+  .rz-chiffre-40 { font-size: 40px; }
+  .rz-pill { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 0; background: #f0fdf4; color: #15803d; vertical-align: middle; margin-left: 6px; }
+  .rz-chiffre-ligne .rz-pill { margin-left: 0; }
+  .rz-eq-fort { font-size: 15px; font-weight: 700; color: #3c4459; }
+  .rz-eq { font-size: 11px; color: #515a72; margin-top: 3px; }
+  .rz-kv { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 11.5px; }
+  .rz-kv-aere { margin-top: 6px; font-size: 13px; row-gap: 6px; }
+  .rz-kv-125 { font-size: 12.5px; }
+  .rz-l { color: #515a72; }
+  .rz-r { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rz-n { font-size: 10px; color: #6e7790; font-weight: 400; }
+  .rz-methode { color: #515a72; line-height: 1.45; }
+  .rz-methode-12 { font-size: 12px; margin-top: 2px; }
+  .rz-methode-11 { font-size: 11px; }
+  .rz-taux-large { display: flex; flex-direction: row; align-items: center; gap: 30px; padding: 24px 26px; }
+  .rz-taux-bloc { flex: 0 0 auto; }
+
+  /* Tonnages — version avec radar : barre empilée */
+  .rz-barre { display: flex; height: 34px; border-radius: 8px; overflow: hidden; gap: 2px; background: #fff; }
+  .rz-seg { display: flex; align-items: center; justify-content: center; min-width: 0; }
+  .rz-seg span { font-size: 11px; font-weight: 800; color: #fff; white-space: nowrap; }
+  .rz-leg-grille { display: grid; gap: 10px; margin-top: 10px; }
+  .rz-leg-item { display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
+  .rz-leg-dot { flex-shrink: 0; width: 10px; height: 10px; border-radius: 3px; margin-top: 3px; }
+  .rz-leg-nom { font-size: 11px; font-weight: 700; color: #223870; white-space: nowrap; }
+  .rz-leg-kg { font-size: 14px; font-weight: 800; color: #161a26; white-space: nowrap; }
+  .rz-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid #eef0f5; font-size: 11.5px; color: #515a72; }
+  .rz-total b { color: #161a26; font-size: 13px; }
+
+  /* Tonnages — version sans radar : tableau + anneau */
+  .rz-flux { display: grid; grid-template-columns: 1fr 190px; gap: 28px; align-items: center; }
+  .rz-tbl { width: 100%; border-collapse: collapse; }
+  .rz-tbl th { font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #6e7790; text-align: left; padding: 2px 6px 3px; border-bottom: 1px solid #dde1eb; }
+  .rz-tbl td { padding: 6px; border-bottom: 1px solid #eef0f5; font-size: 12px; }
+  .rz-tbl th.rz-num, .rz-tbl td.rz-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .rz-tbl tr.rz-tot td { font-weight: 800; border-top: 2px solid #223870; border-bottom: none; padding: 8px 6px; color: #15213f; }
+  .rz-dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; vertical-align: -1px; }
+  .rz-split { display: flex; gap: 18px; font-size: 11px; color: #515a72; margin-top: 5px; }
+  .rz-split b { color: #161a26; }
+  .rz-donut { width: 170px; height: 170px; }
+
+  /* Radar */
+  .rz-bench { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: center; }
+  .rz-bench-liste { grid-template-columns: 1fr; }
+  .rz-radar { width: 260px; height: 230px; display: block; overflow: visible; }
+  .rz-ax, .rz-ring { stroke: #dde1eb; stroke-width: 1; fill: none; }
+  .rz-parc { stroke: #92a3d2; stroke-width: 1.5; fill: #eff2f9; fill-opacity: .6; }
+  .rz-vous { stroke: #223870; stroke-width: 2; fill: none; stroke-linejoin: round; }
+  .rz-vpt { fill: #223870; }
+  .rz-axl { font-size: 9.5px; font-weight: 700; fill: #3c4459; }
+  .rz-blist { display: flex; flex-direction: column; gap: 2px; }
+  .rz-brow { display: grid; grid-template-columns: 100px 72px 1fr 62px; gap: 10px; white-space: nowrap; align-items: center; font-size: 11.5px; padding: 3px 0; border-bottom: 1px solid #eef0f5; }
+  .rz-f { font-weight: 700; }
+  .rz-kgp { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
+  .rz-pk { font-size: 10.5px; color: #6e7790; font-variant-numeric: tabular-nums; text-align: center; }
+  .rz-bdg { display: inline-block; justify-self: end; min-width: 48px; text-align: center; padding: 2px 7px; border-radius: 9999px; font-size: 10px; font-weight: 800; }
+  .rz-ok { background: #f0fdf4; color: #15803d; }
+  .rz-wn { background: #fffbeb; color: #b45309; }
+  .rz-bd { background: #fef2f2; color: #b91c1c; }
+  .rz-nd { background: #eef0f5; color: #515a72; }
+  .rz-leg { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 10px; color: #515a72; margin-top: 5px; align-items: center; }
+  .rz-leg > span { white-space: nowrap; }
+  .rz-sw { display: inline-block; width: 14px; height: 0; border-top: 2px solid #223870; margin-right: 5px; vertical-align: middle; }
+  .rz-sw2 { display: inline-block; width: 14px; height: 8px; background: #eff2f9; border: 1px solid #92a3d2; margin-right: 5px; vertical-align: middle; }
+  .rz-mention { font-size: 9.5px; color: #6e7790; margin-top: 6px; line-height: 1.4; }
+
+  /* Encart Savr + méthodologie */
+  .rz-savr { display: flex; gap: 14px; align-items: center; background: #eff2f9; border: 1px solid #dee4f2; border-radius: 8px; padding: 8px 12px; }
+  .rz-body-simple .rz-savr { padding: 10px 14px; }
+  .rz-savr-logo { flex-shrink: 0; width: 40px; height: 40px; }
+  .rz-savr-txt { min-width: 0; font-size: 10.5px; line-height: 1.45; color: #3c4459; text-wrap: pretty; }
+  .rz-savr-txt b { color: #223870; }
+  .rz-metho { font-size: 9.5px; color: #515a72; line-height: 1.45; border-top: 1px solid #dde1eb; padding-top: 9px; }
+  .rz-body-simple .rz-metho { font-size: 11px; }
+  .rz-metho b { color: #272d3d; }
+  .rz-caps { display: flex; gap: 14px; margin-top: 4px; }
+  .rz-caps span { white-space: nowrap; }
+  .rz-caps b { color: #161a26; }`;
+
+/**
+ * Document complet : page 1 de synthèse (avec ou sans radar, au choix du
+ * demandeur), puis les pages de `options.suite`.
+ */
+export function renderSyntheseRecyclage(
+  data: SyntheseRecyclageData,
+  options: OptionsSynthese,
+): string {
+  const total = data.poids_total_kg;
+
+  // Flux pesés, du plus lourd au plus léger (ordre de la planche avec radar).
+  const flux = data.flux
+    .map((f) => ({
+      ...f,
+      ref: refFlux(f.code, f.nom),
+      part: total > 0 ? (f.poids_kg / total) * 100 : 0,
+    }))
+    .sort((a, b) => b.poids_kg - a.poids_kg || a.ref.rang - b.ref.rang);
+
+  const { bandeau, meta } = enTeteRapport(
+    data,
+    options.titre,
+    options.sousTitre,
+  );
   // ── Carbone (règle ABC : évité en chiffre principal, induit et net à part) ──
   const evite = data.co2_evite_kg;
   const net = data.co2_net_kg;
@@ -295,8 +491,7 @@ export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
   const pastilleEvite =
     evite != null ? '<span class="rz-pill">évitées</span>' : '';
   const taux = data.taux_recyclage != null ? pct(data.taux_recyclage) : '—';
-  const mentionTaux =
-    'Calculé selon la méthode UE 2019/1004 — taux de captation par filière, figé à la clôture de la collecte. Voir Méthodologie.';
+  const mentionTaux = options.mentionTaux;
 
   // ── Pied de page 1 : encart Savr + méthodologie ────────────────────────────
   const encartSavr = `
@@ -537,130 +732,8 @@ export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
 <head>
 <meta charset="UTF-8"/>
 <style>
-  @font-face { font-family: 'Nunito'; font-style: normal; font-weight: 200 1000; src: url(data:font/woff2;base64,${NUNITO_WOFF2_BASE64}) format('woff2'); }
-  @page { size: A4; margin: 0; }
-  html, body { margin: 0; padding: 0; }
-
-  /* ── Page 1 ───────────────────────────────────────────────────────────── */
-  .rz-page, .rz-page * { margin: 0; padding: 0; box-sizing: border-box; }
-  .rz-page { width: 794px; height: 1122px; overflow: hidden; display: flex; flex-direction: column; background: #fff; font-family: 'Nunito', system-ui, sans-serif; color: #161a26; font-size: 12px; line-height: 1.45; }
-  .rz-page svg text { font-family: 'Nunito', system-ui, sans-serif; }
-  .rz-band { background: #223870; color: #fff; padding: 18px 48px 16px; display: flex; justify-content: space-between; align-items: center; gap: 24px; }
-  .rz-band-savr { flex-shrink: 0; width: 64px; height: 64px; }
-  .rz-band-titre { flex: 1; min-width: 0; }
-  .rz-ttl { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; white-space: nowrap; }
-  .rz-client { font-size: 15px; font-weight: 700; margin-top: 8px; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
-  .rz-client span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .rz-x { color: #bdc8e5; font-weight: 600; }
-  .rz-logos { display: flex; gap: 8px; flex-shrink: 0; }
-  .rz-logo { width: 100px; height: 48px; border-radius: 8px; background: #fff; display: flex; align-items: center; justify-content: center; padding: 6px; }
-  .rz-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  .rz-body { flex: 1; padding: 16px 48px 16px; display: flex; flex-direction: column; }
-  /* Écart minimal 12px ; l'espace restant se répartit (≈ 20px au cas nominal). */
-  .rz-body-radar { gap: 12px; justify-content: space-between; }
-  .rz-body-simple { gap: 18px; padding-top: 22px; justify-content: space-between; }
-  .rz-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding-bottom: 6px; border-bottom: 1px solid #dde1eb; text-align: center; }
-  .rz-meta > div { padding: 0 16px; min-width: 0; }
-  .rz-v, .rz-vs { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rz-meta > div + div { border-left: 1px solid #dde1eb; }
-  .rz-k { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6e7790; margin-bottom: 3px; }
-  .rz-v { font-size: 15px; font-weight: 700; color: #161a26; margin-top: 1px; }
-  .rz-vs { font-size: 12px; color: #515a72; }
-  .rz-card { border: 1px solid #dde1eb; border-radius: 8px; padding: 11px 16px; background: #fff; }
-  .rz-card-large { padding: 20px 22px; }
-  .rz-hero { background: #eff2f9; border-color: #dee4f2; }
-  .rz-h2 { font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #515a72; margin-bottom: 7px; }
-  .rz-duo { display: grid; grid-template-columns: 1.7fr 1fr; gap: 11px; }
-  .rz-duo-egal { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; align-items: start; }
-  .rz-pave { display: flex; flex-direction: column; justify-content: flex-start; gap: 10px; padding: 20px 22px; }
-  .rz-chiffre-ligne { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-  .rz-chiffre { font-size: 50px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: #223870; white-space: nowrap; }
-  .rz-chiffre-64 { font-size: 64px; }
-  .rz-chiffre-40 { font-size: 40px; }
-  .rz-pill { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 0; background: #f0fdf4; color: #15803d; vertical-align: middle; margin-left: 6px; }
-  .rz-chiffre-ligne .rz-pill { margin-left: 0; }
-  .rz-eq-fort { font-size: 15px; font-weight: 700; color: #3c4459; }
-  .rz-eq { font-size: 11px; color: #515a72; margin-top: 3px; }
-  .rz-kv { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 11.5px; }
-  .rz-kv-aere { margin-top: 6px; font-size: 13px; row-gap: 6px; }
-  .rz-kv-125 { font-size: 12.5px; }
-  .rz-l { color: #515a72; }
-  .rz-r { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .rz-n { font-size: 10px; color: #6e7790; font-weight: 400; }
-  .rz-methode { color: #515a72; line-height: 1.45; }
-  .rz-methode-12 { font-size: 12px; margin-top: 2px; }
-  .rz-methode-11 { font-size: 11px; }
-  .rz-taux-large { display: flex; flex-direction: row; align-items: center; gap: 30px; padding: 24px 26px; }
-  .rz-taux-bloc { flex: 0 0 auto; }
-
-  /* Tonnages — version avec radar : barre empilée */
-  .rz-barre { display: flex; height: 34px; border-radius: 8px; overflow: hidden; gap: 2px; background: #fff; }
-  .rz-seg { display: flex; align-items: center; justify-content: center; min-width: 0; }
-  .rz-seg span { font-size: 11px; font-weight: 800; color: #fff; white-space: nowrap; }
-  .rz-leg-grille { display: grid; gap: 10px; margin-top: 10px; }
-  .rz-leg-item { display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
-  .rz-leg-dot { flex-shrink: 0; width: 10px; height: 10px; border-radius: 3px; margin-top: 3px; }
-  .rz-leg-nom { font-size: 11px; font-weight: 700; color: #223870; white-space: nowrap; }
-  .rz-leg-kg { font-size: 14px; font-weight: 800; color: #161a26; white-space: nowrap; }
-  .rz-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid #eef0f5; font-size: 11.5px; color: #515a72; }
-  .rz-total b { color: #161a26; font-size: 13px; }
-
-  /* Tonnages — version sans radar : tableau + anneau */
-  .rz-flux { display: grid; grid-template-columns: 1fr 190px; gap: 28px; align-items: center; }
-  .rz-tbl { width: 100%; border-collapse: collapse; }
-  .rz-tbl th { font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #6e7790; text-align: left; padding: 2px 6px 3px; border-bottom: 1px solid #dde1eb; }
-  .rz-tbl td { padding: 6px; border-bottom: 1px solid #eef0f5; font-size: 12px; }
-  .rz-tbl th.rz-num, .rz-tbl td.rz-num { text-align: right; font-variant-numeric: tabular-nums; }
-  .rz-tbl tr.rz-tot td { font-weight: 800; border-top: 2px solid #223870; border-bottom: none; padding: 8px 6px; color: #15213f; }
-  .rz-dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; vertical-align: -1px; }
-  .rz-split { display: flex; gap: 18px; font-size: 11px; color: #515a72; margin-top: 5px; }
-  .rz-split b { color: #161a26; }
-  .rz-donut { width: 170px; height: 170px; }
-
-  /* Radar */
-  .rz-bench { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: center; }
-  .rz-bench-liste { grid-template-columns: 1fr; }
-  .rz-radar { width: 260px; height: 230px; display: block; overflow: visible; }
-  .rz-ax, .rz-ring { stroke: #dde1eb; stroke-width: 1; fill: none; }
-  .rz-parc { stroke: #92a3d2; stroke-width: 1.5; fill: #eff2f9; fill-opacity: .6; }
-  .rz-vous { stroke: #223870; stroke-width: 2; fill: none; stroke-linejoin: round; }
-  .rz-vpt { fill: #223870; }
-  .rz-axl { font-size: 9.5px; font-weight: 700; fill: #3c4459; }
-  .rz-blist { display: flex; flex-direction: column; gap: 2px; }
-  .rz-brow { display: grid; grid-template-columns: 100px 72px 1fr 62px; gap: 10px; white-space: nowrap; align-items: center; font-size: 11.5px; padding: 3px 0; border-bottom: 1px solid #eef0f5; }
-  .rz-f { font-weight: 700; }
-  .rz-kgp { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
-  .rz-pk { font-size: 10.5px; color: #6e7790; font-variant-numeric: tabular-nums; text-align: center; }
-  .rz-bdg { display: inline-block; justify-self: end; min-width: 48px; text-align: center; padding: 2px 7px; border-radius: 9999px; font-size: 10px; font-weight: 800; }
-  .rz-ok { background: #f0fdf4; color: #15803d; }
-  .rz-wn { background: #fffbeb; color: #b45309; }
-  .rz-bd { background: #fef2f2; color: #b91c1c; }
-  .rz-nd { background: #eef0f5; color: #515a72; }
-  .rz-leg { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 10px; color: #515a72; margin-top: 5px; align-items: center; }
-  .rz-leg > span { white-space: nowrap; }
-  .rz-sw { display: inline-block; width: 14px; height: 0; border-top: 2px solid #223870; margin-right: 5px; vertical-align: middle; }
-  .rz-sw2 { display: inline-block; width: 14px; height: 8px; background: #eff2f9; border: 1px solid #92a3d2; margin-right: 5px; vertical-align: middle; }
-  .rz-mention { font-size: 9.5px; color: #6e7790; margin-top: 6px; line-height: 1.4; }
-
-  /* Encart Savr + méthodologie */
-  .rz-savr { display: flex; gap: 14px; align-items: center; background: #eff2f9; border: 1px solid #dee4f2; border-radius: 8px; padding: 8px 12px; }
-  .rz-body-simple .rz-savr { padding: 10px 14px; }
-  .rz-savr-logo { flex-shrink: 0; width: 40px; height: 40px; }
-  .rz-savr-txt { min-width: 0; font-size: 10.5px; line-height: 1.45; color: #3c4459; text-wrap: pretty; }
-  .rz-savr-txt b { color: #223870; }
-  .rz-metho { font-size: 9.5px; color: #515a72; line-height: 1.45; border-top: 1px solid #dde1eb; padding-top: 9px; }
-  .rz-body-simple .rz-metho { font-size: 11px; }
-  .rz-metho b { color: #272d3d; }
-  .rz-caps { display: flex; gap: 14px; margin-top: 4px; }
-  .rz-caps span { white-space: nowrap; }
-  .rz-caps b { color: #161a26; }
-
-  /* ── Page 2 : bordereau de pesée (styles du gabarit bordereau) ─────────── */
-  .bz { break-before: page; }
-${limiterALaPortee(BORDEREAU_CSS, '.bz')}
-  /* Sélecteur à deux classes : il l'emporte sur la remise à zéro du bordereau (.bz *). */
-  .bz .bz-annexe { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 14px; margin-bottom: 16px; font-size: 10px; color: #15803d; font-weight: 600; }
-</style>
+${CSS_MARQUE}
+${options.cssSuite}</style>
 </head>
 <body>
 ${LOGO_DEFS}
@@ -671,12 +744,7 @@ ${LOGO_DEFS}
   ${corps}
 </div>
 
-<!-- PAGE 2 — Bordereau de pesée intégré -->
-<div class="bz">
-  <div class="bz-annexe">Annexe — Bordereau de pesée Savr (${esc(data.bordereau.numero)})</div>
-  ${renderBordereauBody(data.bordereau)}
-</div>
-
+${options.suite}
 </body>
 </html>`;
 }

@@ -41,6 +41,9 @@ import {
   Estompe,
   GrapheEnAttente,
   Kpi,
+  SOUS_TITRE_RADAR,
+  useRadarFiche,
+  type RadarFiche,
 } from '@/components/collecte/fiche-collecte-client-bilan';
 import { Chauffeurs } from '@/components/collecte/fiche-collecte-client-onglets';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
@@ -52,16 +55,24 @@ import {
 } from '@/components/collecte/toggle-type-collecte';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
+import { BenchmarkRadar } from '@/components/dashboards/charts/cockpit/BenchmarkRadar';
+import { BenchmarkFilterBar, FLUX_ZD } from '@/components/dashboards';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   LIBELLE_ETAT_RAPPORT,
   STATUTS_ANNULES,
+  STATUT_BILAN,
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
 import {
   ouvrirRapportDeDon,
   telechargerRapportRecyclage,
 } from '@/lib/collectes/rapport-telechargement-client';
-import type { BilanEvenement } from '@/lib/evenements-gestionnaire';
+import {
+  couvertureBilan,
+  type BilanEvenement,
+} from '@/lib/evenements-gestionnaire';
 import { estUuid } from '@/lib/filtre-csv';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import {
@@ -115,6 +126,9 @@ type Urgence = { etat: 'idle' | 'envoi' | 'envoyee'; erreur: string | null };
 
 // Infobulle du taux consolidé : la règle de calcul, pour qu'un écart avec la
 // moyenne simple des taux affichés sur chaque collecte ne surprenne pas.
+// Titre du radar du bilan consolidé, et clé « en cours » du rapport cumulé.
+const TITRE_RADAR = 'Votre événement face aux événements comparables';
+const CUMUL = 'cumul';
 const AIDE_TAUX =
   'Moyenne des taux de recyclage des collectes réalisées, pondérée par leur poids collecté.';
 const AIDE_LABO =
@@ -157,30 +171,6 @@ const SELON_LA_COLLECTE = (
 /** « Collecte du Lun 26 Oct · 08h00 » : titre de carte d'une collecte. */
 function titreCollecte(f: FicheCollecteClient): string {
   return `Collecte du ${libelleDateHeure(f.date_collecte, f.heure_collecte)}`;
-}
-
-// Phrase de couverture du bilan, accordée au singulier comme au pluriel.
-// « Réalisée » s'entend au sens des résultats (clôturée, ou AG sans excédent) :
-// une collecte `realisee` qui attend sa clôture n'a pas encore de résultat.
-function couverture(
-  nbRealisees: number,
-  nbCollectes: number,
-  // « Zéro Déchet » / « Anti-Gaspi » quand le bilan ne porte que sur un type
-  // d'un événement qui mêle les deux.
-  type = '',
-): string {
-  if (nbCollectes === 0)
-    return 'Aucune collecte n’est rattachée à cet événement.';
-  const t = type ? ` ${type}` : '';
-  const total =
-    nbCollectes === 1 ? `la collecte${t}` : `les ${nbCollectes} collectes${t}`;
-  if (nbRealisees === 0)
-    return `Aucun résultat n’est encore disponible sur ${total} de l’événement.`;
-  const realisees =
-    nbRealisees === 1
-      ? 'Cumul de 1 collecte réalisée'
-      : `Cumul des ${nbRealisees} collectes réalisées`;
-  return `${realisees}, sur ${nbCollectes === 1 ? `1 collecte${t}` : `${nbCollectes} collectes${t}`} de l’événement.`;
 }
 
 /**
@@ -228,6 +218,8 @@ function BilanConsolide({
   dateEvenement,
   actives,
   onOuvrirBilan,
+  radar,
+  filtresInitiaux,
 }: {
   b: BilanEvenement;
   // Type affiché : le seul de l'événement, ou celui du sous-onglet.
@@ -237,6 +229,9 @@ function BilanConsolide({
   dateEvenement: string | null;
   actives: FicheCollecteClient[];
   onOuvrirBilan: (id: string) => void;
+  radar: RadarFiche;
+  // Filtres sur lesquels s'ouvre la barre « Comparer avec » du radar.
+  filtresInitiaux: { typeEvenementIds: string[]; tailleCodes: string[] };
 }) {
   const zd = type === 'zero_dechet';
   const nbCollectes = zd ? b.nb_collectes_zd : b.nb_collectes_ag;
@@ -261,7 +256,7 @@ function BilanConsolide({
         </BandeauBilanAttente>
       )}
       <Text variant="hint" data-testid="bilan-consolide-couverture">
-        {couverture(
+        {couvertureBilan(
           nbRealisees,
           nbCollectes,
           deuxTypes ? libelleTypeCollecte(type) : '',
@@ -308,6 +303,37 @@ function BilanConsolide({
               b.tonnage_zd_kg != null &&
               b.tonnage_zd_kg > 0 && (
                 <TonnagesDonut series={serieDonut} disposition="ligne" />
+              )
+            )}
+            {b.nb_realisees_zd === 0 ? (
+              <GrapheEnAttente titre={TITRE_RADAR} />
+            ) : (
+              radar.visible &&
+              !radar.indisponible && (
+                <div data-testid="radar-evenement">
+                  <BenchmarkRadar
+                    title={TITRE_RADAR}
+                    subtitle={SOUS_TITRE_RADAR}
+                    items={FLUX_ZD.map((f) => ({
+                      label: f.label,
+                      value: radar.bench?.[f.code]?.ratio_user ?? null,
+                      benchmark:
+                        radar.bench?.[f.code]?.benchmark_kg_pax ?? null,
+                    }))}
+                    filtersSlot={
+                      <BenchmarkFilterBar
+                        masquerTraiteurs
+                        perimetre="rattache"
+                        onChange={radar.setFiltres}
+                        initialFilters={radar.filtres ?? undefined}
+                        initialTypeEvenementIds={
+                          filtresInitiaux.typeEvenementIds
+                        }
+                        initialTailleCodes={filtresInitiaux.tailleCodes}
+                      />
+                    }
+                  />
+                </div>
               )
             )}
           </Estompe>
@@ -392,14 +418,58 @@ function BilanConsolide({
 }
 
 /**
- * Rapports de l'événement : celui de chaque collecte non annulée (Rapport RSE
- * en ZD, fabriqué au clic ; Rapport de don en AG, fichier déjà fabriqué). Les
- * rapports cumulés sur l'événement sont un lot à part (Val 2026-10-26).
+ * Rapports de l'événement : en tête, le rapport CUMULÉ du type (décision Val
+ * 2026-10-26 : Rapport RSE en ZD, avec ou sans radar ; Rapport de don en AG,
+ * récapitulatif sans valeur fiscale), fabriqué au clic dès qu'une collecte du
+ * type a ses résultats ; puis celui de chaque collecte non annulée (Rapport
+ * RSE en ZD, fabriqué au clic ; Rapport de don en AG, fichier déjà fabriqué).
  */
-function DocumentsEvenement({ actives }: { actives: FicheCollecteClient[] }) {
+function DocumentsEvenement({
+  evenementId,
+  type,
+  nbRealisees,
+  radar,
+  actives,
+}: {
+  evenementId: string;
+  type: CollecteType;
+  nbRealisees: number;
+  radar: RadarFiche;
+  actives: FicheCollecteClient[];
+}) {
   const [enCours, setEnCours] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
-  if (actives.length === 0) return null;
+  // Rapport cumulé ZD : radar au choix de celui qui le télécharge, sur les
+  // filtres réglés au-dessus ; la case part décochée (comme la fiche collecte).
+  const [avecRadar, setAvecRadar] = useState(false);
+  if (actives.length === 0 && nbRealisees === 0) return null;
+  const zd = type === 'zero_dechet';
+  const choixRadarPossible = zd && radar.visible && !radar.indisponible;
+  const radarDemande = choixRadarPossible && avecRadar;
+
+  async function telechargerCumul() {
+    const base = `/api/v1/gestionnaire/evenements/${encodeURIComponent(evenementId)}`;
+    const filtres = radar.filtres;
+    setErreur(null);
+    setEnCours(CUMUL);
+    const message = await telechargerRapportRecyclage(
+      `${base}/${zd ? 'rapport-rse' : 'rapport-de-don'}`,
+      {
+        options: { benchmark: radarDemande },
+        ...(radarDemande && filtres
+          ? {
+              benchmark_filters: {
+                lieu_ids: filtres.lieu_ids,
+                type_evenement_ids: filtres.type_evenement_ids,
+                taille_evenement_codes: filtres.taille_evenement_codes,
+              },
+            }
+          : {}),
+      },
+    );
+    setEnCours(null);
+    setErreur(message);
+  }
 
   // Mêmes chemins que l'onglet Bilan de la fiche collecte (rapport ZD sans
   // radar : ses filtres de comparaison sont propres à chaque collecte).
@@ -424,6 +494,67 @@ function DocumentsEvenement({ actives }: { actives: FicheCollecteClient[] }) {
         className="divide-y divide-savr-neutral-100 p-0"
         data-testid="documents-evenement"
       >
+        <div
+          className="flex flex-wrap items-center gap-3 px-5 py-3.5"
+          data-testid="document-evenement-cumul"
+        >
+          <FileText
+            className="h-5 w-5 shrink-0 text-savr-primary-700"
+            aria-hidden="true"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold text-savr-neutral-900">
+              {zd
+                ? 'Rapport RSE de l’événement'
+                : 'Rapport de don de l’événement'}
+            </p>
+            <Text>
+              {nbRealisees === 0
+                ? 'Disponible dès la première collecte réalisée'
+                : zd
+                  ? 'Cumul des collectes réalisées'
+                  : 'Récapitulatif des collectes réalisées, sans valeur fiscale : les rapports de don de chaque collecte font foi'}
+            </Text>
+          </div>
+          <Button
+            variant="secondary"
+            // Radar demandé : on attend les filtres de la barre (sans eux, le
+            // serveur comparerait à « Tous », pas à ce que l'écran affiche).
+            disabled={
+              nbRealisees === 0 ||
+              enCours !== null ||
+              (radarDemande && !radar.filtres)
+            }
+            loading={enCours === CUMUL}
+            loadingText="Préparation du PDF…"
+            onClick={() => void telechargerCumul()}
+          >
+            Télécharger
+          </Button>
+          {nbRealisees > 0 && choixRadarPossible && (
+            <div
+              className="basis-full"
+              data-testid="option-rapport-evenement-radar"
+            >
+              <Label
+                variant="choice"
+                htmlFor="rapport-evenement-avec-radar"
+                className="flex items-center gap-2"
+              >
+                <Checkbox
+                  id="rapport-evenement-avec-radar"
+                  checked={avecRadar}
+                  onCheckedChange={(v) => setAvecRadar(v === true)}
+                />
+                Inclure le radar de comparaison dans le rapport
+              </Label>
+              <Text className="mt-1">
+                Le radar du rapport reprend les filtres de comparaison réglés
+                ci-dessus.
+              </Text>
+            </div>
+          )}
+        </div>
         {actives.map((f) => (
           <div
             key={f.id}
@@ -731,6 +862,14 @@ export function FicheEvenementModal({
         ? 'zero_dechet'
         : typeBilan;
   const activesDuType = actives.filter((f) => f.type === typeAffiche);
+  // Radar du bilan consolidé ZD : repère parc relu à chaque changement de
+  // filtre ; ses filtres servent aussi le rapport cumulé avec radar.
+  const radar = useRadarFiche(
+    `/api/v1/gestionnaire/evenements/${encodeURIComponent(evenementId)}/benchmark`,
+    b && b.nb_realisees_zd > 0
+      ? { type: 'zero_dechet', statut: STATUT_BILAN }
+      : null,
+  );
   const adresseLieu =
     actives.length > 0
       ? commune(actives, adresseDe)
@@ -1002,8 +1141,33 @@ export function FicheEvenementModal({
                     dateEvenement={evt.date_evenement}
                     actives={activesDuType}
                     onOuvrirBilan={(id) => ouvrirCollecte(id, 'bilan')}
+                    radar={radar}
+                    filtresInitiaux={{
+                      // Types d'événement de ses collectes ZD, taille de
+                      // l'événement : le segment sur lequel le radar s'ouvre.
+                      typeEvenementIds: [
+                        ...new Set(
+                          actives.flatMap((f) =>
+                            f.type === 'zero_dechet' && f.type_evenement_id
+                              ? [f.type_evenement_id]
+                              : [],
+                          ),
+                        ),
+                      ],
+                      tailleCodes: evt.pax ? [evt.taille_bracket] : [],
+                    }}
                   />
-                  <DocumentsEvenement actives={activesDuType} />
+                  <DocumentsEvenement
+                    evenementId={evt.id}
+                    type={typeAffiche}
+                    nbRealisees={
+                      typeAffiche === 'zero_dechet'
+                        ? b.nb_realisees_zd
+                        : b.nb_realisees_ag
+                    }
+                    radar={radar}
+                    actives={activesDuType}
+                  />
                 </TabsContent>
               </Tabs>
             </FicheCorps>

@@ -17,6 +17,7 @@ import type {
 import {
   chargerBenchmarkFiche,
   type BenchmarkFiche,
+  type FluxBenchmarkFiche,
 } from '@/lib/collectes/benchmark-fiche.js';
 
 import { tailleBracket } from '../dashboard-kpi.js';
@@ -144,7 +145,19 @@ export async function construireRadarRapport(
     traiteurIds: null,
   });
   if (fiche.etat !== 'ok') return fiche;
+  return habillerRadar(supabase, filtres, fiche.flux);
+}
 
+/**
+ * Radar imprimé à partir des chiffres de l'écran (kg/convive et repère parc par
+ * flux) : noms et ordre des flux, légende des filtres appliqués. Commun aux
+ * rapports d'une collecte et d'un événement.
+ */
+export async function habillerRadar(
+  supabase: ClientSousRls,
+  filtres: FiltresRadar,
+  fluxEcran: FluxBenchmarkFiche,
+): Promise<RadarRapportResultat> {
   // Noms et ordre d'affichage des flux ; libellés des types d'événement filtrés.
   const [fluxRes, typesRes] = await Promise.all([
     supabase
@@ -166,7 +179,7 @@ export async function construireRadarRapport(
   const benchmark_flux = (
     (fluxRes.data ?? []) as { code: string; nom: string }[]
   ).flatMap((f) => {
-    const ligne = fiche.flux[f.code];
+    const ligne = fluxEcran[f.code];
     return ligne
       ? [
           {

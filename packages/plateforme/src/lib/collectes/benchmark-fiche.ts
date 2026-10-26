@@ -93,6 +93,35 @@ export async function chargerBenchmarkFiche(
     return { etat: 'erreur', erreur: error };
   }
 
+  const parc = await chargerParcBenchmark(supabase, ctx, filtres);
+  if (parc.etat !== 'ok') return parc;
+  return {
+    etat: 'ok',
+    flux: Object.fromEntries(
+      ((data ?? []) as LigneSingle[]).map((l) => [
+        l.flux_code,
+        {
+          ratio_user: l.ratio_user,
+          benchmark_kg_pax: parc.parc[l.flux_code] ?? null,
+        },
+      ]),
+    ),
+  };
+}
+
+/**
+ * Repère parc par code de flux (moyenne pondérée du segment filtré, k-anonymat
+ * côté SQL), lu sous l'identité de l'appelant. Commun aux radars de la fiche
+ * collecte et de la fiche événement.
+ */
+export async function chargerParcBenchmark(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  ctx: UserAuthContext,
+  filtres: FiltresBenchmarkFiche,
+): Promise<
+  | { etat: 'ok'; parc: Record<string, number> }
+  | Extract<BenchmarkFiche, { etat: 'filtre_interdit' | 'erreur' }>
+> {
   let parc: Record<string, number>;
   try {
     // aggregateBenchmarkPerFlux (R24) recombine les segments type × taille en une
@@ -120,18 +149,7 @@ export async function chargerBenchmarkFiche(
     throw e;
   }
 
-  return {
-    etat: 'ok',
-    flux: Object.fromEntries(
-      ((data ?? []) as LigneSingle[]).map((l) => [
-        l.flux_code,
-        {
-          ratio_user: l.ratio_user,
-          benchmark_kg_pax: parc[l.flux_code] ?? null,
-        },
-      ]),
-    ),
-  };
+  return { etat: 'ok', parc };
 }
 
 /** 403 au libellé FIXE, choisi sur le motif (écran et régénération du rapport). */
@@ -149,15 +167,11 @@ export function reponseFiltreInterdit(
   );
 }
 
-export async function repondreBenchmarkFiche(
+/** Filtres du radar passés en paramètres d'URL (listes séparées par des virgules). */
+export function filtresBenchmarkDeLaRequete(
   req: NextRequest,
-  id: string,
-  ctx: UserAuthContext,
-  evenementLog: string,
-): Promise<NextResponse> {
-  const supabase = createSupabaseServerClient();
+): FiltresBenchmarkFiche {
   const { searchParams } = new URL(req.url);
-
   const csv = (k: string): string[] | null => {
     const v = searchParams.get(k);
     if (!v) return null;
@@ -167,13 +181,27 @@ export async function repondreBenchmarkFiche(
       .filter(Boolean);
     return arr.length ? arr : null;
   };
-
-  const r = await chargerBenchmarkFiche(supabase, ctx, id, {
+  return {
     tailleCodes: csv('taille_evenement_codes'),
     typeIds: csv('type_evenement_ids'),
     lieuIds: csv('lieu_ids'),
     traiteurIds: csv('traiteur_ids'),
-  });
+  };
+}
+
+export async function repondreBenchmarkFiche(
+  req: NextRequest,
+  id: string,
+  ctx: UserAuthContext,
+  evenementLog: string,
+): Promise<NextResponse> {
+  const supabase = createSupabaseServerClient();
+  const r = await chargerBenchmarkFiche(
+    supabase,
+    ctx,
+    id,
+    filtresBenchmarkDeLaRequete(req),
+  );
   switch (r.etat) {
     case 'ok':
       return NextResponse.json({ data: { flux: r.flux } });

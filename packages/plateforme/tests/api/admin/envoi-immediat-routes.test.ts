@@ -841,6 +841,34 @@ const CAS: CasRoute[] = [
     attendu: ['col-1'],
     refusGarde: { ligne: { statut: 'realisee' } },
   },
+  // Le gestionnaire de lieux annule ses propres programmations (Val 2026-10-26).
+  {
+    nom: 'Gestionnaire de lieux — annulation directe',
+    module: '@/app/api/v1/gestionnaire/collectes/[id]/annulation/route.js',
+    methode: 'POST',
+    role: 'gestionnaire_lieux',
+    url: '/api/v1/gestionnaire/collectes/col-1/annulation',
+    params: { id: 'col-1' },
+    corps: { motif: 'Événement annulé par le client' },
+    emetteur: 'fn_modifier_collecte',
+    rend: null,
+    attendu: ['col-1'],
+    refusGarde: { ligne: { statut: 'realisee' } },
+  },
+  {
+    nom: 'Gestionnaire de lieux — demande d’annulation (collecte validée)',
+    module: '@/app/api/v1/gestionnaire/collectes/[id]/annulation/route.js',
+    methode: 'POST',
+    role: 'gestionnaire_lieux',
+    url: '/api/v1/gestionnaire/collectes/col-1/annulation',
+    params: { id: 'col-1' },
+    corps: { motif: 'Événement annulé par le client' },
+    ligne: { statut: 'validee' },
+    emetteur: 'fn_modifier_collecte',
+    rend: null,
+    attendu: ['col-1'],
+    refusGarde: { ligne: { statut: 'realisee' } },
+  },
   {
     nom: 'Gestionnaire de lieux — modification d’une collecte',
     module: '@/app/api/v1/gestionnaire/collectes/[id]/route.js',
@@ -1817,7 +1845,7 @@ describe('M1.5a / envoi immédiat — cliquets de durée et de complétude', () 
   }));
   const declencheuses = toutes.filter((r) => DECLENCHEUR.test(r.source));
 
-  it('M1.5a/envoi_immediat_routes_declencheuses — les dix-sept routes qui écrivent un ordre de collecte déclenchent l’envoi immédiat', () => {
+  it('M1.5a/envoi_immediat_routes_declencheuses — les dix-huit routes qui écrivent un ordre de collecte déclenchent l’envoi immédiat', () => {
     expect(declencheuses.map((r) => r.chemin).sort()).toEqual([
       'v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts',
       'v1/admin/attributions-ag/[collecteId]/valider/route.ts',
@@ -1828,6 +1856,7 @@ describe('M1.5a / envoi immédiat — cliquets de durée et de complétude', () 
       'v1/admin/evenements/[id]/route.ts',
       'v1/agence/collectes/[id]/annulation/route.ts',
       'v1/agence/collectes/[id]/route.ts',
+      'v1/gestionnaire/collectes/[id]/annulation/route.ts',
       'v1/gestionnaire/collectes/[id]/route.ts',
       'v1/programmation/evenements/[id]/brouillon/route.ts',
       'v1/programmation/evenements/[id]/collectes/route.ts',
@@ -1883,7 +1912,7 @@ describe('M1.5a / envoi immédiat — cliquets de durée et de complétude', () 
     const admin = (r: { chemin: string }) => r.chemin.startsWith('v1/admin/');
     const clientes = declencheuses.filter((r) => !admin(r));
 
-    expect(clientes).toHaveLength(10);
+    expect(clientes).toHaveLength(11);
     expect(
       clientes.filter((r) => !FREIN.test(r.source)).map((r) => r.chemin),
     ).toEqual([]);

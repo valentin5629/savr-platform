@@ -1,8 +1,9 @@
 /**
  * M3.2 — Pop-up fiche collecte client, espace gestionnaire de lieux (§06.05 :
  * « la fiche collecte reprend le pop-up client §06.04 », refonte Val
- * 2026-09-29). Écarts propres au rôle : jamais d'annulation (§05), pas de bloc
- * Association bénéficiaire (Q7). Radar affiché aussi sur une collecte de
+ * 2026-09-29). Écarts propres au rôle : annulation de ses seules programmations
+ * (décision Val 2026-10-26 ; aucun bouton sur la collecte d'un traiteur tenue
+ * sur ses lieux). Radar affiché aussi sur une collecte de
  * traiteur tiers tenue sur ses lieux (décision Val 2026-10-20) ; masqué
  * seulement quand la route répond « pas de radar ».
  */
@@ -52,7 +53,7 @@ beforeEach(() => {
 
 describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   it(
-    'M3.2/fiche_popup_gestionnaire_sans_annulation — pas de bouton d’annulation, « Modifier » grisé hors de ses programmations',
+    'M3.2/fiche_popup_gestionnaire_sans_annulation — collecte d’un traiteur sur ses lieux : pas de bouton d’annulation, « Modifier » grisé',
     async () => {
       stubFetchFiche(ficheGestionnaire());
       render(fiche());
@@ -68,6 +69,49 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
       );
       expect(screen.queryByTestId('action-annuler')).toBeNull();
       expect(urlsAppelees()[0]?.url).toBe('/api/v1/gestionnaire/collectes/c1');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Décision Val 2026-10-26 : le gestionnaire annule ses propres programmations.
+  it(
+    'M3.2/fiche_popup_gestionnaire_annulation_sa_programmation — « Annuler la collecte » part sur la route du gestionnaire',
+    async () => {
+      stubFetchFiche(
+        ficheGestionnaire({
+          statut: 'programmee',
+          actions: {
+            modifier: 'actif',
+            annuler: 'actif',
+            annulation: 'directe',
+          },
+        }),
+      );
+      render(fiche());
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Annuler la collecte' },
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Confirmer l’annulation' },
+          ATTENTE_UI,
+        ),
+      );
+
+      await waitFor(
+        () =>
+          expect(urlsAppelees()).toContainEqual({
+            url: '/api/v1/gestionnaire/collectes/c1/annulation',
+            method: 'POST',
+          }),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

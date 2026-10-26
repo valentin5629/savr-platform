@@ -203,10 +203,12 @@ function lienModifierCollecte(
 }
 
 // « Annuler la collecte » (décision Val 2026-10-22, C6 : règles habituelles).
-// Traiteur et agence : la boîte d'annulation de leurs listes et fiches, sur la
-// route de leur espace (directe, ou demande si la collecte est validée).
-// Gestionnaire de lieux : aucune action, il n'annule pas (§06.05). Staff : la
-// fiche collecte Admin, où l'équipe Savr annule.
+// Traiteur, agence et gestionnaire de lieux (ses propres programmations,
+// décision Val 2026-10-26) : la boîte d'annulation de leurs fiches, sur la
+// route de leur espace (directe, ou demande si la collecte est validée). Les
+// collectes de cette page sont toujours celles que l'appelant vient de
+// programmer ; la route revérifie l'organisation. Staff : la fiche collecte
+// Admin, où l'équipe Savr annule.
 type ActionAnnulation =
   | { kind: 'boite'; url: string; demande: boolean }
   | { kind: 'lien'; href: string };
@@ -218,7 +220,8 @@ function actionAnnulation(
   if (!STATUTS_ANNULABLES.includes(c.statut)) return null;
   if (isStaff(role)) return { kind: 'lien', href: ROUTES.admin.collecte(c.id) };
   const espace = role ? ESPACE_PAR_ROLE[role as Role] : undefined;
-  if (espace !== 'traiteur' && espace !== 'agence') return null;
+  if (espace !== 'traiteur' && espace !== 'agence' && espace !== 'gestionnaire')
+    return null;
   return {
     kind: 'boite',
     url: `${ESPACES[espace].apiCollectes}/${encodeURIComponent(c.id)}/annulation`,

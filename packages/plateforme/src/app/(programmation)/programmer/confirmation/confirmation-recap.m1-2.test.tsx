@@ -579,6 +579,8 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
     ['traiteur_manager', '/api/v1/traiteur/collectes/col-zd/annulation'],
     ['traiteur_commercial', '/api/v1/traiteur/collectes/col-zd/annulation'],
     ['agence', '/api/v1/agence/collectes/col-zd/annulation'],
+    // Ses propres programmations (décision Val 2026-10-26).
+    ['gestionnaire_lieux', '/api/v1/gestionnaire/collectes/col-zd/annulation'],
   ])(
     '%s : la boîte d’annulation s’ouvre, l’annulation part sur %s, puis la carte et le compte sont relus',
     async (role, route) => {
@@ -728,18 +730,20 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
     ATTENTE_CAS_MS,
   );
 
-  it.each(['programmee', 'validee'])(
-    'gestionnaire de lieux, collecte %s : aucun bouton, il n’annule pas (§06.05)',
-    async (statut) => {
+  it.each([
+    ['programmee', 'Annuler'],
+    ['validee', 'Demander l’annulation'],
+  ])(
+    'gestionnaire de lieux, collecte %s : « %s » sur sa programmation, à côté de « Modifier » (Val 2026-10-26)',
+    async (statut, libelle) => {
       await afficher(
         { ...EVENEMENT, collectes: [{ ...ZD, statut }] },
         'gestionnaire_lieux',
       );
 
-      // « Annuler » comme « Demander l'annulation ».
-      expect(screen.queryByRole('button', { name: /annul/i })).toBeNull();
+      expect(screen.getByRole('button', { name: libelle })).toBeInTheDocument();
+      // Pas de lien vers la fiche Admin : la boîte de son espace.
       expect(screen.queryByRole('link', { name: /annul/i })).toBeNull();
-      // « Modifier » reste proposé.
       expect(
         screen.getByRole('link', { name: 'Modifier' }),
       ).toBeInTheDocument();

@@ -277,7 +277,7 @@ function CarteCollecte({
             tone="inherit"
             id={idTitre}
             className={cn(
-              'rounded-full px-2.5 py-0.5 text-xs',
+              'rounded-savr-full px-2.5 py-0.5 text-xs',
               estZeroDechet(c.type)
                 ? 'bg-savr-success-subtle text-savr-success-strong'
                 : 'bg-savr-accent-50 text-savr-accent-800',

@@ -132,9 +132,9 @@ Bouton "Réinitialiser" ramène aux valeurs par défaut. Compteur "X collectes c
 | Tonnage collecté | kg total | Somme `collecte_flux.poids_reel_kg` | — |
 | Taux de recyclage *(renommé 2026-05-06 — ex "Taux de tri global", formule changée)* | % moyen pondéré par tonnage | Moyenne pondérée des `collectes.taux_recyclage` (formule à captation par filière, méthode UE 2019/1004 — cf. [[05 - Règles métier#R_taux_recyclage]]). Cas `taux_recyclage IS NULL` (total pesées = 0) → exclu de la pondération. | — |
 | Repas donnés | Nombre de repas collectés | — | Somme repas AG |
-| Pax cumulés | Couverts cumulés sur les événements filtrés | ✓ | ✓ |
-| kg/pax moyen | Tonnage / pax cumulés | ✓ | — |
-| Repas/pax moyen | Repas donnés / pax cumulés | — | ✓ |
+| Pax cumulés | Couverts cumulés des collectes filtrées (pax de chaque collecte, chaque onglet ne comptant que les siennes — lot 3, décision Val Q2 du 2026-10-25) | ✓ | ✓ |
+| kg/pax moyen | Tonnage / pax cumulés des seules collectes à convives connus (une collecte à 0 convive sort des deux — lot 3, décision Val Q1 du 2026-10-25) | ✓ | — |
+| Repas/pax moyen | Repas donnés / pax cumulés des seules collectes à convives connus (lot 3, décision Val Q2 du 2026-10-25) | — | ✓ |
 
 Mapping 4 cartes affichées par onglet :
 - **ZD** : Nombre de collectes · Tonnage collecté · Taux de recyclage · kg/pax moyen
@@ -295,7 +295,7 @@ Persistante en query string (deep-linkable). Cohérente avec le Dashboard pour p
 | Lieux | Multi-select | Lieux rattachés à l'organisation (`organisations_lieux`) |
 | Traiteurs | Multi-select | Traiteurs intervenus sur au moins un événement sur les lieux de l'organisation (24 derniers mois) |
 | Type d'événement | Multi-select | `types_evenements.libelle` |
-| Taille d'événement | Multi-select | XS / S / M / L / XL (bracket calculé sur `evenements.pax`) |
+| Taille d'événement | Multi-select | XS / S / M / L / XL (bracket calculé sur `evenements.pax`, le pax calculé de l'événement — décision Val Q4 du 2026-10-25) |
 
 Filtres complémentaires propres à la liste Événements :
 
@@ -316,7 +316,7 @@ Agrégation par événement (un événement peut avoir 1 à N collectes ZD/AG). 
 | Événement | Nom |
 | Lieu | |
 | Traiteur | Organisation traiteur |
-| Pax | Nombre de couverts |
+| Pax | Nombre de couverts de l'événement (`evenements.pax`, calculé depuis ses collectes — décision Val Q4 du 2026-10-25) |
 | Nb collectes | ZD + AG (ex: "2 ZD + 1 AG") |
 | Tonnage total | kg ZD agrégé sur l'événement |
 | Déchets labo estimés *(ajout 2026-05-22)* | Estimation kg du déchet produit au labo du traiteur = `pax × coefficient` du traiteur opérationnel pour l'année − 1 (cf. [[05 - Règles métier#R_dechets_labo_estimes]]). `—` si coefficient non communiqué, ou si l'événement n'a aucune collecte ZD *(arbitrage Val 2026-10-07)*. Distinct du tonnage collecté. |
@@ -335,7 +335,7 @@ Clic sur une ligne → vue consolidée en lecture seule (consultation pure, aucu
 **Bloc bilan consolidé** *(ajout Val 2026-10-18)* : cumul des collectes RÉALISÉES de l'événement (statut `cloturee`, et AG `realisee_sans_collecte` à 0 repas) — mêmes règles que la colonne Résultats de la liste Collectes et l'onglet Bilan de la fiche collecte. ZD : poids total collecté, CO₂ évité (somme des `co2_evite_kg` figés — décision Val 2026-10-20, ex « CO₂ évité net »), taux de recyclage = moyenne des taux figés pondérée par le poids, pesée par pax, répartition par flux. AG : repas donnés, repas par pax, CO₂ évité, associations bénéficiaires avec leurs repas. La couverture est affichée (« Cumul des N collectes réalisées, sur M collectes de l'événement ») ; tant qu'aucune n'a de résultat, un bandeau annonce les résultats. « Réalisée » s'entend ici au sens des résultats : une collecte `realisee` qui attend sa clôture n'en a pas encore, alors qu'elle compte déjà « Terminé » dans le statut consolidé. L'onglet « Informations » affiche toujours les déchets labo estimés (« — » sans collecte ZD).
 
 **Bloc en-tête événement** :
-- Nom, date de début, lieu, pax, type d'événement (les types de ses collectes non annulées, sans doublon, dans l'ordre de la collecte n°1 ; toutes annulées : les types de ses collectes annulées — décision Val Q2 du 2026-10-24), taille bracket
+- Nom, date de début, lieu, pax (celui de l'événement, `evenements.pax` — décision Val Q4 du 2026-10-25), type d'événement (les types de ses collectes non annulées, sans doublon, dans l'ordre de la collecte n°1 ; toutes annulées : les types de ses collectes annulées — décision Val Q2 du 2026-10-24), taille bracket
 - Traiteur (nom + logo, pas d'email / téléphone / SIRET)
 - Client Organisateur si renseigné par le traiteur
 - **Déchets labo estimés (kg)** *(ajout 2026-05-22)* — estimation du déchet produit en amont au laboratoire du traiteur = `pax × coefficient` du traiteur opérationnel pour l'année − 1 (cf. [[05 - Règles métier#R_dechets_labo_estimes]]). Affiché avec tooltip explicatif ("estimation amont, distincte des déchets collectés sur l'événement ci-dessous"). `—` si le traiteur n'a pas communiqué de coefficient pour l'année applicable, ou si l'événement n'a aucune collecte ZD *(arbitrage Val 2026-10-07)*. Le coefficient brut n'est jamais affiché, seule l'estimation kg.
@@ -350,7 +350,7 @@ Clic sur une ligne → vue consolidée en lecture seule (consultation pure, aucu
 - Rapport de recyclage (par collecte ZD, fabriqué au clic — pas de rapport agrégé par événement en V1)
 - Attestation(s) de don AG (par attribution)
 
-**Note** : sur le **détail événement**, aucun bouton d'action hormis « Ajouter une collecte », sur ses propres programmations *(décision Val 2026-10-21, §06.01)*. Le gestionnaire ne peut pas dupliquer ni annuler. *(Précision D7, arbitrage Val 2026-09-30)* : sur la **fiche collecte**, le gestionnaire garde « Modifier » sur **ses propres programmations** (synthèse M1.2 §06.04, `f_collecte_editable`) — grisé sur les collectes de traiteurs tiers ; jamais d'annulation.
+**Note** : sur le **détail événement**, aucun bouton d'action hormis « Ajouter une collecte », sur ses propres programmations *(décision Val 2026-10-21, §06.01)*. Le gestionnaire ne peut pas dupliquer, et le détail événement ne propose aucune annulation. *(Précision D7, arbitrage Val 2026-09-30)* : sur la **fiche collecte**, le gestionnaire garde « Modifier » sur **ses propres programmations** (synthèse M1.2 §06.04, `f_collecte_editable`) — grisé sur les collectes de traiteurs tiers. *(Décision Val 2026-10-26)* : il **annule ses propres programmations** (événement dont `organisation_id` est la sienne), depuis la fiche collecte et depuis la page de confirmation (§06.01 point 13), avec les règles de l'agence : annulation directe en brouillon ou programmée (« Annuler la collecte »), demande d'annulation validée par l'équipe Savr sur une collecte validée (« Demander l'annulation »), annulation tardive à moins de 4 h ([[05 - Règles métier]]), ordre d'annulation au transporteur si la demande est partie. Aucun bouton d'annulation sur la collecte d'un traiteur tenue sur ses lieux (la route répond 403), ni dans la liste Collectes (sans pictogrammes d'action).
 
 ### Export CSV
 
@@ -581,7 +581,7 @@ Fonction agrégée dédiée au Bloc 3 ZD (jauges) avec **filtres benchmark dédi
 
 ### Bracket `taille_evenement`
 
-Champ calculé (non stocké) à partir de `pax` : celui de la collecte (`collectes.pax`) pour le benchmark, la fiche collecte, la liste Collectes et les filtres Taille des dashboards (lot C1, décisions Val C4 du 2026-10-20 et Q3 du 2026-10-24), celui de l'événement (`evenements.pax`) pour la liste et la fiche Événements :
+Champ calculé (non stocké) à partir de `pax` : celui de la collecte (`collectes.pax`) pour le benchmark, la fiche collecte, la liste Collectes et les filtres Taille des dashboards (lot C1, décisions Val C4 du 2026-10-20 et Q3 du 2026-10-24), celui de l'événement (`evenements.pax`) pour la liste, la fiche et l'export Événements (décision Val Q4 du 2026-10-25) :
 - `XS` : `pax < 250`
 - `S` : `pax >= 250 AND pax < 500`
 - `M` : `pax >= 500 AND pax < 750`

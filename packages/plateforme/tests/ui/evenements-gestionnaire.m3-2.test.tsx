@@ -141,7 +141,14 @@ function ficheCollecte(over: Record<string, unknown> = {}) {
       pax: 800,
       nom_client_organisateur: 'Maison Lenôtre',
       reference_affaire: 'AFF-2026-12',
-      lieu: null,
+      lieu: {
+        id: 'L1',
+        nom: 'Paris Expo',
+        adresse_acces: '1 place de la Porte de Versailles',
+        code_postal: '75015',
+        ville: 'Paris',
+        acces_details: 'Quai de livraison n°3',
+      },
     },
     tournees: [],
     coordonnees_urgence_demandee: false,
@@ -547,6 +554,8 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(entete).toHaveTextContent('Maison Lenôtre');
       expect(entete).toHaveTextContent('Cocktail repas complet');
       expect(entete).toHaveTextContent(/Déchets labo estimés\s*42\s*kg/);
+      // Période de collecte : de la première à la dernière.
+      expect(entete).toHaveTextContent(/Période de collecte.*→/);
 
       onglet('Bilan & documents');
       const bilan = await screen.findByTestId(
@@ -666,6 +675,111 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         'c2',
       );
       expect(changerCollecte).toHaveBeenLastCalledWith('c2');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/lieu_surcharge_par_collecte — instructions d’accès saisies pour une collecte : le bloc Lieu renvoie aux cartes, chacune porte les siennes',
+    async () => {
+      const base = ficheCollecte();
+      stubFetch(() => ({
+        body: {
+          data: detail({
+            fiches: [
+              ficheCollecte({ id: 'c1' }),
+              ficheCollecte({
+                id: 'c2',
+                date_collecte: '2026-09-11',
+                evenement: {
+                  ...base.evenement,
+                  lieu: {
+                    ...base.evenement.lieu,
+                    acces_details: 'Hall 7, porte B',
+                  },
+                },
+              }),
+            ],
+          }),
+        },
+      }));
+      monterFiche();
+      await ficheChargee();
+      const lieu = screen.getByTestId('bloc-lieu');
+      // Adresse commune : dans le bloc Lieu, pas sur les cartes.
+      expect(lieu).toHaveTextContent('1 place de la Porte de Versailles');
+      expect(lieu).toHaveTextContent(
+        /Instructions d’accès\s*Propre à chaque collecte/,
+      );
+      const cartes = screen.getAllByTestId('carte-collecte');
+      expect(cartes[0]).toHaveTextContent(
+        /Instructions d’accès\s*Quai de livraison n°3/,
+      );
+      expect(cartes[1]).toHaveTextContent(
+        /Instructions d’accès\s*Hall 7, porte B/,
+      );
+      expect(cartes[0]).not.toHaveTextContent('Adresse');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/telechargement_zd_et_echecs — Rapport RSE fabriqué au clic sans radar ; échec nommé par collecte ; demande urgente refusée : message',
+    async () => {
+      const fetchMock = stubFetch((url) =>
+        url.endsWith('/c1/rapport-rse')
+          ? { status: 500, body: {} }
+          : url.includes('/coordonnees-urgence')
+            ? { status: 409, body: { error: 'Une demande est déjà ouverte.' } }
+            : {
+                body: {
+                  data: detail({
+                    fiches: [ficheCollecte({ id: 'c1', statut: 'validee' })],
+                  }),
+                },
+              },
+      );
+      monterFiche();
+      await ficheChargee();
+      onglet('Bilan & documents');
+      const ligne = await screen.findByTestId(
+        'document-collecte',
+        undefined,
+        ATTENTE_UI,
+      );
+      fireEvent.click(
+        within(ligne).getByRole('button', { name: 'Télécharger' }),
+      );
+      expect(
+        await screen.findByText(
+          /Collecte du Jeu 10 Sept · 23h00 : La fabrication du rapport a échoué/i,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      const appel = fetchMock.mock.calls.find(([u]) =>
+        String(u).endsWith('/c1/rapport-rse'),
+      ) as unknown[] | undefined;
+      expect(appel?.[1]).toMatchObject({
+        method: 'POST',
+        body: JSON.stringify({ options: { benchmark: false } }),
+      });
+
+      onglet('Informations chauffeurs');
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: /Demander les coordonnées en urgence/ },
+          ATTENTE_UI,
+        ),
+      );
+      expect(
+        await screen.findByText(
+          'Une demande est déjà ouverte.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

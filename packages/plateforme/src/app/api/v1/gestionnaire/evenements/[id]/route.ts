@@ -118,34 +118,39 @@ export async function GET(
   );
   const bilan = consoliderEvenement(collectes);
 
-  // Déchets labo estimés : seulement si l'événement a au moins une collecte ZD
-  // (arbitrage Val 2026-10-07). Fonction SECURITY DEFINER : seuls les kg sortent.
-  let dechetsLaboKg: number | null = null;
-  if (bilan.nb_collectes_zd > 0) {
-    const { data: kg, error: echec } = await supabase.rpc(
-      'f_dechets_labo_estimes',
-      { p_evenement_id: id },
-    );
-    if (echec)
-      logger.warn('gestionnaire.evenements.dechets_labo_echec', {
-        evenement_id: id,
-        code: echec.code,
-      });
-    else dechetsLaboKg = kg as number | null;
-  }
-
-  // Une fiche par collecte, sous la même session : rien de plus que ce que la
-  // fiche collecte lui servirait.
-  const resultats = await Promise.all(
-    collectes.map((c) =>
-      chargerFicheCollecteClient(c.id, auth.ctx, 'gestionnaire'),
+  // Déchets labo estimés (seulement si l'événement a au moins une collecte ZD,
+  // arbitrage Val 2026-10-07 ; fonction SECURITY DEFINER : seuls les kg
+  // sortent) et une fiche par collecte, sous la même session : rien de plus que
+  // ce que la fiche collecte lui servirait. Lectures lancées ensemble.
+  const [labo, resultats] = await Promise.all([
+    bilan.nb_collectes_zd > 0
+      ? supabase.rpc('f_dechets_labo_estimes', { p_evenement_id: id })
+      : Promise.resolve(null),
+    Promise.all(
+      collectes.map((c) =>
+        chargerFicheCollecteClient(c.id, auth.ctx, 'gestionnaire'),
+      ),
     ),
-  );
+  ]);
+  let dechetsLaboKg: number | null = null;
+  if (labo?.error)
+    logger.warn('gestionnaire.evenements.dechets_labo_echec', {
+      evenement_id: id,
+      code: labo.error.code,
+    });
+  else if (labo) dechetsLaboKg = labo.data as number | null;
+
+  // Jamais une fiche à trous : une collecte lue avec l'événement mais dont la
+  // fiche ne se charge pas (erreur, ou disparue entre les deux lectures) fait
+  // échouer la fiche, plutôt qu'un bilan sur N collectes et N−1 cartes.
   const fiches: FicheCollecteClient[] = [];
   for (const r of resultats) {
-    if ('erreur' in r)
-      return serverError(r.erreur, 'gestionnaire.evenements.get.fiches');
-    if ('fiche' in r) fiches.push(r.fiche);
+    if (!('fiche' in r))
+      return serverError(
+        'erreur' in r ? r.erreur : new Error('fiche collecte introuvable'),
+        'gestionnaire.evenements.get.fiches',
+      );
+    fiches.push(r.fiche);
   }
 
   const traiteur = un(evt.organisations);

@@ -49,7 +49,10 @@ import {
   STATUTS_ANNULES,
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
-import { telechargerRapportRecyclage } from '@/lib/collectes/rapport-telechargement-client';
+import {
+  ouvrirRapportDeDon,
+  telechargerRapportRecyclage,
+} from '@/lib/collectes/rapport-telechargement-client';
 import type { BilanEvenement } from '@/lib/evenements-gestionnaire';
 import { estUuid } from '@/lib/filtre-csv';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
@@ -116,6 +119,33 @@ const GRILLE =
 const VIDE = <span className="text-savr-neutral-400">—</span>;
 
 const annulee = (f: FicheCollecteClient) => STATUTS_ANNULES.includes(f.statut);
+
+/** Adresse et instructions d'accès EFFECTIVES d'une collecte (lieu + surcharges
+ * saisies à la programmation, telles que la fiche collecte les sert). */
+const adresseDe = (f: FicheCollecteClient) => {
+  const l = f.evenement?.lieu;
+  return (
+    [l?.adresse_acces, l?.code_postal, l?.ville].filter(Boolean).join(' ') ||
+    null
+  );
+};
+const accesDe = (f: FicheCollecteClient) =>
+  f.evenement?.lieu?.acces_details?.trim() || null;
+
+/** Valeur commune aux collectes ; `undefined` si elles diffèrent ou s'il n'y en a pas. */
+function commune(
+  fiches: FicheCollecteClient[],
+  lire: (f: FicheCollecteClient) => string | null,
+): string | null | undefined {
+  const valeurs = new Set(fiches.map(lire));
+  return valeurs.size === 1 ? [...valeurs][0] : undefined;
+}
+
+const SELON_LA_COLLECTE = (
+  <span className="font-normal text-savr-neutral-500">
+    Propre à chaque collecte, voir ci-dessous.
+  </span>
+);
 
 /** « Collecte du Lun 26 Oct · 08h00 » : titre de carte d'une collecte. */
 function titreCollecte(f: FicheCollecteClient): string {
@@ -358,35 +388,20 @@ function DocumentsEvenement({ fiches }: { fiches: FicheCollecteClient[] }) {
   const actives = fiches.filter((f) => !annulee(f));
   if (actives.length === 0) return null;
 
+  // Mêmes chemins que l'onglet Bilan de la fiche collecte (rapport ZD sans
+  // radar : ses filtres de comparaison sont propres à chaque collecte).
   async function telecharger(f: FicheCollecteClient) {
     const base = `/api/v1/gestionnaire/collectes/${encodeURIComponent(f.id)}`;
     setErreur(null);
     setEnCours(f.id);
-    try {
-      if (f.type !== 'anti_gaspi') {
-        setErreur(
-          await telechargerRapportRecyclage(`${base}/rapport-rse`, {
+    const message =
+      f.type === 'anti_gaspi'
+        ? await ouvrirRapportDeDon(base)
+        : await telechargerRapportRecyclage(`${base}/rapport-rse`, {
             options: { benchmark: false },
-          }),
-        );
-        return;
-      }
-      const res = await fetch(`${base}/rapport-rse/download`);
-      const j = (await res.json().catch(() => ({}))) as { url?: string };
-      if (res.ok && j.url) {
-        window.open(j.url, '_blank');
-        return;
-      }
-      setErreur(
-        res.status === 425 || res.status === 202
-          ? 'Le rapport n’est pas encore disponible.'
-          : 'Le téléchargement a échoué. Réessayez dans un instant.',
-      );
-    } catch {
-      setErreur('Le téléchargement a échoué. Réessayez dans un instant.');
-    } finally {
-      setEnCours(null);
-    }
+          });
+    setEnCours(null);
+    setErreur(message ? `${titreCollecte(f)} : ${message}` : null);
   }
 
   return (
@@ -412,6 +427,7 @@ function DocumentsEvenement({ fiches }: { fiches: FicheCollecteClient[] }) {
               </p>
               <Text>
                 {titreCollecte(f)} · {LIBELLE_ETAT_RAPPORT[f.rapport_etat]}
+                {f.rapport_rse_regenere && ' · Rapport mis à jour'}
               </Text>
             </div>
             <Button
@@ -438,9 +454,15 @@ function DocumentsEvenement({ fiches }: { fiches: FicheCollecteClient[] }) {
 /** Carte d'une collecte dans « Informations générales ». */
 function CarteCollecte({
   f,
+  avecAdresse,
+  avecAcces,
   onOuvrir,
 }: {
   f: FicheCollecteClient;
+  // Adresse / instructions d'accès différentes d'une collecte à l'autre : la
+  // carte porte les siennes, le bloc Lieu renvoie ici.
+  avecAdresse: boolean;
+  avecAcces: boolean;
   onOuvrir: () => void;
 }) {
   const secours = Boolean(
@@ -486,6 +508,21 @@ function CarteCollecte({
             <span className="font-normal text-savr-neutral-500">
               Réservés au traiteur qui a programmé la collecte.
             </span>
+          </InfoItem>
+        )}
+        {avecAdresse && (
+          <InfoItem label="Adresse" className="sm:col-span-2 lg:col-span-3">
+            {adresseDe(f) ?? VIDE}
+          </InfoItem>
+        )}
+        {avecAcces && (
+          <InfoItem
+            variant="texte"
+            label="Instructions d’accès"
+            className="sm:col-span-2 lg:col-span-3"
+            valueClassName="whitespace-pre-line"
+          >
+            {accesDe(f) ?? VIDE}
           </InfoItem>
         )}
         <InfoItem
@@ -631,6 +668,24 @@ export function FicheEvenementModal({
   }
 
   const b = evt?.bilan;
+  // Bloc Lieu : valeurs EFFECTIVES des collectes non annulées (un événement
+  // peut surcharger l'adresse ou les instructions d'accès du lieu) ; sans
+  // collecte active, celles du lieu de référence.
+  const actives = evt?.fiches.filter((f) => !annulee(f)) ?? [];
+  const adresseLieu =
+    actives.length > 0
+      ? commune(actives, adresseDe)
+      : (evt?.lieu_adresse ?? null);
+  const accesLieu =
+    actives.length > 0
+      ? commune(actives, accesDe)
+      : (evt?.lieu_acces_details ?? null);
+  const periodeCollecte =
+    b?.premiere_collecte && b.derniere_collecte
+      ? b.premiere_collecte === b.derniere_collecte
+        ? libelleDateHeure(b.premiere_collecte, null)
+        : `${libelleDateHeure(b.premiere_collecte, null)} → ${libelleDateHeure(b.derniere_collecte, null)}`
+      : null;
 
   return (
     <>
@@ -804,6 +859,9 @@ export function FicheEvenementModal({
                           </span>
                         </Tooltip>
                       </InfoItem>
+                      <InfoItem label="Période de collecte">
+                        {periodeCollecte ?? VIDE}
+                      </InfoItem>
                     </dl>
                   </Card>
 
@@ -816,11 +874,11 @@ export function FicheEvenementModal({
                     <dl className={GRILLE}>
                       <InfoItem label="Adresse" className="sm:col-span-2">
                         {evt.lieu_nom ?? VIDE}
-                        {evt.lieu_adresse && (
-                          <span className="block font-normal text-savr-neutral-600">
-                            {evt.lieu_adresse}
-                          </span>
-                        )}
+                        <span className="block font-normal text-savr-neutral-600">
+                          {adresseLieu === undefined
+                            ? SELON_LA_COLLECTE
+                            : adresseLieu}
+                        </span>
                       </InfoItem>
                       {/* Le contrôle d'accès se pose par collecte : « Oui »
                           dès qu'une collecte non annulée l'exige. */}
@@ -837,7 +895,9 @@ export function FicheEvenementModal({
                         className="sm:col-span-2 lg:col-span-3"
                         valueClassName="whitespace-pre-line"
                       >
-                        {evt.lieu_acces_details ?? VIDE}
+                        {accesLieu === undefined
+                          ? SELON_LA_COLLECTE
+                          : (accesLieu ?? VIDE)}
                       </InfoItem>
                     </dl>
                   </Card>
@@ -862,6 +922,8 @@ export function FicheEvenementModal({
                         <CarteCollecte
                           key={f.id}
                           f={f}
+                          avecAdresse={adresseLieu === undefined}
+                          avecAcces={accesLieu === undefined}
                           onOuvrir={() => ouvrirCollecte(f.id)}
                         />
                       ))

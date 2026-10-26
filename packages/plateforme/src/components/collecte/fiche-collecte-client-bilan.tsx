@@ -37,7 +37,10 @@ import {
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
-import { telechargerRapportRecyclage } from '@/lib/collectes/rapport-telechargement-client';
+import {
+  ouvrirRapportDeDon,
+  telechargerRapportRecyclage,
+} from '@/lib/collectes/rapport-telechargement-client';
 
 // Onglet « Bilan & documents » du pop-up fiche collecte CLIENT (§06.04 refonte
 // Val 2026-09-29). Valeurs FIGÉES à la clôture (taux de recyclage, CO₂) : lues,
@@ -479,17 +482,7 @@ export function OngletBilan({
       return;
     }
     // AG : le « Rapport de don » est un fichier déjà fabriqué (URL pré-signée).
-    const res = await fetch(`${base}/rapport-rse/download`);
-    const j = (await res.json().catch(() => ({}))) as { url?: string };
-    if (res.ok && j.url) {
-      window.open(j.url, '_blank');
-      return;
-    }
-    setTelechargement(
-      res.status === 425 || res.status === 202
-        ? 'Le rapport n’est pas encore disponible.'
-        : 'Le téléchargement a échoué. Réessayez dans un instant.',
-    );
+    setTelechargement(await ouvrirRapportDeDon(base));
   }
 
   if (annulee) {

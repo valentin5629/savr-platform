@@ -581,6 +581,14 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
     expect((await fiche()).status).toBe(500);
   });
 
+  it('M3.2/evenement_fiche_collecte_introuvable_500 — une collecte disparue entre les deux lectures : 500, jamais N−1 cartes sur un bilan de N', async () => {
+    rls.__set({ data: evenementBrut(), error: null });
+    mockCharger.mockImplementation((id: string) =>
+      Promise.resolve(id === 'c3' ? { introuvable: true } : { fiche: { id } }),
+    );
+    expect((await fiche()).status).toBe(500);
+  });
+
   it('M3.2/evenement_fiche_collectes_meme_jour_par_heure — à date égale, l’heure départage', async () => {
     // Identifiants dans l'ordre inverse de l'heure : sans le départage par heure,
     // le départage par identifiant mettrait le soir en premier.

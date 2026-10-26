@@ -46,6 +46,11 @@ import { Chauffeurs } from '@/components/collecte/fiche-collecte-client-onglets'
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
 import { FriseEtapes } from '@/components/collecte/frise-etapes';
+import {
+  ToggleTypeCollecte,
+  type CollecteType,
+} from '@/components/collecte/toggle-type-collecte';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
 import {
   LIBELLE_ETAT_RAPPORT,
@@ -157,18 +162,25 @@ function titreCollecte(f: FicheCollecteClient): string {
 // Phrase de couverture du bilan, accordée au singulier comme au pluriel.
 // « Réalisée » s'entend au sens des résultats (clôturée, ou AG sans excédent) :
 // une collecte `realisee` qui attend sa clôture n'a pas encore de résultat.
-function couverture(nbRealisees: number, nbCollectes: number): string {
+function couverture(
+  nbRealisees: number,
+  nbCollectes: number,
+  // « Zéro Déchet » / « Anti-Gaspi » quand le bilan ne porte que sur un type
+  // d'un événement qui mêle les deux.
+  type = '',
+): string {
   if (nbCollectes === 0)
     return 'Aucune collecte n’est rattachée à cet événement.';
+  const t = type ? ` ${type}` : '';
   const total =
-    nbCollectes === 1 ? 'la collecte' : `les ${nbCollectes} collectes`;
+    nbCollectes === 1 ? `la collecte${t}` : `les ${nbCollectes} collectes${t}`;
   if (nbRealisees === 0)
     return `Aucun résultat n’est encore disponible sur ${total} de l’événement.`;
   const realisees =
     nbRealisees === 1
       ? 'Cumul de 1 collecte réalisée'
       : `Cumul des ${nbRealisees} collectes réalisées`;
-  return `${realisees}, sur ${nbCollectes === 1 ? '1 collecte' : `${nbCollectes} collectes`} de l’événement.`;
+  return `${realisees}, sur ${nbCollectes === 1 ? `1 collecte${t}` : `${nbCollectes} collectes${t}`} de l’événement.`;
 }
 
 /**
@@ -210,22 +222,25 @@ function LiensBilans({
  */
 function BilanConsolide({
   b,
+  type,
+  deuxTypes,
   pax,
   dateEvenement,
   actives,
   onOuvrirBilan,
 }: {
   b: BilanEvenement;
+  // Type affiché : le seul de l'événement, ou celui du sous-onglet.
+  type: CollecteType;
+  deuxTypes: boolean;
   pax: number | null;
   dateEvenement: string | null;
   actives: FicheCollecteClient[];
   onOuvrirBilan: (id: string) => void;
 }) {
-  const nbCollectes = b.nb_collectes_zd + b.nb_collectes_ag;
-  const nbRealisees = b.nb_realisees_zd + b.nb_realisees_ag;
-  // Badge de type au-dessus de chaque bilan seulement si l'événement mêle ZD et
-  // AG : avec un seul type, le bilan se lit comme celui d'une collecte.
-  const deuxTypes = b.nb_collectes_zd > 0 && b.nb_collectes_ag > 0;
+  const zd = type === 'zero_dechet';
+  const nbCollectes = zd ? b.nb_collectes_zd : b.nb_collectes_ag;
+  const nbRealisees = zd ? b.nb_realisees_zd : b.nb_realisees_ag;
   const masse = b.tonnage_zd_kg != null ? fmtMasse(b.tonnage_zd_kg) : null;
   const serieDonut = [
     {
@@ -235,15 +250,6 @@ function BilanConsolide({
       taux_recyclage: b.taux_recyclage,
     },
   ];
-  const enTeteType = (type: string, realisees: number, total: number) =>
-    deuxTypes && (
-      <div className="flex items-center gap-2">
-        <TypeCollecteBadge type={type} forme="badge" />
-        <Text variant="hint">
-          {realisees} réalisée{realisees > 1 ? 's' : ''} sur {total}
-        </Text>
-      </div>
-    );
 
   return (
     <section className="space-y-3" data-testid="bilan-consolide">
@@ -255,12 +261,15 @@ function BilanConsolide({
         </BandeauBilanAttente>
       )}
       <Text variant="hint" data-testid="bilan-consolide-couverture">
-        {couverture(nbRealisees, nbCollectes)}
+        {couverture(
+          nbRealisees,
+          nbCollectes,
+          deuxTypes ? libelleTypeCollecte(type) : '',
+        )}
       </Text>
 
-      {b.nb_collectes_zd > 0 && (
+      {zd && nbCollectes > 0 && (
         <div className="space-y-3" data-testid="bilan-consolide-zd">
-          {enTeteType('zero_dechet', b.nb_realisees_zd, b.nb_collectes_zd)}
           <Estompe actif={b.nb_realisees_zd === 0}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Kpi
@@ -309,9 +318,8 @@ function BilanConsolide({
         </div>
       )}
 
-      {b.nb_collectes_ag > 0 && (
+      {!zd && nbCollectes > 0 && (
         <div className="space-y-3" data-testid="bilan-consolide-ag">
-          {enTeteType('anti_gaspi', b.nb_realisees_ag, b.nb_collectes_ag)}
           <Estompe actif={b.nb_realisees_ag === 0}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Kpi
@@ -605,6 +613,8 @@ export function FicheEvenementModal({
   const [onglet, setOnglet] = useState<Onglet>('informations');
   // Demande urgente des coordonnées du chauffeur, par collecte.
   const [urgences, setUrgences] = useState<Record<string, Urgence>>({});
+  // Sous-onglet du bilan (événement qui mêle ZD et AG).
+  const [typeBilan, setTypeBilan] = useState<CollecteType>('zero_dechet');
   const { toast } = useToast();
   // Une fiche déjà affichée : un rechargement en échec ne la remplace pas par
   // l'état Error, il le signale seulement.
@@ -713,6 +723,14 @@ export function FicheEvenementModal({
   // peut surcharger l'adresse ou les instructions d'accès du lieu) ; sans
   // collecte active, celles du lieu de référence.
   const actives = evt?.fiches.filter((f) => !annulee(f)) ?? [];
+  const deuxTypes = !!b && b.nb_collectes_zd > 0 && b.nb_collectes_ag > 0;
+  const typeAffiche: CollecteType =
+    b && b.nb_collectes_zd === 0
+      ? 'anti_gaspi'
+      : b && b.nb_collectes_ag === 0
+        ? 'zero_dechet'
+        : typeBilan;
+  const activesDuType = actives.filter((f) => f.type === typeAffiche);
   const adresseLieu =
     actives.length > 0
       ? commune(actives, adresseDe)
@@ -965,15 +983,27 @@ export function FicheEvenementModal({
                   )}
                 </TabsContent>
 
+                {/* Événement qui mêle ZD et AG : un sous-onglet par type
+                    (décision Val 2026-10-26), bilan et rapports du type. */}
                 <TabsContent value="bilan" className="space-y-3">
+                  {deuxTypes && (
+                    <ToggleTypeCollecte
+                      value={typeAffiche}
+                      onChange={setTypeBilan}
+                      aria-label="Bilan par type de collecte"
+                      data-testid="bilan-sous-onglets"
+                    />
+                  )}
                   <BilanConsolide
                     b={b}
+                    type={typeAffiche}
+                    deuxTypes={deuxTypes}
                     pax={evt.pax}
                     dateEvenement={evt.date_evenement}
-                    actives={actives}
+                    actives={activesDuType}
                     onOuvrirBilan={(id) => ouvrirCollecte(id, 'bilan')}
                   />
-                  <DocumentsEvenement actives={actives} />
+                  <DocumentsEvenement actives={activesDuType} />
                 </TabsContent>
               </Tabs>
             </FicheCorps>

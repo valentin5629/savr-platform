@@ -567,10 +567,14 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(
         screen.getByTestId('bilan-consolide-couverture'),
       ).toHaveTextContent(
-        'Cumul des 3 collectes réalisées, sur 3 collectes de l’événement.',
+        'Cumul des 2 collectes réalisées, sur 2 collectes Zéro Déchet de l’événement.',
       );
+      // Événement ZD + AG : sous-onglets, Zéro Déchet d'abord.
+      expect(
+        screen.getByRole('radio', { name: 'Zéro Déchet' }),
+      ).toHaveAttribute('aria-checked', 'true');
+      expect(screen.queryByTestId('bilan-consolide-ag')).toBeNull();
       const zd = within(bilan).getByTestId('bilan-consolide-zd');
-      expect(zd).toHaveTextContent('2 réalisées sur 2');
       expect(zd).toHaveTextContent(/Poids total collecté\s*1\s000\s*kg/);
       expect(zd).toHaveTextContent(/Taux de recyclage.*74,0\s*%/);
       // 1 000 kg pour 800 pax.
@@ -580,7 +584,18 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(zd).toHaveTextContent('Répartition des tonnages');
       expect(zd).toHaveTextContent(/Biodéchets\s*600\s*kg/);
       expect(zd).toHaveTextContent(/Verre\s*100\s*kg/);
-      const ag = within(bilan).getByTestId('bilan-consolide-ag');
+      fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
+      const ag = await screen.findByTestId(
+        'bilan-consolide-ag',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(screen.queryByTestId('bilan-consolide-zd')).toBeNull();
+      expect(
+        screen.getByTestId('bilan-consolide-couverture'),
+      ).toHaveTextContent(
+        'Cumul de 1 collecte réalisée, sur 1 collecte Anti-Gaspi de l’événement.',
+      );
       expect(ag).toHaveTextContent(/Repas donnés\s*230\s*repas/);
       expect(ag).toHaveTextContent(/Repas par pax\s*0,29/);
       expect(ag).toHaveTextContent(/CO₂ évité\s*575/);
@@ -914,18 +929,23 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         name: /Accéder au bilan de la collecte du/,
       });
       expect(liens).toHaveLength(2);
-      // Une seule collecte AG : le cumul est son bilan, pas de lien.
-      expect(
-        within(screen.getByTestId('bilan-consolide-ag')).queryByTestId(
-          'liens-bilans',
-        ),
-      ).toBeNull();
-
       fireEvent.click(liens[1]!);
       expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
         'c2:bilan',
       );
       expect(changerCollecte).toHaveBeenLastCalledWith('c2');
+
+      // Une seule collecte AG : le cumul est son bilan, pas de lien.
+      fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
+      expect(
+        within(
+          await screen.findByTestId(
+            'bilan-consolide-ag',
+            undefined,
+            ATTENTE_UI,
+          ),
+        ).queryByTestId('liens-bilans'),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -963,7 +983,8 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         undefined,
         ATTENTE_UI,
       );
-      expect(lignes).toHaveLength(3);
+      // Sous-onglet Zéro Déchet : les deux rapports ZD, pas l'annulée.
+      expect(lignes).toHaveLength(2);
       expect(lignes[0]).toHaveTextContent('Rapport RSE');
       expect(lignes[1]).toHaveTextContent(
         'Document disponible dans les 48h après la collecte',
@@ -971,10 +992,19 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(
         within(lignes[1]!).getByRole('button', { name: 'Télécharger' }),
       ).toBeDisabled();
-      expect(lignes[2]).toHaveTextContent('Rapport de don');
+      fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
+      const don = await screen.findByText(
+        'Rapport de don',
+        undefined,
+        ATTENTE_UI,
+      );
+      const ligneDon = don.closest('[data-testid="document-collecte"]');
+      expect(screen.getAllByTestId('document-collecte')).toHaveLength(1);
 
       fireEvent.click(
-        within(lignes[2]!).getByRole('button', { name: 'Télécharger' }),
+        within(ligneDon as HTMLElement).getByRole('button', {
+          name: 'Télécharger',
+        }),
       );
       await waitFor(
         () =>
@@ -1027,7 +1057,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(
         screen.getByTestId('bilan-consolide-couverture'),
       ).toHaveTextContent(
-        'Aucun résultat n’est encore disponible sur les 3 collectes de l’événement.',
+        'Aucun résultat n’est encore disponible sur les 2 collectes Zéro Déchet de l’événement.',
       );
       expect(screen.getByTestId('bandeau-bilan-attente')).toHaveTextContent(
         'Votre bilan sera disponible après les collectes',
@@ -1036,7 +1066,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         /Poids total collecté\s*—/,
       );
       // Même rendu que la fiche collecte : chiffres estompés, graphe en attente.
-      expect(screen.getAllByTestId('bilan-estompe')).toHaveLength(2);
+      expect(screen.getAllByTestId('bilan-estompe')).toHaveLength(1);
       expect(screen.getByTestId('bilan-consolide-zd')).toHaveTextContent(
         'Répartition des tonnages',
       );

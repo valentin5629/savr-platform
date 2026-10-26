@@ -54,7 +54,10 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { FormActions } from '@/components/ui/form-actions';
-import { libelleCompletTypeCollecte } from '@/lib/libelles/type-collecte';
+import {
+  libelleCompletTypeCollecte,
+  libelleTypeCollecte,
+} from '@/lib/libelles/type-collecte';
 import {
   PLAFOND_PAR_TYPE,
   ajouterCarte,
@@ -843,35 +846,35 @@ export function FormulaireProgrammation({
 
           {/* Nombre de collectes souhaitées par type (décision Val 2026-10-22),
               au moins une au total, au plus 10 de chaque (B2-Q4). */}
-          {/* Espace triple (60 px au lieu de 20) avant le nombre de
-              collectes, pour le détacher du contrôle d'accès (retour Val du
+          {/* Espace de 48 px (au lieu de 20) avant le nombre de collectes,
+              pour le détacher du contrôle d'accès (retours Val du
               2026-10-26). Marge et non padding : le padding d'un fieldset
               passe sous sa légende. */}
-          <fieldset className="mt-15 space-y-2">
+          <fieldset className="mt-12 space-y-2">
             <legend>
               <Label required>Nombre de collectes souhaitées</Label>
             </legend>
             <FormGrid>
               <FormField
-                label={libelleCompletTypeCollecte('zero_dechet')}
+                label={libelleTypeCollecte('zero_dechet')}
                 htmlFor="nombre-zd"
                 className="text-center"
               >
                 <CompteurCollectes
                   id="nombre-zd"
-                  libelle={libelleCompletTypeCollecte('zero_dechet')}
+                  libelle={libelleTypeCollecte('zero_dechet')}
                   valeur={nbZd}
                   onChange={(n) => changerNombre('zd', n)}
                 />
               </FormField>
               <FormField
-                label={libelleCompletTypeCollecte('anti_gaspi')}
+                label={libelleTypeCollecte('anti_gaspi')}
                 htmlFor="nombre-ag"
                 className="text-center"
               >
                 <CompteurCollectes
                   id="nombre-ag"
-                  libelle={libelleCompletTypeCollecte('anti_gaspi')}
+                  libelle={libelleTypeCollecte('anti_gaspi')}
                   valeur={nbAg}
                   describedBy={agSansPack ? 'nombre-ag-info' : undefined}
                   onChange={(n) => changerNombre('ag', n)}

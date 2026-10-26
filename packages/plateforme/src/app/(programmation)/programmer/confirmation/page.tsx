@@ -3,6 +3,7 @@
 import { LoadingState } from '@/components/ui/loading-state';
 import { AlertBar } from '@/components/ui/alert-bar';
 import {
+  type ReactNode,
   Suspense,
   useCallback,
   useEffect,
@@ -14,12 +15,15 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   CheckCircle2,
+  IdCard,
+  MapPin,
   PlusCircle,
   CalendarPlus,
   Mail,
   AlertTriangle,
   Pencil,
-  XCircle,
+  Phone,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -27,7 +31,8 @@ import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Heading } from '@/components/ui/heading';
 import { Text, textClasses } from '@/components/ui/text';
 import { InfoItem } from '@/components/ui/info-item';
-import { ContactLigne } from '@/components/collecte/fiche-blocs';
+import { TelephoneLien } from '@/components/collecte/fiche-blocs';
+import { TELEPHONE_SAVR } from '@/components/programmation/carte-collecte';
 import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
 import { ESPACES, ESPACE_PAR_ROLE, ROUTES } from '@/lib/routes';
 import { isStaff, type Role } from '@/lib/roles';
@@ -48,7 +53,8 @@ import type { EtatRecapEmail } from '@/lib/programmation/suivi-recap-email';
 // point 13 ; refonte du formulaire, lot B2, décisions Val 2026-10-22) :
 // en-tête, récapitulatif de l'événement, une carte par collecte avec
 // « Modifier » et « Annuler la collecte », puis les actions du bas de page et
-// le rappel de l'email récapitulatif.
+// le rappel de l'email récapitulatif. Mise en page en deux colonnes et textes
+// de la maquette v2 validée par Val le 2026-10-26 (fiche de divergence M1.2).
 
 // Valeur du récapitulatif : texte courant neutral-900.
 const VALEUR_RECAP = textClasses({ tone: 'ink' });
@@ -120,12 +126,13 @@ function formatDate(date: string | null): string {
   if (!date) return '—';
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleDateString('fr-FR', {
+  const texte = parsed.toLocaleDateString('fr-FR', {
     timeZone: 'Europe/Paris',
-    day: '2-digit',
+    weekday: 'long',
+    day: 'numeric',
     month: 'long',
-    year: 'numeric',
   });
+  return texte.charAt(0).toUpperCase() + texte.slice(1);
 }
 
 // `heure_collecte` est une colonne `time` (ex. "14:30:00") — on n'affiche que HH:MM
@@ -136,7 +143,7 @@ function formatHeure(heure: string | null): string {
 
 function formatDateHeure(c: CollecteRecap): string {
   const heure = formatHeure(c.heure_collecte);
-  return `${formatDate(c.date_collecte)}${heure ? ` à ${heure}` : ''}`;
+  return `${formatDate(c.date_collecte)}${heure ? ` · ${heure}` : ''}`;
 }
 
 function formatLieu(lieux: EvenementRecap['lieux']): string {
@@ -149,6 +156,27 @@ function formatLieu(lieux: EvenementRecap['lieux']): string {
     .filter(Boolean)
     .join(', ');
   return [lieu.nom, adresse].filter(Boolean).join(' — ') || '—';
+}
+
+// « Nom · téléphone » sur une ligne ; le téléphone est cliquable.
+function Contact({
+  nom,
+  telephone,
+}: {
+  nom: string | null | undefined;
+  telephone: string | null | undefined;
+}) {
+  return (
+    <>
+      {renseigne(nom) ? nom : '—'}
+      {renseigne(telephone) && (
+        <>
+          {' · '}
+          <TelephoneLien telephone={telephone} />
+        </>
+      )}
+    </>
+  );
 }
 
 const renseigne = (v: string | null | undefined): v is string =>
@@ -198,6 +226,19 @@ function actionAnnulation(
   };
 }
 
+// Ligne libellé / valeur : libellé à gauche dès `sm`, au-dessus sur téléphone.
+function Ligne({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <InfoItem
+      label={label}
+      className="grid gap-0.5 py-1.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4"
+      valueClassName={cn(VALEUR_RECAP, 'font-normal')}
+    >
+      {children}
+    </InfoItem>
+  );
+}
+
 function CarteCollecte({
   collecte: c,
   libelle,
@@ -218,86 +259,77 @@ function CarteCollecte({
     ? lienModifierCollecte(role, c.id)
     : null;
   const annulation = actionAnnulation(role, c);
+  const convives = [
+    c.pax ?? '—',
+    renseigne(c.type_evenement) ? c.type_evenement : null,
+  ]
+    .filter((v) => v !== null)
+    .join(' · ');
 
   return (
-    <Card
-      padding="sm"
-      role="region"
-      aria-labelledby={idTitre}
-      className="space-y-3"
-    >
+    <Card padding="sm" role="region" aria-labelledby={idTitre}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Heading level={3} size="base" id={idTitre}>
-          {libelle}
-        </Heading>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {/* Pastille de type : vert Zéro Déchet, orange Anti-Gaspi. */}
+          <Heading
+            level={3}
+            size="inherit"
+            tone="inherit"
+            id={idTitre}
+            className={cn(
+              'rounded-full px-2.5 py-0.5 text-xs',
+              estZeroDechet(c.type)
+                ? 'bg-savr-success-subtle text-savr-success-strong'
+                : 'bg-savr-accent-50 text-savr-accent-800',
+            )}
+          >
+            {libelle.replace(/^Collecte /, '')}
+          </Heading>
+          <dl>
+            <div>
+              <dt className="sr-only">Date et heure</dt>
+              <dd className="text-base font-bold text-savr-neutral-900">
+                {formatDateHeure(c)}
+              </dd>
+            </div>
+          </dl>
+        </div>
         <CollecteStatutBadge statut={c.statut} />
       </div>
-      <dl className="grid gap-3 sm:grid-cols-2">
-        <InfoItem
-          variant="hint"
-          label="Date et heure"
-          className="space-y-0.5"
-          valueClassName={VALEUR_RECAP}
-        >
-          {formatDateHeure(c)}
-        </InfoItem>
-        <InfoItem
-          variant="hint"
-          label="Convives"
-          className="space-y-0.5"
-          valueClassName={VALEUR_RECAP}
-        >
-          {c.pax ?? '—'}
-        </InfoItem>
-        <InfoItem
-          variant="hint"
-          label="Type d’événement"
-          className="space-y-0.5"
-          valueClassName={VALEUR_RECAP}
-        >
-          {renseigne(c.type_evenement) ? c.type_evenement : '—'}
-        </InfoItem>
-        <InfoItem
-          variant="hint"
-          label="Contact principal"
-          className="space-y-0.5"
-          valueClassName={VALEUR_RECAP}
-        >
-          <ContactLigne
+      <dl className="mt-2 text-sm">
+        <Ligne label="Convives">{convives}</Ligne>
+        <Ligne label="Contact principal">
+          <Contact
             nom={contacts?.contact_principal_nom}
             telephone={contacts?.contact_principal_telephone}
           />
-        </InfoItem>
+        </Ligne>
         {/* Contact de secours facultatif : omis s'il n'est pas renseigné. */}
         {avecSecours && (
-          <InfoItem
-            variant="hint"
-            label="Contact de secours"
-            className="space-y-0.5"
-            valueClassName={VALEUR_RECAP}
-          >
-            <ContactLigne
+          <Ligne label="Contact de secours">
+            <Contact
               nom={contacts?.contact_secours_nom}
               telephone={contacts?.contact_secours_telephone}
             />
-          </InfoItem>
+          </Ligne>
         )}
-        {renseigne(c.informations_supplementaires) && (
-          <InfoItem
-            variant="hint"
-            label="Informations supplémentaires"
-            pleineLargeur
-            className="space-y-0.5"
-            valueClassName={cn(VALEUR_RECAP, 'whitespace-pre-line break-words')}
-          >
-            {c.informations_supplementaires}
-          </InfoItem>
-        )}
+        {/* Toujours affichées : « Aucune » montre au traiteur qu'il n'a rien
+            précisé au transporteur (`informations_supplementaires`, seul
+            canal vers lui, §06.01). */}
+        <Ligne label="Instructions">
+          {renseigne(c.informations_supplementaires) ? (
+            <span className="block whitespace-pre-line break-words border-l-[3px] border-savr-primary-300 bg-savr-neutral-50 px-3 py-2">
+              {c.informations_supplementaires}
+            </span>
+          ) : (
+            <span className={textClasses({ tone: 'faint' })}>Aucune</span>
+          )}
+        </Ligne>
       </dl>
       {(lienModifier || annulation) && (
-        <div className="flex flex-col gap-2 border-t border-savr-neutral-100 pt-3 sm:flex-row sm:justify-end">
+        <div className="mt-2 flex flex-wrap justify-end gap-2 border-t border-savr-neutral-100 pt-2">
           {lienModifier && (
-            <Button asChild variant="secondary">
+            <Button asChild variant="ghost">
               <Link href={lienModifier}>
                 <Pencil />
                 Modifier
@@ -305,23 +337,21 @@ function CarteCollecte({
             </Button>
           )}
           {annulation?.kind === 'lien' && (
-            <Button asChild variant="outline-destructive">
+            <Button asChild variant="ghost-destructive">
               <Link href={annulation.href}>
-                <XCircle />
-                Annuler la collecte
+                <X />
+                Annuler
               </Link>
             </Button>
           )}
           {annulation?.kind === 'boite' && (
             <Button
-              variant="outline-destructive"
+              variant="ghost-destructive"
               onClick={() => onAnnuler(annulation.url, annulation.demande)}
             >
-              <XCircle />
-              {/* Même libellé que le pied de la fiche collecte cliente. */}
-              {annulation.demande
-                ? 'Demander l’annulation'
-                : 'Annuler la collecte'}
+              <X />
+              {/* Collecte validée : une demande, transmise à l'équipe Savr. */}
+              {annulation.demande ? 'Demander l’annulation' : 'Annuler'}
             </Button>
           )}
         </div>
@@ -434,153 +464,215 @@ function ConfirmationContent() {
   const titreCollectes =
     actives.length === 0
       ? 'Aucune collecte à réaliser'
-      : `Nous réaliserons ${actives.length} collecte${actives.length > 1 ? 's' : ''}`;
+      : actives.length === 1
+        ? 'Votre collecte'
+        : `Vos ${actives.length} collectes`;
+  const resumeCollectes = parType
+    .map((t) => `${t.nombre} ${libelleTypeCollecte(t.type)}`)
+    .join(' · ');
   const etatEmail = evenement?.email_recap ?? null;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
-      {/* Bandeau succès */}
-      <div className="flex items-start gap-3 rounded-savr-lg border border-savr-success bg-savr-success-subtle px-5 py-4">
-        <CheckCircle2 className="h-6 w-6 shrink-0 text-savr-success" />
-        <Heading level={1} size="lg">
-          {evenement
-            ? `Votre événement « ${evenement.nom_evenement} » est programmé`
-            : 'Votre événement est programmé'}
-        </Heading>
-      </div>
-
+    <div className="mx-auto max-w-6xl space-y-6">
       {error && (
         <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
           {error}
         </AlertBar>
       )}
 
-      {/* Récapitulatif de l'événement : client final et référence interne
-          s'ils sont renseignés, lieu, contrôle d'accès, collectes par type
-          (non annulées). */}
-      {evenement && (
-        <div className="space-y-3">
-          <Heading level={2} size="sm" tone="faint" overline>
-            Récapitulatif
-          </Heading>
-          <dl className="grid gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-4 py-3 sm:grid-cols-2">
-            {renseigne(evenement.nom_client_organisateur) && (
-              <InfoItem
-                variant="hint"
-                label="Client final"
-                className="space-y-0.5"
-                valueClassName={VALEUR_RECAP}
-              >
-                {evenement.nom_client_organisateur}
-              </InfoItem>
-            )}
-            {renseigne(evenement.reference_affaire) && (
-              <InfoItem
-                variant="hint"
-                label="Référence interne"
-                className="space-y-0.5"
-                valueClassName={VALEUR_RECAP}
-              >
-                {evenement.reference_affaire}
-              </InfoItem>
-            )}
-            <InfoItem
-              variant="hint"
-              label="Lieu"
-              pleineLargeur
-              className="space-y-0.5"
-              valueClassName={VALEUR_RECAP}
-            >
-              {formatLieu(evenement.lieux)}
-            </InfoItem>
-            <InfoItem
-              variant="hint"
-              label="Contrôle d’accès"
-              className="space-y-0.5"
-              valueClassName={VALEUR_RECAP}
-            >
-              {evenement.controle_acces_requis
-                ? 'Plaque et nom du chauffeur requis'
-                : 'Non requis'}
-            </InfoItem>
-            <InfoItem
-              variant="hint"
-              label="Collectes"
-              className="space-y-0.5"
-              valueClassName={VALEUR_RECAP}
-            >
-              {parType.length === 0
-                ? '—'
-                : parType.map((t) => (
-                    <span key={t.type} className="block">
-                      {libelleTypeCollecte(t.type)} : {t.nombre}
-                    </span>
-                  ))}
-            </InfoItem>
-          </dl>
-        </div>
-      )}
-
-      {/* Une carte par collecte, avec « Modifier » et « Annuler la collecte ». */}
-      {numerotees.length > 0 && (
-        <div className="space-y-3">
-          <Heading level={2} size="sm" tone="faint" overline>
-            {titreCollectes}
-          </Heading>
-          <ul className="space-y-3">
-            {numerotees.map(({ collecte, libelle }) => (
-              <li key={collecte.id}>
-                <CarteCollecte
-                  collecte={collecte}
-                  libelle={libelle}
-                  role={role}
-                  onAnnuler={(url, demande) => {
-                    setAnnulErreur(null);
-                    setCible({ collecte, url, demande });
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Rappel email récap (§06.01 étape 13), selon l'issue réelle de l'envoi.
-          Rien n'est parti → bandeau visible, pas une ligne discrète : avant la
-          facture, le tarif Zéro Déchet n'est communiqué que par cet email
-          (§06.01 §3.b). */}
-      {etatEmail === 'non_envoye' ? (
-        <AlertBar variant="warn" icon={<Mail />}>
-          {MESSAGES_EMAIL_RECAP.non_envoye}
-        </AlertBar>
-      ) : (
-        etatEmail && (
-          <Text tone="soft" className="flex items-center gap-2">
-            <Mail className="h-4 w-4 shrink-0 text-savr-neutral-400" />
-            {MESSAGES_EMAIL_RECAP[etatEmail]}
+      {/* Deux colonnes dès `lg` : le détail à gauche, la gestion à droite.
+          Le panneau suit le titre dans la page : sur téléphone, il s'affiche
+          sous le titre, avant le détail. */}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
+        <div className="lg:col-start-1 lg:row-start-1">
+          <Text
+            variant="overline"
+            className="font-semibold uppercase tracking-wide"
+          >
+            Événement programmé
           </Text>
-        )
-      )}
+          <Heading
+            level={1}
+            size="2xl"
+            tone="inherit"
+            className="mt-1 text-savr-primary-900"
+          >
+            {evenement?.nom_evenement ?? 'Votre événement'}
+          </Heading>
+          {evenement && (
+            <Text tone="soft" className="mt-1 flex items-start gap-1.5">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+              {formatLieu(evenement.lieux)}
+            </Text>
+          )}
+        </div>
 
-      {/* Actions du bas de page */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        {evenement && (
-          <Button asChild>
-            <Link href={ROUTES.programmer.ajouterCollecte(evenement.id)}>
-              <PlusCircle />
-              Ajouter une collecte
-            </Link>
-          </Button>
-        )}
-        <Button asChild variant="secondary">
-          <Link href={ROUTES.programmer.nouveau}>
-            <CalendarPlus />
-            Programmer un autre événement
-          </Link>
-        </Button>
-        <Button asChild variant="ghost">
-          <Link href="/">Accueil</Link>
-        </Button>
+        <aside className="space-y-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+          <Card padding="md" className="space-y-3">
+            <Heading
+              level={2}
+              size="base"
+              weight="bold"
+              tone="inherit"
+              className="text-savr-primary-900"
+            >
+              Gérer votre événement
+            </Heading>
+            {/* Confirmation et rappel de l'email récap (§06.01 étape 13), selon
+                l'issue réelle de l'envoi. Rien n'est parti → avertissement :
+                avant la facture, le tarif Zéro Déchet n'est communiqué que par
+                cet email (§06.01 §3.b). */}
+            {evenement && (
+              <div className="flex items-start gap-2 border-t-[3px] border-savr-success bg-savr-success-subtle px-3 py-3 text-sm text-savr-success-strong">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-savr-success" />
+                <p>
+                  Votre événement est programmé.
+                  {(etatEmail === 'envoye' || etatEmail === 'en_reprise') && (
+                    <>
+                      {' '}
+                      <span>{MESSAGES_EMAIL_RECAP[etatEmail]}</span>
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+            {etatEmail === 'non_envoye' && (
+              <AlertBar variant="warn" icon={<Mail />}>
+                {MESSAGES_EMAIL_RECAP.non_envoye}
+              </AlertBar>
+            )}
+            <div className="flex flex-col gap-2 pt-1">
+              {evenement && (
+                <Button asChild className="w-full">
+                  <Link href={ROUTES.programmer.ajouterCollecte(evenement.id)}>
+                    <PlusCircle />
+                    Ajouter une collecte
+                  </Link>
+                </Button>
+              )}
+              <Button
+                asChild
+                variant="secondary"
+                className="w-full text-savr-primary-700"
+              >
+                <Link href={ROUTES.programmer.nouveau}>
+                  <CalendarPlus />
+                  Programmer un autre événement
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                className="w-full text-savr-neutral-600"
+              >
+                <Link href="/">Retour au tableau de bord</Link>
+              </Button>
+            </div>
+          </Card>
+
+          <Card padding="md" className="space-y-2">
+            <Heading
+              level={2}
+              size="base"
+              weight="bold"
+              tone="inherit"
+              className="text-savr-primary-900"
+            >
+              Besoin d’aide ?
+            </Heading>
+            <Text>
+              Collecte dans moins de 24 h ou demande particulière : appelez
+              l’équipe Savr.
+            </Text>
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <Phone className="h-4 w-4 shrink-0 text-savr-primary-600" />
+              <TelephoneLien telephone={TELEPHONE_SAVR} />
+            </p>
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <Mail className="h-4 w-4 shrink-0 text-savr-primary-600" />
+              <a
+                href="mailto:contact@gosavr.io"
+                className="text-savr-primary-700 hover:underline"
+              >
+                contact@gosavr.io
+              </a>
+            </p>
+          </Card>
+        </aside>
+
+        <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-2">
+          {/* Récapitulatif de l'événement : client final et référence interne
+              s'ils sont renseignés, contrôle d'accès, collectes par type (non
+              annulées). Le lieu est sous le titre. */}
+          {evenement && (
+            <section className="space-y-2.5">
+              <Heading
+                level={2}
+                size="base"
+                weight="bold"
+                tone="inherit"
+                className="text-savr-primary-900"
+              >
+                Votre événement
+              </Heading>
+              <Card padding="sm">
+                <dl className="text-sm">
+                  {renseigne(evenement.nom_client_organisateur) && (
+                    <Ligne label="Client final">
+                      {evenement.nom_client_organisateur}
+                    </Ligne>
+                  )}
+                  {renseigne(evenement.reference_affaire) && (
+                    <Ligne label="Référence interne">
+                      {evenement.reference_affaire}
+                    </Ligne>
+                  )}
+                  <Ligne label="Contrôle d’accès">
+                    {evenement.controle_acces_requis ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <IdCard className="h-4 w-4 shrink-0 text-savr-accent-600" />
+                        Plaque et nom du chauffeur requis
+                      </span>
+                    ) : (
+                      'Non requis'
+                    )}
+                  </Ligne>
+                  <Ligne label="Collectes">{resumeCollectes || '—'}</Ligne>
+                </dl>
+              </Card>
+            </section>
+          )}
+
+          {/* Une carte par collecte, avec « Modifier » et « Annuler ». */}
+          {numerotees.length > 0 && (
+            <section className="space-y-2.5">
+              <Heading
+                level={2}
+                size="base"
+                weight="bold"
+                tone="inherit"
+                className="text-savr-primary-900"
+              >
+                {titreCollectes}
+              </Heading>
+              <ul className="space-y-3">
+                {numerotees.map(({ collecte, libelle }) => (
+                  <li key={collecte.id}>
+                    <CarteCollecte
+                      collecte={collecte}
+                      libelle={libelle}
+                      role={role}
+                      onAnnuler={(url, demande) => {
+                        setAnnulErreur(null);
+                        setCible({ collecte, url, demande });
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
       </div>
 
       {/* Annulation directe (brouillon, programmée) ou demande (validée). */}

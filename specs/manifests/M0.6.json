@@ -1786,13 +1786,13 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "5f9b4af5d6ff4dc624f8edc94ec0c6378e49c04c2a3812b59071fb9816e7f7b5",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "8bff1923169fd273961333229b6442d09f29b1a7bf3286c12935d1dba86e4e9a",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "eafb60f53ddda848fecf4bdcb39139acab13b7249d534f3772310e25b7a92b69",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "e656b460cd12dabf9963c1a811a1271e06bf97287a4a654e0f2d67a4138c8227",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "30a5755a4e0d6ef3e6fbce6d31255f606d704eb30978c51e8489f5b3b4f9ca55",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "09a1ad3dfcbb19dc2404851eb78fffe68d9308e24ae5fe59895f993db70e2588",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "713c131ec0ba46743760b0b449cc17dace6935f63c7c1099227101fb972a78ee",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "d99d27b28eafd7dc2aba264c81d1f5bf992deeb5565ed925cb1ac0f0d462f212",
-    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "72354cf3ada95db18b66b1a0933cc5de3d28a2ab704c205c3f4aab3a279c9bef"
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8c268b8c981ee341779d148f70fd924b373fb64c7db27df31214a08db6ecad43",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "82f75e57c8febc152018e9b9681a47bee90c517eeeec1d0fb0dd5b78f5de0122",
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "aa17e5e0f6a0139df4c1fb68548d828f89ed4203de4cdbb710677fe1e4fdb518"
   }
 }

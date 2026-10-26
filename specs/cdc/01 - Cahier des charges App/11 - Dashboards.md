@@ -179,6 +179,7 @@ Onglet **AG** / Onglet **ZD**. *(Onglet « Vue consolidée » retiré — revue 
 - **Chargement** : les cadrans se chargent en <1s (vues SQL indexées, calcul à la volée — cf. §9)
 - **Période par défaut** : 12 derniers mois (aligné §06.04/§06.05), personnalisable par user (persistée en `localStorage` navigateur, pas de table serveur — cf. décision sobriété 2026-06-03 B1)
 - **Split AG / ZD** : onglets obligatoires sur tous les dashboards qui agrègent de la collecte
+- **Pax des cumuls (lot 3, décisions Val Q1, Q2 et Q5 du 2026-10-25)** : tous les dashboards (traiteur, agence, gestionnaire, Dashboard Client Admin) lisent le pax des COLLECTES retenues par leurs filtres — pax cumulés = Σ `collectes.pax`, chaque onglet ne comptant que ses propres collectes (une ZD et une AG du même soir restent chacune dans le sien ; deux soirées s'additionnent) ; kg/pax, repas/pax et kg/pax par flux (ligne « Vous » des radars) = Σ poids ou repas / Σ pax des seules collectes à convives connus : une collecte à 0 convive (reprise Bubble) sort du numérateur et du dénominateur, comme du benchmark. Un filtre Type ou Taille ne retient donc que les convives des collectes retenues. La liste, la fiche et l'export Événements gardent le pax calculé de l'événement (décision Val Q4).
 - **Devise / unités** : € HT, kg, tonnes, kg CO₂e (seuil auto : passage à t à partir de 10 000 kg — aligné §06.04/§06.05 Bloc 2 ZD, patch divergence M3.5 2026-07-07)
 - **Pas de données → état vide explicite** : "Aucune collecte sur la période sélectionnée. Ajustez les filtres ou programmez votre première collecte."
 - **Responsive** : mobile consultation uniquement (pas d'édition depuis mobile en V1)
@@ -193,7 +194,7 @@ Onglet **AG** / Onglet **ZD**. *(Onglet « Vue consolidée » retiré — revue 
 
 Pour servir les dashboards, créer des **vues SQL non matérialisées** (calcul à la volée, index sur `date_collecte` / `organisation_id` / `lieu_id`) :
 
-- `v_kpi_traiteur` : agrégats par `organisation_id` et mois, split AG / ZD
+- `v_kpi_traiteur` : agrégats par `organisation_id` et mois, split AG / ZD ; pax au grain de la collecte : `pax_total` = Σ pax des collectes clôturées de la ligne, `tonnage_kg_pax_connu` et `nb_repas_pax_connu` = poids et repas des seules collectes à convives connus (numérateurs de kg/pax et repas/pax), `marge_zd_ht` = tarif × `pax_total` − factures ZD émises ou payées (lot 3, décisions Val Q3 et Q5 du 2026-10-25)
 - `v_kpi_lieu` : agrégats par `lieu_id` et mois, split AG / ZD
 - `v_kpi_admin` : agrégats globaux par jour, split AG / ZD
 - `v_kpi_client_organisateur` : agrégats par `client_organisateur_organisation_id` et mois

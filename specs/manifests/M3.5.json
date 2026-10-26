@@ -115,7 +115,7 @@
     },
     {
       "id": "M3.5-v-kpi-traiteur-pax-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:196",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:197",
       "artefact": "supabase/migrations/20261025230000_plateforme_v_kpi_traiteur_pax_collecte.sql (v_kpi_traiteur : pax_total = Σ collectes.pax, colonnes tonnage_kg_pax_connu et nb_repas_pax_connu ajoutées en fin) + packages/shared/src/database.types.ts",
       "test": "supabase/tests/v_kpi_traiteur_pax_collecte.test.sql « L3-VUE-1 : deux soirées » « L3-VUE-2 : deux soirées » « L3-VUE-3 : même soir » « L3-VUE-5 : collecte ZD à 0 convive » « L3-VUE-6 : collecte AG à 0 convive » « L3-VUE-7 : une ligne AG » « L3-VUE-8 : deux mois » « L3-VUE-10 : v_kpi_traiteur reste security_invoker » « L3-VUE-11 : droits inchangés »",
       "statut": "implemented",
@@ -133,7 +133,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "438ac388b432fc96e70a110a7e7e4fb49eb41100ca683ecb19cee3c95b4bca39",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "713c131ec0ba46743760b0b449cc17dace6935f63c7c1099227101fb972a78ee"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "c74270e3123e25511a7bd8aced82130b90b4b4dc09a123d1ca3f5a4d00b89b87",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8c268b8c981ee341779d148f70fd924b373fb64c7db27df31214a08db6ecad43"
   }
 }

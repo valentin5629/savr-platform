@@ -1,4 +1,5 @@
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
@@ -95,8 +96,14 @@ async function envoyer(
   variables: Record<string, string>,
   collecteId: string,
 ): Promise<void> {
+  // Le corps est du HTML interpolé tel quel et part chez un tiers (association,
+  // transporteur) : chaque valeur est du texte saisi (nom d'événement, adresses,
+  // nom du transporteur), toutes sont échappées.
+  const echappees = Object.fromEntries(
+    Object.entries(variables).map(([k, v]) => [k, escapeHtml(v)]),
+  );
   try {
-    await sendEmail(template, destinataire, variables, {
+    await sendEmail(template, destinataire, echappees, {
       entityType: 'collectes',
       entityId: collecteId,
     });

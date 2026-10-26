@@ -124,8 +124,16 @@ function rienNEstParti() {
 }
 
 const SIENNE = {
+  created_by: 'u-prog',
   organisation_id: 'org-gest',
   organisation: { nom: 'Lieux Martin' },
+  lieu: { nom: 'Salle Wagram' },
+};
+// Compte lu après l'écriture : le programmateur (annulation directe) ou le
+// demandeur (demande d'annulation).
+const COMPTE = {
+  data: { email: 'prog@savr-test.local', prenom: 'Paul', nom: 'Martin' },
+  error: null,
 };
 // Collecte qu'un traiteur a programmée sur un lieu du gestionnaire.
 const TRAITEUR = {
@@ -150,6 +158,7 @@ describe('M3.2 / annulation par le gestionnaire de lieux', () => {
       setupAuth('gestionnaire_lieux');
       lire(statut, evenement);
       admin.push({ data: { id: 'c1' }, error: null });
+      admin.push(COMPTE);
 
       const res = await appeler();
 
@@ -163,11 +172,19 @@ describe('M3.2 / annulation par le gestionnaire de lieux', () => {
           p_champs_modifies: ['statut'],
         },
       ]);
+      // Template 5 : la confirmation part au programmateur, avec la date et le
+      // lieu que le gabarit exige (l'équipe Savr reçoit le template 22).
       expect(mockSendEmail).toHaveBeenCalledWith(
         'annulation_collecte',
-        'contact@gosavr.io',
-        expect.objectContaining({ organisation_nom: 'Lieux Martin' }),
+        'prog@savr-test.local',
+        {
+          prenom: 'Paul',
+          date_collecte: '2030-01-01',
+          lieu_nom: 'Salle Wagram',
+          motif: 'x',
+        },
       );
+      expect(admin.__calls.eq).toContainEqual(['id', 'u-prog']);
     },
   );
 
@@ -175,8 +192,9 @@ describe('M3.2 / annulation par le gestionnaire de lieux', () => {
     setupAuth('gestionnaire_lieux');
     lire('validee', SIENNE);
     admin.push({ data: { id: 'c1' }, error: null });
+    admin.push(COMPTE);
 
-    const res = await appeler({});
+    const res = await appeler({ motif: 'doublon <b>urgent</b>' });
 
     expect(await res.json()).toEqual({
       data: { statut: 'annulation_demandee' },
@@ -187,7 +205,7 @@ describe('M3.2 / annulation par le gestionnaire de lieux', () => {
         p_id: 'c1',
         p_updates: {
           statut: 'annulation_demandee',
-          annulee_cote_savr_motif: '',
+          annulee_cote_savr_motif: 'doublon <b>urgent</b>',
         },
         p_champs_modifies: ['statut'],
       },
@@ -195,7 +213,11 @@ describe('M3.2 / annulation par le gestionnaire de lieux', () => {
     expect(mockSendEmail).toHaveBeenCalledWith(
       'admin_demande_annulation',
       'contact@gosavr.io',
-      expect.objectContaining({ organisation_nom: 'Lieux Martin' }),
+      expect.objectContaining({
+        organisation_nom: 'Lieux Martin',
+        demandeur_nom: 'Paul Martin',
+        motif: 'doublon &lt;b&gt;urgent&lt;/b&gt;',
+      }),
     );
   });
 

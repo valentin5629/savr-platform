@@ -100,6 +100,41 @@ describe('job attribution AG — emails via sendEmail', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("échappe le texte saisi : aucun HTML d'un client ne part chez l'association ou le transporteur", async () => {
+    single.mockResolvedValue({
+      data: {
+        ...ATTRIBUTION,
+        collectes: {
+          ...ATTRIBUTION.collectes,
+          evenements: {
+            ...ATTRIBUTION.collectes.evenements,
+            nom_evenement: '<a href="https://piege.example">Cliquez</a>',
+            lieux: {
+              nom: 'Musée',
+              adresse_acces: '<b>53</b> av.',
+              ville: 'Paris',
+            },
+          },
+        },
+        associations: { ...ATTRIBUTION.associations, adresse: '1 rue & co' },
+      },
+      error: null,
+    });
+    await processAttributionValidee(PAYLOAD);
+
+    const vars = sendEmail.mock.calls.map(
+      (c) => c[2] as Record<string, string>,
+    );
+    expect(vars).toHaveLength(2);
+    for (const v of vars) {
+      expect(v.evenement_nom).toBe(
+        '&lt;a href=&quot;https://piege.example&quot;&gt;Cliquez&lt;/a&gt;',
+      );
+      expect(v.lieu_adresse).toBe('&lt;b&gt;53&lt;/b&gt; av., Paris');
+    }
+    expect(vars[1]!.association_adresse).toBe('1 rue &amp; co, Paris');
+  });
+
   it("un email en échec est tracé sans destinataire et n'empêche pas le second", async () => {
     sendEmail.mockRejectedValueOnce(
       new Error('Template email introuvable : ag_attribution_association'),

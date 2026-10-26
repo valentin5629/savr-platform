@@ -369,14 +369,14 @@ Scénario : marge_zd_null_et_negative
 ```
 
 ```gherkin
-# Source : §05 R_marge_zd_traiteur (DISTINCT pax)
+# Source : §05 R_marge_zd_traiteur (pax des collectes ZD, lot 3)
 # Couche : db
 # Priorité : P1-critique
 
 Scénario : marge_zd_distinct_pax_multi_collectes
-  Étant donné un événement 500 pax portant 2 collectes ZD (mid-event + fin-event), tarif_refacture = 1,50 €
+  Étant donné un événement de 500 pax portant 2 collectes ZD clôturées le même soir (mid-event 300 convives + fin-event 200 convives), tarif_refacture = 1,50 €
   Quand le revenu du KPI Marge se calcule
-  Alors le revenu = 1,50 × 500 = 750 € (les pax comptés UNE fois par événement, pas 1 500 €)
+  Alors le revenu = 1,50 × (300 + 200) = 750 € (chaque collecte compte ses propres convives, et non 1 500 € en reprenant les 500 de l'événement pour chacune — lot 3, décision Val Q3 du 2026-10-25)
 ```
 
 ```gherkin

@@ -166,21 +166,26 @@ export function droitsFiche(
     peutModifier = true;
     peutAnnuler = true;
   } else {
-    // Gestionnaire : modifie ses propres programmations, n'annule jamais
-    // (§05 « la gestion des collectes reste exclusive au traiteur »).
+    // Gestionnaire : modifie et annule ses propres programmations (annulation :
+    // décision Val 2026-10-26). La RLS lui ouvre aussi les collectes des
+    // traiteurs tenues sur ses lieux : sur celles-là, ni l'un ni l'autre.
     peutModifier = evt.organisation_id === ctx.organisationId;
-    peutAnnuler = false;
+    peutAnnuler = evt.organisation_id === ctx.organisationId;
   }
+
+  // Gestionnaire sur la collecte d'un traiteur tiers : pas de bouton
+  // d'annulation du tout (Val 2026-10-26), là où « Modifier » reste grisé.
+  const annulationMasquee = espace === 'gestionnaire' && !peutAnnuler;
 
   return {
     modifier: !statutModifiable ? 'absent' : peutModifier ? 'actif' : 'grise',
     annuler:
-      espace === 'gestionnaire' || mode === null
+      annulationMasquee || mode === null
         ? 'absent'
         : peutAnnuler
           ? 'actif'
           : 'grise',
-    annulation: espace === 'gestionnaire' ? null : mode,
+    annulation: annulationMasquee ? null : mode,
     // Périmètre de la route d'ajout : l'organisation de l'événement, pour tous
     // les rôles (§09, un commercial ajoute à l'événement d'un collègue). Le
     // traiteur opérationnel d'une collecte programmée par un tiers, ou le

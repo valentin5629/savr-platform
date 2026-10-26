@@ -27,7 +27,7 @@ interface DefinitionEspace {
   readonly accueil: string;
   /** Rôles de l'espace (ordre = ordre de la liste du middleware). */
   readonly roles: readonly Role[];
-  /** Base LITTÉRALE de l'API liste collectes (espaces traiteur/agence). */
+  /** Base LITTÉRALE de l'API collectes (espaces traiteur/agence/gestionnaire). */
   readonly apiCollectes?: string;
 }
 
@@ -53,6 +53,7 @@ export const ESPACES = {
     prefixe: '/gestionnaire',
     accueil: '/gestionnaire',
     roles: ['gestionnaire_lieux'],
+    apiCollectes: '/api/v1/gestionnaire/collectes',
   },
   organisateur: {
     prefixe: '/organisateur',

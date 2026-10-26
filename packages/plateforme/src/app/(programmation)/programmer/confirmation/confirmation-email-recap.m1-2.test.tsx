@@ -56,14 +56,9 @@ const EN_REPRISE =
 const NON_ENVOYE =
   'L’email récapitulatif n’a pas pu vous être envoyé. Votre programmation est bien enregistrée : vous la retrouvez dans vos collectes. Pour toute question, écrivez-nous à contact@gosavr.io.';
 
-// L'en-tête « Votre événement « Gala » est programmé » prouve que l'écran a
-// fini de charger.
+// Le titre (nom de l'événement) prouve que l'écran a fini de charger.
 const ecranCharge = () =>
-  screen.findByText(
-    'Votre événement « Gala » est programmé',
-    undefined,
-    ATTENTE_UI,
-  );
+  screen.findByRole('heading', { level: 1, name: 'Gala' }, ATTENTE_UI);
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -140,6 +135,9 @@ describe('M1.2/confirmation_email_recap_issue_reelle — écran de confirmation'
         ),
       ).toBeInTheDocument();
       expect(screen.queryByText(/email récapitulatif/i)).toBeNull();
+      // La page n'affirme pas qu'un événement illisible est programmé.
+      expect(screen.queryByText('Événement programmé')).toBeNull();
+      expect(screen.queryByText(/est programmé/)).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

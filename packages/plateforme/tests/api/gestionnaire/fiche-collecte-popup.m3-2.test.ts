@@ -10,7 +10,8 @@
  *    « pas de radar » (200, data null), JAMAIS de contournement (depuis le
  *    2026-10-20, la fonction accepte aussi le gestionnaire du lieu) ;
  *  · documents lus sous la RLS du gestionnaire, jamais en service-role ;
- *  · aucune annulation (§05 : gestion exclusive au traiteur).
+ *  · annulation de ses propres programmations seulement (Val 2026-10-26) ;
+ *    aucun bouton sur la collecte d'un traiteur tenue sur ses lieux.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -288,11 +289,12 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
     expect(admin.calls).not.toContain('attestations_don');
   });
 
-  it('M3.2/fiche_get_actions_gestionnaire — jamais d’annulation ; modifier : ses programmations seulement', async () => {
+  it('M3.2/fiche_get_actions_gestionnaire — modifier et annuler : ses programmations seulement (annulation : Val 2026-10-26)', async () => {
     rls.results.collectes = { data: ligneCollecte(TIERS), error: null };
     let { json } = await getFiche();
     expect(json.data.actions).toEqual({
       modifier: 'grise',
+      // Collecte d'un traiteur tiers : pas de bouton d'annulation du tout.
       annuler: 'absent',
       annulation: null,
       // Événement d'un traiteur tiers : la route d'ajout répondrait 404.
@@ -309,10 +311,29 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
       error: null,
     };
     ({ json } = await getFiche());
+    // Sa propre programmation, validée (statut de la fixture) : une demande.
     expect(json.data.actions).toEqual({
       modifier: 'actif',
-      annuler: 'absent',
-      annulation: null,
+      annuler: 'actif',
+      annulation: 'demande',
+      ajouter_collecte: true,
+    });
+
+    rls.results.collectes = {
+      data: ligneCollecte({
+        statut: 'programmee',
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-gest',
+        },
+      }),
+      error: null,
+    };
+    ({ json } = await getFiche());
+    expect(json.data.actions).toEqual({
+      modifier: 'actif',
+      annuler: 'actif',
+      annulation: 'directe',
       ajouter_collecte: true,
     });
   });

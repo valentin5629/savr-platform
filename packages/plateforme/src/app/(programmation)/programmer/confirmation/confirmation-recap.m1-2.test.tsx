@@ -521,13 +521,14 @@ describe('M1.2 / formulaire_simplifie — bouton « Modifier »', () => {
     ATTENTE_CAS_MS,
   );
 
-  it(
-    'rôle inconnu (session illisible) : pas de bouton plutôt qu’un lien cassé',
-    async () => {
-      await afficher(EVENEMENT, '');
+  it.each(['programmee', 'validee'])(
+    'rôle inconnu (session illisible), collecte %s : pas de bouton plutôt qu’un lien cassé',
+    async (statut) => {
+      await afficher({ ...EVENEMENT, collectes: [{ ...ZD, statut }] }, '');
 
       expect(screen.queryByRole('link', { name: 'Modifier' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Annuler' })).toBeNull();
+      expect(screen.queryByRole('button', { name: /annul/i })).toBeNull();
+      expect(screen.queryByRole('link', { name: /annul/i })).toBeNull();
       // Le reste de l'écran est rendu.
       expect(valeur('Client final')).toHaveTextContent('Maison Dupont');
     },
@@ -700,13 +701,17 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
     ATTENTE_CAS_MS,
   );
 
-  it(
-    'gestionnaire de lieux : aucun bouton, il n’annule pas (§06.05)',
-    async () => {
-      await afficher(EVENEMENT, 'gestionnaire_lieux');
+  it.each(['programmee', 'validee'])(
+    'gestionnaire de lieux, collecte %s : aucun bouton, il n’annule pas (§06.05)',
+    async (statut) => {
+      await afficher(
+        { ...EVENEMENT, collectes: [{ ...ZD, statut }] },
+        'gestionnaire_lieux',
+      );
 
-      expect(screen.queryByRole('button', { name: 'Annuler' })).toBeNull();
-      expect(screen.queryByRole('link', { name: 'Annuler' })).toBeNull();
+      // « Annuler » comme « Demander l'annulation ».
+      expect(screen.queryByRole('button', { name: /annul/i })).toBeNull();
+      expect(screen.queryByRole('link', { name: /annul/i })).toBeNull();
       // « Modifier » reste proposé.
       expect(
         screen.getByRole('link', { name: 'Modifier' }),
@@ -715,16 +720,20 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
     ATTENTE_CAS_MS,
   );
 
-  it.each(['admin_savr', 'ops_savr'])(
-    '%s : lien vers la fiche collecte Admin, aucune boîte',
-    async (role) => {
-      await afficher(EVENEMENT, role);
+  it.each([
+    ['admin_savr', 'programmee'],
+    ['ops_savr', 'programmee'],
+    ['admin_savr', 'validee'],
+  ])(
+    '%s, collecte %s : lien vers la fiche collecte Admin, aucune boîte',
+    async (role, statut) => {
+      await afficher({ ...EVENEMENT, collectes: [{ ...ZD, statut }] }, role);
 
       expect(screen.getByRole('link', { name: 'Annuler' })).toHaveAttribute(
         'href',
         '/admin/collectes/col-zd',
       );
-      expect(screen.queryByRole('button', { name: 'Annuler' })).toBeNull();
+      expect(screen.queryByRole('button', { name: /annul/i })).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

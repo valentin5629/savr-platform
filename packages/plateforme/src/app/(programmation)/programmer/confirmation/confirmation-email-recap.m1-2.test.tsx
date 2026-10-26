@@ -135,6 +135,9 @@ describe('M1.2/confirmation_email_recap_issue_reelle — écran de confirmation'
         ),
       ).toBeInTheDocument();
       expect(screen.queryByText(/email récapitulatif/i)).toBeNull();
+      // La page n'affirme pas qu'un événement illisible est programmé.
+      expect(screen.queryByText('Événement programmé')).toBeNull();
+      expect(screen.queryByText(/est programmé/)).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

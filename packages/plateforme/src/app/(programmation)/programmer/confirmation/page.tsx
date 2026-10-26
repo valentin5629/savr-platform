@@ -231,7 +231,7 @@ function Ligne({ label, children }: { label: string; children: ReactNode }) {
   return (
     <InfoItem
       label={label}
-      className="grid gap-0.5 py-1.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4"
+      className="grid gap-0.5 py-1.5 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-4"
       valueClassName={cn(VALEUR_RECAP, 'font-normal')}
     >
       {children}
@@ -288,7 +288,7 @@ function CarteCollecte({
           <dl>
             <div>
               <dt className="sr-only">Date et heure</dt>
-              <dd className="text-base font-bold text-savr-neutral-900">
+              <dd className="text-[15px] font-bold text-savr-neutral-900">
                 {formatDateHeure(c)}
               </dd>
             </div>
@@ -473,7 +473,7 @@ function ConfirmationContent() {
   const etatEmail = evenement?.email_recap ?? null;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-7">
       {error && (
         <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
           {error}
@@ -483,14 +483,17 @@ function ConfirmationContent() {
       {/* Deux colonnes dès `lg` : le détail à gauche, la gestion à droite.
           Le panneau suit le titre dans la page : sur téléphone, il s'affiche
           sous le titre, avant le détail. */}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
+      <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
         <div className="lg:col-start-1 lg:row-start-1">
-          <Text
-            variant="overline"
-            className="font-semibold uppercase tracking-wide"
-          >
-            Événement programmé
-          </Text>
+          {/* Événement non lu : la page n'affirme pas qu'il est programmé. */}
+          {evenement && (
+            <Text
+              variant="overline"
+              className="font-semibold uppercase tracking-wide"
+            >
+              Événement programmé
+            </Text>
+          )}
           <Heading
             level={1}
             size="2xl"

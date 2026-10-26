@@ -20,7 +20,10 @@ import {
   fabriquerRapportEvenement,
   type TypeRapportEvenement,
 } from '@/lib/pdf/rapports-evenement.js';
-import { habillerRadar } from '@/lib/pdf/rapport-radar.js';
+import {
+  filtresBenchmarkDuRadar,
+  habillerRadar,
+} from '@/lib/pdf/rapport-radar.js';
 
 import {
   chargerBenchmarkEvenement,
@@ -30,8 +33,6 @@ import {
 
 const NON_TROUVE = () =>
   NextResponse.json({ error: 'Événement non trouvé' }, { status: 404 });
-
-const ouNull = (a: string[]) => (a.length ? a : null);
 
 async function evenementOuRefus(
   supabase: ReturnType<typeof createSupabaseServerClient>,
@@ -94,22 +95,28 @@ export async function repondreRapportEvenement(
   if ('refus' in lu) return lu.refus;
   const evenement = lu.evenement;
 
-  const version = await lireVersionDemandee(
-    req,
-    async (filtres) => {
-      if (type !== 'zero_dechet') return { etat: 'sans_radar' };
-      const r = await chargerBenchmarkEvenement(supabase, ctx, evenement, {
-        tailleCodes: ouNull(filtres.taille_evenement_codes),
-        typeIds: ouNull(filtres.type_evenement_ids),
-        lieuIds: ouNull(filtres.lieu_ids),
-        traiteurIds: null,
-      });
-      return r.etat === 'ok' ? habillerRadar(supabase, filtres, r.flux) : r;
-    },
-    evenementLog,
-    undefined,
-    'cet événement',
-  );
+  // Radar au choix du demandeur sur le seul rapport ZD ; le rapport de don
+  // n'en a jamais (son corps n'est pas lu).
+  const version =
+    type === 'zero_dechet'
+      ? await lireVersionDemandee(
+          req,
+          async (filtres) => {
+            const r = await chargerBenchmarkEvenement(
+              supabase,
+              ctx,
+              evenement,
+              filtresBenchmarkDuRadar(filtres),
+            );
+            return r.etat === 'ok'
+              ? habillerRadar(supabase, filtres, r.flux)
+              : r;
+          },
+          evenementLog,
+          undefined,
+          'cet événement',
+        )
+      : { version: { avecRadar: false as const } };
   if ('refus' in version) return version.refus;
 
   return fabriquerRapportEvenement({

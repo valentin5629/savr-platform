@@ -141,7 +141,7 @@ export function esc(s: string | number | undefined | null): string {
 export const LOGO_DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><mask id="rz-logo-masque"><image href="${SAVR_LOGO_MASK}" width="551" height="150" preserveAspectRatio="none"/></mask><clipPath id="rz-logo-coin"><rect x="52" y="0" width="46" height="98"/><rect x="52" y="52" width="98" height="46"/></clipPath></defs></svg>`;
 
 /** Croix « + » du logo Savr ; `base` = couleur du logo, coin vert (contexte ZD). */
-export function logoSavr(taille: number, base: string): string {
+function logoSavr(taille: number, base: string): string {
   return `<svg class="rz-logo-savr" viewBox="2 2 146 146" width="${taille}" height="${taille}" role="img" aria-label="Savr"><rect width="551" height="150" fill="${base}" mask="url(#rz-logo-masque)"/><g clip-path="url(#rz-logo-coin)"><rect width="551" height="150" fill="#16a34a" mask="url(#rz-logo-masque)"/></g></svg>`;
 }
 

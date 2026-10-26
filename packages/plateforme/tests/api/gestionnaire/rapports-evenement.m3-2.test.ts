@@ -516,13 +516,17 @@ describe('M3.2 — rapport de don cumulé (AG)', () => {
     expect(payloadEnvoye().collectes[0]!.attestation_numero).toBeNull();
   });
 
-  it('EVT/api_ag_jamais_de_radar — jamais de radar sur le rapport de don', async () => {
+  it('EVT/api_ag_jamais_de_radar — jamais de radar sur le rapport de don : une demande de radar est ignorée', async () => {
     evenementVisible();
+    evenementAdmin();
+    collectesAgVisibles();
     const res = await rapport('rapport-de-don', {
       options: { benchmark: true },
     });
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(200);
     expect(mockParc).not.toHaveBeenCalled();
+    expect(payloadEnvoye()).not.toHaveProperty('benchmark_flux');
+    expect(payloadEnvoye()).not.toHaveProperty('options');
   });
 });
 

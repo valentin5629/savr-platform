@@ -12,7 +12,9 @@
 
 import {
   CSS_MARQUE,
+  INSECABLE,
   LOGO_DEFS,
+  dec,
   enTeteRapport,
   entier,
   esc,
@@ -52,7 +54,6 @@ export interface RapportDonEvenementData extends EnTeteRapportData {
 }
 
 const VIDE = '—';
-const INSECABLE = ' ';
 
 function piece(c: LigneCollecteDon): string {
   if (c.sans_excedent) return 'Événement sans excédent';
@@ -71,7 +72,7 @@ export function renderRapportDonEvenement(
   );
   const repasParPax =
     data.nb_pax && data.nb_pax > 0
-      ? (data.repas_donnes / data.nb_pax).toFixed(2).replace('.', ',')
+      ? dec(data.repas_donnes / data.nb_pax, 2)
       : VIDE;
 
   const associations = data.associations

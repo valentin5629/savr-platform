@@ -685,7 +685,7 @@ describe('M3.1 / annulation', () => {
       await import('@/app/api/v1/traiteur/collectes/[id]/annulation/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/traiteur/collectes/c2/annulation', {
-        motif: 'doublon',
+        motif: 'doublon <b>urgent</b>',
       }),
       { params: Promise.resolve({ id: 'c2' }) },
     );
@@ -695,7 +695,10 @@ describe('M3.1 / annulation', () => {
     expect(mockSendEmail).toHaveBeenCalledWith(
       'admin_demande_annulation',
       'contact@gosavr.io',
-      expect.objectContaining({ demandeur_nom: 'claire@savr-test.local' }),
+      expect.objectContaining({
+        demandeur_nom: 'claire@savr-test.local',
+        motif: 'doublon &lt;b&gt;urgent&lt;/b&gt;',
+      }),
     );
   });
 

@@ -148,12 +148,13 @@ export async function POST(
     envoyerOrdresSansAttendre(c.id);
 
     const demandeur = await lireCompte(admin, auth.ctx.userId);
+    // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
     await sendEmail('admin_demande_annulation', 'contact@gosavr.io', {
-      organisation_nom: orgNom ?? '',
+      organisation_nom: escapeHtml(orgNom ?? ''),
       demandeur_nom: escapeHtml(demandeur?.nomComplet ?? ''),
       collecte_ref: id,
       date_collecte: c.date_collecte ?? '',
-      motif,
+      motif: escapeHtml(motif),
     });
     return NextResponse.json({ data: { statut: 'annulation_demandee' } });
   }

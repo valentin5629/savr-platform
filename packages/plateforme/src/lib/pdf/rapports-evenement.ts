@@ -104,9 +104,11 @@ const SELECT_ZD = `id, type, statut, date_collecte, heure_collecte, pax,
   bordereaux_savr(numero, version)`;
 
 /** Collectes AG, lues sous l'identité du demandeur (cf. en-tête). */
-const selectAg = (role: string) =>
+// Alias explicite `attributions_lues` posé sur la relation que le rôle lit : la
+// vue pour le gestionnaire (fragment déjà aliasé), la table pour les autres.
+export const selectAg = (role: string) =>
   `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
-  ${embedAttributionsAg(role).replace(/^attributions_antgaspi/, 'attributions_lues')},
+  attributions_lues:${embedAttributionsAg(role).replace(/^attributions_antgaspi:/, '')},
   attestations_don(numero, version, pdf_url, eligible_at)`;
 
 const dateFr = (v: string | null | undefined) => (v ? formatDateParis(v) : '');

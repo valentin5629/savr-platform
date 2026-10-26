@@ -197,7 +197,10 @@ function collectesZdAdmin() {
 }
 
 /** Collectes AG relues SOUS L'IDENTITÉ du demandeur (vue du gestionnaire). */
-function collectesAgVisibles(pdfUrl: string | null = 'attestations/a.pdf') {
+function collectesAgVisibles(
+  pdfUrl: string | null = 'attestations/a.pdf',
+  eligibleAt = '2020-01-01T00:00:00Z',
+) {
   rls.results.collectes = {
     data: [
       {
@@ -229,7 +232,7 @@ function collectesAgVisibles(pdfUrl: string | null = 'attestations/a.pdf') {
             numero: 'ATT-DON-2026-00001',
             version: 1,
             pdf_url: pdfUrl,
-            eligible_at: '2020-01-01T00:00:00Z',
+            eligible_at: eligibleAt,
           },
         ],
       },
@@ -500,10 +503,15 @@ describe('M3.2 — rapport de don cumulé (AG)', () => {
     ]);
   });
 
-  it('EVT/api_ag_attestation_embargo — attestation pas encore téléchargeable (aucun PDF) : son numéro n’est pas imprimé', async () => {
+  it('EVT/api_ag_attestation_embargo — attestation pas encore téléchargeable (aucun PDF, ou PDF sous embargo) : son numéro n’est pas imprimé', async () => {
     evenementVisible();
     evenementAdmin();
     collectesAgVisibles(null);
+    await rapport('rapport-de-don');
+    expect(payloadEnvoye().collectes[0]!.attestation_numero).toBeNull();
+
+    mockPdf.mockClear();
+    collectesAgVisibles('attestations/a.pdf', '2999-01-01T00:00:00Z');
     await rapport('rapport-de-don');
     expect(payloadEnvoye().collectes[0]!.attestation_numero).toBeNull();
   });
@@ -515,6 +523,20 @@ describe('M3.2 — rapport de don cumulé (AG)', () => {
     });
     expect(res.status).toBe(422);
     expect(mockParc).not.toHaveBeenCalled();
+  });
+});
+
+describe('M3.2 — lecture AG par rôle (fabrication commune)', () => {
+  it('EVT/api_ag_select_par_role — alias attributions_lues sur la vue (gestionnaire) ou la table (autres rôles)', async () => {
+    const { selectAg } = await import('@/lib/pdf/rapports-evenement.js');
+    expect(selectAg('gestionnaire_lieux')).toContain(
+      'attributions_lues:v_attributions_gestionnaire(',
+    );
+    for (const role of ['traiteur_manager', 'traiteur_commercial', 'agence']) {
+      const texte = selectAg(role);
+      expect(texte).toContain('attributions_lues:attributions_antgaspi(');
+      expect(texte).not.toContain('v_attributions_gestionnaire');
+    }
   });
 });
 

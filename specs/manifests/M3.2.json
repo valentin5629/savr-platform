@@ -1457,7 +1457,7 @@
       "id": "M3.2-evenement-rapport-de-don-cumule",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:351",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-de-don/route.ts + packages/plateforme/src/lib/pdf/rapports-evenement.ts + apps/pdf-renderer/src/templates/rapport-don-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (DocumentsEvenement)",
-      "test": "EVT/api_ag_recapitulatif + EVT/api_ag_attestation_embargo + EVT/api_ag_jamais_de_radar + EVT/rapport_cumule_ag + titre « Rapport de don », sous-titre « Récapitulatif », mention sans valeur fiscale + renvoie aux attestations : numéro émis",
+      "test": "EVT/api_ag_recapitulatif + EVT/api_ag_attestation_embargo + EVT/api_ag_jamais_de_radar + EVT/api_ag_select_par_role + EVT/rapport_cumule_ag + titre « Rapport de don », sous-titre « Récapitulatif », mention sans valeur fiscale + renvoie aux attestations : numéro émis",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
       "libelle": "Rapport de don de l'événement (Anti-Gaspi), décision Val 2026-10-26 : récapitulatif SANS valeur fiscale des collectes AG réalisées (repas, CO₂ évité, repas par association), qui renvoie aux attestations de don numérotées de chaque collecte, seules pièces fiscales (numéro imprimé une fois l'attestation téléchargeable) ; une collecte sans excédent y figure à 0 repas. Fabriqué au clic, jamais stocké. Repas, associations et attestations relus sous l'identité du demandeur, par le chemin de la fiche collecte (vue v_attributions_gestionnaire pour le gestionnaire)."

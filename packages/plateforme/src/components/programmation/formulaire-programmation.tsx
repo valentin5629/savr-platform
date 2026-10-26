@@ -635,7 +635,7 @@ export function FormulaireProgrammation({
 
       {/* ── Écran 1 : Informations sur l'événement ── */}
       {step === 0 && (
-        <Card padding="lg" className="space-y-5">
+        <Card padding="lg" className={CARTE_FORMULAIRE}>
           <Heading level={2}>{ECRAN_EVENEMENT}</Heading>
 
           <FormField
@@ -844,7 +844,10 @@ export function FormulaireProgrammation({
 
           {/* Nombre de collectes souhaitées par type (décision Val 2026-10-22),
               au moins une au total, au plus 10 de chaque (B2-Q4). */}
-          <fieldset className="space-y-2">
+          {/* Espace triple (60 px au lieu de 20) avant le nombre de
+              collectes, pour le détacher du contrôle d'accès (retour Val du
+              2026-10-26). */}
+          <fieldset className="space-y-2 pt-10">
             <legend>
               <Label required>Nombre de collectes souhaitées</Label>
             </legend>
@@ -852,6 +855,7 @@ export function FormulaireProgrammation({
               <FormField
                 label={libelleCompletTypeCollecte('zero_dechet')}
                 htmlFor="nombre-zd"
+                className="text-center"
               >
                 <CompteurCollectes
                   id="nombre-zd"
@@ -863,6 +867,7 @@ export function FormulaireProgrammation({
               <FormField
                 label={libelleCompletTypeCollecte('anti_gaspi')}
                 htmlFor="nombre-ag"
+                className="text-center"
               >
                 <CompteurCollectes
                   id="nombre-ag"
@@ -900,7 +905,7 @@ export function FormulaireProgrammation({
       {/* ── Écran 2 : Informations sur les collectes (sans récapitulatif,
           décision Val 2026-10-16 : il est montré après confirmation) ── */}
       {step === 1 && (
-        <Card padding="lg" className="space-y-5">
+        <Card padding="lg" className={CARTE_FORMULAIRE}>
           <Heading level={2}>{ECRAN_COLLECTES}</Heading>
 
           {affichees.map((c, i) => {
@@ -1069,6 +1074,13 @@ export function FormulaireProgrammation({
   );
 }
 
+// Cartes des deux écrans : libellés des champs en gras et plus foncés que la
+// recette DS, pour mieux les distinguer des valeurs saisies (retour Val du
+// 2026-10-26, limité à ce formulaire). Seuls les libellés au-dessus d'un champ
+// (recette `field`, classe `block`) sont visés, pas ceux des cases à cocher.
+const CARTE_FORMULAIRE =
+  'space-y-5 [&_label.block]:font-bold [&_label.block]:text-savr-neutral-900';
+
 /**
  * Compteur − valeur + du nombre de collectes d'un type (retour Val du
  * 2026-10-26, modèle du sélecteur de voyageurs d'Expedia) : boutons ronds,
@@ -1090,7 +1102,7 @@ function CompteurCollectes({
   const bouton =
     'rounded-savr-full border border-savr-neutral-300 bg-savr-white text-savr-neutral-700 hover:border-savr-primary-500 hover:bg-savr-white hover:text-savr-primary-700';
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center justify-center gap-4">
       <IconButton
         aria-label={`Retirer une collecte ${libelle}`}
         className={bouton}

@@ -13,6 +13,14 @@
  * carte par collecte (date et heure, convives, type d'événement, contacts,
  * informations supplémentaires, statut, « Modifier », « Annuler la collecte »),
  * puis « Ajouter une collecte », « Programmer un autre événement », « Accueil ».
+ *
+ * Mise en page en deux colonnes (validation Val 2026-10-26, maquette v2) :
+ * sur-titre « Événement programmé », nom de l'événement en titre et lieu
+ * dessous ; panneau « Gérer votre événement » (confirmation, email, actions,
+ * « Retour au tableau de bord ») et « Besoin d'aide ? » ; « Votre événement »
+ * et « Vos N collectes » ; cartes « Zéro Déchet #1 » avec date courte,
+ * « Convives » (pax · type d'événement), contacts sur une ligne,
+ * « Instructions » (« Aucune » si vide), « Modifier » et « Annuler ».
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
@@ -123,11 +131,7 @@ async function afficher(corps: unknown, role = 'traiteur_manager') {
   etat.role = role;
   const fetchMock = serveur([corps]);
   render(<ConfirmationProgrammationPage />);
-  await screen.findByRole(
-    'heading',
-    { level: 1, name: /est programmé/ },
-    ATTENTE_UI,
-  );
+  await screen.findByRole('heading', { level: 1, name: 'Gala' }, ATTENTE_UI);
   return fetchMock;
 }
 
@@ -142,7 +146,7 @@ function valeur(libelle: string): HTMLElement {
   return valeurDans(document.body, libelle);
 }
 
-/** Carte d'une collecte, par son libellé (« Collecte Zéro Déchet #1 »). */
+/** Carte d'une collecte, par son libellé (« Zéro Déchet #1 »). */
 const carte = (libelle: string) =>
   screen.getByRole('region', { name: libelle });
 
@@ -155,13 +159,13 @@ describe('M1.2 / formulaire_simplifie — récapitulatif de l’écran de confir
       await afficher(EVENEMENT);
 
       expect(valeur('Client final')).toHaveTextContent('Maison Dupont');
-      expect(valeur('Lieu')).toHaveTextContent(
-        'Salle A — 1 rue Test, 75012 Paris',
-      );
-      const zd = carte('Collecte Zéro Déchet #1');
+      expect(
+        screen.getByText('Salle A — 1 rue Test, 75012 Paris'),
+      ).toBeInTheDocument();
+      const zd = carte('Zéro Déchet #1');
       expect(valeurDans(zd, 'Convives')).toHaveTextContent('1000');
       expect(valeurDans(zd, 'Date et heure')).toHaveTextContent(
-        '15 janvier 2030 à 08:30',
+        '15 janvier · 08:30',
       );
       const principal = valeurDans(zd, 'Contact principal');
       expect(principal).toHaveTextContent('Paul Arnaud');
@@ -194,7 +198,7 @@ describe('M1.2 / formulaire_simplifie — récapitulatif de l’écran de confir
         ],
       });
 
-      const zd = carte('Collecte Zéro Déchet #1');
+      const zd = carte('Zéro Déchet #1');
       expect(
         within(zd).queryByText('Contact de secours', { selector: 'dt' }),
       ).toBeNull();
@@ -212,11 +216,11 @@ describe('M1.2 / formulaire_simplifie — récapitulatif de l’écran de confir
       await afficher({ ...EVENEMENT, collectes: [ZD, AG] });
 
       expect(
-        valeurDans(carte('Collecte Zéro Déchet #1'), 'Date et heure'),
-      ).toHaveTextContent('15 janvier 2030 à 08:30');
+        valeurDans(carte('Zéro Déchet #1'), 'Date et heure'),
+      ).toHaveTextContent('15 janvier · 08:30');
       expect(
-        valeurDans(carte('Collecte Anti-Gaspi #1'), 'Date et heure'),
-      ).toHaveTextContent('16 janvier 2030 à 23:00');
+        valeurDans(carte('Anti-Gaspi #1'), 'Date et heure'),
+      ).toHaveTextContent('16 janvier · 23:00');
     },
     ATTENTE_CAS_MS,
   );
@@ -224,13 +228,17 @@ describe('M1.2 / formulaire_simplifie — récapitulatif de l’écran de confir
 
 describe('M1.2 / refonte_formulaire — page de confirmation : en-tête et récapitulatif de l’événement', () => {
   it(
-    'en-tête « Votre événement « Gala » est programmé »',
+    'en-tête : « Événement programmé », le nom de l’événement en titre, la confirmation dans le panneau',
     async () => {
       await afficher(EVENEMENT);
 
+      expect(screen.getByText('Événement programmé')).toBeInTheDocument();
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-        'Votre événement « Gala » est programmé',
+        /^Gala$/,
       );
+      expect(
+        screen.getByText(/^Votre événement est programmé\./),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -242,15 +250,15 @@ describe('M1.2 / refonte_formulaire — page de confirmation : en-tête et réca
 
       expect(valeur('Client final')).toHaveTextContent('Maison Dupont');
       expect(valeur('Référence interne')).toHaveTextContent('AFF-42');
-      expect(valeur('Lieu')).toHaveTextContent(
-        'Salle A — 1 rue Test, 75012 Paris',
-      );
+      expect(
+        screen.getByText('Salle A — 1 rue Test, 75012 Paris'),
+      ).toBeInTheDocument();
       expect(valeur('Contrôle d’accès')).toHaveTextContent(
         'Plaque et nom du chauffeur requis',
       );
-      const parType = valeur('Collectes');
-      expect(parType).toHaveTextContent('Zéro Déchet : 1');
-      expect(parType).toHaveTextContent('Anti-Gaspi : 1');
+      // Le nombre de collectes est dans « Vos N collectes », pas ici
+      // (Val 2026-10-26).
+      expect(screen.queryByText('Collectes', { selector: 'dt' })).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -269,7 +277,7 @@ describe('M1.2 / refonte_formulaire — page de confirmation : en-tête et réca
         screen.queryByText('Référence interne', { selector: 'dt' }),
       ).toBeNull();
       // Le reste du récapitulatif est rendu.
-      expect(valeur('Lieu')).toHaveTextContent('Salle A');
+      expect(valeur('Contrôle d’accès')).toHaveTextContent('Plaque');
     },
     ATTENTE_CAS_MS,
   );
@@ -285,7 +293,38 @@ describe('M1.2 / refonte_formulaire — page de confirmation : en-tête et réca
   );
 
   it(
-    'collecte annulée : ni comptée par type, ni dans « Nous réaliserons », mais sa carte reste avec son numéro',
+    'traiteur opérant choisi par une agence : affiché ; traiteur qui programme pour lui-même : omis',
+    async () => {
+      await afficher(
+        {
+          ...EVENEMENT,
+          organisation: { id: 'org-agence', nom: 'Agence Lumière' },
+          traiteur_operationnel: { id: 'org-traiteur', nom: 'Traiteur Martin' },
+        },
+        'agence',
+      );
+      expect(valeur('Traiteur opérant')).toHaveTextContent('Traiteur Martin');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'traiteur opérant = organisation programmatrice : ligne omise',
+    async () => {
+      await afficher({
+        ...EVENEMENT,
+        organisation: { id: 'org-traiteur', nom: 'Traiteur Martin' },
+        traiteur_operationnel: { id: 'org-traiteur', nom: 'Traiteur Martin' },
+      });
+      expect(
+        screen.queryByText('Traiteur opérant', { selector: 'dt' }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'collecte annulée : ni comptée par type, ni dans « Vos N collectes », mais sa carte reste avec son numéro',
     async () => {
       await afficher({
         ...EVENEMENT,
@@ -301,17 +340,14 @@ describe('M1.2 / refonte_formulaire — page de confirmation : en-tête et réca
         ],
       });
 
-      const parType = valeur('Collectes');
-      expect(parType).toHaveTextContent('Zéro Déchet : 1');
-      expect(parType).toHaveTextContent('Anti-Gaspi : 1');
       expect(
         screen.getByRole('heading', {
           level: 2,
-          name: 'Nous réaliserons 2 collectes',
+          name: 'Vos 2 collectes',
         }),
       ).toBeInTheDocument();
       expect(
-        within(carte('Collecte Zéro Déchet #2')).getByText('Annulée'),
+        within(carte('Zéro Déchet #2')).getByText('Annulée'),
       ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
@@ -325,7 +361,7 @@ describe('M1.2/pax_par_collecte — écran de confirmation : convives', () => {
     'une collecte : son pax, pas celui de l’événement',
     async () => {
       await afficher({ ...EVENEMENT, collectes: [{ ...ZD, pax: 650 }] });
-      const convives = valeurDans(carte('Collecte Zéro Déchet #1'), 'Convives');
+      const convives = valeurDans(carte('Zéro Déchet #1'), 'Convives');
       expect(convives).toHaveTextContent('650');
       expect(convives).not.toHaveTextContent('1000');
     },
@@ -342,12 +378,12 @@ describe('M1.2/pax_par_collecte — écran de confirmation : convives', () => {
           { ...AG, pax: 400 },
         ],
       });
-      expect(
-        valeurDans(carte('Collecte Zéro Déchet #1'), 'Convives'),
-      ).toHaveTextContent('700');
-      expect(
-        valeurDans(carte('Collecte Anti-Gaspi #1'), 'Convives'),
-      ).toHaveTextContent('400');
+      expect(valeurDans(carte('Zéro Déchet #1'), 'Convives')).toHaveTextContent(
+        '700',
+      );
+      expect(valeurDans(carte('Anti-Gaspi #1'), 'Convives')).toHaveTextContent(
+        '400',
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -369,14 +405,14 @@ describe('M1.2/pax_par_collecte — écran de confirmation : convives', () => {
           { ...ZD, pax: 700 },
         ],
       });
-      const premiere = carte('Collecte Zéro Déchet #1');
+      const premiere = carte('Zéro Déchet #1');
       expect(valeurDans(premiere, 'Date et heure')).toHaveTextContent(
-        '15 janvier 2030 à 08:30',
+        '15 janvier · 08:30',
       );
       expect(valeurDans(premiere, 'Convives')).toHaveTextContent('700');
-      const seconde = carte('Collecte Zéro Déchet #2');
+      const seconde = carte('Zéro Déchet #2');
       expect(valeurDans(seconde, 'Date et heure')).toHaveTextContent(
-        '16 janvier 2030 à 22:00',
+        '16 janvier · 22:00',
       );
       expect(valeurDans(seconde, 'Convives')).toHaveTextContent('500');
     },
@@ -386,14 +422,14 @@ describe('M1.2/pax_par_collecte — écran de confirmation : convives', () => {
 
 describe('M1.2 / refonte_formulaire — page de confirmation : une carte par collecte', () => {
   it(
-    'une collecte : « Nous réaliserons 1 collecte », au singulier',
+    'une collecte : « Votre collecte », au singulier',
     async () => {
       await afficher(EVENEMENT);
 
       expect(
         screen.getByRole('heading', {
           level: 2,
-          name: 'Nous réaliserons 1 collecte',
+          name: 'Votre collecte',
         }),
       ).toBeInTheDocument();
     },
@@ -401,7 +437,7 @@ describe('M1.2 / refonte_formulaire — page de confirmation : une carte par col
   );
 
   it(
-    'trois collectes : « Nous réaliserons 3 collectes », une carte chacune, Zéro Déchet puis Anti-Gaspi',
+    'trois collectes : « Vos 3 collectes », une carte chacune, Zéro Déchet puis Anti-Gaspi',
     async () => {
       await afficher({
         ...EVENEMENT,
@@ -415,16 +451,12 @@ describe('M1.2 / refonte_formulaire — page de confirmation : une carte par col
       expect(
         screen.getByRole('heading', {
           level: 2,
-          name: 'Nous réaliserons 3 collectes',
+          name: 'Vos 3 collectes',
         }),
       ).toBeInTheDocument();
       expect(
         screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent),
-      ).toEqual([
-        'Collecte Zéro Déchet #1',
-        'Collecte Zéro Déchet #2',
-        'Collecte Anti-Gaspi #1',
-      ]);
+      ).toEqual(['Zéro Déchet #1', 'Zéro Déchet #2', 'Anti-Gaspi #1']);
     },
     ATTENTE_CAS_MS,
   );
@@ -434,31 +466,27 @@ describe('M1.2 / refonte_formulaire — page de confirmation : une carte par col
     async () => {
       await afficher({ ...EVENEMENT, collectes: [ZD, AG] });
 
-      const zd = carte('Collecte Zéro Déchet #1');
+      const zd = carte('Zéro Déchet #1');
       expect(valeurDans(zd, 'Date et heure')).toHaveTextContent(
-        '15 janvier 2030 à 08:30',
+        '15 janvier · 08:30',
       );
       expect(valeurDans(zd, 'Convives')).toHaveTextContent('1000');
-      expect(valeurDans(zd, 'Type d’événement')).toHaveTextContent(
-        'Cocktail apéritif',
-      );
+      expect(valeurDans(zd, 'Convives')).toHaveTextContent('Cocktail apéritif');
       expect(valeurDans(zd, 'Contact principal')).toHaveTextContent(
         'Paul Arnaud',
       );
       expect(valeurDans(zd, 'Contact de secours')).toHaveTextContent(
         'Léa Martin',
       );
-      expect(valeurDans(zd, 'Informations supplémentaires')).toHaveTextContent(
+      expect(valeurDans(zd, 'Instructions')).toHaveTextContent(
         'Sonner interphone B au RDC',
       );
       // Badge client d'une collecte `programmee`.
       expect(within(zd).getByText('Créée')).toBeInTheDocument();
 
       // Chaque carte porte SES contacts et SON type d'événement.
-      const ag = carte('Collecte Anti-Gaspi #1');
-      expect(valeurDans(ag, 'Type d’événement')).toHaveTextContent(
-        'Repas assis',
-      );
+      const ag = carte('Anti-Gaspi #1');
+      expect(valeurDans(ag, 'Convives')).toHaveTextContent('Repas assis');
       const principalAg = valeurDans(ag, 'Contact principal');
       expect(principalAg).toHaveTextContent('Nina Roux');
       expect(
@@ -469,16 +497,13 @@ describe('M1.2 / refonte_formulaire — page de confirmation : une carte par col
   );
 
   it(
-    'informations supplémentaires non renseignées : omises',
+    'informations supplémentaires non renseignées : « Aucune », jamais une ligne vide',
     async () => {
       await afficher({ ...EVENEMENT, collectes: [ZD, AG] });
 
       expect(
-        within(carte('Collecte Anti-Gaspi #1')).queryByText(
-          'Informations supplémentaires',
-          { selector: 'dt' },
-        ),
-      ).toBeNull();
+        valeurDans(carte('Anti-Gaspi #1'), 'Instructions'),
+      ).toHaveTextContent(/^Aucune$/);
     },
     ATTENTE_CAS_MS,
   );
@@ -511,12 +536,12 @@ describe('M1.2 / formulaire_simplifie — bouton « Modifier »', () => {
       await afficher({ ...EVENEMENT, collectes: [ZD, AG] });
 
       expect(
-        within(carte('Collecte Zéro Déchet #1')).getByRole('link', {
+        within(carte('Zéro Déchet #1')).getByRole('link', {
           name: 'Modifier',
         }),
       ).toHaveAttribute('href', '/traiteur/collectes?collecte=col-zd&edit=1');
       expect(
-        within(carte('Collecte Anti-Gaspi #1')).getByRole('link', {
+        within(carte('Anti-Gaspi #1')).getByRole('link', {
           name: 'Modifier',
         }),
       ).toHaveAttribute('href', '/traiteur/collectes?collecte=col-ag&edit=1');
@@ -524,15 +549,14 @@ describe('M1.2 / formulaire_simplifie — bouton « Modifier »', () => {
     ATTENTE_CAS_MS,
   );
 
-  it(
-    'rôle inconnu (session illisible) : pas de bouton plutôt qu’un lien cassé',
-    async () => {
-      await afficher(EVENEMENT, '');
+  it.each(['programmee', 'validee'])(
+    'rôle inconnu (session illisible), collecte %s : pas de bouton plutôt qu’un lien cassé',
+    async (statut) => {
+      await afficher({ ...EVENEMENT, collectes: [{ ...ZD, statut }] }, '');
 
       expect(screen.queryByRole('link', { name: 'Modifier' })).toBeNull();
-      expect(
-        screen.queryByRole('button', { name: 'Annuler la collecte' }),
-      ).toBeNull();
+      expect(screen.queryByRole('button', { name: /annul/i })).toBeNull();
+      expect(screen.queryByRole('link', { name: /annul/i })).toBeNull();
       // Le reste de l'écran est rendu.
       expect(valeur('Client final')).toHaveTextContent('Maison Dupont');
     },
@@ -555,6 +579,8 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
     ['traiteur_manager', '/api/v1/traiteur/collectes/col-zd/annulation'],
     ['traiteur_commercial', '/api/v1/traiteur/collectes/col-zd/annulation'],
     ['agence', '/api/v1/agence/collectes/col-zd/annulation'],
+    // Ses propres programmations (décision Val 2026-10-26).
+    ['gestionnaire_lieux', '/api/v1/gestionnaire/collectes/col-zd/annulation'],
   ])(
     '%s : la boîte d’annulation s’ouvre, l’annulation part sur %s, puis la carte et le compte sont relus',
     async (role, route) => {
@@ -566,13 +592,13 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
       render(<ConfirmationProgrammationPage />);
       await screen.findByRole(
         'heading',
-        { level: 2, name: 'Nous réaliserons 2 collectes' },
+        { level: 2, name: 'Vos 2 collectes' },
         ATTENTE_UI,
       );
 
       fireEvent.click(
-        within(carte('Collecte Zéro Déchet #1')).getByRole('button', {
-          name: 'Annuler la collecte',
+        within(carte('Zéro Déchet #1')).getByRole('button', {
+          name: 'Annuler',
         }),
       );
       const boite = screen.getByRole('dialog', {
@@ -589,7 +615,7 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
       await waitFor(
         () =>
           expect(
-            within(carte('Collecte Zéro Déchet #1')).getByText('Annulée'),
+            within(carte('Zéro Déchet #1')).getByText('Annulée'),
           ).toBeInTheDocument(),
         ATTENTE_UI,
       );
@@ -605,17 +631,16 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
       ).toHaveLength(2);
       expect(screen.queryByRole('dialog')).toBeNull();
       expect(
-        within(carte('Collecte Zéro Déchet #1')).queryByRole('button', {
-          name: 'Annuler la collecte',
+        within(carte('Zéro Déchet #1')).queryByRole('button', {
+          name: 'Annuler',
         }),
       ).toBeNull();
       expect(
         screen.getByRole('heading', {
           level: 2,
-          name: 'Nous réaliserons 1 collecte',
+          name: 'Votre collecte',
         }),
       ).toBeInTheDocument();
-      expect(valeur('Collectes')).not.toHaveTextContent('Zéro Déchet');
     },
     ATTENTE_CAS_MS,
   );
@@ -661,9 +686,7 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
     async () => {
       await afficher({ ...EVENEMENT, collectes: [AG] });
 
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Annuler la collecte' }),
-      );
+      fireEvent.click(screen.getByRole('button', { name: 'Annuler' }));
       expect(screen.getByTestId('mention-credit-ag')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
@@ -680,13 +703,11 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
       render(<ConfirmationProgrammationPage />);
       await screen.findByRole(
         'heading',
-        { level: 1, name: /est programmé/ },
+        { level: 1, name: 'Gala' },
         ATTENTE_UI,
       );
 
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Annuler la collecte' }),
-      );
+      fireEvent.click(screen.getByRole('button', { name: 'Annuler' }));
       fireEvent.click(
         screen.getByRole('button', { name: 'Confirmer l’annulation' }),
       );
@@ -699,7 +720,7 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
         ),
       ).toBeInTheDocument();
       expect(
-        within(carte('Collecte Zéro Déchet #1')).getByText('Créée'),
+        within(carte('Zéro Déchet #1')).getByText('Créée'),
       ).toBeInTheDocument();
       // Aucune relecture de l'événement après un refus.
       expect(
@@ -709,18 +730,20 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
     ATTENTE_CAS_MS,
   );
 
-  it(
-    'gestionnaire de lieux : aucun bouton, il n’annule pas (§06.05)',
-    async () => {
-      await afficher(EVENEMENT, 'gestionnaire_lieux');
+  it.each([
+    ['programmee', 'Annuler'],
+    ['validee', 'Demander l’annulation'],
+  ])(
+    'gestionnaire de lieux, collecte %s : « %s » sur sa programmation, à côté de « Modifier » (Val 2026-10-26)',
+    async (statut, libelle) => {
+      await afficher(
+        { ...EVENEMENT, collectes: [{ ...ZD, statut }] },
+        'gestionnaire_lieux',
+      );
 
-      expect(
-        screen.queryByRole('button', { name: 'Annuler la collecte' }),
-      ).toBeNull();
-      expect(
-        screen.queryByRole('link', { name: 'Annuler la collecte' }),
-      ).toBeNull();
-      // « Modifier » reste proposé.
+      expect(screen.getByRole('button', { name: libelle })).toBeInTheDocument();
+      // Pas de lien vers la fiche Admin : la boîte de son espace.
+      expect(screen.queryByRole('link', { name: /annul/i })).toBeNull();
       expect(
         screen.getByRole('link', { name: 'Modifier' }),
       ).toBeInTheDocument();
@@ -728,17 +751,20 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
     ATTENTE_CAS_MS,
   );
 
-  it.each(['admin_savr', 'ops_savr'])(
-    '%s : lien vers la fiche collecte Admin, aucune boîte',
-    async (role) => {
-      await afficher(EVENEMENT, role);
+  it.each([
+    ['admin_savr', 'programmee'],
+    ['ops_savr', 'programmee'],
+    ['admin_savr', 'validee'],
+  ])(
+    '%s, collecte %s : lien vers la fiche collecte Admin, aucune boîte',
+    async (role, statut) => {
+      await afficher({ ...EVENEMENT, collectes: [{ ...ZD, statut }] }, role);
 
-      expect(
-        screen.getByRole('link', { name: 'Annuler la collecte' }),
-      ).toHaveAttribute('href', '/admin/collectes/col-zd');
-      expect(
-        screen.queryByRole('button', { name: 'Annuler la collecte' }),
-      ).toBeNull();
+      expect(screen.getByRole('link', { name: 'Annuler' })).toHaveAttribute(
+        'href',
+        '/admin/collectes/col-zd',
+      );
+      expect(screen.queryByRole('button', { name: /annul/i })).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -757,9 +783,7 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
       expect(
         screen.queryByRole('button', { name: /annulation|Annuler/ }),
       ).toBeNull();
-      expect(
-        screen.queryByRole('link', { name: 'Annuler la collecte' }),
-      ).toBeNull();
+      expect(screen.queryByRole('link', { name: 'Annuler' })).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -782,10 +806,27 @@ describe('M1.2 / formulaire_simplifie — le reste de l’écran est conservé',
       expect(
         screen.getByRole('link', { name: 'Programmer un autre événement' }),
       ).toHaveAttribute('href', '/programmer/nouveau');
-      expect(screen.getByRole('link', { name: 'Accueil' })).toHaveAttribute(
-        'href',
-        '/',
-      );
+      expect(
+        screen.getByRole('link', { name: 'Retour au tableau de bord' }),
+      ).toHaveAttribute('href', '/');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'date de la carte avec le jour de la semaine, et « Besoin d’aide ? » avec le numéro de l’équipe Savr',
+    async () => {
+      await afficher(EVENEMENT);
+
+      expect(
+        valeurDans(carte('Zéro Déchet #1'), 'Date et heure'),
+      ).toHaveTextContent('Mardi 15 janvier · 08:30');
+      const aide = screen
+        .getByRole('heading', { level: 2, name: 'Besoin d’aide ?' })
+        .closest('div') as HTMLElement;
+      expect(
+        within(aide).getByRole('link', { name: '07 61 91 29 97' }),
+      ).toHaveAttribute('href', 'tel:0761912997');
     },
     ATTENTE_CAS_MS,
   );

@@ -447,7 +447,14 @@
     "M3.2/evenement_fiche_rechargement_en_echec_garde_le_bilan",
     "M0.8/modal_verrou_defilement_soeurs_demontees_ensemble",
     "M0.8/modal_verrou_defilement_ordre_quelconque",
-    "M0.8/modal_verrou_defilement_valeur_initiale_rendue"
+    "M0.8/modal_verrou_defilement_valeur_initiale_rendue",
+    "M3.2/gestionnaire_annulation_directe",
+    "M3.2/gestionnaire_annulation_demande",
+    "M3.2/gestionnaire_annulation_hors_programmations_403",
+    "M3.2/gestionnaire_annulation_statut_terminal_422",
+    "M3.2/gestionnaire_annulation_collecte_introuvable_404",
+    "M3.2/gestionnaire_annulation_role_403",
+    "M3.2/fiche_popup_gestionnaire_annulation_sa_programmation"
   ],
   "deliverables": [
     {
@@ -946,7 +953,15 @@
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.2/fiche_popup_gestionnaire_sans_annulation",
       "statut": "implemented",
-      "libelle": "Pied gestionnaire : jamais d'annulation (« la gestion des collectes reste exclusive au traiteur ») ; « Modifier la collecte » actif sur ses propres programmations, grisé sinon (miroir de la garde PATCH existante). API : M3.2/fiche_get_actions_gestionnaire. Écart §05 l.354 (« ne peut pas modifier ») vs synthèse M1.2 : droit existant conservé, tracé D7 (_Divergences/M3.1_20260929_popup-client-implementation.md)."
+      "libelle": "Pied gestionnaire sur la collecte d'un traiteur tenue sur ses lieux : aucun bouton d'annulation, « Modifier la collecte » grisé (miroir de la garde PATCH). Sur ses propres programmations, annulation : livrable M3.2-gestionnaire-annulation-ses-programmations (décision Val 2026-10-26, fiche _Divergences/M3.2_20261026_gestionnaire-annulation). API : M3.2/fiche_get_actions_gestionnaire. Écart §05 l.354 (« ne peut pas modifier ») vs synthèse M1.2 : droit existant conservé, tracé D7 (_Divergences/M3.1_20260929_popup-client-implementation.md)."
+    },
+    {
+      "id": "M3.2-gestionnaire-annulation-ses-programmations",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:353",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/annulation/route.ts, packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx, packages/plateforme/src/lib/routes.ts",
+      "test": "M3.2/gestionnaire_annulation_directe + M3.2/gestionnaire_annulation_demande + M3.2/gestionnaire_annulation_hors_programmations_403 + M3.2/gestionnaire_annulation_statut_terminal_422 + M3.2/gestionnaire_annulation_collecte_introuvable_404 + M3.2/gestionnaire_annulation_role_403 + M3.2/fiche_popup_gestionnaire_annulation_sa_programmation + M3.2/fiche_get_actions_gestionnaire",
+      "statut": "implemented",
+      "libelle": "Le gestionnaire de lieux annule ses propres programmations (organisation_id = la sienne), comme l'agence : annulation directe en brouillon ou programmée, demande d'annulation en validée, refus 422 sur un statut terminal ; 403 sur la collecte d'un traiteur tenue sur ses lieux (lisible sous RLS, refusée par la garde d'organisation avant toute écriture en service-role) ; frein de débit, envoi immédiat de l'ordre, emails Admin et traiteur opérationnel. Bouton sur la fiche collecte et sur la page de confirmation, jamais dans la liste Collectes (sans pictos, Val 2026-10-01). Décision Val 2026-10-26, fiche _Divergences/M3.2_20261026_gestionnaire-annulation."
     },
     {
       "id": "M3.2-popup-radar-tiers-lieu-rattache",

@@ -52,7 +52,7 @@ interface CarteCollecteProps {
 }
 
 // Ligne de l'équipe Savr à appeler pour une collecte à moins de 24 h.
-const TELEPHONE_SAVR = '07 61 91 29 97';
+export const TELEPHONE_SAVR = '07 61 91 29 97';
 const DELAI_APPEL_MS = 24 * 3600 * 1000;
 
 // Cadre de la carte (pas un badge) : ZD vert / AG navy — arbitrage Q1

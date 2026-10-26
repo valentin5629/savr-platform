@@ -3,7 +3,7 @@
  * le 2026-10-18 : liste des événements de ses lieux, et fiche événement au
  * bilan CONSOLIDÉ sur toutes ses collectes — en pop-up sur la liste depuis le
  * 2026-10-19 (« en modale comme les pages collectes »), en trois onglets depuis
- * le 2026-10-26 (Informations générales, Informations chauffeurs, Bilan &
+ * le 2026-10-26 (Informations générales, Informations collectes, Bilan &
  * documents) avec une frise Créé → Réalisé.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -552,7 +552,8 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       const entete = screen.getByTestId('evenement-entete');
       expect(entete).toHaveTextContent('Salon Équip’Hôtel');
       expect(entete).toHaveTextContent('Maison Lenôtre');
-      expect(entete).toHaveTextContent('Cocktail repas complet');
+      // Le type d'événement se lit sur chaque collecte, plus sur l'événement.
+      expect(entete).not.toHaveTextContent('Type d’événement');
       expect(entete).toHaveTextContent(/Déchets labo estimés\s*42\s*kg/);
       // Période de collecte : de la première à la dernière.
       expect(entete).toHaveTextContent(/Période de collecte.*→/);
@@ -625,6 +626,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
             fiches: [
               ficheCollecte({
                 id: 'c1',
+                type_evenement: { libelle: 'Cocktail apéritif' },
                 informations_supplementaires: 'Sonner à l’interphone',
                 contact_secours_nom: 'Paul Roux',
                 contact_secours_telephone: '07 00 00 00 01',
@@ -651,10 +653,20 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(lieu).toHaveTextContent('1 place de la Porte de Versailles');
       expect(lieu).toHaveTextContent(/Contrôle d’accès\s*Oui/);
       expect(lieu).toHaveTextContent('Quai de livraison n°3');
+      expect(screen.queryByTestId('carte-collecte')).toBeNull();
 
-      const cartes = screen.getAllByTestId('carte-collecte');
+      onglet('Informations collectes');
+      const cartes = await screen.findAllByTestId(
+        'carte-collecte',
+        undefined,
+        ATTENTE_UI,
+      );
       expect(cartes).toHaveLength(2);
       expect(cartes[0]).toHaveTextContent(/Collecte du Jeu 10 Sept · 23h00/i);
+      expect(cartes[0]).toHaveTextContent(/Pax\s*400\s*pax/);
+      expect(cartes[0]).toHaveTextContent(
+        /Type d’événement\s*Cocktail apéritif/,
+      );
       expect(cartes[0]).toHaveTextContent(/Contact principal\s*Léa Martin/);
       expect(
         within(cartes[0]!).getByRole('link', { name: '06 12 34 56 78' }),
@@ -711,7 +723,12 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(lieu).toHaveTextContent(
         /Instructions d’accès\s*Propre à chaque collecte/,
       );
-      const cartes = screen.getAllByTestId('carte-collecte');
+      onglet('Informations collectes');
+      const cartes = await screen.findAllByTestId(
+        'carte-collecte',
+        undefined,
+        ATTENTE_UI,
+      );
       expect(cartes[0]).toHaveTextContent(
         /Instructions d’accès\s*Quai de livraison n°3/,
       );
@@ -765,7 +782,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         body: JSON.stringify({ options: { benchmark: false } }),
       });
 
-      onglet('Informations chauffeurs');
+      onglet('Informations collectes');
       fireEvent.click(
         await screen.findByRole(
           'button',
@@ -841,9 +858,10 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       );
       monterFiche();
       await ficheChargee();
-      onglet('Informations chauffeurs');
+      onglet('Informations collectes');
+      // Carte unique par collecte : informations et logistique réunies.
       const cartes = await screen.findAllByTestId(
-        'bloc-logistique',
+        'carte-collecte',
         undefined,
         ATTENTE_UI,
       );
@@ -1011,8 +1029,16 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       ).toHaveTextContent(
         'Aucun résultat n’est encore disponible sur les 3 collectes de l’événement.',
       );
+      expect(screen.getByTestId('bandeau-bilan-attente')).toHaveTextContent(
+        'Votre bilan sera disponible après les collectes',
+      );
       expect(screen.getByTestId('bilan-consolide-zd')).toHaveTextContent(
         /Poids total collecté\s*—/,
+      );
+      // Même rendu que la fiche collecte : chiffres estompés, graphe en attente.
+      expect(screen.getAllByTestId('bilan-estompe')).toHaveLength(2);
+      expect(screen.getByTestId('bilan-consolide-zd')).toHaveTextContent(
+        'Répartition des tonnages',
       );
       expect(screen.queryByTestId('associations-beneficiaires')).toBeNull();
     },
@@ -1050,8 +1076,13 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(screen.getByTestId('evenement-entete')).toHaveTextContent(
         /Déchets labo estimés\s*—/,
       );
+      onglet('Informations collectes');
       expect(
-        screen.getByText('Aucune collecte rattachée à cet événement.'),
+        await screen.findByText(
+          'Aucune collecte rattachée à cet événement.',
+          undefined,
+          ATTENTE_UI,
+        ),
       ).toBeInTheDocument();
       onglet('Bilan & documents');
       expect(
@@ -1154,6 +1185,9 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         ATTENTE_UI,
       );
       expect(zd).toHaveTextContent(/Pesée par pax\s*—/);
+      // Un seul type : pas d'en-tête de type, le bilan se lit comme celui d'une
+      // collecte.
+      expect(zd).not.toHaveTextContent('réalisée sur');
       expect(
         screen.getByTestId('bilan-consolide-couverture'),
       ).toHaveTextContent(

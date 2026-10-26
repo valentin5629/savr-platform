@@ -66,7 +66,7 @@ interface BenchmarkFlux {
   benchmark_kg_pax: number | null;
 }
 
-function Estompe({
+export function Estompe({
   actif,
   children,
 }: {
@@ -85,7 +85,7 @@ function Estompe({
 }
 
 // Carte de graphe sans valeur (bilan à venir) : même titre que le graphe réel.
-function GrapheEnAttente({ titre }: { titre: string }) {
+export function GrapheEnAttente({ titre }: { titre: string }) {
   return (
     <Card padding="md" className="space-y-3">
       <Text
@@ -99,6 +99,33 @@ function GrapheEnAttente({ titre }: { titre: string }) {
         —
       </p>
     </Card>
+  );
+}
+
+/** Bandeau « bilan à venir » (repris par la fiche événement du gestionnaire). */
+export function BandeauBilanAttente({
+  titre,
+  children,
+}: {
+  titre: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      data-testid="bandeau-bilan-attente"
+      className="flex items-start gap-3 rounded-savr-lg bg-savr-primary-50 px-5 py-4"
+    >
+      <Clock3
+        className="mt-0.5 h-5 w-5 shrink-0 text-savr-primary-700"
+        aria-hidden="true"
+      />
+      <div>
+        <Text size="base" tone="ink" className="font-bold">
+          {titre}
+        </Text>
+        <Text tone="soft">{children}</Text>
+      </div>
+    </div>
   );
 }
 
@@ -271,25 +298,11 @@ export function BilanCollecte({
   return (
     <>
       {!bilanDispo && (
-        <div
-          data-testid="bandeau-bilan-attente"
-          className="flex items-start gap-3 rounded-savr-lg bg-savr-primary-50 px-5 py-4"
-        >
-          <Clock3
-            className="mt-0.5 h-5 w-5 shrink-0 text-savr-primary-700"
-            aria-hidden="true"
-          />
-          <div>
-            <Text size="base" tone="ink" className="font-bold">
-              Votre bilan sera disponible après la collecte
-            </Text>
-            <Text tone="soft">
-              {isAg
-                ? 'Repas donnés, CO₂ évité et association bénéficiaire s’afficheront ici le lendemain de la collecte.'
-                : 'Poids collectés, CO₂ évité, répartition par flux et comparaison avec des événements similaires s’afficheront ici le lendemain de la collecte.'}
-            </Text>
-          </div>
-        </div>
+        <BandeauBilanAttente titre="Votre bilan sera disponible après la collecte">
+          {isAg
+            ? 'Repas donnés, CO₂ évité et association bénéficiaire s’afficheront ici le lendemain de la collecte.'
+            : 'Poids collectés, CO₂ évité, répartition par flux et comparaison avec des événements similaires s’afficheront ici le lendemain de la collecte.'}
+        </BandeauBilanAttente>
       )}
 
       {sansExcedent ? (

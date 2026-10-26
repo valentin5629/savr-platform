@@ -275,18 +275,39 @@ export function OngletLogistique(props: PropsChauffeurs) {
   );
 }
 
+function CarteChauffeurs(props: PropsChauffeurs) {
+  const fenetre = STATUTS_LOGISTIQUE.includes(props.c.statut);
+  const tournees = props.c.tournees;
+  return (
+    <Card padding="md" className="space-y-4" data-testid="bloc-logistique">
+      <SectionHeader
+        icon={Truck}
+        title={
+          !fenetre
+            ? 'Logistique'
+            : tournees.length === 0
+              ? 'Chauffeur pas encore affecté'
+              : tournees.length > 1
+                ? 'Vos chauffeurs'
+                : 'Votre chauffeur'
+        }
+      />
+      <Chauffeurs {...props} />
+    </Card>
+  );
+}
+
 /**
- * Carte « chauffeur » d'une collecte : coordonnées par camion et demande
- * urgente. Reprise par la fiche événement du gestionnaire (une carte par
- * collecte, titrée par sa date, décision Val 2026-10-26).
+ * Coordonnées du chauffeur d'une collecte, par camion, et demande urgente.
+ * Reprises dans la carte de chaque collecte de la fiche événement du
+ * gestionnaire (décision Val 2026-10-26).
  */
-export function CarteChauffeurs({
+export function Chauffeurs({
   c,
   urgence,
   urgenceErreur,
   onDemanderUrgence,
-  titre,
-}: PropsChauffeurs & { titre?: string }) {
+}: PropsChauffeurs) {
   const fenetre = STATUTS_LOGISTIQUE.includes(c.statut);
   const tournees = c.tournees;
   const complet = coordonneesCompletes(tournees);
@@ -294,20 +315,7 @@ export function CarteChauffeurs({
     urgence === 'envoyee' || c.coordonnees_urgence_demandee;
 
   return (
-    <Card padding="md" className="space-y-4" data-testid="bloc-logistique">
-      <SectionHeader
-        icon={Truck}
-        title={
-          titre ??
-          (!fenetre
-            ? 'Logistique'
-            : tournees.length === 0
-              ? 'Chauffeur pas encore affecté'
-              : tournees.length > 1
-                ? 'Vos chauffeurs'
-                : 'Votre chauffeur')
-        }
-      />
+    <>
       {!fenetre ? (
         <EmptyState
           size="inline"
@@ -375,7 +383,9 @@ export function CarteChauffeurs({
       {fenetre && !complet && (
         <div
           data-testid="zone-urgence"
-          className="flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:items-center"
+          // Passe à la ligne quand la place manque (carte étroite de la fiche
+          // événement), sur une ligne sinon.
+          className="flex flex-wrap items-center gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3"
         >
           {demandeEnvoyee ? (
             <Text
@@ -397,7 +407,7 @@ export function CarteChauffeurs({
             </Text>
           ) : (
             <>
-              <Text variant="body" className="flex-1">
+              <Text variant="body" className="min-w-[14rem] flex-1">
                 Besoin de ces informations rapidement (accès au site, liste de
                 sécurité) ?
               </Text>
@@ -418,6 +428,6 @@ export function CarteChauffeurs({
           {urgenceErreur}
         </AlertBar>
       )}
-    </Card>
+    </>
   );
 }

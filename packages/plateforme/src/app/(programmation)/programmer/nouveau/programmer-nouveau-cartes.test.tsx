@@ -180,9 +180,25 @@ function envois(
 
 const continuer = () => screen.getByRole('button', { name: /Continuer/ });
 const champNombre = (type: 'zd' | 'ag') =>
-  document.getElementById(`nombre-${type}`) as HTMLInputElement;
-const demander = (type: 'zd' | 'ag', n: number | string) =>
-  fireEvent.change(champNombre(type), { target: { value: String(n) } });
+  document.getElementById(`nombre-${type}`) as HTMLOutputElement;
+const valeurNombre = (type: 'zd' | 'ag') =>
+  Number(champNombre(type).textContent);
+const LIBELLE_TYPE = { zd: 'Zéro Déchet (ZD)', ag: 'Anti-Gaspi (AG)' };
+const boutonNombre = (type: 'zd' | 'ag', sens: 'Ajouter' | 'Retirer') =>
+  screen.getByRole('button', {
+    name: `${sens} une collecte ${LIBELLE_TYPE[type]}`,
+  });
+/** Compteur − / + : clique jusqu'à n, ou jusqu'à ce que le bouton se grise. */
+function demander(type: 'zd' | 'ag', n: number) {
+  for (let i = 0; i < 20 && valeurNombre(type) !== n; i++) {
+    const bouton = boutonNombre(
+      type,
+      valeurNombre(type) < n ? 'Ajouter' : 'Retirer',
+    );
+    if ((bouton as HTMLButtonElement).disabled) break;
+    fireEvent.click(bouton);
+  }
+}
 const nomEvenement = () => screen.getByLabelText(/^Nom de l'événement/);
 
 /**
@@ -334,16 +350,19 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       fireEvent.change(nomEvenement(), { target: { value: 'Gala' } });
       expect(continuer()).toBeEnabled();
 
-      // Au plus 10 collectes de chaque type (B2-Q4).
-      // Champs de saisie sans flèches ni molette (retour Val du 2026-10-24).
-      for (const type of ['zd', 'ag'] as const) {
-        expect(champNombre(type)).toHaveAttribute('type', 'text');
-        expect(champNombre(type)).toHaveAttribute('inputmode', 'numeric');
-      }
+      // Compteur − / + (retour Val du 2026-10-26) : − grisé à 0, + grisé à
+      // 10, au plus 10 collectes de chaque type (B2-Q4). La valeur ne se
+      // tape pas.
+      expect(champNombre('zd').tagName).toBe('OUTPUT');
+      demander('zd', 0);
+      expect(boutonNombre('zd', 'Retirer')).toBeDisabled();
+      expect(boutonNombre('zd', 'Ajouter')).toBeEnabled();
       demander('zd', 12);
-      expect(champNombre('zd')).toHaveValue('10');
+      expect(valeurNombre('zd')).toBe(10);
+      expect(boutonNombre('zd', 'Ajouter')).toBeDisabled();
+      expect(boutonNombre('zd', 'Retirer')).toBeEnabled();
       demander('zd', 2);
-      expect(champNombre('zd')).toHaveValue('2');
+      expect(valeurNombre('zd')).toBe(2);
 
       fireEvent.click(continuer());
       await screen.findByRole(
@@ -377,8 +396,8 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
         ATTENTE_UI,
       );
       expect(nomEvenement()).toHaveValue('Gala');
-      expect(champNombre('zd')).toHaveValue('2');
-      expect(champNombre('ag')).toHaveValue('1');
+      expect(valeurNombre('zd')).toBe(2);
+      expect(valeurNombre('ag')).toBe(1);
       demander('zd', 10);
       demander('ag', 10);
       fireEvent.click(continuer());
@@ -396,88 +415,34 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
   );
 
   it(
-    'M1.2/formulaire_nombre_vide — un nombre de collectes s’efface au clavier : le champ vide vaut 0, les cartes ne sont retirées qu’en quittant le champ',
+    'M1.2/formulaire_nombre_compteur — retirer une collecte au compteur retire la dernière carte du type ; les autres gardent leur saisie',
     async () => {
       installerFetch();
       render(<NouveauProgrammationPage />);
-      await screen.findByRole(
-        'heading',
-        { level: 2, name: ECRAN_1 },
-        ATTENTE_UI,
-      );
-      fireEvent.change(nomEvenement(), { target: { value: 'Gala' } });
-      await choisirLieu();
-
-      // Effacé au clavier : le champ reste vide et vaut 0 collecte.
-      demander('zd', 1);
-      expect(continuer()).toBeEnabled();
-      demander('zd', '');
-      expect(champNombre('zd')).toHaveValue('');
-      expect(continuer()).toBeDisabled();
-      // En quittant le champ, il affiche 0.
-      fireEvent.blur(champNombre('zd'));
-      expect(champNombre('zd')).toHaveValue('0');
-      expect(continuer()).toBeDisabled();
-      // « 0 » se tape aussi.
-      demander('zd', 2);
-      demander('zd', 0);
-      expect(champNombre('zd')).toHaveValue('0');
-      expect(continuer()).toBeDisabled();
-      // Seuls les chiffres comptent.
-      demander('zd', '2a');
-      expect(champNombre('zd')).toHaveValue('2');
-      demander('zd', 'x');
-      expect(champNombre('zd')).toHaveValue('');
-      fireEvent.blur(champNombre('zd'));
-      expect(champNombre('zd')).toHaveValue('0');
-
-      // Effacer « 1 » pour taper « 3 » garde ce qui a été saisi dans les
-      // cartes.
-      demander('zd', 1);
-      fireEvent.click(continuer());
-      await screen.findByRole(
-        'heading',
-        { level: 2, name: ECRAN_2 },
-        ATTENTE_UI,
-      );
+      await jusquaEcran2(2, 1);
       saisir('pax', 'zd-1', '80');
       fireEvent.change(infos('zd-1'), { target: { value: 'Quai n°4' } });
+
       fireEvent.click(screen.getByRole('button', { name: /Retour/ }));
       await screen.findByRole(
         'heading',
         { level: 2, name: ECRAN_1 },
         ATTENTE_UI,
       );
-      demander('zd', '');
-      demander('zd', 3);
-      fireEvent.blur(champNombre('zd'));
+      fireEvent.click(boutonNombre('zd', 'Retirer'));
+      expect(valeurNombre('zd')).toBe(1);
+      fireEvent.click(boutonNombre('ag', 'Retirer'));
+      expect(valeurNombre('ag')).toBe(0);
+      expect(boutonNombre('ag', 'Retirer')).toBeDisabled();
       fireEvent.click(continuer());
       await screen.findByRole(
         'heading',
         { level: 2, name: ECRAN_2 },
         ATTENTE_UI,
       );
-      expect(suffixesCartes()).toEqual(['zd-1', 'zd-2', 'zd-3']);
+      expect(suffixesCartes()).toEqual(['zd-1']);
       expect(champCarte('pax', 'zd-1')).toHaveValue('80');
       expect(infos('zd-1')).toHaveValue('Quai n°4');
-
-      // Effacé puis « Continuer » touché sans quitter le champ (mobile) : les
-      // cartes de ce type sont retirées quand même.
-      fireEvent.click(screen.getByRole('button', { name: /Retour/ }));
-      await screen.findByRole(
-        'heading',
-        { level: 2, name: ECRAN_1 },
-        ATTENTE_UI,
-      );
-      demander('ag', 1);
-      demander('zd', '');
-      fireEvent.click(continuer());
-      await screen.findByRole(
-        'heading',
-        { level: 2, name: ECRAN_2 },
-        ATTENTE_UI,
-      );
-      expect(suffixesCartes()).toEqual(['ag-1']);
     },
     ATTENTE_CAS_MS,
   );
@@ -645,8 +610,8 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
         { level: 2, name: ECRAN_1 },
         ATTENTE_UI,
       );
-      expect(champNombre('zd')).toHaveValue('1');
-      expect(champNombre('ag')).toHaveValue('1');
+      expect(valeurNombre('zd')).toBe(1);
+      expect(valeurNombre('ag')).toBe(1);
 
       // 10 ZD : le choix Zéro Déchet est fermé, Anti-Gaspi reste possible.
       demander('zd', 10);
@@ -911,8 +876,8 @@ describe('M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)', 
       expect(
         screen.getByRole('checkbox', { name: /Plaque d'immatriculation/ }),
       ).toBeChecked();
-      expect(champNombre('zd')).toHaveValue('1');
-      expect(champNombre('ag')).toHaveValue('1');
+      expect(valeurNombre('zd')).toBe(1);
+      expect(valeurNombre('ag')).toBe(1);
       expect(
         screen.queryByRole('button', { name: /Enregistrer en brouillon/ }),
       ).toBeNull();

@@ -104,9 +104,14 @@ const INFO_CARTE =
   "Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité.";
 
 /** Nombre de collectes Anti-Gaspi demandées (écran 1). */
-const nombreAg = () => document.getElementById('nombre-ag') as HTMLInputElement;
+const nombreAg = () =>
+  document.getElementById('nombre-ag') as HTMLOutputElement;
 const demanderUneAg = () =>
-  fireEvent.change(nombreAg(), { target: { value: '1' } });
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'Ajouter une collecte Anti-Gaspi (AG)',
+    }),
+  );
 
 describe('M1.2 — programmation formulaire : mode admin support', () => {
   it(
@@ -185,7 +190,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       );
 
       demanderUneAg();
-      expect(nombreAg()).toHaveValue('1');
+      expect(nombreAg()).toHaveTextContent(/^1$/);
       expect(
         screen.queryByText(/facturées? à l.unité/i),
       ).not.toBeInTheDocument();
@@ -209,7 +214,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       expect(
         await screen.findByText(INFO_ECRAN_1, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(nombreAg()).toHaveValue('1');
+      expect(nombreAg()).toHaveTextContent(/^1$/);
       expect(lecturesPack()).toEqual([
         '/api/v1/programmation/pack-ag?organisation_id=org-kaspia',
       ]);
@@ -350,7 +355,7 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       expect(
         await screen.findByText(INFO, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(nombreAg()).toHaveValue('1');
+      expect(nombreAg()).toHaveTextContent(/^1$/);
     },
     ATTENTE_CAS_MS,
   );

@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  type ChangeEvent,
-} from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserRole } from '@/lib/use-user-role';
 import { isStaff } from '@/lib/roles';
@@ -17,11 +11,14 @@ import {
   Save,
   CheckCircle,
   Info,
+  Minus,
+  Plus,
   PlusCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { IconButton } from '@/components/ui/icon-button';
 import { Combobox } from '@/components/ui/combobox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -241,28 +238,11 @@ export function FormulaireProgrammation({
   const affichees = valeursEffectives(cartes);
   const nbZd = nombreParType(cartes, 'zd');
   const nbAg = nombreParType(cartes, 'ag');
-  // Champ « nombre de collectes » vidé au clavier : il reste vide et vaut 0
-  // collecte (retour Val du 2026-10-24) ; les cartes de ce type ne sont
-  // retirées qu'en quittant le champ, pour qu'effacer « 2 » et taper « 3 »
-  // ne fasse pas perdre ce qui a été saisi dans les cartes.
-  const [nombreVide, setNombreVide] = useState({ zd: false, ag: false });
-  const nbZdSaisi = nombreVide.zd ? 0 : nbZd;
-  const nbAgSaisi = nombreVide.ag ? 0 : nbAg;
-  const changerNombre =
-    (type: 'zd' | 'ag') => (e: ChangeEvent<HTMLInputElement>) => {
-      // Chiffres seuls : le champ est un texte (ni flèches ni molette, retour
-      // Val du 2026-10-24) ; au-delà de 10, le nombre est ramené à 10.
-      const brut = e.target.value.replace(/\D/g, '');
-      setNombreVide((v) => ({ ...v, [type]: brut === '' }));
-      if (brut !== '') {
-        setCartes((prev) => ajusterNombre(prev, type, Number(brut) || 0));
-      }
-    };
-  const quitterNombre = (type: 'zd' | 'ag') => () => {
-    if (!nombreVide[type]) return;
-    setNombreVide((v) => ({ ...v, [type]: false }));
-    setCartes((prev) => ajusterNombre(prev, type, 0));
-  };
+  // Nombre de collectes par type : compteur − / + de 0 à 10 (retour Val du
+  // 2026-10-26, remplace le champ de saisie). Diminuer retire la dernière
+  // carte du type ; les autres gardent ce qui y a été saisi.
+  const changerNombre = (type: 'zd' | 'ag', n: number) =>
+    setCartes((prev) => ajusterNombre(prev, type, n));
   const [typesEvenements, setTypesEvenements] = useState<TypeEvenementOption[]>(
     [],
   );
@@ -501,13 +481,12 @@ export function FormulaireProgrammation({
         ? traiteurOperationnelId || null
         : PACK_PROPRE,
   );
-  const agSansPack =
-    nbAgSaisi > 0 && packAg !== null && factureeAlUnite(packAg);
+  const agSansPack = nbAg > 0 && packAg !== null && factureeAlUnite(packAg);
 
   const ecran1Valide =
     nomEvenement.trim() !== '' &&
     lieu !== null &&
-    nbZdSaisi + nbAgSaisi >= 1 &&
+    nbZd + nbAg >= 1 &&
     (!needsTraiteurSelector || traiteurOperationnelId !== '');
   const ecran2Valide =
     affichees.length >= 1 && affichees.every((c) => carteComplete(c));
@@ -874,33 +853,23 @@ export function FormulaireProgrammation({
                 label={libelleCompletTypeCollecte('zero_dechet')}
                 htmlFor="nombre-zd"
               >
-                <Input
+                <CompteurCollectes
                   id="nombre-zd"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={2}
-                  autoComplete="off"
-                  value={nombreVide.zd ? '' : String(nbZd)}
-                  onChange={changerNombre('zd')}
-                  onBlur={quitterNombre('zd')}
+                  libelle={libelleCompletTypeCollecte('zero_dechet')}
+                  valeur={nbZd}
+                  onChange={(n) => changerNombre('zd', n)}
                 />
               </FormField>
               <FormField
                 label={libelleCompletTypeCollecte('anti_gaspi')}
                 htmlFor="nombre-ag"
               >
-                <Input
+                <CompteurCollectes
                   id="nombre-ag"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={2}
-                  autoComplete="off"
-                  value={nombreVide.ag ? '' : String(nbAg)}
-                  aria-describedby={agSansPack ? 'nombre-ag-info' : undefined}
-                  onChange={changerNombre('ag')}
-                  onBlur={quitterNombre('ag')}
+                  libelle={libelleCompletTypeCollecte('anti_gaspi')}
+                  valeur={nbAg}
+                  describedBy={agSansPack ? 'nombre-ag-info' : undefined}
+                  onChange={(n) => changerNombre('ag', n)}
                 />
               </FormField>
             </FormGrid>
@@ -920,16 +889,7 @@ export function FormulaireProgrammation({
           </fieldset>
 
           <div className="flex justify-end pt-1">
-            <Button
-              onClick={() => {
-                // Sur mobile, toucher le bouton ne fait pas toujours quitter
-                // le champ : un nombre vidé est appliqué ici aussi.
-                quitterNombre('zd')();
-                quitterNombre('ag')();
-                setStep(1);
-              }}
-              disabled={!ecran1Valide}
-            >
+            <Button onClick={() => setStep(1)} disabled={!ecran1Valide}>
               Continuer
               <ChevronRight />
             </Button>
@@ -1105,6 +1065,56 @@ export function FormulaireProgrammation({
           </div>
         </Card>
       )}
+    </div>
+  );
+}
+
+/**
+ * Compteur − valeur + du nombre de collectes d'un type (retour Val du
+ * 2026-10-26, modèle du sélecteur de voyageurs d'Expedia) : boutons ronds,
+ * − grisé à 0, + grisé au plafond. La valeur ne se tape pas.
+ */
+function CompteurCollectes({
+  id,
+  libelle,
+  valeur,
+  describedBy,
+  onChange,
+}: {
+  id: string;
+  libelle: string;
+  valeur: number;
+  describedBy?: string;
+  onChange: (n: number) => void;
+}) {
+  const bouton =
+    'rounded-savr-full border border-savr-neutral-300 bg-savr-white text-savr-neutral-700 hover:border-savr-primary-500 hover:bg-savr-white hover:text-savr-primary-700';
+  return (
+    <div className="flex items-center gap-4">
+      <IconButton
+        aria-label={`Retirer une collecte ${libelle}`}
+        className={bouton}
+        disabled={valeur <= 0}
+        onClick={() => onChange(valeur - 1)}
+      >
+        <Minus aria-hidden="true" />
+      </IconButton>
+      <output
+        id={id}
+        aria-live="polite"
+        aria-describedby={describedBy}
+        className="min-w-6 text-center text-base font-semibold tabular-nums text-savr-neutral-900"
+      >
+        {valeur}
+      </output>
+      <IconButton
+        aria-label={`Ajouter une collecte ${libelle}`}
+        className={bouton}
+        disabled={valeur >= PLAFOND_PAR_TYPE}
+        onClick={() => onChange(valeur + 1)}
+      >
+        <Plus aria-hidden="true" />
+      </IconButton>
     </div>
   );
 }

@@ -444,7 +444,18 @@ describe('M3.3 / collectes', () => {
 
 // ── Annulation ──────────────────────────────────────────────────────────────
 describe('M3.3 / annulation', () => {
-  const SIENNE = { organisation_id: 'org-wpm', organisation: { nom: 'WPM' } };
+  const SIENNE = {
+    created_by: 'u-prog',
+    organisation_id: 'org-wpm',
+    organisation: { nom: 'WPM' },
+    lieu: { nom: 'Salle Wagram' },
+  };
+  // Compte lu après l'écriture : le programmateur (annulation directe) ou le
+  // demandeur (demande d'annulation).
+  const COMPTE = {
+    data: { email: 'prog@savr-test.local', prenom: 'Paul', nom: 'Martin' },
+    error: null,
+  };
   it.each([
     ['événement en objet', SIENNE],
     ['événement en tableau', [SIENNE]],
@@ -463,6 +474,7 @@ describe('M3.3 / annulation', () => {
         error: null,
       });
       admin.push({ data: { id: 'c1' }, error: null });
+      admin.push(COMPTE);
       const { POST } =
         await import('@/app/api/v1/agence/collectes/[id]/annulation/route.js');
       const res = await POST(
@@ -484,11 +496,19 @@ describe('M3.3 / annulation', () => {
           p_champs_modifies: ['statut'],
         },
       ]);
+      // Template 5 : la confirmation part au programmateur, avec la date et le
+      // lieu que le gabarit exige (l'équipe Savr reçoit le template 22).
       expect(mockSendEmail).toHaveBeenCalledWith(
         'annulation_collecte',
-        'contact@gosavr.io',
-        expect.objectContaining({ organisation_nom: 'WPM' }),
+        'prog@savr-test.local',
+        {
+          prenom: 'Paul',
+          date_collecte: '2030-01-01',
+          lieu_nom: 'Salle Wagram',
+          motif: 'x',
+        },
       );
+      expect(admin.__calls.eq).toContainEqual(['id', 'u-prog']);
     },
   );
 
@@ -505,6 +525,7 @@ describe('M3.3 / annulation', () => {
       error: null,
     });
     admin.push({ data: { id: 'c1' }, error: null });
+    admin.push(COMPTE);
     const { POST } =
       await import('@/app/api/v1/agence/collectes/[id]/annulation/route.js');
     const res = await POST(
@@ -524,10 +545,14 @@ describe('M3.3 / annulation', () => {
         p_champs_modifies: ['statut'],
       },
     ]);
+    // Le demandeur est nommé, jamais désigné par son identifiant technique.
     expect(mockSendEmail).toHaveBeenCalledWith(
       'admin_demande_annulation',
       'contact@gosavr.io',
-      expect.objectContaining({ organisation_nom: 'WPM' }),
+      expect.objectContaining({
+        organisation_nom: 'WPM',
+        demandeur_nom: 'Paul Martin',
+      }),
     );
   });
 
@@ -699,9 +724,14 @@ describe('M3.3 / création shadow F3', () => {
 // §06.11 l.36/l.44 : onglet AG identique au §06.04 → l'agence doit pouvoir
 // demander un renouvellement (endpoint partagé /traiteur/pack-ag/renouvellement).
 describe('M3.3 / renouvellement pack AG (BL-P1-AGENCE-01)', () => {
+  const COMPTE_DEMANDEUR = {
+    data: { email: 'prog@savr-test.local', prenom: 'Paul', nom: 'Martin' },
+    error: null,
+  };
   it('M3.3/AGENCE01_renouvellement_role_agence_201 — agence autorisée + email admin', async () => {
     setupAuth('agence', 'org-wpm');
     admin.push({ data: { nom: 'WPM Agence' }, error: null }); // lookup organisations.nom
+    admin.push(COMPTE_DEMANDEUR); // lookup users (demandeur)
     const { POST } =
       await import('@/app/api/v1/traiteur/pack-ag/renouvellement/route.js');
     const res = await POST(
@@ -713,7 +743,11 @@ describe('M3.3 / renouvellement pack AG (BL-P1-AGENCE-01)', () => {
     expect(mockSendEmail).toHaveBeenCalledWith(
       'admin_demande_renouvellement_pack',
       expect.any(String),
-      expect.objectContaining({ organisation_nom: 'WPM Agence' }),
+      expect.objectContaining({
+        organisation_nom: 'WPM Agence',
+        demandeur_nom: 'Paul Martin',
+        demandeur_email: 'prog@savr-test.local',
+      }),
     );
   });
 

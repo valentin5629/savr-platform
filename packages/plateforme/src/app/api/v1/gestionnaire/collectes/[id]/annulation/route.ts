@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import {
   requireUser,
   createSupabaseServerClient,
@@ -13,6 +14,10 @@ import {
 import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
+import {
+  envoyerConfirmationAnnulation,
+  lireCompte,
+} from '@/lib/notifications/annulation-client.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -42,8 +47,8 @@ export async function POST(
     .from('collectes')
     .select(
       `id, statut, statut_tms, date_collecte, heure_collecte,
-       evenement:evenements!inner(organisation_id, nom_evenement,
-         organisation:organisations!organisation_id(nom))`,
+       evenement:evenements!inner(created_by, organisation_id, nom_evenement,
+         organisation:organisations!organisation_id(nom), lieu:lieux!lieu_id(nom))`,
     )
     .eq('id', id)
     .maybeSingle();
@@ -55,8 +60,10 @@ export async function POST(
 
   const evt = (Array.isArray(c.evenement) ? c.evenement[0] : c.evenement) as
     | {
+        created_by?: string | null;
         organisation_id: string;
         organisation: { nom: string } | { nom: string }[] | null;
+        lieu?: { nom: string | null } | { nom: string | null }[] | null;
       }
     | null
     | undefined;
@@ -72,6 +79,8 @@ export async function POST(
   const orgNom = Array.isArray(evt.organisation)
     ? evt.organisation[0]?.nom
     : evt.organisation?.nom;
+  const lieuNom =
+    (Array.isArray(evt.lieu) ? evt.lieu[0]?.nom : evt.lieu?.nom) ?? '';
   const admin = createAdminSupabaseClient();
   // Débit des écritures clientes (cf. lib/frein-ecritures-client), compté pour
   // une collecte annulable seulement.
@@ -94,9 +103,11 @@ export async function POST(
     // (décision Val 2026-10-12).
     envoyerOrdresSansAttendre(c.id);
 
-    await sendEmail('annulation_collecte', 'contact@gosavr.io', {
-      organisation_nom: orgNom ?? '',
-      collecte_ref: id,
+    // Template 5 : confirmation au programmateur (l'équipe Savr reçoit le 22).
+    await envoyerConfirmationAnnulation(admin, {
+      programmateurId: evt.created_by,
+      dateCollecte: c.date_collecte ?? '',
+      lieuNom,
       motif,
     });
 
@@ -140,12 +151,14 @@ export async function POST(
     // (décision Val 2026-10-12).
     envoyerOrdresSansAttendre(c.id);
 
+    const demandeur = await lireCompte(admin, auth.ctx.userId);
+    // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
     await sendEmail('admin_demande_annulation', 'contact@gosavr.io', {
-      organisation_nom: orgNom ?? '',
-      demandeur_nom: auth.ctx.userId,
+      organisation_nom: escapeHtml(orgNom ?? ''),
+      demandeur_nom: escapeHtml(demandeur?.nomComplet ?? ''),
       collecte_ref: id,
       date_collecte: c.date_collecte ?? '',
-      motif,
+      motif: escapeHtml(motif),
     });
     return NextResponse.json({ data: { statut: 'annulation_demandee' } });
   }

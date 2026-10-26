@@ -314,7 +314,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
       // Compteur − / + depuis le retour Val du 2026-10-26.
       fireEvent.click(
         screen.getByRole('button', {
-          name: 'Ajouter une collecte Anti-Gaspi (AG)',
+          name: 'Ajouter une collecte Anti-Gaspi',
         }),
       );
       const nombreAg = screen.getByRole('status', { name: /Anti-Gaspi/i });

@@ -183,7 +183,7 @@ const champNombre = (type: 'zd' | 'ag') =>
   document.getElementById(`nombre-${type}`) as HTMLOutputElement;
 const valeurNombre = (type: 'zd' | 'ag') =>
   Number(champNombre(type).textContent);
-const LIBELLE_TYPE = { zd: 'Zéro Déchet (ZD)', ag: 'Anti-Gaspi (AG)' };
+const LIBELLE_TYPE = { zd: 'Zéro Déchet', ag: 'Anti-Gaspi' };
 const boutonNombre = (type: 'zd' | 'ag', sens: 'Ajouter' | 'Retirer') =>
   screen.getByRole('button', {
     name: `${sens} une collecte ${LIBELLE_TYPE[type]}`,

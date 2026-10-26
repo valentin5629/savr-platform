@@ -109,7 +109,7 @@ const nombreAg = () =>
 const demanderUneAg = () =>
   fireEvent.click(
     screen.getByRole('button', {
-      name: 'Ajouter une collecte Anti-Gaspi (AG)',
+      name: 'Ajouter une collecte Anti-Gaspi',
     }),
   );
 

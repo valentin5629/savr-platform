@@ -25,6 +25,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal.js';
+import { FicheCollecteModalCadre } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import {
   ficheClient,
@@ -180,7 +181,8 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
         expect(onglet.className).toMatch(/(^|\s)h-11(\s|$)/);
         expect(onglet.className).toMatch(/\bsm:h-10\b/);
       }
-      // Grand en-tête commun des fiches (FicheEnTete) : la frise y est portée.
+      // Grand en-tête de la fiche client (variante B) : la pastille de statut
+      // y est portée.
       expect(
         within(
           screen
@@ -1473,6 +1475,118 @@ describe('M3.1 / pop-up — Échap', () => {
 
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(onClose).toHaveBeenCalledTimes(1);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// Variante B (décisions Val 2026-10-27) : cadre de la fiche client.
+describe('Variante B — cadre de la fiche collecte client', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it(
+    'en-tête : « événement · client » sous le titre, et la ville du lieu dans la ligne à pictos',
+    async () => {
+      stubFetchFiche(ficheClient());
+      render(fiche('c1'));
+
+      expect(await sousLigne()).toContain('Paris');
+      const titre = screen.getByRole('heading', {
+        level: 3,
+        name: 'Paris Expo Porte de Versailles',
+      });
+      expect(titre.nextElementSibling?.textContent).toBe(
+        'Salon · Maison Client',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'en-tête : sans nom d’événement ni client, aucune ligne vide sous le titre',
+    async () => {
+      const base = ficheClient();
+      stubFetchFiche(
+        ficheClient({
+          evenement: {
+            ...base.evenement!,
+            nom_evenement: null,
+            nom_client_organisateur: '  ',
+          },
+        }),
+      );
+      render(fiche('c1'));
+
+      await sousLigne();
+      const titre = screen.getByRole('heading', {
+        level: 3,
+        name: 'Paris Expo Porte de Versailles',
+      });
+      expect(titre.nextElementSibling).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'C1 : grand format (1 200 px, angles 20 px) pour la fiche client ; le cadre garde le format standard par défaut (fiches Admin)',
+    async () => {
+      stubFetchFiche(ficheClient());
+      render(fiche('c1'));
+      const dialogue = await screen.findByRole('dialog', {}, ATTENTE_UI);
+      expect(dialogue.className).toContain('max-w-[75rem]');
+      expect(dialogue.className).toContain('rounded-savr-2xl');
+      expect(dialogue.className).not.toContain('max-w-5xl');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it('C1 : sans taille, le cadre commun (fiche collecte Admin) reste au format standard', () => {
+    render(
+      <FicheCollecteModalCadre collecteId="c1" onClose={() => {}}>
+        {() => <p>Fiche Admin</p>}
+      </FicheCollecteModalCadre>,
+    );
+    const dialogue = screen.getByRole('dialog');
+    expect(dialogue.className).toContain('max-w-5xl');
+    expect(dialogue.className).not.toContain('max-w-[75rem]');
+  });
+
+  it(
+    'pied : « Annuler la collecte » en texte rouge à gauche, puis « Ajouter une collecte » et « Modifier la collecte » en pilules',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          actions: {
+            modifier: 'actif',
+            annuler: 'actif',
+            annulation: 'directe',
+            ajouter_collecte: true,
+          } as ReturnType<typeof ficheClient>['actions'],
+        }),
+      );
+      render(fiche('c1'));
+
+      const annuler = await screen.findByTestId(
+        'action-annuler',
+        {},
+        ATTENTE_UI,
+      );
+      const ajouter = screen.getByTestId('action-ajouter-collecte');
+      const modifier = screen.getByTestId('action-modifier');
+      // Texte rouge sans contour.
+      expect(annuler.className).toContain('text-savr-error');
+      expect(annuler.className).not.toMatch(/(^|\s)border(\s|$)/);
+      // Ordre du DOM : Annuler, espaceur, Ajouter, Modifier.
+      const pied = annuler.closest('footer') as HTMLElement;
+      const enfants = Array.from(pied.children);
+      const espaceur = enfants.findIndex((e) => e.className.includes('flex-1'));
+      expect(enfants.indexOf(annuler)).toBeLessThan(espaceur);
+      expect(espaceur).toBeLessThan(enfants.indexOf(ajouter));
+      expect(enfants.indexOf(ajouter)).toBeLessThan(enfants.indexOf(modifier));
+      for (const b of [ajouter, modifier])
+        expect(b.className).toContain('rounded-savr-full');
     },
     ATTENTE_CAS_MS,
   );

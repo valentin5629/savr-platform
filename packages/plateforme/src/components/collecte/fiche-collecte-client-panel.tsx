@@ -147,6 +147,7 @@ export function FicheCollecteClientPanel({
     onLoaded?.({
       title: [
         `Collecte ${libelleTypeCollecte(c.type)}`,
+        c.evenement?.nom_evenement?.trim(),
         lieu?.nom,
         dateLongueCapitalisee(c.date_collecte),
       ]
@@ -265,13 +266,19 @@ export function FicheCollecteClientPanel({
     ? libelleTypeOrganisationMinuscule(c.programmee_par.type)
     : null;
 
-  const sousTitre = [evt?.nom_evenement, evt?.nom_client_organisateur]
+  // Titre = nom de l'événement (décision Val 2026-10-27), le lieu à défaut ;
+  // dessous, le lieu (s'il n'est pas déjà le titre) et le client.
+  const titre = evt?.nom_evenement?.trim() || lieu?.nom || 'Collecte';
+  const sousTitre = [
+    titre === lieu?.nom ? null : lieu?.nom,
+    evt?.nom_client_organisateur,
+  ]
     .map((v) => v?.trim())
     .filter(Boolean)
     .join(' · ');
 
-  // Variante B (décision Val 2026-10-27) : grand en-tête sur deux lignes (lieu
-  // + événement · client, puis date, heure, pax, ville), statut en pastille à
+  // Variante B (décision Val 2026-10-27) : grand en-tête sur deux lignes
+  // (événement + lieu · client, puis date, heure, pax, ville), statut en pastille à
   // droite du titre, onglets soulignés dans l'en-tête ; seul le corps défile.
   return (
     <Tabs
@@ -287,7 +294,7 @@ export function FicheCollecteClientPanel({
         <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-3">
           <div className="flex min-w-0 flex-col gap-2.5">
             <h3 className="font-display text-3xl font-semibold leading-[1.05] tracking-[-0.035em] text-savr-primary-900 md:text-5xl">
-              {lieu?.nom ?? 'Collecte'}
+              {titre}
             </h3>
             {sousTitre && (
               <p className="text-[17px] text-savr-neutral-600">{sousTitre}</p>
@@ -374,6 +381,11 @@ export function FicheCollecteClientPanel({
           <TabsContent value="informations">
             <OngletInformations
               c={c}
+              onAjouterSecours={
+                actions.modifier === 'actif'
+                  ? () => setEditing(true)
+                  : undefined
+              }
               onProgrammeePar={() => setProgOpen(true)}
               onHorsReferentiel={() => {
                 setSiretErreur(null);

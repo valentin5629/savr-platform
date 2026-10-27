@@ -103,11 +103,9 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
       expect(badge.className).toContain('bg-savr-success-strong');
       expect(badge.className).toContain('text-savr-white');
       expect(screen.getByText('Réf. C1')).toBeTruthy();
+      // Titre = nom de l'événement (décision Val 2026-10-27).
       expect(
-        screen.getByRole('heading', {
-          level: 3,
-          name: 'Paris Expo Porte de Versailles',
-        }),
+        screen.getByRole('heading', { level: 3, name: 'Salon' }),
       ).toBeTruthy();
       const ligne = await sousLigne();
       // Variante B (Val 2026-10-27) : date et heure en deux repères.
@@ -1487,25 +1485,22 @@ describe('Variante B — cadre de la fiche collecte client', () => {
   });
 
   it(
-    'en-tête : « événement · client » sous le titre, et la ville du lieu dans la ligne à pictos',
+    'en-tête : titre = nom de l’événement, « lieu · client » dessous, et la ville du lieu dans la ligne à pictos',
     async () => {
       stubFetchFiche(ficheClient());
       render(fiche('c1'));
 
       expect(await sousLigne()).toContain('Paris');
-      const titre = screen.getByRole('heading', {
-        level: 3,
-        name: 'Paris Expo Porte de Versailles',
-      });
+      const titre = screen.getByRole('heading', { level: 3, name: 'Salon' });
       expect(titre.nextElementSibling?.textContent).toBe(
-        'Salon · Maison Client',
+        'Paris Expo Porte de Versailles · Maison Client',
       );
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'en-tête : sans nom d’événement ni client, aucune ligne vide sous le titre',
+    'en-tête : sans nom d’événement, le lieu prend le titre ; sans client, aucune ligne vide dessous',
     async () => {
       const base = ficheClient();
       stubFetchFiche(
@@ -1587,6 +1582,68 @@ describe('Variante B — cadre de la fiche collecte client', () => {
       expect(enfants.indexOf(ajouter)).toBeLessThan(enfants.indexOf(modifier));
       for (const b of [ajouter, modifier])
         expect(b.className).toContain('rounded-savr-full');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'contacts : principal en carte (initiales, nom, téléphone) ; sans contact de secours, bouton d’ajout qui ouvre l’édition',
+    async () => {
+      stubFetchFiche(ficheClient({ statut: 'programmee' }));
+      render(fiche('c1'));
+
+      const contacts = await screen.findByTestId(
+        'bloc-contacts',
+        {},
+        ATTENTE_UI,
+      );
+      expect(contacts.textContent).toContain('PC');
+      expect(contacts.textContent).toContain('Paul Contact');
+      const ajouter = within(contacts).getByTestId(
+        'action-ajouter-contact-secours',
+      );
+      expect(ajouter.textContent).toContain('Ajouter un contact de secours');
+      fireEvent.click(ajouter);
+      await screen.findByRole(
+        'button',
+        { name: 'Confirmer la modification' },
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'contacts : pas de bouton d’ajout du contact de secours pour qui ne peut pas modifier la collecte, ni quand il existe',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          actions: { modifier: 'grise', annuler: 'absent', annulation: null },
+        }),
+      );
+      const { unmount } = render(fiche('c1'));
+      const contacts = await screen.findByTestId(
+        'bloc-contacts',
+        {},
+        ATTENTE_UI,
+      );
+      expect(
+        within(contacts).queryByTestId('action-ajouter-contact-secours'),
+      ).toBeNull();
+      unmount();
+
+      stubFetchFiche(
+        ficheClient({
+          contact_secours_nom: 'Léa Secours',
+          contact_secours_telephone: '+33 6 55 44 33 22',
+        }),
+      );
+      render(fiche('c1'));
+      const avec = await screen.findByTestId('bloc-contacts', {}, ATTENTE_UI);
+      expect(avec.textContent).toContain('Léa Secours');
+      expect(
+        within(avec).queryByTestId('action-ajouter-contact-secours'),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

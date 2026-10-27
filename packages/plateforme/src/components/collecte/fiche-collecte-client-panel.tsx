@@ -55,7 +55,10 @@ import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import { ROUTES } from '@/lib/routes';
-import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
+import {
+  LIBELLE_ETAT_RAPPORT,
+  type EspaceClient,
+} from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
 import { fmtPax } from '@/lib/format';
 import { TextLink } from '@/components/ui/text-link';
@@ -362,25 +365,25 @@ export function FicheCollecteClientPanel({
       onValueChange={(v) => setOnglet(v as Onglet)}
       className="flex h-full min-h-0 flex-col"
     >
-      <header className="flex shrink-0 flex-col gap-4 px-5 pt-5 sm:gap-5 sm:px-6 sm:pt-6 md:gap-6 md:px-14 md:pt-9">
+      <header className="flex shrink-0 flex-col gap-4 px-5 pt-5 sm:px-6 sm:pt-6 md:gap-3.5 md:px-12 md:pt-6">
         <div className="flex min-w-0 flex-wrap items-center gap-3 pr-12 md:pr-16">
           <TypeCollecteBadge type={c.type} forme="plein" />
           <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-3">
-          <div className="flex min-w-0 flex-col gap-2.5">
-            <h3 className="font-display text-3xl font-semibold leading-[1.05] tracking-[-0.035em] text-savr-primary-900 md:text-5xl">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <h3 className="font-display text-2xl font-semibold leading-[1.1] tracking-[-0.03em] text-savr-primary-900 md:text-4xl">
               {titre}
             </h3>
             {sousTitre && (
-              <p className="text-[17px] text-savr-neutral-600">{sousTitre}</p>
+              <p className="text-[15px] text-savr-neutral-600">{sousTitre}</p>
             )}
           </div>
           <StatutCollecteClient statut={c.statut} />
         </div>
         <p
           data-testid="fiche-sous-ligne"
-          className="grid grid-cols-2 gap-x-4 gap-y-2 text-[15px] text-savr-neutral-700 sm:flex sm:flex-wrap sm:items-center sm:gap-x-8"
+          className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-savr-neutral-700 sm:flex sm:flex-wrap sm:items-center sm:gap-x-7"
         >
           <InfoEnTete icon={CalendarDays}>
             {dateLongueCapitalisee(c.date_collecte)}
@@ -415,7 +418,7 @@ export function FicheCollecteClientPanel({
       </header>
 
       {editing && evt ? (
-        <FicheCorps className="border-t border-savr-sable-200 py-6 md:px-14">
+        <FicheCorps className="border-t border-savr-sable-200 py-6 md:px-12">
           <EditerCollecteForm
             collecte={{
               id: c.id,
@@ -450,7 +453,7 @@ export function FicheCollecteClientPanel({
           />
         </FicheCorps>
       ) : (
-        <FicheCorps className="py-8 md:px-14">
+        <FicheCorps className="pb-3 pt-5 md:px-12">
           {!c.informations_completes && (
             <AlertBar
               variant="warn"
@@ -498,14 +501,14 @@ export function FicheCollecteClientPanel({
         <AlertBar
           variant="err"
           role="alert"
-          className="mx-6 mb-2 md:mx-14"
+          className="mx-6 mb-2 md:mx-12"
           data-testid="erreur-rapport"
         >
           {rapport.erreur}
         </AlertBar>
       )}
       {piedVisible && (
-        <FichePied className="flex-nowrap justify-start gap-3 border-savr-sable-200 px-5 pb-7 pt-3 sm:flex-wrap sm:px-6 sm:py-5 md:px-14">
+        <FichePied className="flex-nowrap justify-start gap-3 border-savr-sable-200 px-5 pb-7 pt-3 sm:flex-wrap sm:px-6 sm:py-4 md:px-12">
           {/* Téléphone (B4) : l'action principale en grand, les autres dans
               « ⋯ ». Les boutons secondaires restent dans le DOM, masqués
               sous 640 px. */}
@@ -589,6 +592,13 @@ export function FicheCollecteClientPanel({
               variant={actions.modifier === 'absent' ? 'primary' : 'sable'}
               data-testid="action-telecharger-rapport"
               disabled={rapport.desactive}
+              // L'état du rapport (ex. « disponible dans les 48h après la
+              // collecte ») remplace l'encadré retiré de l'onglet Bilan.
+              title={
+                rapport.desactive
+                  ? LIBELLE_ETAT_RAPPORT[c.rapport_etat]
+                  : undefined
+              }
               loading={rapport.fabrication}
               loadingText="Préparation du PDF…"
               onClick={() => void rapport.telecharger()}
@@ -703,10 +713,10 @@ export function FicheCollecteClientPanel({
   );
 }
 
-// Onglets de la variante B : soulignés, plus espacés, texte 15 px.
+// Onglets de la variante B : soulignés, plus espacés, texte 14 px.
 // Téléphone (B4) : pastilles côte à côte, l'onglet actif sur fond blanc.
 const ONGLET =
-  'justify-center border-b-0 px-0 text-sm data-[state=active]:bg-savr-white data-[state=active]:text-savr-primary-900 data-[state=active]:shadow-savr-sm max-sm:rounded-savr-full sm:justify-start sm:border-b-2 sm:text-[15px] sm:data-[state=active]:border-savr-primary-900 sm:data-[state=active]:bg-transparent sm:data-[state=active]:shadow-savr-none';
+  'justify-center border-b-0 px-0 text-sm data-[state=active]:bg-savr-white data-[state=active]:text-savr-primary-900 data-[state=active]:shadow-savr-sm max-sm:rounded-savr-full sm:justify-start sm:border-b-2 sm:text-sm sm:data-[state=active]:border-savr-primary-900 sm:data-[state=active]:bg-transparent sm:data-[state=active]:shadow-savr-none';
 
 function InfoEnTete({
   icon: Icon,

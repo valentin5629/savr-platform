@@ -145,9 +145,9 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
       expect(screen.getByTestId('bloc-association').textContent).toContain(
         'Les Restos du Cœur',
       );
-      expect(screen.getByTestId('bloc-documents').textContent).toContain(
-        'Rapport de don',
-      );
+      // Rapport de don téléchargé depuis le pied (Val 2026-10-27).
+      expect(screen.queryByTestId('bloc-documents')).toBeNull();
+      expect(screen.getByTestId('action-telecharger-rapport')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
@@ -213,8 +213,8 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
       }, ATTENTE_UI);
       expect(
         await screen.findByRole(
-          'checkbox',
-          { name: 'Inclure le radar de comparaison dans le rapport' },
+          'button',
+          { name: 'Intégrer la comparaison au rapport à télécharger' },
           ATTENTE_UI,
         ),
       ).toBeTruthy();
@@ -257,7 +257,7 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   );
 
   it(
-    'M3.2/fiche_popup_gestionnaire_rapport — le gestionnaire télécharge le rapport fabriqué au clic ; route « pas de radar » : pas de case, rapport sans radar',
+    'M3.2/fiche_popup_gestionnaire_rapport — le gestionnaire télécharge le rapport fabriqué au clic ; route « pas de radar » : pas de bouton d’intégration, rapport sans radar',
     async () => {
       stubFetchFiche(
         ficheGestionnaire({

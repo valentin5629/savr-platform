@@ -57,7 +57,7 @@ export function FicheModal({
       }
       fermetureClassName={
         grand
-          ? 'right-5 top-5 h-11 w-11 rounded-savr-full bg-savr-sable-100 text-savr-neutral-700 hover:bg-savr-sable-200 hover:text-savr-neutral-900 md:right-10 md:top-8'
+          ? 'right-5 top-5 h-11 w-11 rounded-savr-full bg-savr-sable-100 text-savr-neutral-700 hover:bg-savr-sable-200 hover:text-savr-neutral-900 md:right-8 md:top-6'
           : undefined
       }
     >

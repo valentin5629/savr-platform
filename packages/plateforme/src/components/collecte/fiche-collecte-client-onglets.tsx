@@ -74,7 +74,7 @@ function SectionInfos({
 } & React.HTMLAttributes<HTMLElement>) {
   return (
     <section
-      className="grid gap-x-10 gap-y-4 border-t border-savr-sable-200 py-6 first:border-t-0 first:pt-0 sm:py-10 md:grid-cols-[13rem_minmax(0,1fr)]"
+      className="grid gap-x-10 gap-y-4 border-t border-savr-sable-200 py-6 first:border-t-0 first:pt-0 sm:py-7 md:grid-cols-[13rem_minmax(0,1fr)]"
       {...props}
     >
       <h4 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-savr-neutral-900">
@@ -86,7 +86,7 @@ function SectionInfos({
 }
 
 const GRILLE_3 =
-  'grid grid-cols-1 gap-x-10 gap-y-6 text-[15px] sm:grid-cols-2 lg:grid-cols-3';
+  'grid grid-cols-1 gap-x-10 gap-y-5 text-sm sm:grid-cols-2 lg:grid-cols-3';
 
 function initiales(nom: string | null | undefined): string {
   return (nom ?? '')
@@ -115,7 +115,7 @@ function CarteContact({
       >
         {initiales(nom) || '—'}
       </span>
-      <span className="flex min-w-0 flex-col gap-0.5 text-[15px]">
+      <span className="flex min-w-0 flex-col gap-0.5 text-sm">
         <span className="font-semibold text-savr-neutral-900">
           {nom?.trim() || <Vide />}
         </span>
@@ -285,7 +285,7 @@ export function OngletInformations({
                     <Plus className="h-4 w-4" />
                   </span>
                   <span className="flex flex-col gap-0.5">
-                    <span className="text-[15px] font-semibold">
+                    <span className="text-sm font-semibold">
                       Ajouter un contact de secours
                     </span>
                     <span className="text-sm text-savr-neutral-500">
@@ -333,7 +333,7 @@ export function BlocAssociation({
 
 // Lignes « libellé à gauche, valeur à droite » d'un camion (variante B).
 const LIGNES_CAMION =
-  'divide-y divide-savr-sable-200 text-[15px] [&>div]:flex [&>div]:items-baseline [&>div]:justify-between [&>div]:gap-4 [&>div]:py-3 [&>div>dd]:text-right';
+  'divide-y divide-savr-sable-200 text-sm [&>div]:flex [&>div]:items-baseline [&>div]:justify-between [&>div]:gap-4 [&>div]:py-3 [&>div>dd]:text-right';
 
 function EnAttente() {
   return <span className="text-savr-neutral-400">En attente</span>;
@@ -440,7 +440,7 @@ export function Chauffeurs({
                 <p
                   className={
                     vb
-                      ? 'font-display text-[17px] font-semibold text-savr-neutral-900'
+                      ? 'font-display text-[15px] font-semibold text-savr-neutral-900'
                       : 'mb-1.5 font-medium'
                   }
                 >
@@ -490,7 +490,7 @@ export function Chauffeurs({
           // fiche événement).
           className={
             vb
-              ? 'mt-12 flex flex-col items-center justify-center gap-4 rounded-savr-xl border border-savr-sable-200 bg-savr-sable-50 px-5 py-4 text-center sm:flex-row sm:text-left md:-ml-[15.5rem]'
+              ? 'mt-8 flex flex-col items-center justify-center gap-4 rounded-savr-xl border border-savr-sable-200 bg-savr-sable-50 px-5 py-4 text-center sm:flex-row sm:text-left md:-ml-[15.5rem]'
               : 'flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center'
           }
         >

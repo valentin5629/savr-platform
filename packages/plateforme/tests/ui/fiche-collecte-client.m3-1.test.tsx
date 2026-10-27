@@ -713,7 +713,7 @@ describe('M3.1 / pop-up — onglet Logistique (wording Savr, Q3)', () => {
 
 describe('M3.1 / pop-up — onglet Bilan & documents', () => {
   it(
-    'M3.1/fiche_popup_bilan_zd_realisee — 4 KPI figés, donut, radar, « Rapport RSE » seul',
+    'M3.1/fiche_popup_bilan_zd_realisee — 4 KPI figés, donut, radar ; plus d’encadré « Rapport RSE » (téléchargement dans le pied)',
     async () => {
       stubFetchFiche(ficheClient(ZD_REALISEE));
       render(fiche('c1'));
@@ -736,9 +736,11 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       expect(
         await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI),
       ).toBeTruthy();
-      const docs = screen.getByTestId('bloc-documents');
-      expect(docs.textContent).toContain('Rapport RSE');
-      expect(docs.textContent).not.toMatch(/[Bb]ordereau/);
+      // Variante B (Val 2026-10-27) : l'encadré « Rapport RSE » est retiré,
+      // le bouton « Télécharger le rapport » du pied le remplace.
+      expect(screen.queryByTestId('bloc-documents')).toBeNull();
+      expect(screen.getByTestId('action-telecharger-rapport')).toBeTruthy();
+      expect(document.body.textContent).not.toMatch(/[Bb]ordereau/);
       expect(screen.queryByTestId('bilan-estompe')).toBeNull();
     },
     ATTENTE_CAS_MS,
@@ -761,7 +763,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
         /^1 250 ?kg CO₂e$/,
       );
       // L'unité est plus petite que le chiffre (span dédié).
-      expect(unite.className).toMatch(/text-(base|\[17px\])/); // unité plus petite que la valeur (34 px)
+      expect(unite.className).toMatch(/text-(base|\[15px\])/); // unité plus petite que la valeur (30 px)
 
       // Donut à gauche, légende à droite : conteneur en ligne dès 640px.
       const titre = screen.getByText('Répartition des tonnages');
@@ -881,10 +883,9 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       expect(screen.getByTestId('bloc-association').textContent).toContain(
         'Les Restos du Cœur',
       );
-      // Q5 : renommage d'affichage.
-      expect(screen.getByTestId('bloc-documents').textContent).toContain(
-        'Rapport de don',
-      );
+      // Rapport de don téléchargé depuis le pied, sans encadré (Val 2026-10-27).
+      expect(screen.queryByTestId('bloc-documents')).toBeNull();
+      expect(screen.getByTestId('action-telecharger-rapport')).toBeTruthy();
       expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
     },
     ATTENTE_CAS_MS,
@@ -919,10 +920,10 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
         'Votre rapport de don atteste que cet événement était sans excédent',
       );
       expect(bloc.textContent).not.toContain('attestation');
-      const documents = screen.getByTestId('bloc-documents').textContent ?? '';
-      expect(documents).toContain('Rapport de don');
-      expect(documents).not.toContain('sans excédent alimentaire');
-      expect(documents).not.toContain('Rapport RSE');
+      // Rapport de don téléchargé depuis le pied, sans encadré (Val 2026-10-27).
+      expect(screen.queryByTestId('bloc-documents')).toBeNull();
+      expect(screen.getByTestId('action-telecharger-rapport')).toBeTruthy();
+      expect(document.body.textContent).not.toContain('Rapport RSE');
       // « Sans excédent » n'est pas un statut (décision Val 2026-10-09) : la
       // frise dit « Réalisée », le bloc ci-dessus porte l'information.
       const frise = screen.getByTestId('frise-statut-client').textContent ?? '';
@@ -971,7 +972,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       render(fiche('c1'));
       await ouvrirOnglet('Bilan & documents');
 
-      await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
+      await screen.findByTestId('kpi-zd', {}, ATTENTE_UI);
       // Bouton dans le pied de la fiche (variante B, Val 2026-10-27).
       fireEvent.click(screen.getByTestId('action-telecharger-rapport'));
       await waitFor(
@@ -1010,24 +1011,26 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
       if (!urlsAppelees().some((c) => c.url.includes('/benchmark?')))
         throw new Error('radar non chargé');
     }, ATTENTE_UI);
-    return screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
+    // Le choix du radar est un bouton à côté du radar (Val 2026-10-27).
+    return screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
   }
   const caseRadar = () =>
-    screen.getByRole('checkbox', {
-      name: 'Inclure le radar de comparaison dans le rapport',
+    screen.getByRole('button', {
+      name: 'Intégrer la comparaison au rapport à télécharger',
     });
   // Bouton dans le pied de la fiche (variante B, Val 2026-10-27).
   const telecharger = (_docs: HTMLElement) =>
     screen.getByTestId('action-telecharger-rapport');
 
   it(
-    'M3.1/fiche_popup_rapport_option_radar — case décochée à l’ouverture ; plus de bouton « Régénérer »',
+    'M3.1/fiche_popup_rapport_option_radar — bouton à côté du radar, inactif à l’ouverture ; plus de bouton « Régénérer »',
     async () => {
-      const docs = await ouvrirDocuments({});
-      expect(caseRadar().getAttribute('aria-checked')).toBe('false');
-      expect(
-        within(docs).queryByRole('button', { name: /Régénér/ }),
-      ).toBeNull();
+      const radar = await ouvrirDocuments({});
+      expect(within(radar).getByTestId('option-rapport-radar')).toBe(
+        caseRadar(),
+      );
+      expect(caseRadar().getAttribute('aria-pressed')).toBe('false');
+      expect(screen.queryByRole('button', { name: /Régénér/ })).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -1037,7 +1040,7 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
     async () => {
       const docs = await ouvrirDocuments({});
       fireEvent.click(caseRadar());
-      expect(caseRadar().getAttribute('aria-checked')).toBe('true');
+      expect(caseRadar().getAttribute('aria-pressed')).toBe('true');
       fireEvent.click(telecharger(docs));
       await waitFor(
         () => expect(rapportsDemandes()).toHaveLength(1),
@@ -1158,7 +1161,7 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
   );
 
   it(
-    'M3.1/fiche_popup_rapport_indisponible — rapport pas encore disponible : « Télécharger » grisé, pas de case',
+    'M3.1/fiche_popup_rapport_indisponible — rapport pas encore disponible : « Télécharger » grisé, pas de bouton d’intégration',
     async () => {
       const docs = await ouvrirDocuments({ rapport_rse_disponible: false });
       expect(telecharger(docs).hasAttribute('disabled')).toBe(true);
@@ -1202,7 +1205,7 @@ describe('M3.1 / pop-up — attestation du donneur d’ordre (D12)', () => {
 
 describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 2026-09-30)', () => {
   it(
-    'M3.1/fiche_popup_document_a_venir — avant l’échéance : promesse des 48 h, téléchargement inactif',
+    'M3.1/fiche_popup_document_a_venir — avant l’échéance : promesse des 48 h en infobulle, téléchargement inactif',
     async () => {
       stubFetchFiche(
         ficheClient({ statut: 'realisee', rapport_etat: 'a_venir' }),
@@ -1210,16 +1213,17 @@ describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 
       render(fiche('c1'));
       await ouvrirOnglet('Bilan & documents');
 
-      const docs = await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
-      expect(docs.textContent).toContain('Rapport RSE');
-      expect(docs.textContent).toContain(
+      // Plus d'encadré (Val 2026-10-27) : l'état se lit sur le bouton grisé.
+      const bouton = await screen.findByTestId(
+        'action-telecharger-rapport',
+        {},
+        ATTENTE_UI,
+      );
+      expect(screen.queryByTestId('bloc-documents')).toBeNull();
+      expect(bouton.getAttribute('title')).toBe(
         'Document disponible dans les 48h après la collecte',
       );
-      expect(docs.textContent).not.toContain('Disponible le lendemain');
-      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
-        'disabled',
-        true,
-      );
+      expect(bouton).toHaveProperty('disabled', true);
     },
     ATTENTE_CAS_MS,
   );
@@ -1241,22 +1245,20 @@ describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 
       render(fiche('c1'));
       await ouvrirOnglet('Bilan & documents');
 
-      const docs = await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
-      expect(docs.textContent).toContain('Rapport de don');
-      expect(docs.textContent).toContain('En cours de préparation');
-      expect(docs.textContent).not.toContain('Disponible le lendemain');
-      expect(docs.textContent).not.toContain('48h');
-      expect(docs.textContent).not.toMatch(/retard|échec|erreur|pesée/i);
-      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
-        'disabled',
-        true,
+      const bouton = await screen.findByTestId(
+        'action-telecharger-rapport',
+        {},
+        ATTENTE_UI,
       );
+      expect(screen.queryByTestId('bloc-documents')).toBeNull();
+      expect(bouton.getAttribute('title')).toBe('En cours de préparation');
+      expect(bouton).toHaveProperty('disabled', true);
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.1/fiche_popup_document_disponible — PDF prêt : « PDF », téléchargement actif',
+    'M3.1/fiche_popup_document_disponible — PDF prêt : téléchargement actif, sans infobulle d’attente',
     async () => {
       stubFetchFiche(
         ficheClient({ ...ZD_REALISEE, rapport_etat: 'disponible' }),
@@ -1264,14 +1266,14 @@ describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 
       render(fiche('c1'));
       await ouvrirOnglet('Bilan & documents');
 
-      const docs = await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
-      expect(docs.textContent).toContain('PDF');
-      expect(docs.textContent).not.toContain('48h');
-      expect(docs.textContent).not.toContain('En cours de préparation');
-      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
-        'disabled',
-        false,
+      const bouton = await screen.findByTestId(
+        'action-telecharger-rapport',
+        {},
+        ATTENTE_UI,
       );
+      expect(screen.queryByTestId('bloc-documents')).toBeNull();
+      expect(bouton.getAttribute('title')).toBeNull();
+      expect(bouton).toHaveProperty('disabled', false);
     },
     ATTENTE_CAS_MS,
   );

@@ -1820,7 +1820,13 @@ export function CollecteDetailPanel({
   // AG attribuée : le choix du prestataire ne s'ouvre que sur « Modifier
   // l'attribution » (décision Val 2026-10-27).
   const agAttribuee = collecte.type === 'anti_gaspi' && !attributionManquante;
-  const choixMasque = agAttribuee && !changerPrestataire;
+  // Seulement une fois l'ordre parti (en file ou référence reçue) : une AG
+  // attribuée dont rien n'est parti garde ses cartes et son envoi directs.
+  const envoiParti = ordreEnFileEnvoi || !!collecte.tms_reference;
+  // Choix rouvert par « Modifier l'attribution » (titre « Changer de
+  // prestataire », bouton « Garder le prestataire actuel »).
+  const choixMasqueSansClic = agAttribuee && envoiParti;
+  const choixMasque = choixMasqueSansClic && !changerPrestataire;
   // Besoin véhicule modifiable avec l'envoi d'une ZD (décision Val
   // 2026-10-27 ; l'AG le saisit à l'attribution) : mêmes gardes que la route
   // (collecte encore à attribuer, choix du prestataire ouvert).
@@ -2314,7 +2320,7 @@ export function CollecteDetailPanel({
                               ?.volume_repas_realise ?? '—')}
                       </InfoItem>
                     </dl>
-                    {!isTerminal && !changerPrestataire && (
+                    {!isTerminal && envoiParti && !changerPrestataire && (
                       <div>
                         <Button
                           ref={changerPrestataireBtnRef}
@@ -2441,7 +2447,7 @@ export function CollecteDetailPanel({
                         className="font-semibold"
                         id="dispatch-transporteur-label"
                       >
-                        {ordreEnFileEnvoi || agAttribuee
+                        {ordreEnFileEnvoi || choixMasqueSansClic
                           ? 'Changer de prestataire'
                           : 'Prestataire à attribuer'}
                       </Text>
@@ -2584,7 +2590,7 @@ export function CollecteDetailPanel({
                   ) : (
                     <>
                       {changerPrestataire &&
-                        (ordreEnFileEnvoi || agAttribuee) && (
+                        (ordreEnFileEnvoi || choixMasqueSansClic) && (
                           <Button
                             variant="ghost"
                             onClick={() => {

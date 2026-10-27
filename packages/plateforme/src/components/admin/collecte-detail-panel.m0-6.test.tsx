@@ -24,16 +24,6 @@ import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 // Fiche en 4 onglets (Informations / Logistique / Documents / Historique) : seul
 // l'onglet actif est monté. Radix active un onglet au mousedown (bouton gauche).
-async function ouvrirModifierAttribution(): Promise<void> {
-  fireEvent.click(
-    await screen.findByRole(
-      'button',
-      { name: 'Modifier l’attribution' },
-      ATTENTE_UI,
-    ),
-  );
-}
-
 async function ouvrirOnglet(nom: string): Promise<void> {
   fireEvent.mouseDown(
     await screen.findByRole('tab', { name: nom }, ATTENTE_UI),
@@ -261,9 +251,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ).length,
       ).toBeGreaterThan(0);
       // Prestataire top-1 = carte cochée et marquée « Recommandé » (décision Val C3).
-      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
-      // (blocs fusionnés, décision Val 2026-10-27).
-      await ouvrirModifierAttribution();
       const carteStrike = await screen.findByRole(
         'radio',
         { name: /Strike/ },
@@ -566,9 +553,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
       // Attendre la pré-sélection du top-1 (bouton MTS-1)
-      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
-      // (blocs fusionnés, décision Val 2026-10-27).
-      await ouvrirModifierAttribution();
       await screen.findByRole(
         'button',
         { name: /Envoyer à MTS-1/ },
@@ -632,9 +616,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
-      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
-      // (blocs fusionnés, décision Val 2026-10-27).
-      await ouvrirModifierAttribution();
       expect(
         await screen.findByRole(
           'radio',
@@ -1378,6 +1359,50 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   // Même état en AG, chez un prestataire différent de la recommandation (top-1
   // Strike) : le prestataire en place reste coché, aucun motif n'est demandé,
   // l'envoi part vers lui à corps vide.
+  // Blocs fusionnés (décision Val 2026-10-27) : AG attribuée dont l'ordre est
+  // parti — pas de cartes d'office, « Modifier l'attribution » les rouvre.
+  it(
+    'AG validée, commande reçue : un seul bloc « Prestataire et Dispatch », cartes sur « Modifier l’attribution » seulement',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        statut: 'validee',
+        tms_reference: 'TOUR-9',
+        statut_tms: 'acceptee',
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const modifier = await screen.findByRole(
+        'button',
+        { name: 'Modifier l’attribution' },
+        ATTENTE_UI,
+      );
+      expect(screen.getByText('Prestataire et Dispatch')).toBeInTheDocument();
+      expect(screen.queryByText('Attribution AG')).toBeNull();
+      expect(screen.queryByRole('radio')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeNull();
+
+      fireEvent.click(modifier);
+      expect(
+        await screen.findByRole('radio', { name: /Strike/ }, ATTENTE_UI),
+      ).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Garder le prestataire actuel' }),
+      );
+      await waitFor(
+        () => expect(screen.queryByRole('radio')).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'M0.6/ordre_envoi_aucun_ordre_en_file_ag — AG chez A Toutes!, aucun ordre en file ni référence : « Non envoyé », A Toutes! cochée, « Envoyer à A Toutes! » sans motif',
     async () => {
@@ -1413,9 +1438,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(within(sousLigne).queryByText('Envoyée')).toBeNull();
 
       await ouvrirOnglet('Logistique');
-      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
-      // (blocs fusionnés, décision Val 2026-10-27).
-      await ouvrirModifierAttribution();
       const carte = await screen.findByRole(
         'radio',
         { name: /A Toutes!/ },
@@ -2118,9 +2140,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       // La reco (top-1 = Strike) est affichée mais ne prend PAS la main sur une
       // collecte déjà attribuée : un clic sur le bouton d'envoi la ré-attribuerait.
-      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
-      // (blocs fusionnés, décision Val 2026-10-27).
-      await ouvrirModifierAttribution();
       const carteStrike = await screen.findByRole(
         'radio',
         { name: /Strike/ },
@@ -3443,9 +3462,6 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
-      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
-      // (blocs fusionnés, décision Val 2026-10-27).
-      await ouvrirModifierAttribution();
       const strike = await screen.findByRole(
         'radio',
         { name: /Strike/ },

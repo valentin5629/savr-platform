@@ -428,6 +428,7 @@ describe('M3.4 / download', () => {
         options: { benchmark: false },
         bordereau: { date_collecte: '28/09/2026' },
       },
+      dateCollecte: '28/09/2026',
     });
     mockPdf.mockResolvedValueOnce({ pdfBuffer: Buffer.from('%PDF orga') });
     rls.push({

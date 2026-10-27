@@ -8,7 +8,11 @@
 // (le même que le bordereau PDF). Noms et logos sont lus au moment du clic.
 //
 // Lecture en service-role : l'appelant a déjà vérifié, sous l'identité du
-// demandeur, que la collecte et son rapport lui sont visibles.
+// demandeur, que la collecte et son rapport lui sont visibles. Le bordereau a
+// sa propre RLS, plus étroite que celle du rapport (traiteur opérationnel tiers,
+// gestionnaire qui programme hors de ses lieux) : la page 2 n'est jointe que si
+// le demandeur le lit sous son identité, sinon le rapport s'arrête à la page 1
+// (décision Val 2026-10-27, §12 §1.7).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { formatDateParis } from '@savr/shared/src/temps/index.js';
@@ -105,7 +109,12 @@ interface FluxRow {
 }
 
 export type PayloadRapport =
-  | { ok: true; payload: Record<string, unknown> }
+  | {
+      ok: true;
+      payload: Record<string, unknown>;
+      /** Date de la collecte (« JJ/MM/AAAA »), pour le nom du fichier. */
+      dateCollecte: string;
+    }
   /** Collecte sans événement ou sans bordereau : rien de mesuré à imprimer. */
   | { ok: false; code: 'INCOMPLET' }
   | { ok: false; code: 'DB_ERROR'; erreur: unknown };
@@ -173,13 +182,16 @@ export async function enTeteRapport(ev: EvenementRapportRow) {
 
 /**
  * Rapport de recyclage d'une collecte ZD, version SANS radar. L'appelant ajoute
- * le radar quand le demandeur l'a coché (cf. rapport-a-la-demande).
+ * le radar quand le demandeur l'a coché (cf. rapport-a-la-demande). `lecteur` =
+ * client du demandeur, sous sa RLS : il dit seulement si le bordereau lui est
+ * lisible.
  */
 export async function construirePayloadRapport(
   admin: SupabaseClient,
+  lecteur: SupabaseClient,
   collecteId: string,
 ): Promise<PayloadRapport> {
-  const [colRes, bordRes, fluxRes] = await Promise.all([
+  const [colRes, bordRes, fluxRes, lisibleRes] = await Promise.all([
     admin
       .from('collectes')
       .select(
@@ -203,8 +215,13 @@ export async function construirePayloadRapport(
       .from('collecte_flux')
       .select('poids_reel_kg, flux:flux_id ( nom, code )')
       .eq('collecte_id', collecteId),
+    lecteur
+      .from('bordereaux_savr')
+      .select('id')
+      .eq('collecte_id', collecteId)
+      .limit(1),
   ]);
-  for (const r of [colRes, bordRes, fluxRes]) {
+  for (const r of [colRes, bordRes, fluxRes, lisibleRes]) {
     if (r.error) return { ok: false, code: 'DB_ERROR', erreur: r.error };
   }
 
@@ -225,9 +242,11 @@ export async function construirePayloadRapport(
   const enTete = await enTeteRapport(ev);
   const { dateEvenement, adresseLieu } = enTete;
   const lieu = ev.lieux;
+  const bordereauLisible = (lisibleRes.data ?? []).length > 0;
 
   return {
     ok: true,
+    dateCollecte: dateFr(bordereau.date_collecte ?? collecte.date_collecte),
     payload: {
       ...enTete.champs,
       nb_pax: convivesImprimes(collecte.pax),
@@ -245,26 +264,32 @@ export async function construirePayloadRapport(
       ),
       caps_appliques: collecte.caps_appliques ?? undefined,
       options: { benchmark: false },
-      // Page 2 = instantané du bordereau émis par le batch J+1.
-      bordereau: {
-        numero: bordereau.numero ?? '',
-        date_emission: dateFr(bordereau.date_emission),
-        date_collecte: dateFr(
-          bordereau.date_collecte ?? collecte.date_collecte,
-        ),
-        date_evenement: dateEvenement,
-        nom_evenement: ev.nom_evenement,
-        lieu_nom: lieu?.nom ?? '',
-        lieu_adresse: adresseLieu,
-        producteur_raison_sociale: bordereau.producteur_raison_sociale ?? '',
-        producteur_siret: bordereau.producteur_siret,
-        producteur_adresse: bordereau.producteur_adresse ?? '',
-        transporteur_nom: bordereau.transporteur_nom ?? 'Non renseigné',
-        exutoire_nom: bordereau.exutoire_nom ?? '',
-        nb_pax: convivesImprimes(collecte.pax),
-        flux: Array.isArray(bordereau.detail_flux) ? bordereau.detail_flux : [],
-        poids_total_kg: Number(bordereau.poids_total_kg ?? poidsTotalKg),
-      },
+      // Page 2 = instantané du bordereau émis par le batch J+1, si le demandeur
+      // le lit.
+      bordereau: bordereauLisible
+        ? {
+            numero: bordereau.numero ?? '',
+            date_emission: dateFr(bordereau.date_emission),
+            date_collecte: dateFr(
+              bordereau.date_collecte ?? collecte.date_collecte,
+            ),
+            date_evenement: dateEvenement,
+            nom_evenement: ev.nom_evenement,
+            lieu_nom: lieu?.nom ?? '',
+            lieu_adresse: adresseLieu,
+            producteur_raison_sociale:
+              bordereau.producteur_raison_sociale ?? '',
+            producteur_siret: bordereau.producteur_siret,
+            producteur_adresse: bordereau.producteur_adresse ?? '',
+            transporteur_nom: bordereau.transporteur_nom ?? 'Non renseigné',
+            exutoire_nom: bordereau.exutoire_nom ?? '',
+            nb_pax: convivesImprimes(collecte.pax),
+            flux: Array.isArray(bordereau.detail_flux)
+              ? bordereau.detail_flux
+              : [],
+            poids_total_kg: Number(bordereau.poids_total_kg ?? poidsTotalKg),
+          }
+        : null,
     },
   };
 }

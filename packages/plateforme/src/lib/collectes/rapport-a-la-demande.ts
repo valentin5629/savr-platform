@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { logger } from '@savr/shared/src/logger/index.js';
-import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import {
+  createAdminSupabaseClient,
+  type SupabaseClient,
+} from '@savr/shared/src/supabase-client.js';
 
 import {
   createSupabaseServerClient,
@@ -37,7 +40,8 @@ import {
 // J+1) n'est jamais contourné, et le radar est calculé par la fonction de l'écran
 // sous l'identité de l'appelant : même k-anonymat pour l'Admin que pour un client,
 // ce PDF part chez le client. Les données mesurées sont lues en service-role
-// (construirePayloadRapport), une fois l'accès établi.
+// (construirePayloadRapport), une fois l'accès établi ; la page 2 (bordereau)
+// n'est jointe que si le demandeur lit le bordereau sous sa RLS (§12 §1.7).
 
 const radarIndisponible = (sujet: string) =>
   `La comparaison au parc n’est pas disponible pour ${sujet}.`;
@@ -134,19 +138,23 @@ export async function lireVersionDemandee(
 }
 
 /** « JJ/MM/AAAA » → « AAAA-MM-JJ » pour le nom du fichier (sinon la référence). */
-function nomFichier(dateCollecte: unknown, id: string): string {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(dateCollecte ?? ''));
+function nomFichier(dateCollecte: string, id: string): string {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateCollecte);
   return `rapport-recyclage-${m ? `${m[3]}-${m[2]}-${m[1]}` : id.slice(0, 8)}.pdf`;
 }
 
-/** Fabrique le PDF d'une collecte ZD dont l'accès est établi. */
+/**
+ * Fabrique le PDF d'une collecte ZD dont l'accès est établi. `lecteur` = client
+ * du demandeur (sa RLS dit si le bordereau de la page 2 lui est lisible).
+ */
 export async function fabriquerRapport(
   id: string,
   version: VersionRapport,
   evenementLog: string,
+  lecteur: SupabaseClient,
 ): Promise<NextResponse> {
   const admin = createAdminSupabaseClient();
-  const construit = await construirePayloadRapport(admin, id);
+  const construit = await construirePayloadRapport(admin, lecteur, id);
   if (!construit.ok) {
     return construit.code === 'DB_ERROR'
       ? serverError(construit.erreur, evenementLog)
@@ -180,8 +188,7 @@ export async function fabriquerRapport(
       'Content-Type': 'application/pdf',
       'Content-Length': String(pdf.length),
       'Content-Disposition': `attachment; filename="${nomFichier(
-        (payload.bordereau as { date_collecte?: unknown } | undefined)
-          ?.date_collecte,
+        construit.dateCollecte,
         id,
       )}"`,
       'Cache-Control': 'no-store',
@@ -262,7 +269,12 @@ export async function repondreRapportClient(
   );
   if ('refus' in lu) return lu.refus;
 
-  const reponse = await fabriquerRapport(id, lu.version, evenementLog);
+  const reponse = await fabriquerRapport(
+    id,
+    lu.version,
+    evenementLog,
+    rls as unknown as SupabaseClient,
+  );
 
   if (reponse.ok && ligne) {
     await marquerConsulte(ligne.id, ligne.consulte_par_user_at, evenementLog);
@@ -331,5 +343,10 @@ export async function repondreRapportStaff(
     filtresParDefaut,
   );
   if ('refus' in lu) return lu.refus;
-  return fabriquerRapport(id, lu.version, evenementLog);
+  return fabriquerRapport(
+    id,
+    lu.version,
+    evenementLog,
+    rls as unknown as SupabaseClient,
+  );
 }

@@ -1361,6 +1361,32 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   // l'envoi part vers lui à corps vide.
   // Blocs fusionnés (décision Val 2026-10-27) : AG attribuée dont l'ordre est
   // parti — pas de cartes d'office, « Modifier l'attribution » les rouvre.
+  // Le statut TMS posé par le prestataire arrive avant la référence (constaté
+  // le 2026-10-27 sur savr-dev) : la commande est déjà partie.
+  it(
+    'AG attribuée, statut TMS « À attribuer » sans référence encore : choix masqué, « Modifier l’attribution »',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        tms_reference: null,
+        statut_tms: 'a_attribuer',
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByRole(
+          'button',
+          { name: 'Modifier l’attribution' },
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('radio')).toBeNull();
+      expect(screen.queryByText('Prestataire à attribuer')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'AG validée, commande reçue : un seul bloc « Prestataire et Dispatch », cartes sur « Modifier l’attribution » seulement',
     async () => {
@@ -3001,15 +3027,15 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
-      // Association + transporteur retenus (embed attributions_antgaspi), lus
+      // Association retenue (embed attributions_antgaspi), lue
       // sous leur libellé : l'en-tête de la fiche porte aussi le nom de
       // l'association, il ne prouve rien du résumé.
       expect(valeurResumeAttribution('Association retenue')).toHaveTextContent(
         /^Les Restos du Cœur$/,
       );
-      expect(valeurResumeAttribution('Transporteur retenu')).toHaveTextContent(
-        /^A Toutes!$/,
-      );
+      // « Transporteur retenu » retiré du bloc fusionné (doublon de
+      // « Prestataire actuel », décision Val 2026-10-27).
+      expect(screen.queryByText('Transporteur retenu')).toBeNull();
       // Validation (§06.06 Bloc 5) : mode + date de validation, au jour de Paris.
       expect(valeurResumeAttribution('Validation')).toHaveTextContent(
         /^manuel_override — 02\/05\/2026$/,

@@ -1820,9 +1820,15 @@ export function CollecteDetailPanel({
   // AG attribuée : le choix du prestataire ne s'ouvre que sur « Modifier
   // l'attribution » (décision Val 2026-10-27).
   const agAttribuee = collecte.type === 'anti_gaspi' && !attributionManquante;
-  // Seulement une fois l'ordre parti (en file ou référence reçue) : une AG
-  // attribuée dont rien n'est parti garde ses cartes et son envoi directs.
-  const envoiParti = ordreEnFileEnvoi || !!collecte.tms_reference;
+  // Seulement une fois l'ordre parti (en file, référence reçue, ou statut TMS
+  // posé par le prestataire — il arrive avant la référence) : une AG attribuée
+  // dont rien n'est parti, ou rejetée par son prestataire, garde ses cartes et
+  // son envoi directs.
+  const envoiParti =
+    collecte.statut_tms !== 'rejetee_par_prestataire' &&
+    (ordreEnFileEnvoi ||
+      !!collecte.tms_reference ||
+      collecte.statut_tms !== 'non_envoye');
   // Choix rouvert par « Modifier l'attribution » (titre « Changer de
   // prestataire », bouton « Garder le prestataire actuel »).
   const choixMasqueSansClic = agAttribuee && envoiParti;
@@ -2289,11 +2295,6 @@ export function CollecteDetailPanel({
                           <span className="text-savr-neutral-400">
                             Aucune (en attente d’attribution)
                           </span>
-                        )}
-                      </InfoItem>
-                      <InfoItem label="Transporteur retenu">
-                        {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
-                          <span className="text-savr-neutral-400">—</span>
                         )}
                       </InfoItem>
                       <InfoItem label="Validation">

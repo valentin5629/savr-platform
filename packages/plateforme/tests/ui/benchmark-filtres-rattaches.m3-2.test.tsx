@@ -233,9 +233,13 @@ describe('M3.2 / fiche collecte — filtre Lieux du repère selon l’espace', (
   );
 
   it(
-    'M3.2/fiche_benchmark_lieux_tous_traiteur — espace traiteur : « Tous » (liste du parc entier, inchangée)',
+    'M3.2/fiche_benchmark_lieux_tous_traiteur — espace traiteur : « Tous les lieux » (liste du parc entier, inchangée)',
     async () => {
-      expect(await libelleLieuxDeLaFiche('traiteur')).toBe('Lieux' + 'Tous');
+      // Pastille de la variante B (Val 2026-10-27) : la valeur vide dit ce
+      // qu'elle couvre, le titre « Lieux » reste lu par les lecteurs d'écran.
+      expect(await libelleLieuxDeLaFiche('traiteur')).toBe(
+        'Lieux' + 'Tous les lieux',
+      );
     },
     ATTENTE_CAS_MS,
   );

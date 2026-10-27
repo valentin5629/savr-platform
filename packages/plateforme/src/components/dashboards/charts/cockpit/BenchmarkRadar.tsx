@@ -56,7 +56,6 @@ interface BenchmarkRadarProps {
 }
 
 const VOUS_COMPACT = 'var(--color-savr-accent-500)';
-const VOUS_COMPACT_FOND = 'rgba(255, 155, 0, 0.22)';
 const PARC_COMPACT = 'var(--color-savr-primary-900)';
 
 // Série « Vous » = navy-700 (encre forte), série « Parc » = primary-300 (repère
@@ -475,7 +474,8 @@ export function BenchmarkRadar({
             {compacte && ptsVous.every(Boolean) && (
               <polygon
                 points={ptsVous.map((p) => p!.join(',')).join(' ')}
-                fill={VOUS_COMPACT_FOND}
+                fill={VOUS_COMPACT}
+                fillOpacity={0.22}
                 stroke="none"
               />
             )}
@@ -602,7 +602,7 @@ export function BenchmarkRadar({
               >
                 <span
                   aria-hidden
-                  className="inline-block h-2.5 w-3.5 shrink-0 rounded-[2px] border-2 border-savr-accent-500 bg-savr-accent-500/25"
+                  className="inline-block h-2.5 w-3.5 shrink-0 rounded-savr-sm border-2 border-savr-accent-500 bg-savr-accent-500/25"
                 />
                 Votre collecte
               </Text>

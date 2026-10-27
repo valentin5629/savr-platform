@@ -113,7 +113,7 @@ interface BenchmarkFilterBarProps {
 }
 
 const PASTILLE =
-  'h-auto min-h-11 max-w-full rounded-savr-full bg-savr-sable-100 px-3.5 py-1.5 text-left text-[13px] font-semibold text-savr-neutral-800 hover:bg-savr-sable-200 data-[state=open]:bg-savr-sable-200 sm:min-h-9 [&>span:first-child]:sr-only [&>span:nth-child(2)]:font-semibold [&>span:nth-child(2)]:text-savr-neutral-800';
+  'h-auto min-h-11 max-w-full rounded-savr-full bg-savr-sable-100 px-3.5 py-1.5 text-left text-sm font-semibold text-savr-neutral-800 hover:bg-savr-sable-200 data-[state=open]:bg-savr-sable-200 sm:min-h-9 [&>span:first-child]:sr-only [&>span:nth-child(2)]:font-semibold [&>span:nth-child(2)]:text-savr-neutral-800';
 
 // Pastilles : seule la valeur est visible (le titre reste lu par les lecteurs
 // d'écran) ; la valeur « vide » dit donc ce qu'elle couvre.

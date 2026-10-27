@@ -855,7 +855,7 @@
     },
     {
       "id": "M3.2-bloc-organisation-edition",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:470",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:474",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-organisation/page.tsx + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/logo/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/profil/route.ts + packages/plateforme/src/lib/logo-upload.ts",
       "test": "M3.2/mon_organisation_champs_editables_et_lecture_seule + M3.2/mon_organisation_adresse_enregistree + M3.2/mon_organisation_adresse_erreur_serveur_affichee + M3.2/mon_organisation_logo_upload_puis_enregistre + M3.2/mon_organisation_logo_refuse_sans_patch + M3.2/mon_organisation_logo_envoye_non_enregistre + M3.2/profil_patch_logo_cle_upload_acceptee + M3.2/profil_patch_logo_invalide_422 + M3.2/profil_patch_adresse_trim_et_vide_null + M3.2/profil_patch_adresse_invalide_422 + M3.2/logo_upload_201 + M3.2/logo_upload_format_refuse_422 + M3.2/logo_upload_trop_lourd_422 + M3.2/logo_upload_role_traiteur_403 + M3.2/logo_get_sert_le_logo_de_sa_propre_organisation + M3.2/logo_get_404",
       "statut": "implemented",
@@ -872,7 +872,7 @@
     },
     {
       "id": "M3.2-traiteur-logo-proxy",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:447",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:451",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/logo/route.ts + packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx (en-tête)",
       "test": "M3.2/traiteur_logo_200 + M3.2/traiteur_logo_hors_perimetre_404 + M3.2/traiteur_logo_404 + M3.2/traiteur_logo_role_403 + M3.2/P2_traiteurs_logo_par_proxy + M3.2/logo_fiche_traiteur_gestionnaire_par_proxy",
       "statut": "implemented",
@@ -880,7 +880,7 @@
     },
     {
       "id": "M3.2-detail-evenement-distance-association",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:346",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:350",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -889,7 +889,7 @@
     },
     {
       "id": "M3.2-detail-evenement-lecture-seule",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-353",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-357",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts",
       "test": "M3.2/evenement_fiche_bilan_consolide_affiche + M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte + M3.2/evenement_fiche_bilan_consolide_et_collectes_triees + M3.2/evenement_fiche_404_hors_perimetre_ou_identifiant_invalide + M3.2/evenement_fiche_introuvable + M3.2/evenement_fiche_erreur + M3.2/evenement_fiche_labo_tiret_sans_zd + M3.2/evenement_fiche_echec_d_une_fiche_500 + M3.2/evenement_fiche_collectes_meme_jour_par_heure + M3.2/evenement_fiche_rouverte_et_rechargee",
       "statut": "implemented",
@@ -947,7 +947,7 @@
     },
     {
       "id": "M3.2-dashboard-kpi-etat-erreur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:419",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:426",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts",
       "test": "M3.2/dashboard_kpi_erreur_distincte_du_vide + M3.2/dashboard_kpi_reponse_perimee_ignoree",
       "statut": "implemented",
@@ -971,7 +971,7 @@
     },
     {
       "id": "M3.2-popup-sans-annulation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:353",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:357",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.2/fiche_popup_gestionnaire_sans_annulation",
       "statut": "implemented",
@@ -979,7 +979,7 @@
     },
     {
       "id": "M3.2-gestionnaire-annulation-ses-programmations",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:353",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:357",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/annulation/route.ts, packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx, packages/plateforme/src/lib/routes.ts",
       "test": "M3.2/gestionnaire_annulation_directe + M3.2/gestionnaire_annulation_demande + M3.2/gestionnaire_annulation_hors_programmations_403 + M3.2/gestionnaire_annulation_statut_terminal_422 + M3.2/gestionnaire_annulation_collecte_introuvable_404 + M3.2/gestionnaire_annulation_role_403 + M3.2/fiche_popup_gestionnaire_annulation_sa_programmation + M3.2/fiche_get_actions_gestionnaire",
       "statut": "implemented",
@@ -1044,7 +1044,7 @@
     },
     {
       "id": "M3.2-liste-colonne-client",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:340",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:344",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": "M3.2/collectes_route_renvoie_le_client_organisateur + M3.2/collectes_liste_rendue_au_design_system",
       "statut": "implemented",
@@ -1052,7 +1052,7 @@
     },
     {
       "id": "M3.2-liste-colonne-client-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:358",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:365",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1076,7 +1076,7 @@
     },
     {
       "id": "M3.2-liste-collectes-colonne-dechets-labo-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:358",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:365",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1100,7 +1100,7 @@
     },
     {
       "id": "M3.2-traiteurs-repas-par-vue",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:451",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:455",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts",
       "test": "M3.2/traiteurs_liste_repas_par_vue + M3.2/dashboard_ag_repas_par_vue",
       "statut": "implemented",
@@ -1140,7 +1140,7 @@
     },
     {
       "id": "M3.2-pack-ag-ecran-etat-erreur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:419",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:426",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
       "test": "M3.2/pack_ag_ecran_erreur_chargement + M3.2/pack_ag_ecran_aucun_pack",
       "statut": "implemented",
@@ -1180,7 +1180,7 @@
     },
     {
       "id": "M3.2-collectes-filtres-lieu-traiteur-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:281",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:288",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx (Lieu et Traiteur en FiltreCoches ; adresse de la page : `lieu` et `traiteur` en CSV, clés du drill-down inchangées) + packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts (`lieu_ids` / `traiteur_ids` en CSV d'UUID, anciens `lieu_id` / `traiteur_id` lus comme une liste d'un élément) + packages/plateforme/src/components/ui/filtre-en-ligne.tsx (option `horsListe`)",
       "test": "M3.2/collectes_route_plusieurs_lieux + M3.2/collectes_route_plusieurs_traiteurs + M3.2/collectes_route_lieux_et_traiteurs_se_cumulent + M3.2/collectes_route_ancien_lien_valeur_unique + M3.2/collectes_route_pluriel_prioritaire_sur_ancien + M3.2/collectes_route_identifiant_mal_forme_ecarte + M3.2/collectes_route_aucun_identifiant_valide_liste_vide + M3.2/collectes_route_un_filtre_valide_ne_sauve_pas_l_autre + M3.2/collectes_route_sans_filtre_lieu_ni_traiteur + M3.2/collectes_route_lue_par_la_session_seule + M3.2/collectes_route_recompte_porte_les_listes + M3.2/collectes_filtres_lieu_traiteur_choix_multiple + M3.2/collectes_filtres_lien_plusieurs_valeurs + M3.2/collectes_chip_disparait_au_deuxieme_lieu_coche + M3.2/collectes_valeur_hors_options_cochee_avec_les_autres + M3.2/collectes_lien_a_plusieurs_valeurs_sans_chip + M3.2/collectes_lien_a_plusieurs_valeurs_reduit_a_une_sans_chip + M3.2/collectes_un_lieu_et_plusieurs_traiteurs_chip_sur_le_lieu + ds/filtre_coches_option_hors_liste_tout_cocher_n_est_pas_tous + ds/filtre_coches_option_hors_liste_decochee_les_autres_valent_tous + M3.2/rls_collectes_liste_lieu_hors_parc_seul + M3.2/rls_collectes_liste_lieux_parc_et_hors_parc + M3.2/rls_collectes_liste_traiteur_commun + M3.2/rls_collectes_liste_lieu_hors_parc_programmation_propre",
       "statut": "implemented",
@@ -1188,7 +1188,7 @@
     },
     {
       "id": "M3.2-collectes-filtres-lieu-traiteur-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:281",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:288",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1212,7 +1212,7 @@
     },
     {
       "id": "M3.2-fiche-lieu-modale",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:384",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:388",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx (ouverture au clic, adresse `?lieu=<id>`) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/[id]/page.tsx (redirection)",
       "test": "M3.2/fiche_lieu_modale_ouverte_au_clic + M3.2/fiche_lieu_modale_lien_direct + M3.2/fiche_lieu_modale_fermeture_nettoie_l_adresse + M3.2/fiche_lieu_ancienne_route_redirige + M3.2/fiche_lieu_modale_erreur_chargement + M3.2/fiche_lieu_modale_lieu_introuvable + M3.2/fiche_lieu_modale_identifiant_mal_forme",
       "statut": "implemented",
@@ -1220,7 +1220,7 @@
     },
     {
       "id": "M3.2-fiche-lieu-informations-lecture-seule",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:386-388",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:390-392",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Informations) + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts + packages/plateforme/src/lib/lieux-labels.ts (REGION_LABEL) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx (format de la capacité)",
       "test": "M3.2/fiche_lieu_modale_libelles_lisibles + M3.2/fiche_lieu_modale_lecture_seule + M3.2/P2_lieu_detail_capacite_photos_collectes + M3.2/fiche_lieu_identifiant_mal_forme_404 + M3.2/fiche_lieu_role_non_gestionnaire_403 + M3.2/P2_lieux_colonne_capacite",
       "statut": "implemented",
@@ -1228,7 +1228,7 @@
     },
     {
       "id": "M3.2-fiche-lieu-traiteurs-operant",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:389",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:393",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (`traiteurs`) + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Traiteurs)",
       "test": "M3.2/fiche_lieu_traiteurs_tous_statuts_tries + M3.2/fiche_lieu_traiteurs_plafond_inferieur + M3.2/fiche_lieu_erreur_collectes_500 + M3.2/fiche_lieu_modale_onglet_traiteurs_liste_complete + M3.2/fiche_lieu_modale_onglet_traiteurs_vide",
       "statut": "implemented",
@@ -1236,7 +1236,7 @@
     },
     {
       "id": "M3.2-fiche-lieu-activite-12-mois",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:390",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:394",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (onglet Activité, `ActiviteLieu`) + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionZdChart.tsx + packages/plateforme/src/components/dashboards/useEvolutionBlocs.ts (champ `erreur`) + packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts (route existante, inchangée) + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (ne sert plus `collectes`)",
       "test": "M3.2/fiche_lieu_modale_activite_graphique_du_dashboard + M3.2/fiche_lieu_modale_activite_sans_collecte + M3.2/fiche_lieu_modale_activite_erreur + M3.2/fiche_lieu_sans_liste_de_collectes",
       "statut": "implemented",
@@ -1244,7 +1244,7 @@
     },
     {
       "id": "M3.2-fiche-lieu-demande-modification",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:392",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:396",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/demande-modification/route.ts + packages/plateforme/src/lib/lieux/demande-modification.ts + packages/plateforme/src/lib/lieux/parc.ts + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts (`demande_modification_possible`, `demande_modification_en_cours`) + supabase/migrations/20261006231500_plateforme_alerte_lieu_modification_ouverte_unique.sql + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx (pied + sous-modale) + packages/plateforme/src/lib/alertes-admin.ts (sévérité) + packages/plateforme/src/components/admin/lieu-modal.tsx (libellé d'historique)",
       "test": "M3.2/demande_modification_lieu_cree_alerte_admin + M3.2/demande_modification_lieu_n_ecrit_pas_le_referentiel + M3.2/demande_modification_lieu_hors_perimetre_404 + M3.2/demande_modification_lieu_deja_ouverte_409 + M3.2/demande_modification_lieu_envoi_simultane_409 + M3.2/demande_modification_lieu_message_invalide_422 + M3.2/demande_modification_lieu_caracteres_invisibles_retires + M3.2/demande_modification_lieu_message_borne_acceptee + M3.2/demande_modification_lieu_corps_illisible_400 + M3.2/demande_modification_lieu_role_non_gestionnaire_403 + M3.2/demande_modification_lieu_identifiant_mal_forme_404 + M3.2/demande_modification_lieu_alerte_en_echec_500 + M3.2/demande_modification_lieu_lectures_en_echec_500 + M3.2/demande_modification_lieu_audit_en_echec_demande_conservee + M3.2/alerte_lieu_modification_severite_et_lien + M3.2/fiche_lieu_demande_en_cours_exposee + M3.2/fiche_lieu_demande_lecture_en_echec_500 + M3.2/fiche_lieu_hors_parc_consultation_seule + M3.2/fiche_lieu_hors_perimetre_sans_lecture_service_role + M3.2/fiche_lieu_modale_demande_envoyee + M3.2/fiche_lieu_modale_demande_deja_en_cours + M3.2/fiche_lieu_modale_demande_concurrente_409 + M3.2/fiche_lieu_modale_demande_refusee_message_affiche + M3.2/fiche_lieu_modale_echap_ferme_la_demande_seule + M3.2/fiche_lieu_modale_hors_parc_sans_bouton + LIEU_MODIF/index_unique_partiel_present + LIEU_MODIF/seconde_demande_ouverte_refusee + LIEU_MODIF/autre_lieu_libre + LIEU_MODIF/autre_code_libre + LIEU_MODIF/nouvelle_demande_apres_resolution + M3.2/historique_lieu_admin_demande_gestionnaire + LIEU_MODIF/trace_audit_acceptee + LIEU_MODIF/ecriture_directe_gestionnaire_refusee + LIEU_MODIF/lecture_directe_gestionnaire_vide + M3.2/demande_modification_lieu_du_parc_illisible_404",
       "statut": "implemented",
@@ -1252,7 +1252,7 @@
     },
     {
       "id": "M3.2-fiche-lieu-modale-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:384",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:388",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx + packages/plateforme/src/app/(admin)/admin/alertes/page.tsx + packages/plateforme/src/components/admin/lieu-modal.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1260,7 +1260,7 @@
     },
     {
       "id": "M3.2-demande-ajout-lieu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:398",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:402",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx (bouton du bandeau, état « demande en cours ») + packages/plateforme/src/components/gestionnaire/demande-ajout-lieu-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/lieux/demande-ajout/route.ts (GET état, POST demande) + packages/plateforme/src/lib/lieux/demande-ajout.ts + packages/plateforme/src/lib/lieux/demande-modification.ts (`nettoyerSaisie`, `porteCaractereInterdit`) + packages/plateforme/src/lib/alertes-admin.ts (sévérité) + supabase/migrations/20261007113000_plateforme_alerte_lieu_ajout_ouverte_unique.sql",
       "test": "M3.2/demande_ajout_lieu_cree_alerte_admin + M3.2/demande_ajout_lieu_n_ecrit_ni_lieu_ni_rattachement + M3.2/demande_ajout_lieu_organisation_de_la_session + M3.2/demande_ajout_lieu_precision_facultative + M3.2/demande_ajout_lieu_champs_invalides_422 + M3.2/demande_ajout_lieu_bornes_acceptees + M3.2/demande_ajout_lieu_blancs_replies + M3.2/demande_ajout_lieu_caracteres_invisibles_retires + M3.2/demande_ajout_lieu_deja_ouverte_409 + M3.2/demande_ajout_lieu_envoi_simultane_409 + M3.2/demande_ajout_lieu_organisation_sans_nom + M3.2/demande_ajout_lieu_corps_illisible_400 + M3.2/demande_ajout_lieu_role_non_gestionnaire_403 + M3.2/demande_ajout_lieu_non_authentifie_401 + M3.2/demande_ajout_lieu_lectures_en_echec_500 + M3.2/demande_ajout_lieu_alerte_en_echec_500 + M3.2/demande_ajout_lieu_audit_en_echec_demande_conservee + M3.2/demande_ajout_lieu_impersonation_tracee + M3.2/demande_ajout_lieu_etat_expose + M3.2/demande_ajout_lieu_etat_illisible_500 + M3.2/alerte_lieu_ajout_severite_et_lien + M3.2/demande_ajout_lieu_bouton_sur_la_liste + M3.2/demande_ajout_lieu_bouton_neutralise_demande_en_cours + M3.2/demande_ajout_lieu_etat_illisible_bouton_propose + M3.2/demande_ajout_lieu_etat_tardif_ne_reactive_pas + M3.2/demande_ajout_lieu_formulaire_trois_champs + M3.2/demande_ajout_lieu_champs_obligatoires_bloquent_l_envoi + M3.2/demande_ajout_lieu_envoi_confirme + M3.2/demande_ajout_lieu_deja_en_cours_409 + M3.2/demande_ajout_lieu_refus_affiche + M3.2/demande_ajout_lieu_erreur_reseau + M3.2/demande_ajout_lieu_envoi_en_cours_verrouille + LIEU_AJOUT/index_unique_partiel_present + LIEU_AJOUT/premiere_demande_ouverte + LIEU_AJOUT/seconde_demande_ouverte_refusee + LIEU_AJOUT/autre_organisation_libre + LIEU_AJOUT/autre_code_libre + LIEU_AJOUT/nouvelle_demande_apres_resolution + LIEU_AJOUT/ecriture_directe_gestionnaire_refusee + LIEU_AJOUT/lecture_directe_gestionnaire_vide + LIEU_AJOUT/trace_audit_acceptee",
       "statut": "implemented",
@@ -1268,7 +1268,7 @@
     },
     {
       "id": "M3.2-demande-ajout-lieu-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:398",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:402",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx + packages/plateforme/src/components/gestionnaire/demande-ajout-lieu-modal.tsx + packages/plateforme/src/app/(admin)/admin/alertes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1276,7 +1276,7 @@
     },
     {
       "id": "M3.2-collectes-export-csv",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:384",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:391",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx (bouton « Exporter CSV ») + packages/plateforme/src/lib/collectes-gestionnaire.ts (lireFiltresCollectesGestionnaire, lue par la route de la liste et par l'export)",
       "test": "M3.2/collectes_export_csv_filtres_de_la_liste",
       "statut": "implemented",
@@ -1292,7 +1292,7 @@
     },
     {
       "id": "M3.2-fiche-traiteur-modale",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:454",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:458",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/traiteurs/page.tsx (ouverture au clic, adresse `?traiteur=<id>`) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/traiteurs/[id]/page.tsx (redirection) + packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/route.ts",
       "test": "M3.2/fiche_traiteur_modale_ouverte_au_clic + M3.2/fiche_traiteur_modale_lien_direct + M3.2/fiche_traiteur_modale_fermeture_nettoie_l_adresse + M3.2/fiche_traiteur_ancienne_route_redirige + M3.2/fiche_traiteur_modale_erreur_chargement + M3.2/fiche_traiteur_modale_introuvable + M3.2/fiche_traiteur_modale_lecture_seule + M3.2/fiche_traiteur_identifiant_mal_forme_404 + M3.2/fiche_traiteur_hors_perimetre_404 + M3.2/fiche_traiteur_organisation_sans_lieu_404 + M3.2/fiche_traiteur_role_non_gestionnaire_403 + M3.2/traiteur_fiche_nom_logo_uniquement + M3.2/fiche_traiteur_modale_identifiant_mal_forme",
       "statut": "implemented",
@@ -1300,7 +1300,7 @@
     },
     {
       "id": "M3.2-fiche-traiteur-lieux-intervention",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:459",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:463",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/route.ts (`lieux_intervention`) + packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx (onglet Lieux d'intervention)",
       "test": "M3.2/fiche_traiteur_lieux_clotures_24_mois_tries + M3.2/fiche_traiteur_lieux_plafond_inferieur + M3.2/fiche_traiteur_sans_collecte_cloturee + M3.2/fiche_traiteur_erreur_seconde_tranche_500 + M3.2/traiteur_fiche_erreur_collectes_500 + M3.2/fiche_traiteur_modale_onglet_lieux + M3.2/fiche_traiteur_modale_onglet_lieux_vide",
       "statut": "implemented",
@@ -1308,7 +1308,7 @@
     },
     {
       "id": "M3.2-fiche-traiteur-activite",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:460-461",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:464-465",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx (onglet Activité, `ActiviteTraiteur`) + packages/plateforme/src/components/dashboards/CartesKpiGestionnaire.tsx + packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts (cartes et chargement partagés avec le dashboard) + packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts + packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts (routes existantes, inchangées) + packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/route.ts (ne sert plus `stats_12m` ni `historique_collectes`)",
       "test": "M3.2/fiche_traiteur_modale_activite_zd + M3.2/fiche_traiteur_modale_activite_ag + M3.2/fiche_traiteur_modale_activite_sans_collecte + M3.2/fiche_traiteur_modale_activite_erreur + M3.2/fiche_traiteur_modale_activite_graphique_en_echec + M3.2/fiche_traiteur_modale_activite_periode_precedente_en_echec + M3.2/dashboard_kpi_filtre_traiteur_applique + M3.2/evolution_filtre_traiteur_applique + M3.2/fiche_traiteur_lieux_clotures_24_mois_tries",
       "statut": "implemented",
@@ -1316,7 +1316,7 @@
     },
     {
       "id": "M3.2-fiche-traiteur-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:454",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:458",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/traiteurs/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1350,7 +1350,7 @@
     },
     {
       "id": "M3.2-evenement-bilan-consolide",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-351",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-355",
       "artefact": "packages/plateforme/src/lib/evenements-gestionnaire.ts (consoliderEvenement) + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (BilanConsolide)",
       "test": "M3.2/evenement_bilan_cumule_les_collectes_zd + M3.2/evenement_bilan_taux_pondere_par_tonnage + M3.2/evenement_bilan_collectes_non_realisees_sans_resultat + M3.2/evenement_bilan_repas_et_associations + M3.2/evenement_bilan_sans_excedent_seul + M3.2/evenement_bilan_mixte_periode_et_statut + M3.2/evenement_bilan_sans_collecte + M3.2/evenement_bilan_embed_en_tableau + M3.2/evenement_fiche_bilan_consolide_affiche + M3.2/evenement_fiche_bilan_en_attente + M3.2/evenement_bilan_associations_par_identifiant + M3.2/evenement_fiche_pax_absent_et_singulier",
       "statut": "implemented",
@@ -1359,7 +1359,7 @@
     },
     {
       "id": "M3.2-evenements-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:282-353",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:282-357",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/lib/nav-config.ts",
       "test": null,
       "statut": "à-vérifier",
@@ -1368,7 +1368,7 @@
     },
     {
       "id": "M3.2-evenement-fiche-popup",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-353",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-357",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx (ouverture, adresse `?evenement=` / `?collecte=`) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx (redirection) + packages/plateforme/src/components/ui/modal.tsx (verrou de défilement compté)",
       "test": "M3.2/evenements_liste_une_ligne_par_evenement + M3.2/evenements_liste_fiche_rouverte_depuis_adresse + M3.2/evenement_fiche_echap_ferme_d_abord_la_fiche_collecte + M3.2/evenement_fiche_identifiant_invalide_sans_requete + M3.2/evenement_fiche_rouverte_et_rechargee + M3.2/evenement_fiche_redirect_modale + M3.2/evenement_fiche_redirect_collecte + M3.2/evenement_fiche_redirect_encode + M3.2/evenement_fiche_rechargement_en_echec_garde_le_bilan + M0.8/modal_verrou_defilement_soeurs_demontees_ensemble + M0.8/modal_verrou_defilement_ordre_quelconque + M0.8/modal_verrou_defilement_valeur_initiale_rendue",
       "statut": "implemented",
@@ -1377,7 +1377,7 @@
     },
     {
       "id": "M3.2-evenement-fiche-trois-onglets",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-353",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-357",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts (fiches des collectes par chargerFicheCollecteClient, lieu_acces_details) + packages/plateforme/src/lib/statut-collecte-labels.ts (friseStatutEvenement) + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx (Chauffeurs, contenu de la carte chauffeur) + packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (BandeauBilanAttente, Estompe, GrapheEnAttente partagés)",
       "test": "EVT/frise_avancement + EVT/informations_generales + EVT/reference_interne_tiers_absente + EVT/informations_chauffeurs + EVT/documents_par_collecte + M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte + EVT-FRISE/etape_la_plus_basse + EVT-FRISE/annulees_ignorees + EVT-FRISE/sans_collecte + M3.2/evenement_fiche_echec_d_une_fiche_500 + EVT/lieu_surcharge_par_collecte + EVT/telechargement_zd_et_echecs + M3.2/evenement_fiche_collecte_introuvable_500",
       "statut": "implemented",
@@ -1386,7 +1386,7 @@
     },
     {
       "id": "M3.2-evenement-fiche-trois-onglets-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-353",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-357",
       "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1403,7 +1403,7 @@
     },
     {
       "id": "M3.2-evenement-fiche-types-des-collectes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:338",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:342",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + packages/plateforme/src/lib/collectes/types-evenement-collectes.ts",
       "test": "M3.2/evenement_fiche_types_de_ses_collectes + C1/types_evenement_ordre_collecte_n1 + C1/types_evenement_sans_doublon_ni_annulee + C1/types_evenement_toutes_annulees_ou_sans_type",
       "statut": "implemented",
@@ -1437,7 +1437,7 @@
     },
     {
       "id": "M3.2-evenements-pax-de-l-evenement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:584",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:588",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts (inchangés : evenements.pax)",
       "test": "Lot3/evenement_fiche_pax_et_taille_de_l_evenement + M3.2/evenements_route_une_ligne_par_evenement_bilan_cumule",
       "statut": "implemented",
@@ -1446,7 +1446,7 @@
     },
     {
       "id": "M3.2-evenement-rapport-recyclage-cumule",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:350",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:354",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-rse/route.ts + packages/plateforme/src/lib/evenements/reponses-cumul.ts + packages/plateforme/src/lib/pdf/rapports-evenement.ts + apps/pdf-renderer/src/templates/rapport-recyclage-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (DocumentsEvenement)",
       "test": "EVT/api_zd_cumul_collectes_visibles + EVT/api_zd_sans_resultat_409 + EVT/api_zd_relecture_sans_resultat + EVT/api_zd_refiltre_type + EVT/api_filtres_anti_brouillon + EVT/api_hors_perimetre_404 + EVT/api_rendu_echec_502 + EVT/rapport_cumule_zd + EVT/rapport_cumule_attente + page de synthèse du rapport @3, sous-titre « Bilan cumulé »",
       "statut": "implemented",
@@ -1455,7 +1455,7 @@
     },
     {
       "id": "M3.2-evenement-rapport-de-don-cumule",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:351",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:355",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-de-don/route.ts + packages/plateforme/src/lib/pdf/rapports-evenement.ts + apps/pdf-renderer/src/templates/rapport-don-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (DocumentsEvenement)",
       "test": "EVT/api_ag_recapitulatif + EVT/api_ag_fiche_association + EVT/api_ag_attestation_embargo + EVT/api_ag_jamais_de_radar + EVT/api_ag_select_par_role + EVT/rapport_cumule_ag + titre « Rapport de don », sous-titre « Récapitulatif », mention sans valeur fiscale + renvoie aux attestations : numéro émis + chaque association : logo et description du rapport d’impact",
       "statut": "implemented",
@@ -1473,7 +1473,7 @@
     },
     {
       "id": "M3.2-evenement-rapports-cumules-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:350",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:354",
       "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-evenement.ts + apps/pdf-renderer/src/templates/rapport-don-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1484,10 +1484,10 @@
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "eafb60f53ddda848fecf4bdcb39139acab13b7249d534f3772310e25b7a92b69",
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "29ee02a11140ae397ec9c636ac2892d3d6e0d5d4a9e51c20b4a12a29de8ffd07",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "c74270e3123e25511a7bd8aced82130b90b4b4dc09a123d1ca3f5a4d00b89b87",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "9422229cb2bfffb10a4601a9e25e924ca4b1bb4e2b05361a70f6cede0ceba741",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "09a1ad3dfcbb19dc2404851eb78fffe68d9308e24ae5fe59895f993db70e2588",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "1d1f67bb4c0ffd564d8fb90da01e5c7399969f65e9c507b9d01bb87a7c640a9b",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "3225d6989ad9ceb7a0e5d2e0691cf697f55ce053eafea7e2ecefffcb1f3ca79c",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "7735759e54b7c94c13769ce15eae10094cfc14ebdf05c2c1afe8fe51030636a1",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8c268b8c981ee341779d148f70fd924b373fb64c7db27df31214a08db6ecad43",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "82f75e57c8febc152018e9b9681a47bee90c517eeeec1d0fb0dd5b78f5de0122"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "9404674f865f2b17326daac1df5fcef1fa6687e92fc87cd0f6ad0bd42dc2acbb"
   }
 }

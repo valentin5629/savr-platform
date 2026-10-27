@@ -8,7 +8,7 @@
 
 Design System = le langage visuel commun que Claude Code applique sur **tout** l'app. L'objectif n'est pas un rendu "spectaculaire" mais une interface **professionnelle, lisible, cohérente et reconnaissable comme Savr** : chaque écran ressemble à chaque autre sans effort.
 
-> **Objectif anti-générique (NON négociable).** Le risque par défaut d'un build Claude Code = une interface "shadcn brut" qui ressemble à tous les SaaS : neutres gris froids génériques, accent violet, ombres lourdes, radius par défaut, police Inter. La §1bis liste les **leviers de différenciation obligatoires** qui ancrent l'identité Savr. Claude Code ne livre pas un écran sans les avoir appliqués.
+> **Objectif anti-générique (NON négociable).** Le risque par défaut d'un build Claude Code = une interface "shadcn brut" qui ressemble à tous les SaaS : neutres gris froids génériques, accent violet, ombres lourdes, radius par défaut, police système par défaut. *(Inter est retenue depuis le 2026-10-27, avec Archivo pour les titres, cf. §3.1 : la différenciation passe par les titres Archivo serrés et les autres leviers.)* La §1bis liste les **leviers de différenciation obligatoires** qui ancrent l'identité Savr. Claude Code ne livre pas un écran sans les avoir appliqués.
 
 Tout passe par des **tokens** (variables CSS + thème Tailwind). Changer une couleur ou une taille = modifier 1 variable, toute l'app suit.
 
@@ -42,7 +42,7 @@ Ces 8 leviers transforment un build shadcn générique en interface Savr. Chacun
 | 4 | **Focus ring signature** | Tout élément focusable a un `focus-visible` à **anneau primaire offset** (`outline: 2px solid primary-500; outline-offset: 2px`). Accessibilité = look institutionnel. Jamais le focus bleu navigateur par défaut. |
 | 5 | **Ombres sobres + bordures portantes** | Les cards reposent sur **bordure `neutral-200` + fond blanc**, ombre quasi nulle au repos. La hiérarchie vient de la bordure et de l'espace, pas d'ombres lourdes (anti-effet "carte qui flotte" générique). |
 | 6 | **Radius mesuré** | Radius `md = 8px` partout (boutons, inputs, cards), `full` uniquement pour badges/avatars/toggles. Pas de `2xl` arrondi "bubble" ni d'angle vif brutaliste. |
-| 7 | **Typo Nunito + display serré** | Nunito (corps, chaleureux RSE) + titres en **poids 700/800 letter-spacing négatif** (`-0.02em`). Le contraste rondeur-corps / titres serrés est la signature typographique. |
+| 7 | **Typo Inter + Archivo serré** | Inter (corps) + Archivo pour les titres et les grands chiffres, **letter-spacing négatif** (`-0.02em`, `-0.035em` sur les très grands titres). Décision Val 2026-10-27 (ex-Nunito). |
 | 8 | **Hover bouton à transition franche** | Bouton primaire : hover = passage `primary-700 → primary-800` + translation `-1px` (lift discret), transition `150ms`. Pas d'effet d'ombre diffuse générique (reprend la refonte hover AEGOV v3). |
 
 > Vérification : un écran qui pourrait passer pour n'importe quel SaaS shadcn = écran non conforme. Au moins les leviers 1, 2, 4, 5 doivent être visibles sur chaque vue.
@@ -128,6 +128,10 @@ Couleurs système indépendantes du branding — jamais modifiées. Chacune a un
 | `--color-neutral-900` | `#161A26` | **Texte principal** |
 | `--color-neutral-950` | `#0C0F18` | Titres très forts, contrastes max |
 | `--color-white` | `#FFFFFF` | Fond des cards, modals, inputs |
+| `--color-sable-50` | `#FAF9F6` | Encarts discrets des grandes fiches (variante B, 2026-10-27) |
+| `--color-sable-100` | `#F4F3EF` | Boutons `sable`, croix ronde des grandes fiches, fonds chauds |
+| `--color-sable-200` | `#EBE9E3` | Filets des grandes fiches (en-tête, onglets, pied) |
+| `--color-sable-300` | `#DCD9D1` | État actif des boutons `sable`, séparateurs |
 
 ### 2.4 Palette data-viz (dashboards)
 
@@ -141,14 +145,14 @@ Dérivée de la marque pour cohésion graphique — utilisée pour les courbes/b
 
 ## 3. Tokens de design — Typographie
 
-### 3.1 Police retenue : Nunito (corps) + Nunito Sans titres serrés
+### 3.1 Police retenue : Inter (corps) + Archivo (titres serrés) — décision Val 2026-10-27
 
-Nunito (Google Fonts, gratuite) : formes rondes, chaleureuse, cohérente RSE. Conservée. **Chargement** : Google Fonts (CDN), fallback `system-ui, sans-serif`.
+Inter et Archivo (Google Fonts, gratuites), chargées par `next/font` (auto-hébergées au build), fallback `system-ui, sans-serif`. Les PDF (renderer) gardent Nunito.
 
 **Signature typographique (levier #7)** : le contraste entre un corps rond et des **titres à letter-spacing négatif** crée une identité immédiate.
 
-- Corps : Nunito, poids 400/500/600, `letter-spacing: 0`.
-- Titres (`h1`–`h3`, KPIs) : Nunito poids **700/800**, `letter-spacing: -0.02em`, `line-height: 1.15`.
+- Corps : Inter, poids 400/500/600, `letter-spacing: 0`.
+- Titres (`h1`–`h3`, KPIs) : Archivo poids **600 à 800**, `letter-spacing: -0.02em`, `line-height: 1.15`.
 
 ### 3.2 Échelle typographique
 
@@ -202,6 +206,7 @@ Tous les espacements sont des multiples de 4px.
 | `--radius-md` | 8px | **Défaut** — boutons, inputs, cards |
 | `--radius-lg` | 12px | Modals, panels, sheets |
 | `--radius-xl` | 14px | Blocs de filtres (`FilterBar`) *(2026-09-28 ; alignement sm/lg sur l'échelle Claude Design 6/10 à arbitrer séparément)* |
+| `--radius-2xl` | 20px | Grandes modales (fiche collecte client, variante B 2026-10-27) |
 | `--radius-full` | 9999px | Avatars, toggles, badges-pilule, jauges |
 
 ### 4.4 Ombres (levier #5 — sobres)
@@ -214,6 +219,7 @@ Les ombres sont **discrètes**. La hiérarchie repose d'abord sur la bordure `ne
 | `--shadow-sm` | `0 1px 2px rgba(13,20,40,0.04)` | Cards interactives, hover discret |
 | `--shadow-md` | `0 4px 12px rgba(13,20,40,0.08)` | Dropdowns, popovers |
 | `--shadow-lg` | `0 12px 28px rgba(13,20,40,0.12)` | Modals, sheets |
+| `--shadow-xl` | `0 24px 64px rgba(13,20,40,0.22)` | Grandes modales (fiche collecte client, 2026-10-27) |
 
 > Teinte d'ombre = navy (`rgba(13,20,40,…)`), jamais noir pur. Détail subtil mais cohérent avec les neutres tintés.
 
@@ -242,10 +248,11 @@ Les composants viennent de shadcn/ui ; ces recettes définissent **comment on le
 | `accent` | fond `accent-500`, texte `primary-950` | fond `accent-600` + `translateY(-1px)` | fond `accent-600` | anneau `primary-500` offset 2px (levier #4 — anneau uniforme) |
 | `destructive` | fond `error`, texte blanc | fond `error-strong` | fond `error-strong` | anneau `primary-500` offset 2px (levier #4 — anneau uniforme) |
 | `ghost` | transparent, texte `primary-700` | fond `primary-50` | fond `primary-100` | anneau `primary-500` offset 2px |
+| `sable` *(2026-10-27)* | fond `sable-100`, texte `neutral-900`, sans bordure | fond `sable-200` | fond `sable-300` | anneau `primary-500` offset 2px |
 
 - **Action destructive secondaire** *(décision Val 2026-09-30, fiches Admin)* : bouton `secondary` à contour et texte `error` — « Annuler la collecte », « Désactiver » (fiches association et transporteur). « Réactiver » = `secondary` neutre.
 
-- Hauteur : 40px (`md`), 44px sur mobile (cible tactile). Padding horizontal `--space-4`/`--space-6`.
+- Hauteur : 40px (`md`), 44px sur mobile (cible tactile). Padding horizontal `--space-4`/`--space-6`. Taille `pilule` *(2026-10-27)* : 40px sur ordinateur, 52px sur téléphone *(décision Val 2026-10-27, lot Logistique et téléphone)*, `radius-full`, texte 15px — pieds des grandes fiches. Dans ces pieds, l'annulation est un `ghost-destructive` (texte rouge sans contour) placé à gauche.
 - Transition : `--motion-fast` sur `background-color` + `transform`. **Pas** d'ombre diffuse au hover.
 - Texte sur `accent-500` = `primary-950` (navy quasi-noir), jamais blanc (contraste).
 
@@ -285,7 +292,7 @@ Pattern signature institutionnel — sidebar, hero d'écran, bandeau de page.
 Bandeau d'en-tête d'écran (liste collectes, fiche collecte), dérivé du bloc primaire plein §5.3 *(ajout 2026-07-04, divergence BOA-UI collectes — implémentation de référence `components/ui/page-hero`)*.
 
 - Fond `primary-700` plein, texte blanc.
-- Titre `h1` Nunito poids 800, `letter-spacing -0.02em` (levier #7).
+- Titre `h1` Archivo poids 800, `letter-spacing -0.02em` (levier #7).
 - Sous-titre / contexte : `primary-200`.
 - Slot **actions à droite** (boutons `accent` / `secondary` sur fond sombre).
 - Radius `lg` si encart, pleine largeur sinon.
@@ -313,7 +320,7 @@ Bandeau d'information/alerte inline — warning pack AG, blocage, info *(ajout 2
 Complète l'entrée `Modal / Sheet` (§6) avec la structure visuelle *(ajout 2026-07-04, divergence BOA-UI collectes — réf `components/ui/modal`)*.
 
 - Overlay `rgba(13,20,40,0.45)`.
-- Panneau : fond blanc, radius `lg`, `--shadow-lg`, largeur max contextualisée.
+- Panneau : fond blanc, radius `lg`, `--shadow-lg`, largeur max contextualisée. Format `grand` *(fiche collecte client, 2026-10-27)* : 1 200 px, radius `2xl`, `--shadow-xl`, croix ronde 44px sur fond `sable-100`.
 - Structure `header` (titre + fermeture) / `body` / `footer` (actions alignées à droite).
 - Fermeture : touche `Esc` + clic sur l'overlay. **Focus-trap** obligatoire (accessibilité §10).
 - Mobile → `Sheet` montant depuis le bas (§8).
@@ -333,7 +340,7 @@ Grand en-tête des modales de fiche *(décisions Val 2026-09-30 et 2026-10-01 �
 - Sur-titre (puce + mention), nom en `text-2xl` extrabold, ligne d'infos à pictos 16 px, badge de statut à droite, bordure basse.
 - Décrit l'objet **enregistré** : il ne suit pas la saisie en cours.
 - Fiches Admin transporteur, association, lieu : cadre commun décrit dans [[06 - Back-office Admin Savr]] §5.
-- Utilisé aussi par les fiches collecte (Admin et client) : le statut peut être une frise d'étapes (frise compacte : étape courante en gras, autres estompées), placée à droite du sur-titre sur grand écran seulement, sous les infos en dessous ; badge de type de collecte en sur-titre.
+- Les fiches collecte (Admin et client) suivent la variante B (décision Val 2026-10-27) : titre = nom de l'événement, « lieu · client » dessous, statut en pastille (étape courante seule) à droite du titre, badge de type de collecte en sur-titre.
 
 ---
 
@@ -380,7 +387,7 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 
 | Composant | Description |
 |---|---|
-| `Button` | Variantes §5.1 (primary, secondary, accent, destructive, ghost) |
+| `Button` | Variantes §5.1 (primary, secondary, accent, destructive, ghost, sable ; taille pilule) |
 | `IconButton` | Icône seule (actions tableau) |
 | `Dropdown` | Menu contextuel (kebab) |
 | `Modal` / `Sheet` | Dialogue / panel latéral (détail collecte mobile) — structure §5.9 |
@@ -497,14 +504,14 @@ Hors scope V1. Les tokens CSS sont structurés pour un thème sombre **sans refo
 | Navy `#223870` + orange `#FF9B00` conservés | Bascule vers vert TMS / refonte palette | Décision Val 2026-06-08 : garder l'identité App ; vert reste au TMS |
 | Neutres tintés navy | Gris purs (slate/zinc shadcn) | Cohésion de marque immédiate, différenciation du défaut |
 | shadcn/ui + Tailwind 4.x | CSS custom / autre lib | Maîtrise Claude Code, accessible, customisable à 100 % |
-| Nunito + titres serrés | Inter, polices payantes | Rondeur RSE + contraste typographique signature |
+| Inter + Archivo serré (Val 2026-10-27) | Nunito (police d'origine), polices payantes | Lisibilité, titres plus affirmés |
 | Ombres sobres, bordures portantes | Ombres lourdes génériques | Hiérarchie par espace/bordure = rendu pro |
 | Lucide Icons | Font Awesome, Heroicons | Cohérence shadcn, trait fin |
 | Dark mode hors scope V1 | Dark mode V1 | Tokens déjà compatibles, priorité métier |
 
 ## Questions ouvertes
 
-- Pairing display font pour les titres hero (rester Nunito 800 vs ajouter une font display type "Bricolage Grotesque") — à trancher par itération visuelle pendant le dev.
+- Pairing display font : tranché le 2026-10-27 — Archivo pour les titres et les grands chiffres, Inter pour le texte (§3.1).
 - Dark mode V1.1 — à évaluer selon retours post-lancement.
 
 ## Liens

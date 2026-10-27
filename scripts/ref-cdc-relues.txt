@@ -23,3 +23,4 @@
 #   - ne pas reformater ni réordonner ce fichier : le commit de chaque ligne est
 #     son ancre (même contrainte que les manifestes).
 # =============================================================================
+M3.2.json M3.2-evenement-radar-bilan-consolide specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:335  # paragraphe « Bloc bilan consolidé » allongé au sync du 2026-10-27, il décrit toujours le radar ZD de la fiche événement

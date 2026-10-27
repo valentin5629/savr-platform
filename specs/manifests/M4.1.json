@@ -136,7 +136,7 @@
     },
     {
       "id": "M4.1-export-collectes-gestionnaire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:362",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:369",
       "artefact": "packages/plateforme/src/lib/exports/shared.ts (EXPORT_MATRIX.collectes) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport) + packages/plateforme/src/lib/collectes-gestionnaire.ts",
       "test": "M4.1/export_collectes_gestionnaire_autorise + M4.1/export_collectes_gestionnaire_filtres_liste + M4.1/export_collectes_gestionnaire_filtre_illisible_vide + M4.1/export_collectes_filtres_gestionnaire_bornes_au_role",
       "statut": "implemented",
@@ -144,7 +144,7 @@
     },
     {
       "id": "M4.1-export-collectes-admin-filtres-liste",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:399",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:406",
       "artefact": "packages/plateforme/src/lib/collectes-admin.ts (lireFiltresCollectesAdmin + appliquerFiltresCollectesAdmin : lecture ET application des filtres de la liste Collectes Admin, appelées par GET /api/v1/admin/collectes et par l'export) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport, branche staff)",
       "test": "M4.1/export_collectes_admin_filtres_liste + M4.1/export_collectes_admin_sans_tri_ni_page + M4.1/export_collectes_filtres_admin_bornes_au_staff",
       "statut": "implemented",
@@ -152,7 +152,7 @@
     },
     {
       "id": "M4.1-export-collectes-lecture-par-tranches",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:362",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:369",
       "artefact": "packages/plateforme/src/lib/exports/shared.ts (lireParTranches) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport : requête reconstruite à chaque tranche, tri date_collecte puis id, total exact demandé ; repas AG du staff lus dans l'embed attributions_antgaspi)",
       "test": "M4.1/export_collectes_lecture_par_tranches + M4.1/export_collectes_total_absent_echec + staff : repas AG lus dans l’embed de la ligne",
       "statut": "implemented",
@@ -160,7 +160,7 @@
     },
     {
       "id": "M4.1-export-sans-excedent-zero-repas",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:377",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:384",
       "artefact": "packages/plateforme/src/lib/exports/builders.ts (repasAgExport, colonne « Repas AG » des exports Collectes et Impact RSE : 0 pour une collecte AG `realisee_sans_collecte`, jamais une cellule vide ; dans l'export Collectes, la colonne « Statut » la dit « Réalisée » via LIBELLE_STATUT_COLLECTE — l'export Impact RSE n'a pas de colonne « Statut »)",
       "test": "M4.1/export_collectes_sans_excedent_zero_repas + M4.1/export_impact_rse_sans_excedent_zero_repas",
       "statut": "implemented",
@@ -168,7 +168,7 @@
     },
     {
       "id": "M4.1-export-evenements-types-des-collectes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:386",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:393",
       "artefact": "packages/plateforme/src/lib/exports/evenements.ts + packages/plateforme/src/lib/collectes/types-evenement-collectes.ts",
       "test": "M4.1/export_evenements_type_des_collectes",
       "statut": "implemented",
@@ -176,7 +176,7 @@
     },
     {
       "id": "M4.1-export-evenements-pax-de-l-evenement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:386",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:393",
       "artefact": "packages/plateforme/src/lib/exports/evenements.ts (inchangé : evenements.pax et sa taille)",
       "test": "Lot3/export_evenements_pax_et_taille_de_l_evenement",
       "statut": "implemented",
@@ -185,6 +185,6 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "82f75e57c8febc152018e9b9681a47bee90c517eeeec1d0fb0dd5b78f5de0122"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "9404674f865f2b17326daac1df5fcef1fa6687e92fc87cd0f6ad0bd42dc2acbb"
   }
 }

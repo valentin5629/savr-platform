@@ -72,10 +72,14 @@ Le traiteur raisonne en **événement** (un gala, un mariage, un sommet). Un év
 
 | Champ | Obligatoire | Composant | Règle |
 | ----- | ----------- | --------- | ----- |
-| **Zéro-Déchet** | Oui (au moins une collecte au total) | Champ de saisie, chiffres seuls, sans flèches ni molette — nombre entier de 0 à 10 *(décision Val 2026-10-24)* | Autant de cartes « Collecte Zéro-Déchet #n » à l'écran 2. Au plus 10 *(décision Val 2026-10-24, B2-Q4)*. |
-| **Anti-Gaspi** | Oui (au moins une collecte au total) | Champ de saisie, chiffres seuls, sans flèches ni molette — nombre entier de 0 à 10 | Autant de cartes « Collecte Anti-Gaspi #n » à l'écran 2 ; au plus 10 *(B2-Q4)*. Dès une collecte Anti-Gaspi → lecture du pack AG actif, informative seulement, jamais bloquante (voir §"Sélection pack AG"). |
+| **Zéro-Déchet** | Oui (au moins une collecte au total) | Compteur « − valeur + » (boutons ronds ; − grisé à 0, + grisé à 10 ; la valeur ne se tape pas) — nombre entier de 0 à 10 *(décision Val 2026-10-26, remplace le champ de saisie du 2026-10-24)* | Autant de cartes « Collecte Zéro-Déchet #n » à l'écran 2. Au plus 10 *(décision Val 2026-10-24, B2-Q4)*. |
+| **Anti-Gaspi** | Oui (au moins une collecte au total) | Compteur « − valeur + », comme Zéro-Déchet — nombre entier de 0 à 10 *(décision Val 2026-10-26)* | Autant de cartes « Collecte Anti-Gaspi #n » à l'écran 2 ; au plus 10 *(B2-Q4)*. Dès une collecte Anti-Gaspi → lecture du pack AG actif, informative seulement, jamais bloquante (voir §"Sélection pack AG"). |
 
 **Valeurs à l'ouverture selon l'onglet** *(décision Val 2026-10-24, fiche M1.2_20261024 I11 — à coder, dette code ouverte)* : ouvert depuis l'onglet ZD d'un dashboard, le formulaire propose une collecte Zéro-Déchet ; depuis l'onglet AG, une collecte Anti-Gaspi ; les deux nombres restent modifiables (cf. §06.04, repris par §06.05 et §06.11).
+
+Retirer une collecte au compteur retire la dernière carte de ce type ; les autres cartes gardent leur saisie *(décision Val 2026-10-26)*.
+
+**Mise en page propre à ce formulaire** *(décision Val 2026-10-26, écart voulu au Design System §5.5, limité au formulaire de programmation)* : (1) les libellés des champs (au-dessus d'un champ) sont en gras et en neutral-900, pour les distinguer des valeurs saisies ; les libellés de case à cocher gardent leur poids normal ; (2) écran 1 : espace de 48 px entre la case « Plaque d'immatriculation et nom du chauffeur requis » et « Nombre de collectes souhaitées » ; (3) les compteurs Zéro-Déchet et Anti-Gaspi sont centrés dans leur colonne, libellé compris, et titrés « Zéro Déchet » et « Anti-Gaspi », sans sigle (ZD) / (AG).
 
 Une collecte = un passage du prestataire. Un gros volume le même soir ne se programme pas en plusieurs collectes : l'équipe Savr fixe le nombre de camions d'une collecte (Sujet 1, 2026-05-25 ; avertissement au § 3.a).
 
@@ -381,7 +385,7 @@ Soumission possible sans ces champs ; au moins un manquant → `collectes.inform
 │    adresse, CP, ville, détails d'accès (modifiables)      │
 │  ☐ Plaque d'immatriculation et nom du chauffeur requis    │
 │  Nombre de collectes souhaitées :                         │
-│    Zéro-Déchet [ 2 ]   Anti-Gaspi [ 1 ]                   │
+│    Zéro-Déchet (−) 2 (+)   Anti-Gaspi (−) 1 (+)           │
 │                                        [ Continuer ]      │
 ├──────────────────────────────────────────────────────────┤
 │  Écran 2 — Informations sur les collectes                 │

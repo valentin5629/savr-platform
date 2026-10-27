@@ -3,7 +3,7 @@
 -- (CDC §12 §1.7, décisions Val 2026-10-27)
 -- =============================================================================
 -- Un PDF n'imprime le bordereau que si le demandeur le lit sous SA RLS
--- (`bord_*_select`) ; la règle est codée côté rapports. Ce fichier fige, au
+-- (`bord_*_select`) ; règle des rapports portée par la PR #653. Ce fichier fige, au
 -- niveau des policies, le cas qui la motive : un gestionnaire qui a programmé un
 -- événement sur un lieu NON rattaché à son organisation voit la collecte
 -- (régime « programmé par moi ») mais pas son bordereau (bord_gestionnaire_select

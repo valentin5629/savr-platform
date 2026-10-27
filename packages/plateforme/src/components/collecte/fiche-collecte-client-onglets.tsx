@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/card';
 import { TelephoneLien } from '@/components/collecte/fiche-blocs';
 import { SectionHeader } from '@/components/ui/section-header';
 import { InfoItem } from '@/components/ui/info-item';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import {
   STATUTS_LOGISTIQUE,
   coordonneesCompletes,
@@ -66,42 +67,6 @@ function Vide({ children = '—' }: { children?: React.ReactNode }) {
 }
 
 // ── Informations ─────────────────────────────────────────────────────────────
-
-// Variante B (décision Val 2026-10-27) : une section par ligne, libellé à
-// gauche, champs sur trois colonnes à droite, filets sable entre les sections.
-// Reprise par la fiche collecte Admin (décision Val 2026-10-27), qui pose sous
-// le libellé un badge ou une action de section (`action`).
-export function SectionInfos({
-  titre,
-  action,
-  children,
-  ...props
-}: {
-  titre: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-} & React.HTMLAttributes<HTMLElement>) {
-  return (
-    <section
-      className="grid gap-x-10 gap-y-4 border-t border-savr-sable-200 py-6 first:border-t-0 first:pt-0 sm:py-7 md:grid-cols-[13rem_minmax(0,1fr)]"
-      {...props}
-    >
-      {action ? (
-        <div className="flex flex-wrap items-start gap-3 md:flex-col">
-          <h4 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-savr-neutral-900">
-            {titre}
-          </h4>
-          {action}
-        </div>
-      ) : (
-        <h4 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-savr-neutral-900">
-          {titre}
-        </h4>
-      )}
-      {children}
-    </section>
-  );
-}
 
 export const GRILLE_3 =
   'grid grid-cols-1 gap-x-10 gap-y-5 text-sm sm:grid-cols-2 lg:grid-cols-3';
@@ -215,7 +180,7 @@ export function OngletInformations({
 
   return (
     <div>
-      <SectionInfos titre="Événement" data-testid="bloc-evenement">
+      <FicheSection titre="Événement" data-testid="bloc-evenement">
         <dl className={GRILLE_3}>
           <InfoItem label="Client">
             {evt?.nom_client_organisateur ?? <Vide />}
@@ -272,9 +237,9 @@ export function OngletInformations({
             </div>
           )}
         </dl>
-      </SectionInfos>
+      </FicheSection>
 
-      <SectionInfos titre="Lieu et accès" data-testid="bloc-lieu">
+      <FicheSection titre="Lieu et accès" data-testid="bloc-lieu">
         <dl className={GRILLE_3}>
           <InfoItem label="Adresse">
             {lieu?.nom ?? <Vide />}
@@ -295,12 +260,12 @@ export function OngletInformations({
             {instructions.length > 0 ? instructions.join('\n\n') : <Vide />}
           </InfoItem>
         </dl>
-      </SectionInfos>
+      </FicheSection>
 
       {/* Bloc absent pour le gestionnaire sur la collecte d'un traiteur tiers
           (§06.05 : rien de personnel sur un traiteur tiers) — décidé serveur. */}
       {c.contacts_visibles && (
-        <SectionInfos titre="Contacts sur place" data-testid="bloc-contacts">
+        <FicheSection titre="Contacts sur place" data-testid="bloc-contacts">
           <div className={GRILLE_3}>
             <CarteContact
               nom={c.contact_principal_nom}
@@ -322,7 +287,7 @@ export function OngletInformations({
               )
             )}
           </div>
-        </SectionInfos>
+        </FicheSection>
       )}
     </div>
   );
@@ -390,11 +355,11 @@ export function OngletLogistique(props: PropsChauffeurs) {
         : 'Votre chauffeur';
   return (
     <div data-testid="bloc-logistique">
-      <SectionInfos titre={titre}>
+      <FicheSection titre={titre}>
         <div className="min-w-0">
           <Chauffeurs {...props} presentation="variante-b" />
         </div>
-      </SectionInfos>
+      </FicheSection>
     </div>
   );
 }

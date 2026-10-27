@@ -40,7 +40,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/modal';
 import { Timeline, TimelineItem } from '@/components/ui/timeline';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -101,12 +101,17 @@ import {
   AjoutContactSecours,
   CarteContact,
   GRILLE_3,
-  SectionInfos,
 } from '@/components/collecte/fiche-collecte-client-onglets';
-import { InfoEnTete } from '@/components/collecte/fiche-collecte-client-panel';
 import { InfoItem } from '@/components/ui/info-item';
 import { EnTeteMention } from '@/components/ui/fiche/fiche-en-tete';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
+import {
+  FicheGrandEnTete,
+  FicheOnglet,
+  FicheOnglets,
+  FicheRepere,
+} from '@/components/ui/fiche/fiche-grand-en-tete';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { refCourteCollecte } from '@/lib/collecte-ref';
@@ -2048,87 +2053,74 @@ export function CollecteDetailPanel({
       {/* En-tête de la variante B (décision Val 2026-10-27) : sur-titre (type,
           réf., « dirty TMS »), titre et pastille de statut, ligne d'infos à
           pictos, onglets soulignés ; seul le corps défile. */}
-      <header className="flex shrink-0 flex-col gap-4 px-5 pt-5 sm:px-6 sm:pt-6 md:gap-3.5 md:px-12 md:pt-6">
-        <div className="flex min-w-0 flex-wrap items-center gap-3 pr-12 md:pr-16">
-          <TypeCollecteBadge type={collecte.type} forme="plein" />
-          <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
-          {estModifieeSansRenvoi(collecte) && (
-            <Badge variant="warning" className="flex items-center gap-1">
-              <WarningIcon className="h-3 w-3" />
-              Modifiée — renvoi requis
-            </Badge>
-          )}
-        </div>
-        <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-3">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <h3 className="font-display text-2xl font-semibold leading-[1.1] tracking-[-0.03em] text-savr-primary-900 md:text-4xl">
-              {titre}
-            </h3>
-            {sousTitre && (
-              <p className="text-[15px] text-savr-neutral-600">{sousTitre}</p>
+      <FicheGrandEnTete
+        surtitre={
+          <>
+            <TypeCollecteBadge type={collecte.type} forme="plein" />
+            <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
+            {estModifieeSansRenvoi(collecte) && (
+              <Badge variant="warning" className="flex items-center gap-1">
+                <WarningIcon className="h-3 w-3" />
+                Modifiée — renvoi requis
+              </Badge>
             )}
-          </div>
+          </>
+        }
+        titre={titre}
+        sousTitre={sousTitre || undefined}
+        statut={
           <CollecteStatutPastille statut={statutCollecteAdmin(collecte)} />
-        </div>
-        <p
-          data-testid="fiche-admin-sous-ligne"
-          className="flex flex-wrap items-center gap-x-7 gap-y-2 text-sm text-savr-neutral-700"
-        >
-          <InfoEnTete icon={CalendarDotsIcon}>
-            {dateLongueCapitalisee(collecte.date_collecte)}
-          </InfoEnTete>
-          {heureCollecte && (
-            <InfoEnTete icon={ClockIcon}>{heureCollecte}</InfoEnTete>
-          )}
-          <InfoEnTete icon={UsersIcon}>{fmtPax(collecte.pax)}</InfoEnTete>
-          <InfoEnTete icon={BuildingsIcon}>
-            {collecte.evenements.organisations.raison_sociale}
-          </InfoEnTete>
-          {lieu.ville && (
-            <InfoEnTete icon={MapPinIcon}>{lieu.ville}</InfoEnTete>
-          )}
-          {/* Le badge garde la couleur du statut TMS (rejet, erreur) visible
-              sans ouvrir l'onglet Logistique. */}
-          <InfoEnTete icon={TruckIcon}>
-            <span className="inline-flex flex-wrap items-center gap-2">
-              {currentTransporteur?.nom ??
-                libelleSansNom ??
-                'Prestataire non attribué'}
-              <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
-            </span>
-          </InfoEnTete>
-          {collecte.type === 'anti_gaspi' && (
-            <InfoEnTete icon={HandshakeIcon}>
-              {collecte.attributions_antgaspi?.associations?.nom ??
-                'Association en attente d’attribution'}
-            </InfoEnTete>
-          )}
-        </p>
-        <TabsList
-          aria-label="Sections de la fiche collecte"
-          className="flex w-full gap-6 overflow-x-auto border-b border-savr-sable-200 bg-transparent p-0 [scrollbar-width:none] md:gap-9"
-        >
-          <TabsTrigger value="informations" className={ONGLET_ADMIN}>
-            Informations
-          </TabsTrigger>
-          <TabsTrigger value="logistique" className={ONGLET_ADMIN}>
-            Logistique
-          </TabsTrigger>
-          <TabsTrigger value="documents" className={ONGLET_ADMIN}>
-            Documents
-          </TabsTrigger>
-          <TabsTrigger value="historique" className={ONGLET_ADMIN}>
-            Historique
-          </TabsTrigger>
-        </TabsList>
-      </header>
+        }
+        reperesTestId="fiche-admin-sous-ligne"
+        reperes={
+          <>
+            <FicheRepere icon={CalendarDotsIcon}>
+              {dateLongueCapitalisee(collecte.date_collecte)}
+            </FicheRepere>
+            {heureCollecte && (
+              <FicheRepere icon={ClockIcon}>{heureCollecte}</FicheRepere>
+            )}
+            <FicheRepere icon={UsersIcon}>{fmtPax(collecte.pax)}</FicheRepere>
+            <FicheRepere icon={BuildingsIcon}>
+              {collecte.evenements.organisations.raison_sociale}
+            </FicheRepere>
+            {lieu.ville && (
+              <FicheRepere icon={MapPinIcon}>{lieu.ville}</FicheRepere>
+            )}
+            {/* Le badge garde la couleur du statut TMS (rejet, erreur) visible
+                sans ouvrir l'onglet Logistique. */}
+            <FicheRepere icon={TruckIcon}>
+              <span className="inline-flex flex-wrap items-center gap-2">
+                {currentTransporteur?.nom ??
+                  libelleSansNom ??
+                  'Prestataire non attribué'}
+                <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
+              </span>
+            </FicheRepere>
+            {collecte.type === 'anti_gaspi' && (
+              <FicheRepere icon={HandshakeIcon}>
+                {collecte.attributions_antgaspi?.associations?.nom ??
+                  'Association en attente d’attribution'}
+              </FicheRepere>
+            )}
+          </>
+        }
+        onglets={
+          <FicheOnglets aria-label="Sections de la fiche collecte">
+            <FicheOnglet value="informations">Informations</FicheOnglet>
+            <FicheOnglet value="logistique">Logistique</FicheOnglet>
+            <FicheOnglet value="documents">Documents</FicheOnglet>
+            <FicheOnglet value="historique">Historique</FicheOnglet>
+          </FicheOnglets>
+        }
+      />
 
       <FicheCorps className="pb-3 pt-5 md:px-12">
         <TabsContent value="informations" className="mt-0">
           {/* Variante B (décision Val 2026-10-27) : une section par ligne,
                 libellé à gauche, champs sur trois colonnes. Contenu Admin
                 inchangé (§06.06 §3 onglet Informations). */}
-          <SectionInfos titre="Événement" data-testid="bloc-evenement">
+          <FicheSection titre="Événement" data-testid="bloc-evenement">
             <dl className={GRILLE_3}>
               <InfoItem label="Client final">
                 {clientFinal ?? <Vide />}
@@ -2182,11 +2174,11 @@ export function CollecteDetailPanel({
                 </InfoItem>
               )}
             </dl>
-          </SectionInfos>
+          </FicheSection>
 
           {/* Lieu effectif = référence `lieux` + surcharge de cette collecte
                 (`lieu_overrides`, §04 : le lieu officiel n'est jamais modifié). */}
-          <SectionInfos
+          <FicheSection
             titre="Lieu et accès"
             data-testid="bloc-lieu"
             action={
@@ -2260,9 +2252,9 @@ export function CollecteDetailPanel({
                 </InfoItem>
               )}
             </dl>
-          </SectionInfos>
+          </FicheSection>
 
-          <SectionInfos
+          <FicheSection
             titre="Contacts sur place"
             data-testid="bloc-contacts"
             action={
@@ -2297,7 +2289,7 @@ export function CollecteDetailPanel({
                 <AjoutContactSecours onClick={ouvrirInfosCollecte} />
               )}
             </div>
-          </SectionInfos>
+          </FicheSection>
         </TabsContent>
 
         <TabsContent value="logistique" className="mt-0">
@@ -2305,7 +2297,7 @@ export function CollecteDetailPanel({
             association d'abord (son adresse est le point de livraison), besoin
             véhicule, prestataire, un seul bouton « Valider et envoyer ». */}
           {attributionManquante && collecte.statut === 'programmee' && (
-            <SectionInfos titre="Attribution & dispatch">
+            <FicheSection titre="Attribution & dispatch">
               <div className="min-w-0 space-y-4">
                 <AttributionAgForm
                   collecteId={collecte.id}
@@ -2328,7 +2320,7 @@ export function CollecteDetailPanel({
                   }}
                 />
               </div>
-            </SectionInfos>
+            </FicheSection>
           )}
           {/* AG sans attribution hors `programmee` (brouillon, annulation
             demandée…) : la validation d'attribution est impossible (§06.09 §3,
@@ -2336,7 +2328,7 @@ export function CollecteDetailPanel({
           {attributionManquante &&
             collecte.statut !== 'programmee' &&
             !isTerminal && (
-              <SectionInfos titre="Attribution & dispatch">
+              <FicheSection titre="Attribution & dispatch">
                 <div className="min-w-0 space-y-4">
                   <AlertBar variant="warn">
                     L&apos;attribution (association, prestataire) n&apos;est
@@ -2345,10 +2337,10 @@ export function CollecteDetailPanel({
                     actuel : « {statutCollecteDisplay(collecte.statut).label} ».
                   </AlertBar>
                 </div>
-              </SectionInfos>
+              </FicheSection>
             )}
           {!(attributionManquante && !isTerminal) && (
-            <SectionInfos
+            <FicheSection
               titre={
                 agAttribuee
                   ? 'Prestataire et Dispatch'
@@ -2644,7 +2636,7 @@ export function CollecteDetailPanel({
                   )}
                 </div>
               </div>
-            </SectionInfos>
+            </FicheSection>
           )}
           {/* Chauffeur(s) par camion — même bloc que la fiche client (§06.04
             « Logistique », décision Val 2026-10-02) : nom, plaque, téléphone
@@ -2652,7 +2644,7 @@ export function CollecteDetailPanel({
             au polling ; A Toutes! : coursier du webhook Everest), complétés par
             l'Admin si besoin (contrôle d'accès, transporteur manuel). Remplace
             la card « Informations chauffeur » de l'onglet Informations. */}
-          <SectionInfos
+          <FicheSection
             titre={titreChauffeur}
             data-testid="bloc-chauffeur"
             action={
@@ -2932,10 +2924,10 @@ export function CollecteDetailPanel({
                 </form>
               )}
             </div>
-          </SectionInfos>
+          </FicheSection>
           {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
           {collecte.type === 'zero_dechet' && (
-            <SectionInfos
+            <FicheSection
               titre="Pesées ZD"
               action={
                 !editPesees && (
@@ -3050,7 +3042,7 @@ export function CollecteDetailPanel({
                   </form>
                 )}
               </div>
-            </SectionInfos>
+            </FicheSection>
           )}
         </TabsContent>
 
@@ -3067,7 +3059,7 @@ export function CollecteDetailPanel({
             }}
           />
           {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
-          <SectionInfos titre="Documents">
+          <FicheSection titre="Documents">
             <div className="min-w-0 space-y-4">
               {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
@@ -3450,12 +3442,12 @@ export function CollecteDetailPanel({
                 )}
               </div>
             </div>
-          </SectionInfos>
+          </FicheSection>
         </TabsContent>
 
         <TabsContent value="historique" className="mt-0">
           {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
-          <SectionInfos titre="Historique & audit">
+          <FicheSection titre="Historique & audit">
             <div className="min-w-0 space-y-4">
               {audit.length === 0 ? (
                 <EmptyState
@@ -3503,7 +3495,7 @@ export function CollecteDetailPanel({
                 </Timeline>
               )}
             </div>
-          </SectionInfos>
+          </FicheSection>
         </TabsContent>
       </FicheCorps>
 
@@ -4012,5 +4004,3 @@ export function CollecteDetailPanel({
 
 // Onglets de la variante B : soulignés en bleu nuit, plus espacés. Quatre
 // onglets Admin : soulignés aussi sur téléphone (la barre défile).
-const ONGLET_ADMIN =
-  'px-0 data-[state=active]:border-savr-primary-900 data-[state=active]:text-savr-primary-900';

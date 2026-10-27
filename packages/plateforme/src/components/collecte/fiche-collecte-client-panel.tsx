@@ -9,7 +9,6 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
-  type Icone,
   ArrowRightIcon,
   CalendarDotsIcon,
   ClockIcon,
@@ -33,7 +32,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { StatutCollecteClient } from '@/components/collecte/statut-collecte-client';
@@ -50,6 +49,12 @@ import {
 import { dateLongueCapitalisee } from '@/components/collecte/fiche-blocs';
 import { EnTeteMention } from '@/components/ui/fiche/fiche-en-tete';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
+import {
+  FicheGrandEnTete,
+  FicheOnglet,
+  FicheOnglets,
+  FicheRepere,
+} from '@/components/ui/fiche/fiche-grand-en-tete';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
@@ -365,62 +370,56 @@ export function FicheCollecteClientPanel({
       onValueChange={(v) => setOnglet(v as Onglet)}
       className="flex h-full min-h-0 flex-col"
     >
-      <header className="flex shrink-0 flex-col gap-4 px-5 pt-5 sm:px-6 sm:pt-6 md:gap-3.5 md:px-12 md:pt-6">
-        <div className="flex min-w-0 flex-wrap items-center gap-3 pr-12 md:pr-16">
-          <TypeCollecteBadge type={c.type} forme="plein" />
-          <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
-        </div>
-        <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-3">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <h3 className="font-display text-2xl font-semibold leading-[1.1] tracking-[-0.03em] text-savr-primary-900 md:text-4xl">
-              {titre}
-            </h3>
-            {sousTitre && (
-              <p className="text-[15px] text-savr-neutral-600">{sousTitre}</p>
+      <FicheGrandEnTete
+        surtitre={
+          <>
+            <TypeCollecteBadge type={c.type} forme="plein" />
+            <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
+          </>
+        }
+        titre={titre}
+        sousTitre={sousTitre || undefined}
+        statut={<StatutCollecteClient statut={c.statut} />}
+        reperesTestId="fiche-sous-ligne"
+        reperes={
+          <>
+            <FicheRepere icon={CalendarDotsIcon}>
+              {dateLongueCapitalisee(c.date_collecte)}
+            </FicheRepere>
+            {heure && <FicheRepere icon={ClockIcon}>{heure}</FicheRepere>}
+            {/* Pax de la collecte (décision Val 2026-10-20). */}
+            <FicheRepere icon={UsersIcon}>{fmtPax(c.pax)}</FicheRepere>
+            {lieu?.ville && (
+              <FicheRepere icon={MapPinIcon}>{lieu.ville}</FicheRepere>
             )}
-          </div>
-          <StatutCollecteClient statut={c.statut} />
-        </div>
-        <p
-          data-testid="fiche-sous-ligne"
-          className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-savr-neutral-700 sm:flex sm:flex-wrap sm:items-center sm:gap-x-7"
-        >
-          <InfoEnTete icon={CalendarDotsIcon}>
-            {dateLongueCapitalisee(c.date_collecte)}
-          </InfoEnTete>
-          {heure && <InfoEnTete icon={ClockIcon}>{heure}</InfoEnTete>}
-          {/* Pax de la collecte (décision Val 2026-10-20). */}
-          <InfoEnTete icon={UsersIcon}>{fmtPax(c.pax)}</InfoEnTete>
-          {lieu?.ville && (
-            <InfoEnTete icon={MapPinIcon}>{lieu.ville}</InfoEnTete>
-          )}
-        </p>
-        {!editing && (
-          <TabsList
-            aria-label="Sections de la fiche collecte"
-            className="grid w-full grid-cols-3 gap-1 border-0 bg-savr-sable-100 p-1 max-sm:rounded-savr-full sm:flex sm:gap-6 sm:border-b sm:border-savr-sable-200 sm:bg-transparent sm:p-0 md:gap-9"
-          >
-            <TabsTrigger value="informations" className={ONGLET}>
-              <span aria-hidden="true" className="sm:hidden">
-                Infos
-              </span>
-              <span className="max-sm:sr-only">Informations</span>
-            </TabsTrigger>
-            <TabsTrigger value="logistique" className={ONGLET}>
-              Logistique
-            </TabsTrigger>
-            <TabsTrigger value="bilan" className={ONGLET}>
-              <span aria-hidden="true" className="sm:hidden">
-                Bilan
-              </span>
-              <span className="max-sm:sr-only">Bilan & documents</span>
-            </TabsTrigger>
-          </TabsList>
-        )}
-      </header>
+          </>
+        }
+        onglets={
+          editing ? undefined : (
+            <FicheOnglets
+              mobile="pastilles"
+              aria-label="Sections de la fiche collecte"
+            >
+              <FicheOnglet value="informations">
+                <span aria-hidden="true" className="sm:hidden">
+                  Infos
+                </span>
+                <span className="max-sm:sr-only">Informations</span>
+              </FicheOnglet>
+              <FicheOnglet value="logistique">Logistique</FicheOnglet>
+              <FicheOnglet value="bilan">
+                <span aria-hidden="true" className="sm:hidden">
+                  Bilan
+                </span>
+                <span className="max-sm:sr-only">Bilan & documents</span>
+              </FicheOnglet>
+            </FicheOnglets>
+          )
+        }
+      />
 
       {editing && evt ? (
-        <FicheCorps className="border-t border-savr-sable-200 py-6 md:px-12">
+        <FicheCorps className="py-6">
           <EditerCollecteForm
             collecte={{
               id: c.id,
@@ -712,25 +711,5 @@ export function FicheCollecteClientPanel({
         </div>
       </Modal>
     </Tabs>
-  );
-}
-
-// Onglets de la variante B : soulignés, plus espacés, texte 14 px.
-// Téléphone (B4) : pastilles côte à côte, l'onglet actif sur fond blanc.
-const ONGLET =
-  'justify-center border-b-0 px-0 text-sm data-[state=active]:bg-savr-white data-[state=active]:text-savr-primary-900 data-[state=active]:shadow-savr-sm max-sm:rounded-savr-full sm:justify-start sm:border-b-2 sm:text-sm sm:data-[state=active]:border-savr-primary-900 sm:data-[state=active]:bg-transparent sm:data-[state=active]:shadow-savr-none';
-
-export function InfoEnTete({
-  icon: Icon,
-  children,
-}: {
-  icon: Icone;
-  children: React.ReactNode;
-}) {
-  return (
-    <span className="inline-flex items-center gap-2">
-      <Icon className="h-4 w-4 text-savr-neutral-400" aria-hidden="true" />
-      {children}
-    </span>
   );
 }

@@ -882,11 +882,11 @@ Scénario : consulte_par_user_at_pose_une_seule_fois
 Scénario : telechargement_rapport_avec_ou_sans_radar
   Étant donné une collecte ZD clôturée dont l'embargo H+24 est écoulé (ligne rapports_rse posée par le batch J+1, aucun PDF fabriqué)
   Quand un utilisateur autorisé à lire le rapport (traiteur manager ou commercial, agence, gestionnaire de lieux) ouvre l'onglet « Bilan & documents » de la fiche collecte
-  Alors la case « Inclure le radar de comparaison dans le rapport » est décochée
-  Quand il règle les filtres de comparaison, coche la case et clique sur « Télécharger »
+  Alors le bouton bascule « Intégrer la comparaison au rapport à télécharger » (à côté du radar) est désactivé à l'ouverture
+  Quand il règle les filtres de comparaison, active le bouton et clique sur « Télécharger le rapport » dans le pied de la fiche
   Alors il reçoit un PDF qui porte le radar calculé avec ces filtres sous son identité
   Et le PDF contient toujours le taux, les tonnages, le bloc carbone, l'en-tête, la méthodologie et la page 2
-  Quand un autre utilisateur télécharge le rapport case décochée
+  Quand un autre utilisateur télécharge le rapport sans activer la comparaison
   Alors il reçoit un PDF sans radar, et le premier n'en est pas modifié (rien n'est stocké)
   Et le premier téléchargement par un client pose rapports_rse.consulte_par_user_at
   Et un téléchargement demandé par un utilisateur d'une autre organisation répond 403

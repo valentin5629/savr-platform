@@ -1102,7 +1102,7 @@
     },
     {
       "id": "BL-P1-BOA-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:555-663 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:98-109",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:555-663 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:102-113",
       "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx (modale « Fiche lieu » — décisions Val 2026-09-30 : grand en-tête commun, onglets seuls sans colonne résumé : Informations / Accès & logistique / Interne Savr / Activité ; 8 champs prog. + 4 admin/ops + sélecteur Gestionnaire mono → organisations_lieux) ; extension LieuManuelForm (composant packages/plateforme/src/components/programmation/lieu-manuel-form.tsx) + suggestions d'adresse BAN sur « Adresse d'accès livraison » remplissant CP + ville (demande Val E2E 2026-09-28, hors CDC §06.01 → divergence ambigu à tracer en fin de lot : composant adresse-autocomplete-input.tsx, relais serveur GET /api/v1/programmation/adresses — l'IGN ne voit jamais l'IP utilisateur, arbitrage Val C1 —, lib/adresse-suggestions.ts) ; email admin_demande_ajout_lieu (migration 20260702010000) ; liste lieux réordonnée Nom/Adresse/Contrôle accès/Statut (page.tsx) ; routes lieux POST/PATCH/GET écrivent/exposent organisations_lieux (single, Val 2026-07-02)",
       "test": "packages/plateforme/src/components/admin/lieu-modal.test.tsx « M1.1b — modale lieu (BL-P1-BOA-03) » (19 scénarios dont sélecteur Gestionnaire, onglets, grand en-tête, compteurs d'erreurs, réponse tardive d'un autre lieu) + packages/plateforme/src/components/programmation/lieu-manuel-form.test.tsx (5 scénarios quick-add, dont sélection suggestion BAN souris/clavier → CP + ville, Échap ferme la liste sans fermer la modale, blur) + packages/plateforme/tests/api/programmation/adresses-suggestions.m0-6.test.ts (4 scénarios relais : 401 sans appel BAN, mapping, troncature 200 car., fail-open) + packages/plateforme/src/lib/adresse-suggestions.test.ts (4 scénarios) + packages/plateforme/tests/api/admin/lieux.m1-1b.test.ts",
       "statut": "à-vérifier",
@@ -1495,7 +1495,7 @@
     },
     {
       "id": "M0.6-fiche-collecte-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:386",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:393",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/components/collecte/fiche-blocs.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1519,7 +1519,7 @@
     },
     {
       "id": "M0.6-tuile-a-dispatcher-rendu-actif",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:293",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:300",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1567,7 +1567,7 @@
     },
     {
       "id": "M0.6-liste-collectes-export-csv",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:395",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:402",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (bouton « Exporter CSV » du bandeau ; filtresListe : les mêmes paramètres servent à la liste et à l'export) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (filtres lus et appliqués par packages/plateforme/src/lib/collectes-admin.ts, partagé avec l'export)",
       "test": "M0.6/export_csv_liste_admin_filtres_de_la_liste + M0.6/export_csv_liste_admin_croisement_vide",
       "statut": "implemented",
@@ -1575,7 +1575,7 @@
     },
     {
       "id": "M0.6-liste-collectes-export-csv-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:290",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:297",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1787,12 +1787,12 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "eafb60f53ddda848fecf4bdcb39139acab13b7249d534f3772310e25b7a92b69",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "e656b460cd12dabf9963c1a811a1271e06bf97287a4a654e0f2d67a4138c8227",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "f62ac36bb3850dabca8a991114726ea31da65bd26f5fd0cdb3082bc78b624e24",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "30a5755a4e0d6ef3e6fbce6d31255f606d704eb30978c51e8489f5b3b4f9ca55",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "09a1ad3dfcbb19dc2404851eb78fffe68d9308e24ae5fe59895f993db70e2588",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "7735759e54b7c94c13769ce15eae10094cfc14ebdf05c2c1afe8fe51030636a1",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8c268b8c981ee341779d148f70fd924b373fb64c7db27df31214a08db6ecad43",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "82f75e57c8febc152018e9b9681a47bee90c517eeeec1d0fb0dd5b78f5de0122",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "9404674f865f2b17326daac1df5fcef1fa6687e92fc87cd0f6ad0bd42dc2acbb",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "aa17e5e0f6a0139df4c1fb68548d828f89ed4203de4cdbb710677fe1e4fdb518"
   }
 }

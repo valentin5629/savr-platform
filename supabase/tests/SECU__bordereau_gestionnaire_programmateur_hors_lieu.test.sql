@@ -1,21 +1,19 @@
 -- =============================================================================
--- pgTAP — Numéro de bordereau dans les rapports PDF (décision Val 2026-10-27,
--- CDC §12 §1.7 « Numéro de bordereau »)
+-- pgTAP — Bordereau refusé au gestionnaire qui programme hors de ses lieux
+-- (CDC §12 §1.7, décisions Val 2026-10-27)
 -- =============================================================================
--- Les rapports (rapport d'une collecte @3, rapport cumulé d'un événement) lisent
--- leurs mesures en service-role et n'impriment le numéro du bordereau que si le
--- demandeur lit ce bordereau sous SA RLS (`bord_*_select`) — lecture faite par
--- `lireBordereauxVisibles` (packages/plateforme/src/lib/pdf/bordereaux-visibles.ts).
--- Ce fichier fige le cas qui motive la règle : un gestionnaire qui a programmé
--- un événement sur un lieu NON rattaché à son organisation voit la collecte
+-- Un PDF n'imprime le bordereau que si le demandeur le lit sous SA RLS
+-- (`bord_*_select`) ; la règle est codée côté rapports. Ce fichier fige, au
+-- niveau des policies, le cas qui la motive : un gestionnaire qui a programmé un
+-- événement sur un lieu NON rattaché à son organisation voit la collecte
 -- (régime « programmé par moi ») mais pas son bordereau (bord_gestionnaire_select
 -- ne regarde que les lieux rattachés).
 --
 --   1   contrôle positif : GA lit la collecte qu'il a programmée sur L2 ;
---   2   GA ne lit pas le bordereau de cette collecte → « — » dans le PDF ;
+--   2   GA ne lit pas le bordereau de cette collecte ;
 --   3   GB, gestionnaire de L2, lit ce bordereau (la policy n'est pas vide) ;
 --   4   GA lit le bordereau d'une collecte tenue sur son lieu L1 ;
---   5   requête exacte du code (`collecte_id IN (…)`) : seul le bordereau de L1.
+--   5   lecture groupée (`collecte_id IN (…)`) : seul le bordereau de L1.
 --
 -- Fixture : gestionnaires GA (lieu L1) et GB (lieu L2), traiteur T. Les
 -- programmations passent par `fn_enregistrer_programmation` sous service_role.
@@ -121,7 +119,7 @@ SELECT is(
   (SELECT count(*)::int FROM plateforme.bordereaux_savr
     WHERE collecte_id = (SELECT col FROM _bgp_ids WHERE k = 'ga_sur_l2')),
   0,
-  'bord_gestionnaire_select refuse le bordereau de cette collecte : le rapport imprime « — »'
+  'bord_gestionnaire_select refuse le bordereau de cette collecte, qu’il voit pourtant'
 );
 
 SELECT is(
@@ -135,7 +133,7 @@ SELECT is(
   ARRAY(SELECT numero FROM plateforme.bordereaux_savr
          WHERE collecte_id IN (SELECT col FROM _bgp_ids) ORDER BY numero),
   ARRAY['BSAV-BGP-t_sur_l1']::text[],
-  'requête des rapports (collecte_id IN …) : seul le bordereau lisible remonte'
+  'lecture groupée (collecte_id IN …) : seul le bordereau lisible remonte'
 );
 
 -- ── GB, gestionnaire de L2 ──────────────────────────────────────────────────

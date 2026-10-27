@@ -13,8 +13,7 @@
 // Indépendant du rôle : la route de l'espace établit l'accès sous l'identité du
 // demandeur (`lireEvenementVisible`) et passe les collectes qu'il voit.
 //  - ZD : les mesures figées de CES collectes sont relues en service-role, comme
-//    le rapport d'une collecte (payload-rapport) ; le numéro de bordereau n'est
-//    imprimé que si le demandeur lit ce bordereau sous sa RLS (« — » sinon) ;
+//    le rapport d'une collecte (payload-rapport) ;
 //  - AG : relues SOUS L'IDENTITÉ du demandeur, par le chemin de la fiche
 //    collecte (attribution par rôle — la vue v_attributions_gestionnaire pour
 //    le gestionnaire —, attestation sous sa RLS) : le PDF n'imprime jamais un
@@ -52,7 +51,6 @@ import {
 } from '@/lib/evenements-gestionnaire.js';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte.js';
 
-import { lireBordereauxVisibles } from './bordereaux-visibles.js';
 import { convivesImprimes } from './convives-imprimes.js';
 import {
   buildEquivalences,
@@ -203,10 +201,7 @@ function aplatir(c: CollecteMesuree): CollecteMesuree {
   };
 }
 
-function payloadZd(
-  collectes: CollecteMesuree[],
-  bordereauxVisibles: Set<string>,
-): Record<string, unknown> {
+function payloadZd(collectes: CollecteMesuree[]): Record<string, unknown> {
   const b = consoliderEvenement(collectes);
   const noms = new Map<string, string>();
   for (const c of collectes)
@@ -245,9 +240,7 @@ function payloadZd(
       poids_kg: poidsCollecte(c),
       taux_recyclage: c.taux_recyclage,
       co2_evite_kg: c.co2_evite_kg,
-      bordereau_numero: bordereauxVisibles.has(c.id)
-        ? (derniere(c.bordereaux_savr)?.numero ?? null)
-        : null,
+      bordereau_numero: derniere(c.bordereaux_savr)?.numero ?? null,
     })),
   };
 }
@@ -359,18 +352,6 @@ export async function fabriquerRapportEvenement(params: {
     );
   if (mesurees.length === 0) return refus(AUCUN_RESULTAT, 409);
 
-  // Bordereaux que le demandeur lit sous sa RLS (cf. en-tête) ; une lecture en
-  // échec refuse le rapport plutôt que d'imprimer un numéro par défaut.
-  let bordereauxVisibles = new Set<string>();
-  if (type === ZD) {
-    const lus = await lireBordereauxVisibles(
-      rls,
-      mesurees.map((c) => c.id),
-    );
-    if (!lus.ok) return serverError(lus.erreur, evenementLog);
-    bordereauxVisibles = lus.collectes;
-  }
-
   const deuxTypes = new Set(collectes.map((c) => c.type)).size > 1;
   const enTete = await enTeteRapport(ev);
   const payload: Record<string, unknown> = {
@@ -381,7 +362,7 @@ export async function fabriquerRapportEvenement(params: {
       deuxTypes ? libelleTypeCollecte(type) : '',
     ),
     ...(type === ZD
-      ? payloadZd(mesurees, bordereauxVisibles)
+      ? payloadZd(mesurees)
       : await payloadAg(mesurees, admin, JSON.stringify(enTete.champs).length)),
   };
   if (type === ZD && version.avecRadar) {

@@ -367,9 +367,8 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
     );
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('application/pdf');
-    // Accès établi sous la RLS du demandeur (collecte puis rapport), et
-    // bordereau lu sous la même RLS pour son numéro (décision Val 2026-10-27).
-    expect(rls.calls).toEqual(['collectes', 'rapports_rse', 'bordereaux_savr']);
+    // Accès établi sous la RLS du demandeur (collecte puis rapport).
+    expect(rls.calls).toEqual(['collectes', 'rapports_rse']);
     // Service-role : seulement la marque « consulté » (données mesurées : mock).
     expect(admin.calls).toEqual(['rapports_rse']);
     expect(admin.updates.map((u) => u.table)).toEqual(['rapports_rse']);

@@ -1489,14 +1489,6 @@
       "libelle": "Pesée par pax du bilan consolidé de la fiche événement (décision Val 2026-10-27, scénario 06.05 fiche_evenement_rapports_cumules) : pesées cumulées des collectes ZD réalisées divisées par la somme des convives de CES collectes (`collectes.pax`, collecte à 0 convive écartée des deux sommes), plus par `evenements.pax`. Même règle pour « Convives » en page 1 du Rapport RSE de l'événement et pour « repas par convive » du Rapport de don de l'événement (collectes AG réalisées). Le « Repas par pax » de l'écran suit la même règle, pour que l'écran et le PDF disent le même chiffre. Calcul fait une fois, dans consoliderEvenement, pour l'écran et les deux PDF."
     },
     {
-      "id": "M3.2-rapports-numero-bordereau-sous-rls",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:352",
-      "artefact": "packages/plateforme/src/lib/pdf/bordereaux-visibles.ts (lireBordereauxVisibles) + packages/plateforme/src/lib/collectes/rapport-a-la-demande.ts (fabriquerRapport, lecteur) + packages/plateforme/src/lib/pdf/rapports-evenement.ts (payloadZd) + packages/plateforme/src/app/api/v1/organisateur/documents/[type]/[id]/download/route.ts",
-      "test": "RPT-BORD/numero_masque_hors_rls + EVT/fiche_evenement_rapports_cumules_bordereau_masque + M3.2/rapport_download_gestionnaire_sous_rls + M3.3/rapport_download_agence + bord_gestionnaire_select refuse le bordereau de cette collecte",
-      "statut": "implemented",
-      "libelle": "Numéro de bordereau dans les PDF (décision Val 2026-10-27) : le rapport d'une collecte (@3, espaces traiteur, agence, gestionnaire et client organisateur) et le rapport cumulé de l'événement n'impriment le numéro que si le demandeur lit ce bordereau sous sa RLS (`bord_*_select`), « — » sinon ; les mesures restent lues en service-role. L'Admin lit tous les bordereaux. Une lecture du bordereau en échec refuse le rapport (500) plutôt que d'imprimer un numéro. pgTAP SECU__bordereau_gestionnaire_programmateur_hors_lieu : gestionnaire qui a programmé sur un lieu non rattaché à son organisation = collecte lue, bordereau refusé."
-    },
-    {
       "id": "M3.2-evenement-frise-rejetee-brouillon",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:335",
       "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts (friseStatutEvenement, STATUTS_HORS_FRISE)",

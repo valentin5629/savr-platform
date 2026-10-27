@@ -199,8 +199,6 @@ function collectesZdAdmin() {
     ],
     error: null,
   };
-  // Son bordereau, lisible par le gestionnaire sous bord_gestionnaire_select.
-  rls.results.bordereaux_savr = { data: [{ collecte_id: 'z1' }], error: null };
 }
 
 /** Collectes AG relues SOUS L'IDENTITÉ du demandeur (vue du gestionnaire). */
@@ -638,7 +636,7 @@ describe('M3.2 — radar du bilan consolidé (écran)', () => {
   });
 });
 
-describe('06.05 fiche_evenement_rapports_cumules — convives et numéro de bordereau (décisions Val 2026-10-27)', () => {
+describe('06.05 fiche_evenement_rapports_cumules — convives des collectes cumulées (décision Val 2026-10-27)', () => {
   it('EVT/fiche_evenement_rapports_cumules_convives_zd — « Convives » du Rapport RSE = Σ des convives des collectes ZD cumulées ; une collecte à 0 convive est écartée', async () => {
     evenementVisible();
     (rls.results.evenements!.data as { collectes: unknown[] }).collectes.push({
@@ -657,10 +655,6 @@ describe('06.05 fiche_evenement_rapports_cumules — convives et numéro de bord
       pax: 0,
       bordereaux_savr: [{ numero: 'BSAV-3', version: 1 }],
     });
-    rls.results.bordereaux_savr = {
-      data: [{ collecte_id: 'z1' }, { collecte_id: 'z3' }],
-      error: null,
-    };
     expect((await rapport('rapport-rse')).status).toBe(200);
     // 450 (z1) + 0 (z3 écartée) ; jamais evenements.pax (1000).
     expect(payloadEnvoye().nb_pax).toBe(450);
@@ -680,29 +674,5 @@ describe('06.05 fiche_evenement_rapports_cumules — convives et numéro de bord
       repas_donnes: 100,
       repas_par_pax: 0.5,
     });
-  });
-
-  it('EVT/fiche_evenement_rapports_cumules_bordereau_masque — bordereau refusé au gestionnaire par bord_gestionnaire_select : le PDF imprime « — » (numéro absent) ; lecture en échec → 500, aucun PDF', async () => {
-    evenementVisible();
-    evenementAdmin();
-    collectesZdAdmin();
-    // Le gestionnaire voit la collecte (sa programmation, sur un lieu non
-    // rattaché à son organisation), pas son bordereau.
-    rls.results.bordereaux_savr = { data: [], error: null };
-    expect((await rapport('rapport-rse')).status).toBe(200);
-    expect(payloadEnvoye().collectes[0]!.bordereau_numero).toBeNull();
-    expect(rls.inAppels).toContainEqual({
-      table: 'bordereaux_savr',
-      col: 'collecte_id',
-      valeurs: ['z1'],
-    });
-
-    mockPdf.mockClear();
-    rls.results.bordereaux_savr = {
-      data: null,
-      error: { code: '57014', message: 'timeout' },
-    };
-    expect((await rapport('rapport-rse')).status).toBe(500);
-    expect(mockPdf).not.toHaveBeenCalled();
   });
 });

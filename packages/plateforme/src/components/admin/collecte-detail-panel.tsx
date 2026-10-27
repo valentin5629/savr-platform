@@ -3,7 +3,6 @@
 import { fmtEuro, fmtPax, fmtKgAuto } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { libelleTypePack } from '@/lib/libelles/pack';
-import { libelleStatutTournee } from '@/lib/libelles/tournee';
 import {
   useCallback,
   useEffect,
@@ -15,26 +14,21 @@ import {
   ArrowClockwiseIcon,
   BuildingsIcon,
   CalendarDotsIcon,
-  ClockCounterClockwiseIcon,
-  DoorOpenIcon,
+  ClockIcon,
   DownloadSimpleIcon,
-  FileTextIcon,
   HandshakeIcon,
   MapPinIcon,
   PaperPlaneTiltIcon,
   PhoneCallIcon,
   PlusCircleIcon,
-  ScalesIcon,
   SlidersHorizontalIcon,
   TruckIcon,
-  UserCircleIcon,
   UsersIcon,
   WarningIcon,
 } from '@/components/ui/icones';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
@@ -58,8 +52,15 @@ import {
 import { cn } from '@/lib/utils';
 import type { IssueInfosAcces } from '@/lib/infos-acces/notify';
 import type { SuiviEmailInfosAcces } from '@/lib/infos-acces/suivi-email';
-import { CollecteStatutFrise } from './collecte-statut-frise';
+import { CollecteStatutPastille } from './collecte-statut-pastille';
 import { AttributionAgForm } from './attribution-ag-form';
+import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
+import {
+  ChampsBesoinVehicule,
+  NB_VEHICULES_MAX,
+  TYPES_VEHICULE_OPTIONS,
+  nbVehiculesValide,
+} from './champs-besoin-vehicule';
 import {
   DIFFICULTE_LABEL,
   DIFFICULTE_VARIANT,
@@ -92,18 +93,19 @@ import {
   libelleDispatch,
   libelleTypeTms,
 } from '@/lib/type-tms-labels';
-import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
-  ContactLigne,
   dateLongueCapitalisee,
   TelephoneLien,
 } from '@/components/collecte/fiche-blocs';
-import { SectionHeader } from '@/components/ui/section-header';
-import { InfoItem } from '@/components/ui/info-item';
 import {
-  EnTeteMention,
-  FicheEnTete,
-} from '@/components/ui/fiche/fiche-en-tete';
+  AjoutContactSecours,
+  CarteContact,
+  GRILLE_3,
+  SectionInfos,
+} from '@/components/collecte/fiche-collecte-client-onglets';
+import { InfoEnTete } from '@/components/collecte/fiche-collecte-client-panel';
+import { InfoItem } from '@/components/ui/info-item';
+import { EnTeteMention } from '@/components/ui/fiche/fiche-en-tete';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
@@ -414,6 +416,10 @@ type PdfType =
   | 'bordereau-zd'
   | 'attestation-don';
 
+function Vide({ children = '—' }: { children?: React.ReactNode }) {
+  return <span className="text-savr-neutral-400">{children}</span>;
+}
+
 function DifficulteBadge({ valeur }: { valeur?: string | null }) {
   if (!valeur) return <>—</>;
   return (
@@ -557,9 +563,9 @@ function EncartOrdreEnvoi({
           {aPrestataire.endsWith('!') ? '' : '.'}{' '}
           <span className="font-normal">
             La commande part vers {canal ?? 'le prestataire'} dans les secondes
-            qui suivent l’envoi ; à défaut, au prochain passage automatique. La
-            référence TMS et le statut « Attente acceptation presta »
-            s’afficheront ici dès sa prise en compte.
+            qui suivent l’envoi ; à défaut, au prochain passage automatique. Le
+            statut « Attente acceptation presta » s’affichera ici dès sa prise
+            en compte.
           </span>
         </span>
       </AlertBar>
@@ -779,6 +785,12 @@ export function CollecteDetailPanel({
   // Bloc 0 — dispatch prestataire (BOA-06)
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [selectedTransporteurId, setSelectedTransporteurId] = useState('');
+  // Besoin véhicule saisi au choix du prestataire (décision Val 2026-10-27) :
+  // null = non touché, la valeur de la collecte s'affiche et rien n'est envoyé.
+  const [typeVehiculeSaisi, setTypeVehiculeSaisi] = useState<string | null>(
+    null,
+  );
+  const [nbVehiculesSaisi, setNbVehiculesSaisi] = useState<string | null>(null);
   // Ordre en file d'envoi : les cartes prestataire et le bouton d'envoi ne
   // reviennent que sur demande explicite (« Changer de prestataire »).
   const [changerPrestataire, setChangerPrestataire] = useState(false);
@@ -1193,6 +1205,28 @@ export function CollecteDetailPanel({
     // idempotente.
     const selected = transporteurs.find((t) => t.id === selectedTransporteurId);
     const body: Record<string, unknown> = {};
+    // Besoin véhicule : seulement les champs modifiés, écrits avant l'envoi.
+    if (besoinEditable && collecte) {
+      if (
+        nbVehiculesSaisi !== null &&
+        Number(nbVehiculesSaisi) !== collecte.nb_camions_demande
+      ) {
+        if (!nbVehiculesValide(nbVehiculesSaisi)) {
+          setDispatchError(
+            `Nombre de véhicules invalide (entier entre 1 et ${NB_VEHICULES_MAX})`,
+          );
+          setDispatching(false);
+          return;
+        }
+        body.nb_camions_demande = Number(nbVehiculesSaisi);
+      }
+      if (
+        typeVehiculeSaisi !== null &&
+        typeVehiculeSaisi !== (collecte.type_vehicule_souhaite ?? '')
+      ) {
+        body.type_vehicule_souhaite = typeVehiculeSaisi || null;
+      }
+    }
     if (selected?.prestataire_logistique_id) {
       body.prestataire_logistique_id = selected.prestataire_logistique_id;
       if (motifOverride.trim()) {
@@ -1212,6 +1246,8 @@ export function CollecteDetailPanel({
       setRelecturesRestantes(RELECTURES_MAX);
       setSelectedTransporteurId('');
       setMotifOverride('');
+      setTypeVehiculeSaisi(null);
+      setNbVehiculesSaisi(null);
       // Mode « changer » ouvert → il se referme : rendre le focus au bouton
       // « Changer de prestataire » plutôt que de le perdre en haut de page.
       retourFocusChangerRef.current = changerPrestataire;
@@ -1781,10 +1817,117 @@ export function CollecteDetailPanel({
   // État réel de l'ordre de tête, lu dans la file (décision Val 2026-10-12, C6).
   const ordreEnvoi = collecte.ordre_envoi ?? null;
   const dispatchEnLecture = ordreEnFileEnvoi && !changerPrestataire;
+  // AG attribuée : le choix du prestataire ne s'ouvre que sur « Modifier
+  // l'attribution » (décision Val 2026-10-27).
+  const agAttribuee = collecte.type === 'anti_gaspi' && !attributionManquante;
+  // Seulement une fois l'ordre parti (en file, référence reçue, ou statut TMS
+  // posé par le prestataire — il arrive avant la référence) : une AG attribuée
+  // dont rien n'est parti, ou rejetée par son prestataire, garde ses cartes et
+  // son envoi directs.
+  const envoiParti =
+    collecte.statut_tms !== 'rejetee_par_prestataire' &&
+    (ordreEnFileEnvoi ||
+      !!collecte.tms_reference ||
+      collecte.statut_tms !== 'non_envoye');
+  // Choix rouvert par « Modifier l'attribution » (titre « Changer de
+  // prestataire », bouton « Garder le prestataire actuel »).
+  const choixMasqueSansClic = agAttribuee && envoiParti;
+  const choixMasque = choixMasqueSansClic && !changerPrestataire;
+  // ZD dont la commande est partie : plus de bouton d'envoi, sauf modifiée
+  // depuis l'envoi ou refusée par le transporteur (décision Val 2026-10-27).
+  const envoiZdParti = estZd && envoiParti && !changerPrestataire;
+  // Besoin véhicule modifiable avec l'envoi d'une ZD (décision Val
+  // 2026-10-27 ; l'AG le saisit à l'attribution) : mêmes gardes que la route
+  // (collecte encore à attribuer, choix du prestataire ouvert).
+  const besoinEditable =
+    estZd &&
+    !isTerminal &&
+    !dispatchEnLecture &&
+    !choixPrestataireZdFerme &&
+    ['programmee', 'rejetee_par_prestataire'].includes(collecte.statut);
   // Même prestataire, ordre déjà en file (ou référence TMS reçue) → « Renvoyer ».
   const renvoi =
     !!collecte.tms_reference || (ordreEnFileEnvoi && !selectedTransporteurId);
   const canalEnvoi = libelleCanalEnvoi(currentTransporteur?.type_tms);
+  // En file d'envoi, « Non envoyé » (valeur brute de l'enum) tromperait l'Ops :
+  // l'ordre est parti côté Plateforme. Affichage dérivé, l'enum DB ne change pas.
+  // Un ordre en échec le dit : « Envoyée » laisserait croire que tout suit son
+  // cours (décision Val 2026-10-12, C6 — remplace « la fiche reste Envoyée »).
+  const statutTms = !ordreEnFileEnvoi
+    ? statutTmsDisplay(collecte.statut_tms)
+    : ordreEnvoi?.etat === 'echec_definitif'
+      ? { label: 'Échec d’envoi', variant: 'error' as const }
+      : ordreEnvoi?.etat === 'echec_reprise'
+        ? { label: 'Envoi en reprise', variant: 'warning' as const }
+        : { label: 'Envoyée', variant: 'info' as const };
+  // Affichage Admin « Créée » : le traiteur a validé, rien n'est parti.
+  const estCreee = statutCollecteAdmin(collecte) === 'creee';
+  const repasRealisesConnus = [
+    'realisee',
+    'realisee_sans_collecte',
+    'cloturee',
+  ].includes(collecte.statut);
+  // Champs du bloc « Prestataire & Dispatch », posés dans la grille selon le
+  // type (AG attribuée en trois colonnes, sinon deux).
+  // Sans badge du mode d'envoi : doublon de l'en-tête et du statut TMS
+  // (décision Val 2026-10-27).
+  const champPrestataireActuel = (
+    <InfoItem label="Prestataire actuel">
+      {currentTransporteur?.nom ?? (
+        <span className="text-savr-neutral-400">
+          {libelleSansNom ?? 'Aucun prestataire attribué'}
+        </span>
+      )}
+    </InfoItem>
+  );
+  const champStatutTms = (
+    <InfoItem label="Statut TMS">
+      <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
+      {collecte.statut_tms_at && (
+        <Text as="span" variant="faint" className="ml-1">
+          (
+          {new Date(collecte.statut_tms_at).toLocaleString('fr-FR', {
+            timeZone: 'Europe/Paris',
+          })}
+          )
+        </Text>
+      )}
+    </InfoItem>
+  );
+  const champTypeVehicule = (
+    <InfoItem label="Type de véhicule souhaité">
+      {TYPES_VEHICULE_OPTIONS.find(
+        (t) => t.value === collecte.type_vehicule_souhaite,
+      )?.label ?? 'Non précisé'}
+    </InfoItem>
+  );
+  const champNbVehicules = (
+    <InfoItem
+      label="Nombre de véhicules"
+      valueClassName="flex items-center gap-2"
+    >
+      {collecte.nb_camions_demande}
+      {nbCamionsEditable && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setNbCamionsValue(String(collecte.nb_camions_demande));
+            setNbCamionsError(null);
+            setNbCamionsModal(true);
+          }}
+        >
+          Modifier
+        </Button>
+      )}
+    </InfoItem>
+  );
+  const champMotifOverride = collecte.motif_override_prestataire ? (
+    <InfoItem label="Motif override" className="col-span-full">
+      {collecte.motif_override_prestataire}
+    </InfoItem>
+  ) : null;
   // Bloc « Chauffeur » : une ligne par camion demandé (cf. rangsChauffeurDe).
   const tourneeParRang = new Map(
     collecte.collecte_tournees.map((ct) => [ct.rang, ct] as const),
@@ -1805,13 +1948,13 @@ export function CollecteDetailPanel({
   const aideChauffeur =
     rangsChauffeur.length === 0
       ? 'Aucune tournée enregistrée pour cette collecte.'
-      : !saisieChauffeurPossible
-        ? 'Attribuez d’abord un prestataire : les coordonnées se saisissent ensuite camion par camion.'
-        : collecte.controle_acces_requis
-          ? null
-          : canalEnvoi
-            ? `Les coordonnées remontent automatiquement de ${canalEnvoi} dès l’affectation du chauffeur ; complétez-les si elles manquent.`
-            : 'Coordonnées à saisir par l’équipe Ops.';
+      : // Phrases sur la saisie retirées (décision Val 2026-10-27) ; reste
+        // la consigne d'un transporteur manuel (rien ne remonte seul).
+        saisieChauffeurPossible &&
+          !collecte.controle_acces_requis &&
+          !canalEnvoi
+        ? 'Coordonnées à saisir par l’équipe Ops.'
+        : null;
   // Email « infos d'accès » : l'état vient du journal des emails (servi par la
   // fiche). Sans lui (réponse antérieure au suivi), repli sur le tampon.
   const suiviEmailAcces: SuiviEmailInfosAcces = collecte.infos_acces_email ?? {
@@ -1827,6 +1970,10 @@ export function CollecteDetailPanel({
       const t = tourneeParRang.get(rang)?.tournees;
       return !!t?.chauffeur_nom?.trim() && !!t?.chauffeur_telephone?.trim();
     });
+  // Contrôle d'accès demandé, collecte encore à réaliser, coordonnées
+  // incomplètes : le bloc « Chauffeur » est encadré (décision Val 2026-10-27).
+  const chauffeurACompleter =
+    collecte.controle_acces_requis && !isTerminal && !coordonneesCompletes;
   // Jamais pendant une reprise automatique : le renvoi ferait partir deux emails.
   const renvoiEmailPossible =
     collecte.controle_acces_requis &&
@@ -1878,281 +2025,288 @@ export function CollecteDetailPanel({
   );
   const lieu = applyLieuOverrides(collecte.evenements.lieux, overrides);
 
-  // En file d'envoi, « Non envoyé » (valeur brute de l'enum) tromperait l'Ops :
-  // l'ordre est parti côté Plateforme. Affichage dérivé, l'enum DB ne change pas.
-  // Un ordre en échec le dit : « Envoyée » laisserait croire que tout suit son
-  // cours (décision Val 2026-10-12, C6 — remplace « la fiche reste Envoyée »).
-  const statutTms = !ordreEnFileEnvoi
-    ? statutTmsDisplay(collecte.statut_tms)
-    : ordreEnvoi?.etat === 'echec_definitif'
-      ? { label: 'Échec d’envoi', variant: 'error' as const }
-      : ordreEnvoi?.etat === 'echec_reprise'
-        ? { label: 'Envoi en reprise', variant: 'warning' as const }
-        : { label: 'Envoyée', variant: 'info' as const };
+  // Variante B de la fiche client (décision Val 2026-10-27) : titre = nom de
+  // l'événement, le lieu effectif à défaut ; dessous, le lieu (s'il n'est pas
+  // déjà le titre) et le client final.
+  const clientFinal =
+    collecte.evenements.client_organisateur?.raison_sociale ??
+    collecte.evenements.nom_client_organisateur ??
+    null;
+  const titre = collecte.evenements.nom_evenement?.trim() || lieu.nom;
+  const sousTitre = [titre === lieu.nom ? null : lieu.nom, clientFinal]
+    .map((v) => v?.trim())
+    .filter(Boolean)
+    .join(' · ');
+  const contacts = contactsDe(collecte.contacts);
+  const avecSecours = Boolean(
+    contacts?.contact_secours_nom?.trim() ||
+    contacts?.contact_secours_telephone?.trim(),
+  );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      {/* Grand en-tête commun aux fiches (décision Val 2026-10-01) : il remplace
-          le titre-résumé de la modale, la colonne résumé (C1) et la frise
-          pleine largeur (C2) ; « dirty TMS » en sur-titre. */}
-      <FicheEnTete
-        surtitre={
-          <>
-            <TypeCollecteBadge type={collecte.type} forme="plein" />
-            <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
-            {estModifieeSansRenvoi(collecte) && (
-              <Badge variant="warning" className="flex items-center gap-1">
-                <WarningIcon className="h-3 w-3" />
-                Modifiée — renvoi requis
-              </Badge>
+    <Tabs defaultValue="informations" className="flex h-full min-h-0 flex-col">
+      {/* En-tête de la variante B (décision Val 2026-10-27) : sur-titre (type,
+          réf., « dirty TMS »), titre et pastille de statut, ligne d'infos à
+          pictos, onglets soulignés ; seul le corps défile. */}
+      <header className="flex shrink-0 flex-col gap-4 px-5 pt-5 sm:px-6 sm:pt-6 md:gap-3.5 md:px-12 md:pt-6">
+        <div className="flex min-w-0 flex-wrap items-center gap-3 pr-12 md:pr-16">
+          <TypeCollecteBadge type={collecte.type} forme="plein" />
+          <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
+          {estModifieeSansRenvoi(collecte) && (
+            <Badge variant="warning" className="flex items-center gap-1">
+              <WarningIcon className="h-3 w-3" />
+              Modifiée — renvoi requis
+            </Badge>
+          )}
+        </div>
+        <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-3">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <h3 className="font-display text-2xl font-semibold leading-[1.1] tracking-[-0.03em] text-savr-primary-900 md:text-4xl">
+              {titre}
+            </h3>
+            {sousTitre && (
+              <p className="text-[15px] text-savr-neutral-600">{sousTitre}</p>
             )}
-          </>
-        }
-        titre={lieu.nom}
-        infosTestId="fiche-admin-sous-ligne"
-        infos={[
-          {
-            icon: CalendarDotsIcon,
-            texte: `${dateLongueCapitalisee(collecte.date_collecte)}${heureCollecte ? ` · ${heureCollecte}` : ''}`,
-          },
-          {
-            icon: UsersIcon,
-            texte: `jusqu'à ${fmtPax(collecte.pax)}`,
-          },
-          {
-            icon: BuildingsIcon,
-            texte: collecte.evenements.organisations.raison_sociale,
-          },
-          { icon: MapPinIcon, texte: lieu.ville },
-          {
-            icon: TruckIcon,
-            // Le badge garde la couleur du statut TMS (rejet, erreur) visible
-            // sans ouvrir l'onglet Logistique.
-            texte: (
-              <span className="inline-flex flex-wrap items-center gap-2">
-                {currentTransporteur?.nom ??
-                  libelleSansNom ??
-                  'Prestataire non attribué'}
-                <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
-              </span>
-            ),
-          },
-          ...(collecte.type === 'anti_gaspi'
-            ? [
-                {
-                  icon: HandshakeIcon,
-                  texte:
-                    collecte.attributions_antgaspi?.associations?.nom ??
-                    'Association en attente d’attribution',
-                },
-              ]
-            : []),
-        ]}
-        statut={<CollecteStatutFrise statut={statutCollecteAdmin(collecte)} />}
-        statutLarge
-      />
+          </div>
+          <CollecteStatutPastille statut={statutCollecteAdmin(collecte)} />
+        </div>
+        <p
+          data-testid="fiche-admin-sous-ligne"
+          className="flex flex-wrap items-center gap-x-7 gap-y-2 text-sm text-savr-neutral-700"
+        >
+          <InfoEnTete icon={CalendarDotsIcon}>
+            {dateLongueCapitalisee(collecte.date_collecte)}
+          </InfoEnTete>
+          {heureCollecte && (
+            <InfoEnTete icon={ClockIcon}>{heureCollecte}</InfoEnTete>
+          )}
+          <InfoEnTete icon={UsersIcon}>{fmtPax(collecte.pax)}</InfoEnTete>
+          <InfoEnTete icon={BuildingsIcon}>
+            {collecte.evenements.organisations.raison_sociale}
+          </InfoEnTete>
+          {lieu.ville && (
+            <InfoEnTete icon={MapPinIcon}>{lieu.ville}</InfoEnTete>
+          )}
+          {/* Le badge garde la couleur du statut TMS (rejet, erreur) visible
+              sans ouvrir l'onglet Logistique. */}
+          <InfoEnTete icon={TruckIcon}>
+            <span className="inline-flex flex-wrap items-center gap-2">
+              {currentTransporteur?.nom ??
+                libelleSansNom ??
+                'Prestataire non attribué'}
+              <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
+            </span>
+          </InfoEnTete>
+          {collecte.type === 'anti_gaspi' && (
+            <InfoEnTete icon={HandshakeIcon}>
+              {collecte.attributions_antgaspi?.associations?.nom ??
+                'Association en attente d’attribution'}
+            </InfoEnTete>
+          )}
+        </p>
+        <TabsList
+          aria-label="Sections de la fiche collecte"
+          className="flex w-full gap-6 overflow-x-auto border-b border-savr-sable-200 bg-transparent p-0 [scrollbar-width:none] md:gap-9"
+        >
+          <TabsTrigger value="informations" className={ONGLET_ADMIN}>
+            Informations
+          </TabsTrigger>
+          <TabsTrigger value="logistique" className={ONGLET_ADMIN}>
+            Logistique
+          </TabsTrigger>
+          <TabsTrigger value="documents" className={ONGLET_ADMIN}>
+            Documents
+          </TabsTrigger>
+          <TabsTrigger value="historique" className={ONGLET_ADMIN}>
+            Historique
+          </TabsTrigger>
+        </TabsList>
+      </header>
 
-      {/* Onglets seuls, sans colonne : même barre horizontale que les autres
-          fiches, fixe au défilement du corps. */}
-      <FicheCorps>
-        <Tabs defaultValue="informations">
-          <TabsList
-            aria-label="Sections de la fiche collecte"
-            className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
-          >
-            <TabsTrigger value="informations" className="px-3 sm:px-4">
-              Informations
-            </TabsTrigger>
-            <TabsTrigger value="logistique" className="px-3 sm:px-4">
-              Logistique
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="px-3 sm:px-4">
-              Documents
-            </TabsTrigger>
-            <TabsTrigger value="historique" className="px-3 sm:px-4">
-              Historique
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="informations" className="space-y-4">
-            <Card padding="md" className="space-y-4">
-              <SectionHeader icon={CalendarDotsIcon} title="Événement" />
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                <InfoItem label="Date et heure de collecte">
-                  {dateCollecteLongue}
-                  {heureCollecte ? ` · ${heureCollecte}` : ''}
-                </InfoItem>
-                <InfoItem label="Traiteur">
-                  {collecte.evenements.organisations.raison_sociale}
-                </InfoItem>
-                <InfoItem
-                  label="Nombre de pax"
-                  valueClassName="flex items-center gap-2"
+      <FicheCorps className="pb-3 pt-5 md:px-12">
+        <TabsContent value="informations" className="mt-0">
+          {/* Variante B (décision Val 2026-10-27) : une section par ligne,
+                libellé à gauche, champs sur trois colonnes. Contenu Admin
+                inchangé (§06.06 §3 onglet Informations). */}
+          <SectionInfos titre="Événement" data-testid="bloc-evenement">
+            <dl className={GRILLE_3}>
+              <InfoItem label="Client final">
+                {clientFinal ?? <Vide />}
+              </InfoItem>
+              <InfoItem label="Date et heure de collecte">
+                {dateCollecteLongue}
+                {heureCollecte ? ` · ${heureCollecte}` : ''}
+              </InfoItem>
+              <InfoItem
+                label="Nombre de pax"
+                valueClassName="flex items-center gap-2"
+              >
+                {collecte.pax}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Modifier le nombre de pax"
+                  onClick={() => {
+                    // Pax inconnu (0, reprise Bubble) : champ vide.
+                    setPaxValue(collecte.pax > 0 ? String(collecte.pax) : '');
+                    setPaxMotif('');
+                    setPaxError(null);
+                    setPaxModal(true);
+                  }}
                 >
-                  jusqu&apos;à {collecte.pax}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Modifier le nombre de pax"
-                    onClick={() => {
-                      // Pax inconnu (0, reprise Bubble) : champ vide.
-                      setPaxValue(collecte.pax > 0 ? String(collecte.pax) : '');
-                      setPaxMotif('');
-                      setPaxError(null);
-                      setPaxModal(true);
-                    }}
-                  >
-                    Modifier
-                  </Button>
+                  Modifier
+                </Button>
+              </InfoItem>
+              <InfoItem
+                label="Type d'événement"
+                valueClassName="flex flex-wrap items-center gap-2"
+              >
+                {collecte.type_evenement?.libelle ?? <Vide />}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Modifier le type d'événement"
+                  onClick={ouvrirInfosCollecte}
+                >
+                  Modifier
+                </Button>
+              </InfoItem>
+              <InfoItem label="Traiteur">
+                {collecte.evenements.organisations.raison_sociale}
+              </InfoItem>
+              {collecte.type === 'anti_gaspi' && (
+                <InfoItem label="Volume repas estimé">
+                  {collecte.volume_estime_repas ?? '—'}
                 </InfoItem>
-                {/* Client final = client organisateur, distinct du traiteur. */}
-                <InfoItem label="Client final">
-                  {collecte.evenements.client_organisateur?.raison_sociale ??
-                    collecte.evenements.nom_client_organisateur ??
-                    '—'}
-                </InfoItem>
-                <InfoItem label="Type d'événement">
-                  {collecte.type_evenement?.libelle ?? '—'}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Modifier le type d'événement"
-                    onClick={ouvrirInfosCollecte}
-                  >
-                    Modifier
-                  </Button>
-                </InfoItem>
-                {collecte.evenements.nom_evenement && (
-                  <InfoItem label="Nom de l'événement">
-                    {collecte.evenements.nom_evenement}
-                  </InfoItem>
-                )}
-                {collecte.type === 'anti_gaspi' && (
-                  <InfoItem label="Volume repas estimé">
-                    {collecte.volume_estime_repas ?? '—'}
-                  </InfoItem>
-                )}
-              </dl>
-            </Card>
+              )}
+            </dl>
+          </SectionInfos>
 
-            {/* Lieu effectif = référence `lieux` + surcharge de cette collecte
+          {/* Lieu effectif = référence `lieux` + surcharge de cette collecte
                 (`lieu_overrides`, §04 : le lieu officiel n'est jamais modifié). */}
-            <Card padding="md" className="space-y-4">
-              <SectionHeader
-                icon={MapPinIcon}
-                title="Lieu"
-                action={
-                  lieuSurcharge ? (
-                    <Badge variant="info">Modifié pour cette collecte</Badge>
-                  ) : undefined
-                }
-              />
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                <InfoItem label="Nom">{lieu.nom}</InfoItem>
-                <InfoItem label="Adresse">
-                  {lieu.adresse_acces}
-                  <span className="block text-savr-neutral-600">
-                    {[lieu.code_postal, lieu.ville].filter(Boolean).join(' ')}
+          <SectionInfos
+            titre="Lieu et accès"
+            data-testid="bloc-lieu"
+            action={
+              lieuSurcharge ? (
+                <Badge variant="info">Modifié pour cette collecte</Badge>
+              ) : undefined
+            }
+          >
+            <dl className={GRILLE_3}>
+              <InfoItem label="Adresse">
+                {lieu.nom}
+                <span className="block font-normal text-savr-neutral-600">
+                  {[lieu.adresse_acces, lieu.code_postal, lieu.ville]
+                    .filter(Boolean)
+                    .join(' ')}
+                </span>
+              </InfoItem>
+              <InfoItem label="Accès office">
+                <DifficulteBadge valeur={lieu.acces_office} />
+              </InfoItem>
+              <InfoItem label="Stationnement">
+                <DifficulteBadge valeur={lieu.stationnement} />
+              </InfoItem>
+              <InfoItem label="Véhicule max">
+                {lieu.type_vehicule_max
+                  ? (VEHICULE_LABEL[lieu.type_vehicule_max] ??
+                    lieu.type_vehicule_max)
+                  : '—'}
+              </InfoItem>
+              <InfoItem label="Contrôle d'accès">
+                {collecte.controle_acces_requis ? 'Oui' : 'Non'}
+              </InfoItem>
+              {lieu.contraintes_horaires && (
+                <InfoItem label="Contraintes horaires">
+                  {lieu.contraintes_horaires}
+                </InfoItem>
+              )}
+              <InfoItem
+                variant="texte"
+                label="Accès au lieu (badge, code, interphone, gardien…)"
+                className="sm:col-span-2 lg:col-span-3"
+              >
+                {lieu.acces_details ? (
+                  <span className="whitespace-pre-line">
+                    {lieu.acces_details}
+                  </span>
+                ) : (
+                  <Vide>Aucune instruction renseignée</Vide>
+                )}
+              </InfoItem>
+              {collecte.informations_supplementaires && (
+                <InfoItem
+                  variant="texte"
+                  label="Informations supplémentaires"
+                  className="sm:col-span-2 lg:col-span-3"
+                >
+                  <span className="whitespace-pre-line">
+                    {collecte.informations_supplementaires}
                   </span>
                 </InfoItem>
-                <InfoItem label="Accès office">
-                  <DifficulteBadge valeur={lieu.acces_office} />
+              )}
+              {collecte.notes_internes && (
+                <InfoItem
+                  variant="texte"
+                  label="Notes internes Savr"
+                  className="sm:col-span-2 lg:col-span-3"
+                >
+                  <span className="whitespace-pre-line">
+                    {collecte.notes_internes}
+                  </span>
                 </InfoItem>
-                <InfoItem label="Stationnement">
-                  <DifficulteBadge valeur={lieu.stationnement} />
-                </InfoItem>
-                <InfoItem label="Véhicule max">
-                  {lieu.type_vehicule_max
-                    ? (VEHICULE_LABEL[lieu.type_vehicule_max] ??
-                      lieu.type_vehicule_max)
-                    : '—'}
-                </InfoItem>
-                <InfoItem label="Contrôle d'accès">
-                  {collecte.controle_acces_requis ? 'Oui' : 'Non'}
-                </InfoItem>
-                {lieu.contraintes_horaires && (
-                  <InfoItem label="Contraintes horaires" pleineLargeur>
-                    {lieu.contraintes_horaires}
-                  </InfoItem>
-                )}
-              </dl>
-            </Card>
+              )}
+            </dl>
+          </SectionInfos>
 
-            <Card padding="md" className="space-y-4">
-              <SectionHeader icon={DoorOpenIcon} title="Instructions d'accès" />
-              <dl className="space-y-3 text-sm">
-                <InfoItem label="Accès au lieu (badge, code, interphone, gardien…)">
-                  {lieu.acces_details ? (
-                    <span className="whitespace-pre-line">
-                      {lieu.acces_details}
-                    </span>
-                  ) : (
-                    <span className="text-savr-neutral-400">
-                      Aucune instruction renseignée
-                    </span>
-                  )}
-                </InfoItem>
-                {collecte.informations_supplementaires && (
-                  <InfoItem label="Informations supplémentaires">
-                    <span className="whitespace-pre-line">
-                      {collecte.informations_supplementaires}
-                    </span>
-                  </InfoItem>
-                )}
-                {collecte.notes_internes && (
-                  <InfoItem label="Notes internes Savr">
-                    <span className="whitespace-pre-line">
-                      {collecte.notes_internes}
-                    </span>
-                  </InfoItem>
-                )}
-              </dl>
-            </Card>
-
-            <Card padding="md" className="space-y-4">
-              <SectionHeader icon={UsersIcon} title="Contacts" />
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                <InfoItem label="Contact principal">
-                  <ContactLigne
-                    nom={contactsDe(collecte.contacts)?.contact_principal_nom}
-                    telephone={
-                      contactsDe(collecte.contacts)?.contact_principal_telephone
-                    }
-                  />
-                </InfoItem>
-                <InfoItem label="Contact de secours">
-                  <ContactLigne
-                    nom={contactsDe(collecte.contacts)?.contact_secours_nom}
-                    telephone={
-                      contactsDe(collecte.contacts)?.contact_secours_telephone
-                    }
-                  />
-                </InfoItem>
-              </dl>
+          <SectionInfos
+            titre="Contacts sur place"
+            data-testid="bloc-contacts"
+            action={
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 aria-label="Modifier les contacts"
                 onClick={ouvrirInfosCollecte}
+                className="-ml-3"
               >
                 Modifier
               </Button>
-            </Card>
-          </TabsContent>
+            }
+          >
+            <div className={GRILLE_3}>
+              <CarteContact
+                nom={contacts?.contact_principal_nom}
+                telephone={contacts?.contact_principal_telephone}
+                role="Contact principal"
+              />
+              {/* Contact de secours : sa carte s'il est renseigné, sinon le
+                    bouton d'ajout de la fiche client (ouvre la fenêtre des
+                    contacts). */}
+              {avecSecours ? (
+                <CarteContact
+                  nom={contacts?.contact_secours_nom}
+                  telephone={contacts?.contact_secours_telephone}
+                  role="Contact de secours"
+                />
+              ) : (
+                <AjoutContactSecours onClick={ouvrirInfosCollecte} />
+              )}
+            </div>
+          </SectionInfos>
+        </TabsContent>
 
-          <TabsContent value="logistique" className="space-y-4">
-            {/* AG sans attribution : formulaire intégré (décision Val 2026-10-01) —
+        <TabsContent value="logistique" className="mt-0">
+          {/* AG sans attribution : formulaire intégré (décision Val 2026-10-01) —
             association d'abord (son adresse est le point de livraison), besoin
             véhicule, prestataire, un seul bouton « Valider et envoyer ». */}
-            {attributionManquante && collecte.statut === 'programmee' && (
-              <Card padding="md" className="space-y-4">
-                <SectionHeader
-                  icon={HandshakeIcon}
-                  title="Attribution & dispatch"
-                />
+          {attributionManquante && collecte.statut === 'programmee' && (
+            <SectionInfos titre="Attribution & dispatch">
+              <div className="min-w-0 space-y-4">
                 <AttributionAgForm
                   collecteId={collecte.id}
                   collecte={{
@@ -2173,140 +2327,117 @@ export function CollecteDetailPanel({
                     void refetch();
                   }}
                 />
-              </Card>
-            )}
-            {/* AG sans attribution hors `programmee` (brouillon, annulation
+              </div>
+            </SectionInfos>
+          )}
+          {/* AG sans attribution hors `programmee` (brouillon, annulation
             demandée…) : la validation d'attribution est impossible (§06.09 §3,
             RPC P0043) — consigne plutôt qu'un formulaire qui échouerait. */}
-            {attributionManquante &&
-              collecte.statut !== 'programmee' &&
-              !isTerminal && (
-                <Card padding="md" className="space-y-4">
-                  <SectionHeader
-                    icon={HandshakeIcon}
-                    title="Attribution & dispatch"
-                  />
+          {attributionManquante &&
+            collecte.statut !== 'programmee' &&
+            !isTerminal && (
+              <SectionInfos titre="Attribution & dispatch">
+                <div className="min-w-0 space-y-4">
                   <AlertBar variant="warn">
                     L&apos;attribution (association, prestataire) n&apos;est
                     possible qu&apos;au statut «{' '}
                     {statutCollecteDisplay('creee', 'admin').label} » — statut
                     actuel : « {statutCollecteDisplay(collecte.statut).label} ».
                   </AlertBar>
-                </Card>
-              )}
-            {/* AG attribuée : résumé de l'attribution AVANT « Prestataire &
-            Dispatch » (décision Val 2026-10-01). */}
-            {collecte.type === 'anti_gaspi' && !attributionManquante && (
-              <Card padding="md" className="space-y-4">
-                <SectionHeader icon={HandshakeIcon} title="Attribution AG" />
-                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                  <InfoItem label="Association retenue">
-                    {collecte.attributions_antgaspi?.associations?.nom ?? (
-                      <span className="text-savr-neutral-400">
-                        Aucune (en attente d’attribution)
-                      </span>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Transporteur retenu">
-                    {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
-                      <span className="text-savr-neutral-400">—</span>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Validation">
-                    {collecte.attributions_antgaspi?.valide_at ? (
-                      <>
-                        {collecte.attributions_antgaspi.mode_validation} —{' '}
-                        {new Date(
-                          collecte.attributions_antgaspi.valide_at,
-                        ).toLocaleDateString('fr-FR', {
-                          timeZone: 'Europe/Paris',
-                        })}
-                      </>
-                    ) : (
-                      <Badge variant="warning">En attente de validation</Badge>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Volume repas (estimé / réalisé)">
-                    {collecte.volume_estime_repas ?? '—'} /{' '}
-                    {collecte.statut === 'realisee_sans_collecte'
-                      ? LIBELLE_SANS_EXCEDENT
-                      : (collecte.attributions_antgaspi?.volume_repas_realise ??
-                        '—')}
-                  </InfoItem>
-                </dl>
-              </Card>
+                </div>
+              </SectionInfos>
             )}
-            {!(attributionManquante && !isTerminal) && (
-              <Card padding="md" className="space-y-4">
-                <SectionHeader
-                  icon={TruckIcon}
-                  title="Prestataire & Dispatch"
-                />
+          {!(attributionManquante && !isTerminal) && (
+            <SectionInfos
+              titre={
+                agAttribuee
+                  ? 'Prestataire et Dispatch'
+                  : 'Prestataire & Dispatch'
+              }
+            >
+              <div className="min-w-0 space-y-4">
                 {dispatchError && (
                   <AlertBar variant="err">{dispatchError}</AlertBar>
                 )}
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  <InfoItem
-                    label="Prestataire actuel"
-                    valueClassName="flex items-center gap-2"
-                  >
-                    {currentTransporteur?.nom ?? (
-                      <span className="text-savr-neutral-400">
-                        {libelleSansNom ?? 'Aucun prestataire attribué'}
-                      </span>
-                    )}
-                    {currentTransporteur?.type_tms && (
-                      <Badge size="sm" variant="neutral">
-                        {libelleTypeTms(currentTransporteur.type_tms)}
-                      </Badge>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Statut TMS">
-                    <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
-                    {collecte.statut_tms_at && (
-                      <Text as="span" variant="faint" className="ml-1">
-                        (
-                        {new Date(collecte.statut_tms_at).toLocaleString(
-                          'fr-FR',
-                          {
-                            timeZone: 'Europe/Paris',
-                          },
+                {agAttribuee ? (
+                  // AG attribuée : un seul bloc en trois colonnes (décision Val
+                  // 2026-10-27) — prestataire et besoin véhicule, attribution,
+                  // statut TMS ; « Modifier l'attribution » rouvre le choix du
+                  // prestataire.
+                  <>
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+                      <div className="space-y-3">
+                        {champPrestataireActuel}
+                        {champTypeVehicule}
+                        {champNbVehicules}
+                      </div>
+                      <div className="space-y-3">
+                        <InfoItem label="Association retenue">
+                          {collecte.attributions_antgaspi?.associations
+                            ?.nom ?? (
+                            <span className="text-savr-neutral-400">
+                              Aucune (en attente d’attribution)
+                            </span>
+                          )}
+                        </InfoItem>
+                        <InfoItem label="Volume de repas estimés">
+                          {collecte.volume_estime_repas ?? '—'}
+                        </InfoItem>
+                        {repasRealisesConnus && (
+                          <InfoItem label="Volume de repas réalisés">
+                            {collecte.statut === 'realisee_sans_collecte'
+                              ? LIBELLE_SANS_EXCEDENT
+                              : (collecte.attributions_antgaspi
+                                  ?.volume_repas_realise ?? '—')}
+                          </InfoItem>
                         )}
-                        )
-                      </Text>
+                      </div>
+                      <div className="space-y-3">{champStatutTms}</div>
+                      {champMotifOverride}
+                    </dl>
+                    {!isTerminal && envoiParti && !changerPrestataire && (
+                      <div>
+                        <Button
+                          ref={changerPrestataireBtnRef}
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setChangerPrestataire(true)}
+                        >
+                          Modifier l’attribution
+                        </Button>
+                      </div>
                     )}
-                  </InfoItem>
-                  <InfoItem label="Référence TMS" valueClassName="font-mono">
-                    {collecte.tms_reference ?? '—'}
-                  </InfoItem>
-                  <InfoItem
-                    label="Nb camions"
-                    valueClassName="flex items-center gap-2"
-                  >
-                    {collecte.nb_camions_demande}
-                    {nbCamionsEditable && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setNbCamionsValue(
-                            String(collecte.nb_camions_demande),
-                          );
-                          setNbCamionsError(null);
-                          setNbCamionsModal(true);
-                        }}
-                      >
-                        Modifier
-                      </Button>
+                  </>
+                ) : (
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                    {/* « Créée » : rien n'est parti, ni prestataire ni statut
+                        TMS à lire (décision Val 2026-10-27). */}
+                    {!estCreee && champPrestataireActuel}
+                    {!estCreee && champStatutTms}
+                    {/* Besoin véhicule en lecture quand il ne part plus avec
+                        l'envoi (décision Val 2026-10-27 ; « Référence TMS »
+                        retirée, idem). */}
+                    {!besoinEditable && (
+                      <>
+                        {champTypeVehicule}
+                        {champNbVehicules}
+                      </>
                     )}
-                  </InfoItem>
-                  {collecte.motif_override_prestataire && (
-                    <InfoItem label="Motif override" className="col-span-2">
-                      {collecte.motif_override_prestataire}
-                    </InfoItem>
-                  )}
-                </dl>
+                    {champMotifOverride}
+                  </dl>
+                )}
+                {besoinEditable && (
+                  <ChampsBesoinVehicule
+                    typeVehicule={
+                      typeVehiculeSaisi ?? collecte.type_vehicule_souhaite ?? ''
+                    }
+                    onTypeVehicule={setTypeVehiculeSaisi}
+                    nbVehicules={
+                      nbVehiculesSaisi ?? String(collecte.nb_camions_demande)
+                    }
+                    onNbVehicules={setNbVehiculesSaisi}
+                  />
+                )}
 
                 <EncartOrdreEnvoi
                   ordre={ordreEnvoi}
@@ -2323,7 +2454,8 @@ export function CollecteDetailPanel({
             demande pas à changer de prestataire. */}
                 {!isTerminal &&
                   !dispatchEnLecture &&
-                  !choixPrestataireZdFerme && (
+                  !choixPrestataireZdFerme &&
+                  !choixMasque && (
                     <div
                       ref={dispatchChoixRef}
                       className="space-y-3 border-t border-savr-neutral-100 pt-4"
@@ -2333,7 +2465,7 @@ export function CollecteDetailPanel({
                         className="font-semibold"
                         id="dispatch-transporteur-label"
                       >
-                        {ordreEnFileEnvoi
+                        {ordreEnFileEnvoi || choixMasqueSansClic
                           ? 'Changer de prestataire'
                           : 'Prestataire à attribuer'}
                       </Text>
@@ -2453,14 +2585,16 @@ export function CollecteDetailPanel({
                     // 2026-10-09). Autre action : rouvrir le choix du
                     // prestataire.
                     <>
-                      <Button
-                        ref={changerPrestataireBtnRef}
-                        variant="secondary"
-                        onClick={() => setChangerPrestataire(true)}
-                      >
-                        <TruckIcon />
-                        Changer de prestataire
-                      </Button>
+                      {!agAttribuee && (
+                        <Button
+                          ref={changerPrestataireBtnRef}
+                          variant="secondary"
+                          onClick={() => setChangerPrestataire(true)}
+                        >
+                          <TruckIcon />
+                          Changer de prestataire
+                        </Button>
+                      )}
                       {estModifieeSansRenvoi(collecte) && (
                         <Button
                           onClick={() => void handleDispatch()}
@@ -2474,83 +2608,63 @@ export function CollecteDetailPanel({
                     </>
                   ) : (
                     <>
-                      {ordreEnFileEnvoi && (
+                      {changerPrestataire &&
+                        (ordreEnFileEnvoi || choixMasqueSansClic) && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              retourFocusChangerRef.current = true;
+                              setChangerPrestataire(false);
+                              setSelectedTransporteurId('');
+                              setMotifOverride('');
+                            }}
+                          >
+                            Garder le prestataire actuel
+                          </Button>
+                        )}
+                      {((!choixMasque && !envoiZdParti) ||
+                        estModifieeSansRenvoi(collecte)) && (
                         <Button
-                          variant="ghost"
-                          onClick={() => {
-                            retourFocusChangerRef.current = true;
-                            setChangerPrestataire(false);
-                            setSelectedTransporteurId('');
-                            setMotifOverride('');
-                          }}
+                          disabled={
+                            isTerminal ||
+                            overrideMotifManquant ||
+                            prestataireAChoisir
+                          }
+                          onClick={() => void handleDispatch()}
+                          loading={dispatching}
+                          loadingText="Envoi…"
                         >
-                          Garder le prestataire actuel
+                          <PaperPlaneTiltIcon />{' '}
+                          {prestataireAChoisir
+                            ? 'Envoyer'
+                            : libelleDispatch(forkTypeTms, renvoi)}
                         </Button>
                       )}
-                      <Button
-                        disabled={
-                          isTerminal ||
-                          overrideMotifManquant ||
-                          prestataireAChoisir
-                        }
-                        onClick={() => void handleDispatch()}
-                        loading={dispatching}
-                        loadingText="Envoi…"
-                      >
-                        <PaperPlaneTiltIcon />{' '}
-                        {prestataireAChoisir
-                          ? 'Envoyer'
-                          : libelleDispatch(forkTypeTms, renvoi)}
-                      </Button>
                     </>
                   )}
                 </div>
-
-                {/* Tournées (multi-camions) */}
-                {collecte.collecte_tournees.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Text variant="body" className="font-medium">
-                        Tournées
-                      </Text>
-                      <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
-                    </div>
-                    <div className="space-y-1">
-                      {collecte.collecte_tournees.map((ct) => (
-                        <div
-                          key={ct.rang}
-                          className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded-savr-sm px-3 py-2"
-                        >
-                          <span className="font-medium">Camion {ct.rang}</span>
-                          <Badge variant="neutral">
-                            {libelleStatutTournee(ct.tournees.statut)}
-                          </Badge>
-                          <Text as="span" variant="hint" className="font-mono">
-                            {ct.tournees.external_ref_commande ?? '—'}
-                          </Text>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </Card>
-            )}
-            {/* Chauffeur(s) par camion — même bloc que la fiche client (§06.04
+              </div>
+            </SectionInfos>
+          )}
+          {/* Chauffeur(s) par camion — même bloc que la fiche client (§06.04
             « Logistique », décision Val 2026-10-02) : nom, plaque, téléphone
             remontés automatiquement du prestataire (MTS-1 : référentiel carrier
             au polling ; A Toutes! : coursier du webhook Everest), complétés par
             l'Admin si besoin (contrôle d'accès, transporteur manuel). Remplace
             la card « Informations chauffeur » de l'onglet Informations. */}
-            <Card
-              padding="md"
-              className="space-y-4"
-              data-testid="bloc-chauffeur"
-            >
-              <SectionHeader
-                icon={UserCircleIcon}
-                title={titreChauffeur}
-                action={
-                  !editInfosAcces && saisieChauffeurPossible ? (
+          <SectionInfos
+            titre={titreChauffeur}
+            data-testid="bloc-chauffeur"
+            action={
+              collecte.collecte_tournees.length > 0 ||
+              (!editInfosAcces && saisieChauffeurPossible) ? (
+                <>
+                  {/* Picto « plaque TMS » (§11) : déplacé ici avec le retrait
+                      de la liste des tournées (décision Val 2026-10-27). */}
+                  {collecte.collecte_tournees.length > 0 && (
+                    <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
+                  )}
+                  {!editInfosAcces && saisieChauffeurPossible && (
                     <Button
                       size="sm"
                       variant="secondary"
@@ -2558,9 +2672,21 @@ export function CollecteDetailPanel({
                     >
                       Modifier les coordonnées
                     </Button>
-                  ) : undefined
-                }
-              />
+                  )}
+                </>
+              ) : undefined
+            }
+          >
+            {/* Contrôle d'accès demandé et coordonnées incomplètes : bloc
+                encadré pour qu'il se voie (décision Val 2026-10-27). */}
+            <div
+              data-testid="chauffeur-contenu"
+              className={cn(
+                'min-w-0 space-y-4',
+                chauffeurACompleter &&
+                  'rounded-savr-lg border-2 border-savr-warning bg-savr-warning-subtle p-4',
+              )}
+            >
               {collecte.controle_acces_requis && (
                 <>
                   <Text>
@@ -2805,29 +2931,28 @@ export function CollecteDetailPanel({
                   />
                 </form>
               )}
-            </Card>
-            {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
-            {collecte.type === 'zero_dechet' && (
-              <Card padding="md" className="space-y-4">
-                <SectionHeader
-                  icon={ScalesIcon}
-                  title="Pesées ZD"
-                  action={
-                    !editPesees && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={collecte.statut === 'cloturee'}
-                        onClick={openEditPesees}
-                      >
-                        {collecte.statut === 'cloturee'
-                          ? 'Clôturée — édition via avoir'
-                          : 'Éditer les pesées'}
-                      </Button>
-                    )
-                  }
-                />
-
+            </div>
+          </SectionInfos>
+          {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
+          {collecte.type === 'zero_dechet' && (
+            <SectionInfos
+              titre="Pesées ZD"
+              action={
+                !editPesees && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={collecte.statut === 'cloturee'}
+                    onClick={openEditPesees}
+                  >
+                    {collecte.statut === 'cloturee'
+                      ? 'Clôturée — édition via avoir'
+                      : 'Éditer les pesées'}
+                  </Button>
+                )
+              }
+            >
+              <div className="min-w-0 space-y-4">
                 {!editPesees ? (
                   <Table>
                     <TableHeader>
@@ -2924,25 +3049,26 @@ export function CollecteDetailPanel({
                     />
                   </form>
                 )}
-              </Card>
-            )}
-          </TabsContent>
+              </div>
+            </SectionInfos>
+          )}
+        </TabsContent>
 
-          <TabsContent value="documents" className="space-y-3">
-            {/* Bilan vu par le client, radar et barre « Comparer avec » compris
+        <TabsContent value="documents" className="mt-0 space-y-3">
+          {/* Bilan vu par le client, radar et barre « Comparer avec » compris
                 (décision Val 2026-10-16). */}
-            <BilanCollecte
-              c={bilan}
-              radar={radar}
-              barre={{
-                filtresEndpoint:
-                  '/api/v1/admin/dashboard-client/benchmark/filtres',
-                avertissementComparaisonSoi: false,
-              }}
-            />
-            {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
-            <Card padding="md" className="space-y-4">
-              <SectionHeader icon={FileTextIcon} title="Documents" />
+          <BilanCollecte
+            c={bilan}
+            radar={radar}
+            barre={{
+              filtresEndpoint:
+                '/api/v1/admin/dashboard-client/benchmark/filtres',
+              avertissementComparaisonSoi: false,
+            }}
+          />
+          {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
+          <SectionInfos titre="Documents">
+            <div className="min-w-0 space-y-4">
               {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
               <div className="divide-y divide-savr-neutral-100">
@@ -3323,16 +3449,14 @@ export function CollecteDetailPanel({
                   />
                 )}
               </div>
-            </Card>
-          </TabsContent>
+            </div>
+          </SectionInfos>
+        </TabsContent>
 
-          <TabsContent value="historique">
-            {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
-            <Card padding="md" className="space-y-4">
-              <SectionHeader
-                icon={ClockCounterClockwiseIcon}
-                title="Historique & audit"
-              />
+        <TabsContent value="historique" className="mt-0">
+          {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
+          <SectionInfos titre="Historique & audit">
+            <div className="min-w-0 space-y-4">
               {audit.length === 0 ? (
                 <EmptyState
                   size="inline"
@@ -3378,20 +3502,21 @@ export function CollecteDetailPanel({
                   })}
                 </Timeline>
               )}
-            </Card>
-          </TabsContent>
-        </Tabs>
+            </div>
+          </SectionInfos>
+        </TabsContent>
       </FicheCorps>
 
       {/* Pied d'actions (cadre commun des fiches) — ajout d'une collecte à
           l'événement (programmation de support, sur tout événement confirmé,
           décision Val 2026-10-21 ; pas depuis un brouillon) et RM-08 forçage
           manuel du statut (motif obligatoire). */}
-      <FichePied>
+      <FichePied className="gap-3 border-savr-sable-200 px-5 py-4 sm:px-6 md:px-12">
         {collecte.statut !== 'brouillon' && (
           <Button
             asChild
-            variant="secondary"
+            variant="sable"
+            size="pilule"
             data-testid="action-ajouter-collecte"
             // Libellé long : il passe à la ligne sur un téléphone au lieu de
             // déborder du pied de la fiche.
@@ -3406,7 +3531,8 @@ export function CollecteDetailPanel({
           </Button>
         )}
         <Button
-          variant="secondary"
+          variant="sable"
+          size="pilule"
           onClick={() => {
             // Statut courant pré-sélectionné, sauf s'il n'est pas proposé
             // (brouillon ouvert par son adresse) : aucun choix par défaut.
@@ -3880,6 +4006,11 @@ export function CollecteDetailPanel({
           />
         </form>
       </Modal>
-    </div>
+    </Tabs>
   );
 }
+
+// Onglets de la variante B : soulignés en bleu nuit, plus espacés. Quatre
+// onglets Admin : soulignés aussi sur téléphone (la barre défile).
+const ONGLET_ADMIN =
+  'px-0 data-[state=active]:border-savr-primary-900 data-[state=active]:text-savr-primary-900';

@@ -227,6 +227,60 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     );
   };
 
+  // Besoin véhicule saisi au choix du prestataire (décision Val 2026-10-27).
+  it('besoin véhicule : nombre puis type écrits AVANT l’event de dispatch', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(collecteZd(null));
+    transporteur({ type_tms: 'mts1', actif: true });
+    mockSupabaseChain.rpc
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: 'collecte.creee', error: null });
+
+    const res = await dispatch({
+      prestataire_logistique_id: 'prest-strike',
+      nb_camions_demande: 3,
+      type_vehicule_souhaite: 'fourgon',
+    });
+
+    expect(res.status).toBe(200);
+    const appels = mockSupabaseChain.rpc.mock.calls.map((c) => c[0]);
+    expect(appels).toEqual(['fn_modifier_collecte', 'fn_dispatcher_collecte']);
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith('fn_modifier_collecte', {
+      p_id: 'col-1',
+      p_updates: { nb_camions_demande: 3 },
+      p_champs_modifies: ['nb_camions_demande'],
+    });
+    expect(mockSupabaseChain.update).toHaveBeenCalledWith({
+      type_vehicule_souhaite: 'fourgon',
+    });
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('statut', [
+      'programmee',
+      'rejetee_par_prestataire',
+    ]);
+  });
+
+  it('besoin véhicule hors bornes : 422 sans rien écrire', async () => {
+    setupAuth('admin_savr');
+    const res = await dispatch({
+      prestataire_logistique_id: 'prest-strike',
+      nb_camions_demande: 21,
+    });
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
+  it('besoin véhicule sur une collecte déjà validée : 409 sans rien écrire', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(
+      collecteZd('prest-strike', { statut: 'validee' }),
+    );
+    const res = await dispatch({ type_vehicule_souhaite: 'fourgon' });
+    expect(res.status).toBe(409);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
   it('M0.6/dispatch_zd_sans_prestataire_refuse — ni prestataire choisi ni prestataire posé : 422, aucun ordre émis', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce(collecteZd(null));

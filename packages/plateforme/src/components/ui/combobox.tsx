@@ -58,6 +58,12 @@ interface ComboboxBaseProps {
   required?: boolean;
   error?: boolean;
   className?: string;
+  /**
+   * Contenu du déclencheur à la place du champ standard (ex. carte de la
+   * sélection courante de l'attribution AG, décision Val 2026-10-27) : même
+   * liste, même clavier ; `className` habille alors seul le bouton.
+   */
+  contenu?: React.ReactNode;
   'aria-label'?: string;
   'aria-describedby'?: string;
   'data-testid'?: string;
@@ -94,6 +100,7 @@ function Combobox(props: ComboboxProps) {
     required,
     error,
     className,
+    contenu,
     'aria-label': ariaLabel,
     'aria-describedby': ariaDescribedBy,
     'data-testid': testId,
@@ -168,12 +175,16 @@ function Combobox(props: ComboboxProps) {
           aria-required={required || undefined}
           data-testid={testId}
           className={
-            titre
-              ? cn(declencheurFiltre, className)
-              : cn(classesChampDeclencheur({ error, open }), className)
+            contenu !== undefined
+              ? cn('w-full text-left', className)
+              : titre
+                ? cn(declencheurFiltre, className)
+                : cn(classesChampDeclencheur({ error, open }), className)
           }
         >
-          {titre ? (
+          {contenu !== undefined ? (
+            contenu
+          ) : titre ? (
             <ContenuDeclencheur
               titre={titre}
               titreId={titreId}

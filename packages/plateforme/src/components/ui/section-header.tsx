@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { type Icone } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Heading } from '@/components/ui/heading';
 
@@ -14,7 +14,7 @@ import { Heading } from '@/components/ui/heading';
 // est le h2). `truncate` (défaut : oui) coupe le titre sur une ligne ; les
 // sections de formulaire (SectionCard) laissent le titre passer à la ligne.
 export interface SectionHeaderProps {
-  icon: LucideIcon;
+  icon: Icone;
   title: string;
   /** Action alignée à droite (bouton « Ajouter », lien…). */
   action?: React.ReactNode;
@@ -60,7 +60,7 @@ export function SectionCard({
   title,
   children,
 }: {
-  icon: LucideIcon;
+  icon: Icone;
   title: string;
   children: React.ReactNode;
 }) {

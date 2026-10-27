@@ -2,16 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  CalendarDays,
-  ChefHat,
-  FileText,
-  HandHeart,
-  Info,
-  MapPin,
-  PlusCircle,
-  Truck,
-  Users,
-} from 'lucide-react';
+  CalendarDotsIcon,
+  ChefHatIcon,
+  FileTextIcon,
+  HandHeartIcon,
+  InfoIcon,
+  MapPinIcon,
+  PlusCircleIcon,
+  TruckIcon,
+  UsersIcon,
+} from '@/components/ui/icones';
 import Link from 'next/link';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
@@ -214,7 +214,6 @@ function BilanConsolide({
   b,
   type,
   deuxTypes,
-  pax,
   dateEvenement,
   actives,
   onOuvrirBilan,
@@ -225,7 +224,6 @@ function BilanConsolide({
   // Type affiché : le seul de l'événement, ou celui du sous-onglet.
   type: CollecteType;
   deuxTypes: boolean;
-  pax: number | null;
   dateEvenement: string | null;
   actives: FicheCollecteClient[];
   onOuvrirBilan: (id: string) => void;
@@ -290,8 +288,8 @@ function BilanConsolide({
               <Kpi
                 label="Pesée par pax"
                 nombre={
-                  b.tonnage_zd_kg != null && pax
-                    ? fmtInt((b.tonnage_zd_kg / pax) * 1000)
+                  b.pesee_par_pax_kg != null
+                    ? fmtInt(b.pesee_par_pax_kg * 1000)
                     : '—'
                 }
                 unite="g"
@@ -356,9 +354,7 @@ function BilanConsolide({
               <Kpi
                 label="Repas par pax"
                 nombre={
-                  b.repas_donnes != null && pax
-                    ? fmtDec(b.repas_donnes / pax, 2)
-                    : '—'
+                  b.repas_par_pax != null ? fmtDec(b.repas_par_pax, 2) : '—'
                 }
               />
               <Kpi
@@ -372,7 +368,7 @@ function BilanConsolide({
             {b.associations.length > 0 && (
               <Card padding="md" className="space-y-4">
                 <SectionHeader
-                  icon={HandHeart}
+                  icon={HandHeartIcon}
                   title={
                     b.associations.length > 1
                       ? 'Associations bénéficiaires'
@@ -489,7 +485,7 @@ function DocumentsEvenement({
 
   return (
     <section className="space-y-3">
-      <SectionHeader icon={FileText} title="Documents" level={3} />
+      <SectionHeader icon={FileTextIcon} title="Documents" level={3} />
       <Card
         className="divide-y divide-savr-neutral-100 p-0"
         data-testid="documents-evenement"
@@ -498,7 +494,7 @@ function DocumentsEvenement({
           className="flex flex-wrap items-center gap-3 px-5 py-3.5"
           data-testid="document-evenement-cumul"
         >
-          <FileText
+          <FileTextIcon
             className="h-5 w-5 shrink-0 text-savr-primary-700"
             aria-hidden="true"
           />
@@ -561,7 +557,7 @@ function DocumentsEvenement({
             className="flex flex-wrap items-center gap-3 px-5 py-3.5"
             data-testid="document-collecte"
           >
-            <FileText
+            <FileTextIcon
               className="h-5 w-5 shrink-0 text-savr-primary-700"
               aria-hidden="true"
             />
@@ -704,7 +700,10 @@ function CarteCollecte({
           tone="ink"
           className="flex items-center gap-2 font-semibold"
         >
-          <Truck className="h-4 w-4 text-savr-primary-700" aria-hidden="true" />
+          <TruckIcon
+            className="h-4 w-4 text-savr-primary-700"
+            aria-hidden="true"
+          />
           {f.tournees.length > 1 ? 'Chauffeurs' : 'Chauffeur'}
         </Text>
         <Chauffeurs
@@ -922,7 +921,7 @@ export function FicheEvenementModal({
             <FicheEnTete titre="Fiche événement" />
             <FicheCorps className="py-6">
               <EmptyState
-                icon={<CalendarDays className="h-8 w-8" />}
+                icon={<CalendarDotsIcon className="h-8 w-8" />}
                 title="Événement introuvable"
                 description="Cet événement n’existe pas ou ne se tient pas sur l’un de vos lieux."
               />
@@ -947,19 +946,19 @@ export function FicheEvenementModal({
                 ...(evt.date_evenement
                   ? [
                       {
-                        icon: CalendarDays,
+                        icon: CalendarDotsIcon,
                         texte: libelleDateHeure(evt.date_evenement, null),
                       },
                     ]
                   : []),
                 ...(evt.lieu_nom
-                  ? [{ icon: MapPin, texte: evt.lieu_nom }]
+                  ? [{ icon: MapPinIcon, texte: evt.lieu_nom }]
                   : []),
                 ...(evt.traiteur?.nom
-                  ? [{ icon: ChefHat, texte: evt.traiteur.nom }]
+                  ? [{ icon: ChefHatIcon, texte: evt.traiteur.nom }]
                   : []),
                 ...(evt.pax != null
-                  ? [{ icon: Users, texte: fmtPax(evt.pax) }]
+                  ? [{ icon: UsersIcon, texte: fmtPax(evt.pax) }]
                   : []),
               ]}
               statut={
@@ -998,7 +997,7 @@ export function FicheEvenementModal({
                     data-testid="bloc-evenement"
                   >
                     <SectionHeader
-                      icon={CalendarDays}
+                      icon={CalendarDotsIcon}
                       title="Événement"
                       level={3}
                     />
@@ -1050,7 +1049,7 @@ export function FicheEvenementModal({
                             aria-label={AIDE_LABO}
                             className="inline-flex cursor-help text-savr-neutral-400"
                           >
-                            <Info className="h-3.5 w-3.5" />
+                            <InfoIcon className="h-3.5 w-3.5" />
                           </span>
                         </Tooltip>
                       </InfoItem>
@@ -1065,7 +1064,7 @@ export function FicheEvenementModal({
                     className="space-y-4"
                     data-testid="bloc-lieu"
                   >
-                    <SectionHeader icon={MapPin} title="Lieu" level={3} />
+                    <SectionHeader icon={MapPinIcon} title="Lieu" level={3} />
                     <dl className={GRILLE}>
                       <InfoItem label="Adresse" className="sm:col-span-2">
                         {evt.lieu_nom ?? VIDE}
@@ -1137,7 +1136,6 @@ export function FicheEvenementModal({
                     b={b}
                     type={typeAffiche}
                     deuxTypes={deuxTypes}
-                    pax={evt.pax}
                     dateEvenement={evt.date_evenement}
                     actives={activesDuType}
                     onOuvrirBilan={(id) => ouvrirCollecte(id, 'bilan')}
@@ -1175,7 +1173,7 @@ export function FicheEvenementModal({
               <FichePied>
                 <Button asChild data-testid="action-ajouter-collecte">
                   <Link href={ROUTES.programmer.ajouterCollecte(evt.id)}>
-                    <PlusCircle />
+                    <PlusCircleIcon />
                     Ajouter une collecte
                   </Link>
                 </Button>

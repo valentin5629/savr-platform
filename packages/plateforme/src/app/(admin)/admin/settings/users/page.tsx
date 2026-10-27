@@ -2,7 +2,7 @@
 
 import { libelleRole } from '@/lib/libelles/role';
 import { useState } from 'react';
-import { Users, Plus } from 'lucide-react';
+import { PlusIcon, UsersIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ListFooter } from '@/components/ui/list-footer';
@@ -79,12 +79,12 @@ export default function SettingsUsersPage() {
   return (
     <div className="space-y-6">
       <PageHero
-        icon={<Users className="h-6 w-6 text-savr-primary-200" />}
+        icon={<UsersIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Utilisateurs Savr"
         subtitle={`${total} membre${total !== 1 ? 's' : ''} de l'équipe`}
         actions={
           <Button variant="accent" onClick={() => setShowInvite(true)}>
-            <Plus />
+            <PlusIcon />
             Inviter un membre
           </Button>
         }
@@ -121,7 +121,7 @@ export default function SettingsUsersPage() {
         onRecharger={recharger}
         empty={
           <EmptyState
-            icon={<Users />}
+            icon={<UsersIcon />}
             title="Aucun utilisateur Savr"
             description="Invitez les membres de votre équipe."
           />

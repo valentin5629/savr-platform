@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Table2, Plus, Trash2 } from 'lucide-react';
+import { PlusIcon, TableIcon, TrashIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Card } from '@/components/ui/card';
@@ -198,11 +198,11 @@ export default function GrillesZdPage() {
     <div className="space-y-6">
       <PageHero
         title="Paramètres — Grilles tarifaires ZD"
-        icon={<Table2 className="h-6 w-6 text-savr-primary-200" />}
+        icon={<TableIcon className="h-6 w-6 text-savr-primary-200" />}
         actions={
           canEdit ? (
             <Button variant="accent" onClick={openModal}>
-              <Plus />
+              <PlusIcon />
               Créer une grille
             </Button>
           ) : undefined
@@ -294,7 +294,7 @@ export default function GrillesZdPage() {
                 variant="secondary"
                 onClick={addPalier}
               >
-                <Plus />
+                <PlusIcon />
                 Ajouter un palier
               </Button>
             </div>
@@ -370,7 +370,7 @@ export default function GrillesZdPage() {
                   onClick={() => removePalier(i)}
                   aria-label="Supprimer le palier"
                 >
-                  <Trash2 />
+                  <TrashIcon />
                 </IconButton>
               </div>
             ))}

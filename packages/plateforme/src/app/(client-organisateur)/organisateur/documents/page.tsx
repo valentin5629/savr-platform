@@ -2,7 +2,7 @@
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useState } from 'react';
-import { FileText } from 'lucide-react';
+import { FileTextIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
@@ -114,7 +114,7 @@ export default function ClientOrganisateurDocumentsPage() {
   return (
     <div className="space-y-4">
       <PageHero
-        icon={<FileText className="h-6 w-6 text-savr-primary-200" />}
+        icon={<FileTextIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Mes documents"
       />
 

@@ -11,21 +11,21 @@ import {
   type MutableRefObject,
 } from 'react';
 import {
-  Truck,
-  Send,
-  AlertTriangle,
-  Settings2,
-  Download,
-  RotateCw,
-  PhoneCall,
-  MapPin,
-  HeartHandshake,
-  CalendarDays,
-  Clock,
-  Users,
-  Building2,
-  PlusCircle,
-} from 'lucide-react';
+  ArrowClockwiseIcon,
+  BuildingsIcon,
+  CalendarDotsIcon,
+  ClockIcon,
+  DownloadSimpleIcon,
+  HandshakeIcon,
+  MapPinIcon,
+  PaperPlaneTiltIcon,
+  PhoneCallIcon,
+  PlusCircleIcon,
+  SlidersHorizontalIcon,
+  TruckIcon,
+  UsersIcon,
+  WarningIcon,
+} from '@/components/ui/icones';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1987,7 +1987,7 @@ export function CollecteDetailPanel({
           <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
           {estModifieeSansRenvoi(collecte) && (
             <Badge variant="warning" className="flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" />
+              <WarningIcon className="h-3 w-3" />
               Modifiée — renvoi requis
             </Badge>
           )}
@@ -2007,20 +2007,22 @@ export function CollecteDetailPanel({
           data-testid="fiche-admin-sous-ligne"
           className="flex flex-wrap items-center gap-x-7 gap-y-2 text-sm text-savr-neutral-700"
         >
-          <InfoEnTete icon={CalendarDays}>
+          <InfoEnTete icon={CalendarDotsIcon}>
             {dateLongueCapitalisee(collecte.date_collecte)}
           </InfoEnTete>
           {heureCollecte && (
-            <InfoEnTete icon={Clock}>{heureCollecte}</InfoEnTete>
+            <InfoEnTete icon={ClockIcon}>{heureCollecte}</InfoEnTete>
           )}
-          <InfoEnTete icon={Users}>{fmtPax(collecte.pax)}</InfoEnTete>
-          <InfoEnTete icon={Building2}>
+          <InfoEnTete icon={UsersIcon}>{fmtPax(collecte.pax)}</InfoEnTete>
+          <InfoEnTete icon={BuildingsIcon}>
             {collecte.evenements.organisations.raison_sociale}
           </InfoEnTete>
-          {lieu.ville && <InfoEnTete icon={MapPin}>{lieu.ville}</InfoEnTete>}
+          {lieu.ville && (
+            <InfoEnTete icon={MapPinIcon}>{lieu.ville}</InfoEnTete>
+          )}
           {/* Le badge garde la couleur du statut TMS (rejet, erreur) visible
               sans ouvrir l'onglet Logistique. */}
-          <InfoEnTete icon={Truck}>
+          <InfoEnTete icon={TruckIcon}>
             <span className="inline-flex flex-wrap items-center gap-2">
               {currentTransporteur?.nom ??
                 libelleSansNom ??
@@ -2029,7 +2031,7 @@ export function CollecteDetailPanel({
             </span>
           </InfoEnTete>
           {collecte.type === 'anti_gaspi' && (
-            <InfoEnTete icon={HeartHandshake}>
+            <InfoEnTete icon={HandshakeIcon}>
               {collecte.attributions_antgaspi?.associations?.nom ??
                 'Association en attente d’attribution'}
             </InfoEnTete>
@@ -2554,7 +2556,7 @@ export function CollecteDetailPanel({
                         setAcceptationModal(true);
                       }}
                     >
-                      <PhoneCall />
+                      <PhoneCallIcon />
                       Acceptation manuelle
                     </Button>
                   )}
@@ -2571,7 +2573,7 @@ export function CollecteDetailPanel({
                           variant="secondary"
                           onClick={() => setChangerPrestataire(true)}
                         >
-                          <Truck />
+                          <TruckIcon />
                           Changer de prestataire
                         </Button>
                       )}
@@ -2581,7 +2583,8 @@ export function CollecteDetailPanel({
                           loading={dispatching}
                           loadingText="Envoi…"
                         >
-                          <Send /> {libelleDispatch(forkTypeTms, true)}
+                          <PaperPlaneTiltIcon />{' '}
+                          {libelleDispatch(forkTypeTms, true)}
                         </Button>
                       )}
                     </>
@@ -2613,7 +2616,7 @@ export function CollecteDetailPanel({
                           loading={dispatching}
                           loadingText="Envoi…"
                         >
-                          <Send />{' '}
+                          <PaperPlaneTiltIcon />{' '}
                           {prestataireAChoisir
                             ? 'Envoyer'
                             : libelleDispatch(forkTypeTms, renvoi)}
@@ -2677,7 +2680,7 @@ export function CollecteDetailPanel({
                   <div data-testid="etat-email-infos-acces">
                     {suiviEmailAcces.etat === 'envoye' && (
                       <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
-                        <Send className="h-4 w-4 shrink-0" />
+                        <PaperPlaneTiltIcon className="h-4 w-4 shrink-0" />
                         Email envoyé au programmateur
                         {suiviEmailAcces.date &&
                           ` le ${new Date(
@@ -2688,7 +2691,7 @@ export function CollecteDetailPanel({
                       </div>
                     )}
                     {suiviEmailAcces.etat === 'en_reprise' && (
-                      <AlertBar variant="warn" icon={<RotateCw />}>
+                      <AlertBar variant="warn" icon={<ArrowClockwiseIcon />}>
                         L’email au programmateur n’est pas encore parti.{' '}
                         <span className="font-normal">
                           Une nouvelle tentative a lieu automatiquement
@@ -2703,7 +2706,7 @@ export function CollecteDetailPanel({
                       </AlertBar>
                     )}
                     {suiviEmailAcces.etat === 'non_remis' && (
-                      <AlertBar variant="err" icon={<AlertTriangle />}>
+                      <AlertBar variant="err" icon={<WarningIcon />}>
                         {suiviEmailAcces.motif === 'adresse_refusee'
                           ? 'L’email n’a pas été remis : la messagerie du programmateur l’a refusé.'
                           : 'L’email n’a pas pu être envoyé au programmateur (4 tentatives en échec).'}{' '}
@@ -2720,7 +2723,7 @@ export function CollecteDetailPanel({
                         tone="soft"
                         className="flex items-center gap-2"
                       >
-                        <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
+                        <WarningIcon className="h-4 w-4 shrink-0 text-savr-warning-strong" />
                         {coordonneesCompletes
                           ? 'Coordonnées complètes : l’email n’a pas encore été envoyé au programmateur.'
                           : 'En attente : infos à compléter avant envoi de l’email.'}
@@ -3073,7 +3076,7 @@ export function CollecteDetailPanel({
                               }`}
                               className="inline-flex items-center text-savr-primary-600"
                             >
-                              <RotateCw className="h-3.5 w-3.5" />
+                              <ArrowClockwiseIcon className="h-3.5 w-3.5" />
                             </span>
                           )}
                       </p>
@@ -3110,7 +3113,7 @@ export function CollecteDetailPanel({
                             )
                           }
                         >
-                          <Download />
+                          <DownloadSimpleIcon />
                           Télécharger
                         </Button>
                         <Button
@@ -3121,7 +3124,7 @@ export function CollecteDetailPanel({
                           loadingText="Régénérer"
                           onClick={() => void handleRegenerate(typeRapport)}
                         >
-                          <RotateCw />
+                          <ArrowClockwiseIcon />
                           Régénérer
                         </Button>
                       </>
@@ -3139,7 +3142,7 @@ export function CollecteDetailPanel({
                         loadingText="Préparation du PDF…"
                         onClick={() => void telechargerRapportZd()}
                       >
-                        <Download />
+                        <DownloadSimpleIcon />
                         Télécharger
                       </Button>
                     )}
@@ -3205,7 +3208,7 @@ export function CollecteDetailPanel({
                         )
                       }
                     >
-                      <Download />
+                      <DownloadSimpleIcon />
                       Télécharger
                     </Button>
                     <Button
@@ -3216,7 +3219,7 @@ export function CollecteDetailPanel({
                       loadingText="Régénérer"
                       onClick={() => void handleRegenerate('bordereau-zd')}
                     >
-                      <RotateCw />
+                      <ArrowClockwiseIcon />
                       Régénérer
                     </Button>
                   </div>
@@ -3255,7 +3258,7 @@ export function CollecteDetailPanel({
                         )
                       }
                     >
-                      <Download />
+                      <DownloadSimpleIcon />
                       Télécharger
                     </Button>
                     <Button
@@ -3266,7 +3269,7 @@ export function CollecteDetailPanel({
                       loadingText="Régénérer"
                       onClick={() => void handleRegenerate('attestation-don')}
                     >
-                      <RotateCw />
+                      <ArrowClockwiseIcon />
                       Régénérer
                     </Button>
                   </div>
@@ -3504,7 +3507,7 @@ export function CollecteDetailPanel({
             <Link
               href={ROUTES.programmer.ajouterCollecte(collecte.evenement_id)}
             >
-              <PlusCircle />
+              <PlusCircleIcon />
               Ajouter une collecte à cet événement
             </Link>
           </Button>
@@ -3523,7 +3526,7 @@ export function CollecteDetailPanel({
             setForceStatutModal(true);
           }}
         >
-          <Settings2 />
+          <SlidersHorizontalIcon />
           Forcer le statut
         </Button>
       </FichePied>

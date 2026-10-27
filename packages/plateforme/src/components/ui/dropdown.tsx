@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import * as DropdownPrimitive from '@radix-ui/react-dropdown-menu';
-import { Check } from 'lucide-react';
+import { CheckIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 // Dropdown — menu contextuel (§10 §6 « Dropdown » : menu kebab). Bâti sur Radix
@@ -97,7 +97,10 @@ const DropdownCheckboxItem = React.forwardRef<
   >
     <span className="absolute left-2.5 flex h-4 w-4 items-center justify-center">
       <DropdownPrimitive.ItemIndicator>
-        <Check className="h-4 w-4 text-savr-primary-700" aria-hidden="true" />
+        <CheckIcon
+          className="h-4 w-4 text-savr-primary-700"
+          aria-hidden="true"
+        />
       </DropdownPrimitive.ItemIndicator>
     </span>
     {children}

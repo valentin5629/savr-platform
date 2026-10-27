@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { MapPin, Plus, ChevronRight } from 'lucide-react';
+import { CaretRightIcon, MapPinIcon, PlusIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
@@ -282,7 +282,7 @@ export default function LieuxPage() {
             openEdit(row.id);
           }}
         >
-          <ChevronRight />
+          <CaretRightIcon />
         </IconButton>
       ),
     },
@@ -291,13 +291,13 @@ export default function LieuxPage() {
   const listeVide =
     tab === 'modifs' ? (
       <EmptyState
-        icon={<MapPin className="h-8 w-8" />}
+        icon={<MapPinIcon className="h-8 w-8" />}
         title="Aucune modification signalée"
         description="Les lieux dont une collecte récente diffère de la fiche officielle apparaîtront ici."
       />
     ) : (
       <EmptyState
-        icon={<MapPin className="h-8 w-8" />}
+        icon={<MapPinIcon className="h-8 w-8" />}
         title="Aucun lieu"
         description="Créez le premier lieu ou modifiez vos filtres."
       />
@@ -329,12 +329,12 @@ export default function LieuxPage() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<MapPin className="h-6 w-6 text-savr-primary-200" />}
+        icon={<MapPinIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Lieux"
         subtitle="Référentiel lieux d'événements · normalisation des lieux saisis manuellement"
         actions={
           <Button variant="accent" onClick={openCreate}>
-            <Plus />
+            <PlusIcon />
             Nouveau lieu
           </Button>
         }

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, X } from 'lucide-react';
+import { CheckIcon, XIcon } from '@/components/ui/icones';
 import { FormError } from '@/components/ui/form-error';
 import { Text } from '@/components/ui/text';
 import { IconButton } from '@/components/ui/icon-button';
@@ -68,7 +68,7 @@ export function LogoUpload({
         </FileButton>
         {value ? (
           <span className="inline-flex items-center gap-1 text-sm text-savr-success-strong">
-            <Check className="h-4 w-4" /> Logo enregistré
+            <CheckIcon className="h-4 w-4" /> Logo enregistré
             <IconButton
               variant="destructive"
               size="sm"
@@ -76,7 +76,7 @@ export function LogoUpload({
               onClick={() => onChange('')}
               className="-my-2 ml-1 [&>svg]:h-4 [&>svg]:w-4"
             >
-              <X className="h-4 w-4" />
+              <XIcon className="h-4 w-4" />
             </IconButton>
           </span>
         ) : (

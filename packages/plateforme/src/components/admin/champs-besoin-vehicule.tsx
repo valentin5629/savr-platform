@@ -1,6 +1,6 @@
 'use client';
 
-import { Minus, Plus } from 'lucide-react';
+import { MinusIcon, PlusIcon } from '@/components/ui/icones';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
@@ -75,7 +75,7 @@ export function ChampsBesoinVehicule({
             className="border-r border-savr-neutral-200"
             onClick={() => changer(-1)}
           >
-            <Minus className="h-4 w-4" />
+            <MinusIcon className="h-4 w-4" />
           </IconButton>
           <input
             id="nb-vehicules"
@@ -94,7 +94,7 @@ export function ChampsBesoinVehicule({
             className="border-l border-savr-neutral-200"
             onClick={() => changer(1)}
           >
-            <Plus className="h-4 w-4" />
+            <PlusIcon className="h-4 w-4" />
           </IconButton>
         </div>
         {/* Aide retirée (décision Val 2026-10-27) ; reste l'erreur. */}

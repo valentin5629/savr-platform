@@ -2,17 +2,17 @@
 
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  Copy,
-  Download,
-  FileText,
-  Leaf,
-  Package,
-  Pencil,
-  Recycle,
-  Scale,
-  Tag,
-  XCircle,
-} from 'lucide-react';
+  CopyIcon,
+  DownloadSimpleIcon,
+  FileTextIcon,
+  LeafIcon,
+  PackageIcon,
+  PencilSimpleIcon,
+  RecycleIcon,
+  ScalesIcon,
+  TagIcon,
+  XCircleIcon,
+} from '@/components/ui/icones';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
@@ -129,20 +129,20 @@ export function ResultatsCollecte({
     >
       {sansExcedent ? (
         <span className="inline-flex items-center gap-1.5">
-          <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
+          <PackageIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
           {LIBELLE_SANS_EXCEDENT}
         </span>
       ) : zd ? (
         <>
           {c.poids_total_kg != null && c.poids_total_kg > 0 && (
             <span className="inline-flex items-center gap-1.5">
-              <Scale className="h-3.5 w-3.5 text-savr-neutral-400" />
+              <ScalesIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
               {fmtKgAuto(c.poids_total_kg)}
             </span>
           )}
           {c.taux_recyclage != null && (
             <span className="inline-flex items-center gap-1.5">
-              <Recycle className="h-3.5 w-3.5 text-savr-neutral-400" />
+              <RecycleIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
               {fmtPct(c.taux_recyclage, 0)}
             </span>
           )}
@@ -151,14 +151,14 @@ export function ResultatsCollecte({
         c.nb_repas_donnes != null &&
         c.nb_repas_donnes > 0 && (
           <span className="inline-flex items-center gap-1.5">
-            <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
+            <PackageIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
             {fmtInt(c.nb_repas_donnes)} repas
           </span>
         )
       )}
       {c.co2_evite_kg != null && c.co2_evite_kg > 0 && (
         <span className="inline-flex items-center gap-1.5">
-          <Leaf className="h-3.5 w-3.5 text-savr-neutral-400" />
+          <LeafIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
           {fmtInt(c.co2_evite_kg)}
           {'\u00a0'}
           {UNITE_KG_CO2E}
@@ -169,7 +169,7 @@ export function ResultatsCollecte({
           pour qu'elle se lise « rapport réservé », pas « résultats réservés ». */}
       {c.rapport_reserve_donneur_ordre ? (
         <span className="inline-flex items-center gap-1.5 font-normal text-savr-neutral-500">
-          <FileText
+          <FileTextIcon
             className="h-3.5 w-3.5 text-savr-neutral-400"
             aria-hidden="true"
           />
@@ -187,7 +187,7 @@ export function ResultatsCollecte({
           title="Télécharger le rapport"
           aria-label="Télécharger le rapport de la collecte"
         >
-          <Download />
+          <DownloadSimpleIcon />
         </IconButton>
       )}
     </Text>
@@ -210,7 +210,7 @@ export function colonnesCollectesTraiteur(
           {c.programmee_par_tiers && (
             <span title="Programmée par un tiers">
               {/* Picto orange « user-tag » (§06.04 Vue liste). */}
-              <Tag
+              <TagIcon
                 className="h-3.5 w-3.5 text-savr-warning"
                 aria-label="Programmée par un tiers"
               />
@@ -287,7 +287,7 @@ export function colonnesCollectesTraiteur(
               aria-label="Modifier la collecte"
               className={PICTO_ACTION}
             >
-              <Pencil />
+              <PencilSimpleIcon />
             </IconButton>
           )}
           {c.canWrite && STATUTS_ANNULABLES.includes(c.statut) && (
@@ -298,7 +298,7 @@ export function colonnesCollectesTraiteur(
               aria-label="Annuler la collecte"
               className={PICTO_ACTION}
             >
-              <XCircle />
+              <XCircleIcon />
             </IconButton>
           )}
           <IconButton
@@ -308,7 +308,7 @@ export function colonnesCollectesTraiteur(
             aria-label="Dupliquer la collecte"
             className={PICTO_ACTION}
           >
-            <Copy />
+            <CopyIcon />
           </IconButton>
         </div>
       ),

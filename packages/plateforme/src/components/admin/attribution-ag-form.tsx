@@ -15,7 +15,7 @@
 // ligne à ligne — titres / champs / recommandations / listes / aides.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { CaretDownIcon } from '@/components/ui/icones';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -185,7 +185,7 @@ function CarteChoix({
           <span className="text-xs text-savr-neutral-600">{detail}</span>
         )}
       </span>
-      <ChevronDown
+      <CaretDownIcon
         className="h-4 w-4 shrink-0 text-savr-neutral-500"
         aria-hidden="true"
       />

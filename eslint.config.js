@@ -1,6 +1,26 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
+// Restrictions d'imports, partagées par les blocs `no-restricted-imports` (une
+// redéclaration remplace la liste, cf. plus bas).
+const MESSAGE_RESEND =
+  "SDK Resend réservé à packages/shared/src/email/transport.ts (garde hors production). Passer par sendEmail de '@savr/shared'.";
+const RESTRICTION_RESEND = { name: 'resend', message: MESSAGE_RESEND };
+const RESTRICTION_RESEND_SOUS_CHEMINS = {
+  group: ['resend/*'],
+  message: MESSAGE_RESEND,
+};
+const MESSAGE_ICONES =
+  "Icônes : importer depuis '@/components/ui/icones' (famille unique Phosphor, CDC §10 §9).";
+const RESTRICTIONS_ICONES = [
+  { name: 'lucide-react', message: MESSAGE_ICONES },
+  { name: '@phosphor-icons/react', message: MESSAGE_ICONES },
+];
+const RESTRICTION_PHOSPHOR = {
+  group: ['@phosphor-icons/react/*'],
+  message: MESSAGE_ICONES,
+};
+
 // Sélecteurs « fuseau unique Europe/Paris » (#287/#291) — partagés par le bloc
 // global ET par le bloc des fichiers de test : en config plate, un second bloc
 // qui redéclare `no-restricted-syntax` REMPLACE la liste au lieu de l'étendre.
@@ -216,29 +236,47 @@ export default tseslint.config(
   // SDK Resend : un seul point d'appel. La garde hors production (redirection ou
   // non-envoi) et la lecture de RESEND_FROM vivent dans le transport ; un second
   // `new Resend()` ailleurs enverrait à de vrais destinataires depuis une preview.
+  //
+  // Icônes (CDC §10 §9) : une seule famille, Phosphor, servie par
+  // packages/plateforme/src/components/ui/icones.tsx (graisse et accessibilité
+  // réglées une fois). Le bloc suivant rend la bibliothèque à ce seul fichier.
+  // Une seule déclaration de `no-restricted-imports` par fichier : un second
+  // bloc la remplacerait au lieu de l'étendre (même piège que no-restricted-syntax).
   {
     files: ['**/*.{ts,tsx,mts,cts,js,mjs,cjs}'],
-    ignores: ['packages/shared/src/email/transport.ts'],
+    ignores: [
+      'packages/shared/src/email/transport.ts',
+      'packages/plateforme/src/components/ui/icones.tsx',
+    ],
     rules: {
       // Imports statiques seulement : un `import()` dynamique ou un `require`
       // ne sont pas vus par cette règle.
       'no-restricted-imports': [
         'error',
         {
-          paths: [
-            {
-              name: 'resend',
-              message:
-                "SDK Resend réservé à packages/shared/src/email/transport.ts (garde hors production). Passer par sendEmail de '@savr/shared'.",
-            },
-          ],
-          patterns: [
-            {
-              group: ['resend/*'],
-              message:
-                "SDK Resend réservé à packages/shared/src/email/transport.ts (garde hors production). Passer par sendEmail de '@savr/shared'.",
-            },
-          ],
+          paths: [RESTRICTION_RESEND, ...RESTRICTIONS_ICONES],
+          patterns: [RESTRICTION_RESEND_SOUS_CHEMINS, RESTRICTION_PHOSPHOR],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/shared/src/email/transport.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: RESTRICTIONS_ICONES, patterns: [RESTRICTION_PHOSPHOR] },
+      ],
+    },
+  },
+  {
+    files: ['packages/plateforme/src/components/ui/icones.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [RESTRICTION_RESEND, RESTRICTIONS_ICONES[0]],
+          patterns: [RESTRICTION_RESEND_SOUS_CHEMINS],
         },
       ],
     },

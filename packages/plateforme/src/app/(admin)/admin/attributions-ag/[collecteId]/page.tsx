@@ -7,7 +7,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Leaf } from 'lucide-react';
+import { ArrowLeftIcon, LeafIcon } from '@/components/ui/icones';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { AttributionAgForm } from '@/components/admin/attribution-ag-form';
@@ -30,10 +30,10 @@ export default function AttributionDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <IconButton aria-label="Retour" onClick={() => router.back()}>
-          <ArrowLeft />
+          <ArrowLeftIcon />
         </IconButton>
         <div className="flex items-center gap-2">
-          <Leaf className="h-5 w-5 text-savr-success" />
+          <LeafIcon className="h-5 w-5 text-savr-success" />
           <Heading level={1} size="xl" weight="semibold">
             Attribution AG
           </Heading>

@@ -3,16 +3,16 @@
 import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  ArrowRight,
-  CheckCircle2,
-  Eye,
-  FileText,
-  MoreHorizontal,
-  Package,
-  Recycle,
-  Scale,
-  Send,
-} from 'lucide-react';
+  ArrowRightIcon,
+  CheckCircleIcon,
+  DotsThreeIcon,
+  EyeIcon,
+  FileTextIcon,
+  PackageIcon,
+  PaperPlaneTiltIcon,
+  RecycleIcon,
+  ScalesIcon,
+} from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { StatusCollecte } from '@/components/ui/status-collecte';
@@ -201,37 +201,37 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
     >
       {sansExcedent && (
         <span className="inline-flex items-center gap-1.5">
-          <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
+          <PackageIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
           {LIBELLE_SANS_EXCEDENT}
         </span>
       )}
       {row.type === 'anti_gaspi' && !sansExcedent && repas != null && (
         <span className="inline-flex items-center gap-1.5">
-          <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
+          <PackageIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
           {repas} repas
         </span>
       )}
       {row.type === 'zero_dechet' && poids > 0 && (
         <span className="inline-flex items-center gap-1.5">
-          <Scale className="h-3.5 w-3.5 text-savr-neutral-400" />
+          <ScalesIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
           {fmtKgAuto(poids)}
         </span>
       )}
       {row.type === 'zero_dechet' && row.taux_recyclage != null && (
         <span className="inline-flex items-center gap-1.5">
-          <Recycle className="h-3.5 w-3.5 text-savr-neutral-400" />
+          <RecycleIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
           {fmtPct(row.taux_recyclage, 0)}
         </span>
       )}
       {rapport &&
         (rapport.consulte_par_user_at ? (
           <span className="inline-flex items-center gap-1.5 text-savr-success-strong">
-            <CheckCircle2 className="h-3.5 w-3.5 text-savr-success" />
+            <CheckCircleIcon className="h-3.5 w-3.5 text-savr-success" />
             Rapport consulté
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-savr-warning-strong">
-            <FileText className="h-3.5 w-3.5 text-savr-warning" />
+            <FileTextIcon className="h-3.5 w-3.5 text-savr-warning" />
             Rapport non consulté
           </span>
         ))}
@@ -478,25 +478,25 @@ function ActionsCollecte({
               'bg-savr-accent-500 text-savr-primary-950 hover:bg-savr-accent-600 hover:text-savr-primary-950',
           )}
         >
-          <MoreHorizontal aria-hidden="true" />
+          <DotsThreeIcon aria-hidden="true" />
         </IconButton>
       </DropdownTrigger>
       <DropdownContent align="end">
         <DropdownItem onSelect={() => onOpen(row.id)}>
-          <Eye aria-hidden="true" />
+          <EyeIcon aria-hidden="true" />
           Ouvrir la fiche
         </DropdownItem>
         {aAttribuer(row) && (
           <DropdownItem asChild>
             <Link href={ROUTES.admin.attributionAg(row.id)}>
-              <ArrowRight aria-hidden="true" />
+              <ArrowRightIcon aria-hidden="true" />
               Attribuer
             </Link>
           </DropdownItem>
         )}
         {aDispatcherZd(row) && (
           <DropdownItem onSelect={() => onOpen(row.id)}>
-            <Send aria-hidden="true" />
+            <PaperPlaneTiltIcon aria-hidden="true" />
             Dispatcher
           </DropdownItem>
         )}

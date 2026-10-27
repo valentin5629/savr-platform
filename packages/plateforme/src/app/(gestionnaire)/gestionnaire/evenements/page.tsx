@@ -4,7 +4,7 @@ import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDotsIcon } from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import {
   CelluleVide,
@@ -381,7 +381,7 @@ function GestionnaireEvenementsContent() {
     <SqueletteListe />
   ) : rows.length === 0 ? (
     <EmptyState
-      icon={<CalendarDays />}
+      icon={<CalendarDotsIcon />}
       title="Aucun événement"
       description="Aucun événement sur vos lieux pour ce périmètre."
     />
@@ -417,7 +417,7 @@ function GestionnaireEvenementsContent() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<CalendarDays className="h-6 w-6 text-savr-primary-200" />}
+        icon={<CalendarDotsIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Événements"
         subtitle="Événements tenus sur vos lieux, résultats cumulés sur leurs collectes · cliquez une ligne pour ouvrir la fiche"
       />

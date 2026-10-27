@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Heart, Plus, Pencil } from 'lucide-react';
+import { HeartIcon, PencilSimpleIcon, PlusIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { FilterBar } from '@/components/ui/filter-bar';
@@ -142,7 +142,7 @@ export default function AssociationsPage() {
               openEdit(row);
             }}
           >
-            <Pencil />
+            <PencilSimpleIcon />
           </IconButton>
         </div>
       ),
@@ -153,10 +153,10 @@ export default function AssociationsPage() {
     <div className="space-y-6">
       <PageHero
         title="Associations"
-        icon={<Heart className="h-6 w-6 text-savr-primary-200" />}
+        icon={<HeartIcon className="h-6 w-6 text-savr-primary-200" />}
         actions={
           <Button variant="accent" onClick={openCreate}>
-            <Plus />
+            <PlusIcon />
             Nouvelle association
           </Button>
         }
@@ -196,7 +196,7 @@ export default function AssociationsPage() {
         onRecharger={recharger}
         empty={
           <EmptyState
-            icon={<Heart className="h-8 w-8" />}
+            icon={<HeartIcon className="h-8 w-8" />}
             title="Aucune association"
             description="Créez la première association."
           />

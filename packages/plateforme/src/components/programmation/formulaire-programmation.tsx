@@ -6,15 +6,15 @@ import { useUserRole } from '@/lib/use-user-role';
 import { isStaff } from '@/lib/roles';
 import { ROUTES } from '@/lib/routes';
 import {
-  ChevronLeft,
-  ChevronRight,
-  Save,
-  CheckCircle,
-  Info,
-  Minus,
-  Plus,
-  PlusCircle,
-} from 'lucide-react';
+  CaretLeftIcon,
+  CaretRightIcon,
+  CheckCircleIcon,
+  FloppyDiskIcon,
+  InfoIcon,
+  MinusIcon,
+  PlusCircleIcon,
+  PlusIcon,
+} from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -716,7 +716,7 @@ export function FormulaireProgrammation({
                   onClick={() => setShowShadowModal(true)}
                   className="mt-2 flex text-sm font-medium"
                 >
-                  <PlusCircle className="h-4 w-4" />
+                  <PlusCircleIcon className="h-4 w-4" />
                   Ajouter un traiteur hors référentiel
                 </TextLink>
               )}
@@ -889,7 +889,7 @@ export function FormulaireProgrammation({
                 role="status"
                 className="flex items-center gap-1 text-savr-info-strong"
               >
-                <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <InfoIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 Pas de pack Anti-Gaspi actif : les collectes Anti-Gaspi seront
                 facturées à l&apos;unité.
               </Text>
@@ -899,7 +899,7 @@ export function FormulaireProgrammation({
           <div className="flex justify-end pt-1">
             <Button onClick={() => setStep(1)} disabled={!ecran1Valide}>
               Continuer
-              <ChevronRight />
+              <CaretRightIcon />
             </Button>
           </div>
         </Card>
@@ -936,7 +936,7 @@ export function FormulaireProgrammation({
           <div className="space-y-2">
             {!ajoutOuvert ? (
               <Button variant="secondary" onClick={() => setAjoutOuvert(true)}>
-                <PlusCircle />
+                <PlusCircleIcon />
                 Ajouter une collecte
               </Button>
             ) : (
@@ -1048,7 +1048,7 @@ export function FormulaireProgrammation({
 
           <div className="flex flex-col sm:flex-row justify-between gap-3 pt-1">
             <Button variant="ghost" onClick={() => setStep(0)}>
-              <ChevronLeft />
+              <CaretLeftIcon />
               Retour
             </Button>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -1057,14 +1057,14 @@ export function FormulaireProgrammation({
                 onClick={() => void handleSubmit(false)}
                 disabled={!ecran2Valide || submitting}
               >
-                <Save />
+                <FloppyDiskIcon />
                 Enregistrer en brouillon
               </Button>
               <Button
                 onClick={() => void handleSubmit(true)}
                 disabled={!ecran2Valide || submitting}
               >
-                <CheckCircle />
+                <CheckCircleIcon />
                 {affichees.length > 1
                   ? 'Confirmer les programmations'
                   : 'Confirmer la programmation'}
@@ -1112,7 +1112,7 @@ function CompteurCollectes({
         disabled={valeur <= 0}
         onClick={() => onChange(valeur - 1)}
       >
-        <Minus aria-hidden="true" />
+        <MinusIcon aria-hidden="true" />
       </IconButton>
       <output
         id={id}
@@ -1128,7 +1128,7 @@ function CompteurCollectes({
         disabled={valeur >= PLAFOND_PAR_TYPE}
         onClick={() => onChange(valeur + 1)}
       >
-        <Plus aria-hidden="true" />
+        <PlusIcon aria-hidden="true" />
       </IconButton>
     </div>
   );

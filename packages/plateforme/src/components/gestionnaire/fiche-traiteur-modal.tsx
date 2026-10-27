@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChefHat, MapPin } from 'lucide-react';
+import { ChefHatIcon, MapPinIcon } from '@/components/ui/icones';
 import { Card } from '@/components/ui/card';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -146,7 +146,7 @@ export function FicheTraiteurModal({
           <FicheEnTete titre="Fiche traiteur" />
           <FicheCorps className="py-6">
             <EmptyState
-              icon={<ChefHat className="h-8 w-8" />}
+              icon={<ChefHatIcon className="h-8 w-8" />}
               title="Traiteur non trouvé"
               description="Ce traiteur n'existe pas ou n'est pas intervenu sur vos lieux."
             />
@@ -176,7 +176,7 @@ export function FicheTraiteurModal({
             infosTestId="fiche-traiteur-infos"
             infos={[
               {
-                icon: MapPin,
+                icon: MapPinIcon,
                 texte:
                   nbLieux > 0
                     ? `${nbLieux} lieu${nbLieux > 1 ? 'x' : ''} d’intervention sur 24 mois`
@@ -196,7 +196,7 @@ export function FicheTraiteurModal({
               <TabsContent value="lieux" className="space-y-4">
                 <Card padding="md" className="space-y-4">
                   <SectionHeader
-                    icon={MapPin}
+                    icon={MapPinIcon}
                     title="Lieux d’intervention"
                     level={3}
                   />

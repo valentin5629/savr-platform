@@ -9,16 +9,16 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight,
-  CalendarDays,
-  Clock,
-  Download,
-  MapPin,
-  MoreHorizontal,
-  PlusCircle,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
+  type Icone,
+  ArrowRightIcon,
+  CalendarDotsIcon,
+  ClockIcon,
+  DotsThreeIcon,
+  DownloadSimpleIcon,
+  MapPinIcon,
+  PlusCircleIcon,
+  UsersIcon,
+} from '@/components/ui/icones';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
@@ -385,13 +385,15 @@ export function FicheCollecteClientPanel({
           data-testid="fiche-sous-ligne"
           className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-savr-neutral-700 sm:flex sm:flex-wrap sm:items-center sm:gap-x-7"
         >
-          <InfoEnTete icon={CalendarDays}>
+          <InfoEnTete icon={CalendarDotsIcon}>
             {dateLongueCapitalisee(c.date_collecte)}
           </InfoEnTete>
-          {heure && <InfoEnTete icon={Clock}>{heure}</InfoEnTete>}
+          {heure && <InfoEnTete icon={ClockIcon}>{heure}</InfoEnTete>}
           {/* Pax de la collecte (décision Val 2026-10-20). */}
-          <InfoEnTete icon={Users}>{fmtPax(c.pax)}</InfoEnTete>
-          {lieu?.ville && <InfoEnTete icon={MapPin}>{lieu.ville}</InfoEnTete>}
+          <InfoEnTete icon={UsersIcon}>{fmtPax(c.pax)}</InfoEnTete>
+          {lieu?.ville && (
+            <InfoEnTete icon={MapPinIcon}>{lieu.ville}</InfoEnTete>
+          )}
         </p>
         {!editing && (
           <TabsList
@@ -520,7 +522,7 @@ export function FicheCollecteClientPanel({
                   data-testid="action-autres"
                   className="h-[52px] w-[52px] rounded-savr-full bg-savr-sable-100 text-savr-neutral-900 hover:bg-savr-sable-200 sm:hidden"
                 >
-                  <MoreHorizontal aria-hidden="true" />
+                  <DotsThreeIcon aria-hidden="true" />
                 </IconButton>
               </PopoverTrigger>
               <PopoverContent
@@ -579,7 +581,7 @@ export function FicheCollecteClientPanel({
               )}
             >
               <Link href={lienAjouterCollecte}>
-                <PlusCircle className="h-4 w-4" aria-hidden="true" />
+                <PlusCircleIcon className="h-4 w-4" aria-hidden="true" />
                 Ajouter une collecte à cet événement
               </Link>
             </Button>
@@ -607,7 +609,7 @@ export function FicheCollecteClientPanel({
                 masqueTel('telecharger'),
               )}
             >
-              <Download aria-hidden="true" />
+              <DownloadSimpleIcon aria-hidden="true" />
               Télécharger le rapport
             </Button>
           )}
@@ -621,7 +623,7 @@ export function FicheCollecteClientPanel({
               className="max-sm:h-[52px] max-sm:flex-1"
             >
               Modifier la collecte
-              <ArrowRight aria-hidden="true" />
+              <ArrowRightIcon aria-hidden="true" />
             </Button>
           )}
         </FichePied>
@@ -722,7 +724,7 @@ export function InfoEnTete({
   icon: Icon,
   children,
 }: {
-  icon: LucideIcon;
+  icon: Icone;
   children: React.ReactNode;
 }) {
   return (

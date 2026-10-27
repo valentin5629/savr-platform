@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, ChevronDown, MapPin } from 'lucide-react';
+import { CaretDownIcon, CheckIcon, MapPinIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -156,7 +156,8 @@ function Combobox(props: ComboboxProps) {
   })();
 
   const avecRecherche = searchable ?? options.length > SEUIL_RECHERCHE;
-  const iconeTete = icon === undefined ? <MapPin aria-hidden="true" /> : icon;
+  const iconeTete =
+    icon === undefined ? <MapPinIcon aria-hidden="true" /> : icon;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -204,7 +205,7 @@ function Combobox(props: ComboboxProps) {
               >
                 {resume ?? placeholder}
               </span>
-              <ChevronDown
+              <CaretDownIcon
                 className="h-4 w-4 shrink-0 text-savr-neutral-400"
                 aria-hidden="true"
               />
@@ -249,7 +250,7 @@ function Combobox(props: ComboboxProps) {
                 onSelect={() => choisir('')}
                 data-checked={selection.size === 0}
               >
-                <Check
+                <CheckIcon
                   className={cn(
                     selection.size === 0 ? 'opacity-100' : 'opacity-0',
                   )}
@@ -270,7 +271,7 @@ function Combobox(props: ComboboxProps) {
                   onSelect={() => choisir(o.value)}
                   data-checked={actif}
                 >
-                  <Check
+                  <CheckIcon
                     className={cn(
                       'text-savr-primary-700',
                       actif ? 'opacity-100' : 'opacity-0',

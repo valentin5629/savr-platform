@@ -84,37 +84,5 @@ export { EmptyDashboardState } from '@/components/dashboards/EmptyDashboardState
 export { DashboardFilterBar } from '@/components/dashboards/DashboardFilterBar';
 export { ParcMultiSelects } from '@/components/dashboards/ParcMultiSelects';
 export { cn } from '@/lib/utils';
-// Icônes lucide utilisées par les aperçus (sous-ensemble : la bibliothèque entière pèserait ~1,5 Mo).
-export {
-  AlertTriangle,
-  ArrowRight,
-  Building2,
-  Calendar as CalendarIcon,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Download,
-  Filter,
-  HandHeart,
-  Inbox,
-  Info,
-  Leaf,
-  Loader2,
-  Mail,
-  MapPin,
-  MoreHorizontal,
-  Package,
-  Pencil,
-  Phone,
-  Plus,
-  Recycle,
-  Scale,
-  Search,
-  Settings,
-  Trash2,
-  Truck,
-  User,
-  UtensilsCrossed,
-  X,
-} from 'lucide-react';
+// Icônes de la plateforme (famille unique Phosphor, ~95 icônes : components/ui/icones).
+export * from '@/components/ui/icones';

@@ -3,6 +3,7 @@
 import { useEffect, useState, type ComponentProps } from 'react';
 import { Ban, Clock3, FileText, Info, MinusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -73,13 +74,16 @@ interface BenchmarkFlux {
 export function Estompe({
   actif,
   children,
+  large = false,
 }: {
   actif: boolean;
   children: React.ReactNode;
+  /** Espacement de la variante B (fiche client). */
+  large?: boolean;
 }) {
   return (
     <div
-      className={actif ? 'space-y-6 opacity-40' : 'space-y-6'}
+      className={cn(large ? 'space-y-6' : 'space-y-3', actif && 'opacity-40')}
       aria-hidden={actif || undefined}
       data-testid={actif ? 'bilan-estompe' : undefined}
     >
@@ -147,6 +151,8 @@ export function Kpi({
   nombre: string;
   unite?: string;
   aide?: string;
+  /** Accepté pour la variante B (ChiffreCle) ; sans effet sur la carte. */
+  ton?: 'succes';
 }) {
   return (
     <StatCard
@@ -310,9 +316,16 @@ export function BilanCollecte({
   c,
   radar,
   barre,
+  presentation = 'standard',
 }: {
   c: BilanFiche;
   radar: RadarFiche;
+  /**
+   * `variante-b` : fiche collecte client (décision Val 2026-10-27) — chiffres
+   * en bandeau ouvert, répartition et radar compact sur une ligne, filtres en
+   * pastilles. `standard` (défaut) : fiche Admin, inchangée (C1).
+   */
+  presentation?: 'standard' | 'variante-b';
   // Réglages de la barre « Comparer avec » propres à l'espace.
   barre?: Pick<
     ComponentProps<typeof BenchmarkFilterBar>,
@@ -326,6 +339,8 @@ export function BilanCollecte({
   const bilanDispo = realisee || sansExcedent;
   const pax = c.pax ?? null;
   const bench = radar.bench;
+  const vb = presentation === 'variante-b';
+  const Chiffre = vb ? ChiffreCle : Kpi;
 
   // ── Bilan ZD ────────────────────────────────────────────────────────────
   const flux = c.bilan_flux ?? {};
@@ -397,21 +412,25 @@ export function BilanCollecte({
           </dl>
         </Card>
       ) : isAg ? (
-        <Estompe actif={!realisee}>
+        <Estompe actif={!realisee} large={vb}>
           <div
-            className="grid grid-cols-1 gap-y-5 border-b border-savr-sable-200 pb-7 sm:grid-cols-3"
+            className={
+              vb
+                ? 'grid grid-cols-1 gap-y-5 border-b border-savr-sable-200 pb-7 sm:grid-cols-3'
+                : 'grid grid-cols-1 gap-3 sm:grid-cols-3'
+            }
             data-testid="kpi-ag"
           >
-            <ChiffreCle
+            <Chiffre
               label="Repas donnés"
               nombre={repas != null ? fmtInt(repas) : '—'}
               unite="repas"
             />
-            <ChiffreCle
+            <Chiffre
               label="Repas par pax"
               nombre={repas != null && pax ? fmtDec(repas / pax, 2) : '—'}
             />
-            <ChiffreCle
+            <Chiffre
               ton="succes"
               label="CO₂ évité"
               nombre={
@@ -427,14 +446,21 @@ export function BilanCollecte({
           )}
         </Estompe>
       ) : (
-        <Estompe actif={!realisee}>
-          <div className={BANDE_CHIFFRES} data-testid="kpi-zd">
-            <ChiffreCle
+        <Estompe actif={!realisee} large={vb}>
+          <div
+            className={
+              vb
+                ? BANDE_CHIFFRES
+                : 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4'
+            }
+            data-testid="kpi-zd"
+          >
+            <Chiffre
               label="Poids total collecté"
               nombre={masse ? masse.value : '—'}
               unite={masse ? masse.unit : 'kg'}
             />
-            <ChiffreCle
+            <Chiffre
               ton="succes"
               label="CO₂ évité"
               nombre={
@@ -444,7 +470,7 @@ export function BilanCollecte({
               }
               unite={UNITE_KG_CO2E}
             />
-            <ChiffreCle
+            <Chiffre
               label="Taux de recyclage"
               aide={TOOLTIP_TAUX_UE}
               nombre={
@@ -454,7 +480,7 @@ export function BilanCollecte({
               }
               unite="%"
             />
-            <ChiffreCle
+            <Chiffre
               label="Pesée par pax"
               nombre={
                 poidsTotal != null && pax
@@ -467,9 +493,11 @@ export function BilanCollecte({
           {/* Variante B : répartition et radar sur la même ligne. */}
           <div
             className={
-              radarAffiche || !realisee
+              vb && (radarAffiche || !realisee)
                 ? 'grid grid-cols-1 items-stretch gap-5 lg:grid-cols-2'
-                : 'grid grid-cols-1 gap-5'
+                : vb
+                  ? 'grid grid-cols-1 gap-5'
+                  : 'space-y-3'
             }
           >
             {realisee ? (
@@ -492,15 +520,17 @@ export function BilanCollecte({
                 >
                   <BenchmarkRadar
                     title={TITRE_RADAR}
-                    subtitle={SOUS_TITRE_RADAR_COMPACT}
+                    subtitle={vb ? SOUS_TITRE_RADAR_COMPACT : SOUS_TITRE_RADAR}
                     items={gaugeItems}
-                    disposition="compacte"
-                    referenceLabel="Moyenne des événements comparables"
-                    className="h-full"
+                    disposition={vb ? 'compacte' : 'standard'}
+                    referenceLabel={
+                      vb ? 'Moyenne des événements comparables' : undefined
+                    }
+                    className={vb ? 'h-full' : undefined}
                     filtersSlot={
                       <BenchmarkFilterBar
                         masquerTraiteurs
-                        disposition="pastilles"
+                        disposition={vb ? 'pastilles' : 'barre'}
                         {...barre}
                         onChange={radar.setFiltres}
                         // Barre remontée (retour sur l'onglet Admin, dont l'état
@@ -652,6 +682,7 @@ export function OngletBilan({
         c={c}
         radar={radar}
         barre={{ perimetre: espace === 'gestionnaire' ? 'rattache' : 'parc' }}
+        presentation="variante-b"
       />
 
       {/* Documents : un seul rapport (bordereau ZD intégré au PDF) + facture

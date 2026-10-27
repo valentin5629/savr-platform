@@ -26,6 +26,10 @@ vi.mock('next/navigation', () => ({
 
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal.js';
 import { FicheCollecteModalCadre } from '@/components/collecte/fiche-collecte-modal-cadre';
+import {
+  BilanCollecte,
+  type RadarFiche,
+} from '@/components/collecte/fiche-collecte-client-bilan';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import {
   ficheClient,
@@ -1696,4 +1700,28 @@ describe('Variante B — cadre de la fiche collecte client', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  it('C1 : la fiche Admin garde le bilan standard (KPI en cartes, graphes empilés)', () => {
+    const radarSansRepere: RadarFiche = {
+      visible: false,
+      bench: null,
+      indisponible: false,
+      filtres: null,
+      setFiltres: () => {},
+    };
+    const { unmount } = render(
+      <BilanCollecte c={ficheClient(ZD_REALISEE)} radar={radarSansRepere} />,
+    );
+    expect(screen.getByTestId('kpi-zd').className).toContain('gap-3');
+    expect(screen.getByTestId('kpi-zd').className).not.toContain('border-b');
+    unmount();
+    render(
+      <BilanCollecte
+        c={ficheClient(ZD_REALISEE)}
+        radar={radarSansRepere}
+        presentation="variante-b"
+      />,
+    );
+    expect(screen.getByTestId('kpi-zd').className).toContain('border-b');
+  });
 });

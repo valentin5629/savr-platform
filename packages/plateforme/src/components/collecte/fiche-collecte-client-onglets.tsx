@@ -272,11 +272,11 @@ export function OngletInformations({
               />
             ) : (
               onAjouterSecours && (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={onAjouterSecours}
                   data-testid="action-ajouter-contact-secours"
-                  className="flex items-center gap-3.5 rounded-savr-lg text-left text-savr-accent-700 transition-colors hover:text-savr-accent-800 focus-visible:outline-2 focus-visible:outline-offset-4"
+                  className="h-auto justify-start gap-3.5 whitespace-normal rounded-savr-lg p-0 text-left font-normal text-savr-accent-700 hover:bg-transparent hover:text-savr-accent-800 active:bg-transparent"
                 >
                   <span
                     aria-hidden="true"
@@ -292,7 +292,7 @@ export function OngletInformations({
                       À compléter avant la collecte
                     </span>
                   </span>
-                </button>
+                </Button>
               )
             )}
           </div>

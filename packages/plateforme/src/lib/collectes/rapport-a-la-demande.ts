@@ -170,7 +170,10 @@ export async function fabriquerRapport(
   }
   const payload = construit.payload;
   if (visibles && !visibles.collectes.has(id)) {
-    (payload.bordereau as { numero: string }).numero = '—';
+    payload.bordereau = {
+      ...(payload.bordereau as Record<string, unknown>),
+      numero: '—',
+    };
   }
   if (version.avecRadar) {
     payload.options = { benchmark: true };

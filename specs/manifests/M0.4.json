@@ -186,7 +186,7 @@
     },
     {
       "id": "M0.4-signup-stepper-trois-etapes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:444",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:451",
       "artefact": "packages/plateforme/src/app/signup/page.tsx (stepper 3 étapes — §10 §8 : > 6 champs → stepper ; primitives Button/Input/FormField/FormError/Checkbox)",
       "test": "M0.4 — /signup : chaque champ et son refus (CDC §05 §8) > aucun profil choisi → refus, on reste à l’étape 1",
       "statut": "implemented",
@@ -293,7 +293,7 @@
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "29ee02a11140ae397ec9c636ac2892d3d6e0d5d4a9e51c20b4a12a29de8ffd07",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "30a5755a4e0d6ef3e6fbce6d31255f606d704eb30978c51e8489f5b3b4f9ca55",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "09a1ad3dfcbb19dc2404851eb78fffe68d9308e24ae5fe59895f993db70e2588",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "7735759e54b7c94c13769ce15eae10094cfc14ebdf05c2c1afe8fe51030636a1",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "aa17e5e0f6a0139df4c1fb68548d828f89ed4203de4cdbb710677fe1e4fdb518",
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "09e6903381faa7e20009296026d4a446780e183f0706ed8ebb5fa4aaf5f0ebd9"
   }

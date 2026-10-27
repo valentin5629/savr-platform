@@ -1909,9 +1909,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/dispatch_zd_commande_en_cours — ZD déjà commandée (référence reçue) : pas de choix de prestataire, « Renvoyer à MTS-1 » reste possible et part sans prestataire',
+    'M0.6/dispatch_zd_commande_en_cours — ZD déjà commandée (référence reçue) : ni choix de prestataire ni bouton d’envoi (décision Val 2026-10-27)',
     async () => {
-      const fetchMock = mockFetchPrestataire(
+      mockFetchPrestataire(
         {
           ...collecteEnFileMts1,
           type: 'zero_dechet',
@@ -1924,20 +1924,80 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
+      expect(
+        await screen.findByText('Prestataire actuel', {}, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
+      expect(screen.queryByRole('radiogroup')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Changer de prestataire' }),
+      ).toBeNull();
+      // Plus de badge du mode d'envoi à côté du prestataire actuel.
+      expect(screen.queryByText('Envoi MTS-1')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each([
+    [
+      'acceptée sans référence (donnée sans commande lisible)',
+      { statut: 'validee', statut_tms: 'acceptee', tms_reference: null },
+    ],
+    [
+      'À attribuer, référence reçue',
+      { statut_tms: 'a_attribuer', tms_reference: 'TOUR-78' },
+    ],
+  ])(
+    'M0.6/dispatch_zd_commande_en_cours — ZD %s : pas de bouton d’envoi',
+    async (_cas, champs) => {
+      mockFetchPrestataire(
+        {
+          ...collecteEnFileMts1,
+          type: 'zero_dechet',
+          attributions_antgaspi: null,
+          ...champs,
+        },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText('Prestataire actuel', {}, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer)( à|$)/ }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/dispatch_zd_commande_en_cours — ZD commandée puis modifiée par le client : « Renvoyer à MTS-1 » revient et part sans prestataire',
+    async () => {
+      const fetchMock = mockFetchPrestataire(
+        {
+          ...collecteEnFileMts1,
+          type: 'zero_dechet',
+          attributions_antgaspi: null,
+          statut_tms: 'attribuee_en_attente_acceptation',
+          tms_reference: 'TOUR-77',
+          dirty_tms: true,
+        },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
       const bouton = await screen.findByRole(
         'button',
         { name: 'Renvoyer à MTS-1' },
         ATTENTE_UI,
       );
       expect(bouton).toBeEnabled();
-      // Changer de prestataire ne ferait que modifier la commande chez
-      // l'actuel : ni cartes ni bouton de changement.
-      expect(screen.queryByRole('radiogroup')).toBeNull();
-      expect(
-        screen.queryByRole('button', { name: 'Changer de prestataire' }),
-      ).toBeNull();
       fireEvent.click(bouton);
-
       await waitFor(() => {
         const post = postDispatch(fetchMock);
         expect(post).toBeTruthy();

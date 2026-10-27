@@ -1833,6 +1833,9 @@ export function CollecteDetailPanel({
   // prestataire », bouton « Garder le prestataire actuel »).
   const choixMasqueSansClic = agAttribuee && envoiParti;
   const choixMasque = choixMasqueSansClic && !changerPrestataire;
+  // ZD dont la commande est partie : plus de bouton d'envoi, sauf modifiée
+  // depuis l'envoi ou refusée par le transporteur (décision Val 2026-10-27).
+  const envoiZdParti = estZd && envoiParti && !changerPrestataire;
   // Besoin véhicule modifiable avec l'envoi d'une ZD (décision Val
   // 2026-10-27 ; l'AG le saisit à l'attribution) : mêmes gardes que la route
   // (collecte encore à attribuer, choix du prestataire ouvert).
@@ -2339,19 +2342,13 @@ export function CollecteDetailPanel({
                   <AlertBar variant="err">{dispatchError}</AlertBar>
                 )}
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  <InfoItem
-                    label="Prestataire actuel"
-                    valueClassName="flex items-center gap-2"
-                  >
+                  {/* Sans badge du mode d'envoi : doublon de l'en-tête et du
+                    statut TMS (décision Val 2026-10-27). */}
+                  <InfoItem label="Prestataire actuel">
                     {currentTransporteur?.nom ?? (
                       <span className="text-savr-neutral-400">
                         {libelleSansNom ?? 'Aucun prestataire attribué'}
                       </span>
-                    )}
-                    {currentTransporteur?.type_tms && (
-                      <Badge size="sm" variant="neutral">
-                        {libelleTypeTms(currentTransporteur.type_tms)}
-                      </Badge>
                     )}
                   </InfoItem>
                   <InfoItem label="Statut TMS">
@@ -2604,7 +2601,8 @@ export function CollecteDetailPanel({
                             Garder le prestataire actuel
                           </Button>
                         )}
-                      {(!choixMasque || estModifieeSansRenvoi(collecte)) && (
+                      {((!choixMasque && !envoiZdParti) ||
+                        estModifieeSansRenvoi(collecte)) && (
                         <Button
                           disabled={
                             isTerminal ||

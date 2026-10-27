@@ -56,6 +56,12 @@ import type { SuiviEmailInfosAcces } from '@/lib/infos-acces/suivi-email';
 import { CollecteStatutPastille } from './collecte-statut-pastille';
 import { AttributionAgForm } from './attribution-ag-form';
 import {
+  ChampsBesoinVehicule,
+  NB_VEHICULES_MAX,
+  TYPES_VEHICULE_OPTIONS,
+  nbVehiculesValide,
+} from './champs-besoin-vehicule';
+import {
   DIFFICULTE_LABEL,
   DIFFICULTE_VARIANT,
   VEHICULE_LABEL,
@@ -558,9 +564,9 @@ function EncartOrdreEnvoi({
           {aPrestataire.endsWith('!') ? '' : '.'}{' '}
           <span className="font-normal">
             La commande part vers {canal ?? 'le prestataire'} dans les secondes
-            qui suivent l’envoi ; à défaut, au prochain passage automatique. La
-            référence TMS et le statut « Attente acceptation presta »
-            s’afficheront ici dès sa prise en compte.
+            qui suivent l’envoi ; à défaut, au prochain passage automatique. Le
+            statut « Attente acceptation presta » s’affichera ici dès sa prise
+            en compte.
           </span>
         </span>
       </AlertBar>
@@ -780,6 +786,12 @@ export function CollecteDetailPanel({
   // Bloc 0 — dispatch prestataire (BOA-06)
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [selectedTransporteurId, setSelectedTransporteurId] = useState('');
+  // Besoin véhicule saisi au choix du prestataire (décision Val 2026-10-27) :
+  // null = non touché, la valeur de la collecte s'affiche et rien n'est envoyé.
+  const [typeVehiculeSaisi, setTypeVehiculeSaisi] = useState<string | null>(
+    null,
+  );
+  const [nbVehiculesSaisi, setNbVehiculesSaisi] = useState<string | null>(null);
   // Ordre en file d'envoi : les cartes prestataire et le bouton d'envoi ne
   // reviennent que sur demande explicite (« Changer de prestataire »).
   const [changerPrestataire, setChangerPrestataire] = useState(false);
@@ -1194,6 +1206,28 @@ export function CollecteDetailPanel({
     // idempotente.
     const selected = transporteurs.find((t) => t.id === selectedTransporteurId);
     const body: Record<string, unknown> = {};
+    // Besoin véhicule : seulement les champs modifiés, écrits avant l'envoi.
+    if (besoinEditable && collecte) {
+      if (
+        nbVehiculesSaisi !== null &&
+        Number(nbVehiculesSaisi) !== collecte.nb_camions_demande
+      ) {
+        if (!nbVehiculesValide(nbVehiculesSaisi)) {
+          setDispatchError(
+            `Nombre de véhicules invalide (entier entre 1 et ${NB_VEHICULES_MAX})`,
+          );
+          setDispatching(false);
+          return;
+        }
+        body.nb_camions_demande = Number(nbVehiculesSaisi);
+      }
+      if (
+        typeVehiculeSaisi !== null &&
+        typeVehiculeSaisi !== (collecte.type_vehicule_souhaite ?? '')
+      ) {
+        body.type_vehicule_souhaite = typeVehiculeSaisi || null;
+      }
+    }
     if (selected?.prestataire_logistique_id) {
       body.prestataire_logistique_id = selected.prestataire_logistique_id;
       if (motifOverride.trim()) {
@@ -1213,6 +1247,8 @@ export function CollecteDetailPanel({
       setRelecturesRestantes(RELECTURES_MAX);
       setSelectedTransporteurId('');
       setMotifOverride('');
+      setTypeVehiculeSaisi(null);
+      setNbVehiculesSaisi(null);
       // Mode « changer » ouvert → il se referme : rendre le focus au bouton
       // « Changer de prestataire » plutôt que de le perdre en haut de page.
       retourFocusChangerRef.current = changerPrestataire;
@@ -1782,6 +1818,15 @@ export function CollecteDetailPanel({
   // État réel de l'ordre de tête, lu dans la file (décision Val 2026-10-12, C6).
   const ordreEnvoi = collecte.ordre_envoi ?? null;
   const dispatchEnLecture = ordreEnFileEnvoi && !changerPrestataire;
+  // Besoin véhicule modifiable avec l'envoi d'une ZD (décision Val
+  // 2026-10-27 ; l'AG le saisit à l'attribution) : mêmes gardes que la route
+  // (collecte encore à attribuer, choix du prestataire ouvert).
+  const besoinEditable =
+    estZd &&
+    !isTerminal &&
+    !dispatchEnLecture &&
+    !choixPrestataireZdFerme &&
+    ['programmee', 'rejetee_par_prestataire'].includes(collecte.statut);
   // Même prestataire, ordre déjà en file (ou référence TMS reçue) → « Renvoyer ».
   const renvoi =
     !!collecte.tms_reference || (ordreEnFileEnvoi && !selectedTransporteurId);
@@ -1828,6 +1873,10 @@ export function CollecteDetailPanel({
       const t = tourneeParRang.get(rang)?.tournees;
       return !!t?.chauffeur_nom?.trim() && !!t?.chauffeur_telephone?.trim();
     });
+  // Contrôle d'accès demandé, collecte encore à réaliser, coordonnées
+  // incomplètes : le bloc « Chauffeur » est encadré (décision Val 2026-10-27).
+  const chauffeurACompleter =
+    collecte.controle_acces_requis && !isTerminal && !coordonneesCompletes;
   // Jamais pendant une reprise automatique : le renvoi ferait partir deux emails.
   const renvoiEmailPossible =
     collecte.controle_acces_requis &&
@@ -2293,37 +2342,58 @@ export function CollecteDetailPanel({
                       </Text>
                     )}
                   </InfoItem>
-                  <InfoItem label="Référence TMS" valueClassName="font-mono">
-                    {collecte.tms_reference ?? '—'}
-                  </InfoItem>
-                  <InfoItem
-                    label="Nb camions"
-                    valueClassName="flex items-center gap-2"
-                  >
-                    {collecte.nb_camions_demande}
-                    {nbCamionsEditable && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setNbCamionsValue(
-                            String(collecte.nb_camions_demande),
-                          );
-                          setNbCamionsError(null);
-                          setNbCamionsModal(true);
-                        }}
+                  {/* Besoin véhicule en lecture quand il ne part plus avec
+                      l'envoi (décision Val 2026-10-27 ; « Référence TMS »
+                      retirée, idem). */}
+                  {!besoinEditable && (
+                    <>
+                      <InfoItem label="Type de véhicule souhaité">
+                        {TYPES_VEHICULE_OPTIONS.find(
+                          (t) => t.value === collecte.type_vehicule_souhaite,
+                        )?.label ?? 'Non précisé'}
+                      </InfoItem>
+                      <InfoItem
+                        label="Nb camions"
+                        valueClassName="flex items-center gap-2"
                       >
-                        Modifier
-                      </Button>
-                    )}
-                  </InfoItem>
+                        {collecte.nb_camions_demande}
+                        {nbCamionsEditable && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setNbCamionsValue(
+                                String(collecte.nb_camions_demande),
+                              );
+                              setNbCamionsError(null);
+                              setNbCamionsModal(true);
+                            }}
+                          >
+                            Modifier
+                          </Button>
+                        )}
+                      </InfoItem>
+                    </>
+                  )}
                   {collecte.motif_override_prestataire && (
                     <InfoItem label="Motif override" className="col-span-2">
                       {collecte.motif_override_prestataire}
                     </InfoItem>
                   )}
                 </dl>
+                {besoinEditable && (
+                  <ChampsBesoinVehicule
+                    typeVehicule={
+                      typeVehiculeSaisi ?? collecte.type_vehicule_souhaite ?? ''
+                    }
+                    onTypeVehicule={setTypeVehiculeSaisi}
+                    nbVehicules={
+                      nbVehiculesSaisi ?? String(collecte.nb_camions_demande)
+                    }
+                    onNbVehicules={setNbVehiculesSaisi}
+                  />
+                )}
 
                 <EncartOrdreEnvoi
                   ordre={ordreEnvoi}
@@ -2573,7 +2643,16 @@ export function CollecteDetailPanel({
               ) : undefined
             }
           >
-            <div className="min-w-0 space-y-4">
+            {/* Contrôle d'accès demandé et coordonnées incomplètes : bloc
+                encadré pour qu'il se voie (décision Val 2026-10-27). */}
+            <div
+              data-testid="chauffeur-contenu"
+              className={cn(
+                'min-w-0 space-y-4',
+                chauffeurACompleter &&
+                  'rounded-savr-lg border-2 border-savr-warning bg-savr-warning-subtle p-4',
+              )}
+            >
               {collecte.controle_acces_requis && (
                 <>
                   <Text>

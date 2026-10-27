@@ -15,7 +15,7 @@
 // ligne à ligne — titres / champs / recommandations / listes / aides.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Minus, Plus, Search } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,8 +36,12 @@ import {
 import { Text } from '@/components/ui/text';
 import { fmtInt } from '@/lib/format';
 import { messageObligatoire } from '@/lib/libelles/validation';
-import { ChoiceCard } from '@/components/ui/choice-card';
-import { IconButton } from '@/components/ui/icon-button';
+import {
+  ChampsBesoinVehicule,
+  NB_VEHICULES_MAX,
+  TYPES_VEHICULE_OPTIONS,
+  nbVehiculesValide,
+} from '@/components/admin/champs-besoin-vehicule';
 
 interface AssociationSuggestion {
   id: string;
@@ -122,18 +126,6 @@ const MOTIFS_OVERRIDE: { code: string; libelle: string }[] = [
   { code: 'autre', libelle: 'Autre — préciser' },
 ];
 
-// Enum plateforme.type_vehicule (lieux.type_vehicule_max, tournees.type_vehicule,
-// collectes.type_vehicule_souhaite).
-const TYPES_VEHICULE: { value: string; label: string }[] = [
-  { value: 'velo_cargo', label: 'Vélo cargo' },
-  { value: 'camionnette', label: 'Camionnette' },
-  { value: 'fourgon', label: 'Fourgon' },
-  { value: 'vul', label: 'VUL' },
-  { value: 'poids_lourd', label: 'Poids lourd' },
-];
-
-const NB_VEHICULES_MAX = 20;
-
 function formatDistance(km: number | null | undefined): string {
   return km != null ? `${km.toLocaleString('fr-FR')} km` : 'Distance inconnue';
 }
@@ -145,6 +137,61 @@ function ratioRepas(a: {
 }): string | null {
   if (a.repas_cumules == null) return null;
   return `${fmtInt(a.repas_cumules)}/${a.capacite_max_beneficiaires != null ? fmtInt(a.capacite_max_beneficiaires) : '—'}`;
+}
+
+// Carte de la sélection courante, déclencheur de la liste (décision Val
+// 2026-10-27 : la carte recommandée et la liste ne font plus qu'un).
+const CARTE_CHOIX =
+  'rounded-savr-lg border-2 border-savr-primary-700 bg-savr-primary-50 px-4 py-3 transition-colors hover:bg-savr-primary-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 data-[state=open]:bg-savr-primary-100';
+
+function CarteChoix({
+  nom,
+  ratio,
+  badge,
+  detail,
+  vide = false,
+}: {
+  nom: string;
+  ratio?: string | null;
+  badge?: string | null;
+  detail?: string | null;
+  vide?: boolean;
+}) {
+  return (
+    <span className="flex items-center gap-3">
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="flex items-center justify-between gap-2">
+          <span
+            className={cn(
+              'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold',
+              vide ? 'text-savr-neutral-500' : 'text-savr-neutral-900',
+            )}
+          >
+            {nom}
+          </span>
+          <span className="flex shrink-0 items-center gap-2">
+            {ratio && (
+              <span
+                data-testid="repas-cumules-reco"
+                title="Repas déjà reçus des collectes à ±12 h du créneau / capacité bénéficiaire"
+                className="text-sm font-semibold tabular-nums text-savr-neutral-700"
+              >
+                {ratio}
+              </span>
+            )}
+            {badge && <Badge variant="success">{badge}</Badge>}
+          </span>
+        </span>
+        {detail && (
+          <span className="text-xs text-savr-neutral-600">{detail}</span>
+        )}
+      </span>
+      <ChevronDown
+        className="h-4 w-4 shrink-0 text-savr-neutral-500"
+        aria-hidden="true"
+      />
+    </span>
+  );
 }
 
 interface AttributionAgFormProps {
@@ -414,17 +461,7 @@ export function AttributionAgForm({
     optionsTransp.find((t) => t.id === selectedTransp)?.type_tms ?? null;
 
   const nbVehiculesNum = Number(nbVehicules);
-  const nbVehiculesOk =
-    Number.isInteger(nbVehiculesNum) &&
-    nbVehiculesNum >= 1 &&
-    nbVehiculesNum <= NB_VEHICULES_MAX;
-  const changerNbVehicules = (delta: number) => {
-    const base = Number.isInteger(nbVehiculesNum) ? nbVehiculesNum : 1;
-    nbToucheRef.current = true;
-    setNbVehicules(
-      String(Math.min(NB_VEHICULES_MAX, Math.max(1, base + delta))),
-    );
-  };
+  const nbVehiculesOk = nbVehiculesValide(nbVehicules);
   const contexteCharge = contexteEtat === 'ok';
 
   const handleValider = async () => {
@@ -496,21 +533,14 @@ export function AttributionAgForm({
   };
 
   const assoTop1 = suggestions[0] ?? null;
-  const assoTop1Selectionnee = !!assoTop1 && selectedAsso === assoTop1.id;
-  const transpRecoSelectionne =
-    !!transpReco && selectedTransp === transpReco.id;
+  const assoChoisie = optionsAsso.find((a) => a.id === selectedAsso) ?? null;
+  const transpChoisi =
+    optionsTransp.find((t) => t.id === selectedTransp) ?? null;
 
   // Nombre de repas seul (décision Val 2026-10-27).
   const repasEstimes = contexte?.volume_estime_repas ?? null;
   const volumeLabel =
     repasEstimes != null ? `${fmtInt(repasEstimes)} repas` : '—';
-  const assoTop1Ratio = assoTop1
-    ? ratioRepas({
-        ...assoTop1,
-        repas_cumules: associations.find((a) => a.id === assoTop1.id)
-          ?.repas_cumules,
-      })
-    : null;
 
   if (loading) {
     return (
@@ -562,158 +592,32 @@ export function AttributionAgForm({
                 />
               )}
             </FormGrid>
-            <FormGrid>
-              <FormField
-                label="Type de véhicule souhaité"
-                htmlFor="type-vehicule-select"
-              >
-                <Combobox
-                  id="type-vehicule-select"
-                  icon={null}
-                  searchable={false}
-                  placeholder="Non précisé"
-                  options={[
-                    { value: '', label: 'Non précisé' },
-                    ...TYPES_VEHICULE,
-                  ]}
-                  value={typeVehicule}
-                  onChange={(v) => {
-                    typeToucheRef.current = true;
-                    setTypeVehicule(v);
-                  }}
-                />
-              </FormField>
-              <FormField label="Nombre de véhicules" htmlFor="nb-vehicules">
-                <div className="flex h-10 items-center overflow-hidden rounded-savr-md border border-savr-neutral-300 bg-savr-white">
-                  <IconButton
-                    aria-label="Retirer un véhicule"
-                    disabled={nbVehiculesOk && nbVehiculesNum <= 1}
-                    variant="stepper"
-                    className="border-r border-savr-neutral-200"
-                    onClick={() => changerNbVehicules(-1)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </IconButton>
-                  <input
-                    id="nb-vehicules"
-                    type="text"
-                    inputMode="numeric"
-                    value={nbVehicules}
-                    onChange={(e) => {
-                      nbToucheRef.current = true;
-                      setNbVehicules(e.target.value);
-                    }}
-                    aria-invalid={!nbVehiculesOk}
-                    aria-describedby="nb-vehicules-aide"
-                    className="h-full min-w-0 flex-1 border-0 bg-transparent text-center text-sm font-bold text-savr-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-savr-primary-500"
-                  />
-                  <IconButton
-                    aria-label="Ajouter un véhicule"
-                    disabled={
-                      nbVehiculesOk && nbVehiculesNum >= NB_VEHICULES_MAX
-                    }
-                    variant="stepper"
-                    className="border-l border-savr-neutral-200"
-                    onClick={() => changerNbVehicules(1)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </IconButton>
-                </div>
-                <p
-                  id="nb-vehicules-aide"
-                  className={cn(
-                    'mt-1 text-xs',
-                    nbVehiculesOk
-                      ? 'text-savr-neutral-500'
-                      : 'text-savr-error-strong',
-                  )}
-                >
-                  {nbVehiculesOk
-                    ? `Entier entre 1 et ${NB_VEHICULES_MAX} : 1 commande par véhicule chez le prestataire.`
-                    : `Nombre invalide : entier entre 1 et ${NB_VEHICULES_MAX}.`}
-                </p>
-              </FormField>
-            </FormGrid>
+            <ChampsBesoinVehicule
+              typeVehicule={typeVehicule}
+              onTypeVehicule={(v) => {
+                typeToucheRef.current = true;
+                setTypeVehicule(v);
+              }}
+              nbVehicules={nbVehicules}
+              onNbVehicules={(v) => {
+                nbToucheRef.current = true;
+                setNbVehicules(v);
+              }}
+            />
 
-            {/* Ligne 3 : recommandations (même structure, même hauteur) */}
-            <div>
-              {assoTop1 ? (
-                <ChoiceCard
-                  selected={assoTop1Selectionnee}
-                  className="flex w-full items-start gap-3 border-2 px-4 py-3"
-                  onClick={() => {
-                    setSelectedAsso(assoTop1.id);
-                    setSelectedAssoNom(assoTop1.nom);
-                    setAssoSource('reco');
-                  }}
-                >
-                  <span className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-savr-neutral-900">
-                        {assoTop1.nom}
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2">
-                        {assoTop1Ratio && (
-                          <span
-                            data-testid="repas-cumules-reco"
-                            title="Repas cumulés à ±12 h du créneau, cette collecte comprise / capacité bénéficiaire"
-                            className="text-sm font-semibold tabular-nums text-savr-neutral-700"
-                          >
-                            {assoTop1Ratio}
-                          </span>
-                        )}
-                        <Badge variant="success">Recommandée</Badge>
-                      </span>
-                    </span>
-                    <Text as="span" variant="hint" tone="soft">
-                      <span>{formatDistance(assoTop1.distance_km)}</span> ·
-                      capacité {assoTop1.capacite_max_beneficiaires}{' '}
-                      bénéficiaires
-                    </Text>
-                  </span>
-                </ChoiceCard>
-              ) : (
-                <AlertBar variant="warn">
+            {/* Ligne 3 : une carte par choix (décision Val 2026-10-27) — la
+                sélection courante, recommandée par défaut ; un clic ouvre la
+                liste complète pour en choisir une autre. */}
+            <FormField label="Association" htmlFor="association-select">
+              {!assoTop1 && (
+                <AlertBar variant="warn" className="mb-2">
                   Aucune association disponible pour ce créneau. Traitement
                   manuel requis.
                 </AlertBar>
               )}
-            </div>
-            <div>
-              {transpReco ? (
-                <ChoiceCard
-                  selected={transpRecoSelectionne}
-                  className="flex w-full items-start gap-3 border-2 px-4 py-3"
-                  onClick={() => {
-                    setSelectedTransp(transpReco.id);
-                    setSelectedTranspNom(transpReco.nom);
-                    setTranspSource('reco');
-                  }}
-                >
-                  <span className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-savr-neutral-900">
-                        {transpReco.nom}
-                      </span>
-                      <Badge variant="success">Recommandé</Badge>
-                    </span>
-                  </span>
-                </ChoiceCard>
-              ) : (
-                <AlertBar variant="warn">
-                  Aucun prestataire éligible — traitement manuel. Sélectionnez
-                  un transporteur dans la liste ci-dessous.
-                </AlertBar>
-              )}
-            </div>
-
-            {/* Ligne 4 : listes déroulantes */}
-            <FormField label="Association" htmlFor="association-select">
               {/* Option « vide » en tête : permet de revenir à « aucun choix ». */}
               <Combobox
                 id="association-select"
-                icon={<Search className="h-4 w-4" />}
-                placeholder="Choisir une association…"
                 searchPlaceholder="Rechercher une association…"
                 options={[
                   { value: '', label: 'Choisir une association…' },
@@ -729,6 +633,28 @@ export function AttributionAgForm({
                 ]}
                 value={selectedAsso ?? ''}
                 onChange={choisirAssociation}
+                className={CARTE_CHOIX}
+                contenu={
+                  assoChoisie ? (
+                    <CarteChoix
+                      nom={assoChoisie.nom}
+                      ratio={ratioRepas(assoChoisie)}
+                      badge={
+                        assoChoisie.id === assoTop1?.id ? 'Recommandée' : null
+                      }
+                      detail={[
+                        formatDistance(assoChoisie.distance_km),
+                        assoChoisie.capacite_max_beneficiaires != null
+                          ? `capacité ${assoChoisie.capacite_max_beneficiaires} bénéficiaires`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    />
+                  ) : (
+                    <CarteChoix nom="Choisir une association…" vide />
+                  )
+                }
               />
               {assoErreur && (
                 <ErrorState
@@ -739,10 +665,14 @@ export function AttributionAgForm({
               )}
             </FormField>
             <FormField label="Transporteur" htmlFor="transporteur-select">
+              {!transpReco && (
+                <AlertBar variant="warn" className="mb-2">
+                  Aucun prestataire éligible — traitement manuel. Choisissez un
+                  transporteur ci-dessous.
+                </AlertBar>
+              )}
               <Combobox
                 id="transporteur-select"
-                icon={<Search className="h-4 w-4" />}
-                placeholder="Choisir un transporteur…"
                 searchPlaceholder="Rechercher un prestataire…"
                 options={[
                   { value: '', label: 'Choisir un transporteur…' },
@@ -758,6 +688,22 @@ export function AttributionAgForm({
                 ]}
                 value={selectedTransp ?? ''}
                 onChange={choisirTransporteur}
+                className={CARTE_CHOIX}
+                contenu={
+                  transpChoisi ? (
+                    <CarteChoix
+                      nom={transpChoisi.nom}
+                      badge={
+                        transpList.some((x) => x.id === transpChoisi.id)
+                          ? 'Recommandé'
+                          : null
+                      }
+                      detail={transpChoisi.ville || null}
+                    />
+                  ) : (
+                    <CarteChoix nom="Choisir un transporteur…" vide />
+                  )
+                }
               />
               {transpErreur && (
                 <ErrorState
@@ -825,7 +771,7 @@ export function AttributionAgForm({
                 <>
                   {' '}
                   · {nbVehiculesNum} ×{' '}
-                  {TYPES_VEHICULE.find((t) => t.value === typeVehicule)
+                  {TYPES_VEHICULE_OPTIONS.find((t) => t.value === typeVehicule)
                     ?.label ?? 'véhicule (type non précisé)'}
                 </>
               )}

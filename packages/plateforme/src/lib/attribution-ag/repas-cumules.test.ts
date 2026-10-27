@@ -11,7 +11,6 @@ const cible = {
   id: 'c0',
   date_collecte: '2026-03-18',
   heure_collecte: '12:00:00',
-  volume_estime_repas: 40,
 };
 
 function v(

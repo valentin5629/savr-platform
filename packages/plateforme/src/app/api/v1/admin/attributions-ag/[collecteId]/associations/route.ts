@@ -17,9 +17,9 @@ import {
 // GET /api/v1/admin/attributions-ag/[collecteId]/associations
 // Toutes les associations actives, triées par distance croissante au lieu de la
 // collecte AG (liste déroulante de l'écran d'attribution, décision Val 2026-09-17).
-// Chaque association porte `repas_cumules` : repas qu'elle recevrait si la
-// collecte lui était attribuée, collectes à ±12 h du créneau comprises (compteur
-// « repas cumulés / capacité », décision Val 2026-10-27).
+// Chaque association porte `repas_cumules` : repas qu'elle reçoit déjà des
+// collectes à ±12 h du créneau, celle qu'on attribue exclue (compteur « repas
+// cumulés / capacité », décisions Val 2026-10-27).
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -44,7 +44,7 @@ async function getHandler(
   const { data: collecte, error: colErr } = await supabase
     .from('collectes')
     .select(
-      'id, date_collecte, heure_collecte, volume_estime_repas, evenements!inner(lieux!lieu_id(latitude, longitude))',
+      'id, date_collecte, heure_collecte, evenements!inner(lieux!lieu_id(latitude, longitude))',
     )
     .eq('id', collecteId)
     .eq('type', 'anti_gaspi')
@@ -101,7 +101,6 @@ async function getHandler(
     cible,
     (voisines ?? []) as unknown as AttributionVoisine[],
   );
-  const repasCible = cible.volume_estime_repas ?? 0;
 
   return NextResponse.json({
     data: trierAssociationsParDistance(
@@ -109,7 +108,7 @@ async function getHandler(
       (assos ?? []) as AssociationCandidate[],
     ).map((a) => ({
       ...a,
-      repas_cumules: (cumul.get(a.id) ?? 0) + repasCible,
+      repas_cumules: cumul.get(a.id) ?? 0,
     })),
   });
 }

@@ -158,7 +158,11 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       render(<AttributionDetailPage />);
       const select = await selectAssociation();
 
-      expect(select).toHaveTextContent('1,2 km · 40/300 · Asso Top');
+      // Carte de la sélection (décision Val 2026-10-27) : la recommandée.
+      expect(select).toHaveTextContent('Asso Top');
+      expect(select).toHaveTextContent('40/300');
+      expect(select).toHaveTextContent('Recommandée');
+      expect(select).toHaveTextContent('1,2 km · capacité 300 bénéficiaires');
       expect(libellesOptions()).toEqual([
         'Choisir une association…',
         '1,2 km · 40/300 · Asso Top',
@@ -265,7 +269,8 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       // Option de secours = suggestion de l'algo ; 2041-GE inconnu → non affirmé,
       // repas cumulés inconnus → segment omis.
       // La sélection reste affichée même sans la liste chargée.
-      expect(select).toHaveTextContent('1,2 km · Asso Top');
+      expect(select).toHaveTextContent('Asso Top');
+      expect(select).not.toHaveTextContent('/300');
       fireEvent.click(select);
       expect(libellesOptions()).toEqual([
         'Choisir une association…',
@@ -305,23 +310,21 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
     ATTENTE_CAS_MS,
   );
   it(
-    'carte suggérée : distance inconnue affichée « Distance inconnue », jamais « 0 km »',
+    'carte : association sans coordonnées → « Distance inconnue », jamais « 0 km »',
     async () => {
-      // L'algo restitue distance_km = null quand les coordonnées GPS manquent.
-      installFetch({
-        ...ALGO,
-        associations: [
-          {
-            ...ALGO.associations[0]!,
-            distance_km: null as unknown as number,
-          },
-        ],
-      });
+      installFetch();
       render(<AttributionDetailPage />);
-      expect(
-        await screen.findByText('Distance inconnue', undefined, ATTENTE_UI),
-      ).toBeTruthy();
-      expect(screen.queryByText(/^0 km$/)).toBeNull();
+      await selectAssociation();
+      fireEvent.click(
+        screen.getByRole('option', {
+          name: 'Distance inconnue · 40/— · Asso Sans GPS',
+        }),
+      );
+      const carte = screen.getByRole('combobox', { name: 'Association' });
+      expect(carte).toHaveTextContent('Asso Sans GPS');
+      expect(carte).toHaveTextContent('Distance inconnue');
+      expect(carte).not.toHaveTextContent('Recommandée');
+      expect(screen.queryByText(/^0 km/)).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -332,7 +335,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       installFetch();
       render(<AttributionDetailPage />);
       expect(
-        await screen.findByText('1,2 km', undefined, ATTENTE_UI),
+        await screen.findByText(/^1,2 km · capacité/, undefined, ATTENTE_UI),
       ).toBeTruthy();
     },
     ATTENTE_CAS_MS,

@@ -1203,7 +1203,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/ordre_envoi_relecture — la fiche se relit seule tant que l’envoi est en cours, affiche la référence dès qu’elle arrive, puis cesse de relire',
+    'M0.6/ordre_envoi_relecture — la fiche se relit seule tant que l’envoi est en cours, affiche le statut de la commande dès qu’elle arrive, puis cesse de relire',
     async () => {
       // Lectures 1 et 2 : ordre en cours. Lecture 3 : la commande est reçue.
       const compteur = mockLectures((lecture) =>
@@ -1229,10 +1229,11 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       expect(compteur.lectures).toBe(1);
 
-      // Sans aucun geste : deux relectures (2 s chacune) plus tard, la référence est là.
-      const ligne = screen.getByText('Référence TMS').parentElement!;
+      // Sans aucun geste : deux relectures (2 s chacune) plus tard, la commande
+      // est reçue (« Référence TMS » retirée de la fiche, décision Val
+      // 2026-10-27 : c'est l'encart qui disparaît).
       await waitFor(
-        () => expect(within(ligne).getByText('TOUR-77')).toBeInTheDocument(),
+        () => expect(screen.queryByText(/Collecte envoyée à/)).toBeNull(),
         { timeout: 7_000 },
       );
       expect(screen.queryByText(/Collecte envoyée à/)).toBeNull();
@@ -1670,6 +1671,85 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           prestataire_logistique_id: 'presta-marathon',
         });
       }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Retour de Val du 2026-10-27 : besoin véhicule au choix du prestataire
+  // d'une ZD, plus de « Référence TMS », bloc « Chauffeur » encadré quand le
+  // contrôle d'accès attend des coordonnées.
+  it(
+    'ZD à envoyer : type et nombre de véhicules saisis partent avec l’envoi, sans « Référence TMS »',
+    async () => {
+      const fetchMock = mockFetchPrestataire(collecteZdSansPrestataire, {
+        ok: true,
+        data: transporteursZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const cartes = await screen.findByRole(
+        'radiogroup',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(screen.queryByText('Référence TMS')).toBeNull();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Ajouter un véhicule' }),
+      );
+      fireEvent.click(
+        screen.getByRole('combobox', { name: 'Type de véhicule souhaité' }),
+      );
+      fireEvent.click(screen.getByRole('option', { name: 'Fourgon' }));
+      fireEvent.click(within(cartes).getByRole('radio', { name: /Marathon/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Envoyer à MTS-1' }));
+
+      await waitFor(() => {
+        const post = postDispatch(fetchMock);
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+          prestataire_logistique_id: 'presta-marathon',
+          nb_camions_demande: 2,
+          type_vehicule_souhaite: 'fourgon',
+        });
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'bloc « Chauffeur » encadré quand le contrôle d’accès attend des coordonnées',
+    async () => {
+      mockFetchPrestataire(
+        { ...collecteZdSansPrestataire, controle_acces_requis: true },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const contenu = await screen.findByTestId(
+        'chauffeur-contenu',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(contenu.className).toContain('border-savr-warning');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'bloc « Chauffeur » sans encadré quand aucun contrôle d’accès n’est demandé',
+    async () => {
+      mockFetchPrestataire(
+        { ...collecteZdSansPrestataire, controle_acces_requis: false },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const contenu = await screen.findByTestId(
+        'chauffeur-contenu',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(contenu.className).not.toContain('border-savr-warning');
     },
     ATTENTE_CAS_MS,
   );
@@ -3190,7 +3270,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       // Formulaire intégré (décision Val 2026-10-01) : la n°1 est la carte
       // « Recommandée » avec ses scores ; les autres sont dans la liste.
       expect(
-        await screen.findByText('3,2 km', undefined, ATTENTE_UI),
+        await screen.findByText(/^3,2 km · capacité/, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
       expect(screen.queryAllByRole('link', { name: 'Choisir' })).toHaveLength(

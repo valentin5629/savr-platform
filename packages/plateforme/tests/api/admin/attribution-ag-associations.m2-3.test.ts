@@ -152,14 +152,13 @@ describe('M2.3 / GET attributions-ag/[collecteId]/associations', () => {
     });
   });
 
-  it('repas_cumules = repas des collectes à ±12 h du créneau + volume estimé de la collecte (décision Val 2026-10-27)', async () => {
+  it('repas_cumules = repas des AUTRES collectes à ±12 h du créneau, la collecte attribuée exclue (décision Val 2026-10-27)', async () => {
     setupAuth('admin_savr');
     collecteResult = {
       data: {
         id: COL,
         date_collecte: '2026-10-23',
         heure_collecte: '11:30:00',
-        volume_estime_repas: 40,
         evenements: { lieux: { latitude: 48.8566, longitude: 2.3522 } },
       },
       error: null,
@@ -223,8 +222,8 @@ describe('M2.3 / GET attributions-ag/[collecteId]/associations', () => {
       data: { id: string; repas_cumules: number }[];
     };
     const par = new Map(body.data.map((a) => [a.id, a.repas_cumules]));
-    expect(par.get('alpha')).toBe(25 + 35 + 40);
-    expect(par.get('beta')).toBe(40);
+    expect(par.get('alpha')).toBe(25 + 35);
+    expect(par.get('beta')).toBe(0);
     // Lecture bornée de la veille au lendemain.
     expect(calls).toContainEqual({
       table: 'attributions_antgaspi',

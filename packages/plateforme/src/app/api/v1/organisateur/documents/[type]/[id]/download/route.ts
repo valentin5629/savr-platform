@@ -86,6 +86,7 @@ export async function GET(
         data.collecte_id as string,
         { avecRadar: false },
         'organisateur.documents.rapport',
+        createSupabaseServerClient(),
       );
       if (reponse.ok) {
         await marquerConsulte(

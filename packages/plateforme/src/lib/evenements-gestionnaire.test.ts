@@ -57,6 +57,29 @@ function ag(
 }
 
 describe('M3.2 / bilan consolidé d’un événement', () => {
+  it('EVT/fiche_evenement_rapports_cumules_pesee_par_pax — pesée par pax et repas par pax : Σ des collectes réalisées / Σ de LEURS convives, collecte à 0 convive écartée des deux sommes (Val 2026-10-27)', () => {
+    const b = consoliderEvenement([
+      zd('cloturee', [flux('biodechet', 300)], { pax: 200 }),
+      // Réalisée mais convives inconnus : écartée du ratio, pas du tonnage.
+      zd('cloturee', [flux('biodechet', 500)], { pax: 0 }),
+      // Pas encore réalisée : ne compte nulle part.
+      zd('validee', [flux('biodechet', 900)], { pax: 400 }),
+      ag('cloturee', 120, 'Restos', { pax: 300 }),
+      ag('realisee_sans_collecte', null, null, { pax: 100 }),
+      ag('cloturee', 80, 'Linkee', { pax: null }),
+    ]);
+    expect(b.tonnage_zd_kg).toBe(800);
+    expect(b.convives_zd).toBe(200);
+    expect(b.pesee_par_pax_kg).toBe(1.5);
+    expect(b.repas_donnes).toBe(200);
+    expect(b.convives_ag).toBe(400);
+    expect(b.repas_par_pax).toBe(0.3);
+    // Sans convives connus : « — », jamais une division par evenements.pax.
+    const sans = consoliderEvenement([zd('cloturee', [flux('verre', 10)])]);
+    expect(sans.convives_zd).toBeNull();
+    expect(sans.pesee_par_pax_kg).toBeNull();
+  });
+
   it('M3.2/evenement_bilan_cumule_les_collectes_zd — tonnage, flux et CO₂ sommés sur les collectes réalisées', () => {
     const b = consoliderEvenement([
       zd('cloturee', [flux('biodechet', 100), flux('verre', 50)], {

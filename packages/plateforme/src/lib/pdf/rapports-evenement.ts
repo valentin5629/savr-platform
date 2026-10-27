@@ -13,7 +13,8 @@
 // Indépendant du rôle : la route de l'espace établit l'accès sous l'identité du
 // demandeur (`lireEvenementVisible`) et passe les collectes qu'il voit.
 //  - ZD : les mesures figées de CES collectes sont relues en service-role, comme
-//    le rapport d'une collecte (payload-rapport) ;
+//    le rapport d'une collecte (payload-rapport) ; le numéro de bordereau n'est
+//    imprimé que si le demandeur lit ce bordereau sous sa RLS (« — » sinon) ;
 //  - AG : relues SOUS L'IDENTITÉ du demandeur, par le chemin de la fiche
 //    collecte (attribution par rôle — la vue v_attributions_gestionnaire pour
 //    le gestionnaire —, attestation sous sa RLS) : le PDF n'imprime jamais un
@@ -51,6 +52,7 @@ import {
 } from '@/lib/evenements-gestionnaire.js';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte.js';
 
+import { lireBordereauxVisibles } from './bordereaux-visibles.js';
 import { convivesImprimes } from './convives-imprimes.js';
 import {
   buildEquivalences,
@@ -111,7 +113,7 @@ const SELECT_ZD = `id, type, statut, date_collecte, heure_collecte, pax,
 // Alias explicite `attributions_lues` posé sur la relation que le rôle lit : la
 // vue pour le gestionnaire (fragment déjà aliasé), la table pour les autres.
 export const selectAg = (role: string) =>
-  `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
+  `id, type, statut, date_collecte, heure_collecte, pax, taux_recyclage, co2_evite_kg,
   attributions_lues:${embedAttributionsAg(role).replace(/^attributions_antgaspi:/, '')},
   attestations_don(numero, version, pdf_url, eligible_at)`;
 
@@ -203,7 +205,7 @@ function aplatir(c: CollecteMesuree): CollecteMesuree {
 
 function payloadZd(
   collectes: CollecteMesuree[],
-  pax: number | null,
+  bordereauxVisibles: Set<string>,
 ): Record<string, unknown> {
   const b = consoliderEvenement(collectes);
   const noms = new Map<string, string>();
@@ -226,7 +228,8 @@ function payloadZd(
     [...collectes].reverse().find((c) => c.co2_facteurs_snapshot)
       ?.co2_facteurs_snapshot ?? null;
   return {
-    nb_pax: convivesImprimes(pax),
+    // Convives des seules collectes cumulées (décision Val 2026-10-27).
+    nb_pax: convivesImprimes(b.convives_zd),
     taux_recyclage: b.taux_recyclage,
     flux,
     poids_total_kg: b.tonnage_zd_kg ?? 0,
@@ -242,14 +245,15 @@ function payloadZd(
       poids_kg: poidsCollecte(c),
       taux_recyclage: c.taux_recyclage,
       co2_evite_kg: c.co2_evite_kg,
-      bordereau_numero: derniere(c.bordereaux_savr)?.numero ?? null,
+      bordereau_numero: bordereauxVisibles.has(c.id)
+        ? (derniere(c.bordereaux_savr)?.numero ?? null)
+        : null,
     })),
   };
 }
 
 async function payloadAg(
   collectes: CollecteMesuree[],
-  pax: number | null,
   admin: SupabaseClient,
   tailleEnTete: number,
 ): Promise<Record<string, unknown>> {
@@ -276,8 +280,9 @@ async function payloadAg(
     });
   }
   return {
-    nb_pax: convivesImprimes(pax),
+    nb_pax: convivesImprimes(b.convives_ag),
     repas_donnes: b.repas_donnes ?? 0,
+    repas_par_pax: b.repas_par_pax,
     co2_evite_kg: b.co2_evite_ag_kg,
     associations,
     collectes: collectes.map((c) => {
@@ -325,7 +330,7 @@ export async function fabriquerRapportEvenement(params: {
   const [evRes, colRes] = await Promise.all([
     admin
       .from('evenements')
-      .select(`pax, ${SELECT_EVENEMENT_RAPPORT}`)
+      .select(SELECT_EVENEMENT_RAPPORT)
       .eq('id', evenementId)
       .maybeSingle(),
     (type === ZD
@@ -338,9 +343,7 @@ export async function fabriquerRapportEvenement(params: {
   ]);
   if (evRes.error) return serverError(evRes.error, evenementLog);
   if (colRes.error) return serverError(colRes.error, evenementLog);
-  const ev = evRes.data as unknown as
-    | (EvenementRapportRow & { pax: number | null })
-    | null;
+  const ev = evRes.data as unknown as EvenementRapportRow | null;
   if (!ev) return refus('Événement introuvable', 404);
 
   // Relues : seules celles qui ont encore un résultat comptent (une collecte qui
@@ -356,6 +359,18 @@ export async function fabriquerRapportEvenement(params: {
     );
   if (mesurees.length === 0) return refus(AUCUN_RESULTAT, 409);
 
+  // Bordereaux que le demandeur lit sous sa RLS (cf. en-tête) ; une lecture en
+  // échec refuse le rapport plutôt que d'imprimer un numéro par défaut.
+  let bordereauxVisibles = new Set<string>();
+  if (type === ZD) {
+    const lus = await lireBordereauxVisibles(
+      rls,
+      mesurees.map((c) => c.id),
+    );
+    if (!lus.ok) return serverError(lus.erreur, evenementLog);
+    bordereauxVisibles = lus.collectes;
+  }
+
   const deuxTypes = new Set(collectes.map((c) => c.type)).size > 1;
   const enTete = await enTeteRapport(ev);
   const payload: Record<string, unknown> = {
@@ -366,13 +381,8 @@ export async function fabriquerRapportEvenement(params: {
       deuxTypes ? libelleTypeCollecte(type) : '',
     ),
     ...(type === ZD
-      ? payloadZd(mesurees, ev.pax)
-      : await payloadAg(
-          mesurees,
-          ev.pax,
-          admin,
-          JSON.stringify(enTete.champs).length,
-        )),
+      ? payloadZd(mesurees, bordereauxVisibles)
+      : await payloadAg(mesurees, admin, JSON.stringify(enTete.champs).length)),
   };
   if (type === ZD && version.avecRadar) {
     payload.options = { benchmark: true };

@@ -248,4 +248,30 @@ describe('Fiche événement — frise Créé → Réalisé (Val 2026-10-26)', ()
   it('EVT-FRISE/sans_collecte — aucune collecte : « Créé »', () => {
     expect(courante([])).toBe('Créé');
   });
+
+  it('EVT-FRISE/rejetee_et_brouillon_ignores — une collecte refusée par le prestataire ou en brouillon ne retient pas la frise (Val 2026-10-27)', () => {
+    expect(courante(['rejetee_par_prestataire', 'cloturee'])).toBe('Réalisé');
+    expect(courante(['brouillon', 'validee'])).toBe('Validé');
+    // Seule, elle n'annule pas l'événement : rien n'a avancé, « Créé ».
+    expect(courante(['rejetee_par_prestataire'])).toBe('Créé');
+    expect(courante(['brouillon', 'annulee'])).toBe('Annulé');
+  });
+
+  // Scénario Outline 06.05 fiche_evenement_frise_avancement, ligne par ligne.
+  it.each([
+    [['validee', 'cloturee'], 'Validé'],
+    [['cloturee', 'cloturee'], 'Réalisé'],
+    [['realisee', 'cloturee'], 'En cours'],
+    [['annulee', 'cloturee'], 'Réalisé'],
+    [['annulation_demandee', 'validee'], 'Validé'],
+    [['rejetee_par_prestataire', 'cloturee'], 'Réalisé'],
+    [['brouillon', 'validee'], 'Validé'],
+    [['annulee', 'annulee'], 'Annulé'],
+    [[], 'Créé'],
+  ])(
+    'EVT-FRISE/fiche_evenement_frise_avancement — %j → « %s »',
+    (statuts, etape) => {
+      expect(courante(statuts)).toBe(etape);
+    },
+  );
 });

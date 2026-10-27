@@ -9,6 +9,7 @@ import {
 } from '@/lib/api-auth.js';
 import { messageErreur, serverError } from '@/lib/api-helpers.js';
 import { reponseFiltreInterdit } from '@/lib/collectes/benchmark-fiche.js';
+import { lireBordereauxVisibles } from '@/lib/pdf/bordereaux-visibles.js';
 import { construirePayloadRapport } from '@/lib/pdf/payload-rapport.js';
 import { generatePdf } from '@/lib/pdf/railway-client.js';
 import {
@@ -37,7 +38,9 @@ import {
 // J+1) n'est jamais contourné, et le radar est calculé par la fonction de l'écran
 // sous l'identité de l'appelant : même k-anonymat pour l'Admin que pour un client,
 // ce PDF part chez le client. Les données mesurées sont lues en service-role
-// (construirePayloadRapport), une fois l'accès établi.
+// (construirePayloadRapport), une fois l'accès établi — sauf le numéro du
+// bordereau, imprimé seulement si le demandeur lit ce bordereau sous sa RLS
+// (décision Val 2026-10-27, cf. bordereaux-visibles).
 
 const radarIndisponible = (sujet: string) =>
   `La comparaison au parc n’est pas disponible pour ${sujet}.`;
@@ -139,14 +142,24 @@ function nomFichier(dateCollecte: unknown, id: string): string {
   return `rapport-recyclage-${m ? `${m[3]}-${m[2]}-${m[1]}` : id.slice(0, 8)}.pdf`;
 }
 
-/** Fabrique le PDF d'une collecte ZD dont l'accès est établi. */
+/**
+ * Fabrique le PDF d'une collecte ZD dont l'accès est établi. `lecteur` = le
+ * client sous l'identité du demandeur, qui dit si le numéro du bordereau
+ * s'imprime ; 'staff' = l'équipe Savr, qui lit tous les bordereaux.
+ */
 export async function fabriquerRapport(
   id: string,
   version: VersionRapport,
   evenementLog: string,
+  lecteur: ReturnType<typeof createSupabaseServerClient> | 'staff',
 ): Promise<NextResponse> {
   const admin = createAdminSupabaseClient();
-  const construit = await construirePayloadRapport(admin, id);
+  const [construit, visibles] = await Promise.all([
+    construirePayloadRapport(admin, id),
+    lecteur === 'staff' ? null : lireBordereauxVisibles(lecteur, [id]),
+  ]);
+  if (visibles && !visibles.ok)
+    return serverError(visibles.erreur, evenementLog);
   if (!construit.ok) {
     return construit.code === 'DB_ERROR'
       ? serverError(construit.erreur, evenementLog)
@@ -156,6 +169,9 @@ export async function fabriquerRapport(
         );
   }
   const payload = construit.payload;
+  if (visibles && !visibles.collectes.has(id)) {
+    (payload.bordereau as { numero: string }).numero = '—';
+  }
   if (version.avecRadar) {
     payload.options = { benchmark: true };
     payload.benchmark_flux = version.radar.benchmark_flux;
@@ -262,7 +278,7 @@ export async function repondreRapportClient(
   );
   if ('refus' in lu) return lu.refus;
 
-  const reponse = await fabriquerRapport(id, lu.version, evenementLog);
+  const reponse = await fabriquerRapport(id, lu.version, evenementLog, rls);
 
   if (reponse.ok && ligne) {
     await marquerConsulte(ligne.id, ligne.consulte_par_user_at, evenementLog);
@@ -331,5 +347,5 @@ export async function repondreRapportStaff(
     filtresParDefaut,
   );
   if ('refus' in lu) return lu.refus;
-  return fabriquerRapport(id, lu.version, evenementLog);
+  return fabriquerRapport(id, lu.version, evenementLog, 'staff');
 }

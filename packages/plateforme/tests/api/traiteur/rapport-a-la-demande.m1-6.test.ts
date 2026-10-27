@@ -22,6 +22,7 @@ function makeClient() {
     const c: Record<string, unknown> = {
       select: () => c,
       eq: () => c,
+      in: () => c,
       is: () => c,
       order: () => c,
       limit: () => c,
@@ -102,7 +103,7 @@ const PDF = Buffer.from('%PDF-1.7 rapport');
 const PAYLOAD = () => ({
   nom_evenement: 'Gala',
   options: { benchmark: false },
-  bordereau: { date_collecte: '28/09/2026' },
+  bordereau: { numero: 'BSAV-2026-0001', date_collecte: '28/09/2026' },
 });
 
 /** Collecte ZD visible, rapport sorti d'embargo, jamais téléchargé par un client. */
@@ -119,6 +120,8 @@ function rapportDisponible() {
     },
     error: null,
   };
+  // Son bordereau, lisible sous sa RLS (bord_*_select).
+  rls.results.bordereaux_savr = { data: [{ collecte_id: 'c1' }], error: null };
 }
 
 const RADAR = {
@@ -174,6 +177,31 @@ describe('M1.6 / rapport de recyclage fabriqué au clic — accès (RPT-04)', ()
     // Données mesurées lues en service-role, une fois l'accès établi.
     expect(mockPayload).toHaveBeenCalledWith(admin, 'c1');
     expect(mockPdf.mock.calls[0]![0]).toBe('rapport-recyclage-zd');
+  });
+
+  it('RPT-BORD/numero_masque_hors_rls — bordereau refusé au demandeur par bord_*_select : le rapport imprime « — » à la place du numéro (décision Val 2026-10-27)', async () => {
+    rapportDisponible();
+    expect((await rapport()).status).toBe(200);
+    expect((payloadRendu().bordereau as { numero: string }).numero).toBe(
+      'BSAV-2026-0001',
+    );
+
+    mockPdf.mockClear();
+    rls.results.bordereaux_savr = { data: [], error: null };
+    for (const espace of ['traiteur', 'agence', 'gestionnaire'] as const) {
+      mockPdf.mockClear();
+      expect((await rapport(undefined, espace)).status).toBe(200);
+      expect((payloadRendu().bordereau as { numero: string }).numero).toBe('—');
+    }
+
+    // Lecture du bordereau en échec : aucun numéro par défaut, rien de fabriqué.
+    mockPdf.mockClear();
+    rls.results.bordereaux_savr = {
+      data: null,
+      error: { code: '57014', message: 'timeout' },
+    };
+    expect((await rapport()).status).toBe(500);
+    expect(mockPdf).not.toHaveBeenCalled();
   });
 
   it('cross-org (collecte existe mais hors périmètre RLS) → 403, rien n’est fabriqué', async () => {

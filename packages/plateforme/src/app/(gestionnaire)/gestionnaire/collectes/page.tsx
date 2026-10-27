@@ -10,7 +10,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ClipboardList, Download } from 'lucide-react';
+import { ClipboardTextIcon, DownloadSimpleIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import {
@@ -559,7 +559,7 @@ function GestionnaireCollectesContent() {
     <SqueletteListe />
   ) : rows.length === 0 ? (
     <EmptyState
-      icon={<ClipboardList />}
+      icon={<ClipboardTextIcon />}
       title="Aucune collecte"
       description="Aucune collecte sur vos lieux pour ce périmètre."
     />
@@ -602,7 +602,7 @@ function GestionnaireCollectesContent() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<ClipboardList className="h-6 w-6 text-savr-primary-200" />}
+        icon={<ClipboardTextIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Collectes"
         subtitle="Collectes sur les lieux de votre organisation · cliquez une ligne pour ouvrir la fiche"
         actions={
@@ -612,7 +612,7 @@ function GestionnaireCollectesContent() {
               window.open(`/api/v1/exports/collectes?${qsFiltres}`)
             }
           >
-            <Download />
+            <DownloadSimpleIcon />
             Exporter CSV
           </Button>
         }

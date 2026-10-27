@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Copy, Plus, X } from 'lucide-react';
+import { CopyIcon, PlusIcon, XIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { IconButton } from '@/components/ui/icon-button';
@@ -183,7 +183,7 @@ export function HorairesOuvertureEditor({
                   aria-label={`Ajouter des horaires le ${jourMin}`}
                   onClick={() => ouvrirJour(jourIndex)}
                 >
-                  <Plus />
+                  <PlusIcon />
                 </IconButton>
               </div>
             ) : (
@@ -217,7 +217,7 @@ export function HorairesOuvertureEditor({
                       aria-label={`Retirer le créneau ${creneauIndex + 1} du ${jourMin}`}
                       onClick={() => retirerCreneau(jourIndex, creneauIndex)}
                     >
-                      <X />
+                      <XIcon />
                     </IconButton>
                     {creneauIndex === 0 && (
                       <>
@@ -225,7 +225,7 @@ export function HorairesOuvertureEditor({
                           aria-label={`Ajouter un créneau le ${jourMin}`}
                           onClick={() => ajouterCreneau(jourIndex)}
                         >
-                          <Plus />
+                          <PlusIcon />
                         </IconButton>
                         <CopierHoraires
                           source={jour.jour}
@@ -265,7 +265,7 @@ function CopierHoraires({
     >
       <PopoverTrigger asChild>
         <IconButton aria-label={`Copier les horaires du ${jourMin}`}>
-          <Copy />
+          <CopyIcon />
         </IconButton>
       </PopoverTrigger>
       <PopoverContent className="w-56">

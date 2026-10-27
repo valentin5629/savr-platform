@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { Menu, Bell, LogOut } from 'lucide-react';
+import { BellIcon, ListIcon, SignOutIcon } from '@/components/ui/icones';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -59,7 +59,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
               className="lg:hidden"
               aria-label="Ouvrir le menu"
             >
-              <Menu aria-hidden="true" />
+              <ListIcon aria-hidden="true" />
             </IconButton>
           )}
           {title && (
@@ -71,7 +71,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
 
         <div className="flex items-center gap-2">
           <IconButton size="sm" aria-label="Notifications">
-            <Bell aria-hidden="true" />
+            <BellIcon aria-hidden="true" />
           </IconButton>
 
           {userName && (
@@ -91,7 +91,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
             className="h-9 px-3 font-medium text-savr-neutral-600 hover:bg-savr-neutral-100 sm:h-9 [&>svg]:h-5 [&>svg]:w-5"
             aria-label="Se déconnecter"
           >
-            <LogOut className="h-5 w-5" aria-hidden="true" />
+            <SignOutIcon className="h-5 w-5" aria-hidden="true" />
             <span className="hidden sm:inline">
               {loggingOut ? 'Déconnexion…' : 'Se déconnecter'}
             </span>

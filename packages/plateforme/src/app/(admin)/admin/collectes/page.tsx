@@ -3,16 +3,16 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Truck,
-  Plus,
-  Download,
-  UtensilsCrossed,
-  Leaf,
-  ArrowRight,
-  IdCard,
-  FileWarning,
-  type LucideIcon,
-} from 'lucide-react';
+  type Icone,
+  ArrowRightIcon,
+  DownloadSimpleIcon,
+  FileDashedIcon,
+  ForkKnifeIcon,
+  IdentificationCardIcon,
+  LeafIcon,
+  PlusIcon,
+  TruckIcon,
+} from '@/components/ui/icones';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -183,7 +183,7 @@ function KpiTile({
   active,
   onClick,
 }: {
-  icon: LucideIcon;
+  icon: Icone;
   count: number;
   label: string;
   sublabel: string;
@@ -215,7 +215,7 @@ function KpiTile({
           {sublabel}
         </Text>
       </div>
-      <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-savr-neutral-300" />
+      <ArrowRightIcon className="ml-auto h-4 w-4 shrink-0 text-savr-neutral-300" />
     </ChoiceCard>
   );
 }
@@ -586,7 +586,7 @@ export default function CollectesPage() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<Truck className="h-6 w-6 text-savr-primary-200" />}
+        icon={<TruckIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Collectes"
         subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi · cliquez une ligne pour ouvrir la fiche"
         actions={
@@ -600,12 +600,12 @@ export default function CollectesPage() {
                 window.open(`/api/v1/exports/collectes?${filtresListe}`)
               }
             >
-              <Download />
+              <DownloadSimpleIcon />
               Exporter CSV
             </Button>
             <Button asChild variant="accent">
               <Link href={ROUTES.programmer.nouveau}>
-                <Plus />
+                <PlusIcon />
                 Programmer une collecte
               </Link>
             </Button>
@@ -633,7 +633,7 @@ export default function CollectesPage() {
       {tab === 'a_venir' && (
         <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           <KpiTile
-            icon={UtensilsCrossed}
+            icon={ForkKnifeIcon}
             count={chipCounts.ag_a_dispatcher ?? 0}
             label="AG à dispatcher"
             sublabel="validées transporteur"
@@ -642,7 +642,7 @@ export default function CollectesPage() {
             onClick={() => basculerADispatcher('non_transmises_ag')}
           />
           <KpiTile
-            icon={Leaf}
+            icon={LeafIcon}
             count={chipCounts.zd_a_dispatcher ?? 0}
             label="ZD à dispatcher"
             sublabel="validées transporteur"
@@ -651,7 +651,7 @@ export default function CollectesPage() {
             onClick={() => basculerADispatcher('non_transmises_zd')}
           />
           <KpiTile
-            icon={IdCard}
+            icon={IdentificationCardIcon}
             count={chipCounts.controle_acces_a_envoyer ?? 0}
             label="Infos accès à envoyer"
             sublabel="chauffeur non communiqué"
@@ -660,7 +660,7 @@ export default function CollectesPage() {
             onClick={() => set({ controle_acces: controleAcces ? '' : '1' })}
           />
           <KpiTile
-            icon={FileWarning}
+            icon={FileDashedIcon}
             count={chipCounts.infos_a_recuperer ?? 0}
             label="Infos à récupérer"
             sublabel="infos traiteur manquantes"
@@ -802,7 +802,7 @@ export default function CollectesPage() {
         }
         empty={
           <EmptyState
-            icon={<Truck className="h-8 w-8" />}
+            icon={<TruckIcon className="h-8 w-8" />}
             title="Aucune collecte"
             description="Aucune collecte ne correspond à ce filtre."
           />

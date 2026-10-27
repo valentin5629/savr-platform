@@ -2,15 +2,15 @@
 
 import * as React from 'react';
 import {
-  Building2,
-  ClipboardList,
-  Lock,
-  MapPin,
-  Phone,
-  Truck,
-  UserRound,
-  Workflow,
-} from 'lucide-react';
+  BuildingsIcon,
+  ClipboardTextIcon,
+  FlowArrowIcon,
+  LockSimpleIcon,
+  MapPinIcon,
+  PhoneIcon,
+  TruckIcon,
+  UserCircleIcon,
+} from '@/components/ui/icones';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -194,9 +194,9 @@ function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
       titre={transporteur.nom}
       infosTestId="fiche-transporteur-sous-ligne"
       infos={[
-        { icon: MapPin, texte: lieu || '—' },
-        { icon: Truck, texte: vehicules || '—' },
-        { icon: Phone, texte: transporteur.contact_telephone || '—' },
+        { icon: MapPinIcon, texte: lieu || '—' },
+        { icon: TruckIcon, texte: vehicules || '—' },
+        { icon: PhoneIcon, texte: transporteur.contact_telephone || '—' },
       ]}
       statut={<ActifBadge actif={transporteur.actif} />}
     />
@@ -427,7 +427,7 @@ export function TransporteurModal({
 
             <TabsContent value="identite" className="space-y-3">
               <Card padding="md" className="space-y-4">
-                <SectionHeader icon={Building2} title="Société" />
+                <SectionHeader icon={BuildingsIcon} title="Société" />
                 <FormGrid>
                   <FormField
                     label="Nom du transporteur"
@@ -463,7 +463,7 @@ export function TransporteurModal({
               </Card>
 
               <Card padding="md" className="space-y-4">
-                <SectionHeader icon={UserRound} title="Contact jour J" />
+                <SectionHeader icon={UserCircleIcon} title="Contact jour J" />
                 <FormGrid>
                   <FormField
                     label="Nom du contact"
@@ -517,7 +517,7 @@ export function TransporteurModal({
               </Card>
 
               <Card padding="md" className="space-y-4">
-                <SectionHeader icon={MapPin} title="Adresse" />
+                <SectionHeader icon={MapPinIcon} title="Adresse" />
                 <FormGrid>
                   <FormField
                     label="Adresse"
@@ -572,7 +572,7 @@ export function TransporteurModal({
 
             <TabsContent value="capacites" className="space-y-3">
               <Card padding="md" className="space-y-4">
-                <SectionHeader icon={Truck} title="Véhicules et flux" />
+                <SectionHeader icon={TruckIcon} title="Véhicules et flux" />
                 <FormField
                   label="Type(s) de véhicule"
                   htmlFor="tm_types_vehicules"
@@ -630,7 +630,7 @@ export function TransporteurModal({
 
               <Card padding="md" className="space-y-4">
                 <SectionHeader
-                  icon={ClipboardList}
+                  icon={ClipboardTextIcon}
                   title="Process de collecte"
                 />
                 <FormField
@@ -653,7 +653,7 @@ export function TransporteurModal({
             <TabsContent value="connexion" className="space-y-3">
               <AlertBar
                 variant="info"
-                icon={<Lock />}
+                icon={<LockSimpleIcon />}
                 data-testid="bandeau-immuabilite"
               >
                 {isEdition
@@ -663,7 +663,7 @@ export function TransporteurModal({
 
               <Card padding="md" className="space-y-4">
                 <SectionHeader
-                  icon={Workflow}
+                  icon={FlowArrowIcon}
                   title="Transmission des collectes"
                 />
                 <FormGrid>

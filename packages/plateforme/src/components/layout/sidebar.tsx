@@ -8,7 +8,7 @@ import { NAV_CONFIG, hrefNavActif } from '@/lib/nav-config';
 import type { NavRole } from '@/lib/roles';
 import { useLogoZd, isZdSectionPath } from '@/components/layout/logo-context';
 import { SavrLogoMark } from '@/components/layout/savr-logo';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CaretLeftIcon, CaretRightIcon } from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { IconButton } from '@/components/ui/icon-button';
 
@@ -151,9 +151,9 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
               }
             >
               {collapsed ? (
-                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                <CaretRightIcon className="h-4 w-4" aria-hidden="true" />
               ) : (
-                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                <CaretLeftIcon className="h-4 w-4" aria-hidden="true" />
               )}
             </IconButton>
           </div>

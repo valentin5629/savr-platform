@@ -2,15 +2,15 @@
 
 import * as React from 'react';
 import {
-  Building2,
-  ChefHat,
-  History,
+  BuildingsIcon,
+  ChefHatIcon,
+  ClockCounterClockwiseIcon,
   ImageIcon,
-  KeyRound,
-  Lock,
-  MapPin,
-  Truck,
-} from 'lucide-react';
+  KeyIcon,
+  LockSimpleIcon,
+  MapPinIcon,
+  TruckIcon,
+} from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -566,14 +566,14 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
             titre={lieuCharge.nom}
             infos={[
               {
-                icon: MapPin,
+                icon: MapPinIcon,
                 texte:
                   [lieuCharge.ville, lieuCharge.code_postal]
                     .filter(Boolean)
                     .join(' ') || '—',
               },
               {
-                icon: Truck,
+                icon: TruckIcon,
                 texte:
                   VEHICULE_LABEL[lieuCharge.type_vehicule_max] ??
                   lieuCharge.type_vehicule_max,
@@ -642,7 +642,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
 
               <TabsContent value="informations" className="space-y-4">
                 <Card padding="md" className="space-y-4">
-                  <SectionHeader icon={Building2} title="Identité" />
+                  <SectionHeader icon={BuildingsIcon} title="Identité" />
                   <FormGrid>
                     <FormField
                       label="Nom du lieu"
@@ -699,7 +699,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                 </Card>
 
                 <Card padding="md" className="space-y-4">
-                  <SectionHeader icon={MapPin} title="Adresse" />
+                  <SectionHeader icon={MapPinIcon} title="Adresse" />
                   <FormGrid cols={3}>
                     <FormField
                       label="Adresse accès livraison"
@@ -767,7 +767,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
 
               <TabsContent value="acces" className="space-y-4">
                 <Card padding="md" className="space-y-4">
-                  <SectionHeader icon={KeyRound} title="Accès au lieu" />
+                  <SectionHeader icon={KeyIcon} title="Accès au lieu" />
                   <FormGrid cols={3}>
                     <FormField
                       label="Type de véhicule max"
@@ -837,7 +837,10 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                 </Card>
 
                 <Card padding="md" className="space-y-4">
-                  <SectionHeader icon={Truck} title="Capacité et contraintes" />
+                  <SectionHeader
+                    icon={TruckIcon}
+                    title="Capacité et contraintes"
+                  />
                   <FormGrid cols={3}>
                     <FormField
                       label="Capacité maximum"
@@ -919,12 +922,18 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
 
               {/* Admin / Ops (RLS column-level — invisible côté client, §06.06 §7). */}
               <TabsContent value="interne" className="space-y-4">
-                <AlertBar variant="info" icon={<Lock className="h-4 w-4" />}>
+                <AlertBar
+                  variant="info"
+                  icon={<LockSimpleIcon className="h-4 w-4" />}
+                >
                   Ces informations ne sont jamais montrées aux clients
                   (traiteur, agence, gestionnaire, client organisateur).
                 </AlertBar>
                 <Card padding="md" className="space-y-4">
-                  <SectionHeader icon={Lock} title="Réservé à l'équipe Savr" />
+                  <SectionHeader
+                    icon={LockSimpleIcon}
+                    title="Réservé à l'équipe Savr"
+                  />
                   <FormField
                     label="Commentaire sur le lieu"
                     htmlFor="lm_commentaire_lieu"
@@ -1003,7 +1012,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                     <>
                       <Card padding="md" className="space-y-4">
                         <SectionHeader
-                          icon={ChefHat}
+                          icon={ChefHatIcon}
                           title="Traiteurs opérant"
                         />
                         {activite.traiteurs.length === 0 ? (
@@ -1035,7 +1044,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
 
                       <Card padding="md" className="space-y-4">
                         <SectionHeader
-                          icon={History}
+                          icon={ClockCounterClockwiseIcon}
                           title="Historique des modifications"
                         />
                         {activite.historique.length === 0 ? (

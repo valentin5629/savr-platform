@@ -24,7 +24,12 @@ import { ListFooter } from '@/components/ui/list-footer';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, CreditCard, FlaskConical, Percent } from 'lucide-react';
+import {
+  ChartBarIcon,
+  CreditCardIcon,
+  FlaskIcon,
+  PercentIcon,
+} from '@/components/ui/icones';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -186,7 +191,7 @@ export function OngletCollectes({
     return (
       <Card padding="lg">
         <EmptyState
-          icon={<BarChart3 />}
+          icon={<ChartBarIcon />}
           title="Aucune collecte"
           description="Cette organisation n'a aucune collecte enregistrée."
         />
@@ -306,7 +311,7 @@ export function OngletFactures({
     return (
       <Card padding="lg">
         <EmptyState
-          icon={<CreditCard />}
+          icon={<CreditCardIcon />}
           title="Aucune facture"
           description="Cette organisation n'a aucune facture."
         />
@@ -839,7 +844,7 @@ export function OngletCoefficients({
 
       {coefs.length === 0 ? (
         <EmptyState
-          icon={<FlaskConical />}
+          icon={<FlaskIcon />}
           title="Aucun coefficient communiqué"
           description="Aucun coefficient de perte labo n'a été saisi pour ce traiteur."
         />
@@ -1210,7 +1215,7 @@ export function OngletRemises({
 
       {remises.length === 0 ? (
         <EmptyState
-          icon={<Percent />}
+          icon={<PercentIcon />}
           title="Aucune remise négociée"
           description={
             estGestionnaire

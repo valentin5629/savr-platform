@@ -1,4 +1,4 @@
-import { Leaf, UtensilsCrossed } from 'lucide-react';
+import { ForkKnifeIcon, LeafIcon } from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -52,7 +52,7 @@ export function TypeCollecteBadge({
     );
   }
   const ag = normaliserTypeCollecte(type) === 'anti_gaspi';
-  const Icone = ag ? UtensilsCrossed : Leaf;
+  const Icone = ag ? ForkKnifeIcon : LeafIcon;
   return (
     <Badge
       variant={variantTypeCollecte(type)}

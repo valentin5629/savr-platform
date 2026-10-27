@@ -2,16 +2,16 @@
 
 import Link from 'next/link';
 import {
-  Users,
-  Table2,
-  Package,
-  Recycle,
-  Leaf,
-  Sparkles,
-  CheckCheck,
-  Mail,
-  type LucideIcon,
-} from 'lucide-react';
+  type Icone,
+  ChecksIcon,
+  EnvelopeSimpleIcon,
+  LeafIcon,
+  PackageIcon,
+  RecycleIcon,
+  SparkleIcon,
+  TableIcon,
+  UsersIcon,
+} from '@/components/ui/icones';
 import { Card } from '@/components/ui/card';
 import { Heading } from '@/components/ui/heading';
 import { PageHeader } from '@/components/ui/page-header';
@@ -21,7 +21,7 @@ import { ROUTES } from '@/lib/routes';
 interface ParamLink {
   label: string;
   href: string;
-  icon: LucideIcon;
+  icon: Icone;
   description: string;
 }
 
@@ -31,49 +31,49 @@ const SECTIONS: ParamLink[] = [
   {
     label: 'Utilisateurs',
     href: ROUTES.admin.settingsUsers,
-    icon: Users,
+    icon: UsersIcon,
     description: 'Comptes staff Savr (admin / ops)',
   },
   {
     label: 'Grilles tarifaires ZD',
     href: ROUTES.admin.parametresGrillesZd,
-    icon: Table2,
+    icon: TableIcon,
     description: 'Catalogue des grilles ZD + versionnement',
   },
   {
     label: 'Tarifs packs AG',
     href: ROUTES.admin.parametresTarifsAg,
-    icon: Package,
+    icon: PackageIcon,
     description: 'Grille publique des packs Anti-Gaspi',
   },
   {
     label: 'Taux de recyclage',
     href: ROUTES.admin.parametresTauxRecyclage,
-    icon: Recycle,
+    icon: RecycleIcon,
     description: 'Taux de captation par filière',
   },
   {
     label: 'Facteurs CO₂',
     href: ROUTES.admin.parametresCo2,
-    icon: Leaf,
+    icon: LeafIcon,
     description: 'Facteurs ADEME, mix emballages, forfaits',
   },
   {
     label: 'Algo attribution AG',
     href: ROUTES.admin.parametresAlgoAg,
-    icon: Sparkles,
+    icon: SparkleIcon,
     description: 'Paramètres pilotables de l’algo AG',
   },
   {
     label: 'Auto-accept AG',
     href: ROUTES.admin.parametresAutoAccept,
-    icon: CheckCheck,
+    icon: ChecksIcon,
     description: 'Combinaisons association × type d’événement',
   },
   {
     label: 'Templates emails',
     href: ROUTES.admin.parametresTemplates,
-    icon: Mail,
+    icon: EnvelopeSimpleIcon,
     description: '20 templates actifs (consultation)',
   },
 ];

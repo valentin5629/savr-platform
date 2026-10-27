@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye } from 'lucide-react';
+import { EyeIcon, InfoIcon } from '@/components/ui/icones';
 import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
   DashboardFilterBar,
@@ -46,7 +46,7 @@ import {
   type BenchmarkFilters,
 } from '@/components/dashboards/BenchmarkFilterBar.js';
 import { Badge } from '@/components/ui/badge';
-import { Info } from 'lucide-react';
+
 import {
   OrganisationSelector,
   type OrganisationOption,
@@ -431,7 +431,7 @@ export function DashboardClientView() {
       <PageHeader
         title="Dashboard Client"
         tone="neutral"
-        icon={<Eye className="h-6 w-6 text-savr-neutral-600" />}
+        icon={<EyeIcon className="h-6 w-6 text-savr-neutral-600" />}
         actions={
           <Badge variant="info" data-testid="lecture-seule-badge">
             Lecture seule
@@ -527,7 +527,10 @@ export function DashboardClientView() {
               }
               headerRight={
                 co2.eviteKg > 0 ? (
-                  <Info aria-hidden className="h-4 w-4 text-savr-neutral-400" />
+                  <InfoIcon
+                    aria-hidden
+                    className="h-4 w-4 text-savr-neutral-400"
+                  />
                 ) : undefined
               }
             />
@@ -684,7 +687,10 @@ export function DashboardClientView() {
               }
               headerRight={
                 co2.eviteKg > 0 ? (
-                  <Info aria-hidden className="h-4 w-4 text-savr-neutral-400" />
+                  <InfoIcon
+                    aria-hidden
+                    className="h-4 w-4 text-savr-neutral-400"
+                  />
                 ) : undefined
               }
             />

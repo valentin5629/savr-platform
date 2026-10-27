@@ -2,7 +2,11 @@
 
 import { fmtPct } from '@/lib/format';
 import { useEffect, useState } from 'react';
-import { Recycle, Edit, History } from 'lucide-react';
+import {
+  ClockCounterClockwiseIcon,
+  NotePencilIcon,
+  RecycleIcon,
+} from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Card } from '@/components/ui/card';
@@ -215,7 +219,7 @@ export default function TauxRecyclagePage() {
       <PageHeader
         title="Paramètres — Taux de recyclage"
         tone="neutral"
-        icon={<Recycle className="h-6 w-6 text-savr-neutral-600" />}
+        icon={<RecycleIcon className="h-6 w-6 text-savr-neutral-600" />}
       />
 
       {!canEdit && <OpsReadOnlyBanner />}
@@ -240,7 +244,7 @@ export default function TauxRecyclagePage() {
                     variant="secondary"
                     onClick={() => openHistory(f)}
                   >
-                    <History />
+                    <ClockCounterClockwiseIcon />
                     Historique
                   </Button>
                   {canEdit && (
@@ -249,7 +253,7 @@ export default function TauxRecyclagePage() {
                       variant="secondary"
                       onClick={() => openModal(f)}
                     >
-                      <Edit />
+                      <NotePencilIcon />
                       Modifier
                     </Button>
                   )}

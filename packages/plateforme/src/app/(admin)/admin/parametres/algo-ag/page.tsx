@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Settings, AlertTriangle, CheckCircle2, Save } from 'lucide-react';
+import {
+  CheckCircleIcon,
+  FloppyDiskIcon,
+  GearIcon,
+  WarningIcon,
+} from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -92,7 +97,7 @@ export default function AlgoAgParamsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Settings className="h-6 w-6 text-savr-neutral-600" />
+        <GearIcon className="h-6 w-6 text-savr-neutral-600" />
         <div>
           <h1 className="text-xl font-semibold text-savr-neutral-900">
             Paramètres algorithme AG
@@ -106,13 +111,13 @@ export default function AlgoAgParamsPage() {
 
       {error && (
         <div className="flex items-center gap-2 rounded-savr-md border border-savr-error-soft bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <WarningIcon className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
       {successMsg && (
         <div className="flex items-center gap-2 rounded-savr-md border border-savr-success-soft bg-savr-success-subtle px-3 py-2 text-sm text-savr-success-strong">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <CheckCircleIcon className="h-4 w-4 shrink-0" />
           {successMsg}
         </div>
       )}
@@ -175,7 +180,7 @@ export default function AlgoAgParamsPage() {
                     disabled={saving === p.cle}
                     onClick={() => handleSave(p.cle, p.type_valeur)}
                   >
-                    <Save className="mr-1 h-3 w-3" />
+                    <FloppyDiskIcon className="mr-1 h-3 w-3" />
                     {saving === p.cle ? '…' : 'Sauvegarder'}
                   </Button>
                 </div>

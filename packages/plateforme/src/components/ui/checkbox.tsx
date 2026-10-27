@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
-import { Check } from 'lucide-react';
+import { CheckIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 // Checkbox — case à cocher (§10 §6 « Checkbox »). Bâti sur Radix (a11y : role
@@ -25,7 +25,7 @@ const Checkbox = React.forwardRef<
     {...props}
   >
     <CheckboxPrimitive.Indicator className="flex items-center justify-center text-current">
-      <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+      <CheckIcon className="h-3.5 w-3.5" weight="bold" aria-hidden="true" />
     </CheckboxPrimitive.Indicator>
   </CheckboxPrimitive.Root>
 ));

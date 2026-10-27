@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
+import { CheckIcon } from '@/components/ui/icones';
 
 interface Step {
   label: string;
@@ -42,7 +42,11 @@ export function FormStepIndicator({
                 )}
                 aria-current={active ? 'step' : undefined}
               >
-                {done ? <Check className="h-4 w-4" /> : <span>{i + 1}</span>}
+                {done ? (
+                  <CheckIcon className="h-4 w-4" />
+                ) : (
+                  <span>{i + 1}</span>
+                )}
               </div>
               <span
                 className={cn(

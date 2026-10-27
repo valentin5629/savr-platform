@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Truck } from 'lucide-react';
+import { TruckIcon } from '@/components/ui/icones';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { PageHero } from '@/components/ui/page-hero';
@@ -545,7 +545,7 @@ export function ListeCollectesClient({
     <div className="space-y-5">
       <PageHero
         title="Collectes"
-        icon={<Truck className="h-6 w-6" />}
+        icon={<TruckIcon className="h-6 w-6" />}
         subtitle="Vos collectes Zéro Déchet et Anti-Gaspi · cliquez une ligne pour ouvrir la fiche"
         actions={
           // Sur l'aplat navy du bandeau : secondaire (fond blanc) + CTA accent,
@@ -621,7 +621,7 @@ export function ListeCollectesClient({
         }
         empty={
           <EmptyState
-            icon={<Truck className="h-8 w-8" />}
+            icon={<TruckIcon className="h-8 w-8" />}
             title="Aucune collecte"
             description="Aucune collecte ne correspond à ces filtres."
           />

@@ -2,16 +2,16 @@
 
 import * as React from 'react';
 import {
-  Heart,
-  MapPin,
-  User,
-  Clock,
-  DoorOpen,
-  FileText,
-  BadgeCheck,
-  Settings2,
-  UtensilsCrossed,
-} from 'lucide-react';
+  ClockIcon,
+  DoorOpenIcon,
+  FileTextIcon,
+  ForkKnifeIcon,
+  HeartIcon,
+  MapPinIcon,
+  SealCheckIcon,
+  SlidersHorizontalIcon,
+  UserIcon,
+} from '@/components/ui/icones';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -418,9 +418,9 @@ export function AssociationModal({
           }
           titre={association!.nom}
           infos={[
-            { icon: MapPin, texte: association!.ville || '—' },
+            { icon: MapPinIcon, texte: association!.ville || '—' },
             {
-              icon: UtensilsCrossed,
+              icon: ForkKnifeIcon,
               texte:
                 association!.capacite_max_beneficiaires != null
                   ? `${association!.capacite_max_beneficiaires} repas`
@@ -470,7 +470,7 @@ export function AssociationModal({
               forceMount
               className={PANNEAU_ONGLET}
             >
-              <SectionCard icon={Heart} title="Identité">
+              <SectionCard icon={HeartIcon} title="Identité">
                 <FormGrid>
                   <FormField
                     label="Nom de l'association"
@@ -508,7 +508,7 @@ export function AssociationModal({
                 </FormGrid>
               </SectionCard>
 
-              <SectionCard icon={MapPin} title="Adresse">
+              <SectionCard icon={MapPinIcon} title="Adresse">
                 <FormGrid cols={3}>
                   <FormField
                     label="Adresse"
@@ -559,7 +559,7 @@ export function AssociationModal({
                 </FormGrid>
               </SectionCard>
 
-              <SectionCard icon={User} title="Contact">
+              <SectionCard icon={UserIcon} title="Contact">
                 <FormGrid cols={3}>
                   <FormField
                     label="Nom prénom du contact"
@@ -613,14 +613,14 @@ export function AssociationModal({
               forceMount
               className={PANNEAU_ONGLET}
             >
-              <SectionCard icon={Clock} title="Horaires d'ouverture">
+              <SectionCard icon={ClockIcon} title="Horaires d'ouverture">
                 <HorairesOuvertureEditor
                   value={values.horaires_ouverture}
                   onChange={(v) => set('horaires_ouverture', v)}
                 />
               </SectionCard>
 
-              <SectionCard icon={DoorOpen} title="Accès et réception">
+              <SectionCard icon={DoorOpenIcon} title="Accès et réception">
                 <FormField
                   label="Instructions d'accès (pour le transporteur)"
                   htmlFor="am_instructions_acces"
@@ -664,7 +664,7 @@ export function AssociationModal({
             </TabsContent>
 
             <TabsContent value="rapport" forceMount className={PANNEAU_ONGLET}>
-              <SectionCard icon={FileText} title="Rapport d'impact">
+              <SectionCard icon={FileTextIcon} title="Rapport d'impact">
                 <FormField
                   label="Description pour le rapport d'impact (pour le client)"
                   htmlFor="am_description_rapport_impact"
@@ -702,7 +702,7 @@ export function AssociationModal({
               forceMount
               className={PANNEAU_ONGLET}
             >
-              <SectionCard icon={BadgeCheck} title="Habilitation fiscale">
+              <SectionCard icon={SealCheckIcon} title="Habilitation fiscale">
                 <Label
                   variant="choice"
                   className="flex items-center gap-2 font-medium"
@@ -742,7 +742,7 @@ export function AssociationModal({
               </SectionCard>
 
               <SectionCard
-                icon={Settings2}
+                icon={SlidersHorizontalIcon}
                 title="Identification et suivi interne"
               >
                 <FormGrid>

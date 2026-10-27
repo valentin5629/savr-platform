@@ -3,7 +3,7 @@
 import { ErrorState } from '@/components/ui/error-state';
 import { fmtKg, fmtPct } from '@/lib/format';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChefHat } from 'lucide-react';
+import { ChefHatIcon } from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import {
   CelluleVide,
@@ -169,7 +169,7 @@ export default function GestionnaireTraiteursPage() {
   return (
     <div className="space-y-4">
       <PageHero
-        icon={<ChefHat className="h-6 w-6 text-savr-primary-200" />}
+        icon={<ChefHatIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Traiteurs"
         subtitle="Traiteurs intervenus sur vos lieux (24 derniers mois)."
       />
@@ -189,7 +189,7 @@ export default function GestionnaireTraiteursPage() {
           loading={loading}
           empty={
             <EmptyState
-              icon={<ChefHat />}
+              icon={<ChefHatIcon />}
               title="Aucun traiteur"
               description="Aucun traiteur n'est intervenu sur vos lieux au cours des 24 derniers mois."
             />

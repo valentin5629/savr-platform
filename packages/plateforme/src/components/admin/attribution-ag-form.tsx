@@ -15,7 +15,11 @@
 // ligne à ligne — titres / champs / recommandations / listes / aides.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Minus, Plus, Search } from 'lucide-react';
+import {
+  MagnifyingGlassIcon,
+  MinusIcon,
+  PlusIcon,
+} from '@/components/ui/icones';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -624,7 +628,7 @@ export function AttributionAgForm({
                     className="border-r border-savr-neutral-200"
                     onClick={() => changerNbVehicules(-1)}
                   >
-                    <Minus className="h-4 w-4" />
+                    <MinusIcon className="h-4 w-4" />
                   </IconButton>
                   <input
                     id="nb-vehicules"
@@ -648,7 +652,7 @@ export function AttributionAgForm({
                     className="border-l border-savr-neutral-200"
                     onClick={() => changerNbVehicules(1)}
                   >
-                    <Plus className="h-4 w-4" />
+                    <PlusIcon className="h-4 w-4" />
                   </IconButton>
                 </div>
                 <p
@@ -747,7 +751,7 @@ export function AttributionAgForm({
               {/* Option « vide » en tête : permet de revenir à « aucun choix ». */}
               <Combobox
                 id="association-select"
-                icon={<Search className="h-4 w-4" />}
+                icon={<MagnifyingGlassIcon className="h-4 w-4" />}
                 placeholder="Choisir une association…"
                 searchPlaceholder="Rechercher une association…"
                 options={[
@@ -778,7 +782,7 @@ export function AttributionAgForm({
             <FormField label="Transporteur" htmlFor="transporteur-select">
               <Combobox
                 id="transporteur-select"
-                icon={<Search className="h-4 w-4" />}
+                icon={<MagnifyingGlassIcon className="h-4 w-4" />}
                 placeholder="Choisir un transporteur…"
                 searchPlaceholder="Rechercher un prestataire…"
                 options={[

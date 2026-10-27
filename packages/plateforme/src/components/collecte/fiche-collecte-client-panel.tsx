@@ -419,7 +419,7 @@ export function FicheCollecteClientPanel({
       />
 
       {editing && evt ? (
-        <FicheCorps className="py-6">
+        <FicheCorps className="border-t border-savr-sable-200 py-6">
           <EditerCollecteForm
             collecte={{
               id: c.id,

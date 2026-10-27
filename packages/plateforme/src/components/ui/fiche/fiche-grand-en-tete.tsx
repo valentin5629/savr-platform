@@ -74,10 +74,6 @@ export function FicheGrandEnTete({
         </p>
       )}
       {onglets}
-      {/* Sans onglets, un filet sépare l'en-tête du corps. */}
-      {!onglets && (
-        <div aria-hidden="true" className="border-b border-savr-sable-200" />
-      )}
     </header>
   );
 }

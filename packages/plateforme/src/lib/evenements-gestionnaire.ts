@@ -23,6 +23,7 @@
 //    lisible autrement par le rôle, C-1).
 
 import { STATUT_BILAN } from '@/lib/collectes/fiche-client-types';
+import { paxCumules, ratioParPax } from '@/lib/dashboard-kpi';
 import { FLUX_ZD_CODES, type FluxZdCode } from '@/lib/libelles/flux';
 import {
   statutEvenementConsolide,
@@ -43,6 +44,8 @@ export interface CollecteAConsolider {
   type: string;
   statut: string;
   date_collecte: string | null;
+  /** Convives de la collecte (0 ou absent = inconnus). */
+  pax?: number | null;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
   collecte_flux?:
@@ -79,12 +82,22 @@ export interface BilanEvenement {
   nb_sans_excedent: number;
   /** null tant qu'aucune collecte ZD n'est réalisée. */
   tonnage_zd_kg: number | null;
+  /**
+   * Σ des convives des collectes ZD réalisées qui en portent (cf.
+   * `ratioParPax`) ; null si aucune n'en porte.
+   */
+  convives_zd: number | null;
+  /** Pesées de ces mêmes collectes / leurs convives (kg) ; null sans convives. */
+  pesee_par_pax_kg: number | null;
   /** Σ par flux des collectes ZD réalisées (0 pour un flux jamais pesé). */
   flux_kg: Record<FluxZdCode, number>;
   taux_recyclage: number | null;
   co2_evite_zd_kg: number | null;
   /** null tant qu'aucune collecte AG n'est réalisée. */
   repas_donnes: number | null;
+  /** Comme `convives_zd`, sur les collectes AG réalisées. */
+  convives_ag: number | null;
+  repas_par_pax: number | null;
   co2_evite_ag_kg: number | null;
   associations: AssociationBeneficiaire[];
   premiere_collecte: string | null;
@@ -195,6 +208,12 @@ export function consoliderEvenement(
     nb_sans_excedent: agRealisees.filter((c) => c.statut === SANS_EXCEDENT)
       .length,
     tonnage_zd_kg: zdRealisees.length > 0 ? tonnage : null,
+    // Ratios par convive (décision Val 2026-10-27, §06.05 « Pesée par pax du
+    // bilan consolidé ») : convives des seules collectes réalisées, collecte à
+    // 0 convive écartée des deux sommes — règle des dashboards (lot 3). Jamais
+    // evenements.pax.
+    convives_zd: paxCumules(zdRealisees) || null,
+    pesee_par_pax_kg: ratioParPax(zdRealisees, poidsCollecte),
     flux_kg: flux,
     taux_recyclage: tauxDen > 0 ? tauxNum / tauxDen : null,
     co2_evite_zd_kg: sommeFigee(zdRealisees, (c) => c.co2_evite_kg),
@@ -202,6 +221,8 @@ export function consoliderEvenement(
       agRealisees.length > 0
         ? agRealisees.reduce((s, c) => s + repasCollecte(c), 0)
         : null,
+    convives_ag: paxCumules(agRealisees) || null,
+    repas_par_pax: ratioParPax(agRealisees, repasCollecte),
     co2_evite_ag_kg: sommeFigee(agRealisees, (c) => c.co2_evite_kg),
     associations: [...parAssociation.values()].sort(
       (a, b) => b.repas - a.repas || a.nom.localeCompare(b.nom, 'fr'),

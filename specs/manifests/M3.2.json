@@ -1479,6 +1479,22 @@
       "statut": "à-vérifier",
       "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
       "libelle": "Rendu des deux PDF cumulés (avec et sans radar) et de l'onglet « Bilan & documents » (radar, ligne du rapport de l'événement), desktop ET mobile < 640 px. GO visuel de Val à donner sur les aperçus."
+    },
+    {
+      "id": "M3.2-evenement-pesee-par-pax-collectes-realisees",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:339",
+      "artefact": "packages/plateforme/src/lib/evenements-gestionnaire.ts (paxCumules + ratioParPax de lib/dashboard-kpi.ts, convives_zd / pesee_par_pax_kg / convives_ag / repas_par_pax) + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts (collectes.pax) + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (BilanConsolide) + packages/plateforme/src/lib/pdf/rapports-evenement.ts (nb_pax, repas_par_pax) + apps/pdf-renderer/src/templates/rapport-don-evenement.ts (repas_par_pax)",
+      "test": "EVT/fiche_evenement_rapports_cumules_pesee_par_pax + EVT/fiche_evenement_rapports_cumules_convives_zd + EVT/fiche_evenement_rapports_cumules_repas_par_convive + EVT/api_zd_cumul_collectes_visibles + M3.2/evenement_fiche_bilan_consolide_affiche + M3.2/evenement_fiche_pax_absent_et_singulier",
+      "statut": "implemented",
+      "libelle": "Pesée par pax du bilan consolidé de la fiche événement (décision Val 2026-10-27, scénario 06.05 fiche_evenement_rapports_cumules) : pesées cumulées des collectes ZD réalisées divisées par la somme des convives de CES collectes (`collectes.pax`, collecte à 0 convive écartée des deux sommes), plus par `evenements.pax`. Même règle pour « Convives » en page 1 du Rapport RSE de l'événement et pour « repas par convive » du Rapport de don de l'événement (collectes AG réalisées). Le « Repas par pax » de l'écran suit la même règle, pour que l'écran et le PDF disent le même chiffre. Calcul fait une fois, dans consoliderEvenement, pour l'écran et les deux PDF."
+    },
+    {
+      "id": "M3.2-evenement-frise-rejetee-brouillon",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:335",
+      "artefact": "packages/plateforme/src/lib/statut-collecte-labels.ts (friseStatutEvenement, STATUTS_HORS_FRISE)",
+      "test": "EVT-FRISE/rejetee_et_brouillon_ignores + EVT-FRISE/fiche_evenement_frise_avancement",
+      "statut": "implemented",
+      "libelle": "Frise de la fiche événement (décision Val 2026-10-27, scénario Outline 06.05 fiche_evenement_frise_avancement) : une collecte `rejetee_par_prestataire` ou `brouillon` ne retient pas la frise, comme une collecte annulée. « Créé · Annulé » quand aucune collecte ne compte et qu'au moins une est annulée ; une collecte refusée ou en brouillon seule laisse la frise à « Créé » (lecture retenue, à confirmer par Val)."
     }
   ],
   "cdc_source_hash": {

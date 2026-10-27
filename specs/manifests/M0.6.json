@@ -1783,6 +1783,14 @@
       "statut": "à-vérifier",
       "ref_divergence": "_Divergences/M1.2_20261023_refonte-lot-b1-type-contacts-par-collecte.md",
       "libelle": "Rendu, dans l'app, des boutons « Modifier » de l'onglet Informations de la fiche Admin (à côté du type d'événement, sous les contacts) et de la fenêtre « Modifier le type d'événement et les contacts » (champs, bouton désactivé quand le contact principal est vide, message d'erreur), en 1440 px et sous 640 px. Les tests de rendu (jsdom) prouvent le contenu et la charge utile, pas la mise en page : GO-VISUAL à donner par Val."
+    },
+    {
+      "id": "M0.6-fiches-admin-variante-b",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:457-463",
+      "artefact": "packages/plateforme/src/components/admin/transporteur-modal.tsx, packages/plateforme/src/components/admin/lieu-modal.tsx, packages/plateforme/src/components/admin/association-modal.tsx, briques communes packages/plateforme/src/components/ui/fiche/fiche-grand-en-tete.tsx (FicheGrandEnTete, FicheRepere, FicheOnglets, FicheOnglet), fiche-section.tsx (FicheSection), fiche-pastille.tsx (FichePastille, FichePastilleActif), fiche-modal.tsx (FicheModal taille=\"grand\" : marges du corps et du pied, footer sous le corps)",
+      "test": "packages/plateforme/src/components/ui/fiche/fiche-variante-b.test.tsx « Briques variante B des fiches » (en-tête, onglets à compteur d’erreurs, onglets en pastilles, section en ligne, pastille Actif/Inactif, grand format et format standard) + packages/plateforme/src/components/admin/transporteur-modal.test.tsx + lieu-modal.test.tsx + association-modal.test.tsx (contenu, validation et compteurs d’erreurs inchangés ; « Désactiver » en contour rouge et en pilule)",
+      "statut": "à-vérifier",
+      "libelle": "Fiches Admin transporteur, lieu et association au grand format de la variante B (décision Val 2026-10-27, C1 = A) : 1 200 px, feuille montée du bas sur téléphone, grand en-tête (titre Archivo, pastille de statut à droite du titre, repères à pictos), onglets soulignés dans l’en-tête (seul le corps défile), sections en lignes (libellé à gauche, champs à droite, filets sable) à la place des cartes, pied en pilules (Annuler sur fond sable). Les fiches collecte client et Admin reposent sur les mêmes briques, sans changement visible. GO-VISUAL en attente (validation Val)."
     }
   ],
   "cdc_source_hash": {

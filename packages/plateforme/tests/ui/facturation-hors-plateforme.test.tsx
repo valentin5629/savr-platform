@@ -182,7 +182,8 @@ describe('facturation_hors_plateforme — fiche collecte, Bilan & documents', ()
     fireEvent.mouseDown(
       await screen.findByRole('tab', { name: 'Bilan & documents' }, ATTENTE_UI),
     );
-    await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
+    // Le rapport se télécharge depuis le pied de la fiche (Val 2026-10-27).
+    await screen.findByTestId('action-telecharger-rapport', {}, ATTENTE_UI);
   }
 
   it(
@@ -192,9 +193,8 @@ describe('facturation_hors_plateforme — fiche collecte, Bilan & documents', ()
 
       expect(screen.queryByTestId('document-facture')).toBeNull();
       expect(screen.queryByText(/FZD-2026-0001/)).toBeNull();
-      expect(screen.getByTestId('bloc-documents').textContent).toContain(
-        'Rapport RSE',
-      );
+      expect(screen.queryByTestId('bloc-documents')).toBeNull();
+      expect(screen.getByTestId('action-telecharger-rapport')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
@@ -205,6 +205,9 @@ describe('facturation_hors_plateforme — fiche collecte, Bilan & documents', ()
       interrupteur.force = true;
       await ouvrirBilan();
 
+      expect(
+        await screen.findByTestId('document-facture', {}, ATTENTE_UI),
+      ).toBeTruthy();
       expect(screen.getByTestId('document-facture').textContent).toContain(
         'Facture FZD-2026-0001',
       );

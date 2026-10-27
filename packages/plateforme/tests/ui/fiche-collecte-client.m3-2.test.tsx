@@ -119,7 +119,7 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   // §06.05 l.85 : le masquage du bloc était une limite technique, levée par la
   // vue v_attributions_gestionnaire (§04).
   it(
-    'M3.2/fiche_popup_gestionnaire_association_affichee — AG : bloc Association bénéficiaire sur Logistique et Bilan',
+    'M3.2/fiche_popup_gestionnaire_association_affichee — AG réalisée : bloc Association bénéficiaire sur le Bilan seul (C3, Val 2026-10-27)',
     async () => {
       stubFetchFiche(
         ficheGestionnaire({
@@ -138,22 +138,16 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
       render(fiche());
 
       await ouvrirOnglet('Logistique');
-      const bloc = await screen.findByTestId(
-        'bloc-association',
-        {},
-        ATTENTE_UI,
-      );
-      expect(bloc.textContent).toContain('Les Restos du Cœur');
-      expect(bloc.textContent).toContain('Paris');
-      expect(bloc.textContent).toContain('Aide alimentaire');
+      await screen.findByTestId('bloc-logistique', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('bloc-association')).toBeNull();
       await ouvrirOnglet('Bilan & documents');
       await screen.findByTestId('kpi-ag', {}, ATTENTE_UI);
       expect(screen.getByTestId('bloc-association').textContent).toContain(
         'Les Restos du Cœur',
       );
-      expect(screen.getByTestId('bloc-documents').textContent).toContain(
-        'Rapport de don',
-      );
+      // Rapport de don téléchargé depuis le pied (Val 2026-10-27).
+      expect(screen.queryByTestId('bloc-documents')).toBeNull();
+      expect(screen.getByTestId('action-telecharger-rapport')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
@@ -219,8 +213,8 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
       }, ATTENTE_UI);
       expect(
         await screen.findByRole(
-          'checkbox',
-          { name: 'Inclure le radar de comparaison dans le rapport' },
+          'button',
+          { name: 'Intégrer la comparaison au rapport à télécharger' },
           ATTENTE_UI,
         ),
       ).toBeTruthy();
@@ -263,7 +257,7 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   );
 
   it(
-    'M3.2/fiche_popup_gestionnaire_rapport — le gestionnaire télécharge le rapport fabriqué au clic ; route « pas de radar » : pas de case, rapport sans radar',
+    'M3.2/fiche_popup_gestionnaire_rapport — le gestionnaire télécharge le rapport fabriqué au clic ; route « pas de radar » : pas de bouton d’intégration, rapport sans radar',
     async () => {
       stubFetchFiche(
         ficheGestionnaire({

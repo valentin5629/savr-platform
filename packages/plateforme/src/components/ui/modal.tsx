@@ -23,6 +23,8 @@ interface ModalProps {
   /** Classes de la croix de fermeture (fusionnées) — ex. croix ronde des
    *  grandes fiches. */
   fermetureClassName?: string;
+  /** Classes du voile (fusionnées) — ex. feuille du bas sur téléphone. */
+  overlayClassName?: string;
   className?: string;
 }
 
@@ -67,6 +69,7 @@ const Modal = ({
   hideTitle,
   bodyClassName,
   fermetureClassName,
+  overlayClassName,
   className,
 }: ModalProps) => {
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -127,7 +130,10 @@ const Modal = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(13,20,40,0.45)] p-4"
+      className={cn(
+        'fixed inset-0 z-50 flex items-center justify-center bg-[rgba(13,20,40,0.45)] p-4',
+        overlayClassName,
+      )}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

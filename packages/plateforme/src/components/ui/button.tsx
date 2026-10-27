@@ -55,7 +55,7 @@ const buttonVariants = cva(
         md: 'h-11 rounded-savr-md px-4 sm:h-10',
         lg: 'h-11 rounded-savr-md px-6 text-base',
         // Pilule 44 px (pieds des grandes fiches, variante B Val 2026-10-27).
-        pilule: 'h-11 rounded-savr-full px-6 text-[15px]',
+        pilule: 'h-10 rounded-savr-full px-5 text-sm',
       },
     },
     defaultVariants: {

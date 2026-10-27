@@ -1,12 +1,18 @@
 'use client';
 
 import { useEffect, useState, type ComponentProps } from 'react';
-import { Ban, Clock3, FileText, Info, MinusCircle } from 'lucide-react';
+import {
+  Ban,
+  Check,
+  Clock3,
+  FilePlus2,
+  FileText,
+  Info,
+  MinusCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
 import { Tooltip } from '@/components/ui/tooltip';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -64,7 +70,7 @@ export const SOUS_TITRE_RADAR =
 // Sous-titre court du radar compact (deux graphes sur une ligne, variante B) ;
 // la phrase « à l'intérieur du repère… » reste dans le rapport et les dashboards.
 const SOUS_TITRE_RADAR_COMPACT =
-  'Déchets par convive (kg/pax), comparés à la moyenne des événements Savr des 24 derniers mois.';
+  'Déchets par convive (kg/pax) face à la moyenne Savr sur 24 mois.';
 
 interface BenchmarkFlux {
   ratio_user: number | null;
@@ -83,7 +89,7 @@ export function Estompe({
 }) {
   return (
     <div
-      className={cn(large ? 'space-y-6' : 'space-y-3', actif && 'opacity-40')}
+      className={cn(large ? 'space-y-4' : 'space-y-3', actif && 'opacity-40')}
       aria-hidden={actif || undefined}
       data-testid={actif ? 'bilan-estompe' : undefined}
     >
@@ -193,7 +199,7 @@ function ChiffreCle({
   ton?: 'succes';
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2.5 border-savr-sable-200 py-1 sm:border-l sm:pl-6 sm:first:border-l-0 sm:first:pl-0 lg:pl-8">
+    <div className="flex min-w-0 flex-col gap-1 border-savr-sable-200 sm:border-l sm:pl-6 sm:first:border-l-0 sm:first:pl-0 lg:pl-8">
       <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-savr-neutral-500">
         {label}
         {aide && (
@@ -212,14 +218,14 @@ function ChiffreCle({
         <span
           className={
             ton === 'succes'
-              ? 'font-display text-[44px] font-semibold leading-none tracking-[-0.045em] text-savr-success-strong tabular-nums'
-              : 'font-display text-[44px] font-semibold leading-none tracking-[-0.045em] text-savr-primary-900 tabular-nums'
+              ? 'font-display text-[30px] font-semibold leading-none tracking-[-0.045em] text-savr-success-strong tabular-nums'
+              : 'font-display text-[30px] font-semibold leading-none tracking-[-0.045em] text-savr-primary-900 tabular-nums'
           }
         >
           {nombre}
         </span>
         {unite && (
-          <span className="text-[17px] font-medium text-savr-neutral-600">
+          <span className="text-[15px] font-medium text-savr-neutral-600">
             {unite}
           </span>
         )}
@@ -229,7 +235,7 @@ function ChiffreCle({
 }
 
 const BANDE_CHIFFRES =
-  'grid grid-cols-1 gap-y-5 border-b border-savr-sable-200 pb-7 sm:grid-cols-2 lg:grid-cols-4';
+  'grid grid-cols-1 gap-y-4 border-b border-savr-sable-200 pb-4 sm:grid-cols-2 lg:grid-cols-4';
 
 /** Ce que le bilan lit d'une collecte : fiche client, ou fiche Admin. */
 export type BilanFiche = Pick<
@@ -317,9 +323,15 @@ export function BilanCollecte({
   radar,
   barre,
   presentation = 'standard',
+  actionRadar,
 }: {
   c: BilanFiche;
   radar: RadarFiche;
+  /**
+   * Action posée à côté du radar compact (variante B) : le bouton « Intégrer
+   * la comparaison au rapport à télécharger » de la fiche client.
+   */
+  actionRadar?: React.ReactNode;
   /**
    * `variante-b` : fiche collecte client (décision Val 2026-10-27) — chiffres
    * en bandeau ouvert, répartition et radar compact sur une ligne, filtres en
@@ -416,7 +428,7 @@ export function BilanCollecte({
           <div
             className={
               vb
-                ? 'grid grid-cols-1 gap-y-5 border-b border-savr-sable-200 pb-7 sm:grid-cols-3'
+                ? 'grid grid-cols-1 gap-y-4 border-b border-savr-sable-200 pb-4 sm:grid-cols-3'
                 : 'grid grid-cols-1 gap-3 sm:grid-cols-3'
             }
             data-testid="kpi-ag"
@@ -494,7 +506,7 @@ export function BilanCollecte({
           <div
             className={
               vb && (radarAffiche || !realisee)
-                ? 'grid grid-cols-1 items-stretch gap-5 lg:grid-cols-2'
+                ? 'grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2'
                 : vb
                   ? 'grid grid-cols-1 gap-5'
                   : 'space-y-3'
@@ -504,7 +516,7 @@ export function BilanCollecte({
               <TonnagesDonut
                 series={serieDonut}
                 disposition="ligne"
-                className="h-full"
+                className={vb ? 'h-full p-5' : 'h-full'}
               />
             ) : (
               <GrapheEnAttente titre="Répartition des tonnages" />
@@ -526,7 +538,8 @@ export function BilanCollecte({
                     referenceLabel={
                       vb ? 'Moyenne des événements comparables' : undefined
                     }
-                    className={vb ? 'h-full' : undefined}
+                    className={vb ? 'h-full p-5' : undefined}
+                    actionSlot={vb ? actionRadar : undefined}
                     filtersSlot={
                       <BenchmarkFilterBar
                         masquerTraiteurs
@@ -560,8 +573,8 @@ export function BilanCollecte({
  * Téléchargement du rapport de la collecte (« Rapport RSE » ZD fabriqué au
  * clic, « Rapport de don » AG déjà fabriqué). Porté par le panneau : le bouton
  * « Télécharger le rapport » est dans le pied de la fiche, visible sans
- * défiler (décision Val 2026-10-27) ; la case « Inclure le radar » et l'état
- * du rapport restent dans l'onglet Bilan.
+ * défiler (décision Val 2026-10-27) ; le bouton « Intégrer la comparaison au
+ * rapport » est à côté du radar, l'état du rapport en infobulle du bouton grisé.
  */
 export function useRapportCollecte(
   c: FicheClientDonnees | null,
@@ -572,8 +585,8 @@ export function useRapportCollecte(
   const [fabrication, setFabrication] = useState(false);
   // Rapport de recyclage ZD : fabriqué au clic, avec ou sans le radar de
   // comparaison, au choix de celui qui le télécharge (décision Val 2026-10-16).
-  // La case n'existe que là où le radar existe à l'écran (même garde côté
-  // serveur) ; elle part décochée.
+  // Le choix n'existe que là où le radar existe à l'écran (même garde côté
+  // serveur) ; il part désactivé.
   const [avecRadar, setAvecRadar] = useState(false);
   const isAg = c?.type === 'anti_gaspi';
   const choixRadarPossible = radar.visible && !radar.indisponible;
@@ -663,10 +676,6 @@ export function OngletBilan({
     );
   }
 
-  // Collecte AG : un seul nom de document, « Rapport de don », avec ou sans
-  // excédents (décision Val 2026-10-09). Deux PDF distincts derrière ce nom :
-  // l'attestation de don, ou le rapport « Événement sans excédent alimentaire ».
-  const rapportNom = isAg ? 'Rapport de don' : 'Rapport RSE';
   // Factures masquées tant que la facturation se fait hors plateforme
   // (décision Val 2026-10-22).
   const factures = facturationPlateformeActive()
@@ -676,6 +685,39 @@ export function OngletBilan({
       )
     : [];
 
+  const reserve = c.rapport_reserve_donneur_ordre;
+
+  // Rapport RSE fabriqué avec ou sans le radar, au choix de celui qui le
+  // télécharge (Val 2026-10-16). Variante B (Val 2026-10-27) : le choix est un
+  // bouton à côté du radar ; le rapport se télécharge depuis le pied de la
+  // fiche (plus d'encadré « Rapport RSE » dans l'onglet).
+  const actionRadar =
+    !isAg && !c.rapport_reserve_donneur_ordre && choixRadarPossible ? (
+      // Visible dès que le radar l'est ; grisé, comme « Télécharger le
+      // rapport », tant que le rapport n'est pas disponible (Val 2026-10-27).
+      <Button
+        variant="sable"
+        size="sm"
+        aria-pressed={avecRadar}
+        data-testid="option-rapport-radar"
+        disabled={!c.rapport_rse_disponible}
+        title="Le radar du rapport reprend les filtres de comparaison réglés ici."
+        onClick={() => setAvecRadar(!avecRadar)}
+        className={cn(
+          'h-auto min-h-9 w-full justify-start whitespace-normal rounded-savr-lg px-3 py-2 text-left',
+          avecRadar &&
+            'bg-savr-primary-50 text-savr-primary-900 hover:bg-savr-primary-100',
+        )}
+      >
+        {avecRadar ? (
+          <Check aria-hidden="true" />
+        ) : (
+          <FilePlus2 aria-hidden="true" />
+        )}
+        Intégrer la comparaison au rapport à télécharger
+      </Button>
+    ) : undefined;
+
   return (
     <div className="space-y-3">
       <BilanCollecte
@@ -683,88 +725,61 @@ export function OngletBilan({
         radar={radar}
         barre={{ perimetre: espace === 'gestionnaire' ? 'rattache' : 'parc' }}
         presentation="variante-b"
+        actionRadar={actionRadar}
       />
 
-      {/* Documents : un seul rapport (bordereau ZD intégré au PDF) + facture
-          côté traiteur. */}
-      <Card
-        className="divide-y divide-savr-neutral-100 p-0"
-        data-testid="bloc-documents"
-      >
-        <div className="flex flex-wrap items-center gap-3 px-5 py-3.5">
-          <FileText
-            className="h-5 w-5 shrink-0 text-savr-primary-700"
-            aria-hidden="true"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-savr-neutral-900">
-              {rapportNom}
-            </p>
-            <Text>
-              {LIBELLE_ETAT_RAPPORT[c.rapport_etat]}
-              {c.rapport_rse_regenere && (
-                <span data-testid="rapport-regenere">
-                  {' '}
-                  · Rapport mis à jour
-                </span>
-              )}
-            </Text>
-          </div>
-
-          {!isAg &&
-            !c.rapport_reserve_donneur_ordre &&
-            c.rapport_rse_disponible &&
-            choixRadarPossible && (
-              <div className="basis-full" data-testid="option-rapport-radar">
-                <Label
-                  variant="choice"
-                  htmlFor="rapport-avec-radar"
-                  className="flex items-center gap-2"
-                >
-                  <Checkbox
-                    id="rapport-avec-radar"
-                    checked={avecRadar}
-                    onCheckedChange={(v) => setAvecRadar(v === true)}
-                  />
-                  Inclure le radar de comparaison dans le rapport
-                </Label>
-                <Text className="mt-1">
-                  Le radar du rapport reprend les filtres de comparaison réglés
-                  ci-dessus. Le rapport se télécharge depuis le bas de la fiche.
-                </Text>
+      {/* Le rapport se télécharge depuis le pied. Restent ici : le rapport
+          réservé au donneur d'ordre (pas de bouton, D12) et les factures. */}
+      {(reserve || factures.length > 0) && (
+        <Card
+          className="divide-y divide-savr-neutral-100 p-0"
+          data-testid="bloc-documents"
+        >
+          {reserve && (
+            <div className="flex items-center gap-3 px-5 py-3.5">
+              <FileText
+                className="h-5 w-5 shrink-0 text-savr-primary-700"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-savr-neutral-900">
+                  {isAg ? 'Rapport de don' : 'Rapport RSE'}
+                </p>
+                <Text>{LIBELLE_ETAT_RAPPORT.reserve}</Text>
               </div>
-            )}
-        </div>
-        {factures.map((f) => (
-          <div
-            key={f.id}
-            className="flex flex-wrap items-center gap-3 px-5 py-3.5"
-            data-testid="document-facture"
-          >
-            <FileText
-              className="h-5 w-5 shrink-0 text-savr-primary-700"
-              aria-hidden="true"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold text-savr-neutral-900">
-                Facture {f.numero_facture}
-              </p>
-              <Text>PDF</Text>
             </div>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                window.open(
-                  f.pdf_url_pennylane ?? f.pdf_url_savr ?? '',
-                  '_blank',
-                )
-              }
+          )}
+          {factures.map((f) => (
+            <div
+              key={f.id}
+              className="flex flex-wrap items-center gap-3 px-5 py-3.5"
+              data-testid="document-facture"
             >
-              Télécharger
-            </Button>
-          </div>
-        ))}
-      </Card>
+              <FileText
+                className="h-5 w-5 shrink-0 text-savr-primary-700"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-semibold text-savr-neutral-900">
+                  Facture {f.numero_facture}
+                </p>
+                <Text>PDF</Text>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  window.open(
+                    f.pdf_url_pennylane ?? f.pdf_url_savr ?? '',
+                    '_blank',
+                  )
+                }
+              >
+                Télécharger
+              </Button>
+            </div>
+          ))}
+        </Card>
+      )}
     </div>
   );
 }

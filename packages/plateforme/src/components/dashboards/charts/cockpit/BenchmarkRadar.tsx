@@ -46,12 +46,15 @@ interface BenchmarkRadarProps {
   referenceCourt?: string;
   /**
    * `compacte` (fiche collecte, variante B Val 2026-10-27) : radar seul à
-   * gauche, filtres et légende empilés à droite, votre collecte en orange
+   * gauche avec sa légende dessous, filtres empilés à droite, votre collecte en orange
    * remplie et le repère en pointillés bleu nuit ; la liste des flux reste
    * lisible par les lecteurs d'écran (statut jamais porté par la seule
    * couleur) et les valeurs restent au survol.
    */
   disposition?: 'standard' | 'compacte';
+  /** Action sous la légende de la disposition compacte (ex. intégrer la
+   *  comparaison au rapport de la fiche collecte). */
+  actionSlot?: React.ReactNode;
   className?: string;
 }
 
@@ -332,6 +335,7 @@ export function BenchmarkRadar({
   referenceLabel = 'Moyenne parc',
   referenceCourt = 'Parc',
   disposition = 'standard',
+  actionSlot,
   className,
 }: BenchmarkRadarProps): React.ReactElement {
   const compacte = disposition === 'compacte';
@@ -421,14 +425,14 @@ export function BenchmarkRadar({
       <div
         className={
           compacte
-            ? 'grid grid-cols-1 items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,11.5rem)]'
+            ? 'grid grid-cols-1 items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,12.5rem)]'
             : 'grid grid-cols-1 items-center gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]'
         }
       >
         <div
           className={
             compacte
-              ? 'relative mx-auto w-full max-w-[340px]'
+              ? 'relative mx-auto w-full max-w-[264px]'
               : 'relative mx-auto w-full max-w-[480px]'
           }
         >
@@ -589,11 +593,8 @@ export function BenchmarkRadar({
               />
             </div>
           )}
-        </div>
-        {compacte && (
-          <div className="flex flex-col gap-4">
-            {filtersSlot}
-            <div className="flex flex-col gap-2">
+          {compacte && (
+            <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
               <Text
                 as="span"
                 variant="hint"
@@ -619,6 +620,12 @@ export function BenchmarkRadar({
                 {referenceLabel}
               </Text>
             </div>
+          )}
+        </div>
+        {compacte && (
+          <div className="flex flex-col gap-3">
+            {filtersSlot}
+            {actionSlot}
           </div>
         )}
         <div className={compacte ? 'sr-only' : undefined}>

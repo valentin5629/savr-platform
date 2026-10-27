@@ -210,19 +210,30 @@ export function friseStatutClient(statut: string): EtapeFriseClient[] {
 }
 
 const STATUTS_ANNULES_FRISE = new Set(['annulee', 'annulation_demandee']);
+// Ne retiennent pas la frise non plus (décision Val 2026-10-27) : une collecte
+// refusée par le prestataire ou restée en brouillon n'avancera plus d'elle-même.
+const STATUTS_HORS_FRISE = new Set([
+  ...STATUTS_ANNULES_FRISE,
+  'rejetee_par_prestataire',
+  'brouillon',
+]);
 
 /**
  * Frise de la fiche événement du gestionnaire (décision Val 2026-10-26) : mêmes
  * étapes que la frise client, au masculin. L'événement passe à l'étape suivante
  * quand TOUTES ses collectes l'ont passée : son étape est la plus basse de ses
- * collectes. Les collectes annulées n'y comptent pas ; toutes annulées, la frise
- * se lit « Créé · Annulé ». Sans collecte : « Créé ».
+ * collectes. Les collectes annulées, refusées par le prestataire ou en brouillon
+ * n'y comptent pas. Quand aucune ne compte et qu'au moins une est annulée, la
+ * frise se lit « Créé · Annulé ». Sans collecte qui compte : « Créé ».
  */
 export function friseStatutEvenement(
   statuts: readonly string[],
 ): EtapeFriseClient[] {
-  const actives = statuts.filter((s) => !STATUTS_ANNULES_FRISE.has(s));
-  if (statuts.length > 0 && actives.length === 0) {
+  const actives = statuts.filter((s) => !STATUTS_HORS_FRISE.has(s));
+  if (
+    actives.length === 0 &&
+    statuts.some((s) => STATUTS_ANNULES_FRISE.has(s))
+  ) {
     return [
       { label: 'Créé', etat: 'passee' },
       { label: 'Annulé', etat: 'courante' },

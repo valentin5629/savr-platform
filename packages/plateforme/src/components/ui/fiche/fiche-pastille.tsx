@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { libelleActif, type SujetActif } from '@/lib/libelles/actif';
 
 // Pastille de statut du grand en-tête (variante B, décision Val 2026-10-27) :
 // point de couleur + libellé, à droite du titre. Le ton suit l'avancement :
@@ -52,5 +53,22 @@ export function FichePastille({
       />
       {children}
     </span>
+  );
+}
+
+// Actif / Inactif d'un référentiel (fiches Admin transporteur, association) :
+// même libellé que `ActifBadge`, en pastille (vert / sable).
+export function FichePastilleActif({
+  actif,
+  sujet = 'defaut',
+  ...props
+}: {
+  actif: boolean;
+  sujet?: SujetActif;
+} & React.HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <FichePastille ton={actif ? 'vert' : 'sable'} {...props}>
+      {libelleActif(actif, sujet)}
+    </FichePastille>
   );
 }

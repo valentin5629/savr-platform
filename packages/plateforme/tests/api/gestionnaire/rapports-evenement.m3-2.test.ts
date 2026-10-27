@@ -144,7 +144,6 @@ function evenementVisible(paxZ1: number | null = 500) {
 function evenementAdmin() {
   admin.results.evenements = {
     data: {
-      pax: 500,
       nom_evenement: 'Gala',
       date_evenement: '2026-10-14',
       nom_client_organisateur: 'Maison Lumière',
@@ -350,7 +349,8 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
     expect(p).toMatchObject({
       client_nom: 'Maison Lumière',
       date_evenement: '14/10/2026',
-      nb_pax: 500,
+      // Convives de la seule collecte cumulée, pas evenements.pax (500).
+      nb_pax: 450,
       poids_total_kg: 150,
       taux_recyclage: 70,
       co2_evite_kg: 100,
@@ -687,5 +687,46 @@ describe('M3.2 — radar du bilan consolidé (écran)', () => {
     evenementVisible();
     mockParc.mockResolvedValue({ etat: 'filtre_interdit', motif: 'perimetre' });
     expect((await benchmark()).status).toBe(403);
+  });
+});
+
+describe('06.05 fiche_evenement_rapports_cumules — convives des collectes cumulées (décision Val 2026-10-27)', () => {
+  it('EVT/fiche_evenement_rapports_cumules_convives_zd — « Convives » du Rapport RSE = Σ des convives des collectes ZD cumulées ; une collecte à 0 convive est écartée', async () => {
+    evenementVisible();
+    (rls.results.evenements!.data as { collectes: unknown[] }).collectes.push({
+      id: 'z3',
+      type: 'zero_dechet',
+      statut: 'cloturee',
+      pax: 0,
+    });
+    evenementAdmin();
+    collectesZdAdmin();
+    const z1 = (admin.results.collectes!.data as Record<string, unknown>[])[0]!;
+    (admin.results.collectes!.data as unknown[]).push({
+      ...z1,
+      id: 'z3',
+      date_collecte: '2026-10-15',
+      pax: 0,
+      bordereaux_savr: [{ numero: 'BSAV-3', version: 1 }],
+    });
+    expect((await rapport('rapport-rse')).status).toBe(200);
+    // 450 (z1) + 0 (z3 écartée) ; jamais evenements.pax (1000).
+    expect(payloadEnvoye().nb_pax).toBe(450);
+    expect(payloadEnvoye().poids_total_kg).toBe(300);
+  });
+
+  it('EVT/fiche_evenement_rapports_cumules_repas_par_convive — Rapport de don : convives et repas par convive sur les seules collectes AG réalisées qui portent des convives', async () => {
+    evenementVisible();
+    evenementAdmin();
+    collectesAgVisibles();
+    const [a2, a1] = rls.results.collectes!.data as Record<string, unknown>[];
+    a1!.pax = 200; // 100 repas
+    a2!.pax = 0; // sans excédent, convives inconnus : écartée
+    expect((await rapport('rapport-de-don')).status).toBe(200);
+    expect(payloadEnvoye()).toMatchObject({
+      nb_pax: 200,
+      repas_donnes: 100,
+      repas_par_pax: 0.5,
+    });
   });
 });

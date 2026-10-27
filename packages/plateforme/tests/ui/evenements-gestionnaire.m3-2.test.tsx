@@ -184,10 +184,16 @@ function detail(over: Record<string, unknown> = {}) {
       nb_realisees_ag: 1,
       nb_sans_excedent: 0,
       tonnage_zd_kg: 1000,
+      // Ratios par convive calculés par la route sur les convives des seules
+      // collectes réalisées (décision Val 2026-10-27), jamais evenements.pax.
+      convives_zd: 500,
+      pesee_par_pax_kg: 2,
       flux_kg: { ...FLUX_VIDES, biodechet: 600, carton: 300, verre: 100 },
       taux_recyclage: 74,
       co2_evite_zd_kg: 100,
       repas_donnes: 230,
+      convives_ag: 200,
+      repas_par_pax: 1.15,
       co2_evite_ag_kg: 575,
       associations: [
         { id: 'a1', nom: 'Restos du Cœur', ville: 'Paris', repas: 150 },
@@ -577,8 +583,9 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       const zd = within(bilan).getByTestId('bilan-consolide-zd');
       expect(zd).toHaveTextContent(/Poids total collecté\s*1\s000\s*kg/);
       expect(zd).toHaveTextContent(/Taux de recyclage.*74,0\s*%/);
-      // 1 000 kg pour 800 pax.
-      expect(zd).toHaveTextContent(/Pesée par pax\s*1\s250\s*g/);
+      // 1 000 kg pour les 500 convives des collectes ZD réalisées (pas les
+      // 800 pax de l'événement).
+      expect(zd).toHaveTextContent(/Pesée par pax\s*2\s000\s*g/);
       expect(zd).toHaveTextContent(/CO₂ évité\s*100/);
       // Donut de répartition des flux, sur le cumul de l'événement.
       expect(zd).toHaveTextContent('Répartition des tonnages');
@@ -597,7 +604,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         'Cumul de 1 collecte réalisée, sur 1 collecte Anti-Gaspi de l’événement.',
       );
       expect(ag).toHaveTextContent(/Repas donnés\s*230\s*repas/);
-      expect(ag).toHaveTextContent(/Repas par pax\s*0,29/);
+      expect(ag).toHaveTextContent(/Repas par pax\s*1,15/);
       expect(ag).toHaveTextContent(/CO₂ évité\s*575/);
       const assos = within(ag).getByTestId('associations-beneficiaires');
       expect(assos).toHaveTextContent('Restos du Cœur · Paris150 repas');
@@ -1187,16 +1194,19 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
   );
 
   it(
-    'M3.2/evenement_fiche_pax_absent_et_singulier — ratios par pax « — » sans pax ; phrases au singulier',
+    'M3.2/evenement_fiche_pax_absent_et_singulier — ratios par pax « — » sans convives sur les collectes réalisées, même avec un pax d’événement ; phrases au singulier',
     async () => {
       const d = detail();
       stubFetch(() => ({
         body: {
           data: {
             ...d,
-            pax: null,
+            // Le pax de l'événement n'entre plus dans le ratio (Val 2026-10-27).
+            pax: 800,
             bilan: {
               ...d.bilan,
+              convives_zd: null,
+              pesee_par_pax_kg: null,
               nb_collectes_zd: 1,
               nb_collectes_ag: 0,
               nb_realisees_zd: 1,

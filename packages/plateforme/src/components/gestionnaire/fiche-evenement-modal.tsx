@@ -214,7 +214,6 @@ function BilanConsolide({
   b,
   type,
   deuxTypes,
-  pax,
   dateEvenement,
   actives,
   onOuvrirBilan,
@@ -225,7 +224,6 @@ function BilanConsolide({
   // Type affiché : le seul de l'événement, ou celui du sous-onglet.
   type: CollecteType;
   deuxTypes: boolean;
-  pax: number | null;
   dateEvenement: string | null;
   actives: FicheCollecteClient[];
   onOuvrirBilan: (id: string) => void;
@@ -290,8 +288,8 @@ function BilanConsolide({
               <Kpi
                 label="Pesée par pax"
                 nombre={
-                  b.tonnage_zd_kg != null && pax
-                    ? fmtInt((b.tonnage_zd_kg / pax) * 1000)
+                  b.pesee_par_pax_kg != null
+                    ? fmtInt(b.pesee_par_pax_kg * 1000)
                     : '—'
                 }
                 unite="g"
@@ -356,9 +354,7 @@ function BilanConsolide({
               <Kpi
                 label="Repas par pax"
                 nombre={
-                  b.repas_donnes != null && pax
-                    ? fmtDec(b.repas_donnes / pax, 2)
-                    : '—'
+                  b.repas_par_pax != null ? fmtDec(b.repas_par_pax, 2) : '—'
                 }
               />
               <Kpi
@@ -1137,7 +1133,6 @@ export function FicheEvenementModal({
                     b={b}
                     type={typeAffiche}
                     deuxTypes={deuxTypes}
-                    pax={evt.pax}
                     dateEvenement={evt.date_evenement}
                     actives={activesDuType}
                     onOuvrirBilan={(id) => ouvrirCollecte(id, 'bilan')}

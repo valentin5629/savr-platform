@@ -52,6 +52,11 @@ export interface RapportDonEvenementData extends EnTeteRapportData {
   /** « Cumul des 2 collectes réalisées, sur 3 collectes de l'événement. » */
   couverture: string;
   repas_donnes: number;
+  /**
+   * Repas par convive, calculé par la plateforme sur les seules collectes qui
+   * portent des convives (décision Val 2026-10-27). Absent : repas / nb_pax.
+   */
+  repas_par_pax?: number | null;
   co2_evite_kg?: number | null;
   associations: AssociationDon[];
   collectes: LigneCollecteDon[];
@@ -74,10 +79,13 @@ export function renderRapportDonEvenement(
     'Rapport de don',
     'Récapitulatif de l’événement',
   );
-  const repasParPax =
-    data.nb_pax && data.nb_pax > 0
-      ? dec(data.repas_donnes / data.nb_pax, 2)
-      : VIDE;
+  const ratio =
+    data.repas_par_pax !== undefined
+      ? data.repas_par_pax
+      : data.nb_pax && data.nb_pax > 0
+        ? data.repas_donnes / data.nb_pax
+        : null;
+  const repasParPax = ratio != null ? dec(ratio, 2) : VIDE;
 
   const associations = data.associations
     .map((a) => {

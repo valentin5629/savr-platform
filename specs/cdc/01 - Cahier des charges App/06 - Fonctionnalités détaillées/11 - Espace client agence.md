@@ -49,7 +49,7 @@ Différence : **pas de Registre réglementaire** (non producteur, cf. différenc
 
 ## Liste Collectes — seule différence vs §06.04
 
-> **Fiche collecte (décision Val 2026-09-29)** : la fiche collecte reprend le pop-up client §06.04 « Fiche collecte (vue détail) » (en-tête, frise client, onglets Informations / Logistique / Bilan & documents) ; seules changent les actions autorisées au rôle.
+> **Fiche collecte (décision Val 2026-09-29)** : la fiche collecte reprend le pop-up client §06.04 « Fiche collecte (vue détail) » (en-tête, pastille de statut client, onglets Informations / Logistique / Bilan & documents) ; seules changent les actions autorisées au rôle.
 
 
 Vue liste et fiche collecte identiques au §06.04, scopées sur le périmètre de l'agence (différence #1). **Unique ajout** : la **fiche collecte** affiche le traiteur opérationnel (différence #3), avec badge « Hors référentiel » cliquable → modal de complétion SIRET si fiche shadow.

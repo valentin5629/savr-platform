@@ -92,7 +92,7 @@ export async function GET(
        organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url),
        types_evenements!type_evenement_id(libelle),
        collectes(id, type, statut, date_collecte, heure_collecte, created_at,
-         taux_recyclage, co2_evite_kg,
+         pax, taux_recyclage, co2_evite_kg,
          type_evenement:types_evenements!type_evenement_id(libelle),
          collecte_flux(poids_reel_kg, flux_dechets!flux_id(code)),
          attributions_antgaspi:v_attributions_gestionnaire(

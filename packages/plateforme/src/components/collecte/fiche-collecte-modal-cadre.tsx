@@ -25,11 +25,14 @@ export interface FicheCollecteMeta {
 export function FicheCollecteModalCadre({
   collecteId,
   onClose,
+  taille,
   children,
 }: {
   // null = fermé.
   collecteId: string | null;
   onClose: () => void;
+  /** `grand` : fiche collecte client (variante B). Admin : standard. */
+  taille?: 'standard' | 'grand';
   children: (panneau: {
     onLoaded: (meta: FicheCollecteMeta) => void;
     blockCloseRef: MutableRefObject<boolean>;
@@ -54,6 +57,7 @@ export function FicheCollecteModalCadre({
       open={collecteId != null}
       title={meta?.title ?? 'Collecte'}
       onClose={handleClose}
+      taille={taille}
     >
       {collecteId != null && children({ onLoaded: setMeta, blockCloseRef })}
     </FicheModal>

@@ -44,7 +44,19 @@ interface BenchmarkRadarProps {
   referenceLabel?: string;
   /** Libellé court de la référence (infobulle, liste ; défaut « Parc »). */
   referenceCourt?: string;
+  /**
+   * `compacte` (fiche collecte, variante B Val 2026-10-27) : radar seul à
+   * gauche, filtres et légende empilés à droite, votre collecte en orange
+   * remplie et le repère en pointillés bleu nuit ; la liste des flux reste
+   * lisible par les lecteurs d'écran (statut jamais porté par la seule
+   * couleur) et les valeurs restent au survol.
+   */
+  disposition?: 'standard' | 'compacte';
+  className?: string;
 }
+
+const VOUS_COMPACT = 'var(--color-savr-accent-500)';
+const PARC_COMPACT = 'var(--color-savr-primary-900)';
 
 // Série « Vous » = navy-700 (encre forte), série « Parc » = primary-300 (repère
 // en retrait) — échelle primary DS §10.
@@ -201,9 +213,13 @@ function Serie({
 function Tooltip({
   axe,
   referenceCourt,
+  couleurVous = VOUS,
+  couleurParc = PARC,
 }: {
   axe: Axe;
   referenceCourt: string;
+  couleurVous?: string;
+  couleurParc?: string;
 }): React.ReactElement {
   const { item, ratio } = axe;
   return (
@@ -217,12 +233,12 @@ function Tooltip({
       </div>
       <div className="flex flex-col gap-1 text-xs tabular-nums">
         <Serie
-          color={VOUS}
+          color={couleurVous}
           label="Vous"
           valeur={fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
         />
         <Serie
-          color={PARC}
+          color={couleurParc}
           label={referenceCourt}
           valeur={
             fini(item.benchmark)
@@ -315,7 +331,12 @@ export function BenchmarkRadar({
   subtitle = "Indice : moyenne du parc Savr (anonymisée) = 100. À l'intérieur du repère, vous produisez moins que le parc.",
   referenceLabel = 'Moyenne parc',
   referenceCourt = 'Parc',
+  disposition = 'standard',
+  className,
 }: BenchmarkRadarProps): React.ReactElement {
+  const compacte = disposition === 'compacte';
+  const couleurVous = compacte ? VOUS_COMPACT : VOUS;
+  const couleurParc = compacte ? PARC_COMPACT : PARC;
   // Survol : axe actif + position du curseur (px, relative au conteneur) quand
   // le survol vient du GRAPHE ; survol depuis la LISTE = axe seul (la ligne de
   // liste porte déjà les valeurs, pas d'infobulle en double).
@@ -382,23 +403,41 @@ export function BenchmarkRadar({
     <ChartCard
       title={title}
       subtitle={subtitle}
+      className={className}
       headerRight={
-        <div className="flex flex-wrap gap-3">
-          <LegendLine color={VOUS}>Vous</LegendLine>
-          <LegendLine color={PARC}>{referenceLabel}</LegendLine>
-        </div>
+        compacte ? undefined : (
+          <div className="flex flex-wrap gap-3">
+            <LegendLine color={VOUS}>Vous</LegendLine>
+            <LegendLine color={PARC}>{referenceLabel}</LegendLine>
+          </div>
+        )
       }
     >
-      {filtersSlot && (
+      {filtersSlot && !compacte && (
         <div className="mb-5 border-b border-savr-neutral-100 pb-5">
           {filtersSlot}
         </div>
       )}
-      <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
-        <div className="relative mx-auto w-full max-w-[480px]">
+      <div
+        className={
+          compacte
+            ? 'grid grid-cols-1 items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,11.5rem)]'
+            : 'grid grid-cols-1 items-center gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]'
+        }
+      >
+        <div
+          className={
+            compacte
+              ? 'relative mx-auto w-full max-w-[340px]'
+              : 'relative mx-auto w-full max-w-[480px]'
+          }
+        >
           <svg
             viewBox={`0 0 ${VB_W} ${VB_H}`}
             className="block h-auto w-full"
+            // Compact : les libellés agrandis peuvent déborder du viewBox
+            // dans la marge de la carte plutôt que d'être rognés.
+            overflow={compacte ? 'visible' : undefined}
             role="img"
             aria-label={`Radar de l'intensité kg/pax par flux, indice ${referenceCourt.toLowerCase()} = 100`}
             data-testid="benchmark-radar"
@@ -432,18 +471,27 @@ export function BenchmarkRadar({
                 strokeDasharray="3 3"
               />
             )}
+            {compacte && ptsVous.every(Boolean) && (
+              <polygon
+                points={ptsVous.map((p) => p!.join(',')).join(' ')}
+                fill={VOUS_COMPACT}
+                fillOpacity={0.22}
+                stroke="none"
+              />
+            )}
             <path
               d={segments(ptsParc)}
               fill="none"
-              stroke={PARC}
-              strokeWidth={2}
+              stroke={couleurParc}
+              strokeWidth={compacte ? 1.5 : 2}
+              strokeDasharray={compacte ? '4 4' : undefined}
               strokeLinejoin="round"
               strokeLinecap="round"
             />
             <path
               d={segments(ptsVous)}
               fill="none"
-              stroke={VOUS}
+              stroke={couleurVous}
               strokeWidth={2}
               strokeLinejoin="round"
               strokeLinecap="round"
@@ -455,7 +503,7 @@ export function BenchmarkRadar({
                 cx={ptsParc[hover]![0]}
                 cy={ptsParc[hover]![1]}
                 r={4}
-                fill={PARC}
+                fill={couleurParc}
                 stroke={WHITE}
                 strokeWidth={1.5}
               />
@@ -467,7 +515,7 @@ export function BenchmarkRadar({
                   cx={p[0]}
                   cy={p[1]}
                   r={hover === i ? 5 : 3}
-                  fill={VOUS}
+                  fill={couleurVous}
                   stroke={hover === i ? WHITE : 'none'}
                   strokeWidth={1.5}
                 />
@@ -490,7 +538,9 @@ export function BenchmarkRadar({
                     textAnchor={anchor}
                     dominantBaseline="middle"
                     style={{
-                      fontSize: 13,
+                      // Radar compact : rendu plus petit, libellés agrandis
+                      // dans le viewBox pour rester lisibles (≈ 11 px).
+                      fontSize: compacte ? 19 : 13,
                       fontWeight: 700,
                       fill: manquant
                         ? TEXT_XFAINT
@@ -531,11 +581,47 @@ export function BenchmarkRadar({
                 top: curseur.y,
               }}
             >
-              <Tooltip axe={focus} referenceCourt={referenceCourt} />
+              <Tooltip
+                axe={focus}
+                referenceCourt={referenceCourt}
+                couleurVous={couleurVous}
+                couleurParc={couleurParc}
+              />
             </div>
           )}
         </div>
-        <div>
+        {compacte && (
+          <div className="flex flex-col gap-4">
+            {filtersSlot}
+            <div className="flex flex-col gap-2">
+              <Text
+                as="span"
+                variant="hint"
+                tone="soft"
+                className="flex items-center gap-2 font-semibold"
+              >
+                <span
+                  aria-hidden
+                  className="inline-block h-2.5 w-3.5 shrink-0 rounded-savr-sm border-2 border-savr-accent-500 bg-savr-accent-500/25"
+                />
+                Votre collecte
+              </Text>
+              <Text
+                as="span"
+                variant="hint"
+                tone="soft"
+                className="flex items-center gap-2 font-semibold"
+              >
+                <span
+                  aria-hidden
+                  className="inline-block w-4 shrink-0 border-t-[1.5px] border-dashed border-savr-primary-900"
+                />
+                {referenceLabel}
+              </Text>
+            </div>
+          </div>
+        )}
+        <div className={compacte ? 'sr-only' : undefined}>
           <ul className="flex flex-col gap-0.5">
             {axes.map((a, i) => (
               <LigneFlux

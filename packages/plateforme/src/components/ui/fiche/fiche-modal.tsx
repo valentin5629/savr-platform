@@ -24,6 +24,7 @@ export function FicheModal({
   title,
   onClose,
   footer,
+  taille = 'standard',
   children,
 }: {
   open: boolean;
@@ -31,8 +32,12 @@ export function FicheModal({
   title: string;
   onClose: () => void;
   footer?: React.ReactNode;
+  /** `grand` : fiche collecte client (variante B, décision Val 2026-10-27) —
+   *  1 200 px de large, angles de 20 px, croix ronde sur fond sable. */
+  taille?: 'standard' | 'grand';
   children: React.ReactNode;
 }) {
+  const grand = taille === 'grand';
   return (
     <Modal
       open={open}
@@ -41,7 +46,16 @@ export function FicheModal({
       footer={footer}
       hideTitle
       bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
-      className="max-w-5xl md:h-[min(90vh,48rem)]"
+      className={
+        grand
+          ? 'max-h-[94vh] max-w-[75rem] rounded-savr-2xl shadow-savr-xl md:h-[min(94vh,57.5rem)]'
+          : 'max-w-5xl md:h-[min(90vh,48rem)]'
+      }
+      fermetureClassName={
+        grand
+          ? 'right-5 top-5 h-11 w-11 rounded-savr-full bg-savr-sable-100 text-savr-neutral-700 hover:bg-savr-sable-200 hover:text-savr-neutral-900 md:right-10 md:top-8'
+          : undefined
+      }
     >
       {children}
     </Modal>

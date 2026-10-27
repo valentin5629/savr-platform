@@ -44,6 +44,12 @@
   --color-savr-neutral-950: #0c0f18;
   --color-savr-white: #ffffff;
 
+  /* ── Sable — fonds et filets chauds des fiches (variante B, Val 2026-10-27) ─ */
+  --color-savr-sable-50: #faf9f6;
+  --color-savr-sable-100: #f4f3ef;
+  --color-savr-sable-200: #ebe9e3;
+  --color-savr-sable-300: #dcd9d1;
+
   /* ── Sémantique (indépendante du branding) ───────────────────────────────── */
   --color-savr-success: #16a34a;
   --color-savr-success-strong: #15803d;
@@ -78,8 +84,11 @@
   --color-savr-dataviz-5: #6379b6;
   --color-savr-dataviz-6: #d97f00;
 
-  /* ── Typographie : Nunito (levier #7) ────────────────────────────────────── */
-  --font-sans: var(--font-nunito), system-ui, sans-serif;
+  /* ── Typographie : Inter (texte) + Archivo (titres, grands chiffres) ─────── */
+  /* Décision Val 2026-10-27 (ex-Nunito). `font-display` = utilitaire Tailwind
+     des titres et des KPI. */
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-archivo), var(--font-inter), system-ui, sans-serif;
 
   /* Échelle typographique §3.2. Seul --text-4xl diverge du défaut Tailwind
      (38px vs 36px) → override explicite ; xs→3xl coïncident avec le défaut. */
@@ -95,6 +104,8 @@
   --radius-savr-lg: 12px;
   /* Cards et blocs de filtres (DS Claude Design « radius-savr-xl », FilterBar). */
   --radius-savr-xl: 14px;
+  /* Grandes modales (fiche collecte client, variante B Val 2026-10-27). */
+  --radius-savr-2xl: 20px;
   --radius-savr-full: 9999px;
 
   /* ── Ombres sobres (levier #5 — teintées navy) ───────────────────────────── */
@@ -102,6 +113,7 @@
   --shadow-savr-sm: 0 1px 2px rgba(13, 20, 40, 0.04);
   --shadow-savr-md: 0 4px 12px rgba(13, 20, 40, 0.08);
   --shadow-savr-lg: 0 12px 28px rgba(13, 20, 40, 0.12);
+  --shadow-savr-xl: 0 24px 64px rgba(13, 20, 40, 0.22);
 
   /* ── Mouvement (§4.5) ───────────────────────────────────────────────────── */
   /* Durées seules : Tailwind lit le namespace `--transition-duration-*` →
@@ -159,6 +171,7 @@ body {
 h1,
 h2,
 h3 {
+  font-family: var(--font-display);
   letter-spacing: -0.02em;
   line-height: 1.15;
 }

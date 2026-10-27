@@ -284,7 +284,7 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
       expect(screen.queryByTestId('option-rapport-radar')).toBeNull();
 
       fireEvent.click(
-        await screen.findByRole('button', { name: 'Télécharger' }, ATTENTE_UI),
+        await screen.findByTestId('action-telecharger-rapport', {}, ATTENTE_UI),
       );
       await waitFor(
         () => expect(rapportsDemandes()).toHaveLength(1),

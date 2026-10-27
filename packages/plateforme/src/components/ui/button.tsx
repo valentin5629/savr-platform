@@ -43,6 +43,10 @@ const buttonVariants = cva(
         // Avertissement en contour (action réversible mais engageante).
         'outline-warning':
           'bg-savr-white border border-savr-warning-strong text-savr-warning-strong hover:bg-savr-warning-subtle active:bg-savr-warning-subtle focus-visible:outline-savr-primary-500',
+        // Secondaire sur fond sable, sans bordure (pieds des grandes fiches,
+        // variante B Val 2026-10-27).
+        sable:
+          'bg-savr-sable-100 text-savr-neutral-900 hover:bg-savr-sable-200 active:bg-savr-sable-300 focus-visible:outline-savr-primary-500',
       },
       size: {
         // Cible tactile 44px sur mobile → 40px desktop (§5.1, §8, §10). `sm` reste
@@ -50,6 +54,8 @@ const buttonVariants = cva(
         sm: 'h-8 rounded-savr-md px-3 text-xs',
         md: 'h-11 rounded-savr-md px-4 sm:h-10',
         lg: 'h-11 rounded-savr-md px-6 text-base',
+        // Pilule 44 px (pieds des grandes fiches, variante B Val 2026-10-27).
+        pilule: 'h-11 rounded-savr-full px-6 text-[15px]',
       },
     },
     defaultVariants: {

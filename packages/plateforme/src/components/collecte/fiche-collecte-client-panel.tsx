@@ -8,7 +8,16 @@ import {
   type MutableRefObject,
 } from 'react';
 import Link from 'next/link';
-import { CalendarDays, Pencil, PlusCircle, Users, XCircle } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarDays,
+  Clock,
+  Download,
+  MapPin,
+  PlusCircle,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
@@ -19,18 +28,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
-import { FriseStatutClient } from '@/components/collecte/frise-statut-client';
+import { StatutCollecteClient } from '@/components/collecte/statut-collecte-client';
 import {
   OngletInformations,
   OngletLogistique,
   type FicheClientDonnees,
 } from '@/components/collecte/fiche-collecte-client-onglets';
-import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
-import { dateLongueCapitalisee } from '@/components/collecte/fiche-blocs';
 import {
-  EnTeteMention,
-  FicheEnTete,
-} from '@/components/ui/fiche/fiche-en-tete';
+  OngletBilan,
+  useRadarFiche,
+  useRapportCollecte,
+} from '@/components/collecte/fiche-collecte-client-bilan';
+import { dateLongueCapitalisee } from '@/components/collecte/fiche-blocs';
+import { EnTeteMention } from '@/components/ui/fiche/fiche-en-tete';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
@@ -135,6 +145,12 @@ export function FicheCollecteClientPanel({
     reload();
   }, [reload]);
 
+  // Radar et rapport portés par le panneau : le bouton « Télécharger le
+  // rapport » est dans le pied (visible sans défiler, Val 2026-10-27) et
+  // reprend les filtres du radar réglés dans l'onglet Bilan.
+  const radar = useRadarFiche(`${base}/benchmark`, c);
+  const rapport = useRapportCollecte(c, base, radar);
+
   // Titre accessible du dialogue (l'en-tête visuel est porté par le panneau).
   useEffect(() => {
     if (!c) return;
@@ -142,6 +158,7 @@ export function FicheCollecteClientPanel({
     onLoaded?.({
       title: [
         `Collecte ${libelleTypeCollecte(c.type)}`,
+        c.evenement?.nom_evenement?.trim(),
         lieu?.nom,
         dateLongueCapitalisee(c.date_collecte),
       ]
@@ -251,7 +268,8 @@ export function FicheCollecteClientPanel({
     !editing &&
     (actions.annuler !== 'absent' ||
       actions.modifier !== 'absent' ||
-      lienAjouterCollecte !== null);
+      lienAjouterCollecte !== null ||
+      rapport.visible);
   const motifGrise =
     espace === 'traiteur'
       ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
@@ -260,34 +278,74 @@ export function FicheCollecteClientPanel({
     ? libelleTypeOrganisationMinuscule(c.programmee_par.type)
     : null;
 
+  // Titre = nom de l'événement (décision Val 2026-10-27), le lieu à défaut ;
+  // dessous, le lieu (s'il n'est pas déjà le titre) et le client.
+  const titre = evt?.nom_evenement?.trim() || lieu?.nom || 'Collecte';
+  const sousTitre = [
+    titre === lieu?.nom ? null : lieu?.nom,
+    evt?.nom_client_organisateur,
+  ]
+    .map((v) => v?.trim())
+    .filter(Boolean)
+    .join(' · ');
+
+  // Variante B (décision Val 2026-10-27) : grand en-tête sur deux lignes
+  // (événement + lieu · client, puis date, heure, pax, ville), statut en pastille à
+  // droite du titre, onglets soulignés dans l'en-tête ; seul le corps défile.
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <FicheEnTete
-        surtitre={
-          <>
-            <TypeCollecteBadge type={c.type} forme="plein" />
-            <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
-          </>
-        }
-        titre={lieu?.nom ?? 'Collecte'}
-        infosTestId="fiche-sous-ligne"
-        infos={[
-          {
-            icon: CalendarDays,
-            texte: `${dateLongueCapitalisee(c.date_collecte)}${heure ? ` · ${heure}` : ''}`,
-          },
-          {
-            icon: Users,
-            // Pax de la collecte (décision Val 2026-10-20).
-            texte: fmtPax(c.pax),
-          },
-        ]}
-        statut={<FriseStatutClient statut={c.statut} />}
-        statutLarge
-      />
+    <Tabs
+      value={onglet}
+      onValueChange={(v) => setOnglet(v as Onglet)}
+      className="flex h-full min-h-0 flex-col"
+    >
+      <header className="flex shrink-0 flex-col gap-5 px-6 pt-6 md:gap-6 md:px-14 md:pt-9">
+        <div className="flex min-w-0 flex-wrap items-center gap-3 pr-12 md:pr-16">
+          <TypeCollecteBadge type={c.type} forme="plein" />
+          <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
+        </div>
+        <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-3">
+          <div className="flex min-w-0 flex-col gap-2.5">
+            <h3 className="font-display text-3xl font-semibold leading-[1.05] tracking-[-0.035em] text-savr-primary-900 md:text-5xl">
+              {titre}
+            </h3>
+            {sousTitre && (
+              <p className="text-[17px] text-savr-neutral-600">{sousTitre}</p>
+            )}
+          </div>
+          <StatutCollecteClient statut={c.statut} />
+        </div>
+        <p
+          data-testid="fiche-sous-ligne"
+          className="flex flex-wrap items-center gap-x-8 gap-y-2 text-[15px] text-savr-neutral-700"
+        >
+          <InfoEnTete icon={CalendarDays}>
+            {dateLongueCapitalisee(c.date_collecte)}
+          </InfoEnTete>
+          {heure && <InfoEnTete icon={Clock}>{heure}</InfoEnTete>}
+          {/* Pax de la collecte (décision Val 2026-10-20). */}
+          <InfoEnTete icon={Users}>{fmtPax(c.pax)}</InfoEnTete>
+          {lieu?.ville && <InfoEnTete icon={MapPin}>{lieu.ville}</InfoEnTete>}
+        </p>
+        {!editing && (
+          <TabsList
+            aria-label="Sections de la fiche collecte"
+            className="w-full gap-6 overflow-x-auto border-savr-sable-200 md:gap-9"
+          >
+            <TabsTrigger value="informations" className={ONGLET}>
+              Informations
+            </TabsTrigger>
+            <TabsTrigger value="logistique" className={ONGLET}>
+              Logistique
+            </TabsTrigger>
+            <TabsTrigger value="bilan" className={ONGLET}>
+              Bilan & documents
+            </TabsTrigger>
+          </TabsList>
+        )}
+      </header>
 
       {editing && evt ? (
-        <FicheCorps className="py-6">
+        <FicheCorps className="border-t border-savr-sable-200 py-6 md:px-14">
           <EditerCollecteForm
             collecte={{
               id: c.id,
@@ -322,65 +380,84 @@ export function FicheCollecteClientPanel({
           />
         </FicheCorps>
       ) : (
-        // Même barre d'onglets horizontale que les fiches Admin (décision Val
-        // 2026-10-01), fixe au défilement du corps.
-        <FicheCorps>
-          <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
-            <TabsList
-              aria-label="Sections de la fiche collecte"
-              className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
+        <FicheCorps className="py-8 md:px-14">
+          {!c.informations_completes && (
+            <AlertBar
+              variant="warn"
+              className="mb-6"
+              data-testid="bandeau-infos-incompletes"
             >
-              <TabsTrigger value="informations" className="px-3 sm:px-4">
-                Informations
-              </TabsTrigger>
-              <TabsTrigger value="logistique" className="px-3 sm:px-4">
-                Logistique
-              </TabsTrigger>
-              <TabsTrigger value="bilan" className="px-3 sm:px-4">
-                Bilan & documents
-              </TabsTrigger>
-            </TabsList>
-
-            {!c.informations_completes && (
-              <AlertBar
-                variant="warn"
-                className="mt-4"
-                data-testid="bandeau-infos-incompletes"
-              >
-                Informations incomplètes — merci de compléter avant la collecte.
-              </AlertBar>
-            )}
-            <TabsContent value="informations">
-              <OngletInformations
-                c={c}
-                onProgrammeePar={() => setProgOpen(true)}
-                onHorsReferentiel={() => {
-                  setSiretErreur(null);
-                  setSiretOpen(true);
-                }}
-              />
-            </TabsContent>
-            <TabsContent value="logistique">
-              <OngletLogistique
-                c={c}
-                urgence={urgence}
-                urgenceErreur={urgenceErreur}
-                onDemanderUrgence={() => void demanderUrgence()}
-              />
-            </TabsContent>
-            <TabsContent value="bilan">
-              <OngletBilan c={c} base={base} espace={espace} />
-            </TabsContent>
-          </Tabs>
+              Informations incomplètes — merci de compléter avant la collecte.
+            </AlertBar>
+          )}
+          <TabsContent value="informations">
+            <OngletInformations
+              c={c}
+              onAjouterSecours={
+                actions.modifier === 'actif'
+                  ? () => setEditing(true)
+                  : undefined
+              }
+              onProgrammeePar={() => setProgOpen(true)}
+              onHorsReferentiel={() => {
+                setSiretErreur(null);
+                setSiretOpen(true);
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="logistique">
+            <OngletLogistique
+              c={c}
+              urgence={urgence}
+              urgenceErreur={urgenceErreur}
+              onDemanderUrgence={() => void demanderUrgence()}
+            />
+          </TabsContent>
+          <TabsContent value="bilan">
+            <OngletBilan
+              c={c}
+              espace={espace}
+              radar={radar}
+              rapport={rapport}
+            />
+          </TabsContent>
         </FicheCorps>
       )}
 
+      {rapport.erreur && !editing && (
+        <AlertBar
+          variant="err"
+          role="alert"
+          className="mx-6 mb-2 md:mx-14"
+          data-testid="erreur-rapport"
+        >
+          {rapport.erreur}
+        </AlertBar>
+      )}
       {piedVisible && (
-        <FichePied>
+        <FichePied className="justify-start gap-3 border-savr-sable-200 px-6 py-5 md:px-14">
+          {actions.annuler !== 'absent' && (
+            <Button
+              variant="ghost-destructive"
+              size="pilule"
+              data-testid="action-annuler"
+              disabled={actions.annuler === 'grise'}
+              title={actions.annuler === 'grise' ? motifGrise : undefined}
+              onClick={() => {
+                setAnnulErreur(null);
+                setAnnulOpen(true);
+              }}
+              className="px-3"
+            >
+              {demande ? 'Demander l’annulation' : 'Annuler la collecte'}
+            </Button>
+          )}
+          <span className="hidden flex-1 sm:block" aria-hidden="true" />
           {lienAjouterCollecte && (
             <Button
               asChild
-              variant="secondary"
+              variant="sable"
+              size="pilule"
               data-testid="action-ajouter-collecte"
               // Libellé long : il passe à la ligne sur un téléphone au lieu
               // de déborder du pied de la fiche.
@@ -392,30 +469,32 @@ export function FicheCollecteClientPanel({
               </Link>
             </Button>
           )}
-          {actions.annuler !== 'absent' && (
+          {rapport.visible && (
             <Button
-              variant="outline-destructive"
-              data-testid="action-annuler"
-              disabled={actions.annuler === 'grise'}
-              title={actions.annuler === 'grise' ? motifGrise : undefined}
-              onClick={() => {
-                setAnnulErreur(null);
-                setAnnulOpen(true);
-              }}
+              size="pilule"
+              // Bouton principal quand la collecte ne se modifie plus (cas
+              // courant : rapport disponible après la collecte).
+              variant={actions.modifier === 'absent' ? 'primary' : 'sable'}
+              data-testid="action-telecharger-rapport"
+              disabled={rapport.desactive}
+              loading={rapport.fabrication}
+              loadingText="Préparation du PDF…"
+              onClick={() => void rapport.telecharger()}
             >
-              <XCircle className="h-4 w-4" aria-hidden="true" />
-              {demande ? 'Demander l’annulation' : 'Annuler la collecte'}
+              <Download aria-hidden="true" />
+              Télécharger le rapport
             </Button>
           )}
           {actions.modifier !== 'absent' && (
             <Button
+              size="pilule"
               data-testid="action-modifier"
               disabled={actions.modifier === 'grise'}
               title={actions.modifier === 'grise' ? motifGrise : undefined}
               onClick={() => setEditing(true)}
             >
-              <Pencil className="h-4 w-4" aria-hidden="true" />
               Modifier la collecte
+              <ArrowRight aria-hidden="true" />
             </Button>
           )}
         </FichePied>
@@ -503,6 +582,25 @@ export function FicheCollecteClientPanel({
           />
         </div>
       </Modal>
-    </div>
+    </Tabs>
+  );
+}
+
+// Onglets de la variante B : soulignés, plus espacés, texte 15 px.
+const ONGLET =
+  'px-0 text-[15px] data-[state=active]:border-savr-primary-900 data-[state=active]:text-savr-primary-900';
+
+function InfoEnTete({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Icon className="h-4 w-4 text-savr-neutral-400" aria-hidden="true" />
+      {children}
+    </span>
   );
 }

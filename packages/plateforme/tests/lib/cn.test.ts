@@ -40,6 +40,7 @@ describe('cn — échelles savr-* relues dans globals.css', () => {
       'savr-md',
       'savr-lg',
       'savr-xl',
+      'savr-2xl',
       'savr-full',
     ]);
     for (const u of [

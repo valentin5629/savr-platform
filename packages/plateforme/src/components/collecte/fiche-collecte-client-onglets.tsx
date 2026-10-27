@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  BellRing,
-  CalendarDays,
-  CheckCircle2,
-  HandHeart,
-  MapPin,
-  Truck,
-  Users,
-} from 'lucide-react';
+import { BellRing, CheckCircle2, HandHeart, Plus, Truck } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge, BadgeBouton } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -70,14 +62,84 @@ function Vide({ children = '—' }: { children?: React.ReactNode }) {
 
 // ── Informations ─────────────────────────────────────────────────────────────
 
+// Variante B (décision Val 2026-10-27) : une section par ligne, libellé à
+// gauche, champs sur trois colonnes à droite, filets sable entre les sections.
+function SectionInfos({
+  titre,
+  children,
+  ...props
+}: {
+  titre: string;
+  children: React.ReactNode;
+} & React.HTMLAttributes<HTMLElement>) {
+  return (
+    <section
+      className="grid gap-x-10 gap-y-4 border-t border-savr-sable-200 py-10 first:border-t-0 first:pt-0 md:grid-cols-[13rem_minmax(0,1fr)]"
+      {...props}
+    >
+      <h4 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-savr-neutral-900">
+        {titre}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
+const GRILLE_3 =
+  'grid grid-cols-1 gap-x-10 gap-y-6 text-[15px] sm:grid-cols-2 lg:grid-cols-3';
+
+function initiales(nom: string | null | undefined): string {
+  return (nom ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((m) => m.charAt(0).toUpperCase())
+    .join('');
+}
+
+function CarteContact({
+  nom,
+  telephone,
+  role,
+}: {
+  nom: string | null | undefined;
+  telephone: string | null | undefined;
+  role: string;
+}) {
+  return (
+    <div className="flex items-center gap-3.5">
+      <span
+        aria-hidden="true"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-50 font-display text-sm font-semibold text-savr-primary-700"
+      >
+        {initiales(nom) || '—'}
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5 text-[15px]">
+        <span className="font-semibold text-savr-neutral-900">
+          {nom?.trim() || <Vide />}
+        </span>
+        <span className="text-sm text-savr-neutral-600">
+          <TelephoneLien telephone={telephone} />
+        </span>
+        <span className="text-xs text-savr-neutral-500">{role}</span>
+      </span>
+    </div>
+  );
+}
+
 export function OngletInformations({
   c,
   onProgrammeePar,
   onHorsReferentiel,
+  onAjouterSecours,
 }: {
   c: FicheClientDonnees;
   onProgrammeePar: () => void;
   onHorsReferentiel: () => void;
+  /** Ouvre l'édition de la collecte ; absent si l'utilisateur ne peut pas la
+   *  modifier (bouton « Ajouter un contact de secours » masqué). */
+  onAjouterSecours?: () => void;
 }) {
   const evt = c.evenement;
   const lieu = evt?.lieu ?? null;
@@ -106,10 +168,9 @@ export function OngletInformations({
     : null;
 
   return (
-    <div className="space-y-3">
-      <Card padding="md" className="space-y-4" data-testid="bloc-evenement">
-        <SectionHeader icon={CalendarDays} title="Événement" />
-        <dl className={GRILLE_4}>
+    <div>
+      <SectionInfos titre="Événement" data-testid="bloc-evenement">
+        <dl className={GRILLE_3}>
           <InfoItem label="Client">
             {evt?.nom_client_organisateur ?? <Vide />}
           </InfoItem>
@@ -136,7 +197,6 @@ export function OngletInformations({
           {c.traiteur_operationnel !== undefined && (
             <InfoItem
               label="Traiteur opérationnel"
-              pleineLargeur
               data-testid="traiteur-operationnel"
               valueClassName="flex flex-wrap items-center gap-2"
             >
@@ -155,7 +215,7 @@ export function OngletInformations({
           {/* Badge « Programmée par » (§06.04, ajout 2026-05-07) : événement
               programmé par un tiers, le traiteur est l'opérationnel sur place. */}
           {c.programmee_par && (
-            <div className="sm:col-span-2 lg:col-span-4">
+            <div className="sm:col-span-2 lg:col-span-3">
               <BadgeBouton
                 variant="action"
                 data-testid="badge-programmee-par"
@@ -166,12 +226,11 @@ export function OngletInformations({
             </div>
           )}
         </dl>
-      </Card>
+      </SectionInfos>
 
-      <Card padding="md" className="space-y-4" data-testid="bloc-lieu">
-        <SectionHeader icon={MapPin} title="Lieu" />
-        <dl className={GRILLE_4}>
-          <InfoItem label="Adresse" pleineLargeur>
+      <SectionInfos titre="Lieu et accès" data-testid="bloc-lieu">
+        <dl className={GRILLE_3}>
+          <InfoItem label="Adresse">
             {lieu?.nom ?? <Vide />}
             {adresse && (
               <span className="block font-normal text-savr-neutral-600">
@@ -185,39 +244,59 @@ export function OngletInformations({
           <InfoItem
             variant="texte"
             label="Instructions d’accès"
-            className="sm:col-span-2 lg:col-span-4"
             valueClassName="whitespace-pre-line"
           >
             {instructions.length > 0 ? instructions.join('\n\n') : <Vide />}
           </InfoItem>
         </dl>
-      </Card>
+      </SectionInfos>
 
       {/* Bloc absent pour le gestionnaire sur la collecte d'un traiteur tiers
           (§06.05 : rien de personnel sur un traiteur tiers) — décidé serveur. */}
       {c.contacts_visibles && (
-        <Card padding="md" className="space-y-4" data-testid="bloc-contacts">
-          <SectionHeader icon={Users} title="Contacts sur place" />
-          <dl className={GRILLE_4}>
-            <InfoItem label="Contact principal">
-              {c.contact_principal_nom ?? <Vide />}
-            </InfoItem>
-            <InfoItem label="Téléphone">
-              <TelephoneLien telephone={c.contact_principal_telephone} />
-            </InfoItem>
-            {/* Contact de secours (Q4) : ligne masquée seulement si vide. */}
-            {avecSecours && (
-              <>
-                <InfoItem label="Contact de secours">
-                  {c.contact_secours_nom ?? <Vide />}
-                </InfoItem>
-                <InfoItem label="Téléphone">
-                  <TelephoneLien telephone={c.contact_secours_telephone} />
-                </InfoItem>
-              </>
+        <SectionInfos titre="Contacts sur place" data-testid="bloc-contacts">
+          <div className={GRILLE_3}>
+            <CarteContact
+              nom={c.contact_principal_nom}
+              telephone={c.contact_principal_telephone}
+              role="Contact principal"
+            />
+            {/* Contact de secours (Q4) : affiché s'il est renseigné ; sinon,
+                bouton d'ajout pour qui peut modifier la collecte (Val
+                2026-10-27), rien pour les autres. */}
+            {avecSecours ? (
+              <CarteContact
+                nom={c.contact_secours_nom}
+                telephone={c.contact_secours_telephone}
+                role="Contact de secours"
+              />
+            ) : (
+              onAjouterSecours && (
+                <Button
+                  variant="ghost"
+                  onClick={onAjouterSecours}
+                  data-testid="action-ajouter-contact-secours"
+                  className="h-auto justify-start gap-3.5 whitespace-normal rounded-savr-lg p-0 text-left font-normal text-savr-accent-700 hover:bg-transparent hover:text-savr-accent-800 active:bg-transparent"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-savr-full border-[1.5px] border-dashed border-savr-accent-400"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </span>
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-[15px] font-semibold">
+                      Ajouter un contact de secours
+                    </span>
+                    <span className="text-sm text-savr-neutral-500">
+                      À compléter avant la collecte
+                    </span>
+                  </span>
+                </Button>
+              )
             )}
-          </dl>
-        </Card>
+          </div>
+        </SectionInfos>
       )}
     </div>
   );

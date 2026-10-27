@@ -25,6 +25,11 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal.js';
+import { FicheCollecteModalCadre } from '@/components/collecte/fiche-collecte-modal-cadre';
+import {
+  BilanCollecte,
+  type RadarFiche,
+} from '@/components/collecte/fiche-collecte-client-bilan';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import {
   ficheClient,
@@ -86,7 +91,7 @@ beforeEach(() => {
 
 describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
   it(
-    'M3.1/fiche_popup_entete_badge_frise — badge ZD vert, réf., lieu, date · heure · pax, frise client',
+    'M3.1/fiche_popup_entete_badge_frise — badge ZD vert, réf., lieu, date, heure, pax, statut client en pastille',
     async () => {
       stubFetchFiche(ficheClient({ statut: 'validee' }));
       render(fiche('c1'));
@@ -102,25 +107,25 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
       expect(badge.className).toContain('bg-savr-success-strong');
       expect(badge.className).toContain('text-savr-white');
       expect(screen.getByText('Réf. C1')).toBeTruthy();
+      // Titre = nom de l'événement (décision Val 2026-10-27).
       expect(
-        screen.getByRole('heading', {
-          level: 3,
-          name: 'Paris Expo Porte de Versailles',
-        }),
+        screen.getByRole('heading', { level: 3, name: 'Salon' }),
       ).toBeTruthy();
       const ligne = await sousLigne();
-      expect(ligne).toContain('Mercredi 28 octobre 2026 · 22:00');
+      // Variante B (Val 2026-10-27) : date et heure en deux repères.
+      expect(ligne).toContain('Mercredi 28 octobre 2026');
+      expect(ligne).toContain('22:00');
       expect(ligne).toContain('4 200 pax');
       // Jamais l'ISO de la base.
       expect(ligne).not.toContain('2026-10-28');
 
-      // Q1 : vocabulaire client, étape courante marquée.
-      const frise = screen.getByTestId('frise-statut-client');
-      expect(frise.textContent).toContain('Créée');
-      expect(frise.textContent).toContain('Réalisée');
-      expect(frise.textContent).not.toMatch(/Programmée|Clôturée/);
-      const courante = within(frise).getByText('Validée').closest('li');
-      expect(courante?.getAttribute('aria-current')).toBe('step');
+      // Q1 : vocabulaire client. Variante B (Val 2026-10-27) : la frise
+      // devient une pastille qui ne porte que l'étape courante.
+      const statut = screen.getByTestId('frise-statut-client');
+      expect(statut.textContent).toBe('Validée');
+      expect(statut.getAttribute('aria-label')).toBe(
+        'Statut de la collecte : Validée',
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -178,7 +183,8 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
         expect(onglet.className).toMatch(/(^|\s)h-11(\s|$)/);
         expect(onglet.className).toMatch(/\bsm:h-10\b/);
       }
-      // Grand en-tête commun des fiches (FicheEnTete) : la frise y est portée.
+      // Grand en-tête de la fiche client (variante B) : la pastille de statut
+      // y est portée.
       expect(
         within(
           screen
@@ -785,9 +791,10 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       expect(estompe.className).toContain('opacity-40');
       expect(estompe.textContent).toMatch(/—\s*kg/);
       expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
-      expect(
-        screen.getByRole('button', { name: 'Télécharger' }),
-      ).toHaveProperty('disabled', true);
+      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
+        'disabled',
+        true,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -931,7 +938,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
   );
 
   it(
-    'M3.1/fiche_popup_annulee — frise « Créée · Annulée », aucun bilan ni document, pas d’actions',
+    'M3.1/fiche_popup_annulee — statut « Annulée », aucun bilan ni document, pas d’actions',
     async () => {
       stubFetchFiche(
         ficheClient({
@@ -941,16 +948,12 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       );
       render(fiche('c1'));
 
-      const frise = await screen.findByTestId(
+      const statut = await screen.findByTestId(
         'frise-statut-client',
         {},
         ATTENTE_UI,
       );
-      expect(
-        within(frise)
-          .getAllByRole('listitem')
-          .map((li) => li.textContent?.replace(' (étape passée)', '')),
-      ).toEqual(['Créée', 'Annulée']);
+      expect(statut.textContent).toBe('Annulée');
       await ouvrirOnglet('Bilan & documents');
       await screen.findByText(
         'Collecte annulée : aucun bilan ni document.',
@@ -972,10 +975,9 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       render(fiche('c1'));
       await ouvrirOnglet('Bilan & documents');
 
-      const docs = await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
-      fireEvent.click(
-        within(docs).getByRole('button', { name: 'Télécharger' }),
-      );
+      await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
+      // Bouton dans le pied de la fiche (variante B, Val 2026-10-27).
+      fireEvent.click(screen.getByTestId('action-telecharger-rapport'));
       await waitFor(
         () => expect(URL.createObjectURL).toHaveBeenCalledTimes(1),
         ATTENTE_UI,
@@ -1018,8 +1020,9 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
     screen.getByRole('checkbox', {
       name: 'Inclure le radar de comparaison dans le rapport',
     });
-  const telecharger = (docs: HTMLElement) =>
-    within(docs).getByRole('button', { name: 'Télécharger' });
+  // Bouton dans le pied de la fiche (variante B, Val 2026-10-27).
+  const telecharger = (_docs: HTMLElement) =>
+    screen.getByTestId('action-telecharger-rapport');
 
   it(
     'M3.1/fiche_popup_rapport_option_radar — case décochée à l’ouverture ; plus de bouton « Régénérer »',
@@ -1095,7 +1098,11 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
       );
       fireEvent.click(caseRadar());
       fireEvent.click(telecharger(docs));
-      const alerte = await within(docs).findByRole('alert', {}, ATTENTE_UI);
+      const alerte = await screen.findByTestId(
+        'erreur-rapport',
+        {},
+        ATTENTE_UI,
+      );
       expect(alerte.textContent).toBe(
         'La comparaison au parc n’est pas disponible pour cette collecte.',
       );
@@ -1112,7 +1119,11 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
         { rapportRefus: { status: 502, error: 'détail interne' } },
       );
       fireEvent.click(telecharger(docs));
-      const alerte = await within(docs).findByRole('alert', {}, ATTENTE_UI);
+      const alerte = await screen.findByTestId(
+        'erreur-rapport',
+        {},
+        ATTENTE_UI,
+      );
       expect(alerte.textContent).toBe(
         'La fabrication du rapport a échoué. Réessayez dans un instant.',
       );
@@ -1187,9 +1198,7 @@ describe('M3.1 / pop-up — attestation du donneur d’ordre (D12)', () => {
       expect(docs.textContent).not.toContain('Disponible le lendemain');
       expect(docs.textContent).not.toContain('48h');
       expect(docs.textContent).not.toContain('En cours de préparation');
-      expect(
-        within(docs).queryByRole('button', { name: 'Télécharger' }),
-      ).toBeNull();
+      expect(screen.queryByTestId('action-telecharger-rapport')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -1211,9 +1220,10 @@ describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 
         'Document disponible dans les 48h après la collecte',
       );
       expect(docs.textContent).not.toContain('Disponible le lendemain');
-      expect(
-        within(docs).getByRole('button', { name: 'Télécharger' }),
-      ).toHaveProperty('disabled', true);
+      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
+        'disabled',
+        true,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -1241,9 +1251,10 @@ describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 
       expect(docs.textContent).not.toContain('Disponible le lendemain');
       expect(docs.textContent).not.toContain('48h');
       expect(docs.textContent).not.toMatch(/retard|échec|erreur|pesée/i);
-      expect(
-        within(docs).getByRole('button', { name: 'Télécharger' }),
-      ).toHaveProperty('disabled', true);
+      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
+        'disabled',
+        true,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -1261,9 +1272,10 @@ describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 
       expect(docs.textContent).toContain('PDF');
       expect(docs.textContent).not.toContain('48h');
       expect(docs.textContent).not.toContain('En cours de préparation');
-      expect(
-        within(docs).getByRole('button', { name: 'Télécharger' }),
-      ).toHaveProperty('disabled', false);
+      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
+        'disabled',
+        false,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -1478,4 +1490,238 @@ describe('M3.1 / pop-up — Échap', () => {
     },
     ATTENTE_CAS_MS,
   );
+});
+
+// Variante B (décisions Val 2026-10-27) : cadre de la fiche client.
+describe('Variante B — cadre de la fiche collecte client', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it(
+    'en-tête : titre = nom de l’événement, « lieu · client » dessous, et la ville du lieu dans la ligne à pictos',
+    async () => {
+      stubFetchFiche(ficheClient());
+      render(fiche('c1'));
+
+      expect(await sousLigne()).toContain('Paris');
+      const titre = screen.getByRole('heading', { level: 3, name: 'Salon' });
+      expect(titre.nextElementSibling?.textContent).toBe(
+        'Paris Expo Porte de Versailles · Maison Client',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'en-tête : sans nom d’événement, le lieu prend le titre ; sans client, aucune ligne vide dessous',
+    async () => {
+      const base = ficheClient();
+      stubFetchFiche(
+        ficheClient({
+          evenement: {
+            ...base.evenement!,
+            nom_evenement: null,
+            nom_client_organisateur: '  ',
+          },
+        }),
+      );
+      render(fiche('c1'));
+
+      await sousLigne();
+      const titre = screen.getByRole('heading', {
+        level: 3,
+        name: 'Paris Expo Porte de Versailles',
+      });
+      expect(titre.nextElementSibling).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'C1 : grand format (1 200 px, angles 20 px) pour la fiche client ; le cadre garde le format standard par défaut (fiches Admin)',
+    async () => {
+      stubFetchFiche(ficheClient());
+      render(fiche('c1'));
+      const dialogue = await screen.findByRole('dialog', {}, ATTENTE_UI);
+      expect(dialogue.className).toContain('max-w-[75rem]');
+      expect(dialogue.className).toContain('rounded-savr-2xl');
+      expect(dialogue.className).not.toContain('max-w-5xl');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it('C1 : sans taille, le cadre commun (fiche collecte Admin) reste au format standard', () => {
+    render(
+      <FicheCollecteModalCadre collecteId="c1" onClose={() => {}}>
+        {() => <p>Fiche Admin</p>}
+      </FicheCollecteModalCadre>,
+    );
+    const dialogue = screen.getByRole('dialog');
+    expect(dialogue.className).toContain('max-w-5xl');
+    expect(dialogue.className).not.toContain('max-w-[75rem]');
+  });
+
+  it(
+    'pied : « Annuler la collecte » en texte rouge à gauche, puis « Ajouter une collecte » et « Modifier la collecte » en pilules',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          actions: {
+            modifier: 'actif',
+            annuler: 'actif',
+            annulation: 'directe',
+            ajouter_collecte: true,
+          } as ReturnType<typeof ficheClient>['actions'],
+        }),
+      );
+      render(fiche('c1'));
+
+      const annuler = await screen.findByTestId(
+        'action-annuler',
+        {},
+        ATTENTE_UI,
+      );
+      const ajouter = screen.getByTestId('action-ajouter-collecte');
+      const modifier = screen.getByTestId('action-modifier');
+      // Texte rouge sans contour.
+      expect(annuler.className).toContain('text-savr-error');
+      expect(annuler.className).not.toMatch(/(^|\s)border(\s|$)/);
+      // Ordre du DOM : Annuler, espaceur, Ajouter, Modifier.
+      const pied = annuler.closest('footer') as HTMLElement;
+      const enfants = Array.from(pied.children);
+      const espaceur = enfants.findIndex((e) => e.className.includes('flex-1'));
+      expect(enfants.indexOf(annuler)).toBeLessThan(espaceur);
+      expect(espaceur).toBeLessThan(enfants.indexOf(ajouter));
+      expect(enfants.indexOf(ajouter)).toBeLessThan(enfants.indexOf(modifier));
+      for (const b of [ajouter, modifier])
+        expect(b.className).toContain('rounded-savr-full');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'contacts : principal en carte (initiales, nom, téléphone) ; sans contact de secours, bouton d’ajout qui ouvre l’édition',
+    async () => {
+      stubFetchFiche(ficheClient({ statut: 'programmee' }));
+      render(fiche('c1'));
+
+      const contacts = await screen.findByTestId(
+        'bloc-contacts',
+        {},
+        ATTENTE_UI,
+      );
+      expect(contacts.textContent).toContain('PC');
+      expect(contacts.textContent).toContain('Paul Contact');
+      const ajouter = within(contacts).getByTestId(
+        'action-ajouter-contact-secours',
+      );
+      expect(ajouter.textContent).toContain('Ajouter un contact de secours');
+      fireEvent.click(ajouter);
+      await screen.findByRole(
+        'button',
+        { name: 'Confirmer la modification' },
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'contacts : pas de bouton d’ajout du contact de secours pour qui ne peut pas modifier la collecte, ni quand il existe',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          actions: { modifier: 'grise', annuler: 'absent', annulation: null },
+        }),
+      );
+      const { unmount } = render(fiche('c1'));
+      const contacts = await screen.findByTestId(
+        'bloc-contacts',
+        {},
+        ATTENTE_UI,
+      );
+      expect(
+        within(contacts).queryByTestId('action-ajouter-contact-secours'),
+      ).toBeNull();
+      unmount();
+
+      stubFetchFiche(
+        ficheClient({
+          contact_secours_nom: 'Léa Secours',
+          contact_secours_telephone: '+33 6 55 44 33 22',
+        }),
+      );
+      render(fiche('c1'));
+      const avec = await screen.findByTestId('bloc-contacts', {}, ATTENTE_UI);
+      expect(avec.textContent).toContain('Léa Secours');
+      expect(
+        within(avec).queryByTestId('action-ajouter-contact-secours'),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'pied : « Télécharger le rapport » à droite de « Ajouter une collecte », visible dès l’onglet Informations',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          ...ZD_REALISEE,
+          actions: {
+            modifier: 'absent',
+            annuler: 'absent',
+            annulation: null,
+            ajouter_collecte: true,
+          } as ReturnType<typeof ficheClient>['actions'],
+        }),
+      );
+      render(fiche('c1'));
+
+      // Onglet Informations ouvert : le bouton est déjà dans le pied.
+      const telecharger = await screen.findByTestId(
+        'action-telecharger-rapport',
+        {},
+        ATTENTE_UI,
+      );
+      expect(screen.getByRole('tab', { name: 'Informations' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      expect(telecharger.textContent).toContain('Télécharger le rapport');
+      expect(telecharger).toHaveProperty('disabled', false);
+      const ajouter = screen.getByTestId('action-ajouter-collecte');
+      const enfants = Array.from(
+        (telecharger.closest('footer') as HTMLElement).children,
+      );
+      expect(enfants.indexOf(ajouter)).toBeLessThan(
+        enfants.indexOf(telecharger),
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it('C1 : la fiche Admin garde le bilan standard (KPI en cartes, graphes empilés)', () => {
+    const radarSansRepere: RadarFiche = {
+      visible: false,
+      bench: null,
+      indisponible: false,
+      filtres: null,
+      setFiltres: () => {},
+    };
+    const { unmount } = render(
+      <BilanCollecte c={ficheClient(ZD_REALISEE)} radar={radarSansRepere} />,
+    );
+    expect(screen.getByTestId('kpi-zd').className).toContain('gap-3');
+    expect(screen.getByTestId('kpi-zd').className).not.toContain('border-b');
+    unmount();
+    render(
+      <BilanCollecte
+        c={ficheClient(ZD_REALISEE)}
+        radar={radarSansRepere}
+        presentation="variante-b"
+      />,
+    );
+    expect(screen.getByTestId('kpi-zd').className).toContain('border-b');
+  });
 });

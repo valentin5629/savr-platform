@@ -4,7 +4,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 // PageHero — bandeau d'écran (levier #2 Design System §10 : « aplat primary-700,
-// texte blanc »). Titre Nunito 800 tracking serré (-0.02em, levier #7), sous-titre
+// texte blanc »). Titre Archivo 800 tracking serré (-0.02em, levier #7), sous-titre
 // primary-200, slot d'actions aligné à droite. Le bandeau porte le <h1> de la page
 // (un seul par écran).
 interface PageHeroProps {

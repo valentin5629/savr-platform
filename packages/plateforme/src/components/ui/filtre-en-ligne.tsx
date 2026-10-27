@@ -160,6 +160,9 @@ interface FiltreCochesProps {
    * reste une sélection explicite, ni vidée ni résumée en `libelleTous`.
    */
   listePartielle?: boolean;
+  /** Classes ajoutées au déclencheur (ex. pastille sable du radar de la fiche
+   *  collecte, variante B 2026-10-27). */
+  declencheurClassName?: string;
 }
 
 // Résumé affiché à côté du titre : « Tous » (ou `libelleVide`), `libelleTous`
@@ -214,6 +217,7 @@ export function FiltreCoches({
   libelleTous = 'Tous',
   tous,
   listePartielle = false,
+  declencheurClassName,
 }: FiltreCochesProps) {
   const [recherche, setRecherche] = React.useState('');
   const avecRecherche = options.length > SEUIL_RECHERCHE;
@@ -243,7 +247,7 @@ export function FiltreCoches({
         <button
           type="button"
           data-testid={testid}
-          className={declencheurFiltre}
+          className={cn(declencheurFiltre, declencheurClassName)}
         >
           <ContenuDeclencheur
             titre={label}

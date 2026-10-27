@@ -787,9 +787,10 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       expect(estompe.className).toContain('opacity-40');
       expect(estompe.textContent).toMatch(/—\s*kg/);
       expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
-      expect(
-        screen.getByRole('button', { name: 'Télécharger' }),
-      ).toHaveProperty('disabled', true);
+      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
+        'disabled',
+        true,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -970,10 +971,9 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       render(fiche('c1'));
       await ouvrirOnglet('Bilan & documents');
 
-      const docs = await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
-      fireEvent.click(
-        within(docs).getByRole('button', { name: 'Télécharger' }),
-      );
+      await screen.findByTestId('bloc-documents', {}, ATTENTE_UI);
+      // Bouton dans le pied de la fiche (variante B, Val 2026-10-27).
+      fireEvent.click(screen.getByTestId('action-telecharger-rapport'));
       await waitFor(
         () => expect(URL.createObjectURL).toHaveBeenCalledTimes(1),
         ATTENTE_UI,
@@ -1016,8 +1016,9 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
     screen.getByRole('checkbox', {
       name: 'Inclure le radar de comparaison dans le rapport',
     });
-  const telecharger = (docs: HTMLElement) =>
-    within(docs).getByRole('button', { name: 'Télécharger' });
+  // Bouton dans le pied de la fiche (variante B, Val 2026-10-27).
+  const telecharger = (_docs: HTMLElement) =>
+    screen.getByTestId('action-telecharger-rapport');
 
   it(
     'M3.1/fiche_popup_rapport_option_radar — case décochée à l’ouverture ; plus de bouton « Régénérer »',
@@ -1093,7 +1094,11 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
       );
       fireEvent.click(caseRadar());
       fireEvent.click(telecharger(docs));
-      const alerte = await within(docs).findByRole('alert', {}, ATTENTE_UI);
+      const alerte = await screen.findByTestId(
+        'erreur-rapport',
+        {},
+        ATTENTE_UI,
+      );
       expect(alerte.textContent).toBe(
         'La comparaison au parc n’est pas disponible pour cette collecte.',
       );
@@ -1110,7 +1115,11 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
         { rapportRefus: { status: 502, error: 'détail interne' } },
       );
       fireEvent.click(telecharger(docs));
-      const alerte = await within(docs).findByRole('alert', {}, ATTENTE_UI);
+      const alerte = await screen.findByTestId(
+        'erreur-rapport',
+        {},
+        ATTENTE_UI,
+      );
       expect(alerte.textContent).toBe(
         'La fabrication du rapport a échoué. Réessayez dans un instant.',
       );
@@ -1185,9 +1194,7 @@ describe('M3.1 / pop-up — attestation du donneur d’ordre (D12)', () => {
       expect(docs.textContent).not.toContain('Disponible le lendemain');
       expect(docs.textContent).not.toContain('48h');
       expect(docs.textContent).not.toContain('En cours de préparation');
-      expect(
-        within(docs).queryByRole('button', { name: 'Télécharger' }),
-      ).toBeNull();
+      expect(screen.queryByTestId('action-telecharger-rapport')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -1209,9 +1216,10 @@ describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 
         'Document disponible dans les 48h après la collecte',
       );
       expect(docs.textContent).not.toContain('Disponible le lendemain');
-      expect(
-        within(docs).getByRole('button', { name: 'Télécharger' }),
-      ).toHaveProperty('disabled', true);
+      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
+        'disabled',
+        true,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -1239,9 +1247,10 @@ describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 
       expect(docs.textContent).not.toContain('Disponible le lendemain');
       expect(docs.textContent).not.toContain('48h');
       expect(docs.textContent).not.toMatch(/retard|échec|erreur|pesée/i);
-      expect(
-        within(docs).getByRole('button', { name: 'Télécharger' }),
-      ).toHaveProperty('disabled', true);
+      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
+        'disabled',
+        true,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -1259,9 +1268,10 @@ describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 
       expect(docs.textContent).toContain('PDF');
       expect(docs.textContent).not.toContain('48h');
       expect(docs.textContent).not.toContain('En cours de préparation');
-      expect(
-        within(docs).getByRole('button', { name: 'Télécharger' }),
-      ).toHaveProperty('disabled', false);
+      expect(screen.getByTestId('action-telecharger-rapport')).toHaveProperty(
+        'disabled',
+        false,
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -1644,6 +1654,45 @@ describe('Variante B — cadre de la fiche collecte client', () => {
       expect(
         within(avec).queryByTestId('action-ajouter-contact-secours'),
       ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'pied : « Télécharger le rapport » à droite de « Ajouter une collecte », visible dès l’onglet Informations',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          ...ZD_REALISEE,
+          actions: {
+            modifier: 'absent',
+            annuler: 'absent',
+            annulation: null,
+            ajouter_collecte: true,
+          } as ReturnType<typeof ficheClient>['actions'],
+        }),
+      );
+      render(fiche('c1'));
+
+      // Onglet Informations ouvert : le bouton est déjà dans le pied.
+      const telecharger = await screen.findByTestId(
+        'action-telecharger-rapport',
+        {},
+        ATTENTE_UI,
+      );
+      expect(screen.getByRole('tab', { name: 'Informations' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      expect(telecharger.textContent).toContain('Télécharger le rapport');
+      expect(telecharger).toHaveProperty('disabled', false);
+      const ajouter = screen.getByTestId('action-ajouter-collecte');
+      const enfants = Array.from(
+        (telecharger.closest('footer') as HTMLElement).children,
+      );
+      expect(enfants.indexOf(ajouter)).toBeLessThan(
+        enfants.indexOf(telecharger),
+      );
     },
     ATTENTE_CAS_MS,
   );

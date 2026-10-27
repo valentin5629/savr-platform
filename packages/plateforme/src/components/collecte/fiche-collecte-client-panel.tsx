@@ -12,6 +12,7 @@ import {
   ArrowRight,
   CalendarDays,
   Clock,
+  Download,
   MapPin,
   PlusCircle,
   Users,
@@ -33,7 +34,11 @@ import {
   OngletLogistique,
   type FicheClientDonnees,
 } from '@/components/collecte/fiche-collecte-client-onglets';
-import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
+import {
+  OngletBilan,
+  useRadarFiche,
+  useRapportCollecte,
+} from '@/components/collecte/fiche-collecte-client-bilan';
 import { dateLongueCapitalisee } from '@/components/collecte/fiche-blocs';
 import { EnTeteMention } from '@/components/ui/fiche/fiche-en-tete';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
@@ -139,6 +144,12 @@ export function FicheCollecteClientPanel({
     setUrgence('idle');
     reload();
   }, [reload]);
+
+  // Radar et rapport portés par le panneau : le bouton « Télécharger le
+  // rapport » est dans le pied (visible sans défiler, Val 2026-10-27) et
+  // reprend les filtres du radar réglés dans l'onglet Bilan.
+  const radar = useRadarFiche(`${base}/benchmark`, c);
+  const rapport = useRapportCollecte(c, base, radar);
 
   // Titre accessible du dialogue (l'en-tête visuel est porté par le panneau).
   useEffect(() => {
@@ -257,7 +268,8 @@ export function FicheCollecteClientPanel({
     !editing &&
     (actions.annuler !== 'absent' ||
       actions.modifier !== 'absent' ||
-      lienAjouterCollecte !== null);
+      lienAjouterCollecte !== null ||
+      rapport.visible);
   const motifGrise =
     espace === 'traiteur'
       ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
@@ -402,11 +414,26 @@ export function FicheCollecteClientPanel({
             />
           </TabsContent>
           <TabsContent value="bilan">
-            <OngletBilan c={c} base={base} espace={espace} />
+            <OngletBilan
+              c={c}
+              espace={espace}
+              radar={radar}
+              rapport={rapport}
+            />
           </TabsContent>
         </FicheCorps>
       )}
 
+      {rapport.erreur && !editing && (
+        <AlertBar
+          variant="err"
+          role="alert"
+          className="mx-6 mb-2 md:mx-14"
+          data-testid="erreur-rapport"
+        >
+          {rapport.erreur}
+        </AlertBar>
+      )}
       {piedVisible && (
         <FichePied className="justify-start gap-3 border-savr-sable-200 px-6 py-5 md:px-14">
           {actions.annuler !== 'absent' && (
@@ -440,6 +467,22 @@ export function FicheCollecteClientPanel({
                 <PlusCircle className="h-4 w-4" aria-hidden="true" />
                 Ajouter une collecte à cet événement
               </Link>
+            </Button>
+          )}
+          {rapport.visible && (
+            <Button
+              size="pilule"
+              // Bouton principal quand la collecte ne se modifie plus (cas
+              // courant : rapport disponible après la collecte).
+              variant={actions.modifier === 'absent' ? 'primary' : 'sable'}
+              data-testid="action-telecharger-rapport"
+              disabled={rapport.desactive}
+              loading={rapport.fabrication}
+              loadingText="Préparation du PDF…"
+              onClick={() => void rapport.telecharger()}
+            >
+              <Download aria-hidden="true" />
+              Télécharger le rapport
             </Button>
           )}
           {actions.modifier !== 'absent' && (

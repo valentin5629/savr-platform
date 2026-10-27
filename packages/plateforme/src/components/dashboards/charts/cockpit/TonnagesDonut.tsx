@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { cn } from '@/lib/utils';
 import { FLUX_ZD } from '@/components/dashboards/flux';
 import type { FluxSeriePoint } from '@/components/dashboards/useEvolutionBlocs';
 import { ChartCard } from './ChartCard';
@@ -25,10 +26,11 @@ interface TonnagesDonutProps {
    * même ligne (repli en colonne sous 640px).
    */
   disposition?: 'colonne' | 'ligne';
+  className?: string;
 }
 
 const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
-  ({ series, disposition = 'colonne' }, ref) => {
+  ({ series, disposition = 'colonne', className }, ref) => {
     const enLigne = disposition === 'ligne';
     const [hover, setHover] = React.useState<number | null>(null);
     const perFlux = FLUX_ZD.map((f) => ({
@@ -68,7 +70,7 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
         ref={ref}
         title="Répartition des tonnages"
         subtitle="Zéro Déchet · 5 flux"
-        className="flex flex-col"
+        className={cn('flex flex-col', className)}
       >
         <div
           className={

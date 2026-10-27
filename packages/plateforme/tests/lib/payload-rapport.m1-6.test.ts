@@ -119,11 +119,23 @@ function tables(
   };
 }
 
-async function payload(t: Record<string, Res> = tables()) {
+/**
+ * `lisible` = ce que le demandeur lit de `bordereaux_savr` sous SA RLS : une
+ * ligne (traiteur programmateur) ou aucune (traiteur opérationnel tiers,
+ * gestionnaire qui programme hors de ses lieux).
+ */
+async function payload(
+  t: Record<string, Res> = tables(),
+  lisible: Res = LISIBLE,
+) {
   const { admin, selects } = makeAdmin(t);
-  const r = await construirePayloadRapport(admin, 'c1');
-  return { r, selects };
+  const lecteur = makeAdmin({ bordereaux_savr: lisible });
+  const r = await construirePayloadRapport(admin, lecteur.admin, 'c1');
+  return { r, selects, selectsLecteur: lecteur.selects };
 }
+
+const LISIBLE: Res = { data: [{ id: 'b1' }], error: null };
+const ILLISIBLE: Res = { data: [], error: null };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -296,6 +308,46 @@ describe('M1.6 / données du rapport @3 rassemblées au clic', () => {
       }),
     );
     expect(panne.r).toMatchObject({ ok: false, code: 'DB_ERROR' });
+  });
+
+  it('§12 §1.7 — bordereau lisible sous la RLS du demandeur (traiteur) → page 2 avec numéro et producteur ; date de collecte pour le nom du fichier', async () => {
+    const { r, selectsLecteur } = await payload();
+    if (!r.ok) throw new Error('attendu ok');
+    expect(selectsLecteur.bordereaux_savr).toBe('id');
+    expect(r.payload.bordereau).toMatchObject({
+      numero: 'BSAV-2026-00012',
+      producteur_raison_sociale: 'Kaspia SAS',
+      producteur_siret: '12345678900012',
+    });
+    expect(r.dateCollecte).toBe('13/06/2026');
+  });
+
+  it('§12 §1.7 — bordereau illisible sous la RLS du demandeur → page 2 retirée : ni numéro, ni producteur, ni SIRET, ni adresse dans le payload', async () => {
+    const { r } = await payload(tables(), ILLISIBLE);
+    if (!r.ok) throw new Error('attendu ok');
+    expect(r.payload.bordereau).toBeNull();
+    const texte = JSON.stringify(r.payload);
+    for (const fuite of [
+      'BSAV-2026-00012',
+      'Kaspia SAS',
+      '12345678900012',
+      '2 rue Y, Paris',
+      'Strike Transport',
+      'Prestataire Savr',
+    ]) {
+      expect(texte).not.toContain(fuite);
+    }
+    // La page 1 reste : mesures de la collecte et nom du fichier daté.
+    expect(r.payload.taux_recyclage).toBe(72.5);
+    expect(r.dateCollecte).toBe('13/06/2026');
+  });
+
+  it('§12 §1.7 — lecture du bordereau sous la RLS en échec → DB_ERROR, jamais un bordereau imprimé par défaut', async () => {
+    const { r } = await payload(tables(), {
+      data: null,
+      error: { message: 'timeout' },
+    });
+    expect(r).toMatchObject({ ok: false, code: 'DB_ERROR' });
   });
 
   it('les colonnes lues existent dans les requêtes (embeds qualifiés par leur FK)', async () => {

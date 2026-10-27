@@ -13,7 +13,9 @@
 // Indépendant du rôle : la route de l'espace établit l'accès sous l'identité du
 // demandeur (`lireEvenementVisible`) et passe les collectes qu'il voit.
 //  - ZD : les mesures figées de CES collectes sont relues en service-role, comme
-//    le rapport d'une collecte (payload-rapport) ;
+//    le rapport d'une collecte (payload-rapport) ; les numéros de bordereau, eux,
+//    SOUS L'IDENTITÉ du demandeur : « — » pour un bordereau qu'il ne peut pas
+//    lire (décision Val 2026-10-27, §12 §1.7) ;
 //  - AG : relues SOUS L'IDENTITÉ du demandeur, par le chemin de la fiche
 //    collecte (attribution par rôle — la vue v_attributions_gestionnaire pour
 //    le gestionnaire —, attestation sous sa RLS) : le PDF n'imprime jamais un
@@ -89,7 +91,6 @@ type CollecteMesuree = Omit<CollecteAConsolider, 'collecte_flux'> & {
         flux_dechets?: UnOuListe<{ code: string | null; nom: string | null }>;
       }[]
     | null;
-  bordereaux_savr?: { numero: string | null; version: number }[] | null;
   attestations_don?:
     | {
         numero: string | null;
@@ -104,8 +105,13 @@ type CollecteMesuree = Omit<CollecteAConsolider, 'collecte_flux'> & {
 const SELECT_ZD = `id, type, statut, date_collecte, heure_collecte, pax,
   taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg,
   energie_primaire_evitee_kwh, co2_facteurs_snapshot,
-  collecte_flux(poids_reel_kg, flux_dechets!flux_id(code, nom)),
-  bordereaux_savr(numero, version)`;
+  collecte_flux(poids_reel_kg, flux_dechets!flux_id(code, nom))`;
+
+interface BordereauLu {
+  collecte_id: string;
+  numero: string | null;
+  version: number;
+}
 
 /** Collectes AG, lues sous l'identité du demandeur (cf. en-tête). */
 // Alias explicite `attributions_lues` posé sur la relation que le rôle lit : la
@@ -201,7 +207,10 @@ function aplatir(c: CollecteMesuree): CollecteMesuree {
   };
 }
 
-function payloadZd(collectes: CollecteMesuree[]): Record<string, unknown> {
+function payloadZd(
+  collectes: CollecteMesuree[],
+  bordereaux: readonly BordereauLu[],
+): Record<string, unknown> {
   const b = consoliderEvenement(collectes);
   const noms = new Map<string, string>();
   for (const c of collectes)
@@ -240,7 +249,9 @@ function payloadZd(collectes: CollecteMesuree[]): Record<string, unknown> {
       poids_kg: poidsCollecte(c),
       taux_recyclage: c.taux_recyclage,
       co2_evite_kg: c.co2_evite_kg,
-      bordereau_numero: derniere(c.bordereaux_savr)?.numero ?? null,
+      bordereau_numero:
+        derniere(bordereaux.filter((b) => b.collecte_id === c.id))?.numero ??
+        null,
     })),
   };
 }
@@ -320,7 +331,8 @@ export async function fabriquerRapportEvenement(params: {
   if (realisees.length === 0) return refus(AUCUN_RESULTAT, 409);
 
   const admin: SupabaseClient = createAdminSupabaseClient();
-  const [evRes, colRes] = await Promise.all([
+  const ids = realisees.map((c) => c.id);
+  const [evRes, colRes, bordRes] = await Promise.all([
     admin
       .from('evenements')
       .select(SELECT_EVENEMENT_RAPPORT)
@@ -329,13 +341,17 @@ export async function fabriquerRapportEvenement(params: {
     (type === ZD
       ? admin.from('collectes').select(SELECT_ZD)
       : rls.from('collectes').select(selectAg(role))
-    ).in(
-      'id',
-      realisees.map((c) => c.id),
-    ),
+    ).in('id', ids),
+    type === ZD
+      ? rls
+          .from('bordereaux_savr')
+          .select('collecte_id, numero, version')
+          .in('collecte_id', ids)
+      : null,
   ]);
   if (evRes.error) return serverError(evRes.error, evenementLog);
   if (colRes.error) return serverError(colRes.error, evenementLog);
+  if (bordRes?.error) return serverError(bordRes.error, evenementLog);
   const ev = evRes.data as unknown as EvenementRapportRow | null;
   if (!ev) return refus('Événement introuvable', 404);
 
@@ -362,7 +378,7 @@ export async function fabriquerRapportEvenement(params: {
       deuxTypes ? libelleTypeCollecte(type) : '',
     ),
     ...(type === ZD
-      ? payloadZd(mesurees)
+      ? payloadZd(mesurees, (bordRes?.data ?? []) as unknown as BordereauLu[])
       : await payloadAg(mesurees, admin, JSON.stringify(enTete.champs).length)),
   };
   if (type === ZD && version.avecRadar) {

@@ -154,6 +154,7 @@ beforeEach(() => {
   mockPayload.mockImplementation(async () => ({
     ok: true,
     payload: PAYLOAD(),
+    dateCollecte: '28/09/2026',
   }));
   mockPdf.mockResolvedValue({ pdfBuffer: PDF });
   mockRadar.mockResolvedValue({ etat: 'ok', radar: RADAR });
@@ -171,8 +172,9 @@ describe('M1.6 / rapport de recyclage fabriqué au clic — accès (RPT-04)', ()
     );
     expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(Buffer.from(await res.arrayBuffer()).equals(PDF)).toBe(true);
-    // Données mesurées lues en service-role, une fois l'accès établi.
-    expect(mockPayload).toHaveBeenCalledWith(admin, 'c1');
+    // Données mesurées lues en service-role, une fois l'accès établi ; le
+    // bordereau de la page 2 testé sous la RLS du demandeur (§12 §1.7).
+    expect(mockPayload).toHaveBeenCalledWith(admin, rls, 'c1');
     expect(mockPdf.mock.calls[0]![0]).toBe('rapport-recyclage-zd');
   });
 

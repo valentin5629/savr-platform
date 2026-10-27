@@ -1,6 +1,11 @@
 'use client';
 
-import { BellRing, CheckCircle2, HandHeart, Plus } from 'lucide-react';
+import {
+  BellRingingIcon,
+  CheckCircleIcon,
+  HandHeartIcon,
+  PlusIcon,
+} from '@/components/ui/icones';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge, BadgeBouton } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -282,7 +287,7 @@ export function OngletInformations({
                     aria-hidden="true"
                     className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-savr-full border-[1.5px] border-dashed border-savr-accent-400"
                   >
-                    <Plus className="h-4 w-4" />
+                    <PlusIcon className="h-4 w-4" />
                   </span>
                   <span className="flex flex-col gap-0.5">
                     <span className="text-sm font-semibold">
@@ -311,7 +316,7 @@ export function BlocAssociation({
 }) {
   return (
     <Card padding="md" className="space-y-4" data-testid="bloc-association">
-      <SectionHeader icon={HandHeart} title="Association bénéficiaire" />
+      <SectionHeader icon={HandHeartIcon} title="Association bénéficiaire" />
       <dl className={GRILLE_4}>
         <InfoItem label="Association" pleineLargeur>
           {association.nom}
@@ -500,7 +505,7 @@ export function Chauffeurs({
               className="flex flex-1 items-start gap-2"
               role="status"
             >
-              <CheckCircle2
+              <CheckCircleIcon
                 className="mt-0.5 h-4 w-4 shrink-0 text-savr-success-strong"
                 aria-hidden="true"
               />
@@ -529,7 +534,7 @@ export function Chauffeurs({
                 onClick={onDemanderUrgence}
                 disabled={urgence === 'envoi'}
               >
-                <BellRing className="h-4 w-4" aria-hidden="true" />
+                <BellRingingIcon className="h-4 w-4" aria-hidden="true" />
                 Demander les coordonnées en urgence
               </Button>
             </>

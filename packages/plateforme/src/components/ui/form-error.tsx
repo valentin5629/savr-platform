@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { WarningCircleIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 // FormError — message d'erreur inline (§10 §6 « FormError », recette §5.5 :
@@ -27,7 +27,7 @@ function FormError({ children, id, className }: FormErrorProps) {
         className,
       )}
     >
-      <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <WarningCircleIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       {children}
     </p>
   );

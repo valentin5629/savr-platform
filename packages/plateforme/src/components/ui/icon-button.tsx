@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Loader2 } from 'lucide-react';
+import { CircleNotchIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 // IconButton — bouton icône seule (§10 §6 « IconButton », actions de tableau).
@@ -80,7 +80,7 @@ const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
       {...props}
     >
       {loading ? (
-        <Loader2 className="animate-spin" aria-hidden="true" />
+        <CircleNotchIcon className="animate-spin" aria-hidden="true" />
       ) : (
         children
       )}

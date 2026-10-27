@@ -121,6 +121,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1068.0
         version: 3.1068.0
+      '@phosphor-icons/react':
+        specifier: 2.1.10
+        version: 2.1.10(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@radix-ui/react-checkbox':
         specifier: ^1.1.4
         version: 1.3.4(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -156,7 +159,7 @@ importers:
         version: link:../shared
       '@sentry/nextjs':
         specifier: ^10.57.0
-        version: 10.57.0(@opentelemetry/core@2.8.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(next@15.5.19(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(webpack@5.107.2(lightningcss@1.32.0))
+        version: 10.57.0(@opentelemetry/core@2.8.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(next@15.5.19(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(webpack@5.107.2)
       '@supabase/ssr':
         specifier: ^0.12.0
         version: 0.12.0(@supabase/supabase-js@2.108.1)
@@ -175,9 +178,6 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      lucide-react:
-        specifier: ^0.513.0
-        version: 0.513.0(react@19.2.7)
       next:
         specifier: '15'
         version: 15.5.19(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -1073,6 +1073,13 @@ packages:
   '@opentelemetry/semantic-conventions@1.41.1':
     resolution: {integrity: sha512-/UhIkaZgPutTFmQ7RnIJGgDXZmtEJ7Dvi86xNTFWcnRxVRNk/aotsqDJYeEvDP+FSMB2SdW+pQzNMcWP0rwuNA==}
     engines: {node: '>=14'}
+
+  '@phosphor-icons/react@2.1.10':
+    resolution: {integrity: sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      react: '>= 16.8'
+      react-dom: '>= 16.8'
 
   '@playwright/test@1.60.0':
     resolution: {integrity: sha512-O71yZIbAh/PxDMNGns37GHBIfrVkEVyn+AXyIa5dOTfb4/xNvRWV+Vv/NMbNCtODB/pO7vLlF2OTmMVLhmr7Ag==}
@@ -3407,11 +3414,6 @@ packages:
     resolution: {integrity: sha512-jumlc0BIUrS3qJGgIkWZsyfAM7NCWiBcCDhnd+3NNM5KbBmLTgHVfWBcg6W+rLUsIpzpERPsvwUP7CckAQSOoA==}
     engines: {node: '>=12'}
 
-  lucide-react@0.513.0:
-    resolution: {integrity: sha512-CJZKq2g8Y8yN4Aq002GahSXbG2JpFv9kXwyiOAMvUBv7pxeOFHUWKB0mO7MiY4ZVFCV4aNjv2BJFq/z3DgKPQg==}
-    peerDependencies:
-      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
     hasBin: true
@@ -5261,6 +5263,11 @@ snapshots:
 
   '@opentelemetry/semantic-conventions@1.41.1': {}
 
+  '@phosphor-icons/react@2.1.10(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+    dependencies:
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
+
   '@playwright/test@1.60.0':
     dependencies:
       playwright: 1.60.0
@@ -5988,7 +5995,7 @@ snapshots:
 
   '@sentry/core@10.57.0': {}
 
-  '@sentry/nextjs@10.57.0(@opentelemetry/core@2.8.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(next@15.5.19(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(webpack@5.107.2(lightningcss@1.32.0))':
+  '@sentry/nextjs@10.57.0(@opentelemetry/core@2.8.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(next@15.5.19(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(webpack@5.107.2)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.41.1
@@ -6000,7 +6007,7 @@ snapshots:
       '@sentry/opentelemetry': 10.57.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.8.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(@opentelemetry/semantic-conventions@1.41.1)
       '@sentry/react': 10.57.0(react@19.2.7)
       '@sentry/vercel-edge': 10.57.0
-      '@sentry/webpack-plugin': 5.3.0(webpack@5.107.2(lightningcss@1.32.0))
+      '@sentry/webpack-plugin': 5.3.0(webpack@5.107.2)
       next: 15.5.19(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       rollup: 4.61.1
       stacktrace-parser: 0.1.11
@@ -6061,10 +6068,10 @@ snapshots:
       '@opentelemetry/resources': 2.8.0(@opentelemetry/api@1.9.1)
       '@sentry/core': 10.57.0
 
-  '@sentry/webpack-plugin@5.3.0(webpack@5.107.2(lightningcss@1.32.0))':
+  '@sentry/webpack-plugin@5.3.0(webpack@5.107.2)':
     dependencies:
       '@sentry/bundler-plugin-core': 5.3.0
-      webpack: 5.107.2(lightningcss@1.32.0)
+      webpack: 5.107.2
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -7653,10 +7660,6 @@ snapshots:
 
   lru-cache@7.18.3: {}
 
-  lucide-react@0.513.0(react@19.2.7):
-    dependencies:
-      react: 19.2.7
-
   lz-string@1.5.0: {}
 
   magic-string@0.30.21:
@@ -8363,15 +8366,13 @@ snapshots:
       - bare-abort-controller
       - react-native-b4a
 
-  terser-webpack-plugin@5.6.1(lightningcss@1.32.0)(webpack@5.107.2(lightningcss@1.32.0)):
+  terser-webpack-plugin@5.6.1(webpack@5.107.2):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
       schema-utils: 4.3.3
       terser: 5.48.0
-      webpack: 5.107.2(lightningcss@1.32.0)
-    optionalDependencies:
-      lightningcss: 1.32.0
+      webpack: 5.107.2
 
   terser@5.48.0:
     dependencies:
@@ -8586,7 +8587,7 @@ snapshots:
 
   webpack-sources@3.5.0: {}
 
-  webpack@5.107.2(lightningcss@1.32.0):
+  webpack@5.107.2:
     dependencies:
       '@types/estree': 1.0.9
       '@types/json-schema': 7.0.15
@@ -8608,7 +8609,7 @@ snapshots:
       neo-async: 2.6.2
       schema-utils: 4.3.3
       tapable: 2.3.3
-      terser-webpack-plugin: 5.6.1(lightningcss@1.32.0)(webpack@5.107.2(lightningcss@1.32.0))
+      terser-webpack-plugin: 5.6.1(webpack@5.107.2)
       watchpack: 2.5.2
       webpack-sources: 3.5.0
     transitivePeerDependencies:

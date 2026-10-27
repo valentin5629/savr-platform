@@ -1,7 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Building2, Mail, MapPin } from 'lucide-react';
+import {
+  BuildingsIcon,
+  EnvelopeSimpleIcon,
+  MapPinIcon,
+} from '@/components/ui/icones';
 import { Modal } from '@/components/ui/modal';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Input } from '@/components/ui/input';
@@ -162,7 +166,7 @@ export function OrganisationModal({
       footer={footer}
     >
       <form onSubmit={handleFormSubmit} noValidate className="space-y-4">
-        <SectionCard icon={Building2} title="Identité">
+        <SectionCard icon={BuildingsIcon} title="Identité">
           <FormGrid>
             <FormField
               label="Nom"
@@ -228,7 +232,7 @@ export function OrganisationModal({
           </FormGrid>
         </SectionCard>
 
-        <SectionCard icon={Mail} title="Contact">
+        <SectionCard icon={EnvelopeSimpleIcon} title="Contact">
           <FormGrid>
             <FormField
               label="Email principal"
@@ -256,7 +260,7 @@ export function OrganisationModal({
           </FormGrid>
         </SectionCard>
 
-        <SectionCard icon={MapPin} title="Adresse">
+        <SectionCard icon={MapPinIcon} title="Adresse">
           <FormField
             label="Adresse"
             htmlFor="om_adresse"

@@ -14,7 +14,12 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { ChevronDown, ChevronUp, ChevronsUpDown, Columns3 } from 'lucide-react';
+import {
+  CaretDownIcon,
+  CaretUpDownIcon,
+  CaretUpIcon,
+  ColumnsIcon,
+} from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
@@ -109,11 +114,14 @@ const STICKY_CELL =
 
 function SortIcon<T>({ column }: { column: Column<T, unknown> }) {
   const dir = column.getIsSorted();
-  if (dir === 'asc') return <ChevronUp className="h-3.5 w-3.5" aria-hidden />;
+  if (dir === 'asc') return <CaretUpIcon className="h-3.5 w-3.5" aria-hidden />;
   if (dir === 'desc')
-    return <ChevronDown className="h-3.5 w-3.5" aria-hidden />;
+    return <CaretDownIcon className="h-3.5 w-3.5" aria-hidden />;
   return (
-    <ChevronsUpDown className="h-3.5 w-3.5 text-savr-neutral-400" aria-hidden />
+    <CaretUpDownIcon
+      className="h-3.5 w-3.5 text-savr-neutral-400"
+      aria-hidden
+    />
   );
 }
 
@@ -225,7 +233,7 @@ function DataGrid<T>({
             <Dropdown>
               <DropdownTrigger asChild>
                 <Button variant="secondary" className="h-11 sm:h-10">
-                  <Columns3 className="h-4 w-4" />
+                  <ColumnsIcon className="h-4 w-4" />
                   Colonnes
                 </Button>
               </DropdownTrigger>

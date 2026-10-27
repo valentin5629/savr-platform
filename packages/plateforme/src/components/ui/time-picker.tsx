@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, Clock } from 'lucide-react';
+import { CaretDownIcon, ClockIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -135,7 +135,7 @@ const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
               data-value={valeur}
               className={cn(declencheurBase, bordureChamp(error, open))}
             >
-              <Clock
+              <ClockIcon
                 className="h-4 w-4 shrink-0 text-savr-neutral-400"
                 aria-hidden="true"
               />
@@ -147,7 +147,7 @@ const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
               >
                 {valeur || placeholder}
               </span>
-              <ChevronDown
+              <CaretDownIcon
                 className="h-4 w-4 shrink-0 text-savr-neutral-400"
                 aria-hidden="true"
               />

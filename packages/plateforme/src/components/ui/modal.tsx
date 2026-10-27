@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { X } from 'lucide-react';
+import { XIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 interface ModalProps {
@@ -164,7 +164,7 @@ const Modal = ({
             fermetureClassName,
           )}
         >
-          <X className="h-4 w-4" />
+          <XIcon className="h-4 w-4" />
         </button>
         <h2
           id={titleId}

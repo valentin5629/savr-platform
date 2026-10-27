@@ -2,14 +2,14 @@
 
 import { useEffect, useState, type ComponentProps } from 'react';
 import {
-  Ban,
-  Check,
-  Clock3,
-  FilePlus2,
-  FileText,
-  Info,
-  MinusCircle,
-} from 'lucide-react';
+  CheckIcon,
+  ClockIcon,
+  FilePlusIcon,
+  FileTextIcon,
+  InfoIcon,
+  MinusCircleIcon,
+  ProhibitIcon,
+} from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -129,7 +129,7 @@ export function BandeauBilanAttente({
       data-testid="bandeau-bilan-attente"
       className="flex items-start gap-3 rounded-savr-lg bg-savr-primary-50 px-5 py-4"
     >
-      <Clock3
+      <ClockIcon
         className="mt-0.5 h-5 w-5 shrink-0 text-savr-primary-700"
         aria-hidden="true"
       />
@@ -173,7 +173,7 @@ export function Kpi({
               aria-label={aide}
               className="inline-flex cursor-help"
             >
-              <Info className="h-4 w-4" />
+              <InfoIcon className="h-4 w-4" />
             </span>
           </Tooltip>
         ) : undefined
@@ -209,7 +209,7 @@ function ChiffreCle({
               aria-label={aide}
               className="inline-flex cursor-help normal-case tracking-normal"
             >
-              <Info className="h-3.5 w-3.5" />
+              <InfoIcon className="h-3.5 w-3.5" />
             </span>
           </Tooltip>
         )}
@@ -395,7 +395,7 @@ export function BilanCollecte({
 
       {sansExcedent ? (
         <Card padding="md" className="space-y-4" data-testid="bloc-aucun-repas">
-          <SectionHeader icon={MinusCircle} title="Aucun repas collecté" />
+          <SectionHeader icon={MinusCircleIcon} title="Aucun repas collecté" />
           <Text tone="soft" className="leading-relaxed">
             Notre chauffeur s’est présenté sur place, mais il n’y avait pas
             d’excédent alimentaire à donner. Votre rapport de don atteste que
@@ -667,7 +667,7 @@ export function OngletBilan({
         className="flex items-start gap-3"
         data-testid="bilan-annulee"
       >
-        <Ban
+        <ProhibitIcon
           className="mt-0.5 h-5 w-5 shrink-0 text-savr-neutral-400"
           aria-hidden="true"
         />
@@ -710,9 +710,9 @@ export function OngletBilan({
         )}
       >
         {avecRadar ? (
-          <Check aria-hidden="true" />
+          <CheckIcon aria-hidden="true" />
         ) : (
-          <FilePlus2 aria-hidden="true" />
+          <FilePlusIcon aria-hidden="true" />
         )}
         Intégrer la comparaison au rapport à télécharger
       </Button>
@@ -737,7 +737,7 @@ export function OngletBilan({
         >
           {reserve && (
             <div className="flex items-center gap-3 px-5 py-3.5">
-              <FileText
+              <FileTextIcon
                 className="h-5 w-5 shrink-0 text-savr-primary-700"
                 aria-hidden="true"
               />
@@ -755,7 +755,7 @@ export function OngletBilan({
               className="flex flex-wrap items-center gap-3 px-5 py-3.5"
               data-testid="document-facture"
             >
-              <FileText
+              <FileTextIcon
                 className="h-5 w-5 shrink-0 text-savr-primary-700"
                 aria-hidden="true"
               />

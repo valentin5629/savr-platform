@@ -1,7 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChefHat, ImageIcon, MapPin, PencilLine, Truck } from 'lucide-react';
+import {
+  ChefHatIcon,
+  ImageIcon,
+  MapPinIcon,
+  PencilLineIcon,
+  TruckIcon,
+} from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -236,7 +242,7 @@ export function FicheLieuModal({
                 disabled={lieu.demande_modification_en_cours}
                 onClick={() => setDemandeOuverte(true)}
               >
-                <PencilLine />
+                <PencilLineIcon />
                 Demande de modification d’information
               </Button>
             </>
@@ -272,7 +278,7 @@ export function FicheLieuModal({
             <FicheEnTete titre="Fiche lieu" />
             <FicheCorps className="py-6">
               <EmptyState
-                icon={<MapPin className="h-8 w-8" />}
+                icon={<MapPinIcon className="h-8 w-8" />}
                 title="Lieu non trouvé"
                 description="Ce lieu n'existe pas ou n'est pas rattaché à votre organisation."
               />
@@ -293,11 +299,11 @@ export function FicheLieuModal({
               titre={lieu.nom}
               infosTestId="fiche-lieu-infos"
               infos={[
-                { icon: MapPin, texte: adresse },
+                { icon: MapPinIcon, texte: adresse },
                 ...(lieu.type_vehicule_max
                   ? [
                       {
-                        icon: Truck,
+                        icon: TruckIcon,
                         texte: `Véhicule max : ${
                           VEHICULE_LABEL[lieu.type_vehicule_max] ??
                           lieu.type_vehicule_max
@@ -323,7 +329,7 @@ export function FicheLieuModal({
                 <TabsContent value="informations" className="space-y-4">
                   <Card padding="md" className="space-y-4">
                     <SectionHeader
-                      icon={MapPin}
+                      icon={MapPinIcon}
                       title="Adresse et capacité"
                       level={3}
                     />
@@ -349,7 +355,7 @@ export function FicheLieuModal({
 
                   <Card padding="md" className="space-y-4">
                     <SectionHeader
-                      icon={Truck}
+                      icon={TruckIcon}
                       title="Accès et logistique"
                       level={3}
                     />
@@ -429,7 +435,7 @@ export function FicheLieuModal({
                 <TabsContent value="traiteurs" className="space-y-4">
                   <Card padding="md" className="space-y-4">
                     <SectionHeader
-                      icon={ChefHat}
+                      icon={ChefHatIcon}
                       title="Traiteurs opérant sur ce lieu"
                       level={3}
                     />

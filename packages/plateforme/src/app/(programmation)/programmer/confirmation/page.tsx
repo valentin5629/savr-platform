@@ -14,17 +14,17 @@ import {
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  CheckCircle2,
-  IdCard,
-  MapPin,
-  PlusCircle,
-  CalendarPlus,
-  Mail,
-  AlertTriangle,
-  Pencil,
-  Phone,
-  X,
-} from 'lucide-react';
+  CalendarPlusIcon,
+  CheckCircleIcon,
+  EnvelopeSimpleIcon,
+  IdentificationCardIcon,
+  MapPinIcon,
+  PencilSimpleIcon,
+  PhoneIcon,
+  PlusCircleIcon,
+  WarningIcon,
+  XIcon,
+} from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
@@ -334,7 +334,7 @@ function CarteCollecte({
           {lienModifier && (
             <Button asChild variant="ghost">
               <Link href={lienModifier}>
-                <Pencil />
+                <PencilSimpleIcon />
                 Modifier
               </Link>
             </Button>
@@ -342,7 +342,7 @@ function CarteCollecte({
           {annulation?.kind === 'lien' && (
             <Button asChild variant="ghost-destructive">
               <Link href={annulation.href}>
-                <X />
+                <XIcon />
                 Annuler
               </Link>
             </Button>
@@ -352,7 +352,7 @@ function CarteCollecte({
               variant="ghost-destructive"
               onClick={() => onAnnuler(annulation.url, annulation.demande)}
             >
-              <X />
+              <XIcon />
               {/* Collecte validée : une demande, transmise à l'équipe Savr. */}
               {annulation.demande ? 'Demander l’annulation' : 'Annuler'}
             </Button>
@@ -474,7 +474,7 @@ function ConfirmationContent() {
   return (
     <div className="mx-auto max-w-6xl space-y-7">
       {error && (
-        <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
+        <AlertBar variant="err" role="alert" icon={<WarningIcon />}>
           {error}
         </AlertBar>
       )}
@@ -503,7 +503,7 @@ function ConfirmationContent() {
           </Heading>
           {evenement && (
             <Text tone="soft" className="mt-1 flex items-start gap-1.5">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+              <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0" />
               {formatLieu(evenement.lieux)}
             </Text>
           )}
@@ -526,7 +526,7 @@ function ConfirmationContent() {
                 cet email (§06.01 §3.b). */}
             {evenement && (
               <div className="flex items-start gap-2 border-t-[3px] border-savr-success bg-savr-success-subtle px-3 py-3 text-sm text-savr-success-strong">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-savr-success" />
+                <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-savr-success" />
                 <p>
                   Votre événement est programmé.
                   {(etatEmail === 'envoye' || etatEmail === 'en_reprise') && (
@@ -539,7 +539,7 @@ function ConfirmationContent() {
               </div>
             )}
             {etatEmail === 'non_envoye' && (
-              <AlertBar variant="warn" icon={<Mail />}>
+              <AlertBar variant="warn" icon={<EnvelopeSimpleIcon />}>
                 {MESSAGES_EMAIL_RECAP.non_envoye}
               </AlertBar>
             )}
@@ -547,7 +547,7 @@ function ConfirmationContent() {
               {evenement && (
                 <Button asChild className="w-full">
                   <Link href={ROUTES.programmer.ajouterCollecte(evenement.id)}>
-                    <PlusCircle />
+                    <PlusCircleIcon />
                     Ajouter une collecte
                   </Link>
                 </Button>
@@ -558,7 +558,7 @@ function ConfirmationContent() {
                 className="w-full text-savr-primary-700"
               >
                 <Link href={ROUTES.programmer.nouveau}>
-                  <CalendarPlus />
+                  <CalendarPlusIcon />
                   Programmer un autre événement
                 </Link>
               </Button>
@@ -587,11 +587,11 @@ function ConfirmationContent() {
               l’équipe Savr.
             </Text>
             <p className="flex items-center gap-2 text-sm font-semibold">
-              <Phone className="h-4 w-4 shrink-0 text-savr-primary-600" />
+              <PhoneIcon className="h-4 w-4 shrink-0 text-savr-primary-600" />
               <TelephoneLien telephone={TELEPHONE_SAVR} />
             </p>
             <p className="flex items-center gap-2 text-sm font-semibold">
-              <Mail className="h-4 w-4 shrink-0 text-savr-primary-600" />
+              <EnvelopeSimpleIcon className="h-4 w-4 shrink-0 text-savr-primary-600" />
               <a
                 href="mailto:contact@gosavr.io"
                 className="text-savr-primary-700 hover:underline"
@@ -637,7 +637,7 @@ function ConfirmationContent() {
                   <Ligne label="Contrôle d’accès">
                     {evenement.controle_acces_requis ? (
                       <span className="inline-flex items-center gap-1.5">
-                        <IdCard className="h-4 w-4 shrink-0 text-savr-accent-600" />
+                        <IdentificationCardIcon className="h-4 w-4 shrink-0 text-savr-accent-600" />
                         Plaque et nom du chauffeur requis
                       </span>
                     ) : (

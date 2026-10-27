@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { LayoutDashboard } from 'lucide-react';
+import { SquaresFourIcon } from '@/components/ui/icones';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -183,7 +183,7 @@ export default function DashboardAdminPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3">
-        <LayoutDashboard className="h-6 w-6 text-savr-primary-700" />
+        <SquaresFourIcon className="h-6 w-6 text-savr-primary-700" />
         <Heading level={1} weight="extrabold" tight>
           Dashboard Admin
         </Heading>

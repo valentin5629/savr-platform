@@ -12,25 +12,25 @@ import {
   type MutableRefObject,
 } from 'react';
 import {
-  Truck,
-  Send,
-  AlertTriangle,
-  Settings2,
-  FileText,
-  Download,
-  RotateCw,
-  History,
-  PhoneCall,
-  MapPin,
-  Scale,
-  HeartHandshake,
-  CalendarDays,
-  DoorOpen,
-  Users,
-  Building2,
-  UserRound,
-  PlusCircle,
-} from 'lucide-react';
+  ArrowClockwiseIcon,
+  BuildingsIcon,
+  CalendarDotsIcon,
+  ClockCounterClockwiseIcon,
+  DoorOpenIcon,
+  DownloadSimpleIcon,
+  FileTextIcon,
+  HandshakeIcon,
+  MapPinIcon,
+  PaperPlaneTiltIcon,
+  PhoneCallIcon,
+  PlusCircleIcon,
+  ScalesIcon,
+  SlidersHorizontalIcon,
+  TruckIcon,
+  UserCircleIcon,
+  UsersIcon,
+  WarningIcon,
+} from '@/components/ui/icones';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1902,7 +1902,7 @@ export function CollecteDetailPanel({
             <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
             {estModifieeSansRenvoi(collecte) && (
               <Badge variant="warning" className="flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" />
+                <WarningIcon className="h-3 w-3" />
                 Modifiée — renvoi requis
               </Badge>
             )}
@@ -1912,20 +1912,20 @@ export function CollecteDetailPanel({
         infosTestId="fiche-admin-sous-ligne"
         infos={[
           {
-            icon: CalendarDays,
+            icon: CalendarDotsIcon,
             texte: `${dateLongueCapitalisee(collecte.date_collecte)}${heureCollecte ? ` · ${heureCollecte}` : ''}`,
           },
           {
-            icon: Users,
+            icon: UsersIcon,
             texte: `jusqu'à ${fmtPax(collecte.pax)}`,
           },
           {
-            icon: Building2,
+            icon: BuildingsIcon,
             texte: collecte.evenements.organisations.raison_sociale,
           },
-          { icon: MapPin, texte: lieu.ville },
+          { icon: MapPinIcon, texte: lieu.ville },
           {
-            icon: Truck,
+            icon: TruckIcon,
             // Le badge garde la couleur du statut TMS (rejet, erreur) visible
             // sans ouvrir l'onglet Logistique.
             texte: (
@@ -1940,7 +1940,7 @@ export function CollecteDetailPanel({
           ...(collecte.type === 'anti_gaspi'
             ? [
                 {
-                  icon: HeartHandshake,
+                  icon: HandshakeIcon,
                   texte:
                     collecte.attributions_antgaspi?.associations?.nom ??
                     'Association en attente d’attribution',
@@ -1976,7 +1976,7 @@ export function CollecteDetailPanel({
 
           <TabsContent value="informations" className="space-y-4">
             <Card padding="md" className="space-y-4">
-              <SectionHeader icon={CalendarDays} title="Événement" />
+              <SectionHeader icon={CalendarDotsIcon} title="Événement" />
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <InfoItem label="Date et heure de collecte">
                   {dateCollecteLongue}
@@ -2041,7 +2041,7 @@ export function CollecteDetailPanel({
                 (`lieu_overrides`, §04 : le lieu officiel n'est jamais modifié). */}
             <Card padding="md" className="space-y-4">
               <SectionHeader
-                icon={MapPin}
+                icon={MapPinIcon}
                 title="Lieu"
                 action={
                   lieuSurcharge ? (
@@ -2081,7 +2081,7 @@ export function CollecteDetailPanel({
             </Card>
 
             <Card padding="md" className="space-y-4">
-              <SectionHeader icon={DoorOpen} title="Instructions d'accès" />
+              <SectionHeader icon={DoorOpenIcon} title="Instructions d'accès" />
               <dl className="space-y-3 text-sm">
                 <InfoItem label="Accès au lieu (badge, code, interphone, gardien…)">
                   {lieu.acces_details ? (
@@ -2112,7 +2112,7 @@ export function CollecteDetailPanel({
             </Card>
 
             <Card padding="md" className="space-y-4">
-              <SectionHeader icon={Users} title="Contacts" />
+              <SectionHeader icon={UsersIcon} title="Contacts" />
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <InfoItem label="Contact principal">
                   <ContactLigne
@@ -2150,7 +2150,7 @@ export function CollecteDetailPanel({
             {attributionManquante && collecte.statut === 'programmee' && (
               <Card padding="md" className="space-y-4">
                 <SectionHeader
-                  icon={HeartHandshake}
+                  icon={HandshakeIcon}
                   title="Attribution & dispatch"
                 />
                 <AttributionAgForm
@@ -2183,7 +2183,7 @@ export function CollecteDetailPanel({
               !isTerminal && (
                 <Card padding="md" className="space-y-4">
                   <SectionHeader
-                    icon={HeartHandshake}
+                    icon={HandshakeIcon}
                     title="Attribution & dispatch"
                   />
                   <AlertBar variant="warn">
@@ -2198,7 +2198,7 @@ export function CollecteDetailPanel({
             Dispatch » (décision Val 2026-10-01). */}
             {collecte.type === 'anti_gaspi' && !attributionManquante && (
               <Card padding="md" className="space-y-4">
-                <SectionHeader icon={HeartHandshake} title="Attribution AG" />
+                <SectionHeader icon={HandshakeIcon} title="Attribution AG" />
                 <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                   <InfoItem label="Association retenue">
                     {collecte.attributions_antgaspi?.associations?.nom ?? (
@@ -2238,7 +2238,10 @@ export function CollecteDetailPanel({
             )}
             {!(attributionManquante && !isTerminal) && (
               <Card padding="md" className="space-y-4">
-                <SectionHeader icon={Truck} title="Prestataire & Dispatch" />
+                <SectionHeader
+                  icon={TruckIcon}
+                  title="Prestataire & Dispatch"
+                />
                 {dispatchError && (
                   <AlertBar variant="err">{dispatchError}</AlertBar>
                 )}
@@ -2439,7 +2442,7 @@ export function CollecteDetailPanel({
                         setAcceptationModal(true);
                       }}
                     >
-                      <PhoneCall />
+                      <PhoneCallIcon />
                       Acceptation manuelle
                     </Button>
                   )}
@@ -2455,7 +2458,7 @@ export function CollecteDetailPanel({
                         variant="secondary"
                         onClick={() => setChangerPrestataire(true)}
                       >
-                        <Truck />
+                        <TruckIcon />
                         Changer de prestataire
                       </Button>
                       {estModifieeSansRenvoi(collecte) && (
@@ -2464,7 +2467,8 @@ export function CollecteDetailPanel({
                           loading={dispatching}
                           loadingText="Envoi…"
                         >
-                          <Send /> {libelleDispatch(forkTypeTms, true)}
+                          <PaperPlaneTiltIcon />{' '}
+                          {libelleDispatch(forkTypeTms, true)}
                         </Button>
                       )}
                     </>
@@ -2493,7 +2497,7 @@ export function CollecteDetailPanel({
                         loading={dispatching}
                         loadingText="Envoi…"
                       >
-                        <Send />{' '}
+                        <PaperPlaneTiltIcon />{' '}
                         {prestataireAChoisir
                           ? 'Envoyer'
                           : libelleDispatch(forkTypeTms, renvoi)}
@@ -2543,7 +2547,7 @@ export function CollecteDetailPanel({
               data-testid="bloc-chauffeur"
             >
               <SectionHeader
-                icon={UserRound}
+                icon={UserCircleIcon}
                 title={titreChauffeur}
                 action={
                   !editInfosAcces && saisieChauffeurPossible ? (
@@ -2568,7 +2572,7 @@ export function CollecteDetailPanel({
                   <div data-testid="etat-email-infos-acces">
                     {suiviEmailAcces.etat === 'envoye' && (
                       <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
-                        <Send className="h-4 w-4 shrink-0" />
+                        <PaperPlaneTiltIcon className="h-4 w-4 shrink-0" />
                         Email envoyé au programmateur
                         {suiviEmailAcces.date &&
                           ` le ${new Date(
@@ -2579,7 +2583,7 @@ export function CollecteDetailPanel({
                       </div>
                     )}
                     {suiviEmailAcces.etat === 'en_reprise' && (
-                      <AlertBar variant="warn" icon={<RotateCw />}>
+                      <AlertBar variant="warn" icon={<ArrowClockwiseIcon />}>
                         L’email au programmateur n’est pas encore parti.{' '}
                         <span className="font-normal">
                           Une nouvelle tentative a lieu automatiquement
@@ -2594,7 +2598,7 @@ export function CollecteDetailPanel({
                       </AlertBar>
                     )}
                     {suiviEmailAcces.etat === 'non_remis' && (
-                      <AlertBar variant="err" icon={<AlertTriangle />}>
+                      <AlertBar variant="err" icon={<WarningIcon />}>
                         {suiviEmailAcces.motif === 'adresse_refusee'
                           ? 'L’email n’a pas été remis : la messagerie du programmateur l’a refusé.'
                           : 'L’email n’a pas pu être envoyé au programmateur (4 tentatives en échec).'}{' '}
@@ -2611,7 +2615,7 @@ export function CollecteDetailPanel({
                         tone="soft"
                         className="flex items-center gap-2"
                       >
-                        <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
+                        <WarningIcon className="h-4 w-4 shrink-0 text-savr-warning-strong" />
                         {coordonneesCompletes
                           ? 'Coordonnées complètes : l’email n’a pas encore été envoyé au programmateur.'
                           : 'En attente : infos à compléter avant envoi de l’email.'}
@@ -2806,7 +2810,7 @@ export function CollecteDetailPanel({
             {collecte.type === 'zero_dechet' && (
               <Card padding="md" className="space-y-4">
                 <SectionHeader
-                  icon={Scale}
+                  icon={ScalesIcon}
                   title="Pesées ZD"
                   action={
                     !editPesees && (
@@ -2938,7 +2942,7 @@ export function CollecteDetailPanel({
             />
             {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
             <Card padding="md" className="space-y-4">
-              <SectionHeader icon={FileText} title="Documents" />
+              <SectionHeader icon={FileTextIcon} title="Documents" />
               {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
               <div className="divide-y divide-savr-neutral-100">
@@ -2964,7 +2968,7 @@ export function CollecteDetailPanel({
                               }`}
                               className="inline-flex items-center text-savr-primary-600"
                             >
-                              <RotateCw className="h-3.5 w-3.5" />
+                              <ArrowClockwiseIcon className="h-3.5 w-3.5" />
                             </span>
                           )}
                       </p>
@@ -3001,7 +3005,7 @@ export function CollecteDetailPanel({
                             )
                           }
                         >
-                          <Download />
+                          <DownloadSimpleIcon />
                           Télécharger
                         </Button>
                         <Button
@@ -3012,7 +3016,7 @@ export function CollecteDetailPanel({
                           loadingText="Régénérer"
                           onClick={() => void handleRegenerate(typeRapport)}
                         >
-                          <RotateCw />
+                          <ArrowClockwiseIcon />
                           Régénérer
                         </Button>
                       </>
@@ -3030,7 +3034,7 @@ export function CollecteDetailPanel({
                         loadingText="Préparation du PDF…"
                         onClick={() => void telechargerRapportZd()}
                       >
-                        <Download />
+                        <DownloadSimpleIcon />
                         Télécharger
                       </Button>
                     )}
@@ -3096,7 +3100,7 @@ export function CollecteDetailPanel({
                         )
                       }
                     >
-                      <Download />
+                      <DownloadSimpleIcon />
                       Télécharger
                     </Button>
                     <Button
@@ -3107,7 +3111,7 @@ export function CollecteDetailPanel({
                       loadingText="Régénérer"
                       onClick={() => void handleRegenerate('bordereau-zd')}
                     >
-                      <RotateCw />
+                      <ArrowClockwiseIcon />
                       Régénérer
                     </Button>
                   </div>
@@ -3146,7 +3150,7 @@ export function CollecteDetailPanel({
                         )
                       }
                     >
-                      <Download />
+                      <DownloadSimpleIcon />
                       Télécharger
                     </Button>
                     <Button
@@ -3157,7 +3161,7 @@ export function CollecteDetailPanel({
                       loadingText="Régénérer"
                       onClick={() => void handleRegenerate('attestation-don')}
                     >
-                      <RotateCw />
+                      <ArrowClockwiseIcon />
                       Régénérer
                     </Button>
                   </div>
@@ -3325,7 +3329,10 @@ export function CollecteDetailPanel({
           <TabsContent value="historique">
             {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
             <Card padding="md" className="space-y-4">
-              <SectionHeader icon={History} title="Historique & audit" />
+              <SectionHeader
+                icon={ClockCounterClockwiseIcon}
+                title="Historique & audit"
+              />
               {audit.length === 0 ? (
                 <EmptyState
                   size="inline"
@@ -3393,7 +3400,7 @@ export function CollecteDetailPanel({
             <Link
               href={ROUTES.programmer.ajouterCollecte(collecte.evenement_id)}
             >
-              <PlusCircle />
+              <PlusCircleIcon />
               Ajouter une collecte à cet événement
             </Link>
           </Button>
@@ -3411,7 +3418,7 @@ export function CollecteDetailPanel({
             setForceStatutModal(true);
           }}
         >
-          <Settings2 />
+          <SlidersHorizontalIcon />
           Forcer le statut
         </Button>
       </FichePied>

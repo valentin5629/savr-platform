@@ -3,15 +3,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
-  Send,
-  RotateCcw,
-  FileX,
-  Plus,
-  Trash2,
-  Save,
-  Download,
-} from 'lucide-react';
+  ArrowCounterClockwiseIcon,
+  ArrowLeftIcon,
+  DownloadSimpleIcon,
+  FileXIcon,
+  FloppyDiskIcon,
+  PaperPlaneTiltIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@/components/ui/icones';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
@@ -274,7 +274,7 @@ export default function FactureDetailPage() {
           href={ROUTES.admin.factures}
           className="text-savr-neutral-500 hover:text-savr-neutral-700"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeftIcon className="h-5 w-5" />
         </Link>
         <Heading level={1} size="xl" weight="semibold" tone="inherit">
           {facture.numero_facture ?? '— brouillon (numéro à attribuer) —'}
@@ -324,7 +324,7 @@ export default function FactureDetailPage() {
               loading={actionLoading === 'renvoyer'}
               loadingText="Envoi…"
             >
-              <RotateCcw /> Renvoyer
+              <ArrowCounterClockwiseIcon /> Renvoyer
             </Button>
           </div>
         </AlertBar>
@@ -450,7 +450,7 @@ export default function FactureDetailPage() {
               onClick={addLigne}
               loading={actionLoading === 'add'}
             >
-              <Plus /> Ajouter
+              <PlusIcon /> Ajouter
             </Button>
           </div>
         )}
@@ -505,7 +505,7 @@ export default function FactureDetailPage() {
             loading={actionLoading === 'header'}
             loadingText="Enregistrement…"
           >
-            <Save /> Enregistrer l’en-tête
+            <FloppyDiskIcon /> Enregistrer l’en-tête
           </Button>
         )}
       </section>
@@ -525,7 +525,7 @@ export default function FactureDetailPage() {
         {/* Copie de travail §06.08 §1 — clé R2 pré-signée à la volée. */}
         {facture.pdf_url_savr && (
           <TextLink onClick={downloadPdfSavr} className="gap-2 text-sm">
-            <Download className="h-4 w-4" />
+            <DownloadSimpleIcon className="h-4 w-4" />
             Télécharger le PDF Savr (copie de travail)
           </TextLink>
         )}
@@ -540,7 +540,7 @@ export default function FactureDetailPage() {
             loading={actionLoading === 'valider'}
             loadingText="Envoi…"
           >
-            <Send /> Valider et envoyer à Pennylane
+            <PaperPlaneTiltIcon /> Valider et envoyer à Pennylane
           </Button>
         )}
 
@@ -555,7 +555,7 @@ export default function FactureDetailPage() {
             loading={actionLoading === 'avoir'}
             loadingText="Création…"
           >
-            <FileX /> Générer un avoir
+            <FileXIcon /> Générer un avoir
           </Button>
         )}
       </section>
@@ -656,7 +656,7 @@ function LigneRow({
         disabled={!dirty}
         loading={busy}
       >
-        <Save />
+        <FloppyDiskIcon />
       </IconButton>
       <IconButton
         size="sm"
@@ -665,7 +665,7 @@ function LigneRow({
         onClick={onDelete}
         loading={deleting}
       >
-        <Trash2 />
+        <TrashIcon />
       </IconButton>
     </div>
   );

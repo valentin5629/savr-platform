@@ -595,7 +595,7 @@ export function FicheCollecteClientPanel({
               // L'état du rapport (ex. « disponible dans les 48h après la
               // collecte ») remplace l'encadré retiré de l'onglet Bilan.
               title={
-                rapport.desactive
+                rapport.desactive && c.rapport_etat !== 'disponible'
                   ? LIBELLE_ETAT_RAPPORT[c.rapport_etat]
                   : undefined
               }

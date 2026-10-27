@@ -1067,7 +1067,7 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
   );
 
   it(
-    'M3.1/fiche_popup_rapport_sans_radar — case décochée : rapport sans radar, aucun filtre envoyé',
+    'M3.1/fiche_popup_rapport_sans_radar — intégration non demandée : rapport sans radar, aucun filtre envoyé',
     async () => {
       const docs = await ouvrirDocuments({});
       fireEvent.click(telecharger(docs));

@@ -282,23 +282,33 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6 — Logistique AG : un seul bloc « Prestataire et Dispatch », le résumé de l’attribution en tête',
+    'M0.6 — Logistique AG : un seul bloc « Prestataire et Dispatch » en trois colonnes (prestataire et véhicules, attribution, statut TMS)',
     async () => {
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
-      // Blocs fusionnés (décision Val 2026-10-27) : un seul « Prestataire et
-      // Dispatch », le résumé de l'attribution en tête.
+      // Blocs fusionnés en trois colonnes (décisions Val 2026-10-27).
       await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
       expect(screen.queryByText('Prestataire & Dispatch')).toBeNull();
       expect(screen.queryByText('Attribution AG')).toBeNull();
-      const association = screen.getByText('Association retenue');
-      const prestataire = screen.getByText('Prestataire actuel');
-      expect(
-        association.compareDocumentPosition(prestataire) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
+      const colonnes = Array.from(
+        (screen.getByText('Association retenue').closest('dl') as HTMLElement)
+          .children,
+      ).map((c) =>
+        Array.from(c.querySelectorAll('dt')).map((dt) => dt.textContent),
+      );
+      expect(colonnes.slice(0, 3)).toEqual([
+        [
+          'Prestataire actuel',
+          'Type de véhicule souhaité',
+          'Nombre de véhicules',
+        ],
+        ['Association retenue', 'Volume de repas estimés'],
+        ['Statut TMS'],
+      ]);
+      // Plus de ligne « Validation » (mode et date de validation).
+      expect(screen.queryByText('Validation')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -333,8 +343,10 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       await ouvrirOnglet('Logistique');
       await screen.findByRole('combobox', { name: 'Association' }, ATTENTE_UI);
-      const volume = screen.getByLabelText('Volume estimé') as HTMLInputElement;
-      expect(volume.value).toBe('12 repas');
+      // Du texte, pas un champ de saisie (décision Val 2026-10-27).
+      const volume = screen.getByTestId('attribution-volume');
+      expect(volume.querySelector('input')).toBeNull();
+      expect(volume.querySelector('dd')).toHaveTextContent(/^12 repas$/);
     },
     ATTENTE_CAS_MS,
   );
@@ -2079,6 +2091,32 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
+    'M0.6 — ZD « Créée » : ni « Prestataire actuel » ni « Statut TMS » (rien n’est parti, décision Val 2026-10-27)',
+    async () => {
+      mockFetchPrestataire(collecteZdSansPrestataire, {
+        ok: true,
+        data: transporteursZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText(
+          'Prestataire & Dispatch',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('statut-collecte-admin')).toHaveTextContent(
+        /^Créée$/,
+      );
+      expect(screen.queryByText('Prestataire actuel')).toBeNull();
+      expect(screen.queryByText('Statut TMS')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'ZD en demande d’annulation, sans prestataire : aucun choix proposé, envoi inactif',
     async () => {
       mockFetchPrestataire(
@@ -3096,17 +3134,16 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       // « Transporteur retenu » retiré du bloc fusionné (doublon de
       // « Prestataire actuel », décision Val 2026-10-27).
       expect(screen.queryByText('Transporteur retenu')).toBeNull();
-      // Validation (§06.06 Bloc 5) : mode + date de validation, au jour de Paris.
-      expect(valeurResumeAttribution('Validation')).toHaveTextContent(
-        /^manuel_override — 02\/05\/2026$/,
-      );
+      // Plus de ligne « Validation » (décision Val 2026-10-27).
+      expect(screen.queryByText('Validation')).toBeNull();
+      expect(screen.queryByText(/manuel_override/)).toBeNull();
+      // Volumes : estimé (collecte) ; réalisé (attribution) une fois réalisée.
       expect(
-        screen.queryByText('En attente de validation'),
-      ).not.toBeInTheDocument();
-      // Volumes : estimé (collecte) puis réalisé (attribution), dans cet ordre.
+        valeurResumeAttribution('Volume de repas estimés'),
+      ).toHaveTextContent(/^50$/);
       expect(
-        valeurResumeAttribution('Volume repas (estimé / réalisé)'),
-      ).toHaveTextContent(/^50 \/ 42$/);
+        valeurResumeAttribution('Volume de repas réalisés'),
+      ).toHaveTextContent(/^42$/);
       // L'attribution se fait dans la fiche (décision Val 2026-10-01) : plus de
       // lien vers un écran dédié.
       expect(
@@ -3140,8 +3177,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
 
       expect(
-        valeurResumeAttribution('Volume repas (estimé / réalisé)'),
-      ).toHaveTextContent(/^50 \/ Sans excédent$/);
+        valeurResumeAttribution('Volume de repas réalisés'),
+      ).toHaveTextContent(/^Sans excédent$/);
       const pastille = screen.getByTestId('statut-collecte-admin');
       expect(pastille).toHaveTextContent(/^Réalisée$/);
       expect(pastille).not.toHaveTextContent(/exc[ée]dent/i);
@@ -3150,7 +3187,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6 — Bloc 5 Attribution AG : validation en attente (valide_at nul) et volume réalisé absent',
+    'M0.6 — Bloc 5 Attribution AG programmée : ni ligne « Validation » ni volume réalisé, seulement les repas estimés',
     async () => {
       // Association retenue mais attribution non datée : la colonne `valide_at`
       // est nullable (§04), le résumé le dit au lieu d'afficher un mode sans date.
@@ -3170,14 +3207,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await ouvrirOnglet('Logistique');
       await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
 
-      // Le badge seul : ni mode ni date tant que la validation n'est pas datée.
-      expect(valeurResumeAttribution('Validation')).toHaveTextContent(
-        /^En attente de validation$/,
-      );
-      // Volume estimé affiché, réalisé pas encore remonté → tiret.
+      expect(screen.queryByText('Validation')).toBeNull();
+      expect(screen.queryByText('En attente de validation')).toBeNull();
       expect(
-        valeurResumeAttribution('Volume repas (estimé / réalisé)'),
-      ).toHaveTextContent(/^50 \/ —$/);
+        valeurResumeAttribution('Volume de repas estimés'),
+      ).toHaveTextContent(/^50$/);
+      expect(screen.queryByText('Volume de repas réalisés')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

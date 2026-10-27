@@ -1849,6 +1849,85 @@ export function CollecteDetailPanel({
   const renvoi =
     !!collecte.tms_reference || (ordreEnFileEnvoi && !selectedTransporteurId);
   const canalEnvoi = libelleCanalEnvoi(currentTransporteur?.type_tms);
+  // En file d'envoi, « Non envoyé » (valeur brute de l'enum) tromperait l'Ops :
+  // l'ordre est parti côté Plateforme. Affichage dérivé, l'enum DB ne change pas.
+  // Un ordre en échec le dit : « Envoyée » laisserait croire que tout suit son
+  // cours (décision Val 2026-10-12, C6 — remplace « la fiche reste Envoyée »).
+  const statutTms = !ordreEnFileEnvoi
+    ? statutTmsDisplay(collecte.statut_tms)
+    : ordreEnvoi?.etat === 'echec_definitif'
+      ? { label: 'Échec d’envoi', variant: 'error' as const }
+      : ordreEnvoi?.etat === 'echec_reprise'
+        ? { label: 'Envoi en reprise', variant: 'warning' as const }
+        : { label: 'Envoyée', variant: 'info' as const };
+  // Affichage Admin « Créée » : le traiteur a validé, rien n'est parti.
+  const estCreee = statutCollecteAdmin(collecte) === 'creee';
+  const repasRealisesConnus = [
+    'realisee',
+    'realisee_sans_collecte',
+    'cloturee',
+  ].includes(collecte.statut);
+  // Champs du bloc « Prestataire & Dispatch », posés dans la grille selon le
+  // type (AG attribuée en trois colonnes, sinon deux).
+  // Sans badge du mode d'envoi : doublon de l'en-tête et du statut TMS
+  // (décision Val 2026-10-27).
+  const champPrestataireActuel = (
+    <InfoItem label="Prestataire actuel">
+      {currentTransporteur?.nom ?? (
+        <span className="text-savr-neutral-400">
+          {libelleSansNom ?? 'Aucun prestataire attribué'}
+        </span>
+      )}
+    </InfoItem>
+  );
+  const champStatutTms = (
+    <InfoItem label="Statut TMS">
+      <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
+      {collecte.statut_tms_at && (
+        <Text as="span" variant="faint" className="ml-1">
+          (
+          {new Date(collecte.statut_tms_at).toLocaleString('fr-FR', {
+            timeZone: 'Europe/Paris',
+          })}
+          )
+        </Text>
+      )}
+    </InfoItem>
+  );
+  const champTypeVehicule = (
+    <InfoItem label="Type de véhicule souhaité">
+      {TYPES_VEHICULE_OPTIONS.find(
+        (t) => t.value === collecte.type_vehicule_souhaite,
+      )?.label ?? 'Non précisé'}
+    </InfoItem>
+  );
+  const champNbVehicules = (
+    <InfoItem
+      label="Nombre de véhicules"
+      valueClassName="flex items-center gap-2"
+    >
+      {collecte.nb_camions_demande}
+      {nbCamionsEditable && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setNbCamionsValue(String(collecte.nb_camions_demande));
+            setNbCamionsError(null);
+            setNbCamionsModal(true);
+          }}
+        >
+          Modifier
+        </Button>
+      )}
+    </InfoItem>
+  );
+  const champMotifOverride = collecte.motif_override_prestataire ? (
+    <InfoItem label="Motif override" className="col-span-full">
+      {collecte.motif_override_prestataire}
+    </InfoItem>
+  ) : null;
   // Bloc « Chauffeur » : une ligne par camion demandé (cf. rangsChauffeurDe).
   const tourneeParRang = new Map(
     collecte.collecte_tournees.map((ct) => [ct.rang, ct] as const),
@@ -1945,18 +2024,6 @@ export function CollecteDetailPanel({
     lieuChampSurcharge(overrides, c),
   );
   const lieu = applyLieuOverrides(collecte.evenements.lieux, overrides);
-
-  // En file d'envoi, « Non envoyé » (valeur brute de l'enum) tromperait l'Ops :
-  // l'ordre est parti côté Plateforme. Affichage dérivé, l'enum DB ne change pas.
-  // Un ordre en échec le dit : « Envoyée » laisserait croire que tout suit son
-  // cours (décision Val 2026-10-12, C6 — remplace « la fiche reste Envoyée »).
-  const statutTms = !ordreEnFileEnvoi
-    ? statutTmsDisplay(collecte.statut_tms)
-    : ordreEnvoi?.etat === 'echec_definitif'
-      ? { label: 'Échec d’envoi', variant: 'error' as const }
-      : ordreEnvoi?.etat === 'echec_reprise'
-        ? { label: 'Envoi en reprise', variant: 'warning' as const }
-        : { label: 'Envoyée', variant: 'info' as const };
 
   // Variante B de la fiche client (décision Val 2026-10-27) : titre = nom de
   // l'événement, le lieu effectif à défaut ; dessous, le lieu (s'il n'est pas
@@ -2289,42 +2356,44 @@ export function CollecteDetailPanel({
               }
             >
               <div className="min-w-0 space-y-4">
-                {/* AG attribuée : résumé de l'attribution en tête du bloc, puis
-                    « Modifier l'attribution » qui rouvre le choix du
-                    prestataire (blocs fusionnés, décision Val 2026-10-27). */}
-                {agAttribuee && (
+                {dispatchError && (
+                  <AlertBar variant="err">{dispatchError}</AlertBar>
+                )}
+                {agAttribuee ? (
+                  // AG attribuée : un seul bloc en trois colonnes (décision Val
+                  // 2026-10-27) — prestataire et besoin véhicule, attribution,
+                  // statut TMS ; « Modifier l'attribution » rouvre le choix du
+                  // prestataire.
                   <>
-                    <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                      <InfoItem label="Association retenue">
-                        {collecte.attributions_antgaspi?.associations?.nom ?? (
-                          <span className="text-savr-neutral-400">
-                            Aucune (en attente d’attribution)
-                          </span>
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+                      <div className="space-y-3">
+                        {champPrestataireActuel}
+                        {champTypeVehicule}
+                        {champNbVehicules}
+                      </div>
+                      <div className="space-y-3">
+                        <InfoItem label="Association retenue">
+                          {collecte.attributions_antgaspi?.associations
+                            ?.nom ?? (
+                            <span className="text-savr-neutral-400">
+                              Aucune (en attente d’attribution)
+                            </span>
+                          )}
+                        </InfoItem>
+                        <InfoItem label="Volume de repas estimés">
+                          {collecte.volume_estime_repas ?? '—'}
+                        </InfoItem>
+                        {repasRealisesConnus && (
+                          <InfoItem label="Volume de repas réalisés">
+                            {collecte.statut === 'realisee_sans_collecte'
+                              ? LIBELLE_SANS_EXCEDENT
+                              : (collecte.attributions_antgaspi
+                                  ?.volume_repas_realise ?? '—')}
+                          </InfoItem>
                         )}
-                      </InfoItem>
-                      <InfoItem label="Validation">
-                        {collecte.attributions_antgaspi?.valide_at ? (
-                          <>
-                            {collecte.attributions_antgaspi.mode_validation} —{' '}
-                            {new Date(
-                              collecte.attributions_antgaspi.valide_at,
-                            ).toLocaleDateString('fr-FR', {
-                              timeZone: 'Europe/Paris',
-                            })}
-                          </>
-                        ) : (
-                          <Badge variant="warning">
-                            En attente de validation
-                          </Badge>
-                        )}
-                      </InfoItem>
-                      <InfoItem label="Volume repas (estimé / réalisé)">
-                        {collecte.volume_estime_repas ?? '—'} /{' '}
-                        {collecte.statut === 'realisee_sans_collecte'
-                          ? LIBELLE_SANS_EXCEDENT
-                          : (collecte.attributions_antgaspi
-                              ?.volume_repas_realise ?? '—')}
-                      </InfoItem>
+                      </div>
+                      <div className="space-y-3">{champStatutTms}</div>
+                      {champMotifOverride}
                     </dl>
                     {!isTerminal && envoiParti && !changerPrestataire && (
                       <div>
@@ -2339,75 +2408,24 @@ export function CollecteDetailPanel({
                       </div>
                     )}
                   </>
-                )}
-                {dispatchError && (
-                  <AlertBar variant="err">{dispatchError}</AlertBar>
-                )}
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  {/* Sans badge du mode d'envoi : doublon de l'en-tête et du
-                    statut TMS (décision Val 2026-10-27). */}
-                  <InfoItem label="Prestataire actuel">
-                    {currentTransporteur?.nom ?? (
-                      <span className="text-savr-neutral-400">
-                        {libelleSansNom ?? 'Aucun prestataire attribué'}
-                      </span>
+                ) : (
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                    {/* « Créée » : rien n'est parti, ni prestataire ni statut
+                        TMS à lire (décision Val 2026-10-27). */}
+                    {!estCreee && champPrestataireActuel}
+                    {!estCreee && champStatutTms}
+                    {/* Besoin véhicule en lecture quand il ne part plus avec
+                        l'envoi (décision Val 2026-10-27 ; « Référence TMS »
+                        retirée, idem). */}
+                    {!besoinEditable && (
+                      <>
+                        {champTypeVehicule}
+                        {champNbVehicules}
+                      </>
                     )}
-                  </InfoItem>
-                  <InfoItem label="Statut TMS">
-                    <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
-                    {collecte.statut_tms_at && (
-                      <Text as="span" variant="faint" className="ml-1">
-                        (
-                        {new Date(collecte.statut_tms_at).toLocaleString(
-                          'fr-FR',
-                          {
-                            timeZone: 'Europe/Paris',
-                          },
-                        )}
-                        )
-                      </Text>
-                    )}
-                  </InfoItem>
-                  {/* Besoin véhicule en lecture quand il ne part plus avec
-                      l'envoi (décision Val 2026-10-27 ; « Référence TMS »
-                      retirée, idem). */}
-                  {!besoinEditable && (
-                    <>
-                      <InfoItem label="Type de véhicule souhaité">
-                        {TYPES_VEHICULE_OPTIONS.find(
-                          (t) => t.value === collecte.type_vehicule_souhaite,
-                        )?.label ?? 'Non précisé'}
-                      </InfoItem>
-                      <InfoItem
-                        label="Nb camions"
-                        valueClassName="flex items-center gap-2"
-                      >
-                        {collecte.nb_camions_demande}
-                        {nbCamionsEditable && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setNbCamionsValue(
-                                String(collecte.nb_camions_demande),
-                              );
-                              setNbCamionsError(null);
-                              setNbCamionsModal(true);
-                            }}
-                          >
-                            Modifier
-                          </Button>
-                        )}
-                      </InfoItem>
-                    </>
-                  )}
-                  {collecte.motif_override_prestataire && (
-                    <InfoItem label="Motif override" className="col-span-2">
-                      {collecte.motif_override_prestataire}
-                    </InfoItem>
-                  )}
-                </dl>
+                    {champMotifOverride}
+                  </dl>
+                )}
                 {besoinEditable && (
                   <ChampsBesoinVehicule
                     typeVehicule={

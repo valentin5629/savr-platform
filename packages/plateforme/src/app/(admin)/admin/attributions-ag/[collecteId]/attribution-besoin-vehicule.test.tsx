@@ -260,8 +260,14 @@ describe('Écran Attribution AG dédié : « Volume estimé » n’affiche que l
       );
       render(<AttributionDetailPage />);
       await attendreFormulairePret();
-      const volume = screen.getByLabelText('Volume estimé') as HTMLInputElement;
-      await waitFor(() => expect(volume.value).toBe('120 repas'), ATTENTE_UI);
+      // Du texte, pas un champ de saisie (décision Val 2026-10-27).
+      const volume = screen.getByTestId('attribution-volume');
+      expect(volume.querySelector('input')).toBeNull();
+      await waitFor(
+        () =>
+          expect(volume.querySelector('dd')).toHaveTextContent(/^120 repas$/),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

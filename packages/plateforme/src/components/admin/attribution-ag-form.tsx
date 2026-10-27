@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
 import { Combobox } from '@/components/ui/combobox';
-import { Input } from '@/components/ui/input';
+import { InfoItem } from '@/components/ui/info-item';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { ErrorState } from '@/components/ui/error-state';
@@ -571,9 +571,16 @@ export function AttributionAgForm({
             {/* Ligne 2 : champs — gauche = critères de l'algo (lecture seule),
                 droite = besoin véhicule */}
             <FormGrid>
-              <FormField label="Volume estimé" htmlFor="attribution-volume">
-                <Input id="attribution-volume" value={volumeLabel} readOnly />
-              </FormField>
+              {/* Donnée de la collecte, pas un champ : du texte, sans cadre
+                  de saisie (décision Val 2026-10-27). */}
+              <dl>
+                <InfoItem
+                  label="Volume estimé"
+                  data-testid="attribution-volume"
+                >
+                  {volumeLabel}
+                </InfoItem>
+              </dl>
               {contexteEtat === 'erreur' && (
                 <ErrorState
                   className="sm:col-span-2"

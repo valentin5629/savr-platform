@@ -1,6 +1,6 @@
 'use client';
 
-import { BellRing, CheckCircle2, HandHeart, Plus, Truck } from 'lucide-react';
+import { BellRing, CheckCircle2, HandHeart, Plus } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge, BadgeBouton } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -74,7 +74,7 @@ function SectionInfos({
 } & React.HTMLAttributes<HTMLElement>) {
   return (
     <section
-      className="grid gap-x-10 gap-y-4 border-t border-savr-sable-200 py-10 first:border-t-0 first:pt-0 md:grid-cols-[13rem_minmax(0,1fr)]"
+      className="grid gap-x-10 gap-y-4 border-t border-savr-sable-200 py-6 first:border-t-0 first:pt-0 sm:py-10 md:grid-cols-[13rem_minmax(0,1fr)]"
       {...props}
     >
       <h4 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-savr-neutral-900">
@@ -331,6 +331,10 @@ export function BlocAssociation({
 
 // ── Logistique ───────────────────────────────────────────────────────────────
 
+// Lignes « libellé à gauche, valeur à droite » d'un camion (variante B).
+const LIGNES_CAMION =
+  'divide-y divide-savr-sable-200 text-[15px] [&>div]:flex [&>div]:items-baseline [&>div]:justify-between [&>div]:gap-4 [&>div]:py-3 [&>div>dd]:text-right';
+
 function EnAttente() {
   return <span className="text-savr-neutral-400">En attente</span>;
 }
@@ -340,39 +344,32 @@ interface PropsChauffeurs {
   urgence: 'idle' | 'envoi' | 'envoyee';
   urgenceErreur: string | null;
   onDemanderUrgence: () => void;
+  /** `variante-b` : onglet Logistique de la fiche client (Val 2026-10-27). */
+  presentation?: 'standard' | 'variante-b';
 }
 
+// Variante B (décision Val 2026-10-27) : la section « Vos chauffeurs » seule
+// (ni suivi en temps réel, ni association : C3, l'association n'est pas
+// affichée avant la collecte), libellé à gauche, camions sur deux colonnes,
+// demande urgente discrète sur sa propre ligne, centrée sur la largeur.
 export function OngletLogistique(props: PropsChauffeurs) {
-  const { c } = props;
-  return (
-    <div className="space-y-3">
-      <CarteChauffeurs {...props} />
-      {c.type === 'anti_gaspi' && c.association && (
-        <BlocAssociation association={c.association} />
-      )}
-    </div>
-  );
-}
-
-function CarteChauffeurs(props: PropsChauffeurs) {
   const fenetre = STATUTS_LOGISTIQUE.includes(props.c.statut);
   const tournees = props.c.tournees;
+  const titre = !fenetre
+    ? 'Logistique'
+    : tournees.length === 0
+      ? 'Chauffeur pas encore affecté'
+      : tournees.length > 1
+        ? 'Vos chauffeurs'
+        : 'Votre chauffeur';
   return (
-    <Card padding="md" className="space-y-4" data-testid="bloc-logistique">
-      <SectionHeader
-        icon={Truck}
-        title={
-          !fenetre
-            ? 'Logistique'
-            : tournees.length === 0
-              ? 'Chauffeur pas encore affecté'
-              : tournees.length > 1
-                ? 'Vos chauffeurs'
-                : 'Votre chauffeur'
-        }
-      />
-      <Chauffeurs {...props} />
-    </Card>
+    <div data-testid="bloc-logistique">
+      <SectionInfos titre={titre}>
+        <div className="min-w-0">
+          <Chauffeurs {...props} presentation="variante-b" />
+        </div>
+      </SectionInfos>
+    </div>
   );
 }
 
@@ -386,7 +383,9 @@ export function Chauffeurs({
   urgence,
   urgenceErreur,
   onDemanderUrgence,
+  presentation = 'standard',
 }: PropsChauffeurs) {
+  const vb = presentation === 'variante-b';
   const fenetre = STATUTS_LOGISTIQUE.includes(c.statut);
   const tournees = c.tournees;
   const complet = coordonneesCompletes(tournees);
@@ -420,17 +419,41 @@ export function Chauffeurs({
           </dl>
         </>
       ) : (
-        <div className="space-y-2">
+        <div
+          className={
+            vb
+              ? 'grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-2'
+              : 'space-y-2'
+          }
+        >
           {tournees.map((t, i) => (
             <div
               key={i}
               data-testid="camion"
-              className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
+              className={
+                vb
+                  ? 'flex min-w-0 flex-col gap-3'
+                  : 'rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm'
+              }
             >
               {tournees.length > 1 && (
-                <p className="mb-1.5 font-medium">Camion {i + 1}</p>
+                <p
+                  className={
+                    vb
+                      ? 'font-display text-[17px] font-semibold text-savr-neutral-900'
+                      : 'mb-1.5 font-medium'
+                  }
+                >
+                  Camion {i + 1}
+                </p>
               )}
-              <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+              <dl
+                className={
+                  vb
+                    ? LIGNES_CAMION
+                    : 'grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3'
+                }
+              >
                 <InfoItem label="Chauffeur">
                   {t.chauffeur_nom?.trim() || <EnAttente />}
                 </InfoItem>
@@ -465,7 +488,11 @@ export function Chauffeurs({
           // Mobile : bouton pleine largeur sous le texte. Au-delà, sur une
           // ligne, qui passe à la ligne si la place manque (carte étroite de la
           // fiche événement).
-          className="flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center"
+          className={
+            vb
+              ? 'mt-12 flex flex-col items-center justify-center gap-4 rounded-savr-xl border border-savr-sable-200 bg-savr-sable-50 px-5 py-4 text-center sm:flex-row sm:text-left md:-ml-[15.5rem]'
+              : 'flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center'
+          }
         >
           {demandeEnvoyee ? (
             <Text
@@ -487,12 +514,18 @@ export function Chauffeurs({
             </Text>
           ) : (
             <>
-              <Text variant="body" className="min-w-[14rem] flex-1">
+              <Text
+                variant="body"
+                className={
+                  vb ? 'text-savr-neutral-600' : 'min-w-[14rem] flex-1'
+                }
+              >
                 Besoin de ces informations rapidement (accès au site, liste de
                 sécurité) ?
               </Text>
               <Button
                 variant="outline-warning"
+                size={vb ? 'pilule' : undefined}
                 onClick={onDemanderUrgence}
                 disabled={urgence === 'envoi'}
               >

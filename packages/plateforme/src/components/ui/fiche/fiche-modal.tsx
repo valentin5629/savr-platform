@@ -48,8 +48,12 @@ export function FicheModal({
       bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
       className={
         grand
-          ? 'max-h-[94vh] max-w-[75rem] rounded-savr-2xl shadow-savr-xl md:h-[min(94vh,57.5rem)]'
+          ? // Téléphone (B4) : feuille montée du bas, angles hauts seuls.
+            'max-h-[94vh] max-w-[75rem] rounded-savr-2xl shadow-savr-xl max-sm:h-full max-sm:max-h-none max-sm:rounded-b-none md:h-[min(94vh,57.5rem)]'
           : 'max-w-5xl md:h-[min(90vh,48rem)]'
+      }
+      overlayClassName={
+        grand ? 'max-sm:items-end max-sm:p-0 max-sm:pt-10' : undefined
       }
       fermetureClassName={
         grand

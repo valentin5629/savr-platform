@@ -192,11 +192,11 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
             .closest('header') as HTMLElement,
         ).getByTestId('frise-statut-client'),
       ).toBeInTheDocument();
-      expect(
-        within(liste)
-          .getAllByRole('tab')
-          .map((t) => t.textContent),
-      ).toEqual(['Informations', 'Logistique', 'Bilan & documents']);
+      // Noms accessibles complets ; sur téléphone (B4) les pastilles
+      // affichent « Infos » et « Bilan », masqués aux lecteurs d'écran.
+      expect(within(liste).getAllByRole('tab')).toHaveLength(3);
+      for (const nom of ['Informations', 'Logistique', 'Bilan & documents'])
+        expect(within(liste).getByRole('tab', { name: nom })).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
@@ -688,7 +688,7 @@ describe('M3.1 / pop-up — onglet Logistique (wording Savr, Q3)', () => {
   );
 
   it(
-    'M3.1/fiche_popup_association_logistique_ag — AG validée : bloc Association bénéficiaire',
+    'M3.1/fiche_popup_association_logistique_ag — AG validée : pas d’association avant la collecte, l’onglet Logistique ne montre que les chauffeurs (C3, Val 2026-10-27)',
     async () => {
       stubFetchFiche(
         ficheClient({
@@ -703,13 +703,9 @@ describe('M3.1 / pop-up — onglet Logistique (wording Savr, Q3)', () => {
       render(fiche('c1'));
       await ouvrirOnglet('Logistique');
 
-      const bloc = await screen.findByTestId(
-        'bloc-association',
-        {},
-        ATTENTE_UI,
-      );
-      expect(bloc.textContent).toContain('Les Restos du Cœur');
-      expect(bloc.textContent).toContain('Aide alimentaire');
+      await screen.findByTestId('bloc-logistique', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('bloc-association')).toBeNull();
+      expect(document.body.textContent).not.toContain('Les Restos du Cœur');
     },
     ATTENTE_CAS_MS,
   );
@@ -1724,4 +1720,46 @@ describe('Variante B — cadre de la fiche collecte client', () => {
     );
     expect(screen.getByTestId('kpi-zd').className).toContain('border-b');
   });
+
+  it(
+    'téléphone (B4) : « Modifier » en grand, les autres actions dans le menu « ⋯ »',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          statut: 'programmee',
+          actions: {
+            modifier: 'actif',
+            annuler: 'actif',
+            annulation: 'directe',
+            ajouter_collecte: true,
+          } as ReturnType<typeof ficheClient>['actions'],
+        }),
+      );
+      render(fiche('c1'));
+
+      const autres = await screen.findByTestId('action-autres', {}, ATTENTE_UI);
+      expect(autres.className).toContain('sm:hidden');
+      // Actions secondaires masquées sous 640 px, l'action principale non.
+      expect(screen.getByTestId('action-annuler').className).toContain(
+        'max-sm:hidden',
+      );
+      expect(screen.getByTestId('action-ajouter-collecte').className).toContain(
+        'max-sm:hidden',
+      );
+      expect(screen.getByTestId('action-modifier').className).not.toContain(
+        'max-sm:hidden',
+      );
+      fireEvent.click(autres);
+      expect(
+        await screen.findByTestId('menu-ajouter', {}, ATTENTE_UI),
+      ).toHaveTextContent('Ajouter une collecte à cet événement');
+      fireEvent.click(screen.getByTestId('menu-annuler'));
+      await screen.findByRole(
+        'button',
+        { name: 'Confirmer l’annulation' },
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 });

@@ -189,6 +189,34 @@ describe('M3.2 — rapport de don cumulé sur un événement', () => {
     expect(html).toContain('Association bénéficiaire<');
   });
 
+  it('chaque association : logo et description du rapport d’impact ; sans logo, son initiale', () => {
+    const html = renderByType(
+      'rapport-don-evenement',
+      ag({
+        associations: [
+          {
+            nom: 'Les Restos du Cœur',
+            ville: 'Paris',
+            repas: 300,
+            description:
+              'Aide alimentaire <b>gratuite</b> aux personnes démunies.',
+            logo_url: 'data:image/png;base64,AAAA',
+          },
+          { nom: 'linkee', ville: null, repas: 120, description: null },
+        ],
+      }),
+    );
+    expect(html).toContain(
+      '<img class="rz-asso-logo" src="data:image/png;base64,AAAA" alt=""/>',
+    );
+    expect(html).toContain(
+      'Aide alimentaire &lt;b&gt;gratuite&lt;/b&gt; aux personnes démunies.',
+    );
+    expect(html).toContain('rz-asso-initiale">L</div>');
+    expect(html.match(/class="rz-asso-desc"/g)).toHaveLength(1);
+    expect(html).toContain('300 repas');
+  });
+
   it('seulement des collectes sans excédent : pas de bloc associations', () => {
     const html = renderByType(
       'rapport-don-evenement',

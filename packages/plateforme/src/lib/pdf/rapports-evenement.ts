@@ -17,7 +17,10 @@
 //  - AG : relues SOUS L'IDENTITÉ du demandeur, par le chemin de la fiche
 //    collecte (attribution par rôle — la vue v_attributions_gestionnaire pour
 //    le gestionnaire —, attestation sous sa RLS) : le PDF n'imprime jamais un
-//    repas, une association ou un numéro que l'écran ne lui montre pas.
+//    repas, une association ou un numéro que l'écran ne lui montre pas. Seuls
+//    la description publique et le logo des associations ainsi lues sont relus
+//    en service-role (le logo n'est pas ouvert aux rôles clients), bornés à ces
+//    identifiants (demande Val 2026-10-27).
 
 import { NextResponse } from 'next/server';
 
@@ -55,6 +58,7 @@ import {
   SELECT_EVENEMENT_RAPPORT,
   type EvenementRapportRow,
 } from './payload-rapport.js';
+import { logoKeyToDataUri } from './logo-inline.js';
 import { generatePdf } from './railway-client.js';
 
 export type TypeRapportEvenement = 'zero_dechet' | 'anti_gaspi';
@@ -110,6 +114,53 @@ export const selectAg = (role: string) =>
   `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
   attributions_lues:${embedAttributionsAg(role).replace(/^attributions_antgaspi:/, '')},
   attestations_don(numero, version, pdf_url, eligible_at)`;
+
+// Corps accepté par le renderer : 2 Mo (apps/pdf-renderer/src/server.ts). Les
+// logos des associations prennent ce qui reste après l'en-tête et ses logos,
+// marge comprise ; au-delà, l'association s'imprime sans logo.
+const BUDGET_CORPS_CHARS = 1_900_000;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+interface FicheAssociation {
+  description: string | null;
+  logo_url: string | null;
+}
+
+/**
+ * Description publique et clé de logo des associations, lues en service-role
+ * pour les SEULS identifiants que la lecture sous l'identité du demandeur a
+ * rendus (cf. en-tête).
+ */
+async function lireFichesAssociations(
+  admin: SupabaseClient,
+  ids: string[],
+): Promise<Map<string, FicheAssociation>> {
+  const fiches = new Map<string, FicheAssociation>();
+  const uuids = ids.filter((id) => UUID.test(id));
+  if (uuids.length === 0) return fiches;
+  const { data, error } = await admin
+    .from('associations')
+    .select('id, description_rapport_impact, logo_url')
+    .in('id', uuids);
+  // Best-effort : sans fiche, l'association s'imprime avec son nom seul.
+  if (error) {
+    logger.warn('pdf.rapport_evenement.fiches_associations', {
+      error: messageErreur(error),
+    });
+    return fiches;
+  }
+  for (const a of (data ?? []) as {
+    id: string;
+    description_rapport_impact: string | null;
+    logo_url: string | null;
+  }[])
+    fiches.set(a.id, {
+      description: a.description_rapport_impact?.trim() || null,
+      logo_url: a.logo_url,
+    });
+  return fiches;
+}
 
 const dateFr = (v: string | null | undefined) => (v ? formatDateParis(v) : '');
 
@@ -196,21 +247,39 @@ function payloadZd(
   };
 }
 
-function payloadAg(
+async function payloadAg(
   collectes: CollecteMesuree[],
   pax: number | null,
-): Record<string, unknown> {
+  admin: SupabaseClient,
+  tailleEnTete: number,
+): Promise<Record<string, unknown>> {
   const b = consoliderEvenement(collectes);
   const maintenant = Date.now();
+  const fiches = await lireFichesAssociations(
+    admin,
+    b.associations.map((a) => a.id),
+  );
+  // La plus servie d'abord (ordre du bilan) : elle garde son logo en priorité.
+  let budget = BUDGET_CORPS_CHARS - tailleEnTete;
+  const associations = [];
+  for (const a of b.associations) {
+    const fiche = fiches.get(a.id);
+    let logo = await logoKeyToDataUri(fiche?.logo_url);
+    if (logo && logo.length > budget) logo = null;
+    if (logo) budget -= logo.length;
+    associations.push({
+      nom: a.nom,
+      ville: a.ville,
+      repas: a.repas,
+      description: fiche?.description ?? null,
+      logo_url: logo,
+    });
+  }
   return {
     nb_pax: convivesImprimes(pax),
     repas_donnes: b.repas_donnes ?? 0,
     co2_evite_kg: b.co2_evite_ag_kg,
-    associations: b.associations.map((a) => ({
-      nom: a.nom,
-      ville: a.ville,
-      repas: a.repas,
-    })),
+    associations,
     collectes: collectes.map((c) => {
       const sansExcedent = c.statut === SANS_EXCEDENT;
       // Numéro imprimé seulement pour une attestation téléchargeable (fabriquée,
@@ -298,7 +367,12 @@ export async function fabriquerRapportEvenement(params: {
     ),
     ...(type === ZD
       ? payloadZd(mesurees, ev.pax)
-      : payloadAg(mesurees, ev.pax)),
+      : await payloadAg(
+          mesurees,
+          ev.pax,
+          admin,
+          JSON.stringify(enTete.champs).length,
+        )),
   };
   if (type === ZD && version.avecRadar) {
     payload.options = { benchmark: true };

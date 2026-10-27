@@ -42,6 +42,10 @@ export interface AssociationDon {
   nom: string;
   ville?: string | null;
   repas: number;
+  /** « Description pour le rapport d'impact » de la fiche association. */
+  description?: string | null;
+  /** Logo inliné en data URI ; absent = initiale de l'association. */
+  logo_url?: string | null;
 }
 
 export interface RapportDonEvenementData extends EnTeteRapportData {
@@ -76,10 +80,18 @@ export function renderRapportDonEvenement(
       : VIDE;
 
   const associations = data.associations
-    .map(
-      (a) =>
-        `<tr><td>${esc(a.nom)}</td><td>${esc(a.ville) || VIDE}</td><td class="rz-num">${entier(a.repas)}</td></tr>`,
-    )
+    .map((a) => {
+      const logo = a.logo_url
+        ? `<img class="rz-asso-logo" src="${esc(a.logo_url)}" alt=""/>`
+        : `<div class="rz-asso-logo rz-asso-initiale">${esc(a.nom.trim().charAt(0).toUpperCase())}</div>`;
+      return `<div class="rz-asso">
+        ${logo}
+        <div class="rz-asso-corps">
+          <div class="rz-asso-tete"><span class="rz-asso-nom">${esc(a.nom)}</span>${a.ville ? `<span class="rz-asso-ville">${esc(a.ville)}</span>` : ''}<span class="rz-asso-repas">${entier(a.repas)} repas</span></div>
+          ${a.description ? `<p class="rz-asso-desc">${esc(a.description)}</p>` : ''}
+        </div>
+      </div>`;
+    })
     .join('');
   const collectes = data.collectes
     .map(
@@ -97,6 +109,17 @@ ${CSS_MARQUE}
   .rz-sous-titre { font-size: 12px; font-weight: 600; color: #bdc8e5; margin-top: 4px; white-space: nowrap; }
   .rz-page.rz-don { height: auto; min-height: 1122px; overflow: visible; }
   .rz-don .rz-body { gap: 14px; }
+  .rz-assos { display: flex; flex-direction: column; }
+  .rz-asso { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-top: 1px solid #dde1eb; break-inside: avoid; }
+  .rz-asso:first-child { border-top: 0; padding-top: 4px; }
+  .rz-asso-logo { width: 56px; height: 56px; flex: none; object-fit: contain; border-radius: 8px; border: 1px solid #dde1eb; background: #fff; }
+  .rz-asso-initiale { display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: #223870; background: #eff2f9; }
+  .rz-asso-corps { flex: 1; min-width: 0; }
+  .rz-asso-tete { display: flex; align-items: baseline; gap: 10px; }
+  .rz-asso-nom { font-size: 13.5px; font-weight: 700; color: #223870; }
+  .rz-asso-ville { font-size: 11.5px; color: #6e7790; }
+  .rz-asso-repas { margin-left: auto; font-size: 12.5px; font-weight: 700; color: #223870; white-space: nowrap; }
+  .rz-asso-desc { margin: 5px 0 0; font-size: 11.5px; color: #3c4459; line-height: 1.5; }
   .rz-couv { font-size: 12.5px; color: #515a72; }
   .rz-fiscal { border: 1px solid #fde68a; background: #fffbeb; border-radius: 8px; padding: 12px 16px; font-size: 11.5px; color: #3c4459; line-height: 1.5; }
   .rz-fiscal b { color: #92400e; }
@@ -128,10 +151,7 @@ ${LOGO_DEFS}
       associations
         ? `<div class="rz-card rz-card-large">
       <div class="rz-h2">${data.associations.length > 1 ? 'Associations bénéficiaires' : 'Association bénéficiaire'}</div>
-      <table class="rz-tbl">
-        <tr><th>Association</th><th>Ville</th><th class="rz-num">Repas</th></tr>
-        ${associations}
-      </table>
+      <div class="rz-assos">${associations}</div>
     </div>`
         : ''
     }

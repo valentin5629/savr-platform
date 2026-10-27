@@ -47,6 +47,7 @@ let admin = makeClient();
 const mockRequireUser = vi.fn();
 const mockPdf = vi.fn();
 const mockParc = vi.fn();
+const mockLogo = vi.fn();
 
 vi.mock('@/lib/api-auth.js', () => ({
   requireUser: (...a: unknown[]) => mockRequireUser(...a),
@@ -54,6 +55,11 @@ vi.mock('@/lib/api-auth.js', () => ({
 }));
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => admin,
+}));
+// Logos des associations : seul l'inlining du rapport cumulé est simulé.
+vi.mock('@/lib/pdf/logo-inline.js', async (orig) => ({
+  ...(await orig<typeof import('@/lib/pdf/logo-inline.js')>()),
+  logoKeyToDataUri: (...a: unknown[]) => mockLogo(...a),
 }));
 vi.mock('@/lib/pdf/railway-client.js', () => ({
   generatePdf: (...a: unknown[]) => mockPdf(...a),
@@ -252,6 +258,7 @@ beforeEach(() => {
   admin = makeClient();
   mockRequireUser.mockResolvedValue({ ctx: CTX });
   mockPdf.mockResolvedValue({ pdfBuffer: PDF });
+  mockLogo.mockResolvedValue(null);
   mockParc.mockResolvedValue({
     etat: 'ok',
     parc: { biodechet: 0.25, verre: 0.08 },
@@ -500,6 +507,49 @@ describe('M3.2 — rapport de don cumulé (AG)', () => {
         repas: 0,
         attestation_numero: null,
       },
+    ]);
+  });
+
+  it('EVT/api_ag_fiche_association — description du rapport d’impact et logo, relus en service-role pour les SEULES associations lues sous l’identité du demandeur', async () => {
+    const ASSO = '22222222-2222-4222-8222-222222222222';
+    evenementVisible();
+    evenementAdmin();
+    collectesAgVisibles();
+    const lues = rls.results.collectes!.data as Record<string, unknown>[];
+    (lues[1]!.attributions_lues as Record<string, unknown>).association_id =
+      ASSO;
+    admin.results.associations = {
+      data: [
+        {
+          id: ASSO,
+          description_rapport_impact: '  Aide alimentaire à Paris.  ',
+          logo_url: 'savr-dev/logos/restos.png',
+        },
+      ],
+      error: null,
+    };
+    mockLogo.mockResolvedValue('data:image/png;base64,QQ==');
+    await rapport('rapport-de-don');
+    expect(admin.inAppels).toEqual([
+      { table: 'associations', col: 'id', valeurs: [ASSO] },
+    ]);
+    expect(mockLogo).toHaveBeenCalledWith('savr-dev/logos/restos.png');
+    expect(payloadEnvoye().associations).toEqual([
+      {
+        nom: 'Les Restos du Cœur',
+        ville: 'Paris',
+        repas: 100,
+        description: 'Aide alimentaire à Paris.',
+        logo_url: 'data:image/png;base64,QQ==',
+      },
+    ]);
+
+    // Logo au-delà du corps accepté par le renderer : l'association s'imprime sans.
+    mockPdf.mockClear();
+    mockLogo.mockResolvedValue('x'.repeat(2_000_000));
+    await rapport('rapport-de-don');
+    expect(payloadEnvoye().associations).toMatchObject([
+      { description: 'Aide alimentaire à Paris.', logo_url: null },
     ]);
   });
 

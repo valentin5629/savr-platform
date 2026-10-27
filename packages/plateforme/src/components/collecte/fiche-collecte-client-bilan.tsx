@@ -692,15 +692,15 @@ export function OngletBilan({
   // bouton à côté du radar ; le rapport se télécharge depuis le pied de la
   // fiche (plus d'encadré « Rapport RSE » dans l'onglet).
   const actionRadar =
-    !isAg &&
-    !c.rapport_reserve_donneur_ordre &&
-    c.rapport_rse_disponible &&
-    choixRadarPossible ? (
+    !isAg && !c.rapport_reserve_donneur_ordre && choixRadarPossible ? (
+      // Visible dès que le radar l'est ; grisé, comme « Télécharger le
+      // rapport », tant que le rapport n'est pas disponible (Val 2026-10-27).
       <Button
         variant="sable"
         size="sm"
         aria-pressed={avecRadar}
         data-testid="option-rapport-radar"
+        disabled={!c.rapport_rse_disponible}
         title="Le radar du rapport reprend les filtres de comparaison réglés ici."
         onClick={() => setAvecRadar(!avecRadar)}
         className={cn(

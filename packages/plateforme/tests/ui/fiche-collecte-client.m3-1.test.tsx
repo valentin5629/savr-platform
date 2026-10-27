@@ -1161,11 +1161,11 @@ describe('M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans
   );
 
   it(
-    'M3.1/fiche_popup_rapport_indisponible — rapport pas encore disponible : « Télécharger » grisé, pas de bouton d’intégration',
+    'M3.1/fiche_popup_rapport_indisponible — rapport pas encore disponible : « Télécharger » et bouton d’intégration visibles, grisés',
     async () => {
       const docs = await ouvrirDocuments({ rapport_rse_disponible: false });
       expect(telecharger(docs).hasAttribute('disabled')).toBe(true);
-      expect(screen.queryByTestId('option-rapport-radar')).toBeNull();
+      expect(caseRadar().hasAttribute('disabled')).toBe(true);
     },
     ATTENTE_CAS_MS,
   );

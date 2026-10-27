@@ -1425,17 +1425,13 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   // Statut affiché Admin (décision Val 2026-10-07) : « Créée » tant que la
   // demande n'est pas partie, « Programmée » dès que l'Admin l'a envoyée — sans
   // attendre le passage du worker (badge « Envoyée » ci-dessus).
+  // Pastille de statut de l'en-tête (variante B, décision Val 2026-10-27).
   function etapeCourante(): string | null {
-    return (
-      within(screen.getByRole('list', { name: 'Avancement de la collecte' }))
-        .getAllByRole('listitem')
-        .find((li) => li.getAttribute('aria-current') === 'step')
-        ?.textContent ?? null
-    );
+    return screen.getByTestId('statut-collecte-admin').textContent;
   }
 
   it(
-    'M0.6/statut_admin_programmee_apres_envoi — AG en file d’envoi : frise à l’étape « Programmée »',
+    'M0.6/statut_admin_programmee_apres_envoi — AG en file d’envoi : pastille « Programmée »',
     async () => {
       mockFetchPrestataire(collecteEnFileMts1);
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -1450,7 +1446,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/statut_admin_creee_avant_envoi — collecte validée par le traiteur, rien d’envoyé : frise à l’étape « Créée »',
+    'M0.6/statut_admin_creee_avant_envoi — collecte validée par le traiteur, rien d’envoyé : pastille « Créée »',
     async () => {
       mockFetchPrestataire({
         ...collecteAg,
@@ -1463,12 +1459,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         undefined,
         ATTENTE_UI,
       );
-      expect(etapeCourante()).toContain('Créée');
-      expect(
-        within(
-          screen.getByRole('list', { name: 'Avancement de la collecte' }),
-        ).getAllByRole('listitem'),
-      ).toHaveLength(6);
+      expect(etapeCourante()).toBe('Créée');
     },
     ATTENTE_CAS_MS,
   );
@@ -1731,7 +1722,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/dispatch_zd_envoyee_programmee — ZD dont le prestataire vient d’être choisi : « Envoyée », bloc en lecture, frise à « Programmée »',
+    'M0.6/dispatch_zd_envoyee_programmee — ZD dont le prestataire vient d’être choisi : « Envoyée », bloc en lecture, pastille « Programmée »',
     async () => {
       mockFetchPrestataire({
         ...collecteEnFileMts1,
@@ -2917,7 +2908,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   // « Sans excédent » se lit là où se lisent les repas d'une collecte AG, pas
   // dans son statut (décision Val 2026-10-09).
   it(
-    'M0.6/fiche_sans_excedent_volume_repas — AG sans excédent : frise « Réalisée », « Sans excédent » à la place du volume réalisé',
+    'M0.6/fiche_sans_excedent_volume_repas — AG sans excédent : pastille « Réalisée », « Sans excédent » à la place du volume réalisé',
     async () => {
       installMock({
         collecte: {
@@ -2936,15 +2927,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         valeurResumeAttribution('Volume repas (estimé / réalisé)'),
       ).toHaveTextContent(/^50 \/ Sans excédent$/);
-      const frise = screen.getByRole('list', {
-        name: 'Avancement de la collecte',
-      });
-      expect(
-        within(frise)
-          .getAllByRole('listitem')
-          .find((li) => li.getAttribute('aria-current') === 'step'),
-      ).toHaveTextContent(/^Réalisée$/);
-      expect(frise).not.toHaveTextContent(/exc[ée]dent/i);
+      const pastille = screen.getByTestId('statut-collecte-admin');
+      expect(pastille).toHaveTextContent(/^Réalisée$/);
+      expect(pastille).not.toHaveTextContent(/exc[ée]dent/i);
     },
     ATTENTE_CAS_MS,
   );
@@ -3273,7 +3258,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(within(infos).queryByText('Client Fallback')).toBeNull();
       expect(within(infos).getByText(/19:00/)).toBeInTheDocument();
       // Lieu : détails + badge de surcharge.
-      expect(within(infos).getByText('75017 Paris')).toBeInTheDocument();
+      expect(within(infos).getByText(/75017 Paris$/)).toBeInTheDocument();
       expect(within(infos).getByText('Difficile')).toBeInTheDocument();
       expect(within(infos).getByText('Fourgon')).toBeInTheDocument();
       expect(within(infos).getByText('Pas avant 22h')).toBeInTheDocument();
@@ -3293,7 +3278,11 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         within(infos).getByRole('link', { name: '06 11 22 33 44' }),
       ).toHaveAttribute('href', 'tel:0611223344');
-      expect(within(infos).getByText('Non renseigné')).toBeInTheDocument();
+      // Secours absent : le bouton d'ajout de la variante B, qui ouvre la
+      // fenêtre des contacts.
+      expect(
+        within(infos).getByTestId('action-ajouter-contact-secours'),
+      ).toHaveTextContent('Ajouter un contact de secours');
       expect(within(infos).queryByText(/Bruno Copie|Chloé Copie/)).toBeNull();
       // Les coordonnées chauffeur ont quitté l'onglet Informations pour le bloc
       // « Chauffeur » de l'onglet Logistique (décision Val 2026-10-02).
@@ -3330,7 +3319,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         await within(infos).findByText('Code 1234', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(within(infos).getByText('75017 Paris')).toBeInTheDocument();
+      expect(within(infos).getByText(/75017 Paris$/)).toBeInTheDocument();
       expect(
         within(infos).queryByText('Modifié pour cette collecte'),
       ).toBeNull();
@@ -3407,10 +3396,14 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         within(enTete).getByTestId('badge-type-collecte'),
       ).toHaveTextContent('Anti-Gaspi');
       expect(within(enTete).getByText('Réf. TMS-9')).toBeInTheDocument();
+      // Titre = nom de l'événement, lieu et client dessous (variante B,
+      // décision Val 2026-10-27).
       expect(
-        within(enTete).getByRole('heading', { name: 'Pavillon' }),
+        within(enTete).getByRole('heading', { name: 'Cocktail AG' }),
       ).toBeInTheDocument();
-      expect(sousLigne).toHaveTextContent('Dimanche 10 mai 2026 · 19:00');
+      expect(within(enTete).getByText(/^Pavillon/)).toBeInTheDocument();
+      expect(sousLigne).toHaveTextContent('Dimanche 10 mai 2026');
+      expect(sousLigne).toHaveTextContent('19:00');
       expect(sousLigne).toHaveTextContent("jusqu'à 80 pax");
       expect(sousLigne).toHaveTextContent('Traiteur Beta');
       expect(sousLigne).toHaveTextContent('Paris');
@@ -3420,9 +3413,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         /success/,
       );
       expect(sousLigne).toHaveTextContent('Les Restos du Cœur');
-      // Frise compacte dans l'en-tête ; plus de colonne résumé.
+      // Pastille de statut dans l'en-tête (variante B) ; plus de colonne résumé.
       expect(
-        within(enTete).getByRole('list', { name: 'Avancement de la collecte' }),
+        within(enTete).getByTestId('statut-collecte-admin'),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole('complementary', { name: 'Résumé de la collecte' }),

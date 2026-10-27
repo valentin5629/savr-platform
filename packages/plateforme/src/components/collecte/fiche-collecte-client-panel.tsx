@@ -718,7 +718,7 @@ export function FicheCollecteClientPanel({
 const ONGLET =
   'justify-center border-b-0 px-0 text-sm data-[state=active]:bg-savr-white data-[state=active]:text-savr-primary-900 data-[state=active]:shadow-savr-sm max-sm:rounded-savr-full sm:justify-start sm:border-b-2 sm:text-sm sm:data-[state=active]:border-savr-primary-900 sm:data-[state=active]:bg-transparent sm:data-[state=active]:shadow-savr-none';
 
-function InfoEnTete({
+export function InfoEnTete({
   icon: Icon,
   children,
 }: {

@@ -19,7 +19,12 @@ export function CollecteDetailModal({
   onClose,
 }: CollecteDetailModalProps) {
   return (
-    <FicheCollecteModalCadre collecteId={collecteId} onClose={onClose}>
+    <FicheCollecteModalCadre
+      collecteId={collecteId}
+      onClose={onClose}
+      // Grand format de la fiche client (variante B, décision Val 2026-10-27).
+      taille="grand"
+    >
       {({ onLoaded, blockCloseRef }) => (
         <CollecteDetailPanel
           key={collecteId}

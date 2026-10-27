@@ -450,6 +450,16 @@ describe('M3.4 / download', () => {
     expect((mockPdf.mock.calls[0]![1] as { options: unknown }).options).toEqual(
       { benchmark: false },
     );
+    // Bordereau de la page 2 testé sous la RLS du client organisateur (§12 §1.7),
+    // jamais avec le client service-role.
+    const [, lecteur, collecteId] = mockPayload.mock.calls[0]! as [
+      unknown,
+      { auth?: { getUser?: unknown } },
+      string,
+    ];
+    expect(collecteId).toBe('c-zd');
+    // Le client SSR de la requête (session du demandeur), pas le service-role.
+    expect(lecteur.auth?.getUser).toBe(mockGetUser);
     // Aucun fichier stocké servi.
     expect(mockPresign).not.toHaveBeenCalled();
     // Premier téléchargement par le client organisateur : « Rapport consulté ».

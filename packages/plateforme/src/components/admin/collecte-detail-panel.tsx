@@ -3,7 +3,6 @@
 import { fmtEuro, fmtPax, fmtKgAuto } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { libelleTypePack } from '@/lib/libelles/pack';
-import { libelleStatutTournee } from '@/lib/libelles/tournee';
 import {
   useCallback,
   useEffect,
@@ -55,6 +54,7 @@ import type { IssueInfosAcces } from '@/lib/infos-acces/notify';
 import type { SuiviEmailInfosAcces } from '@/lib/infos-acces/suivi-email';
 import { CollecteStatutPastille } from './collecte-statut-pastille';
 import { AttributionAgForm } from './attribution-ag-form';
+import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
   ChampsBesoinVehicule,
   NB_VEHICULES_MAX,
@@ -93,7 +93,6 @@ import {
   libelleDispatch,
   libelleTypeTms,
 } from '@/lib/type-tms-labels';
-import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
   dateLongueCapitalisee,
   TelephoneLien,
@@ -1818,6 +1817,10 @@ export function CollecteDetailPanel({
   // État réel de l'ordre de tête, lu dans la file (décision Val 2026-10-12, C6).
   const ordreEnvoi = collecte.ordre_envoi ?? null;
   const dispatchEnLecture = ordreEnFileEnvoi && !changerPrestataire;
+  // AG attribuée : le choix du prestataire ne s'ouvre que sur « Modifier
+  // l'attribution » (décision Val 2026-10-27).
+  const agAttribuee = collecte.type === 'anti_gaspi' && !attributionManquante;
+  const choixMasque = agAttribuee && !changerPrestataire;
   // Besoin véhicule modifiable avec l'envoi d'une ZD (décision Val
   // 2026-10-27 ; l'AG le saisit à l'attribution) : mêmes gardes que la route
   // (collecte encore à attribuer, choix du prestataire ouvert).
@@ -1851,13 +1854,13 @@ export function CollecteDetailPanel({
   const aideChauffeur =
     rangsChauffeur.length === 0
       ? 'Aucune tournée enregistrée pour cette collecte.'
-      : !saisieChauffeurPossible
-        ? 'Attribuez d’abord un prestataire : les coordonnées se saisissent ensuite camion par camion.'
-        : collecte.controle_acces_requis
-          ? null
-          : canalEnvoi
-            ? `Les coordonnées remontent automatiquement de ${canalEnvoi} dès l’affectation du chauffeur ; complétez-les si elles manquent.`
-            : 'Coordonnées à saisir par l’équipe Ops.';
+      : // Phrases sur la saisie retirées (décision Val 2026-10-27) ; reste
+        // la consigne d'un transporteur manuel (rien ne remonte seul).
+        saisieChauffeurPossible &&
+          !collecte.controle_acces_requis &&
+          !canalEnvoi
+        ? 'Coordonnées à saisir par l’équipe Ops.'
+        : null;
   // Email « infos d'accès » : l'état vient du journal des emails (servi par la
   // fiche). Sans lui (réponse antérieure au suivi), repli sur le tampon.
   const suiviEmailAcces: SuiviEmailInfosAcces = collecte.infos_acces_email ?? {
@@ -1995,9 +1998,7 @@ export function CollecteDetailPanel({
           {heureCollecte && (
             <InfoEnTete icon={Clock}>{heureCollecte}</InfoEnTete>
           )}
-          <InfoEnTete icon={Users}>
-            jusqu&apos;à {fmtPax(collecte.pax)}
-          </InfoEnTete>
+          <InfoEnTete icon={Users}>{fmtPax(collecte.pax)}</InfoEnTete>
           <InfoEnTete icon={Building2}>
             {collecte.evenements.organisations.raison_sociale}
           </InfoEnTete>
@@ -2056,7 +2057,7 @@ export function CollecteDetailPanel({
                 label="Nombre de pax"
                 valueClassName="flex items-center gap-2"
               >
-                jusqu&apos;à {collecte.pax}
+                {collecte.pax}
                 <Button
                   type="button"
                   variant="ghost"
@@ -2262,52 +2263,71 @@ export function CollecteDetailPanel({
                 </div>
               </SectionInfos>
             )}
-          {/* AG attribuée : résumé de l'attribution AVANT « Prestataire &
-            Dispatch » (décision Val 2026-10-01). */}
-          {collecte.type === 'anti_gaspi' && !attributionManquante && (
-            <SectionInfos titre="Attribution AG">
-              <div className="min-w-0 space-y-4">
-                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                  <InfoItem label="Association retenue">
-                    {collecte.attributions_antgaspi?.associations?.nom ?? (
-                      <span className="text-savr-neutral-400">
-                        Aucune (en attente d’attribution)
-                      </span>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Transporteur retenu">
-                    {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
-                      <span className="text-savr-neutral-400">—</span>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Validation">
-                    {collecte.attributions_antgaspi?.valide_at ? (
-                      <>
-                        {collecte.attributions_antgaspi.mode_validation} —{' '}
-                        {new Date(
-                          collecte.attributions_antgaspi.valide_at,
-                        ).toLocaleDateString('fr-FR', {
-                          timeZone: 'Europe/Paris',
-                        })}
-                      </>
-                    ) : (
-                      <Badge variant="warning">En attente de validation</Badge>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Volume repas (estimé / réalisé)">
-                    {collecte.volume_estime_repas ?? '—'} /{' '}
-                    {collecte.statut === 'realisee_sans_collecte'
-                      ? LIBELLE_SANS_EXCEDENT
-                      : (collecte.attributions_antgaspi?.volume_repas_realise ??
-                        '—')}
-                  </InfoItem>
-                </dl>
-              </div>
-            </SectionInfos>
-          )}
           {!(attributionManquante && !isTerminal) && (
-            <SectionInfos titre="Prestataire & Dispatch">
+            <SectionInfos
+              titre={
+                agAttribuee
+                  ? 'Prestataire et Dispatch'
+                  : 'Prestataire & Dispatch'
+              }
+            >
               <div className="min-w-0 space-y-4">
+                {/* AG attribuée : résumé de l'attribution en tête du bloc, puis
+                    « Modifier l'attribution » qui rouvre le choix du
+                    prestataire (blocs fusionnés, décision Val 2026-10-27). */}
+                {agAttribuee && (
+                  <>
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                      <InfoItem label="Association retenue">
+                        {collecte.attributions_antgaspi?.associations?.nom ?? (
+                          <span className="text-savr-neutral-400">
+                            Aucune (en attente d’attribution)
+                          </span>
+                        )}
+                      </InfoItem>
+                      <InfoItem label="Transporteur retenu">
+                        {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
+                          <span className="text-savr-neutral-400">—</span>
+                        )}
+                      </InfoItem>
+                      <InfoItem label="Validation">
+                        {collecte.attributions_antgaspi?.valide_at ? (
+                          <>
+                            {collecte.attributions_antgaspi.mode_validation} —{' '}
+                            {new Date(
+                              collecte.attributions_antgaspi.valide_at,
+                            ).toLocaleDateString('fr-FR', {
+                              timeZone: 'Europe/Paris',
+                            })}
+                          </>
+                        ) : (
+                          <Badge variant="warning">
+                            En attente de validation
+                          </Badge>
+                        )}
+                      </InfoItem>
+                      <InfoItem label="Volume repas (estimé / réalisé)">
+                        {collecte.volume_estime_repas ?? '—'} /{' '}
+                        {collecte.statut === 'realisee_sans_collecte'
+                          ? LIBELLE_SANS_EXCEDENT
+                          : (collecte.attributions_antgaspi
+                              ?.volume_repas_realise ?? '—')}
+                      </InfoItem>
+                    </dl>
+                    {!isTerminal && !changerPrestataire && (
+                      <div>
+                        <Button
+                          ref={changerPrestataireBtnRef}
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setChangerPrestataire(true)}
+                        >
+                          Modifier l’attribution
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
                 {dispatchError && (
                   <AlertBar variant="err">{dispatchError}</AlertBar>
                 )}
@@ -2410,7 +2430,8 @@ export function CollecteDetailPanel({
             demande pas à changer de prestataire. */}
                 {!isTerminal &&
                   !dispatchEnLecture &&
-                  !choixPrestataireZdFerme && (
+                  !choixPrestataireZdFerme &&
+                  !choixMasque && (
                     <div
                       ref={dispatchChoixRef}
                       className="space-y-3 border-t border-savr-neutral-100 pt-4"
@@ -2420,7 +2441,7 @@ export function CollecteDetailPanel({
                         className="font-semibold"
                         id="dispatch-transporteur-label"
                       >
-                        {ordreEnFileEnvoi
+                        {ordreEnFileEnvoi || agAttribuee
                           ? 'Changer de prestataire'
                           : 'Prestataire à attribuer'}
                       </Text>
@@ -2540,14 +2561,16 @@ export function CollecteDetailPanel({
                     // 2026-10-09). Autre action : rouvrir le choix du
                     // prestataire.
                     <>
-                      <Button
-                        ref={changerPrestataireBtnRef}
-                        variant="secondary"
-                        onClick={() => setChangerPrestataire(true)}
-                      >
-                        <Truck />
-                        Changer de prestataire
-                      </Button>
+                      {!agAttribuee && (
+                        <Button
+                          ref={changerPrestataireBtnRef}
+                          variant="secondary"
+                          onClick={() => setChangerPrestataire(true)}
+                        >
+                          <Truck />
+                          Changer de prestataire
+                        </Button>
+                      )}
                       {estModifieeSansRenvoi(collecte) && (
                         <Button
                           onClick={() => void handleDispatch()}
@@ -2560,65 +2583,40 @@ export function CollecteDetailPanel({
                     </>
                   ) : (
                     <>
-                      {ordreEnFileEnvoi && (
+                      {changerPrestataire &&
+                        (ordreEnFileEnvoi || agAttribuee) && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              retourFocusChangerRef.current = true;
+                              setChangerPrestataire(false);
+                              setSelectedTransporteurId('');
+                              setMotifOverride('');
+                            }}
+                          >
+                            Garder le prestataire actuel
+                          </Button>
+                        )}
+                      {(!choixMasque || estModifieeSansRenvoi(collecte)) && (
                         <Button
-                          variant="ghost"
-                          onClick={() => {
-                            retourFocusChangerRef.current = true;
-                            setChangerPrestataire(false);
-                            setSelectedTransporteurId('');
-                            setMotifOverride('');
-                          }}
+                          disabled={
+                            isTerminal ||
+                            overrideMotifManquant ||
+                            prestataireAChoisir
+                          }
+                          onClick={() => void handleDispatch()}
+                          loading={dispatching}
+                          loadingText="Envoi…"
                         >
-                          Garder le prestataire actuel
+                          <Send />{' '}
+                          {prestataireAChoisir
+                            ? 'Envoyer'
+                            : libelleDispatch(forkTypeTms, renvoi)}
                         </Button>
                       )}
-                      <Button
-                        disabled={
-                          isTerminal ||
-                          overrideMotifManquant ||
-                          prestataireAChoisir
-                        }
-                        onClick={() => void handleDispatch()}
-                        loading={dispatching}
-                        loadingText="Envoi…"
-                      >
-                        <Send />{' '}
-                        {prestataireAChoisir
-                          ? 'Envoyer'
-                          : libelleDispatch(forkTypeTms, renvoi)}
-                      </Button>
                     </>
                   )}
                 </div>
-
-                {/* Tournées (multi-camions) */}
-                {collecte.collecte_tournees.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Text variant="body" className="font-medium">
-                        Tournées
-                      </Text>
-                      <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
-                    </div>
-                    <div className="space-y-1">
-                      {collecte.collecte_tournees.map((ct) => (
-                        <div
-                          key={ct.rang}
-                          className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded-savr-sm px-3 py-2"
-                        >
-                          <span className="font-medium">Camion {ct.rang}</span>
-                          <Badge variant="neutral">
-                            {libelleStatutTournee(ct.tournees.statut)}
-                          </Badge>
-                          <Text as="span" variant="hint" className="font-mono">
-                            {ct.tournees.external_ref_commande ?? '—'}
-                          </Text>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </SectionInfos>
           )}
@@ -2632,14 +2630,24 @@ export function CollecteDetailPanel({
             titre={titreChauffeur}
             data-testid="bloc-chauffeur"
             action={
-              !editInfosAcces && saisieChauffeurPossible ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={openEditInfosAcces}
-                >
-                  Modifier les coordonnées
-                </Button>
+              collecte.collecte_tournees.length > 0 ||
+              (!editInfosAcces && saisieChauffeurPossible) ? (
+                <>
+                  {/* Picto « plaque TMS » (§11) : déplacé ici avec le retrait
+                      de la liste des tournées (décision Val 2026-10-27). */}
+                  {collecte.collecte_tournees.length > 0 && (
+                    <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
+                  )}
+                  {!editInfosAcces && saisieChauffeurPossible && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={openEditInfosAcces}
+                    >
+                      Modifier les coordonnées
+                    </Button>
+                  )}
+                </>
               ) : undefined
             }
           >

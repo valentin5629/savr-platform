@@ -24,6 +24,16 @@ import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 // Fiche en 4 onglets (Informations / Logistique / Documents / Historique) : seul
 // l'onglet actif est monté. Radix active un onglet au mousedown (bouton gauche).
+async function ouvrirModifierAttribution(): Promise<void> {
+  fireEvent.click(
+    await screen.findByRole(
+      'button',
+      { name: 'Modifier l’attribution' },
+      ATTENTE_UI,
+    ),
+  );
+}
+
 async function ouvrirOnglet(nom: string): Promise<void> {
   fireEvent.mouseDown(
     await screen.findByRole('tab', { name: nom }, ATTENTE_UI),
@@ -251,6 +261,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ).length,
       ).toBeGreaterThan(0);
       // Prestataire top-1 = carte cochée et marquée « Recommandé » (décision Val C3).
+      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
+      // (blocs fusionnés, décision Val 2026-10-27).
+      await ouvrirModifierAttribution();
       const carteStrike = await screen.findByRole(
         'radio',
         { name: /Strike/ },
@@ -282,21 +295,21 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6 — Logistique AG : le bloc « Attribution AG » précède « Prestataire & Dispatch »',
+    'M0.6 — Logistique AG : un seul bloc « Prestataire et Dispatch », le résumé de l’attribution en tête',
     async () => {
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
-      const attribution = await screen.findByText(
-        'Attribution AG',
-        undefined,
-        ATTENTE_UI,
-      );
-      const dispatch = screen.getByText('Prestataire & Dispatch');
-      // L'association est choisie AVANT le prestataire (décision Val 2026-10-01).
+      // Blocs fusionnés (décision Val 2026-10-27) : un seul « Prestataire et
+      // Dispatch », le résumé de l'attribution en tête.
+      await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
+      expect(screen.queryByText('Prestataire & Dispatch')).toBeNull();
+      expect(screen.queryByText('Attribution AG')).toBeNull();
+      const association = screen.getByText('Association retenue');
+      const prestataire = screen.getByText('Prestataire actuel');
       expect(
-        attribution.compareDocumentPosition(dispatch) &
+        association.compareDocumentPosition(prestataire) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     },
@@ -320,14 +333,15 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         {},
         ATTENTE_UI,
       );
-      expect(sousLigne).toHaveTextContent("jusqu'à 650 pax");
+      expect(sousLigne).toHaveTextContent('650 pax');
+      expect(sousLigne).not.toHaveTextContent(/jusqu/);
       expect(sousLigne).not.toHaveTextContent(/1\s?200/);
       await waitFor(() => expect(onLoaded).toHaveBeenCalled(), ATTENTE_UI);
       const arg = onLoaded.mock.calls.at(-1)?.[0] as { title: string };
       expect(arg.title).toContain("jusqu'à 650\u00a0pax");
 
       const infos = screen.getByRole('tabpanel');
-      expect(within(infos).getByText(/jusqu.à 650/)).toBeInTheDocument();
+      expect(within(infos).getByText(/^650/)).toBeInTheDocument();
       expect(within(infos).queryByText(/jusqu.à 1\s?200/)).toBeNull();
 
       await ouvrirOnglet('Logistique');
@@ -484,7 +498,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
       ).toBeNull();
       fireEvent.click(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
       );
       const carteAToutes = await screen.findByRole(
         'radio',
@@ -552,6 +566,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
       // Attendre la pré-sélection du top-1 (bouton MTS-1)
+      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
+      // (blocs fusionnés, décision Val 2026-10-27).
+      await ouvrirModifierAttribution();
       await screen.findByRole(
         'button',
         { name: /Envoyer à MTS-1/ },
@@ -615,6 +632,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
+      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
+      // (blocs fusionnés, décision Val 2026-10-27).
+      await ouvrirModifierAttribution();
       expect(
         await screen.findByRole(
           'radio',
@@ -696,7 +716,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         screen.getByText(/Collecte envoyée à Marathon/),
       ).toBeInTheDocument();
       fireEvent.click(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
       );
       // Désactivé = plus proposé à l'attribution : pas de carte, donc pas de
       // badge « Actuel » — c'est la ligne « Prestataire actuel » qui le nomme.
@@ -802,7 +822,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(
         await screen.findByRole(
           'button',
-          { name: 'Changer de prestataire' },
+          { name: 'Modifier l’attribution' },
           ATTENTE_UI,
         ),
       );
@@ -876,7 +896,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
       ).toBeNull();
       expect(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
       ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
@@ -1393,6 +1413,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(within(sousLigne).queryByText('Envoyée')).toBeNull();
 
       await ouvrirOnglet('Logistique');
+      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
+      // (blocs fusionnés, décision Val 2026-10-27).
+      await ouvrirModifierAttribution();
       const carte = await screen.findByRole(
         'radio',
         { name: /A Toutes!/ },
@@ -1475,7 +1498,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(
         await screen.findByRole(
           'button',
-          { name: 'Changer de prestataire' },
+          { name: 'Modifier l’attribution' },
           ATTENTE_UI,
         ),
       );
@@ -1504,7 +1527,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(screen.queryByRole('radiogroup')).toBeNull();
       // « Garder » a disparu à son tour : le focus revient sur « Changer ».
       expect(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
       ).toHaveFocus();
       expect(
         fetchMock.mock.calls.some(([u]) => String(u).includes('/dispatch')),
@@ -1523,7 +1546,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(
         await screen.findByRole(
           'button',
-          { name: 'Changer de prestataire' },
+          { name: 'Modifier l’attribution' },
           ATTENTE_UI,
         ),
       );
@@ -1561,7 +1584,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ATTENTE_UI,
       );
       expect(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
       ).toHaveFocus();
     },
     ATTENTE_CAS_MS,
@@ -2095,6 +2118,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       // La reco (top-1 = Strike) est affichée mais ne prend PAS la main sur une
       // collecte déjà attribuée : un clic sur le bouton d'envoi la ré-attribuerait.
+      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
+      // (blocs fusionnés, décision Val 2026-10-27).
+      await ouvrirModifierAttribution();
       const carteStrike = await screen.findByRole(
         'radio',
         { name: /Strike/ },
@@ -2217,11 +2243,11 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         await screen.findByText('Cocktail apéritif', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(screen.queryByText('Dîner assis')).toBeNull();
-      // tournees.statut (onglet Logistique — liste multi-camions), libellé FR (R-UI-0 B2)
+      // Liste des tournées retirée de l'onglet Logistique (décision Val
+      // 2026-10-27) : plus de statut de tournée affiché.
       await ouvrirOnglet('Logistique');
-      expect(
-        await screen.findByText('Planifiée', undefined, ATTENTE_UI),
-      ).toBeInTheDocument();
+      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+      expect(screen.queryByText('Planifiée')).toBeNull();
       // factures_collectes → factures.statut (onglet Documents), libellé FR (R-UI-0 B2)
       await ouvrirOnglet('Documents');
       expect(
@@ -2950,7 +2976,11 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await ouvrirOnglet('Logistique');
 
       expect(
-        await screen.findByText('Attribution AG', undefined, ATTENTE_UI),
+        await screen.findByText(
+          'Prestataire et Dispatch',
+          undefined,
+          ATTENTE_UI,
+        ),
       ).toBeInTheDocument();
       // Association + transporteur retenus (embed attributions_antgaspi), lus
       // sous leur libellé : l'en-tête de la fiche porte aussi le nom de
@@ -3002,7 +3032,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
-      await screen.findByText('Attribution AG', undefined, ATTENTE_UI);
+      await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
 
       expect(
         valeurResumeAttribution('Volume repas (estimé / réalisé)'),
@@ -3033,7 +3063,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
-      await screen.findByText('Attribution AG', undefined, ATTENTE_UI);
+      await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
 
       // Le badge seul : ni mode ni date tant que la validation n'est pas datée.
       expect(valeurResumeAttribution('Validation')).toHaveTextContent(
@@ -3333,7 +3363,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       const infos = screen.getByRole('tabpanel');
       // Événement : traiteur, pax, client final (client organisateur résolu).
       expect(within(infos).getByText('Traiteur Beta')).toBeInTheDocument();
-      expect(within(infos).getByText(/jusqu.à 80/)).toBeInTheDocument();
+      expect(within(infos).getByText(/^80/)).toBeInTheDocument();
       expect(within(infos).getByText('Org Cliente SA')).toBeInTheDocument();
       expect(within(infos).queryByText('Client Fallback')).toBeNull();
       expect(within(infos).getByText(/19:00/)).toBeInTheDocument();
@@ -3413,6 +3443,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
+      // AG attribuée : les cartes s'ouvrent sur « Modifier l’attribution »
+      // (blocs fusionnés, décision Val 2026-10-27).
+      await ouvrirModifierAttribution();
       const strike = await screen.findByRole(
         'radio',
         { name: /Strike/ },
@@ -3440,7 +3473,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
-      await screen.findByText('Attribution AG', undefined, ATTENTE_UI);
+      await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
       await waitFor(
         () =>
           expect(
@@ -3451,9 +3484,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         ATTENTE_UI,
       );
       expect(screen.queryByRole('link', { name: 'Choisir' })).toBeNull();
-      // Attribution validée : le résumé + le bloc dispatch (renvoi / changement
-      // de prestataire), jamais le formulaire d'attribution intégré.
-      expect(screen.getByText('Prestataire & Dispatch')).toBeInTheDocument();
+      // Attribution validée : un seul bloc (résumé + dispatch), jamais le
+      // formulaire d'attribution intégré.
+      expect(screen.getByText('Prestataire et Dispatch')).toBeInTheDocument();
       expect(
         screen.queryByLabelText('Type de véhicule souhaité'),
       ).not.toBeInTheDocument();
@@ -3484,7 +3517,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(within(enTete).getByText(/^Pavillon/)).toBeInTheDocument();
       expect(sousLigne).toHaveTextContent('Dimanche 10 mai 2026');
       expect(sousLigne).toHaveTextContent('19:00');
-      expect(sousLigne).toHaveTextContent("jusqu'à 80 pax");
+      expect(sousLigne).toHaveTextContent('80 pax');
+      expect(sousLigne).not.toHaveTextContent(/jusqu/);
       expect(sousLigne).toHaveTextContent('Traiteur Beta');
       expect(sousLigne).toHaveTextContent('Paris');
       expect(sousLigne).toHaveTextContent('Prestataire non attribué');
@@ -4126,9 +4160,10 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
         within(bloc).getByRole('heading', { name: 'Chauffeur' }),
       ).toBeInTheDocument();
       expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(1);
+      // Phrase retirée (décision Val 2026-10-27).
       expect(
-        within(bloc).getByText(/Attribuez d’abord un prestataire/),
-      ).toBeInTheDocument();
+        within(bloc).queryByText(/Attribuez d’abord un prestataire/),
+      ).toBeNull();
       expect(
         within(bloc).getByText(/Tournée pas encore créée par le prestataire/),
       ).toBeInTheDocument();
@@ -4163,10 +4198,8 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
         undefined,
         ATTENTE_UI,
       )) as HTMLElement;
-      // Le canal nommé : MTS-1 (jamais « du prestataire » générique).
-      expect(
-        screen.getByText(/remontent automatiquement de MTS-1/),
-      ).toBeInTheDocument();
+      // Phrase sur la remontée automatique retirée (décision Val 2026-10-27).
+      expect(screen.queryByText(/remontent automatiquement/)).toBeNull();
       expect(within(bloc).getByText('Paul Martin')).toBeInTheDocument();
       expect(within(bloc).getByText('AB-123-CD')).toBeInTheDocument();
       expect(

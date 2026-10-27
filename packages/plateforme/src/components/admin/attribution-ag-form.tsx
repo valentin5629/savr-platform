@@ -39,7 +39,6 @@ import { messageObligatoire } from '@/lib/libelles/validation';
 import {
   ChampsBesoinVehicule,
   NB_VEHICULES_MAX,
-  TYPES_VEHICULE_OPTIONS,
   nbVehiculesValide,
 } from '@/components/admin/champs-besoin-vehicule';
 
@@ -228,12 +227,8 @@ export function AttributionAgForm({
   const typeToucheRef = useRef(false);
 
   const [selectedAsso, setSelectedAsso] = useState<string | null>(null);
-  const [selectedAssoNom, setSelectedAssoNom] = useState<string | null>(null);
   const [assoSource, setAssoSource] = useState<'reco' | 'libre'>('reco');
   const [selectedTransp, setSelectedTransp] = useState<string | null>(null);
-  const [selectedTranspNom, setSelectedTranspNom] = useState<string | null>(
-    null,
-  );
   const [transpSource, setTranspSource] = useState<'reco' | 'libre'>('reco');
 
   // Besoin véhicule (décision Val 2026-10-01) — initialisé depuis la collecte.
@@ -280,12 +275,10 @@ export function AttributionAgForm({
       const assoInitiale = json.data.associations[0];
       if (assoInitiale) {
         setSelectedAsso(assoInitiale.id);
-        setSelectedAssoNom(assoInitiale.nom);
         setAssoSource('reco');
       }
       if (json.data.transporteur) {
         setSelectedTransp(json.data.transporteur.id);
-        setSelectedTranspNom(json.data.transporteur.nom);
         setTranspSource('reco');
       }
     } catch (e) {
@@ -424,7 +417,6 @@ export function AttributionAgForm({
   const choisirAssociation = (id: string) => {
     const a = optionsAsso.find((x) => x.id === id);
     setSelectedAsso(a ? id : null);
-    setSelectedAssoNom(a?.nom ?? null);
     // Suggestion de l'algo (ou aucun choix) = 'reco' ; hors suggestions = 'libre'
     // (audit attribution_manuelle_aucune_reco si l'algo n'en proposait aucune).
     setAssoSource(
@@ -450,7 +442,6 @@ export function AttributionAgForm({
   const choisirTransporteur = (id: string) => {
     const t = optionsTransp.find((x) => x.id === id);
     setSelectedTransp(t ? id : null);
-    setSelectedTranspNom(t?.nom ?? null);
     // Recommandé (ou aucun choix) = pas de motif ; tout autre transporteur = override.
     setTranspSource(
       !t || transpList.some((x) => x.id === id) ? 'reco' : 'libre',
@@ -764,23 +755,13 @@ export function AttributionAgForm({
 
           {/* Pied : synthèse + action unique */}
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-savr-neutral-100 pt-4">
-            <Text variant="body">
-              Sélection : <strong>{selectedAssoNom ?? '—'}</strong> +{' '}
-              <strong>{selectedTranspNom ?? '—'}</strong>
-              {nbVehiculesOk && (
-                <>
-                  {' '}
-                  · {nbVehiculesNum} ×{' '}
-                  {TYPES_VEHICULE_OPTIONS.find((t) => t.value === typeVehicule)
-                    ?.label ?? 'véhicule (type non précisé)'}
-                </>
-              )}
-              {aucuneReco && (
-                <span className="ml-1 text-savr-warning-strong">
-                  (association hors recommandation — auditée)
-                </span>
-              )}
-            </Text>
+            {aucuneReco ? (
+              <Text variant="body" className="text-savr-warning-strong">
+                Association hors recommandation — auditée
+              </Text>
+            ) : (
+              <span />
+            )}
             <Button
               disabled={
                 !selectedAsso ||

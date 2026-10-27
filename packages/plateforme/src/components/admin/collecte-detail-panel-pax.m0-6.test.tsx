@@ -161,10 +161,11 @@ describe('M0.6-pax-collecte-modification-admin — fiche collecte Admin : « Mod
         body: JSON.stringify({ pax: 650, motif: MOTIF }),
       });
       // Fiche rechargée : en-tête et onglet Informations disent 650.
+      // « jusqu'à » retiré (décision Val 2026-10-27).
       expect(
-        await screen.findAllByText(/jusqu.à 650/, {}, ATTENTE_UI),
+        await screen.findAllByText(/^650/, {}, ATTENTE_UI),
       ).not.toHaveLength(0);
-      expect(screen.queryAllByText(/jusqu.à 80/)).toHaveLength(0);
+      expect(screen.queryAllByText(/^80/)).toHaveLength(0);
     },
     ATTENTE_CAS_MS,
   );

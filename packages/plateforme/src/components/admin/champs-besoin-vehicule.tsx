@@ -5,7 +5,6 @@ import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
 import { IconButton } from '@/components/ui/icon-button';
-import { cn } from '@/lib/utils';
 
 // Besoin véhicule saisi avant l'envoi au prestataire (décision Val
 // 2026-10-01) : type souhaité + nombre de véhicules. Attribution AG et choix
@@ -85,7 +84,7 @@ export function ChampsBesoinVehicule({
             value={nbVehicules}
             onChange={(e) => onNbVehicules(e.target.value)}
             aria-invalid={!ok}
-            aria-describedby="nb-vehicules-aide"
+            aria-describedby={ok ? undefined : 'nb-vehicules-aide'}
             className="h-full min-w-0 flex-1 border-0 bg-transparent text-center text-sm font-bold text-savr-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-savr-primary-500"
           />
           <IconButton
@@ -98,17 +97,15 @@ export function ChampsBesoinVehicule({
             <Plus className="h-4 w-4" />
           </IconButton>
         </div>
-        <p
-          id="nb-vehicules-aide"
-          className={cn(
-            'mt-1 text-xs',
-            ok ? 'text-savr-neutral-500' : 'text-savr-error-strong',
-          )}
-        >
-          {ok
-            ? `Entier entre 1 et ${NB_VEHICULES_MAX} : 1 commande par véhicule chez le prestataire.`
-            : `Nombre invalide : entier entre 1 et ${NB_VEHICULES_MAX}.`}
-        </p>
+        {/* Aide retirée (décision Val 2026-10-27) ; reste l'erreur. */}
+        {!ok && (
+          <p
+            id="nb-vehicules-aide"
+            className="mt-1 text-xs text-savr-error-strong"
+          >
+            Nombre invalide : entier entre 1 et {NB_VEHICULES_MAX}.
+          </p>
+        )}
       </FormField>
     </FormGrid>
   );

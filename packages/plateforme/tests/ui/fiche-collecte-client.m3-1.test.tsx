@@ -86,7 +86,7 @@ beforeEach(() => {
 
 describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
   it(
-    'M3.1/fiche_popup_entete_badge_frise — badge ZD vert, réf., lieu, date · heure · pax, frise client',
+    'M3.1/fiche_popup_entete_badge_frise — badge ZD vert, réf., lieu, date, heure, pax, statut client en pastille',
     async () => {
       stubFetchFiche(ficheClient({ statut: 'validee' }));
       render(fiche('c1'));
@@ -109,18 +109,20 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
         }),
       ).toBeTruthy();
       const ligne = await sousLigne();
-      expect(ligne).toContain('Mercredi 28 octobre 2026 · 22:00');
+      // Variante B (Val 2026-10-27) : date et heure en deux repères.
+      expect(ligne).toContain('Mercredi 28 octobre 2026');
+      expect(ligne).toContain('22:00');
       expect(ligne).toContain('4 200 pax');
       // Jamais l'ISO de la base.
       expect(ligne).not.toContain('2026-10-28');
 
-      // Q1 : vocabulaire client, étape courante marquée.
-      const frise = screen.getByTestId('frise-statut-client');
-      expect(frise.textContent).toContain('Créée');
-      expect(frise.textContent).toContain('Réalisée');
-      expect(frise.textContent).not.toMatch(/Programmée|Clôturée/);
-      const courante = within(frise).getByText('Validée').closest('li');
-      expect(courante?.getAttribute('aria-current')).toBe('step');
+      // Q1 : vocabulaire client. Variante B (Val 2026-10-27) : la frise
+      // devient une pastille qui ne porte que l'étape courante.
+      const statut = screen.getByTestId('frise-statut-client');
+      expect(statut.textContent).toBe('Validée');
+      expect(statut.getAttribute('aria-label')).toBe(
+        'Statut de la collecte : Validée',
+      );
     },
     ATTENTE_CAS_MS,
   );
@@ -931,7 +933,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
   );
 
   it(
-    'M3.1/fiche_popup_annulee — frise « Créée · Annulée », aucun bilan ni document, pas d’actions',
+    'M3.1/fiche_popup_annulee — statut « Annulée », aucun bilan ni document, pas d’actions',
     async () => {
       stubFetchFiche(
         ficheClient({
@@ -941,16 +943,12 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       );
       render(fiche('c1'));
 
-      const frise = await screen.findByTestId(
+      const statut = await screen.findByTestId(
         'frise-statut-client',
         {},
         ATTENTE_UI,
       );
-      expect(
-        within(frise)
-          .getAllByRole('listitem')
-          .map((li) => li.textContent?.replace(' (étape passée)', '')),
-      ).toEqual(['Créée', 'Annulée']);
+      expect(statut.textContent).toBe('Annulée');
       await ouvrirOnglet('Bilan & documents');
       await screen.findByText(
         'Collecte annulée : aucun bilan ni document.',

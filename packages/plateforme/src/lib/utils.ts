@@ -10,8 +10,15 @@ import { extendTailwindMerge } from 'tailwind-merge';
  * twMerge accepte toute valeur). Tenu en phase avec globals.css par
  * tests/lib/cn.test.ts.
  */
-const SAVR_RADIUS = ['savr-sm', 'savr-md', 'savr-lg', 'savr-xl', 'savr-full'];
-const SAVR_SHADOW = ['savr-none', 'savr-sm', 'savr-md', 'savr-lg'];
+const SAVR_RADIUS = [
+  'savr-sm',
+  'savr-md',
+  'savr-lg',
+  'savr-xl',
+  'savr-2xl',
+  'savr-full',
+];
+const SAVR_SHADOW = ['savr-none', 'savr-sm', 'savr-md', 'savr-lg', 'savr-xl'];
 const SAVR_DURATION = ['savr-fast', 'savr-base', 'savr-slow'];
 const SAVR_CONTAINER = ['savr-content', 'savr-wide', 'savr-prose'];
 

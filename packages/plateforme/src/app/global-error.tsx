@@ -7,7 +7,7 @@ import {
 } from '@/components/layout/route-states';
 
 // Erreur du layout racine (R-UI-1 H5) : remplace `app/layout.tsx`, donc rend
-// son propre <html>/<body> (sans ToastProvider ni police Nunito).
+// son propre <html>/<body> (sans ToastProvider ni polices Inter et Archivo).
 export default function GlobalError(props: RouteErrorProps) {
   return (
     <html lang="fr">

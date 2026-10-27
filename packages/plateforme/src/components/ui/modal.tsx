@@ -20,6 +20,9 @@ interface ModalProps {
   hideTitle?: boolean;
   /** Classes du corps (fusionnées) — ex. corps sans marge ni défilement propre. */
   bodyClassName?: string;
+  /** Classes de la croix de fermeture (fusionnées) — ex. croix ronde des
+   *  grandes fiches. */
+  fermetureClassName?: string;
   className?: string;
 }
 
@@ -63,6 +66,7 @@ const Modal = ({
   wide,
   hideTitle,
   bodyClassName,
+  fermetureClassName,
   className,
 }: ModalProps) => {
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -149,7 +153,10 @@ const Modal = ({
           type="button"
           onClick={onClose}
           aria-label="Fermer"
-          className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-savr-md text-savr-neutral-400 transition-colors hover:bg-savr-neutral-100 hover:text-savr-neutral-700"
+          className={cn(
+            'absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-savr-md text-savr-neutral-400 transition-colors hover:bg-savr-neutral-100 hover:text-savr-neutral-700',
+            fermetureClassName,
+          )}
         >
           <X className="h-4 w-4" />
         </button>

@@ -8,7 +8,15 @@ import {
   type MutableRefObject,
 } from 'react';
 import Link from 'next/link';
-import { CalendarDays, Pencil, PlusCircle, Users, XCircle } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarDays,
+  Clock,
+  MapPin,
+  PlusCircle,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
@@ -19,7 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
-import { FriseStatutClient } from '@/components/collecte/frise-statut-client';
+import { StatutCollecteClient } from '@/components/collecte/statut-collecte-client';
 import {
   OngletInformations,
   OngletLogistique,
@@ -27,10 +35,7 @@ import {
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { OngletBilan } from '@/components/collecte/fiche-collecte-client-bilan';
 import { dateLongueCapitalisee } from '@/components/collecte/fiche-blocs';
-import {
-  EnTeteMention,
-  FicheEnTete,
-} from '@/components/ui/fiche/fiche-en-tete';
+import { EnTeteMention } from '@/components/ui/fiche/fiche-en-tete';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
@@ -260,34 +265,68 @@ export function FicheCollecteClientPanel({
     ? libelleTypeOrganisationMinuscule(c.programmee_par.type)
     : null;
 
+  const sousTitre = [evt?.nom_evenement, evt?.nom_client_organisateur]
+    .map((v) => v?.trim())
+    .filter(Boolean)
+    .join(' · ');
+
+  // Variante B (décision Val 2026-10-27) : grand en-tête sur deux lignes (lieu
+  // + événement · client, puis date, heure, pax, ville), statut en pastille à
+  // droite du titre, onglets soulignés dans l'en-tête ; seul le corps défile.
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <FicheEnTete
-        surtitre={
-          <>
-            <TypeCollecteBadge type={c.type} forme="plein" />
-            <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
-          </>
-        }
-        titre={lieu?.nom ?? 'Collecte'}
-        infosTestId="fiche-sous-ligne"
-        infos={[
-          {
-            icon: CalendarDays,
-            texte: `${dateLongueCapitalisee(c.date_collecte)}${heure ? ` · ${heure}` : ''}`,
-          },
-          {
-            icon: Users,
-            // Pax de la collecte (décision Val 2026-10-20).
-            texte: fmtPax(c.pax),
-          },
-        ]}
-        statut={<FriseStatutClient statut={c.statut} />}
-        statutLarge
-      />
+    <Tabs
+      value={onglet}
+      onValueChange={(v) => setOnglet(v as Onglet)}
+      className="flex h-full min-h-0 flex-col"
+    >
+      <header className="flex shrink-0 flex-col gap-5 px-6 pt-6 md:gap-6 md:px-14 md:pt-9">
+        <div className="flex min-w-0 flex-wrap items-center gap-3 pr-12 md:pr-16">
+          <TypeCollecteBadge type={c.type} forme="plein" />
+          <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
+        </div>
+        <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-3">
+          <div className="flex min-w-0 flex-col gap-2.5">
+            <h3 className="font-display text-3xl font-semibold leading-[1.05] tracking-[-0.035em] text-savr-primary-900 md:text-5xl">
+              {lieu?.nom ?? 'Collecte'}
+            </h3>
+            {sousTitre && (
+              <p className="text-[17px] text-savr-neutral-600">{sousTitre}</p>
+            )}
+          </div>
+          <StatutCollecteClient statut={c.statut} />
+        </div>
+        <p
+          data-testid="fiche-sous-ligne"
+          className="flex flex-wrap items-center gap-x-8 gap-y-2 text-[15px] text-savr-neutral-700"
+        >
+          <InfoEnTete icon={CalendarDays}>
+            {dateLongueCapitalisee(c.date_collecte)}
+          </InfoEnTete>
+          {heure && <InfoEnTete icon={Clock}>{heure}</InfoEnTete>}
+          {/* Pax de la collecte (décision Val 2026-10-20). */}
+          <InfoEnTete icon={Users}>{fmtPax(c.pax)}</InfoEnTete>
+          {lieu?.ville && <InfoEnTete icon={MapPin}>{lieu.ville}</InfoEnTete>}
+        </p>
+        {!editing && (
+          <TabsList
+            aria-label="Sections de la fiche collecte"
+            className="w-full gap-6 overflow-x-auto border-savr-sable-200 md:gap-9"
+          >
+            <TabsTrigger value="informations" className={ONGLET}>
+              Informations
+            </TabsTrigger>
+            <TabsTrigger value="logistique" className={ONGLET}>
+              Logistique
+            </TabsTrigger>
+            <TabsTrigger value="bilan" className={ONGLET}>
+              Bilan & documents
+            </TabsTrigger>
+          </TabsList>
+        )}
+      </header>
 
       {editing && evt ? (
-        <FicheCorps className="py-6">
+        <FicheCorps className="border-t border-savr-sable-200 py-6 md:px-14">
           <EditerCollecteForm
             collecte={{
               id: c.id,
@@ -322,65 +361,64 @@ export function FicheCollecteClientPanel({
           />
         </FicheCorps>
       ) : (
-        // Même barre d'onglets horizontale que les fiches Admin (décision Val
-        // 2026-10-01), fixe au défilement du corps.
-        <FicheCorps>
-          <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
-            <TabsList
-              aria-label="Sections de la fiche collecte"
-              className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
+        <FicheCorps className="py-8 md:px-14">
+          {!c.informations_completes && (
+            <AlertBar
+              variant="warn"
+              className="mb-6"
+              data-testid="bandeau-infos-incompletes"
             >
-              <TabsTrigger value="informations" className="px-3 sm:px-4">
-                Informations
-              </TabsTrigger>
-              <TabsTrigger value="logistique" className="px-3 sm:px-4">
-                Logistique
-              </TabsTrigger>
-              <TabsTrigger value="bilan" className="px-3 sm:px-4">
-                Bilan & documents
-              </TabsTrigger>
-            </TabsList>
-
-            {!c.informations_completes && (
-              <AlertBar
-                variant="warn"
-                className="mt-4"
-                data-testid="bandeau-infos-incompletes"
-              >
-                Informations incomplètes — merci de compléter avant la collecte.
-              </AlertBar>
-            )}
-            <TabsContent value="informations">
-              <OngletInformations
-                c={c}
-                onProgrammeePar={() => setProgOpen(true)}
-                onHorsReferentiel={() => {
-                  setSiretErreur(null);
-                  setSiretOpen(true);
-                }}
-              />
-            </TabsContent>
-            <TabsContent value="logistique">
-              <OngletLogistique
-                c={c}
-                urgence={urgence}
-                urgenceErreur={urgenceErreur}
-                onDemanderUrgence={() => void demanderUrgence()}
-              />
-            </TabsContent>
-            <TabsContent value="bilan">
-              <OngletBilan c={c} base={base} espace={espace} />
-            </TabsContent>
-          </Tabs>
+              Informations incomplètes — merci de compléter avant la collecte.
+            </AlertBar>
+          )}
+          <TabsContent value="informations">
+            <OngletInformations
+              c={c}
+              onProgrammeePar={() => setProgOpen(true)}
+              onHorsReferentiel={() => {
+                setSiretErreur(null);
+                setSiretOpen(true);
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="logistique">
+            <OngletLogistique
+              c={c}
+              urgence={urgence}
+              urgenceErreur={urgenceErreur}
+              onDemanderUrgence={() => void demanderUrgence()}
+            />
+          </TabsContent>
+          <TabsContent value="bilan">
+            <OngletBilan c={c} base={base} espace={espace} />
+          </TabsContent>
         </FicheCorps>
       )}
 
       {piedVisible && (
-        <FichePied>
+        <FichePied className="justify-start gap-3 border-savr-sable-200 px-6 py-5 md:px-14">
+          {actions.annuler !== 'absent' && (
+            <Button
+              variant="ghost-destructive"
+              size="pilule"
+              data-testid="action-annuler"
+              disabled={actions.annuler === 'grise'}
+              title={actions.annuler === 'grise' ? motifGrise : undefined}
+              onClick={() => {
+                setAnnulErreur(null);
+                setAnnulOpen(true);
+              }}
+              className="px-3"
+            >
+              {demande ? 'Demander l’annulation' : 'Annuler la collecte'}
+            </Button>
+          )}
+          <span className="hidden flex-1 sm:block" aria-hidden="true" />
           {lienAjouterCollecte && (
             <Button
               asChild
-              variant="secondary"
+              variant="sable"
+              size="pilule"
               data-testid="action-ajouter-collecte"
               // Libellé long : il passe à la ligne sur un téléphone au lieu
               // de déborder du pied de la fiche.
@@ -392,30 +430,16 @@ export function FicheCollecteClientPanel({
               </Link>
             </Button>
           )}
-          {actions.annuler !== 'absent' && (
-            <Button
-              variant="outline-destructive"
-              data-testid="action-annuler"
-              disabled={actions.annuler === 'grise'}
-              title={actions.annuler === 'grise' ? motifGrise : undefined}
-              onClick={() => {
-                setAnnulErreur(null);
-                setAnnulOpen(true);
-              }}
-            >
-              <XCircle className="h-4 w-4" aria-hidden="true" />
-              {demande ? 'Demander l’annulation' : 'Annuler la collecte'}
-            </Button>
-          )}
           {actions.modifier !== 'absent' && (
             <Button
+              size="pilule"
               data-testid="action-modifier"
               disabled={actions.modifier === 'grise'}
               title={actions.modifier === 'grise' ? motifGrise : undefined}
               onClick={() => setEditing(true)}
             >
-              <Pencil className="h-4 w-4" aria-hidden="true" />
               Modifier la collecte
+              <ArrowRight aria-hidden="true" />
             </Button>
           )}
         </FichePied>
@@ -503,6 +527,25 @@ export function FicheCollecteClientPanel({
           />
         </div>
       </Modal>
-    </div>
+    </Tabs>
+  );
+}
+
+// Onglets de la variante B : soulignés, plus espacés, texte 15 px.
+const ONGLET =
+  'px-0 text-[15px] data-[state=active]:border-savr-primary-900 data-[state=active]:text-savr-primary-900';
+
+function InfoEnTete({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Icon className="h-4 w-4 text-savr-neutral-400" aria-hidden="true" />
+      {children}
+    </span>
   );
 }

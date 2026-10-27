@@ -76,7 +76,7 @@ export { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList'
 export { ContactLigne, TelephoneLien } from '@/components/collecte/fiche-blocs';
 export { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 export { CollecteStatutFrise } from '@/components/admin/collecte-statut-frise';
-export { FriseStatutClient } from '@/components/collecte/frise-statut-client';
+export { StatutCollecteClient } from '@/components/collecte/statut-collecte-client';
 export { FriseEtapes } from '@/components/collecte/frise-etapes';
 export { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 export { AuthCard, AuthPage } from '@/components/auth/auth-card';

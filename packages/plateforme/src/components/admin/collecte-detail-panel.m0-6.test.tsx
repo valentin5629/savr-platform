@@ -304,7 +304,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M1.2/pax_par_collecte — fiche Admin : titre, en-tête, « Nombre de pax » et attribution intégrée lisent le pax de la collecte (650), pas celui de l’événement (1 200)',
+    'M1.2/pax_par_collecte — fiche Admin : titre, en-tête et « Nombre de pax » lisent le pax de la collecte (650), pas celui de l’événement (1 200) ; l’attribution intégrée n’affiche que les repas (Val 2026-10-27)',
     async () => {
       const onLoaded = vi.fn();
       mockFetch({
@@ -333,7 +333,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       await ouvrirOnglet('Logistique');
       await screen.findByRole('combobox', { name: 'Association' }, ATTENTE_UI);
       const volume = screen.getByLabelText('Volume estimé') as HTMLInputElement;
-      expect(volume.value).toBe('650\u00a0pax · ≈ 12 repas');
+      expect(volume.value).toBe('12 repas');
     },
     ATTENTE_CAS_MS,
   );

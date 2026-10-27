@@ -322,7 +322,6 @@ export function BilanCollecte({
   c,
   radar,
   barre,
-  presentation = 'standard',
   actionRadar,
 }: {
   c: BilanFiche;
@@ -332,12 +331,6 @@ export function BilanCollecte({
    * la comparaison au rapport à télécharger » de la fiche client.
    */
   actionRadar?: React.ReactNode;
-  /**
-   * `variante-b` : fiche collecte client (décision Val 2026-10-27) — chiffres
-   * en bandeau ouvert, répartition et radar compact sur une ligne, filtres en
-   * pastilles. `standard` (défaut) : fiche Admin, inchangée (C1).
-   */
-  presentation?: 'standard' | 'variante-b';
   // Réglages de la barre « Comparer avec » propres à l'espace.
   barre?: Pick<
     ComponentProps<typeof BenchmarkFilterBar>,
@@ -351,8 +344,9 @@ export function BilanCollecte({
   const bilanDispo = realisee || sansExcedent;
   const pax = c.pax ?? null;
   const bench = radar.bench;
-  const vb = presentation === 'variante-b';
-  const Chiffre = vb ? ChiffreCle : Kpi;
+  // Variante B (fiches collecte client et Admin, décisions Val 2026-10-27) :
+  // chiffres en bandeau ouvert, répartition et radar compact sur une ligne,
+  // filtres en pastilles.
 
   // ── Bilan ZD ────────────────────────────────────────────────────────────
   const flux = c.bilan_flux ?? {};
@@ -424,25 +418,21 @@ export function BilanCollecte({
           </dl>
         </Card>
       ) : isAg ? (
-        <Estompe actif={!realisee} large={vb}>
+        <Estompe actif={!realisee} large>
           <div
-            className={
-              vb
-                ? 'grid grid-cols-1 gap-y-4 border-b border-savr-sable-200 pb-4 sm:grid-cols-3'
-                : 'grid grid-cols-1 gap-3 sm:grid-cols-3'
-            }
+            className="grid grid-cols-1 gap-y-4 border-b border-savr-sable-200 pb-4 sm:grid-cols-3"
             data-testid="kpi-ag"
           >
-            <Chiffre
+            <ChiffreCle
               label="Repas donnés"
               nombre={repas != null ? fmtInt(repas) : '—'}
               unite="repas"
             />
-            <Chiffre
+            <ChiffreCle
               label="Repas par pax"
               nombre={repas != null && pax ? fmtDec(repas / pax, 2) : '—'}
             />
-            <Chiffre
+            <ChiffreCle
               ton="succes"
               label="CO₂ évité"
               nombre={
@@ -458,21 +448,14 @@ export function BilanCollecte({
           )}
         </Estompe>
       ) : (
-        <Estompe actif={!realisee} large={vb}>
-          <div
-            className={
-              vb
-                ? BANDE_CHIFFRES
-                : 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4'
-            }
-            data-testid="kpi-zd"
-          >
-            <Chiffre
+        <Estompe actif={!realisee} large>
+          <div className={BANDE_CHIFFRES} data-testid="kpi-zd">
+            <ChiffreCle
               label="Poids total collecté"
               nombre={masse ? masse.value : '—'}
               unite={masse ? masse.unit : 'kg'}
             />
-            <Chiffre
+            <ChiffreCle
               ton="succes"
               label="CO₂ évité"
               nombre={
@@ -482,7 +465,7 @@ export function BilanCollecte({
               }
               unite={UNITE_KG_CO2E}
             />
-            <Chiffre
+            <ChiffreCle
               label="Taux de recyclage"
               aide={TOOLTIP_TAUX_UE}
               nombre={
@@ -492,7 +475,7 @@ export function BilanCollecte({
               }
               unite="%"
             />
-            <Chiffre
+            <ChiffreCle
               label="Pesée par pax"
               nombre={
                 poidsTotal != null && pax
@@ -505,18 +488,16 @@ export function BilanCollecte({
           {/* Variante B : répartition et radar sur la même ligne. */}
           <div
             className={
-              vb && (radarAffiche || !realisee)
+              radarAffiche || !realisee
                 ? 'grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2'
-                : vb
-                  ? 'grid grid-cols-1 gap-5'
-                  : 'space-y-3'
+                : 'grid grid-cols-1 gap-5'
             }
           >
             {realisee ? (
               <TonnagesDonut
                 series={serieDonut}
                 disposition="ligne"
-                className={vb ? 'h-full p-5' : 'h-full'}
+                className="h-full p-5"
               />
             ) : (
               <GrapheEnAttente titre="Répartition des tonnages" />
@@ -532,18 +513,16 @@ export function BilanCollecte({
                 >
                   <BenchmarkRadar
                     title={TITRE_RADAR}
-                    subtitle={vb ? SOUS_TITRE_RADAR_COMPACT : SOUS_TITRE_RADAR}
+                    subtitle={SOUS_TITRE_RADAR_COMPACT}
                     items={gaugeItems}
-                    disposition={vb ? 'compacte' : 'standard'}
-                    referenceLabel={
-                      vb ? 'Moyenne des événements comparables' : undefined
-                    }
-                    className={vb ? 'h-full p-5' : undefined}
-                    actionSlot={vb ? actionRadar : undefined}
+                    disposition="compacte"
+                    referenceLabel="Moyenne des événements comparables"
+                    className="h-full p-5"
+                    actionSlot={actionRadar}
                     filtersSlot={
                       <BenchmarkFilterBar
                         masquerTraiteurs
-                        disposition={vb ? 'pastilles' : 'barre'}
+                        disposition="pastilles"
                         {...barre}
                         onChange={radar.setFiltres}
                         // Barre remontée (retour sur l'onglet Admin, dont l'état
@@ -724,7 +703,6 @@ export function OngletBilan({
         c={c}
         radar={radar}
         barre={{ perimetre: espace === 'gestionnaire' ? 'rattache' : 'parc' }}
-        presentation="variante-b"
         actionRadar={actionRadar}
       />
 

@@ -29,14 +29,12 @@ import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
-import { formatJour } from '@savr/shared/src/temps/index.js';
 import {
   envoiAutomatique,
-  libelleTypeTms,
   libelleValiderEtEnvoyer,
 } from '@/lib/type-tms-labels';
 import { Text } from '@/components/ui/text';
-import { fmtPax, fmtInt } from '@/lib/format';
+import { fmtInt } from '@/lib/format';
 import { messageObligatoire } from '@/lib/libelles/validation';
 import { ChoiceCard } from '@/components/ui/choice-card';
 import { IconButton } from '@/components/ui/icon-button';
@@ -78,6 +76,9 @@ interface AssoRef {
   // null = inconnu (option de secours construite depuis la suggestion de l'algo).
   habilitee_attestation_fiscale: boolean | null;
   distance_km: number | null;
+  // Repas que l'association recevrait avec cette collecte, collectes à ±12 h du
+  // créneau comprises (décision Val 2026-10-27). Absent = liste non chargée.
+  repas_cumules?: number;
 }
 
 interface TranspRef {
@@ -121,18 +122,6 @@ const MOTIFS_OVERRIDE: { code: string; libelle: string }[] = [
   { code: 'autre', libelle: 'Autre — préciser' },
 ];
 
-const BRANCHE_LABELS: Record<string, string> = {
-  ag_marathon_nuit: 'Marathon — Nuit',
-  ag_marathon_volume: 'Marathon — Grand volume',
-  ag_velo_programme: 'A Toutes! — Vélo programmé (svc 71)',
-  ag_velo_express: 'A Toutes! — Vélo express (svc 74)',
-  ag_velo_fallback_marathon: 'Marathon — Fallback vélo',
-  ag_marathon_volume_backup_camion: 'A Toutes! — Camion backup volume',
-  ag_everest_camion_express: 'A Toutes! — Camion express (svc 77)',
-  ag_province_proximite: 'Province — Proximité',
-  aucun_prestataire: 'Aucun prestataire disponible',
-};
-
 // Enum plateforme.type_vehicule (lieux.type_vehicule_max, tournees.type_vehicule,
 // collectes.type_vehicule_souhaite).
 const TYPES_VEHICULE: { value: string; label: string }[] = [
@@ -149,18 +138,13 @@ function formatDistance(km: number | null | undefined): string {
   return km != null ? `${km.toLocaleString('fr-FR')} km` : 'Distance inconnue';
 }
 
-function formatCreneau(
-  date: string | null | undefined,
-  heure: string | null | undefined,
-): string {
-  if (!date) return '—';
-  const jour = formatJour(date, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-  if (!jour) return '—';
-  return heure ? `${jour} · ${heure.slice(0, 5)}` : jour;
+// Compteur « repas cumulés / capacité bénéficiaire » (décision Val 2026-10-27).
+function ratioRepas(a: {
+  repas_cumules?: number;
+  capacite_max_beneficiaires: number | null;
+}): string | null {
+  if (a.repas_cumules == null) return null;
+  return `${fmtInt(a.repas_cumules)}/${a.capacite_max_beneficiaires != null ? fmtInt(a.capacite_max_beneficiaires) : '—'}`;
 }
 
 interface AttributionAgFormProps {
@@ -516,14 +500,17 @@ export function AttributionAgForm({
   const transpRecoSelectionne =
     !!transpReco && selectedTransp === transpReco.id;
 
-  const volumeLabel = (() => {
-    const pax = contexte?.pax ?? algo?.nb_pax ?? null;
-    const repas = contexte?.volume_estime_repas ?? null;
-    const parts: string[] = [];
-    if (pax != null) parts.push(fmtPax(pax));
-    if (repas != null) parts.push(`≈ ${fmtInt(repas)} repas`);
-    return parts.length > 0 ? parts.join(' · ') : '—';
-  })();
+  // Nombre de repas seul (décision Val 2026-10-27).
+  const repasEstimes = contexte?.volume_estime_repas ?? null;
+  const volumeLabel =
+    repasEstimes != null ? `${fmtInt(repasEstimes)} repas` : '—';
+  const assoTop1Ratio = assoTop1
+    ? ratioRepas({
+        ...assoTop1,
+        repas_cumules: associations.find((a) => a.id === assoTop1.id)
+          ?.repas_cumules,
+      })
+    : null;
 
   if (loading) {
     return (
@@ -550,9 +537,6 @@ export function AttributionAgForm({
               <Text tone="ink" className="font-bold">
                 Association bénéficiaire
               </Text>
-              <Text as="span" variant="hint">
-                · son adresse est le point de livraison
-              </Text>
             </div>
             <div className="flex h-7 items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-savr-full bg-savr-primary-700 text-xs font-extrabold text-savr-white">
@@ -561,9 +545,6 @@ export function AttributionAgForm({
               <Text tone="ink" className="font-bold">
                 Prestataire logistique
               </Text>
-              <Text as="span" variant="hint">
-                · reçoit l&apos;adresse de l&apos;association
-              </Text>
             </div>
 
             {/* Ligne 2 : champs — gauche = critères de l'algo (lecture seule),
@@ -571,19 +552,6 @@ export function AttributionAgForm({
             <FormGrid>
               <FormField label="Volume estimé" htmlFor="attribution-volume">
                 <Input id="attribution-volume" value={volumeLabel} readOnly />
-              </FormField>
-              <FormField
-                label="Créneau de livraison"
-                htmlFor="attribution-creneau"
-              >
-                <Input
-                  id="attribution-creneau"
-                  value={formatCreneau(
-                    contexte?.date_collecte,
-                    contexte?.heure_collecte,
-                  )}
-                  readOnly
-                />
               </FormField>
               {contexteEtat === 'erreur' && (
                 <ErrorState
@@ -637,7 +605,7 @@ export function AttributionAgForm({
                     }}
                     aria-invalid={!nbVehiculesOk}
                     aria-describedby="nb-vehicules-aide"
-                    className="h-full min-w-0 flex-1 border-0 bg-transparent text-center text-base font-bold text-savr-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-savr-primary-500"
+                    className="h-full min-w-0 flex-1 border-0 bg-transparent text-center text-sm font-bold text-savr-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-savr-primary-500"
                   />
                   <IconButton
                     aria-label="Ajouter un véhicule"
@@ -672,7 +640,7 @@ export function AttributionAgForm({
               {assoTop1 ? (
                 <ChoiceCard
                   selected={assoTop1Selectionnee}
-                  className="flex w-full items-start gap-3 border-2 p-4"
+                  className="flex w-full items-start gap-3 border-2 px-4 py-3"
                   onClick={() => {
                     setSelectedAsso(assoTop1.id);
                     setSelectedAssoNom(assoTop1.nom);
@@ -681,18 +649,26 @@ export function AttributionAgForm({
                 >
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-savr-neutral-900">
+                      <span className="text-sm font-semibold text-savr-neutral-900">
                         {assoTop1.nom}
                       </span>
-                      <Badge variant="success">Recommandée</Badge>
+                      <span className="flex shrink-0 items-center gap-2">
+                        {assoTop1Ratio && (
+                          <span
+                            data-testid="repas-cumules-reco"
+                            title="Repas cumulés à ±12 h du créneau, cette collecte comprise / capacité bénéficiaire"
+                            className="text-sm font-semibold tabular-nums text-savr-neutral-700"
+                          >
+                            {assoTop1Ratio}
+                          </span>
+                        )}
+                        <Badge variant="success">Recommandée</Badge>
+                      </span>
                     </span>
                     <Text as="span" variant="hint" tone="soft">
                       <span>{formatDistance(assoTop1.distance_km)}</span> ·
                       capacité {assoTop1.capacite_max_beneficiaires}{' '}
                       bénéficiaires
-                    </Text>
-                    <Text as="span" variant="hint" tone="soft">
-                      {assoTop1.contact_email}
                     </Text>
                   </span>
                 </ChoiceCard>
@@ -707,7 +683,7 @@ export function AttributionAgForm({
               {transpReco ? (
                 <ChoiceCard
                   selected={transpRecoSelectionne}
-                  className="flex w-full items-start gap-3 border-2 p-4"
+                  className="flex w-full items-start gap-3 border-2 px-4 py-3"
                   onClick={() => {
                     setSelectedTransp(transpReco.id);
                     setSelectedTranspNom(transpReco.nom);
@@ -716,22 +692,11 @@ export function AttributionAgForm({
                 >
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-savr-neutral-900">
+                      <span className="text-sm font-semibold text-savr-neutral-900">
                         {transpReco.nom}
                       </span>
                       <Badge variant="success">Recommandé</Badge>
                     </span>
-                    <Text as="span" variant="hint" tone="soft">
-                      Branche : {BRANCHE_LABELS[algo.branche] ?? algo.branche} ·
-                      Zone : {algo.is_idf ? 'IDF' : 'Province'} · {algo.nb_pax}{' '}
-                      PAX
-                      {transpReco.distance_km != null
-                        ? ` · ${transpReco.distance_km} km`
-                        : ''}
-                    </Text>
-                    <Text as="span" variant="hint" tone="soft">
-                      {libelleTypeTms(transpReco.type_tms)}
-                    </Text>
                   </span>
                 </ChoiceCard>
               ) : (
@@ -754,14 +719,12 @@ export function AttributionAgForm({
                   { value: '', label: 'Choisir une association…' },
                   ...optionsAsso.map((a) => ({
                     value: a.id,
-                    // Libellé = distance · capacité · nom (décision Val
-                    // 2026-09-29) : la distance est le critère de tri de la liste.
-                    label:
-                      formatDistance(a.distance_km) +
-                      (a.capacite_max_beneficiaires != null
-                        ? ` · cap. ${a.capacite_max_beneficiaires}`
-                        : '') +
-                      ` · ${a.nom}`,
+                    // Libellé = distance · repas cumulés / capacité · nom
+                    // (décision Val 2026-10-27, ex-« cap. N ») : la distance
+                    // est le critère de tri de la liste.
+                    label: [formatDistance(a.distance_km), ratioRepas(a), a.nom]
+                      .filter(Boolean)
+                      .join(' · '),
                   })),
                 ]}
                 value={selectedAsso ?? ''}

@@ -49,6 +49,8 @@ const ASSOCIATIONS = [
     capacite_max_beneficiaires: 300,
     habilitee_attestation_fiscale: true,
     distance_km: 1.2,
+    // Repas cumulés à ±12 h du créneau, cette collecte comprise (Val 2026-10-27).
+    repas_cumules: 40,
   },
   {
     id: 'asso-loin',
@@ -57,6 +59,7 @@ const ASSOCIATIONS = [
     capacite_max_beneficiaires: 80,
     habilitee_attestation_fiscale: false,
     distance_km: 111.5,
+    repas_cumules: 130,
   },
   {
     id: 'asso-sans',
@@ -65,6 +68,7 @@ const ASSOCIATIONS = [
     capacite_max_beneficiaires: null,
     habilitee_attestation_fiscale: false,
     distance_km: null,
+    repas_cumules: 40,
   },
 ];
 
@@ -154,12 +158,12 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       render(<AttributionDetailPage />);
       const select = await selectAssociation();
 
-      expect(select).toHaveTextContent('1,2 km · cap. 300 · Asso Top');
+      expect(select).toHaveTextContent('1,2 km · 40/300 · Asso Top');
       expect(libellesOptions()).toEqual([
         'Choisir une association…',
-        '1,2 km · cap. 300 · Asso Top',
-        '111,5 km · cap. 80 · Asso Loin',
-        'Distance inconnue · Asso Sans GPS',
+        '1,2 km · 40/300 · Asso Top',
+        '111,5 km · 130/80 · Asso Loin',
+        'Distance inconnue · 40/— · Asso Sans GPS',
       ]);
       expect(screen.queryByText(/motif obligatoire/)).toBeNull();
     },
@@ -174,7 +178,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
       await selectAssociation();
       fireEvent.click(
         screen.getByRole('option', {
-          name: '111,5 km · cap. 80 · Asso Loin',
+          name: '111,5 km · 130/80 · Asso Loin',
         }),
       );
       const valider = screen.getByRole('button', {
@@ -211,7 +215,7 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
 
       fireEvent.click(
         screen.getByRole('option', {
-          name: 'Distance inconnue · Asso Sans GPS',
+          name: 'Distance inconnue · 40/— · Asso Sans GPS',
         }),
       );
       fireEvent.click(screen.getByRole('button', { name: /^Valider/ }));
@@ -258,13 +262,14 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
         ),
       ).toBeTruthy();
       const select = screen.getByRole('combobox', { name: 'Association' });
-      // Option de secours = suggestion de l'algo ; 2041-GE inconnu → non affirmé.
+      // Option de secours = suggestion de l'algo ; 2041-GE inconnu → non affirmé,
+      // repas cumulés inconnus → segment omis.
       // La sélection reste affichée même sans la liste chargée.
-      expect(select).toHaveTextContent('1,2 km · cap. 300 · Asso Top');
+      expect(select).toHaveTextContent('1,2 km · Asso Top');
       fireEvent.click(select);
       expect(libellesOptions()).toEqual([
         'Choisir une association…',
-        '1,2 km · cap. 300 · Asso Top',
+        '1,2 km · Asso Top',
       ]);
 
       ko = false;

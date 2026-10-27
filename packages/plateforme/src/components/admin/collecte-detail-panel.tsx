@@ -2941,7 +2941,7 @@ export function CollecteDetailPanel({
           )}
         </TabsContent>
 
-        <TabsContent value="documents" className="space-y-3">
+        <TabsContent value="documents" className="mt-0 space-y-3">
           {/* Bilan vu par le client, radar et barre « Comparer avec » compris
                 (décision Val 2026-10-16). */}
           <BilanCollecte

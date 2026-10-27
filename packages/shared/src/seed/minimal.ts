@@ -1082,6 +1082,9 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         PS('marathon'),
         'MTS1-ORDER-MIN-02',
       ),
+      // 2e camion de col_zd_multi_tour : chez Strike comme la collecte (une
+      // tournée ne porte que des collectes que son prestataire prend).
+      tournee('tour_03', 'TOUR-MIN-03', -7, PS('strike'), 'MTS1-ORDER-MIN-03'),
     ],
     ['id'],
   );
@@ -1092,7 +1095,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       ct('col_zd_cloturee_01', 'tour_01'),
       ct('col_ag_nominal', 'tour_02'),
       ct('col_zd_multi_tour', 'tour_01'),
-      ct('col_zd_multi_tour', 'tour_02'),
+      ct('col_zd_multi_tour', 'tour_03'),
     ],
     ['id'],
   );

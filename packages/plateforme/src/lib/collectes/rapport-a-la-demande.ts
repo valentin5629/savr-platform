@@ -16,6 +16,7 @@ import {
   lireFiltresRadar,
   type FiltresRadar,
   type RadarRapport,
+  type RadarRapportResultat,
 } from '@/lib/pdf/rapport-radar.js';
 
 // Rapport de recyclage ZD fabriqué AU CLIC (décision Val 2026-10-16) : aucun
@@ -38,8 +39,8 @@ import {
 // ce PDF part chez le client. Les données mesurées sont lues en service-role
 // (construirePayloadRapport), une fois l'accès établi.
 
-const RADAR_INDISPONIBLE =
-  'La comparaison au parc n’est pas disponible pour cette collecte.';
+const radarIndisponible = (sujet: string) =>
+  `La comparaison au parc n’est pas disponible pour ${sujet}.`;
 const PAS_ENCORE_DISPONIBLE = 'Le rapport n’est pas encore disponible.';
 const FABRICATION_ECHEC =
   'La fabrication du rapport a échoué. Réessayez dans un instant.';
@@ -57,19 +58,20 @@ export type VersionDemandee =
 
 /**
  * Lit dans le corps la version demandée. Corps vide ou sans « options » = sans
- * radar. Le radar est calculé par `construireRadarRapport` avec le client et le
- * contexte de l'appelant : mêmes chiffres que l'écran, même k-anonymat.
+ * radar. Le radar est calculé par `construireRadar` avec le client et le
+ * contexte de l'appelant (`construireRadarRapport` pour une collecte) : mêmes
+ * chiffres que l'écran, même k-anonymat. `sujet` nomme ce qui est comparé dans
+ * le refus (« cette collecte », « cet événement »).
  *
  * `filtresParDefaut` sert l'Admin quand le corps ne porte pas de filtres (pas de
  * radar affiché dans l'onglet) : il les fournit.
  */
 export async function lireVersionDemandee(
   req: NextRequest,
-  rls: ReturnType<typeof createSupabaseServerClient>,
-  ctx: UserAuthContext,
-  id: string,
+  construireRadar: (filtres: FiltresRadar) => Promise<RadarRapportResultat>,
   evenementLog: string,
   filtresParDefaut?: () => Promise<FiltresRadar>,
+  sujet = 'cette collecte',
 ): Promise<VersionDemandee> {
   const texte = await req.text();
   let corps: unknown = null;
@@ -111,17 +113,17 @@ export async function lireVersionDemandee(
   if (!filtres) {
     return { refus: refus('Filtres de comparaison invalides', 422) };
   }
-  const r = await construireRadarRapport(rls, ctx, id, filtres);
+  const r = await construireRadar(filtres);
   switch (r.etat) {
     case 'ok':
       // Aucun flux rapporté au nombre de convives (pax absent ou nul) : rien à
       // comparer. On le dit, plutôt que de rendre un rapport sans le radar demandé.
       if (!r.radar.benchmark_flux.some((g) => g.collecte_kg_pax != null)) {
-        return { refus: refus(RADAR_INDISPONIBLE, 422) };
+        return { refus: refus(radarIndisponible(sujet), 422) };
       }
       return { version: { avecRadar: true, radar: r.radar } };
     case 'sans_radar':
-      return { refus: refus(RADAR_INDISPONIBLE, 422) };
+      return { refus: refus(radarIndisponible(sujet), 422) };
     case 'introuvable':
       return { refus: refus('Collecte introuvable', 404) };
     case 'filtre_interdit':
@@ -253,7 +255,11 @@ export async function repondreRapportClient(
   const bloque = controlerRapport(collecte as { type: string }, ligne);
   if (bloque) return bloque;
 
-  const lu = await lireVersionDemandee(req, rls, ctx, id, evenementLog);
+  const lu = await lireVersionDemandee(
+    req,
+    (f) => construireRadarRapport(rls, ctx, id, f),
+    evenementLog,
+  );
   if ('refus' in lu) return lu.refus;
 
   const reponse = await fabriquerRapport(id, lu.version, evenementLog);
@@ -317,11 +323,10 @@ export async function repondreRapportStaff(
   );
   if (bloque) return bloque;
 
+  const rls = createSupabaseServerClient();
   const lu = await lireVersionDemandee(
     req,
-    createSupabaseServerClient(),
-    ctx,
-    id,
+    (f) => construireRadarRapport(rls, ctx, id, f),
     evenementLog,
     filtresParDefaut,
   );

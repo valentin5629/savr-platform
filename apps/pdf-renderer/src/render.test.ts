@@ -28,7 +28,9 @@ const EXPECTED_TYPES = [
   'attestation-don',
   'bordereau-zd',
   'facture',
+  'rapport-don-evenement',
   'rapport-evenement-sans-excedent',
+  'rapport-recyclage-evenement',
   'rapport-recyclage-zd',
   'synthese-dashboard',
 ];
@@ -39,6 +41,8 @@ const EXPECTED_VERSIONS: Record<string, string> = {
   'synthese-dashboard': 'synthese-dashboard@1',
   'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@2',
   facture: 'facture@1',
+  'rapport-recyclage-evenement': 'rapport-recyclage-evenement@1',
+  'rapport-don-evenement': 'rapport-don-evenement@1',
 };
 import type { AttestationDonData } from './templates/attestation-don.js';
 import type { BordereauZdData } from './templates/bordereau-zd.js';
@@ -310,6 +314,22 @@ const DATA_BY_TYPE: Record<string, unknown> = {
   'synthese-dashboard': syntheseData(),
   'rapport-evenement-sans-excedent': sansExcedentData(),
   facture: factureData(),
+  'rapport-recyclage-evenement': {
+    ...rapportData(),
+    couverture: 'Cumul de 1 collecte réalisée, sur 1 collecte de l’événement.',
+    collectes: [],
+  },
+  'rapport-don-evenement': {
+    nom_evenement: 'Gala',
+    traiteur_nom: 'Traiteur',
+    date_evenement: '01/07/2026',
+    lieu_nom: 'Pavillon',
+    lieu_adresse: '1 rue',
+    couverture: 'Cumul de 1 collecte réalisée, sur 1 collecte de l’événement.',
+    repas_donnes: 0,
+    associations: [],
+    collectes: [],
+  },
 };
 
 /** Titre imprimé du document : le contenu de l'unique <h1>. */

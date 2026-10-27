@@ -17,6 +17,8 @@ import type {
 import {
   chargerBenchmarkFiche,
   type BenchmarkFiche,
+  type FiltresBenchmarkFiche,
+  type FluxBenchmarkFiche,
 } from '@/lib/collectes/benchmark-fiche.js';
 
 import { tailleBracket } from '../dashboard-kpi.js';
@@ -130,21 +132,47 @@ export async function filtresRadarParDefaut(
   };
 }
 
+/**
+ * Filtres du radar imprimé, au format du loader (tableau vide = « Tous »).
+ * Jamais de filtre « traiteurs » sur une fiche collecte ou événement (§06.04).
+ */
+export function filtresBenchmarkDuRadar(
+  filtres: FiltresRadar,
+): FiltresBenchmarkFiche {
+  return {
+    tailleCodes: ouNull(filtres.taille_evenement_codes),
+    typeIds: ouNull(filtres.type_evenement_ids),
+    lieuIds: ouNull(filtres.lieu_ids),
+    traiteurIds: null,
+  };
+}
+
 export async function construireRadarRapport(
   supabase: ClientSousRls,
   ctx: UserAuthContext,
   collecteId: string,
   filtres: FiltresRadar,
 ): Promise<RadarRapportResultat> {
-  const fiche = await chargerBenchmarkFiche(supabase, ctx, collecteId, {
-    tailleCodes: ouNull(filtres.taille_evenement_codes),
-    typeIds: ouNull(filtres.type_evenement_ids),
-    lieuIds: ouNull(filtres.lieu_ids),
-    // Jamais de filtre « traiteurs » sur une fiche collecte (§06.04).
-    traiteurIds: null,
-  });
+  const fiche = await chargerBenchmarkFiche(
+    supabase,
+    ctx,
+    collecteId,
+    filtresBenchmarkDuRadar(filtres),
+  );
   if (fiche.etat !== 'ok') return fiche;
+  return habillerRadar(supabase, filtres, fiche.flux);
+}
 
+/**
+ * Radar imprimé à partir des chiffres de l'écran (kg/convive et repère parc par
+ * flux) : noms et ordre des flux, légende des filtres appliqués. Commun aux
+ * rapports d'une collecte et d'un événement.
+ */
+export async function habillerRadar(
+  supabase: ClientSousRls,
+  filtres: FiltresRadar,
+  fluxEcran: FluxBenchmarkFiche,
+): Promise<RadarRapportResultat> {
   // Noms et ordre d'affichage des flux ; libellés des types d'événement filtrés.
   const [fluxRes, typesRes] = await Promise.all([
     supabase
@@ -166,7 +194,7 @@ export async function construireRadarRapport(
   const benchmark_flux = (
     (fluxRes.data ?? []) as { code: string; nom: string }[]
   ).flatMap((f) => {
-    const ligne = fiche.flux[f.code];
+    const ligne = fluxEcran[f.code];
     return ligne
       ? [
           {

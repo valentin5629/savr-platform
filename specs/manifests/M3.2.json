@@ -104,7 +104,18 @@
     "packages/plateforme/tests/ui/evenements-gestionnaire.m3-2.test.tsx",
     "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/fiche-redirect.m3-2.test.tsx",
-    "packages/plateforme/src/components/ui/modal-verrou-defilement.test.tsx"
+    "packages/plateforme/src/components/ui/modal-verrou-defilement.test.tsx",
+    "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/benchmark/route.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-rse/route.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-de-don/route.ts",
+    "packages/plateforme/src/lib/evenements/cumul-evenement.ts",
+    "packages/plateforme/src/lib/evenements/reponses-cumul.ts",
+    "packages/plateforme/src/lib/pdf/rapports-evenement.ts",
+    "apps/pdf-renderer/src/templates/rapport-recyclage-evenement.ts",
+    "apps/pdf-renderer/src/templates/rapport-don-evenement.ts",
+    "packages/plateforme/tests/api/gestionnaire/rapports-evenement.m3-2.test.ts",
+    "packages/plateforme/tests/ui/rapports-evenement-gestionnaire.m3-2.test.tsx",
+    "apps/pdf-renderer/src/rapports-evenement.test.ts"
   ],
   "scenarios": [
     "M3.2/collectes_vues_a_venir_passees_par_date",
@@ -1432,6 +1443,42 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
       "libelle": "Liste et fiche Événements du gestionnaire : pax et taille de l'ÉVÉNEMENT, c'est-à-dire son pax calculé (par jour le plus grand des totaux ZD et AG, puis somme des jours), et non la somme des pax de ses collectes (lot 3, décision Val Q4 du 2026-10-25, confirmant C4 du 2026-10-20). Rien à coder ; le test fige la décision."
+    },
+    {
+      "id": "M3.2-evenement-rapport-recyclage-cumule",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:350",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-rse/route.ts + packages/plateforme/src/lib/evenements/reponses-cumul.ts + packages/plateforme/src/lib/pdf/rapports-evenement.ts + apps/pdf-renderer/src/templates/rapport-recyclage-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (DocumentsEvenement)",
+      "test": "EVT/api_zd_cumul_collectes_visibles + EVT/api_zd_sans_resultat_409 + EVT/api_zd_relecture_sans_resultat + EVT/api_zd_refiltre_type + EVT/api_filtres_anti_brouillon + EVT/api_hors_perimetre_404 + EVT/api_rendu_echec_502 + EVT/rapport_cumule_zd + EVT/rapport_cumule_attente + page de synthèse du rapport @3, sous-titre « Bilan cumulé »",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
+      "libelle": "Rapport RSE de l'événement (Zéro Déchet), en tête des documents de l'onglet « Bilan & documents » de la fiche événement du gestionnaire (décision Val 2026-10-26) : page de synthèse du rapport de recyclage d'une collecte (@3) sur les chiffres cumulés des collectes ZD réalisées (mêmes règles que le bilan consolidé), puis le détail des collectes ; les bordereaux restent dans le rapport de chaque collecte. Cumul partiel dès la première collecte réalisée, couverture imprimée ; fabriqué au clic, jamais stocké. Accès = l'événement lu sous l'identité du demandeur, seules ses collectes visibles relues."
+    },
+    {
+      "id": "M3.2-evenement-rapport-de-don-cumule",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:351",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-de-don/route.ts + packages/plateforme/src/lib/pdf/rapports-evenement.ts + apps/pdf-renderer/src/templates/rapport-don-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (DocumentsEvenement)",
+      "test": "EVT/api_ag_recapitulatif + EVT/api_ag_fiche_association + EVT/api_ag_attestation_embargo + EVT/api_ag_jamais_de_radar + EVT/api_ag_select_par_role + EVT/rapport_cumule_ag + titre « Rapport de don », sous-titre « Récapitulatif », mention sans valeur fiscale + renvoie aux attestations : numéro émis + chaque association : logo et description du rapport d’impact",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
+      "libelle": "Rapport de don de l'événement (Anti-Gaspi), décision Val 2026-10-26 : récapitulatif SANS valeur fiscale des collectes AG réalisées (repas, CO₂ évité, repas par association), qui renvoie aux attestations de don numérotées de chaque collecte, seules pièces fiscales (numéro imprimé une fois l'attestation téléchargeable) ; une collecte sans excédent y figure à 0 repas. Fabriqué au clic, jamais stocké. Repas, associations et attestations relus sous l'identité du demandeur, par le chemin de la fiche collecte (vue v_attributions_gestionnaire pour le gestionnaire). Chaque association avec son logo et sa « Description pour le rapport d'impact » (demande Val 2026-10-27), relus en service-role pour les seules associations ainsi lues ; sans logo, son initiale ; un logo qui dépasserait le corps accepté par le renderer est omis."
+    },
+    {
+      "id": "M3.2-evenement-radar-bilan-consolide",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:335",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/benchmark/route.ts + packages/plateforme/src/lib/evenements/cumul-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (BilanConsolide) + packages/plateforme/src/lib/collectes/benchmark-fiche.ts (chargerParcBenchmark)",
+      "test": "EVT/api_benchmark_ecran + EVT/api_benchmark_sans_radar + EVT/api_benchmark_filtre_hors_perimetre + EVT/api_zd_radar_filtres + EVT/api_zd_radar_sans_convives_422 + EVT/api_zd_radar_filtre_hors_perimetre + EVT/radar_evenement",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
+      "libelle": "Radar de comparaison du bilan consolidé ZD de la fiche événement, à l'écran et dans le Rapport RSE de l'événement au choix (case « Inclure le radar »), décision Val 2026-10-26 : kg par convive de l'événement (pesées cumulées des collectes ZD réalisées / somme de leurs convives, au grain du repère parc ; collecte à 0 convive écartée) face au repère parc, avec la barre « Comparer avec » (lieux rattachés, types, tailles) ouverte sur les types des collectes ZD et la taille de l'événement. Même loader, même k-anonymat et même garde de périmètre que la fiche collecte."
+    },
+    {
+      "id": "M3.2-evenement-rapports-cumules-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:350",
+      "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-evenement.ts + apps/pdf-renderer/src/templates/rapport-don-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
+      "libelle": "Rendu des deux PDF cumulés (avec et sans radar) et de l'onglet « Bilan & documents » (radar, ligne du rapport de l'événement), desktop ET mobile < 640 px. GO visuel de Val à donner sur les aperçus."
     }
   ],
   "cdc_source_hash": {

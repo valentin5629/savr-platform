@@ -29,6 +29,12 @@ export const PDF_DOCUMENT_TYPES = [
   // légale (celle-ci = Factur-X Pennylane, pdf_url_pennylane). Enfilée à l'émission
   // (validerFacture succès), écrite dans factures.pdf_url_savr par le worker. R22b BL-P2-01.
   'facture',
+  // Rapports CUMULÉS sur un événement (décision Val 2026-10-26) : recyclage ZD
+  // (page de synthèse @3 + détail des collectes) et récapitulatif de don AG,
+  // sans valeur fiscale. Fabriqués au clic depuis la fiche événement, comme le
+  // rapport de recyclage d'une collecte : jamais enfilés, jamais stockés.
+  'rapport-recyclage-evenement',
+  'rapport-don-evenement',
 ] as const;
 
 export type PdfDocumentType = (typeof PDF_DOCUMENT_TYPES)[number];
@@ -46,6 +52,8 @@ export const TEMPLATE_VERSIONS: Record<PdfDocumentType, string> = {
   'synthese-dashboard': 'synthese-dashboard@1',
   'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@2',
   facture: 'facture@1',
+  'rapport-recyclage-evenement': 'rapport-recyclage-evenement@1',
+  'rapport-don-evenement': 'rapport-don-evenement@1',
 };
 
 /**
@@ -66,6 +74,9 @@ export const DOSSIER_STOCKAGE: Record<PdfDocumentType, string> = {
   'synthese-dashboard': 'syntheses',
   'rapport-evenement-sans-excedent': 'rapports',
   facture: 'factures',
+  // Jamais stockés (fabriqués au clic) : dossier exigé par le type seulement.
+  'rapport-recyclage-evenement': 'rapports',
+  'rapport-don-evenement': 'rapports',
 };
 
 /** Garde de type : `x` est-il un type de document PDF connu ? */

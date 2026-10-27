@@ -56,7 +56,7 @@ const TOOLTIP_TAUX_UE =
   'résiduel) entre uniquement au dénominateur. Voir Méthodologie.';
 
 const TITRE_RADAR = 'Votre collecte face aux événements comparables';
-const SOUS_TITRE_RADAR =
+export const SOUS_TITRE_RADAR =
   'Déchets par convive (kg/pax), flux par flux, comparés à la moyenne anonymisée ' +
   'des événements Savr des 24 derniers mois. À l’intérieur du repère, vous ' +
   'produisez moins que la moyenne.';

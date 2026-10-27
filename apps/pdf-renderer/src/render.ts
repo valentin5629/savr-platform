@@ -35,6 +35,16 @@ import {
   type RapportEvenementSansExcedentData,
 } from './templates/rapport-evenement-sans-excedent.js';
 import {
+  renderRapportRecyclageEvenement,
+  TEMPLATE_VERSION as V_RECYCLAGE_EVENEMENT,
+  type RapportRecyclageEvenementData,
+} from './templates/rapport-recyclage-evenement.js';
+import {
+  renderRapportDonEvenement,
+  TEMPLATE_VERSION as V_DON_EVENEMENT,
+  type RapportDonEvenementData,
+} from './templates/rapport-don-evenement.js';
+import {
   renderFacture,
   TEMPLATE_VERSION as V_FACTURE,
   type FactureData,
@@ -48,6 +58,8 @@ export const RENDERER_DOCUMENT_TYPES = [
   'synthese-dashboard',
   'rapport-evenement-sans-excedent',
   'facture',
+  'rapport-recyclage-evenement',
+  'rapport-don-evenement',
 ] as const;
 
 export type RendererDocumentType = (typeof RENDERER_DOCUMENT_TYPES)[number];
@@ -61,6 +73,8 @@ export const RENDERER_TEMPLATE_VERSIONS: Record<RendererDocumentType, string> =
     'synthese-dashboard': V_SYNTHESE,
     'rapport-evenement-sans-excedent': V_SANS_EXCEDENT,
     facture: V_FACTURE,
+    'rapport-recyclage-evenement': V_RECYCLAGE_EVENEMENT,
+    'rapport-don-evenement': V_DON_EVENEMENT,
   };
 
 /** Levée quand `type` n'est pas un document connu → mappé en HTTP 400 par server.ts. */
@@ -93,6 +107,12 @@ export function renderByType(type: string, data: unknown): string {
       );
     case 'facture':
       return renderFacture(data as FactureData);
+    case 'rapport-recyclage-evenement':
+      return renderRapportRecyclageEvenement(
+        data as RapportRecyclageEvenementData,
+      );
+    case 'rapport-don-evenement':
+      return renderRapportDonEvenement(data as RapportDonEvenementData);
     default:
       throw new UnknownDocumentTypeError(type);
   }

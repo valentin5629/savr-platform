@@ -62,24 +62,27 @@ interface CollecteRapportRow {
   energie_primaire_evitee_kwh: number | null;
   co2_facteurs_snapshot: Record<string, unknown> | null;
   caps_appliques: Record<string, unknown> | null;
-  evenements: {
-    nom_evenement: string;
-    date_evenement: string;
-    logo_client_organisateur_url: string | null;
-    nom_client_organisateur: string | null;
-    organisations: {
-      nom: string;
-      type: string | null;
-      logo_url: string | null;
-    } | null;
-    traiteur_operationnel: { nom: string; logo_url: string | null } | null;
-    client_organisateur: { nom: string; logo_url: string | null } | null;
-    lieux: {
-      nom: string;
-      adresse_acces: string | null;
-      code_postal: string | null;
-      ville: string | null;
-    } | null;
+  evenements: EvenementRapportRow | null;
+}
+
+/** Événement tel que l'en-tête des rapports le lit (cf. SELECT_EVENEMENT_RAPPORT). */
+export interface EvenementRapportRow {
+  nom_evenement: string;
+  date_evenement: string;
+  logo_client_organisateur_url: string | null;
+  nom_client_organisateur: string | null;
+  organisations: {
+    nom: string;
+    type: string | null;
+    logo_url: string | null;
+  } | null;
+  traiteur_operationnel: { nom: string; logo_url: string | null } | null;
+  client_organisateur: { nom: string; logo_url: string | null } | null;
+  lieux: {
+    nom: string;
+    adresse_acces: string | null;
+    code_postal: string | null;
+    ville: string | null;
   } | null;
 }
 
@@ -110,6 +113,64 @@ export type PayloadRapport =
 /** Date « JJ/MM/AAAA » d'une valeur DATE ou d'un instant, à l'heure de Paris. */
 const dateFr = (v: string | null | undefined) => (v ? formatDateParis(v) : '');
 
+/** Embed PostgREST de l'événement lu par l'en-tête des rapports. */
+export const SELECT_EVENEMENT_RAPPORT = `
+        nom_evenement, date_evenement,
+        logo_client_organisateur_url, nom_client_organisateur,
+        organisations!organisation_id ( nom, type, logo_url ),
+        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( nom, logo_url ),
+        client_organisateur:organisations!client_organisateur_organisation_id ( nom, logo_url ),
+        lieux ( nom, adresse_acces, code_postal, ville )
+      `;
+
+/**
+ * En-tête commun aux rapports d'une collecte et d'un événement : client,
+ * traiteur, date, lieu et logos (lus au moment du clic).
+ */
+export async function enTeteRapport(ev: EvenementRapportRow) {
+  const lieu = ev.lieux;
+  const adresseLieu = lieu
+    ? [lieu.adresse_acces, lieu.code_postal, lieu.ville]
+        .filter(Boolean)
+        .join(' ')
+    : '';
+  // Producteur = traiteur opérationnel si désigné, sinon le programmateur.
+  const traiteur = ev.traiteur_operationnel ?? ev.organisations;
+
+  const logos = resolveRapportLogos({
+    programmateur: ev.organisations,
+    client_organisateur: ev.client_organisateur,
+    evenement_logo_client_url: ev.logo_client_organisateur_url,
+    traiteur_operationnel: traiteur,
+  });
+  const resoudre = makeLogoResolver();
+  // Deux logos lourds dépasseraient le corps accepté par le renderer.
+  const logosInline = bornerLogosRapport({
+    client: await resoudre(logos.client),
+    traiteur: await resoudre(logos.traiteur),
+  });
+
+  const dateEvenement = dateFr(ev.date_evenement);
+
+  return {
+    dateEvenement,
+    adresseLieu,
+    champs: {
+      client_nom:
+        ev.nom_client_organisateur?.trim() ||
+        ev.client_organisateur?.nom ||
+        undefined,
+      nom_evenement: ev.nom_evenement,
+      traiteur_nom: traiteur?.nom ?? '',
+      date_evenement: dateEvenement,
+      lieu_nom: lieu?.nom ?? '',
+      lieu_adresse: adresseLieu,
+      logo_client_url: logosInline.client ?? undefined,
+      logo_traiteur_url: logosInline.traiteur ?? undefined,
+    },
+  };
+}
+
 /**
  * Rapport de recyclage d'une collecte ZD, version SANS radar. L'appelant ajoute
  * le radar quand le demandeur l'a coché (cf. rapport-a-la-demande).
@@ -125,14 +186,7 @@ export async function construirePayloadRapport(
         `
       date_collecte, pax, taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg,
       energie_primaire_evitee_kwh, co2_facteurs_snapshot, caps_appliques,
-      evenements (
-        nom_evenement, date_evenement,
-        logo_client_organisateur_url, nom_client_organisateur,
-        organisations!organisation_id ( nom, type, logo_url ),
-        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( nom, logo_url ),
-        client_organisateur:organisations!client_organisateur_organisation_id ( nom, logo_url ),
-        lieux ( nom, adresse_acces, code_postal, ville )
-      )`,
+      evenements ( ${SELECT_EVENEMENT_RAPPORT} )`,
       )
       .eq('id', collecteId)
       .maybeSingle(),
@@ -168,45 +222,15 @@ export async function construirePayloadRapport(
     }));
   const poidsTotalKg = flux.reduce((s, f) => s + f.poids_kg, 0);
 
+  const enTete = await enTeteRapport(ev);
+  const { dateEvenement, adresseLieu } = enTete;
   const lieu = ev.lieux;
-  const adresseLieu = lieu
-    ? [lieu.adresse_acces, lieu.code_postal, lieu.ville]
-        .filter(Boolean)
-        .join(' ')
-    : '';
-  // Producteur = traiteur opérationnel si désigné, sinon le programmateur.
-  const traiteur = ev.traiteur_operationnel ?? ev.organisations;
-
-  const logos = resolveRapportLogos({
-    programmateur: ev.organisations,
-    client_organisateur: ev.client_organisateur,
-    evenement_logo_client_url: ev.logo_client_organisateur_url,
-    traiteur_operationnel: traiteur,
-  });
-  const resoudre = makeLogoResolver();
-  // Deux logos lourds dépasseraient le corps accepté par le renderer.
-  const logosInline = bornerLogosRapport({
-    client: await resoudre(logos.client),
-    traiteur: await resoudre(logos.traiteur),
-  });
-
-  const dateEvenement = dateFr(ev.date_evenement);
 
   return {
     ok: true,
     payload: {
-      client_nom:
-        ev.nom_client_organisateur?.trim() ||
-        ev.client_organisateur?.nom ||
-        undefined,
-      nom_evenement: ev.nom_evenement,
-      traiteur_nom: traiteur?.nom ?? '',
-      date_evenement: dateEvenement,
-      lieu_nom: lieu?.nom ?? '',
-      lieu_adresse: adresseLieu,
+      ...enTete.champs,
       nb_pax: convivesImprimes(collecte.pax),
-      logo_client_url: logosInline.client ?? undefined,
-      logo_traiteur_url: logosInline.traiteur ?? undefined,
       taux_recyclage: collecte.taux_recyclage,
       flux,
       poids_total_kg: poidsTotalKg,

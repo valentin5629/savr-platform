@@ -1,7 +1,9 @@
 // Template PDF — Rapport de synthèse agrégé (§12 Reporting §1.6).
 //
-// SEUL document AGRÉGÉ multi-collectes de la V1 (les bordereaux/attestations/rapports
-// ZD sont au grain collecte). Généré À LA DEMANDE, en SYNCHRONE, par la route
+// Document AGRÉGÉ multi-collectes sur une période (les bordereaux/attestations/
+// rapports ZD sont au grain collecte ; les rapports cumulés d'UN événement ont
+// leurs propres gabarits, rapport-recyclage-evenement et rapport-don-evenement).
+// Généré À LA DEMANDE, en SYNCHRONE, par la route
 // packages/plateforme/.../api/v1/dashboards/synthese-pdf (R20b-2, décision Val
 // 2026-07-07) — jamais archivé (pas de jobs_pdf, pas de shared.fichiers, table
 // rapports_synthese supprimée).

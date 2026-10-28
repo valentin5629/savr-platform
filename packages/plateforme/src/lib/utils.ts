@@ -21,6 +21,10 @@ const SAVR_RADIUS = [
 const SAVR_SHADOW = ['savr-none', 'savr-sm', 'savr-md', 'savr-lg', 'savr-xl'];
 const SAVR_DURATION = ['savr-fast', 'savr-base', 'savr-slow'];
 const SAVR_CONTAINER = ['savr-content', 'savr-wide', 'savr-prose'];
+// Tailles de texte ajoutées à l'échelle (§3.2, Val 2026-10-28). `3xs` et `md`
+// sont déjà reconnues comme tailles par twMerge ; `kpi` serait prise pour une
+// couleur et écraserait (ou serait écrasée par) un `text-savr-*`.
+const SAVR_TEXT = ['3xs', 'md', 'kpi'];
 
 const twMerge = extendTailwindMerge({
   extend: {
@@ -28,6 +32,7 @@ const twMerge = extendTailwindMerge({
       borderRadius: SAVR_RADIUS,
     },
     classGroups: {
+      'font-size': [{ text: SAVR_TEXT }],
       shadow: [{ shadow: SAVR_SHADOW }],
       // Tailwind 4 : --transition-duration-savr-* → duration-savr-* (R-UI-6a).
       duration: [{ duration: SAVR_DURATION }],

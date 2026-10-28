@@ -94,6 +94,15 @@
      (38px vs 36px) → override explicite ; xs→3xl coïncident avec le défaut. */
   --text-4xl: 38px;
   --text-4xl--line-height: 1.15;
+  /* Trois tailles ajoutées (décision Val 2026-10-28) : étiquettes en
+     majuscules et compteurs (3xs), texte d'en-tête des grandes fiches (md),
+     chiffre des cartes KPI (kpi). */
+  --text-3xs: 10px;
+  --text-3xs--line-height: 1.5;
+  --text-md: 15px;
+  --text-md--line-height: 1.5;
+  --text-kpi: 34px;
+  --text-kpi--line-height: 1;
 
   /* Spacing : grille 4px = échelle Tailwind par défaut (p-1 = 4px, p-4 = 16px…).
      Les ex-tokens `--spacing-savr-*` (0 usage) ont été retirés en R-UI-6a. */

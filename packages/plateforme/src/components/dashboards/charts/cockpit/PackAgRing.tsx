@@ -34,7 +34,7 @@ export function PackAgRing({
   if (creditsRestants === 0) {
     badge = (
       <span
-        className="inline-block rounded-savr-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] tabular-nums"
+        className="inline-block rounded-savr-full px-2.5 py-1 text-3xs font-bold uppercase tracking-[0.08em] tabular-nums"
         style={PACK_BADGE.epuise}
       >
         Pack épuisé
@@ -43,7 +43,7 @@ export function PackAgRing({
   } else if (low) {
     badge = (
       <span
-        className="inline-block rounded-savr-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] tabular-nums"
+        className="inline-block rounded-savr-full px-2.5 py-1 text-3xs font-bold uppercase tracking-[0.08em] tabular-nums"
         style={PACK_BADGE.faible}
       >
         {`Solde faible · ${fmtPct(pctRestant * 100, 1)}`}
@@ -55,7 +55,7 @@ export function PackAgRing({
     <Card variant="elevated" padding="lg">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-[15px] font-extrabold text-savr-neutral-900">
+          <div className="text-md font-extrabold text-savr-neutral-900">
             Mon pack Anti-Gaspi
           </div>
           <Text as="div" className="mt-0.5">
@@ -67,10 +67,10 @@ export function PackAgRing({
           </Text>
         </div>
         <div className="shrink-0 text-right">
-          <span className="text-[34px] font-black leading-none tabular-nums text-savr-neutral-900">
+          <span className="text-kpi font-black leading-none tabular-nums text-savr-neutral-900">
             {fmtInt(creditsRestants)}
           </span>
-          <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-savr-neutral-400">
+          <div className="mt-0.5 text-3xs font-bold uppercase tracking-[0.08em] text-savr-neutral-400">
             crédits restants
           </div>
         </div>

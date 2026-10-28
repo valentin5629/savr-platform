@@ -218,14 +218,14 @@ function ChiffreCle({
         <span
           className={
             ton === 'succes'
-              ? 'font-display text-[30px] font-semibold leading-none tracking-[-0.045em] text-savr-success-strong tabular-nums'
-              : 'font-display text-[30px] font-semibold leading-none tracking-[-0.045em] text-savr-primary-900 tabular-nums'
+              ? 'font-display text-3xl font-semibold leading-none tracking-[-0.045em] text-savr-success-strong tabular-nums'
+              : 'font-display text-3xl font-semibold leading-none tracking-[-0.045em] text-savr-primary-900 tabular-nums'
           }
         >
           {nombre}
         </span>
         {unite && (
-          <span className="text-[15px] font-medium text-savr-neutral-600">
+          <span className="text-md font-medium text-savr-neutral-600">
             {unite}
           </span>
         )}
@@ -738,7 +738,7 @@ export function OngletBilan({
                 aria-hidden="true"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-semibold text-savr-neutral-900">
+                <p className="text-md font-semibold text-savr-neutral-900">
                   Facture {f.numero_facture}
                 </p>
                 <Text>PDF</Text>

@@ -763,7 +763,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
         /^1 250 ?kg CO₂e$/,
       );
       // L'unité est plus petite que le chiffre (span dédié).
-      expect(unite.className).toMatch(/text-(base|\[15px\])/); // unité plus petite que la valeur (30 px)
+      expect(unite.className).toMatch(/text-(base|md)\b/); // unité plus petite que la valeur (30 px)
 
       // Donut à gauche, légende à droite : conteneur en ligne dès 640px.
       const titre = screen.getByText('Répartition des tonnages');

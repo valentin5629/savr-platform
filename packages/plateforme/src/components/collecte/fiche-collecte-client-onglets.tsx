@@ -431,7 +431,7 @@ export function Chauffeurs({
                 <p
                   className={
                     vb
-                      ? 'font-display text-[15px] font-semibold text-savr-neutral-900'
+                      ? 'font-display text-md font-semibold text-savr-neutral-900'
                       : 'mb-1.5 font-medium'
                   }
                 >

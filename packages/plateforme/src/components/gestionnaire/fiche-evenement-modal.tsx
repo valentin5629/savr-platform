@@ -536,7 +536,7 @@ function DocumentsEvenement({
             aria-hidden="true"
           />
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-savr-neutral-900">
+            <p className="text-md font-semibold text-savr-neutral-900">
               {zd
                 ? 'Rapport RSE de l’événement'
                 : 'Rapport de don de l’événement'}
@@ -599,7 +599,7 @@ function DocumentsEvenement({
               aria-hidden="true"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold text-savr-neutral-900">
+              <p className="text-md font-semibold text-savr-neutral-900">
                 {f.type === 'anti_gaspi' ? 'Rapport de don' : 'Rapport RSE'}
               </p>
               <Text>

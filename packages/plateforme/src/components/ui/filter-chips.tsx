@@ -51,7 +51,7 @@ const FilterChips = React.forwardRef<HTMLDivElement, FilterChipsProps>(
             {chip.count != null && (
               <span
                 className={cn(
-                  'inline-flex min-w-[1.1rem] justify-center rounded-savr-full px-1.5 text-[10px] leading-4',
+                  'inline-flex min-w-[1.1rem] justify-center rounded-savr-full px-1.5 text-3xs leading-4',
                   active
                     ? 'bg-savr-white/20 text-savr-white'
                     : 'bg-savr-accent-500 text-savr-primary-950',

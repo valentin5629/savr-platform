@@ -231,7 +231,7 @@ function Tooltip({
       className="min-w-[170px] whitespace-nowrap"
       data-testid="benchmark-radar-tooltip"
     >
-      <div className="mb-1.5 text-[12px] font-bold text-savr-neutral-900">
+      <div className="mb-1.5 text-xs font-bold text-savr-neutral-900">
         {item.label}
       </div>
       <div className="flex flex-col gap-1 text-xs tabular-nums">

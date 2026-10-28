@@ -57,10 +57,10 @@ export function FicheGrandEnTete({
             {titre}
           </h3>
           {sousTitre && (
-            <p className="text-[15px] text-savr-neutral-600">{sousTitre}</p>
+            <p className="text-md text-savr-neutral-600">{sousTitre}</p>
           )}
           {description && (
-            <p className="text-[15px] text-savr-neutral-700">{description}</p>
+            <p className="text-md text-savr-neutral-700">{description}</p>
           )}
         </div>
         {statut}

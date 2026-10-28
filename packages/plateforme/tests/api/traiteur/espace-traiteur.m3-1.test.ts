@@ -732,6 +732,35 @@ describe('M3.1 / annulation', () => {
 
 // ── Invitation collaborateur ────────────────────────────────────────────────
 describe('M3.1 / invitation collaborateur', () => {
+  it('M3.1/invitation_collaborateur_texte_echappe — prénom et organisation neutralisés dans l’email', async () => {
+    setupAuth('traiteur_manager', 'org-kaspia');
+    admin.push({ data: null, error: null }); // users lookup → pas de doublon
+    admin.push({ data: { nom: 'Kaspia & <b>Co</b>' }, error: null }); // org
+    admin.push({ data: null, error: null }); // insert profil users (await)
+    const { POST } =
+      await import('@/app/api/v1/traiteur/equipe/invitation/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/traiteur/equipe/invitation', {
+        email: 'jeanne@exemple-perso.fr',
+        prenom: '<a href="https://piege.example">Jeanne</a>',
+        nom: 'Martin',
+      }),
+    );
+    expect(res.status).toBe(201);
+    // Le corps de l'email est du HTML interpolé tel quel : sans échappement, le
+    // prénom saisi par l'invitant deviendrait un lien dans un email signé Savr.
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      'invitation_utilisateur',
+      'jeanne@exemple-perso.fr',
+      expect.objectContaining({
+        prenom:
+          '&lt;a href=&quot;https://piege.example&quot;&gt;Jeanne&lt;/a&gt;',
+        organisation_nom: 'Kaspia &amp; &lt;b&gt;Co&lt;/b&gt;',
+      }),
+      expect.any(Object),
+    );
+  });
+
   it('M3.1/invitation_collaborateur_flux_complet — 201 email envoyé', async () => {
     setupAuth('traiteur_manager', 'org-kaspia');
     admin.push({ data: null, error: null }); // users lookup → pas de doublon

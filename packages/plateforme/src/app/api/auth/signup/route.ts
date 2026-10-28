@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { isDisposableEmail } from '@savr/shared/src/email-denylist.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { verifySiret, isValidSiretFormat } from '@savr/shared/src/api/siret.js';
 import { enqueueSiretRevalidation } from '@savr/shared/src/siret/revalidation.js';
 import {
@@ -375,7 +376,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       `/api/auth/verify-email?token_hash=${hashedToken}&type=signup`,
     );
     void sendEmail('verification_email', email, {
-      prenom: prenom ?? '',
+      // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
+      prenom: escapeHtml(prenom ?? ''),
       lien_verification: verifyUrl,
     }).catch(() => null);
   }

@@ -28,7 +28,6 @@ interface KpiData {
   non_transmises_zd: number;
   non_transmises_ag: number;
   attente_prestataire: number;
-  dirty_tms: number;
   collectes_48h_non_validees: number;
 }
 
@@ -195,16 +194,18 @@ export default function DashboardAdminPage() {
           Suivi opérationnel
         </Heading>
         {loadingKpi ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-            {[...Array(5)].map((_, i) => (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
               <Skeleton key={i} className="h-36 w-full rounded-savr-lg" />
             ))}
           </div>
         ) : kpi ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {/* Chaque carte est un lien vers la liste Collectes filtrée sur le
                 MÊME prédicat que le compteur (miroir exact, §11 §1.1) — chip
-                partagé lib/collectes-chips. */}
+                partagé lib/collectes-chips. Carte « Dirty TMS » retirée
+                (décision Val 2026-10-28) : le filtre « Modifiées sans renvoi
+                TMS » reste dans la liste Collectes. */}
             <StatCard
               reserveTwoLineLabel
               label="Non transmises ZD"
@@ -242,14 +243,6 @@ export default function DashboardAdminPage() {
                 kpi.attente_prestataire > 0 ? OPS_DOT.info : OPS_DOT.neutral
               }
               footer={badgeVeille(kpi.attente_prestataire, 'En cours')}
-            />
-            <StatCard
-              reserveTwoLineLabel
-              label="Dirty TMS"
-              value={fmtInt(kpi.dirty_tms)}
-              href={`${ROUTES.admin.collectes}?chip=dirty_tms`}
-              dotColor={kpi.dirty_tms > 0 ? OPS_DOT.error : OPS_DOT.success}
-              footer={badgeAlerte(kpi.dirty_tms, 'error', 'À resynchroniser')}
             />
             {/* Fusion ZD 48h + AG 48h (revue E2E Val 2026-07-15) : collectes ZD/AG
                 dans 48 h non validées par le prestataire (inclut les non transmises). */}

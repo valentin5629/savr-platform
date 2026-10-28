@@ -78,7 +78,7 @@
     },
     {
       "id": "M1.5b-photo-entity-type",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:802",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:803",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule + collectes-documents-photos.m0-6.test.ts « photo remontée par le transporteur listée avec les imports manuels »",
       "statut": "implemented",
@@ -134,7 +134,7 @@
     },
     {
       "id": "M1.5b-photo-aucun-repas-lecture-equipe-savr",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:802",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:803",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -233,9 +233,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "29ee02a11140ae397ec9c636ac2892d3d6e0d5d4a9e51c20b4a12a29de8ffd07",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "022b35b161ee61596f286da2036b2e57b6d098aeb9a6ca1728c2dd0518ef3984",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "30a5755a4e0d6ef3e6fbce6d31255f606d704eb30978c51e8489f5b3b4f9ca55",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "6488b3cbfc9488a29f9ee4bcf690aea3965e92c1d6c142db99aa4c6637f27bb8",
     "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md": "760800aa1c0b318f4322548e88712312a10ea71a854be1c9363a43e657438e7d"
   }
 }

@@ -19,17 +19,24 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { EnTetePuce, FicheEnTete } from '@/components/ui/fiche/fiche-en-tete';
+import { EnTetePuce } from '@/components/ui/fiche/fiche-en-tete';
 import {
-  FicheCorps,
-  FicheModal,
-  FichePied,
-} from '@/components/ui/fiche/fiche-modal';
+  FicheGrandEnTete,
+  FicheOnglet,
+  FicheOnglets,
+  FicheRepere,
+} from '@/components/ui/fiche/fiche-grand-en-tete';
+import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
+import {
+  FichePastille,
+  type TonPastille,
+} from '@/components/ui/fiche/fiche-pastille';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { Heading } from '@/components/ui/heading';
 import { InfoItem } from '@/components/ui/info-item';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useToast } from '@/components/ui/toast';
@@ -48,7 +55,6 @@ import {
 import { Chauffeurs } from '@/components/collecte/fiche-collecte-client-onglets';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
-import { FriseEtapes } from '@/components/collecte/frise-etapes';
 import {
   ToggleTypeCollecte,
   type CollecteType,
@@ -87,12 +93,13 @@ import { ROUTES } from '@/lib/routes';
 import { friseStatutEvenement } from '@/lib/statut-collecte-labels';
 
 // Fiche événement du gestionnaire de lieux, en pop-up sur la liste Événements,
-// sur le cadre commun des fiches (FicheModal : grand en-tête, onglets, corps
-// défilant). Trois onglets (décision Val 2026-10-26), au format de la fiche
-// collecte : « Informations générales » (événement, lieu, une carte par
-// collecte), « Informations chauffeurs » (une carte par collecte, demande
-// urgente comprise) et « Bilan & documents » (bilan consolidé, rapports de
-// chaque collecte). En-tête : frise Créé → Réalisé, dérivée des collectes.
+// au grand format de la variante B (décision Val 2026-10-27 : grand en-tête,
+// onglets soulignés dans l'en-tête, seul le corps défile, sections en lignes).
+// Trois onglets (décision Val 2026-10-26), au format de la fiche collecte :
+// « Informations générales » (événement, lieu), « Informations collectes » (une
+// carte par collecte, demande urgente comprise) et « Bilan & documents » (bilan
+// consolidé, rapports de chaque collecte). En-tête : pastille d'avancement,
+// dérivée des collectes, à la place de la frise (décision Val 2026-10-27).
 //
 // Consultation (§06.05 §2), à deux gestes près : « Ajouter une collecte » sur
 // les événements que le gestionnaire a programmés lui-même (décision Val
@@ -140,6 +147,36 @@ const GRILLE =
 const VIDE = <span className="text-savr-neutral-400">—</span>;
 
 const annulee = (f: FicheCollecteClient) => STATUTS_ANNULES.includes(f.statut);
+
+// Avancement de l'événement en pastille, à droite du titre (décision Val
+// 2026-10-27, comme les fiches collecte) : l'étape courante de l'ancienne frise
+// (Créé · Validé · En cours · Réalisé, ou Annulé), mêmes tons que la pastille
+// de la fiche collecte client.
+const TONS_AVANCEMENT: readonly TonPastille[] = [
+  'sable',
+  'bleu',
+  'orange',
+  'vert',
+];
+
+function StatutEvenement({ statuts }: { statuts: readonly string[] }) {
+  const etapes = friseStatutEvenement(statuts);
+  const rang = Math.max(
+    0,
+    etapes.findIndex((e) => e.etat === 'courante'),
+  );
+  const libelle = etapes[rang]?.label ?? '';
+  const annule = etapes.length === 2;
+  return (
+    <FichePastille
+      ton={annule ? 'rouge' : (TONS_AVANCEMENT[rang] ?? 'sable')}
+      data-testid="statut-evenement"
+      aria-label={`Avancement de l’événement : ${libelle}`}
+    >
+      {libelle}
+    </FichePastille>
+  );
+}
 
 /** Adresse et instructions d'accès EFFECTIVES d'une collecte (lieu + surcharges
  * saisies à la programmation, telles que la fiche collecte les sert). */
@@ -890,10 +927,21 @@ export function FicheEvenementModal({
         open
         title={evt?.nom_evenement || 'Fiche événement'}
         onClose={fermer}
+        taille="grand"
+        footer={
+          etat === 'pret' && evt?.ajouter_collecte ? (
+            <Button asChild size="pilule" data-testid="action-ajouter-collecte">
+              <Link href={ROUTES.programmer.ajouterCollecte(evt.id)}>
+                <PlusCircleIcon />
+                Ajouter une collecte
+              </Link>
+            </Button>
+          ) : undefined
+        }
       >
         {etat === 'chargement' && (
           <>
-            <FicheEnTete titre="Fiche événement" />
+            <FicheGrandEnTete titre="Fiche événement" />
             {/* §10 §7 « Loading » : squelette à la forme du contenu. */}
             <FicheCorps className="space-y-4 py-6" aria-busy="true">
               <Skeleton className="h-10 w-full" />
@@ -905,7 +953,7 @@ export function FicheEvenementModal({
 
         {etat === 'erreur' && (
           <>
-            <FicheEnTete titre="Fiche événement" />
+            <FicheGrandEnTete titre="Fiche événement" />
             <FicheCorps className="py-6">
               <ErrorState
                 data-testid="evenement-erreur"
@@ -918,7 +966,7 @@ export function FicheEvenementModal({
 
         {etat === 'introuvable' && (
           <>
-            <FicheEnTete titre="Fiche événement" />
+            <FicheGrandEnTete titre="Fiche événement" />
             <FicheCorps className="py-6">
               <EmptyState
                 icon={<CalendarDotsIcon className="h-8 w-8" />}
@@ -930,8 +978,12 @@ export function FicheEvenementModal({
         )}
 
         {etat === 'pret' && evt && b && (
-          <>
-            <FicheEnTete
+          <Tabs
+            value={onglet}
+            onValueChange={(v) => setOnglet(v as Onglet)}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <FicheGrandEnTete
               surtitre={
                 <>
                   <EnTetePuce>Événement</EnTetePuce>
@@ -941,245 +993,210 @@ export function FicheEvenementModal({
                 </>
               }
               titre={evt.nom_evenement || 'Événement'}
-              infosTestId="fiche-evenement-infos"
-              infos={[
-                ...(evt.date_evenement
-                  ? [
-                      {
-                        icon: CalendarDotsIcon,
-                        texte: libelleDateHeure(evt.date_evenement, null),
-                      },
-                    ]
-                  : []),
-                ...(evt.lieu_nom
-                  ? [{ icon: MapPinIcon, texte: evt.lieu_nom }]
-                  : []),
-                ...(evt.traiteur?.nom
-                  ? [{ icon: ChefHatIcon, texte: evt.traiteur.nom }]
-                  : []),
-                ...(evt.pax != null
-                  ? [{ icon: UsersIcon, texte: fmtPax(evt.pax) }]
-                  : []),
-              ]}
               statut={
-                <FriseEtapes
-                  etapes={friseStatutEvenement(evt.fiches.map((f) => f.statut))}
-                  label="Avancement de l’événement"
-                  testId="frise-statut-evenement"
-                />
+                <StatutEvenement statuts={evt.fiches.map((f) => f.statut)} />
               }
-              statutLarge
+              reperesTestId="fiche-evenement-infos"
+              reperes={
+                <>
+                  {evt.date_evenement && (
+                    <FicheRepere icon={CalendarDotsIcon}>
+                      {libelleDateHeure(evt.date_evenement, null)}
+                    </FicheRepere>
+                  )}
+                  {evt.lieu_nom && (
+                    <FicheRepere icon={MapPinIcon}>{evt.lieu_nom}</FicheRepere>
+                  )}
+                  {evt.traiteur?.nom && (
+                    <FicheRepere icon={ChefHatIcon}>
+                      {evt.traiteur.nom}
+                    </FicheRepere>
+                  )}
+                  {evt.pax != null && (
+                    <FicheRepere icon={UsersIcon}>
+                      {fmtPax(evt.pax)}
+                    </FicheRepere>
+                  )}
+                </>
+              }
+              onglets={
+                <FicheOnglets aria-label="Sections de la fiche événement">
+                  <FicheOnglet value="informations">
+                    Informations générales
+                  </FicheOnglet>
+                  <FicheOnglet value="collectes">
+                    Informations collectes
+                  </FicheOnglet>
+                  <FicheOnglet value="bilan">Bilan & documents</FicheOnglet>
+                </FicheOnglets>
+              }
             />
             <FicheCorps>
-              <Tabs
-                value={onglet}
-                onValueChange={(v) => setOnglet(v as Onglet)}
-              >
-                <TabsList
-                  aria-label="Sections de la fiche événement"
-                  className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
-                >
-                  <TabsTrigger value="informations" className="px-3 sm:px-4">
-                    Informations générales
-                  </TabsTrigger>
-                  <TabsTrigger value="collectes" className="px-3 sm:px-4">
-                    Informations collectes
-                  </TabsTrigger>
-                  <TabsTrigger value="bilan" className="px-3 sm:px-4">
-                    Bilan & documents
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="informations" className="space-y-3">
-                  <Card
-                    padding="md"
-                    className="space-y-4"
-                    data-testid="bloc-evenement"
-                  >
-                    <SectionHeader
-                      icon={CalendarDotsIcon}
-                      title="Événement"
-                      level={3}
-                    />
-                    <dl className={GRILLE} data-testid="evenement-entete">
-                      <InfoItem label="Nom de l’événement">
-                        {evt.nom_evenement ?? VIDE}
-                      </InfoItem>
-                      <InfoItem label="Client final">
-                        {evt.client_nom ?? VIDE}
-                      </InfoItem>
-                      {/* Référence interne : servie à l'organisation qui a
+              <TabsContent value="informations" className="mt-0">
+                <FicheSection titre="Événement" data-testid="bloc-evenement">
+                  <dl className={GRILLE} data-testid="evenement-entete">
+                    <InfoItem label="Nom de l’événement">
+                      {evt.nom_evenement ?? VIDE}
+                    </InfoItem>
+                    <InfoItem label="Client final">
+                      {evt.client_nom ?? VIDE}
+                    </InfoItem>
+                    {/* Référence interne : servie à l'organisation qui a
                           programmé (Frontière 5), jamais sur l'événement d'un
                           traiteur tiers. */}
-                      {evt.ajouter_collecte && (
-                        <InfoItem label="Référence interne">
-                          {evt.fiches[0]?.evenement?.reference_affaire ?? VIDE}
-                        </InfoItem>
-                      )}
-                      {/* §06.05 §2 : traiteur = nom + logo, pas d'email /
+                    {evt.ajouter_collecte && (
+                      <InfoItem label="Référence interne">
+                        {evt.fiches[0]?.evenement?.reference_affaire ?? VIDE}
+                      </InfoItem>
+                    )}
+                    {/* §06.05 §2 : traiteur = nom + logo, pas d'email /
                           téléphone / SIRET. Le logo passe par le proxy du rôle
                           (clé R2 non exposée). */}
-                      <InfoItem
-                        label="Traiteur"
-                        valueClassName="flex items-center gap-2"
-                      >
-                        {evt.traiteur?.a_logo && !logoKo && (
-                          <img
-                            src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(evt.traiteur.id)}/logo`}
-                            alt=""
-                            onError={() => setLogoKo(true)}
-                            className="h-7 w-7 rounded-savr-full object-cover"
-                          />
-                        )}
-                        {evt.traiteur?.nom ?? VIDE}
-                      </InfoItem>
-                      {/* Estimation amont (§05 R_dechets_labo_estimes),
+                    <InfoItem
+                      label="Traiteur"
+                      valueClassName="flex items-center gap-2"
+                    >
+                      {evt.traiteur?.a_logo && !logoKo && (
+                        <img
+                          src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(evt.traiteur.id)}/logo`}
+                          alt=""
+                          onError={() => setLogoKo(true)}
+                          className="h-7 w-7 rounded-savr-full object-cover"
+                        />
+                      )}
+                      {evt.traiteur?.nom ?? VIDE}
+                    </InfoItem>
+                    {/* Estimation amont (§05 R_dechets_labo_estimes),
                           toujours affichée (§06.05 §2) : « — » sans collecte
                           ZD ou sans coefficient communiqué. */}
-                      <InfoItem
-                        label="Déchets labo estimés"
-                        valueClassName="flex items-center gap-1.5"
-                      >
-                        {evt.dechets_labo_kg != null
-                          ? fmtKg(evt.dechets_labo_kg)
-                          : VIDE}
-                        <Tooltip content={AIDE_LABO}>
-                          <span
-                            tabIndex={0}
-                            aria-label={AIDE_LABO}
-                            className="inline-flex cursor-help text-savr-neutral-400"
-                          >
-                            <InfoIcon className="h-3.5 w-3.5" />
-                          </span>
-                        </Tooltip>
-                      </InfoItem>
-                      <InfoItem label="Période de collecte">
-                        {periodeCollecte ?? VIDE}
-                      </InfoItem>
-                    </dl>
-                  </Card>
-
-                  <Card
-                    padding="md"
-                    className="space-y-4"
-                    data-testid="bloc-lieu"
-                  >
-                    <SectionHeader icon={MapPinIcon} title="Lieu" level={3} />
-                    <dl className={GRILLE}>
-                      <InfoItem label="Adresse" className="sm:col-span-2">
-                        {evt.lieu_nom ?? VIDE}
-                        <span className="block font-normal text-savr-neutral-600">
-                          {adresseLieu === undefined
-                            ? SELON_LA_COLLECTE
-                            : (adresseLieu ?? VIDE)}
+                    <InfoItem
+                      label="Déchets labo estimés"
+                      valueClassName="flex items-center gap-1.5"
+                    >
+                      {evt.dechets_labo_kg != null
+                        ? fmtKg(evt.dechets_labo_kg)
+                        : VIDE}
+                      <Tooltip content={AIDE_LABO}>
+                        <span
+                          tabIndex={0}
+                          aria-label={AIDE_LABO}
+                          className="inline-flex cursor-help text-savr-neutral-400"
+                        >
+                          <InfoIcon className="h-3.5 w-3.5" />
                         </span>
-                      </InfoItem>
-                      {/* Le contrôle d'accès se pose par collecte : « Oui »
-                          dès qu'une collecte non annulée l'exige. */}
-                      <InfoItem label="Contrôle d’accès">
-                        {evt.fiches.some(
-                          (f) => !annulee(f) && f.controle_acces_requis,
-                        )
-                          ? 'Oui'
-                          : 'Non'}
-                      </InfoItem>
-                      <InfoItem
-                        variant="texte"
-                        label="Instructions d’accès"
-                        className="sm:col-span-2 lg:col-span-3"
-                        valueClassName="whitespace-pre-line"
-                      >
-                        {accesLieu === undefined
+                      </Tooltip>
+                    </InfoItem>
+                    <InfoItem label="Période de collecte">
+                      {periodeCollecte ?? VIDE}
+                    </InfoItem>
+                  </dl>
+                </FicheSection>
+
+                <FicheSection titre="Lieu" data-testid="bloc-lieu">
+                  <dl className={GRILLE}>
+                    <InfoItem label="Adresse" className="sm:col-span-2">
+                      {evt.lieu_nom ?? VIDE}
+                      <span className="block font-normal text-savr-neutral-600">
+                        {adresseLieu === undefined
                           ? SELON_LA_COLLECTE
-                          : (accesLieu ?? VIDE)}
-                      </InfoItem>
-                    </dl>
-                  </Card>
-                </TabsContent>
+                          : (adresseLieu ?? VIDE)}
+                      </span>
+                    </InfoItem>
+                    {/* Le contrôle d'accès se pose par collecte : « Oui »
+                          dès qu'une collecte non annulée l'exige. */}
+                    <InfoItem label="Contrôle d’accès">
+                      {evt.fiches.some(
+                        (f) => !annulee(f) && f.controle_acces_requis,
+                      )
+                        ? 'Oui'
+                        : 'Non'}
+                    </InfoItem>
+                    <InfoItem
+                      variant="texte"
+                      label="Instructions d’accès"
+                      className="sm:col-span-2 lg:col-span-3"
+                      valueClassName="whitespace-pre-line"
+                    >
+                      {accesLieu === undefined
+                        ? SELON_LA_COLLECTE
+                        : (accesLieu ?? VIDE)}
+                    </InfoItem>
+                  </dl>
+                </FicheSection>
+              </TabsContent>
 
-                {/* Une carte par collecte, deux par ligne sur grand écran. */}
-                <TabsContent value="collectes">
-                  {evt.fiches.length === 0 ? (
-                    <EmptyState
-                      size="inline"
-                      title="Aucune collecte rattachée à cet événement."
-                    />
-                  ) : (
-                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                      {evt.fiches.map((f) => (
-                        <CarteCollecte
-                          key={f.id}
-                          f={f}
-                          avecAdresse={adresseLieu === undefined}
-                          avecAcces={accesLieu === undefined}
-                          urgence={urgences[f.id]}
-                          onDemanderUrgence={() => void demanderUrgence(f.id)}
-                          onOuvrir={() => ouvrirCollecte(f.id)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
+              {/* Une carte par collecte, deux par ligne sur grand écran. */}
+              <TabsContent value="collectes" className="mt-0">
+                {evt.fiches.length === 0 ? (
+                  <EmptyState
+                    size="inline"
+                    title="Aucune collecte rattachée à cet événement."
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    {evt.fiches.map((f) => (
+                      <CarteCollecte
+                        key={f.id}
+                        f={f}
+                        avecAdresse={adresseLieu === undefined}
+                        avecAcces={accesLieu === undefined}
+                        urgence={urgences[f.id]}
+                        onDemanderUrgence={() => void demanderUrgence(f.id)}
+                        onOuvrir={() => ouvrirCollecte(f.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
 
-                {/* Événement qui mêle ZD et AG : un sous-onglet par type
+              {/* Événement qui mêle ZD et AG : un sous-onglet par type
                     (décision Val 2026-10-26), bilan et rapports du type. */}
-                <TabsContent value="bilan" className="space-y-3">
-                  {deuxTypes && (
-                    <ToggleTypeCollecte
-                      value={typeAffiche}
-                      onChange={setTypeBilan}
-                      aria-label="Bilan par type de collecte"
-                      data-testid="bilan-sous-onglets"
-                    />
-                  )}
-                  <BilanConsolide
-                    b={b}
-                    type={typeAffiche}
-                    deuxTypes={deuxTypes}
-                    dateEvenement={evt.date_evenement}
-                    actives={activesDuType}
-                    onOuvrirBilan={(id) => ouvrirCollecte(id, 'bilan')}
-                    radar={radar}
-                    filtresInitiaux={{
-                      // Types d'événement de ses collectes ZD, taille de
-                      // l'événement : le segment sur lequel le radar s'ouvre.
-                      typeEvenementIds: [
-                        ...new Set(
-                          actives.flatMap((f) =>
-                            f.type === 'zero_dechet' && f.type_evenement_id
-                              ? [f.type_evenement_id]
-                              : [],
-                          ),
+              <TabsContent value="bilan" className="mt-0 space-y-3">
+                {deuxTypes && (
+                  <ToggleTypeCollecte
+                    value={typeAffiche}
+                    onChange={setTypeBilan}
+                    aria-label="Bilan par type de collecte"
+                    data-testid="bilan-sous-onglets"
+                  />
+                )}
+                <BilanConsolide
+                  b={b}
+                  type={typeAffiche}
+                  deuxTypes={deuxTypes}
+                  dateEvenement={evt.date_evenement}
+                  actives={activesDuType}
+                  onOuvrirBilan={(id) => ouvrirCollecte(id, 'bilan')}
+                  radar={radar}
+                  filtresInitiaux={{
+                    // Types d'événement de ses collectes ZD, taille de
+                    // l'événement : le segment sur lequel le radar s'ouvre.
+                    typeEvenementIds: [
+                      ...new Set(
+                        actives.flatMap((f) =>
+                          f.type === 'zero_dechet' && f.type_evenement_id
+                            ? [f.type_evenement_id]
+                            : [],
                         ),
-                      ],
-                      tailleCodes: evt.pax ? [evt.taille_bracket] : [],
-                    }}
-                  />
-                  <DocumentsEvenement
-                    evenementId={evt.id}
-                    type={typeAffiche}
-                    nbRealisees={
-                      typeAffiche === 'zero_dechet'
-                        ? b.nb_realisees_zd
-                        : b.nb_realisees_ag
-                    }
-                    radar={radar}
-                    actives={activesDuType}
-                  />
-                </TabsContent>
-              </Tabs>
+                      ),
+                    ],
+                    tailleCodes: evt.pax ? [evt.taille_bracket] : [],
+                  }}
+                />
+                <DocumentsEvenement
+                  evenementId={evt.id}
+                  type={typeAffiche}
+                  nbRealisees={
+                    typeAffiche === 'zero_dechet'
+                      ? b.nb_realisees_zd
+                      : b.nb_realisees_ag
+                  }
+                  radar={radar}
+                  actives={activesDuType}
+                />
+              </TabsContent>
             </FicheCorps>
-            {evt.ajouter_collecte && (
-              <FichePied>
-                <Button asChild data-testid="action-ajouter-collecte">
-                  <Link href={ROUTES.programmer.ajouterCollecte(evt.id)}>
-                    <PlusCircleIcon />
-                    Ajouter une collecte
-                  </Link>
-                </Button>
-              </FichePied>
-            )}
-          </>
+          </Tabs>
         )}
       </FicheModal>
 

@@ -235,7 +235,7 @@ describe('M1.2 — ajouter une collecte depuis la fiche événement du gestionna
         vi.fn(() => Promise.resolve(reponse({ data: evenement(false) }))),
       );
       render(ficheEvenement());
-      await screen.findByTestId('frise-statut-evenement', {}, ATTENTE_UI);
+      await screen.findByTestId('statut-evenement', {}, ATTENTE_UI);
       expect(screen.queryByTestId('action-ajouter-collecte')).toBeNull();
       expect(
         screen.queryByRole('link', { name: 'Ajouter une collecte' }),

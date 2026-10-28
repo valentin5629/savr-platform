@@ -1,26 +1,25 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ChefHatIcon,
-  ImageIcon,
-  MapPinIcon,
-  PencilLineIcon,
-  TruckIcon,
-} from '@/components/ui/icones';
+import { MapPinIcon, PencilLineIcon, TruckIcon } from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { EnTetePuce, FicheEnTete } from '@/components/ui/fiche/fiche-en-tete';
+import { EnTetePuce } from '@/components/ui/fiche/fiche-en-tete';
+import {
+  FicheGrandEnTete,
+  FicheOnglet,
+  FicheOnglets,
+  FicheRepere,
+} from '@/components/ui/fiche/fiche-grand-en-tete';
 import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { InfoItem } from '@/components/ui/info-item';
-import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
@@ -39,8 +38,9 @@ import {
 } from '@/lib/lieux-labels';
 
 // Fiche lieu du gestionnaire de lieux, en pop-up sur la liste Lieux (§06.05 §3
-// — arbitrage Val 2026-10-06, ex-page /gestionnaire/lieux/[id]). Cadre commun
-// des fiches (FicheModal : grand en-tête, onglets, corps défilant, pied).
+// — arbitrage Val 2026-10-06, ex-page /gestionnaire/lieux/[id]). Grand format
+// de la variante B (décision Val 2026-10-27) : grand en-tête, onglets soulignés
+// dans l'en-tête, seul le corps défile, sections en lignes, pied en pilule.
 //
 // Lecture seule : le référentiel lieux est tenu par l'Admin Savr (§04). Le pied
 // porte un seul bouton, « Demande de modification d'information », qui dépose
@@ -78,6 +78,8 @@ interface FicheLieu {
 }
 
 type Etat = 'chargement' | 'erreur' | 'introuvable' | 'pret';
+
+const GRILLE = 'grid grid-cols-1 gap-x-10 gap-y-5 text-sm sm:grid-cols-2';
 
 // Difficulté d'accès (`stationnement`, `acces_office` — enum §04) en pastille.
 function Difficulte({ valeur }: { valeur: string | null }) {
@@ -228,6 +230,7 @@ export function FicheLieuModal({
         open
         title={lieu?.nom ?? 'Fiche lieu'}
         onClose={fermer}
+        taille="grand"
         footer={
           lieu && etat === 'pret' && lieu.demande_modification_possible ? (
             <>
@@ -238,7 +241,8 @@ export function FicheLieuModal({
                 </Text>
               )}
               <Button
-                variant="secondary"
+                variant="sable"
+                size="pilule"
                 disabled={lieu.demande_modification_en_cours}
                 onClick={() => setDemandeOuverte(true)}
               >
@@ -251,7 +255,7 @@ export function FicheLieuModal({
       >
         {etat === 'chargement' && (
           <>
-            <FicheEnTete titre="Fiche lieu" />
+            <FicheGrandEnTete titre="Fiche lieu" />
             {/* §10 §7 « Loading » : skeletons à la forme du contenu. */}
             <FicheCorps className="space-y-4 py-6" aria-busy="true">
               <Skeleton className="h-10 w-full" />
@@ -263,7 +267,7 @@ export function FicheLieuModal({
 
         {etat === 'erreur' && (
           <>
-            <FicheEnTete titre="Fiche lieu" />
+            <FicheGrandEnTete titre="Fiche lieu" />
             <FicheCorps className="py-6">
               <ErrorState
                 message="Impossible de charger ce lieu. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
@@ -275,7 +279,7 @@ export function FicheLieuModal({
 
         {etat === 'introuvable' && (
           <>
-            <FicheEnTete titre="Fiche lieu" />
+            <FicheGrandEnTete titre="Fiche lieu" />
             <FicheCorps className="py-6">
               <EmptyState
                 icon={<MapPinIcon className="h-8 w-8" />}
@@ -287,8 +291,11 @@ export function FicheLieuModal({
         )}
 
         {etat === 'pret' && lieu && (
-          <>
-            <FicheEnTete
+          <Tabs
+            defaultValue="informations"
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <FicheGrandEnTete
               surtitre={
                 lieu.region && (
                   <EnTetePuce>
@@ -297,177 +304,138 @@ export function FicheLieuModal({
                 )
               }
               titre={lieu.nom}
-              infosTestId="fiche-lieu-infos"
-              infos={[
-                { icon: MapPinIcon, texte: adresse },
-                ...(lieu.type_vehicule_max
-                  ? [
-                      {
-                        icon: TruckIcon,
-                        texte: `Véhicule max : ${
-                          VEHICULE_LABEL[lieu.type_vehicule_max] ??
-                          lieu.type_vehicule_max
-                        }`,
-                      },
-                    ]
-                  : []),
-              ]}
-            />
-            <FicheCorps>
-              <Tabs defaultValue="informations">
-                <TabsList>
-                  <TabsTrigger value="informations">Informations</TabsTrigger>
-                  <TabsTrigger value="traiteurs">
+              reperesTestId="fiche-lieu-infos"
+              reperes={
+                <>
+                  <FicheRepere icon={MapPinIcon}>{adresse}</FicheRepere>
+                  {lieu.type_vehicule_max && (
+                    <FicheRepere icon={TruckIcon}>
+                      Véhicule max :{' '}
+                      {VEHICULE_LABEL[lieu.type_vehicule_max] ??
+                        lieu.type_vehicule_max}
+                    </FicheRepere>
+                  )}
+                </>
+              }
+              onglets={
+                <FicheOnglets aria-label="Sections de la fiche lieu">
+                  <FicheOnglet value="informations">Informations</FicheOnglet>
+                  <FicheOnglet value="traiteurs">
                     Traiteurs
                     {lieu.traiteurs.length > 0
                       ? ` (${lieu.traiteurs.length})`
                       : ''}
-                  </TabsTrigger>
-                  <TabsTrigger value="activite">Activité</TabsTrigger>
-                </TabsList>
+                  </FicheOnglet>
+                  <FicheOnglet value="activite">Activité</FicheOnglet>
+                </FicheOnglets>
+              }
+            />
+            <FicheCorps>
+              <TabsContent value="informations" className="mt-0">
+                <FicheSection titre="Adresse et capacité">
+                  <dl className={GRILLE}>
+                    <InfoItem label="Adresse accès livraison">
+                      {adresse}
+                    </InfoItem>
+                    <InfoItem label="Région">
+                      {lieu.region
+                        ? (REGION_LABEL[lieu.region] ?? lieu.region)
+                        : '—'}
+                    </InfoItem>
+                    <InfoItem label="Capacité">
+                      {lieu.capacite_maximum != null
+                        ? `${fmtInt(lieu.capacite_maximum)} pers.`
+                        : '—'}
+                    </InfoItem>
+                  </dl>
+                </FicheSection>
 
-                <TabsContent value="informations" className="space-y-4">
-                  <Card padding="md" className="space-y-4">
-                    <SectionHeader
-                      icon={MapPinIcon}
-                      title="Adresse et capacité"
-                      level={3}
-                    />
-                    <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-                      <InfoItem
-                        variant="overline"
-                        label="Adresse accès livraison"
-                      >
-                        {adresse}
-                      </InfoItem>
-                      <InfoItem variant="overline" label="Région">
-                        {lieu.region
-                          ? (REGION_LABEL[lieu.region] ?? lieu.region)
-                          : '—'}
-                      </InfoItem>
-                      <InfoItem variant="overline" label="Capacité">
-                        {lieu.capacite_maximum != null
-                          ? `${fmtInt(lieu.capacite_maximum)} pers.`
-                          : '—'}
-                      </InfoItem>
-                    </dl>
-                  </Card>
-
-                  <Card padding="md" className="space-y-4">
-                    <SectionHeader
-                      icon={TruckIcon}
-                      title="Accès et logistique"
-                      level={3}
-                    />
-                    <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-                      <InfoItem variant="overline" label="Véhicule max">
-                        {lieu.type_vehicule_max ? (
-                          <Badge variant="neutral">
-                            {VEHICULE_LABEL[lieu.type_vehicule_max] ??
-                              lieu.type_vehicule_max}
-                          </Badge>
-                        ) : (
-                          '—'
-                        )}
-                      </InfoItem>
-                      <InfoItem variant="overline" label="Stationnement">
-                        <Difficulte valeur={lieu.stationnement} />
-                      </InfoItem>
-                      <InfoItem variant="overline" label="Accès office">
-                        <Difficulte valeur={lieu.acces_office} />
-                      </InfoItem>
-                      {lieu.acces_details && (
-                        <InfoItem
-                          variant="overline"
-                          label="Détails d’accès"
-                          pleineLargeur
-                        >
-                          {lieu.acces_details}
-                        </InfoItem>
+                <FicheSection titre="Accès et logistique">
+                  <dl className={GRILLE}>
+                    <InfoItem label="Véhicule max">
+                      {lieu.type_vehicule_max ? (
+                        <Badge variant="neutral">
+                          {VEHICULE_LABEL[lieu.type_vehicule_max] ??
+                            lieu.type_vehicule_max}
+                        </Badge>
+                      ) : (
+                        '—'
                       )}
-                      {lieu.contraintes_horaires && (
-                        <InfoItem
-                          variant="overline"
-                          label="Contraintes horaires"
-                          pleineLargeur
-                        >
-                          {lieu.contraintes_horaires}
-                        </InfoItem>
-                      )}
-                      {lieu.flux_autorises &&
-                        lieu.flux_autorises.length > 0 && (
-                          <InfoItem
-                            variant="overline"
-                            label="Flux autorisés"
-                            pleineLargeur
-                          >
-                            {lieu.flux_autorises.map((f) => (
-                              <Badge key={f} variant="neutral">
-                                {libelleFlux(f)}
-                              </Badge>
-                            ))}
-                          </InfoItem>
-                        )}
-                    </dl>
-                  </Card>
-
-                  {lieu.photos_urls && lieu.photos_urls.length > 0 && (
-                    <Card padding="md" className="space-y-4">
-                      <SectionHeader
-                        icon={ImageIcon}
-                        title="Photos"
-                        level={3}
-                      />
-                      <div className="flex flex-wrap gap-3">
-                        {lieu.photos_urls.map((url, i) => (
-                          <img
-                            key={i}
-                            src={url}
-                            alt={`Photo ${i + 1} du lieu`}
-                            className="h-28 w-40 rounded-savr-md border border-savr-neutral-200 object-cover"
-                          />
-                        ))}
-                      </div>
-                    </Card>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="traiteurs" className="space-y-4">
-                  <Card padding="md" className="space-y-4">
-                    <SectionHeader
-                      icon={ChefHatIcon}
-                      title="Traiteurs opérant sur ce lieu"
-                      level={3}
-                    />
-                    {lieu.traiteurs.length === 0 ? (
-                      <EmptyState
-                        size="inline"
-                        title="Aucun traiteur n'a encore eu de collecte sur ce lieu."
-                      />
-                    ) : (
-                      <>
-                        <Text variant="hint">
-                          Liste établie à partir des collectes programmées sur
-                          ce lieu, tous statuts confondus. Tonnage : collectes
-                          clôturées.
-                        </Text>
-                        <DataTable
-                          columnsToggle={false}
-                          columns={COLONNES_TRAITEURS}
-                          data={lieu.traiteurs}
-                          keyExtractor={(t) => t.id}
-                        />
-                      </>
+                    </InfoItem>
+                    <InfoItem label="Stationnement">
+                      <Difficulte valeur={lieu.stationnement} />
+                    </InfoItem>
+                    <InfoItem label="Accès office">
+                      <Difficulte valeur={lieu.acces_office} />
+                    </InfoItem>
+                    {lieu.acces_details && (
+                      <InfoItem label="Détails d’accès" pleineLargeur>
+                        {lieu.acces_details}
+                      </InfoItem>
                     )}
-                  </Card>
-                </TabsContent>
+                    {lieu.contraintes_horaires && (
+                      <InfoItem label="Contraintes horaires" pleineLargeur>
+                        {lieu.contraintes_horaires}
+                      </InfoItem>
+                    )}
+                    {lieu.flux_autorises && lieu.flux_autorises.length > 0 && (
+                      <InfoItem label="Flux autorisés" pleineLargeur>
+                        {lieu.flux_autorises.map((f) => (
+                          <Badge key={f} variant="neutral">
+                            {libelleFlux(f)}
+                          </Badge>
+                        ))}
+                      </InfoItem>
+                    )}
+                  </dl>
+                </FicheSection>
 
-                <TabsContent value="activite">
-                  <ActiviteLieu lieuId={lieu.id} />
-                </TabsContent>
-              </Tabs>
+                {lieu.photos_urls && lieu.photos_urls.length > 0 && (
+                  <FicheSection titre="Photos">
+                    <div className="flex flex-wrap gap-3">
+                      {lieu.photos_urls.map((url, i) => (
+                        <img
+                          key={i}
+                          src={url}
+                          alt={`Photo ${i + 1} du lieu`}
+                          className="h-28 w-40 rounded-savr-md border border-savr-neutral-200 object-cover"
+                        />
+                      ))}
+                    </div>
+                  </FicheSection>
+                )}
+              </TabsContent>
+
+              <TabsContent value="traiteurs" className="mt-0">
+                <FicheSection titre="Traiteurs opérant sur ce lieu">
+                  {lieu.traiteurs.length === 0 ? (
+                    <EmptyState
+                      size="inline"
+                      title="Aucun traiteur n'a encore eu de collecte sur ce lieu."
+                    />
+                  ) : (
+                    <div className="min-w-0 space-y-4">
+                      <Text variant="hint">
+                        Liste établie à partir des collectes programmées sur ce
+                        lieu, tous statuts confondus. Tonnage : collectes
+                        clôturées.
+                      </Text>
+                      <DataTable
+                        columnsToggle={false}
+                        columns={COLONNES_TRAITEURS}
+                        data={lieu.traiteurs}
+                        keyExtractor={(t) => t.id}
+                      />
+                    </div>
+                  )}
+                </FicheSection>
+              </TabsContent>
+
+              <TabsContent value="activite" className="mt-0">
+                <ActiviteLieu lieuId={lieu.id} />
+              </TabsContent>
             </FicheCorps>
-          </>
+          </Tabs>
         )}
       </FicheModal>
 

@@ -631,7 +631,7 @@
     },
     {
       "id": "M3.1-lieux-select-traiteur-operationnel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:287",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:288",
       "artefact": "supabase/migrations/20260921140000_plateforme_lieux_select_traiteur_operationnel.sql",
       "test": "supabase/tests/lieux_traiteur_operationnel.test.sql",
       "statut": "implemented",
@@ -655,7 +655,7 @@
     },
     {
       "id": "M3.1-lieux-autocomplete-preuve-comportement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:284-289",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:285-290",
       "artefact": "supabase/tests/programmation_lieux_autocompletion.test.sql",
       "test": "lieux_autocompletion_comportement_sous_rls — le traiteur opérationnel se voit proposer le lieu, le concurrent non",
       "statut": "implemented",
@@ -695,7 +695,7 @@
     },
     {
       "id": "M3.1-fiche-etats-systeme-ds",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:418-437",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:419-438",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_ui_erreur_reessayer",
       "statut": "implemented",
@@ -903,7 +903,7 @@
     },
     {
       "id": "M3.1-popup-attestation-donneur-ordre-reservee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:263",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:264",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_get_attestation_donneur_ordre_reservee",
       "statut": "implemented",
@@ -943,7 +943,7 @@
     },
     {
       "id": "M3.1-liste-rapport-reserve-picto",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:430",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:431",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/liste_rapport_reserve_donneur_ordre_picto_retire",
       "statut": "implemented",
@@ -951,7 +951,7 @@
     },
     {
       "id": "M3.1-liste-rapport-reserve-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:430",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:431",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -959,7 +959,7 @@
     },
     {
       "id": "M3.1-popup-client-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:393",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:394",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -999,7 +999,7 @@
     },
     {
       "id": "M3.1-liste-colonne-client-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:365",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:366",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1099,11 +1099,11 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "eafb60f53ddda848fecf4bdcb39139acab13b7249d534f3772310e25b7a92b69",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "29ee02a11140ae397ec9c636ac2892d3d6e0d5d4a9e51c20b4a12a29de8ffd07",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "022b35b161ee61596f286da2036b2e57b6d098aeb9a6ca1728c2dd0518ef3984",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "86fb2bc1aba315ad313793184bd4d6a08f0d64f24481674e045cca9996c97881",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "1f9a66804c7309040755b078f25cedf174e98402019fe82085777aa047702e60",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "1d1f67bb4c0ffd564d8fb90da01e5c7399969f65e9c507b9d01bb87a7c640a9b",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "30a5755a4e0d6ef3e6fbce6d31255f606d704eb30978c51e8489f5b3b4f9ca55",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "7735759e54b7c94c13769ce15eae10094cfc14ebdf05c2c1afe8fe51030636a1"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "174c1ff53572bad8d222fa7ba5e4c7902c839671017f913ebaebf9b226c22209",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "6488b3cbfc9488a29f9ee4bcf690aea3965e92c1d6c142db99aa4c6637f27bb8",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "da40624cce6ab0a38d42199b3423b3f6765862da07096008119df63952f0c999"
   }
 }

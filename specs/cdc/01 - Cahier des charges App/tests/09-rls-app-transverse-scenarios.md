@@ -617,6 +617,27 @@ Scénario : tournees_colonnes_sensibles_fermees_clients
   Et select=* est refusé (42501)
 ```
 
+```gherkin
+# Source : §09 §3 Tables bordereaux_savr + attestations_don — ligne « tout rôle client qui voit la collecte » (décisions Val 2026-10-27 et 2026-10-28)
+# Couche : db (pgTAP SECU__bordereaux_select_collecte_visible ; attestations_don : dette code)
+# Priorité : P1-critique
+
+Scénario Outline : bordereaux_attestations_select_collecte_visible
+  Étant donné une collecte clôturée avec sa ligne <table>, programmée par une agence avec un traiteur opérationnel désigné, et une collecte programmée par un gestionnaire de lieux sur un lieu qui n'est pas le sien
+  Quand <role> exécute SELECT sur <table> sous `authenticated`
+  Alors <resultat>
+  Et toute écriture (INSERT, UPDATE, DELETE) par ce rôle est refusée
+
+  Exemples :
+    | table             | role                                              | resultat                                   |
+    | bordereaux_savr   | le traiteur opérationnel désigné par l'agence     | la ligne est retournée                      |
+    | bordereaux_savr   | le gestionnaire qui programme hors de ses lieux   | la ligne est retournée                      |
+    | bordereaux_savr   | un utilisateur d'une autre organisation           | 0 ligne (cross-org refusé)                  |
+    | attestations_don  | le traiteur opérationnel désigné par l'agence     | la ligne est retournée                      |
+    | attestations_don  | le gestionnaire qui programme hors de ses lieux   | la ligne est retournée                      |
+    | attestations_don  | un utilisateur d'une autre organisation           | 0 ligne (cross-org refusé)                  |
+```
+
 ## Recommandations loggées (non bloquantes — à confirmer)
 
 - **Reco A** : l'exemple de JWT §09 §4 n'inclut pas `app_domain` ni `impersonator_id` alors que les deux claims sont spécifiés ailleurs — mettre à jour l'exemple (doc stale, zéro impact spec).

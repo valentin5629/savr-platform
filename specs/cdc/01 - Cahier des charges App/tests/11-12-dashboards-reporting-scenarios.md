@@ -884,7 +884,7 @@ Scénario : telechargement_rapport_avec_ou_sans_radar
   Alors le bouton bascule « Intégrer la comparaison au rapport à télécharger » (à côté du radar) est désactivé à l'ouverture
   Quand il règle les filtres de comparaison, active le bouton et clique sur « Télécharger le rapport » dans le pied de la fiche
   Alors il reçoit un PDF qui porte le radar calculé avec ces filtres sous son identité
-  Et le PDF contient toujours le taux, les tonnages, le bloc carbone, l'en-tête, la méthodologie et la page 2
+  Et le PDF contient toujours le taux, les tonnages, le bloc carbone, l'en-tête, la méthodologie et la page 2 (bordereau intégré) quand le demandeur peut lire le bordereau sous sa RLS — sinon page 1 seule (§12 §1.7, décision Val 2026-10-27)
   Quand un autre utilisateur télécharge le rapport sans activer la comparaison
   Alors il reçoit un PDF sans radar, et le premier n'en est pas modifié (rien n'est stocké)
   Et le premier téléchargement par un client pose rapports_rse.consulte_par_user_at

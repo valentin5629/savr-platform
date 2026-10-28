@@ -1182,7 +1182,7 @@
     },
     {
       "id": "M0.6-photos-client-selection-rls",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:793-798",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:794-799",
       "artefact": "supabase/migrations/20261007203000_shared_fichiers_photos_rang_client.sql (colonne shared.fichiers.rang_client, CHECK rangs 1/2 réservés aux photos de collecte, index unique partiel uniq_fichiers_photo_client_rang, policy fichiers_select resserrée par ALTER POLICY)",
       "test": "supabase/tests/SECU__fichiers_photos_selection_client.test.sql",
       "statut": "implemented",
@@ -1311,7 +1311,7 @@
     },
     {
       "id": "BL-P1-API-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:439",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:440",
       "artefact": "supabase/migrations/20260629120000_plateforme_r10b_rls_ops_column_level.sql + supabase/migrations/20260903120000_plateforme_anti_escalade_role_staff.sql + supabase/migrations/20260921170000_plateforme_users_role_auto_changement.sql (volet 3, pgTAP supabase/tests/SECU__users_role_auto_changement.test.sql)",
       "test": "P0 — traiteur_manager NE PEUT PAS s'auto-promouvoir ops_savr (la faille corrigée)",
       "statut": "implemented",
@@ -1327,7 +1327,7 @@
     },
     {
       "id": "M0.6-tournee-siblings-not-exposed",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:312",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:313",
       "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql (policy t_select via f_collecte_visible)",
       "test": "supabase/tests/r14_tournee_siblings.test.sql (tournee_siblings_not_exposed)",
       "statut": "implemented",
@@ -1335,7 +1335,7 @@
     },
     {
       "id": "M0.6-tournees-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:312",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:313",
       "artefact": "supabase/migrations/20260930160000_plateforme_tournees_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 11 colonnes ; trigger fn_cloturer_alerte_coordonnees_urgence passé SECURITY DEFINER)",
       "test": "supabase/tests/SECU__tournees_select_liste_blanche.test.sql (1-6 privilèges + liste blanche exacte ; 7 non-vacuité ; 8-26 gestionnaire / traiteur opérationnel / agence : ligne visible, 11 colonnes retirées → 42501 ; 27 ligne tierce invisible ; 28-32 admin_savr JWT fermé en lecture mais UPDATE conservé, service_role intact ; 33-34 fail-closed colonne ajoutée) + supabase/tests/infos_acces_chauffeur.test.sql (recalé : 42501 au lieu de lecture)",
       "statut": "implemented",
@@ -1351,7 +1351,7 @@
     },
     {
       "id": "M0.6-associations-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:296",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:297",
       "artefact": "supabase/migrations/20261004200000_plateforme_associations_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 7 colonnes : id, nom, ville, region, latitude, longitude, description_rapport_impact)",
       "test": "supabase/tests/SECU__associations_select_liste_blanche.test.sql (1-4 privilèges + liste blanche exacte ; 5 non-vacuité ; 6-20 gestionnaire : ligne visible, 7 colonnes lues avec leurs valeurs, 19 colonnes refusées en 42501 par SELECT réel de chaque colonne, select=* refusé, embeds attestations_don et attributions ; 21-27 traiteur : lectures réelles de la fiche collecte, de l'export CSV, des dashboards et du détail événement ; 28-36 traiteur_commercial / agence / client organisateur / traiteur sans lien : mêmes 7 lues, mêmes 19 refusées, ligne visible ; 37-40 aucune écriture cliente ; 41-47 admin_savr et ops_savr JWT fermés en lecture, UPDATE staff par JWT conservé mais RETURNING d'une colonne fermée refusé, service_role lit les 26 colonnes ; 48-49 fail-closed colonne ajoutée)",
       "statut": "implemented",
@@ -1359,7 +1359,7 @@
     },
     {
       "id": "M0.6-transporteurs-lecture-cliente-fermee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:635",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:636",
       "artefact": "supabase/migrations/20261005100000_plateforme_transporteurs_lecture_cliente_fermee.sql (retrait de la policy transp_read — auth.role() = 'authenticated' — qui rendait toutes les lignes à tout utilisateur connecté ; restent transp_admin, transp_ops_select, transp_ops_write)",
       "test": "supabase/tests/SECU__transporteurs_lecture_cliente_fermee.test.sql (1-8 catalogue : transp_read absente, cliquet sur chaque policy prédicat compris, RLS activée et forcée, privilèges, aucune vue dépendante, aucune fonction SECURITY DEFINER atteignant la table exécutable par un client ; 9-11 non-vacuité ; 12-17 gestionnaire : JWT conforme, 0 ligne, aucune colonne ne rend la ligne par SELECT réel de chaque colonne, pas d'oracle par filtre, témoin types_evenements ; 18-23 traiteur programmateur : 0 ligne, et l'embed depuis sa propre attribution rend l'attribution sans le transporteur ; 24-33 traiteur_commercial / agence / client organisateur / traiteur sans lien : 0 ligne ; 34-37 aucune écriture cliente, par des ordres sans WHERE ni RETURNING ; 38-44 admin_savr et ops_savr par JWT : lecture des 22 colonnes et écriture conservées ; 45-49 service_role : fiche entière, résolution par prestataire, embed depuis l'attribution)",
       "statut": "implemented",
@@ -1367,7 +1367,7 @@
     },
     {
       "id": "M0.6-attestation-delete-deny",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:263",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:264",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql",
       "test": "supabase/tests/rls_attestations_don_m2_4.test.sql (delete_attestation_deny)",
       "statut": "implemented",
@@ -1375,7 +1375,7 @@
     },
     {
       "id": "M0.6-impersonation-launcher-ui",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1004",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1005",
       "artefact": "packages/plateforme/src/components/ui/impersonation-launcher.tsx (select users + bouton Impersoner, admin_savr only) monté sur packages/plateforme/src/app/(admin)/admin/clients/page.tsx",
       "test": "packages/plateforme/src/components/ui/impersonation-launcher.test.tsx « M0.6 — lanceur impersonation admin (BL-P1-BOA-09) » (masqué non-admin, liste hors-soi, POST impersoner + navigation)",
       "statut": "implemented",
@@ -1495,7 +1495,7 @@
     },
     {
       "id": "M0.6-fiche-collecte-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:393",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:394",
       "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx, packages/plateforme/src/components/collecte/fiche-blocs.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1743,7 +1743,7 @@
     },
     {
       "id": "M0.6-ordre-envoi-motif-admin-savr-seul",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:548",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:549",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -1796,12 +1796,12 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "eafb60f53ddda848fecf4bdcb39139acab13b7249d534f3772310e25b7a92b69",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "f62ac36bb3850dabca8a991114726ea31da65bd26f5fd0cdb3082bc78b624e24",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "f57726028bd4c45bd9de86de56072b6a689abe0eaf9f2e4a9308a69d144a642e",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "30a5755a4e0d6ef3e6fbce6d31255f606d704eb30978c51e8489f5b3b4f9ca55",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "7735759e54b7c94c13769ce15eae10094cfc14ebdf05c2c1afe8fe51030636a1",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "8c268b8c981ee341779d148f70fd924b373fb64c7db27df31214a08db6ecad43",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "9404674f865f2b17326daac1df5fcef1fa6687e92fc87cd0f6ad0bd42dc2acbb",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "6488b3cbfc9488a29f9ee4bcf690aea3965e92c1d6c142db99aa4c6637f27bb8",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "da40624cce6ab0a38d42199b3423b3f6765862da07096008119df63952f0c999",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "bdda90299b4af05a95c42396b4c5c2653218540ae7c8d83f6a448f09b0586e55",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "7e9aac4ab731ffcb03cb11fb33f6c02264e2c391540a2dda3ce54af5c261e8a9",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "aa17e5e0f6a0139df4c1fb68548d828f89ed4203de4cdbb710677fe1e4fdb518"
   }
 }

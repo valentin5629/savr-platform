@@ -320,7 +320,7 @@ Bandeau d'information/alerte inline — warning pack AG, blocage, info *(ajout 2
 Complète l'entrée `Modal / Sheet` (§6) avec la structure visuelle *(ajout 2026-07-04, divergence BOA-UI collectes — réf `components/ui/modal`)*.
 
 - Overlay `rgba(13,20,40,0.45)`.
-- Panneau : fond blanc, radius `lg`, `--shadow-lg`, largeur max contextualisée. Format `grand` *(fiche collecte client, 2026-10-27)* : 1 200 px, radius `2xl`, `--shadow-xl`, croix ronde 44px sur fond `sable-100`.
+- Panneau : fond blanc, radius `lg`, `--shadow-lg`, largeur max contextualisée. Format `grand` *(fiches variante B, 2026-10-27 : fiches collecte client et Admin, fiches Admin transporteur, association, lieu ; fiches du gestionnaire événement, lieu, traiteur)* : 1 200 px, radius `2xl`, `--shadow-xl`, croix ronde 44px sur fond `sable-100`.
 - Structure `header` (titre + fermeture) / `body` / `footer` (actions alignées à droite).
 - Fermeture : touche `Esc` + clic sur l'overlay. **Focus-trap** obligatoire (accessibilité §10).
 - Mobile → `Sheet` montant depuis le bas (§8).
@@ -335,12 +335,13 @@ Détaille le volet timeline de `StatusCollecte` (§6) et l'historique fiche coll
 
 ### 5.11 En-tête de fiche
 
-Grand en-tête des modales de fiche *(décisions Val 2026-09-30 et 2026-10-01 — brique `FicheEnTete`)*.
+Grand en-tête des modales de fiche *(décisions Val 2026-09-30 et 2026-10-01 — brique `FicheEnTete`, plus utilisée par aucune fiche depuis le 2026-10-28 ; variante B : brique `FicheGrandEnTete`, depuis le 2026-10-27 pour les fiches collecte et les fiches Admin)*.
 
 - Sur-titre (puce + mention), nom en `text-2xl` extrabold, ligne d'infos à pictos 16 px, badge de statut à droite, bordure basse.
 - Décrit l'objet **enregistré** : il ne suit pas la saisie en cours.
-- Fiches Admin transporteur, association, lieu : cadre commun décrit dans [[06 - Back-office Admin Savr]] §5.
+- Fiches Admin transporteur, association, lieu : cadre commun décrit dans [[06 - Back-office Admin Savr]] §5, au format de la variante B depuis le 2026-10-27 (titre Archivo, pastille de statut à droite du titre, repères à pictos, onglets soulignés dans l'en-tête), sans sous-titre. Briques : `FicheGrandEnTete`, `FicheRepere`, `FicheOnglets` / `FicheOnglet`, `FicheSection`, `FichePastille`.
 - Les fiches collecte (Admin et client) suivent la variante B (décision Val 2026-10-27) : titre = nom de l'événement, « lieu · client » dessous, statut en pastille (étape courante seule) à droite du titre, badge de type de collecte en sur-titre.
+- Fiches du gestionnaire de lieux (événement, lieu, traiteur) : variante B aussi, sans sous-titre (décision Val 2026-10-27, [[05 - Espace client gestionnaire de lieux]]). La fiche événement porte une pastille d'avancement (Créé, Validé, En cours, Réalisé, Annulé) à la place de la frise ; les fiches lieu et traiteur n'ont pas de pastille.
 
 ---
 
@@ -400,7 +401,7 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 
 | Composant | Description |
 |---|---|
-| `Tabs` | AG / ZD / Vue consolidée (dashboards) ; onglets de fiche. **44 px de haut sur mobile, 40 px au-delà** (cible tactile §10), pour tous les écrans à onglets *(décision Val 2026-10-01)*. **Onglet à compteur d'erreurs** (onglets de formulaire — fiches Admin association, transporteur, lieu ; décision Val 2026-09-30, brique `OngletAvecErreurs`) : pastille ronde `error-strong`, chiffre blanc gras `text-xs`, masquée aux lecteurs d'écran au profit d'un texte « (N champs à corriger) » dans le nom de l'onglet ; à l'échec de validation, le focus est posé sur le premier onglet fautif ; le compteur disparaît dès que le champ est corrigé. |
+| `Tabs` | AG / ZD / Vue consolidée (dashboards) ; onglets de fiche. **44 px de haut sur mobile, 40 px au-delà** (cible tactile §10), pour tous les écrans à onglets *(décision Val 2026-10-01)*. **Onglet à compteur d'erreurs** (onglets de formulaire — fiches Admin association, transporteur, lieu ; décision Val 2026-09-30, brique `FicheOnglet` avec `nbErreurs` depuis le 2026-10-27 ; `OngletAvecErreurs` reste en place) : pastille ronde `error-strong`, chiffre blanc gras `text-xs`, masquée aux lecteurs d'écran au profit d'un texte « (N champs à corriger) » dans le nom de l'onglet ; à l'échec de validation, le focus est posé sur le premier onglet fautif ; le compteur disparaît dès que le champ est corrigé. |
 | `Pagination` | Entre pages de tableau |
 | `Accordion` | Contenu dépliable (aide, détails) |
 
@@ -425,13 +426,13 @@ Chaque écran gère 5 états — aucun laissé sans UI.
 | **Empty** | Aucune donnée | Illustration + texte + CTA si applicable |
 | **Error** | Échec chargement/action | Message précis + bouton "Réessayer" |
 | **Success** | Action confirmée | Toast (disparaît après 4s) |
-| **Disabled** | Action impossible | Bouton grisé + tooltip ("Pack AG épuisé — contacter Savr") |
+| **Disabled** | Action impossible | Bouton grisé + tooltip ("Pack AG épuisé — contacter Savr") ; sur téléphone, où une infobulle ne s'affiche pas, la raison est écrite en clair près de l'action (menu « ⋯ », au-dessus du pied d'une fiche — 2026-10-28) |
 
 > **Exception densité — actions de ligne des listes Collectes traiteur et agence** *(revues écran 2026-07-15 et 2026-10-01, divergences M3.1)* : sur ces listes, une action indisponible est **retirée** de la carte (et non grisée), et les pictos des actions disponibles sont rendus à 10 px (cible tactile inchangée), pour la densité/lisibilité. L'état Disabled « grisé + tooltip » reste la règle par défaut partout ailleurs.
 
 **Skeleton** : blocs `neutral-100` animés (shimmer subtil), jamais spinner seul.
 
-**Illustrations d'état vide** : style trait fin Lucide agrandi (ou pictos monochromes `primary-300`), jamais d'illustration 3D/stock générique. Cohérence avec l'iconographie.
+**Illustrations d'état vide** : style trait fin Phosphor agrandi (ou pictos monochromes `primary-300`), jamais d'illustration 3D/stock générique. Cohérence avec l'iconographie.
 
 ---
 
@@ -457,9 +458,9 @@ Desktop-first, adaptation mobile soignée. Tous les écrans fonctionnent sur mob
 
 ## 9. Iconographie
 
-**Bibliothèque : Lucide Icons** (open source, compatible shadcn).
+**Bibliothèque : Phosphor Icons** (open source, licence MIT), graisse **regular** *(décision Val 2026-10-27, ex-Lucide)*.
 
-~1 000 icônes cohérentes, trait fin, SVG. Stroke `1.5`–`2px`, jamais de mélange avec d'autres familles d'icônes (cohérence = identité).
+Plus de 1 500 icônes cohérentes, SVG. Une seule graisse partout : `regular` (trait = 1/16 de la taille : 1 px à 16 px, 1,5 px à 24 px). Seule exception : la coche de la case à cocher, en `bold`. Jamais de mélange avec d'autres familles d'icônes (cohérence = identité) : toutes les icônes passent par `components/ui/icones.tsx`, une règle ESLint interdit d'importer une bibliothèque d'icônes ailleurs. Une icône est décorative par défaut (masquée aux lecteurs d'écran) ; une icône porteuse de sens reçoit un libellé (`aria-label`).
 
 **Tailles** : `16px` (badges, tables) · `20px` (boutons, nav) · `24px` (actions principales, titres). **Exception (revue écran 2026-10-01, décision Val)** : les pictos d'action de ligne Modifier / Annuler / Dupliquer des listes Collectes traiteur et agence sont rendus à **10 px** dans un `IconButton` dont la cible tactile reste 44/40 px ; les colonnes Statut et Actions de ces listes sont ajustées à leur contenu (pas de vide entre le badge et les pictos).
 
@@ -506,7 +507,7 @@ Hors scope V1. Les tokens CSS sont structurés pour un thème sombre **sans refo
 | shadcn/ui + Tailwind 4.x | CSS custom / autre lib | Maîtrise Claude Code, accessible, customisable à 100 % |
 | Inter + Archivo serré (Val 2026-10-27) | Nunito (police d'origine), polices payantes | Lisibilité, titres plus affirmés |
 | Ombres sobres, bordures portantes | Ombres lourdes génériques | Hiérarchie par espace/bordure = rendu pro |
-| Lucide Icons | Font Awesome, Heroicons | Cohérence shadcn, trait fin |
+| Phosphor Icons, graisse regular (Val 2026-10-27, ex-Lucide) | Lucide, Solar, Iconamoon, Font Awesome, Heroicons | Couverture complète des icônes métier (feuille, recyclage, camion, toque, balance, couverts), licence MIT sans attribution |
 | Dark mode hors scope V1 | Dark mode V1 | Tokens déjà compatibles, priorité métier |
 
 ## Questions ouvertes

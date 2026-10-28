@@ -255,6 +255,7 @@ Policy héritée de `evenements` via `evenement_id`. Même logique de filtrage. 
 | agence | via FK collecte → evenement → organisation | — | — | — |
 | gestionnaire_lieux | via FK collecte → evenement → lieu → organisations_lieux | — | — | — |
 | **client_organisateur** *(ajout 2026-06-11, audit RLS B-3 — option a tranchée Val)* | via FK collecte → evenement → `client_organisateur_organisation_id = auth.jwt()->>'organisation_id'` (lecture seule) | — | — | — |
+| **tout rôle client qui voit la collecte** *(ajout 2026-10-27, décision Val)* | `f_collecte_visible(collecte_id)` : en plus des lignes ci-dessus, le **traiteur opérationnel** désigné par un autre programmateur (producteur juridique du déchet) et le **programmateur de tout rôle**, dont le gestionnaire de lieux qui programme hors de ses lieux (policy `bord_collecte_visible_select`, lecture seule) | — | — | — |
 
 > **Note B-3 (2026-06-11)** : avant cet ajout, la ligne était deny pour `client_organisateur` alors que `f_fichier_visible` (§3ter C1) lui donnait déjà le **PDF** via `f_collecte_visible` — incohérence ligne/fichier. Tranché Val (option a) : le client organisateur lit la ligne ET le fichier de ses événements. `f_fichier_visible` inchangée. pgTAP : `bordereaux_client_orga_own_event_ok` / `attestations_client_orga_cross_org_denied`.
 
@@ -262,7 +263,7 @@ Policy héritée de `evenements` via `evenement_id`. Même logique de filtrage. 
 
 ### Table `attestations_don`
 
-Même logique que `bordereaux_savr` (y compris la ligne `client_organisateur`, B-3a 2026-06-11).
+Même logique que `bordereaux_savr`, y compris la ligne `client_organisateur` (B-3a 2026-06-11) et la ligne « tout rôle client qui voit la collecte » *(décision Val 2026-10-28)* : policy `attd_collecte_visible_select` FOR SELECT TO authenticated USING (`f_collecte_visible(collecte_id)`), lecture seule — le traiteur opérationnel désigné par un autre programmateur et le programmateur de tout rôle (dont le gestionnaire hors de ses lieux) lisent l'attestation de la collecte qu'ils voient, comme son PDF (`f_fichier_visible`, §3ter). **Dette code ouverte** : migration + pgTAP sur le modèle de `20261027160000_plateforme_bordereaux_select_collecte_visible`.
 
 > **Note 2026-09-30 (D12)** : aucune route cliente ne sert l'attestation hors de cette matrice (le téléchargement traiteur lit sous RLS depuis le lot D12 ; le service-role historique est retiré). L'écart ligne/fichier avec `f_fichier_visible` (qui suit `f_collecte_visible`, traiteur opérationnel compris) reste celui déjà noté B-3.
 

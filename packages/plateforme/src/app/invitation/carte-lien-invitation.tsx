@@ -18,14 +18,14 @@ const CONTENU: Record<
   expire: {
     titre: 'Lien expiré',
     texte:
-      "Ce lien d'invitation était valable 7 jours. Votre compte existe toujours : recevez un lien d'accès par email pour choisir votre mot de passe, ou demandez à la personne qui vous a invité de renouveler l'invitation.",
+      "Ce lien d'invitation était valable 7 jours. Votre compte existe toujours : recevez par email un lien d'accès pour choisir votre mot de passe.",
     bouton: "Recevoir un lien d'accès",
     lien: ROUTES.resetPassword,
   },
   utilise: {
     titre: 'Lien déjà utilisé',
     texte:
-      "Ce lien d'invitation a déjà servi, ou une nouvelle invitation vous a été envoyée depuis. Si votre mot de passe est choisi, connectez-vous ; sinon, utilisez le lien de la dernière invitation reçue.",
+      "Ce lien d'invitation a déjà servi : votre mot de passe est choisi. Connectez-vous ; si vous ne vous en souvenez plus, utilisez « Mot de passe oublié ».",
     bouton: 'Se connecter',
     lien: ROUTES.login,
   },

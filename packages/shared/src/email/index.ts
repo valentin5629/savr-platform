@@ -50,6 +50,20 @@ function isBlockTruthy(v: string | undefined | null): boolean {
   return t !== '' && t !== 'false' && t !== '0' && t !== 'non';
 }
 
+/**
+ * Objet d'un email : texte brut, jamais du HTML. Les appelants échappent le texte
+ * saisi pour le corps (`escapeHtml`) et passent les mêmes valeurs à l'objet ; sans
+ * ce retour au texte, « Dupont & Fils » s'afficherait « Dupont &amp; Fils » dans
+ * l'objet. Défait exactement ce que fait `escapeHtml` (`&amp;` en dernier).
+ */
+export function objetEnTexte(sujet: string): string {
+  return sujet
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&');
+}
+
 export function interpolate(
   template: string,
   variables: Record<string, string>,
@@ -174,7 +188,7 @@ export async function sendEmail(
     return { statut: 'dropped' };
   }
 
-  const sujet = interpolate(tpl.sujet as string, variables);
+  const sujet = objetEnTexte(interpolate(tpl.sujet as string, variables));
   const html = interpolate(tpl.corps_html as string, variables);
 
   const outcome = await dispatchToResend({ to, subject: sujet, html });
@@ -304,7 +318,7 @@ export async function runEmailRetryWorker(
     if (!tpl || !tpl.actif) continue;
 
     const vars = (row.variables_jsonb ?? {}) as Record<string, string>;
-    const sujet = interpolate(tpl.sujet as string, vars);
+    const sujet = objetEnTexte(interpolate(tpl.sujet as string, vars));
     const html = interpolate(tpl.corps_html as string, vars);
 
     const outcome = await dispatchToResend({

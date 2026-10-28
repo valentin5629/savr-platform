@@ -6,6 +6,7 @@ import {
 } from '@/lib/api-auth.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import {
   writeError,
   serverError,
@@ -148,8 +149,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     'invitation_utilisateur',
     email,
     {
-      prenom: prenom ?? '',
-      organisation_nom: org?.nom ?? '',
+      // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
+      prenom: escapeHtml(prenom ?? ''),
+      organisation_nom: escapeHtml(org?.nom ?? ''),
       lien_invitation: lienActivation,
     },
     { entityType: 'organisation', entityId: auth.ctx.organisationId },

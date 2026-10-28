@@ -3,6 +3,8 @@
 import * as React from 'react';
 import type { GaugeItem } from '@/lib/dashboards/cockpit-derive';
 import { ChartCard } from './ChartCard';
+import { useEntreeGraphique } from '../entree-graphique';
+import { cn } from '@/lib/utils';
 import { fmtDec } from './fmt';
 import {
   STATUT,
@@ -246,6 +248,7 @@ export function BenchmarkRadar({
 }: BenchmarkRadarProps): React.ReactElement {
   // Survol : axe actif + position du curseur (px, relative au conteneur).
   const [hover, setHover] = React.useState<number | null>(null);
+  const entree = useEntreeGraphique<SVGSVGElement>('radar-benchmark');
   const [curseur, setCurseur] = React.useState<{
     x: number;
     y: number;
@@ -309,8 +312,9 @@ export function BenchmarkRadar({
       <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,12.5rem)]">
         <div className="relative mx-auto w-full max-w-[264px]">
           <svg
+            ref={entree.ref}
             viewBox={`0 0 ${VB_W} ${VB_H}`}
-            className="block h-auto w-full"
+            className={cn('block h-auto w-full', entree.classe)}
             // Les libellés agrandis peuvent déborder du viewBox dans la marge
             // de la carte plutôt que d'être rognés.
             overflow="visible"
@@ -347,56 +351,62 @@ export function BenchmarkRadar({
                 strokeDasharray="3 3"
               />
             )}
-            {ptsVous.every(Boolean) && (
-              <polygon
-                points={ptsVous.map((p) => p!.join(',')).join(' ')}
-                fill={VOUS}
-                fillOpacity={0.22}
-                stroke="none"
-              />
-            )}
-            <path
-              d={segments(ptsParc)}
-              fill="none"
-              stroke={PARC}
-              strokeWidth={1.5}
-              strokeDasharray="4 4"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            <path
-              d={segments(ptsVous)}
-              fill="none"
-              stroke={VOUS}
-              strokeWidth={2}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            {/* Repère parc de l'axe survolé (point visible seulement au survol). */}
-            {focus && hover != null && ptsParc[hover] && (
-              <circle
-                data-testid="benchmark-radar-point-parc"
-                cx={ptsParc[hover]![0]}
-                cy={ptsParc[hover]![1]}
-                r={4}
-                fill={PARC}
-                stroke={WHITE}
-                strokeWidth={1.5}
-              />
-            )}
-            {ptsVous.map((p, i) =>
-              p ? (
-                <circle
-                  key={i}
-                  cx={p[0]}
-                  cy={p[1]}
-                  r={hover === i ? 5 : 3}
+            {/* Entrée : les deux tracés s'ouvrent depuis le centre du radar. */}
+            <g
+              data-entree="grandit"
+              style={{ transformOrigin: `${CX}px ${CY}px` }}
+            >
+              {ptsVous.every(Boolean) && (
+                <polygon
+                  points={ptsVous.map((p) => p!.join(',')).join(' ')}
                   fill={VOUS}
-                  stroke={hover === i ? WHITE : 'none'}
+                  fillOpacity={0.22}
+                  stroke="none"
+                />
+              )}
+              <path
+                d={segments(ptsParc)}
+                fill="none"
+                stroke={PARC}
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              <path
+                d={segments(ptsVous)}
+                fill="none"
+                stroke={VOUS}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              {/* Repère parc de l'axe survolé (point visible seulement au survol). */}
+              {focus && hover != null && ptsParc[hover] && (
+                <circle
+                  data-testid="benchmark-radar-point-parc"
+                  cx={ptsParc[hover]![0]}
+                  cy={ptsParc[hover]![1]}
+                  r={4}
+                  fill={PARC}
+                  stroke={WHITE}
                   strokeWidth={1.5}
                 />
-              ) : null,
-            )}
+              )}
+              {ptsVous.map((p, i) =>
+                p ? (
+                  <circle
+                    key={i}
+                    cx={p[0]}
+                    cy={p[1]}
+                    r={hover === i ? 5 : 3}
+                    fill={VOUS}
+                    stroke={hover === i ? WHITE : 'none'}
+                    strokeWidth={1.5}
+                  />
+                ) : null,
+              )}
+            </g>
             {axes.map((a, i) => {
               const [lx, ly] = point(a.angle, LABEL_R);
               const cos = Math.cos(a.angle);

@@ -48,6 +48,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
+import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphique';
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
@@ -232,213 +233,220 @@ export default function AgenceDashboardPage() {
   );
 
   return (
-    <div className="space-y-6" data-testid="agence-dashboard">
-      <PageHeader
-        title="Dashboard"
-        actions={
-          <Button asChild>
-            <a href={ROUTES.programmer.nouveau}>Programmer une collecte</a>
-          </Button>
-        }
-      />
+    <EntreeGraphiques>
+      <div className="space-y-6" data-testid="agence-dashboard">
+        <PageHeader
+          title="Dashboard"
+          actions={
+            <Button asChild>
+              <a href={ROUTES.programmer.nouveau}>Programmer une collecte</a>
+            </Button>
+          }
+        />
 
-      <DashboardFilterBar
-        storageKey="agence-dashboard"
-        onChange={handleFilters}
-      />
-      <ToggleTypeCollecte value={tab} onChange={setTab} />
+        <DashboardFilterBar
+          storageKey="agence-dashboard"
+          onChange={handleFilters}
+        />
+        <ToggleTypeCollecte value={tab} onChange={setTab} />
 
-      {/* Compteur « X collectes correspondent » (BL-P3-02) — parité gestionnaire. */}
-      {!loading && filters && (
-        <Text data-testid="dashboard-collectes-count">
-          {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
-          {nbCollectes > 1 ? 'ent' : ''} à votre sélection
-        </Text>
-      )}
+        {/* Compteur « X collectes correspondent » (BL-P3-02) — parité gestionnaire. */}
+        {!loading && filters && (
+          <Text data-testid="dashboard-collectes-count">
+            {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
+            {nbCollectes > 1 ? 'ent' : ''} à votre sélection
+          </Text>
+        )}
 
-      {loading ? (
-        <LoadingState />
-      ) : nbCollectes === 0 ? (
-        <EmptyDashboardState />
-      ) : tab === 'zero_dechet' ? (
-        <>
-          {/* Bloc 1 — KPIs Cockpit (4 cartes ZD sans Marge, diff #7 ; non cliquables) */}
-          <div
-            className="grid grid-cols-2 gap-4 lg:grid-cols-4"
-            data-testid="agence-kpi-zd"
-          >
-            <StatCard
-              label="Nombre de collectes"
-              value={fmtInt(nbCollectes)}
-              dotColor={KPI_DOT.navy}
-              variationPct={variationPct(nbCollectes, prev.nbCollectes)}
-              sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
-            />
-            <StatCard
-              label="Tonnage collecté"
-              value={fmtMasse(tonnage).value}
-              unit={fmtMasse(tonnage).unit}
-              dotColor={KPI_DOT.navy2}
-              variationPct={variationPct(tonnage, prev.tonnage)}
-              sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
-            />
-            <StatCard
-              label="Taux de recyclage"
-              value={taux != null ? fmtDec(taux, 1) : '—'}
-              unit={taux != null ? '%' : undefined}
-              dotColor={KPI_DOT.green}
-              variationPct={variationPct(taux ?? 0, prev.taux ?? 0)}
-              sparkPoints={sparkFromRows(rows, (r) => r.taux_recyclage_pondere)}
-              sparkColor={KPI_DOT.green}
-            />
-            {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
+        {loading ? (
+          <LoadingState />
+        ) : nbCollectes === 0 ? (
+          <EmptyDashboardState />
+        ) : tab === 'zero_dechet' ? (
+          <>
+            {/* Bloc 1 — KPIs Cockpit (4 cartes ZD sans Marge, diff #7 ; non cliquables) */}
+            <div
+              className="grid grid-cols-2 gap-4 lg:grid-cols-4"
+              data-testid="agence-kpi-zd"
+            >
+              <StatCard
+                label="Nombre de collectes"
+                value={fmtInt(nbCollectes)}
+                dotColor={KPI_DOT.navy}
+                variationPct={variationPct(nbCollectes, prev.nbCollectes)}
+                sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
+              />
+              <StatCard
+                label="Tonnage collecté"
+                value={fmtMasse(tonnage).value}
+                unit={fmtMasse(tonnage).unit}
+                dotColor={KPI_DOT.navy2}
+                variationPct={variationPct(tonnage, prev.tonnage)}
+                sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
+              />
+              <StatCard
+                label="Taux de recyclage"
+                value={taux != null ? fmtDec(taux, 1) : '—'}
+                unit={taux != null ? '%' : undefined}
+                dotColor={KPI_DOT.green}
+                variationPct={variationPct(taux ?? 0, prev.taux ?? 0)}
+                sparkPoints={sparkFromRows(
+                  rows,
+                  (r) => r.taux_recyclage_pondere,
+                )}
+                sparkColor={KPI_DOT.green}
+              />
+              {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
                 mieux », §06.04 l.92). */}
-            <StatCard
-              label="kg/pax moyen"
-              value={kgPax != null ? fmtDec(kgPax, 2) : '—'}
-              unit={kgPax != null ? 'kg/pax' : undefined}
-              dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromRows(rows, kgParPaxDeLigne)}
-            />
-          </div>
+              <StatCard
+                label="kg/pax moyen"
+                value={kgPax != null ? fmtDec(kgPax, 2) : '—'}
+                unit={kgPax != null ? 'kg/pax' : undefined}
+                dotColor={KPI_DOT.navy3}
+                sparkPoints={sparkFromRows(rows, kgParPaxDeLigne)}
+              />
+            </div>
 
-          {/* Bloc 2 — Évolution mensuelle ZD */}
-          <div data-testid="bloc-2-agence">
-            <EvolutionZdChart series={zdSeries} granularite={granularite} />
-          </div>
+            {/* Bloc 2 — Évolution mensuelle ZD */}
+            <div data-testid="bloc-2-agence">
+              <EvolutionZdChart series={zdSeries} granularite={granularite} />
+            </div>
 
-          {/* Bloc 4 donut + Bloc 3 radar sur la même ligne, comme la fiche
+            {/* Bloc 4 donut + Bloc 3 radar sur la même ligne, comme la fiche
               collecte (Val 2026-10-28) ; filtres du repère en pastilles. */}
-          <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
-            <div data-testid="bloc-4-agence" className="h-full">
-              <TonnagesDonut
-                series={zdSeries}
-                disposition="ligne"
-                className="h-full p-5"
-              />
-            </div>
-            <div data-testid="bloc-3-agence" className="h-full">
-              <BenchmarkRadar
-                className="h-full p-5"
-                items={gaugeItems}
-                filtersSlot={
-                  <BenchmarkFilterBar
-                    disposition="pastilles"
-                    onChange={handleBenchmarkFilters}
-                    initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
-                    initialTailleCodes={filters?.taille_evenement_codes ?? []}
-                  />
-                }
-              />
-            </div>
-          </div>
-
-          {/* Bloc 6 top lieux (pas de Bloc 7 côté agence, diff #8) */}
-          <div data-testid="bloc-6-top-lieux">
-            <TopRankList
-              title="Top 5 lieux"
-              subtitle="Par tonnage collecté"
-              items={withBars(topLieuxItems)}
-              onItemClick={goToLieu}
-              showBar
-            />
-          </div>
-
-          {/* Bloc 8 — Export synthèse PDF (§06.11 réplique stricte §06.04, R20b-2) */}
-          <ExportSyntheseBloc filters={filters} tab={tab} />
-        </>
-      ) : (
-        <>
-          {/* Bloc 1 — KPIs Cockpit AG (4 cartes, non cliquables) */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard
-              label="Nombre de collectes"
-              value={fmtInt(nbCollectes)}
-              dotColor={KPI_DOT.navy}
-              variationPct={variationPct(nbCollectes, prev.nbCollectes)}
-              sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
-            />
-            <StatCard
-              label="Repas donnés"
-              value={fmtInt(repas)}
-              dotColor={KPI_DOT.accent}
-              variationPct={variationPct(repas, prev.repas)}
-              sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
-              sparkColor={KPI_DOT.accent}
-            />
-            <StatCard
-              label="Pax cumulés"
-              value={fmtInt(pax)}
-              dotColor={KPI_DOT.navy2}
-              variationPct={variationPct(pax, prev.pax)}
-              sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
-            />
-            <StatCard
-              label="Repas/pax moyen"
-              value={repasPax != null ? fmtDec(repasPax, 2) : '—'}
-              dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromRows(rows, repasParPaxDeLigne)}
-            />
-          </div>
-
-          {/* Bloc 2 — Évolution Anti-Gaspi */}
-          <div data-testid="bloc-2-agence">
-            <EvolutionAgChart series={agSeries} granularite={granularite} />
-          </div>
-
-          {/* Bloc 4 AG — Mon pack Anti-Gaspi (§06.11 l.44, hérite §06.04) :
-              jauge Cockpit + bouton « Demander un renouvellement » (BL-P1-AGENCE-01),
-              actif dès solde ≤ 10 % ou = 0 (§06.04 l.242). Endpoint partagé. */}
-          {pack?.pack_actif &&
-            pack.credits_initiaux != null &&
-            pack.credits_restants != null && (
-              <div data-testid="bloc-pack-ag" className="space-y-3">
-                <PackAgRing
-                  creditsInitiaux={pack.credits_initiaux}
-                  creditsRestants={pack.credits_restants}
+            <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+              <div data-testid="bloc-4-agence" className="h-full">
+                <TonnagesDonut
+                  series={zdSeries}
+                  disposition="ligne"
+                  className="h-full p-5"
                 />
-                <Button
-                  disabled={!seuilBas && !packEpuise}
-                  onClick={() =>
-                    fetch('/api/v1/traiteur/pack-ag/renouvellement', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({}),
-                    })
-                  }
-                >
-                  Demander un renouvellement
-                </Button>
               </div>
-            )}
-
-          {/* Bloc 3 AG — Top associations + Bloc 6 top lieux (pas de Bloc 7, diff #8) */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div data-testid="bloc-3ag-top-associations">
-              <TopRankList
-                title="Top associations bénéficiaires"
-                subtitle="Par repas reçus"
-                items={withBars(topAssociationsItems)}
-                avatarShape="round"
-                avatarTint="orange"
-                showBar
-              />
+              <div data-testid="bloc-3-agence" className="h-full">
+                <BenchmarkRadar
+                  className="h-full p-5"
+                  items={gaugeItems}
+                  filtersSlot={
+                    <BenchmarkFilterBar
+                      disposition="pastilles"
+                      onChange={handleBenchmarkFilters}
+                      initialTypeEvenementIds={
+                        filters?.type_evenement_ids ?? []
+                      }
+                      initialTailleCodes={filters?.taille_evenement_codes ?? []}
+                    />
+                  }
+                />
+              </div>
             </div>
+
+            {/* Bloc 6 top lieux (pas de Bloc 7 côté agence, diff #8) */}
             <div data-testid="bloc-6-top-lieux">
               <TopRankList
                 title="Top 5 lieux"
-                subtitle="Par repas donnés"
+                subtitle="Par tonnage collecté"
                 items={withBars(topLieuxItems)}
                 onItemClick={goToLieu}
                 showBar
               />
             </div>
-          </div>
 
-          {/* Bloc 8 — Export synthèse PDF */}
-          <ExportSyntheseBloc filters={filters} tab={tab} />
-        </>
-      )}
-    </div>
+            {/* Bloc 8 — Export synthèse PDF (§06.11 réplique stricte §06.04, R20b-2) */}
+            <ExportSyntheseBloc filters={filters} tab={tab} />
+          </>
+        ) : (
+          <>
+            {/* Bloc 1 — KPIs Cockpit AG (4 cartes, non cliquables) */}
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <StatCard
+                label="Nombre de collectes"
+                value={fmtInt(nbCollectes)}
+                dotColor={KPI_DOT.navy}
+                variationPct={variationPct(nbCollectes, prev.nbCollectes)}
+                sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
+              />
+              <StatCard
+                label="Repas donnés"
+                value={fmtInt(repas)}
+                dotColor={KPI_DOT.accent}
+                variationPct={variationPct(repas, prev.repas)}
+                sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
+                sparkColor={KPI_DOT.accent}
+              />
+              <StatCard
+                label="Pax cumulés"
+                value={fmtInt(pax)}
+                dotColor={KPI_DOT.navy2}
+                variationPct={variationPct(pax, prev.pax)}
+                sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
+              />
+              <StatCard
+                label="Repas/pax moyen"
+                value={repasPax != null ? fmtDec(repasPax, 2) : '—'}
+                dotColor={KPI_DOT.navy3}
+                sparkPoints={sparkFromRows(rows, repasParPaxDeLigne)}
+              />
+            </div>
+
+            {/* Bloc 2 — Évolution Anti-Gaspi */}
+            <div data-testid="bloc-2-agence">
+              <EvolutionAgChart series={agSeries} granularite={granularite} />
+            </div>
+
+            {/* Bloc 4 AG — Mon pack Anti-Gaspi (§06.11 l.44, hérite §06.04) :
+              jauge Cockpit + bouton « Demander un renouvellement » (BL-P1-AGENCE-01),
+              actif dès solde ≤ 10 % ou = 0 (§06.04 l.242). Endpoint partagé. */}
+            {pack?.pack_actif &&
+              pack.credits_initiaux != null &&
+              pack.credits_restants != null && (
+                <div data-testid="bloc-pack-ag" className="space-y-3">
+                  <PackAgRing
+                    creditsInitiaux={pack.credits_initiaux}
+                    creditsRestants={pack.credits_restants}
+                  />
+                  <Button
+                    disabled={!seuilBas && !packEpuise}
+                    onClick={() =>
+                      fetch('/api/v1/traiteur/pack-ag/renouvellement', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({}),
+                      })
+                    }
+                  >
+                    Demander un renouvellement
+                  </Button>
+                </div>
+              )}
+
+            {/* Bloc 3 AG — Top associations + Bloc 6 top lieux (pas de Bloc 7, diff #8) */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div data-testid="bloc-3ag-top-associations">
+                <TopRankList
+                  title="Top associations bénéficiaires"
+                  subtitle="Par repas reçus"
+                  items={withBars(topAssociationsItems)}
+                  avatarShape="round"
+                  avatarTint="orange"
+                  showBar
+                />
+              </div>
+              <div data-testid="bloc-6-top-lieux">
+                <TopRankList
+                  title="Top 5 lieux"
+                  subtitle="Par repas donnés"
+                  items={withBars(topLieuxItems)}
+                  onItemClick={goToLieu}
+                  showBar
+                />
+              </div>
+            </div>
+
+            {/* Bloc 8 — Export synthèse PDF */}
+            <ExportSyntheseBloc filters={filters} tab={tab} />
+          </>
+        )}
+      </div>
+    </EntreeGraphiques>
   );
 }

@@ -5,8 +5,16 @@ import { cn } from '@/lib/utils';
 import { FLUX_ZD } from '@/components/dashboards/flux';
 import type { FluxSeriePoint } from '@/components/dashboards/useEvolutionBlocs';
 import { ChartCard } from './ChartCard';
+import { useEntreeGraphique } from '../entree-graphique';
 import { fmtMasse } from './fmt';
-import { INK, TEXT_FAINT, TEXT_MUTED, GRID, SURFACE_HOVER } from './palette';
+import {
+  INK,
+  TEXT_FAINT,
+  TEXT_MUTED,
+  GRID,
+  SURFACE_HOVER,
+  WHITE,
+} from './palette';
 import { fmtPct } from '@/lib/format';
 
 // TonnagesDonut (Cockpit R24) — donut de répartition des 5 flux ZD, total au
@@ -33,6 +41,9 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
   ({ series, disposition = 'colonne', className }, ref) => {
     const enLigne = disposition === 'ligne';
     const [hover, setHover] = React.useState<number | null>(null);
+    const entree = useEntreeGraphique<SVGSVGElement>('donut-tonnages');
+    // useId rend des « : » : retirés pour une référence url(#…) sûre.
+    const masqueId = `entree-donut-${React.useId().replace(/[^\w-]/g, '')}`;
     const perFlux = FLUX_ZD.map((f) => ({
       ...f,
       kg: series.reduce(
@@ -81,6 +92,8 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
         >
           <div className={enLigne ? 'shrink-0' : 'my-3 flex justify-center'}>
             <svg
+              ref={entree.ref}
+              className={entree.classe}
               viewBox="0 0 200 200"
               width={enLigne ? 176 : 196}
               height={enLigne ? 176 : 196}
@@ -89,37 +102,59 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
               aria-label={`Répartition des tonnages, total ${masse.value} ${masse.unit}`}
               onMouseLeave={() => setHover(null)}
             >
-              {total > 0 ? (
-                arcs.map((a, i) => {
-                  const f = perFlux[i]!;
-                  const m = fmtMasse(f.kg);
-                  const dim = hover != null && hover !== i;
-                  return (
+              {/* Entrée : un masque se remplit dans le sens horaire et révèle les
+                  arcs (le masque disparaît une fois l'animation finie). */}
+              {total > 0 && entree.actif && (
+                <defs>
+                  <mask id={masqueId}>
                     <circle
-                      key={f.code}
+                      data-entree="tourne"
                       cx={100}
                       cy={100}
                       r={R}
                       fill="none"
-                      stroke={a.color}
-                      strokeOpacity={0.75}
-                      strokeWidth={hover === i ? 32 : 28}
-                      strokeDasharray={a.dasharray}
-                      strokeDashoffset={a.dashoffset}
+                      stroke={WHITE}
+                      strokeWidth={40}
+                      pathLength={1}
+                      strokeDasharray="1 1"
                       transform="rotate(-90 100 100)"
-                      opacity={dim ? 0.35 : 1}
-                      style={{
-                        cursor: 'pointer',
-                        transition:
-                          'opacity var(--transition-duration-savr-fast), stroke-width var(--transition-duration-savr-fast)',
-                      }}
-                      onMouseEnter={() => setHover(i)}
-                    >
-                      {/* Tooltip natif au survol : kg + % (CDC §06.04 l.164). */}
-                      <title>{`${f.label} : ${m.value} ${m.unit} (${fmtPct(a.pct * 100, 0)})`}</title>
-                    </circle>
-                  );
-                })
+                    />
+                  </mask>
+                </defs>
+              )}
+              {total > 0 ? (
+                <g mask={entree.actif ? `url(#${masqueId})` : undefined}>
+                  {arcs.map((a, i) => {
+                    const f = perFlux[i]!;
+                    const m = fmtMasse(f.kg);
+                    const dim = hover != null && hover !== i;
+                    return (
+                      <circle
+                        key={f.code}
+                        cx={100}
+                        cy={100}
+                        r={R}
+                        fill="none"
+                        stroke={a.color}
+                        strokeOpacity={0.75}
+                        strokeWidth={hover === i ? 32 : 28}
+                        strokeDasharray={a.dasharray}
+                        strokeDashoffset={a.dashoffset}
+                        transform="rotate(-90 100 100)"
+                        opacity={dim ? 0.35 : 1}
+                        style={{
+                          cursor: 'pointer',
+                          transition:
+                            'opacity var(--transition-duration-savr-fast), stroke-width var(--transition-duration-savr-fast)',
+                        }}
+                        onMouseEnter={() => setHover(i)}
+                      >
+                        {/* Tooltip natif au survol : kg + % (CDC §06.04 l.164). */}
+                        <title>{`${f.label} : ${m.value} ${m.unit} (${fmtPct(a.pct * 100, 0)})`}</title>
+                      </circle>
+                    );
+                  })}
+                </g>
               ) : (
                 <circle
                   cx={100}

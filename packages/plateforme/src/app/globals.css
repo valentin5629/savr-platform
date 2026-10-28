@@ -132,9 +132,12 @@
   --transition-duration-savr-fast: 120ms;
   --transition-duration-savr-base: 200ms;
   --transition-duration-savr-slow: 320ms;
+  /* Construction d'un graphique à l'ouverture d'un dashboard (Val 2026-10-28). */
+  --transition-duration-savr-chart: 600ms;
   --motion-savr-fast: var(--transition-duration-savr-fast) ease-out;
   --motion-savr-base: var(--transition-duration-savr-base) ease-out;
   --motion-savr-slow: var(--transition-duration-savr-slow) ease-out;
+  --motion-savr-chart: var(--transition-duration-savr-chart) ease-out;
 
   /* ── Conteneurs ─────────────────────────────────────────────────────────── */
   --container-savr-content: 1200px;
@@ -200,6 +203,86 @@ h3 {
   *:focus-visible {
     outline: 2px solid var(--color-savr-primary-500);
     outline-offset: 2px;
+  }
+}
+
+/* ─── Entrée des graphiques des dashboards (Val 2026-10-28) ─────────────────
+   Classe posée par useEntreeGraphique (components/dashboards/charts/
+   entree-graphique.tsx) ; chaque élément animé porte data-entree. En attente
+   (graphique pas encore à l'écran), l'animation est figée sur sa première
+   image : le graphique reste vide jusqu'à ce qu'on le voie. */
+@keyframes savr-entree-monte {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes savr-entree-deploie {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes savr-entree-grandit {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+/* Fin explicite : `none` ne s'interpole pas avec inset(), la courbe
+   apparaîtrait d'un coup à mi-parcours. */
+@keyframes savr-entree-balaye {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes savr-entree-tourne {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.savr-entree [data-entree] {
+  animation-duration: var(--transition-duration-savr-chart);
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+  animation-delay: var(--entree-delai, 0ms);
+}
+.savr-entree--attente [data-entree] {
+  animation-play-state: paused;
+}
+/* Barres : poussent depuis leur pied. */
+.savr-entree [data-entree='monte'] {
+  animation-name: savr-entree-monte;
+  transform-box: fill-box;
+  transform-origin: bottom;
+}
+/* Jauges horizontales : s'allongent depuis la gauche. */
+.savr-entree [data-entree='deploie'] {
+  animation-name: savr-entree-deploie;
+  transform-origin: left;
+}
+/* Radar : s'ouvre depuis son centre (transform-origin posé par le graphique). */
+.savr-entree [data-entree='grandit'] {
+  animation-name: savr-entree-grandit;
+}
+/* Courbes : se tracent de gauche à droite, après le départ des barres. */
+.savr-entree [data-entree='balaye'] {
+  animation-name: savr-entree-balaye;
+  animation-delay: 120ms;
+}
+/* Donut : masque qui se remplit dans le sens des aiguilles d'une montre. */
+.savr-entree [data-entree='tourne'] {
+  animation-name: savr-entree-tourne;
+}
+@media (prefers-reduced-motion: reduce) {
+  .savr-entree [data-entree] {
+    animation: none !important;
+  }
+}
+@media print {
+  .savr-entree [data-entree] {
+    animation: none !important;
   }
 }
 

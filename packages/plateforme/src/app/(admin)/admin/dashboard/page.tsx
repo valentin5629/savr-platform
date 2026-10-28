@@ -23,6 +23,7 @@ import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { fmtEuro } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
+import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphique';
 
 interface KpiData {
   non_transmises_zd: number;
@@ -180,183 +181,185 @@ export default function DashboardAdminPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        <SquaresFourIcon className="h-6 w-6 text-savr-primary-700" />
-        <Heading level={1} weight="extrabold" tight>
-          Dashboard Admin
-        </Heading>
-      </div>
+    <EntreeGraphiques>
+      <div className="space-y-8">
+        <div className="flex items-center gap-3">
+          <SquaresFourIcon className="h-6 w-6 text-savr-primary-700" />
+          <Heading level={1} weight="extrabold" tight>
+            Dashboard Admin
+          </Heading>
+        </div>
 
-      {/* Bloc 1 — KPIs opérationnels (rangée cockpit R24) */}
-      <section>
-        <Heading level={2} tone="muted" className="mb-4">
-          Suivi opérationnel
-        </Heading>
-        {loadingKpi ? (
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-36 w-full rounded-savr-lg" />
-            ))}
-          </div>
-        ) : kpi ? (
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {/* Chaque carte est un lien vers la liste Collectes filtrée sur le
+        {/* Bloc 1 — KPIs opérationnels (rangée cockpit R24) */}
+        <section>
+          <Heading level={2} tone="muted" className="mb-4">
+            Suivi opérationnel
+          </Heading>
+          {loadingKpi ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-36 w-full rounded-savr-lg" />
+              ))}
+            </div>
+          ) : kpi ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {/* Chaque carte est un lien vers la liste Collectes filtrée sur le
                 MÊME prédicat que le compteur (miroir exact, §11 §1.1) — chip
                 partagé lib/collectes-chips. Carte « Dirty TMS » retirée
                 (décision Val 2026-10-28) : le filtre « Modifiées sans renvoi
                 TMS » reste dans la liste Collectes. */}
-            <StatCard
-              reserveTwoLineLabel
-              label="Non transmises ZD"
-              value={fmtInt(kpi.non_transmises_zd)}
-              href={`${ROUTES.admin.collectes}?chip=non_transmises_zd`}
-              dotColor={
-                kpi.non_transmises_zd > 0 ? OPS_DOT.warn : OPS_DOT.success
-              }
-              footer={badgeAlerte(
-                kpi.non_transmises_zd,
-                'warning',
-                'À traiter',
-              )}
-            />
-            <StatCard
-              reserveTwoLineLabel
-              label="Non transmises AG"
-              value={fmtInt(kpi.non_transmises_ag)}
-              href={`${ROUTES.admin.collectes}?chip=non_transmises_ag`}
-              dotColor={
-                kpi.non_transmises_ag > 0 ? OPS_DOT.warn : OPS_DOT.success
-              }
-              footer={badgeAlerte(
-                kpi.non_transmises_ag,
-                'warning',
-                'À traiter',
-              )}
-            />
-            <StatCard
-              reserveTwoLineLabel
-              label="Attente prestataire"
-              value={fmtInt(kpi.attente_prestataire)}
-              href={`${ROUTES.admin.collectes}?chip=attente_prestataire`}
-              dotColor={
-                kpi.attente_prestataire > 0 ? OPS_DOT.info : OPS_DOT.neutral
-              }
-              footer={badgeVeille(kpi.attente_prestataire, 'En cours')}
-            />
-            {/* Fusion ZD 48h + AG 48h (revue E2E Val 2026-07-15) : collectes ZD/AG
+              <StatCard
+                reserveTwoLineLabel
+                label="Non transmises ZD"
+                value={fmtInt(kpi.non_transmises_zd)}
+                href={`${ROUTES.admin.collectes}?chip=non_transmises_zd`}
+                dotColor={
+                  kpi.non_transmises_zd > 0 ? OPS_DOT.warn : OPS_DOT.success
+                }
+                footer={badgeAlerte(
+                  kpi.non_transmises_zd,
+                  'warning',
+                  'À traiter',
+                )}
+              />
+              <StatCard
+                reserveTwoLineLabel
+                label="Non transmises AG"
+                value={fmtInt(kpi.non_transmises_ag)}
+                href={`${ROUTES.admin.collectes}?chip=non_transmises_ag`}
+                dotColor={
+                  kpi.non_transmises_ag > 0 ? OPS_DOT.warn : OPS_DOT.success
+                }
+                footer={badgeAlerte(
+                  kpi.non_transmises_ag,
+                  'warning',
+                  'À traiter',
+                )}
+              />
+              <StatCard
+                reserveTwoLineLabel
+                label="Attente prestataire"
+                value={fmtInt(kpi.attente_prestataire)}
+                href={`${ROUTES.admin.collectes}?chip=attente_prestataire`}
+                dotColor={
+                  kpi.attente_prestataire > 0 ? OPS_DOT.info : OPS_DOT.neutral
+                }
+                footer={badgeVeille(kpi.attente_prestataire, 'En cours')}
+              />
+              {/* Fusion ZD 48h + AG 48h (revue E2E Val 2026-07-15) : collectes ZD/AG
                 dans 48 h non validées par le prestataire (inclut les non transmises). */}
-            <StatCard
-              reserveTwoLineLabel
-              label="Collecte <48h non validée"
-              value={fmtInt(kpi.collectes_48h_non_validees)}
-              href={`${ROUTES.admin.collectes}?chip=collectes_48h_non_validees`}
-              dotColor={
-                kpi.collectes_48h_non_validees > 0
-                  ? OPS_DOT.warn
-                  : OPS_DOT.success
-              }
-              footer={badgeAlerte(
-                kpi.collectes_48h_non_validees,
-                'warning',
-                'À valider',
-              )}
-            />
-          </div>
-        ) : null}
-      </section>
+              <StatCard
+                reserveTwoLineLabel
+                label="Collecte <48h non validée"
+                value={fmtInt(kpi.collectes_48h_non_validees)}
+                href={`${ROUTES.admin.collectes}?chip=collectes_48h_non_validees`}
+                dotColor={
+                  kpi.collectes_48h_non_validees > 0
+                    ? OPS_DOT.warn
+                    : OPS_DOT.success
+                }
+                footer={badgeAlerte(
+                  kpi.collectes_48h_non_validees,
+                  'warning',
+                  'À valider',
+                )}
+              />
+            </div>
+          ) : null}
+        </section>
 
-      {/* Bloc 2 — Revenus (histogramme + tableau par organisation, filtre commun) */}
-      <section className="space-y-4">
-        <Heading level={2} tone="muted">
-          Revenus
-        </Heading>
+        {/* Bloc 2 — Revenus (histogramme + tableau par organisation, filtre commun) */}
+        <section className="space-y-4">
+          <Heading level={2} tone="muted">
+            Revenus
+          </Heading>
 
-        {/* Filtre de période COMMUN — pilote le graphe ET le tableau (revue E2E Val
+          {/* Filtre de période COMMUN — pilote le graphe ET le tableau (revue E2E Val
             2026-07-18). Un seul filtre « Période » en ligne (décision Val
             2026-09-30) dans la barre standard des dashboards (`FilterBar
             surface="page"`, R-UI-4b D5 façon C : pas de liste à compter →
             `count={null}`) ; « Réinitialiser les filtres » (retour au défaut 12
             mois) seulement si la période en diffère. */}
-        <FilterBar
-          surface="page"
-          data-testid="revenus-orgs-controls"
-          count={null}
-          actif={periodePosee(periode)}
-          onReset={() => {
-            setPeriode(defaultPeriode());
-            setPage(1);
-          }}
-          resetTestId="revenus-reinitialiser"
-        >
-          <DateRangePicker
-            titre="Période"
-            id="revenus-periode"
-            data-testid="revenus-periode"
-            value={periode}
-            onChange={setPeriodeManuelle}
-          />
-        </FilterBar>
+          <FilterBar
+            surface="page"
+            data-testid="revenus-orgs-controls"
+            count={null}
+            actif={periodePosee(periode)}
+            onReset={() => {
+              setPeriode(defaultPeriode());
+              setPage(1);
+            }}
+            resetTestId="revenus-reinitialiser"
+          >
+            <DateRangePicker
+              titre="Période"
+              id="revenus-periode"
+              data-testid="revenus-periode"
+              value={periode}
+              onChange={setPeriodeManuelle}
+            />
+          </FilterBar>
 
-        {/* Graphe (50 %) + tableau (50 %) sur la même ligne ≥ lg (revue E2E Val
+          {/* Graphe (50 %) + tableau (50 %) sur la même ligne ≥ lg (revue E2E Val
             2026-07-18) — empilés en dessous. `items-start` : chaque colonne garde
             sa hauteur propre, pas d'étirement du graphe sur la hauteur du tableau. */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
-          {/* Histogramme — MÊME fenêtre de période que le tableau (filtre commun). */}
-          <ChartCard>
-            <RevenusHistogramme from={periode.from} to={periode.to} />
-          </ChartCard>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+            {/* Histogramme — MÊME fenêtre de période que le tableau (filtre commun). */}
+            <ChartCard>
+              <RevenusHistogramme from={periode.from} to={periode.to} />
+            </ChartCard>
 
-          {/* Colonne « Revenus par organisation » — titre DANS la carte, comme
+            {/* Colonne « Revenus par organisation » — titre DANS la carte, comme
               l'histogramme (ChartCard) : les deux cartes et leurs titres partent
               de la même ligne (revue E2E Val 2026-09-28). */}
-          <div>
-            <Card variant="elevated" className="overflow-hidden">
-              {/* Titre du bloc tableau (revue E2E Val 2026-07-15). */}
-              <Heading
-                level={3}
-                weight="extrabold"
-                className="px-6 pb-4 pt-6 tracking-[-0.01em]"
-              >
-                Revenu par organisation
-              </Heading>
-              <DataTable
-                columnsToggle={false}
-                columns={revenusColumns}
-                data={revenus}
-                keyExtractor={(row) => row.organisation_id}
-                loading={loadingRevenus}
-                erreur={erreurRevenus}
-                onRecharger={rechargerRevenus}
-                empty={
-                  <EmptyState
-                    size="inline"
-                    title="Aucune donnée sur la période."
-                    className="p-6"
-                  />
-                }
-                toolbar={
-                  !loadingRevenus && total > 0 ? (
-                    <Text as="span" className="px-6">
-                      {total} organisation{total > 1 ? 's' : ''}
-                    </Text>
-                  ) : null
-                }
-                onSort={handleSort}
-                sortKey={sortKey}
-                sortDirection={sortDir}
-                className="px-6 pb-6"
-              />
-              <ListFooter
-                total={total}
-                page={page}
-                onPageChange={setPage}
-                className="border-t border-savr-neutral-100 px-3 pb-3"
-              />
-            </Card>
+            <div>
+              <Card variant="elevated" className="overflow-hidden">
+                {/* Titre du bloc tableau (revue E2E Val 2026-07-15). */}
+                <Heading
+                  level={3}
+                  weight="extrabold"
+                  className="px-6 pb-4 pt-6 tracking-[-0.01em]"
+                >
+                  Revenu par organisation
+                </Heading>
+                <DataTable
+                  columnsToggle={false}
+                  columns={revenusColumns}
+                  data={revenus}
+                  keyExtractor={(row) => row.organisation_id}
+                  loading={loadingRevenus}
+                  erreur={erreurRevenus}
+                  onRecharger={rechargerRevenus}
+                  empty={
+                    <EmptyState
+                      size="inline"
+                      title="Aucune donnée sur la période."
+                      className="p-6"
+                    />
+                  }
+                  toolbar={
+                    !loadingRevenus && total > 0 ? (
+                      <Text as="span" className="px-6">
+                        {total} organisation{total > 1 ? 's' : ''}
+                      </Text>
+                    ) : null
+                  }
+                  onSort={handleSort}
+                  sortKey={sortKey}
+                  sortDirection={sortDir}
+                  className="px-6 pb-6"
+                />
+                <ListFooter
+                  total={total}
+                  page={page}
+                  onPageChange={setPage}
+                  className="border-t border-savr-neutral-100 px-3 pb-3"
+                />
+              </Card>
+            </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </EntreeGraphiques>
   );
 }

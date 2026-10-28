@@ -90,6 +90,7 @@ import {
 } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 import { friseStatutEvenement } from '@/lib/statut-collecte-labels';
+import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphique';
 
 // Fiche événement du gestionnaire de lieux, en pop-up sur la liste Événements,
 // au grand format de la variante B (décision Val 2026-10-27 : grand en-tête,
@@ -938,8 +939,10 @@ export function FicheEvenementModal({
         : `${libelleDateHeure(b.premiere_collecte, null)} → ${libelleDateHeure(b.derniere_collecte, null)}`
       : null;
 
+  // Graphiques du bilan construits à l'ouverture de la fiche (Val 2026-10-28,
+  // comme les dashboards) ; la fiche collecte ouverte par-dessus a les siens.
   return (
-    <>
+    <EntreeGraphiques>
       <FicheModal
         open
         title={evt?.nom_evenement || 'Fiche événement'}
@@ -1223,6 +1226,6 @@ export function FicheEvenementModal({
         initialOnglet={fiche?.onglet}
         onClose={fermerCollecte}
       />
-    </>
+    </EntreeGraphiques>
   );
 }

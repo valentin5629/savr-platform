@@ -41,6 +41,8 @@ const PUBLIC_PREFIXES = [
   ROUTES.signup,
   ROUTES.verifyEmail,
   ROUTES.resetPassword,
+  // Lien de l'email d'invitation : la personne n'a pas encore de mot de passe.
+  ROUTES.invitation,
   // Texte des CGU : accepté à l'inscription, donc lisible AVANT d'avoir un compte.
   ROUTES.cgu,
   ROUTES.interdit,

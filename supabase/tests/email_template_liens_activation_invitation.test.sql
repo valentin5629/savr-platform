@@ -7,7 +7,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(6);
+SELECT plan(7);
 
 -- strpos, pas LIKE : « _ » vaut n'importe quel caractère dans un motif LIKE.
 SELECT ok(
@@ -47,6 +47,13 @@ SELECT ok(
    FROM plateforme.email_templates
    WHERE code IN ('verification_email', 'invitation_utilisateur')),
   'les deux : prénom facultatif et signature « L''équipe Savr »'
+);
+
+-- 20261028210000 : lien Savr valable 7 jours (CDC §06.02 §17).
+SELECT ok(
+  (SELECT strpos(corps_html, 'Ce lien vous est personnel et reste valable 7 jours.') > 0
+   FROM plateforme.email_templates WHERE code = 'invitation_utilisateur'),
+  'invitation_utilisateur : durée de 7 jours annoncée'
 );
 
 SELECT * FROM finish();

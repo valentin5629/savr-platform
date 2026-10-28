@@ -4,7 +4,7 @@ import { sendEmail } from '@savr/shared/src/email/index.js';
 import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { requireUser, type ClientRole } from '@/lib/api-auth.js';
 import { writeError, authAccountError } from '@/lib/api-helpers.js';
-import { urlApplication } from '@/lib/url-application.js';
+import { preparerLienInvitation } from '@/lib/auth/lien-invitation.js';
 
 // Invitation de collaborateur = Manager only (§06.04 §6). Le commercial n'a pas
 // la gestion des utilisateurs.
@@ -96,16 +96,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return writeError(userError, 'traiteur.equipe.invitation.create');
   }
 
-  // Lien d'activation (validité gérée par Supabase Auth) → écran set password.
-  const { data: linkData } = await admin.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: {
-      redirectTo: urlApplication(req, '/api/auth/reset-password/confirm'),
-    },
-  });
-  const lienInvitation =
-    linkData?.properties?.action_link ?? urlApplication(req, '/auth/login');
+  // Lien Savr valable 7 jours, à usage unique (CDC §06.02 §17) → page /invitation.
+  const lienInvitation = await preparerLienInvitation(admin, req, userId);
 
   // Email d'invitation brandé (template catalogue §06.02 n°17). La variable
   // `lien_invitation` est REQUISE (email_templates.variables) : sans elle, sendEmail

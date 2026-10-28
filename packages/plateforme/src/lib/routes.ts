@@ -114,6 +114,8 @@ export const ROUTES = {
   signup: '/signup',
   verifyEmail: '/verify-email',
   resetPassword: '/reset-password',
+  // Choix du mot de passe depuis l'email d'invitation (lien Savr valable 7 jours).
+  invitation: '/invitation',
   cgu: '/cgu',
   interdit: '/403',
 

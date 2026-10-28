@@ -10,6 +10,10 @@ import { NextRequest } from 'next/server';
 const mockAdminCreateUser = vi.fn();
 const mockAdminDeleteUser = vi.fn();
 const mockAdminGenerateLink = vi.fn();
+const mockAdminUpdateUserById = vi.fn().mockResolvedValue({
+  data: {},
+  error: null,
+});
 
 const mockSupabaseChain = {
   from: vi.fn().mockReturnThis(),
@@ -27,10 +31,13 @@ const mockSupabaseChain = {
       createUser: mockAdminCreateUser,
       deleteUser: mockAdminDeleteUser,
       generateLink: mockAdminGenerateLink,
-      updateUserById: vi.fn().mockResolvedValue({ data: {}, error: null }),
+      updateUserById: mockAdminUpdateUserById,
     },
   },
 };
+
+// Clé de signature du jeton d'invitation (dérivée de la clé de service).
+process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'cle-de-service-de-test';
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => mockSupabaseChain,
@@ -455,23 +462,27 @@ describe('M0.4 — email invitation admin (BL-P1-ONB-04)', () => {
       expect.objectContaining({
         prenom: 'Marie',
         organisation_nom: 'Traiteur Martin SAS',
-        lien_invitation: 'https://app.gosavr.io/auth/new-password?token=zzz',
+        lien_invitation: expect.stringContaining('/invitation?jeton='),
       }),
     );
-    // `redirectTo` doit viser la route d'échange PKCE (`/api/auth/reset-password
-    // /confirm`), la seule qui pose la session de récupération avant le
-    // formulaire `/reset-password/confirm`. `/auth/new-password` n'existe pas
-    // (404) — régression mesurée 2026-09-28.
-    expect(mockAdminGenerateLink).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'recovery',
-        options: expect.objectContaining({
-          redirectTo: expect.stringContaining(
-            '/api/auth/reset-password/confirm',
-          ),
-        }),
-      }),
+    // Lien Savr valable 7 jours (plus de lien Supabase de récupération) : le
+    // jeton est signé et porte le nonce posé dans l'app_metadata du compte.
+    expect(mockAdminGenerateLink).not.toHaveBeenCalled();
+    const { lireJetonInvitation } =
+      await import('@/lib/auth/jeton-invitation.js');
+    const lien = String(
+      (vi.mocked(sendEmail).mock.calls.at(-1)?.[2] as Record<string, string>)
+        .lien_invitation,
     );
+    const lecture = lireJetonInvitation(
+      decodeURIComponent(lien.split('jeton=')[1] ?? ''),
+    );
+    expect(lecture.ok).toBe(true);
+    if (lecture.ok) {
+      expect(mockAdminUpdateUserById).toHaveBeenCalledWith(lecture.userId, {
+        app_metadata: { invitation_nonce: lecture.nonce },
+      });
+    }
   });
 });
 

@@ -10,8 +10,8 @@ import {
   withApiTrace,
   authAccountError,
 } from '@/lib/api-helpers.js';
-import { urlApplication } from '@/lib/url-application.js';
 import { listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { preparerLienInvitation } from '@/lib/auth/lien-invitation.js';
 
 const ROLES_VALIDES = [
   'admin_savr',
@@ -139,17 +139,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     return writeError(userError, 'admin.users.create');
   }
 
-  // Générer lien de réinitialisation de mot de passe et envoyer email bienvenue
-  const { data: linkData } = await supabase.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: {
-      redirectTo: urlApplication(req, '/api/auth/reset-password/confirm'),
-    },
-  });
-
-  const resetUrl =
-    linkData?.properties?.action_link ?? urlApplication(req, '/auth/login');
+  // Lien Savr valable 7 jours, à usage unique (CDC §06.02 §17) → page /invitation.
+  const resetUrl = await preparerLienInvitation(supabase, req, userId);
 
   // Nom de l'organisation de rattachement (variable requise du template).
   const { data: org } = await supabase

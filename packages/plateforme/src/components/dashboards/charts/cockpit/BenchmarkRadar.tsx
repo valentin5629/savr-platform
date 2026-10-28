@@ -35,10 +35,9 @@ import { fmtPct } from '@/lib/format';
 // point absent (segments adjacents non tracés : pas de fausse continuité).
 interface BenchmarkRadarProps {
   items: GaugeItem[];
-  /** Filtres du repère parc, imbriqués DANS la carte (au-dessus du radar) —
-   *  filtres + graphe = un seul bloc (retour Val R24b). */
+  /** Filtres du repère, empilés à droite du radar dans la même carte. */
   filtersSlot?: React.ReactNode;
-  /** Titre de la carte (défaut : libellé des dashboards). */
+  /** Titre de la carte (défaut : titre des tableaux de bord). */
   title?: string;
   /** Sous-titre de la carte (défaut : libellé des dashboards). */
   subtitle?: string;
@@ -49,16 +48,8 @@ interface BenchmarkRadarProps {
   referenceLabel?: string;
   /** Libellé court de la référence (infobulle, liste ; défaut « Parc »). */
   referenceCourt?: string;
-  /**
-   * Le style du radar est le même partout. `standard` (dashboards, fiche
-   * événement) : filtres au-dessus, liste des flux et badges d'écart à droite.
-   * `compacte` (fiche collecte, variante B Val 2026-10-27) : filtres empilés à
-   * droite, la liste des flux reste lisible par les lecteurs d'écran (statut
-   * jamais porté par la seule couleur) et les valeurs restent au survol.
-   */
-  disposition?: 'standard' | 'compacte';
-  /** Action sous la légende de la disposition compacte (ex. intégrer la
-   *  comparaison au rapport de la fiche collecte). */
+  /** Action sous les filtres (ex. intégrer la comparaison au rapport de la
+   *  fiche collecte). */
   actionSlot?: React.ReactNode;
   className?: string;
 }
@@ -302,16 +293,14 @@ function LigneFlux({
 export function BenchmarkRadar({
   items,
   filtersSlot,
-  title = 'Intensité par flux · kg/pax vs benchmark parc',
-  subtitle = "Indice : moyenne du parc Savr (anonymisée) = 100. À l'intérieur du repère, vous produisez moins que le parc.",
+  title = 'Vos tonnages face aux événements comparables',
+  subtitle = 'Déchets par convive (kg/pax) face à la moyenne Savr sur 24 mois.',
   serieLabel = 'Vos collectes',
   referenceLabel = 'Moyenne des événements comparables',
   referenceCourt = 'Parc',
-  disposition = 'standard',
   actionSlot,
   className,
 }: BenchmarkRadarProps): React.ReactElement {
-  const compacte = disposition === 'compacte';
   // Survol : axe actif + position du curseur (px, relative au conteneur) quand
   // le survol vient du GRAPHE ; survol depuis la LISTE = axe seul (la ligne de
   // liste porte déjà les valeurs, pas d'infobulle en double).
@@ -376,31 +365,14 @@ export function BenchmarkRadar({
 
   return (
     <ChartCard title={title} subtitle={subtitle} className={className}>
-      {filtersSlot && !compacte && (
-        <div className="mb-5 border-b border-savr-neutral-100 pb-5">
-          {filtersSlot}
-        </div>
-      )}
-      <div
-        className={
-          compacte
-            ? 'grid grid-cols-1 items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,12.5rem)]'
-            : 'grid grid-cols-1 items-center gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]'
-        }
-      >
-        <div
-          className={
-            compacte
-              ? 'relative mx-auto w-full max-w-[264px]'
-              : 'relative mx-auto w-full max-w-[480px]'
-          }
-        >
+      <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,12.5rem)]">
+        <div className="relative mx-auto w-full max-w-[264px]">
           <svg
             viewBox={`0 0 ${VB_W} ${VB_H}`}
             className="block h-auto w-full"
-            // Compact : les libellés agrandis peuvent déborder du viewBox
-            // dans la marge de la carte plutôt que d'être rognés.
-            overflow={compacte ? 'visible' : undefined}
+            // Les libellés agrandis peuvent déborder du viewBox dans la marge
+            // de la carte plutôt que d'être rognés.
+            overflow="visible"
             role="img"
             aria-label={`Radar de l'intensité kg/pax par flux, indice ${referenceCourt.toLowerCase()} = 100`}
             data-testid="benchmark-radar"
@@ -503,7 +475,7 @@ export function BenchmarkRadar({
                     style={{
                       // Radar compact : rendu plus petit, libellés agrandis
                       // dans le viewBox pour rester lisibles (≈ 11 px).
-                      fontSize: compacte ? 19 : 13,
+                      fontSize: 19,
                       fontWeight: 700,
                       fill: manquant
                         ? TEXT_XFAINT
@@ -551,7 +523,7 @@ export function BenchmarkRadar({
               />
             </div>
           )}
-          {/* Légende sous le radar, quelle que soit la disposition. */}
+          {/* Légende sous le radar. */}
           <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
             <Text
               as="span"
@@ -579,13 +551,13 @@ export function BenchmarkRadar({
             </Text>
           </div>
         </div>
-        {compacte && (
-          <div className="flex flex-col gap-3">
-            {filtersSlot}
-            {actionSlot}
-          </div>
-        )}
-        <div className={compacte ? 'sr-only' : undefined}>
+        <div className="flex flex-col gap-3">
+          {filtersSlot}
+          {actionSlot}
+        </div>
+        {/* Liste des flux lue par les lecteurs d'écran (statut jamais porté par
+            la seule couleur) ; à l'écran, les valeurs sont au survol. */}
+        <div className="sr-only">
           <ul className="flex flex-col gap-0.5">
             {axes.map((a, i) => (
               <LigneFlux

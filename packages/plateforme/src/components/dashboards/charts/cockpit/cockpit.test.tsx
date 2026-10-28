@@ -221,7 +221,9 @@ it('BenchmarkRadar — rend le slot filtres imbriqué', () => {
   );
   expect(screen.getByText('filtres-repère-parc')).toBeInTheDocument();
   // Titre de la carte toujours présent = un seul bloc filtres + radar.
-  expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+  expect(
+    screen.getByText('Vos tonnages face aux événements comparables'),
+  ).toBeInTheDocument();
 });
 
 it('EvolutionZdChart — la légende « Taux de recyclage » est un bouton qui masque la courbe', () => {
@@ -567,7 +569,9 @@ it("BenchmarkRadar — une valeur ×10 est plafonnée au bord (anneau 300), l'é
 
 it('BenchmarkRadar — liste vide : rend la carte sans planter', () => {
   render(<BenchmarkRadar items={[]} />);
-  expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+  expect(
+    screen.getByText('Vos tonnages face aux événements comparables'),
+  ).toBeInTheDocument();
   expect(screen.queryAllByTestId('benchmark-radar-ligne')).toHaveLength(0);
 });
 
@@ -671,7 +675,7 @@ describe('BenchmarkRadar — style unique de la fiche collecte (Val 2026-10-28)'
     { label: 'C', value: 0.08, benchmark: 0.1 },
   ];
 
-  it('disposition standard : série orange remplie, repère en pointillés, légende sous le radar, liste des écarts conservée', () => {
+  it('dashboards et fiches : série orange remplie, repère en pointillés, légende sous le radar, filtres à droite, liste des écarts réservée aux lecteurs d’écran', () => {
     const { container } = render(<BenchmarkRadar items={items} />);
     const surface = container.querySelector(
       'svg polygon[fill="var(--color-savr-accent-500)"]',
@@ -692,11 +696,12 @@ describe('BenchmarkRadar — style unique de la fiche collecte (Val 2026-10-28)'
       ).toBeTruthy();
       expect(legende.closest('div.relative')).toBe(svg.parentElement);
     }
-    // Liste et badges d'écart visibles (pas réservés aux lecteurs d'écran).
+    // Comme la fiche collecte (Val 2026-10-28) : la liste des écarts reste lue
+    // par les lecteurs d'écran (statut jamais porté par la seule couleur).
     expect(screen.getAllByTestId('benchmark-radar-ligne')).toHaveLength(3);
     expect(
       screen.getAllByTestId('benchmark-radar-ligne')[0]!.closest('.sr-only'),
-    ).toBeNull();
+    ).not.toBeNull();
     expect(screen.getByText('+20 %')).toBeInTheDocument();
   });
 

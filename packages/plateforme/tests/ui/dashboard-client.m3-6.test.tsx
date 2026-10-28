@@ -493,7 +493,7 @@ describe('M3.6 / Dashboard Client / référence radar', () => {
       expect(screen.queryByText('Moyenne parc')).toBeNull();
       // Titre et aria-label du radar ne parlent plus de « parc » en comparaison.
       expect(
-        screen.getByText('Intensité par flux · kg/pax vs périmètre comparé'),
+        screen.getByText('Tonnages du périmètre face au périmètre comparé'),
       ).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-radar')).toHaveAttribute(
         'aria-label',

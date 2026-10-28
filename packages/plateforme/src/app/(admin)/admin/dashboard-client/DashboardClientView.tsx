@@ -554,62 +554,71 @@ export function DashboardClientView() {
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — radar Cockpit : périmètre sélectionné (« Vous ») vs
-              ligne de référence paramétrable (encart « Comparer avec », sans
-              k-anonymat côté Admin — décision Val 2026-10-02). */}
-          <BenchmarkRadar
-            items={gaugeItems}
-            title={
-              referenceCiblee
-                ? 'Intensité par flux · kg/pax vs périmètre comparé'
-                : undefined
-            }
-            subtitle="Indice : référence = 100 (parc Savr entier, ou périmètre des filtres « Comparer avec »). À l'intérieur du repère, le périmètre sélectionné produit moins que la référence."
-            serieLabel="Périmètre sélectionné"
-            referenceLabel={referenceLabel}
-            referenceCourt={referenceCiblee ? 'Comparé' : 'Parc'}
-            filtersSlot={
-              <div className="space-y-2">
-                <BenchmarkFilterBar
-                  onChange={setBenchFilters}
-                  filtresEndpoint={BENCHMARK_FILTRES_ENDPOINT}
-                  avertissementComparaisonSoi={false}
-                  // Le bloc ZD se démonte pendant « Chargement… » (changement de
-                  // périmètre/période) : la barre repart de la dernière sélection.
-                  initialFilters={benchFilters ?? undefined}
-                />
-                {reference && (
-                  <Text
-                    as="p"
-                    variant="hint"
-                    data-testid="benchmark-reference-echantillon"
-                  >
-                    Référence : {fmtInt(nbRef)} collecte{nbRef > 1 ? 's' : ''}{' '}
-                    clôturée{nbRef > 1 ? 's' : ''} Zéro Déchet du{' '}
-                    {frDate(reference.periode.debut)} au{' '}
-                    {frDate(reference.periode.fin)}, sans seuil d'anonymisation
-                    (vue Admin).
-                  </Text>
-                )}
-                {referenceErreur && (
-                  <AlertBar
-                    variant="err"
-                    className="font-normal"
-                    data-testid="benchmark-reference-erreur"
-                  >
-                    Référence indisponible pour le moment : les écarts ne
-                    peuvent pas être calculés.
-                  </AlertBar>
-                )}
-              </div>
-            }
-          />
-
-          {/* Bloc 4 donut + Bloc 6 top lieux + Bloc 7 top traiteurs */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div data-testid="bloc-4-dashboard-client">
-              <TonnagesDonut series={zdSeries} />
+          {/* Bloc 4 donut + Bloc 3 radar sur la même ligne, comme la fiche
+              collecte (Val 2026-10-28) ; filtres du repère en pastilles. */}
+          <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+            <div data-testid="bloc-4-dashboard-client" className="h-full">
+              <TonnagesDonut
+                series={zdSeries}
+                disposition="ligne"
+                className="h-full p-5"
+              />
             </div>
+            <div data-testid="bloc-3-dashboard-client" className="h-full">
+              <BenchmarkRadar
+                className="h-full p-5"
+                items={gaugeItems}
+                title={
+                  referenceCiblee
+                    ? 'Tonnages du périmètre face au périmètre comparé'
+                    : 'Tonnages du périmètre face aux événements comparables'
+                }
+                subtitle="Déchets par convive (kg/pax) face à la référence (parc Savr ou périmètre comparé) sur 24 mois."
+                serieLabel="Périmètre sélectionné"
+                referenceLabel={referenceLabel}
+                referenceCourt={referenceCiblee ? 'Comparé' : 'Parc'}
+                filtersSlot={
+                  <div className="space-y-2">
+                    <BenchmarkFilterBar
+                      disposition="pastilles"
+                      onChange={setBenchFilters}
+                      filtresEndpoint={BENCHMARK_FILTRES_ENDPOINT}
+                      avertissementComparaisonSoi={false}
+                      // Le bloc ZD se démonte pendant « Chargement… » (changement de
+                      // périmètre/période) : la barre repart de la dernière sélection.
+                      initialFilters={benchFilters ?? undefined}
+                    />
+                    {reference && (
+                      <Text
+                        as="p"
+                        variant="hint"
+                        data-testid="benchmark-reference-echantillon"
+                      >
+                        Référence : {fmtInt(nbRef)} collecte
+                        {nbRef > 1 ? 's' : ''} clôturée{nbRef > 1 ? 's' : ''}{' '}
+                        Zéro Déchet du {frDate(reference.periode.debut)} au{' '}
+                        {frDate(reference.periode.fin)}, sans seuil
+                        d'anonymisation (vue Admin).
+                      </Text>
+                    )}
+                    {referenceErreur && (
+                      <AlertBar
+                        variant="err"
+                        className="font-normal"
+                        data-testid="benchmark-reference-erreur"
+                      >
+                        Référence indisponible pour le moment : les écarts ne
+                        peuvent pas être calculés.
+                      </AlertBar>
+                    )}
+                  </div>
+                }
+              />
+            </div>
+          </div>
+
+          {/* Bloc 6 top lieux + Bloc 7 */}
+          <div className="grid gap-6 lg:grid-cols-2">
             <div data-testid="bloc-6-top-lieux">
               <TopRankList
                 title="Top 5 lieux"

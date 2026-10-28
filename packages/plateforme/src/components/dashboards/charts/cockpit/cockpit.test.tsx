@@ -680,10 +680,18 @@ describe('BenchmarkRadar — style unique de la fiche collecte (Val 2026-10-28)'
     expect(
       container.querySelector('svg path[stroke-dasharray="4 4"]'),
     ).not.toBeNull();
-    expect(screen.getByText('Vos collectes')).toBeInTheDocument();
-    expect(
-      screen.getByText('Moyenne des événements comparables'),
-    ).toBeInTheDocument();
+    // Légende sous le radar (après le SVG), plus dans l'en-tête de la carte.
+    const svg = screen.getByTestId('benchmark-radar');
+    for (const libelle of [
+      'Vos collectes',
+      'Moyenne des événements comparables',
+    ]) {
+      const legende = screen.getByText(libelle);
+      expect(
+        svg.compareDocumentPosition(legende) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(legende.closest('div.relative')).toBe(svg.parentElement);
+    }
     // Liste et badges d'écart visibles (pas réservés aux lecteurs d'écran).
     expect(screen.getAllByTestId('benchmark-radar-ligne')).toHaveLength(3);
     expect(

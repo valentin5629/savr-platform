@@ -14,6 +14,8 @@ import {
   TEXT_XFAINT,
   SURFACE_HOVER,
   WHITE,
+  RADAR_SERIE as VOUS,
+  RADAR_REPERE as PARC,
 } from './palette';
 import { Text } from '@/components/ui/text';
 import { ChartTooltip } from '@/components/ui/chart-tooltip';
@@ -60,10 +62,6 @@ interface BenchmarkRadarProps {
   actionSlot?: React.ReactNode;
   className?: string;
 }
-
-// Série mesurée = accent-500 (orange), repère = primary-900 en pointillés.
-const VOUS = 'var(--color-savr-accent-500)';
-const PARC = 'var(--color-savr-primary-900)';
 
 // Géométrie SVG (viewBox fixe, rendu fluide en largeur).
 const VB_W = 460; // marge latérale : libellés longs (« Déchet résiduel ») ; « n/d » va en 2e ligne

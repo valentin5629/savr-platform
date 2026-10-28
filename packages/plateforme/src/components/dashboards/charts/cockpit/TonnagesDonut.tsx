@@ -7,7 +7,14 @@ import type { FluxSeriePoint } from '@/components/dashboards/useEvolutionBlocs';
 import { ChartCard } from './ChartCard';
 import { useEntreeGraphique } from '../entree-graphique';
 import { fmtMasse } from './fmt';
-import { INK, TEXT_FAINT, TEXT_MUTED, GRID, SURFACE_HOVER } from './palette';
+import {
+  INK,
+  TEXT_FAINT,
+  TEXT_MUTED,
+  GRID,
+  SURFACE_HOVER,
+  WHITE,
+} from './palette';
 import { fmtPct } from '@/lib/format';
 
 // TonnagesDonut (Cockpit R24) — donut de répartition des 5 flux ZD, total au
@@ -106,7 +113,7 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
                       cy={100}
                       r={R}
                       fill="none"
-                      stroke="#fff"
+                      stroke={WHITE}
                       strokeWidth={40}
                       pathLength={1}
                       strokeDasharray="1 1"

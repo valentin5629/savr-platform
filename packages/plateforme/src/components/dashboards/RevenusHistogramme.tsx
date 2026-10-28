@@ -6,6 +6,7 @@ import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { cn } from '@/lib/utils';
+import { delaiEntree, useEntreeGraphique } from './charts/entree-graphique';
 import { ChartTooltip } from '@/components/ui/chart-tooltip';
 import { fmtEuro, fmtInt } from '@/lib/format';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -39,6 +40,7 @@ export function RevenusHistogramme({
   const [rows, setRows] = useState<KpiAdminRow[]>([]);
   const [toggle, setToggle] = useState<Toggle>('montant');
   const [loading, setLoading] = useState(true);
+  const entree = useEntreeGraphique<HTMLDivElement>('revenus');
 
   useEffect(() => {
     setLoading(true);
@@ -187,8 +189,14 @@ export function RevenusHistogramme({
               ))}
             </div>
 
-            <div className="relative flex h-full items-end gap-1">
-              {moisSet.map((mois) => {
+            <div
+              ref={entree.ref}
+              className={cn(
+                'relative flex h-full items-end gap-1',
+                entree.classe,
+              )}
+            >
+              {moisSet.map((mois, i) => {
                 const zdVal = getValue(zdByMois[mois]);
                 const agVal = getValue(agByMois[mois]);
                 const total = zdVal + agVal;
@@ -246,23 +254,32 @@ export function RevenusHistogramme({
                         </span>
                       </div>
                     </ChartTooltip>
-                    {agVal > 0 && (
-                      <div
-                        className="w-full rounded-t-savr-sm bg-savr-primary-700"
-                        style={{ height: `${agPct}%` }}
-                        aria-label={`AG ${label}`}
-                      />
-                    )}
-                    {zdVal > 0 && (
-                      <div
-                        className={`w-full ${agVal > 0 ? '' : 'rounded-t-savr-sm'} bg-savr-success`}
-                        style={{ height: `${zdPct}%` }}
-                        aria-label={`ZD ${label}`}
-                      />
-                    )}
-                    {zdVal <= 0 && agVal <= 0 && (
-                      <div className="h-1 w-full rounded-savr-sm bg-savr-neutral-200" />
-                    )}
+                    {/* Barres empilées dans un calque pleine hauteur : elles
+                        poussent ensemble depuis le pied à l'entrée, sans
+                        entraîner l'infobulle. */}
+                    <div
+                      data-entree="monte"
+                      className="pointer-events-none absolute inset-0 flex flex-col justify-end"
+                      style={delaiEntree(i, moisSet.length)}
+                    >
+                      {agVal > 0 && (
+                        <div
+                          className="w-full rounded-t-savr-sm bg-savr-primary-700"
+                          style={{ height: `${agPct}%` }}
+                          aria-label={`AG ${label}`}
+                        />
+                      )}
+                      {zdVal > 0 && (
+                        <div
+                          className={`w-full ${agVal > 0 ? '' : 'rounded-t-savr-sm'} bg-savr-success`}
+                          style={{ height: `${zdPct}%` }}
+                          aria-label={`ZD ${label}`}
+                        />
+                      )}
+                      {zdVal <= 0 && agVal <= 0 && (
+                        <div className="h-1 w-full rounded-savr-sm bg-savr-neutral-200" />
+                      )}
+                    </div>
                   </div>
                 );
               })}

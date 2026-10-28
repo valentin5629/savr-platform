@@ -2,10 +2,12 @@
 
 import * as React from 'react';
 import { fmtInt } from './fmt';
+import { useEntreeGraphique } from '../entree-graphique';
 import { RING_OK, RING_LOW, TRACK, PACK_BADGE, WHITE } from './palette';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 export interface PackAgRingProps {
   creditsInitiaux: number;
@@ -20,6 +22,7 @@ export function PackAgRing({
   creditsInitiaux,
   creditsRestants,
 }: PackAgRingProps) {
+  const entree = useEntreeGraphique<HTMLDivElement>('pack-ag');
   const consommes = Math.max(0, creditsInitiaux - creditsRestants);
   const pctRestant =
     creditsInitiaux > 0 ? creditsRestants / creditsInitiaux : 0;
@@ -78,7 +81,11 @@ export function PackAgRing({
 
       {/* Jauge linéaire — remplissage = restant, rouge sous 10 %. */}
       <div
-        className="relative h-3 overflow-hidden rounded-savr-full"
+        ref={entree.ref}
+        className={cn(
+          'relative h-3 overflow-hidden rounded-savr-full',
+          entree.classe,
+        )}
         style={{ background: TRACK }}
         role="progressbar"
         aria-valuemin={0}
@@ -87,6 +94,7 @@ export function PackAgRing({
         aria-label="Crédits restants du pack Anti-Gaspi"
       >
         <div
+          data-entree="deploie"
           className="h-full rounded-savr-full"
           style={{
             width: `${pctFill}%`,

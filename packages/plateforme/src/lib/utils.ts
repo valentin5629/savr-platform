@@ -19,7 +19,7 @@ const SAVR_RADIUS = [
   'savr-full',
 ];
 const SAVR_SHADOW = ['savr-none', 'savr-sm', 'savr-md', 'savr-lg', 'savr-xl'];
-const SAVR_DURATION = ['savr-fast', 'savr-base', 'savr-slow'];
+const SAVR_DURATION = ['savr-fast', 'savr-base', 'savr-slow', 'savr-chart'];
 const SAVR_CONTAINER = ['savr-content', 'savr-wide', 'savr-prose'];
 // Tailles de texte ajoutées à l'échelle (§3.2, Val 2026-10-28). `3xs` et `md`
 // sont déjà reconnues comme tailles par twMerge ; `kpi` serait prise pour une

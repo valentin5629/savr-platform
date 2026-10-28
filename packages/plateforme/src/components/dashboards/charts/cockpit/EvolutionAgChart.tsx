@@ -6,6 +6,7 @@ import type { RepasSeriePoint } from '@/components/dashboards/useEvolutionBlocs'
 import type { Granularite } from '../types';
 import { formatPeriode } from '../format';
 import { ChartCard } from './ChartCard';
+import { delaiEntree, useEntreeGraphique } from '../entree-graphique';
 import { fmtInt, fmtDec } from './fmt';
 import {
   TEXT_MUTED,
@@ -50,6 +51,7 @@ const EvolutionAgChart = React.forwardRef<
   EvolutionAgChartProps
 >(({ series, granularite }, ref) => {
   const [hover, setHover] = React.useState<number | null>(null);
+  const entree = useEntreeGraphique<SVGSVGElement>('evolution-ag');
   // Séries masquables via la légende (symétrie avec le ZD).
   const [hidden, setHidden] = React.useState<Set<'repas' | 'ratio'>>(new Set());
   const toggle = (k: 'repas' | 'ratio') =>
@@ -123,6 +125,8 @@ const EvolutionAgChart = React.forwardRef<
       ) : (
         <div className="relative">
           <svg
+            ref={entree.ref}
+            className={entree.classe}
             viewBox={`0 0 ${VBW} ${VBH}`}
             width="100%"
             style={{ display: 'block', maxHeight: 340 }}
@@ -183,10 +187,12 @@ const EvolutionAgChart = React.forwardRef<
                 return (
                   <path
                     key={p.periode}
+                    data-entree="monte"
                     d={`M${x},${y + r} Q${x},${y} ${x + r},${y} H${x + barW - r} Q${x + barW},${y} ${x + barW},${y + r} V${BASE} H${x} Z`}
                     fill={REPAS_COLOR}
                     fillOpacity={hover === i ? 1 : 0.75}
                     style={{
+                      ...delaiEntree(i, series.length),
                       pointerEvents: 'none',
                       transition:
                         'fill-opacity var(--transition-duration-savr-fast)',
@@ -197,7 +203,7 @@ const EvolutionAgChart = React.forwardRef<
 
             {/* courbe ratio repas/pax (navy pointillée) — masquable via légende */}
             {ratioPts.length > 0 && !hidden.has('ratio') && (
-              <>
+              <g data-entree="balaye">
                 <polyline
                   points={ratioPts
                     .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
@@ -227,7 +233,7 @@ const EvolutionAgChart = React.forwardRef<
                     />
                   );
                 })}
-              </>
+              </g>
             )}
 
             {/* étiquettes X */}

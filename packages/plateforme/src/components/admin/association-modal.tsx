@@ -1,17 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import {
-  ClockIcon,
-  DoorOpenIcon,
-  FileTextIcon,
-  ForkKnifeIcon,
-  HeartIcon,
-  MapPinIcon,
-  SealCheckIcon,
-  SlidersHorizontalIcon,
-  UserIcon,
-} from '@/components/ui/icones';
+import { ForkKnifeIcon, MapPinIcon } from '@/components/ui/icones';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,22 +12,23 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
-import { SectionCard } from '@/components/ui/section-header';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { EnTeteMention, EnTetePuce } from '@/components/ui/fiche/fiche-en-tete';
 import {
-  EnTeteMention,
-  EnTetePuce,
-  FicheEnTete,
-} from '@/components/ui/fiche/fiche-en-tete';
+  FicheGrandEnTete,
+  FicheOnglet,
+  FicheOnglets,
+  FicheRepere,
+} from '@/components/ui/fiche/fiche-grand-en-tete';
+import { FichePastilleActif } from '@/components/ui/fiche/fiche-pastille';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
-import { OngletAvecErreurs } from '@/components/ui/fiche/onglet-avec-erreurs';
 import { LogoUpload } from '@/components/admin/logo-upload';
 import {
   HorairesOuvertureEditor,
   horairesParDefaut,
   type JourHoraire,
 } from '@/components/admin/horaires-ouverture-editor';
-import { ActifBadge } from '@/components/ui/actif-badge';
 import { estSiren } from '@savr/shared/src/validation/index.js';
 import {
   MESSAGE_FORMAT_SIREN,
@@ -159,7 +150,7 @@ type Erreurs = Partial<Record<ChampValide, string>>;
 // Les onglets restent montés (forceMount) et l'inactif est seulement masqué :
 // une saisie en cours (envoi du logo, copie d'horaires) survit au changement
 // d'onglet.
-const PANNEAU_ONGLET = 'space-y-4 data-[state=inactive]:hidden';
+const PANNEAU_ONGLET = 'mt-0 data-[state=inactive]:hidden';
 
 interface AssociationModalProps {
   open: boolean;
@@ -345,11 +336,31 @@ export function AssociationModal({
     onClose();
   }
 
+  // Barre d'onglets du grand en-tête (variante B).
+  const onglets = (
+    <FicheOnglets aria-label="Sections de la fiche association">
+      {ONGLETS.map(({ value, label }) => (
+        <FicheOnglet
+          key={value}
+          ref={(el) => {
+            ongletsRef.current[value] = el;
+          }}
+          value={value}
+          nbErreurs={nbErreurs(value)}
+        >
+          {label}
+        </FicheOnglet>
+      ))}
+    </FicheOnglets>
+  );
+
+  // Pied variante B : pilules, secondaire sur fond sable.
   const footer = (
     <>
       <Button
         type="button"
-        variant="secondary"
+        variant="sable"
+        size="pilule"
         onClick={onClose}
         disabled={submitting}
       >
@@ -361,6 +372,7 @@ export function AssociationModal({
           <Button
             type="button"
             variant="outline-destructive"
+            size="pilule"
             onClick={() => void handleToggleActif()}
             disabled={submitting}
           >
@@ -369,7 +381,8 @@ export function AssociationModal({
         ) : (
           <Button
             type="button"
-            variant="secondary"
+            variant="sable"
+            size="pilule"
             onClick={() => void handleToggleActif()}
             disabled={submitting}
           >
@@ -378,6 +391,7 @@ export function AssociationModal({
         ))}
       <Button
         type="button"
+        size="pilule"
         onClick={() => void submitForm()}
         loading={submitting}
         loadingText="Enregistrement…"
@@ -400,212 +414,222 @@ export function AssociationModal({
           : 'Nouvelle association'
       }
       footer={footer}
+      taille="grand"
     >
-      {isEdition ? (
-        // Association ENREGISTRÉE : l'en-tête ne suit pas la saisie.
-        <FicheEnTete
-          surtitre={
-            <>
-              <EnTetePuce>
-                {association!.region === 'idf' ? 'IDF' : 'Province'}
-              </EnTetePuce>
-              {association!.siren && (
-                <EnTeteMention>
-                  SIREN {association!.siren.replace(/(\d{3})(?=\d)/g, '$1 ')}
-                </EnTeteMention>
-              )}
-            </>
-          }
-          titre={association!.nom}
-          infos={[
-            { icon: MapPinIcon, texte: association!.ville || '—' },
-            {
-              icon: ForkKnifeIcon,
-              texte:
-                association!.capacite_max_beneficiaires != null
-                  ? `${association!.capacite_max_beneficiaires} repas`
-                  : '—',
-            },
-          ]}
-          statut={<ActifBadge actif={association!.actif} sujet="association" />}
-        />
-      ) : (
-        <FicheEnTete
-          titre="Nouvelle association"
-          description="Renseignez les onglets, puis créez l’association."
-        />
-      )}
-      <FicheCorps>
-        <form onSubmit={handleFormSubmit} noValidate>
-          {serverError && (
-            <AlertBar
-              ref={alerteRef}
-              variant="err"
-              role="alert"
-              className="mb-4"
-            >
-              {serverError}
-            </AlertBar>
-          )}
-
-          <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
-            {/* Barre d'onglets fixe au défilement du corps de la modale. */}
-            <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
-              {ONGLETS.map(({ value, label }) => (
-                <OngletAvecErreurs
-                  key={value}
-                  ref={(el) => {
-                    ongletsRef.current[value] = el;
-                  }}
-                  value={value}
-                  nbErreurs={nbErreurs(value)}
-                >
-                  {label}
-                </OngletAvecErreurs>
-              ))}
-            </TabsList>
+      {/* Variante B (décision Val 2026-10-27) : onglets soulignés dans le
+          grand en-tête, seul le corps défile. */}
+      <Tabs
+        value={onglet}
+        onValueChange={(v) => setOnglet(v as Onglet)}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        {isEdition ? (
+          // Association ENREGISTRÉE : l'en-tête ne suit pas la saisie.
+          <FicheGrandEnTete
+            surtitre={
+              <>
+                <EnTetePuce>
+                  {association!.region === 'idf' ? 'IDF' : 'Province'}
+                </EnTetePuce>
+                {association!.siren && (
+                  <EnTeteMention>
+                    SIREN {association!.siren.replace(/(\d{3})(?=\d)/g, '$1 ')}
+                  </EnTeteMention>
+                )}
+              </>
+            }
+            titre={association!.nom}
+            statut={
+              <FichePastilleActif
+                actif={association!.actif}
+                sujet="association"
+              />
+            }
+            reperes={
+              <>
+                <FicheRepere icon={MapPinIcon}>
+                  {association!.ville || '—'}
+                </FicheRepere>
+                <FicheRepere icon={ForkKnifeIcon}>
+                  {association!.capacite_max_beneficiaires != null
+                    ? `${association!.capacite_max_beneficiaires} repas`
+                    : '—'}
+                </FicheRepere>
+              </>
+            }
+            onglets={onglets}
+          />
+        ) : (
+          <FicheGrandEnTete
+            titre="Nouvelle association"
+            description="Renseignez les onglets, puis créez l’association."
+            onglets={onglets}
+          />
+        )}
+        <FicheCorps>
+          <form onSubmit={handleFormSubmit} noValidate>
+            {serverError && (
+              <AlertBar
+                ref={alerteRef}
+                variant="err"
+                role="alert"
+                className="mb-4"
+              >
+                {serverError}
+              </AlertBar>
+            )}
 
             <TabsContent
               value="informations"
               forceMount
               className={PANNEAU_ONGLET}
             >
-              <SectionCard icon={HeartIcon} title="Identité">
-                <FormGrid>
-                  <FormField
-                    label="Nom de l'association"
-                    htmlFor="am_nom"
-                    required
-                    error={errors.nom}
-                  >
-                    <Input
-                      id="am_nom"
+              <FicheSection titre="Identité">
+                <div className="space-y-4">
+                  <FormGrid>
+                    <FormField
+                      label="Nom de l'association"
+                      htmlFor="am_nom"
                       required
-                      value={values.nom}
-                      onChange={(e) => set('nom', e.target.value)}
-                      error={Boolean(errors.nom)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Capacité max bénéficiaires (repas)"
-                    htmlFor="am_capacite_max_beneficiaires"
-                    required
-                    error={errors.capacite_max_beneficiaires}
-                    hint="Détermine le matching algo par taille d'événement"
-                  >
-                    <Input
-                      id="am_capacite_max_beneficiaires"
+                      error={errors.nom}
+                    >
+                      <Input
+                        id="am_nom"
+                        required
+                        value={values.nom}
+                        onChange={(e) => set('nom', e.target.value)}
+                        error={Boolean(errors.nom)}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Capacité max bénéficiaires (repas)"
+                      htmlFor="am_capacite_max_beneficiaires"
                       required
-                      type="number"
-                      min={0}
-                      value={values.capacite_max_beneficiaires}
-                      onChange={(e) =>
-                        set('capacite_max_beneficiaires', e.target.value)
-                      }
-                      error={Boolean(errors.capacite_max_beneficiaires)}
-                    />
-                  </FormField>
-                </FormGrid>
-              </SectionCard>
+                      error={errors.capacite_max_beneficiaires}
+                      hint="Détermine le matching algo par taille d'événement"
+                    >
+                      <Input
+                        id="am_capacite_max_beneficiaires"
+                        required
+                        type="number"
+                        min={0}
+                        value={values.capacite_max_beneficiaires}
+                        onChange={(e) =>
+                          set('capacite_max_beneficiaires', e.target.value)
+                        }
+                        error={Boolean(errors.capacite_max_beneficiaires)}
+                      />
+                    </FormField>
+                  </FormGrid>
+                </div>
+              </FicheSection>
 
-              <SectionCard icon={MapPinIcon} title="Adresse">
-                <FormGrid cols={3}>
-                  <FormField
-                    label="Adresse"
-                    htmlFor="am_adresse"
-                    required
-                    error={errors.adresse}
-                    hint="Géocodée automatiquement à l'enregistrement"
-                    className="sm:col-span-2"
-                  >
-                    <Input
-                      id="am_adresse"
+              <FicheSection titre="Adresse">
+                <div className="space-y-4">
+                  <FormGrid cols={3}>
+                    <FormField
+                      label="Adresse"
+                      htmlFor="am_adresse"
                       required
-                      value={values.adresse}
-                      onChange={(e) => set('adresse', e.target.value)}
-                      error={Boolean(errors.adresse)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Ville"
-                    htmlFor="am_ville"
-                    required
-                    error={errors.ville}
-                  >
-                    <Input
-                      id="am_ville"
+                      error={errors.adresse}
+                      hint="Géocodée automatiquement à l'enregistrement"
+                      className="sm:col-span-2"
+                    >
+                      <Input
+                        id="am_adresse"
+                        required
+                        value={values.adresse}
+                        onChange={(e) => set('adresse', e.target.value)}
+                        error={Boolean(errors.adresse)}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Ville"
+                      htmlFor="am_ville"
                       required
-                      value={values.ville}
-                      onChange={(e) => set('ville', e.target.value)}
-                      error={Boolean(errors.ville)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Région"
-                    htmlFor="am_region"
-                    required
-                    error={errors.region}
-                  >
-                    <Combobox
-                      id="am_region"
-                      icon={null}
+                      error={errors.ville}
+                    >
+                      <Input
+                        id="am_ville"
+                        required
+                        value={values.ville}
+                        onChange={(e) => set('ville', e.target.value)}
+                        error={Boolean(errors.ville)}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Région"
+                      htmlFor="am_region"
                       required
-                      value={values.region}
-                      onChange={(v) => set('region', v as FormValues['region'])}
-                      error={Boolean(errors.region)}
-                      options={REGIONS}
-                    />
-                  </FormField>
-                </FormGrid>
-              </SectionCard>
+                      error={errors.region}
+                    >
+                      <Combobox
+                        id="am_region"
+                        icon={null}
+                        required
+                        value={values.region}
+                        onChange={(v) =>
+                          set('region', v as FormValues['region'])
+                        }
+                        error={Boolean(errors.region)}
+                        options={REGIONS}
+                      />
+                    </FormField>
+                  </FormGrid>
+                </div>
+              </FicheSection>
 
-              <SectionCard icon={UserIcon} title="Contact">
-                <FormGrid cols={3}>
-                  <FormField
-                    label="Nom prénom du contact"
-                    htmlFor="am_contact_nom"
-                    required
-                    error={errors.contact_nom}
-                  >
-                    <Input
-                      id="am_contact_nom"
+              <FicheSection titre="Contact">
+                <div className="space-y-4">
+                  <FormGrid cols={3}>
+                    <FormField
+                      label="Nom prénom du contact"
+                      htmlFor="am_contact_nom"
                       required
-                      value={values.contact_nom}
-                      onChange={(e) => set('contact_nom', e.target.value)}
-                      error={Boolean(errors.contact_nom)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Numéro de contact"
-                    htmlFor="am_contact_telephone"
-                    required
-                    error={errors.contact_telephone}
-                  >
-                    <Input
-                      id="am_contact_telephone"
+                      error={errors.contact_nom}
+                    >
+                      <Input
+                        id="am_contact_nom"
+                        required
+                        value={values.contact_nom}
+                        onChange={(e) => set('contact_nom', e.target.value)}
+                        error={Boolean(errors.contact_nom)}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Numéro de contact"
+                      htmlFor="am_contact_telephone"
                       required
-                      value={values.contact_telephone}
-                      onChange={(e) => set('contact_telephone', e.target.value)}
-                      error={Boolean(errors.contact_telephone)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Email(s) à prévenir en cas de collecte"
-                    htmlFor="am_contact_email"
-                    required
-                    error={errors.contact_email}
-                    hint="Plusieurs emails séparés par une virgule"
-                  >
-                    <Input
-                      id="am_contact_email"
+                      error={errors.contact_telephone}
+                    >
+                      <Input
+                        id="am_contact_telephone"
+                        required
+                        value={values.contact_telephone}
+                        onChange={(e) =>
+                          set('contact_telephone', e.target.value)
+                        }
+                        error={Boolean(errors.contact_telephone)}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Email(s) à prévenir en cas de collecte"
+                      htmlFor="am_contact_email"
                       required
-                      value={values.contact_email}
-                      onChange={(e) => set('contact_email', e.target.value)}
-                      error={Boolean(errors.contact_email)}
-                    />
-                  </FormField>
-                </FormGrid>
-              </SectionCard>
+                      error={errors.contact_email}
+                      hint="Plusieurs emails séparés par une virgule"
+                    >
+                      <Input
+                        id="am_contact_email"
+                        required
+                        value={values.contact_email}
+                        onChange={(e) => set('contact_email', e.target.value)}
+                        error={Boolean(errors.contact_email)}
+                      />
+                    </FormField>
+                  </FormGrid>
+                </div>
+              </FicheSection>
             </TabsContent>
 
             <TabsContent
@@ -613,88 +637,96 @@ export function AssociationModal({
               forceMount
               className={PANNEAU_ONGLET}
             >
-              <SectionCard icon={ClockIcon} title="Horaires d'ouverture">
-                <HorairesOuvertureEditor
-                  value={values.horaires_ouverture}
-                  onChange={(v) => set('horaires_ouverture', v)}
-                />
-              </SectionCard>
-
-              <SectionCard icon={DoorOpenIcon} title="Accès et réception">
-                <FormField
-                  label="Instructions d'accès (pour le transporteur)"
-                  htmlFor="am_instructions_acces"
-                >
-                  <Textarea
-                    id="am_instructions_acces"
-                    rows={3}
-                    value={values.instructions_acces}
-                    onChange={(e) => set('instructions_acces', e.target.value)}
+              <FicheSection titre="Horaires d'ouverture">
+                <div className="space-y-4">
+                  <HorairesOuvertureEditor
+                    value={values.horaires_ouverture}
+                    onChange={(v) => set('horaires_ouverture', v)}
                   />
-                </FormField>
-                <FormGrid>
+                </div>
+              </FicheSection>
+
+              <FicheSection titre="Accès et réception">
+                <div className="space-y-4">
                   <FormField
-                    label="Types d'aliments acceptés"
-                    htmlFor="am_types_aliments_acceptes"
-                    hint="Séparés par une virgule"
+                    label="Instructions d'accès (pour le transporteur)"
+                    htmlFor="am_instructions_acces"
                   >
-                    <Input
-                      id="am_types_aliments_acceptes"
-                      value={values.types_aliments_acceptes}
+                    <Textarea
+                      id="am_instructions_acces"
+                      rows={3}
+                      value={values.instructions_acces}
                       onChange={(e) =>
-                        set('types_aliments_acceptes', e.target.value)
+                        set('instructions_acces', e.target.value)
                       }
                     />
                   </FormField>
-                  <FormField
-                    label="Id du point de collecte dans MTS-1"
-                    htmlFor="am_id_point_collecte_mts1"
-                    hint="V1 only — sert au pré-fill lors de l'envoi vers MTS-1"
-                  >
-                    <Input
-                      id="am_id_point_collecte_mts1"
-                      value={values.id_point_collecte_mts1}
-                      onChange={(e) =>
-                        set('id_point_collecte_mts1', e.target.value)
-                      }
-                    />
-                  </FormField>
-                </FormGrid>
-              </SectionCard>
+                  <FormGrid>
+                    <FormField
+                      label="Types d'aliments acceptés"
+                      htmlFor="am_types_aliments_acceptes"
+                      hint="Séparés par une virgule"
+                    >
+                      <Input
+                        id="am_types_aliments_acceptes"
+                        value={values.types_aliments_acceptes}
+                        onChange={(e) =>
+                          set('types_aliments_acceptes', e.target.value)
+                        }
+                      />
+                    </FormField>
+                    <FormField
+                      label="Id du point de collecte dans MTS-1"
+                      htmlFor="am_id_point_collecte_mts1"
+                      hint="V1 only — sert au pré-fill lors de l'envoi vers MTS-1"
+                    >
+                      <Input
+                        id="am_id_point_collecte_mts1"
+                        value={values.id_point_collecte_mts1}
+                        onChange={(e) =>
+                          set('id_point_collecte_mts1', e.target.value)
+                        }
+                      />
+                    </FormField>
+                  </FormGrid>
+                </div>
+              </FicheSection>
             </TabsContent>
 
             <TabsContent value="rapport" forceMount className={PANNEAU_ONGLET}>
-              <SectionCard icon={FileTextIcon} title="Rapport d'impact">
-                <FormField
-                  label="Description pour le rapport d'impact (pour le client)"
-                  htmlFor="am_description_rapport_impact"
-                  required
-                  error={errors.description_rapport_impact}
-                  hint="Minimum 30 caractères, copiée dans le rapport AG"
-                >
-                  <Textarea
-                    id="am_description_rapport_impact"
+              <FicheSection titre="Rapport d'impact">
+                <div className="space-y-4">
+                  <FormField
+                    label="Description pour le rapport d'impact (pour le client)"
+                    htmlFor="am_description_rapport_impact"
                     required
-                    rows={5}
-                    value={values.description_rapport_impact}
-                    onChange={(e) =>
-                      set('description_rapport_impact', e.target.value)
-                    }
-                    error={Boolean(errors.description_rapport_impact)}
-                  />
-                </FormField>
-                <FormField
-                  label="Logo de l'association"
-                  htmlFor="am_logo"
-                  hint="Affiché dans les rapports AG — optionnel"
-                >
-                  <LogoUpload
-                    inputId="am_logo"
-                    value={values.logo_url}
-                    onChange={(v) => set('logo_url', v)}
-                  />
-                </FormField>
-              </SectionCard>
+                    error={errors.description_rapport_impact}
+                    hint="Minimum 30 caractères, copiée dans le rapport AG"
+                  >
+                    <Textarea
+                      id="am_description_rapport_impact"
+                      required
+                      rows={5}
+                      value={values.description_rapport_impact}
+                      onChange={(e) =>
+                        set('description_rapport_impact', e.target.value)
+                      }
+                      error={Boolean(errors.description_rapport_impact)}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Logo de l'association"
+                    htmlFor="am_logo"
+                    hint="Affiché dans les rapports AG — optionnel"
+                  >
+                    <LogoUpload
+                      inputId="am_logo"
+                      value={values.logo_url}
+                      onChange={(v) => set('logo_url', v)}
+                    />
+                  </FormField>
+                </div>
+              </FicheSection>
             </TabsContent>
 
             <TabsContent
@@ -702,82 +734,83 @@ export function AssociationModal({
               forceMount
               className={PANNEAU_ONGLET}
             >
-              <SectionCard icon={SealCheckIcon} title="Habilitation fiscale">
-                <Label
-                  variant="choice"
-                  className="flex items-center gap-2 font-medium"
-                >
-                  <Checkbox
-                    checked={values.habilitee_attestation_fiscale}
-                    onCheckedChange={(v) =>
-                      set('habilitee_attestation_fiscale', v === true)
-                    }
-                  />
-                  Habilitation 2041-GE (attestation fiscale)
-                </Label>
-                <FormGrid>
-                  <FormField
-                    label="Date d'expiration habilitation 2041-GE"
-                    htmlFor="am_date_expiration_habilitation"
-                    hint="Optionnel — édition admin"
+              <FicheSection titre="Habilitation fiscale">
+                <div className="space-y-4">
+                  <Label
+                    variant="choice"
+                    className="flex items-center gap-2 font-medium"
                   >
-                    <DatePicker
-                      id="am_date_expiration_habilitation"
-                      value={values.date_expiration_habilitation}
-                      onChange={(v) => set('date_expiration_habilitation', v)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="N° RUP"
-                    htmlFor="am_numero_rup"
-                    hint="Reconnue d'utilité publique — optionnel, édition admin. Renseigné, il apparaît sur le Cerfa 2041-GE."
-                  >
-                    <Input
-                      id="am_numero_rup"
-                      value={values.numero_rup}
-                      onChange={(e) => set('numero_rup', e.target.value)}
-                    />
-                  </FormField>
-                </FormGrid>
-              </SectionCard>
-
-              <SectionCard
-                icon={SlidersHorizontalIcon}
-                title="Identification et suivi interne"
-              >
-                <FormGrid>
-                  <FormField
-                    label="SIREN"
-                    htmlFor="am_siren"
-                    error={errors.siren}
-                    hint="9 chiffres — optionnel, édition admin"
-                  >
-                    <Input
-                      id="am_siren"
-                      value={values.siren}
-                      onChange={(e) => set('siren', e.target.value)}
-                      error={Boolean(errors.siren)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Commentaire interne"
-                    htmlFor="am_commentaires_internes"
-                  >
-                    <Textarea
-                      id="am_commentaires_internes"
-                      rows={2}
-                      value={values.commentaires_internes}
-                      onChange={(e) =>
-                        set('commentaires_internes', e.target.value)
+                    <Checkbox
+                      checked={values.habilitee_attestation_fiscale}
+                      onCheckedChange={(v) =>
+                        set('habilitee_attestation_fiscale', v === true)
                       }
                     />
-                  </FormField>
-                </FormGrid>
-              </SectionCard>
+                    Habilitation 2041-GE (attestation fiscale)
+                  </Label>
+                  <FormGrid>
+                    <FormField
+                      label="Date d'expiration habilitation 2041-GE"
+                      htmlFor="am_date_expiration_habilitation"
+                      hint="Optionnel — édition admin"
+                    >
+                      <DatePicker
+                        id="am_date_expiration_habilitation"
+                        value={values.date_expiration_habilitation}
+                        onChange={(v) => set('date_expiration_habilitation', v)}
+                      />
+                    </FormField>
+                    <FormField
+                      label="N° RUP"
+                      htmlFor="am_numero_rup"
+                      hint="Reconnue d'utilité publique — optionnel, édition admin. Renseigné, il apparaît sur le Cerfa 2041-GE."
+                    >
+                      <Input
+                        id="am_numero_rup"
+                        value={values.numero_rup}
+                        onChange={(e) => set('numero_rup', e.target.value)}
+                      />
+                    </FormField>
+                  </FormGrid>
+                </div>
+              </FicheSection>
+
+              <FicheSection titre="Identification et suivi interne">
+                <div className="space-y-4">
+                  <FormGrid>
+                    <FormField
+                      label="SIREN"
+                      htmlFor="am_siren"
+                      error={errors.siren}
+                      hint="9 chiffres — optionnel, édition admin"
+                    >
+                      <Input
+                        id="am_siren"
+                        value={values.siren}
+                        onChange={(e) => set('siren', e.target.value)}
+                        error={Boolean(errors.siren)}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Commentaire interne"
+                      htmlFor="am_commentaires_internes"
+                    >
+                      <Textarea
+                        id="am_commentaires_internes"
+                        rows={2}
+                        value={values.commentaires_internes}
+                        onChange={(e) =>
+                          set('commentaires_internes', e.target.value)
+                        }
+                      />
+                    </FormField>
+                  </FormGrid>
+                </div>
+              </FicheSection>
             </TabsContent>
-          </Tabs>
-        </form>
-      </FicheCorps>
+          </form>
+        </FicheCorps>
+      </Tabs>
     </FicheModal>
   );
 }

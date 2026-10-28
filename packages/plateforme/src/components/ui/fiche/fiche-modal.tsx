@@ -19,6 +19,16 @@ import { Modal } from '@/components/ui/modal';
 // Le pied est soit la prop `footer` de la Modal (lieu, association), soit un
 // FichePied placé après le corps quand la fiche le porte elle-même (dans son
 // <form> : transporteur ; dans son panneau : fiches collecte).
+//
+// Grand format (variante B, décision Val 2026-10-27) : FicheGrandEnTete à la
+// place de FicheEnTete ; FicheCorps et FichePied prennent seuls les marges et
+// les filets du grand format (contexte posé par la modale), et `footer` passe
+// dans un FichePied sous le corps.
+
+type TailleFiche = 'standard' | 'grand';
+
+const TailleFicheContext = React.createContext<TailleFiche>('standard');
+
 export function FicheModal({
   open,
   title,
@@ -32,37 +42,41 @@ export function FicheModal({
   title: string;
   onClose: () => void;
   footer?: React.ReactNode;
-  /** `grand` : fiche collecte client (variante B, décision Val 2026-10-27) —
-   *  1 200 px de large, angles de 20 px, croix ronde sur fond sable. */
-  taille?: 'standard' | 'grand';
+  /** `grand` : fiches variante B (décision Val 2026-10-27) — 1 200 px de
+   *  large, angles de 20 px, croix ronde sur fond sable, feuille montée du bas
+   *  sur téléphone. */
+  taille?: TailleFiche;
   children: React.ReactNode;
 }) {
   const grand = taille === 'grand';
   return (
-    <Modal
-      open={open}
-      title={title}
-      onClose={onClose}
-      footer={footer}
-      hideTitle
-      bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
-      className={
-        grand
-          ? // Téléphone (B4) : feuille montée du bas, angles hauts seuls.
-            'max-h-[94vh] max-w-[75rem] rounded-savr-2xl shadow-savr-xl max-sm:h-full max-sm:max-h-none max-sm:rounded-b-none md:h-[min(94vh,57.5rem)]'
-          : 'max-w-5xl md:h-[min(90vh,48rem)]'
-      }
-      overlayClassName={
-        grand ? 'max-sm:items-end max-sm:p-0 max-sm:pt-10' : undefined
-      }
-      fermetureClassName={
-        grand
-          ? 'right-5 top-5 h-11 w-11 rounded-savr-full bg-savr-sable-100 text-savr-neutral-700 hover:bg-savr-sable-200 hover:text-savr-neutral-900 md:right-8 md:top-6'
-          : undefined
-      }
-    >
-      {children}
-    </Modal>
+    <TailleFicheContext.Provider value={taille}>
+      <Modal
+        open={open}
+        title={title}
+        onClose={onClose}
+        footer={grand ? undefined : footer}
+        hideTitle
+        bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
+        className={
+          grand
+            ? // Téléphone (B4) : feuille montée du bas, angles hauts seuls.
+              'max-h-[94vh] max-w-[75rem] rounded-savr-2xl shadow-savr-xl max-sm:h-full max-sm:max-h-none max-sm:rounded-b-none md:h-[min(94vh,57.5rem)]'
+            : 'max-w-5xl md:h-[min(90vh,48rem)]'
+        }
+        overlayClassName={
+          grand ? 'max-sm:items-end max-sm:p-0 max-sm:pt-10' : undefined
+        }
+        fermetureClassName={
+          grand
+            ? 'right-5 top-5 h-11 w-11 rounded-savr-full bg-savr-sable-100 text-savr-neutral-700 hover:bg-savr-sable-200 hover:text-savr-neutral-900 md:right-8 md:top-6'
+            : undefined
+        }
+      >
+        {children}
+        {grand && footer && <FichePied>{footer}</FichePied>}
+      </Modal>
+    </TailleFicheContext.Provider>
   );
 }
 
@@ -72,10 +86,12 @@ export function FicheCorps({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
+  const grand = React.useContext(TailleFicheContext) === 'grand';
   return (
     <div
       className={cn(
-        'min-h-0 flex-1 overflow-y-auto px-6 py-4 md:px-8',
+        'min-h-0 flex-1 overflow-y-auto',
+        grand ? 'px-5 pb-3 pt-5 sm:px-6 md:px-12' : 'px-6 py-4 md:px-8',
         className,
       )}
       {...props}
@@ -90,10 +106,14 @@ export function FichePied({
   className,
   ...props
 }: React.HTMLAttributes<HTMLElement>) {
+  const grand = React.useContext(TailleFicheContext) === 'grand';
   return (
     <footer
       className={cn(
-        'flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-savr-neutral-200 px-6 py-4 md:px-8',
+        'flex shrink-0 flex-wrap items-center justify-end gap-3 border-t',
+        grand
+          ? 'border-savr-sable-200 px-5 py-4 sm:px-6 md:px-12'
+          : 'border-savr-neutral-200 px-6 py-4 md:px-8',
         className,
       )}
       {...props}

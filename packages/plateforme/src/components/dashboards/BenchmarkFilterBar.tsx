@@ -61,11 +61,10 @@ export interface BenchmarkFilterOptions {
 }
 
 // Listes bornées au périmètre de l'appelant : sans rien cocher, le repère reste
-// calculé sur tout le parc Savr. « Tous » se lirait « tous mes lieux » — la case
-// de tête le dit, et cocher toutes les lignes reste une sélection explicite.
+// calculé sur tout le parc Savr ; cocher toutes les lignes reste donc une
+// sélection explicite. La case de tête s'appelle « Tous » comme ailleurs (Val
+// 2026-10-28, remplace « Tout le parc Savr » du 2026-10-06).
 const LISTES_RATTACHEES = {
-  libelleVide: 'Tout le parc Savr',
-  libelleTous: 'Tout le parc Savr',
   listePartielle: true,
 } as const;
 
@@ -116,12 +115,13 @@ const PASTILLE =
   'h-auto min-h-11 max-w-full rounded-savr-full bg-savr-sable-100 px-3.5 py-1 text-left text-sm font-semibold text-savr-neutral-800 hover:bg-savr-sable-200 data-[state=open]:bg-savr-sable-200 sm:min-h-8 [&>span:first-child]:sr-only [&>span:nth-child(2)]:font-semibold [&>span:nth-child(2)]:text-savr-neutral-800';
 
 // Pastilles : seule la valeur est visible (le titre reste lu par les lecteurs
-// d'écran) ; la valeur « vide » dit donc ce qu'elle couvre.
+// d'écran) ; sans sélection, elle affiche le nom du filtre (Val 2026-10-28).
+// La case de tête de la liste reste « Tous ».
 const VIDE_PASTILLE = {
-  type: 'Tous les types',
-  taille: 'Toutes les tailles',
-  lieux: 'Tous les lieux',
-  traiteurs: 'Tous les traiteurs',
+  type: 'Types',
+  taille: 'Tailles',
+  lieux: 'Lieux',
+  traiteurs: 'Traiteurs',
 } as const;
 
 /**
@@ -130,8 +130,8 @@ const VIDE_PASTILLE = {
  * barres de filtres, décision Val 2026-09-30). Critères qui ne s'appliquent
  * qu'au point rouge : Type d'événement, Taille, Lieux, Traiteurs. Ces deux
  * listes couvrent tout le parc, ou (`perimetre="rattache"`) les seuls lieux
- * rattachés et traiteurs intervenus du gestionnaire — la case de tête
- * s'appelle alors « Tout le parc Savr » (décision Val 2026-10-06). La
+ * rattachés et traiteurs intervenus du gestionnaire (décision Val 2026-10-06) ;
+ * la case de tête s'appelle toujours « Tous » (Val 2026-10-28). La
  * période est fixe (24 mois glissants, non affichée). Bâti sur `FilterBar`
  * (R-UI-4b, D5 façon C, `surface="encart"`, `count={null}`) : « Réinitialiser
  * les filtres » (retour à l'héritage Type/Taille, Lieux/Traiteurs vidés)
@@ -260,8 +260,8 @@ export function BenchmarkFilterBar({
           onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
           testid="benchmark-filter-lieux"
           declencheurClassName={pastille}
-          libelleVide={VIDE_PASTILLE.lieux}
           {...listes}
+          libelleVide={VIDE_PASTILLE.lieux}
         />
         {/* Filtre traiteurs masqué pour les rôles traiteur (liste vide renvoyée). */}
         {traiteursVisibles && (
@@ -272,8 +272,8 @@ export function BenchmarkFilterBar({
             onChange={(ids) => apply({ ...filters, traiteur_ids: ids })}
             testid="benchmark-filter-traiteurs"
             declencheurClassName={pastille}
-            libelleVide={VIDE_PASTILLE.traiteurs}
             {...listes}
+            libelleVide={VIDE_PASTILLE.traiteurs}
           />
         )}
         {actif && (

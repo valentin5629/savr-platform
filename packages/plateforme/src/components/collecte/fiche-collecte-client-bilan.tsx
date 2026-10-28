@@ -62,15 +62,6 @@ const TOOLTIP_TAUX_UE =
   'résiduel) entre uniquement au dénominateur. Voir Méthodologie.';
 
 const TITRE_RADAR = 'Votre collecte face aux événements comparables';
-export const SOUS_TITRE_RADAR =
-  'Déchets par convive (kg/pax), flux par flux, comparés à la moyenne anonymisée ' +
-  'des événements Savr des 24 derniers mois. À l’intérieur du repère, vous ' +
-  'produisez moins que la moyenne.';
-
-// Sous-titre court du radar compact (deux graphes sur une ligne, variante B) ;
-// la phrase « à l'intérieur du repère… » reste dans le rapport et les dashboards.
-const SOUS_TITRE_RADAR_COMPACT =
-  'Déchets par convive (kg/pax) face à la moyenne Savr sur 24 mois.';
 
 interface BenchmarkFlux {
   ratio_user: number | null;
@@ -513,9 +504,8 @@ export function BilanCollecte({
                 >
                   <BenchmarkRadar
                     title={TITRE_RADAR}
-                    subtitle={SOUS_TITRE_RADAR_COMPACT}
                     items={gaugeItems}
-                    disposition="compacte"
+                    serieLabel="Votre collecte"
                     referenceLabel="Moyenne des événements comparables"
                     className="h-full p-5"
                     actionSlot={actionRadar}

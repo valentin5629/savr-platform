@@ -118,7 +118,9 @@ describe('M3.3 / agence — déclinaison Cockpit', () => {
         await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       // Benchmark Cockpit (BenchmarkRadar — titre propre à la lib figée).
-      expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/face aux événements comparables/),
+      ).toBeInTheDocument();
       // Top listes Cockpit (TopRankList).
       expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
       expect(screen.getByText('Lieu A')).toBeInTheDocument();
@@ -348,8 +350,10 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
-      // Graphes Cockpit : radar benchmark (« Intensité par flux »), Top listes.
-      expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+      // Graphes Cockpit : radar benchmark (« … face aux événements comparables »), Top listes.
+      expect(
+        screen.getByText(/face aux événements comparables/),
+      ).toBeInTheDocument();
       expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
       expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();
       expect(screen.getByText('Lieu A')).toBeInTheDocument();

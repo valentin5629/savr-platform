@@ -6,23 +6,24 @@ import { ChartCard } from './ChartCard';
 import { fmtDec } from './fmt';
 import {
   STATUT,
-  NAVY,
   GRID,
   GRID_BASELINE,
   INK,
   TEXT_MUTED,
   TEXT_FAINT,
   TEXT_XFAINT,
-  SURFACE_HOVER,
-  PARC,
   WHITE,
+  RADAR_SERIE as VOUS,
+  RADAR_REPERE as PARC,
 } from './palette';
 import { Text } from '@/components/ui/text';
 import { ChartTooltip } from '@/components/ui/chart-tooltip';
 import { fmtPct } from '@/lib/format';
 
-// BenchmarkRadar — radar « lignes seules » (modèle shadcn Radar Chart - Lines
-// Only, décision Val 2026-09-28, remplace les 5 jauges bullet R24) : intensité
+// BenchmarkRadar — radar de comparaison (style de la fiche collecte variante B,
+// étendu à tous les radars le 2026-10-28 par Val : série en orange remplie,
+// repère en pointillés bleu nuit, légende sous le radar ; remplace les lignes
+// seules navy / primary-300 du 2026-09-28) : intensité
 // kg/pax par flux comparée à la moyenne du parc Savr (anonymisée).
 // Échelle = INDICE « parc = 100 » par flux (les flux n'ont pas le même ordre de
 // grandeur — 0,02 à 0,12 kg/pax — un axe brut écraserait les petits flux) : le
@@ -33,37 +34,24 @@ import { fmtPct } from '@/lib/format';
 // point absent (segments adjacents non tracés : pas de fausse continuité).
 interface BenchmarkRadarProps {
   items: GaugeItem[];
-  /** Filtres du repère parc, imbriqués DANS la carte (au-dessus du radar) —
-   *  filtres + graphe = un seul bloc (retour Val R24b). */
+  /** Filtres du repère, empilés à droite du radar dans la même carte. */
   filtersSlot?: React.ReactNode;
-  /** Titre de la carte (défaut : libellé des dashboards). */
+  /** Titre de la carte (défaut : titre des tableaux de bord). */
   title?: string;
   /** Sous-titre de la carte (défaut : libellé des dashboards). */
   subtitle?: string;
-  /** Libellé de la série de référence dans la légende (défaut « Moyenne parc »). */
+  /** Libellé de la série mesurée (légende, infobulle ; défaut « Vos collectes »). */
+  serieLabel?: string;
+  /** Libellé de la série de référence dans la légende (défaut « Moyenne des
+   *  événements comparables »). */
   referenceLabel?: string;
   /** Libellé court de la référence (infobulle, liste ; défaut « Parc »). */
   referenceCourt?: string;
-  /**
-   * `compacte` (fiche collecte, variante B Val 2026-10-27) : radar seul à
-   * gauche avec sa légende dessous, filtres empilés à droite, votre collecte en orange
-   * remplie et le repère en pointillés bleu nuit ; la liste des flux reste
-   * lisible par les lecteurs d'écran (statut jamais porté par la seule
-   * couleur) et les valeurs restent au survol.
-   */
-  disposition?: 'standard' | 'compacte';
-  /** Action sous la légende de la disposition compacte (ex. intégrer la
-   *  comparaison au rapport de la fiche collecte). */
+  /** Action sous les filtres (ex. intégrer la comparaison au rapport de la
+   *  fiche collecte). */
   actionSlot?: React.ReactNode;
   className?: string;
 }
-
-const VOUS_COMPACT = 'var(--color-savr-accent-500)';
-const PARC_COMPACT = 'var(--color-savr-primary-900)';
-
-// Série « Vous » = navy-700 (encre forte), série « Parc » = primary-300 (repère
-// en retrait) — échelle primary DS §10.
-const VOUS = NAVY;
 
 // Géométrie SVG (viewBox fixe, rendu fluide en largeur).
 const VB_W = 460; // marge latérale : libellés longs (« Déchet résiduel ») ; « n/d » va en 2e ligne
@@ -141,54 +129,6 @@ function segments(pts: ([number, number] | null)[]): string {
   return d;
 }
 
-function LegendLine({
-  color,
-  children,
-}: {
-  color: string;
-  children: React.ReactNode;
-}): React.ReactElement {
-  return (
-    <Text
-      as="span"
-      variant="hint"
-      tone="soft"
-      className="flex items-center gap-1.5 font-semibold"
-    >
-      <span
-        aria-hidden
-        className="inline-block rounded-savr-full"
-        style={{ width: 14, height: 3, background: color }}
-      />
-      {children}
-    </Text>
-  );
-}
-
-function LegendDot({
-  color,
-  children,
-}: {
-  color: string;
-  children: React.ReactNode;
-}): React.ReactElement {
-  return (
-    <Text
-      as="span"
-      variant="hint"
-      tone="soft"
-      className="flex items-center gap-1.5 font-semibold"
-    >
-      <span
-        aria-hidden
-        className="inline-block rounded-savr-full"
-        style={{ width: 9, height: 9, background: color }}
-      />
-      {children}
-    </Text>
-  );
-}
-
 function Serie({
   color,
   label,
@@ -215,14 +155,12 @@ function Serie({
 
 function Tooltip({
   axe,
+  serieLabel,
   referenceCourt,
-  couleurVous = VOUS,
-  couleurParc = PARC,
 }: {
   axe: Axe;
+  serieLabel: string;
   referenceCourt: string;
-  couleurVous?: string;
-  couleurParc?: string;
 }): React.ReactElement {
   const { item, ratio } = axe;
   return (
@@ -236,12 +174,12 @@ function Tooltip({
       </div>
       <div className="flex flex-col gap-1 text-xs tabular-nums">
         <Serie
-          color={couleurVous}
-          label="Vous"
+          color={VOUS}
+          label={serieLabel}
           valeur={fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
         />
         <Serie
-          color={couleurParc}
+          color={PARC}
           label={referenceCourt}
           valeur={
             fini(item.benchmark)
@@ -268,61 +206,29 @@ function Tooltip({
   );
 }
 
+/** Ligne de la liste lue par les lecteurs d'écran : valeurs et statut en
+ *  toutes lettres (le statut n'est jamais porté par la seule couleur). */
 function LigneFlux({
   axe,
-  active,
-  onHover,
   referenceCourt,
 }: {
   axe: Axe;
-  active: boolean;
-  onHover: (on: boolean) => void;
   referenceCourt: string;
 }): React.ReactElement {
   const { item, ratio } = axe;
-  const statut = ratio != null ? statutDe(ratio) : null;
   const ref = referenceCourt.toLowerCase();
   return (
-    <li
-      data-testid="benchmark-radar-ligne"
-      className="flex items-center justify-between gap-3 rounded-savr-sm px-2 py-1.5 transition-colors"
-      style={{ background: active ? SURFACE_HOVER : 'transparent' }}
-      onMouseEnter={() => onHover(true)}
-      onMouseLeave={() => onHover(false)}
-    >
-      <div className="min-w-0">
-        <div
-          className={
-            statut
-              ? 'text-sm font-bold text-savr-neutral-800'
-              : 'text-sm font-bold text-savr-neutral-400'
-          }
-        >
-          {item.label}
-        </div>
-        <Text as="div" variant="hint" className="tabular-nums">
-          {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
-          {' · '}
-          {fini(item.benchmark)
-            ? `${ref} ${fmtDec(item.benchmark, 2)}`
-            : `${ref} n/d`}
-        </Text>
-      </div>
-      {statut && ratio != null ? (
-        <span
-          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-xs font-semibold tabular-nums"
-          style={{ color: statut.badge, background: statut.bg }}
-        >
-          {ecartTxt(ratio)}
-        </span>
-      ) : (
-        <span
-          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-xs font-semibold"
-          style={{ color: TEXT_MUTED, background: GRID }}
-        >
-          Données manquantes
-        </span>
-      )}
+    <li data-testid="benchmark-radar-ligne">
+      {item.label} :{' '}
+      {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
+      {' · '}
+      {fini(item.benchmark)
+        ? `${ref} ${fmtDec(item.benchmark, 2)}`
+        : `${ref} n/d`}
+      {' · '}
+      {ratio != null
+        ? `${ecartTxt(ratio)} (${statutDe(ratio).label})`
+        : 'Données manquantes'}
     </li>
   );
 }
@@ -330,20 +236,15 @@ function LigneFlux({
 export function BenchmarkRadar({
   items,
   filtersSlot,
-  title = 'Intensité par flux · kg/pax vs benchmark parc',
-  subtitle = "Indice : moyenne du parc Savr (anonymisée) = 100. À l'intérieur du repère, vous produisez moins que le parc.",
-  referenceLabel = 'Moyenne parc',
+  title = 'Vos tonnages face aux événements comparables',
+  subtitle = 'Déchets par convive (kg/pax) face à la moyenne Savr sur 24 mois.',
+  serieLabel = 'Vos collectes',
+  referenceLabel = 'Moyenne des événements comparables',
   referenceCourt = 'Parc',
-  disposition = 'standard',
   actionSlot,
   className,
 }: BenchmarkRadarProps): React.ReactElement {
-  const compacte = disposition === 'compacte';
-  const couleurVous = compacte ? VOUS_COMPACT : VOUS;
-  const couleurParc = compacte ? PARC_COMPACT : PARC;
-  // Survol : axe actif + position du curseur (px, relative au conteneur) quand
-  // le survol vient du GRAPHE ; survol depuis la LISTE = axe seul (la ligne de
-  // liste porte déjà les valeurs, pas d'infobulle en double).
+  // Survol : axe actif + position du curseur (px, relative au conteneur).
   const [hover, setHover] = React.useState<number | null>(null);
   const [curseur, setCurseur] = React.useState<{
     x: number;
@@ -404,44 +305,15 @@ export function BenchmarkRadar({
   const bulleAGauche = curseur != null && curseur.x < curseur.w / 2;
 
   return (
-    <ChartCard
-      title={title}
-      subtitle={subtitle}
-      className={className}
-      headerRight={
-        compacte ? undefined : (
-          <div className="flex flex-wrap gap-3">
-            <LegendLine color={VOUS}>Vous</LegendLine>
-            <LegendLine color={PARC}>{referenceLabel}</LegendLine>
-          </div>
-        )
-      }
-    >
-      {filtersSlot && !compacte && (
-        <div className="mb-5 border-b border-savr-neutral-100 pb-5">
-          {filtersSlot}
-        </div>
-      )}
-      <div
-        className={
-          compacte
-            ? 'grid grid-cols-1 items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,12.5rem)]'
-            : 'grid grid-cols-1 items-center gap-6 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]'
-        }
-      >
-        <div
-          className={
-            compacte
-              ? 'relative mx-auto w-full max-w-[264px]'
-              : 'relative mx-auto w-full max-w-[480px]'
-          }
-        >
+    <ChartCard title={title} subtitle={subtitle} className={className}>
+      <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,12.5rem)]">
+        <div className="relative mx-auto w-full max-w-[264px]">
           <svg
             viewBox={`0 0 ${VB_W} ${VB_H}`}
             className="block h-auto w-full"
-            // Compact : les libellés agrandis peuvent déborder du viewBox
-            // dans la marge de la carte plutôt que d'être rognés.
-            overflow={compacte ? 'visible' : undefined}
+            // Les libellés agrandis peuvent déborder du viewBox dans la marge
+            // de la carte plutôt que d'être rognés.
+            overflow="visible"
             role="img"
             aria-label={`Radar de l'intensité kg/pax par flux, indice ${referenceCourt.toLowerCase()} = 100`}
             data-testid="benchmark-radar"
@@ -475,10 +347,10 @@ export function BenchmarkRadar({
                 strokeDasharray="3 3"
               />
             )}
-            {compacte && ptsVous.every(Boolean) && (
+            {ptsVous.every(Boolean) && (
               <polygon
                 points={ptsVous.map((p) => p!.join(',')).join(' ')}
-                fill={VOUS_COMPACT}
+                fill={VOUS}
                 fillOpacity={0.22}
                 stroke="none"
               />
@@ -486,16 +358,16 @@ export function BenchmarkRadar({
             <path
               d={segments(ptsParc)}
               fill="none"
-              stroke={couleurParc}
-              strokeWidth={compacte ? 1.5 : 2}
-              strokeDasharray={compacte ? '4 4' : undefined}
+              stroke={PARC}
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
               strokeLinejoin="round"
               strokeLinecap="round"
             />
             <path
               d={segments(ptsVous)}
               fill="none"
-              stroke={couleurVous}
+              stroke={VOUS}
               strokeWidth={2}
               strokeLinejoin="round"
               strokeLinecap="round"
@@ -507,7 +379,7 @@ export function BenchmarkRadar({
                 cx={ptsParc[hover]![0]}
                 cy={ptsParc[hover]![1]}
                 r={4}
-                fill={couleurParc}
+                fill={PARC}
                 stroke={WHITE}
                 strokeWidth={1.5}
               />
@@ -519,7 +391,7 @@ export function BenchmarkRadar({
                   cx={p[0]}
                   cy={p[1]}
                   r={hover === i ? 5 : 3}
-                  fill={couleurVous}
+                  fill={VOUS}
                   stroke={hover === i ? WHITE : 'none'}
                   strokeWidth={1.5}
                 />
@@ -542,9 +414,9 @@ export function BenchmarkRadar({
                     textAnchor={anchor}
                     dominantBaseline="middle"
                     style={{
-                      // Radar compact : rendu plus petit, libellés agrandis
-                      // dans le viewBox pour rester lisibles (≈ 11 px).
-                      fontSize: compacte ? 19 : 13,
+                      // Radar rendu petit : libellés agrandis dans le
+                      // viewBox pour rester lisibles (≈ 11 px).
+                      fontSize: 19,
                       fontWeight: 700,
                       fill: manquant
                         ? TEXT_XFAINT
@@ -587,69 +459,54 @@ export function BenchmarkRadar({
             >
               <Tooltip
                 axe={focus}
+                serieLabel={serieLabel}
                 referenceCourt={referenceCourt}
-                couleurVous={couleurVous}
-                couleurParc={couleurParc}
               />
             </div>
           )}
-          {compacte && (
-            <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
-              <Text
-                as="span"
-                variant="hint"
-                tone="soft"
-                className="flex items-center gap-2 font-semibold"
-              >
-                <span
-                  aria-hidden
-                  className="inline-block h-2.5 w-3.5 shrink-0 rounded-savr-sm border-2 border-savr-accent-500 bg-savr-accent-500/25"
-                />
-                Votre collecte
-              </Text>
-              <Text
-                as="span"
-                variant="hint"
-                tone="soft"
-                className="flex items-center gap-2 font-semibold"
-              >
-                <span
-                  aria-hidden
-                  className="inline-block w-4 shrink-0 border-t-[1.5px] border-dashed border-savr-primary-900"
-                />
-                {referenceLabel}
-              </Text>
-            </div>
-          )}
-        </div>
-        {compacte && (
-          <div className="flex flex-col gap-3">
-            {filtersSlot}
-            {actionSlot}
-          </div>
-        )}
-        <div className={compacte ? 'sr-only' : undefined}>
-          <ul className="flex flex-col gap-0.5">
-            {axes.map((a, i) => (
-              <LigneFlux
-                key={`${a.item.label}-${i}`}
-                axe={a}
-                active={hover === i}
-                referenceCourt={referenceCourt}
-                onHover={(on) => {
-                  setCurseur(null);
-                  setHover(on ? i : null);
-                }}
+          {/* Légende sous le radar. */}
+          <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
+            <Text
+              as="span"
+              variant="hint"
+              tone="soft"
+              className="flex items-center gap-2 font-semibold"
+            >
+              <span
+                aria-hidden
+                className="inline-block h-2.5 w-3.5 shrink-0 rounded-savr-sm border-2 border-savr-accent-500 bg-savr-accent-500/25"
               />
-            ))}
-          </ul>
-          <div className="mt-3 flex flex-wrap gap-3 border-t border-savr-neutral-100 px-2 pt-3">
-            <LegendDot color={STATUT.vert.fill}>Inférieur</LegendDot>
-            <LegendDot color={STATUT.orange.fill}>Supérieur</LegendDot>
-            <LegendDot color={STATUT.rouge.fill}>Largement supérieur</LegendDot>
-            <LegendDot color={TEXT_XFAINT}>Données manquantes</LegendDot>
+              {serieLabel}
+            </Text>
+            <Text
+              as="span"
+              variant="hint"
+              tone="soft"
+              className="flex items-center gap-2 font-semibold"
+            >
+              <span
+                aria-hidden
+                className="inline-block w-4 shrink-0 border-t-[1.5px] border-dashed border-savr-primary-900"
+              />
+              {referenceLabel}
+            </Text>
           </div>
         </div>
+        <div className="flex flex-col gap-3">
+          {filtersSlot}
+          {actionSlot}
+        </div>
+        {/* Liste des flux lue par les lecteurs d'écran (statut jamais porté par
+            la seule couleur) ; à l'écran, les valeurs sont au survol. */}
+        <ul className="sr-only">
+          {axes.map((a, i) => (
+            <LigneFlux
+              key={`${a.item.label}-${i}`}
+              axe={a}
+              referenceCourt={referenceCourt}
+            />
+          ))}
+        </ul>
       </div>
     </ChartCard>
   );

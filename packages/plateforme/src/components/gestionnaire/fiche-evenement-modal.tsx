@@ -48,7 +48,6 @@ import {
   Estompe,
   GrapheEnAttente,
   Kpi,
-  SOUS_TITRE_RADAR,
   useRadarFiche,
   type RadarFiche,
 } from '@/components/collecte/fiche-collecte-client-bilan';
@@ -280,6 +279,8 @@ function BilanConsolide({
       taux_recyclage: b.taux_recyclage,
     },
   ];
+  const donutAffiche = b.tonnage_zd_kg != null && b.tonnage_zd_kg > 0;
+  const radarAffiche = radar.visible && !radar.indisponible;
 
   return (
     <section className="space-y-3" data-testid="bilan-consolide">
@@ -332,45 +333,60 @@ function BilanConsolide({
                 unite="g"
               />
             </div>
-            {b.nb_realisees_zd === 0 ? (
-              <GrapheEnAttente titre="Répartition des tonnages" />
-            ) : (
-              b.tonnage_zd_kg != null &&
-              b.tonnage_zd_kg > 0 && (
-                <TonnagesDonut series={serieDonut} disposition="ligne" />
-              )
-            )}
-            {b.nb_realisees_zd === 0 ? (
-              <GrapheEnAttente titre={TITRE_RADAR} />
-            ) : (
-              radar.visible &&
-              !radar.indisponible && (
-                <div data-testid="radar-evenement">
-                  <BenchmarkRadar
-                    title={TITRE_RADAR}
-                    subtitle={SOUS_TITRE_RADAR}
-                    items={FLUX_ZD.map((f) => ({
-                      label: f.label,
-                      value: radar.bench?.[f.code]?.ratio_user ?? null,
-                      benchmark:
-                        radar.bench?.[f.code]?.benchmark_kg_pax ?? null,
-                    }))}
-                    filtersSlot={
-                      <BenchmarkFilterBar
-                        masquerTraiteurs
-                        perimetre="rattache"
-                        onChange={radar.setFiltres}
-                        initialFilters={radar.filtres ?? undefined}
-                        initialTypeEvenementIds={
-                          filtresInitiaux.typeEvenementIds
-                        }
-                        initialTailleCodes={filtresInitiaux.tailleCodes}
-                      />
-                    }
+            {/* Comme la fiche collecte : répartition et radar sur la même
+                ligne, une seule colonne quand l'un des deux manque. */}
+            <div
+              data-testid="ligne-graphes-evenement"
+              className={
+                b.nb_realisees_zd === 0 || (donutAffiche && radarAffiche)
+                  ? 'grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2'
+                  : 'grid grid-cols-1 gap-4'
+              }
+            >
+              {b.nb_realisees_zd === 0 ? (
+                <GrapheEnAttente titre="Répartition des tonnages" />
+              ) : (
+                donutAffiche && (
+                  <TonnagesDonut
+                    series={serieDonut}
+                    disposition="ligne"
+                    className="h-full p-5"
                   />
-                </div>
-              )
-            )}
+                )
+              )}
+              {b.nb_realisees_zd === 0 ? (
+                <GrapheEnAttente titre={TITRE_RADAR} />
+              ) : (
+                radarAffiche && (
+                  <div data-testid="radar-evenement" className="h-full">
+                    <BenchmarkRadar
+                      title={TITRE_RADAR}
+                      serieLabel="Cet événement"
+                      className="h-full p-5"
+                      items={FLUX_ZD.map((f) => ({
+                        label: f.label,
+                        value: radar.bench?.[f.code]?.ratio_user ?? null,
+                        benchmark:
+                          radar.bench?.[f.code]?.benchmark_kg_pax ?? null,
+                      }))}
+                      filtersSlot={
+                        <BenchmarkFilterBar
+                          masquerTraiteurs
+                          disposition="pastilles"
+                          perimetre="rattache"
+                          onChange={radar.setFiltres}
+                          initialFilters={radar.filtres ?? undefined}
+                          initialTypeEvenementIds={
+                            filtresInitiaux.typeEvenementIds
+                          }
+                          initialTailleCodes={filtresInitiaux.tailleCodes}
+                        />
+                      }
+                    />
+                  </div>
+                )
+              )}
+            </div>
           </Estompe>
           <LiensBilans
             fiches={actives.filter((f) => f.type === 'zero_dechet')}

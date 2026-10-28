@@ -1,8 +1,9 @@
 /**
  * M3.2 — Encart « Filtres benchmark » du gestionnaire de lieux (§06.05 Bloc 3 ZD,
  * décision Val 2026-10-06) : les listes Lieux / Traiteurs ne proposent que son
- * périmètre, et la case de tête s'appelle « Tout le parc Savr » — sans rien
- * cocher, le repère reste calculé sur tout le parc.
+ * périmètre — sans rien cocher, le repère reste calculé sur tout le parc. La
+ * case de tête s'appelle « Tous » comme ailleurs (Val 2026-10-28, remplace
+ * « Tout le parc Savr »).
  *
  * Le piège verrouillé ici : une liste de filtre ordinaire ramène « toutes les
  * lignes cochées » à « Tous ». Sur une liste bornée aux lieux du gestionnaire,
@@ -51,7 +52,7 @@ afterEach(() => {
 
 describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire', () => {
   it(
-    'M3.2/GEST04_encart_tout_le_parc_savr — case de tête « Tout le parc Savr », cochée par défaut, décochée dès qu’un lieu est coché',
+    'M3.2/GEST04_encart_case_tete_tous — case de tête « Tous » (Val 2026-10-28), cochée par défaut, décochée dès qu’un lieu est coché',
     async () => {
       const onChange = vi.fn();
       render(
@@ -61,22 +62,24 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
           initialOptions={rattachees}
         />,
       );
-      // Sans sélection : les deux déclencheurs annoncent tout le parc, pas « Tous ».
+      // Sans sélection : les deux déclencheurs disent « Tous » (Val 2026-10-28).
       expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
-        'Lieux' + 'Tout le parc Savr',
+        'Lieux' + 'Tous',
       );
       expect(
         screen.getByTestId('benchmark-filter-traiteurs'),
-      ).toHaveTextContent('Traiteurs' + 'Tout le parc Savr');
+      ).toHaveTextContent('Traiteurs' + 'Tous');
       expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
         lieu_ids: [],
         traiteur_ids: [],
       });
 
       const lieux = await ouvrir('benchmark-filter-lieux', 'Lieux');
-      const tete = lieux.getByRole('checkbox', { name: 'Tout le parc Savr' });
+      const tete = lieux.getByRole('checkbox', { name: 'Tous' });
       expect(tete).toBeChecked();
-      expect(lieux.queryByRole('checkbox', { name: 'Tous' })).toBeNull();
+      expect(
+        lieux.queryByRole('checkbox', { name: 'Tout le parc Savr' }),
+      ).toBeNull();
 
       fireEvent.click(lieux.getByRole('checkbox', { name: 'CNIT Forest' }));
       expect(tete).not.toBeChecked();
@@ -91,14 +94,14 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
       fireEvent.click(tete);
       expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({ lieu_ids: [] });
       expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
-        'Lieux' + 'Tout le parc Savr',
+        'Lieux' + 'Tous',
       );
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.2/GEST04_encart_tous_mes_lieux_coches — cocher toutes les lignes reste une sélection explicite, jamais « tout le parc »',
+    'M3.2/GEST04_encart_tous_mes_lieux_coches — cocher toutes les lignes reste une sélection explicite, jamais « Tous » (tout le parc)',
     async () => {
       const onChange = vi.fn();
       render(
@@ -115,9 +118,7 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
       expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
         lieu_ids: ['l1', 'l2', 'l3'],
       });
-      expect(
-        lieux.getByRole('checkbox', { name: 'Tout le parc Savr' }),
-      ).not.toBeChecked();
+      expect(lieux.getByRole('checkbox', { name: 'Tous' })).not.toBeChecked();
       expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
         'Lieux' + '3 sélectionnés',
       );
@@ -152,7 +153,7 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
   );
 
   it(
-    'M3.2/GEST04_encart_etat_mixte_lieu_coche_traiteurs_parc — un lieu coché laisse « Traiteurs Tout le parc Savr » : les deux listes sont indépendantes',
+    'M3.2/GEST04_encart_etat_mixte_lieu_coche_traiteurs_parc — un lieu coché laisse « Traiteurs Tous » : les deux listes sont indépendantes',
     async () => {
       const onChange = vi.fn();
       render(
@@ -169,7 +170,7 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
       );
       expect(
         screen.getByTestId('benchmark-filter-traiteurs'),
-      ).toHaveTextContent('Traiteurs' + 'Tout le parc Savr');
+      ).toHaveTextContent('Traiteurs' + 'Tous');
       expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
         lieu_ids: ['l1'],
         traiteur_ids: [],
@@ -179,7 +180,7 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
   );
 
   it(
-    'M3.2/GEST04_encart_libelle_des_le_premier_rendu — « Tout le parc Savr » s’affiche avant la réponse de /filtres, jamais « Tous » entre-temps',
+    'M3.2/GEST04_encart_libelle_des_le_premier_rendu — « Tous » s’affiche avant la réponse de /filtres',
     async () => {
       // Réponse jamais rendue : on observe l'écran pendant le chargement.
       const fetchMock = vi.fn(() => new Promise<never>(() => undefined));
@@ -189,7 +190,7 @@ describe('M3.2 / encart filtres benchmark — listes rattachées du gestionnaire
         '/api/v1/dashboards/benchmark/filtres',
       );
       expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
-        'Lieux' + 'Tout le parc Savr',
+        'Lieux' + 'Tous',
       );
     },
     ATTENTE_CAS_MS,
@@ -223,23 +224,75 @@ async function libelleLieuxDeLaFiche(espace: EspaceClient): Promise<string> {
 
 describe('M3.2 / fiche collecte — filtre Lieux du repère selon l’espace', () => {
   it(
-    'M3.2/fiche_benchmark_lieux_tout_le_parc_gestionnaire — espace gestionnaire : « Tout le parc Savr »',
+    'M3.2/fiche_benchmark_lieux_tout_le_parc_gestionnaire — espace gestionnaire : pastille « Lieux » (Val 2026-10-28)',
     async () => {
       expect(await libelleLieuxDeLaFiche('gestionnaire')).toBe(
-        'Lieux' + 'Tout le parc Savr',
+        'Lieux' + 'Lieux',
       );
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.2/fiche_benchmark_lieux_tous_traiteur — espace traiteur : « Tous les lieux » (liste du parc entier, inchangée)',
+    'M3.2/fiche_benchmark_lieux_tous_traiteur — espace traiteur : pastille « Lieux » (liste du parc entier, inchangée)',
     async () => {
-      // Pastille de la variante B (Val 2026-10-27) : la valeur vide dit ce
-      // qu'elle couvre, le titre « Lieux » reste lu par les lecteurs d'écran.
-      expect(await libelleLieuxDeLaFiche('traiteur')).toBe(
-        'Lieux' + 'Tous les lieux',
+      // Pastille (Val 2026-10-28) : sans sélection, elle affiche le nom du
+      // filtre ; le titre « Lieux » reste lu par les lecteurs d'écran.
+      expect(await libelleLieuxDeLaFiche('traiteur')).toBe('Lieux' + 'Lieux');
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M3.2 / filtres du repère en pastilles (Val 2026-10-28)', () => {
+  it(
+    'M3.2/pastilles_nom_du_filtre — Types / Tailles / Lieux / Traiteurs sans sélection ; « Tous » coché par défaut, décoché dès qu’une valeur est cochée',
+    async () => {
+      const onChange = vi.fn();
+      render(
+        <BenchmarkFilterBar
+          disposition="pastilles"
+          onChange={onChange}
+          initialOptions={{ lieux: LIEUX, traiteurs: TRAITEURS, types: TYPES }}
+        />,
       );
+      const valeur = (testid: string) =>
+        screen.getByTestId(testid).querySelector('span:nth-child(2)')
+          ?.textContent;
+      expect(valeur('benchmark-filter-type')).toBe('Types');
+      expect(valeur('benchmark-filter-taille')).toBe('Tailles');
+      expect(valeur('benchmark-filter-lieux')).toBe('Lieux');
+      expect(valeur('benchmark-filter-traiteurs')).toBe('Traiteurs');
+
+      const lieux = await ouvrir('benchmark-filter-lieux', 'Lieux');
+      const tous = lieux.getByRole('checkbox', { name: 'Tous' });
+      expect(tous).toBeChecked();
+      fireEvent.click(lieux.getByRole('checkbox', { name: 'CNIT Forest' }));
+      expect(tous).not.toBeChecked();
+      expect(valeur('benchmark-filter-lieux')).toBe('CNIT Forest');
+      expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
+        lieu_ids: ['l1'],
+      });
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/pastilles_gestionnaire_tout_le_parc — gestionnaire : pastille « Lieux », case de tête « Tous » cochée par défaut (Val 2026-10-28)',
+    async () => {
+      render(
+        <BenchmarkFilterBar
+          disposition="pastilles"
+          perimetre="rattache"
+          onChange={vi.fn()}
+          initialOptions={rattachees}
+        />,
+      );
+      expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
+        'Lieux' + 'Lieux',
+      );
+      const lieux = await ouvrir('benchmark-filter-lieux', 'Lieux');
+      expect(lieux.getByRole('checkbox', { name: 'Tous' })).toBeChecked();
     },
     ATTENTE_CAS_MS,
   );

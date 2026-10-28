@@ -307,35 +307,41 @@ export default function AgenceDashboardPage() {
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — Filtres du repère + radar kg/pax en UN seul bloc
-              (retour Val R24b : filtres imbriqués dans la carte du benchmark).
-              Benchmark 4 dimensions §06.04 — Traiteurs masqué (endpoint /filtres
-              renvoie liste vide, traiteur_ids[] rejeté serveur). */}
-          <BenchmarkRadar
-            items={gaugeItems}
-            filtersSlot={
-              <BenchmarkFilterBar
-                onChange={handleBenchmarkFilters}
-                initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
-                initialTailleCodes={filters?.taille_evenement_codes ?? []}
+          {/* Bloc 4 donut + Bloc 3 radar sur la même ligne, comme la fiche
+              collecte (Val 2026-10-28) ; filtres du repère en pastilles. */}
+          <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+            <div data-testid="bloc-4-agence" className="h-full">
+              <TonnagesDonut
+                series={zdSeries}
+                disposition="ligne"
+                className="h-full p-5"
               />
-            }
-          />
+            </div>
+            <div data-testid="bloc-3-agence" className="h-full">
+              <BenchmarkRadar
+                className="h-full p-5"
+                items={gaugeItems}
+                filtersSlot={
+                  <BenchmarkFilterBar
+                    disposition="pastilles"
+                    onChange={handleBenchmarkFilters}
+                    initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
+                    initialTailleCodes={filters?.taille_evenement_codes ?? []}
+                  />
+                }
+              />
+            </div>
+          </div>
 
-          {/* Bloc 4 donut + Bloc 6 top lieux (pas de Bloc 7 côté agence, diff #8) */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div data-testid="bloc-4-agence">
-              <TonnagesDonut series={zdSeries} />
-            </div>
-            <div data-testid="bloc-6-top-lieux" className="lg:col-span-2">
-              <TopRankList
-                title="Top 5 lieux"
-                subtitle="Par tonnage collecté"
-                items={withBars(topLieuxItems)}
-                onItemClick={goToLieu}
-                showBar
-              />
-            </div>
+          {/* Bloc 6 top lieux (pas de Bloc 7 côté agence, diff #8) */}
+          <div data-testid="bloc-6-top-lieux">
+            <TopRankList
+              title="Top 5 lieux"
+              subtitle="Par tonnage collecté"
+              items={withBars(topLieuxItems)}
+              onItemClick={goToLieu}
+              showBar
+            />
           </div>
 
           {/* Bloc 8 — Export synthèse PDF (§06.11 réplique stricte §06.04, R20b-2) */}

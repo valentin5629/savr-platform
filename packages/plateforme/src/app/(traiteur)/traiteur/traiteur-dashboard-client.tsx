@@ -454,29 +454,46 @@ export function TraiteurDashboardClient({
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — Filtres du repère + radar kg/pax en UN seul bloc
-              (retour Val R24b : filtres imbriqués dans la carte du benchmark). */}
-          <BenchmarkRadar
-            items={gaugeItems}
-            filtersSlot={
-              <BenchmarkFilterBar
-                // Jamais de filtre Traiteurs côté traiteur (§06.04 l.152,
-                // concurrentiel) — garde UI en plus du refus serveur.
-                masquerTraiteurs
-                onChange={handleBenchmarkFilters}
-                initialTypeEvenementIds={filters.type_evenement_ids ?? []}
-                initialTailleCodes={filters.taille_evenement_codes ?? []}
-                initialOptions={benchmark.options}
+          {/* Bloc 4 donut + Bloc 3 radar sur la même ligne, comme la fiche
+              collecte (Val 2026-10-28) ; filtres du repère en pastilles. */}
+          <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+            <div data-testid="bloc-4-traiteur" className="h-full">
+              <TonnagesDonut
+                series={zdSeries}
+                disposition="ligne"
+                className="h-full p-5"
               />
-            }
-          />
-
-          {/* Bloc 4 donut + Bloc 6 top lieux + Bloc 7 top commerciaux */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div data-testid="bloc-4-traiteur">
-              <TonnagesDonut series={zdSeries} />
             </div>
-            <div data-testid="bloc-6-top-lieux">
+            <div data-testid="bloc-3-traiteur" className="h-full">
+              <BenchmarkRadar
+                className="h-full p-5"
+                items={gaugeItems}
+                filtersSlot={
+                  <BenchmarkFilterBar
+                    disposition="pastilles"
+                    // Jamais de filtre Traiteurs côté traiteur (§06.04 l.152,
+                    // concurrentiel) — garde UI en plus du refus serveur.
+                    masquerTraiteurs
+                    onChange={handleBenchmarkFilters}
+                    initialTypeEvenementIds={filters.type_evenement_ids ?? []}
+                    initialTailleCodes={filters.taille_evenement_codes ?? []}
+                    initialOptions={benchmark.options}
+                  />
+                }
+              />
+            </div>
+          </div>
+
+          {/* Bloc 6 top lieux + Bloc 7 (pleine largeur sans Bloc 7) */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div
+              data-testid="bloc-6-top-lieux"
+              className={
+                blocs?.topActeurs && blocs.acteurLabel
+                  ? undefined
+                  : 'lg:col-span-2'
+              }
+            >
               <TopRankList
                 title="Top 5 lieux"
                 subtitle="Par tonnage collecté"

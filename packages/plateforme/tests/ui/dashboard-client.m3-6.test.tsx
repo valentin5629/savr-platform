@@ -456,7 +456,7 @@ describe('M3.6 / Dashboard Client / référence radar', () => {
               .getAllByTestId('benchmark-radar-ligne')
               .map((l) => l.textContent)
               .join(' | '),
-          ).toMatch(/Biodéchets0,12 kg\/pax · parc 0,10/),
+          ).toMatch(/Biodéchets : 0,12 kg\/pax · parc 0,10/),
         ATTENTE_UI,
       );
       // Échantillon de la référence, SANS seuil d'anonymisation (vue Admin).
@@ -493,7 +493,7 @@ describe('M3.6 / Dashboard Client / référence radar', () => {
       expect(screen.queryByText('Moyenne parc')).toBeNull();
       // Titre et aria-label du radar ne parlent plus de « parc » en comparaison.
       expect(
-        screen.getByText('Intensité par flux · kg/pax vs périmètre comparé'),
+        screen.getByText('Tonnages du périmètre face au périmètre comparé'),
       ).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-radar')).toHaveAttribute(
         'aria-label',
@@ -507,7 +507,7 @@ describe('M3.6 / Dashboard Client / référence radar', () => {
               .getAllByTestId('benchmark-radar-ligne')
               .map((l) => l.textContent)
               .join(' | '),
-          ).toMatch(/Biodéchets0,12 kg\/pax · comparé 0,20/),
+          ).toMatch(/Biodéchets : 0,12 kg\/pax · comparé 0,20/),
         ATTENTE_UI,
       );
       await waitFor(

@@ -3,7 +3,7 @@
 import { AlertBar } from '@/components/ui/alert-bar';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AlertTriangle, CheckCircle } from 'lucide-react';
+import { CheckCircleIcon, WarningIcon } from '@/components/ui/icones';
 import {
   CarteCollecte,
   type TypeEvenementOption,
@@ -421,7 +421,7 @@ export default function AjouterCollectePage() {
       </Modal>
 
       {error && (
-        <AlertBar variant="err" role="alert" icon={<AlertTriangle />}>
+        <AlertBar variant="err" role="alert" icon={<WarningIcon />}>
           {error}
         </AlertBar>
       )}
@@ -431,7 +431,7 @@ export default function AjouterCollectePage() {
         submit={{
           label: (
             <>
-              <CheckCircle /> Ajouter la collecte
+              <CheckCircleIcon /> Ajouter la collecte
             </>
           ),
           onClick: () => void handleSubmit(),

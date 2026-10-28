@@ -191,12 +191,24 @@ function collectesZdAdmin() {
           },
           { poids_reel_kg: 50, flux_dechets: { code: 'verre', nom: 'Verre' } },
         ],
-        bordereaux_savr: [
-          { numero: 'BSAV-1', version: 1 },
-          { numero: 'BSAV-2', version: 2 },
-        ],
       },
     ],
+    error: null,
+  };
+}
+
+/**
+ * Bordereaux que le demandeur lit SOUS SA RLS (§12 §1.7) : les deux versions
+ * de celui de z1 (gestionnaire du lieu, bord_gestionnaire_select), ou aucun.
+ */
+function bordereauxLisibles(lisibles = true) {
+  rls.results.bordereaux_savr = {
+    data: lisibles
+      ? [
+          { collecte_id: 'z1', numero: 'BSAV-1', version: 1 },
+          { collecte_id: 'z1', numero: 'BSAV-2', version: 2 },
+        ]
+      : [],
     error: null,
   };
 }
@@ -322,6 +334,7 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
     evenementVisible();
     evenementAdmin();
     collectesZdAdmin();
+    bordereauxLisibles();
     const res = await rapport('rapport-rse', { options: { benchmark: false } });
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('application/pdf');
@@ -361,6 +374,47 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
       },
     ]);
     expect(p).not.toHaveProperty('benchmark_flux');
+  });
+
+  it('EVT/api_zd_bordereau_sous_rls — §12 §1.7 : numéros de bordereau lus SOUS L’IDENTITÉ du demandeur, jamais en service-role', async () => {
+    evenementVisible();
+    evenementAdmin();
+    collectesZdAdmin();
+    bordereauxLisibles();
+    await rapport('rapport-rse');
+    expect(rls.inAppels).toContainEqual({
+      table: 'bordereaux_savr',
+      col: 'collecte_id',
+      valeurs: ['z1'],
+    });
+    expect(admin.selects.some((x) => x.texte.includes('bordereaux_savr'))).toBe(
+      false,
+    );
+    expect(admin.inAppels.some((x) => x.table === 'bordereaux_savr')).toBe(
+      false,
+    );
+  });
+
+  it('EVT/api_zd_bordereau_illisible — §12 §1.7 : bordereau que le demandeur ne peut pas lire → aucun numéro imprimé (« — » au gabarit)', async () => {
+    evenementVisible();
+    evenementAdmin();
+    collectesZdAdmin();
+    bordereauxLisibles(false);
+    const res = await rapport('rapport-rse');
+    expect(res.status).toBe(200);
+    const p = payloadEnvoye();
+    expect(p.collectes[0]!.bordereau_numero).toBeNull();
+    expect(JSON.stringify(p)).not.toContain('BSAV-');
+  });
+
+  it('EVT/api_zd_bordereau_lecture_echec — lecture des bordereaux en échec → 500, aucun PDF', async () => {
+    evenementVisible();
+    evenementAdmin();
+    collectesZdAdmin();
+    rls.results.bordereaux_savr = { data: null, error: { message: 'timeout' } };
+    const res = await rapport('rapport-rse');
+    expect(res.status).toBe(500);
+    expect(mockPdf).not.toHaveBeenCalled();
   });
 
   it('EVT/api_zd_sans_resultat_409 — aucune collecte ZD réalisée → 409, aucun PDF', async () => {

@@ -31,7 +31,7 @@ export function FicheCollecteModalCadre({
   // null = fermé.
   collecteId: string | null;
   onClose: () => void;
-  /** `grand` : fiche collecte client (variante B). Admin : standard. */
+  /** `grand` : fiches collecte client et Admin (variante B, Val 2026-10-27). */
   taille?: 'standard' | 'grand';
   children: (panneau: {
     onLoaded: (meta: FicheCollecteMeta) => void;

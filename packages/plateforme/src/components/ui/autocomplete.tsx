@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Search, X } from 'lucide-react';
+import { MagnifyingGlassIcon, XIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { DELAI_DEBOUNCE_MS } from '@/lib/hooks/use-debounce';
@@ -103,7 +103,7 @@ function Autocomplete({
           }}
           className="shrink-0 text-savr-neutral-500 hover:text-savr-neutral-900"
         >
-          <X className="h-4 w-4" />
+          <XIcon className="h-4 w-4" />
         </button>
       </div>
     );
@@ -112,7 +112,7 @@ function Autocomplete({
   return (
     <div ref={rootRef} className={cn('relative', className)}>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
+        <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
         {/* Champ du DS (R-UI-4b, D7 : avant, classes de `Input` recopiées). */}
         <Input
           type="text"

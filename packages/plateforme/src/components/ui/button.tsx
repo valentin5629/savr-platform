@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Loader2 } from 'lucide-react';
+import { CircleNotchIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
@@ -119,7 +119,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading ? (
           <>
-            <Loader2 className="animate-spin" aria-hidden="true" />
+            <CircleNotchIcon className="animate-spin" aria-hidden="true" />
             {loadingText ?? children}
           </>
         ) : (

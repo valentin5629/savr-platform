@@ -7,10 +7,19 @@ import {
   trierAssociationsParDistance,
   type AssociationCandidate,
 } from '@/lib/attribution-ag/associations-par-distance.js';
+import {
+  joursFenetre,
+  repasCumulesParAssociation,
+  type AttributionVoisine,
+  type CollecteCible,
+} from '@/lib/attribution-ag/repas-cumules.js';
 
 // GET /api/v1/admin/attributions-ag/[collecteId]/associations
 // Toutes les associations actives, triées par distance croissante au lieu de la
 // collecte AG (liste déroulante de l'écran d'attribution, décision Val 2026-09-17).
+// Chaque association porte `repas_cumules` : repas qu'elle reçoit déjà des
+// collectes à ±12 h du créneau, celle qu'on attribue exclue (compteur « repas
+// cumulés / capacité », décisions Val 2026-10-27).
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -34,7 +43,9 @@ async function getHandler(
   // collecte → événement → lieu : FK sortantes = embeds to-one (OBJETS).
   const { data: collecte, error: colErr } = await supabase
     .from('collectes')
-    .select('id, evenements!inner(lieux!lieu_id(latitude, longitude))')
+    .select(
+      'id, date_collecte, heure_collecte, evenements!inner(lieux!lieu_id(latitude, longitude))',
+    )
     .eq('id', collecteId)
     .eq('type', 'anti_gaspi')
     .maybeSingle();
@@ -73,11 +84,32 @@ async function getHandler(
     });
   }
 
+  // Attributions des collectes de la veille au lendemain : la fenêtre de ±12 h
+  // est appliquée ensuite, à l'heure de Paris.
+  const cible = collecte as unknown as CollecteCible;
+  const [jourMin, jourMax] = joursFenetre(cible);
+  const { data: voisines, error: voisErr } = await supabase
+    .from('attributions_antgaspi')
+    .select(
+      'association_id, volume_repas_realise, collecte:collectes!inner(id, statut, date_collecte, heure_collecte, volume_estime_repas)',
+    )
+    .gte('collecte.date_collecte', jourMin)
+    .lte('collecte.date_collecte', jourMax);
+  if (voisErr)
+    return serverError(voisErr, 'admin.attributions_ag.associations.cumul');
+  const cumul = repasCumulesParAssociation(
+    cible,
+    (voisines ?? []) as unknown as AttributionVoisine[],
+  );
+
   return NextResponse.json({
     data: trierAssociationsParDistance(
       lieu,
       (assos ?? []) as AssociationCandidate[],
-    ),
+    ).map((a) => ({
+      ...a,
+      repas_cumules: cumul.get(a.id) ?? 0,
+    })),
   });
 }
 

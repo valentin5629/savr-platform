@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
+import { type Icone } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Text } from '@/components/ui/text';
 
@@ -22,7 +22,7 @@ export function FicheEnTete({
   titre: string;
   /** Consigne courte (création). */
   description?: string;
-  infos?: { icon: LucideIcon; texte: React.ReactNode }[];
+  infos?: { icon: Icone; texte: React.ReactNode }[];
   infosTestId?: string;
   statut?: React.ReactNode;
   /** Statut large (frise des fiches collecte) : à droite du sur-titre sur

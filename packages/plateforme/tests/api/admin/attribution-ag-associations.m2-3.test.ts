@@ -11,11 +11,15 @@ let collecteResult: { data: unknown; error: unknown } = {
   error: null,
 };
 let assosResult: { data: unknown; error: unknown } = { data: [], error: null };
+let voisinesResult: { data: unknown; error: unknown } = {
+  data: [],
+  error: null,
+};
 const calls: { table: string; method: string; args: unknown[] }[] = [];
 
 function chainFor(table: string) {
   const chain: Record<string, unknown> = {};
-  for (const m of ['select', 'eq']) {
+  for (const m of ['select', 'eq', 'gte', 'lte']) {
     chain[m] = vi.fn((...args: unknown[]) => {
       calls.push({ table, method: m, args });
       return chain;
@@ -23,7 +27,13 @@ function chainFor(table: string) {
   }
   chain.maybeSingle = vi.fn(() => Promise.resolve(collecteResult));
   chain.then = (resolve: (v: unknown) => unknown) =>
-    resolve(table === 'associations' ? assosResult : collecteResult);
+    resolve(
+      table === 'associations'
+        ? assosResult
+        : table === 'attributions_antgaspi'
+          ? voisinesResult
+          : collecteResult,
+    );
   return chain;
 }
 
@@ -68,6 +78,7 @@ beforeEach(() => {
   calls.length = 0;
   collecteResult = { data: null, error: null };
   assosResult = { data: [], error: null };
+  voisinesResult = { data: [], error: null };
 });
 
 describe('M2.3 / GET attributions-ag/[collecteId]/associations', () => {
@@ -138,6 +149,91 @@ describe('M2.3 / GET attributions-ag/[collecteId]/associations', () => {
       table: 'associations',
       method: 'eq',
       args: ['actif', true],
+    });
+  });
+
+  it('repas_cumules = repas des AUTRES collectes à ±12 h du créneau, la collecte attribuée exclue (décision Val 2026-10-27)', async () => {
+    setupAuth('admin_savr');
+    collecteResult = {
+      data: {
+        id: COL,
+        date_collecte: '2026-10-23',
+        heure_collecte: '11:30:00',
+        evenements: { lieux: { latitude: 48.8566, longitude: 2.3522 } },
+      },
+      error: null,
+    };
+    assosResult = {
+      data: [
+        {
+          id: 'alpha',
+          nom: 'Alpha',
+          ville: 'Paris',
+          region: 'idf',
+          capacite_max_beneficiaires: 300,
+          habilitee_attestation_fiscale: true,
+          latitude: 48.86,
+          longitude: 2.36,
+        },
+        {
+          id: 'beta',
+          nom: 'Beta',
+          ville: 'Paris',
+          region: 'idf',
+          capacite_max_beneficiaires: 100,
+          habilitee_attestation_fiscale: true,
+          latitude: 48.87,
+          longitude: 2.37,
+        },
+      ],
+      error: null,
+    };
+    const voisine = (
+      association_id: string,
+      date: string,
+      heure: string,
+      estime: number,
+      realise: number | null = null,
+      statut = 'validee',
+    ) => ({
+      association_id,
+      volume_repas_realise: realise,
+      collecte: {
+        id: `${association_id}-${date}-${heure}`,
+        statut,
+        date_collecte: date,
+        heure_collecte: heure,
+        volume_estime_repas: estime,
+      },
+    });
+    voisinesResult = {
+      data: [
+        voisine('alpha', '2026-10-22', '23:30:00', 25), // −12 h : comptée
+        voisine('alpha', '2026-10-23', '20:00:00', 50, 35), // réalisé 35
+        voisine('alpha', '2026-10-24', '00:00:00', 99), // +12 h 30 : hors fenêtre
+        voisine('alpha', '2026-10-23', '12:00:00', 70, null, 'annulee'),
+      ],
+      error: null,
+    };
+
+    const res = await appel();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { id: string; repas_cumules: number }[];
+    };
+    const par = new Map(body.data.map((a) => [a.id, a.repas_cumules]));
+    expect(par.get('alpha')).toBe(25 + 35);
+    expect(par.get('beta')).toBe(0);
+    // Lecture bornée de la veille au lendemain.
+    expect(calls).toContainEqual({
+      table: 'attributions_antgaspi',
+      method: 'gte',
+      args: ['collecte.date_collecte', '2026-10-22'],
+    });
+    expect(calls).toContainEqual({
+      table: 'attributions_antgaspi',
+      method: 'lte',
+      args: ['collecte.date_collecte', '2026-10-24'],
     });
   });
 

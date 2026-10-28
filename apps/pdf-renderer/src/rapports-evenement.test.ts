@@ -128,6 +128,13 @@ describe('M3.2 — rapport de recyclage cumulé sur un événement', () => {
     expect(ligne2.slice(0, ligne2.indexOf('</tr>'))).not.toMatch(/>0[,<]/);
   });
 
+  it('§12 §1.7 : numéro de bordereau absent (illisible par le demandeur) → « — » dans sa colonne', () => {
+    const html = renderByType('rapport-recyclage-evenement', zd());
+    const ligne2 = html.slice(html.indexOf('15/10/2026'));
+    const cellules = ligne2.slice(0, ligne2.indexOf('</tr>')).split('<td');
+    expect(cellules[cellules.length - 1]).toBe('>—</td>');
+  });
+
   it('les taux de captation, propres à chaque collecte, ne sont jamais imprimés', () => {
     const html = renderByType(
       'rapport-recyclage-evenement',

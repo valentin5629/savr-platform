@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { WarningIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { PackAGIndicator } from '@/components/ui/pack-ag-indicator';
@@ -149,7 +149,7 @@ export function CarteCollecte({
           />
           {moinsDe24h && (
             <p className="mt-1 flex items-start gap-1 text-xs text-savr-warning font-medium">
-              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+              <WarningIcon className="mt-px h-3.5 w-3.5 shrink-0" />
               <span>
                 Programmation à moins de 24h — Nous vous demandons de nous
                 appeler pour valider la faisabilité —{' '}

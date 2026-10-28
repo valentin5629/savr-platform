@@ -1,6 +1,11 @@
 'use client';
 
-import { BellRing, CheckCircle2, HandHeart, Plus } from 'lucide-react';
+import {
+  BellRingingIcon,
+  CheckCircleIcon,
+  HandHeartIcon,
+  PlusIcon,
+} from '@/components/ui/icones';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge, BadgeBouton } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -64,12 +69,16 @@ function Vide({ children = '—' }: { children?: React.ReactNode }) {
 
 // Variante B (décision Val 2026-10-27) : une section par ligne, libellé à
 // gauche, champs sur trois colonnes à droite, filets sable entre les sections.
-function SectionInfos({
+// Reprise par la fiche collecte Admin (décision Val 2026-10-27), qui pose sous
+// le libellé un badge ou une action de section (`action`).
+export function SectionInfos({
   titre,
+  action,
   children,
   ...props
 }: {
   titre: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 } & React.HTMLAttributes<HTMLElement>) {
   return (
@@ -77,15 +86,24 @@ function SectionInfos({
       className="grid gap-x-10 gap-y-4 border-t border-savr-sable-200 py-6 first:border-t-0 first:pt-0 sm:py-7 md:grid-cols-[13rem_minmax(0,1fr)]"
       {...props}
     >
-      <h4 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-savr-neutral-900">
-        {titre}
-      </h4>
+      {action ? (
+        <div className="flex flex-wrap items-start gap-3 md:flex-col">
+          <h4 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-savr-neutral-900">
+            {titre}
+          </h4>
+          {action}
+        </div>
+      ) : (
+        <h4 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-savr-neutral-900">
+          {titre}
+        </h4>
+      )}
       {children}
     </section>
   );
 }
 
-const GRILLE_3 =
+export const GRILLE_3 =
   'grid grid-cols-1 gap-x-10 gap-y-5 text-sm sm:grid-cols-2 lg:grid-cols-3';
 
 function initiales(nom: string | null | undefined): string {
@@ -98,7 +116,7 @@ function initiales(nom: string | null | undefined): string {
     .join('');
 }
 
-function CarteContact({
+export function CarteContact({
   nom,
   telephone,
   role,
@@ -125,6 +143,34 @@ function CarteContact({
         <span className="text-xs text-savr-neutral-500">{role}</span>
       </span>
     </div>
+  );
+}
+
+// Bouton « Ajouter un contact de secours » de la variante B (Val 2026-10-27) :
+// fiche client (ouvre l'édition) et fiche Admin (ouvre la fenêtre des contacts).
+export function AjoutContactSecours({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      onClick={onClick}
+      data-testid="action-ajouter-contact-secours"
+      className="h-auto justify-start gap-3.5 whitespace-normal rounded-savr-lg p-0 text-left font-normal text-savr-accent-700 hover:bg-transparent hover:text-savr-accent-800 active:bg-transparent"
+    >
+      <span
+        aria-hidden="true"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-savr-full border-[1.5px] border-dashed border-savr-accent-400"
+      >
+        <PlusIcon className="h-4 w-4" />
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span className="text-sm font-semibold">
+          Ajouter un contact de secours
+        </span>
+        <span className="text-sm text-savr-neutral-500">
+          À compléter avant la collecte
+        </span>
+      </span>
+    </Button>
   );
 }
 
@@ -272,27 +318,7 @@ export function OngletInformations({
               />
             ) : (
               onAjouterSecours && (
-                <Button
-                  variant="ghost"
-                  onClick={onAjouterSecours}
-                  data-testid="action-ajouter-contact-secours"
-                  className="h-auto justify-start gap-3.5 whitespace-normal rounded-savr-lg p-0 text-left font-normal text-savr-accent-700 hover:bg-transparent hover:text-savr-accent-800 active:bg-transparent"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-savr-full border-[1.5px] border-dashed border-savr-accent-400"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </span>
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-sm font-semibold">
-                      Ajouter un contact de secours
-                    </span>
-                    <span className="text-sm text-savr-neutral-500">
-                      À compléter avant la collecte
-                    </span>
-                  </span>
-                </Button>
+                <AjoutContactSecours onClick={onAjouterSecours} />
               )
             )}
           </div>
@@ -311,7 +337,7 @@ export function BlocAssociation({
 }) {
   return (
     <Card padding="md" className="space-y-4" data-testid="bloc-association">
-      <SectionHeader icon={HandHeart} title="Association bénéficiaire" />
+      <SectionHeader icon={HandHeartIcon} title="Association bénéficiaire" />
       <dl className={GRILLE_4}>
         <InfoItem label="Association" pleineLargeur>
           {association.nom}
@@ -500,7 +526,7 @@ export function Chauffeurs({
               className="flex flex-1 items-start gap-2"
               role="status"
             >
-              <CheckCircle2
+              <CheckCircleIcon
                 className="mt-0.5 h-4 w-4 shrink-0 text-savr-success-strong"
                 aria-hidden="true"
               />
@@ -529,7 +555,7 @@ export function Chauffeurs({
                 onClick={onDemanderUrgence}
                 disabled={urgence === 'envoi'}
               >
-                <BellRing className="h-4 w-4" aria-hidden="true" />
+                <BellRingingIcon className="h-4 w-4" aria-hidden="true" />
                 Demander les coordonnées en urgence
               </Button>
             </>

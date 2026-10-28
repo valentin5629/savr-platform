@@ -1739,6 +1739,9 @@ const HORS_ENVOI_IMMEDIAT = [
 const ENVELOPPES: Record<string, string> = {
   'lib/attribution-ag/auto-accept.ts': 'evaluerAutoAcceptAg',
   'lib/attribution-ag/validation.ts': 'validerAttributionAg',
+  // Besoin véhicule (nombre via fn_modifier_collecte), écrit avant l'envoi par
+  // la validation AG et le choix du prestataire (Val 2026-10-27).
+  'lib/collectes/besoin-vehicule.ts': 'ecrireBesoinVehicule',
 };
 
 const APPEL_RPC_EMETTEUR = new RegExp(

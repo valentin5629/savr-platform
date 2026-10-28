@@ -1,7 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, Search, X } from 'lucide-react';
+import {
+  CaretDownIcon,
+  MagnifyingGlassIcon,
+  XIcon,
+} from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -44,7 +48,7 @@ export function ContenuDeclencheur({
       <span className="max-w-[16rem] truncate font-normal text-savr-neutral-600">
         {valeur}
       </span>
-      <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <CaretDownIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
     </>
   );
 }
@@ -396,7 +400,7 @@ export const FiltreRecherche = React.forwardRef<
 
     return (
       <div className="relative w-full sm:mr-2 sm:w-60">
-        <Search
+        <MagnifyingGlassIcon
           className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400"
           aria-hidden="true"
         />
@@ -430,7 +434,7 @@ export const FiltreRecherche = React.forwardRef<
             onClick={effacer}
             className="absolute right-1 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-savr-sm text-savr-neutral-500 hover:bg-savr-neutral-100 hover:text-savr-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
           >
-            <X className="h-4 w-4" aria-hidden="true" />
+            <XIcon className="h-4 w-4" aria-hidden="true" />
           </button>
         )}
       </div>

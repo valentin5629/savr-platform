@@ -792,6 +792,23 @@ describe('M1.6 / rapport recyclage §1.2 — gabarit @3, deux versions de la pag
     expect(html).not.toMatch(/^\s*\* \{/m);
   });
 
+  it('§12 §1.7 : sans bordereau (illisible par le demandeur) → page 1 seule, ni annexe, ni producteur, ni numéro', () => {
+    for (const bordereau of [null, undefined]) {
+      const html = renderByType(
+        'rapport-recyclage-zd',
+        rapportData({ bordereau }),
+      );
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('Rapport de recyclage');
+      expect(html).not.toContain('<!-- PAGE 2');
+      expect(html).not.toContain('bz-annexe');
+      expect(html).not.toContain('.bz table {');
+      expect(html).not.toContain('BSAV-2026-00001');
+      expect(html).not.toContain('2 rue Y, Paris');
+      expect(html).not.toContain('Signature chauffeur');
+    }
+  });
+
   it('badges d’écart : seuils de l’écran, comparés sur le ratio (≤ parc vert, jusqu’à 130 % orange, au-delà rouge)', () => {
     const badge = (collecte_kg_pax: number, benchmark_kg_pax: number) =>
       /rz-bdg (rz-\w+)">([^<]+)</

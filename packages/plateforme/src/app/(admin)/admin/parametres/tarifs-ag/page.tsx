@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { History } from 'lucide-react';
+import { ClockCounterClockwiseIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Card } from '@/components/ui/card';
@@ -303,7 +303,7 @@ export default function TarifsPacksAGPage() {
                     variant="secondary"
                     onClick={() => openHistory(type)}
                   >
-                    <History />
+                    <ClockCounterClockwiseIcon />
                     Historique
                   </Button>
                 </div>
@@ -324,7 +324,7 @@ export default function TarifsPacksAGPage() {
                   variant="secondary"
                   onClick={() => openHistory(type)}
                 >
-                  <History />
+                  <ClockCounterClockwiseIcon />
                   Historique
                 </Button>
               </div>

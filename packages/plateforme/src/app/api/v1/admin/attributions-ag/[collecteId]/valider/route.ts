@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { logger } from '@savr/shared/src/logger/index.js';
 import { requireAdmin } from '@/lib/api-auth.js';
 import { withApiTrace, businessError, serverError } from '@/lib/api-helpers.js';
 import {
@@ -8,6 +7,10 @@ import {
   logAttributionAucuneReco,
 } from '@/lib/attribution-ag/validation.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import {
+  ecrireBesoinVehicule,
+  refusBesoinVehicule,
+} from '@/lib/collectes/besoin-vehicule.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche, la moitié du bail de réservation des ordres. Elle ne borne pas
@@ -31,15 +34,6 @@ interface ValiderBody {
   nb_camions_demande?: number;
   type_vehicule_souhaite?: string | null;
 }
-
-// Valeurs de l'enum plateforme.type_vehicule (lieux.type_vehicule_max, tournees.type_vehicule).
-const TYPES_VEHICULE = [
-  'velo_cargo',
-  'camionnette',
-  'fourgon',
-  'vul',
-  'poids_lourd',
-] as const;
 
 // POST /api/v1/admin/attributions-ag/[collecteId]/valider
 async function postHandler(
@@ -86,28 +80,9 @@ async function postHandler(
   }
 
   const nbCamions = body.nb_camions_demande;
-  if (
-    nbCamions !== undefined &&
-    (!Number.isInteger(nbCamions) || nbCamions < 1 || nbCamions > 20)
-  ) {
-    return NextResponse.json(
-      { error: 'nb_camions_demande doit être un entier entre 1 et 20' },
-      { status: 422 },
-    );
-  }
   const typeVehicule = body.type_vehicule_souhaite;
-  if (
-    typeVehicule !== undefined &&
-    typeVehicule !== null &&
-    !(TYPES_VEHICULE as readonly string[]).includes(typeVehicule)
-  ) {
-    return NextResponse.json(
-      {
-        error: `type_vehicule_souhaite invalide (attendu : ${TYPES_VEHICULE.join(', ')})`,
-      },
-      { status: 422 },
-    );
-  }
+  const refusBesoin = refusBesoinVehicule(body);
+  if (refusBesoin) return refusBesoin;
 
   // Besoin véhicule : posé avant l'event de dispatch (émis par la RPC ci-dessous).
   // Les écritures précèdent les gardes de la RPC (P0042/P0043/P0044) et ne sont
@@ -156,67 +131,14 @@ async function postHandler(
         { status: 409 },
       );
     }
-    // Le nombre passe par fn_modifier_collecte (gardes RM-02/RM-05, E2 si une
-    // commande existait déjà).
-    if (nbCamions !== undefined) {
-      const { error: errNb } = await supabase.rpc('fn_modifier_collecte', {
-        p_id: collecteId,
-        p_updates: { nb_camions_demande: nbCamions },
-        p_champs_modifies: ['nb_camions_demande'],
-      });
-      if (errNb) {
-        const msg = errNb.message ?? '';
-        if (msg.includes('NB_CAMIONS_STATUT_TERMINAL')) {
-          return NextResponse.json(
-            {
-              error:
-                'Le nombre de véhicules n’est plus modifiable (statut terminal)',
-            },
-            { status: 409 },
-          );
-        }
-        if (msg.includes('NB_CAMIONS_INVALIDE')) {
-          return NextResponse.json(
-            { error: 'nb_camions_demande doit être un entier >= 1' },
-            { status: 422 },
-          );
-        }
-        if (msg.includes('REDUCTION_CANCEL_WINDOW_CLOSED')) {
-          return NextResponse.json(
-            {
-              error:
-                'Réduction du nombre de véhicules impossible à moins d’1h de la mission',
-            },
-            { status: 409 },
-          );
-        }
-        return serverError(errNb, 'admin.attributions_ag.valider.nb_camions');
-      }
-    }
-    // Le type est une colonne sans règle de transition : UPDATE borné. Colonne
-    // absente (migration 20261001213000 pas encore appliquée : 42703 / PGRST204)
-    // → la validation continue sans le type, tracé en warn, jamais un 500.
-    if (typeVehicule !== undefined) {
-      const { error: errType } = await supabase
-        .from('collectes')
-        .update({ type_vehicule_souhaite: typeVehicule })
-        .eq('id', collecteId)
-        .eq('type', 'anti_gaspi')
-        .eq('statut', 'programmee');
-      if (errType) {
-        if (errType.code === '42703' || errType.code === 'PGRST204') {
-          logger.warn('attribution.type_vehicule_colonne_absente', {
-            collecte_id: collecteId,
-            error_code: errType.code,
-          });
-        } else {
-          return serverError(
-            errType,
-            'admin.attributions_ag.valider.type_vehicule',
-          );
-        }
-      }
-    }
+    const refusEcriture = await ecrireBesoinVehicule(
+      supabase,
+      collecteId,
+      { nb_camions_demande: nbCamions, type_vehicule_souhaite: typeVehicule },
+      { statuts: ['programmee'], type: 'anti_gaspi' },
+      'admin.attributions_ag.valider',
+    );
+    if (refusEcriture) return refusEcriture;
   }
 
   try {

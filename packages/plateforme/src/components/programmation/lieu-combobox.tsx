@@ -2,7 +2,12 @@
 
 import * as React from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Search, MapPin, PlusCircle, Check } from 'lucide-react';
+import {
+  CheckIcon,
+  MagnifyingGlassIcon,
+  MapPinIcon,
+  PlusCircleIcon,
+} from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -83,7 +88,7 @@ export function LieuCombobox({
           className={cn('justify-between', className)}
         >
           <span className="flex items-center gap-2 min-w-0">
-            <MapPin className="h-4 w-4 text-savr-neutral-400 shrink-0" />
+            <MapPinIcon className="h-4 w-4 text-savr-neutral-400 shrink-0" />
             {value ? (
               <span className="truncate">
                 {value.nom} — {value.ville}
@@ -101,7 +106,7 @@ export function LieuCombobox({
           sideOffset={4}
         >
           <div className="flex items-center border-b border-savr-neutral-100 px-3">
-            <Search className="h-4 w-4 text-savr-neutral-400 shrink-0 mr-2" />
+            <MagnifyingGlassIcon className="h-4 w-4 text-savr-neutral-400 shrink-0 mr-2" />
             {/* Champ du DS, sans bordure propre : la ligne porte la sienne
                 (R-UI-4b, D7 : avant, <input> brut). */}
             <Input
@@ -143,7 +148,7 @@ export function LieuCombobox({
                   setQuery('');
                 }}
               >
-                <Check
+                <CheckIcon
                   className={cn(
                     'h-4 w-4 shrink-0',
                     value?.id === l.id
@@ -170,7 +175,7 @@ export function LieuCombobox({
                 onAddManuel();
               }}
             >
-              <PlusCircle className="h-4 w-4" />
+              <PlusCircleIcon className="h-4 w-4" />
               Ajouter ce lieu manuellement
             </Button>
           </div>

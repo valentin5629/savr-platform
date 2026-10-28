@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Mail } from 'lucide-react';
+import { EnvelopeSimpleIcon } from '@/components/ui/icones';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LoadingState } from '@/components/ui/loading-state';
@@ -39,7 +39,7 @@ export default function TemplatesEmailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Mail className="h-6 w-6 text-savr-neutral-600" />
+        <EnvelopeSimpleIcon className="h-6 w-6 text-savr-neutral-600" />
         <div>
           <Heading level={1}>Paramètres — Templates emails</Heading>
           <Text className="mt-0.5">

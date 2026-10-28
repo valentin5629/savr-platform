@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { FileText, Download } from 'lucide-react';
+import { DownloadSimpleIcon, FileTextIcon } from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { FactureStatutBadge } from '@/components/ui/facture-statut-badge';
 import {
@@ -176,7 +176,7 @@ const columns: Column<Facture>[] = [
     render: (row) =>
       row.pdf_url_savr ? (
         <TextLink onClick={() => downloadPdfSavr(row.id)} className="text-sm">
-          <Download className="h-3.5 w-3.5" />
+          <DownloadSimpleIcon className="h-3.5 w-3.5" />
           PDF
         </TextLink>
       ) : (
@@ -268,12 +268,12 @@ export default function FacturesPage() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<FileText className="h-6 w-6 text-savr-primary-200" />}
+        icon={<FileTextIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Factures"
         subtitle="Brouillons, émissions et avoirs"
         actions={
           <Button variant="secondary" onClick={exportCsv}>
-            <Download />
+            <DownloadSimpleIcon />
             Exporter CSV
           </Button>
         }
@@ -329,7 +329,7 @@ export default function FacturesPage() {
         onRecharger={recharger}
         empty={
           <EmptyState
-            icon={<FileText className="h-8 w-8" />}
+            icon={<FileTextIcon className="h-8 w-8" />}
             title="Aucune facture"
             description="Les brouillons apparaissent ici après le batch J+1."
           />

@@ -66,7 +66,9 @@ const val = (t) =>
     ? t.value
     : (t.value[theme] ?? Object.values(t.value)[0]);
 const alias = (s) => String(s).replace(/\{([a-z0-9-]+)\}/g, 'var(--$1)');
-let css = `:root, [data-theme="${theme}"] {\n${tokens.color.tokens.map((t) => `  --${t.name}: ${alias(val(t))};`).join('\n')}\n}\n:root {\n`;
+// Polices Google (Inter, Archivo) : chargées comme dans le tokens.css publié,
+// pour que les captures montrent les vraies polices.
+let css = `@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400..800&family=Inter:wght@400..700&display=swap');\n:root, [data-theme="${theme}"] {\n${tokens.color.tokens.map((t) => `  --${t.name}: ${alias(val(t))};`).join('\n')}\n}\n:root {\n`;
 for (const [fam, bloc] of Object.entries(tokens)) {
   if (
     ['color', 'type', 'meta', 'name', 'version'].includes(fam) ||
@@ -82,7 +84,7 @@ for (const [k, v] of Object.entries(tokens.type.families))
 css += '}\n';
 for (const g of tokens.type.groups)
   for (const s of g.styles)
-    css += `.${s.name} { font-family: var(--font-${s.family ?? g.family}); font-size: ${s.fontSize}; line-height: ${s.lineHeight}; font-weight: ${s.fontWeight};${s.letterSpacing ? ` letter-spacing: ${s.letterSpacing};` : ''} }\n`;
+    css += `.${s.name} { font-family: var(--font-${s.family || g.family}); font-size: ${s.fontSize}; line-height: ${s.lineHeight}; font-weight: ${s.fontWeight};${s.letterSpacing ? ` letter-spacing: ${s.letterSpacing};` : ''} }\n`;
 writeFileSync(join(CHECK, 'tokens.css'), css);
 copyFileSync(join(OUT, 'bundle.js'), join(CHECK, 'bundle.js'));
 copyFileSync(join(OUT, 'bundle.css'), join(CHECK, 'bundle.css'));

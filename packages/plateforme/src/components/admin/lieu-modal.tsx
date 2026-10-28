@@ -1,18 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Building2,
-  ChefHat,
-  History,
-  ImageIcon,
-  KeyRound,
-  Lock,
-  MapPin,
-  Truck,
-} from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+import { LockSimpleIcon, MapPinIcon, TruckIcon } from '@/components/ui/icones';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingState } from '@/components/ui/loading-state';
@@ -24,15 +13,17 @@ import { FormGrid } from '@/components/ui/form-grid';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Timeline, TimelineItem } from '@/components/ui/timeline';
-import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
-import { SectionHeader } from '@/components/ui/section-header';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { EnTeteMention, EnTetePuce } from '@/components/ui/fiche/fiche-en-tete';
 import {
-  EnTeteMention,
-  EnTetePuce,
-  FicheEnTete,
-} from '@/components/ui/fiche/fiche-en-tete';
+  FicheGrandEnTete,
+  FicheOnglet,
+  FicheOnglets,
+  FicheRepere,
+} from '@/components/ui/fiche/fiche-grand-en-tete';
+import { FichePastille } from '@/components/ui/fiche/fiche-pastille';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
-import { OngletAvecErreurs } from '@/components/ui/fiche/onglet-avec-erreurs';
 import { DIFFICULTE_LABEL, VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification';
 import { estSiren } from '@savr/shared/src/validation/index.js';
@@ -48,8 +39,8 @@ import { FormActions } from '@/components/ui/form-actions';
 // (point unique, ouverte depuis la liste /admin/lieux). En édition, les champs sont
 // hydratés par GET /api/v1/admin/lieux/{id} (seul endroit qui expose le gestionnaire
 // rattaché via organisations_lieux). Miroir de TransporteurModal (#252/#254).
-// Cadre commun des fiches Admin (décisions Val 2026-09-30) : grand en-tête
-// (FicheEnTete) puis onglets seuls, sans colonne — Informations / Accès &
+// Cadre commun des fiches Admin (décisions Val 2026-09-30, variante B depuis le
+// 2026-10-27) : grand en-tête (FicheGrandEnTete) et ses onglets, sans colonne — Informations / Accès &
 // logistique / Interne Savr / Activité (édition seule). Un seul « Enregistrer »
 // pour tous les onglets : les valeurs vivent dans l'état du formulaire.
 
@@ -516,12 +507,41 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
   const hydrating = isEdition && !lieuCharge && !chargementEchoue;
   const photos = lieuCharge?.photos_urls ?? [];
 
+  // Barre d'onglets du grand en-tête (variante B) ; pas d'onglet Activité en
+  // création.
+  const onglets = (
+    <FicheOnglets aria-label="Sections de la fiche lieu">
+      {ONGLETS.filter((o) => isEdition || o.value !== 'activite').map(
+        ({ value, label }) => (
+          <FicheOnglet
+            key={value}
+            ref={(el) => {
+              if (el) ongletsRef.current[value] = el;
+            }}
+            value={value}
+            nbErreurs={nbErreurs(value)}
+          >
+            {label}
+          </FicheOnglet>
+        ),
+      )}
+    </FicheOnglets>
+  );
+
+  // Pied variante B : pilules, secondaire sur fond sable.
   const footer = (
     <FormActions
-      cancel={{ label: 'Annuler', onClick: onClose }}
+      className="gap-3"
+      cancel={{
+        label: 'Annuler',
+        onClick: onClose,
+        variant: 'sable',
+        size: 'pilule',
+      }}
       submit={{
         label: isEdition ? 'Enregistrer' : 'Créer le lieu',
         type: 'button',
+        size: 'pilule',
         onClick: () => void submitForm(),
         disabled: isEdition && !lieuCharge,
       }}
@@ -545,451 +565,462 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
           : 'Nouveau lieu'
       }
       footer={footer}
+      taille="grand"
     >
-      {isEdition ? (
-        lieuCharge ? (
-          <FicheEnTete
-            surtitre={
-              (lieuCharge.region || lieuCharge.gestionnaire_nom) && (
+      {/* Variante B (décision Val 2026-10-27) : onglets soulignés dans le
+          grand en-tête (absents pendant le chargement), seul le corps défile. */}
+      <Tabs
+        value={onglet}
+        onValueChange={(v) => setOnglet(v as Onglet)}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        {isEdition ? (
+          lieuCharge ? (
+            <FicheGrandEnTete
+              surtitre={
+                (lieuCharge.region || lieuCharge.gestionnaire_nom) && (
+                  <>
+                    {lieuCharge.region && (
+                      <EnTetePuce>
+                        {lieuCharge.region === 'idf' ? 'IDF' : 'Province'}
+                      </EnTetePuce>
+                    )}
+                    {lieuCharge.gestionnaire_nom && (
+                      <EnTeteMention>
+                        {lieuCharge.gestionnaire_nom}
+                      </EnTeteMention>
+                    )}
+                  </>
+                )
+              }
+              titre={lieuCharge.nom}
+              statut={
+                <FichePastille ton={lieuCharge.actif ? 'vert' : 'orange'}>
+                  {lieuCharge.actif ? 'Actif' : 'À normaliser'}
+                </FichePastille>
+              }
+              reperes={
                 <>
-                  {lieuCharge.region && (
-                    <EnTetePuce>
-                      {lieuCharge.region === 'idf' ? 'IDF' : 'Province'}
-                    </EnTetePuce>
-                  )}
-                  {lieuCharge.gestionnaire_nom && (
-                    <EnTeteMention>{lieuCharge.gestionnaire_nom}</EnTeteMention>
-                  )}
+                  <FicheRepere icon={MapPinIcon}>
+                    {[lieuCharge.ville, lieuCharge.code_postal]
+                      .filter(Boolean)
+                      .join(' ') || '—'}
+                  </FicheRepere>
+                  <FicheRepere icon={TruckIcon}>
+                    {VEHICULE_LABEL[lieuCharge.type_vehicule_max] ??
+                      lieuCharge.type_vehicule_max}
+                  </FicheRepere>
                 </>
-              )
-            }
-            titre={lieuCharge.nom}
-            infos={[
-              {
-                icon: MapPin,
-                texte:
-                  [lieuCharge.ville, lieuCharge.code_postal]
-                    .filter(Boolean)
-                    .join(' ') || '—',
-              },
-              {
-                icon: Truck,
-                texte:
-                  VEHICULE_LABEL[lieuCharge.type_vehicule_max] ??
-                  lieuCharge.type_vehicule_max,
-              },
-            ]}
-            statut={
-              lieuCharge.actif ? (
-                <Badge variant="success">Actif</Badge>
-              ) : (
-                <Badge variant="action">À normaliser</Badge>
-              )
-            }
-          />
+              }
+              onglets={onglets}
+            />
+          ) : (
+            // Chargement ou échec : un en-tête quand même (titre visible, place
+            // de la croix de fermeture réservée, pas de saut à l'arrivée).
+            <FicheGrandEnTete titre="Fiche lieu" />
+          )
         ) : (
-          // Chargement ou échec : un en-tête quand même (titre visible, place
-          // de la croix de fermeture réservée, pas de saut à l'arrivée).
-          <FicheEnTete titre="Fiche lieu" />
-        )
-      ) : (
-        <FicheEnTete
-          titre="Nouveau lieu"
-          description="Renseignez les onglets, puis créez le lieu."
-        />
-      )}
-      <FicheCorps>
-        {hydrating ? (
-          <LoadingState
-            label="Chargement du lieu…"
-            className="py-8 text-center"
+          <FicheGrandEnTete
+            titre="Nouveau lieu"
+            description="Renseignez les onglets, puis créez le lieu."
+            onglets={onglets}
           />
-        ) : chargementEchoue ? (
-          <AlertBar variant="err" role="alert">
-            Erreur lors du chargement du lieu. Fermez la fiche et réessayez.
-          </AlertBar>
-        ) : (
-          <form onSubmit={handleFormSubmit} noValidate>
-            {/* En tête du corps : visible quel que soit l'onglet et le défilement. */}
-            {serverError && (
-              <AlertBar
-                ref={alerteRef}
-                variant="err"
-                role="alert"
-                className="mb-4"
-              >
-                {serverError}
-              </AlertBar>
-            )}
-            <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
-              {/* Barre d'onglets fixe au défilement du corps de la modale. */}
-              <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
-                {ONGLETS.filter((o) => isEdition || o.value !== 'activite').map(
-                  ({ value, label }) => (
-                    <OngletAvecErreurs
-                      key={value}
-                      ref={(el) => {
-                        if (el) ongletsRef.current[value] = el;
-                      }}
-                      value={value}
-                      nbErreurs={nbErreurs(value)}
-                    >
-                      {label}
-                    </OngletAvecErreurs>
-                  ),
-                )}
-              </TabsList>
+        )}
+        <FicheCorps>
+          {hydrating ? (
+            <LoadingState
+              label="Chargement du lieu…"
+              className="py-8 text-center"
+            />
+          ) : chargementEchoue ? (
+            <AlertBar variant="err" role="alert">
+              Erreur lors du chargement du lieu. Fermez la fiche et réessayez.
+            </AlertBar>
+          ) : (
+            <form onSubmit={handleFormSubmit} noValidate>
+              {/* En tête du corps : visible quel que soit l'onglet et le défilement. */}
+              {serverError && (
+                <AlertBar
+                  ref={alerteRef}
+                  variant="err"
+                  role="alert"
+                  className="mb-4"
+                >
+                  {serverError}
+                </AlertBar>
+              )}
 
-              <TabsContent value="informations" className="space-y-4">
-                <Card padding="md" className="space-y-4">
-                  <SectionHeader icon={Building2} title="Identité" />
-                  <FormGrid>
-                    <FormField
-                      label="Nom du lieu"
-                      htmlFor="lm_nom"
-                      required
-                      error={errors.nom}
-                    >
-                      <Input
-                        id="lm_nom"
+              <TabsContent value="informations" className="mt-0">
+                <FicheSection titre="Identité">
+                  <div className="space-y-4">
+                    <FormGrid>
+                      <FormField
+                        label="Nom du lieu"
+                        htmlFor="lm_nom"
                         required
-                        value={values.nom}
-                        onChange={(e) => set('nom', e.target.value)}
-                        error={Boolean(errors.nom)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Nom alternatif"
-                      htmlFor="lm_nom_alternatif"
-                    >
-                      <Input
-                        id="lm_nom_alternatif"
-                        value={values.nom_alternatif}
-                        onChange={(e) => set('nom_alternatif', e.target.value)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Gestionnaire de lieux"
-                      htmlFor="lm_gestionnaire"
-                      hint="Organisation gestionnaire rattachée — optionnel"
-                      className="sm:col-span-2"
-                    >
-                      <Combobox
-                        id="lm_gestionnaire"
-                        icon={null}
-                        placeholder="Aucun"
-                        value={values.gestionnaire_organisation_id}
-                        onChange={(v) => set('gestionnaire_organisation_id', v)}
-                        options={[
-                          { value: '', label: 'Aucun' },
-                          ...optionsGestionnaires.map((g) => ({
-                            value: g.id,
-                            label: g.raison_sociale ?? g.nom ?? g.id,
-                          })),
-                        ]}
-                      />
-                    </FormField>
-                  </FormGrid>
-                  <Interrupteur
-                    id="lm_actif"
-                    label="Actif"
-                    checked={values.actif}
-                    onChange={(v) => set('actif', v)}
-                  />
-                </Card>
+                        error={errors.nom}
+                      >
+                        <Input
+                          id="lm_nom"
+                          required
+                          value={values.nom}
+                          onChange={(e) => set('nom', e.target.value)}
+                          error={Boolean(errors.nom)}
+                        />
+                      </FormField>
+                      <FormField
+                        label="Nom alternatif"
+                        htmlFor="lm_nom_alternatif"
+                      >
+                        <Input
+                          id="lm_nom_alternatif"
+                          value={values.nom_alternatif}
+                          onChange={(e) =>
+                            set('nom_alternatif', e.target.value)
+                          }
+                        />
+                      </FormField>
+                      <FormField
+                        label="Gestionnaire de lieux"
+                        htmlFor="lm_gestionnaire"
+                        hint="Organisation gestionnaire rattachée — optionnel"
+                        className="sm:col-span-2"
+                      >
+                        <Combobox
+                          id="lm_gestionnaire"
+                          icon={null}
+                          placeholder="Aucun"
+                          value={values.gestionnaire_organisation_id}
+                          onChange={(v) =>
+                            set('gestionnaire_organisation_id', v)
+                          }
+                          options={[
+                            { value: '', label: 'Aucun' },
+                            ...optionsGestionnaires.map((g) => ({
+                              value: g.id,
+                              label: g.raison_sociale ?? g.nom ?? g.id,
+                            })),
+                          ]}
+                        />
+                      </FormField>
+                    </FormGrid>
+                    <Interrupteur
+                      id="lm_actif"
+                      label="Actif"
+                      checked={values.actif}
+                      onChange={(v) => set('actif', v)}
+                    />
+                  </div>
+                </FicheSection>
 
-                <Card padding="md" className="space-y-4">
-                  <SectionHeader icon={MapPin} title="Adresse" />
-                  <FormGrid cols={3}>
-                    <FormField
-                      label="Adresse accès livraison"
-                      htmlFor="lm_adresse_acces"
-                      required
-                      error={errors.adresse_acces}
-                      hint="Géocodée automatiquement à l'enregistrement"
-                      className="sm:col-span-2"
-                    >
-                      <Input
-                        id="lm_adresse_acces"
+                <FicheSection titre="Adresse">
+                  <div className="space-y-4">
+                    <FormGrid cols={3}>
+                      <FormField
+                        label="Adresse accès livraison"
+                        htmlFor="lm_adresse_acces"
                         required
-                        value={values.adresse_acces}
-                        onChange={(e) => set('adresse_acces', e.target.value)}
-                        error={Boolean(errors.adresse_acces)}
-                      />
-                    </FormField>
-                    <FormField label="Région" htmlFor="lm_region">
-                      <Combobox
-                        id="lm_region"
-                        icon={null}
-                        placeholder="Non renseignée"
-                        value={values.region}
-                        onChange={(v) =>
-                          set('region', v as FormValues['region'])
-                        }
-                        options={[
-                          { value: '', label: 'Non renseignée' },
-                          { value: 'idf', label: 'Île-de-France' },
-                          { value: 'province', label: 'Province' },
-                        ]}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Code postal"
-                      htmlFor="lm_code_postal"
-                      required
-                      error={errors.code_postal}
-                    >
-                      <Input
-                        id="lm_code_postal"
+                        error={errors.adresse_acces}
+                        hint="Géocodée automatiquement à l'enregistrement"
+                        className="sm:col-span-2"
+                      >
+                        <Input
+                          id="lm_adresse_acces"
+                          required
+                          value={values.adresse_acces}
+                          onChange={(e) => set('adresse_acces', e.target.value)}
+                          error={Boolean(errors.adresse_acces)}
+                        />
+                      </FormField>
+                      <FormField label="Région" htmlFor="lm_region">
+                        <Combobox
+                          id="lm_region"
+                          icon={null}
+                          placeholder="Non renseignée"
+                          value={values.region}
+                          onChange={(v) =>
+                            set('region', v as FormValues['region'])
+                          }
+                          options={[
+                            { value: '', label: 'Non renseignée' },
+                            { value: 'idf', label: 'Île-de-France' },
+                            { value: 'province', label: 'Province' },
+                          ]}
+                        />
+                      </FormField>
+                      <FormField
+                        label="Code postal"
+                        htmlFor="lm_code_postal"
                         required
-                        value={values.code_postal}
-                        onChange={(e) => set('code_postal', e.target.value)}
-                        error={Boolean(errors.code_postal)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Ville"
-                      htmlFor="lm_ville"
-                      required
-                      error={errors.ville}
-                    >
-                      <Input
-                        id="lm_ville"
+                        error={errors.code_postal}
+                      >
+                        <Input
+                          id="lm_code_postal"
+                          required
+                          value={values.code_postal}
+                          onChange={(e) => set('code_postal', e.target.value)}
+                          error={Boolean(errors.code_postal)}
+                        />
+                      </FormField>
+                      <FormField
+                        label="Ville"
+                        htmlFor="lm_ville"
                         required
-                        value={values.ville}
-                        onChange={(e) => set('ville', e.target.value)}
-                        error={Boolean(errors.ville)}
-                      />
-                    </FormField>
-                  </FormGrid>
-                </Card>
+                        error={errors.ville}
+                      >
+                        <Input
+                          id="lm_ville"
+                          required
+                          value={values.ville}
+                          onChange={(e) => set('ville', e.target.value)}
+                          error={Boolean(errors.ville)}
+                        />
+                      </FormField>
+                    </FormGrid>
+                  </div>
+                </FicheSection>
               </TabsContent>
 
-              <TabsContent value="acces" className="space-y-4">
-                <Card padding="md" className="space-y-4">
-                  <SectionHeader icon={KeyRound} title="Accès au lieu" />
-                  <FormGrid cols={3}>
-                    <FormField
-                      label="Type de véhicule max"
-                      htmlFor="lm_type_vehicule_max"
-                      required
-                      error={errors.type_vehicule_max}
-                      hint="Tous les véhicules ≤ max sont acceptés"
-                    >
-                      <Combobox
-                        id="lm_type_vehicule_max"
-                        icon={null}
+              <TabsContent value="acces" className="mt-0">
+                <FicheSection titre="Accès au lieu">
+                  <div className="space-y-4">
+                    <FormGrid cols={3}>
+                      <FormField
+                        label="Type de véhicule max"
+                        htmlFor="lm_type_vehicule_max"
                         required
-                        value={values.type_vehicule_max}
-                        onChange={(v) =>
-                          set(
-                            'type_vehicule_max',
-                            v as FormValues['type_vehicule_max'],
-                          )
-                        }
-                        error={Boolean(errors.type_vehicule_max)}
-                        options={OPTIONS_VEHICULE}
-                      />
-                    </FormField>
-                    <FormField label="Accès office" htmlFor="lm_acces_office">
-                      <Combobox
-                        id="lm_acces_office"
-                        icon={null}
-                        placeholder="Non renseigné"
-                        value={values.acces_office}
-                        onChange={(v) =>
-                          set('acces_office', v as FormValues['acces_office'])
-                        }
-                        options={OPTIONS_DIFFICULTE}
-                      />
-                    </FormField>
-                    <FormField label="Stationnement" htmlFor="lm_stationnement">
-                      <Combobox
-                        id="lm_stationnement"
-                        icon={null}
-                        placeholder="Non renseigné"
-                        value={values.stationnement}
-                        onChange={(v) =>
-                          set('stationnement', v as FormValues['stationnement'])
-                        }
-                        options={OPTIONS_DIFFICULTE}
-                      />
-                    </FormField>
-                  </FormGrid>
-                  <Interrupteur
-                    id="lm_controle_acces"
-                    label="Contrôle d'accès requis (plaque + nom chauffeur)"
-                    checked={values.controle_acces_requis_default}
-                    onChange={(v) => set('controle_acces_requis_default', v)}
-                  />
-                  <FormField
-                    label="Carnet d'accès terrain"
-                    htmlFor="lm_acces_details"
-                    hint="Badge, code, interphone, contact gardien, digicode parking, notes stationnement — partagé au transporteur"
-                  >
-                    <Textarea
-                      id="lm_acces_details"
-                      rows={3}
-                      value={values.acces_details}
-                      onChange={(e) => set('acces_details', e.target.value)}
+                        error={errors.type_vehicule_max}
+                        hint="Tous les véhicules ≤ max sont acceptés"
+                      >
+                        <Combobox
+                          id="lm_type_vehicule_max"
+                          icon={null}
+                          required
+                          value={values.type_vehicule_max}
+                          onChange={(v) =>
+                            set(
+                              'type_vehicule_max',
+                              v as FormValues['type_vehicule_max'],
+                            )
+                          }
+                          error={Boolean(errors.type_vehicule_max)}
+                          options={OPTIONS_VEHICULE}
+                        />
+                      </FormField>
+                      <FormField label="Accès office" htmlFor="lm_acces_office">
+                        <Combobox
+                          id="lm_acces_office"
+                          icon={null}
+                          placeholder="Non renseigné"
+                          value={values.acces_office}
+                          onChange={(v) =>
+                            set('acces_office', v as FormValues['acces_office'])
+                          }
+                          options={OPTIONS_DIFFICULTE}
+                        />
+                      </FormField>
+                      <FormField
+                        label="Stationnement"
+                        htmlFor="lm_stationnement"
+                      >
+                        <Combobox
+                          id="lm_stationnement"
+                          icon={null}
+                          placeholder="Non renseigné"
+                          value={values.stationnement}
+                          onChange={(v) =>
+                            set(
+                              'stationnement',
+                              v as FormValues['stationnement'],
+                            )
+                          }
+                          options={OPTIONS_DIFFICULTE}
+                        />
+                      </FormField>
+                    </FormGrid>
+                    <Interrupteur
+                      id="lm_controle_acces"
+                      label="Contrôle d'accès requis (plaque + nom chauffeur)"
+                      checked={values.controle_acces_requis_default}
+                      onChange={(v) => set('controle_acces_requis_default', v)}
                     />
-                  </FormField>
-                </Card>
+                    <FormField
+                      label="Carnet d'accès terrain"
+                      htmlFor="lm_acces_details"
+                      hint="Badge, code, interphone, contact gardien, digicode parking, notes stationnement — partagé au transporteur"
+                    >
+                      <Textarea
+                        id="lm_acces_details"
+                        rows={3}
+                        value={values.acces_details}
+                        onChange={(e) => set('acces_details', e.target.value)}
+                      />
+                    </FormField>
+                  </div>
+                </FicheSection>
 
-                <Card padding="md" className="space-y-4">
-                  <SectionHeader icon={Truck} title="Capacité et contraintes" />
-                  <FormGrid cols={3}>
+                <FicheSection titre="Capacité et contraintes">
+                  <div className="space-y-4">
+                    <FormGrid cols={3}>
+                      <FormField
+                        label="Capacité maximum"
+                        htmlFor="lm_capacite_maximum"
+                      >
+                        <Input
+                          id="lm_capacite_maximum"
+                          type="number"
+                          min={0}
+                          value={values.capacite_maximum}
+                          onChange={(e) =>
+                            set('capacite_maximum', e.target.value)
+                          }
+                        />
+                      </FormField>
+                      <FormField
+                        label="Volume max (bacs 1100L)"
+                        htmlFor="lm_volume_max_bacs"
+                      >
+                        <Input
+                          id="lm_volume_max_bacs"
+                          type="number"
+                          min={0}
+                          value={values.volume_max_bacs}
+                          onChange={(e) =>
+                            set('volume_max_bacs', e.target.value)
+                          }
+                        />
+                      </FormField>
+                      <FormField
+                        label="Contraintes horaires"
+                        htmlFor="lm_contraintes_horaires"
+                        hint="Plages autorisées pour la collecte"
+                      >
+                        <Input
+                          id="lm_contraintes_horaires"
+                          value={values.contraintes_horaires}
+                          onChange={(e) =>
+                            set('contraintes_horaires', e.target.value)
+                          }
+                        />
+                      </FormField>
+                    </FormGrid>
                     <FormField
-                      label="Capacité maximum"
-                      htmlFor="lm_capacite_maximum"
+                      label="Flux autorisés"
+                      htmlFor="lm_flux_autorises"
+                      hint="Flux acceptés sur ce lieu — séparés par des virgules"
                     >
                       <Input
-                        id="lm_capacite_maximum"
-                        type="number"
-                        min={0}
-                        value={values.capacite_maximum}
-                        onChange={(e) =>
-                          set('capacite_maximum', e.target.value)
-                        }
+                        id="lm_flux_autorises"
+                        value={values.flux_autorises}
+                        onChange={(e) => set('flux_autorises', e.target.value)}
                       />
                     </FormField>
-                    <FormField
-                      label="Volume max (bacs 1100L)"
-                      htmlFor="lm_volume_max_bacs"
-                    >
-                      <Input
-                        id="lm_volume_max_bacs"
-                        type="number"
-                        min={0}
-                        value={values.volume_max_bacs}
-                        onChange={(e) => set('volume_max_bacs', e.target.value)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Contraintes horaires"
-                      htmlFor="lm_contraintes_horaires"
-                      hint="Plages autorisées pour la collecte"
-                    >
-                      <Input
-                        id="lm_contraintes_horaires"
-                        value={values.contraintes_horaires}
-                        onChange={(e) =>
-                          set('contraintes_horaires', e.target.value)
-                        }
-                      />
-                    </FormField>
-                  </FormGrid>
-                  <FormField
-                    label="Flux autorisés"
-                    htmlFor="lm_flux_autorises"
-                    hint="Flux acceptés sur ce lieu — séparés par des virgules"
-                  >
-                    <Input
-                      id="lm_flux_autorises"
-                      value={values.flux_autorises}
-                      onChange={(e) => set('flux_autorises', e.target.value)}
-                    />
-                  </FormField>
-                </Card>
+                  </div>
+                </FicheSection>
 
                 {/* Photos — lecture seule (upload géré hors formulaire, stockage R2). */}
                 {photos.length > 0 && (
-                  <Card padding="md" className="space-y-3">
-                    <SectionHeader
-                      icon={ImageIcon}
-                      title={`Photos (${photos.length})`}
-                    />
-                    <ul className="space-y-1 text-sm">
-                      {photos.map((url, i) => (
-                        <li key={url}>
-                          <TextLink
-                            href={url}
-                            external
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Photo {i + 1}
-                          </TextLink>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
+                  <FicheSection titre={`Photos (${photos.length})`}>
+                    <div className="space-y-4">
+                      <ul className="space-y-1 text-sm">
+                        {photos.map((url, i) => (
+                          <li key={url}>
+                            <TextLink
+                              href={url}
+                              external
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Photo {i + 1}
+                            </TextLink>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </FicheSection>
                 )}
               </TabsContent>
 
               {/* Admin / Ops (RLS column-level — invisible côté client, §06.06 §7). */}
-              <TabsContent value="interne" className="space-y-4">
-                <AlertBar variant="info" icon={<Lock className="h-4 w-4" />}>
+              <TabsContent value="interne" className="mt-0">
+                <AlertBar
+                  variant="info"
+                  icon={<LockSimpleIcon className="h-4 w-4" />}
+                  className="mb-6"
+                >
                   Ces informations ne sont jamais montrées aux clients
                   (traiteur, agence, gestionnaire, client organisateur).
                 </AlertBar>
-                <Card padding="md" className="space-y-4">
-                  <SectionHeader icon={Lock} title="Réservé à l'équipe Savr" />
-                  <FormField
-                    label="Commentaire sur le lieu"
-                    htmlFor="lm_commentaire_lieu"
-                    hint="Note opérationnelle, contexte commercial, alerte"
-                  >
-                    <Textarea
-                      id="lm_commentaire_lieu"
-                      rows={3}
-                      value={values.commentaire_lieu}
-                      onChange={(e) => set('commentaire_lieu', e.target.value)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Notes internes"
-                    htmlFor="lm_commentaires_internes"
-                    hint="Notes opérationnelles Admin (technique migration, contexte historique)"
-                  >
-                    <Textarea
-                      id="lm_commentaires_internes"
-                      rows={3}
-                      value={values.commentaires_internes}
-                      onChange={(e) =>
-                        set('commentaires_internes', e.target.value)
-                      }
-                    />
-                  </FormField>
-                  <FormGrid>
+                <FicheSection titre="Réservé à l'équipe Savr">
+                  <div className="space-y-4">
                     <FormField
-                      label="SIREN"
-                      htmlFor="lm_siren"
-                      error={errors.siren}
-                      hint="9 chiffres, distinct du SIREN du gestionnaire"
+                      label="Commentaire sur le lieu"
+                      htmlFor="lm_commentaire_lieu"
+                      hint="Note opérationnelle, contexte commercial, alerte"
                     >
-                      <Input
-                        id="lm_siren"
-                        value={values.siren}
-                        onChange={(e) => set('siren', e.target.value)}
-                        error={Boolean(errors.siren)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Mail gestionnaire du lieu"
-                      htmlFor="lm_email_gestionnaire"
-                      hint="Référent — relances commerciales/opérationnelles internes"
-                    >
-                      <Input
-                        id="lm_email_gestionnaire"
-                        value={values.email_gestionnaire}
+                      <Textarea
+                        id="lm_commentaire_lieu"
+                        rows={3}
+                        value={values.commentaire_lieu}
                         onChange={(e) =>
-                          set('email_gestionnaire', e.target.value)
+                          set('commentaire_lieu', e.target.value)
                         }
                       />
                     </FormField>
-                  </FormGrid>
-                  <Interrupteur
-                    id="lm_reference_citeo"
-                    label="Référencé Citeo (REP emballages)"
-                    checked={values.reference_citeo}
-                    onChange={(v) => set('reference_citeo', v)}
-                  />
-                </Card>
+                    <FormField
+                      label="Notes internes"
+                      htmlFor="lm_commentaires_internes"
+                      hint="Notes opérationnelles Admin (technique migration, contexte historique)"
+                    >
+                      <Textarea
+                        id="lm_commentaires_internes"
+                        rows={3}
+                        value={values.commentaires_internes}
+                        onChange={(e) =>
+                          set('commentaires_internes', e.target.value)
+                        }
+                      />
+                    </FormField>
+                    <FormGrid>
+                      <FormField
+                        label="SIREN"
+                        htmlFor="lm_siren"
+                        error={errors.siren}
+                        hint="9 chiffres, distinct du SIREN du gestionnaire"
+                      >
+                        <Input
+                          id="lm_siren"
+                          value={values.siren}
+                          onChange={(e) => set('siren', e.target.value)}
+                          error={Boolean(errors.siren)}
+                        />
+                      </FormField>
+                      <FormField
+                        label="Mail gestionnaire du lieu"
+                        htmlFor="lm_email_gestionnaire"
+                        hint="Référent — relances commerciales/opérationnelles internes"
+                      >
+                        <Input
+                          id="lm_email_gestionnaire"
+                          value={values.email_gestionnaire}
+                          onChange={(e) =>
+                            set('email_gestionnaire', e.target.value)
+                          }
+                        />
+                      </FormField>
+                    </FormGrid>
+                    <Interrupteur
+                      id="lm_reference_citeo"
+                      label="Référencé Citeo (REP emballages)"
+                      checked={values.reference_citeo}
+                      onChange={(v) => set('reference_citeo', v)}
+                    />
+                  </div>
+                </FicheSection>
               </TabsContent>
 
               {isEdition && (
-                <TabsContent value="activite" className="space-y-4">
+                <TabsContent value="activite" className="mt-0">
                   {activiteErreur ? (
                     <AlertBar variant="err">
                       Impossible de charger l&apos;activité du lieu.
@@ -1001,96 +1032,94 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                     />
                   ) : (
                     <>
-                      <Card padding="md" className="space-y-4">
-                        <SectionHeader
-                          icon={ChefHat}
-                          title="Traiteurs opérant"
-                        />
-                        {activite.traiteurs.length === 0 ? (
-                          <EmptyState
-                            size="inline"
-                            title="Aucune collecte sur ce lieu pour l'instant."
-                          />
-                        ) : (
-                          <ul className="divide-y divide-savr-neutral-100 text-sm">
-                            {activite.traiteurs.map((t) => (
-                              <li
-                                key={t.id}
-                                className="flex items-center justify-between gap-3 py-2"
-                              >
-                                <span className="font-medium text-savr-neutral-900">
-                                  {t.nom}
-                                </span>
-                                <span className="shrink-0 text-savr-neutral-600">
-                                  {t.nb_collectes}{' '}
-                                  {t.nb_collectes > 1
-                                    ? 'collectes'
-                                    : 'collecte'}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </Card>
+                      <FicheSection titre="Traiteurs opérant">
+                        <div className="space-y-4">
+                          {activite.traiteurs.length === 0 ? (
+                            <EmptyState
+                              size="inline"
+                              title="Aucune collecte sur ce lieu pour l'instant."
+                            />
+                          ) : (
+                            <ul className="divide-y divide-savr-neutral-100 text-sm">
+                              {activite.traiteurs.map((t) => (
+                                <li
+                                  key={t.id}
+                                  className="flex items-center justify-between gap-3 py-2"
+                                >
+                                  <span className="font-medium text-savr-neutral-900">
+                                    {t.nom}
+                                  </span>
+                                  <span className="shrink-0 text-savr-neutral-600">
+                                    {t.nb_collectes}{' '}
+                                    {t.nb_collectes > 1
+                                      ? 'collectes'
+                                      : 'collecte'}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </FicheSection>
 
-                      <Card padding="md" className="space-y-4">
-                        <SectionHeader
-                          icon={History}
-                          title="Historique des modifications"
-                        />
-                        {activite.historique.length === 0 ? (
-                          <EmptyState
-                            size="inline"
-                            title="Aucune modification enregistrée sur ce lieu."
-                          />
-                        ) : (
-                          <Timeline>
-                            {activite.historique.map((h) => (
-                              <TimelineItem key={h.id}>
-                                <Text tone="strong" className="font-medium">
-                                  {LIBELLE_ACTION[h.action] ?? h.action}
-                                </Text>
-                                {h.champs.length > 0 ? (
-                                  <Text tone="soft">
-                                    {h.champs
-                                      .map((c) => LIBELLE_CHAMP[c] ?? c)
-                                      .join(', ')}
+                      <FicheSection titre="Historique des modifications">
+                        <div className="space-y-4">
+                          {activite.historique.length === 0 ? (
+                            <EmptyState
+                              size="inline"
+                              title="Aucune modification enregistrée sur ce lieu."
+                            />
+                          ) : (
+                            <Timeline>
+                              {activite.historique.map((h) => (
+                                <TimelineItem key={h.id}>
+                                  <Text tone="strong" className="font-medium">
+                                    {LIBELLE_ACTION[h.action] ?? h.action}
                                   </Text>
-                                ) : (
-                                  h.action === 'UPDATE' && (
-                                    <Text>
-                                      Aucun champ du lieu modifié (le
-                                      gestionnaire rattaché a pu changer)
+                                  {h.champs.length > 0 ? (
+                                    <Text tone="soft">
+                                      {h.champs
+                                        .map((c) => LIBELLE_CHAMP[c] ?? c)
+                                        .join(', ')}
                                     </Text>
-                                  )
-                                )}
-                                <Text variant="hint">
-                                  {new Date(h.created_at).toLocaleString(
-                                    'fr-FR',
-                                    { timeZone: 'Europe/Paris' },
+                                  ) : (
+                                    h.action === 'UPDATE' && (
+                                      <Text>
+                                        Aucun champ du lieu modifié (le
+                                        gestionnaire rattaché a pu changer)
+                                      </Text>
+                                    )
                                   )}
-                                  {h.auteur ? ` · ${h.auteur}` : ''}
-                                  {h.impersonation ? ' · (impersonation)' : ''}
-                                </Text>
-                              </TimelineItem>
-                            ))}
-                          </Timeline>
-                        )}
-                        {activite.historique_tronque && (
-                          <Text variant="hint">
-                            Seules les {activite.historique.length}{' '}
-                            modifications les plus récentes sont affichées.
-                          </Text>
-                        )}
-                      </Card>
+                                  <Text variant="hint">
+                                    {new Date(h.created_at).toLocaleString(
+                                      'fr-FR',
+                                      { timeZone: 'Europe/Paris' },
+                                    )}
+                                    {h.auteur ? ` · ${h.auteur}` : ''}
+                                    {h.impersonation
+                                      ? ' · (impersonation)'
+                                      : ''}
+                                  </Text>
+                                </TimelineItem>
+                              ))}
+                            </Timeline>
+                          )}
+                          {activite.historique_tronque && (
+                            <Text variant="hint">
+                              Seules les {activite.historique.length}{' '}
+                              modifications les plus récentes sont affichées.
+                            </Text>
+                          )}
+                        </div>
+                      </FicheSection>
                     </>
                   )}
                 </TabsContent>
               )}
-            </Tabs>
-          </form>
-        )}
-      </FicheCorps>
+            </form>
+          )}
+        </FicheCorps>
+      </Tabs>
     </FicheModal>
   );
 }

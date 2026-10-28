@@ -2,36 +2,33 @@
 
 import * as React from 'react';
 import {
-  Building2,
-  ClipboardList,
-  Lock,
-  MapPin,
-  Phone,
-  Truck,
-  UserRound,
-  Workflow,
-} from 'lucide-react';
+  LockSimpleIcon,
+  MapPinIcon,
+  PhoneIcon,
+  TruckIcon,
+} from '@/components/ui/icones';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
-import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
-import { SectionHeader } from '@/components/ui/section-header';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { EnTeteMention, EnTetePuce } from '@/components/ui/fiche/fiche-en-tete';
 import {
-  EnTeteMention,
-  EnTetePuce,
-  FicheEnTete,
-} from '@/components/ui/fiche/fiche-en-tete';
+  FicheGrandEnTete,
+  FicheOnglet,
+  FicheOnglets,
+  FicheRepere,
+} from '@/components/ui/fiche/fiche-grand-en-tete';
+import { FichePastilleActif } from '@/components/ui/fiche/fiche-pastille';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import {
   FicheCorps,
   FicheModal,
   FichePied,
 } from '@/components/ui/fiche/fiche-modal';
-import { OngletAvecErreurs } from '@/components/ui/fiche/onglet-avec-erreurs';
 import { VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { estSiren } from '@savr/shared/src/validation/index.js';
 import {
@@ -45,7 +42,6 @@ import {
   libelleCourtTypeTms,
   TYPES_TMS,
 } from '@/lib/type-tms-labels';
-import { ActifBadge } from '@/components/ui/actif-badge';
 import { ToggleChip } from '@/components/ui/toggle-chip';
 
 // Enregistrement transporteur complet, aligné sur le select('*') de l'API liste —
@@ -164,12 +160,21 @@ interface TransporteurModalProps {
 
 // En-tête de la fiche : il décrit le transporteur ENREGISTRÉ (stable pendant
 // la saisie), pas les valeurs en cours de modification.
-function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
+// Grand en-tête de la variante B (décision Val 2026-10-27) ; `onglets` = la
+// barre d'onglets, dans l'en-tête.
+function EnTete({
+  transporteur,
+  onglets,
+}: {
+  transporteur: TransporteurRecord | null;
+  onglets: React.ReactNode;
+}) {
   if (!transporteur) {
     return (
-      <FicheEnTete
+      <FicheGrandEnTete
         titre="Nouveau transporteur"
         description="Renseignez les trois onglets, puis créez le transporteur."
+        onglets={onglets}
       />
     );
   }
@@ -180,7 +185,7 @@ function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
     .filter(Boolean)
     .join(' ');
   return (
-    <FicheEnTete
+    <FicheGrandEnTete
       surtitre={
         <>
           <EnTetePuce data-testid="badge-type-tms">
@@ -192,13 +197,18 @@ function EnTete({ transporteur }: { transporteur: TransporteurRecord | null }) {
         </>
       }
       titre={transporteur.nom}
-      infosTestId="fiche-transporteur-sous-ligne"
-      infos={[
-        { icon: MapPin, texte: lieu || '—' },
-        { icon: Truck, texte: vehicules || '—' },
-        { icon: Phone, texte: transporteur.contact_telephone || '—' },
-      ]}
-      statut={<ActifBadge actif={transporteur.actif} />}
+      statut={<FichePastilleActif actif={transporteur.actif} />}
+      reperesTestId="fiche-transporteur-sous-ligne"
+      reperes={
+        <>
+          <FicheRepere icon={MapPinIcon}>{lieu || '—'}</FicheRepere>
+          <FicheRepere icon={TruckIcon}>{vehicules || '—'}</FicheRepere>
+          <FicheRepere icon={PhoneIcon}>
+            {transporteur.contact_telephone || '—'}
+          </FicheRepere>
+        </>
+      }
+      onglets={onglets}
     />
   );
 }
@@ -390,6 +400,7 @@ export function TransporteurModal({
     <FicheModal
       open={open}
       onClose={onClose}
+      taille="grand"
       title={
         isEdition
           ? `Fiche transporteur — ${transporteur!.nom}`
@@ -401,322 +412,334 @@ export function TransporteurModal({
         noValidate
         className="flex h-full min-h-0 flex-col"
       >
-        <EnTete transporteur={transporteur} />
+        {/* Variante B (décision Val 2026-10-27) : onglets soulignés dans le
+            grand en-tête, seul le corps défile. */}
+        <Tabs
+          value={onglet}
+          onValueChange={(v) => setOnglet(v as Onglet)}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <EnTete
+            transporteur={transporteur}
+            onglets={
+              <FicheOnglets aria-label="Sections de la fiche transporteur">
+                {ONGLETS.map(({ value, label }) => (
+                  <FicheOnglet
+                    key={value}
+                    ref={(el) => {
+                      if (el) ongletsRef.current[value] = el;
+                    }}
+                    value={value}
+                    nbErreurs={nbErreurs(value)}
+                  >
+                    {label}
+                  </FicheOnglet>
+                ))}
+              </FicheOnglets>
+            }
+          />
 
-        {/* Même barre d'onglets horizontale que les fiches lieu et association
-            (décision Val 2026-09-30), fixe au défilement du corps. */}
-        <FicheCorps>
-          <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
-            <TabsList
-              aria-label="Sections de la fiche transporteur"
-              className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
-            >
-              {ONGLETS.map(({ value, label }) => (
-                <OngletAvecErreurs
-                  key={value}
-                  ref={(el) => {
-                    if (el) ongletsRef.current[value] = el;
-                  }}
-                  value={value}
-                  nbErreurs={nbErreurs(value)}
-                >
-                  {label}
-                </OngletAvecErreurs>
-              ))}
-            </TabsList>
+          <FicheCorps>
+            <TabsContent value="identite" className="mt-0">
+              <FicheSection titre="Société">
+                <div className="space-y-4">
+                  <FormGrid>
+                    <FormField
+                      label="Nom du transporteur"
+                      htmlFor="tm_nom"
+                      required
+                      error={errors.nom}
+                    >
+                      <Input
+                        id="tm_nom"
+                        required
+                        value={values.nom}
+                        onChange={(e) => set('nom', e.target.value)}
+                        error={Boolean(errors.nom)}
+                        {...SANS_AUTOREMPLISSAGE}
+                      />
+                    </FormField>
+                    <FormField
+                      label="SIREN"
+                      htmlFor="tm_siren"
+                      required
+                      error={errors.siren}
+                      hint="9 chiffres, validation INSEE"
+                    >
+                      <Input
+                        id="tm_siren"
+                        required
+                        value={values.siren}
+                        onChange={(e) => set('siren', e.target.value)}
+                        error={Boolean(errors.siren)}
+                      />
+                    </FormField>
+                  </FormGrid>
+                </div>
+              </FicheSection>
 
-            <TabsContent value="identite" className="space-y-3">
-              <Card padding="md" className="space-y-4">
-                <SectionHeader icon={Building2} title="Société" />
-                <FormGrid>
-                  <FormField
-                    label="Nom du transporteur"
-                    htmlFor="tm_nom"
-                    required
-                    error={errors.nom}
-                  >
-                    <Input
-                      id="tm_nom"
+              <FicheSection titre="Contact jour J">
+                <div className="space-y-4">
+                  <FormGrid>
+                    <FormField
+                      label="Nom du contact"
+                      htmlFor="tm_contact_nom"
                       required
-                      value={values.nom}
-                      onChange={(e) => set('nom', e.target.value)}
-                      error={Boolean(errors.nom)}
-                      {...SANS_AUTOREMPLISSAGE}
-                    />
-                  </FormField>
-                  <FormField
-                    label="SIREN"
-                    htmlFor="tm_siren"
-                    required
-                    error={errors.siren}
-                    hint="9 chiffres, validation INSEE"
-                  >
-                    <Input
-                      id="tm_siren"
+                      error={errors.contact_nom}
+                    >
+                      <Input
+                        id="tm_contact_nom"
+                        required
+                        value={values.contact_nom}
+                        onChange={(e) => set('contact_nom', e.target.value)}
+                        error={Boolean(errors.contact_nom)}
+                        {...SANS_AUTOREMPLISSAGE}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Téléphone"
+                      htmlFor="tm_contact_telephone"
                       required
-                      value={values.siren}
-                      onChange={(e) => set('siren', e.target.value)}
-                      error={Boolean(errors.siren)}
-                    />
-                  </FormField>
-                </FormGrid>
-              </Card>
+                      error={errors.contact_telephone}
+                      hint="Joignable jour J, format E.164 recommandé"
+                    >
+                      <Input
+                        id="tm_contact_telephone"
+                        required
+                        value={values.contact_telephone}
+                        onChange={(e) =>
+                          set('contact_telephone', e.target.value)
+                        }
+                        error={Boolean(errors.contact_telephone)}
+                        {...SANS_AUTOREMPLISSAGE}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Mail de contact"
+                      htmlFor="tm_contact_email"
+                      required
+                      error={errors.contact_email}
+                      className="sm:col-span-2"
+                    >
+                      <Input
+                        id="tm_contact_email"
+                        required
+                        type="email"
+                        value={values.contact_email}
+                        onChange={(e) => set('contact_email', e.target.value)}
+                        error={Boolean(errors.contact_email)}
+                        {...SANS_AUTOREMPLISSAGE}
+                      />
+                    </FormField>
+                  </FormGrid>
+                </div>
+              </FicheSection>
 
-              <Card padding="md" className="space-y-4">
-                <SectionHeader icon={UserRound} title="Contact jour J" />
-                <FormGrid>
-                  <FormField
-                    label="Nom du contact"
-                    htmlFor="tm_contact_nom"
-                    required
-                    error={errors.contact_nom}
-                  >
-                    <Input
-                      id="tm_contact_nom"
+              <FicheSection titre="Adresse">
+                <div className="space-y-4">
+                  <FormGrid>
+                    <FormField
+                      label="Adresse"
+                      htmlFor="tm_adresse"
                       required
-                      value={values.contact_nom}
-                      onChange={(e) => set('contact_nom', e.target.value)}
-                      error={Boolean(errors.contact_nom)}
-                      {...SANS_AUTOREMPLISSAGE}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Téléphone"
-                    htmlFor="tm_contact_telephone"
-                    required
-                    error={errors.contact_telephone}
-                    hint="Joignable jour J, format E.164 recommandé"
-                  >
-                    <Input
-                      id="tm_contact_telephone"
+                      error={errors.adresse}
+                      hint="Géocodée automatiquement à l'enregistrement"
+                      className="sm:col-span-2"
+                    >
+                      <Input
+                        id="tm_adresse"
+                        required
+                        value={values.adresse}
+                        onChange={(e) => set('adresse', e.target.value)}
+                        error={Boolean(errors.adresse)}
+                        {...SANS_AUTOREMPLISSAGE}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Code postal"
+                      htmlFor="tm_code_postal"
                       required
-                      value={values.contact_telephone}
-                      onChange={(e) => set('contact_telephone', e.target.value)}
-                      error={Boolean(errors.contact_telephone)}
-                      {...SANS_AUTOREMPLISSAGE}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Mail de contact"
-                    htmlFor="tm_contact_email"
-                    required
-                    error={errors.contact_email}
-                    className="sm:col-span-2"
-                  >
-                    <Input
-                      id="tm_contact_email"
+                      error={errors.code_postal}
+                    >
+                      <Input
+                        id="tm_code_postal"
+                        required
+                        value={values.code_postal}
+                        onChange={(e) => set('code_postal', e.target.value)}
+                        error={Boolean(errors.code_postal)}
+                        {...SANS_AUTOREMPLISSAGE}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Ville"
+                      htmlFor="tm_ville"
                       required
-                      type="email"
-                      value={values.contact_email}
-                      onChange={(e) => set('contact_email', e.target.value)}
-                      error={Boolean(errors.contact_email)}
-                      {...SANS_AUTOREMPLISSAGE}
-                    />
-                  </FormField>
-                </FormGrid>
-              </Card>
-
-              <Card padding="md" className="space-y-4">
-                <SectionHeader icon={MapPin} title="Adresse" />
-                <FormGrid>
-                  <FormField
-                    label="Adresse"
-                    htmlFor="tm_adresse"
-                    required
-                    error={errors.adresse}
-                    hint="Géocodée automatiquement à l'enregistrement"
-                    className="sm:col-span-2"
-                  >
-                    <Input
-                      id="tm_adresse"
-                      required
-                      value={values.adresse}
-                      onChange={(e) => set('adresse', e.target.value)}
-                      error={Boolean(errors.adresse)}
-                      {...SANS_AUTOREMPLISSAGE}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Code postal"
-                    htmlFor="tm_code_postal"
-                    required
-                    error={errors.code_postal}
-                  >
-                    <Input
-                      id="tm_code_postal"
-                      required
-                      value={values.code_postal}
-                      onChange={(e) => set('code_postal', e.target.value)}
-                      error={Boolean(errors.code_postal)}
-                      {...SANS_AUTOREMPLISSAGE}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Ville"
-                    htmlFor="tm_ville"
-                    required
-                    error={errors.ville}
-                  >
-                    <Input
-                      id="tm_ville"
-                      required
-                      value={values.ville}
-                      onChange={(e) => set('ville', e.target.value)}
-                      error={Boolean(errors.ville)}
-                      {...SANS_AUTOREMPLISSAGE}
-                    />
-                  </FormField>
-                </FormGrid>
-              </Card>
+                      error={errors.ville}
+                    >
+                      <Input
+                        id="tm_ville"
+                        required
+                        value={values.ville}
+                        onChange={(e) => set('ville', e.target.value)}
+                        error={Boolean(errors.ville)}
+                        {...SANS_AUTOREMPLISSAGE}
+                      />
+                    </FormField>
+                  </FormGrid>
+                </div>
+              </FicheSection>
             </TabsContent>
 
-            <TabsContent value="capacites" className="space-y-3">
-              <Card padding="md" className="space-y-4">
-                <SectionHeader icon={Truck} title="Véhicules et flux" />
-                <FormField
-                  label="Type(s) de véhicule"
-                  htmlFor="tm_types_vehicules"
-                  required
-                  error={errors.types_vehicules}
-                >
-                  <div
-                    id="tm_types_vehicules"
-                    role="group"
-                    aria-label="Type(s) de véhicule"
-                    className="flex flex-wrap gap-2"
+            <TabsContent value="capacites" className="mt-0">
+              <FicheSection titre="Véhicules et flux">
+                <div className="space-y-4">
+                  <FormField
+                    label="Type(s) de véhicule"
+                    htmlFor="tm_types_vehicules"
+                    required
+                    error={errors.types_vehicules}
                   >
-                    {TYPES_VEHICULES.map((t) => {
-                      const selected = values.types_vehicules.includes(t.value);
-                      return (
-                        <ToggleChip
-                          key={t.value}
-                          variant="choix"
-                          pressed={selected}
-                          onClick={() => toggle('types_vehicules', t.value)}
-                        >
-                          {t.label}
-                        </ToggleChip>
-                      );
-                    })}
-                  </div>
-                </FormField>
-                <FormField
-                  label="Type(s) de collecte"
-                  htmlFor="tm_types_collecte"
-                  hint="Flux gérés par ce transporteur — AG et/ou ZD"
-                >
-                  <div
-                    id="tm_types_collecte"
-                    role="group"
-                    aria-label="Type(s) de collecte"
-                    className="flex flex-wrap gap-2"
+                    <div
+                      id="tm_types_vehicules"
+                      role="group"
+                      aria-label="Type(s) de véhicule"
+                      className="flex flex-wrap gap-2"
+                    >
+                      {TYPES_VEHICULES.map((t) => {
+                        const selected = values.types_vehicules.includes(
+                          t.value,
+                        );
+                        return (
+                          <ToggleChip
+                            key={t.value}
+                            variant="choix"
+                            pressed={selected}
+                            onClick={() => toggle('types_vehicules', t.value)}
+                          >
+                            {t.label}
+                          </ToggleChip>
+                        );
+                      })}
+                    </div>
+                  </FormField>
+                  <FormField
+                    label="Type(s) de collecte"
+                    htmlFor="tm_types_collecte"
+                    hint="Flux gérés par ce transporteur — AG et/ou ZD"
                   >
-                    {TYPES_COLLECTE.map((t) => {
-                      const selected = values.types_collecte.includes(t.value);
-                      return (
-                        <ToggleChip
-                          key={t.value}
-                          variant="choix"
-                          pressed={selected}
-                          onClick={() => toggle('types_collecte', t.value)}
-                        >
-                          {t.label}
-                        </ToggleChip>
-                      );
-                    })}
-                  </div>
-                </FormField>
-              </Card>
+                    <div
+                      id="tm_types_collecte"
+                      role="group"
+                      aria-label="Type(s) de collecte"
+                      className="flex flex-wrap gap-2"
+                    >
+                      {TYPES_COLLECTE.map((t) => {
+                        const selected = values.types_collecte.includes(
+                          t.value,
+                        );
+                        return (
+                          <ToggleChip
+                            key={t.value}
+                            variant="choix"
+                            pressed={selected}
+                            onClick={() => toggle('types_collecte', t.value)}
+                          >
+                            {t.label}
+                          </ToggleChip>
+                        );
+                      })}
+                    </div>
+                  </FormField>
+                </div>
+              </FicheSection>
 
-              <Card padding="md" className="space-y-4">
-                <SectionHeader
-                  icon={ClipboardList}
-                  title="Process de collecte"
-                />
-                <FormField
-                  label="Description du process de collecte"
-                  htmlFor="tm_description"
-                  hint="Comment déclencher une collecte auprès de ce transporteur (texte libre)"
-                >
-                  <Textarea
-                    id="tm_description"
-                    rows={5}
-                    value={values.description_process_collecte}
-                    onChange={(e) =>
-                      set('description_process_collecte', e.target.value)
-                    }
-                  />
-                </FormField>
-              </Card>
+              <FicheSection titre="Process de collecte">
+                <div className="space-y-4">
+                  <FormField
+                    label="Description du process de collecte"
+                    htmlFor="tm_description"
+                    hint="Comment déclencher une collecte auprès de ce transporteur (texte libre)"
+                  >
+                    <Textarea
+                      id="tm_description"
+                      rows={5}
+                      value={values.description_process_collecte}
+                      onChange={(e) =>
+                        set('description_process_collecte', e.target.value)
+                      }
+                    />
+                  </FormField>
+                </div>
+              </FicheSection>
             </TabsContent>
 
-            <TabsContent value="connexion" className="space-y-3">
+            <TabsContent value="connexion" className="mt-0">
               <AlertBar
                 variant="info"
-                icon={<Lock />}
+                icon={<LockSimpleIcon />}
                 data-testid="bandeau-immuabilite"
+                className="mb-6"
               >
                 {isEdition
                   ? 'Le type de TMS est fixé à la création. Pour en changer, créez un nouveau transporteur.'
                   : 'Le type de TMS ne pourra plus être modifié après la création : vérifiez-le avant de créer le transporteur.'}
               </AlertBar>
 
-              <Card padding="md" className="space-y-4">
-                <SectionHeader
-                  icon={Workflow}
-                  title="Transmission des collectes"
-                />
-                <FormGrid>
-                  <FormField
-                    label="Type de TMS"
-                    htmlFor="tm_type_tms"
-                    required
-                    error={errors.type_tms}
-                    hint={
-                      isEdition
-                        ? 'Fixé à la création'
-                        : "Détermine l'adapter logistique (dispatch)"
-                    }
-                  >
-                    <Combobox
-                      id="tm_type_tms"
-                      icon={null}
-                      required
-                      value={values.type_tms}
-                      onChange={(v) => set('type_tms', v)}
-                      error={Boolean(errors.type_tms)}
-                      disabled={isEdition}
-                      options={TYPES_TMS.map((value) => ({
-                        value,
-                        label: LIBELLE_OPTION_TYPE_TMS[value] ?? value,
-                      }))}
-                    />
-                  </FormField>
-                  {values.type_tms === 'mts1' && (
+              <FicheSection titre="Transmission des collectes">
+                <div className="space-y-4">
+                  <FormGrid>
                     <FormField
-                      label="Code transporteur MTS-1"
-                      htmlFor="tm_code_transporteur_mts1"
+                      label="Type de TMS"
+                      htmlFor="tm_type_tms"
                       required
-                      error={errors.code_transporteur_mts1}
-                      hint="carrierShareableCode récupérable via GET /v3/carrier"
+                      error={errors.type_tms}
+                      hint={
+                        isEdition
+                          ? 'Fixé à la création'
+                          : "Détermine l'adapter logistique (dispatch)"
+                      }
                     >
-                      <Input
-                        id="tm_code_transporteur_mts1"
+                      <Combobox
+                        id="tm_type_tms"
+                        icon={null}
                         required
-                        value={values.code_transporteur_mts1}
-                        onChange={(e) =>
-                          set('code_transporteur_mts1', e.target.value)
-                        }
-                        error={Boolean(errors.code_transporteur_mts1)}
+                        value={values.type_tms}
+                        onChange={(v) => set('type_tms', v)}
+                        error={Boolean(errors.type_tms)}
+                        disabled={isEdition}
+                        options={TYPES_TMS.map((value) => ({
+                          value,
+                          label: LIBELLE_OPTION_TYPE_TMS[value] ?? value,
+                        }))}
                       />
                     </FormField>
-                  )}
-                </FormGrid>
-              </Card>
+                    {values.type_tms === 'mts1' && (
+                      <FormField
+                        label="Code transporteur MTS-1"
+                        htmlFor="tm_code_transporteur_mts1"
+                        required
+                        error={errors.code_transporteur_mts1}
+                        hint="carrierShareableCode récupérable via GET /v3/carrier"
+                      >
+                        <Input
+                          id="tm_code_transporteur_mts1"
+                          required
+                          value={values.code_transporteur_mts1}
+                          onChange={(e) =>
+                            set('code_transporteur_mts1', e.target.value)
+                          }
+                          error={Boolean(errors.code_transporteur_mts1)}
+                        />
+                      </FormField>
+                    )}
+                  </FormGrid>
+                </div>
+              </FicheSection>
             </TabsContent>
-          </Tabs>
-        </FicheCorps>
+          </FicheCorps>
+        </Tabs>
 
+        {/* Pied variante B : pilules, secondaire sur fond sable. */}
         <FichePied>
           {serverError && (
             <AlertBar variant="err" role="alert" className="mr-auto">
@@ -725,7 +748,8 @@ export function TransporteurModal({
           )}
           <Button
             type="button"
-            variant="secondary"
+            variant="sable"
+            size="pilule"
             onClick={onClose}
             disabled={submitting}
           >
@@ -736,6 +760,7 @@ export function TransporteurModal({
               <Button
                 type="button"
                 variant="outline-destructive"
+                size="pilule"
                 onClick={() => void handleToggleActif()}
                 disabled={submitting}
               >
@@ -744,7 +769,8 @@ export function TransporteurModal({
             ) : (
               <Button
                 type="button"
-                variant="secondary"
+                variant="sable"
+                size="pilule"
                 onClick={() => void handleToggleActif()}
                 disabled={submitting}
               >
@@ -753,6 +779,7 @@ export function TransporteurModal({
             ))}
           <Button
             type="button"
+            size="pilule"
             onClick={() => void submitForm()}
             loading={submitting}
             loadingText="Enregistrement…"

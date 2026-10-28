@@ -4,7 +4,8 @@
  * bilan CONSOLIDÉ sur toutes ses collectes — en pop-up sur la liste depuis le
  * 2026-10-19 (« en modale comme les pages collectes »), en trois onglets depuis
  * le 2026-10-26 (Informations générales, Informations collectes, Bilan &
- * documents) avec une frise Créé → Réalisé.
+ * documents) ; avancement en pastille à la place de la frise Créé → Réalisé
+ * depuis le 2026-10-27 (grand format variante B).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -71,14 +72,11 @@ const monterFiche = (
 /** Onglet de la fiche (Radix s'active au `mousedown`). */
 const onglet = (nom: RegExp | string) =>
   fireEvent.mouseDown(screen.getByRole('tab', { name: nom }));
-/** Fiche chargée : sa frise d'avancement est à l'écran. */
+/** Fiche chargée : sa pastille d'avancement est à l'écran. */
 const ficheChargee = () =>
-  screen.findByTestId('frise-statut-evenement', undefined, ATTENTE_UI);
-/** Étape courante de la frise de l'événement. */
-const etapeCourante = () =>
-  screen
-    .getByTestId('frise-statut-evenement')
-    .querySelector('[aria-current="step"]');
+  screen.findByTestId('statut-evenement', undefined, ATTENTE_UI);
+/** Pastille d'avancement de l'événement (étape courante de l'ex-frise). */
+const etapeCourante = () => screen.getByTestId('statut-evenement');
 
 const LIGNE = {
   id: EVT_ID,
@@ -284,7 +282,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
       fireEvent.click(ligne);
       const fiche = await screen.findByRole('dialog', undefined, ATTENTE_UI);
       await within(fiche).findByTestId(
-        'frise-statut-evenement',
+        'statut-evenement',
         undefined,
         ATTENTE_UI,
       );
@@ -629,11 +627,33 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       }));
       monterFiche();
       await ficheChargee();
-      expect(screen.getByTestId('frise-statut-evenement')).toHaveTextContent(
-        /Créé.*Validé.*En cours.*Réalisé/,
+      // Pastille, plus de frise (décision Val 2026-10-27) : l'étape seule.
+      expect(etapeCourante()).toHaveTextContent(/^Validé$/);
+      expect(etapeCourante()).toHaveAttribute(
+        'aria-label',
+        'Avancement de l’événement : Validé',
       );
-      expect(etapeCourante()).toHaveTextContent('Validé');
       expect(screen.queryByTestId('statut-consolide')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/frise_avancement — toutes les collectes annulées : pastille « Annulé »',
+    async () => {
+      stubFetch(() => ({
+        body: {
+          data: detail({
+            fiches: [
+              ficheCollecte({ id: 'c1', statut: 'annulee' }),
+              ficheCollecte({ id: 'c2', statut: 'annulation_demandee' }),
+            ],
+          }),
+        },
+      }));
+      monterFiche();
+      await ficheChargee();
+      expect(etapeCourante()).toHaveTextContent(/^Annulé$/);
     },
     ATTENTE_CAS_MS,
   );
@@ -1181,7 +1201,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(screen.queryByTestId('fiche-collecte-ouverte')).toBeNull();
       expect(changerCollecte).toHaveBeenLastCalledWith(null);
       // Rechargement sans retour au squelette : la fiche reste à l'écran.
-      expect(screen.getByTestId('frise-statut-evenement')).toBeInTheDocument();
+      expect(screen.getByTestId('statut-evenement')).toBeInTheDocument();
       await waitFor(
         () => expect(fetchMock.mock.calls.length).toBeGreaterThan(avant),
         ATTENTE_UI,
@@ -1361,7 +1381,7 @@ describe('M3.2 / liste Événements gestionnaire — fiche en pop-up depuis l’
         ).length;
       const avant = listes();
       fireEvent.keyDown(document, { key: 'Escape' });
-      expect(screen.queryByTestId('frise-statut-evenement')).toBeNull();
+      expect(screen.queryByTestId('statut-evenement')).toBeNull();
       expect(window.location.search).not.toContain('evenement=');
       await waitFor(() => expect(listes()).toBeGreaterThan(avant), ATTENTE_UI);
     },

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CaretLeftIcon, CaretRightIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 // Pagination — navigation entre pages d'un tableau (§10 §6 « Pagination »).
@@ -67,7 +67,7 @@ const Pagination = React.forwardRef<HTMLElement, PaginationProps>(
             'text-savr-neutral-600 hover:bg-savr-neutral-100 disabled:pointer-events-none disabled:opacity-40',
           )}
         >
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          <CaretLeftIcon className="h-4 w-4" aria-hidden="true" />
         </button>
 
         {range.map((item, i) =>
@@ -108,7 +108,7 @@ const Pagination = React.forwardRef<HTMLElement, PaginationProps>(
             'text-savr-neutral-600 hover:bg-savr-neutral-100 disabled:pointer-events-none disabled:opacity-40',
           )}
         >
-          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          <CaretRightIcon className="h-4 w-4" aria-hidden="true" />
         </button>
       </nav>
     );

@@ -14,7 +14,8 @@ import { NUNITO_WOFF2_BASE64, SAVR_LOGO_MASK } from './assets/marque.js';
 //   - avec radar : comparaison kg/convive au parc Savr (radar base 100 + liste) ;
 //   - sans radar : taux, carbone, tableau des tonnages et camembert.
 // Identité Savr (bandeau navy, Nunito, logo officiel). La page 2 reste le
-// bordereau de pesée, inchangé.
+// bordereau de pesée, inchangé ; elle est retirée quand le demandeur ne peut
+// pas lire ce bordereau sous sa RLS (décision Val 2026-10-27, §12 §1.7).
 export const TEMPLATE_VERSION = 'rapport-recyclage-zd@3';
 
 /** Une ligne du benchmark kg/convive (1 par flux pesé). */
@@ -65,8 +66,8 @@ export interface RapportRecyclageZdData {
   benchmark_flux?: BenchmarkFluxGauge[] | null;
   benchmark_legende?: string | null;
 
-  // Page 2
-  bordereau: BordereauZdData;
+  // Page 2, absente quand le demandeur ne peut pas lire le bordereau sous sa RLS.
+  bordereau?: BordereauZdData | null;
 }
 
 // ─── Référentiel d'affichage des flux ────────────────────────────────────────
@@ -255,6 +256,17 @@ const MENTION_TAUX_COLLECTE =
   'Calculé selon la méthode UE 2019/1004 — taux de captation par filière, figé à la clôture de la collecte. Voir Méthodologie.';
 
 export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
+  const bordereau = data.bordereau;
+  // Sans bordereau (le demandeur ne peut pas le lire), le rapport s'arrête à la
+  // page 1 (décision Val 2026-10-27, §12 §1.7).
+  if (!bordereau) {
+    return renderSyntheseRecyclage(data, {
+      titre: 'Rapport de recyclage',
+      mentionTaux: MENTION_TAUX_COLLECTE,
+      cssSuite: '',
+      suite: '',
+    });
+  }
   return renderSyntheseRecyclage(data, {
     titre: 'Rapport de recyclage',
     mentionTaux: MENTION_TAUX_COLLECTE,
@@ -267,8 +279,8 @@ ${limiterALaPortee(BORDEREAU_CSS, '.bz')}
 `,
     suite: `<!-- PAGE 2 — Bordereau de pesée intégré -->
 <div class="bz">
-  <div class="bz-annexe">Annexe — Bordereau de pesée Savr (${esc(data.bordereau.numero)})</div>
-  ${renderBordereauBody(data.bordereau)}
+  <div class="bz-annexe">Annexe — Bordereau de pesée Savr (${esc(bordereau.numero)})</div>
+  ${renderBordereauBody(bordereau)}
 </div>
 `,
   });

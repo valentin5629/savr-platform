@@ -5,7 +5,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { fmtKg } from '@/lib/format';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookOpen } from 'lucide-react';
+import { BookOpenIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -291,7 +291,7 @@ function RegistreContent() {
   return (
     <div className="space-y-4">
       <PageHero
-        icon={<BookOpen className="h-6 w-6 text-savr-primary-200" />}
+        icon={<BookOpenIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Registre réglementaire"
         actions={
           <>

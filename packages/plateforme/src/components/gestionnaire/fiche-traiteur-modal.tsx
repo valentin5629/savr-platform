@@ -1,16 +1,22 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChefHat, MapPin } from 'lucide-react';
+import { ChefHatIcon, MapPinIcon } from '@/components/ui/icones';
 import { Card } from '@/components/ui/card';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { EnTetePuce, FicheEnTete } from '@/components/ui/fiche/fiche-en-tete';
+import { EnTetePuce } from '@/components/ui/fiche/fiche-en-tete';
+import {
+  FicheGrandEnTete,
+  FicheOnglet,
+  FicheOnglets,
+  FicheRepere,
+} from '@/components/ui/fiche/fiche-grand-en-tete';
 import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
-import { SectionHeader } from '@/components/ui/section-header';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import {
   ToggleTypeCollecte,
@@ -28,7 +34,8 @@ import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 // Fiche traiteur du gestionnaire de lieux, en pop-up sur la liste Traiteurs
 // (§06.05 §5 — arbitrage Val 2026-10-07, ex-page /gestionnaire/traiteurs/[id]).
-// Cadre commun des fiches (FicheModal : grand en-tête, onglets, corps défilant).
+// Grand format de la variante B (décision Val 2026-10-27) : grand en-tête,
+// onglets soulignés dans l'en-tête, seul le corps défile, sections en lignes.
 //
 // Vue non commerciale et en lecture seule : nom et logo du traiteur, puis ce
 // qu'il a fait SUR LES LIEUX DE L'ORGANISATION — jamais ailleurs, jamais de
@@ -117,10 +124,11 @@ export function FicheTraiteurModal({
       open
       title={traiteur?.nom ?? 'Fiche traiteur'}
       onClose={onClose}
+      taille="grand"
     >
       {etat === 'chargement' && (
         <>
-          <FicheEnTete titre="Fiche traiteur" />
+          <FicheGrandEnTete titre="Fiche traiteur" />
           {/* §10 §7 « Loading » : skeletons à la forme du contenu. */}
           <FicheCorps className="space-y-4 py-6" aria-busy="true">
             <Skeleton className="h-10 w-full" />
@@ -131,7 +139,7 @@ export function FicheTraiteurModal({
 
       {etat === 'erreur' && (
         <>
-          <FicheEnTete titre="Fiche traiteur" />
+          <FicheGrandEnTete titre="Fiche traiteur" />
           <FicheCorps className="py-6">
             <ErrorState
               message="Impossible de charger ce traiteur. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
@@ -143,10 +151,10 @@ export function FicheTraiteurModal({
 
       {etat === 'introuvable' && (
         <>
-          <FicheEnTete titre="Fiche traiteur" />
+          <FicheGrandEnTete titre="Fiche traiteur" />
           <FicheCorps className="py-6">
             <EmptyState
-              icon={<ChefHat className="h-8 w-8" />}
+              icon={<ChefHatIcon className="h-8 w-8" />}
               title="Traiteur non trouvé"
               description="Ce traiteur n'existe pas ou n'est pas intervenu sur vos lieux."
             />
@@ -155,8 +163,8 @@ export function FicheTraiteurModal({
       )}
 
       {etat === 'pret' && traiteur && (
-        <>
-          <FicheEnTete
+        <Tabs defaultValue="lieux" className="flex min-h-0 flex-1 flex-col">
+          <FicheGrandEnTete
             surtitre={
               <>
                 {traiteur.logo_url && !logoKo && (
@@ -173,61 +181,53 @@ export function FicheTraiteurModal({
               </>
             }
             titre={traiteur.nom}
-            infosTestId="fiche-traiteur-infos"
-            infos={[
-              {
-                icon: MapPin,
-                texte:
-                  nbLieux > 0
-                    ? `${nbLieux} lieu${nbLieux > 1 ? 'x' : ''} d’intervention sur 24 mois`
-                    : 'Aucune intervention sur 24 mois',
-              },
-            ]}
+            reperesTestId="fiche-traiteur-infos"
+            reperes={
+              <FicheRepere icon={MapPinIcon}>
+                {nbLieux > 0
+                  ? `${nbLieux} lieu${nbLieux > 1 ? 'x' : ''} d’intervention sur 24 mois`
+                  : 'Aucune intervention sur 24 mois'}
+              </FicheRepere>
+            }
+            onglets={
+              <FicheOnglets aria-label="Sections de la fiche traiteur">
+                <FicheOnglet value="lieux">
+                  Lieux d’intervention{nbLieux > 0 ? ` (${nbLieux})` : ''}
+                </FicheOnglet>
+                <FicheOnglet value="activite">Activité</FicheOnglet>
+              </FicheOnglets>
+            }
           />
           <FicheCorps>
-            <Tabs defaultValue="lieux">
-              <TabsList>
-                <TabsTrigger value="lieux">
-                  Lieux d’intervention{nbLieux > 0 ? ` (${nbLieux})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="activite">Activité</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="lieux" className="space-y-4">
-                <Card padding="md" className="space-y-4">
-                  <SectionHeader
-                    icon={MapPin}
-                    title="Lieux d’intervention"
-                    level={3}
+            <TabsContent value="lieux" className="mt-0">
+              <FicheSection titre="Lieux d’intervention">
+                {nbLieux === 0 ? (
+                  <EmptyState
+                    size="inline"
+                    title="Aucune collecte clôturée sur vos lieux au cours des 24 derniers mois."
                   />
-                  {nbLieux === 0 ? (
-                    <EmptyState
-                      size="inline"
-                      title="Aucune collecte clôturée sur vos lieux au cours des 24 derniers mois."
+                ) : (
+                  <div className="min-w-0 space-y-4">
+                    <Text variant="hint">
+                      Collectes clôturées de ce traiteur sur vos lieux, au cours
+                      des 24 derniers mois.
+                    </Text>
+                    <DataTable
+                      columnsToggle={false}
+                      columns={COLONNES_LIEUX}
+                      data={traiteur.lieux_intervention}
+                      keyExtractor={(l) => l.id}
                     />
-                  ) : (
-                    <>
-                      <Text variant="hint">
-                        Collectes clôturées de ce traiteur sur vos lieux, au
-                        cours des 24 derniers mois.
-                      </Text>
-                      <DataTable
-                        columnsToggle={false}
-                        columns={COLONNES_LIEUX}
-                        data={traiteur.lieux_intervention}
-                        keyExtractor={(l) => l.id}
-                      />
-                    </>
-                  )}
-                </Card>
-              </TabsContent>
+                  </div>
+                )}
+              </FicheSection>
+            </TabsContent>
 
-              <TabsContent value="activite">
-                <ActiviteTraiteur traiteurId={traiteur.id} />
-              </TabsContent>
-            </Tabs>
+            <TabsContent value="activite" className="mt-0">
+              <ActiviteTraiteur traiteurId={traiteur.id} />
+            </TabsContent>
           </FicheCorps>
-        </>
+        </Tabs>
       )}
     </FicheModal>
   );

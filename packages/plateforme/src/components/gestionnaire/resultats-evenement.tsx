@@ -1,6 +1,11 @@
 'use client';
 
-import { Leaf, Package, Recycle, Scale } from 'lucide-react';
+import {
+  LeafIcon,
+  PackageIcon,
+  RecycleIcon,
+  ScalesIcon,
+} from '@/components/ui/icones';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
 import { fmtInt, fmtKgAuto, fmtPct, UNITE_KG_CO2E } from '@/lib/format';
@@ -29,22 +34,22 @@ export function ResultatsEvenement({
   const valeurs = [
     positif(e.tonnage_zd_kg) && {
       cle: 'poids',
-      Icone: Scale,
+      Icone: ScalesIcon,
       texte: fmtKgAuto(e.tonnage_zd_kg),
     },
     e.taux_recyclage != null && {
       cle: 'taux',
-      Icone: Recycle,
+      Icone: RecycleIcon,
       texte: fmtPct(e.taux_recyclage, 0),
     },
     positif(e.repas_donnes) && {
       cle: 'repas',
-      Icone: Package,
+      Icone: PackageIcon,
       texte: `${fmtInt(e.repas_donnes)} repas`,
     },
     positif(e.co2_evite_kg) && {
       cle: 'co2',
-      Icone: Leaf,
+      Icone: LeafIcon,
       // Espace insécable : le chiffre et l'unité ne se séparent jamais.
       texte: [fmtInt(e.co2_evite_kg), UNITE_KG_CO2E].join('\u00a0'),
     },
@@ -58,7 +63,7 @@ export function ResultatsEvenement({
   )
     valeurs.push({
       cle: 'sans-excedent',
-      Icone: Package,
+      Icone: PackageIcon,
       texte: LIBELLE_SANS_EXCEDENT,
     });
   if (valeurs.length === 0) return <CelluleVide />;

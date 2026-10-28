@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Truck, Plus, Pencil } from 'lucide-react';
+import { PencilSimpleIcon, PlusIcon, TruckIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { FilterBar } from '@/components/ui/filter-bar';
@@ -165,7 +165,7 @@ export default function TransporteursPage() {
               openEdit(row);
             }}
           >
-            <Pencil />
+            <PencilSimpleIcon />
           </IconButton>
         </div>
       ),
@@ -176,10 +176,10 @@ export default function TransporteursPage() {
     <div className="space-y-6">
       <PageHero
         title="Transporteurs"
-        icon={<Truck className="h-6 w-6 text-savr-primary-200" />}
+        icon={<TruckIcon className="h-6 w-6 text-savr-primary-200" />}
         actions={
           <Button variant="accent" onClick={openCreate}>
-            <Plus />
+            <PlusIcon />
             Nouveau transporteur
           </Button>
         }
@@ -224,7 +224,7 @@ export default function TransporteursPage() {
         onRecharger={recharger}
         empty={
           <EmptyState
-            icon={<Truck className="h-8 w-8" />}
+            icon={<TruckIcon className="h-8 w-8" />}
             title="Aucun transporteur"
             description="Créez le premier transporteur."
           />

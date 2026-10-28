@@ -4,6 +4,11 @@ import { requireStaff } from '@/lib/api-auth.js';
 import { calculerAlgoAttributionAg } from '@/lib/attribution-ag/algo.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import {
+  ecrireBesoinVehicule,
+  refusBesoinVehicule,
+  type BesoinVehicule,
+} from '@/lib/collectes/besoin-vehicule.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche, la moitié du bail de réservation des ordres. Elle ne borne pas
@@ -85,6 +90,17 @@ export async function POST(
   const { id } = await params;
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const { prestataire_logistique_id, motif_override_prestataire } = body;
+  // Besoin véhicule saisi au choix du prestataire (décision Val 2026-10-27) :
+  // envoyé seulement s'il a changé, écrit avant l'event de dispatch.
+  const besoin: BesoinVehicule = {
+    nb_camions_demande: body.nb_camions_demande as number | undefined,
+    type_vehicule_souhaite: body.type_vehicule_souhaite as
+      | string
+      | null
+      | undefined,
+  };
+  const refusBesoin = refusBesoinVehicule(besoin);
+  if (refusBesoin) return refusBesoin;
 
   const supabase = createAdminSupabaseClient();
   const { data: collecte, error: fetchErr } = await supabase
@@ -236,6 +252,30 @@ export async function POST(
         { status: 422 },
       );
     }
+  }
+
+  // Seulement sur une collecte qu'on peut encore attribuer (même garde que le
+  // choix du prestataire d'une ZD) : jamais sur une commande en cours.
+  if (
+    besoin.nb_camions_demande !== undefined ||
+    besoin.type_vehicule_souhaite !== undefined
+  ) {
+    if (!['programmee', 'rejetee_par_prestataire'].includes(c.statut)) {
+      return NextResponse.json(
+        {
+          error: `Besoin véhicule non modifiable pour une collecte au statut '${c.statut}'`,
+        },
+        { status: 409 },
+      );
+    }
+    const refusEcriture = await ecrireBesoinVehicule(
+      supabase,
+      id,
+      besoin,
+      { statuts: ['programmee', 'rejetee_par_prestataire'] },
+      'admin.collectes.dispatch',
+    );
+    if (refusEcriture) return refusEcriture;
   }
 
   // fn_dispatcher_collecte : UPDATE collecte + outbox E1/E2 dans la même transaction (G4)

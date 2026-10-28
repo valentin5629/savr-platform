@@ -2,7 +2,7 @@
 
 import { libelleTypePack } from '@/lib/libelles/pack';
 import { useState, useMemo } from 'react';
-import { Building2, Plus } from 'lucide-react';
+import { BuildingsIcon, PlusIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
@@ -169,7 +169,7 @@ export default function ClientsPage() {
           // admin_savr ET ops_savr (§06.06 + matrice ops §09) : le layout
           // (admin) et requireStaff bornent déjà aux 2 rôles staff.
           <Button variant="accent" onClick={() => setModalOpen(true)}>
-            <Plus />
+            <PlusIcon />
             Nouvelle organisation
           </Button>
         }
@@ -221,7 +221,7 @@ export default function ClientsPage() {
         onRecharger={recharger}
         empty={
           <EmptyState
-            icon={<Building2 />}
+            icon={<BuildingsIcon />}
             title="Aucune organisation"
             description={
               f.q

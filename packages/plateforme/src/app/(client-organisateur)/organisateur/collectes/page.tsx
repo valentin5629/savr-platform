@@ -3,7 +3,7 @@
 import { LoadingState } from '@/components/ui/loading-state';
 import { fmtPct } from '@/lib/format';
 import { Suspense, useMemo } from 'react';
-import { Download, Truck } from 'lucide-react';
+import { DownloadSimpleIcon, TruckIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import {
@@ -212,12 +212,12 @@ function CollectesContent() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<Truck className="h-6 w-6 text-savr-primary-200" />}
+        icon={<TruckIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Mes collectes"
         subtitle="Collectes de vos événements, en lecture seule"
         actions={
           <Button variant="secondary" onClick={exportCsv}>
-            <Download />
+            <DownloadSimpleIcon />
             Exporter CSV
           </Button>
         }
@@ -265,7 +265,7 @@ function CollectesContent() {
         initialSorting={[{ id: 'date', desc: triDateDescendant(vue) }]}
         empty={
           <EmptyState
-            icon={<Truck className="h-8 w-8" />}
+            icon={<TruckIcon className="h-8 w-8" />}
             title="Aucune collecte"
             description="Aucune collecte sur la période sélectionnée."
           />

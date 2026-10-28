@@ -1699,7 +1699,7 @@ describe('Variante B — cadre de la fiche collecte client', () => {
     ATTENTE_CAS_MS,
   );
 
-  it('C1 : la fiche Admin garde le bilan standard (KPI en cartes, graphes empilés)', () => {
+  it('fiches client et Admin : bilan de la variante B (chiffres en bandeau, Val 2026-10-27)', () => {
     const radarSansRepere: RadarFiche = {
       visible: false,
       bench: null,
@@ -1707,18 +1707,8 @@ describe('Variante B — cadre de la fiche collecte client', () => {
       filtres: null,
       setFiltres: () => {},
     };
-    const { unmount } = render(
-      <BilanCollecte c={ficheClient(ZD_REALISEE)} radar={radarSansRepere} />,
-    );
-    expect(screen.getByTestId('kpi-zd').className).toContain('gap-3');
-    expect(screen.getByTestId('kpi-zd').className).not.toContain('border-b');
-    unmount();
     render(
-      <BilanCollecte
-        c={ficheClient(ZD_REALISEE)}
-        radar={radarSansRepere}
-        presentation="variante-b"
-      />,
+      <BilanCollecte c={ficheClient(ZD_REALISEE)} radar={radarSansRepere} />,
     );
     expect(screen.getByTestId('kpi-zd').className).toContain('border-b');
   });

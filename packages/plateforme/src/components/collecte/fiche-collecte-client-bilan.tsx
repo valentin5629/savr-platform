@@ -2,14 +2,14 @@
 
 import { useEffect, useState, type ComponentProps } from 'react';
 import {
-  Ban,
-  Check,
-  Clock3,
-  FilePlus2,
-  FileText,
-  Info,
-  MinusCircle,
-} from 'lucide-react';
+  CheckIcon,
+  ClockIcon,
+  FilePlusIcon,
+  FileTextIcon,
+  InfoIcon,
+  MinusCircleIcon,
+  ProhibitIcon,
+} from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -129,7 +129,7 @@ export function BandeauBilanAttente({
       data-testid="bandeau-bilan-attente"
       className="flex items-start gap-3 rounded-savr-lg bg-savr-primary-50 px-5 py-4"
     >
-      <Clock3
+      <ClockIcon
         className="mt-0.5 h-5 w-5 shrink-0 text-savr-primary-700"
         aria-hidden="true"
       />
@@ -173,7 +173,7 @@ export function Kpi({
               aria-label={aide}
               className="inline-flex cursor-help"
             >
-              <Info className="h-4 w-4" />
+              <InfoIcon className="h-4 w-4" />
             </span>
           </Tooltip>
         ) : undefined
@@ -209,7 +209,7 @@ function ChiffreCle({
               aria-label={aide}
               className="inline-flex cursor-help normal-case tracking-normal"
             >
-              <Info className="h-3.5 w-3.5" />
+              <InfoIcon className="h-3.5 w-3.5" />
             </span>
           </Tooltip>
         )}
@@ -322,7 +322,6 @@ export function BilanCollecte({
   c,
   radar,
   barre,
-  presentation = 'standard',
   actionRadar,
 }: {
   c: BilanFiche;
@@ -332,12 +331,6 @@ export function BilanCollecte({
    * la comparaison au rapport à télécharger » de la fiche client.
    */
   actionRadar?: React.ReactNode;
-  /**
-   * `variante-b` : fiche collecte client (décision Val 2026-10-27) — chiffres
-   * en bandeau ouvert, répartition et radar compact sur une ligne, filtres en
-   * pastilles. `standard` (défaut) : fiche Admin, inchangée (C1).
-   */
-  presentation?: 'standard' | 'variante-b';
   // Réglages de la barre « Comparer avec » propres à l'espace.
   barre?: Pick<
     ComponentProps<typeof BenchmarkFilterBar>,
@@ -351,8 +344,9 @@ export function BilanCollecte({
   const bilanDispo = realisee || sansExcedent;
   const pax = c.pax ?? null;
   const bench = radar.bench;
-  const vb = presentation === 'variante-b';
-  const Chiffre = vb ? ChiffreCle : Kpi;
+  // Variante B (fiches collecte client et Admin, décisions Val 2026-10-27) :
+  // chiffres en bandeau ouvert, répartition et radar compact sur une ligne,
+  // filtres en pastilles.
 
   // ── Bilan ZD ────────────────────────────────────────────────────────────
   const flux = c.bilan_flux ?? {};
@@ -395,7 +389,7 @@ export function BilanCollecte({
 
       {sansExcedent ? (
         <Card padding="md" className="space-y-4" data-testid="bloc-aucun-repas">
-          <SectionHeader icon={MinusCircle} title="Aucun repas collecté" />
+          <SectionHeader icon={MinusCircleIcon} title="Aucun repas collecté" />
           <Text tone="soft" className="leading-relaxed">
             Notre chauffeur s’est présenté sur place, mais il n’y avait pas
             d’excédent alimentaire à donner. Votre rapport de don atteste que
@@ -424,25 +418,21 @@ export function BilanCollecte({
           </dl>
         </Card>
       ) : isAg ? (
-        <Estompe actif={!realisee} large={vb}>
+        <Estompe actif={!realisee} large>
           <div
-            className={
-              vb
-                ? 'grid grid-cols-1 gap-y-4 border-b border-savr-sable-200 pb-4 sm:grid-cols-3'
-                : 'grid grid-cols-1 gap-3 sm:grid-cols-3'
-            }
+            className="grid grid-cols-1 gap-y-4 border-b border-savr-sable-200 pb-4 sm:grid-cols-3"
             data-testid="kpi-ag"
           >
-            <Chiffre
+            <ChiffreCle
               label="Repas donnés"
               nombre={repas != null ? fmtInt(repas) : '—'}
               unite="repas"
             />
-            <Chiffre
+            <ChiffreCle
               label="Repas par pax"
               nombre={repas != null && pax ? fmtDec(repas / pax, 2) : '—'}
             />
-            <Chiffre
+            <ChiffreCle
               ton="succes"
               label="CO₂ évité"
               nombre={
@@ -458,21 +448,14 @@ export function BilanCollecte({
           )}
         </Estompe>
       ) : (
-        <Estompe actif={!realisee} large={vb}>
-          <div
-            className={
-              vb
-                ? BANDE_CHIFFRES
-                : 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4'
-            }
-            data-testid="kpi-zd"
-          >
-            <Chiffre
+        <Estompe actif={!realisee} large>
+          <div className={BANDE_CHIFFRES} data-testid="kpi-zd">
+            <ChiffreCle
               label="Poids total collecté"
               nombre={masse ? masse.value : '—'}
               unite={masse ? masse.unit : 'kg'}
             />
-            <Chiffre
+            <ChiffreCle
               ton="succes"
               label="CO₂ évité"
               nombre={
@@ -482,7 +465,7 @@ export function BilanCollecte({
               }
               unite={UNITE_KG_CO2E}
             />
-            <Chiffre
+            <ChiffreCle
               label="Taux de recyclage"
               aide={TOOLTIP_TAUX_UE}
               nombre={
@@ -492,7 +475,7 @@ export function BilanCollecte({
               }
               unite="%"
             />
-            <Chiffre
+            <ChiffreCle
               label="Pesée par pax"
               nombre={
                 poidsTotal != null && pax
@@ -505,18 +488,16 @@ export function BilanCollecte({
           {/* Variante B : répartition et radar sur la même ligne. */}
           <div
             className={
-              vb && (radarAffiche || !realisee)
+              radarAffiche || !realisee
                 ? 'grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2'
-                : vb
-                  ? 'grid grid-cols-1 gap-5'
-                  : 'space-y-3'
+                : 'grid grid-cols-1 gap-5'
             }
           >
             {realisee ? (
               <TonnagesDonut
                 series={serieDonut}
                 disposition="ligne"
-                className={vb ? 'h-full p-5' : 'h-full'}
+                className="h-full p-5"
               />
             ) : (
               <GrapheEnAttente titre="Répartition des tonnages" />
@@ -532,18 +513,16 @@ export function BilanCollecte({
                 >
                   <BenchmarkRadar
                     title={TITRE_RADAR}
-                    subtitle={vb ? SOUS_TITRE_RADAR_COMPACT : SOUS_TITRE_RADAR}
+                    subtitle={SOUS_TITRE_RADAR_COMPACT}
                     items={gaugeItems}
-                    disposition={vb ? 'compacte' : 'standard'}
-                    referenceLabel={
-                      vb ? 'Moyenne des événements comparables' : undefined
-                    }
-                    className={vb ? 'h-full p-5' : undefined}
-                    actionSlot={vb ? actionRadar : undefined}
+                    disposition="compacte"
+                    referenceLabel="Moyenne des événements comparables"
+                    className="h-full p-5"
+                    actionSlot={actionRadar}
                     filtersSlot={
                       <BenchmarkFilterBar
                         masquerTraiteurs
-                        disposition={vb ? 'pastilles' : 'barre'}
+                        disposition="pastilles"
                         {...barre}
                         onChange={radar.setFiltres}
                         // Barre remontée (retour sur l'onglet Admin, dont l'état
@@ -667,7 +646,7 @@ export function OngletBilan({
         className="flex items-start gap-3"
         data-testid="bilan-annulee"
       >
-        <Ban
+        <ProhibitIcon
           className="mt-0.5 h-5 w-5 shrink-0 text-savr-neutral-400"
           aria-hidden="true"
         />
@@ -710,9 +689,9 @@ export function OngletBilan({
         )}
       >
         {avecRadar ? (
-          <Check aria-hidden="true" />
+          <CheckIcon aria-hidden="true" />
         ) : (
-          <FilePlus2 aria-hidden="true" />
+          <FilePlusIcon aria-hidden="true" />
         )}
         Intégrer la comparaison au rapport à télécharger
       </Button>
@@ -724,7 +703,6 @@ export function OngletBilan({
         c={c}
         radar={radar}
         barre={{ perimetre: espace === 'gestionnaire' ? 'rattache' : 'parc' }}
-        presentation="variante-b"
         actionRadar={actionRadar}
       />
 
@@ -737,7 +715,7 @@ export function OngletBilan({
         >
           {reserve && (
             <div className="flex items-center gap-3 px-5 py-3.5">
-              <FileText
+              <FileTextIcon
                 className="h-5 w-5 shrink-0 text-savr-primary-700"
                 aria-hidden="true"
               />
@@ -755,7 +733,7 @@ export function OngletBilan({
               className="flex flex-wrap items-center gap-3 px-5 py-3.5"
               data-testid="document-facture"
             >
-              <FileText
+              <FileTextIcon
                 className="h-5 w-5 shrink-0 text-savr-primary-700"
                 aria-hidden="true"
               />

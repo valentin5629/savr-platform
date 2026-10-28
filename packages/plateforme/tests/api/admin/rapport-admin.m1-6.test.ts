@@ -154,6 +154,7 @@ beforeEach(() => {
       options: { benchmark: false },
       bordereau: { date_collecte: '28/09/2026' },
     },
+    dateCollecte: '28/09/2026',
   }));
   mockPdf.mockResolvedValue({ pdfBuffer: Buffer.from('%PDF admin') });
   mockRadar.mockResolvedValue({ etat: 'ok', radar: RADAR });
@@ -168,7 +169,7 @@ describe('M1.6 / rapport fabriqué au clic par l’Admin — avec ou sans radar'
     expect(res.headers.get('Content-Type')).toBe('application/pdf');
     expect(mockRadar).not.toHaveBeenCalled();
     expect(payloadRendu().options).toEqual({ benchmark: false });
-    expect(mockPayload).toHaveBeenCalledWith(admin, 'c1');
+    expect(mockPayload).toHaveBeenCalledWith(admin, rls, 'c1');
   });
 
   it('radar coché sans filtres (aucun radar à l’écran) → segment de la collecte, calculé sous l’identité de l’appelant', async () => {

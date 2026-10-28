@@ -55,7 +55,7 @@ import {
 } from '@/lib/dashboards/cockpit-derive';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Info } from 'lucide-react';
+import { InfoIcon } from '@/components/ui/icones';
 import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { PageHeader } from '@/components/ui/page-header';
@@ -412,7 +412,10 @@ export function TraiteurDashboardClient({
               }
               headerRight={
                 co2.eviteKg > 0 ? (
-                  <Info aria-hidden className="h-4 w-4 text-savr-neutral-400" />
+                  <InfoIcon
+                    aria-hidden
+                    className="h-4 w-4 text-savr-neutral-400"
+                  />
                 ) : undefined
               }
             />
@@ -547,7 +550,10 @@ export function TraiteurDashboardClient({
               }
               headerRight={
                 co2.eviteKg > 0 ? (
-                  <Info aria-hidden className="h-4 w-4 text-savr-neutral-400" />
+                  <InfoIcon
+                    aria-hidden
+                    className="h-4 w-4 text-savr-neutral-400"
+                  />
                 ) : undefined
               }
             />

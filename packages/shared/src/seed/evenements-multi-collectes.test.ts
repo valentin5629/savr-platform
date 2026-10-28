@@ -4,7 +4,7 @@
  * (`packages/plateforme/src/lib/evenements-gestionnaire.ts`) y est représenté.
  *
  * Deux niveaux : le générateur (pur), puis les lignes que `seedDemo` écrit
- * réellement, lues sur un client pg factice (cf. attestations-attribution.test).
+ * réellement, lues sur un client pg factice (cf. documents-non-semes.test).
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
@@ -178,7 +178,6 @@ const TABLES = [
   'plateforme.collectes',
   'plateforme.collecte_flux',
   'plateforme.attributions_antgaspi',
-  'plateforme.attestations_don',
 ];
 
 /** Lignes que `seedDemo` écrirait à cette ancre, lues sur un client factice. */
@@ -201,9 +200,10 @@ async function ecrireSeedDemo(ancre: string): Promise<Map<string, Ligne[]>> {
       ],
     ],
   ];
-  // Arrêt dès les attestations écrites : la suite (tournées, factures…) est
-  // hors sujet et lit d'autres référentiels.
-  class AttestationsEcrites extends Error {}
+  // Arrêt à la configuration d'auto-acceptation AG, écrite juste après les
+  // collectes et leurs attributions : la suite (tournées, factures…) est hors
+  // sujet.
+  class CollectesEcrites extends Error {}
   const client = {
     query: (sql: string, params: unknown[] = []) => {
       const insert =
@@ -221,15 +221,15 @@ async function ecrireSeedDemo(ancre: string): Promise<Map<string, Ligne[]>> {
             Object.fromEntries(colonnes.map((c, k) => [c, valeurs[k]])),
           );
         }
-      } else if (ecrites.get('plateforme.attestations_don')!.length > 0) {
-        return Promise.reject(new AttestationsEcrites());
+      } else if (insert?.[1] === 'plateforme.config_auto_accept_ag') {
+        return Promise.reject(new CollectesEcrites());
       }
       const rows = referentiel.find(([re]) => re.test(sql))?.[1] ?? [];
       return Promise.resolve({ rows });
     },
   };
   await expect(seedDemo(client as unknown as pg.Client)).rejects.toBeInstanceOf(
-    AttestationsEcrites,
+    CollectesEcrites,
   );
   return ecrites;
 }
@@ -313,7 +313,7 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
       expect([1.5, 5300]).not.toContain(f['poids_reel_kg']);
   });
 
-  it('SEED-EMC-11 — chaque AG clôturée a l’attribution et l’attestation définies (association, repas)', () => {
+  it('SEED-EMC-11 — chaque AG clôturée a l’attribution définie (association, repas), dont le batch J+1 tirera l’attestation', () => {
     for (const c of collectes.filter(
       (x) => x.type === 'anti_gaspi' && x.statut === 'cloturee',
     )) {
@@ -321,18 +321,14 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
       const attribution = lignes('attributions_antgaspi').find(
         (a) => a['collecte_id'] === id,
       );
-      const attestation = lignes('attestations_don').find(
-        (a) => a['collecte_id'] === id,
-      );
       expect(attribution?.['association_id'], c.slug).toBe(
         seedUuid(c.association!),
       );
       expect(attribution?.['volume_repas_realise'], c.slug).toBe(c.repas);
-      expect(attestation?.['nb_repas'], c.slug).toBe(c.repas);
     }
   });
 
-  it('SEED-EMC-12 — une AG sans excédent porte motif et photo, ni pack ni attestation', () => {
+  it('SEED-EMC-12 — une AG sans excédent porte motif et photo, sans pack', () => {
     const sansExcedent = collectes.filter(
       (x) => x.statut === 'realisee_sans_collecte',
     );
@@ -344,12 +340,6 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
       expect(ecrite['aucun_repas_motif'], c.slug).toBe(c.motifAucunRepas);
       expect(ecrite['aucun_repas_photo_url'], c.slug).toBeTruthy();
       expect(ecrite['pack_antgaspi_id'], c.slug).toBeNull();
-      expect(
-        lignes('attestations_don').some(
-          (a) => a['collecte_id'] === seedUuid(c.slug),
-        ),
-        c.slug,
-      ).toBe(false);
     }
   });
 });

@@ -39,8 +39,8 @@ import { FormActions } from '@/components/ui/form-actions';
 // (point unique, ouverte depuis la liste /admin/lieux). En édition, les champs sont
 // hydratés par GET /api/v1/admin/lieux/{id} (seul endroit qui expose le gestionnaire
 // rattaché via organisations_lieux). Miroir de TransporteurModal (#252/#254).
-// Cadre commun des fiches Admin (décisions Val 2026-09-30) : grand en-tête
-// (FicheEnTete) puis onglets seuls, sans colonne — Informations / Accès &
+// Cadre commun des fiches Admin (décisions Val 2026-09-30, variante B depuis le
+// 2026-10-27) : grand en-tête (FicheGrandEnTete) et ses onglets, sans colonne — Informations / Accès &
 // logistique / Interne Savr / Activité (édition seule). Un seul « Enregistrer »
 // pour tous les onglets : les valeurs vivent dans l'état du formulaire.
 

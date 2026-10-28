@@ -159,7 +159,7 @@ const demandes = (mock: ReturnType<typeof stubFetch>) =>
 
 async function ouvrirBilan() {
   render(<FicheEvenementModal evenementId={EVT_ID} onClose={vi.fn()} />);
-  await screen.findByTestId('frise-statut-evenement', undefined, ATTENTE_UI);
+  await screen.findByTestId('statut-evenement', undefined, ATTENTE_UI);
   fireEvent.mouseDown(screen.getByRole('tab', { name: 'Bilan & documents' }));
   return screen.findByTestId('document-evenement-cumul', undefined, ATTENTE_UI);
 }

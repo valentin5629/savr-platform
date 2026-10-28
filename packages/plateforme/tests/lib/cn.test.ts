@@ -72,6 +72,23 @@ describe('cn — échelles savr-* relues dans globals.css', () => {
     for (const u of ['max-w', 'w', 'min-w'])
       expectScaleMerges(u, tokens('container'));
   });
+
+  it('tailles de texte ajoutées (--text-*) : fusionnent entre elles et avec l’échelle Tailwind, jamais avec une couleur', () => {
+    const ajoutees = [
+      ...new Set(
+        [...css.matchAll(/--text-([a-z0-9]+):/g)]
+          .map((m) => m[1]!)
+          .filter((v) => v !== '4xl'),
+      ),
+    ];
+    expect(ajoutees).toEqual(['3xs', 'md', 'kpi']);
+    expectScaleMerges('text', [...ajoutees, 'sm', '4xl']);
+    for (const v of ajoutees) {
+      expect(cn(`text-${v} text-savr-neutral-900`)).toBe(
+        `text-${v} text-savr-neutral-900`,
+      );
+    }
+  });
 });
 
 describe('cn — surcharges réelles', () => {

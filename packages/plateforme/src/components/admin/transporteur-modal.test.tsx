@@ -12,6 +12,7 @@ import {
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
 import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const EDIT_FIXTURE_ID = 'transp-42';
@@ -688,10 +689,10 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
     const bouton = screen.getByRole('button', { name: 'Désactiver' });
     // Variante `outline-destructive` (R-UI-3, B3 — ex-ACTION_DESTRUCTIVE_CONTOUR),
     // en pilule comme tout le pied de la variante B (décision Val 2026-10-27).
-    for (const classe of buttonVariants({
-      variant: 'outline-destructive',
-      size: 'pilule',
-    }).split(' ')) {
+    // Classes après fusion : la taille `pilule` remplace le `text-sm` de base.
+    for (const classe of cn(
+      buttonVariants({ variant: 'outline-destructive', size: 'pilule' }),
+    ).split(' ')) {
       expect(bouton).toHaveClass(classe);
     }
   });

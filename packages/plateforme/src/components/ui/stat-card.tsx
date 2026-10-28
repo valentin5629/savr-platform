@@ -64,7 +64,7 @@ function StatCard({
       <div className="flex items-start justify-between gap-2">
         <span
           className={cn(
-            'text-[10px] font-bold uppercase tracking-[0.08em] text-savr-neutral-500',
+            'text-3xs font-bold uppercase tracking-[0.08em] text-savr-neutral-500',
             reserveTwoLineLabel && 'block min-h-[2.6em] leading-[1.3]',
           )}
         >
@@ -89,11 +89,11 @@ function StatCard({
 
       <div className="mt-2.5">
         <div className="flex items-baseline gap-1">
-          <span className="text-[34px] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-savr-neutral-900">
+          <span className="text-kpi font-extrabold leading-none tracking-[-0.02em] tabular-nums text-savr-neutral-900">
             {value}
           </span>
           {unit && (
-            <span className="text-[17px] font-bold text-savr-neutral-400">
+            <span className="text-lg font-bold text-savr-neutral-400">
               {unit}
             </span>
           )}

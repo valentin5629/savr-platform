@@ -21,6 +21,7 @@ import {
   type AssociationRecord,
 } from '@/components/admin/association-modal';
 import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const DESCRIPTION_OK =
@@ -665,10 +666,10 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     const bouton = screen.getByRole('button', { name: 'Désactiver' });
     // Variante `outline-destructive` (R-UI-3, B3 — ex-ACTION_DESTRUCTIVE_CONTOUR),
     // en pilule comme tout le pied de la variante B (décision Val 2026-10-27).
-    for (const classe of buttonVariants({
-      variant: 'outline-destructive',
-      size: 'pilule',
-    }).split(' ')) {
+    // Classes après fusion : la taille `pilule` remplace le `text-sm` de base.
+    for (const classe of cn(
+      buttonVariants({ variant: 'outline-destructive', size: 'pilule' }),
+    ).split(' ')) {
       expect(bouton).toHaveClass(classe);
     }
     // Pas l'aplat rouge de la variante « destructive ».

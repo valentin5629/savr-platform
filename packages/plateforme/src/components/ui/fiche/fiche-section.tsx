@@ -15,7 +15,7 @@ export function FicheSection({
   children: React.ReactNode;
 } & Omit<React.HTMLAttributes<HTMLElement>, 'title'>) {
   const libelle = (
-    <h4 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-savr-neutral-900">
+    <h4 className="font-display text-md font-semibold tracking-[-0.01em] text-savr-neutral-900">
       {titre}
     </h4>
   );

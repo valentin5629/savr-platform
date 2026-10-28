@@ -111,9 +111,7 @@ describe('Text — texte courant', () => {
     expect(textClasses({ variant: 'hint', size: 'sm', tone: 'soft' })).toBe(
       'text-sm text-savr-neutral-600',
     );
-    expect(textClasses({ size: '3xs' })).toBe(
-      'text-[10px] text-savr-neutral-500',
-    );
+    expect(textClasses({ size: '3xs' })).toBe('text-3xs text-savr-neutral-500');
   });
 
   it('Q9 b : les tailles 11/13 px (`2xs`, `xs-plus`) n’existent plus', () => {

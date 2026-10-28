@@ -30,7 +30,7 @@ const VARIANT: Record<TextVariant, { size: TextSize; tone: TextTone }> = {
   overline: { size: 'xs', tone: 'muted' },
 };
 const SIZE: Record<TextSize, string> = {
-  '3xs': 'text-[10px]',
+  '3xs': 'text-3xs',
   xs: 'text-xs',
   sm: 'text-sm',
   base: 'text-base',

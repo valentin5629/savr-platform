@@ -291,7 +291,7 @@ function CarteCollecte({
           <dl>
             <div>
               <dt className="sr-only">Date et heure</dt>
-              <dd className="text-[15px] font-bold text-savr-neutral-900">
+              <dd className="text-md font-bold text-savr-neutral-900">
                 {formatDateHeure(c)}
               </dd>
             </div>

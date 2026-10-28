@@ -54,7 +54,7 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
       <div className="mb-1 text-sm font-semibold" style={{ color: CO2.label }}>
         {GRAPHIE_CO2}
       </div>
-      <div className="text-[44px] font-black leading-[0.9] tracking-[-0.03em] tabular-nums sm:text-[64px]">
+      <div className="text-4xl font-black leading-[0.9] tracking-[-0.03em] tabular-nums">
         {evite.value}
         <span
           className="text-xl font-extrabold sm:text-2xl"
@@ -116,7 +116,7 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
 
       {/* Sous-titre équivalences */}
       <div
-        className="mb-3 text-[10px] font-bold uppercase tracking-[0.08em]"
+        className="mb-3 text-3xs font-bold uppercase tracking-[0.08em]"
         style={{ color: CO2.labelFaint }}
       >
         Équivalences pédagogiques
@@ -136,7 +136,7 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
               padding: 14,
             }}
           >
-            <div className="text-[22px] font-extrabold tabular-nums">
+            <div className="text-xl font-extrabold tabular-nums">
               {fmtInt(t.v)}
             </div>
             <div className="mt-0.5 text-xs" style={{ color: CO2.label }}>

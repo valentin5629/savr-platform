@@ -60,7 +60,7 @@ function estExecutee(r: CsvCollecte): boolean {
   return s === 'realisee' || s === 'cloturee' || s === 'realisee_sans_collecte';
 }
 
-/** Clôturée : seul état qui porte bordereau, attestation, rapport et facture. */
+/** Clôturée : seul état qui porte une facture (les documents viennent de documents:dev). */
 function estCloturee(r: CsvCollecte): boolean {
   return statutDe(r) === 'cloturee';
 }

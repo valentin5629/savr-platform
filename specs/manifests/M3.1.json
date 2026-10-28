@@ -1095,6 +1095,15 @@
       "statut": "à-vérifier",
       "ref_divergence": "_Divergences/M3.1_20261028_fiche-collecte-motifs-et-mise-a-jour.md",
       "libelle": "Fiche collecte client, variante B (points restés ouverts, Val 2026-10-28) : la raison d’une action grisée est écrite sous elle dans le menu « ⋯ » et, pour l’action principale, au-dessus du pied sur téléphone (une infobulle ne s’affiche pas au toucher) ; « ⟳ Mis à jour le [date] à [heure] » (heure de Paris, §05 « Indicateur de mise à jour », §12 §1.4) rétabli à côté du bouton « Télécharger le rapport » pour un rapport « sans excédent » régénéré ou une attestation de don en version > 1. GO-VISUAL en attente (validation Val)."
+    },
+    {
+      "id": "M3.1-radar-style-unique-fiche-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:137",
+      "artefact": "packages/plateforme/src/components/dashboards/charts/cockpit/BenchmarkRadar.tsx (style unique : série accent-500 remplie, repère primary-900 en pointillés, légende sous le radar, prop serieLabel) + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (« Cet événement ») + packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx (« Périmètre sélectionné ») + packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (« Votre collecte »)",
+      "test": "packages/plateforme/src/components/dashboards/charts/cockpit/cockpit.test.tsx « BenchmarkRadar — style unique de la fiche collecte (Val 2026-10-28) » (disposition standard : surface orange, repère en pointillés, légende sous le radar, liste des écarts visible ; libellé de série passé par l’écran)",
+      "statut": "à-vérifier",
+      "ref_divergence": "_Divergences/M3.1_20261028_radar-style-unique.md",
+      "libelle": "Tous les radars de comparaison prennent le style de la fiche collecte variante B (Val 2026-10-28) : tableaux de bord traiteur, agence, gestionnaire de lieux, Dashboard Client Admin et fiche événement du gestionnaire. Série en orange remplie, moyenne de référence en pointillés bleu nuit, légende sous le radar ; la disposition standard garde ses filtres au-dessus et la liste des flux avec badges d’écart (Val : « Garder la liste »). Libellés : « Vos collectes », « Cet événement », « Périmètre sélectionné », « Votre collecte » ; repère « Moyenne des événements comparables » (Admin inchangé). Le radar du rapport PDF n’est pas concerné par ce lot. GO-VISUAL en attente (validation Val)."
     }
   ],
   "cdc_source_hash": {

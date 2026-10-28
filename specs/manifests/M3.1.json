@@ -1086,6 +1086,15 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
       "libelle": "Marge générée ZD (R_marge_zd_traiteur) = tarif_refacture_pax_zd × Σ pax des collectes ZD clôturées du périmètre − Σ factures HT ZD émises ou payées (lot 3, décision Val Q3 du 2026-10-25), et non plus le pax des événements distincts. La carte reste retirée de la rangée KPI (décision Val 2026-07-13) et la facturation se fait hors plateforme au go-live : aucun écran ne l'affiche ; seule la vue la calcule (tarif lu par f_tarif_refacture_pax_zd, inchangé)."
+    },
+    {
+      "id": "M3.1-fiche-collecte-motifs-grises-et-mise-a-jour",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:381-395",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx (raison sous l'action grisée du menu « ⋯ », notes au-dessus du pied sur téléphone, « Mis à jour le … » dans le pied) + packages/plateforme/src/lib/collectes/fiche-client.ts (rapport_mis_a_jour_at : rapport « sans excédent » régénéré ou attestation de don en version > 1) + packages/plateforme/src/lib/format-date-collecte.ts (libelleMisAJour) + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (mention datée dans la liste des documents)",
+      "test": "tests/ui/fiche-collecte-client.m3-1.test.tsx « téléphone : la raison d’une action grisée est écrite… » + « action active : aucune raison écrite… » + « « Mis à jour le … » daté à l’heure de Paris… » + « document jamais mis à jour : aucune mention » ; tests/api/traiteur/fiche-collecte-popup.m3-1.test.ts M3.1/fiche_get_rapport_ag_fichier_stocke + M3.1/fiche_get_attestation_mise_a_jour + M3.1/fiche_get_rapport_zd_disponible_sans_pdf",
+      "statut": "à-vérifier",
+      "ref_divergence": "_Divergences/M3.1_20261028_fiche-collecte-motifs-et-mise-a-jour.md",
+      "libelle": "Fiche collecte client, variante B (points restés ouverts, Val 2026-10-28) : la raison d’une action grisée est écrite sous elle dans le menu « ⋯ » et, pour l’action principale, au-dessus du pied sur téléphone (une infobulle ne s’affiche pas au toucher) ; « ⟳ Mis à jour le [date] à [heure] » (heure de Paris, §05 « Indicateur de mise à jour », §12 §1.4) rétabli à côté du bouton « Télécharger le rapport » pour un rapport « sans excédent » régénéré ou une attestation de don en version > 1. GO-VISUAL en attente (validation Val)."
     }
   ],
   "cdc_source_hash": {

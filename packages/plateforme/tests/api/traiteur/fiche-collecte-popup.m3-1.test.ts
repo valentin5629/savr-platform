@@ -604,7 +604,7 @@ describe('M3.1 / documents de la fiche — lus sous la RLS du traiteur (D12)', (
     const { json } = await getFiche();
     expect(json.data.rapport_rse_disponible).toBe(true);
     expect(json.data.rapport_etat).toBe('disponible');
-    expect(json.data.rapport_rse_regenere).toBe(false);
+    expect(json.data.rapport_mis_a_jour_at).toBeNull();
     expect(json.data).not.toHaveProperty('can_regenerate');
     expect(json.data).not.toHaveProperty('rapport_avec_radar');
 
@@ -647,7 +647,34 @@ describe('M3.1 / documents de la fiche — lus sous la RLS du traiteur (D12)', (
     };
     const { json } = await getFiche();
     expect(json.data.rapport_rse_disponible).toBe(true);
-    expect(json.data.rapport_rse_regenere).toBe(true);
+    expect(json.data.rapport_mis_a_jour_at).toBe('2020-01-05T00:00:00Z');
+  });
+
+  it('M3.1/fiche_get_attestation_mise_a_jour — AG : « mis à jour » daté de la version corrigée de l’attestation, rien sur la version 1', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee' }),
+      error: null,
+    };
+    rls.results.attestations_don = {
+      data: {
+        ...ATTESTATION_AGENCE.data,
+        version: 1,
+        created_at: '2020-01-01T00:00:00Z',
+      },
+      error: null,
+    };
+    expect((await getFiche()).json.data.rapport_mis_a_jour_at).toBeNull();
+    rls.results.attestations_don = {
+      data: {
+        ...ATTESTATION_AGENCE.data,
+        version: 2,
+        created_at: '2020-01-06T09:30:00Z',
+      },
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.rapport_rse_disponible).toBe(true);
+    expect(json.data.rapport_mis_a_jour_at).toBe('2020-01-06T09:30:00Z');
   });
 
   it('M3.1/rapport_download_attestation_donneur_ordre_404 — téléchargement refusé au traiteur opérationnel', async () => {

@@ -42,3 +42,24 @@ export function libelleDateHeure(date: string, heure: string | null): string {
   const f = formatDateHeure(date, heure);
   return f.heure ? `${f.jour} · ${f.heure}` : f.jour;
 }
+
+// « Mis à jour le 6 janvier 2020 à 10h30 » (heure de Paris) : indicateur de
+// mise à jour d'un document (§05 « Indicateur de mise à jour », §12 §1.4 :
+// « date à heure précise »).
+export function libelleMisAJour(iso: string): string {
+  const d = new Date(iso);
+  const jour = d.toLocaleDateString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const heure = d
+    .toLocaleTimeString('fr-FR', {
+      timeZone: 'Europe/Paris',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    .replace(':', 'h');
+  return `Mis à jour le ${jour} à ${heure}`;
+}

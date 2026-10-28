@@ -154,7 +154,7 @@ function ficheCollecte(over: Record<string, unknown> = {}) {
     repas_donnes: null,
     association: null,
     rapport_rse_disponible: true,
-    rapport_rse_regenere: false,
+    rapport_mis_a_jour_at: null,
     rapport_reserve_donneur_ordre: false,
     rapport_etat: 'disponible',
     actions: { modifier: 'absent', annuler: 'absent', annulation: null },

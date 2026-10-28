@@ -1010,45 +1010,10 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     WHERE c.id = calc.id;
   `);
 
-  // ── Attestations de don (AG clôturée) : copie de l'attribution ────────────
-  // En flux réel, le batch J+1 écrit l'attestation à partir de l'attribution de
-  // la même collecte (association, repas donnés), puis `trg_regenerer_attestation`
-  // la réémet quand le volume est corrigé. Le gestionnaire de lieux, à qui
-  // `aa_select` refuse l'attribution d'un traiteur tiers, lit les repas dans
-  // l'attestation : un second calcul ici afficherait deux nombres de repas pour
-  // une même collecte selon le rôle. Posées dès maintenant : elles ne dépendent
-  // ni des tournées ni des factures.
-  const attrParCollecte = new Map(attrRows.map((a) => [a.collecte_id, a]));
-  const attRows: Row[] = rows
-    .filter((r) => r.type === 'anti_gaspi' && estCloturee(r))
-    .flatMap((r) => {
-      const attribution = attrParCollecte.get(U(r.slug));
-      // Sans attribution, le batch n'émet pas d'attestation.
-      if (!attribution) return [];
-      const repas = attribution.volume_repas_realise as number;
-      return [
-        {
-          id: U(`att_${r.slug}`),
-          collecte_id: U(r.slug),
-          association_id: attribution.association_id,
-          mention_fiscale_2041ge:
-            attribution.association_id === U('asso_alpha') ||
-            attribution.association_id === U('asso_charlie'),
-          nb_repas: repas,
-          valeur_don_estimee_ht: repas * 5,
-          statut: 'emise', // attestation_statut (M2.4) : brouillon|emise|corrigee|annulee
-          genere_at: tsAt(r.date, 6),
-          eligible_at: tsAt(r.date, 6),
-        },
-      ];
-    });
-  await batchUpsert(
-    client,
-    'plateforme.attestations_don',
-    attRows,
-    ['id'],
-    300,
-  );
+  // Aucun document (attestation, bordereau, rapport) n'est semé : une ligne
+  // « émise » sans PDF bloque le téléchargement et fait sauter la collecte aux
+  // batchs J+1, qui la croient déjà traitée. Sur savr-dev, `pnpm documents:dev`
+  // les fabrique par le flux réel (numéro, instantané, PDF).
 
   await upsert(
     client,
@@ -1204,37 +1169,6 @@ export async function seedDemo(client: pg.Client): Promise<void> {
 
   // ── Factures ZD mensuelles groupées par traiteur + achats pack ────────────
   await seedFactures(client, rows);
-
-  // ── Documents : bordereaux (ZD clôturée) — attestations AG : cf. plus haut ─
-  const bordRows: Row[] = rows
-    .filter((r) => r.type === 'zero_dechet' && estCloturee(r))
-    .map((r) => bordereau(`bord_${r.slug}`, r.slug, r.date));
-  await batchUpsert(
-    client,
-    'plateforme.bordereaux_savr',
-    bordRows,
-    ['id'],
-    300,
-  );
-
-  // ── Rapports RSE (échantillon) ────────────────────────────────────────────
-  const zdClot = rows
-    .filter((r) => r.type === 'zero_dechet' && estCloturee(r))
-    .slice(0, 12);
-  await upsert(
-    client,
-    'plateforme.rapports_rse',
-    zdClot.map((r, i) => ({
-      id: U(`rapport_${r.slug}`),
-      collecte_id: U(r.slug),
-      evenement_id: U('ev_' + (r.evenement ?? r.slug)),
-      version: 1,
-      disponible_a: tsAt(r.date, 23),
-      envoye_client: i % 2 === 0,
-      genere_at: tsAt(r.date, 6),
-    })),
-    ['id'],
-  );
 
   // ── Exports registre (3 formats simulés) ──────────────────────────────────
   await upsert(
@@ -1893,15 +1827,6 @@ function attr(
     r.motif_override_libre = 'Réattribution Admin';
   }
   return r;
-}
-function bordereau(slug: string, colSlug: string, date: string): Row {
-  return {
-    id: U(slug),
-    collecte_id: U(colSlug),
-    statut: 'emis', // bordereau_statut (M1.6) : brouillon|emis|corrige|annule
-    genere_at: tsAt(date, 6),
-    eligible_at: tsAt(date, 6),
-  };
 }
 function facture(
   slug: string,

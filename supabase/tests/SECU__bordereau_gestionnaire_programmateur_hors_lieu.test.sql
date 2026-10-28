@@ -4,16 +4,17 @@
 -- =============================================================================
 -- Un PDF n'imprime le bordereau que si le demandeur le lit sous SA RLS
 -- (`bord_*_select`) ; règle des rapports portée par la PR #653. Ce fichier fige, au
--- niveau des policies, le cas qui la motive : un gestionnaire qui a programmé un
+-- niveau des policies, le cas qui la motivait : un gestionnaire qui a programmé un
 -- événement sur un lieu NON rattaché à son organisation voit la collecte
--- (régime « programmé par moi ») mais pas son bordereau (bord_gestionnaire_select
--- ne regarde que les lieux rattachés).
+-- (régime « programmé par moi »). Décision Val 2026-10-27 (« Ouvrir le
+-- bordereau », PR #654) : il lit désormais aussi son bordereau, par la policy
+-- bord_collecte_visible_select (f_collecte_visible), comme le registre et le PDF.
 --
 --   1   contrôle positif : GA lit la collecte qu'il a programmée sur L2 ;
---   2   GA ne lit pas le bordereau de cette collecte ;
---   3   GB, gestionnaire de L2, lit ce bordereau (la policy n'est pas vide) ;
---   4   GA lit le bordereau d'une collecte tenue sur son lieu L1 ;
---   5   lecture groupée (`collecte_id IN (…)`) : seul le bordereau de L1.
+--   2   GA lit le bordereau de cette collecte (bord_collecte_visible_select) ;
+--   3   GA lit le bordereau d'une collecte tenue sur son lieu L1 ;
+--   4   lecture groupée (`collecte_id IN (…)`) : les deux bordereaux ;
+--   5   GB, gestionnaire de L2, lit ce bordereau (la policy n'est pas vide).
 --
 -- Fixture : gestionnaires GA (lieu L1) et GB (lieu L2), traiteur T. Les
 -- programmations passent par `fn_enregistrer_programmation` sous service_role.
@@ -118,8 +119,8 @@ SELECT is(
 SELECT is(
   (SELECT count(*)::int FROM plateforme.bordereaux_savr
     WHERE collecte_id = (SELECT col FROM _bgp_ids WHERE k = 'ga_sur_l2')),
-  0,
-  'bord_gestionnaire_select refuse le bordereau de cette collecte, qu’il voit pourtant'
+  1,
+  'il lit le bordereau de la collecte qu’il a programmée hors de ses lieux (bord_collecte_visible_select)'
 );
 
 SELECT is(
@@ -132,8 +133,8 @@ SELECT is(
 SELECT is(
   ARRAY(SELECT numero FROM plateforme.bordereaux_savr
          WHERE collecte_id IN (SELECT col FROM _bgp_ids) ORDER BY numero),
-  ARRAY['BSAV-BGP-t_sur_l1']::text[],
-  'lecture groupée (collecte_id IN …) : seul le bordereau lisible remonte'
+  ARRAY['BSAV-BGP-ga_sur_l2', 'BSAV-BGP-t_sur_l1']::text[],
+  'lecture groupée (collecte_id IN …) : les deux bordereaux remontent'
 );
 
 -- ── GB, gestionnaire de L2 ──────────────────────────────────────────────────

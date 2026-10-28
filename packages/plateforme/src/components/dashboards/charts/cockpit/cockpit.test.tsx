@@ -176,10 +176,25 @@ it('EvolutionZdChart — rend des barres + la courbe taux, ou un état vide', ()
     <EvolutionZdChart series={zd} granularite="mois" />,
   );
   expect(container.querySelectorAll('rect, path').length).toBeGreaterThan(0);
-  expect(container.querySelector('polyline')).toBeInTheDocument(); // courbe taux
+  expect(container.querySelector('[data-serie="taux"]')).toBeInTheDocument(); // courbe taux
   expect(
     screen.getByText(/Évolution mensuelle Zéro Déchet/),
   ).toBeInTheDocument();
+});
+
+it('EvolutionZdChart — annote le pic et écrit le dernier taux au bout de la courbe', () => {
+  render(<EvolutionZdChart series={zd} granularite="mois" />);
+  // Pic = juillet, 10 410 kg.
+  expect(screen.getByText(/^10,4\s*t$/)).toBeInTheDocument();
+  // Dernier taux = 85 %.
+  expect(screen.getByText(/^85\s*%$/)).toBeInTheDocument();
+});
+
+it('EvolutionZdChart — le pic suit les flux affichés par la légende', () => {
+  render(<EvolutionZdChart series={zd} granularite="mois" />);
+  fireEvent.click(screen.getByRole('button', { name: /Biodéchets/ }));
+  // Juillet sans biodéchets : 10 410 − 5 150 = 5 260 kg.
+  expect(screen.getByText(/^5\s260 kg$/)).toBeInTheDocument();
 });
 
 it('EvolutionZdChart — état vide sans série', () => {
@@ -230,22 +245,22 @@ it('EvolutionZdChart — la légende « Taux de recyclage » est un bouton qui m
   const { container } = render(
     <EvolutionZdChart series={zd} granularite="mois" />,
   );
-  // Courbe taux présente par défaut (polyline).
-  expect(container.querySelector('polyline')).toBeInTheDocument();
+  // Courbe taux présente par défaut.
+  expect(container.querySelector('[data-serie="taux"]')).toBeInTheDocument();
   const btn = screen.getByRole('button', { name: /Taux de recyclage/ });
   fireEvent.click(btn);
-  // Masquée après clic → plus de polyline.
-  expect(container.querySelector('polyline')).toBeNull();
+  // Masquée après clic → plus de courbe.
+  expect(container.querySelector('[data-serie="taux"]')).toBeNull();
 });
 
 it('EvolutionAgChart — la légende Repas/Ratio masque les séries', () => {
   const { container } = render(
     <EvolutionAgChart series={ag} granularite="mois" />,
   );
-  // Ratio (polyline) masquable.
-  expect(container.querySelector('polyline')).toBeInTheDocument();
+  // Ratio (courbe) masquable.
+  expect(container.querySelector('[data-serie="ratio"]')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /Ratio\/pax/ }));
-  expect(container.querySelector('polyline')).toBeNull();
+  expect(container.querySelector('[data-serie="ratio"]')).toBeNull();
   // Repas (barres <path>) masquables.
   expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole('button', { name: /Repas/ }));
@@ -332,10 +347,33 @@ it('EvolutionAgChart — rend des barres repas + la courbe ratio', () => {
   const { container } = render(
     <EvolutionAgChart series={ag} granularite="mois" />,
   );
-  // Barres verticales des repas donnés (path) + courbe ratio (polyline pointillée).
+  // Barres verticales des repas donnés (path) + courbe ratio (pointillée).
   expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
-  expect(container.querySelector('polyline')).toBeInTheDocument();
+  expect(container.querySelector('[data-serie="ratio"]')).toBeInTheDocument();
   expect(screen.getByText(/Évolution Anti-Gaspi/)).toBeInTheDocument();
+});
+
+it('EvolutionAgChart — pas d’annotation du pic quand elle tomberait sur la courbe du ratio', () => {
+  // Pic 4 000 repas (échelle 5 000) : son libellé est à la hauteur du ratio 0,85
+  // (échelle 1) dans la même colonne.
+  const serie: RepasSeriePoint[] = [
+    { periode: '2025-06-01', repas_donnes: 1000, pax: 2000, ratio: 0.5 },
+    { periode: '2025-07-01', repas_donnes: 4000, pax: 4700, ratio: 0.85 },
+  ];
+  render(<EvolutionAgChart series={serie} granularite="mois" />);
+  expect(screen.queryByText(/repas$/)).toBeNull();
+  // Courbe masquée : plus rien à toucher, le pic est annoté.
+  fireEvent.click(screen.getByRole('button', { name: /Ratio\/pax/ }));
+  expect(screen.getByText(/^4\s000 repas$/)).toBeInTheDocument();
+});
+
+it('EvolutionAgChart — annote le pic et écrit le dernier ratio au bout de la courbe', () => {
+  render(<EvolutionAgChart series={ag} granularite="mois" />);
+  expect(screen.getByText(/^3\s730 repas$/)).toBeInTheDocument();
+  expect(screen.getByText('0,89')).toBeInTheDocument();
+  // Barres masquées : plus d'annotation du pic.
+  fireEvent.click(screen.getByRole('button', { name: /Repas/ }));
+  expect(screen.queryByText(/repas$/)).toBeNull();
 });
 
 it('EvolutionAgChart — survol : point emphasé, aucune bande pleine colonne (retour Val)', () => {

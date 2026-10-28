@@ -77,7 +77,47 @@ export function useEntreeGraphique<T extends Element>(cle: string) {
       : etat === 'en_cours'
         ? 'savr-entree'
         : undefined;
-  return { ref, classe, actif: classe !== undefined };
+  return { ref, classe, actif: classe !== undefined, phase: etat };
+}
+
+export type PhaseEntree = Etat;
+
+function mouvementReduit(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
+/**
+ * Chiffre qui monte de 0 à `cible` pendant l'entrée du graphique (même durée
+ * que les barres). En attente il vaut 0 ; hors entrée, ou si le système
+ * demande moins d'animations, il vaut directement `cible`.
+ */
+export function useCompteur(cible: number, phase: PhaseEntree): number {
+  const [anime, setAnime] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (phase !== 'en_cours' || mouvementReduit()) return;
+    let image = 0;
+    const debut = performance.now();
+    const pas = (t: number) => {
+      const k = Math.min(1, (t - debut) / DUREE_MS);
+      // Démarre vite, ralentit à l'arrivée (ease-out cubique).
+      setAnime(cible * (1 - (1 - k) ** 3));
+      if (k < 1) image = requestAnimationFrame(pas);
+      else setAnime(null);
+    };
+    image = requestAnimationFrame(pas);
+    return () => {
+      cancelAnimationFrame(image);
+      setAnime(null);
+    };
+  }, [cible, phase]);
+
+  if (phase === 'attente' && !mouvementReduit()) return 0;
+  return anime ?? cible;
 }
 
 /** Décalage de l'élément `i` sur `n` : la série entière tient en 240 ms. */

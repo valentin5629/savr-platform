@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   EntreeGraphiques,
   delaiEntree,
+  useCompteur,
   useEntreeGraphique,
 } from './entree-graphique';
 
@@ -107,5 +108,70 @@ describe('delaiEntree', () => {
     expect(delaiEntree(0, 5)).toEqual({ '--entree-delai': '0ms' });
     expect(delaiEntree(4, 5)).toEqual({ '--entree-delai': '240ms' });
     expect(delaiEntree(0, 1)).toEqual({ '--entree-delai': '0ms' });
+  });
+});
+
+describe('useCompteur', () => {
+  function Compteur({ cible }: { cible: number }) {
+    const entree = useEntreeGraphique<HTMLDivElement>('compteur');
+    const v = useCompteur(cible, entree.phase);
+    return (
+      <div data-testid="compteur" ref={entree.ref}>
+        {Math.round(v)}
+      </div>
+    );
+  }
+  const lire = (c: HTMLElement) =>
+    Number(c.querySelector('[data-testid="compteur"]')!.textContent);
+
+  beforeEach(() => {
+    rappels = [];
+    vi.useFakeTimers({
+      toFake: [
+        'setTimeout',
+        'clearTimeout',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'performance',
+      ],
+    });
+    vi.stubGlobal('IntersectionObserver', FauxObservateur);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('hors dashboard : la valeur finale tout de suite', () => {
+    const { container } = render(<Compteur cible={1300} />);
+    expect(lire(container)).toBe(1300);
+  });
+
+  it('dashboard : 0 hors écran, monte quand il apparaît, finit sur la valeur', () => {
+    const { container } = render(
+      <EntreeGraphiques>
+        <Compteur cible={1300} />
+      </EntreeGraphiques>,
+    );
+    expect(lire(container)).toBe(0);
+    rendreVisible();
+    act(() => vi.advanceTimersByTime(200));
+    const milieu = lire(container);
+    expect(milieu).toBeGreaterThan(0);
+    expect(milieu).toBeLessThan(1300);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(lire(container)).toBe(1300);
+  });
+
+  it('moins d’animations demandé : la valeur finale, même à l’entrée', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    const { container } = render(
+      <EntreeGraphiques>
+        <Compteur cible={1300} />
+      </EntreeGraphiques>,
+    );
+    expect(lire(container)).toBe(1300);
+    rendreVisible();
+    expect(lire(container)).toBe(1300);
   });
 });

@@ -5,8 +5,8 @@ import { cn } from '@/lib/utils';
 import { FLUX_ZD } from '@/components/dashboards/flux';
 import type { FluxSeriePoint } from '@/components/dashboards/useEvolutionBlocs';
 import { ChartCard } from './ChartCard';
-import { useEntreeGraphique } from '../entree-graphique';
-import { fmtMasse } from './fmt';
+import { useCompteur, useEntreeGraphique } from '../entree-graphique';
+import { fmtInt, fmtMasse } from './fmt';
 import {
   INK,
   TEXT_FAINT,
@@ -53,6 +53,19 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
     }));
     const total = perFlux.reduce((s, f) => s + f.kg, 0);
     const masse = fmtMasse(total);
+    // Le total du centre monte de 0 à sa valeur pendant l'entrée, dans l'unité
+    // finale (pas de bascule kg → t en cours de route).
+    const totalAnime = useCompteur(total, entree.phase);
+    const masseAnimee =
+      masse.unit === 't'
+        ? {
+            value: new Intl.NumberFormat('fr-FR', {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 1,
+            }).format(totalAnime / 1000),
+            unit: masse.unit,
+          }
+        : { value: fmtInt(totalAnime), unit: masse.unit };
 
     // Arcs cumulés
     let cumulative = 0;
@@ -72,7 +85,7 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
 
     // Valeur affichée au centre : le flux survolé, sinon le total.
     const focus = hover != null ? perFlux[hover]! : null;
-    const centerMasse = focus ? fmtMasse(focus.kg) : masse;
+    const centerMasse = focus ? fmtMasse(focus.kg) : masseAnimee;
     const centerPct =
       focus && total > 0 ? fmtPct((focus.kg / total) * 100, 0) : null;
 

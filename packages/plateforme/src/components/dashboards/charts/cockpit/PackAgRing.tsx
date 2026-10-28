@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { fmtInt } from './fmt';
-import { useEntreeGraphique } from '../entree-graphique';
+import { useCompteur, useEntreeGraphique } from '../entree-graphique';
 import { RING_OK, RING_LOW, TRACK, PACK_BADGE, WHITE } from './palette';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
@@ -23,6 +23,8 @@ export function PackAgRing({
   creditsRestants,
 }: PackAgRingProps) {
   const entree = useEntreeGraphique<HTMLDivElement>('pack-ag');
+  // Le grand chiffre monte de 0 à sa valeur pendant l'entrée de la jauge.
+  const restantsAnimes = useCompteur(creditsRestants, entree.phase);
   const consommes = Math.max(0, creditsInitiaux - creditsRestants);
   const pctRestant =
     creditsInitiaux > 0 ? creditsRestants / creditsInitiaux : 0;
@@ -71,7 +73,7 @@ export function PackAgRing({
         </div>
         <div className="shrink-0 text-right">
           <span className="text-kpi font-black leading-none tabular-nums text-savr-neutral-900">
-            {fmtInt(creditsRestants)}
+            {fmtInt(restantsAnimes)}
           </span>
           <div className="mt-0.5 text-3xs font-bold uppercase tracking-[0.08em] text-savr-neutral-400">
             crédits restants

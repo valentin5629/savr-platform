@@ -516,6 +516,7 @@ export function BilanCollecte({
                     subtitle={SOUS_TITRE_RADAR_COMPACT}
                     items={gaugeItems}
                     disposition="compacte"
+                    serieLabel="Votre collecte"
                     referenceLabel="Moyenne des événements comparables"
                     className="h-full p-5"
                     actionSlot={actionRadar}

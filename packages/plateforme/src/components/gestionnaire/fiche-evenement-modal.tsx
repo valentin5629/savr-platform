@@ -349,6 +349,7 @@ function BilanConsolide({
                   <BenchmarkRadar
                     title={TITRE_RADAR}
                     subtitle={SOUS_TITRE_RADAR}
+                    serieLabel="Cet événement"
                     items={FLUX_ZD.map((f) => ({
                       label: f.label,
                       value: radar.bench?.[f.code]?.ratio_user ?? null,

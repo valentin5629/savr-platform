@@ -565,6 +565,7 @@ export function DashboardClientView() {
                 : undefined
             }
             subtitle="Indice : référence = 100 (parc Savr entier, ou périmètre des filtres « Comparer avec »). À l'intérieur du repère, le périmètre sélectionné produit moins que la référence."
+            serieLabel="Périmètre sélectionné"
             referenceLabel={referenceLabel}
             referenceCourt={referenceCiblee ? 'Comparé' : 'Parc'}
             filtersSlot={

@@ -420,7 +420,7 @@ it('EvolutionZdChart — survol de la courbe taux affiche la valeur du mois', ()
   expect(screen.getAllByText('Taux de recyclage').length).toBe(before + 1);
 });
 
-it('BenchmarkRadar — survol d’un axe affiche Vous/Parc/Écart', () => {
+it('BenchmarkRadar — survol d’un axe affiche Vos collectes/Parc/Écart', () => {
   const { getByTestId } = render(
     <BenchmarkRadar
       items={[{ label: 'Biodéchets', value: 0.72, benchmark: 0.8 }]}
@@ -433,7 +433,7 @@ it('BenchmarkRadar — survol d’un axe affiche Vous/Parc/Écart', () => {
     clientY: 60,
   });
   const tip = screen.getByTestId('benchmark-radar-tooltip');
-  expect(tip.textContent).toContain('Vous');
+  expect(tip.textContent).toContain('Vos collectes');
   expect(tip.textContent).toContain('Parc');
   expect(tip.textContent).toContain('Écart');
   expect(tip.textContent).toContain('−10\u00a0%'); // fmtPct : espace insécable avant %
@@ -559,8 +559,9 @@ it("BenchmarkRadar — une valeur ×10 est plafonnée au bord (anneau 300), l'é
   // Point A (axe du haut) posé sur l'anneau extérieur : cy = CY − R = 45.
   const cy = Number(container.querySelector('svg circle')!.getAttribute('cy'));
   expect(cy).toBeCloseTo(45, 5);
-  // Échelle plafonnée à 300 : 6 anneaux (50 → 300), pas 20 (50 → 1000).
-  expect(container.querySelectorAll('svg polygon').length).toBe(6);
+  // Échelle plafonnée à 300 : 6 anneaux (50 → 300), pas 20 (50 → 1000) ; la
+  // surface remplie de la série n'est pas un anneau.
+  expect(container.querySelectorAll('svg polygon[fill="none"]').length).toBe(6);
   expect(screen.getByText('+900 %')).toBeInTheDocument();
 });
 
@@ -661,4 +662,39 @@ it('Co2 AG — carte cliquable + contenu modale (composants isolés)', () => {
   // Rien de la méthode ABC ZD (induit/net/matières) sur l'AG.
   expect(screen.queryByText(/Bilan net/)).toBeNull();
   expect(screen.queryByText(/Facteurs d'émission par matière/)).toBeNull();
+});
+
+describe('BenchmarkRadar — style unique de la fiche collecte (Val 2026-10-28)', () => {
+  const items = [
+    { label: 'A', value: 0.1, benchmark: 0.1 },
+    { label: 'B', value: 0.12, benchmark: 0.1 },
+    { label: 'C', value: 0.08, benchmark: 0.1 },
+  ];
+
+  it('disposition standard : série orange remplie, repère en pointillés, légende sous le radar, liste des écarts conservée', () => {
+    const { container } = render(<BenchmarkRadar items={items} />);
+    const surface = container.querySelector(
+      'svg polygon[fill="var(--color-savr-accent-500)"]',
+    );
+    expect(surface).not.toBeNull();
+    expect(
+      container.querySelector('svg path[stroke-dasharray="4 4"]'),
+    ).not.toBeNull();
+    expect(screen.getByText('Vos collectes')).toBeInTheDocument();
+    expect(
+      screen.getByText('Moyenne des événements comparables'),
+    ).toBeInTheDocument();
+    // Liste et badges d'écart visibles (pas réservés aux lecteurs d'écran).
+    expect(screen.getAllByTestId('benchmark-radar-ligne')).toHaveLength(3);
+    expect(
+      screen.getAllByTestId('benchmark-radar-ligne')[0]!.closest('.sr-only'),
+    ).toBeNull();
+    expect(screen.getByText('+20 %')).toBeInTheDocument();
+  });
+
+  it('libellé de série passé par l’écran (fiche événement, Admin)', () => {
+    render(<BenchmarkRadar items={items} serieLabel="Cet événement" />);
+    expect(screen.getByText('Cet événement')).toBeInTheDocument();
+    expect(screen.queryByText('Vos collectes')).toBeNull();
+  });
 });

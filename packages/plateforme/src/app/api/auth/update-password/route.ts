@@ -10,6 +10,8 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { validatePasswordStrength } from '@/lib/password.js';
 import { authAccountError } from '@/lib/api-helpers.js';
+import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: Record<string, unknown>;
@@ -70,6 +72,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       'auth.update_password',
       'Modification du mot de passe impossible.',
     );
+  }
+
+  // Un mot de passe choisi par « mot de passe oublié » rend caduc le lien
+  // d'invitation encore valable (7 jours) : son nonce est effacé, sinon ce lien
+  // pourrait réécrire le mot de passe d'un compte déjà actif. Best-effort : le
+  // mot de passe est déjà changé, un échec est seulement tracé.
+  const nonceInvitation = (
+    user.app_metadata as { invitation_nonce?: unknown } | undefined
+  )?.invitation_nonce;
+  if (nonceInvitation) {
+    const { error: errNonce } = await createAdminSupabaseClient()
+      .auth.admin.updateUserById(user.id, {
+        app_metadata: { invitation_nonce: null },
+      })
+      .catch((e: unknown) => ({ error: e as { code?: string } }));
+    if (errNonce) {
+      logger.error('invitation.nonce_non_efface', {
+        code: (errNonce as { code?: string }).code ?? null,
+      });
+    }
   }
 
   return NextResponse.json(

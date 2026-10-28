@@ -14,6 +14,12 @@ vi.mock('@supabase/ssr', () => ({
     auth: { getUser: mockGetUser, updateUser: mockUpdateUser },
   }),
 }));
+const mockAdminUpdateUserById = vi.fn();
+vi.mock('@savr/shared/src/supabase-client.js', () => ({
+  createAdminSupabaseClient: () => ({
+    auth: { admin: { updateUserById: mockAdminUpdateUserById } },
+  }),
+}));
 vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
 }));
@@ -30,6 +36,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetUser.mockResolvedValue({ data: { user: { id: 'u-1' } }, error: null });
   mockUpdateUser.mockResolvedValue({ data: {}, error: null });
+  mockAdminUpdateUserById.mockResolvedValue({ data: {}, error: null });
 });
 
 describe('M0.4 — update-password : politique mot de passe au reset (A1)', () => {
@@ -61,5 +68,41 @@ describe('M0.4 — update-password : politique mot de passe au reset (A1)', () =
     expect(mockUpdateUser).toHaveBeenCalledWith({
       password: 'SavrTest2026!',
     });
+  });
+});
+
+describe('update-password : un lien d’invitation encore valable devient caduc', () => {
+  it('compte invité qui choisit son mot de passe par « mot de passe oublié » : le nonce d’invitation est effacé', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'u-1', app_metadata: { invitation_nonce: 'n-1' } } },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/auth/update-password/route.js');
+    const res = await POST(makeReq({ mot_de_passe: 'SavrTest2026!' }));
+    expect(res.status).toBe(200);
+    expect(mockAdminUpdateUserById).toHaveBeenCalledWith('u-1', {
+      app_metadata: { invitation_nonce: null },
+    });
+  });
+
+  it('compte sans invitation en cours : aucune écriture de service', async () => {
+    const { POST } = await import('@/app/api/auth/update-password/route.js');
+    const res = await POST(makeReq({ mot_de_passe: 'SavrTest2026!' }));
+    expect(res.status).toBe(200);
+    expect(mockAdminUpdateUserById).not.toHaveBeenCalled();
+  });
+
+  it('effacement en échec : le mot de passe reste changé (200)', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'u-1', app_metadata: { invitation_nonce: 'n-1' } } },
+      error: null,
+    });
+    mockAdminUpdateUserById.mockResolvedValue({
+      data: null,
+      error: { code: 'unexpected_failure' },
+    });
+    const { POST } = await import('@/app/api/auth/update-password/route.js');
+    const res = await POST(makeReq({ mot_de_passe: 'SavrTest2026!' }));
+    expect(res.status).toBe(200);
   });
 });

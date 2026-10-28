@@ -16,7 +16,7 @@ describe('courbeLissee', () => {
       { x: 20, y: 80 },
     ];
     const d = courbeLissee(pts);
-    expect(d.startsWith('M0.0,50.0')).toBe(true);
+    expect(d.startsWith('M0,50')).toBe(true);
     const segs = segments(d);
     expect(segs).toHaveLength(2);
     expect(segs[0]!.slice(4)).toEqual([10, 20]);
@@ -48,6 +48,6 @@ describe('courbeLissee', () => {
 
   it('cas limites : aucun point, un seul point', () => {
     expect(courbeLissee([])).toBe('');
-    expect(courbeLissee([{ x: 5, y: 7 }])).toBe('M5.0,7.0');
+    expect(courbeLissee([{ x: 5, y: 7 }])).toBe('M5,7');
   });
 });

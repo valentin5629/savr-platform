@@ -7,7 +7,8 @@ export interface Point {
   y: number;
 }
 
-const f = (v: number) => v.toFixed(1);
+// Coordonnée SVG arrondie au dixième (jamais affichée à l'écran).
+const f = (v: number) => String(Math.round(v * 10) / 10);
 
 /** Chemin SVG lissé passant par chaque point (x croissants). */
 export function courbeLissee(pts: Point[]): string {

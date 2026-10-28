@@ -61,11 +61,10 @@ export interface BenchmarkFilterOptions {
 }
 
 // Listes bornées au périmètre de l'appelant : sans rien cocher, le repère reste
-// calculé sur tout le parc Savr. « Tous » se lirait « tous mes lieux » — la case
-// de tête le dit, et cocher toutes les lignes reste une sélection explicite.
+// calculé sur tout le parc Savr ; cocher toutes les lignes reste donc une
+// sélection explicite. La case de tête s'appelle « Tous » comme ailleurs (Val
+// 2026-10-28, remplace « Tout le parc Savr » du 2026-10-06).
 const LISTES_RATTACHEES = {
-  libelleVide: 'Tout le parc Savr',
-  libelleTous: 'Tout le parc Savr',
   listePartielle: true,
 } as const;
 
@@ -117,8 +116,7 @@ const PASTILLE =
 
 // Pastilles : seule la valeur est visible (le titre reste lu par les lecteurs
 // d'écran) ; sans sélection, elle affiche le nom du filtre (Val 2026-10-28).
-// La case de tête de la liste reste « Tous » (« Tout le parc Savr » pour les
-// listes rattachées du gestionnaire).
+// La case de tête de la liste reste « Tous ».
 const VIDE_PASTILLE = {
   type: 'Types',
   taille: 'Tailles',
@@ -132,8 +130,8 @@ const VIDE_PASTILLE = {
  * barres de filtres, décision Val 2026-09-30). Critères qui ne s'appliquent
  * qu'au point rouge : Type d'événement, Taille, Lieux, Traiteurs. Ces deux
  * listes couvrent tout le parc, ou (`perimetre="rattache"`) les seuls lieux
- * rattachés et traiteurs intervenus du gestionnaire — la case de tête
- * s'appelle alors « Tout le parc Savr » (décision Val 2026-10-06). La
+ * rattachés et traiteurs intervenus du gestionnaire (décision Val 2026-10-06) ;
+ * la case de tête s'appelle toujours « Tous » (Val 2026-10-28). La
  * période est fixe (24 mois glissants, non affichée). Bâti sur `FilterBar`
  * (R-UI-4b, D5 façon C, `surface="encart"`, `count={null}`) : « Réinitialiser
  * les filtres » (retour à l'héritage Type/Taille, Lieux/Traiteurs vidés)

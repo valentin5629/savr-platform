@@ -213,8 +213,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
       expect(screen.getByTestId('benchmark-filter-taille')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-lieux')).toBeInTheDocument();
       // Pastille sans sélection = nom du filtre (Val 2026-10-28), dès le
-      // premier rendu ; la case de tête des listes rattachées reste « Tout le
-      // parc Savr » (benchmark-filtres-rattaches.m3-2).
+      // premier rendu (case de tête « Tous » : benchmark-filtres-rattaches.m3-2).
       expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
         'Lieux' + 'Lieux',
       );

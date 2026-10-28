@@ -240,9 +240,9 @@ describe('M3.1 / dashboard traiteur — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => 
       expect(
         within(radar).getByText('Vos tonnages face aux événements comparables'),
       ).toBeInTheDocument();
-      // Pastilles : seule la valeur est visible (« Tous les types »…).
-      expect(within(radar).getByText('Tous les types')).toBeInTheDocument();
-      expect(within(radar).getByText('Toutes les tailles')).toBeInTheDocument();
+      // Pastilles : sans sélection, le nom du filtre (« Types »…).
+      expect(within(radar).getByText('Types')).toBeInTheDocument();
+      expect(within(radar).getByText('Tailles')).toBeInTheDocument();
       // Jamais de filtre Traiteurs côté traiteur.
       expect(
         within(radar).queryByTestId('benchmark-filter-traiteurs'),

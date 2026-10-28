@@ -223,23 +223,77 @@ async function libelleLieuxDeLaFiche(espace: EspaceClient): Promise<string> {
 
 describe('M3.2 / fiche collecte — filtre Lieux du repère selon l’espace', () => {
   it(
-    'M3.2/fiche_benchmark_lieux_tout_le_parc_gestionnaire — espace gestionnaire : « Tout le parc Savr »',
+    'M3.2/fiche_benchmark_lieux_tout_le_parc_gestionnaire — espace gestionnaire : pastille « Lieux » (Val 2026-10-28), la case de tête reste « Tout le parc Savr »',
     async () => {
       expect(await libelleLieuxDeLaFiche('gestionnaire')).toBe(
-        'Lieux' + 'Tout le parc Savr',
+        'Lieux' + 'Lieux',
       );
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.2/fiche_benchmark_lieux_tous_traiteur — espace traiteur : « Tous les lieux » (liste du parc entier, inchangée)',
+    'M3.2/fiche_benchmark_lieux_tous_traiteur — espace traiteur : pastille « Lieux » (liste du parc entier, inchangée)',
     async () => {
-      // Pastille de la variante B (Val 2026-10-27) : la valeur vide dit ce
-      // qu'elle couvre, le titre « Lieux » reste lu par les lecteurs d'écran.
-      expect(await libelleLieuxDeLaFiche('traiteur')).toBe(
-        'Lieux' + 'Tous les lieux',
+      // Pastille (Val 2026-10-28) : sans sélection, elle affiche le nom du
+      // filtre ; le titre « Lieux » reste lu par les lecteurs d'écran.
+      expect(await libelleLieuxDeLaFiche('traiteur')).toBe('Lieux' + 'Lieux');
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M3.2 / filtres du repère en pastilles (Val 2026-10-28)', () => {
+  it(
+    'M3.2/pastilles_nom_du_filtre — Types / Tailles / Lieux / Traiteurs sans sélection ; « Tous » coché par défaut, décoché dès qu’une valeur est cochée',
+    async () => {
+      const onChange = vi.fn();
+      render(
+        <BenchmarkFilterBar
+          disposition="pastilles"
+          onChange={onChange}
+          initialOptions={{ lieux: LIEUX, traiteurs: TRAITEURS, types: TYPES }}
+        />,
       );
+      const valeur = (testid: string) =>
+        screen.getByTestId(testid).querySelector('span:nth-child(2)')
+          ?.textContent;
+      expect(valeur('benchmark-filter-type')).toBe('Types');
+      expect(valeur('benchmark-filter-taille')).toBe('Tailles');
+      expect(valeur('benchmark-filter-lieux')).toBe('Lieux');
+      expect(valeur('benchmark-filter-traiteurs')).toBe('Traiteurs');
+
+      const lieux = await ouvrir('benchmark-filter-lieux', 'Lieux');
+      const tous = lieux.getByRole('checkbox', { name: 'Tous' });
+      expect(tous).toBeChecked();
+      fireEvent.click(lieux.getByRole('checkbox', { name: 'CNIT Forest' }));
+      expect(tous).not.toBeChecked();
+      expect(valeur('benchmark-filter-lieux')).toBe('CNIT Forest');
+      expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
+        lieu_ids: ['l1'],
+      });
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/pastilles_gestionnaire_tout_le_parc — gestionnaire : pastille « Lieux », case de tête « Tout le parc Savr » cochée par défaut',
+    async () => {
+      render(
+        <BenchmarkFilterBar
+          disposition="pastilles"
+          perimetre="rattache"
+          onChange={vi.fn()}
+          initialOptions={rattachees}
+        />,
+      );
+      expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
+        'Lieux' + 'Lieux',
+      );
+      const lieux = await ouvrir('benchmark-filter-lieux', 'Lieux');
+      expect(
+        lieux.getByRole('checkbox', { name: 'Tout le parc Savr' }),
+      ).toBeChecked();
     },
     ATTENTE_CAS_MS,
   );

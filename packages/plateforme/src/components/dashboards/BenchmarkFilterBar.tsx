@@ -116,12 +116,14 @@ const PASTILLE =
   'h-auto min-h-11 max-w-full rounded-savr-full bg-savr-sable-100 px-3.5 py-1 text-left text-sm font-semibold text-savr-neutral-800 hover:bg-savr-sable-200 data-[state=open]:bg-savr-sable-200 sm:min-h-8 [&>span:first-child]:sr-only [&>span:nth-child(2)]:font-semibold [&>span:nth-child(2)]:text-savr-neutral-800';
 
 // Pastilles : seule la valeur est visible (le titre reste lu par les lecteurs
-// d'écran) ; la valeur « vide » dit donc ce qu'elle couvre.
+// d'écran) ; sans sélection, elle affiche le nom du filtre (Val 2026-10-28).
+// La case de tête de la liste reste « Tous » (« Tout le parc Savr » pour les
+// listes rattachées du gestionnaire).
 const VIDE_PASTILLE = {
-  type: 'Tous les types',
-  taille: 'Toutes les tailles',
-  lieux: 'Tous les lieux',
-  traiteurs: 'Tous les traiteurs',
+  type: 'Types',
+  taille: 'Tailles',
+  lieux: 'Lieux',
+  traiteurs: 'Traiteurs',
 } as const;
 
 /**
@@ -260,8 +262,8 @@ export function BenchmarkFilterBar({
           onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
           testid="benchmark-filter-lieux"
           declencheurClassName={pastille}
-          libelleVide={VIDE_PASTILLE.lieux}
           {...listes}
+          libelleVide={VIDE_PASTILLE.lieux}
         />
         {/* Filtre traiteurs masqué pour les rôles traiteur (liste vide renvoyée). */}
         {traiteursVisibles && (
@@ -272,8 +274,8 @@ export function BenchmarkFilterBar({
             onChange={(ids) => apply({ ...filters, traiteur_ids: ids })}
             testid="benchmark-filter-traiteurs"
             declencheurClassName={pastille}
-            libelleVide={VIDE_PASTILLE.traiteurs}
             {...listes}
+            libelleVide={VIDE_PASTILLE.traiteurs}
           />
         )}
         {actif && (

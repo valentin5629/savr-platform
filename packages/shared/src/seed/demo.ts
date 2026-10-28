@@ -28,6 +28,16 @@ import { genererPipelineVivant } from './pipeline-vivant.js';
 import { genererEvenementsMultiCollectes } from './evenements-multi-collectes.js';
 import { codeMts1Seed, modeIntegrationSeed } from './codes-mts1.js';
 import { instantParis } from '../temps/index.js';
+import {
+  STATUTS_ATTRIBUTION_VALIDEE,
+  TRANSPORTEUR_DU_PRESTATAIRE,
+  TYPES_COLLECTE_TRANSPORTEUR,
+  prestatairePourCollecte,
+  prestatairePrend,
+  typePrestation,
+  type PrestataireSeed,
+  type TypeCollecte,
+} from './transporteurs-par-type.js';
 
 const U = seedUuid;
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -553,10 +563,16 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     client,
     'shared.prestataires',
     [
-      prest('prest_strike', 'Strike', 'STRIKE', siret(70)),
-      prest('prest_marathon', 'Marathon', 'MARATHON', siret(80)),
-      prest('prest_transnormandie', 'Transnormandie', 'TRANSNOR', siret(90)),
-      prest('prest_a_toutes', 'A Toutes!', 'ATOUTES', siret(95)),
+      prest('prest_strike', 'Strike', 'STRIKE', siret(70), 'strike'),
+      prest('prest_marathon', 'Marathon', 'MARATHON', siret(80), 'marathon'),
+      prest(
+        'prest_transnormandie',
+        'Transnormandie',
+        'TRANSNOR',
+        siret(90),
+        'transnor',
+      ),
+      prest('prest_a_toutes', 'A Toutes!', 'ATOUTES', siret(95), 'a_toutes'),
     ],
     ['id'],
   );
@@ -712,7 +728,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   const mgr = (t: string) => U(`user_manager_${t}`);
   const evRows: Row[] = [];
   const colRows: Row[] = [];
-  const prestaParSlug = new Map<string, string>();
+  const prestaParSlug = new Map<string, PrestataireSeed>();
   rows.forEach((r, i) => {
     const t = r.traiteur.replace(/^org_tr_/, '');
     const evId = U('ev_' + (r.evenement ?? r.slug));
@@ -739,12 +755,10 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         contact_principal_telephone: fakePhone(300 + (i % 90)),
       });
     const statut = statutDe(r);
-    const presta =
-      r.lieu === 'lieu_rouen_normandie'
-        ? 'transnormandie'
-        : i % 2 === 0
-          ? 'strike'
-          : 'marathon';
+    const presta = prestatairePourCollecte(
+      r.type as TypeCollecte,
+      r.lieu === 'lieu_rouen_normandie',
+    );
     if (!r.sansPrestataire) prestaParSlug.set(r.slug, presta);
     const extra: Row = { nb_camions_demande: r.camions };
     if (isAg) {
@@ -901,7 +915,13 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     .filter((r) => r.type === 'anti_gaspi' && !r.sansAttribution)
     .map((r, i) => {
       const isProvince = r.lieu === 'lieu_rouen_normandie';
-      const tr = isProvince ? 'transnor' : i % 2 === 0 ? 'marathon' : 'strike';
+      // Le transporteur de l'attribution est celui du prestataire de la
+      // collecte (le dispatch pose l'un depuis l'autre), y compris pour une AG
+      // pas encore dispatchée : c'est celui qu'elle recevra.
+      const tr =
+        TRANSPORTEUR_DU_PRESTATAIRE[
+          prestatairePourCollecte('anti_gaspi', isProvince)
+        ];
       const mode =
         i % 5 === 0
           ? 'auto_accept'
@@ -921,6 +941,14 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         mode,
         volumeRepas,
       );
+      // En production l'attribution naît validée ; une collecte validée ou
+      // au-delà ne peut pas en porter une qui ne l'est pas. Auto-accept : aucun
+      // humain ne valide (`valide_par` NULL, comme la RPC d'auto-acceptation).
+      const statut = statutDe(r);
+      if ((STATUTS_ATTRIBUTION_VALIDEE as readonly string[]).includes(statut)) {
+        a.valide_at = tsAt(r.date, 10);
+        a.valide_par = mode === 'auto_accept' ? null : U('user_admin');
+      }
       return a;
     });
   await batchUpsert(
@@ -1030,7 +1058,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         id: U('cfg_aa_kaspia'),
         organisation_id: U('org_tr_kaspia'),
         association_id: U('asso_alpha'),
-        transporteur_id: U('transp_strike'),
+        transporteur_id: U('transp_marathon'),
         auto_accept_actif: true,
         seuil_pax_min: 100,
         seuil_pax_max: 1500,
@@ -1072,12 +1100,28 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   // collectes (drift fixtures, cf. DIVERGENCE M0.7) : on ne lie que celles qui
   // existent réellement, et on journalise les références ignorées.
   const validCols = new Set(rows.map((r) => r.slug));
+  const typeParSlug = new Map(
+    rows.map((r) => [r.slug, r.type as TypeCollecte]),
+  );
   const ctRows: Row[] = [];
   let skipped = 0;
+  let horsType = 0;
   for (const t of tournees) {
     for (const colSlug of t.collectes) {
       if (!validCols.has(colSlug)) {
         skipped++;
+        continue;
+      }
+      // Une tournée ne porte que des collectes que son prestataire prend
+      // (deux ZD de la matrice figée tombaient sur une tournée AG).
+      const typeCol = typeParSlug.get(colSlug)!;
+      if (
+        !prestatairePrend(
+          t.transporteur.replace(/^prest_/, '') as PrestataireSeed,
+          typeCol,
+        )
+      ) {
+        horsType++;
         continue;
       }
       ctRows.push({
@@ -1090,6 +1134,11 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   if (skipped > 0) {
     console.log(
       `[seed:demo] ${skipped} liens tournée→collecte ignorés (collecte absente de la matrice).`,
+    );
+  }
+  if (horsType > 0) {
+    console.log(
+      `[seed:demo] ${horsType} liens tournée→collecte ignorés (type de collecte non pris par le prestataire de la tournée).`,
     );
   }
   await batchUpsert(
@@ -1720,12 +1769,19 @@ function asso(
     description_rapport_impact: `${nom} — redistribution alimentaire solidaire (description fictive de seed).`,
   };
 }
-function prest(slug: string, nom: string, code: string, sir: string): Row {
+function prest(
+  slug: string,
+  nom: string,
+  code: string,
+  sir: string,
+  transporteurSlug: string,
+): Row {
   return {
     id: U(slug),
     nom,
     code,
-    type_prestation: ['zd', 'ag'],
+    // Mêmes flux que le transporteur rattaché : l'algo AG filtre dessus.
+    type_prestation: typePrestation(transporteurSlug),
     mode_integration: modeIntegrationSeed(code),
     siret: sir,
     statut: 'actif',
@@ -1753,6 +1809,9 @@ function transp(
     types_vehicules: vehicules,
     type_tms: typeTms,
     code_transporteur_mts1: codeMts1,
+    // Flux pris en charge : la fiche collecte Admin ne propose que les
+    // transporteurs qui prennent le type de la collecte.
+    types_collecte: TYPES_COLLECTE_TRANSPORTEUR[slug.replace(/^transp_/, '')]!,
     // Pont V1-only transporteur → shared.prestataires (R5/BL-P0-08) : permet au
     // dispatch AG de poser tournees.prestataire_logistique_id (FK NOT NULL).
     prestataire_logistique_id: prestataireSlug ? U(prestataireSlug) : null,

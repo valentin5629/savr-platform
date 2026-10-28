@@ -6,6 +6,8 @@
  *   3. Zéro email hors @savr-test.local, zéro téléphone hors range fictif.
  *   4. Séquences de facturation sans trou (gapless).
  *   5. Somme matrice CSV = 478 collectes.
+ *   6. Transporteur ↔ type de collecte (ZD chez Strike, AG ailleurs) et
+ *      attributions AG validées et alignées sur le prestataire.
  *
  * Échec d'un check → exit code ≠ 0.
  */
@@ -41,6 +43,58 @@ function finalize(): void {
   console.log('seed:check — OK ✅');
 }
 
+// Transporteur ↔ type de collecte (Val 2026-10-27) : la fiche collecte Admin
+// ne propose que les transporteurs qui prennent le type de la collecte. Le seed
+// en posait des centaines à contre-type (mesuré sur savr-dev le 2026-10-27).
+// Une collecte et son transporteur se rejoignent par le prestataire.
+async function checkTransporteursParType(scalar: Scalar): Promise<void> {
+  console.log('Transporteurs et types de collecte');
+  check(
+    '0 transporteur sans types_collecte',
+    (await scalar(
+      'select count(*) n from plateforme.transporteurs where coalesce(cardinality(types_collecte), 0) = 0',
+    )) === 0,
+  );
+  for (const [type, libelle] of [
+    ['zero_dechet', 'ZD'],
+    ['anti_gaspi', 'AG'],
+  ] as const) {
+    const n = await scalar(
+      `select count(*) n from plateforme.collectes c join plateforme.transporteurs t on t.prestataire_logistique_id = c.prestataire_logistique_id where c.type = '${type}' and not ('${type}' = any(coalesce(t.types_collecte, '{}')))`,
+    );
+    check(
+      `0 collecte ${libelle} sur un transporteur qui ne prend pas les ${libelle}`,
+      n === 0,
+      `${n} trouvée(s)`,
+    );
+  }
+  const divergentes = await scalar(
+    'select count(*) n from plateforme.attributions_antgaspi a join plateforme.collectes c on c.id = a.collecte_id join plateforme.transporteurs t on t.id = a.transporteur_id where c.prestataire_logistique_id is not null and t.prestataire_logistique_id is distinct from c.prestataire_logistique_id',
+  );
+  check(
+    "0 attribution AG dont le transporteur n'est pas celui du prestataire de la collecte",
+    divergentes === 0,
+    `${divergentes} trouvée(s)`,
+  );
+  const sansValidation = await scalar(
+    "select count(*) n from plateforme.attributions_antgaspi a join plateforme.collectes c on c.id = a.collecte_id where c.statut in ('validee','en_cours','realisee','realisee_sans_collecte','cloturee') and a.valide_at is null",
+  );
+  check(
+    '0 attribution sans valide_at sur une collecte validée ou au-delà',
+    sansValidation === 0,
+    `${sansValidation} trouvée(s)`,
+  );
+  // Auto-accept = aucun humain ne valide (CDC §06.09 §6, RPC d'auto-acceptation).
+  const modeIncoherent = await scalar(
+    "select count(*) n from plateforme.attributions_antgaspi where mode_validation = 'auto_accept' and valide_par is not null",
+  );
+  check(
+    '0 attribution auto_accept validée par un humain (valide_par non NULL)',
+    modeIncoherent === 0,
+    `${modeIncoherent} trouvée(s)`,
+  );
+}
+
 // Checks communs aux 2 datasets : confidentialité + matrice CSV.
 async function checkCommon(scalar: Scalar): Promise<void> {
   console.log('Confidentialité (emails / téléphones)');
@@ -72,6 +126,7 @@ async function checkCommon(scalar: Scalar): Promise<void> {
     (await scalar('select count(*) n from plateforme.parametres_co2_divers')) >=
       10,
   );
+  await checkTransporteursParType(scalar);
   console.log('Matrice demo');
   const csv = readFileSync(
     resolve(REPO_ROOT, 'fixtures/data/matrix_collectes.csv'),

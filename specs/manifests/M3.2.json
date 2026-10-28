@@ -1495,6 +1495,15 @@
       "test": "EVT-FRISE/rejetee_et_brouillon_ignores + EVT-FRISE/fiche_evenement_frise_avancement",
       "statut": "implemented",
       "libelle": "Frise de la fiche événement (décision Val 2026-10-27, scénario Outline 06.05 fiche_evenement_frise_avancement) : une collecte `rejetee_par_prestataire` ou `brouillon` ne retient pas la frise, comme une collecte annulée. « Créé · Annulé » quand aucune collecte ne compte et qu'au moins une est annulée ; une collecte refusée ou en brouillon seule laisse la frise à « Créé » (lecture retenue, à confirmer par Val)."
+    },
+    {
+      "id": "M3.2-fiches-gestionnaire-variante-b",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:331-335",
+      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (StatutEvenement : pastille d'avancement à la place de FriseEtapes), packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx, packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx, sur les briques variante B de packages/plateforme/src/components/ui/fiche/ (FicheModal taille=\"grand\", FicheGrandEnTete, FicheOnglets, FicheSection, FichePastille)",
+      "test": "EVT/frise_avancement (pastille « Validé », nom accessible « Avancement de l’événement : Validé ») + EVT/frise_avancement — toutes les collectes annulées : pastille « Annulé » + tests/ui/fiche-lieu-modale.m3-2.test.tsx + tests/ui/fiche-traiteur-modale.m3-2.test.tsx + tests/ui/rapports-evenement-gestionnaire.m3-2.test.tsx + tests/ui/ajouter-collecte-depuis-fiches.m1-2.test.tsx (contenu, onglets et gestes inchangés)",
+      "statut": "à-vérifier",
+      "ref_divergence": "_Divergences/M3.2_20261028_fiches-gestionnaire-variante-b.md",
+      "libelle": "Fiches du gestionnaire de lieux événement, lieu et traiteur au grand format de la variante B (décisions Val 2026-10-27, C1 = A) : 1 200 px, feuille montée du bas sur téléphone, grand en-tête (titre Archivo, repères à pictos), onglets soulignés dans l’en-tête (seul le corps défile), sections en lignes à la place des cartes, boutons du pied en pilule. Fiche événement : pastille d’avancement (Créé, Validé, En cours, Réalisé, Annulé) à droite du titre à la place de la frise, même règle de calcul. GO-VISUAL en attente (validation Val)."
     }
   ],
   "cdc_source_hash": {

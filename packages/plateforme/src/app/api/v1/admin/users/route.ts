@@ -2,6 +2,7 @@ import { lirePagination } from '@/lib/pagination.js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import {
   serverError,
@@ -9,8 +10,8 @@ import {
   withApiTrace,
   authAccountError,
 } from '@/lib/api-helpers.js';
-import { urlApplication } from '@/lib/url-application.js';
 import { listeCsv, parmi } from '@/lib/filtre-csv.js';
+import { preparerLienInvitation } from '@/lib/auth/lien-invitation.js';
 
 const ROLES_VALIDES = [
   'admin_savr',
@@ -138,17 +139,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     return writeError(userError, 'admin.users.create');
   }
 
-  // Générer lien de réinitialisation de mot de passe et envoyer email bienvenue
-  const { data: linkData } = await supabase.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: {
-      redirectTo: urlApplication(req, '/api/auth/reset-password/confirm'),
-    },
-  });
-
-  const resetUrl =
-    linkData?.properties?.action_link ?? urlApplication(req, '/auth/login');
+  // Lien Savr valable 7 jours, à usage unique (CDC §06.02 §17) → page /invitation.
+  const resetUrl = await preparerLienInvitation(supabase, req, userId);
 
   // Nom de l'organisation de rattachement (variable requise du template).
   const { data: org } = await supabase
@@ -162,8 +154,9 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   // prenom + organisation_nom + lien_invitation, cf. seed bloc8 + call-sites
   // gestionnaire/traiteur).
   void sendEmail('invitation_utilisateur', email, {
-    prenom: prenom ?? '',
-    organisation_nom: (org as { nom?: string } | null)?.nom ?? '',
+    // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
+    prenom: escapeHtml(prenom ?? ''),
+    organisation_nom: escapeHtml((org as { nom?: string } | null)?.nom ?? ''),
     lien_invitation: resetUrl,
   }).catch(() => null);
 

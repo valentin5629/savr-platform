@@ -6,12 +6,13 @@ import {
 } from '@/lib/api-auth.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import {
   writeError,
   serverError,
   authAccountError,
 } from '@/lib/api-helpers.js';
-import { urlApplication } from '@/lib/url-application.js';
+import { preparerLienInvitation } from '@/lib/auth/lien-invitation.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -130,16 +131,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return writeError(userError, 'gestionnaire.mon_organisation.users.create');
   }
 
-  // Lien d'activation (validité 7 jours, gérée par Supabase Auth) → écran set password.
-  const { data: linkData } = await admin.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: {
-      redirectTo: urlApplication(req, '/api/auth/reset-password/confirm'),
-    },
-  });
-  const lienActivation =
-    linkData?.properties?.action_link ?? urlApplication(req, '/auth/login');
+  // Lien Savr valable 7 jours, à usage unique (CDC §06.02 §17) → page /invitation.
+  const lienActivation = await preparerLienInvitation(admin, req, userId);
 
   // Email d'invitation brandé (template catalogue §06.02 n°17). La variable
   // `lien_invitation` est REQUISE (email_templates.variables) : sans elle, sendEmail
@@ -148,8 +141,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     'invitation_utilisateur',
     email,
     {
-      prenom: prenom ?? '',
-      organisation_nom: org?.nom ?? '',
+      // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
+      prenom: escapeHtml(prenom ?? ''),
+      organisation_nom: escapeHtml(org?.nom ?? ''),
       lien_invitation: lienActivation,
     },
     { entityType: 'organisation', entityId: auth.ctx.organisationId },

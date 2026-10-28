@@ -268,15 +268,8 @@ async function checkDemo(c: Pg, scalar: Scalar): Promise<void> {
     `plus grand écart = ${trou} jours`,
   );
 
-  console.log('2. Documents et facturation');
-  check(
-    'bordereaux > 0',
-    (await scalar('select count(*) n from plateforme.bordereaux_savr')) > 0,
-  );
-  check(
-    'attestations > 0',
-    (await scalar('select count(*) n from plateforme.attestations_don')) > 0,
-  );
+  // Documents (bordereaux, attestations, rapports) : seed_demo n'en pose plus,
+  // `pnpm documents:dev` les fabrique sur savr-dev. Rien à compter ici.
 
   console.log('2. Règles & objets clés');
   check(

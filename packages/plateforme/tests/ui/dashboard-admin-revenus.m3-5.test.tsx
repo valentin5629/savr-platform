@@ -155,17 +155,19 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       const hrefs = screen
         .getAllByRole('link')
         .map((l) => l.getAttribute('href'));
-      // Les 5 cartes-actions pointent vers le chip du MÊME prédicat que leur compteur
+      // Les 4 cartes-actions pointent vers le chip du MÊME prédicat que leur compteur
       // (fusion ex ZD/AG 48h → collectes_48h_non_validees, revue E2E 2026-07-15).
       for (const chip of [
         'non_transmises_zd',
         'non_transmises_ag',
         'attente_prestataire',
-        'dirty_tms',
         'collectes_48h_non_validees',
       ]) {
         expect(hrefs).toContain(`/admin/collectes?chip=${chip}`);
       }
+      // Carte « Dirty TMS » retirée du dashboard (décision Val 2026-10-28).
+      expect(hrefs).not.toContain('/admin/collectes?chip=dirty_tms');
+      expect(screen.queryByText('Dirty TMS')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

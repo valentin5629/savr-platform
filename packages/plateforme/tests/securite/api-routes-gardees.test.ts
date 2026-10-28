@@ -84,6 +84,11 @@ const EXCEPTIONS: Record<string, { garde: RegExp | null; raison: string }> = {
     garde: /auth\.getUser\(/,
     raison: 'session de recovery GoTrue',
   },
+  'auth/invitation': {
+    garde: /\blireEtatInvitation\(/,
+    raison:
+      'choix du mot de passe depuis le lien d’invitation (jeton signé, 7 jours, nonce à usage unique)',
+  },
   'auth/exit-impersonation': {
     garde: /auth\.getUser\(/,
     raison: 'session impersonée',

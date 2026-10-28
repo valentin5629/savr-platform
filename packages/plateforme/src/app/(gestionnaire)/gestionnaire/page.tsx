@@ -316,9 +316,16 @@ export default function GestionnaireDashboardPage() {
             </div>
           </div>
 
-          {/* Bloc 6 top lieux + Bloc 7 */}
+          {/* Bloc 6 top lieux + Bloc 7 (pleine largeur sans Bloc 7) */}
           <div className="grid gap-6 lg:grid-cols-2">
-            <div data-testid="bloc-6-top-lieux">
+            <div
+              data-testid="bloc-6-top-lieux"
+              className={
+                blocs?.topActeurs && blocs.acteurLabel
+                  ? undefined
+                  : 'lg:col-span-2'
+              }
+            >
               <TopRankList
                 title="Top 5 lieux"
                 subtitle="Par tonnage collecté"

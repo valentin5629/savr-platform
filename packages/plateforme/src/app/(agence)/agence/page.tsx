@@ -333,17 +333,15 @@ export default function AgenceDashboardPage() {
             </div>
           </div>
 
-          {/* Bloc 6 top lieux + Bloc 7 */}
-          <div className="grid gap-6">
-            <div data-testid="bloc-6-top-lieux">
-              <TopRankList
-                title="Top 5 lieux"
-                subtitle="Par tonnage collecté"
-                items={withBars(topLieuxItems)}
-                onItemClick={goToLieu}
-                showBar
-              />
-            </div>
+          {/* Bloc 6 top lieux (pas de Bloc 7 côté agence, diff #8) */}
+          <div data-testid="bloc-6-top-lieux">
+            <TopRankList
+              title="Top 5 lieux"
+              subtitle="Par tonnage collecté"
+              items={withBars(topLieuxItems)}
+              onItemClick={goToLieu}
+              showBar
+            />
           </div>
 
           {/* Bloc 8 — Export synthèse PDF (§06.11 réplique stricte §06.04, R20b-2) */}

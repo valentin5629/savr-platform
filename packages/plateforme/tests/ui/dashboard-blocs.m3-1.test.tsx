@@ -236,6 +236,7 @@ describe('M3.1 / dashboard traiteur — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => 
       );
       const radar = screen.getByTestId('bloc-3-traiteur');
       expect(donut.parentElement).toBe(radar.parentElement);
+      expect(donut.parentElement).toHaveClass('lg:grid-cols-2');
       expect(
         within(radar).getByText('Vos tonnages face aux événements comparables'),
       ).toBeInTheDocument();

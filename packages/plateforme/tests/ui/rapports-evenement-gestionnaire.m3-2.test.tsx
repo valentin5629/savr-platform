@@ -103,7 +103,7 @@ const json = (status: number, body: unknown) =>
     json: () => Promise.resolve(body),
   }) as Response;
 
-function stubFetch(evt: unknown, rapportStatus = 200) {
+function stubFetch(evt: unknown, rapportStatus = 200, radarRefuse = false) {
   Object.assign(URL, {
     createObjectURL: vi.fn(() => 'blob:rapport'),
     revokeObjectURL: vi.fn(),
@@ -124,9 +124,11 @@ function stubFetch(evt: unknown, rapportStatus = 200) {
     if (u.startsWith(`${BASE}/benchmark`))
       return Promise.resolve(
         json(200, {
-          data: {
-            flux: { biodechet: { ratio_user: 0.5, benchmark_kg_pax: 0.4 } },
-          },
+          data: radarRefuse
+            ? null
+            : {
+                flux: { biodechet: { ratio_user: 0.5, benchmark_kg_pax: 0.4 } },
+              },
         }),
       );
     if (init?.method === 'POST')
@@ -173,6 +175,50 @@ const caseRadar = () =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe('M3.2 / fiche Événement — répartition et radar sur la même ligne (Val 2026-10-28)', () => {
+  it(
+    'EVT/graphes_meme_ligne — donut et radar côte à côte, filtres en pastilles',
+    async () => {
+      stubFetch(detail());
+      await ouvrirBilan();
+      const radar = await screen.findByTestId(
+        'radar-evenement',
+        undefined,
+        ATTENTE_UI,
+      );
+      const ligne = screen.getByTestId('ligne-graphes-evenement');
+      expect(radar.parentElement).toBe(ligne);
+      expect(ligne).toHaveClass('lg:grid-cols-2');
+      expect(
+        within(ligne).getByText('Répartition des tonnages'),
+      ).toBeInTheDocument();
+      // Pastilles empilées (disposition de la modale collecte), pas la barre en ligne.
+      expect(within(radar).getByTestId('benchmark-filter-bar')).toHaveClass(
+        'flex-col',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/graphe_seul_pleine_largeur — comparaison refusée par le serveur : le donut prend toute la ligne',
+    async () => {
+      stubFetch(detail(), 200, true);
+      await ouvrirBilan();
+      const ligne = screen.getByTestId('ligne-graphes-evenement');
+      await waitFor(
+        () => expect(ligne).not.toHaveClass('lg:grid-cols-2'),
+        ATTENTE_UI,
+      );
+      expect(screen.queryByTestId('radar-evenement')).toBeNull();
+      expect(
+        within(ligne).getByText('Répartition des tonnages'),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 describe('M3.2 / fiche Événement — rapports cumulés', () => {

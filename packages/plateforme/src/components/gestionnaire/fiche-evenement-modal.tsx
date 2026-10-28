@@ -279,6 +279,8 @@ function BilanConsolide({
       taux_recyclage: b.taux_recyclage,
     },
   ];
+  const donutAffiche = b.tonnage_zd_kg != null && b.tonnage_zd_kg > 0;
+  const radarAffiche = radar.visible && !radar.indisponible;
 
   return (
     <section className="space-y-3" data-testid="bilan-consolide">
@@ -331,13 +333,20 @@ function BilanConsolide({
                 unite="g"
               />
             </div>
-            {/* Comme la fiche collecte : répartition et radar sur la même ligne. */}
-            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
+            {/* Comme la fiche collecte : répartition et radar sur la même
+                ligne, une seule colonne quand l'un des deux manque. */}
+            <div
+              data-testid="ligne-graphes-evenement"
+              className={
+                b.nb_realisees_zd === 0 || (donutAffiche && radarAffiche)
+                  ? 'grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2'
+                  : 'grid grid-cols-1 gap-4'
+              }
+            >
               {b.nb_realisees_zd === 0 ? (
                 <GrapheEnAttente titre="Répartition des tonnages" />
               ) : (
-                b.tonnage_zd_kg != null &&
-                b.tonnage_zd_kg > 0 && (
+                donutAffiche && (
                   <TonnagesDonut
                     series={serieDonut}
                     disposition="ligne"
@@ -348,8 +357,7 @@ function BilanConsolide({
               {b.nb_realisees_zd === 0 ? (
                 <GrapheEnAttente titre={TITRE_RADAR} />
               ) : (
-                radar.visible &&
-                !radar.indisponible && (
+                radarAffiche && (
                   <div data-testid="radar-evenement" className="h-full">
                     <BenchmarkRadar
                       title={TITRE_RADAR}

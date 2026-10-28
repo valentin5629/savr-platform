@@ -663,9 +663,11 @@ describe('M1.1 — Modale association (revue E2E)', () => {
       />,
     );
     const bouton = screen.getByRole('button', { name: 'Désactiver' });
-    // Variante `outline-destructive` (R-UI-3, B3 — ex-ACTION_DESTRUCTIVE_CONTOUR).
+    // Variante `outline-destructive` (R-UI-3, B3 — ex-ACTION_DESTRUCTIVE_CONTOUR),
+    // en pilule comme tout le pied de la variante B (décision Val 2026-10-27).
     for (const classe of buttonVariants({
       variant: 'outline-destructive',
+      size: 'pilule',
     }).split(' ')) {
       expect(bouton).toHaveClass(classe);
     }

@@ -465,21 +465,6 @@ it('BenchmarkRadar — survol n’importe où sur le radar : l’axe le plus pro
   expect(screen.getByTestId('benchmark-radar-point-parc')).toBeInTheDocument();
 });
 
-it('BenchmarkRadar — survol d’une ligne de liste : axe mis en évidence, sans infobulle en double', () => {
-  render(
-    <BenchmarkRadar
-      items={[
-        { label: 'A', value: 0.1, benchmark: 0.1 },
-        { label: 'B', value: 0.1, benchmark: 0.1 },
-        { label: 'C', value: 0.1, benchmark: 0.1 },
-      ]}
-    />,
-  );
-  fireEvent.mouseEnter(screen.getAllByTestId('benchmark-radar-ligne')[1]!);
-  expect(screen.queryByTestId('benchmark-radar-tooltip')).toBeNull();
-  expect(screen.getByTestId('benchmark-radar-point-parc')).toBeInTheDocument();
-});
-
 it('BenchmarkRadar — indice parc = 100 : chaque flux a sa valeur, son repère et son écart ; flux manquant = n/d sans point', () => {
   const { container, getByTestId } = render(
     <BenchmarkRadar
@@ -497,13 +482,15 @@ it('BenchmarkRadar — indice parc = 100 : chaque flux a sa valeur, son repère 
   expect(getByTestId('benchmark-radar-axe-4').textContent).toBe(
     'Déchet résiduel' + 'n/d',
   );
-  // Les valeurs réelles restent lisibles (liste), avec l'écart en badge.
-  expect(screen.getByText('+1 %')).toBeInTheDocument();
+  // Les valeurs réelles et l'écart restent écrits dans la liste (lecteurs d'écran).
+  expect(
+    screen.getAllByTestId('benchmark-radar-ligne')[3]!.textContent,
+  ).toContain('+1\u00a0%');
   expect(screen.getByText(/0,12 kg\/pax · parc 0,12/)).toBeInTheDocument();
 });
 
-it('BenchmarkRadar — seuils du badge : ≤ parc vert, ≤ +30 % orange, au-delà rouge', () => {
-  render(
+it('BenchmarkRadar — seuils du badge (infobulle) : ≤ parc vert, ≤ +30 % orange, au-delà rouge ; statut écrit dans la liste', () => {
+  const { getByTestId } = render(
     <BenchmarkRadar
       items={[
         { label: 'A', value: 0.1, benchmark: 0.1 },
@@ -512,15 +499,29 @@ it('BenchmarkRadar — seuils du badge : ≤ parc vert, ≤ +30 % orange, au-del
       ]}
     />,
   );
-  const [a, b, c] = screen.getAllByTestId('benchmark-radar-ligne');
-  const couleur = (li: HTMLElement, txt: string) =>
-    (li.querySelector('span[style]') as HTMLElement | null)?.textContent === txt
-      ? (li.querySelector('span[style]') as HTMLElement).style.color
-      : 'absent';
+  const svg = getByTestId('benchmark-radar');
+  // jsdom : coordonnées en unités viewBox (centre 230,145). Axes à −90°, 30°, 150°.
+  const badge = (x: number, y: number) => {
+    fireEvent.mouseMove(svg, { clientX: x, clientY: y });
+    // Dernier span stylé = badge d'écart (les premiers sont les traits de série).
+    const styles = getByTestId('benchmark-radar-tooltip').querySelectorAll(
+      'span[style]',
+    );
+    return styles[styles.length - 1] as HTMLElement;
+  };
   // Couleurs = tokens DS (R-UI-6a) : le style inline porte la référence var().
-  expect(couleur(a!, '+0\u00a0%')).toBe('var(--color-savr-success)');
-  expect(couleur(b!, '+30\u00a0%')).toBe('var(--color-savr-accent-700)');
-  expect(couleur(c!, '+40\u00a0%')).toBe('var(--color-savr-error)');
+  const a = badge(230, 60);
+  expect(a.textContent).toBe('+0\u00a0% · Inférieur');
+  expect(a.style.color).toBe('var(--color-savr-success)');
+  const b = badge(230 + 80, 145 + 46);
+  expect(b.textContent).toBe('+30\u00a0% · Supérieur');
+  expect(b.style.color).toBe('var(--color-savr-accent-700)');
+  const c = badge(230 - 80, 145 + 46);
+  expect(c.textContent).toBe('+40\u00a0% · Largement supérieur');
+  expect(c.style.color).toBe('var(--color-savr-error)');
+  // La liste lue par les lecteurs d'écran écrit le statut en toutes lettres.
+  const lignes = screen.getAllByTestId('benchmark-radar-ligne');
+  expect(lignes[2]!.textContent).toContain('(Largement supérieur)');
 });
 
 it('BenchmarkRadar — parc à 0 ou NaN : axe n/d partout (jamais « +∞ % » / « NaN »), le reste du radar intact', () => {
@@ -564,7 +565,9 @@ it("BenchmarkRadar — une valeur ×10 est plafonnée au bord (anneau 300), l'é
   // Échelle plafonnée à 300 : 6 anneaux (50 → 300), pas 20 (50 → 1000) ; la
   // surface remplie de la série n'est pas un anneau.
   expect(container.querySelectorAll('svg polygon[fill="none"]').length).toBe(6);
-  expect(screen.getByText('+900 %')).toBeInTheDocument();
+  expect(
+    screen.getAllByTestId('benchmark-radar-ligne')[0]!.textContent,
+  ).toContain('+900\u00a0%');
 });
 
 it('BenchmarkRadar — liste vide : rend la carte sans planter', () => {
@@ -702,7 +705,9 @@ describe('BenchmarkRadar — style unique de la fiche collecte (Val 2026-10-28)'
     expect(
       screen.getAllByTestId('benchmark-radar-ligne')[0]!.closest('.sr-only'),
     ).not.toBeNull();
-    expect(screen.getByText('+20 %')).toBeInTheDocument();
+    expect(
+      screen.getAllByTestId('benchmark-radar-ligne')[1]!.textContent,
+    ).toContain('+20\u00a0%');
   });
 
   it('libellé de série passé par l’écran (fiche événement, Admin)', () => {

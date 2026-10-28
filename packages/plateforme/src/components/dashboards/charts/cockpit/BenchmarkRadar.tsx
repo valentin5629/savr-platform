@@ -12,7 +12,6 @@ import {
   TEXT_MUTED,
   TEXT_FAINT,
   TEXT_XFAINT,
-  SURFACE_HOVER,
   WHITE,
   RADAR_SERIE as VOUS,
   RADAR_REPERE as PARC,
@@ -130,30 +129,6 @@ function segments(pts: ([number, number] | null)[]): string {
   return d;
 }
 
-function LegendDot({
-  color,
-  children,
-}: {
-  color: string;
-  children: React.ReactNode;
-}): React.ReactElement {
-  return (
-    <Text
-      as="span"
-      variant="hint"
-      tone="soft"
-      className="flex items-center gap-1.5 font-semibold"
-    >
-      <span
-        aria-hidden
-        className="inline-block rounded-savr-full"
-        style={{ width: 9, height: 9, background: color }}
-      />
-      {children}
-    </Text>
-  );
-}
-
 function Serie({
   color,
   label,
@@ -231,61 +206,29 @@ function Tooltip({
   );
 }
 
+/** Ligne de la liste lue par les lecteurs d'écran : valeurs et statut en
+ *  toutes lettres (le statut n'est jamais porté par la seule couleur). */
 function LigneFlux({
   axe,
-  active,
-  onHover,
   referenceCourt,
 }: {
   axe: Axe;
-  active: boolean;
-  onHover: (on: boolean) => void;
   referenceCourt: string;
 }): React.ReactElement {
   const { item, ratio } = axe;
-  const statut = ratio != null ? statutDe(ratio) : null;
   const ref = referenceCourt.toLowerCase();
   return (
-    <li
-      data-testid="benchmark-radar-ligne"
-      className="flex items-center justify-between gap-3 rounded-savr-sm px-2 py-1.5 transition-colors"
-      style={{ background: active ? SURFACE_HOVER : 'transparent' }}
-      onMouseEnter={() => onHover(true)}
-      onMouseLeave={() => onHover(false)}
-    >
-      <div className="min-w-0">
-        <div
-          className={
-            statut
-              ? 'text-sm font-bold text-savr-neutral-800'
-              : 'text-sm font-bold text-savr-neutral-400'
-          }
-        >
-          {item.label}
-        </div>
-        <Text as="div" variant="hint" className="tabular-nums">
-          {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
-          {' · '}
-          {fini(item.benchmark)
-            ? `${ref} ${fmtDec(item.benchmark, 2)}`
-            : `${ref} n/d`}
-        </Text>
-      </div>
-      {statut && ratio != null ? (
-        <span
-          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-xs font-semibold tabular-nums"
-          style={{ color: statut.badge, background: statut.bg }}
-        >
-          {ecartTxt(ratio)}
-        </span>
-      ) : (
-        <span
-          className="shrink-0 rounded-savr-md px-1.5 py-0.5 text-xs font-semibold"
-          style={{ color: TEXT_MUTED, background: GRID }}
-        >
-          Données manquantes
-        </span>
-      )}
+    <li data-testid="benchmark-radar-ligne">
+      {item.label} :{' '}
+      {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
+      {' · '}
+      {fini(item.benchmark)
+        ? `${ref} ${fmtDec(item.benchmark, 2)}`
+        : `${ref} n/d`}
+      {' · '}
+      {ratio != null
+        ? `${ecartTxt(ratio)} (${statutDe(ratio).label})`
+        : 'Données manquantes'}
     </li>
   );
 }
@@ -301,9 +244,7 @@ export function BenchmarkRadar({
   actionSlot,
   className,
 }: BenchmarkRadarProps): React.ReactElement {
-  // Survol : axe actif + position du curseur (px, relative au conteneur) quand
-  // le survol vient du GRAPHE ; survol depuis la LISTE = axe seul (la ligne de
-  // liste porte déjà les valeurs, pas d'infobulle en double).
+  // Survol : axe actif + position du curseur (px, relative au conteneur).
   const [hover, setHover] = React.useState<number | null>(null);
   const [curseur, setCurseur] = React.useState<{
     x: number;
@@ -473,8 +414,8 @@ export function BenchmarkRadar({
                     textAnchor={anchor}
                     dominantBaseline="middle"
                     style={{
-                      // Radar compact : rendu plus petit, libellés agrandis
-                      // dans le viewBox pour rester lisibles (≈ 11 px).
+                      // Radar rendu petit : libellés agrandis dans le
+                      // viewBox pour rester lisibles (≈ 11 px).
                       fontSize: 19,
                       fontWeight: 700,
                       fill: manquant
@@ -557,28 +498,15 @@ export function BenchmarkRadar({
         </div>
         {/* Liste des flux lue par les lecteurs d'écran (statut jamais porté par
             la seule couleur) ; à l'écran, les valeurs sont au survol. */}
-        <div className="sr-only">
-          <ul className="flex flex-col gap-0.5">
-            {axes.map((a, i) => (
-              <LigneFlux
-                key={`${a.item.label}-${i}`}
-                axe={a}
-                active={hover === i}
-                referenceCourt={referenceCourt}
-                onHover={(on) => {
-                  setCurseur(null);
-                  setHover(on ? i : null);
-                }}
-              />
-            ))}
-          </ul>
-          <div className="mt-3 flex flex-wrap gap-3 border-t border-savr-neutral-100 px-2 pt-3">
-            <LegendDot color={STATUT.vert.fill}>Inférieur</LegendDot>
-            <LegendDot color={STATUT.orange.fill}>Supérieur</LegendDot>
-            <LegendDot color={STATUT.rouge.fill}>Largement supérieur</LegendDot>
-            <LegendDot color={TEXT_XFAINT}>Données manquantes</LegendDot>
-          </div>
-        </div>
+        <ul className="sr-only">
+          {axes.map((a, i) => (
+            <LigneFlux
+              key={`${a.item.label}-${i}`}
+              axe={a}
+              referenceCourt={referenceCourt}
+            />
+          ))}
+        </ul>
       </div>
     </ChartCard>
   );

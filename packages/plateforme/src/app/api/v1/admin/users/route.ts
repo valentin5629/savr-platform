@@ -2,6 +2,7 @@ import { lirePagination } from '@/lib/pagination.js';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import {
   serverError,
@@ -162,8 +163,9 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   // prenom + organisation_nom + lien_invitation, cf. seed bloc8 + call-sites
   // gestionnaire/traiteur).
   void sendEmail('invitation_utilisateur', email, {
-    prenom: prenom ?? '',
-    organisation_nom: (org as { nom?: string } | null)?.nom ?? '',
+    // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
+    prenom: escapeHtml(prenom ?? ''),
+    organisation_nom: escapeHtml((org as { nom?: string } | null)?.nom ?? ''),
     lien_invitation: resetUrl,
   }).catch(() => null);
 

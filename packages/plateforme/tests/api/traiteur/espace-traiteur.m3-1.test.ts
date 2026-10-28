@@ -66,6 +66,7 @@ const mockGetSession = vi.fn();
 const mockSendEmail = vi.fn().mockResolvedValue(undefined);
 const mockCreateUser = vi.fn();
 const mockGenerateLink = vi.fn();
+const mockUpdateUserById = vi.fn();
 const mockDeleteUser = vi.fn();
 
 vi.mock('@supabase/ssr', () => ({
@@ -84,6 +85,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
         createUser: mockCreateUser,
         generateLink: mockGenerateLink,
         deleteUser: mockDeleteUser,
+        updateUserById: (...a: unknown[]) => mockUpdateUserById(...a),
       },
     },
   }),
@@ -124,6 +126,8 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
 }
 
 beforeEach(() => {
+  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'cle-de-service-de-test');
+  mockUpdateUserById.mockResolvedValue({ data: {}, error: null });
   vi.clearAllMocks();
   rls = makeChain();
   admin = makeChain();
@@ -141,6 +145,31 @@ beforeEach(() => {
 });
 
 // ── Badge "en attente de facturation" (F3) ──────────────────────────────────
+
+// Lien d'invitation Savr (7 jours, usage unique) : il pointe vers /invitation, son
+// jeton est signé et porte le nonce posé dans l'app_metadata du compte.
+async function verifierLienInvitation(
+  lien: string | undefined,
+  updateUserById: { mock: { calls: unknown[][] } },
+  userId: string,
+): Promise<void> {
+  const { lireJetonInvitation, DUREE_INVITATION_MS } =
+    await import('@/lib/auth/jeton-invitation.js');
+  expect(lien).toMatch(/\/invitation\?jeton=/);
+  const jeton = decodeURIComponent(String(lien).split('jeton=')[1] ?? '');
+  const lecture = lireJetonInvitation(jeton);
+  expect(lecture.ok).toBe(true);
+  if (!lecture.ok) return;
+  expect(lecture.userId).toBe(userId);
+  const restant = lecture.expireA - Date.now();
+  expect(restant).toBeGreaterThan(DUREE_INVITATION_MS - 60_000);
+  expect(restant).toBeLessThanOrEqual(DUREE_INVITATION_MS);
+  expect(updateUserById.mock.calls).toContainEqual([
+    userId,
+    { app_metadata: { invitation_nonce: lecture.nonce } },
+  ]);
+}
+
 describe('M3.1 / marge-attente-facturation', () => {
   it('M3.1/marge_badge_attente_facturation_partielle — 2 sur 5 sans facture emise', async () => {
     setupAuth('traiteur_manager');
@@ -806,18 +835,12 @@ describe('M3.1 / invitation collaborateur', () => {
       lien_invitation?: string;
     };
     expect(emailVars.lien_invitation).toBeTruthy();
-    // `redirectTo` doit viser la route d'échange PKCE (`/api/auth/reset-password
-    // /confirm`) — `/auth/new-password` n'existe pas (404), régression mesurée
-    // 2026-09-28.
-    expect(mockGenerateLink).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'recovery',
-        options: expect.objectContaining({
-          redirectTo: expect.stringContaining(
-            '/api/auth/reset-password/confirm',
-          ),
-        }),
-      }),
+    // Lien Savr valable 7 jours (plus de lien Supabase de récupération).
+    expect(mockGenerateLink).not.toHaveBeenCalled();
+    await verifierLienInvitation(
+      emailVars.lien_invitation,
+      mockUpdateUserById,
+      'new-commercial-id',
     );
   });
 

@@ -58,7 +58,7 @@ export function ficheClient(
     repas_donnes: null,
     association: null,
     rapport_rse_disponible: false,
-    rapport_rse_regenere: false,
+    rapport_mis_a_jour_at: null,
     rapport_reserve_donneur_ordre: false,
     // Par défaut, cohérent avec les deux indicateurs comme le calcule le
     // serveur (etatRapport) ; un test peut forcer n'importe quel état.

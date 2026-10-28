@@ -188,7 +188,10 @@ export interface FicheCollecteClient {
   repas_donnes: number | null;
   association: AssociationFiche | null;
   rapport_rse_disponible: boolean;
-  rapport_rse_regenere: boolean;
+  // Date de la dernière mise à jour du document stocké (rapport « sans
+  // excédent » régénéré, attestation de don en version > 1) ; null s'il n'a
+  // jamais été mis à jour (§05 « Indicateur de mise à jour », §12 §1.4).
+  rapport_mis_a_jour_at: string | null;
   // Traiteur opérationnel d'une collecte AG programmée par une autre
   // organisation : l'attestation de don est émise au nom du donneur d'ordre et
   // ne lui est pas servie (att_traiteur_select — D12, arbitrage Val 2026-09-30).

@@ -52,7 +52,7 @@ function fiche(over: Record<string, unknown> = {}) {
     evenement: { id: EVT_ID, lieu: null },
     tournees: [],
     rapport_rse_disponible: true,
-    rapport_rse_regenere: false,
+    rapport_mis_a_jour_at: null,
     rapport_reserve_donneur_ordre: false,
     rapport_etat: 'disponible',
     actions: { modifier: 'absent', annuler: 'absent', annulation: null },

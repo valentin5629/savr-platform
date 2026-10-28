@@ -268,7 +268,7 @@ export async function chargerFicheCollecteClient(
         ? Promise.resolve({ data: null, error: null })
         : rls
             .from('attestations_don')
-            .select('eligible_at, pdf_url')
+            .select('eligible_at, pdf_url, version, created_at')
             .eq('collecte_id', id)
             .order('version', { ascending: false })
             .limit(1)
@@ -349,6 +349,8 @@ export async function chargerFicheCollecteClient(
   const att = attRes.data as {
     eligible_at: string | null;
     pdf_url: string | null;
+    version: number | null;
+    created_at: string | null;
   } | null;
   const maintenant = Date.now();
   // Rapport de recyclage ZD : fabriqué au clic (décision Val 2026-10-16), il est
@@ -364,9 +366,17 @@ export async function chargerFicheCollecteClient(
       : Boolean(att?.pdf_url) &&
         att?.eligible_at != null &&
         new Date(att.eligible_at).getTime() <= maintenant;
-  // « Rapport mis à jour » : régénération Admin d'un document stocké (AG).
-  const rapport_rse_regenere =
-    isAg && useRapportsRse && Boolean(rap?.regenere_at);
+  // « Mis à jour le … » (§05 « Indicateur de mise à jour », §12 §1.4) : document
+  // AG stocké refait après sa première émission — rapport « sans excédent »
+  // régénéré, ou attestation de don en version > 1 (correction de volume). Le
+  // rapport de recyclage ZD, fabriqué au clic, n'en a pas.
+  const rapport_mis_a_jour_at = !isAg
+    ? null
+    : useRapportsRse
+      ? (rap?.regenere_at ?? null)
+      : (att?.version ?? 1) > 1
+        ? (att?.created_at ?? null)
+        : null;
   const rapport_reserve_donneur_ordre =
     espace === 'traiteur' &&
     rapportReserveDonneurOrdre(c, evt?.organisation_id, ctx.organisationId);
@@ -472,7 +482,7 @@ export async function chargerFicheCollecteClient(
     repas_donnes,
     association,
     rapport_rse_disponible,
-    rapport_rse_regenere,
+    rapport_mis_a_jour_at,
     rapport_reserve_donneur_ordre,
     rapport_etat: etatRapport({
       reserve: rapport_reserve_donneur_ordre,

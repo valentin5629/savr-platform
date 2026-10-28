@@ -80,7 +80,7 @@ import {
   type BilanEvenement,
 } from '@/lib/evenements-gestionnaire';
 import { estUuid } from '@/lib/filtre-csv';
-import { libelleDateHeure } from '@/lib/format-date-collecte';
+import { libelleDateHeure, libelleMisAJour } from '@/lib/format-date-collecte';
 import {
   fmtDec,
   fmtInt,
@@ -604,7 +604,8 @@ function DocumentsEvenement({
               </p>
               <Text>
                 {titreCollecte(f)} · {LIBELLE_ETAT_RAPPORT[f.rapport_etat]}
-                {f.rapport_rse_regenere && ' · Rapport mis à jour'}
+                {f.rapport_mis_a_jour_at &&
+                  ` · ${libelleMisAJour(f.rapport_mis_a_jour_at)}`}
               </Text>
             </div>
             <Button

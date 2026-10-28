@@ -1754,4 +1754,120 @@ describe('Variante B — cadre de la fiche collecte client', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'téléphone : la raison d’une action grisée est écrite, sous elle dans « ⋯ » et au-dessus du pied',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          statut: 'validee',
+          actions: {
+            modifier: 'grise',
+            annuler: 'grise',
+            annulation: 'demande',
+          } as ReturnType<typeof ficheClient>['actions'],
+        }),
+      );
+      render(fiche('c1'));
+      const motif =
+        'Seul le créateur de la collecte ou un manager peut la modifier.';
+
+      // Action principale grisée : sa raison au-dessus du pied, sur téléphone.
+      const notes = await screen.findByTestId(
+        'notes-pied-telephone',
+        {},
+        ATTENTE_UI,
+      );
+      expect(notes).toHaveTextContent(motif);
+      expect(notes.className).toContain('sm:hidden');
+
+      fireEvent.click(screen.getByTestId('action-autres'));
+      const annuler = await screen.findByTestId('menu-annuler', {}, ATTENTE_UI);
+      expect(annuler).toBeDisabled();
+      expect(screen.getByTestId('motif-menu-annuler')).toHaveTextContent(motif);
+      expect(annuler).toHaveAttribute('aria-describedby', 'motif-menu-annuler');
+      // Rapport pas encore disponible : son état d'attente.
+      expect(screen.getByTestId('motif-menu-telecharger')).toHaveTextContent(
+        'Document disponible dans les 48h après la collecte',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'action active : aucune raison écrite, ni dans « ⋯ » ni au-dessus du pied',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          statut: 'programmee',
+          rapport_rse_disponible: true,
+          actions: {
+            modifier: 'actif',
+            annuler: 'actif',
+            annulation: 'directe',
+          } as ReturnType<typeof ficheClient>['actions'],
+        }),
+      );
+      render(fiche('c1'));
+      fireEvent.click(
+        await screen.findByTestId('action-autres', {}, ATTENTE_UI),
+      );
+      await screen.findByTestId('menu-annuler', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('motif-menu-annuler')).toBeNull();
+      expect(screen.queryByTestId('motif-menu-telecharger')).toBeNull();
+      expect(screen.queryByTestId('notes-pied-telephone')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    '« Mis à jour le … » daté à l’heure de Paris, à côté du rapport (§05, §12 §1.4)',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          rapport_rse_disponible: true,
+          rapport_mis_a_jour_at: '2020-01-06T09:30:00Z',
+          actions: {
+            modifier: 'absent',
+            annuler: 'absent',
+            annulation: null,
+          } as ReturnType<typeof ficheClient>['actions'],
+        }),
+      );
+      render(fiche('c1'));
+      const libelle = 'Mis à jour le 6 janvier 2020 à 10h30';
+      expect(
+        await screen.findByTestId('rapport-mis-a-jour', {}, ATTENTE_UI),
+      ).toHaveTextContent(libelle);
+      expect(screen.getByTestId('notes-pied-telephone')).toHaveTextContent(
+        libelle,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'document jamais mis à jour : aucune mention',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          rapport_rse_disponible: true,
+          actions: {
+            modifier: 'absent',
+            annuler: 'absent',
+            annulation: null,
+          } as ReturnType<typeof ficheClient>['actions'],
+        }),
+      );
+      render(fiche('c1'));
+      await screen.findByTestId('action-telecharger-rapport', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('rapport-mis-a-jour')).toBeNull();
+      expect(screen.queryByTestId('notes-pied-telephone')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

@@ -9,6 +9,7 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
+  ArrowClockwiseIcon,
   ArrowRightIcon,
   CalendarDotsIcon,
   ClockIcon,
@@ -57,6 +58,7 @@ import {
 } from '@/components/ui/fiche/fiche-grand-en-tete';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+import { libelleMisAJour } from '@/lib/format-date-collecte';
 import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import { ROUTES } from '@/lib/routes';
@@ -297,6 +299,30 @@ export function FicheCollecteClientPanel({
         : lienAjouterCollecte
           ? 'ajouter'
           : null;
+  const motifGrise =
+    espace === 'traiteur'
+      ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
+      : 'Seule l’organisation qui a programmé la collecte peut la modifier.';
+  // Rapport pas encore téléchargeable : son état d'attente (ex. « disponible
+  // dans les 48h après la collecte »).
+  const motifRapport =
+    rapport.desactive && c.rapport_etat !== 'disponible'
+      ? LIBELLE_ETAT_RAPPORT[c.rapport_etat]
+      : undefined;
+  // Téléphone : raison de l'action principale grisée, écrite au-dessus du
+  // pied (le `title` des boutons ne s'affiche pas au toucher).
+  const motifPrincipale =
+    principale === 'modifier' && actions.modifier === 'grise'
+      ? motifGrise
+      : principale === 'telecharger'
+        ? motifRapport
+        : undefined;
+  // « Mis à jour le … » d'un document AG refait après sa première émission
+  // (§05 « Indicateur de mise à jour », §12 §1.4).
+  const miseAJour =
+    rapport.visible && c.rapport_mis_a_jour_at
+      ? libelleMisAJour(c.rapport_mis_a_jour_at)
+      : null;
   const libelleAnnuler = demande
     ? 'Demander l’annulation'
     : 'Annuler la collecte';
@@ -304,6 +330,9 @@ export function FicheCollecteClientPanel({
     cle: 'annuler' | 'ajouter' | 'telecharger';
     libelle: string;
     desactive?: boolean;
+    // Raison d'une action grisée, écrite sous elle dans le menu « ⋯ » : un
+    // `title` ne s'affiche pas au toucher.
+    motif?: string;
     lien?: string;
     onClick?: () => void;
   }[] = [
@@ -322,6 +351,7 @@ export function FicheCollecteClientPanel({
             cle: 'telecharger' as const,
             libelle: 'Télécharger le rapport',
             desactive: rapport.desactive || rapport.fabrication,
+            motif: motifRapport,
             onClick: () => void rapport.telecharger(),
           },
         ]
@@ -332,6 +362,7 @@ export function FicheCollecteClientPanel({
             cle: 'annuler' as const,
             libelle: libelleAnnuler,
             desactive: actions.annuler === 'grise',
+            motif: actions.annuler === 'grise' ? motifGrise : undefined,
             onClick: () => {
               setAnnulErreur(null);
               setAnnulOpen(true);
@@ -342,10 +373,6 @@ export function FicheCollecteClientPanel({
   ];
   const masqueTel = (cle: string) =>
     secondaires.some((a) => a.cle === cle) ? 'max-sm:hidden' : undefined;
-  const motifGrise =
-    espace === 'traiteur'
-      ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
-      : 'Seule l’organisation qui a programmé la collecte peut la modifier.';
   const progTypeLabel = c.programmee_par
     ? libelleTypeOrganisationMinuscule(c.programmee_par.type)
     : null;
@@ -508,8 +535,30 @@ export function FicheCollecteClientPanel({
           {rapport.erreur}
         </AlertBar>
       )}
+      {piedVisible && (motifPrincipale || miseAJour) && (
+        // Téléphone : ce que l'infobulle et l'espace libre du pied disent sur
+        // écran large, écrit au-dessus du pied.
+        <div
+          className="space-y-1 border-t border-savr-sable-200 px-5 pt-3 text-xs text-savr-neutral-600 sm:hidden"
+          data-testid="notes-pied-telephone"
+        >
+          {motifPrincipale && <p>{motifPrincipale}</p>}
+          {miseAJour && (
+            <p className="inline-flex items-center gap-1.5">
+              <ArrowClockwiseIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              {miseAJour}
+            </p>
+          )}
+        </div>
+      )}
       {piedVisible && (
-        <FichePied className="flex-nowrap justify-start gap-3 border-savr-sable-200 px-5 pb-7 pt-3 sm:flex-wrap sm:px-6 sm:py-4 md:px-12">
+        <FichePied
+          className={cn(
+            'flex-nowrap justify-start gap-3 border-savr-sable-200 px-5 pb-7 pt-3 sm:flex-wrap sm:px-6 sm:py-4 md:px-12',
+            // Notes du téléphone au-dessus : elles portent déjà le filet.
+            (motifPrincipale || miseAJour) && 'max-sm:border-t-0',
+          )}
+        >
           {/* Téléphone (B4) : l'action principale en grand, les autres dans
               « ⋯ ». Les boutons secondaires restent dans le DOM, masqués
               sous 640 px. */}
@@ -529,25 +578,41 @@ export function FicheCollecteClientPanel({
                 side="top"
                 className="flex w-72 flex-col p-1.5"
               >
-                {secondaires.map((a) => (
-                  <Button
-                    key={a.cle}
-                    variant={
-                      a.cle === 'annuler' ? 'ghost-destructive' : 'ghost'
-                    }
-                    className="justify-start"
-                    disabled={a.desactive}
-                    asChild={a.lien != null}
-                    onClick={a.lien ? undefined : a.onClick}
-                    data-testid={`menu-${a.cle}`}
-                  >
-                    {a.lien ? (
-                      <Link href={a.lien}>{a.libelle}</Link>
-                    ) : (
-                      a.libelle
-                    )}
-                  </Button>
-                ))}
+                {secondaires.map((a) => {
+                  const motif = a.desactive ? a.motif : undefined;
+                  return (
+                    <div key={a.cle}>
+                      <Button
+                        variant={
+                          a.cle === 'annuler' ? 'ghost-destructive' : 'ghost'
+                        }
+                        className="w-full justify-start"
+                        disabled={a.desactive}
+                        aria-describedby={
+                          motif ? `motif-menu-${a.cle}` : undefined
+                        }
+                        asChild={a.lien != null}
+                        onClick={a.lien ? undefined : a.onClick}
+                        data-testid={`menu-${a.cle}`}
+                      >
+                        {a.lien ? (
+                          <Link href={a.lien}>{a.libelle}</Link>
+                        ) : (
+                          a.libelle
+                        )}
+                      </Button>
+                      {motif && (
+                        <p
+                          id={`motif-menu-${a.cle}`}
+                          className="px-4 pb-2 text-xs text-savr-neutral-600"
+                          data-testid={`motif-menu-${a.cle}`}
+                        >
+                          {motif}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </PopoverContent>
             </Popover>
           )}
@@ -567,7 +632,22 @@ export function FicheCollecteClientPanel({
               {libelleAnnuler}
             </Button>
           )}
-          <span className="hidden flex-1 sm:block" aria-hidden="true" />
+          {/* Écran large : « Mis à jour le … » dans l'espace libre du pied, à
+              gauche du bouton de téléchargement. */}
+          <span className="hidden flex-1 justify-end sm:flex">
+            {miseAJour && (
+              <span
+                className="inline-flex items-center gap-1.5 text-xs text-savr-neutral-600"
+                data-testid="rapport-mis-a-jour"
+              >
+                <ArrowClockwiseIcon
+                  className="h-3.5 w-3.5"
+                  aria-hidden="true"
+                />
+                {miseAJour}
+              </span>
+            )}
+          </span>
           {lienAjouterCollecte && (
             <Button
               asChild
@@ -595,11 +675,7 @@ export function FicheCollecteClientPanel({
               disabled={rapport.desactive}
               // L'état du rapport (ex. « disponible dans les 48h après la
               // collecte ») remplace l'encadré retiré de l'onglet Bilan.
-              title={
-                rapport.desactive && c.rapport_etat !== 'disponible'
-                  ? LIBELLE_ETAT_RAPPORT[c.rapport_etat]
-                  : undefined
-              }
+              title={motifRapport}
               loading={rapport.fabrication}
               loadingText="Préparation du PDF…"
               onClick={() => void rapport.telecharger()}

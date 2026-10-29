@@ -489,7 +489,7 @@ const NAV_EXPECTATIONS: Record<Role, string[]> = {
     'Collectes',
     'Registre réglementaire',
   ],
-  client_organisateur: ['Mes événements', 'Collectes'],
+  client_organisateur: ['Dashboard', 'Collectes', 'Événements'],
 };
 
 it('M0.8-16 — nav admin_savr affiche les entrées admin (Clients, Paramètres, Collectes)', () => {

@@ -45,7 +45,13 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           href: ROUTES.admin.dashboardClient,
           icon: ChartBarIcon,
         },
+        // « Événements » sous « Collectes » : décision Val 2026-10-29.
         { label: 'Collectes', href: ROUTES.admin.collectes, icon: TruckIcon },
+        {
+          label: 'Événements',
+          href: ROUTES.admin.evenements,
+          icon: CalendarDotsIcon,
+        },
         {
           label: 'Facturation',
           href: ROUTES.admin.factures,
@@ -79,8 +85,9 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
     },
   ],
 
-  // §06.04 §1 — nav traiteur = 4 entrées V1 (refonte 2026-05-05) :
-  // Dashboard / Collectes / Mon organisation / Mon profil.
+  // §06.04 §1 — nav traiteur (refonte 2026-05-05) : Dashboard / Collectes /
+  // Mon organisation / Mon profil, plus « Événements » sous « Collectes »
+  // (décision Val 2026-10-29 : la liste Événements est commune à tous les rôles).
   // Identique manager et commercial (le contrôle d'accès intra-page masque
   // l'édition + la sous-section Équipe au commercial — révision 2026-05-29).
   traiteur_manager: [
@@ -95,6 +102,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           label: 'Collectes',
           href: ROUTES.traiteur.collectes,
           icon: TruckIcon,
+        },
+        {
+          label: 'Événements',
+          href: ROUTES.traiteur.evenements,
+          icon: CalendarDotsIcon,
         },
         {
           label: 'Mon organisation',
@@ -124,6 +136,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: TruckIcon,
         },
         {
+          label: 'Événements',
+          href: ROUTES.traiteur.evenements,
+          icon: CalendarDotsIcon,
+        },
+        {
           label: 'Mon organisation',
           href: ROUTES.traiteur.monOrganisation,
           icon: BuildingsIcon,
@@ -137,9 +154,10 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
     },
   ],
 
-  // §06.11 Navigation — réplique stricte §06.04 §1 : 4 entrées V1.
-  // Pas de Registre (non productrice, diff #5), pas de section Événements/Lieux/
-  // Reporting dédiée (export RSE via Bloc 8 dashboard, pack AG via onglet AG).
+  // §06.11 Navigation — réplique §06.04 §1. Pas de Registre (non productrice,
+  // diff #5), pas de section Lieux/Reporting dédiée (export RSE via Bloc 8
+  // dashboard, pack AG via onglet AG). « Événements » sous « Collectes » :
+  // décision Val 2026-10-29 (liste commune à tous les rôles).
   agence: [
     {
       items: [
@@ -149,6 +167,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: SquaresFourIcon,
         },
         { label: 'Collectes', href: ROUTES.agence.collectes, icon: TruckIcon },
+        {
+          label: 'Événements',
+          href: ROUTES.agence.evenements,
+          icon: CalendarDotsIcon,
+        },
         {
           label: 'Mon organisation',
           href: ROUTES.agence.monOrganisation,
@@ -222,18 +245,25 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
     },
   ],
 
+  // « Dashboard » (ex « Mes événements », renommé par Val le 2026-10-29) puis
+  // « Événements » sous « Collectes » : la liste commune à tous les rôles.
   client_organisateur: [
     {
       items: [
         {
-          label: 'Mes événements',
+          label: 'Dashboard',
           href: ROUTES.organisateur.racine,
-          icon: CalendarDotsIcon,
+          icon: SquaresFourIcon,
         },
         {
           label: 'Collectes',
           href: ROUTES.organisateur.collectes,
           icon: ClipboardTextIcon,
+        },
+        {
+          label: 'Événements',
+          href: ROUTES.organisateur.evenements,
+          icon: CalendarDotsIcon,
         },
         {
           label: 'Documents',

@@ -80,7 +80,7 @@ vi.mock('@/lib/collectes/fiche-client.js', () => ({
   chargerFicheCollecteClient: (...a: unknown[]) => mockCharger(...a),
 }));
 
-import { GET as LISTE } from '@/app/api/v1/gestionnaire/evenements/route.js';
+import { GET as LISTE } from '@/app/api/v1/evenements/route.js';
 import { GET as FICHE } from '@/app/api/v1/gestionnaire/evenements/[id]/route.js';
 import { EVENEMENTS_PAGE_SIZE as PAGE_SIZE } from '@/lib/evenements-gestionnaire.js';
 import { logger } from '@savr/shared/src/logger/index.js';
@@ -99,7 +99,8 @@ function session(role: string) {
   });
 }
 
-// Tous les rôles autres que le gestionnaire de lieux, staff compris.
+// Tous les rôles autres que le gestionnaire de lieux, staff compris (fiche
+// Événement, encore réservée au gestionnaire).
 const AUTRES_ROLES = [
   'admin_savr',
   'ops_savr',
@@ -180,9 +181,7 @@ function evenementBrut(over: Record<string, unknown> = {}) {
 }
 
 const liste = (qs = '') =>
-  LISTE(
-    new NextRequest(`http://localhost/api/v1/gestionnaire/evenements${qs}`),
-  );
+  LISTE(new NextRequest(`http://localhost/api/v1/evenements${qs}`));
 const fiche = (id = EVT_ID) =>
   FICHE(
     new NextRequest(`http://localhost/api/v1/gestionnaire/evenements/${id}`),
@@ -205,14 +204,15 @@ beforeEach(() => {
 });
 
 describe('M3.2 / liste Événements gestionnaire — route', () => {
-  it('M3.2/evenements_route_refuse_un_autre_role — tout autre rôle 403, session absente 401, sans aucune lecture', async () => {
-    for (const role of AUTRES_ROLES) {
-      rls = makeChain();
-      session(role);
-      const res = await liste();
-      expect(res.status, role).toBe(403);
-      expect(rls.__calls.from, role).toBeUndefined();
-    }
+  // Depuis le 2026-10-29 (décision Val), la liste est commune à tous les rôles
+  // (route /api/v1/evenements) : le périmètre de chacun est couvert par
+  // tests/api/evenements/liste-evenements-roles.test.ts. Reste refusé ce qui
+  // n'est pas un rôle de l'application.
+  it('M3.2/evenements_route_refuse_hors_role — rôle inconnu 403, session absente 401, sans aucune lecture', async () => {
+    rls = makeChain();
+    session('inconnu');
+    expect((await liste()).status).toBe(403);
+    expect(rls.__calls.from).toBeUndefined();
     rls = makeChain();
     sansSession();
     expect((await liste()).status).toBe(401);
@@ -404,10 +404,10 @@ describe('M3.2 / liste Événements gestionnaire — route', () => {
     expect(res.status).toBe(200);
     // L'échec est journalisé : sans trace, une panne se lirait « non
     // communiqué ».
-    expect(warn).toHaveBeenCalledWith(
-      'gestionnaire.evenements.dechets_labo_echec',
-      { evenement_id: EVT_ID, code: '42501' },
-    );
+    expect(warn).toHaveBeenCalledWith('evenements.liste.dechets_labo_echec', {
+      evenement_id: EVT_ID,
+      code: '42501',
+    });
     warn.mockRestore();
     const json = (await res.json()) as {
       data: { dechets_labo_kg: number | null }[];

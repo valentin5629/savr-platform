@@ -360,9 +360,9 @@
       "id": "BL-P1-TRAIT-05",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:18-25",
       "artefact": "packages/plateforme/src/lib/nav-config.ts",
-      "test": "M3.1/nav_traiteur_manager_4_entrees_sans_registre",
+      "test": "M3.1/nav_traiteur_manager_5_entrees_sans_registre",
       "statut": "implemented",
-      "libelle": "Nav traiteur = 4 entrées V1 (Registre réglementaire retiré des 2 rôles traiteur, conservé gestionnaire/organisateur)"
+      "libelle": "Nav traiteur = 4 entrées V1, 5 depuis l'ajout d'« Événements » sous « Collectes » (décision Val 2026-10-29) ; Registre réglementaire retiré des 2 rôles traiteur, conservé gestionnaire/organisateur"
     },
     {
       "id": "BL-P1-TRAIT-02",

@@ -27,6 +27,7 @@ import {
   type UserAuthContext,
 } from '@/lib/api-auth';
 import { STATUT_BILAN } from '@/lib/collectes/fiche-client-types';
+import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import type { DbClient } from '@/lib/dashboards/loaders';
 import { tailleBracket } from '@/lib/dashboard-kpi';
 import {
@@ -53,6 +54,10 @@ import {
 type CollecteBrute = CollecteAConsolider & {
   id: string;
   controle_acces_requis: boolean | null;
+  // Lus pour le staff seul : statut Admin « Créée » / « Programmée ».
+  statut_tms?: string | null;
+  tms_reference?: string | null;
+  prestataire_logistique_id?: string | null;
   heure_collecte: string | null;
   created_at: string | null;
   type_evenement: UnOuListe<{ libelle: string | null }>;
@@ -186,6 +191,7 @@ export async function chargerFicheEvenement(
        types_evenements!type_evenement_id(libelle),
        collectes(id, type, statut, date_collecte, heure_collecte, created_at,
          pax, taux_recyclage, co2_evite_kg, controle_acces_requis,
+         ${admin ? 'statut_tms, tms_reference, prestataire_logistique_id,' : ''}
          type_evenement:types_evenements!type_evenement_id(libelle),
          collecte_flux(poids_reel_kg, flux_dechets!flux_id(code))
          ${organisateur ? '' : `, ${embedAttributionsAg(ctx.role)}`}),
@@ -215,6 +221,7 @@ export async function chargerFicheEvenement(
         association_ville: asso?.ville ?? null,
       };
     });
+  let repasEnEchec: unknown;
   // Client organisateur : aa_select lui refuse les attributions ; repas lus
   // par le helper C-1-safe, pour les seules collectes AG clôturées.
   if (organisateur)
@@ -226,18 +233,18 @@ export async function chargerFicheEvenement(
             'f_volume_repas_realise',
             { p_collecte_id: c.id },
           );
-          if (echec) {
-            logger.warn('evenements.fiche.repas_echec', {
-              collecte_id: c.id,
-              code: echec.code,
-            });
-            return;
-          }
+          // Jamais un bilan faux en silence : l'échec fait échouer la fiche.
+          if (echec) throw echec;
           c.attributions_antgaspi = {
             volume_repas_realise: (repas as number | null) ?? null,
           };
         }),
-    );
+    ).catch((erreur: unknown) => {
+      logger.warn('evenements.fiche.repas_echec', { evenement_id: id });
+      repasEnEchec = erreur;
+    });
+  if (repasEnEchec !== undefined)
+    return { etat: 'erreur', erreur: repasEnEchec };
   const collectes = [...(evt.collectes ?? [])].sort(
     (a, b) =>
       (a.date_collecte ?? '').localeCompare(b.date_collecte ?? '') ||
@@ -371,6 +378,23 @@ export async function chargerFicheEvenement(
       // une collecte sont sur sa fiche).
       lieu_acces_details: lieu?.acces_details?.trim() || null,
       fiches,
+      // Staff : statut de chaque collecte en vue Admin (« Créée » tant que la
+      // demande n'est pas partie, « Programmée » ensuite — même règle que la
+      // liste Collectes Admin) ; les cartes légères n'en portent pas d'autre.
+      ...(admin && {
+        statuts_admin: Object.fromEntries(
+          collectes.map((c) => [
+            c.id,
+            statutCollecteAdmin({
+              statut: c.statut,
+              statut_tms: c.statut_tms ?? 'non_envoye',
+              tms_reference: c.tms_reference ?? null,
+              prestataire_logistique_id: c.prestataire_logistique_id ?? null,
+              attributions_antgaspi: c.attributions_antgaspi ?? null,
+            }),
+          ]),
+        ),
+      }),
     },
   };
 }

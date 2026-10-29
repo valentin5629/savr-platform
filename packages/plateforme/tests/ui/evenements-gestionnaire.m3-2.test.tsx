@@ -1461,8 +1461,21 @@ describe('M3.2 / fiche Événement Admin et client organisateur — écran', () 
     'M3.2/evenement_fiche_admin_ouvre_fiche_collecte_admin — cartes sans contacts ni chauffeurs, « Voir la collecte » ouvre la fiche collecte Admin (Val C6)',
     async () => {
       const d = detail({ dechets_labo_kg: null });
+      const fiches = (d.fiches as Record<string, unknown>[]).map((f) => ({
+        ...legere(f),
+        // Contacts visibles dans la donnée : c'est `detail` qui doit les masquer.
+        contacts_visibles: true,
+        contact_principal_nom: 'Contact Test',
+      }));
+      const premier = String((fiches[0] as Record<string, unknown>).id);
       stubFetch(() => ({
-        body: { data: { ...d, fiches: d.fiches.map(legere) } },
+        body: {
+          data: {
+            ...d,
+            fiches,
+            statuts_admin: { [premier]: 'rejetee_par_prestataire' },
+          },
+        },
       }));
       monterFiche({ espace: 'admin' });
       await ficheChargee();
@@ -1474,6 +1487,8 @@ describe('M3.2 / fiche Événement Admin et client organisateur — écran', () 
       );
       expect(screen.queryByTestId('bloc-logistique')).toBeNull();
       expect(cartes[0]).not.toHaveTextContent('Contact principal');
+      // Statut en vue Admin : « Rejetée », jamais le « Créée » des clients.
+      expect(cartes[0]).toHaveTextContent('Rejetée');
       fireEvent.click(
         within(cartes[0]!).getByRole('button', { name: 'Voir la collecte' }),
       );
@@ -1508,6 +1523,16 @@ describe('M3.2 / fiche Événement Admin et client organisateur — écran', () 
       await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
       expect(screen.queryByTestId('document-collecte')).toBeNull();
       expect(screen.queryByTestId('liens-bilans')).toBeNull();
+      // Rapport RSE cumulé proposé, rapport de don cumulé non (onglet AG).
+      expect(
+        screen.getByTestId('document-evenement-cumul'),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
+      await waitFor(
+        () =>
+          expect(screen.queryByTestId('document-evenement-cumul')).toBeNull(),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

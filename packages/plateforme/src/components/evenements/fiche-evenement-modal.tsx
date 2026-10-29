@@ -131,6 +131,8 @@ interface EvenementDetail {
   bilan: BilanEvenement;
   // Fiche de chaque collecte, dans l'ordre chronologique.
   fiches: FicheCollecteClient[];
+  // Staff : statut de chaque collecte en vue Admin (cf. la route).
+  statuts_admin?: Record<string, string>;
 }
 
 type Etat = 'chargement' | 'erreur' | 'introuvable' | 'pret';
@@ -674,8 +676,11 @@ function CarteCollecte({
   onDemanderUrgence,
   onOuvrir,
   detail,
+  statutAdmin,
 }: {
   f: FicheCollecteClient;
+  /** Staff : statut en vue Admin (granularité complète), sinon vue client. */
+  statutAdmin?: string;
   /** Contacts, informations supplémentaires et chauffeurs : fiche collecte client seulement. */
   detail: boolean;
   // Adresse / instructions d'accès différentes d'une collecte à l'autre : la
@@ -703,7 +708,11 @@ function CarteCollecte({
             {titreCollecte(f)}
           </Heading>
         </div>
-        <CollecteStatutBadge statut={f.statut} />
+        {statutAdmin ? (
+          <CollecteStatutBadge statut={statutAdmin} vue="admin" />
+        ) : (
+          <CollecteStatutBadge statut={f.statut} />
+        )}
       </div>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
         <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
@@ -841,7 +850,11 @@ export function FicheEvenementModal({
   const [fiche, setFiche] = useState<{
     id: string;
     onglet?: OngletFiche;
-  } | null>(collecteInitiale ? { id: collecteInitiale } : null);
+  } | null>(
+    // Organisateur : aucune fiche collecte, une adresse qui en nomme une
+    // n'ouvre rien (sinon la fiche événement ne se fermerait plus).
+    collecteInitiale && ouvrable ? { id: collecteInitiale } : null,
+  );
 
   useEffect(() => {
     let annule = false;
@@ -1200,6 +1213,7 @@ export function FicheEvenementModal({
                         avecAcces={accesLieu === undefined}
                         urgence={urgences[f.id]}
                         detail={!!espaceClient}
+                        statutAdmin={evt.statuts_admin?.[f.id]}
                         onDemanderUrgence={() => void demanderUrgence(f.id)}
                         onOuvrir={
                           ouvrable ? () => ouvrirCollecte(f.id) : undefined

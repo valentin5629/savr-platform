@@ -4,10 +4,11 @@ import { espaceFicheDuRole } from '@/lib/evenements/espace-fiche.js';
 import { repondreRapportEvenement } from '@/lib/evenements/reponses-cumul.js';
 
 // POST /api/v1/evenements/[id]/rapport-de-don
-// Rapport de don cumulé des collectes Anti-Gaspi réalisées de l'événement, sans radar. Pas pour le client organisateur : aa_select lui refuse les attributions, le rapport serait faux (décisions Val 2026-10-26 et 2026-10-29 : pour tous les rôles qui ont
-// la fiche), fabriqué au clic, réponse = le PDF. Logique et gardes communes :
-// `repondreRapportEvenement` (lib/evenements/reponses-cumul.ts), sous la
-// session de l'appelant.
+// Rapport de don cumulé des collectes Anti-Gaspi réalisées de l'événement,
+// sans radar, fabriqué au clic ; réponse = le PDF (décisions Val 2026-10-26 et
+// 2026-10-29 : pour tous les rôles qui ont la fiche, SAUF le client
+// organisateur, à qui aa_select refuse les attributions : le rapport serait
+// faux). Logique et gardes : `repondreRapportEvenement`, sous sa session.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,9 +22,7 @@ export async function POST(
   const auth = await requireAnyUser(req);
   if (auth.error) return auth.error;
   const espace = espaceFicheDuRole(auth.ctx.role);
-  if (!espace)
-    return NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 });
-  if (espace === 'organisateur')
+  if (!espace || espace === 'organisateur')
     return NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 });
   const { id } = await params;
   return repondreRapportEvenement(

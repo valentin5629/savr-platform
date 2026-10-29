@@ -519,6 +519,28 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
     }
   });
 
+  it('EVT/api_zd_staff_et_organisateur — rapport RSE cumulé servi à l’Admin et au client organisateur, sous leur session, radar demandé ignoré', async () => {
+    for (const role of ['admin_savr', 'client_organisateur']) {
+      mockRequireUser.mockResolvedValue({
+        ctx: {
+          ...CTX,
+          role,
+          organisationId: role === 'admin_savr' ? null : 'org-o',
+        },
+      });
+      mockParc.mockClear();
+      evenementVisible();
+      evenementAdmin();
+      collectesZdAdmin();
+      const res = await rapport('rapport-rse', {
+        options: { benchmark: true },
+      });
+      expect(res.status, role).toBe(200);
+      expect(mockParc, role).not.toHaveBeenCalled();
+      expect(payloadEnvoye(), role).not.toHaveProperty('benchmark_flux');
+    }
+  });
+
   it('EVT/api_zd_radar_sans_convives_422 — radar demandé sans convives connus → 422 « cet événement », aucun PDF', async () => {
     evenementVisible(null);
     const res = await rapport('rapport-rse', { options: { benchmark: true } });

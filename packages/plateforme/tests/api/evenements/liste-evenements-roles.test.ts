@@ -544,7 +544,22 @@ describe('Fiche Événement — Admin et client organisateur', () => {
       contacts_visibles: false,
       tournees: [],
       contact_principal_telephone: null,
-    });
+    }); // Statut en vue Admin, calculé par la route (clôturée = clôturée).
+    expect(
+      (data as unknown as { statuts_admin: Record<string, string> })
+        .statuts_admin,
+    ).toEqual({ 'c-ag': 'cloturee' });
+  });
+
+  it('M3.2/evenement_fiche_organisateur_repas_en_echec_500 — un repas illisible fait échouer la fiche, jamais un bilan faux', async () => {
+    service = makeClient({});
+    session = makeClient({ evenements: { data: evtFiche(), error: null } });
+    session.rpc.mockImplementation(async () => ({
+      data: null,
+      error: { code: '42501' },
+    }));
+    connecte('client_organisateur');
+    expect((await fiche()).status).toBe(500);
   });
 
   it('M3.2/evenement_fiche_organisateur_sans_detail — session, aucun embed d’attributions, repas par f_volume_repas_realise, cartes légères', async () => {

@@ -714,91 +714,100 @@ function CarteCollecte({
           <CollecteStatutBadge statut={f.statut} />
         )}
       </div>
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-        <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
-        <InfoItem label="Type d’événement">
-          {f.type_evenement?.libelle ?? VIDE}
-        </InfoItem>
-        {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
+      {/* Une carte par ligne, pleine largeur (la plupart des événements n'ont
+          qu'une collecte — demande Val 2026-10-29) : informations à gauche,
+          chauffeur à droite sur grand écran, l'un sous l'autre ailleurs. */}
+      <div
+        className={
+          detail ? 'grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8' : undefined
+        }
+      >
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+          <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
+          <InfoItem label="Type d’événement">
+            {f.type_evenement?.libelle ?? VIDE}
+          </InfoItem>
+          {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
             traiteur tiers (§06.05), décidé par le serveur. */}
-        {!detail ? null : f.contacts_visibles ? (
-          <>
-            <InfoItem label="Contact principal">
-              {f.contact_principal_nom ?? VIDE}
-              <span className="block font-normal">
-                <TelephoneLien telephone={f.contact_principal_telephone} />
+          {!detail ? null : f.contacts_visibles ? (
+            <>
+              <InfoItem label="Contact principal">
+                {f.contact_principal_nom ?? VIDE}
+                <span className="block font-normal">
+                  <TelephoneLien telephone={f.contact_principal_telephone} />
+                </span>
+              </InfoItem>
+              <InfoItem label="Contact de secours">
+                {secours ? (
+                  <>
+                    {f.contact_secours_nom ?? VIDE}
+                    <span className="block font-normal">
+                      <TelephoneLien telephone={f.contact_secours_telephone} />
+                    </span>
+                  </>
+                ) : (
+                  VIDE
+                )}
+              </InfoItem>
+            </>
+          ) : (
+            <InfoItem label="Contacts sur place" className="sm:col-span-2">
+              <span className="font-normal text-savr-neutral-500">
+                Réservés au traiteur qui a programmé la collecte.
               </span>
             </InfoItem>
-            <InfoItem label="Contact de secours">
-              {secours ? (
-                <>
-                  {f.contact_secours_nom ?? VIDE}
-                  <span className="block font-normal">
-                    <TelephoneLien telephone={f.contact_secours_telephone} />
-                  </span>
-                </>
-              ) : (
-                VIDE
-              )}
+          )}
+          {avecAdresse && (
+            <InfoItem label="Adresse" className="sm:col-span-2">
+              {adresseDe(f) ?? VIDE}
             </InfoItem>
-          </>
-        ) : (
-          <InfoItem label="Contacts sur place" className="sm:col-span-2">
-            <span className="font-normal text-savr-neutral-500">
-              Réservés au traiteur qui a programmé la collecte.
-            </span>
-          </InfoItem>
-        )}
-        {avecAdresse && (
-          <InfoItem label="Adresse" className="sm:col-span-2">
-            {adresseDe(f) ?? VIDE}
-          </InfoItem>
-        )}
-        {avecAcces && (
-          <InfoItem
-            variant="texte"
-            label="Instructions d’accès"
-            className="sm:col-span-2"
-            valueClassName="whitespace-pre-line"
-          >
-            {accesDe(f) ?? VIDE}
-          </InfoItem>
-        )}
+          )}
+          {avecAcces && (
+            <InfoItem
+              variant="texte"
+              label="Instructions d’accès"
+              className="sm:col-span-2"
+              valueClassName="whitespace-pre-line"
+            >
+              {accesDe(f) ?? VIDE}
+            </InfoItem>
+          )}
+          {detail && (
+            <InfoItem
+              variant="texte"
+              label="Informations supplémentaires"
+              className="sm:col-span-2"
+              valueClassName="whitespace-pre-line"
+            >
+              {f.informations_supplementaires?.trim() || VIDE}
+            </InfoItem>
+          )}
+        </dl>
         {detail && (
-          <InfoItem
-            variant="texte"
-            label="Informations supplémentaires"
-            className="sm:col-span-2"
-            valueClassName="whitespace-pre-line"
+          <div
+            className="space-y-3 border-t border-dashed border-savr-neutral-200 pt-4 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
+            data-testid="bloc-logistique"
           >
-            {f.informations_supplementaires?.trim() || VIDE}
-          </InfoItem>
-        )}
-      </dl>
-      {detail && (
-        <div
-          className="space-y-3 border-t border-dashed border-savr-neutral-200 pt-4"
-          data-testid="bloc-logistique"
-        >
-          <Text
-            as="p"
-            tone="ink"
-            className="flex items-center gap-2 font-semibold"
-          >
-            <TruckIcon
-              className="h-4 w-4 text-savr-primary-700"
-              aria-hidden="true"
+            <Text
+              as="p"
+              tone="ink"
+              className="flex items-center gap-2 font-semibold"
+            >
+              <TruckIcon
+                className="h-4 w-4 text-savr-primary-700"
+                aria-hidden="true"
+              />
+              {f.tournees.length > 1 ? 'Chauffeurs' : 'Chauffeur'}
+            </Text>
+            <Chauffeurs
+              c={f}
+              urgence={urgence?.etat ?? 'idle'}
+              urgenceErreur={urgence?.erreur ?? null}
+              onDemanderUrgence={onDemanderUrgence}
             />
-            {f.tournees.length > 1 ? 'Chauffeurs' : 'Chauffeur'}
-          </Text>
-          <Chauffeurs
-            c={f}
-            urgence={urgence?.etat ?? 'idle'}
-            urgenceErreur={urgence?.erreur ?? null}
-            onDemanderUrgence={onDemanderUrgence}
-          />
-        </div>
-      )}
+          </div>
+        )}
+      </div>
       {onOuvrir && (
         <div className="mt-auto flex justify-end">
           <Button variant="secondary" onClick={onOuvrir}>
@@ -1196,7 +1205,7 @@ export function FicheEvenementModal({
                 </FicheSection>
               </TabsContent>
 
-              {/* Une carte par collecte, deux par ligne sur grand écran. */}
+              {/* Une carte par collecte, l'une sous l'autre, pleine largeur. */}
               <TabsContent value="collectes" className="mt-0">
                 {evt.fiches.length === 0 ? (
                   <EmptyState
@@ -1204,7 +1213,7 @@ export function FicheEvenementModal({
                     title="Aucune collecte rattachée à cet événement."
                   />
                 ) : (
-                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="space-y-3">
                     {evt.fiches.map((f) => (
                       <CarteCollecte
                         key={f.id}

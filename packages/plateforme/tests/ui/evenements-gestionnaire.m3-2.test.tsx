@@ -48,6 +48,14 @@ vi.mock('@/components/collecte/fiche-collecte-client-modal', () => ({
     ) : null,
 }));
 
+// Fiche collecte Admin : seule compte la collecte qu'on lui demande d'ouvrir.
+vi.mock('@/components/admin/collecte-detail-modal', () => ({
+  CollecteDetailModal: ({ collecteId }: { collecteId: string | null }) =>
+    collecteId ? (
+      <div data-testid="fiche-collecte-admin-ouverte">{collecteId}</div>
+    ) : null,
+}));
+
 import EvenementsPage from '@/app/(gestionnaire)/gestionnaire/evenements/page.js';
 import { FicheEvenementModal } from '@/components/evenements/fiche-evenement-modal';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
@@ -1436,6 +1444,70 @@ describe('M3.2 / fiche Événement traiteur et agence — écran', () => {
       const urls = fetchMock.mock.calls.map(([u]) => String(u));
       expect(urls.some((u) => u.includes('/benchmark'))).toBe(false);
       expect(urls.some((u) => u.includes('/gestionnaire/'))).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M3.2 / fiche Événement Admin et client organisateur — écran', () => {
+  const legere = (f: Record<string, unknown>) => ({
+    ...f,
+    contacts_visibles: false,
+    contact_principal_nom: null,
+    contact_principal_telephone: null,
+    tournees: [],
+  });
+  it(
+    'M3.2/evenement_fiche_admin_ouvre_fiche_collecte_admin — cartes sans contacts ni chauffeurs, « Voir la collecte » ouvre la fiche collecte Admin (Val C6)',
+    async () => {
+      const d = detail({ dechets_labo_kg: null });
+      stubFetch(() => ({
+        body: { data: { ...d, fiches: d.fiches.map(legere) } },
+      }));
+      monterFiche({ espace: 'admin' });
+      await ficheChargee();
+      onglet('Informations collectes');
+      const cartes = await screen.findAllByTestId(
+        'carte-collecte',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(screen.queryByTestId('bloc-logistique')).toBeNull();
+      expect(cartes[0]).not.toHaveTextContent('Contact principal');
+      fireEvent.click(
+        within(cartes[0]!).getByRole('button', { name: 'Voir la collecte' }),
+      );
+      expect(
+        await screen.findByTestId(
+          'fiche-collecte-admin-ouverte',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('fiche-collecte-ouverte')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/evenement_fiche_organisateur_lecture_seule — cartes sans contacts ni chauffeurs ni « Voir la collecte », pas de documents par collecte ni de rapport de don cumulé (Val C7)',
+    async () => {
+      const d = detail({ dechets_labo_kg: null });
+      stubFetch(() => ({
+        body: { data: { ...d, fiches: d.fiches.map(legere) } },
+      }));
+      monterFiche({ espace: 'organisateur' });
+      await ficheChargee();
+      onglet('Informations collectes');
+      await screen.findAllByTestId('carte-collecte', undefined, ATTENTE_UI);
+      expect(
+        screen.queryByRole('button', { name: 'Voir la collecte' }),
+      ).toBeNull();
+      expect(screen.queryByTestId('bloc-logistique')).toBeNull();
+      onglet('Bilan & documents');
+      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      expect(screen.queryByTestId('document-collecte')).toBeNull();
+      expect(screen.queryByTestId('liens-bilans')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

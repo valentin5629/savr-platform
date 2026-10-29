@@ -12,15 +12,22 @@
 // distinguer « n'existe pas » de « pas à vous ». Brouillon = événement dont les
 // collectes sont toutes des brouillons, même filtre que la liste.
 //
-// Espaces servis : gestionnaire, traiteur, agence (ceux qui ont une fiche
-// collecte client). Seul le gestionnaire a les déchets labo estimés et le logo
-// du traiteur.
+// Espaces servis : tous (décision Val 2026-10-29). Gestionnaire, traiteur,
+// agence : chaque collecte est sa fiche collecte client. Admin et client
+// organisateur : carte « légère » par collecte (`ficheLegere` : date, type,
+// statut, pax, type d'événement, adresse ; ni contacts, ni chauffeurs, ni
+// documents par collecte) — l'Admin ouvre sa fiche collecte Admin au clic (C6),
+// l'organisateur n'a pas de fiche collecte (C7). Seul le gestionnaire a les
+// déchets labo estimés et le logo du traiteur.
 
 import { logger } from '@savr/shared/src/logger/index.js';
+import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import {
   createSupabaseServerClient,
   type UserAuthContext,
 } from '@/lib/api-auth';
+import { STATUT_BILAN } from '@/lib/collectes/fiche-client-types';
+import type { DbClient } from '@/lib/dashboards/loaders';
 import { tailleBracket } from '@/lib/dashboard-kpi';
 import {
   adresseLieu,
@@ -35,6 +42,7 @@ import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client';
 import type {
   EspaceClient,
   FicheCollecteClient,
+  LieuFiche,
 } from '@/lib/collectes/fiche-client-types';
 import {
   attributionsAgOf,
@@ -44,6 +52,7 @@ import {
 
 type CollecteBrute = CollecteAConsolider & {
   id: string;
+  controle_acces_requis: boolean | null;
   heure_collecte: string | null;
   created_at: string | null;
   type_evenement: UnOuListe<{ libelle: string | null }>;
@@ -78,15 +87,89 @@ export type ResultatFicheEvenement =
   | { etat: 'introuvable' }
   | { etat: 'erreur'; erreur: unknown };
 
+/** Espace de la fiche : un espace client (fiche collecte client), ou admin / organisateur. */
+export type EspaceFiche = EspaceClient | 'admin' | 'organisateur';
+
+/** Appelant : le staff n'a pas d'organisation. */
+type Appelant = Pick<UserAuthContext, 'userId' | 'role'> & {
+  organisationId: string | null;
+};
+
+/**
+ * Carte « légère » d'une collecte (Admin, client organisateur) : ce que la
+ * fiche événement montre sans fiche collecte client. Rien de personnel ni de
+ * logistique : contacts masqués, aucun chauffeur, aucune action, documents
+ * absents (l'Admin les a dans sa fiche collecte, l'organisateur sur sa page
+ * Documents). Adresse = celle du lieu de l'événement.
+ */
+function ficheLegere(
+  c: CollecteBrute,
+  lieu: LieuFiche | null,
+  evt: { id: string; nom_evenement: string | null; pax: number | null },
+): FicheCollecteClient {
+  return {
+    id: c.id,
+    type: c.type,
+    statut: c.statut,
+    statut_tms: '',
+    tms_reference: null,
+    date_collecte: c.date_collecte ?? '',
+    heure_collecte: c.heure_collecte,
+    pax: c.pax ?? 0,
+    controle_acces_requis: !!c.controle_acces_requis,
+    informations_completes: true,
+    informations_supplementaires: null,
+    taux_recyclage: c.taux_recyclage,
+    co2_evite_kg: c.co2_evite_kg,
+    realisee_at: null,
+    aucun_repas_motif: null,
+    type_evenement_id: null,
+    type_evenement: un(c.type_evenement),
+    contacts_visibles: false,
+    contact_principal_nom: null,
+    contact_principal_telephone: null,
+    contact_secours_nom: null,
+    contact_secours_telephone: null,
+    taille_bracket: null,
+    evenement: {
+      id: evt.id,
+      nom_evenement: evt.nom_evenement,
+      pax: evt.pax,
+      nom_client_organisateur: null,
+      reference_affaire: null,
+      lieu,
+    },
+    tournees: [],
+    coordonnees_urgence_demandee: false,
+    bilan_flux: null,
+    repas_donnes: null,
+    association: null,
+    rapport_rse_disponible: false,
+    rapport_mis_a_jour_at: null,
+    rapport_reserve_donneur_ordre: false,
+    rapport_etat: 'a_venir',
+    actions: { modifier: 'absent', annuler: 'absent', annulation: null },
+  };
+}
+
 export async function chargerFicheEvenement(
   id: string,
-  ctx: UserAuthContext,
-  espace: EspaceClient,
+  ctx: Appelant,
+  espace: EspaceFiche,
 ): Promise<ResultatFicheEvenement> {
   const gestionnaire = espace === 'gestionnaire';
+  const admin = espace === 'admin';
+  const organisateur = espace === 'organisateur';
+  // Espace de fiche collecte client, quand le rôle en a une.
+  const espaceClient: EspaceClient | null =
+    admin || organisateur ? null : espace;
   if (!estUuid(id)) return { etat: 'introuvable' };
 
-  const supabase = createSupabaseServerClient();
+  // Staff : service_role, comme la liste et les routes Admin ; les autres
+  // rôles sous leur session (RLS).
+  const supabase = (
+    admin ? createAdminSupabaseClient() : createSupabaseServerClient()
+  ) as DbClient;
   // Chemins de lecture imposés par la RLS (cf. PROFILS) : le traiteur passe,
   // pour le gestionnaire, par la vue restreinte v_traiteurs_gestionnaire (id,
   // nom, logo ; le logo est une clé R2 servie par le proxy …/traiteurs/[id]/logo
@@ -102,10 +185,10 @@ export async function chargerFicheEvenement(
        ${gestionnaire ? 'organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url),' : ''}
        types_evenements!type_evenement_id(libelle),
        collectes(id, type, statut, date_collecte, heure_collecte, created_at,
-         pax, taux_recyclage, co2_evite_kg,
+         pax, taux_recyclage, co2_evite_kg, controle_acces_requis,
          type_evenement:types_evenements!type_evenement_id(libelle),
-         collecte_flux(poids_reel_kg, flux_dechets!flux_id(code)),
-         ${embedAttributionsAg(ctx.role)}),
+         collecte_flux(poids_reel_kg, flux_dechets!flux_id(code))
+         ${organisateur ? '' : `, ${embedAttributionsAg(ctx.role)}`}),
        hors_brouillon:collectes(id)`,
     )
     .eq('id', id)
@@ -132,6 +215,29 @@ export async function chargerFicheEvenement(
         association_ville: asso?.ville ?? null,
       };
     });
+  // Client organisateur : aa_select lui refuse les attributions ; repas lus
+  // par le helper C-1-safe, pour les seules collectes AG clôturées.
+  if (organisateur)
+    await Promise.all(
+      (evt.collectes ?? [])
+        .filter((c) => c.type === 'anti_gaspi' && c.statut === STATUT_BILAN)
+        .map(async (c) => {
+          const { data: repas, error: echec } = await supabase.rpc(
+            'f_volume_repas_realise',
+            { p_collecte_id: c.id },
+          );
+          if (echec) {
+            logger.warn('evenements.fiche.repas_echec', {
+              collecte_id: c.id,
+              code: echec.code,
+            });
+            return;
+          }
+          c.attributions_antgaspi = {
+            volume_repas_realise: (repas as number | null) ?? null,
+          };
+        }),
+    );
   const collectes = [...(evt.collectes ?? [])].sort(
     (a, b) =>
       (a.date_collecte ?? '').localeCompare(b.date_collecte ?? '') ||
@@ -149,16 +255,31 @@ export async function chargerFicheEvenement(
     gestionnaire && bilan.nb_collectes_zd > 0
       ? supabase.rpc('f_dechets_labo_estimes', { p_evenement_id: id })
       : Promise.resolve(null),
-    Promise.all(
-      collectes.map((c) => chargerFicheCollecteClient(c.id, ctx, espace)),
-    ),
+    espaceClient
+      ? Promise.all(
+          collectes.map((c) =>
+            chargerFicheCollecteClient(
+              c.id,
+              ctx as UserAuthContext,
+              espaceClient,
+            ),
+          ),
+        )
+      : Promise.resolve(null),
     gestionnaire || !evt.traiteur_operationnel_organisation_id
       ? Promise.resolve(null)
-      : supabase
-          .from('v_referentiel_traiteurs')
-          .select('id, nom')
-          .eq('id', evt.traiteur_operationnel_organisation_id)
-          .maybeSingle(),
+      : admin
+        ? // Staff : nom de toute organisation (shadow comprise), en service_role.
+          supabase
+            .from('organisations')
+            .select('id, nom, raison_sociale')
+            .eq('id', evt.traiteur_operationnel_organisation_id)
+            .maybeSingle()
+        : supabase
+            .from('v_referentiel_traiteurs')
+            .select('id, nom')
+            .eq('id', evt.traiteur_operationnel_organisation_id)
+            .maybeSingle(),
   ]);
   let dechetsLaboKg: number | null = null;
   if (labo?.error)
@@ -171,8 +292,21 @@ export async function chargerFicheEvenement(
   // Jamais une fiche à trous : une collecte lue avec l'événement mais dont la
   // fiche ne se charge pas (erreur, ou disparue entre les deux lectures) fait
   // échouer la fiche, plutôt qu'un bilan sur N collectes et N−1 cartes.
+  const lieu = un(evt.lieux);
+  const lieuFiche: LieuFiche | null = lieu
+    ? {
+        id: '',
+        nom: lieu.nom ?? '',
+        adresse_acces: lieu.adresse_acces,
+        code_postal: lieu.code_postal,
+        ville: lieu.ville,
+        acces_details: lieu.acces_details,
+      }
+    : null;
   const fiches: FicheCollecteClient[] = [];
-  for (const r of resultats) {
+  if (!resultats)
+    for (const c of collectes) fiches.push(ficheLegere(c, lieuFiche, evt));
+  for (const r of resultats ?? []) {
     if (!('fiche' in r))
       return {
         etat: 'erreur',
@@ -189,13 +323,20 @@ export async function chargerFicheEvenement(
       evenement_id: id,
       code: nomsTraiteurs.error.code,
     });
-  const ref = nomsTraiteurs?.data as { id: string; nom: string | null } | null;
+  const ref = nomsTraiteurs?.data as {
+    id: string;
+    nom: string | null;
+    raison_sociale?: string | null;
+  } | null;
   const traiteur = gestionnaire
     ? un(evt.organisations)
     : ref
-      ? { id: ref.id, nom: ref.nom, logo_url: null }
+      ? {
+          id: ref.id,
+          nom: ref.nom?.trim() || ref.raison_sociale?.trim() || null,
+          logo_url: null,
+        }
       : null;
-  const lieu = un(evt.lieux);
 
   return {
     etat: 'ok',
@@ -222,7 +363,9 @@ export async function chargerFicheEvenement(
       // « Ajouter une collecte » : sur ses propres programmations seulement —
       // la route d'ajout répond 404 sur l'événement d'un traiteur tiers tenu
       // sur ses lieux.
-      ajouter_collecte: evt.organisation_id === ctx.organisationId,
+      // Admin et client organisateur : jamais (C6/C7).
+      ajouter_collecte:
+        !!espaceClient && evt.organisation_id === ctx.organisationId,
       bilan,
       // Instructions d'accès du lieu de référence (les précisions propres à
       // une collecte sont sur sa fiche).

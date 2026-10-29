@@ -130,9 +130,14 @@ describe('Liste Événements — réglages par espace', () => {
   );
 
   it(
-    'M3.2/liste_evenements_fiche_traiteur_agence — la ligne ouvre la fiche événement (Val 2026-10-29)',
+    'M3.2/liste_evenements_fiche_traiteur_agence — la ligne ouvre la fiche événement, pour tous les rôles (Val 2026-10-29)',
     async () => {
-      for (const Page of [TraiteurEvenementsPage, AgenceEvenementsPage]) {
+      for (const Page of [
+        TraiteurEvenementsPage,
+        AgenceEvenementsPage,
+        AdminEvenementsPage,
+        OrganisateurEvenementsPage,
+      ]) {
         const { unmount } = render(<Page />);
         const table = await tableau();
         fireEvent.click(
@@ -153,26 +158,6 @@ describe('Liste Événements — réglages par espace', () => {
         unmount();
         appels = [];
       }
-    },
-    ATTENTE_CAS_MS,
-  );
-
-  it(
-    'M3.2/liste_evenements_sans_fiche_hors_gestionnaire — ligne non cliquable, pas de chevron',
-    async () => {
-      render(<OrganisateurEvenementsPage />);
-      const table = await tableau();
-      expect(
-        within(table).queryByRole('row', { name: /Ouvrir l'événement/ }),
-      ).toBeNull();
-      // Pas de chevron « Ouvrir » (colonne absente).
-      expect(
-        within(table).queryByRole('columnheader', { name: 'Ouvrir' }),
-      ).toBeNull();
-      // Grille + carte mobile : le nom apparaît deux fois.
-      expect(
-        within(table).getAllByText('Gala de printemps').length,
-      ).toBeGreaterThan(0);
     },
     ATTENTE_CAS_MS,
   );

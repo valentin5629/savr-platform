@@ -51,6 +51,8 @@ const mockLogo = vi.fn();
 
 vi.mock('@/lib/api-auth.js', () => ({
   requireUser: (...a: unknown[]) => mockRequireUser(...a),
+  // Rapports cumulés : tous les rôles (requireAnyUser) ; benchmark : requireUser.
+  requireAnyUser: (...a: unknown[]) => mockRequireUser(...a),
   createSupabaseServerClient: () => rls,
 }));
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
@@ -289,15 +291,19 @@ describe('M3.2 — accès aux routes cumulées', () => {
     const refus = new Response(null, { status: 403 });
     mockRequireUser.mockResolvedValue({ error: refus });
     expect((await rapport('rapport-rse')).status).toBe(403);
-    // Rapports cumulés : tous les rôles qui ont la fiche (Val 2026-10-29).
-    expect(mockRequireUser.mock.calls[0]![1]).toEqual([
-      'gestionnaire_lieux',
-      'traiteur_manager',
-      'traiteur_commercial',
-      'agence',
-    ]);
+    // Rapports cumulés : tous les rôles (Val 2026-10-29) ; un rôle inconnu
+    // est refusé sans lecture, le rapport de don aussi au client organisateur
+    // (aa_select lui refuse les attributions : le rapport serait faux).
+    mockRequireUser.mockResolvedValue({ ctx: { ...CTX, role: 'inconnu' } });
+    expect((await rapport('rapport-rse')).status).toBe(403);
+    mockRequireUser.mockResolvedValue({
+      ctx: { ...CTX, role: 'client_organisateur' },
+    });
+    expect((await rapport('rapport-de-don')).status).toBe(403);
+    expect(mockPdf).not.toHaveBeenCalled();
     // Le radar (benchmark) reste au gestionnaire.
     mockRequireUser.mockClear();
+    mockRequireUser.mockResolvedValue({ error: refus });
     await benchmark();
     expect(mockRequireUser.mock.calls[0]![1]).toEqual(['gestionnaire_lieux']);
   });

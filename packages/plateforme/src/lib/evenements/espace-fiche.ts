@@ -1,18 +1,23 @@
-// Rôles qui ont la fiche Événement (décision Val 2026-10-29) et l'espace de
-// fiche collecte client qu'elle emprunte. Admin et client organisateur : lot
-// suivant (fiche collecte Admin au clic, fiche sans détail collecte).
-import type { ClientRole } from '@/lib/api-auth';
-import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
+// Espace de la fiche Événement d'un rôle (décision Val 2026-10-29 : la fiche
+// est commune à tous les rôles). Gestionnaire, traiteur, agence : leur espace
+// de fiche collecte client ; staff : 'admin' ; client organisateur :
+// 'organisateur' (cartes de collecte légères, cf. fiche-evenement.ts).
+import { isStaff as estRoleStaff } from '@/lib/roles';
+import type { EspaceFiche } from './fiche-evenement';
 
-export const ROLES_FICHE_EVENEMENT: ClientRole[] = [
-  'gestionnaire_lieux',
-  'traiteur_manager',
-  'traiteur_commercial',
-  'agence',
-];
-
-export function espaceFicheDuRole(role: string): EspaceClient {
-  if (role === 'gestionnaire_lieux') return 'gestionnaire';
-  if (role === 'agence') return 'agence';
-  return 'traiteur';
+export function espaceFicheDuRole(role: string): EspaceFiche | null {
+  if (estRoleStaff(role)) return 'admin';
+  switch (role) {
+    case 'gestionnaire_lieux':
+      return 'gestionnaire';
+    case 'agence':
+      return 'agence';
+    case 'traiteur_manager':
+    case 'traiteur_commercial':
+      return 'traiteur';
+    case 'client_organisateur':
+      return 'organisateur';
+    default:
+      return null;
+  }
 }

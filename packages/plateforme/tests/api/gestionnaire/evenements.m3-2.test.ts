@@ -99,9 +99,9 @@ function session(role: string) {
   });
 }
 
-// Rôles sans fiche Événement (gestionnaire, traiteur et agence l'ont depuis le
-// 2026-10-29 ; staff et client organisateur au lot suivant).
-const AUTRES_ROLES = ['admin_savr', 'ops_savr', 'client_organisateur'];
+// Fiche Événement ouverte à tous les rôles (Val 2026-10-29) : seul un rôle
+// hors de l'application est refusé.
+const AUTRES_ROLES = ['inconnu'];
 function sansSession() {
   mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
   mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
@@ -425,7 +425,7 @@ describe('M3.2 / liste Événements gestionnaire — route', () => {
 });
 
 describe('M3.2 / fiche Événement gestionnaire — route', () => {
-  it('M3.2/evenement_fiche_refuse_un_autre_role — rôle sans fiche 403, session absente 401, sans aucune lecture', async () => {
+  it('M3.2/evenement_fiche_refuse_un_autre_role — rôle hors application 403, session absente 401, sans aucune lecture', async () => {
     for (const role of AUTRES_ROLES) {
       rls = makeChain();
       session(role);

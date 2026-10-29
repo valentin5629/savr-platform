@@ -52,7 +52,7 @@ import type {
   LigneEvenement,
 } from '@/lib/evenements/liste-evenements';
 import type { OptionsFiltresEvenements } from '@/lib/evenements/filtres-evenements';
-import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
+import type { EspaceFiche } from '@/lib/evenements/fiche-evenement';
 
 type EvenementRow = LigneEvenement;
 
@@ -70,11 +70,8 @@ interface ReglageEspace {
   traiteur: boolean;
   /** Filtre « Client » (organisation programmatrice) : staff seul. */
   client: boolean;
-  /**
-   * Fiche événement au clic, et l'espace de fiche collecte qu'elle emprunte :
-   * gestionnaire, traiteur, agence. Admin et organisateur : lot suivant.
-   */
-  fiche: EspaceClient | null;
+  /** Espace de la fiche événement ouverte au clic (tous les rôles, Val 2026-10-29). */
+  fiche: EspaceFiche;
   /** « Déchets labo est. » : gestionnaire seul (§05 R_dechets_labo_estimes). */
   labo: boolean;
 }
@@ -87,7 +84,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: true,
-    fiche: null,
+    fiche: 'admin',
     labo: false,
   },
   traiteur: {
@@ -121,7 +118,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: false,
-    fiche: null,
+    fiche: 'organisateur',
     labo: false,
   },
 };

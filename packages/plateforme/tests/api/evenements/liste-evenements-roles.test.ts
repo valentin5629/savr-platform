@@ -42,6 +42,8 @@ function makeClient(resultats: Record<string, Result>) {
         return chain;
       };
     }
+    chain.maybeSingle = () =>
+      Promise.resolve(resultats[table] ?? { data: null, error: null });
     chain.then = (resolve: (r: Result) => unknown) =>
       resolve(resultats[table] ?? { data: [], error: null, count: 0 });
     calls.push({ table, m: 'from', args: [] });
@@ -66,6 +68,11 @@ vi.mock('@supabase/ssr', () => ({
 vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
 }));
+// Fiche collecte client : jamais chargée pour l'Admin ni l'organisateur.
+const mockCharger = vi.fn();
+vi.mock('@/lib/collectes/fiche-client.js', () => ({
+  chargerFicheCollecteClient: (...a: unknown[]) => mockCharger(...a),
+}));
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => ({
     from: (t: string) => service.from(t),
@@ -76,6 +83,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 
 import { GET as LISTE } from '@/app/api/v1/evenements/route.js';
 import { GET as FILTRES } from '@/app/api/v1/evenements/filtres/route.js';
+import { GET as FICHE } from '@/app/api/v1/evenements/[id]/route.js';
 
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
@@ -433,5 +441,143 @@ describe('Options de filtres Événements', () => {
     });
     connecte('agence');
     expect((await filtres()).status).toBe(500);
+  });
+});
+
+describe('Fiche Événement — Admin et client organisateur', () => {
+  const EVT_ID = '55555555-5555-4555-8555-555555555555';
+  const evtFiche = () => ({
+    id: EVT_ID,
+    organisation_id: 'org-1',
+    nom_evenement: 'Gala',
+    date_evenement: '2026-10-02',
+    pax: 300,
+    nom_client_organisateur: 'Maison X',
+    traiteur_operationnel_organisation_id: 'T1',
+    lieux: {
+      nom: 'Pavillon',
+      adresse_acces: '1 rue A',
+      code_postal: '75001',
+      ville: 'Paris',
+      acces_details: null,
+    },
+    types_evenements: { libelle: 'Gala' },
+    collectes: [
+      {
+        id: 'c-ag',
+        type: 'anti_gaspi',
+        statut: 'cloturee',
+        date_collecte: '2026-10-02',
+        heure_collecte: '23:00:00',
+        created_at: null,
+        pax: 300,
+        taux_recyclage: null,
+        co2_evite_kg: null,
+        controle_acces_requis: false,
+        type_evenement: { libelle: 'Gala' },
+        collecte_flux: [],
+      },
+    ],
+  });
+  const fiche = () =>
+    FICHE(new NextRequest(`http://localhost/api/v1/evenements/${EVT_ID}`), {
+      params: Promise.resolve({ id: EVT_ID }),
+    });
+  type Fiche = {
+    data: {
+      traiteur: { nom: string | null; a_logo: boolean } | null;
+      ajouter_collecte: boolean;
+      dechets_labo_kg: number | null;
+      bilan: { repas_donnes: number | null };
+      fiches: {
+        id: string;
+        contacts_visibles: boolean;
+        tournees: unknown[];
+        contact_principal_telephone: string | null;
+      }[];
+    };
+  };
+
+  it('M3.2/evenement_fiche_admin_cartes_legeres — service_role, cartes de collecte sans contacts ni chauffeurs, sans fiche collecte client, nom de toute organisation', async () => {
+    session = makeClient({});
+    service = makeClient({
+      evenements: {
+        data: {
+          ...evtFiche(),
+          collectes: evtFiche().collectes.map((c) => ({
+            ...c,
+            attributions_antgaspi: [
+              {
+                volume_repas_realise: 80,
+                association_id: 'A1',
+                associations: { id: 'A1', nom: 'Asso', ville: 'Paris' },
+              },
+            ],
+          })),
+        },
+        error: null,
+      },
+      organisations: {
+        data: { id: 'T1', nom: null, raison_sociale: 'Potel SAS' },
+        error: null,
+      },
+    });
+    mockCharger.mockClear();
+    connecte('admin_savr');
+    const res = await fiche();
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as Fiche;
+    expect(session.calls).toEqual([]);
+    expect(mockCharger).not.toHaveBeenCalled();
+    expect(data.traiteur).toEqual({
+      id: 'T1',
+      nom: 'Potel SAS',
+      a_logo: false,
+    });
+    expect(data.ajouter_collecte).toBe(false);
+    expect(data.dechets_labo_kg).toBeNull();
+    expect(service.rpc).not.toHaveBeenCalled();
+    expect(data.bilan.repas_donnes).toBe(80);
+    expect(data.fiches).toHaveLength(1);
+    expect(data.fiches[0]).toMatchObject({
+      id: 'c-ag',
+      contacts_visibles: false,
+      tournees: [],
+      contact_principal_telephone: null,
+    });
+  });
+
+  it('M3.2/evenement_fiche_organisateur_sans_detail — session, aucun embed d’attributions, repas par f_volume_repas_realise, cartes légères', async () => {
+    service = makeClient({});
+    session = makeClient({
+      evenements: { data: evtFiche(), error: null },
+      v_referentiel_traiteurs: {
+        data: { id: 'T1', nom: 'Potel' },
+        error: null,
+      },
+    });
+    session.rpc.mockImplementation(async (fn: string) =>
+      fn === 'f_volume_repas_realise'
+        ? { data: 120, error: null }
+        : { data: null, error: null },
+    );
+    mockCharger.mockClear();
+    connecte('client_organisateur');
+    const res = await fiche();
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as Fiche;
+    expect(service.calls).toEqual([]);
+    expect(mockCharger).not.toHaveBeenCalled();
+    expect(selectEvenements(session)).not.toContain('attributions_antgaspi');
+    expect(session.rpc).toHaveBeenCalledWith('f_volume_repas_realise', {
+      p_collecte_id: 'c-ag',
+    });
+    expect(data.bilan.repas_donnes).toBe(120);
+    expect(data.traiteur?.nom).toBe('Potel');
+    expect(data.ajouter_collecte).toBe(false);
+    expect(data.fiches[0]).toMatchObject({
+      contacts_visibles: false,
+      tournees: [],
+    });
   });
 });

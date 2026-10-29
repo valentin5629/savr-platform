@@ -508,7 +508,6 @@ describe('M3.3 / annulation', () => {
           lieu_nom: 'Salle Wagram',
           nom_evenement: '',
           motif: 'x',
-          info_facturation: '',
         },
       );
       expect(admin.__calls.eq).toContainEqual(['id', 'u-prog']);

@@ -28,8 +28,6 @@ export interface RecapProgrammationParams {
   lienCollectes?: string | null;
   /** Lien vers la fiche de l'événement (« programmez les autres collectes »). */
   lienEvenement?: string | null;
-  /** Instant de référence (tests) pour l'alerte « moins de 24 heures ». */
-  maintenant?: Date;
 }
 
 interface LigneCollecte {
@@ -49,24 +47,6 @@ export function dateLongue(date: string): string {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  });
-}
-
-/**
- * Alerte « moins de 24 heures » (Val 2026-10-16, reprise au récapitulatif le
- * 2026-10-29) : au moins une collecte annoncée commence dans moins de 24 h.
- */
-export function collecteSous24h(
-  collectes: { date_collecte: string; heure_collecte: string | null }[],
-  maintenant: Date,
-): boolean {
-  const limite = maintenant.getTime() + 24 * 3600 * 1000;
-  return collectes.some((c) => {
-    const debut = instantParis(
-      c.date_collecte,
-      (c.heure_collecte ?? '00:00').slice(0, 5),
-    ).getTime();
-    return debut < limite;
   });
 }
 
@@ -198,12 +178,6 @@ export async function envoyerRecapProgrammation(
       tarif_ligne: tarifLigne,
       lien_collectes: params.lienCollectes ?? '',
       lien_evenement: params.lienEvenement ?? '',
-      collecte_sous_24h: collecteSous24h(
-        collectes,
-        params.maintenant ?? new Date(),
-      )
-        ? 'true'
-        : '',
     },
     // Relu par l'écran de confirmation (suivi-recap-email.ts) : même entité.
     { entityType: ENTITE_RECAP_PROGRAMMATION, entityId: params.evenementId },

@@ -538,10 +538,7 @@ async function patchHandler(
           heureCollecte,
           lieuNom,
           nomEvenement: evt?.nom_evenement,
-          typeCollecte: (before as { type?: string | null }).type,
           motif: motifClient,
-          statutAvant,
-          annulationDemandeeAt,
         });
 
       await Promise.allSettled([

@@ -181,14 +181,9 @@ async function postHandler(
     heureCollecte,
     lieuNom: lieu?.nom ?? '',
     nomEvenement: evtObj?.nom_evenement,
-    typeCollecte: (before as { type?: string | null }).type,
-    motif: `Incident survenu lors de la collecte : ${motif}.`,
-    statutAvant: statutCourant,
-    annulationDemandeeAt: (before as { annulation_demandee_at?: string | null })
-      .annulation_demandee_at,
-    ...(imputable === 'client'
-      ? {}
-      : { infoFacturation: 'Cet incident ne vous sera pas facturé.' }),
+    motif: `Incident survenu lors de la collecte : ${motif}.${
+      imputable === 'client' ? '' : ' Cet incident ne vous sera pas facturé.'
+    }`,
   });
 
   // BL-P2-22 (tpl 22) : alerte Admin « collecte annulée », en parallèle du

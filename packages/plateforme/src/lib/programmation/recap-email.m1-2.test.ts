@@ -78,14 +78,14 @@ const CORPS = (() => {
   const sql = readFileSync(
     fileURLToPath(
       new URL(
-        '../../../../../supabase/migrations/20261029150000_plateforme_emails_lot_revue.sql',
+        '../../../../../supabase/migrations/20261029200000_plateforme_emails_retouches_cahier.sql',
         import.meta.url,
       ),
     ),
     'utf8',
   );
   // Texte validé à la revue des emails (Val 2026-10-29).
-  const fin = sql.indexOf("WHERE code = 'collecte_programmee';");
+  const fin = sql.indexOf("WHERE code = 'collecte_programmee' ");
   const debut = sql.lastIndexOf('corps_html = $tpl$', fin);
   if (fin < 0 || debut < 0)
     throw new Error('corps du template introuvable dans la migration');
@@ -243,7 +243,7 @@ describe('M1.2/email_recap_une_ligne_par_collecte — envoyerRecapProgrammation 
     expect(emails).toEqual([]);
   });
 
-  it('lieu, fiche événement, alerte moins de 24 h ; textes saisis neutralisés (revue des emails, Val 2026-10-29)', async () => {
+  it('lieu et phrase « plusieurs collectes » ; textes saisis neutralisés (revue des emails, Val 2026-10-29)', async () => {
     const proche = {
       ...ZD1,
       id: 'col-proche',
@@ -260,22 +260,21 @@ describe('M1.2/email_recap_une_ligne_par_collecte — envoyerRecapProgrammation 
       nomEvenement: 'Gala <script>',
       collecteIds: ['col-proche'],
       lienEvenement: 'https://app.test/traiteur/evenements?evenement=evt-1',
-      // 2030-11-12 19:00 Paris = 18:00 UTC : le 11 à 20:00 UTC, il reste 22 h.
-      maintenant: new Date('2030-11-11T20:00:00Z'),
     });
     const v = emails[0]!.variables;
     expect(v.lieu_nom).toBe('Salle &lt;Rive &amp; Gauche&gt;');
     expect(v.nom_evenement).toBe('Gala &lt;script&gt;');
     expect(v.prenom).toBe('Ju&lt;b&gt;lie');
-    expect(v.collecte_sous_24h).toBe('true');
+    expect(v).not.toHaveProperty('collecte_sous_24h');
     const html = interpolate(CORPS, v);
-    expect(html).toContain('appelez-nous au 07 61 91 29 97');
+    // Lien remis en texte par Val (2026-10-29) : la phrase seule.
     expect(html).toContain(
-      '<a href="https://app.test/traiteur/evenements?evenement=evt-1">',
+      "Votre événement nécessite plusieurs collectes ? N'oubliez pas de les programmer dès maintenant.",
     );
+    expect(html).not.toContain('07 61 91 29 97');
   });
 
-  it('collecte à plus de 24 h, sans lieu ni lien : ni alerte, ni « au », ni lien vers la fiche', async () => {
+  it('sans lieu ni lien : ni « au », ni phrase « plusieurs collectes »', async () => {
     const { supabase } = makeSupabase(
       { email: 'julie@traiteur.local', prenom: 'Julie' },
       [ZD1],
@@ -284,10 +283,8 @@ describe('M1.2/email_recap_une_ligne_par_collecte — envoyerRecapProgrammation 
     await envoyerRecapProgrammation(supabase, {
       ...PARAMS,
       collecteIds: ['col-zd1'],
-      maintenant: new Date('2030-11-10T18:00:00Z'),
     });
     const v = emails[0]!.variables;
-    expect(v.collecte_sous_24h).toBe('');
     const html = interpolate(CORPS, v);
     expect(html).not.toContain('07 61 91 29 97');
     expect(html).not.toContain("N'oubliez pas");

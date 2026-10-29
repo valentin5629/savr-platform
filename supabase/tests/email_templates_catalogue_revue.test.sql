@@ -72,11 +72,11 @@ SELECT is(
 
 -- Décisions de la revue, une par assertion.
 SELECT ok(
-  (SELECT strpos(corps_html, '{{#if collecte_sous_24h}}') > 0
-          AND strpos(corps_html, '07 61 91 29 97') > 0
-          AND strpos(corps_html, '{{#if lien_evenement}}') > 0
+  (SELECT strpos(corps_html, '07 61 91 29 97') = 0
+          AND strpos(corps_html, 'N''oubliez pas de les programmer dès maintenant.</p>') > 0
+          AND strpos(corps_html, '<a href="{{lien_evenement}}">') = 0
    FROM plateforme.email_templates WHERE code = 'collecte_programmee'),
-  'récapitulatif : alerte moins de 24 h (07 61 91 29 97) et lien vers la fiche événement'
+  'récapitulatif : plus d''alerte 24 h, la phrase « plusieurs collectes » sans lien (Val 2026-10-29)'
 );
 
 SELECT ok(
@@ -92,10 +92,10 @@ SELECT ok(
 );
 
 SELECT ok(
-  (SELECT strpos(sujet, 'Don de repas prévu') = 1
-          AND strpos(corps_html, '<ul><li>Collecte : le {{date_collecte}}') > 0
+  (SELECT strpos(sujet, 'Don de repas confirmé') = 1
+          AND strpos(corps_html, '<ul><li>Collecte sur événement : le {{date_collecte}}') > 0
    FROM plateforme.email_templates WHERE code = 'ag_attribution_association'),
-  'association : objet « Don de repas prévu », liste bien formée'
+  'association : objet « Don de repas confirmé », liste bien formée'
 );
 
 SELECT * FROM finish();

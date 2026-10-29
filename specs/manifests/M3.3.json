@@ -30,7 +30,8 @@
     "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
     "packages/plateforme/src/lib/collectes/liste-collectes-client.ts",
     "packages/plateforme/src/app/api/v1/agence/collectes/filtres/route.ts",
-    "supabase/tests/liste_collectes_agence_lecture.test.sql"
+    "supabase/tests/liste_collectes_agence_lecture.test.sql",
+    "packages/plateforme/tests/lib/nav-config-agence.m3-3.test.ts"
   ],
   "scenarios": [
     "M3.3/auth_guard_non_agence_403",
@@ -89,7 +90,8 @@
     "M3.3/evolution_agence_ag_lit_la_table",
     "M3.3/synthese_agence_ag_lit_la_table",
     "M3.3/edition_autre_organisation_403",
-    "M3.3/annulation_autre_organisation_403"
+    "M3.3/annulation_autre_organisation_403",
+    "M3.3/navigation_agence_5_entrees_sans_registre"
   ],
   "deliverables": [
     {
@@ -534,6 +536,15 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
       "libelle": "Cartes KPI du dashboard agence au pax des collectes (lot 3, décisions Val Q1 à Q5 du 2026-10-25) : mêmes lignes v_kpi_traiteur et mêmes dérivations que le traiteur — kg/pax et repas/pax sur les collectes à convives connus, pax cumulés = Σ pax des collectes. Toujours sans carte Marge (§06.11 diff #7)."
+    },
+    {
+      "id": "M3.3-navigation-evenements",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:40-44",
+      "artefact": "packages/plateforme/src/lib/nav-config.ts",
+      "test": "M3.3/navigation_agence_5_entrees_sans_registre",
+      "statut": "implemented",
+      "libelle": "Navigation agence (§06.11, réplique §06.04 §1) : Dashboard · Collectes · Événements · Mon organisation · Mon profil, sans Registre / Rapports RSE / Mon pack AG ; « Événements » sous « Collectes » depuis le 2026-10-29 (décision Val, liste commune à tous les rôles). Couvre le scénario 06.11 navigation_agence_4_entrees_sans_registre, à renommer en _5_entrees (fiche de divergence).",
+      "ref_divergence": "_Divergences/M3.2_20261029_liste-evenements-tous-roles.md"
     }
   ],
   "cdc_source_hash": {

@@ -58,6 +58,7 @@ const ANCIEN_API_COLLECTES = {
 const NAV_TRAITEUR = [
   ['Dashboard', '/traiteur'],
   ['Collectes', '/traiteur/collectes'],
+  ['Événements', '/traiteur/evenements'],
   ['Mon organisation', '/traiteur/mon-organisation'],
   ['Mon profil', '/traiteur/mon-profil'],
 ];
@@ -66,6 +67,7 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
     ['Dashboard Admin', '/admin/dashboard'],
     ['Dashboard Client', '/admin/dashboard-client'],
     ['Collectes', '/admin/collectes'],
+    ['Événements', '/admin/evenements'],
     ['Facturation', '/admin/factures'],
     ['Associations', '/admin/associations'],
     ['Transporteurs', '/admin/transporteurs'],
@@ -81,6 +83,7 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
   agence: [
     ['Dashboard', '/agence'],
     ['Collectes', '/agence/collectes'],
+    ['Événements', '/agence/evenements'],
     ['Mon organisation', '/agence/mon-organisation'],
     ['Mon profil', '/agence/mon-profil'],
   ],
@@ -96,8 +99,9 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
     ['Paramètres', '/gestionnaire/parametres'],
   ],
   client_organisateur: [
-    ['Mes événements', '/organisateur'],
+    ['Dashboard', '/organisateur'],
     ['Collectes', '/organisateur/collectes'],
+    ['Événements', '/organisateur/evenements'],
     ['Documents', '/organisateur/documents'],
     ['Registre réglementaire', '/registre'],
     ['Mon organisation', '/organisateur/mon-organisation'],

@@ -249,7 +249,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
     'M3.2/evenements_liste_une_ligne_par_evenement — collectes par type, résultats cumulés, statut consolidé',
     async () => {
       stubFetch((url) =>
-        url.includes('/gestionnaire/filtres')
+        url.includes('/evenements/filtres')
           ? { body: OPTIONS }
           : url.includes(`/gestionnaire/evenements/${EVT_ID}`)
             ? { body: { data: detail() } }
@@ -300,7 +300,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
       vi.setSystemTime(new Date('2026-07-08T08:00:00Z'));
       try {
         const fetchMock = stubFetch((url) =>
-          url.includes('/gestionnaire/filtres')
+          url.includes('/evenements/filtres')
             ? { body: OPTIONS }
             : { body: { data: [LIGNE], total: 1 } },
         );
@@ -308,7 +308,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
           new URLSearchParams(
             fetchMock.mock.calls
               .map(([u]) => String(u))
-              .filter((u) => u.includes('/gestionnaire/evenements?'))
+              .filter((u) => u.includes('/api/v1/evenements?'))
               .at(-1)
               ?.split('?')[1],
           );
@@ -350,7 +350,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
     'M3.2/evenements_changer_de_vue_reprend_son_tri — un tri choisi dans une vue ne passe pas à l’autre',
     async () => {
       const fetchMock = stubFetch((url) =>
-        url.includes('/gestionnaire/filtres')
+        url.includes('/evenements/filtres')
           ? { body: OPTIONS }
           : { body: { data: [LIGNE], total: 1 } },
       );
@@ -358,7 +358,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
         new URLSearchParams(
           fetchMock.mock.calls
             .map(([u]) => String(u))
-            .filter((u) => u.includes('/gestionnaire/evenements?'))
+            .filter((u) => u.includes('/api/v1/evenements?'))
             .at(-1)
             ?.split('?')[1],
         ).get('ordre');
@@ -397,7 +397,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
     'M3.2/evenements_liste_type_collecte_transmis — le segmenté ZD / AG filtre la route',
     async () => {
       const fetchMock = stubFetch((url) =>
-        url.includes('/gestionnaire/filtres')
+        url.includes('/evenements/filtres')
           ? { body: OPTIONS }
           : { body: { data: [LIGNE], total: 1 } },
       );
@@ -407,7 +407,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
       await screen.findByTestId('evenements-table', undefined, ATTENTE_UI);
       const appels = fetchMock.mock.calls
         .map(([u]) => String(u))
-        .filter((u) => u.includes('/gestionnaire/evenements?'));
+        .filter((u) => u.includes('/api/v1/evenements?'));
       expect(appels.at(-1)).toContain('type=anti_gaspi');
     },
     ATTENTE_CAS_MS,
@@ -448,7 +448,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
           },
         ];
         stubFetch((url) =>
-          url.includes('/gestionnaire/filtres')
+          url.includes('/evenements/filtres')
             ? { body: OPTIONS }
             : { body: { data: lignes, total: lignes.length } },
         );
@@ -511,7 +511,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
         nb_sans_excedent: 1,
       };
       stubFetch((url) =>
-        url.includes('/gestionnaire/filtres')
+        url.includes('/evenements/filtres')
           ? { body: OPTIONS }
           : { body: { data: [vide, muet, mixte], total: 3 } },
       );
@@ -546,7 +546,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
       adresse = new URLSearchParams('page=9');
       window.history.replaceState(null, '', '/gestionnaire/evenements?page=9');
       const fetchMock = stubFetch((url) =>
-        url.includes('/gestionnaire/filtres')
+        url.includes('/evenements/filtres')
           ? { body: OPTIONS }
           : url.includes('page=9')
             ? { body: { data: [], total: 1 } }
@@ -568,7 +568,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
       guet.disconnect();
       const appels = fetchMock.mock.calls
         .map(([u]) => String(u))
-        .filter((u) => u.includes('/gestionnaire/evenements?'));
+        .filter((u) => u.includes('/api/v1/evenements?'));
       expect(appels[0]).toContain('page=9');
       expect(appels.at(-1)).not.toContain('page=');
       expect(vuVide).toBe(false);
@@ -580,7 +580,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
     'M3.2/evenements_liste_erreur_distincte_du_vide — une panne ne se lit pas « Aucun événement »',
     async () => {
       stubFetch((url) =>
-        url.includes('/gestionnaire/filtres')
+        url.includes('/evenements/filtres')
           ? { body: OPTIONS }
           : { status: 500, body: {} },
       );
@@ -595,7 +595,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
     'M3.2/evenements_liste_vide — état vide illustré',
     async () => {
       stubFetch((url) =>
-        url.includes('/gestionnaire/filtres')
+        url.includes('/evenements/filtres')
           ? { body: OPTIONS }
           : { body: { data: [], total: 0 } },
       );
@@ -1425,7 +1425,7 @@ describe('M3.2 / liste Événements gestionnaire — fiche en pop-up depuis l’
         `/gestionnaire/evenements?evenement=${EVT_ID}&collecte=c2`,
       );
       const fetchMock = stubFetch((url) =>
-        url.includes('/gestionnaire/filtres')
+        url.includes('/evenements/filtres')
           ? { body: OPTIONS }
           : url.includes(`/gestionnaire/evenements/${EVT_ID}`)
             ? { body: { data: detail() } }
@@ -1442,7 +1442,7 @@ describe('M3.2 / liste Événements gestionnaire — fiche en pop-up depuis l’
 
       const listes = () =>
         fetchMock.mock.calls.filter(([u]) =>
-          String(u).includes('/gestionnaire/evenements?'),
+          String(u).includes('/api/v1/evenements?'),
         ).length;
       const avant = listes();
       fireEvent.keyDown(document, { key: 'Escape' });

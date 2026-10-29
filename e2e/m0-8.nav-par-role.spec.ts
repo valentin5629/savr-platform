@@ -9,23 +9,33 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001';
 type NavResponse = { role: string; items: { label: string; href: string }[] };
 
 const EXPECTED: Record<string, string[]> = {
-  admin_savr: ['Clients', 'Paramètres', 'Collectes'],
-  // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1.
+  admin_savr: ['Clients', 'Paramètres', 'Collectes', 'Événements'],
+  // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1, plus « Événements »
+  // sous « Collectes » (Val 2026-10-29).
   traiteur_manager: [
     'Dashboard',
     'Collectes',
+    'Événements',
     'Mon organisation',
     'Mon profil',
   ],
   traiteur_commercial: [
     'Dashboard',
     'Collectes',
+    'Événements',
     'Mon organisation',
     'Mon profil',
   ],
-  agence: ['Dashboard', 'Collectes', 'Mon organisation', 'Mon profil'],
+  agence: [
+    'Dashboard',
+    'Collectes',
+    'Événements',
+    'Mon organisation',
+    'Mon profil',
+  ],
   gestionnaire_lieux: ['Mes lieux', 'Collectes'],
-  client_organisateur: ['Mes événements', 'Collectes'],
+  // « Mes événements » renommé « Dashboard » (Val 2026-10-29).
+  client_organisateur: ['Dashboard', 'Collectes', 'Événements'],
 };
 
 for (const [role, expectedLabels] of Object.entries(EXPECTED)) {

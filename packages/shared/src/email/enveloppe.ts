@@ -26,6 +26,12 @@ const DISCRET = '#6e7790';
 const FOND = '#f7f8fb';
 const BORD = '#dde1ea';
 const POLICE = 'Arial, Helvetica, sans-serif';
+// Une ligne de texte = 24 px (15 px × 1,6). Val 2026-10-29 : 3 lignes de plus
+// sous le logo, au-dessus et au-dessous de chaque bouton.
+const LIGNE = 24;
+const ESPACE_SOUS_LOGO = 8 + 3 * LIGNE;
+const ESPACE_BOUTON_HAUT = 24 + 3 * LIGNE;
+const ESPACE_BOUTON_BAS = 20 + 3 * LIGNE;
 
 /** Un paragraphe qui contient au moins un lien. */
 const PARAGRAPHE_AVEC_LIEN =
@@ -38,7 +44,7 @@ const LIEN = /<a href="([^"]+)">([^<]*)<\/a>/g;
 // couleur de lien s'ajoutait : constaté par Val le 2026-10-29).
 function bouton(href: string, libelle: string): string {
   return (
-    `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto 20px">` +
+    `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:${ESPACE_BOUTON_HAUT}px auto ${ESPACE_BOUTON_BAS}px">` +
     `<tr><td align="center" bgcolor="${MARINE}" style="border-radius:8px;background:${MARINE};mso-padding-alt:14px 28px">` +
     `<a style="display:inline-block;padding:14px 28px;border:1px solid ${MARINE};border-radius:8px;background:${MARINE};font:600 15px/20px ${POLICE};color:#ffffff;text-decoration:none;letter-spacing:0.2px" href="${href}">` +
     `<span style="color:#ffffff">${libelle}&nbsp;&nbsp;<span style="color:${ORANGE}">&rarr;</span></span></a>` +
@@ -79,7 +85,7 @@ export function envelopperHtml(corps: string, sujet: string): string {
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${FOND}">` +
     `<tr><td align="center" style="padding:24px 12px">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid ${BORD};border-radius:8px">` +
-    `<tr><td align="center" style="padding:28px 32px 8px">` +
+    `<tr><td align="center" style="padding:28px 32px ${ESPACE_SOUS_LOGO}px">` +
     `<img src="cid:${LOGO_CID}" width="${LOGO_LARGEUR}" height="${LOGO_HAUTEUR}" alt="Savr" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:${LOGO_LARGEUR}px;font:800 24px ${POLICE};color:${MARINE}">` +
     `</td></tr>` +
     `<tr><td style="padding:12px 32px 24px;font:15px/1.6 ${POLICE};color:${TEXTE}">${presenterCorps(corps)}</td></tr>` +

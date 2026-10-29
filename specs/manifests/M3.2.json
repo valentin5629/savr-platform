@@ -1397,7 +1397,7 @@
     },
     {
       "id": "M3.2-fiche-evenement-tous-roles",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:309-323",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-357",
       "artefact": "packages/plateforme/src/lib/evenements/fiche-evenement.ts + packages/plateforme/src/lib/evenements/espace-fiche.ts + packages/plateforme/src/app/api/v1/evenements/[id]/route.ts + packages/plateforme/src/app/api/v1/evenements/[id]/rapport-rse/route.ts + packages/plateforme/src/app/api/v1/evenements/[id]/rapport-de-don/route.ts + packages/plateforme/src/app/api/v1/evenements/[id]/benchmark/route.ts + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx + packages/plateforme/src/components/evenements/liste-evenements.tsx",
       "test": "M3.2/evenement_fiche_traiteur_agence_chemins_du_role + EVT/api_zd_sans_radar_hors_gestionnaire + M3.2/evenement_fiche_traiteur_sans_radar_ni_labo + M3.2/liste_evenements_fiche_traiteur_agence + M3.2/evenement_fiche_admin_cartes_legeres + M3.2/evenement_fiche_organisateur_sans_detail + M3.2/evenement_fiche_admin_ouvre_fiche_collecte_admin + M3.2/evenement_fiche_organisateur_lecture_seule",
       "statut": "implemented",

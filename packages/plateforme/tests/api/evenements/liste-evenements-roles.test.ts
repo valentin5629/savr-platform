@@ -504,6 +504,8 @@ describe('Fiche Événement — Admin et client organisateur', () => {
       evenements: {
         data: {
           ...evtFiche(),
+          // Nom du traiteur lu dans la requête (organisations, service_role).
+          organisations: { id: 'T1', nom: null, raison_sociale: 'Potel SAS' },
           collectes: evtFiche().collectes.map((c) => ({
             ...c,
             attributions_antgaspi: [
@@ -515,10 +517,6 @@ describe('Fiche Événement — Admin et client organisateur', () => {
             ],
           })),
         },
-        error: null,
-      },
-      organisations: {
-        data: { id: 'T1', nom: null, raison_sociale: 'Potel SAS' },
         error: null,
       },
     });

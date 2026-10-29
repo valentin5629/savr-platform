@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAnyUser, type UserAuthContext } from '@/lib/api-auth.js';
-import { espaceFicheDuRole } from '@/lib/evenements/espace-fiche.js';
+import { espaceEvenementsDuRole } from '@/lib/evenements/liste-evenements.js';
 import { repondreRapportEvenement } from '@/lib/evenements/reponses-cumul.js';
 
 // POST /api/v1/evenements/[id]/rapport-rse
@@ -21,7 +21,7 @@ export async function POST(
 ): Promise<NextResponse> {
   const auth = await requireAnyUser(req);
   if (auth.error) return auth.error;
-  const espace = espaceFicheDuRole(auth.ctx.role);
+  const espace = espaceEvenementsDuRole(auth.ctx.role);
   if (!espace)
     return NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 });
   const { id } = await params;

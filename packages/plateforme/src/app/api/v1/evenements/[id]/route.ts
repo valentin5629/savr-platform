@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAnyUser } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
-import { espaceFicheDuRole } from '@/lib/evenements/espace-fiche.js';
+import { espaceEvenementsDuRole } from '@/lib/evenements/liste-evenements.js';
 import { chargerFicheEvenement } from '@/lib/evenements/fiche-evenement.js';
 
 // GET /api/v1/evenements/[id] — fiche Événement, commune à tous les rôles
@@ -12,7 +12,7 @@ export async function GET(
 ): Promise<NextResponse> {
   const auth = await requireAnyUser(req);
   if (auth.error) return auth.error;
-  const espace = espaceFicheDuRole(auth.ctx.role);
+  const espace = espaceEvenementsDuRole(auth.ctx.role);
   if (!espace)
     return NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 });
   const { id } = await params;

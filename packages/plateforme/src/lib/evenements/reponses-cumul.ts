@@ -90,7 +90,7 @@ export async function repondreRapportEvenement(
   type: TypeRapportEvenement,
   evenementLog: string,
   /** Radar ouvert au rôle (le benchmark de la fiche événement : gestionnaire). */
-  radarPermis = true,
+  radarPermis: boolean,
 ): Promise<NextResponse> {
   const supabase = createSupabaseServerClient();
   const lu = await evenementOuRefus(supabase, id, evenementLog);

@@ -485,7 +485,6 @@ function BilanConsolide({
  */
 function DocumentsEvenement({
   espace,
-  avecCumul,
   evenementId,
   type,
   nbRealisees,
@@ -495,14 +494,15 @@ function DocumentsEvenement({
   espace: EspaceFiche;
   evenementId: string;
   type: CollecteType;
-  /** Rapport cumulé proposé (pas le rapport de don au client organisateur). */
-  avecCumul: boolean;
   nbRealisees: number;
   radar: RadarFiche;
   actives: FicheCollecteClient[];
 }) {
   const [enCours, setEnCours] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  // Rapport cumulé : pas le rapport de don au client organisateur (la base lui
+  // refuse les attributions, le rapport serait faux).
+  const avecCumul = espace !== 'organisateur' || type === 'zero_dechet';
   // Rapport cumulé ZD : radar au choix de celui qui le télécharge, sur les
   // filtres réglés au-dessus ; la case part décochée (comme la fiche collecte).
   const [avecRadar, setAvecRadar] = useState(false);
@@ -1262,9 +1262,6 @@ export function FicheEvenementModal({
                 />
                 <DocumentsEvenement
                   espace={espace}
-                  avecCumul={
-                    espace !== 'organisateur' || typeAffiche === 'zero_dechet'
-                  }
                   evenementId={evt.id}
                   type={typeAffiche}
                   nbRealisees={

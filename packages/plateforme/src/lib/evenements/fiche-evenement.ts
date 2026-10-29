@@ -27,6 +27,8 @@ import {
   type UserAuthContext,
 } from '@/lib/api-auth';
 import { STATUT_BILAN } from '@/lib/collectes/fiche-client-types';
+import type { EspaceEvenements } from '@/lib/evenements/liste-evenements';
+import { nomOrganisation } from '@/lib/evenements/filtres-evenements';
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import type { DbClient } from '@/lib/dashboards/loaders';
 import { tailleBracket } from '@/lib/dashboard-kpi';
@@ -81,7 +83,8 @@ type EvenementBrut = {
   organisations?: UnOuListe<{
     id: string;
     nom: string | null;
-    logo_url: string | null;
+    raison_sociale?: string | null;
+    logo_url?: string | null;
   }>;
   types_evenements: UnOuListe<{ libelle: string | null }>;
   collectes: CollecteBrute[] | null;
@@ -93,7 +96,7 @@ export type ResultatFicheEvenement =
   | { etat: 'erreur'; erreur: unknown };
 
 /** Espace de la fiche : un espace client (fiche collecte client), ou admin / organisateur. */
-export type EspaceFiche = EspaceClient | 'admin' | 'organisateur';
+export type EspaceFiche = EspaceEvenements;
 
 /** Appelant : le staff n'a pas d'organisation. */
 type Appelant = Pick<UserAuthContext, 'userId' | 'role'> & {
@@ -188,6 +191,7 @@ export async function chargerFicheEvenement(
        lieux!lieu_id(nom, adresse_acces, code_postal, ville, acces_details),
        traiteur_operationnel_organisation_id,
        ${gestionnaire ? 'organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url),' : ''}
+       ${admin ? 'organisations:organisations!traiteur_operationnel_organisation_id(id, nom, raison_sociale),' : ''}
        types_evenements!type_evenement_id(libelle),
        collectes(id, type, statut, date_collecte, heure_collecte, created_at,
          pax, taux_recyclage, co2_evite_kg, controle_acces_requis,
@@ -273,20 +277,15 @@ export async function chargerFicheEvenement(
           ),
         )
       : Promise.resolve(null),
-    gestionnaire || !evt.traiteur_operationnel_organisation_id
+    // Gestionnaire et staff : nom lu dans la requête (vue du gestionnaire ;
+    // organisations en service_role, shadow comprise, pour le staff).
+    gestionnaire || admin || !evt.traiteur_operationnel_organisation_id
       ? Promise.resolve(null)
-      : admin
-        ? // Staff : nom de toute organisation (shadow comprise), en service_role.
-          supabase
-            .from('organisations')
-            .select('id, nom, raison_sociale')
-            .eq('id', evt.traiteur_operationnel_organisation_id)
-            .maybeSingle()
-        : supabase
-            .from('v_referentiel_traiteurs')
-            .select('id, nom')
-            .eq('id', evt.traiteur_operationnel_organisation_id)
-            .maybeSingle(),
+      : supabase
+          .from('v_referentiel_traiteurs')
+          .select('id, nom')
+          .eq('id', evt.traiteur_operationnel_organisation_id)
+          .maybeSingle(),
   ]);
   let dechetsLaboKg: number | null = null;
   if (labo?.error)
@@ -323,27 +322,26 @@ export async function chargerFicheEvenement(
     fiches.push(r.fiche);
   }
 
-  // Nom du traiteur hors gestionnaire : référentiel (traiteur hors
+  // Nom du traiteur des autres rôles : référentiel (traiteur hors
   // référentiel = sans nom). Lecture en échec : journalisée, fiche servie.
   if (nomsTraiteurs?.error)
     logger.warn('evenements.fiche.traiteur_echec', {
       evenement_id: id,
       code: nomsTraiteurs.error.code,
     });
-  const ref = nomsTraiteurs?.data as {
-    id: string;
-    nom: string | null;
-    raison_sociale?: string | null;
-  } | null;
-  const traiteur = gestionnaire
-    ? un(evt.organisations)
-    : ref
-      ? {
-          id: ref.id,
-          nom: ref.nom?.trim() || ref.raison_sociale?.trim() || null,
-          logo_url: null,
+  const ref = nomsTraiteurs?.data as { id: string; nom: string | null } | null;
+  const org = un(evt.organisations);
+  const traiteur =
+    gestionnaire || admin
+      ? org && {
+          id: org.id,
+          nom: nomOrganisation({
+            nom: org.nom,
+            raison_sociale: org.raison_sociale ?? null,
+          }),
+          logo_url: org.logo_url ?? null,
         }
-      : null;
+      : ref && { id: ref.id, nom: ref.nom, logo_url: null };
 
   return {
     etat: 'ok',

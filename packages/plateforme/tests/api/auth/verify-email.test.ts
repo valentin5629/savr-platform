@@ -146,10 +146,7 @@ describe('M0.4 — verify-email : le clic prouve le domaine', () => {
     expect(updateCalls).toHaveLength(0);
   });
 
-  it('l’email de bienvenue porte le nom de l’organisation (échappé)', async () => {
-    maybeSingleQueue['organisations'] = [
-      { data: { nom: 'Traiteur <Test> & Fils' }, error: null },
-    ];
+  it('l’email de bienvenue mène au formulaire de programmation (revue des emails, Val 2026-10-29)', async () => {
     await (
       await import('@/app/api/auth/verify-email/route.js')
     ).GET(makeReq('?token_hash=tok&type=signup'));
@@ -159,12 +156,8 @@ describe('M0.4 — verify-email : le clic prouve le domaine', () => {
       'marie@dalloyau.fr',
       {
         prenom: 'Marie',
-        organisation_nom: 'Traiteur &lt;Test&gt; &amp; Fils',
+        lien_programmation_collecte: 'http://localhost/programmer/nouveau',
       },
     );
-    expect(eqCalls).toContainEqual({
-      table: 'organisations',
-      args: ['id', 'org-1'],
-    });
   });
 });

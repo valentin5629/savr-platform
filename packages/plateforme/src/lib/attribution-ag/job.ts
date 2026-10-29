@@ -1,6 +1,8 @@
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { logger } from '@savr/shared/src/logger/index.js';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
+import { heureCourte } from '@/lib/exports/shared';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 export interface AttributionValideePayload {
@@ -29,8 +31,7 @@ export async function processAttributionValidee(
            lieux!lieu_id(nom, adresse_acces, ville)
          )
        ),
-       associations!association_id(nom, adresse, ville, contact_email),
-       transporteurs!transporteur_id(nom, contact_email, type_tms)`,
+       associations!association_id(nom, contact_email)`,
     )
     .eq('id', payload.attribution_id)
     .single();
@@ -42,47 +43,27 @@ export async function processAttributionValidee(
   const collecte =
     (attribution.collectes as unknown as Record<string, unknown>) ?? {};
   const evt = (collecte.evenements as Record<string, unknown>) ?? {};
-  const lieu = (evt.lieux as Record<string, unknown>) ?? {};
   const asso =
     (attribution.associations as unknown as Record<string, unknown>) ?? {};
-  const transp =
-    (attribution.transporteurs as unknown as Record<string, unknown>) ?? {};
 
-  const evenementNom = (evt.nom_evenement as string) ?? '';
-  const dateCollecte = `${collecte.date_collecte as string} ${collecte.heure_collecte as string}`;
-  const lieuAdresse = `${lieu.adresse_acces as string}, ${lieu.ville as string}`;
+  const evenementNom =
+    ((evt.nom_evenement as string | null) ?? '').trim() || 'Événement traiteur';
   const volumeEstime = (collecte.volume_estime_repas as number) ?? 0;
-  const assoAdresse = `${asso.adresse as string}, ${asso.ville as string}`;
 
   // Emails via le canal canonique `sendEmail` (trace `emails_envoyes`, relance par le
-  // cron email-retry). L'ancienne RPC `fn_envoyer_email_template` n'a JAMAIS existé
-  // (ni migration, ni dev, ni prod) : aucun email d'attribution n'était envoyé.
-  // Best-effort : un envoi raté est tracé mais n'échoue pas le job (sinon un retry
-  // renverrait l'email déjà parti à l'autre destinataire).
+  // cron email-retry). Best-effort : un envoi raté est tracé mais n'échoue pas le
+  // job (sinon un retry renverrait l'email déjà parti).
+  // Le transporteur ne reçoit plus d'email : sa mission lui parvient par son
+  // outil de prestataire logistique ou par l'équipe Savr (revue des emails, Val
+  // 2026-10-28).
   if (asso.contact_email) {
     await envoyer(
       'ag_attribution_association',
       asso.contact_email as string,
       {
         evenement_nom: evenementNom,
-        date_collecte: dateCollecte,
-        lieu_adresse: lieuAdresse,
-        volume_estime_repas: String(volumeEstime),
-        transporteur_nom: String(transp.nom ?? ''),
-      },
-      payload.collecte_id,
-    );
-  }
-
-  if (transp.contact_email) {
-    await envoyer(
-      'ag_attribution_transporteur',
-      transp.contact_email as string,
-      {
-        evenement_nom: evenementNom,
-        date_collecte: dateCollecte,
-        lieu_adresse: lieuAdresse,
-        association_adresse: assoAdresse,
+        date_collecte: formatDateParis(collecte.date_collecte as string),
+        heure_collecte: heureCourte(collecte.heure_collecte),
         volume_estime_repas: String(volumeEstime),
       },
       payload.collecte_id,
@@ -96,9 +77,8 @@ async function envoyer(
   variables: Record<string, string>,
   collecteId: string,
 ): Promise<void> {
-  // Le corps est du HTML interpolé tel quel et part chez un tiers (association,
-  // transporteur) : chaque valeur est du texte saisi (nom d'événement, adresses,
-  // nom du transporteur), toutes sont échappées.
+  // Le corps est du HTML interpolé tel quel et part chez un tiers (association) :
+  // chaque valeur est échappée.
   const echappees = Object.fromEntries(
     Object.entries(variables).map(([k, v]) => [k, escapeHtml(v)]),
   );

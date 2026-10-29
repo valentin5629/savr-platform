@@ -6,6 +6,7 @@
 //          l'entité de facturation du donateur n'a pas un SIRET vérifié.
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 
 import {
@@ -410,14 +411,26 @@ export async function runBatchPdfJ1Ag(
             // programmée par l'équipe Savr pour le compte d'un client ne doit
             // pas saluer ce client par le prénom d'un membre de l'équipe.
             // '' sinon : le gabarit écrit alors « Bonjour, ».
-            prenom:
+            // Textes saisis : échappés (le corps est du HTML interpolé tel quel).
+            prenom: escapeHtml(
               ev.programmeur?.organisation_id === ev.organisation_id
                 ? (ev.programmeur.prenom?.trim() ?? '')
                 : '',
+            ),
             // Événement sans nom : même repli que l'email récapitulatif de
             // programmation. Une valeur nulle ferait refuser l'envoi.
-            nom_evenement: ev.nom_evenement?.trim() || 'Votre événement',
+            nom_evenement: escapeHtml(
+              ev.nom_evenement?.trim() || 'Votre événement',
+            ),
             date_evenement: dateEvenementStr,
+            // Association bénéficiaire et repas donnés (revue des emails, Val
+            // 2026-10-29) : phrases facultatives du gabarit si inconnus.
+            association_nom: escapeHtml(asso?.nom?.trim() ?? ''),
+            nb_repas:
+              typeof attr.volume_repas_realise === 'number' &&
+              attr.volume_repas_realise > 0
+                ? String(attr.volume_repas_realise)
+                : '',
             lien_rapport: urlCanonique(
               cheminFicheCollecte(orga?.type, collecte.id),
             ),

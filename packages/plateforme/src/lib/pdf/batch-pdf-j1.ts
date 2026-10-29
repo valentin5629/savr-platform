@@ -20,6 +20,7 @@ import {
   lireParPages,
   lireParLots,
 } from './selection-par-pages.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import {
   anneeParis,
@@ -65,7 +66,7 @@ interface CollecteRow {
     organisation_id: string;
     // Programmeur de la collecte (evenements.created_by → users, FK unique
     // evenements_created_by_fkey) → variable `prenom` de l'email (§06.02 §6).
-    programmeur: { prenom: string | null } | null;
+    programmeur: { prenom: string | null; organisation_id: string } | null;
     traiteur_operationnel_organisation_id: string | null;
     organisations: {
       nom: string;
@@ -123,7 +124,7 @@ export async function runBatchPdfJ1(
       evenements (
         id, nom_evenement, date_evenement,
         organisation_id, traiteur_operationnel_organisation_id,
-        programmeur:users!created_by ( prenom ),
+        programmeur:users!created_by ( prenom, organisation_id ),
         organisations!organisation_id ( nom, raison_sociale, siret, adresse, email_principal, type ),
         traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( nom, raison_sociale, siret, adresse ),
         lieux ( nom, adresse_acces, code_postal, ville )
@@ -379,12 +380,16 @@ export async function runBatchPdfJ1(
           {
             // Programmeur = evenements.created_by, comme l'email d'annulation (tpl 5).
             // '' si inconnu : valeur fournie, l'envoi n'est pas refusé.
-            prenom: ev.programmeur?.prenom ?? '',
-            date_collecte: new Date(collecte.date_collecte).toLocaleDateString(
-              'fr-FR',
-              { timeZone: 'Europe/Paris' },
+            // Prénom repris seulement si le programmeur est de l'organisation
+            // destinataire (comme le rapport de don). Textes saisis échappés.
+            prenom: escapeHtml(
+              ev.programmeur?.organisation_id === ev.organisation_id
+                ? (ev.programmeur.prenom?.trim() ?? '')
+                : '',
             ),
-            lieu_nom: lieu?.nom ?? '',
+            nom_evenement: escapeHtml(ev.nom_evenement?.trim() ?? ''),
+            date_collecte: formatDateParis(collecte.date_collecte),
+            lieu_nom: escapeHtml(lieu?.nom ?? ''),
             // Nombres nus : le corps du template porte les unités (« kg », « kg CO₂e », « % »).
             poids_total: formatNombre(poidsTotalKg),
             co2_evite: formatNombre(collecte.co2_evite_kg),

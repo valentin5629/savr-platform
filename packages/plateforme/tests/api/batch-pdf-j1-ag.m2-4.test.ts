@@ -788,6 +788,9 @@ describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
         nom_evenement: 'Gala Kaspia',
         date_evenement: '13/06/2026',
         lien_rapport: 'https://app.example.test/traiteur/collectes/col-ag-1',
+        // Revue des emails (Val 2026-10-29) : association et repas donnés.
+        association_nom: 'Les Restos du Cœur',
+        nb_repas: '120',
       },
       { entityType: 'collectes', entityId: 'col-ag-1' },
     );

@@ -938,6 +938,9 @@ describe('M3.1 / renouvellement pack', () => {
         demandeur_email: 'paul@savr-test.local',
         pack_souhaite: 'Pack &lt;20&gt;',
         message: '',
+        // Pas de pack actif dans ce jeu : ligne absente de l'email.
+        credits_restants: '',
+        lien_fiche_org: 'http://localhost/admin/organisations/org-kaspia',
       },
     );
   });

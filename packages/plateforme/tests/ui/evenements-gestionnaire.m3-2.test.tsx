@@ -49,7 +49,7 @@ vi.mock('@/components/collecte/fiche-collecte-client-modal', () => ({
 }));
 
 import EvenementsPage from '@/app/(gestionnaire)/gestionnaire/evenements/page.js';
-import { FicheEvenementModal } from '@/components/gestionnaire/fiche-evenement-modal';
+import { FicheEvenementModal } from '@/components/evenements/fiche-evenement-modal';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import { renderAvecToasts } from '@/test-utils/toasts';
 
@@ -63,6 +63,7 @@ const monterFiche = (
 ) =>
   render(
     <FicheEvenementModal
+      espace="gestionnaire"
       evenementId={EVT_ID}
       onClose={fermerEvenement}
       onCollecteChange={changerCollecte}
@@ -251,7 +252,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
       stubFetch((url) =>
         url.includes('/evenements/filtres')
           ? { body: OPTIONS }
-          : url.includes(`/gestionnaire/evenements/${EVT_ID}`)
+          : url.includes(`/api/v1/evenements/${EVT_ID}`)
             ? { body: { data: detail() } }
             : { body: { data: [LIGNE], total: 1 } },
       );
@@ -1272,7 +1273,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         ATTENTE_UI,
       );
       expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain(
-        `/api/v1/gestionnaire/evenements/${EVT_ID}`,
+        `/api/v1/evenements/${EVT_ID}`,
       );
     },
     ATTENTE_CAS_MS,
@@ -1369,6 +1370,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       // doit s'afficher.
       renderAvecToasts(
         <FicheEvenementModal
+          espace="gestionnaire"
           evenementId={EVT_ID}
           onClose={fermerEvenement}
           onCollecteChange={changerCollecte}
@@ -1414,6 +1416,31 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
   );
 });
 
+describe('M3.2 / fiche Événement traiteur et agence — écran', () => {
+  it(
+    'M3.2/evenement_fiche_traiteur_sans_radar_ni_labo — même fiche, ni déchets labo estimés ni benchmark, rapports de collecte par la route de son espace (Val 2026-10-29)',
+    async () => {
+      const fetchMock = stubFetch((url) =>
+        url.includes(`/api/v1/evenements/${EVT_ID}`) &&
+        !url.includes('/benchmark')
+          ? { body: { data: detail({ dechets_labo_kg: null }) } }
+          : { body: { data: null } },
+      );
+      monterFiche({ espace: 'traiteur' });
+      await ficheChargee();
+      expect(screen.getByTestId('evenement-entete')).not.toHaveTextContent(
+        'Déchets labo estimés',
+      );
+      onglet('Bilan & documents');
+      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      const urls = fetchMock.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.includes('/benchmark'))).toBe(false);
+      expect(urls.some((u) => u.includes('/gestionnaire/'))).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('M3.2 / liste Événements gestionnaire — fiche en pop-up depuis l’adresse', () => {
   it(
     'M3.2/evenements_liste_fiche_rouverte_depuis_adresse — ?evenement= et ?collecte= rouvrent les deux fiches ; la fermeture nettoie l’adresse et recharge la liste',
@@ -1427,7 +1454,7 @@ describe('M3.2 / liste Événements gestionnaire — fiche en pop-up depuis l’
       const fetchMock = stubFetch((url) =>
         url.includes('/evenements/filtres')
           ? { body: OPTIONS }
-          : url.includes(`/gestionnaire/evenements/${EVT_ID}`)
+          : url.includes(`/api/v1/evenements/${EVT_ID}`)
             ? { body: { data: detail() } }
             : { body: { data: [LIGNE], total: 1 } },
       );

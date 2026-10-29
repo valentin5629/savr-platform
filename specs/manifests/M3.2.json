@@ -104,7 +104,9 @@
     "packages/plateforme/src/app/(client-organisateur)/organisateur/evenements/page.tsx",
     "packages/plateforme/tests/api/evenements/liste-evenements-roles.test.ts",
     "packages/plateforme/tests/ui/liste-evenements-roles.test.tsx",
-    "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts",
+    "packages/plateforme/src/lib/evenements/fiche-evenement.ts",
+    "packages/plateforme/src/lib/evenements/espace-fiche.ts",
+    "packages/plateforme/src/app/api/v1/evenements/[id]/route.ts",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx",
     "packages/plateforme/src/lib/evenements-gestionnaire.ts",
@@ -112,12 +114,12 @@
     "packages/plateforme/src/components/gestionnaire/resultats-evenement.tsx",
     "packages/plateforme/tests/api/gestionnaire/evenements.m3-2.test.ts",
     "packages/plateforme/tests/ui/evenements-gestionnaire.m3-2.test.tsx",
-    "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx",
+    "packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/fiche-redirect.m3-2.test.tsx",
     "packages/plateforme/src/components/ui/modal-verrou-defilement.test.tsx",
-    "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/benchmark/route.ts",
-    "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-rse/route.ts",
-    "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-de-don/route.ts",
+    "packages/plateforme/src/app/api/v1/evenements/[id]/benchmark/route.ts",
+    "packages/plateforme/src/app/api/v1/evenements/[id]/rapport-rse/route.ts",
+    "packages/plateforme/src/app/api/v1/evenements/[id]/rapport-de-don/route.ts",
     "packages/plateforme/src/lib/evenements/cumul-evenement.ts",
     "packages/plateforme/src/lib/evenements/reponses-cumul.ts",
     "packages/plateforme/src/lib/pdf/rapports-evenement.ts",
@@ -503,7 +505,11 @@
     "EVT-FRISE/sans_collecte",
     "EVT/lieu_surcharge_par_collecte",
     "EVT/telechargement_zd_et_echecs",
-    "M3.2/evenement_fiche_collecte_introuvable_500"
+    "M3.2/evenement_fiche_collecte_introuvable_500",
+    "M3.2/evenement_fiche_traiteur_agence_chemins_du_role",
+    "EVT/api_zd_sans_radar_hors_gestionnaire",
+    "M3.2/evenement_fiche_traiteur_sans_radar_ni_labo",
+    "M3.2/liste_evenements_fiche_traiteur_agence"
   ],
   "deliverables": [
     {
@@ -776,7 +782,7 @@
     {
       "id": "M3.2-evenements-repas-tiers",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:323",
-      "artefact": "packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + packages/plateforme/src/lib/evenements-gestionnaire.ts (repasCollecte)",
+      "artefact": "packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/lib/evenements/fiche-evenement.ts + packages/plateforme/src/lib/evenements-gestionnaire.ts (repasCollecte)",
       "test": "M3.2/evenements_route_une_ligne_par_evenement_bilan_cumule + M3.2/evenement_fiche_bilan_consolide_et_collectes_triees + M3.2/evenement_bilan_repas_et_associations",
       "statut": "implemented",
       "libelle": "Repas donnés de la liste Événements et du bilan consolidé de la fiche événement du gestionnaire, remise par Val le 2026-10-18 (« une vision consolidée d'un événement sur lequel il y a plusieurs collectes »), après son retrait du 2026-10-07 : volume de l'attribution lu par la vue v_attributions_gestionnaire (une collecte AG d'un traiteur tiers n'est pas lisible autrement par le rôle), sommé sur les collectes AG réalisées de l'événement ; une collecte sans excédent compte 0 repas.",
@@ -917,7 +923,7 @@
     {
       "id": "M3.2-detail-evenement-lecture-seule",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-357",
-      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts",
+      "artefact": "packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx + packages/plateforme/src/lib/evenements/fiche-evenement.ts",
       "test": "M3.2/evenement_fiche_bilan_consolide_affiche + M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte + M3.2/evenement_fiche_bilan_consolide_et_collectes_triees + M3.2/evenement_fiche_404_hors_perimetre_ou_identifiant_invalide + M3.2/evenement_fiche_introuvable + M3.2/evenement_fiche_erreur + M3.2/evenement_fiche_labo_tiret_sans_zd + M3.2/evenement_fiche_echec_d_une_fiche_500 + M3.2/evenement_fiche_collectes_meme_jour_par_heure + M3.2/evenement_fiche_rouverte_et_rechargee",
       "statut": "implemented",
       "libelle": "Fiche événement du gestionnaire (CDC §2 « Détail événement »), en pop-up sur la liste Événements (livrable M3.2-evenement-fiche-popup), remise par Val le 2026-10-18 après son retrait du 2026-10-07. Depuis le 2026-10-26, son contenu est celui du livrable M3.2-evenement-fiche-trois-onglets : grand en-tête (nom, taille, date, lieu, traiteur, pax, frise d'avancement), onglets « Informations générales », « Informations collectes » et « Bilan & documents ». La route sert, outre l'en-tête et le bilan consolidé, la fiche de chaque collecte par le chargeur de la fiche collecte (mêmes règles de visibilité) ; une collecte dont la fiche ne se charge pas fait échouer la fiche (500). Gestes permis : « Ajouter une collecte » sur ses propres programmations (décision Val 2026-10-21, livrable M1.2-ajout-collecte-depuis-fiches) et la demande urgente des coordonnées d'un chauffeur, la même que sur la fiche collecte ; aucune modification ni annulation depuis la fiche événement. Événement hors périmètre, brouillon ou identifiant mal formé → 404. Lot C1 (2026-10-24, décision Val Q2) : le type d'événement affiché nomme les types de ses collectes, cf. livrable M3.2-evenement-fiche-types-des-collectes.",
@@ -926,7 +932,7 @@
     {
       "id": "M3.2-evenements-dechets-labo-zd-seulement",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:661",
-      "artefact": "packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx",
+      "artefact": "packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/lib/evenements/fiche-evenement.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx",
       "test": "M3.2/evenements_route_dechets_labo_zd_seulement + M3.2/evenements_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste + M3.2/evenement_fiche_sans_zd_pas_d_estimation_labo + M3.2/evenement_fiche_labo_tiret_sans_zd",
       "statut": "implemented",
       "libelle": "Déchets labo estimés sur les écrans Événements du gestionnaire (liste + fiche), remise par Val le 2026-10-18 (« une vision consolidée d'un événement sur lequel il y a plusieurs collectes »), après son retrait du 2026-10-07 : ZD seulement (arbitrage Val 2026-10-07) — f_dechets_labo_estimes n'est appelée que pour un événement qui a au moins une collecte ZD ; la fiche affiche alors « — » ; un appel en échec rend « — » sans faire tomber la liste, et il est journalisé.",
@@ -1381,13 +1387,22 @@
       "artefact": "packages/plateforme/src/app/api/v1/evenements/route.ts + packages/plateforme/src/app/api/v1/evenements/filtres/route.ts + packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/lib/evenements/filtres-evenements.ts + packages/plateforme/src/components/evenements/liste-evenements.tsx + packages/plateforme/src/lib/nav-config.ts + packages/plateforme/src/lib/routes.ts",
       "test": "M3.2/evenements_liste_ouverte_aux_six_roles + M3.2/evenements_liste_client_selon_role + M3.2/evenements_liste_chemins_rls_par_role + M3.2/evenements_liste_repas_organisateur_par_helper + M3.2/evenements_liste_nom_traiteur_par_referentiel + M3.2/evenements_liste_filtre_client_staff_seul + M3.2/evenements_liste_refuse_hors_role + M3.2/evenements_filtres_derives_du_perimetre + M3.2/evenements_filtres_traiteur_sans_liste_de_traiteurs + M3.2/evenements_filtres_echec_500 + M3.2/liste_evenements_route_commune + M3.2/liste_evenements_traiteur_sans_colonne_ni_filtre_traiteur + M3.2/liste_evenements_admin_filtre_client + M3.2/liste_evenements_sans_fiche_hors_gestionnaire + M3.2/evenements_liste_dechets_labo_gestionnaire_seul + M3.2/evenements_filtres_staff_referentiels + M3.2/evenements_filtres_types_en_echec_500",
       "statut": "implemented",
-      "libelle": "Liste Événements commune à tous les rôles (décision Val 2026-10-29) : une seule route GET /api/v1/evenements (+ /filtres), une seule implémentation et un seul composant d'écran, montés par la page Événements de chaque espace (Admin, traiteur manager et commercial, agence, gestionnaire, client organisateur), entrée « Événements » sous « Collectes » dans chaque menu ; « Mes événements » du client organisateur renommé « Dashboard ». Périmètre = policies evt_*_select de l'appelant sous sa session (staff en service_role) ; chemins de lecture imposés par la RLS par rôle (repas : v_attributions_gestionnaire pour le gestionnaire, f_volume_repas_realise pour le client organisateur ; noms de traiteurs : v_referentiel_traiteurs hors gestionnaire et staff). Réglages par rôle (C2) : ni colonne ni filtre Traiteur pour le traiteur, filtre Client (organisation programmatrice) pour le staff. « Déchets labo est. » au gestionnaire seul (§05 R_dechets_labo_estimes : fonction non appelée et colonne absente ailleurs, le coefficient du traiteur se déduirait de valeur ÷ pax). Fiche événement au clic chez le gestionnaire seul en attendant le lot 2 (C1 : même fiche pour tous).",
+      "libelle": "Liste Événements commune à tous les rôles (décision Val 2026-10-29) : une seule route GET /api/v1/evenements (+ /filtres), une seule implémentation et un seul composant d'écran, montés par la page Événements de chaque espace (Admin, traiteur manager et commercial, agence, gestionnaire, client organisateur), entrée « Événements » sous « Collectes » dans chaque menu ; « Mes événements » du client organisateur renommé « Dashboard ». Périmètre = policies evt_*_select de l'appelant sous sa session (staff en service_role) ; chemins de lecture imposés par la RLS par rôle (repas : v_attributions_gestionnaire pour le gestionnaire, f_volume_repas_realise pour le client organisateur ; noms de traiteurs : v_referentiel_traiteurs hors gestionnaire et staff). Réglages par rôle (C2) : ni colonne ni filtre Traiteur pour le traiteur, filtre Client (organisation programmatrice) pour le staff. « Déchets labo est. » au gestionnaire seul (§05 R_dechets_labo_estimes : fonction non appelée et colonne absente ailleurs, le coefficient du traiteur se déduirait de valeur ÷ pax). Fiche événement au clic : gestionnaire, traiteur et agence (lot 2a, livrable M3.2-fiche-evenement-tous-roles) ; Admin et client organisateur au lot 2b.",
       "ref_divergence": "_Divergences/M3.2_20261029_liste-evenements-tous-roles.md"
+    },
+    {
+      "id": "M3.2-fiche-evenement-tous-roles",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:309-323",
+      "artefact": "packages/plateforme/src/lib/evenements/fiche-evenement.ts + packages/plateforme/src/lib/evenements/espace-fiche.ts + packages/plateforme/src/app/api/v1/evenements/[id]/route.ts + packages/plateforme/src/app/api/v1/evenements/[id]/rapport-rse/route.ts + packages/plateforme/src/app/api/v1/evenements/[id]/rapport-de-don/route.ts + packages/plateforme/src/app/api/v1/evenements/[id]/benchmark/route.ts + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx + packages/plateforme/src/components/evenements/liste-evenements.tsx",
+      "test": "M3.2/evenement_fiche_traiteur_agence_chemins_du_role + EVT/api_zd_sans_radar_hors_gestionnaire + M3.2/evenement_fiche_traiteur_sans_radar_ni_labo + M3.2/liste_evenements_fiche_traiteur_agence",
+      "statut": "implemented",
+      "libelle": "Fiche Événement commune (lot 2a, décision Val 2026-10-29 « même fiche pour tous ») : une route GET /api/v1/evenements/[id] et une pop-up pour le gestionnaire, le traiteur (manager et commercial) et l'agence, ouverte au clic sur la liste. Chaque collecte y est la fiche collecte client de l'espace de l'appelant (chargerFicheCollecteClient, routes /api/v1/{espace}/collectes/…) ; attributions par la vue gestionnaire ou par la table (aa_select) ; nom du traiteur par v_referentiel_traiteurs hors gestionnaire, sans logo. Rapports PDF cumulés (rapport RSE, rapport de don) pour tous ces rôles (Val 2026-10-29) ; radar (benchmark) et déchets labo estimés au gestionnaire seul : radar demandé par un autre rôle ignoré. Anciennes routes /api/v1/gestionnaire/evenements/[id]/* retirées. Admin (fiche collecte Admin au clic) et client organisateur (fiche sans détail collecte) : lot 2b.",
+      "ref_divergence": "_Divergences/M3.2_20261029_fiche-evenement-tous-roles.md"
     },
     {
       "id": "M3.2-evenement-bilan-consolide",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-355",
-      "artefact": "packages/plateforme/src/lib/evenements-gestionnaire.ts (consoliderEvenement) + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (BilanConsolide)",
+      "artefact": "packages/plateforme/src/lib/evenements-gestionnaire.ts (consoliderEvenement) + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx (BilanConsolide)",
       "test": "M3.2/evenement_bilan_cumule_les_collectes_zd + M3.2/evenement_bilan_taux_pondere_par_tonnage + M3.2/evenement_bilan_collectes_non_realisees_sans_resultat + M3.2/evenement_bilan_repas_et_associations + M3.2/evenement_bilan_sans_excedent_seul + M3.2/evenement_bilan_mixte_periode_et_statut + M3.2/evenement_bilan_sans_collecte + M3.2/evenement_bilan_embed_en_tableau + M3.2/evenement_fiche_bilan_consolide_affiche + M3.2/evenement_fiche_bilan_en_attente + M3.2/evenement_bilan_associations_par_identifiant + M3.2/evenement_fiche_pax_absent_et_singulier",
       "statut": "implemented",
       "libelle": "Bilan consolidé de la fiche événement du gestionnaire (demande Val 2026-10-18 : « une vision consolidée d'un événement sur lequel il y a plusieurs collectes ») : cumul des seules collectes réalisées (statut cloturee, et AG sans excédent à 0 repas), comme la colonne Résultats de la liste Collectes et l'onglet Bilan de la fiche collecte. ZD : poids total, CO₂ évité (somme des `co2_evite_kg` figés — décision Val 2026-10-20, ex « CO₂ évité net »), taux de recyclage = moyenne des taux figés pondérée par le poids (règle du dashboard et de l'export Événements), pesée par pax, répartition par flux (donut). AG : repas donnés, repas par pax, CO₂ évité, une ligne par association bénéficiaire (reconnue par son identifiant) avec ses repas. Couverture affichée (« Cumul des N collectes réalisées, sur M collectes de l'événement », accordée au singulier) ; ratios par pax à « — » sans pax ; bandeau d'attente tant qu'aucune n'est réalisée.",
@@ -1396,7 +1411,7 @@
     {
       "id": "M3.2-evenements-rendu-visuel",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:282-357",
-      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/lib/nav-config.ts",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx + packages/plateforme/src/lib/nav-config.ts",
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu des écrans Événements remis le 2026-10-18, desktop ET mobile < 640 px : entrée « Événements » sous « Collectes » dans le menu latéral et 3e entrée de la barre mobile ; liste (colonnes, résultats cumulés, badge de statut consolidé, barre de filtres) ; fiche événement en pop-up (grand en-tête, onglets « Bilan » (bilan consolidé, donut ZD et associations AG), « Collectes » ouvrant la fiche collecte par-dessus, « Informations »), hauteur fixe de la pop-up d'un onglet à l'autre. GO visuel de Val donné en session le 2026-10-19 (« Ok je valide »), sur l'aperçu Vercel de la branche au commit 297bfef4 — menu, liste Événements et fiche en pop-up, que Claude Code lui avait proposé de vérifier —, sans capture jointe au dépôt (dépôt public) : Claude Code ne s'est pas connecté à l'aperçu ; les captures sur données simulées lui avaient été envoyées en session (2026-10-18 et 2026-10-19). Les commits suivants ne changent pas le rendu (verrou de défilement de Modal, dépendance du toast). Le lot `feat/evenements-a-venir-passes` (2026-10-20) CHANGE le rendu de la liste : boutons « Événements à venir / passés » dans l'en-tête de la barre de filtres — GO visuel à redonner sur ce point (livrable M3.2-evenements-vues-a-venir-passes). Le lot du 2026-10-26 CHANGE le rendu de la fiche (trois onglets, frise) : GO visuel à redonner sur ce point (livrable M3.2-evenement-fiche-trois-onglets-rendu-visuel).",
@@ -1405,7 +1420,7 @@
     {
       "id": "M3.2-evenement-fiche-popup",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-357",
-      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx (ouverture, adresse `?evenement=` / `?collecte=`) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx (redirection) + packages/plateforme/src/components/ui/modal.tsx (verrou de défilement compté)",
+      "artefact": "packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx (ouverture, adresse `?evenement=` / `?collecte=`) + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx (redirection) + packages/plateforme/src/components/ui/modal.tsx (verrou de défilement compté)",
       "test": "M3.2/evenements_liste_une_ligne_par_evenement + M3.2/evenements_liste_fiche_rouverte_depuis_adresse + M3.2/evenement_fiche_echap_ferme_d_abord_la_fiche_collecte + M3.2/evenement_fiche_identifiant_invalide_sans_requete + M3.2/evenement_fiche_rouverte_et_rechargee + M3.2/evenement_fiche_redirect_modale + M3.2/evenement_fiche_redirect_collecte + M3.2/evenement_fiche_redirect_encode + M3.2/evenement_fiche_rechargement_en_echec_garde_le_bilan + M0.8/modal_verrou_defilement_soeurs_demontees_ensemble + M0.8/modal_verrou_defilement_ordre_quelconque + M0.8/modal_verrou_defilement_valeur_initiale_rendue",
       "statut": "implemented",
       "libelle": "Fiche événement du gestionnaire en pop-up sur la liste Événements (demande Val 2026-10-19 : « Je veux que la page événement soit en modale comme les pages collectes »), sur le cadre commun des fiches (FicheModal : grand en-tête, onglets, corps défilant, hauteur fixe) : le clic sur une ligne ouvre la fiche sans quitter la liste ; l'adresse la porte (`?evenement=<id>`, et `?collecte=<id>` pour la fiche collecte ouverte par-dessus), si bien qu'un lien direct ou un rechargement rouvrent les mêmes fiches ; l'ancienne route /gestionnaire/evenements/[id] redirige vers la liste avec la fiche ouverte. Tant que la fiche collecte est ouverte, Échap ne ferme qu'elle. Fermer la fiche événement retire les clés de l'adresse et recharge la liste ; fermer la fiche collecte recharge le bilan sans repasser par le squelette ; si ce rechargement échoue, le bilan affiché reste à l'écran et un message le signale. Identifiant mal formé : « introuvable », sans requête. Les deux pop-ups étant sœurs, le verrou de défilement de la page posé par `Modal` est désormais compté : fermées ensemble (bouton « Précédent » du navigateur), elles rendent le défilement à la page.",
@@ -1414,7 +1429,7 @@
     {
       "id": "M3.2-evenement-fiche-trois-onglets",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-357",
-      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts (fiches des collectes par chargerFicheCollecteClient, lieu_acces_details) + packages/plateforme/src/lib/statut-collecte-labels.ts (friseStatutEvenement) + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx (Chauffeurs, contenu de la carte chauffeur) + packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (BandeauBilanAttente, Estompe, GrapheEnAttente partagés)",
+      "artefact": "packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx + packages/plateforme/src/lib/evenements/fiche-evenement.ts (fiches des collectes par chargerFicheCollecteClient, lieu_acces_details) + packages/plateforme/src/lib/statut-collecte-labels.ts (friseStatutEvenement) + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx (Chauffeurs, contenu de la carte chauffeur) + packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (BandeauBilanAttente, Estompe, GrapheEnAttente partagés)",
       "test": "EVT/frise_avancement + EVT/informations_generales + EVT/reference_interne_tiers_absente + EVT/informations_chauffeurs + EVT/documents_par_collecte + M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte + EVT-FRISE/etape_la_plus_basse + EVT-FRISE/annulees_ignorees + EVT-FRISE/sans_collecte + M3.2/evenement_fiche_echec_d_une_fiche_500 + EVT/lieu_surcharge_par_collecte + EVT/telechargement_zd_et_echecs + M3.2/evenement_fiche_collecte_introuvable_500",
       "statut": "implemented",
       "libelle": "Fiche événement du gestionnaire en trois onglets (décisions Val 2026-10-26, revue d'écran en deux temps) : « Informations générales » (Événement : nom, client final, référence interne sur ses propres programmations, traiteur, déchets labo estimés, période de collecte ; Lieu : adresse et instructions d'accès EFFECTIVES (surcharges saisies à la programmation comprises) quand elles sont communes à ses collectes non annulées, sinon « Propre à chaque collecte » et la valeur sur chaque carte ; contrôle d'accès « Oui » dès qu'une collecte non annulée l'exige), « Informations collectes » (une carte par collecte, deux par ligne sur grand écran : type, date et heure, statut, pax et type d'événement de la collecte, contacts principal et de secours — masqués sur la collecte d'un traiteur tiers —, informations supplémentaires, puis chauffeur, plaque et téléphone par camion avec la demande urgente des coordonnées, « Voir la collecte ») et « Bilan & documents » (au format de l'onglet de la fiche collecte : bandeau d'attente, chiffres clés estompés et graphe en attente tant qu'aucune collecte du type n'est réalisée, répartition des tonnages, associations ; sous-onglets « Zéro Déchet » / « Anti-Gaspi » (segmenté de type du DS) quand l'événement mêle ZD et AG, chacun avec son bilan, ses liens et ses rapports, et la couverture nommant le type ; un lien « Accéder au bilan de la collecte du … » par collecte quand un type en compte plusieurs ; le rapport de chaque collecte non annulée — Rapport RSE ZD fabriqué au clic, Rapport de don AG). En-tête : frise Créé · Validé · En cours · Réalisé à la place du badge de statut consolidé ; l'événement passe à l'étape suivante quand toutes ses collectes non annulées l'ont passée ; toutes annulées : Créé · Annulé. Hors lot (Val) : rapports PDF cumulés sur l'événement ; le radar de comparaison reste propre à chaque collecte.",
@@ -1423,7 +1438,7 @@
     {
       "id": "M3.2-evenement-fiche-trois-onglets-rendu-visuel",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:329-357",
-      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx",
+      "artefact": "packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx",
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la fiche événement en trois onglets, desktop ET mobile < 640 px : frise d'avancement dans l'en-tête, cartes collecte, cartes chauffeur, liens vers les bilans et lignes de documents. GO visuel de Val à donner sur l'aperçu de la branche.",
@@ -1440,7 +1455,7 @@
     {
       "id": "M3.2-evenement-fiche-types-des-collectes",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:342",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + packages/plateforme/src/lib/collectes/types-evenement-collectes.ts",
+      "artefact": "packages/plateforme/src/lib/evenements/fiche-evenement.ts + packages/plateforme/src/lib/collectes/types-evenement-collectes.ts",
       "test": "M3.2/evenement_fiche_types_de_ses_collectes + C1/types_evenement_ordre_collecte_n1 + C1/types_evenement_sans_doublon_ni_annulee + C1/types_evenement_toutes_annulees_ou_sans_type",
       "statut": "implemented",
       "libelle": "Fiche Événement du gestionnaire, « Type d'événement » (lot C1, Q2 Val 2026-10-24 « Types de ses collectes ») : les types de toutes ses collectes non annulées, sans doublon, dans l'ordre de la collecte n°1 (Zéro-Déchet avant Anti-Gaspi, puis date, heure, création — le premier nommé est celui que l'événement recopie) ; toutes annulées : leurs types ; aucun type lisible : la copie de l'événement. Même règle pour la colonne de l'export Événements (livrable M4.1-export-evenements-types-des-collectes). Depuis le 2026-10-26 (décision Val), la fiche événement n'affiche plus ce type dans la carte Événement : le type d'événement se lit sur chaque carte collecte (livrable M3.2-evenement-fiche-trois-onglets). La route sert toujours le type calculé par cette règle."
@@ -1448,7 +1463,7 @@
     {
       "id": "M3.2-brouillons-tiers-dates-invisibles",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:53",
-      "artefact": "supabase/migrations/20261024190000_plateforme_gestionnaire_brouillons_tiers_statut.sql (f_collecte_visible, evt_gestionnaire_select, f_traiteur_intervenu_lieux_gestionnaire, f_benchmark_single_collecte) + packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts",
+      "artefact": "supabase/migrations/20261024190000_plateforme_gestionnaire_brouillons_tiers_statut.sql (f_collecte_visible, evt_gestionnaire_select, f_traiteur_intervenu_lieux_gestionnaire, f_benchmark_single_collecte) + packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/lib/evenements/fiche-evenement.ts",
       "test": "M3.2/brouillons_tiers_dates_evenements_invisibles + M3.2/brouillons_tiers_dates_collectes_invisibles + M3.2/brouillons_tiers_dates_traiteur_brouillon_seul_absent + M3.2/brouillons_tiers_dates_benchmark_refuse + M3.2/brouillons_tiers_dates_evenement_mixte + M3.2/brouillons_tiers_dates_propre_brouillon_lu + M3.2/brouillons_tiers_dates_sans_collecte_non_lu + M3.2/brouillons_tiers_dates_proprietaire_lit + M3.2/evenements_route_brouillons_ecartes + M3.2/evenement_fiche_brouillon_404",
       "statut": "implemented",
       "libelle": "Brouillons tiers exclus de la lecture du gestionnaire (F3) — garde sur le statut (décision Val 2026-10-24). Un brouillon a une date d'événement (date_collecte NOT NULL, date calculée sur les collectes non annulées) : la garde `date_evenement IS NOT NULL` n'en écartait aucun (mesuré le 2026-10-24). Dans le régime « événement d'une autre organisation tenu sur un lieu de mon parc », il faut en plus une collecte hors brouillon : f_collecte_visible (la collecte elle-même), evt_gestionnaire_select (au moins une collecte hors brouillon, lue sous la RLS de la session), f_traiteur_intervenu_lieux_gestionnaire (vue v_traiteurs_gestionnaire), f_benchmark_single_collecte. Le programmeur voit toujours son brouillon. Conséquence acceptée par Val : un événement tiers daté sans aucune collecte n'est pas lu tant qu'aucune collecte n'y est confirmée. Liste et fiche Événements du gestionnaire : un événement dont les collectes sont toutes des brouillons est écarté, les siens compris (§06.05 « un brouillon n'y figure pas ») ; la liste Collectes « tous statuts » est inchangée."
@@ -1474,7 +1489,7 @@
     {
       "id": "M3.2-evenements-pax-de-l-evenement",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:588",
-      "artefact": "packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts (inchangés : evenements.pax)",
+      "artefact": "packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/lib/evenements/fiche-evenement.ts (inchangés : evenements.pax)",
       "test": "Lot3/evenement_fiche_pax_et_taille_de_l_evenement + M3.2/evenements_route_une_ligne_par_evenement_bilan_cumule",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
@@ -1483,7 +1498,7 @@
     {
       "id": "M3.2-evenement-rapport-recyclage-cumule",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:352",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-rse/route.ts + packages/plateforme/src/lib/evenements/reponses-cumul.ts + packages/plateforme/src/lib/pdf/rapports-evenement.ts + apps/pdf-renderer/src/templates/rapport-recyclage-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (DocumentsEvenement)",
+      "artefact": "packages/plateforme/src/app/api/v1/evenements/[id]/rapport-rse/route.ts + packages/plateforme/src/lib/evenements/reponses-cumul.ts + packages/plateforme/src/lib/pdf/rapports-evenement.ts + apps/pdf-renderer/src/templates/rapport-recyclage-evenement.ts + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx (DocumentsEvenement)",
       "test": "EVT/api_zd_cumul_collectes_visibles + EVT/api_zd_sans_resultat_409 + EVT/api_zd_relecture_sans_resultat + EVT/api_zd_refiltre_type + EVT/api_filtres_anti_brouillon + EVT/api_hors_perimetre_404 + EVT/api_rendu_echec_502 + EVT/rapport_cumule_zd + EVT/rapport_cumule_attente + page de synthèse du rapport @3, sous-titre « Bilan cumulé »",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
@@ -1492,7 +1507,7 @@
     {
       "id": "M3.2-evenement-rapport-de-don-cumule",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:355",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/rapport-de-don/route.ts + packages/plateforme/src/lib/pdf/rapports-evenement.ts + apps/pdf-renderer/src/templates/rapport-don-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (DocumentsEvenement)",
+      "artefact": "packages/plateforme/src/app/api/v1/evenements/[id]/rapport-de-don/route.ts + packages/plateforme/src/lib/pdf/rapports-evenement.ts + apps/pdf-renderer/src/templates/rapport-don-evenement.ts + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx (DocumentsEvenement)",
       "test": "EVT/api_ag_recapitulatif + EVT/api_ag_fiche_association + EVT/api_ag_attestation_embargo + EVT/api_ag_jamais_de_radar + EVT/api_ag_select_par_role + EVT/rapport_cumule_ag + titre « Rapport de don », sous-titre « Récapitulatif », mention sans valeur fiscale + renvoie aux attestations : numéro émis + chaque association : logo et description du rapport d’impact",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
@@ -1501,7 +1516,7 @@
     {
       "id": "M3.2-evenement-radar-bilan-consolide",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:337",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/benchmark/route.ts + packages/plateforme/src/lib/evenements/cumul-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (BilanConsolide) + packages/plateforme/src/lib/collectes/benchmark-fiche.ts (chargerParcBenchmark)",
+      "artefact": "packages/plateforme/src/app/api/v1/evenements/[id]/benchmark/route.ts + packages/plateforme/src/lib/evenements/cumul-evenement.ts + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx (BilanConsolide) + packages/plateforme/src/lib/collectes/benchmark-fiche.ts (chargerParcBenchmark)",
       "test": "EVT/api_benchmark_ecran + EVT/api_benchmark_sans_radar + EVT/api_benchmark_filtre_hors_perimetre + EVT/api_zd_radar_filtres + EVT/api_zd_radar_sans_convives_422 + EVT/api_zd_radar_filtre_hors_perimetre + EVT/radar_evenement",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
@@ -1510,7 +1525,7 @@
     {
       "id": "M3.2-evenement-rapports-cumules-rendu-visuel",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:352",
-      "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-evenement.ts + apps/pdf-renderer/src/templates/rapport-don-evenement.ts + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx",
+      "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-evenement.ts + apps/pdf-renderer/src/templates/rapport-don-evenement.ts + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx",
       "test": null,
       "statut": "à-vérifier",
       "ref_divergence": "_Divergences/M3.2_20261026_rapports-cumules-evenement.md",
@@ -1519,7 +1534,7 @@
     {
       "id": "M3.2-evenement-pesee-par-pax-collectes-realisees",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:339",
-      "artefact": "packages/plateforme/src/lib/evenements-gestionnaire.ts (paxCumules + ratioParPax de lib/dashboard-kpi.ts, convives_zd / pesee_par_pax_kg / convives_ag / repas_par_pax) + packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts (collectes.pax) + packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (BilanConsolide) + packages/plateforme/src/lib/pdf/rapports-evenement.ts (nb_pax, repas_par_pax) + apps/pdf-renderer/src/templates/rapport-don-evenement.ts (repas_par_pax)",
+      "artefact": "packages/plateforme/src/lib/evenements-gestionnaire.ts (paxCumules + ratioParPax de lib/dashboard-kpi.ts, convives_zd / pesee_par_pax_kg / convives_ag / repas_par_pax) + packages/plateforme/src/lib/evenements/fiche-evenement.ts (collectes.pax) + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx (BilanConsolide) + packages/plateforme/src/lib/pdf/rapports-evenement.ts (nb_pax, repas_par_pax) + apps/pdf-renderer/src/templates/rapport-don-evenement.ts (repas_par_pax)",
       "test": "EVT/fiche_evenement_rapports_cumules_pesee_par_pax + EVT/fiche_evenement_rapports_cumules_convives_zd + EVT/fiche_evenement_rapports_cumules_repas_par_convive + EVT/api_zd_cumul_collectes_visibles + M3.2/evenement_fiche_bilan_consolide_affiche + M3.2/evenement_fiche_pax_absent_et_singulier",
       "statut": "implemented",
       "libelle": "Pesée par pax du bilan consolidé de la fiche événement (décision Val 2026-10-27, scénario 06.05 fiche_evenement_rapports_cumules) : pesées cumulées des collectes ZD réalisées divisées par la somme des convives de CES collectes (`collectes.pax`, collecte à 0 convive écartée des deux sommes), plus par `evenements.pax`. Même règle pour « Convives » en page 1 du Rapport RSE de l'événement et pour « repas par convive » du Rapport de don de l'événement (collectes AG réalisées). Le « Repas par pax » de l'écran suit la même règle, pour que l'écran et le PDF disent le même chiffre. Calcul fait une fois, dans consoliderEvenement, pour l'écran et les deux PDF."
@@ -1535,7 +1550,7 @@
     {
       "id": "M3.2-fiches-gestionnaire-variante-b",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:331-335",
-      "artefact": "packages/plateforme/src/components/gestionnaire/fiche-evenement-modal.tsx (StatutEvenement : pastille d'avancement à la place de FriseEtapes), packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx, packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx, sur les briques variante B de packages/plateforme/src/components/ui/fiche/ (FicheModal taille=\"grand\", FicheGrandEnTete, FicheOnglets, FicheSection, FichePastille)",
+      "artefact": "packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx (StatutEvenement : pastille d'avancement à la place de FriseEtapes), packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx, packages/plateforme/src/components/gestionnaire/fiche-traiteur-modal.tsx, sur les briques variante B de packages/plateforme/src/components/ui/fiche/ (FicheModal taille=\"grand\", FicheGrandEnTete, FicheOnglets, FicheSection, FichePastille)",
       "test": "EVT/frise_avancement (pastille « Validé », nom accessible « Avancement de l’événement : Validé ») + EVT/frise_avancement — toutes les collectes annulées : pastille « Annulé » + tests/ui/fiche-lieu-modale.m3-2.test.tsx + tests/ui/fiche-traiteur-modale.m3-2.test.tsx + tests/ui/rapports-evenement-gestionnaire.m3-2.test.tsx + tests/ui/ajouter-collecte-depuis-fiches.m1-2.test.tsx (contenu, onglets et gestes inchangés)",
       "statut": "à-vérifier",
       "ref_divergence": "_Divergences/M3.2_20261028_fiches-gestionnaire-variante-b.md",

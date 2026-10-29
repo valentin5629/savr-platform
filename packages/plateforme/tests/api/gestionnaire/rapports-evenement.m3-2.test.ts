@@ -97,14 +97,14 @@ async function rapport(
 ) {
   const { POST } =
     type === 'rapport-rse'
-      ? await import('@/app/api/v1/gestionnaire/evenements/[id]/rapport-rse/route.js')
-      : await import('@/app/api/v1/gestionnaire/evenements/[id]/rapport-de-don/route.js');
+      ? await import('@/app/api/v1/evenements/[id]/rapport-rse/route.js')
+      : await import('@/app/api/v1/evenements/[id]/rapport-de-don/route.js');
   return POST(postReq(corps), { params: Promise.resolve({ id }) });
 }
 
 async function benchmark(qs = '', id = EVT) {
   const { GET } =
-    await import('@/app/api/v1/gestionnaire/evenements/[id]/benchmark/route.js');
+    await import('@/app/api/v1/evenements/[id]/benchmark/route.js');
   return GET(new NextRequest(`http://localhost/x${qs}`), {
     params: Promise.resolve({ id }),
   });
@@ -289,6 +289,16 @@ describe('M3.2 — accès aux routes cumulées', () => {
     const refus = new Response(null, { status: 403 });
     mockRequireUser.mockResolvedValue({ error: refus });
     expect((await rapport('rapport-rse')).status).toBe(403);
+    // Rapports cumulés : tous les rôles qui ont la fiche (Val 2026-10-29).
+    expect(mockRequireUser.mock.calls[0]![1]).toEqual([
+      'gestionnaire_lieux',
+      'traiteur_manager',
+      'traiteur_commercial',
+      'agence',
+    ]);
+    // Le radar (benchmark) reste au gestionnaire.
+    mockRequireUser.mockClear();
+    await benchmark();
     expect(mockRequireUser.mock.calls[0]![1]).toEqual(['gestionnaire_lieux']);
   });
 
@@ -485,6 +495,22 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
       },
     ]);
     expect(p.benchmark_legende).toContain('lieux : 1 sélectionné');
+  });
+
+  it('EVT/api_zd_sans_radar_hors_gestionnaire — traiteur et agence : rapport cumulé servi, radar demandé ignoré (benchmark au gestionnaire seul, Val 2026-10-29)', async () => {
+    for (const role of ['traiteur_manager', 'agence']) {
+      mockRequireUser.mockResolvedValue({ ctx: { ...CTX, role } });
+      mockParc.mockClear();
+      evenementVisible();
+      evenementAdmin();
+      collectesZdAdmin();
+      const res = await rapport('rapport-rse', {
+        options: { benchmark: true },
+      });
+      expect(res.status, role).toBe(200);
+      expect(mockParc, role).not.toHaveBeenCalled();
+      expect(payloadEnvoye(), role).not.toHaveProperty('benchmark_flux');
+    }
   });
 
   it('EVT/api_zd_radar_sans_convives_422 — radar demandé sans convives connus → 422 « cet événement », aucun PDF', async () => {

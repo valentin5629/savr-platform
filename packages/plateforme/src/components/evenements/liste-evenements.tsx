@@ -26,7 +26,7 @@ import {
   LIBELLES_EVENEMENTS,
   OngletsVueCollectes,
 } from '@/components/collecte/onglets-vue-collectes';
-import { FicheEvenementModal } from '@/components/gestionnaire/fiche-evenement-modal';
+import { FicheEvenementModal } from '@/components/evenements/fiche-evenement-modal';
 import { ResultatsEvenement } from '@/components/gestionnaire/resultats-evenement';
 import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
 import { EVENEMENTS_PAGE_SIZE as PAGE_SIZE } from '@/lib/evenements-gestionnaire';
@@ -52,6 +52,7 @@ import type {
   LigneEvenement,
 } from '@/lib/evenements/liste-evenements';
 import type { OptionsFiltresEvenements } from '@/lib/evenements/filtres-evenements';
+import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 
 type EvenementRow = LigneEvenement;
 
@@ -69,8 +70,11 @@ interface ReglageEspace {
   traiteur: boolean;
   /** Filtre « Client » (organisation programmatrice) : staff seul. */
   client: boolean;
-  /** Fiche événement au clic : gestionnaire seul en attendant le lot 2. */
-  fiche: boolean;
+  /**
+   * Fiche événement au clic, et l'espace de fiche collecte qu'elle emprunte :
+   * gestionnaire, traiteur, agence. Admin et organisateur : lot suivant.
+   */
+  fiche: EspaceClient | null;
   /** « Déchets labo est. » : gestionnaire seul (§05 R_dechets_labo_estimes). */
   labo: boolean;
 }
@@ -83,7 +87,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: true,
-    fiche: false,
+    fiche: null,
     labo: false,
   },
   traiteur: {
@@ -91,7 +95,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: false,
     client: false,
-    fiche: false,
+    fiche: 'traiteur',
     labo: false,
   },
   agence: {
@@ -100,7 +104,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: false,
-    fiche: false,
+    fiche: 'agence',
     labo: false,
   },
   gestionnaire: {
@@ -109,7 +113,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement sur vos lieux pour ce périmètre.',
     traiteur: true,
     client: false,
-    fiche: true,
+    fiche: 'gestionnaire',
     labo: true,
   },
   organisateur: {
@@ -117,7 +121,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: false,
-    fiche: false,
+    fiche: null,
     labo: false,
   },
 };
@@ -603,6 +607,7 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
 
       {reglage.fiche && ouverte && (
         <FicheEvenementModal
+          espace={reglage.fiche}
           // Une fiche par événement : changer d'événement repart de zéro.
           key={ouverte.evenement}
           evenementId={ouverte.evenement}

@@ -89,16 +89,19 @@ export async function repondreRapportEvenement(
   ctx: UserAuthContext,
   type: TypeRapportEvenement,
   evenementLog: string,
+  /** Radar ouvert au rôle (le benchmark de la fiche événement : gestionnaire). */
+  radarPermis = true,
 ): Promise<NextResponse> {
   const supabase = createSupabaseServerClient();
   const lu = await evenementOuRefus(supabase, id, evenementLog);
   if ('refus' in lu) return lu.refus;
   const evenement = lu.evenement;
 
-  // Radar au choix du demandeur sur le seul rapport ZD ; le rapport de don
-  // n'en a jamais (son corps n'est pas lu).
+  // Radar au choix du demandeur sur le seul rapport ZD, quand le rôle y a
+  // droit ; le rapport de don n'en a jamais (son corps n'est pas lu). Rôle sans
+  // radar : le corps n'est pas lu non plus, le rapport sort sans radar.
   const version =
-    type === 'zero_dechet'
+    type === 'zero_dechet' && radarPermis
       ? await lireVersionDemandee(
           req,
           async (filtres) => {

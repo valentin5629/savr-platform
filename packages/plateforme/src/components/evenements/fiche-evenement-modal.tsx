@@ -68,6 +68,7 @@ import {
   LIBELLE_ETAT_RAPPORT,
   STATUTS_ANNULES,
   STATUT_BILAN,
+  type EspaceClient,
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
 import {
@@ -92,7 +93,10 @@ import { ROUTES } from '@/lib/routes';
 import { friseStatutEvenement } from '@/lib/statut-collecte-labels';
 import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphique';
 
-// Fiche événement du gestionnaire de lieux, en pop-up sur la liste Événements,
+// Fiche événement, en pop-up sur la liste Événements, commune aux espaces qui
+// ont une fiche collecte client (gestionnaire, traiteur, agence : décision Val
+// 2026-10-29, « même fiche pour tous ») ; benchmark et déchets labo estimés au
+// gestionnaire seul. Née dans l'espace gestionnaire de lieux,
 // au grand format de la variante B (décision Val 2026-10-27 : grand en-tête,
 // onglets soulignés dans l'en-tête, seul le corps défile, sections en lignes).
 // Trois onglets (décision Val 2026-10-26), au format de la fiche collecte :
@@ -102,7 +106,7 @@ import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphiqu
 // dérivée des collectes, à la place de la frise (décision Val 2026-10-27).
 //
 // Consultation (§06.05 §2), à deux gestes près : « Ajouter une collecte » sur
-// les événements que le gestionnaire a programmés lui-même (décision Val
+// les événements que l'organisation de l'utilisateur a programmés (décision Val
 // 2026-10-21), et la demande urgente des coordonnées d'un chauffeur, la même que
 // sur la fiche collecte. Une fiche collecte s'ouvre par-dessus (« Voir la
 // collecte », « Accéder au bilan… ») : tant qu'elle est ouverte, la fiche
@@ -475,12 +479,14 @@ function BilanConsolide({
  * RSE en ZD, fabriqué au clic ; Rapport de don en AG, fichier déjà fabriqué).
  */
 function DocumentsEvenement({
+  espace,
   evenementId,
   type,
   nbRealisees,
   radar,
   actives,
 }: {
+  espace: EspaceClient;
   evenementId: string;
   type: CollecteType;
   nbRealisees: number;
@@ -498,7 +504,7 @@ function DocumentsEvenement({
   const radarDemande = choixRadarPossible && avecRadar;
 
   async function telechargerCumul() {
-    const base = `/api/v1/gestionnaire/evenements/${encodeURIComponent(evenementId)}`;
+    const base = `/api/v1/evenements/${encodeURIComponent(evenementId)}`;
     const filtres = radar.filtres;
     setErreur(null);
     setEnCours(CUMUL);
@@ -524,7 +530,7 @@ function DocumentsEvenement({
   // Mêmes chemins que l'onglet Bilan de la fiche collecte (rapport ZD sans
   // radar : ses filtres de comparaison sont propres à chaque collecte).
   async function telecharger(f: FicheCollecteClient) {
-    const base = `/api/v1/gestionnaire/collectes/${encodeURIComponent(f.id)}`;
+    const base = `/api/v1/${encodeURIComponent(espace)}/collectes/${encodeURIComponent(f.id)}`;
     setErreur(null);
     setEnCours(f.id);
     const message =
@@ -782,9 +788,12 @@ export function FicheEvenementModal({
   collecteInitiale = null,
   onCollecteChange,
   onClose,
+  espace,
 }: {
   // Monté par la liste seulement quand une fiche est ouverte.
   evenementId: string;
+  /** Espace de l'appelant : routes de ses fiches collecte, radar au gestionnaire. */
+  espace: EspaceClient;
   /** Fiche collecte à rouvrir par-dessus (adresse `?collecte=` de la liste). */
   collecteInitiale?: string | null;
   /** Ouverture / fermeture de la fiche collecte, pour l'adresse de la liste. */
@@ -821,7 +830,7 @@ export function FicheEvenementModal({
     // de retour au squelette, la fiche ne clignote pas. Après une erreur,
     // « Réessayer » repasse par le squelette.
     setEtat((e) => (e === 'pret' ? e : 'chargement'));
-    fetch(`/api/v1/gestionnaire/evenements/${encodeURIComponent(evenementId)}`)
+    fetch(`/api/v1/evenements/${encodeURIComponent(evenementId)}`)
       .then((r) => {
         if (r.status === 404) return null;
         // Une panne ne se lit jamais comme un événement vide (§10 §7).
@@ -885,7 +894,7 @@ export function FicheEvenementModal({
     let erreur = 'La demande n’a pas pu être envoyée.';
     try {
       const res = await fetch(
-        `/api/v1/gestionnaire/collectes/${encodeURIComponent(collecteId)}/coordonnees-urgence`,
+        `/api/v1/${encodeURIComponent(espace)}/collectes/${encodeURIComponent(collecteId)}/coordonnees-urgence`,
         { method: 'POST' },
       );
       if (res.ok) {
@@ -919,8 +928,9 @@ export function FicheEvenementModal({
   // Radar du bilan consolidé ZD : repère parc relu à chaque changement de
   // filtre ; ses filtres servent aussi le rapport cumulé avec radar.
   const radar = useRadarFiche(
-    `/api/v1/gestionnaire/evenements/${encodeURIComponent(evenementId)}/benchmark`,
-    b && b.nb_realisees_zd > 0
+    `/api/v1/evenements/${encodeURIComponent(evenementId)}/benchmark`,
+    // Benchmark comparatif : gestionnaire seul (décision Val 2026-10-29).
+    espace === 'gestionnaire' && b && b.nb_realisees_zd > 0
       ? { type: 'zero_dechet', statut: STATUT_BILAN }
       : null,
   );
@@ -1086,26 +1096,29 @@ export function FicheEvenementModal({
                       )}
                       {evt.traiteur?.nom ?? VIDE}
                     </InfoItem>
-                    {/* Estimation amont (§05 R_dechets_labo_estimes),
-                          toujours affichée (§06.05 §2) : « — » sans collecte
-                          ZD ou sans coefficient communiqué. */}
-                    <InfoItem
-                      label="Déchets labo estimés"
-                      valueClassName="flex items-center gap-1.5"
-                    >
-                      {evt.dechets_labo_kg != null
-                        ? fmtKg(evt.dechets_labo_kg)
-                        : VIDE}
-                      <Tooltip content={AIDE_LABO}>
-                        <span
-                          tabIndex={0}
-                          aria-label={AIDE_LABO}
-                          className="inline-flex cursor-help text-savr-neutral-400"
-                        >
-                          <InfoIcon className="h-3.5 w-3.5" />
-                        </span>
-                      </Tooltip>
-                    </InfoItem>
+                    {/* Gestionnaire seul (§05 R_dechets_labo_estimes :
+                          coefficient du traiteur confidentiel). Estimation
+                          amont, toujours affichée au gestionnaire (§06.05 §2) :
+                          « — » sans collecte ZD ou sans coefficient. */}
+                    {espace === 'gestionnaire' && (
+                      <InfoItem
+                        label="Déchets labo estimés"
+                        valueClassName="flex items-center gap-1.5"
+                      >
+                        {evt.dechets_labo_kg != null
+                          ? fmtKg(evt.dechets_labo_kg)
+                          : VIDE}
+                        <Tooltip content={AIDE_LABO}>
+                          <span
+                            tabIndex={0}
+                            aria-label={AIDE_LABO}
+                            className="inline-flex cursor-help text-savr-neutral-400"
+                          >
+                            <InfoIcon className="h-3.5 w-3.5" />
+                          </span>
+                        </Tooltip>
+                      </InfoItem>
+                    )}
                     <InfoItem label="Période de collecte">
                       {periodeCollecte ?? VIDE}
                     </InfoItem>
@@ -1204,6 +1217,7 @@ export function FicheEvenementModal({
                   }}
                 />
                 <DocumentsEvenement
+                  espace={espace}
                   evenementId={evt.id}
                   type={typeAffiche}
                   nbRealisees={
@@ -1221,7 +1235,7 @@ export function FicheEvenementModal({
       </FicheModal>
 
       <FicheCollecteClientModal
-        espace="gestionnaire"
+        espace={espace}
         collecteId={fiche?.id ?? null}
         initialOnglet={fiche?.onglet}
         onClose={fermerCollecte}

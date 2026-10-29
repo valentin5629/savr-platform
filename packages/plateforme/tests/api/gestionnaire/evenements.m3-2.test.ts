@@ -81,7 +81,7 @@ vi.mock('@/lib/collectes/fiche-client.js', () => ({
 }));
 
 import { GET as LISTE } from '@/app/api/v1/evenements/route.js';
-import { GET as FICHE } from '@/app/api/v1/gestionnaire/evenements/[id]/route.js';
+import { GET as FICHE } from '@/app/api/v1/evenements/[id]/route.js';
 import { EVENEMENTS_PAGE_SIZE as PAGE_SIZE } from '@/lib/evenements-gestionnaire.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 
@@ -99,16 +99,9 @@ function session(role: string) {
   });
 }
 
-// Tous les rôles autres que le gestionnaire de lieux, staff compris (fiche
-// Événement, encore réservée au gestionnaire).
-const AUTRES_ROLES = [
-  'admin_savr',
-  'ops_savr',
-  'traiteur_manager',
-  'traiteur_commercial',
-  'agence',
-  'client_organisateur',
-];
+// Rôles sans fiche Événement (gestionnaire, traiteur et agence l'ont depuis le
+// 2026-10-29 ; staff et client organisateur au lot suivant).
+const AUTRES_ROLES = ['admin_savr', 'ops_savr', 'client_organisateur'];
 function sansSession() {
   mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
   mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
@@ -183,10 +176,9 @@ function evenementBrut(over: Record<string, unknown> = {}) {
 const liste = (qs = '') =>
   LISTE(new NextRequest(`http://localhost/api/v1/evenements${qs}`));
 const fiche = (id = EVT_ID) =>
-  FICHE(
-    new NextRequest(`http://localhost/api/v1/gestionnaire/evenements/${id}`),
-    { params: Promise.resolve({ id }) },
-  );
+  FICHE(new NextRequest(`http://localhost/api/v1/evenements/${id}`), {
+    params: Promise.resolve({ id }),
+  });
 
 beforeEach(() => {
   rls = makeChain();
@@ -433,7 +425,7 @@ describe('M3.2 / liste Événements gestionnaire — route', () => {
 });
 
 describe('M3.2 / fiche Événement gestionnaire — route', () => {
-  it('M3.2/evenement_fiche_refuse_un_autre_role — tout autre rôle 403, session absente 401, sans aucune lecture', async () => {
+  it('M3.2/evenement_fiche_refuse_un_autre_role — rôle sans fiche 403, session absente 401, sans aucune lecture', async () => {
     for (const role of AUTRES_ROLES) {
       rls = makeChain();
       session(role);
@@ -611,6 +603,56 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
       data: { fiches: { id: string }[] };
     };
     expect(data.fiches.map((c) => c.id)).toEqual(['z-matin', 'a-soir']);
+  });
+
+  it('M3.2/evenement_fiche_traiteur_agence_chemins_du_role — fiche collecte de leur espace, attributions par la table, nom du traiteur par le référentiel, ni logo ni déchets labo (Val 2026-10-29)', async () => {
+    for (const [role, espace] of [
+      ['traiteur_manager', 'traiteur'],
+      ['traiteur_commercial', 'traiteur'],
+      ['agence', 'agence'],
+    ] as const) {
+      rls = makeChain();
+      rls.__suite(
+        {
+          data: {
+            ...evenementBrut(),
+            organisations: undefined,
+            traiteur_operationnel_organisation_id: 'T1',
+          },
+          error: null,
+        },
+        { data: { id: 'T1', nom: 'Kaspia' }, error: null },
+      );
+      mockRpc.mockClear();
+      mockCharger.mockClear();
+      session(role);
+      const res = await fiche();
+      expect(res.status, role).toBe(200);
+      const { data } = (await res.json()) as {
+        data: { traiteur: unknown; dechets_labo_kg: number | null };
+      };
+      expect(data.traiteur, role).toEqual({
+        id: 'T1',
+        nom: 'Kaspia',
+        a_logo: false,
+      });
+      expect(data.dechets_labo_kg, role).toBeNull();
+      expect(mockRpc, role).not.toHaveBeenCalledWith(
+        'f_dechets_labo_estimes',
+        expect.anything(),
+      );
+      for (const appel of mockCharger.mock.calls)
+        expect(appel[2], role).toBe(espace);
+      const select = String(rls.__calls.select?.[0]?.[0]);
+      expect(select, role).not.toContain('_gestionnaire');
+      expect(select, role).toContain(
+        'attributions_antgaspi(volume_repas_realise',
+      );
+      expect(
+        rls.__calls.from?.map((a) => a[0]),
+        role,
+      ).toContain('v_referentiel_traiteurs');
+    }
   });
 
   it('M3.2/evenement_fiche_sans_zd_pas_d_estimation_labo', async () => {

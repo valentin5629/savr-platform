@@ -27,6 +27,8 @@ export interface EmailMessage {
   replyTo?: string | string[];
   subject: string;
   html: string;
+  /** Version texte (enveloppe commune) : messageries qui n'affichent pas le HTML. */
+  text?: string;
 }
 
 // 'skipped' = rien n'est parti et ce n'est pas un échec (hors production sans
@@ -70,6 +72,7 @@ function champsConnus(message: EmailMessage): EmailMessage {
     subject: message.subject,
     html: message.html,
   };
+  if (message.text !== undefined) connu.text = message.text;
   if (message.cc !== undefined) connu.cc = message.cc;
   if (message.bcc !== undefined) connu.bcc = message.bcc;
   if (message.replyTo !== undefined) connu.replyTo = message.replyTo;
@@ -96,8 +99,14 @@ function redirigerHorsProduction(
   const redirige: EmailMessage = {
     to: redirectTo,
     subject: `${prefixe} ${message.subject}`,
-    html: bandeau + message.html,
+    // Le bandeau va en tête du corps : après <body> quand l'email est un document
+    // complet (enveloppe commune), sinon devant le HTML.
+    html: /<body[^>]*>/.test(message.html)
+      ? message.html.replace(/<body[^>]*>/, (b) => b + bandeau)
+      : bandeau + message.html,
   };
+  if (message.text !== undefined)
+    redirige.text = `Destinataires d'origine : ${origine}\n\n${message.text}`;
   if (message.cc !== undefined) redirige.cc = redirectTo;
   if (message.bcc !== undefined) redirige.bcc = redirectTo;
   if (message.replyTo !== undefined) redirige.replyTo = message.replyTo;

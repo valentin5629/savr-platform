@@ -1,6 +1,7 @@
 import { createAdminSupabaseClient } from '../supabase-client.js';
 import { logger } from '../logger/index.js';
 import { dispatchToResend } from './transport.js';
+import { envelopperHtml, versionTexte } from './enveloppe.js';
 
 export interface SendEmailOptions {
   entityType?: string;
@@ -189,9 +190,17 @@ export async function sendEmail(
   }
 
   const sujet = objetEnTexte(interpolate(tpl.sujet as string, variables));
-  const html = interpolate(tpl.corps_html as string, variables);
+  const corps = interpolate(tpl.corps_html as string, variables);
+  // Enveloppe commune (logo, bouton, pied de page) et version texte (revue des
+  // emails, Val 2026-10-29) : la même pour tous les gabarits.
+  const html = envelopperHtml(corps, sujet);
 
-  const outcome = await dispatchToResend({ to, subject: sujet, html });
+  const outcome = await dispatchToResend({
+    to,
+    subject: sujet,
+    html,
+    text: versionTexte(corps),
+  });
   // Hors production sans adresse de redirection : rien n'est parti, donc rien à
   // historiser ni à retenter (une ligne 'failed' serait reprise par le worker).
   if (outcome.statut === 'skipped') return { statut: 'dropped' };
@@ -319,12 +328,13 @@ export async function runEmailRetryWorker(
 
     const vars = (row.variables_jsonb ?? {}) as Record<string, string>;
     const sujet = objetEnTexte(interpolate(tpl.sujet as string, vars));
-    const html = interpolate(tpl.corps_html as string, vars);
+    const corps = interpolate(tpl.corps_html as string, vars);
 
     const outcome = await dispatchToResend({
       to: row.destinataire,
       subject: sujet,
-      html,
+      html: envelopperHtml(corps, sujet),
+      text: versionTexte(corps),
     });
     // Rien n'est parti (hors production sans redirection) : la ligne reste en l'état.
     if (outcome.statut === 'skipped') continue;

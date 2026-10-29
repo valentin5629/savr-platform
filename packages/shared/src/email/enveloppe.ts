@@ -27,10 +27,10 @@ const FOND = '#f7f8fb';
 const BORD = '#dde1ea';
 const POLICE = 'Arial, Helvetica, sans-serif';
 // Espacements validés par Val le 2026-10-29 (3 lignes de plus, puis −20 % sous
-// le logo et −25 % autour des boutons).
+// le logo et deux fois −25 % autour des boutons).
 const ESPACE_SOUS_LOGO = 64;
-const ESPACE_BOUTON_HAUT = 72;
-const ESPACE_BOUTON_BAS = 69;
+const ESPACE_BOUTON_HAUT = 54;
+const ESPACE_BOUTON_BAS = 52;
 
 /** Un paragraphe qui contient au moins un lien. */
 const PARAGRAPHE_AVEC_LIEN =

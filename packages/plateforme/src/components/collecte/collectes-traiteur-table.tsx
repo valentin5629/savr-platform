@@ -1,8 +1,11 @@
 'use client';
 
+import { useId, type ReactNode } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
+  CaretRightIcon,
   CopyIcon,
+  DotsThreeIcon,
   DownloadSimpleIcon,
   FileTextIcon,
   LeafIcon,
@@ -10,9 +13,17 @@ import {
   PencilSimpleIcon,
   RecycleIcon,
   ScalesIcon,
-  TagIcon,
   XCircleIcon,
 } from '@/components/ui/icones';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownSeparator,
+  DropdownTrigger,
+} from '@/components/ui/dropdown';
+import { decalerJour } from '@savr/shared/src/temps/index.js';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
@@ -20,14 +31,15 @@ import { LIBELLE_RAPPORT_RESERVE } from '@/lib/collectes/fiche-client-types';
 import { LIBELLE_SANS_EXCEDENT } from '@/lib/statut-collecte-labels';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 import { fmtKgAuto, fmtPct, fmtInt, fmtPax, UNITE_KG_CO2E } from '@/lib/format';
 
 // Ligne de la Data Table Collectes traiteur (BL-P2-14, refonte liste 2026-07-05,
 // revue écran 2026-07-15, passage en Data Table 2026-09-28 — décisions Val).
 // Colonnes : Date · Lieu · Client (revue écran 2026-10-01) · Pax · Résultats
-// (collecte réalisée) · Statut · Actions icône-seule Modifier / Annuler /
-// Dupliquer (masquées si indisponibles). Le contenu métier détaillé reste sur
-// la fiche (clic ligne).
+// (collecte réalisée) · Statut · menu « ⋯ » Modifier / Dupliquer / Annuler
+// (revue écran 2026-10-29) + chevron. Le contenu métier détaillé reste sur la
+// fiche (clic ligne).
 export interface TraiteurCollecteLigne {
   id: string;
   type: string; // 'zero_dechet' | 'anti_gaspi'
@@ -54,19 +66,25 @@ export interface TraiteurCollecteLigne {
   nb_repas_donnes: number | null;
 }
 
-// Gates d'action alignés sur la fiche (§05 §4). Action indisponible = picto MASQUÉ
-// (décision Val 2026-07-15 — plus de bouton grisé dans la liste) :
+// Gates d'action alignés sur la fiche (§05 §4), menu « ⋯ » (revue écran
+// 2026-10-29) :
 //  - Modifier : statut programmee / validee
 //  - Annuler  : statut brouillon / programmee / validee (validee = demande Admin)
-// Dupliquer est toujours disponible (crée une NOUVELLE collecte à partir du
-// modèle, y compris depuis une collecte passée à reprogrammer).
+// Hors de ces statuts l'action est absente du menu, comme sur la fiche ; sans
+// droit d'écriture elle est grisée, sa raison écrite sous elle. Dupliquer est
+// toujours disponible (crée une NOUVELLE collecte à partir du modèle, y compris
+// depuis une collecte passée à reprogrammer).
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 const STATUTS_ANNULABLES = ['brouillon', 'programmee', 'validee'];
+const STATUTS_ANNULES = ['annulee', 'annulation_demandee'];
 
-// Picto des actions de ligne à 50 % de la taille IconButton par défaut
-// (20 px → 10 px, revue écran 2026-10-01) ; la cible tactile du bouton
-// reste 44/40 px.
-const PICTO_ACTION = '[&>svg]:h-2.5 [&>svg]:w-2.5';
+// Raison d'une action grisée. Le texte « créateur ou manager » est celui de la
+// fiche ; celui du tiers est propre à la liste (la fiche affiche le premier).
+function motifLectureSeule(c: TraiteurCollecteLigne): string {
+  return c.programmee_par_tiers
+    ? 'Collecte programmée par un tiers : adressez-vous à lui ou à l’équipe Savr.'
+    : 'Seul le créateur de la collecte ou un manager peut la modifier.';
+}
 
 export interface ActionsTraiteur {
   onModifier: (c: TraiteurCollecteLigne) => void;
@@ -80,14 +98,20 @@ export interface ActionsTraiteur {
 export function CelluleLieu({
   nom,
   adresse,
+  pastille,
 }: {
   nom: string | null;
   adresse: string | null;
+  /** Pastille écrite à droite du nom (ex. « Par un tiers »). */
+  pastille?: ReactNode;
 }) {
   if (!nom && !adresse) return <CelluleVide />;
   return (
     <div className="min-w-0">
-      <div className="font-medium">{nom ?? '—'}</div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+        <span>{nom ?? '—'}</span>
+        {pastille}
+      </div>
       {adresse && (
         <Text as="div" variant="hint">
           {adresse}
@@ -194,9 +218,146 @@ export function ResultatsCollecte({
   );
 }
 
+// Repère des collectes du jour et du lendemain (revue écran 2026-10-29) ; une
+// collecte annulée n'en porte pas.
+function RepereJour({
+  c,
+  aujourdhui,
+}: {
+  c: TraiteurCollecteLigne;
+  aujourdhui: string | undefined;
+}) {
+  if (!aujourdhui || STATUTS_ANNULES.includes(c.statut)) return null;
+  if (c.date_collecte === aujourdhui)
+    return (
+      <Badge variant="action" size="sm">
+        Aujourd’hui
+      </Badge>
+    );
+  if (c.date_collecte === decalerJour(aujourdhui, 1))
+    return (
+      <Badge variant="info" size="sm">
+        Demain
+      </Badge>
+    );
+  return null;
+}
+
+// Entrée du menu. Grisée, elle reste atteignable au clavier (`aria-disabled`,
+// pas `disabled`, que Radix saute aux flèches) et ne fait rien ; sa raison est
+// écrite sous elle sans être atténuée, et lue comme description (même rendu
+// que le menu « ⋯ » de la fiche sur téléphone).
+function EntreeMenu({
+  icone,
+  libelle,
+  motif,
+  destructive,
+  onChoisir,
+}: {
+  icone: ReactNode;
+  libelle: string;
+  /** Présent = entrée grisée, avec sa raison. */
+  motif?: string;
+  destructive?: boolean;
+  onChoisir: () => void;
+}) {
+  const idMotif = useId();
+  const grisee = motif != null;
+  return (
+    <DropdownItem
+      destructive={destructive && !grisee}
+      aria-disabled={grisee || undefined}
+      aria-describedby={grisee ? idMotif : undefined}
+      className={cn(
+        'items-start',
+        grisee && 'cursor-not-allowed text-savr-neutral-700',
+      )}
+      onSelect={(e) => {
+        if (grisee) {
+          e.preventDefault();
+          return;
+        }
+        onChoisir();
+      }}
+    >
+      <span className={cn('mt-0.5 shrink-0', grisee && 'opacity-50')}>
+        {icone}
+      </span>
+      <span className="min-w-0">
+        <span className={cn('block', grisee && 'opacity-50')}>{libelle}</span>
+        {grisee && (
+          <span
+            id={idMotif}
+            className="mt-0.5 block text-xs text-savr-neutral-600"
+          >
+            {motif}
+          </span>
+        )}
+      </span>
+    </DropdownItem>
+  );
+}
+
+// Menu « ⋯ » de fin de ligne (revue écran 2026-10-29, remplace les trois
+// pictos de 10 px) : Modifier, Dupliquer, puis l'annulation, isolée en rouge.
+function ActionsLigne({
+  c,
+  actions,
+}: {
+  c: TraiteurCollecteLigne;
+  actions: ActionsTraiteur;
+}) {
+  const modifiable = STATUTS_EDITABLES.includes(c.statut);
+  const annulable = STATUTS_ANNULABLES.includes(c.statut);
+  const motif = c.canWrite ? undefined : motifLectureSeule(c);
+  const icone = 'block h-4 w-4';
+  return (
+    <Dropdown>
+      <DropdownTrigger asChild>
+        <IconButton aria-label="Actions sur la collecte">
+          <DotsThreeIcon aria-hidden="true" />
+        </IconButton>
+      </DropdownTrigger>
+      <DropdownContent align="end" className="max-w-72">
+        {modifiable && (
+          <EntreeMenu
+            icone={<PencilSimpleIcon aria-hidden="true" className={icone} />}
+            libelle="Modifier la collecte"
+            motif={motif}
+            onChoisir={() => actions.onModifier(c)}
+          />
+        )}
+        <EntreeMenu
+          icone={<CopyIcon aria-hidden="true" className={icone} />}
+          libelle="Dupliquer la collecte"
+          onChoisir={() => actions.onDupliquer(c)}
+        />
+        {annulable && (
+          <>
+            <DropdownSeparator />
+            <EntreeMenu
+              icone={<XCircleIcon aria-hidden="true" className={icone} />}
+              libelle={
+                c.statut === 'validee'
+                  ? 'Demander l’annulation'
+                  : 'Annuler la collecte'
+              }
+              motif={motif}
+              destructive
+              onChoisir={() => actions.onAnnuler(c)}
+            />
+          </>
+        )}
+      </DropdownContent>
+    </Dropdown>
+  );
+}
+
 // Colonnes de la Data Table (tri côté client : la route n'est pas paginée).
+// `aujourdhui` (jour de Paris) pose le repère « Aujourd’hui » / « Demain ».
 export function colonnesCollectesTraiteur(
   actions: ActionsTraiteur,
+  aujourdhui?: string,
 ): ColumnDef<TraiteurCollecteLigne, unknown>[] {
   return [
     {
@@ -207,15 +368,7 @@ export function colonnesCollectesTraiteur(
       cell: ({ row: { original: c } }) => (
         <span className="inline-flex items-center gap-2 whitespace-nowrap font-semibold text-savr-neutral-900 tabular-nums">
           {libelleDateHeure(c.date_collecte, c.heure_collecte)}
-          {c.programmee_par_tiers && (
-            <span title="Programmée par un tiers">
-              {/* Picto orange « user-tag » (§06.04 Vue liste). */}
-              <TagIcon
-                className="h-3.5 w-3.5 text-savr-warning"
-                aria-label="Programmée par un tiers"
-              />
-            </span>
-          )}
+          <RepereJour c={c} aujourdhui={aujourdhui} />
         </span>
       ),
     },
@@ -224,14 +377,33 @@ export function colonnesCollectesTraiteur(
       header: 'Lieu',
       accessorFn: (c) => c.lieu_nom ?? '',
       cell: ({ row: { original: c } }) => (
-        <CelluleLieu nom={c.lieu_nom} adresse={c.lieu_adresse} />
+        <CelluleLieu
+          nom={c.lieu_nom}
+          adresse={c.lieu_adresse}
+          pastille={
+            // Programmée par un tiers (§06.04 Vue liste) : pastille écrite,
+            // l'ancien picto orange ne se comprenait qu'au survol.
+            c.programmee_par_tiers && (
+              <Badge
+                variant="action"
+                size="sm"
+                title="Programmée par un tiers"
+                className="font-medium"
+              >
+                Par un tiers
+              </Badge>
+            )
+          }
+        />
       ),
     },
     {
       id: 'client',
       header: 'Client',
       accessorFn: (c) => c.client_nom ?? '',
-      cell: ({ row: { original: c } }) => c.client_nom || <CelluleVide />,
+      // Non renseigné : cellule laissée vide (revue écran 2026-10-29), le
+      // tiret répété sur la plupart des lignes chargeait la liste.
+      cell: ({ row: { original: c } }) => c.client_nom ?? null,
     },
     {
       id: 'pax',
@@ -275,41 +447,13 @@ export function colonnesCollectesTraiteur(
         className: 'w-[1%] whitespace-nowrap text-right',
       },
       cell: ({ row: { original: c } }) => (
-        // IconButton (§10 §6, icône seule) : libellé au survol (title), cible
-        // tactile 44/40px conservée, picto réduit de moitié (revue écran
-        // 2026-10-01). L'action indisponible n'est pas rendue.
         <div className="flex items-center justify-end gap-1">
-          {c.canWrite && STATUTS_EDITABLES.includes(c.statut) && (
-            <IconButton
-              variant="ghost"
-              onClick={() => actions.onModifier(c)}
-              title="Modifier"
-              aria-label="Modifier la collecte"
-              className={PICTO_ACTION}
-            >
-              <PencilSimpleIcon />
-            </IconButton>
-          )}
-          {c.canWrite && STATUTS_ANNULABLES.includes(c.statut) && (
-            <IconButton
-              variant="destructive"
-              onClick={() => actions.onAnnuler(c)}
-              title="Annuler"
-              aria-label="Annuler la collecte"
-              className={PICTO_ACTION}
-            >
-              <XCircleIcon />
-            </IconButton>
-          )}
-          <IconButton
-            variant="ghost"
-            onClick={() => actions.onDupliquer(c)}
-            title="Dupliquer"
-            aria-label="Dupliquer la collecte"
-            className={PICTO_ACTION}
-          >
-            <CopyIcon />
-          </IconButton>
+          <ActionsLigne c={c} actions={actions} />
+          {/* Chevron : la ligne ouvre la fiche (le clic est porté par la ligne). */}
+          <CaretRightIcon
+            aria-hidden="true"
+            className="hidden h-4 w-4 text-savr-neutral-400 group-hover:text-savr-primary-700 sm:block"
+          />
         </div>
       ),
     },

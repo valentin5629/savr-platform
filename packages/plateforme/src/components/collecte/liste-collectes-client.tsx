@@ -456,7 +456,11 @@ export function ListeCollectesClient({
   // L'agence est un rôle unique qui voit toute l'activité de son organisation,
   // « comme un traiteur_manager » (§06.11 différence #2).
   function canWrite(row: CollecteRow): boolean {
-    if (role === 'traiteur_manager' || role === 'agence') return true;
+    if (role === 'agence') return true;
+    // Programmée par un tiers : le traiteur opérationnel ne la modifie ni ne
+    // l'annule (§06.04, décision Val 2026-10-10), comme sur la fiche.
+    if (row.programmee_par_tiers) return false;
+    if (role === 'traiteur_manager') return true;
     const evt = one(row.evenements);
     return role === 'traiteur_commercial' && evt?.created_by === userId;
   }
@@ -522,21 +526,24 @@ export function ListeCollectesClient({
 
   const colonnes = useMemo(
     () =>
-      colonnesCollectesTraiteur({
-        onModifier: (c) => ouvrirFicheRef.current(c.id, true),
-        onAnnuler: (c) => {
-          setAnnulErreur(null);
-          setAnnulTarget(rows.find((r) => r.id === c.id) ?? null);
+      colonnesCollectesTraiteur(
+        {
+          onModifier: (c) => ouvrirFicheRef.current(c.id, true),
+          onAnnuler: (c) => {
+            setAnnulErreur(null);
+            setAnnulTarget(rows.find((r) => r.id === c.id) ?? null);
+          },
+          onDupliquer: (c) =>
+            router.push(`${ROUTES.programmer.nouveau}?from=${c.id}`),
+          onTelecharger: (c) =>
+            c.type === 'zero_dechet'
+              ? ouvrirFicheRef.current(c.id, false, 'bilan')
+              : void telechargerRapport(c.id),
         },
-        onDupliquer: (c) =>
-          router.push(`${ROUTES.programmer.nouveau}?from=${c.id}`),
-        onTelecharger: (c) =>
-          c.type === 'zero_dechet'
-            ? ouvrirFicheRef.current(c.id, false, 'bilan')
-            : void telechargerRapport(c.id),
-      }),
+        aujourdhui,
+      ),
     // telechargerRapport ne dépend que de `api` (aucune dépendance d'état).
-    [router, rows, api],
+    [router, rows, api, aujourdhui],
   );
 
   const estDemande = annulTarget?.statut === 'validee';
@@ -546,7 +553,7 @@ export function ListeCollectesClient({
       <PageHero
         title="Collectes"
         icon={<TruckIcon className="h-6 w-6" />}
-        subtitle="Vos collectes Zéro Déchet et Anti-Gaspi · cliquez une ligne pour ouvrir la fiche"
+        subtitle="Vos collectes Zéro Déchet et Anti-Gaspi"
         actions={
           // Sur l'aplat navy du bandeau : secondaire (fond blanc) + CTA accent,
           // comme les autres PageHero ; un ghost navy y était invisible. Pas de

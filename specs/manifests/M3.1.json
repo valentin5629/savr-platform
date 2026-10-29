@@ -947,7 +947,7 @@
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/liste_rapport_reserve_donneur_ordre_picto_retire",
       "statut": "implemented",
-      "libelle": "Liste traiteur, cellule Résultats d'une collecte cloturee : quand rapport_reserve_donneur_ordre, le picto « Télécharger le rapport » est RETIRÉ (action indisponible retirée sur cette liste, §10 §7 exception densité — plus de bouton inerte) et remplacé par la mention de la fiche « Réservé à l'organisation qui a programmé la collecte » (constante LIBELLE_RAPPORT_RESERVE, partagée avec le Bilan de la fiche). Câblage page → table : M3.1/liste_rapport_reserve_donneur_ordre_page."
+      "libelle": "Liste traiteur, cellule Résultats d'une collecte cloturee : quand rapport_reserve_donneur_ordre, le picto « Télécharger le rapport » est RETIRÉ (action indisponible retirée sur cette liste, §10 §7 exception densité, maintenue pour ce picto par la divergence M3.1_20261029_liste-collectes-menu-actions — plus de bouton inerte) et remplacé par la mention de la fiche « Réservé à l'organisation qui a programmé la collecte » (constante LIBELLE_RAPPORT_RESERVE, partagée avec le Bilan de la fiche). Câblage page → table : M3.1/liste_rapport_reserve_donneur_ordre_page."
     },
     {
       "id": "M3.1-liste-rapport-reserve-rendu-visuel",
@@ -995,7 +995,7 @@
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/liste_colonne_client",
       "statut": "implemented",
-      "libelle": "Colonne « Client » de la liste Collectes traiteur, à droite de « Lieu » (décision Val, revue écran E2E 2026-10-01 — divergence M3.1_20261001_liste-colonne-client ; CDC patché au sync du 2026-10-06 : §06.04 l.319 liste Date · Heure · Lieu · Client · Pax · Statut). Affiche le client organisateur saisi à la programmation (evenements.nom_client_organisateur, déjà renvoyé par la route liste — aucune lecture nouvelle) ; « — » si non renseigné ; triable, masquable par le menu « Colonnes »."
+      "libelle": "Colonne « Client » de la liste Collectes traiteur, à droite de « Lieu » (décision Val, revue écran E2E 2026-10-01 — divergence M3.1_20261001_liste-colonne-client ; CDC patché au sync du 2026-10-06 : §06.04 l.319 liste Date · Heure · Lieu · Client · Pax · Statut). Affiche le client organisateur saisi à la programmation (evenements.nom_client_organisateur, déjà renvoyé par la route liste — aucune lecture nouvelle) ; cellule vide si non renseigné (revue écran 2026-10-29, divergence M3.1_20261029_liste-collectes-menu-actions ; avant : « — ») ; triable, masquable par le menu « Colonnes »."
     },
     {
       "id": "M3.1-liste-colonne-client-rendu-visuel",
@@ -1004,6 +1004,30 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la colonne « Client » dans la liste Collectes (traiteur et agence, composant commun), en tableau desktop ET en carte mobile < 640 px : placée entre Lieu et Pax, ne tasse pas la colonne Lieu ni les actions — preuve écran à joindre (geste de Val, GO-VISUAL)."
+    },
+    {
+      "id": "M3.1-liste-menu-actions",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:321",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
+      "test": "M3.1/card_traiteur_champs + M3.1/card_traiteur_gating_readonly + M3.1/card_traiteur_gating_statut_terminal + M3.1/card_traiteur_action_grisee_inerte + M3.1/liste_tiers_actions_grisees",
+      "statut": "implemented",
+      "libelle": "Liste Collectes traiteur et agence : menu « ⋯ » de fin de ligne (Modifier / Dupliquer / Annuler en rouge, « Demander l’annulation » sur validee) suivi d'un chevron, à la place des pictos de 10 px (revue écran 2026-10-29, divergence M3.1_20261029_liste-collectes-menu-actions). Action interdite par le statut : absente (règle de la fiche) ; par le droit : grisée (aria-disabled, sans effet), raison écrite sous elle. Collecte programmée par un tiers : Modifier / Annuler grisés pour le traiteur, comme la fiche (§06.04 l.420) — sonde : retrait de la règle → M3.1/liste_tiers_actions_grisees rouge."
+    },
+    {
+      "id": "M3.1-liste-pastille-tiers-repere-jour",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:317-318",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
+      "test": "M3.1/liste_pastille_tiers + M3.1/liste_repere_jour",
+      "statut": "implemented",
+      "libelle": "Pastille « Par un tiers » à droite du nom du lieu (remplace le picto orange user-tag) et repères « Aujourd’hui » / « Demain » à droite de la date, jour de Paris, absents sur une collecte annulée (revue écran 2026-10-29, divergence M3.1_20261029_liste-collectes-menu-actions)."
+    },
+    {
+      "id": "M3.1-liste-menu-actions-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:431",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la liste Collectes après la revue écran 2026-10-29 : menu « ⋯ » ouvert avec une entrée grisée et sa raison, chevron, pastille « Par un tiers », repères « Aujourd’hui » / « Demain », colonne Client vide, largeur de la colonne Actions — preuve écran (geste de Val, GO-VISUAL)."
     },
     {
       "id": "M3.1-liste-filtres-choix-multiple",

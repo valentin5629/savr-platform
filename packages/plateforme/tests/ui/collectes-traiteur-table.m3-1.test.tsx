@@ -1,8 +1,10 @@
 /**
  * M3.1 — Data Table liste collectes traiteur (refonte 2026-07-05, revue écran
  * 2026-07-15, passage en Data Table 2026-09-28 — décisions Val). Couvre : champs
- * affichés (Date · Heure · Lieu · Client · Pax · Statut), actions icône-seule (Modifier /
- * Annuler / Dupliquer) MASQUÉES quand indisponibles (plus de bouton grisé), et —
+ * affichés (Date · Heure · Lieu · Client · Pax · Statut), menu « ⋯ » (Modifier /
+ * Dupliquer / Annuler — revue écran 2026-10-29) : action absente si le statut
+ * l'interdit, grisée avec sa raison sans droit d'écriture ; repères
+ * « Aujourd’hui » / « Demain » et pastille « Par un tiers » ; et —
  * sur collecte réalisée (cloturee) — les résultats (ZD : poids/taux/CO₂ ; AG :
  * repas/CO₂) + le téléchargement du rapport, retiré quand le rapport de don
  * est réservé au donneur d'ordre (D12).
@@ -61,12 +63,15 @@ function renderCard(
 ) {
   const r = render(
     <DataGrid
-      columns={colonnesCollectesTraiteur({
-        onModifier: handlers.onModifier ?? (() => {}),
-        onAnnuler: handlers.onAnnuler ?? (() => {}),
-        onDupliquer: handlers.onDupliquer ?? (() => {}),
-        onTelecharger: handlers.onTelecharger ?? (() => {}),
-      })}
+      columns={colonnesCollectesTraiteur(
+        {
+          onModifier: handlers.onModifier ?? (() => {}),
+          onAnnuler: handlers.onAnnuler ?? (() => {}),
+          onDupliquer: handlers.onDupliquer ?? (() => {}),
+          onTelecharger: handlers.onTelecharger ?? (() => {}),
+        },
+        aujourdhui,
+      )}
       data={[{ ...c, canWrite }]}
       getRowId={(x) => x.id}
       onRowClick={handlers.onOpen ?? (() => {})}
@@ -75,6 +80,7 @@ function renderCard(
   return { ...r, table: within(screen.getByRole('table')) };
 }
 
+let aujourdhui: string | undefined;
 let table: ReturnType<typeof renderCard>['table'];
 function btn(name: RegExp): HTMLButtonElement {
   return table.getByRole('button', { name }) as HTMLButtonElement;
@@ -86,20 +92,41 @@ function monte(...args: Parameters<typeof renderCard>) {
   cleanup();
   table = renderCard(...args).table;
 }
+// Menu « ⋯ » de la ligne, ouvert au clavier (Entrée, comme un utilisateur).
+// Déjà ouvert : le reste de la page est masqué aux lecteurs d'écran.
+function menu(): HTMLElement {
+  const ouvert = screen.queryByRole('menu');
+  if (ouvert) return ouvert;
+  fireEvent.keyDown(btn(/Actions sur la collecte/), { key: 'Enter' });
+  return screen.getByRole('menu');
+}
+function item(name: RegExp): HTMLElement | null {
+  return within(menu()).queryByRole('menuitem', { name });
+}
+function estGrise(el: HTMLElement | null): boolean {
+  return el?.getAttribute('aria-disabled') === 'true';
+}
 
 describe('M3.1 / Data Table liste traiteur', () => {
-  it('M3.1/card_traiteur_champs — affiche heure, lieu, pax + 3 actions (validee)', () => {
+  it('M3.1/card_traiteur_champs — affiche heure, lieu, pax + menu « ⋯ » des 3 actions (validee)', () => {
     monte(base(), true);
     expect(table.getByText(/23h30/)).toBeTruthy();
     expect(table.getByText(/Lieu Rouen Gare/)).toBeTruthy();
     expect(table.getByText(/220 pax/)).toBeTruthy();
-    // Actions icône-seule : le libellé accessible vient de l'aria-label.
-    expect(btn(/Modifier/)).toBeTruthy();
-    expect(btn(/Annuler/)).toBeTruthy();
-    expect(btn(/Dupliquer/)).toBeTruthy();
+    // Plus de picto par action sur la ligne : un seul déclencheur.
+    expect(queryBtn(/Modifier/)).toBeNull();
+    expect(queryBtn(/Dupliquer/)).toBeNull();
+    const noms = within(menu())
+      .getAllByRole('menuitem')
+      .map((m) => m.textContent);
+    expect(noms).toEqual([
+      'Modifier la collecte',
+      'Dupliquer la collecte',
+      'Demander l’annulation',
+    ]);
   });
 
-  it('M3.1/liste_colonne_client — colonne « Client » à droite de « Lieu », « — » si non renseigné', () => {
+  it('M3.1/liste_colonne_client — colonne « Client » à droite de « Lieu », cellule vide si non renseigné', () => {
     monte(base(), true);
     const entetes = table
       .getAllByRole('columnheader')
@@ -113,36 +140,55 @@ describe('M3.1 / Data Table liste traiteur', () => {
       'none',
     );
 
-    // Client organisateur non saisi à la programmation : cellule vide du DS.
+    // Client organisateur non saisi : cellule laissée vide (revue écran
+    // 2026-10-29), plus de tiret.
     monte(base({ client_nom: null }), true);
     expect(table.queryByText('Maison Lenôtre')).toBeNull();
     const cellules = table.getAllByRole('cell');
-    expect(cellules[entetes.indexOf('Client')]?.textContent).toBe('—');
+    expect(cellules[entetes.indexOf('Client')]?.textContent).toBe('');
   });
 
-  it('M3.1/card_traiteur_gating_manager — validee + canWrite → Modifier/Annuler présents et cliquables', () => {
+  it('M3.1/card_traiteur_gating_manager — validee + canWrite → Modifier/Annuler actifs', () => {
     monte(base({ statut: 'validee' }), true);
-    expect(btn(/Modifier/)).toBeTruthy();
-    expect(btn(/Annuler/)).toBeTruthy();
-    expect(btn(/Dupliquer/)).toBeTruthy();
+    expect(estGrise(item(/Modifier/))).toBe(false);
+    expect(estGrise(item(/annulation/))).toBe(false);
+    expect(item(/Dupliquer/)).toBeTruthy();
   });
 
-  it('M3.1/card_traiteur_gating_readonly — canWrite false → Modifier/Annuler MASQUÉS, Dupliquer présent', () => {
+  it('M3.1/card_traiteur_libelle_annuler — programmee : « Annuler la collecte », validee : « Demander l’annulation »', () => {
+    monte(base({ statut: 'programmee' }), true);
+    expect(item(/^Annuler la collecte$/)).toBeTruthy();
+    monte(base({ statut: 'validee' }), true);
+    expect(item(/^Demander l’annulation$/)).toBeTruthy();
+  });
+
+  it('M3.1/card_traiteur_gating_readonly — canWrite false → Modifier/Annuler GRISÉS avec leur raison, Dupliquer actif', () => {
     monte(base({ statut: 'validee' }), false);
-    expect(queryBtn(/Modifier/)).toBeNull();
-    expect(queryBtn(/Annuler/)).toBeNull();
+    const modifier = item(/Modifier/);
+    expect(estGrise(modifier)).toBe(true);
+    expect(modifier?.textContent).toContain(
+      'Seul le créateur de la collecte ou un manager peut la modifier.',
+    );
+    expect(estGrise(item(/annulation/))).toBe(true);
     // Dupliquer crée une nouvelle collecte → toujours disponible.
-    expect(btn(/Dupliquer/)).toBeTruthy();
+    expect(estGrise(item(/Dupliquer/))).toBe(false);
   });
 
-  it('M3.1/card_traiteur_gating_statut_terminal — cloturee → Modifier/Annuler MASQUÉS même si canWrite', () => {
+  it('M3.1/card_traiteur_gating_tiers — programmée par un tiers : raison propre au tiers', () => {
+    monte(base({ statut: 'validee', programmee_par_tiers: true }), false);
+    expect(item(/Modifier/)?.textContent).toContain(
+      'Collecte programmée par un tiers',
+    );
+  });
+
+  it('M3.1/card_traiteur_gating_statut_terminal — cloturee → Modifier/Annuler ABSENTS même si canWrite', () => {
     monte(base({ statut: 'cloturee' }), true);
-    expect(queryBtn(/Modifier/)).toBeNull();
-    expect(queryBtn(/Annuler/)).toBeNull();
-    expect(btn(/Dupliquer/)).toBeTruthy();
+    expect(item(/Modifier/)).toBeNull();
+    expect(item(/Annuler|annulation/)).toBeNull();
+    expect(item(/Dupliquer/)).toBeTruthy();
   });
 
-  it('M3.1/card_traiteur_actions — les boutons appellent leurs handlers', () => {
+  it('M3.1/card_traiteur_actions — les entrées du menu appellent leurs handlers', () => {
     const onModifier = vi.fn();
     const onAnnuler = vi.fn();
     const onDupliquer = vi.fn();
@@ -151,12 +197,45 @@ describe('M3.1 / Data Table liste traiteur', () => {
       onAnnuler,
       onDupliquer,
     });
-    fireEvent.click(btn(/Modifier/));
-    fireEvent.click(btn(/Annuler/));
-    fireEvent.click(btn(/Dupliquer/));
+    fireEvent.click(item(/Modifier/)!);
+    fireEvent.click(item(/Dupliquer/)!);
+    fireEvent.click(item(/annulation/)!);
     expect(onModifier).toHaveBeenCalledOnce();
     expect(onAnnuler).toHaveBeenCalledOnce();
     expect(onDupliquer).toHaveBeenCalledOnce();
+  });
+
+  it('M3.1/card_traiteur_action_grisee_inerte — une entrée grisée n’appelle rien', () => {
+    const onModifier = vi.fn();
+    monte(base({ statut: 'validee' }), false, { onModifier });
+    fireEvent.click(item(/Modifier/)!);
+    expect(onModifier).not.toHaveBeenCalled();
+  });
+
+  it('M3.1/liste_pastille_tiers — « Par un tiers » écrit à côté du lieu', () => {
+    monte(base({ programmee_par_tiers: true }), true);
+    expect(table.getByText('Par un tiers')).toHaveAttribute(
+      'title',
+      'Programmée par un tiers',
+    );
+    monte(base({ programmee_par_tiers: false }), true);
+    expect(table.queryByText('Par un tiers')).toBeNull();
+  });
+
+  it('M3.1/liste_repere_jour — « Aujourd’hui » / « Demain », rien au-delà ni sur une annulée', () => {
+    aujourdhui = '2026-07-08';
+    try {
+      monte(base({ date_collecte: '2026-07-08' }), true);
+      expect(table.getByText('Aujourd’hui')).toBeTruthy();
+      monte(base({ date_collecte: '2026-07-09' }), true);
+      expect(table.getByText('Demain')).toBeTruthy();
+      monte(base({ date_collecte: '2026-07-10' }), true);
+      expect(table.queryByText(/Aujourd’hui|Demain/)).toBeNull();
+      monte(base({ date_collecte: '2026-07-08', statut: 'annulee' }), true);
+      expect(table.queryByText('Aujourd’hui')).toBeNull();
+    } finally {
+      aujourdhui = undefined;
+    }
   });
 
   it('M3.1/card_traiteur_realisee_zd — cloturee ZD affiche poids, taux, CO₂ + téléchargement', () => {
@@ -252,7 +331,7 @@ describe('M3.1 / Data Table liste traiteur', () => {
     ).toBeTruthy();
     expect(table.getByText(/340 repas/)).toBeTruthy();
     expect(table.getByText(/850\s*kg CO₂e/)).toBeTruthy();
-    expect(btn(/Dupliquer/)).toBeTruthy();
+    expect(item(/Dupliquer/)).toBeTruthy();
   });
 
   it('M3.1/card_traiteur_non_realisee — statut non terminal : pas de téléchargement', () => {
@@ -264,7 +343,8 @@ describe('M3.1 / Data Table liste traiteur', () => {
     const onOpen = vi.fn();
     const onDupliquer = vi.fn();
     monte(base(), true, { onOpen, onDupliquer });
-    fireEvent.click(btn(/Dupliquer/));
+    fireEvent.click(btn(/Actions sur la collecte/));
+    fireEvent.click(item(/Dupliquer/)!);
     expect(onDupliquer).toHaveBeenCalledOnce();
     // La cellule Actions est `interactive` : son clic ne remonte pas à la ligne.
     expect(onOpen).not.toHaveBeenCalled();

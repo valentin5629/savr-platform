@@ -3,7 +3,6 @@
 import { useId, type ReactNode } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  CaretRightIcon,
   CopyIcon,
   DotsThreeIcon,
   DownloadSimpleIcon,
@@ -23,7 +22,7 @@ import {
   DropdownSeparator,
   DropdownTrigger,
 } from '@/components/ui/dropdown';
-import { decalerJour } from '@savr/shared/src/temps/index.js';
+import { ChevronLigne, RepereJour } from '@/components/collecte/repere-jour';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
@@ -218,31 +217,6 @@ export function ResultatsCollecte({
   );
 }
 
-// Repère des collectes du jour et du lendemain (revue écran 2026-10-29) ; une
-// collecte annulée n'en porte pas.
-function RepereJour({
-  c,
-  aujourdhui,
-}: {
-  c: TraiteurCollecteLigne;
-  aujourdhui: string | undefined;
-}) {
-  if (!aujourdhui || STATUTS_ANNULES.includes(c.statut)) return null;
-  if (c.date_collecte === aujourdhui)
-    return (
-      <Badge variant="action" size="sm">
-        Aujourd’hui
-      </Badge>
-    );
-  if (c.date_collecte === decalerJour(aujourdhui, 1))
-    return (
-      <Badge variant="info" size="sm">
-        Demain
-      </Badge>
-    );
-  return null;
-}
-
 // Entrée du menu. Grisée, elle reste atteignable au clavier (`aria-disabled`,
 // pas `disabled`, que Radix saute aux flèches) et ne fait rien ; sa raison est
 // écrite sous elle sans être atténuée, et lue comme description (même rendu
@@ -368,7 +342,13 @@ export function colonnesCollectesTraiteur(
       cell: ({ row: { original: c } }) => (
         <span className="inline-flex items-center gap-2 whitespace-nowrap font-semibold text-savr-neutral-900 tabular-nums">
           {libelleDateHeure(c.date_collecte, c.heure_collecte)}
-          <RepereJour c={c} aujourdhui={aujourdhui} />
+          {aujourdhui && (
+            <RepereJour
+              date={c.date_collecte}
+              aujourdhui={aujourdhui}
+              masque={STATUTS_ANNULES.includes(c.statut)}
+            />
+          )}
         </span>
       ),
     },
@@ -450,10 +430,7 @@ export function colonnesCollectesTraiteur(
         <div className="flex items-center justify-end gap-1">
           <ActionsLigne c={c} actions={actions} />
           {/* Chevron : la ligne ouvre la fiche (le clic est porté par la ligne). */}
-          <CaretRightIcon
-            aria-hidden="true"
-            className="hidden h-4 w-4 text-savr-neutral-400 group-hover:text-savr-primary-700 sm:block"
-          />
+          <ChevronLigne />
         </div>
       ),
     },

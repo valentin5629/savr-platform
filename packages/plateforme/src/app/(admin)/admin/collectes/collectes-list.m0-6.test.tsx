@@ -249,6 +249,8 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       expect(screen.getAllByText('Fondation X').length).toBeGreaterThan(0);
       // Transporteur (ligne 2)
       expect(screen.getAllByText('Marathon').length).toBeGreaterThan(0);
+      // Revue écran 2026-10-29 : le chevron signale le clic, plus la consigne.
+      expect(screen.queryByText(/cliquez une ligne/)).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

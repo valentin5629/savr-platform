@@ -414,6 +414,71 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
   );
 
   it(
+    'M3.2/evenements_liste_repere_jour_chevron — « Aujourd’hui » / « Demain » à côté de la date, rien sur un événement annulé ; chevron en fin de ligne',
+    async () => {
+      // Horloge seule figée (minuteries réelles) : 8 juillet 2026, 10 h à Paris.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-08T08:00:00Z'));
+      try {
+        const lignes = [
+          {
+            ...LIGNE,
+            id: 'e-jour',
+            nom_evenement: 'Gala du jour',
+            date_evenement: '2026-07-08',
+          },
+          {
+            ...LIGNE,
+            id: 'e-demain',
+            nom_evenement: 'Gala de demain',
+            date_evenement: '2026-07-09',
+          },
+          {
+            ...LIGNE,
+            id: 'e-loin',
+            nom_evenement: 'Gala lointain',
+            date_evenement: '2026-07-20',
+          },
+          {
+            ...LIGNE,
+            id: 'e-annule',
+            nom_evenement: 'Gala annulé',
+            date_evenement: '2026-07-08',
+            statut_consolide: 'Annulé',
+          },
+        ];
+        stubFetch((url) =>
+          url.includes('/gestionnaire/filtres')
+            ? { body: OPTIONS }
+            : { body: { data: lignes, total: lignes.length } },
+        );
+        render(<EvenementsPage />);
+        const table = await screen.findByTestId(
+          'evenements-table',
+          undefined,
+          ATTENTE_UI,
+        );
+        const ligne = (nom: string) =>
+          within(table).getByRole('row', { name: `Ouvrir l'événement ${nom}` });
+        expect(ligne('Gala du jour')).toHaveTextContent('Aujourd’hui');
+        expect(ligne('Gala de demain')).toHaveTextContent('Demain');
+        expect(ligne('Gala lointain')).not.toHaveTextContent(
+          /Aujourd’hui|Demain/,
+        );
+        expect(ligne('Gala annulé')).not.toHaveTextContent('Aujourd’hui');
+        expect(
+          within(ligne('Gala du jour')).getByTestId('chevron-ligne'),
+        ).toBeTruthy();
+        // La consigne « cliquez une ligne » a quitté le sous-titre.
+        expect(screen.queryByText(/cliquez une ligne/)).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/evenements_liste_resultats_sans_excedent — seules collectes réalisées sans excédent : « Sans excédent », jamais une cellule vide',
     async () => {
       const vide = {

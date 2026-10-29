@@ -1504,6 +1504,22 @@
       "statut": "à-vérifier",
       "ref_divergence": "_Divergences/M3.2_20261028_fiches-gestionnaire-variante-b.md",
       "libelle": "Fiches du gestionnaire de lieux événement, lieu et traiteur au grand format de la variante B (décisions Val 2026-10-27, C1 = A) : 1 200 px, feuille montée du bas sur téléphone, grand en-tête (titre Archivo, repères à pictos), onglets soulignés dans l’en-tête (seul le corps défile), sections en lignes à la place des cartes, boutons du pied en pilule. Fiche événement : pastille d’avancement (Créé, Validé, En cours, Réalisé, Annulé) à droite du titre à la place de la frise, même règle de calcul. GO-VISUAL en attente (validation Val)."
+    },
+    {
+      "id": "M3.2-evenements-liste-repere-jour-chevron",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:326",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx, packages/plateforme/src/components/collecte/repere-jour.tsx",
+      "test": "M3.2/evenements_liste_repere_jour_chevron",
+      "statut": "implemented",
+      "libelle": "Liste Événements du gestionnaire (revue écran 2026-10-29, divergence M0.6_20261029_listes-admin-evenements-chevron) : repère « Aujourd’hui » / « Demain » à droite de la date (jour de Paris, absent sur un événement « Annulé »), chevron en fin de ligne (masqué sur téléphone), consigne « cliquez une ligne » retirée du sous-titre."
+    },
+    {
+      "id": "M3.2-evenements-liste-repere-jour-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:326",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la liste Événements du gestionnaire après la revue écran 2026-10-29 : repères « Aujourd’hui » / « Demain », chevron — preuve écran (geste de Val, GO-VISUAL)."
     }
   ],
   "cdc_source_hash": {

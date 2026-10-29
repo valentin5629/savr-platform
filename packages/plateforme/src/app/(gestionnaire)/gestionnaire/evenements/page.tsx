@@ -20,6 +20,7 @@ import { ListFooter } from '@/components/ui/list-footer';
 import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { CelluleLieu } from '@/components/collecte/collectes-traiteur-table';
+import { ChevronLigne, RepereJour } from '@/components/collecte/repere-jour';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import {
   LIBELLES_EVENEMENTS,
@@ -115,8 +116,11 @@ function libelleCollectes(
 
 // Colonnes (§06.05 §2 « Vue liste »), au format de la liste Collectes. Seule la
 // date est triable : les autres colonnes sont des cumuls calculés par la route
-// sur la page servie.
-const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
+// sur la page servie. `aujourdhui` (jour de Paris) pose le repère
+// « Aujourd’hui » / « Demain » (revue écran 2026-10-29).
+const colonnesEvenements = (
+  aujourdhui: string,
+): ColumnDef<EvenementRow, unknown>[] => [
   {
     id: 'date',
     header: 'Date',
@@ -124,8 +128,13 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
     accessorFn: (e) => e.date_evenement ?? '',
     cell: ({ row: { original: e } }) =>
       e.date_evenement ? (
-        <span className="whitespace-nowrap font-semibold text-savr-neutral-900 tabular-nums">
+        <span className="inline-flex items-center gap-2 whitespace-nowrap font-semibold text-savr-neutral-900 tabular-nums">
           {libelleDateHeure(e.date_evenement, null)}
+          <RepereJour
+            date={e.date_evenement}
+            aujourdhui={aujourdhui}
+            masque={e.statut_consolide === 'Annulé'}
+          />
         </span>
       ) : (
         <CelluleVide />
@@ -215,6 +224,15 @@ const COLONNES: ColumnDef<EvenementRow, unknown>[] = [
       </Badge>
     ),
   },
+  {
+    // Chevron : la ligne ouvre la fiche (revue écran 2026-10-29).
+    id: 'ouvrir',
+    header: () => <span className="sr-only">Ouvrir</span>,
+    enableHiding: false,
+    enableSorting: false,
+    meta: { label: 'Ouvrir', hideOnMobile: true, className: 'w-[1%]' },
+    cell: () => <ChevronLigne />,
+  },
 ];
 
 /**
@@ -261,6 +279,7 @@ function GestionnaireEvenementsContent() {
   // Jour lu à chaque rendu : une page restée ouverte passé minuit se recale
   // au premier geste.
   const aujourdhui = jourParis();
+  const colonnes = useMemo(() => colonnesEvenements(aujourdhui), [aujourdhui]);
 
   const urlListe = useMemo(() => {
     const qs = new URLSearchParams();
@@ -389,7 +408,7 @@ function GestionnaireEvenementsContent() {
     <>
       <DataGrid
         data-testid="evenements-table"
-        columns={COLONNES}
+        columns={colonnes}
         data={rows}
         getRowId={(e) => e.id}
         manualSorting
@@ -419,7 +438,7 @@ function GestionnaireEvenementsContent() {
       <PageHero
         icon={<CalendarDotsIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Événements"
-        subtitle="Événements tenus sur vos lieux, résultats cumulés sur leurs collectes · cliquez une ligne pour ouvrir la fiche"
+        subtitle="Événements tenus sur vos lieux, résultats cumulés sur leurs collectes"
       />
 
       <FilterBar

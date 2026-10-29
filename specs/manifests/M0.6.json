@@ -1792,6 +1792,22 @@
       "statut": "à-vérifier",
       "ref_divergence": "_Divergences/M0.6_20261027_fiches-admin-variante-b.md",
       "libelle": "Fiches Admin transporteur, lieu et association au grand format de la variante B (décision Val 2026-10-27, C1 = A) : 1 200 px, feuille montée du bas sur téléphone, grand en-tête (titre Archivo, pastille de statut à droite du titre, repères à pictos), onglets soulignés dans l’en-tête (seul le corps défile), sections en lignes (libellé à gauche, champs à droite, filets sable) à la place des cartes, pied en pilules (Annuler sur fond sable). Les fiches collecte client et Admin reposent sur les mêmes briques, sans changement visible. GO-VISUAL en attente (validation Val)."
+    },
+    {
+      "id": "M0.6-liste-collectes-chevron-client-vide",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:158",
+      "artefact": "packages/plateforme/src/components/admin/collectes-table.tsx, packages/plateforme/src/app/(admin)/admin/collectes/page.tsx, packages/plateforme/src/components/collecte/repere-jour.tsx",
+      "test": "M0.6/liste_admin_chevron_apres_menu + M0.6/liste_admin_chevron_ouvre_la_fiche + M0.6/liste_admin_client_vide + M0.6/liste_admin_client_renseigne + M0.6/liste_admin_client_priorite_raison_sociale",
+      "statut": "implemented",
+      "libelle": "Liste Collectes Admin (revue écran 2026-10-29, divergence M0.6_20261029_listes-admin-evenements-chevron) : chevron après le menu « ⋯ » (contenu inchangé : Ouvrir la fiche, Attribuer, Dispatcher), « Client organisateur » vide quand il n'est pas renseigné, consigne « cliquez une ligne » retirée du sous-titre (assertion dans « M0.6 — cartes : traiteur, lieu, client organisateur, transporteur rendus »). Un clic sur le chevron ouvre la fiche (DataGrid : `data-ouvre-ligne` laisse remonter ce clic hors de la cellule d'actions). Pas de repère du jour (badge « Urgent » seul, décision Val)."
+    },
+    {
+      "id": "M0.6-liste-collectes-chevron-rendu-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:158",
+      "artefact": "packages/plateforme/src/components/admin/collectes-table.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu de la liste Collectes Admin après la revue écran 2026-10-29 : chevron après « ⋯ », largeur de la colonne Actions, colonne « Client organisateur » vide — preuve écran (geste de Val, GO-VISUAL)."
     }
   ],
   "cdc_source_hash": {

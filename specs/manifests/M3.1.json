@@ -1009,7 +1009,7 @@
       "id": "M3.1-liste-menu-actions",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:321",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
-      "test": "M3.1/card_traiteur_champs + M3.1/card_traiteur_gating_readonly + M3.1/card_traiteur_gating_statut_terminal + M3.1/card_traiteur_action_grisee_inerte + M3.1/liste_tiers_actions_grisees",
+      "test": "M3.1/ligne_chevron_ouvre_la_fiche + M3.1/card_traiteur_champs + M3.1/card_traiteur_gating_readonly + M3.1/card_traiteur_gating_statut_terminal + M3.1/card_traiteur_action_grisee_inerte + M3.1/liste_tiers_actions_grisees",
       "statut": "implemented",
       "libelle": "Liste Collectes traiteur et agence : menu « ⋯ » de fin de ligne (Modifier / Dupliquer / Annuler en rouge, « Demander l’annulation » sur validee) suivi d'un chevron, à la place des pictos de 10 px (revue écran 2026-10-29, divergence M3.1_20261029_liste-collectes-menu-actions). Action interdite par le statut : absente (règle de la fiche) ; par le droit : grisée (aria-disabled, sans effet), raison écrite sous elle. Collecte programmée par un tiers : Modifier / Annuler grisés pour le traiteur, comme la fiche (§06.04 l.420) — sonde : retrait de la règle → M3.1/liste_tiers_actions_grisees rouge."
     },

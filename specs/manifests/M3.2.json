@@ -125,7 +125,9 @@
     "apps/pdf-renderer/src/templates/rapport-don-evenement.ts",
     "packages/plateforme/tests/api/gestionnaire/rapports-evenement.m3-2.test.ts",
     "packages/plateforme/tests/ui/rapports-evenement-gestionnaire.m3-2.test.tsx",
-    "apps/pdf-renderer/src/rapports-evenement.test.ts"
+    "apps/pdf-renderer/src/rapports-evenement.test.ts",
+    "supabase/migrations/20261029120000_plateforme_dechets_labo_reserve_gestionnaire.sql",
+    "supabase/tests/dechets_labo_reserve_gestionnaire.test.sql"
   ],
   "scenarios": [
     "M3.2/collectes_vues_a_venir_passees_par_date",
@@ -1556,6 +1558,14 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la liste Événements du gestionnaire après la revue écran 2026-10-29 : repères « Aujourd’hui » / « Demain », chevron — preuve écran (geste de Val, GO-VISUAL)."
+    },
+    {
+      "id": "M3.2-dechets-labo-reserve-gestionnaire",
+      "statut": "implemented",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:665",
+      "artefact": "supabase/migrations/20261029120000_plateforme_dechets_labo_reserve_gestionnaire.sql (garde f_is_staff() OU f_app_role() = 'gestionnaire_lieux' avec son périmètre inchangé ; REVOKE EXECUTE FROM anon, PUBLIC)",
+      "test": "supabase/tests/dechets_labo_reserve_gestionnaire.test.sql",
+      "libelle": "f_dechets_labo_estimes réservée au gestionnaire de lieux (§05 R_dechets_labo_estimes, « espace gestionnaire de lieux uniquement ») et au staff, qui lit déjà coefficients_perte_labo. Avant le 2026-10-29, tout rôle dont l'organisation portait l'événement obtenait pax × coefficient : une agence programmant pour un traiteur tiers en déduisait le coefficient confidentiel (revue sécurité de la PR #672). Agence, traiteur manager, traiteur commercial et client organisateur reçoivent NULL sur leurs propres événements, avec contre-épreuve staff sur les mêmes événements ; anon n'a plus EXECUTE. Preuve base : 12 assertions, 7 rouges sans la migration."
     }
   ],
   "cdc_source_hash": {

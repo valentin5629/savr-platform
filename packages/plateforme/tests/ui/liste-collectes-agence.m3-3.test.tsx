@@ -212,7 +212,8 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
         await table.findByText('Maison Lenôtre', undefined, ATTENTE_UI),
       ).toBeTruthy();
       expect(table.getByRole('columnheader', { name: 'Client' })).toBeTruthy();
-      // Saisie faite d'espaces : cellule vide du DS, pas une cellule blanche.
+      // Saisie faite d'espaces : non renseigné, cellule laissée vide (revue
+      // écran 2026-10-29).
       const entetes = table
         .getAllByRole('columnheader')
         .map((th) => th.textContent?.trim());
@@ -222,7 +223,7 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
       expect(
         within(ligne!).getAllByRole('cell')[entetes.indexOf('Client')]
           ?.textContent,
-      ).toBe('—');
+      ).toBe('');
     },
     ATTENTE_CAS_MS,
   );
@@ -266,23 +267,38 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
           )
         ).closest('tr') as HTMLElement,
       );
-      // Le droit d'écriture dépend du rôle lu dans la session (asynchrone).
-      await ligne.findByRole(
-        'button',
-        { name: 'Modifier la collecte' },
-        ATTENTE_UI,
-      );
-      expect(
-        ligne.getByRole('button', { name: 'Dupliquer la collecte' }),
-      ).toBeTruthy();
+      // Actions dans le menu « ⋯ » (revue écran 2026-10-29), ouvert au
+      // clavier. Le droit d'écriture dépend du rôle lu dans la session
+      // (asynchrone) : « Modifier » devient actif une fois le rôle connu.
+      const ouvrirMenu = () => {
+        fireEvent.keyDown(
+          ligne.getByRole('button', { name: 'Actions sur la collecte' }),
+          { key: 'Enter' },
+        );
+        return within(screen.getByRole('menu'));
+      };
+      await waitFor(() => {
+        const m = ouvrirMenu();
+        let grise: string | null;
+        try {
+          grise = m
+            .getByRole('menuitem', { name: /^Modifier la collecte/ })
+            .getAttribute('aria-disabled');
+        } finally {
+          // Menu refermé à chaque passage : ouvert, il masque le reste de la
+          // page et le passage suivant ne retrouverait plus « ⋯ ».
+          fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+        }
+        expect(grise).not.toBe('true');
+      }, ATTENTE_UI);
 
       fireEvent.click(
-        ligne.getByRole('button', { name: 'Dupliquer la collecte' }),
+        ouvrirMenu().getByRole('menuitem', { name: 'Dupliquer la collecte' }),
       );
       expect(push).toHaveBeenCalledWith('/programmer/nouveau?from=c-prog');
 
       fireEvent.click(
-        ligne.getByRole('button', { name: 'Annuler la collecte' }),
+        ouvrirMenu().getByRole('menuitem', { name: 'Annuler la collecte' }),
       );
       fireEvent.click(
         await screen.findByRole(

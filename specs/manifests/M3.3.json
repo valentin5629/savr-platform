@@ -419,7 +419,7 @@
       "artefact": "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.3/liste_agence_actions_ligne",
       "statut": "implemented",
-      "libelle": "Actions de ligne de la liste agence (Modifier / Annuler / Dupliquer, icône seule, masquées si indisponibles) : le rôle unique agence a le droit d'écriture d'un traiteur_manager (§06.11 diff #2) ; annulation sur /api/v1/agence/collectes/:id/annulation."
+      "libelle": "Actions de ligne de la liste agence (Modifier / Dupliquer / Annuler dans le menu « ⋯ » de la ligne — revue écran 2026-10-29, divergence M3.1_20261029_liste-collectes-menu-actions : absentes si le statut l'interdit, grisées avec leur raison si le droit l'interdit) : le rôle unique agence a le droit d'écriture d'un traiteur_manager (§06.11 diff #2) ; annulation sur /api/v1/agence/collectes/:id/annulation."
     },
     {
       "id": "M3.3-liste-routes-agence",

@@ -5,9 +5,10 @@
  * ajoute, à l'envoi, la même présentation à tous :
  *  - le vrai logo Savr (PNG joint à l'email, référencé `cid:` : cf. logo-savr.ts
  *    et transport.ts), texte de remplacement « Savr » si l'image est bloquée ;
- *  - le lien principal en bouton : tout paragraphe qui ne contient qu'un lien
- *    (`<p><a href="…">Texte</a></p>`) devient un bouton bleu marine arrondi,
- *    texte blanc et flèche. Un lien au milieu d'une phrase reste un lien ;
+ *  - tout lien devient un bouton bleu marine arrondi, centré, texte blanc et
+ *    flèche (Val 2026-10-29). Un lien au milieu d'une phrase sort de la phrase :
+ *    le texte reste en paragraphe, le bouton suit, son libellé sans le point
+ *    final ;
  *  - un pied de page avec le contact et la raison de l'envoi ;
  *  - une version texte, pour les messageries qui n'affichent pas le HTML.
  *
@@ -26,17 +27,18 @@ const FOND = '#f7f8fb';
 const BORD = '#dde1ea';
 const POLICE = 'Arial, Helvetica, sans-serif';
 
-/** Un paragraphe qui ne contient qu'un lien. */
-const PARAGRAPHE_LIEN = /<p>\s*<a href="([^"]+)">([^<]+)<\/a>\s*<\/p>/g;
+/** Un paragraphe qui contient au moins un lien. */
+const PARAGRAPHE_AVEC_LIEN =
+  /<p>((?:(?!<\/p>)[\s\S])*?<a href="[^"]+">[^<]*<\/a>(?:(?!<\/p>)[\s\S])*?)<\/p>/g;
+const LIEN = /<a href="([^"]+)">([^<]*)<\/a>/g;
 
 // Bouton « à l'épreuve des messageries » : fond porté par la cellule ET par le
-// lien, bordure de la même couleur (Outlook ignore le padding d'un <a>). Le lien
-// porte son style EN PREMIER attribut : la coloration des liens ordinaires
-// (`<a href="`) ne le touche pas — sinon Gmail retient la couleur des liens et
-// le texte devient bleu sur bleu (constaté par Val le 2026-10-29).
+// lien, bordure de la même couleur (Outlook ignore le padding d'un <a>), texte
+// blanc forcé aussi sur un <span> (Gmail a affiché du bleu sur bleu quand une
+// couleur de lien s'ajoutait : constaté par Val le 2026-10-29).
 function bouton(href: string, libelle: string): string {
   return (
-    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 20px">` +
+    `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto 20px">` +
     `<tr><td align="center" bgcolor="${MARINE}" style="border-radius:8px;background:${MARINE};mso-padding-alt:14px 28px">` +
     `<a style="display:inline-block;padding:14px 28px;border:1px solid ${MARINE};border-radius:8px;background:${MARINE};font:600 15px/20px ${POLICE};color:#ffffff;text-decoration:none;letter-spacing:0.2px" href="${href}">` +
     `<span style="color:#ffffff">${libelle}&nbsp;&nbsp;<span style="color:${ORANGE}">&rarr;</span></span></a>` +
@@ -44,15 +46,24 @@ function bouton(href: string, libelle: string): string {
   );
 }
 
-/** Corps du gabarit déjà interpolé → corps présenté (boutons, liens, paragraphes). */
+/** Un paragraphe avec lien(s) → le texte restant, puis un bouton par lien. */
+function paragrapheEnBoutons(contenu: string): string {
+  const boutons = [...contenu.matchAll(LIEN)].map(([, href, libelle]) =>
+    bouton(href!, (libelle ?? '').trim().replace(/[.\s]+$/, '')),
+  );
+  // Ponctuation restée seule à la place du lien (« … ? . ») : retirée.
+  const texte = contenu
+    .replace(LIEN, '')
+    .replace(/\s+[.,;:]\s*$/, '')
+    .trim();
+  return (texte ? `<p>${texte}</p>` : '') + boutons.join('');
+}
+
+/** Corps du gabarit déjà interpolé → corps présenté (boutons, paragraphes). */
 export function presenterCorps(corps: string): string {
   return corps
-    .replace(PARAGRAPHE_LIEN, (_t, href: string, libelle: string) =>
-      bouton(href, libelle),
-    )
-    .replace(
-      /<a href="/g,
-      `<a style="color:${MARINE};text-decoration:underline" href="`,
+    .replace(PARAGRAPHE_AVEC_LIEN, (_t, contenu: string) =>
+      paragrapheEnBoutons(contenu),
     )
     .replace(/<p>/g, '<p style="margin:0 0 14px">')
     .replace(/<ul>/g, '<ul style="margin:0 0 14px;padding-left:22px">');
@@ -68,8 +79,8 @@ export function envelopperHtml(corps: string, sujet: string): string {
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${FOND}">` +
     `<tr><td align="center" style="padding:24px 12px">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid ${BORD};border-radius:8px">` +
-    `<tr><td style="padding:28px 32px 8px">` +
-    `<img src="cid:${LOGO_CID}" width="${LOGO_LARGEUR}" height="${LOGO_HAUTEUR}" alt="Savr" style="display:block;border:0;outline:none;text-decoration:none;height:auto;max-width:${LOGO_LARGEUR}px;font:800 24px ${POLICE};color:${MARINE}">` +
+    `<tr><td align="center" style="padding:28px 32px 8px">` +
+    `<img src="cid:${LOGO_CID}" width="${LOGO_LARGEUR}" height="${LOGO_HAUTEUR}" alt="Savr" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;height:auto;max-width:${LOGO_LARGEUR}px;font:800 24px ${POLICE};color:${MARINE}">` +
     `</td></tr>` +
     `<tr><td style="padding:12px 32px 24px;font:15px/1.6 ${POLICE};color:${TEXTE}">${presenterCorps(corps)}</td></tr>` +
     `</table>` +

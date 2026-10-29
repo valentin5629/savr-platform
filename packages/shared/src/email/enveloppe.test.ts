@@ -15,22 +15,26 @@ const CORPS =
   "<p>L'équipe Savr</p>";
 
 describe('enveloppe commune', () => {
-  it('un lien seul dans son paragraphe devient un bouton ; un lien dans une phrase reste un lien', () => {
+  it('tout lien devient un bouton centré ; la phrase qui l’entoure reste en texte (Val 2026-10-29)', () => {
     const html = presenterCorps(CORPS);
-    // Le bouton porte son propre style en PREMIER attribut : la couleur des
-    // liens ordinaires ne s'y ajoute pas (texte bleu sur bleu dans Gmail,
-    // constaté par Val le 2026-10-29).
-    const b = html.slice(html.indexOf('<table'), html.indexOf('</table>'));
-    expect(b).toMatch(
+    // Deux liens → deux boutons, aucun lien resté dans une phrase.
+    expect(
+      html.match(/<table role="presentation" align="center"/g),
+    ).toHaveLength(2);
+    expect(html.match(/<a /g)).toHaveLength(2);
+    expect(html).not.toContain('<p><a href=');
+    // Texte blanc sur fond marine, jamais la couleur des liens ordinaires
+    // (texte bleu sur bleu dans Gmail, constaté par Val le 2026-10-29).
+    expect(html).toMatch(
       /<a style="display:inline-block;[^"]*color:#ffffff[^"]*" href="https:\/\/app\.gosavr\.io\/c">/,
     );
-    expect(b).not.toContain('style="color:#223870');
-    expect(b.match(/<a /g)).toHaveLength(1);
-    expect(b).toContain('Voir mes collectes');
-    expect(html).not.toContain('<p><a href="https://app.gosavr.io/c">');
+    expect(html).not.toContain('style="color:#223870');
+    // Lien dans une phrase : la phrase reste, le bouton suit, sans point final.
     expect(html).toContain(
-      '<a style="color:#223870;text-decoration:underline" href="https://app.gosavr.io/e/1">Programmez-les</a>',
+      '<p style="margin:0 0 14px">Votre événement a plusieurs collectes ?</p><table',
     );
+    expect(html).toMatch(/>Programmez-les&nbsp;/);
+    expect(html).toContain('href="https://app.gosavr.io/e/1"');
   });
 
   it('document complet : logo, corps, pied de page avec le contact', () => {

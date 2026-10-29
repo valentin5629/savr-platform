@@ -18,18 +18,15 @@ SELECT is(
 );
 
 SELECT ok(
-  (SELECT strpos(sujet, '{{evenement_nom}}') > 0
-          AND strpos(corps_html, '<strong>{{evenement_nom}}</strong>') > 0
-          AND strpos(corps_html, '{{transporteur_nom}}') > 0
+  (SELECT strpos(sujet, '{{evenement_nom}}, {{date_collecte}}') > 0
+          AND strpos(corps_html, '{{volume_estime_repas}}') > 0
    FROM plateforme.email_templates WHERE code = 'ag_attribution_association'),
-  'ag_attribution_association : objet et corps portent {{evenement_nom}} et {{transporteur_nom}}'
+  'ag_attribution_association : objet et corps portent les variables sans espace (texte de la revue 20261029150000)'
 );
 
 SELECT ok(
-  (SELECT strpos(sujet, '{{evenement_nom}} — {{date_collecte}}') > 0
-          AND strpos(corps_html, '{{association_adresse}}') > 0
-   FROM plateforme.email_templates WHERE code = 'ag_attribution_transporteur'),
-  'ag_attribution_transporteur : objet et corps portent les variables sans espace'
+  (SELECT NOT actif FROM plateforme.email_templates WHERE code = 'ag_attribution_transporteur'),
+  'ag_attribution_transporteur : désactivé (Val 2026-10-29 : la mission passe par le TMS)'
 );
 
 SELECT * FROM finish();

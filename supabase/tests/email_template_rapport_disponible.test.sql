@@ -26,14 +26,14 @@ SELECT is(
 
 SELECT is(
   (SELECT variables FROM plateforme.email_templates WHERE code = 'rapport_disponible'),
-  ARRAY['prenom','date_collecte','lieu_nom','poids_total','co2_evite','taux_recyclage','lien_rapport']::text[],
-  'rapport_disponible : variables = liste exacte du CDC §06.02 §6'
+  ARRAY['nom_evenement','date_collecte','prenom','lieu_nom','poids_total','co2_evite','taux_recyclage','lien_rapport']::text[],
+  'rapport_disponible : variables citées (revue des emails 20261029150000)'
 );
 
 SELECT is(
   (SELECT sujet FROM plateforme.email_templates WHERE code = 'rapport_disponible'),
-  'Votre rapport RSE est disponible — {{date_collecte}} à {{lieu_nom}}',
-  'rapport_disponible : objet du CDC §06.02 §6'
+  'Rapport de recyclage disponible — {{#if nom_evenement}}{{nom_evenement}}, {{/if}}{{date_collecte}}',
+  'rapport_disponible : objet validé à la revue des emails (Val 2026-10-29)'
 );
 
 SELECT ok(
@@ -43,11 +43,11 @@ SELECT ok(
 );
 
 SELECT ok(
-  (SELECT corps_html LIKE '%peut être téléchargé sur la plateforme%'
-      AND corps_html LIKE '%radar de comparaison%'
-      AND corps_html NOT LIKE '%est prêt%'
+  (SELECT corps_html LIKE '%Téléchargez le rapport en PDF depuis la fiche de la collecte%'
+      AND corps_html LIKE '%comparaison avec les autres événements Savr%'
+      AND corps_html LIKE '%{{#if prenom}}%'
    FROM plateforme.email_templates WHERE code = 'rapport_disponible'),
-  'rapport_disponible : le rapport se télécharge sur la plateforme, radar au choix (20261016200000, Val 2026-10-16)'
+  'rapport_disponible : le rapport se télécharge depuis la fiche, comparaison au choix, prénom facultatif (Val 2026-10-16 puis 2026-10-29)'
 );
 
 SELECT * FROM finish();

@@ -50,23 +50,23 @@ SELECT is(
 SELECT is(
   (SELECT variables FROM plateforme.email_templates
    WHERE code = 'admin_modification_collecte_traiteur'),
-  ARRAY['organisation_nom','date_initiale','pax_initial','lieu_nom','liste_modifications','programmateur','statut_collecte','priorite_urgence','lien_fiche']::text[],
+  ARRAY['organisation_nom','type_collecte','date_initiale','pax_initial','lieu_nom','nom_evenement','liste_modifications','programmateur','statut_collecte','priorite_urgence','lien_fiche']::text[],
   'admin_modification_collecte_traiteur : variables du corps, lieu et lien compris'
 );
 
 SELECT ok(
-  (SELECT corps_html LIKE '%L''organisation {{organisation_nom}} a modifié la collecte initialement prévue le {{date_initiale}}%'
+  (SELECT corps_html LIKE '%{{organisation_nom}} a modifié la collecte %initialement prévue le {{date_initiale}}%'
       AND corps_html LIKE '%{{liste_modifications}}%'
-      AND corps_html LIKE '%Le statut actuel de la collecte est « {{statut_collecte}} ».%'
+      AND corps_html LIKE '%Statut actuel de la collecte : « {{statut_collecte}} ».%'
       AND corps_html LIKE '%L''équipe Savr%'
    FROM plateforme.email_templates WHERE code = 'admin_modification_collecte_traiteur'),
   'admin_modification_collecte_traiteur : organisation, date d''origine, liste des modifications, statut, signature'
 );
 
 SELECT ok(
-  (SELECT corps_html LIKE '%{{#if pax_initial}} pour {{pax_initial}} pax{{/if}}{{#if lieu_nom}} (lieu : {{lieu_nom}}){{/if}}.</p>%'
-      AND corps_html LIKE '%{{#if programmateur}}<p>Le programmateur est {{programmateur}}.</p>%'
-      AND corps_html LIKE '%{{#if priorite_urgence}}<p>ATTENTION : modification effectuée moins de 12h avant le créneau de collecte.%'
+  (SELECT corps_html LIKE '%{{#if pax_initial}} pour {{pax_initial}} convives{{/if}}{{#if lieu_nom}} au {{lieu_nom}}{{/if}}%'
+      AND corps_html LIKE '%{{#if programmateur}}<p>Programmateur : {{programmateur}}.</p>%'
+      AND corps_html LIKE '%{{#if priorite_urgence}}<p><strong>Urgent : la collecte a lieu dans moins de 12 h.</strong>%'
       AND corps_html LIKE '%{{#if lien_fiche}}<p><a href="{{lien_fiche}}">Ouvrir la fiche de la collecte</a></p>%'
    FROM plateforme.email_templates WHERE code = 'admin_modification_collecte_traiteur'),
   'admin_modification_collecte_traiteur : pax, lieu, programmateur, ligne ATTENTION et lien en blocs conditionnels'

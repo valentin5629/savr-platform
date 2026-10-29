@@ -27,15 +27,16 @@ SELECT ok(
 
 SELECT is(
   (SELECT variables FROM plateforme.email_templates WHERE code = 'collecte_programmee'),
-  ARRAY['nom_evenement','nombre_collectes','liste_collectes','tarif_ligne']::text[],
-  'collecte_programmee : variables exigées — événement, nombre et liste des collectes, tarif (prénom et lien non exigés à l’envoi)'
+  ARRAY['nom_evenement','prenom','lieu_nom','nombre_collectes','liste_collectes','lien_evenement','tarif_ligne','collecte_sous_24h','lien_collectes']::text[],
+  'collecte_programmee : variables citées (revue des emails 20261029150000) ; seules celles hors des blocs {{#if}} sont exigées à l’envoi'
 );
 
 SELECT ok(
   (SELECT corps_html LIKE '%{{nom_evenement}}%'
       AND corps_html LIKE '%Nous réaliserons {{nombre_collectes}} :%'
       AND corps_html LIKE '%{{liste_collectes}}%'
-      AND corps_html LIKE '%{{tarif_ligne}}%'
+      AND corps_html LIKE '%{{#if tarif_ligne}}<p>{{tarif_ligne}}</p>{{/if}}%'
+      AND corps_html LIKE '%{{#if collecte_sous_24h}}%07 61 91 29 97%'
       AND corps_html LIKE '%{{#if lien_collectes}}%'
       AND corps_html LIKE '%L''équipe Savr%'
    FROM plateforme.email_templates WHERE code = 'collecte_programmee'),

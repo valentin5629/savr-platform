@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { envoyerConfirmationAnnulation } from '@/lib/notifications/annulation-client.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { sendEmail } from '@savr/shared/src/email/index.js';
-import {
-  notifierAdminAnnulation,
-  notifierTraiteurOperationnel,
-} from '@/lib/notifications/traiteur-operationnel.js';
+import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import {
   erreurInterne,
@@ -476,9 +473,8 @@ async function patchHandler(
   // Annulation en 2 temps : la bascule finale annulation_demandee → annulee est
   // validée par l'Admin via ce PATCH générique (statut forcé). À ce moment — comme
   // sur l'annulation directe (routes traiteur/agence) — on notifie le programmeur
-  // (tpl 5 annulation_collecte), l'Admin (tpl 22 admin_collecte_annulee) et, si le
-  // donneur d'ordre est un tiers non-shadow, le traiteur opérationnel (tpl 21
-  // collecte_modifiee_tiers, branche annulation ; garde dans le helper).
+  // (tpl 5 annulation_collecte) et l'Admin (tpl 22 admin_collecte_annulee). Le
+  // programmateur ne reçoit pas en plus le tpl 21 (Val 2026-10-29).
   // Best-effort, APRÈS les requêtes propres de la route (le mock à file d'ordre des
   // tests consommerait sinon les réponses destinées à ces requêtes).
   const statutAvant = (before as { statut?: string }).statut;
@@ -493,13 +489,14 @@ async function patchHandler(
       type EvtCtx = {
         created_by?: string;
         organisation_id?: string;
+        nom_evenement?: string | null;
         lieux?: { nom?: string } | { nom?: string }[] | null;
         organisations?: { nom?: string } | { nom?: string }[] | null;
       };
       const ctxRes = await supabase
         .from('collectes')
         .select(
-          `evenements!inner(created_by, organisation_id,
+          `evenements!inner(created_by, organisation_id, nom_evenement,
              lieux!lieu_id(nom), organisations!organisation_id(nom))`,
         )
         .eq('id', id)
@@ -520,53 +517,47 @@ async function patchHandler(
       const heureCollecte = (before as { heure_collecte?: string | null })
         .heure_collecte;
 
+      // Motif du client (sa demande d'annulation), jamais le texte saisi par
+      // l'Admin pour forcer le statut (revue des emails, Val 2026-10-29).
+      const motifClient = (
+        ((data as { annulee_cote_savr_motif?: string | null })
+          .annulee_cote_savr_motif ??
+          (before as { annulee_cote_savr_motif?: string | null })
+            .annulee_cote_savr_motif) ||
+        ''
+      ).trim();
+      const annulationDemandeeAt = (
+        before as { annulation_demandee_at?: string | null }
+      ).annulation_demandee_at;
+
       // tpl 5 (annulation_collecte) → programmeur de l'événement.
-      const envoyerClient = async (): Promise<void> => {
-        const createdBy = evt?.created_by;
-        if (!createdBy) return;
-        const progRes = await supabase
-          .from('users')
-          .select('email, prenom')
-          .eq('id', createdBy)
-          .maybeSingle();
-        const prog = progRes?.data as {
-          email?: string;
-          prenom?: string;
-        } | null;
-        if (!prog?.email) return;
-        await sendEmail('annulation_collecte', prog.email, {
-          prenom: prog.prenom ?? '',
-          date_collecte: dateCollecte,
-          lieu_nom: lieuNom,
-          motif,
+      const envoyerClient = (): Promise<void> =>
+        envoyerConfirmationAnnulation(supabase, {
+          programmateurId: evt?.created_by,
+          dateCollecte,
+          heureCollecte,
+          lieuNom,
+          nomEvenement: evt?.nom_evenement,
+          typeCollecte: (before as { type?: string | null }).type,
+          motif: motifClient,
+          statutAvant,
+          annulationDemandeeAt,
         });
-      };
 
       await Promise.allSettled([
         envoyerClient(),
         // tpl 22 (admin_collecte_annulee) → Admin Savr.
         notifierAdminAnnulation(supabase, {
           collecteId: id,
-          collecteRef: id,
           organisationNom: orgNom,
           dateCollecte,
           heureCollecte,
           lieuNom,
+          motif: motifClient,
           acteurUserId,
           acteurRole,
           statutAvant,
-          annulationDemandeeAt: (
-            before as { annulation_demandee_at?: string | null }
-          ).annulation_demandee_at,
-        }),
-        // tpl 21 (collecte_modifiee_tiers, annulation) → traiteur opérationnel si le
-        // donneur d'ordre est un tiers non-shadow. acteurOrgId = organisation de
-        // l'événement (donneur d'ordre) : identique à ce que les routes directes
-        // traiteur/agence passent (auth.ctx.organisationId == org de l'événement).
-        notifierTraiteurOperationnel(supabase, {
-          collecteId: id,
-          acteurOrgId: evt?.organisation_id,
-          changement: { kind: 'annulation' },
+          annulationDemandeeAt,
         }),
       ]);
     })().catch(() => undefined);

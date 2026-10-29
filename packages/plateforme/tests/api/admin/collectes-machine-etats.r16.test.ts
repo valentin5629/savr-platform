@@ -256,7 +256,7 @@ describe('M1.4 / machine à états / flux incident (RM-09)', () => {
     expect(mockSendEmail).toHaveBeenCalledWith(
       'admin_incident_collecte',
       expect.any(String),
-      expect.objectContaining({ imputable_a: 'prestataire' }),
+      expect.objectContaining({ imputable_a: 'le prestataire logistique' }),
     );
     // Notification client (§05 §4bis l.347) : programmeur informé via annulation_collecte.
     expect(mockSendEmail).toHaveBeenCalledWith(
@@ -264,7 +264,7 @@ describe('M1.4 / machine à états / flux incident (RM-09)', () => {
       'prog@savr-test.local',
       expect.objectContaining({
         prenom: 'Prog',
-        motif: expect.stringContaining('ne vous sera pas facturé'),
+        info_facturation: 'Cet incident ne vous sera pas facturé.',
       }),
     );
   });

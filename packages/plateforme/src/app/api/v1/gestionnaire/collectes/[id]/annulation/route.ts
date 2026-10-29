@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
+import { heureCourte } from '@/lib/exports/shared';
+import { urlCanonique } from '@/lib/url-application.js';
+import { ROUTES } from '@/lib/routes';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { escapeHtml } from '@savr/shared/src/email/html.js';
@@ -7,10 +11,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import {
-  notifierAdminAnnulation,
-  notifierTraiteurOperationnel,
-} from '@/lib/notifications/traiteur-operationnel.js';
+import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationnel.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
@@ -46,7 +47,7 @@ export async function POST(
   const { data: c } = await rls
     .from('collectes')
     .select(
-      `id, statut, statut_tms, date_collecte, heure_collecte,
+      `id, type, statut, statut_tms, date_collecte, heure_collecte,
        evenement:evenements!inner(created_by, organisation_id, nom_evenement,
          organisation:organisations!organisation_id(nom), lieu:lieux!lieu_id(nom))`,
     )
@@ -61,6 +62,7 @@ export async function POST(
   const evt = (Array.isArray(c.evenement) ? c.evenement[0] : c.evenement) as
     | {
         created_by?: string | null;
+        nom_evenement?: string | null;
         organisation_id: string;
         organisation: { nom: string } | { nom: string }[] | null;
         lieu?: { nom: string | null } | { nom: string | null }[] | null;
@@ -107,26 +109,25 @@ export async function POST(
     await envoyerConfirmationAnnulation(admin, {
       programmateurId: evt.created_by,
       dateCollecte: c.date_collecte ?? '',
+      heureCollecte: c.heure_collecte,
       lieuNom,
+      nomEvenement: evt.nom_evenement,
+      typeCollecte: c.type,
       motif,
     });
 
-    // Alerte Admin « collecte annulée » (tpl 22) et info au traiteur
-    // opérationnel (tpl 21) : le gestionnaire est un tiers dès que le traiteur
-    // opérant est une autre organisation non fantôme (garde dans le helper).
+    // BL-P2-22 (tpl 22) : alerte Admin « collecte annulée », en parallèle du
+    // template 5. Le programmateur ne reçoit que la confirmation (tpl 5), jamais
+    // aussi « Collecte annulée » par un tiers (tpl 21) : Val 2026-10-29.
     void notifierAdminAnnulation(admin, {
       collecteId: id,
-      collecteRef: id,
       organisationNom: orgNom ?? '',
       dateCollecte: c.date_collecte ?? '',
       heureCollecte: c.heure_collecte,
+      lieuNom,
+      motif,
       acteurUserId: auth.ctx.userId,
       acteurRole: auth.ctx.role,
-    }).catch(() => undefined);
-    void notifierTraiteurOperationnel(admin, {
-      collecteId: id,
-      acteurOrgId: auth.ctx.organisationId,
-      changement: { kind: 'annulation' },
     }).catch(() => undefined);
 
     return NextResponse.json({ data: { statut: 'annulee' } });
@@ -156,9 +157,12 @@ export async function POST(
     await sendEmail('admin_demande_annulation', 'contact@gosavr.io', {
       organisation_nom: escapeHtml(orgNom ?? ''),
       demandeur_nom: escapeHtml(demandeur?.nomComplet ?? ''),
-      collecte_ref: id,
-      date_collecte: c.date_collecte ?? '',
+      date_collecte: formatDateParis(c.date_collecte ?? ''),
+      heure_collecte: heureCourte(c.heure_collecte),
+      lieu_nom: escapeHtml(lieuNom),
+      nom_evenement: escapeHtml((evt.nom_evenement ?? '').trim()),
       motif: escapeHtml(motif),
+      lien_backoffice: urlCanonique(ROUTES.admin.collecte(c.id)),
     });
     return NextResponse.json({ data: { statut: 'annulation_demandee' } });
   }

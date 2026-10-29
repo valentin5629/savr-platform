@@ -41,7 +41,7 @@ function makeCollecte(overrides: Record<string, unknown> = {}) {
       organisation_id: 'org-1',
       traiteur_operationnel_organisation_id: null,
       // Programmeur (evenements.created_by → users) : variable `prenom` de l'email.
-      programmeur: { prenom: 'Léa' },
+      programmeur: { prenom: 'Léa', organisation_id: 'org-1' },
       organisations: {
         raison_sociale: 'Kaspia SAS',
         siret: '12345678900001',
@@ -452,6 +452,7 @@ describe('M1.6 / BatchPdfJ1 / email rapport_disponible (§06.02 §6)', () => {
     'date_collecte',
     'lien_rapport',
     'lieu_nom',
+    'nom_evenement',
     'poids_total',
     'prenom',
     'taux_recyclage',
@@ -504,11 +505,12 @@ describe('M1.6 / BatchPdfJ1 / email rapport_disponible (§06.02 §6)', () => {
     expect(to).toBe('contact@kaspia.fr');
     expect(options).toEqual({ entityType: 'collectes', entityId: 'col-1' });
 
-    // Exactement la liste du template — ni plus (nom_evenement / date_evenement
-    // de l'ancien payload), ni moins (MISSING_VARIABLE = refus d'envoi).
+    // Exactement la liste du template (revue des emails, Val 2026-10-29),
+    // ni moins (MISSING_VARIABLE = refus d'envoi).
     expect(Object.keys(variables).sort()).toEqual(VARIABLES_CDC);
     expect(variables).toEqual({
       prenom: 'Léa',
+      nom_evenement: 'Gala Kaspia',
       date_collecte: '13/06/2026',
       lieu_nom: 'Grand Palais',
       // Nombres nus, format FR : le corps du template porte les unités.

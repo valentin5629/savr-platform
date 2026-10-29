@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
+import { adresseLieu } from '@/lib/notifications/traiteur-operationnel.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import {
@@ -233,15 +235,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : Promise.resolve({ data: null }),
   ]);
   const org = orgRes.data;
-  const lieu = data as { id: string; nom: string; adresse_acces: string };
+  const lieu = data as {
+    id: string;
+    nom: string;
+    adresse_acces: string | null;
+    code_postal: string | null;
+    ville: string | null;
+  };
+  const u = user as { prenom?: string | null; nom?: string | null } | null;
+  // Texte saisi interpolé tel quel dans le HTML du gabarit : échappé ici.
   void sendEmail('admin_demande_ajout_lieu', 'contact@gosavr.io', {
-    lieu_nom: lieu.nom,
-    lieu_adresse: lieu.adresse_acces,
-    user_nom: user
-      ? `${(user as { prenom: string }).prenom} ${(user as { nom: string }).nom}`
-      : '',
-    organisation_nom: (org as { nom?: string } | null)?.nom ?? '',
-    date_collecte: '',
+    lieu_nom: escapeHtml(lieu.nom),
+    lieu_adresse: escapeHtml(adresseLieu(lieu)),
+    user_nom: escapeHtml(
+      [u?.prenom, u?.nom]
+        .map((v) => (v ?? '').trim())
+        .filter(Boolean)
+        .join(' '),
+    ),
+    organisation_nom: escapeHtml((org as { nom?: string } | null)?.nom ?? ''),
     lien_lieu: urlApplication(req, `/admin/lieux/${lieu.id}`),
   }).catch(() => null);
 

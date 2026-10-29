@@ -1,5 +1,6 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { facturationPlateformeActive } from '@/lib/facturation-plateforme.js';
@@ -25,6 +26,10 @@ export interface RecapProgrammationParams {
   collecteIds: string[];
   /** Lien « Voir mes collectes » (liste Collectes de l'espace du programmeur). */
   lienCollectes?: string | null;
+  /** Lien vers la fiche de l'événement (« programmez les autres collectes »). */
+  lienEvenement?: string | null;
+  /** Instant de référence (tests) pour l'alerte « moins de 24 heures ». */
+  maintenant?: Date;
 }
 
 interface LigneCollecte {
@@ -44,6 +49,24 @@ export function dateLongue(date: string): string {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+  });
+}
+
+/**
+ * Alerte « moins de 24 heures » (Val 2026-10-16, reprise au récapitulatif le
+ * 2026-10-29) : au moins une collecte annoncée commence dans moins de 24 h.
+ */
+export function collecteSous24h(
+  collectes: { date_collecte: string; heure_collecte: string | null }[],
+  maintenant: Date,
+): boolean {
+  const limite = maintenant.getTime() + 24 * 3600 * 1000;
+  return collectes.some((c) => {
+    const debut = instantParis(
+      c.date_collecte,
+      (c.heure_collecte ?? '00:00').slice(0, 5),
+    ).getTime();
+    return debut < limite;
   });
 }
 
@@ -144,6 +167,22 @@ export async function envoyerRecapProgrammation(
     ? await ligneTarifZd(supabase, params, collectes)
     : '';
 
+  // Nom du lieu, pour situer l'événement (« au Pavillon Ledoyen »).
+  // Facultatif : si la lecture échoue, l'email part sans le lieu.
+  let lieuNom = '';
+  if (params.lieuId) {
+    try {
+      const lieuRes = (await supabase
+        .from('lieux')
+        .select('nom')
+        .eq('id', params.lieuId)
+        .maybeSingle()) as { data?: { nom?: string | null } | null } | null;
+      lieuNom = lieuRes?.data?.nom?.trim() ?? '';
+    } catch {
+      lieuNom = '';
+    }
+  }
+
   const n = lignes.length;
   await sendEmail(
     TEMPLATE_RECAP_PROGRAMMATION,
@@ -151,12 +190,20 @@ export async function envoyerRecapProgrammation(
     {
       // Formule d'appel « Bonjour Prénom, » (§06.02 §3). Vide → « Bonjour, » :
       // le template porte le prénom dans un bloc conditionnel.
-      prenom: userRes?.data?.prenom?.trim() ?? '',
-      nom_evenement: params.nomEvenement ?? 'Votre événement',
+      prenom: escapeHtml(userRes?.data?.prenom?.trim() ?? ''),
+      nom_evenement: escapeHtml(params.nomEvenement ?? 'Votre événement'),
+      lieu_nom: escapeHtml(lieuNom),
       nombre_collectes: `${n} collecte${n > 1 ? 's' : ''}`,
       liste_collectes: listeCollectesHtml(lignes),
       tarif_ligne: tarifLigne,
       lien_collectes: params.lienCollectes ?? '',
+      lien_evenement: params.lienEvenement ?? '',
+      collecte_sous_24h: collecteSous24h(
+        collectes,
+        params.maintenant ?? new Date(),
+      )
+        ? 'true'
+        : '',
     },
     // Relu par l'écran de confirmation (suivi-recap-email.ts) : même entité.
     { entityType: ENTITE_RECAP_PROGRAMMATION, entityId: params.evenementId },

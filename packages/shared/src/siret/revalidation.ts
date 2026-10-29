@@ -10,6 +10,7 @@
 import type { createAdminSupabaseClient } from '../supabase-client.js';
 import { verifySiret } from '../api/siret.js';
 import { sendEmail } from '../email/index.js';
+import { escapeHtml } from '../email/html.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -56,9 +57,13 @@ interface EntiteRow {
   organisation_id: string;
 }
 
+/** Lien « Vérifier mon SIRET » : page Mon organisation de l'espace du rôle. */
+export type LienOrganisation = (role: string | null) => string | null;
+
 export async function runSiretRevalidationWorker(
   supabase: AdminSupabase,
   nowMs?: number,
+  lienOrganisation?: LienOrganisation,
 ): Promise<SiretRevalidationResult> {
   const now = nowMs ?? Date.now();
   const nowIso = new Date(now).toISOString();
@@ -125,7 +130,7 @@ export async function runSiretRevalidationWorker(
           updated_at: nowIso,
         })
         .eq('id', row.id);
-      await notifierEchecSiret(supabase, entite);
+      await notifierEchecSiret(supabase, entite, lienOrganisation);
       result.echec += 1;
       continue;
     }
@@ -172,27 +177,36 @@ export async function runSiretRevalidationWorker(
   return result;
 }
 
-// Notifie l'organisation que son SIRET est invalide (template seedé siret_verification_echec,
-// variables organisation_nom + siret). Best-effort : adressé au 1er utilisateur de l'orga.
+// Notifie l'organisation que son SIRET est invalide (template siret_verification_echec).
+// Best-effort : adressé au 1er utilisateur de l'orga. Textes saisis échappés : le
+// corps est du HTML interpolé tel quel.
 async function notifierEchecSiret(
   supabase: AdminSupabase,
   entite: EntiteRow,
+  lienOrganisation?: LienOrganisation,
 ): Promise<void> {
   const { data: user } = await supabase
     .from('users')
-    .select('email')
+    .select('email, prenom, role')
     .eq('organisation_id', entite.organisation_id)
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
-  const to = (user as { email?: string } | null)?.email;
+  const u = user as {
+    email?: string;
+    prenom?: string | null;
+    role?: string | null;
+  } | null;
+  const to = u?.email;
   if (!to) return;
   await sendEmail(
     'siret_verification_echec',
     to,
     {
-      organisation_nom: entite.raison_sociale ?? '',
-      siret: entite.siret ?? '',
+      prenom: escapeHtml(u?.prenom?.trim() ?? ''),
+      organisation_nom: escapeHtml(entite.raison_sociale ?? ''),
+      siret: escapeHtml(entite.siret ?? ''),
+      lien_organisation: lienOrganisation?.(u?.role ?? null) ?? '',
     },
     { entityType: 'entites_facturation', entityId: entite.id },
   ).catch(() => null);

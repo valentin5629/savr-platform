@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { urlApplication } from '@/lib/url-application.js';
+import { ROUTES } from '@/lib/routes';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { sendEmail } from '@savr/shared/src/email/index.js';
@@ -78,18 +80,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     if (userProfile?.prenom) {
-      const { data: org } = userProfile.organisation_id
-        ? await adminClient
-            .from('organisations')
-            .select('nom')
-            .eq('id', userProfile.organisation_id)
-            .maybeSingle()
-        : { data: null };
       // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
       await sendEmail('bienvenue_organisation', data.user.email!, {
         prenom: escapeHtml(userProfile.prenom as string),
-        organisation_nom: escapeHtml(
-          (org as { nom?: string } | null)?.nom ?? '',
+        lien_programmation_collecte: urlApplication(
+          req,
+          ROUTES.programmer.nouveau,
         ),
       });
     }

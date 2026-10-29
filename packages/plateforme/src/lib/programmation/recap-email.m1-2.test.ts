@@ -40,7 +40,11 @@ const AG = {
 // Supabase minimal : users(id) → la ligne fixée ; collectes(evenement_id) →
 // les collectes de l'événement. `colonnesLues` garde le SELECT de `users`,
 // pour vérifier que le prénom est bien lu en base.
-function makeSupabase(ligne: LigneUser, collectes: LigneCollecte[] = [AG]) {
+function makeSupabase(
+  ligne: LigneUser,
+  collectes: LigneCollecte[] = [AG],
+  lieu: { nom?: string | null } | null = { nom: 'Pavillon Ledoyen' },
+) {
   const colonnesLues: string[] = [];
   const supabase = {
     from: (table: string) => ({
@@ -50,7 +54,9 @@ function makeSupabase(ligne: LigneUser, collectes: LigneCollecte[] = [AG]) {
           eq: () =>
             table === 'users'
               ? { maybeSingle: async () => ({ data: ligne, error: null }) }
-              : Promise.resolve({ data: collectes, error: null }),
+              : table === 'lieux'
+                ? { maybeSingle: async () => ({ data: lieu, error: null }) }
+                : Promise.resolve({ data: collectes, error: null }),
         };
       },
     }),
@@ -72,15 +78,19 @@ const CORPS = (() => {
   const sql = readFileSync(
     fileURLToPath(
       new URL(
-        '../../../../../supabase/migrations/20261024100000_plateforme_programmation_collectes_par_carte.sql',
+        '../../../../../supabase/migrations/20261029150000_plateforme_emails_lot_revue.sql',
         import.meta.url,
       ),
     ),
     'utf8',
   );
-  const m = sql.match(/\$tpl\$([\s\S]*?)\$tpl\$/);
-  if (!m) throw new Error('corps du template introuvable dans la migration');
-  return m[1]!;
+  // Texte validé à la revue des emails (Val 2026-10-29).
+  const fin = sql.indexOf("WHERE code = 'collecte_programmee';");
+  const debut = sql.lastIndexOf('corps_html = $tpl$', fin);
+  if (fin < 0 || debut < 0)
+    throw new Error('corps du template introuvable dans la migration');
+  const corps = sql.slice(debut + 'corps_html = $tpl$'.length, fin);
+  return corps.slice(0, corps.indexOf('$tpl$'));
 })();
 
 describe('M1.2/email_recap_bonjour_prenom — envoyerRecapProgrammation', () => {
@@ -196,7 +206,7 @@ describe('M1.2/email_recap_une_ligne_par_collecte — envoyerRecapProgrammation 
     );
     const html = interpolate(CORPS, v);
     expect(html).toContain(
-      '<p>Votre événement « Gala » est programmé. Nous réaliserons 3 collectes :</p>',
+      "<p>Merci, votre programmation pour l'événement « Gala » au Pavillon Ledoyen est bien enregistrée. Nous réaliserons 3 collectes :</p>",
     );
     expect(html).toContain(
       '<a href="https://app.test/traiteur/collectes">Voir mes collectes</a>',
@@ -231,5 +241,56 @@ describe('M1.2/email_recap_une_ligne_par_collecte — envoyerRecapProgrammation 
       collecteIds: ['inconnue'],
     });
     expect(emails).toEqual([]);
+  });
+
+  it('lieu, fiche événement, alerte moins de 24 h ; textes saisis neutralisés (revue des emails, Val 2026-10-29)', async () => {
+    const proche = {
+      ...ZD1,
+      id: 'col-proche',
+      date_collecte: '2030-11-12',
+      heure_collecte: '19:00:00',
+    };
+    const { supabase } = makeSupabase(
+      { email: 'julie@traiteur.local', prenom: 'Ju<b>lie' },
+      [proche],
+      { nom: 'Salle <Rive & Gauche>' },
+    );
+    await envoyerRecapProgrammation(supabase, {
+      ...PARAMS,
+      nomEvenement: 'Gala <script>',
+      collecteIds: ['col-proche'],
+      lienEvenement: 'https://app.test/traiteur/evenements?evenement=evt-1',
+      // 2030-11-12 19:00 Paris = 18:00 UTC : le 11 à 20:00 UTC, il reste 22 h.
+      maintenant: new Date('2030-11-11T20:00:00Z'),
+    });
+    const v = emails[0]!.variables;
+    expect(v.lieu_nom).toBe('Salle &lt;Rive &amp; Gauche&gt;');
+    expect(v.nom_evenement).toBe('Gala &lt;script&gt;');
+    expect(v.prenom).toBe('Ju&lt;b&gt;lie');
+    expect(v.collecte_sous_24h).toBe('true');
+    const html = interpolate(CORPS, v);
+    expect(html).toContain('appelez-nous au 07 61 91 29 97');
+    expect(html).toContain(
+      '<a href="https://app.test/traiteur/evenements?evenement=evt-1">',
+    );
+  });
+
+  it('collecte à plus de 24 h, sans lieu ni lien : ni alerte, ni « au », ni lien vers la fiche', async () => {
+    const { supabase } = makeSupabase(
+      { email: 'julie@traiteur.local', prenom: 'Julie' },
+      [ZD1],
+      null,
+    );
+    await envoyerRecapProgrammation(supabase, {
+      ...PARAMS,
+      collecteIds: ['col-zd1'],
+      maintenant: new Date('2030-11-10T18:00:00Z'),
+    });
+    const v = emails[0]!.variables;
+    expect(v.collecte_sous_24h).toBe('');
+    const html = interpolate(CORPS, v);
+    expect(html).not.toContain('07 61 91 29 97');
+    expect(html).not.toContain("N'oubliez pas");
+    expect(html).toContain('« Gala » est bien enregistrée');
   });
 });

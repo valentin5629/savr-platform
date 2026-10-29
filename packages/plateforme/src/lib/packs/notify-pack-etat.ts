@@ -3,6 +3,9 @@ import { sendEmail } from '@savr/shared/src/email/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { urlCanonique } from '@/lib/url-application.js';
 import { ROUTES } from '@/lib/routes';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
+import { libelleLongTypePack } from '@/lib/libelles/pack.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -117,14 +120,15 @@ export async function traiterAlertesPackEtat(
         {
           niveau,
           etat_libelle: etatLibelle,
-          organisation_nom: org?.nom ?? '',
-          type_pack: p.type_pack,
+          organisation_nom: escapeHtml(org?.nom ?? ''),
+          type_pack: libelleLongTypePack(p.type_pack),
           credits_restants: String(restants),
           credits_initiaux: String(p.credits_initiaux),
           pct_restant: String(pct),
-          derniere_collecte_date:
+          derniere_collecte_date: formatDateParis(
             (derniere as { date_collecte?: string } | null)?.date_collecte ??
-            '',
+              '',
+          ),
           // Bloc conditionnel du template 9 (un seul actif selon le niveau).
           niveau_bas: estBas ? 'true' : '',
           niveau_epuise: estBas ? '' : 'true',

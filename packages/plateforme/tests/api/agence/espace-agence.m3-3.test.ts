@@ -503,9 +503,12 @@ describe('M3.3 / annulation', () => {
         'prog@savr-test.local',
         {
           prenom: 'Paul',
-          date_collecte: '2030-01-01',
+          date_collecte: '01/01/2030',
+          heure_collecte: '',
           lieu_nom: 'Salle Wagram',
+          nom_evenement: '',
           motif: 'x',
+          info_facturation: '',
         },
       );
       expect(admin.__calls.eq).toContainEqual(['id', 'u-prog']);

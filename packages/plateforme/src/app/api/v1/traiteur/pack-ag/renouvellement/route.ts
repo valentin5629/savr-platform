@@ -4,6 +4,8 @@ import { sendEmail } from '@savr/shared/src/email/index.js';
 import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { requireUser, type ClientRole } from '@/lib/api-auth.js';
 import { lireCompte } from '@/lib/notifications/annulation-client.js';
+import { urlApplication } from '@/lib/url-application.js';
+import { ROUTES } from '@/lib/routes';
 
 // Action ouverte au manager, au commercial ET à l'agence (§06.04 Bloc 4 AG,
 // répliqué à l'identique pour l'agence — §06.11 l.36/l.44 « pack AG fondu dans
@@ -32,6 +34,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
   const demandeur = await lireCompte(admin, auth.ctx.userId);
+  // Crédits restants du pack le plus récent (actif ou épuisé : une demande de
+  // renouvellement suit souvent un pack épuisé).
+  const { data: packs } = await admin
+    .from('packs_antgaspi')
+    .select('credits_restants')
+    .eq('organisation_id', auth.ctx.organisationId)
+    .order('created_at', { ascending: false });
+  const creditsRestants = (
+    (packs ?? []) as Array<{ credits_restants?: number | null }>
+  )[0]?.credits_restants;
 
   // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
   await sendEmail('admin_demande_renouvellement_pack', 'contact@gosavr.io', {
@@ -40,6 +52,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     demandeur_email: escapeHtml(demandeur?.email ?? ''),
     pack_souhaite: escapeHtml(body.pack_souhaite ?? ''),
     message: escapeHtml(body.message ?? ''),
+    // « 0 » se lirait comme vide dans le bloc conditionnel du gabarit.
+    credits_restants:
+      typeof creditsRestants === 'number'
+        ? creditsRestants > 0
+          ? String(creditsRestants)
+          : 'aucun'
+        : '',
+    lien_fiche_org: urlApplication(
+      req,
+      ROUTES.admin.organisation(auth.ctx.organisationId),
+    ),
   });
 
   return NextResponse.json({ data: { demande: 'envoyee' } }, { status: 201 });

@@ -5,6 +5,8 @@ import { sendEmail } from '@savr/shared/src/email/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { formatDateParis } from '@savr/shared/src/temps/index.js';
 import { ROUTES } from '@/lib/routes';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
+import { notifierProgrammateurTiers } from '@/lib/notifications/traiteur-operationnel.js';
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import { LIBELLE_STATUT_COLLECTE } from '@/lib/statut-collecte-labels';
 import { urlApplication } from '@/lib/url-application';
@@ -200,6 +202,7 @@ const un = <T>(v: T | T[] | null | undefined): T | null =>
 
 interface CollecteApres {
   id: string;
+  type: string | null;
   evenement_id: string;
   statut: string;
   statut_tms: string;
@@ -214,6 +217,7 @@ interface CollecteApres {
 
 interface EvenementApres {
   created_by: string | null;
+  nom_evenement: string | null;
   lieu: { nom: string } | { nom: string }[] | null;
   organisation: { nom: string } | { nom: string }[] | null;
 }
@@ -232,6 +236,9 @@ export async function notifierEquipeModificationCollecte(
   demande: ModificationCollecte & {
     collecteId: string;
     evenementModifiePar?: string;
+    /** Auteur de la modification : le programmateur tiers n'est prévenu que
+     *  d'un changement fait par quelqu'un d'autre. */
+    acteurUserId?: string;
   },
 ): Promise<void> {
   // Sans l'état d'avant l'écriture, l'email inventerait ses valeurs « avant » :
@@ -251,10 +258,10 @@ export async function notifierEquipeModificationCollecte(
     const { data, error } = await admin
       .from('collectes')
       .select(
-        `id, evenement_id, statut, statut_tms, tms_reference,
+        `id, type, evenement_id, statut, statut_tms, tms_reference,
          prestataire_logistique_id, date_collecte, heure_collecte, pax,
          attributions_antgaspi!collecte_id(id),
-         evenement:evenements!inner(created_by,
+         evenement:evenements!inner(created_by, nom_evenement,
            lieu:lieux!lieu_id(nom),
            organisation:organisations!organisation_id(nom))`,
       )
@@ -324,12 +331,14 @@ export async function notifierEquipeModificationCollecte(
 
     // Le corps du template est du HTML interpolé tel quel : tout texte saisi
     // par un utilisateur est échappé ici.
+    const liste = `<ul>${lignes
+      .map((l) => `<li>${escapeHtml(l)}</li>`)
+      .join('')}</ul>`;
+    const nomEvenement = (evenement?.nom_evenement ?? '').trim();
     const variables: Record<string, string> = {
       organisation_nom: escapeHtml(un(evenement?.organisation)?.nom ?? ''),
       date_initiale: formatDateParis(dateInitiale),
-      liste_modifications: `<ul>${lignes
-        .map((l) => `<li>${escapeHtml(l)}</li>`)
-        .join('')}</ul>`,
+      liste_modifications: liste,
       statut_collecte: LIBELLE_STATUT_COLLECTE[statutCollecteAdmin(collecte)],
       // Ancien OU nouveau créneau à moins de 12 h (cf. urgence-modification).
       priorite_urgence: String(
@@ -344,6 +353,9 @@ export async function notifierEquipeModificationCollecte(
       ),
     };
     if (lieuNom) variables.lieu_nom = escapeHtml(lieuNom);
+    if (collecte.type)
+      variables.type_collecte = libelleTypeCollecte(collecte.type);
+    if (nomEvenement) variables.nom_evenement = escapeHtml(nomEvenement);
     if (!vide(paxInitial))
       variables.pax_initial = escapeHtml(String(paxInitial));
     if (nomProgrammateur)
@@ -354,6 +366,14 @@ export async function notifierEquipeModificationCollecte(
       );
 
     await sendEmail(TEMPLATE, ADRESSE_EQUIPE, variables);
+
+    // Le programmateur d'une agence ou d'un gestionnaire de lieux reçoit la
+    // même liste (revue des emails, Val 2026-10-28) : cf. notifierProgrammateurTiers.
+    await notifierProgrammateurTiers(admin, {
+      collecteId: collecte.id,
+      acteurUserId: demande.acteurUserId ?? null,
+      listeModifications: liste,
+    });
   } catch (err) {
     logger.error('collectes.email_modification_echec', {
       collecte_id: demande.collecteId,

@@ -233,6 +233,6 @@ describe('M0.3 — cron notify-pack-etat (template 9)', () => {
     expect(v.credits_initiaux).toBe('50');
     expect(v.pct_restant).toBe('8'); // 4/50 = 8 %
     expect(v.etat_libelle).toBe('bientôt épuisé');
-    expect(v.derniere_collecte_date).toBe('2026-07-05');
+    expect(v.derniere_collecte_date).toBe('05/07/2026');
   });
 });

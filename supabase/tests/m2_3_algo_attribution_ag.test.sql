@@ -751,14 +751,16 @@ SELECT is(
   'T25 : 7 paramètres AG présents dans parametres_algo'
 );
 
--- ── T26 : email templates AG présents (3 nouveaux) ───────────────────────
+-- ── T26 : email AG à l'association actif ─────────────────────────────────
+-- Revue des emails (Val 2026-10-28/29) : ag_attribution_transporteur et
+-- ag_a_toutes_indispo sont désactivés (migration 20261029150000).
 
 SELECT is(
   (SELECT COUNT(*)::integer FROM plateforme.email_templates
    WHERE code IN ('ag_attribution_association', 'ag_attribution_transporteur', 'ag_a_toutes_indispo')
      AND actif = true),
-  3,
-  'T26 : 3 templates email AG actifs dans email_templates'
+  1,
+  'T26 : seul le template email AG à l''association reste actif'
 );
 
 -- ── T27 : trigger fn_trg_calc_volume_repas_realise existe ────────────────

@@ -33,7 +33,10 @@ vi.mock('@savr/shared/src/email/index.js', () => ({
 // Ici on vérifie le CÂBLAGE : la route les invoque avec les bons arguments.
 const mockNotifierAdminAnnulation = vi.fn().mockResolvedValue(undefined);
 const mockNotifierTraiteurOperationnel = vi.fn().mockResolvedValue(undefined);
-vi.mock('@/lib/notifications/traiteur-operationnel.js', () => ({
+vi.mock('@/lib/notifications/traiteur-operationnel.js', async (original) => ({
+  ...(await original<
+    typeof import('@/lib/notifications/traiteur-operationnel.js')
+  >()),
   notifierAdminAnnulation: (...args: unknown[]) =>
     mockNotifierAdminAnnulation(...args),
   notifierTraiteurOperationnel: (...args: unknown[]) =>
@@ -81,7 +84,7 @@ const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 describe('M0.6 — notifications annulation (validation Admin → annulee)', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('BL-P2-22 — bascule annulation_demandee → annulee : tpl 5 (programmeur) + tpl 22 (Admin) + tpl 21 (traiteur op)', async () => {
+  it('BL-P2-22 — bascule annulation_demandee → annulee : tpl 5 (programmeur) + tpl 22 (Admin) (sans tpl 21)', async () => {
     setupAuth('admin_savr');
     // before (select *) : statut annulation_demandee (≠ annulee).
     mockSupabaseChain.single.mockResolvedValueOnce({
@@ -91,6 +94,7 @@ describe('M0.6 — notifications annulation (validation Admin → annulee)', () 
         date_collecte: '2026-07-15',
         heure_collecte: '20:00:00',
         annulation_demandee_at: '2026-07-15T08:00:00+00:00',
+        annulee_cote_savr_motif: 'Événement reporté',
       },
       error: null,
     });
@@ -133,7 +137,13 @@ describe('M0.6 — notifications annulation (validation Admin → annulee)', () 
     expect(mockSendEmail).toHaveBeenCalledWith(
       'annulation_collecte',
       'prog@savr-test.local',
-      expect.objectContaining({ prenom: 'Paul', lieu_nom: 'Salle Wagram' }),
+      // Motif du client, jamais le texte saisi par l'Admin pour forcer le
+      // statut (revue des emails, Val 2026-10-29).
+      expect.objectContaining({
+        prenom: 'Paul',
+        lieu_nom: 'Salle Wagram',
+        motif: 'Événement reporté',
+      }),
     );
     // tpl 22 → Admin, avec l'acteur (admin) et le contexte résolu.
     expect(mockNotifierAdminAnnulation).toHaveBeenCalledWith(
@@ -144,20 +154,15 @@ describe('M0.6 — notifications annulation (validation Admin → annulee)', () 
         lieuNom: 'Salle Wagram',
         acteurUserId: 'admin-1',
         acteurRole: 'admin_savr',
+        motif: 'Événement reporté',
         // Le délai se juge à la demande du client (Val 2026-10-15).
         statutAvant: 'annulation_demandee',
         annulationDemandeeAt: '2026-07-15T08:00:00+00:00',
       }),
     );
-    // tpl 21 → traiteur op ; acteurOrgId = donneur d'ordre (evenements.organisation_id).
-    expect(mockNotifierTraiteurOperationnel).toHaveBeenCalledWith(
-      mockSupabaseChain,
-      expect.objectContaining({
-        collecteId: 'col-1',
-        acteurOrgId: 'org-agence',
-        changement: { kind: 'annulation' },
-      }),
-    );
+    // Le programmateur ne reçoit pas en plus « Collecte annulée » par un tiers
+    // (tpl 21) : la confirmation suffit (Val 2026-10-29).
+    expect(mockNotifierTraiteurOperationnel).not.toHaveBeenCalled();
   });
 
   it('incident sur une demande d’annulation : l’alerte Admin reçoit le statut quitté et l’heure de la demande (Val 2026-10-15)', async () => {

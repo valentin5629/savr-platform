@@ -6,7 +6,10 @@ import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-opera
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { validerCartes } from '@/lib/programmation/cartes.js';
-import { lienCollectesProgrammeur } from '@/lib/programmation/apres-confirmation.js';
+import {
+  lienCollectesProgrammeur,
+  lienEvenementProgrammeur,
+} from '@/lib/programmation/apres-confirmation.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 import {
@@ -142,6 +145,7 @@ export async function POST(
       lieuId: evt.lieu_id,
       collecteIds: [collecteId as string],
       lienCollectes: lienCollectesProgrammeur(req, auth.ctx.role),
+      lienEvenement: lienEvenementProgrammeur(req, auth.ctx.role, evenementId),
     }).catch(() => undefined); // non-bloquant
   }
 

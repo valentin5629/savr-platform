@@ -246,6 +246,25 @@ describe('M0.5 / transport Resend — hors production', () => {
     });
   });
 
+  it('document complet (enveloppe commune) : le bandeau suit <body>, la version texte rappelle les destinataires', async () => {
+    poserEnv(PREVIEW);
+
+    await dispatchToResend({
+      to: 'jean@traiteur-test.fr',
+      subject: 'Objet',
+      html: '<!doctype html><html><body style="margin:0"><p>Corps</p></body></html>',
+      text: 'Corps',
+    });
+
+    const e = envoye() as { html: string; text: string };
+    expect(e.html).toMatch(
+      /^<!doctype html><html><body style="margin:0"><div [^>]*>Destinataires d'origine : jean@traiteur-test\.fr<\/div><p>Corps<\/p>/,
+    );
+    expect(e.text).toBe(
+      "Destinataires d'origine : jean@traiteur-test.fr\n\nCorps",
+    );
+  });
+
   it('message sans cc ni bcc → seul `to` est posé, aucun champ destinataire ajouté', async () => {
     poserEnv(PREVIEW);
 

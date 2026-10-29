@@ -25,6 +25,28 @@ export function lienCollectesProgrammeur(
 }
 
 /**
+ * Lien « N'oubliez pas de les programmer dès maintenant » du récapitulatif :
+ * fiche de l'événement dans l'espace du programmeur (revue des emails, Val
+ * 2026-10-29). La fiche s'ouvre sur la liste Événements (`?evenement=<id>`).
+ */
+export function lienEvenementProgrammeur(
+  req: NextRequest,
+  role: string | undefined,
+  evenementId: string,
+): string | null {
+  const espace = role ? ESPACE_PAR_ROLE[role as Role] : undefined;
+  if (!espace) return null;
+  try {
+    return urlApplication(
+      req,
+      `${ESPACES[espace].prefixe}/evenements?evenement=${encodeURIComponent(evenementId)}`,
+    );
+  } catch {
+    return null; // lien facultatif : la phrase ne s'affiche pas
+  }
+}
+
+/**
  * Suites d'une programmation confirmée (création ou reprise d'un brouillon),
  * communes aux deux routes ; ordre et effets repris de la route de création.
  * L'envoi immédiat des ordres (décision Val 2026-10-12) reste appelé par la
@@ -86,6 +108,7 @@ export async function apresConfirmation(
     lieuId: p.lieuId,
     collecteIds: ids,
     lienCollectes: lienCollectesProgrammeur(req, p.ctx.role),
+    lienEvenement: lienEvenementProgrammeur(req, p.ctx.role, p.evenementId),
   }).catch(() => undefined); // non-bloquant
 
   if (ids[0]) {

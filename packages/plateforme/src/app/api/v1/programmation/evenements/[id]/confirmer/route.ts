@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
-import { lienCollectesProgrammeur } from '@/lib/programmation/apres-confirmation.js';
+import {
+  lienCollectesProgrammeur,
+  lienEvenementProgrammeur,
+} from '@/lib/programmation/apres-confirmation.js';
 import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
@@ -144,6 +147,7 @@ export async function PATCH(
     lieuId: evt.lieu_id,
     collecteIds: collectes.map((c) => c.id),
     lienCollectes: lienCollectesProgrammeur(req, auth.ctx.role),
+    lienEvenement: lienEvenementProgrammeur(req, auth.ctx.role, evenementId),
   }).catch(() => undefined); // non-bloquant
 
   // BL-P2-22 (tpl 20) : info-only au traiteur opérationnel si programmé par un

@@ -26,8 +26,8 @@ SELECT is(
 
 SELECT is(
   (SELECT variables FROM plateforme.email_templates WHERE code = 'attestation_don_disponible'),
-  ARRAY['nom_evenement','date_evenement','lien_rapport']::text[],
-  'variables déclarées = celles que le batch AG fournit (plus de prenom, association_nom, lien_pdf exigés)'
+  ARRAY['nom_evenement','prenom','date_evenement','association_nom','nb_repas','lien_rapport']::text[],
+  'variables citées (revue des emails 20261029150000) ; prénom, association et repas en blocs conditionnels, jamais exigés'
 );
 
 -- strpos, pas LIKE : dans un motif LIKE, « _ » vaut n'importe quel caractère, et

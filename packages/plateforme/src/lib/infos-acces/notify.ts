@@ -7,6 +7,7 @@ import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { formatDateFr } from '@savr/shared/src/csv/index.js';
 import { cloreAlerteInfosAcces, TEMPLATE_INFOS_ACCES } from './suivi-email.js';
+import { adresseLieu } from '@/lib/notifications/traiteur-operationnel.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -166,13 +167,18 @@ export async function evaluerInfosAccesEtEnvoyer(
     return NON_ENVOYE;
   }
 
+  // Textes saisis interpolés tels quels dans le HTML du gabarit : échappés ici.
   const variables: Record<string, string> = {
-    prenom: payload.prenom ?? '',
-    evenement_nom: payload.evenement_nom ?? '',
+    prenom: escapeHtml(payload.prenom ?? ''),
+    evenement_nom: escapeHtml(payload.evenement_nom ?? ''),
     date_collecte: formatDateFr(payload.date_collecte),
     heure_collecte: formatHeure(payload.heure_collecte),
-    lieu_nom: payload.lieu_nom ?? '',
-    lieu_adresse: payload.lieu_adresse ?? '',
+    lieu_nom: escapeHtml(payload.lieu_nom ?? ''),
+    lieu_adresse: escapeHtml(
+      (await adresseComplete(supabase, collecteId)) ??
+        payload.lieu_adresse ??
+        '',
+    ),
     chauffeurs_bloc: renderChauffeursBloc(payload.chauffeurs ?? []),
   };
 
@@ -213,3 +219,39 @@ export async function evaluerInfosAccesEtEnvoyer(
   }
   return { envoye: true, issue: 'envoye' };
 }
+
+/**
+ * Adresse du lieu avec code postal et ville (revue des emails, Val 2026-10-29) :
+ * la fonction SQL ne rend que l'adresse d'accès. null si illisible : l'email
+ * garde alors l'adresse d'accès seule.
+ */
+async function adresseComplete(
+  supabase: AdminSupabase,
+  collecteId: string,
+): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from('collectes')
+      .select(
+        'evenement:evenements!inner(lieu:lieux!lieu_id(adresse_acces, code_postal, ville))',
+      )
+      .eq('id', collecteId)
+      .maybeSingle();
+    const evt = un((data as { evenement?: unknown } | null)?.evenement) as
+      | { lieu?: unknown }
+      | undefined;
+    const lieu = un(evt?.lieu) as
+      | {
+          adresse_acces?: string | null;
+          code_postal?: string | null;
+          ville?: string | null;
+        }
+      | undefined;
+    return lieu ? adresseLieu(lieu) || null : null;
+  } catch {
+    return null;
+  }
+}
+
+const un = <T>(v: T | T[] | null | undefined): T | undefined =>
+  Array.isArray(v) ? v[0] : (v ?? undefined);

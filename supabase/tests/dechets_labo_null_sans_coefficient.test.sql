@@ -217,11 +217,9 @@ SELECT ok(
 --    reste VERT après un `REVOKE … FROM authenticated` comme après un
 --    `GRANT … TO <autre rôle>` — il ne mord dans aucun sens (mesuré, revue
 --    sécurité 2026-09-21). L'égalité d'ensemble mord des deux côtés.
---    ⚠ La présence de PUBLIC est PRÉEXISTANTE (EXECUTE implicite du CREATE
---    FUNCTION de 20260611180000, jamais révoqué ; 20260903130000 a laissé cette
---    fonction exécutable par arbitrage, garde de rôle interne). Elle est figée
---    ici en l'état pour que ce lot prouve « rien n'a bougé » — la refermer est
---    un autre lot, qui devra mettre cette attente à jour sciemment.
+--    Mise à jour sciemment par 20261029120000 (fonction réservée au
+--    gestionnaire de lieux) : EXECUTE retiré à anon et PUBLIC, preuve dans
+--    dechets_labo_reserve_gestionnaire.test.sql.
 SELECT is(
   (SELECT string_agg(DISTINCT coalesce(r.rolname, 'PUBLIC'), ','
                      ORDER BY coalesce(r.rolname, 'PUBLIC'))
@@ -232,8 +230,8 @@ SELECT is(
     WHERE n.nspname = 'plateforme'
       AND p.proname = 'f_dechets_labo_estimes'
       AND a.privilege_type = 'EXECUTE'),
-  'PUBLIC,anon,authenticated,postgres,service_role',
-  '9. ensemble des grantees EXECUTE inchangé (ni ouvert, ni fermé par ce lot)');
+  'authenticated,postgres,service_role',
+  '9. ensemble des grantees EXECUTE = authenticated, postgres, service_role');
 
 SELECT * FROM finish();
 ROLLBACK;

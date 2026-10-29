@@ -45,7 +45,7 @@ const supabase = {
   from: (table: string) => ({
     select: () => ({
       eq: () =>
-        table === 'users'
+        table !== 'collectes'
           ? {
               maybeSingle: async () => ({
                 data: { email: 'julie@traiteur.local', prenom: 'Julie' },

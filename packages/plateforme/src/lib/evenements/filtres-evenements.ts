@@ -15,6 +15,7 @@ import {
   type DbClient,
 } from '@/lib/dashboards/loaders';
 import { un, type UnOuListe } from '@/lib/evenements-gestionnaire';
+import { TAILLE_PAGE, lireParPages } from '@/lib/pdf/selection-par-pages';
 import type { EspaceEvenements } from '@/lib/evenements/liste-evenements';
 
 export interface Option {
@@ -35,7 +36,8 @@ export class OptionsIndisponibles extends Error {}
 
 const parNom = (a: Option, b: Option) => a.nom.localeCompare(b.nom, 'fr');
 
-function nomOrganisation(o: {
+/** Libellé d'une organisation : nom commercial, sinon raison sociale. */
+export function nomOrganisation(o: {
   nom: string | null;
   raison_sociale: string | null;
 }): string | null {
@@ -58,46 +60,32 @@ async function typesEvenements(supabase: DbClient) {
   }));
 }
 
-/** Taille d'une tranche : `max_rows` de PostgREST (supabase/config.toml). */
-const TRANCHE = 1000;
-
-/**
- * Toutes les lignes d'une lecture, par tranches : sans cela, `max_rows`
- * tronquerait en silence un référentiel de plus de 1 000 lignes.
- */
-async function parTranches(
-  lire: (
-    de: number,
-    a: number,
-  ) => PromiseLike<{ data: unknown[] | null; error: { code?: string } | null }>,
-): Promise<{ data: unknown[]; error: { code?: string } | null }> {
-  const lignes: unknown[] = [];
-  for (let de = 0; ; de += TRANCHE) {
-    const { data, error } = await lire(de, de + TRANCHE - 1);
-    if (error) return { data: [], error };
-    lignes.push(...(data ?? []));
-    if ((data ?? []).length < TRANCHE) return { data: lignes, error: null };
-  }
-}
-
 async function optionsStaff(supabase: DbClient) {
+  // Lus page après page (`lireParPages`) : `max_rows` tronquerait en silence un
+  // référentiel de plus de 1 000 lignes.
   const [lieux, orgs] = await Promise.all([
-    parTranches((de, a) =>
-      supabase
+    lireParPages<{ id: string; nom: string | null }>((apresId) => {
+      const q = supabase
         .from('lieux')
         .select('id, nom')
-        .order('nom')
         .order('id')
-        .range(de, a),
-    ),
-    parTranches((de, a) =>
-      supabase
+        .limit(TAILLE_PAGE);
+      return apresId ? q.gt('id', apresId) : q;
+    }),
+    lireParPages<{
+      id: string;
+      nom: string | null;
+      raison_sociale: string | null;
+      type: string;
+    }>((apresId) => {
+      const q = supabase
         .from('organisations')
         .select('id, nom, raison_sociale, type')
         .in('type', ['traiteur', 'agence', 'gestionnaire_lieux'])
         .order('id')
-        .range(de, a),
-    ),
+        .limit(TAILLE_PAGE);
+      return apresId ? q.gt('id', apresId) : q;
+    }),
   ]);
   if (lieux.error || orgs.error) {
     logger.error('evenements.filtres.staff_echec', {
@@ -117,9 +105,10 @@ async function optionsStaff(supabase: DbClient) {
     return nom ? [{ id: o.id, nom, type: o.type }] : [];
   });
   return {
-    lieux: ((lieux.data ?? []) as { id: string; nom: string | null }[])
+    lieux: lieux.data
       .filter((l) => l.nom)
-      .map((l) => ({ id: l.id, nom: l.nom! })),
+      .map((l) => ({ id: l.id, nom: l.nom! }))
+      .sort(parNom),
     traiteurs: organisations
       .filter((o) => o.type === 'traiteur')
       .map(({ id, nom }) => ({ id, nom }))

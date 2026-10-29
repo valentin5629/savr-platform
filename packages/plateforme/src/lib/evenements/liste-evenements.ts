@@ -35,6 +35,7 @@ import {
   type UnOuListe,
 } from '@/lib/evenements-gestionnaire';
 import { estUuid, listeCsv } from '@/lib/filtre-csv';
+import { nomOrganisation } from '@/lib/evenements/filtres-evenements';
 import { STATUT_BILAN } from '@/lib/collectes/fiche-client-types';
 import { parsePage } from '@/lib/pagination';
 import { lireTri } from '@/lib/tri-liste';
@@ -332,7 +333,12 @@ export async function listerEvenements(
   const nomTraiteur = (e: LigneBrute): string | null => {
     if (profil.traiteur) {
       const o = un(e.organisations);
-      return o?.nom?.trim() || o?.raison_sociale?.trim() || null;
+      return o
+        ? nomOrganisation({
+            nom: o.nom,
+            raison_sociale: o.raison_sociale ?? null,
+          })
+        : null;
     }
     const id = e.traiteur_operationnel_organisation_id;
     return id ? (nomsReferentiel.get(id) ?? null) : null;

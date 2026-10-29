@@ -32,6 +32,8 @@ function makeClient(resultats: Record<string, Result>) {
       'or',
       'gte',
       'lte',
+      'gt',
+      'limit',
       'order',
       'range',
     ]) {
@@ -366,13 +368,13 @@ describe('Options de filtres Événements', () => {
       lieux: { data: [{ id: 'L1', nom: 'Pavillon' }], error: null },
       organisations: {
         data: [
+          { id: 'A1', nom: null, raison_sociale: 'Agence Y', type: 'agence' },
           {
             id: 'T1',
             nom: 'Potel',
             raison_sociale: 'Potel SAS',
             type: 'traiteur',
           },
-          { id: 'A1', nom: null, raison_sociale: 'Agence Y', type: 'agence' },
         ],
         error: null,
       },

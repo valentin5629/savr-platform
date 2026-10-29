@@ -23,7 +23,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal.js';
-import { FicheEvenementModal } from '@/components/gestionnaire/fiche-evenement-modal';
+import { FicheEvenementModal } from '@/components/evenements/fiche-evenement-modal';
 import { CollecteDetailPanel } from '@/components/admin/collecte-detail-panel';
 import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
@@ -202,7 +202,11 @@ function evenement(ajouterCollecte: boolean) {
 }
 
 const ficheEvenement = () => (
-  <FicheEvenementModal evenementId={EVT_ID} onClose={() => {}} />
+  <FicheEvenementModal
+    espace="gestionnaire"
+    evenementId={EVT_ID}
+    onClose={() => {}}
+  />
 );
 
 describe('M1.2 — ajouter une collecte depuis la fiche événement du gestionnaire', () => {

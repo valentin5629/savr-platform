@@ -53,6 +53,8 @@ import {
 } from '@/components/collecte/fiche-collecte-client-bilan';
 import { Chauffeurs } from '@/components/collecte/fiche-collecte-client-onglets';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
+import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
+import type { EspaceFiche } from '@/lib/evenements/fiche-evenement';
 import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
 import {
   ToggleTypeCollecte,
@@ -68,6 +70,7 @@ import {
   LIBELLE_ETAT_RAPPORT,
   STATUTS_ANNULES,
   STATUT_BILAN,
+  type EspaceClient,
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
 import {
@@ -92,7 +95,10 @@ import { ROUTES } from '@/lib/routes';
 import { friseStatutEvenement } from '@/lib/statut-collecte-labels';
 import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphique';
 
-// Fiche événement du gestionnaire de lieux, en pop-up sur la liste Événements,
+// Fiche événement, en pop-up sur la liste Événements, commune aux espaces qui
+// ont une fiche collecte client (gestionnaire, traiteur, agence : décision Val
+// 2026-10-29, « même fiche pour tous ») ; benchmark et déchets labo estimés au
+// gestionnaire seul. Née dans l'espace gestionnaire de lieux,
 // au grand format de la variante B (décision Val 2026-10-27 : grand en-tête,
 // onglets soulignés dans l'en-tête, seul le corps défile, sections en lignes).
 // Trois onglets (décision Val 2026-10-26), au format de la fiche collecte :
@@ -102,7 +108,7 @@ import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphiqu
 // dérivée des collectes, à la place de la frise (décision Val 2026-10-27).
 //
 // Consultation (§06.05 §2), à deux gestes près : « Ajouter une collecte » sur
-// les événements que le gestionnaire a programmés lui-même (décision Val
+// les événements que l'organisation de l'utilisateur a programmés (décision Val
 // 2026-10-21), et la demande urgente des coordonnées d'un chauffeur, la même que
 // sur la fiche collecte. Une fiche collecte s'ouvre par-dessus (« Voir la
 // collecte », « Accéder au bilan… ») : tant qu'elle est ouverte, la fiche
@@ -125,6 +131,8 @@ interface EvenementDetail {
   bilan: BilanEvenement;
   // Fiche de chaque collecte, dans l'ordre chronologique.
   fiches: FicheCollecteClient[];
+  // Staff : statut de chaque collecte en vue Admin (cf. la route).
+  statuts_admin?: Record<string, string>;
 }
 
 type Etat = 'chargement' | 'erreur' | 'introuvable' | 'pret';
@@ -219,9 +227,10 @@ function LiensBilans({
   onOuvrir,
 }: {
   fiches: FicheCollecteClient[];
-  onOuvrir: (id: string) => void;
+  /** Absent : aucune fiche collecte à ouvrir (client organisateur). */
+  onOuvrir?: (id: string) => void;
 }) {
-  if (fiches.length < 2) return null;
+  if (fiches.length < 2 || !onOuvrir) return null;
   return (
     <ul className="space-y-1" data-testid="liens-bilans">
       {fiches.map((f) => (
@@ -263,7 +272,7 @@ function BilanConsolide({
   deuxTypes: boolean;
   dateEvenement: string | null;
   actives: FicheCollecteClient[];
-  onOuvrirBilan: (id: string) => void;
+  onOuvrirBilan?: (id: string) => void;
   radar: RadarFiche;
   // Filtres sur lesquels s'ouvre la barre « Comparer avec » du radar.
   filtresInitiaux: { typeEvenementIds: string[]; tailleCodes: string[] };
@@ -475,12 +484,14 @@ function BilanConsolide({
  * RSE en ZD, fabriqué au clic ; Rapport de don en AG, fichier déjà fabriqué).
  */
 function DocumentsEvenement({
+  espace,
   evenementId,
   type,
   nbRealisees,
   radar,
   actives,
 }: {
+  espace: EspaceFiche;
   evenementId: string;
   type: CollecteType;
   nbRealisees: number;
@@ -489,16 +500,19 @@ function DocumentsEvenement({
 }) {
   const [enCours, setEnCours] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  // Rapport cumulé : pas le rapport de don au client organisateur (la base lui
+  // refuse les attributions, le rapport serait faux).
+  const avecCumul = espace !== 'organisateur' || type === 'zero_dechet';
   // Rapport cumulé ZD : radar au choix de celui qui le télécharge, sur les
   // filtres réglés au-dessus ; la case part décochée (comme la fiche collecte).
   const [avecRadar, setAvecRadar] = useState(false);
-  if (actives.length === 0 && nbRealisees === 0) return null;
+  if (actives.length === 0 && (nbRealisees === 0 || !avecCumul)) return null;
   const zd = type === 'zero_dechet';
   const choixRadarPossible = zd && radar.visible && !radar.indisponible;
   const radarDemande = choixRadarPossible && avecRadar;
 
   async function telechargerCumul() {
-    const base = `/api/v1/gestionnaire/evenements/${encodeURIComponent(evenementId)}`;
+    const base = `/api/v1/evenements/${encodeURIComponent(evenementId)}`;
     const filtres = radar.filtres;
     setErreur(null);
     setEnCours(CUMUL);
@@ -524,7 +538,7 @@ function DocumentsEvenement({
   // Mêmes chemins que l'onglet Bilan de la fiche collecte (rapport ZD sans
   // radar : ses filtres de comparaison sont propres à chaque collecte).
   async function telecharger(f: FicheCollecteClient) {
-    const base = `/api/v1/gestionnaire/collectes/${encodeURIComponent(f.id)}`;
+    const base = `/api/v1/${encodeURIComponent(espace)}/collectes/${encodeURIComponent(f.id)}`;
     setErreur(null);
     setEnCours(f.id);
     const message =
@@ -544,67 +558,69 @@ function DocumentsEvenement({
         className="divide-y divide-savr-neutral-100 p-0"
         data-testid="documents-evenement"
       >
-        <div
-          className="flex flex-wrap items-center gap-3 px-5 py-3.5"
-          data-testid="document-evenement-cumul"
-        >
-          <FileTextIcon
-            className="h-5 w-5 shrink-0 text-savr-primary-700"
-            aria-hidden="true"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-md font-semibold text-savr-neutral-900">
-              {zd
-                ? 'Rapport RSE de l’événement'
-                : 'Rapport de don de l’événement'}
-            </p>
-            <Text>
-              {nbRealisees === 0
-                ? 'Disponible dès la première collecte réalisée'
-                : zd
-                  ? 'Cumul des collectes réalisées'
-                  : 'Récapitulatif des collectes réalisées, sans valeur fiscale : les rapports de don de chaque collecte font foi'}
-            </Text>
-          </div>
-          <Button
-            variant="secondary"
-            // Radar demandé : on attend les filtres de la barre (sans eux, le
-            // serveur comparerait à « Tous », pas à ce que l'écran affiche).
-            disabled={
-              nbRealisees === 0 ||
-              enCours !== null ||
-              (radarDemande && !radar.filtres)
-            }
-            loading={enCours === CUMUL}
-            loadingText="Préparation du PDF…"
-            onClick={() => void telechargerCumul()}
+        {avecCumul && (
+          <div
+            className="flex flex-wrap items-center gap-3 px-5 py-3.5"
+            data-testid="document-evenement-cumul"
           >
-            Télécharger
-          </Button>
-          {nbRealisees > 0 && choixRadarPossible && (
-            <div
-              className="basis-full"
-              data-testid="option-rapport-evenement-radar"
-            >
-              <Label
-                variant="choice"
-                htmlFor="rapport-evenement-avec-radar"
-                className="flex items-center gap-2"
-              >
-                <Checkbox
-                  id="rapport-evenement-avec-radar"
-                  checked={avecRadar}
-                  onCheckedChange={(v) => setAvecRadar(v === true)}
-                />
-                Inclure le radar de comparaison dans le rapport
-              </Label>
-              <Text className="mt-1">
-                Le radar du rapport reprend les filtres de comparaison réglés
-                ci-dessus.
+            <FileTextIcon
+              className="h-5 w-5 shrink-0 text-savr-primary-700"
+              aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-md font-semibold text-savr-neutral-900">
+                {zd
+                  ? 'Rapport RSE de l’événement'
+                  : 'Rapport de don de l’événement'}
+              </p>
+              <Text>
+                {nbRealisees === 0
+                  ? 'Disponible dès la première collecte réalisée'
+                  : zd
+                    ? 'Cumul des collectes réalisées'
+                    : 'Récapitulatif des collectes réalisées, sans valeur fiscale : les rapports de don de chaque collecte font foi'}
               </Text>
             </div>
-          )}
-        </div>
+            <Button
+              variant="secondary"
+              // Radar demandé : on attend les filtres de la barre (sans eux, le
+              // serveur comparerait à « Tous », pas à ce que l'écran affiche).
+              disabled={
+                nbRealisees === 0 ||
+                enCours !== null ||
+                (radarDemande && !radar.filtres)
+              }
+              loading={enCours === CUMUL}
+              loadingText="Préparation du PDF…"
+              onClick={() => void telechargerCumul()}
+            >
+              Télécharger
+            </Button>
+            {nbRealisees > 0 && choixRadarPossible && (
+              <div
+                className="basis-full"
+                data-testid="option-rapport-evenement-radar"
+              >
+                <Label
+                  variant="choice"
+                  htmlFor="rapport-evenement-avec-radar"
+                  className="flex items-center gap-2"
+                >
+                  <Checkbox
+                    id="rapport-evenement-avec-radar"
+                    checked={avecRadar}
+                    onCheckedChange={(v) => setAvecRadar(v === true)}
+                  />
+                  Inclure le radar de comparaison dans le rapport
+                </Label>
+                <Text className="mt-1">
+                  Le radar du rapport reprend les filtres de comparaison réglés
+                  ci-dessus.
+                </Text>
+              </div>
+            )}
+          </div>
+        )}
         {actives.map((f) => (
           <div
             key={f.id}
@@ -659,15 +675,22 @@ function CarteCollecte({
   urgence,
   onDemanderUrgence,
   onOuvrir,
+  detail,
+  statutAdmin,
 }: {
   f: FicheCollecteClient;
+  /** Staff : statut en vue Admin (granularité complète), sinon vue client. */
+  statutAdmin?: string;
+  /** Contacts, informations supplémentaires et chauffeurs : fiche collecte client seulement. */
+  detail: boolean;
   // Adresse / instructions d'accès différentes d'une collecte à l'autre : la
   // carte porte les siennes, le bloc Lieu renvoie ici.
   avecAdresse: boolean;
   avecAcces: boolean;
   urgence: Urgence | undefined;
   onDemanderUrgence: () => void;
-  onOuvrir: () => void;
+  /** Absent : pas de fiche collecte à ouvrir (client organisateur). */
+  onOuvrir?: () => void;
 }) {
   const secours = Boolean(
     f.contact_secours_nom?.trim() || f.contact_secours_telephone?.trim(),
@@ -685,94 +708,113 @@ function CarteCollecte({
             {titreCollecte(f)}
           </Heading>
         </div>
-        <CollecteStatutBadge statut={f.statut} />
+        {statutAdmin ? (
+          <CollecteStatutBadge statut={statutAdmin} vue="admin" />
+        ) : (
+          <CollecteStatutBadge statut={f.statut} />
+        )}
       </div>
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-        <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
-        <InfoItem label="Type d’événement">
-          {f.type_evenement?.libelle ?? VIDE}
-        </InfoItem>
-        {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
+      {/* Une carte par ligne, pleine largeur (la plupart des événements n'ont
+          qu'une collecte — demande Val 2026-10-29) : informations à gauche,
+          chauffeur à droite sur grand écran, l'un sous l'autre ailleurs. */}
+      <div
+        className={
+          detail ? 'grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8' : undefined
+        }
+      >
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+          <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
+          <InfoItem label="Type d’événement">
+            {f.type_evenement?.libelle ?? VIDE}
+          </InfoItem>
+          {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
             traiteur tiers (§06.05), décidé par le serveur. */}
-        {f.contacts_visibles ? (
-          <>
-            <InfoItem label="Contact principal">
-              {f.contact_principal_nom ?? VIDE}
-              <span className="block font-normal">
-                <TelephoneLien telephone={f.contact_principal_telephone} />
+          {!detail ? null : f.contacts_visibles ? (
+            <>
+              <InfoItem label="Contact principal">
+                {f.contact_principal_nom ?? VIDE}
+                <span className="block font-normal">
+                  <TelephoneLien telephone={f.contact_principal_telephone} />
+                </span>
+              </InfoItem>
+              <InfoItem label="Contact de secours">
+                {secours ? (
+                  <>
+                    {f.contact_secours_nom ?? VIDE}
+                    <span className="block font-normal">
+                      <TelephoneLien telephone={f.contact_secours_telephone} />
+                    </span>
+                  </>
+                ) : (
+                  VIDE
+                )}
+              </InfoItem>
+            </>
+          ) : (
+            <InfoItem label="Contacts sur place" className="sm:col-span-2">
+              <span className="font-normal text-savr-neutral-500">
+                Réservés au traiteur qui a programmé la collecte.
               </span>
             </InfoItem>
-            <InfoItem label="Contact de secours">
-              {secours ? (
-                <>
-                  {f.contact_secours_nom ?? VIDE}
-                  <span className="block font-normal">
-                    <TelephoneLien telephone={f.contact_secours_telephone} />
-                  </span>
-                </>
-              ) : (
-                VIDE
-              )}
+          )}
+          {avecAdresse && (
+            <InfoItem label="Adresse" className="sm:col-span-2">
+              {adresseDe(f) ?? VIDE}
             </InfoItem>
-          </>
-        ) : (
-          <InfoItem label="Contacts sur place" className="sm:col-span-2">
-            <span className="font-normal text-savr-neutral-500">
-              Réservés au traiteur qui a programmé la collecte.
-            </span>
-          </InfoItem>
-        )}
-        {avecAdresse && (
-          <InfoItem label="Adresse" className="sm:col-span-2">
-            {adresseDe(f) ?? VIDE}
-          </InfoItem>
-        )}
-        {avecAcces && (
-          <InfoItem
-            variant="texte"
-            label="Instructions d’accès"
-            className="sm:col-span-2"
-            valueClassName="whitespace-pre-line"
+          )}
+          {avecAcces && (
+            <InfoItem
+              variant="texte"
+              label="Instructions d’accès"
+              className="sm:col-span-2"
+              valueClassName="whitespace-pre-line"
+            >
+              {accesDe(f) ?? VIDE}
+            </InfoItem>
+          )}
+          {detail && (
+            <InfoItem
+              variant="texte"
+              label="Informations supplémentaires"
+              className="sm:col-span-2"
+              valueClassName="whitespace-pre-line"
+            >
+              {f.informations_supplementaires?.trim() || VIDE}
+            </InfoItem>
+          )}
+        </dl>
+        {detail && (
+          <div
+            className="space-y-3 border-t border-dashed border-savr-neutral-200 pt-4 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
+            data-testid="bloc-logistique"
           >
-            {accesDe(f) ?? VIDE}
-          </InfoItem>
+            <Text
+              as="p"
+              tone="ink"
+              className="flex items-center gap-2 font-semibold"
+            >
+              <TruckIcon
+                className="h-4 w-4 text-savr-primary-700"
+                aria-hidden="true"
+              />
+              {f.tournees.length > 1 ? 'Chauffeurs' : 'Chauffeur'}
+            </Text>
+            <Chauffeurs
+              c={f}
+              urgence={urgence?.etat ?? 'idle'}
+              urgenceErreur={urgence?.erreur ?? null}
+              onDemanderUrgence={onDemanderUrgence}
+            />
+          </div>
         )}
-        <InfoItem
-          variant="texte"
-          label="Informations supplémentaires"
-          className="sm:col-span-2"
-          valueClassName="whitespace-pre-line"
-        >
-          {f.informations_supplementaires?.trim() || VIDE}
-        </InfoItem>
-      </dl>
-      <div
-        className="space-y-3 border-t border-dashed border-savr-neutral-200 pt-4"
-        data-testid="bloc-logistique"
-      >
-        <Text
-          as="p"
-          tone="ink"
-          className="flex items-center gap-2 font-semibold"
-        >
-          <TruckIcon
-            className="h-4 w-4 text-savr-primary-700"
-            aria-hidden="true"
-          />
-          {f.tournees.length > 1 ? 'Chauffeurs' : 'Chauffeur'}
-        </Text>
-        <Chauffeurs
-          c={f}
-          urgence={urgence?.etat ?? 'idle'}
-          urgenceErreur={urgence?.erreur ?? null}
-          onDemanderUrgence={onDemanderUrgence}
-        />
       </div>
-      <div className="mt-auto flex justify-end">
-        <Button variant="secondary" onClick={onOuvrir}>
-          Voir la collecte
-        </Button>
-      </div>
+      {onOuvrir && (
+        <div className="mt-auto flex justify-end">
+          <Button variant="secondary" onClick={onOuvrir}>
+            Voir la collecte
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }
@@ -782,15 +824,25 @@ export function FicheEvenementModal({
   collecteInitiale = null,
   onCollecteChange,
   onClose,
+  espace,
 }: {
   // Monté par la liste seulement quand une fiche est ouverte.
   evenementId: string;
+  /**
+   * Espace de l'appelant. Gestionnaire, traiteur, agence : fiche collecte
+   * client par-dessus, par les routes de son espace ; radar au gestionnaire.
+   * Admin : fiche collecte Admin par-dessus ; organisateur : aucune.
+   */
+  espace: EspaceFiche;
   /** Fiche collecte à rouvrir par-dessus (adresse `?collecte=` de la liste). */
   collecteInitiale?: string | null;
   /** Ouverture / fermeture de la fiche collecte, pour l'adresse de la liste. */
   onCollecteChange?: (collecteId: string | null) => void;
   onClose: () => void;
 }) {
+  const espaceClient: EspaceClient | null =
+    espace === 'admin' || espace === 'organisateur' ? null : espace;
+  const ouvrable = espace !== 'organisateur';
   const [evt, setEvt] = useState<EvenementDetail | null>(null);
   const [etat, setEtat] = useState<Etat>('chargement');
   const [tentative, setTentative] = useState(0);
@@ -807,7 +859,11 @@ export function FicheEvenementModal({
   const [fiche, setFiche] = useState<{
     id: string;
     onglet?: OngletFiche;
-  } | null>(collecteInitiale ? { id: collecteInitiale } : null);
+  } | null>(
+    // Organisateur : aucune fiche collecte, une adresse qui en nomme une
+    // n'ouvre rien (sinon la fiche événement ne se fermerait plus).
+    collecteInitiale && ouvrable ? { id: collecteInitiale } : null,
+  );
 
   useEffect(() => {
     let annule = false;
@@ -821,7 +877,7 @@ export function FicheEvenementModal({
     // de retour au squelette, la fiche ne clignote pas. Après une erreur,
     // « Réessayer » repasse par le squelette.
     setEtat((e) => (e === 'pret' ? e : 'chargement'));
-    fetch(`/api/v1/gestionnaire/evenements/${encodeURIComponent(evenementId)}`)
+    fetch(`/api/v1/evenements/${encodeURIComponent(evenementId)}`)
       .then((r) => {
         if (r.status === 404) return null;
         // Une panne ne se lit jamais comme un événement vide (§10 §7).
@@ -885,7 +941,7 @@ export function FicheEvenementModal({
     let erreur = 'La demande n’a pas pu être envoyée.';
     try {
       const res = await fetch(
-        `/api/v1/gestionnaire/collectes/${encodeURIComponent(collecteId)}/coordonnees-urgence`,
+        `/api/v1/${encodeURIComponent(espace)}/collectes/${encodeURIComponent(collecteId)}/coordonnees-urgence`,
         { method: 'POST' },
       );
       if (res.ok) {
@@ -919,8 +975,9 @@ export function FicheEvenementModal({
   // Radar du bilan consolidé ZD : repère parc relu à chaque changement de
   // filtre ; ses filtres servent aussi le rapport cumulé avec radar.
   const radar = useRadarFiche(
-    `/api/v1/gestionnaire/evenements/${encodeURIComponent(evenementId)}/benchmark`,
-    b && b.nb_realisees_zd > 0
+    `/api/v1/evenements/${encodeURIComponent(evenementId)}/benchmark`,
+    // Benchmark comparatif : gestionnaire seul (décision Val 2026-10-29).
+    espace === 'gestionnaire' && b && b.nb_realisees_zd > 0
       ? { type: 'zero_dechet', statut: STATUT_BILAN }
       : null,
   );
@@ -1086,26 +1143,29 @@ export function FicheEvenementModal({
                       )}
                       {evt.traiteur?.nom ?? VIDE}
                     </InfoItem>
-                    {/* Estimation amont (§05 R_dechets_labo_estimes),
-                          toujours affichée (§06.05 §2) : « — » sans collecte
-                          ZD ou sans coefficient communiqué. */}
-                    <InfoItem
-                      label="Déchets labo estimés"
-                      valueClassName="flex items-center gap-1.5"
-                    >
-                      {evt.dechets_labo_kg != null
-                        ? fmtKg(evt.dechets_labo_kg)
-                        : VIDE}
-                      <Tooltip content={AIDE_LABO}>
-                        <span
-                          tabIndex={0}
-                          aria-label={AIDE_LABO}
-                          className="inline-flex cursor-help text-savr-neutral-400"
-                        >
-                          <InfoIcon className="h-3.5 w-3.5" />
-                        </span>
-                      </Tooltip>
-                    </InfoItem>
+                    {/* Gestionnaire seul (§05 R_dechets_labo_estimes :
+                          coefficient du traiteur confidentiel). Estimation
+                          amont, toujours affichée au gestionnaire (§06.05 §2) :
+                          « — » sans collecte ZD ou sans coefficient. */}
+                    {espace === 'gestionnaire' && (
+                      <InfoItem
+                        label="Déchets labo estimés"
+                        valueClassName="flex items-center gap-1.5"
+                      >
+                        {evt.dechets_labo_kg != null
+                          ? fmtKg(evt.dechets_labo_kg)
+                          : VIDE}
+                        <Tooltip content={AIDE_LABO}>
+                          <span
+                            tabIndex={0}
+                            aria-label={AIDE_LABO}
+                            className="inline-flex cursor-help text-savr-neutral-400"
+                          >
+                            <InfoIcon className="h-3.5 w-3.5" />
+                          </span>
+                        </Tooltip>
+                      </InfoItem>
+                    )}
                     <InfoItem label="Période de collecte">
                       {periodeCollecte ?? VIDE}
                     </InfoItem>
@@ -1145,7 +1205,7 @@ export function FicheEvenementModal({
                 </FicheSection>
               </TabsContent>
 
-              {/* Une carte par collecte, deux par ligne sur grand écran. */}
+              {/* Une carte par collecte, l'une sous l'autre, pleine largeur. */}
               <TabsContent value="collectes" className="mt-0">
                 {evt.fiches.length === 0 ? (
                   <EmptyState
@@ -1153,7 +1213,7 @@ export function FicheEvenementModal({
                     title="Aucune collecte rattachée à cet événement."
                   />
                 ) : (
-                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="space-y-3">
                     {evt.fiches.map((f) => (
                       <CarteCollecte
                         key={f.id}
@@ -1161,8 +1221,12 @@ export function FicheEvenementModal({
                         avecAdresse={adresseLieu === undefined}
                         avecAcces={accesLieu === undefined}
                         urgence={urgences[f.id]}
+                        detail={!!espaceClient}
+                        statutAdmin={evt.statuts_admin?.[f.id]}
                         onDemanderUrgence={() => void demanderUrgence(f.id)}
-                        onOuvrir={() => ouvrirCollecte(f.id)}
+                        onOuvrir={
+                          ouvrable ? () => ouvrirCollecte(f.id) : undefined
+                        }
                       />
                     ))}
                   </div>
@@ -1186,7 +1250,9 @@ export function FicheEvenementModal({
                   deuxTypes={deuxTypes}
                   dateEvenement={evt.date_evenement}
                   actives={activesDuType}
-                  onOuvrirBilan={(id) => ouvrirCollecte(id, 'bilan')}
+                  onOuvrirBilan={
+                    ouvrable ? (id) => ouvrirCollecte(id, 'bilan') : undefined
+                  }
                   radar={radar}
                   filtresInitiaux={{
                     // Types d'événement de ses collectes ZD, taille de
@@ -1204,6 +1270,7 @@ export function FicheEvenementModal({
                   }}
                 />
                 <DocumentsEvenement
+                  espace={espace}
                   evenementId={evt.id}
                   type={typeAffiche}
                   nbRealisees={
@@ -1212,7 +1279,10 @@ export function FicheEvenementModal({
                       : b.nb_realisees_ag
                   }
                   radar={radar}
-                  actives={activesDuType}
+                  // Documents par collecte : fiche collecte client seulement
+                  // (l'Admin les a dans sa fiche, l'organisateur sur sa page
+                  // Documents).
+                  actives={espaceClient ? activesDuType : []}
                 />
               </TabsContent>
             </FicheCorps>
@@ -1220,12 +1290,19 @@ export function FicheEvenementModal({
         )}
       </FicheModal>
 
-      <FicheCollecteClientModal
-        espace="gestionnaire"
-        collecteId={fiche?.id ?? null}
-        initialOnglet={fiche?.onglet}
-        onClose={fermerCollecte}
-      />
+      {espaceClient ? (
+        <FicheCollecteClientModal
+          espace={espaceClient}
+          collecteId={fiche?.id ?? null}
+          initialOnglet={fiche?.onglet}
+          onClose={fermerCollecte}
+        />
+      ) : espace === 'admin' ? (
+        <CollecteDetailModal
+          collecteId={fiche?.id ?? null}
+          onClose={fermerCollecte}
+        />
+      ) : null}
     </EntreeGraphiques>
   );
 }

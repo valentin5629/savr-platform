@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { envoyerConfirmationAnnulation } from '@/lib/notifications/annulation-client.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import {
-  notifierAdminAnnulation,
-  notifierTraiteurOperationnel,
-} from '@/lib/notifications/traiteur-operationnel.js';
+import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import {
   erreurInterne,
@@ -476,9 +473,8 @@ async function patchHandler(
   // Annulation en 2 temps : la bascule finale annulation_demandee → annulee est
   // validée par l'Admin via ce PATCH générique (statut forcé). À ce moment — comme
   // sur l'annulation directe (routes traiteur/agence) — on notifie le programmeur
-  // (tpl 5 annulation_collecte), l'Admin (tpl 22 admin_collecte_annulee) et, si le
-  // donneur d'ordre est un tiers non-shadow, le traiteur opérationnel (tpl 21
-  // collecte_modifiee_tiers, branche annulation ; garde dans le helper).
+  // (tpl 5 annulation_collecte) et l'Admin (tpl 22 admin_collecte_annulee). Le
+  // programmateur ne reçoit pas en plus le tpl 21 (Val 2026-10-29).
   // Best-effort, APRÈS les requêtes propres de la route (le mock à file d'ordre des
   // tests consommerait sinon les réponses destinées à ces requêtes).
   const statutAvant = (before as { statut?: string }).statut;
@@ -562,15 +558,6 @@ async function patchHandler(
           acteurRole,
           statutAvant,
           annulationDemandeeAt,
-        }),
-        // tpl 21 (collecte_modifiee_tiers, annulation) → traiteur opérationnel si le
-        // donneur d'ordre est un tiers non-shadow. acteurOrgId = organisation de
-        // l'événement (donneur d'ordre) : identique à ce que les routes directes
-        // traiteur/agence passent (auth.ctx.organisationId == org de l'événement).
-        notifierTraiteurOperationnel(supabase, {
-          collecteId: id,
-          acteurOrgId: evt?.organisation_id,
-          changement: { kind: 'annulation', acteurUserId },
         }),
       ]);
     })().catch(() => undefined);

@@ -372,7 +372,6 @@ export async function notifierEquipeModificationCollecte(
     await notifierProgrammateurTiers(admin, {
       collecteId: collecte.id,
       acteurUserId: demande.acteurUserId ?? null,
-      kind: 'modification',
       listeModifications: liste,
     });
   } catch (err) {

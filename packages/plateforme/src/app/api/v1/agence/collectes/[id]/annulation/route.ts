@@ -11,10 +11,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import {
-  notifierAdminAnnulation,
-  notifierTraiteurOperationnel,
-} from '@/lib/notifications/traiteur-operationnel.js';
+import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationnel.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
@@ -117,8 +114,8 @@ export async function POST(
     });
 
     // BL-P2-22 (tpl 22) : alerte Admin « collecte annulée », en parallèle du
-    // template 5. (tpl 21) : info au traiteur opérationnel — l'agence est un tiers
-    // dès que le traiteur op est une org distincte non-shadow (garde dans le helper).
+    // template 5. Le programmateur ne reçoit que la confirmation (tpl 5), jamais
+    // aussi « Collecte annulée » par un tiers (tpl 21) : Val 2026-10-29.
     void notifierAdminAnnulation(admin, {
       collecteId: id,
       organisationNom: orgNom ?? '',
@@ -128,11 +125,6 @@ export async function POST(
       motif,
       acteurUserId: auth.ctx.userId,
       acteurRole: auth.ctx.role,
-    }).catch(() => undefined);
-    void notifierTraiteurOperationnel(admin, {
-      collecteId: id,
-      acteurOrgId: auth.ctx.organisationId,
-      changement: { kind: 'annulation', acteurUserId: auth.ctx.userId },
     }).catch(() => undefined);
 
     return NextResponse.json({ data: { statut: 'annulee' } });

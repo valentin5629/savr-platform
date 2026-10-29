@@ -38,6 +38,8 @@ interface Fixture {
   flux?: Array<Record<string, unknown>>;
 }
 
+let filtresIn: Array<[string, string, unknown]> = [];
+
 function makeSupabase(fx: Fixture) {
   function builder(table: string) {
     let select = '';
@@ -51,7 +53,10 @@ function makeSupabase(fx: Fixture) {
         if (col === 'id') id = v;
         return b;
       },
-      in: () => b,
+      in: (col: string, v: unknown) => {
+        filtresIn.push([table, col, v]);
+        return b;
+      },
       maybeSingle: () => {
         if (table === 'collectes')
           return Promise.resolve({ data: fx.collecte });
@@ -121,6 +126,7 @@ const BASE: Fixture = {
 let emails: CapturedEmail[] = [];
 beforeEach(() => {
   emails = [];
+  filtresIn = [];
   setEmailCaptureSink((e) => emails.push(e));
 });
 afterEach(() => setEmailCaptureSink(null));
@@ -184,6 +190,8 @@ describe('M0.7/bl-p2-22-emission-programmation — template 20', () => {
     expect(emails).toHaveLength(1);
     expect(emails[0]!.slug).toBe('collecte_programmee_tiers');
     expect(emails[0]!.to).toBe('manager@traiteur.fr');
+    // La base ne rend que les managers : les commerciaux ne sont pas demandés.
+    expect(filtresIn).toContainEqual(['users', 'role', ['traiteur_manager']]);
     const v = emails[0]!.variables;
     expect(v['organisation_programmatrice']).toBe('Agence Caromy');
     expect(v['programmeur_nom']).toBe('Zoé Durand');
@@ -288,7 +296,6 @@ describe('M0.7/bl-p2-22-emission-modification — template 21', () => {
     await notifierProgrammateurTiers(makeSupabase(TIERS), {
       collecteId: 'col-1',
       acteurUserId: 'u-collegue',
-      kind: 'modification',
       listeModifications: LISTE,
     });
     expect(emails).toHaveLength(1);
@@ -311,7 +318,6 @@ describe('M0.7/bl-p2-22-emission-modification — template 21', () => {
     await notifierProgrammateurTiers(makeSupabase(TIERS), {
       collecteId: 'col-1',
       acteurUserId: 'u-prog',
-      kind: 'modification',
       listeModifications: LISTE,
     });
     expect(emails).toHaveLength(0);
@@ -333,36 +339,28 @@ describe('M0.7/bl-p2-22-emission-modification — template 21', () => {
       {
         collecteId: 'col-1',
         acteurUserId: 'u-collegue',
-        kind: 'modification',
         listeModifications: LISTE,
       },
     );
     expect(emails).toHaveLength(0);
   });
 
-  it('annulation par le traiteur → le programmateur de l’agence est prévenu', async () => {
-    await notifierTraiteurOperationnel(makeSupabase(TIERS), {
+  it('modification par l’équipe Savr : auteur « l’équipe Savr »', async () => {
+    await notifierProgrammateurTiers(makeSupabase(TIERS), {
       collecteId: 'col-1',
-      acteurOrgId: 'org-traiteur',
-      changement: { kind: 'annulation', acteurUserId: 'u-traiteur' },
-    });
-    expect(emails).toHaveLength(1);
-    const v = emails[0]!.variables;
-    expect(emails[0]!.to).toBe('zoe@agence.fr');
-    expect(v['type_changement_libelle']).toBe('annulée');
-    expect(v['est_annulation']).toBe('true');
-    expect(v['est_modification']).toBe('');
-    expect(v['liste_modifications']).toBe('');
-    expect(v['auteur_nom']).toBe('Marie Leroy');
-  });
-
-  it('annulation par l’équipe Savr : auteur « l’équipe Savr »', async () => {
-    await notifierTraiteurOperationnel(makeSupabase(TIERS), {
-      collecteId: 'col-1',
-      acteurOrgId: 'org-agence',
-      changement: { kind: 'annulation', acteurUserId: 'u-admin' },
+      acteurUserId: 'u-admin',
+      listeModifications: LISTE,
     });
     expect(emails[0]!.variables['auteur_nom']).toBe("l'équipe Savr");
+  });
+
+  it('liste vide (rien de visible n’a changé) → aucun envoi', async () => {
+    await notifierProgrammateurTiers(makeSupabase(TIERS), {
+      collecteId: 'col-1',
+      acteurUserId: 'u-collegue',
+      listeModifications: '',
+    });
+    expect(emails).toHaveLength(0);
   });
 });
 

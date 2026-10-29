@@ -16,8 +16,9 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 // gestionnaire de lieux programme une collecte, les managers du traiteur
 // opérationnel en sont informés (sauf fiche shadow).
 // Template 21 (collecte_modifiee_tiers) : quand une collecte programmée par une
-// agence ou un gestionnaire de lieux est modifiée ou annulée par quelqu'un
-// d'autre, son programmateur en est informé (revue des emails, Val 2026-10-28).
+// agence ou un gestionnaire de lieux est modifiée par quelqu'un d'autre, son
+// programmateur en est informé (revue des emails, Val 2026-10-28). Une
+// annulation ne lui envoie que la confirmation (tpl 5) : Val 2026-10-29.
 //
 // ⚠ Résolution/envoi via le client ADMIN (service_role) : le destinataire
 // appartient à une AUTRE organisation que l'acteur → la RLS de l'acteur ne peut
@@ -74,9 +75,10 @@ export function estTiersNonShadow(params: {
   return traiteurOpOrgId !== acteurOrgId && !traiteurOpEstShadow;
 }
 
-export type ChangementTiers =
-  | { kind: 'programmation'; programmeurUserId?: string | null }
-  | { kind: 'annulation'; acteurUserId?: string | null };
+export type ChangementTiers = {
+  kind: 'programmation';
+  programmeurUserId?: string | null;
+};
 
 interface ContexteCollecte {
   collecteId: string;
@@ -213,10 +215,9 @@ function nomAuteur(compte: Compte | null): string {
 }
 
 /**
- * Notifie le traiteur opérationnel qu'un tiers a programmé une collecte le
- * concernant (template 20), ou le programmateur tiers qu'une collecte a été
- * annulée (template 21). No-op si la garde échoue, si le contexte est
- * irrésoluble ou sans destinataire. Best-effort.
+ * Notifie les managers du traiteur opérationnel qu'un tiers a programmé une
+ * collecte le concernant (template 20). No-op si la garde échoue, si le
+ * contexte est irrésoluble ou sans destinataire. Best-effort.
  */
 export async function notifierTraiteurOperationnel(
   supabase: AdminSupabase,
@@ -226,15 +227,6 @@ export async function notifierTraiteurOperationnel(
     changement: ChangementTiers;
   },
 ): Promise<void> {
-  if (params.changement.kind === 'annulation') {
-    await notifierProgrammateurTiers(supabase, {
-      collecteId: params.collecteId,
-      acteurUserId: params.changement.acteurUserId ?? null,
-      kind: 'annulation',
-    });
-    return;
-  }
-
   const ctx = await resoudreContexte(supabase, params.collecteId);
   if (!ctx) return;
   if (
@@ -285,10 +277,12 @@ export async function notifierTraiteurOperationnel(
 }
 
 /**
- * Template 21 (« Collecte modifiée / annulée ») : prévient le programmateur de
- * la collecte — créateur de l'événement — quand il est d'une agence ou d'un
- * gestionnaire de lieux et que le changement vient de quelqu'un d'autre
- * (revue des emails, Val 2026-10-28). Plus personne côté traiteur.
+ * Template 21 (« Collecte modifiée ») : prévient le programmateur de la
+ * collecte — créateur de l'événement — quand il est d'une agence ou d'un
+ * gestionnaire de lieux et que la modification vient de quelqu'un d'autre
+ * (revue des emails, Val 2026-10-28). Plus personne côté traiteur. La branche
+ * « annulée » du gabarit n'est plus envoyée : une annulation ne vaut au
+ * programmateur que la confirmation (tpl 5, Val 2026-10-29).
  * `listeModifications` : liste HTML déjà échappée (« avant / maintenant »).
  */
 export async function notifierProgrammateurTiers(
@@ -296,8 +290,7 @@ export async function notifierProgrammateurTiers(
   params: {
     collecteId: string;
     acteurUserId: string | null;
-    kind: 'modification' | 'annulation';
-    listeModifications?: string;
+    listeModifications: string;
   },
 ): Promise<void> {
   const ctx = await resoudreContexte(supabase, params.collecteId);
@@ -317,9 +310,8 @@ export async function notifierProgrammateurTiers(
     return;
   const espace = ESPACE_PAR_ROLE[programmeur.role as Role];
   if (!espace) return;
-  if (params.kind === 'modification' && !params.listeModifications) return;
+  if (!params.listeModifications) return;
 
-  const estAnnulation = params.kind === 'annulation';
   const auteur = await lireCompte(supabase, params.acteurUserId);
   const traiteurNom = await nomOrganisation(supabase, ctx.traiteurOpOrgId);
 
@@ -328,12 +320,10 @@ export async function notifierProgrammateurTiers(
     programmeur.email,
     {
       prenom: escapeHtml((programmeur.prenom ?? '').trim()),
-      type_changement_libelle: estAnnulation ? 'annulée' : 'modifiée',
-      est_modification: estAnnulation ? '' : 'true',
-      est_annulation: estAnnulation ? 'true' : '',
-      liste_modifications: estAnnulation
-        ? ''
-        : (params.listeModifications ?? ''),
+      type_changement_libelle: 'modifiée',
+      est_modification: 'true',
+      est_annulation: '',
+      liste_modifications: params.listeModifications,
       nom_evenement: escapeHtml(ctx.nomEvenement.trim() || 'Votre événement'),
       traiteur_nom: escapeHtml(traiteurNom),
       auteur_nom: escapeHtml(nomAuteur(auteur)),

@@ -34,15 +34,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
   const demandeur = await lireCompte(admin, auth.ctx.userId);
-  // Crédits restants du pack actif (au plus un par organisation).
-  const { data: pack } = await admin
+  // Crédits restants du pack le plus récent (actif ou épuisé : une demande de
+  // renouvellement suit souvent un pack épuisé).
+  const { data: packs } = await admin
     .from('packs_antgaspi')
     .select('credits_restants')
     .eq('organisation_id', auth.ctx.organisationId)
-    .eq('statut', 'actif')
-    .maybeSingle();
-  const creditsRestants = (pack as { credits_restants?: number | null } | null)
-    ?.credits_restants;
+    .order('created_at', { ascending: false });
+  const creditsRestants = (
+    (packs ?? []) as Array<{ credits_restants?: number | null }>
+  )[0]?.credits_restants;
 
   // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
   await sendEmail('admin_demande_renouvellement_pack', 'contact@gosavr.io', {
@@ -51,8 +52,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     demandeur_email: escapeHtml(demandeur?.email ?? ''),
     pack_souhaite: escapeHtml(body.pack_souhaite ?? ''),
     message: escapeHtml(body.message ?? ''),
+    // « 0 » se lirait comme vide dans le bloc conditionnel du gabarit.
     credits_restants:
-      typeof creditsRestants === 'number' ? String(creditsRestants) : '',
+      typeof creditsRestants === 'number'
+        ? creditsRestants > 0
+          ? String(creditsRestants)
+          : 'aucun'
+        : '',
     lien_fiche_org: urlApplication(
       req,
       ROUTES.admin.organisation(auth.ctx.organisationId),

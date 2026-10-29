@@ -13,7 +13,8 @@
  */
 import type { ReactElement } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { DataGrid } from '@/components/ui/data-grid';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 
 import {
@@ -302,5 +303,83 @@ describe('collectes-table / colonne Pax — M1.2/pax_par_collecte', () => {
     (r.evenements as unknown as { pax: number }).pax = 1200;
     const { container } = render(<>{cell({ row: { original: r } })}</>);
     expect(container.textContent).toBe('650');
+  });
+});
+
+// Revue écran 2026-10-29 (décision Val) : chevron en fin de ligne, après le
+// menu « ⋯ » inchangé ; « Client organisateur » vide quand il n'est pas
+// renseigné (même règle que la liste traiteur).
+describe('collectes-table / chevron et client vide (revue écran 2026-10-29)', () => {
+  function monte(r: CollecteRow, onRowClick: () => void = () => {}) {
+    render(
+      <DataGrid
+        columns={colonnesCollectesAdmin({ onOpen: () => {} })}
+        data={[r]}
+        getRowId={(x) => x.id}
+        onRowClick={onRowClick}
+      />,
+    );
+    return within(screen.getByRole('table'));
+  }
+  function celluleClient(table: ReturnType<typeof within>): string | null {
+    const i = table
+      .getAllByRole('columnheader')
+      .findIndex((h: HTMLElement) => h.textContent === 'Client organisateur');
+    return table.getAllByRole('cell')[i]?.textContent ?? null;
+  }
+
+  it('M0.6/liste_admin_chevron_apres_menu — chevron dans la colonne Actions, après « ⋯ »', () => {
+    const table = monte(row());
+    const menu = table.getByRole('button', { name: /Actions sur la collecte/ });
+    const chevron = within(menu.closest('td')!).getByTestId('chevron-ligne');
+    expect(
+      menu.compareDocumentPosition(chevron) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('M0.6/liste_admin_chevron_ouvre_la_fiche — un clic sur le chevron ouvre la fiche, un clic sur « ⋯ » non', () => {
+    const ouvrir = vi.fn();
+    const table = monte(row(), ouvrir);
+    fireEvent.click(
+      table.getByRole('button', { name: /Actions sur la collecte/ }),
+    );
+    expect(ouvrir).not.toHaveBeenCalled();
+    fireEvent.click(table.getByTestId('chevron-ligne'));
+    expect(ouvrir).toHaveBeenCalledOnce();
+  });
+
+  it('M0.6/liste_admin_client_vide — client non renseigné : cellule vide, plus de « — »', () => {
+    expect(celluleClient(monte(row()))).toBe('');
+  });
+
+  it('M0.6/liste_admin_client_renseigne — client renseigné : affiché', () => {
+    const r = row();
+    expect(
+      celluleClient(
+        monte({
+          ...r,
+          evenements: {
+            ...r.evenements,
+            nom_client_organisateur: 'Maison Lenôtre',
+          },
+        }),
+      ),
+    ).toBe('Maison Lenôtre');
+  });
+
+  it('M0.6/liste_admin_client_priorite_raison_sociale — organisation cliente liée avant le nom saisi', () => {
+    const r = row();
+    expect(
+      celluleClient(
+        monte({
+          ...r,
+          evenements: {
+            ...r.evenements,
+            client_organisateur: { raison_sociale: 'Mairie de Paris' },
+            nom_client_organisateur: 'Maison Lenôtre',
+          },
+        }),
+      ),
+    ).toBe('Mairie de Paris');
   });
 });

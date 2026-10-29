@@ -352,6 +352,13 @@ describe('M3.1 / Data Table liste traiteur', () => {
     expect(onOpen).toHaveBeenCalledOnce();
   });
 
+  it('M3.1/ligne_chevron_ouvre_la_fiche — un clic sur le chevron de la cellule d’actions ouvre la fiche', () => {
+    const onOpen = vi.fn();
+    monte(base(), true, { onOpen });
+    fireEvent.click(table.getByTestId('chevron-ligne'));
+    expect(onOpen).toHaveBeenCalledOnce();
+  });
+
   it('M3.1/ligne_activable_au_clavier — Entrée sur la ligne ouvre la fiche', () => {
     const onOpen = vi.fn();
     monte(base(), true, { onOpen });

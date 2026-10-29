@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { formatDateHeure, heureOuMinuit } from '@/lib/format-date-collecte';
 import { CelluleVide } from '@/components/ui/data-grid';
+import { ChevronLigne } from '@/components/collecte/repere-jour';
 import { Text } from '@/components/ui/text';
 import { fmtEuro, fmtKgAuto, fmtPct } from '@/lib/format';
 import { IconButton } from '@/components/ui/icon-button';
@@ -383,9 +384,12 @@ export function colonnesCollectesAdmin({
       id: 'client',
       header: 'Client organisateur',
       meta: { hideOnMobile: true },
+      // Non renseigné : cellule laissée vide (revue écran 2026-10-29, comme la
+      // liste traiteur).
       cell: ({ row: { original: r } }) =>
-        r.evenements.client_organisateur?.raison_sociale ??
-        r.evenements.nom_client_organisateur ?? <CelluleVide />,
+        (r.evenements.client_organisateur?.raison_sociale ??
+          r.evenements.nom_client_organisateur?.trim()) ||
+        null,
     },
     {
       id: 'transporteur',
@@ -442,10 +446,14 @@ export function colonnesCollectesAdmin({
         label: 'Actions',
         interactive: true,
         stickyRight: true,
-        className: 'w-12 text-right',
+        className: 'w-[1%] whitespace-nowrap text-right',
       },
       cell: ({ row: { original: r } }) => (
-        <ActionsCollecte row={r} onOpen={onOpen} />
+        <div className="flex items-center justify-end gap-1">
+          <ActionsCollecte row={r} onOpen={onOpen} />
+          {/* Chevron : la ligne ouvre la fiche (revue écran 2026-10-29). */}
+          <ChevronLigne />
+        </div>
       ),
     },
   ];

@@ -197,9 +197,15 @@ function DataGrid<T>({
       onRowClick(row);
     };
 
+  // Une cellule `interactive` garde ses clics pour ses contrôles, sauf sur
+  // un élément marqué `data-ouvre-ligne` (chevron de fin de ligne) : son clic
+  // remonte à la ligne et ouvre la fiche.
   const stopIfInteractive =
     (interactive: boolean | undefined) => (e: React.SyntheticEvent) => {
-      if (interactive) e.stopPropagation();
+      if (!interactive) return;
+      const cible = e.target as Element | null;
+      if (cible?.closest?.('[data-ouvre-ligne]')) return;
+      e.stopPropagation();
     };
 
   // Colonnes proposées dans le menu : celles qui ont un titre visible. Une

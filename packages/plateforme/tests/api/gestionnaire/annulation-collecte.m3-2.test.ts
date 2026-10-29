@@ -184,7 +184,6 @@ describe('M3.2 / annulation par le gestionnaire de lieux', () => {
           lieu_nom: 'Salle Wagram',
           nom_evenement: '',
           motif: 'x',
-          info_facturation: '',
         },
       );
       expect(admin.__calls.eq).toContainEqual(['id', 'u-prog']);

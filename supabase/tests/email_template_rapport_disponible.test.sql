@@ -43,7 +43,7 @@ SELECT ok(
 );
 
 SELECT ok(
-  (SELECT corps_html LIKE '%Téléchargez le rapport en PDF depuis la fiche de la collecte%'
+  (SELECT corps_html LIKE '%Avant de télécharger le rapport en PDF%'
       AND corps_html LIKE '%comparaison avec les autres événements Savr%'
       AND corps_html LIKE '%{{#if prenom}}%'
    FROM plateforme.email_templates WHERE code = 'rapport_disponible'),

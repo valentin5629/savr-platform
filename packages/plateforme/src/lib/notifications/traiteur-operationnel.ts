@@ -383,17 +383,6 @@ export function instantReferenceAnnulation(
   return nowMs;
 }
 
-/** Phrase de facturation d'une annulation tardive (moins de 4 h), vide sinon. */
-export function infoFacturationAnnulation(
-  type: string | null | undefined,
-  tardive: boolean,
-): string {
-  if (!tardive) return '';
-  return type === 'anti_gaspi' || type === 'ag'
-    ? 'Un crédit de votre pack Anti-Gaspi a été décompté, conformément aux CGV.'
-    : "L'annulation intervenant à moins de 4 heures du créneau, la collecte reste facturée, conformément aux CGV.";
-}
-
 /**
  * Alerte Admin « collecte annulée » (template 22), en parallèle du template 5
  * client. Best-effort. Organisation, lieu et événement sont relus ici quand
@@ -432,7 +421,7 @@ export async function notifierAdminAnnulation(
   const { data: col } = await supabase
     .from('collectes')
     .select(
-      'type, evenement:evenements!inner(nom_evenement, organisation:organisations!organisation_id(nom), lieu:lieux!lieu_id(nom))',
+      'type, pax, evenement:evenements!inner(nom_evenement, organisation:organisations!organisation_id(nom), lieu:lieux!lieu_id(nom))',
     )
     .eq('id', params.collecteId)
     .maybeSingle();
@@ -465,6 +454,7 @@ export async function notifierAdminAnnulation(
       heure_collecte: heureCourte(params.heureCollecte),
       lieu_nom: escapeHtml(lieuNom),
       nom_evenement: escapeHtml((evt?.nom_evenement ?? '').trim()),
+      nombre_pax: nombrePax((col as { pax?: number | null } | null)?.pax),
       user_nom: escapeHtml(userNom),
       user_role: libelleRole(params.acteurRole),
       delai_avant_creneau: tardive
@@ -477,6 +467,11 @@ export async function notifierAdminAnnulation(
     },
     { entityType: 'collecte', entityId: params.collecteId },
   );
+}
+
+/** Pax de la collecte, '' si inconnu (0) : la mention est alors omise. */
+function nombrePax(pax: number | null | undefined): string {
+  return typeof pax === 'number' && pax > 0 ? String(pax) : '';
 }
 
 interface EvenementAnnulation {

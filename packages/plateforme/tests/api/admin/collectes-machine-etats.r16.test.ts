@@ -264,7 +264,7 @@ describe('M1.4 / machine à états / flux incident (RM-09)', () => {
       'prog@savr-test.local',
       expect.objectContaining({
         prenom: 'Prog',
-        info_facturation: 'Cet incident ne vous sera pas facturé.',
+        motif: expect.stringContaining('ne vous sera pas facturé'),
       }),
     );
   });

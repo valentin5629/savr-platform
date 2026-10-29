@@ -27,20 +27,21 @@ SELECT ok(
 
 SELECT is(
   (SELECT variables FROM plateforme.email_templates WHERE code = 'collecte_programmee'),
-  ARRAY['nom_evenement','prenom','lieu_nom','nombre_collectes','liste_collectes','lien_evenement','tarif_ligne','collecte_sous_24h','lien_collectes']::text[],
-  'collecte_programmee : variables citées (revue des emails 20261029150000) ; seules celles hors des blocs {{#if}} sont exigées à l’envoi'
+  ARRAY['nom_evenement','prenom','lieu_nom','nombre_collectes','liste_collectes','lien_evenement','lien_collectes']::text[],
+  'collecte_programmee : variables citées (retouches 20261029200000) ; seules celles hors des blocs {{#if}} sont exigées à l’envoi'
 );
 
 SELECT ok(
   (SELECT corps_html LIKE '%{{nom_evenement}}%'
       AND corps_html LIKE '%Nous réaliserons {{nombre_collectes}} :%'
       AND corps_html LIKE '%{{liste_collectes}}%'
-      AND corps_html LIKE '%{{#if tarif_ligne}}<p>{{tarif_ligne}}</p>{{/if}}%'
-      AND corps_html LIKE '%{{#if collecte_sous_24h}}%07 61 91 29 97%'
+      -- Tarif et alerte « moins de 24 h » retirés par Val le 2026-10-29.
+      AND corps_html NOT LIKE '%tarif_ligne%'
+      AND corps_html NOT LIKE '%07 61 91 29 97%'
       AND corps_html LIKE '%{{#if lien_collectes}}%'
       AND corps_html LIKE '%L''équipe Savr%'
    FROM plateforme.email_templates WHERE code = 'collecte_programmee'),
-  'collecte_programmee : une ligne par collecte (événement, liste, tarif, lien facultatif, signature)'
+  'collecte_programmee : une ligne par collecte (événement, liste, lien facultatif, signature), ni tarif ni alerte 24 h'
 );
 
 SELECT * FROM finish();

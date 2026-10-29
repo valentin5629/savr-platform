@@ -18,7 +18,6 @@ import {
   notifierTraiteurOperationnel,
   notifierProgrammateurTiers,
   notifierAdminAnnulation,
-  infoFacturationAnnulation,
   adresseLieu,
 } from './traiteur-operationnel.js';
 import { instantParis } from '@savr/shared/src/temps/index.js';
@@ -90,6 +89,7 @@ const BASE: Fixture = {
     date_collecte: '2026-07-20',
     heure_collecte: '18:00:00',
     type: 'zero_dechet',
+    pax: 300,
     evenement_id: 'evt-1',
   },
   evenement: {
@@ -364,7 +364,7 @@ describe('M0.7/bl-p2-22-emission-modification — template 21', () => {
   });
 });
 
-describe('adresseLieu / infoFacturationAnnulation (pures)', () => {
+describe('adresseLieu (pure)', () => {
   it('adresse, code postal et ville', () => {
     expect(
       adresseLieu({
@@ -374,15 +374,6 @@ describe('adresseLieu / infoFacturationAnnulation (pures)', () => {
       }),
     ).toBe('1 rue X, 75001 Paris');
     expect(adresseLieu({ adresse_acces: null, ville: 'Lyon' })).toBe('Lyon');
-  });
-  it('phrase de facturation seulement si l’annulation est tardive', () => {
-    expect(infoFacturationAnnulation('anti_gaspi', false)).toBe('');
-    expect(infoFacturationAnnulation('anti_gaspi', true)).toContain(
-      'pack Anti-Gaspi a été décompté',
-    );
-    expect(infoFacturationAnnulation('zero_dechet', true)).toContain(
-      'la collecte reste facturée',
-    );
   });
 });
 
@@ -407,6 +398,8 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
     expect(v['delai_avant_creneau']).toBe('moins de 4 h');
     expect(v['organisation_nom']).toBe('Traiteur Réel');
     expect(v['lien_backoffice']).toContain('/admin/collectes/col-1');
+    // Nombre de pax de la collecte (Val 2026-10-29).
+    expect(v['nombre_pax']).toBe('300');
   });
 
   it('annulation à 8h du créneau : annulation_tardive false, délai « 4h ou plus »', async () => {

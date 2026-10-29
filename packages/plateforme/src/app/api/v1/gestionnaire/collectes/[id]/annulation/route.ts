@@ -47,7 +47,7 @@ export async function POST(
   const { data: c } = await rls
     .from('collectes')
     .select(
-      `id, type, statut, statut_tms, date_collecte, heure_collecte,
+      `id, type, pax, statut, statut_tms, date_collecte, heure_collecte,
        evenement:evenements!inner(created_by, organisation_id, nom_evenement,
          organisation:organisations!organisation_id(nom), lieu:lieux!lieu_id(nom))`,
     )
@@ -112,7 +112,6 @@ export async function POST(
       heureCollecte: c.heure_collecte,
       lieuNom,
       nomEvenement: evt.nom_evenement,
-      typeCollecte: c.type,
       motif,
     });
 
@@ -161,6 +160,7 @@ export async function POST(
       heure_collecte: heureCourte(c.heure_collecte),
       lieu_nom: escapeHtml(lieuNom),
       nom_evenement: escapeHtml((evt.nom_evenement ?? '').trim()),
+      nombre_pax: typeof c.pax === 'number' && c.pax > 0 ? String(c.pax) : '',
       motif: escapeHtml(motif),
       lien_backoffice: urlCanonique(ROUTES.admin.collecte(c.id)),
     });

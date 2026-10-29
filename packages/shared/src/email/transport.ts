@@ -14,6 +14,7 @@
 import { Resend } from 'resend';
 import { logger } from '../logger/index.js';
 import { escapeHtml } from './html.js';
+import { LOGO_CID, LOGO_PNG_BASE64 } from './logo-savr.js';
 import {
   throttleOutbound,
   honorRetryAfter,
@@ -63,6 +64,28 @@ const masquerAdresses = (texte: unknown): string =>
         .slice(0, 500)
         .replace(/[^\s<>()"',;:]+@[^\s<>()"',;:]+/g, '[adresse masquée]')
     : '';
+
+/** Logo de l'enveloppe commune, joint en image intégrée (`cid:`) s'il est affiché. */
+export function piecesJointesLogo(html: string): {
+  attachments?: Array<{
+    content: string;
+    filename: string;
+    contentType: string;
+    contentId: string;
+  }>;
+} {
+  if (!html.includes(`cid:${LOGO_CID}`)) return {};
+  return {
+    attachments: [
+      {
+        content: LOGO_PNG_BASE64,
+        filename: 'logo-savr.png',
+        contentType: 'image/png',
+        contentId: LOGO_CID,
+      },
+    ],
+  };
+}
 
 // Seuls ces champs partent vers Resend, quel que soit l'objet reçu : un `from`,
 // des en-têtes ou une pièce jointe portés par l'appelant ne traversent pas.
@@ -170,7 +193,13 @@ export async function dispatchToResend(
   const debut = Date.now();
   const resend = new Resend(apiKey);
   // `from` en dernier : rien de ce que porte le message ne peut le remplacer.
-  const result = await resend.emails.send({ ...aEnvoyer, from });
+  // Seule pièce jointe possible : le logo de l'enveloppe commune, ajouté ici quand
+  // le HTML l'affiche (jamais une pièce jointe venue de l'appelant).
+  const result = await resend.emails.send({
+    ...aEnvoyer,
+    ...piecesJointesLogo(aEnvoyer.html),
+    from,
+  });
 
   if (result.error) {
     // 429 Resend : honore Retry-After (décale le prochain envoi) — l'échec est ensuite

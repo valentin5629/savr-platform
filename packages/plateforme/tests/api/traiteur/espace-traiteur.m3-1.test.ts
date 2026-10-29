@@ -680,7 +680,6 @@ describe('M3.1 / annulation', () => {
         lieu_nom: 'Salle Wagram',
         nom_evenement: 'Gala',
         motif: '',
-        info_facturation: '',
       },
     );
     expect(mockSendEmail).not.toHaveBeenCalledWith(

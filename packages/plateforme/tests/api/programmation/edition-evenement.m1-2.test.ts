@@ -990,7 +990,6 @@ describe('M3.1 / email équipe — modification de l’événement seul', () => 
       error: null,
     }); // rpc fn_modifier_evenement
     admin.push({ data: null, error: null }); // audit insert
-    admin.push({ data: null, error: null }); // collecte représentative (tpl 21) : aucune
     if (collecte === undefined) return;
     admin.push({ data: collecte, error: null }); // collecte nommée ∈ événement ?
     admin.push({

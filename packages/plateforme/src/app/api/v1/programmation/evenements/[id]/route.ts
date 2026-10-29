@@ -7,7 +7,6 @@ import {
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
-import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import {
   CHAMPS_EVENEMENT_EDITABLES,
   CHAMPS_TYPE_CONTACTS_COLLECTE,
@@ -370,31 +369,6 @@ export async function PATCH(
       .is('lieu_overrides', null);
   }
 
-  // BL-P2-22 (tpl 21, modification) : info-only au traiteur opérationnel si la
-  // modification est faite par un tiers (garde tiers-non-shadow dans le helper).
-  // Modif événement = niveau événement → une collecte représentative. Best-effort :
-  // tout le bloc est protégé — une notification ne doit JAMAIS casser la modification.
-  try {
-    const { data: colNotif } = await admin
-      .from('collectes')
-      .select('id')
-      .eq('evenement_id', id)
-      .limit(1)
-      .maybeSingle();
-    if (colNotif) {
-      void notifierTraiteurOperationnel(admin, {
-        collecteId: colNotif.id,
-        acteurOrgId: auth.ctx.organisationId,
-        changement: {
-          kind: 'modification',
-          champsModifies: Object.keys(updates),
-        },
-      }).catch(() => undefined);
-    }
-  } catch {
-    // notification best-effort — ignorée si irrésoluble
-  }
-
   // Email à l'équipe Savr (cf. lib/collectes/email-modification) : il part d'ici
   // quand l'enregistrement ne touche que l'événement — le formulaire nomme alors
   // la collecte d'où il est ouvert (`collecte_id`). La collecte nommée doit être
@@ -412,6 +386,7 @@ export async function PATCH(
     if (collecte)
       await notifierEquipeModificationCollecte(admin, req, {
         collecteId: collecte.id,
+        acteurUserId: auth.ctx.userId,
         evenementAvant: (before ?? null) as Record<string, unknown> | null,
         majEvenement: updates,
       });

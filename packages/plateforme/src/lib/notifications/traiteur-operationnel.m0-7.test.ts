@@ -16,7 +16,10 @@ import {
   estAnnulationTardive,
   instantReferenceAnnulation,
   notifierTraiteurOperationnel,
+  notifierProgrammateurTiers,
   notifierAdminAnnulation,
+  infoFacturationAnnulation,
+  adresseLieu,
 } from './traiteur-operationnel.js';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 
@@ -31,18 +34,23 @@ interface Fixture {
   lieu?: Record<string, unknown> | null;
   equipe?: Array<Record<string, unknown>>; // users select incl. 'actif'
   userNom?: Record<string, unknown> | null; // users select 'prenom, nom'
+  comptes?: Record<string, Record<string, unknown>>; // users par id
   flux?: Array<Record<string, unknown>>;
 }
 
 function makeSupabase(fx: Fixture) {
   function builder(table: string) {
     let select = '';
+    let id: unknown;
     const b = {
       select: (s: string) => {
         select = s;
         return b;
       },
-      eq: () => b,
+      eq: (col: string, v: unknown) => {
+        if (col === 'id') id = v;
+        return b;
+      },
       in: () => b,
       maybeSingle: () => {
         if (table === 'collectes')
@@ -55,7 +63,9 @@ function makeSupabase(fx: Fixture) {
           });
         if (table === 'lieux') return Promise.resolve({ data: fx.lieu });
         if (table === 'users')
-          return Promise.resolve({ data: fx.userNom ?? null });
+          return Promise.resolve({
+            data: fx.comptes?.[String(id)] ?? fx.userNom ?? null,
+          });
         return Promise.resolve({ data: null });
       },
       // thenable pour les requêtes tableau (await direct)
@@ -87,6 +97,7 @@ const BASE: Fixture = {
     nom: 'Salle des fêtes',
     adresse_acces: '1 rue X',
     code_postal: '75001',
+    ville: 'Paris',
   },
   equipe: [
     {
@@ -154,25 +165,52 @@ describe('M0.7/bl-p2-22-emission-garde — estTiersNonShadow (pure)', () => {
 });
 
 describe('M0.7/bl-p2-22-emission-programmation — template 20', () => {
-  it('tiers non-shadow → envoi collecte_programmee_tiers à toute l’équipe', async () => {
-    await notifierTraiteurOperationnel(makeSupabase(BASE), {
-      collecteId: 'col-1',
-      acteurOrgId: 'org-agence',
-      changement: { kind: 'programmation', programmeurUserId: null },
-    });
-    expect(emails).toHaveLength(2);
-    expect(emails.every((e) => e.slug === 'collecte_programmee_tiers')).toBe(
-      true,
+  it('tiers non-shadow → collecte_programmee_tiers aux seuls managers (Val 2026-10-29)', async () => {
+    await notifierTraiteurOperationnel(
+      makeSupabase({
+        ...BASE,
+        // La requête filtre sur le rôle : le mock rend ce que la base rendrait.
+        equipe: [BASE.equipe![0]!],
+        comptes: {
+          'u-prog': { prenom: 'Zoé', nom: 'Durand', role: 'agence' },
+        },
+      }),
+      {
+        collecteId: 'col-1',
+        acteurOrgId: 'org-agence',
+        changement: { kind: 'programmation', programmeurUserId: 'u-prog' },
+      },
     );
-    expect(emails.map((e) => e.to).sort()).toEqual([
-      'com@traiteur.fr',
-      'manager@traiteur.fr',
-    ]);
+    expect(emails).toHaveLength(1);
+    expect(emails[0]!.slug).toBe('collecte_programmee_tiers');
+    expect(emails[0]!.to).toBe('manager@traiteur.fr');
     const v = emails[0]!.variables;
     expect(v['organisation_programmatrice']).toBe('Agence Caromy');
+    expect(v['programmeur_nom']).toBe('Zoé Durand');
     expect(v['type_collecte']).toBe('Zéro Déchet');
-    expect(v['flux_list']).toBe('Biodéchets');
+    expect(v['date_collecte']).toBe('20/07/2026');
+    expect(v['horaire_collecte']).toBe('18:00');
+    expect(v['lieu_adresse']).toBe('1 rue X, 75001 Paris');
+    expect(v).not.toHaveProperty('flux_list');
     expect(v['lien_collecte']).toContain('/traiteur/collectes/col-1');
+  });
+
+  it('textes saisis neutralisés (nom du lieu, de l’organisation)', async () => {
+    await notifierTraiteurOperationnel(
+      makeSupabase({
+        ...BASE,
+        orgNom: { nom: 'A & <B>' },
+        lieu: { ...BASE.lieu, nom: 'Salle <i>' },
+      }),
+      {
+        collecteId: 'col-1',
+        acteurOrgId: 'org-agence',
+        changement: { kind: 'programmation' },
+      },
+    );
+    const v = emails[0]!.variables;
+    expect(v['organisation_programmatrice']).toBe('A &amp; &lt;B&gt;');
+    expect(v['lieu_nom']).toBe('Salle &lt;i&gt;');
   });
 
   it('même org (traiteur programme sa propre collecte) → aucun envoi', async () => {
@@ -196,7 +234,7 @@ describe('M0.7/bl-p2-22-emission-programmation — template 20', () => {
     expect(emails).toHaveLength(0);
   });
 
-  it('équipe vide → aucun envoi', async () => {
+  it('aucun manager → aucun envoi', async () => {
     await notifierTraiteurOperationnel(makeSupabase({ ...BASE, equipe: [] }), {
       collecteId: 'col-1',
       acteurOrgId: 'org-agence',
@@ -206,39 +244,147 @@ describe('M0.7/bl-p2-22-emission-programmation — template 20', () => {
   });
 });
 
+// Template 21 : le programmateur d'une agence ou d'un gestionnaire de lieux,
+// plus personne côté traiteur (Val 2026-10-28).
+const TIERS: Fixture = {
+  ...BASE,
+  evenement: {
+    traiteur_operationnel_organisation_id: 'org-traiteur',
+    lieu_id: 'lieu-1',
+    nom_evenement: 'Gala <2026>',
+    created_by: 'u-prog',
+  },
+  orgNom: { nom: 'Traiteur Réel' },
+  comptes: {
+    'u-prog': {
+      email: 'zoe@agence.fr',
+      prenom: 'Zoé',
+      nom: 'Durand',
+      role: 'agence',
+      organisation_id: 'org-agence',
+      actif: true,
+      deleted_at: null,
+    },
+    'u-collegue': {
+      prenom: 'Hugo',
+      nom: 'Petit',
+      role: 'agence',
+      organisation_id: 'org-agence',
+    },
+    'u-traiteur': {
+      prenom: 'Marie',
+      nom: 'Leroy',
+      role: 'traiteur_manager',
+      organisation_id: 'org-traiteur',
+    },
+    'u-admin': { prenom: 'Val', nom: 'L', role: 'admin_savr' },
+  },
+};
+
 describe('M0.7/bl-p2-22-emission-modification — template 21', () => {
-  it('modification par tiers → collecte_modifiee_tiers, branche modification', async () => {
-    await notifierTraiteurOperationnel(makeSupabase(BASE), {
+  const LISTE = '<ul><li>Heure de collecte : de 18h00 à 19h00</li></ul>';
+
+  it('modification par un collègue → le programmateur reçoit la liste avant / après', async () => {
+    await notifierProgrammateurTiers(makeSupabase(TIERS), {
       collecteId: 'col-1',
-      acteurOrgId: 'org-agence',
-      changement: {
-        kind: 'modification',
-        champsModifies: ['date_collecte', 'pax'],
-      },
+      acteurUserId: 'u-collegue',
+      kind: 'modification',
+      listeModifications: LISTE,
     });
-    expect(emails).toHaveLength(2);
-    const v = emails[0]!.variables;
+    expect(emails).toHaveLength(1);
     expect(emails[0]!.slug).toBe('collecte_modifiee_tiers');
-    expect(v['type_changement']).toBe('modification');
-    expect(v['est_modification']).toBe('true');
-    expect(v['est_annulation']).toBe('false');
+    expect(emails[0]!.to).toBe('zoe@agence.fr');
+    const v = emails[0]!.variables;
     expect(v['type_changement_libelle']).toBe('modifiée');
-    expect(v['diff_list']).toBe('date collecte, pax');
+    expect(v['est_modification']).toBe('true');
+    expect(v['est_annulation']).toBe('');
+    expect(v['liste_modifications']).toBe(LISTE);
+    expect(v['nom_evenement']).toBe('Gala &lt;2026&gt;');
+    expect(v['traiteur_nom']).toBe('Traiteur Réel');
+    expect(v['auteur_nom']).toBe('Hugo Petit');
+    expect(v['date_collecte']).toBe('20/07/2026');
+    expect(v['heure_collecte']).toBe('18:00');
+    expect(v['lien_collecte']).toContain('/agence/collectes/col-1');
   });
 
-  it('annulation par tiers → collecte_modifiee_tiers, branche annulation', async () => {
-    await notifierTraiteurOperationnel(makeSupabase(BASE), {
+  it('modification par le programmateur lui-même → aucun envoi', async () => {
+    await notifierProgrammateurTiers(makeSupabase(TIERS), {
+      collecteId: 'col-1',
+      acteurUserId: 'u-prog',
+      kind: 'modification',
+      listeModifications: LISTE,
+    });
+    expect(emails).toHaveLength(0);
+  });
+
+  it('programmateur côté traiteur → aucun envoi', async () => {
+    await notifierProgrammateurTiers(
+      makeSupabase({
+        ...TIERS,
+        comptes: {
+          ...TIERS.comptes,
+          'u-prog': {
+            ...TIERS.comptes!['u-prog'],
+            role: 'traiteur_commercial',
+            organisation_id: 'org-traiteur',
+          },
+        },
+      }),
+      {
+        collecteId: 'col-1',
+        acteurUserId: 'u-collegue',
+        kind: 'modification',
+        listeModifications: LISTE,
+      },
+    );
+    expect(emails).toHaveLength(0);
+  });
+
+  it('annulation par le traiteur → le programmateur de l’agence est prévenu', async () => {
+    await notifierTraiteurOperationnel(makeSupabase(TIERS), {
+      collecteId: 'col-1',
+      acteurOrgId: 'org-traiteur',
+      changement: { kind: 'annulation', acteurUserId: 'u-traiteur' },
+    });
+    expect(emails).toHaveLength(1);
+    const v = emails[0]!.variables;
+    expect(emails[0]!.to).toBe('zoe@agence.fr');
+    expect(v['type_changement_libelle']).toBe('annulée');
+    expect(v['est_annulation']).toBe('true');
+    expect(v['est_modification']).toBe('');
+    expect(v['liste_modifications']).toBe('');
+    expect(v['auteur_nom']).toBe('Marie Leroy');
+  });
+
+  it('annulation par l’équipe Savr : auteur « l’équipe Savr »', async () => {
+    await notifierTraiteurOperationnel(makeSupabase(TIERS), {
       collecteId: 'col-1',
       acteurOrgId: 'org-agence',
-      changement: { kind: 'annulation' },
+      changement: { kind: 'annulation', acteurUserId: 'u-admin' },
     });
-    expect(emails).toHaveLength(2);
-    const v = emails[0]!.variables;
-    expect(emails[0]!.slug).toBe('collecte_modifiee_tiers');
-    expect(v['type_changement']).toBe('annulation');
-    expect(v['est_annulation']).toBe('true');
-    expect(v['est_modification']).toBe('false');
-    expect(v['type_changement_libelle']).toBe('annulée');
+    expect(emails[0]!.variables['auteur_nom']).toBe("l'équipe Savr");
+  });
+});
+
+describe('adresseLieu / infoFacturationAnnulation (pures)', () => {
+  it('adresse, code postal et ville', () => {
+    expect(
+      adresseLieu({
+        adresse_acces: '1 rue X',
+        code_postal: '75001',
+        ville: 'Paris',
+      }),
+    ).toBe('1 rue X, 75001 Paris');
+    expect(adresseLieu({ adresse_acces: null, ville: 'Lyon' })).toBe('Lyon');
+  });
+  it('phrase de facturation seulement si l’annulation est tardive', () => {
+    expect(infoFacturationAnnulation('anti_gaspi', false)).toBe('');
+    expect(infoFacturationAnnulation('anti_gaspi', true)).toContain(
+      'pack Anti-Gaspi a été décompté',
+    );
+    expect(infoFacturationAnnulation('zero_dechet', true)).toContain(
+      'la collecte reste facturée',
+    );
   });
 });
 
@@ -247,7 +393,6 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
     // créneau très proche → tardive true
     await notifierAdminAnnulation(makeSupabase(BASE), {
       collecteId: 'col-1',
-      collecteRef: 'col-1',
       organisationNom: 'Traiteur Réel',
       dateCollecte: '2026-07-20',
       heureCollecte: '18:00:00',
@@ -261,7 +406,7 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
     expect(emails[0]!.to).toBe('contact@gosavr.io');
     const v = emails[0]!.variables;
     expect(v['annulation_tardive']).toBe('true');
-    expect(v['delai_avant_creneau']).toBe('moins de 4h');
+    expect(v['delai_avant_creneau']).toBe('moins de 4 h');
     expect(v['organisation_nom']).toBe('Traiteur Réel');
     expect(v['lien_backoffice']).toContain('/admin/collectes/col-1');
   });
@@ -269,7 +414,6 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
   it('annulation à 8h du créneau : annulation_tardive false, délai « 4h ou plus »', async () => {
     await notifierAdminAnnulation(makeSupabase(BASE), {
       collecteId: 'col-1',
-      collecteRef: 'col-1',
       organisationNom: 'Traiteur Réel',
       dateCollecte: '2026-07-20',
       heureCollecte: '18:00:00',
@@ -278,14 +422,13 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
       nowMs: instantParis('2026-07-20', '10:00').getTime(), // 8h avant (Paris)
     });
     const v = emails[0]!.variables;
-    expect(v['annulation_tardive']).toBe('false');
-    expect(v['delai_avant_creneau']).toBe('4h ou plus');
+    expect(v['annulation_tardive']).toBe('');
+    expect(v['delai_avant_creneau']).toBe('4 h ou plus');
   });
 
   it('demande du client à 8h du créneau, confirmée par l’Admin à 3h : jugée à la demande, pas tardive', async () => {
     await notifierAdminAnnulation(makeSupabase(BASE), {
       collecteId: 'col-1',
-      collecteRef: 'col-1',
       organisationNom: 'Traiteur Réel',
       dateCollecte: '2026-07-20',
       heureCollecte: '18:00:00',
@@ -296,8 +439,8 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
       nowMs: instantParis('2026-07-20', '15:00').getTime(),
     });
     const v = emails[0]!.variables;
-    expect(v['annulation_tardive']).toBe('false');
-    expect(v['delai_avant_creneau']).toBe('4h ou plus');
+    expect(v['annulation_tardive']).toBe('');
+    expect(v['delai_avant_creneau']).toBe('4 h ou plus');
   });
 });
 

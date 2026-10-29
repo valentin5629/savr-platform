@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
+import { heureCourte } from '@/lib/exports/shared';
+import { urlCanonique } from '@/lib/url-application.js';
+import { ROUTES } from '@/lib/routes';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { escapeHtml } from '@savr/shared/src/email/html.js';
@@ -48,7 +52,7 @@ export async function POST(
   const { data: c } = await rls
     .from('collectes')
     .select(
-      `id, statut, statut_tms, date_collecte, heure_collecte, tms_reference,
+      `id, type, statut, statut_tms, date_collecte, heure_collecte, tms_reference,
        evenement:evenements!inner(created_by, organisation_id, nom_evenement,
          organisation:organisations!organisation_id(nom), lieu:lieux!lieu_id(nom))`,
     )
@@ -112,7 +116,10 @@ export async function POST(
     await envoyerConfirmationAnnulation(admin, {
       programmateurId: evt.created_by,
       dateCollecte: c.date_collecte ?? '',
+      heureCollecte: c.heure_collecte,
       lieuNom,
+      nomEvenement: evt.nom_evenement,
+      typeCollecte: c.type,
       motif,
     });
 
@@ -121,17 +128,18 @@ export async function POST(
     // tiers (garde dans le helper — no-op si le traiteur annule sa propre collecte).
     void notifierAdminAnnulation(admin, {
       collecteId: id,
-      collecteRef: id,
       organisationNom: orgNom ?? '',
       dateCollecte: c.date_collecte ?? '',
       heureCollecte: c.heure_collecte,
+      lieuNom,
+      motif,
       acteurUserId: auth.ctx.userId,
       acteurRole: auth.ctx.role,
     }).catch(() => undefined);
     void notifierTraiteurOperationnel(admin, {
       collecteId: id,
       acteurOrgId: auth.ctx.organisationId,
-      changement: { kind: 'annulation' },
+      changement: { kind: 'annulation', acteurUserId: auth.ctx.userId },
     }).catch(() => undefined);
 
     return NextResponse.json({ data: { statut: 'annulee' } });
@@ -162,9 +170,12 @@ export async function POST(
     await sendEmail('admin_demande_annulation', 'contact@gosavr.io', {
       organisation_nom: escapeHtml(orgNom ?? ''),
       demandeur_nom: escapeHtml(demandeur?.nomComplet ?? ''),
-      collecte_ref: id,
-      date_collecte: c.date_collecte ?? '',
+      date_collecte: formatDateParis(c.date_collecte ?? ''),
+      heure_collecte: heureCourte(c.heure_collecte),
+      lieu_nom: escapeHtml(lieuNom),
+      nom_evenement: escapeHtml((evt.nom_evenement ?? '').trim()),
       motif: escapeHtml(motif),
+      lien_backoffice: urlCanonique(ROUTES.admin.collecte(c.id)),
     });
     return NextResponse.json({ data: { statut: 'annulation_demandee' } });
   }

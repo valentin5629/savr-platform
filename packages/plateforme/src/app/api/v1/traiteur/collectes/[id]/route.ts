@@ -316,6 +316,7 @@ export async function PATCH(
   // Email à l'équipe Savr (cf. lib/collectes/email-modification).
   await notifierEquipeModificationCollecte(admin, req, {
     collecteId: id,
+    acteurUserId: auth.ctx.userId,
     collecteAvant: before,
     majCollecte: updates,
     evenementModifiePar:

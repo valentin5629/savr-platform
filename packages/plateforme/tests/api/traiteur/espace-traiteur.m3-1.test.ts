@@ -675,9 +675,12 @@ describe('M3.1 / annulation', () => {
       'prog@savr-test.local',
       {
         prenom: 'Paul',
-        date_collecte: '2097-12-31',
+        date_collecte: '31/12/2097',
+        heure_collecte: '',
         lieu_nom: 'Salle Wagram',
+        nom_evenement: 'Gala',
         motif: '',
+        info_facturation: '',
       },
     );
     expect(mockSendEmail).not.toHaveBeenCalledWith(

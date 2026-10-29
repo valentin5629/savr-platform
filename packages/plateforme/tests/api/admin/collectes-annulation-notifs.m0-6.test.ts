@@ -33,7 +33,10 @@ vi.mock('@savr/shared/src/email/index.js', () => ({
 // Ici on vérifie le CÂBLAGE : la route les invoque avec les bons arguments.
 const mockNotifierAdminAnnulation = vi.fn().mockResolvedValue(undefined);
 const mockNotifierTraiteurOperationnel = vi.fn().mockResolvedValue(undefined);
-vi.mock('@/lib/notifications/traiteur-operationnel.js', () => ({
+vi.mock('@/lib/notifications/traiteur-operationnel.js', async (original) => ({
+  ...(await original<
+    typeof import('@/lib/notifications/traiteur-operationnel.js')
+  >()),
   notifierAdminAnnulation: (...args: unknown[]) =>
     mockNotifierAdminAnnulation(...args),
   notifierTraiteurOperationnel: (...args: unknown[]) =>
@@ -155,7 +158,7 @@ describe('M0.6 — notifications annulation (validation Admin → annulee)', () 
       expect.objectContaining({
         collecteId: 'col-1',
         acteurOrgId: 'org-agence',
-        changement: { kind: 'annulation' },
+        changement: { kind: 'annulation', acteurUserId: 'admin-1' },
       }),
     );
   });

@@ -26,12 +26,11 @@ const DISCRET = '#6e7790';
 const FOND = '#f7f8fb';
 const BORD = '#dde1ea';
 const POLICE = 'Arial, Helvetica, sans-serif';
-// Une ligne de texte = 24 px (15 px × 1,6). Val 2026-10-29 : 3 lignes de plus
-// sous le logo, au-dessus et au-dessous de chaque bouton.
-const LIGNE = 24;
-const ESPACE_SOUS_LOGO = 8 + 3 * LIGNE;
-const ESPACE_BOUTON_HAUT = 24 + 3 * LIGNE;
-const ESPACE_BOUTON_BAS = 20 + 3 * LIGNE;
+// Espacements validés par Val le 2026-10-29 (3 lignes de plus, puis −20 % sous
+// le logo et −25 % autour des boutons).
+const ESPACE_SOUS_LOGO = 64;
+const ESPACE_BOUTON_HAUT = 72;
+const ESPACE_BOUTON_BAS = 69;
 
 /** Un paragraphe qui contient au moins un lien. */
 const PARAGRAPHE_AVEC_LIEN =

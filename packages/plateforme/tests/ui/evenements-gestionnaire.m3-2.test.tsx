@@ -48,8 +48,16 @@ vi.mock('@/components/collecte/fiche-collecte-client-modal', () => ({
     ) : null,
 }));
 
+// Fiche collecte Admin : seule compte la collecte qu'on lui demande d'ouvrir.
+vi.mock('@/components/admin/collecte-detail-modal', () => ({
+  CollecteDetailModal: ({ collecteId }: { collecteId: string | null }) =>
+    collecteId ? (
+      <div data-testid="fiche-collecte-admin-ouverte">{collecteId}</div>
+    ) : null,
+}));
+
 import EvenementsPage from '@/app/(gestionnaire)/gestionnaire/evenements/page.js';
-import { FicheEvenementModal } from '@/components/gestionnaire/fiche-evenement-modal';
+import { FicheEvenementModal } from '@/components/evenements/fiche-evenement-modal';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import { renderAvecToasts } from '@/test-utils/toasts';
 
@@ -63,6 +71,7 @@ const monterFiche = (
 ) =>
   render(
     <FicheEvenementModal
+      espace="gestionnaire"
       evenementId={EVT_ID}
       onClose={fermerEvenement}
       onCollecteChange={changerCollecte}
@@ -251,7 +260,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
       stubFetch((url) =>
         url.includes('/evenements/filtres')
           ? { body: OPTIONS }
-          : url.includes(`/gestionnaire/evenements/${EVT_ID}`)
+          : url.includes(`/api/v1/evenements/${EVT_ID}`)
             ? { body: { data: detail() } }
             : { body: { data: [LIGNE], total: 1 } },
       );
@@ -1272,7 +1281,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         ATTENTE_UI,
       );
       expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain(
-        `/api/v1/gestionnaire/evenements/${EVT_ID}`,
+        `/api/v1/evenements/${EVT_ID}`,
       );
     },
     ATTENTE_CAS_MS,
@@ -1369,6 +1378,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       // doit s'afficher.
       renderAvecToasts(
         <FicheEvenementModal
+          espace="gestionnaire"
           evenementId={EVT_ID}
           onClose={fermerEvenement}
           onCollecteChange={changerCollecte}
@@ -1414,6 +1424,120 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
   );
 });
 
+describe('M3.2 / fiche Événement traiteur et agence — écran', () => {
+  it(
+    'M3.2/evenement_fiche_traiteur_sans_radar_ni_labo — même fiche, ni déchets labo estimés ni benchmark, rapports de collecte par la route de son espace (Val 2026-10-29)',
+    async () => {
+      const fetchMock = stubFetch((url) =>
+        url.includes(`/api/v1/evenements/${EVT_ID}`) &&
+        !url.includes('/benchmark')
+          ? { body: { data: detail({ dechets_labo_kg: null }) } }
+          : { body: { data: null } },
+      );
+      monterFiche({ espace: 'traiteur' });
+      await ficheChargee();
+      expect(screen.getByTestId('evenement-entete')).not.toHaveTextContent(
+        'Déchets labo estimés',
+      );
+      onglet('Bilan & documents');
+      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      const urls = fetchMock.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.includes('/benchmark'))).toBe(false);
+      expect(urls.some((u) => u.includes('/gestionnaire/'))).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M3.2 / fiche Événement Admin et client organisateur — écran', () => {
+  const legere = (f: Record<string, unknown>) => ({
+    ...f,
+    contacts_visibles: false,
+    contact_principal_nom: null,
+    contact_principal_telephone: null,
+    tournees: [],
+  });
+  it(
+    'M3.2/evenement_fiche_admin_ouvre_fiche_collecte_admin — cartes sans contacts ni chauffeurs, « Voir la collecte » ouvre la fiche collecte Admin (Val C6)',
+    async () => {
+      const d = detail({ dechets_labo_kg: null });
+      const fiches = (d.fiches as Record<string, unknown>[]).map((f) => ({
+        ...legere(f),
+        // Contacts visibles dans la donnée : c'est `detail` qui doit les masquer.
+        contacts_visibles: true,
+        contact_principal_nom: 'Contact Test',
+      }));
+      const premier = String((fiches[0] as Record<string, unknown>).id);
+      stubFetch(() => ({
+        body: {
+          data: {
+            ...d,
+            fiches,
+            statuts_admin: { [premier]: 'rejetee_par_prestataire' },
+          },
+        },
+      }));
+      monterFiche({ espace: 'admin' });
+      await ficheChargee();
+      onglet('Informations collectes');
+      const cartes = await screen.findAllByTestId(
+        'carte-collecte',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(screen.queryByTestId('bloc-logistique')).toBeNull();
+      expect(cartes[0]).not.toHaveTextContent('Contact principal');
+      // Statut en vue Admin : « Rejetée », jamais le « Créée » des clients.
+      expect(cartes[0]).toHaveTextContent('Rejetée');
+      fireEvent.click(
+        within(cartes[0]!).getByRole('button', { name: 'Voir la collecte' }),
+      );
+      expect(
+        await screen.findByTestId(
+          'fiche-collecte-admin-ouverte',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('fiche-collecte-ouverte')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/evenement_fiche_organisateur_lecture_seule — cartes sans contacts ni chauffeurs ni « Voir la collecte », pas de documents par collecte ni de rapport de don cumulé (Val C7)',
+    async () => {
+      const d = detail({ dechets_labo_kg: null });
+      stubFetch(() => ({
+        body: { data: { ...d, fiches: d.fiches.map(legere) } },
+      }));
+      monterFiche({ espace: 'organisateur' });
+      await ficheChargee();
+      onglet('Informations collectes');
+      await screen.findAllByTestId('carte-collecte', undefined, ATTENTE_UI);
+      expect(
+        screen.queryByRole('button', { name: 'Voir la collecte' }),
+      ).toBeNull();
+      expect(screen.queryByTestId('bloc-logistique')).toBeNull();
+      onglet('Bilan & documents');
+      await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
+      expect(screen.queryByTestId('document-collecte')).toBeNull();
+      expect(screen.queryByTestId('liens-bilans')).toBeNull();
+      // Rapport RSE cumulé proposé, rapport de don cumulé non (onglet AG).
+      expect(
+        screen.getByTestId('document-evenement-cumul'),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
+      await waitFor(
+        () =>
+          expect(screen.queryByTestId('document-evenement-cumul')).toBeNull(),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('M3.2 / liste Événements gestionnaire — fiche en pop-up depuis l’adresse', () => {
   it(
     'M3.2/evenements_liste_fiche_rouverte_depuis_adresse — ?evenement= et ?collecte= rouvrent les deux fiches ; la fermeture nettoie l’adresse et recharge la liste',
@@ -1427,7 +1551,7 @@ describe('M3.2 / liste Événements gestionnaire — fiche en pop-up depuis l’
       const fetchMock = stubFetch((url) =>
         url.includes('/evenements/filtres')
           ? { body: OPTIONS }
-          : url.includes(`/gestionnaire/evenements/${EVT_ID}`)
+          : url.includes(`/api/v1/evenements/${EVT_ID}`)
             ? { body: { data: detail() } }
             : { body: { data: [LIGNE], total: 1 } },
       );

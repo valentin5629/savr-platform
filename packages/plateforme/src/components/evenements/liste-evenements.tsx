@@ -26,7 +26,7 @@ import {
   LIBELLES_EVENEMENTS,
   OngletsVueCollectes,
 } from '@/components/collecte/onglets-vue-collectes';
-import { FicheEvenementModal } from '@/components/gestionnaire/fiche-evenement-modal';
+import { FicheEvenementModal } from '@/components/evenements/fiche-evenement-modal';
 import { ResultatsEvenement } from '@/components/gestionnaire/resultats-evenement';
 import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
 import { EVENEMENTS_PAGE_SIZE as PAGE_SIZE } from '@/lib/evenements-gestionnaire';
@@ -69,8 +69,6 @@ interface ReglageEspace {
   traiteur: boolean;
   /** Filtre « Client » (organisation programmatrice) : staff seul. */
   client: boolean;
-  /** Fiche événement au clic : gestionnaire seul en attendant le lot 2. */
-  fiche: boolean;
   /** « Déchets labo est. » : gestionnaire seul (§05 R_dechets_labo_estimes). */
   labo: boolean;
 }
@@ -83,7 +81,6 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: true,
-    fiche: false,
     labo: false,
   },
   traiteur: {
@@ -91,7 +88,6 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: false,
     client: false,
-    fiche: false,
     labo: false,
   },
   agence: {
@@ -100,7 +96,6 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: false,
-    fiche: false,
     labo: false,
   },
   gestionnaire: {
@@ -109,7 +104,6 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement sur vos lieux pour ce périmètre.',
     traiteur: true,
     client: false,
-    fiche: true,
     labo: true,
   },
   organisateur: {
@@ -117,7 +111,6 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: false,
-    fiche: false,
     labo: false,
   },
 };
@@ -283,20 +276,16 @@ const colonnesEvenements = (
       </Badge>
     ),
   },
-  // Chevron : la ligne ouvre la fiche (revue écran 2026-10-29), là où elle
-  // existe.
-  ...(reglage.fiche
-    ? [
-        {
-          id: 'ouvrir',
-          header: () => <span className="sr-only">Ouvrir</span>,
-          enableHiding: false,
-          enableSorting: false,
-          meta: { label: 'Ouvrir', hideOnMobile: true, className: 'w-[1%]' },
-          cell: () => <ChevronLigne />,
-        } satisfies ColumnDef<EvenementRow, unknown>,
-      ]
-    : []),
+  // Chevron : la ligne ouvre la fiche (revue écran 2026-10-29), pour tous les
+  // rôles (Val 2026-10-29).
+  {
+    id: 'ouvrir',
+    header: () => <span className="sr-only">Ouvrir</span>,
+    enableHiding: false,
+    enableSorting: false,
+    meta: { label: 'Ouvrir', hideOnMobile: true, className: 'w-[1%]' },
+    cell: () => <ChevronLigne />,
+  },
 ];
 
 /**
@@ -498,11 +487,10 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
           // Tri retiré (cycle TanStack) = tri par défaut de la vue.
           set({ ordre: t ? (t.desc ? 'desc' : 'asc') : '' });
         }}
-        {...(reglage.fiche && {
-          onRowClick: (e: EvenementRow) => ouvrirFiche(e.id),
-          rowLabel: (e: EvenementRow) =>
-            `Ouvrir l'événement${e.nom_evenement ? ` ${e.nom_evenement}` : ''}`,
-        })}
+        onRowClick={(e) => ouvrirFiche(e.id)}
+        rowLabel={(e) =>
+          `Ouvrir l'événement${e.nom_evenement ? ` ${e.nom_evenement}` : ''}`
+        }
       />
       <ListFooter
         total={total}
@@ -601,8 +589,9 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
 
       {contenu}
 
-      {reglage.fiche && ouverte && (
+      {ouverte && (
         <FicheEvenementModal
+          espace={espace}
           // Une fiche par événement : changer d'événement repart de zéro.
           key={ouverte.evenement}
           evenementId={ouverte.evenement}

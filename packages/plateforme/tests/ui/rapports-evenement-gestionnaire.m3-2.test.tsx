@@ -26,11 +26,11 @@ vi.mock('@/components/collecte/fiche-collecte-client-modal', () => ({
   FicheCollecteClientModal: () => null,
 }));
 
-import { FicheEvenementModal } from '@/components/gestionnaire/fiche-evenement-modal';
+import { FicheEvenementModal } from '@/components/evenements/fiche-evenement-modal';
 import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const EVT_ID = '22222222-2222-4222-8222-222222222222';
-const BASE = `/api/v1/gestionnaire/evenements/${EVT_ID}`;
+const BASE = `/api/v1/evenements/${EVT_ID}`;
 
 const FLUX_VIDES = {
   biodechet: 0,
@@ -160,7 +160,13 @@ const demandes = (mock: ReturnType<typeof stubFetch>) =>
     }));
 
 async function ouvrirBilan() {
-  render(<FicheEvenementModal evenementId={EVT_ID} onClose={vi.fn()} />);
+  render(
+    <FicheEvenementModal
+      espace="gestionnaire"
+      evenementId={EVT_ID}
+      onClose={vi.fn()}
+    />,
+  );
   await screen.findByTestId('statut-evenement', undefined, ATTENTE_UI);
   fireEvent.mouseDown(screen.getByRole('tab', { name: 'Bilan & documents' }));
   return screen.findByTestId('document-evenement-cumul', undefined, ATTENTE_UI);

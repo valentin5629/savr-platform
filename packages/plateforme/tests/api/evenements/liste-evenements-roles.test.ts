@@ -275,6 +275,36 @@ describe('Liste Événements — tous les rôles', () => {
     ).toBe(false);
   });
 
+  it('M3.2/evenements_liste_dechets_labo_gestionnaire_seul — f_dechets_labo_estimes jamais appelée hors gestionnaire, valeur absente de la réponse', async () => {
+    const evtZd = {
+      ...structuredClone(EVT),
+      collectes: [{ ...EVT.collectes[0]!, id: 'c-zd', type: 'zero_dechet' }],
+    };
+    for (const role of [
+      'admin_savr',
+      'traiteur_manager',
+      'traiteur_commercial',
+      'agence',
+      'client_organisateur',
+    ]) {
+      const res = { data: [structuredClone(evtZd)], error: null, count: 1 };
+      session = makeClient({ evenements: res });
+      service = makeClient({ evenements: res });
+      for (const c of [session, service])
+        c.rpc.mockImplementation(async () => ({ data: 30, error: null }));
+      connecte(role);
+      const json = (await (await liste()).json()) as {
+        data: { dechets_labo_kg: number | null }[];
+      };
+      expect(json.data[0]!.dechets_labo_kg, role).toBeNull();
+      for (const c of [session, service])
+        expect(c.rpc, role).not.toHaveBeenCalledWith(
+          'f_dechets_labo_estimes',
+          expect.anything(),
+        );
+    }
+  });
+
   it('M3.2/evenements_liste_refuse_hors_role — rôle inconnu 403, sans lecture', async () => {
     session = makeClient({});
     service = makeClient({});

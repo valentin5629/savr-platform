@@ -71,6 +71,8 @@ interface ReglageEspace {
   client: boolean;
   /** Fiche événement au clic : gestionnaire seul en attendant le lot 2. */
   fiche: boolean;
+  /** « Déchets labo est. » : gestionnaire seul (§05 R_dechets_labo_estimes). */
+  labo: boolean;
 }
 
 // Réglages par espace (décisions Val 2026-10-29) : tout le reste de la page est
@@ -82,6 +84,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     traiteur: true,
     client: true,
     fiche: false,
+    labo: false,
   },
   traiteur: {
     sousTitre: 'Vos événements, résultats cumulés sur leurs collectes',
@@ -89,6 +92,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     traiteur: false,
     client: false,
     fiche: false,
+    labo: false,
   },
   agence: {
     sousTitre:
@@ -97,6 +101,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     traiteur: true,
     client: false,
     fiche: false,
+    labo: false,
   },
   gestionnaire: {
     sousTitre:
@@ -105,6 +110,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     traiteur: true,
     client: false,
     fiche: true,
+    labo: true,
   },
   organisateur: {
     sousTitre: 'Vos événements, résultats cumulés sur leurs collectes',
@@ -112,6 +118,7 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
     traiteur: true,
     client: false,
     fiche: false,
+    labo: false,
   },
 };
 
@@ -240,20 +247,28 @@ const colonnesEvenements = (
     enableSorting: false,
     cell: ({ row: { original: e } }) => <ResultatsEvenement e={e} />,
   },
-  {
-    // Estimation amont (§05 R_dechets_labo_estimes) : « — » si l'événement n'a
-    // aucune collecte ZD ou si le traiteur n'a pas communiqué de coefficient.
-    id: 'dechets_labo',
-    header: 'Déchets labo est.',
-    enableSorting: false,
-    meta: { className: 'text-right tabular-nums' },
-    cell: ({ row: { original: e } }) =>
-      e.dechets_labo_kg != null ? (
-        <span className="whitespace-nowrap">{fmtKg(e.dechets_labo_kg)}</span>
-      ) : (
-        <CelluleVide />
-      ),
-  },
+  // Gestionnaire seul (§05 R_dechets_labo_estimes : coefficient du traiteur
+  // confidentiel).
+  ...(reglage.labo
+    ? [
+        {
+          // Estimation amont (§05 R_dechets_labo_estimes) : « — » si l'événement n'a
+          // aucune collecte ZD ou si le traiteur n'a pas communiqué de coefficient.
+          id: 'dechets_labo',
+          header: 'Déchets labo est.',
+          enableSorting: false,
+          meta: { className: 'text-right tabular-nums' },
+          cell: ({ row: { original: e } }) =>
+            e.dechets_labo_kg != null ? (
+              <span className="whitespace-nowrap">
+                {fmtKg(e.dechets_labo_kg)}
+              </span>
+            ) : (
+              <CelluleVide />
+            ),
+        } satisfies ColumnDef<EvenementRow, unknown>,
+      ]
+    : []),
   {
     id: 'statut',
     header: 'Statut',

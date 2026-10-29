@@ -340,12 +340,16 @@ export async function listerEvenements(
 
   const bilans = brutes.map((e) => consoliderEvenement(e.collectes ?? []));
 
-  // Déchets labo estimés (§05 R_dechets_labo_estimes) : seulement pour un
-  // événement qui a au moins une collecte ZD (arbitrage Val 2026-10-07). NULL =
-  // coefficient non communiqué, ou événement hors du périmètre que la fonction
-  // ouvre à l'appelant → « — » ; un appel en échec vaut NULL aussi, journalisé.
+  // Déchets labo estimés (§05 R_dechets_labo_estimes) : espace gestionnaire de
+  // lieux UNIQUEMENT. Ailleurs la fonction n'est pas appelée : elle rend la
+  // valeur à tout programmateur, et pax ÷ valeur donnerait à une agence le
+  // coefficient confidentiel d'un traiteur tiers (revue sécurité 2026-10-29).
+  // Seulement pour un événement qui a au moins une collecte ZD (arbitrage Val
+  // 2026-10-07). NULL = coefficient non communiqué → « — » ; un appel en échec
+  // vaut NULL aussi, journalisé.
   const dechetsLabo = await Promise.all(
     brutes.map(async (e, i) => {
+      if (espace !== 'gestionnaire') return null;
       if (bilans[i]!.nb_collectes_zd === 0) return null;
       const { data: kg, error: echec } = await supabase.rpc(
         'f_dechets_labo_estimes',

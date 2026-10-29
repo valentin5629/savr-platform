@@ -87,6 +87,10 @@ describe('Liste Événements — réglages par espace', () => {
     ).toBeNull();
     expect(screen.queryByTestId('filtre-traiteur')).toBeNull();
     expect(screen.queryByTestId('filtre-client')).toBeNull();
+    // Gestionnaire seul (§05 R_dechets_labo_estimes).
+    expect(
+      within(table).queryByRole('columnheader', { name: /déchets labo/i }),
+    ).toBeNull();
     expect(
       screen.getByText('Vos événements, résultats cumulés sur leurs collectes'),
     ).toBeInTheDocument();

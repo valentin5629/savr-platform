@@ -206,7 +206,15 @@ describe('Liste Événements — tous les rôles', () => {
   it('M3.2/evenements_liste_repas_organisateur_par_helper — f_volume_repas_realise sur les collectes AG clôturées', async () => {
     session = makeClient({
       evenements: {
-        data: [structuredClone(EVT)],
+        data: [
+          {
+            ...structuredClone(EVT),
+            collectes: [
+              ...structuredClone(EVT.collectes),
+              { ...EVT.collectes[0]!, id: 'c-ag-avenir', statut: 'validee' },
+            ],
+          },
+        ],
         error: null,
         count: 1,
       },
@@ -226,6 +234,10 @@ describe('Liste Événements — tous les rôles', () => {
     };
     expect(session.rpc).toHaveBeenCalledWith('f_volume_repas_realise', {
       p_collecte_id: 'c-ag',
+    });
+    // Une collecte AG pas encore clôturée ne porte aucun résultat : pas d'appel.
+    expect(session.rpc).not.toHaveBeenCalledWith('f_volume_repas_realise', {
+      p_collecte_id: 'c-ag-avenir',
     });
     expect(json.data[0]).toMatchObject({
       repas_donnes: 120,
@@ -346,6 +358,49 @@ describe('Options de filtres Événements', () => {
       clients: [],
       types: [{ id: 'TE', libelle: 'Gala' }],
     });
+  });
+
+  it('M3.2/evenements_filtres_staff_referentiels — service_role, traiteurs et organisations clientes, rien sous la session', async () => {
+    session = makeClient({});
+    service = makeClient({
+      lieux: { data: [{ id: 'L1', nom: 'Pavillon' }], error: null },
+      organisations: {
+        data: [
+          {
+            id: 'T1',
+            nom: 'Potel',
+            raison_sociale: 'Potel SAS',
+            type: 'traiteur',
+          },
+          { id: 'A1', nom: null, raison_sociale: 'Agence Y', type: 'agence' },
+        ],
+        error: null,
+      },
+      types_evenements: { data: [], error: null },
+    });
+    connecte('admin_savr');
+    const json = (await (await filtres()).json()) as {
+      data: Record<string, unknown>;
+    };
+    expect(json.data).toEqual({
+      lieux: [{ id: 'L1', nom: 'Pavillon' }],
+      traiteurs: [{ id: 'T1', nom: 'Potel' }],
+      clients: [
+        { id: 'A1', nom: 'Agence Y' },
+        { id: 'T1', nom: 'Potel' },
+      ],
+      types: [],
+    });
+    expect(session.calls).toEqual([]);
+  });
+
+  it('M3.2/evenements_filtres_types_en_echec_500', async () => {
+    session = makeClient({
+      evenements: { data: [], error: null },
+      types_evenements: { data: null, error: { code: '42501' } },
+    });
+    connecte('agence');
+    expect((await filtres()).status).toBe(500);
   });
 
   it('M3.2/evenements_filtres_traiteur_sans_liste_de_traiteurs', async () => {

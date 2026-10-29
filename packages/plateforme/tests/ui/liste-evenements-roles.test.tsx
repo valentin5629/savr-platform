@@ -109,6 +109,10 @@ describe('Liste Événements — réglages par espace', () => {
     expect(
       within(table).queryByRole('row', { name: /Ouvrir l'événement/ }),
     ).toBeNull();
+    // Pas de chevron « Ouvrir » (colonne absente).
+    expect(
+      within(table).queryByRole('columnheader', { name: 'Ouvrir' }),
+    ).toBeNull();
     // Grille + carte mobile : le nom apparaît deux fois.
     expect(
       within(table).getAllByText('Gala de printemps').length,

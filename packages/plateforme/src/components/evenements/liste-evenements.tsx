@@ -408,7 +408,11 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
     useState<OptionsFiltresEvenements>(OPTIONS_VIDES);
   useEffect(() => {
     fetch('/api/v1/evenements/filtres')
-      .then((r) => r.json())
+      .then((r) => {
+        // Une réponse en erreur ne se lit pas comme des listes vides.
+        if (!r.ok) throw new Error(`filtres ${r.status}`);
+        return r.json();
+      })
       .then((j: { data?: Partial<OptionsFiltresEvenements> }) => {
         if (j?.data)
           setOptions({

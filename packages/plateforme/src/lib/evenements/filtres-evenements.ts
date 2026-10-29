@@ -43,24 +43,61 @@ function nomOrganisation(o: {
 }
 
 async function typesEvenements(supabase: DbClient) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('types_evenements')
     .select('id, libelle')
     .eq('actif', true)
     .order('ordre_affichage', { ascending: true });
+  if (error) {
+    logger.error('evenements.filtres.types_echec', { code: error.code });
+    throw new OptionsIndisponibles();
+  }
   return (data ?? []).map((t) => ({
     id: t.id as string,
     libelle: t.libelle as string,
   }));
 }
 
+/** Taille d'une tranche : `max_rows` de PostgREST (supabase/config.toml). */
+const TRANCHE = 1000;
+
+/**
+ * Toutes les lignes d'une lecture, par tranches : sans cela, `max_rows`
+ * tronquerait en silence un référentiel de plus de 1 000 lignes.
+ */
+async function parTranches(
+  lire: (
+    de: number,
+    a: number,
+  ) => PromiseLike<{ data: unknown[] | null; error: { code?: string } | null }>,
+): Promise<{ data: unknown[]; error: { code?: string } | null }> {
+  const lignes: unknown[] = [];
+  for (let de = 0; ; de += TRANCHE) {
+    const { data, error } = await lire(de, de + TRANCHE - 1);
+    if (error) return { data: [], error };
+    lignes.push(...(data ?? []));
+    if ((data ?? []).length < TRANCHE) return { data: lignes, error: null };
+  }
+}
+
 async function optionsStaff(supabase: DbClient) {
   const [lieux, orgs] = await Promise.all([
-    supabase.from('lieux').select('id, nom').order('nom'),
-    supabase
-      .from('organisations')
-      .select('id, nom, raison_sociale, type')
-      .in('type', ['traiteur', 'agence', 'gestionnaire_lieux']),
+    parTranches((de, a) =>
+      supabase
+        .from('lieux')
+        .select('id, nom')
+        .order('nom')
+        .order('id')
+        .range(de, a),
+    ),
+    parTranches((de, a) =>
+      supabase
+        .from('organisations')
+        .select('id, nom, raison_sociale, type')
+        .in('type', ['traiteur', 'agence', 'gestionnaire_lieux'])
+        .order('id')
+        .range(de, a),
+    ),
   ]);
   if (lieux.error || orgs.error) {
     logger.error('evenements.filtres.staff_echec', {

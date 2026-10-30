@@ -412,9 +412,9 @@ it('EvolutionZdChart — survol d’un segment ouvre le tooltip du flux (grain f
   );
   // Aucun tooltip de flux sans survol.
   expect(screen.queryByText(/% du mois/)).toBeNull();
-  // Segment « emballage » (token dataviz-3, non sommet → <rect>) survolé.
+  // Segment « emballage » (token flux-emballage, non sommet → <rect>) survolé.
   const seg = container.querySelector(
-    'rect[fill="var(--color-savr-dataviz-3)"]',
+    'rect[fill="var(--color-savr-flux-emballage)"]',
   );
   expect(seg).not.toBeNull();
   fireEvent.mouseEnter(seg!);

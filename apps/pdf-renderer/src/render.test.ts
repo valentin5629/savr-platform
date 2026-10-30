@@ -798,8 +798,8 @@ describe('M1.6 / rapport recyclage §1.2 — gabarit @3, deux versions de la pag
     expect(html).toContain('<span>Gala</span>');
     expect(html).toContain('base64,ANCIEN'); // logo unique @2 → emplacement client
     // Flux reconnus par leur nom (pas de code dans un payload @2) : couleurs du référentiel.
-    expect(html).toContain('stroke="#16a34a"');
-    expect(html).toContain('stroke="#6379b6"');
+    expect(html).toContain('stroke="#12a459"');
+    expect(html).toContain('stroke="#87684d"');
     // Les blocs retirés ne reviennent pas par un ancien payload.
     expect(html).not.toContain('7 organisations');
     expect(html).not.toContain('68,4');
@@ -1076,6 +1076,12 @@ describe('M3.5 / renderer synthèse §12 §1.6 — template agrégé', () => {
     expect(html).toContain('Impact carbone agrégé');
     expect(html).toContain('Évolution mensuelle');
     expect(html).toContain('Biodéchets');
+    // Donut des flux : couleur figée par flux (Val 2026-10-30), pas par rang.
+    expect(html).toContain('fill="#12a459"'); // Biodéchets
+    expect(html).toContain('fill="#ffbd59"'); // Emballages
+    expect(html).toContain('fill="#87684d"'); // Carton
+    expect(html).toContain('fill="#09337a"'); // Verre
+    expect(html).not.toContain('#65a30d');
     // Q2 : type figé ZD → PAS de section Anti-Gaspi
     expect(html).not.toContain('Ventilation Anti-Gaspi');
   });

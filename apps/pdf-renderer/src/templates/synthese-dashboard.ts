@@ -22,6 +22,8 @@
 // Version figée du gabarit — doit rester égale à TEMPLATE_VERSIONS['synthese-dashboard']
 // du contrat partagé (@savr/shared/src/pdf/document-types.ts). Vérifié par le gate
 // CI check:pdf-contract. Incrémenter @N à toute modif structurelle.
+import { couleurFlux } from './rapport-recyclage-zd.js';
+
 export const TEMPLATE_VERSION = 'synthese-dashboard@1';
 
 export interface SyntheseFluxLigne {
@@ -427,24 +429,17 @@ export function renderSyntheseDashboard(data: SyntheseDashboardData): string {
 function pieSvg(slices: { label: string; value: number }[]): string {
   const total = slices.reduce((s, x) => s + (x.value > 0 ? x.value : 0), 0);
   if (total <= 0) return '';
-  const colors = [
-    '#16a34a',
-    '#65a30d',
-    '#ca8a04',
-    '#0891b2',
-    '#9333ea',
-    '#dc2626',
-  ];
   const cx = 70;
   const cy = 70;
   const r = 62;
   let angle = -Math.PI / 2;
   const paths: string[] = [];
   const legend: string[] = [];
-  slices.forEach((s, i) => {
+  slices.forEach((s) => {
     const v = s.value > 0 ? s.value : 0;
     const frac = v / total;
-    const color = colors[i % colors.length];
+    // Couleur figée par flux (Val 2026-10-30), reconnu par son nom.
+    const color = couleurFlux(null, s.label);
     if (frac > 0) {
       const next = angle + frac * 2 * Math.PI;
       const x1 = cx + r * Math.cos(angle);

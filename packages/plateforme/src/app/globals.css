@@ -84,6 +84,15 @@
   --color-savr-dataviz-5: #6379b6;
   --color-savr-dataviz-6: #d97f00;
 
+  /* ── Flux ZD (couleur figée par flux, barres + donuts) ─────────────────── */
+  /* Décision Val 2026-10-30. Mêmes codes dans le rapport de recyclage PDF
+     (`apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts`, FLUX_REF). */
+  --color-savr-flux-emballage: #ffbd59;
+  --color-savr-flux-biodechet: #12a459;
+  --color-savr-flux-verre: #09337a;
+  --color-savr-flux-carton: #87684d;
+  --color-savr-flux-residuel: #a6b1b7;
+
   /* ── Typographie : Inter (texte) + Archivo (titres, grands chiffres) ─────── */
   /* Décision Val 2026-10-27 (ex-Nunito). `font-display` = utilitaire Tailwind
      des titres et des KPI. */

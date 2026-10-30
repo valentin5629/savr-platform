@@ -66,7 +66,8 @@ DO $$ BEGIN
   INSERT INTO plateforme.collectes (id, evenement_id, type, statut, date_collecte, heure_collecte) VALUES
     ('e7000000-0000-0000-0000-000000000005'::uuid, 'e5000000-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'cloturee', '2026-05-15', '08:00');
 
-  -- Factures : ZD 300 (mai, emise) ; avoir ZD -50 (mai) rattaché à la ZD ;
+  -- Factures : ZD 300 (mai, emise) ; avoir ZD -50 (mai) rattaché à la ZD, montants
+  --            négatifs comme les écrit lib/facturation/avoirs.ts ;
   --            achat_pack 5000 (mai) + son avoir -500 (mai) → IGNORÉS pour l'AG ;
   --            achat_pack 3000 (AVRIL, sans collecte AG livrée) → ne crée PAS de CA AG fantôme.
   INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, numero_facture, type, statut, date_emission, montant_ht, montant_tva, montant_ttc) VALUES
@@ -74,8 +75,8 @@ DO $$ BEGIN
     ('e9000000-0000-0000-0000-000000000003'::uuid, 'e0000000-0000-0000-0000-000000000001'::uuid, 'e1000000-0000-0000-0000-000000000001'::uuid, 'FPK-VKA-1', 'achat_pack_antigaspi', 'emise', '2026-05-05', 5000, 1000, 6000),
     ('e9000000-0000-0000-0000-000000000005'::uuid, 'e0000000-0000-0000-0000-000000000001'::uuid, 'e1000000-0000-0000-0000-000000000001'::uuid, 'FPK-VKA-2', 'achat_pack_antigaspi', 'emise', '2026-04-03', 3000, 600, 3600);
   INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, numero_facture, type, statut, date_emission, montant_ht, montant_tva, montant_ttc, facture_origine_id) VALUES
-    ('e9000000-0000-0000-0000-000000000002'::uuid, 'e0000000-0000-0000-0000-000000000001'::uuid, 'e1000000-0000-0000-0000-000000000001'::uuid, 'AVZD-VKA-1', 'avoir', 'emise', '2026-05-25',  50,  10,  60, 'e9000000-0000-0000-0000-000000000001'::uuid),
-    ('e9000000-0000-0000-0000-000000000004'::uuid, 'e0000000-0000-0000-0000-000000000001'::uuid, 'e1000000-0000-0000-0000-000000000001'::uuid, 'AVPK-VKA-1', 'avoir', 'emise', '2026-05-06', 500, 100, 600, 'e9000000-0000-0000-0000-000000000003'::uuid);
+    ('e9000000-0000-0000-0000-000000000002'::uuid, 'e0000000-0000-0000-0000-000000000001'::uuid, 'e1000000-0000-0000-0000-000000000001'::uuid, 'AVZD-VKA-1', 'avoir', 'emise', '2026-05-25',  -50,  -10,  -60, 'e9000000-0000-0000-0000-000000000001'::uuid),
+    ('e9000000-0000-0000-0000-000000000004'::uuid, 'e0000000-0000-0000-0000-000000000001'::uuid, 'e1000000-0000-0000-0000-000000000001'::uuid, 'AVPK-VKA-1', 'avoir', 'emise', '2026-05-06', -500, -100, -600, 'e9000000-0000-0000-0000-000000000003'::uuid);
 END $$;
 
 SET LOCAL session_replication_role = origin;
@@ -107,7 +108,7 @@ SELECT is(
      FROM plateforme.v_kpi_admin
     WHERE mois = '2026-05-01'::date AND type_collecte = 'zero_dechet'),
   250.00::numeric,
-  'T3 — CA ZD mai = 300 - 50 (avoir) = 250, factures par date_emission'
+  'T3 — CA ZD mai = 300 + (-50) (avoir stocké négatif) = 250 : l''avoir est soustrait, jamais ajouté'
 );
 
 -- ─── T4 : facture d'achat de pack seule (avril) ne crée pas de CA AG fantôme ─

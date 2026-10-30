@@ -7,7 +7,8 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 // Entités exportables (transverse D, §12 §2) + matrice d'autorisation par rôle.
 // Source : §12 §2 « Exports disponibles par profil ». La RLS scope les LIGNES ;
 // cette matrice scope la CAPACITÉ (un rôle non listé reçoit 403, même si la RLS
-// l'autoriserait à lire la donnée — ex. commercial exclu de Pesées).
+// l'autoriserait à lire la donnée). Commercial traiteur aligné sur le manager
+// (Val 2026-10-30), sauf Packs AG : la RLS de packs_antgaspi ne le lit pas.
 // Le gestionnaire de lieux exporte Collectes depuis sa liste Collectes (décision
 // Val 2026-10-07 : la liste Événements, qui portait son seul export, est retirée).
 // « Courses logistiques » (Admin only §12) est HORS V1 : dépend de tms.* inexistant.
@@ -43,7 +44,13 @@ export const EXPORT_MATRIX: Record<ExportEntity, AnyRole[]> = {
     'gestionnaire_lieux',
     'client_organisateur',
   ],
-  pesees: [...STAFF, 'traiteur_manager', 'agence', 'client_organisateur'],
+  pesees: [
+    ...STAFF,
+    'traiteur_manager',
+    'traiteur_commercial',
+    'agence',
+    'client_organisateur',
+  ],
   factures: [
     ...STAFF,
     'traiteur_manager',
@@ -52,10 +59,11 @@ export const EXPORT_MATRIX: Record<ExportEntity, AnyRole[]> = {
     'gestionnaire_lieux',
   ],
   'packs-ag': [...STAFF, 'traiteur_manager', 'agence', 'gestionnaire_lieux'],
-  'associations-ag': [...STAFF, 'traiteur_manager'],
+  'associations-ag': [...STAFF, 'traiteur_manager', 'traiteur_commercial'],
   'impact-rse': [
     ...STAFF,
     'traiteur_manager',
+    'traiteur_commercial',
     'agence',
     'gestionnaire_lieux',
     'client_organisateur',

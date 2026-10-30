@@ -67,7 +67,6 @@ describe('M3.1 — Mon organisation : filtres Factures en ligne', () => {
         'Informations légales',
         'Équipe',
         'Facturation',
-        'Préférences',
       ]);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Facturation' }));
       expect(screen.getByRole('tab', { name: 'Facturation' })).toHaveAttribute(

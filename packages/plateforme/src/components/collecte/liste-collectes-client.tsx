@@ -210,7 +210,6 @@ export function ListeCollectesClient({
   });
 
   const [role, setRole] = useState('');
-  const [userId, setUserId] = useState('');
 
   // Annulation (modale liste — réutilise l'endpoint de la fiche).
   const [annulTarget, setAnnulTarget] = useState<CollecteRow | null>(null);
@@ -224,7 +223,6 @@ export function ListeCollectesClient({
       if (!tok) return;
       const claims = parseJwt(tok);
       setRole(String(claims.user_role ?? ''));
-      setUserId(String(claims.sub ?? ''));
     });
   }, []);
 
@@ -460,9 +458,8 @@ export function ListeCollectesClient({
     // Programmée par un tiers : le traiteur opérationnel ne la modifie ni ne
     // l'annule (§06.04, décision Val 2026-10-10), comme sur la fiche.
     if (row.programmee_par_tiers) return false;
-    if (role === 'traiteur_manager') return true;
-    const evt = one(row.evenements);
-    return role === 'traiteur_commercial' && evt?.created_by === userId;
+    // Manager et commercial : toute l'organisation (Val 2026-10-30).
+    return role === 'traiteur_manager' || role === 'traiteur_commercial';
   }
 
   async function confirmerAnnulation(motif: string) {
@@ -520,8 +517,8 @@ export function ListeCollectesClient({
           nb_repas_donnes: c.nb_repas_donnes,
         };
       }),
-    // canWrite dépend de role / userId (claims JWT chargés après coup).
-    [rows, role, userId],
+    // canWrite dépend du rôle (claims JWT chargés après coup).
+    [rows, role],
   );
 
   const colonnes = useMemo(

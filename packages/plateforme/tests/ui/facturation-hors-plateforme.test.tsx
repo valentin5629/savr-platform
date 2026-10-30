@@ -101,11 +101,7 @@ describe('facturation_hors_plateforme — Mon organisation', () => {
       const fetchMock = stubFetchProfil();
       render(<MonOrganisationClient isManager userId="u1" />);
 
-      expect(nomsOnglets()).toEqual([
-        'Informations légales',
-        'Équipe',
-        'Préférences',
-      ]);
+      expect(nomsOnglets()).toEqual(['Informations légales', 'Équipe']);
       // Gardée : le SIRET vérifié de l'entité est requis pour l'attestation AG.
       expect(
         await screen.findByText('Entités de facturation', {}, ATTENTE_UI),

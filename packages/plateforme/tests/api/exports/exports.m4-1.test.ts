@@ -153,9 +153,19 @@ describe('M4.1 / garde', () => {
 
 // ── Matrice d'autorisation (P1) ──────────────────────────────────────────────
 describe('M4.1 / matrice_exports_csv_par_profil', () => {
-  it('commercial → pesees : 403 (non autorisé)', async () => {
+  // Val 2026-10-30 : le commercial exporte comme le manager, sauf Packs AG
+  // (la RLS de packs_antgaspi ne lui ouvre pas la table).
+  it('commercial → pesees : 200, sous sa session', async () => {
     setupAuth('traiteur_commercial');
-    expect((await call('pesees')).status).toBe(403);
+    rls.push({ data: [], error: null });
+    const res = await call('pesees');
+    expect(res.status).toBe(200);
+    expect(mockCreateAdmin).not.toHaveBeenCalled();
+  });
+
+  it('commercial → packs-ag : 403 (non autorisé)', async () => {
+    setupAuth('traiteur_commercial');
+    expect((await call('packs-ag')).status).toBe(403);
   });
 
   // Décision Val 2026-10-07 : la liste Événements du gestionnaire est retirée,

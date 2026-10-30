@@ -261,12 +261,9 @@ export async function PATCH(
     );
   }
 
-  // Périmètre d'ÉCRITURE — miroir des policies evt_*_update (§09) :
-  // commercial = ses propres créations ; manager/agence/gestionnaire = son orga.
-  const autorise =
-    auth.ctx.role === 'traiteur_commercial'
-      ? evt.created_by === auth.ctx.userId
-      : evt.organisation_id === auth.ctx.organisationId;
+  // Périmètre d'ÉCRITURE : l'organisation, pour tous les programmateurs
+  // (Val 2026-10-30 : le commercial écrit comme le manager, sur toute son organisation.)
+  const autorise = evt.organisation_id === auth.ctx.organisationId;
   if (!autorise) {
     return NextResponse.json(
       { error: 'Modification non autorisée' },
@@ -407,15 +404,12 @@ export async function PATCH(
 }
 
 // Rôles clients dont le DELETE brouillon est borné à leurs PROPRES créations
-// (`created_by = auth.uid()`, matrice §09 tranchée Val 2026-09-14). Absent de cette
-// liste : `traiteur_manager`, dont la matrice accorde le périmètre organisation, et
-// le staff (`admin_savr`/`ops_savr`), global. La garde qui s'appuie dessus est
+// (`created_by = auth.uid()`, matrice §09 tranchée Val 2026-09-14). Absents de cette
+// liste : `traiteur_manager` et `traiteur_commercial` (aligné sur le manager, Val
+// 2026-10-30), qui ont le périmètre organisation, et le staff (`admin_savr`/`ops_savr`),
+// global. La garde qui s'appuie dessus est
 // APPLICATIVE par nécessité : la route DELETE tourne en service-role.
-const DELETE_ROLES_PROPRIETAIRE: string[] = [
-  'traiteur_commercial',
-  'agence',
-  'gestionnaire_lieux',
-];
+const DELETE_ROLES_PROPRIETAIRE: string[] = ['agence', 'gestionnaire_lieux'];
 
 // Suppression d'un événement brouillon (et ses collectes) par son propriétaire.
 // Ouverte à l'admin en mode support, comme la liste qui l'appelle : depuis que
@@ -455,9 +449,9 @@ export async function DELETE(
 
   // Périmètre d'ÉCRITURE — matrice DELETE `evenements` §09 (tranché Val 2026-09-14,
   // divergences `M1.2_20260717` / `M1.2_20260717_delete-service-role`) : « chacun
-  // supprime ses propres brouillons ». `traiteur_commercial`, `agence` et
-  // `gestionnaire_lieux` sont bornés à `created_by = auth.uid()` ; seul
-  // `traiteur_manager` garde le périmètre organisation (déjà posé par le SELECT
+  // supprime ses propres brouillons ». `agence` et `gestionnaire_lieux` sont
+  // bornés à `created_by = auth.uid()` ; `traiteur_manager` et `traiteur_commercial`
+  // (Val 2026-10-30) gardent le périmètre organisation (déjà posé par le SELECT
   // ci-dessus), et le staff reste global. Le §09 exige explicitement que cette
   // matrice soit posée en garde de rôle APPLICATIVE (403) et pas seulement en
   // policy : la route tourne sous service-role, la RLS est bypassée et ne rattrape

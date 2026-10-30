@@ -53,23 +53,9 @@ export async function PATCH(
     );
   }
 
-  // Périmètre d'ÉCRITURE — miroir des policies `evt_commercial_update` /
-  // `col_delete_brouillon` (§09) : `traiteur_commercial` = ses propres créations.
-  // La confirmation est une écriture à effets réels (transition brouillon→programmee,
-  // émission E1 vers le TMS ; le crédit pack AG, lui, n'est débité qu'à la
-  // réalisation) : sans cette garde, un
-  // commercial confirmerait — et dispatcherait/facturerait — le brouillon d'un
-  // collègue. Miroir strict du DELETE et du PATCH d'édition ; RLS ne rattrape pas
-  // (route sous service-role).
-  if (
-    auth.ctx.role === 'traiteur_commercial' &&
-    evt.created_by !== auth.ctx.userId
-  ) {
-    return NextResponse.json(
-      { error: 'Confirmation non autorisée' },
-      { status: 403 },
-    );
-  }
+  // Périmètre d'ÉCRITURE : le commercial confirme les brouillons de toute son
+  // organisation, comme le manager (Val 2026-10-30). Le prédicat organisation
+  // est posé par la lecture ci-dessus (route sous service-role).
 
   // Vérification collectes brouillon présentes
   const { data: collectes } = await supabase

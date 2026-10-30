@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+} from 'react';
 import {
   CalendarDotsIcon,
   ChefHatIcon,
@@ -98,8 +104,8 @@ import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
 
 // Fiche événement, en pop-up sur la liste Événements, commune aux espaces qui
 // ont une fiche collecte client (gestionnaire, traiteur, agence : décision Val
-// 2026-10-29, « même fiche pour tous ») ; benchmark et déchets labo estimés au
-// gestionnaire seul. Née dans l'espace gestionnaire de lieux,
+// 2026-10-29, « même fiche pour tous ») ; radar de comparaison pour tous
+// (Val 2026-10-30), déchets labo estimés au gestionnaire seul. Née dans l'espace gestionnaire de lieux,
 // au grand format de la variante B (décision Val 2026-10-27 : grand en-tête,
 // onglets soulignés dans l'en-tête, seul le corps défile, sections en lignes).
 // Trois onglets (décision Val 2026-10-26), au format de la fiche collecte :
@@ -250,12 +256,34 @@ function LiensBilans({
   );
 }
 
+// Barre « Comparer avec » du radar, réglée comme celle de la fiche collecte de
+// chaque espace : lieux rattachés du gestionnaire, parc pour le traiteur et
+// l'agence, options Admin pour le staff ; l'organisateur, à qui la base ne
+// donne pas la liste des lieux, compare sur le type et la taille.
+type BarreRadar = Pick<
+  ComponentProps<typeof BenchmarkFilterBar>,
+  | 'perimetre'
+  | 'filtresEndpoint'
+  | 'avertissementComparaisonSoi'
+  | 'masquerLieux'
+>;
+const BARRE_RADAR: Record<EspaceFiche, BarreRadar> = {
+  gestionnaire: { perimetre: 'rattache' },
+  traiteur: { perimetre: 'parc' },
+  agence: { perimetre: 'parc' },
+  admin: {
+    filtresEndpoint: '/api/v1/admin/dashboard-client/benchmark/filtres',
+    avertissementComparaisonSoi: false,
+  },
+  organisateur: { masquerLieux: true, avertissementComparaisonSoi: false },
+};
+
 /**
  * Bilan consolidé : cumul des collectes réalisées de l'événement, au format de
  * l'onglet « Bilan & documents » de la fiche collecte (décision Val
  * 2026-10-26) — bandeau d'attente, chiffres clés estompés tant qu'aucune
- * collecte du type n'est réalisée, répartition des tonnages. Le radar de
- * comparaison reste propre à chaque collecte (filtres par collecte).
+ * collecte du type n'est réalisée, répartition des tonnages, et radar de
+ * comparaison du cumul ZD face au parc (tous les rôles, Val 2026-10-30).
  */
 function BilanConsolide({
   b,
@@ -265,6 +293,7 @@ function BilanConsolide({
   actives,
   onOuvrirBilan,
   radar,
+  barre,
   filtresInitiaux,
 }: {
   b: BilanEvenement;
@@ -275,6 +304,7 @@ function BilanConsolide({
   actives: FicheCollecteClient[];
   onOuvrirBilan?: (id: string) => void;
   radar: RadarFiche;
+  barre: BarreRadar;
   // Filtres sur lesquels s'ouvre la barre « Comparer avec » du radar.
   filtresInitiaux: { typeEvenementIds: string[]; tailleCodes: string[] };
 }) {
@@ -384,7 +414,7 @@ function BilanConsolide({
                         <BenchmarkFilterBar
                           masquerTraiteurs
                           disposition="pastilles"
-                          perimetre="rattache"
+                          {...barre}
                           onChange={radar.setFiltres}
                           initialFilters={radar.filtres ?? undefined}
                           initialTypeEvenementIds={
@@ -592,6 +622,27 @@ function DocumentsEvenement({
                     : 'Récapitulatif des collectes réalisées, sans valeur fiscale : les rapports de don de chaque collecte font foi'}
               </Text>
             </div>
+            {/* Case du radar à gauche de « Télécharger », pour qu'on la voie
+                (Val 2026-10-30). */}
+            {nbRealisees > 0 && choixRadarPossible && (
+              <div data-testid="option-rapport-evenement-radar">
+                <Label
+                  variant="choice"
+                  htmlFor="rapport-evenement-avec-radar"
+                  className="flex items-center gap-2"
+                >
+                  <Checkbox
+                    id="rapport-evenement-avec-radar"
+                    checked={avecRadar}
+                    onCheckedChange={(v) => setAvecRadar(v === true)}
+                  />
+                  Inclure le radar de comparaison
+                </Label>
+                <Text variant="hint" className="mt-1">
+                  Les filtres utilisés ci-dessus seront repris
+                </Text>
+              </div>
+            )}
             <Button
               variant="secondary"
               // Radar demandé : on attend les filtres de la barre (sans eux, le
@@ -607,29 +658,6 @@ function DocumentsEvenement({
             >
               Télécharger
             </Button>
-            {nbRealisees > 0 && choixRadarPossible && (
-              <div
-                className="basis-full"
-                data-testid="option-rapport-evenement-radar"
-              >
-                <Label
-                  variant="choice"
-                  htmlFor="rapport-evenement-avec-radar"
-                  className="flex items-center gap-2"
-                >
-                  <Checkbox
-                    id="rapport-evenement-avec-radar"
-                    checked={avecRadar}
-                    onCheckedChange={(v) => setAvecRadar(v === true)}
-                  />
-                  Inclure le radar de comparaison dans le rapport
-                </Label>
-                <Text className="mt-1">
-                  Le radar du rapport reprend les filtres de comparaison réglés
-                  ci-dessus.
-                </Text>
-              </div>
-            )}
           </div>
         )}
         {actives.map((f) => (
@@ -841,7 +869,7 @@ export function FicheEvenementModal({
   evenementId: string;
   /**
    * Espace de l'appelant. Gestionnaire, traiteur, agence : fiche collecte
-   * client par-dessus, par les routes de son espace ; radar au gestionnaire.
+   * client par-dessus, par les routes de son espace.
    * Admin : fiche collecte Admin par-dessus ; organisateur : aucune.
    */
   espace: EspaceFiche;
@@ -987,8 +1015,8 @@ export function FicheEvenementModal({
   // filtre ; ses filtres servent aussi le rapport cumulé avec radar.
   const radar = useRadarFiche(
     `/api/v1/evenements/${encodeURIComponent(evenementId)}/benchmark`,
-    // Benchmark comparatif : gestionnaire seul (décision Val 2026-10-29).
-    espace === 'gestionnaire' && b && b.nb_realisees_zd > 0
+    // Radar pour tous les rôles (décision Val 2026-10-30).
+    b && b.nb_realisees_zd > 0
       ? { type: 'zero_dechet', statut: STATUT_BILAN }
       : null,
   );
@@ -1265,6 +1293,7 @@ export function FicheEvenementModal({
                     ouvrable ? (id) => ouvrirCollecte(id, 'bilan') : undefined
                   }
                   radar={radar}
+                  barre={BARRE_RADAR[espace]}
                   filtresInitiaux={{
                     // Types d'événement de ses collectes ZD, taille de
                     // l'événement : le segment sur lequel le radar s'ouvre.

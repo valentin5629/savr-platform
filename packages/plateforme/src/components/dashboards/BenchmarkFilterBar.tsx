@@ -85,6 +85,11 @@ interface BenchmarkFilterBarProps {
   /** Masque le filtre Traiteurs même pour un rôle qui y a droit (fiche collecte). */
   masquerTraiteurs?: boolean;
   /**
+   * Masque le filtre Lieux : client organisateur, à qui la base ne donne pas la
+   * liste des lieux du parc (radar de la fiche événement, Val 2026-10-30).
+   */
+  masquerLieux?: boolean;
+  /**
    * Avertissement « comparaison à soi-même » (§06.05 l.176) quand Lieux ou
    * Traiteurs sont filtrés. `false` pour l'Admin, qui compare deux périmètres du
    * parc et n'a pas de « propres » lieux ou traiteurs.
@@ -144,6 +149,7 @@ export function BenchmarkFilterBar({
   initialTailleCodes,
   initialOptions,
   masquerTraiteurs = false,
+  masquerLieux = false,
   avertissementComparaisonSoi = true,
   perimetre = 'parc',
   initialFilters,
@@ -253,16 +259,18 @@ export function BenchmarkFilterBar({
           declencheurClassName={pastille}
           libelleVide={VIDE_PASTILLE.taille}
         />
-        <FiltreCoches
-          label="Lieux"
-          options={lieux}
-          selected={filters.lieu_ids}
-          onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
-          testid="benchmark-filter-lieux"
-          declencheurClassName={pastille}
-          {...listes}
-          libelleVide={VIDE_PASTILLE.lieux}
-        />
+        {!masquerLieux && (
+          <FiltreCoches
+            label="Lieux"
+            options={lieux}
+            selected={filters.lieu_ids}
+            onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
+            testid="benchmark-filter-lieux"
+            declencheurClassName={pastille}
+            {...listes}
+            libelleVide={VIDE_PASTILLE.lieux}
+          />
+        )}
         {/* Filtre traiteurs masqué pour les rôles traiteur (liste vide renvoyée). */}
         {traiteursVisibles && (
           <FiltreCoches
@@ -316,14 +324,16 @@ export function BenchmarkFilterBar({
           onChange={(ids) => apply({ ...filters, taille_evenement_codes: ids })}
           testid="benchmark-filter-taille"
         />
-        <FiltreCoches
-          label="Lieux"
-          options={lieux}
-          selected={filters.lieu_ids}
-          onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
-          testid="benchmark-filter-lieux"
-          {...listes}
-        />
+        {!masquerLieux && (
+          <FiltreCoches
+            label="Lieux"
+            options={lieux}
+            selected={filters.lieu_ids}
+            onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
+            testid="benchmark-filter-lieux"
+            {...listes}
+          />
+        )}
         {/* Filtre traiteurs masqué pour les rôles traiteur (liste vide renvoyée). */}
         {traiteursVisibles && (
           <FiltreCoches

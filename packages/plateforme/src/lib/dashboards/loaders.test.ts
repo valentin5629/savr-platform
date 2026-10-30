@@ -6,7 +6,7 @@
  * loaders qui font l'I/O (fenêtre N-1 kpi, strip marge agence, garde traiteur_ids
  * benchmark, marge en attente) via un faux client Supabase (chaînage + rpc).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   topLieuxFrom,
   aggregateActeurs,
@@ -74,6 +74,10 @@ const CTX_TRAITEUR: LoaderCtx = {
 };
 const CTX_AGENCE: LoaderCtx = { ...CTX_TRAITEUR, role: 'agence' };
 const CTX_GEST: LoaderCtx = { ...CTX_TRAITEUR, role: 'gestionnaire_lieux' };
+const CTX_ORGANISATEUR: LoaderCtx = {
+  ...CTX_TRAITEUR,
+  role: 'client_organisateur',
+};
 
 // Ligne « collecte historique » minimale pour les transforms (evenements + flux).
 function coll(over: Record<string, unknown> = {}) {
@@ -293,6 +297,28 @@ describe('loaders — I/O (faux Supabase)', () => {
     await expect(
       loadBenchmark(supabase, CTX_TRAITEUR, { traiteurIds: ['x'] }),
     ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('loadBenchmark rejette traiteur_ids pour le client organisateur (radar de la fiche événement, Val 2026-10-30)', async () => {
+    const supabase = makeSupabase({ rpc: { f_benchmark_kg_pax_zd: [] } });
+    await expect(
+      loadBenchmark(supabase, CTX_ORGANISATEUR, { traiteurIds: ['x'] }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('loadBenchmarkFiltres (client organisateur) : types seuls, ni lieux du parc ni traiteurs, liste des lieux jamais demandée', async () => {
+    const supabase = makeSupabase({
+      rpc: { f_benchmark_lieux_parc: [{ id: 'L1', nom: 'Lieu A' }] },
+      tables: { types_evenements: [{ id: 'ty1', libelle: 'Gala' }] },
+    });
+    const rpc = vi.spyOn(supabase, 'rpc');
+    const res = await loadBenchmarkFiltres(supabase, CTX_ORGANISATEUR);
+    expect(res).toEqual({
+      lieux: [],
+      traiteurs: [],
+      types: [{ id: 'ty1', libelle: 'Gala' }],
+    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('loadBenchmark autorise traiteur_ids pour le gestionnaire + passe la RPC', async () => {

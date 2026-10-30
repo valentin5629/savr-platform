@@ -8,6 +8,7 @@
  *  - radar ZD avec sa barre « Comparer avec », à l'écran ; la case « Inclure
  *    le radar » envoie les filtres réglés avec la demande du rapport.
  */
+import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   fireEvent,
@@ -159,10 +160,12 @@ const demandes = (mock: ReturnType<typeof stubFetch>) =>
       corps: JSON.parse((init as { body: string }).body),
     }));
 
-async function ouvrirBilan() {
+async function ouvrirBilan(
+  espace: ComponentProps<typeof FicheEvenementModal>['espace'] = 'gestionnaire',
+) {
   render(
     <FicheEvenementModal
-      espace="gestionnaire"
+      espace={espace}
       evenementId={EVT_ID}
       onClose={vi.fn()}
     />,
@@ -176,7 +179,7 @@ const telecharger = (ligne: HTMLElement) =>
   within(ligne).getByRole('button', { name: 'Télécharger' });
 const caseRadar = () =>
   screen.getByRole('checkbox', {
-    name: 'Inclure le radar de comparaison dans le rapport',
+    name: 'Inclure le radar de comparaison',
   });
 
 beforeEach(() => {
@@ -227,6 +230,37 @@ describe('M3.2 / fiche Événement — répartition et radar sur la même ligne 
   );
 });
 
+describe('M3.2 / fiche Événement — radar pour tous les rôles (Val 2026-10-30)', () => {
+  it.each([
+    ['traiteur', '/api/v1/dashboards/benchmark/filtres', true],
+    ['agence', '/api/v1/dashboards/benchmark/filtres', true],
+    ['admin', '/api/v1/admin/dashboard-client/benchmark/filtres', true],
+    ['organisateur', '/api/v1/dashboards/benchmark/filtres', false],
+  ] as const)(
+    'EVT/radar_tous_roles — %s : radar et barre « Comparer avec » de son espace',
+    async (espace, filtres, lieux) => {
+      const mock = stubFetch(detail());
+      await ouvrirBilan(espace);
+      const radar = await screen.findByTestId(
+        'radar-evenement',
+        undefined,
+        ATTENTE_UI,
+      );
+      const urls = mock.mock.calls.map(([u]) => String(u));
+      expect(urls).toContain(filtres);
+      expect(urls.some((u) => u.startsWith(`${BASE}/benchmark?`))).toBe(true);
+      // Organisateur : la base ne lui donne pas la liste des lieux du parc.
+      expect(
+        within(radar).queryByTestId('benchmark-filter-lieux') !== null,
+      ).toBe(lieux);
+      expect(
+        within(radar).queryByTestId('benchmark-filter-traiteurs'),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('M3.2 / fiche Événement — rapports cumulés', () => {
   it(
     'EVT/rapport_cumule_zd — ligne « Rapport RSE de l’événement » en tête, fabriqué au clic sans radar par défaut',
@@ -250,6 +284,15 @@ describe('M3.2 / fiche Événement — rapports cumulés', () => {
           .getAttribute('src'),
       ).toMatch(/^\/api\/v1\/evenements\/[^/]+\/logo-client\?v=0$/);
       expect(caseRadar().getAttribute('aria-checked')).toBe('false');
+      // Case à gauche de « Télécharger », filtres rappelés dessous (Val 2026-10-30).
+      const option = screen.getByTestId('option-rapport-evenement-radar');
+      expect(
+        option.compareDocumentPosition(telecharger(ligne)) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(option).toHaveTextContent(
+        'Les filtres utilisés ci-dessus seront repris',
+      );
       fireEvent.click(telecharger(ligne));
       await waitFor(
         () => expect(URL.createObjectURL).toHaveBeenCalledTimes(1),

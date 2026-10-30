@@ -43,6 +43,7 @@ import {
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
+import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
 import {
   ouvrirRapportDeDon,
   telechargerRapportRecyclage,
@@ -695,6 +696,17 @@ export function OngletBilan({
         barre={{ perimetre: espace === 'gestionnaire' ? 'rattache' : 'parc' }}
         actionRadar={actionRadar}
       />
+
+      {/* Logo du client imprimé sur les rapports (Val 2026-10-30) : déposé
+          par tout utilisateur qui peut télécharger le rapport. */}
+      {!reserve && (
+        <Card className="px-5 py-0.5">
+          <LogoClientRapport
+            id="fiche-logo-client"
+            endpoint={`/api/v1/${encodeURIComponent(espace)}/collectes/${encodeURIComponent(c.id)}/logo-client`}
+          />
+        </Card>
+      )}
 
       {/* Le rapport se télécharge depuis le pied. Restent ici : le rapport
           réservé au donneur d'ordre (pas de bouton, D12) et les factures. */}

@@ -1,7 +1,8 @@
 /**
  * M1.6 — Cascade de résolution du logo client dans les rapports PDF (§12 §1.2, BL-P2-19).
- * Priorité : agence programmatrice prime → client organisateur (compte Savr, sinon
- * upload) → traiteur opérationnel → Savr. Pas d'override branding pour gestionnaire.
+ * Priorité (Val 2026-10-30) : logo déposé sur l'événement → agence programmatrice →
+ * client organisateur (compte Savr) → traiteur opérationnel → Savr. Pas d'override
+ * branding pour gestionnaire.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -23,32 +24,43 @@ const GESTIONNAIRE = {
 const CLIENT_ORGA = { logo_url: 'https://cdn/client.png' };
 
 describe('M1.6 / cascade logo rapport §1.2 (BL-P2-19)', () => {
-  it('1. agence programmatrice → logo agence prime (même si client orga + traiteur présents)', () => {
+  it('0. logo déposé sur l’événement → il prime sur l’agence, le compte client et le traiteur', () => {
     const r = resolveRapportLogo({
       programmateur: AGENCE,
       client_organisateur: CLIENT_ORGA,
       evenement_logo_client_url: 'https://cdn/upload.png',
       traiteur_operationnel: TRAITEUR,
     });
+    expect(r.source).toBe('client_organisateur_upload');
+    expect(r.logo_url).toBe('https://cdn/upload.png');
+  });
+
+  it('1. sans logo déposé, agence programmatrice → logo agence (même si client orga + traiteur présents)', () => {
+    const r = resolveRapportLogo({
+      programmateur: AGENCE,
+      client_organisateur: CLIENT_ORGA,
+      evenement_logo_client_url: '  ',
+      traiteur_operationnel: TRAITEUR,
+    });
     expect(r.source).toBe('agence');
     expect(r.logo_url).toBe('https://cdn/agence.png');
   });
 
-  it('2. pas d’agence + client organisateur (compte Savr) → logo du compte client', () => {
+  it('2. pas de logo déposé ni d’agence + client organisateur (compte Savr) → logo du compte client', () => {
     const r = resolveRapportLogo({
       programmateur: TRAITEUR,
       client_organisateur: CLIENT_ORGA,
-      evenement_logo_client_url: 'https://cdn/upload.png',
+      evenement_logo_client_url: null,
       traiteur_operationnel: TRAITEUR,
     });
     expect(r.source).toBe('client_organisateur_compte');
     expect(r.logo_url).toBe('https://cdn/client.png');
   });
 
-  it('3. pas de compte client → logo uploadé par le traiteur (evenements.logo_client_organisateur_url)', () => {
+  it('3. logo déposé sur l’événement, même avec un compte client → logo déposé', () => {
     const r = resolveRapportLogo({
       programmateur: TRAITEUR,
-      client_organisateur: null,
+      client_organisateur: CLIENT_ORGA,
       evenement_logo_client_url: 'https://cdn/upload.png',
       traiteur_operationnel: TRAITEUR,
     });
@@ -133,7 +145,6 @@ describe('M1.6 / logos du rapport de recyclage @3 — client et traiteur', () =>
       resolveRapportLogos({
         programmateur: AGENCE,
         client_organisateur: CLIENT_ORGA,
-        evenement_logo_client_url: 'https://cdn/upload.png',
         traiteur_operationnel: TRAITEUR,
       }),
     ).toEqual({
@@ -142,7 +153,21 @@ describe('M1.6 / logos du rapport de recyclage @3 — client et traiteur', () =>
     });
   });
 
-  it('sans compte client : logo déposé à la programmation ; sans aucun logo client, l’emplacement reste vide', () => {
+  it('logo déposé sur l’événement : il prend l’emplacement client même face à une agence', () => {
+    expect(
+      resolveRapportLogos({
+        programmateur: AGENCE,
+        client_organisateur: CLIENT_ORGA,
+        evenement_logo_client_url: 'https://cdn/upload.png',
+        traiteur_operationnel: TRAITEUR,
+      }),
+    ).toEqual({
+      client: 'https://cdn/upload.png',
+      traiteur: 'https://cdn/traiteur.png',
+    });
+  });
+
+  it('sans compte client : logo déposé sur l’événement ; sans aucun logo client, l’emplacement reste vide', () => {
     expect(
       resolveRapportLogos({
         programmateur: TRAITEUR,

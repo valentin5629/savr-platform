@@ -11,6 +11,12 @@ vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Inline du logo : pas de lecture R2 en test, la clé est rendue lisible.
+vi.mock('../../src/lib/pdf/logo-inline.js', () => ({
+  makeLogoResolver: () => async (cle: string | null | undefined) =>
+    cle ? `data:${cle}` : null,
+}));
+
 import { runBatchPdfJ1Ag } from '../../src/lib/pdf/batch-pdf-j1-ag.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 
@@ -908,4 +914,76 @@ describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
       expect((await variablesEnvoyees()).nom_evenement).toBe('Votre événement');
     },
   );
+});
+
+describe('attestation de don — logo du client (Val 2026-10-30)', () => {
+  function sbPour(collecte: unknown) {
+    return makeSupabase([
+      { data: [collecte], error: null },
+      { data: [], error: null },
+      {
+        data: [
+          {
+            id: 'entite-1',
+            organisation_id: 'org-1',
+            raison_sociale: 'Kaspia SAS',
+            siret: '12345678900001',
+            siret_verification: 'verifie',
+          },
+        ],
+        error: null,
+      },
+      { data: 'ATT-DON-2026-00001', error: null },
+      { data: { id: 'att-new' }, error: null },
+      { data: null, error: null },
+      { data: { email_principal: 'chef@kaspia.fr' }, error: null },
+    ]);
+  }
+  function payloadJob(sb: ReturnType<typeof makeSupabase>) {
+    const calls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    return calls.find((c) => c[0].type_document !== undefined)![0]
+      .payload as Record<string, unknown>;
+  }
+  const base = makeCollecteAg();
+
+  it('logo déposé sur l’événement → imprimé, devant celui du compte client', async () => {
+    const sb = sbPour({
+      ...base,
+      evenements: {
+        ...base.evenements,
+        logo_client_organisateur_url: 'cle-deposee',
+        organisations: { type: 'traiteur', logo_url: 'cle-traiteur' },
+        traiteur_operationnel: null,
+        client_organisateur: { logo_url: 'cle-compte-client' },
+      },
+    });
+    await runBatchPdfJ1Ag(sb as never);
+    expect(payloadJob(sb).logo_client_url).toBe('data:cle-deposee');
+  });
+
+  it('seul le traiteur a un logo → aucun logo client (le traiteur ne prend pas la place)', async () => {
+    const sb = sbPour({
+      ...base,
+      evenements: {
+        ...base.evenements,
+        logo_client_organisateur_url: null,
+        organisations: { type: 'traiteur', logo_url: 'cle-traiteur' },
+        traiteur_operationnel: null,
+        client_organisateur: null,
+      },
+    });
+    await runBatchPdfJ1Ag(sb as never);
+    expect(payloadJob(sb).logo_client_url).toBeNull();
+  });
+
+  it('sélectionne les logos de l’événement dans la lecture des collectes', () => {
+    const src = readFileSync(
+      fileURLToPath(
+        new URL('../../src/lib/pdf/batch-pdf-j1-ag.ts', import.meta.url),
+      ),
+      'utf8',
+    );
+    expect(src).toContain('${SELECT_LOGOS_EVENEMENT}');
+  });
 });

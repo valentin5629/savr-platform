@@ -1198,6 +1198,35 @@ describe('M3.1 / pop-up — attestation du donneur d’ordre (D12)', () => {
       expect(docs.textContent).not.toContain('48h');
       expect(docs.textContent).not.toContain('En cours de préparation');
       expect(screen.queryByTestId('action-telecharger-rapport')).toBeNull();
+      // Pas de téléchargement, donc pas de dépôt du logo du client.
+      expect(screen.queryByTestId('logo-client-rapport')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('logo du client imprimé sur les rapports (Val 2026-10-30)', () => {
+  it(
+    'fiche client : ligne « Logo du client » dans l’onglet Bilan, branchée sur la route de l’espace',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          repas_donnes: 840,
+        }),
+      );
+      render(fiche('c1'));
+      await ouvrirOnglet('Bilan & documents');
+      const ligne = await screen.findByTestId(
+        'logo-client-rapport',
+        {},
+        ATTENTE_UI,
+      );
+      expect(ligne.textContent).toContain('Logo du client');
+      expect(ligne.querySelector('img')!.getAttribute('src')).toMatch(
+        /^\/api\/v1\/traiteur\/collectes\/c1\/logo-client\?v=0$/,
+      );
     },
     ATTENTE_CAS_MS,
   );

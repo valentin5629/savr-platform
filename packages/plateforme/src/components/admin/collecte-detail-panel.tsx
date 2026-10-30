@@ -125,6 +125,8 @@ import { FileButton } from '@/components/ui/file-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { telechargerRapportRecyclage } from '@/lib/collectes/rapport-telechargement-client';
 import { Label } from '@/components/ui/label';
+import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
+import { STATUTS_ANNULES } from '@/lib/collectes/fiche-client-types';
 import { MAX_PHOTOS_CLIENT } from '@/lib/collectes/photos-client';
 import {
   BilanCollecte,
@@ -3064,6 +3066,14 @@ export function CollecteDetailPanel({
               {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
               <div className="divide-y divide-savr-neutral-100">
+                {/* Logo du client imprimé sur les rapports (Val 2026-10-30) :
+                      avant le téléchargement, sauf sur une collecte annulée. */}
+                {collecte && !STATUTS_ANNULES.includes(collecte.statut) && (
+                  <LogoClientRapport
+                    id="admin-logo-client"
+                    endpoint={`/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/logo-client`}
+                  />
+                )}
                 {/* Rapport : « Rapport RSE » (ZD) ou « Rapport de don » (AG sans excédents) */}
                 {afficherRapport && (
                   <div className="flex flex-wrap items-center gap-3 py-3">

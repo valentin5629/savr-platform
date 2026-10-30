@@ -85,28 +85,6 @@ const EvolutionAgChart = React.forwardRef<
     .filter((v): v is readonly [number, number, number] => v !== null);
 
   const gridT = [0, 0.5, 1];
-  const dernierRatio = ratioPts[ratioPts.length - 1];
-
-  // Pic de la période annoté au-dessus de sa barre, sauf s'il touche la
-  // courbe du ratio (ou l'étiquette de son dernier point) dans sa colonne.
-  const iPic = series.reduce(
-    (best, p, i) =>
-      (p.repas_donnes || 0) > (series[best]?.repas_donnes || 0) ? i : best,
-    0,
-  );
-  const repasPic = series[iPic]?.repas_donnes || 0;
-  const yPic = BASE - (repasPic / repasMax) * PLOT_H;
-  const afficherPic =
-    series.length > 1 &&
-    repasPic > 0 &&
-    !hidden.has('repas') &&
-    !(() => {
-      if (hidden.has('ratio')) return false;
-      const pt = ratioPts.find(([, , i]) => i === iPic);
-      if (!pt) return false;
-      if (Math.abs(pt[1] - (yPic - 8)) < 12) return true;
-      return pt === dernierRatio && Math.abs(pt[1] - 7 - (yPic - 5)) < 14;
-    })();
 
   return (
     <ChartCard
@@ -223,22 +201,6 @@ const EvolutionAgChart = React.forwardRef<
                   />
                 );
               })}
-            {afficherPic && (
-              <text
-                x={cx(iPic)}
-                y={yPic - 5}
-                textAnchor="middle"
-                className="tabular-nums"
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  fill: TEXT_MUTED,
-                  pointerEvents: 'none',
-                }}
-              >
-                {`${fmtInt(repasPic)} repas`}
-              </text>
-            )}
 
             {/* courbe ratio repas/pax (navy pointillée) — masquable via légende */}
             {ratioPts.length > 0 && !hidden.has('ratio') && (
@@ -270,27 +232,6 @@ const EvolutionAgChart = React.forwardRef<
                     />
                   );
                 })}
-                {/* Dernière valeur écrite au bout de la courbe. */}
-                {dernierRatio && (
-                  <text
-                    x={dernierRatio[0]}
-                    y={dernierRatio[1] - 7}
-                    textAnchor="middle"
-                    className="tabular-nums"
-                    stroke={WHITE}
-                    strokeWidth={3}
-                    strokeLinejoin="round"
-                    paintOrder="stroke"
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      fill: RATIO_COLOR,
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    {fmtDec(series[dernierRatio[2]]!.ratio ?? 0, 2)}
-                  </text>
-                )}
               </g>
             )}
 

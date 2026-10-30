@@ -182,21 +182,12 @@ it('EvolutionZdChart — rend des barres + la courbe taux, ou un état vide', ()
   ).toBeInTheDocument();
 });
 
-it('EvolutionZdChart — annote le pic et écrit le dernier taux au bout de la courbe', () => {
+it('EvolutionZdChart — aucune valeur écrite sur le graphique (ni pic, ni dernier taux)', () => {
   render(<EvolutionZdChart series={zd} granularite="mois" />);
-  // Pic = juillet, 10 410 kg.
-  expect(screen.getByText(/^10,4\s*t$/)).toBeInTheDocument();
-  // Dernier taux = 85 %.
-  expect(screen.getByText(/^85\s*%$/)).toBeInTheDocument();
+  // Retour Val 2026-10-30 : une seule valeur écrite sur le graphique prête à confusion.
+  expect(screen.queryByText(/^10,4\s*t$/)).toBeNull();
+  expect(screen.queryByText(/^85\s*%$/)).toBeNull();
 });
-
-it('EvolutionZdChart — le pic suit les flux affichés par la légende', () => {
-  render(<EvolutionZdChart series={zd} granularite="mois" />);
-  fireEvent.click(screen.getByRole('button', { name: /Biodéchets/ }));
-  // Juillet sans biodéchets : 10 410 − 5 150 = 5 260 kg.
-  expect(screen.getByText(/^5\s260 kg$/)).toBeInTheDocument();
-});
-
 it('EvolutionZdChart — état vide sans série', () => {
   render(<EvolutionZdChart series={[]} granularite="mois" />);
   expect(screen.getByText(/Aucune collecte ZD/)).toBeInTheDocument();
@@ -353,29 +344,12 @@ it('EvolutionAgChart — rend des barres repas + la courbe ratio', () => {
   expect(screen.getByText(/Évolution Anti-Gaspi/)).toBeInTheDocument();
 });
 
-it('EvolutionAgChart — pas d’annotation du pic quand elle tomberait sur la courbe du ratio', () => {
-  // Pic 4 000 repas (échelle 5 000) : son libellé est à la hauteur du ratio 0,85
-  // (échelle 1) dans la même colonne.
-  const serie: RepasSeriePoint[] = [
-    { periode: '2025-06-01', repas_donnes: 1000, pax: 2000, ratio: 0.5 },
-    { periode: '2025-07-01', repas_donnes: 4000, pax: 4700, ratio: 0.85 },
-  ];
-  render(<EvolutionAgChart series={serie} granularite="mois" />);
-  expect(screen.queryByText(/repas$/)).toBeNull();
-  // Courbe masquée : plus rien à toucher, le pic est annoté.
-  fireEvent.click(screen.getByRole('button', { name: /Ratio\/pax/ }));
-  expect(screen.getByText(/^4\s000 repas$/)).toBeInTheDocument();
-});
-
-it('EvolutionAgChart — annote le pic et écrit le dernier ratio au bout de la courbe', () => {
+it('EvolutionAgChart — aucune valeur écrite sur le graphique (ni pic, ni dernier ratio)', () => {
   render(<EvolutionAgChart series={ag} granularite="mois" />);
-  expect(screen.getByText(/^3\s730 repas$/)).toBeInTheDocument();
-  expect(screen.getByText('0,89')).toBeInTheDocument();
-  // Barres masquées : plus d'annotation du pic.
-  fireEvent.click(screen.getByRole('button', { name: /Repas/ }));
-  expect(screen.queryByText(/repas$/)).toBeNull();
+  // Retour Val 2026-10-30 : une seule valeur écrite sur le graphique prête à confusion.
+  expect(screen.queryByText(/^3\s730 repas$/)).toBeNull();
+  expect(screen.queryByText('0,89')).toBeNull();
 });
-
 it('EvolutionAgChart — survol : point emphasé, aucune bande pleine colonne (retour Val)', () => {
   const { container } = render(
     <EvolutionAgChart series={ag} granularite="mois" />,

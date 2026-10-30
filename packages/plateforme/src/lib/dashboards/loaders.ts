@@ -1218,7 +1218,7 @@ export async function loadPackAg(ctx: LoaderCtx): Promise<PackAgResult> {
 // BENCHMARK — Bloc 3 ZD (repère parc, RPC k-anonyme) + options des filtres
 // ══════════════════════════════════════════════════════════════════════════
 
-/** 403 de `loadBenchmark` : rôle traiteur, agence ou client organisateur qui nomme des traiteurs. */
+/** 403 de `loadBenchmark` : rôle traiteur ou agence qui nomme des traiteurs. */
 export const ERREUR_FILTRE_TRAITEURS_INTERDIT =
   'Le filtre traiteur_ids est interdit pour ce rôle (§04 préservation compétitive)';
 /** 403 de `loadBenchmark` : gestionnaire qui nomme un lieu ou un traiteur hors de son périmètre. */
@@ -1243,8 +1243,7 @@ export interface BenchmarkParams {
  * Repère parc kg/pax (RPC f_benchmark_kg_pax_zd, SECURITY DEFINER k-anonyme).
  * ⚠ Contrat identique à `GET /api/v1/dashboards/benchmark` (renvoie le tableau
  * `data`). Le filtre `traiteurIds` est INTERDIT pour traiteur/agence/client
- * organisateur (§04
- * préservation compétitive) → LoaderError 403. Un gestionnaire ne nomme que ses
+ * organisateur (§04 préservation compétitive) → LoaderError 403. Un gestionnaire ne nomme que ses
  * lieux rattachés et les traiteurs de sa vue `v_traiteurs_gestionnaire` (§06.05,
  * décision Val 2026-10-06) : la fonction le refuse, relayé ici en LoaderError 403.
  */
@@ -1266,12 +1265,14 @@ export async function loadBenchmark(
   // jamais « tout l'historique » (défaut NULL de la RPC).
   const periode = periodeBenchmark();
 
-  const isTraiteur =
+  // Client organisateur compris depuis qu'il a le radar de la fiche événement
+  // (décision Val 2026-10-30) : il ne nomme pas plus un traiteur que l'agence.
+  const traiteursInterdits =
     ctx.role === 'traiteur_manager' ||
     ctx.role === 'traiteur_commercial' ||
     ctx.role === 'agence' ||
     ctx.role === 'client_organisateur';
-  if (isTraiteur && traiteurIds && traiteurIds.length) {
+  if (traiteursInterdits && traiteurIds && traiteurIds.length) {
     throw new LoaderError(ERREUR_FILTRE_TRAITEURS_INTERDIT, 403);
   }
 
@@ -1412,8 +1413,12 @@ export async function loadBenchmarkFiltres(
     };
   }
 
+  // Client organisateur : pas de liste des lieux du parc (la base la lui
+  // refuse) ; son radar se règle sur le type et la taille (Val 2026-10-30).
   const [lieux, typesRes] = await Promise.all([
-    supabase.rpc('f_benchmark_lieux_parc'),
+    ctx.role === 'client_organisateur'
+      ? Promise.resolve({ data: [], error: null })
+      : supabase.rpc('f_benchmark_lieux_parc'),
     types,
   ]);
 

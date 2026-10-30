@@ -301,11 +301,13 @@ describe('M3.2 — accès aux routes cumulées', () => {
     });
     expect((await rapport('rapport-de-don')).status).toBe(403);
     expect(mockPdf).not.toHaveBeenCalled();
-    // Le radar (benchmark) reste au gestionnaire.
-    mockRequireUser.mockClear();
+    // Le radar (benchmark) : tous les rôles qui ont la fiche (Val
+    // 2026-10-30) ; non connecté ou rôle inconnu refusé sans lecture.
     mockRequireUser.mockResolvedValue({ error: refus });
-    await benchmark();
-    expect(mockRequireUser.mock.calls[0]![1]).toEqual(['gestionnaire_lieux']);
+    expect((await benchmark()).status).toBe(403);
+    mockRequireUser.mockResolvedValue({ ctx: { ...CTX, role: 'inconnu' } });
+    expect((await benchmark()).status).toBe(403);
+    expect(mockParc).not.toHaveBeenCalled();
   });
 
   it('EVT/api_hors_perimetre_404 — événement hors périmètre ou brouillon (rien sous la RLS) → 404, aucune lecture service-role, aucun PDF', async () => {
@@ -503,24 +505,13 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
     expect(p.benchmark_legende).toContain('lieux : 1 sélectionné');
   });
 
-  it('EVT/api_zd_sans_radar_hors_gestionnaire — traiteur et agence : rapport cumulé servi, radar demandé ignoré (benchmark au gestionnaire seul, Val 2026-10-29)', async () => {
-    for (const role of ['traiteur_manager', 'agence']) {
-      mockRequireUser.mockResolvedValue({ ctx: { ...CTX, role } });
-      mockParc.mockClear();
-      evenementVisible();
-      evenementAdmin();
-      collectesZdAdmin();
-      const res = await rapport('rapport-rse', {
-        options: { benchmark: true },
-      });
-      expect(res.status, role).toBe(200);
-      expect(mockParc, role).not.toHaveBeenCalled();
-      expect(payloadEnvoye(), role).not.toHaveProperty('benchmark_flux');
-    }
-  });
-
-  it('EVT/api_zd_staff_et_organisateur — rapport RSE cumulé servi à l’Admin et au client organisateur, sous leur session, radar demandé ignoré', async () => {
-    for (const role of ['admin_savr', 'client_organisateur']) {
+  it('EVT/api_zd_radar_tous_roles — traiteur, agence, Admin et client organisateur : rapport cumulé servi avec le radar demandé, repère parc sous leur identité (Val 2026-10-30)', async () => {
+    for (const role of [
+      'traiteur_manager',
+      'agence',
+      'admin_savr',
+      'client_organisateur',
+    ]) {
       mockRequireUser.mockResolvedValue({
         ctx: {
           ...CTX,
@@ -536,8 +527,16 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
         options: { benchmark: true },
       });
       expect(res.status, role).toBe(200);
-      expect(mockParc, role).not.toHaveBeenCalled();
-      expect(payloadEnvoye(), role).not.toHaveProperty('benchmark_flux');
+      expect(mockParc, role).toHaveBeenCalledTimes(1);
+      expect(mockParc.mock.calls[0]![0], role).toBe(rls);
+      expect((mockParc.mock.calls[0]![1] as { role: string }).role, role).toBe(
+        role,
+      );
+      expect(payloadEnvoye(), role).toHaveProperty('benchmark_flux');
+      // Et le radar de la fiche, servi au même rôle.
+      const radar = await benchmark();
+      expect(radar.status, role).toBe(200);
+      expect((await radar.json()).data, role).not.toBeNull();
     }
   });
 

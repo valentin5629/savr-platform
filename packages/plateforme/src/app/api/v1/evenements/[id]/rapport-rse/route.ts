@@ -6,7 +6,8 @@ import { repondreRapportEvenement } from '@/lib/evenements/reponses-cumul.js';
 // POST /api/v1/evenements/[id]/rapport-rse
 // Rapport de recyclage cumulé des collectes Zéro Déchet réalisées de
 // l'événement, fabriqué au clic ; réponse = le PDF (décisions Val 2026-10-26
-// et 2026-10-29 : pour tous les rôles ; radar au choix du gestionnaire seul).
+// et 2026-10-29 : pour tous les rôles ; radar au choix de chacun depuis le
+// 2026-10-30).
 // Logique et gardes : `repondreRapportEvenement`, sous la session de
 // l'appelant.
 
@@ -28,10 +29,9 @@ export async function POST(
   return repondreRapportEvenement(
     req,
     id,
-    // Le staff n'a pas d'organisation : seul le radar (gestionnaire) la lit.
+    // Le staff n'a pas d'organisation : le repère parc du radar ne lit que le rôle.
     auth.ctx as UserAuthContext,
     'zero_dechet',
     'evenements.rapport_rse',
-    espace === 'gestionnaire',
   );
 }

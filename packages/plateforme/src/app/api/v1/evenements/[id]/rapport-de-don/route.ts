@@ -28,10 +28,8 @@ export async function POST(
   return repondreRapportEvenement(
     req,
     id,
-    // Le staff n'a pas d'organisation : seul le radar (gestionnaire) la lit.
     auth.ctx as UserAuthContext,
     'anti_gaspi',
     'evenements.rapport_de_don',
-    false,
   );
 }

@@ -119,15 +119,22 @@ describe('M3.1 / synthèse — options filtres modale (client organisateur + com
     expect(eqCols).toContain('traiteur_operationnel_organisation_id=org-1');
   });
 
-  it('commercial traiteur : clients présents, commerciaux VIDES (manager only §1.6 l.268)', async () => {
+  // Val 2026-10-30 : le commercial a le filtre « Commercial », comme le manager.
+  it('commercial traiteur : clients présents + commerciaux résolus, comme le manager', async () => {
     setupAuth('traiteur_commercial');
-    results = { evenements: { data: EVENTS, error: null } };
+    results = {
+      evenements: { data: EVENTS, error: null },
+      users: { data: USERS, error: null },
+    };
     const res = await callGet();
     const j = (await res.json()) as {
-      data: { clients: unknown[]; commerciaux: unknown[] };
+      data: { clients: unknown[]; commerciaux: { id: string }[] };
     };
     expect(j.data.clients.length).toBe(2);
-    expect(j.data.commerciaux).toEqual([]);
+    expect(j.data.commerciaux.map((c) => c.id).sort()).toEqual([
+      'com-1',
+      'com-2',
+    ]);
   });
 });
 

@@ -325,7 +325,9 @@ describe('M3.1 / édition collecte', () => {
         statut_tms: 'acceptee',
         date_collecte: '2097-12-31',
         heure_collecte: '10:00:00',
-        evenement: { created_by: 'user-1', organisation_id: 'org-1' },
+        // Collecte d'un COLLÈGUE (user-2) : le commercial l'édite comme le
+        // manager (Val 2026-10-30). L'ancienne garde created_by ferait 403.
+        evenement: { created_by: 'user-2', organisation_id: 'org-1' },
       },
       error: null,
     });
@@ -645,8 +647,10 @@ describe('M3.1 / annulation', () => {
         statut_tms: 'attribuee_en_attente_acceptation',
         date_collecte: '2097-12-31',
         tms_reference: 'TMS-1',
+        // Collecte d'un COLLÈGUE (user-2) : le commercial l'annule comme le
+        // manager (Val 2026-10-30). L'ancienne garde created_by ferait 403.
         evenement: {
-          created_by: 'user-1',
+          created_by: 'user-2',
           organisation_id: 'org-1',
           nom_evenement: 'Gala',
           organisation: { nom: 'Kaspia' },

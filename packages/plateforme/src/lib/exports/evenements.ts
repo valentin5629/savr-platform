@@ -17,12 +17,7 @@ import {
 import {
   espaceEvenementsDuRole,
   filtresListeEvenements,
-  type RequeteFiltrable,
 } from '@/lib/evenements/liste-evenements.js';
-
-/** Requête filtrable et lisible par tranches (`lireParTranches`). */
-type RequeteEvenements = RequeteFiltrable<RequeteEvenements> &
-  ReturnType<Parameters<typeof lireParTranches>[0]>;
 import { statutEvenementConsolide } from '@/lib/libelles/evenement.js';
 import {
   typesEvenementDesCollectes,
@@ -209,7 +204,7 @@ export async function buildEvenementsExport(
         .from('evenements')
         .select(`${EVENEMENTS_SELECT}, ${filtres.embeds}`, { count: 'exact' })
         .order('date_evenement', { ascending: false })
-        .order('id', { ascending: false }) as unknown as RequeteEvenements,
+        .order('id', { ascending: false }),
     ),
   );
 

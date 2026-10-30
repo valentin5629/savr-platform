@@ -191,14 +191,14 @@ async function nomsTraiteursReferentiel(
 }
 
 /** Méthodes de filtre PostgREST qu'utilise `filtresListeEvenements`. */
-export interface RequeteFiltrable<Q> {
-  not(colonne: string, operateur: string, valeur: unknown): Q;
-  neq(colonne: string, valeur: unknown): Q;
-  eq(colonne: string, valeur: unknown): Q;
-  gte(colonne: string, valeur: unknown): Q;
-  lte(colonne: string, valeur: unknown): Q;
-  in(colonne: string, valeurs: readonly unknown[]): Q;
-  or(filtres: string): Q;
+interface RequeteEvenements {
+  not(colonne: string, operateur: string, valeur: unknown): RequeteEvenements;
+  neq(colonne: string, valeur: unknown): RequeteEvenements;
+  eq(colonne: string, valeur: unknown): RequeteEvenements;
+  gte(colonne: string, valeur: unknown): RequeteEvenements;
+  lte(colonne: string, valeur: unknown): RequeteEvenements;
+  in(colonne: string, valeurs: readonly unknown[]): RequeteEvenements;
+  or(filtres: string): RequeteEvenements;
 }
 
 /**
@@ -212,7 +212,7 @@ export function filtresListeEvenements(
   sp: URLSearchParams,
 ): {
   embeds: string;
-  appliquer: <Q extends RequeteFiltrable<Q>>(q: Q) => Q;
+  appliquer: <Q>(q: Q) => Q;
 } | null {
   const from = sp.get('from');
   const to = sp.get('to');
@@ -251,8 +251,12 @@ export function filtresListeEvenements(
 
   return {
     embeds,
-    appliquer: (q0) => {
-      let q = q0.not('date_evenement', 'is', null);
+    appliquer: <Q>(q0: Q): Q => {
+      let q = (q0 as unknown as RequeteEvenements).not(
+        'date_evenement',
+        'is',
+        null,
+      );
       // Brouillon écarté : l'événement garde au moins une collecte hors
       // brouillon (`hors_brouillon`, embed filtré), ou n'a aucune collecte. Un
       // événement aux collectes toutes brouillons ne passe ni l'un ni l'autre.
@@ -272,7 +276,7 @@ export function filtresListeEvenements(
       // l'événement : la taille de la liste reste celle de l'ÉVÉNEMENT
       // (décision Val C4 du 2026-10-20).
       if (predicatsTaille.length > 0) q = q.or(predicatsTaille.join(','));
-      return q;
+      return q as unknown as Q;
     },
   };
 }

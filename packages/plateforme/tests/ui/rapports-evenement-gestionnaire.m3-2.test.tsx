@@ -8,6 +8,7 @@
  *  - radar ZD avec sa barre « Comparer avec », à l'écran ; la case « Inclure
  *    le radar » envoie les filtres réglés avec la demande du rapport.
  */
+import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   fireEvent,
@@ -159,10 +160,12 @@ const demandes = (mock: ReturnType<typeof stubFetch>) =>
       corps: JSON.parse((init as { body: string }).body),
     }));
 
-async function ouvrirBilan() {
+async function ouvrirBilan(
+  espace: ComponentProps<typeof FicheEvenementModal>['espace'] = 'gestionnaire',
+) {
   render(
     <FicheEvenementModal
-      espace="gestionnaire"
+      espace={espace}
       evenementId={EVT_ID}
       onClose={vi.fn()}
     />,
@@ -222,6 +225,37 @@ describe('M3.2 / fiche Événement — répartition et radar sur la même ligne 
       expect(
         within(ligne).getByText('Répartition des tonnages'),
       ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M3.2 / fiche Événement — radar pour tous les rôles (Val 2026-10-30)', () => {
+  it.each([
+    ['traiteur', '/api/v1/dashboards/benchmark/filtres', true],
+    ['agence', '/api/v1/dashboards/benchmark/filtres', true],
+    ['admin', '/api/v1/admin/dashboard-client/benchmark/filtres', true],
+    ['organisateur', '/api/v1/dashboards/benchmark/filtres', false],
+  ] as const)(
+    'EVT/radar_tous_roles — %s : radar et barre « Comparer avec » de son espace',
+    async (espace, filtres, lieux) => {
+      const mock = stubFetch(detail());
+      await ouvrirBilan(espace);
+      const radar = await screen.findByTestId(
+        'radar-evenement',
+        undefined,
+        ATTENTE_UI,
+      );
+      const urls = mock.mock.calls.map(([u]) => String(u));
+      expect(urls).toContain(filtres);
+      expect(urls.some((u) => u.startsWith(`${BASE}/benchmark?`))).toBe(true);
+      // Organisateur : la base ne lui donne pas la liste des lieux du parc.
+      expect(
+        within(radar).queryByTestId('benchmark-filter-lieux') !== null,
+      ).toBe(lieux);
+      expect(
+        within(radar).queryByTestId('benchmark-filter-traiteurs'),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

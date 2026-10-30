@@ -19,7 +19,6 @@ export default async function TraiteurLayout({
         email: session.email,
         logoAffichable: true,
       })}
-      pageTitle="Espace traiteur"
       hiddenNavHrefs={[]}
     >
       {children}

@@ -93,7 +93,6 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
       <ChartCard
         ref={ref}
         title="Répartition des tonnages"
-        subtitle="Zéro Déchet · 5 flux"
         className={cn('flex flex-col', className)}
       >
         <div

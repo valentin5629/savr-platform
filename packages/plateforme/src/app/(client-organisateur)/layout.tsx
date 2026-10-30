@@ -19,7 +19,6 @@ export default async function ClientOrganisateurLayout({
         email: session.email,
         logoAffichable: true,
       })}
-      pageTitle="Mon impact RSE"
       hiddenNavHrefs={[]}
     >
       {children}

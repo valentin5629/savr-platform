@@ -37,12 +37,7 @@ export default async function ProgrammationLayout({
     : null;
 
   return (
-    <AppShell
-      role={role}
-      identite={identite}
-      pageTitle="Programmer une collecte"
-      hiddenNavHrefs={hiddenNavHrefs}
-    >
+    <AppShell role={role} identite={identite} hiddenNavHrefs={hiddenNavHrefs}>
       {children}
     </AppShell>
   );

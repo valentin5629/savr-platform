@@ -5,7 +5,16 @@
   "_souche": true,
   "scenarios": [
     "M3.5/blocs_auth_401_sans_jwt",
-    "M3.5/blocs_role_hors_perimetre_403"
+    "M3.5/blocs_role_hors_perimetre_403",
+    "M3.5/revenus_filtres_perimetre",
+    "M3.5/revenus_filtres_gestionnaire_sans_lieu",
+    "M3.5/revenus_filtres_tableau",
+    "M3.5/revenus_mensuels_montants",
+    "M3.5/revenus_mensuels_role",
+    "M3.5/admin_revenus_filtres_lieu_organisation",
+    "M3.5/revenus_filtres_histogramme",
+    "M3.5/revenus_filtres_tableau_gestionnaire_sans_lieu",
+    "M3.5/admin_revenus_filtre_retour_page_1"
   ],
   "deliverables": [
     {
@@ -71,6 +80,14 @@
       "test": "supabase/tests/m3_5_v_kpi_admin_ca_eco_ag.test.sql — v_kpi_admin CA AG économique (pack) + non-régression ZD + exclusion facture/avoir pack",
       "statut": "implemented",
       "libelle": "v_kpi_admin — montant AG de l'histogramme = CA économique = Σ (collectes AG livrées realisee/cloturee × coût/collecte pack = prix_unitaire_ht, fallback montant_total_ht/crédits), imputé au mois de date_collecte ; remplace la facture d'achat de pack (les factures achat_pack_antigaspi ET leurs avoirs sont exclus du CA AG de pilotage) ; ZD inchangé (factures emise/payee par date_emission, avoirs ZD négatifs). Divergence CDC §11 §1.1 tracée (Val 2026-07-07)."
+    },
+    {
+      "id": "M3.5-revenus-filtres-lieu-organisation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:36",
+      "artefact": "packages/plateforme/src/lib/dashboards/revenus-admin.ts, packages/plateforme/src/app/api/v1/admin/dashboard/revenus-mensuels/route.ts, packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts, packages/plateforme/src/app/(admin)/admin/dashboard/page.tsx",
+      "test": "M3.5/revenus_filtres_perimetre + M3.5/revenus_filtres_tableau + M3.5/revenus_filtres_histogramme + M3.5/revenus_filtres_tableau_gestionnaire_sans_lieu + M3.5/revenus_mensuels_montants + M3.5/admin_revenus_filtres_lieu_organisation + M3.5/admin_revenus_filtre_retour_page_1",
+      "statut": "implemented",
+      "libelle": "Section Revenus du Dashboard Admin : filtres Lieux, Traiteur, Agence, Gestionnaire de lieux après Période, appliqués au graphe et au tableau, pas aux cartes Suivi opérationnel (Val 2026-10-30). Traiteur ou agence = collectes programmées ou opérées (R24c) ; gestionnaire = collectes sur les lieux de son parc ; organisations additionnées, Lieux en plus. Le graphe lit revenus-mensuels (montant ZD par lignes de facture, avoirs négatifs, mois d'émission ; même total que v_kpi_admin sans filtre ni avoir, mesuré sur savr-dev le 2026-10-30 ; la vue compte les avoirs en positif, la route les soustrait). Fiche _Divergences/M3.5_20261030_dashboard-admin-filtres-revenus."
     },
     {
       "id": "BL-P2-11",

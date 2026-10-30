@@ -34,7 +34,16 @@ function makeChain() {
     record('from', args);
     return chain;
   };
-  for (const m of ['select', 'in', 'eq', 'gte', 'lte', 'range', 'not']) {
+  for (const m of [
+    'select',
+    'in',
+    'eq',
+    'gte',
+    'lte',
+    'range',
+    'not',
+    'order',
+  ]) {
     chain[m] = (...args: unknown[]) => {
       record(m, args);
       return chain;

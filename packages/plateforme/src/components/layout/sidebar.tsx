@@ -139,11 +139,19 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             logoZd ? 'text-savr-success' : 'text-savr-accent-500',
           )}
         >
-          <SavrLogoMark
-            title="savr"
-            variant={collapsed ? 'mark' : 'full'}
-            className={collapsed ? 'h-7 w-7' : 'h-8 w-auto'}
-          />
+          {/* Clic sur le logo = retour au Dashboard du rôle, première entrée
+              de son menu (Val 2026-10-30). */}
+          <Link
+            href={NAV_CONFIG[role]?.[0]?.items[0]?.href ?? '/'}
+            aria-label="Aller au Dashboard"
+            className="flex items-center rounded-savr-md"
+          >
+            <SavrLogoMark
+              title="savr"
+              variant={collapsed ? 'mark' : 'full'}
+              className={collapsed ? 'h-7 w-7' : 'h-8 w-auto'}
+            />
+          </Link>
         </div>
 
         {/* Items de nav */}

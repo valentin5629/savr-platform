@@ -3,14 +3,14 @@
 import { LoadingState } from '@/components/ui/loading-state';
 import { fmtPct } from '@/lib/format';
 import { Suspense, useMemo } from 'react';
-import { DownloadSimpleIcon, TruckIcon } from '@/components/ui/icones';
-import { Button } from '@/components/ui/button';
+import { TruckIcon } from '@/components/ui/icones';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import {
   CelluleVide,
   DataGrid,
   type ColumnDef,
 } from '@/components/ui/data-grid';
+import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
@@ -215,12 +215,6 @@ function CollectesContent() {
         icon={<TruckIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Mes collectes"
         subtitle="Collectes de vos événements, en lecture seule"
-        actions={
-          <Button variant="secondary" onClick={exportCsv}>
-            <DownloadSimpleIcon />
-            Exporter CSV
-          </Button>
-        }
       />
 
       {/* Barre de filtres DS (D10 : la même que traiteur / agence) : vues
@@ -254,6 +248,7 @@ function CollectesContent() {
 
       {/* Tri par défaut : la plus proche d'aujourd'hui d'abord. */}
       <DataGrid
+        toolbarActions={<BoutonExportCsv onClick={exportCsv} />}
         key={`${tab}-${vue}`}
         data-testid="collectes-table"
         columns={cols}

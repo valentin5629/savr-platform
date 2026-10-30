@@ -1433,7 +1433,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
 
 describe('M3.2 / fiche Événement traiteur et agence — écran', () => {
   it(
-    'M3.2/evenement_fiche_traiteur_sans_radar_ni_labo — même fiche, ni déchets labo estimés ni benchmark, rapports de collecte par la route de son espace (Val 2026-10-29)',
+    'M3.2/evenement_fiche_traiteur_sans_labo — même fiche, radar compris (Val 2026-10-30), sans déchets labo estimés, rapports de collecte par la route de son espace (Val 2026-10-29)',
     async () => {
       const fetchMock = stubFetch((url) =>
         url.includes(`/api/v1/evenements/${EVT_ID}`) &&
@@ -1449,7 +1449,16 @@ describe('M3.2 / fiche Événement traiteur et agence — écran', () => {
       onglet('Bilan & documents');
       await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
       const urls = fetchMock.mock.calls.map(([u]) => String(u));
-      expect(urls.some((u) => u.includes('/benchmark'))).toBe(false);
+      // Radar : la route commune des événements, jamais celle du gestionnaire.
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([u]) =>
+              String(u).startsWith(`/api/v1/evenements/${EVT_ID}/benchmark`),
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
       expect(urls.some((u) => u.includes('/gestionnaire/'))).toBe(false);
     },
     ATTENTE_CAS_MS,

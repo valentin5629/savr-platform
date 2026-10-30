@@ -1474,6 +1474,26 @@ describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, 
     },
   );
 
+  // Le nom et le téléphone de secours se modifient ensemble (décision Val
+  // 2026-10-30) : un seul des deux envoyé est refusé, champ = celui qui manque.
+  it.each(ROUTES_COLLECTE)(
+    'M1.2/collecte_contact_secours_en_couple — PATCH /$espace/collectes/[id], nom de secours envoyé seul : 422, rien n’est écrit',
+    async (route) => {
+      setupAuth(route.role, 'org-1', 'user-1');
+      const res = await patchCollecteEspace(route, {
+        contact_secours_nom: 'Noé Blanc',
+      });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({
+        error:
+          'Le nom et le téléphone du contact de secours se modifient ensemble.',
+        champ: 'contact_secours_telephone',
+      });
+      expect(admin.__calls.rpc).toBeUndefined();
+      expect(recus).toEqual([]);
+    },
+  );
+
   it.each(ROUTES_COLLECTE)(
     'M1.2/collecte_contact_secours_non_effacable — PATCH /$espace/collectes/[id], contact de secours vidé : 422, rien n’est écrit ni envoyé',
     async (route) => {
@@ -1547,6 +1567,42 @@ describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, 
     });
     expect(res.status).toBe(500);
     expect(admin.__calls.rpc).toBeUndefined();
+  });
+
+  // Non-régression (décision Val 2026-10-30) : une collecte ancienne sans
+  // contact de secours reste modifiable tant que le secours n'est pas envoyé.
+  it('M1.2/collecte_ancienne_sans_secours — PATCH { date_collecte } seul sur une collecte au secours null : 200, le secours n’est pas exigé', async () => {
+    setupAuth('gestionnaire_lieux', 'org-1', 'user-1');
+    rls.push({
+      data: {
+        id: 'c1',
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        date_collecte: '2097-12-31',
+        heure_collecte: '10:00:00',
+        evenement: { organisation_id: 'org-1' },
+      },
+      error: null,
+    });
+    admin.push({ data: { id: 'c1' }, error: null }); // before
+    admin.push({ data: CONTACTS_AVANT, error: null }); // contacts (secours null)
+    admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
+    admin.push({ data: null, error: null }); // audit insert
+    expect(CONTACTS_AVANT.contact_secours_nom).toBeNull();
+
+    const res = await patchGestionnaireCollecte({
+      date_collecte: '2098-01-15',
+    });
+
+    expect(res.status).toBe(200);
+    const modif = (admin.__calls.rpc ?? []).find(
+      ([fn]) => fn === 'fn_modifier_collecte',
+    );
+    const updates = (modif![1] as { p_updates: Record<string, unknown> })
+      .p_updates;
+    expect(updates.date_collecte).toBe('2098-01-15');
+    expect(updates).not.toHaveProperty('contact_secours_nom');
+    expect(updates).not.toHaveProperty('contact_secours_telephone');
   });
 
   // Back-office : l'équipe Savr modifie type et contacts sans motif (B1-Q3) ;
@@ -1630,12 +1686,35 @@ describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, 
     expect(admin.__calls.from).not.toContainEqual(['types_evenements']);
   });
 
+  for (const [envoye, manquant] of [
+    ['contact_secours_nom', 'contact_secours_telephone'],
+    ['contact_secours_telephone', 'contact_secours_nom'],
+  ] as const) {
+    it(`M1.2/admin_collecte_contact_secours_en_couple — PATCH /admin/collectes/[id], ${envoye} seul : 422, rien n’est écrit`, async () => {
+      setupAuth('admin_savr', 'org-savr', 'val');
+      const res = await patchCollecteAdmin({
+        [envoye]: 'Noé Blanc 0688776655',
+      });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({
+        error:
+          'Le nom et le téléphone du contact de secours se modifient ensemble.',
+        champ: manquant,
+      });
+      expect(admin.__calls.rpc).toBeUndefined();
+      expect(admin.__calls.insert).toBeUndefined();
+    });
+  }
+
   it('M1.2/admin_collecte_contacts_illisibles_500 — PATCH /admin/collectes/[id] : lecture des contacts en échec → 500, rien n’est écrit', async () => {
     setupAuth('admin_savr', 'org-savr', 'val');
     admin.push({ data: { id: 'c1', statut: 'programmee' }, error: null }); // before
     admin.push({ data: null, error: { message: 'boom' } }); // contacts : échec
 
-    const res = await patchCollecteAdmin({ contact_secours_nom: 'Léa' });
+    const res = await patchCollecteAdmin({
+      contact_secours_nom: 'Léa',
+      contact_secours_telephone: '0655443322',
+    });
 
     expect(res.status).toBe(500);
     expect(admin.__calls.rpc).toBeUndefined();

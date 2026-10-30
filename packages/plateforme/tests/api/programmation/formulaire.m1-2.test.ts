@@ -1035,96 +1035,81 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
 describe('M1.2 / Confirmation brouillon', () => {
   beforeEach(resetChain);
 
-  it('confirmer_brouillon — 200 statut=programmee', async () => {
-    setupAuth('traiteur_commercial', 'org-traiteur-1');
+  /** Chaîne awaitable directement (pas de terminal .single()). */
+  function thenable<T>(resultat: { data: T; error: unknown }) {
+    const chaine = {
+      select: () => chaine,
+      eq: () => chaine,
+      in: () => chaine,
+      then: (resolve: (v: typeof resultat) => void) =>
+        Promise.resolve(resultat).then(resolve),
+    };
+    return chaine;
+  }
 
-    // Ownership check (from='evenements') → single()
+  /** Secours complet d'une collecte (décision Val 2026-10-30). */
+  const SECOURS_C1 = {
+    collecte_id: 'c1',
+    contact_secours_nom: 'Sam Roux',
+    contact_secours_telephone: '0733333333',
+  };
+
+  /**
+   * Branche la lecture des collectes brouillon et de leurs contacts ; rend
+   * l'appel de la route pour l'événement `evt`.
+   */
+  async function confirmer(opts: {
+    evt?: Record<string, unknown>;
+    collectes?: { id: string; type: string }[];
+    contacts?: { data: unknown; error: unknown };
+  }) {
     mockSingle.mockResolvedValueOnce({
       data: {
         id: 'evt-b',
         organisation_id: 'org-traiteur-1',
         nom_evenement: 'B',
-        // Le commercial confirme SON propre brouillon (created_by = caller) : miroir
-        // de col_delete_brouillon (§09), un commercial ne confirme que ses créations.
+        nom_client_organisateur: 'Entreprise Dupont',
         created_by: 'user-1',
+        ...opts.evt,
       },
       error: null,
     });
-
-    // La query collectes n'a pas de terminal .single() — elle est awaitable directement.
-    // On surcharge `from` pour intercepter la table 'collectes' et retourner un thenable.
-    const collectesData = [
-      { id: 'c1', type: 'zd', date_collecte: '2097-01-15' },
-    ];
-    const collectesChain = {
-      select: () => collectesChain,
-      eq: () => collectesChain,
-      then: (
-        resolve: (v: { data: typeof collectesData; error: null }) => void,
-        _reject?: (e: unknown) => void,
-      ) => Promise.resolve({ data: collectesData, error: null }).then(resolve),
-    };
+    const collectes = opts.collectes ?? [{ id: 'c1', type: 'zd' }];
+    const contacts = opts.contacts ?? { data: [SECOURS_C1], error: null };
     mockSupabaseChain.from.mockImplementation((table: string) => {
-      if (table === 'collectes') return collectesChain;
+      if (table === 'collectes')
+        return thenable({ data: collectes, error: null });
+      if (table === 'collecte_contacts') return thenable(contacts);
       return mockSupabaseChain;
     });
-
-    // Gate entité de facturation — entites_facturation
-    mockMaybeSingle.mockResolvedValueOnce({
-      data: { id: 'entite-1' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: null, error: null }); // fn_confirmer_programmation_brouillon
+    mockRpc.mockResolvedValue({ data: null, error: null });
 
     const { PATCH } =
       await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
-    const res = await PATCH(
+    return PATCH(
       makeReq('PATCH', '/api/v1/programmation/evenements/evt-b/confirmer'),
       { params: Promise.resolve({ id: 'evt-b' }) },
     );
+  }
+
+  const rpcConfirmation = () =>
+    mockRpc.mock.calls.filter(
+      ([fn]) => fn === 'fn_confirmer_programmation_brouillon',
+    );
+
+  it('confirmer_brouillon — 200 statut=programmee', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    const res = await confirmer({});
     expect(res.status).toBe(200);
     const json = (await res.json()) as { statut: string };
     expect(json.statut).toBe('programmee');
+    expect(rpcConfirmation()).toHaveLength(1);
   });
 
   it('confirmer_brouillon_sans_siret_non_bloque — aucune garde entité/SIRET à la confirmation', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
-    mockSingle.mockResolvedValueOnce({
-      data: {
-        id: 'evt-d',
-        organisation_id: 'org-traiteur-1',
-        nom_evenement: 'D',
-        created_by: 'user-1',
-      },
-      error: null,
-    });
-    const collectesChain2 = {
-      select: () => collectesChain2,
-      eq: () => collectesChain2,
-      then: (
-        resolve: (v: {
-          data: { id: string; type: string; date_collecte: string }[];
-          error: null;
-        }) => void,
-      ) =>
-        Promise.resolve({
-          data: [{ id: 'c1', type: 'zd', date_collecte: '2097-01-15' }],
-          error: null,
-        }).then(resolve),
-    };
-    mockSupabaseChain.from.mockImplementation((table: string) => {
-      if (table === 'collectes') return collectesChain2;
-      return mockSupabaseChain;
-    });
     // L'événement porte déjà son entité : la confirmation ne la re-résout pas.
-    mockRpc.mockResolvedValueOnce({ data: null, error: null });
-
-    const { PATCH } =
-      await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/programmation/evenements/evt-d/confirmer'),
-      { params: Promise.resolve({ id: 'evt-d' }) },
-    );
+    const res = await confirmer({ evt: { id: 'evt-d', nom_evenement: 'D' } });
     const json = (await res.json()) as { error?: string };
     expect(json.error ?? '').not.toMatch(/SIRET|entité de facturation|profil/i);
     expect(res.status).toBe(200);
@@ -1135,37 +1120,81 @@ describe('M1.2 / Confirmation brouillon', () => {
 
   it('confirmer_brouillon_sans_collectes — 422 si aucun brouillon', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
-    mockSingle.mockResolvedValueOnce({
-      data: {
-        id: 'evt-c',
-        organisation_id: 'org-traiteur-1',
-        nom_evenement: 'C',
-        created_by: 'user-1',
-      },
-      error: null,
-    });
-
-    // Collectes vides
-    const emptyChain = {
-      select: () => emptyChain,
-      eq: () => emptyChain,
-      then: (
-        resolve: (v: { data: never[]; error: null }) => void,
-        _reject?: (e: unknown) => void,
-      ) => Promise.resolve({ data: [], error: null }).then(resolve),
-    };
-    mockSupabaseChain.from.mockImplementation((table: string) => {
-      if (table === 'collectes') return emptyChain;
-      return mockSupabaseChain;
-    });
-
-    const { PATCH } =
-      await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/programmation/evenements/evt-c/confirmer'),
-      { params: Promise.resolve({ id: 'evt-c' }) },
-    );
+    const res = await confirmer({ collectes: [] });
     expect(res.status).toBe(422);
+    expect(rpcConfirmation()).toEqual([]);
+  });
+
+  // Client final et contact de secours obligatoires (décision Val 2026-10-30) :
+  // un brouillon enregistré sans eux ne se confirme pas par cette route.
+  for (const [cas, valeur] of [
+    ['absent', null],
+    ['fait de blancs', '   '],
+  ] as const) {
+    it(`confirmer_brouillon_client_final_obligatoire — client final ${cas} : 422, aucune confirmation`, async () => {
+      setupAuth('traiteur_commercial', 'org-traiteur-1');
+      const res = await confirmer({ evt: { nom_client_organisateur: valeur } });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({
+        error: 'Le client final est obligatoire.',
+        champ: 'nom_client_organisateur',
+      });
+      expect(rpcConfirmation()).toEqual([]);
+    });
+  }
+
+  for (const [cas, lignes] of [
+    ['sans ligne de contacts', []],
+    ['sans contact de secours', [{ ...SECOURS_C1, contact_secours_nom: null }]],
+    [
+      'téléphone de secours vide',
+      [{ ...SECOURS_C1, contact_secours_telephone: '  ' }],
+    ],
+    ['une collecte sur deux sans secours', [SECOURS_C1]],
+  ] as const) {
+    it(`confirmer_brouillon_secours_obligatoire — ${cas} : 422, aucune confirmation`, async () => {
+      setupAuth('traiteur_commercial', 'org-traiteur-1');
+      const res = await confirmer({
+        collectes: [
+          { id: 'c1', type: 'zd' },
+          ...(cas === 'une collecte sur deux sans secours'
+            ? [{ id: 'c2', type: 'ag' }]
+            : []),
+        ],
+        contacts: { data: lignes, error: null },
+      });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({
+        error:
+          'Le contact de secours et son téléphone sont obligatoires pour chaque collecte.',
+      });
+      expect(rpcConfirmation()).toEqual([]);
+    });
+  }
+
+  it('confirmer_brouillon_contacts_illisibles — lecture des contacts en échec : 500, aucune confirmation', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    const res = await confirmer({
+      contacts: { data: null, error: { message: 'boom' } },
+    });
+    expect(res.status).toBe(500);
+    expect(rpcConfirmation()).toEqual([]);
+  });
+
+  it('confirmer_brouillon_secours_obligatoire — contre-épreuve : deux collectes au secours complet, 200', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    const res = await confirmer({
+      collectes: [
+        { id: 'c1', type: 'zd' },
+        { id: 'c2', type: 'ag' },
+      ],
+      contacts: {
+        data: [SECOURS_C1, { ...SECOURS_C1, collecte_id: 'c2' }],
+        error: null,
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(rpcConfirmation()).toHaveLength(1);
   });
 });
 

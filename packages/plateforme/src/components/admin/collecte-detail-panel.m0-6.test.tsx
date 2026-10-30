@@ -4868,7 +4868,7 @@ describe('M1.2 / fiche Admin — type d’événement et contacts de la collecte
         contact_principal_nom: 'Alice Martin',
         contact_principal_telephone: '07 00 00 00 01',
         contact_secours_nom: 'Léa Secours',
-        contact_secours_telephone: null,
+        contact_secours_telephone: '07 00 00 00 02',
       },
     ],
   };
@@ -5004,6 +5004,9 @@ describe('M1.2 / fiche Admin — type d’événement et contacts de la collecte
       fireEvent.change(champ(dialog, '#infos-cs-nom'), {
         target: { value: 'Léa Secours' },
       });
+      fireEvent.change(champ(dialog, '#infos-cs-tel'), {
+        target: { value: '07 00 00 00 02' },
+      });
       const lecturesAvant = lectures();
       fireEvent.click(
         within(dialog).getByRole('button', { name: 'Enregistrer' }),
@@ -5017,6 +5020,7 @@ describe('M1.2 / fiche Admin — type d’événement et contacts de la collecte
               type_evenement_id: 't2',
               contact_principal_telephone: '07 00 00 00 01',
               contact_secours_nom: 'Léa Secours',
+              contact_secours_telephone: '07 00 00 00 02',
             },
           ]),
         ATTENTE_UI,
@@ -5036,6 +5040,43 @@ describe('M1.2 / fiche Admin — type d’événement et contacts de la collecte
       expect(
         within(infos).getByRole('link', { name: '07 00 00 00 01' }),
       ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Le nom et le téléphone de secours se modifient ensemble (décision Val
+  // 2026-10-30) : changer le seul nom envoie aussi le téléphone affiché.
+  it(
+    'M1.2/type_contacts_par_collecte — fiche Admin : seul le nom de secours change, le nom et le téléphone partent ensemble',
+    async () => {
+      const AVEC_SECOURS = {
+        ...AVANT,
+        contacts: [
+          {
+            ...AVANT.contacts[0],
+            contact_secours_nom: 'Léa Secours',
+            contact_secours_telephone: '07 00 00 00 03',
+          },
+        ],
+      };
+      const { patchs } = monter(undefined, AVEC_SECOURS);
+      const dialog = await ouvrir('Modifier les contacts');
+      fireEvent.change(champ(dialog, '#infos-cs-nom'), {
+        target: { value: 'Noé Blanc' },
+      });
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Enregistrer' }),
+      );
+      await waitFor(
+        () =>
+          expect(patchs()).toEqual([
+            {
+              contact_secours_nom: 'Noé Blanc',
+              contact_secours_telephone: '07 00 00 00 03',
+            },
+          ]),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

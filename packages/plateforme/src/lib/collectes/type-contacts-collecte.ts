@@ -13,7 +13,8 @@ const renseigne = (v: unknown): boolean =>
  * 2026-10-23) : refus en 422 avant la RPC, qui les refuserait aussi mais en
  * erreur serveur (contrainte NOT NULL, CHECK, clé étrangère).
  *   · contact principal : nom et téléphone jamais vides ;
- *   · contact de secours : jamais vide non plus (décision Val 2026-10-30) ;
+ *   · contact de secours : jamais vide non plus (décision Val 2026-10-30),
+ *     nom et téléphone envoyés ensemble ;
  *   · type d'événement : un type du référentiel, jamais vidé.
  * Les bornes de longueur et de caractères sont celles de validerChampsTexteLibre.
  */
@@ -51,6 +52,20 @@ export async function refusTypeContactsCollecte(
         { status: 422 },
       );
     }
+  }
+  // Nom et téléphone de secours se modifient ensemble : sinon une collecte
+  // ancienne sans secours garderait un nom sans téléphone (ou l'inverse).
+  const secoursNom = Object.hasOwn(updates, 'contact_secours_nom');
+  const secoursTel = Object.hasOwn(updates, 'contact_secours_telephone');
+  if (secoursNom !== secoursTel) {
+    return NextResponse.json(
+      {
+        error:
+          'Le nom et le téléphone du contact de secours se modifient ensemble.',
+        champ: secoursNom ? 'contact_secours_telephone' : 'contact_secours_nom',
+      },
+      { status: 422 },
+    );
   }
   if (Object.hasOwn(updates, 'type_evenement_id')) {
     const v = updates.type_evenement_id;

@@ -539,6 +539,7 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
         id: 'evt-b',
         organisation_id: 'org-traiteur-1',
         nom_evenement: 'B',
+        nom_client_organisateur: 'Entreprise Dupont',
         pax: 50,
         lieu_id: 'lieu-1',
         // Le commercial confirme SON propre brouillon (created_by = caller).
@@ -561,8 +562,27 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
         resolve: (v: { data: typeof collectesData; error: null }) => void,
       ) => Promise.resolve({ data: collectesData, error: null }).then(resolve),
     };
+    // Contact de secours complet (obligatoire, décision Val 2026-10-30).
+    const contactsData = [
+      {
+        collecte_id: 'c1',
+        contact_secours_nom: 'Sam Roux',
+        contact_secours_telephone: '0733333333',
+      },
+    ];
+    const contactsChain = {
+      select: () => contactsChain,
+      in: () => contactsChain,
+      then: (
+        resolve: (v: { data: typeof contactsData; error: null }) => void,
+      ) => Promise.resolve({ data: contactsData, error: null }).then(resolve),
+    };
     mockSupabaseChain.from.mockImplementation((table: string) =>
-      table === 'collectes' ? collectesChain : mockSupabaseChain,
+      table === 'collectes'
+        ? collectesChain
+        : table === 'collecte_contacts'
+          ? contactsChain
+          : mockSupabaseChain,
     );
     mockRpc
       .mockResolvedValueOnce({ data: null, error: null }) // fn_confirmer_programmation_brouillon

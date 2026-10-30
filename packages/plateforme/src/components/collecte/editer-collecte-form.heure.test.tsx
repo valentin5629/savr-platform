@@ -379,6 +379,28 @@ describe('M1.2 / EditerCollecteForm — type d’événement et contacts de la c
     ATTENTE_CAS_MS,
   );
 
+  // Le nom et le téléphone de secours se modifient ensemble (décision Val
+  // 2026-10-30) : changer le seul nom envoie aussi le téléphone affiché.
+  it(
+    'M1.2/type_contacts_par_collecte — seul le nom de secours change : le nom et le téléphone partent ensemble',
+    async () => {
+      const { onSaved, patchs, saisir, confirmer } = await monterB1();
+      saisir('#edit-cs-nom', 'Noé Blanc');
+      confirmer();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(patchs()).toEqual([
+        [
+          '/api/v1/traiteur/collectes/col-1',
+          {
+            contact_secours_nom: 'Noé Blanc',
+            contact_secours_telephone: '0633333333',
+          },
+        ],
+      ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // Contact de secours et client final obligatoires (décision Val 2026-10-30) :
   // les vider est refusé à l'écran, comme le contact principal.
   it.each([

@@ -206,10 +206,14 @@ export function EditerCollecteForm({
         colUpdates.contact_principal_nom = cpNom;
       if (cpTel !== (collecte.contact_principal_telephone ?? ''))
         colUpdates.contact_principal_telephone = cpTel;
-      if (csNom !== (collecte.contact_secours_nom ?? ''))
-        colUpdates.contact_secours_nom = csNom || null;
-      if (csTel !== (collecte.contact_secours_telephone ?? ''))
-        colUpdates.contact_secours_telephone = csTel || null;
+      // Nom et téléphone de secours partent ensemble (la route l'exige).
+      if (
+        csNom !== (collecte.contact_secours_nom ?? '') ||
+        csTel !== (collecte.contact_secours_telephone ?? '')
+      ) {
+        colUpdates.contact_secours_nom = csNom;
+        colUpdates.contact_secours_telephone = csTel;
+      }
       if (dateCollecte !== collecte.date_collecte)
         colUpdates.date_collecte = dateCollecte;
       if (heureCollecte !== (collecte.heure_collecte?.slice(0, 5) ?? ''))

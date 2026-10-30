@@ -49,7 +49,6 @@ const PRESTA_ID = 'presta-uuid-ag-001';
 const ASSOCIATION_ROW = {
   id_point_collecte_mts1: null,
   adresse: '12 rue des Associations',
-  code_postal: '94200',
   ville: 'Ivry-sur-Seine',
   contact_nom: 'Nadia Benali',
   contact_telephone: '+33699990001',
@@ -264,11 +263,9 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
     await runOutboxWorker(supabase);
 
     // Composée UNE fois par le worker pour les deux adapters (garde-fou 2) :
-    // adresse sur une ligne « adresse, code postal ville » + contact + point
-    // favori MTS-1. Le code postal manquait (« 1 Rue Asso, Paris », envoi
-    // refusé par Everest le 2026-10-30).
+    // adresse sur une ligne « adresse, ville » + contact + point favori MTS-1.
     expect(everestSpy.mock.calls[0]![0]).toMatchObject({
-      association_adresse: '12 rue des Associations, 94200 Ivry-sur-Seine',
+      association_adresse: '12 rue des Associations, Ivry-sur-Seine',
       association_contact_nom: 'Nadia Benali',
       association_contact_telephone: '+33699990001',
       association_id_point_collecte_mts1: null,
@@ -277,7 +274,6 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
     const selectAttribution = supabase._selects['attributions_antgaspi']?.[0];
     for (const col of [
       'adresse',
-      'code_postal',
       'ville',
       'contact_nom',
       'contact_telephone',

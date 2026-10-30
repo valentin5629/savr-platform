@@ -299,6 +299,13 @@ describe('loaders — I/O (faux Supabase)', () => {
     ).rejects.toMatchObject({ status: 403 });
   });
 
+  it('loadBenchmark rejette traiteur_ids pour l’agence (403 §04 compétitif)', async () => {
+    const supabase = makeSupabase({ rpc: { f_benchmark_kg_pax_zd: [] } });
+    await expect(
+      loadBenchmark(supabase, CTX_AGENCE, { traiteurIds: ['x'] }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
   it('loadBenchmark rejette traiteur_ids pour le client organisateur (radar de la fiche événement, Val 2026-10-30)', async () => {
     const supabase = makeSupabase({ rpc: { f_benchmark_kg_pax_zd: [] } });
     await expect(

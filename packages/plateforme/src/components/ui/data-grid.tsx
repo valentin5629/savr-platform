@@ -112,6 +112,44 @@ const STICKY_HEAD =
 const STICKY_CELL =
   'sticky right-0 z-[1] bg-savr-white shadow-[inset_1px_0_0_var(--color-savr-neutral-100)] group-hover:bg-savr-neutral-50';
 
+// Hauteur de ligne constante (décision Val 2026-10-30) : la ligne fait 64 px
+// quel que soit son contenu. Chaque cellule tient dans 48 px de haut (deux
+// lignes de texte, ou un bouton de 44 px) et 16 rem de large ; au-delà, le
+// contenu est coupé (« … » sur le texte), jamais renvoyé à la ligne, même
+// dans un conteneur `flex-wrap`. `w-max` : la colonne prend la largeur du
+// contenu (jusqu'à 16 rem) au lieu de l'écraser ; une colonne `text-right`
+// garde son alignement. Chaque ligne de texte en bloc porte son « … ». Le
+// `p-1 -m-1` laisse la place au contour de focus (2 px à 2 px du contrôle),
+// que `overflow-hidden` couperait sinon. Quand quelque chose est coupé, le
+// texte complet s'affiche au survol (`titreSiCoupe`). La carte mobile garde
+// le retour à la ligne.
+const LIGNE = 'h-16';
+const CELLULE = 'py-2';
+const CONTENU_CELLULE =
+  '-m-1 w-max max-w-[16rem] max-h-14 overflow-hidden p-1 text-ellipsis [&_*]:whitespace-nowrap [&_.flex-wrap]:flex-nowrap [&_:is(div,p):not(.flex,.inline-flex)]:truncate [.text-right>&]:ml-auto [.text-center>&]:mx-auto';
+
+// Pose, au survol, le texte complet de la cellule en infobulle si son contenu
+// (ou un de ses éléments) est coupé. Une infobulle déjà posée par la colonne
+// est conservée ; celle posée ici est recalculée à chaque survol (le contenu
+// d'une ligne peut changer).
+function titreSiCoupe(event: React.MouseEvent<HTMLDivElement>) {
+  const cellule = event.currentTarget;
+  const auto = cellule.dataset.titreAuto === '1';
+  if (!auto && (cellule.title || cellule.querySelector('[title]'))) return;
+  const coupe = [cellule, ...cellule.querySelectorAll('*')].some(
+    (el) =>
+      el.scrollWidth > el.clientWidth + 1 ||
+      el.scrollHeight > el.clientHeight + 1,
+  );
+  if (coupe) {
+    cellule.title = cellule.innerText.replace(/\s*\n+\s*/g, ' · ').trim();
+    cellule.dataset.titreAuto = '1';
+  } else if (auto) {
+    cellule.removeAttribute('title');
+    delete cellule.dataset.titreAuto;
+  }
+}
+
 function SortIcon<T>({ column }: { column: Column<T, unknown> }) {
   const dir = column.getIsSorted();
   if (dir === 'asc') return <CaretUpIcon className="h-3.5 w-3.5" aria-hidden />;
@@ -336,6 +374,7 @@ function DataGrid<T>({
                     {...rowProps(row)}
                     className={cn(
                       'group',
+                      LIGNE,
                       onRowClick &&
                         'cursor-pointer focus-visible:-outline-offset-2',
                       rowClassName?.(row.original),
@@ -347,16 +386,22 @@ function DataGrid<T>({
                         <TableCell
                           key={cell.id}
                           className={cn(
+                            CELLULE,
                             meta?.stickyRight && STICKY_CELL,
                             meta?.className,
                           )}
                           onClick={stopIfInteractive(meta?.interactive)}
                           onKeyDown={stopIfInteractive(meta?.interactive)}
                         >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
+                          <div
+                            className={CONTENU_CELLULE}
+                            onMouseEnter={titreSiCoupe}
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </div>
                         </TableCell>
                       );
                     })}

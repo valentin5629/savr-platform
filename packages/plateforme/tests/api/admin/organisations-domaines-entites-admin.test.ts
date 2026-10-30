@@ -112,6 +112,7 @@ describe('POST domaines-email (Admin)', () => {
   }
 
   it('201 : domaine normalisé, rattaché à l’organisation de l’URL, vérifié d’emblée, audité', async () => {
+    resultats.organisations = [{ data: { type: 'agence' }, error: null }];
     resultats.domaines_email_publics = [{ data: null, error: null }];
     resultats[DOM] = [
       {
@@ -129,11 +130,28 @@ describe('POST domaines-email (Admin)', () => {
   });
 
   it('422 domaine public (gmail.com), aucun INSERT', async () => {
+    resultats.organisations = [{ data: { type: 'agence' }, error: null }];
     resultats.domaines_email_publics = [
       { data: { domaine: 'gmail.com' }, error: null },
     ];
     const res = await post({ domaine: 'gmail.com' });
     expect(res.status).toBe(422);
+    expect(appelsDe(DOM, 'insert')).toHaveLength(0);
+  });
+
+  it('422 client organisateur (jamais en libre-service), aucun INSERT', async () => {
+    resultats.organisations = [
+      { data: { type: 'client_organisateur' }, error: null },
+    ];
+    const res = await post({ domaine: 'arep.fr' });
+    expect(res.status).toBe(422);
+    expect(appelsDe(DOM, 'insert')).toHaveLength(0);
+  });
+
+  it('404 organisation absente, aucun INSERT', async () => {
+    resultats.organisations = [{ data: null, error: null }];
+    const res = await post({ domaine: 'arep.fr' });
+    expect(res.status).toBe(404);
     expect(appelsDe(DOM, 'insert')).toHaveLength(0);
   });
 
@@ -149,6 +167,7 @@ describe('POST domaines-email (Admin)', () => {
   });
 
   it('409 domaine déjà rattaché (unicité globale)', async () => {
+    resultats.organisations = [{ data: { type: 'agence' }, error: null }];
     resultats.domaines_email_publics = [{ data: null, error: null }];
     resultats[DOM] = [{ data: null, error: { code: '23505' } }];
     const res = await post({ domaine: 'arep.fr' });
@@ -181,6 +200,31 @@ describe('PATCH / DELETE domaines-email/[domaineId] (Admin)', () => {
     expect(perimetre(DOM).every((a) => a.args[1] === 'org-1')).toBe(true);
     expect(perimetre(DOM)).toHaveLength(2);
     expect(appelsDe('audit_log', 'insert')).toHaveLength(1);
+  });
+
+  it('PATCH verifie=true : pose verifie_at, bornée à l’organisation', async () => {
+    resultats[DOM] = [
+      { data: { id: 'd-1', verifie_at: null }, error: null },
+      { data: { id: 'd-1', verifie_at: 'x' }, error: null },
+    ];
+    resultats.organisations = [{ data: { type: 'traiteur' }, error: null }];
+    const { PATCH } = await route();
+    const res = await PATCH(req('PATCH', { verifie: true }), { params });
+    expect(res.status).toBe(200);
+    const maj = appelsDe(DOM, 'update')[0]?.args[0] as { verifie_at: unknown };
+    expect(typeof maj.verifie_at).toBe('string');
+    expect(perimetre(DOM)).toHaveLength(2);
+  });
+
+  it('PATCH verifie=true refusé (422) pour un client organisateur, aucun UPDATE', async () => {
+    resultats[DOM] = [{ data: { id: 'd-1', verifie_at: null }, error: null }];
+    resultats.organisations = [
+      { data: { type: 'client_organisateur' }, error: null },
+    ];
+    const { PATCH } = await route();
+    const res = await PATCH(req('PATCH', { verifie: true }), { params });
+    expect(res.status).toBe(422);
+    expect(appelsDe(DOM, 'update')).toHaveLength(0);
   });
 
   it('PATCH 404 si le domaine n’est pas dans cette organisation, aucun UPDATE', async () => {

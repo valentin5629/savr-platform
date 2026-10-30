@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { TagIcon } from '@/components/ui/icones';
+import { Text } from '@/components/ui/text';
 
 // Domaines email de l'organisation (CDC §06.06 « Domaines email ») : un domaine
 // VÉRIFIÉ rattache automatiquement les futurs inscrits de ce domaine à
@@ -24,12 +25,16 @@ export interface DomaineEmail {
 
 interface Props {
   organisationId: string;
+  /** Un client organisateur n'est jamais en libre-service : aucun domaine ne
+   * le rattache (CLAUDE.md §4), donc ni ajout ni vérification. */
+  clientOrganisateur: boolean;
   domaines: DomaineEmail[];
   onChange: () => void;
 }
 
 export function CarteDomainesEmail({
   organisationId,
+  clientOrganisateur,
   domaines,
   onChange,
 }: Props) {
@@ -104,21 +109,23 @@ export function CarteDomainesEmail({
               <Badge variant={d.verifie_at ? 'success' : 'warning'}>
                 {d.verifie_at ? 'Vérifié' : 'Non vérifié'}
               </Badge>
-              <Button
-                size="sm"
-                variant="secondary"
-                loading={enCours === d.id}
-                onClick={() =>
-                  void appeler(d.id, `${base}/${encodeURIComponent(d.id)}`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ verifie: !d.verifie_at }),
-                  })
-                }
-              >
-                {d.verifie_at
-                  ? 'Retirer la vérification'
-                  : 'Marquer comme vérifié'}
-              </Button>
+              {(d.verifie_at || !clientOrganisateur) && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={enCours === d.id}
+                  onClick={() =>
+                    void appeler(d.id, `${base}/${encodeURIComponent(d.id)}`, {
+                      method: 'PATCH',
+                      body: JSON.stringify({ verifie: !d.verifie_at }),
+                    })
+                  }
+                >
+                  {d.verifie_at
+                    ? 'Retirer la vérification'
+                    : 'Marquer comme vérifié'}
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
@@ -134,26 +141,33 @@ export function CarteDomainesEmail({
           ))}
         </ul>
       )}
-      <form
-        onSubmit={(e) => void ajouter(e)}
-        className="flex flex-col gap-2 sm:flex-row sm:items-center"
-      >
-        <Input
-          aria-label="Domaine à ajouter"
-          placeholder="monentreprise.fr"
-          value={saisie}
-          onChange={(e) => setSaisie(e.target.value)}
-          className="sm:max-w-xs"
-        />
-        <Button
-          type="submit"
-          size="sm"
-          loading={enCours === 'ajout'}
-          disabled={!saisie.trim()}
+      {clientOrganisateur ? (
+        <Text>
+          Un client organisateur ne rejoint pas Savr en libre-service : ses
+          comptes sont créés par l’équipe Savr, aucun domaine ne le rattache.
+        </Text>
+      ) : (
+        <form
+          onSubmit={(e) => void ajouter(e)}
+          className="flex flex-col gap-2 sm:flex-row sm:items-center"
         >
-          Ajouter le domaine
-        </Button>
-      </form>
+          <Input
+            aria-label="Domaine à ajouter"
+            placeholder="monentreprise.fr"
+            value={saisie}
+            onChange={(e) => setSaisie(e.target.value)}
+            className="sm:max-w-xs"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            loading={enCours === 'ajout'}
+            disabled={!saisie.trim()}
+          >
+            Ajouter le domaine
+          </Button>
+        </form>
+      )}
 
       <ConfirmDialog
         open={aRetirer !== null}

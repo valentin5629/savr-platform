@@ -42,6 +42,26 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (!avant)
     return NextResponse.json({ error: 'Domaine non trouvé' }, { status: 404 });
 
+  // Vérifier = rattacher les futurs inscrits : jamais pour un client
+  // organisateur (CLAUDE.md §4, cf. POST de la route parente).
+  if (body.verifie) {
+    const { data: org, error: orgErr } = await supabase
+      .from('organisations')
+      .select('type')
+      .eq('id', id)
+      .maybeSingle();
+    if (orgErr)
+      return serverError(orgErr, 'admin.organisations.domaines_email.org');
+    if ((org as { type: string } | null)?.type === 'client_organisateur')
+      return NextResponse.json(
+        {
+          error:
+            'Un client organisateur ne rejoint jamais Savr en libre-service : ses comptes sont créés par l’équipe Savr. Aucun domaine ne peut le rattacher.',
+        },
+        { status: 422 },
+      );
+  }
+
   const { data, error } = await supabase
     .from('organisations_domaines_email')
     .update({ verifie_at: body.verifie ? new Date().toISOString() : null })

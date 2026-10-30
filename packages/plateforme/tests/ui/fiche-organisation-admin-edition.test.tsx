@@ -199,4 +199,26 @@ describe('Fiche organisation Admin — édition', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'Client organisateur : ni ajout ni vérification de domaine',
+    async () => {
+      fetchMock.mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ ...ORG, type: 'client_organisateur' }),
+        } as Response),
+      );
+      await ouvrir();
+      expect(screen.queryByLabelText('Domaine à ajouter')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Marquer comme vérifié' }),
+      ).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Retirer @arep.fr' }),
+      ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

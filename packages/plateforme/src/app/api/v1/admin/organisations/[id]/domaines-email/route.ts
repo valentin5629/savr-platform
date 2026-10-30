@@ -68,6 +68,30 @@ export async function POST(
 
   const supabase = createAdminSupabaseClient();
 
+  // Un domaine vérifié rattache tout inscrit de ce domaine avec le rôle du type
+  // de l'organisation (api/auth/signup). Un client organisateur n'est jamais
+  // en libre-service (CLAUDE.md §4, création Admin §06.06) : refus.
+  const { data: org, error: orgErr } = await supabase
+    .from('organisations')
+    .select('type')
+    .eq('id', id)
+    .maybeSingle();
+  if (orgErr)
+    return serverError(orgErr, 'admin.organisations.domaines_email.org');
+  if (!org)
+    return NextResponse.json(
+      { error: 'Organisation non trouvée' },
+      { status: 404 },
+    );
+  if ((org as { type: string }).type === 'client_organisateur')
+    return NextResponse.json(
+      {
+        error:
+          'Un client organisateur ne rejoint jamais Savr en libre-service : ses comptes sont créés par l’équipe Savr. Aucun domaine ne peut le rattacher.',
+      },
+      { status: 422 },
+    );
+
   const { data: publicRow, error: publicErr } = await supabase
     .from('domaines_email_publics')
     .select('domaine')

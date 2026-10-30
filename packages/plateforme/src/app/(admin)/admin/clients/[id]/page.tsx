@@ -547,6 +547,7 @@ export default function ClientFichePage({
                 (décision Val 2026-07-03, onglet Domaines supprimé). */}
             <CarteDomainesEmail
               organisationId={id}
+              clientOrganisateur={org.type === 'client_organisateur'}
               domaines={org.organisations_domaines_email}
               onChange={() => void refreshOrg()}
             />

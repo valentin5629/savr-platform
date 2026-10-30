@@ -26,7 +26,13 @@
     "packages/plateforme/tests/api/admin/users.m1-1a.test.ts",
     "packages/plateforme/tests/api/admin/packs.m1-1a.test.ts",
     "packages/plateforme/tests/api/admin/tarifs.m1-1a.test.ts",
-    "packages/plateforme/tests/ui/logo-organisation-proxy.test.tsx"
+    "packages/plateforme/tests/ui/logo-organisation-proxy.test.tsx",
+    "packages/plateforme/src/app/(admin)/admin/clients/[id]/modale-informations-legales.tsx",
+    "packages/plateforme/src/app/(admin)/admin/clients/[id]/modale-entite-facturation.tsx",
+    "packages/plateforme/src/app/(admin)/admin/clients/[id]/carte-domaines-email.tsx",
+    "packages/plateforme/src/app/api/v1/admin/organisations/[id]/domaines-email/[domaineId]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/organisations/[id]/entites-facturation/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/organisations/[id]/entites-facturation/[entiteId]/route.ts"
   ],
   "fichiers_modifies": [
     "packages/plateforme/src/lib/nav-config.ts"
@@ -363,6 +369,30 @@
       "test": "M1.1a — Type : 2 types + M1.1a — Statut : Actifs + M1.1a/orgas_liste_types_csv + M1.1a/orgas_liste_types_hors_enum_ecartes + M1.1a/orgas_liste_type_mono_conserve + M1.1a/orgas_liste_types_prioritaire_sur_mono + M1.1a — une réponse plus ancienne arrivée en dernier",
       "statut": "à-vérifier",
       "libelle": "Liste Clients — filtres Type et Statut à choix multiple, case « Tous » en tête (= aucun filtre) (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2). API : `types` CSV validé ; l'ancien `type` reste lu comme une liste d'un élément (Admin Collectes ?type=traiteur, fiche lieu ?type=gestionnaire_lieux) — une seule lecture, plus de branche mono. Statut Actifs / Inactifs : une valeur cochée → `actif`, les deux = aucun paramètre. §06.06 §8 ne liste pas les filtres. GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
+    },
+    {
+      "id": "M1.1a-fiche-informations-legales-modifiables",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:726",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/modale-informations-legales.tsx (bouton « Modifier » de la carte Informations légales, sur PATCH /api/v1/admin/organisations/[id] existant)",
+      "test": "Modifier les informations légales : formulaire pré-rempli, PATCH de la fiche",
+      "statut": "implemented",
+      "libelle": "Fiche organisation — informations légales modifiables par admin/ops : nom, raison sociale, type, SIRET (format seul), email, téléphone, adresse, logo (demande Val 2026-10-30, revue E2E)."
+    },
+    {
+      "id": "M1.1a-fiche-domaines-email-ajout-verification",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:725",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/carte-domaines-email.tsx + packages/plateforme/src/app/api/v1/admin/organisations/[id]/domaines-email/route.ts (POST) + packages/plateforme/src/app/api/v1/admin/organisations/[id]/domaines-email/[domaineId]/route.ts (PATCH verifie, DELETE) + packages/plateforme/src/app/api/auth/signup/route.ts (aucun rattachement au domaine d'un client organisateur) + packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts (type → client_organisateur refusé tant qu'un domaine est rattaché)",
+      "test": "201 : domaine normalisé, rattaché à l’organisation de l’URL, vérifié d’emblée, audité + 422 domaine public (gmail.com), aucun INSERT + PATCH verifie=false : retire la vérification, bornée à l’organisation, auditée + DELETE borné à l’organisation, audité ; 404 hors organisation + Domaines : statut affiché, ajout par POST, vérification par PATCH + 422 client organisateur (jamais en libre-service), aucun INSERT + PATCH verifie=true refusé (422) pour un client organisateur, aucun UPDATE + Client organisateur : ni ajout ni vérification de domaine + le domaine vérifié d’un CLIENT ORGANISATEUR ne rattache personne (jamais de libre-service) + 422 passage en client organisateur tant qu’un domaine est rattaché, sans UPDATE",
+      "statut": "implemented",
+      "libelle": "Fiche organisation — domaines email : statut vérifié / non vérifié, « Marquer comme vérifié » / « Retirer la vérification » (audit_log), retrait, et ajout par l'équipe Savr VÉRIFIÉ d'emblée (Val 2026-10-30 ; domaines publics et jetables refusés, 409 si déjà rattaché ; jamais pour un client organisateur, qui n'est pas en libre-service — CLAUDE.md §4)."
+    },
+    {
+      "id": "M1.1a-fiche-entites-facturation-admin",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:726",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/modale-entite-facturation.tsx + packages/plateforme/src/app/api/v1/admin/organisations/[id]/entites-facturation/route.ts (POST) + packages/plateforme/src/app/api/v1/admin/organisations/[id]/entites-facturation/[entiteId]/route.ts (PATCH)",
+      "test": "201 : organisation de l’URL, SIRET sans espaces vérifié INSEE, par défaut = autres dé-flaguées dans l’organisation + 404 si l’entité n’est pas dans cette organisation, aucune écriture + Entités de facturation : modification par PATCH de l’entité, ajout par POST + par défaut : les autres entités de CETTE organisation perdent le drapeau, sauf la cible + par défaut refusé (422) sur une entité désactivée, aucune écriture",
+      "statut": "implemented",
+      "libelle": "Fiche organisation — entités de facturation (multi-SIRET) ajoutées et modifiées par admin/ops, mêmes règles que §06.04 §6 côté manager : SIRET vérifié INSEE (échec 422, INSEE injoignable = en attente + revalidation), unique, une seule entité par défaut, jamais une entité désactivée ; création et modification auditées (Val 2026-10-30)."
     }
   ],
   "cdc_source_hash": {

@@ -194,14 +194,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .not('verifie_at', 'is', null)
       .maybeSingle();
 
-    if (domainRow?.organisation_id) {
+    const rawOrg = domainRow?.organisations as
+      | { type: string }
+      | { type: string }[]
+      | null
+      | undefined;
+    const orgType =
+      (Array.isArray(rawOrg) ? rawOrg[0] : rawOrg)?.type ?? type_profil;
+    // Un client organisateur ne rejoint JAMAIS Savr en libre-service (CLAUDE.md
+    // §4, création Admin §06.06) : son domaine, même vérifié, ne rattache
+    // personne. Garde posée ICI, seul point par où passent tous les chemins
+    // (domaine ajouté par l'Admin, vérifié à l'activation, organisation passée
+    // en client organisateur après coup). L'inscrit prend alors le chemin
+    // « création », où le domaine déjà rattaché fait refuser l'inscription (409).
+    if (domainRow?.organisation_id && orgType !== 'client_organisateur') {
       attachOrganisationId = domainRow.organisation_id;
-      const rawOrg = domainRow.organisations as
-        | { type: string }
-        | { type: string }[]
-        | null;
-      const orgType =
-        (Array.isArray(rawOrg) ? rawOrg[0] : rawOrg)?.type ?? type_profil;
       attachRole = rolePourDomaineConu(orgType);
     }
   }

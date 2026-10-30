@@ -76,6 +76,24 @@ export async function PATCH(
   if (!cible)
     return NextResponse.json({ error: 'Entité non trouvée' }, { status: 404 });
 
+  // Les lecteurs (batch J+1, packs AG, index uniq_entite_defaut_par_org)
+  // cherchent l'entité par défaut ACTIVE : une entité désactivée ne la
+  // remplace pas, sinon l'organisation n'en aurait plus. Vérifié avant l'appel
+  // INSEE ; une entité qui porte déjà le drapeau reste modifiable.
+  const etat = cible as unknown as {
+    actif: boolean;
+    entite_par_defaut: boolean;
+  };
+  const devientDefaut =
+    body.entite_par_defaut === true && !etat.entite_par_defaut;
+  if (devientDefaut && !etat.actif)
+    return NextResponse.json(
+      {
+        error: 'Une entité désactivée ne peut pas devenir l’entité par défaut.',
+      },
+      { status: 422 },
+    );
+
   let verdict: 'verifie' | 'echec' | 'down' | null = null;
   const siret =
     typeof body.siret === 'string' ? body.siret.replace(/\s/g, '') : null;
@@ -111,18 +129,7 @@ export async function PATCH(
       verdict === 'verifie' ? new Date().toISOString() : null;
   }
 
-  if (body.entite_par_defaut === true) {
-    // Les lecteurs (batch J+1, packs AG, index uniq_entite_defaut_par_org)
-    // cherchent l'entité par défaut ACTIVE : une entité désactivée ne la
-    // remplace pas, sinon l'organisation n'en aurait plus.
-    if (!(cible as unknown as { actif: boolean }).actif)
-      return NextResponse.json(
-        {
-          error:
-            'Une entité désactivée ne peut pas devenir l’entité par défaut.',
-        },
-        { status: 422 },
-      );
+  if (devientDefaut) {
     // L'index unique impose de libérer le drapeau AVANT de le poser ; une
     // erreur ici arrête tout, sans écriture de l'entité.
     const { error: defautErr } = await supabase

@@ -254,6 +254,17 @@ describe('POST entites-facturation (Admin)', () => {
     expect(appelsDe('audit_log', 'insert')).toHaveLength(1);
   });
 
+  it('échec du dé-flag : arrêt, aucune création', async () => {
+    mockVerifySiret.mockResolvedValue('verifie');
+    resultats[EF] = [
+      { data: null, error: null }, // doublon
+      { data: null, error: { code: 'XX000' } }, // dé-flag
+    ];
+    const res = await post({ ...ENTITE, entite_par_defaut: true });
+    expect(res.status).not.toBe(201);
+    expect(appelsDe(EF, 'insert')).toHaveLength(0);
+  });
+
   it('422 SIRET rejeté par l’INSEE, aucun INSERT', async () => {
     mockVerifySiret.mockResolvedValue('echec');
     resultats[EF] = [{ data: null, error: null }];
@@ -337,6 +348,20 @@ describe('PATCH entites-facturation/[entiteId] (Admin)', () => {
     expect(appelsDe(EF, 'neq')[0]?.args).toEqual(['id', 'ef-1']);
     expect(perimetre(EF)).toHaveLength(3);
     expect(perimetre(EF).every((a) => a.args[1] === 'org-1')).toBe(true);
+  });
+
+  it('entité désactivée déjà par défaut : reste modifiable, drapeau inchangé', async () => {
+    resultats[EF] = [
+      {
+        data: { id: 'ef-1', siret: 's', actif: false, entite_par_defaut: true },
+        error: null,
+      },
+      { data: { id: 'ef-1' }, error: null },
+    ];
+    const res = await patch({ entite_par_defaut: true, ville: 'Lyon' });
+    expect(res.status).toBe(200);
+    expect(appelsDe(EF, 'update')).toHaveLength(1);
+    expect(appelsDe(EF, 'update')[0]?.args[0]).toEqual({ ville: 'Lyon' });
   });
 
   it('par défaut refusé (422) sur une entité désactivée, aucune écriture', async () => {

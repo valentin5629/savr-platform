@@ -11,31 +11,38 @@ const TYPES_AUTORISES = new Set(['image/png', 'image/jpeg']);
 const TAILLE_MAX = 2 * 1024 * 1024; // 2 Mo
 
 export async function uploadLogo(req: NextRequest): Promise<NextResponse> {
+  const r = await televerserLogo(req);
+  if ('reponse' in r) return r.reponse;
+  return NextResponse.json({ logo_url: r.cle }, { status: 201 });
+}
+
+/**
+ * Envoie le fichier `file` de la requête vers R2. Rend la clé « bucket/logos/… »,
+ * ou la réponse d'erreur à renvoyer telle quelle (format, taille, stockage).
+ */
+export async function televerserLogo(
+  req: NextRequest,
+  options: { tailleMax?: number } = {},
+): Promise<{ cle: string } | { reponse: NextResponse }> {
+  const tailleMax = options.tailleMax ?? TAILLE_MAX;
+  const erreur = (error: string, status: number) => ({
+    reponse: NextResponse.json({ error }, { status }),
+  });
   let form: FormData;
   try {
     form = await req.formData();
   } catch {
-    return NextResponse.json(
-      { error: 'Requête multipart invalide' },
-      { status: 400 },
-    );
+    return erreur('Requête multipart invalide', 400);
   }
 
   const file = form.get('file');
-  if (!(file instanceof File))
-    return NextResponse.json(
-      { error: 'Champ "file" manquant' },
-      { status: 422 },
-    );
+  if (!(file instanceof File)) return erreur('Champ "file" manquant', 422);
   if (!TYPES_AUTORISES.has(file.type))
-    return NextResponse.json(
-      { error: 'Format non supporté (JPG ou PNG uniquement)' },
-      { status: 422 },
-    );
-  if (file.size > TAILLE_MAX)
-    return NextResponse.json(
-      { error: 'Fichier trop volumineux (2 Mo maximum)' },
-      { status: 422 },
+    return erreur('Format non supporté (JPG ou PNG uniquement)', 422);
+  if (file.size > tailleMax)
+    return erreur(
+      `Fichier trop volumineux (${Math.round(tailleMax / 1_000_000)} Mo maximum)`,
+      422,
     );
 
   const ext = file.type === 'image/png' ? 'png' : 'jpg';
@@ -44,12 +51,9 @@ export async function uploadLogo(req: NextRequest): Promise<NextResponse> {
 
   try {
     const { storageKey } = await uploadObject(key, buffer, file.type);
-    return NextResponse.json({ logo_url: storageKey }, { status: 201 });
+    return { cle: storageKey };
   } catch {
     // R2 indisponible (ex. env local sans credentials) — non bloquant côté form.
-    return NextResponse.json(
-      { error: 'Upload indisponible (stockage non configuré)' },
-      { status: 503 },
-    );
+    return erreur('Upload indisponible (stockage non configuré)', 503);
   }
 }

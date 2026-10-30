@@ -23,6 +23,20 @@ import {
   isPdfDocumentType,
   type PdfDocumentType,
 } from '@savr/shared/src/pdf/document-types.js';
+import { logoKeyToDataUri } from './logo-inline.js';
+import {
+  cleLogoAttestation,
+  cleLogoSansExcedent,
+  lireLogosEvenementDeCollecte,
+} from './logo-rapport-de-don.js';
+
+// Champ du payload qui porte le logo du client, par document (Val 2026-10-30) :
+// relu à chaque régénération, pour qu'un logo déposé ou changé sur l'événement
+// s'applique au rapport déjà fabriqué. Le reste du payload reste figé.
+const CHAMP_LOGO: Partial<Record<PdfDocumentType, string>> = {
+  'attestation-don': 'logo_client_url',
+  'rapport-evenement-sans-excedent': 'logo_url',
+};
 
 interface DocEntity {
   /** Table plateforme.* portant la ligne document (clé collecte_id). */
@@ -150,6 +164,28 @@ export async function regenerateCollecteDocument(
       timeZone: 'Europe/Paris',
     }),
   };
+
+  // 3bis. Rapport de don : logo du client relu sur l'événement (le seul champ qui
+  //       n'est pas figé). Lecture en échec → aucun rendu, plutôt qu'un rapport
+  //       refait avec un logo périmé.
+  const champLogo = CHAMP_LOGO[type];
+  if (champLogo) {
+    let logos;
+    try {
+      logos = await lireLogosEvenementDeCollecte(supabase, collecteId);
+    } catch (e) {
+      return dbError(e, 'pdf.regenerate.lecture_logos');
+    }
+    const cle = logos
+      ? type === 'attestation-don'
+        ? cleLogoAttestation(logos)
+        : cleLogoSansExcedent(logos)
+      : undefined;
+    const uri = await logoKeyToDataUri(cle);
+    // Logo présent mais illisible (stockage indisponible, fichier trop lourd) :
+    // le logo figé est gardé plutôt que d'imprimer « Savr » seul.
+    payload[champLogo] = uri ?? (cle ? (frozen[champLogo] ?? null) : null);
+  }
 
   // Version courante du rapport, lue AVANT la mise en file : une lecture en échec
   // ne doit ni lancer un rendu, ni faire retomber la version à 2.

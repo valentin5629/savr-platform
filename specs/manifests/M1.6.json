@@ -49,7 +49,18 @@
     "packages/plateforme/tests/api/traiteur/rapport-a-la-demande.m1-6.test.ts",
     "packages/plateforme/tests/api/admin/rapport-admin.m1-6.test.ts",
     "packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts",
-    "supabase/migrations/20261016200000_plateforme_email_rapport_disponible_a_telecharger.sql"
+    "supabase/migrations/20261016200000_plateforme_email_rapport_disponible_a_telecharger.sql",
+    "packages/plateforme/src/lib/pdf/logo-rapport-de-don.ts",
+    "packages/plateforme/src/lib/evenements/logo-client-rapport.ts",
+    "packages/plateforme/src/components/collecte/logo-client-rapport.tsx",
+    "packages/plateforme/src/app/api/v1/admin/collectes/[id]/logo-client/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/logo-client/route.ts",
+    "packages/plateforme/src/app/api/v1/agence/collectes/[id]/logo-client/route.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/logo-client/route.ts",
+    "packages/plateforme/tests/lib/logo-client-rapport.test.ts",
+    "packages/plateforme/src/components/collecte/logo-client-rapport.test.tsx",
+    "packages/plateforme/tests/lib/logo-rapport-de-don.test.ts",
+    "packages/plateforme/src/app/api/v1/evenements/[id]/logo-client/route.ts"
   ],
   "variables_env_requises": [
     "RAILWAY_PDF_URL",
@@ -289,7 +300,7 @@
       "artefact": "packages/plateforme/src/lib/pdf/logo-cascade.ts (resolveRapportLogo, resolveRapportLogos) + packages/plateforme/src/lib/pdf/payload-rapport.ts (logo_client_url / logo_traiteur_url, budget commun des deux logos) ; cascade à un logo réutilisée par batch-pdf-sans-excedent.ts",
       "test": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / logos du rapport de recyclage @3 — client et traiteur ; packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts « BL-P2-19 : agence programmatrice → son logo dans l’emplacement client », « deux logos lourds → le traiteur cède sa place »",
       "statut": "implemented",
-      "libelle": "Logos du rapport §1.2. Gabarit @3 du rapport de recyclage : deux emplacements dans le bandeau, à côté du logo Savr — client (agence programmatrice prime → client organisateur, compte Savr sinon logo déposé à la programmation) et traiteur opérationnel ; un emplacement sans logo n'est pas rendu, le logo du traiteur ne glisse jamais dans l'emplacement client. Pas de logo de marque pour un gestionnaire programmateur. La cascade à un seul logo (… → traiteur → Savr) reste celle du rapport sans excédent AG. Deux emplacements au lieu d'un : CDC patché au sync du 2026-10-20 (§12 l.48-50, divergence M1.6_20261013_rapport-recyclage-deux-versions)."
+      "libelle": "Logos du rapport §1.2. Gabarit @3 du rapport de recyclage : deux emplacements dans le bandeau, à côté du logo Savr — client (logo déposé sur l'événement prime — décision Val 2026-10-30, cf. M1.6-logo-client-rapport-de-don — puis agence programmatrice → client organisateur, compte Savr) et traiteur opérationnel ; un emplacement sans logo n'est pas rendu, le logo du traiteur ne glisse jamais dans l'emplacement client. Pas de logo de marque pour un gestionnaire programmateur. La cascade à un seul logo (… → traiteur → Savr) reste celle du rapport sans excédent AG. Deux emplacements au lieu d'un : CDC patché au sync du 2026-10-20 (§12 l.48-50, divergence M1.6_20261013_rapport-recyclage-deux-versions)."
     },
     {
       "id": "M1.6-rpt-01-sql",
@@ -339,6 +350,15 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
       "libelle": "Bordereau ZD (batch J+1) et rapport de recyclage fabriqué au clic (page 1 et bordereau de la page 2) impriment les convives de LA collecte (lot C2, décision Val Q5 du 2026-10-24), plus ceux de l'événement : ils correspondent au kg/pax du radar, déjà calculé sur la collecte (lot C1). Libellé imprimé inchangé (« convives ») ; une collecte à 0 convive (inconnu, reprise Bubble) rend nb_pax null : le bordereau omet la mention, le rapport affiche « — » (convivesImprimes)."
+    },
+    {
+      "id": "M1.6-logo-client-rapport-de-don",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:48-50 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:366",
+      "artefact": "packages/plateforme/src/lib/evenements/logo-client-rapport.ts (garde = téléchargement du rapport, écriture sur l'événement, refabrication) + routes …/collectes/[id]/logo-client (admin, traiteur, agence, gestionnaire) + packages/plateforme/src/components/collecte/logo-client-rapport.tsx (onglet Documents Admin, Bilan client) + packages/plateforme/src/lib/pdf/logo-cascade.ts (logo déposé en tête) + packages/plateforme/src/lib/pdf/logo-rapport-de-don.ts + batch-pdf-j1-ag.ts + regenerate.ts (logos relus) + apps/pdf-renderer/src/templates/attestation-don.ts (@4) + packages/plateforme/src/lib/pdf/pdf-worker.ts (logo complété au rendu d'une attestation corrigée par le trigger de volume) + route /api/v1/evenements/[id]/logo-client + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx (bloc Documents de la fiche événement)",
+      "test": "packages/plateforme/tests/lib/logo-client-rapport.test.ts ; packages/plateforme/src/components/collecte/logo-client-rapport.test.tsx ; logo du client imprimé sur les rapports (Val 2026-10-30) ; attestation de don — logo du client (Val 2026-10-30) ; attestation de don — logo du client dans l’en-tête (Val 2026-10-30) ; packages/plateforme/tests/lib/regenerate-sans-excedent.m2-4.test.ts « logo du client relu sur l’événement : un logo déposé depuis remplace l’ancien » ; M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; packages/plateforme/tests/lib/logo-rapport-de-don.test.ts ; fiche événement (Val 2026-10-30)",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.6_20261030_logo-client-rapport-de-don.md",
+      "libelle": "Logo du client déposé depuis la fiche collecte (décisions Val 2026-10-30) : ligne « Logo du client » dans l'onglet Documents Admin et dans le Bilan de la fiche client (traiteur, agence, gestionnaire), ouverte à tout utilisateur qui peut télécharger le rapport (même garde : collecte visible sous RLS, non annulée, rapport non réservé au donneur d'ordre). Le logo est rangé sur l'événement (evenements.logo_client_organisateur_url) et vaut pour tous ; il prime dans la cascade. Il est imprimé sur les deux « Rapport de don » (attestation de don @4 et rapport sans excédent). Un dépôt ou un retrait remet en fabrication les rapports de don déjà produits de l'événement : la régénération relit les logos, le reste du document reste figé. Une attestation refaite par le trigger SQL de correction de volume reçoit le logo au rendu (worker PDF). Dépôt plafonné à 1 Mo (au-delà, le logo ne serait pas inliné dans le PDF). Fiche événement (Val 2026-10-30) : même ligne en tête du bloc Documents, tous rôles dont le client organisateur ; les rapports cumulés impriment le logo par l'en-tête commun."
     }
   ],
   "cdc_source_hash": {

@@ -14,7 +14,7 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
-import { resolveRapportLogo } from './logo-cascade.js';
+import { cleLogoSansExcedent } from './logo-rapport-de-don.js';
 import { makeLogoResolver } from './logo-inline.js';
 import {
   type BatchFatal,
@@ -230,14 +230,8 @@ export async function runBatchSansExcedent(
               Boolean(f?.numero_facture) && f?.statut !== 'brouillon',
           )?.numero_facture ?? null;
 
-      // 5. Cascade logo client §12 §1.2 (BL-P2-19 — cohérence AG).
-      const logo = resolveRapportLogo({
-        programmateur: ev.organisations,
-        client_organisateur: ev.client_organisateur,
-        evenement_logo_client_url: ev.logo_client_organisateur_url,
-        traiteur_operationnel: ev.traiteur_operationnel ?? ev.organisations,
-      });
-
+      // 5. Cascade logo client §12 §1.2 (BL-P2-19) : même règle que la
+      //    régénération (lib/pdf/logo-rapport-de-don).
       const payload = {
         nom_evenement: ev.nom_evenement,
         date_evenement: new Date(ev.date_evenement).toLocaleDateString(
@@ -249,7 +243,7 @@ export async function runBatchSansExcedent(
         traiteur_nom: traiteurNom,
         nb_pax: convivesImprimes(collecte.pax),
         client_organisateur_nom: ev.nom_client_organisateur,
-        logo_url: (await resolveLogoUri(logo.logo_url)) ?? null,
+        logo_url: (await resolveLogoUri(cleLogoSansExcedent(ev))) ?? null,
         presentation_datetime: presentationDatetime,
         chauffeur_nom: tournee?.chauffeur_nom ?? null,
         plaque_immatriculation: plaque,

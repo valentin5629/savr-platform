@@ -29,7 +29,7 @@ const MIME_BY_EXT: Record<string, string> = {
 // (~1,33 Mo base64) on risque de dépasser la limite AVEC le reste du payload → on
 // retombe sur l'en-tête Savr (best-effort, jamais bloquant) plutôt que de faire échouer
 // TOUTE la génération PDF pour un logo simplement trop lourd (revue conformité R23b-2).
-const MAX_LOGO_BYTES = 1_000_000;
+export const MAX_LOGO_BYTES = 1_000_000;
 
 export async function logoKeyToDataUri(
   storageKey: string | null | undefined,

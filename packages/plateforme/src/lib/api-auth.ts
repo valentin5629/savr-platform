@@ -227,6 +227,8 @@ export interface AnyUserAuthContext {
   /** Organisation métier (null pour le staff admin/ops, périmètre global). */
   organisationId: string | null;
   isStaff: boolean;
+  /** Admin réel d'une session impersonée (cf. UserAuthContext). */
+  impersonatorId?: string;
 }
 
 // Authentifie un utilisateur quel que soit son rôle (staff OU client) et renvoie
@@ -285,6 +287,7 @@ export async function requireAnyUser(
       role: role as AnyRole,
       organisationId: organisationId ?? null,
       isStaff,
+      impersonatorId: claims.impersonatorId,
     },
   };
 }

@@ -23,6 +23,12 @@ import {
   lireParPages,
   lireParLots,
 } from './selection-par-pages.js';
+import { makeLogoResolver } from './logo-inline.js';
+import {
+  SELECT_LOGOS_EVENEMENT,
+  cleLogoAttestation,
+  type LogosEvenementRow,
+} from './logo-rapport-de-don.js';
 
 export interface BatchPdfJ1AgResult {
   enqueued: number;
@@ -57,15 +63,17 @@ interface CollecteAgRow {
   date_collecte: string;
   co2_evite_kg: number | null;
   co2_facteurs_snapshot: Record<string, unknown> | null;
-  evenements: {
-    // Nullable en base : le formulaire de programmation peut l'envoyer vide.
-    nom_evenement: string | null;
-    date_evenement: string;
-    organisation_id: string;
-    // Programmeur de la collecte (evenements.created_by → users) → variable
-    // `prenom` de l'email, s'il appartient à l'organisation destinataire.
-    programmeur: { prenom: string | null; organisation_id: string } | null;
-  } | null;
+  evenements:
+    | (LogosEvenementRow & {
+        // Nullable en base : le formulaire de programmation peut l'envoyer vide.
+        nom_evenement: string | null;
+        date_evenement: string;
+        organisation_id: string;
+        // Programmeur de la collecte (evenements.created_by → users) → variable
+        // `prenom` de l'email, s'il appartient à l'organisation destinataire.
+        programmeur: { prenom: string | null; organisation_id: string } | null;
+      })
+    | null;
   attributions_antgaspi: AttributionRow | null;
 }
 
@@ -106,7 +114,8 @@ export async function runBatchPdfJ1Ag(
       co2_evite_kg, co2_facteurs_snapshot,
       evenements (
         nom_evenement, date_evenement, organisation_id,
-        programmeur:users!created_by ( prenom, organisation_id )
+        programmeur:users!created_by ( prenom, organisation_id ),
+        ${SELECT_LOGOS_EVENEMENT}
       ),
       attributions_antgaspi (
         id, volume_repas_realise, poids_repas_kg, association_id,
@@ -212,6 +221,8 @@ export async function runBatchPdfJ1Ag(
 
   // Année PARISIENNE (cf. bordereaux) : séquence gapless annuelle.
   const annee = anneeParis();
+  // Logo du client inliné (data URI), mémoïsé pour le lot.
+  const resoudreLogo = makeLogoResolver();
 
   for (const collecte of toProcess) {
     try {
@@ -362,6 +373,8 @@ export async function runBatchPdfJ1Ag(
         co2_evite_kg: collecte.co2_evite_kg,
         co2_km_voiture: co2KmVoiture ?? null,
         co2_facteurs_version: co2FacteursVersion,
+        // Logo du client (Val 2026-10-30) : emplacement « client » de la cascade.
+        logo_client_url: await resoudreLogo(cleLogoAttestation(ev)),
       };
 
       // 8. Enqueuer le job PDF attestation

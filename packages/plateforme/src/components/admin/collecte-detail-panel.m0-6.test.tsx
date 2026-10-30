@@ -3237,6 +3237,24 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
+    'Documents : ligne « Logo du client » branchée sur la route Admin (Val 2026-10-30)',
+    async () => {
+      installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      const ligne = await screen.findByTestId(
+        'logo-client-rapport',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(ligne.querySelector('img')!.getAttribute('src')).toBe(
+        '/api/v1/admin/collectes/c1/logo-client?v=0',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos',
     async () => {
       const fetchMock = installMock({});
@@ -3244,8 +3262,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await ouvrirOnglet('Documents');
       await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
 
+      // Champ des photos (l'onglet porte aussi celui du logo du client).
       const input = container.querySelector(
-        'input[type="file"]',
+        '#collecte-import-photo',
       ) as HTMLInputElement;
       const file = new File(['x'], 'photo.png', { type: 'image/png' });
       fireEvent.change(input, { target: { files: [file] } });

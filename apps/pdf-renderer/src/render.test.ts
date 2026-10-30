@@ -37,7 +37,7 @@ const EXPECTED_TYPES = [
 const EXPECTED_VERSIONS: Record<string, string> = {
   'bordereau-zd': 'bordereau-zd@2',
   'rapport-recyclage-zd': 'rapport-recyclage-zd@3',
-  'attestation-don': 'attestation-don@3',
+  'attestation-don': 'attestation-don@4',
   'synthese-dashboard': 'synthese-dashboard@1',
   'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@2',
   facture: 'facture@1',
@@ -431,6 +431,33 @@ describe('M2.4 / attestation de don 2041-GE — mention fiscale conditionnelle',
     expect(html).toContain(
       'Estimation FAO — 2,5 kgCO₂e par repas sauvé du gaspillage',
     );
+  });
+});
+
+describe('attestation de don — logo du client dans l’en-tête (Val 2026-10-30)', () => {
+  const LOGO = 'data:image/png;base64,iVBORw0KGgo=';
+
+  it('avec un logo client : image à côté de « Savr »', () => {
+    const html = renderByType(
+      'attestation-don',
+      attestationData({ logo_client_url: LOGO }),
+    );
+    expect(html).toContain(`<img class="logo-client" src="${LOGO}"`);
+    expect(html).toContain('<div class="logo-savr">Savr</div>');
+  });
+
+  it('sans logo client : « Savr » seul, aucune image', () => {
+    const html = renderByType('attestation-don', attestationData());
+    expect(html).not.toContain('logo-client"');
+    expect(html).toContain('<div class="logo-savr">Savr</div>');
+  });
+
+  it('valeur du logo échappée (aucune sortie d’attribut)', () => {
+    const html = renderByType(
+      'attestation-don',
+      attestationData({ logo_client_url: 'x" onerror="alert(1)' }),
+    );
+    expect(html).not.toContain('onerror="alert');
   });
 });
 

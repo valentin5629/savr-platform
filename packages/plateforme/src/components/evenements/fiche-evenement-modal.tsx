@@ -94,6 +94,7 @@ import {
 import { ROUTES } from '@/lib/routes';
 import { friseStatutEvenement } from '@/lib/statut-collecte-labels';
 import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphique';
+import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
 
 // Fiche événement, en pop-up sur la liste Événements, commune aux espaces qui
 // ont une fiche collecte client (gestionnaire, traiteur, agence : décision Val
@@ -506,7 +507,9 @@ function DocumentsEvenement({
   // Rapport cumulé ZD : radar au choix de celui qui le télécharge, sur les
   // filtres réglés au-dessus ; la case part décochée (comme la fiche collecte).
   const [avecRadar, setAvecRadar] = useState(false);
-  if (actives.length === 0 && (nbRealisees === 0 || !avecCumul)) return null;
+  // Sans rapport à lister, le bloc garde la ligne du logo du client (Val
+  // 2026-10-30 : à déposer avant le premier téléchargement).
+  const afficherCumul = avecCumul && (actives.length > 0 || nbRealisees > 0);
   const zd = type === 'zero_dechet';
   const choixRadarPossible = zd && radar.visible && !radar.indisponible;
   const radarDemande = choixRadarPossible && avecRadar;
@@ -558,7 +561,15 @@ function DocumentsEvenement({
         className="divide-y divide-savr-neutral-100 p-0"
         data-testid="documents-evenement"
       >
-        {avecCumul && (
+        {/* Logo du client imprimé sur les rapports (Val 2026-10-30), avant
+              leur téléchargement ; tous les rôles, organisateur compris. */}
+        <div className="px-5">
+          <LogoClientRapport
+            id="evenement-logo-client"
+            endpoint={`/api/v1/evenements/${encodeURIComponent(evenementId)}/logo-client`}
+          />
+        </div>
+        {afficherCumul && (
           <div
             className="flex flex-wrap items-center gap-3 px-5 py-3.5"
             data-testid="document-evenement-cumul"

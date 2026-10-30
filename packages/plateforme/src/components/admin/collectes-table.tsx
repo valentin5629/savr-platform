@@ -1,5 +1,6 @@
 'use client';
 
+import type * as React from 'react';
 import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
@@ -193,50 +194,79 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
   const poids = poidsTotalZd(row);
   const repas = row.attributions_antgaspi?.volume_repas_realise;
 
+  const indicateurs: IndicateurProps[] = [];
+  if (sansExcedent)
+    indicateurs.push({ icone: PackageIcon, texte: LIBELLE_SANS_EXCEDENT });
+  if (row.type === 'anti_gaspi' && !sansExcedent && repas != null)
+    indicateurs.push({ icone: PackageIcon, texte: `${repas} repas` });
+  if (row.type === 'zero_dechet' && poids > 0)
+    indicateurs.push({ icone: ScalesIcon, texte: fmtKgAuto(poids) });
+  if (row.type === 'zero_dechet' && row.taux_recyclage != null)
+    indicateurs.push({
+      icone: RecycleIcon,
+      texte: fmtPct(row.taux_recyclage, 0),
+    });
+  if (rapport)
+    indicateurs.push(
+      rapport.consulte_par_user_at
+        ? {
+            icone: CheckCircleIcon,
+            texte: 'Rapport consulté',
+            className: 'text-savr-success-strong',
+            iconeClassName: 'text-savr-success',
+          }
+        : {
+            icone: FileTextIcon,
+            texte: 'Rapport non consulté',
+            className: 'text-savr-warning-strong',
+            iconeClassName: 'text-savr-warning',
+          },
+    );
+
   return (
+    // Sur le tableau, une seule ligne : le dernier élément est coupé en « … »
+    // quand la place manque (décision Val 2026-10-30), texte complet au survol.
     <Text
       as="div"
       variant="hint"
       tone="soft"
-      className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 font-bold sm:justify-start"
+      title={indicateurs.map((i) => i.texte).join(' · ') || undefined}
+      className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 font-bold sm:justify-start"
     >
-      {sansExcedent && (
-        <span className="inline-flex items-center gap-1.5">
-          <PackageIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {LIBELLE_SANS_EXCEDENT}
-        </span>
-      )}
-      {row.type === 'anti_gaspi' && !sansExcedent && repas != null && (
-        <span className="inline-flex items-center gap-1.5">
-          <PackageIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {repas} repas
-        </span>
-      )}
-      {row.type === 'zero_dechet' && poids > 0 && (
-        <span className="inline-flex items-center gap-1.5">
-          <ScalesIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {fmtKgAuto(poids)}
-        </span>
-      )}
-      {row.type === 'zero_dechet' && row.taux_recyclage != null && (
-        <span className="inline-flex items-center gap-1.5">
-          <RecycleIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {fmtPct(row.taux_recyclage, 0)}
-        </span>
-      )}
-      {rapport &&
-        (rapport.consulte_par_user_at ? (
-          <span className="inline-flex items-center gap-1.5 text-savr-success-strong">
-            <CheckCircleIcon className="h-3.5 w-3.5 text-savr-success" />
-            Rapport consulté
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 text-savr-warning-strong">
-            <FileTextIcon className="h-3.5 w-3.5 text-savr-warning" />
-            Rapport non consulté
-          </span>
-        ))}
+      {indicateurs.map((i, n) => (
+        // Seul le dernier élément se coupe : un chiffre reste entier.
+        <Indicateur
+          key={i.texte}
+          {...i}
+          className={cn(
+            n === indicateurs.length - 1 ? 'min-w-0' : 'shrink-0',
+            i.className,
+          )}
+        />
+      ))}
     </Text>
+  );
+}
+
+interface IndicateurProps {
+  icone: React.ComponentType<{ className?: string }>;
+  texte: string;
+  className?: string;
+  iconeClassName?: string;
+}
+
+// Un indicateur : pictogramme fixe, texte qui se coupe en « … ».
+function Indicateur({
+  icone: Icone,
+  texte,
+  className,
+  iconeClassName = 'text-savr-neutral-400',
+}: IndicateurProps) {
+  return (
+    <span className={cn('inline-flex items-center gap-1.5', className)}>
+      <Icone className={cn('h-3.5 w-3.5 shrink-0', iconeClassName)} />
+      <span className="truncate">{texte}</span>
+    </span>
   );
 }
 

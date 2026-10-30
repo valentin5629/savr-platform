@@ -4,7 +4,7 @@ import { ErrorState } from '@/components/ui/error-state';
 import { fmtKg, fmtPct } from '@/lib/format';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChefHatIcon } from '@/components/ui/icones';
-import { Badge } from '@/components/ui/badge';
+import { BadgesLigne } from '@/components/ui/badges-ligne';
 import {
   CelluleVide,
   DataGrid,
@@ -150,13 +150,10 @@ export default function GestionnaireTraiteursPage() {
       header: "Lieux d'intervention",
       cell: ({ row: { original: t } }) =>
         t.lieux_intervention.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {t.lieux_intervention.map((l) => (
-              <Badge key={l.id} variant="neutral" dot={false}>
-                {l.nom}
-              </Badge>
-            ))}
-          </div>
+          <BadgesLigne
+            libelles={t.lieux_intervention.map((l) => l.nom)}
+            dot={false}
+          />
         ) : (
           <CelluleVide />
         ),

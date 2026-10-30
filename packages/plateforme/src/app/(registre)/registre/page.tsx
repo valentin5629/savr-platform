@@ -7,7 +7,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BookOpenIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { BadgesLigne } from '@/components/ui/badges-ligne';
 import {
   DataGrid,
   type ColumnDef,
@@ -251,13 +251,7 @@ function RegistreContent() {
       id: 'flux',
       header: 'Flux',
       cell: ({ row: { original: r } }) => (
-        <div className="flex flex-wrap gap-1">
-          {(r.flux_codes ?? []).map((c) => (
-            <Badge key={c} variant="neutral">
-              {libelleFlux(c)}
-            </Badge>
-          ))}
-        </div>
+        <BadgesLigne libelles={(r.flux_codes ?? []).map(libelleFlux)} />
       ),
     },
     {

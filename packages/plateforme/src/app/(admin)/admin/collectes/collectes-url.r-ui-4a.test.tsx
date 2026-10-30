@@ -294,11 +294,10 @@ describe('M0.6 / liste Collectes Admin — export CSV', () => {
           /\/admin\/collectes\?/.test(String(c[0])),
         ),
       ).toBe(false);
-      // … et l'export non plus.
-      expect(
-        screen.getByRole('button', { name: 'Exporter CSV' }),
-      ).toBeDisabled();
-      expect(exporter(ouvrir)).toBeNull();
+      // … et l'export non plus : sans ligne, la barre du tableau (et son
+      // bouton, à gauche de « Colonnes ») n'est pas affichée.
+      expect(screen.queryByRole('button', { name: 'Exporter CSV' })).toBeNull();
+      expect(ouvrir).not.toHaveBeenCalled();
     },
     ATTENTE_CAS_MS,
   );

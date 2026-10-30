@@ -23,6 +23,7 @@ import AdminEvenementsPage from '@/app/(admin)/admin/evenements/page.js';
 import AgenceEvenementsPage from '@/app/(agence)/agence/evenements/page.js';
 import OrganisateurEvenementsPage from '@/app/(client-organisateur)/organisateur/evenements/page.js';
 import TraiteurEvenementsPage from '@/app/(traiteur)/traiteur/evenements/page.js';
+import GestionnaireEvenementsPage from '@/app/(gestionnaire)/gestionnaire/evenements/page.js';
 import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const LIGNE = {
@@ -114,6 +115,38 @@ describe('Liste Événements — réglages par espace', () => {
           'Vos événements, résultats cumulés sur leurs collectes',
         ),
       ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/liste_evenements_export_csv — « Exporter CSV » à gauche de « Colonnes », pour tous les rôles, sur la période de la vue (Val 2026-10-30)',
+    async () => {
+      const ouvrir = vi.fn();
+      vi.stubGlobal('open', ouvrir);
+      for (const Page of [
+        TraiteurEvenementsPage,
+        AgenceEvenementsPage,
+        AdminEvenementsPage,
+        OrganisateurEvenementsPage,
+        GestionnaireEvenementsPage,
+      ]) {
+        ouvrir.mockClear();
+        render(<Page />);
+        await tableau();
+        const bouton = screen.getByRole('button', { name: 'Exporter CSV' });
+        expect(bouton.nextElementSibling).toBe(
+          screen.getByRole('button', { name: /Colonnes/ }),
+        );
+        fireEvent.click(bouton);
+        const cible = String(ouvrir.mock.calls[0]?.[0] ?? '');
+        expect(cible.startsWith('/api/v1/exports/evenements?')).toBe(true);
+        // Vue « à venir » par défaut : à partir d'aujourd'hui.
+        expect(new URLSearchParams(cible.split('?')[1]).get('from')).toMatch(
+          /^\d{4}-\d{2}-\d{2}$/,
+        );
+        cleanup();
+      }
     },
     ATTENTE_CAS_MS,
   );

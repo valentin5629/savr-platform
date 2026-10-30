@@ -10,8 +10,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ClipboardTextIcon, DownloadSimpleIcon } from '@/components/ui/icones';
-import { Button } from '@/components/ui/button';
+import { ClipboardTextIcon } from '@/components/ui/icones';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import {
   CelluleVide,
@@ -19,6 +18,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@/components/ui/data-grid';
+import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
 import {
   FiltreCoches,
   type OptionFiltre,
@@ -566,6 +566,13 @@ function GestionnaireCollectesContent() {
   ) : (
     <>
       <DataGrid
+        toolbarActions={
+          <BoutonExportCsv
+            onClick={() =>
+              window.open(`/api/v1/exports/collectes?${qsFiltres}`)
+            }
+          />
+        }
         data-testid="collectes-table"
         columns={colonnes}
         data={rows}
@@ -605,17 +612,6 @@ function GestionnaireCollectesContent() {
         icon={<ClipboardTextIcon className="h-6 w-6 text-savr-primary-200" />}
         title="Collectes"
         subtitle="Collectes sur les lieux de votre organisation · cliquez une ligne pour ouvrir la fiche"
-        actions={
-          <Button
-            variant="secondary"
-            onClick={() =>
-              window.open(`/api/v1/exports/collectes?${qsFiltres}`)
-            }
-          >
-            <DownloadSimpleIcon />
-            Exporter CSV
-          </Button>
-        }
       />
 
       {/* Filtre actif à l'arrivée d'un drill-down (§06.05 l.215) : nomme la

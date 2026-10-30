@@ -1043,6 +1043,63 @@ describe('M4.1 / evenements', () => {
   });
 });
 
+// Le fichier reprend la sélection de la liste Événements (§12 §2, demande Val
+// 2026-10-30) : mêmes filtres, brouillons écartés, aucun tri d'écran ni page.
+describe('M4.1 / evenements — filtres de la liste', () => {
+  const LIEU = '11111111-1111-4111-8111-111111111111';
+  it('M3.2/export_evenements_filtres_liste — période, lieu, type et écart des brouillons', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: [], error: null });
+    const res = await call(
+      'evenements',
+      `?from=2026-11-01&to=2026-11-30&lieu_ids=${LIEU}&type=zero_dechet`,
+    );
+    expect(res.status).toBe(200);
+    expect(rls.__calls.gte).toContainEqual(['date_evenement', '2026-11-01']);
+    expect(rls.__calls.lte).toContainEqual(['date_evenement', '2026-11-30']);
+    expect(rls.__calls.in).toContainEqual(['lieu_id', [LIEU]]);
+    expect(rls.__calls.eq).toContainEqual(['filtre_type.type', 'zero_dechet']);
+    expect(rls.__calls.neq).toContainEqual([
+      'hors_brouillon.statut',
+      'brouillon',
+    ]);
+    expect(String(rls.__calls.select?.[0]?.[0])).toContain(
+      'hors_brouillon:collectes(id)',
+    );
+    // Aucune page d'écran : lecture depuis la première ligne, par tranches.
+    expect(rls.__calls.range?.[0]).toEqual([0, 999]);
+  });
+
+  it('M3.2/export_evenements_par_tranches — au-delà d’une réponse PostgREST, toutes les lignes sortent', async () => {
+    setupAuth('admin_savr', null);
+    const evt = (id: string) => ({
+      id,
+      nom_evenement: id,
+      date_evenement: '2026-11-02',
+      pax: 10,
+      traiteur_operationnel_organisation_id: null,
+      lieux: { nom: 'Hall' },
+      collectes: [],
+    });
+    admin.push({ data: [evt('evt-tranche-1')], error: null, count: 2 });
+    admin.push({ data: [evt('evt-tranche-2')], error: null, count: 2 });
+    const text = await (await call('evenements')).text();
+    expect(text).toContain('evt-tranche-1');
+    expect(text).toContain('evt-tranche-2');
+    expect(admin.__calls.range).toHaveLength(2);
+    expect(admin.__calls.order).toContainEqual(['id', { ascending: false }]);
+  });
+
+  it('M3.2/export_evenements_selection_vide — type inconnu : fichier vide, aucune lecture', async () => {
+    setupAuth('traiteur_manager');
+    const res = await call('evenements', '?type=inconnu');
+    expect(res.status).toBe(200);
+    expect(rls.__calls.from).toBeUndefined();
+    const lignes = (await res.text()).split('\r\n').filter(Boolean);
+    expect(lignes).toHaveLength(1); // en-tête seul
+  });
+});
+
 // Lot 3 du pax porté par la collecte, décision Val Q4 du 2026-10-25 : l'export
 // Événements garde le pax CALCULÉ de l'événement et sa taille.
 describe('Lot 3 / export Événements — pax et taille de l’événement (Q4)', () => {

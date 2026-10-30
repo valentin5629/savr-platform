@@ -97,7 +97,12 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn('px-4 py-3 align-middle text-savr-neutral-800', className)}
+    // Jamais de retour à la ligne : une cellule ne fait jamais grandir sa
+    // ligne (décision Val 2026-10-30, toutes les vues tables).
+    className={cn(
+      'whitespace-nowrap px-4 py-3 align-middle text-savr-neutral-800',
+      className,
+    )}
     {...props}
   />
 ));

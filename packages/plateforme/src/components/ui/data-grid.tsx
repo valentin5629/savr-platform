@@ -112,6 +112,18 @@ const STICKY_HEAD =
 const STICKY_CELL =
   'sticky right-0 z-[1] bg-savr-white shadow-[inset_1px_0_0_var(--color-savr-neutral-100)] group-hover:bg-savr-neutral-50';
 
+// Hauteur de ligne constante (décision Val 2026-10-30) : la ligne fait 64 px
+// quel que soit son contenu. Chaque cellule tient dans 48 px de haut (deux
+// lignes de texte, ou un bouton de 44 px) et 16 rem de large ; au-delà, le
+// contenu est coupé (« … » sur le texte), jamais renvoyé à la ligne, même
+// dans un conteneur `flex-wrap`. `w-max` : la colonne prend la largeur du
+// contenu (jusqu'à 16 rem) au lieu de l'écraser ; une colonne `text-right`
+// garde son alignement. La carte mobile garde le retour à la ligne.
+const LIGNE = 'h-16';
+const CELLULE = 'py-2';
+const CONTENU_CELLULE =
+  'w-max max-w-[16rem] max-h-12 overflow-hidden text-ellipsis [&_*]:whitespace-nowrap [&_.flex-wrap]:flex-nowrap [.text-right>&]:ml-auto';
+
 function SortIcon<T>({ column }: { column: Column<T, unknown> }) {
   const dir = column.getIsSorted();
   if (dir === 'asc') return <CaretUpIcon className="h-3.5 w-3.5" aria-hidden />;
@@ -336,6 +348,7 @@ function DataGrid<T>({
                     {...rowProps(row)}
                     className={cn(
                       'group',
+                      LIGNE,
                       onRowClick &&
                         'cursor-pointer focus-visible:-outline-offset-2',
                       rowClassName?.(row.original),
@@ -347,16 +360,19 @@ function DataGrid<T>({
                         <TableCell
                           key={cell.id}
                           className={cn(
+                            CELLULE,
                             meta?.stickyRight && STICKY_CELL,
                             meta?.className,
                           )}
                           onClick={stopIfInteractive(meta?.interactive)}
                           onKeyDown={stopIfInteractive(meta?.interactive)}
                         >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
+                          <div className={CONTENU_CELLULE}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </div>
                         </TableCell>
                       );
                     })}

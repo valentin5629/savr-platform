@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { IconButton } from '@/components/ui/icon-button';
+import { Button } from '@/components/ui/button';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { ROUTES } from '@/lib/routes';
 
@@ -196,22 +197,23 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         )}
         {/* Déconnexion — tout en bas à gauche (Val 2026-10-30, ex-TopBar) */}
         <div className="shrink-0 border-t border-savr-primary-700 p-2">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={() => void handleLogout()}
             disabled={loggingOut}
             aria-label="Se déconnecter"
             title={collapsed ? 'Se déconnecter' : undefined}
             className={cn(
-              'flex h-10 w-full items-center gap-3 rounded-savr-md px-3 text-sm font-medium text-savr-primary-200 transition-colors duration-savr-fast hover:bg-savr-primary-700 hover:text-savr-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 disabled:opacity-60',
+              // Mêmes teintes que les entrées du menu (fond primary-800).
+              'h-10 w-full justify-start gap-3 px-3 font-medium text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white active:bg-savr-primary-700 sm:h-10 [&>svg]:h-5 [&>svg]:w-5',
               collapsed && 'justify-center px-0',
             )}
           >
-            <SignOutIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <SignOutIcon aria-hidden="true" />
             {!collapsed && (
               <span>{loggingOut ? 'Déconnexion…' : 'Se déconnecter'}</span>
             )}
-          </button>
+          </Button>
         </div>
       </nav>
     );

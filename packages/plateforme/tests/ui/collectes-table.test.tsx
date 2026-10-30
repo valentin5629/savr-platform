@@ -383,3 +383,46 @@ describe('collectes-table / chevron et client vide (revue écran 2026-10-29)', (
     ).toBe('Mairie de Paris');
   });
 });
+
+// Hauteur de ligne constante (décision Val 2026-10-30) : les Indicateurs
+// tiennent sur une ligne, seul le dernier élément se coupe (un chiffre reste
+// entier), texte complet au survol.
+describe('collectes-table / Indicateurs sur une ligne (2026-10-30)', () => {
+  it('texte complet au survol, seul le dernier élément peut se couper', () => {
+    render(
+      <DataGrid
+        columns={colonnesCollectesAdmin({ onOpen: () => {} })}
+        data={[
+          row({
+            type: 'zero_dechet',
+            statut: 'cloturee',
+            taux_recyclage: 73,
+            collecte_flux: [{ poids_reel_kg: 424.3 }],
+            rapports_rse: [
+              {
+                disponible_a: null,
+                genere_at: null,
+                regenere_at: null,
+                consulte_par_user_at: null,
+                version: 1,
+              },
+            ],
+          }),
+        ]}
+        getRowId={(x) => x.id}
+        columnsToggle={false}
+      />,
+    );
+    const table = within(screen.getByRole('table'));
+    const conteneur = table
+      .getByText('Rapport non consulté')
+      .closest('[title]') as HTMLElement;
+    expect(conteneur.title).toContain('Rapport non consulté');
+    expect(conteneur.title).toContain('73');
+    const classes = [...conteneur.children].map((e) => e.className);
+    expect(classes).toHaveLength(3);
+    expect(classes[0]).toContain('shrink-0');
+    expect(classes[1]).toContain('shrink-0');
+    expect(classes[2]).toContain('min-w-0');
+  });
+});

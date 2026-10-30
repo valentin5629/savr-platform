@@ -99,16 +99,18 @@ export default function AlertesPage() {
       header: 'Alerte',
       sortable: true,
       render: (row) => (
-        <div className="max-w-xl">
+        // Deux lignes au plus (hauteur de ligne constante, décision Val
+        // 2026-10-30) : le code de l'alerte passe au survol.
+        <div
+          className="max-w-xl"
+          title={[row.titre, row.message, row.code].filter(Boolean).join('\n')}
+        >
           <p className="font-medium text-savr-neutral-900">{row.titre}</p>
           {row.message && (
             <Text variant="hint" className="mt-0.5">
               {row.message}
             </Text>
           )}
-          <Text variant="hint" tone="faint" className="mt-0.5 font-mono">
-            {row.code}
-          </Text>
         </div>
       ),
     },

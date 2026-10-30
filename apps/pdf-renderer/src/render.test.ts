@@ -1076,6 +1076,12 @@ describe('M3.5 / renderer synthèse §12 §1.6 — template agrégé', () => {
     expect(html).toContain('Impact carbone agrégé');
     expect(html).toContain('Évolution mensuelle');
     expect(html).toContain('Biodéchets');
+    // Donut des flux : couleur figée par flux (Val 2026-10-30), pas par rang.
+    expect(html).toContain('fill="#12a459"'); // Biodéchets
+    expect(html).toContain('fill="#ffbd59"'); // Emballages
+    expect(html).toContain('fill="#87684d"'); // Carton
+    expect(html).toContain('fill="#09337a"'); // Verre
+    expect(html).not.toContain('#65a30d');
     // Q2 : type figé ZD → PAS de section Anti-Gaspi
     expect(html).not.toContain('Ventilation Anti-Gaspi');
   });

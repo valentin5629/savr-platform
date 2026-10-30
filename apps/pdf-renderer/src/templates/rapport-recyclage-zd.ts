@@ -117,6 +117,14 @@ function refFlux(code: string | undefined | null, nom: string): RefFlux {
       };
 }
 
+/** Couleur figée d'un flux (code, sinon nom) — partagée avec le PDF de synthèse. */
+export function couleurFlux(
+  code: string | undefined | null,
+  nom: string,
+): string {
+  return refFlux(code, nom).couleur;
+}
+
 // ─── Formats ─────────────────────────────────────────────────────────────────
 export const INSECABLE = ' ';
 export const dec = (n: number, d: number) => n.toFixed(d).replace('.', ',');

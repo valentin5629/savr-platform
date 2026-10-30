@@ -1224,7 +1224,14 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
         ),
       ).toHaveTextContent('Aucune collecte n’est rattachée à cet événement.');
       expect(screen.queryByTestId('bandeau-bilan-attente')).toBeNull();
-      expect(screen.queryByTestId('documents-evenement')).toBeNull();
+      // Aucun rapport : le bloc ne garde que la ligne du logo du client
+      // (Val 2026-10-30).
+      const docs = screen.getByTestId('documents-evenement');
+      expect(
+        docs.querySelector('[data-testid="logo-client-rapport"]'),
+      ).not.toBeNull();
+      expect(screen.queryByTestId('document-evenement-cumul')).toBeNull();
+      expect(screen.queryByTestId('document-collecte')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 
 const etat = vi.hoisted(() => ({
   collecteRls: null as Record<string, unknown> | null,
+  evenementRls: null as Record<string, unknown> | null,
   collecteRlsErreur: null as unknown,
   logoActuel: null as string | null,
   collectesEvenement: [] as Array<{ id: string; statut: string }>,
@@ -39,8 +40,11 @@ function chaine(resultat: () => unknown, capture?: (v: unknown) => void) {
 
 vi.mock('@/lib/api-auth.js', () => ({
   createSupabaseServerClient: () => ({
-    from: () =>
-      chaine(() => ({ data: etat.collecteRls, error: etat.collecteRlsErreur })),
+    from: (table: string) =>
+      chaine(() => ({
+        data: table === 'evenements' ? etat.evenementRls : etat.collecteRls,
+        error: etat.collecteRlsErreur,
+      })),
   }),
 }));
 
@@ -123,6 +127,7 @@ function collecte(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   etat.collecteRls = collecte();
+  etat.evenementRls = { id: 'ev-1', organisation_id: 'org-traiteur' };
   etat.collecteRlsErreur = null;
   etat.logoActuel = null;
   etat.collectesEvenement = [];
@@ -140,7 +145,7 @@ beforeEach(() => {
 describe('contrôle d’accès (même garde que le téléchargement du rapport)', () => {
   it('collecte invisible sous la RLS → 404, rien envoyé au stockage', async () => {
     etat.collecteRls = null;
-    const r = await deposerLogoClient(req, 'col-x', traiteur);
+    const r = await deposerLogoClient(req, { collecteId: 'col-x' }, traiteur);
     expect(r.status).toBe(404);
     expect(televerserLogo).not.toHaveBeenCalled();
     expect(etat.updates).toHaveLength(0);
@@ -148,7 +153,7 @@ describe('contrôle d’accès (même garde que le téléchargement du rapport)'
 
   it('collecte annulée → 409, rien envoyé', async () => {
     etat.collecteRls = collecte({ statut: 'annulee' });
-    const r = await deposerLogoClient(req, 'col-1', traiteur);
+    const r = await deposerLogoClient(req, { collecteId: 'col-1' }, traiteur);
     expect(r.status).toBe(409);
     expect(televerserLogo).not.toHaveBeenCalled();
   });
@@ -157,7 +162,7 @@ describe('contrôle d’accès (même garde que le téléchargement du rapport)'
     etat.collecteRls = collecte({
       evenements: { organisation_id: 'org-agence' },
     });
-    const r = await deposerLogoClient(req, 'col-1', traiteur);
+    const r = await deposerLogoClient(req, { collecteId: 'col-1' }, traiteur);
     expect(r.status).toBe(403);
     expect(televerserLogo).not.toHaveBeenCalled();
   });
@@ -168,7 +173,7 @@ describe('contrôle d’accès (même garde que le téléchargement du rapport)'
       evenements: { organisation_id: 'org-agence' },
     });
     etat.nbAgAvecDon = 1;
-    const r = await deposerLogoClient(req, 'col-zd', traiteur);
+    const r = await deposerLogoClient(req, { collecteId: 'col-zd' }, traiteur);
     expect(r.status).toBe(403);
     expect(televerserLogo).not.toHaveBeenCalled();
     expect(etat.updates).toHaveLength(0);
@@ -180,8 +185,12 @@ describe('contrôle d’accès (même garde que le téléchargement du rapport)'
       evenements: { organisation_id: 'org-agence' },
     });
     etat.nbAgAvecDon = 1;
-    expect((await deposerLogoClient(req, 'col-se', traiteur)).status).toBe(403);
-    expect((await retirerLogoClient('col-se', traiteur)).status).toBe(403);
+    expect(
+      (await deposerLogoClient(req, { collecteId: 'col-se' }, traiteur)).status,
+    ).toBe(403);
+    expect(
+      (await retirerLogoClient({ collecteId: 'col-se' }, traiteur)).status,
+    ).toBe(403);
     expect(etat.updates).toHaveLength(0);
   });
 
@@ -191,18 +200,24 @@ describe('contrôle d’accès (même garde que le téléchargement du rapport)'
       evenements: { organisation_id: 'org-agence' },
     });
     etat.nbAgAvecDon = 0;
-    expect((await deposerLogoClient(req, 'col-zd', traiteur)).status).toBe(200);
+    expect(
+      (await deposerLogoClient(req, { collecteId: 'col-zd' }, traiteur)).status,
+    ).toBe(200);
   });
 
   it('gestionnaire de lieux sur une collecte d’un autre programmateur → autorisé', async () => {
     etat.collecteRls = collecte({
       evenements: { organisation_id: 'org-agence' },
     });
-    const r = await deposerLogoClient(req, 'col-1', {
-      ...traiteur,
-      role: 'gestionnaire_lieux',
-      organisationId: 'org-gest',
-    });
+    const r = await deposerLogoClient(
+      req,
+      { collecteId: 'col-1' },
+      {
+        ...traiteur,
+        role: 'gestionnaire_lieux',
+        organisationId: 'org-gest',
+      },
+    );
     expect(r.status).toBe(200);
   });
 
@@ -210,23 +225,27 @@ describe('contrôle d’accès (même garde que le téléchargement du rapport)'
     etat.collecteRls = collecte({
       evenements: { organisation_id: 'org-agence' },
     });
-    const r = await deposerLogoClient(req, 'col-1', admin);
+    const r = await deposerLogoClient(req, { collecteId: 'col-1' }, admin);
     expect(r.status).toBe(200);
   });
 });
 
 describe('dépôt', () => {
   it('dépôt plafonné à 1 Mo (au-delà, le PDF n’inlinerait pas le logo)', async () => {
-    await deposerLogoClient(req, 'col-1', traiteur);
+    await deposerLogoClient(req, { collecteId: 'col-1' }, traiteur);
     expect(televerserLogo).toHaveBeenCalledWith(req, { tailleMax: 1_000_000 });
   });
 
   it('enregistre la clé sur l’événement et trace l’ancien et le nouveau logo', async () => {
     etat.logoActuel = null;
-    const r = await deposerLogoClient(req, 'col-1', {
-      ...traiteur,
-      impersonatorId: 'u-admin-reel',
-    });
+    const r = await deposerLogoClient(
+      req,
+      { collecteId: 'col-1' },
+      {
+        ...traiteur,
+        impersonatorId: 'u-admin-reel',
+      },
+    );
     expect(r.status).toBe(200);
     expect(etat.updates).toEqual([{ logo_client_organisateur_url: CLE }]);
     expect(etat.audits).toHaveLength(1);
@@ -245,7 +264,7 @@ describe('dépôt', () => {
     televerserLogo.mockResolvedValue({
       reponse: NextResponse.json({ error: 'Format' }, { status: 422 }),
     });
-    const r = await deposerLogoClient(req, 'col-1', traiteur);
+    const r = await deposerLogoClient(req, { collecteId: 'col-1' }, traiteur);
     expect(r.status).toBe(422);
     expect(etat.updates).toHaveLength(0);
   });
@@ -254,7 +273,7 @@ describe('dépôt', () => {
     televerserLogo.mockResolvedValue({
       cle: 'savr-prod/logos/0f8fad5b-d9cb-469f-a165-70867728950e.png',
     });
-    const r = await deposerLogoClient(req, 'col-1', traiteur);
+    const r = await deposerLogoClient(req, { collecteId: 'col-1' }, traiteur);
     expect(r.status).toBe(422);
     expect(etat.updates).toHaveLength(0);
   });
@@ -271,7 +290,7 @@ describe('dépôt', () => {
         ? { ok: false, code: 'NO_DOCUMENT', message: '' }
         : { ok: true, jobId: 'j', type: 'x' },
     );
-    const r = await deposerLogoClient(req, 'col-1', traiteur);
+    const r = await deposerLogoClient(req, { collecteId: 'col-1' }, traiteur);
     const corps = (await r.json()) as { rapports_refaits: number };
     expect(corps.rapports_refaits).toBe(2);
     const appels = regenerateCollecteDocument.mock.calls.map((c) => [
@@ -289,7 +308,7 @@ describe('dépôt', () => {
 describe('retrait et aperçu', () => {
   it('retrait → null sur l’événement, trace « logo_client_retire »', async () => {
     etat.logoActuel = CLE;
-    const r = await retirerLogoClient('col-1', traiteur);
+    const r = await retirerLogoClient({ collecteId: 'col-1' }, traiteur);
     expect(r.status).toBe(200);
     expect(etat.updates).toEqual([{ logo_client_organisateur_url: null }]);
     expect(etat.audits[0]).toMatchObject({ action: 'logo_client_retire' });
@@ -298,9 +317,11 @@ describe('retrait et aperçu', () => {
 
   it('aperçu : sans logo → 404 ; avec logo → servi par le proxy', async () => {
     etat.logoActuel = null;
-    expect((await servirLogoClient('col-1', traiteur)).status).toBe(404);
+    expect(
+      (await servirLogoClient({ collecteId: 'col-1' }, traiteur)).status,
+    ).toBe(404);
     etat.logoActuel = CLE;
-    const servi = await servirLogoClient('col-1', traiteur);
+    const servi = await servirLogoClient({ collecteId: 'col-1' }, traiteur);
     expect(servi.status).toBe(200);
     // Même adresse pour un logo qui change : jamais resservi depuis le cache.
     expect(servi.headers.get('Cache-Control')).toBe('no-store');
@@ -313,7 +334,64 @@ describe('retrait et aperçu', () => {
   it('aperçu refusé sur une collecte invisible → 404, aucune lecture du logo', async () => {
     etat.collecteRls = null;
     etat.logoActuel = CLE;
-    expect((await servirLogoClient('col-x', traiteur)).status).toBe(404);
+    expect(
+      (await servirLogoClient({ collecteId: 'col-x' }, traiteur)).status,
+    ).toBe(404);
     expect(servirLogo).not.toHaveBeenCalled();
+  });
+});
+
+describe('fiche événement (Val 2026-10-30)', () => {
+  const organisateur: ActeurLogo = {
+    userId: 'u-orga',
+    role: 'client_organisateur',
+    organisationId: 'org-client',
+    isStaff: false,
+  };
+
+  it('événement invisible sous la RLS → 404, rien envoyé', async () => {
+    etat.evenementRls = null;
+    const r = await deposerLogoClient(req, { evenementId: 'ev-x' }, traiteur);
+    expect(r.status).toBe(404);
+    expect(televerserLogo).not.toHaveBeenCalled();
+  });
+
+  it('client organisateur → autorisé ; trace sans identifiant de collecte', async () => {
+    etat.evenementRls = { id: 'ev-1', organisation_id: 'org-traiteur' };
+    etat.nbAgAvecDon = 1;
+    const r = await deposerLogoClient(
+      req,
+      { evenementId: 'ev-1' },
+      organisateur,
+    );
+    expect(r.status).toBe(200);
+    expect(etat.updates).toEqual([{ logo_client_organisateur_url: CLE }]);
+    expect(etat.audits[0]).toMatchObject({
+      record_id: 'ev-1',
+      new_values: { logo_client_organisateur_url: CLE },
+    });
+    expect(
+      (etat.audits[0]!.new_values as Record<string, unknown>).collecte_id,
+    ).toBeUndefined();
+  });
+
+  it('traiteur opérationnel sur l’événement d’une agence avec don AG → 403, dépôt et retrait', async () => {
+    etat.evenementRls = { id: 'ev-1', organisation_id: 'org-agence' };
+    etat.nbAgAvecDon = 1;
+    expect(
+      (await deposerLogoClient(req, { evenementId: 'ev-1' }, traiteur)).status,
+    ).toBe(403);
+    expect(
+      (await retirerLogoClient({ evenementId: 'ev-1' }, traiteur)).status,
+    ).toBe(403);
+    expect(televerserLogo).not.toHaveBeenCalled();
+    expect(etat.updates).toHaveLength(0);
+  });
+
+  it('aperçu depuis la fiche événement : servi sans cache', async () => {
+    etat.logoActuel = CLE;
+    const r = await servirLogoClient({ evenementId: 'ev-1' }, organisateur);
+    expect(r.status).toBe(200);
+    expect(r.headers.get('Cache-Control')).toBe('no-store');
   });
 });

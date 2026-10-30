@@ -235,9 +235,20 @@ describe('M3.2 / fiche Événement — rapports cumulés', () => {
       const ligne = await ouvrirBilan();
       expect(ligne).toHaveTextContent('Rapport RSE de l’événement');
       expect(ligne).toHaveTextContent('Cumul des collectes réalisées');
-      // En tête : avant le rapport de chaque collecte.
+      // En tête : avant le rapport de chaque collecte, juste après la ligne du
+      // logo du client (Val 2026-10-30).
       const docs = screen.getByTestId('documents-evenement');
-      expect(docs.firstElementChild).toBe(ligne);
+      expect(
+        docs.firstElementChild?.querySelector(
+          '[data-testid="logo-client-rapport"]',
+        ),
+      ).not.toBeNull();
+      expect(docs.children[1]).toBe(ligne);
+      expect(
+        docs
+          .querySelector('[data-testid="logo-client-rapport"] img')!
+          .getAttribute('src'),
+      ).toMatch(/^\/api\/v1\/evenements\/[^/]+\/logo-client\?v=0$/);
       expect(caseRadar().getAttribute('aria-checked')).toBe('false');
       fireEvent.click(telecharger(ligne));
       await waitFor(

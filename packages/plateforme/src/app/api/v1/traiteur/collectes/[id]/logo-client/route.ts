@@ -28,7 +28,10 @@ type Contexte = { params: Promise<{ id: string }> };
 export async function GET(req: NextRequest, { params }: Contexte) {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-  return servirLogoClient((await params).id, acteurDepuis(auth.ctx, false));
+  return servirLogoClient(
+    { collecteId: (await params).id },
+    acteurDepuis(auth.ctx, false),
+  );
 }
 
 export async function POST(req: NextRequest, { params }: Contexte) {
@@ -36,7 +39,7 @@ export async function POST(req: NextRequest, { params }: Contexte) {
   if (auth.error) return auth.error;
   return deposerLogoClient(
     req,
-    (await params).id,
+    { collecteId: (await params).id },
     acteurDepuis(auth.ctx, false),
   );
 }
@@ -44,5 +47,8 @@ export async function POST(req: NextRequest, { params }: Contexte) {
 export async function DELETE(req: NextRequest, { params }: Contexte) {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-  return retirerLogoClient((await params).id, acteurDepuis(auth.ctx, false));
+  return retirerLogoClient(
+    { collecteId: (await params).id },
+    acteurDepuis(auth.ctx, false),
+  );
 }

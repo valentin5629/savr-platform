@@ -1,4 +1,8 @@
-// Logo du client déposé depuis la fiche collecte (décision Val 2026-10-30).
+// Logo du client déposé depuis la fiche collecte ou la fiche événement
+// (décisions Val 2026-10-30).
+//
+// Fiche événement : tout rôle qui l'ouvre, client organisateur compris (décision
+// Val), événement visible sous sa RLS ; même règle du donneur d'ordre.
 //
 // Qui : tout utilisateur qui peut télécharger le rapport de la collecte — équipe
 // Savr, traiteur (manager et commercial), agence, gestionnaire de lieux. Même
@@ -78,11 +82,101 @@ type AccesLogo =
   | { ok: true; evenementId: string }
   | { ok: false; reponse: NextResponse };
 
+/** Ce que vise la route : une collecte (fiche collecte) ou un événement (fiche événement). */
+export type CibleLogo = { collecteId: string } | { evenementId: string };
+
+const refusDonneurOrdre = (): AccesLogo => ({
+  ok: false,
+  reponse: NextResponse.json(
+    { error: 'Réservé à l’organisation qui a programmé la collecte' },
+    { status: 403 },
+  ),
+});
+
+async function controlerAcces(
+  cible: CibleLogo,
+  acteur: ActeurLogo,
+): Promise<AccesLogo> {
+  return 'collecteId' in cible
+    ? controlerAccesCollecte(cible.collecteId, acteur)
+    : controlerAccesEvenement(cible.evenementId, acteur);
+}
+
 /**
- * Contrôle d'accès : la collecte doit être visible sous la RLS de l'utilisateur
+ * Fiche événement : l'événement doit être visible sous la RLS de l'utilisateur
+ * (celle qui lui ouvre la fiche), puis la règle du donneur d'ordre.
+ */
+async function controlerAccesEvenement(
+  evenementId: string,
+  acteur: ActeurLogo,
+): Promise<AccesLogo> {
+  const { data, error } = await createSupabaseServerClient()
+    .from('evenements')
+    .select('id, organisation_id')
+    .eq('id', evenementId)
+    .maybeSingle();
+  if (error) {
+    return {
+      ok: false,
+      reponse: serverError(error, 'evenements.logo_client.lecture'),
+    };
+  }
+  const ev = data as { id: string; organisation_id: string | null } | null;
+  if (!ev) {
+    return {
+      ok: false,
+      reponse: NextResponse.json(
+        { error: 'Événement introuvable' },
+        { status: 404 },
+      ),
+    };
+  }
+  return controlerDonneurOrdre(ev.id, ev.organisation_id, acteur);
+}
+
+/**
+ * Règle du donneur d'ordre (D12) jugée sur l'événement (cf. en-tête) : un
+ * traiteur qui opère pour une autre organisation est refusé dès que l'événement
+ * porte une collecte AG avec don. Lecture service-role réduite à un comptage,
+ * rien n'en est rendu au client.
+ */
+async function controlerDonneurOrdre(
+  evenementId: string,
+  organisationEvenement: string | null | undefined,
+  acteur: ActeurLogo,
+): Promise<AccesLogo> {
+  if (
+    !acteur.isStaff &&
+    ROLES_TRAITEUR.includes(acteur.role) &&
+    organisationEvenement != null &&
+    organisationEvenement !== acteur.organisationId
+  ) {
+    const { count, error: agErr } = await createAdminSupabaseClient()
+      .from('collectes')
+      .select('id', { count: 'exact', head: true })
+      .eq('evenement_id', evenementId)
+      .eq('type', 'anti_gaspi')
+      .not(
+        'statut',
+        'in',
+        `(${[...STATUTS_ANNULES, 'realisee_sans_collecte'].join(',')})`,
+      );
+    if (agErr) {
+      return {
+        ok: false,
+        reponse: serverError(agErr, 'collectes.logo_client.lecture_ag'),
+      };
+    }
+    if ((count ?? 0) > 0) return refusDonneurOrdre();
+  }
+  return { ok: true, evenementId };
+}
+
+/**
+ * Fiche collecte : la collecte doit être visible sous la RLS de l'utilisateur
  * et son rapport téléchargeable par lui. Rend l'événement de la collecte.
  */
-async function controlerAcces(
+async function controlerAccesCollecte(
   collecteId: string,
   acteur: ActeurLogo,
 ): Promise<AccesLogo> {
@@ -131,49 +225,13 @@ async function controlerAcces(
       acteur.organisationId ?? '',
     )
   ) {
-    return {
-      ok: false,
-      reponse: NextResponse.json(
-        { error: 'Réservé à l’organisation qui a programmé la collecte' },
-        { status: 403 },
-      ),
-    };
+    return refusDonneurOrdre();
   }
-  // D12 au niveau de l'événement (cf. en-tête) : lecture service-role réduite à
-  // un comptage, rien n'en est rendu au client.
-  if (
-    !acteur.isStaff &&
-    ROLES_TRAITEUR.includes(acteur.role) &&
-    c.evenements?.organisation_id != null &&
-    c.evenements.organisation_id !== acteur.organisationId
-  ) {
-    const { count, error: agErr } = await createAdminSupabaseClient()
-      .from('collectes')
-      .select('id', { count: 'exact', head: true })
-      .eq('evenement_id', c.evenement_id)
-      .eq('type', 'anti_gaspi')
-      .not(
-        'statut',
-        'in',
-        `(${[...STATUTS_ANNULES, 'realisee_sans_collecte'].join(',')})`,
-      );
-    if (agErr) {
-      return {
-        ok: false,
-        reponse: serverError(agErr, 'collectes.logo_client.lecture_ag'),
-      };
-    }
-    if ((count ?? 0) > 0) {
-      return {
-        ok: false,
-        reponse: NextResponse.json(
-          { error: 'Réservé à l’organisation qui a programmé la collecte' },
-          { status: 403 },
-        ),
-      };
-    }
-  }
-  return { ok: true, evenementId: c.evenement_id };
+  return controlerDonneurOrdre(
+    c.evenement_id,
+    c.evenements?.organisation_id,
+    acteur,
+  );
 }
 
 async function lireCleLogo(
@@ -192,12 +250,12 @@ async function lireCleLogo(
   );
 }
 
-/** GET : affiche le logo déposé sur l'événement de la collecte (404 sans logo). */
+/** GET : affiche le logo déposé sur l'événement visé (404 sans logo). */
 export async function servirLogoClient(
-  collecteId: string,
+  cible: CibleLogo,
   acteur: ActeurLogo,
 ): Promise<NextResponse> {
-  const acces = await controlerAcces(collecteId, acteur);
+  const acces = await controlerAcces(cible, acteur);
   if (!acces.ok) return acces.reponse;
   let valeur: string | null;
   try {
@@ -216,11 +274,11 @@ export async function servirLogoClient(
 /** POST : contrôle d'accès, envoi du fichier, puis enregistrement sur l'événement. */
 export async function deposerLogoClient(
   req: NextRequest,
-  collecteId: string,
+  cible: CibleLogo,
   acteur: ActeurLogo,
 ): Promise<NextResponse> {
-  // L'accès d'abord : rien n'est envoyé au stockage pour une collecte refusée.
-  const acces = await controlerAcces(collecteId, acteur);
+  // L'accès d'abord : rien n'est envoyé au stockage pour une cible refusée.
+  const acces = await controlerAcces(cible, acteur);
   if (!acces.ok) return acces.reponse;
   // 1 Mo : au-delà, le logo n'est pas inliné dans le PDF (MAX_LOGO_BYTES,
   // logo-inline.ts) et le rapport sortirait sans lui.
@@ -230,17 +288,17 @@ export async function deposerLogoClient(
   if (!parseCleLogo(envoi.cle)) {
     return NextResponse.json({ error: 'Logo invalide' }, { status: 422 });
   }
-  return enregistrer(acces.evenementId, collecteId, envoi.cle, acteur);
+  return enregistrer(acces.evenementId, cible, envoi.cle, acteur);
 }
 
 /** DELETE : retire le logo déposé sur l'événement. */
 export async function retirerLogoClient(
-  collecteId: string,
+  cible: CibleLogo,
   acteur: ActeurLogo,
 ): Promise<NextResponse> {
-  const acces = await controlerAcces(collecteId, acteur);
+  const acces = await controlerAcces(cible, acteur);
   if (!acces.ok) return acces.reponse;
-  return enregistrer(acces.evenementId, collecteId, null, acteur);
+  return enregistrer(acces.evenementId, cible, null, acteur);
 }
 
 /**
@@ -249,7 +307,7 @@ export async function retirerLogoClient(
  */
 async function enregistrer(
   evenementId: string,
-  collecteId: string,
+  cible: CibleLogo,
   cleNeuve: string | null,
   acteur: ActeurLogo,
 ): Promise<NextResponse> {
@@ -278,7 +336,7 @@ async function enregistrer(
     old_values: { logo_client_organisateur_url: ancienne },
     new_values: {
       logo_client_organisateur_url: cleNeuve,
-      collecte_id: collecteId,
+      ...('collecteId' in cible ? { collecte_id: cible.collecteId } : {}),
     },
   });
   if (auditErr) {

@@ -1099,7 +1099,7 @@
     {
       "id": "M3.1-kpi-cartes-pax-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:90",
-      "artefact": "packages/plateforme/src/lib/dashboards/cockpit-derive.ts (TraiteurKpiRow, aggregateKpis, kgParPaxDeLigne, repasParPaxDeLigne) + packages/plateforme/src/app/(traiteur)/traiteur/traiteur-dashboard-client.tsx (cartes kg/pax moyen, Pax cumulés, Repas/pax moyen)",
+      "artefact": "packages/plateforme/src/lib/dashboards/cockpit-derive.ts (TraiteurKpiRow, aggregateKpis) + packages/plateforme/src/app/(traiteur)/traiteur/traiteur-dashboard-client.tsx (cartes kg/pax moyen, Pax cumulés, Repas/pax moyen)",
       "test": "Lot3/cockpit_repas_par_pax_collectes_a_convives + M3.1/dash_cockpit_agrege_kpis_taux_pondere_marge",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",

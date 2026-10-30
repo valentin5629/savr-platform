@@ -22,7 +22,9 @@ export async function uploadLogo(req: NextRequest): Promise<NextResponse> {
  */
 export async function televerserLogo(
   req: NextRequest,
+  options: { tailleMax?: number } = {},
 ): Promise<{ cle: string } | { reponse: NextResponse }> {
+  const tailleMax = options.tailleMax ?? TAILLE_MAX;
   const erreur = (error: string, status: number) => ({
     reponse: NextResponse.json({ error }, { status }),
   });
@@ -37,8 +39,11 @@ export async function televerserLogo(
   if (!(file instanceof File)) return erreur('Champ "file" manquant', 422);
   if (!TYPES_AUTORISES.has(file.type))
     return erreur('Format non supporté (JPG ou PNG uniquement)', 422);
-  if (file.size > TAILLE_MAX)
-    return erreur('Fichier trop volumineux (2 Mo maximum)', 422);
+  if (file.size > tailleMax)
+    return erreur(
+      `Fichier trop volumineux (${tailleMax >= TAILLE_MAX ? '2 Mo' : '1 Mo'} maximum)`,
+      422,
+    );
 
   const ext = file.type === 'image/png' ? 'png' : 'jpg';
   const key = `logos/${randomUUID()}.${ext}`;

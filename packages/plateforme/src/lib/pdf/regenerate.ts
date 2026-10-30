@@ -181,7 +181,10 @@ export async function regenerateCollecteDocument(
         ? cleLogoAttestation(logos)
         : cleLogoSansExcedent(logos)
       : undefined;
-    payload[champLogo] = await logoKeyToDataUri(cle);
+    const uri = await logoKeyToDataUri(cle);
+    // Logo présent mais illisible (stockage indisponible, fichier trop lourd) :
+    // le logo figé est gardé plutôt que d'imprimer « Savr » seul.
+    payload[champLogo] = uri ?? (cle ? (frozen[champLogo] ?? null) : null);
   }
 
   // Version courante du rapport, lue AVANT la mise en file : une lecture en échec

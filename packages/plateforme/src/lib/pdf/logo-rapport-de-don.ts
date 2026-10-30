@@ -8,6 +8,7 @@
 // refait porte exactement le logo qu'un rapport neuf aurait.
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logoKeyToDataUri } from './logo-inline.js';
 import {
   resolveRapportLogo,
   resolveRapportLogos,
@@ -67,4 +68,33 @@ export async function lireLogosEvenementDeCollecte(
   const ev = (data as { evenements: LogosEvenementRow | null } | null)
     ?.evenements;
   return ev ?? null;
+}
+
+/**
+ * Attestation mise en file SANS champ logo : celle que le trigger SQL de
+ * correction de volume prépare lui-même (20260616100100). Le logo du client est
+ * alors résolu au rendu, pour qu'elle le porte comme une attestation neuve.
+ * Un contenu qui porte déjà le champ (même à null) n'est pas touché.
+ * Best-effort : en cas d'échec, l'attestation sort avec « Savr » seul.
+ */
+export async function completerLogoAttestation(
+  supabase: SupabaseClient,
+  attestationId: string,
+  payload: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if ('logo_client_url' in payload) return payload;
+  try {
+    const { data } = await supabase
+      .from('attestations_don')
+      .select('collecte_id')
+      .eq('id', attestationId)
+      .maybeSingle();
+    const collecteId = (data as { collecte_id: string } | null)?.collecte_id;
+    if (!collecteId) return payload;
+    const logos = await lireLogosEvenementDeCollecte(supabase, collecteId);
+    const cle = logos ? cleLogoAttestation(logos) : undefined;
+    return { ...payload, logo_client_url: await logoKeyToDataUri(cle) };
+  } catch {
+    return payload;
+  }
 }

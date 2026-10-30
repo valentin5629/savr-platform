@@ -216,6 +216,11 @@ describe('contrôle d’accès (même garde que le téléchargement du rapport)'
 });
 
 describe('dépôt', () => {
+  it('dépôt plafonné à 1 Mo (au-delà, le PDF n’inlinerait pas le logo)', async () => {
+    await deposerLogoClient(req, 'col-1', traiteur);
+    expect(televerserLogo).toHaveBeenCalledWith(req, { tailleMax: 1_000_000 });
+  });
+
   it('enregistre la clé sur l’événement et trace l’ancien et le nouveau logo', async () => {
     etat.logoActuel = null;
     const r = await deposerLogoClient(req, 'col-1', {
@@ -295,7 +300,10 @@ describe('retrait et aperçu', () => {
     etat.logoActuel = null;
     expect((await servirLogoClient('col-1', traiteur)).status).toBe(404);
     etat.logoActuel = CLE;
-    expect((await servirLogoClient('col-1', traiteur)).status).toBe(200);
+    const servi = await servirLogoClient('col-1', traiteur);
+    expect(servi.status).toBe(200);
+    // Même adresse pour un logo qui change : jamais resservi depuis le cache.
+    expect(servi.headers.get('Cache-Control')).toBe('no-store');
     expect(servirLogo).toHaveBeenCalledWith({
       bucket: 'savr-test',
       key: 'logos/0f8fad5b-d9cb-469f-a165-70867728950e.png',

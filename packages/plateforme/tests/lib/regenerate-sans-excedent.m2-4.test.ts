@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const logoKeyToDataUri = vi.hoisted(() =>
   vi.fn(async (cle: string | null | undefined) =>
-    cle ? `data:image/png;base64,${cle}` : null,
+    cle && cle !== 'cle-illisible' ? `data:image/png;base64,${cle}` : null,
   ),
 );
 vi.mock('../../src/lib/pdf/logo-inline.js', () => ({ logoKeyToDataUri }));
@@ -174,6 +174,32 @@ describe('M2.4 / régénération Admin rapport sans-excédent (BL-P1-RPT-02)', (
       >
     ).find((c) => c[0].type_document !== undefined)![0];
     expect((job.payload as Record<string, unknown>).logo_url).toBeNull();
+  });
+
+  it('logo présent mais illisible (stockage indisponible) → le logo figé est gardé', async () => {
+    const sb = makeSupabase([
+      { data: { id: 'rap-se-1' } },
+      { data: { payload: { logo_url: 'data:ancien' } } },
+      logosEvenement('cle-illisible'),
+      { data: { version: 1 } },
+      { data: { id: 'job-regen' } },
+      { data: null },
+      { data: null },
+    ]);
+    await regenerateCollecteDocument(
+      sb as never,
+      'col-se-1',
+      'rapport-evenement-sans-excedent',
+      { userId: 'admin-1', role: 'admin_savr' },
+    );
+    const job = (
+      (sb._chain.insert as ReturnType<typeof vi.fn>).mock.calls as Array<
+        [Record<string, unknown>]
+      >
+    ).find((c) => c[0].type_document !== undefined)![0];
+    expect((job.payload as Record<string, unknown>).logo_url).toBe(
+      'data:ancien',
+    );
   });
 
   it('attestation de don : logo du client relu, jamais celui du traiteur', async () => {

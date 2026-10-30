@@ -41,6 +41,7 @@ import { parseCleLogo } from '@/lib/logo-key.js';
 import { televerserLogo } from '@/lib/logo-upload.js';
 import { servirLogo } from '@/lib/logo-proxy.js';
 import { regenerateCollecteDocument } from '@/lib/pdf/regenerate.js';
+import { MAX_LOGO_BYTES } from '@/lib/pdf/logo-inline.js';
 
 export interface ActeurLogo {
   userId: string;
@@ -206,7 +207,10 @@ export async function servirLogoClient(
   }
   const cle = parseCleLogo(valeur);
   if (!cle) return NextResponse.json({ error: 'Aucun logo' }, { status: 404 });
-  return servirLogo(cle);
+  const reponse = await servirLogo(cle);
+  // Le logo change sous la même adresse : jamais resservi depuis le cache.
+  reponse.headers.set('Cache-Control', 'no-store');
+  return reponse;
 }
 
 /** POST : contrôle d'accès, envoi du fichier, puis enregistrement sur l'événement. */
@@ -218,7 +222,9 @@ export async function deposerLogoClient(
   // L'accès d'abord : rien n'est envoyé au stockage pour une collecte refusée.
   const acces = await controlerAcces(collecteId, acteur);
   if (!acces.ok) return acces.reponse;
-  const envoi = await televerserLogo(req);
+  // 1 Mo : au-delà, le logo n'est pas inliné dans le PDF (MAX_LOGO_BYTES,
+  // logo-inline.ts) et le rapport sortirait sans lui.
+  const envoi = await televerserLogo(req, { tailleMax: MAX_LOGO_BYTES });
   if ('reponse' in envoi) return envoi.reponse;
   // La clé vient de notre propre envoi ; la garde reste ici comme en base.
   if (!parseCleLogo(envoi.cle)) {

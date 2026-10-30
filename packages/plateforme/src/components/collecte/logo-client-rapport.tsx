@@ -82,7 +82,7 @@ export function LogoClientRapport({
         <p className="text-sm font-medium">Logo du client</p>
         <Text variant="hint">
           Imprimé sur les rapports de toutes les collectes de l’événement. JPG
-          ou PNG, 2 Mo maximum.
+          ou PNG, 1 Mo maximum.
         </Text>
         <FormError>{erreur}</FormError>
       </div>

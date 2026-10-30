@@ -980,9 +980,9 @@
       "id": "M3.2-kpi-sparkline-n1",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:143",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/CartesKpiGestionnaire.tsx + packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts + packages/plateforme/src/lib/dashboards/loaders.ts + packages/plateforme/src/lib/dashboards/cockpit-derive.ts",
-      "test": "M3.2/kpi_cartes_sparkline_et_variation_n1 + M3.2/kpi_sparkline_serie_zd_nb_collectes_pax_co2_par_bucket + M3.2/kpi_sparkline_serie_ag_nb_collectes_par_bucket + M3.2/kpi_sparkline_moins_de_deux_points_masquee + M3.2/dashboard_kpi_filtres_parc_transmis",
+      "test": "M3.2/kpi_cartes_variation_n1_sans_courbe + M3.2/kpi_sparkline_serie_zd_nb_collectes_pax_co2_par_bucket + M3.2/kpi_sparkline_serie_ag_nb_collectes_par_bucket + M3.2/dashboard_kpi_filtres_parc_transmis",
       "statut": "implemented",
-      "libelle": "Cartes KPI gestionnaire : sparkline (tendance) + variation N-1 (sauf kg/pax). L'endpoint /gestionnaire/dashboard étant agrégé (pas de lignes mensuelles), la sparkline est dérivée de la série d'évolution (buildEvolutionSeries enrichie de nb_collectes / pax / co2_evite_kg par bucket, champs additifs) et la variation d'un 2e appel du même endpoint sur previousWindow (période précédente équivalente, mêmes filtres parc). Rangée de cartes et chargement extraits en un composant (CartesKpiGestionnaire) et un hook (useKpisGestionnaire) partagés avec l'onglet Activité de la fiche traiteur (2026-10-07) : une seule source des libellés, formats, couleurs, variations et sparklines ; les deux appels portent les 4 filtres parc (lieux, traiteurs, type et taille d'événement)."
+      "libelle": "Cartes KPI gestionnaire : variation N-1 (sauf kg/pax), sans courbe de tendance (retirée, Val 2026-10-30). L'endpoint /gestionnaire/dashboard étant agrégé (pas de lignes mensuelles), la sparkline est dérivée de la série d'évolution (buildEvolutionSeries enrichie de nb_collectes / pax / co2_evite_kg par bucket, champs additifs) et la variation d'un 2e appel du même endpoint sur previousWindow (période précédente équivalente, mêmes filtres parc). Rangée de cartes et chargement extraits en un composant (CartesKpiGestionnaire) et un hook (useKpisGestionnaire) partagés avec l'onglet Activité de la fiche traiteur (2026-10-07) : une seule source des libellés, formats, couleurs, variations et sparklines ; les deux appels portent les 4 filtres parc (lieux, traiteurs, type et taille d'événement)."
     },
     {
       "id": "M3.2-dashboard-kpi-etat-erreur",
@@ -1486,7 +1486,7 @@
     {
       "id": "M3.2-dashboard-kpi-pax-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:135",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts (GET : computeDashboardKpi + kgParPaxParFluxFrom, type_evenement_ids[] lu comme UUID) + packages/plateforme/src/components/dashboards/CartesKpiGestionnaire.tsx (sparkline kg/pax)",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts (GET : computeDashboardKpi + kgParPaxParFluxFrom, type_evenement_ids[] lu comme UUID) + packages/plateforme/src/components/dashboards/CartesKpiGestionnaire.tsx",
       "test": "Lot3/gestionnaire_kpi_zd_filtre_partiel + Lot3/gestionnaire_kpi_ag_pax_collectes + Lot3/gestionnaire_type_evenement_illisible_vide + M3.2/GEST04_dashboard_kg_pax_par_flux",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",

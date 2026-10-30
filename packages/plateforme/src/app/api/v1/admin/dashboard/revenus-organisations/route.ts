@@ -5,6 +5,14 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { DEFAULT_PAGE_SIZE, parsePage } from '@/lib/pagination.js';
+import {
+  appliquerPerimetreRevenus,
+  coutCollecteAg,
+  lirePerimetreRevenus,
+  lireTout,
+  LOT_LECTURE,
+  type PackEmbed,
+} from '@/lib/dashboards/revenus-admin.js';
 
 /**
  * GET /api/v1/admin/dashboard/revenus-organisations — Bloc 2 « Revenus par
@@ -19,7 +27,9 @@ import { DEFAULT_PAGE_SIZE, parsePage } from '@/lib/pagination.js';
  * Agrégation server-side par organisation (l'ancien endpoint paginait les LIGNES
  * `factures_collectes` → totaux par org faux dès qu'une org dépassait la fenêtre de
  * 50 lignes ; corrigé ici : on agrège TOUTES les lignes de la période, puis on
- * trie/pagine les ORGANISATIONS). Tri défaut `montant_total` desc (`tri`/`ordre`), pagination 50/page,
+ * trie/pagine les ORGANISATIONS). Filtres `lieu_ids` / `organisation_ids` (CSV) :
+ * même périmètre que l'histogramme, cf. `lib/dashboards/revenus-admin.ts`
+ * (décision Val 2026-10-30). Tri défaut `montant_total` desc (`tri`/`ordre`), pagination 50/page,
  * export CSV (`?format=csv`).
  */
 
@@ -31,7 +41,6 @@ const ORG_TYPE_LABELS: Record<string, string> = {
 };
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
-const FETCH_BATCH = 1000;
 
 interface OrgRevenus {
   organisation_id: string;
@@ -74,31 +83,6 @@ function defaultPeriodeRange(): { from: string; to: string } {
   return { from: jourParis(fromDate), to };
 }
 
-// Récupère toutes les lignes d'une requête paginée (au-delà du plafond 1000 lignes).
-// Découplé des types supabase-js (embeds inférés en tableaux) : renvoie unknown[],
-// le call-site caste vers sa forme métier.
-async function fetchAll(
-  make: (offset: number) => Promise<{ data: unknown[] | null; error: unknown }>,
-): Promise<{ rows: unknown[]; error: unknown }> {
-  const rows: unknown[] = [];
-  let offset = 0;
-  for (;;) {
-    const { data, error } = await make(offset);
-    if (error) return { rows, error };
-    const batch = data ?? [];
-    rows.push(...batch);
-    if (batch.length < FETCH_BATCH) break;
-    offset += FETCH_BATCH;
-  }
-  return { rows, error: null };
-}
-
-interface PackEmbed {
-  prix_unitaire_ht: number | null;
-  montant_total_ht: number | null;
-  credits_initiaux: number | null;
-}
-
 interface CollecteAggRow {
   type: string;
   statut: string;
@@ -121,15 +105,6 @@ interface FactureAggRow {
 function csvEscape(v: string | number): string {
   const s = String(v);
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-// Coût par collecte AG = prix_unitaire du pack (fallback montant / crédits).
-function coutCollecteAg(pack: PackEmbed | null): number {
-  if (!pack) return 0;
-  if (pack.prix_unitaire_ht != null) return pack.prix_unitaire_ht;
-  if (pack.montant_total_ht != null && pack.credits_initiaux)
-    return pack.montant_total_ht / pack.credits_initiaux;
-  return 0;
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -156,6 +131,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const sortDir = tri.ascendant ? 'asc' : 'desc';
   const page = parsePage(sp);
 
+  const { perimetre, error: errPerimetre } = await lirePerimetreRevenus(
+    supabase,
+    sp,
+  );
+  if (errPerimetre)
+    return serverError(
+      errPerimetre,
+      'admin.dashboard.revenus_organisations.filtres',
+    );
+
   const byOrg = new Map<string, OrgRevenus>();
   function ensure(
     id: string,
@@ -180,21 +165,29 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // ── Query 1 : nb collectes par org × type + CA économique AG (coût/collecte pack) ──
-  const collectesRes = await fetchAll(async (offset) => {
-    const { data, error } = await supabase
-      .from('collectes')
-      .select(
-        `type, statut,
+  const collectesRes = await lireTout(async (offset) => {
+    if (perimetre.vide) return { data: [], error: null };
+    const { data, error } = await appliquerPerimetreRevenus(
+      supabase
+        .from('collectes')
+        .select(
+          `type, statut,
          evenements!inner(
            organisation_id,
            organisations!organisation_id(raison_sociale, type)
          ),
          packs_antgaspi(prix_unitaire_ht, montant_total_ht, credits_initiaux)`,
-      )
-      .not('statut', 'in', '(annulee,brouillon)')
-      .gte('date_collecte', from)
-      .lte('date_collecte', to)
-      .range(offset, offset + FETCH_BATCH - 1);
+        )
+        .not('statut', 'in', '(annulee,brouillon)')
+        .gte('date_collecte', from)
+        .lte('date_collecte', to),
+      perimetre,
+      'evenements',
+    )
+      // Ordre stable : sans lui, la pagination par range peut doubler ou
+      // sauter des lignes au-delà de 1000.
+      .order('id')
+      .range(offset, offset + LOT_LECTURE - 1);
     return { data: data as unknown[] | null, error };
   });
   if (collectesRes.error)
@@ -230,23 +223,31 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // ── Query 2 : montant ZD HT par org (factures emises/payees) ──
   // AG exclu : son CA « économique » est calculé en Query 1 (coût/collecte du pack),
   // pas via les factures (décision Val 2026-07-07, cf. _Divergences §11 §1.1).
-  const facturesRes = await fetchAll(async (offset) => {
-    const { data, error } = await supabase
-      .from('factures_collectes')
-      .select(
-        `montant_ht,
+  const facturesRes = await lireTout(async (offset) => {
+    if (perimetre.vide) return { data: [], error: null };
+    const { data, error } = await appliquerPerimetreRevenus(
+      supabase
+        .from('factures_collectes')
+        .select(
+          `montant_ht,
          factures!inner(statut),
          collectes!inner(
            type,
            date_collecte,
            evenements!inner(organisation_id)
          )`,
-      )
-      .in('factures.statut', ['emise', 'payee'])
-      .eq('collectes.type', 'zero_dechet')
-      .gte('collectes.date_collecte', from)
-      .lte('collectes.date_collecte', to)
-      .range(offset, offset + FETCH_BATCH - 1);
+        )
+        .in('factures.statut', ['emise', 'payee'])
+        .eq('collectes.type', 'zero_dechet')
+        .gte('collectes.date_collecte', from)
+        .lte('collectes.date_collecte', to),
+      perimetre,
+      'collectes.evenements',
+    )
+      // Ordre stable : sans lui, la pagination par range peut doubler ou
+      // sauter des lignes au-delà de 1000.
+      .order('id')
+      .range(offset, offset + LOT_LECTURE - 1);
     return { data: data as unknown[] | null, error };
   });
   if (facturesRes.error)

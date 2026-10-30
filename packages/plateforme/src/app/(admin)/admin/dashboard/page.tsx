@@ -24,6 +24,11 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { fmtEuro } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphique';
+import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
+import {
+  OrganisationSelector,
+  type OrganisationOption,
+} from '../dashboard-client/OrganisationSelector';
 
 interface KpiData {
   non_transmises_zd: number;
@@ -136,12 +141,52 @@ export default function DashboardAdminPage() {
   const [sortKey, setSortKey] = useState<string>('montant_total');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
+  // Filtres Lieux / Traiteur / Agence / Gestionnaire de lieux (Val 2026-10-30) :
+  // section Revenus seule ; les organisations cochées s'additionnent, les lieux
+  // restreignent. Règles du périmètre : lib/dashboards/revenus-admin.ts.
+  const [lieuIds, setLieuIds] = useState<string[]>([]);
+  const [organisationIds, setOrganisationIds] = useState<string[]>([]);
+  const [lieux, setLieux] = useState<{ id: string; nom: string }[]>([]);
+  const [organisations, setOrganisations] = useState<OrganisationOption[]>([]);
 
   useEffect(() => {
     fetch('/api/v1/admin/dashboard/kpi')
       .then((r) => r.json())
       .then((d: KpiData) => setKpi(d))
       .finally(() => setLoadingKpi(false));
+  }, []);
+
+  // Options des filtres : mêmes sources que le Dashboard Client (organisations)
+  // et la liste Collectes (lieux, pages de 50).
+  useEffect(() => {
+    let annule = false;
+    fetch('/api/v1/admin/dashboard-client/organisations')
+      .then((r) => r.json())
+      .then((j: { data?: OrganisationOption[] }) => {
+        if (!annule) setOrganisations(j.data ?? []);
+      })
+      .catch(() => {});
+    void (async () => {
+      const tous: { id: string; nom: string }[] = [];
+      for (let p = 1; p <= 40; p++) {
+        const res = await fetch(`/api/v1/admin/lieux?page=${p}`);
+        if (!res.ok) break;
+        const j = (await res.json()) as {
+          data: { id: string; nom: string; ville: string | null }[];
+        };
+        tous.push(
+          ...j.data.map((l) => ({
+            id: l.id,
+            nom: l.ville ? `${l.nom} — ${l.ville}` : l.nom,
+          })),
+        );
+        if (j.data.length < 50) break;
+      }
+      if (!annule) setLieux(tous.sort((a, b) => a.nom.localeCompare(b.nom)));
+    })().catch(() => {});
+    return () => {
+      annule = true;
+    };
   }, []);
 
   // Tableau Revenus par organisation : liste paginée serveur (convention de tri
@@ -152,11 +197,15 @@ export default function DashboardAdminPage() {
       `/api/v1/admin/dashboard/revenus-organisations?${new URLSearchParams({
         from: periode.from,
         to: periode.to,
+        ...(lieuIds.length ? { lieu_ids: lieuIds.join(',') } : {}),
+        ...(organisationIds.length
+          ? { organisation_ids: organisationIds.join(',') }
+          : {}),
         tri: sortKey,
         ordre: sortDir,
         page: String(page),
       })}`,
-    [periode, sortKey, sortDir, page],
+    [periode, lieuIds, organisationIds, sortKey, sortDir, page],
   );
   const {
     data: revenus,
@@ -284,9 +333,15 @@ export default function DashboardAdminPage() {
             surface="page"
             data-testid="revenus-orgs-controls"
             count={null}
-            actif={periodePosee(periode)}
+            actif={
+              periodePosee(periode) ||
+              lieuIds.length > 0 ||
+              organisationIds.length > 0
+            }
             onReset={() => {
               setPeriode(defaultPeriode());
+              setLieuIds([]);
+              setOrganisationIds([]);
               setPage(1);
             }}
             resetTestId="revenus-reinitialiser"
@@ -298,6 +353,24 @@ export default function DashboardAdminPage() {
               value={periode}
               onChange={setPeriodeManuelle}
             />
+            <FiltreCoches
+              label="Lieux"
+              testid="revenus-filtre-lieux"
+              options={lieux}
+              selected={lieuIds}
+              onChange={(ids) => {
+                setLieuIds(ids);
+                setPage(1);
+              }}
+            />
+            <OrganisationSelector
+              organisations={organisations}
+              selected={organisationIds}
+              onChange={(ids) => {
+                setOrganisationIds(ids);
+                setPage(1);
+              }}
+            />
           </FilterBar>
 
           {/* Graphe (50 %) + tableau (50 %) sur la même ligne ≥ lg (revue E2E Val
@@ -306,7 +379,12 @@ export default function DashboardAdminPage() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
             {/* Histogramme — MÊME fenêtre de période que le tableau (filtre commun). */}
             <ChartCard>
-              <RevenusHistogramme from={periode.from} to={periode.to} />
+              <RevenusHistogramme
+                from={periode.from}
+                to={periode.to}
+                lieuIds={lieuIds}
+                organisationIds={organisationIds}
+              />
             </ChartCard>
 
             {/* Colonne « Revenus par organisation » — titre DANS la carte, comme

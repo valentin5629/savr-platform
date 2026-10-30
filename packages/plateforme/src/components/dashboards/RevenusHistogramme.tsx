@@ -15,7 +15,6 @@ interface KpiAdminRow {
   mois: string;
   type_collecte: string;
   nb_collectes: number;
-  nb_cloturees: number;
   montant_factures_ht: number;
 }
 
@@ -24,19 +23,26 @@ type Toggle = 'nombre' | 'montant';
 interface RevenusHistogrammeProps {
   from?: string;
   to?: string;
+  /** Filtres de la section Revenus (CSV d'identifiants), cf. revenus-admin.ts. */
+  lieuIds?: string[];
+  organisationIds?: string[];
   className?: string;
 }
 
 /**
  * Histogramme 12 mois glissants — barres empilées ZD + AG, toggle nombre/montant (§11 §1.1 Bloc 2).
- * Source : /api/v1/dashboards/kpi-admin
+ * Source : /api/v1/admin/dashboard/revenus-mensuels (filtrable par lieu et organisation)
  * Avoirs comptés en négatif sur leur mois d'émission (F5 lot ⑫).
  */
 export function RevenusHistogramme({
   from,
   to,
+  lieuIds = [],
+  organisationIds = [],
   className,
 }: RevenusHistogrammeProps) {
+  const lieux = lieuIds.join(',');
+  const organisations = organisationIds.join(',');
   const [rows, setRows] = useState<KpiAdminRow[]>([]);
   const [toggle, setToggle] = useState<Toggle>('montant');
   const [loading, setLoading] = useState(true);
@@ -47,13 +53,26 @@ export function RevenusHistogramme({
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    if (lieux) params.set('lieu_ids', lieux);
+    if (organisations) params.set('organisation_ids', organisations);
 
-    fetch(`/api/v1/dashboards/kpi-admin?${params}`)
+    // Une réponse arrivée après un nouveau choix de filtre est ignorée.
+    let perimee = false;
+    fetch(`/api/v1/admin/dashboard/revenus-mensuels?${params}`)
       .then((r) => r.json())
-      .then((json: { kpi?: KpiAdminRow[] }) => setRows(json.kpi ?? []))
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-  }, [from, to]);
+      .then((json: { kpi?: KpiAdminRow[] }) => {
+        if (!perimee) setRows(json.kpi ?? []);
+      })
+      .catch(() => {
+        if (!perimee) setRows([]);
+      })
+      .finally(() => {
+        if (!perimee) setLoading(false);
+      });
+    return () => {
+      perimee = true;
+    };
+  }, [from, to, lieux, organisations]);
 
   // Grouper par mois
   const moisSet = Array.from(new Set(rows.map((r) => r.mois))).sort();

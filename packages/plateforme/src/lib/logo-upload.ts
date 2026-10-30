@@ -41,7 +41,7 @@ export async function televerserLogo(
     return erreur('Format non supporté (JPG ou PNG uniquement)', 422);
   if (file.size > tailleMax)
     return erreur(
-      `Fichier trop volumineux (${tailleMax >= TAILLE_MAX ? '2 Mo' : '1 Mo'} maximum)`,
+      `Fichier trop volumineux (${Math.round(tailleMax / 1_000_000)} Mo maximum)`,
       422,
     );
 

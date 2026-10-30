@@ -7,6 +7,8 @@
  * le filtre de période pilote désormais l'histogramme comme le tableau ; blocs 50/50.
  * DS « Mise en page des formulaires et filtres » : les deux champs Du/au sont
  * remplacés par UN DateRangePicker « Période » (bornes lues via data-from/data-to).
+ * Filtres Lieux / Traiteur / Agence / Gestionnaire de lieux (Val 2026-10-30) :
+ * passés au graphe ET au tableau, effacés par « Réinitialiser ».
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -75,6 +77,9 @@ const revenusRows = [
   },
 ];
 
+// Total renvoyé par le tableau : 2 par défaut, plus pour tester la pagination.
+let totalRevenus = 2;
+
 const fetchMock = vi.fn((input: RequestInfo | URL) => {
   const url = String(input);
   if (url.includes('/admin/dashboard/kpi'))
@@ -86,24 +91,50 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
       collectes_48h_non_validees: 0,
     });
   if (url.includes('/admin/dashboard/revenus-organisations'))
-    return jsonResponse({ data: revenusRows, total: 2, page: 1, limit: 50 });
-  if (url.includes('/dashboards/kpi-admin'))
+    return jsonResponse({
+      data: revenusRows,
+      total: totalRevenus,
+      page: 1,
+      limit: 50,
+    });
+  if (url.includes('/admin/dashboard/revenus-mensuels'))
     return jsonResponse({
       kpi: [
         {
           mois: '2026-06-01',
           type_collecte: 'zero_dechet',
           nb_collectes: 5,
-          nb_cloturees: 5,
           montant_factures_ht: 1200,
         },
       ],
+    });
+  if (url.includes('/admin/dashboard-client/organisations'))
+    return jsonResponse({
+      data: [
+        {
+          id: 't1',
+          nom: 'Kaspia',
+          raison_sociale: 'Kaspia SAS',
+          type: 'traiteur',
+        },
+        {
+          id: 'g1',
+          nom: 'Viparis',
+          raison_sociale: null,
+          type: 'gestionnaire_lieux',
+        },
+      ],
+    });
+  if (url.includes('/admin/lieux'))
+    return jsonResponse({
+      data: [{ id: 'l1', nom: 'Pavillon Gabriel', ville: 'Paris' }],
     });
   return jsonResponse({});
 });
 
 beforeEach(() => {
   cleanup();
+  totalRevenus = 2;
   fetchMock.mockClear();
   vi.stubGlobal('fetch', fetchMock);
 });
@@ -241,12 +272,12 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
       const { from, to } = defaultWindow();
-      // Au montage, l'histogramme (kpi-admin) est requêté sur la MÊME fenêtre que le tableau.
+      // Au montage, l'histogramme (revenus-mensuels) est requêté sur la MÊME fenêtre que le tableau.
       expect(
         fetchMock.mock.calls.some(([u]) => {
           const s = String(u);
           return (
-            s.includes('/dashboards/kpi-admin') &&
+            s.includes('/admin/dashboard/revenus-mensuels') &&
             s.includes(`from=${from}`) &&
             s.includes(`to=${to}`)
           );
@@ -262,7 +293,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
             fetchMock.mock.calls.some(([u]) => {
               const s = String(u);
               return (
-                s.includes('/dashboards/kpi-admin') &&
+                s.includes('/admin/dashboard/revenus-mensuels') &&
                 s.includes(`from=${jour}`) &&
                 s.includes(`to=${jour}`)
               );
@@ -308,6 +339,107 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
             fetchMock.mock.calls.some(([u]) =>
               String(u).includes('tri=montant_ag_ht'),
             ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.5/admin_revenus_filtres_lieu_organisation — lieu et organisation cochés partent au graphe et au tableau, Réinitialiser les retire',
+    async () => {
+      render(<DashboardAdminPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+      const appels = (route: string, attendu: string) =>
+        fetchMock.mock.calls.some(([u]) => {
+          const s = String(u);
+          return s.includes(route) && s.includes(attendu);
+        });
+
+      fetchMock.mockClear();
+      fireEvent.click(screen.getByTestId('revenus-filtre-lieux'));
+      fireEvent.click(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Pavillon Gabriel — Paris' },
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(screen.getByTestId('org-filtre-gestionnaire_lieux'));
+      fireEvent.click(
+        await screen.findByRole('checkbox', { name: 'Viparis' }, ATTENTE_UI),
+      );
+      await waitFor(() => {
+        for (const route of [
+          '/admin/dashboard/revenus-organisations',
+          '/admin/dashboard/revenus-mensuels',
+        ]) {
+          expect(appels(route, 'lieu_ids=l1')).toBe(true);
+          expect(appels(route, 'organisation_ids=g1')).toBe(true);
+        }
+      }, ATTENTE_UI);
+
+      // Filtre posé → « Réinitialiser » visible ; il retire lieux et organisations.
+      fetchMock.mockClear();
+      fireEvent.click(screen.getByTestId('revenus-reinitialiser'));
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([u]) => {
+              const s = String(u);
+              return (
+                s.includes('/admin/dashboard/revenus-organisations') &&
+                !s.includes('lieu_ids') &&
+                !s.includes('organisation_ids')
+              );
+            }),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByTestId('org-filtre-gestionnaire_lieux'),
+      ).toHaveTextContent('Tous');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.5/admin_revenus_filtre_retour_page_1 — cocher un filtre depuis la page 2 recharge la page 1',
+    async () => {
+      totalRevenus = 120;
+      render(<DashboardAdminPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+      fireEvent.click(
+        await screen.findByLabelText('Page 2', undefined, ATTENTE_UI),
+      );
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([u]) => String(u).includes('page=2')),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      fetchMock.mockClear();
+      fireEvent.click(screen.getByTestId('revenus-filtre-lieux'));
+      fireEvent.click(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Pavillon Gabriel — Paris' },
+          ATTENTE_UI,
+        ),
+      );
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([u]) => {
+              const s = String(u);
+              return (
+                s.includes('/admin/dashboard/revenus-organisations') &&
+                s.includes('lieu_ids=l1') &&
+                s.includes('page=1')
+              );
+            }),
           ).toBe(true),
         ATTENTE_UI,
       );

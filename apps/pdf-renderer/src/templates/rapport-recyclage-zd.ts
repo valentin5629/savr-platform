@@ -73,20 +73,22 @@ export interface RapportRecyclageZdData {
 // ─── Référentiel d'affichage des flux ────────────────────────────────────────
 // Ordre = ordre d'affichage du référentiel (axes du radar). Reconnaissance par le
 // code quand le payload le porte, sinon par le nom (payloads antérieurs à @3).
+// Couleurs = celles des graphiques à l'écran (tokens `--color-savr-flux-*`,
+// décision Val 2026-10-30).
 const FLUX_REF = [
-  { code: 'biodechet', motif: /bio/i, couleur: '#16a34a', court: 'Biodéchets' },
+  { code: 'biodechet', motif: /bio/i, couleur: '#12a459', court: 'Biodéchets' },
   {
     code: 'emballage',
     motif: /emball/i,
-    couleur: '#ff9b00',
+    couleur: '#ffbd59',
     court: 'Emballages',
   },
-  { code: 'carton', motif: /carton/i, couleur: '#6379b6', court: 'Cartons' },
-  { code: 'verre', motif: /verre/i, couleur: '#223870', court: 'Verre' },
+  { code: 'carton', motif: /carton/i, couleur: '#87684d', court: 'Cartons' },
+  { code: 'verre', motif: /verre/i, couleur: '#09337a', court: 'Verre' },
   {
     code: 'dechet_residuel',
     motif: /r[ée]sidu|ordure/i,
-    couleur: '#9aa2b8',
+    couleur: '#a6b1b7',
     court: 'Résiduel',
   },
 ] as const;

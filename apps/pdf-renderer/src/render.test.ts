@@ -798,8 +798,8 @@ describe('M1.6 / rapport recyclage §1.2 — gabarit @3, deux versions de la pag
     expect(html).toContain('<span>Gala</span>');
     expect(html).toContain('base64,ANCIEN'); // logo unique @2 → emplacement client
     // Flux reconnus par leur nom (pas de code dans un payload @2) : couleurs du référentiel.
-    expect(html).toContain('stroke="#16a34a"');
-    expect(html).toContain('stroke="#6379b6"');
+    expect(html).toContain('stroke="#12a459"');
+    expect(html).toContain('stroke="#87684d"');
     // Les blocs retirés ne reviennent pas par un ancien payload.
     expect(html).not.toContain('7 organisations');
     expect(html).not.toContain('68,4');

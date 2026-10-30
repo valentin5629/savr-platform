@@ -813,8 +813,10 @@ async function fetchCollecte(
     type_vehicule_souhaite: typeVehiculeSouhaite,
     association_id_point_collecte_mts1:
       association?.id_point_collecte_mts1 ?? null,
+    // `associations` n'a pas de colonne code_postal : il est saisi dans
+    // `adresse`. La demander à PostgREST fait échouer la lecture (#683).
     association_adresse: association
-      ? `${association.adresse}, ${association.code_postal} ${association.ville}`
+      ? `${association.adresse}, ${association.ville}`
       : null,
     association_contact_nom: association?.contact_nom ?? null,
     association_contact_telephone: association?.contact_telephone ?? null,
@@ -867,7 +869,6 @@ async function lireTypeVehiculeSouhaite(
 interface AssociationDestinataireRow {
   id_point_collecte_mts1: string | null;
   adresse: string;
-  code_postal: string;
   ville: string;
   contact_nom: string | null;
   contact_telephone: string | null;
@@ -881,7 +882,7 @@ async function fetchAssociationDestinataire(
   const { data, error } = await supabase
     .from('attributions_antgaspi')
     .select(
-      'associations:association_id(id_point_collecte_mts1, adresse, code_postal, ville, contact_nom, contact_telephone, instructions_acces)',
+      'associations:association_id(id_point_collecte_mts1, adresse, ville, contact_nom, contact_telephone, instructions_acces)',
     )
     .eq('collecte_id', collecteId)
     .maybeSingle();

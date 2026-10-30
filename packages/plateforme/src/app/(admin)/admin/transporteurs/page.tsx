@@ -9,6 +9,7 @@ import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
 import { compteurResultats } from '@/lib/compteur-resultats';
 import { Badge } from '@/components/ui/badge';
+import { BadgesLigne } from '@/components/ui/badges-ligne';
 import { ActifBadge } from '@/components/ui/actif-badge';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { OPTIONS_FILTRE_ACTIF } from '@/lib/libelles/actif';
@@ -107,19 +108,15 @@ export default function TransporteursPage() {
     {
       key: 'types_vehicules',
       header: 'Véhicule(s)',
-      render: (row) => (
-        <div className="flex flex-wrap gap-1">
-          {row.types_vehicules && row.types_vehicules.length > 0 ? (
-            row.types_vehicules.map((v) => (
-              <Badge key={v} variant="neutral" dot={false}>
-                {VEHICULE_LABEL[v] ?? v}
-              </Badge>
-            ))
-          ) : (
-            <span className="text-savr-neutral-400">—</span>
-          )}
-        </div>
-      ),
+      render: (row) =>
+        row.types_vehicules && row.types_vehicules.length > 0 ? (
+          <BadgesLigne
+            libelles={row.types_vehicules.map((v) => VEHICULE_LABEL[v] ?? v)}
+            dot={false}
+          />
+        ) : (
+          <span className="text-savr-neutral-400">—</span>
+        ),
     },
     {
       key: 'type_tms',

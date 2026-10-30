@@ -390,9 +390,9 @@
       "id": "M1.1a-fiche-entites-facturation-admin",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:726",
       "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/modale-entite-facturation.tsx + packages/plateforme/src/app/api/v1/admin/organisations/[id]/entites-facturation/route.ts (POST) + packages/plateforme/src/app/api/v1/admin/organisations/[id]/entites-facturation/[entiteId]/route.ts (PATCH)",
-      "test": "201 : organisation de l’URL, SIRET sans espaces vérifié INSEE, par défaut = autres dé-flaguées dans l’organisation + 404 si l’entité n’est pas dans cette organisation, aucune écriture + Entités de facturation : modification par PATCH de l’entité, ajout par POST",
+      "test": "201 : organisation de l’URL, SIRET sans espaces vérifié INSEE, par défaut = autres dé-flaguées dans l’organisation + 404 si l’entité n’est pas dans cette organisation, aucune écriture + Entités de facturation : modification par PATCH de l’entité, ajout par POST + par défaut : les autres entités de CETTE organisation perdent le drapeau, sauf la cible + par défaut refusé (422) sur une entité désactivée, aucune écriture",
       "statut": "implemented",
-      "libelle": "Fiche organisation — entités de facturation (multi-SIRET) ajoutées et modifiées par admin/ops, mêmes règles que §06.04 §6 côté manager : SIRET vérifié INSEE (échec 422, INSEE injoignable = en attente + revalidation), unique, une seule entité par défaut (Val 2026-10-30)."
+      "libelle": "Fiche organisation — entités de facturation (multi-SIRET) ajoutées et modifiées par admin/ops, mêmes règles que §06.04 §6 côté manager : SIRET vérifié INSEE (échec 422, INSEE injoignable = en attente + revalidation), unique, une seule entité par défaut, jamais une entité désactivée ; création et modification auditées (Val 2026-10-30)."
     }
   ],
   "cdc_source_hash": {

@@ -92,7 +92,7 @@ describe('Fiche organisation Admin — édition', () => {
     'Modifier les informations légales : formulaire pré-rempli, PATCH de la fiche',
     async () => {
       await ouvrir();
-      fireEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[0]!);
+      fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
       const nom = await screen.findByLabelText(/^Nom/, undefined, ATTENTE_UI);
       expect((nom as HTMLInputElement).value).toBe('AREP');
       fireEvent.change(screen.getByLabelText(/^Téléphone/), {
@@ -148,8 +148,9 @@ describe('Fiche organisation Admin — édition', () => {
     'Entités de facturation : modification par PATCH de l’entité, ajout par POST',
     async () => {
       await ouvrir();
-      // [0] = informations légales, [1] = l'entité
-      fireEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[1]!);
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Modifier AREP Facturation' }),
+      );
       const ville = await screen.findByLabelText(
         /^Ville/,
         undefined,

@@ -64,7 +64,7 @@ export async function PATCH(
 
   const { data: cible, error: lectureErr } = await supabase
     .from('entites_facturation')
-    .select('id, siret')
+    .select(SELECT_ENTITE)
     .eq('id', entiteId)
     .eq('organisation_id', id)
     .maybeSingle();
@@ -79,7 +79,10 @@ export async function PATCH(
   let verdict: 'verifie' | 'echec' | 'down' | null = null;
   const siret =
     typeof body.siret === 'string' ? body.siret.replace(/\s/g, '') : null;
-  if (siret !== null && siret !== (cible as { siret: string }).siret) {
+  if (
+    siret !== null &&
+    siret !== (cible as unknown as { siret: string }).siret
+  ) {
     if (!isValidSiretFormat(siret))
       return NextResponse.json(
         { error: 'SIRET invalide (14 chiffres attendus)' },
@@ -109,12 +112,30 @@ export async function PATCH(
   }
 
   if (body.entite_par_defaut === true) {
-    await supabase
+    // Les lecteurs (batch J+1, packs AG, index uniq_entite_defaut_par_org)
+    // cherchent l'entité par défaut ACTIVE : une entité désactivée ne la
+    // remplace pas, sinon l'organisation n'en aurait plus.
+    if (!(cible as unknown as { actif: boolean }).actif)
+      return NextResponse.json(
+        {
+          error:
+            'Une entité désactivée ne peut pas devenir l’entité par défaut.',
+        },
+        { status: 422 },
+      );
+    // L'index unique impose de libérer le drapeau AVANT de le poser ; une
+    // erreur ici arrête tout, sans écriture de l'entité.
+    const { error: defautErr } = await supabase
       .from('entites_facturation')
       .update({ entite_par_defaut: false })
       .eq('organisation_id', id)
       .eq('entite_par_defaut', true)
       .neq('id', entiteId);
+    if (defautErr)
+      return writeError(
+        defautErr,
+        'admin.organisations.entites_facturation.defaut',
+      );
     patch.entite_par_defaut = true;
   }
 
@@ -135,6 +156,15 @@ export async function PATCH(
     return writeError(error, 'admin.organisations.entites_facturation.update');
   if (!data)
     return NextResponse.json({ error: 'Entité non trouvée' }, { status: 404 });
+
+  await supabase.from('audit_log').insert({
+    table_name: 'entites_facturation',
+    record_id: entiteId,
+    action: 'UPDATE',
+    user_id: auth.ctx.userId,
+    old_values: cible,
+    new_values: data,
+  });
 
   if (verdict === 'down')
     await enqueueSiretRevalidation(supabase, entiteId).catch(() => null);

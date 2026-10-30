@@ -57,6 +57,9 @@ export function CarteDomainesEmail({
       }
       onChange();
       return true;
+    } catch {
+      setErreur('Connexion impossible, réessayez.');
+      return false;
     } finally {
       setEnCours(null);
     }
@@ -123,6 +126,7 @@ export function CarteDomainesEmail({
                   setErreur(null);
                   setARetirer(d);
                 }}
+                aria-label={`Retirer @${d.domaine}`}
               >
                 Retirer
               </Button>

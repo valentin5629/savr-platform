@@ -84,6 +84,8 @@ export function ModaleInformationsLegales({
       }
       onSaved();
       onClose();
+    } catch {
+      setErreur('Connexion impossible, réessayez.');
     } finally {
       setEnvoi(false);
     }

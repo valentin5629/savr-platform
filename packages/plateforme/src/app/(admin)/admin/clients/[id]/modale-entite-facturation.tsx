@@ -25,6 +25,7 @@ export interface EntiteFacturation {
   email_facturation: string | null;
   contact_compta_nom: string | null;
   entite_par_defaut: boolean;
+  actif?: boolean;
 }
 
 type Champs = Omit<EntiteFacturation, 'id'>;
@@ -93,6 +94,8 @@ export function ModaleEntiteFacturation({
       }
       onSaved();
       onClose();
+    } catch {
+      setErreur('Connexion impossible, réessayez.');
     } finally {
       setEnvoi(false);
     }
@@ -214,7 +217,10 @@ export function ModaleEntiteFacturation({
             id="ef-defaut"
             checked={f.entite_par_defaut}
             // L'entité par défaut le reste tant qu'une autre ne la remplace pas.
-            disabled={entite?.entite_par_defaut === true}
+            // Une entité désactivée ne peut pas devenir l'entité par défaut.
+            disabled={
+              entite?.entite_par_defaut === true || entite?.actif === false
+            }
             onCheckedChange={(v) => champ('entite_par_defaut', v === true)}
           />
           Entité de facturation par défaut

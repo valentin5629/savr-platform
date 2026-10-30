@@ -251,6 +251,7 @@ describe('POST entites-facturation (Admin)', () => {
       entite_par_defaut: false,
     });
     expect(perimetre(EF)[0]?.args[1]).toBe('org-1');
+    expect(appelsDe('audit_log', 'insert')).toHaveLength(1);
   });
 
   it('422 SIRET rejeté par l’INSEE, aucun INSERT', async () => {
@@ -316,7 +317,45 @@ describe('PATCH entites-facturation/[entiteId] (Admin)', () => {
     expect(res.status).toBe(200);
     expect(mockVerifySiret).not.toHaveBeenCalled();
     expect(appelsDe(EF, 'update')[0]?.args[0]).toEqual({ ville: 'Lyon' });
+    // lecture ciblée + UPDATE : deux bornes, toutes sur l'organisation de l'URL
+    expect(perimetre(EF)).toHaveLength(2);
     expect(perimetre(EF).every((a) => a.args[1] === 'org-1')).toBe(true);
+    expect(appelsDe('audit_log', 'insert')).toHaveLength(1);
+  });
+
+  it('par défaut : les autres entités de CETTE organisation perdent le drapeau, sauf la cible', async () => {
+    resultats[EF] = [
+      { data: { id: 'ef-1', siret: 's', actif: true }, error: null },
+      { data: null, error: null }, // dé-flag
+      { data: { id: 'ef-1' }, error: null }, // UPDATE
+    ];
+    const res = await patch({ entite_par_defaut: true });
+    expect(res.status).toBe(200);
+    const updates = appelsDe(EF, 'update');
+    expect(updates[0]?.args[0]).toEqual({ entite_par_defaut: false });
+    expect(updates[1]?.args[0]).toEqual({ entite_par_defaut: true });
+    expect(appelsDe(EF, 'neq')[0]?.args).toEqual(['id', 'ef-1']);
+    expect(perimetre(EF)).toHaveLength(3);
+    expect(perimetre(EF).every((a) => a.args[1] === 'org-1')).toBe(true);
+  });
+
+  it('par défaut refusé (422) sur une entité désactivée, aucune écriture', async () => {
+    resultats[EF] = [
+      { data: { id: 'ef-1', siret: 's', actif: false }, error: null },
+    ];
+    const res = await patch({ entite_par_defaut: true });
+    expect(res.status).toBe(422);
+    expect(appelsDe(EF, 'update')).toHaveLength(0);
+  });
+
+  it('échec du dé-flag : arrêt, l’entité n’est pas écrite', async () => {
+    resultats[EF] = [
+      { data: { id: 'ef-1', siret: 's', actif: true }, error: null },
+      { data: null, error: { code: 'XX000' } },
+    ];
+    const res = await patch({ entite_par_defaut: true });
+    expect(res.status).toBe(422); // writeError
+    expect(appelsDe(EF, 'update')).toHaveLength(1);
   });
 
   it('SIRET changé : revérifié ; échec INSEE → 422 sans UPDATE', async () => {

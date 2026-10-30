@@ -84,11 +84,18 @@ export async function POST(
 
   const entite_par_defaut = body.entite_par_defaut === true;
   if (entite_par_defaut) {
-    await supabase
+    // L'index unique impose de libérer le drapeau AVANT l'INSERT ; une erreur
+    // ici arrête tout, sans création.
+    const { error: defautErr } = await supabase
       .from('entites_facturation')
       .update({ entite_par_defaut: false })
       .eq('organisation_id', id)
       .eq('entite_par_defaut', true);
+    if (defautErr)
+      return writeError(
+        defautErr,
+        'admin.organisations.entites_facturation.defaut',
+      );
   }
 
   const { data, error } = await supabase
@@ -119,6 +126,16 @@ export async function POST(
       );
     return writeError(error, 'admin.organisations.entites_facturation.create');
   }
+
+  if (data)
+    await supabase.from('audit_log').insert({
+      table_name: 'entites_facturation',
+      record_id: (data as unknown as { id: string }).id,
+      action: 'INSERT',
+      user_id: auth.ctx.userId,
+      old_values: null,
+      new_values: data,
+    });
 
   if (verdict === 'down' && data)
     await enqueueSiretRevalidation(

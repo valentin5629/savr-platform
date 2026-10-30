@@ -533,6 +533,7 @@ export default function ClientFichePage({
                         size="sm"
                         variant="ghost"
                         onClick={() => setEntiteEditee(ef)}
+                        aria-label={`Modifier ${ef.raison_sociale}`}
                       >
                         Modifier
                       </Button>
@@ -976,7 +977,7 @@ export default function ClientFichePage({
         <ModaleEntiteFacturation
           organisationId={id}
           entite={entiteEditee}
-          premiere={org.entites_facturation.length === 0}
+          premiere={!org.entites_facturation.some((e) => e.actif)}
           onClose={() => setEntiteEditee(undefined)}
           onSaved={() => void refreshOrg()}
         />

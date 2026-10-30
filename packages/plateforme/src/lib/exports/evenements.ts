@@ -11,13 +11,18 @@ import {
   resolveTraiteurNoms,
   resolveRepas,
   sommePoidsFlux,
+  lireParTranches,
   unwrap,
 } from './shared.js';
-import { erreurInterne } from '@/lib/api-helpers.js';
 import {
   espaceEvenementsDuRole,
   filtresListeEvenements,
+  type RequeteFiltrable,
 } from '@/lib/evenements/liste-evenements.js';
+
+/** Requête filtrable et lisible par tranches (`lireParTranches`). */
+type RequeteEvenements = RequeteFiltrable<RequeteEvenements> &
+  ReturnType<Parameters<typeof lireParTranches>[0]>;
 import { statutEvenementConsolide } from '@/lib/libelles/evenement.js';
 import {
   typesEvenementDesCollectes,
@@ -195,20 +200,19 @@ export async function buildEvenementsExport(
     };
   }
 
-  const q = filtres.appliquer(
-    ctx.supabase
-      .from('evenements')
-      .select(`${EVENEMENTS_SELECT}, ${filtres.embeds}`)
-      .order('date_evenement', { ascending: false }),
+  // Lecture par tranches : PostgREST plafonne une réponse à 1 000 lignes, le
+  // fichier doit porter toute la sélection. `id` départage les ex æquo de date
+  // d'une tranche à l'autre.
+  const data = await lireParTranches<Record<string, unknown>>(() =>
+    filtres.appliquer(
+      ctx.supabase
+        .from('evenements')
+        .select(`${EVENEMENTS_SELECT}, ${filtres.embeds}`, { count: 'exact' })
+        .order('date_evenement', { ascending: false })
+        .order('id', { ascending: false }) as unknown as RequeteEvenements,
+    ),
   );
 
-  const { data, error } = await q;
-  if (error) throw erreurInterne(error, 'exports.evenements');
-
-  const csv = await evenementsToCsv(
-    ctx.supabase,
-    (data ?? []) as unknown as Record<string, unknown>[],
-    ctx.isStaff,
-  );
+  const csv = await evenementsToCsv(ctx.supabase, data, ctx.isStaff);
   return { filenamePrefix: 'evenements', csv };
 }

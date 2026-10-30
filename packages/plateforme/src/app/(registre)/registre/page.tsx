@@ -7,6 +7,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BookOpenIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
+import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
 import { BadgesLigne } from '@/components/ui/badges-ligne';
 import {
   DataGrid,
@@ -293,14 +294,6 @@ function RegistreContent() {
               <a href={ROUTES.registreMethodologie}>Méthodologie</a>
             </Button>
             <Button
-              variant="secondary"
-              onClick={() =>
-                window.open(`/api/v1/registre/export-csv?${queryString(true)}`)
-              }
-            >
-              Exporter CSV
-            </Button>
-            <Button
               variant="accent"
               onClick={() =>
                 window.open(`/api/v1/registre/export-zip?${queryString(true)}`)
@@ -373,6 +366,13 @@ function RegistreContent() {
           comme un registre vide. */}
       <DataGrid
         data-testid="registre-table"
+        toolbarActions={
+          <BoutonExportCsv
+            onClick={() =>
+              window.open(`/api/v1/registre/export-csv?${queryString(true)}`)
+            }
+          />
+        }
         columns={colonnes}
         data={rows}
         getRowId={(r) => r.collecte_id}

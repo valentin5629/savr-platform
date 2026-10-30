@@ -190,6 +190,17 @@ async function nomsTraiteursReferentiel(
   return noms;
 }
 
+/** Méthodes de filtre PostgREST qu'utilise `filtresListeEvenements`. */
+export interface RequeteFiltrable<Q> {
+  not(colonne: string, operateur: string, valeur: unknown): Q;
+  neq(colonne: string, valeur: unknown): Q;
+  eq(colonne: string, valeur: unknown): Q;
+  gte(colonne: string, valeur: unknown): Q;
+  lte(colonne: string, valeur: unknown): Q;
+  in(colonne: string, valeurs: readonly unknown[]): Q;
+  or(filtres: string): Q;
+}
+
 /**
  * Filtres de la liste Événements, partagés avec son export CSV (§12 §2 : le
  * fichier reprend la sélection affichée). `null` = la sélection ne peut rien
@@ -201,9 +212,7 @@ export function filtresListeEvenements(
   sp: URLSearchParams,
 ): {
   embeds: string;
-  // Le constructeur de requête PostgREST n'a pas de type commun simple ici.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  appliquer: <Q extends Record<string, any>>(q: Q) => Q;
+  appliquer: <Q extends RequeteFiltrable<Q>>(q: Q) => Q;
 } | null {
   const from = sp.get('from');
   const to = sp.get('to');

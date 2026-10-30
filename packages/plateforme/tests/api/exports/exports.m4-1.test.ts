@@ -1066,7 +1066,28 @@ describe('M4.1 / evenements — filtres de la liste', () => {
     expect(String(rls.__calls.select?.[0]?.[0])).toContain(
       'hors_brouillon:collectes(id)',
     );
-    expect(rls.__calls.range).toBeUndefined();
+    // Aucune page d'écran : lecture depuis la première ligne, par tranches.
+    expect(rls.__calls.range?.[0]).toEqual([0, 999]);
+  });
+
+  it('M3.2/export_evenements_par_tranches — au-delà d’une réponse PostgREST, toutes les lignes sortent', async () => {
+    setupAuth('admin_savr', null);
+    const evt = (id: string) => ({
+      id,
+      nom_evenement: id,
+      date_evenement: '2026-11-02',
+      pax: 10,
+      traiteur_operationnel_organisation_id: null,
+      lieux: { nom: 'Hall' },
+      collectes: [],
+    });
+    admin.push({ data: [evt('evt-tranche-1')], error: null, count: 2 });
+    admin.push({ data: [evt('evt-tranche-2')], error: null, count: 2 });
+    const text = await (await call('evenements')).text();
+    expect(text).toContain('evt-tranche-1');
+    expect(text).toContain('evt-tranche-2');
+    expect(admin.__calls.range).toHaveLength(2);
+    expect(admin.__calls.order).toContainEqual(['id', { ascending: false }]);
   });
 
   it('M3.2/export_evenements_selection_vide — type inconnu : fichier vide, aucune lecture', async () => {

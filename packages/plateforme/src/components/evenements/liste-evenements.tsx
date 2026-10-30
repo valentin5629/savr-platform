@@ -375,7 +375,8 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
   ]);
 
   // Export CSV (§12 §2) : la sélection de la liste affichée (ses filtres,
-  // période bornée à la vue), sans tri ni page.
+  // période bornée à la vue), sans tri ni page. Le fichier est toujours rangé
+  // du plus récent au plus ancien, quelle que soit la vue.
   function exporterCsv() {
     const qs = new URLSearchParams(urlListe.split('?')[1]);
     for (const cle of ['tri', 'ordre', 'page']) qs.delete(cle);

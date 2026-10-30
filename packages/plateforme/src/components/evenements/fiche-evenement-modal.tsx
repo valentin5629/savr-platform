@@ -622,6 +622,27 @@ function DocumentsEvenement({
                     : 'Récapitulatif des collectes réalisées, sans valeur fiscale : les rapports de don de chaque collecte font foi'}
               </Text>
             </div>
+            {/* Case du radar à gauche de « Télécharger », pour qu'on la voie
+                (Val 2026-10-30). */}
+            {nbRealisees > 0 && choixRadarPossible && (
+              <div data-testid="option-rapport-evenement-radar">
+                <Label
+                  variant="choice"
+                  htmlFor="rapport-evenement-avec-radar"
+                  className="flex items-center gap-2"
+                >
+                  <Checkbox
+                    id="rapport-evenement-avec-radar"
+                    checked={avecRadar}
+                    onCheckedChange={(v) => setAvecRadar(v === true)}
+                  />
+                  Inclure le radar de comparaison
+                </Label>
+                <Text variant="hint" className="mt-1">
+                  Les filtres utilisés ci-dessus seront repris
+                </Text>
+              </div>
+            )}
             <Button
               variant="secondary"
               // Radar demandé : on attend les filtres de la barre (sans eux, le
@@ -637,29 +658,6 @@ function DocumentsEvenement({
             >
               Télécharger
             </Button>
-            {nbRealisees > 0 && choixRadarPossible && (
-              <div
-                className="basis-full"
-                data-testid="option-rapport-evenement-radar"
-              >
-                <Label
-                  variant="choice"
-                  htmlFor="rapport-evenement-avec-radar"
-                  className="flex items-center gap-2"
-                >
-                  <Checkbox
-                    id="rapport-evenement-avec-radar"
-                    checked={avecRadar}
-                    onCheckedChange={(v) => setAvecRadar(v === true)}
-                  />
-                  Inclure le radar de comparaison dans le rapport
-                </Label>
-                <Text className="mt-1">
-                  Le radar du rapport reprend les filtres de comparaison réglés
-                  ci-dessus.
-                </Text>
-              </div>
-            )}
           </div>
         )}
         {actives.map((f) => (

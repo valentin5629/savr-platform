@@ -179,7 +179,7 @@ const telecharger = (ligne: HTMLElement) =>
   within(ligne).getByRole('button', { name: 'Télécharger' });
 const caseRadar = () =>
   screen.getByRole('checkbox', {
-    name: 'Inclure le radar de comparaison dans le rapport',
+    name: 'Inclure le radar de comparaison',
   });
 
 beforeEach(() => {
@@ -284,6 +284,15 @@ describe('M3.2 / fiche Événement — rapports cumulés', () => {
           .getAttribute('src'),
       ).toMatch(/^\/api\/v1\/evenements\/[^/]+\/logo-client\?v=0$/);
       expect(caseRadar().getAttribute('aria-checked')).toBe('false');
+      // Case à gauche de « Télécharger », filtres rappelés dessous (Val 2026-10-30).
+      const option = screen.getByTestId('option-rapport-evenement-radar');
+      expect(
+        option.compareDocumentPosition(telecharger(ligne)) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(option).toHaveTextContent(
+        'Les filtres utilisés ci-dessus seront repris',
+      );
       fireEvent.click(telecharger(ligne));
       await waitFor(
         () => expect(URL.createObjectURL).toHaveBeenCalledTimes(1),

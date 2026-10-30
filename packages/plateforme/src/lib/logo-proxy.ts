@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { getObject } from '@savr/shared/src/r2/upload.js';
 
 // Réponse commune des proxys d'affichage de logo (R2 n'est pas public).
-// Quatre routes servent un logo — admin/uploads, traiteur/mon-organisation,
-// gestionnaire/mon-organisation, gestionnaire/traiteurs/[id] — et ne diffèrent que
+// Cinq routes servent un logo — admin/uploads, traiteur/mon-organisation,
+// gestionnaire/mon-organisation, gestionnaire/traiteurs/[id], mon-organisation
+// (avatar de l'en-tête) — et ne diffèrent que
 // par QUI a le droit et D'OÙ vient la clé. Le corps de la réponse, lui, était
 // identique quatre fois : en-têtes de cache et de sécurité inclus. Les regrouper
 // ici fait qu'un changement de politique (max-age, Content-Disposition) se fait en

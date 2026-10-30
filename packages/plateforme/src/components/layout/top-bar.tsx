@@ -2,47 +2,20 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { BellIcon, ListIcon, SignOutIcon } from '@/components/ui/icones';
-import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { BellIcon, ListIcon } from '@/components/ui/icones';
 import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
 import { IconButton } from '@/components/ui/icon-button';
-import { ROUTES } from '@/lib/routes';
-import { Button } from '@/components/ui/button';
 
 interface TopBarProps {
   title?: string;
-  userName?: string;
   onMenuToggle?: () => void;
-  /**
-   * Handler de déconnexion. Par défaut (non fourni) : `signOut()` côté client
-   * puis redirection dure vers `/login`. Les layouts étant des Server
-   * Components, ils ne peuvent pas passer de handler → le bouton fonctionne
-   * de manière autonome.
-   */
-  onLogout?: () => void;
   className?: string;
 }
 
+// L'organisation, l'utilisateur et « Se déconnecter » sont en bas de la
+// Sidebar (Val 2026-10-30) : l'en-tête garde le titre et les notifications.
 const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
-  ({ title, userName, onMenuToggle, onLogout, className }, ref) => {
-    const [loggingOut, setLoggingOut] = React.useState(false);
-
-    const handleLogout = React.useCallback(async () => {
-      if (onLogout) {
-        onLogout();
-        return;
-      }
-      setLoggingOut(true);
-      try {
-        const supabase = createBrowserSupabaseClient();
-        await supabase.auth.signOut();
-      } catch {
-        /* on redirige vers /login même si le signOut échoue */
-      }
-      window.location.href = ROUTES.login;
-    }, [onLogout]);
-
+  ({ title, onMenuToggle, className }, ref) => {
     return (
       <header
         ref={ref}
@@ -73,29 +46,6 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
           <IconButton size="sm" aria-label="Notifications">
             <BellIcon aria-hidden="true" />
           </IconButton>
-
-          {userName && (
-            <Text
-              as="span"
-              variant="body"
-              className="hidden sm:block font-medium px-2"
-            >
-              {userName}
-            </Text>
-          )}
-
-          <Button
-            variant="ghost"
-            onClick={() => void handleLogout()}
-            disabled={loggingOut}
-            className="h-9 px-3 font-medium text-savr-neutral-600 hover:bg-savr-neutral-100 sm:h-9 [&>svg]:h-5 [&>svg]:w-5"
-            aria-label="Se déconnecter"
-          >
-            <SignOutIcon className="h-5 w-5" aria-hidden="true" />
-            <span className="hidden sm:inline">
-              {loggingOut ? 'Déconnexion…' : 'Se déconnecter'}
-            </span>
-          </Button>
         </div>
       </header>
     );

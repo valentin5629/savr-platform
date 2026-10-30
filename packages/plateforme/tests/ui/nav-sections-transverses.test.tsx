@@ -143,7 +143,8 @@ describe('M3.2 / nav « Mon pack AG » — sections transverses', () => {
     const menu = await menuDe(RegistreLayout, '/registre');
     expect(menu).toContain('Collectes');
     expect(menu).not.toContain('Mes lieux');
-    expect(etat.tablesLues).toEqual([]);
+    // Seule l'organisation est lue (avatar et nom de l'en-tête, Val 2026-10-30).
+    expect(etat.tablesLues).toEqual(['organisations']);
   });
 
   it('M3.2/nav_pack_regle_unique — entreesNavMasquees : gestionnaire sans pack → l’entrée ; avec pack, comptage illisible ou autre rôle → cas tranchés', async () => {

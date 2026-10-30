@@ -8,14 +8,26 @@ import { NAV_CONFIG, hrefNavActif } from '@/lib/nav-config';
 import type { NavRole } from '@/lib/roles';
 import { useLogoZd, isZdSectionPath } from '@/components/layout/logo-context';
 import { SavrLogoMark } from '@/components/layout/savr-logo';
-import { CaretLeftIcon, CaretRightIcon } from '@/components/ui/icones';
+import {
+  CaretLeftIcon,
+  CaretRightIcon,
+  SignOutIcon,
+} from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { IconButton } from '@/components/ui/icon-button';
+import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { ROUTES } from '@/lib/routes';
 
 interface SidebarProps {
   role: NavRole;
   collapsed?: boolean;
   onToggle?: () => void;
+  /**
+   * Handler de déconnexion. Par défaut (non fourni) : `signOut()` côté client
+   * puis redirection dure vers `/login` (les layouts, Server Components, ne
+   * peuvent pas passer de handler).
+   */
+  onLogout?: () => void;
   /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack). */
   hiddenNavHrefs?: string[];
   /** Compteurs par href (ex : { '/admin/alertes': 3 }) → pastille sur l'item. */
@@ -27,10 +39,34 @@ interface SidebarProps {
 // Item actif : fond primary-700 + barre accent-500 3px gauche
 const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
   (
-    { role, collapsed = false, onToggle, hiddenNavHrefs, navBadges, className },
+    {
+      role,
+      collapsed = false,
+      onToggle,
+      onLogout,
+      hiddenNavHrefs,
+      navBadges,
+      className,
+    },
     ref,
   ) => {
     const pathname = usePathname();
+    const [loggingOut, setLoggingOut] = React.useState(false);
+
+    const handleLogout = React.useCallback(async () => {
+      if (onLogout) {
+        onLogout();
+        return;
+      }
+      setLoggingOut(true);
+      try {
+        const supabase = createBrowserSupabaseClient();
+        await supabase.auth.signOut();
+      } catch {
+        /* on redirige vers /login même si le signOut échoue */
+      }
+      window.location.href = ROUTES.login;
+    }, [onLogout]);
     const { zdSelected } = useLogoZd();
     // Logo Savr : orange par défaut, vert dès qu'on est en contexte ZD — soit
     // par la navigation (section ZD-only), soit par une sélection ZD en cours
@@ -158,6 +194,25 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             </IconButton>
           </div>
         )}
+        {/* Déconnexion — tout en bas à gauche (Val 2026-10-30, ex-TopBar) */}
+        <div className="shrink-0 border-t border-savr-primary-700 p-2">
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            disabled={loggingOut}
+            aria-label="Se déconnecter"
+            title={collapsed ? 'Se déconnecter' : undefined}
+            className={cn(
+              'flex h-10 w-full items-center gap-3 rounded-savr-md px-3 text-sm font-medium text-savr-primary-200 transition-colors duration-savr-fast hover:bg-savr-primary-700 hover:text-savr-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 disabled:opacity-60',
+              collapsed && 'justify-center px-0',
+            )}
+          >
+            <SignOutIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+            {!collapsed && (
+              <span>{loggingOut ? 'Déconnexion…' : 'Se déconnecter'}</span>
+            )}
+          </button>
+        </div>
       </nav>
     );
   },

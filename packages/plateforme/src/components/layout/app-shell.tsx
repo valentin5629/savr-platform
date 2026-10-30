@@ -7,10 +7,13 @@ import { TopBar } from '@/components/layout/top-bar';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { LogoZdProvider } from '@/components/layout/logo-context';
 import type { NavRole } from '@/lib/roles';
+import type { IdentiteOrganisation } from '@/lib/identite-organisation';
 
 interface AppShellProps {
   role: NavRole;
   userName?: string;
+  /** Organisation (avatar + nom) en haut à droite. */
+  organisation?: IdentiteOrganisation | null;
   pageTitle?: string;
   onLogout?: () => void;
   /**
@@ -27,6 +30,7 @@ interface AppShellProps {
 const AppShell = ({
   role,
   userName,
+  organisation,
   pageTitle,
   onLogout,
   hiddenNavHrefs,
@@ -51,6 +55,7 @@ const AppShell = ({
             role={role}
             collapsed={sidebarCollapsed}
             onToggle={() => setSidebarCollapsed((v) => !v)}
+            onLogout={onLogout}
             hiddenNavHrefs={hiddenNavHrefs}
             navBadges={navBadges}
           />
@@ -74,6 +79,7 @@ const AppShell = ({
         >
           <Sidebar
             role={role}
+            onLogout={onLogout}
             hiddenNavHrefs={hiddenNavHrefs}
             navBadges={navBadges}
           />
@@ -84,8 +90,8 @@ const AppShell = ({
           <TopBar
             title={pageTitle}
             userName={userName}
+            organisation={organisation}
             onMenuToggle={() => setMobileSidebarOpen((v) => !v)}
-            onLogout={onLogout}
           />
 
           <main

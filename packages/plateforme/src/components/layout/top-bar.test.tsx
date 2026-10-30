@@ -1,70 +1,60 @@
 /**
- * TopBar — bouton « Se déconnecter » (décision Val 2026-07-03).
- * Le bouton est toujours affiché (les layouts Server Components ne peuvent pas
- * fournir de handler) : par défaut il appelle `signOut()` puis redirige vers
- * /login. Un `onLogout` explicite, s'il est fourni, prend le dessus.
+ * TopBar — organisation en haut à droite (Val 2026-10-30) : avatar rond (logo de
+ * l'organisation, ou ses initiales) + nom. « Se déconnecter » n'est plus ici :
+ * il est en bas de la Sidebar (cf. sidebar.test.tsx).
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-
-const mockSignOut = vi.fn().mockResolvedValue({ error: null });
-vi.mock('@savr/shared/src/supabase-client.js', () => ({
-  createBrowserSupabaseClient: () => ({ auth: { signOut: mockSignOut } }),
-}));
+import { describe, it, expect } from 'vitest';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 
 import { TopBar } from './top-bar';
-import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
-const originalLocation = window.location;
-
-beforeEach(() => {
-  mockSignOut.mockClear();
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    writable: true,
-    value: { href: '' },
-  });
-});
-afterEach(() => {
-  vi.restoreAllMocks();
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    writable: true,
-    value: originalLocation,
-  });
-});
-
-describe('TopBar — déconnexion', () => {
-  it('affiche le bouton « Se déconnecter »', () => {
-    render(<TopBar title="Espace traiteur" userName="a@b.c" />);
-    expect(
-      screen.getByRole('button', { name: 'Se déconnecter' }),
-    ).toBeInTheDocument();
+describe('TopBar — organisation en en-tête', () => {
+  it('affiche le logo de l’organisation en avatar, avec son nom', () => {
+    render(
+      <TopBar
+        title="Espace gestionnaire de lieux"
+        userName="a@b.c"
+        organisation={{
+          nom: 'Viparis',
+          logoSrc: '/api/v1/mon-organisation/logo?v=1',
+        }}
+      />,
+    );
+    const bloc = screen.getByTestId('organisation-entete');
+    expect(within(bloc).getByText('Viparis')).toBeInTheDocument();
+    const img = bloc.querySelector('img');
+    expect(img?.getAttribute('src')).toBe('/api/v1/mon-organisation/logo?v=1');
+    // L'email n'est plus affiché quand l'organisation est connue.
+    expect(screen.queryByText('a@b.c')).not.toBeInTheDocument();
   });
 
-  it(
-    'clic → signOut() puis redirection vers /login',
-    async () => {
-      render(<TopBar title="Espace traiteur" userName="a@b.c" />);
-      fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
-      await waitFor(
-        () => expect(mockSignOut).toHaveBeenCalledTimes(1),
-        ATTENTE_UI,
-      );
-      await waitFor(
-        () => expect(window.location.href).toBe('/login'),
-        ATTENTE_UI,
-      );
-    },
-    ATTENTE_CAS_MS,
-  );
+  it('sans logo : initiales de l’organisation dans l’avatar', () => {
+    render(
+      <TopBar organisation={{ nom: 'Pavillon Gabriel', logoSrc: null }} />,
+    );
+    const avatar = screen.getByTestId('avatar-organisation');
+    expect(avatar.querySelector('img')).toBeNull();
+    expect(avatar).toHaveTextContent('PG');
+  });
 
-  it('un onLogout explicite prend le dessus (pas de signOut auto)', () => {
-    const onLogout = vi.fn();
-    render(<TopBar userName="a@b.c" onLogout={onLogout} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
-    expect(onLogout).toHaveBeenCalledTimes(1);
-    expect(mockSignOut).not.toHaveBeenCalled();
-    expect(window.location.href).toBe('');
+  it('logo introuvable : retombe sur les initiales', () => {
+    render(
+      <TopBar organisation={{ nom: 'Viparis', logoSrc: '/api/v1/x?v=1' }} />,
+    );
+    const avatar = screen.getByTestId('avatar-organisation');
+    fireEvent.error(avatar.querySelector('img')!);
+    expect(avatar.querySelector('img')).toBeNull();
+    expect(avatar).toHaveTextContent('V');
+  });
+
+  it('sans organisation (staff) : l’email reste affiché', () => {
+    render(<TopBar title="Back-office Admin" userName="admin@savr.fr" />);
+    expect(screen.getByText('admin@savr.fr')).toBeInTheDocument();
+    expect(screen.queryByTestId('organisation-entete')).toBeNull();
+  });
+
+  it('plus de bouton « Se déconnecter » dans l’en-tête', () => {
+    render(<TopBar organisation={{ nom: 'Viparis', logoSrc: null }} />);
+    expect(screen.queryByRole('button', { name: 'Se déconnecter' })).toBeNull();
   });
 });

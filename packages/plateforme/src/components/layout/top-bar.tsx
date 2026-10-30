@@ -2,47 +2,57 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { BellIcon, ListIcon, SignOutIcon } from '@/components/ui/icones';
-import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { BellIcon, ListIcon } from '@/components/ui/icones';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { IconButton } from '@/components/ui/icon-button';
-import { ROUTES } from '@/lib/routes';
-import { Button } from '@/components/ui/button';
+import { initiales } from '@/components/dashboards/charts/cockpit/fmt';
+import type { IdentiteOrganisation } from '@/lib/identite-organisation';
 
 interface TopBarProps {
   title?: string;
+  /** Repli quand l'organisation n'est pas connue (staff Savr). */
   userName?: string;
-  onMenuToggle?: () => void;
   /**
-   * Handler de déconnexion. Par défaut (non fourni) : `signOut()` côté client
-   * puis redirection dure vers `/login`. Les layouts étant des Server
-   * Components, ils ne peuvent pas passer de handler → le bouton fonctionne
-   * de manière autonome.
+   * Organisation de l'utilisateur : avatar (logo ou initiales) + nom, en haut à
+   * droite (Val 2026-10-30). « Se déconnecter » est en bas de la Sidebar.
    */
-  onLogout?: () => void;
+  organisation?: IdentiteOrganisation | null;
+  onMenuToggle?: () => void;
   className?: string;
 }
 
+// Avatar rond de l'organisation : son logo, ou ses initiales s'il n'y en a pas
+// ou si le fichier ne se charge pas.
+function AvatarOrganisation({
+  organisation,
+}: {
+  organisation: IdentiteOrganisation;
+}) {
+  const [logoKo, setLogoKo] = React.useState(false);
+  const logo = organisation.logoSrc && !logoKo ? organisation.logoSrc : null;
+  return (
+    <span
+      data-testid="avatar-organisation"
+      className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-savr-full border border-savr-neutral-200 bg-savr-primary-50 text-xs font-semibold text-savr-primary-800"
+      aria-hidden="true"
+    >
+      {logo ? (
+        <img
+          src={logo}
+          alt=""
+          className="h-full w-full bg-savr-white object-contain"
+          onError={() => setLogoKo(true)}
+        />
+      ) : (
+        initiales(organisation.nom)
+      )}
+    </span>
+  );
+}
+
 const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
-  ({ title, userName, onMenuToggle, onLogout, className }, ref) => {
-    const [loggingOut, setLoggingOut] = React.useState(false);
-
-    const handleLogout = React.useCallback(async () => {
-      if (onLogout) {
-        onLogout();
-        return;
-      }
-      setLoggingOut(true);
-      try {
-        const supabase = createBrowserSupabaseClient();
-        await supabase.auth.signOut();
-      } catch {
-        /* on redirige vers /login même si le signOut échoue */
-      }
-      window.location.href = ROUTES.login;
-    }, [onLogout]);
-
+  ({ title, userName, organisation, onMenuToggle, className }, ref) => {
     return (
       <header
         ref={ref}
@@ -69,33 +79,36 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <IconButton size="sm" aria-label="Notifications">
             <BellIcon aria-hidden="true" />
           </IconButton>
 
-          {userName && (
-            <Text
-              as="span"
-              variant="body"
-              className="hidden sm:block font-medium px-2"
+          {organisation ? (
+            <div
+              data-testid="organisation-entete"
+              className="flex min-w-0 items-center gap-2 pl-2"
             >
-              {userName}
-            </Text>
+              <AvatarOrganisation organisation={organisation} />
+              <Text
+                as="span"
+                variant="body"
+                className="hidden max-w-64 truncate font-medium sm:block"
+              >
+                {organisation.nom}
+              </Text>
+            </div>
+          ) : (
+            userName && (
+              <Text
+                as="span"
+                variant="body"
+                className="hidden sm:block font-medium px-2"
+              >
+                {userName}
+              </Text>
+            )
           )}
-
-          <Button
-            variant="ghost"
-            onClick={() => void handleLogout()}
-            disabled={loggingOut}
-            className="h-9 px-3 font-medium text-savr-neutral-600 hover:bg-savr-neutral-100 sm:h-9 [&>svg]:h-5 [&>svg]:w-5"
-            aria-label="Se déconnecter"
-          >
-            <SignOutIcon className="h-5 w-5" aria-hidden="true" />
-            <span className="hidden sm:inline">
-              {loggingOut ? 'Déconnexion…' : 'Se déconnecter'}
-            </span>
-          </Button>
         </div>
       </header>
     );

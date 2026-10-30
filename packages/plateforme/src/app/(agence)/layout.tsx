@@ -1,5 +1,6 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { requirePageSession } from '@/lib/page-auth';
+import { chargerIdentiteOrganisation } from '@/lib/identite-organisation';
 
 const AGENCE_ROLES = ['agence'] as const;
 
@@ -14,6 +15,7 @@ export default async function AgenceLayout({
     <AppShell
       role={session.role}
       userName={session.email}
+      organisation={await chargerIdentiteOrganisation(session.organisationId)}
       pageTitle="Espace agence"
       hiddenNavHrefs={[]}
     >

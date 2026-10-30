@@ -1218,7 +1218,7 @@ export async function loadPackAg(ctx: LoaderCtx): Promise<PackAgResult> {
 // BENCHMARK — Bloc 3 ZD (repère parc, RPC k-anonyme) + options des filtres
 // ══════════════════════════════════════════════════════════════════════════
 
-/** 403 de `loadBenchmark` : rôle traiteur ou agence qui nomme des traiteurs. */
+/** 403 de `loadBenchmark` : rôle traiteur, agence ou client organisateur qui nomme des traiteurs. */
 export const ERREUR_FILTRE_TRAITEURS_INTERDIT =
   'Le filtre traiteur_ids est interdit pour ce rôle (§04 préservation compétitive)';
 /** 403 de `loadBenchmark` : gestionnaire qui nomme un lieu ou un traiteur hors de son périmètre. */
@@ -1242,7 +1242,8 @@ export interface BenchmarkParams {
 /**
  * Repère parc kg/pax (RPC f_benchmark_kg_pax_zd, SECURITY DEFINER k-anonyme).
  * ⚠ Contrat identique à `GET /api/v1/dashboards/benchmark` (renvoie le tableau
- * `data`). Le filtre `traiteurIds` est INTERDIT pour traiteur/agence (§04
+ * `data`). Le filtre `traiteurIds` est INTERDIT pour traiteur/agence/client
+ * organisateur (§04
  * préservation compétitive) → LoaderError 403. Un gestionnaire ne nomme que ses
  * lieux rattachés et les traiteurs de sa vue `v_traiteurs_gestionnaire` (§06.05,
  * décision Val 2026-10-06) : la fonction le refuse, relayé ici en LoaderError 403.
@@ -1268,7 +1269,8 @@ export async function loadBenchmark(
   const isTraiteur =
     ctx.role === 'traiteur_manager' ||
     ctx.role === 'traiteur_commercial' ||
-    ctx.role === 'agence';
+    ctx.role === 'agence' ||
+    ctx.role === 'client_organisateur';
   if (isTraiteur && traiteurIds && traiteurIds.length) {
     throw new LoaderError(ERREUR_FILTRE_TRAITEURS_INTERDIT, 403);
   }

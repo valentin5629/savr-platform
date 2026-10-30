@@ -295,6 +295,22 @@ describe('loaders — I/O (faux Supabase)', () => {
     ).rejects.toMatchObject({ status: 403 });
   });
 
+  it.each([
+    ['agence', CTX_AGENCE],
+    [
+      'client_organisateur',
+      { ...CTX_TRAITEUR, role: 'client_organisateur' } as LoaderCtx,
+    ],
+  ])(
+    'loadBenchmark rejette traiteur_ids pour %s (403 §04 compétitif)',
+    async (_r, ctx) => {
+      const supabase = makeSupabase({ rpc: { f_benchmark_kg_pax_zd: [] } });
+      await expect(
+        loadBenchmark(supabase, ctx, { traiteurIds: ['x'] }),
+      ).rejects.toMatchObject({ status: 403 });
+    },
+  );
+
   it('loadBenchmark autorise traiteur_ids pour le gestionnaire + passe la RPC', async () => {
     const supabase = makeSupabase({
       rpc: {

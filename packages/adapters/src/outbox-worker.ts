@@ -813,6 +813,8 @@ async function fetchCollecte(
     type_vehicule_souhaite: typeVehiculeSouhaite,
     association_id_point_collecte_mts1:
       association?.id_point_collecte_mts1 ?? null,
+    // `associations` n'a pas de colonne code_postal : il est saisi dans
+    // `adresse`. La demander à PostgREST fait échouer la lecture (#683).
     association_adresse: association
       ? `${association.adresse}, ${association.ville}`
       : null,

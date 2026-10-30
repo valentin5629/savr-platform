@@ -7,13 +7,17 @@ import {
 import { serverError } from '@/lib/api-helpers.js';
 
 // CDC §06.04 §6 « Équipe » (l.665-671) — liste des utilisateurs rattachés :
-// nom, email, rôle, dernière connexion. Section MANAGER only (l.653 « Équipe
-// masquée » pour le commercial). RLS usr_manager_select (own-org).
+// nom, email, rôle, dernière connexion. Manager et commercial (Val 2026-10-30 :
+// le commercial voit l'équipe pour inviter et transférer ses collectes). RLS
+// usr_manager_select / usr_commercial_select (own-org).
 
-const MANAGER_ROLE: ClientRole[] = ['traiteur_manager'];
+const TRAITEUR_ROLES: ClientRole[] = [
+  'traiteur_manager',
+  'traiteur_commercial',
+];
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireUser(req, MANAGER_ROLE);
+  const auth = await requireUser(req, TRAITEUR_ROLES);
   if (auth.error) return auth.error;
 
   const supabase = createSupabaseServerClient();

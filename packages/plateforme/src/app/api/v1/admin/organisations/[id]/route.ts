@@ -31,11 +31,11 @@ export async function GET(
     .from('organisations')
     .select(
       `
-      id, raison_sociale, type, siret, email_principal, telephone, adresse,
+      id, nom, raison_sociale, type, siret, email_principal, telephone, adresse,
       actif, logo_url, est_shadow, tarif_refacture_pax_zd, grille_tarifaire_zd_id,
       cree_par_organisation_id, created_at, updated_at,
-      entites_facturation(id, raison_sociale, siret, siret_verification, tva_intracom, tva_verification, entite_par_defaut),
-      organisations_domaines_email(domaine),
+      entites_facturation(id, raison_sociale, siret, siret_verification, tva_intracom, tva_verification, entite_par_defaut, adresse_facturation, code_postal, ville, email_facturation, contact_compta_nom, actif),
+      organisations_domaines_email(id, domaine, verifie_at),
       users(id, prenom, nom, email, role, actif, derniere_connexion),
       packs_antgaspi(id, type_pack, credits_initiaux, credits_consommes, statut, mode_facturation, commentaires, created_at),
       tarifs_negocie!organisation_id(id, activite, remise_pct, valide_du, valide_jusqu_au, scope, commentaires),
@@ -173,6 +173,29 @@ export async function PATCH(
       return NextResponse.json(
         {
           error: `Cette organisation gère ${count} lieu(x). Retirez-la comme gestionnaire de ces lieux avant de changer son type.`,
+          champs_invalides: ['type'],
+        },
+        { status: 422 },
+      );
+    }
+  }
+
+  // Type → client_organisateur : un domaine encore rattaché ferait entrer en
+  // libre-service les inscrits de ce domaine, ce qu'un client organisateur ne
+  // fait jamais (CLAUDE.md §4). L'inscription l'empêche déjà (api/auth/signup) ;
+  // ce refus garde la fiche cohérente : retirer les domaines d'abord.
+  if (updatePayload.type === 'client_organisateur') {
+    const { count, error: domErr } = await supabase
+      .from('organisations_domaines_email')
+      .select('id', { count: 'exact', head: true })
+      .eq('organisation_id', id);
+    if (domErr) {
+      return serverError(domErr, 'admin.organisations.type_domaines_rattaches');
+    }
+    if ((count ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          error: `Cette organisation a ${count} domaine(s) email. Retirez-les avant d’en faire un client organisateur.`,
           champs_invalides: ['type'],
         },
         { status: 422 },

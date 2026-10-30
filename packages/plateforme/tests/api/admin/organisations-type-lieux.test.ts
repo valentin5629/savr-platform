@@ -16,8 +16,15 @@ const orgChain = {
 // organisations_lieux : select(count, head) … eq → { count, error }
 const lieuxEq = vi.fn();
 const lieuxChain = { select: vi.fn(() => ({ eq: lieuxEq })) };
+// organisations_domaines_email : select(count, head) … eq → { count, error }
+const domEq = vi.fn();
+const domChain = { select: vi.fn(() => ({ eq: domEq })) };
 const from = vi.fn((table: string) =>
-  table === 'organisations_lieux' ? lieuxChain : orgChain,
+  table === 'organisations_lieux'
+    ? lieuxChain
+    : table === 'organisations_domaines_email'
+      ? domChain
+      : orgChain,
 );
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
@@ -67,6 +74,7 @@ describe('Organisations / type — lieux rattachés', () => {
     vi.clearAllMocks();
     orgChain.single.mockReset();
     lieuxEq.mockReset();
+    domEq.mockReset();
     setupAuth('admin_savr');
   });
 
@@ -123,5 +131,28 @@ describe('Organisations / type — lieux rattachés', () => {
     const res = await patch({ type: 'agence' });
     expect(res.status).toBe(500);
     expect(orgChain.update).not.toHaveBeenCalled();
+  });
+
+  it('422 passage en client organisateur tant qu’un domaine est rattaché, sans UPDATE', async () => {
+    lieuxEq.mockResolvedValueOnce({ count: 0, error: null });
+    domEq.mockResolvedValueOnce({ count: 1, error: null });
+    const res = await patch({ type: 'client_organisateur' });
+    expect(res.status).toBe(422);
+    expect(domEq).toHaveBeenCalledWith('organisation_id', 'org-1');
+    expect(orgChain.update).not.toHaveBeenCalled();
+  });
+
+  it('passage en client organisateur sans domaine : UPDATE', async () => {
+    lieuxEq.mockResolvedValueOnce({ count: 0, error: null });
+    domEq.mockResolvedValueOnce({ count: 0, error: null });
+    orgChain.single.mockResolvedValueOnce({
+      data: { id: 'org-1', type: 'client_organisateur', actif: true },
+      error: null,
+    });
+    const res = await patch({ type: 'client_organisateur' });
+    expect(res.status).toBe(200);
+    expect(orgChain.update).toHaveBeenCalledWith({
+      type: 'client_organisateur',
+    });
   });
 });

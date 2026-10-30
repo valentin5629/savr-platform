@@ -518,4 +518,22 @@ describe('M0.4 — rattachement par domaine : seules les revendications PROUVÉE
     // Rôle par défaut du CDC §05 §8 pour une orga traiteur rejointe.
     expect(user!.payload.role).toBe('traiteur_commercial');
   });
+
+  it('le domaine vérifié d’un CLIENT ORGANISATEUR ne rattache personne (jamais de libre-service)', async () => {
+    maybeSingleQueue['organisations_domaines_email'] = [
+      {
+        data: {
+          organisation_id: 'org-client',
+          organisations: { type: 'client_organisateur' },
+        },
+        error: null,
+      },
+    ];
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    await POST(makeReq(VALID_BODY));
+
+    const user = insertCalls.find((c) => c.table === 'users');
+    expect(user?.payload.organisation_id).not.toBe('org-client');
+    expect(user?.payload.role).not.toBe('client_organisateur');
+  });
 });

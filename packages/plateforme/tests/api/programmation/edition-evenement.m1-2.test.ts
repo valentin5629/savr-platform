@@ -443,9 +443,9 @@ describe('§09 / écriture evenements par la route', () => {
     ]);
   });
 
-  it('commercial_update_collecte_d_un_collegue_refuse — 403 malgré la même organisation, rien n’est écrit', async () => {
-    // Visible (lecture org-wide, C8), même organisation (C8d), fenêtre ouverte
-    // (C8c) : seul created_by = commercial2 le refuse (C8b).
+  it('commercial_update_collecte_d_un_collegue — 200 dans la même organisation (Val 2026-10-30)', async () => {
+    // Le commercial écrit comme le manager : created_by = commercial2 ne le
+    // refuse plus, seule l'organisation compte.
     setupAuth('traiteur_commercial', 'org-kaspia', 'commercial1');
     queueEventOk(
       { organisation_id: 'org-kaspia', created_by: 'commercial2' },
@@ -453,6 +453,21 @@ describe('§09 / écriture evenements par la route', () => {
     );
 
     const res = await patchEvent({ reference_affaire: 'AFF-300' });
+
+    expect(res.status).toBe(200);
+    expect(admin.__calls.rpc?.map(([fn]) => fn)).toEqual([
+      'fn_modifier_evenement',
+    ]);
+  });
+
+  it('commercial_update_evenement_autre_organisation_refuse — 403, rien n’est écrit', async () => {
+    setupAuth('traiteur_commercial', 'org-kaspia', 'commercial1');
+    queueEventOk(
+      { organisation_id: 'org-AUTRE', created_by: 'commercial1' },
+      true,
+    );
+
+    const res = await patchEvent({ reference_affaire: 'AFF-301' });
 
     expect(res.status).toBe(403);
     expect(rls.__calls.rpc).toBeUndefined();
@@ -623,10 +638,10 @@ describe('M1.2 / édition événement — gardes', () => {
     expect(res.status).toBe(422);
   });
 
-  it('M1.2 — édition événement commercial non-créateur → 403', async () => {
+  it('M1.2 — édition événement commercial hors organisation → 403', async () => {
     setupAuth('traiteur_commercial', 'org-1', 'paul');
     rls.push({
-      data: { id: 'e1', organisation_id: 'org-1', created_by: 'marie' },
+      data: { id: 'e1', organisation_id: 'org-AUTRE', created_by: 'paul' },
       error: null,
     });
     const res = await patchEvent({ reference_affaire: 'AFF-250' });

@@ -773,24 +773,23 @@ describe('M1.2 / programmation par cartes — reprise d’un brouillon', () => {
     expect(recap).not.toHaveBeenCalled();
   });
 
-  it('M1.2/brouillon_reprise_put — le traiteur manager reprend le brouillon d’un collègue de son organisation', async () => {
-    setupAuth('traiteur_manager', ORG, 'user-manager');
-    enregistrementRend('evt-b', 'col-1');
+  // Le commercial est aligné sur le manager (Val 2026-10-30).
+  for (const role of ['traiteur_manager', 'traiteur_commercial'] as const) {
+    it(`M1.2/brouillon_reprise_put — ${role} reprend le brouillon d’un collègue de son organisation`, async () => {
+      setupAuth(role, ORG, 'user-collegue');
+      enregistrementRend('evt-b', 'col-1');
 
-    const res = await reprendre(
-      'evt-b',
-      corps([carte('zd')], { confirmer: false }),
-    );
+      const res = await reprendre(
+        'evt-b',
+        corps([carte('zd')], { confirmer: false }),
+      );
 
-    expect(res.status).toBe(200);
-    expect(rpc('fn_enregistrer_programmation')).toHaveLength(1);
-  });
+      expect(res.status).toBe(200);
+      expect(rpc('fn_enregistrer_programmation')).toHaveLength(1);
+    });
+  }
 
-  for (const role of [
-    'traiteur_commercial',
-    'agence',
-    'gestionnaire_lieux',
-  ] as const) {
+  for (const role of ['agence', 'gestionnaire_lieux'] as const) {
     it(`M1.2/brouillon_reprise_put — ${role} non créateur : 403, rien n’est lu au-delà du brouillon ni écrit`, async () => {
       setupAuth(role, ORG, 'user-collegue');
 

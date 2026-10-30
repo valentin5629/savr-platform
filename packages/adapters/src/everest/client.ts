@@ -105,6 +105,26 @@ function texteOuNull(v: unknown): string | null {
   return typeof v === 'string' && v.trim() !== '' ? v : null;
 }
 
+// Longueur gardée de la réponse d'un refus : assez pour la raison donnée par
+// Everest, borné parce que le texte va dans last_error, le journal et la fiche.
+export const LONGUEUR_MAX_MOTIF_REFUS = 300;
+
+// Raison d'un refus (4xx, 5xx) lue dans la réponse d'Everest, sur une ligne et
+// bornée. Sans elle la fiche n'affichait que « createMission 400 » (2026-10-30).
+// Jamais lue sur un 401 : le refus du jeton a son propre message.
+async function lireMotifRefus(resp: Response): Promise<string | null> {
+  const texte = await resp.text().catch(() => '');
+  const ligne = texte.replace(/\s+/g, ' ').trim();
+  if (ligne === '') return null;
+  return ligne.length > LONGUEUR_MAX_MOTIF_REFUS
+    ? `${ligne.slice(0, LONGUEUR_MAX_MOTIF_REFUS)}…`
+    : ligne;
+}
+
+function avecMotif(message: string, motif: string | null): string {
+  return motif ? `${message} : ${motif}` : message;
+}
+
 export class EverestClient {
   private readonly baseUrl: string;
   private readonly jeton: string | null;
@@ -196,12 +216,16 @@ export class EverestClient {
       },
     );
 
+    const motif =
+      resp.ok || resp.status === 401 ? null : await lireMotifRefus(resp);
+
     await this.log({
       methode: 'POST',
       endpoint: '/missions/create',
       statut_http: resp.status,
       duree_ms: Date.now() - t0,
       correlation_id: correlationId,
+      ...(motif ? { erreur: motif } : {}),
     });
 
     if (resp.status === 401) {
@@ -209,12 +233,12 @@ export class EverestClient {
     }
     if (resp.status >= 500) {
       throw new LogistiqueTransientError(
-        `Everest createMission ${resp.status}`,
+        avecMotif(`Everest createMission ${resp.status}`, motif),
       );
     }
     if (!resp.ok) {
       throw new LogistiquePermanentError(
-        `Everest createMission ${resp.status}`,
+        avecMotif(`Everest createMission ${resp.status}`, motif),
       );
     }
 
@@ -263,12 +287,16 @@ export class EverestClient {
       },
     );
 
+    const motif =
+      resp.ok || resp.status === 401 ? null : await lireMotifRefus(resp);
+
     await this.log({
       methode: 'POST',
       endpoint: '/missions/cancel',
       statut_http: resp.status,
       duree_ms: Date.now() - t0,
       correlation_id: correlationId,
+      ...(motif ? { erreur: motif } : {}),
     });
 
     if (resp.status === 401) {
@@ -276,12 +304,12 @@ export class EverestClient {
     }
     if (resp.status >= 500) {
       throw new LogistiqueTransientError(
-        `Everest cancelMission ${resp.status}`,
+        avecMotif(`Everest cancelMission ${resp.status}`, motif),
       );
     }
     if (!resp.ok) {
       throw new LogistiquePermanentError(
-        `Everest cancelMission ${resp.status}`,
+        avecMotif(`Everest cancelMission ${resp.status}`, motif),
       );
     }
 
@@ -330,22 +358,30 @@ export class EverestClient {
       );
     });
 
+    const motif =
+      resp.ok || resp.status === 401 ? null : await lireMotifRefus(resp);
+
     await this.log({
       methode: 'POST',
       endpoint: '/missions/get',
       statut_http: resp.status,
       duree_ms: Date.now() - t0,
       correlation_id: correlationId,
+      ...(motif ? { erreur: motif } : {}),
     });
 
     if (resp.status === 401) {
       return this.jetonInutilisable('getMission', 401);
     }
     if (resp.status >= 500) {
-      throw new LogistiqueTransientError(`Everest getMission ${resp.status}`);
+      throw new LogistiqueTransientError(
+        avecMotif(`Everest getMission ${resp.status}`, motif),
+      );
     }
     if (!resp.ok) {
-      throw new LogistiquePermanentError(`Everest getMission ${resp.status}`);
+      throw new LogistiquePermanentError(
+        avecMotif(`Everest getMission ${resp.status}`, motif),
+      );
     }
 
     // `status` est le slug du statut, `status_text` son libellé : la route lit

@@ -395,17 +395,15 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     ]);
   });
 
-  it("un traiteur_commercial ne peut pas confirmer le brouillon d'un collègue", async () => {
+  it("un traiteur_commercial confirme le brouillon d'un collègue de son organisation (Val 2026-10-30)", async () => {
     setupAuth('traiteur_commercial', 'org-kaspia', 'user-commercial');
     admin.push({ data: { ...EVT, created_by: 'user-collegue' }, error: null });
+    admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push({ data: null, error: null });
 
-    const res = await confirmer();
-
-    // Confirmer = écriture à effets réels (E1 vers le TMS, débit pack AG). Miroir
-    // de col_delete_brouillon : commercial = ses propres créations. Refus AVANT la
-    // lecture des collectes → pas de RPC.
-    expect(res.status).toBe(403);
-    expect(admin.__calls.rpc).toBeUndefined();
+    // Aligné sur le manager : le périmètre est l'organisation (prédicat posé
+    // par la lecture de l'événement), plus la création.
+    expect((await confirmer()).status).toBe(200);
   });
 
   it('un traiteur_commercial confirme son propre brouillon', async () => {
@@ -476,21 +474,15 @@ describe('M1.2 — suppression d’un brouillon (mode admin support)', () => {
     ]);
   });
 
-  it("un traiteur_commercial ne peut pas supprimer le brouillon d'un collègue", async () => {
+  it("un traiteur_commercial supprime le brouillon d'un collègue de son organisation (Val 2026-10-30)", async () => {
     setupAuth('traiteur_commercial', 'org-kaspia', 'user-commercial');
     admin.push({
       data: { id: 'e1', created_by: 'user-collegue' },
       error: null,
     });
+    admin.push({ data: null, error: null });
 
-    const res = await supprimer();
-
-    // Miroir de la policy col_delete_brouillon (§09) : commercial = ses propres
-    // créations. RLS ne rattrape pas (route sous service-role). Le défaut était
-    // inerte tant que le DELETE échouait en 500 pour tout le monde ; il devient
-    // atteignable dès que la route fonctionne.
-    expect(res.status).toBe(403);
-    expect(admin.__calls.rpc).toBeUndefined();
+    expect((await supprimer()).status).toBe(204);
   });
 
   it('un traiteur_commercial supprime son propre brouillon', async () => {

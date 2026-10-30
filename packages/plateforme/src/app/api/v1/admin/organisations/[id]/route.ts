@@ -180,6 +180,29 @@ export async function PATCH(
     }
   }
 
+  // Type → client_organisateur : un domaine encore rattaché ferait entrer en
+  // libre-service les inscrits de ce domaine, ce qu'un client organisateur ne
+  // fait jamais (CLAUDE.md §4). L'inscription l'empêche déjà (api/auth/signup) ;
+  // ce refus garde la fiche cohérente : retirer les domaines d'abord.
+  if (updatePayload.type === 'client_organisateur') {
+    const { count, error: domErr } = await supabase
+      .from('organisations_domaines_email')
+      .select('id', { count: 'exact', head: true })
+      .eq('organisation_id', id);
+    if (domErr) {
+      return serverError(domErr, 'admin.organisations.type_domaines_rattaches');
+    }
+    if ((count ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          error: `Cette organisation a ${count} domaine(s) email. Retirez-les avant d’en faire un client organisateur.`,
+          champs_invalides: ['type'],
+        },
+        { status: 422 },
+      );
+    }
+  }
+
   // §07/06 tarif_refacture_pax_zd_update — capture l'ancienne valeur AVANT l'UPDATE.
   // Seule mutation d'organisation auditée (§2) ; les autres champs (raison_sociale,
   // siret, adresse…) ne sont PAS au catalogue → pas d'audit.

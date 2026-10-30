@@ -1,5 +1,6 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { requirePageSession } from '@/lib/page-auth';
+import { chargerIdentiteSession } from '@/lib/identite-session';
 import { entreesNavMasquees } from '@/lib/nav-masquee';
 
 // Registre réglementaire ZD (§06.03) — espace client, tous les rôles SAUF
@@ -26,7 +27,11 @@ export default async function RegistreLayout({
   return (
     <AppShell
       role={session.role}
-      userName={session.email}
+      identite={await chargerIdentiteSession({
+        userId: session.userId,
+        email: session.email,
+        logoAffichable: true,
+      })}
       pageTitle="Registre réglementaire"
       hiddenNavHrefs={hiddenNavHrefs}
     >

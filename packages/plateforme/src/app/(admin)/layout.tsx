@@ -2,6 +2,7 @@ import { AppShell } from '@/components/layout/app-shell';
 import { requireStaffPage } from '@/lib/page-auth';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { ROUTES } from '@/lib/routes';
+import { chargerIdentiteSession } from '@/lib/identite-session';
 
 // Pastille nav « Alertes » : nombre d'alertes Admin in-app ouvertes. Requêté
 // côté serveur (count-only) pour éviter le flash client, réservé à admin_savr
@@ -39,7 +40,11 @@ export default async function AdminLayout({
   return (
     <AppShell
       role="admin_savr"
-      userName={session.email}
+      identite={await chargerIdentiteSession({
+        userId: session.userId,
+        email: session.email,
+        logoAffichable: false,
+      })}
       pageTitle="Back-office Admin"
       hiddenNavHrefs={[]}
       navBadges={navBadges}

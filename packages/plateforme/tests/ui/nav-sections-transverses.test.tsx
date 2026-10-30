@@ -85,8 +85,10 @@ async function menuDe(layout: Layout, pathname: string): Promise<string[]> {
   const menu = screen.getAllByRole('navigation', {
     name: 'Navigation principale',
   })[0]!;
+  // Le logo est un lien (retour au Dashboard), pas une entrée du menu.
   return within(menu)
     .getAllByRole('link')
+    .filter((lien) => !lien.closest('[data-testid="savr-logo"]'))
     .map((lien) => lien.textContent ?? '');
 }
 

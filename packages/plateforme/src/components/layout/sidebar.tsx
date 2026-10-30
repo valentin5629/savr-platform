@@ -200,7 +200,8 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
           <Button
             variant="ghost"
             onClick={() => void handleLogout()}
-            disabled={loggingOut}
+            loading={loggingOut}
+            loadingText={collapsed ? '' : <span>Déconnexion…</span>}
             aria-label="Se déconnecter"
             title={collapsed ? 'Se déconnecter' : undefined}
             className={cn(
@@ -210,9 +211,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             )}
           >
             <SignOutIcon aria-hidden="true" />
-            {!collapsed && (
-              <span>{loggingOut ? 'Déconnexion…' : 'Se déconnecter'}</span>
-            )}
+            {!collapsed && <span>Se déconnecter</span>}
           </Button>
         </div>
       </nav>

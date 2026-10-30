@@ -1,7 +1,7 @@
 /**
  * TopBar — organisation en haut à droite (Val 2026-10-30) : avatar rond (logo de
  * l'organisation, ou ses initiales) + nom. « Se déconnecter » n'est plus ici :
- * il est en bas de la Sidebar (cf. sidebar.test.tsx).
+ * il est en bas de la Sidebar (cf. sidebar-deconnexion.test.tsx).
  */
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';

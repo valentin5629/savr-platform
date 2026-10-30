@@ -93,7 +93,9 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
               <Text
                 as="span"
                 variant="body"
-                className="hidden max-w-64 truncate font-medium sm:block"
+                // Sous 640 px seul l'avatar se voit : le nom reste lu par les
+                // lecteurs d'écran.
+                className="sr-only max-w-64 truncate font-medium sm:not-sr-only sm:block"
               >
                 {organisation.nom}
               </Text>

@@ -17,6 +17,11 @@ export interface EverestCancelResponse {
   status: string;
 }
 
+export interface EverestUpdateResponse {
+  mission_id: string;
+  status: string;
+}
+
 // Détail mission relu par POST /missions/get (BL-P0-07). `status` = libellé du
 // statut (`status_text`), à défaut son slug.
 // Source de vérité du coût + de la preuve : webhook = signal, API = vérité
@@ -44,6 +49,9 @@ export interface EverestHandlers {
   cancelMission: (
     payload: Record<string, unknown>,
   ) => Promise<EverestResult<EverestCancelResponse>>;
+  updateMission: (
+    payload: Record<string, unknown>,
+  ) => Promise<EverestResult<EverestUpdateResponse>>;
   getMission: (
     missionId: string,
   ) => Promise<EverestResult<EverestMissionDetail>>;
@@ -66,6 +74,8 @@ export interface MockMissionState {
   /** Payload brut envoyé à createMission, keyed par client_ref */
   payloads: Map<string, Record<string, unknown>>;
   cancelledIds: Set<string>;
+  /** Corps envoyés à updateMission, dans l'ordre. */
+  updates: Array<Record<string, unknown>>;
   /** Détails relus par POST /missions/get, keyed par mission_id (BL-P0-07) */
   details: Map<string, EverestMissionDetail>;
 }
@@ -75,6 +85,7 @@ export function setupEverestMock(
     createFails?: boolean;
     createFailsStatus?: number;
     cancelFails?: boolean;
+    updateFailsStatus?: number;
     getMissionFails?: boolean;
     getMissionFailsStatus?: number;
   } = {},
@@ -83,6 +94,7 @@ export function setupEverestMock(
     missions: new Map(),
     payloads: new Map(),
     cancelledIds: new Set(),
+    updates: [],
     details: new Map(),
   };
 
@@ -118,6 +130,19 @@ export function setupEverestMock(
       const mission_id = String(payload['ref'] ?? '');
       state.cancelledIds.add(mission_id);
       return { ok: true, data: { mission_id, status: 'cancelled' } };
+    },
+
+    updateMission: async (payload) => {
+      if (opts.updateFailsStatus) {
+        return {
+          ok: false,
+          status: opts.updateFailsStatus,
+          error: 'Everest updateMission error',
+        };
+      }
+      state.updates.push(payload);
+      const mission_id = String(payload['ref'] ?? '');
+      return { ok: true, data: { mission_id, status: 'pending' } };
     },
 
     getMission: async (missionId) => {

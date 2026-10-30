@@ -5,7 +5,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { LogistiqueAmbiguousError } from '../index.js';
+import {
+  LogistiqueAmbiguousError,
+  LogistiqueTransientError,
+} from '../index.js';
 import { EverestClient } from './client.js';
 import { _setEverestHandlers } from './mock.js';
 
@@ -210,5 +213,38 @@ describe('EverestClient — contrat du swagger Everest', () => {
       coursier_telephone: null,
       vehicule_type: null,
     });
+  });
+  it('M2.5/everest_contrat_update — POST /missions/update avec { ref, champs } tel quel ; la référence lue est mission.ref', async () => {
+    fetchMock.mockResolvedValueOnce(
+      json({ mission: { ref: 'REF-INVENTEE-1', status: 'assigned' } }),
+    );
+    const corps = {
+      ref: 'REF-INVENTEE-1',
+      start_date: MISSION.start_date,
+      address_start: MISSION.address_start,
+      address_start_name: 'Contact Inventé',
+      address_start_tel: '0600000000',
+      address_end: MISSION.address_end,
+      address_end_name: '',
+      address_end_tel: '',
+      comment: MISSION.comment,
+    };
+
+    const maj = await client().updateMission(corps, 'corr-1');
+
+    expect(appel()).toEqual({
+      url: 'https://everest.invalid/api/missions/update',
+      methode: 'POST',
+      corps,
+    });
+    expect(maj).toEqual({ mission_id: 'REF-INVENTEE-1', status: 'assigned' });
+  });
+
+  it('M2.5/everest_contrat_update_sans_reponse — appel sans réponse : erreur passagère (renvoyer les mêmes valeurs ne change rien)', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
+
+    await expect(
+      client().updateMission({ ref: 'REF-INVENTEE-1' }, 'corr-1'),
+    ).rejects.toBeInstanceOf(LogistiqueTransientError);
   });
 });

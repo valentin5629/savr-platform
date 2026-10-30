@@ -325,7 +325,9 @@ describe('M3.1 / édition collecte', () => {
         statut_tms: 'acceptee',
         date_collecte: '2097-12-31',
         heure_collecte: '10:00:00',
-        evenement: { created_by: 'user-1', organisation_id: 'org-1' },
+        // Collecte d'un COLLÈGUE (user-2) : le commercial l'édite comme le
+        // manager (Val 2026-10-30). L'ancienne garde created_by ferait 403.
+        evenement: { created_by: 'user-2', organisation_id: 'org-1' },
       },
       error: null,
     });
@@ -351,8 +353,10 @@ describe('M3.1 / édition collecte', () => {
     expect(json.flags.priorite_urgence).toBe(false);
   });
 
-  it('M3.1/edition_commercial_autre_collecte_deny — 403 si pas créateur', async () => {
-    setupAuth('traiteur_commercial', 'org-1', 'paul');
+  // Val 2026-10-30 : le commercial écrit sur toute son organisation ; seule une
+  // collecte d'une autre organisation lui est refusée.
+  it('M3.1/edition_commercial_autre_organisation_deny — 403 hors de son organisation', async () => {
+    setupAuth('traiteur_commercial', 'org-2', 'paul');
     rls.push({
       data: {
         id: 'c1',
@@ -643,8 +647,10 @@ describe('M3.1 / annulation', () => {
         statut_tms: 'attribuee_en_attente_acceptation',
         date_collecte: '2097-12-31',
         tms_reference: 'TMS-1',
+        // Collecte d'un COLLÈGUE (user-2) : le commercial l'annule comme le
+        // manager (Val 2026-10-30). L'ancienne garde created_by ferait 403.
         evenement: {
-          created_by: 'user-1',
+          created_by: 'user-2',
           organisation_id: 'org-1',
           nom_evenement: 'Gala',
           organisation: { nom: 'Kaspia' },
@@ -861,7 +867,7 @@ describe('M3.1 / invitation collaborateur', () => {
     expect(res.status).toBe(409);
   });
 
-  it('M3.1/invitation_commercial_interdite — 403 (manager only)', async () => {
+  it('M3.1/invitation_commercial_autorisee — le commercial passe la garde de rôle (Val 2026-10-30)', async () => {
     setupAuth('traiteur_commercial', 'org-kaspia');
     const { POST } =
       await import('@/app/api/v1/traiteur/equipe/invitation/route.js');
@@ -870,7 +876,9 @@ describe('M3.1 / invitation collaborateur', () => {
         email: 'x@y.fr',
       }),
     );
-    expect(res.status).toBe(403);
+    // Arrêté par la validation (prénom/nom manquants), plus par le rôle.
+    expect(res.status).toBe(422);
+    expect(mockCreateUser).not.toHaveBeenCalled();
   });
 
   it('M3.1/invitation_prenom_nom_requis — 422 sans prenom/nom (provisioning direct)', async () => {

@@ -9,7 +9,7 @@
     "M1.2 — édition événement par gestionnaire_lieux : 200 + fn_modifier_evenement (E2 par collecte)",
     "M1.2 — édition événement champ verrouillé lieu_id → 422",
     "M1.2 — édition événement hors fenêtre (f_collecte_editable=false) → 422",
-    "M1.2 — édition événement commercial non-créateur → 403",
+    "M1.2 — édition événement commercial hors organisation → 403",
     "M1.2 — édition événement cloisonnement cross-org (autre org) → 403",
     "M1.2 — édition événement aucun champ modifiable → 422",
     "M1.2 — édition collecte gestionnaire : 200 + fn_modifier_collecte",
@@ -105,9 +105,9 @@
       "id": "M1.2-perimetre-ecriture",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:525",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
-      "test": "M1.2 — édition événement commercial non-créateur → 403",
+      "test": "M1.2 — édition événement commercial hors organisation → 403",
       "statut": "implemented",
-      "libelle": "Périmètre d'écriture : commercial = ses créations, autres = leur orga ; cross-org refusé"
+      "libelle": "Périmètre d'écriture : l'organisation pour les 4 rôles programmateurs (commercial aligné sur le manager, Val 2026-10-30) ; cross-org refusé"
     },
     {
       "id": "M1.2-evt-delete-cloisonnement-org",

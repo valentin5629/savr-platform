@@ -68,10 +68,8 @@ export async function POST(
     organisation: { nom: string } | { nom: string }[] | null;
     lieu?: { nom: string | null } | { nom: string | null }[] | null;
   };
-  const autorise =
-    auth.ctx.role === 'traiteur_manager'
-      ? evt.organisation_id === auth.ctx.organisationId
-      : evt.created_by === auth.ctx.userId;
+  // Val 2026-10-30 : le commercial écrit comme le manager, sur toute son organisation.
+  const autorise = evt.organisation_id === auth.ctx.organisationId;
   if (!autorise)
     return NextResponse.json(
       { error: 'Annulation non autorisée' },

@@ -27,7 +27,6 @@ import {
   FacturesFiltresBar,
 } from '@/components/facture/factures-filtres-bar';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
-import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { LogoCard } from '@/components/organisation/logo-card';
 import { InviterUtilisateurCarte } from '@/components/organisation/inviter-utilisateur-modal';
@@ -42,7 +41,7 @@ import { libelleActif } from '@/lib/libelles/actif';
 // Ids des filtres typés par l'enum DB : un renommage casse la compilation au
 // lieu de devenir un filtre ignoré en silence par la route (liste blanche).
 
-type OrgTab = 'infos' | 'equipe' | 'facturation' | 'preferences';
+type OrgTab = 'infos' | 'equipe' | 'facturation';
 
 interface OrgProfil {
   id: string;
@@ -111,9 +110,9 @@ export function MonOrganisationClient({
       <PageHeader title="Mon organisation" />
       {!isManager && (
         <Text>
-          Vous pouvez modifier les informations légales. Le logo, les entités de
-          facturation, les domaines email et l&apos;équipe ne sont modifiables
-          que par le manager.
+          Les informations de l&apos;organisation ne sont modifiables que par le
+          manager. Vous pouvez inviter un collaborateur et transférer vos
+          collectes à un collègue.
         </Text>
       )}
 
@@ -121,31 +120,27 @@ export function MonOrganisationClient({
       <Tabs value={tab} onValueChange={(v) => setTab(v as OrgTab)}>
         <TabsList className="w-full flex-wrap justify-start">
           <TabsTrigger value="infos">Informations légales</TabsTrigger>
-          {/* Équipe : masquée au commercial (CDC §6 l.653) */}
-          {isManager && <TabsTrigger value="equipe">Équipe</TabsTrigger>}
+          {/* Équipe : visible du commercial, réduite à inviter et transférer
+              ses collectes (Val 2026-10-30). */}
+          <TabsTrigger value="equipe">Équipe</TabsTrigger>
           {/* Facturation hors plateforme au go-live (décision Val 2026-10-22). */}
           {facturationPlateformeActive() && (
             <TabsTrigger value="facturation">Facturation</TabsTrigger>
           )}
-          <TabsTrigger value="preferences">Préférences</TabsTrigger>
+          {/* Préférences masqué (Val 2026-10-30) : la langue n'a qu'une valeur pour l'instant. */}
         </TabsList>
 
         <TabsContent value="infos">
           <InfosTab isManager={isManager} />
         </TabsContent>
-        {isManager && (
-          <TabsContent value="equipe">
-            <EquipeTab userId={userId} />
-          </TabsContent>
-        )}
+        <TabsContent value="equipe">
+          <EquipeTab userId={userId} isManager={isManager} />
+        </TabsContent>
         {facturationPlateformeActive() && (
           <TabsContent value="facturation">
             <FacturationTab isManager={isManager} />
           </TabsContent>
         )}
-        <TabsContent value="preferences">
-          <PreferencesTab />
-        </TabsContent>
       </Tabs>
     </div>
   );
@@ -182,14 +177,14 @@ function InfosTab({ isManager }: { isManager: boolean }) {
 
   return (
     <div className="space-y-4">
-      {/* Informations légales : modifiables manager ET commercial (décision Val
-          2026-09-28, écart au tableau des droits §6) ; logo, entités et domaines
-          restent manager only. */}
+      {/* Mon organisation : édition manager only ; le commercial lit seulement
+          (Val 2026-10-30, retour sur la décision du 2026-09-28). */}
       {profil ? (
         <InfosLegalesCard
           profil={profil}
           urlProfil="/api/v1/traiteur/mon-organisation/profil"
           onSaved={setProfil}
+          lectureSeule={!isManager}
         />
       ) : (
         <Card>
@@ -602,7 +597,13 @@ function DomainesCard({
 
 /* ─────────────────────────────── Équipe (manager) ─────────────────────────── */
 
-function EquipeTab({ userId }: { userId: string }) {
+function EquipeTab({
+  userId,
+  isManager,
+}: {
+  userId: string;
+  isManager: boolean;
+}) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const reload = useCallback(() => {
     fetch('/api/v1/traiteur/equipe')
@@ -661,30 +662,34 @@ function EquipeTab({ userId }: { userId: string }) {
         ROLE_OPTIONS.find((o) => o.value === u.role)?.label ?? u.role,
       // Saisie dans la cellule : le clic/clavier ne remonte pas à la ligne.
       meta: { interactive: true },
-      cell: ({ row: { original: u } }) => (
-        /* Sa PROPRE ligne : rôle en lecture seule. Le CDC §06.04 §6 ne prévoit
+      cell: ({ row: { original: u } }) =>
+        // Commercial : rôle en lecture (le changement reste au manager).
+        !isManager ? (
+          (ROLE_OPTIONS.find((o) => o.value === u.role)?.label ?? u.role)
+        ) : (
+          /* Sa PROPRE ligne : rôle en lecture seule. Le CDC §06.04 §6 ne prévoit
            que « modifier le rôle d'un COLLABORATEUR », et la base refuse
            désormais tout auto-changement (volet 3 du trigger anti-escalade,
            20260921170000). Sans ce grisage, la liste resterait cliquable pour
            un refus silencieux. */
-        <span
-          className="block w-36"
-          title={
-            u.id === userId
-              ? 'Vous ne pouvez pas modifier votre propre rôle'
-              : undefined
-          }
-        >
-          <Combobox
-            aria-label={`Rôle de ${u.prenom} ${u.nom}`}
-            icon={null}
-            options={ROLE_OPTIONS}
-            value={u.role}
-            disabled={u.id === userId}
-            onChange={(v) => changeRole(u.id, v)}
-          />
-        </span>
-      ),
+          <span
+            className="block w-36"
+            title={
+              u.id === userId
+                ? 'Vous ne pouvez pas modifier votre propre rôle'
+                : undefined
+            }
+          >
+            <Combobox
+              aria-label={`Rôle de ${u.prenom} ${u.nom}`}
+              icon={null}
+              options={ROLE_OPTIONS}
+              value={u.role}
+              disabled={u.id === userId}
+              onChange={(v) => changeRole(u.id, v)}
+            />
+          </span>
+        ),
     },
     {
       id: 'derniere_connexion',
@@ -698,7 +703,10 @@ function EquipeTab({ userId }: { userId: string }) {
       accessorFn: (u) => libelleActif(u.actif),
       cell: ({ row: { original: u } }) => <ActifBadge actif={u.actif} />,
     },
-    {
+  ];
+  // Suspendre : manager seul.
+  if (isManager)
+    colonnes.push({
       id: 'actions',
       header: () => <span className="sr-only">Actions</span>,
       meta: { label: 'Actions', interactive: true },
@@ -713,8 +721,7 @@ function EquipeTab({ userId }: { userId: string }) {
             Suspendre
           </Button>
         ),
-    },
-  ];
+    });
 
   return (
     <div className="space-y-4">
@@ -748,19 +755,26 @@ function EquipeTab({ userId }: { userId: string }) {
         }
         onInvited={reload}
       />
-      <TransfertCard users={users} onDone={reload} />
+      <TransfertCard
+        users={users}
+        onDone={reload}
+        sourceImposee={isManager ? undefined : userId}
+      />
     </div>
   );
 }
 
+// `sourceImposee` : le commercial ne transfère que SES collectes (Val 2026-10-30).
 function TransfertCard({
   users,
   onDone,
+  sourceImposee,
 }: {
   users: UserRow[];
   onDone: () => void;
+  sourceImposee?: string;
 }) {
-  const [source, setSource] = useState('');
+  const [source, setSource] = useState(sourceImposee ?? '');
   const [cible, setCible] = useState('');
   const [erreur, setErreur] = useState('');
   const { toast } = useToast();
@@ -775,7 +789,11 @@ function TransfertCard({
     setErreur('');
     // Les deux champs sont obligatoires (ex-`required` des <select> natifs).
     if (!source || !cible) {
-      setErreur('Choisissez le collaborateur de départ et celui d’arrivée.');
+      setErreur(
+        sourceImposee
+          ? 'Choisissez le collaborateur qui reprend vos collectes.'
+          : 'Choisissez le collaborateur de départ et celui d’arrivée.',
+      );
       return;
     }
     const res = await fetch('/api/v1/traiteur/equipe/transfert', {
@@ -799,33 +817,44 @@ function TransfertCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Transférer les collectes</CardTitle>
+        <CardTitle>
+          {sourceImposee
+            ? 'Transférer mes collectes'
+            : 'Transférer les collectes'}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <Text variant="faint" className="mb-3">
-          Réassigne toutes les collectes d’un collaborateur (ex. en cas de
-          départ) vers un autre membre de l’équipe.
+          {sourceImposee
+            ? 'Réassigne toutes vos collectes vers un autre membre de l’équipe.'
+            : 'Réassigne toutes les collectes d’un collaborateur (ex. en cas de départ) vers un autre membre de l’équipe.'}
         </Text>
         <form onSubmit={transfer} className="space-y-2">
           <FormGrid>
-            <FormField label="Depuis" htmlFor="transfert-source" required>
-              <Combobox
-                id="transfert-source"
-                icon={null}
-                required
-                placeholder="Choisir un collaborateur"
-                options={userOptions}
-                value={source}
-                onChange={setSource}
-              />
-            </FormField>
+            {!sourceImposee && (
+              <FormField label="Depuis" htmlFor="transfert-source" required>
+                <Combobox
+                  id="transfert-source"
+                  icon={null}
+                  required
+                  placeholder="Choisir un collaborateur"
+                  options={userOptions}
+                  value={source}
+                  onChange={setSource}
+                />
+              </FormField>
+            )}
             <FormField label="Vers" htmlFor="transfert-cible" required>
               <Combobox
                 id="transfert-cible"
                 icon={null}
                 required
                 placeholder="Choisir un collaborateur"
-                options={userOptions}
+                options={
+                  sourceImposee
+                    ? userOptions.filter((o) => o.value !== sourceImposee)
+                    : userOptions
+                }
                 value={cible}
                 onChange={setCible}
               />
@@ -977,10 +1006,4 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
       </Card>
     </div>
   );
-}
-
-/* ─────────────────────────────── Préférences ──────────────────────────────── */
-
-function PreferencesTab() {
-  return <PreferencesLangueCard />;
 }

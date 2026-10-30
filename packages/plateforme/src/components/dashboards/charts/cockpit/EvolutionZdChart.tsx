@@ -8,7 +8,7 @@ import { formatPeriode } from '../format';
 import { ChartCard } from './ChartCard';
 import { delaiEntree, useEntreeGraphique } from '../entree-graphique';
 import { courbeLissee } from '../courbe';
-import { fmtInt, fmtDec, fmtMasse } from './fmt';
+import { fmtInt, fmtDec } from './fmt';
 import {
   TEXT_MUTED,
   TEXT_FAINT,
@@ -98,31 +98,6 @@ const EvolutionZdChart = React.forwardRef<
     )
     .filter((v): v is { i: number; x: number; y: number } => v !== null);
   const TAUX = '__taux__';
-  const dernierTaux = ratePts[ratePts.length - 1];
-
-  // Pic de la période : hauteur de la pile VISIBLE (les flux masqués par la
-  // légende ne comptent pas), annoté au-dessus de sa barre.
-  const piles = series.map((p) =>
-    STACK.filter((f) => !hidden.has(f.code)).reduce(
-      (s, f) => s + (Number(p[f.code as keyof FluxSeriePoint]) || 0),
-      0,
-    ),
-  );
-  const iPic = piles.reduce((best, v, i) => (v > piles[best]! ? i : best), 0);
-  const yPic = BASE - ((piles[iPic] ?? 0) / niceMax) * PLOT_H;
-  // Pas d'annotation si une seule barre, ou si elle toucherait la courbe du
-  // taux (ou l'étiquette de son dernier point) dans la même colonne.
-  const tauxPic = hidden.has(TAUX)
-    ? undefined
-    : ratePts.find((pt) => pt.i === iPic);
-  const afficherPic =
-    series.length > 1 &&
-    (piles[iPic] ?? 0) > 0 &&
-    !(
-      tauxPic &&
-      (Math.abs(tauxPic.y - (yPic - 8)) < 12 ||
-        (tauxPic === dernierTaux && Math.abs(tauxPic.y - 7 - (yPic - 5)) < 14))
-    );
 
   const gridT = [0, 0.25, 0.5, 0.75, 1];
 
@@ -270,22 +245,6 @@ const EvolutionZdChart = React.forwardRef<
                         />
                       );
                     })}
-                    {afficherPic && i === iPic && (
-                      <text
-                        x={cx(i)}
-                        y={yPic - 5}
-                        textAnchor="middle"
-                        className="tabular-nums"
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          fill: TEXT_MUTED,
-                          pointerEvents: 'none',
-                        }}
-                      >
-                        {`${fmtMasse(piles[i]!).value} ${fmtMasse(piles[i]!).unit}`}
-                      </text>
-                    )}
                   </g>
                 );
               })}
@@ -322,28 +281,6 @@ const EvolutionZdChart = React.forwardRef<
                       />
                     );
                   })}
-                  {/* Dernière valeur écrite au bout de la courbe (halo blanc
-                      pour rester lisible sur une barre). */}
-                  {dernierTaux && (
-                    <text
-                      x={dernierTaux.x}
-                      y={dernierTaux.y - 7}
-                      textAnchor="middle"
-                      className="tabular-nums"
-                      stroke={WHITE}
-                      strokeWidth={3}
-                      strokeLinejoin="round"
-                      paintOrder="stroke"
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        fill: ACCENT_TEXT,
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      {fmtPct(series[dernierTaux.i]!.taux_recyclage ?? 0, 0)}
-                    </text>
-                  )}
                   {/* Cibles de survol de la courbe taux (invisibles, larges). */}
                   {ratePts.map((pt) => (
                     <circle

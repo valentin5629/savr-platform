@@ -231,9 +231,9 @@
       "id": "BL-P2-34",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
       "artefact": "packages/adapters/src/outbox-worker.ts",
-      "test": "consumer propagé : no prestataire → noop_no_remote ; manual → manual [outbox-worker.r9.test.ts] + Everest updateCollecte → noop_no_remote + alerte info [adapter.m2-5.test.ts]",
+      "test": "consumer propagé : no prestataire → noop_no_remote ; manual → manual [outbox-worker.r9.test.ts]",
       "statut": "implemented",
-      "libelle": "worker propage le consumer effectif à fn_result_outbox (noop_no_remote / manual / adapter_mts1 / adapter_everest) ; Everest updateCollecte no-op → sendAlert(canal:info) au lieu de console.warn"
+      "libelle": "worker propage le consumer effectif à fn_result_outbox (noop_no_remote / manual / adapter_mts1 / adapter_everest) ; la modification Everest (ex-no-op + alerte info) est couverte par M2.5-update-mission depuis le 2026-10-30"
     },
     {
       "id": "BL-P1-API-02",

@@ -328,6 +328,9 @@ export class AdapterEverest implements LogistiqueProvider {
 
     const n = collecte.nb_camions_demande;
     let envoyees = 0;
+    // Un refus d'A Toutes! sur une mission n'empêche pas de modifier les
+    // autres : il remonte une fois la boucle finie (comme MTS-1, §08 3bis.8).
+    const refus: LogistiquePermanentError[] = [];
     for (const t of avecRef.filter((t) => t.rang <= n)) {
       const mission = await this.findMission(t.id);
       if (
@@ -336,11 +339,16 @@ export class AdapterEverest implements LogistiqueProvider {
       ) {
         continue;
       }
-      await this.client.updateMission(
-        { ref: t.external_ref_commande!, ...corps },
-        `update-${collecte.id}-${t.id}`,
-      );
-      envoyees++;
+      try {
+        await this.client.updateMission(
+          { ref: t.external_ref_commande!, ...corps },
+          `update-${collecte.id}-${t.id}`,
+        );
+        envoyees++;
+      } catch (err) {
+        if (!(err instanceof LogistiquePermanentError)) throw err;
+        refus.push(err);
+      }
     }
 
     // Le nombre de véhicules ne passe pas par /missions/update : une mission
@@ -361,6 +369,12 @@ export class AdapterEverest implements LogistiqueProvider {
           event: 'everest.update_collecte.nb_vehicules',
         },
       });
+    }
+
+    if (refus.length > 0) {
+      throw new LogistiquePermanentError(
+        refus.map((e) => e.message).join(' ; '),
+      );
     }
 
     return envoyees > 0 ? 'adapter_everest' : 'noop_no_remote';

@@ -17,7 +17,11 @@ import {
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { composerCommentaireTransporteur } from '../infos-acces.js';
 import { AdapterEverest } from './adapter.js';
-import { _setEverestHandlers, setupEverestMock } from './mock.js';
+import {
+  _getEverestHandlers,
+  _setEverestHandlers,
+  setupEverestMock,
+} from './mock.js';
 import {
   PRESTA_EVEREST,
   builderTransporteurs,
@@ -103,6 +107,11 @@ interface SupabaseMockOpts {
   updateCollecteError?: 'statut_tms' | 'tms_reference';
   /** `collectes.statut` en base, contre lequel un filtre `.eq('statut', …)` est évalué. */
   statutCollecte?: string;
+  /** Tournées des rangs 2 et suivants (la tournée existante est le rang 1). */
+  autresTournees?: Array<{
+    rang: number;
+    tournee: NonNullable<SupabaseMockOpts['tourneeExistante']>;
+  }>;
 }
 
 function makeMockSupabase(opts: SupabaseMockOpts = {}) {
@@ -119,6 +128,7 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     insertAuditError = false,
     updateCollecteError,
     statutCollecte = 'programmee',
+    autresTournees = [],
   } = opts;
 
   const insertedRows: Record<string, unknown[]> = {};
@@ -344,9 +354,12 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     ) => {
       let data: unknown;
       if (table === 'collecte_tournees') {
-        data = tourneeExistante
-          ? [{ rang: 1, tournees: tourneeExistante }]
-          : [];
+        data = [
+          ...(tourneeExistante
+            ? [{ rang: 1, tournees: tourneeExistante }]
+            : []),
+          ...autresTournees.map((a) => ({ rang: a.rang, tournees: a.tournee })),
+        ];
       } else {
         data = null;
       }
@@ -1522,6 +1535,94 @@ describe('M2.5 / AdapterEverest — updateCollecte', () => {
     const info = alerts.filter((a) => a.canal === 'info');
     expect(info).toHaveLength(1);
     expect(info[0]!.titre).toBe('Nombre de véhicules A Toutes! non propagé');
+  });
+  it('sans association attribuée : refus définitif, rien n’est envoyé', async () => {
+    const { updates } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(
+      adapter.updateCollecte({ ...COLLECTE_AG, association_adresse: null }),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+    expect(updates).toHaveLength(0);
+  });
+
+  it('heure illisible : refus définitif, rien n’est envoyé', async () => {
+    const { updates } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(
+      adapter.updateCollecte({ ...COLLECTE_AG, heure_collecte: 'xx:yy' }),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+    expect(updates).toHaveLength(0);
+  });
+
+  it('nombre de véhicules réduit : la mission au-delà de N n’est pas modifiée, l’écart part en alerte', async () => {
+    const { updates } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      autresTournees: [
+        {
+          rang: 2,
+          tournee: {
+            ...TOURNEE_ENVOYEE,
+            id: 'tournee-002',
+            external_ref_commande: 'EVR-REF-002',
+          },
+        },
+      ],
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.updateCollecte({ ...COLLECTE_AG, nb_camions_demande: 1 });
+
+    expect(updates.map((u) => u['ref'])).toEqual(['EVR-REF-001']);
+    expect(alerts.filter((a) => a.canal === 'info')).toHaveLength(1);
+  });
+
+  it('refus sur un camion : les autres sont quand même modifiés, puis le refus remonte', async () => {
+    const { updates } = setupEverestMock();
+    const defaut = _getEverestHandlers()!;
+    _setEverestHandlers({
+      ...defaut,
+      updateMission: async (payload) =>
+        payload['ref'] === 'EVR-REF-001'
+          ? { ok: false, status: 400, error: 'mission verrouillée' }
+          : defaut.updateMission(payload),
+    });
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      autresTournees: [
+        {
+          rang: 2,
+          tournee: {
+            ...TOURNEE_ENVOYEE,
+            id: 'tournee-002',
+            external_ref_commande: 'EVR-REF-002',
+          },
+        },
+      ],
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    const erreur = await adapter
+      .updateCollecte({ ...COLLECTE_AG, nb_camions_demande: 2 })
+      .catch((e: unknown) => e);
+
+    expect(updates.map((u) => u['ref'])).toEqual(['EVR-REF-002']);
+    expect(erreur).toBeInstanceOf(LogistiquePermanentError);
+    expect((erreur as Error).message).toBe(
+      'Everest updateMission 400 : mission verrouillée',
+    );
   });
 });
 

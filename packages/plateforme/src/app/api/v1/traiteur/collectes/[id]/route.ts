@@ -60,16 +60,9 @@ async function loadCollecteForUser(id: string): Promise<CollecteRow | null> {
   return { ...data, evenement } as unknown as CollecteRow;
 }
 
-function canWrite(
-  c: CollecteRow,
-  role: string,
-  userId: string,
-  orgId: string,
-): boolean {
-  if (role === 'traiteur_manager')
-    return c.evenement?.organisation_id === orgId;
-  // commercial : seulement ses propres collectes
-  return c.evenement?.created_by === userId;
+// Manager et commercial : toute collecte de l'organisation (Val 2026-10-30).
+function canWrite(c: CollecteRow, orgId: string): boolean {
+  return c.evenement?.organisation_id === orgId;
 }
 
 export async function GET(
@@ -227,9 +220,7 @@ export async function PATCH(
     );
   }
   // Autorisation acteur
-  if (
-    !canWrite(collecte, auth.ctx.role, auth.ctx.userId, auth.ctx.organisationId)
-  ) {
+  if (!canWrite(collecte, auth.ctx.organisationId)) {
     return NextResponse.json(
       { error: 'Modification non autorisée' },
       {

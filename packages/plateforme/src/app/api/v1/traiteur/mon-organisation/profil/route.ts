@@ -16,11 +16,10 @@ import {
 // CDC §06.04 §6 « Mon organisation » (l.646-664).
 // GET : lecture des informations légales de SA propre organisation (manager +
 //       commercial — RLS org-scoped).
-// PATCH : manager = informations légales + logo (l.660). Commercial = informations
-//       légales seules (raison sociale, SIRET, adresse) — décision Val 2026-09-28,
-//       écart au tableau des droits l.652 (commercial en lecture seule) ; le logo
-//       reste manager only. Garde DB : policy org_commercial_update + liste blanche
-//       du trigger trg_block_org_gestionnaire_cols_update (20260928100000).
+// PATCH : manager seul = informations légales + logo (l.660). Le commercial est
+//       en lecture seule (tableau des droits l.652 ; Val 2026-10-30, retour sur
+//       la décision du 2026-09-28). Garde DB : la policy org_commercial_update
+//       est retirée (20261030140000).
 //
 // « SIREN » du CDC = colonne shadow `organisations.siret` (la source de vérité
 // SIRET reste `entites_facturation` ; l'org.siret ne gate rien). L'édition des
@@ -32,9 +31,10 @@ import {
 // staff-only en lecture, l'INSERT passe par le client admin).
 
 const READ_ROLES: ClientRole[] = ['traiteur_manager', 'traiteur_commercial'];
+const WRITE_ROLES: ClientRole[] = ['traiteur_manager'];
 
-// Champs éditables : informations légales (lib/organisation-infos-legales) pour
-// manager et commercial, + logo_url pour le manager.
+// Champs éditables (manager) : informations légales (lib/organisation-infos-legales)
+// + logo_url.
 // Le « Contact principal facturation » du §6 (email qui reçoit les factures) n'a
 // PAS de home org-level : sa colonne réelle est `entites_facturation.email_facturation`
 // (par entité), éditée via la route entites-facturation. Les « coordonnées
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireUser(req, READ_ROLES);
+  const auth = await requireUser(req, WRITE_ROLES);
   if (auth.error) return auth.error;
 
   let body: Record<string, unknown>;
@@ -62,12 +62,11 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
 
   // Informations légales : validation commune (lib/organisation-infos-legales) ;
-  // logo : manager seulement (format garanti par le trigger trg_garde_format_logo).
+  // logo : format garanti par le trigger trg_garde_format_logo.
   const valide = validerInfosLegales(body);
   if ('error' in valide) return valide.error;
   const patch: Record<string, unknown> = { ...valide.patch };
-  if (auth.ctx.role === 'traiteur_manager' && 'logo_url' in body)
-    patch.logo_url = body.logo_url;
+  if ('logo_url' in body) patch.logo_url = body.logo_url;
   if (Object.keys(patch).length === 0)
     return NextResponse.json(
       { error: 'Aucun champ éditable fourni' },
@@ -81,8 +80,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     patch,
   );
 
-  // UPDATE via le client RLS : les policies `org_manager_update` /
-  // `org_commercial_update` garantissent le périmètre own-org (jamais l'org d'un
+  // UPDATE via le client RLS : la policy `org_manager_update` garantit le périmètre own-org (jamais l'org d'un
   // autre, même si le JWT était falsifié).
   const { data, error } = await supabase
     .from('organisations')

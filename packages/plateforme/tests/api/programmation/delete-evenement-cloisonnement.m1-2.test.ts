@@ -350,12 +350,9 @@ describe('M1.2 / DELETE événement — cloisonnement inter-organisation', () =>
  *   - garde inversée (`===` au lieu de `!==`)                        → les 204 tombent
  */
 describe('M1.2 / DELETE événement — garde de propriété intra-organisation (§09)', () => {
-  // Les 3 rôles que la matrice borne à leurs propres créations.
-  const ROLES_PROPRIETAIRE = [
-    'traiteur_commercial',
-    'agence',
-    'gestionnaire_lieux',
-  ] as const;
+  // Les 2 rôles que la matrice borne à leurs propres créations (le commercial
+  // traiteur est aligné sur le manager depuis Val 2026-10-30).
+  const ROLES_PROPRIETAIRE = ['agence', 'gestionnaire_lieux'] as const;
 
   it.each(ROLES_PROPRIETAIRE)(
     'M1.2 — %s supprime SON propre brouillon → 204 (contre-épreuve du 403 ci-dessous)',
@@ -395,17 +392,20 @@ describe('M1.2 / DELETE événement — garde de propriété intra-organisation 
   // organisation). Sans ce cas, élargir la garde aux 4 rôles clients — durcissement
   // apparemment « plus sûr » — passerait inaperçu alors qu'il casserait le seul
   // rôle habilité à nettoyer les brouillons de son organisation.
-  it("M1.2 — traiteur_manager supprime le brouillon d'un collègue de son organisation → 204 (périmètre organisation, pas created_by)", async () => {
-    setupAuth('traiteur_manager', ORG_A, USER_A1);
+  it.each(['traiteur_manager', 'traiteur_commercial'] as const)(
+    "M1.2 — %s supprime le brouillon d'un collègue de son organisation → 204 (périmètre organisation, pas created_by)",
+    async (role) => {
+      setupAuth(role, ORG_A, USER_A1);
 
-    const res = await deleteEvenement('evt-collegue');
+      const res = await deleteEvenement('evt-collegue');
 
-    expect(res.status).toBe(204);
-    expect(store.__rpcCalls).toEqual([
-      ['fn_supprimer_brouillon', { p_evenement_id: 'evt-collegue' }],
-    ]);
-    expect(store.__ids('evenements')).not.toContain('evt-collegue');
-  });
+      expect(res.status).toBe(204);
+      expect(store.__rpcCalls).toEqual([
+        ['fn_supprimer_brouillon', { p_evenement_id: 'evt-collegue' }],
+      ]);
+      expect(store.__ids('evenements')).not.toContain('evt-collegue');
+    },
+  );
 
   // Staff = périmètre global (le SELECT retire même le prédicat org). Il supprime
   // donc un brouillon qu'il n'a pas créé, dans une orga qui n'est pas la sienne.

@@ -154,11 +154,8 @@ export function droitsFiche(
   let peutModifier: boolean;
   let peutAnnuler: boolean;
   if (espace === 'traiteur') {
-    // Manager : collectes de son organisation ; commercial : ses créations.
-    const autorise =
-      ctx.role === 'traiteur_manager'
-        ? evt.organisation_id === ctx.organisationId
-        : evt.created_by === ctx.userId;
+    // Manager et commercial : collectes de leur organisation (Val 2026-10-30).
+    const autorise = evt.organisation_id === ctx.organisationId;
     peutModifier = autorise;
     peutAnnuler = autorise;
   } else if (espace === 'agence') {

@@ -14,13 +14,10 @@ import { apresConfirmation } from '@/lib/programmation/apres-confirmation.js';
 export const maxDuration = 60;
 
 // Rôles dont le périmètre d'écriture sur un brouillon est leur propre création
-// (§06.01 Sauvegarde brouillon, matrice §09) ; le traiteur manager écrit sur
-// les brouillons de son organisation. Miroir de la suppression d'un brouillon.
-const ROLES_PROPRIETAIRE: string[] = [
-  'traiteur_commercial',
-  'agence',
-  'gestionnaire_lieux',
-];
+// (§06.01 Sauvegarde brouillon, matrice §09) ; le traiteur manager et le
+// commercial (Val 2026-10-30) écrivent sur les brouillons de leur organisation.
+// Miroir de la suppression d'un brouillon.
+const ROLES_PROPRIETAIRE: string[] = ['agence', 'gestionnaire_lieux'];
 
 interface RepriseBody {
   nom_evenement?: string;

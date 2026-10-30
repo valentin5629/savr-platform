@@ -7,7 +7,7 @@ const TRAITEUR_ROLES = ['traiteur_manager', 'traiteur_commercial'] as const;
 // est DOUBLE : ici, côté serveur, on ne passe `isManager` au client que si le
 // rôle de la SESSION l'est (jamais dérivé du client) ; et chaque route d'écriture
 // re-vérifie `traiteur_manager` (defense-in-depth). Le commercial est en lecture
-// seule et la sous-section Équipe lui est masquée (l.653).
+// seule ; dans Équipe il invite et transfère ses collectes (Val 2026-10-30).
 export default async function MonOrganisationPage() {
   const session = await requirePageSession(TRAITEUR_ROLES);
   const isManager = session.role === 'traiteur_manager';

@@ -4,7 +4,8 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { writeError } from '@/lib/api-helpers.js';
 
 // CDC §06.04 §6 « Équipe » (l.671) — Transférer les collectes d'un commercial
-// vers un autre (en cas de départ). MANAGER only.
+// vers un autre (en cas de départ). Manager : depuis n'importe quel membre.
+// Commercial : seulement SES collectes (source = lui-même), Val 2026-10-30.
 //
 // L'ownership commercial d'une collecte est porté par `evenements.created_by`
 // (les RLS d'écriture commercial passent par la jointure `evenements.created_by
@@ -19,11 +20,11 @@ import { writeError } from '@/lib/api-helpers.js';
 // (ni date, ni lieu, ni volume) — la réassignation d'attribution interne
 // n'entraîne aucune re-confirmation logistique.
 
-const MANAGER_ROLE: ClientRole[] = ['traiteur_manager'];
+const DEMANDEURS: ClientRole[] = ['traiteur_manager', 'traiteur_commercial'];
 const ROLES_TRAITEUR = ['traiteur_commercial', 'traiteur_manager'];
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireUser(req, MANAGER_ROLE);
+  const auth = await requireUser(req, DEMANDEURS);
   if (auth.error) return auth.error;
 
   let body: { source_user_id?: string; cible_user_id?: string };
@@ -39,6 +40,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { error: 'source_user_id et cible_user_id sont requis' },
       { status: 422 },
+    );
+  if (auth.ctx.role === 'traiteur_commercial' && source !== auth.ctx.userId)
+    return NextResponse.json(
+      { error: 'Vous ne pouvez transférer que vos propres collectes' },
+      { status: 403 },
     );
   if (source === cible)
     return NextResponse.json(

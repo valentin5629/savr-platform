@@ -424,7 +424,7 @@ describe('M3.1 / fiche client — contenu servi', () => {
     expect(admin.eqs.alertes_admin).toContainEqual(['statut', 'ouverte']);
   });
 
-  it('M3.1/fiche_get_actions_par_role — manager de l’orga actif, commercial non créateur grisé, terminal absent', async () => {
+  it('M3.1/fiche_get_actions_par_role — manager et commercial non créateur de l’orga actifs (Val 2026-10-30), terminal absent', async () => {
     rls.results.collectes = { data: ligneCollecte(), error: null };
     let { json } = await getFiche();
     expect(json.data.actions).toEqual({
@@ -437,10 +437,10 @@ describe('M3.1 / fiche client — contenu servi', () => {
     auth('traiteur_commercial', 'org-1', 'user-autre');
     ({ json } = await getFiche());
     expect(json.data.actions).toEqual({
-      modifier: 'grise',
-      annuler: 'grise',
+      // Le commercial agit sur toute son organisation, comme le manager.
+      modifier: 'actif',
+      annuler: 'actif',
       annulation: 'demande',
-      // L'ajout suit l'organisation de l'événement, pas son créateur (§09).
       ajouter_collecte: true,
     });
 

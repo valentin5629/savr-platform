@@ -9,7 +9,7 @@
 //
 // sync() = no-op (Everest est push-only via webhooks entrants).
 // updateLieu() = no-op (adresse inline dans le payload mission).
-// updateCollecte() = no-op + warning (endpoint non spécifié Everest V1).
+// updateCollecte() = POST /missions/update sur chaque mission encore ouverte.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -114,6 +114,17 @@ const MISSION_VIVANTE = new Set([
   // note du CDC (« transition jamais déclenchée V1 »), ce statut est donc bien
   // atteint — l'exclure autorisait un re-POST sur une course déjà effectuée.
   'completed_incomplete',
+]);
+
+// Statuts d'une mission close chez Everest (ou jamais créée) : ni annulée ni
+// modifiée une seconde fois.
+const MISSION_CLOSE = new Set([
+  'cancelled',
+  'cancelled_externally',
+  'completed',
+  'completed_incomplete',
+  'failed',
+  'creation_failed',
 ]);
 
 export class AdapterEverest implements LogistiqueProvider {
@@ -282,21 +293,91 @@ export class AdapterEverest implements LogistiqueProvider {
   // ─── E2 collecte.modifiee ────────────────────────────────────────────────────
 
   async updateCollecte(collecte: Collecte): Promise<ConsumerTag> {
-    // Endpoint de modification non spécifié côté Everest V1.
-    // Divergence enregistrée dans _Divergences/M2.5_20260615.md (type: ambigu).
-    // BL-P2-34 : alerte Ops in-app (canal info), pas un console.warn perdu — une
-    // modification d'une collecte AG déjà dispatchée Everest doit être traitée
-    // manuellement (re-création mission), donc visible.
-    await sendAlert({
-      canal: 'info',
-      titre: 'Modification collecte Everest non propagée',
-      message: `updateCollecte Everest non implémenté V1 (endpoint non spécifié) — collecte ${collecte.id} : reporter la modification manuellement auprès d'A Toutes!.`,
-      metadata: {
-        collecte_id: collecte.id,
-        event: 'everest.update_collecte.noop',
-      },
-    });
-    return 'noop_no_remote';
+    const tournees = await this.findTournees(collecte.id);
+    const avecRef = tournees.filter((t) => t.external_ref_commande);
+
+    // Jamais envoyée à Everest : la création partira avec les valeurs du jour.
+    if (avecRef.length === 0) {
+      return 'noop_no_remote';
+    }
+
+    // Mêmes gardes qu'à la création : sans elles la mission perdrait son point
+    // B ou son heure.
+    const adresseLivraison = collecte.association_adresse;
+    if (!adresseLivraison) {
+      throw new LogistiquePermanentError(
+        `collecte AG ${collecte.id} sans association attribuée : aucune adresse de livraison à transmettre à Everest`,
+      );
+    }
+    const debutMission = debutMissionEverest(collecte);
+    if (debutMission === null) {
+      throw new LogistiquePermanentError(
+        `collecte AG ${collecte.id} : date ou heure de collecte illisible, aucune heure de mission à transmettre à Everest`,
+      );
+    }
+
+    // Tous les champs de la mission, à chaque modification (§08 3bis.8) : un
+    // contact d'association vidé part vide, jamais omis, sinon le coursier
+    // garderait l'ancien.
+    const champs = this.champsMission(collecte, adresseLivraison, debutMission);
+    const corps = {
+      ...champs,
+      address_end_name: champs.address_end_name ?? '',
+      address_end_tel: champs.address_end_tel ?? '',
+    };
+
+    const n = collecte.nb_camions_demande;
+    let envoyees = 0;
+    // Un refus d'A Toutes! sur une mission n'empêche pas de modifier les
+    // autres : il remonte une fois la boucle finie (comme MTS-1, §08 3bis.8).
+    const refus: LogistiquePermanentError[] = [];
+    for (const t of avecRef.filter((t) => t.rang <= n)) {
+      const mission = await this.findMission(t.id);
+      if (
+        mission?.statut_everest &&
+        MISSION_CLOSE.has(mission.statut_everest as string)
+      ) {
+        continue;
+      }
+      try {
+        await this.client.updateMission(
+          { ref: t.external_ref_commande!, ...corps },
+          `update-${collecte.id}-${t.id}`,
+        );
+        envoyees++;
+      } catch (err) {
+        if (!(err instanceof LogistiquePermanentError)) throw err;
+        refus.push(err);
+      }
+    }
+
+    // Le nombre de véhicules ne passe pas par /missions/update : une mission
+    // par véhicule, créée ou annulée une à une. Un écart reste à reporter à la
+    // main.
+    const rangsAvecMission = new Set(avecRef.map((t) => t.rang));
+    const ecartVehicules =
+      avecRef.some((t) => t.rang > n) || rangsAvecMission.size < n;
+    if (ecartVehicules) {
+      await sendAlert({
+        canal: 'info',
+        titre: 'Nombre de véhicules A Toutes! non propagé',
+        message:
+          `Collecte ${collecte.id} : ${n} véhicule(s) demandé(s), ${rangsAvecMission.size} mission(s) A Toutes! ` +
+          `enregistrée(s). Ajouter ou annuler les courses manquantes auprès d'A Toutes!.`,
+        metadata: {
+          collecte_id: collecte.id,
+          event: 'everest.update_collecte.nb_vehicules',
+        },
+      });
+    }
+
+    if (refus.length > 0) {
+      throw new LogistiquePermanentError(
+        refus.map((e) => e.message).join(' ; '),
+      );
+    }
+
+    return envoyees > 0 ? 'adapter_everest' : 'noop_no_remote';
   }
 
   // ─── E3 collecte.annulee ─────────────────────────────────────────────────────
@@ -316,14 +397,7 @@ export class AdapterEverest implements LogistiqueProvider {
       // Idempotence : déjà annulée ou terminée
       if (
         mission?.statut_everest &&
-        [
-          'cancelled',
-          'cancelled_externally',
-          'completed',
-          'completed_incomplete',
-          'failed',
-          'creation_failed',
-        ].includes(mission.statut_everest as string)
+        MISSION_CLOSE.has(mission.statut_everest as string)
       ) {
         continue;
       }
@@ -448,15 +522,28 @@ export class AdapterEverest implements LogistiqueProvider {
     adresseLivraison: string,
     debutMission: number,
   ): CreateMissionPayload {
-    const commentaire = collecte.informations_supplementaires?.trim();
     return {
       service_id: serviceId,
       client_ref: tourneeId,
+      ...this.champsMission(collecte, adresseLivraison, debutMission),
+    };
+  }
+
+  // Champs d'une mission tirés de la collecte, communs à la création et à la
+  // modification (parité E1/E2, §08 3bis.8) : un champ ajouté ici part dans les
+  // deux.
+  private champsMission(
+    collecte: Collecte,
+    adresseLivraison: string,
+    debutMission: number,
+  ): Omit<CreateMissionPayload, 'service_id' | 'client_ref'> {
+    const commentaire = collecte.informations_supplementaires?.trim();
+    return {
       start_date: debutMission,
       address_start: `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`,
       address_start_name: collecte.contact_principal_nom,
       address_start_tel: collecte.contact_principal_telephone,
-      // Point B (adresse vérifiée non vide par dispatchCollecte).
+      // Point B (adresse vérifiée non vide par l'appelant).
       address_end: adresseLivraison,
       ...(collecte.association_contact_nom &&
       collecte.association_contact_telephone

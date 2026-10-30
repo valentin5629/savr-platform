@@ -38,7 +38,8 @@
     "91": "ag_marathon_volume_backup_camion"
   },
   "divergences": [
-    "M2.5_20260615.md"
+    "M2.5_20260615.md",
+    "M2.5_20261030_everest-modification-mission.md"
   ],
   "deliverables": [
     {
@@ -112,6 +113,14 @@
       "test": "M2.5/everest_contrat_create + M2.5/everest_contrat_create_sans_ref + M2.5/everest_contrat_cancel + M2.5/everest_contrat_get + M2.5/everest_contrat_get_minimal + M2.5/everest_contrat_get_sans_ref + M2.5/everest_contrat_get_types_inattendus + M2.5/everest_notification_date_vide + M2.5/everest_contact_association_incomplet + M2.5/everest_contrat_creation + M2.5/everest_start_date_heure_demandee + M2.5/everest_start_date_illisible + M2.5/everest_comment_consigne_seule + M2.5/everest_notification_champs_swagger + le commentaire composé part tel quel dans comment, après la consigne d’A Toutes!",
       "statut": "implemented",
       "libelle": "Everest : création, annulation, relecture et notifications réalignées sur le swagger Everest 1.291.1 (relevé le 2026-10-19 ; le code envoyait pickup / dropoff / timeslot / notes / metadata, sans les deux adresses obligatoires, annulait avec mission_id, relisait par GET /missions/{id} et lisait mission_id / event_type / occurred_at dans les notifications). start_date = heure demandée par le traiteur (décision Val 2026-10-19) ; comment = consigne d'A Toutes! puis commentaire au transporteur (décision Val 2026-10-19) ; notifications réalignées dans le même lot (décision Val 2026-10-19). Divergence M2.5_20261019_everest-contrat-swagger."
+    },
+    {
+      "id": "M2.5-update-mission",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:539",
+      "artefact": "packages/adapters/src/everest/adapter.ts (updateCollecte : POST /missions/update sur chaque mission ouverte des rangs 1 à N, tous les champs via champsMission commun E1/E2, contact d'association vidé envoyé vide, mission close non renvoyée, refus 4xx d'une mission n'empêchant pas les autres puis remonté, jamais de rejet de la collecte, alerte info si écart de véhicules) ; packages/adapters/src/everest/client.ts (updateMission : 4xx permanent, 5xx et sans réponse passagers) ; packages/adapters/src/everest/mock.ts (handler updateMission)",
+      "test": "adapter.m2-5.test.ts describe « AdapterEverest — updateCollecte » (mission ouverte tous champs, contact retiré part vide, jamais envoyée, mission close ×4, 4xx sans rejet, 5xx, véhicules augmentés, véhicules réduits, sans association, heure illisible, refus sur un camion) + client.contrat-swagger.test.ts (M2.5/everest_contrat_update + M2.5/everest_contrat_update_sans_reponse)",
+      "statut": "implemented",
+      "libelle": "Everest : une collecte déjà transmise à A Toutes! voit ses modifications envoyées par POST /missions/update (swagger 1.294.1, relevé le 2026-10-30), mêmes champs et même oracle que MTS-1 (§08 3bis.8). Décision Val 2026-10-30, fiche M2.5_20261030_everest-modification-mission. Avant, updateCollecte ne faisait qu'une alerte info."
     }
   ],
   "cdc_source_hash": {

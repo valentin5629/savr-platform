@@ -29,6 +29,7 @@ import type {
   EverestCancelResponse,
   EverestCreatedMission,
   EverestMissionDetail,
+  EverestUpdateResponse,
 } from './mock.js';
 import { verifierEcheance } from '../echeance-passage.js';
 import { _getEverestHandlers } from './mock.js';
@@ -67,6 +68,13 @@ export interface CreateMissionPayload {
 export interface CancelMissionPayload {
   ref: string;
 }
+
+// Corps de POST /missions/update (swagger 1.294.1, relevé le 2026-10-30) : la
+// mission se désigne par sa `ref`, seuls les champs fournis changent. Le
+// service et la référence client ne sont jamais renvoyés.
+export type UpdateMissionPayload = { ref: string } & Partial<
+  Omit<CreateMissionPayload, 'service_id' | 'client_ref'>
+>;
 
 // Champs de l'objet `Mission` du swagger que la Plateforme lit.
 interface MissionEverest {
@@ -249,6 +257,75 @@ export class EverestClient {
       service_id: mission.service_id ?? payload.service_id,
       status: mission.status ?? '',
     };
+  }
+
+  // Modification d'une mission existante. Renvoyer les mêmes valeurs ne change
+  // rien : un appel resté sans réponse est retenté (erreur passagère), pas
+  // rapproché comme une création.
+  async updateMission(
+    payload: UpdateMissionPayload,
+    correlationId: string,
+  ): Promise<EverestUpdateResponse> {
+    const handlers = _getEverestHandlers();
+    const t0 = Date.now();
+
+    if (handlers) {
+      const result = await handlers.updateMission(
+        payload as unknown as Record<string, unknown>,
+      );
+      if (!result.ok) {
+        if (result.status === 401) {
+          return this.jetonInutilisable('updateMission', 401);
+        }
+        if (result.status >= 500) {
+          throw new LogistiqueTransientError(
+            `Everest updateMission ${result.status} : ${result.error}`,
+          );
+        }
+        throw new LogistiquePermanentError(
+          `Everest updateMission ${result.status} : ${result.error}`,
+        );
+      }
+      return result.data;
+    }
+
+    const jeton = await this.jetonOuAlerte('updateMission');
+    const resp = await this.postJson('/missions/update', payload, jeton).catch(
+      (err: unknown) => {
+        throw new LogistiqueTransientError(
+          `Everest updateMission sans réponse : ${libelleErreurReseau(err)}`,
+        );
+      },
+    );
+
+    const motif =
+      resp.ok || resp.status === 401 ? null : await lireMotifRefus(resp);
+
+    await this.log({
+      methode: 'POST',
+      endpoint: '/missions/update',
+      statut_http: resp.status,
+      duree_ms: Date.now() - t0,
+      correlation_id: correlationId,
+      ...(motif ? { erreur: motif } : {}),
+    });
+
+    if (resp.status === 401) {
+      return this.jetonInutilisable('updateMission', 401);
+    }
+    if (resp.status >= 500) {
+      throw new LogistiqueTransientError(
+        avecMotif(`Everest updateMission ${resp.status}`, motif),
+      );
+    }
+    if (!resp.ok) {
+      throw new LogistiquePermanentError(
+        avecMotif(`Everest updateMission ${resp.status}`, motif),
+      );
+    }
+
+    const mission = await lireMission(resp, 'updateMission');
+    return { mission_id: mission.ref, status: mission.status ?? '' };
   }
 
   async cancelMission(

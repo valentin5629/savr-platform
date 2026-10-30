@@ -197,6 +197,8 @@ const CARTE = {
   type_evenement_id: TYPE_EVT,
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+  contact_secours_nom: 'Sam Roux',
+  contact_secours_telephone: '0733333333',
 };
 
 /** Réponse de fn_enregistrer_programmation (événement + collectes, une transaction). */
@@ -418,6 +420,7 @@ describe('M1.2 / Validations bloquantes', () => {
       makeReq('POST', '/api/v1/programmation/evenements', {
         lieu_id: 'lieu-1',
         nom_evenement: 'Gala 2030',
+        nom_client_organisateur: 'Traiteur Dupont',
         collectes: [
           {
             type: 'zd',
@@ -499,7 +502,30 @@ describe('M1.2 / Validations bloquantes', () => {
     });
   });
 
-  it('client_final_facultatif — 201 sans client final, sans badge « Info incomplète »', async () => {
+  // Client final obligatoire à la confirmation, pour tous les rôles (décision
+  // Val 2026-10-30, remplace « client final facultatif » du 2026-10-19).
+  it('client_final_obligatoire — 422 à la confirmation sans client final, rien n’est écrit', async () => {
+    setupAuth('traiteur_commercial');
+    const sansClient: Record<string, unknown> = { ...BODY_ZD };
+    delete sansClient.nom_client_organisateur;
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', sansClient),
+    );
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({
+      error: 'Le client final est obligatoire.',
+      champ: 'nom_client_organisateur',
+    });
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'fn_enregistrer_programmation',
+      expect.anything(),
+    );
+  });
+
+  it('client_final_obligatoire — brouillon sans client final : 201', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle.mockResolvedValueOnce({
       data: { id: 'entite-1' },
@@ -508,7 +534,10 @@ describe('M1.2 / Validations bloquantes', () => {
     mockRpc.mockResolvedValueOnce(
       enregistree('evt-sans-client', 'collecte-sans-client'),
     );
-    const sansClient: Record<string, unknown> = { ...BODY_ZD };
+    const sansClient: Record<string, unknown> = {
+      ...BODY_ZD,
+      confirmer: false,
+    };
     delete sansClient.nom_client_organisateur;
 
     const { POST } =
@@ -518,11 +547,7 @@ describe('M1.2 / Validations bloquantes', () => {
     );
     expect(res.status).toBe(201);
     expect(argsEnregistrement().p_evenement).toMatchObject({
-      nom_evenement: 'Gala 2030',
       nom_client_organisateur: null,
-    });
-    expect(mockSupabaseChain.update).not.toHaveBeenCalledWith({
-      informations_completes: false,
     });
   });
 
@@ -692,8 +717,8 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
           type_evenement_id: TYPE_EVT,
           contact_principal_nom: 'Jean Martin',
           contact_principal_telephone: '0612345678',
-          contact_secours_nom: null,
-          contact_secours_telephone: null,
+          contact_secours_nom: 'Sam Roux',
+          contact_secours_telephone: '0733333333',
         },
         p_controle_acces: false,
         p_lieu_overrides: null,

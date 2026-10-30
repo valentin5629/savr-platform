@@ -10,6 +10,10 @@ import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 import { validerCartes } from '@/lib/programmation/cartes.js';
+import {
+  clientFinalRenseigne,
+  MESSAGE_CLIENT_FINAL_OBLIGATOIRE,
+} from '@/lib/evenements/client-final.js';
 import { verifierPerimetreProgrammation } from '@/lib/programmation/perimetre-programmation.js';
 import { apresConfirmation } from '@/lib/programmation/apres-confirmation.js';
 
@@ -109,7 +113,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Nom de l'événement obligatoire à la confirmation (pas bloquant en
-  // brouillon) ; le client final est facultatif (décision Val 2026-10-19).
+  // brouillon).
   // Une valeur qui n'est pas du texte est refusée ici, pas en erreur 500.
   if (
     body.confirmer &&
@@ -118,6 +122,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         error: "Nom de l'événement obligatoire pour confirmer la programmation",
+      },
+      { status: 422 },
+    );
+  }
+  // Client final obligatoire à la confirmation, pour tous les rôles
+  // (décision Val 2026-10-30) ; pas bloquant en brouillon.
+  if (body.confirmer && !clientFinalRenseigne(body.nom_client_organisateur)) {
+    return NextResponse.json(
+      {
+        error: MESSAGE_CLIENT_FINAL_OBLIGATOIRE,
+        champ: 'nom_client_organisateur',
       },
       { status: 422 },
     );

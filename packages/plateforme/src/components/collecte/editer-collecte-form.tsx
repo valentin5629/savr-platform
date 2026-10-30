@@ -164,6 +164,23 @@ export function EditerCollecteForm({
       setError('Le contact principal et son téléphone sont obligatoires.');
       return;
     }
+    // Contact de secours et client final : obligatoires aussi (décision Val
+    // 2026-10-30), contrôlés seulement s'ils ont été modifiés (une collecte
+    // ancienne qui n'en a pas reste modifiable pour le reste).
+    const csModifie =
+      csNom !== (collecte.contact_secours_nom ?? '') ||
+      csTel !== (collecte.contact_secours_telephone ?? '');
+    if (csModifie && (csNom.trim() === '' || csTel.trim() === '')) {
+      setError('Le contact de secours et son téléphone sont obligatoires.');
+      return;
+    }
+    if (
+      nomClient !== (e.nom_client_organisateur ?? '') &&
+      nomClient.trim() === ''
+    ) {
+      setError('Le client final est obligatoire.');
+      return;
+    }
     if (urgence || reacceptation) setConfirmOpen(true);
     else void save();
   }
@@ -284,7 +301,7 @@ export function EditerCollecteForm({
               onChange={(ev) => setNomEvenement(ev.target.value)}
             />
           </FormField>
-          <FormField label="Client final" htmlFor="edit-evt-client">
+          <FormField label="Client final" htmlFor="edit-evt-client" required>
             <Input
               id="edit-evt-client"
               value={nomClient}

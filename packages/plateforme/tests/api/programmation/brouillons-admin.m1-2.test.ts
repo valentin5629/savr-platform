@@ -202,6 +202,8 @@ async function creerBrouillon(type: string) {
             type_evenement_id: TYPE_EVT,
             contact_principal_nom: 'Marie Dupont',
             contact_principal_telephone: '0600000000',
+            contact_secours_nom: 'Sam Roux',
+            contact_secours_telephone: '0733333333',
           },
         ],
         confirmer: false,

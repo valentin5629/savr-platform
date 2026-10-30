@@ -348,16 +348,12 @@ describe('M1.2/formulaire_cartes — avertissement même date même heure (C4)',
 });
 
 describe('M1.2/formulaire_cartes — complétude et corps envoyé', () => {
-  it('M1.2/formulaire_cartes_complete — date, heure, convives, type d’événement et contact principal avec téléphone', () => {
+  it('M1.2/formulaire_cartes_complete — date, heure, convives, type d’événement et contacts principal et de secours avec téléphone', () => {
     const complete = carte('zd', MODELE);
     expect(carteComplete(complete)).toBe(true);
-    // Le contact de secours et les informations sont facultatifs.
+    // Les informations supplémentaires restent facultatives.
     expect(
-      carteComplete({
-        ...complete,
-        contact_secours: null,
-        informations_supplementaires: '',
-      }),
+      carteComplete({ ...complete, informations_supplementaires: '' }),
     ).toBe(true);
     for (const manque of [
       { date_collecte: '' },
@@ -367,6 +363,9 @@ describe('M1.2/formulaire_cartes — complétude et corps envoyé', () => {
       { type_evenement_id: '' },
       { contact_principal: null },
       { contact_principal: { ...PAUL, telephone: '  ' } },
+      // Contact de secours obligatoire (décision Val 2026-10-30).
+      { contact_secours: null },
+      { contact_secours: { ...LEA, telephone: '  ' } },
     ]) {
       expect(carteComplete({ ...complete, ...manque })).toBe(false);
     }

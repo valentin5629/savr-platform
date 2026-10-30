@@ -200,6 +200,7 @@ function demander(type: 'zd' | 'ag', n: number) {
   }
 }
 const nomEvenement = () => screen.getByLabelText(/^Nom de l'événement/);
+const clientFinal = () => screen.getByLabelText(/^Client final/);
 
 /**
  * Ouvre une liste (Popover Radix), clique l'option, puis attend que le focus
@@ -225,10 +226,11 @@ async function choisirLieu() {
   );
 }
 
-/** Écran 1 rempli (nom, lieu, nombre de collectes), puis écran 2. */
+/** Écran 1 rempli (nom, client final, lieu, nombre de collectes), puis écran 2. */
 async function jusquaEcran2(zd: number, ag = 0) {
   await screen.findByRole('heading', { level: 2, name: ECRAN_1 }, ATTENTE_UI);
   fireEvent.change(nomEvenement(), { target: { value: 'Gala de printemps' } });
+  fireEvent.change(clientFinal(), { target: { value: 'Entreprise Dupont' } });
   await choisirLieu();
   demander('zd', zd);
   demander('ag', ag);
@@ -295,6 +297,7 @@ async function remplirCarte(
   if (v.pax !== undefined) saisir('pax', suffixe, v.pax);
   await choisirType(suffixe, 'Cocktail');
   await choisirContact(suffixe, 'principal', 'Paul Arnaud');
+  await choisirContact(suffixe, 'secours', 'Léa Martin');
   if (v.infos !== undefined) {
     fireEvent.change(infos(suffixe), { target: { value: v.infos } });
   }
@@ -311,7 +314,7 @@ afterEach(() => {
 
 describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
   it(
-    'M1.2/formulaire_deux_ecrans — écran 1 sans brouillon ; « Continuer » attend nom, lieu et une collecte ; une carte par collecte demandée, 10 au plus par type',
+    'M1.2/formulaire_deux_ecrans — écran 1 sans brouillon ; « Continuer » attend nom, client final, lieu et une collecte ; une carte par collecte demandée, 10 au plus par type',
     async () => {
       installerFetch();
       render(<NouveauProgrammationPage />);
@@ -335,8 +338,17 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       demander('zd', 2);
       demander('ag', 1);
       expect(continuer()).toBeDisabled();
-      // Nom, lieu et collectes : l'écran 1 est complet.
+      // Nom, lieu et collectes, sans client final (obligatoire, décision Val
+      // 2026-10-30).
       await choisirLieu();
+      expect(continuer()).toBeDisabled();
+      // Client final fait d'espaces : toujours incomplet.
+      fireEvent.change(clientFinal(), { target: { value: '   ' } });
+      expect(continuer()).toBeDisabled();
+      // Nom, client final, lieu et collectes : l'écran 1 est complet.
+      fireEvent.change(clientFinal(), {
+        target: { value: 'Entreprise Dupont' },
+      });
       expect(continuer()).toBeEnabled();
       // Aucune collecte.
       demander('zd', 0);
@@ -689,6 +701,7 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       expect(autres).toEqual([]);
       expect(corps).toMatchObject({
         nom_evenement: 'Gala de printemps',
+        nom_client_organisateur: 'Entreprise Dupont',
         lieu_id: 'lieu-1',
         controle_acces_requis: false,
         confirmer: true,
@@ -702,8 +715,8 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
           type_evenement_id: T_COCKTAIL,
           contact_principal_nom: 'Paul Arnaud',
           contact_principal_telephone: '06 12 34 56 78',
-          contact_secours_nom: null,
-          contact_secours_telephone: null,
+          contact_secours_nom: 'Léa Martin',
+          contact_secours_telephone: '07 11 22 33 44',
           informations_supplementaires: 'Quai n°2',
         },
         {
@@ -753,7 +766,10 @@ describe('M1.2 / formulaire de programmation en deux écrans (lot B2)', () => {
       await choisirType('zd-1', 'Cocktail');
       await choisirContact('zd-1', 'principal', 'Paul Arnaud');
       expect(brouillon).toBeDisabled();
+      // Sans contact de secours non plus (décision Val 2026-10-30).
       saisir('date', 'zd-1', '2030-01-15');
+      expect(brouillon).toBeDisabled();
+      await choisirContact('zd-1', 'secours', 'Léa Martin');
       expect(brouillon).toBeEnabled();
       fireEvent.click(brouillon);
 
@@ -860,7 +876,7 @@ describe('M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)', 
       expect(fetchMock.mock.calls.map(([u]) => String(u))).toContain(
         '/api/v1/programmation/evenements/evt-b',
       );
-      expect(screen.getByLabelText('Client final (optionnel)')).toHaveValue(
+      expect(screen.getByLabelText(/^Client final/)).toHaveValue(
         'Maison Dupont',
       );
       expect(
@@ -921,6 +937,13 @@ describe('M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)', 
         'Léa Martin',
       );
 
+      // Brouillon ancien sans contact de secours : à compléter avant tout
+      // enregistrement (obligatoire, décision Val 2026-10-30).
+      expect(
+        screen.getByRole('button', { name: /Enregistrer en brouillon/ }),
+      ).toBeDisabled();
+      await choisirContact('ag-1', 'secours', 'Paul Arnaud');
+
       // Enregistrer : PUT …/brouillon, jamais une nouvelle création.
       fireEvent.click(
         screen.getByRole('button', { name: /Enregistrer en brouillon/ }),
@@ -958,8 +981,8 @@ describe('M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)', 
           type_evenement_id: T_DINER,
           contact_principal_nom: 'Léa Martin',
           contact_principal_telephone: '07 11 22 33 44',
-          contact_secours_nom: null,
-          contact_secours_telephone: null,
+          contact_secours_nom: 'Paul Arnaud',
+          contact_secours_telephone: '06 12 34 56 78',
           informations_supplementaires: null,
         },
       ]);
@@ -1071,6 +1094,8 @@ describe('M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)', 
         { level: 2, name: ECRAN_2 },
         ATTENTE_UI,
       );
+      // La carte AG du brouillon n'a pas de contact de secours : à compléter.
+      await choisirContact('ag-1', 'secours', 'Paul Arnaud');
       fireEvent.click(
         screen.getByRole('button', { name: /Enregistrer en brouillon/ }),
       );
@@ -1119,6 +1144,8 @@ describe('M1.2 / reprise d’un brouillon dans le formulaire complet (lot B2)', 
         { level: 2, name: ECRAN_2 },
         ATTENTE_UI,
       );
+      // La carte AG du brouillon n'a pas de contact de secours : à compléter.
+      await choisirContact('ag-1', 'secours', 'Paul Arnaud');
       fireEvent.click(
         screen.getByRole('button', { name: /Enregistrer en brouillon/ }),
       );

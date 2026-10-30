@@ -1,9 +1,10 @@
 /**
  * M1.2 / nom de l'événement et client final — décision Val 2026-10-19, pour
  * tous les rôles : l'étape 1 sépare « Nom de l'événement » (obligatoire) et
- * « Client final (optionnel) », qui n'étaient qu'une case « Nom du client
- * final » écrite dans les deux colonnes. Depuis la refonte du formulaire (lot
- * B2), l'étape 1 est l'écran « Informations sur l'événement ».
+ * « Client final », qui n'étaient qu'une case « Nom du client final » écrite
+ * dans les deux colonnes. Le client final est obligatoire depuis la décision
+ * Val du 2026-10-30. Depuis la refonte du formulaire (lot B2), l'étape 1 est
+ * l'écran « Informations sur l'événement ».
  *
  * Le formulaire est pré-rempli par « Dupliquer » (?from=). Le sélecteur de date,
  * un calendrier dans une fenêtre surgissante, est remplacé par un champ texte :
@@ -67,8 +68,8 @@ const SOURCE = {
   type_evenement_id: 't1',
   contact_principal_nom: 'Paul Arnaud',
   contact_principal_telephone: '06 12 34 56 78',
-  contact_secours_nom: null,
-  contact_secours_telephone: null,
+  contact_secours_nom: 'Léa Secours',
+  contact_secours_telephone: '07 11 22 33 44',
   controle_acces_requis: false,
   informations_supplementaires: null,
   evenement: {
@@ -96,9 +97,12 @@ afterEach(() => {
  * Parcourt les deux écrans depuis « Dupliquer » et rend le corps envoyé à la
  * confirmation. `clientFinal` remplace la valeur dupliquée de la case « Client
  * final » juste avant de quitter l'écran 1. `source` remplace la collecte
- * dupliquée.
+ * dupliquée. Client final vide : l'écran 1 ne se valide pas, rend `null`.
  */
-async function programmer(clientFinal: string, source: object = SOURCE) {
+async function programmer(
+  clientFinal: string,
+  source: object = SOURCE,
+): Promise<Record<string, unknown> | null> {
   window.history.replaceState({}, '', '/programmer/nouveau?from=c-src');
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -128,10 +132,10 @@ async function programmer(clientFinal: string, source: object = SOURCE) {
     () => expect(nomEvenement).toHaveValue('Gala de printemps'),
     ATTENTE_UI,
   );
-  const champClient = screen.getByLabelText('Client final (optionnel)');
+  const champClient = screen.getByLabelText(/^Client final/);
   expect(champClient).toHaveValue('Maison Dupont');
   expect(nomEvenement).toBeRequired();
-  expect(champClient).not.toBeRequired();
+  expect(champClient).toBeRequired();
   expect(screen.queryByText(/Nom du client final/)).toBeNull();
 
   const continuer = () => screen.getByRole('button', { name: /Continuer/ });
@@ -142,6 +146,10 @@ async function programmer(clientFinal: string, source: object = SOURCE) {
   fireEvent.change(nomEvenement, { target: { value: 'Gala de printemps' } });
 
   fireEvent.change(champClient, { target: { value: clientFinal } });
+  if (clientFinal.trim() === '') {
+    expect(continuer()).toBeDisabled();
+    return null;
+  }
   expect(continuer()).toBeEnabled();
   fireEvent.click(continuer());
 
@@ -173,7 +181,7 @@ describe('M1.2 / nom_evenement_client_final — étape 1', () => {
   it(
     'client final renseigné : le nom de l’événement et le client final partent chacun dans sa colonne',
     async () => {
-      const corps = await programmer('Maison Dupont');
+      const corps = (await programmer('Maison Dupont'))!;
       expect(corps.nom_evenement).toBe('Gala de printemps');
       expect(corps.nom_client_organisateur).toBe('Maison Dupont');
       expect(corps.confirmer).toBe(true);
@@ -182,12 +190,9 @@ describe('M1.2 / nom_evenement_client_final — étape 1', () => {
   );
 
   it(
-    'client final vide : l’étape 1 se valide et aucun client n’est envoyé',
+    'client final vide : l’étape 1 ne se valide pas, rien n’est envoyé',
     async () => {
-      const corps = await programmer('');
-      expect(corps.nom_evenement).toBe('Gala de printemps');
-      expect(corps).not.toHaveProperty('nom_client_organisateur');
-      expect(corps.confirmer).toBe(true);
+      expect(await programmer('   ')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -251,7 +256,7 @@ describe('M1.2 / dupliquer — type d’événement et contacts de la collecte (
           contact_secours_telephone: '01 99 99 99 99',
         },
       };
-      const corps = await programmer('Maison Dupont', source);
+      const corps = (await programmer('Maison Dupont', source))!;
       // Refonte du formulaire (lot B2) : type d'événement et contacts partent
       // avec la collecte, jamais au niveau de l'événement.
       const collectes = corps.collectes as Record<string, unknown>[];

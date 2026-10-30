@@ -12,6 +12,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@/components/ui/data-grid';
+import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FilterBar } from '@/components/ui/filter-bar';
@@ -373,6 +374,14 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
     page,
   ]);
 
+  // Export CSV (§12 §2) : la sélection de la liste affichée (ses filtres,
+  // période bornée à la vue), sans tri ni page.
+  function exporterCsv() {
+    const qs = new URLSearchParams(urlListe.split('?')[1]);
+    for (const cle of ['tri', 'ordre', 'page']) qs.delete(cle);
+    window.open(`/api/v1/exports/evenements?${qs}`);
+  }
+
   // Liste paginée serveur : garde anti-réponse périmée et état Error portés par
   // `useListePaginee` — une panne ne se lit jamais comme un parc vide (§10 §7).
   const {
@@ -476,6 +485,7 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
     <>
       <DataGrid
         data-testid="evenements-table"
+        toolbarActions={<BoutonExportCsv onClick={exporterCsv} />}
         columns={colonnes}
         data={rows}
         getRowId={(e) => e.id}

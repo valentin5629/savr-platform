@@ -14,6 +14,10 @@ import {
   unwrap,
 } from './shared.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import {
+  espaceEvenementsDuRole,
+  filtresListeEvenements,
+} from '@/lib/evenements/liste-evenements.js';
 import { statutEvenementConsolide } from '@/lib/libelles/evenement.js';
 import {
   typesEvenementDesCollectes,
@@ -173,28 +177,37 @@ async function evenementsToCsv(
   return toCsv(rows, COLUMNS);
 }
 
-/** Builder unifié : Événements scopés par RLS (tous rôles autorisés). */
+/**
+ * Builder unifié : Événements scopés par RLS (tous rôles autorisés). Le
+ * fichier reprend la sélection de la liste Événements (§12 §2) : mêmes
+ * filtres, même écart des brouillons, sans tri d'écran ni page.
+ */
 export async function buildEvenementsExport(
   ctx: ExportContext,
   sp: URLSearchParams,
 ): Promise<ExportOutput> {
-  const from = sp.get('from');
-  const to = sp.get('to');
+  const espace = espaceEvenementsDuRole(ctx.role);
+  const filtres = espace ? filtresListeEvenements(espace, sp) : null;
+  if (!filtres) {
+    return {
+      filenamePrefix: 'evenements',
+      csv: await evenementsToCsv(ctx.supabase, [], ctx.isStaff),
+    };
+  }
 
-  let q = ctx.supabase
-    .from('evenements')
-    .select(EVENEMENTS_SELECT)
-    .order('date_evenement', { ascending: false });
-
-  if (from) q = q.gte('date_evenement', from);
-  if (to) q = q.lte('date_evenement', to);
+  const q = filtres.appliquer(
+    ctx.supabase
+      .from('evenements')
+      .select(`${EVENEMENTS_SELECT}, ${filtres.embeds}`)
+      .order('date_evenement', { ascending: false }),
+  );
 
   const { data, error } = await q;
   if (error) throw erreurInterne(error, 'exports.evenements');
 
   const csv = await evenementsToCsv(
     ctx.supabase,
-    (data ?? []) as Record<string, unknown>[],
+    (data ?? []) as unknown as Record<string, unknown>[],
     ctx.isStaff,
   );
   return { filenamePrefix: 'evenements', csv };

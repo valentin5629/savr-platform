@@ -1043,6 +1043,42 @@ describe('M4.1 / evenements', () => {
   });
 });
 
+// Le fichier reprend la sélection de la liste Événements (§12 §2, demande Val
+// 2026-10-30) : mêmes filtres, brouillons écartés, aucun tri d'écran ni page.
+describe('M4.1 / evenements — filtres de la liste', () => {
+  const LIEU = '11111111-1111-4111-8111-111111111111';
+  it('M3.2/export_evenements_filtres_liste — période, lieu, type et écart des brouillons', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: [], error: null });
+    const res = await call(
+      'evenements',
+      `?from=2026-11-01&to=2026-11-30&lieu_ids=${LIEU}&type=zero_dechet`,
+    );
+    expect(res.status).toBe(200);
+    expect(rls.__calls.gte).toContainEqual(['date_evenement', '2026-11-01']);
+    expect(rls.__calls.lte).toContainEqual(['date_evenement', '2026-11-30']);
+    expect(rls.__calls.in).toContainEqual(['lieu_id', [LIEU]]);
+    expect(rls.__calls.eq).toContainEqual(['filtre_type.type', 'zero_dechet']);
+    expect(rls.__calls.neq).toContainEqual([
+      'hors_brouillon.statut',
+      'brouillon',
+    ]);
+    expect(String(rls.__calls.select?.[0]?.[0])).toContain(
+      'hors_brouillon:collectes(id)',
+    );
+    expect(rls.__calls.range).toBeUndefined();
+  });
+
+  it('M3.2/export_evenements_selection_vide — type inconnu : fichier vide, aucune lecture', async () => {
+    setupAuth('traiteur_manager');
+    const res = await call('evenements', '?type=inconnu');
+    expect(res.status).toBe(200);
+    expect(rls.__calls.from).toBeUndefined();
+    const lignes = (await res.text()).split('\r\n').filter(Boolean);
+    expect(lignes).toHaveLength(1); // en-tête seul
+  });
+});
+
 // Lot 3 du pax porté par la collecte, décision Val Q4 du 2026-10-25 : l'export
 // Événements garde le pax CALCULÉ de l'événement et sa taille.
 describe('Lot 3 / export Événements — pax et taille de l’événement (Q4)', () => {

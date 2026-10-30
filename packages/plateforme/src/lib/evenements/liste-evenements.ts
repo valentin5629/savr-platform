@@ -190,12 +190,21 @@ async function nomsTraiteursReferentiel(
   return noms;
 }
 
-export async function listerEvenements(
-  supabase: DbClient,
+/**
+ * Filtres de la liste Événements, partagés avec son export CSV (§12 §2 : le
+ * fichier reprend la sélection affichée). `null` = la sélection ne peut rien
+ * contenir. Sinon : les embeds à ajouter au `select` (qui doit aussi embarquer
+ * `collectes(...)`) et la fonction qui pose les filtres, sans tri ni page.
+ */
+export function filtresListeEvenements(
   espace: EspaceEvenements,
   sp: URLSearchParams,
-): Promise<ResultatListe> {
-  const profil = PROFILS[espace];
+): {
+  embeds: string;
+  // Le constructeur de requête PostgREST n'a pas de type commun simple ici.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  appliquer: <Q extends Record<string, any>>(q: Q) => Q;
+} | null {
   const from = sp.get('from');
   const to = sp.get('to');
   const type = sp.get('type');
@@ -206,9 +215,6 @@ export async function listerEvenements(
   const clientsDemandes =
     espace === 'admin' ? listeCsv(sp.get('client_ids'), Boolean) : [];
   const clientIds = clientsDemandes.filter(estUuid);
-  const tri = lireTri(sp, TRIS, { tri: 'date', ascendant: false });
-  const page = parsePage(sp);
-  const offset = (page - 1) * PAGE_SIZE;
 
   // Filtre demandé sans valeur lisible (dont un type de collecte inconnu) : la
   // réponse honnête est une liste vide, pas la liste non filtrée.
@@ -217,16 +223,65 @@ export async function listerEvenements(
     (clientsDemandes.length > 0 && clientIds.length === 0) ||
     (type && !TYPES_COLLECTE.has(type))
   ) {
-    return { ok: true, data: [], total: 0, page };
+    return null;
   }
 
+  // `filtre_type` : second embed des collectes, `!inner`, qui ne sert qu'à
+  // retenir les événements ayant au moins une collecte du type demandé. Le
+  // premier embed, lui, garde TOUTES les collectes de l'événement : le bilan
+  // reste celui de l'événement entier. `filtre_type_evt` : même principe pour
+  // le type d'événement, condition SÉPARÉE du filtre ZD/AG (décision Val
+  // 2026-10-24, lot C1, Q1).
+  const embeds = [
+    'hors_brouillon:collectes(id)',
+    type ? 'filtre_type:collectes!inner(id)' : '',
+    typeEvtIds.length > 0 ? 'filtre_type_evt:collectes!inner(id)' : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  return {
+    embeds,
+    appliquer: (q0) => {
+      let q = q0.not('date_evenement', 'is', null);
+      // Brouillon écarté : l'événement garde au moins une collecte hors
+      // brouillon (`hors_brouillon`, embed filtré), ou n'a aucune collecte. Un
+      // événement aux collectes toutes brouillons ne passe ni l'un ni l'autre.
+      q = q
+        .neq('hors_brouillon.statut', 'brouillon')
+        .or('hors_brouillon.not.is.null,collectes.is.null');
+      if (type) q = q.eq('filtre_type.type', type);
+      if (from) q = q.gte('date_evenement', from);
+      if (to) q = q.lte('date_evenement', to);
+      if (lieuIds.length > 0) q = q.in('lieu_id', lieuIds);
+      if (traiteurIds.length > 0)
+        q = q.in('traiteur_operationnel_organisation_id', traiteurIds);
+      if (clientIds.length > 0) q = q.in('organisation_id', clientIds);
+      if (typeEvtIds.length > 0)
+        q = q.in('filtre_type_evt.type_evenement_id', typeEvtIds);
+      // Mêmes prédicats que la liste Collectes (pax NULL = XS), sur
+      // l'événement : la taille de la liste reste celle de l'ÉVÉNEMENT
+      // (décision Val C4 du 2026-10-20).
+      if (predicatsTaille.length > 0) q = q.or(predicatsTaille.join(','));
+      return q;
+    },
+  };
+}
+
+export async function listerEvenements(
+  supabase: DbClient,
+  espace: EspaceEvenements,
+  sp: URLSearchParams,
+): Promise<ResultatListe> {
+  const profil = PROFILS[espace];
+  const tri = lireTri(sp, TRIS, { tri: 'date', ascendant: false });
+  const page = parsePage(sp);
+  const offset = (page - 1) * PAGE_SIZE;
+
+  const filtres = filtresListeEvenements(espace, sp);
+  if (!filtres) return { ok: true, data: [], total: 0, page };
+
   const filtree = () => {
-    // `filtre_type` : second embed des collectes, `!inner`, qui ne sert qu'à
-    // retenir les événements ayant au moins une collecte du type demandé. Le
-    // premier embed, lui, garde TOUTES les collectes de l'événement : le bilan
-    // reste celui de l'événement entier. `filtre_type_evt` : même principe pour
-    // le type d'événement, condition SÉPARÉE du filtre ZD/AG (décision Val
-    // 2026-10-24, lot C1, Q1).
     const collectes = [
       'id, type, statut, date_collecte, taux_recyclage, co2_evite_kg',
       'collecte_flux(poids_reel_kg)',
@@ -240,36 +295,13 @@ export async function listerEvenements(
        lieux!lieu_id(nom, adresse_acces, code_postal, ville),
        ${profil.traiteur ? `${profil.traiteur},` : ''}
        collectes(${collectes}),
-       hors_brouillon:collectes(id)
-       ${type ? ', filtre_type:collectes!inner(id)' : ''}
-       ${typeEvtIds.length > 0 ? ', filtre_type_evt:collectes!inner(id)' : ''}`,
+       ${filtres.embeds}`,
       { count: 'exact' },
     );
     for (const c of tri.colonnes) q = q.order(c, { ascending: tri.ascendant });
     // `date_evenement` n'est pas unique : `id` fige l'ordre d'une page à l'autre.
     q = q.order('id', { ascending: tri.ascendant });
-
-    q = q.not('date_evenement', 'is', null);
-    // Brouillon écarté : l'événement garde au moins une collecte hors brouillon
-    // (`hors_brouillon`, embed filtré), ou n'a aucune collecte. Un événement aux
-    // collectes toutes brouillons ne passe ni l'un ni l'autre.
-    q = q
-      .neq('hors_brouillon.statut', 'brouillon')
-      .or('hors_brouillon.not.is.null,collectes.is.null');
-    if (type) q = q.eq('filtre_type.type', type);
-    if (from) q = q.gte('date_evenement', from);
-    if (to) q = q.lte('date_evenement', to);
-    if (lieuIds.length > 0) q = q.in('lieu_id', lieuIds);
-    if (traiteurIds.length > 0)
-      q = q.in('traiteur_operationnel_organisation_id', traiteurIds);
-    if (clientIds.length > 0) q = q.in('organisation_id', clientIds);
-    if (typeEvtIds.length > 0)
-      q = q.in('filtre_type_evt.type_evenement_id', typeEvtIds);
-    // Mêmes prédicats que la liste Collectes (pax NULL = XS), sur l'événement :
-    // la taille de la liste reste celle de l'ÉVÉNEMENT (décision Val C4 du
-    // 2026-10-20).
-    if (predicatsTaille.length > 0) q = q.or(predicatsTaille.join(','));
-    return q;
+    return filtres.appliquer(q);
   };
 
   let { data, error, count } = await filtree().range(

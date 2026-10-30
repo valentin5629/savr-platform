@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
+import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
 import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 interface Ligne {
@@ -41,6 +42,24 @@ describe('DataGrid — menu « Colonnes »', () => {
     expect(
       screen.getByRole('button', { name: /Colonnes/ }),
     ).toBeInTheDocument();
+  });
+
+  it('« Exporter CSV » se place juste à gauche de « Colonnes » (décision Val 2026-10-30)', () => {
+    let clics = 0;
+    render(
+      <DataGrid
+        columns={COLONNES}
+        data={LIGNES}
+        getRowId={(l) => l.id}
+        toolbarActions={<BoutonExportCsv onClick={() => clics++} />}
+      />,
+    );
+    const export_ = screen.getByRole('button', { name: 'Exporter CSV' });
+    const colonnes = screen.getByRole('button', { name: /Colonnes/ });
+    expect(export_.nextElementSibling).toBe(colonnes);
+    expect(export_.querySelector('svg')).not.toBeNull();
+    fireEvent.click(export_);
+    expect(clics).toBe(1);
   });
 
   it('masquer une colonne la retire du tableau ; la colonne Actions n’est pas proposée', async () => {

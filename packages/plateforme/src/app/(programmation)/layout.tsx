@@ -1,7 +1,7 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { createSupabaseServerClient, getVerifiedClaims } from '@/lib/api-auth';
 import { entreesNavMasquees } from '@/lib/nav-masquee';
-import { chargerIdentiteOrganisation } from '@/lib/identite-organisation';
+import { chargerIdentiteSession } from '@/lib/identite-session';
 import { isStaff, type NavRole } from '@/lib/roles';
 
 // Rendu à la demande : le menu dépend de la session. Sans ce marqueur, `next
@@ -26,17 +26,20 @@ export default async function ProgrammationLayout({
     ? 'admin_savr'
     : ((claims?.role ?? 'traiteur_commercial') as NavRole);
   const hiddenNavHrefs = await entreesNavMasquees(role);
-  // Avatar + nom de l'organisation en en-tête, comme dans l'espace du rôle
-  // (le staff n'en a pas : en-tête sans organisation).
-  const organisation =
-    !isStaff(claims?.role) && claims?.organisationId
-      ? await chargerIdentiteOrganisation(claims.organisationId)
-      : null;
+  // Organisation et utilisateur en bas du menu, comme dans l'espace du rôle.
+  // Le jeton ne porte pas l'email : sans fiche lisible, le bloc reste vide.
+  const identite = claims
+    ? await chargerIdentiteSession({
+        userId: claims.userId,
+        email: '',
+        logoAffichable: !isStaff(claims.role),
+      })
+    : null;
 
   return (
     <AppShell
       role={role}
-      organisation={organisation}
+      identite={identite}
       pageTitle="Programmer une collecte"
       hiddenNavHrefs={hiddenNavHrefs}
     >

@@ -18,11 +18,49 @@ import { IconButton } from '@/components/ui/icon-button';
 import { Button } from '@/components/ui/button';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { ROUTES } from '@/lib/routes';
+import { initiales } from '@/components/dashboards/charts/cockpit/fmt';
+import type { IdentiteSession } from '@/lib/identite-session';
+
+// Logo de l'organisation sur une tuile blanche, ENTIER (object-contain, jamais
+// rogné) ; initiales si l'organisation n'a pas de logo ou s'il ne charge pas.
+function LogoOrganisation({
+  identite,
+  collapsed,
+}: {
+  identite: IdentiteSession;
+  collapsed: boolean;
+}) {
+  const [logoKo, setLogoKo] = React.useState(false);
+  const logo = identite.logoSrc && !logoKo ? identite.logoSrc : null;
+  return (
+    <span
+      data-testid="logo-organisation"
+      aria-hidden="true"
+      className={cn(
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-savr-md bg-savr-white p-1 text-sm font-semibold text-savr-primary-800',
+        collapsed ? 'h-11 w-12' : 'h-14 w-20',
+      )}
+    >
+      {logo ? (
+        <img
+          src={logo}
+          alt=""
+          className="h-full w-full object-contain"
+          onError={() => setLogoKo(true)}
+        />
+      ) : (
+        initiales(identite.organisation ?? identite.utilisateur)
+      )}
+    </span>
+  );
+}
 
 interface SidebarProps {
   role: NavRole;
   collapsed?: boolean;
   onToggle?: () => void;
+  /** Organisation et utilisateur, affichés au-dessus de « Se déconnecter ». */
+  identite?: IdentiteSession | null;
   /**
    * Handler de déconnexion. Par défaut (non fourni) : `signOut()` côté client
    * puis redirection dure vers `/login` (les layouts, Server Components, ne
@@ -45,6 +83,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
       collapsed = false,
       onToggle,
       onLogout,
+      identite,
       hiddenNavHrefs,
       navBadges,
       className,
@@ -195,8 +234,38 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             </IconButton>
           </div>
         )}
-        {/* Déconnexion — tout en bas à gauche (Val 2026-10-30, ex-TopBar) */}
+        {/* Qui est connecté puis déconnexion — tout en bas (Val 2026-10-30, ex-TopBar) */}
         <div className="shrink-0 border-t border-savr-primary-700 p-2">
+          {identite && (identite.organisation || identite.utilisateur) && (
+            <div
+              data-testid="identite-session"
+              title={
+                collapsed
+                  ? [identite.organisation, identite.utilisateur]
+                      .filter(Boolean)
+                      .join(' — ')
+                  : undefined
+              }
+              className={cn(
+                'mb-1 flex items-center gap-3 px-1 py-2',
+                collapsed && 'justify-center px-0',
+              )}
+            >
+              <LogoOrganisation identite={identite} collapsed={collapsed} />
+              <div className={cn('min-w-0', collapsed && 'sr-only')}>
+                {identite.organisation && (
+                  <p className="truncate text-sm font-semibold text-savr-white">
+                    {identite.organisation}
+                  </p>
+                )}
+                {identite.utilisateur && (
+                  <p className="truncate text-sm text-savr-primary-200">
+                    {identite.utilisateur}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
           <Button
             variant="ghost"
             onClick={() => void handleLogout()}

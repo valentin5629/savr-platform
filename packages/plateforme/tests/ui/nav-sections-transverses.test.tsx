@@ -143,8 +143,9 @@ describe('M3.2 / nav « Mon pack AG » — sections transverses', () => {
     const menu = await menuDe(RegistreLayout, '/registre');
     expect(menu).toContain('Collectes');
     expect(menu).not.toContain('Mes lieux');
-    // Seule l'organisation est lue (avatar et nom de l'en-tête, Val 2026-10-30).
-    expect(etat.tablesLues).toEqual(['organisations']);
+    // Aucun comptage de packs (l'identité du bas de menu lit sa fiche et son
+    // organisation, Val 2026-10-30).
+    expect(etat.tablesLues).not.toContain('packs_antgaspi');
   });
 
   it('M3.2/nav_pack_regle_unique — entreesNavMasquees : gestionnaire sans pack → l’entrée ; avec pack, comptage illisible ou autre rôle → cas tranchés', async () => {
@@ -219,7 +220,9 @@ describe('M0.8 / nav du formulaire de programmation — rôle lu côté serveur'
         backOffice,
       );
     }
-    expect(etat.tablesLues).toEqual([]);
+    // Aucun comptage de packs ; seule la fiche de l'utilisateur est lue
+    // (identité du bas de menu, Val 2026-10-30).
+    expect(etat.tablesLues).not.toContain('packs_antgaspi');
   });
 
   it('M0.8-73 — Formulaire de programmation : sans rôle lisible, menu par défaut du traiteur commercial', async () => {

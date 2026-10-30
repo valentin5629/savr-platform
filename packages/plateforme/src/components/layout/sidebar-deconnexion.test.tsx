@@ -42,6 +42,74 @@ afterEach(() => {
   });
 });
 
+describe('Sidebar — organisation et utilisateur au-dessus de la déconnexion', () => {
+  const identite = {
+    organisation: 'Viparis',
+    logoSrc: '/api/v1/mon-organisation/logo?v=1',
+    utilisateur: 'Camille Martin',
+  };
+
+  it('logo entier (non rogné), nom de l’organisation puis de l’utilisateur', () => {
+    render(<Sidebar role="gestionnaire_lieux" identite={identite} />);
+    const bloc = screen.getByTestId('identite-session');
+    const lignes = Array.from(bloc.querySelectorAll('p')).map(
+      (p) => p.textContent,
+    );
+    expect(lignes).toEqual(['Viparis', 'Camille Martin']);
+    const img = bloc.querySelector('img')!;
+    expect(img.getAttribute('src')).toBe(identite.logoSrc);
+    expect(img.getAttribute('class')).toContain('object-contain');
+    // Le bloc précède le bouton de déconnexion.
+    const bouton = screen.getByRole('button', { name: 'Se déconnecter' });
+    expect(
+      bloc.compareDocumentPosition(bouton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('sans logo, ou logo introuvable : initiales de l’organisation', () => {
+    const { unmount } = render(
+      <Sidebar
+        role="gestionnaire_lieux"
+        identite={{
+          ...identite,
+          organisation: 'Pavillon Gabriel',
+          logoSrc: null,
+        }}
+      />,
+    );
+    expect(screen.getByTestId('logo-organisation')).toHaveTextContent('PG');
+    unmount();
+
+    render(<Sidebar role="gestionnaire_lieux" identite={identite} />);
+    const tuile = screen.getByTestId('logo-organisation');
+    fireEvent.error(tuile.querySelector('img')!);
+    expect(tuile.querySelector('img')).toBeNull();
+    expect(tuile).toHaveTextContent('V');
+  });
+
+  it('barre réduite : logo seul, noms gardés pour les lecteurs d’écran', () => {
+    render(
+      <Sidebar
+        role="gestionnaire_lieux"
+        collapsed
+        onToggle={() => {}}
+        identite={identite}
+      />,
+    );
+    const bloc = screen.getByTestId('identite-session');
+    expect(bloc.getAttribute('title')).toBe('Viparis — Camille Martin');
+    expect(bloc.querySelector('.sr-only')).toHaveTextContent('Viparis');
+  });
+
+  it('sans identité : pas de bloc, le bouton reste', () => {
+    render(<Sidebar role="gestionnaire_lieux" />);
+    expect(screen.queryByTestId('identite-session')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Se déconnecter' }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('Sidebar — déconnexion', () => {
   it('« Se déconnecter » est le dernier bouton de la navigation', () => {
     render(<Sidebar role="gestionnaire_lieux" onToggle={() => {}} />);

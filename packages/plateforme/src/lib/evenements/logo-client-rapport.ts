@@ -3,8 +3,13 @@
 // Qui : tout utilisateur qui peut télécharger le rapport de la collecte — équipe
 // Savr, traiteur (manager et commercial), agence, gestionnaire de lieux. Même
 // garde que le bouton « Télécharger le rapport » : collecte visible sous la RLS
-// de l'utilisateur, non annulée, et rapport non réservé au donneur d'ordre (D12 :
-// un traiteur opérationnel ne dépose pas le logo du rapport d'une agence).
+// de l'utilisateur, non annulée, et rapport non réservé au donneur d'ordre (D12).
+// D12 est jugée sur l'ÉVÉNEMENT, pas sur la seule collecte de l'URL : le logo
+// s'imprime sur toutes ses collectes. Un traiteur qui opère pour une autre
+// organisation est refusé dès que l'événement porte une collecte AG non annulée
+// et non « sans excédent » (son attestation de don est réservée au donneur
+// d'ordre) — sinon il passerait par une collecte ZD voisine (revue sécurité
+// 2026-10-30).
 //
 // Où : sur l'événement (`evenements.logo_client_organisateur_url`), donc pour
 // toutes ses collectes et pour tous ceux qui téléchargent. Le logo déposé prime
@@ -132,6 +137,40 @@ async function controlerAcces(
         { status: 403 },
       ),
     };
+  }
+  // D12 au niveau de l'événement (cf. en-tête) : lecture service-role réduite à
+  // un comptage, rien n'en est rendu au client.
+  if (
+    !acteur.isStaff &&
+    ROLES_TRAITEUR.includes(acteur.role) &&
+    c.evenements?.organisation_id != null &&
+    c.evenements.organisation_id !== acteur.organisationId
+  ) {
+    const { count, error: agErr } = await createAdminSupabaseClient()
+      .from('collectes')
+      .select('id', { count: 'exact', head: true })
+      .eq('evenement_id', c.evenement_id)
+      .eq('type', 'anti_gaspi')
+      .not(
+        'statut',
+        'in',
+        `(${[...STATUTS_ANNULES, 'realisee_sans_collecte'].join(',')})`,
+      );
+    if (agErr) {
+      return {
+        ok: false,
+        reponse: serverError(agErr, 'collectes.logo_client.lecture_ag'),
+      };
+    }
+    if ((count ?? 0) > 0) {
+      return {
+        ok: false,
+        reponse: NextResponse.json(
+          { error: 'Réservé à l’organisation qui a programmé la collecte' },
+          { status: 403 },
+        ),
+      };
+    }
   }
   return { ok: true, evenementId: c.evenement_id };
 }

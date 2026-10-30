@@ -11,6 +11,8 @@ const etat = vi.hoisted(() => ({
   collecteRlsErreur: null as unknown,
   logoActuel: null as string | null,
   collectesEvenement: [] as Array<{ id: string; statut: string }>,
+  // Collectes AG avec don (non annulées, non « sans excédent ») de l'événement.
+  nbAgAvecDon: 0,
   updates: [] as Array<Record<string, unknown>>,
   audits: [] as Array<Record<string, unknown>>,
 }));
@@ -23,7 +25,7 @@ function chaine(resultat: () => unknown, capture?: (v: unknown) => void) {
     single: () => Promise.resolve(resultat()),
     maybeSingle: () => Promise.resolve(resultat()),
   };
-  for (const m of ['select', 'eq', 'order', 'limit']) c[m] = () => c;
+  for (const m of ['select', 'eq', 'order', 'limit', 'not']) c[m] = () => c;
   c.update = (v: unknown) => {
     capture?.(v);
     return c;
@@ -58,8 +60,12 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
           () => ({ data: null, error: null }),
           (v) => etat.audits.push(v as Record<string, unknown>),
         );
-      // collectes de l'événement
-      return chaine(() => ({ data: etat.collectesEvenement, error: null }));
+      // collectes de l'événement (liste, ou comptage des AG avec don)
+      return chaine(() => ({
+        data: etat.collectesEvenement,
+        count: etat.nbAgAvecDon,
+        error: null,
+      }));
     },
   }),
 }));
@@ -120,6 +126,7 @@ beforeEach(() => {
   etat.collecteRlsErreur = null;
   etat.logoActuel = null;
   etat.collectesEvenement = [];
+  etat.nbAgAvecDon = 0;
   etat.updates = [];
   etat.audits = [];
   televerserLogo.mockResolvedValue({ cle: CLE });
@@ -153,6 +160,38 @@ describe('contrôle d’accès (même garde que le téléchargement du rapport)'
     const r = await deposerLogoClient(req, 'col-1', traiteur);
     expect(r.status).toBe(403);
     expect(televerserLogo).not.toHaveBeenCalled();
+  });
+
+  it('traiteur opérationnel, collecte ZD voisine d’une AG avec don de l’agence → 403 (D12 jugée sur l’événement)', async () => {
+    etat.collecteRls = collecte({
+      type: 'zero_dechet',
+      evenements: { organisation_id: 'org-agence' },
+    });
+    etat.nbAgAvecDon = 1;
+    const r = await deposerLogoClient(req, 'col-zd', traiteur);
+    expect(r.status).toBe(403);
+    expect(televerserLogo).not.toHaveBeenCalled();
+    expect(etat.updates).toHaveLength(0);
+  });
+
+  it('traiteur opérationnel, collecte AG « sans excédent » voisine d’une AG avec don → 403, retrait compris', async () => {
+    etat.collecteRls = collecte({
+      statut: 'realisee_sans_collecte',
+      evenements: { organisation_id: 'org-agence' },
+    });
+    etat.nbAgAvecDon = 1;
+    expect((await deposerLogoClient(req, 'col-se', traiteur)).status).toBe(403);
+    expect((await retirerLogoClient('col-se', traiteur)).status).toBe(403);
+    expect(etat.updates).toHaveLength(0);
+  });
+
+  it('traiteur opérationnel, événement d’une agence sans attestation de don → autorisé', async () => {
+    etat.collecteRls = collecte({
+      type: 'zero_dechet',
+      evenements: { organisation_id: 'org-agence' },
+    });
+    etat.nbAgAvecDon = 0;
+    expect((await deposerLogoClient(req, 'col-zd', traiteur)).status).toBe(200);
   });
 
   it('gestionnaire de lieux sur une collecte d’un autre programmateur → autorisé', async () => {

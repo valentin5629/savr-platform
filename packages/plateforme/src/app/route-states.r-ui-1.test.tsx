@@ -39,4 +39,15 @@ describe('R-UI-1 / états de route App Router', () => {
     expect(statut).toHaveAttribute('aria-busy', 'true');
     expect(statut).toHaveTextContent('Chargement…');
   });
+
+  it('loading.tsx : croix Savr animée seule, sans squelettes (Val 2026-10-31)', () => {
+    render(<AdminLoading />);
+    const statut = screen.getByRole('status');
+    const croix = screen.getByTestId('savr-croix-chargement');
+    expect(statut).toContainElement(croix);
+    expect(croix).toHaveAttribute('aria-hidden', 'true');
+    expect(croix.querySelector('.savr-croix-chargement')).not.toBeNull();
+    expect(croix.querySelectorAll('path')).toHaveLength(3);
+    expect(statut.querySelector('.animate-pulse')).toBeNull();
+  });
 });

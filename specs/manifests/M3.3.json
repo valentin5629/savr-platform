@@ -535,7 +535,7 @@
       "test": "Lot3/agence_carte_kg_par_pax_collectes_a_convives",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
-      "libelle": "Cartes KPI du dashboard agence au pax des collectes (lot 3, décisions Val Q1 à Q5 du 2026-10-25) : mêmes lignes v_kpi_traiteur et mêmes dérivations que le traiteur — kg/pax et repas/pax sur les collectes à convives connus, pax cumulés = Σ pax des collectes. Toujours sans carte Marge (§06.11 diff #7)."
+      "libelle": "Cartes KPI du dashboard agence au pax des collectes (lot 3, décisions Val Q1 à Q5 du 2026-10-25) : mêmes lignes v_kpi_traiteur et mêmes dérivations que le traiteur — kg/pax et repas/pax sur les collectes à convives connus, pax cumulés = Σ pax des collectes (calculé, plus affiché en carte depuis Val 2026-10-30). Toujours sans carte Marge (§06.11 diff #7)."
     },
     {
       "id": "M3.3-navigation-evenements",

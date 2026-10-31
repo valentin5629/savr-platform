@@ -609,7 +609,9 @@ export function ListeCollectesClient({
           Colonnes triables ensuite. */}
       <DataGrid
         toolbarActions={<BoutonExportCsv onClick={exportCsv} />}
-        key={onglet}
+        // Remonté quand la colonne Type apparaît ou disparaît : un tri posé
+        // sur elle ne survit pas à sa disparition.
+        key={`${onglet}-${typeFiltre === 'tous'}`}
         data-testid="collectes-table"
         columns={colonnes}
         data={lignes}

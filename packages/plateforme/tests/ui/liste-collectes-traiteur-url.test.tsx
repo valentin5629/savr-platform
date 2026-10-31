@@ -23,6 +23,7 @@ import {
   screen,
   fireEvent,
   waitFor,
+  within,
   cleanup,
 } from '@testing-library/react';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
@@ -156,9 +157,17 @@ describe('Liste Collectes traiteur — filtres dans l’URL', () => {
         {},
         ATTENTE_UI,
       );
-      await waitFor(() => expect(table).toHaveTextContent('AG'), ATTENTE_UI);
       expect(screen.getByRole('columnheader', { name: /Type/ })).toBeTruthy();
-      expect(table).toHaveTextContent('ZD');
+      // Chaque ligne porte le badge de SON type (tri par date : z1 puis a1).
+      await waitFor(
+        () => expect(within(table).getAllByRole('row')).toHaveLength(3),
+        ATTENTE_UI,
+      );
+      const [, ligneZd, ligneAg] = within(table).getAllByRole('row');
+      expect(within(ligneZd!).getByText('ZD')).toBeTruthy();
+      expect(within(ligneZd!).queryByText('AG')).toBeNull();
+      expect(within(ligneAg!).getByText('AG')).toBeTruthy();
+      expect(within(ligneAg!).queryByText('ZD')).toBeNull();
       const liste = fetchMock.mock.calls
         .map(([u]) => String(u))
         .filter((u) => !u.includes('/filtres'))

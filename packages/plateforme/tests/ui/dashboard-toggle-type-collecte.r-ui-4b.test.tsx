@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 import TestDashboardComponentsPage from '@/app/dev/test-dashboard-components/page';
+import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 
 describe('Dashboards — ToggleTypeCollecte (R-UI-4b D1)', () => {
   it('rend un groupe radio ZD / AG, Zéro Déchet actif par défaut', () => {
@@ -17,6 +18,18 @@ describe('Dashboards — ToggleTypeCollecte (R-UI-4b D1)', () => {
     expect(zd).toHaveAttribute('aria-checked', 'true');
     expect(zd).toHaveAttribute('data-state', 'on');
     expect(ag).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('picto du type devant chaque libellé, les deux sur « Toutes » (Val 2026-10-31)', () => {
+    render(<ToggleTypeCollecte avecTous value="tous" onChange={() => {}} />);
+    // Pictos décoratifs : le nom accessible reste le libellé seul.
+    const nbPictos = (nom: string) =>
+      screen
+        .getByRole('radio', { name: nom })
+        .querySelectorAll('svg[aria-hidden="true"]').length;
+    expect(nbPictos('Toutes')).toBe(2);
+    expect(nbPictos('Zéro Déchet')).toBe(1);
+    expect(nbPictos('Anti-Gaspi')).toBe(1);
   });
 
   it('clic sur Anti-Gaspi change le type ; re-clic ne le désélectionne pas', () => {

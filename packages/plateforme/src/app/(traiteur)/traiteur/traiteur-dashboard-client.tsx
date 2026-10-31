@@ -15,7 +15,12 @@ import {
   type BenchmarkFilters,
   type BenchmarkFilterOptions,
   type BlocsData,
+  type ParcFilterOptions,
 } from '@/components/dashboards/index.js';
+import {
+  ajouterFiltresGlobaux,
+  optionsBarreValides,
+} from '@/components/dashboards/filtres-query';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import type {
   FluxSeriePoint,
@@ -102,9 +107,14 @@ export function TraiteurDashboardClient({
     to: initialFilters.to,
     lieu_ids: [],
     traiteur_ids: [],
+    client_noms: [],
     type_evenement_ids: [],
     taille_evenement_codes: [],
   });
+  // Options de la barre (§06.04 : Lieux, Client organisateur, Type, Taille).
+  const [parcOptions, setParcOptions] = useState<ParcFilterOptions | undefined>(
+    undefined,
+  );
   const [data, setData] = useState<TraiteurDashboardPayload>(initialData);
   const [loading, setLoading] = useState(false);
   // Facteurs / méthode CO₂ (modale « Impact carbone »).
@@ -126,12 +136,26 @@ export function TraiteurDashboardClient({
     [],
   );
 
-  // ── Re-fetch consolidé (endpoint traiteur-full) au changement d'onglet/période ──
-  // Clé = signature de la requête (le dashboard traiteur n'envoie que from/to/type ;
-  // pas de filtres « parc »). Initialisée à la requête SSR (déjà en état) → aucun
-  // fetch au montage tant que la barre de filtres émet la même période.
+  useEffect(() => {
+    fetch('/api/v1/dashboards/filtres', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((j: { data?: ParcFilterOptions }) => {
+        setParcOptions(optionsBarreValides(j.data));
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Re-fetch consolidé (endpoint traiteur-full) au changement d'onglet/filtres ──
+  // Clé = signature de la requête (période, onglet et filtres de la barre).
+  // Initialisée à la requête SSR (déjà en état) → aucun fetch au montage tant que
+  // la barre de filtres émet la même période sans autre filtre.
+  const requete = (f: DashboardFilters, t: CollecteType): URLSearchParams =>
+    ajouterFiltresGlobaux(
+      new URLSearchParams({ from: f.from, to: f.to, type: t }),
+      f,
+    );
   const mainKey = (f: DashboardFilters, t: CollecteType): string =>
-    JSON.stringify({ from: f.from, to: f.to, t });
+    requete(f, t).toString();
   const lastMainKey = useRef<string>(
     mainKey(
       { from: initialFilters.from, to: initialFilters.to },
@@ -145,12 +169,9 @@ export function TraiteurDashboardClient({
     lastMainKey.current = key;
     let cancelled = false;
     setLoading(true);
-    const qs = new URLSearchParams({
-      from: filters.from,
-      to: filters.to,
-      type: tab,
-    });
-    fetch(`/api/v1/dashboards/traiteur-full?${qs}`, { credentials: 'include' })
+    fetch(`/api/v1/dashboards/traiteur-full?${requete(filters, tab)}`, {
+      credentials: 'include',
+    })
       .then((r) => r.json())
       .then((j: { data?: TraiteurDashboardPayload }) => {
         if (!cancelled && j.data) setData(j.data);
@@ -349,6 +370,7 @@ export function TraiteurDashboardClient({
         <DashboardFilterBar
           storageKey="traiteur-dashboard"
           onChange={handleFilters}
+          parcOptions={parcOptions}
         />
         <ToggleTypeCollecte value={tab} onChange={setTab} />
 

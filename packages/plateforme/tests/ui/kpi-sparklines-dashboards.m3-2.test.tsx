@@ -385,7 +385,10 @@ describe('M3.6 / dashboard-client Admin — sparkline + variation N-1', () => {
           const url = String(input);
           if (url.includes('/dashboard-client/organisations'))
             return jsonResponse({ data: [] });
-          if (url.includes('/dashboard-client/benchmark/filtres'))
+          if (
+            url.includes('/dashboard-client/benchmark/filtres') ||
+            url.includes('/dashboard-client/filtres')
+          )
             return jsonResponse({
               data: { lieux: [], traiteurs: [], types: [] },
             });

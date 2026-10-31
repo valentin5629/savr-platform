@@ -1,4 +1,5 @@
 import type { DashboardFilters } from './DashboardFilterBar.js';
+import type { ParcFilterOptions } from './ParcMultiSelects.js';
 
 /**
  * Ajoute les filtres de la barre globale (hors période) aux paramètres d'un
@@ -21,4 +22,18 @@ export function ajouterFiltresGlobaux(
   for (const [nom, valeurs] of listes)
     for (const v of valeurs ?? []) qs.append(nom, v);
   return qs;
+}
+
+/**
+ * Réponse d'une route d'options de la barre : retenue seulement si elle a la
+ * forme attendue (listes de lieux et de types), sinon la barre reste sur la
+ * Période seule plutôt que de planter sur une réponse inattendue.
+ */
+export function optionsBarreValides(
+  data: unknown,
+): ParcFilterOptions | undefined {
+  const d = data as Partial<ParcFilterOptions> | null | undefined;
+  return d && Array.isArray(d.lieux) && Array.isArray(d.types)
+    ? (d as ParcFilterOptions)
+    : undefined;
 }

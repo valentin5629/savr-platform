@@ -22,6 +22,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { CelluleLieu } from '@/components/collecte/collectes-traiteur-table';
 import { ChevronLigne, RepereJour } from '@/components/collecte/repere-jour';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import {
   LIBELLES_EVENEMENTS,
@@ -143,17 +144,6 @@ const SqueletteListe = () => (
   <LoadingState variant="bloc" lignes={5} data-testid="evenements-skeleton" />
 );
 
-/** « 2 ZD · 1 AG » : nombre de collectes de l'événement, par type. */
-function libelleCollectes(
-  e: Pick<EvenementRow, 'nb_collectes_zd' | 'nb_collectes_ag'>,
-) {
-  const parts = [
-    e.nb_collectes_zd > 0 ? `${e.nb_collectes_zd} ZD` : null,
-    e.nb_collectes_ag > 0 ? `${e.nb_collectes_ag} AG` : null,
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : null;
-}
-
 // Colonnes (§06.05 §2 « Vue liste »), au format de la liste Collectes. Seule la
 // date est triable : les autres colonnes sont des cumuls calculés par la route
 // sur la page servie. `aujourdhui` (jour de Paris) pose le repère
@@ -226,14 +216,21 @@ const colonnesEvenements = (
     id: 'collectes',
     header: 'Collectes',
     enableSorting: false,
-    cell: ({ row: { original: e } }) => {
-      const libelle = libelleCollectes(e);
-      return libelle ? (
-        <span className="whitespace-nowrap">{libelle}</span>
+    // Picto ZD / AG par type présent, nombre affiché au-delà d'une collecte
+    // (décision Val 2026-10-31, ex-libellé « 2 ZD · 1 AG »).
+    cell: ({ row: { original: e } }) =>
+      e.nb_collectes_zd > 0 || e.nb_collectes_ag > 0 ? (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          {e.nb_collectes_zd > 0 && (
+            <TypeCollecteBadge type="zero_dechet" nombre={e.nb_collectes_zd} />
+          )}
+          {e.nb_collectes_ag > 0 && (
+            <TypeCollecteBadge type="anti_gaspi" nombre={e.nb_collectes_ag} />
+          )}
+        </span>
       ) : (
         <CelluleVide />
-      );
-    },
+      ),
   },
   {
     id: 'resultats',

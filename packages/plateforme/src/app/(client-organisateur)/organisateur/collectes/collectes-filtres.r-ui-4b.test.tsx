@@ -165,12 +165,17 @@ describe('R-UI-4b / liste Collectes organisateur — barre de filtres', () => {
       expect(screen.getByTestId('collectes-resultats-count').textContent).toBe(
         '2 collectes correspondent à votre sélection',
       );
-      // Type ZD par défaut, sans « Toutes » (les colonnes dépendent du type).
-      expect(screen.queryByRole('radio', { name: 'Toutes' })).toBeNull();
+      // « Toutes » par défaut (Val 2026-10-31) : la route reçoit les deux
+      // types, la colonne Type et la colonne « Résultats » apparaissent.
+      expect(screen.getByRole('radio', { name: 'Toutes' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      expect(demande(urls[0]!).has('type')).toBe(false);
+      expect(screen.getByRole('columnheader', { name: /Type/ })).toBeTruthy();
       expect(
-        screen.getByRole('radio', { name: 'Zéro Déchet' }),
-      ).toHaveAttribute('aria-checked', 'true');
-      expect(demande(urls[0]!).get('type')).toBe('zero_dechet');
+        screen.getByRole('columnheader', { name: /Résultats/ }),
+      ).toBeTruthy();
 
       // Passer en AG : la route reçoit le type, l'URL le reflète.
       await act(async () => {
@@ -178,6 +183,16 @@ describe('R-UI-4b / liste Collectes organisateur — barre de filtres', () => {
       });
       expect(demande(urls[urls.length - 1]!).get('type')).toBe('anti_gaspi');
       expect(window.location.search).toBe('?type=anti_gaspi');
+      // Un seul type : plus de colonne Type, la colonne résultat est « Repas ».
+      expect(screen.queryByRole('columnheader', { name: /^Type/ })).toBeNull();
+      expect(screen.getByRole('columnheader', { name: /Repas/ })).toBeTruthy();
+
+      // Retour à « Toutes » : le type quitte la requête et l'URL.
+      await act(async () => {
+        fireEvent.click(screen.getByRole('radio', { name: 'Toutes' }));
+      });
+      expect(demande(urls[urls.length - 1]!).has('type')).toBe(false);
+      expect(window.location.search).not.toContain('type=');
     },
     ATTENTE_CAS_MS,
   );

@@ -7,8 +7,10 @@ import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { PageHero } from '@/components/ui/page-hero';
 import { Button } from '@/components/ui/button';
-import type { CollecteType } from '@/components/dashboards/index.js';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  ToggleTypeCollecte,
+  type TypeCollecteFiltre,
+} from '@/components/collecte/toggle-type-collecte';
 import {
   colonnesCollectesTraiteur,
   type TraiteurCollecteLigne,
@@ -162,9 +164,12 @@ export function ListeCollectesClient({
   const params = useSearchParams();
   const api = API_COLLECTES[espace];
 
-  const initialType: CollecteType =
-    params.get('type') === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
-  const [typeFiltre, setTypeFiltre] = useState<CollecteType>(initialType);
+  // « Toutes » par défaut, comme la liste Événements (décision Val
+  // 2026-10-31) ; un lien `?type=zero_dechet|anti_gaspi` garde son type.
+  const typeUrl = params.get('type');
+  const initialType: TypeCollecteFiltre =
+    typeUrl === 'zero_dechet' || typeUrl === 'anti_gaspi' ? typeUrl : 'tous';
+  const [typeFiltre, setTypeFiltre] = useState<TypeCollecteFiltre>(initialType);
   const [onglet, setOnglet] = useState<VueCollectes>(() =>
     ongletInitial(new URLSearchParams(params.toString())),
   );
@@ -253,10 +258,9 @@ export function ListeCollectesClient({
     // celle des statuts qu'elle sait afficher.
     const statuts = choisis.length > 0 ? choisis : STATUTS;
     const periode = periodeDeLaVue(onglet, filtres, aujourdhui);
-    const qs = new URLSearchParams({
-      type: typeFiltre,
-      statut: statuts.join(','),
-    });
+    const qs = new URLSearchParams({ statut: statuts.join(',') });
+    // « Toutes » : pas de `type`, la route renvoie les deux.
+    if (typeFiltre !== 'tous') qs.set('type', typeFiltre);
     if (filtres.lieuIds.length > 0)
       qs.set('lieu_ids', filtres.lieuIds.join(','));
     // Noms saisis à la main (virgule possible) : paramètre répété, pas de CSV.
@@ -319,17 +323,16 @@ export function ListeCollectesClient({
   // changements rapprochés — onglet puis type — perdraient le premier).
   function majUrl(etat: {
     onglet?: VueCollectes;
-    type?: CollecteType;
+    type?: TypeCollecteFiltre;
     filtres?: CollecteFiltres;
     drill?: Drill;
     fiche?: { id: string; edit: boolean } | null;
   }) {
     const d = etat.drill ?? drill;
     const f = etat.fiche !== undefined ? etat.fiche : fiche;
-    const usp = new URLSearchParams({
-      onglet: etat.onglet ?? onglet,
-      type: etat.type ?? typeFiltre,
-    });
+    const usp = new URLSearchParams({ onglet: etat.onglet ?? onglet });
+    const t = etat.type ?? typeFiltre;
+    if (t !== 'tous') usp.set('type', t);
     if (d.commercial) usp.set('commercial', d.commercial);
     if (d.association) usp.set('association', d.association);
     if (d.perimetre) usp.set('perimetre', d.perimetre);
@@ -370,7 +373,7 @@ export function ListeCollectesClient({
     majUrl({ filtres: f, drill: d });
   }
 
-  function changeType(t: CollecteType) {
+  function changeType(t: TypeCollecteFiltre) {
     setTypeFiltre(t);
     // Changer de type ZD/AG sort du miroir : on lâche le périmètre miroir
     // (statut/période/perimetre) ET le filtre association (AG-only → liste vide
@@ -539,9 +542,12 @@ export function ListeCollectesClient({
               : void telechargerRapport(c.id),
         },
         aujourdhui,
+        // Colonne Type (picto ZD / AG) seulement quand les deux types sont
+        // mêlés (décision Val 2026-10-31).
+        typeFiltre === 'tous',
       ),
     // telechargerRapport ne dépend que de `api` (aucune dépendance d'état).
-    [router, rows, api, aujourdhui],
+    [router, rows, api, aujourdhui, typeFiltre],
   );
 
   const estDemande = annulTarget?.statut === 'validee';
@@ -556,7 +562,13 @@ export function ListeCollectesClient({
           // CTA accent sur l'aplat navy du bandeau ; l'export CSV est dans la
           // barre du tableau, à gauche de « Colonnes ».
           <Button variant="accent" asChild>
-            <a href={`${ROUTES.programmer.nouveau}?type=${typeFiltre}`}>
+            <a
+              href={
+                typeFiltre === 'tous'
+                  ? ROUTES.programmer.nouveau
+                  : `${ROUTES.programmer.nouveau}?type=${typeFiltre}`
+              }
+            >
               Programmer une collecte
             </a>
           </Button>
@@ -578,19 +590,11 @@ export function ListeCollectesClient({
       <CollecteFiltresBar
         tabs={<OngletsVueCollectes value={onglet} onChange={changeOnglet} />}
         toggle={
-          <ToggleGroup
-            type="single"
-            aria-label="Type de collecte"
+          <ToggleTypeCollecte
+            avecTous
             value={typeFiltre}
-            onValueChange={(v) => {
-              // Un clic sur l'item actif le désélectionne (v = '') : le type
-              // est obligatoire, on l'ignore.
-              if (v) changeType(v as CollecteType);
-            }}
-          >
-            <ToggleGroupItem value="zero_dechet">Zéro Déchet</ToggleGroupItem>
-            <ToggleGroupItem value="anti_gaspi">Anti-Gaspi</ToggleGroupItem>
-          </ToggleGroup>
+            onChange={changeType}
+          />
         }
         statutsOnglet={STATUTS}
         options={options}
@@ -605,7 +609,9 @@ export function ListeCollectesClient({
           Colonnes triables ensuite. */}
       <DataGrid
         toolbarActions={<BoutonExportCsv onClick={exportCsv} />}
-        key={onglet}
+        // Remonté quand la colonne Type apparaît ou disparaît : un tri posé
+        // sur elle ne survit pas à sa disparition.
+        key={`${onglet}-${typeFiltre === 'tous'}`}
         data-testid="collectes-table"
         columns={colonnes}
         data={lignes}

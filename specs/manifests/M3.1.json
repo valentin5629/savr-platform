@@ -421,7 +421,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/parametres/parametres-client.tsx",
       "test": "M3.1/trait_monorga_profil_patch_audit",
       "statut": "implemented",
-      "libelle": "Mon organisation traiteur ÉDITABLE (remplace la page 100% read-only) : page client à onglets (Infos légales / Équipe / Facturation / Préférences), gating manager/commercial DOUBLE (serveur requirePageSession + API requireUser). Commercial = lecture seule, onglet Équipe masqué (l.653)."
+      "libelle": "Mon organisation traiteur ÉDITABLE (remplace la page 100% read-only) : page client à onglets (Infos légales / Équipe / Facturation, Préférences masqué), dans « Paramètres » avec l'onglet Mon profil depuis le 2026-10-31 (décision Val), gating manager/commercial DOUBLE (serveur requirePageSession + API requireUser). Commercial = lecture seule, onglet Équipe masqué (l.653)."
     },
     {
       "id": "M3.1-trait-monorga-infos-legales-edit-audit",

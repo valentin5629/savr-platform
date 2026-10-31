@@ -10,9 +10,9 @@ import {
   optionsTypeFacture,
 } from '@/lib/libelles/facture';
 
-// FacturesFiltresBar — barre de filtres des listes Factures de « Mon
-// organisation » (R-UI-4b, D10 : parité entre rôles). Reprend À L'IDENTIQUE la
-// barre du traiteur (`traiteur/mon-organisation/mon-organisation-client.tsx`,
+// FacturesFiltresBar — barre de filtres des listes Factures de « Paramètres »
+// (ex « Mon organisation », R-UI-4b, D10 : parité entre rôles). Reprend À
+// L'IDENTIQUE la barre du traiteur (`traiteur/parametres/parametres-client.tsx`,
 // §06.04 §6 l.690) : « Période » en premier, Statut et Type à choix multiple,
 // case « Tous » = sélection vide (décision Val 2026-09-30), compteur et
 // « Réinitialiser les filtres » en pied (D5). Mêmes clés d'URL que la route

@@ -20,16 +20,26 @@ export function useOngletUrl<T extends string>(
 ): [T, (v: string) => void] {
   const defaut = onglets[0]!;
   const demande = Array.isArray(initial) ? initial[0] : initial;
-  const [onglet, setOnglet] = React.useState<T>(
-    onglets.includes(demande as T) ? (demande as T) : defaut,
-  );
+  const valide = onglets.includes(demande as T) ? (demande as T) : defaut;
+  const [onglet, setOnglet] = React.useState<T>(valide);
+  // Une navigation vers la page (ex. clic sur « Paramètres » dans le menu
+  // depuis « Mon profil ») change l'onglet demandé : l'affichage le suit.
+  const [demandePrecedente, setDemandePrecedente] = React.useState(demande);
+  if (demande !== demandePrecedente) {
+    setDemandePrecedente(demande);
+    setOnglet(valide);
+  }
   const changer = React.useCallback(
     (v: string) => {
       setOnglet(v as T);
       const url = new URL(window.location.href);
       if (v === defaut) url.searchParams.delete('onglet');
       else url.searchParams.set('onglet', v);
-      window.history.replaceState(window.history.state, '', url);
+      // `null`, jamais `window.history.state` : Next.js (App Router) ignore un
+      // `replaceState` dont l'état porte déjà `__NA` et ne resynchroniserait
+      // ni son adresse interne ni `useSearchParams` (même règle que
+      // `useFiltresUrl`).
+      window.history.replaceState(null, '', url);
     },
     [defaut],
   );

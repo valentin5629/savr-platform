@@ -20,9 +20,10 @@ export const POST = withCronObservability(
   async ({ supabase }) => {
     return await runSiretRevalidationWorker(supabase, undefined, (role) => {
       const espace = role ? ESPACE_PAR_ROLE[role as Role] : undefined;
-      // L'équipe Savr n'a pas de page Mon organisation.
+      // L'équipe Savr n'a pas de page organisation. Côté client, l'organisation
+      // est le premier onglet de « Paramètres » (décision Val 2026-10-31).
       if (!espace || espace === 'admin') return null;
-      return urlCanonique(`${ESPACES[espace].prefixe}/mon-organisation`);
+      return urlCanonique(`${ESPACES[espace].prefixe}/parametres`);
     });
   },
 );

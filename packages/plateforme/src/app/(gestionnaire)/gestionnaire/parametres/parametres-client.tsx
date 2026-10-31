@@ -190,6 +190,11 @@ export function ParametresGestionnaireClient({
         if (actif) setFactures(d);
       }
     };
+    // « Mon profil » n'a rien à charger : pas d'état de chargement.
+    if (tab === ONGLET_PROFIL) {
+      setErreur('');
+      return;
+    }
     setLoading(true);
     setErreur('');
     charger()

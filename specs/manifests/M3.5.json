@@ -47,7 +47,7 @@
       "artefact": "packages/plateforme/src/components/dashboards/charts/",
       "test": "TonnagesDonut — rend le total au centre et la légende des 5 flux",
       "statut": "implemented",
-      "libelle": "Lib charting SVG Cockpit (cockpit/EvolutionZdChart, EvolutionAgChart, TonnagesDonut, Sparkline, fmt) + palette FLUX_ZD, réutilisée par rôle. Variantes recharts legacy (EvolutionFluxChart, EvolutionRepasChart, TonnagesDonut racine, lazy) supprimées R-UI-0 : importées nulle part hors tests."
+      "libelle": "Lib charting SVG Cockpit (cockpit/EvolutionZdChart, EvolutionAgChart, TonnagesDonut, fmt ; Sparkline retirée le 2026-10-30) + palette FLUX_ZD, réutilisée par rôle. Variantes recharts legacy (EvolutionFluxChart, EvolutionRepasChart, TonnagesDonut racine, lazy) supprimées R-UI-0 : importées nulle part hors tests."
     },
     {
       "id": "M3.5-evolution-endpoint",
@@ -137,7 +137,7 @@
       "test": "supabase/tests/v_kpi_traiteur_pax_collecte.test.sql « L3-VUE-1 : deux soirées » « L3-VUE-2 : deux soirées » « L3-VUE-3 : même soir » « L3-VUE-5 : collecte ZD à 0 convive » « L3-VUE-6 : collecte AG à 0 convive » « L3-VUE-7 : une ligne AG » « L3-VUE-8 : deux mois » « L3-VUE-10 : v_kpi_traiteur reste security_invoker » « L3-VUE-11 : droits inchangés »",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
-      "libelle": "Vue v_kpi_traiteur (cartes et sparklines des dashboards traiteur et agence) au pax des collectes (lot 3, Q5 du 2026-10-25) : pax_total = Σ collectes.pax des collectes clôturées du mois et du type de la ligne ; tonnage_kg_pax_connu / nb_repas_pax_connu = numérateurs de kg/pax et repas/pax sur les seules collectes à convives connus. CREATE OR REPLACE VIEW : colonnes existantes, security_invoker et droits inchangés (mesurés avant / après sur base jetable). v_kpi_lieu non touchée : elle ne renvoie aucun pax et aucun code ne la lit."
+      "libelle": "Vue v_kpi_traiteur (cartes des dashboards traiteur et agence) au pax des collectes (lot 3, Q5 du 2026-10-25) : pax_total = Σ collectes.pax des collectes clôturées du mois et du type de la ligne ; tonnage_kg_pax_connu / nb_repas_pax_connu = numérateurs de kg/pax et repas/pax sur les seules collectes à convives connus. CREATE OR REPLACE VIEW : colonnes existantes, security_invoker et droits inchangés (mesurés avant / après sur base jetable). v_kpi_lieu non touchée : elle ne renvoie aucun pax et aucun code ne la lit."
     },
     {
       "id": "M3.5-filtre-type-evenement-uuid",

@@ -64,8 +64,8 @@ const SOURCE = {
   type_evenement_id: 't1',
   contact_principal_nom: 'Paul Arnaud',
   contact_principal_telephone: '06 12 34 56 78',
-  contact_secours_nom: null,
-  contact_secours_telephone: null,
+  contact_secours_nom: 'Léa Secours',
+  contact_secours_telephone: '07 11 22 33 44',
   controle_acces_requis: false,
   informations_supplementaires: null,
   evenement: {

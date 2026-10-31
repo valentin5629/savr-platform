@@ -342,6 +342,8 @@ const BODY_PROGRAMMATION = {
       type_evenement_id: TYPE_EVT_CARTE,
       contact_principal_nom: 'Alice',
       contact_principal_telephone: '+33611111111',
+      contact_secours_nom: 'Sam Roux',
+      contact_secours_telephone: '+33733333333',
     },
   ],
   confirmer: true,
@@ -913,20 +915,31 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
     expect(ordre[i + 2]).toEqual(['is', ['lieu_overrides', null]]);
   });
 
-  it('M3.1/recompute_absent_client_final_vide — client final vidé → pas de recompute (champ facultatif)', async () => {
-    setupAuth('traiteur_manager', 'org-1', 'user-1');
-    queueEventOk({ organisation_id: 'org-1' });
-    const res = await patchEvent({ nom_client_organisateur: '' });
-    expect(res.status).toBe(200);
-    const updateCalls = admin.__calls.update ?? [];
-    expect(
-      updateCalls.some(
-        ([u]) =>
-          (u as { informations_completes?: boolean }).informations_completes !==
-          undefined,
-      ),
-    ).toBe(false);
-  });
+  // Client final obligatoire (décision Val 2026-10-30, remplace « champ
+  // facultatif ») : le vider est refusé, sur la route client comme Admin.
+  for (const [route, role, patcher] of [
+    ['programmateur', 'traiteur_manager', patchEvent],
+    ['admin', 'admin_savr', patchEventAdmin],
+  ] as const) {
+    for (const [cas, valeur] of [
+      ['vide', ''],
+      ['fait de blancs', '   '],
+      ['null', null],
+    ] as const) {
+      it(`M3.1/client_final_non_effacable — ${route}, client final ${cas} → 422, rien n’est écrit`, async () => {
+        setupAuth(role, 'org-1', 'user-1');
+        queueEventOk({ organisation_id: 'org-1' });
+        const res = await patcher({ nom_client_organisateur: valeur });
+        expect(res.status).toBe(422);
+        expect(await res.json()).toMatchObject({
+          error: 'Le client final est obligatoire.',
+          champ: 'nom_client_organisateur',
+        });
+        expect(admin.__calls.rpc).toBeUndefined();
+        expect(admin.__calls.update).toBeUndefined();
+      });
+    }
+  }
 
   it('M3.1/recompute_absent_si_champs_hors_completude — édition de la référence d’affaire seule → pas de recompute', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
@@ -1421,9 +1434,9 @@ describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, 
         type_evenement_id: TYPE_APRES,
         contact_principal_nom: '  Arthus  ',
         contact_principal_telephone: '0699990002',
-        // Secours vidé : `''` comme blancs valent « absent » (null).
-        contact_secours_nom: '',
-        contact_secours_telephone: '   ',
+        // Secours remplacé (il ne peut plus être vidé, décision Val 2026-10-30).
+        contact_secours_nom: '  Noé Blanc ',
+        contact_secours_telephone: ' 0688776655 ',
       });
 
       expect(res.status).toBe(200);
@@ -1440,8 +1453,8 @@ describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, 
         type_evenement_id: TYPE_APRES,
         contact_principal_nom: 'Arthus',
         contact_principal_telephone: '0699990002',
-        contact_secours_nom: null,
-        contact_secours_telephone: null,
+        contact_secours_nom: 'Noé Blanc',
+        contact_secours_telephone: '0688776655',
       });
       // Aucune écriture sur l'événement.
       expect(admin.__calls.rpc?.map(([fn]) => fn)).toEqual([
@@ -1456,8 +1469,45 @@ describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, 
       }
       expect(recus).toHaveLength(1);
       expect(recus[0]!.variables.liste_modifications).toBe(
-        "<ul><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li><li>Contact de secours : avant Léa (0655443322). Maintenant non renseigné</li><li>Type d'événement : avant Cocktail apéritif. Maintenant Dîner assis</li></ul>",
+        "<ul><li>Contact : avant Paul Il (0611111111). Maintenant Arthus (0699990002)</li><li>Contact de secours : avant Léa (0655443322). Maintenant Noé Blanc (0688776655)</li><li>Type d'événement : avant Cocktail apéritif. Maintenant Dîner assis</li></ul>",
       );
+    },
+  );
+
+  // Le nom et le téléphone de secours se modifient ensemble (décision Val
+  // 2026-10-30) : un seul des deux envoyé est refusé, champ = celui qui manque.
+  it.each(ROUTES_COLLECTE)(
+    'M1.2/collecte_contact_secours_en_couple — PATCH /$espace/collectes/[id], nom de secours envoyé seul : 422, rien n’est écrit',
+    async (route) => {
+      setupAuth(route.role, 'org-1', 'user-1');
+      const res = await patchCollecteEspace(route, {
+        contact_secours_nom: 'Noé Blanc',
+      });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({
+        error:
+          'Le nom et le téléphone du contact de secours se modifient ensemble.',
+        champ: 'contact_secours_telephone',
+      });
+      expect(admin.__calls.rpc).toBeUndefined();
+      expect(recus).toEqual([]);
+    },
+  );
+
+  it.each(ROUTES_COLLECTE)(
+    'M1.2/collecte_contact_secours_non_effacable — PATCH /$espace/collectes/[id], contact de secours vidé : 422, rien n’est écrit ni envoyé',
+    async (route) => {
+      setupAuth(route.role, 'org-1', 'user-1');
+      const res = await patchCollecteEspace(route, {
+        contact_secours_nom: '',
+        contact_secours_telephone: '   ',
+      });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({
+        error: 'Le contact de secours et son téléphone sont obligatoires.',
+      });
+      expect(admin.__calls.rpc).toBeUndefined();
+      expect(recus).toEqual([]);
     },
   );
 
@@ -1517,6 +1567,42 @@ describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, 
     });
     expect(res.status).toBe(500);
     expect(admin.__calls.rpc).toBeUndefined();
+  });
+
+  // Non-régression (décision Val 2026-10-30) : une collecte ancienne sans
+  // contact de secours reste modifiable tant que le secours n'est pas envoyé.
+  it('M1.2/collecte_ancienne_sans_secours — PATCH { date_collecte } seul sur une collecte au secours null : 200, le secours n’est pas exigé', async () => {
+    setupAuth('gestionnaire_lieux', 'org-1', 'user-1');
+    rls.push({
+      data: {
+        id: 'c1',
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        date_collecte: '2097-12-31',
+        heure_collecte: '10:00:00',
+        evenement: { organisation_id: 'org-1' },
+      },
+      error: null,
+    });
+    admin.push({ data: { id: 'c1' }, error: null }); // before
+    admin.push({ data: CONTACTS_AVANT, error: null }); // contacts (secours null)
+    admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
+    admin.push({ data: null, error: null }); // audit insert
+    expect(CONTACTS_AVANT.contact_secours_nom).toBeNull();
+
+    const res = await patchGestionnaireCollecte({
+      date_collecte: '2098-01-15',
+    });
+
+    expect(res.status).toBe(200);
+    const modif = (admin.__calls.rpc ?? []).find(
+      ([fn]) => fn === 'fn_modifier_collecte',
+    );
+    const updates = (modif![1] as { p_updates: Record<string, unknown> })
+      .p_updates;
+    expect(updates.date_collecte).toBe('2098-01-15');
+    expect(updates).not.toHaveProperty('contact_secours_nom');
+    expect(updates).not.toHaveProperty('contact_secours_telephone');
   });
 
   // Back-office : l'équipe Savr modifie type et contacts sans motif (B1-Q3) ;
@@ -1600,12 +1686,35 @@ describe('M1.2 / lot B1 — type d’événement et contacts : sur la collecte, 
     expect(admin.__calls.from).not.toContainEqual(['types_evenements']);
   });
 
+  for (const [envoye, manquant] of [
+    ['contact_secours_nom', 'contact_secours_telephone'],
+    ['contact_secours_telephone', 'contact_secours_nom'],
+  ] as const) {
+    it(`M1.2/admin_collecte_contact_secours_en_couple — PATCH /admin/collectes/[id], ${envoye} seul : 422, rien n’est écrit`, async () => {
+      setupAuth('admin_savr', 'org-savr', 'val');
+      const res = await patchCollecteAdmin({
+        [envoye]: 'Noé Blanc 0688776655',
+      });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({
+        error:
+          'Le nom et le téléphone du contact de secours se modifient ensemble.',
+        champ: manquant,
+      });
+      expect(admin.__calls.rpc).toBeUndefined();
+      expect(admin.__calls.insert).toBeUndefined();
+    });
+  }
+
   it('M1.2/admin_collecte_contacts_illisibles_500 — PATCH /admin/collectes/[id] : lecture des contacts en échec → 500, rien n’est écrit', async () => {
     setupAuth('admin_savr', 'org-savr', 'val');
     admin.push({ data: { id: 'c1', statut: 'programmee' }, error: null }); // before
     admin.push({ data: null, error: { message: 'boom' } }); // contacts : échec
 
-    const res = await patchCollecteAdmin({ contact_secours_nom: 'Léa' });
+    const res = await patchCollecteAdmin({
+      contact_secours_nom: 'Léa',
+      contact_secours_telephone: '0655443322',
+    });
 
     expect(res.status).toBe(500);
     expect(admin.__calls.rpc).toBeUndefined();

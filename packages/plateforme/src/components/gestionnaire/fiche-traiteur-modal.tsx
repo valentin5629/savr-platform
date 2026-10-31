@@ -314,8 +314,6 @@ function BlocActivite({
         type={type}
         kpi={kpi}
         kpiPrev={kpiPrev}
-        zdSeries={zdSeries}
-        agSeries={agSeries}
         testId="fiche-traiteur-kpis"
       />
       {zd ? (

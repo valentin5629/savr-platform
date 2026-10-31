@@ -339,9 +339,9 @@
       "id": "M3.3-kpi-sparkline-n1",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:19",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
-      "test": "M3.3/kpi_cartes_sparkline_et_variation_n1",
+      "test": "M3.3/kpi_cartes_variation_n1_sans_courbe",
       "statut": "implemented",
-      "libelle": "Cartes KPI agence = §06.04 à l'identique (l.92) : sparkline + variation N-1 (sauf kg/pax), même source que le traiteur (kpi-traiteur ?compare=n1, lignes mensuelles). Les 4 cartes ZD sans Marge (diff #7) sont conservées."
+      "libelle": "Cartes KPI agence = §06.04 à l'identique (l.92) : variation N-1 (sauf kg/pax), sans courbe de tendance (retirée, Val 2026-10-30), même source que le traiteur (kpi-traiteur ?compare=n1, lignes mensuelles). Les 4 cartes ZD sans Marge (diff #7) sont conservées."
     },
     {
       "id": "M3.3-popup-client-fiche-collecte",
@@ -531,7 +531,7 @@
     {
       "id": "M3.3-kpi-cartes-pax-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:110",
-      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx (cartes kg/pax moyen, Repas/pax moyen, sparklines) + packages/plateforme/src/lib/dashboards/cockpit-derive.ts (aggregateKpis)",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx (cartes kg/pax moyen, Repas/pax moyen) + packages/plateforme/src/lib/dashboards/cockpit-derive.ts (aggregateKpis)",
       "test": "Lot3/agence_carte_kg_par_pax_collectes_a_convives",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",

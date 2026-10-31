@@ -8,8 +8,7 @@ import {
 } from '@/components/dashboards/charts/cockpit/fmt';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { StatCard } from '@/components/ui/stat-card';
-import { sparkFromSeries, variationPct } from '@/lib/dashboards/cockpit-derive';
-import type { FluxSeriePoint, RepasSeriePoint } from './useEvolutionBlocs.js';
+import { variationPct } from '@/lib/dashboards/cockpit-derive';
 import type { KpisGestionnaire } from './useKpisGestionnaire.js';
 
 interface CartesKpiGestionnaireProps {
@@ -17,24 +16,19 @@ interface CartesKpiGestionnaireProps {
   kpi: KpisGestionnaire;
   /** KPI de la période précédente équivalente ; absents = cartes sans variation. */
   kpiPrev: KpisGestionnaire | null;
-  /** Séries d'évolution (`useEvolutionBlocs`) : tendance des sparklines. */
-  zdSeries: FluxSeriePoint[];
-  agSeries: RepasSeriePoint[];
   testId?: string;
 }
 
 /**
  * Bloc 1 du dashboard gestionnaire (§06.05) : la rangée des 4 cartes KPI du type
- * choisi. Source unique de leurs libellés, formats, couleurs, variations et
- * sparklines, pour le dashboard et pour l'onglet Activité de la fiche traiteur.
+ * choisi. Source unique de leurs libellés, formats, couleurs et variations,
+ * pour le dashboard et pour l'onglet Activité de la fiche traiteur.
  * Cartes NON cliquables (décision Val GO-VISUAL 2026-07-10).
  */
 export function CartesKpiGestionnaire({
   type,
   kpi,
   kpiPrev,
-  zdSeries,
-  agSeries,
   testId,
 }: CartesKpiGestionnaireProps) {
   const nbCollectes = kpi.nb_collectes ?? 0;
@@ -47,7 +41,6 @@ export function CartesKpiGestionnaire({
             value={fmtInt(nbCollectes)}
             dotColor={KPI_DOT.navy}
             variationPct={variationPct(nbCollectes, kpiPrev?.nb_collectes ?? 0)}
-            sparkPoints={sparkFromSeries(zdSeries, (p) => p.nb_collectes)}
           />
           <StatCard
             label="Tonnage collecté"
@@ -58,7 +51,6 @@ export function CartesKpiGestionnaire({
               kpi.tonnage_kg ?? 0,
               kpiPrev?.tonnage_kg ?? 0,
             )}
-            sparkPoints={sparkFromSeries(zdSeries, (p) => p.tonnage_total)}
           />
           <StatCard
             label="Taux de recyclage"
@@ -73,17 +65,14 @@ export function CartesKpiGestionnaire({
               kpi.taux_recyclage_pondere ?? 0,
               kpiPrev?.taux_recyclage_pondere ?? 0,
             )}
-            sparkPoints={sparkFromSeries(zdSeries, (p) => p.taux_recyclage)}
-            sparkColor={KPI_DOT.green}
           />
-          {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
+          {/* kg/pax : pas de variation (sens « plus bas =
               mieux », §06.05 l.136). */}
           <StatCard
             label="kg/pax moyen"
             value={kpi.kg_par_pax != null ? fmtDec(kpi.kg_par_pax, 2) : '—'}
             unit={kpi.kg_par_pax != null ? 'kg/pax' : undefined}
             dotColor={KPI_DOT.navy3}
-            sparkPoints={sparkFromSeries(zdSeries, (p) => p.kg_par_pax)}
           />
         </>
       ) : (
@@ -93,7 +82,6 @@ export function CartesKpiGestionnaire({
             value={fmtInt(nbCollectes)}
             dotColor={KPI_DOT.navy}
             variationPct={variationPct(nbCollectes, kpiPrev?.nb_collectes ?? 0)}
-            sparkPoints={sparkFromSeries(agSeries, (p) => p.nb_collectes)}
           />
           <StatCard
             label="Repas donnés"
@@ -103,8 +91,6 @@ export function CartesKpiGestionnaire({
               kpi.nb_repas_donnes ?? 0,
               kpiPrev?.nb_repas_donnes ?? 0,
             )}
-            sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
-            sparkColor={KPI_DOT.accent}
           />
           <StatCard
             label="Pax cumulés"
@@ -114,7 +100,6 @@ export function CartesKpiGestionnaire({
               kpi.pax_total ?? 0,
               kpiPrev?.pax_total ?? 0,
             )}
-            sparkPoints={sparkFromSeries(agSeries, (p) => p.pax)}
           />
           <StatCard
             label="Repas/pax moyen"
@@ -122,7 +107,6 @@ export function CartesKpiGestionnaire({
               kpi.repas_par_pax != null ? fmtDec(kpi.repas_par_pax, 2) : '—'
             }
             dotColor={KPI_DOT.navy3}
-            sparkPoints={sparkFromSeries(agSeries, (p) => p.ratio)}
           />
         </>
       )}

@@ -1,7 +1,7 @@
 import { jourParis } from '@savr/shared/src/temps/index.js';
 /**
- * Dérivations pures du dashboard « Cockpit » (R24) — agrégats KPI, séries
- * sparkline, variation N-1, totaux/équivalences CO₂, items du radar benchmark.
+ * Dérivations pures du dashboard « Cockpit » (R24) — agrégats KPI,
+ * variation N-1, totaux/équivalences CO₂, items du radar benchmark.
  *
  * Séparé de la page (client) pour être TESTABLE sans jsdom et RÉUTILISABLE par la
  * déclinaison Cockpit des 5 autres dashboards. Aucune donnée n'est inventée : les
@@ -112,16 +112,6 @@ function ratioLignes(
     : null;
 }
 
-/** Point de sparkline kg/pax d'une ligne mensuelle (0 si aucun pax). */
-export function kgParPaxDeLigne(r: TraiteurKpiRow): number {
-  return ratioLignes([r], (x) => x.tonnage_kg_pax_connu) ?? 0;
-}
-
-/** Point de sparkline repas/pax d'une ligne mensuelle (0 si aucun pax). */
-export function repasParPaxDeLigne(r: TraiteurKpiRow): number {
-  return ratioLignes([r], (x) => x.nb_repas_pax_connu) ?? 0;
-}
-
 export interface Co2Totals {
   eviteKg: number;
   induitKg: number;
@@ -190,34 +180,6 @@ export function co2Equivalences(
 export function variationPct(current: number, previous: number): number | null {
   if (!Number.isFinite(previous) || previous === 0) return null;
   return ((current - previous) / previous) * 100;
-}
-
-/**
- * Série sparkline : une valeur par mois, triée chronologiquement. Renvoie `[]` si
- * moins de 2 points (la Sparkline se masque d'elle-même sous 2 points).
- */
-export function sparkFromRows(
-  rows: TraiteurKpiRow[],
-  pick: (r: TraiteurKpiRow) => number | string | null | undefined,
-): number[] {
-  const pts = [...rows]
-    .sort((a, b) => a.mois.localeCompare(b.mois))
-    .map((r) => num(pick(r)));
-  return pts.length >= 2 ? pts : [];
-}
-
-/**
- * Série sparkline depuis une série d'évolution (buckets déjà triés
- * chronologiquement : `buildEvolutionSeries`). Même règle que `sparkFromRows` :
- * `[]` sous 2 points. Sert aux dashboards sans lignes mensuelles KPI
- * (gestionnaire, Dashboard Client Admin).
- */
-export function sparkFromSeries<T>(
-  series: T[],
-  pick: (p: T) => number | string | null | undefined,
-): number[] {
-  const pts = series.map((p) => num(pick(p)));
-  return pts.length >= 2 ? pts : [];
 }
 
 /** Ligne renvoyée par f_benchmark_kg_pax_zd (grain flux × type × taille). */

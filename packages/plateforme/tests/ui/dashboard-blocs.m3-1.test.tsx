@@ -192,6 +192,28 @@ beforeEach(() => {
 
 describe('M3.1 / dashboard traiteur — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => {
   it(
+    'M3.1/dash_cartes_kpi_sans_courbe — aucune courbe de tendance dans les cartes KPI, même avec plusieurs mois (Val 2026-10-30)',
+    async () => {
+      const ligne = ZD_PAYLOAD.kpi.data[0]!;
+      renderClient({
+        ...ZD_PAYLOAD,
+        kpi: kpiResult([ligne, { ...ligne, mois: '2026-05-01' }]),
+      });
+      const titre = await screen.findByText(
+        'Nombre de collectes',
+        undefined,
+        ATTENTE_UI,
+      );
+      let grille: HTMLElement | null = titre;
+      while (grille && !grille.className.includes('grid'))
+        grille = grille.parentElement;
+      expect(grille).not.toBeNull();
+      expect(grille!.querySelector('polyline')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.1/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD',
     async () => {
       renderClient(ZD_PAYLOAD);

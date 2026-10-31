@@ -7,6 +7,7 @@ import {
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
+import { refusClientFinalVide } from '@/lib/evenements/client-final.js';
 import {
   CHAMPS_EVENEMENT_EDITABLES,
   CHAMPS_TYPE_CONTACTS_COLLECTE,
@@ -246,6 +247,10 @@ export async function PATCH(
   const texteValide = validerChampsTexteLibre(updates);
   if ('error' in texteValide) return texteValide.error;
   Object.assign(updates, texteValide.valeurs);
+
+  // Client final : jamais vidé par une modification (décision Val 2026-10-30).
+  const refusClient = refusClientFinalVide(updates);
+  if (refusClient) return refusClient;
 
   // Lecture RLS-scopée (cloisonnement org : si invisible → 404).
   const rls = createSupabaseServerClient();

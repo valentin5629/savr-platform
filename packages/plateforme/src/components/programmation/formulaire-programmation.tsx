@@ -489,6 +489,7 @@ export function FormulaireProgrammation({
 
   const ecran1Valide =
     nomEvenement.trim() !== '' &&
+    nomClient.trim() !== '' &&
     lieu !== null &&
     nbZd + nbAg >= 1 &&
     (!needsTraiteurSelector || traiteurOperationnelId !== '');
@@ -659,9 +660,10 @@ export function FormulaireProgrammation({
           </FormField>
 
           <FormGrid>
-            <FormField label="Client final (optionnel)" htmlFor="nom-client">
+            <FormField label="Client final" htmlFor="nom-client" required>
               <Input
                 id="nom-client"
+                required
                 value={nomClient}
                 onChange={(e) => setNomClient(e.target.value)}
                 placeholder="Ex : Entreprise Dupont"

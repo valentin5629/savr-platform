@@ -278,7 +278,12 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
       expect(ligne).toHaveTextContent('Maison Lenôtre');
       expect(ligne).toHaveTextContent('Paris Expo');
       expect(ligne).toHaveTextContent('Kaspia');
-      expect(ligne).toHaveTextContent('2 ZD · 1 AG');
+      // Collectes par type en pictos, nombre au-delà d'une (Val 2026-10-31) :
+      // « 2 ZD » et « AG » seul.
+      expect(within(ligne).getByText('2 ZD')).toBeTruthy();
+      expect(within(ligne).getByText('AG')).toBeTruthy();
+      expect(within(ligne).queryByText('1 AG')).toBeNull();
+      expect(ligne).not.toHaveTextContent('·');
       expect(ligne).toHaveTextContent(/1\s000\skg/);
       expect(ligne).toHaveTextContent(/74\s%/);
       expect(ligne).toHaveTextContent(/42\skg/);

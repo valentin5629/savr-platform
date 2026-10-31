@@ -15,15 +15,19 @@ import {
 // - `forme="plein"` : aplat, majuscules, libellé long — sur-titre des fiches
 //   collecte (§06.04 Q2) ;
 // - `forme="badge"` : même Badge sans icône — liste Transporteurs.
+// `nombre` (pastille) : au-delà de 1, préfixe le libellé (« 2 ZD ») — colonne
+// Collectes de la liste Événements (décision Val 2026-10-31).
 // `data-testid="badge-type-collecte"` : forme `plein` seule (en-tête de fiche),
 // pour ne pas dupliquer l'identifiant dans les listes.
 export function TypeCollecteBadge({
   type,
   forme = 'pastille',
+  nombre,
   className,
 }: {
   type: string;
   forme?: 'pastille' | 'plein' | 'badge';
+  nombre?: number;
   className?: string;
 }) {
   if (forme === 'plein') {
@@ -60,6 +64,7 @@ export function TypeCollecteBadge({
       className={className}
     >
       <Icone className="h-3.5 w-3.5" aria-hidden="true" />
+      {nombre != null && nombre > 1 && `${nombre} `}
       {libelleCourtTypeCollecte(type)}
     </Badge>
   );

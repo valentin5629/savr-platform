@@ -86,8 +86,10 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
   ],
 
   // §06.04 §1 — nav traiteur (refonte 2026-05-05) : Dashboard / Collectes /
-  // Mon organisation / Mon profil, plus « Événements » sous « Collectes »
+  // Paramètres, plus « Événements » sous « Collectes »
   // (décision Val 2026-10-29 : la liste Événements est commune à tous les rôles).
+  // « Mon organisation » et « Mon profil » sont des onglets de « Paramètres »,
+  // dans tous les espaces client (décision Val 2026-10-31).
   // Identique manager et commercial (le contrôle d'accès intra-page masque
   // l'édition + la sous-section Équipe au commercial — révision 2026-05-29).
   traiteur_manager: [
@@ -109,13 +111,8 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: CalendarDotsIcon,
         },
         {
-          label: 'Mon organisation',
-          href: ROUTES.traiteur.monOrganisation,
-          icon: BuildingsIcon,
-        },
-        {
-          label: 'Mon profil',
-          href: ROUTES.traiteur.monProfil,
+          label: 'Paramètres',
+          href: ROUTES.traiteur.parametres,
           icon: GearIcon,
         },
       ],
@@ -141,13 +138,8 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: CalendarDotsIcon,
         },
         {
-          label: 'Mon organisation',
-          href: ROUTES.traiteur.monOrganisation,
-          icon: BuildingsIcon,
-        },
-        {
-          label: 'Mon profil',
-          href: ROUTES.traiteur.monProfil,
+          label: 'Paramètres',
+          href: ROUTES.traiteur.parametres,
           icon: GearIcon,
         },
       ],
@@ -173,16 +165,16 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: CalendarDotsIcon,
         },
         {
-          label: 'Mon organisation',
-          href: ROUTES.agence.monOrganisation,
-          icon: BuildingsIcon,
+          label: 'Paramètres',
+          href: ROUTES.agence.parametres,
+          icon: GearIcon,
         },
-        { label: 'Mon profil', href: ROUTES.agence.monProfil, icon: GearIcon },
       ],
     },
   ],
 
-  // §06.05 §Navigation (l.66-76) : 9 sections, dont « Collectes » et « Registre
+  // §06.05 §Navigation (l.66-76) : 9 sections (8 depuis que « Mon organisation »
+  // est un onglet de « Paramètres », décision Val 2026-10-31), dont « Collectes » et « Registre
   // réglementaire », réintégrées par Val le 2026-07-06 (CDC re-synchronisé depuis).
   // « Événements », retirée le 2026-10-07 (doublon de Collectes), est remise par
   // Val le 2026-10-18 : vue consolidée d'un événement à plusieurs collectes.
@@ -232,11 +224,6 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: PackageIcon,
         },
         {
-          label: 'Mon organisation',
-          href: ROUTES.gestionnaire.monOrganisation,
-          icon: BuildingsIcon,
-        },
-        {
           label: 'Paramètres',
           href: ROUTES.gestionnaire.parametres,
           icon: GearIcon,
@@ -276,13 +263,8 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: ClipboardTextIcon,
         },
         {
-          label: 'Mon organisation',
-          href: ROUTES.organisateur.monOrganisation,
-          icon: BuildingsIcon,
-        },
-        {
-          label: 'Mon profil',
-          href: ROUTES.organisateur.monProfil,
+          label: 'Paramètres',
+          href: ROUTES.organisateur.parametres,
           icon: GearIcon,
         },
       ],

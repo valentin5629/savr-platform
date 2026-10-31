@@ -1,18 +1,8 @@
-import { requirePageSession } from '@/lib/page-auth';
-import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
-import { PageHeader } from '@/components/ui/page-header';
+import { redirect } from 'next/navigation';
+import { ROUTES } from '@/lib/routes';
 
-const ORGANISATEUR_ROLES = ['client_organisateur'] as const;
-
-// Pas de section « Mon organisation » au CDC pour le client organisateur : ajoutée
-// par décision Val 2026-09-28 (informations légales modifiables par tous les rôles).
-export default async function MonOrganisationOrganisateurPage() {
-  await requirePageSession(ORGANISATEUR_ROLES);
-
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Mon organisation" />
-      <InfosLegalesOrganisation urlProfil="/api/v1/organisateur/mon-organisation/profil" />
-    </div>
-  );
+// « Mon organisation » vit dans « Paramètres » (décision Val 2026-10-31) :
+// l'ancienne adresse y renvoie.
+export default function MonOrganisationPage() {
+  redirect(ROUTES.organisateur.parametres);
 }

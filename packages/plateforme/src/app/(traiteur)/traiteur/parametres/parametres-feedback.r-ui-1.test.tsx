@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 
-import { MonOrganisationClient } from './mon-organisation-client';
+import { ParametresTraiteurClient } from './parametres-client';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import { messageDeRole } from '@/test-utils/message-role';
 import { renderAvecToasts } from '@/test-utils/toasts';
@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 async function ouvrirEquipe() {
-  renderAvecToasts(<MonOrganisationClient isManager userId="u1" />);
+  renderAvecToasts(<ParametresTraiteurClient isManager userId="u1" />);
   fireEvent.mouseDown(screen.getByRole('tab', { name: 'Équipe' }));
   return screen.findByText('Inviter un collaborateur', undefined, ATTENTE_UI);
 }

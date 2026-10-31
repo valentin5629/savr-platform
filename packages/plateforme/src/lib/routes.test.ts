@@ -59,8 +59,7 @@ const NAV_TRAITEUR = [
   ['Dashboard', '/traiteur'],
   ['Collectes', '/traiteur/collectes'],
   ['Événements', '/traiteur/evenements'],
-  ['Mon organisation', '/traiteur/mon-organisation'],
-  ['Mon profil', '/traiteur/mon-profil'],
+  ['Paramètres', '/traiteur/parametres'],
 ];
 const ANCIENNE_NAV: Record<string, string[][]> = {
   admin_savr: [
@@ -84,8 +83,7 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
     ['Dashboard', '/agence'],
     ['Collectes', '/agence/collectes'],
     ['Événements', '/agence/evenements'],
-    ['Mon organisation', '/agence/mon-organisation'],
-    ['Mon profil', '/agence/mon-profil'],
+    ['Paramètres', '/agence/parametres'],
   ],
   gestionnaire_lieux: [
     ['Dashboard', '/gestionnaire'],
@@ -95,7 +93,6 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
     ['Mes lieux', '/gestionnaire/lieux'],
     ['Registre réglementaire', '/registre'],
     ['Mon pack AG', '/gestionnaire/mon-pack-ag'],
-    ['Mon organisation', '/gestionnaire/mon-organisation'],
     ['Paramètres', '/gestionnaire/parametres'],
   ],
   client_organisateur: [
@@ -104,8 +101,7 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
     ['Événements', '/organisateur/evenements'],
     ['Documents', '/organisateur/documents'],
     ['Registre réglementaire', '/registre'],
-    ['Mon organisation', '/organisateur/mon-organisation'],
-    ['Mon profil', '/organisateur/mon-profil'],
+    ['Paramètres', '/organisateur/parametres'],
   ],
 };
 

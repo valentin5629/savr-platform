@@ -16,7 +16,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/',
 }));
 
-import { MonOrganisationClient } from '@/app/(traiteur)/traiteur/mon-organisation/mon-organisation-client';
+import { ParametresTraiteurClient } from '@/app/(traiteur)/traiteur/parametres/parametres-client';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const PROFIL = {
@@ -79,15 +79,19 @@ afterEach(() => {
 describe('Mon organisation — commercial traiteur', () => {
   it('onglets : Équipe visible, Préférences masqué', () => {
     stubFetch();
-    render(<MonOrganisationClient isManager={false} userId="u1" />);
-    expect(nomsOnglets()).toEqual(['Informations légales', 'Équipe']);
+    render(<ParametresTraiteurClient isManager={false} userId="u1" />);
+    expect(nomsOnglets()).toEqual([
+      'Informations légales',
+      'Équipe',
+      'Mon profil',
+    ]);
   });
 
   it(
     'informations légales en lecture seule, sans « Enregistrer »',
     async () => {
       stubFetch();
-      render(<MonOrganisationClient isManager={false} userId="u1" />);
+      render(<ParametresTraiteurClient isManager={false} userId="u1" />);
       expect(await screen.findByText('Org SAS', {}, ATTENTE_UI)).toBeTruthy();
       expect(screen.getByText('12345678900011')).toBeTruthy();
       expect(screen.queryByLabelText('Raison sociale')).toBeNull();
@@ -100,7 +104,7 @@ describe('Mon organisation — commercial traiteur', () => {
     'équipe : ni rôle modifiable ni « Suspendre » ; transfert de ses collectes seules',
     async () => {
       stubFetch();
-      render(<MonOrganisationClient isManager={false} userId="u1" />);
+      render(<ParametresTraiteurClient isManager={false} userId="u1" />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Équipe' }));
 
       expect(
@@ -119,7 +123,7 @@ describe('Mon organisation — commercial traiteur', () => {
     'pendant manager : rôle modifiable, « Suspendre » et champ « Depuis »',
     async () => {
       stubFetch();
-      render(<MonOrganisationClient isManager userId="u2" />);
+      render(<ParametresTraiteurClient isManager userId="u2" />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Équipe' }));
 
       expect(

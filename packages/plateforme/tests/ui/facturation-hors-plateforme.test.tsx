@@ -42,9 +42,9 @@ vi.mock('@/lib/page-auth', () => ({
   requirePageSession: vi.fn(async () => ({})),
 }));
 
-import { MonOrganisationClient } from '@/app/(traiteur)/traiteur/mon-organisation/mon-organisation-client';
-import MonOrganisationGestionnairePage from '@/app/(gestionnaire)/gestionnaire/mon-organisation/page';
-import MonOrganisationAgencePage from '@/app/(agence)/agence/mon-organisation/page';
+import { ParametresTraiteurClient } from '@/app/(traiteur)/traiteur/parametres/parametres-client';
+import { ParametresGestionnaireClient } from '@/app/(gestionnaire)/gestionnaire/parametres/parametres-client';
+import ParametresAgencePage from '@/app/(agence)/agence/parametres/page';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal.js';
 import {
   ficheClient,
@@ -99,9 +99,13 @@ describe('facturation_hors_plateforme — Mon organisation', () => {
     'traiteur : plus d’onglet Facturation, la carte des entités (SIRET) reste',
     async () => {
       const fetchMock = stubFetchProfil();
-      render(<MonOrganisationClient isManager userId="u1" />);
+      render(<ParametresTraiteurClient isManager userId="u1" />);
 
-      expect(nomsOnglets()).toEqual(['Informations légales', 'Équipe']);
+      expect(nomsOnglets()).toEqual([
+        'Informations légales',
+        'Équipe',
+        'Mon profil',
+      ]);
       // Gardée : le SIRET vérifié de l'entité est requis pour l'attestation AG.
       expect(
         await screen.findByText('Entités de facturation', {}, ATTENTE_UI),
@@ -118,9 +122,9 @@ describe('facturation_hors_plateforme — Mon organisation', () => {
     'gestionnaire de lieux : plus d’onglet Factures, aucune requête de factures',
     async () => {
       const fetchMock = stubFetchProfil();
-      render(<MonOrganisationGestionnairePage />);
+      render(<ParametresGestionnaireClient />);
 
-      expect(nomsOnglets()).toEqual(['Profil', 'Membres']);
+      expect(nomsOnglets()).toEqual(['Organisation', 'Membres', 'Mon profil']);
       await screen.findByDisplayValue('Org SAS', {}, ATTENTE_UI);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
       await waitFor(
@@ -137,7 +141,7 @@ describe('facturation_hors_plateforme — Mon organisation', () => {
     'agence : plus de carte Facturation, les informations légales restent',
     async () => {
       const fetchMock = stubFetchProfil();
-      render(await MonOrganisationAgencePage());
+      render(await ParametresAgencePage({ searchParams: Promise.resolve({}) }));
 
       expect(
         await screen.findByDisplayValue('Org SAS', {}, ATTENTE_UI),

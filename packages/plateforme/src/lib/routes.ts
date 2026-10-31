@@ -108,6 +108,9 @@ const O = ESPACES.organisateur.prefixe;
 const PROG = '/programmer';
 const REG = '/registre';
 
+/** Onglet « Mon profil » de la page « Paramètres » des espaces client. */
+export const ONGLET_PROFIL = 'profil';
+
 export const ROUTES = {
   racine: '/',
   login: '/login',
@@ -168,8 +171,8 @@ export const ROUTES = {
     collectes: `${T}/collectes`,
     collecte: (id: string) => `${T}/collectes/${id}`,
     evenements: `${T}/evenements`,
-    monOrganisation: `${T}/mon-organisation`,
-    monProfil: `${T}/mon-profil`,
+    parametres: `${T}/parametres`,
+    parametresProfil: `${T}/parametres?onglet=${ONGLET_PROFIL}`,
   },
 
   agence: {
@@ -177,8 +180,8 @@ export const ROUTES = {
     collectes: `${AG}/collectes`,
     collecte: (id: string) => `${AG}/collectes/${id}`,
     evenements: `${AG}/evenements`,
-    monOrganisation: `${AG}/mon-organisation`,
-    monProfil: `${AG}/mon-profil`,
+    parametres: `${AG}/parametres`,
+    parametresProfil: `${AG}/parametres?onglet=${ONGLET_PROFIL}`,
   },
 
   gestionnaire: {
@@ -192,7 +195,6 @@ export const ROUTES = {
     traiteurs: `${G}/traiteurs`,
     traiteur: (id: string) => `${G}/traiteurs/${id}`,
     monPackAg: `${G}/mon-pack-ag`,
-    monOrganisation: `${G}/mon-organisation`,
     parametres: `${G}/parametres`,
   },
 
@@ -201,8 +203,8 @@ export const ROUTES = {
     collectes: `${O}/collectes`,
     evenements: `${O}/evenements`,
     documents: `${O}/documents`,
-    monOrganisation: `${O}/mon-organisation`,
-    monProfil: `${O}/mon-profil`,
+    parametres: `${O}/parametres`,
+    parametresProfil: `${O}/parametres?onglet=${ONGLET_PROFIL}`,
   },
 } as const;
 

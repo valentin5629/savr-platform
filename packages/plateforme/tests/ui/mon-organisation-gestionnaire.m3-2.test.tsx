@@ -13,7 +13,7 @@ import {
   within,
 } from '@testing-library/react';
 
-import MonOrganisationPage from '@/app/(gestionnaire)/gestionnaire/mon-organisation/page.js';
+import { ParametresGestionnaireClient } from '@/app/(gestionnaire)/gestionnaire/parametres/parametres-client';
 import { messageDeRole } from '@/test-utils/message-role';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import { renderAvecToasts } from '@/test-utils/toasts';
@@ -53,7 +53,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         'fetch',
         vi.fn(() => Promise.resolve(reponse(200, { data: PROFIL }))),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient />);
       expect(
         await screen.findByDisplayValue('Viparis SAS', {}, ATTENTE_UI),
       ).toBeTruthy();
@@ -69,7 +69,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         'fetch',
         vi.fn(() => Promise.resolve(reponse(200, { data: PROFIL }))),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient />);
       await screen.findByDisplayValue('Viparis SAS', {}, ATTENTE_UI);
       // Raison sociale, SIRET, adresse modifiables (décision Val 2026-09-28) ;
       // nom, email, téléphone en lecture seule (+ l'upload logo à part).
@@ -103,7 +103,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
       );
       vi.stubGlobal('fetch', fetchMock);
       // Succès = toast (R-UI-1 H1) : rendu sous ToastProvider.
-      renderAvecToasts(<MonOrganisationPage />);
+      renderAvecToasts(<ParametresGestionnaireClient />);
       const champ = await screen.findByLabelText('Adresse', {}, ATTENTE_UI);
       const bouton = screen.getByRole('button', { name: 'Enregistrer' });
       // Rien à enregistrer tant que l'adresse n'a pas changé.
@@ -144,7 +144,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient />);
       const champ = await screen.findByLabelText('Adresse', {}, ATTENTE_UI);
       fireEvent.change(champ, { target: { value: '1 rue Neuve' } });
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -169,7 +169,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      renderAvecToasts(<MonOrganisationPage />);
+      renderAvecToasts(<ParametresGestionnaireClient />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -213,7 +213,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      renderAvecToasts(<MonOrganisationPage />);
+      renderAvecToasts(<ParametresGestionnaireClient />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -248,7 +248,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      renderAvecToasts(<MonOrganisationPage />);
+      renderAvecToasts(<ParametresGestionnaireClient />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -292,7 +292,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       // DataGrid rend chaque ligne deux fois (tableau + carte mobile) : on
       // borne les assertions au tableau.
@@ -328,7 +328,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      renderAvecToasts(<MonOrganisationPage />);
+      renderAvecToasts(<ParametresGestionnaireClient />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
       const email = await screen.findByLabelText(/Email/, {}, ATTENTE_UI);
       fireEvent.change(screen.getByLabelText(/Prénom/), {
@@ -375,7 +375,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         'fetch',
         vi.fn(() => Promise.resolve(reponse(500, { error: 'Erreur serveur' }))),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient />);
       expect(
         (await messageDeRole('alert', /Impossible de charger/)).textContent,
       ).toMatch(/Impossible de charger/);
@@ -399,7 +399,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
             : Promise.resolve(reponse(200, { data: [] })),
         ),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       expect(
         await screen.findByText('Aucune facture.', {}, ATTENTE_UI),

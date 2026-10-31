@@ -20,7 +20,6 @@ import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFiltresUrl } from '@/lib/hooks/use-filtres-url';
 import {
   FILTRES_FACTURES,
@@ -30,7 +29,11 @@ import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
 import { LogoCard } from '@/components/organisation/logo-card';
 import { InviterUtilisateurCarte } from '@/components/organisation/inviter-utilisateur-modal';
-import { PageHeader } from '@/components/ui/page-header';
+import {
+  ParametresOnglets,
+  type OngletParametres,
+} from '@/components/parametres/parametres-onglets';
+import { ONGLET_PROFIL } from '@/lib/routes';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { FormActions } from '@/components/ui/form-actions';
@@ -40,8 +43,6 @@ import { libelleActif } from '@/lib/libelles/actif';
 
 // Ids des filtres typés par l'enum DB : un renommage casse la compilation au
 // lieu de devenir un filtre ignoré en silence par la route (liste blanche).
-
-type OrgTab = 'infos' | 'equipe' | 'facturation';
 
 interface OrgProfil {
   id: string;
@@ -96,53 +97,60 @@ const ROLE_OPTIONS = [
   { value: 'traiteur_manager', label: 'Manager' },
 ];
 
-export function MonOrganisationClient({
+// « Mon organisation » et « Mon profil » réunis dans « Paramètres » (décision
+// Val 2026-10-31). `profil` = contenu de l'ancienne page « Mon profil », rendu
+// côté serveur.
+export function ParametresTraiteurClient({
   isManager,
   userId,
+  profil,
+  initial,
 }: {
   isManager: boolean;
   userId: string;
+  profil?: React.ReactNode;
+  initial?: string | string[];
 }) {
-  const [tab, setTab] = useState<OrgTab>('infos');
+  const onglets: OngletParametres[] = [
+    {
+      value: 'infos',
+      label: 'Informations légales',
+      contenu: <InfosTab isManager={isManager} />,
+    },
+    // Équipe : visible du commercial, réduite à inviter et transférer ses
+    // collectes (Val 2026-10-30).
+    {
+      value: 'equipe',
+      label: 'Équipe',
+      contenu: <EquipeTab userId={userId} isManager={isManager} />,
+    },
+    ...(facturationPlateformeActive()
+      ? [
+          {
+            value: 'facturation',
+            label: 'Facturation',
+            contenu: <FacturationTab isManager={isManager} />,
+          },
+        ]
+      : []),
+    // Préférences masqué (Val 2026-10-30) : la langue n'a qu'une valeur pour l'instant.
+    { value: ONGLET_PROFIL, label: 'Mon profil', contenu: profil },
+  ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Mon organisation" />
-      {!isManager && (
-        <Text>
-          Les informations de l&apos;organisation ne sont modifiables que par le
-          manager. Vous pouvez inviter un collaborateur et transférer vos
-          collectes à un collègue.
-        </Text>
-      )}
-
-      {/* Onglets du DS (R-UI-4b, D4) : un seul contenu monté à la fois. */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as OrgTab)}>
-        <TabsList className="w-full flex-wrap justify-start">
-          <TabsTrigger value="infos">Informations légales</TabsTrigger>
-          {/* Équipe : visible du commercial, réduite à inviter et transférer
-              ses collectes (Val 2026-10-30). */}
-          <TabsTrigger value="equipe">Équipe</TabsTrigger>
-          {/* Facturation hors plateforme au go-live (décision Val 2026-10-22). */}
-          {facturationPlateformeActive() && (
-            <TabsTrigger value="facturation">Facturation</TabsTrigger>
-          )}
-          {/* Préférences masqué (Val 2026-10-30) : la langue n'a qu'une valeur pour l'instant. */}
-        </TabsList>
-
-        <TabsContent value="infos">
-          <InfosTab isManager={isManager} />
-        </TabsContent>
-        <TabsContent value="equipe">
-          <EquipeTab userId={userId} isManager={isManager} />
-        </TabsContent>
-        {facturationPlateformeActive() && (
-          <TabsContent value="facturation">
-            <FacturationTab isManager={isManager} />
-          </TabsContent>
-        )}
-      </Tabs>
-    </div>
+    <ParametresOnglets
+      onglets={onglets}
+      initial={initial}
+      entete={
+        !isManager && (
+          <Text>
+            Les informations de l&apos;organisation ne sont modifiables que par
+            le manager. Vous pouvez inviter un collaborateur et transférer vos
+            collectes à un collègue.
+          </Text>
+        )
+      }
+    />
   );
 }
 

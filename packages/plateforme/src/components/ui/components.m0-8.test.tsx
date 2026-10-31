@@ -54,6 +54,7 @@ import { FormError } from '@/components/ui/form-error';
 import { Input } from '@/components/ui/input';
 import { StatCard, StatCardGrid } from '@/components/ui/stat-card';
 import { Sidebar } from '@/components/layout/sidebar';
+import { ROUTES } from '@/lib/routes';
 import { getNavItems } from '@/lib/nav-config';
 import type { NavRole as Role } from '@/lib/roles';
 
@@ -470,19 +471,9 @@ it('M0.8-15 — Sidebar affiche le fond primary-700/800 (levier #2)', () => {
 const NAV_EXPECTATIONS: Record<Role, string[]> = {
   admin_savr: ['Clients', 'Paramètres', 'Collectes'],
   // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1.
-  traiteur_manager: [
-    'Dashboard',
-    'Collectes',
-    'Mon organisation',
-    'Mon profil',
-  ],
-  traiteur_commercial: [
-    'Dashboard',
-    'Collectes',
-    'Mon organisation',
-    'Mon profil',
-  ],
-  agence: ['Dashboard', 'Collectes', 'Mon organisation', 'Mon profil'],
+  traiteur_manager: ['Dashboard', 'Collectes', 'Paramètres'],
+  traiteur_commercial: ['Dashboard', 'Collectes', 'Paramètres'],
+  agence: ['Dashboard', 'Collectes', 'Paramètres'],
   gestionnaire_lieux: [
     'Dashboard',
     'Mes lieux',
@@ -543,7 +534,11 @@ it('M0.8-22 — entrées non autorisées pour le rôle sont absentes de la navig
     (i) => i.label,
   );
   expect(commercialItems).not.toContain('Clients');
-  expect(commercialItems).not.toContain('Paramètres');
+  // Ni les paramètres Admin : son « Paramètres » est celui de son espace
+  // (décision Val 2026-10-31).
+  expect(getNavItems('traiteur_commercial').map((i) => i.href)).not.toContain(
+    ROUTES.admin.parametres,
+  );
 
   // Un client_organisateur ne doit pas voir les entrées admin
   const clientItems = getNavItems('client_organisateur').map((i) => i.label);

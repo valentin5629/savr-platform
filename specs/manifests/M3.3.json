@@ -10,7 +10,7 @@
     "packages/plateforme/src/app/(agence)/agence/collectes/page.tsx",
     "packages/plateforme/src/app/(agence)/agence/collectes/[id]/page.tsx",
     "packages/plateforme/src/app/(agence)/agence/mon-organisation/page.tsx",
-    "packages/plateforme/src/app/(agence)/agence/mon-profil/page.tsx",
+    "packages/plateforme/src/app/(agence)/agence/parametres/page.tsx",
     "packages/plateforme/src/app/api/v1/agence/collectes/route.ts",
     "packages/plateforme/src/app/api/v1/agence/collectes/[id]/route.ts",
     "packages/plateforme/src/app/api/v1/agence/collectes/[id]/annulation/route.ts",

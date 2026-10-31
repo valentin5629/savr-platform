@@ -15,7 +15,7 @@
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/[id]/page.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/traiteurs/page.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/traiteurs/[id]/page.tsx",
-    "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-organisation/page.tsx",
+    "packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/parametres-client.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/page.tsx",
     "packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts",
@@ -887,7 +887,7 @@
     {
       "id": "M3.2-mon-organisation-page",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
-      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-organisation/page.tsx",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/parametres-client.tsx",
       "test": "M3.2/mon_organisation_profil_affiche + M3.2/mon_organisation_erreur_affichee + M3.2/mon_organisation_factures_lignes_pdf_pennylane_prioritaire + M3.2/mon_organisation_erreur_onglet_quitte_ignoree",
       "statut": "implemented",
       "libelle": "Page Mon organisation (§06.05 nav 8) : profil, factures, état d'erreur"
@@ -895,7 +895,7 @@
     {
       "id": "M3.2-bloc-organisation-edition",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:474",
-      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-organisation/page.tsx + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/logo/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/profil/route.ts + packages/plateforme/src/lib/logo-upload.ts",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/parametres-client.tsx + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/logo/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/profil/route.ts + packages/plateforme/src/lib/logo-upload.ts",
       "test": "M3.2/mon_organisation_champs_editables_et_lecture_seule + M3.2/mon_organisation_adresse_enregistree + M3.2/mon_organisation_adresse_erreur_serveur_affichee + M3.2/mon_organisation_logo_upload_puis_enregistre + M3.2/mon_organisation_logo_refuse_sans_patch + M3.2/mon_organisation_logo_envoye_non_enregistre + M3.2/profil_patch_logo_cle_upload_acceptee + M3.2/profil_patch_logo_invalide_422 + M3.2/profil_patch_adresse_trim_et_vide_null + M3.2/profil_patch_adresse_invalide_422 + M3.2/logo_upload_201 + M3.2/logo_upload_format_refuse_422 + M3.2/logo_upload_trop_lourd_422 + M3.2/logo_upload_role_traiteur_403 + M3.2/logo_get_sert_le_logo_de_sa_propre_organisation + M3.2/logo_get_404",
       "statut": "implemented",
       "libelle": "Bloc Organisation §06.05 §6 : nom en lecture seule (via support), raison sociale / SIRET / adresse modifiables (raison sociale + SIRET : décision Val 2026-09-28, divergence M3.1_20260928_edition-infos-organisation-tous-roles), logo en upload / remplacement (R2, JPG/PNG ≤ 2 Mo). Email et téléphone en lecture seule. PATCH /profil n'accepte comme logo_url qu'une clé validée par lib/logo-key.ts ; le proxy GET /logo ne sert que le logo de sa propre organisation."

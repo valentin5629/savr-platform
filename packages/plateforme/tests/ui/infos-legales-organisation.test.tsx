@@ -249,8 +249,13 @@ describe('Export des données personnelles — retiré de l’écran', () => {
 
 describe('Navigation — accès à ses informations pour tous les rôles', () => {
   it.each([
-    ['client_organisateur', '/organisateur/mon-organisation'],
-    ['client_organisateur', '/organisateur/mon-profil'],
+    // « Mon organisation » et « Mon profil » = onglets de « Paramètres »
+    // (décision Val 2026-10-31).
+    ['client_organisateur', '/organisateur/parametres'],
+    ['traiteur_manager', '/traiteur/parametres'],
+    ['traiteur_commercial', '/traiteur/parametres'],
+    ['agence', '/agence/parametres'],
+    ['gestionnaire_lieux', '/gestionnaire/parametres'],
     ['admin_savr', '/admin/mon-profil'],
   ] as const)('%s → %s', (role, href) => {
     const hrefs = NAV_CONFIG[role].flatMap((g) => g.items.map((i) => i.href));

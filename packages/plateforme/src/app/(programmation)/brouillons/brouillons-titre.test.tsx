@@ -142,7 +142,7 @@ describe('M1.2 / nom_evenement_client_final — titres des brouillons', () => {
           ATTENTE_UI,
         ),
       ).toBe(screen.getByLabelText(/Nom de l'événement/));
-      expect(screen.getByLabelText('Client final (optionnel)')).toHaveValue(
+      expect(screen.getByLabelText(/^Client final/)).toHaveValue(
         'Maison Dupont',
       );
     },

@@ -233,6 +233,8 @@ const CARTE_ZD = {
   type_evenement_id: TYPE_EVT,
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+  contact_secours_nom: 'Sam Roux',
+  contact_secours_telephone: '0733333333',
 };
 
 const BODY_ZD = {
@@ -706,7 +708,7 @@ describe('bornes texte libre — contacts sur les routes collecte', () => {
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/traiteur/collectes/col-1', {
         contact_secours_nom: '  Claire Bonnet  ',
-        contact_secours_telephone: '   ',
+        contact_secours_telephone: '  07 11 11 11 11  ',
       }),
       { params: Promise.resolve({ id: 'col-1' }) },
     );
@@ -716,7 +718,7 @@ describe('bornes texte libre — contacts sur les routes collecte', () => {
       expect.objectContaining({
         p_updates: {
           contact_secours_nom: 'Claire Bonnet',
-          contact_secours_telephone: null,
+          contact_secours_telephone: '07 11 11 11 11',
         },
       }),
     );
@@ -739,7 +741,7 @@ describe('bornes texte libre — contacts sur les routes collecte', () => {
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/admin/collectes/col-1', {
         contact_secours_nom: '  Hugo Petit  ',
-        contact_secours_telephone: '   ',
+        contact_secours_telephone: '  07 22 22 22 22  ',
       }),
       { params: Promise.resolve({ id: 'col-1' }) },
     );
@@ -749,11 +751,62 @@ describe('bornes texte libre — contacts sur les routes collecte', () => {
       expect.objectContaining({
         p_updates: {
           contact_secours_nom: 'Hugo Petit',
-          contact_secours_telephone: null,
+          contact_secours_telephone: '07 22 22 22 22',
         },
       }),
     );
   });
+
+  // Contact de secours obligatoire (décision Val 2026-10-30) : un secours
+  // vidé ou blanc est refusé sur les quatre routes, jamais normalisé en null.
+  for (const [espace, role, charger] of [
+    [
+      'traiteur',
+      'traiteur_manager',
+      () => import('@/app/api/v1/traiteur/collectes/[id]/route.js'),
+    ],
+    [
+      'gestionnaire',
+      'gestionnaire_lieux',
+      () => import('@/app/api/v1/gestionnaire/collectes/[id]/route.js'),
+    ],
+    [
+      'agence',
+      'agence',
+      () => import('@/app/api/v1/agence/collectes/[id]/route.js'),
+    ],
+    [
+      'admin',
+      'admin_savr',
+      () => import('@/app/api/v1/admin/collectes/[id]/route.js'),
+    ],
+  ] as const) {
+    for (const [champ, valeur] of [
+      ['contact_secours_nom', null],
+      ['contact_secours_telephone', '   '],
+    ] as const) {
+      it(`PATCH /${espace}/collectes/[id] : ${champ} vidé → 422, fn_modifier_collecte jamais appelée`, async () => {
+        setupAuth(role);
+        const { PATCH } = await charger();
+        const res = await PATCH(
+          makeReq('PATCH', `/api/v1/${espace}/collectes/col-1`, {
+            [champ]: valeur,
+          }),
+          { params: Promise.resolve({ id: 'col-1' }) },
+        );
+
+        expect(res.status).toBe(422);
+        expect(await res.json()).toMatchObject({
+          error: 'Le contact de secours et son téléphone sont obligatoires.',
+          champ,
+        });
+        expect(mockRpc).not.toHaveBeenCalledWith(
+          'fn_modifier_collecte',
+          expect.anything(),
+        );
+      });
+    }
+  }
 });
 
 // ── Écriture de `informations_supplementaires` au niveau collecte ─────────────

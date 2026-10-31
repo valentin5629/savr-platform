@@ -64,7 +64,6 @@ export * from '@/components/ui/loading-state';
 export * from '@/components/ui/page-header';
 export * from '@/components/ui/radio-group';
 export * from '@/components/ui/section-header';
-export * from '@/components/ui/sparkline';
 export * from '@/components/ui/text';
 export * from '@/components/ui/text-link';
 export * from '@/components/ui/toggle-chip';

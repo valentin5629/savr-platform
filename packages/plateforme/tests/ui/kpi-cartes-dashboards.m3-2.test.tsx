@@ -1,12 +1,11 @@
 /**
- * Cartes KPI : sparkline + variation N-1 (sauf kg/pax) sur les dashboards
- * gestionnaire (§06.05 l.136), agence (§11 §4 = traiteur à l'identique, §06.04
- * l.92) et Dashboard Client Admin (§11 §1.2 = reprise exacte du gestionnaire).
- * Seul le traiteur les affichait ; les trois autres montraient valeur seule.
+ * Cartes KPI : variation N-1 (sauf kg/pax), sans courbe de tendance, sur les
+ * dashboards gestionnaire (§06.05), agence (§11 §4 = traiteur à l'identique) et
+ * Dashboard Client Admin (§11 §1.2 = reprise exacte du gestionnaire). La courbe
+ * des cartes est retirée de tous les dashboards (Val 2026-10-30).
  *
- * Gestionnaire / Admin n'ont pas de lignes KPI mensuelles : la sparkline vient
- * de la série d'évolution (enrichie de nb_collectes / pax / co2 par bucket) et
- * la variation d'un second appel du même endpoint sur `previousWindow`.
+ * Gestionnaire / Admin n'ont pas de lignes KPI mensuelles : la variation vient
+ * d'un second appel du même endpoint sur `previousWindow`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
@@ -24,7 +23,6 @@ import {
   buildEvolutionSeries,
   type EvoCollecteRow,
 } from '@/lib/dashboards/loaders.js';
-import { sparkFromSeries } from '@/lib/dashboards/cockpit-derive.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 function jsonResponse(obj: unknown): Promise<Response> {
@@ -100,7 +98,7 @@ const SERIE_ZD = [
 ];
 
 // ── Fonctions pures ──────────────────────────────────────────────────────────
-describe('Série d’évolution enrichie pour les sparklines', () => {
+describe('Série d’évolution enrichie par bucket', () => {
   const evt = (id: string, pax: number) => ({
     id,
     lieu_id: 'l',
@@ -199,11 +197,6 @@ describe('Série d’évolution enrichie pour les sparklines', () => {
     });
     expect(b!.ratio as number).toBeCloseTo(50 / 130, 6);
   });
-
-  it('M3.2/kpi_sparkline_moins_de_deux_points_masquee', () => {
-    expect(sparkFromSeries([{ v: 3 }], (p) => p.v)).toEqual([]);
-    expect(sparkFromSeries([{ v: 3 }, { v: '4' }], (p) => p.v)).toEqual([3, 4]);
-  });
 });
 
 // ── Gestionnaire (§06.05 l.136) ──────────────────────────────────────────────
@@ -252,9 +245,9 @@ function gestionnaireFetch() {
   });
 }
 
-describe('M3.2 / gestionnaire — sparkline + variation N-1', () => {
+describe('M3.2 / gestionnaire — variation N-1, sans courbe', () => {
   it(
-    'M3.2/kpi_cartes_sparkline_et_variation_n1',
+    'M3.2/kpi_cartes_variation_n1_sans_courbe',
     async () => {
       const fetchMock = gestionnaireFetch();
       vi.stubGlobal('fetch', fetchMock);
@@ -264,11 +257,9 @@ describe('M3.2 / gestionnaire — sparkline + variation N-1', () => {
       // 12 vs 6 → +100 % ; tonnage 1200 vs 1000 → +20 %.
       expect(carte('Nombre de collectes')).toHaveTextContent('▲ 100,0 %');
       expect(carte('Tonnage collecté')).toHaveTextContent('▲ 20,0 %');
-      expect(
-        carte('Nombre de collectes').querySelector('polyline'),
-      ).not.toBeNull();
-      // kg/pax : sparkline, jamais de variation.
-      expect(carte('kg/pax moyen').querySelector('polyline')).not.toBeNull();
+      expect(carte('Nombre de collectes').querySelector('polyline')).toBeNull();
+      // kg/pax : jamais de variation, ni courbe.
+      expect(carte('kg/pax moyen').querySelector('polyline')).toBeNull();
       expect(carte('kg/pax moyen').textContent).not.toMatch(/[▲▼]/);
 
       // Le 2e appel porte bien la période précédente équivalente, accolée.
@@ -287,9 +278,9 @@ describe('M3.2 / gestionnaire — sparkline + variation N-1', () => {
 });
 
 // ── Agence (§11 §4 : traiteur à l'identique) ─────────────────────────────────
-describe('M3.3 / agence — sparkline + variation N-1', () => {
+describe('M3.3 / agence — variation N-1, sans courbe', () => {
   it(
-    'M3.3/kpi_cartes_sparkline_et_variation_n1',
+    'M3.3/kpi_cartes_variation_n1_sans_courbe',
     async () => {
       const ligne = (mois: string, nb: number) => ({
         mois,
@@ -334,9 +325,7 @@ describe('M3.3 / agence — sparkline + variation N-1', () => {
 
       // 10 vs 5 → +100 %, et la N-1 est bien demandée (compare=n1).
       expect(carte('Nombre de collectes')).toHaveTextContent('▲ 100,0 %');
-      expect(
-        carte('Nombre de collectes').querySelector('polyline'),
-      ).not.toBeNull();
+      expect(carte('Nombre de collectes').querySelector('polyline')).toBeNull();
       expect(carte('kg/pax moyen').textContent).not.toMatch(/[▲▼]/);
       expect(
         fetchMock.mock.calls.some(
@@ -351,9 +340,9 @@ describe('M3.3 / agence — sparkline + variation N-1', () => {
 });
 
 // ── Dashboard Client Admin (§11 §1.2 : reprise exacte du gestionnaire) ───────
-describe('M3.6 / dashboard-client Admin — sparkline + variation N-1', () => {
+describe('M3.6 / dashboard-client Admin — variation N-1, sans courbe', () => {
   it(
-    'M3.6/kpi_cartes_sparkline_et_variation_n1_co2_compris',
+    'M3.6/kpi_cartes_variation_n1_co2_compris_sans_courbe',
     async () => {
       let appels = 0;
       const payload = (courant: boolean) => ({
@@ -410,10 +399,8 @@ describe('M3.6 / dashboard-client Admin — sparkline + variation N-1', () => {
 
       expect(carte('Nombre de collectes')).toHaveTextContent('▲ 50,0 %');
       expect(carte('CO₂ évité')).toHaveTextContent('▲ 100,0 %');
-      expect(carte('CO₂ évité').querySelector('polyline')).not.toBeNull();
-      expect(
-        carte('Tonnage collecté').querySelector('polyline'),
-      ).not.toBeNull();
+      expect(carte('CO₂ évité').querySelector('polyline')).toBeNull();
+      expect(carte('Tonnage collecté').querySelector('polyline')).toBeNull();
       expect(carte('kg/pax moyen').textContent).not.toMatch(/[▲▼]/);
     },
     ATTENTE_CAS_MS,

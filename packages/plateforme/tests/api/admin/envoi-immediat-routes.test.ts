@@ -586,6 +586,7 @@ const EVENEMENT = {
   lieu_id: 'lieu-1',
   pax: 100,
   nom_evenement: 'Soirée de gala',
+  nom_client_organisateur: 'Entreprise Dupont',
   date_evenement: '2099-01-20',
   statut: 'programmee',
   organisation: { nom: 'Traiteur Dupont' },
@@ -630,6 +631,11 @@ interface CasRoute {
   ligne?: Record<string, unknown>;
   /** Collectes rendues par une lecture de liste (défaut : la seule ligne). */
   collectes?: Record<string, unknown>[];
+  /**
+   * Contacts de secours des collectes lus par la confirmation d'un brouillon :
+   * complets par défaut, absents si `secoursIncomplet`.
+   */
+  secoursIncomplet?: boolean;
   /** Fonction émettrice appelée, et ce qu'elle rend quand elle réussit. */
   emetteur: string;
   rend: unknown;
@@ -644,7 +650,10 @@ interface CasRoute {
    * de la route le refuse (celle qui précède le frein de débit).
    */
   refusGarde?: Partial<
-    Pick<CasRoute, 'ligne' | 'corps' | 'collectes' | 'autresRpc'>
+    Pick<
+      CasRoute,
+      'ligne' | 'corps' | 'collectes' | 'autresRpc' | 'secoursIncomplet'
+    >
   >;
   /** Modification d'un objet : la clé que la route doit donner au frein. */
   modification?: { collecte: string } | { evenement: string };
@@ -670,6 +679,8 @@ const carte = (date_collecte: string) => ({
   type_evenement_id: TYPE_EVENEMENT,
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+  contact_secours_nom: 'Sam Roux',
+  contact_secours_telephone: '0733333333',
 });
 
 const PROGRAMMATION = {
@@ -989,9 +1000,9 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_confirmer_programmation_brouillon',
     rend: null,
     attendu: ['col-1'],
-    // Dernière garde avant le frein : aucune collecte en brouillon (la garde
-    // pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
-    refusGarde: { collectes: [] },
+    // Dernière garde avant le frein : contact de secours manquant (obligatoire,
+    // décision Val 2026-10-30).
+    refusGarde: { secoursIncomplet: true },
   },
   {
     nom: 'Programmation — brouillon confirmé, deux collectes',
@@ -1008,9 +1019,9 @@ const CAS: CasRoute[] = [
     emetteur: 'fn_confirmer_programmation_brouillon',
     rend: null,
     attendu: ['col-1', 'col-2'],
-    // Dernière garde avant le frein : aucune collecte en brouillon (la garde
-    // pack AG, qui la suivait, est retirée — décision Val 2026-10-16).
-    refusGarde: { collectes: [] },
+    // Dernière garde avant le frein : contact de secours manquant (obligatoire,
+    // décision Val 2026-10-30).
+    refusGarde: { secoursIncomplet: true },
   },
 ];
 
@@ -1049,6 +1060,14 @@ function base(cas: CasRoute, reponse: Reponse) {
     collectes: () => cas.collectes ?? [ligne],
     outbox_events: () => ordresEnFile(...cas.attendu).data,
     types_evenements: () => [{ id: TYPE_EVENEMENT }],
+    collecte_contacts: () =>
+      cas.secoursIncomplet
+        ? []
+        : (cas.collectes ?? [ligne]).map((c) => ({
+            collecte_id: c.id,
+            contact_secours_nom: 'Sam Roux',
+            contact_secours_telephone: '0733333333',
+          })),
   };
   chaine.then = (resolve) =>
     resolve({ data: (listes[table] ?? (() => [ligneLue()]))(), error: null });

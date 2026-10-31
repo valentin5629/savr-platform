@@ -48,10 +48,7 @@ import {
 import {
   aggregateKpis,
   co2Totals,
-  kgParPaxDeLigne,
-  repasParPaxDeLigne,
   variationPct,
-  sparkFromRows,
   aggregateBenchmarkPerFlux,
   benchmarkItems,
   FACTEURS_CO2_DEFAUT,
@@ -396,7 +393,6 @@ export function TraiteurDashboardClient({
                 value={fmtInt(agg.nbCollectes)}
                 dotColor={KPI_DOT.navy}
                 variationPct={variationPct(agg.nbCollectes, prev.nbCollectes)}
-                sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
               />
               <StatCard
                 label="Tonnage collecté"
@@ -404,7 +400,6 @@ export function TraiteurDashboardClient({
                 unit={fmtMasse(agg.tonnage).unit}
                 dotColor={KPI_DOT.navy2}
                 variationPct={variationPct(agg.tonnage, prev.tonnage)}
-                sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
               />
               <StatCard
                 label="Taux de recyclage"
@@ -412,18 +407,12 @@ export function TraiteurDashboardClient({
                 unit={agg.taux != null ? '%' : undefined}
                 dotColor={KPI_DOT.green}
                 variationPct={variationPct(agg.taux ?? 0, prev.taux ?? 0)}
-                sparkPoints={sparkFromRows(
-                  rows,
-                  (r) => r.taux_recyclage_pondere,
-                )}
-                sparkColor={KPI_DOT.green}
               />
               <StatCard
                 label="kg/pax moyen"
                 value={agg.kgPax != null ? fmtDec(agg.kgPax, 2) : '—'}
                 unit={agg.kgPax != null ? 'kg/pax' : undefined}
                 dotColor={KPI_DOT.navy3}
-                sparkPoints={sparkFromRows(rows, kgParPaxDeLigne)}
               />
               {/* CO₂ évité des collectes réalisées sur la période (retour Val —
                 remplace « Marge générée », divergence §06.04 tracée). Cliquable :
@@ -434,8 +423,6 @@ export function TraiteurDashboardClient({
                 unit={uniteCo2(co2Masse.unit)}
                 dotColor={KPI_DOT.green}
                 variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
-                sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
-                sparkColor={KPI_DOT.green}
                 onClick={
                   co2.eviteKg > 0 ? () => setCo2ModalOpen(true) : undefined
                 }
@@ -557,28 +544,23 @@ export function TraiteurDashboardClient({
                 value={fmtInt(agg.nbCollectes)}
                 dotColor={KPI_DOT.navy}
                 variationPct={variationPct(agg.nbCollectes, prev.nbCollectes)}
-                sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
               />
               <StatCard
                 label="Repas donnés"
                 value={fmtInt(agg.repas)}
                 dotColor={KPI_DOT.accent}
                 variationPct={variationPct(agg.repas, prev.repas)}
-                sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
-                sparkColor={KPI_DOT.accent}
               />
               <StatCard
                 label="Pax cumulés"
                 value={fmtInt(agg.pax)}
                 dotColor={KPI_DOT.navy2}
                 variationPct={variationPct(agg.pax, prev.pax)}
-                sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
               />
               <StatCard
                 label="Repas/pax moyen"
                 value={agg.repasPax != null ? fmtDec(agg.repasPax, 2) : '—'}
                 dotColor={KPI_DOT.navy3}
-                sparkPoints={sparkFromRows(rows, repasParPaxDeLigne)}
               />
               {/* CO₂ évité AG (évité seul V1, §11 l.163) — même UX que le ZD :
                 cliquable → modale « Impact carbone » (héros + méthode AG) UNIQUEMENT
@@ -589,8 +571,6 @@ export function TraiteurDashboardClient({
                 unit={uniteCo2(co2Masse.unit)}
                 dotColor={KPI_DOT.green}
                 variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
-                sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
-                sparkColor={KPI_DOT.green}
                 onClick={
                   co2.eviteKg > 0 ? () => setCo2AgModalOpen(true) : undefined
                 }

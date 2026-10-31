@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
+import { refusClientFinalVide } from '@/lib/evenements/client-final.js';
 import { envoyerOrdresEvenementSansAttendre } from '@/lib/envoi-immediat.js';
 import { CHAMPS_TYPE_CONTACTS_COLLECTE } from '@/lib/collectes/champs-editables.js';
 
@@ -106,6 +107,10 @@ export async function PATCH(
   const texteValide = validerChampsTexteLibre(updates);
   if ('error' in texteValide) return texteValide.error;
   Object.assign(updates, texteValide.valeurs);
+
+  // Client final : jamais vidé par une modification (décision Val 2026-10-30).
+  const refusClient = refusClientFinalVide(updates);
+  if (refusClient) return refusClient;
 
   // Écriture via fn_modifier_evenement (M1.1b / M1.5a). Depuis le lot B1
   // (2026-10-23), aucun champ de l'événement ne part au prestataire : la

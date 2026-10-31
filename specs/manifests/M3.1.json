@@ -612,9 +612,9 @@
       "id": "M3.1-cockpit-kpi-sparkline-n1",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-122",
       "artefact": "packages/plateforme/src/lib/dashboards/cockpit-derive.ts + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts",
-      "test": "M3.1/dash_cockpit_variation_n1 + M3.1/dash_cockpit_sparkline_triee_min_2_points + M3.1/dash_cockpit_fenetre_n1_equivalente",
+      "test": "M3.1/dash_cockpit_variation_n1 + M3.1/dash_cockpit_fenetre_n1_equivalente",
       "statut": "implemented",
-      "libelle": "Cartes KPI Cockpit : sparkline dérivée des lignes mensuelles déjà renvoyées (≥ 2 points) + variation N-1 = période précédente équivalente (endpoint kpi-traiteur ?compare=n1 → 2e requête décalée de même durée, additive et non bloquante). kg/pax sans variation (sens « plus bas = mieux » ambigu). Dérivations pures testées (cockpit-derive)."
+      "libelle": "Cartes KPI Cockpit : variation N-1, sans courbe de tendance (retirée de toutes les cartes KPI, Val 2026-10-30, test M3.1/dash_cartes_kpi_sans_courbe) ; variation N-1 = période précédente équivalente (endpoint kpi-traiteur ?compare=n1 → 2e requête décalée de même durée, additive et non bloquante). kg/pax sans variation (sens « plus bas = mieux » ambigu). Dérivations pures testées (cockpit-derive)."
     },
     {
       "id": "M3.1-liste-filtres",
@@ -1099,11 +1099,11 @@
     {
       "id": "M3.1-kpi-cartes-pax-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:90",
-      "artefact": "packages/plateforme/src/lib/dashboards/cockpit-derive.ts (TraiteurKpiRow, aggregateKpis, kgParPaxDeLigne, repasParPaxDeLigne) + packages/plateforme/src/app/(traiteur)/traiteur/traiteur-dashboard-client.tsx (cartes kg/pax moyen, Pax cumulés, Repas/pax moyen)",
+      "artefact": "packages/plateforme/src/lib/dashboards/cockpit-derive.ts (TraiteurKpiRow, aggregateKpis) + packages/plateforme/src/app/(traiteur)/traiteur/traiteur-dashboard-client.tsx (cartes kg/pax moyen, Pax cumulés, Repas/pax moyen)",
       "test": "Lot3/cockpit_repas_par_pax_collectes_a_convives + M3.1/dash_cockpit_agrege_kpis_taux_pondere_marge",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
-      "libelle": "Cartes KPI du dashboard traiteur au pax des collectes (lot 3, décisions Val Q1 à Q5 du 2026-10-25) : kg/pax moyen = Σ tonnage_kg_pax_connu / Σ pax_total, Repas/pax moyen = Σ nb_repas_pax_connu / Σ pax_total (lignes de v_kpi_traiteur), sparklines par ligne mensuelle (0 sans pax). Pax cumulés = Σ pax_total."
+      "libelle": "Cartes KPI du dashboard traiteur au pax des collectes (lot 3, décisions Val Q1 à Q5 du 2026-10-25) : kg/pax moyen = Σ tonnage_kg_pax_connu / Σ pax_total, Repas/pax moyen = Σ nb_repas_pax_connu / Σ pax_total (lignes de v_kpi_traiteur). Pax cumulés = Σ pax_total."
     },
     {
       "id": "M3.1-marge-zd-pax-collectes",

@@ -347,7 +347,7 @@ export interface EvoCollecteRow {
    *  et les pax des séries (lot 3, décisions Val Q1 et Q2 du 2026-10-25). */
   pax?: number | null;
   /** CO₂ évité figé (sélectionné par le loader Admin « Dashboard Client »
-   *  seulement) — alimente la sparkline de la carte CO₂. */
+   *  seulement) — CO₂ évité par bucket. */
   co2_evite_kg?: number | string | null;
   evenements: EvoEvtEmbed | EvoEvtEmbed[] | null;
   collecte_flux:
@@ -554,7 +554,7 @@ export function buildEvolutionSeries(
         ...b.flux,
         tonnage_total: b.tonnage,
         taux_recyclage: b.tauxDen > 0 ? b.tauxNum / b.tauxDen : null,
-        // Sparklines des cartes KPI (gestionnaire / Dashboard Client Admin) :
+        // Par bucket (les cartes KPI ne portent plus de courbe, Val 2026-10-30) :
         // nombre de collectes, pax et kg/pax des collectes du bucket (lot 3).
         nb_collectes: b.nb,
         pax: paxCumules(b.collectes),

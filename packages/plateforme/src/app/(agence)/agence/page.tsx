@@ -41,9 +41,6 @@ import {
   aggregateBenchmarkPerFlux,
   aggregateKpis,
   benchmarkItems,
-  kgParPaxDeLigne,
-  repasParPaxDeLigne,
-  sparkFromRows,
   variationPct,
   type BenchmarkRow,
   type TraiteurKpiRow,
@@ -296,7 +293,6 @@ export default function AgenceDashboardPage() {
                 value={fmtInt(nbCollectes)}
                 dotColor={KPI_DOT.navy}
                 variationPct={variationPct(nbCollectes, prev.nbCollectes)}
-                sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
               />
               <StatCard
                 label="Tonnage collecté"
@@ -304,7 +300,6 @@ export default function AgenceDashboardPage() {
                 unit={fmtMasse(tonnage).unit}
                 dotColor={KPI_DOT.navy2}
                 variationPct={variationPct(tonnage, prev.tonnage)}
-                sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
               />
               <StatCard
                 label="Taux de recyclage"
@@ -312,20 +307,14 @@ export default function AgenceDashboardPage() {
                 unit={taux != null ? '%' : undefined}
                 dotColor={KPI_DOT.green}
                 variationPct={variationPct(taux ?? 0, prev.taux ?? 0)}
-                sparkPoints={sparkFromRows(
-                  rows,
-                  (r) => r.taux_recyclage_pondere,
-                )}
-                sparkColor={KPI_DOT.green}
               />
-              {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
+              {/* kg/pax : pas de variation (sens « plus bas =
                 mieux », §06.04 l.92). */}
               <StatCard
                 label="kg/pax moyen"
                 value={kgPax != null ? fmtDec(kgPax, 2) : '—'}
                 unit={kgPax != null ? 'kg/pax' : undefined}
                 dotColor={KPI_DOT.navy3}
-                sparkPoints={sparkFromRows(rows, kgParPaxDeLigne)}
               />
             </div>
 
@@ -385,28 +374,23 @@ export default function AgenceDashboardPage() {
                 value={fmtInt(nbCollectes)}
                 dotColor={KPI_DOT.navy}
                 variationPct={variationPct(nbCollectes, prev.nbCollectes)}
-                sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
               />
               <StatCard
                 label="Repas donnés"
                 value={fmtInt(repas)}
                 dotColor={KPI_DOT.accent}
                 variationPct={variationPct(repas, prev.repas)}
-                sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
-                sparkColor={KPI_DOT.accent}
               />
               <StatCard
                 label="Pax cumulés"
                 value={fmtInt(pax)}
                 dotColor={KPI_DOT.navy2}
                 variationPct={variationPct(pax, prev.pax)}
-                sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
               />
               <StatCard
                 label="Repas/pax moyen"
                 value={repasPax != null ? fmtDec(repasPax, 2) : '—'}
                 dotColor={KPI_DOT.navy3}
-                sparkPoints={sparkFromRows(rows, repasParPaxDeLigne)}
               />
             </div>
 

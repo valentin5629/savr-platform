@@ -1379,10 +1379,14 @@ export function CollecteDetailPanel({
       maj.contact_principal_nom = infosCpNom;
     if (infosCpTel !== (ct?.contact_principal_telephone ?? ''))
       maj.contact_principal_telephone = infosCpTel;
-    if (infosCsNom !== (ct?.contact_secours_nom ?? ''))
-      maj.contact_secours_nom = infosCsNom || null;
-    if (infosCsTel !== (ct?.contact_secours_telephone ?? ''))
-      maj.contact_secours_telephone = infosCsTel || null;
+    // Nom et téléphone de secours partent ensemble (la route l'exige).
+    if (
+      infosCsNom !== (ct?.contact_secours_nom ?? '') ||
+      infosCsTel !== (ct?.contact_secours_telephone ?? '')
+    ) {
+      maj.contact_secours_nom = infosCsNom;
+      maj.contact_secours_telephone = infosCsTel;
+    }
     if (Object.keys(maj).length === 0) {
       setInfosModal(false);
       return;

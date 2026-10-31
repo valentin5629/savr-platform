@@ -42,7 +42,6 @@ import {
   benchmarkItems,
   FACTEURS_CO2_DEFAUT,
   previousWindow,
-  sparkFromSeries,
   variationPct,
   type Co2Totals,
   type FacteursCo2,
@@ -507,7 +506,6 @@ export function DashboardClientView() {
                   zdKpi.nb_collectes,
                   zdPrev?.nb_collectes ?? 0,
                 )}
-                sparkPoints={sparkFromSeries(zdSeries, (p) => p.nb_collectes)}
               />
               <StatCard
                 label="Tonnage collecté"
@@ -518,7 +516,6 @@ export function DashboardClientView() {
                   zdKpi.tonnage_kg ?? 0,
                   zdPrev?.tonnage_kg ?? 0,
                 )}
-                sparkPoints={sparkFromSeries(zdSeries, (p) => p.tonnage_total)}
               />
               <StatCard
                 label="Taux de recyclage"
@@ -533,10 +530,8 @@ export function DashboardClientView() {
                   zdKpi.taux_recyclage_pondere ?? 0,
                   zdPrev?.taux_recyclage_pondere ?? 0,
                 )}
-                sparkPoints={sparkFromSeries(zdSeries, (p) => p.taux_recyclage)}
-                sparkColor={KPI_DOT.green}
               />
-              {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
+              {/* kg/pax : pas de variation (sens « plus bas =
                 mieux », §06.05 l.136). */}
               <StatCard
                 label="kg/pax moyen"
@@ -545,7 +540,6 @@ export function DashboardClientView() {
                 }
                 unit={zdKpi.kg_par_pax != null ? 'kg/pax' : undefined}
                 dotColor={KPI_DOT.navy3}
-                sparkPoints={sparkFromSeries(zdSeries, (p) => p.kg_par_pax)}
               />
               <StatCard
                 label="CO₂ évité"
@@ -553,8 +547,6 @@ export function DashboardClientView() {
                 unit={uniteCo2(co2Masse.unit)}
                 dotColor={KPI_DOT.green}
                 variationPct={variationPct(co2.eviteKg, co2PrevKg)}
-                sparkPoints={sparkFromSeries(zdSeries, (p) => p.co2_evite_kg)}
-                sparkColor={KPI_DOT.green}
                 onClick={
                   co2.eviteKg > 0 ? () => setCo2ModalOpen(true) : undefined
                 }
@@ -684,7 +676,6 @@ export function DashboardClientView() {
                   agKpi.nb_collectes,
                   agPrev?.nb_collectes ?? 0,
                 )}
-                sparkPoints={sparkFromSeries(agSeries, (p) => p.nb_collectes)}
               />
               <StatCard
                 label="Repas donnés"
@@ -694,8 +685,6 @@ export function DashboardClientView() {
                   agKpi.nb_repas_donnes ?? 0,
                   agPrev?.nb_repas_donnes ?? 0,
                 )}
-                sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
-                sparkColor={KPI_DOT.accent}
               />
               <StatCard
                 label="Pax cumulés"
@@ -705,7 +694,6 @@ export function DashboardClientView() {
                   agKpi.pax_total ?? 0,
                   agPrev?.pax_total ?? 0,
                 )}
-                sparkPoints={sparkFromSeries(agSeries, (p) => p.pax)}
               />
               <StatCard
                 label="Repas/pax moyen"
@@ -715,7 +703,6 @@ export function DashboardClientView() {
                     : '—'
                 }
                 dotColor={KPI_DOT.navy3}
-                sparkPoints={sparkFromSeries(agSeries, (p) => p.ratio)}
               />
               <StatCard
                 label="CO₂ évité"
@@ -723,8 +710,6 @@ export function DashboardClientView() {
                 unit={uniteCo2(co2Masse.unit)}
                 dotColor={KPI_DOT.green}
                 variationPct={variationPct(co2.eviteKg, co2PrevKg)}
-                sparkPoints={sparkFromSeries(agSeries, (p) => p.co2_evite_kg)}
-                sparkColor={KPI_DOT.green}
                 onClick={
                   co2.eviteKg > 0 ? () => setCo2AgModalOpen(true) : undefined
                 }

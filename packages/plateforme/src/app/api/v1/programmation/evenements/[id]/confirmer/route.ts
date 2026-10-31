@@ -12,10 +12,17 @@ import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
+import {
+  clientFinalRenseigne,
+  MESSAGE_CLIENT_FINAL_OBLIGATOIRE,
+} from '@/lib/evenements/client-final.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
 export const maxDuration = 60;
+
+const renseigne = (v: unknown): boolean =>
+  typeof v === 'string' && v.trim() !== '';
 
 // Confirmation d'un brouillon. Ouverte à l'admin en mode support (§06.01 l.17
 // « admin_savr : programmation de support, tous périmètres ») comme le POST de
@@ -37,7 +44,9 @@ export async function PATCH(
   // le poser en prédicat ne cloisonnerait rien, ça masquerait tout).
   const evtQuery = supabase
     .from('evenements')
-    .select('id, organisation_id, nom_evenement, lieu_id, created_by')
+    .select(
+      'id, organisation_id, nom_evenement, nom_client_organisateur, lieu_id, created_by',
+    )
     .eq('id', evenementId);
 
   const { data: evt, error: evtErr } = await (
@@ -67,6 +76,49 @@ export async function PATCH(
   if (!collectes?.length) {
     return NextResponse.json(
       { error: 'Aucune collecte en brouillon à confirmer' },
+      { status: 422 },
+    );
+  }
+
+  // Client final et contact de secours obligatoires à la confirmation (décision
+  // Val 2026-10-30), comme par le formulaire : un brouillon enregistré sans eux
+  // ne se confirme pas par cette route non plus.
+  if (!clientFinalRenseigne(evt.nom_client_organisateur)) {
+    return NextResponse.json(
+      {
+        error: MESSAGE_CLIENT_FINAL_OBLIGATOIRE,
+        champ: 'nom_client_organisateur',
+      },
+      { status: 422 },
+    );
+  }
+  const { data: contacts, error: contactsErr } = await supabase
+    .from('collecte_contacts')
+    .select('collecte_id, contact_secours_nom, contact_secours_telephone')
+    .in(
+      'collecte_id',
+      collectes.map((c) => c.id),
+    );
+  if (contactsErr)
+    return serverError(
+      contactsErr,
+      'programmation.evenements.confirmer.contacts',
+    );
+  const secoursComplet = new Set(
+    (contacts ?? [])
+      .filter(
+        (c) =>
+          renseigne(c.contact_secours_nom) &&
+          renseigne(c.contact_secours_telephone),
+      )
+      .map((c) => c.collecte_id),
+  );
+  if (collectes.some((c) => !secoursComplet.has(c.id))) {
+    return NextResponse.json(
+      {
+        error:
+          'Le contact de secours et son téléphone sont obligatoires pour chaque collecte.',
+      },
       { status: 422 },
     );
   }

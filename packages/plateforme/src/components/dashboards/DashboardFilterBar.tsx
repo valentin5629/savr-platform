@@ -13,11 +13,12 @@ import { periodeDerniers } from '@/lib/periodes-raccourcis';
 export interface DashboardFilters {
   from: string; // YYYY-MM-DD
   to: string; // YYYY-MM-DD
-  // Filtres « parc » globaux (§06.05 §1) — optionnels : présents seulement quand la
-  // barre reçoit `parcOptions` (dashboard gestionnaire). Absents/vides pour les
-  // autres dashboards (traiteur/agence/organisateur/admin) → rétro-compatible.
+  // Filtres de la barre globale — optionnels : posés seulement quand la barre
+  // reçoit `parcOptions`, chaque rôle n'ayant que les siens (cf. ParcFilterOptions).
   lieu_ids?: string[];
   traiteur_ids?: string[];
+  /** Noms de client organisateur (traiteur, agence). */
+  client_noms?: string[];
   type_evenement_ids?: string[];
   taille_evenement_codes?: string[];
 }
@@ -25,7 +26,7 @@ export interface DashboardFilters {
 interface DashboardFilterBarProps {
   storageKey: string;
   onChange: (filters: DashboardFilters) => void;
-  /** Si fourni, affiche les 4 filtres parc (Lieux/Traiteurs/Type/Taille) + Réinitialiser. */
+  /** Si fourni, affiche les filtres de la barre (Lieux, Client organisateur ou Traiteurs, Type, Taille). */
   parcOptions?: ParcFilterOptions;
   /** Filtres propres au consommateur, placés juste après « Période ». */
   children?: ReactNode;
@@ -60,6 +61,7 @@ function defaultFilters(): DashboardFilters {
     ...douzeDerniersMois(),
     lieu_ids: [],
     traiteur_ids: [],
+    client_noms: [],
     type_evenement_ids: [],
     taille_evenement_codes: [],
   };
@@ -81,6 +83,7 @@ function parcValue(f: DashboardFilters): ParcFilterValue {
   return {
     lieu_ids: f.lieu_ids ?? [],
     traiteur_ids: f.traiteur_ids ?? [],
+    client_noms: f.client_noms ?? [],
     type_evenement_ids: f.type_evenement_ids ?? [],
     taille_evenement_codes: f.taille_evenement_codes ?? [],
   };
@@ -95,7 +98,7 @@ function parcValue(f: DashboardFilters): ParcFilterValue {
 /**
  * Barre de filtres du dashboard — persistance localStorage (sobriété B1, pas de table).
  * Sans `parcOptions` : Période seule (12 derniers mois par défaut, §11 §8). Avec `parcOptions` :
- * Période + Lieux + Traiteurs + Type + Taille (§06.05 §1, 5 filtres globaux).
+ * Période + Lieux + Client organisateur ou Traiteurs + Type + Taille (5 filtres globaux).
  * Toujours bâtie sur `FilterBar` (R-UI-4b, D5 façon C) : `count={null}` (pas
  * de liste à compter), « Réinitialiser les filtres » seulement si un filtre
  * diffère du défaut.

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { CollecteType } from '@/components/collecte/toggle-type-collecte';
 import type { DashboardFilters } from './DashboardFilterBar.js';
+import { ajouterFiltresGlobaux } from './filtres-query.js';
 
 export type EvolutionType = CollecteType;
 
@@ -52,8 +53,8 @@ interface EvolutionResult {
  * Hook partagé Bloc 2 / Bloc 4 — fetch /api/v1/dashboards/evolution pour l'onglet
  * actif (§11 « composants partagés »). Réutilisé par les dashboards traiteur /
  * agence / gestionnaire ; le périmètre est décidé côté serveur selon le rôle.
- * Les filtres parc (lieux/traiteurs/type/taille) sont transmis s'ils existent —
- * les rôles qui n'en ont pas (traiteur/agence, période seule) envoient juste from/to.
+ * Les filtres de la barre globale (lieux, traiteurs ou clients, type, taille) sont
+ * transmis tels quels ; la route les applique dans le périmètre du rôle.
  */
 export function useEvolutionBlocs(
   filters: DashboardFilters | null,
@@ -77,16 +78,7 @@ export function useEvolutionBlocs(
       to: filters.to,
       type: tab,
     });
-    (filters.lieu_ids ?? []).forEach((id) => qs.append('lieu_ids[]', id));
-    (filters.traiteur_ids ?? []).forEach((id) =>
-      qs.append('traiteur_ids[]', id),
-    );
-    (filters.type_evenement_ids ?? []).forEach((id) =>
-      qs.append('type_evenement_ids[]', id),
-    );
-    (filters.taille_evenement_codes ?? []).forEach((c) =>
-      qs.append('taille_evenements[]', c),
-    );
+    ajouterFiltresGlobaux(qs, filters);
 
     fetch(`/api/v1/dashboards/evolution?${qs}`)
       .then((r) => {

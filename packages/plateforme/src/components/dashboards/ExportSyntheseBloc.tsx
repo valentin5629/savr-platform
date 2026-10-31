@@ -107,6 +107,8 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
     inheritedFilters.push(`${filters?.lieu_ids?.length} lieu(x)`);
   if ((filters?.traiteur_ids?.length ?? 0) > 0)
     inheritedFilters.push(`${filters?.traiteur_ids?.length} traiteur(s)`);
+  if ((filters?.client_noms?.length ?? 0) > 0)
+    inheritedFilters.push(`${filters?.client_noms?.length} client(s)`);
   if ((filters?.type_evenement_ids?.length ?? 0) > 0)
     inheritedFilters.push(
       `${filters?.type_evenement_ids?.length} type(s) d'événement`,
@@ -130,6 +132,7 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
           types: includeBoth ? [] : [tab],
           lieu_ids: filters?.lieu_ids ?? [],
           traiteur_ids: filters?.traiteur_ids ?? [],
+          client_noms: filters?.client_noms ?? [],
           type_evenement_ids: filters?.type_evenement_ids ?? [],
           taille_evenements: filters?.taille_evenement_codes ?? [],
           client_organisateur_ids: clientIds,

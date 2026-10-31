@@ -157,12 +157,13 @@ describe('Liste Collectes traiteur — filtres dans l’URL', () => {
         {},
         ATTENTE_UI,
       );
-      expect(screen.getByRole('columnheader', { name: /Type/ })).toBeTruthy();
       // Chaque ligne porte le badge de SON type (tri par date : z1 puis a1).
+      // Le tableau n'a d'en-têtes qu'une fois chargé : on attend les lignes.
       await waitFor(
         () => expect(within(table).getAllByRole('row')).toHaveLength(3),
         ATTENTE_UI,
       );
+      expect(screen.getByRole('columnheader', { name: /Type/ })).toBeTruthy();
       const [, ligneZd, ligneAg] = within(table).getAllByRole('row');
       expect(within(ligneZd!).getByText('ZD')).toBeTruthy();
       expect(within(ligneZd!).queryByText('AG')).toBeNull();

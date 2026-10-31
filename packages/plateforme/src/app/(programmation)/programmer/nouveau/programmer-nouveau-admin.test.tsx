@@ -224,6 +224,9 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
       fireEvent.change(screen.getByLabelText(/^Nom de l'événement/), {
         target: { value: 'Gala' },
       });
+      fireEvent.change(screen.getByLabelText(/^Client final/), {
+        target: { value: 'Entreprise Dupont' },
+      });
       const declencheurLieu = screen
         .getByText('Rechercher un lieu…')
         .closest('button')!;

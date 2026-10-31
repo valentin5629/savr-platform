@@ -56,8 +56,8 @@ const refus = (error: string, extra: Record<string, unknown> = {}) => ({
  *   · au moins une carte ; avec `plafond`, au plus 10 par type ;
  *   · date d'aujourd'hui ou après (jour de Paris), heure, convives ;
  *   · type d'événement : un type actif du référentiel ;
- *   · contact principal (nom et téléphone) obligatoire, contact de secours
- *     facultatif (vide = absent) ; bornes de validerChampsTexteLibre ;
+ *   · contacts principal et de secours (nom et téléphone) obligatoires
+ *     (secours : décision Val 2026-10-30) ; bornes de validerChampsTexteLibre ;
  *   · informations supplémentaires facultatives, bornées.
  * Le type d'événement est vérifié en une seule lecture pour toutes les cartes.
  */
@@ -133,6 +133,19 @@ export async function validerCartes(
     }
     const textes = validerChampsTexteLibre(carte);
     if ('error' in textes) return textes;
+    // Contact de secours : obligatoire aussi (décision Val 2026-10-30). Ses
+    // colonnes restent nullables (collectes plus anciennes) : le refus est ici.
+    for (const champ of [
+      'contact_secours_nom',
+      'contact_secours_telephone',
+    ] as const) {
+      if (!textes.valeurs[champ]) {
+        return refus(
+          'Le contact de secours et son téléphone sont obligatoires pour chaque collecte.',
+          { collecte: rang, champ },
+        );
+      }
+    }
 
     cartes.push({
       type: carte.type,
@@ -144,9 +157,8 @@ export async function validerCartes(
       type_evenement_id: carte.type_evenement_id,
       contact_principal_nom: textes.valeurs.contact_principal_nom!,
       contact_principal_telephone: textes.valeurs.contact_principal_telephone!,
-      contact_secours_nom: textes.valeurs.contact_secours_nom ?? null,
-      contact_secours_telephone:
-        textes.valeurs.contact_secours_telephone ?? null,
+      contact_secours_nom: textes.valeurs.contact_secours_nom!,
+      contact_secours_telephone: textes.valeurs.contact_secours_telephone!,
     });
   }
 

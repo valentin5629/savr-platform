@@ -20,7 +20,17 @@ function makeChain() {
     },
     calls,
   };
-  for (const m of ['select', 'eq', 'in', 'gte', 'gt', 'or', 'order', 'limit'])
+  for (const m of [
+    'select',
+    'eq',
+    'in',
+    'gte',
+    'gt',
+    'not',
+    'or',
+    'order',
+    'limit',
+  ])
     chain[m] = (...args: unknown[]) => {
       calls.push({ table, m, args });
       return chain;
@@ -115,10 +125,17 @@ describe('GET /api/v1/dashboards/filtres', () => {
       { id: 'L1', nom: 'Grand Palais' },
       { id: 'L2', nom: 'Pavillon' },
     ]);
+    // Identifiant = nom tel que saisi (filtre à égalité exacte), libellé nettoyé.
     expect(data.clients).toEqual([
-      { id: 'Dior', nom: 'Dior' },
+      { id: ' Dior ', nom: 'Dior' },
       { id: 'LVMH', nom: 'LVMH' },
     ]);
+    // Brouillons et annulées écartés des options.
+    expect(rls.calls).toContainEqual({
+      table: 'collectes',
+      m: 'not',
+      args: ['statut', 'in', '(brouillon,annulee)'],
+    });
     expect(data).not.toHaveProperty('traiteurs');
     expect(data.types).toEqual([{ id: 't1', libelle: 'Gala' }]);
     expect(rls.calls).toContainEqual({

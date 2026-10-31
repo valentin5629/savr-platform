@@ -13,6 +13,7 @@ import {
 import {
   ajouterFiltresGlobaux,
   optionsBarreValides,
+  OPTIONS_BARRE_VIDES,
 } from '@/components/dashboards/filtres-query';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
@@ -85,7 +86,7 @@ export default function ClientOrganisateurDashboardPage() {
       .then((j: { data?: ParcFilterOptions }) => {
         setParcOptions(optionsBarreValides(j.data));
       })
-      .catch(() => {});
+      .catch(() => setParcOptions(OPTIONS_BARRE_VIDES));
   }, []);
 
   // Cadrans de l'onglet — suivent les filtres de la barre (période par défaut :

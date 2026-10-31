@@ -25,15 +25,16 @@ export function ajouterFiltresGlobaux(
 }
 
 /**
- * Réponse d'une route d'options de la barre : retenue seulement si elle a la
- * forme attendue (listes de lieux et de types), sinon la barre reste sur la
- * Période seule plutôt que de planter sur une réponse inattendue.
+ * Réponse d'une route d'options de la barre. Une réponse sans la forme attendue
+ * (route en échec, réseau coupé) donne des listes vides : la barre retire alors
+ * les lieux, clients, traiteurs et types mémorisés, au lieu de les appliquer
+ * sans case visible pour les décocher.
  */
-export function optionsBarreValides(
-  data: unknown,
-): ParcFilterOptions | undefined {
+export function optionsBarreValides(data: unknown): ParcFilterOptions {
   const d = data as Partial<ParcFilterOptions> | null | undefined;
   return d && Array.isArray(d.lieux) && Array.isArray(d.types)
     ? (d as ParcFilterOptions)
-    : undefined;
+    : OPTIONS_BARRE_VIDES;
 }
+
+export const OPTIONS_BARRE_VIDES: ParcFilterOptions = { lieux: [], types: [] };

@@ -15,6 +15,7 @@ import {
 import {
   ajouterFiltresGlobaux,
   optionsBarreValides,
+  OPTIONS_BARRE_VIDES,
 } from '@/components/dashboards/filtres-query';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import type {
@@ -211,7 +212,7 @@ export function DashboardClientView() {
       .then((j: { data?: ParcFilterOptions }) => {
         if (!perimee) setParcOptions(optionsBarreValides(j.data));
       })
-      .catch(() => {});
+      .catch(() => setParcOptions(OPTIONS_BARRE_VIDES));
     return () => {
       perimee = true;
     };

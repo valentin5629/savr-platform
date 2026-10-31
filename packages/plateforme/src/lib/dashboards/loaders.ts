@@ -278,27 +278,11 @@ export async function loadKpiTraiteur(
       : null;
   const isAgence = ctx.role === 'agence';
 
-  // Lignes mensuelles recalculées depuis les collectes filtrées (les vues
-  // mensuelles ne savent pas filtrer par lieu ni par client, cf. kpi-collectes) ;
-  // facteurs et méthode CO₂ (client service_role séparé) lus en parallèle.
-  const [kpi, facteurs_co2, co2_methode] = await Promise.all([
-    loadKpiCollectes(supabase, ctx, {
-      from,
-      to,
-      type,
-      compare: params.compare,
-      filtres: params.filtres ?? FILTRES_GLOBAUX_VIDES,
-    }).catch((e: unknown) => {
-      throw loaderDbError(e, 'dashboards.kpi_traiteur');
-    }),
-    lireFacteursCo2(),
-    lireMethodeCo2(),
-  ]);
-
-  // tarif_refacture_pax_zd (BL-P3-02) — tooltip formule du KPI Marge. Lecture
-  // traiteur autorisée (§04 l.928). Non exposé à l'agence (pas de carte Marge).
-  // La colonne est hors GRANT SELECT authenticated (20260918100000) : lecture par
-  // la fonction gardée, qui ne rend la valeur qu'au traiteur propriétaire.
+  // tarif_refacture_pax_zd (BL-P3-02) — formule de la marge ZD et tooltip du KPI
+  // Marge. Lecture traiteur autorisée (§04 l.928). Non exposé à l'agence (pas de
+  // carte Marge, §06.11 diff #7). La colonne est hors GRANT SELECT authenticated
+  // (20260918100000) : lecture par la fonction gardée, qui ne rend la valeur
+  // qu'au traiteur propriétaire.
   let tarif_refacture_pax_zd: number | null = null;
   if (!isAgence) {
     const { data: tarif, error: tarifError } = await supabase.rpc(
@@ -308,6 +292,25 @@ export async function loadKpiTraiteur(
     if (tarifError) throw loaderDbError(tarifError, 'dashboards.kpi_traiteur');
     tarif_refacture_pax_zd = (tarif as number | null) ?? null;
   }
+
+  // Lignes mensuelles recalculées depuis les collectes filtrées (les vues
+  // mensuelles ne savent pas filtrer par lieu ni par client, cf. kpi-collectes),
+  // marge comprise pour le traiteur ; facteurs et méthode CO₂ (client
+  // service_role séparé) lus en parallèle.
+  const [kpi, facteurs_co2, co2_methode] = await Promise.all([
+    loadKpiCollectes(supabase, ctx, {
+      from,
+      to,
+      type,
+      compare: params.compare,
+      filtres: params.filtres ?? FILTRES_GLOBAUX_VIDES,
+      ...(isAgence ? {} : { marge: { tarif: tarif_refacture_pax_zd } }),
+    }).catch((e: unknown) => {
+      throw loaderDbError(e, 'dashboards.kpi_traiteur');
+    }),
+    lireFacteursCo2(),
+    lireMethodeCo2(),
+  ]);
 
   return {
     data: kpi.data,

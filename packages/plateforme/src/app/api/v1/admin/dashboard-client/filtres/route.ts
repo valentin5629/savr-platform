@@ -58,7 +58,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           `id, evenements!inner(organisation_id,
              traiteur_operationnel_organisation_id, lieux!lieu_id(id, nom))`,
         )
-        .gte('date_collecte', jourParis(depuis));
+        .gte('date_collecte', jourParis(depuis))
+        // Brouillons et annulées ne comptent dans aucun bloc : leurs lieux ou
+        // clients ne donneraient qu'un dashboard vide.
+        .not('statut', 'in', '(brouillon,annulee)');
       if (orgIds.length > 0) {
         const ids = orgIds.join(',');
         q = q.or(

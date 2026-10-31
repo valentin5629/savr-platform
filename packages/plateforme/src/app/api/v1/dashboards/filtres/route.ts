@@ -55,6 +55,7 @@ const trie = (m: Map<string, string>): Option[] =>
  * dashboard (événements programmés par l'organisation, ou dont elle est le client
  * organisateur rattaché), lues sous l'identité de l'appelant : une option ne
  * désigne qu'un lieu, un client ou un traiteur d'une collecte qu'il voit déjà.
+ * Collectes brouillon et annulées écartées (elles ne comptent dans aucun bloc).
  * Les noms de traiteur passent par la vue liste blanche `v_referentiel_traiteurs`
  * (comme la liste Collectes du client organisateur), jamais en service_role.
  * Le client organisateur d'un traiteur ou d'une agence est le NOM saisi à la
@@ -86,7 +87,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           : 'evenements.organisation_id',
         auth.ctx.organisationId,
       )
-      .gte('date_collecte', jourParis(depuis));
+      .gte('date_collecte', jourParis(depuis))
+      // Brouillons et annulées ne comptent dans aucun bloc : leurs lieux ou
+      // clients ne donneraient qu'un dashboard vide.
+      .not('statut', 'in', '(brouillon,annulee)');
     if (apresId) q = q.gt('id', apresId);
     return q.limit(TAILLE_PAGE).order('id', { ascending: true });
   });
@@ -100,8 +104,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (!evt) continue;
     const lieu = un(evt.lieux);
     if (lieu?.id) lieux.set(lieu.id, lieu.nom ?? 'Lieu');
-    const client = evt.nom_client_organisateur?.trim();
-    if (client) clients.set(client, client);
+    // Identifiant = nom tel que saisi (le filtre est une égalité exacte),
+    // libellé débarrassé de ses espaces.
+    const client = evt.nom_client_organisateur;
+    if (client?.trim()) clients.set(client, client.trim());
     if (evt.traiteur_operationnel_organisation_id)
       traiteurIds.add(evt.traiteur_operationnel_organisation_id);
   }

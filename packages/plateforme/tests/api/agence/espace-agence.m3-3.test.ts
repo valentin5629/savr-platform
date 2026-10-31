@@ -150,8 +150,8 @@ describe('M3.3 / auth guard', () => {
 
 // ── Dashboard sans marge (diff #7) ──────────────────────────────────────────
 describe('M3.3 / dashboard sans marge', () => {
-  // Cartes calculées depuis les collectes (filtres globaux, 2026-10-30) : aucune
-  // marge n'est calculée ni transmise (la carte Marge est retirée de la rangée).
+  // Cartes calculées depuis les collectes (filtres globaux, 2026-10-30) : la
+  // marge n'est calculée que pour le traiteur, jamais pour l'agence (§06.11 #7).
   const collecteZd = (id: string) => ({
     id,
     type: 'zero_dechet',
@@ -191,9 +191,14 @@ describe('M3.3 / dashboard sans marge', () => {
     ]);
   });
 
-  it('M3.3/dashboard_traiteur_sans_marge — aucune marge calculée non plus pour le traiteur', async () => {
+  it('M3.3/dashboard_marge_conservee_pour_traiteur — marge ZD recalculée (tarif × pax − factures), contrôle', async () => {
     setupAuth('traiteur_manager');
-    rls.push({ data: [collecteZd('c1')], error: null });
+    rls.push({ data: 12, error: null }); // f_tarif_refacture_pax_zd
+    rls.push({ data: [collecteZd('c1')], error: null }); // collectes
+    rls.push({
+      data: [{ collecte_id: 'c1', montant_ht: 300 }],
+      error: null,
+    }); // factures ZD émises ou payées
     const { GET } =
       await import('@/app/api/v1/dashboards/kpi-traiteur/route.js');
     const res = await GET(
@@ -202,7 +207,12 @@ describe('M3.3 / dashboard sans marge', () => {
     const json = (await res.json()) as {
       data: Array<Record<string, unknown>>;
     };
-    expect(json.data[0]?.marge_zd_ht).toBeNull();
+    // 12 € × 100 pax − 300 € facturés.
+    expect(json.data[0]?.marge_zd_ht).toBe(900);
+    expect(rls.__calls.in).toContainEqual([
+      'factures.statut',
+      ['emise', 'payee'],
+    ]);
   });
 });
 

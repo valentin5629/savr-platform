@@ -135,6 +135,37 @@ export function DashboardFilterBar({
     onChange(filters);
   }, [storageKey]);
 
+  // À chaque réception d'options (Admin : à chaque choix d'organisations), une
+  // valeur cochée qui n'y figure plus est retirée : jamais un filtre appliqué
+  // sans case visible pour le décocher. Taille : liste fixe, rien à retirer.
+  useEffect(() => {
+    if (!parcOptions) return;
+    const garder = (ids: string[] | undefined, options?: { id: string }[]) =>
+      (ids ?? []).filter((id) => (options ?? []).some((o) => o.id === id));
+    const lieu_ids = garder(filters.lieu_ids, parcOptions.lieux);
+    const traiteur_ids = garder(filters.traiteur_ids, parcOptions.traiteurs);
+    const client_noms = garder(filters.client_noms, parcOptions.clients);
+    const type_evenement_ids = garder(
+      filters.type_evenement_ids,
+      parcOptions.types,
+    );
+    const avant = parcValue(filters);
+    if (
+      lieu_ids.length !== avant.lieu_ids.length ||
+      traiteur_ids.length !== avant.traiteur_ids.length ||
+      client_noms.length !== avant.client_noms.length ||
+      type_evenement_ids.length !== avant.type_evenement_ids.length
+    )
+      apply({
+        ...filters,
+        lieu_ids,
+        traiteur_ids,
+        client_noms,
+        type_evenement_ids,
+      });
+    // Relu à la réception des options seulement.
+  }, [parcOptions]);
+
   function apply(next: DashboardFilters) {
     setFilters(next);
     try {

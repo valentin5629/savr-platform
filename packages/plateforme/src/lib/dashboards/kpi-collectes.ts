@@ -73,6 +73,8 @@ export interface CollecteKpi {
   tonnage_kg: number;
   /** Repas donnés (AG), 0 sans attribution. */
   repas: number;
+  /** Σ HT des factures émises ou payées de la collecte (marge ZD du traiteur). */
+  factures_ht?: number;
 }
 
 /** Ligne mensuelle : forme des anciennes vues, plus le nombre d'événements. */
@@ -92,10 +94,14 @@ const sommeSql = (valeurs: (number | null)[]): number | null => {
 /**
  * Regroupe des collectes clôturées par mois et par type, avec les règles des
  * vues `v_kpi_traiteur` / `v_kpi_client_organisateur`. Pure. Mois décroissants.
- * `marge_zd_ht` reste null : aucune carte ne l'affiche plus (retirée de la
- * rangée KPI) et la facturation est hors plateforme au go-live.
+ * Marge ZD (§06.04, formule de `v_kpi_traiteur`) : calculée seulement si un
+ * `tarif` est fourni (traiteur) — tarif × Σ pax − Σ factures ZD émises ou
+ * payées, null sans pax ou sans tarif ; sinon null (agence, organisateur).
  */
-export function lignesKpiMensuelles(collectes: CollecteKpi[]): LigneKpi[] {
+export function lignesKpiMensuelles(
+  collectes: CollecteKpi[],
+  marge?: { tarif: number | null },
+): LigneKpi[] {
   const groupes = new Map<string, CollecteKpi[]>();
   for (const c of collectes) {
     const cle = `${c.date_collecte.slice(0, 7)}-01|${c.type}`;
@@ -112,6 +118,7 @@ export function lignesKpiMensuelles(collectes: CollecteKpi[]): LigneKpi[] {
     const avecTaux = liste.filter((c) => c.taux_recyclage != null);
     const poidsTaux = avecTaux.reduce((s, c) => s + c.tonnage_kg, 0);
     const avecConvives = liste.filter((c) => paxDe(c) > 0);
+    const pax = liste.reduce((s, c) => s + paxDe(c), 0);
     lignes.push({
       mois,
       type_collecte: type,
@@ -126,8 +133,12 @@ export function lignesKpiMensuelles(collectes: CollecteKpi[]): LigneKpi[] {
             ) / poidsTaux
           : null,
       nb_repas_donnes: zd ? null : liste.reduce((s, c) => s + c.repas, 0),
-      marge_zd_ht: null,
-      pax_total: liste.reduce((s, c) => s + paxDe(c), 0),
+      marge_zd_ht:
+        zd && pax > 0 && marge?.tarif != null
+          ? marge.tarif * pax -
+            liste.reduce((s, c) => s + (c.factures_ht ?? 0), 0)
+          : null,
+      pax_total: pax,
       tonnage_kg_pax_connu:
         zd && avecConvives.length > 0
           ? avecConvives.reduce((s, c) => s + c.tonnage_kg, 0)
@@ -189,6 +200,8 @@ export interface KpiCollectesParams {
   /** 'n1' : rend aussi la période précédente équivalente (variation). */
   compare?: string | null;
   filtres: FiltresGlobaux;
+  /** Traiteur seul : tarif de refacturation, pour la marge ZD (§06.04). */
+  marge?: { tarif: number | null };
 }
 
 /**
@@ -202,6 +215,9 @@ export interface KpiCollectesParams {
  * passait par `f_volume_repas_realise`, SECURITY DEFINER). Ils sont lus en
  * service_role, bornés aux identifiants des collectes que la lecture sous RLS
  * vient de lui rendre : aucune autre collecte n'est lue.
+ *
+ * Marge du traiteur : factures ZD émises ou payées des collectes retenues, lues
+ * sous RLS (`fc_select` : factures de son organisation), comme la vue.
  */
 export async function loadKpiCollectes(
   supabase: Client,
@@ -211,11 +227,21 @@ export async function loadKpiCollectes(
   const { from, to, type, filtres } = params;
   const organisateur = ctx.role === 'client_organisateur';
   const typeEvtIds = filtres.typeEvtIds.filter(estUuid);
+  const lieuIds = filtres.lieuIds.filter(estUuid);
+  const traiteurIds = organisateur ? filtres.traiteurIds.filter(estUuid) : [];
   const win = params.compare === 'n1' ? previousWindow(from, to) : null;
   const vide = { data: [], ...(win ? { previous: [] } : {}) };
 
-  // Filtre Type sans identifiant lisible : aucune collecte, jamais un filtre ignoré.
-  if (filtres.typeEvtIds.length > 0 && typeEvtIds.length === 0) return vide;
+  // Filtre sans identifiant lisible : aucune collecte, jamais un filtre ignoré
+  // ni une erreur de PostgREST (22P02).
+  const illisible = (demandes: string[], lisibles: string[]) =>
+    demandes.length > 0 && lisibles.length === 0;
+  if (
+    illisible(filtres.typeEvtIds, typeEvtIds) ||
+    illisible(filtres.lieuIds, lieuIds) ||
+    (organisateur && illisible(filtres.traiteurIds, traiteurIds))
+  )
+    return vide;
 
   const repasDirects = !organisateur && type !== 'zero_dechet';
   const select = `id, type, date_collecte, pax, evenement_id, taux_recyclage,
@@ -241,13 +267,9 @@ export async function loadKpiCollectes(
     if (type) q = q.eq('type', type);
     if (debut) q = q.gte('date_collecte', debut);
     if (to) q = q.lte('date_collecte', to);
-    if (filtres.lieuIds.length > 0)
-      q = q.in('evenements.lieu_id', filtres.lieuIds);
-    if (organisateur && filtres.traiteurIds.length > 0)
-      q = q.in(
-        'evenements.traiteur_operationnel_organisation_id',
-        filtres.traiteurIds,
-      );
+    if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
+    if (traiteurIds.length > 0)
+      q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
     if (!organisateur && filtres.clientNoms.length > 0)
       q = q.in('evenements.nom_client_organisateur', filtres.clientNoms);
     // Type et taille : ceux de la COLLECTE (décisions Val C3 du 2026-10-22, Q3 du 2026-10-24).
@@ -289,6 +311,29 @@ export async function loadKpiCollectes(
     }
   }
 
+  const factures = new Map<string, number>();
+  if (params.marge && params.marge.tarif != null) {
+    const idsZd = lignes
+      .filter((c) => c.type === 'zero_dechet')
+      .map((c) => c.id);
+    const fc = await lireParLots<{
+      collecte_id: string;
+      montant_ht: number | string | null;
+    }>(idsZd, (lot) =>
+      supabase
+        .from('factures_collectes')
+        .select('collecte_id, montant_ht, factures!inner(statut)')
+        .in('collecte_id', lot)
+        .in('factures.statut', ['emise', 'payee']),
+    );
+    if (fc.error) throw fc.error;
+    for (const f of fc.data)
+      factures.set(
+        f.collecte_id,
+        (factures.get(f.collecte_id) ?? 0) + nombre(f.montant_ht),
+      );
+  }
+
   const collectes: CollecteKpi[] = lignes.map((c) => {
     const att = c.attributions_antgaspi;
     const liste = Array.isArray(att) ? att : att ? [att] : [];
@@ -310,17 +355,22 @@ export async function loadKpiCollectes(
       repas: organisateur
         ? (repas.get(c.id) ?? 0)
         : liste.reduce((s, a) => s + nombre(a.volume_repas_realise), 0),
+      factures_ht: factures.get(c.id) ?? 0,
     };
   });
 
   const dans = (c: CollecteKpi, lo: string | null, hi: string | null) =>
     (!lo || c.date_collecte >= lo) && (!hi || c.date_collecte <= hi);
   return {
-    data: lignesKpiMensuelles(collectes.filter((c) => dans(c, from, to))),
+    data: lignesKpiMensuelles(
+      collectes.filter((c) => dans(c, from, to)),
+      params.marge,
+    ),
     ...(win
       ? {
           previous: lignesKpiMensuelles(
             collectes.filter((c) => dans(c, win.from, win.to)),
+            params.marge,
           ),
         }
       : {}),

@@ -20,6 +20,7 @@ import {
 import {
   ajouterFiltresGlobaux,
   optionsBarreValides,
+  OPTIONS_BARRE_VIDES,
 } from '@/components/dashboards/filtres-query';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import type {
@@ -142,7 +143,7 @@ export function TraiteurDashboardClient({
       .then((j: { data?: ParcFilterOptions }) => {
         setParcOptions(optionsBarreValides(j.data));
       })
-      .catch(() => {});
+      .catch(() => setParcOptions(OPTIONS_BARRE_VIDES));
   }, []);
 
   // ── Re-fetch consolidé (endpoint traiteur-full) au changement d'onglet/filtres ──

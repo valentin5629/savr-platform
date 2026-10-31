@@ -142,6 +142,8 @@ function fauxClient(lignes: unknown[]) {
 }
 
 const UUID = '11111111-1111-4111-8111-111111111111';
+const LIEU = '22222222-2222-4222-8222-222222222222';
+const TRAITEUR = '33333333-3333-4333-8333-333333333333';
 const ligne = (over: Record<string, unknown> = {}) => ({
   id: 'c1',
   type: 'anti_gaspi',
@@ -172,7 +174,7 @@ describe('loadKpiCollectes — périmètre et filtres', () => {
         type: 'anti_gaspi',
         filtres: {
           ...FILTRES_GLOBAUX_VIDES,
-          lieuIds: ['L1'],
+          lieuIds: [LIEU],
           clientNoms: ['Dior'],
           typeEvtIds: [UUID],
           traiteurIds: ['ignoré'],
@@ -185,7 +187,7 @@ describe('loadKpiCollectes — périmètre et filtres', () => {
       'org-1',
     ]);
     expect(appels).toContainEqual(['eq', 'statut', 'cloturee']);
-    expect(appels).toContainEqual(['in', 'evenements.lieu_id', ['L1']]);
+    expect(appels).toContainEqual(['in', 'evenements.lieu_id', [LIEU]]);
     expect(appels).toContainEqual([
       'in',
       'evenements.nom_client_organisateur',
@@ -215,7 +217,7 @@ describe('loadKpiCollectes — périmètre et filtres', () => {
         from: null,
         to: null,
         type: null,
-        filtres: { ...FILTRES_GLOBAUX_VIDES, traiteurIds: ['T1'] },
+        filtres: { ...FILTRES_GLOBAUX_VIDES, traiteurIds: [TRAITEUR] },
       },
     );
     expect(appels).toContainEqual([
@@ -226,7 +228,7 @@ describe('loadKpiCollectes — périmètre et filtres', () => {
     expect(appels).toContainEqual([
       'in',
       'evenements.traiteur_operationnel_organisation_id',
-      ['T1'],
+      [TRAITEUR],
     ]);
     // Seule la collecte AG lue sous RLS est demandée en service_role.
     expect(adminIn).toHaveBeenCalledWith('collecte_id', ['c1']);

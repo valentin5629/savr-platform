@@ -136,9 +136,9 @@ describe('ajouterFiltresGlobaux / optionsBarreValides', () => {
     );
   });
 
-  it('une réponse sans listes de lieux et de types est écartée', () => {
+  it('une réponse sans listes de lieux et de types donne des listes vides', () => {
     expect(optionsBarreValides({ lieux, types })).toEqual({ lieux, types });
-    expect(optionsBarreValides(undefined)).toBeUndefined();
-    expect(optionsBarreValides({ kpi: {} })).toBeUndefined();
+    expect(optionsBarreValides(undefined)).toEqual({ lieux: [], types: [] });
+    expect(optionsBarreValides({ kpi: {} })).toEqual({ lieux: [], types: [] });
   });
 });

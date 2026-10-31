@@ -181,12 +181,12 @@ describe('M3.5 / kpi-traiteur', () => {
       await import('@/app/api/v1/dashboards/kpi-traiteur/route.js');
     const res = await GET(
       makeReq(
-        '/api/v1/dashboards/kpi-traiteur?type=zero_dechet&lieu_ids[]=L1&client_noms[]=Dior',
+        '/api/v1/dashboards/kpi-traiteur?type=zero_dechet&lieu_ids[]=22222222-2222-4222-8222-222222222222&client_noms[]=Dior',
       ),
     );
     expect(res.status).toBe(200);
     expect(mockClientChain.in).toHaveBeenCalledWith('evenements.lieu_id', [
-      'L1',
+      '22222222-2222-4222-8222-222222222222',
     ]);
     expect(mockClientChain.in).toHaveBeenCalledWith(
       'evenements.nom_client_organisateur',

@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { TAILLE_BOUTON_BARRE_TABLEAU } from '@/components/ui/bouton-export-csv';
 import { ErrorState } from '@/components/ui/error-state';
 import {
   Dropdown,
@@ -283,8 +284,11 @@ function DataGrid<T>({
             {columnsToggle && hideable.length > 0 && (
               <Dropdown>
                 <DropdownTrigger asChild>
-                  <Button variant="secondary" className="h-11 sm:h-10">
-                    <ColumnsIcon className="h-4 w-4" />
+                  <Button
+                    variant="secondary"
+                    className={TAILLE_BOUTON_BARRE_TABLEAU}
+                  >
+                    <ColumnsIcon />
                     Colonnes
                   </Button>
                 </DropdownTrigger>

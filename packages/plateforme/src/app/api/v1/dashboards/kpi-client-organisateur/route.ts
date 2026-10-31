@@ -1,60 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { requireUser } from '@/lib/api-auth.js';
+import { requireUser, createSupabaseServerClient } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import {
+  lireFiltresGlobaux,
+  loadKpiCollectes,
+} from '@/lib/dashboards/kpi-collectes.js';
 
+/**
+ * GET /api/v1/dashboards/kpi-client-organisateur — cadrans du dashboard client
+ * organisateur (§11 §7), lignes mensuelles par type de collecte.
+ *
+ * Calculées depuis les collectes dont l'organisation est le client organisateur
+ * rattaché, filtres de la barre globale appliqués (Lieux, Traiteurs, Type et
+ * Taille d'événement, décision Val du 2026-10-30). Sans `type` : les deux types
+ * (bandeau YTD). Paramètres : from, to, type, lieu_ids[], traiteur_ids[],
+ * type_evenement_ids[], taille_evenements[].
+ */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ['client_organisateur']);
   if (auth.error) return auth.error;
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      // Les vues KPI vivent dans le schéma `plateforme` (cf. api-auth.ts) : sans
-      // cette option supabase-js cible `public.*` (Accept-Profile: public) →
-      // PGRST205 « table not found » → 500 → dashboard vide.
-      db: { schema: 'plateforme' },
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          for (const { name, value, options } of cookiesToSet) {
-            cookieStore.set(name, value, options);
-          }
-        },
-      },
-    },
-  );
+  const supabase = createSupabaseServerClient();
+  const sp = new URL(req.url).searchParams;
+  const type = sp.get('type');
 
-  const { searchParams } = new URL(req.url);
-  const from = searchParams.get('from');
-  const to = searchParams.get('to');
-  const type = searchParams.get('type');
-
-  // Défense en profondeur : scoper côté serveur en plus de la RLS vue security_invoker
-  let query = supabase
-    .from('v_kpi_client_organisateur')
-    .select('*')
-    .eq('organisation_id', auth.ctx.organisationId);
-
-  if (from) query = query.gte('mois', from);
-  if (to) query = query.lte('mois', to);
-  if (type === 'zero_dechet' || type === 'anti_gaspi') {
-    query = query.eq('type_collecte', type);
+  try {
+    const { data } = await loadKpiCollectes(supabase, auth.ctx, {
+      from: sp.get('from'),
+      to: sp.get('to'),
+      type: type === 'zero_dechet' || type === 'anti_gaspi' ? type : null,
+      filtres: { ...lireFiltresGlobaux(sp), clientNoms: [] },
+    });
+    return NextResponse.json(
+      { data },
+      { headers: { 'Cache-Control': 'private, max-age=60' } },
+    );
+  } catch (e) {
+    return serverError(e, 'dashboards.kpi_client_organisateur.list');
   }
-
-  query = query.order('mois', { ascending: false });
-
-  const { data, error } = await query;
-  if (error)
-    return serverError(error, 'dashboards.kpi_client_organisateur.list');
-
-  return NextResponse.json(
-    { data },
-    { headers: { 'Cache-Control': 'private, max-age=60' } },
-  );
 }

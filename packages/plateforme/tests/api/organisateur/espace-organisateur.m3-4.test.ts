@@ -30,9 +30,11 @@ function makeChain() {
     'eq',
     'in',
     'gte',
+    'gt',
     'lte',
     'neq',
     'order',
+    'limit',
   ]) {
     chain[m] = (...args: unknown[]) => {
       record(m, args);
@@ -256,12 +258,17 @@ describe('M3.4 / dashboard KPI', () => {
     rls.push({
       data: [
         {
-          mois: '2026-05-01',
-          type_collecte: 'zero_dechet',
+          id: 'c1',
+          type: 'zero_dechet',
+          date_collecte: '2026-05-12',
+          pax: 100,
+          evenement_id: 'e1',
+          taux_recyclage: 70,
           co2_evite_kg: 5,
           co2_induit_kg: 10,
           co2_net_kg: -5,
           energie_primaire_evitee_kwh: 120,
+          collecte_flux: [{ poids_reel_kg: 30 }],
         },
       ],
       error: null,
@@ -277,6 +284,12 @@ describe('M3.4 / dashboard KPI', () => {
     expect(res.status).toBe(200);
     expect(json.data[0]).toHaveProperty('co2_induit_kg', 10);
     expect(json.data[0]).toHaveProperty('energie_primaire_evitee_kwh', 120);
+    expect(json.data[0]).toHaveProperty('nb_evenements', 1);
+    // Périmètre : événements dont l'organisation est le client rattaché.
+    expect(rls.__calls.eq).toContainEqual([
+      'evenements.client_organisateur_organisation_id',
+      'org-a',
+    ]);
   });
 });
 

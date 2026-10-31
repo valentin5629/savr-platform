@@ -11,6 +11,8 @@ import {
   type CollecteType,
   type DashboardFilters,
 } from '@/components/dashboards/index.js';
+import { ajouterFiltresGlobaux } from '@/components/dashboards/filtres-query';
+import { useOptionsBarre } from '@/components/dashboards/useOptionsBarre';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import type {
   FluxSeriePoint,
@@ -187,6 +189,15 @@ export function DashboardClientView() {
   const [co2AgModalOpen, setCo2AgModalOpen] = useState(false);
   const hydrated = useRef(false);
 
+  // Options Lieux / Traiteurs / Type / Taille de la barre (reprise du dashboard
+  // gestionnaire, §06.06 §2) : celles des organisations choisies, toutes sans
+  // choix (décision Val du 2026-10-30).
+  const parcOptions = useOptionsBarre(
+    `/api/v1/admin/dashboard-client/filtres?${new URLSearchParams(
+      selectedOrgs.map((id) => ['organisation_ids[]', id]),
+    )}`,
+  );
+
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
 
   // Liste des organisations pour le sélecteur.
@@ -248,6 +259,7 @@ export function DashboardClientView() {
       to: filters.to,
     });
     for (const id of selectedOrgs) qs.append('organisation_ids[]', id);
+    ajouterFiltresGlobaux(qs, filters);
 
     const fenetrePrev = previousWindow(filters.from, filters.to);
     const qsPrev = new URLSearchParams(qs);
@@ -441,14 +453,16 @@ export function DashboardClientView() {
         />
 
         {/* Même barre que la liste Collectes (décision Val 2026-09-30) :
-          Période puis organisations par type ; « Réinitialiser » rétablit
-          aussi toutes les organisations (§06.06 §2). */}
+          Période, organisations par type, puis les filtres du dashboard
+          gestionnaire (Lieux, Traiteurs, Type, Taille — 2026-10-30) ;
+          « Réinitialiser » rétablit aussi toutes les organisations (§06.06 §2). */}
         <DashboardFilterBar
           storageKey="savr.dashboard-client.filters"
           onChange={handleFilters}
           onReset={() => setSelectedOrgs([])}
           enCarte
           enfantsActifs={selectedOrgs.length > 0}
+          parcOptions={parcOptions}
           toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
         >
           <OrganisationSelector

@@ -9,6 +9,8 @@ import {
   type CollecteType,
   type DashboardFilters,
 } from '@/components/dashboards/index.js';
+import { ajouterFiltresGlobaux } from '@/components/dashboards/filtres-query';
+import { useOptionsBarre } from '@/components/dashboards/useOptionsBarre';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
 import { StatCard } from '@/components/ui/stat-card';
@@ -66,9 +68,14 @@ export default function ClientOrganisateurDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showAbc, setShowAbc] = useState(false);
 
+  // Options de la barre : Lieux, Traiteurs, Type et Taille d'événement (décision
+  // Val du 2026-10-30, au-delà du « filtre période » du §11 §7).
+  const parcOptions = useOptionsBarre('/api/v1/dashboards/filtres');
+
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
 
-  // Cadrans de l'onglet — suivent la période du filtre (défaut 12 derniers mois, §11 §8)
+  // Cadrans de l'onglet — suivent les filtres de la barre (période par défaut :
+  // 12 derniers mois, §11 §8). Le bandeau YTD, lui, reste l'année entière.
   useEffect(() => {
     if (!filters) return;
     setLoading(true);
@@ -77,6 +84,7 @@ export default function ClientOrganisateurDashboardPage() {
       to: filters.to,
       type: tab,
     });
+    ajouterFiltresGlobaux(qs, filters);
     fetch(`/api/v1/dashboards/kpi-client-organisateur?${qs}`)
       .then((r) => r.json())
       .then((j) => setRows((j.data ?? []) as KpiRow[]))
@@ -169,6 +177,7 @@ export default function ClientOrganisateurDashboardPage() {
       <DashboardFilterBar
         storageKey="organisateur-dashboard"
         onChange={handleFilters}
+        parcOptions={parcOptions}
       />
       <ToggleTypeCollecte value={tab} onChange={setTab} />
 

@@ -19,7 +19,17 @@ import { NextRequest } from 'next/server';
 function makeStubClient() {
   const result = { data: [] as unknown[], error: null };
   const chain: Record<string, unknown> = {};
-  for (const m of ['from', 'select', 'eq', 'in', 'gte', 'lte', 'order']) {
+  for (const m of [
+    'from',
+    'select',
+    'eq',
+    'in',
+    'gte',
+    'gt',
+    'lte',
+    'order',
+    'limit',
+  ]) {
     chain[m] = () => chain;
   }
   chain.then = (resolve: (r: unknown) => unknown) => resolve(result);

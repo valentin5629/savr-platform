@@ -48,6 +48,8 @@ function makeSupabase(config: FakeConfig): DbClient {
       gte: () => q,
       lte: () => q,
       in: () => q,
+      gt: () => q,
+      limit: () => q,
       order: () => q,
       maybeSingle: () =>
         Promise.resolve({ data: rows(table)[0] ?? null, error: null }),
@@ -221,12 +223,23 @@ describe('loaders — transforms pures §11', () => {
 
 describe('loaders — I/O (faux Supabase)', () => {
   it('loadKpiTraiteur découpe la fenêtre N-1 (courante vs précédente)', async () => {
+    // Cartes calculées depuis les collectes (kpi-collectes) : la période porte
+    // sur date_collecte, la fenêtre N-1 est accolée juste avant `from`.
+    const collecte = (id: string, date_collecte: string) => ({
+      id,
+      type: 'zero_dechet',
+      date_collecte,
+      pax: 100,
+      evenement_id: `e-${id}`,
+      taux_recyclage: 80,
+      collecte_flux: [{ poids_reel_kg: 50 }],
+    });
     const supabase = makeSupabase({
       tables: {
-        v_kpi_traiteur: [
-          { mois: '2026-03-01', type_collecte: 'zero_dechet', marge_zd_ht: 10 },
-          { mois: '2026-05-01', type_collecte: 'zero_dechet', marge_zd_ht: 20 },
-          { mois: '2025-09-01', type_collecte: 'zero_dechet', marge_zd_ht: 5 },
+        collectes: [
+          collecte('c1', '2026-03-15'),
+          collecte('c2', '2026-05-02'),
+          collecte('c3', '2025-09-10'),
         ],
       },
       rpc: { f_tarif_refacture_pax_zd: 12 },
@@ -240,15 +253,21 @@ describe('loaders — I/O (faux Supabase)', () => {
     expect(res.data).toHaveLength(2); // 2026-03 + 2026-05
     expect(res.previous).toHaveLength(1); // 2025-09 (fenêtre N-1)
     expect(res.tarif_refacture_pax_zd).toBe(12);
-    // marge conservée pour le traiteur.
-    expect((res.data[0] as { marge_zd_ht?: number }).marge_zd_ht).toBeDefined();
   });
 
-  it('loadKpiTraiteur retire marge_zd_ht pour l’agence (§06.11 diff #7)', async () => {
+  it('loadKpiTraiteur : aucune marge transmise, ni tarif pour l’agence (§06.11 diff #7)', async () => {
     const supabase = makeSupabase({
       tables: {
-        v_kpi_traiteur: [
-          { mois: '2026-03-01', type_collecte: 'zero_dechet', marge_zd_ht: 10 },
+        collectes: [
+          {
+            id: 'c1',
+            type: 'zero_dechet',
+            date_collecte: '2026-03-15',
+            pax: 100,
+            evenement_id: 'e1',
+            taux_recyclage: 80,
+            collecte_flux: [{ poids_reel_kg: 50 }],
+          },
         ],
       },
     });
@@ -258,7 +277,7 @@ describe('loaders — I/O (faux Supabase)', () => {
       type: 'zero_dechet',
       compare: 'n1',
     });
-    expect('marge_zd_ht' in (res.data[0] as object)).toBe(false);
+    expect((res.data[0] as { marge_zd_ht: unknown }).marge_zd_ht).toBeNull();
     // L'agence n'obtient pas le tarif de refacturation (pas de carte Marge).
     expect(res.tarif_refacture_pax_zd).toBeNull();
   });
@@ -497,10 +516,7 @@ describe('loaders — I/O (faux Supabase)', () => {
   it('loadTraiteurDashboard (ZD) renvoie marge + pack null en UN payload', async () => {
     const supabase = makeSupabase({
       tables: {
-        v_kpi_traiteur: [
-          { mois: '2026-03-01', type_collecte: 'zero_dechet', marge_zd_ht: 10 },
-        ],
-        collectes: [], // évolution/blocs vides — I/O uniquement, transforms testés à part
+        collectes: [], // cartes, évolution, blocs vides — I/O uniquement, transforms testés à part
       },
       rpc: { f_tarif_refacture_pax_zd: 12 },
     });
@@ -509,7 +525,7 @@ describe('loaders — I/O (faux Supabase)', () => {
       to: '2026-06-30',
       type: 'zero_dechet',
     });
-    expect(res.kpi.data).toHaveLength(1);
+    expect(res.kpi.data).toEqual([]);
     expect(res.evolution.series).toEqual([]);
     expect(res.marge).toEqual({ nb_en_attente: 0 });
     expect(res.pack).toBeNull(); // pack = AG only (aucun appel service_role en ZD)

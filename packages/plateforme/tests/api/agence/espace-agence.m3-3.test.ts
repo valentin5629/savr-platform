@@ -32,6 +32,7 @@ function makeChain() {
     'eq',
     'in',
     'gte',
+    'gt',
     'lte',
     'neq',
     'order',
@@ -149,21 +150,22 @@ describe('M3.3 / auth guard', () => {
 
 // ── Dashboard sans marge (diff #7) ──────────────────────────────────────────
 describe('M3.3 / dashboard sans marge', () => {
-  it('M3.3/dashboard_agence_4_cartes_zd_sans_marge — marge_zd_ht absent de la réponse', async () => {
+  // Cartes calculées depuis les collectes (filtres globaux, 2026-10-30) : la
+  // marge n'est calculée que pour le traiteur, jamais pour l'agence (§06.11 #7).
+  const collecteZd = (id: string) => ({
+    id,
+    type: 'zero_dechet',
+    date_collecte: '2026-06-10',
+    pax: 100,
+    evenement_id: `e-${id}`,
+    taux_recyclage: 80,
+    collecte_flux: [{ poids_reel_kg: 40 }],
+  });
+
+  it('M3.3/dashboard_agence_4_cartes_zd_sans_marge — aucune marge dans la réponse', async () => {
     setupAuth('agence');
     rls.push({
-      data: [
-        {
-          organisation_id: 'org-wpm',
-          mois: '2026-06-01',
-          type_collecte: 'zero_dechet',
-          nb_collectes: 3,
-          tonnage_kg: 120,
-          taux_recyclage_pondere: 80,
-          pax_total: 300,
-          marge_zd_ht: 450,
-        },
-      ],
+      data: [collecteZd('c1'), collecteZd('c2'), collecteZd('c3')],
       error: null,
     });
     const { GET } =
@@ -176,17 +178,27 @@ describe('M3.3 / dashboard sans marge', () => {
     );
     const json = (await res.json()) as {
       data: Array<Record<string, unknown>>;
+      tarif_refacture_pax_zd: unknown;
     };
-    expect(json.data[0]).not.toHaveProperty('marge_zd_ht');
+    expect(json.data[0]?.marge_zd_ht).toBeNull();
     expect(json.data[0]?.nb_collectes).toBe(3);
+    expect(json.data[0]?.tonnage_kg).toBe(120);
+    expect(json.tarif_refacture_pax_zd).toBeNull();
+    // Périmètre agence : événements qu'elle a programmés.
+    expect(rls.__calls.eq).toContainEqual([
+      'evenements.organisation_id',
+      'org-wpm',
+    ]);
   });
 
-  it('M3.3/dashboard_marge_conservee_pour_traiteur — marge_zd_ht présent (contrôle)', async () => {
+  it('M3.3/dashboard_marge_conservee_pour_traiteur — marge ZD recalculée (tarif × pax − factures), contrôle', async () => {
     setupAuth('traiteur_manager');
+    rls.push({ data: 12, error: null }); // f_tarif_refacture_pax_zd
+    rls.push({ data: [collecteZd('c1')], error: null }); // collectes
     rls.push({
-      data: [{ nb_collectes: 1, marge_zd_ht: 450 }],
+      data: [{ collecte_id: 'c1', montant_ht: 300 }],
       error: null,
-    });
+    }); // factures ZD émises ou payées
     const { GET } =
       await import('@/app/api/v1/dashboards/kpi-traiteur/route.js');
     const res = await GET(
@@ -195,7 +207,12 @@ describe('M3.3 / dashboard sans marge', () => {
     const json = (await res.json()) as {
       data: Array<Record<string, unknown>>;
     };
-    expect(json.data[0]).toHaveProperty('marge_zd_ht', 450);
+    // 12 € × 100 pax − 300 € facturés.
+    expect(json.data[0]?.marge_zd_ht).toBe(900);
+    expect(rls.__calls.in).toContainEqual([
+      'factures.statut',
+      ['emise', 'payee'],
+    ]);
   });
 });
 

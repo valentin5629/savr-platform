@@ -53,6 +53,7 @@ function baseParams(over: Partial<SyntheseParams> = {}): SyntheseParams {
     lieuIds: [],
     traiteurIds: [],
     clientOrgaIds: [],
+    clientNoms: [],
     commercialIds: [],
     typeEvtIds: [],
     tailleEvts: [],
@@ -457,5 +458,26 @@ describe('synthèse PDF AG — attributions lues par rôle (vue gestionnaire / t
       expect(s).not.toContain('v_attributions_gestionnaire');
     }
     expect(snap.nb_repas_donnes).toBe(150);
+  });
+});
+
+// Barre de filtres globale reprise sur le dashboard traiteur (2026-10-30) : le
+// client organisateur choisi dans la barre filtre aussi la synthèse PDF.
+describe('M3.5 / synthèse PDF — filtre Client organisateur de la barre', () => {
+  it('client_noms → filtre sur evenements.nom_client_organisateur, compté dans la légende', async () => {
+    const { client, calls } = makeSupabase({
+      collectes: { data: [ZD_COLLECTE], error: null },
+    });
+    const snap = await buildSyntheseSnapshot(
+      client,
+      ctxTraiteur,
+      baseParams({ types: ['zero_dechet'], clientNoms: ['Dior'] }),
+      CLOCK,
+    );
+    expect(calls.in).toContainEqual([
+      'evenements.nom_client_organisateur',
+      ['Dior'],
+    ]);
+    expect(snap.filtres_label).toContain('Clients : 1 sélectionné(s)');
   });
 });

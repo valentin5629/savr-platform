@@ -593,3 +593,76 @@ describe('M3.6 / Dashboard Client / référence radar', () => {
     ATTENTE_CAS_MS,
   );
 });
+
+// Barre du gestionnaire reprise sur le Dashboard Client (2026-10-30) : Lieux,
+// Traiteurs, Type et Taille partent dans l'appel du dashboard ; une valeur
+// mémorisée absente des options des organisations choisies est retirée.
+describe('M3.6 / Dashboard Client / filtres de la barre', () => {
+  const LIEU = '22222222-2222-4222-8222-222222222222';
+  const avecOptions = (lieux: { id: string; nom: string }[]) =>
+    vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/dashboard-client/filtres'))
+        return jsonResponse({ data: { lieux, traiteurs: [], types: [] } });
+      return fetchMock(input);
+    });
+  const lieuxDerniereRequete = (f: ReturnType<typeof vi.fn>) => {
+    const urls = f.mock.calls
+      .map((c) => String(c[0]))
+      .filter((u) => /\/admin\/dashboard-client\?/.test(u));
+    return new URL(urls.at(-1) ?? '', 'http://savr.test').searchParams.getAll(
+      'lieu_ids[]',
+    );
+  };
+  const memoriserLieu = () =>
+    localStorage.setItem(
+      'savr.dashboard-client.filters',
+      JSON.stringify({
+        from: '2026-01-01',
+        to: '2026-10-30',
+        lieu_ids: [LIEU],
+      }),
+    );
+
+  it(
+    'M3.6/dashboard_client_filtre_lieu_transmis — le lieu coché part dans lieu_ids[]',
+    async () => {
+      memoriserLieu();
+      const f = avecOptions([{ id: LIEU, nom: 'Grand Palais' }]);
+      vi.stubGlobal('fetch', f);
+      render(<DashboardClientView />);
+      expect(
+        await screen.findByTestId(
+          'dashboard-filter-lieux',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toHaveTextContent('Grand Palais');
+      await waitFor(
+        () => expect(lieuxDerniereRequete(f)).toEqual([LIEU]),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.6/dashboard_client_filtre_lieu_hors_options_retire — jamais un filtre invisible',
+    async () => {
+      memoriserLieu();
+      const f = avecOptions([]);
+      vi.stubGlobal('fetch', f);
+      render(<DashboardClientView />);
+      await screen.findByTestId(
+        'dashboard-filter-lieux',
+        undefined,
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(lieuxDerniereRequete(f)).toEqual([]),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+});

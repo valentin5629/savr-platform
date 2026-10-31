@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dropdown';
 import { ChevronLigne, RepereJour } from '@/components/collecte/repere-jour';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { LIBELLE_RAPPORT_RESERVE } from '@/lib/collectes/fiche-client-types';
@@ -329,10 +330,20 @@ function ActionsLigne({
 
 // Colonnes de la Data Table (tri côté client : la route n'est pas paginée).
 // `aujourdhui` (jour de Paris) pose le repère « Aujourd’hui » / « Demain ».
+// `avecType` : sélecteur sur « Toutes », la colonne Type (picto ZD / AG) dit
+// le type de chaque ligne (décision Val 2026-10-31).
 export function colonnesCollectesTraiteur(
   actions: ActionsTraiteur,
   aujourdhui?: string,
+  avecType = false,
 ): ColumnDef<TraiteurCollecteLigne, unknown>[] {
+  const colonneType: ColumnDef<TraiteurCollecteLigne, unknown> = {
+    id: 'type',
+    header: 'Type',
+    accessorFn: (c) => c.type,
+    meta: { className: 'w-[1%] whitespace-nowrap' },
+    cell: ({ row: { original: c } }) => <TypeCollecteBadge type={c.type} />,
+  };
   return [
     {
       id: 'date',
@@ -352,6 +363,7 @@ export function colonnesCollectesTraiteur(
         </span>
       ),
     },
+    ...(avecType ? [colonneType] : []),
     {
       id: 'lieu',
       header: 'Lieu',

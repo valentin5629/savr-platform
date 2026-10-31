@@ -14,8 +14,11 @@ import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
-import { type CollecteType } from '@/components/dashboards/index.js';
-import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
+import {
+  ToggleTypeCollecte,
+  type TypeCollecteFiltre,
+} from '@/components/collecte/toggle-type-collecte';
+import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { OngletsVueCollectes } from '@/components/collecte/onglets-vue-collectes';
 import {
   lireVueCollectes,
@@ -62,9 +65,57 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
+// Colonne résultat d'une ligne : taux de recyclage ZD, repas AG. Collecte AG
+// sans excédent : la mention, jamais « 0 » — c'est un résultat, pas un statut
+// (décision Val 2026-10-09).
+function recyclage(c: CollecteRow) {
+  return c.taux_recyclage != null ? fmtPct(c.taux_recyclage) : <CelluleVide />;
+}
+function repas(c: CollecteRow) {
+  return c.statut === 'realisee_sans_collecte'
+    ? LIBELLE_SANS_EXCEDENT
+    : (c.repas_donnes ?? <CelluleVide />);
+}
+
 // Colonnes de la Data Table (tri côté client : la route n'est pas paginée).
-// La colonne résultat dépend de l'onglet : taux de recyclage ZD, repas AG.
-function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
+// La colonne résultat dépend du type choisi : « Recyclage » en ZD, « Repas » en
+// AG ; sur « Toutes », une colonne Type (picto ZD / AG) et une colonne
+// « Résultats » qui suit le type de chaque ligne (décision Val 2026-10-31).
+function colonnes(type: TypeCollecteFiltre): ColumnDef<CollecteRow, unknown>[] {
+  const resultat: ColumnDef<CollecteRow, unknown> =
+    type === 'zero_dechet'
+      ? {
+          id: 'recyclage',
+          header: 'Recyclage',
+          accessorFn: (c) => c.taux_recyclage ?? -1,
+          meta: { className: 'text-right tabular-nums' },
+          cell: ({ row: { original: c } }) => recyclage(c),
+        }
+      : type === 'anti_gaspi'
+        ? {
+            id: 'repas',
+            header: 'Repas',
+            accessorFn: (c) => c.repas_donnes ?? -1,
+            meta: { className: 'text-right tabular-nums' },
+            cell: ({ row: { original: c } }) => repas(c),
+          }
+        : {
+            id: 'resultats',
+            header: 'Résultats',
+            meta: { className: 'text-right tabular-nums' },
+            cell: ({ row: { original: c } }) => {
+              if (c.type === 'zero_dechet') return recyclage(c);
+              const r = repas(c);
+              return typeof r === 'number' ? `${r} repas` : r;
+            },
+          };
+  const colonneType: ColumnDef<CollecteRow, unknown> = {
+    id: 'type',
+    header: 'Type',
+    accessorFn: (c) => c.type,
+    meta: { className: 'w-[1%] whitespace-nowrap' },
+    cell: ({ row: { original: c } }) => <TypeCollecteBadge type={c.type} />,
+  };
   return [
     {
       id: 'date',
@@ -77,6 +128,7 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
         </span>
       ),
     },
+    ...(type === 'tous' ? [colonneType] : []),
     {
       id: 'evenement',
       header: 'Événement',
@@ -114,31 +166,7 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
       meta: { className: 'text-right tabular-nums' },
       cell: ({ row: { original: c } }) => c.pax ?? <CelluleVide />,
     },
-    isZd
-      ? {
-          id: 'recyclage',
-          header: 'Recyclage',
-          accessorFn: (c) => c.taux_recyclage ?? -1,
-          meta: { className: 'text-right tabular-nums' },
-          cell: ({ row: { original: c } }) =>
-            c.taux_recyclage != null ? (
-              fmtPct(c.taux_recyclage)
-            ) : (
-              <CelluleVide />
-            ),
-        }
-      : {
-          id: 'repas',
-          header: 'Repas',
-          accessorFn: (c) => c.repas_donnes ?? -1,
-          meta: { className: 'text-right tabular-nums' },
-          // Collecte AG sans excédent : la mention, jamais « 0 » — c'est un
-          // résultat, pas un statut (décision Val 2026-10-09).
-          cell: ({ row: { original: c } }) =>
-            c.statut === 'realisee_sans_collecte'
-              ? LIBELLE_SANS_EXCEDENT
-              : (c.repas_donnes ?? <CelluleVide />),
-        },
+    resultat,
     {
       id: 'statut',
       header: 'Statut',
@@ -157,7 +185,8 @@ function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
 const FILTRES = {
   // Vue à venir (défaut) / passées, rangée par date (décision Val 2026-10-19).
   onglet: navigation(texte('')),
-  type: navigation(texte('zero_dechet')),
+  // Vide = « Toutes », par défaut comme la liste Événements (Val 2026-10-31).
+  type: navigation(texte('')),
   from: texte(),
   to: texte(),
 };
@@ -171,8 +200,8 @@ const OPTIONS_BARRE: CollecteFiltresOptions = {
 // Pas de bouton « Programmer » (rôle jamais self-service), pas de fiche éditable.
 function CollectesContent() {
   const { valeurs: f, set, reset, actif } = useFiltresUrl(FILTRES);
-  const tab: CollecteType =
-    f.type === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
+  const tab: TypeCollecteFiltre =
+    f.type === 'zero_dechet' || f.type === 'anti_gaspi' ? f.type : 'tous';
   const vue = lireVueCollectes(f.onglet) ?? 'a_venir';
   // Jour lu à chaque rendu (page restée ouverte passé minuit).
   const aujourdhui = jourParis();
@@ -180,7 +209,8 @@ function CollectesContent() {
   // Paramètres partagés avec l'export CSV (§12 « l'export respecte les filtres
   // actifs ») ; la période de la barre est bornée à la vue.
   const qs = useMemo(() => {
-    const usp = new URLSearchParams({ type: tab });
+    const usp = new URLSearchParams();
+    if (tab !== 'tous') usp.set('type', tab);
     const periode = periodeDeLaVue(vue, { from: f.from, to: f.to }, aujourdhui);
     if (periode.from) usp.set('from', periode.from);
     if (periode.to) usp.set('to', periode.to);
@@ -202,8 +232,7 @@ function CollectesContent() {
     messageErreur: 'Le chargement des collectes a échoué.',
   });
 
-  const isZd = tab === 'zero_dechet';
-  const cols = useMemo(() => colonnes(isZd), [isZd]);
+  const cols = useMemo(() => colonnes(tab), [tab]);
 
   function exportCsv() {
     window.open(`/api/v1/exports/collectes?${qs}`);
@@ -228,7 +257,11 @@ function CollectesContent() {
           />
         }
         toggle={
-          <ToggleTypeCollecte value={tab} onChange={(t) => set({ type: t })} />
+          <ToggleTypeCollecte
+            avecTous
+            value={tab}
+            onChange={(t) => set({ type: t === 'tous' ? '' : t })}
+          />
         }
         statutsOnglet={[]}
         filtres={{

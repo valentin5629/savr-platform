@@ -9,7 +9,6 @@ import type {
   FluxSeriePoint,
   RepasSeriePoint,
 } from '@/components/dashboards/useEvolutionBlocs';
-import { Sparkline } from '@/components/ui/sparkline';
 import { StatCard } from '@/components/ui/stat-card';
 import { EvolutionZdChart } from './EvolutionZdChart';
 import { TonnagesDonut } from './TonnagesDonut';
@@ -48,27 +47,6 @@ const ag: RepasSeriePoint[] = [
   { periode: '2025-07-01', repas_donnes: 3730, pax: 4200, ratio: 0.89 },
 ];
 
-it('Sparkline — rend une polyline SVG à partir des points', () => {
-  const { container } = render(
-    <Sparkline points={[1, 3, 2, 5]} color="#223870" />,
-  );
-  expect(container.querySelector('polyline')).toBeInTheDocument();
-});
-
-it('Sparkline — ne rend rien sous 2 points', () => {
-  const { container } = render(<Sparkline points={[1]} color="#223870" />);
-  expect(container.querySelector('svg')).toBeNull();
-});
-
-it('Sparkline — rend une aire dégradée sous la courbe', () => {
-  const { container } = render(
-    <Sparkline points={[1, 3, 2, 5]} color="#223870" />,
-  );
-  // Aire = <polygon> refermé + <linearGradient> de remplissage.
-  expect(container.querySelector('polygon')).toBeInTheDocument();
-  expect(container.querySelector('linearGradient')).toBeInTheDocument();
-});
-
 it('StatCard — affiche label, valeur, unité et pastille de variation', () => {
   render(
     <StatCard
@@ -77,7 +55,6 @@ it('StatCard — affiche label, valeur, unité et pastille de variation', () => 
       unit="t"
       dotColor="#3F5599"
       variationPct={12.4}
-      sparkPoints={[1, 2, 3, 5]}
     />,
   );
   expect(screen.getByText('Tonnage détourné')).toBeInTheDocument();

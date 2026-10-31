@@ -278,13 +278,7 @@ export default function GestionnaireDashboardPage() {
         ) : tab === 'zero_dechet' ? (
           <>
             {/* Bloc 1 — KPIs Cockpit (non cliquables, décision Val 2026-07-10) */}
-            <CartesKpiGestionnaire
-              type={tab}
-              kpi={kpi}
-              kpiPrev={kpiPrev}
-              zdSeries={zdSeries}
-              agSeries={agSeries}
-            />
+            <CartesKpiGestionnaire type={tab} kpi={kpi} kpiPrev={kpiPrev} />
 
             {/* Bloc 2 — Évolution mensuelle ZD */}
             <div data-testid="bloc-2-gestionnaire">
@@ -357,13 +351,7 @@ export default function GestionnaireDashboardPage() {
         ) : (
           <>
             {/* Bloc 1 — KPIs Cockpit AG (non cliquables) */}
-            <CartesKpiGestionnaire
-              type={tab}
-              kpi={kpi}
-              kpiPrev={kpiPrev}
-              zdSeries={zdSeries}
-              agSeries={agSeries}
-            />
+            <CartesKpiGestionnaire type={tab} kpi={kpi} kpiPrev={kpiPrev} />
 
             {/* Bloc 2 — Évolution Anti-Gaspi */}
             <div data-testid="bloc-2-gestionnaire">

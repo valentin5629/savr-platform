@@ -153,9 +153,9 @@
       "id": "M3.6-kpi-sparkline-n1",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:133",
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx + packages/plateforme/src/lib/dashboards/loaders.ts",
-      "test": "M3.6/kpi_cartes_sparkline_et_variation_n1_co2_compris",
+      "test": "M3.6/kpi_cartes_variation_n1_co2_compris_sans_courbe",
       "statut": "implemented",
-      "libelle": "Dashboard Client Admin = reprise exacte du gestionnaire (§06.05 l.136) : sparkline + variation N-1 sur les cartes (sauf kg/pax), CO₂ évité compris (co2_evite_kg par bucket, sélectionné par le loader Admin). Variation = 2e appel /admin/dashboard-client sur previousWindow, même périmètre d'organisations, non bloquant."
+      "libelle": "Dashboard Client Admin = reprise exacte du gestionnaire (§06.05 l.136) : variation N-1 sur les cartes (sauf kg/pax), sans courbe de tendance (retirée, Val 2026-10-30), CO₂ évité compris (co2_evite_kg par bucket, sélectionné par le loader Admin). Variation = 2e appel /admin/dashboard-client sur previousWindow, même périmètre d'organisations, non bloquant."
     },
     {
       "id": "M3.6-benchmark-admin-reference",
@@ -176,7 +176,7 @@
     {
       "id": "M3.6-kpi-vous-pax-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:139",
-      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (loadAdminDashboardClient, loadAdminBenchmarkComparaison) + packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx (sparkline kg/pax)",
+      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (loadAdminDashboardClient, loadAdminBenchmarkComparaison) + packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
       "test": "Lot3/admin_kpi_et_vous_pax_collectes",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",

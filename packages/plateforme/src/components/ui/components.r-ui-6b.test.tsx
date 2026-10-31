@@ -192,7 +192,7 @@ describe('Card — padding, variante elevated, CardTitle size', () => {
 });
 
 describe('StatCard — carte KPI unique (ex-KpiCockpitCard)', () => {
-  it('rend libellé, valeur, unité, pastille, badge de variation FR et sparkline', () => {
+  it('rend libellé, valeur, unité, pastille, badge de variation FR, sans courbe de tendance', () => {
     const { container } = render(
       <StatCard
         label="Tonnage"
@@ -200,14 +200,13 @@ describe('StatCard — carte KPI unique (ex-KpiCockpitCard)', () => {
         unit="t"
         dotColor="var(--color-savr-dataviz-1)"
         variationPct={-4}
-        sparkPoints={[1, 2, 3]}
       />,
     );
     expect(screen.getByText('Tonnage')).toBeInTheDocument();
     expect(screen.getByText('19,6')).toBeInTheDocument();
     expect(screen.getByText('t')).toBeInTheDocument();
     expect(screen.getByText(/▼ 4,0/)).toBeInTheDocument();
-    expect(container.querySelector('svg')).not.toBeNull();
+    expect(container.querySelector('svg')).toBeNull();
     expect(
       (container.querySelector('span[style]') as HTMLElement).style.background,
     ).toBe('var(--color-savr-dataviz-1)');

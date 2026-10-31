@@ -1,7 +1,7 @@
 /**
  * M3.1 — Dérivations pures du dashboard « Cockpit » (R24). Vérifie les agrégats
- * KPI, la variation N-1, les totaux/équivalences CO₂ (facteurs ADEME), la
- * sparkline dérivée, l'agrégation benchmark par flux et la fenêtre N-1.
+ * KPI, la variation N-1, les totaux/équivalences CO₂ (facteurs ADEME), l'agrégation
+ * benchmark par flux et la fenêtre N-1.
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -9,13 +9,10 @@ import {
   co2Totals,
   co2Equivalences,
   variationPct,
-  sparkFromRows,
   aggregateBenchmarkPerFlux,
   benchmarkItems,
   previousWindow,
   FACTEURS_CO2_DEFAUT,
-  kgParPaxDeLigne,
-  repasParPaxDeLigne,
   type TraiteurKpiRow,
 } from '@/lib/dashboards/cockpit-derive';
 
@@ -89,8 +86,6 @@ describe('M3.1 / cockpit-derive', () => {
     expect(a.repas).toBe(120);
     expect(a.pax).toBe(200);
     expect(a.repasPax).toBeCloseTo(0.5, 6); // (60 + 40) / 200, et non 120 / 200
-    expect(kgParPaxDeLigne(rows[0]!)).toBe(0);
-    expect(repasParPaxDeLigne(rows[0]!)).toBeCloseTo(0.5, 6);
     expect(aggregateKpis([row({ pax_total: 0 })]).repasPax).toBeNull();
   });
 
@@ -123,18 +118,6 @@ describe('M3.1 / cockpit-derive', () => {
     expect(variationPct(80, 100)).toBeCloseTo(-20, 6);
     // Période précédente vide/nulle → pas de base de comparaison → null.
     expect(variationPct(50, 0)).toBeNull();
-  });
-
-  it('M3.1/dash_cockpit_sparkline_triee_min_2_points', () => {
-    const rows = [
-      row({ mois: '2026-06-01', tonnage_kg: 300 }),
-      row({ mois: '2026-04-01', tonnage_kg: 100 }),
-      row({ mois: '2026-05-01', tonnage_kg: 200 }),
-    ];
-    // Triée chronologiquement (avr, mai, juin).
-    expect(sparkFromRows(rows, (r) => r.tonnage_kg)).toEqual([100, 200, 300]);
-    // Moins de 2 points → série vide (la Sparkline se masque).
-    expect(sparkFromRows([rows[0]!], (r) => r.tonnage_kg)).toEqual([]);
   });
 
   it('M3.1/dash_cockpit_benchmark_par_flux_pondere', () => {

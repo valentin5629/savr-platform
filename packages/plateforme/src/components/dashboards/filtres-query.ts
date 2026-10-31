@@ -34,7 +34,5 @@ export function optionsBarreValides(data: unknown): ParcFilterOptions {
   const d = data as Partial<ParcFilterOptions> | null | undefined;
   return d && Array.isArray(d.lieux) && Array.isArray(d.types)
     ? (d as ParcFilterOptions)
-    : OPTIONS_BARRE_VIDES;
+    : { lieux: [], types: [] };
 }
-
-export const OPTIONS_BARRE_VIDES: ParcFilterOptions = { lieux: [], types: [] };

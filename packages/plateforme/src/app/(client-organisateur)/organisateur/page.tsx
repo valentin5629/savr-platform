@@ -8,13 +8,9 @@ import {
   EmptyDashboardState,
   type CollecteType,
   type DashboardFilters,
-  type ParcFilterOptions,
 } from '@/components/dashboards/index.js';
-import {
-  ajouterFiltresGlobaux,
-  optionsBarreValides,
-  OPTIONS_BARRE_VIDES,
-} from '@/components/dashboards/filtres-query';
+import { ajouterFiltresGlobaux } from '@/components/dashboards/filtres-query';
+import { useOptionsBarre } from '@/components/dashboards/useOptionsBarre';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
 import { StatCard } from '@/components/ui/stat-card';
@@ -74,20 +70,9 @@ export default function ClientOrganisateurDashboardPage() {
 
   // Options de la barre : Lieux, Traiteurs, Type et Taille d'événement (décision
   // Val du 2026-10-30, au-delà du « filtre période » du §11 §7).
-  const [parcOptions, setParcOptions] = useState<ParcFilterOptions | undefined>(
-    undefined,
-  );
+  const parcOptions = useOptionsBarre('/api/v1/dashboards/filtres');
 
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
-
-  useEffect(() => {
-    fetch('/api/v1/dashboards/filtres')
-      .then((r) => r.json())
-      .then((j: { data?: ParcFilterOptions }) => {
-        setParcOptions(optionsBarreValides(j.data));
-      })
-      .catch(() => setParcOptions(OPTIONS_BARRE_VIDES));
-  }, []);
 
   // Cadrans de l'onglet — suivent les filtres de la barre (période par défaut :
   // 12 derniers mois, §11 §8). Le bandeau YTD, lui, reste l'année entière.

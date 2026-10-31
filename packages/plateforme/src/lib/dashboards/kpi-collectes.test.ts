@@ -45,6 +45,7 @@ function c(over: Partial<CollecteKpi> = {}): CollecteKpi {
     energie_primaire_evitee_kwh: 5,
     tonnage_kg: 200,
     repas: 0,
+    factures_ht: 0,
     ...over,
   };
 }
@@ -75,6 +76,23 @@ describe('lignesKpiMensuelles — règles des vues v_kpi_traiteur / v_kpi_client
     expect(l!.nb_repas_donnes).toBeNull();
     expect(l!.co2_evite_kg).toBe(30);
     expect(l!.marge_zd_ht).toBeNull();
+  });
+
+  it('marge ZD (traiteur) = tarif × pax − factures émises ou payées ; null sans tarif ni pax', () => {
+    const collectes = [
+      c({ id: 'a', pax: 100, factures_ht: 300 }),
+      c({ id: 'b', pax: 50, factures_ht: 0 }),
+    ];
+    expect(lignesKpiMensuelles(collectes, { tarif: 12 })[0]!.marge_zd_ht).toBe(
+      12 * 150 - 300,
+    );
+    expect(
+      lignesKpiMensuelles(collectes, { tarif: null })[0]!.marge_zd_ht,
+    ).toBeNull();
+    expect(lignesKpiMensuelles(collectes)[0]!.marge_zd_ht).toBeNull();
+    expect(
+      lignesKpiMensuelles([c({ pax: 0 })], { tarif: 12 })[0]!.marge_zd_ht,
+    ).toBeNull();
   });
 
   it('collecte à 0 convive : dans le poids, hors numérateur et dénominateur de kg/pax', () => {

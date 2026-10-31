@@ -5,12 +5,19 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
 import {
   lireParLots,
   lireParPages,
   TAILLE_PAGE,
 } from '@/lib/pdf/selection-par-pages.js';
+import {
+  debutFenetreOptions,
+  type CollecteOptions,
+  lireTypesEvenementsActifs,
+  optionsDepuisCollectes,
+  STATUTS_HORS_OPTIONS,
+  trierOptions,
+} from '@/lib/dashboards/options-barre.js';
 
 const ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -18,32 +25,6 @@ const ROLES: ClientRole[] = [
   'agence',
   'client_organisateur',
 ];
-
-interface Option {
-  id: string;
-  nom: string;
-}
-
-interface LigneLue {
-  id: string;
-  evenements: Evt | Evt[] | null;
-}
-interface Evt {
-  nom_client_organisateur: string | null;
-  traiteur_operationnel_organisation_id: string | null;
-  lieux:
-    | { id: string; nom: string | null }
-    | { id: string; nom: string | null }[]
-    | null;
-}
-
-const un = <T>(v: T | T[] | null): T | null =>
-  !v ? null : Array.isArray(v) ? (v[0] ?? null) : v;
-
-const trie = (m: Map<string, string>): Option[] =>
-  [...m.entries()]
-    .map(([id, nom]) => ({ id, nom }))
-    .sort((a, b) => a.nom.localeCompare(b.nom));
 
 /**
  * GET /api/v1/dashboards/filtres — options de la barre de filtres globale des
@@ -59,8 +40,7 @@ const trie = (m: Map<string, string>): Option[] =>
  * Les noms de traiteur passent par la vue liste blanche `v_referentiel_traiteurs`
  * (comme la liste Collectes du client organisateur), jamais en service_role.
  * Le client organisateur d'un traiteur ou d'une agence est le NOM saisi à la
- * programmation (`evenements.nom_client_organisateur`, comme la liste Collectes) :
- * l'option a ce nom pour identifiant.
+ * programmation (`evenements.nom_client_organisateur`, comme la liste Collectes).
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
@@ -68,18 +48,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const organisateur = auth.ctx.role === 'client_organisateur';
   const supabase = createSupabaseServerClient();
+  const debut = debutFenetreOptions();
 
-  const depuis = new Date();
-  depuis.setMonth(depuis.getMonth() - 24);
-
-  const lu = await lireParPages<LigneLue>((apresId) => {
+  const lu = await lireParPages<CollecteOptions>((apresId) => {
     let q = supabase
       .from('collectes')
       .select(
         `id,
-         evenements!inner(organisation_id, client_organisateur_organisation_id,
-           nom_client_organisateur, traiteur_operationnel_organisation_id,
-           lieux!lieu_id(id, nom))`,
+           evenements!inner(organisation_id, client_organisateur_organisation_id,
+             nom_client_organisateur, traiteur_operationnel_organisation_id,
+             lieux!lieu_id(id, nom))`,
       )
       .eq(
         organisateur
@@ -87,49 +65,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           : 'evenements.organisation_id',
         auth.ctx.organisationId,
       )
-      .gte('date_collecte', jourParis(depuis))
-      // Brouillons et annulées ne comptent dans aucun bloc : leurs lieux ou
-      // clients ne donneraient qu'un dashboard vide.
-      .not('statut', 'in', '(brouillon,annulee)');
+      .gte('date_collecte', debut)
+      .not('statut', 'in', STATUTS_HORS_OPTIONS);
     if (apresId) q = q.gt('id', apresId);
     return q.limit(TAILLE_PAGE).order('id', { ascending: true });
   });
   if (lu.error) return serverError(lu.error, 'dashboards.filtres.collectes');
+  const { lieux, clients, traiteurIds } = optionsDepuisCollectes(lu.data);
 
-  const lieux = new Map<string, string>();
-  const clients = new Map<string, string>();
-  const traiteurIds = new Set<string>();
-  for (const ligne of lu.data) {
-    const evt = un(ligne.evenements);
-    if (!evt) continue;
-    const lieu = un(evt.lieux);
-    if (lieu?.id) lieux.set(lieu.id, lieu.nom ?? 'Lieu');
-    // Identifiant = nom tel que saisi (le filtre est une égalité exacte),
-    // libellé débarrassé de ses espaces.
-    const client = evt.nom_client_organisateur;
-    if (client?.trim()) clients.set(client, client.trim());
-    if (evt.traiteur_operationnel_organisation_id)
-      traiteurIds.add(evt.traiteur_operationnel_organisation_id);
-  }
+  const types = await lireTypesEvenementsActifs(supabase);
+  if (types.error) return serverError(types.error, 'dashboards.filtres.types');
 
-  const { data: types, error: erreurTypes } = await supabase
-    .from('types_evenements')
-    .select('id, libelle')
-    .eq('actif', true)
-    .order('ordre_affichage', { ascending: true });
-  if (erreurTypes) return serverError(erreurTypes, 'dashboards.filtres.types');
-
-  const data: Record<string, unknown> = {
-    lieux: trie(lieux),
-    types: (types ?? []).map((t) => ({
-      id: t.id as string,
-      libelle: t.libelle as string,
-    })),
-  };
-
+  const data: Record<string, unknown> = { lieux, types: types.data };
   if (organisateur) {
     const noms = await lireParLots<{ id: string; nom: string }>(
-      [...traiteurIds],
+      traiteurIds,
       (lot) =>
         supabase
           .from('v_referentiel_traiteurs')
@@ -138,9 +88,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
     if (noms.error)
       return serverError(noms.error, 'dashboards.filtres.traiteurs');
-    data.traiteurs = trie(new Map(noms.data.map((t) => [t.id, t.nom])));
+    data.traiteurs = trierOptions(new Map(noms.data.map((t) => [t.id, t.nom])));
   } else {
-    data.clients = trie(clients);
+    data.clients = clients;
   }
 
   return NextResponse.json(

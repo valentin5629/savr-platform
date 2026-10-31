@@ -53,6 +53,7 @@ function baseParams(over: Partial<SyntheseParams> = {}): SyntheseParams {
     lieuIds: [],
     traiteurIds: [],
     clientOrgaIds: [],
+    clientNoms: [],
     commercialIds: [],
     typeEvtIds: [],
     tailleEvts: [],

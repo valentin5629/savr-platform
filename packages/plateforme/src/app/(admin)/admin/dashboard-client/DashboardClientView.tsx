@@ -10,13 +10,9 @@ import {
   FLUX_ZD,
   type CollecteType,
   type DashboardFilters,
-  type ParcFilterOptions,
 } from '@/components/dashboards/index.js';
-import {
-  ajouterFiltresGlobaux,
-  optionsBarreValides,
-  OPTIONS_BARRE_VIDES,
-} from '@/components/dashboards/filtres-query';
+import { ajouterFiltresGlobaux } from '@/components/dashboards/filtres-query';
+import { useOptionsBarre } from '@/components/dashboards/useOptionsBarre';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import type {
   FluxSeriePoint,
@@ -196,26 +192,13 @@ export function DashboardClientView() {
   // Options Lieux / Traiteurs / Type / Taille de la barre (reprise du dashboard
   // gestionnaire, §06.06 §2) : celles des organisations choisies, toutes sans
   // choix (décision Val du 2026-10-30).
-  const [parcOptions, setParcOptions] = useState<ParcFilterOptions | undefined>(
-    undefined,
+  const parcOptions = useOptionsBarre(
+    `/api/v1/admin/dashboard-client/filtres?${new URLSearchParams(
+      selectedOrgs.map((id) => ['organisation_ids[]', id]),
+    )}`,
   );
 
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
-
-  useEffect(() => {
-    const qs = new URLSearchParams();
-    for (const id of selectedOrgs) qs.append('organisation_ids[]', id);
-    let perimee = false;
-    fetch(`/api/v1/admin/dashboard-client/filtres?${qs}`)
-      .then((r) => r.json())
-      .then((j: { data?: ParcFilterOptions }) => {
-        if (!perimee) setParcOptions(optionsBarreValides(j.data));
-      })
-      .catch(() => setParcOptions(OPTIONS_BARRE_VIDES));
-    return () => {
-      perimee = true;
-    };
-  }, [selectedOrgs]);
 
   // Liste des organisations pour le sélecteur.
   useEffect(() => {

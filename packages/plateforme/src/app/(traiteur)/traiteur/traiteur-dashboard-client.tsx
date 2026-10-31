@@ -15,13 +15,9 @@ import {
   type BenchmarkFilters,
   type BenchmarkFilterOptions,
   type BlocsData,
-  type ParcFilterOptions,
 } from '@/components/dashboards/index.js';
-import {
-  ajouterFiltresGlobaux,
-  optionsBarreValides,
-  OPTIONS_BARRE_VIDES,
-} from '@/components/dashboards/filtres-query';
+import { ajouterFiltresGlobaux } from '@/components/dashboards/filtres-query';
+import { useOptionsBarre } from '@/components/dashboards/useOptionsBarre';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import type {
   FluxSeriePoint,
@@ -110,9 +106,7 @@ export function TraiteurDashboardClient({
     taille_evenement_codes: [],
   });
   // Options de la barre (§06.04 : Lieux, Client organisateur, Type, Taille).
-  const [parcOptions, setParcOptions] = useState<ParcFilterOptions | undefined>(
-    undefined,
-  );
+  const parcOptions = useOptionsBarre('/api/v1/dashboards/filtres');
   const [data, setData] = useState<TraiteurDashboardPayload>(initialData);
   const [loading, setLoading] = useState(false);
   // Facteurs / méthode CO₂ (modale « Impact carbone »).
@@ -133,15 +127,6 @@ export function TraiteurDashboardClient({
     (f: BenchmarkFilters) => setBenchmarkFilters(f),
     [],
   );
-
-  useEffect(() => {
-    fetch('/api/v1/dashboards/filtres', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((j: { data?: ParcFilterOptions }) => {
-        setParcOptions(optionsBarreValides(j.data));
-      })
-      .catch(() => setParcOptions(OPTIONS_BARRE_VIDES));
-  }, []);
 
   // ── Re-fetch consolidé (endpoint traiteur-full) au changement d'onglet/filtres ──
   // Clé = signature de la requête (période, onglet et filtres de la barre).

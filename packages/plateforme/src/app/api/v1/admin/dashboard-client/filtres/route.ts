@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { estUuid } from '@/lib/filtre-csv.js';
@@ -9,24 +8,14 @@ import {
   lireParPages,
   TAILLE_PAGE,
 } from '@/lib/pdf/selection-par-pages.js';
-
-interface Option {
-  id: string;
-  nom: string;
-}
-type Lieu = { id: string; nom: string | null };
-interface Evt {
-  traiteur_operationnel_organisation_id: string | null;
-  lieux: Lieu | Lieu[] | null;
-}
-
-const un = <T>(v: T | T[] | null): T | null =>
-  !v ? null : Array.isArray(v) ? (v[0] ?? null) : v;
-
-const trie = (m: Map<string, string>): Option[] =>
-  [...m.entries()]
-    .map(([id, nom]) => ({ id, nom }))
-    .sort((a, b) => a.nom.localeCompare(b.nom));
+import {
+  debutFenetreOptions,
+  type CollecteOptions,
+  lireTypesEvenementsActifs,
+  optionsDepuisCollectes,
+  STATUTS_HORS_OPTIONS,
+  trierOptions,
+} from '@/lib/dashboards/options-barre.js';
 
 /**
  * GET /api/v1/admin/dashboard-client/filtres?organisation_ids[]=… — options
@@ -47,69 +36,47 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const orgIds = new URL(req.url).searchParams
     .getAll('organisation_ids[]')
     .filter(estUuid);
-  const depuis = new Date();
-  depuis.setMonth(depuis.getMonth() - 24);
+  const debut = debutFenetreOptions();
 
-  const lu = await lireParPages<{ id: string; evenements: Evt | Evt[] | null }>(
-    (apresId) => {
-      let q = admin
-        .from('collectes')
-        .select(
-          `id, evenements!inner(organisation_id,
+  const lu = await lireParPages<CollecteOptions>((apresId) => {
+    let q = admin
+      .from('collectes')
+      .select(
+        `id, evenements!inner(organisation_id,
              traiteur_operationnel_organisation_id, lieux!lieu_id(id, nom))`,
-        )
-        .gte('date_collecte', jourParis(depuis))
-        // Brouillons et annulées ne comptent dans aucun bloc : leurs lieux ou
-        // clients ne donneraient qu'un dashboard vide.
-        .not('statut', 'in', '(brouillon,annulee)');
-      if (orgIds.length > 0) {
-        const ids = orgIds.join(',');
-        q = q.or(
-          `organisation_id.in.(${ids}),traiteur_operationnel_organisation_id.in.(${ids})`,
-          { referencedTable: 'evenements' },
-        );
-      }
-      if (apresId) q = q.gt('id', apresId);
-      return q.limit(TAILLE_PAGE).order('id', { ascending: true });
-    },
-  );
+      )
+      .gte('date_collecte', debut)
+      .not('statut', 'in', STATUTS_HORS_OPTIONS);
+    if (orgIds.length > 0) {
+      const ids = orgIds.join(',');
+      q = q.or(
+        `organisation_id.in.(${ids}),traiteur_operationnel_organisation_id.in.(${ids})`,
+        { referencedTable: 'evenements' },
+      );
+    }
+    if (apresId) q = q.gt('id', apresId);
+    return q.limit(TAILLE_PAGE).order('id', { ascending: true });
+  });
   if (lu.error)
     return serverError(lu.error, 'admin.dashboard_client.filtres.collectes');
-
-  const lieux = new Map<string, string>();
-  const traiteurIds = new Set<string>();
-  for (const ligne of lu.data) {
-    const evt = un(ligne.evenements);
-    if (!evt) continue;
-    const lieu = un(evt.lieux);
-    if (lieu?.id) lieux.set(lieu.id, lieu.nom ?? 'Lieu');
-    if (evt.traiteur_operationnel_organisation_id)
-      traiteurIds.add(evt.traiteur_operationnel_organisation_id);
-  }
+  const { lieux, traiteurIds } = optionsDepuisCollectes(lu.data);
 
   const noms = await lireParLots<{ id: string; nom: string }>(
-    [...traiteurIds],
+    traiteurIds,
     (lot) => admin.from('organisations').select('id, nom').in('id', lot),
   );
   if (noms.error)
     return serverError(noms.error, 'admin.dashboard_client.filtres.traiteurs');
 
-  const { data: types, error: erreurTypes } = await admin
-    .from('types_evenements')
-    .select('id, libelle')
-    .eq('actif', true)
-    .order('ordre_affichage', { ascending: true });
-  if (erreurTypes)
-    return serverError(erreurTypes, 'admin.dashboard_client.filtres.types');
+  const types = await lireTypesEvenementsActifs(admin);
+  if (types.error)
+    return serverError(types.error, 'admin.dashboard_client.filtres.types');
 
   return NextResponse.json({
     data: {
-      lieux: trie(lieux),
-      traiteurs: trie(new Map(noms.data.map((t) => [t.id, t.nom]))),
-      types: (types ?? []).map((t) => ({
-        id: t.id as string,
-        libelle: t.libelle as string,
-      })),
+      lieux,
+      traiteurs: trierOptions(new Map(noms.data.map((t) => [t.id, t.nom]))),
+      types: types.data,
     },
   });
 }

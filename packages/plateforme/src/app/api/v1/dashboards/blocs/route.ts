@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, createSupabaseServerClient } from '@/lib/api-auth.js';
 import { loadBlocs, LoaderError } from '@/lib/dashboards/loaders.js';
+import { lireFiltresGlobaux } from '@/lib/dashboards/kpi-collectes.js';
 
 /**
  * GET /api/v1/dashboards/blocs — Blocs §11 « liste/ranking » du dashboard client,
@@ -27,11 +28,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       type: sp.get('type') === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet',
       from: sp.get('from'),
       to: sp.get('to'),
-      lieuIds: sp.getAll('lieu_ids[]'),
-      traiteurIds: sp.getAll('traiteur_ids[]'),
-      clientNoms: sp.getAll('client_noms[]'),
-      typeEvtIds: sp.getAll('type_evenement_ids[]'),
-      tailleEvts: sp.getAll('taille_evenements[]'),
+      ...lireFiltresGlobaux(sp),
     });
     return NextResponse.json(
       { data },

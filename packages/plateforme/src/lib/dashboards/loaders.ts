@@ -1440,18 +1440,13 @@ export async function loadTraiteurDashboard(
   const isZd = type === 'zero_dechet';
   // Mêmes filtres globaux pour les cartes, l'évolution et les Top listes.
   const { from, to } = params;
+  // Traiteurs : ignoré hors gestionnaire par l'évolution et les blocs.
   const filtres = params.filtres ?? FILTRES_GLOBAUX_VIDES;
-  const parc = {
-    lieuIds: filtres.lieuIds,
-    clientNoms: filtres.clientNoms,
-    typeEvtIds: filtres.typeEvtIds,
-    tailleEvts: filtres.tailleEvts,
-  };
 
   const [kpi, evolution, blocs, marge, pack] = await Promise.all([
     loadKpiTraiteur(supabase, ctx, { from, to, type, compare: 'n1', filtres }),
-    loadEvolution(supabase, ctx, { type, from, to, ...parc }),
-    loadBlocs(supabase, ctx, { type, from, to, ...parc }),
+    loadEvolution(supabase, ctx, { type, from, to, ...filtres }),
+    loadBlocs(supabase, ctx, { type, from, to, ...filtres }),
     isZd ? loadMargeAttente(supabase, { from, to }) : Promise.resolve(null),
     isZd ? Promise.resolve(null) : loadPackAg(ctx),
   ]);

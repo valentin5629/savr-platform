@@ -74,7 +74,7 @@ export interface CollecteKpi {
   /** Repas donnés (AG), 0 sans attribution. */
   repas: number;
   /** Σ HT des factures émises ou payées de la collecte (marge ZD du traiteur). */
-  factures_ht?: number;
+  factures_ht: number;
 }
 
 /** Ligne mensuelle : forme des anciennes vues, plus le nombre d'événements. */
@@ -122,7 +122,7 @@ export function lignesKpiMensuelles(
     lignes.push({
       mois,
       type_collecte: type,
-      nb_collectes: new Set(liste.map((c) => c.id)).size,
+      nb_collectes: liste.length,
       nb_evenements: new Set(liste.map((c) => c.evenement_id)).size,
       tonnage_kg: zd ? liste.reduce((s, c) => s + c.tonnage_kg, 0) : null,
       taux_recyclage_pondere:
@@ -135,8 +135,7 @@ export function lignesKpiMensuelles(
       nb_repas_donnes: zd ? null : liste.reduce((s, c) => s + c.repas, 0),
       marge_zd_ht:
         zd && pax > 0 && marge?.tarif != null
-          ? marge.tarif * pax -
-            liste.reduce((s, c) => s + (c.factures_ht ?? 0), 0)
+          ? marge.tarif * pax - liste.reduce((s, c) => s + c.factures_ht, 0)
           : null,
       pax_total: pax,
       tonnage_kg_pax_connu:
@@ -161,8 +160,6 @@ export function lignesKpiMensuelles(
       : b.mois.localeCompare(a.mois),
   );
 }
-
-type ErreurLecture = { message: string; code?: string };
 
 interface LigneLue {
   id: string;
@@ -302,7 +299,7 @@ export async function loadKpiCollectes(
           .select('collecte_id, volume_repas_realise')
           .in('collecte_id', lot),
       );
-      if (att.error) throw att.error as ErreurLecture;
+      if (att.error) throw att.error;
       for (const a of att.data)
         repas.set(
           a.collecte_id,

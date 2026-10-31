@@ -15,13 +15,9 @@ import {
   type DashboardFilters,
   type BenchmarkFilters,
   type BlocsData,
-  type ParcFilterOptions,
 } from '@/components/dashboards/index.js';
-import {
-  ajouterFiltresGlobaux,
-  optionsBarreValides,
-  OPTIONS_BARRE_VIDES,
-} from '@/components/dashboards/filtres-query';
+import { ajouterFiltresGlobaux } from '@/components/dashboards/filtres-query';
+import { useOptionsBarre } from '@/components/dashboards/useOptionsBarre';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 // Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
 // components/dashboards → aucun impact sur le gate orphan-components).
@@ -95,9 +91,7 @@ export default function AgenceDashboardPage() {
     useState<BenchmarkFilters | null>(null);
   const [benchmarkRows, setBenchmarkRows] = useState<BenchmarkRow[]>([]);
   // Options de la barre (parité §06.04 : Lieux, Client organisateur, Type, Taille).
-  const [parcOptions, setParcOptions] = useState<ParcFilterOptions | undefined>(
-    undefined,
-  );
+  const parcOptions = useOptionsBarre('/api/v1/dashboards/filtres');
 
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
   const handleBenchmarkFilters = useCallback(
@@ -126,15 +120,6 @@ export default function AgenceDashboardPage() {
       })
       .finally(() => setLoading(false));
   }, [filters, tab]);
-
-  useEffect(() => {
-    fetch('/api/v1/dashboards/filtres')
-      .then((r) => r.json())
-      .then((j: { data?: ParcFilterOptions }) => {
-        setParcOptions(optionsBarreValides(j.data));
-      })
-      .catch(() => setParcOptions(OPTIONS_BARRE_VIDES));
-  }, []);
 
   useEffect(() => {
     if (tab !== 'anti_gaspi') return;

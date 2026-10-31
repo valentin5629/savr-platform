@@ -161,7 +161,7 @@ export default function AgenceDashboardPage() {
 
   const agg = aggregateKpis(rows);
   const prev = aggregateKpis(prevRows);
-  const { nbCollectes, tonnage, pax, repas, taux, kgPax, repasPax } = agg;
+  const { nbCollectes, tonnage, repas, taux, kgPax, repasPax } = agg;
 
   const seuilBas =
     pack?.pack_actif &&
@@ -346,7 +346,7 @@ export default function AgenceDashboardPage() {
         ) : (
           <>
             {/* Bloc 1 — KPIs Cockpit AG (4 cartes, non cliquables) */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
               <StatCard
                 label="Nombre de collectes"
                 value={fmtInt(nbCollectes)}
@@ -358,12 +358,6 @@ export default function AgenceDashboardPage() {
                 value={fmtInt(repas)}
                 dotColor={KPI_DOT.accent}
                 variationPct={variationPct(repas, prev.repas)}
-              />
-              <StatCard
-                label="Pax cumulés"
-                value={fmtInt(pax)}
-                dotColor={KPI_DOT.navy2}
-                variationPct={variationPct(pax, prev.pax)}
               />
               <StatCard
                 label="Repas/pax moyen"

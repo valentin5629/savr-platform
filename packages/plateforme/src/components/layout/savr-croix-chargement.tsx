@@ -6,8 +6,10 @@ import { cn } from '@/lib/utils';
 // globals.css). Décorative : le libellé « Chargement… » est porté par le
 // conteneur qui l'affiche.
 //
-// Géométrie (repère centré, unité = demi-largeur d'un bras = 47) : carré
-// central de 94, bras de 99 depuis le centre terminés par un demi-cercle.
+// Géométrie (repère centré sur la croix) : bras épais de 94 (±47), partie
+// droite jusqu'à 99 du centre, puis demi-cercle de rayon 47 : le bout d'un
+// bras est à 146, la croix fait 292 de large. Épaisseur / largeur = 94 / 292
+// ≈ 32 %, comme le logo (carré central 46 sur 146 dans `savr-logo.tsx`).
 // Orange = bras haut + centre + bras droit ; bleu = bras gauche et bras bas.
 const BRAS_HAUT_DROIT =
   'M-47 47V-99A47 47 0 0 1 47 -99V-47H99A47 47 0 0 1 99 47Z';

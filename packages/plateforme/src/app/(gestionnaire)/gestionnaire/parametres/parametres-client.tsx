@@ -191,7 +191,10 @@ export function ParametresGestionnaireClient({
       }
     };
     // « Mon profil » n'a rien à charger : pas d'état de chargement.
+    // Remet aussi `loading` à faux : la requête d'un onglet quitté en cours de
+    // chargement ne le fera plus (son `actif` est passé à faux).
     if (tab === ONGLET_PROFIL) {
+      setLoading(false);
       setErreur('');
       return;
     }

@@ -413,3 +413,29 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
     ATTENTE_CAS_MS,
   );
 });
+
+// « Paramètres » (décision Val 2026-10-31) : l'onglet « Mon profil » ne charge
+// rien. Quitter « Organisation » en plein chargement pour lui ne doit pas
+// laisser l'indicateur de chargement tourner sans fin.
+describe('M3.2 / Paramètres gestionnaire — onglet Mon profil', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it(
+    'M3.2/parametres_mon_profil_sans_chargement_infini',
+    () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => new Promise<Response>(() => {})),
+      );
+      render(<ParametresGestionnaireClient monProfil={<p>Préférences</p>} />);
+      expect(screen.getByText('Chargement…')).toBeTruthy();
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Mon profil' }));
+      expect(screen.getByText('Préférences')).toBeTruthy();
+      expect(screen.queryByText('Chargement…')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/ui/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -19,11 +20,20 @@ export function useOngletUrl<T extends string>(
   onglets: readonly T[],
 ): [T, (v: string) => void] {
   const defaut = onglets[0]!;
-  const demande = Array.isArray(initial) ? initial[0] : initial;
+  // L'adresse vue par Next.js fait foi quand elle existe (elle suit les clics
+  // d'onglet, recopiés ci-dessous, et les navigations du menu) ; `initial`
+  // (lu côté serveur) sert hors App Router, dans les tests.
+  const params = useSearchParams();
+  const demande = params
+    ? (params.get('onglet') ?? undefined)
+    : Array.isArray(initial)
+      ? initial[0]
+      : initial;
   const valide = onglets.includes(demande as T) ? (demande as T) : defaut;
   const [onglet, setOnglet] = React.useState<T>(valide);
   // Une navigation vers la page (ex. clic sur « Paramètres » dans le menu
   // depuis « Mon profil ») change l'onglet demandé : l'affichage le suit.
+  // Un clic d'onglet change aussi l'adresse, vers l'onglet déjà affiché.
   const [demandePrecedente, setDemandePrecedente] = React.useState(demande);
   if (demande !== demandePrecedente) {
     setDemandePrecedente(demande);

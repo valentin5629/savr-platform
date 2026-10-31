@@ -295,6 +295,43 @@ h3 {
   }
 }
 
+/* ─── Chargement de page : croix Savr en quart de tour (Val 2026-10-31) ─────
+   Posée par SavrCroixChargement (components/layout/savr-croix-chargement.tsx).
+   Quatre quarts de tour avec une courte pause entre chacun ; le léger rebond
+   est un choix de Val, contraire au §10 §4.5 (fiche de divergence DS_20261031_chargement-croix-savr).
+   Origine = centre de la croix (viewBox 0 0 320 320). */
+@keyframes savr-croix-quart-de-tour {
+  0%,
+  12% {
+    transform: rotate(0deg);
+  }
+  25%,
+  37% {
+    transform: rotate(90deg);
+  }
+  50%,
+  62% {
+    transform: rotate(180deg);
+  }
+  75%,
+  87% {
+    transform: rotate(270deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+.savr-croix-chargement {
+  transform-origin: 160px 160px;
+  animation: savr-croix-quart-de-tour 3.2s cubic-bezier(0.68, -0.3, 0.32, 1.3)
+    infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .savr-croix-chargement {
+    animation: none !important;
+  }
+}
+
 /* ─── Reduced motion ─────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,

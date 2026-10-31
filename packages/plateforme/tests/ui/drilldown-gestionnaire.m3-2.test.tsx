@@ -126,7 +126,12 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
       data: {
         lieux: [{ id: LIEU.id, nom: LIEU.nom }],
         traiteurs: [{ id: ACTEUR.id, nom: ACTEUR.nom }],
-        types: [{ id: 'ty-gala', libelle: 'Gala' }],
+        // Les deux types mémorisés figurent dans les options : la barre
+        // retire désormais une valeur absente des options (2026-10-30).
+        types: [
+          { id: 'ty-gala', libelle: 'Gala' },
+          { id: 'ty-cocktail', libelle: 'Cocktail' },
+        ],
       },
     });
   if (url.includes('/dashboards/benchmark/filtres'))

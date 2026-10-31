@@ -16,6 +16,8 @@ import {
   type BenchmarkFilters,
   type BlocsData,
 } from '@/components/dashboards/index.js';
+import { ajouterFiltresGlobaux } from '@/components/dashboards/filtres-query';
+import { useOptionsBarre } from '@/components/dashboards/useOptionsBarre';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 // Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
 // components/dashboards → aucun impact sur le gate orphan-components).
@@ -88,6 +90,8 @@ export default function AgenceDashboardPage() {
   const [benchmarkFilters, setBenchmarkFilters] =
     useState<BenchmarkFilters | null>(null);
   const [benchmarkRows, setBenchmarkRows] = useState<BenchmarkRow[]>([]);
+  // Options de la barre (parité §06.04 : Lieux, Client organisateur, Type, Taille).
+  const parcOptions = useOptionsBarre('/api/v1/dashboards/filtres');
 
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
   const handleBenchmarkFilters = useCallback(
@@ -107,6 +111,7 @@ export default function AgenceDashboardPage() {
       type: tab,
       compare: 'n1',
     });
+    ajouterFiltresGlobaux(qs, filters);
     fetch(`/api/v1/dashboards/kpi-traiteur?${qs}`)
       .then((r) => r.json())
       .then((j) => {
@@ -131,6 +136,7 @@ export default function AgenceDashboardPage() {
       to: filters.to,
       type: tab,
     });
+    ajouterFiltresGlobaux(qs, filters);
     fetch(`/api/v1/dashboards/blocs?${qs}`)
       .then((r) => r.json())
       .then((j) => setBlocs((j.data ?? null) as BlocsData | null))
@@ -244,6 +250,7 @@ export default function AgenceDashboardPage() {
         <DashboardFilterBar
           storageKey="agence-dashboard"
           onChange={handleFilters}
+          parcOptions={parcOptions}
         />
         <ToggleTypeCollecte value={tab} onChange={setTab} />
 

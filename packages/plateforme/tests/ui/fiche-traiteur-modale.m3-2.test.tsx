@@ -492,7 +492,8 @@ describe('M3.2 / fiche traiteur — onglet Activité', () => {
       ).toBeTruthy();
       expect(carte(f, 'Nombre de collectes')).toHaveTextContent('12');
       expect(carte(f, 'Repas donnés')).toHaveTextContent('693');
-      expect(carte(f, 'Pax cumulés')).toHaveTextContent(/8\s400/);
+      // « Pax cumulés » retiré de tous les dashboards (Val 2026-10-30).
+      expect(f.queryByText('Pax cumulés')).toBeNull();
       expect(carte(f, 'Repas/pax moyen')).toHaveTextContent('0,08');
       // Les cartes et le graphique ZD ont laissé la place.
       expect(f.queryByText('Tonnage collecté')).toBeNull();

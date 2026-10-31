@@ -22,7 +22,6 @@ export default async function GestionnaireLayout({
         email: session.email,
         logoAffichable: true,
       })}
-      pageTitle="Espace gestionnaire de lieux"
       hiddenNavHrefs={hiddenNavHrefs}
     >
       {children}

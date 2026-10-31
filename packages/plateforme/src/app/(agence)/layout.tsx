@@ -19,7 +19,6 @@ export default async function AgenceLayout({
         email: session.email,
         logoAffichable: true,
       })}
-      pageTitle="Espace agence"
       hiddenNavHrefs={[]}
     >
       {children}

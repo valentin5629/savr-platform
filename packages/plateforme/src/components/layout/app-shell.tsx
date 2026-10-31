@@ -13,7 +13,6 @@ interface AppShellProps {
   role: NavRole;
   /** Organisation et utilisateur, en bas de la barre latérale. */
   identite?: IdentiteSession | null;
-  pageTitle?: string;
   onLogout?: () => void;
   /**
    * hrefs de nav à masquer, calculés côté serveur par `entreesNavMasquees(role)`
@@ -29,7 +28,6 @@ interface AppShellProps {
 const AppShell = ({
   role,
   identite,
-  pageTitle,
   onLogout,
   hiddenNavHrefs,
   navBadges,
@@ -87,10 +85,7 @@ const AppShell = ({
 
         {/* Contenu principal */}
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-          <TopBar
-            title={pageTitle}
-            onMenuToggle={() => setMobileSidebarOpen((v) => !v)}
-          />
+          <TopBar onMenuToggle={() => setMobileSidebarOpen((v) => !v)} />
 
           <main
             className="flex-1 overflow-y-auto p-6 pb-20 lg:pb-6"

@@ -1,7 +1,6 @@
 /**
- * TopBar — titre et notifications seulement (Val 2026-10-30) : l'organisation,
- * l'utilisateur et « Se déconnecter » sont en bas de la Sidebar
- * (cf. sidebar-deconnexion.test.tsx).
+ * TopBar — retirée sur ordinateur (Val 2026-10-30) : ni titre d'espace ni
+ * cloche. Sur téléphone, seul le bouton qui ouvre la barre latérale reste.
  */
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -9,15 +8,18 @@ import { render, screen } from '@testing-library/react';
 import { TopBar } from './top-bar';
 
 describe('TopBar', () => {
-  it('affiche le titre et les notifications, sans identité ni déconnexion', () => {
-    render(<TopBar title="Espace gestionnaire de lieux" />);
+  it('ne garde que le bouton de menu, masqué sur ordinateur', () => {
+    const { container } = render(<TopBar onMenuToggle={() => {}} />);
     expect(
-      screen.getByRole('heading', { name: 'Espace gestionnaire de lieux' }),
+      screen.getByRole('button', { name: 'Ouvrir le menu' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Notifications' }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Se déconnecter' })).toBeNull();
-    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.queryByRole('heading')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Notifications' })).toBeNull();
+    expect(container.querySelector('header')?.className).toContain('lg:hidden');
+  });
+
+  it('ne rend rien sans bouton de menu', () => {
+    const { container } = render(<TopBar />);
+    expect(container.firstChild).toBeNull();
   });
 });

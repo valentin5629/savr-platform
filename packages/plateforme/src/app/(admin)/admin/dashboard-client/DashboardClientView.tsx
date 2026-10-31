@@ -650,7 +650,7 @@ export function DashboardClientView() {
         ) : agKpi ? (
           <>
             {/* Bloc 1 — KPIs Cockpit AG (5 cartes, lecture seule ; CO₂ → modale) */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <StatCard
                 label="Nombre de collectes"
                 value={fmtInt(agKpi.nb_collectes)}
@@ -667,15 +667,6 @@ export function DashboardClientView() {
                 variationPct={variationPct(
                   agKpi.nb_repas_donnes ?? 0,
                   agPrev?.nb_repas_donnes ?? 0,
-                )}
-              />
-              <StatCard
-                label="Pax cumulés"
-                value={fmtInt(agKpi.pax_total ?? 0)}
-                dotColor={KPI_DOT.navy2}
-                variationPct={variationPct(
-                  agKpi.pax_total ?? 0,
-                  agPrev?.pax_total ?? 0,
                 )}
               />
               <StatCard

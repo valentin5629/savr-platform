@@ -32,7 +32,6 @@ export default async function RegistreLayout({
         email: session.email,
         logoAffichable: true,
       })}
-      pageTitle="Registre réglementaire"
       hiddenNavHrefs={hiddenNavHrefs}
     >
       {children}

@@ -8,6 +8,7 @@ import {
 } from '@/components/dashboards/charts/cockpit/fmt';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { StatCard } from '@/components/ui/stat-card';
+import { cn } from '@/lib/utils';
 import { variationPct } from '@/lib/dashboards/cockpit-derive';
 import type { KpisGestionnaire } from './useKpisGestionnaire.js';
 
@@ -33,7 +34,13 @@ export function CartesKpiGestionnaire({
 }: CartesKpiGestionnaireProps) {
   const nbCollectes = kpi.nb_collectes ?? 0;
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" data-testid={testId}>
+    <div
+      className={cn(
+        'grid grid-cols-2 gap-4',
+        type === 'zero_dechet' ? 'lg:grid-cols-4' : 'lg:grid-cols-3',
+      )}
+      data-testid={testId}
+    >
       {type === 'zero_dechet' ? (
         <>
           <StatCard
@@ -90,15 +97,6 @@ export function CartesKpiGestionnaire({
             variationPct={variationPct(
               kpi.nb_repas_donnes ?? 0,
               kpiPrev?.nb_repas_donnes ?? 0,
-            )}
-          />
-          <StatCard
-            label="Pax cumulés"
-            value={fmtInt(kpi.pax_total ?? 0)}
-            dotColor={KPI_DOT.navy2}
-            variationPct={variationPct(
-              kpi.pax_total ?? 0,
-              kpiPrev?.pax_total ?? 0,
             )}
           />
           <StatCard

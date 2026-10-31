@@ -523,7 +523,7 @@ export function TraiteurDashboardClient({
           <>
             {/* Bloc 1 — KPIs Cockpit (5 cartes AG : + CO₂ évité, décision Val
               2026-07-13 — divergence §06.04/§11 tracée, cf. carte ZD #216) */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <StatCard
                 label="Nombre de collectes"
                 value={fmtInt(agg.nbCollectes)}
@@ -535,12 +535,6 @@ export function TraiteurDashboardClient({
                 value={fmtInt(agg.repas)}
                 dotColor={KPI_DOT.accent}
                 variationPct={variationPct(agg.repas, prev.repas)}
-              />
-              <StatCard
-                label="Pax cumulés"
-                value={fmtInt(agg.pax)}
-                dotColor={KPI_DOT.navy2}
-                variationPct={variationPct(agg.pax, prev.pax)}
               />
               <StatCard
                 label="Repas/pax moyen"

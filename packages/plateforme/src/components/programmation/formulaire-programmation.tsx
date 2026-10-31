@@ -51,6 +51,7 @@ import {
 } from '@/components/programmation/use-pack-ag';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { Heading } from '@/components/ui/heading';
+import { PageHeader } from '@/components/ui/page-header';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { FormActions } from '@/components/ui/form-actions';
@@ -635,6 +636,8 @@ export function FormulaireProgrammation({
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
+      {/* Titre de la page, ex-barre d'en-tête retirée (Val 2026-10-30). */}
+      <PageHeader title="Programmer une collecte" tone="neutral" size="xl" />
       <FormStepIndicator steps={STEPS} current={step} />
 
       {/* ── Écran 1 : Informations sur l'événement ── */}

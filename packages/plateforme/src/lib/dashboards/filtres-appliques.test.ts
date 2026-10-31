@@ -9,6 +9,7 @@ import {
   loadEvolution,
   loadBlocs,
   loadTraiteurDashboard,
+  loadMargeAttente,
   type DbClient,
   type LoaderCtx,
 } from './loaders.js';
@@ -125,10 +126,47 @@ describe('filtres de la barre appliqués à chaque bloc', () => {
         clientNoms: ['Dior'],
       },
     });
-    // Une lecture de collectes par bloc : cartes, évolution, Top listes.
-    expect(compte(appels, 'evenements.lieu_id', [LIEU])).toBe(3);
+    // Une lecture de collectes par bloc : cartes, évolution, Top listes et
+    // badge « en attente de facturation ».
+    expect(compte(appels, 'evenements.lieu_id', [LIEU])).toBe(4);
     expect(compte(appels, 'evenements.nom_client_organisateur', ['Dior'])).toBe(
-      3,
+      4,
     );
+  });
+
+  it('loadMargeAttente : badge « en attente de facturation » sur le périmètre filtré (§06.04)', async () => {
+    const { client, appels } = fauxClient();
+    await loadMargeAttente(client, {
+      from: '2026-01-01',
+      to: '2026-12-31',
+      filtres: {
+        ...FILTRES_GLOBAUX_VIDES,
+        lieuIds: [LIEU],
+        clientNoms: ['Dior'],
+      },
+    });
+    expect(compte(appels, 'evenements.lieu_id', [LIEU])).toBe(1);
+    expect(compte(appels, 'evenements.nom_client_organisateur', ['Dior'])).toBe(
+      1,
+    );
+  });
+
+  it('identifiant de lieu mal formé : séries et Top listes vides, sans requête', async () => {
+    const { client, appels } = fauxClient();
+    const evo = await loadEvolution(client, TRAITEUR, {
+      type: 'zero_dechet',
+      from: null,
+      to: null,
+      lieuIds: ['pas-un-uuid'],
+    });
+    const blocs = await loadBlocs(client, TRAITEUR, {
+      type: 'zero_dechet',
+      from: null,
+      to: null,
+      lieuIds: ['pas-un-uuid'],
+    });
+    expect(evo.series).toEqual([]);
+    expect(blocs.topLieux).toEqual([]);
+    expect(appels.filter(([m]) => m.startsWith('collectes.'))).toEqual([]);
   });
 });

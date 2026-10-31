@@ -404,7 +404,8 @@ export async function loadEvolution(
   const type = params.type === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
   const from = params.from;
   const to = params.to;
-  const lieuIds = params.lieuIds ?? [];
+  const lieuxDemandes = params.lieuIds ?? [];
+  const lieuIds = lieuxDemandes.filter(estUuid);
   const traiteurIds = params.traiteurIds ?? [];
   const clientNoms = params.clientNoms ?? [];
   const typesDemandes = params.typeEvtIds ?? [];
@@ -415,7 +416,10 @@ export async function loadEvolution(
 
   // Filtre Type demandé sans identifiant lisible : série vide, jamais un filtre
   // ignoré ni une erreur de PostgREST (comme lireFiltresCollectesGestionnaire).
-  if (typesDemandes.length > 0 && typeEvtIds.length === 0) {
+  if (
+    (typesDemandes.length > 0 && typeEvtIds.length === 0) ||
+    (lieuxDemandes.length > 0 && lieuIds.length === 0)
+  ) {
     return { granularite: granulariteFor(from ?? '', to ?? ''), series: [] };
   }
 
@@ -971,7 +975,8 @@ export async function loadBlocs(
   const type = params.type === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
   const from = params.from;
   const to = params.to;
-  const lieuIds = params.lieuIds ?? [];
+  const lieuxDemandes = params.lieuIds ?? [];
+  const lieuIds = lieuxDemandes.filter(estUuid);
   const traiteurIds = params.traiteurIds ?? [];
   const clientNoms = params.clientNoms ?? [];
   const typesDemandes = params.typeEvtIds ?? [];
@@ -984,7 +989,10 @@ export async function loadBlocs(
 
   // Filtre Type demandé sans identifiant lisible : blocs vides, jamais un filtre
   // ignoré ni une erreur de PostgREST (comme lireFiltresCollectesGestionnaire).
-  if (typesDemandes.length > 0 && typeEvtIds.length === 0) {
+  if (
+    (typesDemandes.length > 0 && typeEvtIds.length === 0) ||
+    (lieuxDemandes.length > 0 && lieuIds.length === 0)
+  ) {
     return emptyBlocs(type, isGestionnaire, isAgence) as BlocsResult;
   }
 
@@ -1110,21 +1118,52 @@ export async function loadBlocs(
  */
 export async function loadMargeAttente(
   supabase: DbClient,
-  params: { from: string | null; to: string | null },
+  params: { from: string | null; to: string | null; filtres?: FiltresGlobaux },
 ): Promise<{ nb_en_attente: number }> {
   const { from, to } = params;
+  // Périmètre filtré (§06.04 : collectes ZD clôturées « du périmètre filtré »
+  // sans facture émise ou payée) : mêmes filtres de la barre que les cartes.
+  const filtres = params.filtres ?? FILTRES_GLOBAUX_VIDES;
+  const lieuIds = filtres.lieuIds.filter(estUuid);
+  const typeEvtIds = filtres.typeEvtIds.filter(estUuid);
+  if (
+    (filtres.lieuIds.length > 0 && lieuIds.length === 0) ||
+    (filtres.typeEvtIds.length > 0 && typeEvtIds.length === 0)
+  )
+    return { nb_en_attente: 0 };
+  // Événement joint seulement quand un filtre le demande : sans filtre, le
+  // décompte reste celui d'avant (collectes lisibles sous RLS).
+  const parEvenement = lieuIds.length > 0 || filtres.clientNoms.length > 0;
   let q = supabase
     .from('collectes')
     .select(
-      'id, date_collecte, factures_collectes(facture_id, factures(statut))',
+      `id, date_collecte, pax, factures_collectes(facture_id, factures(statut))${
+        parEvenement
+          ? ', evenements!inner(lieu_id, nom_client_organisateur)'
+          : ''
+      }`,
     )
     .eq('type', 'zero_dechet')
     .eq('statut', 'cloturee');
   if (from) q = q.gte('date_collecte', from);
   if (to) q = q.lte('date_collecte', to);
+  if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
+  if (filtres.clientNoms.length > 0)
+    q = q.in('evenements.nom_client_organisateur', filtres.clientNoms);
+  if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
 
-  const { data, error } = await q;
+  const { data: lues, error } = await q;
   if (error) throw loaderDbError(error, 'dashboards.marge_attente');
+  const data = (
+    (lues ?? []) as unknown as {
+      pax: number | null;
+      factures_collectes: unknown;
+    }[]
+  ).filter(
+    (c) =>
+      filtres.tailleEvts.length === 0 ||
+      filtres.tailleEvts.includes(tailleBracket(c.pax ?? 0)),
+  );
 
   type FactureLien = {
     factures: { statut: string } | { statut: string }[] | null;
@@ -1447,7 +1486,9 @@ export async function loadTraiteurDashboard(
     loadKpiTraiteur(supabase, ctx, { from, to, type, compare: 'n1', filtres }),
     loadEvolution(supabase, ctx, { type, from, to, ...filtres }),
     loadBlocs(supabase, ctx, { type, from, to, ...filtres }),
-    isZd ? loadMargeAttente(supabase, { from, to }) : Promise.resolve(null),
+    isZd
+      ? loadMargeAttente(supabase, { from, to, filtres })
+      : Promise.resolve(null),
     isZd ? Promise.resolve(null) : loadPackAg(ctx),
   ]);
 

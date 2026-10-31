@@ -9,7 +9,15 @@
  * cas l'épingle avec un routeur dont l'URL ne suit JAMAIS (`replace` inerte),
  * le pire cas de ce retard.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  onTestFinished,
+} from 'vitest';
 import {
   render,
   screen,
@@ -42,7 +50,7 @@ function jsonResponse(obj: unknown): Promise<Response> {
   } as Response);
 }
 
-const fetchMock = vi.fn((input: RequestInfo | URL) => {
+const fetchParDefaut = (input: RequestInfo | URL) => {
   const url = String(input);
   if (url.includes('/traiteur/collectes/filtres'))
     return jsonResponse({
@@ -56,7 +64,8 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
   if (url.includes('/traiteur/collectes/c9'))
     return jsonResponse({ data: null });
   return jsonResponse({ data: [] });
-});
+};
+const fetchMock = vi.fn(fetchParDefaut);
 
 function derniereUrl(): URLSearchParams {
   const url = String(replace.mock.calls.at(-1)?.[0] ?? '');
@@ -86,6 +95,87 @@ describe('Liste Collectes traiteur — filtres dans l’URL', () => {
       const usp = derniereUrl();
       expect(usp.get('onglet')).toBe('passees');
       expect(usp.get('type')).toBe('anti_gaspi');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'type/toutes_par_defaut_colonne_type_seulement_sur_toutes',
+    async () => {
+      // « Toutes » par défaut (Val 2026-10-31) : la liste part sans type et
+      // chaque ligne porte son picto ZD / AG dans la colonne Type.
+      fetchMock.mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/filtres'))
+          return jsonResponse({
+            data: { lieux: [], clients: [], programmateurs: [] },
+          });
+        return jsonResponse({
+          data: [
+            {
+              id: 'z1',
+              type: 'zero_dechet',
+              statut: 'validee',
+              date_collecte: '2099-01-02',
+              heure_collecte: '10:00',
+              programmee_par_tiers: false,
+              rapport_reserve_donneur_ordre: false,
+              poids_total_kg: null,
+              taux_recyclage: null,
+              co2_evite_kg: null,
+              nb_repas_donnes: null,
+              evenements: null,
+            },
+            {
+              id: 'a1',
+              type: 'anti_gaspi',
+              statut: 'validee',
+              date_collecte: '2099-01-03',
+              heure_collecte: '10:00',
+              programmee_par_tiers: false,
+              rapport_reserve_donneur_ordre: false,
+              poids_total_kg: null,
+              taux_recyclage: null,
+              co2_evite_kg: null,
+              nb_repas_donnes: null,
+              evenements: null,
+            },
+          ],
+        });
+      });
+      onTestFinished(() => {
+        fetchMock.mockImplementation(fetchParDefaut);
+      });
+      render(<TraiteurCollectesPage />);
+      expect(screen.getByRole('radio', { name: 'Toutes' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      const table = await screen.findByTestId(
+        'collectes-table',
+        {},
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(table).toHaveTextContent('AG'), ATTENTE_UI);
+      expect(screen.getByRole('columnheader', { name: /Type/ })).toBeTruthy();
+      expect(table).toHaveTextContent('ZD');
+      const liste = fetchMock.mock.calls
+        .map(([u]) => String(u))
+        .filter((u) => !u.includes('/filtres'))
+        .at(-1)!;
+      expect(new URLSearchParams(liste.split('?')[1]).has('type')).toBe(false);
+
+      // Un seul type : la colonne disparaît, le type part dans la requête
+      // et dans l'URL.
+      fireEvent.click(screen.getByRole('radio', { name: 'Zéro Déchet' }));
+      await waitFor(
+        () =>
+          expect(
+            screen.queryByRole('columnheader', { name: /^Type/ }),
+          ).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(derniereUrl().get('type')).toBe('zero_dechet');
     },
     ATTENTE_CAS_MS,
   );

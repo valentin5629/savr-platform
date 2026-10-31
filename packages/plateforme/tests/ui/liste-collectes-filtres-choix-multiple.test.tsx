@@ -461,10 +461,13 @@ for (const { module, espace, api, Page } of ESPACES) {
           'onglet=programmees&lieu=l-gabriel,l-louvre&client=Danone&client=Kering%2C+Paris&info=oui',
         );
         render(<Page />);
+        // « Toutes » par défaut (Val 2026-10-31) : la liste part sans type.
         await waitFor(
-          () => expect(derniereListe().get('type')).toBe('zero_dechet'),
+          () =>
+            expect(derniereListe().get('lieu_ids')).toBe('l-gabriel,l-louvre'),
           ATTENTE_UI,
         );
+        expect(derniereListe().has('type')).toBe(false);
         fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
         await waitFor(
           () => expect(derniereListe().get('type')).toBe('anti_gaspi'),

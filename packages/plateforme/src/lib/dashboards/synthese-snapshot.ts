@@ -47,6 +47,8 @@ export interface SyntheseParams {
   lieuIds: string[];
   traiteurIds: string[]; // gestionnaire : filtre traiteur opérationnel
   clientOrgaIds: string[]; // traiteur/agence : filtre client organisateur
+  /** traiteur/agence : noms de client organisateur de la barre du dashboard. */
+  clientNoms?: string[];
   commercialIds: string[]; // manager : filtre commercial (evenements.created_by)
   typeEvtIds: string[];
   tailleEvts: string[];
@@ -362,6 +364,8 @@ async function fetchScopedRows(
       );
     if (params.commercialIds.length > 0)
       x = x.in('evenements.created_by', params.commercialIds);
+    if ((params.clientNoms ?? []).length > 0)
+      x = x.in('evenements.nom_client_organisateur', params.clientNoms ?? []);
     return x;
   };
 
@@ -688,8 +692,9 @@ function buildFiltresLabel(
     parts.push(`Tailles : ${params.tailleEvts.join(', ')}`);
   if (params.traiteurIds.length > 0)
     parts.push(`Traiteurs : ${params.traiteurIds.length} sélectionné(s)`);
-  if (params.clientOrgaIds.length > 0)
-    parts.push(`Clients : ${params.clientOrgaIds.length} sélectionné(s)`);
+  const nbClients =
+    params.clientOrgaIds.length + (params.clientNoms ?? []).length;
+  if (nbClients > 0) parts.push(`Clients : ${nbClients} sélectionné(s)`);
   if (!(includeZd && includeAg)) {
     parts.push(
       `Type : ${libelleTypeCollecte(includeZd ? 'zero_dechet' : 'anti_gaspi')}`,

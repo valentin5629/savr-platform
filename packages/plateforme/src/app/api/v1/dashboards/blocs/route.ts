@@ -29,6 +29,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       to: sp.get('to'),
       lieuIds: sp.getAll('lieu_ids[]'),
       traiteurIds: sp.getAll('traiteur_ids[]'),
+      clientNoms: sp.getAll('client_noms[]'),
       typeEvtIds: sp.getAll('type_evenement_ids[]'),
       tailleEvts: sp.getAll('taille_evenements[]'),
     });

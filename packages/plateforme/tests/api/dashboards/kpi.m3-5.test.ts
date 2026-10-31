@@ -40,6 +40,8 @@ const mockClientChain = {
   gte: vi.fn().mockReturnThis(),
   lte: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
+  gt: vi.fn().mockReturnThis(),
+  limit: vi.fn().mockReturnThis(),
   order: vi.fn().mockResolvedValue({ data: [], error: null }),
   // BL-P3-02 : le tarif du tooltip Marge passe par la RPC f_tarif_refacture_pax_zd
   // (colonne hors GRANT SELECT depuis 20260918100000) ; maybeSingle() reste
@@ -130,26 +132,23 @@ describe('M3.5 / kpi-traiteur', () => {
     expect(res.status).toBe(401);
   });
 
-  // Cockpit R24 — N-1 : une seule requête de vue couvrant [N-1 → courante], puis
-  // découpe en JS. Vérifie que les lignes sont partitionnées par fenêtre à partir
-  // d'UNE seule résolution de `.order()` (au lieu de 2 requêtes de vue en série).
-  it('compare=n1 — découpe courante / précédente sur une requête unique', async () => {
+  // Cockpit R24 — N-1 : une seule lecture couvrant [N-1 → courante], puis découpe
+  // en JS. Les cartes sont calculées depuis les collectes (filtres globaux, lot
+  // du 2026-10-30) : la période porte sur date_collecte.
+  it('compare=n1 — découpe courante / précédente sur une lecture unique', async () => {
     setupAuth('traiteur_manager');
-    const rowCurrent = {
-      organisation_id: 'org-1',
-      mois: '2025-08-01',
-      type_collecte: 'zero_dechet',
-      nb_collectes: 3,
-    };
-    const rowPrev = {
-      organisation_id: 'org-1',
-      mois: '2024-09-01',
-      type_collecte: 'zero_dechet',
-      nb_collectes: 1,
-    };
-    // La vue n'est interrogée qu'une fois → une seule résolution de order().
+    const collecte = (id: string, date_collecte: string) => ({
+      id,
+      type: 'zero_dechet',
+      date_collecte,
+      pax: 100,
+      evenement_id: `e-${id}`,
+      taux_recyclage: 80,
+      collecte_flux: [{ poids_reel_kg: 10 }],
+    });
+    // Une page (< 200 lignes) → une seule résolution de order().
     mockClientChain.order.mockResolvedValueOnce({
-      data: [rowCurrent, rowPrev],
+      data: [collecte('a', '2025-08-12'), collecte('b', '2024-09-03')],
       error: null,
     });
     const { GET } =
@@ -161,13 +160,38 @@ describe('M3.5 / kpi-traiteur', () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    // from/to = fenêtre courante (12 mois) ; previousWindow rend [2024-07-02,
-    // 2025-06-30] → rowPrev (2024-09) tombe dans previous, rowCurrent (2025-08)
-    // dans data.
-    expect(body.data).toEqual([rowCurrent]);
-    expect(body.previous).toEqual([rowPrev]);
-    // Une seule requête de vue (un seul appel terminal .order()).
+    // previousWindow rend [2024-07-01, 2025-06-30] : 2024-09 tombe dans previous,
+    // 2025-08 dans data.
+    expect(body.data.map((l: { mois: string }) => l.mois)).toEqual([
+      '2025-08-01',
+    ]);
+    expect(body.previous.map((l: { mois: string }) => l.mois)).toEqual([
+      '2024-09-01',
+    ]);
+    expect(mockClientChain.gte).toHaveBeenCalledWith(
+      'date_collecte',
+      '2024-07-01',
+    );
     expect(mockClientChain.order).toHaveBeenCalledTimes(1);
+  });
+
+  it('filtres globaux transmis : Lieux et Client organisateur', async () => {
+    setupAuth('traiteur_manager');
+    const { GET } =
+      await import('@/app/api/v1/dashboards/kpi-traiteur/route.js');
+    const res = await GET(
+      makeReq(
+        '/api/v1/dashboards/kpi-traiteur?type=zero_dechet&lieu_ids[]=L1&client_noms[]=Dior',
+      ),
+    );
+    expect(res.status).toBe(200);
+    expect(mockClientChain.in).toHaveBeenCalledWith('evenements.lieu_id', [
+      'L1',
+    ]);
+    expect(mockClientChain.in).toHaveBeenCalledWith(
+      'evenements.nom_client_organisateur',
+      ['Dior'],
+    );
   });
 });
 

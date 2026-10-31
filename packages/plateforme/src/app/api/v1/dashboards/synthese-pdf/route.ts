@@ -143,6 +143,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     lieuIds: asStringArray(body['lieu_ids']),
     traiteurIds: asStringArray(body['traiteur_ids']),
     clientOrgaIds: asStringArray(body['client_organisateur_ids']),
+    clientNoms: asStringArray(body['client_noms']),
     commercialIds: asStringArray(body['commercial_ids']),
     typeEvtIds: asStringArray(body['type_evenement_ids']),
     tailleEvts: asStringArray(body['taille_evenements']),

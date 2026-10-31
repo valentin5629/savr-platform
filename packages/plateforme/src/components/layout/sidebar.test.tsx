@@ -7,7 +7,7 @@
  * teinte est portée par la classe `text-*` du SVG.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 
 let currentPath = '/traiteur';
 vi.mock('next/navigation', () => ({
@@ -76,6 +76,25 @@ describe('Sidebar — logo orange/vert selon le contexte ZD', () => {
     expect(screen.getByTestId('savr-logo').getAttribute('class')).toContain(
       'text-savr-accent-500',
     );
+  });
+});
+
+describe('Sidebar — clic sur le logo', () => {
+  it.each([
+    'admin_savr',
+    'traiteur_manager',
+    'traiteur_commercial',
+    'agence',
+    'gestionnaire_lieux',
+    'client_organisateur',
+  ] as const)('%s : mène au Dashboard (première entrée du menu)', (role) => {
+    render(<Sidebar role={role} />);
+    const lienLogo = within(screen.getByTestId('savr-logo')).getByRole('link');
+    const premiereEntree = screen.getAllByRole('link')[1];
+    expect(lienLogo.getAttribute('href')).toBe(
+      premiereEntree?.getAttribute('href'),
+    );
+    expect(premiereEntree?.textContent).toContain('Dashboard');
   });
 });
 

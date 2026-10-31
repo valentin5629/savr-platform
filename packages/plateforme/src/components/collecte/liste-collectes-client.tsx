@@ -14,6 +14,7 @@ import {
   type TraiteurCollecteLigne,
 } from '@/components/collecte/collectes-traiteur-table';
 import { DataGrid } from '@/components/ui/data-grid';
+import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
 import { EmptyState } from '@/components/ui/empty-state';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
@@ -552,19 +553,13 @@ export function ListeCollectesClient({
         icon={<TruckIcon className="h-6 w-6" />}
         subtitle="Vos collectes Zéro Déchet et Anti-Gaspi"
         actions={
-          // Sur l'aplat navy du bandeau : secondaire (fond blanc) + CTA accent,
-          // comme les autres PageHero ; un ghost navy y était invisible. Pas de
-          // wrapper : le slot d'actions du PageHero passe à la ligne sur mobile.
-          <>
-            <Button variant="secondary" onClick={exportCsv}>
-              Exporter CSV
-            </Button>
-            <Button variant="accent" asChild>
-              <a href={`${ROUTES.programmer.nouveau}?type=${typeFiltre}`}>
-                Programmer une collecte
-              </a>
-            </Button>
-          </>
+          // CTA accent sur l'aplat navy du bandeau ; l'export CSV est dans la
+          // barre du tableau, à gauche de « Colonnes ».
+          <Button variant="accent" asChild>
+            <a href={`${ROUTES.programmer.nouveau}?type=${typeFiltre}`}>
+              Programmer une collecte
+            </a>
+          </Button>
         }
       />
 
@@ -609,6 +604,7 @@ export function ListeCollectesClient({
           2026-10-19, remplace le tri décroissant unique du 2026-09-21).
           Colonnes triables ensuite. */}
       <DataGrid
+        toolbarActions={<BoutonExportCsv onClick={exportCsv} />}
         key={onglet}
         data-testid="collectes-table"
         columns={colonnes}

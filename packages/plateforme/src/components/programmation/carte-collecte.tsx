@@ -238,8 +238,9 @@ export function CarteCollecte({
         </FormField>
 
         <FormField
-          label="Contact de secours (optionnel)"
+          label="Contact de secours"
           htmlFor={`contact-secours-${suffixe}`}
+          required
         >
           <ContactCombobox
             value={carte.contact_secours}

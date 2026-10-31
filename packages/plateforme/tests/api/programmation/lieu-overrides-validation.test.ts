@@ -156,6 +156,8 @@ const BODY_ZD = {
       type_evenement_id: TYPE_EVT,
       contact_principal_nom: 'Jean Martin',
       contact_principal_telephone: '0612345678',
+      contact_secours_nom: 'Sam Roux',
+      contact_secours_telephone: '0733333333',
     },
   ],
   confirmer: true,

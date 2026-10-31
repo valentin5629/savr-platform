@@ -97,6 +97,8 @@ interface DataGridProps<T> {
   columnsToggle?: boolean;
   /** Contenu à gauche de la barre d'outils (compteur, filtres…). */
   toolbar?: React.ReactNode;
+  /** Actions à droite de la barre, juste avant « Colonnes » (ex. export CSV). */
+  toolbarActions?: React.ReactNode;
   onRowClick?: (row: T) => void;
   /** Nom accessible de la ligne cliquable (lecteurs d'écran). */
   rowLabel?: (row: T) => string;
@@ -191,6 +193,7 @@ function DataGrid<T>({
   // 2026-09-28 : même format partout) ; `false` pour le retirer.
   columnsToggle = true,
   toolbar,
+  toolbarActions,
   onRowClick,
   rowLabel,
   rowClassName,
@@ -270,35 +273,39 @@ function DataGrid<T>({
 
   return (
     <div className={cn('space-y-3', className)} data-testid={testId}>
-      {!erreur && !loading && rows.length > 0 && (toolbar || columnsToggle) && (
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="min-w-0 flex-1">{toolbar}</div>
-          {columnsToggle && hideable.length > 0 && (
-            <Dropdown>
-              <DropdownTrigger asChild>
-                <Button variant="secondary" className="h-11 sm:h-10">
-                  <ColumnsIcon className="h-4 w-4" />
-                  Colonnes
-                </Button>
-              </DropdownTrigger>
-              <DropdownContent align="end" className="min-w-[12rem]">
-                <DropdownLabel>Colonnes affichées</DropdownLabel>
-                <DropdownSeparator />
-                {hideable.map((column) => (
-                  <DropdownCheckboxItem
-                    key={column.id}
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(v) => column.toggleVisibility(!!v)}
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    {headerLabel(column)}
-                  </DropdownCheckboxItem>
-                ))}
-              </DropdownContent>
-            </Dropdown>
-          )}
-        </div>
-      )}
+      {!erreur &&
+        !loading &&
+        rows.length > 0 &&
+        (toolbar || toolbarActions || columnsToggle) && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1">{toolbar}</div>
+            {toolbarActions}
+            {columnsToggle && hideable.length > 0 && (
+              <Dropdown>
+                <DropdownTrigger asChild>
+                  <Button variant="secondary" className="h-11 sm:h-10">
+                    <ColumnsIcon className="h-4 w-4" />
+                    Colonnes
+                  </Button>
+                </DropdownTrigger>
+                <DropdownContent align="end" className="min-w-[12rem]">
+                  <DropdownLabel>Colonnes affichées</DropdownLabel>
+                  <DropdownSeparator />
+                  {hideable.map((column) => (
+                    <DropdownCheckboxItem
+                      key={column.id}
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(v) => column.toggleVisibility(!!v)}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {headerLabel(column)}
+                    </DropdownCheckboxItem>
+                  ))}
+                </DropdownContent>
+              </Dropdown>
+            )}
+          </div>
+        )}
 
       {erreur ? (
         <ErrorState

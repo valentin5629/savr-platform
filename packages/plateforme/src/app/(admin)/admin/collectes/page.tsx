@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   type Icone,
   ArrowRightIcon,
-  DownloadSimpleIcon,
   FileDashedIcon,
   ForkKnifeIcon,
   IdentificationCardIcon,
@@ -41,6 +40,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { FilterChips } from '@/components/ui/filter-chips';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DataGrid, type SortingState } from '@/components/ui/data-grid';
+import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
 import { ListFooter } from '@/components/ui/list-footer';
 import {
   useFiltresUrl,
@@ -592,24 +592,12 @@ export default function CollectesPage() {
         actions={
           // Le fichier porte toute la sélection de la liste : ses filtres, sans
           // tri ni page (§12 §2).
-          <>
-            <Button
-              variant="secondary"
-              disabled={!filtresListe}
-              onClick={() =>
-                window.open(`/api/v1/exports/collectes?${filtresListe}`)
-              }
-            >
-              <DownloadSimpleIcon />
-              Exporter CSV
-            </Button>
-            <Button asChild variant="accent">
-              <Link href={ROUTES.programmer.nouveau}>
-                <PlusIcon />
-                Programmer une collecte
-              </Link>
-            </Button>
-          </>
+          <Button asChild variant="accent">
+            <Link href={ROUTES.programmer.nouveau}>
+              <PlusIcon />
+              Programmer une collecte
+            </Link>
+          </Button>
         }
       />
 
@@ -771,6 +759,16 @@ export default function CollectesPage() {
       </FilterBar>
 
       <DataGrid
+        toolbarActions={
+          // Le fichier porte toute la sélection de la liste : ses filtres, sans
+          // tri ni page (§12 §2).
+          <BoutonExportCsv
+            disabled={!filtresListe}
+            onClick={() =>
+              window.open(`/api/v1/exports/collectes?${filtresListe}`)
+            }
+          />
+        }
         key={tab}
         data-testid="collectes-table"
         columns={colonnes}

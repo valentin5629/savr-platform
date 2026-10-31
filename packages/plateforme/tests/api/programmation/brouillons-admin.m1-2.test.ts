@@ -150,9 +150,22 @@ const EVT = {
   id: 'e1',
   organisation_id: 'org-kaspia',
   nom_evenement: 'Gala Kaspia',
+  nom_client_organisateur: 'Entreprise Dupont',
   pax: 120,
   lieu_id: 'lieu-1',
 };
+
+/** Contacts de secours complets d'une collecte (décision Val 2026-10-30). */
+const secoursDe = (collecte_id: string) => ({
+  data: [
+    {
+      collecte_id,
+      contact_secours_nom: 'Sam Roux',
+      contact_secours_telephone: '0733333333',
+    },
+  ],
+  error: null,
+});
 
 const COLLECTE_ZD = {
   id: 'col-1',
@@ -202,6 +215,8 @@ async function creerBrouillon(type: string) {
             type_evenement_id: TYPE_EVT,
             contact_principal_nom: 'Marie Dupont',
             contact_principal_telephone: '0600000000',
+            contact_secours_nom: 'Sam Roux',
+            contact_secours_telephone: '0733333333',
           },
         ],
         confirmer: false,
@@ -324,6 +339,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null }); // select événement
     admin.push({ data: [COLLECTE_ZD], error: null }); // collectes brouillon
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null }); // rpc fn_confirmer_programmation_brouillon
 
     const res = await confirmer();
@@ -340,6 +356,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null });
     admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null });
 
     await confirmer();
@@ -354,6 +371,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null }); // select événement
     admin.push({ data: [COLLECTE_AG], error: null }); // collectes brouillon
+    admin.push(secoursDe('col-2')); // contacts de secours
     admin.push({ data: null, error: null }); // rpc confirmer
 
     const res = await confirmer();
@@ -371,6 +389,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null });
     admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null });
 
     await confirmer();
@@ -385,6 +404,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     setupAuth('traiteur_manager', 'org-kaspia', 'user-tm');
     admin.push({ data: EVT, error: null });
     admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null });
 
     const res = await confirmer();
@@ -399,6 +419,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     setupAuth('traiteur_commercial', 'org-kaspia', 'user-commercial');
     admin.push({ data: { ...EVT, created_by: 'user-collegue' }, error: null });
     admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null });
 
     // Aligné sur le manager : le périmètre est l'organisation (prédicat posé
@@ -413,6 +434,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
       error: null,
     });
     admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null });
 
     expect((await confirmer()).status).toBe(200);

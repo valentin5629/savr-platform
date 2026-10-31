@@ -276,6 +276,8 @@ function carte(
     type_evenement_id: TYPE_A,
     contact_principal_nom: 'Alice Martin',
     contact_principal_telephone: '0611111111',
+    contact_secours_nom: 'Sam Roux',
+    contact_secours_telephone: '0733333333',
     ...extra,
   };
 }
@@ -307,6 +309,7 @@ function corps(collectes: unknown, extra: Record<string, unknown> = {}) {
   return {
     lieu_id: 'lieu-1',
     nom_evenement: 'Gala B2',
+    nom_client_organisateur: 'Entreprise Dupont',
     controle_acces_requis: false,
     collectes,
     confirmer: true,
@@ -360,6 +363,7 @@ describe('M1.2 / programmation par cartes — création', () => {
     const res = await programmer({
       lieu_id: 'lieu-1',
       nom_evenement: 'Gala B2',
+      nom_client_organisateur: 'Entreprise Dupont',
       reference_affaire: 'AFF-12',
       controle_acces_requis: true,
       // Ancien contrat (type et contacts au niveau de l'événement) : ignoré.
@@ -370,8 +374,8 @@ describe('M1.2 / programmation par cartes — création', () => {
         carte('zd', {
           contact_principal_nom: '  Alice Martin  ',
           contact_principal_telephone: ' 06 11 11 11 11 ',
-          contact_secours_nom: '',
-          contact_secours_telephone: null,
+          contact_secours_nom: '  Léa Noir ',
+          contact_secours_telephone: ' 07 44 44 44 44 ',
           informations_supplementaires: '  Quai 2\nSonner B  ',
         }),
         carte('ag', {
@@ -413,7 +417,7 @@ describe('M1.2 / programmation par cartes — création', () => {
         lieu_id: 'lieu-1',
         created_by: 'user-1',
         nom_evenement: 'Gala B2',
-        nom_client_organisateur: null,
+        nom_client_organisateur: 'Entreprise Dupont',
         logo_client_organisateur_url: null,
         reference_affaire: 'AFF-12',
         controle_acces_requis: true,
@@ -429,8 +433,8 @@ describe('M1.2 / programmation par cartes — création', () => {
           type_evenement_id: TYPE_A,
           contact_principal_nom: 'Alice Martin',
           contact_principal_telephone: '06 11 11 11 11',
-          contact_secours_nom: null,
-          contact_secours_telephone: null,
+          contact_secours_nom: 'Léa Noir',
+          contact_secours_telephone: '07 44 44 44 44',
         },
         {
           type: 'ag',
@@ -521,6 +525,31 @@ const CAS_INVALIDES: Array<{
     collectes: [carte('zd', { contact_principal_telephone: null })],
     attendu: { champs_invalides: ['contact_principal_telephone'] },
   },
+  // Contact de secours obligatoire (décision Val 2026-10-30).
+  {
+    nom: 'contact de secours absent',
+    collectes: [sans(carte('zd'), 'contact_secours_nom')],
+    attendu: { champ: 'contact_secours_nom', collecte: 0 },
+  },
+  {
+    nom: 'téléphone du contact de secours absent',
+    collectes: [carte('zd'), sans(carte('ag'), 'contact_secours_telephone')],
+    attendu: { champ: 'contact_secours_telephone', collecte: 1 },
+  },
+  {
+    nom: 'contact de secours vide',
+    collectes: [carte('zd', { contact_secours_nom: '   ' })],
+    attendu: {
+      error:
+        'Le contact de secours et son téléphone sont obligatoires pour chaque collecte.',
+      champ: 'contact_secours_nom',
+    },
+  },
+  {
+    nom: 'téléphone du contact de secours effacé',
+    collectes: [carte('zd', { contact_secours_telephone: null })],
+    attendu: { champ: 'contact_secours_telephone', collecte: 0 },
+  },
   {
     nom: 'date de collecte mal formée',
     collectes: [carte('zd', { date_collecte: 'abc' })],
@@ -579,6 +608,44 @@ describe('M1.2 / programmation par cartes — validation', () => {
     enregistrementRend('evt-neuf', 'col-1');
 
     const res = await programmer(corps([carte('zd')]));
+
+    expect(res.status).toBe(201);
+    expect(rpc('fn_enregistrer_programmation')).toHaveLength(1);
+  });
+
+  // Client final obligatoire à la confirmation (décision Val 2026-10-30).
+  for (const [nom, valeur] of [
+    ['absent', undefined],
+    ['vide', '   '],
+    ['null', null],
+  ] as const) {
+    it(`M1.2/client_final_obligatoire — confirmation, client final ${nom} : 422, rien n’est écrit`, async () => {
+      setupAuth('traiteur_manager', ORG, 'user-1');
+      enregistrementRend('evt-neuf', 'col-1');
+
+      const res = await programmer(
+        corps([carte('zd')], { nom_client_organisateur: valeur }),
+      );
+
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({
+        error: 'Le client final est obligatoire.',
+        champ: 'nom_client_organisateur',
+      });
+      aucuneEcriture();
+    });
+  }
+
+  it('M1.2/client_final_obligatoire — brouillon sans client final : accepté', async () => {
+    setupAuth('traiteur_manager', ORG, 'user-1');
+    enregistrementRend('evt-neuf', 'col-1');
+
+    const res = await programmer(
+      corps([carte('zd')], {
+        confirmer: false,
+        nom_client_organisateur: undefined,
+      }),
+    );
 
     expect(res.status).toBe(201);
     expect(rpc('fn_enregistrer_programmation')).toHaveLength(1);
@@ -737,7 +804,11 @@ describe('M1.2 / programmation par cartes — reprise d’un brouillon', () => {
     enregistrementRend('evt-b', 'col-1');
     const zd = carte('zd', { informations_supplementaires: '  Quai 3 ' });
 
-    const res = await reprendre('evt-b', corps([zd], { confirmer: false }));
+    // Brouillon : le client final n'est pas encore exigé.
+    const res = await reprendre(
+      'evt-b',
+      corps([zd], { confirmer: false, nom_client_organisateur: undefined }),
+    );
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
@@ -1089,6 +1160,11 @@ describe('M1.2 / programmation par cartes — ajout d’une collecte', () => {
       sans(carte('zd'), 'contact_principal_telephone'),
     ],
     ['contact principal vide', carte('zd', { contact_principal_nom: '  ' })],
+    ['sans contact de secours', sans(carte('zd'), 'contact_secours_nom')],
+    [
+      'sans téléphone du contact de secours',
+      carte('zd', { contact_secours_telephone: '' }),
+    ],
   ] as const) {
     it(`M1.2/ajout_collecte_carte — carte ${nom} : 422, rien n’est créé`, async () => {
       setupAuth('traiteur_manager', ORG, 'user-1');

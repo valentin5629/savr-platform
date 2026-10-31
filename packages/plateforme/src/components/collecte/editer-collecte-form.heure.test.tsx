@@ -379,20 +379,60 @@ describe('M1.2 / EditerCollecteForm — type d’événement et contacts de la c
     ATTENTE_CAS_MS,
   );
 
+  // Le nom et le téléphone de secours se modifient ensemble (décision Val
+  // 2026-10-30) : changer le seul nom envoie aussi le téléphone affiché.
   it(
-    'M1.2/type_contacts_par_collecte — contact de secours vidé : accepté, envoyé vide (null)',
+    'M1.2/type_contacts_par_collecte — seul le nom de secours change : le nom et le téléphone partent ensemble',
     async () => {
       const { onSaved, patchs, saisir, confirmer } = await monterB1();
-      saisir('#edit-cs-nom', '');
-      saisir('#edit-cs-tel', '');
+      saisir('#edit-cs-nom', 'Noé Blanc');
       confirmer();
       await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
       expect(patchs()).toEqual([
         [
           '/api/v1/traiteur/collectes/col-1',
-          { contact_secours_nom: null, contact_secours_telephone: null },
+          {
+            contact_secours_nom: 'Noé Blanc',
+            contact_secours_telephone: '0633333333',
+          },
         ],
       ]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Contact de secours et client final obligatoires (décision Val 2026-10-30) :
+  // les vider est refusé à l'écran, comme le contact principal.
+  it.each([
+    [
+      'contact de secours vidé',
+      '#edit-cs-nom',
+      '',
+      'Le contact de secours et son téléphone sont obligatoires.',
+    ],
+    [
+      'téléphone de secours fait de blancs',
+      '#edit-cs-tel',
+      '   ',
+      'Le contact de secours et son téléphone sont obligatoires.',
+    ],
+    [
+      'client final vidé',
+      '#edit-evt-client',
+      '',
+      'Le client final est obligatoire.',
+    ],
+  ])(
+    'M1.2/type_contacts_par_collecte — %s : refusé à l’écran, rien n’est envoyé',
+    async (_cas, champ, valeur, message) => {
+      const { onSaved, patchs, saisir, confirmer } = await monterB1();
+      saisir(champ, valeur);
+      confirmer();
+      expect(
+        await screen.findByText(message, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(onSaved).not.toHaveBeenCalled();
+      expect(patchs()).toEqual([]);
     },
     ATTENTE_CAS_MS,
   );

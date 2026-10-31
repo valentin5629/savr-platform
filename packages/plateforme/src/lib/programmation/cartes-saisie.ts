@@ -229,7 +229,10 @@ export function carteComplete(c: CarteSaisie): boolean {
     paxSaisiValide(c.pax) &&
     c.type_evenement_id !== '' &&
     c.contact_principal !== null &&
-    c.contact_principal.telephone.trim() !== ''
+    c.contact_principal.telephone.trim() !== '' &&
+    // Contact de secours obligatoire (décision Val 2026-10-30).
+    c.contact_secours !== null &&
+    c.contact_secours.telephone.trim() !== ''
   );
 }
 

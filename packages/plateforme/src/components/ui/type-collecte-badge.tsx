@@ -1,4 +1,4 @@
-import { ForkKnifeIcon, LeafIcon } from '@/components/ui/icones';
+import { ForkKnifeIcon, RecycleIcon } from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -56,7 +56,7 @@ export function TypeCollecteBadge({
     );
   }
   const ag = normaliserTypeCollecte(type) === 'anti_gaspi';
-  const Icone = ag ? ForkKnifeIcon : LeafIcon;
+  const Icone = ag ? ForkKnifeIcon : RecycleIcon;
   return (
     <Badge
       variant={variantTypeCollecte(type)}

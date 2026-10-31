@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { ForkKnifeIcon, LeafIcon } from '@/components/ui/icones';
+import { ForkKnifeIcon, RecycleIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 // ToggleTypeCollecte — LE segmenté de type ZD / AG (R-UI-4b, D1). Avant : 4
@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 // filtrer) ; se range dans `FilterBar.toggle`. Libellés uniques « Zéro Déchet »
 // / « Anti-Gaspi » ; « Toutes » en option quand le filtre peut être levé.
 // Pictos des badges de type devant chaque libellé (variante B, Val
-// 2026-10-31) : feuille verte ZD, couverts navy AG, les deux sur « Toutes » ;
+// 2026-10-31) : recyclage vert ZD, couverts navy AG, les deux sur « Toutes » ;
 // blancs sur l'item choisi (fond navy).
 
 /** Picto coloré du type ; passe en blanc quand son item est choisi. */
@@ -23,7 +23,7 @@ function Picto({
   type: CollecteType;
   petit?: boolean;
 }) {
-  const Icone = type === 'anti_gaspi' ? ForkKnifeIcon : LeafIcon;
+  const Icone = type === 'anti_gaspi' ? ForkKnifeIcon : RecycleIcon;
   return (
     <Icone
       aria-hidden="true"

@@ -258,13 +258,10 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
           {avecIdentite && (
             <div
               data-testid="identite-session"
-              title={
-                collapsed
-                  ? [identite.organisation, identite.utilisateur]
-                      .filter(Boolean)
-                      .join(' — ')
-                  : undefined
-              }
+              // Noms complets au survol : tronqués à côté du picto, masqués en barre réduite.
+              title={[identite.organisation, identite.utilisateur]
+                .filter(Boolean)
+                .join(' — ')}
               className={cn(
                 'flex min-w-0 flex-1 items-center gap-3 px-1 py-2',
                 collapsed && 'justify-center px-0',
@@ -298,8 +295,10 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
               avecIdentite
                 ? // Picto seul, cible tactile de 44 px (DS §6).
                   'h-11 w-11 shrink-0 justify-center px-0 sm:h-11'
-                : 'h-10 w-full justify-start gap-3 px-3 sm:h-10',
-              !avecIdentite && collapsed && 'justify-center px-0',
+                : cn(
+                    'h-10 w-full justify-start gap-3 px-3 sm:h-10',
+                    collapsed && 'justify-center px-0',
+                  ),
             )}
           >
             <SignOutIcon aria-hidden="true" />

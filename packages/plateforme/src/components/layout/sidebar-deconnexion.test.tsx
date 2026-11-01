@@ -1,6 +1,7 @@
 /**
- * Sidebar — « Se déconnecter » tout en bas à gauche (Val 2026-10-30, ex-TopBar,
- * décision du bouton toujours affiché : Val 2026-07-03). Par défaut il appelle
+ * Sidebar — « Se déconnecter » tout en bas (Val 2026-10-30, ex-TopBar,
+ * décision du bouton toujours affiché : Val 2026-07-03) ; picto à droite de
+ * l'organisation et de l'utilisateur, sur la même ligne (Val 2026-11-01). Par défaut il appelle
  * `signOut()` puis redirige vers /login ; un `onLogout` explicite prend le dessus.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -77,6 +78,8 @@ describe('Sidebar — organisation et utilisateur au-dessus de la déconnexion',
     expect(bouton).not.toHaveTextContent('Se déconnecter');
     expect(bouton.getAttribute('title')).toBe('Se déconnecter');
     expect(bouton.className).toContain('h-11 w-11');
+    // Noms tronqués : lisibles en entier au survol.
+    expect(bloc.getAttribute('title')).toBe('Viparis — Camille Martin');
   });
 
   it('barre réduite : le picto passe sous le logo', () => {

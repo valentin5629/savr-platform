@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { captureException } from '@savr/shared/src/alerting/sentry.js';
-import { LoadingState } from '@/components/ui/loading-state';
+import { SavrCroixChargement } from '@/components/layout/savr-croix-chargement';
 import { ErrorState } from '@/components/ui/error-state';
 
 // États de route App Router (§10 §7 « 5 états par écran », R-UI-1 H3/H5).
@@ -14,10 +14,20 @@ import { ErrorState } from '@/components/ui/error-state';
 export const MESSAGE_ERREUR_ROUTE =
   'Une erreur est survenue. Réessayez dans un instant.';
 
+// Chargement de page = croix Savr seule, centrée dans la zone de contenu
+// (Val 2026-10-31). Remplace les squelettes à cet endroit seulement, contre
+// le §10 §7 « jamais spinner seul » (fiche DS_20261031_chargement-croix-savr) ;
+// les chargements à l'intérieur d'une page gardent `LoadingState`.
 export function RouteLoading() {
   return (
-    <div className="space-y-6">
-      <LoadingState variant="bloc" lignes={5} />
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className="flex min-h-[60vh] flex-col items-center justify-center gap-3"
+    >
+      <SavrCroixChargement />
+      <span className="text-sm text-savr-neutral-500">Chargement…</span>
     </div>
   );
 }

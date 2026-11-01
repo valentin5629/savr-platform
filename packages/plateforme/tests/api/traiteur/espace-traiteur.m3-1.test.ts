@@ -659,7 +659,7 @@ describe('M3.1 / annulation', () => {
       },
       error: null,
     });
-    admin.push({ data: null, error: null }); // rpc fn_modifier (statut annulee)
+    admin.push({ data: null, error: null }); // rpc fn_annuler_collecte_client
     admin.push({
       data: { email: 'prog@savr-test.local', prenom: 'Paul', nom: null },
       error: null,
@@ -713,7 +713,7 @@ describe('M3.1 / annulation', () => {
       },
       error: null,
     });
-    admin.push({ data: null, error: null }); // rpc fn_modifier (statut annulee)
+    admin.push({ data: null, error: null }); // rpc fn_annuler_collecte_client
     admin.push({
       data: { email: 'prog@savr-test.local', prenom: 'Paul', nom: null },
       error: null,
@@ -729,13 +729,11 @@ describe('M3.1 / annulation', () => {
     const json = (await res.json()) as { data: { statut: string } };
     expect(json.data.statut).toBe('annulee');
     // Passage direct en « annulee » : la RPC émet l'ordre d'annulation (E3).
-    const rpc = (admin.__calls.rpc ?? []).find(
-      ([fn]) => fn === 'fn_modifier_collecte',
-    );
-    expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
-      statut: 'annulee',
-      annulee_cote_savr_motif: 'doublon',
-    });
+    // Par la RPC d'annulation cliente, qui relit le statut sous le verrou.
+    expect(admin.__calls.rpc?.[0]).toEqual([
+      'fn_annuler_collecte_client',
+      { p_id: 'c2', p_motif: 'doublon' },
+    ]);
     // Confirmation au programmateur ; plus de demande soumise à l'Admin.
     expect(mockSendEmail).toHaveBeenCalledWith(
       'annulation_collecte',

@@ -9,6 +9,7 @@ import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationn
 import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
+import { conflitAnnulationClient } from '@/lib/collectes/annulation-client.js';
 import { envoyerConfirmationAnnulation } from '@/lib/notifications/annulation-client.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
@@ -86,11 +87,13 @@ export async function POST(
     const frein = freiner();
     if (frein) return frein;
 
-    const { error } = await admin.rpc('fn_modifier_collecte', {
+    const { error } = await admin.rpc('fn_annuler_collecte_client', {
       p_id: id,
-      p_updates: { statut: 'annulee', annulee_cote_savr_motif: motif },
-      p_champs_modifies: ['statut'],
+      p_motif: motif,
     });
+    // Statut changé depuis la lecture (relève MTS-1) : refus, rien n'est parti.
+    const conflit = conflitAnnulationClient(error);
+    if (conflit) return conflit;
     if (error) return serverError(error, 'agence.collectes.annulation.directe');
 
     // L'ordre éventuel est en file : il part sans attendre le passage planifié

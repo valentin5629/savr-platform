@@ -81,7 +81,6 @@ export default function SettingsUsersPage() {
       <PageHero
         icon={<UsersIcon className="h-6 w-6" />}
         title="Utilisateurs Savr"
-        subtitle={`${total} membre${total !== 1 ? 's' : ''} de l'équipe`}
         actions={
           <Button variant="accent" onClick={() => setShowInvite(true)}>
             <PlusIcon />

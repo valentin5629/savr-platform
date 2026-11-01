@@ -169,11 +169,7 @@ export default function AlertesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHero
-        icon={<BellIcon className="h-6 w-6" />}
-        title="Alertes"
-        subtitle="Alertes Admin in-app à traiter (packs, pesées, PDF, facturation, dispatch…). Le canal d'action des alertes fonctionnelles est cet écran, pas Slack."
-      />
+      <PageHero icon={<BellIcon className="h-6 w-6" />} title="Alertes" />
 
       <FilterBar
         data-testid="alertes-filtres"

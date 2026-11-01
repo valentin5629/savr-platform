@@ -331,7 +331,6 @@ export default function LieuxPage() {
       <PageHero
         icon={<MapPinIcon className="h-6 w-6" />}
         title="Lieux"
-        subtitle="Référentiel lieux d'événements · normalisation des lieux saisis manuellement"
         actions={
           <Button variant="accent" onClick={openCreate}>
             <PlusIcon />

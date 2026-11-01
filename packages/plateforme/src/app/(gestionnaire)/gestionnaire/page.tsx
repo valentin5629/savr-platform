@@ -246,7 +246,6 @@ export default function GestionnaireDashboardPage() {
         <PageHero
           icon={<SquaresFourIcon className="h-6 w-6" />}
           title="Dashboard"
-          subtitle="Vos indicateurs Zéro Déchet et Anti-Gaspi"
           actions={
             <Button variant="accent" asChild>
               <a href={ROUTES.programmer.nouveau}>Programmer une collecte</a>

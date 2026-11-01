@@ -14,11 +14,10 @@ import { Button } from '@/components/ui/button';
 // ── PageHero ──────────────────────────────────────────────────────────────────
 
 describe('PageHero', () => {
-  it('rend un <h1> sur bandeau pâle primary-100 (Val 2026-11-01, B2) + sous-titre + actions', () => {
+  it('rend un <h1> sur bandeau pâle primary-100 (Val 2026-11-01, B2), sans sous-titre, + actions', () => {
     const { container } = render(
       <PageHero
         title="Collectes"
-        subtitle="12 collectes"
         actions={<Button>Programmer une collecte</Button>}
       />,
     );
@@ -30,7 +29,8 @@ describe('PageHero', () => {
     );
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toHaveTextContent('Collectes');
-    expect(screen.getByText('12 collectes')).toBeInTheDocument();
+    // Aucun texte sous le titre (Val 2026-11-01) : le bandeau n'a plus de <p>.
+    expect(hero.querySelector('p')).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Programmer une collecte' }),
     ).toBeInTheDocument();

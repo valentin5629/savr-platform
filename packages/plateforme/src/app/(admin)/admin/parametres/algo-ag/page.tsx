@@ -100,7 +100,6 @@ export default function AlgoAgParamsPage() {
       <PageHero
         icon={<GearIcon className="h-6 w-6" />}
         title="Paramètres algorithme AG"
-        subtitle="Plages horaires, seuils et coefficients du moteur d'attribution Anti-Gaspi"
       />
 
       {error && (

@@ -216,7 +216,6 @@ export default function TarifsPacksAGPage() {
       <PageHero
         icon={<PackageIcon className="h-6 w-6" />}
         title="Tarifs packs AG"
-        subtitle="Tarifs actifs par type de pack. La modification ferme la ligne précédente et ouvre une nouvelle version."
         actions={
           canEdit && (
             <Button variant="accent" onClick={() => openModal()}>

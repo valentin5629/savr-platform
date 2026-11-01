@@ -557,7 +557,6 @@ export function ListeCollectesClient({
       <PageHero
         title="Collectes"
         icon={<TruckIcon className="h-6 w-6" />}
-        subtitle="Vos collectes Zéro Déchet et Anti-Gaspi"
         actions={
           // CTA accent sur le bandeau ; l'export CSV est dans la
           // barre du tableau, à gauche de « Colonnes ».

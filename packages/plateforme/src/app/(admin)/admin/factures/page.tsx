@@ -274,7 +274,6 @@ export default function FacturesPage() {
       <PageHero
         icon={<ReceiptIcon className="h-6 w-6" />}
         title="Factures"
-        subtitle="Brouillons, émissions et avoirs"
         actions={
           <Button variant="secondary" onClick={exportCsv}>
             <DownloadSimpleIcon />

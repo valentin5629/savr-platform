@@ -42,7 +42,6 @@ export default function TemplatesEmailPage() {
       <PageHero
         icon={<EnvelopeSimpleIcon className="h-6 w-6" />}
         title="Paramètres — Templates emails"
-        subtitle={`${templates.length} templates actifs — consultation seule (l'édition arrive dans une version ultérieure).`}
       />
 
       {loading ? (

@@ -154,7 +154,6 @@ export default function AutoAcceptPage() {
     <div className="space-y-6">
       <PageHero
         title="Configuration auto-accept"
-        subtitle="Activation de la validation automatique par traiteur"
         icon={<LightningIcon className="h-6 w-6" />}
         actions={
           <Button size="sm" variant="secondary" disabled>

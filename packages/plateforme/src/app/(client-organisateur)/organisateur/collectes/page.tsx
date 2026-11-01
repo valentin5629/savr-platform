@@ -243,7 +243,6 @@ function CollectesContent() {
       <PageHero
         icon={<ClipboardTextIcon className="h-6 w-6" />}
         title="Mes collectes"
-        subtitle="Collectes de vos événements, en lecture seule"
       />
 
       {/* Barre de filtres DS (D10 : la même que traiteur / agence) : vues

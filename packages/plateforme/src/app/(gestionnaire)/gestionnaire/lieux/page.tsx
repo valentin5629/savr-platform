@@ -154,11 +154,6 @@ export default function GestionnaireLieuxPage() {
       <PageHero
         icon={<MapPinIcon className="h-6 w-6" />}
         title="Lieux"
-        subtitle={
-          loading || erreur
-            ? undefined
-            : `${rows.length} lieu${rows.length > 1 ? 'x' : ''} rattaché${rows.length > 1 ? 's' : ''} à votre organisation`
-        }
         actions={
           <>
             {ajoutEnCours && (

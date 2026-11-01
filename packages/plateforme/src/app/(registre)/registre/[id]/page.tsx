@@ -132,26 +132,23 @@ export default function RegistreDetailPage({
           </Link>
         }
         title={`Collecte ZD — ${dateFr(data.evenement.date)} — ${data.lieu.nom ?? ''}`}
-        subtitle={
-          <span className="inline-flex items-center gap-2 pt-1">
+        actions={
+          <>
             <Badge variant={dispo ? 'success' : 'neutral'}>
               {dispo ? 'Bordereau disponible' : 'Bordereau manquant'}
             </Badge>
             {data.historique_partiel && (
               <Badge variant="warning">Historique partiel</Badge>
             )}
-          </span>
-        }
-        actions={
-          data.documents.bordereau_id &&
-          dispo && (
-            <Button
-              variant="accent"
-              onClick={() => downloadBordereau(data.documents.bordereau_id!)}
-            >
-              Télécharger le bordereau
-            </Button>
-          )
+            {data.documents.bordereau_id && dispo && (
+              <Button
+                variant="accent"
+                onClick={() => downloadBordereau(data.documents.bordereau_id!)}
+              >
+                Télécharger le bordereau
+              </Button>
+            )}
+          </>
         }
       />
 

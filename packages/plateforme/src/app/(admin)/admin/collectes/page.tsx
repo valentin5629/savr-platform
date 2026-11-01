@@ -588,7 +588,6 @@ export default function CollectesPage() {
       <PageHero
         icon={<TruckIcon className="h-6 w-6" />}
         title="Collectes"
-        subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi"
         actions={
           // Le fichier porte toute la sélection de la liste : ses filtres, sans
           // tri ni page (§12 §2).

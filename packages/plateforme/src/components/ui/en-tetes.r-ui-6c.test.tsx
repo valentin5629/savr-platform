@@ -107,7 +107,7 @@ describe('Listes : bandeau PageHero', () => {
   });
 
   it('PageHero porte le h1 de la page (titre accessible inchangé)', () => {
-    render(<PageHero title="Transporteurs" subtitle="Référentiel" />);
+    render(<PageHero title="Transporteurs" />);
     expect(
       screen.getByRole('heading', { level: 1, name: 'Transporteurs' }),
     ).toBeTruthy();

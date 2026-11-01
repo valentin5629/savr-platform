@@ -431,7 +431,6 @@ export default function ClientFichePage({
           </div>
         }
         title={org.raison_sociale}
-        subtitle={libelleTypeOrganisation(org.type)}
         actions={<ActifBadge actif={org.actif} />}
       />
 

@@ -1,5 +1,5 @@
 /**
- * R-UI-1 H1 (clôt D1 de la PR #473) — Mon organisation > Équipe : les succès
+ * R-UI-1 H1 (clôt D1 de la PR #473) — Paramètres > Membres (ex Mon organisation > Équipe) : les succès
  * éphémères (invitation envoyée, collectes transférées) sont des Toasts 4 s,
  * plus un bandeau vert dans le formulaire ; les erreurs restent inline
  * (`AlertBar err`, role=alert).
@@ -23,7 +23,7 @@ afterEach(() => {
 
 async function ouvrirEquipe() {
   renderAvecToasts(<ParametresTraiteurClient isManager userId="u1" />);
-  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Équipe' }));
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
   return screen.findByText('Inviter un collaborateur', undefined, ATTENTE_UI);
 }
 
@@ -40,7 +40,7 @@ function remplirInvitation() {
   fireEvent.click(screen.getByRole('button', { name: 'Envoyer l’invitation' }));
 }
 
-describe('R-UI-1 — Mon organisation traiteur : feedback Équipe', () => {
+describe('R-UI-1 — Mon organisation traiteur : feedback Membres', () => {
   it(
     'invitation réussie → Toast, hors du formulaire',
     async () => {

@@ -101,11 +101,8 @@ describe('facturation_hors_plateforme — Mon organisation', () => {
       const fetchMock = stubFetchProfil();
       render(<ParametresTraiteurClient isManager userId="u1" />);
 
-      expect(nomsOnglets()).toEqual([
-        'Informations légales',
-        'Équipe',
-        'Mon profil',
-      ]);
+      expect(nomsOnglets()).toEqual(['Mon profil', 'Organisation', 'Membres']);
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Organisation' }));
       // Gardée : le SIRET vérifié de l'entité est requis pour l'attestation AG.
       expect(
         await screen.findByText('Entités de facturation', {}, ATTENTE_UI),
@@ -124,7 +121,8 @@ describe('facturation_hors_plateforme — Mon organisation', () => {
       const fetchMock = stubFetchProfil();
       render(<ParametresGestionnaireClient />);
 
-      expect(nomsOnglets()).toEqual(['Organisation', 'Membres', 'Mon profil']);
+      expect(nomsOnglets()).toEqual(['Mon profil', 'Organisation', 'Membres']);
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Organisation' }));
       await screen.findByDisplayValue('Org SAS', {}, ATTENTE_UI);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
       await waitFor(
@@ -142,6 +140,7 @@ describe('facturation_hors_plateforme — Mon organisation', () => {
     async () => {
       const fetchMock = stubFetchProfil();
       render(await ParametresAgencePage({ searchParams: Promise.resolve({}) }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Organisation' }));
 
       expect(
         await screen.findByDisplayValue('Org SAS', {}, ATTENTE_UI),

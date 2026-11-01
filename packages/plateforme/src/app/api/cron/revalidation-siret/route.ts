@@ -3,7 +3,7 @@
 // 'verifie'/'echec' → file 'resolu' ; 3 paliers down → file 'epuise' + alerte Admin in-app.
 
 import { runSiretRevalidationWorker } from '@savr/shared/src/siret/revalidation.js';
-import { ESPACES, ESPACE_PAR_ROLE } from '@/lib/routes';
+import { ESPACES, ESPACE_PAR_ROLE, ONGLET_ORGANISATION } from '@/lib/routes';
 import type { Role } from '@/lib/roles';
 import { urlCanonique } from '@/lib/url-application.js';
 
@@ -21,9 +21,11 @@ export const POST = withCronObservability(
     return await runSiretRevalidationWorker(supabase, undefined, (role) => {
       const espace = role ? ESPACE_PAR_ROLE[role as Role] : undefined;
       // L'équipe Savr n'a pas de page organisation. Côté client, l'organisation
-      // est le premier onglet de « Paramètres » (décision Val 2026-10-31).
+      // est l'onglet « Organisation » de « Paramètres » (Val 2026-10-31).
       if (!espace || espace === 'admin') return null;
-      return urlCanonique(`${ESPACES[espace].prefixe}/parametres`);
+      return urlCanonique(
+        `${ESPACES[espace].prefixe}/parametres?onglet=${ONGLET_ORGANISATION}`,
+      );
     });
   },
 );

@@ -9,7 +9,7 @@ import {
   ParametresOnglets,
   type OngletParametres,
 } from '@/components/parametres/parametres-onglets';
-import { ONGLET_PROFIL, ROUTES } from '@/lib/routes';
+import { ONGLET_ORGANISATION, ONGLET_PROFIL, ROUTES } from '@/lib/routes';
 import { FacturesAgenceTable } from './factures-table';
 
 const AGENCE_ROLES = ['agence'] as const;
@@ -32,32 +32,6 @@ export default async function ParametresAgencePage({
   const { onglet } = await searchParams;
 
   const onglets: OngletParametres[] = [
-    {
-      value: 'infos',
-      label: 'Informations légales',
-      contenu: (
-        <InfosLegalesOrganisation urlProfil="/api/v1/agence/mon-organisation/profil" />
-      ),
-    },
-    // Facturation hors plateforme au go-live (décision Val 2026-10-22).
-    ...(facturationPlateformeActive()
-      ? [
-          {
-            value: 'facturation',
-            label: 'Facturation',
-            contenu: (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Facturation</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <FacturesAgenceTable />
-                </CardContent>
-              </Card>
-            ),
-          },
-        ]
-      : []),
     {
       value: ONGLET_PROFIL,
       label: 'Mon profil',
@@ -93,6 +67,32 @@ export default async function ParametresAgencePage({
         </>
       ),
     },
+    {
+      value: ONGLET_ORGANISATION,
+      label: 'Organisation',
+      contenu: (
+        <InfosLegalesOrganisation urlProfil="/api/v1/agence/mon-organisation/profil" />
+      ),
+    },
+    // Facturation hors plateforme au go-live (décision Val 2026-10-22).
+    ...(facturationPlateformeActive()
+      ? [
+          {
+            value: 'facturation',
+            label: 'Facturation',
+            contenu: (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Facturation</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FacturesAgenceTable />
+                </CardContent>
+              </Card>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return <ParametresOnglets onglets={onglets} initial={onglet} />;

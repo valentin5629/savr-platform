@@ -33,7 +33,7 @@ import {
   ParametresOnglets,
   type OngletParametres,
 } from '@/components/parametres/parametres-onglets';
-import { ONGLET_PROFIL } from '@/lib/routes';
+import { ONGLET_ORGANISATION, ONGLET_PROFIL } from '@/lib/routes';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { FormActions } from '@/components/ui/form-actions';
@@ -112,16 +112,19 @@ export function ParametresTraiteurClient({
   initial?: string | string[];
 }) {
   const onglets: OngletParametres[] = [
+    // Ordre des onglets : Mon profil, Organisation, Membres (Val 2026-11-01).
+    // Préférences masqué (Val 2026-10-30) : la langue n'a qu'une valeur pour l'instant.
+    { value: ONGLET_PROFIL, label: 'Mon profil', contenu: profil },
     {
-      value: 'infos',
-      label: 'Informations légales',
+      value: ONGLET_ORGANISATION,
+      label: 'Organisation',
       contenu: <InfosTab isManager={isManager} />,
     },
-    // Équipe : visible du commercial, réduite à inviter et transférer ses
+    // Membres (ex « Équipe ») : visible du commercial, réduite à inviter et transférer ses
     // collectes (Val 2026-10-30).
     {
-      value: 'equipe',
-      label: 'Équipe',
+      value: 'membres',
+      label: 'Membres',
       contenu: <EquipeTab userId={userId} isManager={isManager} />,
     },
     ...(facturationPlateformeActive()
@@ -133,8 +136,6 @@ export function ParametresTraiteurClient({
           },
         ]
       : []),
-    // Préférences masqué (Val 2026-10-30) : la langue n'a qu'une valeur pour l'instant.
-    { value: ONGLET_PROFIL, label: 'Mon profil', contenu: profil },
   ];
 
   return (
@@ -977,7 +978,7 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
             reçoit les factures et relances) se règle sur chaque{' '}
             <strong>entité de facturation</strong>
             {isManager
-              ? ' (onglet Informations légales > Entités de facturation).'
+              ? ' (onglet Organisation > Entités de facturation).'
               : '.'}
           </p>
           <Text variant="faint">

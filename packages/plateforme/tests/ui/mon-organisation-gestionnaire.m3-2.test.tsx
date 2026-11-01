@@ -53,7 +53,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         'fetch',
         vi.fn(() => Promise.resolve(reponse(200, { data: PROFIL }))),
       );
-      render(<ParametresGestionnaireClient />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       expect(
         await screen.findByDisplayValue('Viparis SAS', {}, ATTENTE_UI),
       ).toBeTruthy();
@@ -69,7 +69,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         'fetch',
         vi.fn(() => Promise.resolve(reponse(200, { data: PROFIL }))),
       );
-      render(<ParametresGestionnaireClient />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       await screen.findByDisplayValue('Viparis SAS', {}, ATTENTE_UI);
       // Raison sociale, SIRET, adresse modifiables (décision Val 2026-09-28) ;
       // nom, email, téléphone en lecture seule (+ l'upload logo à part).
@@ -103,7 +103,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
       );
       vi.stubGlobal('fetch', fetchMock);
       // Succès = toast (R-UI-1 H1) : rendu sous ToastProvider.
-      renderAvecToasts(<ParametresGestionnaireClient />);
+      renderAvecToasts(<ParametresGestionnaireClient initial="organisation" />);
       const champ = await screen.findByLabelText('Adresse', {}, ATTENTE_UI);
       const bouton = screen.getByRole('button', { name: 'Enregistrer' });
       // Rien à enregistrer tant que l'adresse n'a pas changé.
@@ -144,7 +144,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      render(<ParametresGestionnaireClient />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       const champ = await screen.findByLabelText('Adresse', {}, ATTENTE_UI);
       fireEvent.change(champ, { target: { value: '1 rue Neuve' } });
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -169,7 +169,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      renderAvecToasts(<ParametresGestionnaireClient />);
+      renderAvecToasts(<ParametresGestionnaireClient initial="organisation" />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -213,7 +213,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      renderAvecToasts(<ParametresGestionnaireClient />);
+      renderAvecToasts(<ParametresGestionnaireClient initial="organisation" />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -248,7 +248,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      renderAvecToasts(<ParametresGestionnaireClient />);
+      renderAvecToasts(<ParametresGestionnaireClient initial="organisation" />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -292,7 +292,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      render(<ParametresGestionnaireClient />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       // DataGrid rend chaque ligne deux fois (tableau + carte mobile) : on
       // borne les assertions au tableau.
@@ -328,7 +328,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      renderAvecToasts(<ParametresGestionnaireClient />);
+      renderAvecToasts(<ParametresGestionnaireClient initial="organisation" />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
       const email = await screen.findByLabelText(/Email/, {}, ATTENTE_UI);
       fireEvent.change(screen.getByLabelText(/Prénom/), {
@@ -375,7 +375,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         'fetch',
         vi.fn(() => Promise.resolve(reponse(500, { error: 'Erreur serveur' }))),
       );
-      render(<ParametresGestionnaireClient />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       expect(
         (await messageDeRole('alert', /Impossible de charger/)).textContent,
       ).toMatch(/Impossible de charger/);
@@ -399,7 +399,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
             : Promise.resolve(reponse(200, { data: [] })),
         ),
       );
-      render(<ParametresGestionnaireClient />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       expect(
         await screen.findByText('Aucune facture.', {}, ATTENTE_UI),
@@ -430,7 +430,12 @@ describe('M3.2 / Paramètres gestionnaire — onglet Mon profil', () => {
         'fetch',
         vi.fn(() => new Promise<Response>(() => {})),
       );
-      render(<ParametresGestionnaireClient monProfil={<p>Préférences</p>} />);
+      render(
+        <ParametresGestionnaireClient
+          initial="organisation"
+          monProfil={<p>Préférences</p>}
+        />,
+      );
       expect(screen.getByText('Chargement…')).toBeTruthy();
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Mon profil' }));
       expect(screen.getByText('Préférences')).toBeTruthy();

@@ -8,7 +8,7 @@ import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { useEffect, useState } from 'react';
 import { useOngletUrl } from '@/components/parametres/parametres-onglets';
-import { ONGLET_PROFIL } from '@/lib/routes';
+import { ONGLET_ORGANISATION, ONGLET_PROFIL } from '@/lib/routes';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,12 +34,13 @@ import { libelleActif } from '@/lib/libelles/actif';
 // L'onglet de l'organisation s'appelait « Profil » : renommé « Organisation »
 // pour ne pas le confondre avec « Mon profil ».
 function onglets(): string[] {
+  // Ordre : Mon profil, Organisation, Membres (Val 2026-11-01).
   return [
-    'organisation',
+    ONGLET_PROFIL,
+    ONGLET_ORGANISATION,
     'membres',
     // Facturation hors plateforme au go-live (décision Val 2026-10-22).
     ...(facturationPlateformeActive() ? ['factures'] : []),
-    ONGLET_PROFIL,
   ];
 }
 
@@ -179,7 +180,7 @@ export function ParametresGestionnaireClient({
     let actif = true;
     const base = '/api/v1/gestionnaire/mon-organisation';
     const charger = async () => {
-      if (tab === 'organisation') {
+      if (tab === ONGLET_ORGANISATION) {
         const d = await fetchData<OrgProfil>(`${base}/profil`);
         if (actif) setProfil(d);
       } else if (tab === 'membres') {
@@ -296,13 +297,13 @@ export function ParametresGestionnaireClient({
           trois onglets : affichés sous la barre, hors contenu d'onglet. */}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full flex-wrap justify-start">
-          <TabsTrigger value="organisation">Organisation</TabsTrigger>
+          <TabsTrigger value={ONGLET_PROFIL}>Mon profil</TabsTrigger>
+          <TabsTrigger value={ONGLET_ORGANISATION}>Organisation</TabsTrigger>
           <TabsTrigger value="membres">Membres</TabsTrigger>
           {/* Facturation hors plateforme au go-live (décision Val 2026-10-22). */}
           {facturationPlateformeActive() && (
             <TabsTrigger value="factures">Factures</TabsTrigger>
           )}
-          <TabsTrigger value={ONGLET_PROFIL}>Mon profil</TabsTrigger>
         </TabsList>
 
         {loading && <LoadingState className="mt-4" />}

@@ -4,7 +4,7 @@ import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
 import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
 import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
 import { ParametresOnglets } from '@/components/parametres/parametres-onglets';
-import { ONGLET_PROFIL } from '@/lib/routes';
+import { ONGLET_ORGANISATION, ONGLET_PROFIL } from '@/lib/routes';
 
 const ORGANISATEUR_ROLES = ['client_organisateur'] as const;
 
@@ -25,13 +25,6 @@ export default async function ParametresOrganisateurPage({
     <ParametresOnglets
       initial={onglet}
       onglets={[
-        {
-          value: 'infos',
-          label: 'Informations légales',
-          contenu: (
-            <InfosLegalesOrganisation urlProfil="/api/v1/organisateur/mon-organisation/profil" />
-          ),
-        },
         {
           value: ONGLET_PROFIL,
           label: 'Mon profil',
@@ -55,6 +48,13 @@ export default async function ParametresOrganisateurPage({
               <SecuriteAccesPanel />
               <RgpdComptePanel />
             </>
+          ),
+        },
+        {
+          value: ONGLET_ORGANISATION,
+          label: 'Organisation',
+          contenu: (
+            <InfosLegalesOrganisation urlProfil="/api/v1/organisateur/mon-organisation/profil" />
           ),
         },
       ]}

@@ -23,29 +23,29 @@ describe('Paramètres — anciennes adresses redirigées', () => {
     [
       'traiteur/mon-organisation',
       MonOrganisationTraiteur,
-      '/traiteur/parametres',
+      '/traiteur/parametres?onglet=organisation',
     ],
+    ['traiteur/mon-profil', MonProfilTraiteur, '/traiteur/parametres'],
     [
-      'traiteur/mon-profil',
-      MonProfilTraiteur,
-      '/traiteur/parametres?onglet=profil',
+      'agence/mon-organisation',
+      MonOrganisationAgence,
+      '/agence/parametres?onglet=organisation',
     ],
-    ['agence/mon-organisation', MonOrganisationAgence, '/agence/parametres'],
-    ['agence/mon-profil', MonProfilAgence, '/agence/parametres?onglet=profil'],
+    ['agence/mon-profil', MonProfilAgence, '/agence/parametres'],
     [
       'gestionnaire/mon-organisation',
       MonOrganisationGestionnaire,
-      '/gestionnaire/parametres',
+      '/gestionnaire/parametres?onglet=organisation',
     ],
     [
       'organisateur/mon-organisation',
       MonOrganisationOrganisateur,
-      '/organisateur/parametres',
+      '/organisateur/parametres?onglet=organisation',
     ],
     [
       'organisateur/mon-profil',
       MonProfilOrganisateur,
-      '/organisateur/parametres?onglet=profil',
+      '/organisateur/parametres',
     ],
   ] as const)('parametres_redirection — /%s → %s', (_nom, page, cible) => {
     page();

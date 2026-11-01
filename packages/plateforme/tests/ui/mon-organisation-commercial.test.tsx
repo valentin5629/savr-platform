@@ -77,14 +77,10 @@ afterEach(() => {
 });
 
 describe('Mon organisation — commercial traiteur', () => {
-  it('onglets : Équipe visible, Préférences masqué', () => {
+  it('onglets : Membres visible, Préférences masqué', () => {
     stubFetch();
     render(<ParametresTraiteurClient isManager={false} userId="u1" />);
-    expect(nomsOnglets()).toEqual([
-      'Informations légales',
-      'Équipe',
-      'Mon profil',
-    ]);
+    expect(nomsOnglets()).toEqual(['Mon profil', 'Organisation', 'Membres']);
   });
 
   it(
@@ -92,6 +88,7 @@ describe('Mon organisation — commercial traiteur', () => {
     async () => {
       stubFetch();
       render(<ParametresTraiteurClient isManager={false} userId="u1" />);
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Organisation' }));
       expect(await screen.findByText('Org SAS', {}, ATTENTE_UI)).toBeTruthy();
       expect(screen.getByText('12345678900011')).toBeTruthy();
       expect(screen.queryByLabelText('Raison sociale')).toBeNull();
@@ -105,7 +102,7 @@ describe('Mon organisation — commercial traiteur', () => {
     async () => {
       stubFetch();
       render(<ParametresTraiteurClient isManager={false} userId="u1" />);
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Équipe' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
 
       expect(
         (await screen.findAllByText('marie@org.fr', {}, ATTENTE_UI)).length,
@@ -124,7 +121,7 @@ describe('Mon organisation — commercial traiteur', () => {
     async () => {
       stubFetch();
       render(<ParametresTraiteurClient isManager userId="u2" />);
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Équipe' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
 
       expect(
         (await screen.findAllByText('paul@org.fr', {}, ATTENTE_UI)).length,

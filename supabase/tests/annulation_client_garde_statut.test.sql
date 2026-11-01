@@ -6,10 +6,10 @@
 -- refuse : la collecte garde son statut, aucun ordre d'annulation (E3) n'entre
 -- dans la file, le pack AG n'est pas débité. Depuis un statut annulable, elle
 -- annule comme avant (E3 émis, débit d'annulation tardive). Seul le rôle de
--- service peut l'appeler.
+-- service peut l'appeler (droits lus, et appel refusé sous authenticated et anon).
 
 BEGIN;
-SELECT plan(22);
+SELECT plan(24);
 
 -- ── Fixtures (identifiants improbables) ──────────────────────────────────────
 INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif) VALUES
@@ -131,6 +131,24 @@ SELECT is((SELECT count(*)::int FROM plateforme.outbox_events
 SELECT throws_ok(
   $$ SELECT plateforme.fn_annuler_collecte_client('ac100000-0000-0000-0000-0000000000ff', 'x') $$,
   'P0002', NULL, 'collecte inconnue : P0002');
+
+-- ── 4bis. Refus EFFECTIF à l'exécution sous un rôle client ──────────────────
+-- Les droits lus plus haut ne suffisent pas : l'appel doit échouer. JWT d'un
+-- traiteur de l'organisation propriétaire (le cas le plus permissif). Le
+-- MESSAGE est vérifié : un refus sur une table lève aussi 42501.
+SET LOCAL role = 'authenticated';
+SET LOCAL request.jwt.claims = '{"sub":"ac100000-0000-0000-0000-000000000010","role":"authenticated","user_role":"traiteur_manager"}';
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_annuler_collecte_client('ac100000-0000-0000-0000-0000000000c8', 'x') $$,
+  '42501', 'permission denied for function fn_annuler_collecte_client',
+  'authenticated (traiteur de l''organisation) : appel refusé à l''exécution');
+RESET role;
+SET LOCAL role = 'anon';
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_annuler_collecte_client('ac100000-0000-0000-0000-0000000000c8', 'x') $$,
+  '42501', 'permission denied for function fn_annuler_collecte_client',
+  'anon : appel refusé à l''exécution');
+RESET role;
 
 -- ── 5. Statut encore annulable : l'annulation aboutit comme avant ────────────
 SELECT lives_ok(

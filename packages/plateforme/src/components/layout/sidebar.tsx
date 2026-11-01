@@ -21,45 +21,11 @@ import { ROUTES } from '@/lib/routes';
 import { initiales } from '@/components/dashboards/charts/cockpit/fmt';
 import type { IdentiteSession } from '@/lib/identite-session';
 
-// Logo de l'organisation sur une tuile blanche, ENTIER (object-contain, jamais
-// rogné) ; initiales si l'organisation n'a pas de logo ou s'il ne charge pas.
-function LogoOrganisation({
-  identite,
-  collapsed,
-}: {
-  identite: IdentiteSession;
-  collapsed: boolean;
-}) {
-  const [logoKo, setLogoKo] = React.useState(false);
-  const logo = identite.logoSrc && !logoKo ? identite.logoSrc : null;
-  return (
-    <span
-      data-testid="logo-organisation"
-      aria-hidden="true"
-      className={cn(
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-savr-md bg-savr-white p-1 text-sm font-semibold text-savr-primary-800',
-        collapsed ? 'h-11 w-12' : 'h-14 w-20',
-      )}
-    >
-      {logo ? (
-        <img
-          src={logo}
-          alt=""
-          className="h-full w-full object-contain"
-          onError={() => setLogoKo(true)}
-        />
-      ) : (
-        initiales(identite.organisation ?? identite.utilisateur)
-      )}
-    </span>
-  );
-}
-
 interface SidebarProps {
   role: NavRole;
   collapsed?: boolean;
   onToggle?: () => void;
-  /** Organisation et utilisateur, affichés au-dessus de « Se déconnecter ». */
+  /** Utilisateur et son poste, à gauche du picto « Se déconnecter ». */
   identite?: IdentiteSession | null;
   /**
    * Handler de déconnexion. Par défaut (non fourni) : `signOut()` côté client
@@ -114,6 +80,9 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     const logoZd = zdSelected || isZdSectionPath(pathname);
     const hidden = new Set(hiddenNavHrefs ?? []);
     const hrefActif = hrefNavActif(role, pathname);
+    const avecIdentite = !!identite?.utilisateur;
+    // Picto sans libellé : barre réduite, ou à droite du nom.
+    const iconeSeule = collapsed || avecIdentite;
     const groups = (NAV_CONFIG[role] ?? []).map((g) => ({
       ...g,
       items: g.items.filter((i) => !hidden.has(i.href)),
@@ -242,53 +211,70 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             </IconButton>
           </div>
         )}
-        {/* Qui est connecté puis déconnexion — tout en bas (Val 2026-10-30, ex-TopBar) */}
-        <div className="shrink-0 border-t border-savr-primary-700 p-2">
-          {identite && (identite.organisation || identite.utilisateur) && (
-            <div
-              data-testid="identite-session"
-              title={
-                collapsed
-                  ? [identite.organisation, identite.utilisateur]
-                      .filter(Boolean)
-                      .join(' — ')
-                  : undefined
-              }
+        {/* Utilisateur et son poste, déconnexion à droite sur la même ligne ; le
+            logo de l'organisation est dans le bandeau de page (Val 2026-11-01).
+            Barre réduite : picto seul ; sans identité : bouton avec libellé. */}
+        <div
+          className={cn(
+            'shrink-0 border-t border-savr-primary-700 p-2',
+            avecIdentite && 'flex items-center gap-2',
+            avecIdentite && collapsed && 'flex-col gap-1',
+          )}
+        >
+          {avecIdentite && (
+            // Avatar aux initiales « Prénom Nom » (Val 2026-11-01), gardé en barre réduite.
+            <span
+              data-testid="avatar-utilisateur"
+              aria-hidden="true"
+              title={collapsed ? identite.utilisateur : undefined}
               className={cn(
-                'mb-1 flex items-center gap-3 px-1 py-2',
-                collapsed && 'justify-center px-0',
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-600 font-display text-sm font-semibold text-savr-white',
+                !collapsed && 'ml-1',
               )}
             >
-              <LogoOrganisation identite={identite} collapsed={collapsed} />
-              <div className={cn('min-w-0', collapsed && 'sr-only')}>
-                {identite.organisation && (
-                  <p className="truncate text-sm font-semibold text-savr-white">
-                    {identite.organisation}
-                  </p>
-                )}
-                {identite.utilisateur && (
-                  <p className="truncate text-sm text-savr-primary-200">
-                    {identite.utilisateur}
-                  </p>
-                )}
-              </div>
+              {initiales(identite.utilisateur)}
+            </span>
+          )}
+          {avecIdentite && (
+            <div
+              data-testid="identite-session"
+              // Texte complet au survol : tronqué à côté du picto.
+              title={[identite.utilisateur, identite.poste]
+                .filter(Boolean)
+                .join(' — ')}
+              className={cn('min-w-0 flex-1 py-1', collapsed && 'sr-only')}
+            >
+              <p className="truncate text-sm font-semibold text-savr-white">
+                {identite.utilisateur}
+              </p>
+              {identite.poste && (
+                <p className="truncate text-sm text-savr-primary-200">
+                  {identite.poste}
+                </p>
+              )}
             </div>
           )}
           <Button
             variant="ghost"
             onClick={() => void handleLogout()}
             loading={loggingOut}
-            loadingText={collapsed ? '' : <span>Déconnexion…</span>}
+            loadingText={iconeSeule ? '' : <span>Déconnexion…</span>}
             aria-label="Se déconnecter"
-            title={collapsed ? 'Se déconnecter' : undefined}
+            title={iconeSeule ? 'Se déconnecter' : undefined}
             className={cn(
               // Mêmes teintes que les entrées du menu (fond primary-800).
-              'h-10 w-full justify-start gap-3 px-3 font-medium text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white active:bg-savr-primary-700 sm:h-10 [&>svg]:h-5 [&>svg]:w-5',
-              collapsed && 'justify-center px-0',
+              'font-medium text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white active:bg-savr-primary-700 [&>svg]:h-5 [&>svg]:w-5',
+              avecIdentite
+                ? // Picto seul, cible tactile de 44 px (DS §6).
+                  'h-11 w-11 shrink-0 justify-center px-0 sm:h-11'
+                : cn(
+                    'h-10 w-full justify-start gap-3 px-3 sm:h-10',
+                    collapsed && 'justify-center px-0',
+                  ),
             )}
           >
             <SignOutIcon aria-hidden="true" />
-            {!collapsed && <span>Se déconnecter</span>}
+            {!iconeSeule && <span>Se déconnecter</span>}
           </Button>
         </div>
       </nav>

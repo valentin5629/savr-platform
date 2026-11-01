@@ -26,7 +26,9 @@ import { PASSWORD_MIN_LENGTH, validatePasswordStrength } from '@/lib/password';
 import {
   isValidEmailFormat,
   isValidNomOuPrenom,
+  isValidPoste,
   isValidTelephoneFr,
+  POSTE_MAX_LENGTH,
   NOM_MIN_LENGTH,
 } from '@/lib/identite-signup';
 import { Text } from '@/components/ui/text';
@@ -71,6 +73,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [telephone, setTelephone] = useState('');
   const [raisonSociale, setRaisonSociale] = useState('');
+  const [poste, setPoste] = useState('');
   const [motDePasse, setMotDePasse] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [cgu, setCgu] = useState(false);
@@ -104,6 +107,12 @@ export default function SignupPage() {
     }
     if (raisonSociale.trim() === '') {
       setErreur('Indiquez la raison sociale de votre entreprise.');
+      return;
+    }
+    if (!isValidPoste(poste)) {
+      setErreur(
+        `Indiquez votre poste dans l'entreprise (${POSTE_MAX_LENGTH} caractères maximum).`,
+      );
       return;
     }
     setEtape(3);
@@ -143,6 +152,7 @@ export default function SignupPage() {
           prenom: prenom.trim(),
           nom: nom.trim(),
           telephone: telephone.trim(),
+          poste: poste.trim(),
           type_profil: typeProfil,
           raison_sociale: raisonSociale.trim(),
           acceptation_cgu: cgu,
@@ -369,6 +379,20 @@ export default function SignupPage() {
                 required
                 value={raisonSociale}
                 onChange={(e) => setRaisonSociale(e.target.value)}
+              />
+            </FormField>
+
+            {/* Poste : obligatoire, sans effet sur les droits (Val 2026-11-01). */}
+            <FormField label="Poste" htmlFor="poste" required>
+              <Input
+                id="poste"
+                name="poste"
+                autoComplete="organization-title"
+                required
+                maxLength={POSTE_MAX_LENGTH}
+                placeholder="Ex. Responsable RSE"
+                value={poste}
+                onChange={(e) => setPoste(e.target.value)}
               />
             </FormField>
 

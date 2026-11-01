@@ -18,48 +18,13 @@ import { IconButton } from '@/components/ui/icon-button';
 import { Button } from '@/components/ui/button';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { ROUTES } from '@/lib/routes';
-import { initiales } from '@/components/dashboards/charts/cockpit/fmt';
 import type { IdentiteSession } from '@/lib/identite-session';
-
-// Logo de l'organisation sur une tuile blanche, ENTIER (object-contain, jamais
-// rogné) ; initiales si l'organisation n'a pas de logo ou s'il ne charge pas.
-function LogoOrganisation({
-  identite,
-  collapsed,
-}: {
-  identite: IdentiteSession;
-  collapsed: boolean;
-}) {
-  const [logoKo, setLogoKo] = React.useState(false);
-  const logo = identite.logoSrc && !logoKo ? identite.logoSrc : null;
-  return (
-    <span
-      data-testid="logo-organisation"
-      aria-hidden="true"
-      className={cn(
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-savr-md bg-savr-white p-1 text-sm font-semibold text-savr-primary-800',
-        collapsed ? 'h-11 w-12' : 'h-14 w-20',
-      )}
-    >
-      {logo ? (
-        <img
-          src={logo}
-          alt=""
-          className="h-full w-full object-contain"
-          onError={() => setLogoKo(true)}
-        />
-      ) : (
-        initiales(identite.organisation ?? identite.utilisateur)
-      )}
-    </span>
-  );
-}
 
 interface SidebarProps {
   role: NavRole;
   collapsed?: boolean;
   onToggle?: () => void;
-  /** Organisation et utilisateur, affichés au-dessus de « Se déconnecter ». */
+  /** Utilisateur et son poste, à gauche du picto « Se déconnecter ». */
   identite?: IdentiteSession | null;
   /**
    * Handler de déconnexion. Par défaut (non fourni) : `signOut()` côté client
@@ -114,9 +79,8 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     const logoZd = zdSelected || isZdSectionPath(pathname);
     const hidden = new Set(hiddenNavHrefs ?? []);
     const hrefActif = hrefNavActif(role, pathname);
-    const avecIdentite =
-      !!identite && !!(identite.organisation || identite.utilisateur);
-    // Picto sans libellé : barre réduite, ou à droite des noms.
+    const avecIdentite = !!identite?.utilisateur;
+    // Picto sans libellé : barre réduite, ou à droite du nom.
     const iconeSeule = collapsed || avecIdentite;
     const groups = (NAV_CONFIG[role] ?? []).map((g) => ({
       ...g,
@@ -246,40 +210,33 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             </IconButton>
           </div>
         )}
-        {/* Qui est connecté, déconnexion à droite sur la même ligne (Val 2026-11-01) ;
-            barre réduite : picto sous le logo ; sans identité : bouton avec libellé. */}
+        {/* Utilisateur et son poste, déconnexion à droite sur la même ligne ; le
+            logo de l'organisation est dans le bandeau de page (Val 2026-11-01).
+            Barre réduite : picto seul ; sans identité : bouton avec libellé. */}
         <div
           className={cn(
             'shrink-0 border-t border-savr-primary-700 p-2',
             avecIdentite && 'flex items-center gap-2',
-            avecIdentite && collapsed && 'flex-col gap-1',
+            avecIdentite && collapsed && 'justify-center',
           )}
         >
           {avecIdentite && (
             <div
               data-testid="identite-session"
-              // Noms complets au survol : tronqués à côté du picto, masqués en barre réduite.
-              title={[identite.organisation, identite.utilisateur]
+              // Texte complet au survol : tronqué à côté du picto.
+              title={[identite.utilisateur, identite.poste]
                 .filter(Boolean)
                 .join(' — ')}
-              className={cn(
-                'flex min-w-0 flex-1 items-center gap-3 px-1 py-2',
-                collapsed && 'justify-center px-0',
-              )}
+              className={cn('min-w-0 flex-1 px-2 py-1', collapsed && 'sr-only')}
             >
-              <LogoOrganisation identite={identite} collapsed={collapsed} />
-              <div className={cn('min-w-0', collapsed && 'sr-only')}>
-                {identite.organisation && (
-                  <p className="truncate text-sm font-semibold text-savr-white">
-                    {identite.organisation}
-                  </p>
-                )}
-                {identite.utilisateur && (
-                  <p className="truncate text-sm text-savr-primary-200">
-                    {identite.utilisateur}
-                  </p>
-                )}
-              </div>
+              <p className="truncate text-sm font-semibold text-savr-white">
+                {identite.utilisateur}
+              </p>
+              {identite.poste && (
+                <p className="truncate text-sm text-savr-primary-200">
+                  {identite.poste}
+                </p>
+              )}
             </div>
           )}
           <Button

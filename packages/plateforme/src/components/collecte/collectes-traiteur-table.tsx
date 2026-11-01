@@ -312,11 +312,7 @@ function ActionsLigne({
             <DropdownSeparator />
             <EntreeMenu
               icone={<XCircleIcon aria-hidden="true" className={icone} />}
-              libelle={
-                c.statut === 'validee'
-                  ? 'Demander l’annulation'
-                  : 'Annuler la collecte'
-              }
+              libelle="Annuler la collecte"
               motif={motif}
               destructive
               onChoisir={() => actions.onAnnuler(c)}

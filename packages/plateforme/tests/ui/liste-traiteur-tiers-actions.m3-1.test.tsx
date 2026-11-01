@@ -95,7 +95,7 @@ async function etatsMenu(lieu: string) {
       within(menu).getByRole('menuitem', { name: nom });
     return {
       modifier: entree(/^Modifier la collecte/).getAttribute('aria-disabled'),
-      annuler: entree(/^Demander l’annulation/).getAttribute('aria-disabled'),
+      annuler: entree(/^Annuler la collecte/).getAttribute('aria-disabled'),
       texte: menu.textContent ?? '',
     };
   } finally {

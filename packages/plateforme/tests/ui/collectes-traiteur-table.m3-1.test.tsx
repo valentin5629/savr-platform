@@ -122,7 +122,7 @@ describe('M3.1 / Data Table liste traiteur', () => {
     expect(noms).toEqual([
       'Modifier la collecte',
       'Dupliquer la collecte',
-      'Demander l’annulation',
+      'Annuler la collecte',
     ]);
   });
 
@@ -151,15 +151,15 @@ describe('M3.1 / Data Table liste traiteur', () => {
   it('M3.1/card_traiteur_gating_manager — validee + canWrite → Modifier/Annuler actifs', () => {
     monte(base({ statut: 'validee' }), true);
     expect(estGrise(item(/Modifier/))).toBe(false);
-    expect(estGrise(item(/annulation/))).toBe(false);
+    expect(estGrise(item(/Annuler/))).toBe(false);
     expect(item(/Dupliquer/)).toBeTruthy();
   });
 
-  it('M3.1/card_traiteur_libelle_annuler — programmee : « Annuler la collecte », validee : « Demander l’annulation »', () => {
+  it('M3.1/card_traiteur_libelle_annuler — programmee comme validee : « Annuler la collecte » (Val 2026-11-01)', () => {
     monte(base({ statut: 'programmee' }), true);
     expect(item(/^Annuler la collecte$/)).toBeTruthy();
     monte(base({ statut: 'validee' }), true);
-    expect(item(/^Demander l’annulation$/)).toBeTruthy();
+    expect(item(/^Annuler la collecte$/)).toBeTruthy();
   });
 
   it('M3.1/card_traiteur_gating_readonly — canWrite false → Modifier/Annuler GRISÉS avec leur raison, Dupliquer actif', () => {
@@ -169,7 +169,7 @@ describe('M3.1 / Data Table liste traiteur', () => {
     expect(modifier?.textContent).toContain(
       'Seul le créateur de la collecte ou un manager peut la modifier.',
     );
-    expect(estGrise(item(/annulation/))).toBe(true);
+    expect(estGrise(item(/Annuler/))).toBe(true);
     // Dupliquer crée une nouvelle collecte → toujours disponible.
     expect(estGrise(item(/Dupliquer/))).toBe(false);
   });
@@ -199,7 +199,7 @@ describe('M3.1 / Data Table liste traiteur', () => {
     });
     fireEvent.click(item(/Modifier/)!);
     fireEvent.click(item(/Dupliquer/)!);
-    fireEvent.click(item(/annulation/)!);
+    fireEvent.click(item(/Annuler/)!);
     expect(onModifier).toHaveBeenCalledOnce();
     expect(onAnnuler).toHaveBeenCalledOnce();
     expect(onDupliquer).toHaveBeenCalledOnce();

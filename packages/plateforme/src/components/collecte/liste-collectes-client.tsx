@@ -643,6 +643,8 @@ export function ListeCollectesClient({
       <AnnulationCollecteDialog
         open={annulTarget !== null}
         antiGaspi={annulTarget?.type === 'anti_gaspi'}
+        dateCollecte={annulTarget?.date_collecte}
+        heureCollecte={annulTarget?.heure_collecte}
         loading={annulEnCours}
         error={annulErreur}
         onConfirm={(motif) => void confirmerAnnulation(motif)}

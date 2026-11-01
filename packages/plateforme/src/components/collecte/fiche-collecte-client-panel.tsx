@@ -732,6 +732,8 @@ export function FicheCollecteClientPanel({
       <AnnulationCollecteDialog
         open={annulOpen}
         antiGaspi={c.type === 'anti_gaspi'}
+        dateCollecte={c.date_collecte}
+        heureCollecte={c.heure_collecte}
         loading={annulEnCours}
         error={annulErreur}
         onConfirm={(motif) => void confirmerAnnulation(motif)}

@@ -682,6 +682,8 @@ function ConfirmationContent() {
         antiGaspi={
           normaliserTypeCollecte(cible?.collecte.type) === 'anti_gaspi'
         }
+        dateCollecte={cible?.collecte.date_collecte}
+        heureCollecte={cible?.collecte.heure_collecte}
         loading={annulEnCours}
         error={annulErreur}
         onConfirm={(motif) => void confirmerAnnulation(motif)}

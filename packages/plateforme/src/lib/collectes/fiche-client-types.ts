@@ -136,8 +136,8 @@ export type EtatAction = 'actif' | 'grise' | 'absent';
 export interface ActionsFiche {
   modifier: EtatAction;
   annuler: EtatAction;
-  // directe (brouillon/programmee) ou demande validée par l'Admin (validee).
-  annulation: 'directe' | 'demande' | null;
+  // Annulation directe (brouillon, programmée, validée), sinon aucune.
+  annulation: 'directe' | null;
   // « Ajouter une collecte à cet événement » : seulement sur un événement de
   // l'organisation de l'utilisateur (la route d'ajout répond 404 sinon), quel
   // que soit le statut de la collecte hors brouillon (décision Val 2026-10-21).

@@ -190,7 +190,7 @@ describe('M3.2 / annulation par le gestionnaire de lieux', () => {
     },
   );
 
-  it('M3.2/gestionnaire_annulation_demande — sa propre programmation validée → annulation_demandee', async () => {
+  it('M3.2/gestionnaire_annulation_validee — sa propre programmation validée → annulee, plus de demande à l’Admin (Val 2026-11-01)', async () => {
     setupAuth('gestionnaire_lieux');
     lire('validee', SIENNE);
     admin.push({ data: { id: 'c1' }, error: null });
@@ -198,28 +198,22 @@ describe('M3.2 / annulation par le gestionnaire de lieux', () => {
 
     const res = await appeler({ motif: 'doublon <b>urgent</b>' });
 
-    expect(await res.json()).toEqual({
-      data: { statut: 'annulation_demandee' },
-    });
+    expect(await res.json()).toEqual({ data: { statut: 'annulee' } });
     expect(admin.__calls.rpc?.[0]).toEqual([
       'fn_modifier_collecte',
       {
         p_id: 'c1',
         p_updates: {
-          statut: 'annulation_demandee',
+          statut: 'annulee',
           annulee_cote_savr_motif: 'doublon <b>urgent</b>',
         },
         p_champs_modifies: ['statut'],
       },
     ]);
-    expect(mockSendEmail).toHaveBeenCalledWith(
+    expect(mockSendEmail).not.toHaveBeenCalledWith(
       'admin_demande_annulation',
-      'contact@gosavr.io',
-      expect.objectContaining({
-        organisation_nom: 'Lieux Martin',
-        demandeur_nom: 'Paul Martin',
-        motif: 'doublon &lt;b&gt;urgent&lt;/b&gt;',
-      }),
+      expect.anything(),
+      expect.anything(),
     );
   });
 

@@ -315,7 +315,7 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
     expect(json.data.actions).toEqual({
       modifier: 'actif',
       annuler: 'actif',
-      annulation: 'demande',
+      annulation: 'directe',
       ajouter_collecte: true,
     });
 

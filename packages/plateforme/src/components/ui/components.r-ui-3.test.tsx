@@ -5,7 +5,7 @@
  * primitive centralise (ex-ternaires `{x ? 'Enregistrement…' : …}`,
  * ex-`authLienClass`, ex-`ACTION_DESTRUCTIVE_CONTOUR`, ex-`window.confirm`).
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -296,23 +296,25 @@ describe('ConfirmDialog — confirmation destructive avec motif', () => {
 });
 
 describe('AnnulationCollecteDialog — une seule modale liste + fiche', () => {
-  it('demande (validee) : titre « Demander l’annulation » ; AG : mention crédit préservé ; motif facultatif transmis', () => {
+  it('AG : mention crédit préservé ; motif facultatif transmis ; plus de variante « demande » (Val 2026-11-01)', () => {
     const onConfirm = vi.fn();
     render(
       <AnnulationCollecteDialog
         open
-        demande
         antiGaspi
+        dateCollecte="2097-12-31"
+        heureCollecte="10:00:00"
         onConfirm={onConfirm}
         onCancel={vi.fn()}
       />,
     );
     expect(
-      screen.getByRole('dialog', { name: 'Demander l’annulation' }),
+      screen.getByRole('dialog', { name: 'Annuler la collecte' }),
     ).toBeInTheDocument();
     expect(screen.getByTestId('mention-credit-ag')).toBeInTheDocument();
+    expect(screen.queryByText(/demande d’annulation/i)).toBeNull();
     const confirmer = screen.getByRole('button', {
-      name: 'Confirmer la demande',
+      name: 'Confirmer l’annulation',
     });
     expect(confirmer).not.toBeDisabled();
     fireEvent.click(confirmer);
@@ -323,8 +325,9 @@ describe('AnnulationCollecteDialog — une seule modale liste + fiche', () => {
     render(
       <AnnulationCollecteDialog
         open
-        demande={false}
         antiGaspi={false}
+        dateCollecte="2097-12-31"
+        heureCollecte="10:00:00"
         onConfirm={vi.fn()}
         onCancel={vi.fn()}
       />,
@@ -333,8 +336,60 @@ describe('AnnulationCollecteDialog — une seule modale liste + fiche', () => {
       screen.getByRole('dialog', { name: 'Annuler la collecte' }),
     ).toBeInTheDocument();
     expect(screen.queryByTestId('mention-credit-ag')).toBeNull();
+    expect(screen.queryByTestId('mention-annulation-tardive')).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Confirmer l’annulation' }),
     ).toBeInTheDocument();
+  });
+});
+
+// Annulation à moins de 4 h du créneau (Val 2026-11-01) : l'écran ne promet
+// plus un crédit préservé qu'en base on débite. Horloge figée au
+// 01/11/2026 10:00 à Paris (09:00 UTC, heure d'hiver).
+describe('AnnulationCollecteDialog — annulation à moins de 4 h', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  const figer = () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-01T09:00:00Z'));
+  };
+  const monter = (antiGaspi: boolean, heure: string) =>
+    render(
+      <AnnulationCollecteDialog
+        open
+        antiGaspi={antiGaspi}
+        dateCollecte="2026-11-01"
+        heureCollecte={heure}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+  it('AG à 3 h du créneau : avertissement du débit, plus de « crédit préservé »', () => {
+    figer();
+    monter(true, '13:00:00');
+    expect(screen.queryByTestId('mention-credit-ag')).toBeNull();
+    expect(screen.getByTestId('mention-annulation-tardive').textContent).toBe(
+      'Cette collecte a lieu dans moins de 4 h : son annulation est facturée comme une collecte réalisée. Un crédit de votre pack Anti-Gaspi sera débité.',
+    );
+  });
+
+  it('ZD à 3 h du créneau : rappel du plein tarif', () => {
+    figer();
+    monter(false, '13:00:00');
+    expect(screen.getByTestId('mention-annulation-tardive').textContent).toBe(
+      'Cette collecte a lieu dans moins de 4 h : son annulation est facturée au plein tarif.',
+    );
+  });
+
+  it('à 4 h pile (seuil strict, comme la base) : AG crédit préservé, ZD sans avertissement', () => {
+    figer();
+    const { unmount } = monter(true, '14:00:00');
+    expect(screen.getByTestId('mention-credit-ag')).toBeInTheDocument();
+    expect(screen.queryByTestId('mention-annulation-tardive')).toBeNull();
+    unmount();
+    monter(false, '14:00:00');
+    expect(screen.queryByTestId('mention-annulation-tardive')).toBeNull();
   });
 });

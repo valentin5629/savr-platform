@@ -201,6 +201,44 @@ describe('M3.4 / organisateur — déclinaison Cockpit', () => {
       expect(
         screen.getByText('Événements ZD').closest('a')?.getAttribute('href'),
       ).toBe('/organisateur/collectes?onglet=passees&type=zero_dechet');
+      // Compteur en pied de la barre de filtres, comme la liste Événements
+      // (décision Val 2026-11-01).
+      const compteur = screen.getByTestId('dashboard-collectes-count');
+      expect(compteur).toHaveTextContent(
+        '2 collectes correspondent à votre sélection',
+      );
+      expect(screen.getByTestId('dashboard-filter-bar')).toContainElement(
+        compteur,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'chargement raté → aucun compteur (jamais un chiffre faux)',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((input: RequestInfo | URL) => {
+          if (String(input).includes('/dashboards/kpi-client-organisateur'))
+            return Promise.resolve({
+              ok: false,
+              status: 500,
+              json: () => Promise.resolve({}),
+            } as Response);
+          return jsonResponse({});
+        }),
+      );
+      render(<ClientOrganisateurDashboardPage />);
+      expect(
+        await screen.findByTestId(
+          'dashboard-filter-bar',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(screen.queryByTestId('dashboard-collectes-count')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -364,6 +402,10 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
       expect(screen.queryByText(/Performance vs benchmark parc/)).toBeNull();
       // Lecture seule DONNÉES + badge présent (pas d'écriture).
       expect(screen.getByTestId('lecture-seule-badge')).toBeInTheDocument();
+      // Compteur en pied de la barre de filtres (décision Val 2026-11-01).
+      expect(screen.getByTestId('dashboard-collectes-count')).toHaveTextContent(
+        '12 collectes correspondent à votre sélection',
+      );
     },
     ATTENTE_CAS_MS,
   );

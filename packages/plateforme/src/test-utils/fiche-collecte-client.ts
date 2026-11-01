@@ -67,7 +67,7 @@ export function ficheClient(
       : over.rapport_rse_disponible
         ? 'disponible'
         : 'a_venir',
-    actions: { modifier: 'actif', annuler: 'actif', annulation: 'demande' },
+    actions: { modifier: 'actif', annuler: 'actif', annulation: 'directe' },
     ...over,
   };
 }

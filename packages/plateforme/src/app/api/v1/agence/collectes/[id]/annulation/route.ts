@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { formatDateParis } from '@savr/shared/src/temps/index.js';
-import { heureCourte } from '@/lib/exports/shared';
-import { urlCanonique } from '@/lib/url-application.js';
-import { ROUTES } from '@/lib/routes';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { sendEmail } from '@savr/shared/src/email/index.js';
-import { escapeHtml } from '@savr/shared/src/email/html.js';
 import {
   requireUser,
   createSupabaseServerClient,
@@ -15,21 +9,22 @@ import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationn
 import { serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
-import {
-  envoyerConfirmationAnnulation,
-  lireCompte,
-} from '@/lib/notifications/annulation-client.js';
+import { envoyerConfirmationAnnulation } from '@/lib/notifications/annulation-client.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
 export const maxDuration = 60;
 
+// Statuts que le client annule lui-même, sur-le-champ (Val 2026-11-01).
+const STATUTS_ANNULABLES = ['brouillon', 'programmee', 'validee'];
+
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
 // POST /api/v1/agence/collectes/:id/annulation — réplique §06.04 §Annulation,
 // périmètre donneur d'ordre (org-wide, rôle agence unique).
-//  - brouillon / programmee : annulation directe → 'annulee' (E3 si poussée TMS)
-//  - validee : demande d'annulation → 'annulation_demandee' (validation Admin)
+//  - brouillon / programmee / validee : annulation directe → 'annulee' (E3 si
+//    poussée TMS). Plus de demande soumise à l'Admin, qui est seulement
+//    prévenu (décision Val 2026-11-01).
 //  - statuts terminaux → refus.
 export async function POST(
   req: NextRequest,
@@ -87,7 +82,7 @@ export async function POST(
   const freiner = () =>
     freinerEcritureCliente({ organisationId: auth.ctx.organisationId });
 
-  if (c.statut === 'brouillon' || c.statut === 'programmee') {
+  if (STATUTS_ANNULABLES.includes(c.statut)) {
     const frein = freiner();
     if (frein) return frein;
 
@@ -127,40 +122,6 @@ export async function POST(
     }).catch(() => undefined);
 
     return NextResponse.json({ data: { statut: 'annulee' } });
-  }
-
-  if (c.statut === 'validee') {
-    const frein = freiner();
-    if (frein) return frein;
-
-    const { error } = await admin.rpc('fn_modifier_collecte', {
-      p_id: id,
-      p_updates: {
-        statut: 'annulation_demandee',
-        annulee_cote_savr_motif: motif,
-      },
-      p_champs_modifies: ['statut'],
-    });
-    if (error) return serverError(error, 'agence.collectes.annulation.demande');
-
-    // L'ordre éventuel est en file : il part sans attendre le passage planifié
-    // (décision Val 2026-10-12).
-    envoyerOrdresSansAttendre(c.id);
-
-    const demandeur = await lireCompte(admin, auth.ctx.userId);
-    // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
-    await sendEmail('admin_demande_annulation', 'contact@gosavr.io', {
-      organisation_nom: escapeHtml(orgNom ?? ''),
-      demandeur_nom: escapeHtml(demandeur?.nomComplet ?? ''),
-      date_collecte: formatDateParis(c.date_collecte ?? ''),
-      heure_collecte: heureCourte(c.heure_collecte),
-      lieu_nom: escapeHtml(lieuNom),
-      nom_evenement: escapeHtml((evt.nom_evenement ?? '').trim()),
-      nombre_pax: typeof c.pax === 'number' && c.pax > 0 ? String(c.pax) : '',
-      motif: escapeHtml(motif),
-      lien_backoffice: urlCanonique(ROUTES.admin.collecte(c.id)),
-    });
-    return NextResponse.json({ data: { statut: 'annulation_demandee' } });
   }
 
   return NextResponse.json(

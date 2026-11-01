@@ -430,7 +430,7 @@ describe('M3.1 / fiche client — contenu servi', () => {
     expect(json.data.actions).toEqual({
       modifier: 'actif',
       annuler: 'actif',
-      annulation: 'demande',
+      annulation: 'directe',
       ajouter_collecte: true,
     });
 
@@ -440,7 +440,7 @@ describe('M3.1 / fiche client — contenu servi', () => {
       // Le commercial agit sur toute son organisation, comme le manager.
       modifier: 'actif',
       annuler: 'actif',
-      annulation: 'demande',
+      annulation: 'directe',
       ajouter_collecte: true,
     });
 

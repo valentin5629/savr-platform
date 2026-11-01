@@ -81,7 +81,9 @@ function App() {
         id="barre-dashboard"
         title="Barre de dashboard — BarreFiltres seule, « Réinitialiser » (D5/D8)"
       >
-        <BarreFiltres surface="page" onReset={() => undefined}>
+        {/* Archive : la variante `surface="page"` a été retirée le 2026-11-01
+            (barre en carte partout) ; ce rendu « avant » n'est plus rejouable tel quel. */}
+        <BarreFiltres onReset={() => undefined}>
           <DateRangePicker
             titre="Période"
             value={{ from: '2025-10-01', to: '2026-10-02' }}

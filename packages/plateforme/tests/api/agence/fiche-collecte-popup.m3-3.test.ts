@@ -108,7 +108,7 @@ describe('M3.3 / fiche client agence', () => {
     expect(data.actions).toEqual({
       modifier: 'actif',
       annuler: 'actif',
-      annulation: 'demande',
+      annulation: 'directe',
       // Donneur d'ordre : l'événement est le sien (décision Val 2026-10-21).
       ajouter_collecte: true,
     });

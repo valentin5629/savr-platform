@@ -646,26 +646,22 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
   );
 
   it(
-    'collecte validée : demande d’annulation, transmise à l’équipe Savr',
+    'collecte validée : annulation directe, comme une collecte programmée (Val 2026-11-01)',
     async () => {
       const fetchMock = await afficher({
         ...EVENEMENT,
         collectes: [{ ...ZD, statut: 'validee' }],
       });
 
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Demander l’annulation' }),
-      );
+      fireEvent.click(screen.getByRole('button', { name: 'Annuler' }));
       const boite = screen.getByRole('dialog', {
-        name: 'Demander l’annulation',
+        name: 'Annuler la collecte',
       });
       expect(
-        within(boite).getByText(
-          'Votre demande d’annulation sera transmise à l’équipe Savr pour validation.',
-        ),
+        within(boite).getByText(/Cette collecte sera annulée immédiatement/),
       ).toBeInTheDocument();
       fireEvent.click(
-        within(boite).getByRole('button', { name: 'Confirmer la demande' }),
+        within(boite).getByRole('button', { name: 'Confirmer l’annulation' }),
       );
 
       await waitFor(
@@ -732,7 +728,7 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
 
   it.each([
     ['programmee', 'Annuler'],
-    ['validee', 'Demander l’annulation'],
+    ['validee', 'Annuler'],
   ])(
     'gestionnaire de lieux, collecte %s : « %s » sur sa programmation, à côté de « Modifier » (Val 2026-10-26)',
     async (statut, libelle) => {

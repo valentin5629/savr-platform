@@ -3,15 +3,14 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-// PageHero — bandeau d'écran (levier #2 Design System §10 : « aplat primary-700,
-// texte blanc »). Titre Archivo 800 tracking serré (-0.02em, levier #7), sous-titre
-// primary-200, slot d'actions aligné à droite. Le bandeau porte le <h1> de la page
-// (un seul par écran).
+// PageHero — bandeau pâle d'en-tête de toute page (décisions Val 2026-11-01 :
+// variante B2, qui remplace l'aplat primary-700, puis aucun texte sous le
+// titre). Fond primary-100, titre Archivo 800 tracking serré (-0.02em, levier
+// #7) en primary-800, icône primary-700, actions à droite (bouton principal
+// `accent`, badges de statut). Le bandeau porte le <h1> de la page (un seul).
 interface PageHeroProps {
-  title: string;
-  /** Ligne secondaire (compteur, méta) — rendue en primary-200. */
-  subtitle?: React.ReactNode;
-  /** Contenu à gauche du titre (icône, bouton retour…). Non teinté par le hero. */
+  title: React.ReactNode;
+  /** Contenu à gauche du titre (icône, bouton retour…), teinté primary-700. */
   icon?: React.ReactNode;
   /** Actions alignées à droite (CTA, badges de statut). */
   actions?: React.ReactNode;
@@ -19,25 +18,25 @@ interface PageHeroProps {
 }
 
 const PageHero = React.forwardRef<HTMLDivElement, PageHeroProps>(
-  ({ title, subtitle, icon, actions, className }, ref) => (
+  ({ title, icon, actions, className }, ref) => (
     <header
       ref={ref}
       className={cn(
-        'flex flex-wrap items-center gap-x-4 gap-y-3 rounded-savr-md bg-savr-primary-700 px-6 py-5 text-savr-white shadow-savr-sm',
+        // Hauteur minimale = bandeau avec un bouton (py-5 + bouton md 44 px
+        // mobile / 40 px desktop) : tous les bandeaux ont la même hauteur, avec
+        // ou sans action (Val 2026-11-01).
+        'flex min-h-21 flex-wrap items-center gap-x-4 gap-y-3 rounded-savr-md bg-savr-primary-100 px-6 py-5 text-savr-primary-800 sm:min-h-20',
         className,
       )}
     >
       <div className="flex min-w-0 items-center gap-3">
-        {/* shrink-0 : l'icône ne s'écrase pas quand le sous-titre passe à la ligne. */}
-        {icon && <span className="flex shrink-0">{icon}</span>}
-        <div className="min-w-0">
-          <h1 className="text-2xl font-extrabold tracking-[-0.02em] break-words text-savr-white sm:truncate">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="mt-0.5 text-sm text-savr-primary-200">{subtitle}</p>
-          )}
-        </div>
+        {/* shrink-0 : l'icône ne s'écrase pas quand le titre passe à la ligne. */}
+        {icon && (
+          <span className="flex shrink-0 text-savr-primary-700">{icon}</span>
+        )}
+        <h1 className="min-w-0 text-2xl font-extrabold tracking-[-0.02em] break-words text-savr-primary-800 sm:truncate">
+          {title}
+        </h1>
       </div>
       {actions && (
         <div className="ml-auto flex flex-wrap items-center gap-2">

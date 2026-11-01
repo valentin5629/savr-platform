@@ -4,6 +4,8 @@ import {
   BuildingsIcon,
   CalendarDotsIcon,
   ChartBarIcon,
+  BookOpenIcon,
+  ChefHatIcon,
   ClipboardTextIcon,
   FileTextIcon,
   GearIcon,
@@ -206,7 +208,7 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
         {
           label: 'Traiteurs',
           href: ROUTES.gestionnaire.traiteurs,
-          icon: TruckIcon,
+          icon: ChefHatIcon,
         },
         {
           label: 'Mes lieux',
@@ -216,7 +218,7 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
         {
           label: 'Registre réglementaire',
           href: ROUTES.registre,
-          icon: FileTextIcon,
+          icon: BookOpenIcon,
         },
         {
           label: 'Mon pack AG',
@@ -260,7 +262,7 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
         {
           label: 'Registre réglementaire',
           href: ROUTES.registre,
-          icon: ClipboardTextIcon,
+          icon: BookOpenIcon,
         },
         {
           label: 'Paramètres',

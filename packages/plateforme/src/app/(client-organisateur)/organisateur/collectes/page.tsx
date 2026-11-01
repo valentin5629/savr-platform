@@ -3,7 +3,7 @@
 import { LoadingState } from '@/components/ui/loading-state';
 import { fmtPct } from '@/lib/format';
 import { Suspense, useMemo } from 'react';
-import { TruckIcon } from '@/components/ui/icones';
+import { ClipboardTextIcon, TruckIcon } from '@/components/ui/icones';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import {
   CelluleVide,
@@ -241,9 +241,8 @@ function CollectesContent() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<TruckIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<ClipboardTextIcon className="h-6 w-6" />}
         title="Mes collectes"
-        subtitle="Collectes de vos événements, en lecture seule"
       />
 
       {/* Barre de filtres DS (D10 : la même que traiteur / agence) : vues

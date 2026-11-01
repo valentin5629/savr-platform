@@ -609,9 +609,8 @@ function GestionnaireCollectesContent() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<ClipboardTextIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<ClipboardTextIcon className="h-6 w-6" />}
         title="Collectes"
-        subtitle="Collectes sur les lieux de votre organisation · cliquez une ligne pour ouvrir la fiche"
       />
 
       {/* Filtre actif à l'arrivée d'un drill-down (§06.05 l.215) : nomme la

@@ -79,9 +79,8 @@ export default function SettingsUsersPage() {
   return (
     <div className="space-y-6">
       <PageHero
-        icon={<UsersIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<UsersIcon className="h-6 w-6" />}
         title="Utilisateurs Savr"
-        subtitle={`${total} membre${total !== 1 ? 's' : ''} de l'équipe`}
         actions={
           <Button variant="accent" onClick={() => setShowInvite(true)}>
             <PlusIcon />

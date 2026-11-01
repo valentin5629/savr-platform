@@ -65,7 +65,6 @@ const OPTIONS_VIDES: OptionsFiltresEvenements = {
 };
 
 interface ReglageEspace {
-  sousTitre: string;
   vide: string;
   /** Colonne et filtre « Traiteur » : masqués au traiteur (c'est toujours lui). */
   traiteur: boolean;
@@ -79,37 +78,30 @@ interface ReglageEspace {
 // commun, et toute modification de la liste s'applique à tous les rôles.
 const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
   admin: {
-    sousTitre: 'Tous les événements, résultats cumulés sur leurs collectes',
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: true,
     labo: false,
   },
   traiteur: {
-    sousTitre: 'Vos événements, résultats cumulés sur leurs collectes',
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: false,
     client: false,
     labo: false,
   },
   agence: {
-    sousTitre:
-      'Événements que vous avez programmés, résultats cumulés sur leurs collectes',
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: false,
     labo: false,
   },
   gestionnaire: {
-    sousTitre:
-      'Événements tenus sur vos lieux, résultats cumulés sur leurs collectes',
     vide: 'Aucun événement sur vos lieux pour ce périmètre.',
     traiteur: true,
     client: false,
     labo: true,
   },
   organisateur: {
-    sousTitre: 'Vos événements, résultats cumulés sur leurs collectes',
     vide: 'Aucun événement pour ce périmètre.',
     traiteur: true,
     client: false,
@@ -512,9 +504,8 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<CalendarDotsIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<CalendarDotsIcon className="h-6 w-6" />}
         title="Événements"
-        subtitle={reglage.sousTitre}
       />
 
       <FilterBar

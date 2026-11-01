@@ -153,7 +153,7 @@ export default function AssociationsPage() {
     <div className="space-y-6">
       <PageHero
         title="Associations"
-        icon={<HeartIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<HeartIcon className="h-6 w-6" />}
         actions={
           <Button variant="accent" onClick={openCreate}>
             <PlusIcon />

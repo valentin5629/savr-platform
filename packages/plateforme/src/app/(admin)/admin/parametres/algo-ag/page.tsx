@@ -14,6 +14,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { convertirSaisie } from '@/lib/parametres-algo/saisie';
+import { PageHero } from '@/components/ui/page-hero';
 
 interface ParamAlgo {
   cle: string;
@@ -96,18 +97,10 @@ export default function AlgoAgParamsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <GearIcon className="h-6 w-6 text-savr-neutral-600" />
-        <div>
-          <h1 className="text-xl font-semibold text-savr-neutral-900">
-            Paramètres algorithme AG
-          </h1>
-          <p className="text-sm text-savr-neutral-500">
-            Plages horaires, seuils et coefficients du moteur d'attribution
-            Anti-Gaspi
-          </p>
-        </div>
-      </div>
+      <PageHero
+        icon={<GearIcon className="h-6 w-6" />}
+        title="Paramètres algorithme AG"
+      />
 
       {error && (
         <div className="flex items-center gap-2 rounded-savr-md border border-savr-error-soft bg-savr-error-subtle px-3 py-2 text-sm text-savr-error-strong">

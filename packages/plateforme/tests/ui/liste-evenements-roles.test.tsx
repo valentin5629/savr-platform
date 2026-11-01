@@ -110,11 +110,6 @@ describe('Liste Événements — réglages par espace', () => {
       expect(
         within(table).queryByRole('columnheader', { name: /déchets labo/i }),
       ).toBeNull();
-      expect(
-        screen.getByText(
-          'Vos événements, résultats cumulés sur leurs collectes',
-        ),
-      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

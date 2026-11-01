@@ -14,19 +14,26 @@ import { Button } from '@/components/ui/button';
 // ── PageHero ──────────────────────────────────────────────────────────────────
 
 describe('PageHero', () => {
-  it('rend un <h1> sur aplat primary-700 (levier #2) + sous-titre + actions', () => {
+  it('rend un <h1> sur bandeau pâle primary-100 (Val 2026-11-01, B2), sans sous-titre, + actions', () => {
     const { container } = render(
       <PageHero
         title="Collectes"
-        subtitle="12 collectes"
         actions={<Button>Programmer une collecte</Button>}
       />,
     );
     const hero = container.firstElementChild!;
-    expect(hero.className).toContain('bg-savr-primary-700');
+    expect(hero.className).toContain('bg-savr-primary-100');
+    expect(hero.className).not.toContain('bg-savr-primary-700');
+    // Même hauteur avec ou sans bouton : py-5 + hauteur du bouton md.
+    expect(hero.className).toContain('min-h-21');
+    expect(hero.className).toContain('sm:min-h-20');
+    expect(screen.getByRole('heading', { level: 1 }).className).toContain(
+      'text-savr-primary-800',
+    );
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toHaveTextContent('Collectes');
-    expect(screen.getByText('12 collectes')).toBeInTheDocument();
+    // Aucun texte sous le titre (Val 2026-11-01) : le bandeau n'a plus de <p>.
+    expect(hero.querySelector('p')).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Programmer une collecte' }),
     ).toBeInTheDocument();

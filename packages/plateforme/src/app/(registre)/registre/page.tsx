@@ -286,7 +286,7 @@ function RegistreContent() {
   return (
     <div className="space-y-4">
       <PageHero
-        icon={<BookOpenIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<BookOpenIcon className="h-6 w-6" />}
         title="Registre réglementaire"
         actions={
           <>

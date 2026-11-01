@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 // les recettes de taille / graisse / couleur relevées dans le code ; les
 // valeurs par défaut sont les recettes majoritaires de chaque niveau, les
 // autres recettes se déclarent par props (iso-rendu : rien n'est redessiné ;
-// Q3 tranché b le 2026-10-06 : titre de page = PageHero (listes) ou PageHeader). Le letter-spacing
+// titre de page = PageHero sur toute la plateforme depuis le 2026-11-01). Le letter-spacing
 // serré des titres (-0.02em, levier #7) vient de la règle globale h1/h2/h3 de
 // globals.css.
 type HeadingLevel = 1 | 2 | 3;
@@ -65,7 +65,7 @@ export interface HeadingProps extends React.HTMLAttributes<HTMLHeadingElement> {
   overline?: boolean;
 }
 
-/** Classes d'un titre pour un niveau et des options donnés (exportée pour PageHeader / tests). */
+/** Classes d'un titre pour un niveau et des options donnés (exportée pour les tests). */
 export function headingClasses({
   level,
   size,

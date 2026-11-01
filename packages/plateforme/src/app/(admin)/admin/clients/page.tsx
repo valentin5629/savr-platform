@@ -161,9 +161,10 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Bandeau d'en-tête — composant DS PageHero (§10 §5.6, aplat primary-700) */}
+      {/* Bandeau d'en-tête — composant DS PageHero (§10 §5.6, bandeau pâle) */}
       {/* Pas de compteur ici : il vit dans le pied de la FilterBar (D5). */}
       <PageHero
+        icon={<BuildingsIcon className="h-6 w-6" />}
         title="Clients"
         actions={
           // admin_savr ET ops_savr (§06.06 + matrice ops §09) : le layout

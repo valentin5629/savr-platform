@@ -61,7 +61,6 @@ export * from '@/components/ui/heading';
 export * from '@/components/ui/info-item';
 export * from '@/components/ui/list-footer';
 export * from '@/components/ui/loading-state';
-export * from '@/components/ui/page-header';
 export * from '@/components/ui/radio-group';
 export * from '@/components/ui/section-header';
 export * from '@/components/ui/text';

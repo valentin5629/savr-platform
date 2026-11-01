@@ -57,7 +57,8 @@ import { Badge } from '@/components/ui/badge';
 import { InfoIcon } from '@/components/ui/icones';
 import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { SquaresFourIcon } from '@/components/ui/icones';
 import { Text } from '@/components/ui/text';
 import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
 import { fmtPct, uniteCo2 } from '@/lib/format';
@@ -341,10 +342,11 @@ export function TraiteurDashboardClient({
   return (
     <EntreeGraphiques>
       <div className="space-y-6" data-testid="traiteur-dashboard">
-        <PageHeader
+        <PageHero
+          icon={<SquaresFourIcon className="h-6 w-6" />}
           title="Dashboard"
           actions={
-            <Button asChild>
+            <Button variant="accent" asChild>
               <a href={ROUTES.programmer.nouveau}>Programmer une collecte</a>
             </Button>
           }

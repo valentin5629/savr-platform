@@ -8,6 +8,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { ChoiceCard } from '@/components/ui/choice-card';
+import { PageHero } from '@/components/ui/page-hero';
 
 interface EmailTemplate {
   id: string;
@@ -38,16 +39,10 @@ export default function TemplatesEmailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <EnvelopeSimpleIcon className="h-6 w-6 text-savr-neutral-600" />
-        <div>
-          <Heading level={1}>Paramètres — Templates emails</Heading>
-          <Text className="mt-0.5">
-            {templates.length} templates actifs — consultation seule (l'édition
-            arrive dans une version ultérieure).
-          </Text>
-        </div>
-      </div>
+      <PageHero
+        icon={<EnvelopeSimpleIcon className="h-6 w-6" />}
+        title="Paramètres — Templates emails"
+      />
 
       {loading ? (
         <LoadingState variant="bloc" />

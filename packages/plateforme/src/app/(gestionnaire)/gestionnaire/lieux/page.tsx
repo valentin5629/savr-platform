@@ -152,19 +152,14 @@ export default function GestionnaireLieuxPage() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<MapPinIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<MapPinIcon className="h-6 w-6" />}
         title="Lieux"
-        subtitle={
-          loading || erreur
-            ? undefined
-            : `${rows.length} lieu${rows.length > 1 ? 'x' : ''} rattaché${rows.length > 1 ? 's' : ''} à votre organisation`
-        }
         actions={
           <>
             {ajoutEnCours && (
               <span
                 id="demande-ajout-en-cours"
-                className="text-sm text-savr-primary-200"
+                className="text-sm text-savr-neutral-600"
               >
                 Une demande d’ajout est en cours de traitement par l’équipe
                 Savr.

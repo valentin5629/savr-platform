@@ -18,7 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { SquaresFourIcon } from '@/components/ui/icones';
 import { fmtInt, fmtDec, fmtMasse, uniteCo2 } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 
@@ -133,7 +134,10 @@ export default function ClientOrganisateurDashboardPage() {
 
   return (
     <div className="space-y-6" data-testid="organisateur-dashboard">
-      <PageHeader title="Mon impact RSE" />
+      <PageHero
+        icon={<SquaresFourIcon className="h-6 w-6" />}
+        title="Mon impact RSE"
+      />
 
       {/* Bandeau de tête — synthèse RSE annuelle (YTD), commun aux 2 onglets */}
       <Card data-testid="organisateur-bandeau-ytd">

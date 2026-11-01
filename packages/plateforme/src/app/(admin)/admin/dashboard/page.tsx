@@ -19,6 +19,7 @@ import { fmtInt } from '@/components/dashboards/charts/cockpit/fmt';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { OPS_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { Heading } from '@/components/ui/heading';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { fmtEuro } from '@/lib/format';
@@ -232,12 +233,10 @@ export default function DashboardAdminPage() {
   return (
     <EntreeGraphiques>
       <div className="space-y-8">
-        <div className="flex items-center gap-3">
-          <SquaresFourIcon className="h-6 w-6 text-savr-primary-700" />
-          <Heading level={1} weight="extrabold" tight>
-            Dashboard Admin
-          </Heading>
-        </div>
+        <PageHero
+          icon={<SquaresFourIcon className="h-6 w-6" />}
+          title="Dashboard Admin"
+        />
 
         {/* Bloc 1 — KPIs opérationnels (rangée cockpit R24) */}
         <section>

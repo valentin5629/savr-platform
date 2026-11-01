@@ -17,7 +17,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { useUserRole } from '@/lib/use-user-role';
 import { Heading } from '@/components/ui/heading';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import {
   Table,
@@ -230,10 +230,9 @@ export default function ParametresCo2Page() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
+      <PageHero
         title="Paramètres — CO₂"
-        tone="neutral"
-        icon={<LeafIcon className="h-6 w-6 text-savr-neutral-600" />}
+        icon={<LeafIcon className="h-6 w-6" />}
       />
 
       {!canEdit && <OpsReadOnlyBanner />}

@@ -695,7 +695,7 @@ describe('M3.1 / annulation', () => {
     );
   });
 
-  it('M3.1/demande_annulation_collecte_validee — statut annulation_demandee', async () => {
+  it('M3.1/annulation_directe_collecte_validee — statut annulee, l’Admin seulement prévenu (Val 2026-11-01)', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     rls.push({
       data: {
@@ -713,29 +713,39 @@ describe('M3.1 / annulation', () => {
       },
       error: null,
     });
-    admin.push({ data: null, error: null });
+    admin.push({ data: null, error: null }); // rpc fn_modifier (statut annulee)
     admin.push({
-      data: { email: 'claire@savr-test.local', prenom: null, nom: null },
+      data: { email: 'prog@savr-test.local', prenom: 'Paul', nom: null },
       error: null,
-    }); // users (demandeur, sans prénom ni nom)
+    }); // users (programmateur)
     const { POST } =
       await import('@/app/api/v1/traiteur/collectes/[id]/annulation/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/traiteur/collectes/c2/annulation', {
-        motif: 'doublon <b>urgent</b>',
+        motif: 'doublon',
       }),
       { params: Promise.resolve({ id: 'c2' }) },
     );
     const json = (await res.json()) as { data: { statut: string } };
-    expect(json.data.statut).toBe('annulation_demandee');
-    // Sans prénom ni nom, le demandeur est désigné par son email.
+    expect(json.data.statut).toBe('annulee');
+    // Passage direct en « annulee » : la RPC émet l'ordre d'annulation (E3).
+    const rpc = (admin.__calls.rpc ?? []).find(
+      ([fn]) => fn === 'fn_modifier_collecte',
+    );
+    expect((rpc![1] as { p_updates: unknown }).p_updates).toEqual({
+      statut: 'annulee',
+      annulee_cote_savr_motif: 'doublon',
+    });
+    // Confirmation au programmateur ; plus de demande soumise à l'Admin.
     expect(mockSendEmail).toHaveBeenCalledWith(
+      'annulation_collecte',
+      'prog@savr-test.local',
+      expect.objectContaining({ motif: 'doublon' }),
+    );
+    expect(mockSendEmail).not.toHaveBeenCalledWith(
       'admin_demande_annulation',
-      'contact@gosavr.io',
-      expect.objectContaining({
-        demandeur_nom: 'claire@savr-test.local',
-        motif: 'doublon &lt;b&gt;urgent&lt;/b&gt;',
-      }),
+      expect.anything(),
+      expect.anything(),
     );
   });
 

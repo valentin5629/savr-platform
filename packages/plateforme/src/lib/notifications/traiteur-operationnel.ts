@@ -1,8 +1,12 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { escapeHtml } from '@savr/shared/src/email/html.js';
-import { formatDateParis, instantParis } from '@savr/shared/src/temps/index.js';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
 import { urlCanonique } from '@/lib/url-application.js';
+import {
+  estAnnulationTardive,
+  SEUIL_ANNULATION_TARDIVE_HEURES,
+} from '@/lib/annulation-tardive';
 import { ESPACES, ESPACE_PAR_ROLE, ROUTES } from '@/lib/routes';
 import type { Role } from '@/lib/roles';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
@@ -342,29 +346,8 @@ export async function notifierProgrammateurTiers(
 // CDC §06.02 l.583 : alerte Admin à TOUTE annulation de collecte, en parallèle du
 // template 5 client (annulation_collecte). annulation_tardive = créneau < 4h.
 
-const HEURE_MS = 60 * 60 * 1000;
-
-// Seuil de l'annulation tardive, AG comme ZD (décision Val 2026-10-15, au lieu
-// de 12h). Le trigger SQL de débit du pack porte le même : INTERVAL '4 hours'.
-const SEUIL_ANNULATION_TARDIVE_HEURES = 4;
-
-// True si l'annulation est « tardive » : moins de 4h avant le créneau
-// (date_collecte + heure_collecte), strict. CDC §05. Pure, testable.
-export function estAnnulationTardive(
-  dateCollecte: string,
-  heureCollecte: string | null | undefined,
-  nowMs: number,
-): boolean {
-  if (!dateCollecte) return false;
-  // Heure murale parisienne, comme le trigger SQL de débit du pack : sinon
-  // l'alerte Admin peut annoncer « 4h ou plus » alors que le crédit a été débité.
-  const creneau = instantParis(
-    dateCollecte,
-    heureCollecte && heureCollecte.length ? heureCollecte : '00:00:00',
-  ).getTime();
-  if (Number.isNaN(creneau)) return false;
-  return creneau - nowMs < SEUIL_ANNULATION_TARDIVE_HEURES * HEURE_MS;
-}
+// Seuil et calcul partagés avec la fenêtre d'annulation des espaces clients.
+export { estAnnulationTardive };
 
 // Instant auquel se juge le délai, comme le trigger SQL de débit (décision Val
 // 2026-10-15) : une demande d'annulation du client confirmée par l'Admin

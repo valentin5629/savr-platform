@@ -276,7 +276,6 @@ export function FicheCollecteClientPanel({
   const lieu = evt?.lieu ?? null;
   const heure = c.heure_collecte?.slice(0, 5) ?? null;
   const { actions } = c;
-  const demande = actions.annulation === 'demande';
   // Ajout d'une collecte à l'événement : la page d'ajout, hors de la fiche.
   const lienAjouterCollecte =
     actions.ajouter_collecte && evt
@@ -323,9 +322,7 @@ export function FicheCollecteClientPanel({
     rapport.visible && c.rapport_mis_a_jour_at
       ? libelleMisAJour(c.rapport_mis_a_jour_at)
       : null;
-  const libelleAnnuler = demande
-    ? 'Demander l’annulation'
-    : 'Annuler la collecte';
+  const libelleAnnuler = 'Annuler la collecte';
   const secondaires: {
     cle: 'annuler' | 'ajouter' | 'telecharger';
     libelle: string;
@@ -732,11 +729,11 @@ export function FicheCollecteClientPanel({
         </div>
       </Modal>
 
-      {/* Annulation directe (brouillon/programmee) ou demande (validee). */}
       <AnnulationCollecteDialog
         open={annulOpen}
-        demande={demande}
         antiGaspi={c.type === 'anti_gaspi'}
+        dateCollecte={c.date_collecte}
+        heureCollecte={c.heure_collecte}
         loading={annulEnCours}
         error={annulErreur}
         onConfirm={(motif) => void confirmerAnnulation(motif)}

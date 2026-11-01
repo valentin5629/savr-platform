@@ -144,12 +144,11 @@ export function droitsFiche(
   evt: { organisation_id: string; created_by: string | null },
 ): ActionsFiche {
   const statutModifiable = STATUTS_EDITABLES.includes(statut);
-  const mode =
-    statut === 'brouillon' || statut === 'programmee'
-      ? 'directe'
-      : statut === 'validee'
-        ? 'demande'
-        : null;
+  // Le client annule lui-même, sur-le-champ, jusqu'à « Validée » incluse :
+  // plus de demande soumise à l'Admin (Val 2026-11-01).
+  const mode = ['brouillon', 'programmee', 'validee'].includes(statut)
+    ? 'directe'
+    : null;
 
   let peutModifier: boolean;
   let peutAnnuler: boolean;

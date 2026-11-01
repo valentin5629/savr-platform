@@ -10,6 +10,14 @@ const c = (...statuts: string[]) => statuts.map((statut) => ({ statut }));
 describe('R-UI-2 C13 — lib/libelles/evenement', () => {
   it('Annulé = toutes les collectes annulées', () => {
     expect(statutEvenementConsolide(c('annulee', 'annulee'))).toBe('Annulé');
+    // Annulation demandée = annulée (Val 2026-11-01), comme sur la fiche.
+    expect(statutEvenementConsolide(c('annulation_demandee'))).toBe('Annulé');
+    expect(statutEvenementConsolide(c('annulation_demandee', 'annulee'))).toBe(
+      'Annulé',
+    );
+    expect(statutEvenementConsolide(c('annulation_demandee', 'realisee'))).toBe(
+      'Terminé',
+    );
   });
 
   it('Terminé = toutes terminales dont ≥ 1 réalisée ou clôturée', () => {

@@ -531,7 +531,7 @@ describe('M3.3 / annulation', () => {
     },
   );
 
-  it('M3.3/annulation_demande_validee — statut annulation_demandee', async () => {
+  it('M3.3/annulation_directe_validee — statut annulee, plus de demande à l’Admin (Val 2026-11-01)', async () => {
     setupAuth('agence');
     rls.push({
       data: {
@@ -552,26 +552,19 @@ describe('M3.3 / annulation', () => {
       { params: Promise.resolve({ id: 'c1' }) },
     );
     const json = (await res.json()) as { data: { statut: string } };
-    expect(json.data.statut).toBe('annulation_demandee');
+    expect(json.data.statut).toBe('annulee');
     expect(admin.__calls.rpc?.[0]).toEqual([
       'fn_modifier_collecte',
       {
         p_id: 'c1',
-        p_updates: {
-          statut: 'annulation_demandee',
-          annulee_cote_savr_motif: '',
-        },
+        p_updates: { statut: 'annulee', annulee_cote_savr_motif: '' },
         p_champs_modifies: ['statut'],
       },
     ]);
-    // Le demandeur est nommé, jamais désigné par son identifiant technique.
-    expect(mockSendEmail).toHaveBeenCalledWith(
+    expect(mockSendEmail).not.toHaveBeenCalledWith(
       'admin_demande_annulation',
-      'contact@gosavr.io',
-      expect.objectContaining({
-        organisation_nom: 'WPM',
-        demandeur_nom: 'Paul Martin',
-      }),
+      expect.anything(),
+      expect.anything(),
     );
   });
 

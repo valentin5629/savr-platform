@@ -1378,7 +1378,7 @@ describe('M3.1 / pop-up — marque blanche et actions', () => {
   );
 
   it(
-    'M3.1/fiche_popup_pied_actions — « Demander l’annulation » puis « Modifier la collecte » ; grisés sans le droit',
+    'M3.1/fiche_popup_pied_actions — « Annuler la collecte » puis « Modifier la collecte » ; grisés sans le droit',
     async () => {
       stubFetchFiche(ficheClient());
       const { unmount } = render(fiche('c1'));
@@ -1388,7 +1388,7 @@ describe('M3.1 / pop-up — marque blanche et actions', () => {
         ATTENTE_UI,
       );
       const modifier = screen.getByTestId('action-modifier');
-      expect(annuler.textContent).toContain('Demander l’annulation');
+      expect(annuler.textContent).toContain('Annuler la collecte');
       expect(modifier.textContent).toContain('Modifier la collecte');
       // Ordre : annulation avant modification (maquette validée).
       expect(
@@ -1404,7 +1404,7 @@ describe('M3.1 / pop-up — marque blanche et actions', () => {
           actions: {
             modifier: 'grise',
             annuler: 'grise',
-            annulation: 'demande',
+            annulation: 'directe',
           },
         }),
       );
@@ -1793,7 +1793,7 @@ describe('Variante B — cadre de la fiche collecte client', () => {
           actions: {
             modifier: 'grise',
             annuler: 'grise',
-            annulation: 'demande',
+            annulation: 'directe',
           } as ReturnType<typeof ficheClient>['actions'],
         }),
       );

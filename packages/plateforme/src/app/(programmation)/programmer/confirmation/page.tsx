@@ -116,9 +116,8 @@ const MESSAGES_EMAIL_RECAP: Record<EtatRecapEmail, string> = {
 
 // Statuts qui gardent « Modifier » et « Annuler la collecte », comme le pied de
 // la fiche collecte cliente (`droitsFiche`, lib/collectes/fiche-client.ts) et
-// les routes d'annulation : annulation directe en brouillon ou programmée,
-// demande d'annulation (validée par l'Admin) en validée ; modification en
-// programmée ou validée.
+// les routes d'annulation : annulation directe en brouillon, programmée ou
+// validée (Val 2026-11-01) ; modification en programmée ou validée.
 const STATUTS_ANNULABLES = ['brouillon', 'programmee', 'validee'];
 const STATUTS_MODIFIABLES = ['programmee', 'validee'];
 
@@ -205,12 +204,12 @@ function lienModifierCollecte(
 // « Annuler la collecte » (décision Val 2026-10-22, C6 : règles habituelles).
 // Traiteur, agence et gestionnaire de lieux (ses propres programmations,
 // décision Val 2026-10-26) : la boîte d'annulation de leurs fiches, sur la
-// route de leur espace (directe, ou demande si la collecte est validée). Les
+// route de leur espace (toujours directe, Val 2026-11-01). Les
 // collectes de cette page sont toujours celles que l'appelant vient de
 // programmer ; la route revérifie l'organisation. Staff : la fiche collecte
 // Admin, où l'équipe Savr annule.
 type ActionAnnulation =
-  | { kind: 'boite'; url: string; demande: boolean }
+  | { kind: 'boite'; url: string }
   | { kind: 'lien'; href: string };
 
 function actionAnnulation(
@@ -225,7 +224,6 @@ function actionAnnulation(
   return {
     kind: 'boite',
     url: `${ESPACES[espace].apiCollectes}/${encodeURIComponent(c.id)}/annulation`,
-    demande: c.statut === 'validee',
   };
 }
 
@@ -251,7 +249,7 @@ function CarteCollecte({
   collecte: CollecteRecap;
   libelle: string;
   role: string | undefined;
-  onAnnuler: (url: string, demande: boolean) => void;
+  onAnnuler: (url: string) => void;
 }) {
   const idTitre = useId();
   const contacts = c.contacts ?? null;
@@ -350,11 +348,10 @@ function CarteCollecte({
           {annulation?.kind === 'boite' && (
             <Button
               variant="ghost-destructive"
-              onClick={() => onAnnuler(annulation.url, annulation.demande)}
+              onClick={() => onAnnuler(annulation.url)}
             >
               <XIcon />
-              {/* Collecte validée : une demande, transmise à l'équipe Savr. */}
-              {annulation.demande ? 'Demander l’annulation' : 'Annuler'}
+              Annuler
             </Button>
           )}
         </div>
@@ -366,7 +363,6 @@ function CarteCollecte({
 type CibleAnnulation = {
   collecte: CollecteRecap;
   url: string;
-  demande: boolean;
 };
 
 function ConfirmationContent() {
@@ -668,9 +664,9 @@ function ConfirmationContent() {
                       collecte={collecte}
                       libelle={libelle}
                       role={role}
-                      onAnnuler={(url, demande) => {
+                      onAnnuler={(url) => {
                         setAnnulErreur(null);
-                        setCible({ collecte, url, demande });
+                        setCible({ collecte, url });
                       }}
                     />
                   </li>
@@ -681,13 +677,13 @@ function ConfirmationContent() {
         </div>
       </div>
 
-      {/* Annulation directe (brouillon, programmée) ou demande (validée). */}
       <AnnulationCollecteDialog
         open={cible !== null}
-        demande={cible?.demande ?? false}
         antiGaspi={
           normaliserTypeCollecte(cible?.collecte.type) === 'anti_gaspi'
         }
+        dateCollecte={cible?.collecte.date_collecte}
+        heureCollecte={cible?.collecte.heure_collecte}
         loading={annulEnCours}
         error={annulErreur}
         onConfirm={(motif) => void confirmerAnnulation(motif)}

@@ -173,7 +173,7 @@ export default function TransporteursPage() {
     <div className="space-y-6">
       <PageHero
         title="Transporteurs"
-        icon={<TruckIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<TruckIcon className="h-6 w-6" />}
         actions={
           <Button variant="accent" onClick={openCreate}>
             <PlusIcon />

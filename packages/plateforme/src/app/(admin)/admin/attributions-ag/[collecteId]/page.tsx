@@ -11,8 +11,8 @@ import { ArrowLeftIcon, LeafIcon } from '@/components/ui/icones';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { AttributionAgForm } from '@/components/admin/attribution-ag-form';
-import { Heading } from '@/components/ui/heading';
 import { ROUTES } from '@/lib/routes';
+import { PageHero } from '@/components/ui/page-hero';
 
 export default function AttributionDetailPage() {
   const { collecteId } = useParams<{ collecteId: string }>();
@@ -28,17 +28,21 @@ export default function AttributionDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <IconButton aria-label="Retour" onClick={() => router.back()}>
-          <ArrowLeftIcon />
-        </IconButton>
-        <div className="flex items-center gap-2">
-          <LeafIcon className="h-5 w-5 text-savr-success" />
-          <Heading level={1} size="xl" weight="semibold">
-            Attribution AG
-          </Heading>
-        </div>
-      </div>
+      <PageHero
+        icon={
+          <div className="flex items-center gap-2">
+            <IconButton
+              aria-label="Retour"
+              onClick={() => router.back()}
+              className="text-savr-primary-700 hover:bg-savr-primary-200/60 hover:text-savr-primary-800"
+            >
+              <ArrowLeftIcon />
+            </IconButton>
+            <LeafIcon className="h-6 w-6" />
+          </div>
+        }
+        title="Attribution AG"
+      />
 
       <AttributionAgForm
         collecteId={collecteId}

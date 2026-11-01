@@ -512,7 +512,7 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<CalendarDotsIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<CalendarDotsIcon className="h-6 w-6" />}
         title="Événements"
         subtitle={reglage.sousTitre}
       />

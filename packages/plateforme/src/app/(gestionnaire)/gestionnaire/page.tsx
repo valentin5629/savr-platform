@@ -40,7 +40,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
 import { Heading } from '@/components/ui/heading';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { SquaresFourIcon } from '@/components/ui/icones';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
 import { Card } from '@/components/ui/card';
@@ -242,10 +243,12 @@ export default function GestionnaireDashboardPage() {
   return (
     <EntreeGraphiques>
       <div className="space-y-6" data-testid="gestionnaire-dashboard">
-        <PageHeader
+        <PageHero
+          icon={<SquaresFourIcon className="h-6 w-6" />}
           title="Dashboard"
+          subtitle="Vos indicateurs Zéro Déchet et Anti-Gaspi"
           actions={
-            <Button asChild>
+            <Button variant="accent" asChild>
               <a href={ROUTES.programmer.nouveau}>Programmer une collecte</a>
             </Button>
           }

@@ -14,7 +14,8 @@ import {
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { libelleTypePack } from '@/lib/libelles/pack';
 import { formatDateParis } from '@savr/shared/src/temps/index.js';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { PackageIcon } from '@/components/ui/icones';
 import { Text } from '@/components/ui/text';
 
 interface PackActif {
@@ -128,7 +129,10 @@ export default function MonPackAgPage() {
   if (erreur)
     return (
       <div className="space-y-6">
-        <PageHeader title="Mon pack AG" />
+        <PageHero
+          icon={<PackageIcon className="h-6 w-6" />}
+          title="Mon pack AG"
+        />
         <ErrorState
           message="Impossible de charger votre pack Anti-Gaspi. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
           onRetry={charger}
@@ -145,7 +149,10 @@ export default function MonPackAgPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Mon pack AG" />
+      <PageHero
+        icon={<PackageIcon className="h-6 w-6" />}
+        title="Mon pack AG"
+      />
 
       {!pack ? (
         <Card>

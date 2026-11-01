@@ -9,7 +9,8 @@ import {
   type OpsBatch,
   type OpsIntegration,
 } from './tableaux-sante';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { PulseIcon } from '@/components/ui/icones';
 import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { isStaff } from '@/lib/roles';
@@ -117,7 +118,10 @@ export default async function SanteSystemePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Santé système" />
+      <PageHero
+        icon={<PulseIcon className="h-6 w-6" />}
+        title="Santé système"
+      />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {/* Outbox */}

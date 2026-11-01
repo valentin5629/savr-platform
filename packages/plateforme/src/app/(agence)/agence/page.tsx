@@ -43,7 +43,8 @@ import {
 } from '@/lib/dashboards/cockpit-derive';
 import { Button } from '@/components/ui/button';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { SquaresFourIcon } from '@/components/ui/icones';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
@@ -238,10 +239,12 @@ export default function AgenceDashboardPage() {
   return (
     <EntreeGraphiques>
       <div className="space-y-6" data-testid="agence-dashboard">
-        <PageHeader
+        <PageHero
+          icon={<SquaresFourIcon className="h-6 w-6" />}
           title="Dashboard"
+          subtitle="Vos indicateurs Zéro Déchet et Anti-Gaspi"
           actions={
-            <Button asChild>
+            <Button variant="accent" asChild>
               <a href={ROUTES.programmer.nouveau}>Programmer une collecte</a>
             </Button>
           }

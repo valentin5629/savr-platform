@@ -198,7 +198,7 @@ export default function GrillesZdPage() {
     <div className="space-y-6">
       <PageHero
         title="Paramètres — Grilles tarifaires ZD"
-        icon={<TableIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<TableIcon className="h-6 w-6" />}
         actions={
           canEdit ? (
             <Button variant="accent" onClick={openModal}>

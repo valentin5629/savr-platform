@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { LoadingState } from '@/components/ui/loading-state';
 import { useToast } from '@/components/ui/toast';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { ActifBadge } from '@/components/ui/actif-badge';
 
 interface ConfigAutoAccept {
@@ -152,13 +152,10 @@ export default function AutoAcceptPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHero
         title="Configuration auto-accept"
-        description="Activation de la validation automatique par traiteur"
-        tone="neutral"
-        size="xl"
-        weight="semibold"
-        icon={<LightningIcon className="h-6 w-6 text-savr-warning" />}
+        subtitle="Activation de la validation automatique par traiteur"
+        icon={<LightningIcon className="h-6 w-6" />}
         actions={
           <Button size="sm" variant="secondary" disabled>
             <PlusIcon />

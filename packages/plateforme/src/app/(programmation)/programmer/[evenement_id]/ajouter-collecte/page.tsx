@@ -11,7 +11,7 @@ import {
 import type { ContactOption } from '@/components/programmation/contact-combobox';
 import { usePackAg } from '@/components/programmation/use-pack-ag';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { FormActions } from '@/components/ui/form-actions';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
@@ -267,7 +267,7 @@ export default function AjouterCollectePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <PageHeader title="Ajouter une collecte" tone="neutral" size="xl" />
+      <PageHero title="Ajouter une collecte" />
 
       {evenement && (
         <section aria-labelledby="niveau-evenement" className="space-y-3">

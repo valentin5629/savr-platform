@@ -17,7 +17,8 @@ import { LogoCard } from '@/components/organisation/logo-card';
 import { InviterUtilisateurCarte } from '@/components/organisation/inviter-utilisateur-modal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InfosLegalesCard } from '@/components/organisation/infos-legales-card';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { GearIcon } from '@/components/ui/icones';
 import { TextLink } from '@/components/ui/text-link';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
@@ -299,7 +300,7 @@ export function ParametresGestionnaireClient({
   return (
     <div className="space-y-6">
       {dialogue}
-      <PageHeader title="Paramètres" />
+      <PageHero icon={<GearIcon className="h-6 w-6" />} title="Paramètres" />
 
       {/* Onglets du DS (R-UI-4b, D4). Chargement et erreur sont communs aux
           trois onglets : affichés sous la barre, hors contenu d'onglet. */}

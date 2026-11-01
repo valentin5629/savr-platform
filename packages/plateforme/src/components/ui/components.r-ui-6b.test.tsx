@@ -1,5 +1,5 @@
 /**
- * R-UI-6b — primitives typo & structure : Heading, PageHeader, Text, Card
+ * R-UI-6b — primitives typo & structure : Heading, Text, Card
  * (padding / variant / CardTitle size), StatCard fusionné, ChartTooltip,
  * ToggleChip, LogoCard. Chaque test fige la RECETTE (classes) que la primitive
  * centralise, pour que l'iso-rendu de la migration soit vérifiable ici et non
@@ -10,7 +10,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 import { renderAvecToasts } from '@/test-utils/toasts';
 import { Heading, headingClasses } from '@/components/ui/heading';
-import { PageHeader } from '@/components/ui/page-header';
 import { Text, textClasses } from '@/components/ui/text';
 import { Card, CardClickable, CardTitle } from '@/components/ui/card';
 import { StatCard, StatCardGrid } from '@/components/ui/stat-card';
@@ -53,41 +52,6 @@ describe('Heading — recettes de titres centralisées', () => {
     expect(h.tagName).toBe('H2');
     expect(h.className).toBe(
       'text-lg font-semibold text-savr-neutral-900 mb-3',
-    );
-  });
-});
-
-describe('PageHeader — en-tête sobre', () => {
-  it('porte le h1 (tone primary par défaut), la description, l’icône et les actions', () => {
-    render(
-      <PageHeader
-        title="Transporteurs"
-        description="Référentiel"
-        icon={<span data-testid="icone" />}
-        actions={<button type="button">Nouveau</button>}
-      />,
-    );
-    const h1 = screen.getByRole('heading', { level: 1, name: 'Transporteurs' });
-    expect(h1.className).toBe('text-2xl font-bold text-savr-primary-800');
-    expect(screen.getByText('Référentiel').className).toBe(
-      'text-sm text-savr-neutral-500',
-    );
-    expect(screen.getByTestId('icone')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Nouveau' })).toBeInTheDocument();
-    expect(h1.closest('header')?.className).toContain('justify-between');
-  });
-
-  it('tone neutral + size xl + weight semibold = recette Admin « text-xl font-semibold text-savr-neutral-900 »', () => {
-    render(
-      <PageHeader
-        title="Paramètres"
-        tone="neutral"
-        size="xl"
-        weight="semibold"
-      />,
-    );
-    expect(screen.getByRole('heading', { level: 1 }).className).toBe(
-      'text-xl font-semibold text-savr-neutral-900',
     );
   });
 });

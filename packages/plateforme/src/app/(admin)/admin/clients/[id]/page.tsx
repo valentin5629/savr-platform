@@ -404,7 +404,7 @@ export default function ClientFichePage({
 
   return (
     <div className="space-y-6">
-      {/* En-tête — bandeau navy (levier #2 §10) : logo + nom + type + statut */}
+      {/* En-tête — bandeau pâle (PageHero) : logo + nom + type + statut */}
       <PageHero
         icon={
           <div className="flex items-center gap-2">
@@ -412,7 +412,7 @@ export default function ClientFichePage({
               size="sm"
               onClick={() => router.back()}
               aria-label="Retour"
-              className="text-savr-white hover:bg-savr-white/10 hover:text-savr-white [&>svg]:h-4 [&>svg]:w-4"
+              className="text-savr-primary-700 hover:bg-savr-primary-200/60 hover:text-savr-primary-800 [&>svg]:h-4 [&>svg]:w-4"
             >
               <ArrowLeftIcon />
             </IconButton>
@@ -423,10 +423,10 @@ export default function ClientFichePage({
                 src={`/api/v1/admin/uploads/logo?key=${encodeURIComponent(org.logo_url)}`}
                 alt=""
                 onError={() => setLogoKo(true)}
-                className="h-10 w-10 rounded-savr-md border border-savr-white/20 bg-savr-white object-contain"
+                className="h-10 w-10 rounded-savr-md border border-savr-primary-200 bg-savr-white object-contain"
               />
             ) : (
-              <BuildingsIcon className="h-6 w-6 text-savr-primary-200" />
+              <BuildingsIcon className="h-6 w-6" />
             )}
           </div>
         }

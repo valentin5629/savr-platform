@@ -586,7 +586,7 @@ export default function CollectesPage() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<TruckIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<TruckIcon className="h-6 w-6" />}
         title="Collectes"
         subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi"
         actions={

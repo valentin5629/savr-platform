@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { GearIcon } from '@/components/ui/icones';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Page « Paramètres » des espaces client : « Mon organisation » et « Mon
@@ -78,7 +79,7 @@ export function ParametresOnglets({
   );
   return (
     <div className="space-y-6">
-      <PageHeader title="Paramètres" />
+      <PageHero icon={<GearIcon className="h-6 w-6" />} title="Paramètres" />
       {entete}
       {/* Onglets du DS (R-UI-4b, D4) : un seul contenu monté à la fois. */}
       <Tabs value={onglet} onValueChange={setOnglet}>

@@ -11,10 +11,11 @@ import {
   SparkleIcon,
   TableIcon,
   UsersIcon,
+  GearIcon,
 } from '@/components/ui/icones';
 import { Card } from '@/components/ui/card';
 import { Heading } from '@/components/ui/heading';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { ROUTES } from '@/lib/routes';
 
@@ -81,7 +82,7 @@ const SECTIONS: ParamLink[] = [
 export default function ParametresIndexPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Paramètres" tone="neutral" />
+      <PageHero icon={<GearIcon className="h-6 w-6" />} title="Paramètres" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {SECTIONS.map((s) => {
           const Icon = s.icon;

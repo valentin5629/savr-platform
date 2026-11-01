@@ -8,7 +8,9 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
-import { TextLink } from '@/components/ui/text-link';
+import Link from 'next/link';
+import { PageHero } from '@/components/ui/page-hero';
+import { ArrowLeftIcon } from '@/components/ui/icones';
 import { InfoItem } from '@/components/ui/info-item';
 import {
   Table,
@@ -119,31 +121,39 @@ export default function RegistreDetailPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <TextLink href={ROUTES.registre} className="text-sm">
-            ← Registre
-          </TextLink>
-          <Heading level={1} tone="primary">
-            Collecte ZD — {dateFr(data.evenement.date)} — {data.lieu.nom ?? ''}
-          </Heading>
-          <div className="flex items-center gap-2 pt-1">
+      <PageHero
+        icon={
+          <Link
+            href={ROUTES.registre}
+            aria-label="Retour au registre"
+            className="rounded-savr-md p-1 text-savr-primary-700 hover:bg-savr-primary-200/60 hover:text-savr-primary-800"
+          >
+            <ArrowLeftIcon className="h-5 w-5" />
+          </Link>
+        }
+        title={`Collecte ZD — ${dateFr(data.evenement.date)} — ${data.lieu.nom ?? ''}`}
+        subtitle={
+          <span className="inline-flex items-center gap-2 pt-1">
             <Badge variant={dispo ? 'success' : 'neutral'}>
               {dispo ? 'Bordereau disponible' : 'Bordereau manquant'}
             </Badge>
             {data.historique_partiel && (
               <Badge variant="warning">Historique partiel</Badge>
             )}
-          </div>
-        </div>
-        {data.documents.bordereau_id && dispo && (
-          <Button
-            onClick={() => downloadBordereau(data.documents.bordereau_id!)}
-          >
-            Télécharger le bordereau
-          </Button>
-        )}
-      </div>
+          </span>
+        }
+        actions={
+          data.documents.bordereau_id &&
+          dispo && (
+            <Button
+              variant="accent"
+              onClick={() => downloadBordereau(data.documents.bordereau_id!)}
+            >
+              Télécharger le bordereau
+            </Button>
+          )
+        }
+      />
 
       <Card padding="sm">
         <Heading level={2} size="inherit" tone="inherit" className="mb-3">

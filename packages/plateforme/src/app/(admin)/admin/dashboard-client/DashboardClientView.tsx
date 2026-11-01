@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { EyeIcon, InfoIcon } from '@/components/ui/icones';
+import { InfoIcon, ChartBarIcon } from '@/components/ui/icones';
 import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
   DashboardFilterBar,
@@ -53,7 +53,7 @@ import {
   type OrganisationOption,
 } from './OrganisationSelector.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { LoadingState } from '@/components/ui/loading-state';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -441,10 +441,9 @@ export function DashboardClientView() {
   return (
     <EntreeGraphiques>
       <div className="space-y-6" data-testid="dashboard-client">
-        <PageHeader
+        <PageHero
           title="Dashboard Client"
-          tone="neutral"
-          icon={<EyeIcon className="h-6 w-6 text-savr-neutral-600" />}
+          icon={<ChartBarIcon className="h-6 w-6" />}
           actions={
             <Badge variant="info" data-testid="lecture-seule-badge">
               Lecture seule

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ClockCounterClockwiseIcon } from '@/components/ui/icones';
+import { ClockCounterClockwiseIcon, PackageIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Card } from '@/components/ui/card';
@@ -28,6 +28,7 @@ import {
   libelleLongTypePack,
   TYPES_PACK_GRILLE,
 } from '@/lib/libelles/pack';
+import { PageHero } from '@/components/ui/page-hero';
 
 interface TarifPackAG {
   id: string;
@@ -212,18 +213,18 @@ export default function TarifsPacksAGPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Heading level={1} weight="semibold" tone="primary-deep">
-            Tarifs packs AG
-          </Heading>
-          <Text className="mt-1">
-            Tarifs actifs par type de pack. La modification ferme la ligne
-            précédente et ouvre une nouvelle version.
-          </Text>
-        </div>
-        {canEdit && <Button onClick={() => openModal()}>Nouveau tarif</Button>}
-      </div>
+      <PageHero
+        icon={<PackageIcon className="h-6 w-6" />}
+        title="Tarifs packs AG"
+        subtitle="Tarifs actifs par type de pack. La modification ferme la ligne précédente et ouvre une nouvelle version."
+        actions={
+          canEdit && (
+            <Button variant="accent" onClick={() => openModal()}>
+              Nouveau tarif
+            </Button>
+          )
+        }
+      />
 
       {!canEdit && <OpsReadOnlyBanner />}
 

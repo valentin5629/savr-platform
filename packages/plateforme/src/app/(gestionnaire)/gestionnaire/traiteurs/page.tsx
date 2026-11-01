@@ -166,7 +166,7 @@ export default function GestionnaireTraiteursPage() {
   return (
     <div className="space-y-4">
       <PageHero
-        icon={<ChefHatIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<ChefHatIcon className="h-6 w-6" />}
         title="Traiteurs"
         subtitle="Traiteurs intervenus sur vos lieux (24 derniers mois)."
       />

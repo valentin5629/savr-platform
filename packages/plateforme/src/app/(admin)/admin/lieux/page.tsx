@@ -329,7 +329,7 @@ export default function LieuxPage() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<MapPinIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<MapPinIcon className="h-6 w-6" />}
         title="Lieux"
         subtitle="Référentiel lieux d'événements · normalisation des lieux saisis manuellement"
         actions={

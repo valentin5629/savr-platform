@@ -13,7 +13,7 @@ import {
   type BlocCgu,
 } from '@/content/cgu-v1';
 import { Heading } from '@/components/ui/heading';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { TextLink } from '@/components/ui/text-link';
 import { ROUTES } from '@/lib/routes';
@@ -63,11 +63,7 @@ export default function CguPage() {
   return (
     <div className="min-h-screen bg-savr-neutral-50 px-4 py-10">
       <main className="mx-auto w-full max-w-3xl rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-savr-sm sm:p-10">
-        <PageHeader
-          title="Conditions Générales d'Utilisation"
-          tone="neutral"
-          weight="semibold"
-        />
+        <PageHero title="Conditions Générales d'Utilisation" />
         <Text className="mt-2">
           Version {CGU_TEXTE_VERSION} — activités Zéro-Déchet et Anti-Gaspi.
           C&apos;est le texte accepté à la création d&apos;un compte Savr.

@@ -34,6 +34,7 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ROUTES } from '@/lib/routes';
+import { PageHero } from '@/components/ui/page-hero';
 
 interface Ligne {
   id: string;
@@ -269,18 +270,23 @@ export default function FactureDetailPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       {dialogue}
-      <div className="flex items-center gap-3">
-        <Link
-          href={ROUTES.admin.factures}
-          className="text-savr-neutral-500 hover:text-savr-neutral-700"
-        >
-          <ArrowLeftIcon className="h-5 w-5" />
-        </Link>
-        <Heading level={1} size="xl" weight="semibold" tone="inherit">
-          {facture.numero_facture ?? '— brouillon (numéro à attribuer) —'}
-        </Heading>
-        <Badge variant="neutral">{libelleStatutFacture(facture.statut)}</Badge>
-      </div>
+      <PageHero
+        icon={
+          <Link
+            href={ROUTES.admin.factures}
+            aria-label="Retour aux factures"
+            className="rounded-savr-md p-1 text-savr-primary-700 hover:bg-savr-primary-200/60 hover:text-savr-primary-800"
+          >
+            <ArrowLeftIcon className="h-5 w-5" />
+          </Link>
+        }
+        title={facture.numero_facture ?? '— brouillon (numéro à attribuer) —'}
+        actions={
+          <Badge variant="neutral">
+            {libelleStatutFacture(facture.statut)}
+          </Badge>
+        }
+      />
 
       {error && (
         <AlertBar variant="err" className="font-normal">

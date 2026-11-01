@@ -114,7 +114,7 @@ export default function ClientOrganisateurDocumentsPage() {
   return (
     <div className="space-y-4">
       <PageHero
-        icon={<FileTextIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<FileTextIcon className="h-6 w-6" />}
         title="Mes documents"
       />
 

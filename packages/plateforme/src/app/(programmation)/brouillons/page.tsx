@@ -62,7 +62,7 @@ export default function BrouillonsPage() {
     <div className="space-y-6">
       {dialogue}
       <PageHero
-        icon={<NotePencilIcon className="h-6 w-6 text-savr-primary-200" />}
+        icon={<NotePencilIcon className="h-6 w-6" />}
         title="Mes brouillons"
         actions={
           <Button variant="accent" asChild>

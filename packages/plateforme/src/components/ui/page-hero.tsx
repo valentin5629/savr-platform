@@ -22,7 +22,10 @@ const PageHero = React.forwardRef<HTMLDivElement, PageHeroProps>(
     <header
       ref={ref}
       className={cn(
-        'flex flex-wrap items-center gap-x-4 gap-y-3 rounded-savr-md bg-savr-primary-100 px-6 py-5 text-savr-primary-800',
+        // Hauteur minimale = bandeau avec un bouton (py-5 + bouton md 44 px
+        // mobile / 40 px desktop) : tous les bandeaux ont la même hauteur, avec
+        // ou sans action (Val 2026-11-01).
+        'flex min-h-21 flex-wrap items-center gap-x-4 gap-y-3 rounded-savr-md bg-savr-primary-100 px-6 py-5 text-savr-primary-800 sm:min-h-20',
         className,
       )}
     >

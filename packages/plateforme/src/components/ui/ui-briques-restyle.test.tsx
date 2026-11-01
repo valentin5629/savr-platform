@@ -24,6 +24,9 @@ describe('PageHero', () => {
     const hero = container.firstElementChild!;
     expect(hero.className).toContain('bg-savr-primary-100');
     expect(hero.className).not.toContain('bg-savr-primary-700');
+    // Même hauteur avec ou sans bouton : py-5 + hauteur du bouton md.
+    expect(hero.className).toContain('min-h-21');
+    expect(hero.className).toContain('sm:min-h-20');
     expect(screen.getByRole('heading', { level: 1 }).className).toContain(
       'text-savr-primary-800',
     );

@@ -63,6 +63,9 @@ describe('PageHero — logo de l’organisation', () => {
     const { unmount } = rendre({ ...identite, logoAffichable: false });
     expect(screen.queryByTestId('logo-organisation')).toBeNull();
     unmount();
+    const r = rendre({ ...identite, organisation: null });
+    expect(screen.queryByTestId('logo-organisation')).toBeNull();
+    r.unmount();
     render(<PageHero title="Dashboard" />);
     expect(screen.queryByTestId('logo-organisation')).toBeNull();
   });

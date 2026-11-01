@@ -26,7 +26,9 @@ const PageHero = React.forwardRef<HTMLDivElement, PageHeroProps>(
     // Logo de l'organisation en haut à droite, après les actions (Val
     // 2026-11-01) : espaces clients seulement, absent hors AppShell.
     const identite = useIdentiteSession();
-    const logo = identite?.logoAffichable ? identite : null;
+    // Organisation illisible : pas de tuile (jamais les initiales de l'email).
+    const logo =
+      identite?.logoAffichable && identite.organisation ? identite : null;
     return (
       <header
         ref={ref}

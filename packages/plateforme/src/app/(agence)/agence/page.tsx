@@ -45,7 +45,6 @@ import { Button } from '@/components/ui/button';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { PageHero } from '@/components/ui/page-hero';
 import { SquaresFourIcon } from '@/components/ui/icones';
-import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphique';
@@ -253,16 +252,16 @@ export default function AgenceDashboardPage() {
           storageKey="agence-dashboard"
           onChange={handleFilters}
           parcOptions={parcOptions}
+          toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
+          count={
+            !loading && filters ? (
+              <span data-testid="dashboard-collectes-count">
+                {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
+                {nbCollectes > 1 ? 'ent' : ''} à votre sélection
+              </span>
+            ) : undefined
+          }
         />
-        <ToggleTypeCollecte value={tab} onChange={setTab} />
-
-        {/* Compteur « X collectes correspondent » (BL-P3-02) — parité gestionnaire. */}
-        {!loading && filters && (
-          <Text data-testid="dashboard-collectes-count">
-            {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
-            {nbCollectes > 1 ? 'ent' : ''} à votre sélection
-          </Text>
-        )}
 
         {loading ? (
           <LoadingState />

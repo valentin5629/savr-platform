@@ -182,8 +182,16 @@ export default function ClientOrganisateurDashboardPage() {
         storageKey="organisateur-dashboard"
         onChange={handleFilters}
         parcOptions={parcOptions}
+        toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
+        count={
+          !loading ? (
+            <span data-testid="dashboard-collectes-count">
+              {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
+              {nbCollectes > 1 ? 'ent' : ''} à votre sélection
+            </span>
+          ) : undefined
+        }
       />
-      <ToggleTypeCollecte value={tab} onChange={setTab} />
 
       {loading ? (
         <LoadingState />

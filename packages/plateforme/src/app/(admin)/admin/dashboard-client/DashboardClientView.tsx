@@ -459,7 +459,6 @@ export function DashboardClientView() {
           storageKey="savr.dashboard-client.filters"
           onChange={handleFilters}
           onReset={() => setSelectedOrgs([])}
-          enCarte
           enfantsActifs={selectedOrgs.length > 0}
           parcOptions={parcOptions}
           toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}

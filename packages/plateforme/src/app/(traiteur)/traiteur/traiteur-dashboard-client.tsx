@@ -59,7 +59,6 @@ import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { PageHero } from '@/components/ui/page-hero';
 import { SquaresFourIcon } from '@/components/ui/icones';
-import { Text } from '@/components/ui/text';
 import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
 import { fmtPct, uniteCo2 } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
@@ -356,16 +355,17 @@ export function TraiteurDashboardClient({
           storageKey="traiteur-dashboard"
           onChange={handleFilters}
           parcOptions={parcOptions}
+          toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
+          count={
+            !loading ? (
+              <span data-testid="dashboard-collectes-count">
+                {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''}{' '}
+                correspond
+                {agg.nbCollectes > 1 ? 'ent' : ''} à votre sélection
+              </span>
+            ) : undefined
+          }
         />
-        <ToggleTypeCollecte value={tab} onChange={setTab} />
-
-        {!loading && (
-          <Text data-testid="dashboard-collectes-count">
-            {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''}{' '}
-            correspond
-            {agg.nbCollectes > 1 ? 'ent' : ''} à votre sélection
-          </Text>
-        )}
 
         {loading ? (
           <LoadingState />

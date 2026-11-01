@@ -67,6 +67,7 @@ export default function ClientOrganisateurDashboardPage() {
   const [rows, setRows] = useState<KpiRow[]>([]);
   const [ytd, setYtd] = useState<KpiRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState(false);
   const [showAbc, setShowAbc] = useState(false);
 
   // Options de la barre : Lieux, Traiteurs, Type et Taille d'événement (décision
@@ -80,6 +81,7 @@ export default function ClientOrganisateurDashboardPage() {
   useEffect(() => {
     if (!filters) return;
     setLoading(true);
+    setErreur(false);
     const qs = new URLSearchParams({
       from: filters.from,
       to: filters.to,
@@ -87,8 +89,13 @@ export default function ClientOrganisateurDashboardPage() {
     });
     ajouterFiltresGlobaux(qs, filters);
     fetch(`/api/v1/dashboards/kpi-client-organisateur?${qs}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((j) => setRows((j.data ?? []) as KpiRow[]))
+      // Chargement raté : pas de compteur, plutôt qu'un chiffre faux.
+      .catch(() => setErreur(true))
       .finally(() => setLoading(false));
   }, [filters, tab]);
 
@@ -184,7 +191,7 @@ export default function ClientOrganisateurDashboardPage() {
         parcOptions={parcOptions}
         toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
         count={
-          !loading ? (
+          !loading && !erreur ? (
             <span data-testid="dashboard-collectes-count">
               {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
               {nbCollectes > 1 ? 'ent' : ''} à votre sélection

@@ -462,6 +462,14 @@ export function DashboardClientView() {
           enfantsActifs={selectedOrgs.length > 0}
           parcOptions={parcOptions}
           toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
+          count={
+            !loading && kpi ? (
+              <span data-testid="dashboard-collectes-count">
+                {kpi.nb_collectes} collecte{kpi.nb_collectes > 1 ? 's' : ''}{' '}
+                correspond{kpi.nb_collectes > 1 ? 'ent' : ''} à votre sélection
+              </span>
+            ) : undefined
+          }
         >
           <OrganisationSelector
             organisations={organisations}

@@ -1,7 +1,7 @@
 /**
- * R-UI-4b (D5 façon C, D8, D9) — barres de dashboard bâties sur `FilterBar` :
+ * R-UI-4b (D8, D9) — barres de dashboard bâties sur `FilterBar` :
  * « Réinitialiser les filtres » seulement quand un filtre diffère du défaut,
- * bandeau de page sans carte (`surface="page"`), encart benchmark
+ * même carte que la barre des listes (décision Val 2026-11-01), encart benchmark
  * (`surface="encart"`), raccourcis de période standard et `Combobox titre`
  * dans l'assistant « Synthèse PDF ».
  */
@@ -51,14 +51,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('DashboardFilterBar — FilterBar surface page (D5 façon C)', () => {
-  it('bandeau sur fond de page : section FilterBar sans carte, pas de pied, reset masqué au défaut', () => {
-    render(<DashboardFilterBar storageKey="r-ui-4b-page" onChange={vi.fn()} />);
+describe('DashboardFilterBar — même carte que la barre des listes', () => {
+  it('carte blanche bordée comme la liste Événements, pas de pied sans compteur, reset masqué au défaut', () => {
+    render(
+      <DashboardFilterBar storageKey="r-ui-4b-carte" onChange={vi.fn()} />,
+    );
     const barre = screen.getByTestId('dashboard-filter-bar');
     expect(barre.tagName).toBe('SECTION');
-    expect(barre.className).not.toMatch(/bg-savr-white|px-6/);
+    expect(barre.className).toMatch(/bg-savr-white/);
+    expect(barre.className).toMatch(/border-savr-neutral-200/);
     expect(screen.queryByTestId('dashboard-filter-bar-count')).toBeNull();
     expect(screen.queryByTestId('dashboard-filter-reinitialiser')).toBeNull();
+  });
+
+  it('`count` fourni → compteur en pied de la barre, dans la carte', () => {
+    render(
+      <DashboardFilterBar
+        storageKey="r-ui-4b-count"
+        onChange={vi.fn()}
+        count={<span>3 collectes correspondent à votre sélection</span>}
+      />,
+    );
+    const pied = screen.getByTestId('dashboard-filter-bar-count');
+    expect(pied).toHaveTextContent(
+      '3 collectes correspondent à votre sélection',
+    );
+    expect(screen.getByTestId('dashboard-filter-bar')).toContainElement(pied);
   });
 
   it('période ≠ 12 derniers mois → « Réinitialiser les filtres » apparaît, puis ramène au défaut et disparaît', () => {

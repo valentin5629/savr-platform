@@ -17,8 +17,8 @@ import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
 // Le consommateur fournit les options, l'état, le compteur et la
 // synchronisation avec l'URL (`useFiltresUrl`). Règle R-UI-4b (D5) : toute
 // liste = FilterBar complet (count + actif + onReset obligatoires) ; les
-// barres de dashboard (`DashboardFilterBar`, `BenchmarkFilterBar`, Revenus
-// admin) sont bâties dessus avec `surface` (page / encart) et `count={null}`.
+// barres de dashboard (`DashboardFilterBar`, Revenus admin) ont la même carte
+// (décision Val 2026-11-01), `BenchmarkFilterBar` est un `encart`.
 export interface FilterBarProps {
   tabs?: React.ReactNode;
   toggle?: React.ReactNode;
@@ -37,16 +37,13 @@ export interface FilterBarProps {
   /** Remise au défaut de tous les filtres (obligatoire : toute liste se réinitialise). */
   onReset: () => void;
   /**
-   * Support de la barre (R-UI-4b, D5 façon C) :
+   * Support de la barre :
    *  - 'carte' (défaut) : la barre EST une carte blanche bordée, bandeau gris
-   *    dedans — toute page de liste ;
-   *  - 'page' : posée sur le fond de page, sans carte ni padding, le bandeau
-   *    passe en blanc bordé (`BarreFiltres surface="page"`) — bandeau des
-   *    dashboards ;
+   *    dedans — listes et dashboards ;
    *  - 'encart' : bandeau gris seul, posé dans une carte existante (filtres
    *    benchmark dans la carte des jauges).
    */
-  surface?: 'carte' | 'page' | 'encart';
+  surface?: 'carte' | 'encart';
   /** `data-testid` du bouton de reset ; défaut `${data-testid}-reset`. */
   resetTestId?: string;
   className?: string;
@@ -94,7 +91,6 @@ function FilterBar({
       {children && (
         <BarreFiltres
           intro={intro}
-          surface={surface === 'page' ? 'page' : 'carte'}
           onReset={actif ? onReset : undefined}
           resetLabel="Réinitialiser les filtres"
           resetTestId={resetTestId ?? (testId ? `${testId}-reset` : undefined)}

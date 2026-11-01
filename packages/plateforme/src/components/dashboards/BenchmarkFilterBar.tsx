@@ -138,7 +138,7 @@ const VIDE_PASTILLE = {
  * rattachés et traiteurs intervenus du gestionnaire (décision Val 2026-10-06) ;
  * la case de tête s'appelle toujours « Tous » (Val 2026-10-28). La
  * période est fixe (24 mois glissants, non affichée). Bâti sur `FilterBar`
- * (R-UI-4b, D5 façon C, `surface="encart"`, `count={null}`) : « Réinitialiser
+ * (R-UI-4b, `surface="encart"`, `count={null}`) : « Réinitialiser
  * les filtres » (retour à l'héritage Type/Taille, Lieux/Traiteurs vidés)
  * seulement si un critère diffère de l'héritage.
  */

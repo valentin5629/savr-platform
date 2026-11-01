@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 // chaque écran du menu ; le bandeau porte le <h1> de la page (un seul par écran).
 interface PageHeroProps {
   title: React.ReactNode;
-  /** Ligne secondaire (compteur, méta) — rendue en primary-200. */
+  /** Ligne secondaire (compteur, méta) — rendue en neutral-600. */
   subtitle?: React.ReactNode;
   /** Contenu à gauche du titre (icône, bouton retour…), teinté primary-700. */
   icon?: React.ReactNode;

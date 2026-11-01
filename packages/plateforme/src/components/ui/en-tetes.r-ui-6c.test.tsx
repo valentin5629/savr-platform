@@ -15,36 +15,46 @@ import { PageHero } from '@/components/ui/page-hero';
 const APP = resolve(__dirname, '../../app');
 const SRC = resolve(__dirname, '../..');
 
-// Écrans ouverts par une entrée du menu (lib/nav-config.ts), tous rôles. Chemin
-// = fichier qui rend l'en-tête (composant partagé quand la page en délègue).
-const ECRANS_MENU = [
-  'app/(admin)/admin/dashboard/page.tsx',
-  'app/(admin)/admin/dashboard-client/DashboardClientView.tsx',
-  'app/(admin)/admin/collectes/page.tsx',
-  'components/evenements/liste-evenements.tsx',
-  'app/(admin)/admin/factures/page.tsx',
-  'app/(admin)/admin/associations/page.tsx',
-  'app/(admin)/admin/transporteurs/page.tsx',
-  'app/(admin)/admin/lieux/page.tsx',
-  'app/(admin)/admin/clients/page.tsx',
-  'app/(admin)/admin/parametres/page.tsx',
-  'app/(admin)/admin/mon-profil/page.tsx',
-  'app/(admin)/admin/alertes/page.tsx',
-  'app/(admin)/admin/sante-systeme/page.tsx',
-  'app/(traiteur)/traiteur/traiteur-dashboard-client.tsx',
-  'components/collecte/liste-collectes-client.tsx',
-  'components/parametres/parametres-onglets.tsx',
-  'app/(agence)/agence/page.tsx',
-  'app/(gestionnaire)/gestionnaire/page.tsx',
-  'app/(gestionnaire)/gestionnaire/collectes/page.tsx',
-  'app/(gestionnaire)/gestionnaire/traiteurs/page.tsx',
-  'app/(gestionnaire)/gestionnaire/lieux/page.tsx',
-  'app/(registre)/registre/page.tsx',
-  'app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx',
-  'app/(gestionnaire)/gestionnaire/parametres/parametres-client.tsx',
-  'app/(client-organisateur)/organisateur/page.tsx',
-  'app/(client-organisateur)/organisateur/collectes/page.tsx',
-  'app/(client-organisateur)/organisateur/documents/page.tsx',
+// Écrans ouverts par une entrée du menu (lib/nav-config.ts), tous rôles, et le
+// pictogramme de cette entrée, repris dans le bandeau. Chemin = fichier qui rend
+// l'en-tête (composant partagé quand la page en délègue).
+const ECRANS_MENU: [string, string][] = [
+  ['app/(admin)/admin/dashboard/page.tsx', 'SquaresFourIcon'],
+  [
+    'app/(admin)/admin/dashboard-client/DashboardClientView.tsx',
+    'ChartBarIcon',
+  ],
+  ['app/(admin)/admin/collectes/page.tsx', 'TruckIcon'],
+  ['components/evenements/liste-evenements.tsx', 'CalendarDotsIcon'],
+  ['app/(admin)/admin/factures/page.tsx', 'ReceiptIcon'],
+  ['app/(admin)/admin/associations/page.tsx', 'HeartIcon'],
+  ['app/(admin)/admin/transporteurs/page.tsx', 'TruckIcon'],
+  ['app/(admin)/admin/lieux/page.tsx', 'MapPinIcon'],
+  ['app/(admin)/admin/clients/page.tsx', 'BuildingsIcon'],
+  ['app/(admin)/admin/parametres/page.tsx', 'GearIcon'],
+  ['app/(admin)/admin/mon-profil/page.tsx', 'UserCircleIcon'],
+  ['app/(admin)/admin/alertes/page.tsx', 'BellIcon'],
+  ['app/(admin)/admin/sante-systeme/page.tsx', 'PulseIcon'],
+  ['app/(traiteur)/traiteur/traiteur-dashboard-client.tsx', 'SquaresFourIcon'],
+  ['components/collecte/liste-collectes-client.tsx', 'TruckIcon'],
+  ['components/parametres/parametres-onglets.tsx', 'GearIcon'],
+  ['app/(agence)/agence/page.tsx', 'SquaresFourIcon'],
+  ['app/(gestionnaire)/gestionnaire/page.tsx', 'SquaresFourIcon'],
+  ['app/(gestionnaire)/gestionnaire/collectes/page.tsx', 'ClipboardTextIcon'],
+  ['app/(gestionnaire)/gestionnaire/traiteurs/page.tsx', 'ChefHatIcon'],
+  ['app/(gestionnaire)/gestionnaire/lieux/page.tsx', 'MapPinIcon'],
+  ['app/(registre)/registre/page.tsx', 'BookOpenIcon'],
+  ['app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx', 'PackageIcon'],
+  [
+    'app/(gestionnaire)/gestionnaire/parametres/parametres-client.tsx',
+    'GearIcon',
+  ],
+  ['app/(client-organisateur)/organisateur/page.tsx', 'SquaresFourIcon'],
+  [
+    'app/(client-organisateur)/organisateur/collectes/page.tsx',
+    'ClipboardTextIcon',
+  ],
+  ['app/(client-organisateur)/organisateur/documents/page.tsx', 'FileTextIcon'],
 ];
 
 const LISTES = [
@@ -77,8 +87,17 @@ const rel = (chemin: string) => relative(APP, chemin).split(sep).join('/');
 const lire = (r: string) => readFileSync(join(APP, r), 'utf8');
 
 describe('Écrans du menu : bandeau PageHero (Val 2026-11-01)', () => {
-  it.each(ECRANS_MENU)('%s ouvre sur PageHero', (r) => {
-    expect(readFileSync(join(SRC, r), 'utf8')).toMatch(/<PageHero\b/);
+  it.each(ECRANS_MENU)('%s ouvre sur PageHero avec %s', (r, icone) => {
+    const src = readFileSync(join(SRC, r), 'utf8');
+    expect(src).toMatch(/<PageHero\b/);
+    expect(src).toMatch(new RegExp(`icon=\\{\\s*<${icone}\\b`));
+  });
+
+  it('chaque pictogramme attendu est celui d’une entrée du menu', () => {
+    const nav = readFileSync(join(SRC, 'lib/nav-config.ts'), 'utf8');
+    for (const [, icone] of ECRANS_MENU) {
+      expect(nav, icone).toMatch(new RegExp(`icon: ${icone}\\b`));
+    }
   });
 });
 

@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { DownloadSimpleIcon, FileTextIcon } from '@/components/ui/icones';
+import {
+  DownloadSimpleIcon,
+  FileTextIcon,
+  ReceiptIcon,
+} from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { FactureStatutBadge } from '@/components/ui/facture-statut-badge';
 import {
@@ -268,7 +272,7 @@ export default function FacturesPage() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<FileTextIcon className="h-6 w-6" />}
+        icon={<ReceiptIcon className="h-6 w-6" />}
         title="Factures"
         subtitle="Brouillons, émissions et avoirs"
         actions={

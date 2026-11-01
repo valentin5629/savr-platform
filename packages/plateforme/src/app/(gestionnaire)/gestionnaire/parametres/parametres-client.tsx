@@ -59,6 +59,8 @@ interface UserRow {
   email: string;
   prenom: string | null;
   nom: string | null;
+  /** Champ libre de « Mon profil », sans effet sur les droits (Val 2026-11-01). */
+  poste: string | null;
   role: string;
   actif: boolean;
 }
@@ -257,6 +259,12 @@ export function ParametresGestionnaireClient({
           {u.prenom} {u.nom}
         </>
       ),
+    },
+    {
+      id: 'poste',
+      header: 'Poste',
+      accessorFn: (u) => u.poste ?? '',
+      cell: ({ row: { original: u } }) => u.poste ?? '—',
     },
     {
       id: 'email',

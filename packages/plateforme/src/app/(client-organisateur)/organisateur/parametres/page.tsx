@@ -1,7 +1,6 @@
 import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
-import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
 import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
 import { ParametresOnglets } from '@/components/parametres/parametres-onglets';
 import { ONGLET_ORGANISATION, ONGLET_PROFIL } from '@/lib/routes';
@@ -11,8 +10,8 @@ const ORGANISATEUR_ROLES = ['client_organisateur'] as const;
 // « Paramètres » client organisateur = ex « Mon organisation » + ex « Mon
 // profil », réunis en onglets (décision Val 2026-10-31). Pas de section
 // organisation au CDC pour ce rôle : ajoutée par décision Val 2026-09-28
-// (informations légales modifiables par tous les rôles). BL-P3-13 : « Sécurité
-// du compte » (historique self des accès admin, rôle impersonable §15 §2.3).
+// (informations légales modifiables par tous les rôles). « Sécurité du compte »
+// retiré de l'écran (Val 2026-11-01).
 export default async function ParametresOrganisateurPage({
   searchParams,
 }: {
@@ -45,7 +44,6 @@ export default async function ParametresOrganisateurPage({
                   </div>
                 </CardContent>
               </Card>
-              <SecuriteAccesPanel />
               <RgpdComptePanel />
             </>
           ),

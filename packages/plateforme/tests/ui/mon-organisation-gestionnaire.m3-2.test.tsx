@@ -444,3 +444,62 @@ describe('M3.2 / Paramètres gestionnaire — onglet Mon profil', () => {
     ATTENTE_CAS_MS,
   );
 });
+
+// Poste (Val 2026-11-01) : champ libre de « Mon profil », affiché dans la liste.
+describe('M3.2 / Paramètres gestionnaire — poste dans la liste des membres', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it(
+    'M3.2/membres_poste_affiche',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve(
+            reponse(200, {
+              data: [
+                {
+                  id: 'u1',
+                  email: 'victor@viparis.test',
+                  prenom: 'Victor',
+                  nom: 'Paris',
+                  poste: 'Directeur des opérations',
+                  role: 'gestionnaire_lieux',
+                  actif: true,
+                },
+                {
+                  id: 'u2',
+                  email: 'valerie@viparis.test',
+                  prenom: 'Valérie',
+                  nom: 'Paris',
+                  poste: null,
+                  role: 'gestionnaire_lieux',
+                  actif: true,
+                },
+              ],
+            }),
+          ),
+        ),
+      );
+      render(<ParametresGestionnaireClient initial="membres" />);
+      // La Data Table rend aussi la vue mobile : on lit la ligne du tableau.
+      const ligne = (
+        await screen.findAllByText('victor@viparis.test', {}, ATTENTE_UI)
+      )
+        .map((e) => e.closest('tr'))
+        .find(Boolean)!;
+      expect(screen.getByRole('columnheader', { name: /Poste/ })).toBeTruthy();
+      expect(ligne.textContent).toContain('Directeur des opérations');
+      expect(
+        screen
+          .getAllByText('valerie@viparis.test')
+          .map((e) => e.closest('tr'))
+          .find(Boolean)!.textContent,
+      ).toContain('—');
+    },
+    ATTENTE_CAS_MS,
+  );
+});

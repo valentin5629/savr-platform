@@ -2,7 +2,6 @@ import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
 import { ChangerMotDePassePanel } from '@/components/compte/changer-mot-de-passe-panel';
-import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
 import { ParametresTraiteurClient } from './parametres-client';
 
 const TRAITEUR_ROLES = ['traiteur_manager', 'traiteur_commercial'] as const;
@@ -48,7 +47,6 @@ export default async function ParametresTraiteurPage({
             </CardContent>
           </Card>
           <ChangerMotDePassePanel />
-          <SecuriteAccesPanel />
           <RgpdComptePanel />
         </>
       }

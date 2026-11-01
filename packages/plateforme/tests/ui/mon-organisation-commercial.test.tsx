@@ -36,6 +36,7 @@ const EQUIPE = [
     prenom: 'Paul',
     nom: 'Commercial',
     email: 'paul@org.fr',
+    poste: 'Chargé de clientèle',
     role: 'traiteur_commercial',
     actif: true,
     derniere_connexion: null,
@@ -45,6 +46,7 @@ const EQUIPE = [
     prenom: 'Marie',
     nom: 'Manager',
     email: 'marie@org.fr',
+    poste: null,
     role: 'traiteur_manager',
     actif: true,
     derniere_connexion: null,
@@ -112,6 +114,28 @@ describe('Mon organisation — commercial traiteur', () => {
       expect(screen.getByText('Inviter un collaborateur')).toBeTruthy();
       expect(screen.getByText('Transférer mes collectes')).toBeTruthy();
       expect(screen.queryByText('Depuis')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'membres_poste_affiche — colonne « Poste », tiret quand il manque (Val 2026-11-01)',
+    async () => {
+      stubFetch();
+      render(<ParametresTraiteurClient isManager={false} userId="u1" />);
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
+
+      // La Data Table rend aussi la vue mobile : on lit la ligne du tableau.
+      const ligne = (await screen.findAllByText('paul@org.fr', {}, ATTENTE_UI))
+        .map((e) => e.closest('tr'))
+        .find(Boolean)!;
+      expect(screen.getByRole('columnheader', { name: /Poste/ })).toBeTruthy();
+      expect(ligne.textContent).toContain('Chargé de clientèle');
+      const ligneMarie = screen
+        .getAllByText('marie@org.fr')
+        .map((e) => e.closest('tr'))
+        .find(Boolean)!;
+      expect(ligneMarie.textContent).toContain('—');
     },
     ATTENTE_CAS_MS,
   );

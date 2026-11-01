@@ -233,3 +233,55 @@ describe('M3.1 / Mon profil — téléphone (BL-P1-TRAIT-02)', () => {
     expect(update!.payload).toEqual({ telephone: null });
   });
 });
+
+describe('Mon profil — poste (Val 2026-11-01)', () => {
+  it('profil_poste_editable — poste passe l’allowlist, borné à 100 caractères', async () => {
+    results['update:users'] = { data: { id: 'u-victim' }, error: null };
+
+    const { PATCH } = await import('@/app/api/me/profil/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', { poste: `  ${'é'.repeat(120)}  `, role: 'admin_savr' }),
+    );
+
+    expect(res.status).toBe(200);
+    const update = calls.find((c) => c.op === 'update' && c.table === 'users');
+    expect(update!.payload).toEqual({ poste: 'é'.repeat(100) });
+  });
+
+  it('profil_poste_effacement — chaîne vide → null', async () => {
+    results['update:users'] = { data: { id: 'u-victim' }, error: null };
+
+    const { PATCH } = await import('@/app/api/me/profil/route.js');
+    const res = await PATCH(makeReq('PATCH', { poste: '' }));
+
+    expect(res.status).toBe(200);
+    const update = calls.find((c) => c.op === 'update' && c.table === 'users');
+    expect(update!.payload).toEqual({ poste: null });
+  });
+
+  it('profil_poste_borne_telephone_inchangee — le téléphone reste borné à 30', async () => {
+    results['update:users'] = { data: { id: 'u-victim' }, error: null };
+
+    const { PATCH } = await import('@/app/api/me/profil/route.js');
+    await PATCH(makeReq('PATCH', { telephone: '0'.repeat(40) }));
+
+    const update = calls.find((c) => c.op === 'update' && c.table === 'users');
+    expect(update!.payload).toEqual({ telephone: '0'.repeat(30) });
+  });
+});
+
+describe('Export RGPD — téléphone et poste (Val 2026-11-01)', () => {
+  it('export_rgpd_telephone_poste — l’export lit téléphone et poste', async () => {
+    results['select:users'] = { data: { id: 'u-victim' }, error: null };
+    results['select:demandes_suppression'] = { data: [], error: null };
+
+    const { GET } = await import('@/app/api/me/export-rgpd/route.js');
+    await GET(makeReq('GET'));
+
+    const lecture = calls.find((c) => c.op === 'select' && c.table === 'users');
+    const colonnes = String(lecture!.payload)
+      .split(',')
+      .map((c) => c.trim());
+    expect(colonnes).toEqual(expect.arrayContaining(['telephone', 'poste']));
+  });
+});

@@ -68,7 +68,7 @@ describe('M1.2 — ajouter une collecte depuis la fiche collecte (espaces client
           actions: {
             modifier: 'actif',
             annuler: 'actif',
-            annulation: 'demande',
+            annulation: 'directe',
             ajouter_collecte: true,
           },
         }),

@@ -550,8 +550,6 @@ export function ListeCollectesClient({
     [router, rows, api, aujourdhui, typeFiltre],
   );
 
-  const estDemande = annulTarget?.statut === 'validee';
-
   return (
     <div className="space-y-5">
       <PageHero
@@ -644,7 +642,6 @@ export function ListeCollectesClient({
       {/* Modale d'annulation (liste) */}
       <AnnulationCollecteDialog
         open={annulTarget !== null}
-        demande={estDemande}
         antiGaspi={annulTarget?.type === 'anti_gaspi'}
         loading={annulEnCours}
         error={annulErreur}

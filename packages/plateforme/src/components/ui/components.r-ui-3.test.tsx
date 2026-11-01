@@ -296,23 +296,23 @@ describe('ConfirmDialog — confirmation destructive avec motif', () => {
 });
 
 describe('AnnulationCollecteDialog — une seule modale liste + fiche', () => {
-  it('demande (validee) : titre « Demander l’annulation » ; AG : mention crédit préservé ; motif facultatif transmis', () => {
+  it('AG : mention crédit préservé ; motif facultatif transmis ; plus de variante « demande » (Val 2026-11-01)', () => {
     const onConfirm = vi.fn();
     render(
       <AnnulationCollecteDialog
         open
-        demande
         antiGaspi
         onConfirm={onConfirm}
         onCancel={vi.fn()}
       />,
     );
     expect(
-      screen.getByRole('dialog', { name: 'Demander l’annulation' }),
+      screen.getByRole('dialog', { name: 'Annuler la collecte' }),
     ).toBeInTheDocument();
     expect(screen.getByTestId('mention-credit-ag')).toBeInTheDocument();
+    expect(screen.queryByText(/demande d’annulation/i)).toBeNull();
     const confirmer = screen.getByRole('button', {
-      name: 'Confirmer la demande',
+      name: 'Confirmer l’annulation',
     });
     expect(confirmer).not.toBeDisabled();
     fireEvent.click(confirmer);
@@ -323,7 +323,6 @@ describe('AnnulationCollecteDialog — une seule modale liste + fiche', () => {
     render(
       <AnnulationCollecteDialog
         open
-        demande={false}
         antiGaspi={false}
         onConfirm={vi.fn()}
         onCancel={vi.fn()}

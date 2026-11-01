@@ -61,12 +61,6 @@ interface BarreFiltresProps {
   onReset?: () => void;
   resetLabel?: string;
   resetTestId?: string;
-  /**
-   * 'carte' (défaut) : bandeau neutral-50 posé dans une carte blanche.
-   * 'page' : posé sur le fond de page neutral-50, le bandeau passe en blanc
-   * bordé pour rester visible.
-   */
-  surface?: 'carte' | 'page';
   className?: string;
   'data-testid'?: string;
 }
@@ -79,7 +73,6 @@ export function BarreFiltres({
   // Libellé unique de remise à zéro (R-UI-4b, D5 : 2 libellés → 1).
   resetLabel = 'Réinitialiser les filtres',
   resetTestId,
-  surface = 'carte',
   className,
   'data-testid': testId,
 }: BarreFiltresProps) {
@@ -87,10 +80,7 @@ export function BarreFiltres({
     <div
       data-testid={testId}
       className={cn(
-        'flex flex-wrap items-center gap-1 rounded-savr-md px-3 py-2',
-        surface === 'page'
-          ? 'border border-savr-neutral-200 bg-savr-white'
-          : 'bg-savr-neutral-50',
+        'flex flex-wrap items-center gap-1 rounded-savr-md bg-savr-neutral-50 px-3 py-2',
         className,
       )}
     >

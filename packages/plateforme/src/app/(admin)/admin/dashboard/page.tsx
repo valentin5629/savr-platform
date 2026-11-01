@@ -324,12 +324,11 @@ export default function DashboardAdminPage() {
 
           {/* Filtre de période COMMUN — pilote le graphe ET le tableau (revue E2E Val
             2026-07-18). Un seul filtre « Période » en ligne (décision Val
-            2026-09-30) dans la barre standard des dashboards (`FilterBar
-            surface="page"`, R-UI-4b D5 façon C : pas de liste à compter →
-            `count={null}`) ; « Réinitialiser les filtres » (retour au défaut 12
+            2026-09-30) dans la barre standard, en carte comme celle des listes
+            (décision Val 2026-11-01) ; pas de liste à compter → `count={null}` ;
+            « Réinitialiser les filtres » (retour au défaut 12
             mois) seulement si la période en diffère. */}
           <FilterBar
-            surface="page"
             data-testid="revenus-orgs-controls"
             count={null}
             actif={

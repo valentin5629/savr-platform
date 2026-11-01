@@ -60,6 +60,13 @@ describe('DataGrid — menu « Colonnes »', () => {
     expect(export_.querySelector('svg')).not.toBeNull();
     fireEvent.click(export_);
     expect(clics).toBe(1);
+    // Même taille, 25 % sous le bouton standard sur ordinateur (Val
+    // 2026-10-31) ; 44 px gardés sur mobile.
+    for (const b of [export_, colonnes]) {
+      expect(b.className).toMatch(/(^|\s)sm:h-\[30px\](\s|$)/);
+      expect(b.className).toMatch(/(^|\s)h-11(\s|$)/);
+      expect(b.className).not.toMatch(/(^|\s)sm:h-10(\s|$)/);
+    }
   });
 
   it('masquer une colonne la retire du tableau ; la colonne Actions n’est pas proposée', async () => {

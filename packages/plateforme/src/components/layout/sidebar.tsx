@@ -114,6 +114,10 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     const logoZd = zdSelected || isZdSectionPath(pathname);
     const hidden = new Set(hiddenNavHrefs ?? []);
     const hrefActif = hrefNavActif(role, pathname);
+    const avecIdentite =
+      !!identite && !!(identite.organisation || identite.utilisateur);
+    // Picto sans libellé : barre réduite, ou à droite des noms.
+    const iconeSeule = collapsed || avecIdentite;
     const groups = (NAV_CONFIG[role] ?? []).map((g) => ({
       ...g,
       items: g.items.filter((i) => !hidden.has(i.href)),
@@ -242,9 +246,16 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             </IconButton>
           </div>
         )}
-        {/* Qui est connecté puis déconnexion — tout en bas (Val 2026-10-30, ex-TopBar) */}
-        <div className="shrink-0 border-t border-savr-primary-700 p-2">
-          {identite && (identite.organisation || identite.utilisateur) && (
+        {/* Qui est connecté, déconnexion à droite sur la même ligne (Val 2026-11-01) ;
+            barre réduite : picto sous le logo ; sans identité : bouton avec libellé. */}
+        <div
+          className={cn(
+            'shrink-0 border-t border-savr-primary-700 p-2',
+            avecIdentite && 'flex items-center gap-2',
+            avecIdentite && collapsed && 'flex-col gap-1',
+          )}
+        >
+          {avecIdentite && (
             <div
               data-testid="identite-session"
               title={
@@ -255,7 +266,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                   : undefined
               }
               className={cn(
-                'mb-1 flex items-center gap-3 px-1 py-2',
+                'flex min-w-0 flex-1 items-center gap-3 px-1 py-2',
                 collapsed && 'justify-center px-0',
               )}
             >
@@ -278,17 +289,21 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             variant="ghost"
             onClick={() => void handleLogout()}
             loading={loggingOut}
-            loadingText={collapsed ? '' : <span>Déconnexion…</span>}
+            loadingText={iconeSeule ? '' : <span>Déconnexion…</span>}
             aria-label="Se déconnecter"
-            title={collapsed ? 'Se déconnecter' : undefined}
+            title={iconeSeule ? 'Se déconnecter' : undefined}
             className={cn(
               // Mêmes teintes que les entrées du menu (fond primary-800).
-              'h-10 w-full justify-start gap-3 px-3 font-medium text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white active:bg-savr-primary-700 sm:h-10 [&>svg]:h-5 [&>svg]:w-5',
-              collapsed && 'justify-center px-0',
+              'font-medium text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white active:bg-savr-primary-700 [&>svg]:h-5 [&>svg]:w-5',
+              avecIdentite
+                ? // Picto seul, cible tactile de 44 px (DS §6).
+                  'h-11 w-11 shrink-0 justify-center px-0 sm:h-11'
+                : 'h-10 w-full justify-start gap-3 px-3 sm:h-10',
+              !avecIdentite && collapsed && 'justify-center px-0',
             )}
           >
             <SignOutIcon aria-hidden="true" />
-            {!collapsed && <span>Se déconnecter</span>}
+            {!iconeSeule && <span>Se déconnecter</span>}
           </Button>
         </div>
       </nav>

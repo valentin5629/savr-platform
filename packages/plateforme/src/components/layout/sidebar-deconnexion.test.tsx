@@ -66,6 +66,32 @@ describe('Sidebar — organisation et utilisateur au-dessus de la déconnexion',
     ).toBeTruthy();
   });
 
+  it('déconnexion à droite des noms, sur la même ligne : picto seul de 44 px (Val 2026-11-01)', () => {
+    render(<Sidebar role="traiteur_manager" identite={identite} />);
+    const bloc = screen.getByTestId('identite-session');
+    const bouton = screen.getByRole('button', { name: 'Se déconnecter' });
+    const ligne = bloc.parentElement!;
+    expect(bouton.parentElement).toBe(ligne);
+    expect(ligne.className).toContain('flex');
+    expect(ligne.className).not.toContain('flex-col');
+    expect(bouton).not.toHaveTextContent('Se déconnecter');
+    expect(bouton.getAttribute('title')).toBe('Se déconnecter');
+    expect(bouton.className).toContain('h-11 w-11');
+  });
+
+  it('barre réduite : le picto passe sous le logo', () => {
+    render(
+      <Sidebar
+        role="traiteur_manager"
+        collapsed
+        onToggle={() => {}}
+        identite={identite}
+      />,
+    );
+    const ligne = screen.getByTestId('identite-session').parentElement!;
+    expect(ligne.className).toContain('flex-col');
+  });
+
   it('sans logo, ou logo introuvable : initiales de l’organisation', () => {
     const { unmount } = render(
       <Sidebar
@@ -101,12 +127,12 @@ describe('Sidebar — organisation et utilisateur au-dessus de la déconnexion',
     expect(bloc.querySelector('.sr-only')).toHaveTextContent('Viparis');
   });
 
-  it('sans identité : pas de bloc, le bouton reste', () => {
+  it('sans identité : pas de bloc, le bouton garde son libellé', () => {
     render(<Sidebar role="gestionnaire_lieux" />);
     expect(screen.queryByTestId('identite-session')).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Se déconnecter' }),
-    ).toBeInTheDocument();
+    ).toHaveTextContent('Se déconnecter');
   });
 });
 

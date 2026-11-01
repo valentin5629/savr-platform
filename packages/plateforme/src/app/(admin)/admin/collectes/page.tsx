@@ -8,8 +8,8 @@ import {
   FileDashedIcon,
   ForkKnifeIcon,
   IdentificationCardIcon,
-  LeafIcon,
   PlusIcon,
+  RecycleIcon,
   TruckIcon,
 } from '@/components/ui/icones';
 import Link from 'next/link';
@@ -630,7 +630,7 @@ export default function CollectesPage() {
             onClick={() => basculerADispatcher('non_transmises_ag')}
           />
           <KpiTile
-            icon={LeafIcon}
+            icon={RecycleIcon}
             count={chipCounts.zd_a_dispatcher ?? 0}
             label="ZD à dispatcher"
             sublabel="validées transporteur"

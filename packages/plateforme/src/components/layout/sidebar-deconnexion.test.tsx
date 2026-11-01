@@ -79,6 +79,31 @@ describe('Sidebar — utilisateur et poste à gauche de la déconnexion', () => 
     expect(bloc.getAttribute('title')).toBe('Camille Martin — Responsable RSE');
   });
 
+  it('avatar aux initiales du prénom et du nom, à gauche du nom (Val 2026-11-01)', () => {
+    render(<Sidebar role="traiteur_manager" identite={identite} />);
+    const avatar = screen.getByTestId('avatar-utilisateur');
+    expect(avatar).toHaveTextContent('CM');
+    expect(avatar.className).toContain('rounded-savr-full');
+    expect(
+      avatar.compareDocumentPosition(screen.getByTestId('identite-session')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('barre réduite : avatar puis picto en colonne, nom au survol', () => {
+    render(
+      <Sidebar
+        role="traiteur_manager"
+        collapsed
+        onToggle={() => {}}
+        identite={identite}
+      />,
+    );
+    const avatar = screen.getByTestId('avatar-utilisateur');
+    expect(avatar.getAttribute('title')).toBe('Camille Martin');
+    expect(avatar.parentElement!.className).toContain('flex-col');
+  });
+
   it('sans poste : le nom seul', () => {
     render(
       <Sidebar

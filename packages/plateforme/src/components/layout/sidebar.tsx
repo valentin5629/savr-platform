@@ -18,6 +18,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { Button } from '@/components/ui/button';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { ROUTES } from '@/lib/routes';
+import { initiales } from '@/components/dashboards/charts/cockpit/fmt';
 import type { IdentiteSession } from '@/lib/identite-session';
 
 interface SidebarProps {
@@ -217,9 +218,23 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
           className={cn(
             'shrink-0 border-t border-savr-primary-700 p-2',
             avecIdentite && 'flex items-center gap-2',
-            avecIdentite && collapsed && 'justify-center',
+            avecIdentite && collapsed && 'flex-col gap-1',
           )}
         >
+          {avecIdentite && (
+            // Avatar aux initiales « Prénom Nom » (Val 2026-11-01), gardé en barre réduite.
+            <span
+              data-testid="avatar-utilisateur"
+              aria-hidden="true"
+              title={collapsed ? identite.utilisateur : undefined}
+              className={cn(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-600 font-display text-sm font-semibold text-savr-white',
+                !collapsed && 'ml-1',
+              )}
+            >
+              {initiales(identite.utilisateur)}
+            </span>
+          )}
           {avecIdentite && (
             <div
               data-testid="identite-session"
@@ -227,7 +242,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
               title={[identite.utilisateur, identite.poste]
                 .filter(Boolean)
                 .join(' — ')}
-              className={cn('min-w-0 flex-1 px-2 py-1', collapsed && 'sr-only')}
+              className={cn('min-w-0 flex-1 py-1', collapsed && 'sr-only')}
             >
               <p className="truncate text-sm font-semibold text-savr-white">
                 {identite.utilisateur}

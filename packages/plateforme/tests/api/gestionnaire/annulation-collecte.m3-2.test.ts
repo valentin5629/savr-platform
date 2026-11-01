@@ -165,11 +165,10 @@ describe('M3.2 / annulation par le gestionnaire de lieux', () => {
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ data: { statut: 'annulee' } });
       expect(admin.__calls.rpc?.[0]).toEqual([
-        'fn_modifier_collecte',
+        'fn_annuler_collecte_client',
         {
           p_id: 'c1',
-          p_updates: { statut: 'annulee', annulee_cote_savr_motif: 'x' },
-          p_champs_modifies: ['statut'],
+          p_motif: 'x',
         },
       ]);
       // Template 5 : la confirmation part au programmateur, avec la date et le
@@ -200,14 +199,10 @@ describe('M3.2 / annulation par le gestionnaire de lieux', () => {
 
     expect(await res.json()).toEqual({ data: { statut: 'annulee' } });
     expect(admin.__calls.rpc?.[0]).toEqual([
-      'fn_modifier_collecte',
+      'fn_annuler_collecte_client',
       {
         p_id: 'c1',
-        p_updates: {
-          statut: 'annulee',
-          annulee_cote_savr_motif: 'doublon <b>urgent</b>',
-        },
-        p_champs_modifies: ['statut'],
+        p_motif: 'doublon <b>urgent</b>',
       },
     ]);
     expect(mockSendEmail).not.toHaveBeenCalledWith(

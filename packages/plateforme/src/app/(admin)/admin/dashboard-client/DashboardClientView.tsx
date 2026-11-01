@@ -459,10 +459,17 @@ export function DashboardClientView() {
           storageKey="savr.dashboard-client.filters"
           onChange={handleFilters}
           onReset={() => setSelectedOrgs([])}
-          enCarte
           enfantsActifs={selectedOrgs.length > 0}
           parcOptions={parcOptions}
           toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
+          count={
+            !loading && kpi ? (
+              <span data-testid="dashboard-collectes-count">
+                {kpi.nb_collectes} collecte{kpi.nb_collectes > 1 ? 's' : ''}{' '}
+                correspond{kpi.nb_collectes > 1 ? 'ent' : ''} à votre sélection
+              </span>
+            ) : undefined
+          }
         >
           <OrganisationSelector
             organisations={organisations}

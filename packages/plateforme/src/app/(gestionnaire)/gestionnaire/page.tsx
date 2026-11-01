@@ -257,14 +257,17 @@ export default function GestionnaireDashboardPage() {
           storageKey="gestionnaire-dashboard"
           onChange={handleFilters}
           parcOptions={parcOptions}
+          toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
+          count={
+            !loading && kpi ? (
+              <span data-testid="dashboard-collectes-count">
+                {kpi.nb_collectes} collecte
+                {(kpi.nb_collectes ?? 0) > 1 ? 's' : ''} correspond
+                {(kpi.nb_collectes ?? 0) > 1 ? 'ent' : ''} à votre sélection
+              </span>
+            ) : undefined
+          }
         />
-        {!loading && kpi && (
-          <Text data-testid="dashboard-collectes-count">
-            {kpi.nb_collectes} collecte{(kpi.nb_collectes ?? 0) > 1 ? 's' : ''}{' '}
-            correspond{(kpi.nb_collectes ?? 0) > 1 ? 'ent' : ''}
-          </Text>
-        )}
-        <ToggleTypeCollecte value={tab} onChange={setTab} />
 
         {erreur ? (
           // §10 §7 « Error » : une panne de chargement ne se lit jamais comme un

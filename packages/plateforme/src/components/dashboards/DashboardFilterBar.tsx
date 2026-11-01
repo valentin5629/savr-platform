@@ -45,10 +45,10 @@ interface DashboardFilterBarProps {
    */
   enfantsActifs?: boolean;
   /**
-   * Carte blanche des listes (`FilterBar surface="carte"`) au lieu du bandeau
-   * posé sur la page — Dashboard Client Admin (décision Val 2026-09-30).
+   * Compteur en pied de barre (« N collectes correspondent à votre
+   * sélection »), au même endroit que sur les listes. Omis : pas de pied.
    */
-  enCarte?: boolean;
+  count?: ReactNode;
   className?: string;
 }
 
@@ -99,9 +99,10 @@ function parcValue(f: DashboardFilters): ParcFilterValue {
  * Barre de filtres du dashboard — persistance localStorage (sobriété B1, pas de table).
  * Sans `parcOptions` : Période seule (12 derniers mois par défaut, §11 §8). Avec `parcOptions` :
  * Période + Lieux + Client organisateur ou Traiteurs + Type + Taille (5 filtres globaux).
- * Toujours bâtie sur `FilterBar` (R-UI-4b, D5 façon C) : `count={null}` (pas
- * de liste à compter), « Réinitialiser les filtres » seulement si un filtre
- * diffère du défaut.
+ * Toujours bâtie sur `FilterBar`, en carte comme la barre des listes
+ * (décision Val 2026-11-01) : sélecteur ZD / AG dans `toggle`, compteur en
+ * pied, « Réinitialiser les filtres » seulement si un filtre diffère du
+ * défaut.
  */
 export function DashboardFilterBar({
   storageKey,
@@ -111,7 +112,7 @@ export function DashboardFilterBar({
   toggle,
   onReset,
   enfantsActifs,
-  enCarte = false,
+  count,
   className,
 }: DashboardFilterBarProps) {
   const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
@@ -180,12 +181,11 @@ export function DashboardFilterBar({
 
   return (
     <FilterBar
-      surface={enCarte ? 'carte' : 'page'}
       toggle={toggle}
       data-testid="dashboard-filter-bar"
       resetTestId="dashboard-filter-reinitialiser"
       className={className}
-      count={null}
+      count={count ?? null}
       actif={actif}
       onReset={reinitialiser}
     >

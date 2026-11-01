@@ -108,6 +108,11 @@ const O = ESPACES.organisateur.prefixe;
 const PROG = '/programmer';
 const REG = '/registre';
 
+/** Onglets de la page « Paramètres » des espaces client. « Mon profil » est le
+ * premier, ouvert par défaut (Val 2026-11-01). */
+export const ONGLET_PROFIL = 'profil';
+export const ONGLET_ORGANISATION = 'organisation';
+
 export const ROUTES = {
   racine: '/',
   login: '/login',
@@ -168,8 +173,8 @@ export const ROUTES = {
     collectes: `${T}/collectes`,
     collecte: (id: string) => `${T}/collectes/${id}`,
     evenements: `${T}/evenements`,
-    monOrganisation: `${T}/mon-organisation`,
-    monProfil: `${T}/mon-profil`,
+    parametres: `${T}/parametres`,
+    parametresOrganisation: `${T}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },
 
   agence: {
@@ -177,8 +182,8 @@ export const ROUTES = {
     collectes: `${AG}/collectes`,
     collecte: (id: string) => `${AG}/collectes/${id}`,
     evenements: `${AG}/evenements`,
-    monOrganisation: `${AG}/mon-organisation`,
-    monProfil: `${AG}/mon-profil`,
+    parametres: `${AG}/parametres`,
+    parametresOrganisation: `${AG}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },
 
   gestionnaire: {
@@ -192,8 +197,8 @@ export const ROUTES = {
     traiteurs: `${G}/traiteurs`,
     traiteur: (id: string) => `${G}/traiteurs/${id}`,
     monPackAg: `${G}/mon-pack-ag`,
-    monOrganisation: `${G}/mon-organisation`,
     parametres: `${G}/parametres`,
+    parametresOrganisation: `${G}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },
 
   organisateur: {
@@ -201,8 +206,8 @@ export const ROUTES = {
     collectes: `${O}/collectes`,
     evenements: `${O}/evenements`,
     documents: `${O}/documents`,
-    monOrganisation: `${O}/mon-organisation`,
-    monProfil: `${O}/mon-profil`,
+    parametres: `${O}/parametres`,
+    parametresOrganisation: `${O}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },
 } as const;
 

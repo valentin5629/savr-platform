@@ -28,7 +28,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      `id, email, prenom, nom, role, actif, created_at, derniere_connexion`,
+      `id, email, prenom, nom, poste, role, actif, created_at, derniere_connexion`,
     )
     .order('nom');
 

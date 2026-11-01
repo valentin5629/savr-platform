@@ -177,7 +177,7 @@ describe('M3.2 / nav « Mon pack AG » — sections transverses', () => {
 
 // « Événements », remise par Val le 2026-10-18, s'insère sous « Collectes ».
 describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () => {
-  it('M3.2/nav_ordre_menu_gestionnaire — barre latérale dans l’ordre fixé, « Mon pack AG » avant « Mon organisation », barre mobile = 4 premières entrées', async () => {
+  it('M3.2/nav_ordre_menu_gestionnaire — barre latérale dans l’ordre fixé, « Mon pack AG » avant « Paramètres » (où vit « Mon organisation » depuis le 2026-10-31), barre mobile = 4 premières entrées', async () => {
     expect(await menuDe(GestionnaireLayout, '/gestionnaire')).toEqual([
       'Dashboard',
       'Collectes',
@@ -185,7 +185,6 @@ describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () =
       'Traiteurs',
       'Mes lieux',
       'Registre réglementaire',
-      'Mon organisation',
       'Paramètres',
     ]);
     const barreMobile = screen.getByRole('navigation', {
@@ -206,7 +205,6 @@ describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () =
       'Mes lieux',
       'Registre réglementaire',
       'Mon pack AG',
-      'Mon organisation',
       'Paramètres',
     ]);
   });

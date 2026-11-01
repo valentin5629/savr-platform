@@ -130,6 +130,7 @@ const VALID_BODY = {
   prenom: 'Jean',
   nom: 'Dupont',
   telephone: '0102030405',
+  poste: 'Responsable RSE',
   type_profil: 'traiteur',
   raison_sociale: 'Traiteur Test SAS',
   siret: '12345678901234',
@@ -411,6 +412,11 @@ describe('M0.4 — formats des champs d’identité au signup (CDC §05 §8)', (
     ['nom à 1 caractère', { nom: 'D' }],
     ['téléphone trop court', { telephone: '01020304' }],
     ['téléphone non français', { telephone: '+4915112345678' }],
+    // Poste obligatoire à l'inscription (Val 2026-11-01).
+    ['poste absent', { poste: undefined }],
+    ['poste vide', { poste: '   ' }],
+    ['poste de 101 caractères', { poste: 'é'.repeat(101) }],
+    ['poste non textuel', { poste: 42 }],
   ];
 
   for (const [libelle, patch] of cas) {
@@ -423,6 +429,21 @@ describe('M0.4 — formats des champs d’identité au signup (CDC §05 §8)', (
       expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
     });
   }
+
+  it('poste_enregistre — le poste est écrit sur le compte, sans les espaces de bord', async () => {
+    mockCreateUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(
+      makeReq({ ...VALID_BODY, poste: `  ${'é'.repeat(100)}  ` }),
+    );
+
+    expect(res.status).toBe(201);
+    const user = insertCalls.find((c) => c.table === 'users');
+    expect(user!.payload.poste).toBe('é'.repeat(100));
+  });
 
   it('accepte les écritures usuelles d’un numéro français', async () => {
     const formes = ['01 23 45 67 89', '01.23.45.67.89', '+33 1 23 45 67 89'];

@@ -15,7 +15,8 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const { data: profil, error } = await supabase
     .from('users')
     .select(
-      'id, email, prenom, nom, role, organisation_id, derniere_connexion, ' +
+      'id, email, prenom, nom, telephone, poste, role, organisation_id, ' +
+        'derniere_connexion, ' +
         'created_at, cgu_accepte_le, cgu_version',
     )
     .eq('id', auth.ctx.userId)

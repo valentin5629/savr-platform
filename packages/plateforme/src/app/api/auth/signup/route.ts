@@ -13,7 +13,9 @@ import { validatePasswordStrength } from '@/lib/password.js';
 import {
   isValidEmailFormat,
   isValidNomOuPrenom,
+  isValidPoste,
   isValidTelephoneFr,
+  POSTE_MAX_LENGTH,
 } from '@/lib/identite-signup.js';
 import { CGU_VERSION_COURANTE } from '@/lib/cgu.js';
 import { writeError, authAccountError } from '@/lib/api-helpers.js';
@@ -69,6 +71,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     prenom,
     nom,
     telephone,
+    poste,
     type_profil,
     raison_sociale,
     siret,
@@ -79,6 +82,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     prenom?: string;
     nom?: string;
     telephone?: string;
+    poste?: string;
     type_profil?: string;
     raison_sociale?: string;
     siret?: string;
@@ -92,6 +96,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     !prenom ||
     !nom ||
     !telephone ||
+    typeof poste !== 'string' ||
     !type_profil ||
     !raison_sociale
   ) {
@@ -127,6 +132,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!isValidTelephoneFr(telephone)) {
     return NextResponse.json(
       { error: 'Numéro de téléphone français invalide.' },
+      { status: 422 },
+    );
+  }
+  // Poste : obligatoire à l'inscription (Val 2026-11-01), sans effet sur les droits.
+  if (!isValidPoste(poste)) {
+    return NextResponse.json(
+      { error: `Poste : obligatoire, ${POSTE_MAX_LENGTH} caractères maximum.` },
       { status: 422 },
     );
   }
@@ -355,6 +367,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     email,
     prenom,
     nom,
+    poste: poste.trim(),
     role: userRole,
     cgu_accepte_le: new Date().toISOString(),
     cgu_version: CGU_VERSION_COURANTE,

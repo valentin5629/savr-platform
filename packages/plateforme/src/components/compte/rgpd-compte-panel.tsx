@@ -13,7 +13,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
 
 // Panneau « Mon compte » RGPD (transverse, tous rôles) — câble les droits :
-//   · Art.16 Rectification  → PATCH /api/me/profil  (prénom / nom)
+//   · Art.16 Rectification  → PATCH /api/me/profil  (prénom / nom / téléphone / poste)
 //   · Art.17 Suppression    → POST  /api/me/demande-suppression  (workflow Admin 48h)
 // Remplace les boutons inertes des pages mon-profil (BL-P0-09 / P2-27).
 // Export Art.15/20 : plus de bloc à l'écran (décision Val 2026-10-06) — la route
@@ -26,6 +26,7 @@ export function RgpdComptePanel({
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
   const [telephone, setTelephone] = useState('');
+  const [poste, setPoste] = useState('');
   const [chargement, setChargement] = useState(true);
   // Chargement en échec : formulaire bloqué — l'enregistrer tel quel (vide)
   // effacerait le téléphone.
@@ -49,6 +50,7 @@ export function RgpdComptePanel({
         setPrenom(data?.prenom ?? '');
         setNom(data?.nom ?? '');
         setTelephone(data?.telephone ?? '');
+        setPoste(data?.poste ?? '');
       } catch {
         setChargementKo(true);
         setProfilErreur(
@@ -68,7 +70,7 @@ export function RgpdComptePanel({
       const res = await fetch('/api/me/profil', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ prenom, nom, telephone }),
+        body: JSON.stringify({ prenom, nom, telephone, poste }),
       });
       if (res.ok) toast({ title: 'Profil mis à jour.', variant: 'success' });
       else setProfilErreur('Échec de la mise à jour du profil.');
@@ -140,6 +142,18 @@ export function RgpdComptePanel({
                   value={telephone}
                   autoComplete="tel"
                   onChange={(e) => setTelephone(e.target.value)}
+                  disabled={chargement || chargementKo}
+                />
+              </FormField>
+              {/* Poste : champ libre, sans effet sur les droits (Val 2026-11-01). */}
+              <FormField label="Poste" htmlFor="profil-poste">
+                <Input
+                  id="profil-poste"
+                  value={poste}
+                  autoComplete="organization-title"
+                  maxLength={100}
+                  placeholder="Ex. Responsable RSE"
+                  onChange={(e) => setPoste(e.target.value)}
                   disabled={chargement || chargementKo}
                 />
               </FormField>

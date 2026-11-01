@@ -4217,6 +4217,7 @@ export type Database = {
           organisation_id: string
           prenom: string
           role: Database["plateforme"]["Enums"]["user_role"]
+          poste: string | null
           telephone: string | null
         }
         Insert: {
@@ -4232,6 +4233,7 @@ export type Database = {
           organisation_id: string
           prenom: string
           role: Database["plateforme"]["Enums"]["user_role"]
+          poste?: string | null
           telephone?: string | null
         }
         Update: {
@@ -4247,6 +4249,7 @@ export type Database = {
           organisation_id?: string
           prenom?: string
           role?: Database["plateforme"]["Enums"]["user_role"]
+          poste?: string | null
           telephone?: string | null
         }
         Relationships: [

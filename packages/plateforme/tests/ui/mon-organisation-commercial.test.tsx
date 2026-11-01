@@ -16,7 +16,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/',
 }));
 
-import { MonOrganisationClient } from '@/app/(traiteur)/traiteur/mon-organisation/mon-organisation-client';
+import { ParametresTraiteurClient } from '@/app/(traiteur)/traiteur/parametres/parametres-client';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const PROFIL = {
@@ -36,6 +36,7 @@ const EQUIPE = [
     prenom: 'Paul',
     nom: 'Commercial',
     email: 'paul@org.fr',
+    poste: 'Chargé de clientèle',
     role: 'traiteur_commercial',
     actif: true,
     derniere_connexion: null,
@@ -45,6 +46,7 @@ const EQUIPE = [
     prenom: 'Marie',
     nom: 'Manager',
     email: 'marie@org.fr',
+    poste: null,
     role: 'traiteur_manager',
     actif: true,
     derniere_connexion: null,
@@ -77,17 +79,18 @@ afterEach(() => {
 });
 
 describe('Mon organisation — commercial traiteur', () => {
-  it('onglets : Équipe visible, Préférences masqué', () => {
+  it('onglets : Membres visible, Préférences masqué', () => {
     stubFetch();
-    render(<MonOrganisationClient isManager={false} userId="u1" />);
-    expect(nomsOnglets()).toEqual(['Informations légales', 'Équipe']);
+    render(<ParametresTraiteurClient isManager={false} userId="u1" />);
+    expect(nomsOnglets()).toEqual(['Mon profil', 'Organisation', 'Membres']);
   });
 
   it(
     'informations légales en lecture seule, sans « Enregistrer »',
     async () => {
       stubFetch();
-      render(<MonOrganisationClient isManager={false} userId="u1" />);
+      render(<ParametresTraiteurClient isManager={false} userId="u1" />);
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Organisation' }));
       expect(await screen.findByText('Org SAS', {}, ATTENTE_UI)).toBeTruthy();
       expect(screen.getByText('12345678900011')).toBeTruthy();
       expect(screen.queryByLabelText('Raison sociale')).toBeNull();
@@ -100,8 +103,8 @@ describe('Mon organisation — commercial traiteur', () => {
     'équipe : ni rôle modifiable ni « Suspendre » ; transfert de ses collectes seules',
     async () => {
       stubFetch();
-      render(<MonOrganisationClient isManager={false} userId="u1" />);
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Équipe' }));
+      render(<ParametresTraiteurClient isManager={false} userId="u1" />);
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
 
       expect(
         (await screen.findAllByText('marie@org.fr', {}, ATTENTE_UI)).length,
@@ -116,11 +119,33 @@ describe('Mon organisation — commercial traiteur', () => {
   );
 
   it(
+    'membres_poste_affiche — colonne « Poste », tiret quand il manque (Val 2026-11-01)',
+    async () => {
+      stubFetch();
+      render(<ParametresTraiteurClient isManager={false} userId="u1" />);
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
+
+      // La Data Table rend aussi la vue mobile : on lit la ligne du tableau.
+      const ligne = (await screen.findAllByText('paul@org.fr', {}, ATTENTE_UI))
+        .map((e) => e.closest('tr'))
+        .find(Boolean)!;
+      expect(screen.getByRole('columnheader', { name: /Poste/ })).toBeTruthy();
+      expect(ligne.textContent).toContain('Chargé de clientèle');
+      const ligneMarie = screen
+        .getAllByText('marie@org.fr')
+        .map((e) => e.closest('tr'))
+        .find(Boolean)!;
+      expect(ligneMarie.textContent).toContain('—');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'pendant manager : rôle modifiable, « Suspendre » et champ « Depuis »',
     async () => {
       stubFetch();
-      render(<MonOrganisationClient isManager userId="u2" />);
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Équipe' }));
+      render(<ParametresTraiteurClient isManager userId="u2" />);
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
 
       expect(
         (await screen.findAllByText('paul@org.fr', {}, ATTENTE_UI)).length,

@@ -13,7 +13,6 @@ vi.mock('next/navigation', () => ({
 
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import { margeTooltipZd } from '@/lib/marge-tooltip';
-import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { DashboardFilterBar } from '@/components/dashboards/DashboardFilterBar';
 import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
@@ -34,15 +33,6 @@ describe('M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court
         id: 'abcdef01-2345-6789-abcd-ef0123456789',
       }),
     ).toBe('ABCDEF01');
-  });
-});
-
-// ── BL-P3-08 — bloc Préférences (langue FR figé) ────────────────────────────
-describe('M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)', () => {
-  it('rend « Français (FR) » en lecture seule', () => {
-    render(<PreferencesLangueCard />);
-    expect(screen.getByTestId('preferences-langue')).toBeInTheDocument();
-    expect(screen.getByText(/Français \(FR\)/)).toBeInTheDocument();
   });
 });
 

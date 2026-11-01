@@ -1,39 +1,8 @@
-import { requirePageSession } from '@/lib/page-auth';
-import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FacturesAgenceTable } from './factures-table';
-import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
-import { PageHeader } from '@/components/ui/page-header';
+import { redirect } from 'next/navigation';
+import { ROUTES } from '@/lib/routes';
 
-const AGENCE_ROLES = ['agence'] as const;
-
-// §06.11 diff #8 — pas de sous-section « Utilisateurs » (gestion users agence =
-// Admin only, RLS users self-only). Infos légales modifiables (décision Val
-// 2026-09-28, route /api/v1/agence/mon-organisation/profil — lecture filtrée sur
-// l'organisation du JWT : la RLS rend aussi les fiches shadow de l'agence, un
-// SELECT non filtré renvoyait plusieurs lignes et la page s'affichait vide).
-// Facturation en lecture seule, chargée et filtrée côté client
-// (`FacturesAgenceTable`, route /api/v1/agence/factures — R-UI-4b D10).
-export default async function MonOrganisationAgencePage() {
-  await requirePageSession(AGENCE_ROLES);
-
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Mon organisation" />
-
-      <InfosLegalesOrganisation urlProfil="/api/v1/agence/mon-organisation/profil" />
-
-      {/* Facturation hors plateforme au go-live (décision Val 2026-10-22). */}
-      {facturationPlateformeActive() && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Facturation</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FacturesAgenceTable />
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
+// « Mon organisation » vit dans « Paramètres » (décision Val 2026-10-31) :
+// l'ancienne adresse y renvoie.
+export default function MonOrganisationPage() {
+  redirect(ROUTES.agence.parametresOrganisation);
 }

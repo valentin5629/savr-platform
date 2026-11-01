@@ -13,7 +13,7 @@ import {
   within,
 } from '@testing-library/react';
 
-import MonOrganisationPage from '@/app/(gestionnaire)/gestionnaire/mon-organisation/page.js';
+import { ParametresGestionnaireClient } from '@/app/(gestionnaire)/gestionnaire/parametres/parametres-client';
 import { messageDeRole } from '@/test-utils/message-role';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import { renderAvecToasts } from '@/test-utils/toasts';
@@ -53,7 +53,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         'fetch',
         vi.fn(() => Promise.resolve(reponse(200, { data: PROFIL }))),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       expect(
         await screen.findByDisplayValue('Viparis SAS', {}, ATTENTE_UI),
       ).toBeTruthy();
@@ -69,7 +69,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         'fetch',
         vi.fn(() => Promise.resolve(reponse(200, { data: PROFIL }))),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       await screen.findByDisplayValue('Viparis SAS', {}, ATTENTE_UI);
       // Raison sociale, SIRET, adresse modifiables (décision Val 2026-09-28) ;
       // nom, email, téléphone en lecture seule (+ l'upload logo à part).
@@ -103,7 +103,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
       );
       vi.stubGlobal('fetch', fetchMock);
       // Succès = toast (R-UI-1 H1) : rendu sous ToastProvider.
-      renderAvecToasts(<MonOrganisationPage />);
+      renderAvecToasts(<ParametresGestionnaireClient initial="organisation" />);
       const champ = await screen.findByLabelText('Adresse', {}, ATTENTE_UI);
       const bouton = screen.getByRole('button', { name: 'Enregistrer' });
       // Rien à enregistrer tant que l'adresse n'a pas changé.
@@ -144,7 +144,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       const champ = await screen.findByLabelText('Adresse', {}, ATTENTE_UI);
       fireEvent.change(champ, { target: { value: '1 rue Neuve' } });
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -169,7 +169,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      renderAvecToasts(<MonOrganisationPage />);
+      renderAvecToasts(<ParametresGestionnaireClient initial="organisation" />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -213,7 +213,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      renderAvecToasts(<MonOrganisationPage />);
+      renderAvecToasts(<ParametresGestionnaireClient initial="organisation" />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -248,7 +248,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
-      renderAvecToasts(<MonOrganisationPage />);
+      renderAvecToasts(<ParametresGestionnaireClient initial="organisation" />);
       const input = await screen.findByLabelText(
         'Ajouter un logo',
         {},
@@ -292,7 +292,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       // DataGrid rend chaque ligne deux fois (tableau + carte mobile) : on
       // borne les assertions au tableau.
@@ -328,7 +328,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
           ),
         ),
       );
-      renderAvecToasts(<MonOrganisationPage />);
+      renderAvecToasts(<ParametresGestionnaireClient initial="organisation" />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Membres' }));
       const email = await screen.findByLabelText(/Email/, {}, ATTENTE_UI);
       fireEvent.change(screen.getByLabelText(/Prénom/), {
@@ -375,7 +375,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
         'fetch',
         vi.fn(() => Promise.resolve(reponse(500, { error: 'Erreur serveur' }))),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       expect(
         (await messageDeRole('alert', /Impossible de charger/)).textContent,
       ).toMatch(/Impossible de charger/);
@@ -399,7 +399,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
             : Promise.resolve(reponse(200, { data: [] })),
         ),
       );
-      render(<MonOrganisationPage />);
+      render(<ParametresGestionnaireClient initial="organisation" />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       expect(
         await screen.findByText('Aucune facture.', {}, ATTENTE_UI),
@@ -409,6 +409,96 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
       await act(() => new Promise((r) => setTimeout(r, 50)));
       expect(screen.queryByRole('alert')).toBeNull();
       expect(screen.getByText('Aucune facture.')).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// « Paramètres » (décision Val 2026-10-31) : l'onglet « Mon profil » ne charge
+// rien. Quitter « Organisation » en plein chargement pour lui ne doit pas
+// laisser l'indicateur de chargement tourner sans fin.
+describe('M3.2 / Paramètres gestionnaire — onglet Mon profil', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it(
+    'M3.2/parametres_mon_profil_sans_chargement_infini',
+    () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => new Promise<Response>(() => {})),
+      );
+      render(
+        <ParametresGestionnaireClient
+          initial="organisation"
+          monProfil={<p>Préférences</p>}
+        />,
+      );
+      expect(screen.getByText('Chargement…')).toBeTruthy();
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Mon profil' }));
+      expect(screen.getByText('Préférences')).toBeTruthy();
+      expect(screen.queryByText('Chargement…')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// Poste (Val 2026-11-01) : champ libre de « Mon profil », affiché dans la liste.
+describe('M3.2 / Paramètres gestionnaire — poste dans la liste des membres', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it(
+    'M3.2/membres_poste_affiche',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve(
+            reponse(200, {
+              data: [
+                {
+                  id: 'u1',
+                  email: 'victor@viparis.test',
+                  prenom: 'Victor',
+                  nom: 'Paris',
+                  poste: 'Directeur des opérations',
+                  role: 'gestionnaire_lieux',
+                  actif: true,
+                },
+                {
+                  id: 'u2',
+                  email: 'valerie@viparis.test',
+                  prenom: 'Valérie',
+                  nom: 'Paris',
+                  poste: null,
+                  role: 'gestionnaire_lieux',
+                  actif: true,
+                },
+              ],
+            }),
+          ),
+        ),
+      );
+      render(<ParametresGestionnaireClient initial="membres" />);
+      // La Data Table rend aussi la vue mobile : on lit la ligne du tableau.
+      const ligne = (
+        await screen.findAllByText('victor@viparis.test', {}, ATTENTE_UI)
+      )
+        .map((e) => e.closest('tr'))
+        .find(Boolean)!;
+      expect(screen.getByRole('columnheader', { name: /Poste/ })).toBeTruthy();
+      expect(ligne.textContent).toContain('Directeur des opérations');
+      expect(
+        screen
+          .getAllByText('valerie@viparis.test')
+          .map((e) => e.closest('tr'))
+          .find(Boolean)!.textContent,
+      ).toContain('—');
     },
     ATTENTE_CAS_MS,
   );

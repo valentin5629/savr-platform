@@ -15,8 +15,7 @@ describe('M3.3 / navigation agence', () => {
       'Dashboard',
       'Collectes',
       'Événements',
-      'Mon organisation',
-      'Mon profil',
+      'Paramètres',
     ]);
     for (const absente of [
       'Registre réglementaire',

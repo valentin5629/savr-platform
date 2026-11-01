@@ -84,10 +84,10 @@ it('M0.8-70 — Barre mobile : même règle, et rien d’allumé quand la page c
   render(<BottomNav role="gestionnaire_lieux" />);
   expect(entreesActives()).toEqual(['Collectes']);
 
-  // « Mon organisation » est au-delà des 4 entrées de la barre mobile. Son
-  // adresse est sous celle du Dashboard, qui ne doit pas s'allumer à sa place.
+  // « Paramètres » est au-delà des 4 entrées de la barre mobile. Son adresse
+  // est sous celle du Dashboard, qui ne doit pas s'allumer à sa place.
   cleanup();
-  etat.pathname = '/gestionnaire/mon-organisation';
+  etat.pathname = '/gestionnaire/parametres';
   render(<BottomNav role="gestionnaire_lieux" />);
   expect(entreesActives()).toEqual([]);
 });

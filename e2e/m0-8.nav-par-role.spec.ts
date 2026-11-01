@@ -11,28 +11,11 @@ type NavResponse = { role: string; items: { label: string; href: string }[] };
 const EXPECTED: Record<string, string[]> = {
   admin_savr: ['Clients', 'Paramètres', 'Collectes', 'Événements'],
   // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1, plus « Événements »
-  // sous « Collectes » (Val 2026-10-29).
-  traiteur_manager: [
-    'Dashboard',
-    'Collectes',
-    'Événements',
-    'Mon organisation',
-    'Mon profil',
-  ],
-  traiteur_commercial: [
-    'Dashboard',
-    'Collectes',
-    'Événements',
-    'Mon organisation',
-    'Mon profil',
-  ],
-  agence: [
-    'Dashboard',
-    'Collectes',
-    'Événements',
-    'Mon organisation',
-    'Mon profil',
-  ],
+  // sous « Collectes » (Val 2026-10-29). « Mon organisation » et « Mon profil »
+  // sont des onglets de « Paramètres » (Val 2026-10-31).
+  traiteur_manager: ['Dashboard', 'Collectes', 'Événements', 'Paramètres'],
+  traiteur_commercial: ['Dashboard', 'Collectes', 'Événements', 'Paramètres'],
+  agence: ['Dashboard', 'Collectes', 'Événements', 'Paramètres'],
   gestionnaire_lieux: ['Mes lieux', 'Collectes'],
   // « Mes événements » renommé « Dashboard » (Val 2026-10-29).
   client_organisateur: ['Dashboard', 'Collectes', 'Événements'],

@@ -518,10 +518,11 @@
     {
       "id": "BL-P3-08",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:751",
-      "artefact": "packages/plateforme/src/components/compte/preferences-langue.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/page.tsx",
-      "test": "M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)",
-      "statut": "implemented",
-      "libelle": "BL-P3-08 — Bloc Préférences « Langue : Français (FR) » figé V1 (composant partagé). Côté gestionnaire dans la section « Paramètres » §9 (§06.05 l.75/l.474) ; côté traiteur dans « Mon organisation » §6 (§06.04 l.709-711, déjà présent). Aucune persistance ni colonne users.langue (multi-langues = V1.1)."
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "BL-P3-08 — Bloc Préférences « Langue : Français (FR) » — RETIRÉ de l'écran (décision Val 2026-11-01) : la langue n'a qu'une valeur (multi-langues = V1.1). Composant supprimé.",
+      "ref_divergence": "_Divergences/M3.1_20261101_mon-profil-poste-sans-securite-preferences.md"
     },
     {
       "id": "BL-P3-05",
@@ -575,10 +576,11 @@
     {
       "id": "BL-P3-13",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:46",
-      "artefact": "supabase/migrations/20260710130000_plateforme_r23c_mes_acces_compte.sql (f_mes_acces_compte SECURITY DEFINER) ; packages/plateforme/src/app/api/me/acces/route.ts ; packages/plateforme/src/components/compte/securite-acces-panel.tsx ; pages mon-profil traiteur/agence/organisateur + gestionnaire parametres ; nav-config.ts",
-      "test": "M0.8-61 — Sécurité du compte : historique self des accès admin (BL-P3-13) ; pgTAP supabase/tests/r23c_mes_acces_compte.test.sql (self-scope + al_select_staff intact)",
-      "statut": "implemented",
-      "libelle": "BL-P3-13 — Page « Sécurité du compte » (§15 §2.3) : l'utilisateur voit l'historique des accès admin (impersonation) à SON compte via RPC SECURITY DEFINER f_mes_acces_compte scopée auth.uid() (date + libellé générique, jamais l'identité admin ; audit_log reste staff-only al_select_staff). Câblée sur les 4 rôles impersonables (traiteur/agence/gestionnaire/organisateur). GO-VISUAL + reviewer rls-sécurité."
+      "artefact": "supabase/migrations/20260710130000_plateforme_r23c_mes_acces_compte.sql (f_mes_acces_compte SECURITY DEFINER) ; packages/plateforme/src/app/api/me/acces/route.ts",
+      "test": "pgTAP supabase/tests/r23c_mes_acces_compte.test.sql (RPC conservée)",
+      "statut": "descoped",
+      "libelle": "BL-P3-13 — Carte « Sécurité du compte » (§15 §2.3, historique des accès admin) — RETIRÉE de l'écran (décision Val 2026-11-01). La RPC f_mes_acces_compte et la route GET /api/me/acces restent servies (réaffichage sans migration).",
+      "ref_divergence": "_Divergences/M3.1_20261101_mon-profil-poste-sans-securite-preferences.md"
     },
     {
       "id": "BL-P3-14",

@@ -1745,6 +1745,7 @@ export type Database = {
       evenements: {
         Row: {
           client_organisateur_organisation_id: string | null
+          code_affaire_viparis: string | null
           contact_principal_nom: string
           contact_principal_telephone: string
           contact_secours_nom: string | null
@@ -1768,6 +1769,7 @@ export type Database = {
         }
         Insert: {
           client_organisateur_organisation_id?: string | null
+          code_affaire_viparis?: string | null
           contact_principal_nom: string
           contact_principal_telephone: string
           contact_secours_nom?: string | null
@@ -1791,6 +1793,7 @@ export type Database = {
         }
         Update: {
           client_organisateur_organisation_id?: string | null
+          code_affaire_viparis?: string | null
           contact_principal_nom?: string
           contact_principal_telephone?: string
           contact_secours_nom?: string | null
@@ -2707,6 +2710,7 @@ export type Database = {
           adresse_acces: string
           capacite_maximum: number | null
           code_postal: string
+          code_site_viparis: string | null
           commentaire_lieu: string | null
           commentaires_internes: string | null
           contraintes_horaires: string | null
@@ -2741,6 +2745,7 @@ export type Database = {
           adresse_acces: string
           capacite_maximum?: number | null
           code_postal: string
+          code_site_viparis?: string | null
           commentaire_lieu?: string | null
           commentaires_internes?: string | null
           contraintes_horaires?: string | null
@@ -2775,6 +2780,7 @@ export type Database = {
           adresse_acces?: string
           capacite_maximum?: number | null
           code_postal?: string
+          code_site_viparis?: string | null
           commentaire_lieu?: string | null
           commentaires_internes?: string | null
           contraintes_horaires?: string | null
@@ -4910,12 +4916,14 @@ export type Database = {
           created_at: string | null
           date_collecte: string | null
           date_evenement: string | null
+          evenement_code_affaire_viparis: string | null
           evenement_id: string | null
           evenement_nom: string | null
           exutoire_nom: string | null
           flux_codes: string[] | null
           historique_partiel: boolean | null
           lieu_adresse: string | null
+          lieu_code_site_viparis: string | null
           lieu_id: string | null
           lieu_nom: string | null
           pax: number | null

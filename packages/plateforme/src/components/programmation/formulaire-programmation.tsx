@@ -33,6 +33,10 @@ import {
   type LieuOption,
 } from '@/components/programmation/lieu-combobox';
 import {
+  MESSAGE_FORMAT_CODE_AFFAIRE_VIPARIS,
+  normaliserCodeAffaireViparis,
+} from '@/lib/viparis/codes';
+import {
   LieuChampsEditables,
   lieuToEdits,
   computeLieuOverrides,
@@ -131,6 +135,7 @@ interface BrouillonLieu {
   ville: string | null;
   acces_details?: string | null;
   controle_acces_requis_default?: boolean | null;
+  code_site_viparis?: string | null;
 }
 interface BrouillonCollecte {
   type: string;
@@ -154,6 +159,7 @@ interface Brouillon {
   nom_evenement: string | null;
   nom_client_organisateur: string | null;
   reference_affaire: string | null;
+  code_affaire_viparis?: string | null;
   controle_acces_requis: boolean;
   traiteur_operationnel: { id: string; nom: string } | null;
   organisation?: { id: string; nom: string } | null;
@@ -220,6 +226,8 @@ export function FormulaireProgrammation({
   const [nomEvenement, setNomEvenement] = useState('');
   const [nomClient, setNomClient] = useState('');
   const [referenceAffaire, setReferenceAffaire] = useState('');
+  // Code affaire VIPARIS (Val 2026-11-02) : proposé pour un lieu VIPARIS.
+  const [codeAffaireViparis, setCodeAffaireViparis] = useState('');
   const [lieu, setLieu] = useState<LieuOption | null>(null);
   // Champs du lieu éditables (override de la programmation) : `lieuBase` =
   // valeurs du référentiel ; `lieuEdits` = valeurs courantes ; le diff =
@@ -407,6 +415,7 @@ export function FormulaireProgrammation({
         setNomEvenement(b.nom_evenement ?? '');
         setNomClient(b.nom_client_organisateur ?? '');
         setReferenceAffaire(b.reference_affaire ?? '');
+        setCodeAffaireViparis(b.code_affaire_viparis ?? '');
         setControleAcces(Boolean(b.controle_acces_requis));
         setTraiteursBrouillon({
           organisation: b.organisation ?? { id: b.organisation_id, nom: '' },
@@ -421,6 +430,7 @@ export function FormulaireProgrammation({
             ville: lieuSrc.ville ?? '',
             code_postal: lieuSrc.code_postal ?? '',
             acces_details: lieuSrc.acces_details ?? null,
+            code_site_viparis: lieuSrc.code_site_viparis ?? null,
             controle_acces_requis_default: Boolean(
               lieuSrc.controle_acces_requis_default,
             ),
@@ -487,7 +497,12 @@ export function FormulaireProgrammation({
   );
   const agSansPack = nbAg > 0 && packAg !== null && factureeAlUnite(packAg);
 
+  const avecCodeAffaireViparis = Boolean(lieu?.code_site_viparis);
+  const codeAffaireInvalide =
+    avecCodeAffaireViparis &&
+    normaliserCodeAffaireViparis(codeAffaireViparis) === undefined;
   const ecran1Valide =
+    !codeAffaireInvalide &&
     nomEvenement.trim() !== '' &&
     nomClient.trim() !== '' &&
     lieu !== null &&
@@ -572,6 +587,9 @@ export function FormulaireProgrammation({
         nom_evenement: nomEvenement.trim() || undefined,
         nom_client_organisateur: nomClient.trim() || undefined,
         reference_affaire: referenceAffaire || undefined,
+        code_affaire_viparis: avecCodeAffaireViparis
+          ? (normaliserCodeAffaireViparis(codeAffaireViparis) ?? null)
+          : null,
         lieu_id: lieu!.id,
         lieu_overrides:
           Object.keys(lieuOverrides).length > 0 ? lieuOverrides : undefined,
@@ -814,6 +832,29 @@ export function FormulaireProgrammation({
               organisationId={adminTargetOrgId}
             />
           </FormField>
+
+          {avecCodeAffaireViparis && (
+            <FormField
+              label="Code affaire VIPARIS (optionnel)"
+              htmlFor="code-affaire-viparis"
+              hint="7 lettres ou chiffres, communiqué par VIPARIS"
+              error={
+                codeAffaireInvalide
+                  ? MESSAGE_FORMAT_CODE_AFFAIRE_VIPARIS
+                  : undefined
+              }
+            >
+              <Input
+                id="code-affaire-viparis"
+                className="uppercase"
+                maxLength={7}
+                value={codeAffaireViparis}
+                onChange={(e) => setCodeAffaireViparis(e.target.value)}
+                placeholder="Ex : 26SIAL1"
+                error={codeAffaireInvalide}
+              />
+            </FormField>
+          )}
 
           {/* Champs du lieu pré-remplis et éditables (override de la programmation). */}
           {lieu && lieuEdits && (

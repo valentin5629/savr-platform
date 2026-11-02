@@ -352,3 +352,47 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
     ATTENTE_CAS_MS,
   );
 });
+
+// Codes VIPARIS (Val 2026-11-02) : lisibles et corrigeables par le gestionnaire,
+// même sur la collecte d'un traiteur tenue sur ses lieux.
+describe('M3.2 / pop-up fiche collecte — codes VIPARIS', () => {
+  it(
+    'VIPARIS/fiche_codes_lieu_viparis — lieu à code site : code site et code affaire affichés, code affaire modifiable',
+    async () => {
+      const base = ficheGestionnaire();
+      stubFetchFiche(
+        ficheGestionnaire({
+          evenement: {
+            ...base.evenement!,
+            code_site_viparis: 'PCP',
+            code_affaire_viparis: '26SIAL1',
+          },
+        }),
+      );
+      render(fiche());
+      const code = await screen.findByTestId(
+        'code-affaire-viparis',
+        {},
+        ATTENTE_UI,
+      );
+      expect(code.textContent).toContain('26SIAL1');
+      expect(code.textContent).toContain('Modifier');
+      expect(screen.getByTestId('code-site-viparis').textContent).toContain(
+        'PCP',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'VIPARIS/fiche_codes_hors_viparis — lieu sans code site ni code affaire : aucun des deux blocs',
+    async () => {
+      stubFetchFiche(ficheGestionnaire());
+      render(fiche());
+      await screen.findByTestId('bloc-evenement', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('code-affaire-viparis')).toBeNull();
+      expect(screen.queryByTestId('code-site-viparis')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});

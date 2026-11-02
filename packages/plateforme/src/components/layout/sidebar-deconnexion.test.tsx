@@ -1,8 +1,8 @@
 /**
  * Sidebar — « Se déconnecter » tout en bas (Val 2026-10-30, ex-TopBar,
- * décision du bouton toujours affiché : Val 2026-07-03) ; picto à droite du
- * nom de l'utilisateur et de son poste, sur la même ligne, le logo de
- * l'organisation passant dans le bandeau de page (Val 2026-11-01).
+ * décision du bouton toujours affiché : Val 2026-07-03) ; avec une identité,
+ * avatar, nom et poste ouvrent un menu « Paramètres » / « Se déconnecter »
+ * (Val 2026-11-02), le logo de l'organisation passant dans le bandeau.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -12,15 +12,14 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createBrowserSupabaseClient: () => ({ auth: { signOut: mockSignOut } }),
 }));
 vi.mock('next/navigation', () => ({ usePathname: () => '/gestionnaire' }));
-vi.mock('next/link', () => ({
-  default: ({
-    href,
-    children,
-  }: {
-    href: string;
-    children: React.ReactNode;
-  }) => <a href={href}>{children}</a>,
-}));
+vi.mock('next/link', async () => {
+  const { forwardRef } = await import('react');
+  // Fait suivre les attributs : le menu pose role="menuitem" sur le lien.
+  const Lien = forwardRef<HTMLAnchorElement, React.ComponentProps<'a'>>(
+    (props, ref) => <a ref={ref} {...props} />,
+  );
+  return { default: Lien };
+});
 
 import { Sidebar } from './sidebar';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
@@ -44,7 +43,7 @@ afterEach(() => {
   });
 });
 
-describe('Sidebar — utilisateur et poste à gauche de la déconnexion', () => {
+describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)', () => {
   const identite: IdentiteSession = {
     organisation: 'Viparis',
     logoSrc: '/api/v1/mon-organisation/logo?v=1',
@@ -53,44 +52,63 @@ describe('Sidebar — utilisateur et poste à gauche de la déconnexion', () => 
     poste: 'Responsable RSE',
   };
 
-  it('nom puis poste, sans organisation ni logo (passés dans le bandeau)', () => {
+  function ouvrir() {
+    const bouton = screen.getByTestId('menu-utilisateur');
+    fireEvent.keyDown(bouton, { key: 'Enter' });
+    return bouton;
+  }
+
+  it('avatar aux initiales, nom puis poste, sans organisation ni logo', () => {
     render(<Sidebar role="gestionnaire_lieux" identite={identite} />);
-    const bloc = screen.getByTestId('identite-session');
-    const lignes = Array.from(bloc.querySelectorAll('p')).map(
-      (p) => p.textContent,
+    const bouton = screen.getByTestId('menu-utilisateur');
+    expect(screen.getByTestId('avatar-utilisateur')).toHaveTextContent('CM');
+    expect(screen.getByTestId('identite-session')).toHaveTextContent(
+      'Camille MartinResponsable RSE',
     );
-    expect(lignes).toEqual(['Camille Martin', 'Responsable RSE']);
+    expect(bouton.getAttribute('title')).toBe(
+      'Camille Martin — Responsable RSE',
+    );
+    expect(bouton.className).toContain('min-h-11');
     expect(screen.queryByTestId('logo-organisation')).toBeNull();
     expect(screen.queryByText('Viparis')).toBeNull();
   });
 
-  it('déconnexion à droite, sur la même ligne : picto seul de 44 px', () => {
+  it('clic sur le nom : menu « Paramètres » puis « Se déconnecter »', () => {
     render(<Sidebar role="traiteur_manager" identite={identite} />);
-    const bloc = screen.getByTestId('identite-session');
-    const bouton = screen.getByRole('button', { name: 'Se déconnecter' });
-    expect(bouton.parentElement).toBe(bloc.parentElement);
-    expect(
-      bloc.compareDocumentPosition(bouton) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(bouton).not.toHaveTextContent('Se déconnecter');
-    expect(bouton.getAttribute('title')).toBe('Se déconnecter');
-    expect(bouton.className).toContain('h-11 w-11');
-    // Texte tronqué : lisible en entier au survol.
-    expect(bloc.getAttribute('title')).toBe('Camille Martin — Responsable RSE');
+    expect(screen.queryByRole('menu')).toBeNull();
+    ouvrir();
+    const items = screen.getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual([
+      'Paramètres',
+      'Se déconnecter',
+    ]);
+    expect(items[0]!.getAttribute('href')).toBe('/traiteur/parametres');
   });
 
-  it('avatar aux initiales du prénom et du nom, à gauche du nom (Val 2026-11-01)', () => {
+  it('« Paramètres » quitte la navigation principale', () => {
     render(<Sidebar role="traiteur_manager" identite={identite} />);
-    const avatar = screen.getByTestId('avatar-utilisateur');
-    expect(avatar).toHaveTextContent('CM');
-    expect(avatar.className).toContain('rounded-savr-full');
-    expect(
-      avatar.compareDocumentPosition(screen.getByTestId('identite-session')) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Paramètres' })).toBeNull();
   });
 
-  it('barre réduite : avatar puis picto en colonne, nom au survol', () => {
+  it(
+    '« Se déconnecter » du menu → signOut() puis /login',
+    async () => {
+      render(<Sidebar role="gestionnaire_lieux" identite={identite} />);
+      ouvrir();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Se déconnecter' }));
+      await waitFor(
+        () => expect(mockSignOut).toHaveBeenCalledTimes(1),
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(window.location.href).toBe('/login'),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it('barre réduite : avatar seul, nom au survol, menu toujours là', () => {
     render(
       <Sidebar
         role="traiteur_manager"
@@ -99,9 +117,12 @@ describe('Sidebar — utilisateur et poste à gauche de la déconnexion', () => 
         identite={identite}
       />,
     );
-    const avatar = screen.getByTestId('avatar-utilisateur');
-    expect(avatar.getAttribute('title')).toBe('Camille Martin');
-    expect(avatar.parentElement!.className).toContain('flex-col');
+    expect(screen.queryByTestId('identite-session')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Menu de Camille Martin' }),
+    ).toHaveTextContent('CM');
+    ouvrir();
+    expect(screen.getAllByRole('menuitem')).toHaveLength(2);
   });
 
   it('sans poste : le nom seul', () => {
@@ -111,31 +132,23 @@ describe('Sidebar — utilisateur et poste à gauche de la déconnexion', () => 
         identite={{ ...identite, poste: null }}
       />,
     );
-    const bloc = screen.getByTestId('identite-session');
-    expect(bloc.querySelectorAll('p')).toHaveLength(1);
-    expect(bloc.getAttribute('title')).toBe('Camille Martin');
-  });
-
-  it('barre réduite : picto seul, nom gardé pour les lecteurs d’écran', () => {
-    render(
-      <Sidebar
-        role="gestionnaire_lieux"
-        collapsed
-        onToggle={() => {}}
-        identite={identite}
-      />,
+    expect(screen.getByTestId('identite-session')).toHaveTextContent(
+      /^Camille Martin$/,
     );
-    const bloc = screen.getByTestId('identite-session');
-    expect(bloc.className).toContain('sr-only');
-    expect(bloc).toHaveTextContent('Camille Martin');
+    expect(screen.getByTestId('menu-utilisateur').getAttribute('title')).toBe(
+      'Camille Martin',
+    );
   });
 
-  it('sans identité : pas de bloc, le bouton garde son libellé', () => {
-    render(<Sidebar role="gestionnaire_lieux" />);
-    expect(screen.queryByTestId('identite-session')).toBeNull();
+  it('sans identité : bouton « Se déconnecter » avec libellé, Paramètres dans la navigation', () => {
+    render(<Sidebar role="traiteur_manager" />);
+    expect(screen.queryByTestId('menu-utilisateur')).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Se déconnecter' }),
     ).toHaveTextContent('Se déconnecter');
+    expect(
+      screen.getByRole('link', { name: 'Paramètres' }),
+    ).toBeInTheDocument();
   });
 });
 

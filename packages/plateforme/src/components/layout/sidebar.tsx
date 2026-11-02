@@ -11,8 +11,17 @@ import { SavrLogoMark } from '@/components/layout/savr-logo';
 import {
   CaretLeftIcon,
   CaretRightIcon,
+  CaretUpDownIcon,
+  GearIcon,
   SignOutIcon,
 } from '@/components/ui/icones';
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownContent,
+  DropdownItem,
+  DropdownSeparator,
+} from '@/components/ui/dropdown';
 import { Badge } from '@/components/ui/badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { Button } from '@/components/ui/button';
@@ -81,12 +90,17 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     const hidden = new Set(hiddenNavHrefs ?? []);
     const hrefActif = hrefNavActif(role, pathname);
     const avecIdentite = !!identite?.utilisateur;
-    // Picto sans libellé : barre réduite, ou à droite du nom.
-    const iconeSeule = collapsed || avecIdentite;
-    const groups = (NAV_CONFIG[role] ?? []).map((g) => ({
-      ...g,
-      items: g.items.filter((i) => !hidden.has(i.href)),
-    }));
+    // « Paramètres » passe dans le menu de l'utilisateur quand il est affiché.
+    const hrefParametres = (NAV_CONFIG[role] ?? [])
+      .flatMap((g) => g.items)
+      .find((i) => i.label === 'Paramètres')?.href;
+    if (avecIdentite && hrefParametres) hidden.add(hrefParametres);
+    const groups = (NAV_CONFIG[role] ?? [])
+      .map((g) => ({
+        ...g,
+        items: g.items.filter((i) => !hidden.has(i.href)),
+      }))
+      .filter((g) => g.items.length > 0);
 
     return (
       <nav
@@ -211,71 +225,102 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             </IconButton>
           </div>
         )}
-        {/* Utilisateur et son poste, déconnexion à droite sur la même ligne ; le
-            logo de l'organisation est dans le bandeau de page (Val 2026-11-01).
-            Barre réduite : picto seul ; sans identité : bouton avec libellé. */}
-        <div
-          className={cn(
-            'shrink-0 border-t border-savr-primary-700 p-2',
-            avecIdentite && 'flex items-center gap-2',
-            avecIdentite && collapsed && 'flex-col gap-1',
-          )}
-        >
-          {avecIdentite && (
-            // Avatar aux initiales « Prénom Nom » (Val 2026-11-01), gardé en barre réduite.
-            <span
-              data-testid="avatar-utilisateur"
-              aria-hidden="true"
-              title={collapsed ? identite.utilisateur : undefined}
+        {/* Pied du menu (Val 2026-11-02) : avatar, nom et poste forment un
+            bouton qui ouvre un menu « Paramètres » / « Se déconnecter ». Le
+            logo de l'organisation est dans le bandeau de page. Sans identité :
+            bouton « Se déconnecter » avec libellé. */}
+        <div className="shrink-0 border-t border-savr-primary-700 p-2">
+          {avecIdentite ? (
+            <Dropdown>
+              <DropdownTrigger asChild>
+                <button
+                  type="button"
+                  data-testid="menu-utilisateur"
+                  aria-label={`Menu de ${identite.utilisateur}`}
+                  title={[identite.utilisateur, identite.poste]
+                    .filter(Boolean)
+                    .join(' — ')}
+                  className={cn(
+                    'flex min-h-11 w-full items-center gap-2 rounded-savr-md text-left transition-colors duration-savr-fast hover:bg-savr-primary-700 data-[state=open]:bg-savr-primary-700',
+                    collapsed ? 'justify-center' : 'px-1 py-1',
+                  )}
+                >
+                  {/* Avatar aux initiales « Prénom Nom » (Val 2026-11-01). */}
+                  <span
+                    data-testid="avatar-utilisateur"
+                    aria-hidden="true"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-600 font-display text-sm font-semibold text-savr-white"
+                  >
+                    {initiales(identite.utilisateur)}
+                  </span>
+                  {!collapsed && (
+                    <span
+                      data-testid="identite-session"
+                      className="min-w-0 flex-1"
+                    >
+                      <span className="block truncate text-sm font-semibold text-savr-white">
+                        {identite.utilisateur}
+                      </span>
+                      {identite.poste && (
+                        <span className="block truncate text-sm text-savr-primary-200">
+                          {identite.poste}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {!collapsed && (
+                    <CaretUpDownIcon
+                      className="mr-1 h-4 w-4 shrink-0 text-savr-primary-300"
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              </DropdownTrigger>
+              <DropdownContent
+                side={collapsed ? 'right' : 'top'}
+                align={collapsed ? 'end' : 'start'}
+                className={cn(
+                  'min-w-56',
+                  !collapsed && 'w-[var(--radix-dropdown-menu-trigger-width)]',
+                )}
+              >
+                {hrefParametres && (
+                  <DropdownItem asChild className="min-h-11">
+                    <Link href={hrefParametres}>
+                      <GearIcon aria-hidden="true" />
+                      Paramètres
+                    </Link>
+                  </DropdownItem>
+                )}
+                {hrefParametres && <DropdownSeparator />}
+                <DropdownItem
+                  className="min-h-11"
+                  disabled={loggingOut}
+                  onSelect={() => void handleLogout()}
+                >
+                  <SignOutIcon aria-hidden="true" />
+                  {loggingOut ? 'Déconnexion…' : 'Se déconnecter'}
+                </DropdownItem>
+              </DropdownContent>
+            </Dropdown>
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={() => void handleLogout()}
+              loading={loggingOut}
+              loadingText={collapsed ? '' : <span>Déconnexion…</span>}
+              aria-label="Se déconnecter"
+              title={collapsed ? 'Se déconnecter' : undefined}
               className={cn(
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-600 font-display text-sm font-semibold text-savr-white',
-                !collapsed && 'ml-1',
+                // Mêmes teintes que les entrées du menu (fond primary-800).
+                'h-10 w-full justify-start gap-3 px-3 font-medium text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white active:bg-savr-primary-700 sm:h-10 [&>svg]:h-5 [&>svg]:w-5',
+                collapsed && 'justify-center px-0',
               )}
             >
-              {initiales(identite.utilisateur)}
-            </span>
+              <SignOutIcon aria-hidden="true" />
+              {!collapsed && <span>Se déconnecter</span>}
+            </Button>
           )}
-          {avecIdentite && (
-            <div
-              data-testid="identite-session"
-              // Texte complet au survol : tronqué à côté du picto.
-              title={[identite.utilisateur, identite.poste]
-                .filter(Boolean)
-                .join(' — ')}
-              className={cn('min-w-0 flex-1 py-1', collapsed && 'sr-only')}
-            >
-              <p className="truncate text-sm font-semibold text-savr-white">
-                {identite.utilisateur}
-              </p>
-              {identite.poste && (
-                <p className="truncate text-sm text-savr-primary-200">
-                  {identite.poste}
-                </p>
-              )}
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            onClick={() => void handleLogout()}
-            loading={loggingOut}
-            loadingText={iconeSeule ? '' : <span>Déconnexion…</span>}
-            aria-label="Se déconnecter"
-            title={iconeSeule ? 'Se déconnecter' : undefined}
-            className={cn(
-              // Mêmes teintes que les entrées du menu (fond primary-800).
-              'font-medium text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white active:bg-savr-primary-700 [&>svg]:h-5 [&>svg]:w-5',
-              avecIdentite
-                ? // Picto seul, cible tactile de 44 px (DS §6).
-                  'h-11 w-11 shrink-0 justify-center px-0 sm:h-11'
-                : cn(
-                    'h-10 w-full justify-start gap-3 px-3 sm:h-10',
-                    collapsed && 'justify-center px-0',
-                  ),
-            )}
-          >
-            <SignOutIcon aria-hidden="true" />
-            {!iconeSeule && <span>Se déconnecter</span>}
-          </Button>
         </div>
       </nav>
     );

@@ -24,6 +24,18 @@ const etat = vi.hoisted(() => ({
   optionsClient: [] as unknown[],
 }));
 
+// Identité du pied de menu : avec elle, « Paramètres » quitte la barre
+// latérale pour le menu de l'utilisateur (Val 2026-11-02).
+const FICHES: Record<string, Record<string, unknown>> = {
+  users: {
+    prenom: 'Camille',
+    nom: 'Martin',
+    poste: null,
+    organisation_id: 'org1',
+  },
+  organisations: { nom: 'Viparis', logo_url: null },
+};
+
 vi.mock('next/navigation', () => ({
   usePathname: () => etat.pathname,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -48,7 +60,17 @@ vi.mock('@/lib/api-auth', () => ({
       from: (table: string) => ({
         select: () => {
           etat.tablesLues.push(table);
-          return Promise.resolve({ count: etat.nbPacks, error: null });
+          // Comptage des packs (awaité tel quel) ou fiche lue par id (identité
+          // du pied de menu).
+          return Object.assign(
+            Promise.resolve({ count: etat.nbPacks, error: null }),
+            {
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({ data: FICHES[table] ?? null, error: null }),
+              }),
+            },
+          );
         },
       }),
     };
@@ -185,8 +207,9 @@ describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () =
       'Traiteurs',
       'Mes lieux',
       'Registre réglementaire',
-      'Paramètres',
     ]);
+    // « Paramètres » est dans le menu de l'utilisateur, en pied de barre.
+    expect(screen.getAllByTestId('menu-utilisateur').length).toBeGreaterThan(0);
     const barreMobile = screen.getByRole('navigation', {
       name: 'Navigation mobile',
     });
@@ -205,14 +228,16 @@ describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () =
       'Mes lieux',
       'Registre réglementaire',
       'Mon pack AG',
-      'Paramètres',
     ]);
   });
 });
 
 describe('M0.8 / nav du formulaire de programmation — rôle lu côté serveur', () => {
   it('M0.8-72 — Formulaire de programmation : le staff (admin, ops) garde le menu du back-office', async () => {
-    const backOffice = menuDuRole('admin_savr');
+    // Avec l'identité, « Paramètres » est dans le menu de l'utilisateur.
+    const backOffice = menuDuRole('admin_savr').filter(
+      (libelle) => libelle !== 'Paramètres',
+    );
     expect(backOffice.length).toBeGreaterThan(0);
     for (const role of ['admin_savr', 'ops_savr']) {
       etat.role = role;

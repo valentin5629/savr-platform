@@ -43,7 +43,6 @@ export function ficheClient(
       pax: 8400,
       nom_client_organisateur: 'Maison Client',
       reference_affaire: null,
-      code_affaire_viparis: null,
       code_site_viparis: null,
       lieu: {
         id: 'l1',

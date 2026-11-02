@@ -487,6 +487,7 @@ describe('Fiche Événement — Admin et client organisateur', () => {
     data: {
       traiteur: { nom: string | null; a_logo: boolean } | null;
       ajouter_collecte: boolean;
+      code_affaire_modifiable: boolean;
       dechets_labo_kg: number | null;
       bilan: { repas_donnes: number | null };
       fiches: {
@@ -579,7 +580,15 @@ describe('Fiche Événement — Admin et client organisateur', () => {
     const res = await fiche();
     expect(res.status).toBe(200);
     const { data } = (await res.json()) as Fiche;
-    expect(service.calls).toEqual([]);
+    // Service-role : les seuls codes VIPARIS de CET événement (Val 2026-11-02).
+    expect(service.calls.map((c) => c.table)).toEqual(
+      service.calls.map(() => 'evenements'),
+    );
+    expect(
+      service.calls.filter((c) => c.m === 'select').map((c) => c.args[0]),
+    ).toEqual(['code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)']);
+    // Client organisateur : code affaire lu, jamais modifiable (route 403).
+    expect(data.code_affaire_modifiable).toBe(false);
     expect(mockCharger).not.toHaveBeenCalled();
     expect(selectEvenements(session)).not.toContain('attributions_antgaspi');
     expect(session.rpc).toHaveBeenCalledWith('f_volume_repas_realise', {

@@ -48,24 +48,23 @@ import {
 //     (§06.05 : rien de personnel sur un traiteur tiers) ; référence d'affaire :
 //     colonne d'`evenements` hors GRANT SELECT authenticated, servie à
 //     l'organisation programmatrice seule (arbitrages Val C2/C3/C5 2026-10-01) ;
-//  6. codes VIPARIS (code site du lieu, code affaire de l'événement, Val
-//     2026-11-02) : sans confidentialité, lus en service-role sur l'événement de
-//     CETTE collecte pour les trois espaces (colonnes hors liste blanche).
+//  6. code site VIPARIS du lieu (Val 2026-11-02) : sans confidentialité, lu en
+//     service-role sur l'événement de CETTE collecte pour les trois espaces
+//     (colonne hors liste blanche). Le code affaire, porté par l'événement, est
+//     sur la fiche événement, pas sur la fiche collecte (Val 2026-11-02).
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 
 // Colonnes de l'événement hors liste blanche, lues en service-role (5 et 6).
 interface EvenementReserve {
   reference_affaire?: string | null;
-  code_affaire_viparis: string | null;
   lieu:
     | { code_site_viparis: string | null }
     | { code_site_viparis: string | null }[]
     | null;
 }
 
-const COLONNES_CODES_VIPARIS =
-  'code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)';
+const COLONNES_CODES_VIPARIS = 'lieu:lieux!lieu_id(code_site_viparis)';
 
 function one<T>(v: T | T[] | null | undefined): T | null {
   if (!v) return null;
@@ -450,7 +449,6 @@ export async function chargerFicheCollecteClient(
         reference_affaire: programmeParSoi
           ? (reserve?.reference_affaire ?? null)
           : null,
-        code_affaire_viparis: reserve?.code_affaire_viparis ?? null,
         code_site_viparis:
           one(reserve?.lieu ?? null)?.code_site_viparis ?? null,
         lieu: lieuEffectif

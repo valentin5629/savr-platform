@@ -39,6 +39,7 @@ const FICHES: Record<string, Record<string, unknown>> = {
 vi.mock('next/navigation', () => ({
   usePathname: () => etat.pathname,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/lib/page-auth', () => ({

@@ -37,7 +37,6 @@ import {
   type BenchmarkRow,
 } from '@/lib/dashboards/cockpit-derive';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
 import { Heading } from '@/components/ui/heading';
 import { PageHero } from '@/components/ui/page-hero';
@@ -246,11 +245,6 @@ export default function GestionnaireDashboardPage() {
         <PageHero
           icon={<SquaresFourIcon className="h-6 w-6" />}
           title="Dashboard"
-          actions={
-            <Button variant="accent" asChild>
-              <a href={ROUTES.programmer.nouveau}>Programmer une collecte</a>
-            </Button>
-          }
         />
 
         <DashboardFilterBar

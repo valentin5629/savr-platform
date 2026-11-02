@@ -65,7 +65,7 @@ export const ESPACES = {
 export type Espace = keyof typeof ESPACES;
 
 /** Rôles autorisés à programmer (formulaire + brouillons), staff en support. */
-const ROLES_PROGRAMMATION = [
+export const ROLES_PROGRAMMATION = [
   'traiteur_commercial',
   'traiteur_manager',
   'agence',

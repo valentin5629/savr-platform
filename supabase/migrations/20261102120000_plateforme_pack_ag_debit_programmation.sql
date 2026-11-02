@@ -33,6 +33,16 @@
 -- pack » pour toute collecte non annulée.
 -- =============================================================================
 
+-- La reprise (point 9) ne se joue qu'au premier passage de ce fichier : rejouée,
+-- elle détacherait des crédits réellement décomptés depuis, sans les rendre.
+-- Premier passage = le déclencheur de débit à la programmation n'existe pas
+-- encore. Lu ici, avant sa création ; relu par la reprise (même session).
+SELECT set_config(
+  'savr.reprise_pack_debit_programmation',
+  CASE WHEN to_regprocedure('plateforme.fn_trg_pack_debit_programmation()') IS NULL
+       THEN 'a_faire' ELSE 'deja_faite' END,
+  false);
+
 -- ─── 1. Débit d'un crédit sur le pack actif d'une organisation ───────────────
 -- Verrou du pack actif (FOR UPDATE, jamais SKIP LOCKED : le pack est la
 -- ressource partagée de l'organisation). Rend l'id du pack débité, NULL sans
@@ -215,8 +225,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION plateforme.fn_trg_pack_debit_programmation()
   FROM authenticated, anon, PUBLIC;
 
-DROP TRIGGER IF EXISTS trg_pack_debit_programmation ON plateforme.collectes;
-CREATE TRIGGER trg_pack_debit_programmation
+CREATE OR REPLACE TRIGGER trg_pack_debit_programmation
   BEFORE INSERT OR UPDATE OF statut ON plateforme.collectes
   FOR EACH ROW EXECUTE FUNCTION plateforme.fn_trg_pack_debit_programmation();
 
@@ -293,7 +302,9 @@ BEGIN
     ) < v_reference;
 
   IF NEW.pack_antgaspi_id IS NULL THEN
-    IF v_tardive THEN
+    -- Une collecte refusée par le prestataire a déjà rendu son crédit : son
+    -- annulation n'est pas « sans pack » (rien à rattacher).
+    IF v_tardive AND OLD.statut <> 'rejetee_par_prestataire' THEN
       -- Aucun crédit décompté à la programmation : plein tarif unitaire,
       -- facturé à la main par l'Admin (§05 §3 F3).
       PERFORM plateforme.f_upsert_alerte_admin(
@@ -585,13 +596,6 @@ GRANT EXECUTE ON FUNCTION plateforme.rpc_valider_attribution_ag(uuid, uuid, uuid
 -- de son créneau, jusqu'à épuisement (Val 2026-11-02). Celles qui dépassent
 -- restent sans pack : facturées à l'unité, rattachables plus tard.
 -- `updated_at` n'est pas touché : la collecte elle-même ne change pas.
-UPDATE plateforme.collectes
-   SET pack_antgaspi_id = NULL
- WHERE type = 'anti_gaspi'
-   AND pack_antgaspi_id IS NOT NULL
-   AND statut IN ('programmee', 'validee', 'en_cours', 'annulation_demandee',
-                  'rejetee_par_prestataire');
-
 DO $$
 DECLARE
   r         record;
@@ -599,6 +603,19 @@ DECLARE
   v_debits  integer := 0;
   v_sans    integer := 0;
 BEGIN
+  IF current_setting('savr.reprise_pack_debit_programmation', true)
+       IS DISTINCT FROM 'a_faire' THEN
+    RAISE NOTICE 'Reprise pack AG : déjà faite, rien à reprendre';
+    RETURN;
+  END IF;
+
+  UPDATE plateforme.collectes
+     SET pack_antgaspi_id = NULL
+   WHERE type = 'anti_gaspi'
+     AND pack_antgaspi_id IS NOT NULL
+     AND statut IN ('programmee', 'validee', 'en_cours', 'annulation_demandee',
+                    'rejetee_par_prestataire');
+
   FOR r IN
     SELECT c.id, e.organisation_id
       FROM plateforme.collectes c
@@ -610,6 +627,8 @@ BEGIN
      ORDER BY e.organisation_id, c.date_collecte,
               c.heure_collecte NULLS LAST, c.created_at, c.id
   LOOP
+    -- Même ordre de verrous que les déclencheurs : la collecte, puis le pack.
+    PERFORM 1 FROM plateforme.collectes WHERE id = r.id FOR UPDATE;
     v_pack_id := plateforme.f_pack_debiter_credit(r.organisation_id);
     IF v_pack_id IS NULL THEN
       v_sans := v_sans + 1;

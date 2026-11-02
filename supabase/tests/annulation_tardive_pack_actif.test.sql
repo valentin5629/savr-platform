@@ -14,7 +14,7 @@
 -- tardif sur le pack actif) ; il est listé tel quel dans le manifeste M2.1.
 
 BEGIN;
-SELECT plan(51);
+SELECT plan(52);
 
 -- ── Fixtures (identifiants improbables, hexadécimaux) ─────────────────────────
 -- o1 : l'organisation des collectes ; o2 : une voisine dont le pack actif ne
@@ -172,6 +172,15 @@ SELECT is(
 SELECT is(pg_temp.consommes(), 3, 'ce : aucun débit');
 SELECT ok(plateforme.f_collecte_rattachable_pack('a7d00000-0000-0000-0000-0000000000ce'),
   'ce : rattachable à un pack pris plus tard');
+
+-- Refusée par le prestataire puis annulée à moins de 4 h : pas d'alerte « sans
+-- pack » (le refus a rendu le crédit, rien à rattacher).
+SELECT pg_temp.collecte('c2', 'anti_gaspi', 'programmee', interval '1 hour');
+UPDATE plateforme.collectes SET statut = 'rejetee_par_prestataire', statut_tms = 'rejetee_par_prestataire'
+ WHERE id = 'a7d00000-0000-0000-0000-0000000000c2';
+UPDATE plateforme.collectes SET statut = 'annulee' WHERE id = 'a7d00000-0000-0000-0000-0000000000c2';
+SELECT ok(NOT EXISTS (SELECT 1 FROM plateforme.alertes_admin WHERE entity_id = 'a7d00000-0000-0000-0000-0000000000c2'),
+  'c2 : refusée puis annulée tardivement → aucune alerte « sans pack »');
 
 -- ── 12. Le pack d'une autre organisation n'est jamais touché ─────────────────
 SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'a7d00000-0000-0000-0000-0000000000a9'),

@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { ListIcon } from '@/components/ui/icones';
+import { ListIcon, TruckIcon } from '@/components/ui/icones';
 import { IconButton } from '@/components/ui/icon-button';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,7 +26,10 @@ function hrefProgrammer(pathname: string | null, type: string | null): string {
 function BoutonProgrammer({ href }: { href: string }) {
   return (
     <Button variant="accent" asChild className="h-10">
-      <Link href={href}>Programmer une collecte</Link>
+      <Link href={href}>
+        <TruckIcon />
+        Programmer une collecte
+      </Link>
     </Button>
   );
 }

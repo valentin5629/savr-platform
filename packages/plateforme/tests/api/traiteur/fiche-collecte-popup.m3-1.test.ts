@@ -289,7 +289,7 @@ describe('M3.1 / fiche client — colonnes réservées de l’événement', () =
     // L'événement n'est lu que pour ses codes VIPARIS (Val 2026-11-02) : la
     // référence d'affaire n'est jamais demandée.
     expect(admin.selects.evenements).toEqual([
-      'code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)',
+      'lieu:lieux!lieu_id(code_site_viparis)',
     ]);
   });
 

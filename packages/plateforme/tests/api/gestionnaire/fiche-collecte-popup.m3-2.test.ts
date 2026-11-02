@@ -153,7 +153,7 @@ describe('M3.2 / fiche client gestionnaire — contacts et référence d’affai
     // Pas seulement caché : jamais demandés. L'événement n'est lu en
     // service-role que pour ses codes VIPARIS (Val 2026-11-02).
     expect(admin.selects.evenements).toEqual([
-      'code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)',
+      'lieu:lieux!lieu_id(code_site_viparis)',
     ]);
     expect(admin.calls).not.toContain('collecte_contacts');
     expect(rls.calls).not.toContain('evenements');

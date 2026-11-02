@@ -119,8 +119,7 @@ export interface EvenementFiche {
   nom_client_organisateur: string | null;
   // Servie à l'organisation programmatrice seule (null sinon).
   reference_affaire: string | null;
-  // Codes VIPARIS (Val 2026-11-02), lisibles des trois espaces.
-  code_affaire_viparis: string | null;
+  // Code site VIPARIS du lieu (Val 2026-11-02), lisible des trois espaces.
   code_site_viparis: string | null;
   lieu: LieuFiche | null;
 }

@@ -621,6 +621,99 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
 });
 
 describe('M3.2 / fiche Événement gestionnaire — écran', () => {
+  // Code affaire VIPARIS porté par l'événement (Val 2026-11-02) : sur la fiche
+  // événement, saisi par VIPARIS même sur l'événement d'un traiteur tiers.
+  it(
+    'VIPARIS/fiche_evenement_code_affaire_saisi — lieu VIPARIS, événement d’un tiers : « Ajouter », saisie, PATCH sur l’événement',
+    async () => {
+      const fetchMock = stubFetch((url) =>
+        url.includes('/code-affaire-viparis')
+          ? { body: { data: { id: EVT_ID, code_affaire_viparis: '26SIAL1' } } }
+          : {
+              body: {
+                data: detail({
+                  ajouter_collecte: false,
+                  code_site_viparis: 'CHAMP',
+                  code_affaire_viparis: null,
+                  code_affaire_modifiable: true,
+                }),
+              },
+            },
+      );
+      monterFiche();
+      await ficheChargee();
+      const bloc = within(screen.getByTestId('evenement-entete')).getByTestId(
+        'code-affaire-viparis',
+      );
+      fireEvent.click(within(bloc).getByRole('button', { name: 'Ajouter' }));
+      fireEvent.change(
+        within(bloc).getByRole('textbox', { name: 'Code affaire VIPARIS' }),
+        { target: { value: '26sial1' } },
+      );
+      fireEvent.click(
+        within(bloc).getByRole('button', { name: 'Enregistrer' }),
+      );
+      await waitFor(
+        () => expect(bloc).toHaveTextContent('26SIAL1'),
+        ATTENTE_UI,
+      );
+      const appel = fetchMock.mock.calls.find(([u]) =>
+        String(u).includes('/code-affaire-viparis'),
+      );
+      expect(String(appel?.[0])).toBe(
+        `/api/v1/evenements/${EVT_ID}/code-affaire-viparis`,
+      );
+      expect(
+        JSON.parse(
+          String(((appel as unknown[] | undefined)?.[1] as RequestInit).body),
+        ),
+      ).toEqual({
+        code_affaire_viparis: '26SIAL1',
+      });
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'VIPARIS/fiche_evenement_code_affaire_lecture_seule — non modifiable : code lu, aucun bouton',
+    async () => {
+      stubFetch(() => ({
+        body: {
+          data: detail({
+            code_site_viparis: 'PCP',
+            code_affaire_viparis: '26SIAL1',
+            code_affaire_modifiable: false,
+          }),
+        },
+      }));
+      monterFiche();
+      await ficheChargee();
+      const bloc = screen.getByTestId('code-affaire-viparis');
+      expect(bloc).toHaveTextContent('26SIAL1');
+      expect(within(bloc).queryByRole('button')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'VIPARIS/fiche_evenement_hors_viparis — lieu sans code site ni code affaire : pas de bloc',
+    async () => {
+      stubFetch(() => ({
+        body: {
+          data: detail({
+            code_site_viparis: null,
+            code_affaire_viparis: null,
+            code_affaire_modifiable: true,
+          }),
+        },
+      }));
+      monterFiche();
+      await ficheChargee();
+      expect(screen.queryByTestId('code-affaire-viparis')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'M3.2/evenement_fiche_bilan_consolide_affiche — cumul ZD et AG, associations, couverture',
     async () => {

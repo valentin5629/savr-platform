@@ -44,7 +44,8 @@ const ECRANS_MENU: [string, string][] = [
   ['app/(gestionnaire)/gestionnaire/traiteurs/page.tsx', 'ChefHatIcon'],
   ['app/(gestionnaire)/gestionnaire/lieux/page.tsx', 'MapPinIcon'],
   ['app/(registre)/registre/page.tsx', 'BookOpenIcon'],
-  ['app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx', 'PackageIcon'],
+  // « Mon pack Anti-Gaspi », écran commun aux 5 rôles clients (Val 2026-11-02).
+  ['components/pack-ag/mon-pack-ag.tsx', 'PackageIcon'],
   [
     'app/(gestionnaire)/gestionnaire/parametres/parametres-client.tsx',
     'GearIcon',

@@ -1,14 +1,11 @@
 /**
- * M3.2 — « Mon pack AG » masqué sur TOUTES les pages du gestionnaire (§06.05 l.75).
+ * Menus des sections transverses : le registre réglementaire et le formulaire
+ * de programmation ont leur propre layout, qui doit rendre le MÊME menu que
+ * l'espace du rôle (défaut E2E du 2026-10-06 : une entrée y réapparaissait).
  *
- * Défaut E2E (2026-10-06) : l'entrée réapparaissait dès que le gestionnaire
- * ouvrait le registre réglementaire (ou le formulaire de programmation), puis
- * disparaissait en revenant dans son espace. Ces sections transverses ont leur
- * propre layout, et seul le layout `(gestionnaire)` jouait la règle.
- *
- * Les tests BL-P2-13 d'origine nourrissent la Sidebar à la main
- * (`hiddenNavHrefs=…`) : ils prouvent que le menu sait masquer, pas que chaque
- * layout le lui demande. Ici on rend les LAYOUTS, et on compare leurs menus.
+ * « Mon pack Anti-Gaspi » est désormais dans le menu de tous les rôles clients,
+ * même sans pack (Val 2026-11-02) : l'ancien masquage « sans pack » du
+ * gestionnaire (§06.05 l.75) et son comptage de packs sont retirés.
  *
  * M0.8 (navigation par rôle) — le layout `(programmation)` lit désormais le rôle
  * côté serveur : staff et rôle illisible y sont couverts en fin de fichier.
@@ -90,7 +87,6 @@ import RegistreLayout from '@/app/(registre)/layout.js';
 import ProgrammationLayout, {
   dynamic as programmationDynamic,
 } from '@/app/(programmation)/layout.js';
-import { entreesNavMasquees } from '@/lib/nav-masquee.js';
 import { getNavItems } from '@/lib/nav-config.js';
 import type { NavRole } from '@/lib/roles.js';
 
@@ -127,80 +123,35 @@ function menuDuRole(role: NavRole): string[] {
   return getNavItems(role).map((entree) => entree.label);
 }
 
-describe('M3.2 / nav « Mon pack AG » — sections transverses', () => {
-  it('M3.2/nav_pack_registre_masque_sans_pack — sur le registre, un gestionnaire sans pack ne voit pas « Mon pack AG »', async () => {
-    const menu = await menuDe(RegistreLayout, '/registre');
-    expect(menu).not.toContain('Mon pack AG');
-    expect(menu).toContain('Registre réglementaire');
-    expect(screen.queryByText('Mon pack AG')).not.toBeInTheDocument();
-  });
-
-  it('M3.2/nav_pack_registre_affiche_avec_pack — sur le registre, un gestionnaire qui a un pack garde « Mon pack AG »', async () => {
-    etat.nbPacks = 1;
-    const menu = await menuDe(RegistreLayout, '/registre');
-    expect(menu).toContain('Mon pack AG');
-  });
-
-  it('M3.2/nav_pack_programmation_masque_sans_pack — sur le formulaire de programmation, menu du gestionnaire sans « Mon pack AG »', async () => {
-    const menu = await menuDe(ProgrammationLayout, '/programmer/nouveau');
-    expect(menu).not.toContain('Mon pack AG');
-    // C'est bien le menu du gestionnaire, dès le premier rendu.
-    expect(menu).toContain('Mes lieux');
-  });
-
-  it('M3.2/nav_pack_meme_menu_partout — espace, registre et programmation rendent le MÊME menu', async () => {
-    for (const nbPacks of [0, 2]) {
-      etat.nbPacks = nbPacks;
-      const espace = await menuDe(GestionnaireLayout, '/gestionnaire');
-      const registre = await menuDe(RegistreLayout, '/registre');
-      const programmation = await menuDe(
-        ProgrammationLayout,
-        '/programmer/nouveau',
-      );
-      expect(registre).toEqual(espace);
-      expect(programmation).toEqual(espace);
-      expect(espace.includes('Mon pack AG')).toBe(nbPacks > 0);
-    }
-  });
-
-  it('M3.2/nav_pack_autres_roles_sans_lecture — un traiteur sur le registre : menu intact, aucun comptage de packs', async () => {
-    etat.role = 'traiteur_manager';
-    const menu = await menuDe(RegistreLayout, '/registre');
-    expect(menu).toContain('Collectes');
-    expect(menu).not.toContain('Mes lieux');
-    // Aucun comptage de packs (l'identité du bas de menu lit sa fiche et son
-    // organisation, Val 2026-10-30).
+describe('Nav « Mon pack Anti-Gaspi » — toujours visible (Val 2026-11-02)', () => {
+  it('M3.2/nav_pack_meme_menu_partout — espace, registre et programmation rendent le MÊME menu, avec l’entrée, sans lire les packs', async () => {
+    const espace = await menuDe(GestionnaireLayout, '/gestionnaire');
+    const registre = await menuDe(RegistreLayout, '/registre');
+    const programmation = await menuDe(
+      ProgrammationLayout,
+      '/programmer/nouveau',
+    );
+    expect(espace).toContain('Mon pack Anti-Gaspi');
+    expect(registre).toEqual(espace);
+    expect(programmation).toEqual(espace);
+    // Plus aucun comptage de packs pour construire le menu (l'identité du bas
+    // de menu lit seulement la fiche et l'organisation, Val 2026-10-30).
     expect(etat.tablesLues).not.toContain('packs_antgaspi');
   });
 
-  it('M3.2/nav_pack_regle_unique — entreesNavMasquees : gestionnaire sans pack → l’entrée ; avec pack, comptage illisible ou autre rôle → cas tranchés', async () => {
-    etat.nbPacks = 0;
-    expect(await entreesNavMasquees('gestionnaire_lieux')).toEqual([
-      '/gestionnaire/mon-pack-ag',
-    ]);
-    expect(etat.tablesLues).toEqual(['packs_antgaspi']);
-    // Rendu de page : le client ne doit pas tenter d'écrire de cookies.
-    expect(etat.optionsClient).toEqual([{ readonly: true }]);
-
-    etat.nbPacks = 3;
-    expect(await entreesNavMasquees('gestionnaire_lieux')).toEqual([]);
-
-    // Comptage illisible (lecture refusée) : on masque, jamais l'inverse.
-    etat.nbPacks = null;
-    expect(await entreesNavMasquees('gestionnaire_lieux')).toEqual([
-      '/gestionnaire/mon-pack-ag',
-    ]);
-
-    etat.tablesLues = [];
-    for (const role of ['traiteur_manager', 'agence', 'admin_savr'] as const)
-      expect(await entreesNavMasquees(role)).toEqual([]);
-    expect(etat.tablesLues).toEqual([]);
+  it('M3.2/nav_pack_autres_roles_sans_lecture — un traiteur sur le registre voit aussi l’entrée, sans comptage de packs', async () => {
+    etat.role = 'traiteur_manager';
+    const menu = await menuDe(RegistreLayout, '/registre');
+    expect(menu).toContain('Collectes');
+    expect(menu).toContain('Mon pack Anti-Gaspi');
+    expect(menu).not.toContain('Mes lieux');
+    expect(etat.tablesLues).not.toContain('packs_antgaspi');
   });
 });
 
 // « Événements », remise par Val le 2026-10-18, s'insère sous « Collectes ».
 describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () => {
-  it('M3.2/nav_ordre_menu_gestionnaire — barre latérale dans l’ordre fixé, « Mon pack AG » avant « Paramètres » (où vit « Mon organisation » depuis le 2026-10-31), barre mobile = 4 premières entrées', async () => {
+  it('M3.2/nav_ordre_menu_gestionnaire — barre latérale dans l’ordre fixé, « Mon pack Anti-Gaspi » avant « Paramètres » (où vit « Mon organisation » depuis le 2026-10-31), barre mobile = 4 premières entrées', async () => {
     expect(await menuDe(GestionnaireLayout, '/gestionnaire')).toEqual([
       'Dashboard',
       'Collectes',
@@ -208,6 +159,7 @@ describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () =
       'Traiteurs',
       'Mes lieux',
       'Registre réglementaire',
+      'Mon pack Anti-Gaspi',
     ]);
     // « Paramètres » est dans le menu de l'utilisateur, en pied de barre.
     expect(screen.getAllByTestId('menu-utilisateur').length).toBeGreaterThan(0);
@@ -219,17 +171,6 @@ describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () =
         .getAllByRole('link')
         .map((lien) => lien.textContent ?? ''),
     ).toEqual(['Dashboard', 'Collectes', 'Événements', 'Traiteurs']);
-
-    etat.nbPacks = 1;
-    expect(await menuDe(GestionnaireLayout, '/gestionnaire')).toEqual([
-      'Dashboard',
-      'Collectes',
-      'Événements',
-      'Traiteurs',
-      'Mes lieux',
-      'Registre réglementaire',
-      'Mon pack AG',
-    ]);
   });
 });
 

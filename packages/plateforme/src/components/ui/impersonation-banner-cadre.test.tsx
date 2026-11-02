@@ -25,7 +25,7 @@ describe("Bandeau d'impersonation au-dessus du cadre", () => {
 
   it('le cadre de l’app porte son repère', () => {
     const { container } = render(
-      <AppShell role="traiteur_manager" hiddenNavHrefs={[]}>
+      <AppShell role="traiteur_manager">
         <p>contenu</p>
       </AppShell>,
     );

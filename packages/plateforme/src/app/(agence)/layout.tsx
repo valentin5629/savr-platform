@@ -19,7 +19,6 @@ export default async function AgenceLayout({
         email: session.email,
         logoAffichable: true,
       })}
-      hiddenNavHrefs={[]}
     >
       {children}
     </AppShell>

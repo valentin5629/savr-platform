@@ -9,20 +9,15 @@ import type { NavRole } from '@/lib/roles';
 
 interface BottomNavProps {
   role: NavRole;
-  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack). */
-  hiddenNavHrefs?: string[];
   className?: string;
 }
 
 // Affiche les 4 premiers items de nav en bas d'écran (mobile)
 const BottomNav = React.forwardRef<HTMLElement, BottomNavProps>(
-  ({ role, hiddenNavHrefs, className }, ref) => {
+  ({ role, className }, ref) => {
     const pathname = usePathname();
-    const hidden = new Set(hiddenNavHrefs ?? []);
     const hrefActif = hrefNavActif(role, pathname);
-    const items = getNavItems(role)
-      .filter((i) => !hidden.has(i.href))
-      .slice(0, 4);
+    const items = getNavItems(role).slice(0, 4);
 
     return (
       <nav

@@ -477,8 +477,8 @@ SELECT is(
   'T25 : gestionnaire voit son propre pack AG'
 );
 
--- T25b–T25c : comptage NON filtré, celui du menu (« Mon pack AG » masqué si 0,
--- §06.05 l.75 — packages/plateforme/src/lib/nav-masquee.ts). Deux packs existent
+-- T25b–T25c : comptage NON filtré (ancien masquage « Mon pack AG » du menu, retiré
+-- le 2026-11-02 : l'entrée est toujours affichée ; la RLS reste prouvée). Deux packs existent
 -- (Viparis, Kaspia) : chaque gestionnaire ne compte que ceux de son organisation.
 SELECT is(
   (SELECT COUNT(*)::int FROM plateforme.packs_antgaspi),

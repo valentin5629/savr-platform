@@ -9,12 +9,16 @@ import { ROUTES } from '@/lib/routes';
 
 // Action ouverte au manager, au commercial ET à l'agence (§06.04 Bloc 4 AG,
 // répliqué à l'identique pour l'agence — §06.11 l.36/l.44 « pack AG fondu dans
-// l'onglet AG, identique au §06.04 », BL-P1-AGENCE-01). Endpoint partagé : le
-// chemin /traiteur/… est cosmétique, l'action et le template sont identiques.
+// l'onglet AG, identique au §06.04 », BL-P1-AGENCE-01), puis à tous les rôles
+// clients depuis l'onglet « Mon pack Anti-Gaspi » (Val 2026-11-02 : bouton pour
+// tout rôle dont l'organisation a un pack). Endpoint partagé : le chemin
+// /traiteur/… est cosmétique, l'action et le template sont identiques.
 const PACK_RENOUVELLEMENT_ROLES: ClientRole[] = [
   'traiteur_manager',
   'traiteur_commercial',
   'agence',
+  'gestionnaire_lieux',
+  'client_organisateur',
 ];
 
 // POST /api/v1/traiteur/pack-ag/renouvellement — demande de renouvellement de

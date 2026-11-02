@@ -42,8 +42,6 @@ interface SidebarProps {
    * peuvent pas passer de handler).
    */
   onLogout?: () => void;
-  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack). */
-  hiddenNavHrefs?: string[];
   /** Compteurs par href (ex : { '/admin/alertes': 3 }) → pastille sur l'item. */
   navBadges?: Record<string, number>;
   className?: string;
@@ -66,7 +64,6 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
       onToggle,
       onLogout,
       identite,
-      hiddenNavHrefs,
       navBadges,
       className,
     },
@@ -94,7 +91,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     // par la navigation (section ZD-only), soit par une sélection ZD en cours
     // dans la page (ex : type de collecte ZD coché).
     const logoZd = zdSelected || isZdSectionPath(pathname);
-    const hidden = new Set(hiddenNavHrefs ?? []);
+    const hidden = new Set<string>();
     const hrefActif = hrefNavActif(role, pathname);
     const avecIdentite = !!identite?.utilisateur;
     // « Paramètres » des espaces clients (profil, organisation, membres) passe

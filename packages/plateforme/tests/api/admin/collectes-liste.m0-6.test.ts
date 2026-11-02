@@ -4,7 +4,7 @@
  * statut=programmee ET tms_reference IS NULL) + les filtres serveur ajoutés
  * (statut multi, info incomplète, organisation/lieu, rapport non consulté).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const chain = {
@@ -276,5 +276,96 @@ describe('M0.6 — API GET collectes filtres (BL-P1-BOA-05)', () => {
         String(c[0]).includes('realisee_sans_collecte'),
       ),
     ).toBe(false);
+  });
+});
+
+// Décision Val 2026-11-02 : une collecte dont l'ordre de création est abandonné
+// dans la file d'envoi s'affiche « Créée ». La route lit ces abandons, les sert
+// sur chaque ligne (`envoi_abandonne`) et les passe au filtre de statut.
+describe('M0.6/statut_admin_creee_envoi_abandonne — GET /admin/collectes', () => {
+  const ABANDONNEE = '11111111-1111-4111-8111-111111111111';
+  const AUTRE = '22222222-2222-4222-8222-222222222222';
+  const fromParDefaut = chain.from.getMockImplementation();
+
+  // Une lecture terminale (thenable) qui enregistre ses filtres.
+  function lecture(reponse: { data: unknown; error: unknown }) {
+    const filtres: unknown[][] = [];
+    const l: Record<string, unknown> = {
+      then: (resolve: (r: typeof reponse) => unknown) => resolve(reponse),
+    };
+    for (const m of ['select', 'eq', 'in', 'is'])
+      l[m] = (...args: unknown[]) => {
+        filtres.push([m, ...args]);
+        return l;
+      };
+    return { l, filtres };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupAuth();
+  });
+  afterEach(() => {
+    chain.from.mockImplementation(fromParDefaut ?? (() => chain));
+  });
+
+  function brancher(file: { data: unknown; error: unknown }) {
+    const fileEnvoi = lecture(file);
+    const encore = lecture({ data: [{ id: ABANDONNEE }], error: null });
+    let collectes = 0;
+    chain.from.mockImplementation((table: string) => {
+      if (table === 'outbox_events') return fileEnvoi.l;
+      // 1re lecture de `collectes` = la liste ; 2e = abandons encore concernés.
+      if (table === 'collectes' && collectes++ === 1) return encore.l;
+      return chain;
+    });
+    return { fileEnvoi, encore };
+  }
+
+  it('ligne abandonnée marquée, filtre « Créée » qui la retient', async () => {
+    const { fileEnvoi, encore } = brancher({
+      data: [{ aggregate_id: ABANDONNEE }],
+      error: null,
+    });
+    chain.range.mockResolvedValueOnce({
+      data: [{ id: ABANDONNEE }, { id: AUTRE }],
+      error: null,
+      count: 2,
+    });
+    const res = await callGet('?statuts=creee');
+    expect(res.status).toBe(200);
+    const corps = (await res.json()) as {
+      data: { id: string; envoi_abandonne: boolean }[];
+    };
+    expect(corps.data.map((r) => [r.id, r.envoi_abandonne])).toEqual([
+      [ABANDONNEE, true],
+      [AUTRE, false],
+    ]);
+    // Seuls les ordres de création abandonnés…
+    expect(fileEnvoi.filtres).toEqual(
+      expect.arrayContaining([
+        ['eq', 'event_type', 'collecte.creee'],
+        ['eq', 'statut', 'dead'],
+      ]),
+    );
+    // … de collectes que l'exception touche encore.
+    expect(encore.filtres).toEqual(
+      expect.arrayContaining([
+        ['in', 'id', [ABANDONNEE]],
+        ['eq', 'statut', 'programmee'],
+        ['eq', 'statut_tms', 'non_envoye'],
+        ['is', 'tms_reference', null],
+      ]),
+    );
+    expect(String(chain.or.mock.calls[0]?.[0])).toContain(
+      `id.in.(${ABANDONNEE})`,
+    );
+  });
+
+  it('lecture de la file en échec : 500, jamais une liste aux statuts faux', async () => {
+    brancher({ data: null, error: { code: '57014', message: 'timeout' } });
+    const res = await callGet('');
+    expect(res.status).toBe(500);
+    expect(chain.range).not.toHaveBeenCalled();
   });
 });

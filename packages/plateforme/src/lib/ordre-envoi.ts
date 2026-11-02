@@ -109,9 +109,12 @@ export function envoiAbandonne(ordre: OrdreEnvoi | null): boolean {
 }
 
 /**
- * Collectes dont l'ordre de création est abandonné, parmi `collecteIds` ou,
- * sans liste, toutes (filtre « Créée » / « Programmée » de la liste Admin).
- * Peu de lignes : un abandon attend qu'on le débloque à la main.
+ * Collectes dont l'ordre de création est abandonné, parmi `collecteIds`
+ * (lignes déjà chargées) ou, sans liste, celles que l'exception touche encore
+ * (filtre « Créée » / « Programmée » de la liste Admin et de son export).
+ * Sans liste, les abandons de collectes depuis annulées, acceptées à la main ou
+ * terminées sont écartés : ils restent `dead` tant qu'on ne les saute pas, et
+ * grossiraient sans fin l'URL du filtre.
  */
 export async function lireCollectesEnvoiAbandonne(
   supabase: AdminSupabase,
@@ -122,18 +125,36 @@ export async function lireCollectesEnvoiAbandonne(
     .from('outbox_events')
     .select('aggregate_id')
     .eq('aggregate_type', 'collecte')
-    .eq('event_type', 'collecte.creee')
     // `collecte.creee` : l'ordre de l'attribution AG (`attribution.validee`)
     // n'en fait pas partie.
+    .eq('event_type', 'collecte.creee')
     .eq('statut', 'dead');
   if (collecteIds) q = q.in('aggregate_id', [...collecteIds]);
   const { data, error } = await q;
-  return {
-    data: new Set(
+  if (error) return { data: new Set(), error };
+  const ids = [
+    ...new Set(
       ((data as { aggregate_id: string }[] | null) ?? []).map(
         (l) => l.aggregate_id,
       ),
     ),
-    error: error ?? null,
+  ];
+  if (collecteIds || ids.length === 0)
+    return { data: new Set(ids), error: null };
+
+  // Mêmes conditions que l'exception (lib/statut-collecte-admin).
+  const encore = await supabase
+    .from('collectes')
+    .select('id')
+    .in('id', ids)
+    .eq('statut', 'programmee')
+    .eq('statut_tms', 'non_envoye')
+    .is('tms_reference', null);
+  if (encore.error) return { data: new Set(), error: encore.error };
+  return {
+    data: new Set(
+      ((encore.data as { id: string }[] | null) ?? []).map((c) => c.id),
+    ),
+    error: null,
   };
 }

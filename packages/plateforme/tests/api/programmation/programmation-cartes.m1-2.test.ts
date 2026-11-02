@@ -713,6 +713,55 @@ describe('M1.2 / programmation par cartes — plafond par type', () => {
   });
 });
 
+// ── Code affaire VIPARIS (Val 2026-11-02) ───────────────────────────────────
+
+describe('M1.2 / programmation — code affaire VIPARIS', () => {
+  it('VIPARIS/programmation_code_affaire_invalide — création : 422 sur le champ, rien n’est écrit', async () => {
+    setupAuth('traiteur_manager', ORG, 'user-1');
+
+    const res = await programmer(
+      corps([carte('zd')], { code_affaire_viparis: '26SIAL' }),
+    );
+
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ champ: 'code_affaire_viparis' });
+    aucuneEcriture();
+  });
+
+  it('VIPARIS/programmation_code_affaire_invalide — reprise d’un brouillon (PUT) : 422, rien n’est écrit', async () => {
+    setupAuth('traiteur_manager', ORG, 'user-1');
+    evenements = [BROUILLON];
+
+    const res = await reprendre(
+      'evt-b',
+      corps([carte('zd')], { code_affaire_viparis: '26-SIA1' }),
+    );
+
+    expect(res.status).toBe(422);
+    aucuneEcriture();
+  });
+
+  it('VIPARIS/programmation_code_affaire_brouillon — reprise d’un brouillon : le code normalisé part à fn_enregistrer_programmation', async () => {
+    setupAuth('traiteur_commercial', ORG, 'user-createur');
+    evenements = [BROUILLON];
+    enregistrementRend('evt-b', 'col-1');
+
+    const res = await reprendre(
+      'evt-b',
+      corps([carte('zd')], {
+        confirmer: false,
+        code_affaire_viparis: ' 26sial2 ',
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const [appel] = rpc('fn_enregistrer_programmation');
+    expect(
+      (appel!.args.p_evenement as Record<string, unknown>).code_affaire_viparis,
+    ).toBe('26SIAL2');
+  });
+});
+
 // ── Atomicité : une seule écriture, par la RPC ──────────────────────────────
 
 describe('M1.2 / programmation par cartes — une transaction', () => {

@@ -1436,6 +1436,38 @@ describe('M1.2 / Lieux — alignement sur la RLS', () => {
     expect(mockSupabaseChain.in).toHaveBeenCalledWith('id', ['lieu-opere-1']);
   });
 
+  it('VIPARIS/lieux_code_site_rendu — lieu VIPARIS : son code site est rendu avec le lieu', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    setResultatAuth({
+      data: [
+        { id: 'lieu-viparis', nom: 'Paris Expo' },
+        { id: 'lieu-autre', nom: 'Pavillon Cambon' },
+      ],
+      error: null,
+    });
+    // Lecture service-role des codes : rend une ligne pour le seul lieu VIPARIS.
+    mockSupabaseChain.not.mockResolvedValueOnce({
+      data: [{ id: 'lieu-viparis', code_site_viparis: 'PCP' }],
+      error: null,
+    });
+
+    const res = await getLieux();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([
+      { id: 'lieu-viparis', nom: 'Paris Expo', code_site_viparis: 'PCP' },
+      { id: 'lieu-autre', nom: 'Pavillon Cambon', code_site_viparis: null },
+    ]);
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('id', [
+      'lieu-viparis',
+      'lieu-autre',
+    ]);
+    expect(mockSupabaseChain.not).toHaveBeenCalledWith(
+      'code_site_viparis',
+      'is',
+      null,
+    );
+  });
+
   it('lieux_client_aucune_transcription_du_predicat — ni organisations_lieux ni evenements', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
     setResultatAuth({ data: [{ id: 'lieu-1' }], error: null });

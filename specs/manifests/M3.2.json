@@ -1607,8 +1607,8 @@
       "statut": "implemented",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:66",
       "artefact": "packages/plateforme/src/components/programmation/formulaire-programmation.tsx + packages/plateforme/src/app/api/v1/programmation/lieux/route.ts + packages/plateforme/src/lib/viparis/code-affaire-serveur.ts + supabase/migrations/20261102120000_plateforme_codes_viparis.sql (fn_enregistrer_programmation)",
-      "test": "M1.2/programmation_cartes_par_collecte + lieux_client_lu_sous_authenticated + supabase/tests/codes_viparis.test.sql",
-      "libelle": "Champ « Code affaire VIPARIS (optionnel) » à l'écran 1 du formulaire, proposé quand le lieu porte un code site ; écrit par fn_enregistrer_programmation dans la même transaction que l'événement (création et reprise de brouillon)."
+      "test": "VIPARIS/programmation_code_affaire_invalide + VIPARIS/programmation_code_affaire_brouillon + M1.2/programmation_cartes_par_collecte + VIPARIS/lieux_code_site_rendu + supabase/tests/codes_viparis.test.sql",
+      "libelle": "Champ « Code affaire VIPARIS (optionnel) » à l'écran 1 du formulaire, proposé quand le lieu porte un code site ; écrit par fn_enregistrer_programmation dans la même transaction que l'événement (création et reprise de brouillon). Affichage conditionnel du champ à l'écran : non couvert par un test automatique (preuve visuelle)."
     },
     {
       "id": "M3.2-viparis-fiches-collecte",

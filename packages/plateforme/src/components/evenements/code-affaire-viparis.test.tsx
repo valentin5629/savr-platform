@@ -1,5 +1,5 @@
 /**
- * Bloc « Code affaire VIPARIS » des fiches collecte (Val 2026-11-02).
+ * Bloc « Code affaire VIPARIS » de la fiche événement (Val 2026-11-02).
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';

@@ -40,6 +40,7 @@ import {
 import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { Heading } from '@/components/ui/heading';
 import { InfoItem } from '@/components/ui/info-item';
+import { CodeAffaireViparis } from '@/components/evenements/code-affaire-viparis';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -133,6 +134,10 @@ interface EvenementDetail {
   lieu_acces_details: string | null;
   traiteur: { id: string; nom: string | null; a_logo: boolean } | null;
   dechets_labo_kg: number | null;
+  // Codes VIPARIS (Val 2026-11-02) : code affaire de l'événement, code site de son lieu.
+  code_affaire_viparis: string | null;
+  code_site_viparis: string | null;
+  code_affaire_modifiable: boolean;
   // Événement programmé par l'organisation de l'utilisateur (cf. la route).
   ajouter_collecte: boolean;
   bilan: BilanEvenement;
@@ -1208,6 +1213,16 @@ export function FicheEvenementModal({
                     <InfoItem label="Période de collecte">
                       {periodeCollecte ?? VIDE}
                     </InfoItem>
+                    {/* Lieu VIPARIS (ou code déjà posé) : code affaire de
+                          l'événement, saisi même sur l'événement d'un traiteur
+                          tiers par VIPARIS (Val 2026-11-02). */}
+                    {(evt.code_site_viparis || evt.code_affaire_viparis) && (
+                      <CodeAffaireViparis
+                        evenementId={evt.id}
+                        code={evt.code_affaire_viparis}
+                        modifiable={evt.code_affaire_modifiable}
+                      />
+                    )}
                   </dl>
                 </FicheSection>
 

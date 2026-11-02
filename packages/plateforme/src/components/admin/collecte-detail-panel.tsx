@@ -103,7 +103,6 @@ import {
   GRILLE_3,
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { InfoItem } from '@/components/ui/info-item';
-import { CodeAffaireViparis } from '@/components/evenements/code-affaire-viparis';
 import { EnTeteMention } from '@/components/ui/fiche/fiche-en-tete';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
 import {
@@ -204,7 +203,6 @@ interface LieuDetail {
   ville: string;
   adresse_acces: string;
   code_postal?: string | null;
-  code_site_viparis?: string | null;
   acces_details?: string | null;
   acces_office?: string | null;
   stationnement?: string | null;
@@ -317,7 +315,6 @@ interface CollecteDetail {
     id: string;
     nom_evenement: string | null;
     pax: number;
-    code_affaire_viparis?: string | null;
     type_evenement_id?: string | null;
     nom_client_organisateur: string | null;
     contact_principal_nom?: string | null;
@@ -2182,13 +2179,6 @@ export function CollecteDetailPanel({
               <InfoItem label="Traiteur">
                 {collecte.evenements.organisations.raison_sociale}
               </InfoItem>
-              {(collecte.evenements.lieux?.code_site_viparis ||
-                collecte.evenements.code_affaire_viparis) && (
-                <CodeAffaireViparis
-                  evenementId={collecte.evenements.id}
-                  code={collecte.evenements.code_affaire_viparis ?? null}
-                />
-              )}
               {collecte.type === 'anti_gaspi' && (
                 <InfoItem label="Volume repas estimé">
                   {collecte.volume_estime_repas ?? '—'}

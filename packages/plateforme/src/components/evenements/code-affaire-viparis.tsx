@@ -11,7 +11,9 @@ import {
 
 /**
  * Code affaire VIPARIS de l'événement (Val 2026-11-02), lu et corrigé sur place
- * depuis les fiches : traiteur, agence, VIPARIS (gestionnaire du lieu) et équipe
+ * depuis la fiche événement (Val 2026-11-02 : porté par l'événement, pas par la
+ * collecte) : traiteur, agence, VIPARIS (gestionnaire du lieu, y compris sur
+ * l'événement d'un traiteur tiers) et équipe
  * Savr. Facultatif ; enregistré par PATCH /api/v1/evenements/[id]/code-affaire-viparis.
  */
 export function CodeAffaireViparis({

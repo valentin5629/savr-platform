@@ -1614,9 +1614,9 @@
       "id": "M3.2-viparis-fiches-collecte",
       "statut": "implemented",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:387",
-      "artefact": "packages/plateforme/src/components/evenements/code-affaire-viparis.tsx + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx + packages/plateforme/src/components/admin/collecte-detail-panel.tsx + packages/plateforme/src/lib/collectes/fiche-client.ts",
-      "test": "packages/plateforme/src/components/evenements/code-affaire-viparis.test.tsx + M3.2 / pop-up fiche collecte — codes VIPARIS",
-      "libelle": "Fiches collecte client (traiteur, agence, gestionnaire) et Admin : « Code affaire VIPARIS » avec Ajouter / Modifier sur place, « Code site VIPARIS » dans Lieu et accès (fiche client), affichés pour un lieu VIPARIS ou un événement qui porte un code."
+      "artefact": "packages/plateforme/src/components/evenements/code-affaire-viparis.tsx + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx + packages/plateforme/src/lib/evenements/fiche-evenement.ts + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx + packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": "packages/plateforme/src/components/evenements/code-affaire-viparis.test.tsx + VIPARIS/fiche_evenement_code_affaire_saisi + VIPARIS/fiche_evenement_code_affaire_lecture_seule + VIPARIS/fiche_evenement_hors_viparis + VIPARIS/fiche_evenement_code_affaire_tiers + VIPARIS/fiche_evenement_codes_404_sans_lecture + VIPARIS/fiche_evenement_codes_echec_500 + VIPARIS/fiche_collecte_code_site_sans_code_affaire",
+      "libelle": "« Code affaire VIPARIS » sur la fiche événement, commune à tous les espaces (section Événement de l'onglet Informations générales), affiché pour un lieu VIPARIS ou un événement qui porte un code : Ajouter / Modifier sur place pour l'Admin, le traiteur, l'agence et VIPARIS (gestionnaire du lieu), y compris sur l'événement d'un traiteur tiers tenu sur ses lieux ; lecture seule pour le client organisateur. Pas sur les fiches collecte (Val 2026-11-02 : le code affaire est porté par l'événement). « Code site VIPARIS » reste dans Lieu et accès de la fiche collecte client."
     },
     {
       "id": "M3.2-viparis-registre-export",

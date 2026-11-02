@@ -80,6 +80,28 @@ vi.mock('@/lib/collectes/fiche-client.js', () => ({
   chargerFicheCollecteClient: (...a: unknown[]) => mockCharger(...a),
 }));
 
+// Codes VIPARIS de l'événement (Val 2026-11-02) : lus en service-role pour
+// l'événement que la RLS vient de rendre.
+let codesViparis: { data: unknown; error: unknown } = {
+  data: { code_affaire_viparis: null, lieu: { code_site_viparis: null } },
+  error: null,
+};
+const lecturesCodes: { table: string; select: string; id: unknown }[] = [];
+vi.mock('@savr/shared/src/supabase-client.js', () => ({
+  createAdminSupabaseClient: () => ({
+    from: (table: string) => ({
+      select: (select: string) => ({
+        eq: (_c: string, id: unknown) => ({
+          maybeSingle: async () => {
+            lecturesCodes.push({ table, select, id });
+            return codesViparis;
+          },
+        }),
+      }),
+    }),
+  }),
+}));
+
 import { GET as LISTE } from '@/app/api/v1/evenements/route.js';
 import { GET as FICHE } from '@/app/api/v1/evenements/[id]/route.js';
 import { EVENEMENTS_PAGE_SIZE as PAGE_SIZE } from '@/lib/evenements-gestionnaire.js';
@@ -675,6 +697,57 @@ describe('M3.2 / fiche Événement gestionnaire — route', () => {
 // la fiche Événements gardent le pax CALCULÉ de l'événement (par jour le plus grand
 // des totaux ZD et AG, puis somme des jours) et sa taille — pas la somme des pax
 // de ses collectes.
+describe('VIPARIS — code affaire sur la fiche événement (Val 2026-11-02)', () => {
+  it('VIPARIS/fiche_evenement_code_affaire_tiers — événement d’un traiteur tiers sur son lieu VIPARIS : codes servis, code affaire modifiable', async () => {
+    lecturesCodes.length = 0;
+    codesViparis = {
+      data: {
+        code_affaire_viparis: '26SIAL1',
+        lieu: { code_site_viparis: 'CHAMP' },
+      },
+      error: null,
+    };
+    rls.__set({
+      data: evenementBrut({ organisation_id: 'org-traiteur-tiers' }),
+      error: null,
+    });
+    const res = await fiche();
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as { data: Record<string, unknown> };
+    expect(data).toMatchObject({
+      code_affaire_viparis: '26SIAL1',
+      code_site_viparis: 'CHAMP',
+      code_affaire_modifiable: true,
+      ajouter_collecte: false,
+    });
+    // Lus pour CET événement seul, après la lecture sous sa RLS.
+    expect(lecturesCodes).toEqual([
+      {
+        table: 'evenements',
+        select: 'code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)',
+        id: EVT_ID,
+      },
+    ]);
+  });
+
+  it('VIPARIS/fiche_evenement_codes_404_sans_lecture — événement hors de sa RLS : aucun code lu', async () => {
+    lecturesCodes.length = 0;
+    rls.__set({ data: null, error: null });
+    expect((await fiche()).status).toBe(404);
+    expect(lecturesCodes).toEqual([]);
+  });
+
+  it('VIPARIS/fiche_evenement_codes_echec_500 — lecture des codes en échec : 500, jamais un code vide affiché à tort', async () => {
+    codesViparis = { data: null, error: { message: 'boom' } };
+    rls.__set({ data: evenementBrut(), error: null });
+    expect((await fiche()).status).toBe(500);
+    codesViparis = {
+      data: { code_affaire_viparis: null, lieu: { code_site_viparis: null } },
+      error: null,
+    };
+  });
+});
+
 describe('Lot 3 / Événements gestionnaire — pax et taille de l’événement (Q4)', () => {
   it('Lot3/evenement_fiche_pax_et_taille_de_l_evenement — 800 convives calculés, taille L, même si ses collectes en portent 300 et 200', async () => {
     const brut = evenementBrut();

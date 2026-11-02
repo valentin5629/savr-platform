@@ -182,6 +182,15 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
       "libelle": "Export Événements : colonnes Taille et Pax = celles de l'ÉVÉNEMENT, son pax calculé (par jour le plus grand des totaux ZD et AG, puis somme des jours), et non la somme des pax de ses collectes (lot 3, décision Val Q4 du 2026-10-25). Rien à coder ; le test fige la décision."
+    },
+    {
+      "id": "M4.1-export-viparis-code-affaire-et-flux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:384",
+      "artefact": "packages/plateforme/src/lib/exports/shared.ts (lireCodesAffaireViparis, poidsParFlux, COLONNES_FLUX) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport) + packages/plateforme/src/lib/exports/evenements.ts",
+      "test": "VIPARIS/export_collectes_code_affaire_et_flux + VIPARIS/export_codes_par_lots + VIPARIS/export_codes_echec_500 + VIPARIS/export_evenements_code_affaire_et_flux",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M3.2_20261102_codes-viparis-site-affaire.md",
+      "libelle": "Exports Collectes et Événements (demande Val 2026-11-02) : colonne « Code affaire VIPARIS » (lue en service_role pour les seuls événements des lignes lues sous la RLS, par lots de 100) et cinq colonnes de poids par flux ZD juste après « Tonnage ZD (kg) » (Collectes : la collecte ZD, vides pour une AG ; Événements : cumul de ses collectes ZD). Repas donnés déjà présents (« Repas AG », « Repas AG donnés »)."
     }
   ],
   "cdc_source_hash": {

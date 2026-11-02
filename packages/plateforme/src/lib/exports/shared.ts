@@ -1,4 +1,12 @@
-import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import {
+  createAdminSupabaseClient,
+  type SupabaseClient,
+} from '@savr/shared/src/supabase-client.js';
+import {
+  FLUX_ZD_CODES,
+  LIBELLE_FLUX,
+  type FluxZdCode,
+} from '@/lib/libelles/flux.js';
 import type { AnyRole } from '@/lib/api-auth.js';
 import { ROLES_STAFF } from '@/lib/roles';
 import { erreurInterne } from '@/lib/api-helpers.js';
@@ -238,6 +246,72 @@ export function sommePoidsFlux(
   flux: { poids_reel_kg?: number | null }[] | null | undefined,
 ): number {
   return (flux ?? []).reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
+}
+
+/** Flux d'une collecte, avec le code de son flux (colonnes par flux des exports). */
+export type FluxPese = {
+  poids_reel_kg?: number | null;
+  flux_dechets?: { code?: string | null } | { code?: string | null }[] | null;
+};
+
+/**
+ * Poids réel (kg) par flux ZD, sommé sur une ou plusieurs collectes. Un flux
+ * sans pesée vaut 0, comme le « Tonnage ZD » ; un code hors des 5 flux V1 est
+ * ignoré.
+ */
+export function poidsParFlux(
+  flux: FluxPese[] | null | undefined,
+): Record<FluxZdCode, number> {
+  const out = Object.fromEntries(FLUX_ZD_CODES.map((c) => [c, 0])) as Record<
+    FluxZdCode,
+    number
+  >;
+  for (const f of flux ?? []) {
+    const code = unwrap(f.flux_dechets).code as string | undefined;
+    if (code && code in out)
+      out[code as FluxZdCode] += Number(f.poids_reel_kg ?? 0);
+  }
+  return out;
+}
+
+/** Colonnes « <Flux> (kg) », dans l'ordre d'affichage des flux. */
+export const COLONNES_FLUX = FLUX_ZD_CODES.map((code) => ({
+  code,
+  header: `${LIBELLE_FLUX[code]} (kg)`,
+}));
+
+// Identifiants par requête `in(id, …)` : au-delà de quelques centaines, l'URL
+// est refusée (mesuré sur savr-dev le 2026-10-07, cf. l'export Collectes).
+const IDS_PAR_LECTURE = 100;
+
+/**
+ * Codes affaire VIPARIS des événements (Val 2026-11-02). La colonne est hors de
+ * la liste blanche de lecture des clients : lue en service_role, pour les seuls
+ * événements que l'export vient de lire sous la RLS du demandeur (staff : son
+ * client service_role). Ne rend que les événements qui ont un code.
+ */
+export async function lireCodesAffaireViparis(
+  ctx: ExportContext,
+  evenementIds: string[],
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ids = [...new Set(evenementIds.filter((v): v is string => !!v))];
+  if (ids.length === 0) return out;
+  const lecteur = ctx.isStaff ? ctx.supabase : createAdminSupabaseClient();
+  for (let i = 0; i < ids.length; i += IDS_PAR_LECTURE) {
+    const { data, error } = await lecteur
+      .from('evenements')
+      .select('id, code_affaire_viparis')
+      .in('id', ids.slice(i, i + IDS_PAR_LECTURE))
+      .not('code_affaire_viparis', 'is', null);
+    if (error) throw erreurInterne(error, 'exports.codes_viparis');
+    for (const e of (data ?? []) as {
+      id: string;
+      code_affaire_viparis: string | null;
+    }[])
+      if (e.code_affaire_viparis) out.set(e.id, e.code_affaire_viparis);
+  }
+  return out;
 }
 
 /** Déballe une relation Supabase (objet ou tableau-1) en objet. */

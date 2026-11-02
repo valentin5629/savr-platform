@@ -17,6 +17,7 @@ const ImpersonationBanner = React.forwardRef<
   <div
     ref={ref}
     role="alert"
+    data-bandeau-impersonation
     className={cn(
       // Texte centré dans toute la largeur ; bouton « Quitter » ancré à droite
       // (positionné en absolu pour ne pas décentrer le texte).

@@ -41,7 +41,10 @@ const AppShell = ({
   return (
     <IdentiteProvider value={identite ?? null}>
       <LogoZdProvider>
+        {/* `data-cadre-app` : repère de globals.css, qui ajuste la hauteur
+            du cadre quand le bandeau d'impersonation est affiché au-dessus. */}
         <div
+          data-cadre-app
           className={cn(
             'flex h-screen overflow-hidden bg-savr-neutral-50',
             className,

@@ -342,3 +342,23 @@ h3 {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ─── Bandeau d'impersonation au-dessus du cadre de l'app ───────────────────
+   Le bandeau (ImpersonationBannerMount, layout racine) est dans le flux, au-
+   dessus du cadre AppShell qui fait toute la hauteur de l'écran (`h-screen`) :
+   la page dépassait de la hauteur du bandeau et défilait derrière le cadre
+   (bande vide en bas). Quand les deux sont là, la page devient une colonne de
+   la hauteur de l'écran et le cadre prend la place restante.
+   Hors layer, exprès : la règle doit l'emporter sur l'utilitaire `h-screen`.
+   Sans bandeau, ou sans cadre (connexion, CGU, 403), rien ne change. */
+body:has(> [data-bandeau-impersonation]):has(> [data-cadre-app]) {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+body:has(> [data-bandeau-impersonation]) > [data-cadre-app] {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: auto;
+}

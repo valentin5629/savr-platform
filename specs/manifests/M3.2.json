@@ -520,7 +520,9 @@
     "M3.2/pack_ag_consommation_repas_objet",
     "M3.2/pack_ag_consommation_annulee_rattachee_listee",
     "M3.2/mon_pack_ag_ecran_renouvellement_seuil",
-    "M3.2/mon_pack_ag_ecran_dernier_annule"
+    "M3.2/mon_pack_ag_ecran_dernier_annule",
+    "M3.2/mon_pack_ag_ordre_packs",
+    "M3.2/mon_pack_ag_courant_en_tete"
   ],
   "deliverables": [
     {
@@ -1182,9 +1184,9 @@
       "id": "M3.2-mon-pack-ag-historique-packs",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73",
       "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts + packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx",
-      "test": "M3.2/mon_pack_ag_historique_packs + M3.2/mon_pack_ag_courant_epuise + M3.2/pack_ag_aucun_actif_null + M3.2/mon_pack_ag_ecran_historique_packs + M3.2/mon_pack_ag_ecran_dernier_annule",
+      "test": "M3.2/mon_pack_ag_historique_packs + M3.2/mon_pack_ag_courant_epuise + M3.2/pack_ag_aucun_actif_null + M3.2/mon_pack_ag_ecran_historique_packs + M3.2/mon_pack_ag_ecran_dernier_annule + M3.2/mon_pack_ag_ordre_packs + M3.2/mon_pack_ag_courant_en_tete",
       "statut": "implemented",
-      "libelle": "Mon pack Anti-Gaspi — historique des packs (Val 2026-11-02, renverse l'arbitrage du 2026-10-07 « pas de liste des packs précédents ») : la route rend tous les packs de l'organisation (actif, épuisés, annulés), du plus récent au plus ancien, et le pack en tête : l'actif, sinon le dernier s'il est épuisé (§11), rien si le dernier est annulé. L'écran montre le solde (jauge du dashboard), puis « Historique des packs » : une ligne par pack (type en clair, statut, crédits utilisés / initiaux, dates JJ/MM/AAAA, nombre de collectes) qui se déplie sur la liste de SES collectes (Val 2026-11-02) ; le pack courant est déplié d'office. Sans aucun pack : « Votre organisation n'a pas de pack Anti-Gaspi. »",
+      "libelle": "Mon pack Anti-Gaspi — historique des packs (Val 2026-11-02, renverse l'arbitrage du 2026-10-07 « pas de liste des packs précédents ») : la route rend tous les packs de l'organisation (actif, épuisés, annulés), le pack en cours en haut puis du plus récent au plus ancien par date d'achat, le plus ancien en bas (Val 2026-11-02), et le pack en tête : l'actif, sinon le dernier s'il est épuisé (§11), rien si le dernier est annulé. L'écran montre le solde (jauge du dashboard), puis « Historique des packs » : une ligne par pack (type en clair, statut, crédits utilisés / initiaux, dates JJ/MM/AAAA, nombre de collectes) qui se déplie sur la liste de SES collectes (Val 2026-11-02) ; le pack courant est déplié d'office. Sans aucun pack : « Votre organisation n'a pas de pack Anti-Gaspi. »",
       "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {

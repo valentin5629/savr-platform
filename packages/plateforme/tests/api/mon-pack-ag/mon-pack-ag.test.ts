@@ -46,7 +46,7 @@ function makeClient(
       const embedFiltres: { embed: string; col: string; val: unknown }[] = [];
       const eqs: [string, unknown][] = [];
       const ins: [string, unknown[]][] = [];
-      let tri: { col: string; asc: boolean } | null = null;
+      const tris: { col: string; asc: boolean }[] = [];
       let plafond: number | null = null;
 
       const resoudre = (): Result => {
@@ -67,14 +67,17 @@ function makeClient(
           (m) => m[1]!,
         );
         lignes = lignes.filter((l) => inners.every((e) => l[e] != null));
-        // 3. Tri puis plafond, comme la requête les demande.
-        const t = tri;
-        if (t)
-          lignes.sort(
-            (a, b) =>
+        // 3. Tris puis plafond, comme la requête les demande.
+        // Tris successifs, le premier demandé l'emporte.
+        lignes.sort((a, b) => {
+          for (const t of tris) {
+            const d =
               String(a[t.col]).localeCompare(String(b[t.col])) *
-              (t.asc ? 1 : -1),
-          );
+              (t.asc ? 1 : -1);
+            if (d) return d;
+          }
+          return 0;
+        });
         return {
           data: plafond === null ? lignes : lignes.slice(0, plafond),
           error: null,
@@ -99,7 +102,7 @@ function makeClient(
           return chain;
         },
         order: (col: string, opts?: { ascending?: boolean }) => {
-          tri = { col, asc: opts?.ascending !== false };
+          tris.push({ col, asc: opts?.ascending !== false });
           return chain;
         },
         limit: (n: number) => {
@@ -323,6 +326,53 @@ describe('Mon pack Anti-Gaspi — packs bornés à l’organisation du jeton', (
       id: 'p-epuise',
       credits_restants: 0,
     });
+  });
+
+  it('M3.2/mon_pack_ag_ordre_packs — le pack en cours en haut, puis du plus récent au plus ancien par date d’achat, quelle que soit la date de création', async () => {
+    service = makeClient({
+      packs_antgaspi: [
+        // Ordre de création inverse de l'ordre d'achat (cas de savr-dev).
+        {
+          ...pack('p-actif', ORG, 'actif', '2026-10-14'),
+          created_at: '2026-01-01',
+        },
+        {
+          ...pack('p-ancien', ORG, 'epuise', '2025-06-01'),
+          created_at: '2026-11-02T10:00',
+        },
+        {
+          ...pack('p-milieu', ORG, 'epuise', '2025-11-01'),
+          created_at: '2026-11-02T11:00',
+        },
+      ],
+    });
+
+    const { data } = await appeler();
+
+    expect(data.packs.map((p) => p.id)).toEqual([
+      'p-actif',
+      'p-milieu',
+      'p-ancien',
+    ]);
+    expect(data.pack_courant).toMatchObject({ id: 'p-actif' });
+  });
+
+  it('M3.2/mon_pack_ag_courant_en_tete — un pack en cours plus ancien qu’un pack annulé reste en haut', async () => {
+    service = makeClient({
+      packs_antgaspi: [
+        pack('p-annule', ORG, 'annule', '2026-09-01'),
+        pack('p-actif', ORG, 'actif', '2026-03-01'),
+        pack('p-ancien', ORG, 'epuise', '2025-06-01'),
+      ],
+    });
+
+    const { data } = await appeler();
+
+    expect(data.packs.map((p) => p.id)).toEqual([
+      'p-actif',
+      'p-annule',
+      'p-ancien',
+    ]);
   });
 
   it('M3.2/mon_pack_ag_historique_packs — tous les packs de l’organisation (actif, épuisés, annulés), du plus récent au plus ancien ; un dernier pack annulé n’est pas un solde : rien en tête', async () => {

@@ -112,21 +112,27 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const service = createAdminSupabaseClient();
 
-  // Tous les packs de l'organisation, du plus récent au plus ancien.
+  // Tous les packs de l'organisation, du plus récent au plus ancien par date
+  // d'achat (puis de création) : le plus ancien en bas (Val 2026-11-02).
   const { data: packsLus, error: packErr } = await service
     .from('packs_antgaspi')
     .select(PACK_COLS)
     .eq('organisation_id', organisationId)
+    .order('date_achat', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false });
   if (packErr) return serverError(packErr, 'mon_pack_ag.packs');
-  const packs = (packsLus ?? []) as unknown as PackRow[];
+  const packsParDate = (packsLus ?? []) as unknown as PackRow[];
 
   // Pack affiché en tête : l'actif (au plus un, uniq_pack_actif_par_org), sinon
   // le dernier pack s'il est épuisé (§11 Bloc Mon pack AG, arbitrage Val
   // 2026-10-08). Un dernier pack annulé n'est pas un solde : rien en tête.
   const packCourant =
-    packs.find((p) => p.statut === 'actif') ??
-    (packs[0]?.statut === 'epuise' ? packs[0] : null);
+    packsParDate.find((p) => p.statut === 'actif') ??
+    (packsParDate[0]?.statut === 'epuise' ? packsParDate[0] : null);
+  // Le pack en cours en haut de la liste, quelle que soit sa date d'achat.
+  const packs = packCourant
+    ? [packCourant, ...packsParDate.filter((p) => p !== packCourant)]
+    : packsParDate;
 
   // Collectes AG rattachées à un pack DE L'ORGANISATION de l'appelant. Le
   // gestionnaire voit aussi les collectes des traiteurs tiers sur ses lieux,

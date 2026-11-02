@@ -1,6 +1,6 @@
 -- =============================================================================
 -- pgTAP — codes VIPARIS (Val 2026-11-02), migration
--- 20261102120000_plateforme_codes_viparis.sql
+-- 20261102150000_plateforme_codes_viparis.sql
 -- =============================================================================
 -- Prouve :
 --   • lieux.code_site_viparis : liste fermée des 8 sites, NULL admis ;
@@ -116,23 +116,28 @@ UPDATE plateforme.evenements e SET code_affaire_viparis = '26SIAL9'
  WHERE c.evenement_id = e.id AND c.id = (SELECT collecte_fixture FROM t);
 UPDATE plateforme.collectes SET statut = 'cloturee' WHERE id = (SELECT collecte_fixture FROM t);
 
-SELECT _vip_jwt('admin_savr', (SELECT org FROM t));
+-- La table temporaire `t` n'est pas lisible sous `authenticated` : la collecte
+-- et l'organisation passent par des réglages de session.
+SELECT set_config('vip.collecte', (SELECT collecte_fixture FROM t)::text, true),
+       set_config('vip.org', (SELECT org FROM t)::text, true);
+
+SELECT _vip_jwt('admin_savr', current_setting('vip.org')::uuid);
 SELECT is(
   (SELECT lieu_code_site_viparis FROM plateforme.v_registre_dechets
-    WHERE collecte_id = (SELECT collecte_fixture FROM t)),
+    WHERE collecte_id = current_setting('vip.collecte')::uuid),
   'PCP', 'registre : le code site du lieu');
 SELECT is(
   (SELECT evenement_code_affaire_viparis FROM plateforme.v_registre_dechets
-    WHERE collecte_id = (SELECT collecte_fixture FROM t)),
+    WHERE collecte_id = current_setting('vip.collecte')::uuid),
   '26SIAL9', 'registre : le code affaire de l’événement');
 
 -- Le traiteur programmateur lit aussi les codes de SON registre (aucune
 -- confidentialité, Val 2026-11-02), par la vue et elle seule.
-SELECT _vip_jwt('traiteur_manager', (SELECT org FROM t));
+SELECT _vip_jwt('traiteur_manager', current_setting('vip.org')::uuid);
 SELECT is(
   (SELECT lieu_code_site_viparis || '/' || evenement_code_affaire_viparis
      FROM plateforme.v_registre_dechets
-    WHERE collecte_id = (SELECT collecte_fixture FROM t)),
+    WHERE collecte_id = current_setting('vip.collecte')::uuid),
   'PCP/26SIAL9', 'registre du traiteur : les deux codes');
 
 -- ── 13-16. Aucun accès nouveau ─────────────────────────────────────────────

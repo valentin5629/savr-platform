@@ -1,5 +1,5 @@
 // Codes VIPARIS (Val 2026-11-02) : code site du lieu, code affaire de l'événement.
-// Même liste et même format que les CHECK de la migration 20261102120000 : une
+// Même liste et même format que les CHECK de la migration 20261102150000 : une
 // valeur refusée ici l'aurait été par la base, avec une erreur 500 au lieu d'un 422.
 
 export const CODES_SITE_VIPARIS = [

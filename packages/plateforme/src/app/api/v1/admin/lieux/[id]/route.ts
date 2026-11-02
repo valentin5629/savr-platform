@@ -4,6 +4,7 @@ import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { lireGestionnaireLieu } from '@/lib/admin/gestionnaire-lieu.js';
+import { estCodeSiteViparis } from '@/lib/viparis/codes.js';
 
 export async function GET(
   req: NextRequest,
@@ -82,11 +83,23 @@ export async function PATCH(
     'siren',
     'email_gestionnaire',
     'reference_citeo',
+    'code_site_viparis',
     'actif',
   ];
   const updates = Object.fromEntries(
     Object.entries(body).filter(([k]) => ALLOWED_FIELDS.includes(k)),
   );
+
+  if (
+    updates.code_site_viparis !== undefined &&
+    updates.code_site_viparis !== null &&
+    !estCodeSiteViparis(updates.code_site_viparis)
+  ) {
+    return NextResponse.json(
+      { error: 'Code site VIPARIS inconnu' },
+      { status: 422 },
+    );
+  }
 
   // Le rattachement gestionnaire (organisations_lieux) est un champ hors-colonne
   // lieux : compte comme une modification valide même si aucune colonne lieu ne change.

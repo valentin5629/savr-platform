@@ -57,7 +57,7 @@ export async function GET(
   const query = supabase
     .from('evenements')
     .select(
-      'id, organisation_id, traiteur_operationnel_organisation_id, lieu_id, nom_evenement, nom_client_organisateur, reference_affaire, date_evenement, pax, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone, type_evenement:types_evenements!type_evenement_id(libelle), traiteur_operationnel:organisations!traiteur_operationnel_organisation_id(id, nom, raison_sociale), organisation:organisations!organisation_id(id, nom, raison_sociale), lieux(nom, adresse_acces, code_postal, ville, acces_details, controle_acces_requis_default), collectes(id, type, statut, date_collecte, heure_collecte, pax, controle_acces_requis, type_evenement_id, informations_supplementaires, lieu_overrides, created_at, type_evenement:types_evenements!type_evenement_id(libelle))',
+      'id, organisation_id, traiteur_operationnel_organisation_id, lieu_id, nom_evenement, nom_client_organisateur, reference_affaire, code_affaire_viparis, date_evenement, pax, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone, type_evenement:types_evenements!type_evenement_id(libelle), traiteur_operationnel:organisations!traiteur_operationnel_organisation_id(id, nom, raison_sociale), organisation:organisations!organisation_id(id, nom, raison_sociale), lieux(nom, adresse_acces, code_postal, ville, acces_details, controle_acces_requis_default, code_site_viparis), collectes(id, type, statut, date_collecte, heure_collecte, pax, controle_acces_requis, type_evenement_id, informations_supplementaires, lieu_overrides, created_at, type_evenement:types_evenements!type_evenement_id(libelle))',
     )
     .eq('id', evenementId);
 

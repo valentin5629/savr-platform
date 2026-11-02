@@ -32,6 +32,8 @@ export interface LieuOption {
   type_vehicule_max?: string | null;
   contraintes_horaires?: string | null;
   flux_autorises?: string[] | null;
+  // Code site VIPARIS (Val 2026-11-02) : non nul = lieu VIPARIS.
+  code_site_viparis?: string | null;
 }
 
 interface LieuComboboxProps {

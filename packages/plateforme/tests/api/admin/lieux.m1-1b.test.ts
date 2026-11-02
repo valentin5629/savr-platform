@@ -386,3 +386,84 @@ describe('Lieux / Rattachement gestionnaire — type imposé serveur', () => {
     );
   });
 });
+
+// Code site VIPARIS (Val 2026-11-02) : liste fermée, saisie par l'Admin.
+describe('Lieux / Code site VIPARIS', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const CREATION = {
+    nom: 'Paris Expo',
+    adresse_acces: '1 place de la Porte de Versailles',
+    code_postal: '75015',
+    ville: 'Paris',
+    type_vehicule_max: 'poids_lourd',
+  };
+
+  it('VIPARIS/lieu_create_code_site — code connu : écrit à la création', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'lieu-new' },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/lieux/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/lieux', {
+        ...CREATION,
+        code_site_viparis: 'PCP',
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ code_site_viparis: 'PCP' }),
+    );
+  });
+
+  it('VIPARIS/lieu_create_code_site_inconnu — 422, aucun lieu créé', async () => {
+    setupAuth('admin_savr');
+    const { POST } = await import('@/app/api/v1/admin/lieux/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/lieux', {
+        ...CREATION,
+        code_site_viparis: 'XYZ',
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+
+  it('VIPARIS/lieu_patch_code_site_inconnu — 422 avant toute lecture', async () => {
+    setupAuth('admin_savr');
+    const { PATCH } = await import('@/app/api/v1/admin/lieux/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/lieux/lieu-1', {
+        code_site_viparis: 'pcp',
+      }),
+      { params: Promise.resolve({ id: 'lieu-1' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
+  it('VIPARIS/lieu_patch_code_site — code connu ou null : écrit', async () => {
+    setupAuth('admin_savr');
+    for (const code of ['CNIT2', null]) {
+      vi.clearAllMocks();
+      setupAuth('admin_savr');
+      mockSupabaseChain.single
+        .mockResolvedValueOnce({ data: { id: 'lieu-1' }, error: null })
+        .mockResolvedValueOnce({ data: { id: 'lieu-1' }, error: null });
+      const { PATCH } = await import('@/app/api/v1/admin/lieux/[id]/route.js');
+      const res = await PATCH(
+        makeReq('PATCH', '/api/v1/admin/lieux/lieu-1', {
+          code_site_viparis: code,
+        }),
+        { params: Promise.resolve({ id: 'lieu-1' }) },
+      );
+      expect(res.status).toBe(200);
+      expect(mockSupabaseChain.update).toHaveBeenCalledWith(
+        expect.objectContaining({ code_site_viparis: code }),
+      );
+    }
+  });
+});

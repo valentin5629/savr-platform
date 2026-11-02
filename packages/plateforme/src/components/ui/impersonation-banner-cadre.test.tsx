@@ -36,11 +36,27 @@ describe("Bandeau d'impersonation au-dessus du cadre", () => {
       resolve(__dirname, '../../app/globals.css'),
       'utf8',
     );
-    expect(css).toContain(
+    const bloc = (selecteur: string): string => {
+      const debut = css.indexOf(`${selecteur} {`);
+      expect(debut, `règle absente : ${selecteur}`).toBeGreaterThan(-1);
+      return css.slice(debut, css.indexOf('}', debut));
+    };
+    const page = bloc(
       'body:has(> [data-bandeau-impersonation]):has(> [data-cadre-app])',
     );
-    expect(css).toContain(
+    for (const d of [
+      'display: flex;',
+      'flex-direction: column;',
+      'height: 100vh;',
+      'height: 100dvh;',
+    ]) {
+      expect(page).toContain(d);
+    }
+    const cadre = bloc(
       'body:has(> [data-bandeau-impersonation]) > [data-cadre-app]',
     );
+    for (const d of ['flex: 1 1 0%;', 'min-height: 0;', 'height: auto;']) {
+      expect(cadre).toContain(d);
+    }
   });
 });

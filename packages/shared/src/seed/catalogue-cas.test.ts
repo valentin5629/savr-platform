@@ -52,7 +52,6 @@ describe('catalogue-cas — couverture', () => {
     'en_attente_execution',
     'rejetee_par_prestataire',
     'annulee_par_traiteur',
-    'rejetee_par_tms',
   ])('SEED-CAS-6 — statut TMS %s', (statutTms) => {
     expect(lot.some((c) => c.statutTms === statutTms)).toBe(true);
   });

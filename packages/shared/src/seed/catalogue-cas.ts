@@ -19,6 +19,11 @@
  * - « Rapport non consulté » : ce filtre lit les rapports PDF, que le seed ne
  *   sème jamais (cf. documents-non-semes) ; `pnpm documents:dev` les fabrique.
  * - Le compte Nomad, qui reste vide (fixture « nouveau client »).
+ * - « Refusée par le TMS » (`rejetee_par_tms`) : aucun code V1 ne l'écrit.
+ *
+ * Toute collecte confiée à un prestataire reçoit en base une tournée par
+ * camion (`demo.ts`), comme l'adapter la crée : sans elle, l'annulation ou la
+ * relève la croiraient jamais commandée.
  */
 
 import { decalerJour, instantParis } from '../temps/index.js';
@@ -47,8 +52,8 @@ export type CollecteCas = CollecteVivante & {
   repas?: number;
   /** AG : attribution déjà validée par l'Admin (demande partie). */
   attributionValidee?: boolean;
-  /** Référence de commande reçue du TMS. */
-  tmsReference?: string;
+  /** AG annulée tardivement : crédit du pack actif débité (trigger en prod). */
+  packDebite?: boolean;
   informationsCompletes: boolean;
   controleAcces: boolean;
   /** Contrôle d'accès : instant d'envoi de l'email des infos d'accès. */
@@ -136,7 +141,6 @@ const CAS: DefCas[] = [
     pax: 600,
     statut: 'programmee',
     statutTms: 'attribuee_en_attente_acceptation',
-    tmsReference: 'CAS-ATTENTE-ZD',
   },
   {
     nomEvenement: 'Cas — AG envoyée, en attente du prestataire',
@@ -149,18 +153,6 @@ const CAS: DefCas[] = [
     statut: 'programmee',
     statutTms: 'attribuee_en_attente_acceptation',
     attributionValidee: true,
-    tmsReference: 'CAS-ATTENTE-AG',
-  },
-  {
-    nomEvenement: 'Cas — ZD refusée par le TMS',
-    traiteur: BUTARD,
-    type: ZD,
-    j: 10,
-    heure: '18:00',
-    lieu: 'lieu_cnit',
-    pax: 1499,
-    statut: 'programmee',
-    statutTms: 'rejetee_par_tms',
   },
   {
     nomEvenement: 'Cas — ZD validée, modifiée sans renvoi TMS',
@@ -173,7 +165,6 @@ const CAS: DefCas[] = [
     statut: 'validee',
     statutTms: 'acceptee',
     dirtyTms: true,
-    tmsReference: 'CAS-DIRTY-ZD',
   },
   {
     nomEvenement: 'Cas — AG validée, modifiée sans renvoi TMS',
@@ -186,7 +177,6 @@ const CAS: DefCas[] = [
     statut: 'validee',
     statutTms: 'acceptee',
     dirtyTms: true,
-    tmsReference: 'CAS-DIRTY-AG',
   },
 
   // ── Urgences (< 24 h / < 48 h) ──────────────────────────────────────────
@@ -226,7 +216,6 @@ const CAS: DefCas[] = [
     camions: 2,
     statut: 'validee',
     statutTms: 'acceptee',
-    tmsReference: 'CAS-MINUIT',
   },
 
   // ── Informations, contrôle d'accès, tailles ─────────────────────────────
@@ -237,7 +226,7 @@ const CAS: DefCas[] = [
     j: 12,
     heure: '09:00',
     lieu: 'lieu_villepinte',
-    pax: 800,
+    pax: 1499,
     statut: 'validee',
     statutTms: 'acceptee',
     informationsCompletes: false,
@@ -290,7 +279,6 @@ const CAS: DefCas[] = [
     camions: 4,
     statut: 'validee',
     statutTms: 'acceptee',
-    tmsReference: 'CAS-GEANTE',
   },
   {
     nomEvenement: 'Cas — ZD avec notes internes',
@@ -332,7 +320,6 @@ const CAS: DefCas[] = [
     statutTms: 'attribuee_en_attente_acceptation',
     association: 'asso_echo',
     attributionValidee: true,
-    tmsReference: 'CAS-LYON',
   },
   {
     nomEvenement: 'Cas — ZD province Bordeaux, 2 camions, non transmise',
@@ -414,6 +401,9 @@ const CAS: DefCas[] = [
   },
 
   // ── Annulations ─────────────────────────────────────────────────────────
+  // « Annulation demandée » : depuis #703 l'annulation cliente est effective
+  // sur-le-champ ; ces deux cas représentent les demandes encore ouvertes
+  // (héritées), que l'Admin confirme.
   {
     nomEvenement: 'Cas — AG annulation demandée tardive (< 4 h)',
     traiteur: LENOTRE,
@@ -461,7 +451,8 @@ const CAS: DefCas[] = [
     pax: 270,
     statut: 'annulee',
     statutTms: 'annulee_par_traiteur',
-    sansAttribution: true,
+    attributionValidee: true,
+    packDebite: true,
     annulationDemandee: { j: -2, heure: '20:30' },
   },
   {
@@ -502,7 +493,6 @@ const CAS: DefCas[] = [
     pax: 500,
     statut: 'en_cours',
     statutTms: 'en_attente_execution',
-    tmsReference: 'CAS-EN-COURS-AG',
   },
   {
     nomEvenement: 'Cas — ZD en cours, modifiée sans renvoi TMS',
@@ -515,7 +505,6 @@ const CAS: DefCas[] = [
     statut: 'en_cours',
     statutTms: 'en_attente_execution',
     dirtyTms: true,
-    tmsReference: 'CAS-EN-COURS-ZD',
   },
   {
     nomEvenement: 'Cas — ZD réalisée hier (embargo)',

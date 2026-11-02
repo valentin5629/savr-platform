@@ -908,7 +908,13 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         const c = casParId.get(row.id as string)!;
         return {
           ...row,
-          tms_reference: c.tmsReference ?? null,
+          // Référence du rang 1, comme l'adapter (tournées posées plus bas).
+          tms_reference: row.prestataire_logistique_id
+            ? `TOUR-tour_${c.slug}_1`
+            : null,
+          pack_antgaspi_id: c.packDebite
+            ? U(`pack_${c.traiteur.replace(/^org_tr_/, '')}`)
+            : row.pack_antgaspi_id,
           informations_completes: c.informationsCompletes,
           controle_acces_requis: c.controleAcces,
           infos_acces_email_envoye_at: c.infosAccesEnvoyeesAt ?? null,
@@ -1213,7 +1219,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   // y compris celles déjà acceptées par le prestataire.
   const tourVivantes: Row[] = [];
   const ctVivantes: Row[] = [];
-  for (const r of [...vivantes, ...multi.collectes, ...cas]) {
+  for (const r of [...vivantes, ...multi.collectes]) {
     const presta = prestaParSlug.get(r.slug);
     if (!presta) continue; // pas encore dispatchée : aucune tournée
     const st = statutDe(r);
@@ -1249,7 +1255,52 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       id: U(`ct_${r.slug}`),
       collecte_id: U(r.slug),
       tournee_id: U(slug),
+      rang: 1,
     });
+  }
+  // Catalogue de cas : toute collecte confiée à un prestataire a sa commande,
+  // donc une tournée unitaire PAR CAMION (rang 1..N), comme l'adapter MTS-1 —
+  // y compris en attente d'acceptation, annulation demandée ou annulée.
+  for (const r of cas) {
+    const presta = prestaParSlug.get(r.slug);
+    if (!presta) continue;
+    const st = statutDe(r);
+    const statutTournee = estExecutee(r)
+      ? 'terminee'
+      : st === 'en_cours'
+        ? 'en_cours'
+        : st === 'annulee'
+          ? 'annulee'
+          : 'planifiee';
+    for (let rang = 1; rang <= r.camions; rang++) {
+      const slug = `tour_${r.slug}_${rang}`;
+      tourVivantes.push({
+        id: U(slug),
+        reference_interne: slug.toUpperCase(),
+        date_tournee: r.date,
+        creneau: 'nuit',
+        prestataire_logistique_id: U('prest_' + presta),
+        statut: statutTournee,
+        external_ref_commande: 'MTS1-' + slug,
+        tms_reference: 'TOUR-' + slug,
+        heure_debut_reelle:
+          statutTournee === 'terminee' || statutTournee === 'en_cours'
+            ? instantParis(r.date, r.heure ?? '22:00').toISOString()
+            : null,
+        heure_fin_reelle:
+          statutTournee === 'terminee'
+            ? new Date(
+                instantParis(r.date, r.heure ?? '22:00').getTime() + 5_400_000,
+              ).toISOString()
+            : null,
+      });
+      ctVivantes.push({
+        id: U(`ct_${r.slug}_${rang}`),
+        collecte_id: U(r.slug),
+        tournee_id: U(slug),
+        rang,
+      });
+    }
   }
   await batchUpsert(client, 'plateforme.tournees', tourVivantes, ['id'], 200);
   await batchUpsert(

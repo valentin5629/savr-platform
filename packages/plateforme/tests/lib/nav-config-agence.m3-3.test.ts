@@ -1,7 +1,7 @@
 /**
  * M3.3 — Navigation agence (§06.11 « Navigation », réplique du §06.04 §1),
  * plus « Événements » sous « Collectes » depuis le 2026-10-29 (décision Val :
- * liste Événements commune à tous les rôles), et « Mon pack Anti-Gaspi » avant
+ * liste Événements commune à tous les rôles), et « Mon pack Anti-Gaspi » après
  * « Paramètres » depuis le 2026-11-02 (décision Val : onglet pour tous les rôles
  * clients).
  */
@@ -17,8 +17,8 @@ describe('M3.3 / navigation agence', () => {
       'Dashboard',
       'Collectes',
       'Événements',
-      'Mon pack Anti-Gaspi',
       'Paramètres',
+      'Mon pack Anti-Gaspi',
     ]);
     for (const absente of ['Registre réglementaire', 'Rapports RSE'])
       expect(labels).not.toContain(absente);

@@ -29,7 +29,7 @@
     "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/users/[id]/route.ts",
     "packages/plateforme/tests/api/gestionnaire/espace-gestionnaire.m3-2.test.ts",
     "packages/plateforme/tests/api/mon-pack-ag/mon-pack-ag.test.ts",
-    "packages/plateforme/tests/ui/mon-pack-ag.m3-2.test.tsx",
+    "packages/plateforme/tests/ui/mon-pack-ag.test.tsx",
     "supabase/migrations/20260705130000_plateforme_r19b_gest04_benchmark_7params.sql",
     "supabase/migrations/20260705140000_plateforme_r19b_benchmark_filtres_parc.sql",
     "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql",
@@ -1603,7 +1603,7 @@
       "artefact": "packages/plateforme/src/lib/nav-config.ts + packages/plateforme/src/lib/routes.ts + packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts + packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx + les 4 pages mon-pack-ag des espaces (traiteur), (agence), (gestionnaire), (client-organisateur)",
       "test": "M3.2/mon_pack_ag_roles + M3.2/mon_pack_ag_refus_relaye + packages/plateforme/src/lib/routes.test.ts + M3.3/navigation_agence_5_entrees_sans_registre + M3.2/nav_pack_autres_roles_sans_lecture",
       "statut": "implemented",
-      "libelle": "Onglet « Mon pack Anti-Gaspi » dans la barre latérale des 5 rôles clients (traiteur manager et commercial, agence, gestionnaire de lieux, client organisateur), avant « Paramètres », jamais pour l'Admin (Val 2026-11-02) ; même page pour tous, GET /api/v1/mon-pack-ag ouverte à ces 5 rôles seulement.",
+      "libelle": "Onglet « Mon pack Anti-Gaspi » dans la barre latérale des 5 rôles clients (traiteur manager et commercial, agence, gestionnaire de lieux, client organisateur), dernière entrée visible de la barre latérale (après « Paramètres », passé dans le menu de l'utilisateur ; avant lui pour le gestionnaire, ordre du 2026-10-07), jamais pour l'Admin (Val 2026-11-02) ; même page pour tous, GET /api/v1/mon-pack-ag ouverte à ces 5 rôles seulement.",
       "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {

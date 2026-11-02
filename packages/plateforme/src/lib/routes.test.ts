@@ -59,8 +59,8 @@ const NAV_TRAITEUR = [
   ['Dashboard', '/traiteur'],
   ['Collectes', '/traiteur/collectes'],
   ['Événements', '/traiteur/evenements'],
-  ['Mon pack Anti-Gaspi', '/traiteur/mon-pack-ag'],
   ['Paramètres', '/traiteur/parametres'],
+  ['Mon pack Anti-Gaspi', '/traiteur/mon-pack-ag'],
 ];
 const ANCIENNE_NAV: Record<string, string[][]> = {
   admin_savr: [
@@ -84,8 +84,8 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
     ['Dashboard', '/agence'],
     ['Collectes', '/agence/collectes'],
     ['Événements', '/agence/evenements'],
-    ['Mon pack Anti-Gaspi', '/agence/mon-pack-ag'],
     ['Paramètres', '/agence/parametres'],
+    ['Mon pack Anti-Gaspi', '/agence/mon-pack-ag'],
   ],
   gestionnaire_lieux: [
     ['Dashboard', '/gestionnaire'],
@@ -103,8 +103,8 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
     ['Événements', '/organisateur/evenements'],
     ['Documents', '/organisateur/documents'],
     ['Registre réglementaire', '/registre'],
-    ['Mon pack Anti-Gaspi', '/organisateur/mon-pack-ag'],
     ['Paramètres', '/organisateur/parametres'],
+    ['Mon pack Anti-Gaspi', '/organisateur/mon-pack-ag'],
   ],
 };
 

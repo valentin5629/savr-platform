@@ -365,7 +365,8 @@
       "artefact": "packages/plateforme/src/lib/nav-config.ts",
       "test": "M3.1/nav_traiteur_manager_5_entrees_sans_registre",
       "statut": "implemented",
-      "libelle": "Nav traiteur = 4 entrées V1, 5 depuis l'ajout d'« Événements » sous « Collectes » (décision Val 2026-10-29), plus « Mon pack Anti-Gaspi » avant « Paramètres » depuis le 2026-11-02 (décision Val, _Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md) ; Registre réglementaire retiré des 2 rôles traiteur, conservé gestionnaire/organisateur"
+      "libelle": "Nav traiteur = 4 entrées V1, 5 depuis l'ajout d'« Événements » sous « Collectes » (décision Val 2026-10-29), plus « Mon pack Anti-Gaspi » après « Paramètres » depuis le 2026-11-02 (décision Val, _Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md) ; Registre réglementaire retiré des 2 rôles traiteur, conservé gestionnaire/organisateur",
+      "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {
       "id": "BL-P1-TRAIT-02",

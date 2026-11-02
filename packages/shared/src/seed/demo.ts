@@ -26,6 +26,12 @@ import {
 } from './constants.js';
 import { genererPipelineVivant } from './pipeline-vivant.js';
 import { genererEvenementsMultiCollectes } from './evenements-multi-collectes.js';
+import {
+  genererCatalogueCas,
+  LIEUX_PROVINCE,
+  type CollecteCas,
+} from './catalogue-cas.js';
+import type { CollecteVivante } from './pipeline-vivant.js';
 import { codeMts1Seed, modeIntegrationSeed } from './codes-mts1.js';
 import { instantParis } from '../temps/index.js';
 import {
@@ -92,7 +98,7 @@ type CsvCollecte = {
   evenement?: string;
   association?: string;
   repas?: number;
-};
+} & Partial<Omit<CollecteCas, keyof CollecteVivante | 'association' | 'repas'>>;
 type CsvTournee = {
   slug: string;
   transporteur: string;
@@ -469,6 +475,52 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       'province',
       'fourgon',
     ),
+    // Province hors Rouen : lieux du catalogue de cas (catalogue-cas.ts).
+    lieu(
+      'lieu_lille_grand_palais',
+      'Lille Grand Palais',
+      '1 Boulevard des Cités Unies',
+      '59777',
+      'Lille',
+      'province',
+      'poids_lourd',
+    ),
+    lieu(
+      'lieu_lyon_cite_internationale',
+      'Centre de Congrès de Lyon',
+      '50 Quai Charles de Gaulle',
+      '69006',
+      'Lyon',
+      'province',
+      'poids_lourd',
+    ),
+    lieu(
+      'lieu_bordeaux_parc_expo',
+      'Parc des Expositions de Bordeaux',
+      'Cours Charles Bricaud',
+      '33300',
+      'Bordeaux',
+      'province',
+      'poids_lourd',
+    ),
+    lieu(
+      'lieu_marseille_chanot',
+      'Parc Chanot',
+      '114 Rond-Point du Prado',
+      '13008',
+      'Marseille',
+      'province',
+      'fourgon',
+    ),
+    lieu(
+      'lieu_nantes_cite_congres',
+      'La Cité des Congrès de Nantes',
+      '5 Rue de Valmy',
+      '44000',
+      'Nantes',
+      'province',
+      'fourgon',
+    ),
     lieu(
       'lieu_ponctuel_4',
       'Adresse libre — Versailles',
@@ -717,13 +769,16 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   const ancre = ancreSeed();
   const vivantes = genererPipelineVivant(ancre);
   const multi = genererEvenementsMultiCollectes(ancre);
+  // Catalogue de cas : une collecte par cas de figure à tester, en tout dernier.
+  const cas = genererCatalogueCas(ancre);
   const rows: CsvCollecte[] = [
     ...parseCollectes(),
     ...vivantes,
     ...multi.collectes,
+    ...cas,
   ];
   console.log(
-    `[seed:demo] ancre = ${ancre} · 478 collectes figées + ${vivantes.length} vivantes + ${multi.collectes.length} sur ${multi.evenements.length} événements multi-collectes = ${rows.length}.`,
+    `[seed:demo] ancre = ${ancre} · 478 collectes figées + ${vivantes.length} vivantes + ${multi.collectes.length} sur ${multi.evenements.length} événements multi-collectes + ${cas.length} cas de figure = ${rows.length}.`,
   );
   const mgr = (t: string) => U(`user_manager_${t}`);
   const evRows: Row[] = [];
@@ -735,7 +790,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     const isAg = r.type === 'anti_gaspi';
     // ~1 événement / 9 est PROGRAMMÉ par une agence (donneur d'ordre) et exécuté par
     // le traiteur → alimente le dashboard agence (scopé sur evenements.organisation_id).
-    const isAgenceEvent = i % 9 === 0;
+    const isAgenceEvent = r.parAgence ?? i % 9 === 0;
     // Collecte d'un événement multi-collectes : l'événement est écrit une seule
     // fois, depuis sa définition (après cette boucle).
     if (!r.evenement)
@@ -746,7 +801,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         entite_facturation_id: U(`entite_${t}`),
         lieu_id: U(r.lieu),
         created_by: isAgenceEvent ? U('user_agence_caromy') : mgr(t),
-        nom_evenement: `${cap(t)} — ${r.date}`,
+        nom_evenement: r.nomEvenement ?? `${cap(t)} — ${r.date}`,
         nom_client_organisateur: clientOrganisateurSeed(r.slug),
         type_evenement_id: isAg ? tEvAg : tEvZd,
         date_evenement: r.date,
@@ -757,7 +812,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     const statut = statutDe(r);
     const presta = prestatairePourCollecte(
       r.type as TypeCollecte,
-      r.lieu === 'lieu_rouen_normandie',
+      LIEUX_PROVINCE.has(r.lieu),
     );
     if (!r.sansPrestataire) prestaParSlug.set(r.slug, presta);
     const extra: Row = { nb_camions_demande: r.camions };
@@ -800,7 +855,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       // change pour la matrice — ses lignes, dates et statuts métier sont intacts.
       statut_tms: r.statutTms ?? 'acceptee',
       date_collecte: r.date,
-      heure_collecte: '22:00:00',
+      heure_collecte: r.heure ? `${r.heure}:00` : '22:00:00',
       // Pax de la collecte (décision Val 2026-10-20) ; celui de l'événement en
       // est calculé en base (trg_set_pax_evenement).
       pax: r.pax,
@@ -832,8 +887,49 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     });
   });
   await upsert(client, 'plateforme.evenements', evRows, ['id']);
-  // Insertion des collectes par lots (limite de paramètres SQL).
-  await batchUpsert(client, 'plateforme.collectes', colRows, ['id'], 200);
+  // Insertion des collectes par lots (limite de paramètres SQL). Les cas de
+  // figure ont leur propre lot : ils posent des colonnes NOT NULL (dirty_tms…)
+  // que les autres lignes laissent à leur défaut, et un lot mixte les lierait
+  // à NULL (cf. upsert, union des colonnes).
+  const casParId = new Map(cas.map((c) => [U(c.slug), c]));
+  await batchUpsert(
+    client,
+    'plateforme.collectes',
+    colRows.filter((row) => !casParId.has(row.id as string)),
+    ['id'],
+    200,
+  );
+  await upsert(
+    client,
+    'plateforme.collectes',
+    colRows
+      .filter((row) => casParId.has(row.id as string))
+      .map((row) => {
+        const c = casParId.get(row.id as string)!;
+        return {
+          ...row,
+          // Référence du rang 1, comme l'adapter (tournées posées plus bas).
+          tms_reference: row.prestataire_logistique_id
+            ? `TOUR-tour_${c.slug}_1`
+            : null,
+          pack_antgaspi_id: c.packDebite
+            ? U(`pack_${c.traiteur.replace(/^org_tr_/, '')}`)
+            : row.pack_antgaspi_id,
+          informations_completes: c.informationsCompletes,
+          controle_acces_requis: c.controleAcces,
+          infos_acces_email_envoye_at: c.infosAccesEnvoyeesAt ?? null,
+          dirty_tms: c.dirtyTms,
+          annulation_demandee_at: c.annulationDemandeeAt ?? null,
+          annulee_cote_savr: c.annuleeCoteSavrMotif != null,
+          annulee_cote_savr_motif: c.annuleeCoteSavrMotif ?? null,
+          notes_internes: c.notesInternes ?? null,
+          informations_supplementaires: c.informationsSupplementaires ?? null,
+          motif_incident: c.incident?.motif ?? null,
+          incident_imputable_a: c.incident?.imputable ?? null,
+        };
+      }),
+    ['id'],
+  );
 
   // ── Collecte flux (ZD : 3 flux/collecte) ──────────────────────────────────
   const fluxRows: Row[] = [];
@@ -914,7 +1010,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     // ligne d'attribution, c'est précisément ce que l'écran doit montrer.
     .filter((r) => r.type === 'anti_gaspi' && !r.sansAttribution)
     .map((r, i) => {
-      const isProvince = r.lieu === 'lieu_rouen_normandie';
+      const isProvince = LIEUX_PROVINCE.has(r.lieu);
       // Le transporteur de l'attribution est celui du prestataire de la
       // collecte (le dispatch pose l'un depuis l'autre), y compris pour une AG
       // pas encore dispatchée : c'est celui qu'elle recevra.
@@ -945,7 +1041,10 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       // au-delà ne peut pas en porter une qui ne l'est pas. Auto-accept : aucun
       // humain ne valide (`valide_par` NULL, comme la RPC d'auto-acceptation).
       const statut = statutDe(r);
-      if ((STATUTS_ATTRIBUTION_VALIDEE as readonly string[]).includes(statut)) {
+      if (
+        (STATUTS_ATTRIBUTION_VALIDEE as readonly string[]).includes(statut) ||
+        r.attributionValidee
+      ) {
         a.valide_at = tsAt(r.date, 10);
         a.valide_par = mode === 'auto_accept' ? null : U('user_admin');
       }
@@ -1156,7 +1255,52 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       id: U(`ct_${r.slug}`),
       collecte_id: U(r.slug),
       tournee_id: U(slug),
+      rang: 1,
     });
+  }
+  // Catalogue de cas : toute collecte confiée à un prestataire a sa commande,
+  // donc une tournée unitaire PAR CAMION (rang 1..N), comme l'adapter MTS-1 —
+  // y compris en attente d'acceptation, annulation demandée ou annulée.
+  for (const r of cas) {
+    const presta = prestaParSlug.get(r.slug);
+    if (!presta) continue;
+    const st = statutDe(r);
+    const statutTournee = estExecutee(r)
+      ? 'terminee'
+      : st === 'en_cours'
+        ? 'en_cours'
+        : st === 'annulee'
+          ? 'annulee'
+          : 'planifiee';
+    for (let rang = 1; rang <= r.camions; rang++) {
+      const slug = `tour_${r.slug}_${rang}`;
+      tourVivantes.push({
+        id: U(slug),
+        reference_interne: slug.toUpperCase(),
+        date_tournee: r.date,
+        creneau: 'nuit',
+        prestataire_logistique_id: U('prest_' + presta),
+        statut: statutTournee,
+        external_ref_commande: 'MTS1-' + slug,
+        tms_reference: 'TOUR-' + slug,
+        heure_debut_reelle:
+          statutTournee === 'terminee' || statutTournee === 'en_cours'
+            ? instantParis(r.date, r.heure ?? '22:00').toISOString()
+            : null,
+        heure_fin_reelle:
+          statutTournee === 'terminee'
+            ? new Date(
+                instantParis(r.date, r.heure ?? '22:00').getTime() + 5_400_000,
+              ).toISOString()
+            : null,
+      });
+      ctVivantes.push({
+        id: U(`ct_${r.slug}_${rang}`),
+        collecte_id: U(r.slug),
+        tournee_id: U(slug),
+        rang,
+      });
+    }
   }
   await batchUpsert(client, 'plateforme.tournees', tourVivantes, ['id'], 200);
   await batchUpsert(

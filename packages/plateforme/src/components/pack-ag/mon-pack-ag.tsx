@@ -12,9 +12,10 @@ import {
 } from '@/components/ui/data-grid';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { PackageIcon } from '@/components/ui/icones';
+import { CaretDownIcon, PackageIcon } from '@/components/ui/icones';
 import { LoadingState } from '@/components/ui/loading-state';
 import { PageHero } from '@/components/ui/page-hero';
+import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import {
@@ -26,7 +27,8 @@ import {
 import { formatDateParis } from '@savr/shared/src/temps/index.js';
 
 // Onglet « Mon pack Anti-Gaspi », commun aux 5 rôles clients (Val 2026-11-02) :
-// solde du pack courant, historique des packs, collectes rattachées aux packs.
+// solde du pack courant, puis une ligne par pack qui se déplie sur ses
+// collectes (Val 2026-11-02).
 // Données : GET /api/v1/mon-pack-ag (bornée à l'organisation de l'appelant).
 
 interface Pack {
@@ -58,127 +60,147 @@ interface DonneesPack {
   collectes: CollectePack[];
 }
 
-/** Libellé d'un pack dans les listes : type et date d'achat. */
-function libellePack(p: Pack | undefined): string {
-  if (!p) return '—';
-  const achat = formatDateParis(p.date_achat);
-  return achat
-    ? `${libelleTypePack(p.type_pack)} du ${achat}`
-    : libelleTypePack(p.type_pack);
-}
-
-// Historique des packs, du plus récent au plus ancien (ordre de la route).
-const COLONNES_PACKS: ColumnDef<Pack, unknown>[] = [
+// Collectes d'un pack — même Data Table que les listes Collectes (décision Val
+// 2026-09-28), sans tri : l'ordre est celui de la route (plus récentes d'abord).
+const COLONNES_COLLECTES: ColumnDef<CollectePack, unknown>[] = [
   {
-    id: 'pack',
-    header: 'Pack',
+    id: 'date',
+    header: 'Date',
     enableSorting: false,
     enableHiding: false,
-    accessorFn: (p) => libelleTypePack(p.type_pack),
+    accessorFn: (c) => c.date_collecte ?? '',
+    cell: ({ row: { original: c } }) =>
+      c.date_collecte ? (
+        <span className="whitespace-nowrap font-semibold tabular-nums">
+          {libelleDateHeure(c.date_collecte.slice(0, 10), null)}
+        </span>
+      ) : (
+        <CelluleVide />
+      ),
   },
   {
-    id: 'statut',
-    header: 'Statut',
+    id: 'evenement',
+    header: 'Événement',
     enableSorting: false,
-    cell: ({ row: { original: p } }) => (
-      <Badge variant={variantStatutPack(p.statut)} size="sm">
-        {libelleStatutPack(p.statut)}
-      </Badge>
+    accessorFn: (c) => c.evenement ?? '',
+    cell: ({ row: { original: c } }) => (
+      <span className="inline-flex flex-wrap items-center justify-end gap-2 sm:justify-start">
+        {c.evenement ?? <CelluleVide />}
+        {c.annulee_tardivement && (
+          <Badge variant="neutral" size="sm">
+            Annulée tardivement
+          </Badge>
+        )}
+      </span>
     ),
   },
   {
-    id: 'credits',
-    header: 'Crédits utilisés',
+    id: 'lieu',
+    header: 'Lieu',
     enableSorting: false,
+    accessorFn: (c) => c.lieu ?? '',
+    cell: ({ row: { original: c } }) => c.lieu ?? <CelluleVide />,
+  },
+  {
+    id: 'repas',
+    header: 'Repas donnés',
+    enableSorting: false,
+    accessorFn: (c) => c.repas_donnes,
     meta: { className: 'text-right tabular-nums' },
-    accessorFn: (p) => `${p.credits_consommes} / ${p.credits_initiaux}`,
+    cell: ({ row: { original: c } }) =>
+      c.annulee_tardivement ? <CelluleVide /> : c.repas_donnes,
   },
   {
-    id: 'achat',
-    header: "Date d'achat",
+    id: 'associations',
+    header: 'Association(s)',
     enableSorting: false,
-    cell: ({ row: { original: p } }) =>
-      formatDateParis(p.date_achat) || <CelluleVide />,
-  },
-  {
-    id: 'expiration',
-    header: 'Expiration',
-    enableSorting: false,
-    cell: ({ row: { original: p } }) =>
-      formatDateParis(p.date_expiration) || <CelluleVide />,
+    cell: ({ row: { original: c } }) =>
+      c.associations
+        .map((a) => a.nom)
+        .filter(Boolean)
+        .join(', ') || <CelluleVide />,
   },
 ];
 
-// Collectes rattachées aux packs — même Data Table que les listes Collectes
-// (décision Val 2026-09-28). SANS tri : la route rend au plus les 50 collectes
-// les plus récentes, trier cet extrait ferait croire à un ordre global.
-function colonnesCollectes(packs: Pack[]): ColumnDef<CollectePack, unknown>[] {
-  const parId = new Map(packs.map((p) => [p.id, p]));
-  return [
-    {
-      id: 'date',
-      header: 'Date',
-      enableSorting: false,
-      enableHiding: false,
-      accessorFn: (c) => c.date_collecte ?? '',
-      cell: ({ row: { original: c } }) =>
-        c.date_collecte ? (
-          <span className="whitespace-nowrap font-semibold tabular-nums">
-            {libelleDateHeure(c.date_collecte.slice(0, 10), null)}
-          </span>
-        ) : (
-          <CelluleVide />
-        ),
-    },
-    {
-      id: 'evenement',
-      header: 'Événement',
-      enableSorting: false,
-      accessorFn: (c) => c.evenement ?? '',
-      cell: ({ row: { original: c } }) => (
-        <span className="inline-flex flex-wrap items-center justify-end gap-2 sm:justify-start">
-          {c.evenement ?? <CelluleVide />}
-          {c.annulee_tardivement && (
-            <Badge variant="neutral" size="sm">
-              Annulée tardivement
-            </Badge>
-          )}
+/**
+ * Une ligne par pack (Val 2026-11-02) : type, statut, crédits utilisés, dates,
+ * nombre de collectes ; un clic déplie la liste des collectes du pack.
+ */
+function LignePack({
+  pack,
+  collectes,
+  ouvertParDefaut,
+}: {
+  pack: Pack;
+  collectes: CollectePack[];
+  ouvertParDefaut: boolean;
+}) {
+  const [ouvert, setOuvert] = useState(ouvertParDefaut);
+  const idContenu = `collectes-pack-${pack.id}`;
+  const achat = formatDateParis(pack.date_achat);
+  const expiration = formatDateParis(pack.date_expiration);
+  return (
+    <li
+      data-testid="ligne-pack"
+      className="rounded-savr-lg border border-savr-neutral-200"
+    >
+      <button
+        type="button"
+        aria-expanded={ouvert}
+        aria-controls={idContenu}
+        onClick={() => setOuvert((o) => !o)}
+        className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-left"
+      >
+        <CaretDownIcon
+          aria-hidden="true"
+          className={`h-4 w-4 shrink-0 text-savr-neutral-500 transition-transform ${ouvert ? '' : '-rotate-90'}`}
+        />
+        <span className="font-semibold text-savr-neutral-900">
+          {libelleTypePack(pack.type_pack)}
         </span>
-      ),
-    },
-    {
-      id: 'lieu',
-      header: 'Lieu',
-      enableSorting: false,
-      accessorFn: (c) => c.lieu ?? '',
-      cell: ({ row: { original: c } }) => c.lieu ?? <CelluleVide />,
-    },
-    {
-      id: 'pack',
-      header: 'Pack',
-      enableSorting: false,
-      accessorFn: (c) => libellePack(parId.get(c.pack_id)),
-    },
-    {
-      id: 'repas',
-      header: 'Repas donnés',
-      enableSorting: false,
-      accessorFn: (c) => c.repas_donnes,
-      meta: { className: 'text-right tabular-nums' },
-      cell: ({ row: { original: c } }) =>
-        c.annulee_tardivement ? <CelluleVide /> : c.repas_donnes,
-    },
-    {
-      id: 'associations',
-      header: 'Association(s)',
-      enableSorting: false,
-      cell: ({ row: { original: c } }) =>
-        c.associations
-          .map((a) => a.nom)
-          .filter(Boolean)
-          .join(', ') || <CelluleVide />,
-    },
-  ];
+        <Badge variant={variantStatutPack(pack.statut)} size="sm">
+          {libelleStatutPack(pack.statut)}
+        </Badge>
+        <Text as="span" className="tabular-nums">
+          {pack.credits_consommes} / {pack.credits_initiaux} crédits utilisés
+        </Text>
+        {achat && (
+          <Text as="span" tone="faint">
+            Acheté le {achat}
+          </Text>
+        )}
+        {expiration && (
+          <Text as="span" tone="faint">
+            Expire le {expiration}
+          </Text>
+        )}
+        <Text as="span" tone="faint" className="ml-auto tabular-nums">
+          {collectes.length} {collectes.length > 1 ? 'collectes' : 'collecte'}
+        </Text>
+      </button>
+      {ouvert && (
+        <div
+          id={idContenu}
+          className="border-t border-savr-neutral-200 px-4 py-3"
+        >
+          {collectes.length > 0 ? (
+            <DataGrid
+              columnsToggle={false}
+              columns={COLONNES_COLLECTES}
+              data={collectes}
+              getRowId={(c) => c.collecte_id}
+            />
+          ) : (
+            <EmptyState
+              size="inline"
+              className="text-center"
+              title="Aucune collecte n'a encore utilisé de crédit de ce pack."
+            />
+          )}
+        </div>
+      )}
+    </li>
+  );
 }
 
 export function MonPackAg() {
@@ -307,34 +329,16 @@ export function MonPackAg() {
           <CardTitle>Historique des packs</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataGrid
-            columnsToggle={false}
-            columns={COLONNES_PACKS}
-            data={data.packs}
-            getRowId={(p) => p.id}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Collectes rattachées au pack</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data.collectes.length > 0 ? (
-            <DataGrid
-              columnsToggle={false}
-              columns={colonnesCollectes(data.packs)}
-              data={data.collectes}
-              getRowId={(c) => c.collecte_id}
-            />
-          ) : (
-            <EmptyState
-              size="inline"
-              className="text-center"
-              title="Aucune collecte n'a encore utilisé de crédit."
-            />
-          )}
+          <ul className="space-y-3">
+            {data.packs.map((p) => (
+              <LignePack
+                key={p.id}
+                pack={p}
+                collectes={data.collectes.filter((c) => c.pack_id === p.id)}
+                ouvertParDefaut={p.id === pack?.id}
+              />
+            ))}
+          </ul>
         </CardContent>
       </Card>
     </div>

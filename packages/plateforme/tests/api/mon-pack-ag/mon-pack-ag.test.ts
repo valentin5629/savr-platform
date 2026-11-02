@@ -551,24 +551,33 @@ describe('Mon pack Anti-Gaspi — annulations tardives débitées', () => {
   });
 });
 
-describe('Mon pack Anti-Gaspi — plafond de 50 lignes', () => {
-  it('M3.2/pack_ag_consommation_plafond_50 — la liste fusionnée garde les 50 collectes les plus récentes, annulation tardive comprise', async () => {
+describe('Mon pack Anti-Gaspi — toutes les collectes de chaque pack', () => {
+  it('M3.2/pack_ag_consommation_toutes_par_pack — sans plafond global : chaque pack garde toutes ses collectes, plus récentes d’abord, annulation tardive comprise', async () => {
+    const ANCIEN = pack('pack-ancien', ORG, 'epuise', '2025-01-01');
     const jour = (n: number) => `2026-03-${String(n).padStart(2, '0')}`;
     service = makeClient({
-      packs_antgaspi: [PACK_ORG],
+      packs_antgaspi: [PACK_ORG, ANCIEN],
       collectes: [
+        // 55 collectes récentes sur le pack actif…
         ...Array.from({ length: 55 }, (_, i) =>
           collecteAg(`c-${i}`, PACK_ORG, 'cloturee', jour((i % 28) + 1)),
         ),
         collecteAg('c-annulee', PACK_ORG, 'annulee', '2026-04-15'),
+        // …et une, plus ancienne, sur le pack épuisé : un plafond de 50 la
+        // ferait disparaître de son pack.
+        collecteAg('c-ancienne', ANCIEN, 'cloturee', '2025-02-01'),
       ],
       audit_log: [debitAnnulation('pack-viparis', 'c-annulee')],
     });
 
     const reponse = await appeler();
 
-    expect(reponse.data.collectes).toHaveLength(50);
+    expect(reponse.data.collectes).toHaveLength(57);
     expect(ids(reponse)[0]).toBe('c-annulee');
+    expect(reponse.data.collectes.at(-1)).toMatchObject({
+      collecte_id: 'c-ancienne',
+      pack_id: 'pack-ancien',
+    });
     const dates = reponse.data.collectes.map((l) => l.date_collecte);
     expect(dates).toEqual([...dates].sort().reverse());
   });

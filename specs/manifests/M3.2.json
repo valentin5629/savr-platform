@@ -275,7 +275,7 @@
     "M3.2/mon_pack_ag_historique_packs",
     "M3.2/pack_ag_ecran_mention_annulee_tardivement",
     "M3.2/mon_pack_ag_ecran_historique_packs",
-    "M3.2/pack_ag_consommation_plafond_50",
+    "M3.2/pack_ag_consommation_toutes_par_pack",
     "M3.2/pack_ag_consommation_annulee_ancienne_non_coupee",
     "M3.2/pack_ag_ecran_erreur_chargement",
     "M3.2/pack_ag_ecran_aucun_pack",
@@ -1166,9 +1166,9 @@
       "id": "M3.2-pack-ag-consommation-organisation",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73",
       "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts",
-      "test": "M3.2/pack_ag_consommation_pack_tiers_exclu + M3.2/pack_ag_consommation_erreur_500 + M3.2/pack_ag_consommation_plafond_50 + M3.2/mon_pack_ag_packs_org_seule",
+      "test": "M3.2/pack_ag_consommation_pack_tiers_exclu + M3.2/pack_ag_consommation_erreur_500 + M3.2/pack_ag_consommation_toutes_par_pack + M3.2/mon_pack_ag_packs_org_seule",
       "statut": "implemented",
-      "libelle": "Mon pack Anti-Gaspi — packs et collectes bornés à l'organisation du jeton : la route lit par le client de service, chaque lecture porte la borne (packs : organisation_id ; collectes : jointure obligatoire sur packs_antgaspi filtrée sur l'organisation), au plus les 50 collectes les plus récentes. Les collectes des traiteurs tiers tenues sur les lieux d'un gestionnaire, débitées sur le pack du traiteur, n'y figurent pas. Une lecture en échec rend 500, jamais une liste vide."
+      "libelle": "Mon pack Anti-Gaspi — packs et collectes bornés à l'organisation du jeton : la route lit par le client de service, chaque lecture porte la borne (packs : organisation_id ; collectes : jointure obligatoire sur packs_antgaspi filtrée sur l'organisation) ; toutes les collectes de chaque pack, sans plafond global (Val 2026-11-02 : elles se lisent pack par pack, un plafond viderait les packs anciens ; un pack ne porte pas plus de collectes que ses crédits). Les collectes des traiteurs tiers tenues sur les lieux d'un gestionnaire, débitées sur le pack du traiteur, n'y figurent pas. Une lecture en échec rend 500, jamais une liste vide."
     },
     {
       "id": "M3.2-pack-ag-consommation-annulations-tardives",
@@ -1184,7 +1184,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts + packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx",
       "test": "M3.2/mon_pack_ag_historique_packs + M3.2/mon_pack_ag_courant_epuise + M3.2/pack_ag_aucun_actif_null + M3.2/mon_pack_ag_ecran_historique_packs + M3.2/mon_pack_ag_ecran_dernier_annule",
       "statut": "implemented",
-      "libelle": "Mon pack Anti-Gaspi — historique des packs (Val 2026-11-02, renverse l'arbitrage du 2026-10-07 « pas de liste des packs précédents ») : la route rend tous les packs de l'organisation (actif, épuisés, annulés), du plus récent au plus ancien, et le pack en tête : l'actif, sinon le dernier s'il est épuisé (§11), rien si le dernier est annulé. L'écran montre le solde (jauge du dashboard), un tableau « Historique des packs » (type en clair, statut, crédits utilisés / initiaux, dates JJ/MM/AAAA) et la colonne « Pack » de chaque collecte. Sans aucun pack : « Votre organisation n'a pas de pack Anti-Gaspi. »",
+      "libelle": "Mon pack Anti-Gaspi — historique des packs (Val 2026-11-02, renverse l'arbitrage du 2026-10-07 « pas de liste des packs précédents ») : la route rend tous les packs de l'organisation (actif, épuisés, annulés), du plus récent au plus ancien, et le pack en tête : l'actif, sinon le dernier s'il est épuisé (§11), rien si le dernier est annulé. L'écran montre le solde (jauge du dashboard), puis « Historique des packs » : une ligne par pack (type en clair, statut, crédits utilisés / initiaux, dates JJ/MM/AAAA, nombre de collectes) qui se déplie sur la liste de SES collectes (Val 2026-11-02) ; le pack courant est déplié d'office. Sans aucun pack : « Votre organisation n'a pas de pack Anti-Gaspi. »",
       "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {
@@ -1201,7 +1201,7 @@
       "artefact": "packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu de l'écran « Mon pack Anti-Gaspi » des 5 rôles clients, desktop ET mobile < 640 px : jauge du solde, bouton « Demander un renouvellement », tableau « Historique des packs », collectes avec colonne « Pack » et mention « Annulée tardivement » (sans repas ni association), message sans pack, état d'erreur avec « Réessayer ». GO visuel de Val attendu.",
+      "libelle": "Rendu de l'écran « Mon pack Anti-Gaspi » des 5 rôles clients, desktop ET mobile < 640 px : jauge du solde, bouton « Demander un renouvellement », une ligne dépliable par pack avec ses collectes et la mention « Annulée tardivement » (sans repas ni association), message sans pack, état d'erreur avec « Réessayer ». GO visuel de Val attendu.",
       "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {

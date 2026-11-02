@@ -1,7 +1,7 @@
 /**
  * Écran « Mon pack Anti-Gaspi » (Val 2026-11-02), commun aux 5 rôles clients :
- *  - solde du pack courant, historique des packs (actif, épuisés, annulés) et
- *    collectes rattachées, avec le pack de chacune ;
+ *  - solde du pack courant, puis une ligne par pack (actif, épuisés, annulés)
+ *    qui se déplie sur ses collectes, celle du pack courant d'office ;
  *  - une annulation tardive qui a consommé un crédit porte la mention
  *    « Annulée tardivement », sans nombre de repas (§06.05, Val 2026-10-07) ;
  *  - « Demander un renouvellement » pour tout rôle dont l'organisation a un
@@ -74,7 +74,7 @@ afterEach(() => {
 
 describe('Écran Mon pack Anti-Gaspi', () => {
   it(
-    'M3.2/pack_ag_ecran_mention_annulee_tardivement — la ligne d’une annulation tardive porte la mention, sans repas ; chaque ligne nomme son pack',
+    'M3.2/pack_ag_ecran_mention_annulee_tardivement — sous son pack, la ligne d’une annulation tardive porte la mention, sans repas',
     async () => {
       servir({
         pack_courant: ACTIF,
@@ -83,13 +83,11 @@ describe('Écran Mon pack Anti-Gaspi', () => {
       });
       render(<MonPackAg />);
 
-      await screen.findByText(
-        'Collectes rattachées au pack',
-        undefined,
-        ATTENTE_UI,
-      );
-      // Deuxième tableau de la page : les collectes (le premier liste les packs).
-      const table = screen.getAllByRole('table')[1]!;
+      // Le pack courant est déplié d'office : ses collectes sont visibles.
+      const ligne1 = (
+        await screen.findAllByTestId('ligne-pack', undefined, ATTENTE_UI)
+      )[0]!;
+      const table = within(ligne1).getByRole('table');
       const annulee = within(table).getByText('Gala annulee').closest('tr')!;
       expect(within(annulee).getByText('Annulée tardivement')).toBeTruthy();
       expect(within(annulee).queryByText('0')).toBeNull();
@@ -97,38 +95,68 @@ describe('Écran Mon pack Anti-Gaspi', () => {
       const realisee = within(table).getByText('Gala realisee').closest('tr')!;
       expect(within(realisee).queryByText('Annulée tardivement')).toBeNull();
       expect(within(realisee).getByText('42')).toBeTruthy();
-      expect(within(realisee).getByText('Pack 10 du 15/01/2026')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.2/mon_pack_ag_ecran_historique_packs — solde du pack courant et tous les packs, statut en clair',
+    'M3.2/mon_pack_ag_ecran_historique_packs — une ligne par pack (statut en clair, crédits, dates, nombre de collectes), qui se déplie sur les collectes de CE pack',
     async () => {
+      const EPUISE = pack('p-epuise', 'epuise', 0, '2025-06-01');
       servir({
         pack_courant: ACTIF,
-        packs: [
-          ACTIF,
-          pack('p-epuise', 'epuise', 0, '2025-06-01'),
-          pack('p-annule', 'annule', 4, '2025-01-01'),
+        packs: [ACTIF, EPUISE, pack('p-annule', 'annule', 4, '2025-01-01')],
+        collectes: [
+          ligne('actuelle', false, 12),
+          { ...ligne('ancienne', false, 30), pack_id: 'p-epuise' },
         ],
-        collectes: [],
       });
       render(<MonPackAg />);
 
-      await screen.findByText('Historique des packs', undefined, ATTENTE_UI);
+      const lignes = await screen.findAllByTestId(
+        'ligne-pack',
+        undefined,
+        ATTENTE_UI,
+      );
       expect(screen.getByText('crédits restants')).toBeTruthy();
-      const historique = screen
-        .getByText('Historique des packs')
-        .closest('[class*="rounded"]')!;
-      const tableau = within(historique as HTMLElement).getByRole('table');
-      for (const libelle of ['Actif', 'Épuisé', 'Annulé'])
-        expect(within(tableau).getByText(libelle)).toBeTruthy();
-      expect(within(tableau).getByText('3 / 10')).toBeTruthy();
-      expect(within(tableau).getByText('01/06/2025')).toBeTruthy();
-      expect(within(tableau).queryByText('pack_10')).toBeNull();
+      expect(lignes).toHaveLength(3);
+      const [actif, epuise, annule] = lignes as [
+        HTMLElement,
+        HTMLElement,
+        HTMLElement,
+      ];
+      expect(within(actif).getByText('Actif')).toBeTruthy();
+      expect(within(epuise).getByText('Épuisé')).toBeTruthy();
+      expect(within(annule).getByText('Annulé')).toBeTruthy();
+      expect(within(actif).getByText('3 / 10 crédits utilisés')).toBeTruthy();
+      expect(within(epuise).getByText('Acheté le 01/06/2025')).toBeTruthy();
+      expect(within(epuise).getByText('1 collecte')).toBeTruthy();
+      expect(within(annule).getByText('0 collecte')).toBeTruthy();
+      expect(screen.queryByText('pack_10')).toBeNull();
+
+      // Pack courant déplié d'office, avec ses seules collectes.
       expect(
-        screen.getByText("Aucune collecte n'a encore utilisé de crédit."),
+        within(actif).getAllByText('Gala actuelle').length,
+      ).toBeGreaterThan(0);
+      expect(within(actif).queryAllByText('Gala ancienne')).toHaveLength(0);
+
+      // Les autres sont repliés ; un clic déplie celles de CE pack.
+      const bouton = within(epuise).getByRole('button');
+      expect(bouton.getAttribute('aria-expanded')).toBe('false');
+      expect(within(epuise).queryAllByText('Gala ancienne')).toHaveLength(0);
+      fireEvent.click(bouton);
+      expect(bouton.getAttribute('aria-expanded')).toBe('true');
+      expect(
+        within(epuise).getAllByText('Gala ancienne').length,
+      ).toBeGreaterThan(0);
+      expect(within(epuise).queryAllByText('Gala actuelle')).toHaveLength(0);
+
+      // Un pack sans collecte le dit, une fois déplié.
+      fireEvent.click(within(annule).getByRole('button'));
+      expect(
+        within(annule).getByText(
+          "Aucune collecte n'a encore utilisé de crédit de ce pack.",
+        ),
       ).toBeTruthy();
     },
     ATTENTE_CAS_MS,

@@ -146,10 +146,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // réalisation ne laisse pas de ligne d'audit ; une réalisée sans pack actif
     // perd la réservation de son pack (facturée à l'unité) et n'est donc pas
     // listée, sauf si l'Admin la rattache ensuite à un pack de l'organisation.
+    // Sans plafond : l'écran range les collectes par pack, un plafond global
+    // viderait les packs les plus anciens. Un pack ne porte pas plus de
+    // collectes que ses crédits (chaque rattachement en décompte un).
     const { data: realisees, error: consoErr } = await lire([
       'realisee',
       'cloturee',
-    ]).limit(50);
+    ]);
     // Une liste vide est un état normal (pack jamais débité) : une lecture en
     // échec ne doit pas s'y confondre.
     if (consoErr) return serverError(consoErr, 'mon_pack_ag.consommation');
@@ -214,7 +217,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       packs: packs.map(mapPack),
       collectes: consommation
         .sort((a, b) => b.date_collecte.localeCompare(a.date_collecte))
-        .slice(0, 50)
         .map(mapConsommation),
     },
   });

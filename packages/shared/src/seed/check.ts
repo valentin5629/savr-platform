@@ -168,8 +168,9 @@ async function checkDemo(c: Pg, scalar: Scalar): Promise<void> {
     (await scalar('select count(*) n from plateforme.users')) === 29,
   );
   check(
-    'lieux = 18',
-    (await scalar('select count(*) n from plateforme.lieux')) === 18,
+    // 18 + 5 lieux de province du catalogue de cas (catalogue-cas.ts, #707).
+    'lieux = 23',
+    (await scalar('select count(*) n from plateforme.lieux')) === 23,
   );
   check(
     'associations = 5',

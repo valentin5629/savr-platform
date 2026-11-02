@@ -176,9 +176,8 @@ export async function chargerFicheEvenement(
 
   // Staff : service_role, comme la liste et les routes Admin ; les autres
   // rôles sous leur session (RLS).
-  const supabase = (
-    admin ? createAdminSupabaseClient() : createSupabaseServerClient()
-  ) as DbClient;
+  const clientAdmin = admin ? createAdminSupabaseClient() : null;
+  const supabase = (clientAdmin ?? createSupabaseServerClient()) as DbClient;
   // Chemins de lecture imposés par la RLS (cf. PROFILS) : le traiteur passe,
   // pour le gestionnaire, par la vue restreinte v_traiteurs_gestionnaire (id,
   // nom, logo ; le logo est une clé R2 servie par le proxy …/traiteurs/[id]/logo
@@ -259,11 +258,9 @@ export async function chargerFicheEvenement(
   const bilan = consoliderEvenement(collectes);
   // Staff : envoi abandonné = « Créée » (décision Val 2026-11-02).
   let abandons = new Set<string>();
-  if (admin) {
-    // Client service_role : celui que `supabase` porte déjà côté staff, mais
-    // sous le type de la file d'envoi.
+  if (clientAdmin) {
     const lu = await lireCollectesEnvoiAbandonne(
-      createAdminSupabaseClient(),
+      clientAdmin,
       collectes.map((c) => c.id),
     );
     if (lu.error) return { etat: 'erreur', erreur: lu.error };

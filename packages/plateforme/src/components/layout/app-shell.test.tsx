@@ -14,7 +14,7 @@ describe('AppShell — zone de contenu', () => {
   // derrière le cadre et laissaient une bande vide en bas de l'écran.
   it('la zone défilante ancre les éléments en position absolue', () => {
     render(
-      <AppShell role="traiteur_manager" hiddenNavHrefs={[]}>
+      <AppShell role="traiteur_manager">
         <p>contenu</p>
       </AppShell>,
     );

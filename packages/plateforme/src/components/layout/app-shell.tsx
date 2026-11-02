@@ -15,11 +15,6 @@ interface AppShellProps {
   /** Organisation et utilisateur, en bas de la barre latérale. */
   identite?: IdentiteSession | null;
   onLogout?: () => void;
-  /**
-   * hrefs de nav à masquer, calculés côté serveur par `entreesNavMasquees(role)`
-   * (`lib/nav-masquee.ts`). `[]` = ce menu n'a aucune entrée conditionnelle.
-   */
-  hiddenNavHrefs: string[];
   /** Compteurs par href (calculé côté serveur, ex : { '/admin/alertes': 3 }). */
   navBadges?: Record<string, number>;
   children: React.ReactNode;
@@ -30,7 +25,6 @@ const AppShell = ({
   role,
   identite,
   onLogout,
-  hiddenNavHrefs,
   navBadges,
   children,
   className,
@@ -60,7 +54,6 @@ const AppShell = ({
               onToggle={() => setSidebarCollapsed((v) => !v)}
               onLogout={onLogout}
               identite={identite}
-              hiddenNavHrefs={hiddenNavHrefs}
               navBadges={navBadges}
             />
           </div>
@@ -85,7 +78,6 @@ const AppShell = ({
               role={role}
               onLogout={onLogout}
               identite={identite}
-              hiddenNavHrefs={hiddenNavHrefs}
               navBadges={navBadges}
             />
           </div>
@@ -110,7 +102,7 @@ const AppShell = ({
             </main>
 
             {/* Bottom nav mobile */}
-            <BottomNav role={role} hiddenNavHrefs={hiddenNavHrefs} />
+            <BottomNav role={role} />
           </div>
         </div>
       </LogoZdProvider>

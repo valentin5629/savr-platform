@@ -773,8 +773,23 @@ describe('M3.3 / renouvellement pack AG (BL-P1-AGENCE-01)', () => {
     );
   });
 
-  it('M3.3/AGENCE01_renouvellement_role_non_autorise_403 — client_organisateur bloqué, aucun email', async () => {
-    setupAuth('client_organisateur', 'org-wpm');
+  it('M3.3/renouvellement_roles_onglet_pack_201 — gestionnaire et organisateur autorisés depuis l’onglet « Mon pack Anti-Gaspi » (Val 2026-11-02)', async () => {
+    const { POST } =
+      await import('@/app/api/v1/traiteur/pack-ag/renouvellement/route.js');
+    for (const role of ['gestionnaire_lieux', 'client_organisateur']) {
+      setupAuth(role, 'org-viparis');
+      admin.push({ data: { nom: 'Viparis' }, error: null }); // organisations.nom
+      admin.push(COMPTE_DEMANDEUR); // users (demandeur)
+      const res = await POST(
+        makeReq('POST', '/api/v1/traiteur/pack-ag/renouvellement', {}),
+      );
+      expect(res.status, role).toBe(201);
+    }
+    expect(mockSendEmail).toHaveBeenCalledTimes(2);
+  });
+
+  it('M3.3/AGENCE01_renouvellement_role_non_autorise_403 — l’Admin (rôle staff) bloqué, aucun email', async () => {
+    setupAuth('admin_savr', 'org-wpm');
     const { POST } =
       await import('@/app/api/v1/traiteur/pack-ag/renouvellement/route.js');
     const res = await POST(

@@ -4,7 +4,8 @@
  * Mon organisation / Mon profil), plus « Événements » sous « Collectes »
  * depuis le 2026-10-29 (décision Val : liste commune à tous les rôles), et
  * « Mon organisation » + « Mon profil » réunis en « Paramètres » depuis le
- * 2026-10-31 (décision Val). Le « Registre réglementaire » avait été
+ * 2026-10-31 (décision Val), et « Mon pack Anti-Gaspi » avant « Paramètres »
+ * depuis le 2026-11-02 (décision Val : onglet pour tous les rôles clients). Le « Registre réglementaire » avait été
  * injecté à tort dans les 2 rôles traiteur → il est retiré ici. Le Registre
  * reste légitime pour gestionnaire_lieux / client_organisateur (contrôle
  * de non-régression ci-dessous).
@@ -25,6 +26,7 @@ describe('M3.1 / navigation traiteur', () => {
       'Dashboard',
       'Collectes',
       'Événements',
+      'Mon pack Anti-Gaspi',
       'Paramètres',
     ]);
     expect(hrefs('traiteur_manager')).not.toContain('/registre');
@@ -35,6 +37,7 @@ describe('M3.1 / navigation traiteur', () => {
       'Dashboard',
       'Collectes',
       'Événements',
+      'Mon pack Anti-Gaspi',
       'Paramètres',
     ]);
     expect(hrefs('traiteur_commercial')).not.toContain('/registre');

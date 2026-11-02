@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/icones';
 import type { NavRole } from '@/lib/roles';
 import { ROUTES } from '@/lib/routes';
+import { TITRE_MON_PACK_AG } from '@/lib/libelles/pack';
 
 export interface NavItem {
   label: string;
@@ -113,6 +114,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: CalendarDotsIcon,
         },
         {
+          label: TITRE_MON_PACK_AG,
+          href: ROUTES.traiteur.monPackAg,
+          icon: PackageIcon,
+        },
+        {
           label: 'Paramètres',
           href: ROUTES.traiteur.parametres,
           icon: GearIcon,
@@ -140,6 +146,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: CalendarDotsIcon,
         },
         {
+          label: TITRE_MON_PACK_AG,
+          href: ROUTES.traiteur.monPackAg,
+          icon: PackageIcon,
+        },
+        {
           label: 'Paramètres',
           href: ROUTES.traiteur.parametres,
           icon: GearIcon,
@@ -150,8 +161,9 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
 
   // §06.11 Navigation — réplique §06.04 §1. Pas de Registre (non productrice,
   // diff #5), pas de section Lieux/Reporting dédiée (export RSE via Bloc 8
-  // dashboard, pack AG via onglet AG). « Événements » sous « Collectes » :
-  // décision Val 2026-10-29 (liste commune à tous les rôles).
+  // dashboard). « Événements » sous « Collectes » : décision Val 2026-10-29
+  // (liste commune à tous les rôles). « Mon pack Anti-Gaspi » avant
+  // « Paramètres » dans tous les espaces client (Val 2026-11-02).
   agence: [
     {
       items: [
@@ -167,6 +179,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: CalendarDotsIcon,
         },
         {
+          label: TITRE_MON_PACK_AG,
+          href: ROUTES.agence.monPackAg,
+          icon: PackageIcon,
+        },
+        {
           label: 'Paramètres',
           href: ROUTES.agence.parametres,
           icon: GearIcon,
@@ -180,9 +197,8 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
   // réglementaire », réintégrées par Val le 2026-07-06 (CDC re-synchronisé depuis).
   // « Événements », retirée le 2026-10-07 (doublon de Collectes), est remise par
   // Val le 2026-10-18 : vue consolidée d'un événement à plusieurs collectes.
-  // « Mon pack AG » est masqué si l'organisation n'a aucun pack : `hiddenNavHrefs`
-  // est calculé par `entreesNavMasquees` (lib/nav-masquee.ts) dans chaque layout
-  // qui monte ce menu, puis appliqué dans Sidebar/BottomNav.
+  // « Mon pack Anti-Gaspi » figure dans le menu de tous les rôles clients, même
+  // sans pack (Val 2026-11-02 : l'entrée n'est plus masquée).
   // Ordre fixé par Val le 2026-10-07 (il diffère de la liste du CDC), où
   // « Événements » s'insère sous « Collectes », sa voisine. La barre mobile
   // affiche les 4 premières entrées : Dashboard, Collectes, Événements,
@@ -221,7 +237,7 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: BookOpenIcon,
         },
         {
-          label: 'Mon pack AG',
+          label: TITRE_MON_PACK_AG,
           href: ROUTES.gestionnaire.monPackAg,
           icon: PackageIcon,
         },
@@ -263,6 +279,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           label: 'Registre réglementaire',
           href: ROUTES.registre,
           icon: BookOpenIcon,
+        },
+        {
+          label: TITRE_MON_PACK_AG,
+          href: ROUTES.organisateur.monPackAg,
+          icon: PackageIcon,
         },
         {
           label: 'Paramètres',

@@ -4,6 +4,9 @@
 import type { Database } from '@savr/shared/src/database.types.js';
 import type { VarianteBadge as Variant } from './types';
 
+/** Titre de l'onglet et de la page « Mon pack Anti-Gaspi » (Val 2026-11-02). */
+export const TITRE_MON_PACK_AG = 'Mon pack Anti-Gaspi';
+
 type StatutPack = Database['plateforme']['Enums']['pack_statut'];
 
 export const LIBELLE_STATUT_PACK: Record<string, string> = {

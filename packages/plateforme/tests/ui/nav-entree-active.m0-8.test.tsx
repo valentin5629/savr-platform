@@ -92,14 +92,8 @@ it('M0.8-70 — Barre mobile : même règle, et rien d’allumé quand la page c
   expect(entreesActives()).toEqual([]);
 });
 
-it('M0.8-71 — Menu : sur la page d’une entrée masquée, aucune autre entrée ne s’allume à sa place', () => {
+it('M0.8-71 — Menu : sur « Mon pack Anti-Gaspi », seule son entrée s’allume (le Dashboard, qui préfixe son adresse, reste éteint)', () => {
   etat.pathname = '/gestionnaire/mon-pack-ag';
-  render(
-    <Sidebar
-      role="gestionnaire_lieux"
-      hiddenNavHrefs={['/gestionnaire/mon-pack-ag']}
-    />,
-  );
-  expect(screen.queryByText('Mon pack AG')).not.toBeInTheDocument();
-  expect(entreesActives()).toEqual([]);
+  render(<Sidebar role="gestionnaire_lieux" />);
+  expect(entreesActives()).toEqual(['Mon pack Anti-Gaspi']);
 });

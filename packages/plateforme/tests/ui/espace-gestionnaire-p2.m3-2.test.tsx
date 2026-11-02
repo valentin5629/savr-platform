@@ -1,7 +1,7 @@
 /**
  * M3.2 — Tests UI R19b-P2 (§06.05).
  * Couvre :
- *  - BL-P2-13 : nav — « Mon pack AG » masqué via hiddenNavHrefs (conditionnel pack,
+ *  - BL-P2-13 : nav — « Mon pack Anti-Gaspi » toujours visible (Val 2026-11-02 ; ex masqué sans pack,
  *    l.71) ; Collectes + Registre conservés (override Val 2026-07-06) ;
  *  - BL-P2-12 : barre de filtres globale dashboard (Lieux/Traiteurs/Type/Taille) +
  *    compteur + cartes KPI non cliquables (Val 2026-07-10) ;
@@ -149,22 +149,13 @@ beforeEach(() => {
 
 // ── BL-P2-13 nav ──────────────────────────────────────────────────────────────
 describe('M3.2 / P2 nav gestionnaire', () => {
-  it('M3.2/P2_nav_pack_masque_si_absent — hiddenNavHrefs masque « Mon pack AG »', () => {
-    render(
-      <Sidebar
-        role="gestionnaire_lieux"
-        hiddenNavHrefs={['/gestionnaire/mon-pack-ag']}
-      />,
-    );
+  it('M3.2/P2_nav_pack_toujours_visible — « Mon pack Anti-Gaspi » figure dans le menu, même sans pack (Val 2026-11-02)', () => {
+    render(<Sidebar role="gestionnaire_lieux" />);
+    expect(screen.getByText('Mon pack Anti-Gaspi')).toBeInTheDocument();
     expect(screen.queryByText('Mon pack AG')).not.toBeInTheDocument();
     // Override Val : Collectes + Registre réglementaire conservés.
     expect(screen.getByText('Collectes')).toBeInTheDocument();
     expect(screen.getByText('Registre réglementaire')).toBeInTheDocument();
-  });
-
-  it('M3.2/P2_nav_pack_affiche_si_present — sans masquage, « Mon pack AG » visible', () => {
-    render(<Sidebar role="gestionnaire_lieux" />);
-    expect(screen.getByText('Mon pack AG')).toBeInTheDocument();
   });
 });
 

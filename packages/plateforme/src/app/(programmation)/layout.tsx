@@ -1,6 +1,5 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { createSupabaseServerClient, getVerifiedClaims } from '@/lib/api-auth';
-import { entreesNavMasquees } from '@/lib/nav-masquee';
 import { chargerIdentiteSession } from '@/lib/identite-session';
 import { isStaff, type NavRole } from '@/lib/roles';
 
@@ -25,7 +24,6 @@ export default async function ProgrammationLayout({
   const role: NavRole = isStaff(claims?.role)
     ? 'admin_savr'
     : ((claims?.role ?? 'traiteur_commercial') as NavRole);
-  const hiddenNavHrefs = await entreesNavMasquees(role);
   // Organisation et utilisateur en bas du menu, comme dans l'espace du rôle.
   // Le jeton ne porte pas l'email : sans fiche lisible, le bloc reste vide.
   const identite = claims
@@ -37,7 +35,7 @@ export default async function ProgrammationLayout({
     : null;
 
   return (
-    <AppShell role={role} identite={identite} hiddenNavHrefs={hiddenNavHrefs}>
+    <AppShell role={role} identite={identite}>
       {children}
     </AppShell>
   );

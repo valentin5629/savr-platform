@@ -296,7 +296,7 @@ describe('ConfirmDialog — confirmation destructive avec motif', () => {
 });
 
 describe('AnnulationCollecteDialog — une seule modale liste + fiche', () => {
-  it('AG : mention crédit préservé ; motif facultatif transmis ; plus de variante « demande » (Val 2026-11-01)', () => {
+  it('AG : mention crédit rendu ; motif facultatif transmis ; plus de variante « demande » (Val 2026-11-01)', () => {
     const onConfirm = vi.fn();
     render(
       <AnnulationCollecteDialog
@@ -366,12 +366,12 @@ describe('AnnulationCollecteDialog — annulation à moins de 4 h', () => {
       />,
     );
 
-  it('AG à 3 h du créneau : avertissement du débit, plus de « crédit préservé »', () => {
+  it('AG à 3 h du créneau : crédit gardé, plus de « crédit rendu »', () => {
     figer();
     monter(true, '13:00:00');
     expect(screen.queryByTestId('mention-credit-ag')).toBeNull();
     expect(screen.getByTestId('mention-annulation-tardive').textContent).toBe(
-      'Cette collecte a lieu dans moins de 4 h : son annulation est facturée comme une collecte réalisée. Un crédit de votre pack Anti-Gaspi sera débité.',
+      'Cette collecte a lieu dans moins de 4 h : son annulation est facturée comme une collecte réalisée. Le crédit de votre pack Anti-Gaspi décompté à sa programmation ne vous est pas rendu.',
     );
   });
 
@@ -383,7 +383,7 @@ describe('AnnulationCollecteDialog — annulation à moins de 4 h', () => {
     );
   });
 
-  it('à 4 h pile (seuil strict, comme la base) : AG crédit préservé, ZD sans avertissement', () => {
+  it('à 4 h pile (seuil strict, comme la base) : AG crédit rendu, ZD sans avertissement', () => {
     figer();
     const { unmount } = monter(true, '14:00:00');
     expect(screen.getByTestId('mention-credit-ag')).toBeInTheDocument();

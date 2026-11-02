@@ -678,7 +678,7 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
   );
 
   it(
-    'collecte Anti-Gaspi : la boîte rappelle que le crédit est préservé',
+    'collecte Anti-Gaspi : la boîte rappelle que le crédit est rendu',
     async () => {
       await afficher({ ...EVENEMENT, collectes: [AG] });
 

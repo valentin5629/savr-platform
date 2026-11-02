@@ -18,7 +18,10 @@ import {
   fireEvent,
   waitFor,
 } from '@testing-library/react';
-import { MonPackAg } from '@/components/pack-ag/mon-pack-ag.js';
+import {
+  MESSAGE_PREMIER_PACK,
+  MonPackAg,
+} from '@/components/pack-ag/mon-pack-ag.js';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 function pack(
@@ -163,9 +166,9 @@ describe('Écran Mon pack Anti-Gaspi', () => {
   );
 
   it(
-    'M3.2/pack_ag_ecran_aucun_pack — sans aucun pack : message, ni historique ni bouton',
+    'M3.2/pack_ag_ecran_aucun_pack — sans aucun pack : message et demande d’activation, ni historique ni renouvellement',
     async () => {
-      servir({ pack_courant: null, packs: [], collectes: [] });
+      const f = servir({ pack_courant: null, packs: [], collectes: [] });
       render(<MonPackAg />);
 
       expect(
@@ -180,6 +183,22 @@ describe('Écran Mon pack Anti-Gaspi', () => {
       expect(
         screen.queryByRole('button', { name: 'Demander un renouvellement' }),
       ).toBeNull();
+      // Demande d'activation d'un premier pack (Val 2026-11-02) : même envoi à
+      // l'Admin, message « première activation ».
+      fireEvent.click(
+        screen.getByRole('button', { name: "Demander l'activation d'un pack" }),
+      );
+      await waitFor(
+        () =>
+          expect(f).toHaveBeenCalledWith(
+            '/api/v1/traiteur/pack-ag/renouvellement',
+            expect.objectContaining({
+              method: 'POST',
+              body: JSON.stringify({ message: MESSAGE_PREMIER_PACK }),
+            }),
+          ),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

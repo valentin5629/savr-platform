@@ -87,11 +87,14 @@ interface RequeteCollectes {
  * et, quand `rapportNonConsulte` est demandé, `rapports_rse` en `!inner` — sans
  * cet embed PostgREST refuse la requête, il ne l'élargit pas.
  * `now` est injecté pour les fenêtres 48 h des pastilles et « à venir ».
+ * `idsEnvoiAbandonne` : collectes à l'ordre de création abandonné, rangées
+ * sous « Créée » (`lireCollectesEnvoiAbandonne`, décision Val 2026-11-02).
  */
 export function appliquerFiltresCollectesAdmin<Q>(
   requete: Q,
   f: FiltresCollectesAdmin,
   now: Date,
+  idsEnvoiAbandonne: readonly string[] = [],
 ): Q {
   let q = requete as unknown as RequeteCollectes;
 
@@ -107,7 +110,7 @@ export function appliquerFiltresCollectesAdmin<Q>(
   // n'apparaît dans aucune liste Admin (décision Val 2026-10-07).
   q = q.neq('statut', 'brouillon');
   if (f.statutsDemandes.length > 0) {
-    const filtre = filtreStatutsAdmin(f.statutsDemandes);
+    const filtre = filtreStatutsAdmin(f.statutsDemandes, idsEnvoiAbandonne);
     // Rien de valide demandé (clé inconnue, brouillon) : aucune ligne, jamais
     // une liste élargie.
     if (!filtre) q = q.in('statut', []);

@@ -126,6 +126,8 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
       infos_acces_email: null,
       // Aucun ordre en file pour cette collecte.
       ordre_envoi: null,
+      // Donc rien d'abandonné : le statut affiché suit les signaux d'envoi.
+      envoi_abandonne: false,
       // Pas une collecte AG sans pack : rien à rattacher.
       rattachement_pack: null,
     });

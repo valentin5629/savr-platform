@@ -97,3 +97,43 @@ export function deriverOrdreEnvoi(lignes: LigneOrdre[]): OrdreEnvoi | null {
     erreur: erreur ? erreur.slice(0, LONGUEUR_MAX_ERREUR) : null,
   };
 }
+
+/**
+ * L'ordre de création parti vers le prestataire est-il abandonné ? Ramène la
+ * collecte à « Créée » côté Admin (lib/statut-collecte-admin, décision Val
+ * 2026-11-02). Un ordre de modification ou d'annulation abandonné n'en fait
+ * pas partie : la demande, elle, est bien arrivée.
+ */
+export function envoiAbandonne(ordre: OrdreEnvoi | null): boolean {
+  return ordre?.etat === 'echec_definitif' && ordre.nature === 'creation';
+}
+
+/**
+ * Collectes dont l'ordre de création est abandonné, parmi `collecteIds` ou,
+ * sans liste, toutes (filtre « Créée » / « Programmée » de la liste Admin).
+ * Peu de lignes : un abandon attend qu'on le débloque à la main.
+ */
+export async function lireCollectesEnvoiAbandonne(
+  supabase: AdminSupabase,
+  collecteIds?: readonly string[],
+): Promise<{ data: Set<string>; error: ErreurDb | null }> {
+  if (collecteIds?.length === 0) return { data: new Set(), error: null };
+  let q = supabase
+    .from('outbox_events')
+    .select('aggregate_id')
+    .eq('aggregate_type', 'collecte')
+    .eq('event_type', 'collecte.creee')
+    // `collecte.creee` : l'ordre de l'attribution AG (`attribution.validee`)
+    // n'en fait pas partie.
+    .eq('statut', 'dead');
+  if (collecteIds) q = q.in('aggregate_id', [...collecteIds]);
+  const { data, error } = await q;
+  return {
+    data: new Set(
+      ((data as { aggregate_id: string }[] | null) ?? []).map(
+        (l) => l.aggregate_id,
+      ),
+    ),
+    error: error ?? null,
+  };
+}

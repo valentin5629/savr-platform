@@ -57,6 +57,8 @@ export interface CollecteRow {
   // Prestataire posé au dispatch — l'un des signaux « demande partie » qui
   // séparent « Créée » de « Programmée » (lib/statut-collecte-admin).
   prestataire_logistique_id: string | null;
+  // Ordre de création abandonné : ramène à « Créée » (GET /admin/collectes).
+  envoi_abandonne?: boolean;
   dirty_tms: boolean;
   date_collecte: string;
   heure_collecte: string;

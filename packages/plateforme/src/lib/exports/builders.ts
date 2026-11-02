@@ -35,6 +35,7 @@ import {
   type EnvoiCollecte,
 } from '@/lib/statut-collecte-admin.js';
 import { Constants } from '@savr/shared/src/database.types.js';
+import { lireCollectesEnvoiAbandonne } from '@/lib/ordre-envoi.js';
 
 type Row = Record<string, unknown>;
 
@@ -103,6 +104,14 @@ export async function buildCollectesExport(
   const filtresAdmin = ctx.isStaff ? lireFiltresCollectesAdmin(sp) : null;
   // Un seul « maintenant » pour toutes les tranches (fenêtres 48 h des pastilles).
   const maintenant = new Date();
+  // Staff : envoi abandonné = « Créée », comme la liste (décision Val
+  // 2026-11-02) — pour le filtre et pour le statut de chaque ligne.
+  let abandons = new Set<string>();
+  if (filtresAdmin) {
+    const lu = await lireCollectesEnvoiAbandonne(ctx.supabase);
+    if (lu.error) throw erreurInterne(lu.error, 'exports.builders');
+    abandons = lu.data;
+  }
 
   // Staff : le statut exporté est celui de l'écran Admin (« Créée » tant que la
   // demande n'est pas partie, « Programmée » ensuite — décision Val 2026-10-07),
@@ -154,6 +163,7 @@ export async function buildCollectesExport(
         .order('id', { ascending: false }),
       f,
       maintenant,
+      [...abandons],
     );
   const requeteClient = () => {
     let q = selectClient()
@@ -256,7 +266,10 @@ export async function buildCollectesExport(
         libelle(
           STATUT_COLLECTE_LIBELLE,
           ctx.isStaff
-            ? statutCollecteAdmin(r as unknown as EnvoiCollecte)
+            ? statutCollecteAdmin({
+                ...(r as unknown as EnvoiCollecte),
+                envoi_abandonne: abandons.has(r.id as string),
+              })
             : r.statut === 'brouillon'
               ? 'creee'
               : r.statut,

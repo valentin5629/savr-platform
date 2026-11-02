@@ -51,6 +51,19 @@ function makeChain() {
       return chain;
     };
   }
+  // File d'envoi (`outbox_events`, envois abandonnés lus par l'export staff) :
+  // aucun abandon, hors de la file de réponses et des appels enregistrés, pour
+  // que chaque cas serve ses lignes comme avant.
+  const sansAbandon = {
+    select: () => sansAbandon,
+    eq: () => sansAbandon,
+    in: () => sansAbandon,
+    then: (resolve: (r: Result) => unknown) =>
+      resolve({ data: [], error: null }),
+  };
+  const fromParDefaut = chain.from as (...args: unknown[]) => unknown;
+  chain.from = (...args: unknown[]) =>
+    args[0] === 'outbox_events' ? sansAbandon : fromParDefaut(...args);
   chain.rpc = (...args: unknown[]) => {
     record('rpc', args);
     return Promise.resolve(next());

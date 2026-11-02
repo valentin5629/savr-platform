@@ -1,3 +1,4 @@
+import { estUuid } from './filtre-csv';
 import type {
   StatutCollecteAdmin,
   StatutCollecteDb,
@@ -20,6 +21,15 @@ import type {
 // l'écrit), un statut TMS sorti de « non envoyé », une référence de commande
 // reçue.
 //
+// Exception (décision Val 2026-11-02) : un envoi abandonné ramène à « Créée ».
+// Quand l'ordre de création parti vers le prestataire est abandonné (plus
+// aucune tentative automatique) et que rien n'en est revenu (statut TMS « non
+// envoyé », aucune référence), la demande n'est jamais arrivée : l'Admin doit
+// la retrouver parmi ce qu'il reste à envoyer. Un échec avec reprise planifiée
+// ne change rien. L'abandon ne se lit que dans la file d'envoi
+// (`outbox_events`), d'où `envoi_abandonne` posé par l'appelant
+// (`lireCollectesEnvoiAbandonne`, lib/ordre-envoi).
+//
 // La règle vit ici sous deux formes côte à côte : test d'une ligne déjà
 // chargée (`statutCollecteAdmin`) et filtre PostgREST de la liste Collectes Admin
 // (`filtreStatutsAdmin`). Leur accord est tenu par statut-collecte-admin.test.ts.
@@ -32,9 +42,17 @@ export interface EnvoiCollecte {
   prestataire_logistique_id: string | null;
   /** Embed `attributions_antgaspi` (objet, tableau ou null selon la route). */
   attributions_antgaspi: unknown;
+  /** Ordre de création abandonné dans la file d'envoi (absent = non). */
+  envoi_abandonne?: boolean;
 }
 
 function demandeEnvoyee(c: Omit<EnvoiCollecte, 'statut'>): boolean {
+  if (
+    c.envoi_abandonne === true &&
+    c.statut_tms === 'non_envoye' &&
+    c.tms_reference == null
+  )
+    return false;
   const attribution = c.attributions_antgaspi;
   const attribuee = Array.isArray(attribution)
     ? attribution.length > 0
@@ -54,11 +72,16 @@ export function statutCollecteAdmin(c: EnvoiCollecte): StatutCollecteAdmin {
 }
 
 // Les mêmes quatre signaux en syntaxe PostgREST (colonnes de `collectes` +
-// embed `attributions_antgaspi`, à embarquer dans le select appelant).
+// embed `attributions_antgaspi`, à embarquer dans le select appelant), puis
+// l'exception de l'envoi abandonné, lue sur la liste d'identifiants fournie.
 const DEMANDE_NON_ENVOYEE =
   'statut_tms.eq.non_envoye,tms_reference.is.null,prestataire_logistique_id.is.null,attributions_antgaspi.is.null';
 const DEMANDE_ENVOYEE =
   'statut_tms.neq.non_envoye,tms_reference.not.is.null,prestataire_logistique_id.not.is.null,attributions_antgaspi.not.is.null';
+const abandonne = (ids: string) =>
+  `id.in.(${ids}),statut_tms.eq.non_envoye,tms_reference.is.null`;
+const nonAbandonne = (ids: string) =>
+  `id.not.in.(${ids}),statut_tms.neq.non_envoye,tms_reference.not.is.null`;
 
 // Statuts qu'un Admin peut filtrer : un brouillon n'apparaît pas côté Admin.
 const CLES_FILTRABLES: readonly StatutCollecteAdmin[] = [
@@ -78,10 +101,13 @@ const CLES_FILTRABLES: readonly StatutCollecteAdmin[] = [
  * Traduit une sélection de statuts Admin en filtre de requête : soit une liste
  * de statuts DB (`statuts`), soit une expression `or=(…)` quand « Créée » ou
  * « Programmée » est choisie sans l'autre. Clés inconnues ignorées ; `null` si
- * rien de valide n'est demandé.
+ * rien de valide n'est demandé. `idsEnvoiAbandonne` : collectes dont l'ordre de
+ * création est abandonné (`lireCollectesEnvoiAbandonne`), validées en UUID ici
+ * car elles partent dans un `or=(…)` non paramétré.
  */
 export function filtreStatutsAdmin(
   cles: readonly string[],
+  idsEnvoiAbandonne: readonly string[] = [],
 ): { statuts: StatutCollecteDb[] } | { or: string } | null {
   const valides = CLES_FILTRABLES.filter((c) => cles.includes(c));
   if (valides.length === 0) return null;
@@ -103,9 +129,14 @@ export function filtreStatutsAdmin(
   if (creee === programmee) {
     return { statuts: creee ? ['programmee', ...autres] : autres };
   }
+  const ids = idsEnvoiAbandonne.filter(estUuid).join(',');
   const moitie = creee
-    ? `and(statut.eq.programmee,${DEMANDE_NON_ENVOYEE})`
-    : `and(statut.eq.programmee,or(${DEMANDE_ENVOYEE}))`;
+    ? ids
+      ? `and(statut.eq.programmee,or(and(${DEMANDE_NON_ENVOYEE}),and(${abandonne(ids)})))`
+      : `and(statut.eq.programmee,${DEMANDE_NON_ENVOYEE})`
+    : ids
+      ? `and(statut.eq.programmee,or(${DEMANDE_ENVOYEE}),or(${nonAbandonne(ids)}))`
+      : `and(statut.eq.programmee,or(${DEMANDE_ENVOYEE}))`;
   return {
     or:
       autres.length > 0 ? `${moitie},statut.in.(${autres.join(',')})` : moitie,

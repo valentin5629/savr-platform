@@ -9,6 +9,7 @@ import { getNextRetryAt } from '@savr/adapters/src/outbox-worker.js';
 import {
   TENTATIVES_MAX_ORDRE,
   deriverOrdreEnvoi,
+  envoiAbandonne,
   type LigneOrdre,
 } from './ordre-envoi.js';
 
@@ -152,5 +153,32 @@ describe("M0.6 / ordre d'envoi — ordre de tête de la collecte", () => {
     // Après la dernière tentative, le worker ne planifie plus rien ; avant, si.
     expect(getNextRetryAt(TENTATIVES_MAX_ORDRE)).toBeNull();
     expect(getNextRetryAt(TENTATIVES_MAX_ORDRE - 1)).not.toBeNull();
+  });
+});
+
+// Décision Val 2026-11-02 : seul l'abandon de l'ordre de CRÉATION ramène la
+// collecte à « Créée » (lib/statut-collecte-admin).
+describe('envoiAbandonne', () => {
+  const ordre = (etat: string, nature: string) =>
+    ({
+      etat,
+      nature,
+      tentatives: 1,
+      prochaine_tentative_at: null,
+      erreur: null,
+    }) as Parameters<typeof envoiAbandonne>[0];
+
+  it('M0.6/statut_admin_creee_envoi_abandonne — création abandonnée : oui', () => {
+    expect(envoiAbandonne(ordre('echec_definitif', 'creation'))).toBe(true);
+  });
+
+  it('échec avec reprise, ordre en file, ou modification / annulation abandonnée : non', () => {
+    expect(envoiAbandonne(ordre('echec_reprise', 'creation'))).toBe(false);
+    expect(envoiAbandonne(ordre('en_attente', 'creation'))).toBe(false);
+    expect(envoiAbandonne(ordre('echec_definitif', 'modification'))).toBe(
+      false,
+    );
+    expect(envoiAbandonne(ordre('echec_definitif', 'annulation'))).toBe(false);
+    expect(envoiAbandonne(null)).toBe(false);
   });
 });

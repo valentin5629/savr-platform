@@ -8,6 +8,7 @@ import { ROUTES } from '@/lib/routes';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { notifierProgrammateurTiers } from '@/lib/notifications/traiteur-operationnel.js';
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
+import { lireCollectesEnvoiAbandonne } from '@/lib/ordre-envoi';
 import { LIBELLE_STATUT_COLLECTE } from '@/lib/statut-collecte-labels';
 import { urlApplication } from '@/lib/url-application';
 import { modificationUrgente } from './urgence-modification';
@@ -212,6 +213,7 @@ interface CollecteApres {
   heure_collecte: string | null;
   pax: number;
   attributions_antgaspi: unknown;
+  envoi_abandonne?: boolean;
   evenement: unknown;
 }
 
@@ -270,6 +272,11 @@ export async function notifierEquipeModificationCollecte(
     if (error) throw new Error(`lecture de la collecte : ${error.message}`);
     if (!data) return;
     const collecte = data as unknown as CollecteApres;
+    // Envoi abandonné = « Créée », comme la fiche (décision Val 2026-11-02).
+    const abandons = await lireCollectesEnvoiAbandonne(admin, [collecte.id]);
+    if (abandons.error)
+      throw new Error(`lecture de la file d'envoi : ${abandons.error.message}`);
+    collecte.envoi_abandonne = abandons.data.has(collecte.id);
     const evenement = un(
       collecte.evenement as EvenementApres | EvenementApres[],
     );

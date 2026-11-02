@@ -149,6 +149,21 @@ describe('M3.2 / fiche lieu en pop-up', () => {
   );
 
   it(
+    'VIPARIS/fiche_lieu_code_site — lieu VIPARIS : « Code site VIPARIS » dans « Adresse et capacité » ; absent sans code',
+    async () => {
+      fiche = { body: { data: { ...FICHE, code_site_viparis: 'CNIT2' } } };
+      const f = await ouvrirFiche();
+      expect(f.getByTestId('code-site-viparis').textContent).toContain('CNIT2');
+
+      cleanup();
+      fiche = { body: { data: FICHE } };
+      const g = await ouvrirFiche();
+      expect(g.queryByTestId('code-site-viparis')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/fiche_lieu_modale_lien_direct — ?lieu=<id> ouvre la fiche à l’arrivée',
     async () => {
       window.history.replaceState(null, '', `${LISTE}?lieu=${LIEU}`);

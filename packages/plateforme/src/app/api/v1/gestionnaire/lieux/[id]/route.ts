@@ -96,6 +96,15 @@ export async function GET(
   if (!lieu)
     return NextResponse.json({ error: 'Lieu non trouvé' }, { status: 404 });
 
+  // Code site VIPARIS (Val 2026-11-02) : hors liste blanche de `v_lieux_clients`,
+  // lu en service-role pour CE lieu, que la RLS vient de rendre.
+  const { data: code, error: codeErr } = await createAdminSupabaseClient()
+    .from('lieux')
+    .select('code_site_viparis')
+    .eq('id', (lieu as { id: string }).id)
+    .maybeSingle();
+  if (codeErr) return serverError(codeErr, 'gestionnaire.lieux.get.code_site');
+
   const parc = await estLieuDuParc(supabase, auth.ctx.organisationId, id);
   if (!parc.ok) return serverError(parc.error, 'gestionnaire.lieux.get.parc');
 
@@ -166,6 +175,9 @@ export async function GET(
   return NextResponse.json({
     data: {
       ...lieu,
+      code_site_viparis:
+        (code as { code_site_viparis: string | null } | null)
+          ?.code_site_viparis ?? null,
       traiteurs,
       demande_modification_possible: parc.duParc,
       demande_modification_en_cours: demandeEnCours,

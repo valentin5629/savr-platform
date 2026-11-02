@@ -1590,9 +1590,9 @@
       "id": "M3.2-viparis-code-site-lieu",
       "statut": "implemented",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:874",
-      "artefact": "supabase/migrations/20261102150000_plateforme_codes_viparis.sql (lieux.code_site_viparis, CHECK liste fermée) + packages/plateforme/src/app/api/v1/admin/lieux/route.ts + packages/plateforme/src/app/api/v1/admin/lieux/[id]/route.ts + packages/plateforme/src/components/admin/lieu-modal.tsx",
-      "test": "supabase/tests/codes_viparis.test.sql + Lieux / Code site VIPARIS",
-      "libelle": "Code site VIPARIS du lieu (demande VIPARIS, décision Val C3 2026-11-02) : liste fermée PCP, PCC, CNIT2, CDL, CHAMP, PDV, PNV, PLB, saisie par l'Admin seul dans la fiche lieu (onglet Informations) ; code inconnu refusé (422 à la route, 23514 en base). Divergence M3.2_20261102_codes-viparis-site-affaire."
+      "artefact": "supabase/migrations/20261102150000_plateforme_codes_viparis.sql (lieux.code_site_viparis, CHECK liste fermée) + packages/plateforme/src/app/api/v1/admin/lieux/route.ts + packages/plateforme/src/app/api/v1/admin/lieux/[id]/route.ts + packages/plateforme/src/components/admin/lieu-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx",
+      "test": "supabase/tests/codes_viparis.test.sql + Lieux / Code site VIPARIS + VIPARIS/fiche_lieu_code_site + VIPARIS/fiche_lieu_code_site_illisible_500",
+      "libelle": "Code site VIPARIS du lieu (demande VIPARIS, décision Val C3 2026-11-02) : liste fermée PCP, PCC, CNIT2, CDL, CHAMP, PDV, PNV, PLB, saisie par l'Admin seul dans la fiche lieu (onglet Informations) ; code inconnu refusé (422 à la route, 23514 en base). Divergence M3.2_20261102_codes-viparis-site-affaire. Lisible par le gestionnaire dans sa fiche lieu (section « Adresse et capacité »), lu en service-role pour le lieu que la RLS vient de rendre (Val 2026-11-02)."
     },
     {
       "id": "M3.2-viparis-code-affaire-evenement",

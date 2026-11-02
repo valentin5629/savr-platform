@@ -126,8 +126,10 @@ export function CarteCollecte({
           ) : (
             <PackAGIndicator
               total={pack.credits_initiaux ?? 0}
-              restant={pack.credits_restants ?? 0}
-              label="Crédits pack AG restants"
+              // Le crédit est décompté dès la programmation (Val 2026-11-02) :
+              // la jauge montre le solde une fois cette collecte comptée.
+              restant={(pack.credits_restants ?? 0) - 1}
+              label="Crédits pack AG restants après cette collecte"
             />
           )}
         </div>

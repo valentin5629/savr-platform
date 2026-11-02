@@ -89,7 +89,7 @@ describe('M1.2 — ajouter une collecte : information « facturée à l’unité
   );
 
   it(
-    'AG avec un pack actif et des crédits : jauge des crédits, aucune information',
+    'AG avec un pack actif et des crédits : jauge du solde une fois cette collecte comptée, aucune information',
     async () => {
       installFetch({
         pack_actif: true,
@@ -102,7 +102,7 @@ describe('M1.2 — ajouter une collecte : information « facturée à l’unité
 
       expect(
         await screen.findByRole('progressbar', {}, ATTENTE_UI),
-      ).toHaveAttribute('aria-valuenow', '4');
+      ).toHaveAttribute('aria-valuenow', '3');
       expect(screen.queryByText(INFO)).toBeNull();
     },
     ATTENTE_CAS_MS,

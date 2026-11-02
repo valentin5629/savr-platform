@@ -67,11 +67,20 @@ interface AttributionRow {
   associations?: { nom?: string | null } | null;
 }
 
+const STATUTS_A_VENIR = [
+  'programmee',
+  'validee',
+  'en_cours',
+  'annulation_demandee',
+];
+
 function mapConsommation(c: ConsommationRow) {
   const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
   const lieu = (evt as { lieux?: { nom?: string } })?.lieux;
   // Crédit consommé sans collecte réalisée (§05 « Débit d'un crédit », 2e cas).
   const annulee = c.statut === 'annulee';
+  // Crédit décompté à la programmation, collecte pas encore faite (2026-11-02).
+  const aVenir = STATUTS_A_VENIR.includes(c.statut);
   // Une collecte annulée garde son attribution (posée avec le pack) mais n'a
   // rien donné : ni repas, ni association bénéficiaire.
   const attrs: AttributionRow[] = annulee
@@ -86,6 +95,7 @@ function mapConsommation(c: ConsommationRow) {
     pack_id: c.packs_antgaspi.id,
     date_collecte: c.date_collecte,
     annulee_tardivement: annulee,
+    a_venir: aVenir,
     evenement: (evt as { nom_evenement?: string })?.nom_evenement ?? null,
     lieu: lieu?.nom ?? null,
     repas_donnes: attrs.reduce((s, a) => s + (a.volume_repas_realise ?? 0), 0),
@@ -148,25 +158,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const consommation: ConsommationRow[] = [];
   if (packs.length > 0) {
-    // 1er cas de débit : la collecte est réalisée (ou clôturée). Le débit à la
-    // réalisation ne laisse pas de ligne d'audit ; une réalisée sans pack actif
-    // perd la réservation de son pack (facturée à l'unité) et n'est donc pas
-    // listée, sauf si l'Admin la rattache ensuite à un pack de l'organisation.
+    // Le crédit est décompté dès la programmation (Val 2026-11-02) : toute
+    // collecte non annulée qui porte un pack de l'organisation l'a consommé, à
+    // venir comme passée. Une collecte programmée sans crédit restant n'en
+    // porte pas (facturée à l'unité) et n'est donc pas listée, sauf si l'Admin
+    // la rattache ensuite à un pack de l'organisation. Une annulation à temps
+    // rend le crédit et retire le pack ; une refusée par le prestataire aussi.
     // Sans plafond : l'écran range les collectes par pack, un plafond global
     // viderait les packs les plus anciens. Volume borné par l'organisation :
     // chaque rattachement à un pack décompte normalement un crédit (le seed
     // démo, lui, en rattache plus que ses crédits).
     const { data: realisees, error: consoErr } = await lire([
+      ...STATUTS_A_VENIR,
       'realisee',
+      'realisee_sans_collecte',
       'cloturee',
     ]);
     // Une liste vide est un état normal (pack jamais débité) : une lecture en
     // échec ne doit pas s'y confondre.
     if (consoErr) return serverError(consoErr, 'mon_pack_ag.consommation');
 
-    // 2e cas de débit : l'annulation tardive. Le pack est rattaché à la collecte
-    // dès la validation de l'attribution (réservation) : une collecte annulée
-    // qui porte un pack n'a donc PAS forcément consommé un crédit. Les seules
+    // Annulées : seule une annulation tardive garde son crédit. Avant le
+    // 2026-11-02, le pack était posé dès l'attribution (réservation) : une
+    // collecte annulée qui porte un pack n'a donc PAS forcément consommé un
+    // crédit (données d'avant cette date). Les seules
     // traces exactes du débit sont la ligne d'audit du trigger
     // trg_pack_debit_annulation_tardive (pack en `record_id`, collecte en
     // `old_values`) et, pour une annulée tardive rattachée après coup par

@@ -66,14 +66,26 @@ describe('M1.2 — sous-bloc AG : état du pack (facturation à l’unité sans 
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
 
-  it('pack actif avec crédits : jauge des crédits, aucune information', () => {
+  it('pack actif avec crédits : jauge du solde une fois cette collecte comptée', () => {
     rendreAg({ pack_actif: true, credits_initiaux: 10, credits_restants: 3 });
 
     expect(screen.getByRole('progressbar')).toHaveAttribute(
       'aria-valuenow',
-      '3',
+      '2',
     );
+    expect(
+      screen.getByText('Crédits pack AG restants après cette collecte'),
+    ).toBeInTheDocument();
     expect(screen.queryByText(INFO)).toBeNull();
+  });
+
+  it('dernier crédit du pack : la jauge tombe à 0', () => {
+    rendreAg({ pack_actif: true, credits_initiaux: 10, credits_restants: 1 });
+
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '0',
+    );
   });
 
   it('pack actif sans crédit restant : même information que sans pack', () => {

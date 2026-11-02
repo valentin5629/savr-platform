@@ -50,6 +50,8 @@ import {
 } from '@/components/programmation/carte-collecte';
 import {
   usePackAg,
+  nombreAlUnite,
+  packPourRang,
   factureeAlUnite,
   PACK_PROPRE,
 } from '@/components/programmation/use-pack-ag';
@@ -85,6 +87,22 @@ import {
 export const ECRAN_EVENEMENT = "Informations sur l'événement";
 export const ECRAN_COLLECTES = 'Informations sur les collectes';
 const STEPS = [{ label: ECRAN_EVENEMENT }, { label: ECRAN_COLLECTES }];
+
+/** Rang d'une carte parmi les cartes Anti-Gaspi (0 = la première). */
+function rangAg(cartes: { cle: string; type: string }[], cle: string): number {
+  return cartes.filter((c) => c.type === 'ag').findIndex((c) => c.cle === cle);
+}
+
+/** Pack actif qui ne couvre qu'une partie des collectes Anti-Gaspi. */
+export function texteCouverturePack(restants: number, alUnite: number): string {
+  const credits =
+    restants === 1 ? 'il reste 1 crédit' : `il reste ${restants} crédits`;
+  const collectes =
+    alUnite === 1
+      ? '1 collecte Anti-Gaspi sera facturée'
+      : `${alUnite} collectes Anti-Gaspi seront facturées`;
+  return `Sur votre pack Anti-Gaspi, ${credits} : ${collectes} à l'unité.`;
+}
 
 interface TraiteurOption {
   id: string;
@@ -496,6 +514,12 @@ export function FormulaireProgrammation({
         : PACK_PROPRE,
   );
   const agSansPack = nbAg > 0 && packAg !== null && factureeAlUnite(packAg);
+  // Pack actif qui ne couvre qu'une partie des collectes AG : le crédit est
+  // décompté à la programmation, carte par carte (décision Val 2026-11-02).
+  const agAlUnite =
+    nbAg > 0 && packAg !== null && !agSansPack
+      ? nombreAlUnite(packAg, nbAg)
+      : 0;
 
   const avecCodeAffaireViparis = Boolean(lieu?.code_site_viparis);
   const codeAffaireInvalide =
@@ -922,7 +946,9 @@ export function FormulaireProgrammation({
                   id="nombre-ag"
                   libelle={libelleTypeCollecte('anti_gaspi')}
                   valeur={nbAg}
-                  describedBy={agSansPack ? 'nombre-ag-info' : undefined}
+                  describedBy={
+                    agSansPack || agAlUnite > 0 ? 'nombre-ag-info' : undefined
+                  }
                   onChange={(n) => changerNombre('ag', n)}
                 />
               </FormField>
@@ -938,6 +964,18 @@ export function FormulaireProgrammation({
                 <InfoIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 Pas de pack Anti-Gaspi actif : les collectes Anti-Gaspi seront
                 facturées à l&apos;unité.
+              </Text>
+            )}
+            {agAlUnite > 0 && packAg && (
+              <Text
+                id="nombre-ag-info"
+                variant="hint"
+                tone="inherit"
+                role="status"
+                className="flex items-center gap-1 text-savr-info-strong"
+              >
+                <InfoIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                {texteCouverturePack(packAg.credits_restants ?? 0, agAlUnite)}
               </Text>
             )}
           </fieldset>
@@ -968,7 +1006,13 @@ export function FormulaireProgrammation({
                 suffixe={`${c.type}-${rang}`}
                 estModele={i === iModele}
                 typesEvenements={typesEvenements}
-                pack={c.type === 'ag' ? packAg : undefined}
+                pack={
+                  c.type === 'ag' && packAg
+                    ? packPourRang(packAg, rangAg(affichees, c.cle))
+                    : c.type === 'ag'
+                      ? packAg
+                      : undefined
+                }
                 doublon={doublons.has(c.cle)}
                 organisationId={adminTargetOrgId}
                 onChange={changerCarte(c.cle)}
@@ -1086,8 +1130,9 @@ export function FormulaireProgrammation({
 
           <Text variant="hint">
             Toute collecte annulée à moins de 4h de l'heure de collecte donne
-            lieu à facturation plein tarif — pour une collecte Anti-Gaspi sous
-            pack, un crédit est décompté (cf. CGV).
+            lieu à facturation plein tarif (cf. CGV). Une collecte Anti-Gaspi
+            sous pack décompte un crédit dès sa programmation : il est rendu si
+            la collecte est annulée 4h ou plus avant l'heure de collecte.
           </Text>
 
           {error && <AlertBar variant="err">{error}</AlertBar>}

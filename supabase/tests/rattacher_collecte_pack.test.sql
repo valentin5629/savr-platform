@@ -3,17 +3,19 @@
 --
 -- Couvre : fermeture des deux fonctions (service_role seul : droits, attributs
 -- et refus effectif sous authenticated — même JWT admin_savr — et anon) ; éligibilité
--- (réalisée, clôturée, annulée tardivement ; refus d'une ZD, des statuts non
--- terminaux, de realisee_sans_collecte, d'un crédit annulé côté Savr) ; débit
+-- (à venir sans crédit — programmée, validée, en cours, réalisée sans
+-- collecte, depuis le débit à la programmation du 2026-11-02 —, réalisée,
+-- clôturée, annulée tardivement ; refus d'une ZD, d'une annulation à temps,
+-- d'un crédit annulé côté Savr) ; débit
 -- d'un crédit sur le pack actif de la SEULE organisation programmatrice
 -- (seuil « pack bas », bascule `epuise`) ; brouillon de facture retiré (vidé →
 -- annulé ; à plusieurs lignes → totaux recalculés) ; facture déjà partie
 -- (en attente Pennylane, émise, payée) laissée intacte et signalée, comme une
 -- facture NUMÉROTÉE repassée en brouillon après un rejet Pennylane (séquence
 -- gapless) ; facture annulée et avoir ignorés ; alertes « sans pack » de la seule collecte
--- résolues ; audit_log avec auteur et rôle. Et la réservation périmée : une
--- collecte réalisée sans pack actif perd la réservation posée à l'envoi, puis
--- se rattache à un pack pris plus tard, sans second débit.
+-- résolues ; audit_log avec auteur et rôle. Et deux collectes programmées pour
+-- un seul crédit restant : la seconde reste sans pack, puis se rattache à un
+-- pack pris plus tard, sans second débit.
 
 BEGIN;
 SELECT plan(67);
@@ -167,14 +169,14 @@ SELECT ok(NOT plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-00
   'annulée dix jours avant (pas tardive) → non rattachable');
 SELECT ok(NOT plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000c9'),
   'ZD clôturée → non rattachable (jamais de débit AG pour une ZD)');
-SELECT ok(NOT plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000cd'),
-  'AG programmée → non rattachable (débitée à la réalisation)');
-SELECT ok(NOT plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000ca'),
-  'AG validée → non rattachable');
-SELECT ok(NOT plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000cb'),
-  'AG en cours → non rattachable');
-SELECT ok(NOT plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000cc'),
-  'AG réalisée sans collecte → non rattachable (jamais débitée)');
+SELECT ok(plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000cd'),
+  'AG programmée sans crédit → rattachable (débit à la programmation, 2026-11-02)');
+SELECT ok(plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000ca'),
+  'AG validée sans crédit → rattachable');
+SELECT ok(plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000cb'),
+  'AG en cours sans crédit → rattachable');
+SELECT ok(plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000cc'),
+  'AG réalisée sans collecte, sans crédit → rattachable (elle garde son débit)');
 SELECT ok(NOT plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000c8'),
   'réalisée au crédit annulé côté Savr → non rattachable');
 
@@ -364,22 +366,22 @@ SELECT is(
     WHERE code = 'ag_annulee_tardive_sans_pack_actif' AND entity_id = 'e1a70000-0000-0000-0000-0000000000c3'),
   'resolue', 'c3 : alerte « annulation tardive sans pack » résolue');
 
--- ── 10. Réservation périmée (§05 §3 F3 : 2 collectes pour 1 crédit restant) ──
--- o3 a un pack P3 d'un seul crédit restant. Les deux collectes l'ont réservé à
--- l'envoi au transporteur (pack_antgaspi_id posé, comme le fait le dispatch).
+-- ── 10. Deux collectes programmées pour un seul crédit restant ──────────────
+-- o3 a un pack P3 d'un seul crédit restant : la 1re programmation le décompte,
+-- la 2e reste sans pack (facturée à l'unité).
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_initiaux, credits_consommes, montant_total_ht, mode_facturation, statut, date_achat)
 VALUES ('e1a70000-0000-0000-0000-0000000000a3', 'e1a70000-0000-0000-0000-0000000000b3', 'personnalise', 2, 1, 1000, 'globale_achat', 'actif', CURRENT_DATE);
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, date_collecte, heure_collecte, nb_camions_demande, statut_tms, pack_antgaspi_id)
 VALUES
-  ('e1a70000-0000-0000-0000-0000000000e1', 'e1a70000-0000-0000-0000-0000000000a3', 'anti_gaspi', 'programmee', CURRENT_DATE + 10, '09:00', 1, 'non_envoye', 'e1a70000-0000-0000-0000-0000000000a3'),
-  ('e1a70000-0000-0000-0000-0000000000e2', 'e1a70000-0000-0000-0000-0000000000a3', 'anti_gaspi', 'programmee', CURRENT_DATE + 10, '10:00', 1, 'non_envoye', 'e1a70000-0000-0000-0000-0000000000a3');
+  ('e1a70000-0000-0000-0000-0000000000e1', 'e1a70000-0000-0000-0000-0000000000a3', 'anti_gaspi', 'programmee', CURRENT_DATE + 10, '09:00', 1, 'non_envoye', NULL),
+  ('e1a70000-0000-0000-0000-0000000000e2', 'e1a70000-0000-0000-0000-0000000000a3', 'anti_gaspi', 'programmee', CURRENT_DATE + 10, '10:00', 1, 'non_envoye', NULL);
 UPDATE plateforme.collectes SET statut = 'realisee' WHERE id = 'e1a70000-0000-0000-0000-0000000000e1';
 UPDATE plateforme.collectes SET statut = 'realisee' WHERE id = 'e1a70000-0000-0000-0000-0000000000e2';
 
 SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e1a70000-0000-0000-0000-0000000000a3'),
-  2, 'P3 : un seul débit (la 1re collecte), jamais au-delà du dernier crédit');
+  2, 'P3 : un seul débit (la 1re programmation), jamais au-delà du dernier crédit');
 SELECT is((SELECT pack_antgaspi_id FROM plateforme.collectes WHERE id = 'e1a70000-0000-0000-0000-0000000000e2'),
-  NULL::uuid, '2e collecte réalisée sans pack actif : la réservation périmée est levée (facturée à l''unité)');
+  NULL::uuid, '2e collecte, programmée sans crédit puis réalisée : sans pack (facturée à l''unité)');
 SELECT ok(plateforme.f_collecte_rattachable_pack('e1a70000-0000-0000-0000-0000000000e2'),
   '2e collecte : rattachable');
 

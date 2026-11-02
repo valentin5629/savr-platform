@@ -1,8 +1,10 @@
 -- pgTAP M2.1 — Packs AG
--- Tests : schéma, triggers (débit réalisation, débit tardif, recrédit), RLS.
+-- Tests : schéma, triggers (débit à la programmation, crédit gardé ou rendu à
+-- l'annulation, recrédit), RLS. Règle Val 2026-11-02 : le crédit est décompté
+-- dès la programmation (cf. pack_debit_programmation.test.sql pour le détail).
 
 BEGIN;
-SELECT plan(37);
+SELECT plan(38);
 
 -- ── Helpers JWT (identiques aux autres fichiers de test) ──────────────────
 
@@ -118,9 +120,15 @@ INSERT INTO plateforme.collectes (
   1, 'non_envoye'
 );
 
--- ── 4. Trigger débit à la réalisation ────────────────────────────────────
+-- ── 4. Débit à la programmation, aucun second débit à la réalisation ─────
 
--- Passer la collecte à realisee → doit décrémenter credits_consommes
+SELECT is(
+  (SELECT credits_consommes FROM plateforme.packs_antgaspi
+   WHERE id = '00000000-0000-0000-0000-000000000005'::uuid),
+  1,
+  'credits_consommes = 1 dès la programmation AG'
+);
+
 UPDATE plateforme.collectes SET statut = 'realisee'
 WHERE id = '00000000-0000-0000-0000-000000000006'::uuid;
 
@@ -128,14 +136,14 @@ SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0000-000000000005'::uuid),
   1,
-  'credits_consommes = 1 après réalisation AG'
+  'credits_consommes reste 1 après réalisation (pas de second débit)'
 );
 
 SELECT is(
   (SELECT pack_antgaspi_id FROM plateforme.collectes
    WHERE id = '00000000-0000-0000-0000-000000000006'::uuid),
   '00000000-0000-0000-0000-000000000005'::uuid,
-  'pack_antgaspi_id rattaché à la collecte après réalisation'
+  'pack_antgaspi_id posé à la programmation, conservé à la réalisation'
 );
 
 SELECT is(
@@ -145,7 +153,7 @@ SELECT is(
   'pack reste actif avec 9 crédits restants'
 );
 
--- ── 5. Trigger débit dernière collecte → bascule epuise ──────────────────
+-- ── 5. Débit du dernier crédit à la programmation → bascule epuise ───────
 
 -- Mettre credits_consommes = 9 (simuler 9 collectes déjà)
 UPDATE plateforme.packs_antgaspi
@@ -163,15 +171,15 @@ INSERT INTO plateforme.collectes (
   1, 'non_envoye'
 );
 
-UPDATE plateforme.collectes SET statut = 'realisee'
-WHERE id = '00000000-0000-0000-0000-000000000007'::uuid;
-
 SELECT is(
   (SELECT statut::text FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0000-000000000005'::uuid),
   'epuise',
-  'pack bascule en epuise au dernier crédit'
+  'pack bascule en epuise au dernier crédit, dès la programmation'
 );
+
+UPDATE plateforme.collectes SET statut = 'realisee'
+WHERE id = '00000000-0000-0000-0000-000000000007'::uuid;
 
 -- ── 6. Trigger recrédit (annulee après realisee) ──────────────────────────
 
@@ -200,9 +208,9 @@ SELECT is(
   'pack_antgaspi_id est NULL après annulation (désattachement)'
 );
 
--- ── 7. Trigger débit annulation tardive ──────────────────────────────────
+-- ── 7. Annulation tardive : le crédit décompté reste acquis ──────────────
 
--- Nouvelle collecte avec date passée (< 4h). La veille plutôt que le jour même :
+-- Collecte déjà débitée (pack posé = crédit décompté), date passée (< 4h). La veille plutôt que le jour même :
 -- « aujourd'hui 08:00 » est à plus de 4h quand le test tourne avant 04:00 à Paris.
 INSERT INTO plateforme.collectes (
   id, evenement_id, type, statut, date_collecte, heure_collecte,
@@ -216,20 +224,20 @@ INSERT INTO plateforme.collectes (
 );
 
 -- Avant annulation : credits_consommes = 9 (après recrédit test 6)
--- Annuler collecte 8 (validee → annulee, veille 08h = < 4h) → débit tardif → 10
+-- Annuler collecte 8 (validee → annulee, veille 08h = < 4h) → crédit gardé → 9
 UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000008'::uuid;
 
 SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0000-000000000005'::uuid),
-  10,
-  'credits_consommes = 10 après annulation tardive (< 4h, validee→annulee)'
+  9,
+  'credits_consommes reste 9 après annulation tardive (< 4h) : crédit gardé, aucun nouveau débit'
 );
 
 -- ── 8. Protection : triggers 2 et 3 mutuellement exclusifs ───────────────
--- Avant : credits_consommes = 10 (après débit tardif test 7)
--- Annuler collecte 7 (realisee → annulee) : trigger 3 seul se déclenche → recrédit → 9
+-- Avant : credits_consommes = 9 (crédit gardé test 7)
+-- Annuler collecte 7 (realisee → annulee) : trigger 3 seul se déclenche → recrédit → 8
 -- Trigger 2 ne se déclenche PAS car OLD.statut = 'realisee' (condition exclue)
 UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000007'::uuid;
@@ -237,8 +245,8 @@ WHERE id = '00000000-0000-0000-0000-000000000007'::uuid;
 SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0000-000000000005'::uuid),
-  9,
-  'exclusion mutuelle trigger 2/3 : credits_consommes=9 (trigger 3 seul, pas de double mouvement)'
+  8,
+  'exclusion mutuelle trigger 2/3 : credits_consommes=8 (trigger 3 seul, pas de double mouvement)'
 );
 
 -- ── 8bis. Seuil 4h ancré Europe/Paris (fix E2, seuil Val 2026-10-15) ─────
@@ -260,8 +268,8 @@ SELECT is(
 SELECT test_as_superuser();
 
 -- Org + pack frais (évite le conflit uniq_pack_actif_par_org avec le pack 005),
--- et un événement de cette org : le débit tardif vise le pack actif de
--- l'organisation de l'événement (§05 §3), pas le pack posé sur la collecte.
+-- et un événement de cette org. Chaque collecte est insérée déjà débitée (pack
+-- posé) : l'annulation garde le crédit si elle est tardive, le rend sinon.
 INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif)
 VALUES ('00000000-0000-0000-0000-000000000031'::uuid, 'Org E2 TZ', 'Org E2 TZ', 'traiteur', '99999999900099', true);
 
@@ -313,10 +321,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000040'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  1,
-  'annulation directe à H-2h59 (heure de Paris) < 4h → débit (credits_consommes=1)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000040'::uuid),
+  '00000000-0000-0000-0000-000000000030'::uuid,
+  'annulation directe à H-2h59 (heure de Paris) < 4h → crédit gardé (décompté à la programmation)'
 );
 
 -- Collecte P : créneau = now() + 4h exactement → pas < 4h → NE DOIT PAS débiter.
@@ -339,10 +347,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000043'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  1,
-  'annulation à H-4h pile (heure de Paris) → pas de débit, seuil strict (credits_consommes reste 1)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000043'::uuid),
+  NULL,
+  'annulation à H-4h pile (heure de Paris) → crédit rendu'
 );
 
 -- Collecte B : créneau = now() + 4h01 → ≥ 4h → NE DOIT PAS débiter.
@@ -363,10 +371,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000041'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  1,
-  'E2 : annulation à H-4h01 (heure de Paris) ≥ 4h → pas de débit (credits_consommes reste 1)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000041'::uuid),
+  NULL,
+  'E2 : annulation à H-4h01 (heure de Paris) ≥ 4h → crédit rendu'
 );
 
 -- Collecte C : à 2 jours du créneau, transporteur DÉJÀ mandaté (ordre accepté).
@@ -389,10 +397,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000042'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  1,
-  'annulation à J-2, transporteur déjà mandaté (acceptee) → pas de débit (credits_consommes reste 1)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000042'::uuid),
+  NULL,
+  'annulation à J-2, transporteur déjà mandaté (acceptee) → crédit rendu'
 );
 
 -- ── 8ter. Demande d'annulation : le délai se juge à la demande du client ───
@@ -435,10 +443,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000044'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  1,
-  'demande à H-5h, confirmation Admin à H-2h59 → pas de débit, le délai se juge à la demande (credits_consommes reste 1)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000044'::uuid),
+  NULL,
+  'demande à H-5h, confirmation Admin à H-2h59 → crédit rendu'
 );
 
 -- Collecte E : créneau à now()+2h59 ; demande faite maintenant (2h59 avant),
@@ -462,10 +470,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000045'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  2,
-  'demande à H-2h59 confirmée aussitôt → débit (credits_consommes=2)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000045'::uuid),
+  '00000000-0000-0000-0000-000000000030'::uuid,
+  'demande à H-2h59 confirmée aussitôt → crédit gardé (décompté à la programmation)'
 );
 
 -- Collecte F : créneau passé depuis 1h ; demande faite à now()-6h (5h avant le
@@ -491,10 +499,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000046'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  2,
-  'demande à H-5h confirmée après le créneau → pas de débit (credits_consommes reste 2)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000046'::uuid),
+  NULL,
+  'demande à H-5h confirmée après le créneau → crédit rendu'
 );
 
 -- Collecte G : créneau à now()+2h59 ; demande faite à now()-2h01 (5h avant)
@@ -524,10 +532,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000047'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  3,
-  'demande refusée puis annulation directe à H-2h59 → jugée maintenant, débit (credits_consommes=3)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000047'::uuid),
+  '00000000-0000-0000-0000-000000000030'::uuid,
+  'demande refusée puis annulation directe à H-2h59 → crédit gardé (décompté à la programmation)'
 );
 
 -- ── 8quater. Instants fixes : passage à l'heure d'hiver, puis un jour d'été ──
@@ -571,10 +579,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000048'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  4,
-  'nuit du 25 octobre 2026, heure répétée : créneau relu 3h59 après la demande → débit (credits_consommes=4)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000048'::uuid),
+  '00000000-0000-0000-0000-000000000030'::uuid,
+  'nuit du 25 octobre 2026, heure répétée : créneau relu 3h59 après la demande → crédit gardé (décompté à la programmation)'
 );
 
 -- Collecte I : le même créneau (2026-10-25 02:30, relu 01:30 UTC), demande à
@@ -599,10 +607,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000049'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  4,
-  'nuit du 25 octobre 2026, heure répétée : demande 4h pile avant le créneau relu → pas de débit, seuil strict (credits_consommes reste 4)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000049'::uuid),
+  NULL,
+  'nuit du 25 octobre 2026, heure répétée : demande 4h pile avant le créneau relu → crédit rendu'
 );
 
 -- Collecte J : un jour d'été, créneau le 2026-07-20 à 18:00 (UTC+2, soit 16:00
@@ -629,10 +637,10 @@ UPDATE plateforme.collectes SET statut = 'annulee'
 WHERE id = '00000000-0000-0000-0000-000000000050'::uuid;
 
 SELECT is(
-  (SELECT credits_consommes FROM plateforme.packs_antgaspi
-   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
-  5,
-  'été, instant fixe : demande 3h59 avant un créneau de 18:00 (heure de Paris, UTC+2) → débit (credits_consommes=5)'
+  (SELECT pack_antgaspi_id FROM plateforme.collectes
+   WHERE id = '00000000-0000-0000-0000-000000000050'::uuid),
+  '00000000-0000-0000-0000-000000000030'::uuid,
+  'été, instant fixe : demande 3h59 avant un créneau de 18:00 (heure de Paris, UTC+2) → crédit gardé (décompté à la programmation)'
 );
 
 -- ── 9. CHECK constraint credits_consommes >= 0 ───────────────────────────

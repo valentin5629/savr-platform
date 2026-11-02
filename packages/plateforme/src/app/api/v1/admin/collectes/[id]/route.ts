@@ -35,6 +35,19 @@ import { refusTypeContactsCollecte } from '@/lib/collectes/type-contacts-collect
 // déclenche (cf. lib/envoi-immediat.ts).
 export const maxDuration = 60;
 
+// Statuts où une AG sans pack peut être rattachée à un pack pris plus tard ;
+// la base tranche (f_collecte_rattachable_pack, migration 20261102180000).
+const STATUTS_RATTACHABLES = [
+  'programmee',
+  'validee',
+  'en_cours',
+  'annulation_demandee',
+  'realisee',
+  'realisee_sans_collecte',
+  'cloturee',
+  'annulee',
+];
+
 async function getHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -202,13 +215,14 @@ async function getHandler(
     pack_antgaspi_id: string | null;
     evenements: { organisation_id: string };
   };
-  // Seuls les statuts éligibles interrogent la base (une AG à venir sans pack
-  // n'est jamais rattachable : elle sera débitée à la réalisation).
+  // Seuls les statuts éligibles interrogent la base. Une AG à venir sans pack
+  // (programmée sans crédit restant) l'est aussi depuis que le crédit se
+  // décompte à la programmation (Val 2026-11-02).
   if (
     auth.ctx.role === 'admin_savr' &&
     ag.type === 'anti_gaspi' &&
     !ag.pack_antgaspi_id &&
-    ['realisee', 'cloturee', 'annulee'].includes(ag.statut)
+    STATUTS_RATTACHABLES.includes(ag.statut)
   ) {
     const rattachable = await supabase.rpc('f_collecte_rattachable_pack', {
       p_collecte_id: id,

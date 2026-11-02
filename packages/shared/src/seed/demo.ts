@@ -896,9 +896,23 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   });
   await upsert(client, 'plateforme.evenements', evRows, ['id']);
 
-  // Rattachement aux packs : collectes AG réalisées ou clôturées, plus
-  // l'annulation tardive débitée du catalogue, sur les packs de l'organisation
-  // qui PROGRAMME (celle de l'événement).
+  // Rattachement aux packs : le crédit est décompté dès la programmation (Val
+  // 2026-11-02) — collectes AG à venir, réalisées (avec ou sans excédent) ou
+  // clôturées, plus l'annulation tardive débitée du catalogue, sur les packs de
+  // l'organisation qui PROGRAMME (celle de l'événement). Un brouillon, une
+  // annulée à temps ou une refusée par le prestataire n'a rien décompté.
+  const STATUTS_A_VENIR_SEED = new Set([
+    'programmee',
+    'validee',
+    'en_cours',
+    'annulation_demandee',
+  ]);
+  const STATUTS_CREDIT_DECOMPTE = new Set([
+    ...STATUTS_A_VENIR_SEED,
+    'realisee',
+    'realisee_sans_collecte',
+    'cloturee',
+  ]);
   const orgParEvenement = new Map(
     evRows.map((e) => [e.id as string, e.organisation_id as string]),
   );
@@ -907,8 +921,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     .filter(
       (c) =>
         c.type === 'anti_gaspi' &&
-        (c.statut === 'realisee' ||
-          c.statut === 'cloturee' ||
+        (STATUTS_CREDIT_DECOMPTE.has(c.statut as string) ||
           casParId.get(c.id as string)?.packDebite === true),
     )
     .map((c) => ({
@@ -933,6 +946,24 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     const r = rattachement.packs.get(p.id as string)!;
     p.credits_consommes = r.creditsUtilises;
     p.date_achat = r.dateAchat;
+  }
+  // Une AG à venir laissée sans pack serait débitée à l'insertion par
+  // `trg_pack_debit_programmation`, à chaque relance du jeu de données : elle
+  // prend ici le crédit suivant du pack actif, comme le ferait le déclencheur,
+  // et reste facturée à l'unité une fois le pack plein.
+  for (const c of aRattacher) {
+    const row = colRows.find((r) => r.id === c.id)!;
+    if (row.pack_antgaspi_id || !STATUTS_A_VENIR_SEED.has(row.statut as string))
+      continue;
+    const actif = packs.find(
+      (p) =>
+        p.organisation_id === c.organisationId &&
+        p.statut === 'actif' &&
+        (p.credits_consommes as number) < (p.credits_initiaux as number),
+    );
+    if (!actif) continue;
+    row.pack_antgaspi_id = actif.id;
+    actif.credits_consommes = (actif.credits_consommes as number) + 1;
   }
   await upsert(client, 'plateforme.packs_antgaspi', packs, ['id']);
 

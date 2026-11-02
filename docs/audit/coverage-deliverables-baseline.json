@@ -264,8 +264,6 @@
       "BL-P2-01": "M1.7 / R22b fact-col-pdf-savr + fact-pastille-orange-2h + fact-bandeau-en-attente [packages/plateforme/tests/lib/facturation.m1-7.test.ts] ; M1.7 / R22b Facture copie de travail [apps/pdf-renderer/src/render.test.ts]"
     },
     "M2.1": {
-      "M2.1-01": "collecte AG passe à realisee → credits_consommes+1, pack_antgaspi_id rattaché",
-      "M2.1-02": "dernier crédit consommé → pack bascule epuise + alerte Admin",
       "M2.1-03": "collecte annulee depuis realisee → recrédit GREATEST(0, consommes-1), pack réactivé si était epuise",
       "M2.1-05": "RPC annuler-credit : collecte reste realisee, pack décrémenté, audit_log",
       "M2.1-06": "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne"

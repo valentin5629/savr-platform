@@ -208,6 +208,7 @@ interface Reponse {
       pack_id: string;
       date_collecte: string;
       annulee_tardivement: boolean;
+      a_venir: boolean;
       repas_donnes: number;
       associations: Array<{ nom: string | null; repas: number }>;
     }>;
@@ -420,18 +421,25 @@ describe('Mon pack Anti-Gaspi — collectes bornées aux packs de l’organisati
         collecteAg('c-propre', PACK_ORG),
         // Sans débit de pack : jamais listée.
         collecteAg('c-sans-pack', null),
-        // Pack réservé à l'attribution, collecte pas encore réalisée.
+        // Crédit décompté à la programmation (2026-11-02), collecte à venir.
         collecteAg('c-propre-programmee', PACK_ORG, 'programmee'),
       ],
     });
 
     const reponse = await appeler();
 
-    expect(ids(reponse)).toEqual(['c-propre']);
-    expect(reponse.data.collectes[0]).toMatchObject({
+    expect([...ids(reponse)].sort()).toEqual(
+      ['c-propre', 'c-propre-programmee'].sort(),
+    );
+    const parId = new Map(
+      reponse.data.collectes.map((c) => [c.collecte_id, c]),
+    );
+    expect(parId.get('c-propre')).toMatchObject({
       pack_id: 'pack-viparis',
       annulee_tardivement: false,
+      a_venir: false,
     });
+    expect(parId.get('c-propre-programmee')).toMatchObject({ a_venir: true });
     // La borne est écrite dans chaque lecture de collectes : jointure
     // obligatoire sur le pack, filtrée sur l'organisation du jeton.
     const lectures = service.requetes.filter((r) => r.table === 'collectes');

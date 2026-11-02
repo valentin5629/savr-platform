@@ -48,6 +48,8 @@ interface CollectePack {
   date_collecte: string | null;
   /** Crédit consommé par une annulation tardive, sans collecte réalisée (§05). */
   annulee_tardivement: boolean;
+  /** Crédit décompté à la programmation, collecte pas encore faite. */
+  a_venir: boolean;
   evenement: string | null;
   lieu: string | null;
   repas_donnes: number;
@@ -108,7 +110,7 @@ const COLONNES_COLLECTES: ColumnDef<CollectePack, unknown>[] = [
     accessorFn: (c) => c.repas_donnes,
     meta: { className: 'text-right tabular-nums' },
     cell: ({ row: { original: c } }) =>
-      c.annulee_tardivement ? <CelluleVide /> : c.repas_donnes,
+      c.annulee_tardivement || c.a_venir ? <CelluleVide /> : c.repas_donnes,
   },
   {
     id: 'associations',
@@ -203,6 +205,10 @@ function LignePack({
   );
 }
 
+/** Message transmis à l'Admin quand l'organisation n'a encore aucun pack. */
+export const MESSAGE_PREMIER_PACK =
+  "Première activation : l'organisation n'a encore aucun pack Anti-Gaspi.";
+
 export function MonPackAg() {
   const [data, setData] = useState<DonneesPack | null>(null);
   const [loading, setLoading] = useState(true);
@@ -226,20 +232,26 @@ export function MonPackAg() {
 
   useEffect(charger, [charger]);
 
-  const demanderRenouvellement = async () => {
+  // Même demande à l'Admin pour un renouvellement et pour un premier pack
+  // (Val 2026-11-02) : seul le message dit à l'Admin qu'il s'agit d'une
+  // première activation.
+  const demanderPack = async (premierPack: boolean) => {
     setEnvoi(true);
     try {
       const r = await fetch('/api/v1/traiteur/pack-ag/renouvellement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify(
+          premierPack ? { message: MESSAGE_PREMIER_PACK } : {},
+        ),
       });
       if (!r.ok) throw new Error(String(r.status));
       toast({
         variant: 'success',
         title: 'Demande envoyée',
-        description:
-          "L'équipe Savr vous recontacte pour renouveler votre pack.",
+        description: premierPack
+          ? "L'équipe Savr vous recontacte pour activer votre pack."
+          : "L'équipe Savr vous recontacte pour renouveler votre pack.",
       });
     } catch {
       toast({
@@ -276,13 +288,15 @@ export function MonPackAg() {
       <div className="space-y-6">
         {hero}
         <Card>
-          <CardContent className="py-8">
+          <CardContent className="flex flex-col items-center gap-4 py-8">
             <EmptyState
               size="inline"
               className="text-center"
               title="Votre organisation n'a pas de pack Anti-Gaspi."
-              description="Contactez votre responsable Savr pour en souscrire un."
             />
+            <Button disabled={envoi} onClick={() => demanderPack(true)}>
+              Demander l&apos;activation d&apos;un pack
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -318,7 +332,7 @@ export function MonPackAg() {
         )}
         <Button
           disabled={!renouvellementOuvert || envoi}
-          onClick={demanderRenouvellement}
+          onClick={() => demanderPack(false)}
         >
           Demander un renouvellement
         </Button>

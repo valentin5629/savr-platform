@@ -175,6 +175,7 @@ describe('événements multi-collectes — générateur', () => {
 type Ligne = Record<string, unknown>;
 const TABLES = [
   'plateforme.evenements',
+  'plateforme.packs_antgaspi',
   'plateforme.collectes',
   'plateforme.collecte_flux',
   'plateforme.attributions_antgaspi',
@@ -328,7 +329,7 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
     }
   });
 
-  it('SEED-EMC-12 — une AG sans excédent porte motif et photo, sans pack', () => {
+  it('SEED-EMC-12 — une AG sans excédent porte motif et photo (son pack suit les crédits, cf. rattachement-packs)', () => {
     const sansExcedent = collectes.filter(
       (x) => x.statut === 'realisee_sans_collecte',
     );
@@ -339,7 +340,32 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
       )!;
       expect(ecrite['aucun_repas_motif'], c.slug).toBe(c.motifAucunRepas);
       expect(ecrite['aucun_repas_photo_url'], c.slug).toBeTruthy();
-      expect(ecrite['pack_antgaspi_id'], c.slug).toBeNull();
+    }
+  });
+
+  it('SEED-EMC-13 — aucune AG à venir sans pack tant que le pack actif de son organisation a des crédits (sinon le déclencheur la débiterait à chaque relance)', () => {
+    const packs = lignes('packs_antgaspi');
+    const orgParEvenement = new Map(
+      lignes('evenements').map((e) => [e['id'], e['organisation_id']]),
+    );
+    const aVenir = lignes('collectes').filter(
+      (l) =>
+        l['type'] === 'anti_gaspi' &&
+        ['programmee', 'validee', 'en_cours', 'annulation_demandee'].includes(
+          l['statut'] as string,
+        ),
+    );
+    expect(aVenir.length).toBeGreaterThan(0);
+    for (const c of aVenir.filter((l) => !l['pack_antgaspi_id'])) {
+      const org = orgParEvenement.get(c['evenement_id']);
+      const actif = packs.find(
+        (p) => p['organisation_id'] === org && p['statut'] === 'actif',
+      );
+      if (actif)
+        expect(
+          Number(actif['credits_consommes']),
+          String(c['id']),
+        ).toBeGreaterThanOrEqual(Number(actif['credits_initiaux']));
     }
   });
 });

@@ -56,3 +56,23 @@ export function usePackAg(cible: string | null): PackInfo | null {
 export function factureeAlUnite(pack: PackInfo): boolean {
   return !(pack.pack_actif && (pack.credits_restants ?? 0) > 0);
 }
+
+/**
+ * Le crédit est décompté dès la programmation (décision Val 2026-11-02) : dans
+ * une programmation à plusieurs collectes Anti-Gaspi, chacune entame le pack
+ * dans l'ordre des cartes. Pack vu par la carte AG de rang `rang` (0 = la
+ * première) : crédits restants une fois décomptées les cartes AG précédentes.
+ */
+export function packPourRang(pack: PackInfo, rang: number): PackInfo {
+  if (!pack.pack_actif) return pack;
+  return {
+    ...pack,
+    credits_restants: Math.max(0, (pack.credits_restants ?? 0) - rang),
+  };
+}
+
+/** Nombre de collectes AG de la programmation que le pack ne couvre pas. */
+export function nombreAlUnite(pack: PackInfo, nbAg: number): number {
+  const restants = pack.pack_actif ? (pack.credits_restants ?? 0) : 0;
+  return Math.max(0, nbAg - restants);
+}

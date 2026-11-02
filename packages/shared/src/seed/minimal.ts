@@ -844,7 +844,14 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'programmee',
       8,
       PS('marathon'),
-      { statut_tms: 'acceptee', dirty_tms: true, pax: 150 },
+      // Crédit décompté à la programmation (Val 2026-11-02) : pack posé d'avance,
+      // sinon le déclencheur le débiterait à chaque relance du jeu de données.
+      {
+        statut_tms: 'acceptee',
+        dirty_tms: true,
+        pax: 150,
+        pack_antgaspi_id: U('pack_fleurdemets'),
+      },
     ),
     col(
       'col_dispatch_rejetee',

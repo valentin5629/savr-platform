@@ -1,7 +1,7 @@
 {
   "module": "M2.1",
   "titre": "Packs AG — schéma, triggers, UI Admin",
-  "description": "Alignement schéma packs_antgaspi/tarifs_packs_ag sur DDL cible V2, triggers débit/recrédit, RPC annulation crédit, UI Admin (onglet packs client, paramètres tarifs AG, Bloc 6 collecte AG).",
+  "description": "Alignement schéma packs_antgaspi/tarifs_packs_ag sur DDL cible V2, triggers débit/recrédit, RPC annulation crédit, UI Admin (onglet packs client, paramètres tarifs AG, Bloc 6 collecte AG). Depuis le 2026-11-02 (décision Val) : crédit AG décompté dès la programmation, rendu à une annulation à temps ou à un refus du prestataire, gardé à une annulation tardive.",
   "garde_fous_tms_ready": {
     "G1": "Migration 20260615200000 aligne packs_antgaspi et tarifs_packs_ag sur DDL cible V2 sans rename destructif — anciennes colonnes conservées pour rétro-compatibilité, nouvelles colonnes ajoutées et migrées.",
     "G3": "0 référence mts1/everest hors packages/adapters/ — M2.1 ne touche pas les adapters.",
@@ -27,7 +27,9 @@
     "packages/shared/src/database.types.ts (f_collecte_rattachable_pack, rpc_rattacher_collecte_pack)",
     "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts (historique « Mon pack AG » : annulée tardive rattachée après coup)",
     "supabase/migrations/20261016173000_plateforme_annulation_tardive_pack_actif.sql",
-    "supabase/tests/annulation_tardive_pack_actif.test.sql"
+    "supabase/tests/annulation_tardive_pack_actif.test.sql",
+    "supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql",
+    "packages/plateforme/src/components/programmation/use-pack-ag.test.ts"
   ],
   "tables_concernees": [
     "plateforme.packs_antgaspi (schéma aligné V2 : credits_initiaux, credits_consommes, type_pack, montant_total_ht, idempotency_key)",
@@ -36,17 +38,18 @@
     "plateforme.audit_log (traces triggers + RPC)"
   ],
   "triggers": [
-    "trg_pack_debit_realisee (BEFORE UPDATE statut → realisee AG) — fn_trg_pack_debit_realisee",
-    "trg_pack_debit_annulation_tardive (BEFORE UPDATE statut → annulee, OLD != realisee) — fn_trg_pack_debit_annulation_tardive",
+    "trg_pack_debit_programmation (BEFORE INSERT OR UPDATE OF statut → programmee AG, depuis création, brouillon ou rejetee_par_prestataire) — fn_trg_pack_debit_programmation, débit du pack actif (Val 2026-11-02)",
+    "trg_pack_debit_realisee (BEFORE UPDATE statut → realisee AG) — fn_trg_pack_debit_realisee : plus de débit depuis 2026-11-02, alerte ag_realisee_sans_pack_actif si la collecte n'a pas de pack",
+    "trg_pack_debit_annulation_tardive (BEFORE UPDATE statut → annulee, OLD != realisee) — fn_trg_pack_debit_annulation_tardive : tardive → crédit gardé ; à temps ou incident non imputable au client → crédit rendu",
     "trg_horodater_annulation_demandee (BEFORE UPDATE OF statut → annulation_demandee) — pose collectes.annulation_demandee_at",
-    "trg_pack_recredit (BEFORE UPDATE statut realisee → annulee) — fn_trg_pack_recredit",
+    "trg_pack_recredit (BEFORE UPDATE statut realisee → annulee, ou → rejetee_par_prestataire) — fn_trg_pack_recredit",
     "rpc_annuler_credit_collecte (SECURITY DEFINER, GRANT TO service_role)"
   ],
   "scenarios": [
-    "collecte AG passe à realisee → credits_consommes+1, pack_antgaspi_id rattaché",
-    "dernier crédit consommé → pack bascule epuise + alerte Admin",
+    "ca : programmée → un crédit décompté",
+    "cd : P1 épuisé dès la programmation",
     "collecte annulee depuis realisee → recrédit GREATEST(0, consommes-1), pack réactivé si était epuise",
-    "annulation < 4h avant le créneau → débit tardif pack (le mandat seul ne débite plus)",
+    "cd : annulée à moins de 4 h → crédit gardé",
     "RPC annuler-credit : collecte reste realisee, pack décrémenté, audit_log",
     "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne"
   ],
@@ -75,18 +78,18 @@
     {
       "id": "M2.1-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
-      "artefact": "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
-      "test": "collecte AG passe à realisee → credits_consommes+1, pack_antgaspi_id rattaché",
+      "artefact": "supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql",
+      "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « ca : programmée → un crédit décompté », « ca : porte le pack P1 », « ca, cc : réalisées, aucun second débit »",
       "statut": "implemented",
-      "libelle": "collecte AG passe à realisee → credits_consommes+1, pack_antgaspi_id rattaché"
+      "libelle": "Collecte AG qui devient programmée → credits_consommes+1 et pack_antgaspi_id posé ; aucun second débit à la réalisation (décision Val 2026-11-02, remplace le débit au passage à realisee)."
     },
     {
       "id": "M2.1-02",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
-      "artefact": "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
-      "test": "dernier crédit consommé → pack bascule epuise + alerte Admin",
+      "artefact": "supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql",
+      "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « cd : P1 épuisé dès la programmation », « cd : alerte « pack épuisé » »",
       "statut": "implemented",
-      "libelle": "dernier crédit consommé → pack bascule epuise + alerte Admin"
+      "libelle": "Dernier crédit décompté (à la programmation depuis le 2026-11-02) → pack bascule epuise + alerte Admin."
     },
     {
       "id": "M2.1-03",
@@ -100,9 +103,9 @@
       "id": "M2.1-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
       "artefact": "supabase/migrations/20261015180000_plateforme_annulation_tardive_seuil_4h.sql",
-      "test": "supabase/tests/m2_1_packs_ag.test.sql « annulation directe à H-2h59 (heure de Paris) < 4h → débit (credits_consommes=1) », « annulation à H-4h pile (heure de Paris) → pas de débit, seuil strict (credits_consommes reste 1) », « E2 : annulation à H-4h01 (heure de Paris) ≥ 4h → pas de débit (credits_consommes reste 1) », « annulation à J-2, transporteur déjà mandaté (acceptee) → pas de débit (credits_consommes reste 1) », « passage en annulation_demandee → annulation_demandee_at horodaté au moment de la demande », « demande à H-5h, confirmation Admin à H-2h59 → pas de débit, le délai se juge à la demande (credits_consommes reste 1) », « demande à H-2h59 confirmée aussitôt → débit (credits_consommes=2) », « demande à H-5h confirmée après le créneau → pas de débit (credits_consommes reste 2) », « demande refusée puis annulation directe à H-2h59 → jugée maintenant, débit (credits_consommes=3) », « Préalable : le créneau du 2026-10-25 à 02:30 (heure répétée) est relu 01:30 UTC, soit 02:30 UTC+1 », « nuit du 25 octobre 2026, heure répétée : créneau relu 3h59 après la demande → débit (credits_consommes=4) », « nuit du 25 octobre 2026, heure répétée : demande 4h pile avant le créneau relu → pas de débit, seuil strict (credits_consommes reste 4) », « été, instant fixe : demande 3h59 avant un créneau de 18:00 (heure de Paris, UTC+2) → débit (credits_consommes=5) »",
+      "test": "supabase/tests/m2_1_packs_ag.test.sql « credits_consommes reste 9 après annulation tardive (< 4h) : crédit gardé, aucun nouveau débit », « annulation directe à H-2h59 (heure de Paris) < 4h → crédit gardé (décompté à la programmation) », « annulation à H-4h pile (heure de Paris) → crédit rendu », « E2 : annulation à H-4h01 (heure de Paris) ≥ 4h → crédit rendu », « passage en annulation_demandee → annulation_demandee_at horodaté au moment de la demande », « annulation à J-2, transporteur déjà mandaté (acceptee) → crédit rendu », « demande à H-5h, confirmation Admin à H-2h59 → crédit rendu », « demande à H-2h59 confirmée aussitôt → crédit gardé (décompté à la programmation) », « demande à H-5h confirmée après le créneau → crédit rendu », « Préalable : le créneau du 2026-10-25 à 02:30 (heure répétée) est relu 01:30 UTC, soit 02:30 UTC+1 », « demande refusée puis annulation directe à H-2h59 → crédit gardé (décompté à la programmation) », « nuit du 25 octobre 2026, heure répétée : créneau relu 3h59 après la demande → crédit gardé (décompté à la programmation) », « nuit du 25 octobre 2026, heure répétée : demande 4h pile avant le créneau relu → crédit rendu », « été, instant fixe : demande 3h59 avant un créneau de 18:00 (heure de Paris, UTC+2) → crédit gardé (décompté à la programmation) »",
       "statut": "implemented",
-      "libelle": "annulation < 4h avant le créneau (heure de Paris, strict) → débit tardif pack ; le mandat du prestataire seul ne débite plus ; une demande d'annulation confirmée par l'Admin se juge à l'heure de la demande (décisions Val 2026-10-15)"
+      "libelle": "annulation < 4h avant le créneau (heure de Paris, strict) → crédit pack gardé (décompté à la programmation, Val 2026-11-02), sinon rendu ; le mandat du prestataire seul ne débite plus ; une demande d'annulation confirmée par l'Admin se juge à l'heure de la demande (décisions Val 2026-10-15)"
     },
     {
       "id": "M2.1-05",
@@ -142,15 +145,23 @@
       "artefact": "supabase/migrations/20261016140000_plateforme_rattacher_collecte_pack.sql",
       "test": "M2.1 / rattacher-pack — POST + M2.1 / rattacher-pack — GET + M2.1 / rattacher-pack — fiche + supabase/tests/rattacher_collecte_pack.test.sql",
       "statut": "implemented",
-      "libelle": "Rattachement Admin après coup d'une collecte AG programmée sans pack au pack actif pris plus tard (décision Val 2026-10-16) : réalisée, clôturée ou annulée tardivement ; débit d'un crédit sur le pack actif de la seule organisation programmatrice, brouillon de facture unitaire SANS numéro retiré, facture numérotée (partie chez Pennylane, ou rejetée et revenue en brouillon avec son numéro) jamais retirée et signalée (avoir à émettre ou correction : séquence gapless), alertes « sans pack » de la collecte résolues, audit_log avec auteur et rôle (lu aussi par l'historique « Mon pack AG » pour une annulée tardive rattachée) ; admin_savr seul. Le déclencheur de débit à la réalisation lève la réservation périmée (pack réservé à l'envoi puis épuisé) : la collecte est facturée à l'unité et rattachable. CDC patché au sync du 2026-10-20 (fiche _Divergences/M2.1_20261016_rattacher-collecte-pack.md)."
+      "libelle": "Rattachement Admin après coup d'une collecte AG programmée sans pack au pack actif pris plus tard (décision Val 2026-10-16) : réalisée, clôturée ou annulée tardivement ; débit d'un crédit sur le pack actif de la seule organisation programmatrice, brouillon de facture unitaire SANS numéro retiré, facture numérotée (partie chez Pennylane, ou rejetée et revenue en brouillon avec son numéro) jamais retirée et signalée (avoir à émettre ou correction : séquence gapless), alertes « sans pack » de la collecte résolues, audit_log avec auteur et rôle (lu aussi par l'historique « Mon pack AG » pour une annulée tardive rattachée) ; admin_savr seul. Depuis le 2026-11-02 (crédit décompté à la programmation), une AG à venir programmée sans crédit restant est aussi rattachable (programmée, validée, en cours, demande d'annulation, réalisée sans collecte). CDC patché au sync du 2026-10-20 (fiche _Divergences/M2.1_20261016_rattacher-collecte-pack.md)."
     },
     {
       "id": "M2.1-annulation-tardive-pack-actif",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": "supabase/migrations/20261016173000_plateforme_annulation_tardive_pack_actif.sql",
-      "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « cb : annulation tardive aboutit alors que son pack réservé est épuisé (plus de 23514) », « cb : la réservation périmée est levée », « cc : un crédit débité sur P2, le pack actif », « cd : sans réservation, un crédit débité sur P2 »",
+      "artefact": "supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql",
+      "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « cd : annulée à moins de 4 h → crédit gardé », « cb : annulée à 3 jours → crédit rendu », « cf : annulée à moins de 4 h, imputable à Savr → crédit rendu », « ce : alerte « annulation tardive sans pack actif » »",
       "statut": "implemented",
-      "libelle": "Annulation tardive AG (moins de 4 h avant le créneau) : le crédit se débite sur le pack actif de l'organisation programmatrice, lu sous verrou, et non sur le pack réservé à l'envoi au transporteur (§05 §3 « Débit d'un crédit », action identique pour les deux déclencheurs) ; sans pack actif, aucun débit, réservation levée, alerte ag_annulee_tardive_sans_pack_actif, collecte rattachable à un pack pris plus tard. Avant ce correctif, l'annulation échouait (23514) quand le pack réservé s'était épuisé entre l'envoi et l'annulation."
+      "libelle": "Annulation d'une collecte AG dont le crédit a été décompté à la programmation (décision Val 2026-11-02) : tardive (moins de 4 h avant le créneau, imputable au client ou sans incident) → crédit gardé, trace pack_debite_annulation_tardive ; à 4 h ou plus, ou incident non imputable au client → crédit rendu (pack épuisé réactivé), trace pack_recredite_annulation_collecte ; tardive sans pack (programmée sans crédit) → aucun débit, alerte ag_annulee_tardive_sans_pack_actif, rattachable. Remplace la règle du 2026-10-16 (débit tardif sur le pack actif au moment de l'annulation)."
+    },
+    {
+      "id": "M2.1-pack-debit-programmation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql",
+      "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « ca : programmée → un crédit décompté », « cb : brouillon confirmé → un crédit décompté », « cc : sans pack (facturée à l''unité) », « ca, cc : réalisées, aucun second débit », « c9 : refusée par le prestataire → crédit rendu », « c9 : renvoyée par l''Admin → crédit repris », « c1 : l''attribution ne pose aucun pack », « f_pack_debiter_credit : fermée à authenticated » + packages/plateforme/src/components/programmation/use-pack-ag.test.ts + packages/plateforme/tests/api/mon-pack-ag/mon-pack-ag.test.ts",
+      "statut": "implemented",
+      "libelle": "Crédit du pack AG décompté dès la programmation (décision Val 2026-11-02) : une AG qui devient programmée (création confirmée, brouillon confirmé, renvoi après refus du prestataire) débite le pack actif de l'organisation programmatrice ; sans crédit restant, elle reste sans pack et sera facturée à l'unité (jamais bloquée) ; aucun second débit à la réalisation ; refus définitif du prestataire → crédit rendu, repris au renvoi ; rpc_valider_attribution_ag ne réserve plus de pack. Formulaire : calcul de la couverture du pack carte par carte (fonctions testées ; rendu vérifié à l'écran, hors test). Mon pack AG (gestionnaire) : collectes à venir listées, repas vides. Reprise des AG à venir à la mise en ligne : vérifiée par sonde sur base jetable (jouée une seule fois, hors suite de tests)."
     }
   ],
   "cdc_source_hash": {

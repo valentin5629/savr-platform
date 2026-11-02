@@ -9,11 +9,12 @@
 -- → crédit rendu même tardif ; refus définitif du prestataire → crédit rendu,
 -- repris au renvoi ; annulation tardive sans pack → alerte, rattachable ;
 -- collecte à venir sans pack → rattachable ; le pack d'une autre organisation
--- n'est jamais touché. Le nom du fichier date de la règle précédente (débit
+-- n'est jamais touché ; l'attribution AG ne réserve plus de pack ; les
+-- fonctions ajoutées sont fermées (service_role seul). Le nom du fichier date de la règle précédente (débit
 -- tardif sur le pack actif) ; il est listé tel quel dans le manifeste M2.1.
 
 BEGIN;
-SELECT plan(40);
+SELECT plan(51);
 
 -- ── Fixtures (identifiants improbables, hexadécimaux) ─────────────────────────
 -- o1 : l'organisation des collectes ; o2 : une voisine dont le pack actif ne
@@ -175,6 +176,48 @@ SELECT ok(plateforme.f_collecte_rattachable_pack('a7d00000-0000-0000-0000-000000
 -- ── 12. Le pack d'une autre organisation n'est jamais touché ─────────────────
 SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'a7d00000-0000-0000-0000-0000000000a9'),
   0, 'Pv : le pack actif de la voisine n''a jamais été débité');
+
+-- ── 13. L'attribution AG ne réserve plus de pack ─────────────────────────────
+-- c1 est programmée sans crédit (P1 épuisé) ; un nouveau pack P2 est pris
+-- ensuite. Avant le 2026-11-02, valider l'attribution posait P2 sur c1
+-- (réservation). Désormais rien : c1 reste sans pack, P2 intact.
+SELECT pg_temp.collecte('c1', 'anti_gaspi', 'programmee', interval '5 days');
+INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_initiaux, credits_consommes, montant_total_ht, mode_facturation, statut, date_achat)
+VALUES ('a7d00000-0000-0000-0000-0000000000a2', 'a7d00000-0000-0000-0000-000000000001', 'personnalise', 5, 0, 2500, 'par_collecte', 'actif', CURRENT_DATE);
+INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, description_rapport_impact)
+VALUES ('a7d00000-0000-0000-0000-0000000000d1', 'Asso Pack Test', '1 rue Asso', 'Paris', 'idf', 'asso@test-pack-programmation.test',
+        'Association de test du pack Anti-Gaspi, dessert le secteur Paris centre.');
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules)
+VALUES ('a7d00000-0000-0000-0000-0000000000d2', 'Transporteur Pack Test', '555555556', '2 rue Test', '75001', 'Paris', 'autre', true,
+        'Contact', 'transporteur@test-pack-programmation.test', '0600000009', ARRAY['fourgon']);
+SELECT is(
+  plateforme.rpc_valider_attribution_ag(
+    'a7d00000-0000-0000-0000-0000000000c1', 'a7d00000-0000-0000-0000-0000000000d1',
+    'a7d00000-0000-0000-0000-0000000000d2', 'ag_province_proximite', 'manuel_top1',
+    'a7d00000-0000-0000-0000-000000000010') ->> 'pack_id',
+  NULL, 'c1 : attribution validée, aucun pack rendu');
+SELECT is(pg_temp.pack_de('c1'), NULL::uuid, 'c1 : l''attribution ne pose aucun pack');
+SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'a7d00000-0000-0000-0000-0000000000a2'),
+  0, 'P2 : intact après l''attribution');
+
+-- ── 14. Les fonctions ajoutées sont fermées (service_role seul) ──────────────
+SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.f_pack_debiter_credit(uuid)', 'EXECUTE'),
+  'f_pack_debiter_credit : fermée à authenticated');
+SELECT ok(NOT has_function_privilege('anon', 'plateforme.f_pack_debiter_credit(uuid)', 'EXECUTE'),
+  'f_pack_debiter_credit : fermée à anon');
+SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.f_pack_recrediter_credit(uuid, uuid, text)', 'EXECUTE'),
+  'f_pack_recrediter_credit : fermée à authenticated');
+SELECT ok(NOT has_function_privilege('anon', 'plateforme.f_pack_recrediter_credit(uuid, uuid, text)', 'EXECUTE'),
+  'f_pack_recrediter_credit : fermée à anon');
+SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.fn_trg_pack_debit_programmation()', 'EXECUTE'),
+  'fn_trg_pack_debit_programmation : fermée à authenticated');
+SELECT ok(NOT has_function_privilege('anon', 'plateforme.fn_trg_pack_debit_programmation()', 'EXECUTE'),
+  'fn_trg_pack_debit_programmation : fermée à anon');
+SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.rpc_valider_attribution_ag(uuid, uuid, uuid, text, plateforme.mode_validation, uuid, text, text)', 'EXECUTE'),
+  'rpc_valider_attribution_ag : toujours fermée à authenticated');
+SELECT ok(has_function_privilege('service_role', 'plateforme.f_pack_debiter_credit(uuid)', 'EXECUTE')
+      AND has_function_privilege('service_role', 'plateforme.f_pack_recrediter_credit(uuid, uuid, text)', 'EXECUTE'),
+  'service_role exécute les deux fonctions de crédit');
 
 SELECT * FROM finish();
 ROLLBACK;

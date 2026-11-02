@@ -144,16 +144,16 @@ function LignePack({
       data-testid="ligne-pack"
       className="rounded-savr-lg border border-savr-neutral-200"
     >
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         aria-expanded={ouvert}
         aria-controls={idContenu}
         onClick={() => setOuvert((o) => !o)}
-        className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-left"
+        className="h-auto w-full flex-wrap justify-start gap-x-4 gap-y-2 whitespace-normal py-3 text-left font-normal text-savr-neutral-900 sm:h-auto"
       >
         <CaretDownIcon
           aria-hidden="true"
-          className={`h-4 w-4 shrink-0 text-savr-neutral-500 transition-transform ${ouvert ? '' : '-rotate-90'}`}
+          className={`text-savr-neutral-500 transition-transform ${ouvert ? '' : '-rotate-90'}`}
         />
         <span className="font-semibold text-savr-neutral-900">
           {libelleTypePack(pack.type_pack)}
@@ -177,7 +177,7 @@ function LignePack({
         <Text as="span" tone="faint" className="ml-auto tabular-nums">
           {collectes.length} {collectes.length > 1 ? 'collectes' : 'collecte'}
         </Text>
-      </button>
+      </Button>
       {ouvert && (
         <div
           id={idContenu}

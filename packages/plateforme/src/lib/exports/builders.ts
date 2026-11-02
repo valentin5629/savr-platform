@@ -18,8 +18,12 @@ import {
   resolveTraiteurNoms,
   resolveRepas,
   sommePoidsFlux,
+  poidsParFlux,
+  COLONNES_FLUX,
+  lireCodesAffaireViparis,
   lireParTranches,
   unwrap,
+  type FluxPese,
 } from './shared.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { estUuid, inTextes, listeCsv, parmi } from '@/lib/filtre-csv.js';
@@ -121,8 +125,8 @@ export async function buildCollectesExport(
   const selectClient = () =>
     ctx.supabase.from('collectes').select(
       `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
-       collecte_flux(poids_reel_kg),
-       evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
+       collecte_flux(poids_reel_kg, flux_dechets!flux_id(code)),
+       evenements!inner(id, nom_evenement, date_evenement, nom_client_organisateur,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, code_postal, ville))`,
       { count: 'exact' },
@@ -132,8 +136,8 @@ export async function buildCollectesExport(
       `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
        statut_tms, tms_reference, prestataire_logistique_id,
        attributions_antgaspi!collecte_id(id, volume_repas_realise),
-       collecte_flux(poids_reel_kg),
-       evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
+       collecte_flux(poids_reel_kg, flux_dechets!flux_id(code)),
+       evenements!inner(id, nom_evenement, date_evenement, nom_client_organisateur,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, code_postal, ville))`,
       { count: 'exact' },
@@ -146,8 +150,8 @@ export async function buildCollectesExport(
        statut_tms, tms_reference, prestataire_logistique_id,
        attributions_antgaspi!collecte_id(id, volume_repas_realise),
        rapports_rse!collecte_id!inner(consulte_par_user_at),
-       collecte_flux(poids_reel_kg),
-       evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
+       collecte_flux(poids_reel_kg, flux_dechets!flux_id(code)),
+       evenements!inner(id, nom_evenement, date_evenement, nom_client_organisateur,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, code_postal, ville))`,
       { count: 'exact' },
@@ -230,6 +234,21 @@ export async function buildCollectesExport(
 
   const evt = (r: Row) => unwrap(r.evenements);
   const lieuOf = (r: Row) => unwrap(evt(r).lieux);
+  // Code affaire VIPARIS de l'événement (Val 2026-11-02) : lu pour les seuls
+  // événements des lignes lues ci-dessus.
+  const codesAffaire = await lireCodesAffaireViparis(
+    ctx,
+    rows.map((r) => evt(r).id as string),
+  );
+  // Poids par flux, collectes ZD seules (vide pour une collecte AG).
+  const flux = new Map(
+    rows
+      .filter((r) => r.type === 'zero_dechet')
+      .map((r) => [
+        r.id as string,
+        poidsParFlux(r.collecte_flux as FluxPese[]),
+      ]),
+  );
 
   const columns: CsvColumn<Row>[] = [
     {
@@ -242,6 +261,10 @@ export async function buildCollectesExport(
     },
     { header: 'Heure', value: (r) => heureCourte(r.heure_collecte) },
     { header: 'Événement', value: (r) => evt(r).nom_evenement as string },
+    {
+      header: 'Code affaire VIPARIS',
+      value: (r) => codesAffaire.get(evt(r).id as string) ?? '',
+    },
     { header: 'Lieu', value: (r) => lieuOf(r).nom as string },
     { header: 'Code postal', value: (r) => lieuOf(r).code_postal as string },
     { header: 'Ville', value: (r) => lieuOf(r).ville as string },
@@ -286,6 +309,15 @@ export async function buildCollectesExport(
             )
           : '',
     },
+    ...COLONNES_FLUX.map(
+      ({ code, header }): CsvColumn<Row> => ({
+        header,
+        value: (r) => {
+          const poids = flux.get(r.id as string);
+          return poids ? formatPoidsKg(poids[code]) : '';
+        },
+      }),
+    ),
     {
       header: 'Taux recyclage (%)',
       value: (r) => formatNombreFr(r.taux_recyclage as number),

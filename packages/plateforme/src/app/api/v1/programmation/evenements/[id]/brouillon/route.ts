@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { codeAffaireViparisDuCorps } from '@/lib/viparis/code-affaire-serveur.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { validerLieuOverrides } from '@/lib/programmation/lieu-override.js';
 import { typedRpcError } from '@/lib/api-helpers.js';
@@ -27,6 +28,7 @@ interface RepriseBody {
   nom_evenement?: string;
   nom_client_organisateur?: string;
   reference_affaire?: string;
+  code_affaire_viparis?: string | null;
   logo_client_organisateur_url?: string;
   lieu_id: string;
   lieu_overrides?: Record<string, unknown>;
@@ -117,6 +119,9 @@ export async function PUT(
       { status: 422 },
     );
   }
+  const codeAffaire = codeAffaireViparisDuCorps(body);
+  if ('error' in codeAffaire) return codeAffaire.error;
+
   const overridesValides = validerLieuOverrides(body.lieu_overrides);
   if ('error' in overridesValides) return overridesValides.error;
   const lieuOverrides = overridesValides.overrides;
@@ -162,6 +167,7 @@ export async function PUT(
         nom_client_organisateur: body.nom_client_organisateur ?? null,
         logo_client_organisateur_url: body.logo_client_organisateur_url ?? null,
         reference_affaire: body.reference_affaire ?? null,
+        code_affaire_viparis: codeAffaire.code,
         controle_acces_requis: body.controle_acces_requis === true,
         lieu_overrides: hasOverride ? lieuOverrides : null,
       },

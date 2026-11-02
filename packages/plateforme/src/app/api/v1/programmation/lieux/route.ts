@@ -17,6 +17,34 @@ const COLONNES_LIEU = `id, nom, adresse_acces, code_postal, ville, acces_details
    acces_office, stationnement, type_vehicule_max,
    controle_acces_requis_default, contraintes_horaires, flux_autorises`;
 
+// Code site VIPARIS (Val 2026-11-02) : il décide si le formulaire propose le
+// champ « Code affaire VIPARIS ». La colonne n'est pas dans la liste blanche de
+// `v_lieux_clients` : elle est lue ici en service_role, pour les SEULS lieux que
+// la lecture précédente a déjà rendus à l'appelant (rien d'autre n'est exposé).
+async function avecCodeSiteViparis(
+  lieux: Array<Record<string, unknown> & { id: string }>,
+): Promise<NextResponse> {
+  if (lieux.length === 0) return NextResponse.json([]);
+  const { data, error } = await createAdminSupabaseClient()
+    .from('lieux')
+    .select('id, code_site_viparis')
+    .in(
+      'id',
+      lieux.map((l) => l.id),
+    )
+    .not('code_site_viparis', 'is', null);
+  if (error) return serverError(error, 'programmation.lieux.code_site');
+  const codes = new Map(
+    (data ?? []).map((r) => [
+      (r as { id: string }).id,
+      (r as { code_site_viparis: string }).code_site_viparis,
+    ]),
+  );
+  return NextResponse.json(
+    lieux.map((l) => ({ ...l, code_site_viparis: codes.get(l.id) ?? null })),
+  );
+}
+
 function filtreRecherche<T extends { or: (f: string) => T }>(
   query: T,
   q: string,
@@ -81,7 +109,9 @@ async function lieuxDuDemandeur(q: string): Promise<NextResponse> {
   );
 
   if (error) return serverError(error, 'programmation.lieux.list');
-  return NextResponse.json(data ?? []);
+  return avecCodeSiteViparis(
+    (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>,
+  );
 }
 
 // Admin support : « les lieux que verrait l'organisation cible ». Transcription
@@ -165,7 +195,9 @@ async function lieuxDeLOrgCible(
   );
 
   if (error) return serverError(error, 'programmation.lieux.list');
-  return NextResponse.json(data ?? []);
+  return avecCodeSiteViparis(
+    (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>,
+  );
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

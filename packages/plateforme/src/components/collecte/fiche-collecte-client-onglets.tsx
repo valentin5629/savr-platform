@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/card';
 import { TelephoneLien } from '@/components/collecte/fiche-blocs';
 import { SectionHeader } from '@/components/ui/section-header';
 import { InfoItem } from '@/components/ui/info-item';
+import { CodeAffaireViparis } from '@/components/evenements/code-affaire-viparis';
 import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import {
   STATUTS_LOGISTIQUE,
@@ -204,6 +205,13 @@ export function OngletInformations({
               )}
             </span>
           </InfoItem>
+          {/* Lieu VIPARIS (ou code déjà posé) : code affaire VIPARIS (Val 2026-11-02). */}
+          {evt && (evt.code_site_viparis || evt.code_affaire_viparis) && (
+            <CodeAffaireViparis
+              evenementId={evt.id}
+              code={evt.code_affaire_viparis}
+            />
+          )}
           {/* §06.11 différence #3 : l'agence voit qui opère sur place. */}
           {c.traiteur_operationnel !== undefined && (
             <InfoItem
@@ -249,6 +257,11 @@ export function OngletInformations({
               </span>
             )}
           </InfoItem>
+          {evt?.code_site_viparis && (
+            <InfoItem label="Code site VIPARIS" data-testid="code-site-viparis">
+              {evt.code_site_viparis}
+            </InfoItem>
+          )}
           <InfoItem label="Contrôle d’accès">
             {c.controle_acces_requis ? 'Oui' : 'Non'}
           </InfoItem>

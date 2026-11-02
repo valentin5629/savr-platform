@@ -1416,14 +1416,24 @@ describe('M1.2 / Lieux — alignement sur la RLS', () => {
     const res = await getLieux();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([
-      { id: 'lieu-opere-1', nom: 'Lieu opéré par un tiers' },
+      {
+        id: 'lieu-opere-1',
+        nom: 'Lieu opéré par un tiers',
+        code_site_viparis: null,
+      },
     ]);
 
-    // Lu sous `authenticated`, via la vue en liste blanche de colonnes.
+    // Lu sous `authenticated`, via la vue en liste blanche de colonnes : c'est
+    // ce qui garantit que la policy — donc ses 4 branches — décide seule des
+    // lieux proposés.
     expect(mockAuthChain.from).toHaveBeenCalledWith('v_lieux_clients');
-    // Et JAMAIS via le client service_role : c'est ce qui garantit que la
-    // policy — donc ses 4 branches — décide seule.
-    expect(mockSupabaseChain.from).not.toHaveBeenCalled();
+    // Le service_role ne lit ensuite que le code site VIPARIS (Val 2026-11-02),
+    // hors liste blanche, et seulement pour les lieux que la RLS vient de rendre.
+    expect(mockSupabaseChain.from.mock.calls).toEqual([['lieux']]);
+    expect(mockSupabaseChain.select).toHaveBeenCalledWith(
+      'id, code_site_viparis',
+    );
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('id', ['lieu-opere-1']);
   });
 
   it('lieux_client_aucune_transcription_du_predicat — ni organisations_lieux ni evenements', async () => {

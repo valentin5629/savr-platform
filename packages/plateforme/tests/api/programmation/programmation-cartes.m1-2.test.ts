@@ -365,6 +365,8 @@ describe('M1.2 / programmation par cartes — création', () => {
       nom_evenement: 'Gala B2',
       nom_client_organisateur: 'Entreprise Dupont',
       reference_affaire: 'AFF-12',
+      // Code affaire VIPARIS : normalisé (espaces, majuscules) avant la RPC.
+      code_affaire_viparis: ' 26sial1 ',
       controle_acces_requis: true,
       // Ancien contrat (type et contacts au niveau de l'événement) : ignoré.
       type_evenement_id: TYPE_B,
@@ -420,6 +422,7 @@ describe('M1.2 / programmation par cartes — création', () => {
         nom_client_organisateur: 'Entreprise Dupont',
         logo_client_organisateur_url: null,
         reference_affaire: 'AFF-12',
+        code_affaire_viparis: '26SIAL1',
         controle_acces_requis: true,
         lieu_overrides: null,
       },
@@ -826,6 +829,7 @@ describe('M1.2 / programmation par cartes — reprise d’un brouillon', () => {
         nom_client_organisateur: null,
         logo_client_organisateur_url: null,
         reference_affaire: null,
+        code_affaire_viparis: null,
         controle_acces_requis: false,
         lieu_overrides: null,
       },

@@ -146,6 +146,8 @@ function ficheLegere(
       pax: evt.pax,
       nom_client_organisateur: null,
       reference_affaire: null,
+      code_affaire_viparis: null,
+      code_site_viparis: null,
       lieu,
     },
     tournees: [],

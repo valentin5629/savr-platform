@@ -23,3 +23,10 @@
 #   - ne pas reformater ni réordonner ce fichier : le commit de chaque ligne est
 #     son ancre (même contrainte que les manifestes).
 # =============================================================================
+M3.2.json BL-P2-13 specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73  # sync 2026-11-02 : entrée « Mon pack Anti-Gaspi » du menu gestionnaire, toujours L73
+M3.2.json M3.2-pack-ag-consommation-organisation specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73  # sync 2026-11-02 : entrée « Mon pack Anti-Gaspi » du menu gestionnaire, toujours L73
+M3.2.json M3.2-pack-ag-consommation-annulations-tardives specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73  # sync 2026-11-02 : entrée « Mon pack Anti-Gaspi » du menu gestionnaire, toujours L73
+M3.2.json M3.2-mon-pack-ag-historique-packs specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73  # sync 2026-11-02 : entrée « Mon pack Anti-Gaspi » du menu gestionnaire, toujours L73
+M3.2.json M3.2-pack-ag-rendu-visuel specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73  # sync 2026-11-02 : entrée « Mon pack Anti-Gaspi » du menu gestionnaire, toujours L73
+M3.2.json M3.2-mon-pack-ag-onglet-tous-roles specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73  # sync 2026-11-02 : entrée « Mon pack Anti-Gaspi » du menu gestionnaire, toujours L73
+M2.5.json M2.5-update-mission specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:539  # sync 2026-11-02 : « Côté Everest » réécrit (POST /missions/update), même ligne

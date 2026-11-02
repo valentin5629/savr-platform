@@ -307,7 +307,7 @@
     },
     {
       "id": "BL-P1-ALGO-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:196-226",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:198-228",
       "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_evaluer_auto_accept_ag : algo → match config_auto_accept_ag → rpc_valider_attribution_ag mode auto_accept valide_par NULL, sinon SINON) ; packages/plateforme/src/lib/attribution-ag/auto-accept.ts ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts (admin only) ; supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql (fourchette de pax lue sur le nb_pax de l'algorithme = pax de la collecte)",
       "test": "R11-T7 + R11-T8 + R11-T9 + C2-AUTO-1 + C2-AUTO-2 + M2.3 / R11 ALGO-06 auto-accept",
       "statut": "implemented",
@@ -364,7 +364,7 @@
     },
     {
       "id": "M2.3-parametres-algo-validation-type",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:243",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:245",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres-algo/route.ts + packages/plateforme/src/lib/parametres-algo/validation.ts (PATCH : valeur validée selon le type_valeur de la ligne — bool/int/decimal/time HH:MM/text[] — 422 sinon, 404 clé inconnue, jamais de scalaire JSON à la place d'une liste) ; packages/plateforme/src/lib/parametres-algo/saisie.ts + packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/page.tsx (saisie convertie par type avant l'envoi, message lisible sinon)",
       "test": "M2.3 / PATCH /parametres-algo (packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts) — 422 liste text[] en chaîne, 422 heure/entier/décimal/booléen non conformes, 200 text[] tableau transmis tel quel, 200 heure HH:MM, 404 clé inconnue sans update ; M2.3 / Paramètres algorithme AG — conversion de la saisie + M2.3 / convertirSaisie (packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/algo-ag.m2-3.test.tsx) — tableau JSON dans le PATCH, refus sans appel réseau",
       "statut": "implemented",
@@ -372,7 +372,7 @@
     },
     {
       "id": "M2.3-algo-pax-de-la-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:245",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:247",
       "artefact": "supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql (fn_calculer_algo_attribution_ag : c.pax au lieu de e.pax)",
       "test": "C2-F + C2-ALGO-1 + C2-ALGO-2 + C2-ALGO-3 + C2-SECU",
       "statut": "implemented",
@@ -381,7 +381,7 @@
     },
     {
       "id": "M2.3-auto-accept-association-obligatoire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:211",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:213",
       "artefact": "supabase/migrations/20261025200000_plateforme_auto_accept_association_obligatoire.sql (association_id SET NOT NULL, arrêt explicite si une règle sans association existe) ; packages/plateforme/src/app/api/v1/admin/config-auto-accept/route.ts (POST et PATCH : 422 « association_id obligatoire » sans écriture) ; packages/plateforme/src/app/(admin)/admin/parametres/auto-accept/page.tsx (colonne « Association fixe » sans « Algo »)",
       "test": "I4-API (tests/api/admin/config-auto-accept-association.m2-3.test.ts) + I4-PGTAP (supabase/tests/auto_accept_association_obligatoire.test.sql)",
       "statut": "implemented",
@@ -389,8 +389,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "eafb60f53ddda848fecf4bdcb39139acab13b7249d534f3772310e25b7a92b69",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "022b35b161ee61596f286da2036b2e57b6d098aeb9a6ca1728c2dd0518ef3984",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "5bbb1231f0faf4bd292af49632c48eb26e736fc302881f07d08d590d9eac8ee7"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "71a5aff3d68f1e2cd3712add634d51f0ddc97f94d758c1a2f2d36edcf5474cad",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "5129aa28dc9794a842f435362a1103998993507bd90e45787125ab474413aecd"
   }
 }

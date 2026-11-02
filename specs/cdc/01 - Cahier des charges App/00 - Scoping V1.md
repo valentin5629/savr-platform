@@ -26,7 +26,7 @@ Tous les modules documentés §01→§15, soit :
 - [ ] **Registre réglementaire ZD-only** (Module 20 MVP), bordereaux + attestations batch J+1 (§06.03)
 - [ ] **CO₂ ADEME modélisé** : ZD (induit/évité/net) + AG (évité seul, 2,5 kgCO₂e/repas FAO), snapshot figé (§04/§11/§12)
 - [ ] **Migration Bubble** : ~1 500 collectes AG + ~175 ZD + lieux + orgas + users (§13)
-- [ ] **Resend** : emails transactionnels (16 templates en seed DB)
+- [ ] **Resend** : emails transactionnels (18 templates actifs en seed DB, catalogue §06.02 au 2026-11-02)
 
 ---
 

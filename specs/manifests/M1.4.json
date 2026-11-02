@@ -229,7 +229,7 @@
     },
     {
       "id": "BL-P1-RM-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:255",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:259",
       "artefact": "supabase/migrations/20260702000000_plateforme_r16a_cloture_embargo.sql (fn_cloturer_collectes_embargo), packages/plateforme/src/app/api/cron/cloture-embargo/route.ts, packages/plateforme/vercel.json",
       "test": "supabase/tests/r16a_machine_etats.test.sql (RM-01 : realisee+H+24→cloturee ; <H+24 reste realisee ; realisee_sans_collecte exclu) ; M1.8/RM-01 — cron appelle fn_cloturer_collectes_embargo et renvoie nb_traite",
       "statut": "implemented",
@@ -237,7 +237,7 @@
     },
     {
       "id": "BL-P1-RM-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:284",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:288",
       "artefact": "supabase/migrations/20260702000100_plateforme_r16a_fn_modifier_collecte_gardes.sql (garde NB_CAMIONS_STATUT_TERMINAL), packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts",
       "test": "supabase/tests/r16a_machine_etats.test.sql (RM-02 : modif nb_camions sur realisee → exception ; sur programmee → OK) ; M1.4/RM-02 — nb_camions sur statut terminal : 409",
       "statut": "implemented",
@@ -245,7 +245,7 @@
     },
     {
       "id": "BL-P1-RM-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:284",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:288",
       "artefact": "supabase/migrations/20260702000100_plateforme_r16a_fn_modifier_collecte_gardes.sql (garde REDUCTION_CANCEL_WINDOW_CLOSED), packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (alerte Ops sur rollback)",
       "test": "supabase/tests/r16a_machine_etats.test.sql (RM-05 : réduction <1h → exception ; mission lointaine → OK ; augmentation <1h → OK) ; M1.4/RM-05 — réduction N < 1h : 409 + alerte Ops",
       "statut": "implemented",
@@ -253,7 +253,7 @@
     },
     {
       "id": "BL-P1-RM-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:278",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:282",
       "artefact": "supabase/migrations/20260702000200_plateforme_r16a_agreger_alerte_rejet.sql (f_upsert_alerte_admin sur transition rejetee_par_prestataire)",
       "test": "supabase/tests/r16a_machine_etats.test.sql (RM-07 : tous tours KO → rejetee_par_prestataire + alerte Admin collecte_rejetee_par_prestataire)",
       "statut": "implemented",
@@ -285,7 +285,7 @@
     },
     {
       "id": "BL-P2-10",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:342",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:343",
       "artefact": "supabase/migrations/20260708140000_plateforme_r22c_fn_modifier_evenement_en_cours.sql (émission E2 étendue à en_cours) + packages/adapters/src/mts1/adapter.ts (buildUpdatePayload repousse les contacts via buildContacts partagé)",
       "test": "supabase/tests/r22c_evenement_e2_en_cours.test.sql (R22c-1..7 : E2 sur contact/pax en_cours+programmee dispatchées, exclusions non-dispatchée/terminal/champ non-TMS, recalcul volume) ; M1.4/r22c — updateCollecte PUT contient contacts principal+secours [adapter.r22c.test.ts]",
       "statut": "implemented",
@@ -293,8 +293,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "eafb60f53ddda848fecf4bdcb39139acab13b7249d534f3772310e25b7a92b69",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "022b35b161ee61596f286da2036b2e57b6d098aeb9a6ca1728c2dd0518ef3984",
-    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "872c3712b143e9e8ca53ed36aeef54bd67be5ba9550168f0bdbfd6b25b15e1fb"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "71a5aff3d68f1e2cd3712add634d51f0ddc97f94d758c1a2f2d36edcf5474cad",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "5106e46cfcd6f9197dc77196b058005b1b06486808d4269081c393e692cfc22e"
   }
 }

@@ -536,7 +536,8 @@ Toute modification d'une collecte côté Plateforme déjà poussée à MTS-1 (`s
 > - **`place` est envoyé COMPLET** (adresse + créneau) : le merge partiel n'est garanti qu'au **premier niveau**, un `place` amputé de ses `timeslots` risquerait de les effacer côté MTS-1. Correct sous les deux hypothèses de merge. *(À vérifier en DEMO par read-back — le POST a déjà démenti une hypothèse de ce genre : MTS-1 renvoyait 201 en stockant `contact: {}` et `timeslots: null`.)*
 > - **Un champ VIDÉ côté Plateforme est propagé comme valeur VIDE, jamais omis** : l'omission laisserait au chauffeur la consigne périmée du dispatch initial. `comment` est donc toujours présent au PUT.
 > - **Parité E1/E2** : `place` est construit par un **helper unique partagé** entre création et modification — la parité n'est plus une recopie à maintenir. Un test-cliquet lit la liste de champs du trigger dans la migration et rougit si un champ y est ajouté sans contrepartie dans le payload.
-> - **Côté Everest** : `updateCollecte` reste un **no-op** qui lève une alerte Ops in-app canal `info` (DIV-4 2026-06-15). `comment` n'est posé qu'à la création (le swagger 1.291.1 documente `POST /missions/update`, non utilisé en V1) ; si A Toutes! confirme un jour un endpoint de modification, il devra suivre le même oracle.
+> - **Côté Everest** (décision Val 2026-10-30, remplace DIV-4 2026-06-15) : `updateCollecte` envoie la modification à A Toutes! par `POST /missions/update` (swagger 1.294.1, « seuls les champs fournis changent »), une fois par mission encore ouverte (rangs 1 à N). Même oracle que MTS-1 : tous les champs ayant une contrepartie Everest (`start_date`, adresse et contact de départ, adresse et contact d'arrivée, `comment`) sont renvoyés, construits par le même composeur que la création ; un contact d'association vidé part vide, jamais omis. Une mission close (annulée, terminée, échouée) n'est pas renvoyée ; une collecte jamais transmise à Everest reste un no-op (`noop_no_remote`). Le nombre de véhicules ne passe pas par cet endpoint : un écart avec les missions enregistrées lève une alerte Ops canal `info`, à traiter à la main chez A Toutes!. Sans association attribuée (pas d'adresse d'arrivée) ou avec une heure de collecte illisible, rien n'est envoyé et l'ordre sort en échec définitif. Un refus 4xx est définitif et ne rejette pas la collecte ; il n'empêche pas de modifier les autres missions de la collecte, puis l'ordre sort en échec définitif avec la raison donnée par A Toutes!. Une erreur 5xx ou un appel sans réponse est retenté (renvoyer les mêmes valeurs ne change rien).
+>   ⚠ **À faire confirmer par A Toutes! (Mathieu) avant la mise en production** : l'endpoint `POST /missions/update` (swagger 1.294.1) n'a jamais été appelé en conditions réelles ; premier appel à constater sur le compte de test A Toutes! (décision Val 2026-11-02).
 
 #### Informations d'accès du lieu et contact de secours — canal libre *(arbitrage Val 2026-09-15, divergence M1.5_20260915_infos-acces-non-transmises)*
 
@@ -1129,7 +1130,7 @@ Implémentation : requête SQL agrégée définie [[05 - Règles métier#R_reven
 
 **Export CSV** : `GET /api/v1/admin/dashboard/revenus-organisations.csv?from=&to=&...` (mêmes query params, header `Content-Type: text/csv`).
 
-#### 10.3 KPIs Dashboard Admin (5 cartes)
+#### 10.3 KPIs Dashboard Admin (4 cartes)
 
 `GET /api/v1/admin/dashboard/kpis`
 
@@ -1140,7 +1141,6 @@ Implémentation : requête SQL agrégée définie [[05 - Règles métier#R_reven
 {
   "collectes_a_valider": { "total": 12, "zd": 7, "ag": 5 },
   "en_attente_validation_prestataire": 3,
-  "modifiees_sans_renvoi_tms": 2,
   "zd_48h": 18,
   "ag_48h": 11
 }

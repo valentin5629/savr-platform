@@ -85,7 +85,7 @@ Génération automatique des rapports de collecte envoyés aux clients.
 Gestion complète de la facturation Savr et du suivi des packs Anti-Gaspi.
 
 - **Zéro-Déchet** : facturation à la collecte selon tarification par tranches pax (saisie lors de la programmation)
-- **Anti-Gaspi** : facturation via packs pré-payés (Pack 10, Pack 30, Pack 60, Unitaire) — décrémentation automatique du solde à chaque collecte réalisée
+- **Anti-Gaspi** : facturation via packs pré-payés (Pack 10, Pack 30, Pack 60, Unitaire) — décrémentation automatique du solde à la programmation de chaque collecte AG, crédit rendu si elle est annulée 4h ou plus avant l'heure de collecte (décision Val 2026-11-02)
 - Suivi solde pack par client (solde en temps réel, alerte seuil bas, historique consommation)
 - Intégration Pennylane : création automatique de la facture à la clôture de la collecte
 - Mode "1 collecte = 1 facture" (pour les clients qui le demandent)

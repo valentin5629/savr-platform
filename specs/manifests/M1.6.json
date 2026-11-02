@@ -272,7 +272,7 @@
     },
     {
       "id": "BL-P2-20",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:208",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:209",
       "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le) + apps/pdf-renderer/src/templates/{bordereau-zd,attestation-don}.ts (mention pied de page) ; rapport-recyclage-zd.ts ne la rend plus",
       "test": "apps/pdf-renderer/src/render.test.ts « BL-P2-20 : aucune mention de régénération sur le rapport », « BL-P2-20 : mention de régénération sur bordereau régénéré », « mention pied de page présente uniquement si régénérée » ; packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — succès rapport porté par rapports_rse (« sans excédent » AG) : ré-enqueue jobs_pdf (payload copié) + audit_log + bump regenere_at/version »",
       "statut": "implemented",
@@ -312,7 +312,7 @@
     },
     {
       "id": "M1.6-email-rapport-disponible",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:125",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:138",
       "artefact": "supabase/migrations/20261002100000_plateforme_email_template_rapport_disponible.sql + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (étape 9) + packages/shared/src/seed/constants.ts",
       "test": "envoi_rapport_disponible_apres_batch_j1 + M1.6/seed_slug_rapport_disponible_pas_bordereau + supabase/tests/email_template_rapport_disponible.test.sql",
       "statut": "implemented",
@@ -353,7 +353,7 @@
     },
     {
       "id": "M1.6-logo-client-rapport-de-don",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:48-50 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:366",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:48-50 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:368",
       "artefact": "packages/plateforme/src/lib/evenements/logo-client-rapport.ts (garde = téléchargement du rapport, écriture sur l'événement, refabrication) + routes …/collectes/[id]/logo-client (admin, traiteur, agence, gestionnaire) + packages/plateforme/src/components/collecte/logo-client-rapport.tsx (onglet Documents Admin, Bilan client) + packages/plateforme/src/lib/pdf/logo-cascade.ts (logo déposé en tête) + packages/plateforme/src/lib/pdf/logo-rapport-de-don.ts + batch-pdf-j1-ag.ts + regenerate.ts (logos relus) + apps/pdf-renderer/src/templates/attestation-don.ts (@4) + packages/plateforme/src/lib/pdf/pdf-worker.ts (logo complété au rendu d'une attestation corrigée par le trigger de volume) + route /api/v1/evenements/[id]/logo-client + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx (bloc Documents de la fiche événement)",
       "test": "packages/plateforme/tests/lib/logo-client-rapport.test.ts ; packages/plateforme/src/components/collecte/logo-client-rapport.test.tsx ; logo du client imprimé sur les rapports (Val 2026-10-30) ; attestation de don — logo du client (Val 2026-10-30) ; attestation de don — logo du client dans l’en-tête (Val 2026-10-30) ; packages/plateforme/tests/lib/regenerate-sans-excedent.m2-4.test.ts « logo du client relu sur l’événement : un logo déposé depuis remplace l’ancien » ; M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; packages/plateforme/tests/lib/logo-rapport-de-don.test.ts ; fiche événement (Val 2026-10-30)",
       "statut": "implemented",
@@ -362,9 +362,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "1f9a66804c7309040755b078f25cedf174e98402019fe82085777aa047702e60",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "454cf1fef34eda6c8f510d347b1d5b2d580c6d90febf31d0bdacabe33bf322a3",
     "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": "e74d41f0693355036b17c1c1fcd5712bc1c0689ba1e1ba473d911e3c443d7bc3",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "7e9aac4ab731ffcb03cb11fb33f6c02264e2c391540a2dda3ce54af5c261e8a9"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "1feba8e10b9a8c5d7065cfb3ab584be8c33e9913a4ea64f5558ac66344373597",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de"
   }
 }

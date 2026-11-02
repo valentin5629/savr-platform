@@ -5,6 +5,7 @@ import { AppShell } from '@/components/layout/app-shell';
 vi.mock('next/navigation', () => ({
   usePathname: () => '/traiteur',
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe('AppShell — zone de contenu', () => {

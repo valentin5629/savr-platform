@@ -27,7 +27,9 @@
     "packages/shared/src/database.types.ts (f_collecte_rattachable_pack, rpc_rattacher_collecte_pack)",
     "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts (historique « Mon pack AG » : annulée tardive rattachée après coup)",
     "supabase/migrations/20261016173000_plateforme_annulation_tardive_pack_actif.sql",
-    "supabase/tests/annulation_tardive_pack_actif.test.sql"
+    "supabase/tests/annulation_tardive_pack_actif.test.sql",
+    "supabase/migrations/20261102120000_plateforme_pack_ag_debit_programmation.sql",
+    "packages/plateforme/src/components/programmation/use-pack-ag.test.ts"
   ],
   "tables_concernees": [
     "plateforme.packs_antgaspi (schéma aligné V2 : credits_initiaux, credits_consommes, type_pack, montant_total_ht, idempotency_key)",

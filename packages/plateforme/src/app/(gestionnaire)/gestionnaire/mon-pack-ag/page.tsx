@@ -30,6 +30,8 @@ interface ConsommationRow {
   date_collecte: string | null;
   /** Crédit consommé par une annulation tardive, sans collecte réalisée (§05). */
   annulee_tardivement: boolean;
+  /** Crédit décompté à la programmation, collecte pas encore faite. */
+  a_venir: boolean;
   evenement: string | null;
   lieu: string | null;
   repas_donnes: number;
@@ -90,7 +92,7 @@ const COLONNES_CONSOMMATION: ColumnDef<ConsommationRow, unknown>[] = [
     accessorFn: (c) => c.repas_donnes,
     meta: { className: 'text-right tabular-nums' },
     cell: ({ row: { original: c } }) =>
-      c.annulee_tardivement ? <CelluleVide /> : c.repas_donnes,
+      c.annulee_tardivement || c.a_venir ? <CelluleVide /> : c.repas_donnes,
   },
   {
     id: 'associations',

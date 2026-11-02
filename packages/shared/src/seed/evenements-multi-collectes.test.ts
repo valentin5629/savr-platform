@@ -328,7 +328,7 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
     }
   });
 
-  it('SEED-EMC-12 — une AG sans excédent porte motif et photo, sans pack', () => {
+  it('SEED-EMC-12 — une AG sans excédent porte motif, photo et son pack (crédit décompté à la programmation)', () => {
     const sansExcedent = collectes.filter(
       (x) => x.statut === 'realisee_sans_collecte',
     );
@@ -339,7 +339,7 @@ describe('événements multi-collectes — ce que seed_demo écrit en base', () 
       )!;
       expect(ecrite['aucun_repas_motif'], c.slug).toBe(c.motifAucunRepas);
       expect(ecrite['aucun_repas_photo_url'], c.slug).toBeTruthy();
-      expect(ecrite['pack_antgaspi_id'], c.slug).toBeNull();
+      expect(ecrite['pack_antgaspi_id'], c.slug).toBeTruthy();
     }
   });
 });

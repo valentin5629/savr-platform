@@ -183,6 +183,7 @@ interface Reponse {
       collecte_id: string;
       date_collecte: string;
       annulee_tardivement: boolean;
+      a_venir: boolean;
       repas_donnes: number;
       associations: Array<{ nom: string | null; repas: number }>;
     }>;
@@ -250,17 +251,22 @@ describe('M3.2 / Mon pack AG — historique borné aux packs de l’organisation
         collecteAg('c-propre', PACK_GESTIONNAIRE),
         // Sans débit de pack : jamais dans l'historique de consommation.
         collecteAg('c-sans-pack', null),
-        // Pack réservé à l'attribution, collecte pas encore réalisée.
+        // Crédit décompté à la programmation (2026-11-02), collecte à venir.
         collecteAg('c-propre-programmee', PACK_GESTIONNAIRE, 'programmee'),
       ],
     });
 
     const reponse = await appeler();
 
-    expect(ids(reponse)).toEqual(['c-propre']);
-    expect(reponse.data.historique_consommation[0]!.annulee_tardivement).toBe(
-      false,
+    expect([...ids(reponse)].sort()).toEqual(
+      ['c-propre', 'c-propre-programmee'].sort(),
     );
+    const parId = new Map(
+      reponse.data.historique_consommation.map((c) => [c.collecte_id, c]),
+    );
+    expect(parId.get('c-propre')!.annulee_tardivement).toBe(false);
+    expect(parId.get('c-propre')!.a_venir).toBe(false);
+    expect(parId.get('c-propre-programmee')!.a_venir).toBe(true);
     // Aucune annulation à examiner : le client de service n'est pas sollicité.
     expect(service.requetes).toEqual([]);
   });

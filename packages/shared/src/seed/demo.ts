@@ -817,15 +817,19 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     if (!r.sansPrestataire) prestaParSlug.set(r.slug, presta);
     const extra: Row = { nb_camions_demande: r.camions };
     if (isAg) {
-      // `pack_antgaspi_id` est écrit par `fn_trg_pack_debit_realisee` À LA
-      // TRANSITION vers `realisee` : en prod, une AG encore programmée ou en
-      // attente d'attribution l'a à NULL. Le poser d'avance donnerait une
-      // fixture infidèle sur les écrans que ce lot sert justement à peupler.
-      // `realisee_sans_collecte` est un état terminal ALTERNATIF : on n'y passe
-      // jamais par `realisee`, donc le trigger ne s'y déclenche pas non plus.
-      const passeeParRealisee = statut === 'realisee' || statut === 'cloturee';
+      // Le crédit est décompté dès la programmation (Val 2026-11-02,
+      // `trg_pack_debit_programmation`) : toute AG non annulée porte son pack,
+      // à venir comme passée. Il est posé ici d'avance : sans lui, le
+      // déclencheur débiterait à l'insertion chaque AG programmée en plus des
+      // crédits fixés plus haut, et viderait les packs de démo (Butard « bas »)
+      // à chaque relance du jeu de données. Un brouillon n'a rien décompté ;
+      // une annulée ou une refusée par le prestataire a rendu son crédit.
+      const sansCredit =
+        statut === 'brouillon' ||
+        statut === 'annulee' ||
+        statut === 'rejetee_par_prestataire';
       extra.pack_antgaspi_id =
-        t === 'nomad' || !passeeParRealisee ? null : U(`pack_${t}`);
+        t === 'nomad' || sansCredit ? null : U(`pack_${t}`);
       extra.volume_estime_repas = Math.round(0.1 * r.pax);
     } else if (estExecutee(r)) {
       extra.taux_recyclage = 70 + (i % 20);

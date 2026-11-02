@@ -3,13 +3,14 @@
 -- =============================================================================
 -- Couvre les cas non testés en M1.2 :
 --   T1 : programmation_mixte_un_seul_e1    — ZD+AG sur même événement → 1 seul outbox E1
---   T2 : pack_ag_debit_uniquement_a_realisee — 2 INSERTs AG → credits_consommes inchangé
+--   T2 : pack_ag_debit_a_la_programmation — le seul crédit part à T1 ; les 2
+--        programmations suivantes restent sans pack (facturées à l'unité, 2026-11-02)
 --   T3 : ag_realisee_sans_pack_alerte       — passage realisee sans pack → alerte Admin
 -- Garde-fous TMS-Ready G4 : non-émission E1 pour AG confirmée en contexte mixte.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(5);
+SELECT plan(6);
 
 -- ── Fixtures partagées M2.2 ──────────────────────────────────────────────────
 
@@ -155,8 +156,16 @@ SELECT plateforme.fn_creer_collecte(
 SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0022-000000000007'::uuid),
-  0,
-  'T2 : credits_consommes = 0 après 2 programmations AG (débit uniquement à realisee)'
+  1,
+  'T2 : credits_consommes = 1 (le seul crédit, décompté à la programmation AG de T1), jamais au-delà'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.collectes
+    WHERE evenement_id = '00000000-0000-0000-0022-000000000020'::uuid
+      AND type = 'anti_gaspi' AND pack_antgaspi_id IS NULL),
+  2,
+  'T2 : les 2 programmations AG sans crédit restant n''ont pas de pack (facturées à l''unité)'
 );
 
 -- ─── Test 3 : ag_realisee_sans_pack_alerte ────────────────────────────────────

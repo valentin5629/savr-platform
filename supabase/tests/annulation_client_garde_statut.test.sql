@@ -4,12 +4,13 @@
 -- La route cliente lit le statut sans verrou puis appelle la RPC. Si la relève
 -- MTS-1 a fait passer la collecte en cours (ou au-delà) entre les deux, la RPC
 -- refuse : la collecte garde son statut, aucun ordre d'annulation (E3) n'entre
--- dans la file, le pack AG n'est pas débité. Depuis un statut annulable, elle
--- annule comme avant (E3 émis, débit d'annulation tardive). Seul le rôle de
+-- dans la file, le pack AG ne bouge pas. Depuis un statut annulable, elle
+-- annule comme avant (E3 émis ; annulation tardive : le crédit décompté à la
+-- programmation reste acquis, règle Val 2026-11-02). Seul le rôle de
 -- service peut l'appeler (droits lus, et appel refusé sous authenticated et anon).
 
 BEGIN;
-SELECT plan(24);
+SELECT plan(25);
 
 -- ── Fixtures (identifiants improbables) ──────────────────────────────────────
 INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif) VALUES
@@ -34,13 +35,14 @@ INSERT INTO plateforme.evenements (
   'ac100000-0000-0000-0000-000000000010', 'ac100000-0000-0000-0000-000000000002',
   'ac100000-0000-0000-0000-000000000009', CURRENT_DATE, 200, 'Contact Test', '0600000001'
 );
--- Pack actif : un débit d'annulation tardive s'y verrait.
+-- Pack actif : chaque collecte AG ci-dessous y décompte un crédit à sa
+-- programmation (7 sur 10) ; tout mouvement ultérieur s'y verrait.
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_initiaux, credits_consommes, montant_total_ht, mode_facturation, statut, date_achat)
 VALUES ('ac100000-0000-0000-0000-0000000000a1', 'ac100000-0000-0000-0000-000000000001',
-  'personnalise', 5, 0, 2500, 'par_collecte', 'actif', CURRENT_DATE);
+  'personnalise', 10, 0, 5000, 'par_collecte', 'actif', CURRENT_DATE);
 
 -- Collectes AG, créneau dans une heure (heure de Paris) : toute annulation
--- maintenant est tardive (< 4 h) et débiterait le pack.
+-- maintenant est tardive (< 4 h) : le crédit décompté reste acquis.
 --   c1 : programmée, la relève la fait passer en cours (cas de la revue)
 --   c2 : validée, la relève la fait passer en cours
 --   c3, c5, c6 : statuts que le client ne peut plus annuler
@@ -96,16 +98,13 @@ SELECT is((SELECT count(*)::int FROM plateforme.outbox_events
   0, 'c2 : aucun E3');
 
 SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'ac100000-0000-0000-0000-0000000000a1'),
-  0, 'c1, c2 : annulation tardive refusée, pack non débité');
+  7, 'c1, c2 : annulation tardive refusée, pack inchangé (7 crédits décomptés à la programmation)');
 
 -- ── 3. Statuts terminaux ou déjà annulés : refus ─────────────────────────────
 UPDATE plateforme.collectes SET statut = 'en_cours' WHERE id = 'ac100000-0000-0000-0000-0000000000c3';
 UPDATE plateforme.collectes SET statut = 'realisee' WHERE id = 'ac100000-0000-0000-0000-0000000000c3';
 UPDATE plateforme.collectes SET statut = 'annulee' WHERE id = 'ac100000-0000-0000-0000-0000000000c5';
 UPDATE plateforme.collectes SET statut = 'annulation_demandee' WHERE id = 'ac100000-0000-0000-0000-0000000000c6';
--- Remet le pack à zéro : l'annulation de c5 ci-dessus (UPDATE direct) a pu débiter.
-UPDATE plateforme.packs_antgaspi SET credits_consommes = 0, statut = 'actif'
- WHERE id = 'ac100000-0000-0000-0000-0000000000a1';
 DELETE FROM plateforme.outbox_events
  WHERE aggregate_id IN ('ac100000-0000-0000-0000-0000000000c5', 'ac100000-0000-0000-0000-0000000000c6');
 
@@ -161,7 +160,9 @@ SELECT is((SELECT count(*)::int FROM plateforme.outbox_events
             WHERE aggregate_id = 'ac100000-0000-0000-0000-0000000000c7' AND event_type = 'collecte.annulee'),
   1, 'c7 : un E3 dans la file');
 SELECT is((SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'ac100000-0000-0000-0000-0000000000a1'),
-  1, 'c7 : annulation tardive, un crédit débité');
+  7, 'c7 : annulation tardive, le crédit décompté reste acquis (aucun nouveau débit)');
+SELECT is((SELECT pack_antgaspi_id FROM plateforme.collectes WHERE id = 'ac100000-0000-0000-0000-0000000000c7'),
+  'ac100000-0000-0000-0000-0000000000a1'::uuid, 'c7 : garde son pack');
 
 SELECT lives_ok(
   $$ SELECT plateforme.fn_annuler_collecte_client('ac100000-0000-0000-0000-0000000000c8', '') $$,

@@ -196,14 +196,16 @@ SELECT ok(
 -- =====================================================================
 -- RM-09 — garde incident sur le débit de crédit pack AG
 -- =====================================================================
--- Pack actif org1 (cas incident prestataire → PAS de débit).
+-- Le crédit de chaque collecte a été décompté à sa programmation (règle Val
+-- 2026-11-02) : pack posé sur la collecte, un crédit consommé.
+-- Pack actif org1 (cas incident prestataire → crédit rendu).
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_initiaux, credits_consommes, statut, date_achat)
 VALUES ('e16a0f01-0000-0000-0000-000000000001'::uuid, 'e16a0001-0000-0000-0000-000000000001'::uuid,
-        'pack_10', 10, 0, 'actif', current_date);
--- Pack actif org2 (cas incident client → débit).
+        'pack_10', 10, 1, 'actif', current_date);
+-- Pack actif org2 (cas incident client → crédit gardé).
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_initiaux, credits_consommes, statut, date_achat)
 VALUES ('e16a0f01-0000-0000-0000-000000000002'::uuid, 'e16a0001-0000-0000-0000-000000000002'::uuid,
-        'pack_10', 10, 0, 'actif', current_date);
+        'pack_10', 10, 1, 'actif', current_date);
 
 -- Collecte AG mandatée, mission passée (< 4h), pack attaché — cas incident prestataire.
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, pack_antgaspi_id)
@@ -214,7 +216,7 @@ INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, da
 VALUES ('e16a0c05-0000-0000-0000-000000000002'::uuid, 'e16a0006-0000-0000-0000-000000000002'::uuid,
         'anti_gaspi', 'validee', 'acceptee', current_date, '00:00', 1, 'e16a0f01-0000-0000-0000-000000000002'::uuid);
 
--- Incident prestataire → annulee + incident_imputable_a='prestataire' : PAS de débit.
+-- Incident prestataire → annulee + incident_imputable_a='prestataire' : crédit rendu.
 UPDATE plateforme.collectes
 SET statut = 'annulee', incident_imputable_a = 'prestataire', motif_incident = 'Prestataire non présenté'
 WHERE id = 'e16a0c05-0000-0000-0000-000000000001'::uuid;
@@ -222,10 +224,10 @@ WHERE id = 'e16a0c05-0000-0000-0000-000000000001'::uuid;
 SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e16a0f01-0000-0000-0000-000000000001'::uuid),
   0,
-  'RM-09 : incident imputable prestataire → aucun débit de crédit pack (collecte manquée non facturable)'
+  'RM-09 : incident imputable prestataire → crédit pack rendu (collecte manquée non facturable)'
 );
 
--- Annulation tardive imputable client → débit normal.
+-- Annulation tardive imputable client → le crédit décompté reste acquis.
 UPDATE plateforme.collectes
 SET statut = 'annulee', incident_imputable_a = 'client', motif_incident = 'Annulation last minute client'
 WHERE id = 'e16a0c05-0000-0000-0000-000000000002'::uuid;
@@ -233,7 +235,7 @@ WHERE id = 'e16a0c05-0000-0000-0000-000000000002'::uuid;
 SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e16a0f01-0000-0000-0000-000000000002'::uuid),
   1,
-  'RM-09 : annulation tardive imputable client → débit d''un crédit pack'
+  'RM-09 : annulation tardive imputable client → crédit pack gardé'
 );
 
 SELECT * FROM finish();

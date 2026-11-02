@@ -235,6 +235,22 @@ describe('M2.1 / rattacher-pack — GET admin/collectes/[id] : rattachement_pack
     expect((await res.json()).rattachement_pack).toEqual({ pack_actif: null });
   });
 
+  it('AG à venir sans crédit (programmée) : la base tranche (débit à la programmation, 2026-11-02)', async () => {
+    setupAuth('admin_savr');
+    reponses.set('plateforme.collectes', {
+      data: { ...collecteAgSansPack, statut: 'programmee' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+
+    const res = await getDetail();
+
+    expect(mockRpc).toHaveBeenCalledWith('f_collecte_rattachable_pack', {
+      p_collecte_id: expect.any(String),
+    });
+    expect((await res.json()).rattachement_pack).not.toBeNull();
+  });
+
   it('ops_savr : null, la fonction n’est pas appelée (rattachement réservé à admin_savr)', async () => {
     setupAuth('ops_savr');
     reponses.set('plateforme.collectes', {
@@ -287,7 +303,7 @@ describe('M2.1 / rattacher-pack — GET admin/collectes/[id] : rattachement_pack
   it.each([
     ['AG déjà rattachée', { type: 'anti_gaspi', pack_antgaspi_id: 'pack-1' }],
     ['ZD', { type: 'zero_dechet', pack_antgaspi_id: null }],
-    ['AG à venir (programmée)', { statut: 'programmee' }],
+    ['AG en brouillon', { statut: 'brouillon' }],
   ])('%s : null, la fonction n’est pas appelée', async (_cas, champs) => {
     setupAuth('admin_savr');
     reponses.set('plateforme.collectes', {

@@ -11,6 +11,7 @@ import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { lireCollectesEnvoiAbandonne } from '@/lib/ordre-envoi.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -69,7 +70,15 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     query = query.order(c, { ascending: tri.ascendant });
   query = query.order('id', { ascending: tri.ascendant });
 
-  query = appliquerFiltresCollectesAdmin(query, filtres, new Date());
+  // Envoi abandonné = « Créée » (décision Val 2026-11-02) : lu dans la file
+  // d'envoi, pour le filtre comme pour le libellé de chaque ligne.
+  const abandons = await lireCollectesEnvoiAbandonne(supabase);
+  if (abandons.error)
+    return serverError(abandons.error, 'admin.collectes.list');
+
+  query = appliquerFiltresCollectesAdmin(query, filtres, new Date(), [
+    ...abandons.data,
+  ]);
 
   const { data, error, count } = await query.range(offset, offset + limit - 1);
   if (error) return serverError(error, 'admin.collectes.list');
@@ -77,7 +86,9 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   // Enrichissement carte (§06.06 §3) — champs non embeddables proprement, résolus
   // ici par requêtes batch (jamais 1 par ligne).
   type Row = {
+    id?: string;
     type?: string;
+    envoi_abandonne?: boolean;
     attributions_antgaspi?: { transporteurs?: { nom?: string } | null } | null;
     collecte_tournees?: {
       tournees?: { prestataire_logistique_id?: string | null } | null;
@@ -146,6 +157,8 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   }
 
   for (const r of rows) {
+    r.envoi_abandonne = r.id != null && abandons.data.has(r.id);
+
     // Transporteur
     let nom = r.attributions_antgaspi?.transporteurs?.nom ?? null;
     if (!nom) {

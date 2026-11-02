@@ -47,6 +47,18 @@ function makeChain() {
   }
   chain.maybeSingle = () => Promise.resolve(next());
   chain.single = () => Promise.resolve(next());
+  // File d'envoi (`outbox_events`, envoi abandonné lu par l'email à l'équipe) :
+  // aucun abandon, hors de la file de réponses et des appels enregistrés.
+  const sansAbandon = {
+    select: () => sansAbandon,
+    eq: () => sansAbandon,
+    in: () => sansAbandon,
+    then: (resolve: (r: Result) => unknown) =>
+      resolve({ data: [], error: null }),
+  };
+  const fromParDefaut = chain.from as (...args: unknown[]) => unknown;
+  chain.from = (...args: unknown[]) =>
+    args[0] === 'outbox_events' ? sansAbandon : fromParDefaut(...args);
   chain.rpc = (...args: unknown[]) => {
     record('rpc', args);
     return Promise.resolve(next());

@@ -81,6 +81,7 @@ interface CollecteRow {
   tms_reference: string | null;
   prestataire_logistique_id: string | null;
   attributions_antgaspi: unknown;
+  envoi_abandonne?: boolean;
   date_collecte: string | null;
   heure_collecte?: string | null;
   // Pax de LA collecte (décision Val 2026-10-20).

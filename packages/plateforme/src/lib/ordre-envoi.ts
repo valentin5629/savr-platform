@@ -97,3 +97,64 @@ export function deriverOrdreEnvoi(lignes: LigneOrdre[]): OrdreEnvoi | null {
     erreur: erreur ? erreur.slice(0, LONGUEUR_MAX_ERREUR) : null,
   };
 }
+
+/**
+ * L'ordre de création parti vers le prestataire est-il abandonné ? Ramène la
+ * collecte à « Créée » côté Admin (lib/statut-collecte-admin, décision Val
+ * 2026-11-02). Un ordre de modification ou d'annulation abandonné n'en fait
+ * pas partie : la demande, elle, est bien arrivée.
+ */
+export function envoiAbandonne(ordre: OrdreEnvoi | null): boolean {
+  return ordre?.etat === 'echec_definitif' && ordre.nature === 'creation';
+}
+
+/**
+ * Collectes dont l'ordre de création est abandonné, parmi `collecteIds`
+ * (lignes déjà chargées) ou, sans liste, celles que l'exception touche encore
+ * (filtre « Créée » / « Programmée » de la liste Admin et de son export).
+ * Sans liste, les abandons de collectes depuis annulées, acceptées à la main ou
+ * terminées sont écartés : ils restent `dead` tant qu'on ne les saute pas, et
+ * grossiraient sans fin l'URL du filtre.
+ */
+export async function lireCollectesEnvoiAbandonne(
+  supabase: AdminSupabase,
+  collecteIds?: readonly string[],
+): Promise<{ data: Set<string>; error: ErreurDb | null }> {
+  if (collecteIds?.length === 0) return { data: new Set(), error: null };
+  let q = supabase
+    .from('outbox_events')
+    .select('aggregate_id')
+    .eq('aggregate_type', 'collecte')
+    // `collecte.creee` : l'ordre de l'attribution AG (`attribution.validee`)
+    // n'en fait pas partie.
+    .eq('event_type', 'collecte.creee')
+    .eq('statut', 'dead');
+  if (collecteIds) q = q.in('aggregate_id', [...collecteIds]);
+  const { data, error } = await q;
+  if (error) return { data: new Set(), error };
+  const ids = [
+    ...new Set(
+      ((data as { aggregate_id: string }[] | null) ?? []).map(
+        (l) => l.aggregate_id,
+      ),
+    ),
+  ];
+  if (collecteIds || ids.length === 0)
+    return { data: new Set(ids), error: null };
+
+  // Mêmes conditions que l'exception (lib/statut-collecte-admin).
+  const encore = await supabase
+    .from('collectes')
+    .select('id')
+    .in('id', ids)
+    .eq('statut', 'programmee')
+    .eq('statut_tms', 'non_envoye')
+    .is('tms_reference', null);
+  if (encore.error) return { data: new Set(), error: encore.error };
+  return {
+    data: new Set(
+      ((encore.data as { id: string }[] | null) ?? []).map((c) => c.id),
+    ),
+    error: null,
+  };
+}

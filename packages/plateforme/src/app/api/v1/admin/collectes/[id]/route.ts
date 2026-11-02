@@ -18,7 +18,11 @@ import {
   lireDernierEmailInfosAcces,
   type SuiviEmailInfosAcces,
 } from '@/lib/infos-acces/suivi-email.js';
-import { deriverOrdreEnvoi, lireOrdresCollecte } from '@/lib/ordre-envoi.js';
+import {
+  deriverOrdreEnvoi,
+  envoiAbandonne,
+  lireOrdresCollecte,
+} from '@/lib/ordre-envoi.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { CHAMPS_TYPE_CONTACTS_COLLECTE } from '@/lib/collectes/champs-editables.js';
 import {
@@ -224,11 +228,14 @@ async function getHandler(
     }
   }
 
+  const ordreEnvoi = deriverOrdreEnvoi(ordres.data);
   return NextResponse.json({
     ...data,
     prestataire_actuel: prestataireActuel,
     infos_acces_email: infosAccesEmail,
-    ordre_envoi: deriverOrdreEnvoi(ordres.data),
+    ordre_envoi: ordreEnvoi,
+    // Ramène le statut affiché à « Créée » (lib/statut-collecte-admin).
+    envoi_abandonne: envoiAbandonne(ordreEnvoi),
     rattachement_pack: rattachementPack,
   });
 }

@@ -298,6 +298,8 @@ interface CollecteDetail {
   // Ordre de tête de la collecte dans la file d'envoi au prestataire, lu par la
   // route détail (`lib/ordre-envoi`) ; null quand plus rien n'est en file.
   ordre_envoi?: OrdreEnvoi | null;
+  /** Ordre de création abandonné : statut affiché « Créée ». */
+  envoi_abandonne?: boolean;
   // Surcharge per-collecte du lieu (§04 `collectes.lieu_overrides`) : prime sur
   // la référence `lieux` pour cette collecte seulement.
   lieu_overrides?: Record<string, unknown> | null;
@@ -1873,6 +1875,8 @@ export function CollecteDetailPanel({
         : { label: 'Envoyée', variant: 'info' as const };
   // Affichage Admin « Créée » : le traiteur a validé, rien n'est parti.
   const estCreee = statutCollecteAdmin(collecte) === 'creee';
+  // « Créée » parce que l'envoi est abandonné : il est parti, et a échoué.
+  const rienParti = estCreee && !collecte.envoi_abandonne;
   const repasRealisesConnus = [
     'realisee',
     'realisee_sans_collecte',
@@ -2409,9 +2413,10 @@ export function CollecteDetailPanel({
                 ) : (
                   <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                     {/* « Créée » : rien n'est parti, ni prestataire ni statut
-                        TMS à lire (décision Val 2026-10-27). */}
-                    {!estCreee && champPrestataireActuel}
-                    {!estCreee && champStatutTms}
+                        TMS à lire (décision Val 2026-10-27) — sauf envoi
+                        abandonné, dont l'échec reste lisible (2026-11-02). */}
+                    {!rienParti && champPrestataireActuel}
+                    {!rienParti && champStatutTms}
                     {/* Besoin véhicule en lecture quand il ne part plus avec
                         l'envoi (décision Val 2026-10-27 ; « Référence TMS »
                         retirée, idem). */}

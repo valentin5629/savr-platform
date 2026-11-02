@@ -68,6 +68,34 @@ describe('M0.6 / statut Admin — Créée puis Programmée', () => {
     ).toBe('programmee');
   });
 
+  // Décision Val 2026-11-02 : la demande partie mais abandonnée n'est jamais
+  // arrivée — retour à « Créée », quels que soient les signaux posés au clic.
+  it('M0.6/statut_admin_creee_envoi_abandonne — ordre de création abandonné, rien de revenu = « Créée »', () => {
+    const abandonnee: EnvoiCollecte = {
+      ...CREEE,
+      prestataire_logistique_id: 'presta-1',
+      attributions_antgaspi: { id: 'attr-1' },
+      envoi_abandonne: true,
+    };
+    expect(statutCollecteAdmin(abandonnee)).toBe('creee');
+    // Quelque chose est revenu du prestataire (acceptation manuelle,
+    // référence) : la demande est arrivée, « Programmée ».
+    expect(statutCollecteAdmin({ ...abandonnee, statut_tms: 'acceptee' })).toBe(
+      'programmee',
+    );
+    expect(
+      statutCollecteAdmin({ ...abandonnee, tms_reference: 'MISSION-7' }),
+    ).toBe('programmee');
+    // Sans abandon (échec avec reprise compris) : inchangé.
+    expect(statutCollecteAdmin({ ...abandonnee, envoi_abandonne: false })).toBe(
+      'programmee',
+    );
+    // Hors `programmee`, l'abandon ne change rien.
+    expect(statutCollecteAdmin({ ...abandonnee, statut: 'validee' })).toBe(
+      'validee',
+    );
+  });
+
   it('hors `programmee`, la clé d’affichage est le statut DB', () => {
     for (const statut of [
       'brouillon',
@@ -115,6 +143,9 @@ function vrai(terme: string, ligne: Record<string, unknown>): boolean {
   const valeur = ligne[colonne];
   const vide = Array.isArray(valeur) ? valeur.length === 0 : valeur == null;
   const op = reste.join('.');
+  const horsListe = /^not\.in\.\((.*)\)$/.exec(op);
+  if (horsListe)
+    return !(horsListe[1] ?? '').split(',').includes(String(valeur));
   if (op === 'is.null') return vide;
   if (op === 'not.is.null') return !vide;
   if (op.startsWith('eq.')) return valeur === op.slice(3);
@@ -124,8 +155,12 @@ function vrai(terme: string, ligne: Record<string, unknown>): boolean {
   throw new Error(`terme PostgREST non géré par le test : ${terme}`);
 }
 
-function retenue(cles: string[], ligne: EnvoiCollecte): boolean {
-  const filtre = filtreStatutsAdmin(cles);
+function retenue(
+  cles: string[],
+  ligne: EnvoiCollecte,
+  idsAbandonnes: string[] = [],
+): boolean {
+  const filtre = filtreStatutsAdmin(cles, idsAbandonnes);
   if (!filtre) throw new Error('filtre attendu');
   return 'or' in filtre
     ? decoupe(filtre.or).some((t) =>
@@ -162,6 +197,52 @@ describe('M0.6 / statut Admin — filtre « Statut » de la liste Collectes', ()
       }
     },
   );
+
+  it.each([
+    [['creee']],
+    [['programmee']],
+    [['creee', 'validee']],
+    [['programmee', 'en_cours']],
+  ])(
+    'M0.6/statut_admin_filtre_envoi_abandonne — sélection %j : une collecte à l’envoi abandonné suit son libellé « Créée »',
+    (cles) => {
+      const ID_A = '11111111-1111-4111-8111-111111111111';
+      const ID_B = '22222222-2222-4222-8222-222222222222';
+      const ids = [ID_A];
+      const lignes: (EnvoiCollecte & { id: string })[] = [
+        // Abandonnée, signaux posés au clic.
+        {
+          ...CREEE,
+          id: ID_A,
+          prestataire_logistique_id: 'p',
+          attributions_antgaspi: { id: 'a' },
+        },
+        // Abandonnée mais acceptée à la main depuis.
+        {
+          ...CREEE,
+          id: ID_A,
+          prestataire_logistique_id: 'p',
+          statut_tms: 'acceptee',
+        },
+        // Non abandonnée.
+        { ...CREEE, id: ID_B, prestataire_logistique_id: 'p' },
+        { ...CREEE, id: ID_B },
+        { ...CREEE, id: ID_A, statut: 'validee', statut_tms: 'acceptee' },
+      ];
+      for (const ligne of lignes) {
+        const affiche = statutCollecteAdmin({
+          ...ligne,
+          envoi_abandonne: ids.includes(ligne.id),
+        });
+        expect(retenue(cles, ligne, ids)).toBe(cles.includes(affiche));
+      }
+    },
+  );
+
+  it('identifiants d’abandon : seuls des UUID partent dans `.or()`', () => {
+    const filtre = filtreStatutsAdmin(['creee'], ['x),statut.neq.zz']);
+    expect(filtre).toEqual(filtreStatutsAdmin(['creee']));
+  });
 
   it('« Créée » et « Programmée » cochées ensemble (ou aucune) : simple liste de statuts DB', () => {
     expect(filtreStatutsAdmin(['creee', 'programmee', 'validee'])).toEqual({

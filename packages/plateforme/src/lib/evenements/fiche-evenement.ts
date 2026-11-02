@@ -30,6 +30,7 @@ import { STATUT_BILAN } from '@/lib/collectes/fiche-client-types';
 import type { EspaceEvenements } from '@/lib/evenements/liste-evenements';
 import { nomOrganisation } from '@/lib/evenements/filtres-evenements';
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
+import { lireCollectesEnvoiAbandonne } from '@/lib/ordre-envoi';
 import type { DbClient } from '@/lib/dashboards/loaders';
 import { tailleBracket } from '@/lib/dashboard-kpi';
 import {
@@ -175,9 +176,8 @@ export async function chargerFicheEvenement(
 
   // Staff : service_role, comme la liste et les routes Admin ; les autres
   // rôles sous leur session (RLS).
-  const supabase = (
-    admin ? createAdminSupabaseClient() : createSupabaseServerClient()
-  ) as DbClient;
+  const clientAdmin = admin ? createAdminSupabaseClient() : null;
+  const supabase = (clientAdmin ?? createSupabaseServerClient()) as DbClient;
   // Chemins de lecture imposés par la RLS (cf. PROFILS) : le traiteur passe,
   // pour le gestionnaire, par la vue restreinte v_traiteurs_gestionnaire (id,
   // nom, logo ; le logo est une clé R2 servie par le proxy …/traiteurs/[id]/logo
@@ -256,6 +256,16 @@ export async function chargerFicheEvenement(
       a.id.localeCompare(b.id),
   );
   const bilan = consoliderEvenement(collectes);
+  // Staff : envoi abandonné = « Créée » (décision Val 2026-11-02).
+  let abandons = new Set<string>();
+  if (clientAdmin) {
+    const lu = await lireCollectesEnvoiAbandonne(
+      clientAdmin,
+      collectes.map((c) => c.id),
+    );
+    if (lu.error) return { etat: 'erreur', erreur: lu.error };
+    abandons = lu.data;
+  }
 
   // Déchets labo estimés : gestionnaire SEUL (§05 R_dechets_labo_estimes ;
   // ailleurs valeur ÷ pax livrerait le coefficient du traiteur), seulement si
@@ -389,6 +399,7 @@ export async function chargerFicheEvenement(
               tms_reference: c.tms_reference ?? null,
               prestataire_logistique_id: c.prestataire_logistique_id ?? null,
               attributions_antgaspi: c.attributions_antgaspi ?? null,
+              envoi_abandonne: abandons.has(c.id),
             }),
           ]),
         ),

@@ -11,8 +11,17 @@ import { SavrLogoMark } from '@/components/layout/savr-logo';
 import {
   CaretLeftIcon,
   CaretRightIcon,
+  CaretUpDownIcon,
+  GearIcon,
   SignOutIcon,
 } from '@/components/ui/icones';
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownContent,
+  DropdownItem,
+  DropdownSeparator,
+} from '@/components/ui/dropdown';
 import { Badge } from '@/components/ui/badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { Button } from '@/components/ui/button';
@@ -21,45 +30,11 @@ import { ROUTES } from '@/lib/routes';
 import { initiales } from '@/components/dashboards/charts/cockpit/fmt';
 import type { IdentiteSession } from '@/lib/identite-session';
 
-// Logo de l'organisation sur une tuile blanche, ENTIER (object-contain, jamais
-// rogné) ; initiales si l'organisation n'a pas de logo ou s'il ne charge pas.
-function LogoOrganisation({
-  identite,
-  collapsed,
-}: {
-  identite: IdentiteSession;
-  collapsed: boolean;
-}) {
-  const [logoKo, setLogoKo] = React.useState(false);
-  const logo = identite.logoSrc && !logoKo ? identite.logoSrc : null;
-  return (
-    <span
-      data-testid="logo-organisation"
-      aria-hidden="true"
-      className={cn(
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-savr-md bg-savr-white p-1 text-sm font-semibold text-savr-primary-800',
-        collapsed ? 'h-11 w-12' : 'h-14 w-20',
-      )}
-    >
-      {logo ? (
-        <img
-          src={logo}
-          alt=""
-          className="h-full w-full object-contain"
-          onError={() => setLogoKo(true)}
-        />
-      ) : (
-        initiales(identite.organisation ?? identite.utilisateur)
-      )}
-    </span>
-  );
-}
-
 interface SidebarProps {
   role: NavRole;
   collapsed?: boolean;
   onToggle?: () => void;
-  /** Organisation et utilisateur, affichés au-dessus de « Se déconnecter ». */
+  /** Utilisateur et son poste, à gauche du picto « Se déconnecter ». */
   identite?: IdentiteSession | null;
   /**
    * Handler de déconnexion. Par défaut (non fourni) : `signOut()` côté client
@@ -73,6 +48,13 @@ interface SidebarProps {
   navBadges?: Record<string, number>;
   className?: string;
 }
+
+const PARAMETRES_CLIENTS = new Set<string>([
+  ROUTES.traiteur.parametres,
+  ROUTES.agence.parametres,
+  ROUTES.gestionnaire.parametres,
+  ROUTES.organisateur.parametres,
+]);
 
 // Sidebar — bloc primaire plein primary-800 (levier #2)
 // Item actif : fond primary-700 + barre accent-500 3px gauche
@@ -114,10 +96,21 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     const logoZd = zdSelected || isZdSectionPath(pathname);
     const hidden = new Set(hiddenNavHrefs ?? []);
     const hrefActif = hrefNavActif(role, pathname);
-    const groups = (NAV_CONFIG[role] ?? []).map((g) => ({
-      ...g,
-      items: g.items.filter((i) => !hidden.has(i.href)),
-    }));
+    const avecIdentite = !!identite?.utilisateur;
+    // « Paramètres » des espaces clients (profil, organisation, membres) passe
+    // dans le menu de l'utilisateur quand il est affiché. Celui de l'Admin
+    // (réglages métier du back-office, §06.06) reste dans la barre.
+    const hrefParametres = (NAV_CONFIG[role] ?? [])
+      .flatMap((g) => g.items)
+      .find((i) => PARAMETRES_CLIENTS.has(i.href))?.href;
+    const parametresActif = !!hrefParametres && hrefActif === hrefParametres;
+    if (avecIdentite && hrefParametres) hidden.add(hrefParametres);
+    const groups = (NAV_CONFIG[role] ?? [])
+      .map((g) => ({
+        ...g,
+        items: g.items.filter((i) => !hidden.has(i.href)),
+      }))
+      .filter((g) => g.items.length > 0);
 
     return (
       <nav
@@ -242,54 +235,121 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             </IconButton>
           </div>
         )}
-        {/* Qui est connecté puis déconnexion — tout en bas (Val 2026-10-30, ex-TopBar) */}
+        {/* Pied du menu (Val 2026-11-02) : avatar, nom et poste forment un
+            bouton qui ouvre un menu « Paramètres » / « Se déconnecter ». Le
+            logo de l'organisation est dans le bandeau de page. Sans identité :
+            bouton « Se déconnecter » avec libellé. */}
         <div className="shrink-0 border-t border-savr-primary-700 p-2">
-          {identite && (identite.organisation || identite.utilisateur) && (
-            <div
-              data-testid="identite-session"
-              title={
-                collapsed
-                  ? [identite.organisation, identite.utilisateur]
-                      .filter(Boolean)
-                      .join(' — ')
-                  : undefined
-              }
+          {avecIdentite ? (
+            <Dropdown>
+              <DropdownTrigger asChild>
+                <Button
+                  variant="ghost"
+                  data-testid="menu-utilisateur"
+                  aria-label={`Menu de ${identite.utilisateur}`}
+                  title={[identite.utilisateur, identite.poste]
+                    .filter(Boolean)
+                    .join(' — ')}
+                  aria-busy={loggingOut || undefined}
+                  className={cn(
+                    // Button ghost du DS, recalé sur le fond primary-800.
+                    'relative h-auto min-h-11 w-full gap-2 text-left font-normal hover:bg-savr-primary-700 active:bg-savr-primary-700 data-[state=open]:bg-savr-primary-700 sm:h-auto',
+                    collapsed
+                      ? 'justify-center px-0'
+                      : 'justify-start px-1 py-1',
+                    // Page Paramètres ouverte : même marque que l'entrée active.
+                    parametresActif && 'bg-savr-primary-700',
+                  )}
+                >
+                  {parametresActif && (
+                    <span
+                      className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-savr-full bg-savr-accent-500"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {/* Avatar aux initiales « Prénom Nom » (Val 2026-11-01). */}
+                  <span
+                    data-testid="avatar-utilisateur"
+                    aria-hidden="true"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-600 font-display text-sm font-semibold text-savr-white"
+                  >
+                    {initiales(identite.utilisateur)}
+                  </span>
+                  {!collapsed && (
+                    <span
+                      data-testid="identite-session"
+                      className="min-w-0 flex-1"
+                    >
+                      <span className="block truncate text-sm font-semibold text-savr-white">
+                        {identite.utilisateur}
+                      </span>
+                      {identite.poste && (
+                        <span className="block truncate text-sm text-savr-primary-200">
+                          {identite.poste}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {!collapsed && (
+                    <CaretUpDownIcon
+                      className="mr-1 h-4 w-4 shrink-0 text-savr-primary-300"
+                      aria-hidden="true"
+                    />
+                  )}
+                </Button>
+              </DropdownTrigger>
+              <DropdownContent
+                side={collapsed ? 'right' : 'top'}
+                align={collapsed ? 'end' : 'start'}
+                className={cn(
+                  'min-w-56',
+                  !collapsed && 'w-[var(--radix-dropdown-menu-trigger-width)]',
+                )}
+              >
+                {hrefParametres && (
+                  <DropdownItem asChild className="min-h-11">
+                    <Link
+                      href={hrefParametres}
+                      aria-current={parametresActif ? 'page' : undefined}
+                    >
+                      <GearIcon aria-hidden="true" />
+                      Paramètres
+                    </Link>
+                  </DropdownItem>
+                )}
+                {hrefParametres && <DropdownSeparator />}
+                <DropdownItem
+                  className="min-h-11"
+                  disabled={loggingOut}
+                  onSelect={(e) => {
+                    // Menu gardé ouvert : « Déconnexion… » reste visible.
+                    e.preventDefault();
+                    void handleLogout();
+                  }}
+                >
+                  <SignOutIcon aria-hidden="true" />
+                  {loggingOut ? 'Déconnexion…' : 'Se déconnecter'}
+                </DropdownItem>
+              </DropdownContent>
+            </Dropdown>
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={() => void handleLogout()}
+              loading={loggingOut}
+              loadingText={collapsed ? '' : <span>Déconnexion…</span>}
+              aria-label="Se déconnecter"
+              title={collapsed ? 'Se déconnecter' : undefined}
               className={cn(
-                'mb-1 flex items-center gap-3 px-1 py-2',
+                // Mêmes teintes que les entrées du menu (fond primary-800).
+                'h-10 w-full justify-start gap-3 px-3 font-medium text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white active:bg-savr-primary-700 sm:h-10 [&>svg]:h-5 [&>svg]:w-5',
                 collapsed && 'justify-center px-0',
               )}
             >
-              <LogoOrganisation identite={identite} collapsed={collapsed} />
-              <div className={cn('min-w-0', collapsed && 'sr-only')}>
-                {identite.organisation && (
-                  <p className="truncate text-sm font-semibold text-savr-white">
-                    {identite.organisation}
-                  </p>
-                )}
-                {identite.utilisateur && (
-                  <p className="truncate text-sm text-savr-primary-200">
-                    {identite.utilisateur}
-                  </p>
-                )}
-              </div>
-            </div>
+              <SignOutIcon aria-hidden="true" />
+              {!collapsed && <span>Se déconnecter</span>}
+            </Button>
           )}
-          <Button
-            variant="ghost"
-            onClick={() => void handleLogout()}
-            loading={loggingOut}
-            loadingText={collapsed ? '' : <span>Déconnexion…</span>}
-            aria-label="Se déconnecter"
-            title={collapsed ? 'Se déconnecter' : undefined}
-            className={cn(
-              // Mêmes teintes que les entrées du menu (fond primary-800).
-              'h-10 w-full justify-start gap-3 px-3 font-medium text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white active:bg-savr-primary-700 sm:h-10 [&>svg]:h-5 [&>svg]:w-5',
-              collapsed && 'justify-center px-0',
-            )}
-          >
-            <SignOutIcon aria-hidden="true" />
-            {!collapsed && <span>Se déconnecter</span>}
-          </Button>
         </div>
       </nav>
     );

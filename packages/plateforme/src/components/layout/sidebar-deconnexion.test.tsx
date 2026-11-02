@@ -1,7 +1,8 @@
 /**
- * Sidebar — « Se déconnecter » tout en bas à gauche (Val 2026-10-30, ex-TopBar,
- * décision du bouton toujours affiché : Val 2026-07-03). Par défaut il appelle
- * `signOut()` puis redirige vers /login ; un `onLogout` explicite prend le dessus.
+ * Sidebar — « Se déconnecter » tout en bas (Val 2026-10-30, ex-TopBar,
+ * décision du bouton toujours affiché : Val 2026-07-03) ; avec une identité,
+ * avatar, nom et poste ouvrent un menu « Paramètres » / « Se déconnecter »
+ * (Val 2026-11-02), le logo de l'organisation passant dans le bandeau.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -10,24 +11,26 @@ const mockSignOut = vi.fn().mockResolvedValue({ error: null });
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createBrowserSupabaseClient: () => ({ auth: { signOut: mockSignOut } }),
 }));
-vi.mock('next/navigation', () => ({ usePathname: () => '/gestionnaire' }));
-vi.mock('next/link', () => ({
-  default: ({
-    href,
-    children,
-  }: {
-    href: string;
-    children: React.ReactNode;
-  }) => <a href={href}>{children}</a>,
-}));
+const mockPathname = vi.hoisted(() => vi.fn(() => '/gestionnaire'));
+vi.mock('next/navigation', () => ({ usePathname: mockPathname }));
+vi.mock('next/link', async () => {
+  const { forwardRef } = await import('react');
+  // Fait suivre les attributs : le menu pose role="menuitem" sur le lien.
+  const Lien = forwardRef<HTMLAnchorElement, React.ComponentProps<'a'>>(
+    (props, ref) => <a ref={ref} {...props} />,
+  );
+  return { default: Lien };
+});
 
 import { Sidebar } from './sidebar';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import type { IdentiteSession } from '@/lib/identite-session';
 
 const originalLocation = window.location;
 
 beforeEach(() => {
   mockSignOut.mockClear();
+  mockPathname.mockReturnValue('/gestionnaire');
   Object.defineProperty(window, 'location', {
     configurable: true,
     writable: true,
@@ -42,70 +45,151 @@ afterEach(() => {
   });
 });
 
-describe('Sidebar — organisation et utilisateur au-dessus de la déconnexion', () => {
-  const identite = {
+describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)', () => {
+  const identite: IdentiteSession = {
     organisation: 'Viparis',
     logoSrc: '/api/v1/mon-organisation/logo?v=1',
+    logoAffichable: true,
     utilisateur: 'Camille Martin',
+    poste: 'Responsable RSE',
   };
 
-  it('logo entier (non rogné), nom de l’organisation puis de l’utilisateur', () => {
+  function ouvrir() {
+    const bouton = screen.getByTestId('menu-utilisateur');
+    fireEvent.keyDown(bouton, { key: 'Enter' });
+    return bouton;
+  }
+
+  it('avatar aux initiales, nom puis poste, sans organisation ni logo', () => {
     render(<Sidebar role="gestionnaire_lieux" identite={identite} />);
-    const bloc = screen.getByTestId('identite-session');
-    const lignes = Array.from(bloc.querySelectorAll('p')).map(
-      (p) => p.textContent,
+    const bouton = screen.getByTestId('menu-utilisateur');
+    expect(screen.getByTestId('avatar-utilisateur')).toHaveTextContent('CM');
+    expect(screen.getByTestId('identite-session')).toHaveTextContent(
+      'Camille MartinResponsable RSE',
     );
-    expect(lignes).toEqual(['Viparis', 'Camille Martin']);
-    const img = bloc.querySelector('img')!;
-    expect(img.getAttribute('src')).toBe(identite.logoSrc);
-    expect(img.getAttribute('class')).toContain('object-contain');
-    // Le bloc précède le bouton de déconnexion.
-    const bouton = screen.getByRole('button', { name: 'Se déconnecter' });
-    expect(
-      bloc.compareDocumentPosition(bouton) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(bouton.getAttribute('title')).toBe(
+      'Camille Martin — Responsable RSE',
+    );
+    expect(bouton.className).toContain('min-h-11');
+    expect(screen.queryByTestId('logo-organisation')).toBeNull();
+    expect(screen.queryByText('Viparis')).toBeNull();
   });
 
-  it('sans logo, ou logo introuvable : initiales de l’organisation', () => {
-    const { unmount } = render(
-      <Sidebar
-        role="gestionnaire_lieux"
-        identite={{
-          ...identite,
-          organisation: 'Pavillon Gabriel',
-          logoSrc: null,
-        }}
-      />,
-    );
-    expect(screen.getByTestId('logo-organisation')).toHaveTextContent('PG');
-    unmount();
-
-    render(<Sidebar role="gestionnaire_lieux" identite={identite} />);
-    const tuile = screen.getByTestId('logo-organisation');
-    fireEvent.error(tuile.querySelector('img')!);
-    expect(tuile.querySelector('img')).toBeNull();
-    expect(tuile).toHaveTextContent('V');
+  it('clic sur le nom : menu « Paramètres » puis « Se déconnecter »', () => {
+    render(<Sidebar role="traiteur_manager" identite={identite} />);
+    expect(screen.queryByRole('menu')).toBeNull();
+    ouvrir();
+    const items = screen.getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual([
+      'Paramètres',
+      'Se déconnecter',
+    ]);
+    expect(items[0]!.getAttribute('href')).toBe('/traiteur/parametres');
   });
 
-  it('barre réduite : logo seul, noms gardés pour les lecteurs d’écran', () => {
+  it('« Paramètres » quitte la navigation principale', () => {
+    render(<Sidebar role="traiteur_manager" identite={identite} />);
+    expect(screen.queryByRole('link', { name: 'Paramètres' })).toBeNull();
+  });
+
+  it(
+    '« Se déconnecter » du menu → signOut() puis /login',
+    async () => {
+      render(<Sidebar role="gestionnaire_lieux" identite={identite} />);
+      ouvrir();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Se déconnecter' }));
+      await waitFor(
+        () => expect(mockSignOut).toHaveBeenCalledTimes(1),
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(window.location.href).toBe('/login'),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it('barre réduite : avatar seul, nom au survol, menu toujours là', () => {
     render(
       <Sidebar
-        role="gestionnaire_lieux"
+        role="traiteur_manager"
         collapsed
         onToggle={() => {}}
         identite={identite}
       />,
     );
-    const bloc = screen.getByTestId('identite-session');
-    expect(bloc.getAttribute('title')).toBe('Viparis — Camille Martin');
-    expect(bloc.querySelector('.sr-only')).toHaveTextContent('Viparis');
-  });
-
-  it('sans identité : pas de bloc, le bouton reste', () => {
-    render(<Sidebar role="gestionnaire_lieux" />);
     expect(screen.queryByTestId('identite-session')).toBeNull();
     expect(
+      screen.getByRole('button', { name: 'Menu de Camille Martin' }),
+    ).toHaveTextContent('CM');
+    ouvrir();
+    expect(screen.getAllByRole('menuitem')).toHaveLength(2);
+  });
+
+  it('Admin : « Paramètres » (réglages métier) reste dans la barre, le menu ne porte que la déconnexion', () => {
+    render(<Sidebar role="admin_savr" identite={identite} />);
+    expect(
+      screen.getByRole('link', { name: 'Paramètres' }),
+    ).toBeInTheDocument();
+    ouvrir();
+    expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
+      'Se déconnecter',
+    ]);
+  });
+
+  it('page Paramètres ouverte : le bouton du menu porte la marque active', () => {
+    mockPathname.mockReturnValue('/traiteur/parametres');
+    render(<Sidebar role="traiteur_manager" identite={identite} />);
+    expect(screen.getByTestId('menu-utilisateur').className).toContain(
+      'bg-savr-primary-700',
+    );
+    ouvrir();
+    expect(
+      screen
+        .getByRole('menuitem', { name: 'Paramètres' })
+        .getAttribute('aria-current'),
+    ).toBe('page');
+  });
+
+  it('un onLogout explicite est appelé depuis le menu (pas de signOut auto)', () => {
+    const onLogout = vi.fn();
+    render(
+      <Sidebar
+        role="gestionnaire_lieux"
+        identite={identite}
+        onLogout={onLogout}
+      />,
+    );
+    ouvrir();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Se déconnecter' }));
+    expect(onLogout).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('sans poste : le nom seul', () => {
+    render(
+      <Sidebar
+        role="traiteur_manager"
+        identite={{ ...identite, poste: null }}
+      />,
+    );
+    expect(screen.getByTestId('identite-session')).toHaveTextContent(
+      /^Camille Martin$/,
+    );
+    expect(screen.getByTestId('menu-utilisateur').getAttribute('title')).toBe(
+      'Camille Martin',
+    );
+  });
+
+  it('sans identité : bouton « Se déconnecter » avec libellé, Paramètres dans la navigation', () => {
+    render(<Sidebar role="traiteur_manager" />);
+    expect(screen.queryByTestId('menu-utilisateur')).toBeNull();
+    expect(
       screen.getByRole('button', { name: 'Se déconnecter' }),
+    ).toHaveTextContent('Se déconnecter');
+    expect(
+      screen.getByRole('link', { name: 'Paramètres' }),
     ).toBeInTheDocument();
   });
 });

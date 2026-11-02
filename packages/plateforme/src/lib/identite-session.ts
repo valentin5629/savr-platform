@@ -5,16 +5,21 @@ import { createSupabaseServerClient } from '@/lib/api-auth';
 const ROUTE_LOGO = '/api/v1/mon-organisation/logo';
 
 /**
- * Qui est connecté, affiché en bas de la barre latérale (Val 2026-10-30) :
- * logo et nom de l'organisation, puis le nom de l'utilisateur.
+ * Qui est connecté (Val 2026-11-01) : le nom de l'utilisateur et son poste en
+ * bas de la barre latérale, le logo de l'organisation en haut à droite du
+ * bandeau de page (clients seulement).
  */
 export interface IdentiteSession {
-  /** Nom de l'organisation ; `null` si illisible (la ligne affiche alors l'email). */
+  /** Nom de l'organisation ; `null` si illisible. */
   organisation: string | null;
   /** URL du proxy de logo, `null` sans logo (tuile à initiales). */
   logoSrc: string | null;
+  /** Faux pour le staff : pas de tuile d'organisation dans le bandeau. */
+  logoAffichable: boolean;
   /** « Prénom Nom », repli sur l'email. */
   utilisateur: string;
+  /** Poste saisi dans « Mon profil », `null` si vide. */
+  poste: string | null;
 }
 
 /**
@@ -37,13 +42,15 @@ export async function chargerIdentiteSession({
   const repli: IdentiteSession = {
     organisation: null,
     logoSrc: null,
+    logoAffichable,
     utilisateur: email,
+    poste: null,
   };
   try {
     const supabase = createSupabaseServerClient({ readonly: true });
     const { data: user } = await supabase
       .from('users')
-      .select('prenom, nom, organisation_id')
+      .select('prenom, nom, poste, organisation_id')
       .eq('id', userId)
       .maybeSingle();
     if (!user) return repli;
@@ -65,7 +72,12 @@ export async function chargerIdentiteSession({
       logoSrc: logo
         ? `${ROUTE_LOGO}?v=${createHash('sha1').update(logo).digest('hex').slice(0, 10)}`
         : null,
+      logoAffichable,
       utilisateur: nomComplet || email,
+      poste:
+        typeof user.poste === 'string' && user.poste.trim()
+          ? user.poste.trim()
+          : null,
     };
   } catch {
     return repli;

@@ -42,8 +42,6 @@ interface SidebarProps {
    * peuvent pas passer de handler).
    */
   onLogout?: () => void;
-  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack). */
-  hiddenNavHrefs?: string[];
   /** Compteurs par href (ex : { '/admin/alertes': 3 }) → pastille sur l'item. */
   navBadges?: Record<string, number>;
   className?: string;
@@ -66,7 +64,6 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
       onToggle,
       onLogout,
       identite,
-      hiddenNavHrefs,
       navBadges,
       className,
     },
@@ -94,7 +91,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     // par la navigation (section ZD-only), soit par une sélection ZD en cours
     // dans la page (ex : type de collecte ZD coché).
     const logoZd = zdSelected || isZdSectionPath(pathname);
-    const hidden = new Set(hiddenNavHrefs ?? []);
+    const hidden = new Set<string>();
     const hrefActif = hrefNavActif(role, pathname);
     const avecIdentite = !!identite?.utilisateur;
     // « Paramètres » des espaces clients (profil, organisation, membres) passe
@@ -118,7 +115,8 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         aria-label="Navigation principale"
         className={cn(
           'flex h-full flex-col bg-savr-primary-800 transition-[width] duration-savr-base ease-out',
-          collapsed ? 'w-16' : 'w-64',
+          // 204 px déplié (Val 2026-11-02 : −20 % sur les 256 px d'avant).
+          collapsed ? 'w-16' : 'w-51',
           className,
         )}
       >
@@ -127,7 +125,8 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         <div
           data-testid="savr-logo"
           className={cn(
-            'flex h-16 shrink-0 items-center border-b border-savr-primary-700 px-4 transition-colors duration-savr-base',
+            // h-14 : même hauteur que la barre du haut, le logo est sur sa ligne.
+            'flex h-14 shrink-0 items-center px-4 transition-colors duration-savr-base',
             collapsed && 'justify-center px-0',
             logoZd ? 'text-savr-success' : 'text-savr-accent-500',
           )}

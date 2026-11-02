@@ -7,7 +7,6 @@ import Link from 'next/link';
 import {
   CalendarDotsIcon,
   NotePencilIcon,
-  PlusCircleIcon,
   TrashIcon,
 } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
@@ -64,14 +63,6 @@ export default function BrouillonsPage() {
       <PageHero
         icon={<NotePencilIcon className="h-6 w-6" />}
         title="Mes brouillons"
-        actions={
-          <Button variant="accent" asChild>
-            <Link href={ROUTES.programmer.nouveau}>
-              <PlusCircleIcon />
-              Programmer une collecte
-            </Link>
-          </Button>
-        }
       />
 
       {loading && <LoadingState variant="bloc" />}

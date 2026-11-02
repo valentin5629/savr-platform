@@ -65,7 +65,7 @@ export const ESPACES = {
 export type Espace = keyof typeof ESPACES;
 
 /** Rôles autorisés à programmer (formulaire + brouillons), staff en support. */
-const ROLES_PROGRAMMATION = [
+export const ROLES_PROGRAMMATION = [
   'traiteur_commercial',
   'traiteur_manager',
   'agence',
@@ -173,6 +173,7 @@ export const ROUTES = {
     collectes: `${T}/collectes`,
     collecte: (id: string) => `${T}/collectes/${id}`,
     evenements: `${T}/evenements`,
+    monPackAg: `${T}/mon-pack-ag`,
     parametres: `${T}/parametres`,
     parametresOrganisation: `${T}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },
@@ -182,6 +183,7 @@ export const ROUTES = {
     collectes: `${AG}/collectes`,
     collecte: (id: string) => `${AG}/collectes/${id}`,
     evenements: `${AG}/evenements`,
+    monPackAg: `${AG}/mon-pack-ag`,
     parametres: `${AG}/parametres`,
     parametresOrganisation: `${AG}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },
@@ -206,6 +208,7 @@ export const ROUTES = {
     collectes: `${O}/collectes`,
     evenements: `${O}/evenements`,
     documents: `${O}/documents`,
+    monPackAg: `${O}/mon-pack-ag`,
     parametres: `${O}/parametres`,
     parametresOrganisation: `${O}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },

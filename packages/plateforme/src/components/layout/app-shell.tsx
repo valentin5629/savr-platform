@@ -15,11 +15,6 @@ interface AppShellProps {
   /** Organisation et utilisateur, en bas de la barre latérale. */
   identite?: IdentiteSession | null;
   onLogout?: () => void;
-  /**
-   * hrefs de nav à masquer, calculés côté serveur par `entreesNavMasquees(role)`
-   * (`lib/nav-masquee.ts`). `[]` = ce menu n'a aucune entrée conditionnelle.
-   */
-  hiddenNavHrefs: string[];
   /** Compteurs par href (calculé côté serveur, ex : { '/admin/alertes': 3 }). */
   navBadges?: Record<string, number>;
   children: React.ReactNode;
@@ -30,7 +25,6 @@ const AppShell = ({
   role,
   identite,
   onLogout,
-  hiddenNavHrefs,
   navBadges,
   children,
   className,
@@ -41,9 +35,14 @@ const AppShell = ({
   return (
     <IdentiteProvider value={identite ?? null}>
       <LogoZdProvider>
+        {/* `data-cadre-app` : repère de globals.css, qui ajuste la hauteur
+            du cadre quand le bandeau d'impersonation est affiché au-dessus. */}
         <div
+          data-cadre-app
           className={cn(
-            'flex h-screen overflow-hidden bg-savr-neutral-50',
+            // Fond navy : la barre latérale et la barre du haut forment un seul
+            // cadre ; le contenu s'en détache par un coin arrondi (Val 2026-11-02).
+            'flex h-screen overflow-hidden bg-savr-primary-800',
             className,
           )}
         >
@@ -55,7 +54,6 @@ const AppShell = ({
               onToggle={() => setSidebarCollapsed((v) => !v)}
               onLogout={onLogout}
               identite={identite}
-              hiddenNavHrefs={hiddenNavHrefs}
               navBadges={navBadges}
             />
           </div>
@@ -80,17 +78,23 @@ const AppShell = ({
               role={role}
               onLogout={onLogout}
               identite={identite}
-              hiddenNavHrefs={hiddenNavHrefs}
               navBadges={navBadges}
             />
           </div>
 
           {/* Contenu principal */}
           <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-            <TopBar onMenuToggle={() => setMobileSidebarOpen((v) => !v)} />
+            <TopBar
+              role={role}
+              onMenuToggle={() => setMobileSidebarOpen((v) => !v)}
+            />
 
+            {/* `relative` : point d'ancrage des éléments en position absolue
+                du contenu (dont les textes `sr-only`). Sans lui, ils se placent
+                par rapport à la page, dépassent sous l'écran et font défiler la
+                page entière derrière le cadre : une bande vide reste en bas. */}
             <main
-              className="flex-1 overflow-y-auto p-6 pb-20 lg:pb-6"
+              className="relative flex-1 overflow-y-auto bg-savr-neutral-50 p-6 pt-4 pb-20 lg:rounded-tl-savr-xl lg:pb-6"
               id="main-content"
               tabIndex={-1}
             >
@@ -98,7 +102,7 @@ const AppShell = ({
             </main>
 
             {/* Bottom nav mobile */}
-            <BottomNav role={role} hiddenNavHrefs={hiddenNavHrefs} />
+            <BottomNav role={role} />
           </div>
         </div>
       </LogoZdProvider>

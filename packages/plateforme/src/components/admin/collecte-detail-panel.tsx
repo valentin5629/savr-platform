@@ -312,6 +312,7 @@ interface CollecteDetail {
   type_evenement?: { libelle: string } | null;
   contacts?: ContactsCollecteDetail | ContactsCollecteDetail[] | null;
   evenements: {
+    id: string;
     nom_evenement: string | null;
     pax: number;
     type_evenement_id?: string | null;

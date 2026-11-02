@@ -6,7 +6,6 @@ import { TruckIcon } from '@/components/ui/icones';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { PageHero } from '@/components/ui/page-hero';
-import { Button } from '@/components/ui/button';
 import {
   ToggleTypeCollecte,
   type TypeCollecteFiltre,
@@ -552,25 +551,7 @@ export function ListeCollectesClient({
 
   return (
     <div className="space-y-5">
-      <PageHero
-        title="Collectes"
-        icon={<TruckIcon className="h-6 w-6" />}
-        actions={
-          // CTA accent sur le bandeau ; l'export CSV est dans la
-          // barre du tableau, à gauche de « Colonnes ».
-          <Button variant="accent" asChild>
-            <a
-              href={
-                typeFiltre === 'tous'
-                  ? ROUTES.programmer.nouveau
-                  : `${ROUTES.programmer.nouveau}?type=${typeFiltre}`
-              }
-            >
-              Programmer une collecte
-            </a>
-          </Button>
-        }
-      />
+      <PageHero title="Collectes" icon={<TruckIcon className="h-6 w-6" />} />
 
       {/* Filtre actif (drill-down depuis une Top liste du dashboard) */}
       {chipLabel && (

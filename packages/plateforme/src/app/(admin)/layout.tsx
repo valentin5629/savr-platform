@@ -45,7 +45,6 @@ export default async function AdminLayout({
         email: session.email,
         logoAffichable: false,
       })}
-      hiddenNavHrefs={[]}
       navBadges={navBadges}
     >
       {children}

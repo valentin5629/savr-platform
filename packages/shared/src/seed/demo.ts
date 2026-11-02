@@ -27,6 +27,10 @@ import {
 import { genererPipelineVivant } from './pipeline-vivant.js';
 import { genererEvenementsMultiCollectes } from './evenements-multi-collectes.js';
 import {
+  rattacherCollectesAuxPacks,
+  type CollecteARattacher,
+} from './rattachement-packs.js';
+import {
   genererCatalogueCas,
   LIEUX_PROVINCE,
   type CollecteCas,
@@ -735,15 +739,25 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     ['id'],
   );
 
-  // ── Packs AG (1 actif/traiteur AG + 2 épuisés) ────────────────────────────
+  // ── Packs AG (1 actif/traiteur AG + 2 épuisés ; Kaspia : 3 packs de 10) ──
+  // Écrits APRÈS les collectes (cf. rattacherCollectesAuxPacks) : les crédits
+  // utilisés et la date d'achat du pack actif se déduisent des collectes.
   const packs: Row[] = [];
   for (const t of traiteurs) {
     if (t === 'nomad') continue; // compte vide
+    if (t === 'kaspia') continue; // historique de 3 packs, ci-dessous
     const used = t === 'butard' ? 18 : 6; // Butard = bas ≤ 10% (18/20)
     packs.push(
       pack(`pack_${t}`, `org_tr_${t}`, 20, used, 'actif', '2025-09-01'),
     );
   }
+  // Kaspia : historique de 3 packs de 10 (demande Val 2026-11-02, valider la
+  // page « Mon pack Anti-Gaspi »), deux épuisés puis l'actif.
+  packs.push(
+    pack('pack_kaspia_1', 'org_tr_kaspia', 10, 10, 'epuise', '2025-06-01'),
+    pack('pack_kaspia_2', 'org_tr_kaspia', 10, 10, 'epuise', '2025-11-01'),
+    pack('pack_kaspia', 'org_tr_kaspia', 10, 4, 'actif', '2026-01-01'),
+  );
   packs.push(
     pack(
       'pack_lenotre_epuise',
@@ -757,7 +771,6 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   packs.push(
     pack('pack_potel_epuise', 'org_tr_potel', 10, 10, 'epuise', '2025-03-01'),
   );
-  await upsert(client, 'plateforme.packs_antgaspi', packs, ['id']);
 
   // ── Événements + collectes (matrice figée + lot « pipeline vivant ») ──────
   // La matrice CSV (478 lignes, 2025-06 → 2026-05) porte la profondeur d'historique ;
@@ -817,19 +830,10 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     if (!r.sansPrestataire) prestaParSlug.set(r.slug, presta);
     const extra: Row = { nb_camions_demande: r.camions };
     if (isAg) {
-      // Le crédit est décompté dès la programmation (Val 2026-11-02,
-      // `trg_pack_debit_programmation`) : toute AG non annulée porte son pack,
-      // à venir comme passée. Il est posé ici d'avance : sans lui, le
-      // déclencheur débiterait à l'insertion chaque AG programmée en plus des
-      // crédits fixés plus haut, et viderait les packs de démo (Butard « bas »)
-      // à chaque relance du jeu de données. Un brouillon n'a rien décompté ;
-      // une annulée ou une refusée par le prestataire a rendu son crédit.
-      const sansCredit =
-        statut === 'brouillon' ||
-        statut === 'annulee' ||
-        statut === 'rejetee_par_prestataire';
-      extra.pack_antgaspi_id =
-        t === 'nomad' || sansCredit ? null : U(`pack_${t}`);
+      // `pack_antgaspi_id` = crédit décompté : posé après la boucle par
+      // rattacherCollectesAuxPacks, sur les seules collectes qui ont utilisé
+      // un crédit (jamais avant l'achat, jamais plus que les crédits utilisés).
+      extra.pack_antgaspi_id = null;
       extra.volume_estime_repas = Math.round(0.1 * r.pax);
     } else if (estExecutee(r)) {
       extra.taux_recyclage = 70 + (i % 20);
@@ -891,11 +895,82 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     });
   });
   await upsert(client, 'plateforme.evenements', evRows, ['id']);
+
+  // Rattachement aux packs : le crédit est décompté dès la programmation (Val
+  // 2026-11-02) — collectes AG à venir, réalisées (avec ou sans excédent) ou
+  // clôturées, plus l'annulation tardive débitée du catalogue, sur les packs de
+  // l'organisation qui PROGRAMME (celle de l'événement). Un brouillon, une
+  // annulée à temps ou une refusée par le prestataire n'a rien décompté.
+  const STATUTS_A_VENIR_SEED = new Set([
+    'programmee',
+    'validee',
+    'en_cours',
+    'annulation_demandee',
+  ]);
+  const STATUTS_CREDIT_DECOMPTE = new Set([
+    ...STATUTS_A_VENIR_SEED,
+    'realisee',
+    'realisee_sans_collecte',
+    'cloturee',
+  ]);
+  const orgParEvenement = new Map(
+    evRows.map((e) => [e.id as string, e.organisation_id as string]),
+  );
+  const casParId = new Map(cas.map((c) => [U(c.slug), c]));
+  const aRattacher: CollecteARattacher[] = colRows
+    .filter(
+      (c) =>
+        c.type === 'anti_gaspi' &&
+        (STATUTS_CREDIT_DECOMPTE.has(c.statut as string) ||
+          casParId.get(c.id as string)?.packDebite === true),
+    )
+    .map((c) => ({
+      id: c.id as string,
+      organisationId: orgParEvenement.get(c.evenement_id as string)!,
+      date: c.date_collecte as string,
+    }));
+  const rattachement = rattacherCollectesAuxPacks(
+    aRattacher,
+    packs.map((p) => ({
+      id: p.id as string,
+      organisationId: p.organisation_id as string,
+      statut: p.statut as 'actif' | 'epuise' | 'annule',
+      dateAchat: p.date_achat as string,
+      creditsUtilises: p.credits_consommes as number,
+    })),
+  );
+  for (const c of colRows)
+    c.pack_antgaspi_id =
+      rattachement.packParCollecte.get(c.id as string) ?? null;
+  for (const p of packs) {
+    const r = rattachement.packs.get(p.id as string)!;
+    p.credits_consommes = r.creditsUtilises;
+    p.date_achat = r.dateAchat;
+  }
+  // Une AG à venir laissée sans pack serait débitée à l'insertion par
+  // `trg_pack_debit_programmation`, à chaque relance du jeu de données : elle
+  // prend ici le crédit suivant du pack actif, comme le ferait le déclencheur,
+  // et reste facturée à l'unité une fois le pack plein.
+  for (const c of aRattacher) {
+    const row = colRows.find((r) => r.id === c.id)!;
+    if (row.pack_antgaspi_id || !STATUTS_A_VENIR_SEED.has(row.statut as string))
+      continue;
+    const actif = packs.find(
+      (p) =>
+        p.organisation_id === c.organisationId &&
+        p.statut === 'actif' &&
+        (p.credits_consommes as number) < (p.credits_initiaux as number),
+    );
+    if (!actif) continue;
+    row.pack_antgaspi_id = actif.id;
+    actif.credits_consommes = (actif.credits_consommes as number) + 1;
+  }
+  await upsert(client, 'plateforme.packs_antgaspi', packs, ['id']);
+
   // Insertion des collectes par lots (limite de paramètres SQL). Les cas de
   // figure ont leur propre lot : ils posent des colonnes NOT NULL (dirty_tms…)
   // que les autres lignes laissent à leur défaut, et un lot mixte les lierait
   // à NULL (cf. upsert, union des colonnes).
-  const casParId = new Map(cas.map((c) => [U(c.slug), c]));
   await batchUpsert(
     client,
     'plateforme.collectes',
@@ -916,9 +991,6 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           tms_reference: row.prestataire_logistique_id
             ? `TOUR-tour_${c.slug}_1`
             : null,
-          pack_antgaspi_id: c.packDebite
-            ? U(`pack_${c.traiteur.replace(/^org_tr_/, '')}`)
-            : row.pack_antgaspi_id,
           informations_completes: c.informationsCompletes,
           controle_acces_requis: c.controleAcces,
           infos_acces_email_envoye_at: c.infosAccesEnvoyeesAt ?? null,
@@ -1520,6 +1592,10 @@ async function seedFactures(
     'potel',
   ]) {
     const facSlug = `fac_pack_${t}`;
+    // Pack actif du traiteur : 20 crédits, 10 pour Kaspia (cf. section Packs).
+    const creditsPack = t === 'kaspia' ? 10 : 20;
+    const montantPack = pack('', '', creditsPack, 0, 'actif', '')
+      .montant_total_ht as number;
     factures.push(
       facture(
         facSlug,
@@ -1528,7 +1604,7 @@ async function seedFactures(
         num('AG_MENSUEL', 'AG', 2025),
         'payee',
         '2025-09-05',
-        2400,
+        montantPack,
         { type: 'achat_pack_antigaspi', pack_antgaspi_id: U(`pack_${t}`) },
       ),
     );
@@ -1537,8 +1613,8 @@ async function seedFactures(
         `fcl_pack_${t}`,
         facSlug,
         null,
-        2400,
-        'Pack Anti-Gaspi 20 collectes',
+        montantPack,
+        `Pack Anti-Gaspi ${creditsPack} collectes`,
       ),
     );
   }

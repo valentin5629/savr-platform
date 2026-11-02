@@ -27,6 +27,7 @@ import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
 import { DIFFICULTE_LABEL, VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification';
 import { estSiren } from '@savr/shared/src/validation/index.js';
+import { CODES_SITE_VIPARIS } from '@/lib/viparis/codes';
 import {
   MESSAGE_FORMAT_SIREN,
   messageObligatoire,
@@ -70,6 +71,7 @@ interface LieuApi {
   siren: string | null;
   email_gestionnaire: string | null;
   reference_citeo: boolean;
+  code_site_viparis: string | null;
 }
 
 // Réponse de GET /api/v1/admin/lieux/{id}/activite (onglet Activité).
@@ -126,6 +128,8 @@ interface FormValues {
   siren: string;
   email_gestionnaire: string;
   reference_citeo: boolean;
+  // Code du site VIPARIS (liste fermée) — lisible des clients, saisi par l'Admin.
+  code_site_viparis: string;
 }
 
 type Onglet = 'informations' | 'acces' | 'interne' | 'activite';
@@ -154,6 +158,11 @@ const OPTIONS_DIFFICULTE = [
     value,
     label,
   })),
+];
+
+const OPTIONS_CODE_SITE_VIPARIS = [
+  { value: '', label: 'Aucun' },
+  ...CODES_SITE_VIPARIS.map((c) => ({ value: c, label: c })),
 ];
 
 const OPTIONS_VEHICULE = Object.entries(VEHICULE_LABEL).map(
@@ -192,6 +201,7 @@ const LIBELLE_CHAMP: Record<string, string> = {
   siren: 'SIREN',
   email_gestionnaire: 'Mail gestionnaire du lieu',
   reference_citeo: 'Référencé Citeo',
+  code_site_viparis: 'Code site VIPARIS',
 };
 
 const VIDE: FormValues = {
@@ -217,6 +227,7 @@ const VIDE: FormValues = {
   siren: '',
   email_gestionnaire: '',
   reference_citeo: false,
+  code_site_viparis: '',
 };
 
 function toForm(d: LieuApi): FormValues {
@@ -244,6 +255,7 @@ function toForm(d: LieuApi): FormValues {
     siren: d.siren ?? '',
     email_gestionnaire: d.email_gestionnaire ?? '',
     reference_citeo: d.reference_citeo ?? false,
+    code_site_viparis: d.code_site_viparis ?? '',
   };
 }
 
@@ -446,6 +458,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
       siren: values.siren.trim() || null,
       email_gestionnaire: values.email_gestionnaire.trim() || null,
       reference_citeo: values.reference_citeo,
+      code_site_viparis: values.code_site_viparis || null,
     };
   }
 
@@ -701,6 +714,20 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                               label: g.raison_sociale ?? g.nom ?? g.id,
                             })),
                           ]}
+                        />
+                      </FormField>
+                      <FormField
+                        label="Code site VIPARIS"
+                        htmlFor="lm_code_site_viparis"
+                        hint="Lieux VIPARIS seulement — repris à l'export du registre"
+                      >
+                        <Combobox
+                          id="lm_code_site_viparis"
+                          icon={null}
+                          placeholder="Aucun"
+                          value={values.code_site_viparis}
+                          onChange={(v) => set('code_site_viparis', v)}
+                          options={OPTIONS_CODE_SITE_VIPARIS}
                         />
                       </FormField>
                     </FormGrid>

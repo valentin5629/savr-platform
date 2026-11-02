@@ -25,7 +25,7 @@
     "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (bloc Facture — bouton « Rattacher au pack », modale, avertissement avoir)",
     "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (GET — rattachement_pack)",
     "packages/shared/src/database.types.ts (f_collecte_rattachable_pack, rpc_rattacher_collecte_pack)",
-    "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts (historique « Mon pack AG » : annulée tardive rattachée après coup)",
+    "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts (historique « Mon pack AG » : annulée tardive rattachée après coup)",
     "supabase/migrations/20261016173000_plateforme_annulation_tardive_pack_actif.sql",
     "supabase/tests/annulation_tardive_pack_actif.test.sql",
     "supabase/migrations/20261102120000_plateforme_pack_ag_debit_programmation.sql",
@@ -159,7 +159,7 @@
       "id": "M2.1-pack-debit-programmation",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
       "artefact": "supabase/migrations/20261102120000_plateforme_pack_ag_debit_programmation.sql",
-      "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « ca : programmée → un crédit décompté », « cb : brouillon confirmé → un crédit décompté », « cc : sans pack (facturée à l''unité) », « ca, cc : réalisées, aucun second débit », « c9 : refusée par le prestataire → crédit rendu », « c9 : renvoyée par l''Admin → crédit repris », « c1 : l''attribution ne pose aucun pack », « f_pack_debiter_credit : fermée à authenticated » + packages/plateforme/src/components/programmation/use-pack-ag.test.ts + packages/plateforme/tests/api/gestionnaire/pack-ag-historique-organisation.m3-2.test.ts",
+      "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « ca : programmée → un crédit décompté », « cb : brouillon confirmé → un crédit décompté », « cc : sans pack (facturée à l''unité) », « ca, cc : réalisées, aucun second débit », « c9 : refusée par le prestataire → crédit rendu », « c9 : renvoyée par l''Admin → crédit repris », « c1 : l''attribution ne pose aucun pack », « f_pack_debiter_credit : fermée à authenticated » + packages/plateforme/src/components/programmation/use-pack-ag.test.ts + packages/plateforme/tests/api/mon-pack-ag/mon-pack-ag.test.ts",
       "statut": "implemented",
       "libelle": "Crédit du pack AG décompté dès la programmation (décision Val 2026-11-02) : une AG qui devient programmée (création confirmée, brouillon confirmé, renvoi après refus du prestataire) débite le pack actif de l'organisation programmatrice ; sans crédit restant, elle reste sans pack et sera facturée à l'unité (jamais bloquée) ; aucun second débit à la réalisation ; refus définitif du prestataire → crédit rendu, repris au renvoi ; rpc_valider_attribution_ag ne réserve plus de pack. Formulaire : calcul de la couverture du pack carte par carte (fonctions testées ; rendu vérifié à l'écran, hors test). Mon pack AG (gestionnaire) : collectes à venir listées, repas vides. Reprise des AG à venir à la mise en ligne : vérifiée par sonde sur base jetable (jouée une seule fois, hors suite de tests)."
     }

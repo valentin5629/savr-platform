@@ -1286,3 +1286,227 @@ describe('M4.1 / packs-ag', () => {
     expect(line1).toContain('25');
   });
 });
+
+// ── Code affaire VIPARIS et poids par flux (Val 2026-11-02) ─────────────────
+// Le code affaire est hors de la liste blanche de lecture des clients : lu en
+// service_role pour les seuls événements des lignes que la RLS a rendues.
+describe('VIPARIS / exports Collectes et Événements — code affaire, poids par flux', () => {
+  const FLUX_HEADERS = [
+    'Biodéchets (kg)',
+    'Emballages (kg)',
+    'Cartons (kg)',
+    'Verre (kg)',
+    'Déchet résiduel (kg)',
+  ];
+  const flux = (code: string, kg: number) => ({
+    poids_reel_kg: kg,
+    flux_dechets: { code },
+  });
+  const evenement = (id: string) => ({
+    id,
+    nom_evenement: `Salon ${id}`,
+    date_evenement: '2026-01-14',
+    nom_client_organisateur: 'ACME',
+    traiteur_operationnel_organisation_id: 'tr-1',
+    lieux: { nom: 'Espace Champerret', code_postal: '75017', ville: 'Paris' },
+  });
+  const lire = async (res: Response) => {
+    const lignes = (await res.text()).split('\r\n');
+    const entetes = (lignes[0] ?? '').split(';');
+    const cellule = (n: number, entete: string) =>
+      (lignes[n] ?? '').split(';')[entetes.indexOf(entete)];
+    return { entetes, cellule };
+  };
+
+  it('VIPARIS/export_collectes_code_affaire_et_flux — code de l’événement, un poids par flux pour une ZD, cellules vides pour une AG', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          date_collecte: '2026-01-15',
+          heure_collecte: '23:00:00',
+          taux_recyclage: 80,
+          co2_evite_kg: 10,
+          collecte_flux: [
+            flux('biodechet', 100),
+            flux('carton', 25.5),
+            flux('verre', 4),
+          ],
+          evenements: evenement('e1'),
+        },
+        {
+          id: 'c2',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          date_collecte: '2026-01-16',
+          heure_collecte: null,
+          taux_recyclage: null,
+          co2_evite_kg: null,
+          collecte_flux: [],
+          evenements: evenement('e2'),
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [{ id: 'tr-1', nom: 'Traiteur Un' }], error: null });
+    rls.push({ data: 120, error: null }); // f_volume_repas_realise (c2)
+    admin.push({
+      data: [{ id: 'e1', code_affaire_viparis: '26SIAL1' }],
+      error: null,
+    });
+
+    const res = await call('collectes');
+    expect(res.status).toBe(200);
+    const { entetes, cellule } = await lire(res);
+    // Code affaire juste après « Événement », flux juste après le tonnage.
+    expect(entetes.indexOf('Code affaire VIPARIS')).toBe(
+      entetes.indexOf('Événement') + 1,
+    );
+    const iTonnage = entetes.indexOf('Tonnage ZD (kg)');
+    expect(entetes.slice(iTonnage + 1, iTonnage + 6)).toEqual(FLUX_HEADERS);
+    expect(entetes).toContain('Repas AG');
+
+    expect(cellule(1, 'Code affaire VIPARIS')).toBe('26SIAL1');
+    expect(cellule(1, 'Biodéchets (kg)')).toBe('100');
+    expect(cellule(1, 'Cartons (kg)')).toBe('25,5');
+    expect(cellule(1, 'Verre (kg)')).toBe('4');
+    expect(cellule(1, 'Emballages (kg)')).toBe('0');
+    // AG : pas de flux, mais ses repas.
+    expect(cellule(2, 'Code affaire VIPARIS')).toBe('');
+    for (const h of FLUX_HEADERS) expect(cellule(2, h)).toBe('');
+    expect(cellule(2, 'Repas AG')).toBe('120');
+
+    // Lignes lues sous la RLS, avec le code du flux et l'id de l'événement.
+    const select = String(rls.__calls.select?.[0]?.[0]);
+    expect(select).toContain(
+      'collecte_flux(poids_reel_kg, flux_dechets!flux_id(code))',
+    );
+    expect(select).toContain('evenements!inner(id,');
+    // Service_role : la seule colonne du code, pour les événements des lignes.
+    expect(admin.__calls.from).toEqual([['evenements']]);
+    expect(admin.__calls.select).toEqual([['id, code_affaire_viparis']]);
+    expect(admin.__calls.in).toEqual([['id', ['e1', 'e2']]]);
+    expect(admin.__calls.not).toEqual([['code_affaire_viparis', 'is', null]]);
+  });
+
+  it('VIPARIS/export_codes_par_lots — au-delà de 100 événements, lecture par lots (jamais une URL refusée)', async () => {
+    setupAuth('traiteur_manager');
+    const lignes = Array.from({ length: 150 }, (_, i) => ({
+      id: `c${i}`,
+      type: 'zero_dechet',
+      statut: 'programmee',
+      date_collecte: '2026-01-15',
+      heure_collecte: null,
+      taux_recyclage: null,
+      co2_evite_kg: null,
+      collecte_flux: [],
+      evenements: evenement(`e${i}`),
+    }));
+    rls.push({ data: lignes, error: null });
+    rls.push({ data: [], error: null });
+    admin.push({ data: [], error: null });
+    admin.push({ data: [], error: null });
+    const res = await call('collectes');
+    expect(res.status).toBe(200);
+    const lots = (admin.__calls.in ?? []).map((a) => (a[1] as string[]).length);
+    expect(lots).toEqual([100, 50]);
+  });
+
+  it('VIPARIS/export_codes_echec_500 — lecture des codes en échec : 500, jamais un fichier à colonne vide', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          date_collecte: '2026-01-15',
+          heure_collecte: null,
+          taux_recyclage: null,
+          co2_evite_kg: null,
+          collecte_flux: [],
+          evenements: evenement('e1'),
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [], error: null });
+    admin.push({ data: null, error: { message: 'boom' } });
+    const res = await call('collectes');
+    expect(res.status).toBe(500);
+    expect(await res.text()).not.toContain('boom');
+  });
+
+  it('VIPARIS/export_evenements_code_affaire_et_flux — code de l’événement, poids par flux cumulés sur ses collectes ZD', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({
+      data: [
+        {
+          id: 'e1',
+          nom_evenement: 'Salon',
+          date_evenement: '2026-02-01',
+          pax: 300,
+          traiteur_operationnel_organisation_id: 'tr-1',
+          lieux: { nom: 'Espace Champerret' },
+          types_evenements: { libelle: 'Salon pro' },
+          collectes: [
+            {
+              id: 'c1',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-01',
+              taux_recyclage: 80,
+              collecte_flux: [flux('biodechet', 40), flux('carton', 10)],
+            },
+            {
+              id: 'c2',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-02',
+              taux_recyclage: 70,
+              collecte_flux: [
+                flux('biodechet', 2.5),
+                flux('dechet_residuel', 7),
+              ],
+            },
+            {
+              id: 'c3',
+              type: 'anti_gaspi',
+              statut: 'cloturee',
+              date_collecte: '2026-02-02',
+              taux_recyclage: null,
+              collecte_flux: [],
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [{ id: 'tr-1', nom: 'Tr' }], error: null });
+    rls.push({ data: 90, error: null }); // f_volume_repas_realise (c3)
+    admin.push({
+      data: [{ id: 'e1', code_affaire_viparis: '26SIAL1' }],
+      error: null,
+    });
+
+    const res = await call('evenements');
+    expect(res.status).toBe(200);
+    const { entetes, cellule } = await lire(res);
+    expect(entetes.indexOf('Code affaire VIPARIS')).toBe(
+      entetes.indexOf('Nom événement') + 1,
+    );
+    const iTonnage = entetes.indexOf('Tonnage ZD (kg)');
+    expect(entetes.slice(iTonnage + 1, iTonnage + 6)).toEqual(FLUX_HEADERS);
+    expect(cellule(1, 'Code affaire VIPARIS')).toBe('26SIAL1');
+    expect(cellule(1, 'Tonnage ZD (kg)')).toBe('59,5');
+    expect(cellule(1, 'Biodéchets (kg)')).toBe('42,5');
+    expect(cellule(1, 'Cartons (kg)')).toBe('10');
+    expect(cellule(1, 'Déchet résiduel (kg)')).toBe('7');
+    expect(cellule(1, 'Verre (kg)')).toBe('0');
+    expect(cellule(1, 'Repas AG donnés')).toBe('90');
+    expect(admin.__calls.in).toEqual([['id', ['e1']]]);
+  });
+});

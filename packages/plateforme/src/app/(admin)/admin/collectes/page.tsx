@@ -8,12 +8,9 @@ import {
   FileDashedIcon,
   ForkKnifeIcon,
   IdentificationCardIcon,
-  PlusIcon,
   RecycleIcon,
   TruckIcon,
 } from '@/components/ui/icones';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches } from '@/components/ui/filtre-en-ligne';
@@ -585,20 +582,7 @@ export default function CollectesPage() {
 
   return (
     <div className="space-y-5">
-      <PageHero
-        icon={<TruckIcon className="h-6 w-6" />}
-        title="Collectes"
-        actions={
-          // Le fichier porte toute la sélection de la liste : ses filtres, sans
-          // tri ni page (§12 §2).
-          <Button asChild variant="accent">
-            <Link href={ROUTES.programmer.nouveau}>
-              <PlusIcon />
-              Programmer une collecte
-            </Link>
-          </Button>
-        }
-      />
+      <PageHero icon={<TruckIcon className="h-6 w-6" />} title="Collectes" />
 
       {/* Filtre actif venu d'un drill-down du dashboard (Top listes). */}
       {drillActive && (

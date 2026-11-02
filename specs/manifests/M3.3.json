@@ -543,7 +543,7 @@
       "artefact": "packages/plateforme/src/lib/nav-config.ts",
       "test": "M3.3/navigation_agence_5_entrees_sans_registre",
       "statut": "implemented",
-      "libelle": "Navigation agence (§06.11, réplique §06.04 §1) : Dashboard · Collectes · Événements · Mon organisation · Mon profil, sans Registre / Rapports RSE / Mon pack AG ; « Événements » sous « Collectes » depuis le 2026-10-29 (décision Val, liste commune à tous les rôles). Couvre le scénario 06.11 navigation_agence_4_entrees_sans_registre, à renommer en _5_entrees (fiche de divergence).",
+      "libelle": "Navigation agence (§06.11, réplique §06.04 §1) : Dashboard · Collectes · Événements · Paramètres · Mon pack Anti-Gaspi (Val 2026-11-02, _Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md), sans Registre / Rapports RSE ; « Événements » sous « Collectes » depuis le 2026-10-29 (décision Val, liste commune à tous les rôles). Couvre le scénario 06.11 navigation_agence_4_entrees_sans_registre, à renommer en _5_entrees (fiche de divergence).",
       "ref_divergence": "_Divergences/M3.2_20261029_liste-evenements-tous-roles.md"
     }
   ],

@@ -249,6 +249,11 @@ export function OngletInformations({
               </span>
             )}
           </InfoItem>
+          {evt?.code_site_viparis && (
+            <InfoItem label="Code site VIPARIS" data-testid="code-site-viparis">
+              {evt.code_site_viparis}
+            </InfoItem>
+          )}
           <InfoItem label="Contrôle d’accès">
             {c.controle_acces_requis ? 'Oui' : 'Non'}
           </InfoItem>

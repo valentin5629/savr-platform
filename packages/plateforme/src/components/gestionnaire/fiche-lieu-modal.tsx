@@ -65,6 +65,8 @@ interface FicheLieu {
   region: string | null;
   type_vehicule_max: string | null;
   capacite_maximum: number | null;
+  /** Code du site VIPARIS (Val 2026-11-02), saisi par l'équipe Savr. */
+  code_site_viparis?: string | null;
   acces_office: string | null;
   stationnement: string | null;
   acces_details: string | null;
@@ -347,6 +349,14 @@ export function FicheLieuModal({
                         ? `${fmtInt(lieu.capacite_maximum)} pers.`
                         : '—'}
                     </InfoItem>
+                    {lieu.code_site_viparis && (
+                      <InfoItem
+                        label="Code site VIPARIS"
+                        data-testid="code-site-viparis"
+                      >
+                        {lieu.code_site_viparis}
+                      </InfoItem>
+                    )}
                   </dl>
                 </FicheSection>
 

@@ -146,6 +146,7 @@ function ficheLegere(
       pax: evt.pax,
       nom_client_organisateur: null,
       reference_affaire: null,
+      code_site_viparis: null,
       lieu,
     },
     tournees: [],
@@ -272,7 +273,16 @@ export async function chargerFicheEvenement(
   // l'événement a au moins une collecte ZD (arbitrage Val 2026-10-07). Et une
   // fiche par collecte, sous la même session : rien de plus que ce que la fiche
   // collecte lui servirait. Lectures lancées ensemble.
-  const [labo, resultats, nomsTraiteurs] = await Promise.all([
+  // Codes VIPARIS de l'événement (Val 2026-11-02) : hors des listes blanches de
+  // lecture des clients, lus en service_role pour CET événement, dont la RLS
+  // vient de confirmer la visibilité. Code affaire porté par l'événement, pas par
+  // la collecte (Val 2026-11-02, fiche événement).
+  const [codesViparis, labo, resultats, nomsTraiteurs] = await Promise.all([
+    (clientAdmin ?? createAdminSupabaseClient())
+      .from('evenements')
+      .select('code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)')
+      .eq('id', evt.id)
+      .maybeSingle(),
     gestionnaire && bilan.nb_collectes_zd > 0
       ? supabase.rpc('f_dechets_labo_estimes', { p_evenement_id: id })
       : Promise.resolve(null),
@@ -297,6 +307,11 @@ export async function chargerFicheEvenement(
           .eq('id', evt.traiteur_operationnel_organisation_id)
           .maybeSingle(),
   ]);
+  if (codesViparis.error) return { etat: 'erreur', erreur: codesViparis.error };
+  const codes = codesViparis.data as {
+    code_affaire_viparis: string | null;
+    lieu: UnOuListe<{ code_site_viparis: string | null }>;
+  } | null;
   let dechetsLaboKg: number | null = null;
   if (labo?.error)
     logger.warn('evenements.fiche.dechets_labo_echec', {
@@ -375,6 +390,11 @@ export async function chargerFicheEvenement(
         ? { id: traiteur.id, nom: traiteur.nom, a_logo: !!traiteur.logo_url }
         : null,
       dechets_labo_kg: dechetsLaboKg,
+      // Affiché pour un lieu VIPARIS (ou un code déjà posé). Corrigeable par
+      // tous sauf le client organisateur (PATCH …/code-affaire-viparis, 403).
+      code_affaire_viparis: codes?.code_affaire_viparis ?? null,
+      code_site_viparis: un(codes?.lieu ?? null)?.code_site_viparis ?? null,
+      code_affaire_modifiable: !organisateur,
       // « Ajouter une collecte » : sur ses propres programmations seulement —
       // la route d'ajout répond 404 sur l'événement d'un traiteur tiers tenu
       // sur ses lieux.

@@ -352,3 +352,41 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
     ATTENTE_CAS_MS,
   );
 });
+
+// Codes VIPARIS (Val 2026-11-02) : le code site du lieu se lit sur la fiche
+// collecte ; le code affaire, porté par l'événement, est sur la fiche événement
+// seule, pas sur la fiche collecte.
+describe('M3.2 / pop-up fiche collecte — codes VIPARIS', () => {
+  it(
+    'VIPARIS/fiche_collecte_code_site_sans_code_affaire — lieu à code site : code site affiché, code affaire absent de la fiche collecte',
+    async () => {
+      const base = ficheGestionnaire();
+      stubFetchFiche(
+        ficheGestionnaire({
+          evenement: { ...base.evenement!, code_site_viparis: 'PCP' },
+        }),
+      );
+      render(fiche());
+      const site = await screen.findByTestId(
+        'code-site-viparis',
+        {},
+        ATTENTE_UI,
+      );
+      expect(site.textContent).toContain('PCP');
+      expect(screen.queryByTestId('code-affaire-viparis')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'VIPARIS/fiche_codes_hors_viparis — lieu sans code site ni code affaire : aucun des deux blocs',
+    async () => {
+      stubFetchFiche(ficheGestionnaire());
+      render(fiche());
+      await screen.findByTestId('bloc-evenement', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('code-affaire-viparis')).toBeNull();
+      expect(screen.queryByTestId('code-site-viparis')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});

@@ -47,13 +47,24 @@ import {
 //     ou opérationnel) et agence, gestionnaire sur ses seules programmations
 //     (§06.05 : rien de personnel sur un traiteur tiers) ; référence d'affaire :
 //     colonne d'`evenements` hors GRANT SELECT authenticated, servie à
-//     l'organisation programmatrice seule (arbitrages Val C2/C3/C5 2026-10-01).
+//     l'organisation programmatrice seule (arbitrages Val C2/C3/C5 2026-10-01) ;
+//  6. code site VIPARIS du lieu (Val 2026-11-02) : sans confidentialité, lu en
+//     service-role sur l'événement de CETTE collecte pour les trois espaces
+//     (colonne hors liste blanche). Le code affaire, porté par l'événement, est
+//     sur la fiche événement, pas sur la fiche collecte (Val 2026-11-02).
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 
+// Colonnes de l'événement hors liste blanche, lues en service-role (5 et 6).
 interface EvenementReserve {
-  reference_affaire: string | null;
+  reference_affaire?: string | null;
+  lieu:
+    | { code_site_viparis: string | null }
+    | { code_site_viparis: string | null }[]
+    | null;
 }
+
+const COLONNES_CODES_VIPARIS = 'lieu:lieux!lieu_id(code_site_viparis)';
 
 function one<T>(v: T | T[] | null | undefined): T | null {
   if (!v) return null;
@@ -301,10 +312,15 @@ export async function chargerFicheCollecteClient(
             .limit(1)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      programmeParSoi && evt
+      // Référence d'affaire : demandée pour l'organisation programmatrice seule.
+      evt
         ? admin
             .from('evenements')
-            .select('reference_affaire')
+            .select(
+              programmeParSoi
+                ? `reference_affaire, ${COLONNES_CODES_VIPARIS}`
+                : COLONNES_CODES_VIPARIS,
+            )
             .eq('id', evt.id)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
@@ -430,7 +446,11 @@ export async function chargerFicheCollecteClient(
         nom_evenement: evt.nom_evenement,
         pax: evt.pax,
         nom_client_organisateur: evt.nom_client_organisateur,
-        reference_affaire: reserve?.reference_affaire ?? null,
+        reference_affaire: programmeParSoi
+          ? (reserve?.reference_affaire ?? null)
+          : null,
+        code_site_viparis:
+          one(reserve?.lieu ?? null)?.code_site_viparis ?? null,
         lieu: lieuEffectif
           ? {
               id: lieuEffectif.id,

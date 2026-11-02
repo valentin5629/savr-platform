@@ -150,8 +150,11 @@ describe('M3.2 / fiche client gestionnaire — contacts et référence d’affai
     expect(texte).not.toContain('0611223344');
     expect(texte).not.toContain('0655443322');
     expect(texte).not.toContain('AFF-2026-042');
-    // Pas seulement caché : aucune lecture, ni sous RLS ni en service-role.
-    expect(admin.calls).not.toContain('evenements');
+    // Pas seulement caché : jamais demandés. L'événement n'est lu en
+    // service-role que pour ses codes VIPARIS (Val 2026-11-02).
+    expect(admin.selects.evenements).toEqual([
+      'lieu:lieux!lieu_id(code_site_viparis)',
+    ]);
     expect(admin.calls).not.toContain('collecte_contacts');
     expect(rls.calls).not.toContain('evenements');
     expect(rls.calls).not.toContain('collecte_contacts');

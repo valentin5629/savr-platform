@@ -8,7 +8,6 @@
     "supabase/migrations/20261020180000_plateforme_benchmark_single_collecte_gestionnaire_lieux.sql",
     "supabase/tests/benchmark_single_collecte_gestionnaire_lieux.test.sql",
     "packages/plateforme/src/app/(gestionnaire)/layout.tsx",
-    "packages/plateforme/src/lib/nav-masquee.ts",
     "packages/plateforme/tests/ui/nav-sections-transverses.test.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
     "packages/plateforme/src/app/(gestionnaire)/gestionnaire/lieux/page.tsx",
@@ -23,14 +22,14 @@
     "packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/route.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/route.ts",
-    "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts",
+    "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/factures/route.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/profil/route.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/users/route.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/users/[id]/route.ts",
     "packages/plateforme/tests/api/gestionnaire/espace-gestionnaire.m3-2.test.ts",
-    "packages/plateforme/tests/api/gestionnaire/pack-ag-historique-organisation.m3-2.test.ts",
-    "packages/plateforme/tests/ui/mon-pack-ag.m3-2.test.tsx",
+    "packages/plateforme/tests/api/mon-pack-ag/mon-pack-ag.test.ts",
+    "packages/plateforme/tests/ui/mon-pack-ag.test.tsx",
     "supabase/migrations/20260705130000_plateforme_r19b_gest04_benchmark_7params.sql",
     "supabase/migrations/20260705140000_plateforme_r19b_benchmark_filtres_parc.sql",
     "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql",
@@ -128,7 +127,11 @@
     "packages/plateforme/tests/ui/rapports-evenement-gestionnaire.m3-2.test.tsx",
     "apps/pdf-renderer/src/rapports-evenement.test.ts",
     "supabase/migrations/20261029120000_plateforme_dechets_labo_reserve_gestionnaire.sql",
-    "supabase/tests/dechets_labo_reserve_gestionnaire.test.sql"
+    "supabase/tests/dechets_labo_reserve_gestionnaire.test.sql",
+    "packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx",
+    "packages/plateforme/src/app/(traiteur)/traiteur/mon-pack-ag/page.tsx",
+    "packages/plateforme/src/app/(agence)/agence/mon-pack-ag/page.tsx",
+    "packages/plateforme/src/app/(client-organisateur)/organisateur/mon-pack-ag/page.tsx"
   ],
   "scenarios": [
     "M3.2/collectes_vues_a_venir_passees_par_date",
@@ -175,14 +178,9 @@
     "M3.2/P2_filtres_vide_si_aucun_perimetre",
     "M3.2/P2_traiteurs_lieux_intervention_noms",
     "M3.2/P2_dashboard_filtre_taille",
-    "M3.2/P2_nav_pack_masque_si_absent",
-    "M3.2/P2_nav_pack_affiche_si_present",
-    "M3.2/nav_pack_registre_masque_sans_pack",
-    "M3.2/nav_pack_registre_affiche_avec_pack",
-    "M3.2/nav_pack_programmation_masque_sans_pack",
+    "M3.2/P2_nav_pack_toujours_visible",
     "M3.2/nav_pack_meme_menu_partout",
     "M3.2/nav_pack_autres_roles_sans_lecture",
-    "M3.2/nav_pack_regle_unique",
     "M3.2/nav_ordre_menu_gestionnaire",
     "M3.2/P2_dashboard_barre_5_filtres",
     "M3.2/P2_dashboard_compteur_collectes",
@@ -269,17 +267,15 @@
     "M3.2/fiche_get_repas_tiers_sans_attribution",
     "M3.2/dashboard_ag_repas_par_vue",
     "M3.2/traiteurs_liste_repas_par_vue",
-    "M3.2/pack_ag_consommation_par_vue",
     "M3.2/pack_ag_consommation_pack_tiers_exclu",
-    "M3.2/pack_ag_consommation_pack_organisation_presente",
     "M3.2/pack_ag_consommation_erreur_500",
     "M3.2/pack_ag_consommation_annulation_tardive_listee",
     "M3.2/pack_ag_consommation_annulation_sans_debit_exclue",
     "M3.2/pack_ag_consommation_erreur_audit_500",
-    "M3.2/pack_ag_sans_historique_packs",
+    "M3.2/mon_pack_ag_historique_packs",
     "M3.2/pack_ag_ecran_mention_annulee_tardivement",
-    "M3.2/pack_ag_ecran_sans_bloc_historique_packs",
-    "M3.2/pack_ag_consommation_plafond_50",
+    "M3.2/mon_pack_ag_ecran_historique_packs",
+    "M3.2/pack_ag_consommation_toutes_par_pack",
     "M3.2/pack_ag_consommation_annulee_ancienne_non_coupee",
     "M3.2/pack_ag_ecran_erreur_chargement",
     "M3.2/pack_ag_ecran_aucun_pack",
@@ -515,7 +511,18 @@
     "M3.2/evenement_fiche_admin_ouvre_fiche_collecte_admin",
     "M3.2/evenement_fiche_organisateur_lecture_seule",
     "M3.2/evenement_fiche_organisateur_repas_en_echec_500",
-    "EVT/api_zd_staff_et_organisateur"
+    "EVT/api_zd_staff_et_organisateur",
+    "M3.2/mon_pack_ag_roles",
+    "M3.2/mon_pack_ag_refus_relaye",
+    "M3.2/mon_pack_ag_packs_org_seule",
+    "M3.2/mon_pack_ag_courant_epuise",
+    "M3.2/mon_pack_ag_erreur_packs_500",
+    "M3.2/pack_ag_consommation_repas_objet",
+    "M3.2/pack_ag_consommation_annulee_rattachee_listee",
+    "M3.2/mon_pack_ag_ecran_renouvellement_seuil",
+    "M3.2/mon_pack_ag_ecran_dernier_annule",
+    "M3.2/mon_pack_ag_ordre_packs",
+    "M3.2/mon_pack_ag_courant_en_tete"
   ],
   "deliverables": [
     {
@@ -644,18 +651,20 @@
     {
       "id": "M3.2-14",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
-      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts",
       "test": "M3.2/pack_ag_actif_retourne_restants",
       "statut": "implemented",
-      "libelle": "M3.2/pack_ag_actif_retourne_restants"
+      "libelle": "M3.2/pack_ag_actif_retourne_restants",
+      "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {
       "id": "M3.2-15",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
-      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts",
       "test": "M3.2/pack_ag_aucun_actif_null",
       "statut": "implemented",
-      "libelle": "M3.2/pack_ag_aucun_actif_null"
+      "libelle": "M3.2/pack_ag_aucun_actif_null",
+      "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {
       "id": "M3.2-16",
@@ -797,10 +806,11 @@
     {
       "id": "BL-P2-13",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73",
-      "artefact": "packages/plateforme/src/lib/nav-masquee.ts (entreesNavMasquees, règle unique) + packages/plateforme/src/app/(gestionnaire)/layout.tsx + packages/plateforme/src/app/(registre)/layout.tsx + packages/plateforme/src/app/(programmation)/layout.tsx",
-      "test": "M3.2/P2_nav_pack_masque_si_absent + M3.2/P2_nav_pack_affiche_si_present + M3.2/nav_pack_registre_masque_sans_pack + M3.2/nav_pack_registre_affiche_avec_pack + M3.2/nav_pack_programmation_masque_sans_pack + M3.2/nav_pack_meme_menu_partout + M3.2/nav_pack_autres_roles_sans_lecture + M3.2/nav_pack_regle_unique + packages/plateforme/src/lib/routes.test.ts",
+      "artefact": "packages/plateforme/src/lib/nav-config.ts + packages/plateforme/src/app/(gestionnaire)/layout.tsx + packages/plateforme/src/app/(registre)/layout.tsx + packages/plateforme/src/app/(programmation)/layout.tsx",
+      "test": "M3.2/P2_nav_pack_toujours_visible + M3.2/nav_pack_meme_menu_partout + M3.2/nav_pack_autres_roles_sans_lecture + packages/plateforme/src/lib/routes.test.ts",
       "statut": "implemented",
-      "libelle": "Nav gestionnaire — conditionnel « Mon pack AG » (CDC l.73) : l'entrée est masquée si l'organisation n'a aucun packs_antgaspi (count serveur → hiddenNavHrefs filtré dans Sidebar/BottomNav/AppShell). Le count est joué par CHAQUE layout qui monte le menu du gestionnaire — son espace, mais aussi les sections transverses registre et programmation, qui ont leur propre layout (défaut E2E 2026-10-06 : l'entrée réapparaissait sur /registre et /programmer). Les entrées « Collectes » (/gestionnaire/collectes) et « Registre réglementaire » (/registre) font partie des sections du menu (CDC l.66-73 : réintégrées par Val le 2026-07-06). L'entrée « Événements » (/gestionnaire/evenements), retirée le 2026-10-07, est remise par Val le 2026-10-18 : 9 sections (CDC l.65, CDC patché au sync du 2026-10-20 : _Divergences/M3.2_20261018_retour-page-evenements-gestionnaire.md)."
+      "libelle": "Nav gestionnaire — « Mon pack Anti-Gaspi » (ex « Mon pack AG ») figure toujours dans le menu, même quand l'organisation n'a aucun pack (Val 2026-11-02 : onglet pour tous les rôles clients ; l'ancien masquage « sans pack » de la CDC l.73, sa règle entreesNavMasquees et le comptage de packs sont retirés). Les sections transverses registre et programmation, qui ont leur propre layout, rendent le même menu que l'espace (défaut E2E 2026-10-06). Les entrées « Collectes » (/gestionnaire/collectes) et « Registre réglementaire » (/registre) font partie des sections du menu (CDC l.66-73 : réintégrées par Val le 2026-07-06). L'entrée « Événements » (/gestionnaire/evenements), retirée le 2026-10-07, est remise par Val le 2026-10-18 (_Divergences/M3.2_20261018_retour-page-evenements-gestionnaire.md).",
+      "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {
       "id": "M3.2-nav-ordre-menu",
@@ -808,7 +818,7 @@
       "artefact": "packages/plateforme/src/lib/nav-config.ts",
       "test": "M3.2/nav_ordre_menu_gestionnaire + packages/plateforme/src/lib/routes.test.ts",
       "statut": "implemented",
-      "libelle": "Ordre du menu du gestionnaire (décision Val 2026-10-07, revue d'écran E2E — la liste numérotée du CDC l.69-76 porte cet ordre depuis le sync du 2026-10-09) : Dashboard, Collectes, Traiteurs, Mes lieux, Registre réglementaire, Mon organisation, Paramètres. « Mon pack AG », quand l'organisation a un pack, garde sa place juste avant « Mon organisation ». « Événements », remise le 2026-10-18, s'insère sous « Collectes » (place validée par Val le 2026-10-18, C1). La barre mobile affichant les 4 premières entrées, elle montre Dashboard, Collectes, Événements, Traiteurs (« Mes lieux » en sort).",
+      "libelle": "Ordre du menu du gestionnaire (décision Val 2026-10-07, revue d'écran E2E — la liste numérotée du CDC l.69-76 porte cet ordre depuis le sync du 2026-10-09) : Dashboard, Collectes, Traiteurs, Mes lieux, Registre réglementaire, Mon organisation, Paramètres. « Mon pack Anti-Gaspi » (toujours affiché depuis le 2026-11-02) garde sa place juste avant « Mon organisation » (aujourd'hui avant « Paramètres », passé dans le menu de l'utilisateur). « Événements », remise le 2026-10-18, s'insère sous « Collectes » (place validée par Val le 2026-10-18, C1). La barre mobile affichant les 4 premières entrées, elle montre Dashboard, Collectes, Événements, Traiteurs (« Mes lieux » en sort).",
       "ref_divergence": "_Divergences/M3.2_20261007_ordre-menu-gestionnaire.md"
     },
     {
@@ -1148,50 +1158,53 @@
     {
       "id": "M3.2-pack-ag-consommation-par-vue",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2133",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts",
-      "test": "M3.2/pack_ag_consommation_par_vue + M3.2/pack_ag_consommation_repas_objet",
+      "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts",
+      "test": "M3.2/pack_ag_consommation_repas_objet",
       "statut": "implemented",
-      "libelle": "Mon pack AG — historique de consommation : repas et nom de l'association lus par la vue v_attributions_gestionnaire (point d'appel pack-ag/ du §04)."
+      "libelle": "Mon pack Anti-Gaspi — historique de consommation : repas et nom de l'association lus sur attributions_antgaspi par le client de service (la route est commune aux 5 rôles clients depuis le 2026-11-02 ; la vue v_attributions_gestionnaire, réservée au gestionnaire, n'y sert plus), sur les seules collectes rattachées à un pack de l'organisation.",
+      "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {
       "id": "M3.2-pack-ag-consommation-organisation",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts",
-      "test": "M3.2/pack_ag_consommation_pack_tiers_exclu + M3.2/pack_ag_consommation_pack_organisation_presente + M3.2/pack_ag_consommation_erreur_500 + M3.2/pack_ag_consommation_plafond_50",
+      "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts",
+      "test": "M3.2/pack_ag_consommation_pack_tiers_exclu + M3.2/pack_ag_consommation_erreur_500 + M3.2/pack_ag_consommation_toutes_par_pack + M3.2/mon_pack_ag_packs_org_seule",
       "statut": "implemented",
-      "libelle": "Mon pack AG — historique de consommation borné aux packs de l'organisation : la route ne liste que des collectes AG rattachées à un pack de l'organisation de l'appelant (jointure obligatoire sur packs_antgaspi, filtrée sur l'organisation du jeton), au plus les 50 plus récentes. Les collectes des traiteurs tiers tenues sur ses lieux, débitées sur le pack du traiteur, n'y figurent pas. Une lecture en échec rend 500, jamais un historique vide."
+      "libelle": "Mon pack Anti-Gaspi — packs et collectes bornés à l'organisation du jeton : la route lit par le client de service, chaque lecture porte la borne (packs : organisation_id ; collectes : jointure obligatoire sur packs_antgaspi filtrée sur l'organisation) ; toutes les collectes de chaque pack, sans plafond global (Val 2026-11-02 : elles se lisent pack par pack, un plafond viderait les packs anciens). Les collectes des traiteurs tiers tenues sur les lieux d'un gestionnaire, débitées sur le pack du traiteur, n'y figurent pas. Une lecture en échec rend 500, jamais une liste vide."
     },
     {
       "id": "M3.2-pack-ag-consommation-annulations-tardives",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
-      "test": "M3.2/pack_ag_consommation_annulation_tardive_listee + M3.2/pack_ag_consommation_annulation_sans_debit_exclue + M3.2/pack_ag_consommation_annulee_ancienne_non_coupee + M3.2/pack_ag_consommation_erreur_audit_500 + M3.2/pack_ag_ecran_mention_annulee_tardivement",
+      "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts + packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx",
+      "test": "M3.2/pack_ag_consommation_annulation_tardive_listee + M3.2/pack_ag_consommation_annulee_rattachee_listee + M3.2/pack_ag_consommation_annulation_sans_debit_exclue + M3.2/pack_ag_consommation_annulee_ancienne_non_coupee + M3.2/pack_ag_consommation_erreur_audit_500 + M3.2/pack_ag_ecran_mention_annulee_tardivement",
       "statut": "implemented",
-      "libelle": "Mon pack AG — les annulations tardives qui ont consommé un crédit figurent dans l'historique, avec la mention « Annulée tardivement », sans nombre de repas ni association bénéficiaire (arbitrage Val 2026-10-07, _Divergences/M3.2_20261007_pack-ag-historique-consommation-perimetre.md, question 2). Le pack étant rattaché à la collecte dès la validation de l'attribution, une collecte annulée qui porte un pack n'a pas forcément été débitée : seule la ligne d'audit pack_debite_annulation_tardive du pack fait foi, lue par le client de service sur les seuls packs des collectes que la session lit pour son organisation. Une annulation sans cette trace n'est pas listée."
+      "libelle": "Mon pack Anti-Gaspi — les annulations tardives qui ont consommé un crédit figurent dans l'historique, avec la mention « Annulée tardivement », sans nombre de repas ni association bénéficiaire (arbitrage Val 2026-10-07, _Divergences/M3.2_20261007_pack-ag-historique-consommation-perimetre.md, question 2). Le pack étant rattaché à la collecte dès la validation de l'attribution, une collecte annulée qui porte un pack n'a pas forcément été débitée : seule la ligne d'audit pack_debite_annulation_tardive du pack fait foi, lue par le client de service sur les seuls packs des collectes que la route lit pour l'organisation de l'appelant. Une annulation sans cette trace n'est pas listée."
     },
     {
-      "id": "M3.2-pack-ag-sans-historique-packs",
+      "id": "M3.2-mon-pack-ag-historique-packs",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73",
-      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/pack-ag/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
-      "test": "M3.2/pack_ag_sans_historique_packs + M3.2/pack_ag_ecran_sans_bloc_historique_packs",
+      "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts + packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx",
+      "test": "M3.2/mon_pack_ag_historique_packs + M3.2/mon_pack_ag_courant_epuise + M3.2/pack_ag_aucun_actif_null + M3.2/mon_pack_ag_ecran_historique_packs + M3.2/mon_pack_ag_ecran_dernier_annule + M3.2/mon_pack_ag_ordre_packs + M3.2/mon_pack_ag_courant_en_tete",
       "statut": "implemented",
-      "libelle": "Mon pack AG — pas d'historique des packs (CDC l.73 « pas de liste des packs précédents », arbitrage Val 2026-10-07, même divergence, question 4) : la route ne rend que le pack actif, l'écran n'a plus de bloc « Historique packs ». Le type du pack s'affiche en clair (« Pack 10 ») et ses dates au format JJ/MM/AAAA."
+      "libelle": "Mon pack Anti-Gaspi — historique des packs (Val 2026-11-02, renverse l'arbitrage du 2026-10-07 « pas de liste des packs précédents ») : la route rend tous les packs de l'organisation (actif, épuisés, annulés), le pack en cours en haut puis du plus récent au plus ancien par date d'achat, le plus ancien en bas (Val 2026-11-02), et le pack en tête : l'actif, sinon le dernier s'il est épuisé (§11), rien si le dernier est annulé. L'écran montre le solde (jauge du dashboard), puis « Historique des packs » : une ligne par pack (type en clair, statut, crédits utilisés / initiaux, dates JJ/MM/AAAA, nombre de collectes) qui se déplie sur la liste de SES collectes (Val 2026-11-02) ; le pack courant est déplié d'office. Sans aucun pack : « Votre organisation n'a pas de pack Anti-Gaspi. »",
+      "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {
       "id": "M3.2-pack-ag-ecran-etat-erreur",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:427",
-      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
+      "artefact": "packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx",
       "test": "M3.2/pack_ag_ecran_erreur_chargement + M3.2/pack_ag_ecran_aucun_pack",
       "statut": "implemented",
-      "libelle": "Mon pack AG — état Error : un chargement en échec (réponse non OK ou réseau) affiche un message et « Réessayer », jamais « Aucun pack Anti-Gaspi actif », message réservé à une réponse normale sans pack."
+      "libelle": "Mon pack Anti-Gaspi — état Error : un chargement en échec (réponse non OK ou réseau) affiche un message et « Réessayer », jamais « pas de pack », message réservé à une réponse normale sans pack."
     },
     {
       "id": "M3.2-pack-ag-rendu-visuel",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73",
-      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-pack-ag/page.tsx",
+      "artefact": "packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx",
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Rendu de l'écran « Mon pack AG » du gestionnaire, desktop ET mobile < 640 px : mention « Annulée tardivement » sur la ligne d'une annulation débitée (sans repas ni association), absence du bloc « Historique packs », carte du pack (type en clair, dates JJ/MM/AAAA), état d'erreur avec « Réessayer ». GO visuel de Val attendu."
+      "libelle": "Rendu de l'écran « Mon pack Anti-Gaspi » des 5 rôles clients, desktop ET mobile < 640 px : jauge du solde, bouton « Demander un renouvellement », une ligne dépliable par pack avec ses collectes et la mention « Annulée tardivement » (sans repas ni association), message sans pack, état d'erreur avec « Réessayer ». GO visuel de Val attendu.",
+      "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {
       "id": "M3.2-synthese-pdf-ag-par-vue",
@@ -1585,6 +1598,64 @@
       "artefact": "supabase/migrations/20261029120000_plateforme_dechets_labo_reserve_gestionnaire.sql (garde f_is_staff() OU f_app_role() = 'gestionnaire_lieux' avec son périmètre inchangé ; REVOKE EXECUTE FROM anon, PUBLIC)",
       "test": "supabase/tests/dechets_labo_reserve_gestionnaire.test.sql",
       "libelle": "f_dechets_labo_estimes réservée au gestionnaire de lieux (§05 R_dechets_labo_estimes, « espace gestionnaire de lieux uniquement ») et au staff, qui lit déjà coefficients_perte_labo. Avant le 2026-10-29, tout rôle dont l'organisation portait l'événement obtenait pax × coefficient : une agence programmant pour un traiteur tiers en déduisait le coefficient confidentiel (revue sécurité de la PR #672). Agence, traiteur manager, traiteur commercial et client organisateur reçoivent NULL sur leurs propres événements, avec contre-épreuve staff sur les mêmes événements ; anon n'a plus EXECUTE. Preuve base : 12 assertions, 7 rouges sans la migration."
+    },
+    {
+      "id": "M3.2-mon-pack-ag-onglet-tous-roles",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73",
+      "artefact": "packages/plateforme/src/lib/nav-config.ts + packages/plateforme/src/lib/routes.ts + packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts + packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx + les 4 pages mon-pack-ag des espaces (traiteur), (agence), (gestionnaire), (client-organisateur)",
+      "test": "M3.2/mon_pack_ag_roles + M3.2/mon_pack_ag_refus_relaye + packages/plateforme/src/lib/routes.test.ts + M3.3/navigation_agence_5_entrees_sans_registre + M3.2/nav_pack_autres_roles_sans_lecture",
+      "statut": "implemented",
+      "libelle": "Onglet « Mon pack Anti-Gaspi » dans la barre latérale des 5 rôles clients (traiteur manager et commercial, agence, gestionnaire de lieux, client organisateur), dernière entrée visible de la barre latérale (après « Paramètres », passé dans le menu de l'utilisateur ; avant lui pour le gestionnaire, ordre du 2026-10-07), jamais pour l'Admin (Val 2026-11-02) ; même page pour tous, GET /api/v1/mon-pack-ag ouverte à ces 5 rôles seulement.",
+      "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
+    },
+    {
+      "id": "M3.2-mon-pack-ag-renouvellement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:249",
+      "artefact": "packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx + packages/plateforme/src/app/api/v1/traiteur/pack-ag/renouvellement/route.ts",
+      "test": "M3.2/mon_pack_ag_ecran_renouvellement_seuil + M3.2/mon_pack_ag_ecran_dernier_annule + M3.3/renouvellement_roles_onglet_pack_201 + M3.3/AGENCE01_renouvellement_role_non_autorise_403",
+      "statut": "implemented",
+      "libelle": "« Demander un renouvellement » sur l'onglet « Mon pack Anti-Gaspi » pour tout rôle dont l'organisation a un pack (Val 2026-11-02 : gestionnaire et client organisateur compris), ouvert à 10 % du pack ou moins, ou sans pack actif ; la route de renouvellement accepte les 5 rôles clients, l'Admin est refusé (403).",
+      "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
+    },
+    {
+      "id": "M3.2-viparis-code-site-lieu",
+      "statut": "implemented",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:874",
+      "artefact": "supabase/migrations/20261102150000_plateforme_codes_viparis.sql (lieux.code_site_viparis, CHECK liste fermée) + packages/plateforme/src/app/api/v1/admin/lieux/route.ts + packages/plateforme/src/app/api/v1/admin/lieux/[id]/route.ts + packages/plateforme/src/components/admin/lieu-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx",
+      "test": "supabase/tests/codes_viparis.test.sql + Lieux / Code site VIPARIS + VIPARIS/fiche_lieu_code_site + VIPARIS/fiche_lieu_code_site_illisible_500",
+      "libelle": "Code site VIPARIS du lieu (demande VIPARIS, décision Val C3 2026-11-02) : liste fermée PCP, PCC, CNIT2, CDL, CHAMP, PDV, PNV, PLB, saisie par l'Admin seul dans la fiche lieu (onglet Informations) ; code inconnu refusé (422 à la route, 23514 en base). Divergence M3.2_20261102_codes-viparis-site-affaire. Lisible par le gestionnaire dans sa fiche lieu (section « Adresse et capacité »), lu en service-role pour le lieu que la RLS vient de rendre (Val 2026-11-02)."
+    },
+    {
+      "id": "M3.2-viparis-code-affaire-evenement",
+      "statut": "implemented",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1461",
+      "artefact": "supabase/migrations/20261102150000_plateforme_codes_viparis.sql (evenements.code_affaire_viparis, CHECK ^[A-Z0-9]{7}$) + packages/plateforme/src/app/api/v1/evenements/[id]/code-affaire-viparis/route.ts",
+      "test": "packages/plateforme/tests/api/evenements/code-affaire-viparis.test.ts + supabase/tests/codes_viparis.test.sql",
+      "libelle": "Code affaire VIPARIS de l'événement (décisions Val C1–C2 2026-11-02) : facultatif, 7 caractères alphanumériques normalisés ; corrigeable par l'équipe Savr et les rôles programmateurs qui voient l'événement sous leur RLS (traiteur, agence, gestionnaire du lieu), jamais par le client organisateur ; sans ordre au prestataire, tracé dans audit_log. Aucun droit nouveau : colonnes hors listes blanches, écriture en service_role."
+    },
+    {
+      "id": "M3.2-viparis-code-affaire-programmation",
+      "statut": "implemented",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:66",
+      "artefact": "packages/plateforme/src/components/programmation/formulaire-programmation.tsx + packages/plateforme/src/app/api/v1/programmation/lieux/route.ts + packages/plateforme/src/lib/viparis/code-affaire-serveur.ts + supabase/migrations/20261102150000_plateforme_codes_viparis.sql (fn_enregistrer_programmation)",
+      "test": "VIPARIS/programmation_code_affaire_invalide + VIPARIS/programmation_code_affaire_brouillon + M1.2/programmation_cartes_par_collecte + VIPARIS/lieux_code_site_rendu + supabase/tests/codes_viparis.test.sql",
+      "libelle": "Champ « Code affaire VIPARIS (optionnel) » à l'écran 1 du formulaire, proposé quand le lieu porte un code site ; écrit par fn_enregistrer_programmation dans la même transaction que l'événement (création et reprise de brouillon). Affichage conditionnel du champ à l'écran : non couvert par un test automatique (preuve visuelle)."
+    },
+    {
+      "id": "M3.2-viparis-fiches-collecte",
+      "statut": "implemented",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:387",
+      "artefact": "packages/plateforme/src/components/evenements/code-affaire-viparis.tsx + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx + packages/plateforme/src/lib/evenements/fiche-evenement.ts + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx + packages/plateforme/src/lib/collectes/fiche-client.ts",
+      "test": "packages/plateforme/src/components/evenements/code-affaire-viparis.test.tsx + VIPARIS/fiche_evenement_code_affaire_saisi + VIPARIS/fiche_evenement_code_affaire_lecture_seule + VIPARIS/fiche_evenement_hors_viparis + VIPARIS/fiche_evenement_code_affaire_tiers + VIPARIS/fiche_evenement_codes_404_sans_lecture + VIPARIS/fiche_evenement_codes_echec_500 + VIPARIS/fiche_collecte_code_site_sans_code_affaire",
+      "libelle": "« Code affaire VIPARIS » sur la fiche événement, commune à tous les espaces (section Événement de l'onglet Informations générales), affiché pour un lieu VIPARIS ou un événement qui porte un code : Ajouter / Modifier sur place pour l'Admin, le traiteur, l'agence et VIPARIS (gestionnaire du lieu), y compris sur l'événement d'un traiteur tiers tenu sur ses lieux ; lecture seule pour le client organisateur. Pas sur les fiches collecte (Val 2026-11-02 : le code affaire est porté par l'événement). « Code site VIPARIS » reste dans Lieu et accès de la fiche collecte client."
+    },
+    {
+      "id": "M3.2-viparis-registre-export",
+      "statut": "implemented",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:116",
+      "artefact": "supabase/migrations/20261102150000_plateforme_codes_viparis.sql (v_registre_dechets) + packages/plateforme/src/lib/registre/csv.ts",
+      "test": "M4.2/export_csv_ligne_par_flux + supabase/tests/codes_viparis.test.sql",
+      "libelle": "Export CSV du registre : colonnes « Code site VIPARIS » et « Code affaire VIPARIS » juste après « Lieu » (23 colonnes), vides hors VIPARIS, pour tous les rôles qui ont accès au registre."
     }
   ],
   "cdc_source_hash": {

@@ -286,8 +286,11 @@ describe('M3.1 / fiche client — colonnes réservées de l’événement', () =
       (json.data.evenement as { reference_affaire: unknown }).reference_affaire,
     ).toBeNull();
     expect(JSON.stringify(json)).not.toContain('AFF-2026-042');
-    // L'événement n'a plus rien à lui donner : il n'est pas lu du tout.
-    expect(admin.calls).not.toContain('evenements');
+    // L'événement n'est lu que pour ses codes VIPARIS (Val 2026-11-02) : la
+    // référence d'affaire n'est jamais demandée.
+    expect(admin.selects.evenements).toEqual([
+      'lieu:lieux!lieu_id(code_site_viparis)',
+    ]);
   });
 
   it('M3.1/fiche_get_contacts_erreur_500 — lecture des contacts en échec : 500, jamais « aucun contact »', async () => {

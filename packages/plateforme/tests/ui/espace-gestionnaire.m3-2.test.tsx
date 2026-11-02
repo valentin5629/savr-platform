@@ -44,6 +44,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => {
   };
 });
 
+import { TopBar } from '@/components/layout/top-bar';
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
 import NouveauProgrammationPage from '@/app/(programmation)/programmer/nouveau/page.js';
 import { BenchmarkFilterBar } from '@/components/dashboards/BenchmarkFilterBar.js';
@@ -149,7 +150,9 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
   it(
     "M3.2/GEST01_bouton_programmer_present — point d'entrée programmation sur le dashboard",
     async () => {
-      render(<GestionnaireDashboardPage />);
+      // Le bouton est dans la barre navy du haut de l'espace, au-dessus du
+      // dashboard (Val 2026-11-02), plus dans son bandeau.
+      render(<TopBar role="gestionnaire_lieux" />);
 
       // Le parcours métier principal du gestionnaire : bouton « Programmer une collecte »
       // (libellé unique du CTA vers le formulaire, arbitrage Q11 Val 2026-10-07)

@@ -2,10 +2,6 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import {
-  LogoOrganisation,
-  useIdentiteSession,
-} from '@/components/layout/logo-organisation';
 
 // PageHero — bandeau pâle d'en-tête de toute page (décisions Val 2026-11-01 :
 // variante B2, qui remplace l'aplat primary-700, puis aucun texte sous le
@@ -23,12 +19,8 @@ interface PageHeroProps {
 
 const PageHero = React.forwardRef<HTMLDivElement, PageHeroProps>(
   ({ title, icon, actions, className }, ref) => {
-    // Logo de l'organisation en haut à droite, après les actions (Val
-    // 2026-11-01) : espaces clients seulement, absent hors AppShell.
-    const identite = useIdentiteSession();
-    // Organisation illisible : pas de tuile (jamais les initiales de l'email).
-    const logo =
-      identite?.logoAffichable && identite.organisation ? identite : null;
+    // Le logo de l'organisation est dans la barre navy du haut (Val
+    // 2026-11-02), plus dans le bandeau.
     return (
       <header
         ref={ref}
@@ -49,10 +41,9 @@ const PageHero = React.forwardRef<HTMLDivElement, PageHeroProps>(
             {title}
           </h1>
         </div>
-        {(actions || logo) && (
+        {actions && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {actions}
-            {logo && <LogoOrganisation identite={logo} className="ml-2" />}
           </div>
         )}
       </header>

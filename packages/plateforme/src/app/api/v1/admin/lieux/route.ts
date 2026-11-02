@@ -6,6 +6,7 @@ import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { lireGestionnaireLieu } from '@/lib/admin/gestionnaire-lieu.js';
 import { lireTri } from '@/lib/tri-liste.js';
+import { estCodeSiteViparis } from '@/lib/viparis/codes.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -118,6 +119,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const codeSite = body.code_site_viparis ?? null;
+  if (codeSite !== null && !estCodeSiteViparis(codeSite)) {
+    return NextResponse.json(
+      { error: 'Code site VIPARIS inconnu' },
+      { status: 422 },
+    );
+  }
+
   const supabase = createAdminSupabaseClient();
 
   // Gestionnaire validé AVANT la création du lieu : un refus ne laisse pas de
@@ -159,6 +168,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       siren: body.siren ?? null,
       email_gestionnaire: body.email_gestionnaire ?? null,
       reference_citeo: body.reference_citeo ?? false,
+      code_site_viparis: codeSite,
       actif: body.actif ?? false,
       latitude: coords?.latitude ?? null,
       longitude: coords?.longitude ?? null,

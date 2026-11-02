@@ -185,6 +185,16 @@ const COLUMNS: CsvColumn<LigneFlux>[] = [
   // (2026-10-06) : sans elle, un gestionnaire de plusieurs sites ne les
   // distingue plus dans le fichier.
   { header: 'Lieu', value: (l) => l.row.lieu_nom ?? '' },
+  // Codes VIPARIS (Val 2026-11-02) : rapprochent le fichier des référentiels
+  // de VIPARIS ; vides pour les autres lieux.
+  {
+    header: 'Code site VIPARIS',
+    value: (l) => l.row.lieu_code_site_viparis ?? '',
+  },
+  {
+    header: 'Code affaire VIPARIS',
+    value: (l) => l.row.evenement_code_affaire_viparis ?? '',
+  },
   {
     header: "Date d'expédition",
     value: (l) => formatDateFr(l.row.date_collecte),

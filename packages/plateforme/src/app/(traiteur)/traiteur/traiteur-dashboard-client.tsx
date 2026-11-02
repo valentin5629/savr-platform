@@ -344,11 +344,6 @@ export function TraiteurDashboardClient({
         <PageHero
           icon={<SquaresFourIcon className="h-6 w-6" />}
           title="Dashboard"
-          actions={
-            <Button variant="accent" asChild>
-              <a href={ROUTES.programmer.nouveau}>Programmer une collecte</a>
-            </Button>
-          }
         />
 
         <DashboardFilterBar

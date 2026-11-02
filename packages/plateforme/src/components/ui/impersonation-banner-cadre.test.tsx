@@ -8,6 +8,7 @@ import { ImpersonationBanner } from '@/components/ui/impersonation-banner';
 vi.mock('next/navigation', () => ({
   usePathname: () => '/traiteur',
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Bug E2E 2026-11-02 : le bandeau d'impersonation, au-dessus du cadre

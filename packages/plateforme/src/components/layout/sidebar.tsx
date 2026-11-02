@@ -243,8 +243,8 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
           {avecIdentite ? (
             <Dropdown>
               <DropdownTrigger asChild>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   data-testid="menu-utilisateur"
                   aria-label={`Menu de ${identite.utilisateur}`}
                   title={[identite.utilisateur, identite.poste]
@@ -252,8 +252,11 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                     .join(' — ')}
                   aria-busy={loggingOut || undefined}
                   className={cn(
-                    'relative flex min-h-11 w-full items-center gap-2 rounded-savr-md text-left transition-colors duration-savr-fast hover:bg-savr-primary-700 data-[state=open]:bg-savr-primary-700',
-                    collapsed ? 'justify-center' : 'px-1 py-1',
+                    // Button ghost du DS, recalé sur le fond primary-800.
+                    'relative h-auto min-h-11 w-full gap-2 text-left font-normal hover:bg-savr-primary-700 active:bg-savr-primary-700 data-[state=open]:bg-savr-primary-700 sm:h-auto',
+                    collapsed
+                      ? 'justify-center px-0'
+                      : 'justify-start px-1 py-1',
                     // Page Paramètres ouverte : même marque que l'entrée active.
                     parametresActif && 'bg-savr-primary-700',
                   )}
@@ -293,7 +296,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                       aria-hidden="true"
                     />
                   )}
-                </button>
+                </Button>
               </DropdownTrigger>
               <DropdownContent
                 side={collapsed ? 'right' : 'top'}

@@ -28,7 +28,7 @@
     "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts (historique « Mon pack AG » : annulée tardive rattachée après coup)",
     "supabase/migrations/20261016173000_plateforme_annulation_tardive_pack_actif.sql",
     "supabase/tests/annulation_tardive_pack_actif.test.sql",
-    "supabase/migrations/20261102120000_plateforme_pack_ag_debit_programmation.sql",
+    "supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql",
     "packages/plateforme/src/components/programmation/use-pack-ag.test.ts"
   ],
   "tables_concernees": [
@@ -78,7 +78,7 @@
     {
       "id": "M2.1-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
-      "artefact": "supabase/migrations/20261102120000_plateforme_pack_ag_debit_programmation.sql",
+      "artefact": "supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql",
       "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « ca : programmée → un crédit décompté », « ca : porte le pack P1 », « ca, cc : réalisées, aucun second débit »",
       "statut": "implemented",
       "libelle": "Collecte AG qui devient programmée → credits_consommes+1 et pack_antgaspi_id posé ; aucun second débit à la réalisation (décision Val 2026-11-02, remplace le débit au passage à realisee)."
@@ -86,7 +86,7 @@
     {
       "id": "M2.1-02",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
-      "artefact": "supabase/migrations/20261102120000_plateforme_pack_ag_debit_programmation.sql",
+      "artefact": "supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql",
       "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « cd : P1 épuisé dès la programmation », « cd : alerte « pack épuisé » »",
       "statut": "implemented",
       "libelle": "Dernier crédit décompté (à la programmation depuis le 2026-11-02) → pack bascule epuise + alerte Admin."
@@ -150,7 +150,7 @@
     {
       "id": "M2.1-annulation-tardive-pack-actif",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": "supabase/migrations/20261102120000_plateforme_pack_ag_debit_programmation.sql",
+      "artefact": "supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql",
       "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « cd : annulée à moins de 4 h → crédit gardé », « cb : annulée à 3 jours → crédit rendu », « cf : annulée à moins de 4 h, imputable à Savr → crédit rendu », « ce : alerte « annulation tardive sans pack actif » »",
       "statut": "implemented",
       "libelle": "Annulation d'une collecte AG dont le crédit a été décompté à la programmation (décision Val 2026-11-02) : tardive (moins de 4 h avant le créneau, imputable au client ou sans incident) → crédit gardé, trace pack_debite_annulation_tardive ; à 4 h ou plus, ou incident non imputable au client → crédit rendu (pack épuisé réactivé), trace pack_recredite_annulation_collecte ; tardive sans pack (programmée sans crédit) → aucun débit, alerte ag_annulee_tardive_sans_pack_actif, rattachable. Remplace la règle du 2026-10-16 (débit tardif sur le pack actif au moment de l'annulation)."
@@ -158,7 +158,7 @@
     {
       "id": "M2.1-pack-debit-programmation",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": "supabase/migrations/20261102120000_plateforme_pack_ag_debit_programmation.sql",
+      "artefact": "supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql",
       "test": "supabase/tests/annulation_tardive_pack_actif.test.sql « ca : programmée → un crédit décompté », « cb : brouillon confirmé → un crédit décompté », « cc : sans pack (facturée à l''unité) », « ca, cc : réalisées, aucun second débit », « c9 : refusée par le prestataire → crédit rendu », « c9 : renvoyée par l''Admin → crédit repris », « c1 : l''attribution ne pose aucun pack », « f_pack_debiter_credit : fermée à authenticated » + packages/plateforme/src/components/programmation/use-pack-ag.test.ts + packages/plateforme/tests/api/mon-pack-ag/mon-pack-ag.test.ts",
       "statut": "implemented",
       "libelle": "Crédit du pack AG décompté dès la programmation (décision Val 2026-11-02) : une AG qui devient programmée (création confirmée, brouillon confirmé, renvoi après refus du prestataire) débite le pack actif de l'organisation programmatrice ; sans crédit restant, elle reste sans pack et sera facturée à l'unité (jamais bloquée) ; aucun second débit à la réalisation ; refus définitif du prestataire → crédit rendu, repris au renvoi ; rpc_valider_attribution_ag ne réserve plus de pack. Formulaire : calcul de la couverture du pack carte par carte (fonctions testées ; rendu vérifié à l'écran, hors test). Mon pack AG (gestionnaire) : collectes à venir listées, repas vides. Reprise des AG à venir à la mise en ligne : vérifiée par sonde sur base jetable (jouée une seule fois, hors suite de tests)."

@@ -294,4 +294,4 @@ supabase/tests/pax_collecte_lot_c2.test.sql
 # 20260702020200 recopié VERBATIM hors la réservation du pack (retirée). Mêmes
 # 'mts1'/'adapter_mts1' (valeur enum type_tms → consumer). Aucun appel HTTP transporteur :
 # la fonction émet un event outbox, l'adapter le consomme. 'customerOrders' banni.
-supabase/migrations/20261102120000_plateforme_pack_ag_debit_programmation.sql
+supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql

@@ -1,5 +1,5 @@
 -- pgTAP — Pack Anti-Gaspi : crédit décompté dès la programmation, gardé ou
--- rendu ensuite (décision Val 2026-11-02, migration 20261102120000).
+-- rendu ensuite (décision Val 2026-11-02, migration 20261102180000).
 --
 -- Couvre : débit à la création confirmée et à la confirmation d'un brouillon ;
 -- aucun débit sans crédit (facturée à l'unité, sans alerte) ; une ZD n'est

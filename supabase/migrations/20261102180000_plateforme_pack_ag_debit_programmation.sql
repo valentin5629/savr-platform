@@ -641,7 +641,7 @@ BEGIN
       'packs_antgaspi', v_pack_id,
       'pack_debite_programmation',
       jsonb_build_object('collecte_id', r.id),
-      jsonb_build_object('reprise', '20261102120000')
+      jsonb_build_object('reprise', '20261102180000')
     );
     v_debits := v_debits + 1;
   END LOOP;

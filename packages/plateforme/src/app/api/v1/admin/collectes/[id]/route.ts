@@ -36,7 +36,7 @@ import { refusTypeContactsCollecte } from '@/lib/collectes/type-contacts-collect
 export const maxDuration = 60;
 
 // Statuts où une AG sans pack peut être rattachée à un pack pris plus tard ;
-// la base tranche (f_collecte_rattachable_pack, migration 20261102120000).
+// la base tranche (f_collecte_rattachable_pack, migration 20261102180000).
 const STATUTS_RATTACHABLES = [
   'programmee',
   'validee',

@@ -89,8 +89,12 @@ const AppShell = ({
           <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
             <TopBar onMenuToggle={() => setMobileSidebarOpen((v) => !v)} />
 
+            {/* `relative` : point d'ancrage des éléments en position absolue
+                du contenu (dont les textes `sr-only`). Sans lui, ils se placent
+                par rapport à la page, dépassent sous l'écran et font défiler la
+                page entière derrière le cadre : une bande vide reste en bas. */}
             <main
-              className="flex-1 overflow-y-auto p-6 pb-20 lg:pb-6"
+              className="relative flex-1 overflow-y-auto p-6 pb-20 lg:pb-6"
               id="main-content"
               tabIndex={-1}
             >

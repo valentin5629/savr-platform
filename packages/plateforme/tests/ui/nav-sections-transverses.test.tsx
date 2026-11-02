@@ -234,10 +234,8 @@ describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () =
 
 describe('M0.8 / nav du formulaire de programmation — rôle lu côté serveur', () => {
   it('M0.8-72 — Formulaire de programmation : le staff (admin, ops) garde le menu du back-office', async () => {
-    // Avec l'identité, « Paramètres » est dans le menu de l'utilisateur.
-    const backOffice = menuDuRole('admin_savr').filter(
-      (libelle) => libelle !== 'Paramètres',
-    );
+    // « Paramètres » de l'Admin (réglages métier) reste dans la barre.
+    const backOffice = menuDuRole('admin_savr');
     expect(backOffice.length).toBeGreaterThan(0);
     for (const role of ['admin_savr', 'ops_savr']) {
       etat.role = role;

@@ -11,7 +11,8 @@ const mockSignOut = vi.fn().mockResolvedValue({ error: null });
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createBrowserSupabaseClient: () => ({ auth: { signOut: mockSignOut } }),
 }));
-vi.mock('next/navigation', () => ({ usePathname: () => '/gestionnaire' }));
+const mockPathname = vi.hoisted(() => vi.fn(() => '/gestionnaire'));
+vi.mock('next/navigation', () => ({ usePathname: mockPathname }));
 vi.mock('next/link', async () => {
   const { forwardRef } = await import('react');
   // Fait suivre les attributs : le menu pose role="menuitem" sur le lien.
@@ -29,6 +30,7 @@ const originalLocation = window.location;
 
 beforeEach(() => {
   mockSignOut.mockClear();
+  mockPathname.mockReturnValue('/gestionnaire');
   Object.defineProperty(window, 'location', {
     configurable: true,
     writable: true,
@@ -123,6 +125,46 @@ describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)',
     ).toHaveTextContent('CM');
     ouvrir();
     expect(screen.getAllByRole('menuitem')).toHaveLength(2);
+  });
+
+  it('Admin : « Paramètres » (réglages métier) reste dans la barre, le menu ne porte que la déconnexion', () => {
+    render(<Sidebar role="admin_savr" identite={identite} />);
+    expect(
+      screen.getByRole('link', { name: 'Paramètres' }),
+    ).toBeInTheDocument();
+    ouvrir();
+    expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
+      'Se déconnecter',
+    ]);
+  });
+
+  it('page Paramètres ouverte : le bouton du menu porte la marque active', () => {
+    mockPathname.mockReturnValue('/traiteur/parametres');
+    render(<Sidebar role="traiteur_manager" identite={identite} />);
+    expect(screen.getByTestId('menu-utilisateur').className).toContain(
+      'bg-savr-primary-700',
+    );
+    ouvrir();
+    expect(
+      screen
+        .getByRole('menuitem', { name: 'Paramètres' })
+        .getAttribute('aria-current'),
+    ).toBe('page');
+  });
+
+  it('un onLogout explicite est appelé depuis le menu (pas de signOut auto)', () => {
+    const onLogout = vi.fn();
+    render(
+      <Sidebar
+        role="gestionnaire_lieux"
+        identite={identite}
+        onLogout={onLogout}
+      />,
+    );
+    ouvrir();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Se déconnecter' }));
+    expect(onLogout).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
 
   it('sans poste : le nom seul', () => {

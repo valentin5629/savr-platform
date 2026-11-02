@@ -49,6 +49,13 @@ interface SidebarProps {
   className?: string;
 }
 
+const PARAMETRES_CLIENTS = new Set<string>([
+  ROUTES.traiteur.parametres,
+  ROUTES.agence.parametres,
+  ROUTES.gestionnaire.parametres,
+  ROUTES.organisateur.parametres,
+]);
+
 // Sidebar — bloc primaire plein primary-800 (levier #2)
 // Item actif : fond primary-700 + barre accent-500 3px gauche
 const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
@@ -90,10 +97,13 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     const hidden = new Set(hiddenNavHrefs ?? []);
     const hrefActif = hrefNavActif(role, pathname);
     const avecIdentite = !!identite?.utilisateur;
-    // « Paramètres » passe dans le menu de l'utilisateur quand il est affiché.
+    // « Paramètres » des espaces clients (profil, organisation, membres) passe
+    // dans le menu de l'utilisateur quand il est affiché. Celui de l'Admin
+    // (réglages métier du back-office, §06.06) reste dans la barre.
     const hrefParametres = (NAV_CONFIG[role] ?? [])
       .flatMap((g) => g.items)
-      .find((i) => i.label === 'Paramètres')?.href;
+      .find((i) => PARAMETRES_CLIENTS.has(i.href))?.href;
+    const parametresActif = !!hrefParametres && hrefActif === hrefParametres;
     if (avecIdentite && hrefParametres) hidden.add(hrefParametres);
     const groups = (NAV_CONFIG[role] ?? [])
       .map((g) => ({
@@ -240,11 +250,20 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                   title={[identite.utilisateur, identite.poste]
                     .filter(Boolean)
                     .join(' — ')}
+                  aria-busy={loggingOut || undefined}
                   className={cn(
-                    'flex min-h-11 w-full items-center gap-2 rounded-savr-md text-left transition-colors duration-savr-fast hover:bg-savr-primary-700 data-[state=open]:bg-savr-primary-700',
+                    'relative flex min-h-11 w-full items-center gap-2 rounded-savr-md text-left transition-colors duration-savr-fast hover:bg-savr-primary-700 data-[state=open]:bg-savr-primary-700',
                     collapsed ? 'justify-center' : 'px-1 py-1',
+                    // Page Paramètres ouverte : même marque que l'entrée active.
+                    parametresActif && 'bg-savr-primary-700',
                   )}
                 >
+                  {parametresActif && (
+                    <span
+                      className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-savr-full bg-savr-accent-500"
+                      aria-hidden="true"
+                    />
+                  )}
                   {/* Avatar aux initiales « Prénom Nom » (Val 2026-11-01). */}
                   <span
                     data-testid="avatar-utilisateur"
@@ -286,7 +305,10 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
               >
                 {hrefParametres && (
                   <DropdownItem asChild className="min-h-11">
-                    <Link href={hrefParametres}>
+                    <Link
+                      href={hrefParametres}
+                      aria-current={parametresActif ? 'page' : undefined}
+                    >
                       <GearIcon aria-hidden="true" />
                       Paramètres
                     </Link>
@@ -296,7 +318,11 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                 <DropdownItem
                   className="min-h-11"
                   disabled={loggingOut}
-                  onSelect={() => void handleLogout()}
+                  onSelect={(e) => {
+                    // Menu gardé ouvert : « Déconnexion… » reste visible.
+                    e.preventDefault();
+                    void handleLogout();
+                  }}
                 >
                   <SignOutIcon aria-hidden="true" />
                   {loggingOut ? 'Déconnexion…' : 'Se déconnecter'}

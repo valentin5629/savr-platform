@@ -1168,7 +1168,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts",
       "test": "M3.2/pack_ag_consommation_pack_tiers_exclu + M3.2/pack_ag_consommation_erreur_500 + M3.2/pack_ag_consommation_toutes_par_pack + M3.2/mon_pack_ag_packs_org_seule",
       "statut": "implemented",
-      "libelle": "Mon pack Anti-Gaspi — packs et collectes bornés à l'organisation du jeton : la route lit par le client de service, chaque lecture porte la borne (packs : organisation_id ; collectes : jointure obligatoire sur packs_antgaspi filtrée sur l'organisation) ; toutes les collectes de chaque pack, sans plafond global (Val 2026-11-02 : elles se lisent pack par pack, un plafond viderait les packs anciens ; un pack ne porte pas plus de collectes que ses crédits). Les collectes des traiteurs tiers tenues sur les lieux d'un gestionnaire, débitées sur le pack du traiteur, n'y figurent pas. Une lecture en échec rend 500, jamais une liste vide."
+      "libelle": "Mon pack Anti-Gaspi — packs et collectes bornés à l'organisation du jeton : la route lit par le client de service, chaque lecture porte la borne (packs : organisation_id ; collectes : jointure obligatoire sur packs_antgaspi filtrée sur l'organisation) ; toutes les collectes de chaque pack, sans plafond global (Val 2026-11-02 : elles se lisent pack par pack, un plafond viderait les packs anciens). Les collectes des traiteurs tiers tenues sur les lieux d'un gestionnaire, débitées sur le pack du traiteur, n'y figurent pas. Une lecture en échec rend 500, jamais une liste vide."
     },
     {
       "id": "M3.2-pack-ag-consommation-annulations-tardives",

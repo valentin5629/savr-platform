@@ -147,8 +147,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // perd la réservation de son pack (facturée à l'unité) et n'est donc pas
     // listée, sauf si l'Admin la rattache ensuite à un pack de l'organisation.
     // Sans plafond : l'écran range les collectes par pack, un plafond global
-    // viderait les packs les plus anciens. Un pack ne porte pas plus de
-    // collectes que ses crédits (chaque rattachement en décompte un).
+    // viderait les packs les plus anciens. Volume borné par l'organisation :
+    // chaque rattachement à un pack décompte normalement un crédit (le seed
+    // démo, lui, en rattache plus que ses crédits).
     const { data: realisees, error: consoErr } = await lire([
       'realisee',
       'cloturee',

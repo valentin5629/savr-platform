@@ -790,7 +790,7 @@ const CAS: CasRoute[] = [
     url: '/api/v1/traiteur/collectes/col-1/annulation',
     params: { id: 'col-1' },
     corps: { motif: 'Événement annulé par le client' },
-    emetteur: 'fn_modifier_collecte',
+    emetteur: 'fn_annuler_collecte_client',
     rend: null,
     attendu: ['col-1'],
     refusGarde: { ligne: { statut: 'realisee' } },
@@ -804,7 +804,7 @@ const CAS: CasRoute[] = [
     params: { id: 'col-1' },
     corps: { motif: 'Événement annulé par le client' },
     ligne: { statut: 'validee' },
-    emetteur: 'fn_modifier_collecte',
+    emetteur: 'fn_annuler_collecte_client',
     rend: null,
     attendu: ['col-1'],
     refusGarde: { ligne: { statut: 'realisee' } },
@@ -833,7 +833,7 @@ const CAS: CasRoute[] = [
     url: '/api/v1/agence/collectes/col-1/annulation',
     params: { id: 'col-1' },
     corps: { motif: 'Événement annulé par le client' },
-    emetteur: 'fn_modifier_collecte',
+    emetteur: 'fn_annuler_collecte_client',
     rend: null,
     attendu: ['col-1'],
     refusGarde: { ligne: { statut: 'realisee' } },
@@ -847,7 +847,7 @@ const CAS: CasRoute[] = [
     params: { id: 'col-1' },
     corps: { motif: 'Événement annulé par le client' },
     ligne: { statut: 'validee' },
-    emetteur: 'fn_modifier_collecte',
+    emetteur: 'fn_annuler_collecte_client',
     rend: null,
     attendu: ['col-1'],
     refusGarde: { ligne: { statut: 'realisee' } },
@@ -861,7 +861,7 @@ const CAS: CasRoute[] = [
     url: '/api/v1/gestionnaire/collectes/col-1/annulation',
     params: { id: 'col-1' },
     corps: { motif: 'Événement annulé par le client' },
-    emetteur: 'fn_modifier_collecte',
+    emetteur: 'fn_annuler_collecte_client',
     rend: null,
     attendu: ['col-1'],
     refusGarde: { ligne: { statut: 'realisee' } },
@@ -875,7 +875,7 @@ const CAS: CasRoute[] = [
     params: { id: 'col-1' },
     corps: { motif: 'Événement annulé par le client' },
     ligne: { statut: 'validee' },
-    emetteur: 'fn_modifier_collecte',
+    emetteur: 'fn_annuler_collecte_client',
     rend: null,
     attendu: ['col-1'],
     refusGarde: { ligne: { statut: 'realisee' } },
@@ -1732,6 +1732,7 @@ const DECLENCHEUR = /envoyerOrdres(Evenement)?SansAttendre\(/;
  */
 const EMETTEURS_SQL = [
   'fn_ajouter_collecte_evenement', // appelle fn_creer_collecte
+  'fn_annuler_collecte_client', // appelle fn_modifier_collecte
   'fn_confirmer_programmation_brouillon',
   'fn_creer_collecte',
   'fn_creer_collecte_carte', // appelle fn_creer_collecte

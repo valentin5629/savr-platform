@@ -5268,6 +5268,10 @@ export type Database = {
         }
         Returns: string
       }
+      fn_annuler_collecte_client: {
+        Args: { p_id: string; p_motif: string }
+        Returns: Json
+      }
       fn_anonymize_user: {
         Args: {
           p_acteur: string

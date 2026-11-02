@@ -65,6 +65,28 @@ describe('chargerIdentiteSession', () => {
     ).toBeNull();
   });
 
+  it('poste lu sur SA fiche, rogné ; vide = null (Val 2026-11-01)', async () => {
+    lignes.users = {
+      prenom: 'Camille',
+      nom: 'Martin',
+      poste: '  Responsable RSE ',
+      organisation_id: 'org1',
+    };
+    expect((await chargerIdentiteSession(args)).poste).toBe('Responsable RSE');
+    lignes.users = { prenom: 'C', nom: 'M', poste: ' ', organisation_id: 'o' };
+    expect((await chargerIdentiteSession(args)).poste).toBeNull();
+    lignes.users = { prenom: 'C', nom: 'M', organisation_id: 'o' };
+    expect((await chargerIdentiteSession(args)).poste).toBeNull();
+  });
+
+  it('logoAffichable transmis (faux pour le staff : pas de tuile dans le bandeau)', async () => {
+    expect((await chargerIdentiteSession(args)).logoAffichable).toBe(true);
+    expect(
+      (await chargerIdentiteSession({ ...args, logoAffichable: false }))
+        .logoAffichable,
+    ).toBe(false);
+  });
+
   it('nom vide : repli sur l’email', async () => {
     lignes.users = { prenom: ' ', nom: '', organisation_id: 'org1' };
     expect((await chargerIdentiteSession(args)).utilisateur).toBe(
@@ -77,7 +99,9 @@ describe('chargerIdentiteSession', () => {
     expect(await chargerIdentiteSession(args)).toEqual({
       organisation: null,
       logoSrc: null,
+      logoAffichable: true,
       utilisateur: 'c@viparis.fr',
+      poste: null,
     });
     panne = true;
     expect((await chargerIdentiteSession(args)).utilisateur).toBe(

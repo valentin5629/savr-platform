@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { TopBar } from '@/components/layout/top-bar';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { LogoZdProvider } from '@/components/layout/logo-context';
+import { IdentiteProvider } from '@/components/layout/logo-organisation';
 import type { NavRole } from '@/lib/roles';
 import type { IdentiteSession } from '@/lib/identite-session';
 
@@ -38,68 +39,70 @@ const AppShell = ({
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
 
   return (
-    <LogoZdProvider>
-      <div
-        className={cn(
-          'flex h-screen overflow-hidden bg-savr-neutral-50',
-          className,
-        )}
-      >
-        {/* Sidebar desktop (≥ 1024px) */}
-        <div className="hidden lg:flex lg:shrink-0">
-          <Sidebar
-            role={role}
-            collapsed={sidebarCollapsed}
-            onToggle={() => setSidebarCollapsed((v) => !v)}
-            onLogout={onLogout}
-            identite={identite}
-            hiddenNavHrefs={hiddenNavHrefs}
-            navBadges={navBadges}
-          />
-        </div>
-
-        {/* Overlay mobile */}
-        {mobileSidebarOpen && (
-          <div
-            className="fixed inset-0 z-30 bg-savr-neutral-900/50 lg:hidden"
-            onClick={() => setMobileSidebarOpen(false)}
-            aria-hidden="true"
-          />
-        )}
-
-        {/* Sidebar mobile (overlay slide) */}
+    <IdentiteProvider value={identite ?? null}>
+      <LogoZdProvider>
         <div
           className={cn(
-            'fixed inset-y-0 left-0 z-40 lg:hidden transition-transform duration-savr-base ease-out',
-            mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
+            'flex h-screen overflow-hidden bg-savr-neutral-50',
+            className,
           )}
         >
-          <Sidebar
-            role={role}
-            onLogout={onLogout}
-            identite={identite}
-            hiddenNavHrefs={hiddenNavHrefs}
-            navBadges={navBadges}
-          />
-        </div>
+          {/* Sidebar desktop (≥ 1024px) */}
+          <div className="hidden lg:flex lg:shrink-0">
+            <Sidebar
+              role={role}
+              collapsed={sidebarCollapsed}
+              onToggle={() => setSidebarCollapsed((v) => !v)}
+              onLogout={onLogout}
+              identite={identite}
+              hiddenNavHrefs={hiddenNavHrefs}
+              navBadges={navBadges}
+            />
+          </div>
 
-        {/* Contenu principal */}
-        <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-          <TopBar onMenuToggle={() => setMobileSidebarOpen((v) => !v)} />
+          {/* Overlay mobile */}
+          {mobileSidebarOpen && (
+            <div
+              className="fixed inset-0 z-30 bg-savr-neutral-900/50 lg:hidden"
+              onClick={() => setMobileSidebarOpen(false)}
+              aria-hidden="true"
+            />
+          )}
 
-          <main
-            className="flex-1 overflow-y-auto p-6 pb-20 lg:pb-6"
-            id="main-content"
-            tabIndex={-1}
+          {/* Sidebar mobile (overlay slide) */}
+          <div
+            className={cn(
+              'fixed inset-y-0 left-0 z-40 lg:hidden transition-transform duration-savr-base ease-out',
+              mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
+            )}
           >
-            {children}
-          </main>
+            <Sidebar
+              role={role}
+              onLogout={onLogout}
+              identite={identite}
+              hiddenNavHrefs={hiddenNavHrefs}
+              navBadges={navBadges}
+            />
+          </div>
 
-          {/* Bottom nav mobile */}
-          <BottomNav role={role} hiddenNavHrefs={hiddenNavHrefs} />
+          {/* Contenu principal */}
+          <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+            <TopBar onMenuToggle={() => setMobileSidebarOpen((v) => !v)} />
+
+            <main
+              className="flex-1 overflow-y-auto p-6 pb-20 lg:pb-6"
+              id="main-content"
+              tabIndex={-1}
+            >
+              {children}
+            </main>
+
+            {/* Bottom nav mobile */}
+            <BottomNav role={role} hiddenNavHrefs={hiddenNavHrefs} />
+          </div>
         </div>
-      </div>
-    </LogoZdProvider>
+      </LogoZdProvider>
+    </IdentiteProvider>
   );
 };
 

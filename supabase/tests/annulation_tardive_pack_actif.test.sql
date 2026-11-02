@@ -14,7 +14,7 @@
 -- tardif sur le pack actif) ; il est listé tel quel dans le manifeste M2.1.
 
 BEGIN;
-SELECT plan(52);
+SELECT plan(56);
 
 -- ── Fixtures (identifiants improbables, hexadécimaux) ─────────────────────────
 -- o1 : l'organisation des collectes ; o2 : une voisine dont le pack actif ne
@@ -224,6 +224,17 @@ SELECT ok(NOT has_function_privilege('anon', 'plateforme.fn_trg_pack_debit_progr
   'fn_trg_pack_debit_programmation : fermée à anon');
 SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.rpc_valider_attribution_ag(uuid, uuid, uuid, text, plateforme.mode_validation, uuid, text, text)', 'EXECUTE'),
   'rpc_valider_attribution_ag : toujours fermée à authenticated');
+SELECT ok(NOT has_function_privilege('anon', 'plateforme.rpc_valider_attribution_ag(uuid, uuid, uuid, text, plateforme.mode_validation, uuid, text, text)', 'EXECUTE'),
+  'rpc_valider_attribution_ag : toujours fermée à anon');
+SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.fn_trg_pack_debit_realisee()', 'EXECUTE')
+      AND NOT has_function_privilege('anon', 'plateforme.fn_trg_pack_debit_realisee()', 'EXECUTE'),
+  'fn_trg_pack_debit_realisee : fermée à authenticated et anon');
+SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.fn_trg_pack_debit_annulation_tardive()', 'EXECUTE')
+      AND NOT has_function_privilege('anon', 'plateforme.fn_trg_pack_debit_annulation_tardive()', 'EXECUTE'),
+  'fn_trg_pack_debit_annulation_tardive : fermée à authenticated et anon');
+SELECT ok(NOT has_function_privilege('authenticated', 'plateforme.fn_trg_pack_recredit()', 'EXECUTE')
+      AND NOT has_function_privilege('anon', 'plateforme.fn_trg_pack_recredit()', 'EXECUTE'),
+  'fn_trg_pack_recredit : fermée à authenticated et anon');
 SELECT ok(has_function_privilege('service_role', 'plateforme.f_pack_debiter_credit(uuid)', 'EXECUTE')
       AND has_function_privilege('service_role', 'plateforme.f_pack_recrediter_credit(uuid, uuid, text)', 'EXECUTE'),
   'service_role exécute les deux fonctions de crédit');

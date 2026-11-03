@@ -29,7 +29,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(35);
+SELECT plan(38);
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 1. Ciblage : seule la collecte demandée est touchée
@@ -132,6 +132,16 @@ INSERT INTO plateforme.outbox_events (id, txid, aggregate_type, aggregate_id, ev
   ('ef200000-0000-0000-0000-000000000001', 1, 'collecte', 'cf000000-0000-0000-0000-0000000000f2', 'collecte.creee', '{}'::jsonb, 'dead',    'adapter_mts1'),
   ('ef200000-0000-0000-0000-000000000002', 1, 'collecte', 'cf000000-0000-0000-0000-0000000000f2', 'collecte.creee', '{}'::jsonb, 'pending', 'adapter_mts1');
 
+-- G : ordre abandonné DANS LE DOUTE (erreur ambiguë, `requires_reconciliation`)
+-- puis renvoi. Le renvoi part, mais avec le drapeau « à réconcilier » hérité :
+-- la commande a pu être créée chez le prestataire, l'adapter la relit avant
+-- tout POST (revue sécurité 2026-11-03, CLAUDE.md §2 — jamais de doublon).
+INSERT INTO plateforme.outbox_events (id, txid, aggregate_type, aggregate_id, event_type, payload, statut, consumer, requires_reconciliation) VALUES
+  ('eb100000-0000-0000-0000-000000000001', 1, 'collecte', 'cb000000-0000-0000-0000-0000000000b1', 'collecte.creee', '{}'::jsonb, 'dead',    'adapter_mts1', true),
+  ('eb100000-0000-0000-0000-000000000002', 1, 'collecte', 'cb000000-0000-0000-0000-0000000000b1', 'collecte.creee', '{}'::jsonb, 'pending', 'adapter_mts1', false),
+  ('eb200000-0000-0000-0000-000000000001', 1, 'collecte', 'cb000000-0000-0000-0000-0000000000b2', 'collecte.creee', '{}'::jsonb, 'dead',    'adapter_mts1', true),
+  ('eb200000-0000-0000-0000-000000000002', 1, 'collecte', 'cb000000-0000-0000-0000-0000000000b2', 'collecte.creee', '{}'::jsonb, 'pending', 'adapter_mts1', false);
+
 -- E : ordre en échec dont le palier de reprise n'est pas atteint, SUIVI d'un
 -- nouvel ordre en attente (l'Admin a recliqué). Ni l'un ni l'autre ne part : le
 -- premier attend son palier, le second attend le premier.
@@ -176,8 +186,14 @@ INSERT INTO plateforme.outbox_events (id, aggregate_type, aggregate_id, event_ty
 
 -- Voie ciblée sur les agrégats …1 (avant le lot, qui ramasserait tout le reste).
 SELECT is(
-  (SELECT string_agg(id::text, ',') FROM plateforme.fn_claim_outbox_collecte('cf000000-0000-0000-0000-0000000000f1')),
-  'ef100000-0000-0000-0000-000000000002', 'Parité F (ciblée) : un ordre abandonné ne bloque plus, le renvoi est réservé');
+  (SELECT string_agg(id::text || '/' || requires_reconciliation::text, ',') FROM plateforme.fn_claim_outbox_collecte('cf000000-0000-0000-0000-0000000000f1')),
+  'ef100000-0000-0000-0000-000000000002/false', 'Parité F (ciblée) : un ordre abandonné ne bloque plus, le renvoi est réservé (sans réconciliation : l''abandon n''était pas ambigu)');
+SELECT is(
+  (SELECT string_agg(id::text || '/' || requires_reconciliation::text, ',') FROM plateforme.fn_claim_outbox_collecte('cb000000-0000-0000-0000-0000000000b1')),
+  'eb100000-0000-0000-0000-000000000002/true', 'Parité G (ciblée) : renvoi derrière un abandon ambigu → rendu « à réconcilier » (jamais de re-POST à l''aveugle)');
+SELECT is(
+  (SELECT requires_reconciliation::text FROM plateforme.outbox_events WHERE id = 'eb100000-0000-0000-0000-000000000002'),
+  'false', 'Parité G (ciblée) : le drapeau hérité est rendu, pas écrit en base');
 SELECT is(
   (SELECT statut::text FROM plateforme.outbox_events WHERE id = 'ef100000-0000-0000-0000-000000000001'),
   'dead', 'Parité F (ciblée) : l''ordre abandonné reste en base, jamais repris');
@@ -227,8 +243,11 @@ SELECT is(
   'Sortie (lot) : même ligne rendue que la voie ciblée');
 
 SELECT is(
-  (SELECT string_agg(id::text, ',') FROM claim_lot WHERE aggregate_id = 'cf000000-0000-0000-0000-0000000000f2'),
-  'ef200000-0000-0000-0000-000000000002', 'Parité F (lot) : un ordre abandonné ne bloque plus, le renvoi est réservé');
+  (SELECT string_agg(id::text || '/' || requires_reconciliation::text, ',') FROM claim_lot WHERE aggregate_id = 'cf000000-0000-0000-0000-0000000000f2'),
+  'ef200000-0000-0000-0000-000000000002/false', 'Parité F (lot) : un ordre abandonné ne bloque plus, le renvoi est réservé (sans réconciliation)');
+SELECT is(
+  (SELECT string_agg(id::text || '/' || requires_reconciliation::text, ',') FROM claim_lot WHERE aggregate_id = 'cb000000-0000-0000-0000-0000000000b2'),
+  'eb200000-0000-0000-0000-000000000002/true', 'Parité G (lot) : renvoi derrière un abandon ambigu → rendu « à réconcilier »');
 SELECT is(
   (SELECT count(*)::int FROM claim_lot WHERE aggregate_id = 'ce000000-0000-0000-0000-0000000000e2'),
   0, 'Parité E (lot) : palier de reprise non atteint → ni l''ordre en échec ni le suivant ne sont réservés');

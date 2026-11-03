@@ -13,6 +13,15 @@
 -- l'affiche tant qu'aucun ordre de même nature ne l'a remplacé
 -- (lib/ordre-envoi.ts).
 --
+-- Garde contre le doublon de commande (revue sécurité 2026-11-03) : un ordre
+-- abandonné après une erreur ambiguë porte `requires_reconciliation = true` (la
+-- commande a pu être créée chez le prestataire sans que sa référence soit
+-- enregistrée). Avant, rien ne passait derrière lui. Désormais l'ordre suivant
+-- de la collecte (renvoi depuis la fiche, ou modification qui recrée un rang
+-- manquant) est rendu avec ce même drapeau : l'adapter relit la commande par
+-- sa clé, stable d'un ordre à l'autre, avant tout POST (CLAUDE.md §2). Le
+-- drapeau est rendu, pas écrit : il est recalculé à chaque réservation.
+--
 -- Ce qui ne change pas :
 --   - un ordre en file (`pending`), en cours (`processing`) ou en échec avec
 --     reprise planifiée (`failed`) bloque toujours les suivants : l'ordre
@@ -93,7 +102,18 @@ BEGIN
     oe.payload,
     oe.consumer,
     oe.attempts,
-    oe.requires_reconciliation;
+    -- « À réconcilier » hérité : un ordre antérieur abandonné dans le doute
+    -- (erreur ambiguë, la commande a pu être créée chez le prestataire) impose
+    -- de relire avant tout POST à l'ordre qui passe derrière lui.
+    (oe.requires_reconciliation OR EXISTS (
+      SELECT 1
+      FROM plateforme.outbox_events d
+      WHERE d.aggregate_id = oe.aggregate_id
+        AND d.seq < oe.seq
+        AND d.statut = 'dead'
+        AND d.requires_reconciliation
+        AND d.consumer IS DISTINCT FROM 'attribution_job'
+    ));
 END;
 $$;
 
@@ -160,7 +180,18 @@ BEGIN
     oe.payload,
     oe.consumer,
     oe.attempts,
-    oe.requires_reconciliation;
+    -- « À réconcilier » hérité : un ordre antérieur abandonné dans le doute
+    -- (erreur ambiguë, la commande a pu être créée chez le prestataire) impose
+    -- de relire avant tout POST à l'ordre qui passe derrière lui.
+    (oe.requires_reconciliation OR EXISTS (
+      SELECT 1
+      FROM plateforme.outbox_events d
+      WHERE d.aggregate_id = oe.aggregate_id
+        AND d.seq < oe.seq
+        AND d.statut = 'dead'
+        AND d.requires_reconciliation
+        AND d.consumer IS DISTINCT FROM 'attribution_job'
+    ));
 END;
 $$;
 

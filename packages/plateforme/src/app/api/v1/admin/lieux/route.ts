@@ -7,6 +7,7 @@ import { geocodeAdresse } from '@/lib/geocoding.js';
 import { lireGestionnaireLieu } from '@/lib/admin/gestionnaire-lieu.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { estCodeSiteViparis } from '@/lib/viparis/codes.js';
+import { regionLieu } from '@/lib/lieux/region-code-postal.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -153,7 +154,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       code_postal,
       ville,
       type_vehicule_max,
-      region: body.region ?? null,
+      // Région saisie prioritaire, sinon déduite du code postal (C1, Val 2026-11-03).
+      region: regionLieu(body.region, code_postal),
       acces_details: body.acces_details ?? null,
       acces_office: body.acces_office ?? null,
       stationnement: body.stationnement ?? null,

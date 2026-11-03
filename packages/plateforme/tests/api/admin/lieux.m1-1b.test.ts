@@ -203,6 +203,33 @@ describe('M1.1b / Lieux / Création', () => {
       }),
     );
     expect(res.status).toBe(201);
+    // Région absente : déduite du code postal (C1, Val 2026-11-03).
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ region: 'idf' }),
+    );
+  });
+
+  it('lieux/create — la région saisie prime sur le code postal', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'lieu-new' },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/lieux/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/lieux', {
+        nom: 'Lieu',
+        adresse_acces: '1 rue',
+        code_postal: '92400',
+        ville: 'Courbevoie',
+        type_vehicule_max: 'fourgon',
+        region: 'province',
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ region: 'province' }),
+    );
   });
 });
 

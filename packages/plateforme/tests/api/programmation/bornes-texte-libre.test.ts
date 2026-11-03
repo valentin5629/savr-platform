@@ -5,7 +5,7 @@
  * Ces trois colonnes sont des `text` sans aucune contrainte (5 000 caractères
  * acceptés, mesuré) et les routes ne filtraient que les CLÉS. Elles partent au
  * transporteur, deux d'entre elles par le canal de texte libre (le commentaire
- * au transporteur, composé par `composerCommentaireTransporteur`,
+ * au transporteur, composé par `composerCommentairesTransporteur`,
  * packages/adapters/src/infos-acces.ts).
  *
  * Depuis le format décidé par Val le 2026-10-15, ce commentaire tient chaque

@@ -309,17 +309,28 @@ describe('M0.6/statut_admin_creee_envoi_abandonne — GET /admin/collectes', () 
     chain.from.mockImplementation(fromParDefaut ?? (() => chain));
   });
 
-  function brancher(file: { data: unknown; error: unknown }) {
+  function brancher(
+    file: { data: unknown; error: unknown },
+    // Toutes les créations des collectes candidates (2e lecture de la file) :
+    // une création plus récente que l'abandon le remplace (Val 2026-11-03).
+    creations: { data: unknown; error: unknown } = {
+      data: [{ aggregate_id: ABANDONNEE, seq: 7, statut: 'dead' }],
+      error: null,
+    },
+  ) {
     const fileEnvoi = lecture(file);
+    const toutesCreations = lecture(creations);
     const encore = lecture({ data: [{ id: ABANDONNEE }], error: null });
     let collectes = 0;
+    let file_ = 0;
     chain.from.mockImplementation((table: string) => {
-      if (table === 'outbox_events') return fileEnvoi.l;
+      if (table === 'outbox_events')
+        return file_++ === 0 ? fileEnvoi.l : toutesCreations.l;
       // 1re lecture de `collectes` = la liste ; 2e = abandons encore concernés.
       if (table === 'collectes' && collectes++ === 1) return encore.l;
       return chain;
     });
-    return { fileEnvoi, encore };
+    return { fileEnvoi, toutesCreations, encore };
   }
 
   it('ligne abandonnée marquée, filtre « Créée » qui la retient', async () => {
@@ -359,6 +370,38 @@ describe('M0.6/statut_admin_creee_envoi_abandonne — GET /admin/collectes', () 
     );
     expect(String(chain.or.mock.calls[0]?.[0])).toContain(
       `id.in.(${ABANDONNEE})`,
+    );
+  });
+
+  it('M0.6/ordre_abandonne_remplace — création abandonnée puis renvoyée : la collecte ne compte plus parmi les abandons', async () => {
+    const { toutesCreations } = brancher(
+      { data: [{ aggregate_id: ABANDONNEE }], error: null },
+      {
+        data: [
+          { aggregate_id: ABANDONNEE, seq: 7, statut: 'dead' },
+          { aggregate_id: ABANDONNEE, seq: 9, statut: 'pending' },
+        ],
+        error: null,
+      },
+    );
+    chain.range.mockResolvedValueOnce({
+      data: [{ id: ABANDONNEE }],
+      error: null,
+      count: 1,
+    });
+    const res = await callGet('');
+    expect(res.status).toBe(200);
+    const corps = (await res.json()) as {
+      data: { id: string; envoi_abandonne: boolean }[];
+    };
+    expect(corps.data.map((r) => [r.id, r.envoi_abandonne])).toEqual([
+      [ABANDONNEE, false],
+    ]);
+    expect(toutesCreations.filtres).toEqual(
+      expect.arrayContaining([
+        ['eq', 'event_type', 'collecte.creee'],
+        ['in', 'aggregate_id', [ABANDONNEE]],
+      ]),
     );
   });
 

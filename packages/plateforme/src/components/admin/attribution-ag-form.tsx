@@ -69,7 +69,23 @@ export interface AlgoResult {
   no_prestataire: boolean;
   delai_minutes: number;
   nb_pax: number;
+  /**
+   * Services au choix par type de transporteur (A Toutes!), quand l'Admin le
+   * force et que la branche calculée n'en désigne aucun (Val 2026-11-03).
+   */
+  services_par_type_tms?: Record<
+    string,
+    { branche: string; libelle: string }[]
+  >;
+  // Lieu sans région ni code postal : rien ne peut être recommandé tant qu'il
+  // n'est pas complété (C1, Val 2026-11-03). Absent avant la migration.
+  region_inconnue?: boolean;
 }
+
+// Remplace les deux avertissements « aucune recommandation » : la cause est le
+// lieu, pas le créneau ni les prestataires.
+export const MESSAGE_LIEU_A_COMPLETER =
+  'Aucune recommandation possible : le lieu de cette collecte n’a ni région ni code postal. Complétez le lieu dans le menu Lieux, puis revenez sur cette collecte. Vous pouvez aussi choisir l’association et le transporteur vous-même ci-dessous.';
 
 interface AssoRef {
   id: string;
@@ -229,6 +245,8 @@ export function AttributionAgForm({
   const [selectedAsso, setSelectedAsso] = useState<string | null>(null);
   const [assoSource, setAssoSource] = useState<'reco' | 'libre'>('reco');
   const [selectedTransp, setSelectedTransp] = useState<string | null>(null);
+  // Service du transporteur forcé, quand la branche calculée n'en désigne aucun.
+  const [serviceChoisi, setServiceChoisi] = useState('');
   const [transpSource, setTranspSource] = useState<'reco' | 'libre'>('reco');
 
   // Besoin véhicule (décision Val 2026-10-01) — initialisé depuis la collecte.
@@ -392,6 +410,7 @@ export function AttributionAgForm({
       (!!algo.transporteur && !transpIsReco) ||
       transpSource === 'libre') as boolean);
   const aucuneReco = !!algo && algo.no_asso && assoSource === 'libre';
+  const lieuACompleter = algo?.region_inconnue === true;
   const motifOk =
     !isOverride ||
     (motif !== '' && (motif !== 'autre' || motifLibre.length >= 10));
@@ -442,6 +461,7 @@ export function AttributionAgForm({
   const choisirTransporteur = (id: string) => {
     const t = optionsTransp.find((x) => x.id === id);
     setSelectedTransp(t ? id : null);
+    setServiceChoisi('');
     // Recommandé (ou aucun choix) = pas de motif ; tout autre transporteur = override.
     setTranspSource(
       !t || transpList.some((x) => x.id === id) ? 'reco' : 'libre',
@@ -451,12 +471,28 @@ export function AttributionAgForm({
   const selectedTranspTypeTms =
     optionsTransp.find((t) => t.id === selectedTransp)?.type_tms ?? null;
 
+  // A Toutes! forcé sur une branche qui ne désigne aucun de ses services
+  // (Marathon par exemple) : l'Admin choisit le service (décision Val
+  // 2026-11-03). Sinon l'envoi échouait en définitif.
+  const servicesTransp =
+    (selectedTranspTypeTms &&
+      algo?.services_par_type_tms?.[selectedTranspTypeTms]) ||
+    [];
+  const serviceRequis =
+    servicesTransp.length > 0 &&
+    !servicesTransp.some((s) => s.branche === algo?.branche);
+  const serviceOk = !serviceRequis || serviceChoisi !== '';
+
   const nbVehiculesNum = Number(nbVehicules);
   const nbVehiculesOk = nbVehiculesValide(nbVehicules);
   const contexteCharge = contexteEtat === 'ok';
 
   const handleValider = async () => {
     if (!selectedAsso || !selectedTransp || !algo) return;
+    if (!serviceOk) {
+      setError(messageObligatoire('Service du transporteur'));
+      return;
+    }
     if (isOverride && !motifOk) {
       setError(
         messageObligatoire('Motif override', '(min 10 car. si « Autre »)'),
@@ -480,7 +516,7 @@ export function AttributionAgForm({
           body: JSON.stringify({
             association_id: selectedAsso,
             transporteur_id: selectedTransp,
-            branche_attribution: algo.branche,
+            branche_attribution: serviceRequis ? serviceChoisi : algo.branche,
             mode_validation: isOverride ? 'manuel_override' : 'manuel_top1',
             motif_override: isOverride ? motif : undefined,
             motif_override_libre:
@@ -549,6 +585,11 @@ export function AttributionAgForm({
 
       {algo && (
         <>
+          {lieuACompleter && (
+            <AlertBar variant="warn" data-testid="lieu-a-completer">
+              {MESSAGE_LIEU_A_COMPLETER}
+            </AlertBar>
+          )}
           <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
             {/* Ligne 1 : titres */}
             <div className="flex h-7 items-center gap-2">
@@ -607,7 +648,7 @@ export function AttributionAgForm({
                 sélection courante, recommandée par défaut ; un clic ouvre la
                 liste complète pour en choisir une autre. */}
             <FormField label="Association" htmlFor="association-select">
-              {!assoTop1 && (
+              {!assoTop1 && !lieuACompleter && (
                 <AlertBar variant="warn" className="mb-2">
                   Aucune association disponible pour ce créneau. Traitement
                   manuel requis.
@@ -663,7 +704,7 @@ export function AttributionAgForm({
               )}
             </FormField>
             <FormField label="Transporteur" htmlFor="transporteur-select">
-              {!transpReco && (
+              {!transpReco && !lieuACompleter && (
                 <AlertBar variant="warn" className="mb-2">
                   Aucun prestataire éligible — traitement manuel. Choisissez un
                   transporteur ci-dessous.
@@ -711,6 +752,28 @@ export function AttributionAgForm({
                 />
               )}
             </FormField>
+            {serviceRequis && (
+              <FormField
+                label="Service du transporteur"
+                htmlFor="service-transporteur-select"
+                required
+              >
+                <Combobox
+                  id="service-transporteur-select"
+                  searchable={false}
+                  required
+                  options={[
+                    { value: '', label: 'Choisir un service…' },
+                    ...servicesTransp.map((s) => ({
+                      value: s.branche,
+                      label: s.libelle,
+                    })),
+                  ]}
+                  value={serviceChoisi}
+                  onChange={setServiceChoisi}
+                />
+              </FormField>
+            )}
 
             {/* Ligne 5 : aides */}
             <Text variant="hint">
@@ -774,6 +837,7 @@ export function AttributionAgForm({
                 !selectedAsso ||
                 !selectedTransp ||
                 !motifOk ||
+                !serviceOk ||
                 !nbVehiculesOk ||
                 // Déjà validée : pas de second POST.
                 validee

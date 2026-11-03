@@ -11,11 +11,15 @@ type ErreurDb = { code?: string; message: string };
  * Avant, la fiche collecte disait « Envoyée » tant que la référence TMS n'était
  * pas revenue, que l'ordre soit en file, en échec avec reprise, ou abandonné.
  *
- * On ne rend que l'ordre DE TÊTE : le plus ancien ordre logistique non terminé
- * de la collecte. C'est lui que la réservation fait passer en premier, et lui
- * qui bloque les suivants (head-of-line de `fn_claim_outbox_collecte` et
- * `fn_claim_outbox_batch`) — même prédicat ici : famille logistique, statut
- * autre que `done`.
+ * On ne rend que l'ordre DE TÊTE : le plus ancien ordre logistique de la
+ * collecte qui compte encore — en file, en cours, en échec avec reprise, ou
+ * abandonné sans avoir été remplacé.
+ *
+ * Depuis la décision Val du 2026-11-03, un ordre abandonné (`dead`) ne bloque
+ * plus les suivants dans la file (`fn_claim_outbox_collecte` et
+ * `fn_claim_outbox_batch`) : l'Admin corrige et renvoie depuis la fiche. Un
+ * abandon reste affiché tant qu'un ordre plus récent ne l'a pas remplacé
+ * (`estRemplace`) : sinon la fiche ne dirait plus que rien n'est parti.
  */
 export type EtatOrdreEnvoi =
   | 'en_attente' // en file, pas encore pris
@@ -80,10 +84,33 @@ export async function lireOrdresCollecte(
   return { data: (data as LigneOrdre[] | null) ?? [], error: error ?? null };
 }
 
-/** L'ordre de tête de la collecte, ou `null` quand plus rien n'est en file. */
+/**
+ * Un ordre abandonné est-il remplacé par un ordre plus récent de la collecte ?
+ *   - création : par une nouvelle création (le renvoi depuis la fiche) ;
+ *   - modification : par tout ordre suivant, qui porte l'état complet de la
+ *     collecte relu au moment de l'envoi (ou l'annule) ;
+ *   - annulation : par une nouvelle annulation.
+ * Une modification qui suit une création abandonnée ne la remplace pas : elle
+ * ne part pas tant que rien n'existe chez le prestataire.
+ */
+function estRemplace(ordre: LigneOrdre, logistiques: LigneOrdre[]): boolean {
+  return logistiques.some(
+    (l) =>
+      l.seq > ordre.seq &&
+      (ordre.event_type === 'collecte.modifiee' ||
+        l.event_type === ordre.event_type),
+  );
+}
+
+/** L'ordre de tête de la collecte, ou `null` quand plus rien ne compte. */
 export function deriverOrdreEnvoi(lignes: LigneOrdre[]): OrdreEnvoi | null {
-  const tete = lignes
-    .filter((l) => l.consumer !== 'attribution_job' && l.statut !== 'done')
+  const logistiques = lignes.filter((l) => l.consumer !== 'attribution_job');
+  const tete = logistiques
+    .filter(
+      (l) =>
+        l.statut !== 'done' &&
+        !(l.statut === 'dead' && estRemplace(l, logistiques)),
+    )
     .sort((a, b) => a.seq - b.seq)[0];
   if (!tete) return null;
 
@@ -113,7 +140,7 @@ export function envoiAbandonne(ordre: OrdreEnvoi | null): boolean {
  * (lignes déjà chargées) ou, sans liste, celles que l'exception touche encore
  * (filtre « Créée » / « Programmée » de la liste Admin et de son export).
  * Sans liste, les abandons de collectes depuis annulées, acceptées à la main ou
- * terminées sont écartés : ils restent `dead` tant qu'on ne les saute pas, et
+ * terminées sont écartés : ils restent `dead` en base, même remplacés, et
  * grossiraient sans fin l'URL du filtre.
  */
 export async function lireCollectesEnvoiAbandonne(
@@ -132,13 +159,33 @@ export async function lireCollectesEnvoiAbandonne(
   if (collecteIds) q = q.in('aggregate_id', [...collecteIds]);
   const { data, error } = await q;
   if (error) return { data: new Set(), error };
-  const ids = [
+  const candidats = [
     ...new Set(
       ((data as { aggregate_id: string }[] | null) ?? []).map(
         (l) => l.aggregate_id,
       ),
     ),
   ];
+  if (candidats.length === 0) return { data: new Set(), error: null };
+
+  // Un abandon remplacé par une création plus récente (le renvoi depuis la
+  // fiche, Val 2026-11-03) ne compte plus : on garde les collectes dont la
+  // DERNIÈRE création est abandonnée — même règle que `estRemplace`.
+  const creations = await supabase
+    .from('outbox_events')
+    .select('aggregate_id, seq, statut')
+    .eq('aggregate_type', 'collecte')
+    .eq('event_type', 'collecte.creee')
+    .in('aggregate_id', candidats);
+  if (creations.error) return { data: new Set(), error: creations.error };
+  const derniere = new Map<string, { seq: number; statut: string }>();
+  for (const l of (creations.data as
+    | { aggregate_id: string; seq: number; statut: string }[]
+    | null) ?? []) {
+    const d = derniere.get(l.aggregate_id);
+    if (!d || l.seq > d.seq) derniere.set(l.aggregate_id, l);
+  }
+  const ids = candidats.filter((id) => derniere.get(id)?.statut === 'dead');
   if (collecteIds || ids.length === 0)
     return { data: new Set(ids), error: null };
 

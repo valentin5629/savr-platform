@@ -11,6 +11,7 @@ import {
 } from '@/lib/dashboards/revenus-admin.js';
 import {
   montantsPrestation,
+  round2,
   STATUTS_REVENUS,
   type PackPrix,
 } from '@/lib/montant-prestation.js';
@@ -151,8 +152,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // Sommes de montants décimaux : arrondies au centime avant la réponse.
-  for (const l of parCle.values())
-    l.montant_ht = Math.round(l.montant_ht * 100) / 100;
+  for (const l of parCle.values()) l.montant_ht = round2(l.montant_ht);
 
   const kpi = [...parCle.values()].sort((a, b) =>
     a.mois === b.mois

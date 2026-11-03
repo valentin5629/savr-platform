@@ -13,6 +13,7 @@ import {
 } from '@/lib/dashboards/revenus-admin.js';
 import {
   montantsPrestation,
+  round2,
   STATUTS_REVENUS,
   type PackPrix,
 } from '@/lib/montant-prestation.js';
@@ -238,12 +239,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // Sommes de montants décimaux : arrondies au centime avant la réponse.
-  const centimes = (n: number) => Math.round(n * 100) / 100;
   const rows = [...byOrg.values()].map((o) => ({
     ...o,
-    montant_zd_ht: centimes(o.montant_zd_ht),
-    montant_ag_ht: centimes(o.montant_ag_ht),
-    montant_total: centimes(o.montant_zd_ht + o.montant_ag_ht),
+    montant_zd_ht: round2(o.montant_zd_ht),
+    montant_ag_ht: round2(o.montant_ag_ht),
+    montant_total: round2(o.montant_zd_ht + o.montant_ag_ht),
   }));
 
   rows.sort((a, b) => {

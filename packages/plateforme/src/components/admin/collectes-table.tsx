@@ -149,13 +149,6 @@ function poidsTotalZd(row: CollecteRow): number {
   return row.collecte_flux.reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
 }
 
-// Montant de la prestation (Val 2026-11-03), calculé par la route : ZD = tarif
-// de la grille moins la remise ; AG = prix du pack débité, sinon tarif unitaire
-// moins la remise. null (pax ou tarif introuvable) → affiché « — ».
-function montantCollecte(row: CollecteRow): number | null {
-  return row.montant_ht ?? null;
-}
-
 // Statut d'attribution AG (§06.06 §3 l.182) — 3 des 4 états dérivables.
 function attributionBadge(row: CollecteRow): {
   label: string;
@@ -451,7 +444,9 @@ export function colonnesCollectesAdmin({
       header: 'Montant',
       meta: { className: 'text-right' },
       cell: ({ row: { original: r } }) => {
-        const m = montantCollecte(r);
+        // Montant de la prestation, calculé par la route (Val 2026-11-03) ;
+        // null (pax ou tarif introuvable) → « — ».
+        const m = r.montant_ht ?? null;
         return m != null ? (
           <span className="whitespace-nowrap font-extrabold text-savr-neutral-900 tabular-nums">
             {formatEuro(m, r.type)}

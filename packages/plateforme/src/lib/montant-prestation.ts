@@ -17,6 +17,7 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import { lireParLots as lireParLotsPartage } from '@/lib/pdf/selection-par-pages.js';
 
 export interface PackPrix {
   prix_unitaire_ht: number | null;
@@ -49,7 +50,6 @@ export const STATUTS_REVENUS = [
   'cloturee',
 ] as const;
 
-const TAILLE_LOT_IN = 100;
 const PLAFOND_POSTGREST = 1000;
 
 interface Periode {
@@ -82,15 +82,9 @@ function enVigueur(p: Periode, jour: string): boolean {
   );
 }
 
-function round2(n: number): number {
+/** Arrondi au centime. */
+export function round2(n: number): number {
   return Math.round(n * 100) / 100;
-}
-
-function lots<T>(valeurs: T[]): T[][] {
-  const res: T[][] = [];
-  for (let i = 0; i < valeurs.length; i += TAILLE_LOT_IN)
-    res.push(valeurs.slice(i, i + TAILLE_LOT_IN));
-  return res;
 }
 
 /** Résultat d'une lecture : erreur neutralisée, troncature refusée. */
@@ -107,18 +101,17 @@ function verifier<T>(
   return lignes;
 }
 
-/** `.in()` découpé par lots (une liste d'ids trop longue dépasse l'URL). */
+/** `.in()` découpé par lots de 100 (cf. `lib/pdf/selection-par-pages`), erreur levée. */
 async function lireParLots<T>(
   ids: string[],
   lire: (
     lot: string[],
-  ) => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+  ) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
   contexte: string,
 ): Promise<T[]> {
-  const res: T[] = [];
-  for (const lot of lots(ids))
-    res.push(...verifier<T>(await lire(lot), contexte));
-  return res;
+  const r = await lireParLotsPartage<T>(ids, lire);
+  if (r.error) throw erreurInterne(r.error, contexte);
+  return r.data;
 }
 
 /** Grilles et paliers ZD (référentiel court), grille propre de chaque organisation. */

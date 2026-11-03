@@ -83,7 +83,7 @@ describe('infos-acces / commentaire au transporteur', () => {
         '- Contraintes horaires : Livraison avant 9h uniquement',
         '- Accès office : très difficile',
         '- Flux acceptés : biodéchets, carton',
-        '- Véhicule souhaité : camionnette (1 par commande, 2 commandes identiques pour cette collecte)',
+        '- 2 camionnettes prévues pour cette collecte, veuillez vous coordonner pour les appels au traiteur',
         'Contact : Alice Martin, +33600000001',
         'Contact de secours : Bruno Secours, +33600000002',
         'Livraison :',
@@ -142,14 +142,43 @@ describe('infos-acces / commentaire au transporteur', () => {
     );
   });
 
-  it('le véhicule souhaité sort en clair : type seul, ou 1 par commande et N commandes identiques ; rien pour un seul véhicule sans type', () => {
+  it('un seul véhicule : son type en clair, rien sans type', () => {
     expect(composer({ vehicule: { type: 'velo_cargo', nombre: 1 } })).toBe(
       "Instructions d'accès :\n- Véhicule souhaité : vélo cargo",
     );
-    expect(composer({ vehicule: { type: null, nombre: 3 } })).toBe(
-      "Instructions d'accès :\n- Véhicule souhaité : 1 par commande, 3 commandes identiques pour cette collecte",
+    expect(
+      composer({ vehicule: { type: null, nombre: 1, typeTms: 'a_toutes' } }),
+    ).toBeNull();
+  });
+
+  it('plusieurs véhicules : une phrase qui demande de se coordonner, nommée par le type ou le transporteur (Val 2026-11-03)', () => {
+    const suite =
+      ' pour cette collecte, veuillez vous coordonner pour les appels au traiteur';
+    const ligne = (v: Parameters<typeof composer>[0]['vehicule']) =>
+      composer({ vehicule: v });
+    expect(ligne({ type: null, nombre: 2, typeTms: 'a_toutes' })).toBe(
+      `Instructions d'accès :\n- 2 vélos prévus${suite}`,
     );
-    expect(composer({ vehicule: { type: null, nombre: 1 } })).toBeNull();
+    expect(ligne({ type: null, nombre: 3, typeTms: 'mts1' })).toBe(
+      `Instructions d'accès :\n- 3 camions prévus${suite}`,
+    );
+    expect(ligne({ type: null, nombre: 2, typeTms: 'par_mail' })).toBe(
+      `Instructions d'accès :\n- 2 véhicules prévus${suite}`,
+    );
+    expect(ligne({ type: null, nombre: 2 })).toBe(
+      `Instructions d'accès :\n- 2 véhicules prévus${suite}`,
+    );
+    // Le type précisé par l'Admin prime sur le transporteur, accordé.
+    expect(ligne({ type: 'velo_cargo', nombre: 2, typeTms: 'mts1' })).toBe(
+      `Instructions d'accès :\n- 2 vélos cargo prévus${suite}`,
+    );
+    expect(ligne({ type: 'camionnette', nombre: 2, typeTms: 'mts1' })).toBe(
+      `Instructions d'accès :\n- 2 camionnettes prévues${suite}`,
+    );
+    // L'ancienne formulation ne sort plus.
+    expect(ligne({ type: null, nombre: 2, typeTms: 'a_toutes' })).not.toMatch(
+      /Véhicule souhaité|par commande|commandes identiques/,
+    );
   });
 
   it('une valeur non textuelle (surcharge jsonb libre) est ignorée, jamais interpolée', () => {
@@ -197,7 +226,7 @@ describe('infos-acces / commentaire au transporteur', () => {
       // Chaque ligne commence par un libellé composé par Savr.
       for (const l of lignes) {
         expect(l).toMatch(
-          /^(Traiteur|Nombre de pax|Instructions d'accès|Contact|Contact de secours|Livraison) :|^- [A-ZÉ][^:]* : /,
+          /^(Traiteur|Nombre de pax|Instructions d'accès|Contact|Contact de secours|Livraison) :|^- [A-ZÉ][^:]* : |^- \d+ [^:]+ prévue?s pour cette collecte, veuillez vous coordonner pour les appels au traiteur$/,
         );
       }
       expect(lignes.filter((l) => l.startsWith('Contact :'))).toHaveLength(1);

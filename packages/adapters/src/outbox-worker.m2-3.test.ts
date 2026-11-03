@@ -799,7 +799,7 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
         nb_camions_demande: number;
       };
       expect(collecte.informations_supplementaires).toContain(
-        'Véhicule souhaité : camionnette (1 par commande, 2 commandes identiques pour cette collecte)',
+        '- 2 camionnettes prévues pour cette collecte, veuillez vous coordonner pour les appels au traiteur',
       );
       expect(collecte.type_vehicule_souhaite).toBe('camionnette');
       expect(collecte.nb_camions_demande).toBe(2);
@@ -815,6 +815,37 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
           s.includes('type_vehicule_souhaite'),
         ),
       ).toBe(true);
+    },
+  );
+
+  // Plusieurs véhicules sans type précisé : le transporteur les nomme (décision
+  // Val 2026-11-03), sur chaque commande.
+  it.each([
+    ['a_toutes', AdapterEverest, 'vélos'] as const,
+    ['mts1', AdapterMts1, 'camions'] as const,
+  ])(
+    'M2.3 / worker — type_tms=%s, 2 véhicules sans type : « 2 %s prévus … » atteint l’adapter',
+    async (typeTms, Adapter, nom) => {
+      const spy = vi
+        .spyOn(Adapter.prototype, 'dispatchCollecte')
+        .mockResolvedValue('noop_no_remote');
+      const supabase = makeWorkerSupabase({
+        typeTms,
+        prestataireLogistiqueId: PRESTA_ID,
+        typeVehiculeSouhaite: null,
+        nbCamions: 2,
+      });
+      await runOutboxWorker(supabase);
+
+      expect(spy).toHaveBeenCalledTimes(2);
+      for (const [c] of spy.mock.calls) {
+        const texte = (c as { informations_supplementaires: string | null })
+          .informations_supplementaires;
+        expect(texte).toContain(
+          `- 2 ${nom} prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur`,
+        );
+        expect(texte).not.toMatch(/par commande|commandes identiques/);
+      }
     },
   );
 
@@ -837,8 +868,8 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
     const collecte = spy.mock.calls[0]![0] as {
       informations_supplementaires: string | null;
     };
-    expect(collecte.informations_supplementaires ?? '').not.toContain(
-      'Véhicule souhaité',
+    expect(collecte.informations_supplementaires ?? '').not.toMatch(
+      /Véhicule souhaité|prévu/,
     );
   });
 

@@ -1,12 +1,16 @@
 // PATCH /api/v1/evenements/[id]/code-affaire-viparis — corps { code_affaire_viparis }
-// Code affaire VIPARIS de l'événement (Val 2026-11-02) : saisi par le traiteur à
-// la programmation, corrigeable ensuite par le traiteur, VIPARIS (gestionnaire du
-// lieu) et l'équipe Savr. Facultatif ; `null` ou une chaîne vide l'efface.
+// Code affaire VIPARIS de l'événement (Val 2026-11-02, CDC §04
+// `evenements.code_affaire_viparis`) : saisi au formulaire de programmation,
+// corrigeable ensuite sur la fiche événement. Facultatif ; `null` ou une chaîne
+// vide l'efface.
 //
-// Accès : l'équipe Savr, ou un rôle programmateur (traiteur, agence, gestionnaire
-// de lieux) qui voit l'événement sous sa RLS — le traiteur sur ses programmations
-// et celles qu'il opère, le gestionnaire sur les événements de ses lieux. Le
-// client organisateur n'y écrit pas.
+// Qui écrit (§04, droits arbitrés par Val le 2026-11-02) : l'équipe Savr,
+// l'organisation qui a programmé l'événement (traiteur, agence ou gestionnaire
+// de lieux : `evenements.organisation_id`), et le gestionnaire du lieu (VIPARIS,
+// y compris sur l'événement d'un traiteur tiers). Jamais un traiteur ou une
+// agence sur l'événement d'un tiers : le traiteur opérationnel tiers voit
+// l'événement sous sa RLS mais le lit seulement (403, rien n'est écrit). Jamais
+// le client organisateur (403).
 //
 // La colonne est hors de la liste blanche de lecture et d'écriture des clients
 // (20261001103000) : l'écriture part en service_role, APRÈS ces gardes. Aucun
@@ -80,19 +84,57 @@ export async function PATCH(
   }
   const evenementId = (visible as { id: string }).id;
 
+  const { data: avantLu, error: avantErr } = await admin
+    .from('evenements')
+    .select('code_affaire_viparis, organisation_id, lieu_id')
+    .eq('id', evenementId)
+    .single();
+  if (avantErr) return serverError(avantErr, 'evenements.code_affaire.avant');
+  const avant = avantLu as {
+    code_affaire_viparis: string | null;
+    organisation_id: string | null;
+    lieu_id: string | null;
+  };
+
+  // Droit d'écriture d'un client : son organisation a programmé l'événement, ou
+  // elle gère son lieu. Voir l'événement ne suffit pas (traiteur opérationnel).
+  if (!ctx.isStaff) {
+    const programmateur =
+      !!ctx.organisationId && avant.organisation_id === ctx.organisationId;
+    let gestionnaireDuLieu = false;
+    if (
+      !programmateur &&
+      ctx.role === 'gestionnaire_lieux' &&
+      ctx.organisationId &&
+      avant.lieu_id
+    ) {
+      const { data: rattachement, error: rattErr } = await admin
+        .from('organisations_lieux')
+        .select('lieu_id')
+        .eq('organisation_id', ctx.organisationId)
+        .eq('lieu_id', avant.lieu_id)
+        .maybeSingle();
+      if (rattErr)
+        return serverError(rattErr, 'evenements.code_affaire.gestionnaire');
+      gestionnaireDuLieu = !!rattachement;
+    }
+    if (!programmateur && !gestionnaireDuLieu) {
+      return NextResponse.json(
+        {
+          error:
+            'Seuls l’organisation qui a programmé l’événement et le gestionnaire du lieu modifient le code affaire',
+        },
+        { status: 403 },
+      );
+    }
+  }
+
   const frein = freinerEcritureCliente({
     organisationId: ctx.organisationId ?? '',
     equipeSavr: ctx.isStaff,
     modification: { evenement: evenementId },
   });
   if (frein) return frein;
-
-  const { data: avant, error: avantErr } = await admin
-    .from('evenements')
-    .select('code_affaire_viparis')
-    .eq('id', evenementId)
-    .single();
-  if (avantErr) return serverError(avantErr, 'evenements.code_affaire.avant');
 
   const { error: majErr } = await admin
     .from('evenements')
@@ -110,7 +152,7 @@ export async function PATCH(
     user_id: ctx.userId,
     role: ctx.role,
     impersonator_id: ctx.impersonatorId ?? null,
-    old_values: avant ?? {},
+    old_values: { code_affaire_viparis: avant.code_affaire_viparis },
     new_values: { code_affaire_viparis: code },
   });
   if (auditErr) {

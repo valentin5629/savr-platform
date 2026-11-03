@@ -56,11 +56,15 @@ export interface CreateMissionPayload {
   address_start: string;
   address_start_name?: string;
   address_start_tel?: string;
+  /** Commentaire propre à l'adresse de départ (swagger 1.294.1, lu le 2026-11-03). */
+  address_start_comment?: string;
   // Point B = adresse de livraison du don (association destinataire). Toujours
   // présent sur une mission AG : une course sans destination n'a pas de sens.
   address_end: string;
   address_end_name?: string;
   address_end_tel?: string;
+  /** Commentaire propre à l'adresse d'arrivée (swagger 1.294.1, lu le 2026-11-03). */
+  address_end_comment?: string;
   /** Consigne affichée au coursier sur la mission. */
   comment: string;
 }

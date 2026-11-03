@@ -664,26 +664,17 @@ const LIEU_ACCES_COMPLET = {
   flux_autorises: ['biodéchets', 'carton'],
 };
 
-// Ce que le chauffeur doit lire pour chacun des champs retenus par Val
-// (2026-10-15, C60 : ni « Véhicule max » ni « Stationnement »).
-const ATTENDU_PAR_CHAMP: Array<[string, string]> = [
-  ['acces_details', '- Accès : Quai n°2, sonner interphone B'],
-  [
-    'contraintes_horaires',
-    '- Contraintes horaires : Livraison avant 9h uniquement',
-  ],
-  ['acces_office', '- Accès office : très difficile'],
-  ['flux_autorises', '- Flux acceptés : biodéchets, carton'],
-];
-
-describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapters', () => {
+// Le seul champ du lieu qui part encore (Val 2026-11-03) : ses instructions
+// d'accès. Contraintes horaires, accès office, flux, véhicule max et
+// stationnement ne partent plus.
+describe('M1.5 / commentaires au transporteur composés par le worker — les 2 adapters', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it.each([
     ['a_toutes', AdapterEverest] as const,
     ['mts1', AdapterMts1] as const,
   ])(
-    'type_tms=%s — les infos d’accès retenues par Val atteignent l’adapter, sans « Véhicule max » ni « Stationnement »',
+    'type_tms=%s — seules les instructions d’accès du lieu atteignent l’adapter, au départ',
     async (typeTms, Adapter) => {
       const spy = vi
         .spyOn(Adapter.prototype, 'dispatchCollecte')
@@ -698,27 +689,24 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
 
       const collecte = spy.mock.calls[0]![0] as {
         informations_supplementaires: string | null;
+        commentaire_depart: string | null;
       };
-      for (const [champ, ligne] of ATTENDU_PAR_CHAMP) {
-        expect(
-          collecte.informations_supplementaires,
-          `champ ${champ} absent du canal libre`,
-        ).toContain(ligne);
-      }
+      expect(collecte.commentaire_depart).toContain(
+        "- Instructions d'accès : Quai n°2, sonner interphone B",
+      );
       expect(collecte.informations_supplementaires).not.toMatch(
-        /Véhicule max|Stationnement/,
+        /Contraintes|9h|Accès office|Flux|biodéchets|Véhicule max|Stationnement/,
       );
     },
   );
 
-  // Format décidé par Val le 2026-10-15 (C60-C62) : traiteur, pax, contacts et
-  // point B composés une fois, pour les deux adapters, depuis les données
-  // réellement demandées à PostgREST.
+  // Format décidé par Val le 2026-11-03 : composé une fois, pour les deux
+  // adapters, depuis les données réellement demandées à PostgREST.
   it.each([
     ['a_toutes', AdapterEverest] as const,
     ['mts1', AdapterMts1] as const,
   ])(
-    'type_tms=%s — traiteur, pax, contact et point B de l’association atteignent l’adapter',
+    'type_tms=%s — consigne, départ et arrivée (l’association) atteignent l’adapter ; ni traiteur ni pax dans le commentaire',
     async (typeTms, Adapter) => {
       const spy = vi
         .spyOn(Adapter.prototype, 'dispatchCollecte')
@@ -732,20 +720,31 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
 
       const collecte = spy.mock.calls[0]![0] as {
         informations_supplementaires: string | null;
+        commentaire_general: string | null;
+        commentaire_depart: string | null;
+        commentaire_arrivee: string | null;
         traiteur_nom?: string | null;
         pax?: number | null;
       };
+      // Traiteur et pax restent sur la collecte (nom du point MTS-1).
       expect(collecte.traiteur_nom).toBe('Traiteur Essai');
       // Le pax de LA collecte (80), pas celui de l'événement (120).
       expect(collecte.pax).toBe(80);
+      const consigne =
+        'Veuillez peser et prendre de belles photos de ce que vous récupérez svp';
+      const depart = [
+        '- Contact 1 : Alice, +33600000001',
+        "En cas d'urgence, appeler le 0761912997",
+      ].join('\n');
+      const arrivee = [
+        "- Instructions d'accès : Sonner à l’accueil",
+        '- Contact : Nadia Benali, +33699990001',
+      ].join('\n');
+      expect(collecte.commentaire_general).toBe(consigne);
+      expect(collecte.commentaire_depart).toBe(depart);
+      expect(collecte.commentaire_arrivee).toBe(arrivee);
       expect(collecte.informations_supplementaires).toBe(
-        [
-          'Traiteur : Traiteur Essai',
-          'Nombre de pax : 80',
-          'Contact : Alice, +33600000001',
-          'Livraison :',
-          "- Instructions d'accès : Sonner à l’accueil",
-        ].join('\n'),
+        [consigne, 'Départ :', depart, 'Arrivée :', arrivee].join('\n'),
       );
       // Le pax est demandé sur la collecte elle-même, hors de l'embed de
       // l'événement (un mock ne filtre pas : sans cette assertion, retirer la
@@ -799,7 +798,7 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
         nb_camions_demande: number;
       };
       expect(collecte.informations_supplementaires).toContain(
-        '- 2 camionnettes prévues pour cette collecte, veuillez vous coordonner pour les appels au traiteur',
+        '2 camionnettes prévues pour cette collecte, veuillez vous coordonner pour les appels au traiteur',
       );
       expect(collecte.type_vehicule_souhaite).toBe('camionnette');
       expect(collecte.nb_camions_demande).toBe(2);
@@ -839,12 +838,15 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
 
       expect(spy).toHaveBeenCalledTimes(2);
       for (const [c] of spy.mock.calls) {
-        const texte = (c as { informations_supplementaires: string | null })
-          .informations_supplementaires;
-        expect(texte).toContain(
-          `- 2 ${nom} prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur`,
+        const { commentaire_general } = c as {
+          commentaire_general: string | null;
+        };
+        expect(commentaire_general).toBe(
+          [
+            'Veuillez peser et prendre de belles photos de ce que vous récupérez svp',
+            `2 ${nom} prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur`,
+          ].join('\n'),
         );
-        expect(texte).not.toMatch(/par commande|commandes identiques/);
       }
     },
   );
@@ -922,23 +924,21 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
     const supabase = makeWorkerSupabase({
       typeTms: 'a_toutes',
       prestataireLogistiqueId: PRESTA_ID,
-      lieuOfficiel: { acces_office: 'facile' },
-      lieuOverrides: { acces_office: 'tres_difficile' },
+      lieuOfficiel: { acces_details: 'Quai officiel' },
+      lieuOverrides: { acces_details: 'Quai corrigé' },
     });
     await runOutboxWorker(supabase);
 
     const collecte = everestSpy.mock.calls[0]![0] as {
-      informations_supplementaires: string | null;
+      commentaire_depart: string | null;
     };
-    expect(collecte.informations_supplementaires).toContain(
-      'Accès office : très difficile',
+    expect(collecte.commentaire_depart).toContain(
+      "- Instructions d'accès : Quai corrigé",
     );
-    expect(collecte.informations_supplementaires).not.toContain(
-      'Accès office : facile',
-    );
+    expect(collecte.commentaire_depart).not.toContain('Quai officiel');
   });
 
-  it('la saisie du traiteur est conservée — l’agrégat s’y ajoute', async () => {
+  it('la saisie du traiteur ne part plus (Val 2026-11-03) ; l’accès du lieu, si', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
       .mockResolvedValue('adapter_everest');
@@ -953,18 +953,17 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
 
     const collecte = everestSpy.mock.calls[0]![0] as {
       informations_supplementaires: string | null;
+      commentaire_depart: string | null;
     };
-    expect(collecte.informations_supplementaires).toContain(
-      '- Précisions du traiteur : Demander Karim à la plonge',
-    );
-    expect(collecte.informations_supplementaires).toContain(
-      '- Accès : Quai n°2',
+    expect(collecte.informations_supplementaires).not.toContain('Karim');
+    expect(collecte.commentaire_depart).toContain(
+      "- Instructions d'accès : Quai n°2",
     );
   });
 
-  // Une collecte sans information d'accès ne fabrique aucune rubrique vide :
-  // ni « Instructions d'accès : » orphelin, ni ligne « Véhicule max » (C60).
-  it('lieu sans info d’accès et sans saisie → aucune rubrique « Instructions d’accès »', async () => {
+  // Une collecte sans information d'accès ne fabrique aucune ligne vide ni
+  // « Véhicule max » (C60).
+  it('lieu sans info d’accès → aucune ligne « Instructions d’accès » au départ', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
       .mockResolvedValue('adapter_everest');
@@ -978,10 +977,10 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
 
     const collecte = everestSpy.mock.calls[0]![0] as {
       informations_supplementaires: string | null;
+      commentaire_depart: string | null;
     };
-    expect(collecte.informations_supplementaires).not.toMatch(
-      /Instructions d'accès :\n|Véhicule max/,
-    );
+    expect(collecte.commentaire_depart).not.toContain("Instructions d'accès");
+    expect(collecte.informations_supplementaires).not.toContain('Véhicule max');
   });
 });
 
@@ -1011,11 +1010,11 @@ describe('M1.5 / nom du contact de secours agrégé dans le canal libre', () => 
       await runOutboxWorker(supabase);
 
       const collecte = spy.mock.calls[0]![0] as {
-        informations_supplementaires: string | null;
+        commentaire_depart: string | null;
         contact_secours_nom: string | null;
       };
-      expect(collecte.informations_supplementaires).toContain(
-        'Contact de secours : Bruno Secours',
+      expect(collecte.commentaire_depart).toContain(
+        '- Contact 2 : Bruno Secours',
       );
       // Le champ structuré reste porté tel quel (il alimente déjà E1/§08 côté V2).
       expect(collecte.contact_secours_nom).toBe('Bruno Secours');
@@ -1035,13 +1034,13 @@ describe('M1.5 / nom du contact de secours agrégé dans le canal libre', () => 
     await runOutboxWorker(supabase);
 
     const collecte = spy.mock.calls[0]![0] as {
-      informations_supplementaires: string | null;
+      commentaire_depart: string | null;
     };
-    expect(collecte.informations_supplementaires).not.toContain(
-      'Contact de secours',
-    );
+    expect(collecte.commentaire_depart).not.toContain('Contact 2');
     // …sans rien retirer aux autres lignes.
-    expect(collecte.informations_supplementaires).toContain('Accès : Quai n°2');
+    expect(collecte.commentaire_depart).toContain(
+      "Instructions d'accès : Quai n°2",
+    );
   });
 });
 
@@ -1111,7 +1110,7 @@ describe('M1.2-collecte-contacts-transmission — le transporteur reçoit les co
       expect(collecte.contact_principal_telephone).toBe('+33600000001');
       expect(collecte.contact_secours_nom).toBe('Bruno');
       expect(collecte.informations_supplementaires).toContain(
-        'Contact : Alice, +33600000001',
+        '- Contact 1 : Alice, +33600000001',
       );
       expect(collecte.informations_supplementaires).not.toMatch(/Événement/);
       // Demandés à la table de la collecte, plus à l'embed de l'événement.

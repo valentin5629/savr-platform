@@ -34,6 +34,7 @@ import {
 } from '../provider-tournees.js';
 import type { CreateMissionPayload } from './client.js';
 import { EverestClient, lireJetonEverest } from './client.js';
+import { CONSIGNE_PESEE_PHOTOS } from '../infos-acces.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 
@@ -47,11 +48,6 @@ const BRANCHE_TO_SERVICE: Record<string, number> = {
   ag_everest_camion_express: 77,
   ag_marathon_volume_backup_camion: 91,
 };
-
-// Consigne demandée par A Toutes! le 2026-10-12, en tête du `comment` de chaque
-// mission (décision Val 2026-10-19), avant le commentaire au transporteur.
-export const CONSIGNE_A_TOUTES =
-  'Pesée obligatoire, photo marchandise obligatoire';
 
 // Début de mission envoyé à Everest : l'heure demandée par le traiteur, à Paris
 // (décision Val 2026-10-19), en secondes Unix. Le créneau (30 min, 1 h pour le
@@ -537,12 +533,17 @@ export class AdapterEverest implements LogistiqueProvider {
     adresseLivraison: string,
     debutMission: number,
   ): Omit<CreateMissionPayload, 'service_id' | 'client_ref'> {
-    const commentaire = collecte.informations_supplementaires?.trim();
+    // Commentaires composés par le worker (infos-acces.ts, format Val
+    // 2026-11-03) : un par adresse, et celui de la mission. Toujours envoyés,
+    // vides compris, pour qu'une modification efface un texte périmé.
+    const general = collecte.commentaire_general?.trim();
     return {
       start_date: debutMission,
       address_start: `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`,
       address_start_name: collecte.contact_principal_nom,
       address_start_tel: collecte.contact_principal_telephone,
+      address_start_comment: collecte.commentaire_depart?.trim() ?? '',
+      address_end_comment: collecte.commentaire_arrivee?.trim() ?? '',
       // Point B (adresse vérifiée non vide par l'appelant).
       address_end: adresseLivraison,
       ...(collecte.association_contact_nom &&
@@ -552,9 +553,7 @@ export class AdapterEverest implements LogistiqueProvider {
             address_end_tel: collecte.association_contact_telephone,
           }
         : {}),
-      comment: commentaire
-        ? `${CONSIGNE_A_TOUTES}\n${commentaire}`
-        : CONSIGNE_A_TOUTES,
+      comment: general || CONSIGNE_PESEE_PHOTOS,
     };
   }
 

@@ -15,7 +15,7 @@ import {
   getLogistiqueProvider,
 } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
-import { composerCommentaireTransporteur } from '../infos-acces.js';
+import { composerCommentairesTransporteur } from '../infos-acces.js';
 import { AdapterEverest } from './adapter.js';
 import {
   _getEverestHandlers,
@@ -487,9 +487,11 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
       Object.keys(payloads.get('tournee-everest-new-001') ?? {}).sort(),
     ).toEqual([
       'address_end',
+      'address_end_comment',
       'address_end_name',
       'address_end_tel',
       'address_start',
+      'address_start_comment',
       'address_start_name',
       'address_start_tel',
       'client_ref',
@@ -1423,7 +1425,9 @@ describe('M2.5 / AdapterEverest — updateCollecte', () => {
       ...COLLECTE_AG,
       contact_principal_nom: 'Louis Martin',
       contact_principal_telephone: '07 90 90 19 19',
-      informations_supplementaires: 'Quai B',
+      commentaire_general: 'Consigne',
+      commentaire_depart: '- Instructions d’accès : Quai B',
+      commentaire_arrivee: null,
     };
 
     await expect(adapter.updateCollecte(modifiee)).resolves.toBe(
@@ -1437,10 +1441,13 @@ describe('M2.5 / AdapterEverest — updateCollecte', () => {
       address_start: '45 rue La Boétie, 75008 Paris',
       address_start_name: 'Louis Martin',
       address_start_tel: '07 90 90 19 19',
+      // Arrivée sans commentaire : part vide, pour effacer un texte périmé.
+      address_start_comment: '- Instructions d’accès : Quai B',
+      address_end_comment: '',
       address_end: '12 rue des Associations, Ivry-sur-Seine',
       address_end_name: 'Nadia Benali',
       address_end_tel: '+33699990001',
-      comment: 'Pesée obligatoire, photo marchandise obligatoire\nQuai B',
+      comment: 'Consigne',
     });
     expect(alerts).toHaveLength(0);
   });
@@ -1636,84 +1643,79 @@ describe('M2.5 / Garde-fou G3 — anti-couplage', () => {
   });
 });
 
-// ─── Commentaire au transporteur → `comment` Everest (Val 2026-10-15, C61) ────
+// ─── Commentaires au transporteur → Everest (Val 2026-11-03) ──────────────────
 //
-// Même texte que le `comment` MTS-1 : composé en amont par fetchCollecte
-// (composerCommentaireTransporteur, partagé par les DEUX adapters). Ce test
-// ferme le dernier maillon côté Everest : ce qui est composé atteint bien le
-// fil, dans `comment` après la consigne d'A Toutes! (Val 2026-10-19), sans
-// « Véhicule max » ni « Stationnement » (C60).
-describe('M1.5 / commentaire au transporteur → comment Everest', () => {
+// Composés en amont par le worker (composerCommentairesTransporteur, partagé
+// par les DEUX adapters, format Val 2026-11-03). Ce test ferme le dernier
+// maillon côté Everest : chaque texte part dans son champ — mission
+// (`comment`), adresse de départ (`address_start_comment`), adresse d'arrivée
+// (`address_end_comment`).
+describe('M1.5 / commentaires au transporteur → champs Everest', () => {
   afterEach(() => _setEverestHandlers(null));
 
   const LIEU_ACCES: Lieu = {
     ...LIEU_FIXTURE,
     acces_details: 'Quai n°2, sonner interphone B',
-    stationnement: 'difficile',
     contraintes_horaires: 'Livraison avant 9h uniquement',
-    acces_office: 'tres_difficile',
-    type_vehicule_max: 'camionnette',
-    flux_autorises: ['biodéchets', 'carton'],
   };
 
-  it('le commentaire composé part tel quel dans comment, après la consigne d’A Toutes!', async () => {
+  it('chaque texte composé part dans son champ : mission, départ, arrivée', async () => {
     const { payloads } = setupEverestMock();
     const supabase = makeMockSupabase({
       brancheAttribution: 'ag_velo_programme',
     });
-    const commentaire = composerCommentaireTransporteur({
-      traiteurNom: 'Traiteur Essai',
-      pax: 80,
+    const c = composerCommentairesTransporteur({
       lieu: LIEU_ACCES,
-      informationsSupplementaires: 'Demander Karim à la plonge',
       contact: { nom: 'Alice Martin', telephone: '+33600000001' },
       contactSecours: { nom: null, telephone: null },
-      vehicule: null,
-      livraison: { instructionsAcces: 'Sonner à l’accueil' },
+      vehicule: { type: null, nombre: 2, typeTms: 'a_toutes' },
+      livraison: {
+        instructionsAcces: 'Sonner à l’accueil',
+        contact: { nom: 'Nadia Benali', telephone: '+33699990001' },
+      },
     });
 
     await new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
       {
         ...COLLECTE_AG,
         lieu: LIEU_ACCES,
-        informations_supplementaires: commentaire,
+        informations_supplementaires: c.unique,
+        commentaire_general: c.general,
+        commentaire_depart: c.depart,
+        commentaire_arrivee: c.arrivee,
       },
       1,
     );
 
-    const payload = payloads.get('tournee-everest-new-001') as {
-      comment?: string;
-    };
-    expect(payload?.comment).toBe(
-      [
-        'Pesée obligatoire, photo marchandise obligatoire',
-        'Traiteur : Traiteur Essai',
-        'Nombre de pax : 80',
-        "Instructions d'accès :",
-        '- Accès : Quai n°2, sonner interphone B',
-        '- Précisions du traiteur : Demander Karim à la plonge',
-        '- Contraintes horaires : Livraison avant 9h uniquement',
-        '- Accès office : très difficile',
-        '- Flux acceptés : biodéchets, carton',
-        'Contact : Alice Martin, +33600000001',
-        'Livraison :',
-        "- Instructions d'accès : Sonner à l’accueil",
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      comment: [
+        'Veuillez peser et prendre de belles photos de ce que vous récupérez svp',
+        '2 vélos prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur',
       ].join('\n'),
-    );
+      address_start_comment: [
+        "- Instructions d'accès : Quai n°2, sonner interphone B",
+        '- Contact 1 : Alice Martin, +33600000001',
+        "En cas d'urgence, appeler le 0761912997",
+      ].join('\n'),
+      address_end_comment: [
+        "- Instructions d'accès : Sonner à l’accueil",
+        '- Contact : Nadia Benali, +33699990001',
+      ].join('\n'),
+    });
   });
 
-  it('M2.5/everest_comment_consigne_seule — sans commentaire composé, comment porte la seule consigne d’A Toutes!', async () => {
+  it('M2.5/everest_comment_consigne_seule — sans commentaire composé : la consigne seule, adresses vides', async () => {
     const { payloads } = setupEverestMock();
     await new AdapterEverest(
       TRANSPORTEUR_EVEREST,
       makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
-    ).dispatchCollecte(
-      { ...COLLECTE_AG, informations_supplementaires: '   ' },
-      1,
-    );
+    ).dispatchCollecte({ ...COLLECTE_AG, commentaire_general: '   ' }, 1);
 
     expect(payloads.get('tournee-everest-new-001')).toMatchObject({
-      comment: 'Pesée obligatoire, photo marchandise obligatoire',
+      comment:
+        'Veuillez peser et prendre de belles photos de ce que vous récupérez svp',
+      address_start_comment: '',
+      address_end_comment: '',
     });
   });
 });

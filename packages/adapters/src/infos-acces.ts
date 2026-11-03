@@ -1,75 +1,57 @@
-// Commentaire transmis au transporteur : le SEUL canal libre routé vers les
-// transporteurs V1 (`comment` de la commande MTS-1 et de la mission Everest,
-// où il suit la consigne d'A Toutes!).
+// Commentaires transmis au transporteur : le SEUL canal libre routé vers les
+// transporteurs V1. Format décidé par Val le 2026-11-03, à la place du
+// commentaire unique du 2026-10-15 (C60-C62) :
 //
-// Format décidé par Val le 2026-10-15 (C60, C61, C62), à la place de l'agrégat
-// « note du traiteur, puis — Infos Savr — » du 2026-09-15 :
+//   Commentaire de la mission :
+//     Veuillez peser et prendre de belles photos de ce que vous récupérez svp
+//     2 vélos prévus pour cette collecte, veuillez vous coordonner pour les
+//     appels au traiteur                (seulement s'il y a plusieurs véhicules)
 //
-//   Traiteur : …
-//   Nombre de pax : …
-//   Instructions d'accès :
-//   - Accès : …                       (détails d'accès du lieu)
-//   - Précisions du traiteur : …      (`collectes.informations_supplementaires`)
-//   - Contraintes horaires : …
-//   - Accès office : …
-//   - Flux acceptés : …
-//   - Véhicule souhaité : …           (plusieurs : « - 2 vélos prévus … »)
-//   Contact : nom, téléphone
-//   Contact de secours : nom, téléphone
-//   Livraison :                       (AG : l'association)
-//   - Instructions d'accès : …
+//   Adresse de départ (le lieu) :
+//     - Instructions d'accès : …        (détails d'accès du lieu, surcharges comprises)
+//     - Contact 1 : nom, téléphone
+//     - Contact 2 : nom, téléphone      (contact de secours)
+//     En cas d'urgence, appeler le 0761912997
 //
-// « Véhicule max » et « Stationnement » n'y figurent plus (Val, C60). Le point B
-// n'a aucun commentaire propre dans l'API MTS-1 (`CustomerOrderPlaceInput` sans
-// `comment`, lu dans la documentation le 2026-10-15) : ses instructions d'accès
-// ferment donc ce commentaire, sous « Livraison » (C62). Son contact n'y figure
-// pas (Val, 2026-10-16, C67) : il part en contact de livraison
-// (`stuffs[].relatedContact` MTS-1, contact de dépôt Everest).
+//   Adresse d'arrivée (AG : l'association) :
+//     - Instructions d'accès : …
+//     - Contact : nom, téléphone
 //
-// Les informations d'accès n'ont aucun champ natif chez MTS-1 ni chez Everest
-// (arbitrage Val 2026-09-15) ; le nom du contact de secours non plus (arbitrage
-// Val 2026-09-14 : « sans quoi le chauffeur a un numéro de secours sans savoir
-// qui appeler »).
+// Everest a un commentaire par adresse (`address_start_comment`,
+// `address_end_comment`, swagger 1.294.1 lu le 2026-11-03) : chaque texte part
+// dans son champ. MTS-1 n'a qu'un `comment` sur la commande
+// (`CustomerOrderPlaceInput` sans commentaire) : il reçoit les trois textes
+// réunis, sous « Départ : » et « Arrivée : » (texte `unique`).
+//
+// Ne partent plus (Val, 2026-11-03) : traiteur, nombre de pax, précisions du
+// traiteur, contraintes horaires, accès office, flux acceptés, véhicule souhaité
+// d'une collecte à un seul véhicule.
 //
 // Chaque valeur tient sur UNE ligne (`valeurLigne` replie toute rupture de
-// ligne), y compris la saisie du traiteur : aucune valeur ne peut donc forger
-// une ligne « Contact : … » lue comme composée par Savr. C'est ce qui remplace
-// le séparateur « — Infos Savr — » de l'ancien format, qui ne protégeait que les
-// lignes placées sous lui.
+// ligne) : aucune saisie ne peut donc forger une ligne lue comme composée par
+// Savr (« Contact 1 : … », « En cas d'urgence … »).
 //
-// ⚠ Appelé par `fetchCollecte` (outbox-worker), donc UNE fois pour les deux
-// adapters — jamais par un adapter. Garde-fou 2 (CLAUDE.md §3bis) : l'adapter V1
-// et le TMS natif V2 doivent alimenter les mêmes champs avec la même sémantique ;
-// une concaténation dupliquée par adapter garantirait le drift (déjà vécu sur
+// ⚠ Appelé par le worker (`toCollecte`), donc UNE fois pour les deux adapters —
+// jamais par un adapter. Garde-fou 2 (CLAUDE.md §3bis) : l'adapter V1 et le TMS
+// natif V2 doivent alimenter les mêmes champs avec la même sémantique ; une
+// composition dupliquée par adapter garantirait le drift (déjà vécu sur
 // `dirty_tms`, #196).
 
 import type { Lieu } from './index.js';
 
-// Borne du canal libre. Ni MTS-1 ni Everest (`comment` des deux) ne documentent
-// de longueur maximale ; la seule borne écrite est celle de la SOURCE, côté
-// Plateforme : §08 E1 « `informations_supplementaires` (text nullable, max 1000
-// car.) ». Le commentaire empruntant ce même champ, il respecte ce plafond plutôt
-// que de partir en troncature silencieuse chez le tiers.
+// Borne de chaque texte. Ni MTS-1 ni Everest ne documentent de longueur
+// maximale ; la seule borne écrite est celle de la SOURCE, côté Plateforme :
+// §08 E1 « `informations_supplementaires` (text nullable, max 1000 car.) ». Les
+// commentaires empruntant ce canal, ils respectent ce plafond plutôt que de
+// partir en troncature silencieuse chez le tiers.
 export const LIMITE_INFOS_SUPPLEMENTAIRES = 1000;
 
-// Libellés lisibles par un chauffeur. Les valeurs brutes des enums
-// (`tres_difficile`, `velo_cargo`) ne sont pas destinées à être lues sur un
-// téléphone à 22 h. Duplication assumée avec l'UI : `packages/adapters` ne peut
-// pas importer `packages/plateforme`, et une valeur inconnue retombe sur la
-// valeur brute plutôt que de faire disparaître l'information.
-const LIBELLE_DIFFICULTE: Record<string, string> = {
-  facile: 'facile',
-  difficile: 'difficile',
-  tres_difficile: 'très difficile',
-};
+/** Consigne de la mission (Val, 2026-11-03), seule ou presque. */
+export const CONSIGNE_PESEE_PHOTOS =
+  'Veuillez peser et prendre de belles photos de ce que vous récupérez svp';
 
-const LIBELLE_VEHICULE: Record<string, string> = {
-  velo_cargo: 'vélo cargo',
-  camionnette: 'camionnette',
-  fourgon: 'fourgon',
-  vul: 'VUL',
-  poids_lourd: 'poids lourd',
-};
+/** Numéro d'urgence Savr, à l'adresse de départ (Val, 2026-11-03). */
+export const NUMERO_URGENCE_SAVR = '0761912997';
 
 /**
  * Texte exploitable d'une valeur de lieu.
@@ -86,11 +68,9 @@ function texte(valeur: unknown): string {
 /**
  * Valeur destinée à UNE ligne du canal libre : blancs repliés.
  *
- * Les colonnes de `plateforme.lieux` (`acces_details`, `contraintes_horaires`,
- * `flux_autorises`) n'ont AUCUNE validation d'entrée (route
- * `/api/v1/programmation/lieux`, aucun CHECK en base — vérifié en revue
- * sécurité), et `informations_supplementaires` est légitimement multiligne
- * (`<textarea>`, #322). Une valeur porteuse d'un `\n` forgerait donc une ligne
+ * Les colonnes de `plateforme.lieux` (`acces_details`) et des associations
+ * n'ont AUCUNE validation d'entrée (aucun CHECK en base — vérifié en revue
+ * sécurité). Une valeur porteuse d'un `\n` forgerait donc une ligne
  * supplémentaire, lue par le chauffeur comme composée par Savr (relevé en revue
  * sécurité, reproduit). Replier ne perd que la mise en page de la saisie.
  *
@@ -107,12 +87,6 @@ function texte(valeur: unknown): string {
  */
 function valeurLigne(valeur: unknown): string {
   return texte(valeur).replace(/[\s\p{Cc}\p{Zl}\p{Zp}]+/gu, ' ');
-}
-
-function libelle(valeur: unknown, table: Record<string, string>): string {
-  const brut = valeurLigne(valeur);
-  if (!brut) return '';
-  return table[brut] ?? brut;
 }
 
 /**
@@ -144,26 +118,29 @@ export function uneLigne(valeur: unknown, max: number): string {
   return `${couper(brut, max - 1).trimEnd()}…`;
 }
 
-// Borne d'un nom (contact, traiteur). Les noms de contact sont bornés à
-// l'écriture depuis #322, mais l'historique et tout chemin d'écriture hors route
-// (RPC service_role, seed, script) restent non couverts. 120 caractères, c'est
-// exactement la borne d'entrée `BORNES_TEXTE_LIBRE.contact_secours_nom`
-// (packages/plateforme/src/lib/champs-texte-libre.ts) : un nom accepté à la
-// saisie n'est donc jamais tronqué ici.
-const LIMITE_NOM_SECOURS = 120;
+// Borne d'un nom de contact : exactement la borne d'entrée
+// `BORNES_TEXTE_LIBRE.contact_secours_nom` (packages/plateforme/src/lib/
+// champs-texte-libre.ts) ; un nom accepté à la saisie n'est donc jamais tronqué
+// ici. L'historique et tout chemin d'écriture hors route restent couverts.
+const LIMITE_NOM = 120;
 
 // Borne d'un numéro au format libre, même valeur que la borne d'entrée des
 // téléphones de contact (champs-texte-libre-bornes.ts).
 const LIMITE_TELEPHONE = 40;
 
-/** `flux_autorises` = `text[]` en base → liste lisible ; entrées non-chaînes écartées. */
-function liste(valeur: unknown): string {
-  if (!Array.isArray(valeur)) return '';
-  return valeur
-    .map((v) => valeurLigne(v))
-    .filter(Boolean)
-    .join(', ');
-}
+// Borne d'une instruction d'accès (lieu, association), avant l'ajustement à
+// l'enveloppe : aucune n'est bornée à la saisie.
+const LIMITE_LIGNE_LONGUE = 600;
+
+// Borne d'un type de véhicule repris tel quel (hors de la table des pluriels).
+const LIMITE_TYPE_VEHICULE = 40;
+
+/**
+ * Longueur en deçà de laquelle un fragment de ligne amputée ne vaut pas d'être
+ * servi : ce qui survit ne dépasserait guère son libellé, et le chauffeur lirait
+ * du bruit. Une ligne qui ne tient pas au-dessus de ce seuil est retirée.
+ */
+const MIN_FRAGMENT_LIGNE = 40;
 
 /** Besoin véhicule saisi à l'attribution AG (décision Val 2026-10-01). */
 export interface VehiculeSouhaite {
@@ -194,21 +171,16 @@ const PLURIEL_PAR_PRESTATAIRE: Record<string, string> = {
 };
 
 /**
- * Ligne véhicule du commentaire, composée UNE fois puis envoyée à l'identique
- * sur chaque commande. Un seul véhicule : « Véhicule souhaité : vélo cargo » si
- * l'Admin l'a précisé, rien sinon. Plusieurs (décision Val 2026-11-03, à la
- * place de « 1 par commande, N commandes identiques pour cette collecte ») :
- *   « 2 vélos prévus pour cette collecte, veuillez vous coordonner pour les
- *   appels au traiteur ».
+ * Phrase des véhicules multiples (décision Val 2026-11-03), composée UNE fois
+ * puis envoyée à l'identique sur chaque commande : « 2 vélos prévus pour cette
+ * collecte, veuillez vous coordonner pour les appels au traiteur ». Rien pour
+ * un seul véhicule.
  */
-function puceVehicule(vehicule: VehiculeSouhaite | null): Puce {
-  const vide: Puce = { libelle: 'Véhicule souhaité', valeur: '' };
-  if (!vehicule) return vide;
+function phraseVehicules(vehicule: VehiculeSouhaite | null): string {
+  if (!vehicule) return '';
   const nombre = Number.isInteger(vehicule.nombre) ? vehicule.nombre : 1;
-  if (nombre <= 1) {
-    return { ...vide, valeur: libelle(vehicule.type, LIBELLE_VEHICULE) };
-  }
-  const type = valeurLigne(vehicule.type);
+  if (nombre <= 1) return '';
+  const type = uneLigne(vehicule.type, LIMITE_TYPE_VEHICULE);
   const connu = PLURIEL_VEHICULE[type];
   const nom =
     connu?.nom ||
@@ -216,17 +188,15 @@ function puceVehicule(vehicule: VehiculeSouhaite | null): Puce {
     PLURIEL_PAR_PRESTATAIRE[valeurLigne(vehicule.typeTms)] ||
     'véhicules';
   const prevus = connu?.feminin ? 'prévues' : 'prévus';
-  return {
-    libelle: '',
-    valeur: `${nombre} ${nom} ${prevus} pour cette collecte, veuillez vous coordonner pour les appels au traiteur`,
-  };
+  return `${nombre} ${nom} ${prevus} pour cette collecte, veuillez vous coordonner pour les appels au traiteur`;
 }
 
 /** « nom, téléphone », ou celui des deux qui existe. */
-function ligneContact(nom: unknown, telephone: unknown): string {
+function ligneContact(contact: ContactCommentaire | null | undefined): string {
+  if (!contact) return '';
   return [
-    uneLigne(nom, LIMITE_NOM_SECOURS),
-    uneLigne(telephone, LIMITE_TELEPHONE),
+    uneLigne(contact.nom, LIMITE_NOM),
+    uneLigne(contact.telephone, LIMITE_TELEPHONE),
   ]
     .filter(Boolean)
     .join(', ');
@@ -238,183 +208,156 @@ export interface ContactCommentaire {
   readonly telephone: string | null | undefined;
 }
 
-/** Ce que le commentaire au transporteur rassemble. */
+/** Ce que les commentaires au transporteur rassemblent. */
 export interface EntreeCommentaire {
-  /** Nom de l'organisation traiteur opérationnelle de l'événement. */
-  readonly traiteurNom: string | null | undefined;
-  /** Pax de LA collecte (`collectes.pax`, décision Val 2026-10-20). */
-  readonly pax: number | null | undefined;
   /**
    * Lieu **FUSIONNÉ** (sortie de `applyLieuOverrides`), jamais le lieu officiel :
    * les corrections saisies par collecte sont précisément ce qui doit atteindre
    * le chauffeur (PROG-01/PROG-03, #304).
    */
   readonly lieu: Lieu;
-  /** Saisie du traiteur (`collectes.informations_supplementaires`). */
-  readonly informationsSupplementaires: string | null | undefined;
+  /** Contact 1 de l'adresse de départ. */
   readonly contact: ContactCommentaire;
+  /** Contact 2 de l'adresse de départ (contact de secours). */
   readonly contactSecours: ContactCommentaire;
   /** Besoin véhicule de l'attribution AG, `null` en ZD. */
   readonly vehicule: VehiculeSouhaite | null;
-  /** Point B d'une collecte AG (l'association), `null` sinon. */
+  /** Adresse d'arrivée d'une collecte AG (l'association), `null` sinon. */
   readonly livraison: {
     readonly instructionsAcces: string | null | undefined;
+    readonly contact: ContactCommentaire | null;
   } | null;
 }
 
-// Plafonds par ligne longue, avant l'ajustement à l'enveloppe : aucune de ces
-// valeurs n'est bornée à la saisie (lieux, associations) ou elles le sont à 1000
-// (saisie du traiteur), soit à elles seules toute l'enveloppe.
-const LIMITE_LIGNE_LONGUE = 600;
+/** Les textes composés. */
+export interface CommentairesTransporteur {
+  /** Commentaire de la mission : consigne, puis véhicules multiples. */
+  readonly general: string;
+  /** Commentaire de l'adresse de départ (jamais vide : numéro d'urgence). */
+  readonly depart: string;
+  /** Commentaire de l'adresse d'arrivée, `null` sans rien à dire. */
+  readonly arrivee: string | null;
+  /** Les trois réunis, pour un transporteur sans commentaire par adresse (MTS-1). */
+  readonly unique: string;
+}
 
-/**
- * Longueur en deçà de laquelle un fragment de ligne amputée ne vaut pas d'être
- * servi : ce qui survit ne dépasserait guère son libellé, et le chauffeur lirait
- * du bruit. Une ligne qui ne tient pas au-dessus de ce seuil est retirée.
- */
-const MIN_FRAGMENT_LIGNE = 40;
-
-interface Puce {
-  readonly libelle: string;
+interface Ligne {
+  /** « - Libellé : » devant la valeur ; absent = la valeur seule. */
+  readonly libelle?: string;
   valeur: string;
   /**
    * Rang d'abandon quand l'enveloppe déborde (1 = amputé en premier) ; absent =
-   * jamais amputé. La saisie du traiteur part la première, comme dans
-   * l'arbitrage du 2026-09-15 : elle ne porte aucune donnée sans autre chemin.
+   * jamais amputé (borné par construction).
    */
   readonly abandon?: number;
 }
 
 interface Bloc {
-  /** « Libellé : valeur » sur une ligne, ou en-tête de liste à puces. */
-  readonly libelle: string;
-  readonly valeur?: string;
-  readonly puces?: Puce[];
+  /** En-tête « Départ : », seulement dans le texte unique. */
+  readonly entete?: string;
+  readonly lignes: Ligne[];
 }
 
 function rendre(blocs: Bloc[]): string {
-  const lignes: string[] = [];
+  const sortie: string[] = [];
   for (const b of blocs) {
-    if (b.puces) {
-      const puces = b.puces.filter((p) => p.valeur !== '');
-      if (puces.length === 0) continue;
-      lignes.push(`${b.libelle} :`);
-      for (const p of puces) {
-        // Puce sans libellé : une phrase complète (véhicules multiples).
-        lignes.push(
-          p.libelle ? `- ${p.libelle} : ${p.valeur}` : `- ${p.valeur}`,
-        );
-      }
-    } else if (b.valeur) {
-      lignes.push(`${b.libelle} : ${b.valeur}`);
+    const lignes = b.lignes.filter((l) => l.valeur !== '');
+    if (lignes.length === 0) continue;
+    if (b.entete) sortie.push(`${b.entete} :`);
+    for (const l of lignes) {
+      sortie.push(l.libelle ? `- ${l.libelle} : ${l.valeur}` : l.valeur);
     }
   }
-  return lignes.join('\n');
+  return sortie.join('\n');
 }
 
 /**
- * Ramène le commentaire dans {@link LIMITE_INFOS_SUPPLEMENTAIRES}, en prenant
- * les lignes longues dans leur ordre d'abandon : chacune est amputée juste ce
- * qu'il faut si elle garde au moins {@link MIN_FRAGMENT_LIGNE} caractères, sinon
- * retirée, et l'on passe à la suivante. Les autres lignes (traiteur, pax,
- * contacts, véhicule, accès office) sont bornées par construction : ensemble,
- * elles font au plus ~670 caractères, et tiennent donc dans l'enveloppe une
- * fois les lignes longues retirées.
+ * Ramène un texte dans {@link LIMITE_INFOS_SUPPLEMENTAIRES}, en prenant les
+ * lignes longues dans leur ordre d'abandon : chacune est amputée juste ce qu'il
+ * faut si elle garde au moins {@link MIN_FRAGMENT_LIGNE} caractères, sinon
+ * retirée, et l'on passe à la suivante. Les autres lignes (consigne, véhicules,
+ * contacts, urgence) sont bornées par construction : ensemble, elles font au plus
+ * ~750 caractères, et tiennent donc dans l'enveloppe une fois les lignes longues
+ * retirées.
  */
 function ajuster(blocs: Bloc[]): void {
   const longues = blocs
-    .flatMap((b) => b.puces ?? [])
-    .filter((p): p is Puce & { abandon: number } => p.abandon !== undefined)
+    .flatMap((b) => b.lignes)
+    .filter((l): l is Ligne & { abandon: number } => l.abandon !== undefined)
     .sort((a, b) => a.abandon - b.abandon);
 
-  for (const p of longues) {
+  for (const l of longues) {
     const exces = rendre(blocs).length - LIMITE_INFOS_SUPPLEMENTAIRES;
     if (exces <= 0) return;
-    if (p.valeur === '') continue;
-    const garde = p.valeur.length - exces - 1; /* « … » */
+    if (l.valeur === '') continue;
+    const garde = l.valeur.length - exces - 1; /* « … » */
     if (garde >= MIN_FRAGMENT_LIGNE) {
-      p.valeur = `${couper(p.valeur, garde).trimEnd()}…`;
+      l.valeur = `${couper(l.valeur, garde).trimEnd()}…`;
       return;
     }
-    p.valeur = '';
+    l.valeur = '';
   }
 }
 
-/**
- * Compose le commentaire transmis au transporteur (format en tête de fichier).
- *
- * @returns Le commentaire, ou `null` si rien à transmettre (`null` = pas de
- *   `comment` MTS-1 ; côté Everest, la seule consigne d'A Toutes!).
- */
-export function composerCommentaireTransporteur(
-  e: EntreeCommentaire,
-): string | null {
-  const pax =
-    typeof e.pax === 'number' && Number.isInteger(e.pax) && e.pax > 0
-      ? String(e.pax)
-      : '';
-  const blocs: Bloc[] = [
-    {
-      libelle: 'Traiteur',
-      valeur: uneLigne(e.traiteurNom, LIMITE_NOM_SECOURS),
-    },
-    { libelle: 'Nombre de pax', valeur: pax },
-    {
-      libelle: "Instructions d'accès",
-      puces: [
-        {
-          libelle: 'Accès',
-          valeur: uneLigne(e.lieu.acces_details, LIMITE_LIGNE_LONGUE),
-          abandon: 2,
-        },
-        {
-          libelle: 'Précisions du traiteur',
-          valeur: uneLigne(e.informationsSupplementaires, LIMITE_LIGNE_LONGUE),
-          abandon: 1,
-        },
-        {
-          libelle: 'Contraintes horaires',
-          valeur: uneLigne(e.lieu.contraintes_horaires, LIMITE_LIGNE_LONGUE),
-          abandon: 4,
-        },
-        {
-          libelle: 'Accès office',
-          valeur: libelle(e.lieu.acces_office, LIBELLE_DIFFICULTE),
-        },
-        {
-          libelle: 'Flux acceptés',
-          valeur: uneLigne(liste(e.lieu.flux_autorises), LIMITE_LIGNE_LONGUE),
-          abandon: 5,
-        },
-        puceVehicule(e.vehicule),
-      ],
-    },
-    {
-      libelle: 'Contact',
-      valeur: ligneContact(e.contact.nom, e.contact.telephone),
-    },
-    {
-      libelle: 'Contact de secours',
-      valeur: ligneContact(e.contactSecours.nom, e.contactSecours.telephone),
-    },
-    {
-      libelle: 'Livraison',
-      puces: e.livraison
-        ? [
-            {
-              libelle: "Instructions d'accès",
-              valeur: uneLigne(
-                e.livraison.instructionsAcces,
-                LIMITE_LIGNE_LONGUE,
-              ),
-              abandon: 3,
-            },
-          ]
-        : [],
-    },
-  ];
+/** Copie profonde : chaque texte s'ajuste sans toucher aux autres. */
+function copie(blocs: Bloc[]): Bloc[] {
+  return blocs.map((b) => ({ ...b, lignes: b.lignes.map((l) => ({ ...l })) }));
+}
 
-  ajuster(blocs);
-  const commentaire = rendre(blocs);
-  return commentaire === '' ? null : commentaire;
+function composer(blocs: Bloc[]): string {
+  const travail = copie(blocs);
+  ajuster(travail);
+  return rendre(travail);
+}
+
+/**
+ * Compose les commentaires transmis au transporteur (format en tête de fichier).
+ */
+export function composerCommentairesTransporteur(
+  e: EntreeCommentaire,
+): CommentairesTransporteur {
+  const general: Bloc = {
+    lignes: [
+      { valeur: CONSIGNE_PESEE_PHOTOS },
+      { valeur: phraseVehicules(e.vehicule) },
+    ],
+  };
+  const depart: Bloc = {
+    entete: 'Départ',
+    lignes: [
+      {
+        libelle: "Instructions d'accès",
+        valeur: uneLigne(e.lieu.acces_details, LIMITE_LIGNE_LONGUE),
+        abandon: 2,
+      },
+      { libelle: 'Contact 1', valeur: ligneContact(e.contact) },
+      { libelle: 'Contact 2', valeur: ligneContact(e.contactSecours) },
+      { valeur: `En cas d'urgence, appeler le ${NUMERO_URGENCE_SAVR}` },
+    ],
+  };
+  const arrivee: Bloc = {
+    entete: 'Arrivée',
+    lignes: e.livraison
+      ? [
+          {
+            libelle: "Instructions d'accès",
+            valeur: uneLigne(
+              e.livraison.instructionsAcces,
+              LIMITE_LIGNE_LONGUE,
+            ),
+            abandon: 1,
+          },
+          { libelle: 'Contact', valeur: ligneContact(e.livraison.contact) },
+        ]
+      : [],
+  };
+
+  const sansEntete = (b: Bloc): Bloc => ({ lignes: b.lignes });
+  const texteArrivee = composer([sansEntete(arrivee)]);
+  return {
+    general: composer([general]),
+    depart: composer([sansEntete(depart)]),
+    arrivee: texteArrivee === '' ? null : texteArrivee,
+    unique: composer([general, depart, arrivee]),
+  };
 }

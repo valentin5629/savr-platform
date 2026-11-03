@@ -89,7 +89,7 @@
     },
     {
       "id": "M0.3-rearm-pack-alerte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:200",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:213",
       "artefact": "supabase/migrations/20260709120000 : fn_trg_pack_recredit + rpc_annuler_credit_collecte — un recrédit qui repasse le solde >10% RÉSOUT (statut='resolue') l'alerte ouverte pack_ag_bas/pack_ag_epuise → ré-arme le déclencheur (F4 tranchée Val 2026-06-07).",
       "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
       "statut": "implemented",
@@ -97,7 +97,7 @@
     },
     {
       "id": "M0.3-tpl9-email",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:195",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:208",
       "artefact": "packages/plateforme/src/app/api/cron/notify-pack-etat/route.ts + lib/packs/notify-pack-etat.ts : scanne alertes_admin (code pack_ag_bas/pack_ag_epuise, statut ouverte, email_notifie_at IS NULL) → sendEmail('admin_pack_ag_etat','contact@gosavr.io', {niveau, etat_libelle, organisation_nom, credits_restants/initiaux, pct_restant, niveau_bas, niveau_epuise, …}) → pose email_notifie_at (idempotent). Destinataire = tous admin_savr via inbox partagée (§06.02 l.202). vercel.json cron.",
       "test": "M0.3-5 ; M0.3-6 ; M0.3-7 ; M0.3-8",
       "statut": "implemented",
@@ -129,9 +129,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "eafb60f53ddda848fecf4bdcb39139acab13b7249d534f3772310e25b7a92b69",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "022b35b161ee61596f286da2036b2e57b6d098aeb9a6ca1728c2dd0518ef3984",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "1f9a66804c7309040755b078f25cedf174e98402019fe82085777aa047702e60",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "71a5aff3d68f1e2cd3712add634d51f0ddc97f94d758c1a2f2d36edcf5474cad",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "454cf1fef34eda6c8f510d347b1d5b2d580c6d90febf31d0bdacabe33bf322a3",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "67536ff643130ed80eeae822fd0a46c108ddda9e05630f29ed06bcff7cb33032"
   }
 }

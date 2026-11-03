@@ -13,7 +13,7 @@
 
 | # | Profil | Logique d'accès | Peut programmer | Voit les finances |
 |---|--------|----------------|----------------|------------------|
-| 1 | Traiteur - Commercial | Tous les événements du traiteur (= Manager, sauf gestion des utilisateurs) | Oui | Toutes les factures du traiteur |
+| 1 | Traiteur - Commercial | Tous les événements du traiteur (= Manager, sauf édition de l'organisation ; Membres : inviter et transférer ses collectes — Val 2026-10-30) | Oui | Toutes les factures du traiteur |
 | 2 | Traiteur - Manager | Tous les événements du traiteur | Oui | Toutes les factures du traiteur |
 | 3 | Gestionnaire de lieux | Toutes les collectes sur ses lieux (tous traiteurs) | Oui (ses propres lieux) | Factures de ses propres programmations |
 | 4 | Agence | Les collectes qu'elle a programmées (multi-traiteurs/multi-lieux) | Oui | Factures à son nom |
@@ -39,7 +39,7 @@ Commercial chez un traiteur (ex: chargé de projet événementiel chez Kaspia, B
 - Accéder à ses rapports RSE et aux rapports agrégés du traiteur, les télécharger
 
 ### Ce qu'il NE peut pas faire
-- **Modifier ou supprimer les collectes créées par un autre commercial** (lecture seule sur celles-ci) — réservé au créateur ou au Manager
+- **Modifier les informations de l'organisation ; changer le rôle ou suspendre un collègue** (révision Val 2026-10-30 — il modifie en revanche les collectes de ses collègues comme le Manager)
 - **Gérer les utilisateurs de son organisation** (inviter/désactiver un compte) — réservé au Manager
 - Modifier une collecte déjà validée / en cours / réalisée (même limite de statut que le Manager)
 - Voir les données d'autres traiteurs
@@ -53,7 +53,7 @@ Commercial chez un traiteur (ex: chargé de projet événementiel chez Kaspia, B
 4. **Accès coordonnées chauffeur/plaque** : visibles depuis la fiche collecte de son espace client (section logistique) une fois la tournée créée et la plaque saisie côté TMS. Pas de notification automatique T+3h en V1.
 
 ### Décisions prises
-- **Commercial : lecture = Manager, écriture = ses créations (2026-05-29)** : RLS **lecture** alignée sur `organisation_id` (voit tout le traiteur, dashboards inclus) ; RLS **écriture** maintenue sur `created_by_user_id` (modifie/supprime uniquement ses propres collectes). Seule autre restriction vs Manager : pas de gestion des utilisateurs. Revient sur l'isolement strict V1 en lecture (Q1, voir Questions ouvertes). Propagation : [[09 - Authentification et permissions]] (RLS lecture/écriture distinctes) + [[11 - Dashboards]] (dashboard analytique + benchmarks ouverts au commercial)
+- **Commercial : lecture = Manager, écriture = ses créations (2026-05-29)** : RLS **lecture** alignée sur `organisation_id` (voit tout le traiteur, dashboards inclus) ; écriture alignée Manager (Val 2026-10-30) ; restrictions vs Manager : pas d'édition de l'organisation, gestion des utilisateurs limitée à inviter et transférer ses collectes. Revient sur l'isolement strict V1 en lecture (Q1, voir Questions ouvertes). Propagation : [[09 - Authentification et permissions]] (RLS lecture/écriture distinctes) + [[11 - Dashboards]] (dashboard analytique + benchmarks ouverts au commercial)
 - Branding Savr en frontal : aucun prestataire logistique n'est exposé au commercial
 - Contacts pré-remplis via référentiel traiteur (voir [[04 - Data Model]])
 
@@ -83,7 +83,7 @@ Directeur commercial ou responsable RSE/DD chez un traiteur. Ne programme pas n�
 1. **Bilan RSE trimestriel** : filtre par période → génère un rapport consolidé (tonnes par flux, nb événements, comparatif N-1) → télécharge en PDF ou partage le lien
 2. **Benchmark** : compare ses performances à la moyenne anonymisée des traiteurs similaires (type d'événement, taille, etc.)
 3. **Suivi facturation** : voit toutes les factures Savr → rapproche avec son service comptable
-4. **Onboarding nouveau commercial** : invite un email → le commercial crée son compte. Il accède en lecture à tout le traiteur (comme le Manager) mais ne peut modifier que ses propres collectes et n'a pas la gestion des utilisateurs (révision 2026-05-29)
+4. **Onboarding nouveau commercial** : invite un email → le commercial crée son compte. Il a les mêmes droits que le Manager, écriture comprise, sauf l'édition de l'organisation ; il peut inviter un collaborateur et transférer ses propres collectes (révision Val 2026-10-30)
 5. **Modification / suppression collectes commerciaux** : peut intervenir sur les collectes créées par ses commerciaux (mêmes règles que sur ses propres collectes, statuts permis)
 
 ### Décisions prises
@@ -262,7 +262,7 @@ Le client organisateur qui mandate un traiteur et/ou une agence et paie la prest
 ## Décisions prises
 
 - **6 profils distincts** : Commercial traiteur, Manager traiteur, Gestionnaire de lieux, Agence, Client Organisateur, Admin Savr. Chacun a une logique RLS différente
-- **Traiteur-Commercial (révisé 2026-05-29)** : **lecture** identique au Manager (RLS `organisation_id`, voit tout le traiteur + dashboards/benchmarks) ; **écriture** limitée à ses propres créations (RLS `created_by_user_id`) ; pas de gestion des utilisateurs. Pas de prestataire logistique exposé (branding Savr)
+- **Traiteur-Commercial (révisé 2026-05-29)** : **lecture** identique au Manager (RLS `organisation_id`, voit tout le traiteur + dashboards/benchmarks) ; **écriture** identique au Manager (révision Val 2026-10-30) ; organisation en lecture seule ; Membres : inviter et transférer ses collectes. Pas de prestataire logistique exposé (branding Savr)
 - **Traiteur-Manager** : voit tout le traiteur, peut programmer, modifier et supprimer les collectes (y compris celles de ses commerciaux)
 - **Gestionnaire de lieux** : données identifiées par traiteur (Option B), invitations illimitées dans son org, historique complet accessible (limitation possible par Admin sur demande)
 - **Agence** : périmètre strict à ses propres programmations, facturation à son nom, liste déroulante traiteurs + ajout manuel

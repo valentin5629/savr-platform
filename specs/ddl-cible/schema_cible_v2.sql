@@ -300,6 +300,7 @@ CREATE TABLE plateforme.users (
   role               plateforme.user_role NOT NULL,
   actif              boolean NOT NULL DEFAULT true,
   derniere_connexion timestamptz,
+  poste              text CHECK (poste IS NULL OR char_length(poste) <= 100), -- « Mon profil », sans effet sur les droits ; V1 migration 20261101100000
   created_at         timestamptz NOT NULL DEFAULT now(),
   cgu_accepte_le     timestamptz,                          -- acceptation CGU = création compte (Art. 11/22, preuve opposable) ; NULL = compte migré sans trace
   cgu_version        text                                  -- version CGU acceptée (CGU_VERSION_COURANTE) ; NULL = compte migré
@@ -408,6 +409,7 @@ CREATE TABLE plateforme.lieux (
   siren                          text CHECK (siren ~ '^[0-9]{9}$'),
   email_gestionnaire             text,
   reference_citeo                boolean NOT NULL DEFAULT false,
+  code_site_viparis              text CHECK (code_site_viparis IN ('PCP','PCC','CNIT2','CDL','CHAMP','PDV','PNV','PLB')),  -- ajout 2026-11-02 (demande VIPARIS, décision Val)
   actif                          boolean NOT NULL DEFAULT true,
   created_at                     timestamptz NOT NULL DEFAULT now(),
   updated_at                     timestamptz NOT NULL DEFAULT now()
@@ -727,6 +729,7 @@ CREATE TABLE plateforme.evenements (
   logo_client_organisateur_url           text,
   client_organisateur_organisation_id    uuid,
   reference_affaire                      text,
+  code_affaire_viparis                   text CHECK (code_affaire_viparis ~ '^[A-Z0-9]{7}$'),  -- ajout 2026-11-02 (demande VIPARIS, décision Val)
   notes_internes                         text,
   created_at                             timestamptz NOT NULL DEFAULT now(),
   updated_at                             timestamptz NOT NULL DEFAULT now()

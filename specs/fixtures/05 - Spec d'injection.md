@@ -25,7 +25,7 @@ Environnement **dev uniquement** : les scripts refusent de s'exécuter si `SUPAB
 
 - Chaque ligne porte `metadata->>'seed_tag' = 'minimal' | 'demo'` (dev only, jamais en prod).
 - Reset = `DELETE WHERE seed_tag IS NOT NULL` puis `INSERT`, dans l'ordre inverse des FK ; ou `TRUNCATE ... CASCADE` sur base dev vide. Relancer le script ne crée aucun doublon (upsert sur UUID déterministes).
-- Ordre d'insertion (respect FK) : référentiel/paramètres → organisations → entites_facturation → users → lieux → organisations_lieux → associations/transporteurs/prestataires → grilles/tarifs → packs → événements → collectes → collecte_flux/attributions → attestations (dérivées des attributions) → tournees/collecte_tournees → factures/lignes/séquences → documents (bordereaux, rapports, exports) → fichiers → briefs → impact → emails/audit/outbox/integrations.
+- Ordre d'insertion (respect FK) : référentiel/paramètres → organisations → entites_facturation → users → lieux → organisations_lieux → associations/transporteurs/prestataires → grilles/tarifs → packs → événements → collectes → collecte_flux/attributions → attestations (dérivées des attributions ; seed_minimal seul) → tournees/collecte_tournees → factures/lignes/séquences → documents (bordereaux et rapports : seed_minimal seul ; exports) → fichiers → briefs → impact → emails/audit/outbox/integrations. _(2026-10-28, Val)_ seed_demo ne sème ni attestation, ni bordereau, ni rapport : sur savr-dev, `pnpm documents:dev` les fabrique par le flux réel.
 
 ## 4. Contraintes spécifiques App
 

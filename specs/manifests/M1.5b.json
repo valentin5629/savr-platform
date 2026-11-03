@@ -78,7 +78,7 @@
     },
     {
       "id": "M1.5b-photo-entity-type",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:803",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:808",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule + collectes-documents-photos.m0-6.test.ts « photo remontée par le transporteur listée avec les imports manuels »",
       "statut": "implemented",
@@ -134,7 +134,7 @@
     },
     {
       "id": "M1.5b-photo-aucun-repas-lecture-equipe-savr",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:803",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:808",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -233,9 +233,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "022b35b161ee61596f286da2036b2e57b6d098aeb9a6ca1728c2dd0518ef3984",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "6488b3cbfc9488a29f9ee4bcf690aea3965e92c1d6c142db99aa4c6637f27bb8",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "1feba8e10b9a8c5d7065cfb3ab584be8c33e9913a4ea64f5558ac66344373597",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "61267fa23e3119d403e0fcd711c943f4f192f83091a81dbe945d86f392ee4594",
     "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md": "760800aa1c0b318f4322548e88712312a10ea71a854be1c9363a43e657438e7d"
   }
 }

@@ -35,7 +35,7 @@
     },
     {
       "id": "BL-P1-PARITE-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:63",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:62",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_auth_401_sans_jwt + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
@@ -43,7 +43,7 @@
     },
     {
       "id": "M3.5-charts-lib",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:82",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:81",
       "artefact": "packages/plateforme/src/components/dashboards/charts/",
       "test": "TonnagesDonut — rend le total au centre et la légende des 5 flux",
       "statut": "implemented",
@@ -51,7 +51,7 @@
     },
     {
       "id": "M3.5-evolution-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:125",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:135",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts",
       "test": "M3.5/evolution_zd_barres_5_flux_taux_pondere — sommes par flux + taux pondéré (exclut NULL)",
       "statut": "implemented",
@@ -59,7 +59,7 @@
     },
     {
       "id": "BL-P1-PARITE-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:198",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:208",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts + packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + apps/pdf-renderer/src/templates/synthese-dashboard.ts",
       "test": "M3.5 / route synthèse PDF — génération synchrone + M3.5 / synthèse PDF — snapshot §12 §1.6 + M3.5 / renderer synthèse §12 §1.6 — template agrégé",
       "statut": "implemented",
@@ -67,7 +67,7 @@
     },
     {
       "id": "BL-P2-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:36",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:35",
       "artefact": "packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts",
       "test": "M3.5/admin_revenus_6_colonnes — nom · type · nb/CA ZD · nb/CA AG",
       "statut": "implemented",
@@ -75,7 +75,7 @@
     },
     {
       "id": "M3.5-kpi-admin-ca-eco-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:36",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:35",
       "artefact": "supabase/migrations/20260707120000_plateforme_r20a_kpi_admin_ca_economique_ag.sql, supabase/migrations/20261030120000_plateforme_v_kpi_admin_avoirs_negatifs.sql",
       "test": "supabase/tests/m3_5_v_kpi_admin_ca_eco_ag.test.sql — v_kpi_admin CA AG économique (pack) + non-régression ZD + exclusion facture/avoir pack",
       "statut": "implemented",
@@ -83,7 +83,7 @@
     },
     {
       "id": "M3.5-revenus-filtres-lieu-organisation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:36",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:35",
       "artefact": "packages/plateforme/src/lib/dashboards/revenus-admin.ts, packages/plateforme/src/app/api/v1/admin/dashboard/revenus-mensuels/route.ts, packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts, packages/plateforme/src/app/(admin)/admin/dashboard/page.tsx",
       "test": "M3.5/revenus_filtres_perimetre + M3.5/revenus_filtres_tableau + M3.5/revenus_filtres_histogramme + M3.5/revenus_filtres_tableau_gestionnaire_sans_lieu + M3.5/revenus_mensuels_montants + M3.5/admin_revenus_filtres_lieu_organisation + M3.5/admin_revenus_filtre_retour_page_1",
       "statut": "implemented",
@@ -91,7 +91,7 @@
     },
     {
       "id": "BL-P2-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:102",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -99,7 +99,7 @@
     },
     {
       "id": "BL-P2-43",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:102",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -107,7 +107,7 @@
     },
     {
       "id": "M3.5-blocs-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:75",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_sans_prochaines_collectes",
       "statut": "implemented",
@@ -115,7 +115,7 @@
     },
     {
       "id": "M3.5-filtres-type-taille-grain-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:78",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:86",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, loadEvolution) + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (fetchScopedRows, buildSyntheseSnapshot)",
       "test": "M3.5/blocs_filtres_type_et_taille_de_la_collecte + M3.5/evolution_filtres_type_et_taille_de_la_collecte + M3.5/synthese_filtres_type_et_taille_de_la_collecte",
       "statut": "implemented",
@@ -123,7 +123,7 @@
     },
     {
       "id": "M3.5-cumuls-pax-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:75",
       "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts (aDesConvives, paxCumules, ratioParPax, computeDashboardKpi) + packages/plateforme/src/lib/dashboards/loaders.ts (buildEvolutionSeries, topLieuxFrom, aggregateActeurs, kgParPaxParFluxFrom, loadBlocs, loadEvolution) + packages/plateforme/src/components/dashboards/useEvolutionBlocs.ts (FluxSeriePoint.kg_par_pax)",
       "test": "Lot3/kpi_pax_deux_soirees + Lot3/kpi_zd_kg_par_pax_filtre_partiel + Lot3/kpi_zd_collecte_sans_convives_ecartee + Lot3/kpi_ag_collecte_sans_convives_ecartee + Lot3/kpi_ratio_aucun_convive + Lot3/kg_par_pax_par_flux_collectes + Lot3/blocs_ag_repas_par_pax_collectes + Lot3/blocs_zd_kg_par_pax_par_flux_collectes + Lot3/evolution_ag_ratio_pax_collectes + Lot3/evolution_ag_filtre_partiel + M3.2/kpi_sparkline_serie_zd_nb_collectes_pax_co2_par_bucket + M3.2/kpi_sparkline_serie_ag_nb_collectes_par_bucket",
       "statut": "implemented",
@@ -132,7 +132,7 @@
     },
     {
       "id": "M3.5-v-kpi-traiteur-pax-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:197",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:200",
       "artefact": "supabase/migrations/20261025230000_plateforme_v_kpi_traiteur_pax_collecte.sql (v_kpi_traiteur : pax_total = Σ collectes.pax, colonnes tonnage_kg_pax_connu et nb_repas_pax_connu ajoutées en fin) + packages/shared/src/database.types.ts",
       "test": "supabase/tests/v_kpi_traiteur_pax_collecte.test.sql « L3-VUE-1 : deux soirées » « L3-VUE-2 : deux soirées » « L3-VUE-3 : même soir » « L3-VUE-5 : collecte ZD à 0 convive » « L3-VUE-6 : collecte AG à 0 convive » « L3-VUE-7 : une ligne AG » « L3-VUE-8 : deux mois » « L3-VUE-10 : v_kpi_traiteur reste security_invoker » « L3-VUE-11 : droits inchangés »",
       "statut": "implemented",
@@ -141,7 +141,7 @@
     },
     {
       "id": "M3.5-filtre-type-evenement-uuid",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:77",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:85",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, loadEvolution : typeEvtIds filtrés par estUuid)",
       "test": "Lot3/blocs_type_evenement_illisible_vide + Lot3/blocs_type_evenement_valeurs_mal_formees_ecartees + Lot3/evolution_type_evenement_illisible_vide",
       "statut": "implemented",
@@ -150,7 +150,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "174c1ff53572bad8d222fa7ba5e4c7902c839671017f913ebaebf9b226c22209",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "bdda90299b4af05a95c42396b4c5c2653218540ae7c8d83f6a448f09b0586e55"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3b3b4ebba18cfe5ef58baa1c73dd618d031c3b41d8a1494d28cbf18780f81a80",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "87c1aab8f65c3c441dde53838d9a377ca73bb9ba2fded8568fba0c4c3f4e84e9"
   }
 }

@@ -89,7 +89,7 @@
     },
     {
       "id": "M2.4-p2-20-attestation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:208",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:209",
       "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts (mention de régénération)",
       "test": "M2.4 / attestation de don — mention de régénération : présente uniquement si régénérée",
       "statut": "implemented",
@@ -97,7 +97,7 @@
     },
     {
       "id": "BL-P1-RPT-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:166",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:167",
       "artefact": "apps/pdf-renderer/src/templates/rapport-evenement-sans-excedent.ts + packages/shared/src/pdf/document-types.ts (type rapport-evenement-sans-excedent) + apps/pdf-renderer/src/render.ts + packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts (runBatchSansExcedent) + packages/plateforme/src/app/api/cron/batch-pdf-j1/route.ts + packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts (branche realisee_sans_collecte) + packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts (rapport_rse_disponible) + packages/plateforme/src/lib/pdf/regenerate.ts (DOC_ENTITY rapport-evenement-sans-excedent + regenere_at/version) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (régén Admin)",
       "test": "M2.4 / batch sans-excédent — génération (BL-P1-RPT-02) ; M2.4 / renderer — rapport « Événement sans excédent » §1.3-bis (BL-P1-RPT-02) ; M2.4 / download rapport sans-excédent (BL-P1-RPT-02) ; M2.4 / fiche collecte GET — disponibilité sans-excédent (BL-P1-RPT-02) ; M2.4 / régénération Admin rapport sans-excédent (BL-P1-RPT-02)",
       "statut": "implemented",
@@ -105,7 +105,7 @@
     },
     {
       "id": "BL-P1-RM-10",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:192",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:194",
       "artefact": "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/poids/route.ts (motif ≥10 sur correction + audit poids_repas_saisi_ops motivé) ; régén attestation via trg_regenerer_attestation (existant)",
       "test": "M2.4/RM-10 — correction sans motif → 422 ; correction avec motif ≥10 → 200 + audit poids_repas_saisi_ops motivé ; 1re saisie sans motif → 200 ; régén attestation (correction volume → corrigee + version+1) : supabase/tests/rls_attestations_don_m2_4.test.sql (Section R9 T7/T8/T9)",
       "statut": "implemented",
@@ -113,7 +113,7 @@
     },
     {
       "id": "M2.4-numero-rup-instantane",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1386",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1389",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",
       "test": "association AVEC n° RUP : instantané figé + mention transmise au Cerfa",
       "statut": "implemented",
@@ -121,7 +121,7 @@
     },
     {
       "id": "M2.4-siret-donateur-verifie",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2029",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2034",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",
       "test": "entité SIRET en_attente → attestation différée, AUCUN numéro consommé, alerte Ops in-app",
       "statut": "implemented",
@@ -137,7 +137,7 @@
     },
     {
       "id": "M2.4-rapport-de-don-titre-pdf",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:168",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:169",
       "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts + apps/pdf-renderer/src/templates/rapport-evenement-sans-excedent.ts + packages/shared/src/pdf/document-types.ts (TEMPLATE_VERSIONS : attestation-don@3, rapport-evenement-sans-excedent@2)",
       "test": "M2.4 / renderer — titre imprimé « Rapport de don » des deux PDF AG ; apps/pdf-renderer/src/render.test.ts « bloc Conséquences : mention fixe (pas de reçu fiscal, tarif normal) »",
       "statut": "implemented",
@@ -145,7 +145,7 @@
     },
     {
       "id": "M2.4-rapport-de-don-nom-fichier",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:168",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:169",
       "artefact": "packages/plateforme/src/lib/pdf/nom-fichier-rapport-de-don.ts + packages/plateforme/src/lib/pdf/r2-client.ts (getPresignedUrl, paramètre nomFichier) + packages/plateforme/src/lib/collectes/rapport-download.ts + packages/plateforme/src/app/api/v1/admin/attestations/[id]/download/route.ts + packages/plateforme/src/app/api/v1/admin/rapports-rse/[id]/download/route.ts + packages/plateforme/src/app/api/v1/organisateur/documents/[type]/[id]/download/route.ts",
       "test": "M2.4 / nom de fichier « Rapport de don » — avec excédents ; M2.4 / nom de fichier « Rapport de don » — sans excédent ; M2.4 / nom de fichier du rapport d’une collecte ; packages/plateforme/src/lib/pdf/r2-client.test.ts « getPresignedUrl avec un nom de fichier », « getPresignedUrl ignore un nom de fichier hors motif sûr » ; M3.4/document_download_rapport_de_don_sans_excedent ; M3.4/document_download_rapport_de_don_attestation ; M3.4/document_download_rapport_de_don_nom_illisible ; packages/plateforme/tests/api/admin/attestations-download.m0-6.test.ts « M0.6 — hors embargo + PDF généré » ; packages/plateforme/tests/api/column-db-selects.test.ts « rapports-rse/:id/download : rapport d’une collecte AG sans excédent », « rapports-rse/:id/download : rapport de recyclage ZD → 409 (fabriqué au clic) », « organisateur/documents/bordereau/:id/download » ; packages/plateforme/tests/api/traiteur/sans-excedent-download.m2-4.test.ts « AG realisee_sans_collecte → sert rapports_rse », « AG cloturee → sert toujours l’attestation » ; packages/plateforme/tests/api/traiteur/fiche-collecte-trait03.m3-1.test.ts « M3.1/rapport_download_ok »",
       "statut": "implemented",
@@ -153,7 +153,7 @@
     },
     {
       "id": "M2.4-rapport-de-don-email-disponibilite",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:658",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:783",
       "artefact": "supabase/migrations/20261013180000_plateforme_email_template_rapport_de_don.sql + packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts (étape 10)",
       "test": "M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible ; supabase/tests/email_template_rapport_de_don.test.sql « objet : », « variables déclarées = celles que le batch AG fournit », « objet et corps : plus aucun » ; M2.4 / gabarit « rapport de don disponible » — migration 20261013180000",
       "statut": "implemented",
@@ -161,7 +161,7 @@
     },
     {
       "id": "M2.4-rapport-de-don-nom-pdf-fichier-email-cgu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:166-168",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:167-169",
       "artefact": "packages/plateforme/src/content/cgu-v1.ts (définitions « Espace Client » et « Rapport de don », obligations de SAVR, Art. 24.8 : « Rapport de don » au lieu de « Attestation », aligné sur les CGU du Vault au sync du 2026-10-20)",
       "test": "packages/plateforme/tests/ui/cgu.test.tsx « M0.4 — /cgu : le texte publié est celui du CDC »",
       "statut": "implemented",
@@ -170,7 +170,7 @@
     },
     {
       "id": "M2.4-sans-excedent-convives-de-la-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:176",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:177",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts",
       "test": "M2.4 / batch sans-excédent — convives de la collecte + M2.4 / renderer — rapport sans excédent : convives de la collecte",
       "statut": "implemented",
@@ -179,11 +179,11 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "eafb60f53ddda848fecf4bdcb39139acab13b7249d534f3772310e25b7a92b69",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "022b35b161ee61596f286da2036b2e57b6d098aeb9a6ca1728c2dd0518ef3984",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "1f9a66804c7309040755b078f25cedf174e98402019fe82085777aa047702e60",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "f57726028bd4c45bd9de86de56072b6a689abe0eaf9f2e4a9308a69d144a642e",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "5bbb1231f0faf4bd292af49632c48eb26e736fc302881f07d08d590d9eac8ee7",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "7e9aac4ab731ffcb03cb11fb33f6c02264e2c391540a2dda3ce54af5c261e8a9"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "71a5aff3d68f1e2cd3712add634d51f0ddc97f94d758c1a2f2d36edcf5474cad",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "454cf1fef34eda6c8f510d347b1d5b2d580c6d90febf31d0bdacabe33bf322a3",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "d5b6f644aa60e3d7ca36d414cdec3c06d0a954545705e865b8e06f935929f678",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "5129aa28dc9794a842f435362a1103998993507bd90e45787125ab474413aecd",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de"
   }
 }

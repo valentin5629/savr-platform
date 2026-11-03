@@ -598,7 +598,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'AG', gras: true },
           {
             texte:
-              " : le Client souscrit un Pack Anti-Gaspi prépayé ou commande à l'unité. Le Client détient au plus un Pack actif à un instant T ; les crédits sont défalqués sur ce Pack à chaque Collecte AG réalisée. Sans Pack actif, notamment après son épuisement, les Collectes AG restent programmables et sont facturées à l'unité jusqu'à l'acquisition d'un nouveau Pack. En cas de renouvellement anticipé, les crédits restants de l'ancien Pack sont reportés sur le nouveau par SAVR sur demande du Client.",
+              " : le Client souscrit un Pack Anti-Gaspi prépayé ou commande à l'unité. Le Client détient au plus un Pack actif à un instant T ; un crédit est défalqué sur ce Pack à la programmation de chaque Collecte AG ; il est restitué si la Collecte est annulée 4h ou plus avant le créneau ou si le Prestataire la refuse. Sans Pack actif, notamment après son épuisement, les Collectes AG restent programmables et sont facturées à l'unité jusqu'à l'acquisition d'un nouveau Pack. En cas de renouvellement anticipé, les crédits restants de l'ancien Pack sont reportés sur le nouveau par SAVR sur demande du Client.",
             gras: false,
           },
         ],
@@ -739,7 +739,11 @@ export const CGU_SECTIONS: SectionCgu[] = [
         segments: [
           { texte: 'Annulation reçue ', gras: false },
           { texte: '≥ 4h avant le créneau', gras: true },
-          { texte: ' : aucune facturation.', gras: false },
+          {
+            texte:
+              ' : aucune facturation ; pour une Collecte AG, le crédit Pack défalqué à la programmation est restitué.',
+            gras: false,
+          },
         ],
       },
       {
@@ -749,7 +753,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: '< 4h avant le créneau', gras: true },
           {
             texte:
-              " : facturation au tarif plein (ZD) ou débit d'un crédit Pack (AG), sans remboursement.",
+              ' : facturation au tarif plein (ZD, ou AG sans crédit Pack) ou conservation du crédit Pack défalqué à la programmation (AG), sans remboursement.',
             gras: false,
           },
         ],

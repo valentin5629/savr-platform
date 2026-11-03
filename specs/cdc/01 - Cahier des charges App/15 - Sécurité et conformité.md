@@ -43,7 +43,7 @@ L'Admin Savr peut se connecter à la place d'un utilisateur pour résoudre un in
 
 - Bandeau orange permanent visible à l'écran pendant toute la session impersonée
 - Chaque action réalisée en mode impersonation est loggée dans `audit_log` avec `impersonator_id` distinct de `user_id`
-- L'utilisateur impersoné peut voir dans son historique que son compte a été accédé (page "Sécurité du compte")
+- L'utilisateur impersoné voit que son compte a été accédé : bloc « Accès de l'équipe Savr à votre compte » de l'onglet « Mon profil » de « Paramètres » (lecture self `f_mes_acces_compte`, GET /api/me/acces). La carte « Sécurité du compte » est retirée de l'écran (décision Val 2026-11-01), mais la transparence est conservée (arbitrage Val 2026-11-02 ; dette code : réafficher le bloc). La trace reste dans `audit_log`.
 
 ### 2.4 Gestion des secrets
 

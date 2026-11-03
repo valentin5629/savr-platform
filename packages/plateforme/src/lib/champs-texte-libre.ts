@@ -16,7 +16,7 @@ import {
 // Ce que chacune coûte — relevé sur le code d'émission des adapters de CETTE
 // branche (main mergé), pas déduit du nom des colonnes :
 //   · `informations_supplementaires` ET `contact_secours_nom` transitent par le
-//     canal de TEXTE LIBRE, composé par `composerCommentaireTransporteur`
+//     canal de TEXTE LIBRE, composé par `composerCommentairesTransporteur`
 //     (packages/adapters/src/infos-acces.ts), où les informations d'exploitation
 //     sont concaténées en un seul message pour le chauffeur. Une valeur démesurée
 //     y évinçait les lignes voisines — et le nom de secours OUVRE le bloc, donc il

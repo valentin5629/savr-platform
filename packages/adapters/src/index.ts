@@ -83,7 +83,8 @@ export interface Lieu {
   readonly contraintes_horaires?: string | null;
   // Informations d'accès éditables par collecte (`LieuEdits`, §06.01 §2.a) et
   // transmises au transporteur — rassemblées dans le champ libre par
-  // `composerCommentaireTransporteur` (infos-acces.ts), faute de champ natif
+  // `composerCommentairesTransporteur` (infos-acces.ts ; seul `acces_details`
+  // part encore depuis le 2026-11-03), faute de champ natif
   // MTS-1/Everest. Sans leur présence ICI, elles ne sont ni fusionnables
   // (`CHAMPS_LIEU_SURCHARGEABLES` = intersection `LieuEdits` ∩ `Lieu`) ni même
   // visibles du worker. Typage volontairement large (`string`), comme
@@ -104,10 +105,14 @@ export interface Collecte {
   readonly nb_camions_demande: number;
   readonly statut_tms: string;
   readonly controle_acces_requis: boolean;
-  // Commentaire au transporteur composé par le worker (infos-acces.ts) : saisie
-  // du traiteur, informations d'accès, contacts, point B. Envoyé dans `comment`
-  // (MTS-1 tel quel ; Everest après la consigne d'A Toutes!).
+  // Commentaires au transporteur composés par le worker (infos-acces.ts, format
+  // Val 2026-11-03). `informations_supplementaires` = les trois réunis, pour le
+  // `comment` MTS-1 (aucun commentaire par adresse) ; Everest envoie les trois
+  // autres dans `comment`, `address_start_comment` et `address_end_comment`.
   readonly informations_supplementaires?: string | null;
+  readonly commentaire_general?: string | null;
+  readonly commentaire_depart?: string | null;
+  readonly commentaire_arrivee?: string | null;
   readonly notes_internes?: string | null;
   // Nom du traiteur opérationnel de l'événement et nombre de pax de la collecte
   // (porté par la collecte depuis la décision Val du 2026-10-20) : libellé de la

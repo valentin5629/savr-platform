@@ -299,9 +299,9 @@
       "id": "M1.2-pax-par-collecte-transmission",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:387 + specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:400",
       "artefact": "packages/adapters/src/outbox-worker.ts + packages/adapters/src/index.ts + supabase/migrations/20261021073000_plateforme_collectes_pax.sql",
-      "test": "type_tms=a_toutes — traiteur, pax, contact et point B de l’association atteignent l’adapter + type_tms=mts1 — traiteur, pax, contact et point B de l’association atteignent l’adapter + cliquet — chaque champ mappé fait effectivement varier le PUT",
+      "test": "type_tms=a_toutes — consigne, départ et arrivée (l’association) atteignent l’adapter + type_tms=mts1 — consigne, départ et arrivée (l’association) atteignent l’adapter + cliquet — chaque champ mappé fait effectivement varier le PUT",
       "statut": "implemented",
-      "libelle": "Transmission au transporteur du pax de LA collecte (décision Val 2026-10-20) : l'outbox-worker demande `collectes.pax` (hors de l'embed de l'événement) et le passe aux deux adapters — numéro de commande MTS-1 « Traiteur - Lieu - N pax » et ligne « Nombre de pax : N » du commentaire (MTS-1 `comment`, Everest `comment`, après la consigne d'A Toutes!). Le pax entre dans la liste normative des champs comparés par `fn_set_collectes_dirty_tms` ; sa contrepartie E2 est le numéro de commande (cliquet). Preuve : la collecte simulée porte 80 pax et son événement 120 ; le test exige 80 et la colonne dans le select de la collecte."
+      "libelle": "Transmission au transporteur du pax de LA collecte (décision Val 2026-10-20) : l'outbox-worker demande `collectes.pax` (hors de l'embed de l'événement) et le passe aux deux adapters — numéro de commande MTS-1 « Traiteur - Lieu - N pax » (la ligne « Nombre de pax : N » du commentaire est retirée depuis le 2026-11-03, décision Val). Le pax entre dans la liste normative des champs comparés par `fn_set_collectes_dirty_tms` ; sa contrepartie E2 est le numéro de commande (cliquet). Preuve : la collecte simulée porte 80 pax et son événement 120 ; le test exige 80 et la colonne dans le select de la collecte."
     },
     {
       "id": "M1.2-ajout-collecte-depuis-fiches",

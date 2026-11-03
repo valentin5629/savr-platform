@@ -1666,6 +1666,7 @@ describe('M1.5 / commentaires au transporteur → champs Everest', () => {
     });
     const c = composerCommentairesTransporteur({
       lieu: LIEU_ACCES,
+      informationsSupplementaires: 'Demander Karim à la plonge',
       contact: { nom: 'Alice Martin', telephone: '+33600000001' },
       contactSecours: { nom: null, telephone: null },
       vehicule: { type: null, nombre: 2, typeTms: 'a_toutes' },
@@ -1694,6 +1695,7 @@ describe('M1.5 / commentaires au transporteur → champs Everest', () => {
       ].join('\n'),
       address_start_comment: [
         "- Instructions d'accès : Quai n°2, sonner interphone B",
+        '- Précisions du traiteur : Demander Karim à la plonge',
         '- Contact 1 : Alice Martin, +33600000001',
         "En cas d'urgence, appeler le 0761912997",
       ].join('\n'),

@@ -45,6 +45,7 @@ const SANS_CONTACT = { nom: null, telephone: null };
 
 const VIDE: EntreeCommentaire = {
   lieu: LIEU_NU,
+  informationsSupplementaires: null,
   contact: SANS_CONTACT,
   contactSecours: SANS_CONTACT,
   vehicule: null,
@@ -53,6 +54,7 @@ const VIDE: EntreeCommentaire = {
 
 const COMPLET: EntreeCommentaire = {
   lieu: LIEU_COMPLET,
+  informationsSupplementaires: 'Rentrer par la cuisine',
   contact: { nom: 'Alice Martin', telephone: '+33600000001' },
   contactSecours: { nom: 'Bruno Secours', telephone: '+33600000002' },
   vehicule: { type: null, nombre: 2, typeTms: 'a_toutes' },
@@ -84,6 +86,7 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
     expect(c.depart).toBe(
       [
         "- Instructions d'accès : Quai n°2, sonner interphone B",
+        '- Précisions du traiteur : Rentrer par la cuisine',
         '- Contact 1 : Alice Martin, +33600000001',
         '- Contact 2 : Bruno Secours, +33600000002',
         URGENCE,
@@ -100,10 +103,10 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
     );
   });
 
-  it('ne partent plus : traiteur, pax, précisions, contraintes horaires, accès office, flux, véhicule max, stationnement', () => {
+  it('ne partent plus : traiteur, pax, contraintes horaires, accès office, flux, véhicule max, stationnement', () => {
     const { unique } = composerCommentairesTransporteur(COMPLET);
     expect(unique).not.toMatch(
-      /Traiteur|pax|Précisions|Contraintes|Accès office|Flux|Véhicule|Stationnement|9h|biodéchets|très difficile/,
+      /Traiteur :|pax|Contraintes|Accès office|Flux|Véhicule|Stationnement|9h|biodéchets|très difficile/,
     );
   });
 
@@ -189,6 +192,7 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
       const { unique } = composerCommentairesTransporteur({
         ...COMPLET,
         lieu: { ...LIEU_COMPLET, acces_details: forge },
+        informationsSupplementaires: forge,
         contact: { nom: forge, telephone: '+33600000001' },
         contactSecours: { nom: forge, telephone: forge },
         vehicule: { type: forge, nombre: 2, typeTms: forge },
@@ -202,7 +206,7 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
       // véhicules, urgence, ou « - Libellé : … ».
       for (const l of lignes) {
         expect(l).toMatch(
-          /^(Départ :|Arrivée :|Veuillez peser |En cas d'urgence, appeler le 0761912997$|- (Instructions d'accès|Contact 1|Contact 2|Contact) : |\d+ .+ prévue?s pour cette collecte, veuillez vous coordonner pour les appels au traiteur$)/,
+          /^(Départ :|Arrivée :|Veuillez peser |En cas d'urgence, appeler le 0761912997$|- (Instructions d'accès|Précisions du traiteur|Contact 1|Contact 2|Contact) :|\d+ .+ prévue?s pour cette collecte, veuillez vous coordonner pour les appels au traiteur$)/,
         );
       }
       expect(lignes.filter((l) => l.startsWith('- Contact 1 :'))).toHaveLength(
@@ -230,6 +234,7 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
       const long = 'x'.repeat(n);
       const c = composerCommentairesTransporteur({
         lieu: { ...LIEU_COMPLET, acces_details: long },
+        informationsSupplementaires: long,
         contact: { nom: long, telephone: long },
         contactSecours: { nom: long, telephone: long },
         vehicule: { type: long, nombre: 99, typeTms: long },
@@ -251,10 +256,24 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
     }
   });
 
+  it('trop long : les précisions du traiteur partent les premières (arbitrage du 2026-09-15), juste ce qu’il faut', () => {
+    const c = composerCommentairesTransporteur({
+      ...COMPLET,
+      lieu: { ...LIEU_COMPLET, acces_details: 'a'.repeat(600) },
+      informationsSupplementaires: 'p'.repeat(600),
+    });
+    // Texte du départ d'Everest : seules les précisions sont amputées.
+    expect(c.depart.length).toBe(LIMITE_INFOS_SUPPLEMENTAIRES);
+    expect(c.depart).toMatch(/- Précisions du traiteur : p{40,}…\n/);
+    expect(c.depart).toContain(`- Instructions d'accès : ${'a'.repeat(600)}\n`);
+    expect(c.depart).toContain(URGENCE);
+  });
+
   it('texte unique trop long : l’accès de l’arrivée part le premier, puis celui du départ', () => {
     const long = (c: string) => c.repeat(600);
     const c = composerCommentairesTransporteur({
       ...COMPLET,
+      informationsSupplementaires: null,
       lieu: { ...LIEU_COMPLET, acces_details: long('a') },
       livraison: {
         instructionsAcces: long('l'),
@@ -275,6 +294,7 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
   it('si l’arrivée ne suffit pas, l’accès du départ est amputé juste ce qu’il faut, coupe marquée', () => {
     const c = composerCommentairesTransporteur({
       ...COMPLET,
+      informationsSupplementaires: null,
       lieu: { ...LIEU_COMPLET, acces_details: 'a'.repeat(600) },
       contact: { nom: 'N'.repeat(120), telephone: '0'.repeat(40) },
       contactSecours: { nom: 'S'.repeat(120), telephone: '0'.repeat(40) },

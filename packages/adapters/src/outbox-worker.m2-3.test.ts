@@ -938,7 +938,7 @@ describe('M1.5 / commentaires au transporteur composés par le worker — les 2 
     expect(collecte.commentaire_depart).not.toContain('Quai officiel');
   });
 
-  it('la saisie du traiteur ne part plus (Val 2026-11-03) ; l’accès du lieu, si', async () => {
+  it('la saisie du traiteur part au départ, sous l’accès du lieu (Val 2026-11-03)', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
       .mockResolvedValue('adapter_everest');
@@ -955,9 +955,15 @@ describe('M1.5 / commentaires au transporteur composés par le worker — les 2 
       informations_supplementaires: string | null;
       commentaire_depart: string | null;
     };
-    expect(collecte.informations_supplementaires).not.toContain('Karim');
     expect(collecte.commentaire_depart).toContain(
-      "- Instructions d'accès : Quai n°2",
+      [
+        "- Instructions d'accès : Quai n°2",
+        '- Précisions du traiteur : Demander Karim à la plonge',
+      ].join('\n'),
+    );
+    // MTS-1 la reçoit dans le texte unique.
+    expect(collecte.informations_supplementaires).toContain(
+      '- Précisions du traiteur : Demander Karim à la plonge',
     );
   });
 

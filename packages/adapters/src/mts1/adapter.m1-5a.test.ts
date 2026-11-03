@@ -914,6 +914,7 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
         ...collecte,
         informations_supplementaires: composerCommentairesTransporteur({
           lieu: lieuAcces,
+          informationsSupplementaires: 'Demander Karim à la plonge',
           contact: {
             nom: collecte.contact_principal_nom,
             telephone: collecte.contact_principal_telephone,
@@ -939,6 +940,7 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
         '2 camions prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur',
         'Départ :',
         "- Instructions d'accès : Quai n°2, sonner interphone B",
+        '- Précisions du traiteur : Demander Karim à la plonge',
         `- Contact 1 : ${collecte.contact_principal_nom}, ${collecte.contact_principal_telephone}`,
         '- Contact 2 : Bruno Secours, +33600000002',
         "En cas d'urgence, appeler le 0761912997",

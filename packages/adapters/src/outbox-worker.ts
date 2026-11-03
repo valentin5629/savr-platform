@@ -793,6 +793,7 @@ async function fetchCollecte(
     // n'ont aucun champ natif MTS-1/Everest en V1.
     entree_commentaire: {
       lieu,
+      informationsSupplementaires: raw.informations_supplementaires,
       contact: {
         nom: contacts.contact_principal_nom,
         telephone: contacts.contact_principal_telephone,

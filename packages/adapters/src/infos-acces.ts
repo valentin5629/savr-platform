@@ -9,6 +9,7 @@
 //
 //   Adresse de départ (le lieu) :
 //     - Instructions d'accès : …        (détails d'accès du lieu, surcharges comprises)
+//     - Précisions du traiteur : …      (`collectes.informations_supplementaires`, Val 2026-11-03)
 //     - Contact 1 : nom, téléphone
 //     - Contact 2 : nom, téléphone      (contact de secours)
 //     En cas d'urgence, appeler le 0761912997
@@ -23,9 +24,9 @@
 // (`CustomerOrderPlaceInput` sans commentaire) : il reçoit les trois textes
 // réunis, sous « Départ : » et « Arrivée : » (texte `unique`).
 //
-// Ne partent plus (Val, 2026-11-03) : traiteur, nombre de pax, précisions du
-// traiteur, contraintes horaires, accès office, flux acceptés, véhicule souhaité
-// d'une collecte à un seul véhicule.
+// Ne partent plus (Val, 2026-11-03) : traiteur, nombre de pax, contraintes
+// horaires, accès office, flux acceptés, véhicule souhaité d'une collecte à un
+// seul véhicule.
 //
 // Chaque valeur tient sur UNE ligne (`valeurLigne` replie toute rupture de
 // ligne) : aucune saisie ne peut donc forger une ligne lue comme composée par
@@ -216,6 +217,8 @@ export interface EntreeCommentaire {
    * le chauffeur (PROG-01/PROG-03, #304).
    */
   readonly lieu: Lieu;
+  /** Saisie du traiteur (`collectes.informations_supplementaires`). */
+  readonly informationsSupplementaires: string | null | undefined;
   /** Contact 1 de l'adresse de départ. */
   readonly contact: ContactCommentaire;
   /** Contact 2 de l'adresse de départ (contact de secours). */
@@ -328,7 +331,12 @@ export function composerCommentairesTransporteur(
       {
         libelle: "Instructions d'accès",
         valeur: uneLigne(e.lieu.acces_details, LIMITE_LIGNE_LONGUE),
-        abandon: 2,
+        abandon: 3,
+      },
+      {
+        libelle: 'Précisions du traiteur',
+        valeur: uneLigne(e.informationsSupplementaires, LIMITE_LIGNE_LONGUE),
+        abandon: 1,
       },
       { libelle: 'Contact 1', valeur: ligneContact(e.contact) },
       { libelle: 'Contact 2', valeur: ligneContact(e.contactSecours) },
@@ -345,7 +353,7 @@ export function composerCommentairesTransporteur(
               e.livraison.instructionsAcces,
               LIMITE_LIGNE_LONGUE,
             ),
-            abandon: 1,
+            abandon: 2,
           },
           { libelle: 'Contact', valeur: ligneContact(e.livraison.contact) },
         ]

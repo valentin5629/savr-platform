@@ -3972,7 +3972,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'Grand en-tête AG (décision Val 2026-10-01) : badge, réf., lieu, date · heure, pax, traiteur, ville, prestataire, association — sans colonne résumé',
+    'Grand en-tête AG (décision Val 2026-10-01) : badge sans réf. (Val 2026-11-03), lieu, date · heure, pax, traiteur, ville, prestataire, association — sans colonne résumé',
     async () => {
       installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -3985,7 +3985,10 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         within(enTete).getByTestId('badge-type-collecte'),
       ).toHaveTextContent('Anti-Gaspi');
-      expect(within(enTete).getByText('Réf. TMS-9')).toBeInTheDocument();
+      // Plus de référence en en-tête (Val 2026-11-03) : elle ne sert pas
+      // l'utilisateur.
+      expect(within(enTete).queryByText(/Réf\./)).toBeNull();
+      expect(within(enTete).queryByText(/TMS-9/)).toBeNull();
       // Titre = nom de l'événement, lieu et client dessous (variante B,
       // décision Val 2026-10-27).
       expect(

@@ -103,7 +103,6 @@ import {
   GRILLE_3,
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { InfoItem } from '@/components/ui/info-item';
-import { EnTeteMention } from '@/components/ui/fiche/fiche-en-tete';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
 import {
   FicheGrandEnTete,
@@ -114,7 +113,6 @@ import {
 import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
-import { refCourteCollecte } from '@/lib/collecte-ref';
 import { ROUTES } from '@/lib/routes';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { Text } from '@/components/ui/text';
@@ -2110,13 +2108,12 @@ export function CollecteDetailPanel({
   return (
     <Tabs defaultValue="informations" className="flex h-full min-h-0 flex-col">
       {/* En-tête de la variante B (décision Val 2026-10-27) : sur-titre (type,
-          réf., « dirty TMS »), titre et pastille de statut, ligne d'infos à
+          « dirty TMS » ; plus de référence, Val 2026-11-03), titre et pastille de statut, ligne d'infos à
           pictos, onglets soulignés ; seul le corps défile. */}
       <FicheGrandEnTete
         surtitre={
           <>
             <TypeCollecteBadge type={collecte.type} forme="plein" />
-            <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
             {estModifieeSansRenvoi(collecte) && (
               <Badge variant="warning" className="flex items-center gap-1">
                 <WarningIcon className="h-3 w-3" />

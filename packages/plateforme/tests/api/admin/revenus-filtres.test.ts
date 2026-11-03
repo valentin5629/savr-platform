@@ -4,8 +4,8 @@
  *   - traiteur ou agence : collectes programmées OU opérées (règle R24c) ;
  *   - gestionnaire de lieux : collectes tenues sur les lieux de son parc ;
  *   - organisations additionnées, filtre Lieux en plus (ET) ;
- *   - histogramme `revenus-mensuels` : mêmes montants que `v_kpi_admin`, ZD par
- *     lignes de facture (avoirs négatifs) au mois d'émission.
+ *   - histogramme `revenus-mensuels` : collectes programmées et réalisées, au
+ *     montant de la prestation, facturées ou non (Val 2026-11-03).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -140,7 +140,7 @@ describe('M3.5 / revenus Admin — périmètre des filtres', () => {
     expect(admin.appels.some((a) => a.table === 'collectes')).toBe(false);
   });
 
-  it('M3.5/revenus_filtres_tableau — le tableau pose le périmètre sur l’événement des collectes et des lignes de facture', async () => {
+  it('M3.5/revenus_filtres_tableau — le tableau pose le périmètre sur l’événement des collectes', async () => {
     setupAuth('admin_savr');
     admin.setResult('organisations', {
       data: [{ id: T1, type: 'traiteur' }],
@@ -157,20 +157,20 @@ describe('M3.5 / revenus Admin — périmètre des filtres', () => {
     const ors = admin.appels.filter((a) => a.methode === 'or');
     expect(ors.map((a) => [a.table, a.args[1]])).toEqual([
       ['collectes', { referencedTable: 'evenements' }],
-      ['factures_collectes', { referencedTable: 'collectes.evenements' }],
     ]);
     const lieux = admin.appels.filter(
       (a) => a.methode === 'in' && String(a.args[0]).endsWith('lieu_id'),
     );
-    expect(lieux.map((a) => a.args)).toEqual([
-      ['evenements.lieu_id', [L1]],
-      ['collectes.evenements.lieu_id', [L1]],
-    ]);
+    expect(lieux.map((a) => a.args)).toEqual([['evenements.lieu_id', [L1]]]);
+    // Facturé ou non : aucune lecture des factures (Val 2026-11-03).
+    expect(admin.appels.some((a) => a.table === 'factures_collectes')).toBe(
+      false,
+    );
   });
 });
 
 describe('M3.5 / revenus Admin — périmètre des deux routes', () => {
-  it('M3.5/revenus_filtres_histogramme — l’histogramme pose le périmètre sur les collectes et sur les lignes de facture', async () => {
+  it('M3.5/revenus_filtres_histogramme — l’histogramme pose le périmètre sur les collectes', async () => {
     setupAuth('admin_savr');
     admin.setResult('organisations', {
       data: [{ id: T1, type: 'traiteur' }],
@@ -187,15 +187,15 @@ describe('M3.5 / revenus Admin — périmètre des deux routes', () => {
     const ors = admin.appels.filter((a) => a.methode === 'or');
     expect(ors.map((a) => [a.table, a.args[1]])).toEqual([
       ['collectes', { referencedTable: 'evenements' }],
-      ['factures_collectes', { referencedTable: 'collectes.evenements' }],
     ]);
     const lieux = admin.appels.filter(
       (a) => a.methode === 'in' && String(a.args[0]).endsWith('lieu_id'),
     );
-    expect(lieux.map((a) => a.args)).toEqual([
-      ['evenements.lieu_id', [L1]],
-      ['collectes.evenements.lieu_id', [L1]],
-    ]);
+    expect(lieux.map((a) => a.args)).toEqual([['evenements.lieu_id', [L1]]]);
+    // Facturé ou non : aucune lecture des factures (Val 2026-11-03).
+    expect(admin.appels.some((a) => a.table === 'factures_collectes')).toBe(
+      false,
+    );
   });
 
   it('M3.5/revenus_filtres_tableau_gestionnaire_sans_lieu — tableau vide, aucune lecture de collectes ni de factures', async () => {
@@ -239,20 +239,22 @@ describe('M3.5 / revenus Admin — périmètre des deux routes', () => {
 });
 
 describe('M3.5 / revenus Admin — histogramme mensuel', () => {
-  it('M3.5/revenus_mensuels_montants — nb par mois, CA AG du pack sur collectes livrées, ZD par lignes avec avoirs négatifs au mois d’émission', async () => {
+  it('M3.5/revenus_mensuels_montants — collectes programmées et réalisées au montant de la prestation, au mois de la collecte', async () => {
     setupAuth('ops_savr');
     admin.setResult('collectes', {
       data: [
         {
           type: 'zero_dechet',
-          statut: 'cloturee',
+          pax: 100,
           date_collecte: '2026-09-12',
+          evenements: { organisation_id: T1, lieu_id: L1 },
           packs_antgaspi: null,
         },
         {
           type: 'anti_gaspi',
-          statut: 'realisee',
+          pax: 80,
           date_collecte: '2026-09-20',
+          evenements: { organisation_id: T1, lieu_id: L1 },
           packs_antgaspi: {
             prix_unitaire_ht: null,
             montant_total_ht: 1000,
@@ -261,8 +263,9 @@ describe('M3.5 / revenus Admin — histogramme mensuel', () => {
         },
         {
           type: 'anti_gaspi',
-          statut: 'programmee',
+          pax: 80,
           date_collecte: '2026-10-02',
+          evenements: { organisation_id: T1, lieu_id: L1 },
           packs_antgaspi: {
             prix_unitaire_ht: 80,
             montant_total_ht: null,
@@ -272,11 +275,26 @@ describe('M3.5 / revenus Admin — histogramme mensuel', () => {
       ],
       error: null,
     });
-    admin.setResult('factures_collectes', {
+    admin.setResult('grilles_tarifaires_zd', {
       data: [
-        { montant_ht: 300, factures: { date_emission: '2026-10-01' } },
-        { montant_ht: 200, factures: { date_emission: '2026-10-01' } },
-        { montant_ht: -50, factures: { date_emission: '2026-10-15' } },
+        {
+          id: 'g1',
+          est_defaut: true,
+          valide_du: '2026-01-01',
+          valide_jusqu: null,
+        },
+      ],
+      error: null,
+    });
+    admin.setResult('tarifs_zero_dechet', {
+      data: [
+        {
+          grille_id: 'g1',
+          pax_min: 1,
+          pax_max: null,
+          prix_base_ht: 300,
+          prix_par_couvert_ht: null,
+        },
       ],
       error: null,
     });
@@ -293,52 +311,74 @@ describe('M3.5 / revenus Admin — histogramme mensuel', () => {
         mois: '2026-09-01',
         type_collecte: 'anti_gaspi',
         nb_collectes: 1,
-        montant_factures_ht: 100,
+        montant_ht: 100,
       },
       {
         mois: '2026-09-01',
         type_collecte: 'zero_dechet',
         nb_collectes: 1,
-        montant_factures_ht: 0,
+        montant_ht: 300,
       },
       {
         mois: '2026-10-01',
         type_collecte: 'anti_gaspi',
         nb_collectes: 1,
-        montant_factures_ht: 0,
-      },
-      {
-        mois: '2026-10-01',
-        type_collecte: 'zero_dechet',
-        nb_collectes: 0,
-        montant_factures_ht: 450,
+        montant_ht: 80,
       },
     ]);
-    // Factures ZD et avoirs, émises ou payées, sur collectes ZD seulement.
+    // Statuts comptés : programmées et réalisées ; aucune facture lue.
     const filtres = admin.appels
-      .filter((a) => a.table === 'factures_collectes')
+      .filter((a) => a.table === 'collectes')
       .map((a) => [a.methode, ...a.args]);
     expect(filtres).toContainEqual([
       'in',
-      'factures.statut',
-      ['emise', 'payee'],
+      'statut',
+      [
+        'programmee',
+        'validee',
+        'en_cours',
+        'realisee',
+        'realisee_sans_collecte',
+        'cloturee',
+      ],
     ]);
-    expect(filtres).toContainEqual([
-      'in',
-      'factures.type',
-      ['zero_dechet', 'avoir'],
-    ]);
-    expect(filtres).toContainEqual(['eq', 'collectes.type', 'zero_dechet']);
-    // Mois d'émission : bornes de période sur la date d'émission de la facture.
-    expect(filtres).toContainEqual([
-      'gte',
-      'factures.date_emission',
-      '2026-09-01',
-    ]);
-    expect(filtres).toContainEqual([
-      'lte',
-      'factures.date_emission',
-      '2026-10-30',
+    expect(admin.appels.some((a) => a.table === 'factures_collectes')).toBe(
+      false,
+    );
+  });
+
+  it('M3.5/revenus_periode_sans_fin — sans `to`, aucune borne de fin : les collectes programmées à venir comptent (Val 2026-11-03)', async () => {
+    setupAuth('admin_savr');
+    const mensuels =
+      await import('@/app/api/v1/admin/dashboard/revenus-mensuels/route.js');
+    await mensuels.GET(
+      makeReq('/api/v1/admin/dashboard/revenus-mensuels?from=2026-01-01'),
+    );
+    const organisations =
+      await import('@/app/api/v1/admin/dashboard/revenus-organisations/route.js');
+    await organisations.GET(
+      makeReq('/api/v1/admin/dashboard/revenus-organisations?from=2026-01-01'),
+    );
+    const bornes = admin.appels.filter(
+      (a) => a.table === 'collectes' && a.methode === 'lte',
+    );
+    expect(bornes).toEqual([]);
+    // Avec `to`, la borne est posée.
+    await mensuels.GET(
+      makeReq(
+        '/api/v1/admin/dashboard/revenus-mensuels?from=2026-01-01&to=2026-12-31',
+      ),
+    );
+    expect(
+      admin.appels.filter(
+        (a) => a.table === 'collectes' && a.methode === 'lte',
+      ),
+    ).toEqual([
+      {
+        table: 'collectes',
+        methode: 'lte',
+        args: ['date_collecte', '2026-12-31'],
+      },
     ]);
   });
 

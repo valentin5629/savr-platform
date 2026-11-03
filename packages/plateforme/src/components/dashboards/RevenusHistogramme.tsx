@@ -15,7 +15,7 @@ interface KpiAdminRow {
   mois: string;
   type_collecte: string;
   nb_collectes: number;
-  montant_factures_ht: number;
+  montant_ht: number;
 }
 
 type Toggle = 'nombre' | 'montant';
@@ -90,7 +90,7 @@ export function RevenusHistogramme({
 
   function getValue(row: KpiAdminRow | undefined): number {
     if (!row) return 0;
-    return toggle === 'montant' ? row.montant_factures_ht : row.nb_collectes;
+    return toggle === 'montant' ? row.montant_ht : row.nb_collectes;
   }
 
   // Formatage d'une valeur selon la bascule active — € sans décimales en montant,

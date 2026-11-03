@@ -5,30 +5,28 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import {
   appliquerPerimetreRevenus,
-  coutCollecteAg,
   lirePerimetreRevenus,
   lireTout,
   LOT_LECTURE,
-  type PackEmbed,
 } from '@/lib/dashboards/revenus-admin.js';
+import {
+  montantsPrestation,
+  round2,
+  STATUTS_REVENUS,
+  type PackPrix,
+} from '@/lib/montant-prestation.js';
 
 /**
  * GET /api/v1/admin/dashboard/revenus-mensuels — histogramme du Bloc 2
  * « Revenus » du Dashboard Admin (§11 §1.1), par mois et par type.
  *
- * Règles de `v_kpi_admin`, recalculées ici pour pouvoir filtrer par lieu et
- * par organisation (décision Val 2026-10-30) :
- *   - nb collectes : `collectes` hors annulee/brouillon, mois de `date_collecte` ;
- *   - montant ZD : lignes `factures_collectes` des factures ZD et de leurs
- *     avoirs émis ou payés (avoirs en négatif), mois de `date_emission`.
- *     La vue somme les factures entières : même total sans filtre (mesuré sur
- *     savr-dev le 2026-10-30, 104 factures, aucune sans ligne, aucun avoir), mais
- *     une facture mensuelle couvre plusieurs lieux, d'où le passage par ses
- *     lignes. Écart voulu : un avoir est stocké en négatif, que la vue inverse
- *     une seconde fois (`SUM(-f.montant_ht)`, il y compte en positif) ; ici il
- *     est soustrait ;
- *   - montant AG : CA économique, coût par collecte du pack × collectes AG
- *     réalisées ou clôturées, mois de `date_collecte`.
+ * Décision Val 2026-11-03 : tout vient des collectes, facturées ou non.
+ *   - collectes programmées et réalisées (`STATUTS_REVENUS`), mois de
+ *     `date_collecte` ;
+ *   - montant = montant de la prestation (`lib/montant-prestation`) : ZD au
+ *     tarif de la grille moins la remise, AG au prix du pack débité, sinon au
+ *     tarif unitaire moins la remise.
+ * Filtres lieu et organisation : `lib/dashboards/revenus-admin` (Val 2026-10-30).
  * Période `from`/`to` sur la date du jour (premier mois partiel si la fenêtre
  * ne commence pas le 1er, accepté au CDC).
  */
@@ -37,22 +35,18 @@ interface Ligne {
   mois: string;
   type_collecte: 'zero_dechet' | 'anti_gaspi';
   nb_collectes: number;
-  montant_factures_ht: number;
+  montant_ht: number;
 }
 
 interface CollecteRow {
   type: string;
-  statut: string;
+  pax: number | null;
   date_collecte: string;
-  packs_antgaspi: PackEmbed | PackEmbed[] | null;
-}
-
-interface LigneFactureRow {
-  montant_ht: number | null;
-  factures:
-    | { date_emission: string | null }
-    | { date_emission: string | null }[]
+  evenements:
+    | { organisation_id: string | null; lieu_id: string | null }
+    | { organisation_id: string | null; lieu_id: string | null }[]
     | null;
+  packs_antgaspi: PackPrix | PackPrix[] | null;
 }
 
 function premier<T>(v: T | T[] | null): T | null {
@@ -74,7 +68,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const from =
     sp.get('from') ||
     jourParis(new Date(now.getFullYear(), now.getMonth() - 11, 1));
-  const to = sp.get('to') || jourParis(now);
+  // Sans `to`, aucune borne de fin : les collectes programmées à venir comptent
+  // (décision Val 2026-11-03).
+  const to = sp.get('to') || null;
 
   const { perimetre, error: errPerimetre } = await lirePerimetreRevenus(
     supabase,
@@ -87,59 +83,55 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   if (perimetre.vide) return NextResponse.json({ kpi: [] });
 
-  const collectes = await lireTout((offset) =>
-    appliquerPerimetreRevenus(
+  const collectes = await lireTout((offset) => {
+    const q = appliquerPerimetreRevenus(
       supabase
         .from('collectes')
         .select(
-          `type, statut, date_collecte,
-           evenements!inner(id),
+          `type, pax, date_collecte,
+           evenements!inner(organisation_id, lieu_id),
            packs_antgaspi(prix_unitaire_ht, montant_total_ht, credits_initiaux)`,
         )
-        .not('statut', 'in', '(annulee,brouillon)')
-        .gte('date_collecte', from)
-        .lte('date_collecte', to),
+        .in('statut', [...STATUTS_REVENUS])
+        .gte('date_collecte', from),
       perimetre,
       'evenements',
-    )
-      // Ordre stable : sans lui, la pagination par range peut doubler ou
-      // sauter des lignes au-delà de 1000.
-      .order('id')
-      .range(offset, offset + LOT_LECTURE - 1),
-  );
+    );
+    // Sans borne de fin : les collectes à venir comptent (Val 2026-11-03).
+    return (
+      (to ? q.lte('date_collecte', to) : q)
+        // Ordre stable : sans lui, la pagination par range peut doubler ou
+        // sauter des lignes au-delà de 1000.
+        .order('id')
+        .range(offset, offset + LOT_LECTURE - 1)
+    );
+  });
   if (collectes.error)
     return serverError(
       collectes.error,
       'admin.dashboard.revenus_mensuels.collectes',
     );
 
-  const lignesFactures = await lireTout((offset) =>
-    appliquerPerimetreRevenus(
-      supabase
-        .from('factures_collectes')
-        .select(
-          `montant_ht,
-           factures!inner(statut, type, date_emission),
-           collectes!inner(type, evenements!inner(id))`,
-        )
-        .in('factures.statut', ['emise', 'payee'])
-        .in('factures.type', ['zero_dechet', 'avoir'])
-        .gte('factures.date_emission', from)
-        .lte('factures.date_emission', to)
-        .eq('collectes.type', 'zero_dechet'),
-      perimetre,
-      'collectes.evenements',
-    )
-      // Ordre stable : sans lui, la pagination par range peut doubler ou
-      // sauter des lignes au-delà de 1000.
-      .order('id')
-      .range(offset, offset + LOT_LECTURE - 1),
-  );
-  if (lignesFactures.error)
-    return serverError(
-      lignesFactures.error,
-      'admin.dashboard.revenus_mensuels.factures',
+  const lignes = collectes.rows as CollecteRow[];
+  let montants: (number | null)[];
+  try {
+    montants = await montantsPrestation(
+      supabase,
+      lignes.map((c) => {
+        const ev = premier(c.evenements);
+        return {
+          type: c.type,
+          pax: c.pax,
+          date_collecte: c.date_collecte,
+          organisation_id: ev?.organisation_id ?? null,
+          lieu_id: ev?.lieu_id ?? null,
+          pack: premier(c.packs_antgaspi),
+        };
+      }),
     );
+  } catch (e) {
+    return serverError(e, 'admin.dashboard.revenus_mensuels.montants');
+  }
 
   const parCle = new Map<string, Ligne>();
   const ligne = (mois: string, type: Ligne['type_collecte']): Ligne => {
@@ -150,29 +142,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         mois,
         type_collecte: type,
         nb_collectes: 0,
-        montant_factures_ht: 0,
+        montant_ht: 0,
       };
       parCle.set(cle, l);
     }
     return l;
   };
 
-  for (const c of collectes.rows as CollecteRow[]) {
+  for (const [i, c] of lignes.entries()) {
     if (c.type !== 'zero_dechet' && c.type !== 'anti_gaspi') continue;
     const l = ligne(moisDe(c.date_collecte), c.type);
     l.nb_collectes += 1;
-    if (
-      c.type === 'anti_gaspi' &&
-      (c.statut === 'realisee' || c.statut === 'cloturee')
-    )
-      l.montant_factures_ht += coutCollecteAg(premier(c.packs_antgaspi));
+    l.montant_ht += montants[i] ?? 0;
   }
 
-  for (const r of lignesFactures.rows as LigneFactureRow[]) {
-    const date = premier(r.factures)?.date_emission;
-    if (!date) continue;
-    ligne(moisDe(date), 'zero_dechet').montant_factures_ht += r.montant_ht ?? 0;
-  }
+  // Sommes de montants décimaux : arrondies au centime avant la réponse.
+  for (const l of parCle.values()) l.montant_ht = round2(l.montant_ht);
 
   const kpi = [...parCle.values()].sort((a, b) =>
     a.mois === b.mois

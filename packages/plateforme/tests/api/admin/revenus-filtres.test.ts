@@ -154,7 +154,8 @@ describe('M3.5 / revenus Admin — périmètre des filtres', () => {
       ),
     );
     expect(res.status).toBe(200);
-    const ors = admin.appels.filter((a) => a.methode === 'or');
+    // Le périmètre se pose sur l'événement ; l'autre `.or()` porte les statuts.
+    const ors = admin.appels.filter((a) => a.methode === 'or' && a.args[1]);
     expect(ors.map((a) => [a.table, a.args[1]])).toEqual([
       ['collectes', { referencedTable: 'evenements' }],
     ]);
@@ -184,7 +185,8 @@ describe('M3.5 / revenus Admin — périmètre des deux routes', () => {
       ),
     );
     expect(res.status).toBe(200);
-    const ors = admin.appels.filter((a) => a.methode === 'or');
+    // Le périmètre se pose sur l'événement ; l'autre `.or()` porte les statuts.
+    const ors = admin.appels.filter((a) => a.methode === 'or' && a.args[1]);
     expect(ors.map((a) => [a.table, a.args[1]])).toEqual([
       ['collectes', { referencedTable: 'evenements' }],
     ]);
@@ -326,21 +328,14 @@ describe('M3.5 / revenus Admin — histogramme mensuel', () => {
         montant_ht: 80,
       },
     ]);
-    // Statuts comptés : programmées et réalisées ; aucune facture lue.
+    // Statuts comptés : programmées et réalisées, plus les annulations
+    // tardives (Val 2026-11-03) ; aucune facture lue.
     const filtres = admin.appels
       .filter((a) => a.table === 'collectes')
       .map((a) => [a.methode, ...a.args]);
     expect(filtres).toContainEqual([
-      'in',
-      'statut',
-      [
-        'programmee',
-        'validee',
-        'en_cours',
-        'realisee',
-        'realisee_sans_collecte',
-        'cloturee',
-      ],
+      'or',
+      'statut.in.(programmee,validee,en_cours,realisee,realisee_sans_collecte,cloturee),and(statut.eq.annulee,annulation_tardive.is.true)',
     ]);
     expect(admin.appels.some((a) => a.table === 'factures_collectes')).toBe(
       false,
@@ -380,6 +375,70 @@ describe('M3.5 / revenus Admin — histogramme mensuel', () => {
         args: ['date_collecte', '2026-12-31'],
       },
     ]);
+  });
+
+  it('M3.5/revenus_annulation_tardive_montant_plein — une collecte annulée tardivement compte au montant plein de la prestation', async () => {
+    setupAuth('admin_savr');
+    // La base ne rend que les collectes du filtre : ici une ZD annulée
+    // tardivement (annulation_tardive = true) et une ZD programmée.
+    const zd = (statut: string, annulation_tardive: boolean | null) => ({
+      type: 'zero_dechet',
+      statut,
+      annulation_tardive,
+      pax: 100,
+      date_collecte: '2026-09-12',
+      evenements: { organisation_id: T1, lieu_id: L1 },
+      packs_antgaspi: null,
+    });
+    admin.setResult('collectes', {
+      data: [zd('annulee', true), zd('programmee', null)],
+      error: null,
+    });
+    admin.setResult('grilles_tarifaires_zd', {
+      data: [
+        {
+          id: 'g1',
+          est_defaut: true,
+          valide_du: '2026-01-01',
+          valide_jusqu: null,
+        },
+      ],
+      error: null,
+    });
+    admin.setResult('tarifs_zero_dechet', {
+      data: [
+        {
+          grille_id: 'g1',
+          pax_min: 1,
+          pax_max: null,
+          prix_base_ht: 300,
+          prix_par_couvert_ht: null,
+        },
+      ],
+      error: null,
+    });
+    const { GET } =
+      await import('@/app/api/v1/admin/dashboard/revenus-mensuels/route.js');
+    const res = await GET(
+      makeReq(
+        '/api/v1/admin/dashboard/revenus-mensuels?from=2026-09-01&to=2026-09-30',
+      ),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).kpi).toEqual([
+      {
+        mois: '2026-09-01',
+        type_collecte: 'zero_dechet',
+        nb_collectes: 2,
+        montant_ht: 600,
+      },
+    ]);
+    const statuts = admin.appels.find(
+      (a) => a.table === 'collectes' && a.methode === 'or' && !a.args[1],
+    );
+    expect(String(statuts?.args[0])).toContain(
+      'and(statut.eq.annulee,annulation_tardive.is.true)',
+    );
   });
 
   it('M3.5/revenus_mensuels_role — 403 hors équipe Savr', async () => {

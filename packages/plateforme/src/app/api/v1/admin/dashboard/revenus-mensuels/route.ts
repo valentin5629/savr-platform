@@ -12,7 +12,7 @@ import {
 import {
   montantsPrestation,
   round2,
-  STATUTS_REVENUS,
+  FILTRE_STATUTS_REVENUS,
   type PackPrix,
 } from '@/lib/montant-prestation.js';
 
@@ -21,8 +21,8 @@ import {
  * « Revenus » du Dashboard Admin (§11 §1.1), par mois et par type.
  *
  * Décision Val 2026-11-03 : tout vient des collectes, facturées ou non.
- *   - collectes programmées et réalisées (`STATUTS_REVENUS`), mois de
- *     `date_collecte` ;
+ *   - collectes programmées et réalisées, plus les annulations tardives
+ *     (`FILTRE_STATUTS_REVENUS`, Val 2026-11-03), mois de `date_collecte` ;
  *   - montant = montant de la prestation (`lib/montant-prestation`) : ZD au
  *     tarif de la grille moins la remise, AG au prix du pack débité, sinon au
  *     tarif unitaire moins la remise.
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
            evenements!inner(organisation_id, lieu_id),
            packs_antgaspi(prix_unitaire_ht, montant_total_ht, credits_initiaux)`,
         )
-        .in('statut', [...STATUTS_REVENUS])
+        .or(FILTRE_STATUTS_REVENUS)
         .gte('date_collecte', from),
       perimetre,
       'evenements',

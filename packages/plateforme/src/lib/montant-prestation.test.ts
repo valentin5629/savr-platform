@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   montantsPrestation,
   prixPack,
+  FILTRE_STATUTS_REVENUS,
   STATUTS_REVENUS,
   type CollectePrestation,
 } from './montant-prestation.js';
@@ -371,5 +372,11 @@ describe('montantsPrestation — lot', () => {
       'realisee_sans_collecte',
       'validee',
     ]);
+  });
+
+  it('M3.5/montant_prestation_filtre_annulation_tardive — les annulations tardives entrent dans les Revenus (Val 2026-11-03)', () => {
+    expect(FILTRE_STATUTS_REVENUS).toBe(
+      'statut.in.(programmee,validee,en_cours,realisee,realisee_sans_collecte,cloturee),and(statut.eq.annulee,annulation_tardive.is.true)',
+    );
   });
 });

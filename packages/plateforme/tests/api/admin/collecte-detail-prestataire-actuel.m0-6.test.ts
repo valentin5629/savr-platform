@@ -403,7 +403,8 @@ describe("M0.6 — GET admin/collectes/[id] : ordre d'envoi au prestataire", () 
       nature: 'creation',
       tentatives: 2,
       prochaine_tentative_at: '2026-10-12T09:35:00Z',
-      erreur: '503 Service Unavailable',
+      // ops_savr voit l'état sans le message brut (décision Val 2026-10-13).
+      erreur: null,
     });
     const lectures = appelsSur('plateforme.outbox_events');
     expect(lectures).toHaveLength(1);
@@ -411,6 +412,66 @@ describe("M0.6 — GET admin/collectes/[id] : ordre d'envoi au prestataire", () 
       ['aggregate_type', 'collecte'],
       ['aggregate_id', 'col-1'],
     ]);
+  });
+
+  // Décision Val 2026-10-13 (§06.06 « la fiche lit la file d'envoi ») : le
+  // motif technique, message brut du prestataire, est rendu à admin_savr seul.
+  describe('M0.6/fiche_collecte_admin_ordre_etat_reel — motif technique par rôle', () => {
+    const ordre = (statut: string) => ({
+      data: [
+        {
+          seq: 72,
+          event_type: 'collecte.creee',
+          statut,
+          consumer: 'adapter_mts1',
+          attempts: statut === 'dead' ? 4 : 2,
+          next_retry_at: statut === 'failed' ? '2026-10-12T09:35:00Z' : null,
+          last_error: '400 Bad Request: carrierCode inconnu',
+        },
+      ],
+      error: null,
+    });
+
+    it.each([
+      ['failed', 'echec_reprise'],
+      ['dead', 'echec_definitif'],
+    ])('ordre %s : admin_savr reçoit le motif', async (statut, etat) => {
+      setupAuth('admin_savr');
+      reponses.set('plateforme.outbox_events', ordre(statut));
+
+      const res = await getDetail();
+
+      expect(res.status).toBe(200);
+      const { ordre_envoi } = (await res.json()) as {
+        ordre_envoi: { etat: string; erreur: string | null };
+      };
+      expect(ordre_envoi.etat).toBe(etat);
+      expect(ordre_envoi.erreur).toBe('400 Bad Request: carrierCode inconnu');
+    });
+
+    it.each([
+      ['failed', 'echec_reprise'],
+      ['dead', 'echec_definitif'],
+    ])(
+      'ordre %s : ops_savr reçoit l’état sans le motif, absent de toute la réponse',
+      async (statut, etat) => {
+        setupAuth('ops_savr');
+        reponses.set('plateforme.outbox_events', ordre(statut));
+
+        const res = await getDetail();
+
+        expect(res.status).toBe(200);
+        const texte = await res.text();
+        expect(texte).not.toContain('carrierCode');
+        const { ordre_envoi, envoi_abandonne } = JSON.parse(texte) as {
+          ordre_envoi: { etat: string; erreur: string | null };
+          envoi_abandonne: boolean;
+        };
+        expect(ordre_envoi.etat).toBe(etat);
+        expect(ordre_envoi.erreur).toBeNull();
+        expect(envoi_abandonne).toBe(statut === 'dead');
+      },
+    );
   });
 
   it('tous les ordres sont terminés : ordre_envoi null', async () => {

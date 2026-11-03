@@ -243,6 +243,9 @@ async function getHandler(
   }
 
   const ordreEnvoi = deriverOrdreEnvoi(ordres.data);
+  // Le motif d'échec reprend le message brut du prestataire : rendu à
+  // admin_savr seul, ops_savr voit l'état sans lui (décision Val 2026-10-13).
+  if (ordreEnvoi && auth.ctx.role !== 'admin_savr') ordreEnvoi.erreur = null;
   return NextResponse.json({
     ...data,
     prestataire_actuel: prestataireActuel,

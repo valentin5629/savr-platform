@@ -31,6 +31,8 @@ import type {
   EverestMissionDetail,
   EtapeMissionEverest,
   EverestUpdateResponse,
+  PhotoMissionEverest,
+  PhotoTelechargee,
 } from './mock.js';
 import { verifierEcheance } from '../echeance-passage.js';
 import { _getEverestHandlers } from './mock.js';
@@ -92,7 +94,12 @@ interface MissionEverest {
   agent_name?: string;
   agent_tel?: string;
   agent_vehicle?: { name?: string } | null;
-  medias?: Array<{ src?: string }>;
+  medias?: Array<{
+    src?: string;
+    id?: number | string;
+    type?: string;
+    date?: number;
+  }>;
   is_dispatch?: boolean;
   is_pickup?: boolean;
   is_success?: boolean;
@@ -129,6 +136,51 @@ async function lireMission(
     );
   }
   return { ...mission, ref: mission.ref };
+}
+
+// Photos du coursier : les médias de type `photo` qui ont une adresse https et
+// un identifiant. Un média d'une autre forme est ignoré, jamais une erreur.
+function photosMission(m: MissionEverest): PhotoMissionEverest[] {
+  if (!Array.isArray(m.medias)) return [];
+  const photos: PhotoMissionEverest[] = [];
+  for (const media of m.medias) {
+    const src = texteOuNull(media?.src);
+    const id =
+      typeof media?.id === 'number' || typeof media?.id === 'string'
+        ? String(media.id).trim()
+        : '';
+    if (media?.type !== 'photo' || !src || !src.startsWith('https://') || !id)
+      continue;
+    const date =
+      typeof media.date === 'number' && Number.isFinite(media.date)
+        ? new Date(media.date * 1000).toISOString()
+        : null;
+    photos.push({ id, src, prise_le: date });
+  }
+  return photos;
+}
+
+// Photo du coursier : JPG, PNG ou WEBP, 10 Mo au plus.
+const TAILLE_MAX_PHOTO = 10 * 1024 * 1024;
+
+/** Type d'une image lu sur sa signature, ou null si ce n'en est pas une. */
+function formatImage(b: Buffer): string | null {
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff)
+    return 'image/jpeg';
+  if (
+    b.length >= 8 &&
+    b
+      .subarray(0, 8)
+      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  )
+    return 'image/png';
+  if (
+    b.length >= 12 &&
+    b.subarray(0, 4).toString('latin1') === 'RIFF' &&
+    b.subarray(8, 12).toString('latin1') === 'WEBP'
+  )
+    return 'image/webp';
+  return null;
 }
 
 function texteOuNull(v: unknown): string | null {
@@ -503,7 +555,73 @@ export class EverestClient {
       vehicule_type: texteOuNull(mission.agent_vehicle?.name),
       statut_code: texteOuNull(mission.status),
       etape: etapeMission(mission),
+      photos: photosMission(mission),
     };
+  }
+
+  // ─── Téléchargement d'une photo de mission ─────────────────────────────────
+  // L'adresse est publique (stockage du transporteur) : le jeton n'y est JAMAIS
+  // envoyé. Https seul, sans redirection, 30 s pour la réponse et son corps.
+
+  async downloadPhoto(src: string): Promise<PhotoTelechargee> {
+    const handlers = _getEverestHandlers();
+    if (handlers) {
+      return handlers.downloadPhoto
+        ? handlers.downloadPhoto(src)
+        : {
+            contenu: Buffer.from([0xff, 0xd8, 0xff]),
+            content_type: 'image/jpeg',
+          };
+    }
+    if (!src.startsWith('https://')) {
+      throw new LogistiquePermanentError(
+        'Everest : adresse de photo non https',
+      );
+    }
+    verifierEcheance('Everest GET photo');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      let resp: Response;
+      try {
+        resp = await fetch(src, {
+          method: 'GET',
+          redirect: 'error',
+          signal: controller.signal,
+        });
+      } catch (err) {
+        throw new LogistiqueTransientError(
+          `Everest réseau (photo) : ${libelleErreurReseau(err)}`,
+        );
+      }
+      if (!resp.ok) {
+        throw resp.status >= 500
+          ? new LogistiqueTransientError(`Everest photo ${resp.status}`)
+          : new LogistiquePermanentError(`Everest photo ${resp.status}`);
+      }
+      const contenu = Buffer.from(await resp.arrayBuffer());
+      if (contenu.length === 0 || contenu.length > TAILLE_MAX_PHOTO) {
+        throw new LogistiquePermanentError(
+          `Everest photo : taille ${contenu.length} refusée`,
+        );
+      }
+      // Le stockage d'A Toutes! sert ses photos en `application/octet-stream`
+      // (mesuré le 2026-11-03) : le format se lit sur les premiers octets.
+      const contentType = formatImage(contenu);
+      if (!contentType) {
+        throw new LogistiquePermanentError(
+          'Everest photo : contenu qui n’est pas une image JPG, PNG ou WEBP',
+        );
+      }
+      return { contenu, content_type: contentType };
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new LogistiqueTransientError('Everest timeout : photo');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   // ─── Primitives HTTP ───────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   LogistiqueAmbiguousError,
+  LogistiquePermanentError,
   LogistiqueTransientError,
 } from '../index.js';
 import { EverestClient } from './client.js';
@@ -168,6 +169,7 @@ describe('EverestClient — contrat du swagger Everest', () => {
       vehicule_type: 'Vélo cargo',
       statut_code: 'pas-de-commande',
       etape: 'echouee',
+      photos: [],
     });
   });
 
@@ -214,6 +216,7 @@ describe('EverestClient — contrat du swagger Everest', () => {
       vehicule_type: null,
       statut_code: null,
       etape: null,
+      photos: [],
     });
   });
 
@@ -242,7 +245,86 @@ describe('EverestClient — contrat du swagger Everest', () => {
       vehicule_type: null,
       statut_code: 'pending-dispatch',
       etape: null,
+      photos: [],
     });
+  });
+
+  it('M2.5/everest_contrat_get_photos — photos du coursier : médias de type photo, en https, avec un id (forme mesurée le 2026-11-03)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      json({
+        mission: {
+          ref: 'REF-INVENTEE-1',
+          medias: [
+            {
+              src: 'https://medias.invalid/pht-1.jpg',
+              type: 'photo',
+              id: 101,
+              date: 1793707117,
+              lat: '48.9',
+              lng: '2.26',
+              comment: '',
+            },
+            {
+              src: 'https://medias.invalid/sig.png',
+              type: 'signature',
+              id: 102,
+            },
+            { src: 'http://medias.invalid/pht-2.jpg', type: 'photo', id: 103 },
+            { src: 'https://medias.invalid/pht-3.jpg', type: 'photo' },
+            {
+              src: 'https://medias.invalid/pht-4.jpg',
+              type: 'photo',
+              id: '104',
+            },
+          ],
+        },
+      }),
+    );
+
+    const detail = await client().getMission('REF-INVENTEE-1', 'corr-1');
+    expect(detail.photos).toEqual([
+      {
+        id: '101',
+        src: 'https://medias.invalid/pht-1.jpg',
+        prise_le: new Date(1793707117 * 1000).toISOString(),
+      },
+      { id: '104', src: 'https://medias.invalid/pht-4.jpg', prise_le: null },
+    ]);
+  });
+
+  it('M2.5/everest_contrat_photo_telechargee — GET de l’adresse publique SANS le jeton, sans redirection', async () => {
+    fetchMock.mockResolvedValueOnce(
+      // Type générique servi par le stockage d'A Toutes! (2026-11-03) : le
+      // format se lit sur les octets.
+      new Response(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]), {
+        status: 200,
+        headers: { 'content-type': 'application/octet-stream' },
+      }),
+    );
+    const photo = await client().downloadPhoto(
+      'https://medias.invalid/pht-1.jpg',
+    );
+    expect(photo.content_type).toBe('image/jpeg');
+    expect(photo.contenu.length).toBe(4);
+    const [url, init] = fetchMock.mock.calls.at(-1)! as [string, RequestInit];
+    expect(url).toBe('https://medias.invalid/pht-1.jpg');
+    expect(init.redirect).toBe('error');
+    expect(JSON.stringify(init.headers ?? {})).not.toMatch(/authorization/i);
+  });
+
+  it('M2.5/everest_contrat_photo_refusee — adresse non https ou contenu qui n’est pas une image : refusé', async () => {
+    await expect(
+      client().downloadPhoto('http://medias.invalid/pht-1.jpg'),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+    fetchMock.mockResolvedValueOnce(
+      new Response('<html>', {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      }),
+    );
+    await expect(
+      client().downloadPhoto('https://medias.invalid/pht-1.jpg'),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
   });
   it('M2.5/everest_contrat_update — POST /missions/update avec { ref, champs } tel quel ; la référence lue est mission.ref', async () => {
     fetchMock.mockResolvedValueOnce(

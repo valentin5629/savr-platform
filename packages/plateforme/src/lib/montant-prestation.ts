@@ -93,6 +93,20 @@ function lots<T>(valeurs: T[]): T[][] {
   return res;
 }
 
+/** Résultat d'une lecture : erreur neutralisée, troncature refusée. */
+function verifier<T>(
+  r: { data: unknown[] | null; error: unknown },
+  contexte: string,
+): T[] {
+  if (r.error) throw erreurInterne(r.error, contexte);
+  const lignes = (r.data ?? []) as T[];
+  // Plafond PostgREST : une réponse pleine peut être tronquée, et une remise ou
+  // un palier perdu fausserait le montant sans le dire. On échoue plutôt.
+  if (lignes.length >= PLAFOND_POSTGREST)
+    throw erreurInterne(new Error('lecture tronquée'), contexte);
+  return lignes;
+}
+
 /** `.in()` découpé par lots (une liste d'ids trop longue dépasse l'URL). */
 async function lireParLots<T>(
   ids: string[],
@@ -102,17 +116,93 @@ async function lireParLots<T>(
   contexte: string,
 ): Promise<T[]> {
   const res: T[] = [];
-  for (const lot of lots(ids)) {
-    const { data, error } = await lire(lot);
-    if (error) throw erreurInterne(error, contexte);
-    const lignes = (data ?? []) as T[];
-    // Plafond PostgREST : un lot plein peut être tronqué, et une remise perdue
-    // fausserait le montant sans le dire. On échoue plutôt.
-    if (lignes.length >= PLAFOND_POSTGREST)
-      throw erreurInterne(new Error('lecture tronquée'), contexte);
-    res.push(...lignes);
-  }
+  for (const lot of lots(ids))
+    res.push(...verifier<T>(await lire(lot), contexte));
   return res;
+}
+
+/** Grilles et paliers ZD (référentiel court), grille propre de chaque organisation. */
+async function lireReferentielZd(supabase: SupabaseClient, orgIds: string[]) {
+  const [grilles, orgs] = await Promise.all([
+    supabase
+      .from('grilles_tarifaires_zd')
+      .select('id, est_defaut, valide_du, valide_jusqu')
+      .eq('actif', true)
+      .then((r) => verifier<Grille>(r, 'montant_prestation.grilles')),
+    lireParLots<{ id: string; grille_tarifaire_zd_id: string | null }>(
+      orgIds,
+      (lot) =>
+        supabase
+          .from('organisations')
+          .select('id, grille_tarifaire_zd_id')
+          .in('id', lot),
+      'montant_prestation.organisations',
+    ),
+  ]);
+  const paliers = verifier<Palier>(
+    await supabase
+      .from('tarifs_zero_dechet')
+      .select('grille_id, pax_min, pax_max, prix_base_ht, prix_par_couvert_ht')
+      .in(
+        'grille_id',
+        grilles.map((x) => x.id),
+      ),
+    'montant_prestation.paliers',
+  );
+  const grilleOrg = new Map<string, string | null>();
+  for (const o of orgs) grilleOrg.set(o.id, o.grille_tarifaire_zd_id);
+  return { grilles, paliers, grilleOrg };
+}
+
+/** Remises : organisation programmatrice + gestionnaires du lieu. */
+async function lireRemises(
+  supabase: SupabaseClient,
+  orgIds: string[],
+  lieuIds: string[],
+) {
+  const colonnes =
+    'activite, scope, organisation_id, gestionnaire_organisation_id, lieu_id, remise_pct, valide_du, valide_jusqu:valide_jusqu_au';
+  const [deOrganisation, liens] = await Promise.all([
+    lireParLots<Remise>(
+      orgIds,
+      (lot) =>
+        supabase
+          .from('tarifs_negocie')
+          .select(colonnes)
+          .eq('scope', 'organisation')
+          .in('organisation_id', lot),
+      'montant_prestation.remises_organisation',
+    ),
+    lireParLots<{ lieu_id: string; organisation_id: string }>(
+      lieuIds,
+      (lot) =>
+        supabase
+          .from('organisations_lieux')
+          .select('lieu_id, organisation_id')
+          .in('lieu_id', lot),
+      'montant_prestation.gestionnaires',
+    ),
+  ]);
+  const gestionnairesDuLieu = new Map<string, string[]>();
+  for (const l of liens) {
+    const liste = gestionnairesDuLieu.get(l.lieu_id) ?? [];
+    liste.push(l.organisation_id);
+    gestionnairesDuLieu.set(l.lieu_id, liste);
+  }
+  const deGestionnaire = await lireParLots<Remise>(
+    [...new Set(liens.map((l) => l.organisation_id))],
+    (lot) =>
+      supabase
+        .from('tarifs_negocie')
+        .select(colonnes)
+        .eq('scope', 'gestionnaire')
+        .in('gestionnaire_organisation_id', lot),
+    'montant_prestation.remises_gestionnaire',
+  );
+  return {
+    remises: [...deOrganisation, ...deGestionnaire],
+    gestionnairesDuLieu,
+  };
 }
 
 export function prixPack(pack: PackPrix | null): number | null {
@@ -148,95 +238,30 @@ export async function montantsPrestation(
     (c) => c.type === 'anti_gaspi' && !c.pack,
   );
 
-  // Grilles et paliers ZD : référentiel court, lu en entier.
-  let grilles: Grille[] = [];
-  let paliers: Palier[] = [];
-  const grilleOrg = new Map<string, string | null>();
-  if (avecZd) {
-    const g = await supabase
-      .from('grilles_tarifaires_zd')
-      .select('id, est_defaut, valide_du, valide_jusqu')
-      .eq('actif', true);
-    if (g.error) throw erreurInterne(g.error, 'montant_prestation.grilles');
-    grilles = (g.data ?? []) as Grille[];
-
-    const t = await supabase
-      .from('tarifs_zero_dechet')
-      .select('grille_id, pax_min, pax_max, prix_base_ht, prix_par_couvert_ht')
-      .in(
-        'grille_id',
-        grilles.map((x) => x.id),
-      );
-    if (t.error) throw erreurInterne(t.error, 'montant_prestation.paliers');
-    paliers = (t.data ?? []) as Palier[];
-
-    const orgs = await lireParLots<{
-      id: string;
-      grille_tarifaire_zd_id: string | null;
-    }>(
-      orgIds,
-      (lot) =>
-        supabase
-          .from('organisations')
-          .select('id, grille_tarifaire_zd_id')
-          .in('id', lot),
-      'montant_prestation.organisations',
-    );
-    for (const o of orgs) grilleOrg.set(o.id, o.grille_tarifaire_zd_id);
-  }
-
-  // Tarif AG unitaire public (hors pack).
-  let unitairesAg: (Periode & { prix_unitaire_ht: number })[] = [];
-  if (avecAgHorsPack) {
-    const u = await supabase
-      .from('tarifs_packs_ag')
-      .select('prix_unitaire_ht, valide_du, valide_jusqu:valide_jusqu_au')
-      .eq('type_pack', 'unitaire');
-    if (u.error) throw erreurInterne(u.error, 'montant_prestation.tarif_ag');
-    unitairesAg = (u.data ?? []) as typeof unitairesAg;
-  }
-
-  // Remises : organisation programmatrice + gestionnaires du lieu.
-  const gestionnairesDuLieu = new Map<string, string[]>();
-  const liens = await lireParLots<{ lieu_id: string; organisation_id: string }>(
-    lieuIds,
-    (lot) =>
-      supabase
-        .from('organisations_lieux')
-        .select('lieu_id, organisation_id')
-        .in('lieu_id', lot),
-    'montant_prestation.gestionnaires',
-  );
-  for (const l of liens) {
-    const liste = gestionnairesDuLieu.get(l.lieu_id) ?? [];
-    liste.push(l.organisation_id);
-    gestionnairesDuLieu.set(l.lieu_id, liste);
-  }
-  const gestionnaireIds = [...new Set(liens.map((l) => l.organisation_id))];
-  const colonnesRemise =
-    'activite, scope, organisation_id, gestionnaire_organisation_id, lieu_id, remise_pct, valide_du, valide_jusqu:valide_jusqu_au';
-  const remises = [
-    ...(await lireParLots<Remise>(
-      orgIds,
-      (lot) =>
-        supabase
-          .from('tarifs_negocie')
-          .select(colonnesRemise)
-          .eq('scope', 'organisation')
-          .in('organisation_id', lot),
-      'montant_prestation.remises_organisation',
-    )),
-    ...(await lireParLots<Remise>(
-      gestionnaireIds,
-      (lot) =>
-        supabase
-          .from('tarifs_negocie')
-          .select(colonnesRemise)
-          .eq('scope', 'gestionnaire')
-          .in('gestionnaire_organisation_id', lot),
-      'montant_prestation.remises_gestionnaire',
-    )),
-  ];
+  // Trois lectures indépendantes, lancées ensemble : grilles ZD, tarif AG
+  // unitaire, remises. Les remises ne servent qu'au ZD et à l'AG hors pack.
+  const [zd, unitairesAg, rem] = await Promise.all([
+    avecZd ? lireReferentielZd(supabase, orgIds) : null,
+    avecAgHorsPack
+      ? supabase
+          .from('tarifs_packs_ag')
+          .select('prix_unitaire_ht, valide_du, valide_jusqu:valide_jusqu_au')
+          .eq('type_pack', 'unitaire')
+          .then((r) =>
+            verifier<Periode & { prix_unitaire_ht: number }>(
+              r,
+              'montant_prestation.tarif_ag',
+            ),
+          )
+      : [],
+    avecZd || avecAgHorsPack ? lireRemises(supabase, orgIds, lieuIds) : null,
+  ]);
+  const grilles = zd?.grilles ?? [];
+  const paliers = zd?.paliers ?? [];
+  const grilleOrg = zd?.grilleOrg ?? new Map<string, string | null>();
+  const remises = rem?.remises ?? [];
+  const gestionnairesDuLieu =
+    rem?.gestionnairesDuLieu ?? new Map<string, string[]>();
 
   // Facteur 1 − max(remise) : la plus élevée s'applique, sans cumul.
   function facteurRemise(c: CollectePrestation, activite: 'zd' | 'ag'): number {

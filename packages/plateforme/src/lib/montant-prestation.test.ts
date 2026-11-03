@@ -303,6 +303,37 @@ describe('montantsPrestation — AG', () => {
 });
 
 describe('montantsPrestation — lot', () => {
+  it('M3.5/montant_prestation_lots_de_100 — 101 organisations : deux lectures, résultats fusionnés', async () => {
+    const tables = referentiel();
+    const orgs = Array.from({ length: 101 }, (_, i) => `org-${i}`);
+    tables.organisations = orgs.map((id) => ({
+      id,
+      grille_tarifaire_zd_id: id === 'org-100' ? 'g-org' : null,
+    }));
+    const c = client(tables);
+    const m = await montantsPrestation(
+      c as never,
+      orgs.map((id) => zd({ organisation_id: id })),
+    );
+    expect(c.lectures.filter((t) => t === 'organisations')).toHaveLength(2);
+    expect(m[0]).toBe(300); // grille par défaut
+    expect(m[100]).toBe(200); // grille propre, lue dans le second lot
+  });
+
+  it('M3.5/montant_prestation_sans_remise_a_lire — page d’AG sur pack : ni remise ni référentiel lu', async () => {
+    const c = client(referentiel());
+    await montantsPrestation(c as never, [
+      ag({
+        pack: {
+          prix_unitaire_ht: 120,
+          montant_total_ht: null,
+          credits_initiaux: null,
+        },
+      }),
+    ]);
+    expect(c.lectures).toEqual([]);
+  });
+
   it('M3.5/montant_prestation_lecture_tronquee — 1000 lignes pour un lot : erreur, jamais un montant sans sa remise', async () => {
     const tables = referentiel();
     tables.organisations_lieux = Array.from({ length: 1000 }, (_, i) => ({

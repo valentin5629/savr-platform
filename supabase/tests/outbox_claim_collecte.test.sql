@@ -7,8 +7,8 @@
 -- choses sont prouvées ici :
 --   1. le ciblage : elle ne touche QUE les ordres de la collecte demandée, un à
 --      la fois, dans l'ordre ;
---   2. la parité : chaque règle (head-of-line — ordre précédent 'dead', 'failed'
---      ou en cours —, palier de reprise, famille logistique, visibilité txid,
+--   2. la parité : chaque règle (head-of-line — ordre précédent 'failed' ou en
+--      cours qui bloque, ordre 'dead' qui ne bloque plus (Val 2026-11-03) —, palier de reprise, famille logistique, visibilité txid,
 --      bail de 2 minutes) rend le MÊME verdict sur les deux fonctions, mesuré sur
 --      des agrégats jumeaux (suffixe 1 = ciblée, 2 = lot). Une règle retouchée
 --      d'un seul côté fait rougir sa paire ;
@@ -29,7 +29,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(34);
+SELECT plan(35);
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 1. Ciblage : seule la collecte demandée est touchée
@@ -124,12 +124,13 @@ SELECT is(
 -- ════════════════════════════════════════════════════════════════════════════
 -- 4. Parité des règles — agrégats jumeaux (…1 = ciblée, …2 = lot planifié)
 -- ════════════════════════════════════════════════════════════════════════════
--- F : un ordre 'dead' bloque le suivant (OUTBOX-02).
+-- F : un ordre abandonné ('dead') ne bloque plus le suivant (Val 2026-11-03,
+-- remplace OUTBOX-02) : le renvoi depuis la fiche part, l'abandon reste 'dead'.
 INSERT INTO plateforme.outbox_events (id, txid, aggregate_type, aggregate_id, event_type, payload, statut, consumer) VALUES
-  ('ef100000-0000-0000-0000-000000000001', 1, 'collecte', 'cf000000-0000-0000-0000-0000000000f1', 'collecte.creee',    '{}'::jsonb, 'dead',    'adapter_mts1'),
-  ('ef100000-0000-0000-0000-000000000002', 1, 'collecte', 'cf000000-0000-0000-0000-0000000000f1', 'collecte.modifiee', '{}'::jsonb, 'pending', 'adapter_mts1'),
-  ('ef200000-0000-0000-0000-000000000001', 1, 'collecte', 'cf000000-0000-0000-0000-0000000000f2', 'collecte.creee',    '{}'::jsonb, 'dead',    'adapter_mts1'),
-  ('ef200000-0000-0000-0000-000000000002', 1, 'collecte', 'cf000000-0000-0000-0000-0000000000f2', 'collecte.modifiee', '{}'::jsonb, 'pending', 'adapter_mts1');
+  ('ef100000-0000-0000-0000-000000000001', 1, 'collecte', 'cf000000-0000-0000-0000-0000000000f1', 'collecte.creee', '{}'::jsonb, 'dead',    'adapter_mts1'),
+  ('ef100000-0000-0000-0000-000000000002', 1, 'collecte', 'cf000000-0000-0000-0000-0000000000f1', 'collecte.creee', '{}'::jsonb, 'pending', 'adapter_mts1'),
+  ('ef200000-0000-0000-0000-000000000001', 1, 'collecte', 'cf000000-0000-0000-0000-0000000000f2', 'collecte.creee', '{}'::jsonb, 'dead',    'adapter_mts1'),
+  ('ef200000-0000-0000-0000-000000000002', 1, 'collecte', 'cf000000-0000-0000-0000-0000000000f2', 'collecte.creee', '{}'::jsonb, 'pending', 'adapter_mts1');
 
 -- E : ordre en échec dont le palier de reprise n'est pas atteint, SUIVI d'un
 -- nouvel ordre en attente (l'Admin a recliqué). Ni l'un ni l'autre ne part : le
@@ -175,8 +176,11 @@ INSERT INTO plateforme.outbox_events (id, aggregate_type, aggregate_id, event_ty
 
 -- Voie ciblée sur les agrégats …1 (avant le lot, qui ramasserait tout le reste).
 SELECT is(
-  (SELECT count(*)::int FROM plateforme.fn_claim_outbox_collecte('cf000000-0000-0000-0000-0000000000f1')),
-  0, 'Parité F (ciblée) : un ordre dead bloque le suivant de la collecte');
+  (SELECT string_agg(id::text, ',') FROM plateforme.fn_claim_outbox_collecte('cf000000-0000-0000-0000-0000000000f1')),
+  'ef100000-0000-0000-0000-000000000002', 'Parité F (ciblée) : un ordre abandonné ne bloque plus, le renvoi est réservé');
+SELECT is(
+  (SELECT statut::text FROM plateforme.outbox_events WHERE id = 'ef100000-0000-0000-0000-000000000001'),
+  'dead', 'Parité F (ciblée) : l''ordre abandonné reste en base, jamais repris');
 SELECT is(
   (SELECT count(*)::int FROM plateforme.fn_claim_outbox_collecte('ce000000-0000-0000-0000-0000000000e1')),
   0, 'Parité E (ciblée) : palier de reprise non atteint → ni l''ordre en échec ni le suivant ne sont réservés');
@@ -223,8 +227,8 @@ SELECT is(
   'Sortie (lot) : même ligne rendue que la voie ciblée');
 
 SELECT is(
-  (SELECT count(*)::int FROM claim_lot WHERE aggregate_id = 'cf000000-0000-0000-0000-0000000000f2'),
-  0, 'Parité F (lot) : un ordre dead bloque le suivant de la collecte');
+  (SELECT string_agg(id::text, ',') FROM claim_lot WHERE aggregate_id = 'cf000000-0000-0000-0000-0000000000f2'),
+  'ef200000-0000-0000-0000-000000000002', 'Parité F (lot) : un ordre abandonné ne bloque plus, le renvoi est réservé');
 SELECT is(
   (SELECT count(*)::int FROM claim_lot WHERE aggregate_id = 'ce000000-0000-0000-0000-0000000000e2'),
   0, 'Parité E (lot) : palier de reprise non atteint → ni l''ordre en échec ni le suivant ne sont réservés');

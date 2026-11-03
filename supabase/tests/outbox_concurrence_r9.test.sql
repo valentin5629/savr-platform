@@ -2,7 +2,8 @@
 -- R9 — Concurrence outbox (cluster C7). VRAI chemin DB (pas de mock — G5).
 -- =============================================================================
 -- Couvre les fonctions de concurrence réelles :
---   BL-P1-OUTBOX-02  head-of-line : un event 'dead' BLOQUE son agrégat ('done' libère)
+--   BL-P1-OUTBOX-02  head-of-line : un event 'dead' ne bloque plus son agrégat
+--                    (Val 2026-11-03, remplace « dead bloque ») ; 'done' libère
 --   BL-P1-OUTBOX-03  fn_reap_outbox_claims : claim expiré → pending + reconciliation
 --   BL-P1-OUTBOX-01  fn_admin_requeue/skip/resolve_outbox (DLQ) + gardes admin/motif/dead
 --   BL-P2-36         E3 émis par RPC, trigger trg_collecte_annulee_e3 supprimé
@@ -32,10 +33,10 @@ VALUES ('99999999-0000-0000-0000-0000000000ae',
         'traiteur-r9@savr-test.local', 'T', 'R9', 'traiteur_manager', true);
 
 -- ════════════════════════════════════════════════════════════════════════════
--- BL-P1-OUTBOX-02 — head-of-line : 'dead' bloque, 'done' libère
+-- BL-P1-OUTBOX-02 — head-of-line : 'dead' et 'done' ne bloquent pas (Val 2026-11-03)
 -- ════════════════════════════════════════════════════════════════════════════
 
--- Agrégat A : E1 dead (seq bas) + E2 pending (seq haut). E2 NON claimable.
+-- Agrégat A : E1 dead (seq bas) + E2 pending (seq haut). E2 claimable.
 INSERT INTO plateforme.outbox_events (id, txid, aggregate_type, aggregate_id, event_type, payload, statut)
 VALUES ('e1aaaaaa-0000-0000-0000-000000000001', 1, 'collecte',
         'a0000000-0000-0000-0000-0000000000a1', 'collecte.creee', '{}'::jsonb, 'dead');
@@ -46,8 +47,8 @@ VALUES ('e2aaaaaa-0000-0000-0000-000000000002', 1, 'collecte',
 SELECT is(
   (SELECT count(*)::int FROM plateforme.fn_claim_outbox_batch(10)
      WHERE id = 'e2aaaaaa-0000-0000-0000-000000000002'),
-  0,
-  'OUTBOX-02 : un E1 dead BLOQUE l''agrégat → E2 (seq supérieur) non claimé');
+  1,
+  'OUTBOX-02 (Val 2026-11-03) : un E1 dead ne bloque plus l''agrégat → E2 claimé');
 
 -- Agrégat B : E1 done (seq bas) + E2 pending. E2 claimable (done ne bloque pas).
 INSERT INTO plateforme.outbox_events (id, txid, aggregate_type, aggregate_id, event_type, payload, statut)
@@ -86,7 +87,7 @@ SELECT is(
 -- ════════════════════════════════════════════════════════════════════════════
 -- BL-P1-OUTBOX-01 — RPC DLQ skip motivé : dead → done + débloque + audit
 -- ════════════════════════════════════════════════════════════════════════════
--- Agrégat D : E1 dead (à skipper) + E2 pending (bloqué tant que E1 ≠ done).
+-- Agrégat D : E1 dead (à skipper) + E2 pending.
 INSERT INTO plateforme.outbox_events (id, txid, aggregate_type, aggregate_id, event_type, payload, statut)
 VALUES ('e1dddddd-0000-0000-0000-000000000001', 1, 'collecte',
         'd0000000-0000-0000-0000-0000000000d1', 'collecte.creee', '{}'::jsonb, 'dead');
@@ -108,7 +109,7 @@ SELECT is(
   (SELECT count(*)::int FROM plateforme.fn_claim_outbox_batch(10)
      WHERE id = 'e2dddddd-0000-0000-0000-000000000002'),
   1,
-  'OUTBOX-01 skip : l''agrégat est DÉBLOQUÉ (E2 redevient claimable)');
+  'OUTBOX-01 skip : E2 reste claimable après le skip');
 
 SELECT is(
   (SELECT count(*)::int FROM plateforme.audit_log

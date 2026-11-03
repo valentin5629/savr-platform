@@ -40,11 +40,18 @@ de la route protégée avant rollback hook).
 
 ## Déblocage DLQ outbox (events `dead`) — R9
 
-Un event outbox en statut `dead` **bloque son agrégat** (head-of-line par collecte :
-seul un event `done` libère). Sans déblocage, un E1 mort empêche à jamais E2/E3 de
-la même collecte de partir (ex. E1 mort → E3 annulation jamais poussée → camion sur
-une collecte annulée). Symptôme : alerte Slack `#savr-alerts-critique` `[DLQ]`, et
-collecte bloquée en `non_envoye`/`dirty_tms`.
+Depuis la décision Val du 2026-11-03 (migration `20261103150000`), un event outbox
+en statut `dead` **ne bloque plus son agrégat** : les ordres suivants de la collecte
+partent (seuls `pending`, `processing` et `failed` bloquent encore). Le geste
+courant n'est donc plus en base : l'Admin corrige la cause sur la fiche collecte
+(par exemple le prestataire) et clique sur « Renvoyer », ce qui écrit un nouvel
+ordre. Une annulation abandonnée laisse le transporteur non prévenu : l'appeler.
+Symptôme : alerte Slack `#savr-alerts-critique` `[DLQ]`, encart « Échec d'envoi »
+sur la fiche.
+
+Les procédures ci-dessous restent disponibles pour reprendre ou clore un event
+abandonné sans passer par la fiche (le reprendre tel quel, le marquer sans objet,
+ou le déclarer fait à la main).
 
 **Qui :** `admin_savr` uniquement (les RPC valident via `f_assert_audit_context` :
 auteur `admin_savr` actif + **motif ≥ 5 caractères**). Toute action est tracée dans
@@ -66,7 +73,7 @@ WHERE statut = 'dead' ORDER BY seq;
    SELECT plateforme.fn_admin_requeue_outbox('<event_id>', '<admin_id>', 'MTS-1 rétabli, nouvelle tentative');
    ```
 2. **Skip motivé** — abandonner l'event devenu sans objet (ex. collecte annulée
-   depuis). Passe `done` → **débloque l'agrégat** sans rien pousser :
+   depuis). Passe `done` sans rien pousser (la fiche cesse de l'afficher) :
    ```sql
    SELECT plateforme.fn_admin_skip_outbox('<event_id>', '<admin_id>', 'Collecte annulée entre-temps, E1 sans objet');
    ```

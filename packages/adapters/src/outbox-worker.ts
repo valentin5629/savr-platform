@@ -23,7 +23,8 @@
 //   1. la réservation est atomique (FOR UPDATE SKIP LOCKED + statut 'processing') :
 //      un ordre n'est rendu qu'à UN passage ;
 //   2. le head-of-line bloque l'ordre suivant d'un MÊME agrégat tant que le
-//      précédent n'est pas 'done' : jamais deux ordres d'une même collecte en vol.
+//      précédent n'est ni 'done' ni abandonné ('dead', Val 2026-11-03) : jamais
+//      deux ordres d'une même collecte en vol.
 //      Il ne lie pas deux agrégats : un ordre « lieu » (passage planifié) et un
 //      ordre d'une collecte de ce lieu (clic) peuvent se chevaucher ;
 //   3. le reaper ne re-queue qu'une réservation EXPIRÉE, et un passage ne parle
@@ -286,7 +287,8 @@ async function traiterEvent(
 //
 // Le head-of-line ne rend qu'UN ordre à la fois par collecte : on rappelle la
 // réservation après chaque ordre traité. Elle rend vide quand il n'en reste
-// plus, ou quand l'ordre précédent n'est pas 'done' : la boucle s'arrête là.
+// plus, ou quand l'ordre précédent peut encore partir (ni 'done' ni 'dead') :
+// la boucle s'arrête là.
 
 /** Plafond d'ordres traités par appel : ceinture contre une boucle sans fin. */
 const ENVOI_IMMEDIAT_MAX_ORDRES = 5;

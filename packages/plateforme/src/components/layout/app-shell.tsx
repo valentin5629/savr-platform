@@ -7,6 +7,7 @@ import { TopBar } from '@/components/layout/top-bar';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { LogoZdProvider } from '@/components/layout/logo-context';
 import { IdentiteProvider } from '@/components/layout/logo-organisation';
+import { BarreTitreProvider } from '@/components/layout/barre-titre-context';
 import type { NavRole } from '@/lib/roles';
 import type { IdentiteSession } from '@/lib/identite-session';
 
@@ -31,6 +32,8 @@ const AppShell = ({
 }: AppShellProps) => {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
+  // Emplacement du titre de page dans la barre du haut (cf. PageHero).
+  const [barreTitre, setBarreTitre] = React.useState<HTMLElement | null>(null);
 
   return (
     <IdentiteProvider value={identite ?? null}>
@@ -40,9 +43,9 @@ const AppShell = ({
         <div
           data-cadre-app
           className={cn(
-            // Fond navy : la barre latérale et la barre du haut forment un seul
-            // cadre ; le contenu s'en détache par un coin arrondi (Val 2026-11-02).
-            'flex h-screen overflow-hidden bg-savr-primary-800',
+            // Fond navy de la barre latérale : la barre bleu ciel du haut s'en
+            // détache par un coin arrondi (Val 2026-11-03).
+            'flex h-screen overflow-hidden bg-savr-primary-700',
             className,
           )}
         >
@@ -83,27 +86,30 @@ const AppShell = ({
           </div>
 
           {/* Contenu principal */}
-          <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-            <TopBar
-              role={role}
-              onMenuToggle={() => setMobileSidebarOpen((v) => !v)}
-            />
+          <BarreTitreProvider value={barreTitre}>
+            <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+              <TopBar
+                role={role}
+                onMenuToggle={() => setMobileSidebarOpen((v) => !v)}
+                emplacementTitreRef={setBarreTitre}
+              />
 
-            {/* `relative` : point d'ancrage des éléments en position absolue
+              {/* `relative` : point d'ancrage des éléments en position absolue
                 du contenu (dont les textes `sr-only`). Sans lui, ils se placent
                 par rapport à la page, dépassent sous l'écran et font défiler la
                 page entière derrière le cadre : une bande vide reste en bas. */}
-            <main
-              className="relative flex-1 overflow-y-auto bg-savr-neutral-50 p-6 pt-4 pb-20 lg:rounded-tl-savr-xl lg:pb-6"
-              id="main-content"
-              tabIndex={-1}
-            >
-              {children}
-            </main>
+              <main
+                className="relative flex-1 overflow-y-auto bg-savr-neutral-50 p-6 pt-4 pb-20 lg:pb-6"
+                id="main-content"
+                tabIndex={-1}
+              >
+                {children}
+              </main>
 
-            {/* Bottom nav mobile */}
-            <BottomNav role={role} />
-          </div>
+              {/* Bottom nav mobile */}
+              <BottomNav role={role} />
+            </div>
+          </BarreTitreProvider>
         </div>
       </LogoZdProvider>
     </IdentiteProvider>

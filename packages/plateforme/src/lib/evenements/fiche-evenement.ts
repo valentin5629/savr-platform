@@ -391,10 +391,17 @@ export async function chargerFicheEvenement(
         : null,
       dechets_labo_kg: dechetsLaboKg,
       // Affiché pour un lieu VIPARIS (ou un code déjà posé). Corrigeable par
-      // tous sauf le client organisateur (PATCH …/code-affaire-viparis, 403).
+      // l'équipe Savr, l'organisation qui a programmé l'événement et le
+      // gestionnaire du lieu (§04) : le gestionnaire ne voit que ses
+      // programmations et les événements de ses lieux. Lu seulement par le
+      // traiteur opérationnel tiers et le client organisateur (PATCH
+      // …/code-affaire-viparis, 403).
       code_affaire_viparis: codes?.code_affaire_viparis ?? null,
       code_site_viparis: un(codes?.lieu ?? null)?.code_site_viparis ?? null,
-      code_affaire_modifiable: !organisateur,
+      code_affaire_modifiable:
+        admin ||
+        gestionnaire ||
+        (!organisateur && evt.organisation_id === ctx.organisationId),
       // « Ajouter une collecte » : sur ses propres programmations seulement —
       // la route d'ajout répond 404 sur l'événement d'un traiteur tiers tenu
       // sur ses lieux.

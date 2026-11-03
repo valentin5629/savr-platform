@@ -94,6 +94,18 @@ const MESSAGE_RELECTURE_KO = 'relecture de la course A Toutes! impossible';
 // `event` vaut toujours `mission_status`, l'étape est dans `status_slug`. Le
 // signal est relu sur l'API, et la catégorie de l'étape relue choisit le
 // traitement (mêmes traitements que les noms du swagger, gardés).
+// Noms d'event du swagger 1.291.1, jamais envoyés par A Toutes! (mesuré le
+// 2026-11-03) : reçus, ils sont traités comme `mission_status`, jamais crus.
+const NOMS_SWAGGER = new Set([
+  'mission_dispatched',
+  'mission_pickedup',
+  'mission_finished',
+  'mission_success',
+  'mission_failed',
+  'mission_cancelled',
+  'mission_late',
+]);
+
 const TRAITEMENT_PAR_ETAPE = {
   affectee: 'mission_dispatched',
   enlevee: 'mission_pickedup',
@@ -376,7 +388,16 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
       skipped = 'statut_terminal';
     } else {
       // ── 5. Switch event_type ────────────────────────────────────────────────
-      await handleEventType(supabase, m, missionId, eventType, params, payload);
+      // Un nom du swagger ne décide de rien : comme `mission_status`, il
+      // déclenche la relecture et l'étape relue choisit le traitement.
+      await handleEventType(
+        supabase,
+        m,
+        missionId,
+        NOMS_SWAGGER.has(eventType) ? 'mission_status' : eventType,
+        params,
+        payload,
+      );
     }
   } catch (err) {
     if (!(err instanceof EtatMetierNonEcrit)) throw err;

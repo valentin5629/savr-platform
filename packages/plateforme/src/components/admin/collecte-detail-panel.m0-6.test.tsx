@@ -1179,10 +1179,12 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/ordre_envoi_echec_definitif — ordre abandonné : « Échec d’envoi », collecte dite non transmise, renvoi annoncé bloqué',
+    'M0.6/ordre_envoi_echec_definitif — ordre abandonné : « Échec d’envoi », collecte dite non transmise, renvoi possible depuis la fiche',
     async () => {
       mockFetchPrestataire({
         ...collecteEnFileMts1,
+        // Posé par la route quand l'ordre de tête est une création abandonnée.
+        envoi_abandonne: true,
         ordre_envoi: ordreEnvoi({
           etat: 'echec_definitif',
           tentatives: 4,
@@ -1203,13 +1205,18 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(alerte.textContent).toMatch(
         /La collecte n.est pas transmise à Strike : envoi abandonné après 4 tentatives\./,
       );
+      // Val 2026-11-03 : l'abandon ne bloque plus, la fiche rouvre l'envoi.
       expect(alerte.textContent).toMatch(
-        /Un nouvel envoi depuis cette fiche ne partira pas tant que cet ordre n.est pas débloqué par l.équipe technique\./,
+        /Corrigez la cause si besoin, puis renvoyez la collecte depuis cette fiche\./,
       );
+      expect(alerte.textContent).not.toMatch(/équipe technique/);
       expect(alerte.textContent).toMatch(/Motif : 400 Bad Request/);
       const ligne = screen.getByText('Statut TMS').parentElement!;
       expect(within(ligne).getByText('Échec d’envoi')).toBeInTheDocument();
       expect(screen.queryByText(/Collecte envoyée à/)).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Renvoyer à MTS-1' }),
+      ).toBeEnabled();
     },
     ATTENTE_CAS_MS,
   );
@@ -1286,6 +1293,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       mockFetchPrestataire({
         ...acceptee,
+        // La route le pose dès que l'ordre de tête est une création
+        // abandonnée, référence reçue ou non.
+        envoi_abandonne: true,
         ordre_envoi: ordreEnvoi({ etat: 'echec_definitif', tentatives: 4 }),
       });
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -1295,8 +1305,13 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         /Un ordre d.envoi à Strike a été abandonné après 4 tentatives, alors que la commande porte déjà une référence\./,
       );
       expect(alerte.textContent).toMatch(
-        /Les ordres suivants de cette collecte \(modification, annulation, véhicule supplémentaire\) ne partiront pas tant qu.il n.est pas débloqué par l.équipe technique\./,
+        /Il ne bloque pas les ordres suivants de cette collecte\./,
       );
+      // Commande reçue : la fiche reste celle d'un envoi parti, sans renvoi
+      // proposé (Val 2026-11-03 ne rouvre l'envoi que si rien n'est arrivé).
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
       expect(alerte.textContent).not.toMatch(/n.est pas transmise/);
     },
     ATTENTE_CAS_MS,

@@ -420,11 +420,12 @@ for (const { module, espace, api, Page } of ESPACES) {
           ATTENTE_UI,
         );
         // Plus aucun filtre visible : plus aucun filtre appliqué, hors type et
-        // vue (les collectes passées s'arrêtent à hier : `to`).
+        // vue (les collectes passées s'arrêtent à maintenant : `to` + `vue`).
         expect([...derniereListe().keys()].sort()).toEqual([
           'statut',
           'to',
           'type',
+          'vue',
         ]);
         expect(derniereUrl().has('perimetre')).toBe(false);
         expect(screen.queryByTestId('filtre-actif')).toBeNull();

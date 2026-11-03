@@ -187,10 +187,12 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
         expect(url.startsWith('/agence/collectes?')).toBe(true);
         expect(url).toContain('onglet=passees');
       }, ATTENTE_UI);
-      await waitFor(
-        () => expect(dernierAppelListe().get('to')).toBe('2026-07-07'),
-        ATTENTE_UI,
-      );
+      await waitFor(() => {
+        // Aujourd'hui compris : la route le tranche à la minute (Val
+        // 2026-11-03).
+        expect(dernierAppelListe().get('to')).toBe('2026-07-08');
+        expect(dernierAppelListe().get('vue')).toBe('passees');
+      }, ATTENTE_UI);
       expect(dernierAppelListe().get('from')).toBeNull();
       expect(dernierAppelListe().get('statut')).toBe(TOUS_STATUTS);
       // Sélecteur de type conservé à côté des onglets.
@@ -353,11 +355,12 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
       const exportUrl = String(ouvrir.mock.calls.at(-1)?.[0] ?? '');
       expect(exportUrl.startsWith('/api/v1/exports/collectes?')).toBe(true);
       // Mêmes paramètres que la liste affichée : type, statuts et période
-      // bornée à la vue (passées : jusqu'à hier).
+      // bornée à la vue (passées : jusqu'à aujourd'hui, tranché à la minute).
       const qs = new URLSearchParams(exportUrl.split('?')[1]);
       expect(qs.get('type')).toBe('zero_dechet');
       expect(qs.get('statut')).toBe(TOUS_STATUTS);
-      expect(qs.get('to')).toBe('2026-07-07');
+      expect(qs.get('to')).toBe('2026-07-08');
+      expect(qs.get('vue')).toBe('passees');
       expect(qs.get('from')).toBeNull();
       fireEvent.click(
         ligne.getByRole('button', {

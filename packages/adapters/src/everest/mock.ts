@@ -34,7 +34,24 @@ export interface EverestMissionDetail {
   coursier_nom: string | null;
   coursier_telephone: string | null;
   vehicule_type: string | null;
+  /** Code de l'étape (`status` de la mission, ex. `livraison-terminee`). */
+  statut_code?: string | null;
+  /** Catégorie de l'étape, lue sur les drapeaux `is_*` de la mission relue. */
+  etape?: EtapeMissionEverest | null;
 }
+
+/**
+ * Catégorie d'une étape Everest, d'après les drapeaux de la mission relue
+ * (`is_cancel`, `is_fail`, `is_success`, `is_pickup`, `is_dispatch`, lus sur
+ * le compte A Toutes! le 2026-11-03). `null` = étape sans catégorie (mission
+ * créée, coursier arrivé à destination…).
+ */
+export type EtapeMissionEverest =
+  | 'affectee'
+  | 'enlevee'
+  | 'reussie'
+  | 'echouee'
+  | 'annulee';
 
 export type EverestPostSuccess<T> = { ok: true; data: T };
 export type EverestPostError = { ok: false; status: number; error: string };

@@ -29,6 +29,7 @@ import type {
   EverestCancelResponse,
   EverestCreatedMission,
   EverestMissionDetail,
+  EtapeMissionEverest,
   EverestUpdateResponse,
 } from './mock.js';
 import { verifierEcheance } from '../echeance-passage.js';
@@ -92,6 +93,23 @@ interface MissionEverest {
   agent_tel?: string;
   agent_vehicle?: { name?: string } | null;
   medias?: Array<{ src?: string }>;
+  is_dispatch?: boolean;
+  is_pickup?: boolean;
+  is_success?: boolean;
+  is_fail?: boolean;
+  is_cancel?: boolean;
+}
+
+// Catégorie de l'étape courante. Une étape porte au plus un drapeau sur le
+// compte A Toutes! (POST /statuses, 2026-11-03) ; l'ordre ne sert que si une
+// réponse en portait plusieurs : la fin de course prime sur la progression.
+function etapeMission(m: MissionEverest): EtapeMissionEverest | null {
+  if (m.is_cancel === true) return 'annulee';
+  if (m.is_fail === true) return 'echouee';
+  if (m.is_success === true) return 'reussie';
+  if (m.is_pickup === true) return 'enlevee';
+  if (m.is_dispatch === true) return 'affectee';
+  return null;
 }
 
 // La référence est ce qui rend une mission annulable et rapprochable : une
@@ -483,6 +501,8 @@ export class EverestClient {
       coursier_nom: texteOuNull(mission.agent_name),
       coursier_telephone: texteOuNull(mission.agent_tel),
       vehicule_type: texteOuNull(mission.agent_vehicle?.name),
+      statut_code: texteOuNull(mission.status),
+      etape: etapeMission(mission),
     };
   }
 

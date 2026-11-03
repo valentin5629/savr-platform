@@ -28,6 +28,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { fetchEverestMissionDetails } from '@savr/adapters/src/index.js';
+import { libelleErreurReseau } from '@savr/shared/src/api/erreur-reseau.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { serverError, withApiTrace } from '@/lib/api-helpers.js';
@@ -56,24 +57,73 @@ function mapEverestStatut(apiStatus: string, fallback: string): string {
   return EVEREST_STATUS_ENUM.has(apiStatus) ? apiStatus : fallback;
 }
 
-// BL-P1-API-04 (d) — « course sans marchandise ». Libellés `mission_status`
-// tranchés CLAUDE.md §7 (gate Everest levée 2026-06-15, mail Mathieu Lomazzi) :
-// `Pas de commande` (rien à enlever) / `Client absent / Marchandise refusée`
-// (récupérée mais non livrée). Lus du RE-FETCH (jamais du payload non signé,
-// BL-P0-07). Une collecte AG sur l'un de ces statuts passe realisee_sans_collecte
-// (§05, AG only). Le libellé est le `status_text` de la mission relue. Restent à
-// confirmer sur le compte de test : la valeur de `event` qui porte le signal et
-// la photo du lieu → _Divergences/M2.5_R10a_20260629.md (type:ambigu).
-const COURSE_VIDE_MISSION_STATUSES = new Set([
+// BL-P1-API-04 (d) — « course sans marchandise » (CLAUDE.md §7, gate Everest
+// levée 2026-06-15). Lue sur la mission RE-FETCHÉE (jamais sur le payload non
+// signé, BL-P0-07) : par son code d'étape (`status`), relevé sur le compte
+// A Toutes! le 2026-11-03 (POST /statuses : `pas-de-commande` « Rien à
+// récupérer », `client-absent-marchandise-refusee` « Client Absent »), à défaut
+// par les libellés d'origine. Une collecte AG passe alors realisee_sans_collecte
+// (§05, AG only) ; le motif est le libellé relu.
+const COURSE_VIDE_CODES = new Set([
+  'pas-de-commande',
+  'client-absent-marchandise-refusee',
+]);
+const COURSE_VIDE_LIBELLES = new Set([
   'pas de commande',
   'client absent / marchandise refusée',
 ]);
 
-function isCourseVide(missionStatus: string | null | undefined): boolean {
-  if (!missionStatus) return false;
-  const norm = missionStatus.trim().toLowerCase().replace(/\s+/g, ' ');
-  return COURSE_VIDE_MISSION_STATUSES.has(norm);
+function isCourseVide(detail: {
+  status: string;
+  statut_code?: string | null;
+}): boolean {
+  if (detail.statut_code && COURSE_VIDE_CODES.has(detail.statut_code)) {
+    return true;
+  }
+  const norm = detail.status.trim().toLowerCase().replace(/\s+/g, ' ');
+  return COURSE_VIDE_LIBELLES.has(norm);
 }
+
+type DetailMission = Awaited<ReturnType<typeof fetchEverestMissionDetails>>;
+
+// Motif fixe d'une relecture en échec : il part dans une alerte in-app, jamais
+// le texte d'erreur brut de l'API (tracé à part dans le journal serveur).
+const MESSAGE_RELECTURE_KO = 'relecture de la course A Toutes! impossible';
+
+// Notification A Toutes! réelle (mesuré le 2026-11-03 sur le compte de test) :
+// `event` vaut toujours `mission_status`, l'étape est dans `status_slug`. Le
+// signal est relu sur l'API, et la catégorie de l'étape relue choisit le
+// traitement (mêmes traitements que les noms du swagger, gardés).
+// Noms d'event du swagger 1.291.1, jamais envoyés par A Toutes! (mesuré le
+// 2026-11-03) : reçus, ils sont traités comme `mission_status`, jamais crus.
+const NOMS_SWAGGER = new Set([
+  'mission_dispatched',
+  'mission_pickedup',
+  'mission_finished',
+  'mission_success',
+  'mission_failed',
+  'mission_cancelled',
+  'mission_late',
+]);
+
+const TRAITEMENT_PAR_ETAPE = {
+  affectee: 'mission_dispatched',
+  enlevee: 'mission_pickedup',
+  reussie: 'mission_finished',
+  echouee: 'mission_failed',
+  annulee: 'mission_cancelled',
+} as const;
+
+// Statuts d'une mission dont le coursier est affecté : la collecte n'est
+// acceptée que quand toutes ses courses le sont (multi-vélos, Val 2026-11-03,
+// même règle que MTS-1).
+const STATUTS_MISSION_AFFECTEE = new Set([
+  'assigned',
+  'in_progress',
+  'completed',
+  'completed_incomplete',
+  'created_manually',
+]);
 
 // Statuts terminaux d'une collecte : jamais régressés par un webhook tardif.
 const STATUTS_TERMINAUX_COLLECTE = new Set([
@@ -338,7 +388,16 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
       skipped = 'statut_terminal';
     } else {
       // ── 5. Switch event_type ────────────────────────────────────────────────
-      await handleEventType(supabase, m, missionId, eventType, params, payload);
+      // Un nom du swagger ne décide de rien : comme `mission_status`, il
+      // déclenche la relecture et l'étape relue choisit le traitement.
+      await handleEventType(
+        supabase,
+        m,
+        missionId,
+        NOMS_SWAGGER.has(eventType) ? 'mission_status' : eventType,
+        params,
+        payload,
+      );
     }
   } catch (err) {
     if (!(err instanceof EtatMetierNonEcrit)) throw err;
@@ -377,6 +436,7 @@ async function handleEventType(
   eventType: string,
   params: URLSearchParams,
   payload: Record<string, string>,
+  detailPrelu: DetailMission | null = null,
 ): Promise<void> {
   const now = new Date().toISOString();
 
@@ -404,6 +464,70 @@ async function handleEventType(
   };
 
   switch (eventType) {
+    case 'mission_status': {
+      // Relecture en échec : l'étape n'est pas connue, rien n'est décidé →
+      // 500, inbox non traitée, l'event sera retraité au rejeu.
+      const detail = await fetchEverestMissionDetails(
+        missionId,
+        supabase,
+        missionId,
+      ).catch((err: unknown) => {
+        logger.error('webhooks.everest.relecture_ko', {
+          mission_id: missionId,
+          error: libelleErreurReseau(err),
+        });
+        return echecEtatMetier(
+          supabase,
+          { message: MESSAGE_RELECTURE_KO },
+          {
+            evenement: 'mission_status_relecture',
+            collecteId: mission.collecte_id,
+            missionId,
+            quoi: 'relecture de la course sur l’API A Toutes!',
+          },
+        );
+      });
+      const traitement = isCourseVide(detail)
+        ? 'mission_failed'
+        : detail.etape
+          ? TRAITEMENT_PAR_ETAPE[detail.etape]
+          : null;
+      if (traitement) {
+        await handleEventType(
+          supabase,
+          mission,
+          missionId,
+          traitement,
+          params,
+          payload,
+          detail,
+        );
+      } else {
+        await majMission(
+          { payload_latest_update: payload, derniere_sync_at: now },
+          'mission_status',
+        );
+      }
+      // Coursier relu à chaque étape (Val 2026-11-03) : A Toutes! ne le donne
+      // souvent qu'à la première étape terrain, pas à l'affectation.
+      // Best-effort : l'état métier est déjà écrit, un échec ici n'est que tracé.
+      if (traitement !== 'mission_dispatched') {
+        try {
+          const lue = await lireCollecte(supabase, mission, missionId);
+          if (lue?.courante && lue.etat.statut !== 'annulee') {
+            await propagerCoursier(supabase, mission, missionId, detail);
+          }
+        } catch (err) {
+          logger.error('webhooks.everest.coursier_non_propage', {
+            mission_id: missionId,
+            tournee_id: mission.tournee_id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      break;
+    }
+
     case 'mission_dispatched': {
       // Acceptation nominale A Toutes! (M14 R_M14.1bis, adapté V1)
       // A Toutes! n'a pas de portail M03 — assignment coursier = acceptation.
@@ -414,7 +538,10 @@ async function handleEventType(
       };
       // La notification ne porte que le nom du coursier ; son téléphone est relu
       // sur l'API plus bas (tournée).
-      const coursierNom = params.get('agent_name');
+      // Notification réelle : nom RELU sur l'API (jamais le payload).
+      const coursierNom = detailPrelu
+        ? detailPrelu.coursier_nom
+        : params.get('agent_name');
       if (coursierNom) updates['coursier_nom'] = coursierNom;
 
       await majMission(updates, 'mission_dispatched');
@@ -432,26 +559,7 @@ async function handleEventType(
         break;
       }
 
-      // Passer statut_tms → 'acceptee' si pas encore acceptée
-      // (trigger fn_sync_statut_collecte_from_tms dérive collectes.statut)
-      if (lue.etat.statut_tms === 'attribuee_en_attente_acceptation') {
-        await ecritureCollecteGardee(
-          supabase,
-          supabase
-            .from('collectes')
-            .update({ statut_tms: 'acceptee' })
-            .eq('id', mission.collecte_id)
-            .eq('statut_tms', 'attribuee_en_attente_acceptation')
-            .eq('prestataire_logistique_id', lue.prestataire)
-            .select('id'),
-          {
-            evenement: 'collecte_acceptee',
-            collecteId: mission.collecte_id,
-            missionId,
-            quoi: 'acceptation de la course (statut transporteur « acceptee »)',
-          },
-        );
-      }
+      await accepterSiToutesAffectees(supabase, mission, missionId, lue);
       // Coordonnées du coursier → tournée de la mission (bloc « Chauffeur »
       // des fiches collecte client et Admin, comme l'adapter MTS-1 avec le
       // référentiel carrier — décision Val 2026-10-02). Webhook = SIGNAL : nom
@@ -477,58 +585,7 @@ async function handleEventType(
       // `statut_tms → acceptee` (l'étape principale) : la relecture API (jusqu'à
       // 30 s) ne retarde pas l'acceptation.
       if (lue.etat.statut === 'annulee') break;
-      {
-        let coursier: { nom: string; telephone: string | null } | null = null;
-        try {
-          const detail = await fetchEverestMissionDetails(
-            missionId,
-            supabase,
-            missionId,
-          );
-          const nom = detail.coursier_nom?.trim() || null;
-          if (nom) {
-            coursier = {
-              nom,
-              telephone: detail.coursier_telephone?.trim() || null,
-            };
-          }
-        } catch (err) {
-          logger.error('webhooks.everest.coursier_refetch_failed', {
-            mission_id: missionId,
-            tournee_id: mission.tournee_id,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-        if (coursier) {
-          // Même règle que l'adapter MTS-1 (garde-fou 2 : même sémantique pour
-          // les deux prestataires) : on n'écrit que ce que l'API donne — le
-          // téléphone n'est touché que s'il est fourni (saisie Admin conservée).
-          const coordonnees: Record<string, string> = {
-            chauffeur_nom: coursier.nom,
-          };
-          if (coursier.telephone) {
-            coordonnees['chauffeur_telephone'] = coursier.telephone;
-          }
-          const { error: coordErr } = await supabase
-            .from('tournees')
-            .update(coordonnees)
-            .eq('id', mission.tournee_id)
-            .eq('external_ref_commande', missionId);
-          if (coordErr) {
-            logger.error('webhooks.everest.coursier_non_propage', {
-              mission_id: missionId,
-              tournee_id: mission.tournee_id,
-              error_code: coordErr.code,
-            });
-          } else {
-            // Contrôle d'accès : les coordonnées viennent peut-être de rendre la
-            // collecte complète → même évaluation que le PATCH Admin (email récap
-            // au programmateur si requis + complet, idempotent, ne throw jamais).
-            // Déclenché par la valeur RELUE sur l'API, pas par le payload.
-            await evaluerInfosAccesEtEnvoyer(supabase, mission.collecte_id);
-          }
-        }
-      }
+      await propagerCoursier(supabase, mission, missionId, detailPrelu);
 
       break;
     }
@@ -551,6 +608,26 @@ async function handleEventType(
           eventType,
           'le coursier a enlevé la marchandise',
         );
+      } else if (lue?.courante) {
+        // Coursier sur place = sa course est acceptée ; la collecte démarre
+        // (même lecture que MTS-1 IN_PROGRESSION, Val 2026-11-03).
+        await accepterSiToutesAffectees(supabase, mission, missionId, lue);
+        await ecritureCollecteGardee(
+          supabase,
+          supabase
+            .from('collectes')
+            .update({ statut: 'en_cours' })
+            .eq('id', mission.collecte_id)
+            .in('statut', ['programmee', 'validee'])
+            .eq('prestataire_logistique_id', lue.prestataire)
+            .select('id'),
+          {
+            evenement: 'collecte_en_cours',
+            collecteId: mission.collecte_id,
+            missionId,
+            quoi: 'passage de la collecte « en cours »',
+          },
+        );
       }
       break;
     }
@@ -564,15 +641,14 @@ async function handleEventType(
         ReturnType<typeof fetchEverestMissionDetails>
       > | null = null;
       try {
-        detail = await fetchEverestMissionDetails(
-          missionId,
-          supabase,
-          missionId,
-        );
+        detail =
+          detailPrelu ??
+          (await fetchEverestMissionDetails(missionId, supabase, missionId));
       } catch (err) {
         // Re-fetch indisponible (API down/timeout) : on ne persiste AUCUNE valeur
-        // du payload. On enregistre le statut opérationnel du signal sans coût ni
-        // preuve, et on lève une trace Ops pour réconciliation manuelle.
+        // du payload. La fin de course ferme la tournée et agrège la collecte :
+        // sans la relecture rien n'est décidé, la mission reste non terminale
+        // → 500, inbox non traitée, l'event sera retraité au rejeu.
         // Best-effort : trace technique.
         await supabase.from('integrations_logs').insert({
           integration: 'everest',
@@ -582,16 +658,18 @@ async function handleEventType(
           erreur: `refetch_failed: ${err instanceof Error ? err.message : String(err)}`,
           correlation_id: missionId,
         });
-        await majMission(
+        await echecEtatMetier(
+          supabase,
+          { message: MESSAGE_RELECTURE_KO },
           {
-            statut_everest: 'completed',
-            derniere_sync_at: now,
-            payload_latest_update: payload,
+            evenement: 'mission_terminee_relecture',
+            collecteId: mission.collecte_id,
+            missionId,
+            quoi: 'relecture de la course terminée sur l’API A Toutes!',
           },
-          'mission_terminee',
         );
-        break;
       }
+      if (!detail) break;
 
       const updates: Record<string, unknown> = {
         statut_everest: mapEverestStatut(detail.status, 'completed'),
@@ -605,8 +683,10 @@ async function handleEventType(
       // BL-P1-API-04 (d) : course sans marchandise (mission_status re-fetché) →
       // realisee_sans_collecte (AG, §05). Le coût + la mobilisation restent dus
       // (facture tarif normal V1), d'où la persistance cout/preuve ci-dessous.
-      // Sinon, M05 reste source de vérité du statut opérationnel — pas de mutation collectes.statut
-      if (isCourseVide(detail.status)) {
+      // Sinon, la tournée de la course est terminée et la collecte passe
+      // « réalisée » quand toutes ses courses sont terminales (Val 2026-11-03,
+      // même agrégation que MTS-1, CLAUDE.md §4 multi-camions).
+      if (isCourseVide(detail)) {
         await transitionRealiseeSansCollecte(
           supabase,
           mission,
@@ -615,6 +695,19 @@ async function handleEventType(
           detail,
           now,
         );
+      } else {
+        const lue = await lireCollecte(supabase, mission, missionId);
+        if (lue?.courante) {
+          await accepterSiToutesAffectees(supabase, mission, missionId, lue);
+          await cloreCourse(supabase, mission, missionId, 'terminee');
+        } else if (lue) {
+          await signalerMissionHorsAttribution(
+            supabase,
+            mission,
+            missionId,
+            eventType,
+          );
+        }
       }
       // Mission terminale écrite EN DERNIER : si l'écriture collecte échoue, la
       // mission n'est pas encore terminale et le rejeu ne bute pas sur la garde
@@ -631,16 +724,14 @@ async function handleEventType(
         ReturnType<typeof fetchEverestMissionDetails>
       > | null = null;
       try {
-        detail = await fetchEverestMissionDetails(
-          missionId,
-          supabase,
-          missionId,
-        );
+        detail =
+          detailPrelu ??
+          (await fetchEverestMissionDetails(missionId, supabase, missionId));
       } catch {
         detail = null;
       }
 
-      if (detail && isCourseVide(detail.status)) {
+      if (detail && isCourseVide(detail)) {
         // Pas un échec : course sans marchandise → realisee_sans_collecte (AG).
         // Mission terminale écrite EN DERNIER (rejeu possible, cf. mission_finished).
         await transitionRealiseeSansCollecte(
@@ -781,11 +872,74 @@ async function handleEventType(
 
 // ─── Helpers transitions collecte (BL-P1-API-04 c+d) ────────────────────────────
 
+/**
+ * Coordonnées du coursier, RELUES sur l'API (jamais prises du payload), écrites
+ * sur la tournée de la mission. Best-effort : relecture KO ou UPDATE refusé =
+ * tracé, rien d'écrit. L'appelant a vérifié que la mission est la mission
+ * courante et que la collecte n'est pas annulée.
+ */
+async function propagerCoursier(
+  supabase: SupabaseAdmin,
+  mission: { tournee_id: string; collecte_id: string },
+  missionId: string,
+  detailPrelu: DetailMission | null,
+): Promise<void> {
+  let coursier: { nom: string; telephone: string | null } | null = null;
+  try {
+    const detail =
+      detailPrelu ??
+      (await fetchEverestMissionDetails(missionId, supabase, missionId));
+    const nom = detail.coursier_nom?.trim() || null;
+    if (nom) {
+      coursier = {
+        nom,
+        telephone: detail.coursier_telephone?.trim() || null,
+      };
+    }
+  } catch (err) {
+    logger.error('webhooks.everest.coursier_refetch_failed', {
+      mission_id: missionId,
+      tournee_id: mission.tournee_id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+  if (coursier) {
+    // Même règle que l'adapter MTS-1 (garde-fou 2 : même sémantique pour
+    // les deux prestataires) : on n'écrit que ce que l'API donne — le
+    // téléphone n'est touché que s'il est fourni (saisie Admin conservée).
+    const coordonnees: Record<string, string> = {
+      chauffeur_nom: coursier.nom,
+    };
+    if (coursier.telephone) {
+      coordonnees['chauffeur_telephone'] = coursier.telephone;
+    }
+    const { error: coordErr } = await supabase
+      .from('tournees')
+      .update(coordonnees)
+      .eq('id', mission.tournee_id)
+      .eq('external_ref_commande', missionId);
+    if (coordErr) {
+      logger.error('webhooks.everest.coursier_non_propage', {
+        mission_id: missionId,
+        tournee_id: mission.tournee_id,
+        error_code: coordErr.code,
+      });
+    } else {
+      // Contrôle d'accès : les coordonnées viennent peut-être de rendre la
+      // collecte complète → même évaluation que le PATCH Admin (email récap
+      // au programmateur si requis + complet, idempotent, ne throw jamais).
+      // Déclenché par la valeur RELUE sur l'API, pas par le payload.
+      await evaluerInfosAccesEtEnvoyer(supabase, mission.collecte_id);
+    }
+  }
+}
+
 type EtatCollecte = {
   type: string;
   statut: string;
   statut_tms: string;
   prestataire_logistique_id: string | null;
+  nb_camions_demande: number | null;
 };
 
 type CollecteLue =
@@ -818,7 +972,9 @@ async function lireCollecte(
 
   const { data, error } = await supabase
     .from('collectes')
-    .select('type, statut, statut_tms, prestataire_logistique_id')
+    .select(
+      'type, statut, statut_tms, prestataire_logistique_id, nb_camions_demande',
+    )
     .eq('id', mission.collecte_id)
     .maybeSingle();
   if (error) await echecLecture(error, 'lecture du statut de la collecte');
@@ -1013,8 +1169,10 @@ async function transitionRealiseeSansCollecte(
 // dashboard, décision Val 2026-06-15) + alerte « réattribution requise ». Le
 // trigger fn_sync ne dérive rien de ce statut : l'écriture est explicite. La
 // réattribution (fn_dispatcher_collecte) remet la collecte en `programmee`.
-// Après acceptation (acceptee/en_cours), un échec est un incident, pas un rejet
-// → on n'y touche pas.
+// Une fois la collecte engagée (acceptée, démarrée, ou une autre course avec
+// coursier), un échec est un incident, pas un rejet : la tournée de la course
+// est annulée et la collecte agrégée comme pour MTS-1 (au moins une course
+// réussie → réalisée + alerte ; toutes échouées → rejetée), Val 2026-11-03.
 async function rejeterSiPreAcceptation(
   supabase: SupabaseAdmin,
   mission: { id: string; tournee_id: string; collecte_id: string },
@@ -1033,7 +1191,29 @@ async function rejeterSiPreAcceptation(
     );
     return;
   }
-  if (lue.etat.statut_tms !== 'attribuee_en_attente_acceptation') return;
+  // « Avant acceptation » se juge sur la collecte entière (Val 2026-11-03) :
+  // acceptée, déjà démarrée, ou une autre course a un coursier → incident, la
+  // course est close et la collecte agrégée ; sinon c'est un refus.
+  const engagee =
+    lue.etat.statut_tms !== 'attribuee_en_attente_acceptation' ||
+    lue.etat.statut !== 'programmee' ||
+    ((lue.etat.nb_camions_demande ?? 1) > 1 &&
+      (await compterAutresCoursesAffectees(
+        supabase,
+        mission.collecte_id,
+        missionId,
+        (error, quoi) =>
+          echecEtatMetier(supabase, error, {
+            evenement: 'collecte_rejetee',
+            collecteId: mission.collecte_id,
+            missionId,
+            quoi,
+          }),
+      )) > 0);
+  if (engagee) {
+    await cloreCourse(supabase, mission, missionId, 'annulee');
+    return;
+  }
 
   const modifiee = await ecritureCollecteGardee(
     supabase,
@@ -1064,6 +1244,143 @@ async function rejeterSiPreAcceptation(
     p_entity_type: 'collectes',
     p_entity_id: mission.collecte_id,
   });
+}
+
+/**
+ * Acceptation d'une collecte A Toutes! : elle n'est `acceptee` que quand toutes
+ * ses courses ont un coursier affecté (multi-vélos, Val 2026-11-03, même règle
+ * que MTS-1). La course de l'event compte comme affectée : l'appelant est un
+ * signal d'affectation, d'enlèvement ou de fin. Les autres courses sont lues
+ * sur les tournées de la collecte (référence courante de chacune).
+ */
+async function accepterSiToutesAffectees(
+  supabase: SupabaseAdmin,
+  mission: { collecte_id: string },
+  missionId: string,
+  lue: Extract<CollecteLue, { courante: true }>,
+): Promise<void> {
+  if (lue.etat.statut_tms !== 'attribuee_en_attente_acceptation') return;
+  const echec = (error: ErreurDb, quoi: string): Promise<never> =>
+    echecEtatMetier(supabase, error, {
+      evenement: 'collecte_acceptee',
+      collecteId: mission.collecte_id,
+      missionId,
+      quoi,
+    });
+
+  const attendues = lue.etat.nb_camions_demande ?? 1;
+  if (attendues > 1) {
+    const autres = await compterAutresCoursesAffectees(
+      supabase,
+      mission.collecte_id,
+      missionId,
+      echec,
+    );
+    if (1 + autres < attendues) return;
+  }
+
+  // Le trigger fn_sync_statut_collecte_from_tms dérive `validee`.
+  await ecritureCollecteGardee(
+    supabase,
+    supabase
+      .from('collectes')
+      .update({ statut_tms: 'acceptee' })
+      .eq('id', mission.collecte_id)
+      .eq('statut_tms', 'attribuee_en_attente_acceptation')
+      .eq('prestataire_logistique_id', lue.prestataire)
+      .select('id'),
+    {
+      evenement: 'collecte_acceptee',
+      collecteId: mission.collecte_id,
+      missionId,
+      quoi: 'acceptation de la course (statut transporteur « acceptee »)',
+    },
+  );
+}
+
+/**
+ * Nombre des AUTRES courses courantes de la collecte (référence portée par ses
+ * tournées) dont le coursier est affecté, ou qui sont terminées. Une lecture en
+ * échec lève via `echec` : ne jamais conclure « affectée » ni « aucune ».
+ */
+async function compterAutresCoursesAffectees(
+  supabase: SupabaseAdmin,
+  collecteId: string,
+  missionId: string,
+  echec: (error: ErreurDb, quoi: string) => Promise<never>,
+): Promise<number> {
+  const { data: liens, error: liensErr } = await supabase
+    .from('collecte_tournees')
+    .select('tournees!inner(external_ref_commande)')
+    .eq('collecte_id', collecteId);
+  if (liensErr) await echec(liensErr, 'lecture des courses de la collecte');
+  // FK sortante `collecte_tournees.tournee_id` → embed OBJET (types générés : tableau).
+  const autres = (
+    (liens ?? []) as unknown as Array<{
+      tournees: { external_ref_commande: string | null };
+    }>
+  )
+    .map((l) => l.tournees.external_ref_commande)
+    .filter((r): r is string => r !== null && r !== missionId);
+  if (autres.length === 0) return 0;
+
+  const { data: missions, error: missionsErr } = await supabase
+    .from('everest_missions')
+    .select('everest_mission_id, statut_everest')
+    .in('everest_mission_id', autres);
+  if (missionsErr) {
+    await echec(missionsErr, 'lecture des autres courses de la collecte');
+  }
+  return ((missions ?? []) as Array<{ statut_everest: string }>).filter((m) =>
+    STATUTS_MISSION_AFFECTEE.has(m.statut_everest),
+  ).length;
+}
+
+/**
+ * Fin d'une course : sa tournée devient terminale (`terminee` si réussie,
+ * `annulee` si échouée), puis la collecte est agrégée par la même fonction que
+ * MTS-1 (`fn_agreger_terminal_collecte` : tant qu'une course n'est pas finie,
+ * rien ; au moins une réussie → réalisée ; toutes échouées → rejetée, alerte).
+ * L'appelant a vérifié que la mission est la mission courante.
+ */
+async function cloreCourse(
+  supabase: SupabaseAdmin,
+  mission: { tournee_id: string; collecte_id: string },
+  missionId: string,
+  statutTournee: 'terminee' | 'annulee',
+): Promise<void> {
+  const echec = (error: ErreurDb, quoi: string): Promise<never> =>
+    echecEtatMetier(supabase, error, {
+      evenement: 'course_terminee',
+      collecteId: mission.collecte_id,
+      missionId,
+      quoi,
+    });
+
+  const { error: tourneeErr } = await supabase
+    .from('tournees')
+    .update({ statut: statutTournee })
+    .eq('id', mission.tournee_id)
+    .eq('external_ref_commande', missionId);
+  if (tourneeErr) {
+    await echec(tourneeErr, `passage de la tournée « ${statutTournee} »`);
+  }
+
+  const { data: resultat, error: agregErr } = await supabase.rpc(
+    'fn_agreger_terminal_collecte',
+    { p_collecte_id: mission.collecte_id },
+  );
+  if (agregErr) await echec(agregErr, 'agrégation de fin de la collecte');
+
+  if (resultat === 'realisee' && statutTournee === 'annulee') {
+    await alerteApresTransition(supabase, {
+      p_code: 'collecte_partiellement_servie',
+      p_titre: 'Collecte partiellement servie',
+      p_message: `Une course A Toutes! (${missionId}) n'a pas pu collecter ; la collecte est réalisée sur les autres courses.`,
+      p_entity_type: 'collectes',
+      p_entity_id: mission.collecte_id,
+    });
+  }
 }
 
 export const POST = withApiTrace(postHandler);

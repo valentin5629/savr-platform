@@ -285,6 +285,7 @@ interface CollecteDetail {
     branche_attribution?: string | null;
     valide_at: string | null;
     volume_repas_realise: number | null;
+    poids_repas_kg?: number | null;
     associations: {
       nom: string;
       ville?: string | null;
@@ -857,13 +858,14 @@ export function CollecteDetailPanel({
   // Type d'événement et contacts de la collecte, modifiés par l'équipe Savr
   // sans motif (décisions Val 2026-10-23, B1-Q1 et B1-Q3).
   const [infosModal, setInfosModal] = useState(false);
-  // Nombre de repas réalisés AG, saisi ou corrigé par l'équipe Savr (§06.09 §5) :
-  // motif obligatoire sur correction d'une valeur déjà posée.
-  const [repasModal, setRepasModal] = useState(false);
-  const [repasValeur, setRepasValeur] = useState('');
-  const [repasMotif, setRepasMotif] = useState('');
-  const [repasSubmitting, setRepasSubmitting] = useState(false);
-  const [repasError, setRepasError] = useState<string | null>(null);
+  // Poids des denrées AG, noté à la main par l'équipe Savr (§06.09 §5) : le
+  // nombre de repas réalisés en est calculé en base ; motif obligatoire pour
+  // corriger un poids déjà posé.
+  const [poidsModal, setPoidsModal] = useState(false);
+  const [poidsValeur, setPoidsValeur] = useState('');
+  const [poidsMotif, setPoidsMotif] = useState('');
+  const [poidsSubmitting, setPoidsSubmitting] = useState(false);
+  const [poidsError, setPoidsError] = useState<string | null>(null);
   const [infosType, setInfosType] = useState('');
   const [infosCpNom, setInfosCpNom] = useState('');
   const [infosCpTel, setInfosCpTel] = useState('');
@@ -1461,37 +1463,37 @@ export function CollecteDetailPanel({
     setAcceptationSubmitting(false);
   };
 
-  const openRepasModal = () => {
-    const actuel = collecte?.attributions_antgaspi?.volume_repas_realise;
-    setRepasValeur(actuel != null ? String(actuel) : '');
-    setRepasMotif('');
-    setRepasError(null);
-    setRepasModal(true);
+  const openPoidsModal = () => {
+    const actuel = collecte?.attributions_antgaspi?.poids_repas_kg;
+    setPoidsValeur(actuel != null ? String(actuel) : '');
+    setPoidsMotif('');
+    setPoidsError(null);
+    setPoidsModal(true);
   };
 
-  const handleSaveRepas = async (e: React.FormEvent) => {
+  const handleSavePoids = async (e: React.FormEvent) => {
     e.preventDefault();
-    setRepasSubmitting(true);
-    setRepasError(null);
+    setPoidsSubmitting(true);
+    setPoidsError(null);
     const res = await fetch(
-      `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/repas`,
+      `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/poids`,
       {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          volume_repas_realise: Number(repasValeur),
-          motif: repasMotif,
+          poids_repas_kg: Number(poidsValeur.replace(',', '.')),
+          motif: poidsMotif,
         }),
       },
     );
     if (res.ok) {
       await refetch();
-      setRepasModal(false);
+      setPoidsModal(false);
     } else {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
-      setRepasError(body.error ?? 'Enregistrement impossible');
+      setPoidsError(body.error ?? 'Enregistrement impossible');
     }
-    setRepasSubmitting(false);
+    setPoidsSubmitting(false);
   };
 
   const openEditPesees = () => {
@@ -1725,7 +1727,7 @@ export function CollecteDetailPanel({
     nbCamionsModal ||
     paxModal ||
     infosModal ||
-    repasModal ||
+    poidsModal ||
     acceptationModal;
   if (blockCloseRef) blockCloseRef.current = anySubModalOpen;
 
@@ -2475,25 +2477,35 @@ export function CollecteDetailPanel({
                         <InfoItem label="Volume de repas estimés">
                           {collecte.volume_estime_repas ?? '—'}
                         </InfoItem>
-                        {repasRealisesConnus && (
-                          <InfoItem label="Volume de repas réalisés">
-                            {collecte.statut === 'realisee_sans_collecte' ? (
-                              LIBELLE_SANS_EXCEDENT
-                            ) : (
+                        {repasRealisesConnus &&
+                          collecte.statut !== 'realisee_sans_collecte' && (
+                            <InfoItem label="Poids collecté">
                               <span className="flex flex-wrap items-center gap-3">
-                                <span data-testid="repas-realises-valeur">
+                                <span data-testid="poids-collecte-valeur">
                                   {collecte.attributions_antgaspi
-                                    ?.volume_repas_realise ?? '—'}
+                                    ?.poids_repas_kg != null
+                                    ? fmtKgAuto(
+                                        collecte.attributions_antgaspi
+                                          .poids_repas_kg,
+                                      )
+                                    : '—'}
                                 </span>
                                 <Button
                                   size="sm"
                                   variant="secondary"
-                                  onClick={openRepasModal}
+                                  onClick={openPoidsModal}
                                 >
                                   Modifier
                                 </Button>
                               </span>
-                            )}
+                            </InfoItem>
+                          )}
+                        {repasRealisesConnus && (
+                          <InfoItem label="Volume de repas réalisés">
+                            {collecte.statut === 'realisee_sans_collecte'
+                              ? LIBELLE_SANS_EXCEDENT
+                              : (collecte.attributions_antgaspi
+                                  ?.volume_repas_realise ?? '—')}
                           </InfoItem>
                         )}
                       </div>
@@ -3753,49 +3765,48 @@ export function CollecteDetailPanel({
         )}
       </ConfirmDialog>
 
-      {/* Modale — Nombre de repas réalisés AG (§06.09 §5) */}
+      {/* Modale — Poids collecté AG (§06.09 §5) */}
       <Modal
-        open={repasModal}
-        title="Volume de repas réalisés"
-        onClose={() => setRepasModal(false)}
+        open={poidsModal}
+        title="Poids collecté"
+        onClose={() => setPoidsModal(false)}
       >
-        {repasError && (
+        {poidsError && (
           <AlertBar variant="err" className="mb-4">
-            {repasError}
+            {poidsError}
           </AlertBar>
         )}
-        <form onSubmit={(e) => void handleSaveRepas(e)} className="space-y-4">
+        <form onSubmit={(e) => void handleSavePoids(e)} className="space-y-4">
           <Text>
-            Le rapport de don déjà produit est refait avec ce nombre, et le CO₂e
-            évité recalculé. L&apos;action est tracée dans l&apos;audit.
+            Le nombre de repas réalisés est calculé à partir de ce poids. Le
+            rapport de don déjà produit est refait, et le CO₂e évité recalculé.
           </Text>
           <FormField
-            label="Nombre de repas réalisés"
-            htmlFor="repas-realises-input"
+            label="Poids des denrées collectées (kg)"
+            htmlFor="poids-collecte-input"
             required
           >
             <Input
-              id="repas-realises-input"
+              id="poids-collecte-input"
               type="number"
-              inputMode="numeric"
-              min={0}
-              max={100000}
-              step={1}
-              value={repasValeur}
-              onChange={(e) => setRepasValeur(e.target.value)}
+              inputMode="decimal"
+              min={0.01}
+              step={0.01}
+              value={poidsValeur}
+              onChange={(e) => setPoidsValeur(e.target.value)}
               required
             />
           </FormField>
-          {collecte.attributions_antgaspi?.volume_repas_realise != null && (
+          {collecte.attributions_antgaspi?.poids_repas_kg != null && (
             <FormField
               label="Motif de la correction (≥ 10 caractères)"
-              htmlFor="repas-realises-motif"
+              htmlFor="poids-collecte-motif"
               required
             >
               <Textarea
-                id="repas-realises-motif"
-                value={repasMotif}
-                onChange={(e) => setRepasMotif(e.target.value)}
+                id="poids-collecte-motif"
+                value={poidsMotif}
+                onChange={(e) => setPoidsMotif(e.target.value)}
                 rows={3}
                 minLength={10}
                 required
@@ -3803,15 +3814,15 @@ export function CollecteDetailPanel({
             </FormField>
           )}
           <FormActions
-            cancel={{ label: 'Retour', onClick: () => setRepasModal(false) }}
+            cancel={{ label: 'Retour', onClick: () => setPoidsModal(false) }}
             submit={{
               label: 'Enregistrer',
               disabled:
-                repasValeur.trim() === '' ||
-                (collecte.attributions_antgaspi?.volume_repas_realise != null &&
-                  repasMotif.trim().length < 10),
+                !(Number(poidsValeur.replace(',', '.')) > 0) ||
+                (collecte.attributions_antgaspi?.poids_repas_kg != null &&
+                  poidsMotif.trim().length < 10),
             }}
-            loading={repasSubmitting}
+            loading={poidsSubmitting}
             loadingText="Enregistrement…"
             bordered
           />

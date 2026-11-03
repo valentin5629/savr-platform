@@ -3463,9 +3463,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         valeurResumeAttribution('Volume de repas estimés'),
       ).toHaveTextContent(/^50$/);
       expect(
-        within(valeurResumeAttribution('Volume de repas réalisés')).getByTestId(
-          'repas-realises-valeur',
-        ),
+        valeurResumeAttribution('Volume de repas réalisés'),
       ).toHaveTextContent(/^42$/);
       // L'attribution se fait dans la fiche (décision Val 2026-10-01) : plus de
       // lien vers un écran dédié.
@@ -3480,49 +3478,88 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
-  // Saisie Admin du nombre de repas réalisés (§06.09 §5) : correction d'une
-  // valeur posée = motif obligatoire, envoyé à la route /repas.
+  // Poids des denrées AG noté à la main par l'équipe Savr (§06.09 §5) : le
+  // nombre de repas en est calculé en base, il reste en lecture seule.
   it(
-    'M0.6/repas_realises_saisie_admin — « Modifier » corrige le volume réalisé avec motif',
+    'M0.6/poids_ag_saisie_admin — 1re saisie du poids sans motif, envoyée à la route /poids',
     async () => {
       const fetchMock = installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
       await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
 
-      fireEvent.click(
-        within(valeurResumeAttribution('Volume de repas réalisés')).getByRole(
+      const poids = valeurResumeAttribution('Poids collecté');
+      expect(
+        within(poids).getByTestId('poids-collecte-valeur'),
+      ).toHaveTextContent(/^—$/);
+      // Le nombre de repas ne se saisit pas : seul le poids a un bouton.
+      expect(
+        within(valeurResumeAttribution('Volume de repas réalisés')).queryByRole(
           'button',
-          { name: 'Modifier' },
         ),
-      );
+      ).toBeNull();
+
+      fireEvent.click(within(poids).getByRole('button', { name: 'Modifier' }));
       const champ = await screen.findByLabelText(
-        /Nombre de repas réalisés/,
+        /Poids des denrées collectées/,
         undefined,
         ATTENTE_UI,
       );
-      expect(champ).toHaveValue(42);
-      fireEvent.change(champ, { target: { value: '40' } });
-      const enregistrer = screen.getByRole('button', { name: 'Enregistrer' });
-      // Valeur déjà posée : sans motif, pas d'envoi possible.
-      expect(enregistrer).toBeDisabled();
-      fireEvent.change(screen.getByLabelText(/Motif de la correction/), {
-        target: { value: 'Comptage association reçu' },
-      });
-      fireEvent.click(enregistrer);
+      // 1re saisie : pas de motif demandé.
+      expect(screen.queryByLabelText(/Motif de la correction/)).toBeNull();
+      fireEvent.change(champ, { target: { value: '18.9' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
       await waitFor(() => {
         const patch = fetchMock.mock.calls.find(
           ([url, init]) =>
-            String(url).endsWith('/attributions-ag/c1/repas') &&
+            String(url).endsWith('/attributions-ag/c1/poids') &&
             init?.method === 'PATCH',
         );
         expect(patch).toBeDefined();
         expect(JSON.parse(String(patch?.[1]?.body))).toEqual({
-          volume_repas_realise: 40,
-          motif: 'Comptage association reçu',
+          poids_repas_kg: 18.9,
+          motif: '',
         });
       }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/poids_ag_correction_admin — corriger un poids déjà posé exige un motif',
+    async () => {
+      installMock({
+        collecte: {
+          ...baseAg,
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            poids_repas_kg: 18.9,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
+
+      const poids = valeurResumeAttribution('Poids collecté');
+      expect(
+        within(poids).getByTestId('poids-collecte-valeur'),
+      ).toHaveTextContent(/^18,9\s?kg$/);
+      fireEvent.click(within(poids).getByRole('button', { name: 'Modifier' }));
+      const champ = await screen.findByLabelText(
+        /Poids des denrées collectées/,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(champ).toHaveValue(18.9);
+      fireEvent.change(champ, { target: { value: '20' } });
+      const enregistrer = screen.getByRole('button', { name: 'Enregistrer' });
+      expect(enregistrer).toBeDisabled();
+      fireEvent.change(screen.getByLabelText(/Motif de la correction/), {
+        target: { value: 'Pesée relue sur les photos' },
+      });
+      expect(enregistrer).toBeEnabled();
     },
     ATTENTE_CAS_MS,
   );

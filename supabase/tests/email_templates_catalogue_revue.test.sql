@@ -4,6 +4,8 @@
 -- Verrouille ce que la revue a validé (migration 20261029150000) : quels gabarits
 -- partent encore, lesquels sont désactivés, et la cohérence de chaque gabarit
 -- actif (variables déclarées, blocs conditionnels, signature).
+-- admin_demande_annulation désactivé ensuite (annulation cliente directe, Val
+-- 2026-11-02, migration 20261103090000) : 18 actifs, 15 désactivés (CDC §06.02).
 -- =============================================================================
 
 BEGIN;
@@ -12,7 +14,7 @@ SELECT plan(10);
 SELECT is(
   (SELECT array_agg(code ORDER BY code) FROM plateforme.email_templates WHERE actif),
   ARRAY[
-    'admin_collecte_annulee','admin_demande_ajout_lieu','admin_demande_annulation',
+    'admin_collecte_annulee','admin_demande_ajout_lieu',
     'admin_demande_renouvellement_pack','admin_incident_collecte',
     'admin_modification_collecte_traiteur','admin_pack_ag_etat',
     'ag_attribution_association','annulation_collecte','attestation_don_disponible',
@@ -20,18 +22,19 @@ SELECT is(
     'collecte_programmee_tiers','infos_acces_collecte','invitation_utilisateur',
     'rapport_disponible','siret_verification_echec','verification_email'
   ]::text[],
-  'les 19 gabarits actifs sont exactement ceux que la revue a gardés'
+  'les 18 gabarits actifs sont exactement ceux du catalogue §06.02'
 );
 
 SELECT is(
   (SELECT array_agg(code ORDER BY code) FROM plateforme.email_templates WHERE NOT actif),
   ARRAY[
+    'admin_demande_annulation',
     'ag_a_toutes_indispo','ag_attribution_transporteur','alerte_ops_collecte_non_transmise',
     'alerte_ops_pesee_anormale','attribution_association','attribution_transporteur',
     'avoir_emis','collecte_realisee','confirmation_collecte','facture_emise',
     'facture_relance_j15','pack_ag_active','rappel_collecte_j3','reset_password'
   ]::text[],
-  'les 14 gabarits écartés par la revue sont désactivés (pas supprimés)'
+  'les 15 gabarits écartés sont désactivés (pas supprimés)'
 );
 
 -- Toute variable citée (objet ou corps) est déclarée, et inversement.

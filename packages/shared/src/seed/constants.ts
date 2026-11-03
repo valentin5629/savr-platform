@@ -42,7 +42,8 @@ export const SEED_EMAIL_DOMAIN = 'savr-test.local';
 // Ref dev hard-codée — garde-fou prod
 export const DEV_PROJECT_REF = 'nvbyuajdvtuezcvyxtkd';
 
-// Codes des templates email actifs seedés en migrations (bloc8 + ajouts par lot).
+// Codes des templates email seedés en migrations (bloc8 + ajouts par lot), actifs
+// ou désactivés (`actif = false`, lignes conservées : catalogue CDC §06.02).
 // Documentaire — référence emails_envoyes.template_code (pas de FK) ; la DB fait
 // foi. Maintenu additivement par lot (dé-stalé R22f : bloc8 ne couvrait que les 19
 // premiers ; les ajouts M1.2/M2.3/M3.1/R16a/R17/R19 + les 4 R22f manquaient).
@@ -73,7 +74,7 @@ export const EMAIL_TEMPLATE_CODES = [
   'ag_attribution_transporteur', // M2.3
   'ag_a_toutes_indispo', // M2.3
   'admin_demande_renouvellement_pack', // M3.1
-  'admin_demande_annulation', // M3.1
+  'admin_demande_annulation', // M3.1 — désactivé 2026-11-02 (annulation cliente directe)
   'admin_incident_collecte', // R16a
   'admin_demande_ajout_lieu', // R17
   'admin_modification_collecte_traiteur', // R19

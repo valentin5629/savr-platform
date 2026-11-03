@@ -179,6 +179,11 @@ interface RecoAlgo {
   transporteur: { id: string; nom: string; type_tms: string } | null;
   no_asso: boolean;
   no_prestataire: boolean;
+  // Services au choix par type de transporteur (A Toutes!, Val 2026-11-03).
+  services_par_type_tms?: Record<
+    string,
+    { branche: string; libelle: string }[]
+  >;
 }
 
 // Statuts DB proposés au forçage manuel (RM-08). `brouillon` n'y est pas : un
@@ -276,6 +281,8 @@ interface CollecteDetail {
   attributions_antgaspi: {
     id: string;
     mode_validation: string;
+    // Branche retenue : désigne le service du transporteur (A Toutes!).
+    branche_attribution?: string | null;
     valide_at: string | null;
     volume_repas_realise: number | null;
     associations: {
@@ -826,6 +833,8 @@ export function CollecteDetailPanel({
     }
   }, [changerPrestataire]);
   const [motifOverride, setMotifOverride] = useState('');
+  // Service du transporteur visé, quand la branche retenue n'en désigne aucun.
+  const [serviceDispatch, setServiceDispatch] = useState('');
   const [reco, setReco] = useState<RecoAlgo | null>(null);
   // RM-08 — forçage manuel du statut
   const [forceStatutModal, setForceStatutModal] = useState(false);
@@ -1242,6 +1251,9 @@ export function CollecteDetailPanel({
         body.type_vehicule_souhaite = typeVehiculeSaisi || null;
       }
     }
+    if (serviceDispatchRequis) {
+      body.branche_attribution = serviceDispatch;
+    }
     if (selected?.prestataire_logistique_id) {
       body.prestataire_logistique_id = selected.prestataire_logistique_id;
       if (motifOverride.trim()) {
@@ -1261,6 +1273,7 @@ export function CollecteDetailPanel({
       setRelecturesRestantes(RELECTURES_MAX);
       setSelectedTransporteurId('');
       setMotifOverride('');
+      setServiceDispatch('');
       setTypeVehiculeSaisi(null);
       setNbVehiculesSaisi(null);
       // Mode « changer » ouvert → il se referme : rendre le focus au bouton
@@ -1801,6 +1814,25 @@ export function CollecteDetailPanel({
         collecte.statut_tms !== 'rejetee_par_prestataire'));
   const overrideMotifManquant =
     overrideActif && motifOverride.trim().length < 5;
+  // AG envoyée à un transporteur qui distingue ses services (A Toutes!) alors
+  // que la branche retenue n'en désigne aucun (Marathon par exemple) : l'Admin
+  // choisit le service avant l'envoi (décision Val 2026-11-03). Sans lui,
+  // l'envoi échouait en définitif (vécu le 2026-11-02).
+  const typeTmsVise =
+    selectedTransporteur?.type_tms ?? currentTransporteur?.type_tms ?? null;
+  const servicesVise =
+    (collecte.type === 'anti_gaspi' &&
+      collecte.attributions_antgaspi != null &&
+      typeTmsVise &&
+      reco?.services_par_type_tms?.[typeTmsVise]) ||
+    [];
+  const serviceDispatchRequis =
+    servicesVise.length > 0 &&
+    !servicesVise.some(
+      (sv) =>
+        sv.branche === collecte.attributions_antgaspi?.branche_attribution,
+    );
+  const serviceDispatchManquant = serviceDispatchRequis && !serviceDispatch;
   // Acceptation manuelle : collecte chez A Toutes!, non terminale, sans
   // référence de mission encore enregistrée (sinon elle est déjà « transmise »).
   const acceptationManuellePossible =
@@ -2526,11 +2558,12 @@ export function CollecteDetailPanel({
                                   coche || (aucuneCarteCochee && i === 0)
                                 }
                                 // Re-choisir le prestataire actuel = le conserver ('').
-                                onSelect={() =>
+                                onSelect={() => {
                                   setSelectedTransporteurId(
                                     estActuel ? '' : t.id,
-                                  )
-                                }
+                                  );
+                                  setServiceDispatch('');
+                                }}
                                 titre={t.nom}
                                 detail={libelleTypeTms(t.type_tms)}
                                 badges={
@@ -2576,6 +2609,29 @@ export function CollecteDetailPanel({
                       )}
                     </div>
                   )}
+
+                {!isTerminal && !dispatchEnLecture && serviceDispatchRequis && (
+                  <FormField
+                    label="Service du transporteur"
+                    htmlFor="dispatch-service"
+                    required
+                  >
+                    <Combobox
+                      id="dispatch-service"
+                      searchable={false}
+                      required
+                      options={[
+                        { value: '', label: 'Choisir un service…' },
+                        ...servicesVise.map((sv) => ({
+                          value: sv.branche,
+                          label: sv.libelle,
+                        })),
+                      ]}
+                      value={serviceDispatch}
+                      onChange={setServiceDispatch}
+                    />
+                  </FormField>
+                )}
 
                 {/* Bouton d'envoi TMS forké par type_tms (+ acceptation manuelle
               A Toutes! quand Everest est indisponible, §06.06 §3 Bloc 0) */}
@@ -2648,6 +2704,7 @@ export function CollecteDetailPanel({
                           disabled={
                             isTerminal ||
                             overrideMotifManquant ||
+                            serviceDispatchManquant ||
                             prestataireAChoisir
                           }
                           onClick={() => void handleDispatch()}

@@ -11,6 +11,7 @@ import {
   ecrireBesoinVehicule,
   refusBesoinVehicule,
 } from '@/lib/collectes/besoin-vehicule.js';
+import { brancheCompatible } from '@savr/adapters/src/services-transporteur.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche, la moitié du bail de réservation des ordres. Elle ne borne pas
@@ -83,6 +84,35 @@ async function postHandler(
   const typeVehicule = body.type_vehicule_souhaite;
   const refusBesoin = refusBesoinVehicule(body);
   if (refusBesoin) return refusBesoin;
+
+  // Transporteur qui distingue ses services (A Toutes!) : la branche doit en
+  // désigner un. L'Admin le choisit quand il force ce transporteur (décision
+  // Val 2026-11-03) ; sans lui, l'envoi échouait en définitif (2026-11-02).
+  {
+    const { data: transp, error: errTransp } = await createAdminSupabaseClient()
+      .from('transporteurs')
+      .select('type_tms')
+      .eq('id', transporteur_id)
+      .limit(1);
+    if (errTransp) {
+      return serverError(
+        errTransp,
+        'admin.attributions_ag.valider.transporteur',
+      );
+    }
+    const typeTms = Array.isArray(transp)
+      ? (transp[0] as { type_tms?: string } | undefined)?.type_tms
+      : undefined;
+    if (!brancheCompatible(typeTms, branche_attribution)) {
+      return NextResponse.json(
+        {
+          error:
+            'Choisissez le service du transporteur avant de valider : la branche calculée ne correspond à aucun de ses services.',
+        },
+        { status: 422 },
+      );
+    }
+  }
 
   // Besoin véhicule : posé avant l'event de dispatch (émis par la RPC ci-dessous).
   // Les écritures précèdent les gardes de la RPC (P0042/P0043/P0044) et ne sont

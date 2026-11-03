@@ -2394,7 +2394,7 @@ export class AdapterMts1 implements LogistiqueProvider {
   // n'a pas de champ dédié → il figure dans le `comment` de la commande
   // (arbitrage Val 2026-09-14, §08 l.393-397 : « sans quoi le chauffeur a un
   // numéro de secours sans savoir qui appeler »), composé en AMONT par
-  // `composerCommentaireTransporteur` (fetchCollecte), donc pour les DEUX
+  // `composerCommentairesTransporteur` (worker, ligne « Contact 2 »), donc pour les DEUX
   // adapters — garde-fou 2 : ne pas le refaire ici. On ne dispose que d'un
   // `nom` complet → 1er mot = firstname, reste = lastname (cf. contactMts1).
   private buildContact(
@@ -2510,11 +2510,10 @@ export class AdapterMts1 implements LogistiqueProvider {
       place: this.buildPlace(collecte),
       ...(contact ? { contact } : {}),
       stuffs,
-      // BL-P1-PROG-03 : informations_supplementaires → `comment` MTS-1 (§08 l.389),
-      // pour que les instructions logistiques du programmeur atteignent le prestataire
-      // (M01/M03/M05). Le champ porte le commentaire au transporteur composé par
-      // fetchCollecte (format décidé par Val le 2026-10-15 : traiteur, pax,
-      // instructions d'accès, contacts, livraison — cf. infos-acces.ts).
+      // BL-P1-PROG-03 : informations_supplementaires → `comment` MTS-1 (§08 l.389).
+      // Le champ porte les commentaires au transporteur composés par le worker
+      // (format Val 2026-11-03 : consigne, véhicules, Départ, Arrivée réunis —
+      // MTS-1 n'a pas de commentaire par adresse ; cf. infos-acces.ts).
       // controle_acces_requis n'a pas de champ natif MTS-1 (concern V2 TMS
       // via validate_tournee_controle_acces) → hors payload sortant V1.
       ...(collecte.informations_supplementaires

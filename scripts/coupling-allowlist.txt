@@ -295,3 +295,9 @@ supabase/tests/pax_collecte_lot_c2.test.sql
 # 'mts1'/'adapter_mts1' (valeur enum type_tms → consumer). Aucun appel HTTP transporteur :
 # la fonction émet un event outbox, l'adapter le consomme. 'customerOrders' banni.
 supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql
+# Région du lieu déduite du code postal (2026-11-03, choix C1 Val) : corps de
+# fn_calculer_algo_attribution_ag de 20261025100000 recopié VERBATIM hors la ligne
+# v_region (repli sur le code postal) et la clé region_inconnue du résultat. Mêmes
+# 'mts1'/'Everest' (valeur enum type_tms + commentaires de branches existants) ;
+# aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/migrations/20261103170000_plateforme_algo_ag_region_depuis_code_postal.sql

@@ -9,6 +9,7 @@ import {
   refusBesoinVehicule,
   type BesoinVehicule,
 } from '@/lib/collectes/besoin-vehicule.js';
+import { brancheCompatible } from '@savr/adapters/src/services-transporteur.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche, la moitié du bail de réservation des ordres. Elle ne borne pas
@@ -90,6 +91,12 @@ export async function POST(
   const { id } = await params;
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const { prestataire_logistique_id, motif_override_prestataire } = body;
+  // Service choisi par l'Admin quand le transporteur visé en distingue et que
+  // la branche retenue n'en désigne aucun (A Toutes!, décision Val 2026-11-03).
+  const brancheChoisie =
+    typeof body.branche_attribution === 'string'
+      ? body.branche_attribution
+      : null;
   // Besoin véhicule saisi au choix du prestataire (décision Val 2026-10-27) :
   // envoyé seulement s'il a changé, écrit avant l'event de dispatch.
   const besoin: BesoinVehicule = {
@@ -143,11 +150,13 @@ export async function POST(
   // Val 2026-10-01) — son adresse est le point B transmis au prestataire par
   // l'adapter. Sans attribution, l'ordre partirait sans adresse de livraison :
   // on refuse l'envoi tant que l'association n'est pas attribuée (§06.09 §3).
+  let attributionAg: { id: string; branche_attribution: string | null } | null =
+    null;
   if (c.type === 'anti_gaspi') {
     // (association_id NOT NULL : la ligne existe ⇔ l'association est attribuée)
     const { data: attribution, error: attrErr } = await supabase
       .from('attributions_antgaspi')
-      .select('id')
+      .select('id, branche_attribution')
       .eq('collecte_id', id)
       .maybeSingle();
     if (attrErr) {
@@ -162,6 +171,10 @@ export async function POST(
         { status: 422 },
       );
     }
+    attributionAg = attribution as {
+      id: string;
+      branche_attribution: string | null;
+    };
   }
 
   // ZD : l'Admin choisit le prestataire sur la fiche (décision Val 2026-10-07).
@@ -276,6 +289,58 @@ export async function POST(
       'admin.collectes.dispatch',
     );
     if (refusEcriture) return refusEcriture;
+  }
+
+  // AG vers un transporteur qui distingue ses services (A Toutes!) : la branche
+  // retenue doit en désigner un, sinon l'envoi échoue en définitif (vécu le
+  // 2026-11-02 : branche Marathon gardée en forçant A Toutes!). L'Admin choisit
+  // alors le service, rangé comme branche retenue AVANT l'ordre d'envoi, que
+  // l'adapter lit à la consommation (décision Val 2026-11-03).
+  if (attributionAg) {
+    const prestaVise =
+      (typeof prestataire_logistique_id === 'string' &&
+        prestataire_logistique_id) ||
+      c.prestataire_logistique_id;
+    let typeTms: string | undefined;
+    if (prestaVise) {
+      const { data: tv, error: tvErr } = await supabase
+        .from('transporteurs')
+        .select('type_tms')
+        .eq('prestataire_logistique_id', prestaVise)
+        .limit(1);
+      if (tvErr) {
+        return serverError(tvErr, 'admin.collectes.dispatch.service');
+      }
+      typeTms = Array.isArray(tv)
+        ? (tv[0] as { type_tms?: string } | undefined)?.type_tms
+        : undefined;
+    }
+    if (!brancheCompatible(typeTms, attributionAg.branche_attribution)) {
+      if (!brancheChoisie || !brancheCompatible(typeTms, brancheChoisie)) {
+        return NextResponse.json(
+          {
+            error:
+              'Choisissez le service du transporteur : la branche retenue ne correspond à aucun de ses services.',
+          },
+          { status: 422 },
+        );
+      }
+      const { error: majErr } = await supabase
+        .from('attributions_antgaspi')
+        .update({ branche_attribution: brancheChoisie })
+        .eq('id', attributionAg.id);
+      if (majErr) {
+        return serverError(majErr, 'admin.collectes.dispatch.service');
+      }
+      await supabase.from('audit_log').insert({
+        table_name: 'attributions_antgaspi',
+        record_id: attributionAg.id,
+        action: 'SERVICE_TRANSPORTEUR',
+        user_id: auth.ctx.userId,
+        old_values: { branche_attribution: attributionAg.branche_attribution },
+        new_values: { branche_attribution: brancheChoisie },
+      });
+    }
   }
 
   // fn_dispatcher_collecte : UPDATE collecte + outbox E1/E2 dans la même transaction (G4)

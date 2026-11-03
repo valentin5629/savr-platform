@@ -426,6 +426,181 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     ATTENTE_CAS_MS,
   );
 
+  // Même décision, depuis le bloc d'envoi d'une AG déjà attribuée (branche
+  // Marathon) : choisir la carte A Toutes! fait demander le service, envoyé
+  // avec l'ordre comme branche retenue.
+  it(
+    'M0.6/dispatch_service_a_toutes — AG attribuée sur une branche Marathon, carte A Toutes! cochée : service demandé avant l’envoi',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        attributions_antgaspi: {
+          ...collecteAg.attributions_antgaspi,
+          branche_attribution: 'ag_marathon_volume',
+        },
+      });
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(async (url, opts) => {
+        const r = (await base(url, opts)) as {
+          ok: boolean;
+          json: () => Promise<{ data: object }>;
+        };
+        if (!String(url).includes('/recommandation')) return r;
+        const { data } = await r.json();
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              ...data,
+              services_par_type_tms: {
+                a_toutes: [
+                  {
+                    branche: 'ag_velo_programme',
+                    libelle: 'Vélo cargo programmé',
+                  },
+                  {
+                    branche: 'ag_marathon_volume_backup_camion',
+                    libelle: 'Camion',
+                  },
+                ],
+              },
+            },
+          }),
+        };
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      fireEvent.click(
+        await screen.findByRole('radio', { name: /A Toutes!/ }, ATTENTE_UI),
+      );
+      fireEvent.change(
+        await screen.findByLabelText(/Motif override/, undefined, ATTENTE_UI),
+        {
+          target: { value: 'Marathon indisponible' },
+        },
+      );
+      const envoyer = await screen.findByRole(
+        'button',
+        { name: /^Envoyer à A Toutes!/ },
+        ATTENTE_UI,
+      );
+      expect(envoyer).toBeDisabled();
+
+      fireEvent.click(
+        screen.getByRole('combobox', { name: /Service du transporteur/ }),
+      );
+      fireEvent.click(screen.getByRole('option', { name: 'Camion' }));
+      await waitFor(() => expect(envoyer).not.toBeDisabled(), ATTENTE_UI);
+      fireEvent.click(envoyer);
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(([u]) =>
+          String(u).includes('/dispatch'),
+        );
+        expect(post).toBeTruthy();
+        const body = JSON.parse(
+          String((post![1] as { body: string }).body),
+        ) as Record<string, unknown>;
+        expect(body.prestataire_logistique_id).toBe('presta-atoutes');
+        expect(body.branche_attribution).toBe(
+          'ag_marathon_volume_backup_camion',
+        );
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Décision Val 2026-11-03 : A Toutes! forcé alors que la branche calculée
+  // (Marathon) ne désigne aucun de ses services → l'Admin choisit le service,
+  // qui part comme branche retenue (cas du 2026-11-02 : échec d'envoi).
+  it(
+    'M0.6/attribution_service_a_toutes — A Toutes! forcé sur une branche Marathon : service demandé, puis envoyé comme branche',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        attributions_antgaspi: null,
+      });
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(async (url, opts) => {
+        const r = (await base(url, opts)) as {
+          ok: boolean;
+          json: () => Promise<{ data: object }>;
+        };
+        if (!String(url).includes('/recommandation')) return r;
+        const { data } = await r.json();
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              ...data,
+              branche: 'ag_marathon_volume',
+              services_par_type_tms: {
+                a_toutes: [
+                  {
+                    branche: 'ag_velo_programme',
+                    libelle: 'Vélo cargo programmé',
+                  },
+                  {
+                    branche: 'ag_marathon_volume_backup_camion',
+                    libelle: 'Camion',
+                  },
+                ],
+              },
+            },
+          }),
+        };
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      // Transporteur recommandé (MTS-1) : aucun service demandé.
+      await screen.findByRole('combobox', { name: 'Transporteur' }, ATTENTE_UI);
+      expect(
+        screen.queryByRole('combobox', { name: /Service du transporteur/ }),
+      ).toBeNull();
+
+      fireEvent.click(screen.getByRole('combobox', { name: 'Transporteur' }));
+      fireEvent.click(
+        await screen.findByRole('option', { name: 'A Toutes!' }, ATTENTE_UI),
+      );
+      fireEvent.click(screen.getByRole('combobox', { name: 'Motif' }));
+      fireEvent.click(
+        screen.getByRole('option', { name: 'Transporteur top 1 indisponible' }),
+      );
+      const valider = await screen.findByRole(
+        'button',
+        { name: /^Valider et envoyer à A Toutes!/ },
+        ATTENTE_UI,
+      );
+      expect(valider).toBeDisabled();
+
+      fireEvent.click(
+        screen.getByRole('combobox', { name: /Service du transporteur/ }),
+      );
+      fireEvent.click(screen.getByRole('option', { name: 'Camion' }));
+      await waitFor(() => expect(valider).not.toBeDisabled(), ATTENTE_UI);
+      fireEvent.click(valider);
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          ([u, o]) =>
+            String(u).includes('/valider') &&
+            (o as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        const body = JSON.parse(
+          String((post![1] as { body: string }).body),
+        ) as Record<string, unknown>;
+        expect(body.transporteur_id).toBe('t-atoutes');
+        expect(body.branche_attribution).toBe(
+          'ag_marathon_volume_backup_camion',
+        );
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'M0.6 — attribution validée sur un autre transporteur : le bloc dispatch coche l’actuel, jamais le recommandé',
     async () => {

@@ -4,6 +4,7 @@ import { requireStaff } from '@/lib/api-auth.js';
 import { withApiTrace, serverError } from '@/lib/api-helpers.js';
 import { calculerAlgoAttributionAg } from '@/lib/attribution-ag/algo.js';
 import { emettreAlertesAttributionSansOption } from '@/lib/attribution-ag/notif-alerte.js';
+import { servicesParTypeTms } from '@savr/adapters/src/services-transporteur.js';
 
 // GET /api/v1/admin/attributions-ag/[collecteId]/recommandation
 // Lance le moteur algo et retourne les suggestions associations + branche transporteur
@@ -31,7 +32,12 @@ async function getHandler(
       ).catch(() => undefined);
     }
 
-    return NextResponse.json({ data: result });
+    // Services au choix quand l'Admin force un transporteur qui en distingue
+    // (A Toutes!, décision Val 2026-11-03) : l'écran ne connaît pas les
+    // prestataires, il lit la liste ici.
+    return NextResponse.json({
+      data: { ...result, services_par_type_tms: servicesParTypeTms() },
+    });
   } catch (err) {
     // P0030 = `RAISE EXCEPTION … USING ERRCODE = 'P0030'` de la RPC. Le CODE est
     // l'oracle (le message, lui, est neutralisé par `erreurInterne`).

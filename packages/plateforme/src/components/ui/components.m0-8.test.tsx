@@ -463,7 +463,7 @@ it('M0.8-14 — DataTable affiche les données en colonnes sur desktop', () => {
 it('M0.8-15 — Sidebar affiche le fond primary-700/800 (levier #2)', () => {
   const { container } = render(<Sidebar role="admin_savr" />);
   const nav = container.querySelector('nav')!;
-  expect(nav.className).toContain('bg-savr-primary-800');
+  expect(nav.className).toContain('bg-savr-primary-700');
 });
 
 // ── Navigation par rôle (tests sur la config — §8 §9 Design System) ─────────

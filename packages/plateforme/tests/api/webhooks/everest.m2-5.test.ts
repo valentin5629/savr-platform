@@ -91,12 +91,27 @@ let mockInboxExistant: { data: unknown; error: unknown } = {
   data: null,
   error: null,
 };
+// Lectures de liste (collecte à plusieurs courses) : références portées par les
+// tournées de la collecte (défaut : la seule mission de l'event) et les autres
+// missions « en base » ; résultat rendu par chaque fonction SQL appelée.
+let mockRefsTourneesCollecte: Array<string | null> | null = null;
+let mockAutresMissions: Array<{
+  everest_mission_id: string;
+  statut_everest: string;
+}> = [];
+let rpcResultats: Record<string, unknown> = {};
+// Erreur injectée sur la seule lecture de LISTE d'une table (pas sur maybeSingle).
+let readErrorsListe: Record<string, ErreurMock> = {};
 
 beforeEach(() => {
   updateErrors = {};
   readErrors = {};
   rpcError = null;
   mockInboxExistant = { data: null, error: null };
+  mockRefsTourneesCollecte = null;
+  mockAutresMissions = [];
+  rpcResultats = {};
+  readErrorsListe = {};
   mockTransporteurRow = { type_tms: 'a_toutes' };
   mockRefTournee = undefined;
   mockLienAbsent = false;
@@ -114,6 +129,7 @@ beforeEach(() => {
 type Filtre = (row: Record<string, unknown>) => boolean;
 interface UpdateBuilder extends PromiseLike<{ data: unknown; error: unknown }> {
   eq: (col: string, val: unknown) => UpdateBuilder;
+  in: (col: string, vals: unknown[]) => UpdateBuilder;
   not: (col: string, op: string, val: string) => UpdateBuilder;
   select: (cols?: string) => UpdateBuilder;
 }
@@ -144,6 +160,11 @@ function makeUpdate(
       (updateFiltres[table] ??= []).push([col, val]);
       return b;
     },
+    in: (col, vals) => {
+      filtres.push((r) => vals.includes(r[col]));
+      (updateFiltres[table] ??= []).push([col, vals]);
+      return b;
+    },
     not: (col, op, val) => {
       expect(op).toBe('in');
       const liste = val.replace(/[()]/g, '').split(',');
@@ -163,6 +184,37 @@ const makeQuery = (table: string) => {
   q['eq'] = vi.fn().mockReturnThis();
   q['contains'] = vi.fn().mockReturnThis();
   q['limit'] = vi.fn().mockReturnThis();
+  q['in'] = vi.fn().mockReturnThis();
+  // Lecture de liste (attendue sans maybeSingle) : courses d'une collecte.
+  q['then'] = (
+    onOk: (v: { data: unknown; error: unknown }) => unknown,
+    onKo?: (e: unknown) => unknown,
+  ) => {
+    const lire = (): { data: unknown; error: unknown } => {
+      const erreur = readErrorsListe[table] ?? readErrors[table];
+      if (erreur) return { data: null, error: erreur };
+      if (table === 'collecte_tournees') {
+        const refs = mockRefsTourneesCollecte ?? [lastMissionId];
+        return {
+          data: refs.map((r) => ({ tournees: { external_ref_commande: r } })),
+          error: null,
+        };
+      }
+      if (table === 'everest_missions') {
+        const inCalls = (q['in'] as ReturnType<typeof vi.fn>).mock
+          .calls as Array<[string, string[]]>;
+        const voulues = inCalls.at(-1)?.[1] ?? [];
+        return {
+          data: mockAutresMissions.filter((m) =>
+            voulues.includes(m.everest_mission_id),
+          ),
+          error: null,
+        };
+      }
+      return { data: [], error: null };
+    };
+    return Promise.resolve(lire()).then(onOk, onKo);
+  };
 
   q['insert'] = vi.fn((data: unknown) => {
     if (!insertedRows[table]) insertedRows[table] = [];
@@ -251,7 +303,7 @@ const mockSupabase = {
   }),
   rpc: vi.fn(async (name: string, args?: unknown) => {
     rpcCalls.push({ name, args });
-    return { data: null, error: rpcError };
+    return { data: rpcResultats[name] ?? null, error: rpcError };
   }),
 };
 
@@ -880,7 +932,7 @@ describe('M2.5 / webhook Everest — re-fetch API (BL-P0-07)', () => {
     );
   });
 
-  it('mission_finished : re-fetch en échec → aucune valeur payload écrite + trace Ops', async () => {
+  it('mission_finished : re-fetch en échec → aucune valeur payload écrite, trace Ops, 500 et mission NON terminale (la fin de course ferme la tournée : rejeu)', async () => {
     _setEverestHandlers(null);
     setupEverestMock({ getMissionFails: true });
 
@@ -892,13 +944,14 @@ describe('M2.5 / webhook Everest — re-fetch API (BL-P0-07)', () => {
       proof_url: 'https://attacker.example/PAYLOAD2.pdf',
     });
     const resp = await POST(req);
-    expect(resp.status).toBe(200);
+    expect(resp.status).toBe(500);
 
     const missionUpdates = (updatedRows['everest_missions'] ?? []) as Array<
       Record<string, unknown>
     >;
-    // Statut opérationnel maj depuis le signal, mais AUCUN coût/preuve écrit.
-    expect(missionUpdates.length).toBeGreaterThan(0);
+    // Rien de décidé : ni statut terminal, ni coût/preuve du payload.
+    expect(missionUpdates.some((u) => 'statut_everest' in u)).toBe(false);
+    expect(updatedRows['tournees'] ?? []).toEqual([]);
     expect(missionUpdates.some((u) => 'cout_everest_ht' in u)).toBe(false);
     expect(missionUpdates.some((u) => 'preuve_course_url' in u)).toBe(false);
     // Trace Ops pour réconciliation manuelle, sur la route de relecture réelle.
@@ -1115,7 +1168,7 @@ describe('M2.5 / webhook Everest — rejet async avant acceptation (BL-P1-API-04
     expect(alerte).toBeDefined();
   });
 
-  it('mission_failed + déjà acceptee → PAS de rejet (incident, pas un refus)', async () => {
+  it('mission_failed + déjà acceptee → PAS de rejet direct : tournée annulée puis agrégation de la collecte (même règle que MTS-1)', async () => {
     mockCollecteRow = {
       type: 'anti_gaspi',
       statut: 'en_cours',
@@ -1137,6 +1190,10 @@ describe('M2.5 / webhook Everest — rejet async avant acceptation (BL-P1-API-04
         (u) => u['statut_tms'] === 'rejetee_par_prestataire',
       ),
     ).toBe(false);
+    expect(updatedRows['tournees'] ?? []).toContainEqual({ statut: 'annulee' });
+    expect(
+      rpcCalls.some((c) => c.name === 'fn_agreger_terminal_collecte'),
+    ).toBe(true);
   });
 });
 
@@ -2193,6 +2250,434 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
     expect(missionLive).toMatchObject({
       everest_mission_id: 'EVR-NOUVELLE',
       statut_everest: 'created',
+    });
+  });
+});
+
+// ─── Notification réelle A Toutes! : event `mission_status` ────────────────────
+// Mesuré le 2026-11-03 sur le compte de test : `event` vaut TOUJOURS
+// `mission_status`, l'étape est dans `status_slug`. La route relit la mission et
+// choisit le traitement sur la catégorie de l'étape relue (jamais sur le payload).
+
+describe('M2.5 / webhook Everest — notification réelle `mission_status`', () => {
+  let mockState: ReturnType<typeof setupEverestMock>;
+
+  function detail(
+    etape: EverestMissionDetail['etape'],
+    surcharge: Partial<EverestMissionDetail> = {},
+  ): EverestMissionDetail {
+    return {
+      mission_id: 'EVR-MS',
+      status: 'Colis remis',
+      cout_ht: null,
+      preuve_url: null,
+      coursier_nom: null,
+      coursier_telephone: null,
+      vehicule_type: null,
+      statut_code: null,
+      etape,
+      ...surcharge,
+    };
+  }
+
+  // Forme réelle reçue le 2026-11-03 (champs utiles), étape au choix.
+  function notification(statusSlug: string): NextRequest {
+    return makeWebhookRequest({
+      ref: 'EVR-MS',
+      event: 'mission_status',
+      date: '1793707186',
+      status: statusSlug,
+      status_slug: statusSlug,
+      agent_name: 'Coursier Payload',
+      service_id: '71',
+    });
+  }
+
+  function collecteEcriteAvec(champ: string, valeur: string): boolean {
+    return (
+      (updatedRows['collectes'] ?? []) as Array<Record<string, unknown>>
+    ).some((u) => u[champ] === valeur);
+  }
+
+  beforeEach(() => {
+    Object.keys(insertedRows).forEach((k) => delete insertedRows[k]);
+    Object.keys(updatedRows).forEach((k) => delete updatedRows[k]);
+    Object.keys(mockTables).forEach((k) => delete mockTables[k]);
+    delete updateFiltres['tournees'];
+    delete updateFiltres['collectes'];
+    insertedLogs.length = 0;
+    rpcCalls.length = 0;
+    mockInboxInsertResult = { data: { id: 'inbox-001' }, error: null };
+    mockAuditRow = null;
+    vi.stubEnv('EVEREST_WEBHOOK_TOKEN', '');
+    mockMissionRow = {
+      id: 'em-ms',
+      tournee_id: 'tour-ms',
+      collecte_id: 'col-ms',
+      statut_everest: 'created',
+    };
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'programmee',
+      statut_tms: 'attribuee_en_attente_acceptation',
+      nb_camions_demande: 1,
+    };
+    mockState = setupEverestMock();
+  });
+
+  afterEach(() => {
+    _setEverestHandlers(null);
+    vi.restoreAllMocks();
+  });
+
+  it('M2.5/everest_mission_status_inconnu_avant — `mission_status` n’est plus rangé en « event_type_inconnu »', async () => {
+    mockState.details.set('EVR-MS', detail(null));
+    const resp = await POST(notification('nouvelle-mission'));
+    expect(resp.status).toBe(200);
+    expect(
+      insertedLogs.some((l) =>
+        String((l as { erreur?: string }).erreur ?? '').startsWith(
+          'event_type_inconnu',
+        ),
+      ),
+    ).toBe(false);
+    expect(inboxMarqueeTraitee()).toBe(true);
+  });
+
+  it('étape sans catégorie (mission créée) → mission synchronisée seulement, collecte intacte', async () => {
+    mockState.details.set('EVR-MS', detail(null));
+    await POST(notification('nouvelle-mission'));
+    expect(missionEcriteAvec('assigned')).toBe(false);
+    expect(updatedRows['collectes'] ?? []).toEqual([]);
+    expect(
+      (updatedRows['everest_missions'] ?? []).some(
+        (u) => (u as Record<string, unknown>)['derniere_sync_at'] !== undefined,
+      ),
+    ).toBe(true);
+  });
+
+  it('« Mission Affectée » (mission-acceptee, affectee) → mission assigned + collecte acceptee', async () => {
+    mockState.details.set('EVR-MS', detail('affectee'));
+    const resp = await POST(notification('mission-acceptee'));
+    expect(resp.status).toBe(200);
+    expect(missionEcriteAvec('assigned')).toBe(true);
+    expect(collecteEcriteAvec('statut_tms', 'acceptee')).toBe(true);
+  });
+
+  it('« Mission Affectée » : coursier de la mission = nom relu sur l’API, jamais agent_name du payload', async () => {
+    mockState.details.set(
+      'EVR-MS',
+      detail('affectee', { coursier_nom: 'Coursier API' }),
+    );
+    await POST(notification('mission-acceptee'));
+    const ecrits = (
+      (updatedRows['everest_missions'] ?? []) as Array<Record<string, unknown>>
+    )
+      .map((u) => u['coursier_nom'])
+      .filter((v) => v !== undefined);
+    expect(ecrits).toEqual(['Coursier API']);
+  });
+
+  it('« Colis récupéré » (enlevee) → mission in_progress, collecte acceptee puis en_cours (garde programmee/validee)', async () => {
+    mockState.details.set('EVR-MS', detail('enlevee'));
+    await POST(notification('mission-en-cours-de-livraison'));
+    expect(missionEcriteAvec('in_progress')).toBe(true);
+    expect(collecteEcriteAvec('statut_tms', 'acceptee')).toBe(true);
+    expect(collecteEcriteAvec('statut', 'en_cours')).toBe(true);
+    expect(updateFiltres['collectes']).toContainEqual([
+      'statut',
+      ['programmee', 'validee'],
+    ]);
+  });
+
+  it('« Colis récupéré » sur une collecte déjà réalisée → jamais de retour en_cours', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'realisee',
+      statut_tms: 'acceptee',
+      nb_camions_demande: 1,
+    };
+    mockState.details.set('EVR-MS', detail('enlevee'));
+    await POST(notification('mission-en-cours-de-livraison'));
+    // La tentative porte sa garde ; aucune ligne ne la satisfait.
+    expect(appliedRows['collectes'] ?? []).not.toContainEqual({
+      statut: 'en_cours',
+    });
+  });
+
+  it('« Colis remis » (reussie) → tournée terminee (garde sur la mission), agrégation, mission completed écrite en dernier', async () => {
+    rpcResultats['fn_agreger_terminal_collecte'] = 'realisee';
+    mockState.details.set('EVR-MS', detail('reussie'));
+    const resp = await POST(notification('livraison-terminee'));
+    expect(resp.status).toBe(200);
+    expect(updatedRows['tournees'] ?? []).toContainEqual({
+      statut: 'terminee',
+    });
+    expect(updateFiltres['tournees']).toEqual(
+      expect.arrayContaining([
+        ['id', 'tour-ms'],
+        ['external_ref_commande', 'EVR-MS'],
+      ]),
+    );
+    expect(rpcCalls).toContainEqual({
+      name: 'fn_agreger_terminal_collecte',
+      args: { p_collecte_id: 'col-ms' },
+    });
+    expect(collecteEcriteAvec('statut_tms', 'acceptee')).toBe(true);
+    const missions = (updatedRows['everest_missions'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(missions.at(-1)?.['statut_everest']).toBe('completed');
+  });
+
+  it('« Colis remis » : agrégation en échec → 500, inbox NON traitée, mission PAS encore terminale (rejeu possible)', async () => {
+    rpcError = { message: 'agrégation refusée' };
+    mockState.details.set('EVR-MS', detail('reussie'));
+    const resp = await POST(notification('livraison-terminee'));
+    expect(resp.status).toBe(500);
+    expect(inboxMarqueeTraitee()).toBe(false);
+    expect(missionEcriteAvec('completed')).toBe(false);
+  });
+
+  it('« Rien à récupérer » (pas-de-commande) + AG → realisee_sans_collecte, motif = libellé relu', async () => {
+    mockState.details.set(
+      'EVR-MS',
+      detail('echouee', {
+        status: 'Rien à récupérer',
+        statut_code: 'pas-de-commande',
+      }),
+    );
+    await POST(notification('pas-de-commande'));
+    const ecrites = (updatedRows['collectes'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(ecrites).toContainEqual(
+      expect.objectContaining({
+        statut: 'realisee_sans_collecte',
+        aucun_repas_motif: 'Rien à récupérer',
+      }),
+    );
+    expect(missionEcriteAvec('completed_incomplete')).toBe(true);
+  });
+
+  it('« Client Absent » (client-absent-marchandise-refusee, sans catégorie) + AG → realisee_sans_collecte', async () => {
+    mockState.details.set(
+      'EVR-MS',
+      detail(null, {
+        status: 'Client Absent',
+        statut_code: 'client-absent-marchandise-refusee',
+      }),
+    );
+    await POST(notification('client-absent-marchandise-refusee'));
+    expect(collecteEcriteAvec('statut', 'realisee_sans_collecte')).toBe(true);
+  });
+
+  it('« Retour au départ » (echouee) avant acceptation → rejetee_par_prestataire', async () => {
+    mockState.details.set(
+      'EVR-MS',
+      detail('echouee', { status: 'Retour au départ' }),
+    );
+    await POST(notification('retour-au-depart'));
+    expect(collecteEcriteAvec('statut', 'rejetee_par_prestataire')).toBe(true);
+  });
+
+  it('échec d’une course après acceptation, les autres réussies → tournée annulee + alerte « partiellement servie »', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'en_cours',
+      statut_tms: 'acceptee',
+      nb_camions_demande: 2,
+    };
+    rpcResultats['fn_agreger_terminal_collecte'] = 'realisee';
+    mockState.details.set(
+      'EVR-MS',
+      detail('echouee', { status: 'Retour au départ' }),
+    );
+    await POST(notification('retour-au-depart'));
+    expect(updatedRows['tournees'] ?? []).toContainEqual({ statut: 'annulee' });
+    expect(alertePosee('collecte_partiellement_servie')).toBe(true);
+    expect(collecteEcriteAvec('statut', 'rejetee_par_prestataire')).toBe(false);
+  });
+
+  it('« Annulé » (annulee) sans trace d’annulation Savr → annulation externe avant acceptation = rejet', async () => {
+    mockState.details.set('EVR-MS', detail('annulee', { status: 'Annulé' }));
+    await POST(notification('annule'));
+    expect(missionEcriteAvec('cancelled_externally')).toBe(true);
+    expect(collecteEcriteAvec('statut', 'rejetee_par_prestataire')).toBe(true);
+  });
+
+  it('relecture de la course en échec → 500, alerte in-app, inbox NON traitée, rien décidé', async () => {
+    _setEverestHandlers(null);
+    mockState = setupEverestMock({ getMissionFails: true });
+    const resp = await POST(notification('livraison-terminee'));
+    expect(resp.status).toBe(500);
+    expect(alerteNonEnregistre('col-ms')).toBeDefined();
+    expect(inboxMarqueeTraitee()).toBe(false);
+    expect(updatedRows['collectes'] ?? []).toEqual([]);
+    expect(updatedRows['tournees'] ?? []).toEqual([]);
+  });
+
+  it('une seule relecture de la mission par notification, quel que soit le traitement choisi', async () => {
+    const handlers = _getEverestHandlers()!;
+    let relectures = 0;
+    _setEverestHandlers({
+      ...handlers,
+      getMission: async (id) => {
+        relectures += 1;
+        return handlers.getMission(id);
+      },
+    });
+    const cas: Array<[EverestMissionDetail['etape'], string]> = [
+      ['affectee', 'mission-acceptee'],
+      ['enlevee', 'mission-en-cours-de-livraison'],
+      ['reussie', 'livraison-terminee'],
+      ['echouee', 'retour-au-depart'],
+      [null, 'livreur-present-arrivee'],
+    ];
+    for (const [etape, slug] of cas) {
+      relectures = 0;
+      missionLive = null;
+      collecteLive = null;
+      mockState.details.set(
+        'EVR-MS',
+        detail(etape, { coursier_nom: 'Coursier API' }),
+      );
+      await POST(notification(slug));
+      expect(relectures, slug).toBe(1);
+    }
+  });
+
+  it('coursier relu à chaque étape (ici « Livreur présent (départ) ») → écrit sur la tournée, jamais celui du payload', async () => {
+    mockState.details.set(
+      'EVR-MS',
+      detail('enlevee', {
+        coursier_nom: 'Gladstone Emane',
+        coursier_telephone: '+33700000002',
+      }),
+    );
+    await POST(notification('commande-pas-prete-attente'));
+    expect(updatedRows['tournees'] ?? []).toContainEqual({
+      chauffeur_nom: 'Gladstone Emane',
+      chauffeur_telephone: '+33700000002',
+    });
+  });
+
+  it('coursier : collecte annulée côté Savr → rien d’écrit sur la tournée', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'annulee',
+      statut_tms: 'attribuee_en_attente_acceptation',
+      nb_camions_demande: 1,
+    };
+    mockState.details.set(
+      'EVR-MS',
+      detail(null, { coursier_nom: 'Gladstone Emane' }),
+    );
+    await POST(notification('livreur-present-arrivee'));
+    expect(updatedRows['tournees'] ?? []).toEqual([]);
+  });
+
+  describe('collecte à deux vélos (Val 2026-11-03 : acceptée quand tous les vélos sont affectés)', () => {
+    beforeEach(() => {
+      mockCollecteRow = {
+        type: 'anti_gaspi',
+        statut: 'programmee',
+        statut_tms: 'attribuee_en_attente_acceptation',
+        nb_camions_demande: 2,
+      };
+      mockRefsTourneesCollecte = ['EVR-MS', 'EVR-AUTRE'];
+    });
+
+    it('l’autre course n’a pas de coursier → collecte NON acceptée', async () => {
+      mockAutresMissions = [
+        { everest_mission_id: 'EVR-AUTRE', statut_everest: 'created' },
+      ];
+      mockState.details.set('EVR-MS', detail('affectee'));
+      await POST(notification('mission-acceptee'));
+      expect(missionEcriteAvec('assigned')).toBe(true);
+      expect(collecteEcriteAvec('statut_tms', 'acceptee')).toBe(false);
+    });
+
+    it('l’autre course est déjà affectée → collecte acceptee', async () => {
+      mockAutresMissions = [
+        { everest_mission_id: 'EVR-AUTRE', statut_everest: 'assigned' },
+      ];
+      mockState.details.set('EVR-MS', detail('affectee'));
+      await POST(notification('mission-acceptee'));
+      expect(collecteEcriteAvec('statut_tms', 'acceptee')).toBe(true);
+    });
+
+    it('tournée sans référence de course (pas encore créée chez A Toutes!) → pas acceptée', async () => {
+      mockRefsTourneesCollecte = ['EVR-MS', null];
+      mockState.details.set('EVR-MS', detail('affectee'));
+      await POST(notification('mission-acceptee'));
+      expect(collecteEcriteAvec('statut_tms', 'acceptee')).toBe(false);
+    });
+
+    it('lecture des courses de la collecte en échec → 500, jamais « acceptee » par défaut', async () => {
+      // Seule la lecture de liste échoue : la garde « mission courante » passe.
+      readErrorsListe['collecte_tournees'] = { message: 'lecture refusée' };
+      mockState.details.set('EVR-MS', detail('affectee'));
+      const resp = await POST(notification('mission-acceptee'));
+      expect(resp.status).toBe(500);
+      expect(collecteEcriteAvec('statut_tms', 'acceptee')).toBe(false);
+      expect(alerteNonEnregistre('col-ms')).toBeDefined();
+    });
+
+    it('vélo A enlevé (collecte en_cours, pas encore acceptée), vélo B échoue sans coursier → incident : tournée B annulee + agrégation, jamais de rejet', async () => {
+      mockCollecteRow = {
+        type: 'anti_gaspi',
+        statut: 'en_cours',
+        statut_tms: 'attribuee_en_attente_acceptation',
+        nb_camions_demande: 2,
+      };
+      // L'autre course n'a pas de coursier : seul le statut en_cours décide.
+      mockAutresMissions = [
+        { everest_mission_id: 'EVR-AUTRE', statut_everest: 'created' },
+      ];
+      mockState.details.set(
+        'EVR-MS',
+        detail('echouee', { status: 'Retour au départ' }),
+      );
+      await POST(notification('retour-au-depart'));
+      expect(updatedRows['tournees'] ?? []).toContainEqual({
+        statut: 'annulee',
+      });
+      expect(
+        rpcCalls.some((c) => c.name === 'fn_agreger_terminal_collecte'),
+      ).toBe(true);
+      expect(collecteEcriteAvec('statut', 'rejetee_par_prestataire')).toBe(
+        false,
+      );
+    });
+
+    it('vélo A livré (collecte encore programmee), vélo B annulé hors Savr sans coursier → incident, pas de rejet de toute la collecte (Val 2026-11-03)', async () => {
+      mockAutresMissions = [
+        { everest_mission_id: 'EVR-AUTRE', statut_everest: 'completed' },
+      ];
+      mockState.details.set('EVR-MS', detail('annulee', { status: 'Annulé' }));
+      await POST(notification('annule'));
+      expect(updatedRows['tournees'] ?? []).toContainEqual({
+        statut: 'annulee',
+      });
+      expect(collecteEcriteAvec('statut', 'rejetee_par_prestataire')).toBe(
+        false,
+      );
+      expect(missionEcriteAvec('cancelled_externally')).toBe(true);
+    });
+
+    it('aucune course de la collecte n’a de coursier, une échoue → refus : collecte rejetee_par_prestataire', async () => {
+      mockAutresMissions = [
+        { everest_mission_id: 'EVR-AUTRE', statut_everest: 'created' },
+      ];
+      mockState.details.set(
+        'EVR-MS',
+        detail('echouee', { status: 'Retour au départ' }),
+      );
+      await POST(notification('retour-au-depart'));
+      expect(collecteEcriteAvec('statut', 'rejetee_par_prestataire')).toBe(
+        true,
+      );
     });
   });
 });

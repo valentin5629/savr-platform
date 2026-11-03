@@ -142,6 +142,11 @@ describe('EverestClient — contrat du swagger Everest', () => {
           agent_tel: '+33100000009',
           agent_vehicle: { id: 1, name: 'Vélo cargo' },
           medias: [{ src: '' }, { src: 'https://medias.invalid/photo-1.jpg' }],
+          is_dispatch: false,
+          is_pickup: false,
+          is_success: false,
+          is_fail: true,
+          is_cancel: false,
         },
       }),
     );
@@ -161,7 +166,28 @@ describe('EverestClient — contrat du swagger Everest', () => {
       coursier_nom: 'Coursier I.',
       coursier_telephone: '+33100000009',
       vehicule_type: 'Vélo cargo',
+      statut_code: 'pas-de-commande',
+      etape: 'echouee',
     });
+  });
+
+  it('M2.5/everest_contrat_get_etape — catégorie de l’étape lue sur les drapeaux is_* (compte A Toutes!, 2026-11-03), la fin de course prime', async () => {
+    const cas: Array<[Record<string, boolean>, string | null]> = [
+      [{ is_dispatch: true }, 'affectee'],
+      [{ is_pickup: true }, 'enlevee'],
+      [{ is_success: true }, 'reussie'],
+      [{ is_fail: true }, 'echouee'],
+      [{ is_cancel: true }, 'annulee'],
+      [{ is_pickup: true, is_success: true }, 'reussie'],
+      [{}, null],
+    ];
+    for (const [drapeaux, etape] of cas) {
+      fetchMock.mockResolvedValueOnce(
+        json({ mission: { ref: 'REF-INVENTEE-1', ...drapeaux } }),
+      );
+      const detail = await client().getMission('REF-INVENTEE-1', 'corr-1');
+      expect(detail.etape).toBe(etape);
+    }
   });
 
   it('M2.5/everest_contrat_get_types_inattendus — statut, images ou véhicule d’un autre type que le swagger : lus comme absents, sans erreur', async () => {
@@ -186,6 +212,8 @@ describe('EverestClient — contrat du swagger Everest', () => {
       coursier_nom: null,
       coursier_telephone: null,
       vehicule_type: null,
+      statut_code: null,
+      etape: null,
     });
   });
 
@@ -212,6 +240,8 @@ describe('EverestClient — contrat du swagger Everest', () => {
       coursier_nom: null,
       coursier_telephone: null,
       vehicule_type: null,
+      statut_code: 'pending-dispatch',
+      etape: null,
     });
   });
   it('M2.5/everest_contrat_update — POST /missions/update avec { ref, champs } tel quel ; la référence lue est mission.ref', async () => {

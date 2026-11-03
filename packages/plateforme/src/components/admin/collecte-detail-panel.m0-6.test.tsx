@@ -3463,7 +3463,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         valeurResumeAttribution('Volume de repas estimés'),
       ).toHaveTextContent(/^50$/);
       expect(
-        valeurResumeAttribution('Volume de repas réalisés'),
+        within(valeurResumeAttribution('Volume de repas réalisés')).getByTestId(
+          'repas-realises-valeur',
+        ),
       ).toHaveTextContent(/^42$/);
       // L'attribution se fait dans la fiche (décision Val 2026-10-01) : plus de
       // lien vers un écran dédié.
@@ -3474,6 +3476,53 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         screen.queryByText(/algo V2.*Non disponible en V1/),
       ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Saisie Admin du nombre de repas réalisés (§06.09 §5) : correction d'une
+  // valeur posée = motif obligatoire, envoyé à la route /repas.
+  it(
+    'M0.6/repas_realises_saisie_admin — « Modifier » corrige le volume réalisé avec motif',
+    async () => {
+      const fetchMock = installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
+
+      fireEvent.click(
+        within(valeurResumeAttribution('Volume de repas réalisés')).getByRole(
+          'button',
+          { name: 'Modifier' },
+        ),
+      );
+      const champ = await screen.findByLabelText(
+        /Nombre de repas réalisés/,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(champ).toHaveValue(42);
+      fireEvent.change(champ, { target: { value: '40' } });
+      const enregistrer = screen.getByRole('button', { name: 'Enregistrer' });
+      // Valeur déjà posée : sans motif, pas d'envoi possible.
+      expect(enregistrer).toBeDisabled();
+      fireEvent.change(screen.getByLabelText(/Motif de la correction/), {
+        target: { value: 'Comptage association reçu' },
+      });
+      fireEvent.click(enregistrer);
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          ([url, init]) =>
+            String(url).endsWith('/attributions-ag/c1/repas') &&
+            init?.method === 'PATCH',
+        );
+        expect(patch).toBeDefined();
+        expect(JSON.parse(String(patch?.[1]?.body))).toEqual({
+          volume_repas_realise: 40,
+          motif: 'Comptage association reçu',
+        });
+      }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );

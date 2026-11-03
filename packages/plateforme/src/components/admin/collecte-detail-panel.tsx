@@ -857,6 +857,13 @@ export function CollecteDetailPanel({
   // Type d'événement et contacts de la collecte, modifiés par l'équipe Savr
   // sans motif (décisions Val 2026-10-23, B1-Q1 et B1-Q3).
   const [infosModal, setInfosModal] = useState(false);
+  // Nombre de repas réalisés AG, saisi ou corrigé par l'équipe Savr (§06.09 §5) :
+  // motif obligatoire sur correction d'une valeur déjà posée.
+  const [repasModal, setRepasModal] = useState(false);
+  const [repasValeur, setRepasValeur] = useState('');
+  const [repasMotif, setRepasMotif] = useState('');
+  const [repasSubmitting, setRepasSubmitting] = useState(false);
+  const [repasError, setRepasError] = useState<string | null>(null);
   const [infosType, setInfosType] = useState('');
   const [infosCpNom, setInfosCpNom] = useState('');
   const [infosCpTel, setInfosCpTel] = useState('');
@@ -1454,6 +1461,39 @@ export function CollecteDetailPanel({
     setAcceptationSubmitting(false);
   };
 
+  const openRepasModal = () => {
+    const actuel = collecte?.attributions_antgaspi?.volume_repas_realise;
+    setRepasValeur(actuel != null ? String(actuel) : '');
+    setRepasMotif('');
+    setRepasError(null);
+    setRepasModal(true);
+  };
+
+  const handleSaveRepas = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRepasSubmitting(true);
+    setRepasError(null);
+    const res = await fetch(
+      `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/repas`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          volume_repas_realise: Number(repasValeur),
+          motif: repasMotif,
+        }),
+      },
+    );
+    if (res.ok) {
+      await refetch();
+      setRepasModal(false);
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setRepasError(body.error ?? 'Enregistrement impossible');
+    }
+    setRepasSubmitting(false);
+  };
+
   const openEditPesees = () => {
     if (!collecte) return;
     const prefill: Record<string, string> = {};
@@ -1685,6 +1725,7 @@ export function CollecteDetailPanel({
     nbCamionsModal ||
     paxModal ||
     infosModal ||
+    repasModal ||
     acceptationModal;
   if (blockCloseRef) blockCloseRef.current = anySubModalOpen;
 
@@ -2436,10 +2477,23 @@ export function CollecteDetailPanel({
                         </InfoItem>
                         {repasRealisesConnus && (
                           <InfoItem label="Volume de repas réalisés">
-                            {collecte.statut === 'realisee_sans_collecte'
-                              ? LIBELLE_SANS_EXCEDENT
-                              : (collecte.attributions_antgaspi
-                                  ?.volume_repas_realise ?? '—')}
+                            {collecte.statut === 'realisee_sans_collecte' ? (
+                              LIBELLE_SANS_EXCEDENT
+                            ) : (
+                              <span className="flex flex-wrap items-center gap-3">
+                                <span data-testid="repas-realises-valeur">
+                                  {collecte.attributions_antgaspi
+                                    ?.volume_repas_realise ?? '—'}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={openRepasModal}
+                                >
+                                  Modifier
+                                </Button>
+                              </span>
+                            )}
                           </InfoItem>
                         )}
                       </div>
@@ -3698,6 +3752,71 @@ export function CollecteDetailPanel({
           </Text>
         )}
       </ConfirmDialog>
+
+      {/* Modale — Nombre de repas réalisés AG (§06.09 §5) */}
+      <Modal
+        open={repasModal}
+        title="Volume de repas réalisés"
+        onClose={() => setRepasModal(false)}
+      >
+        {repasError && (
+          <AlertBar variant="err" className="mb-4">
+            {repasError}
+          </AlertBar>
+        )}
+        <form onSubmit={(e) => void handleSaveRepas(e)} className="space-y-4">
+          <Text>
+            Le rapport de don déjà produit est refait avec ce nombre, et le CO₂e
+            évité recalculé. L&apos;action est tracée dans l&apos;audit.
+          </Text>
+          <FormField
+            label="Nombre de repas réalisés"
+            htmlFor="repas-realises-input"
+            required
+          >
+            <Input
+              id="repas-realises-input"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={100000}
+              step={1}
+              value={repasValeur}
+              onChange={(e) => setRepasValeur(e.target.value)}
+              required
+            />
+          </FormField>
+          {collecte.attributions_antgaspi?.volume_repas_realise != null && (
+            <FormField
+              label="Motif de la correction (≥ 10 caractères)"
+              htmlFor="repas-realises-motif"
+              required
+            >
+              <Textarea
+                id="repas-realises-motif"
+                value={repasMotif}
+                onChange={(e) => setRepasMotif(e.target.value)}
+                rows={3}
+                minLength={10}
+                required
+              />
+            </FormField>
+          )}
+          <FormActions
+            cancel={{ label: 'Retour', onClick: () => setRepasModal(false) }}
+            submit={{
+              label: 'Enregistrer',
+              disabled:
+                repasValeur.trim() === '' ||
+                (collecte.attributions_antgaspi?.volume_repas_realise != null &&
+                  repasMotif.trim().length < 10),
+            }}
+            loading={repasSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
+        </form>
+      </Modal>
 
       {/* Modale — Forcer le statut (RM-08) */}
       <Modal

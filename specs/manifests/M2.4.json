@@ -112,6 +112,14 @@
       "libelle": "Correction volume aberrant AG : motif obligatoire sur correction (§06.09 l.183) + audit poids_repas_saisi_ops motivé ; régénération attestation (nouvelle version + re-enqueue jobs_pdf) assurée par trg_regenerer_attestation"
     },
     {
+      "id": "M2.4-repas-realises-saisie-admin",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:194",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/repas/route.ts ; bouton « Modifier » + fenêtre de saisie dans packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Logistique, « Volume de repas réalisés »)",
+      "test": "M2.4 / saisie Admin des repas réalisés AG (packages/plateforme/tests/api/admin/attributions-ag-repas.test.ts) ; M0.6/repas_realises_saisie_admin (collecte-detail-panel.m0-6.test.tsx)",
+      "statut": "implemented",
+      "libelle": "Saisie ou correction directe du nombre de repas réalisés d'une collecte AG réalisée ou clôturée par l'équipe Savr (scénario correction_volume_repas_realise_regenere_attestation) : entier 0 à 100 000, motif ≥ 10 caractères sur correction d'une valeur déjà posée, audit volume_repas_saisi_admin ; refus 422 hors AG réalisée/clôturée et sur « sans excédent ». Rapport de don émis refait et CO₂e recalculé par trg_regenerer_attestation (existant)."
+    },
+    {
       "id": "M2.4-numero-rup-instantane",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1389",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",

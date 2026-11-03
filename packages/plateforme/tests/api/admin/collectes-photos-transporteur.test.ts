@@ -101,10 +101,14 @@ describe('photos du livreur — GET', () => {
         deja_importee: false,
       },
     ];
-    lister.mockResolvedValue({ pris_en_charge: true, photos });
+    lister.mockResolvedValue({
+      pris_en_charge: true,
+      photos,
+      courses_illisibles: 0,
+    });
     const res = await (await route()).GET(new NextRequest(URL_ROUTE), ctx);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ photos });
+    expect(await res.json()).toEqual({ photos, courses_illisibles: 0 });
   });
 
   it('transporteur sans photos du livreur → 409', async () => {
@@ -134,6 +138,7 @@ describe('photos du livreur — POST', () => {
       importees: 1,
       deja_importees: 0,
       echecs: 0,
+      restantes: 0,
     });
     const res = await poster({ ids: [ID] });
     expect(res.status).toBe(200);
@@ -186,6 +191,7 @@ describe('photos du livreur — POST', () => {
       importees: 0,
       deja_importees: 0,
       echecs: 1,
+      restantes: 0,
     });
     const res = await poster({ ids: [ID] });
     expect(res.status).toBe(502);

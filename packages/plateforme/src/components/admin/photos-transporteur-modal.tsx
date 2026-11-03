@@ -51,6 +51,7 @@ export function PhotosTransporteurModal({
   const [choix, setChoix] = useState<Set<string>>(new Set());
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
+  const [illisibles, setIllisibles] = useState(0);
   const url = `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/photos/transporteur`;
 
   useEffect(() => {
@@ -63,9 +64,11 @@ export function PhotosTransporteurModal({
       const res = await fetch(url).catch(() => null);
       const body = (await res?.json().catch(() => ({}))) as {
         photos?: PhotoLivreur[];
+        courses_illisibles?: number;
         error?: string;
       };
       if (annule) return;
+      setIllisibles(body?.courses_illisibles ?? 0);
       if (res?.ok && body.photos) setPhotos(body.photos);
       else {
         setPhotos([]);
@@ -95,20 +98,27 @@ export function PhotosTransporteurModal({
     }).catch(() => null);
     const body = (await res?.json().catch(() => ({}))) as {
       importees?: number;
+      deja_importees?: number;
       echecs?: number;
+      restantes?: number;
       error?: string;
     };
     setEnvoi(false);
-    if (!res?.ok || !body.importees) {
+    if (!res?.ok) {
       setErreur(body?.error ?? 'Import des photos impossible, réessayez');
       return;
     }
-    const n = body.importees;
+    const n = body.importees ?? 0;
     const echecs = body.echecs ?? 0;
-    await onImported(
-      `${n} photo${n > 1 ? 's' : ''} importée${n > 1 ? 's' : ''}` +
-        (echecs > 0 ? `, ${echecs} en échec` : ''),
-    );
+    const restantes = body.restantes ?? 0;
+    const morceaux = [
+      `${n} photo${n > 1 ? 's' : ''} importée${n > 1 ? 's' : ''}`,
+      echecs > 0 ? `${echecs} en échec` : null,
+      restantes > 0
+        ? `${restantes} restante${restantes > 1 ? 's' : ''}, relancez l'import`
+        : null,
+    ].filter(Boolean);
+    await onImported(morceaux.join(', '));
     onClose();
   };
 
@@ -121,7 +131,8 @@ export function PhotosTransporteurModal({
       open={open}
       wide
       title="Photos du livreur"
-      onClose={onClose}
+      // Pas de fermeture pendant l'import : sa réponse fermerait la fenêtre rouverte.
+      onClose={envoi ? () => {} : onClose}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={envoi}>
@@ -140,6 +151,13 @@ export function PhotosTransporteurModal({
       {erreur && (
         <AlertBar variant="err" className="mb-4">
           {erreur}
+        </AlertBar>
+      )}
+      {illisibles > 0 && (
+        <AlertBar variant="warn" className="mb-4">
+          {illisibles === 1
+            ? "Une course n'a pas pu être lue chez le transporteur, ses photos manquent. Réessayez plus tard."
+            : `${illisibles} courses n'ont pas pu être lues chez le transporteur, leurs photos manquent. Réessayez plus tard.`}
         </AlertBar>
       )}
       {photos === null ? (

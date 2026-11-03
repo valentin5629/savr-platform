@@ -187,6 +187,24 @@ describe('listerPhotosTransporteur', () => {
   });
 });
 
+describe('course illisible', () => {
+  it('une course en erreur chez le transporteur n’empêche pas de montrer les autres', async () => {
+    const { _getEverestHandlers } = await import('./everest/mock.js');
+    const h = _getEverestHandlers()!;
+    _setEverestHandlers({
+      ...h,
+      getMission: async (ref) =>
+        ref === 'MIS-2'
+          ? { ok: false, status: 404, error: 'introuvable' }
+          : h.getMission(ref),
+    });
+    const r = await listerPhotosTransporteur(fauxSupabase(etat), COLLECTE, 'c');
+    if (!r.pris_en_charge) throw new Error('attendu');
+    expect(r.courses_illisibles).toBe(1);
+    expect(r.photos.map((p) => p.course)).toEqual([1, 1]);
+  });
+});
+
 describe('importerPhotosTransporteur', () => {
   it('importe les seules photos cochées, non visibles du client', async () => {
     const sb = fauxSupabase(etat);
@@ -206,6 +224,7 @@ describe('importerPhotosTransporteur', () => {
       importees: 1,
       deja_importees: 0,
       echecs: 0,
+      restantes: 0,
     });
     expect(uploads).toEqual([
       {
@@ -278,6 +297,26 @@ describe('importerPhotosTransporteur', () => {
     });
     expect(r.importees).toBe(0);
     expect(r.deja_importees).toBe(1);
+    expect(uploads).toEqual([]);
+  });
+
+  it('au-delà du budget de temps, les photos suivantes sont rendues « restantes », pas tentées', async () => {
+    const sb = fauxSupabase(etat);
+    const liste = await listerPhotosTransporteur(sb, COLLECTE, 'c');
+    if (!liste.pris_en_charge) throw new Error('attendu');
+    const t0 = Date.now();
+    const now = vi.spyOn(Date, 'now');
+    // Premier appel = début de l'import ; ensuite 40 s plus tard.
+    now.mockReturnValueOnce(t0).mockReturnValue(t0 + 40_000);
+    const r = await importerPhotosTransporteur(sb, {
+      collecteId: COLLECTE,
+      ids: liste.photos.map((p) => p.id),
+      userId: 'u-1',
+      correlationId: 'c',
+    });
+    now.mockRestore();
+    expect(r.importees).toBe(0);
+    expect(r.restantes).toBe(3);
     expect(uploads).toEqual([]);
   });
 

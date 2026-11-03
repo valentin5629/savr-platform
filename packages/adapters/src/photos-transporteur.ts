@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { logger } from '@savr/shared/src/logger/index.js';
 import { uploadObject } from '@savr/shared/src/r2/upload.js';
 
 import { EverestClient } from './everest/client.js';
@@ -44,13 +45,24 @@ export interface PhotoTransporteur {
 
 export type PhotosTransporteur =
   | { pris_en_charge: false }
-  | { pris_en_charge: true; photos: PhotoTransporteur[] };
+  | {
+      pris_en_charge: true;
+      photos: PhotoTransporteur[];
+      /** Courses que le transporteur n'a pas pu rendre (les autres s'affichent). */
+      courses_illisibles: number;
+    };
 
 export interface ResultatImport {
   importees: number;
   deja_importees: number;
   echecs: number;
+  /** Non tentées faute de temps : à relancer. */
+  restantes: number;
 }
+
+// La route est coupée à 60 s : aucun téléchargement ne démarre après 35 s
+// (un téléchargement peut durer 30 s), le reste est rendu « à relancer ».
+const BUDGET_IMPORT_MS = 35_000;
 
 /** L'id d'une photo inconnue du transporteur (sélection périmée ou forgée). */
 export class PhotoTransporteurInconnueError extends Error {
@@ -140,6 +152,8 @@ async function tourneesALire(
     const t = Array.isArray(l.tournees) ? l.tournees[0] : l.tournees;
     return t ? [{ ...t, rang: l.rang }] : [];
   });
+  // Même cloisonnement que l'adapter : une tournée résiduelle vivante d'un autre
+  // transporteur lève l'alerte Ops habituelle (idempotente), voulu ici aussi.
   const prestataires = await prestatairesDuType(supabase, 'a_toutes');
   const retenues = await retenirTourneesDuProvider({
     supabase,
@@ -179,7 +193,12 @@ async function lirePhotos(
   collecteId: string,
   correlationId: string,
 ): Promise<
-  { pris_en_charge: false } | { pris_en_charge: true; photos: PhotoInterne[] }
+  | { pris_en_charge: false }
+  | {
+      pris_en_charge: true;
+      photos: PhotoInterne[];
+      courses_illisibles: number;
+    }
 > {
   const typeTms = await transporteurDeLaCollecte(supabase, collecteId);
   if (typeTms !== 'a_toutes') return { pris_en_charge: false };
@@ -188,9 +207,23 @@ async function lirePhotos(
   const deja = await clesDejaImportees(supabase, collecteId);
   const client = new EverestClient(supabase);
   const photos: PhotoInterne[] = [];
+  let coursesIllisibles = 0;
   for (const t of tournees) {
     const ref = t.external_ref_commande as string;
-    const mission = await client.getMission(ref, correlationId);
+    // Une course illisible n'empêche pas de montrer les photos des autres.
+    let mission;
+    try {
+      mission = await client.getMission(ref, correlationId);
+    } catch (err) {
+      coursesIllisibles++;
+      logger.warn('adapters.photos_transporteur.course_illisible', {
+        collecte_id: collecteId,
+        rang: t.rang,
+        correlation_id: correlationId,
+        erreur: err instanceof Error ? err.name : 'inconnue',
+      });
+      continue;
+    }
     for (const p of mission.photos ?? []) {
       const id = empreinte(ref, p.id);
       photos.push({
@@ -203,7 +236,11 @@ async function lirePhotos(
       });
     }
   }
-  return { pris_en_charge: true, photos };
+  return {
+    pris_en_charge: true,
+    photos,
+    courses_illisibles: coursesIllisibles,
+  };
 }
 
 /** Photos du livreur d'une collecte, relues chez son transporteur. */
@@ -217,6 +254,7 @@ export async function listerPhotosTransporteur(
   return {
     pris_en_charge: true,
     photos: lu.photos.map(({ src: _src, ...p }) => p),
+    courses_illisibles: lu.courses_illisibles,
   };
 }
 
@@ -237,6 +275,7 @@ export async function importerPhotosTransporteur(
   },
 ): Promise<ResultatImport & { pris_en_charge: boolean }> {
   const { collecteId, ids, userId, correlationId } = opts;
+  const debut = Date.now();
   const lu = await lirePhotos(supabase, collecteId, correlationId);
   if (!lu.pris_en_charge) {
     return {
@@ -244,6 +283,7 @@ export async function importerPhotosTransporteur(
       importees: 0,
       deja_importees: 0,
       echecs: 0,
+      restantes: 0,
     };
   }
   const parId = new Map(lu.photos.map((p) => [p.id, p]));
@@ -259,11 +299,16 @@ export async function importerPhotosTransporteur(
     importees: 0,
     deja_importees: 0,
     echecs: 0,
+    restantes: 0,
   };
   for (const id of new Set(ids)) {
     const photo = parId.get(id) as PhotoInterne;
     if (photo.deja_importee) {
       resultat.deja_importees++;
+      continue;
+    }
+    if (Date.now() - debut > BUDGET_IMPORT_MS) {
+      resultat.restantes++;
       continue;
     }
     try {
@@ -287,8 +332,16 @@ export async function importerPhotosTransporteur(
         });
       if (error) throw new Error(error.message);
       resultat.importees++;
-    } catch {
+    } catch (err) {
       resultat.echecs++;
+      // Ni l'adresse ni le contenu : l'empreinte suffit à retrouver la photo.
+      logger.warn('adapters.photos_transporteur.import_echoue', {
+        collecte_id: collecteId,
+        photo: id,
+        correlation_id: correlationId,
+        erreur:
+          err instanceof Error ? `${err.name}: ${err.message}` : 'inconnue',
+      });
     }
   }
   return { pris_en_charge: true, ...resultat };

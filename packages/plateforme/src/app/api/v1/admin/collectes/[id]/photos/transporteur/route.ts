@@ -17,6 +17,7 @@ import {
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,13 +32,31 @@ const pasPrisEnCharge = () =>
     { status: 409 },
   );
 
-async function collecteExiste(id: string): Promise<boolean> {
-  const { data } = await createAdminSupabaseClient()
+// null = la base n'a pas répondu (jamais lu comme « introuvable »).
+async function collecteExiste(id: string): Promise<boolean | null> {
+  const { data, error } = await createAdminSupabaseClient()
     .from('collectes')
     .select('id')
     .eq('id', id)
     .maybeSingle();
+  if (error) return null;
   return data !== null;
+}
+
+function reponseCollecte(existe: boolean | null): NextResponse | null {
+  if (existe === null) {
+    return serverError(
+      new Error('lecture collecte impossible'),
+      'admin.collectes.photos.transporteur.collecte',
+    );
+  }
+  if (!existe) {
+    return NextResponse.json(
+      { error: 'Collecte introuvable' },
+      { status: 404 },
+    );
+  }
+  return null;
 }
 
 export async function GET(
@@ -47,12 +66,8 @@ export async function GET(
   const auth = await requireStaff(req);
   if (auth.error) return auth.error;
   const { id } = await params;
-  if (!(await collecteExiste(id))) {
-    return NextResponse.json(
-      { error: 'Collecte introuvable' },
-      { status: 404 },
-    );
-  }
+  const refus = reponseCollecte(await collecteExiste(id));
+  if (refus) return refus;
 
   try {
     const lu = await listerPhotosTransporteur(
@@ -61,7 +76,10 @@ export async function GET(
       randomUUID(),
     );
     if (!lu.pris_en_charge) return pasPrisEnCharge();
-    return NextResponse.json({ photos: lu.photos });
+    return NextResponse.json({
+      photos: lu.photos,
+      courses_illisibles: lu.courses_illisibles,
+    });
   } catch (e) {
     return serverError(e, 'admin.collectes.photos.transporteur.list');
   }
@@ -90,12 +108,8 @@ export async function POST(
       { status: 422 },
     );
   }
-  if (!(await collecteExiste(id))) {
-    return NextResponse.json(
-      { error: 'Collecte introuvable' },
-      { status: 404 },
-    );
-  }
+  const refus = reponseCollecte(await collecteExiste(id));
+  if (refus) return refus;
 
   const supabase = createAdminSupabaseClient();
   let resultat: Awaited<ReturnType<typeof importerPhotosTransporteur>>;
@@ -119,19 +133,30 @@ export async function POST(
     return pasPrisEnCharge();
   }
 
-  const { importees, deja_importees, echecs } = resultat;
+  const { importees, deja_importees, echecs, restantes } = resultat;
   if (importees > 0) {
-    await supabase.from('audit_log').insert({
+    const { error: auditErr } = await supabase.from('audit_log').insert({
       table_name: 'collectes',
       record_id: id,
       action: 'photos_transporteur_importees',
       user_id: auth.ctx.userId,
       role: auth.ctx.role ?? null,
-      new_values: { importees, deja_importees, echecs },
+      new_values: { importees, deja_importees, echecs, restantes },
     });
+    if (auditErr) {
+      logger.error('admin.collectes.photos.transporteur.audit', {
+        collecte_id: id,
+        erreur: auditErr.message,
+      });
+    }
   }
   return NextResponse.json(
-    { importees, deja_importees, echecs },
-    { status: echecs > 0 && importees === 0 ? 502 : 200 },
+    { importees, deja_importees, echecs, restantes },
+    {
+      status:
+        echecs > 0 && importees === 0 && deja_importees === 0 && restantes === 0
+          ? 502
+          : 200,
+    },
   );
 }

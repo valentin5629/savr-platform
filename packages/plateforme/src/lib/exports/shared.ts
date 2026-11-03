@@ -284,6 +284,30 @@ export const COLONNES_FLUX = FLUX_ZD_CODES.map((code) => ({
 // est refusée (mesuré sur savr-dev le 2026-10-07, cf. l'export Collectes).
 const IDS_PAR_LECTURE = 100;
 
+/** Lit en service_role (staff : son propre client), par lots de 100 identifiants. */
+async function lireParLotsHorsListeBlanche<T>(
+  ctx: ExportContext,
+  ids: string[],
+  lire: (
+    lecteur: ExportContext['supabase'],
+    lot: string[],
+  ) => PromiseLike<{ data: unknown; error: unknown }>,
+): Promise<T[]> {
+  const uniques = [...new Set(ids.filter((v): v is string => !!v))];
+  const out: T[] = [];
+  if (uniques.length === 0) return out;
+  const lecteur = ctx.isStaff ? ctx.supabase : createAdminSupabaseClient();
+  for (let i = 0; i < uniques.length; i += IDS_PAR_LECTURE) {
+    const { data, error } = await lire(
+      lecteur,
+      uniques.slice(i, i + IDS_PAR_LECTURE),
+    );
+    if (error) throw erreurInterne(error, 'exports.codes_viparis');
+    out.push(...((data ?? []) as T[]));
+  }
+  return out;
+}
+
 /**
  * Codes affaire VIPARIS des événements (Val 2026-11-02). La colonne est hors de
  * la liste blanche de lecture des clients : lue en service_role, pour les seuls
@@ -294,23 +318,48 @@ export async function lireCodesAffaireViparis(
   ctx: ExportContext,
   evenementIds: string[],
 ): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
-  const ids = [...new Set(evenementIds.filter((v): v is string => !!v))];
-  if (ids.length === 0) return out;
-  const lecteur = ctx.isStaff ? ctx.supabase : createAdminSupabaseClient();
-  for (let i = 0; i < ids.length; i += IDS_PAR_LECTURE) {
-    const { data, error } = await lecteur
+  const lignes = await lireParLotsHorsListeBlanche<{
+    id: string;
+    code_affaire_viparis: string | null;
+  }>(ctx, evenementIds, (lecteur, lot) =>
+    lecteur
       .from('evenements')
       .select('id, code_affaire_viparis')
-      .in('id', ids.slice(i, i + IDS_PAR_LECTURE))
-      .not('code_affaire_viparis', 'is', null);
-    if (error) throw erreurInterne(error, 'exports.codes_viparis');
-    for (const e of (data ?? []) as {
-      id: string;
-      code_affaire_viparis: string | null;
-    }[])
-      if (e.code_affaire_viparis) out.set(e.id, e.code_affaire_viparis);
-  }
+      .in('id', lot)
+      .not('code_affaire_viparis', 'is', null),
+  );
+  const out = new Map<string, string>();
+  for (const e of lignes)
+    if (e.code_affaire_viparis) out.set(e.id, e.code_affaire_viparis);
+  return out;
+}
+
+/**
+ * Codes VIPARIS d'un événement : son code affaire et le code site de son lieu
+ * (Val 2026-11-03, export Événements). Même régime que le code affaire seul :
+ * deux colonnes hors listes blanches, lues en service_role pour les seuls
+ * événements lus sous la RLS du demandeur. Chaînes vides si non renseignés.
+ */
+export async function lireCodesViparis(
+  ctx: ExportContext,
+  evenementIds: string[],
+): Promise<Map<string, { affaire: string; site: string }>> {
+  const lignes = await lireParLotsHorsListeBlanche<{
+    id: string;
+    code_affaire_viparis: string | null;
+    lieu: unknown;
+  }>(ctx, evenementIds, (lecteur, lot) =>
+    lecteur
+      .from('evenements')
+      .select('id, code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)')
+      .in('id', lot),
+  );
+  const out = new Map<string, { affaire: string; site: string }>();
+  for (const e of lignes)
+    out.set(e.id, {
+      affaire: e.code_affaire_viparis ?? '',
+      site: (unwrap(e.lieu).code_site_viparis as string | null) ?? '',
+    });
   return out;
 }
 

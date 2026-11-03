@@ -1110,6 +1110,7 @@ export type Database = {
       collectes: {
         Row: {
           annulation_demandee_at: string | null
+          annulation_tardive: boolean | null
           annulee_cote_savr: boolean
           annulee_cote_savr_motif: string | null
           aucun_repas_motif: string | null
@@ -1159,6 +1160,7 @@ export type Database = {
         }
         Insert: {
           annulation_demandee_at?: string | null
+          annulation_tardive?: boolean | null
           annulee_cote_savr?: boolean
           annulee_cote_savr_motif?: string | null
           aucun_repas_motif?: string | null
@@ -1208,6 +1210,7 @@ export type Database = {
         }
         Update: {
           annulation_demandee_at?: string | null
+          annulation_tardive?: boolean | null
           annulee_cote_savr?: boolean
           annulee_cote_savr_motif?: string | null
           aucun_repas_motif?: string | null

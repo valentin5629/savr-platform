@@ -50,6 +50,15 @@ export const STATUTS_REVENUS = [
   'cloturee',
 ] as const;
 
+/**
+ * Filtre PostgREST `.or()` des collectes comptées dans les Revenus :
+ * `STATUTS_REVENUS`, plus les annulations tardives (moins de 4 h avant le
+ * créneau, imputables au client), comptées au montant plein (Val 2026-11-03).
+ * `collectes.annulation_tardive` est posée au passage à `annulee` depuis le
+ * 2026-11-03 ; les annulations antérieures ne sont pas marquées.
+ */
+export const FILTRE_STATUTS_REVENUS = `statut.in.(${STATUTS_REVENUS.join(',')}),and(statut.eq.annulee,annulation_tardive.is.true)`;
+
 const PLAFOND_POSTGREST = 1000;
 
 interface Periode {

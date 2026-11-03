@@ -42,6 +42,7 @@ function makeChain() {
     'range',
     'not',
     'order',
+    'or',
   ]) {
     chain[m] = (...args: unknown[]) => {
       record(m, args);
@@ -186,22 +187,15 @@ describe('admin/revenus-organisations', () => {
     expect(json.data[0]?.montant_zd_ht).toBe(100);
   });
 
-  it('revenus/statuts_programmees_et_realisees — hors brouillon, annulation demandée, annulée, rejetée', async () => {
+  it('revenus/statuts_programmees_et_realisees — hors brouillon, annulation demandée, rejetée ; annulée seulement si tardive', async () => {
     setupAuth('admin_savr');
     const { GET } =
       await import('@/app/api/v1/admin/dashboard/revenus-organisations/route.js');
     await GET(makeReq('/api/v1/admin/dashboard/revenus-organisations'));
-    const statutFilter = (admin.__calls.in ?? []).find(
-      (a) => a[0] === 'statut',
-    )?.[1] as string[] | undefined;
-    expect(statutFilter).toEqual([
-      'programmee',
-      'validee',
-      'en_cours',
-      'realisee',
-      'realisee_sans_collecte',
-      'cloturee',
+    expect(admin.__calls.or).toContainEqual([
+      'statut.in.(programmee,validee,en_cours,realisee,realisee_sans_collecte,cloturee),and(statut.eq.annulee,annulation_tardive.is.true)',
     ]);
+    expect((admin.__calls.in ?? []).some((a) => a[0] === 'statut')).toBe(false);
   });
 
   it('revenus/6_colonnes_split_zd_ag — nb et montant depuis les mêmes collectes ; ZD au tarif, AG au prix du pack ; tri montant_total desc', async () => {
@@ -248,6 +242,43 @@ describe('admin/revenus-organisations', () => {
     expect(org1.nb_ag).toBe(1);
     expect(org1.montant_ag_ht).toBe(120);
     expect(org1.montant_total).toBe(320);
+  });
+
+  it('revenus/annulation_tardive_montant_plein — AG et ZD annulées tardivement comptées au montant plein (Val 2026-11-03)', async () => {
+    setupAuth('admin_savr');
+    grilleZd100();
+    // La base ne rend que les annulées marquées tardives (filtre `.or()`).
+    admin.setResult('collectes', {
+      data: [
+        collecte('zero_dechet', 'org-1', 'A', 'traiteur', {
+          statut: 'annulee',
+        }),
+        collecte('anti_gaspi', 'org-1', 'A', 'traiteur', {
+          prixUnitaireAg: 120,
+          statut: 'annulee',
+        }),
+      ],
+      error: null,
+    });
+    const { GET } =
+      await import('@/app/api/v1/admin/dashboard/revenus-organisations/route.js');
+    const res = await GET(
+      makeReq('/api/v1/admin/dashboard/revenus-organisations'),
+    );
+    const json = (await res.json()) as {
+      data: Array<{
+        nb_zd: number;
+        montant_zd_ht: number;
+        nb_ag: number;
+        montant_ag_ht: number;
+      }>;
+    };
+    expect(json.data[0]).toMatchObject({
+      nb_zd: 1,
+      montant_zd_ht: 100,
+      nb_ag: 1,
+      montant_ag_ht: 120,
+    });
   });
 
   it('revenus/ca_ag_fallback_montant_sur_credits — coût/collecte = montant_total_ht/crédits si prix_unitaire NULL', async () => {

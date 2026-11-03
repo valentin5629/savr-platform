@@ -14,7 +14,7 @@ import {
 import {
   montantsPrestation,
   round2,
-  STATUTS_REVENUS,
+  FILTRE_STATUTS_REVENUS,
   type PackPrix,
 } from '@/lib/montant-prestation.js';
 
@@ -24,8 +24,9 @@ import {
  *
  * Colonnes (§11 §1.1) : nom · type · nb ZD · montant ZD HT · nb AG · montant AG HT.
  *   Décision Val 2026-11-03 : tout vient des collectes, facturées ou non.
- *   - nb ZD / nb AG   ← collectes programmées et réalisées (`STATUTS_REVENUS`),
- *     imputées à `evenements.organisation_id` (org programmatrice,
+ *   - nb ZD / nb AG   ← collectes programmées et réalisées, plus les annulations
+ *     tardives (`FILTRE_STATUTS_REVENUS`, Val 2026-11-03), imputées à
+ *     `evenements.organisation_id` (org programmatrice,
  *     R_revenus_imputation_organisation), période sur `date_collecte` ;
  *   - montant ZD/AG HT ← montant de la prestation de ces mêmes collectes
  *     (`lib/montant-prestation`).
@@ -175,7 +176,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
          ),
          packs_antgaspi(prix_unitaire_ht, montant_total_ht, credits_initiaux)`,
         )
-        .in('statut', [...STATUTS_REVENUS])
+        .or(FILTRE_STATUTS_REVENUS)
         .gte('date_collecte', from),
       perimetre,
       'evenements',

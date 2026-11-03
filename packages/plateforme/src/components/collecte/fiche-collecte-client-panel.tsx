@@ -393,11 +393,7 @@ export function FicheCollecteClientPanel({
       className="flex h-full min-h-0 flex-col"
     >
       <FicheGrandEnTete
-        surtitre={
-          <>
-            <TypeCollecteBadge type={c.type} forme="plein" />
-          </>
-        }
+        surtitre={<TypeCollecteBadge type={c.type} forme="plein" />}
         titre={titre}
         sousTitre={sousTitre || undefined}
         statut={<StatutCollecteClient statut={c.statut} />}

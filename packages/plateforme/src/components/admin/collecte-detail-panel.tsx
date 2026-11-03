@@ -2108,8 +2108,9 @@ export function CollecteDetailPanel({
   return (
     <Tabs defaultValue="informations" className="flex h-full min-h-0 flex-col">
       {/* En-tête de la variante B (décision Val 2026-10-27) : sur-titre (type,
-          « dirty TMS » ; plus de référence, Val 2026-11-03), titre et pastille de statut, ligne d'infos à
-          pictos, onglets soulignés ; seul le corps défile. */}
+          « dirty TMS » ; plus de référence, Val 2026-11-03), titre et
+          pastille de statut, ligne d'infos à pictos, onglets soulignés ; seul
+          le corps défile. */}
       <FicheGrandEnTete
         surtitre={
           <>

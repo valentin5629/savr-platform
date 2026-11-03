@@ -201,8 +201,6 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
   );
 });
 
-// Pax porté par la collecte (décision Val 2026-10-20) : la fiche montre celui de
-// la collecte (650), jamais celui de son événement (4 200, calculé).
 describe('M0.8-43 — fiche collecte client : aucune référence en en-tête (BL-P3-03, Val 2026-11-03)', () => {
   it(
     'ni « Réf. » ni numéro de collecte : la référence ne sert pas l’utilisateur',
@@ -219,6 +217,8 @@ describe('M0.8-43 — fiche collecte client : aucune référence en en-tête (BL
   );
 });
 
+// Pax porté par la collecte (décision Val 2026-10-20) : la fiche montre celui de
+// la collecte (650), jamais celui de son événement (4 200, calculé).
 describe('M1.2/pax_par_collecte — pop-up fiche collecte client : pax', () => {
   it(
     'en-tête et onglet Informations : le pax de la collecte, pas celui de l’événement',

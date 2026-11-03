@@ -120,8 +120,8 @@ describe("M0.6 / ordre d'envoi — ordre de tête de la collecte", () => {
 
   it("M0.6/ordre_envoi_predicat_sql — l'ordre de tête suit le prédicat de la réservation SQL : si elle change, cette lib est à revoir", () => {
     // Dernière définition de la réservation ciblée. `deriverOrdreEnvoi` en
-    // recopie trois règles : famille logistique seule, tout statut autre que
-    // `done` bloque (dead compris), ordre de la file = `seq` croissant.
+    // recopie trois règles : famille logistique seule, ni `done` ni `dead` ne
+    // bloquent (Val 2026-11-03), ordre de la file = `seq` croissant.
     const dossier = path.resolve(__dirname, '../../../../supabase/migrations');
     const definition = readdirSync(dossier)
       .filter((f) => f.endsWith('.sql'))
@@ -142,11 +142,55 @@ describe("M0.6 / ordre d'envoi — ordre de tête de la collecte", () => {
     expect(corps).toContain(
       "AND e.consumer IS DISTINCT FROM 'attribution_job'",
     );
-    expect(corps).toContain("AND e2.statut <> 'done'");
+    expect(corps).toContain("AND e2.statut NOT IN ('done', 'dead')");
     expect(corps).toContain(
       "AND e2.consumer IS DISTINCT FROM 'attribution_job'",
     );
     expect(corps).toContain('ORDER BY e.seq');
+  });
+
+  // Décision Val 2026-11-03 : un abandon ne bloque plus ; il reste affiché tant
+  // qu'un ordre plus récent ne l'a pas remplacé.
+  it('M0.6/ordre_abandonne_remplace — une création abandonnée puis renvoyée : la tête est le renvoi', () => {
+    const ordre = deriverOrdreEnvoi([
+      ligne({ seq: 37, statut: 'dead', attempts: 1, last_error: 'refus' }),
+      ligne({ seq: 38, statut: 'pending' }),
+    ]);
+    expect(ordre?.etat).toBe('en_attente');
+    expect(
+      deriverOrdreEnvoi([
+        ligne({ seq: 37, statut: 'dead' }),
+        ligne({ seq: 38, statut: 'done' }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("une création abandonnée n'est pas remplacée par une modification : elle reste la tête", () => {
+    const ordre = deriverOrdreEnvoi([
+      ligne({ seq: 1, statut: 'dead' }),
+      ligne({ seq: 2, event_type: 'collecte.modifiee', statut: 'done' }),
+    ]);
+    expect(ordre).toMatchObject({
+      etat: 'echec_definitif',
+      nature: 'creation',
+    });
+  });
+
+  it('une modification abandonnée est remplacée par tout ordre suivant ; une annulation, par une annulation seule', () => {
+    expect(
+      deriverOrdreEnvoi([
+        ligne({ seq: 1, statut: 'done' }),
+        ligne({ seq: 2, event_type: 'collecte.modifiee', statut: 'dead' }),
+        ligne({ seq: 3, event_type: 'collecte.annulee', statut: 'done' }),
+      ]),
+    ).toBeNull();
+    expect(
+      deriverOrdreEnvoi([
+        ligne({ seq: 1, statut: 'done' }),
+        ligne({ seq: 2, event_type: 'collecte.annulee', statut: 'dead' }),
+        ligne({ seq: 3, event_type: 'collecte.modifiee', statut: 'done' }),
+      ]),
+    ).toMatchObject({ etat: 'echec_definitif', nature: 'annulation' });
   });
 
   it('le nombre de tentatives affiché suit la politique de reprise du worker', () => {

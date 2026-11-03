@@ -1,13 +1,16 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
+import { useBarreTitre } from '@/components/layout/barre-titre-context';
 
-// PageHero — bandeau pâle d'en-tête de toute page (décisions Val 2026-11-01 :
-// variante B2, qui remplace l'aplat primary-700, puis aucun texte sous le
-// titre). Fond primary-100, titre Archivo 800 tracking serré (-0.02em, levier
-// #7) en primary-800, icône primary-700, actions à droite (bouton principal
-// `accent`, badges de statut). Le bandeau porte le <h1> de la page (un seul).
+// PageHero — titre de toute page. Dans le cadre de l'application, le titre et
+// son icône vont dans la barre bleu ciel du haut (Val 2026-11-03) : plus de
+// bandeau dans la page, les actions éventuelles restent en tête du contenu,
+// alignées à droite. Hors du cadre, bandeau pâle d'avant (Val 2026-11-01) :
+// fond primary-100, titre Archivo 800 tracking serré (-0.02em) en primary-800,
+// icône primary-700, actions à droite. Un seul <h1> par page.
 interface PageHeroProps {
   title: React.ReactNode;
   /** Contenu à gauche du titre (icône, bouton retour…), teinté primary-700. */
@@ -17,10 +20,63 @@ interface PageHeroProps {
   className?: string;
 }
 
+function Titre({
+  title,
+  icon,
+  className,
+}: Pick<PageHeroProps, 'title' | 'icon'> & { className: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      {/* shrink-0 : l'icône ne s'écrase pas quand le titre passe à la ligne. */}
+      {icon && (
+        <span className="flex shrink-0 text-savr-primary-700">{icon}</span>
+      )}
+      <h1
+        className={cn(
+          'min-w-0 font-extrabold tracking-[-0.02em] text-savr-primary-800',
+          className,
+        )}
+      >
+        {title}
+      </h1>
+    </div>
+  );
+}
+
 const PageHero = React.forwardRef<HTMLDivElement, PageHeroProps>(
   ({ title, icon, actions, className }, ref) => {
-    // Le logo de l'organisation est dans la barre navy du haut (Val
-    // 2026-11-02), plus dans le bandeau.
+    const barre = useBarreTitre();
+
+    // Dans le cadre : titre dans la barre du haut. Avant que la barre soit
+    // montée (premier rendu serveur), le titre reste lisible par les lecteurs
+    // d'écran, sans s'afficher.
+    if (barre !== undefined) {
+      return (
+        <>
+          {barre ? (
+            createPortal(
+              <Titre title={title} icon={icon} className="truncate text-xl" />,
+              barre,
+            )
+          ) : (
+            <h1 className="sr-only">{title}</h1>
+          )}
+          {actions && (
+            <div
+              ref={ref}
+              data-testid="actions-page"
+              className={cn(
+                'flex flex-wrap items-center justify-end gap-2',
+                className,
+              )}
+            >
+              {actions}
+            </div>
+          )}
+        </>
+      );
+    }
+
     return (
       <header
         ref={ref}
@@ -32,15 +88,11 @@ const PageHero = React.forwardRef<HTMLDivElement, PageHeroProps>(
           className,
         )}
       >
-        <div className="flex min-w-0 items-center gap-3">
-          {/* shrink-0 : l'icône ne s'écrase pas quand le titre passe à la ligne. */}
-          {icon && (
-            <span className="flex shrink-0 text-savr-primary-700">{icon}</span>
-          )}
-          <h1 className="min-w-0 text-2xl font-extrabold tracking-[-0.02em] break-words text-savr-primary-800 sm:truncate">
-            {title}
-          </h1>
-        </div>
+        <Titre
+          title={title}
+          icon={icon}
+          className="text-2xl break-words sm:truncate"
+        />
         {actions && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {actions}

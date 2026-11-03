@@ -54,8 +54,9 @@ const PARAMETRES_CLIENTS = new Set<string>([
   ROUTES.organisateur.parametres,
 ]);
 
-// Sidebar — bloc primaire plein primary-800 (levier #2)
-// Item actif : fond primary-700 + barre accent-500 3px gauche
+// Sidebar — bloc primaire plein primary-700, allégé (Val 2026-11-03) : entrées
+// en graisse normale, survol et entrée active en voile blanc translucide.
+// Item actif : voile blanc 10 % + barre accent-500 3px gauche
 const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
   (
     {
@@ -114,9 +115,10 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         ref={ref}
         aria-label="Navigation principale"
         className={cn(
-          'flex h-full flex-col bg-savr-primary-800 transition-[width] duration-savr-base ease-out',
-          // 204 px déplié (Val 2026-11-02 : −20 % sur les 256 px d'avant).
-          collapsed ? 'w-16' : 'w-51',
+          'flex h-full flex-col bg-savr-primary-700 transition-[width] duration-savr-base ease-out',
+          // 224 px déplié (Val 2026-11-03) : le plus étroit où aucun libellé ne
+          // passe sur deux lignes (« Registre réglementaire », mesuré).
+          collapsed ? 'w-16' : 'w-56',
           className,
         )}
       >
@@ -125,8 +127,8 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         <div
           data-testid="savr-logo"
           className={cn(
-            // h-14 : même hauteur que la barre du haut, le logo est sur sa ligne.
-            'flex h-14 shrink-0 items-center px-4 transition-colors duration-savr-base',
+            // h-16 : même hauteur que la barre du haut, le logo est sur sa ligne.
+            'flex h-16 shrink-0 items-center px-4 transition-colors duration-savr-base',
             collapsed && 'justify-center px-0',
             logoZd ? 'text-savr-success' : 'text-savr-accent-500',
           )}
@@ -165,10 +167,10 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                     href={item.href}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      'group relative flex h-10 items-center gap-3 rounded-savr-md px-3 text-sm font-medium transition-colors duration-savr-fast',
+                      'group relative flex h-10 items-center gap-3 rounded-savr-md px-3 text-sm transition-colors duration-savr-fast',
                       isActive
-                        ? 'bg-savr-primary-700 text-savr-white'
-                        : 'text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white',
+                        ? 'bg-savr-white/10 font-medium text-savr-white'
+                        : 'font-normal text-savr-primary-100 hover:bg-savr-white/7 hover:text-savr-white',
                       collapsed && 'justify-center px-0',
                     )}
                     title={collapsed ? item.label : undefined}
@@ -193,12 +195,14 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                       {/* Collapsé : point rouge (le compteur n'a pas la place). */}
                       {collapsed && badgeCount > 0 && (
                         <span
-                          className="absolute -right-1 -top-1 h-2 w-2 rounded-savr-full bg-savr-error ring-2 ring-savr-primary-800"
+                          className="absolute -right-1 -top-1 h-2 w-2 rounded-savr-full bg-savr-error ring-2 ring-savr-primary-700"
                           aria-hidden="true"
                         />
                       )}
                     </span>
-                    {!collapsed && <span>{item.label}</span>}
+                    {!collapsed && (
+                      <span className="whitespace-nowrap">{item.label}</span>
+                    )}
                     {!collapsed && badgeCount > 0 && (
                       <Badge
                         variant="count"
@@ -217,11 +221,11 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
 
         {/* Toggle collapse */}
         {onToggle && (
-          <div className="shrink-0 border-t border-savr-primary-700 p-2">
+          <div className="shrink-0 border-t border-savr-white/8 p-2">
             <IconButton
               size="sm"
               onClick={onToggle}
-              className="w-full text-savr-primary-300 hover:bg-savr-primary-700 hover:text-savr-white [&>svg]:h-4 [&>svg]:w-4"
+              className="w-full text-savr-primary-300 hover:bg-savr-white/7 hover:text-savr-white [&>svg]:h-4 [&>svg]:w-4"
               aria-label={
                 collapsed ? 'Développer la navigation' : 'Réduire la navigation'
               }
@@ -238,7 +242,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
             bouton qui ouvre un menu « Paramètres » / « Se déconnecter ». Le
             logo de l'organisation est dans le bandeau de page. Sans identité :
             bouton « Se déconnecter » avec libellé. */}
-        <div className="shrink-0 border-t border-savr-primary-700 p-2">
+        <div className="shrink-0 border-t border-savr-white/8 p-2">
           {avecIdentite ? (
             <Dropdown>
               <DropdownTrigger asChild>
@@ -251,13 +255,13 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                     .join(' — ')}
                   aria-busy={loggingOut || undefined}
                   className={cn(
-                    // Button ghost du DS, recalé sur le fond primary-800.
-                    'relative h-auto min-h-11 w-full gap-2 text-left font-normal hover:bg-savr-primary-700 active:bg-savr-primary-700 data-[state=open]:bg-savr-primary-700 sm:h-auto',
+                    // Button ghost du DS, recalé sur le fond primary-700.
+                    'relative h-auto min-h-11 w-full gap-2 text-left font-normal hover:bg-savr-white/7 active:bg-savr-white/10 data-[state=open]:bg-savr-white/10 sm:h-auto',
                     collapsed
                       ? 'justify-center px-0'
                       : 'justify-start px-1 py-1',
                     // Page Paramètres ouverte : même marque que l'entrée active.
-                    parametresActif && 'bg-savr-primary-700',
+                    parametresActif && 'bg-savr-white/10',
                   )}
                 >
                   {parametresActif && (
@@ -340,8 +344,8 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
               aria-label="Se déconnecter"
               title={collapsed ? 'Se déconnecter' : undefined}
               className={cn(
-                // Mêmes teintes que les entrées du menu (fond primary-800).
-                'h-10 w-full justify-start gap-3 px-3 font-medium text-savr-primary-200 hover:bg-savr-primary-700 hover:text-savr-white active:bg-savr-primary-700 sm:h-10 [&>svg]:h-5 [&>svg]:w-5',
+                // Mêmes teintes que les entrées du menu (fond primary-700).
+                'h-10 w-full justify-start gap-3 px-3 font-normal text-savr-primary-100 hover:bg-savr-white/7 hover:text-savr-white active:bg-savr-white/10 sm:h-10 [&>svg]:h-5 [&>svg]:w-5',
                 collapsed && 'justify-center px-0',
               )}
             >

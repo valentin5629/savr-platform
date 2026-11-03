@@ -1489,7 +1489,13 @@ describe('VIPARIS / exports Collectes et Événements — code affaire, poids pa
     rls.push({ data: [{ id: 'tr-1', nom: 'Tr' }], error: null });
     rls.push({ data: 90, error: null }); // f_volume_repas_realise (c3)
     admin.push({
-      data: [{ id: 'e1', code_affaire_viparis: '26SIAL1' }],
+      data: [
+        {
+          id: 'e1',
+          code_affaire_viparis: '26SIAL1',
+          lieu: { code_site_viparis: 'CHAMP' },
+        },
+      ],
       error: null,
     });
 
@@ -1509,5 +1515,51 @@ describe('VIPARIS / exports Collectes et Événements — code affaire, poids pa
     expect(cellule(1, 'Verre (kg)')).toBe('0');
     expect(cellule(1, 'Repas AG donnés')).toBe('90');
     expect(admin.__calls.in).toEqual([['id', ['e1']]]);
+  });
+
+  it('VIPARIS/export_evenements_code_site — code site du lieu juste après « Lieu », vide hors VIPARIS', async () => {
+    setupAuth('traiteur_manager');
+    const evt = (id: string, lieu: string) => ({
+      id,
+      nom_evenement: `Salon ${id}`,
+      date_evenement: '2026-02-01',
+      pax: 100,
+      traiteur_operationnel_organisation_id: 'tr-1',
+      lieux: { nom: lieu },
+      types_evenements: { libelle: 'Salon pro' },
+      collectes: [],
+    });
+    rls.push({
+      data: [evt('e1', 'Paris Expo'), evt('e2', 'Salle des fêtes')],
+      error: null,
+    });
+    rls.push({ data: [{ id: 'tr-1', nom: 'Tr' }], error: null });
+    admin.push({
+      data: [
+        {
+          id: 'e1',
+          code_affaire_viparis: null,
+          lieu: [{ code_site_viparis: 'PDV' }],
+        },
+        { id: 'e2', code_affaire_viparis: null, lieu: null },
+      ],
+      error: null,
+    });
+
+    const res = await call('evenements');
+    expect(res.status).toBe(200);
+    const { entetes, cellule } = await lire(res);
+    expect(entetes.indexOf('Code site VIPARIS')).toBe(
+      entetes.indexOf('Lieu') + 1,
+    );
+    expect(cellule(1, 'Code site VIPARIS')).toBe('PDV');
+    expect(cellule(1, 'Code affaire VIPARIS')).toBe('');
+    expect(cellule(2, 'Code site VIPARIS')).toBe('');
+    // Service_role : les deux codes en une lecture, pour les événements lus.
+    expect(admin.__calls.from).toEqual([['evenements']]);
+    expect(admin.__calls.select).toEqual([
+      ['id, code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)'],
+    ]);
+    expect(admin.__calls.in).toEqual([['id', ['e1', 'e2']]]);
   });
 });

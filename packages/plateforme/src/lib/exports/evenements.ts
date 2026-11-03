@@ -12,7 +12,7 @@ import {
   sommePoidsFlux,
   poidsParFlux,
   COLONNES_FLUX,
-  lireCodesAffaireViparis,
+  lireCodesViparis,
   lireParTranches,
   unwrap,
   type FluxPese,
@@ -51,6 +51,7 @@ export interface EvenementRow {
   nom_evenement: string;
   code_affaire_viparis: string;
   lieu: string;
+  code_site_viparis: string;
   traiteur: string;
   type_evenement: string;
   taille_bracket: string;
@@ -79,6 +80,7 @@ const COLUMNS: CsvColumn<EvenementRow>[] = [
   { header: 'Nom événement', value: (r) => r.nom_evenement },
   { header: 'Code affaire VIPARIS', value: (r) => r.code_affaire_viparis },
   { header: 'Lieu', value: (r) => r.lieu },
+  { header: 'Code site VIPARIS', value: (r) => r.code_site_viparis },
   { header: 'Traiteur', value: (r) => r.traiteur },
   { header: "Type d'événement", value: (r) => r.type_evenement },
   { header: 'Taille', value: (r) => r.taille_bracket },
@@ -129,8 +131,9 @@ async function evenementsToCsv(
     for (const c of cs) if (c.type === 'anti_gaspi') agCollecteIds.push(c.id);
   }
   const repasMap = await resolveRepas(supabase, agCollecteIds, isStaff);
-  // Code affaire VIPARIS (Val 2026-11-02) : pour les seuls événements lus.
-  const codesAffaire = await lireCodesAffaireViparis(
+  // Codes VIPARIS (affaire : Val 2026-11-02 ; site du lieu : Val 2026-11-03),
+  // pour les seuls événements lus.
+  const codesViparis = await lireCodesViparis(
     ctx,
     evts.map((e) => e.id as string),
   );
@@ -169,8 +172,9 @@ async function evenementsToCsv(
     return {
       date_evenement: (e.date_evenement as string) ?? '',
       nom_evenement: (e.nom_evenement as string) ?? '',
-      code_affaire_viparis: codesAffaire.get(e.id as string) ?? '',
+      code_affaire_viparis: codesViparis.get(e.id as string)?.affaire ?? '',
       lieu: (lieu.nom as string) ?? '',
+      code_site_viparis: codesViparis.get(e.id as string)?.site ?? '',
       traiteur:
         traiteurNoms.get(e.traiteur_operationnel_organisation_id as string) ??
         '',

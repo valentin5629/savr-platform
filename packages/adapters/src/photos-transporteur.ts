@@ -69,8 +69,6 @@ export class PhotoTransporteurInconnueError extends Error {
   override readonly name = 'PhotoTransporteurInconnueError';
 }
 
-type PhotoInterne = PhotoTransporteur & { src: string };
-
 // Même principe que les photos MTS-1 : la clé ne montre aucun identifiant du
 // transporteur, elle est déterministe (la recherche de doublon la lit).
 function empreinte(ref: string, mediaId: string): string {
@@ -196,7 +194,7 @@ async function lirePhotos(
   | { pris_en_charge: false }
   | {
       pris_en_charge: true;
-      photos: PhotoInterne[];
+      photos: PhotoTransporteur[];
       courses_illisibles: number;
     }
 > {
@@ -206,7 +204,7 @@ async function lirePhotos(
   const tournees = await tourneesALire(supabase, collecteId);
   const deja = await clesDejaImportees(supabase, collecteId);
   const client = new EverestClient(supabase);
-  const photos: PhotoInterne[] = [];
+  const photos: PhotoTransporteur[] = [];
   let coursesIllisibles = 0;
   for (const t of tournees) {
     const ref = t.external_ref_commande as string;
@@ -229,7 +227,6 @@ async function lirePhotos(
       photos.push({
         id,
         url: p.src,
-        src: p.src,
         prise_le: p.prise_le,
         course: t.rang,
         deja_importee: deja.has(id),
@@ -249,13 +246,7 @@ export async function listerPhotosTransporteur(
   collecteId: string,
   correlationId: string,
 ): Promise<PhotosTransporteur> {
-  const lu = await lirePhotos(supabase, collecteId, correlationId);
-  if (!lu.pris_en_charge) return lu;
-  return {
-    pris_en_charge: true,
-    photos: lu.photos.map(({ src: _src, ...p }) => p),
-    courses_illisibles: lu.courses_illisibles,
-  };
+  return lirePhotos(supabase, collecteId, correlationId);
 }
 
 /**
@@ -302,7 +293,7 @@ export async function importerPhotosTransporteur(
     restantes: 0,
   };
   for (const id of new Set(ids)) {
-    const photo = parId.get(id) as PhotoInterne;
+    const photo = parId.get(id) as PhotoTransporteur;
     if (photo.deja_importee) {
       resultat.deja_importees++;
       continue;
@@ -312,7 +303,7 @@ export async function importerPhotosTransporteur(
       continue;
     }
     try {
-      const { contenu, content_type } = await client.downloadPhoto(photo.src);
+      const { contenu, content_type } = await client.downloadPhoto(photo.url);
       const key = `${prefixe(collecteId)}${id}.${EXTENSIONS[content_type] ?? 'jpg'}`;
       // R2 d'abord, la ligne ensuite : jamais de ligne vers un objet absent.
       const { bucket } = await uploadObject(key, contenu, content_type);

@@ -1118,6 +1118,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       mockFetchPrestataire({
         ...acceptee,
+        // La route le pose dès que l'ordre de tête est une création
+        // abandonnée, référence reçue ou non.
+        envoi_abandonne: true,
         ordre_envoi: ordreEnvoi({ etat: 'echec_definitif', tentatives: 4 }),
       });
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -1129,6 +1132,11 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(alerte.textContent).toMatch(
         /Il ne bloque pas les ordres suivants de cette collecte\./,
       );
+      // Commande reçue : la fiche reste celle d'un envoi parti, sans renvoi
+      // proposé (Val 2026-11-03 ne rouvre l'envoi que si rien n'est arrivé).
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
       expect(alerte.textContent).not.toMatch(/n.est pas transmise/);
     },
     ATTENTE_CAS_MS,

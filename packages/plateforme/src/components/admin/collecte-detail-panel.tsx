@@ -1836,8 +1836,14 @@ export function CollecteDetailPanel({
   // État réel de l'ordre de tête, lu dans la file (décision Val 2026-10-12, C6).
   const ordreEnvoi = collecte.ordre_envoi ?? null;
   // Création abandonnée : elle ne bloque plus rien (Val 2026-11-03), la fiche
-  // rouvre le choix du prestataire et l'envoi pour la renvoyer.
-  const creationAbandonnee = !!collecte.envoi_abandonne;
+  // rouvre le choix du prestataire et l'envoi pour la renvoyer. Seulement si
+  // rien n'est arrivé chez le prestataire (même garde que « Créée »,
+  // lib/statut-collecte-admin) : une commande acceptée à la main pendant une
+  // panne porte une référence, et sa fiche reste celle d'un envoi parti.
+  const creationAbandonnee =
+    !!collecte.envoi_abandonne &&
+    collecte.statut_tms === 'non_envoye' &&
+    !collecte.tms_reference;
   const dispatchEnLecture =
     ordreEnFileEnvoi && !changerPrestataire && !creationAbandonnee;
   // AG attribuée : le choix du prestataire ne s'ouvre que sur « Modifier

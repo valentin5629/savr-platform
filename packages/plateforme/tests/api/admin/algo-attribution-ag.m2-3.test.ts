@@ -200,9 +200,11 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
             error: null,
           },
     );
-    // eq 1 = pré-lecture collecte (id), eq 2 = attributions_antgaspi (collecte_id), puis
+    // eq 0 = transporteur (service compatible), eq 1 = pré-lecture collecte (id),
+    // eq 2 = attributions_antgaspi (collecte_id), puis
     // `.update().eq('id').eq('type').eq('statut')` : la dernière étape est awaitée.
     mockSupabaseChain.eq
+      .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
@@ -397,9 +399,11 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
       },
       error: null,
     });
-    // eq 1 = pré-lecture collecte (id), eq 2 = attributions_antgaspi (collecte_id), puis
+    // eq 0 = transporteur (service compatible), eq 1 = pré-lecture collecte (id),
+    // eq 2 = attributions_antgaspi (collecte_id), puis
     // `.update().eq('id').eq('type').eq('statut')` : la dernière étape est awaitée.
     mockSupabaseChain.eq
+      .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
       .mockReturnValueOnce(mockSupabaseChain as never)
@@ -488,6 +492,73 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
       { params: Promise.resolve({ collecteId: 'coll-1' }) },
     );
     expect(res.status).toBe(422);
+  });
+
+  // Décision Val 2026-11-03 : quand l'Admin force A Toutes!, il choisit le
+  // service ; une branche Marathon ne désigne aucun service A Toutes! (le cas
+  // du 2026-11-02 finissait en échec d'envoi définitif).
+  it('M2.3/valider_service_a_toutes — A Toutes! forcé avec une branche Marathon → 422, rien n’est validé', async () => {
+    mockRpc.mockClear();
+    mockSupabaseChain.limit.mockResolvedValueOnce({
+      data: [{ type_tms: 'a_toutes' }],
+      error: null,
+    } as never);
+    const { POST } =
+      await import('@/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/attributions-ag/coll-1/valider', {
+        association_id: 'asso-1',
+        transporteur_id: 'transp-a-toutes',
+        branche_attribution: 'ag_marathon_volume',
+        mode_validation: 'manuel_override',
+        motif_override: 'client_demande',
+      }),
+      { params: Promise.resolve({ collecteId: 'coll-1' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toMatch(
+      /Choisissez le service du transporteur/,
+    );
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith('id', 'transp-a-toutes');
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'rpc_valider_attribution_ag',
+      expect.anything(),
+    );
+  });
+
+  it('M2.3/valider_service_a_toutes — A Toutes! forcé avec le service choisi → validé, la branche choisie est rangée', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        ok: true,
+        attribution_id: 'attr-1',
+        outbox_id: 'o',
+        pack_id: null,
+      },
+      error: null,
+    });
+    mockSupabaseChain.limit.mockResolvedValueOnce({
+      data: [{ type_tms: 'a_toutes' }],
+      error: null,
+    } as never);
+    const { POST } =
+      await import('@/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/attributions-ag/coll-1/valider', {
+        association_id: 'asso-1',
+        transporteur_id: 'transp-a-toutes',
+        branche_attribution: 'ag_marathon_volume_backup_camion',
+        mode_validation: 'manuel_override',
+        motif_override: 'client_demande',
+      }),
+      { params: Promise.resolve({ collecteId: 'coll-1' }) },
+    );
+    expect(res.status).toBe(201);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'rpc_valider_attribution_ag',
+      expect.objectContaining({
+        p_branche_attribution: 'ag_marathon_volume_backup_camion',
+      }),
+    );
   });
 
   it('retourne 409 si attribution déjà existante (DUPLICATE)', async () => {

@@ -140,22 +140,3 @@ export async function lireTout(
     if (lignes.length < LOT_LECTURE) return { rows, error: null };
   }
 }
-
-export interface PackEmbed {
-  prix_unitaire_ht: number | null;
-  montant_total_ht: number | null;
-  credits_initiaux: number | null;
-}
-
-/**
- * Montant AG d'une collecte livrée (CA économique, §11 §1.1, Val 2026-07-07) :
- * prix unitaire du pack, sinon montant total ÷ crédits initiaux. Règle unique
- * de l'histogramme et du tableau Revenus.
- */
-export function coutCollecteAg(pack: PackEmbed | null): number {
-  if (!pack) return 0;
-  if (pack.prix_unitaire_ht != null) return pack.prix_unitaire_ht;
-  if (pack.montant_total_ht != null && pack.credits_initiaux)
-    return pack.montant_total_ht / pack.credits_initiaux;
-  return 0;
-}

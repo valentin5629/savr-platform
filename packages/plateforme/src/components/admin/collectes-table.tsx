@@ -38,7 +38,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { ROUTES } from '@/lib/routes';
 
 // ── Type de ligne collecte de la liste Admin (§06.06 §3) ──────────────────────
-// Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
+// Superset du SELECT liste : les champs transporteur_nom / montant_ht sont
 // optionnels → la ligne se rend même si la route ne les câble pas encore.
 interface RapportRse {
   disponible_a: string | null;
@@ -90,10 +90,8 @@ export interface CollecteRow {
   };
   // Champs additifs (câblés par la route liste) — optionnels.
   transporteur_nom?: string | null;
-  // Montant résolu côté route (ZD = facture, AG = pack actif de l'org).
+  // Montant de la prestation, calculé par la route (lib/montant-prestation).
   montant_ht?: number | null;
-  factures_collectes?: { montant_ht: number | null }[];
-  packs_antgaspi?: { prix_unitaire_ht: number | null } | null;
 }
 
 // ── Statuts terminaux. Source unique. ──────────────────────────────────────────
@@ -149,20 +147,6 @@ export function urgentesEnTete(rows: CollecteRow[]): CollecteRow[] {
 
 function poidsTotalZd(row: CollecteRow): number {
   return row.collecte_flux.reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
-}
-
-// Montant de la collecte (§ décision Val 2026-07-04) :
-//   ZD  → montant HT facturé (factures_collectes) quand la facture existe ;
-//   AG  → prix du pack ramené à la collecte = packs_antgaspi.prix_unitaire_ht.
-// Retourne null si non déterminable (ZD non encore facturée) → affiché « — ».
-function montantCollecte(row: CollecteRow): number | null {
-  // Priorité au montant résolu côté route (source unique : pack actif / facture).
-  if (row.montant_ht != null) return row.montant_ht;
-  if (row.type === 'anti_gaspi') {
-    return row.packs_antgaspi?.prix_unitaire_ht ?? null;
-  }
-  const fc = row.factures_collectes?.find((f) => f.montant_ht != null);
-  return fc?.montant_ht ?? null;
 }
 
 // Statut d'attribution AG (§06.06 §3 l.182) — 3 des 4 états dérivables.
@@ -460,7 +444,9 @@ export function colonnesCollectesAdmin({
       header: 'Montant',
       meta: { className: 'text-right' },
       cell: ({ row: { original: r } }) => {
-        const m = montantCollecte(r);
+        // Montant de la prestation, calculé par la route (Val 2026-11-03) ;
+        // null (pax ou tarif introuvable) → « — ».
+        const m = r.montant_ht ?? null;
         return m != null ? (
           <span className="whitespace-nowrap font-extrabold text-savr-neutral-900 tabular-nums">
             {formatEuro(m, r.type)}

@@ -42,7 +42,7 @@ import { instantParis } from '@savr/shared/src/temps/index.js';
 // BL-P1-API-04 — service 77 (camion express > 3,5h, Marathon indisponible) mappé
 // sur la branche `ag_everest_camion_express` que l'algo M2.3 produit déjà
 // (DIV-3, décision Val 2026-06-15). Sans ce mapping le dispatch express échoue.
-const BRANCHE_TO_SERVICE: Record<string, number> = {
+export const BRANCHE_TO_SERVICE: Record<string, number> = {
   ag_velo_programme: 71,
   ag_velo_express: 74,
   ag_everest_camion_express: 77,

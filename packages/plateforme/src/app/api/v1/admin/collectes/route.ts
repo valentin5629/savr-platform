@@ -12,6 +12,7 @@ import { lireTri } from '@/lib/tri-liste.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
 import { lireCollectesEnvoiAbandonne } from '@/lib/ordre-envoi.js';
+import { montantsPrestation, type PackPrix } from '@/lib/montant-prestation.js';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -53,8 +54,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
        nb_camions_demande, tms_reference, prestataire_logistique_id, created_at,
        controle_acces_requis, informations_completes, taux_recyclage,
        attributions_antgaspi!collecte_id(id, valide_at, mode_validation, volume_repas_realise, transporteurs!transporteur_id(nom)),
-       packs_antgaspi!pack_antgaspi_id(prix_unitaire_ht),
-       factures_collectes(montant_ht),
+       packs_antgaspi!pack_antgaspi_id(prix_unitaire_ht, montant_total_ht, credits_initiaux),
        collecte_tournees(tournees(prestataire_logistique_id)),
        collecte_flux(poids_reel_kg),
        ${rapportEmbed},
@@ -93,9 +93,10 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     collecte_tournees?: {
       tournees?: { prestataire_logistique_id?: string | null } | null;
     }[];
-    packs_antgaspi?: { prix_unitaire_ht?: number | null } | null;
-    factures_collectes?: { montant_ht?: number | null }[];
-    evenements?: { organisation_id?: string | null };
+    pax?: number | null;
+    date_collecte?: string;
+    packs_antgaspi?: PackPrix | PackPrix[] | null;
+    evenements?: { organisation_id?: string | null; lieu_id?: string | null };
     transporteur_nom?: string | null;
     montant_ht?: number | null;
   };
@@ -123,40 +124,27 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // (2) Montant AG « prix du pack ramené à la collecte » (décision Val 2026-07-04)
-  // = prix_unitaire_ht du PACK ACTIF de l'organisation (invariant : au plus 1
-  // actif/org). Pas de lien fiable collecte→pack (`pack_antgaspi_id` souvent null)
-  // → batch par organisation. Fallback prix = montant_total_ht / credits_initiaux.
-  const orgIdsAg = new Set<string>();
-  for (const r of rows) {
-    const org = r.evenements?.organisation_id;
-    if (r.type === 'anti_gaspi' && org) orgIdsAg.add(org);
-  }
-  const prixPackParOrg = new Map<string, number>();
-  if (orgIdsAg.size > 0) {
-    const { data: packs } = await supabase
-      .from('packs_antgaspi')
-      .select(
-        'organisation_id, prix_unitaire_ht, montant_total_ht, credits_initiaux',
-      )
-      .eq('statut', 'actif')
-      .in('organisation_id', [...orgIdsAg]);
-    for (const p of (packs ?? []) as {
-      organisation_id: string;
-      prix_unitaire_ht: number | null;
-      montant_total_ht: number | null;
-      credits_initiaux: number | null;
-    }[]) {
-      const prix =
-        p.prix_unitaire_ht ??
-        (p.montant_total_ht != null && p.credits_initiaux
-          ? p.montant_total_ht / p.credits_initiaux
-          : null);
-      if (prix != null) prixPackParOrg.set(p.organisation_id, prix);
-    }
+  // (2) Montant de la prestation (Val 2026-11-03), indépendant de la facture.
+  let montants: (number | null)[];
+  try {
+    montants = await montantsPrestation(
+      supabase,
+      rows.map((r) => ({
+        type: r.type ?? '',
+        pax: r.pax ?? null,
+        date_collecte: r.date_collecte ?? '',
+        organisation_id: r.evenements?.organisation_id ?? null,
+        lieu_id: r.evenements?.lieu_id ?? null,
+        pack: Array.isArray(r.packs_antgaspi)
+          ? (r.packs_antgaspi[0] ?? null)
+          : (r.packs_antgaspi ?? null),
+      })),
+    );
+  } catch (e) {
+    return serverError(e, 'admin.collectes.list.montants');
   }
 
-  for (const r of rows) {
+  for (const [i, r] of rows.entries()) {
     r.envoi_abandonne = r.id != null && abandons.data.has(r.id);
 
     // Transporteur
@@ -172,18 +160,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     }
     r.transporteur_nom = nom;
 
-    // Montant : ZD = facture ; AG = pack actif de l'org.
-    if (r.type === 'anti_gaspi') {
-      const org = r.evenements?.organisation_id;
-      r.montant_ht =
-        (org ? prixPackParOrg.get(org) : undefined) ??
-        r.packs_antgaspi?.prix_unitaire_ht ??
-        null;
-    } else {
-      r.montant_ht =
-        r.factures_collectes?.find((f) => f.montant_ht != null)?.montant_ht ??
-        null;
-    }
+    r.montant_ht = montants[i] ?? null;
   }
 
   return NextResponse.json({ data: rows, total: count ?? 0, page, limit });

@@ -71,7 +71,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts",
       "test": "M3.5/admin_revenus_6_colonnes — nom · type · nb/CA ZD · nb/CA AG",
       "statut": "implemented",
-      "libelle": "Dashboard Admin Bloc 2 Revenus — tableau 6 colonnes (nom/type/nb ZD/CA ZD/nb AG/CA AG), nb depuis collectes ; CA ZD depuis factures emise/payee ; CA AG = coût/collecte du pack (CA économique, divergence Val 2026-07-07) ; période/tri/pagination corrigée/CSV + histogramme 12 mois monté"
+      "libelle": "Dashboard Admin Bloc 2 Revenus — tableau 6 colonnes (nom/type/nb ZD/CA ZD/nb AG/CA AG), nombres et montants depuis les mêmes collectes programmées et réalisées, au montant de la prestation (lib/montant-prestation : ZD tarif de grille moins la remise, AG prix du pack débité sinon tarif unitaire moins la remise), facturées ou non (Val 2026-11-03, remplace CA ZD facturé et CA AG économique) ; période/tri/pagination corrigée/CSV + histogramme 12 mois monté"
     },
     {
       "id": "M3.5-kpi-admin-ca-eco-ag",
@@ -87,7 +87,7 @@
       "artefact": "packages/plateforme/src/lib/dashboards/revenus-admin.ts, packages/plateforme/src/app/api/v1/admin/dashboard/revenus-mensuels/route.ts, packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts, packages/plateforme/src/app/(admin)/admin/dashboard/page.tsx",
       "test": "M3.5/revenus_filtres_perimetre + M3.5/revenus_filtres_tableau + M3.5/revenus_filtres_histogramme + M3.5/revenus_filtres_tableau_gestionnaire_sans_lieu + M3.5/revenus_mensuels_montants + M3.5/admin_revenus_filtres_lieu_organisation + M3.5/admin_revenus_filtre_retour_page_1",
       "statut": "implemented",
-      "libelle": "Section Revenus du Dashboard Admin : filtres Lieux, Traiteur, Agence, Gestionnaire de lieux après Période, appliqués au graphe et au tableau, pas aux cartes Suivi opérationnel (Val 2026-10-30). Traiteur ou agence = collectes programmées ou opérées (R24c) ; gestionnaire = collectes sur les lieux de son parc ; organisations additionnées, Lieux en plus. Le graphe lit revenus-mensuels (montant ZD par lignes de facture, avoirs négatifs, mois d'émission ; même total que v_kpi_admin sans filtre ni avoir, mesuré sur savr-dev le 2026-10-30 ; la vue soustrait aussi les avoirs depuis 20261030120000). Fiche _Divergences/M3.5_20261030_dashboard-admin-filtres-revenus."
+      "libelle": "Section Revenus du Dashboard Admin : filtres Lieux, Traiteur, Agence, Gestionnaire de lieux après Période, appliqués au graphe et au tableau, pas aux cartes Suivi opérationnel (Val 2026-10-30). Traiteur ou agence = collectes programmées ou opérées (R24c) ; gestionnaire = collectes sur les lieux de son parc ; organisations additionnées, Lieux en plus. Le graphe lit revenus-mensuels (depuis 2026-11-03 : collectes programmées et réalisées au montant de la prestation, au mois de la collecte, aucune facture lue ; v_kpi_admin n'est plus lue). Fiche _Divergences/M3.5_20261030_dashboard-admin-filtres-revenus."
     },
     {
       "id": "BL-P2-11",
@@ -147,6 +147,15 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
       "libelle": "Reliquat des lots C1 et C2 : type_evenement_ids[] des routes /dashboards/blocs et /dashboards/evolution (et des chargeurs SSR) lu comme UUID, comme lireFiltresCollectesGestionnaire : les valeurs mal formées sont écartées ; un filtre Type sans aucun identifiant lisible rend des blocs ou une série vides, sans lire les collectes — jamais un filtre ignoré, jamais une erreur 500 de PostgREST."
+    },
+    {
+      "id": "M3.5-montant-prestation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:35",
+      "artefact": "packages/plateforme/src/lib/montant-prestation.ts (montantsPrestation, STATUTS_REVENUS, FILTRE_STATUTS_REVENUS) branché dans packages/plateforme/src/app/api/v1/admin/collectes/route.ts (colonne « Montant » de la liste Admin), packages/plateforme/src/app/api/v1/admin/dashboard/revenus-mensuels/route.ts et packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts ; annulation tardive marquée par supabase/migrations/20261103190000_plateforme_collectes_annulation_tardive.sql (collectes.annulation_tardive, trg_marquer_annulation_tardive)",
+      "test": "M3.5/montant_prestation_zd_grille_defaut + M3.5/montant_prestation_zd_grille_organisation + M3.5/montant_prestation_zd_grille_hors_validite + M3.5/montant_prestation_zd_remise_max + M3.5/montant_prestation_zd_inconnu + M3.5/montant_prestation_remise_eligibilite + M3.5/montant_prestation_ag_remise_gestionnaire + M3.5/montant_prestation_ag_pack_debite + M3.5/montant_prestation_ag_hors_pack + M3.5/montant_prestation_lots_de_100 + M3.5/montant_prestation_sans_remise_a_lire + M3.5/montant_prestation_lecture_tronquee + M3.5/montant_prestation_lot_vide + M3.5/montant_prestation_liste_route + M3.5/montant_prestation_liste_affichage + M3.5/montant_prestation_statuts_revenus + M3.5/revenus_mensuels_montants + revenus/aucune_facture_lue + revenus/statuts_programmees_et_realisees + revenus/6_colonnes_split_zd_ag + M3.5/revenus_periode_sans_fin + M3.5/admin_revenus_defaut_12_mois + M3.5/montant_prestation_filtre_annulation_tardive + M3.5/revenus_annulation_tardive_montant_plein + revenus/annulation_tardive_montant_plein + supabase/tests/collectes_annulation_tardive.test.sql",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M3.5_20261103_montant-prestation-hors-facturation.md + _Divergences/M3.5_20261103_annulation-tardive-revenus.md",
+      "libelle": "Montant de la prestation, facturée ou non (Val 2026-11-03) : liste Admin Collectes (colonne « Montant ») et section Revenus du Dashboard Admin (graphe et tableau). ZD = tarif de la grille de l'organisation programmatrice (sinon grille par défaut) au pax de la collecte, moins la plus forte remise éligible ; AG = prix du pack réellement débité (collectes.pack_antgaspi_id), sinon tarif unitaire public moins la remise AG. Revenus = collectes programmées et réalisées (programmee, validee, en_cours, realisee, realisee_sans_collecte, cloturee), au mois de la collecte ; aucune facture lue. Période par défaut du graphe et du tableau : depuis le 1er du mois il y a 11 mois, sans borne de fin, pour que les collectes programmées à venir comptent (Val 2026-11-03). Plus les annulations tardives (statut annulee et collectes.annulation_tardive = true : moins de 4 h avant le créneau, heure de Paris, imputables au client ou sans incident), au montant plein, nombres et montants ; marque posée au passage à annulee depuis le 2026-11-03, annulations antérieures non comptées."
     }
   ],
   "cdc_source_hash": {

@@ -426,3 +426,34 @@ describe('collectes-table / Indicateurs sur une ligne (2026-10-30)', () => {
     expect(classes[2]).toContain('min-w-0');
   });
 });
+
+// Colonne « Montant » (Val 2026-11-03) : le montant de la prestation calculé
+// par la route, « — » quand il est inconnu (jamais 0 €).
+describe('collectes-table / colonne Montant — montant de la prestation', () => {
+  function montantAffiche(r: CollecteRow): string | null {
+    const colonne = colonnesCollectesAdmin({ onOpen: () => {} }).find(
+      (c) => c.id === 'montant',
+    );
+    const cell = colonne?.cell as (ctx: {
+      row: { original: CollecteRow };
+    }) => ReactElement;
+    const { container, unmount } = render(cell({ row: { original: r } }));
+    const texte = container.textContent;
+    unmount();
+    return texte;
+  }
+
+  it('M3.5/montant_prestation_liste_affichage — montant servi affiché, ZD en HT, inconnu = « — »', () => {
+    expect(montantAffiche(row({ montant_ht: 130 }))?.replace(/\s/g, ' ')).toBe(
+      '130 €',
+    );
+    expect(
+      montantAffiche(row({ type: 'zero_dechet', montant_ht: 1900 }))?.replace(
+        /\s/g,
+        ' ',
+      ),
+    ).toBe('1 900 € HT');
+    expect(montantAffiche(row({ montant_ht: null }))).toBe('—');
+    expect(montantAffiche(row({}))).toBe('—');
+  });
+});

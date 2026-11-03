@@ -602,4 +602,30 @@ describe('Fiche Événement — Admin et client organisateur', () => {
       tournees: [],
     });
   });
+
+  // Code affaire VIPARIS (§04, Val 2026-11-02) : le champ n'est proposé à la
+  // saisie qu'à qui la route laisse écrire — le traiteur opérationnel tiers le
+  // lit seulement.
+  it.each([
+    ['org-1', true],
+    ['org-tiers', false],
+  ])(
+    'VIPARIS/code_affaire_modifiable_traiteur — programmé par %s : modifiable = %s',
+    async (organisationId, attendu) => {
+      service = makeClient({});
+      session = makeClient({
+        evenements: {
+          data: { ...evtFiche(), organisation_id: organisationId },
+          error: null,
+        },
+      });
+      mockCharger.mockReset();
+      mockCharger.mockResolvedValue({ fiche: { id: 'c-ag' } });
+      connecte('traiteur_manager');
+      const res = await fiche();
+      expect(res.status).toBe(200);
+      const { data } = (await res.json()) as Fiche;
+      expect(data.code_affaire_modifiable).toBe(attendu);
+    },
+  );
 });

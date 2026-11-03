@@ -147,6 +147,15 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
       "libelle": "Reliquat des lots C1 et C2 : type_evenement_ids[] des routes /dashboards/blocs et /dashboards/evolution (et des chargeurs SSR) lu comme UUID, comme lireFiltresCollectesGestionnaire : les valeurs mal formées sont écartées ; un filtre Type sans aucun identifiant lisible rend des blocs ou une série vides, sans lire les collectes — jamais un filtre ignoré, jamais une erreur 500 de PostgREST."
+    },
+    {
+      "id": "M3.5-montant-prestation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:35",
+      "artefact": "packages/plateforme/src/lib/montant-prestation.ts (montantsPrestation, STATUTS_REVENUS) branché dans packages/plateforme/src/app/api/v1/admin/collectes/route.ts (colonne « Montant » de la liste Admin), packages/plateforme/src/app/api/v1/admin/dashboard/revenus-mensuels/route.ts et packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts",
+      "test": "M3.5/montant_prestation_zd_grille_defaut + M3.5/montant_prestation_zd_grille_organisation + M3.5/montant_prestation_zd_grille_hors_validite + M3.5/montant_prestation_zd_remise_max + M3.5/montant_prestation_zd_inconnu + M3.5/montant_prestation_ag_pack_debite + M3.5/montant_prestation_ag_hors_pack + M3.5/montant_prestation_lot_vide + M3.5/montant_prestation_statuts_revenus + M3.5/revenus_mensuels_montants + revenus/aucune_facture_lue + revenus/statuts_programmees_et_realisees + revenus/6_colonnes_split_zd_ag",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M3.5_20261103_montant-prestation-hors-facturation.md",
+      "libelle": "Montant de la prestation, facturée ou non (Val 2026-11-03) : liste Admin Collectes (colonne « Montant ») et section Revenus du Dashboard Admin (graphe et tableau). ZD = tarif de la grille de l'organisation programmatrice (sinon grille par défaut) au pax de la collecte, moins la plus forte remise éligible ; AG = prix du pack réellement débité (collectes.pack_antgaspi_id), sinon tarif unitaire public moins la remise AG. Revenus = collectes programmées et réalisées (programmee, validee, en_cours, realisee, realisee_sans_collecte, cloturee), au mois de la collecte ; aucune facture lue. Annulations tardives non comptées (instant d'annulation non stocké, lot suivant)."
     }
   ],
   "cdc_source_hash": {

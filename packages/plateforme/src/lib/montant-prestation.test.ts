@@ -169,7 +169,7 @@ function ag(over: Partial<CollectePrestation>): CollectePrestation {
 }
 
 describe('montantsPrestation — ZD', () => {
-  it('grille par défaut et palier du pax, sans remise', async () => {
+  it('M3.5/montant_prestation_zd_grille_defaut — grille par défaut et palier du pax, sans remise', async () => {
     const c = client(referentiel());
     const m = await montantsPrestation(c as never, [
       zd({ pax: 200 }),
@@ -178,7 +178,7 @@ describe('montantsPrestation — ZD', () => {
     expect(m).toEqual([300, 900]);
   });
 
-  it('grille de l’organisation, et sa remise', async () => {
+  it('M3.5/montant_prestation_zd_grille_organisation — grille de l’organisation, et sa remise', async () => {
     const c = client(referentiel());
     const [m] = await montantsPrestation(c as never, [
       zd({ organisation_id: ORG }),
@@ -186,7 +186,7 @@ describe('montantsPrestation — ZD', () => {
     expect(m).toBe(180); // 200 × (1 − 0,10)
   });
 
-  it('grille de l’organisation pas encore en vigueur : grille par défaut', async () => {
+  it('M3.5/montant_prestation_zd_grille_hors_validite — grille de l’organisation pas encore en vigueur : grille par défaut', async () => {
     const c = client(referentiel());
     const [m] = await montantsPrestation(c as never, [
       zd({ organisation_id: ORG, date_collecte: '2026-05-15' }),
@@ -194,7 +194,7 @@ describe('montantsPrestation — ZD', () => {
     expect(m).toBe(270); // 300 × (1 − 0,10)
   });
 
-  it('la plus forte remise éligible s’applique, sans cumul (gestionnaire du lieu)', async () => {
+  it('M3.5/montant_prestation_zd_remise_max — la plus forte remise éligible s’applique, sans cumul (gestionnaire du lieu)', async () => {
     const c = client(referentiel());
     const [m] = await montantsPrestation(c as never, [
       zd({ organisation_id: ORG, lieu_id: LIEU }),
@@ -202,7 +202,7 @@ describe('montantsPrestation — ZD', () => {
     expect(m).toBe(150); // 200 × (1 − 0,25)
   });
 
-  it('pax absent ou aucun palier : montant inconnu', async () => {
+  it('M3.5/montant_prestation_zd_inconnu — pax absent ou aucun palier : montant inconnu', async () => {
     const tables = referentiel();
     tables.grilles_tarifaires_zd = [];
     const sansGrille = client(tables);
@@ -217,7 +217,7 @@ describe('montantsPrestation — ZD', () => {
 });
 
 describe('montantsPrestation — AG', () => {
-  it('pack débité : son prix unitaire, sinon total ÷ crédits, sans remise', async () => {
+  it('M3.5/montant_prestation_ag_pack_debite — pack débité : son prix unitaire, sinon total ÷ crédits, sans remise', async () => {
     const c = client(referentiel());
     const m = await montantsPrestation(c as never, [
       ag({
@@ -242,7 +242,7 @@ describe('montantsPrestation — AG', () => {
     expect(c.lectures).not.toContain('tarifs_packs_ag');
   });
 
-  it('sans pack : tarif unitaire public moins la remise AG en vigueur', async () => {
+  it('M3.5/montant_prestation_ag_hors_pack — sans pack : tarif unitaire public moins la remise AG en vigueur', async () => {
     const c = client(referentiel());
     const m = await montantsPrestation(c as never, [
       ag({ organisation_id: ORG, date_collecte: '2026-09-10' }),
@@ -253,7 +253,7 @@ describe('montantsPrestation — AG', () => {
 });
 
 describe('montantsPrestation — lot', () => {
-  it('aucune collecte : aucune lecture', async () => {
+  it('M3.5/montant_prestation_lot_vide — aucune collecte : aucune lecture', async () => {
     const c = client(referentiel());
     expect(await montantsPrestation(c as never, [])).toEqual([]);
     expect(c.lectures).toEqual([]);
@@ -269,7 +269,7 @@ describe('montantsPrestation — lot', () => {
     ).toBeNull();
   });
 
-  it('statuts des Revenus : programmées et réalisées seulement', () => {
+  it('M3.5/montant_prestation_statuts_revenus — statuts des Revenus : programmées et réalisées seulement', () => {
     expect([...STATUTS_REVENUS].sort()).toEqual([
       'cloturee',
       'en_cours',

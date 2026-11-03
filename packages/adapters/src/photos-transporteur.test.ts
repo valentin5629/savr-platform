@@ -28,6 +28,7 @@ const PRESTA_AT = 'presta-a-toutes';
 
 interface Etat {
   typeTms: string;
+  sansPrestataire?: boolean;
   fichiers: Array<{ key: string }>;
   inserts: Array<Record<string, unknown>>;
 }
@@ -38,7 +39,14 @@ function fauxSupabase(etat: Etat): SupabaseClient {
     const resultat = () => {
       switch (nom) {
         case 'collectes':
-          return { prestataire_logistique_id: PRESTA_AT };
+          return {
+            prestataire_logistique_id: etat.sansPrestataire ? null : PRESTA_AT,
+          };
+        case 'attributions_antgaspi':
+          return {
+            valide_at: '2026-11-03T08:00:00Z',
+            transporteurs: { type_tms: etat.typeTms },
+          };
         case 'transporteurs':
           return 'type_tms' in filtres
             ? [{ prestataire_logistique_id: PRESTA_AT }]
@@ -151,6 +159,16 @@ describe('listerPhotosTransporteur', () => {
     etat.typeTms = 'mts1';
     const r = await listerPhotosTransporteur(fauxSupabase(etat), COLLECTE, 'c');
     expect(r).toEqual({ pris_en_charge: false });
+  });
+
+  it('sans prestataire : le transporteur de l’attribution AG validée décide, comme la fiche', async () => {
+    etat.sansPrestataire = true;
+    const r = await listerPhotosTransporteur(fauxSupabase(etat), COLLECTE, 'c');
+    expect(r.pris_en_charge).toBe(true);
+    etat.typeTms = 'par_mail';
+    expect(
+      await listerPhotosTransporteur(fauxSupabase(etat), COLLECTE, 'c'),
+    ).toEqual({ pris_en_charge: false });
   });
 
   it('une photo déjà importée est signalée', async () => {

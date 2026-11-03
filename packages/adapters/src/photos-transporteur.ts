@@ -84,7 +84,9 @@ async function transporteurDeLaCollecte(
   const prestataireId = (
     collecte as { prestataire_logistique_id: string | null } | null
   )?.prestataire_logistique_id;
-  if (!prestataireId) return null;
+  // Sans prestataire : le transporteur de l'attribution AG validée, comme la
+  // fiche collecte Admin qui décide d'ouvrir cette fenêtre.
+  if (!prestataireId) return transporteurDeLAttribution(supabase, collecteId);
   const { data: transporteur, error: errT } = await supabase
     .from('transporteurs')
     .select('type_tms')
@@ -92,6 +94,28 @@ async function transporteurDeLaCollecte(
     .maybeSingle();
   if (errT) throw new Error(`transporteur illisible : ${errT.message}`);
   return (transporteur as { type_tms: string } | null)?.type_tms ?? null;
+}
+
+async function transporteurDeLAttribution(
+  supabase: SupabaseClient,
+  collecteId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('attributions_antgaspi')
+    .select('valide_at, transporteurs!transporteur_id(type_tms)')
+    .eq('collecte_id', collecteId)
+    .maybeSingle();
+  if (error) throw new Error(`attribution illisible : ${error.message}`);
+  type T = { type_tms: string };
+  const att = data as {
+    valide_at: string | null;
+    transporteurs: T | T[] | null;
+  } | null;
+  if (!att?.valide_at) return null;
+  const t = Array.isArray(att.transporteurs)
+    ? att.transporteurs[0]
+    : att.transporteurs;
+  return t?.type_tms ?? null;
 }
 
 async function tourneesALire(

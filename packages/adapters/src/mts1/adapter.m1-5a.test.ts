@@ -8,7 +8,7 @@ import {
   getLogistiqueProvider,
 } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
-import { composerCommentaireTransporteur } from '../infos-acces.js';
+import { composerCommentairesTransporteur } from '../infos-acces.js';
 import { ProviderManual } from '../manual/provider.js';
 import { AdapterMts1, numeroPorteLaCle } from './adapter.js';
 import { _setMts1Handlers, setupMts1Mock } from './mock.js';
@@ -886,12 +886,11 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     expect(orderPayload['comment']).toBe('Sonner interphone B au RDC');
   });
 
-  // ─── Commentaire au transporteur → `comment` MTS-1 (Val 2026-10-15) ─────────
-  // Composé en amont par fetchCollecte (composerCommentaireTransporteur, partagé
-  // avec Everest) ; ce test ferme le maillon aval : ce qui est composé atteint
-  // le fil, dans `comment`, au format décidé par Val (C60) — sans « Véhicule
-  // max » ni « Stationnement ».
-  it('M1.5 / commentaire au transporteur : traiteur, pax, instructions d’accès, contacts, au format de Val, dans comment', async () => {
+  // ─── Commentaire au transporteur → `comment` MTS-1 (Val 2026-11-03) ─────────
+  // Composé en amont par le worker (composerCommentairesTransporteur, partagé
+  // avec Everest) ; MTS-1 n'a pas de commentaire par adresse : il reçoit le
+  // texte unique (consigne, véhicules, Départ, Arrivée) dans `comment`.
+  it('M1.5 / commentaire au transporteur : consigne, véhicules et bloc Départ, au format de Val, dans comment', async () => {
     const postOrder = setupHandlers();
     const supabase = makeMockSupabase({ tourneeExistante: null });
     const lieuAcces: Lieu = {
@@ -913,9 +912,7 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
       {
         ...collecte,
-        informations_supplementaires: composerCommentaireTransporteur({
-          traiteurNom: 'Traiteur Essai',
-          pax: 120,
+        informations_supplementaires: composerCommentairesTransporteur({
           lieu: lieuAcces,
           informationsSupplementaires: 'Demander Karim à la plonge',
           contact: {
@@ -926,9 +923,9 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
             nom: collecte.contact_secours_nom,
             telephone: collecte.contact_secours_telephone,
           },
-          vehicule: null,
+          vehicule: { type: null, nombre: 2, typeTms: 'mts1' },
           livraison: null,
-        }),
+        }).unique,
       },
       1,
     );
@@ -939,16 +936,14 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     };
     expect(orderPayload.comment).toBe(
       [
-        'Traiteur : Traiteur Essai',
-        'Nombre de pax : 120',
-        "Instructions d'accès :",
-        '- Accès : Quai n°2, sonner interphone B',
+        'Veuillez peser et prendre de belles photos de ce que vous récupérez svp',
+        '2 camions prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur',
+        'Départ :',
+        "- Instructions d'accès : Quai n°2, sonner interphone B",
         '- Précisions du traiteur : Demander Karim à la plonge',
-        '- Contraintes horaires : Livraison avant 9h uniquement',
-        '- Accès office : très difficile',
-        '- Flux acceptés : biodéchets, carton',
-        `Contact : ${collecte.contact_principal_nom}, ${collecte.contact_principal_telephone}`,
-        'Contact de secours : Bruno Secours, +33600000002',
+        `- Contact 1 : ${collecte.contact_principal_nom}, ${collecte.contact_principal_telephone}`,
+        '- Contact 2 : Bruno Secours, +33600000002',
+        "En cas d'urgence, appeler le 0761912997",
       ].join('\n'),
     );
     // Le téléphone de secours part aussi nativement.

@@ -79,7 +79,7 @@ import {
   getLogistiqueProvider,
 } from './index.js';
 import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
-import { composerCommentaireTransporteur } from './infos-acces.js';
+import { composerCommentairesTransporteur } from './infos-acces.js';
 import type { EntreeCommentaire } from './infos-acces.js';
 import { applyLieuOverrides } from './lieu-overrides.js';
 import type { AdapterMts1 } from './mts1/adapter.js';
@@ -104,8 +104,9 @@ interface CollecteRow {
   statut_tms: string;
   controle_acces_requis: boolean;
   informations_supplementaires: string | null;
-  // Ce que rassemble le commentaire au transporteur : il n'est composé qu'une
-  // fois le transporteur lu (`toCollecte`), qui nomme les véhicules multiples.
+  // Ce que rassemblent les commentaires au transporteur : ils ne sont composés
+  // qu'une fois le transporteur lu (`toCollecte`), qui nomme les véhicules
+  // multiples.
   entree_commentaire: EntreeCommentaire;
   notes_internes: string | null;
   contact_principal_nom: string;
@@ -785,17 +786,14 @@ async function fetchCollecte(
     statut_tms: raw.statut_tms,
     controle_acces_requis: raw.controle_acces_requis,
     informations_supplementaires: raw.informations_supplementaires,
-    // Commentaire au transporteur (format décidé par Val le 2026-10-15, C60-C62,
-    // cf. infos-acces.ts) : le seul canal libre routé (`comment` / `notes`).
-    // Rassemblé ICI et composé par `toCollecte`, donc une seule fois pour les
-    // deux adapters (garde-fou 2), et à partir du lieu FUSIONNÉ — le lieu
-    // officiel retransmettrait précisément l'erreur corrigée par #304. Les
-    // informations d'accès, le nom du contact de secours (arbitrage Val
-    // 2026-09-14), le véhicule souhaité (décision Val 2026-10-01) et le point B
+    // Commentaires au transporteur (format décidé par Val le 2026-11-03, cf.
+    // infos-acces.ts) : le seul canal libre routé. Rassemblés ICI et composés
+    // par `toCollecte`, donc une seule fois pour les deux adapters (garde-fou
+    // 2), et à partir du lieu FUSIONNÉ — le lieu officiel retransmettrait
+    // précisément l'erreur corrigée par #304. Les instructions d'accès, le nom du
+    // contact de secours (arbitrage Val 2026-09-14) et les véhicules multiples
     // n'ont aucun champ natif MTS-1/Everest en V1.
     entree_commentaire: {
-      traiteurNom: traiteur?.nom,
-      pax,
       lieu,
       informationsSupplementaires: raw.informations_supplementaires,
       contact: {
@@ -811,7 +809,13 @@ async function fetchCollecte(
           ? { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande }
           : null,
       livraison: association
-        ? { instructionsAcces: association.instructions_acces }
+        ? {
+            instructionsAcces: association.instructions_acces,
+            contact: {
+              nom: association.contact_nom,
+              telephone: association.contact_telephone,
+            },
+          }
         : null,
     },
     traiteur_nom: traiteur?.nom ?? null,
@@ -946,6 +950,14 @@ async function fetchLieu(
 
 function toCollecte(row: CollecteRow, transporteur: Transporteur): Collecte {
   const entree = row.entree_commentaire;
+  // Plusieurs véhicules sans type précisé : le transporteur les nomme
+  // (« 2 vélos prévus … » chez A Toutes!, décision Val 2026-11-03).
+  const commentaires = composerCommentairesTransporteur({
+    ...entree,
+    vehicule: entree.vehicule
+      ? { ...entree.vehicule, typeTms: transporteur.type_tms }
+      : null,
+  });
   return {
     id: row.id,
     type: row.type as 'zero_dechet' | 'anti_gaspi',
@@ -954,14 +966,10 @@ function toCollecte(row: CollecteRow, transporteur: Transporteur): Collecte {
     nb_camions_demande: row.nb_camions_demande,
     statut_tms: row.statut_tms,
     controle_acces_requis: row.controle_acces_requis,
-    // Plusieurs véhicules sans type précisé : le transporteur les nomme
-    // (« 2 vélos prévus … » chez A Toutes!, décision Val 2026-11-03).
-    informations_supplementaires: composerCommentaireTransporteur({
-      ...entree,
-      vehicule: entree.vehicule
-        ? { ...entree.vehicule, typeTms: transporteur.type_tms }
-        : null,
-    }),
+    informations_supplementaires: commentaires.unique,
+    commentaire_general: commentaires.general,
+    commentaire_depart: commentaires.depart,
+    commentaire_arrivee: commentaires.arrivee,
     notes_internes: row.notes_internes,
     traiteur_nom: row.traiteur_nom,
     pax: row.pax,

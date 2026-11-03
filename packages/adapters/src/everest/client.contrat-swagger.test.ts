@@ -324,7 +324,16 @@ describe('EverestClient — contrat du swagger Everest', () => {
     );
     await expect(
       client().downloadPhoto('https://medias.invalid/pht-1.jpg'),
-    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+    ).rejects.toBeInstanceOf(LogistiquePermanentError); // Taille annoncée au-delà de 10 Mo : refusée sans lire le corps.
+    fetchMock.mockResolvedValueOnce(
+      new Response(new Uint8Array([0xff, 0xd8, 0xff]), {
+        status: 200,
+        headers: { 'content-length': String(11 * 1024 * 1024) },
+      }),
+    );
+    await expect(
+      client().downloadPhoto('https://medias.invalid/pht-1.jpg'),
+    ).rejects.toThrow(/taille/);
   });
   it('M2.5/everest_contrat_update — POST /missions/update avec { ref, champs } tel quel ; la référence lue est mission.ref', async () => {
     fetchMock.mockResolvedValueOnce(

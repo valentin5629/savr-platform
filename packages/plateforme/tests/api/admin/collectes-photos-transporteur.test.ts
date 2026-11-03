@@ -164,6 +164,13 @@ describe('photos du livreur — POST', () => {
     expect(importer).not.toHaveBeenCalled();
   });
 
+  it('client (hors équipe Savr) → refusé, rien n’est importé', async () => {
+    role.valeur = 'traiteur_manager';
+    const res = await poster({ ids: [ID] });
+    expect(res.status).toBe(403);
+    expect(importer).not.toHaveBeenCalled();
+  });
+
   it('photo inconnue du transporteur → 422', async () => {
     const { PhotoTransporteurInconnueError } =
       await import('@savr/adapters/src/index.js');

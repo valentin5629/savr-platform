@@ -177,6 +177,7 @@ export function PhotosTransporteurModal({
                 >
                   <img
                     src={p.url}
+                    referrerPolicy="no-referrer"
                     alt={
                       legende
                         ? `Photo du livreur, ${legende}`

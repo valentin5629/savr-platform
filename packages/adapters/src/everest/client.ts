@@ -599,6 +599,13 @@ export class EverestClient {
           ? new LogistiqueTransientError(`Everest photo ${resp.status}`)
           : new LogistiquePermanentError(`Everest photo ${resp.status}`);
       }
+      // Taille annoncée trop grande : refusée avant d'être lue.
+      const annoncee = Number(resp.headers.get('content-length') ?? '0');
+      if (annoncee > TAILLE_MAX_PHOTO) {
+        throw new LogistiquePermanentError(
+          `Everest photo : taille ${annoncee} refusée`,
+        );
+      }
       const contenu = Buffer.from(await resp.arrayBuffer());
       if (contenu.length === 0 || contenu.length > TAILLE_MAX_PHOTO) {
         throw new LogistiquePermanentError(

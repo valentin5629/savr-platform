@@ -142,7 +142,7 @@ describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)',
     mockPathname.mockReturnValue('/traiteur/parametres');
     render(<Sidebar role="traiteur_manager" identite={identite} />);
     expect(screen.getByTestId('menu-utilisateur').className).toContain(
-      'bg-savr-primary-700',
+      'bg-savr-white/10',
     );
     ouvrir();
     expect(

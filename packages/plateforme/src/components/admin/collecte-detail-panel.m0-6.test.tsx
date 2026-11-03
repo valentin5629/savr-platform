@@ -3564,6 +3564,52 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
+  it(
+    'M0.6/poids_ag_erreur_route — refus de la route affiché dans la fenêtre, qui reste ouverte',
+    async () => {
+      const fetchMock = installMock({});
+      const defaut = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(
+        (url: string, init?: { method?: string; body?: unknown }) =>
+          url.endsWith('/poids') && init?.method === 'PATCH'
+            ? Promise.resolve({
+                ok: false,
+                status: 422,
+                json: async () => ({ error: 'Motif requis pour corriger' }),
+              })
+            : defaut(url, init),
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
+
+      fireEvent.click(
+        within(valeurResumeAttribution('Poids collecté')).getByRole('button', {
+          name: 'Modifier',
+        }),
+      );
+      const champ = await screen.findByLabelText(
+        /Poids des denrées collectées/,
+        undefined,
+        ATTENTE_UI,
+      );
+      fireEvent.change(champ, { target: { value: '12' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      expect(
+        await screen.findByText(
+          'Motif requis pour corriger',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(/Poids des denrées collectées/),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // « Sans excédent » se lit là où se lisent les repas d'une collecte AG, pas
   // dans son statut (décision Val 2026-10-09).
   it(
@@ -3586,6 +3632,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         valeurResumeAttribution('Volume de repas réalisés'),
       ).toHaveTextContent(/^Sans excédent$/);
+      // Sans excédent : aucun poids à noter.
+      expect(screen.queryByText('Poids collecté')).toBeNull();
       const pastille = screen.getByTestId('statut-collecte-admin');
       expect(pastille).toHaveTextContent(/^Réalisée$/);
       expect(pastille).not.toHaveTextContent(/exc[ée]dent/i);
@@ -3620,6 +3668,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         valeurResumeAttribution('Volume de repas estimés'),
       ).toHaveTextContent(/^50$/);
       expect(screen.queryByText('Volume de repas réalisés')).toBeNull();
+      expect(screen.queryByText('Poids collecté')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

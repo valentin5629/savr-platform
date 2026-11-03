@@ -114,10 +114,10 @@
     {
       "id": "M2.4-poids-ag-saisie-fiche-admin",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:188",
-      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Logistique : ligne « Poids collecté », bouton « Modifier », fenêtre de saisie branchée sur PATCH /api/v1/admin/attributions-ag/[collecteId]/poids) ; poids_repas_kg lu par GET /api/v1/admin/collectes/[id]",
-      "test": "M0.6/poids_ag_saisie_admin (packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx)",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Logistique : ligne « Poids collecté », bouton « Modifier », fenêtre de saisie branchée sur PATCH /api/v1/admin/attributions-ag/[collecteId]/poids) ; poids_repas_kg lu par GET /api/v1/admin/collectes/[id] ; poids corrigé imprimé sur le rapport de don refait : packages/plateforme/src/lib/pdf/logo-rapport-de-don.ts (completerLogoAttestation relit attestations_don.poids_kg)",
+      "test": "M0.6/poids_ag_saisie_admin, M0.6/poids_ag_correction_admin, M0.6/poids_ag_erreur_route (packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx) ; « poids corrigé » (packages/plateforme/tests/lib/logo-rapport-de-don.test.ts)",
       "statut": "implemented",
-      "libelle": "Saisie manuelle du poids des denrées AG par l'équipe Savr depuis la fiche collecte Admin (collecte réalisée ou clôturée, hors « sans excédent ») : poids en kg, motif ≥ 10 caractères pour corriger un poids déjà posé (règle de la route /poids, BL-P1-RM-10) ; le nombre de repas réalisés en est calculé par trg_calc_volume_repas_realise (ceil(poids / poids_par_repas_kg)) et affiché en lecture seule ; rapport de don émis refait et CO₂e recalculé par trg_regenerer_attestation."
+      "libelle": "Saisie manuelle du poids des denrées AG par l'équipe Savr depuis la fiche collecte Admin (collecte réalisée ou clôturée, hors « sans excédent ») : poids en kg, motif ≥ 10 caractères pour corriger un poids déjà posé (règle de la route /poids, BL-P1-RM-10) ; le nombre de repas réalisés en est calculé par trg_calc_volume_repas_realise (ceil(poids / poids_par_repas_kg)) et affiché en lecture seule ; rapport de don émis refait et CO₂e recalculé par trg_regenerer_attestation. Le rapport refait imprime le poids corrigé (le trigger reprenait celui de la version précédente dans le contenu du PDF)."
     },
     {
       "id": "M2.4-numero-rup-instantane",

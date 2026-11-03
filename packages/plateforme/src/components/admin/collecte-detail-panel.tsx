@@ -1475,25 +1475,39 @@ export function CollecteDetailPanel({
     e.preventDefault();
     setPoidsSubmitting(true);
     setPoidsError(null);
-    const res = await fetch(
-      `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/poids`,
-      {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          poids_repas_kg: Number(poidsValeur.replace(',', '.')),
-          motif: poidsMotif,
-        }),
-      },
-    );
-    if (res.ok) {
-      await refetch();
-      setPoidsModal(false);
-    } else {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      setPoidsError(body.error ?? 'Enregistrement impossible');
+    try {
+      const res = await fetch(
+        `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/poids`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            poids_repas_kg: Number(poidsValeur.replace(',', '.')),
+            motif: poidsMotif,
+          }),
+        },
+      );
+      if (res.ok) {
+        // Repas recalculés, rapport de don refait, ligne d'audit : les trois
+        // onglets se relisent.
+        await refetch();
+        void refetchDocuments();
+        void refetchAudit();
+        setPoidsModal(false);
+      } else {
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setPoidsError(body.error ?? 'Enregistrement impossible');
+        // Un poids posé entre-temps rend le motif obligatoire : la fiche se
+        // relit pour faire apparaître le champ.
+        if (res.status === 422) await refetch();
+      }
+    } catch {
+      setPoidsError('Enregistrement impossible : vérifiez votre connexion.');
+    } finally {
+      setPoidsSubmitting(false);
     }
-    setPoidsSubmitting(false);
   };
 
   const openEditPesees = () => {
@@ -3778,8 +3792,9 @@ export function CollecteDetailPanel({
         )}
         <form onSubmit={(e) => void handleSavePoids(e)} className="space-y-4">
           <Text>
-            Le nombre de repas réalisés est calculé à partir de ce poids. Le
-            rapport de don déjà produit est refait, et le CO₂e évité recalculé.
+            Le nombre de repas réalisés est calculé à partir de ce poids. Si ce
+            nombre change, le rapport de don déjà produit est refait et le CO₂e
+            évité recalculé.
           </Text>
           <FormField
             label="Poids des denrées collectées (kg)"
@@ -3790,8 +3805,8 @@ export function CollecteDetailPanel({
               id="poids-collecte-input"
               type="number"
               inputMode="decimal"
-              min={0.01}
-              step={0.01}
+              min={0.1}
+              step={0.1}
               value={poidsValeur}
               onChange={(e) => setPoidsValeur(e.target.value)}
               required

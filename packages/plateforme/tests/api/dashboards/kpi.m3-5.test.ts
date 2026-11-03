@@ -57,6 +57,7 @@ const mockAdminChain = {
   eq: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
+  or: vi.fn().mockReturnThis(),
   not: vi.fn().mockReturnThis(),
   gte: vi.fn().mockReturnThis(),
   lte: vi.fn().mockReturnThis(),

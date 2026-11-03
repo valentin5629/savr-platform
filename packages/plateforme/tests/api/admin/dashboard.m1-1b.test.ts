@@ -17,6 +17,7 @@ function makeChain() {
   Object.assign(chain, {
     select: ret,
     eq: ret,
+    or: ret,
     in: ret,
     is: ret,
     not: ret,

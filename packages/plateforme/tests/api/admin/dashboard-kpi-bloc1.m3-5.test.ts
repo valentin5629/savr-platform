@@ -68,6 +68,10 @@ function makeRecordingChain() {
     neq: () => chain,
     in: (col: string, val: unknown) => recordType(col, val),
     is: () => chain,
+    or: (expr: string) => {
+      filtres.push(['or', expr]);
+      return chain;
+    },
     not: (...args: unknown[]) => {
       capturedNotArgs.push(args);
       filtres.push(['not', ...args]);

@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { FILTRE_A_DISPATCHER } from '@/lib/collectes-chips';
 
 type Result = { data: unknown; error: unknown; count?: number | null };
 
@@ -814,8 +815,8 @@ describe('M4.1 / export collectes — filtres de la liste Admin', () => {
     [
       'pastille « Non transmises ZD »',
       '?chip=non_transmises_zd',
-      'eq',
-      ['statut_tms', 'non_envoye'],
+      'or',
+      [FILTRE_A_DISPATCHER],
     ],
     [
       'pastille « Modifiées sans renvoi TMS »',

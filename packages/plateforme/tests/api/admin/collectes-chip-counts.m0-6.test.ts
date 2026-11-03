@@ -69,6 +69,19 @@ const LIGNES: Ligne[] = [
   ligne('zd-en-cours', { statut: 'en_cours' }),
   ligne('zd-annulation-demandee', { statut: 'annulation_demandee' }),
   ligne('zd-annulee', { statut: 'annulee' }),
+  // Rejetée par son prestataire, à réattribuer (Val 2026-11-03) : comptée,
+  // même avec la référence de la commande refusée.
+  ligne('zd-rejetee', {
+    statut: 'rejetee_par_prestataire',
+    statut_tms: 'rejetee_par_prestataire',
+    tms_reference: 'CO-3',
+  }),
+  // Un seul camion refusé d'une collecte validée : pas un rejet de la collecte.
+  ligne('zd-validee-camion-refuse', {
+    statut: 'validee',
+    statut_tms: 'rejetee_par_prestataire',
+    tms_reference: 'CO-4',
+  }),
   ligne('ag-validee', { type: 'anti_gaspi', statut: 'validee' }),
   // Mêmes leurres côté AG, une clause à la fois.
   ligne('ag-avec-reference', { type: 'anti_gaspi', tms_reference: 'M-8' }),
@@ -81,6 +94,12 @@ const LIGNES: Ligne[] = [
     type: 'anti_gaspi',
     statut_tms: 'acceptee',
     tms_reference: 'M-9',
+  }),
+  ligne('ag-rejetee', {
+    type: 'anti_gaspi',
+    statut: 'rejetee_par_prestataire',
+    statut_tms: 'rejetee_par_prestataire',
+    tms_reference: 'M-10',
   }),
   // Tuiles « Infos accès à envoyer » / « Infos à récupérer » : une collecte en
   // cours comptée, et son jumeau en brouillon, que la liste ne sert jamais.
@@ -117,6 +136,40 @@ function listePostgrest(brut: unknown): string[] {
     .map((v) => v.replace(/^"|"$/g, ''));
 }
 
+// `.or('a.eq.x,and(b.is.null,c.in.(d,e))')` : sous-ensemble PostgREST lu par
+// les prédicats (eq, is null, in, and imbriqué).
+function decoupeHautNiveau(expr: string): string[] {
+  const parts: string[] = [];
+  let prof = 0;
+  let courant = '';
+  for (const ch of expr) {
+    if (ch === '(') prof++;
+    if (ch === ')') prof--;
+    if (ch === ',' && prof === 0) {
+      parts.push(courant);
+      courant = '';
+    } else courant += ch;
+  }
+  parts.push(courant);
+  return parts;
+}
+
+function condition(expr: string): (l: Ligne) => boolean {
+  if (expr.startsWith('and(')) {
+    const conds = decoupeHautNiveau(expr.slice(4, -1)).map(condition);
+    return (l) => conds.every((c) => c(l));
+  }
+  const [col, op, ...reste] = expr.split('.');
+  const v = reste.join('.');
+  if (op === 'eq') return (l) => String(valeur(l, col!)) === v;
+  if (op === 'is' && v === 'null') return (l) => valeur(l, col!) === null;
+  if (op === 'in') {
+    const vs = listePostgrest(v);
+    return (l) => vs.includes(String(valeur(l, col!)));
+  }
+  throw new Error(`filtre non géré par le client factice : ${expr}`);
+}
+
 interface RequeteFactice extends ChipQuery {
   select(): RequeteFactice;
   neq(colonne: string, v: unknown): RequeteFactice;
@@ -150,6 +203,10 @@ function requeteFactice(lignes: Ligne[] = LIGNES): RequeteFactice {
     },
     gte: (c, v) => ajoute((l) => String(valeur(l, c)) >= String(v)),
     lte: (c, v) => ajoute((l) => String(valeur(l, c)) <= String(v)),
+    or: (expr) => {
+      const conds = decoupeHautNiveau(expr).map(condition);
+      return ajoute((l) => conds.some((c) => c(l)));
+    },
     retenues,
     then: (ok, ko) =>
       Promise.resolve({ count: retenues().length, error: null }).then(ok, ko),
@@ -230,10 +287,11 @@ describe('M0.6 — API GET collectes/chip-counts : tuiles « à dispatcher » (k
     // Les DEUX collectes du scénario, et elles seules : ni la transmise, ni
     // celle qui porte une référence, ni celle déjà chez le prestataire, ni les
     // statuts fermés (en cours, annulée).
-    expect(c.zd_a_dispatcher).toBe(2);
+    expect(c.zd_a_dispatcher).toBe(3);
     expect(idsDuChip('non_transmises_zd')).toEqual([
       'zd-programmee',
       'zd-validee',
+      'zd-rejetee',
     ]);
   });
 
@@ -242,8 +300,11 @@ describe('M0.6 — API GET collectes/chip-counts : tuiles « à dispatcher » (k
     expect(c.zd_a_dispatcher).toBe(c.non_transmises_zd);
     expect(c.ag_a_dispatcher).toBe(c.non_transmises_ag);
     // Scission par type : l'AG validée non transmise est comptée côté AG seul.
-    expect(c.ag_a_dispatcher).toBe(1);
-    expect(idsDuChip('non_transmises_ag')).toEqual(['ag-validee']);
+    expect(c.ag_a_dispatcher).toBe(2);
+    expect(idsDuChip('non_transmises_ag')).toEqual([
+      'ag-validee',
+      'ag-rejetee',
+    ]);
   });
 
   it('M0.6 — kpi_a_dispatcher_predicat_unique : la tuile ZD n’est jamais inférieure au nombre de lignes offrant « Dispatcher »', async () => {
@@ -252,7 +313,11 @@ describe('M0.6 — API GET collectes/chip-counts : tuiles « à dispatcher » (k
     const offrantDispatcher = LIGNES.filter((l) =>
       aDispatcherZd(l as unknown as CollecteRow),
     ).map((l) => l.id);
-    expect(offrantDispatcher).toEqual(['zd-programmee', 'zd-validee']);
+    expect(offrantDispatcher).toEqual([
+      'zd-programmee',
+      'zd-validee',
+      'zd-rejetee',
+    ]);
     expect(c.zd_a_dispatcher).toBeGreaterThanOrEqual(offrantDispatcher.length);
     // Prédicat unique : l'action et le chip désignent les mêmes collectes.
     expect(offrantDispatcher).toEqual(idsDuChip('non_transmises_zd'));

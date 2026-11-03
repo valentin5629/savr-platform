@@ -81,7 +81,7 @@ import { FLUX_ZD } from '@/lib/libelles/flux';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 import { PAX_COLLECTE_MAX } from '@/lib/pax-collecte-borne';
 import { paxSaisiValide } from '@/lib/programmation/cartes-saisie';
-import { estADispatcher, estModifieeSansRenvoi } from '@/lib/collectes-chips';
+import { estModifieeSansRenvoi, estNonEnvoyee } from '@/lib/collectes-chips';
 import { TENTATIVES_MAX_ORDRE, type OrdreEnvoi } from '@/lib/ordre-envoi';
 import {
   formatDateParis,
@@ -520,7 +520,7 @@ function ordreEnFile(collecte: CollecteDetail): boolean {
   return (
     collecte.prestataire_logistique_id != null &&
     envoiAutomatique(collecte.prestataire_actuel?.type_tms) &&
-    estADispatcher(collecte) &&
+    estNonEnvoyee(collecte) &&
     collecte.ordre_envoi != null
   );
 }
@@ -1818,8 +1818,8 @@ export function CollecteDetailPanel({
   // Val 2026-10-07) : seul le dispatch en pose un, avec son ordre en file.
   // Transporteurs manuels (mail / téléphone / autre) exclus : rien ne part
   // automatiquement pour eux.
-  // « À dispatcher » au sens canonique (§11 §1.1, `estADispatcher` : non envoyée,
-  // sans référence, programmée ou validée) — mais l'ordre est déjà en file.
+  // Jamais envoyée (`estNonEnvoyee`, première branche de « à dispatcher »
+  // §11 §1.1 : non envoyée, sans référence, programmée ou validée) — mais l'ordre est déjà en file.
   // Et un ordre doit réellement attendre dans la file (`ordre_envoi` non nul) :
   // sans ordre dans la file ni référence, aucun envoi n'est enregistré (ordre mis
   // à l'écart sans envoi, par exemple). La fiche dit alors « Non envoyé » et

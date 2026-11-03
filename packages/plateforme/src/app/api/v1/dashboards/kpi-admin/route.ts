@@ -3,7 +3,10 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
-import { STATUTS_A_RENVOYER } from '@/lib/collectes-chips.js';
+import {
+  FILTRE_A_DISPATCHER,
+  STATUTS_A_RENVOYER,
+} from '@/lib/collectes-chips.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -33,16 +36,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .from('collectes')
       .select('id', { count: 'exact', head: true })
       .eq('type', 'zero_dechet')
-      .eq('statut_tms', 'non_envoye')
-      .is('tms_reference', null)
-      .in('statut', ['programmee', 'validee']),
+      .or(FILTRE_A_DISPATCHER),
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })
       .eq('type', 'anti_gaspi')
-      .eq('statut_tms', 'non_envoye')
-      .is('tms_reference', null)
-      .in('statut', ['programmee', 'validee']),
+      .or(FILTRE_A_DISPATCHER),
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })

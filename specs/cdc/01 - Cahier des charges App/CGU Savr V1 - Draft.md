@@ -121,7 +121,7 @@ Le Client peut souscrire à l'une ou aux deux Activités.
 
 **ZD** : le Client est facturé à l'unité par Collecte ZD, selon la grille tarifaire applicable à la date de programmation, calculée en fonction du nombre de participants à l'événement. Des tarifs préférentiels peuvent être négociés avec SAVR pour les Clients dont les événements se tiennent sur des lieux gérés par un Gestionnaire de lieux partenaire.
 
-**AG** : le Client souscrit un Pack Anti-Gaspi prépayé ou commande à l'unité. Le Client détient au plus un Pack actif à un instant T ; les crédits sont défalqués sur ce Pack à chaque Collecte AG réalisée. Sans Pack actif, notamment après son épuisement, les Collectes AG restent programmables et sont facturées à l'unité jusqu'à l'acquisition d'un nouveau Pack. En cas de renouvellement anticipé, les crédits restants de l'ancien Pack sont reportés sur le nouveau par SAVR sur demande du Client.
+**AG** : le Client souscrit un Pack Anti-Gaspi prépayé ou commande à l'unité. Le Client détient au plus un Pack actif à un instant T ; un crédit est défalqué sur ce Pack à la programmation de chaque Collecte AG ; il est restitué si la Collecte est annulée 4h ou plus avant le créneau ou si le Prestataire la refuse. Sans Pack actif, notamment après son épuisement, les Collectes AG restent programmables et sont facturées à l'unité jusqu'à l'acquisition d'un nouveau Pack. En cas de renouvellement anticipé, les crédits restants de l'ancien Pack sont reportés sur le nouveau par SAVR sur demande du Client.
 
 Les Offres et tarifs applicables sont précisés en Annexe 1.
 
@@ -152,8 +152,8 @@ SAVR s'engage à :
 **6.3. Préparation des Excédents (AG).** Le Client s'engage à emballer et étiqueter ses Excédents conformément à la réglementation applicable aux dons alimentaires, et à garantir que leur DLC n'est pas dépassée. SAVR et/ou son Prestataire peuvent refuser de prendre possession d'Excédents non emballés ou non conformes ; dans cette hypothèse, la Collecte reste due et facturée au tarif applicable.
 
 **6.4. Annulation d'une Collecte.** Le Client peut annuler une Collecte depuis l'Espace Client selon les conditions suivantes :
-- Annulation reçue **≥ 4h avant le créneau** : aucune facturation.
-- Annulation reçue **< 4h avant le créneau** : facturation au tarif plein (ZD) ou débit d'un crédit Pack (AG), sans remboursement.
+- Annulation reçue **≥ 4h avant le créneau** : aucune facturation ; pour une Collecte AG, le crédit Pack défalqué à la programmation est restitué.
+- Annulation reçue **< 4h avant le créneau** : facturation au tarif plein (ZD, ou AG sans crédit Pack) ou conservation du crédit Pack défalqué à la programmation (AG), sans remboursement.
 
 **6.5. Respect de la réglementation.** Le Client est seul responsable du respect de la réglementation applicable à ses Déchets (nature, conditionnement, déclaration) et à ses Excédents (hygiène, DLC, emballage) jusqu'à leur remise à SAVR ou à son Prestataire, moment à partir duquel le transfert de responsabilité s'opère.
 

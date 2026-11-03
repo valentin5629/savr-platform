@@ -37,12 +37,13 @@
 # Couche : api
 # Priorité : P1-critique
 
-Scénario : dashboard_admin_cinq_cartes_actions
-  Étant donné 1 collecte ZD "programmee" "statut_tms=non_envoye" "tms_reference IS NULL" (hors 48h), 1 collecte AG "programmee" "statut_tms=non_envoye" (hors 48h), 1 collecte "statut_tms=attribuee_en_attente_acceptation" (hors 48h), 1 collecte "programmee" "dirty_tms=true", et 1 collecte "programmee" "statut_tms=a_attribuer" à J+1 (dans 48h, non verrouillée)
+Scénario : dashboard_admin_quatre_cartes_actions
+  Étant donné 1 collecte ZD "programmee" "statut_tms=non_envoye" "tms_reference IS NULL" (hors 48h), 1 collecte AG "programmee" "statut_tms=non_envoye" (hors 48h), 1 collecte "statut_tms=attribuee_en_attente_acceptation" (hors 48h), et 1 collecte "programmee" "statut_tms=a_attribuer" à J+1 (dans 48h, non verrouillée)
   Quand un admin_savr charge le Dashboard Admin
-  Alors les 5 cartes « Non transmises ZD » / « Non transmises AG » / « En attente prestataire » / « Modifiées sans renvoi TMS » / « Collectes <48h non validées » affichent respectivement 1 / 1 / 1 / 1 / 1 (rangée refondue 2026-07-15 : split Non transmises M3.5 + fusion 48h M3.6)
-  Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le chip miroir pré-appliqué (`non_transmises_zd` / `non_transmises_ag` / `attente_prestataire` / `dirty_tms` / `collectes_48h_non_validees`), sans page intermédiaire
+  Alors les 4 cartes « Non transmises ZD » / « Non transmises AG » / « En attente prestataire » / « Collectes <48h non validées » affichent respectivement 1 / 1 / 1 / 1 (rangée refondue 2026-07-15 : split Non transmises M3.5 + fusion 48h M3.6)
+  Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le chip miroir pré-appliqué (`non_transmises_zd` / `non_transmises_ag` / `attente_prestataire` / `collectes_48h_non_validees`), sans page intermédiaire
   Et la carte « non transmises » et son chip miroir comptent exactement le même ensemble : statut_tms='non_envoye' ET tms_reference IS NULL ET statut IN ('programmee','validee') — prédicat canonique tranché Val 2026-09-14
+  Et aucune carte « Modifiées sans renvoi TMS » n'est affichée (retirée, décision Val 2026-10-28)
 ```
 
 ```gherkin
@@ -51,7 +52,7 @@ Scénario : dashboard_admin_cinq_cartes_actions
 Scénario : dashboard_admin_revenus_defaut_12_mois
   Étant donné un `admin_savr` qui ouvre /admin/dashboard
   Alors le Bloc 2 Revenus affiche l'histogramme et le tableau côte à côte (50/50 à partir de lg)
-    Et une SEULE barre de filtre Du/Au pilote les deux blocs
+    Et une SEULE barre de filtres (Période, Lieux, Traiteur, Agence, Gestionnaire de lieux) pilote les deux blocs
     Et la période par défaut est les 12 derniers mois glissants, alignés au 1er du mois (12 buckets mensuels pleins)
     Et ce n'est PAS le mois en cours (l'ancien défaut isolé du §11 est supprimé)
     Et aucune rangée de presets n'est affichée sous la barre ; les raccourcis standard (7 derniers jours … Année civile) figurent dans le panneau du filtre Période, comme sur tous les filtres de date (Val 2026-09-30)
@@ -59,6 +60,23 @@ Scénario : dashboard_admin_revenus_defaut_12_mois
   Quand l'admin clique « Réinitialiser »
   Alors la période revient aux 12 derniers mois, pas au mois en cours
   Et la même liste de raccourcis figure dans le panneau Période des autres dashboards (traiteur §06.04, gestionnaire §06.05, agence) et du registre
+```
+
+```gherkin
+# Source : §11 §1.1 Bloc 2 — filtres lieu et organisation (décision Val 2026-10-30)
+# Couche : api | Priorité : P2-important
+Scénario : dashboard_admin_revenus_filtres_lieu_organisation
+  Étant donné un traiteur Kaspia qui a programmé 2 collectes et opéré 1 collecte programmée par l'agence Caromy
+    Et un gestionnaire Viparis dont le parc compte le lieu Pavillon Gabriel, où 1 collecte a été programmée par un autre traiteur
+  Quand l'admin coche Kaspia dans le filtre Traiteur
+  Alors l'histogramme et le tableau comptent 3 collectes, imputées à Kaspia (2) et à Caromy (1)
+    Et les 4 cartes « Suivi opérationnel » ne changent pas
+  Quand l'admin coche aussi Viparis dans le filtre Gestionnaire de lieux
+  Alors 4 collectes sont comptées (union des organisations cochées)
+  Quand l'admin coche le seul lieu Pavillon Gabriel dans le filtre Lieux
+  Alors seule la collecte tenue sur Pavillon Gabriel est comptée
+  Quand l'admin clique « Réinitialiser les filtres »
+  Alors la période revient aux 12 derniers mois et tous les lieux et organisations sont rétablis
 ```
 
 ```gherkin
@@ -509,6 +527,7 @@ Scénario : regeneration_bordereau_et_attestation_interdites_traiteur
   Quand il tente de régénérer un bordereau de pesée §1.1, une attestation de don §1.3 ou un rapport sans excédent §1.3-bis
   Alors les trois tentatives sont refusées (régénération admin_savr uniquement)
   Et le rapport de recyclage §1.2 ne se régénère pas non plus : il se télécharge, fabriqué au clic (décision Val 2026-10-16)
+  Mais quand il dépose, remplace ou retire le logo du client de l'événement (programmateur ou traiteur opérationnel, hors règle D12), l'attestation et le rapport sans excédent déjà produits sont refaits automatiquement — seul le logo est relu (décision Val 2026-10-30)
 ```
 
 ```gherkin
@@ -674,7 +693,7 @@ Scénario : documents_generaux_public_actif_seulement
 
 Scénario : matrice_exports_csv_par_profil (paramétré × 4)
   Étant donné la matrice §12 §2 (7 entités V1 — "Courses logistiques" hors scope V1)
-  Quand un traiteur_commercial demande l'export "Pesées par flux" → refusé (—)
+  Quand un traiteur_commercial demande l'export "Pesées par flux", "Associations bénéficiaires AG", "Impact RSE consolidé" ou "Packs AG" → servi (révision Val 2026-10-30 ; Packs AG : reco validée Val 2026-11-02, dette code migration d'élargissement)
   Et quand un gestionnaire_lieux demande l'export "Associations bénéficiaires AG" → refusé (—)
   Et quand une agence demande l'export "Associations bénéficiaires AG" → refusé (—)
   Et quand admin_savr demande l'export "courses-logistiques" → refusé 404 (entité non supportée V1 — EXPORT_MATRIX ne la connaît pas)
@@ -1121,4 +1140,93 @@ Scénario : rapport_de_don_nom_du_fichier_servi
   Étant donné une collecte ZD
   Quand un utilisateur autorisé télécharge son rapport de recyclage
   Alors aucun nom de fichier n'est imposé
+```
+
+### Ajouts cdc-patch-divergences 2026-11-02 — logo du client sur les rapports de don (M1.6_20261030)
+
+```gherkin
+# Source : §12 §1.2 « Logos du client et du traiteur » + §09 « Logo du client de l'événement » (fiche M1.6_20261030_logo-client-rapport-de-don, décision Val 2026-11-02 ; dette code : garde serveur)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : logo_client_qui_peut_remplacer_ou_seulement_deposer
+  Étant donné un événement programmé par Kaspia sur un lieu Viparis, client organisateur Danone, sans logo client
+  Quand le gestionnaire Viparis dépose un logo depuis la fiche collecte
+  Alors le dépôt est accepté (aucun logo existant), tracé `logo_client_depose` dans audit_log
+  Quand le gestionnaire Viparis tente ensuite de le remplacer ou de le retirer
+  Alors la route répond 403 (gestionnaire tiers : dépôt seulement)
+  Et le client organisateur Danone, depuis la fiche événement, reçoit aussi 403 au remplacement comme au retrait
+  Quand un commercial de Kaspia (organisation programmatrice) le remplace
+  Alors le remplacement est accepté et les rapports de don déjà produits de l'événement sont refaits avec le nouveau logo
+  Et l'Admin Savr peut le retirer depuis l'onglet Documents de sa fiche collecte
+  Et le traiteur opérationnel d'un événement programmé par une agence peut remplacer ou retirer, sauf dès que l'événement porte une collecte AG non annulée et non « sans excédent » (règle D12 : « Réservé à l'organisation qui a programmé la collecte »)
+
+Scénario : logo_client_cascade_et_attestation
+  Étant donné un événement programmé par l'agence WPM (logo agence) avec un logo client déposé sur l'événement
+  Quand l'attestation de don d'une de ses collectes AG est produite
+  Alors l'en-tête porte le logo client déposé à côté du logo Savr, jamais le logo du traiteur
+  Et un fichier de plus de 1 Mo est refusé au dépôt
+```
+
+### Ajouts cdc-patch-divergences 2026-11-02 — lot A : barre de filtres sur tous les dashboards (M3_20261030) et animation d'entrée des graphiques (DS_20261028)
+
+```gherkin
+# Source : §11 §7 Dashboard client_organisateur + §06.06 §2 Dashboard Client + §06.04 Barre de filtres globale (fiche M3_20261030_barre-filtres-tous-dashboards, décision Val 2026-11-02)
+# Couche : ui
+# Priorité : P2-important
+
+Scénario : barre_filtres_dashboard_organisateur
+  Étant donné un client organisateur rattaché à des événements opérés par Kaspia et Butard sur 3 lieux depuis 24 mois, dont une collecte brouillon sur un 4e lieu et une collecte annulée chez un 3e traiteur
+  Quand il ouvre son dashboard
+  Alors la barre propose Période, Lieux, Traiteurs, Type d'événement, Taille d'événement et « Réinitialiser les filtres »
+  Et la liste Lieux propose les 3 lieux, la liste Traiteurs Kaspia et Butard (ni le 4e lieu ni le 3e traiteur : brouillons et annulées écartés des options)
+  Quand il filtre sur un lieu
+  Alors les cadrans et cartes des onglets ZD et AG sont recalculés sur les seules collectes de ce lieu
+  Et le bandeau de tête (synthèse YTD) reste calculé sur l'année entière, non filtré
+
+Scénario : barre_filtres_dashboard_client_admin
+  Étant donné l'Admin sur le Dashboard Client avec l'organisation Kaspia choisie
+  Quand il ouvre la barre de filtres
+  Alors elle porte, après Période et Organisations, Lieux, Traiteurs, Type d'événement et Taille d'événement, toutes sans choix
+  Et les listes Lieux et Traiteurs proposent ceux des collectes des 24 derniers mois de Kaspia (programmatrice OU traiteur opérationnel), brouillons et annulées écartés
+  Et un Type ou une Taille choisis dans la barre ne modifient pas les filtres de l'encart « Comparer avec » du radar
+```
+
+```gherkin
+# Source : 10 - Design System §4.5 `--motion-chart` (fiche DS_20261028_entree-graphiques-dashboards, décision Val 2026-11-02)
+# Couche : ui
+# Priorité : P3-nominal
+
+Scénario : graphiques_animation_entree_une_fois
+  Étant donné le dashboard du gestionnaire, dont le bloc Anti-Gaspi est sous la ligne de flottaison
+  Quand la page s'ouvre
+  Alors les graphiques visibles se construisent en environ 600 ms (barres depuis leur pied, courbes de gauche à droite, donut dans le sens horaire, radar depuis son centre, jauges depuis la gauche)
+  Et un graphique hors de l'écran ne s'anime qu'une fois au moins un quart visible
+  Quand il change la période ou un filtre
+  Alors les graphiques déjà animés se mettent à jour sans rejouer l'animation
+  Et quitter la page puis y revenir rejoue l'animation ; dans une fiche collecte, ouvrir une autre collecte la rejoue, changer d'onglet non
+  Et avec `prefers-reduced-motion: reduce`, ou à l'impression, les graphiques s'affichent directement sans animation
+```
+
+### Ajouts cdc-patch-divergences 2026-11-02 — exports Collectes et Événements : codes VIPARIS et poids par flux (M3.2_20261102_codes-viparis-site-affaire)
+
+```gherkin
+# Source : §12 §2 Exports CSV Collectes et Événements (demande VIPARIS, décision Val 2026-11-02)
+# Couche : api
+# Priorité : P2-important
+
+Scénario : export_collectes_entetes_code_affaire_et_poids_par_flux
+  Étant donné un gestionnaire Viparis, une collecte ZD clôturée sur un lieu PCP d'un événement au code affaire « 26SIAL1 » (biodéchets 120 kg, verre 40 kg) et une collecte AG réalisée de 35 repas
+  Quand il exporte la liste Collectes
+  Alors les en-têtes sont, dans l'ordre : Date événement ; Date collecte ; Heure ; Événement ; Code affaire VIPARIS ; Lieu ; Code postal ; Ville ; Traiteur ; Client organisateur ; Type ; Statut ; Tonnage ZD (kg) ; Biodéchets (kg) ; Emballages (kg) ; Cartons (kg) ; Verre (kg) ; Déchet résiduel (kg) ; Taux recyclage (%) ; CO2 évité (kg) ; Repas AG
+  Et la ligne ZD porte « 26SIAL1 », 120 en Biodéchets, 40 en Verre et 0 ou vide dans les autres flux, la ligne AG porte des flux vides et 35 en Repas AG
+  Et une collecte d'un lieu sans code ou d'un événement sans code affaire a une colonne Code affaire VIPARIS vide
+  Et le code est lu en service_role pour les seuls événements des lignes lues sous la RLS du demandeur
+
+Scénario : export_evenements_entetes_code_affaire_et_poids_par_flux
+  Étant donné un événement au code affaire « 26SIAL1 » avec 2 collectes ZD (biodéchets 120 et 80 kg) et 1 collecte AG
+  Quand l'utilisateur exporte la liste Événements
+  Alors la colonne `code_affaire_viparis` suit `nom_evenement`
+  Et cinq colonnes Biodéchets, Emballages, Cartons, Verre, Déchet résiduel (kg) suivent `tonnage_zd_kg`, cumulées sur les collectes ZD de l'événement (Biodéchets = 200)
+  Et la colonne des repas AG donnés garde son libellé
 ```

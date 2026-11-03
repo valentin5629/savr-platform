@@ -97,8 +97,8 @@ Actif uniquement si une association est sélectionnée ET un transporteur est s�
 1. `attributions_antgaspi.valide_par` = `current_user.id`, `valide_at` = `now()`
 2. `attributions_antgaspi.mode_validation` = `'manuel_top1'` si reco non modifiée, `'manuel_override'` si override (voir §8 enum)
 3. **La collecte passe au statut `programmee`** (et **non** `validee`). **Alignement machine à états ZD/AG (Sujet AG statuts, 2026-05-29)** : la validation d'attribution Admin = décision de dispatch (choix asso + transporteur), équivalent fonctionnel de l'envoi prestataire en ZD — donc `programmee`, pas `validee`. `statut_tms` reste `non_envoye` à ce stade (l'ordre n'est pas encore parti : étape 5, asynchrone). Le passage `programmee → validee` est dérivé **ultérieurement** par le trigger `fn_sync_statut_collecte_from_tms` à l'acceptation transporteur (cf. cascade ci-dessous + [[05 - Règles métier]] §4). Aucune écriture applicative directe de `statut` sur la plage `programmee ↔ validee`.
-4. Débit du pack AG (voir [[05 - Règles métier#3. Packs Anti-Gaspi — Décrémentation et blocage]])
-5. **Publication d'un événement applicatif `attribution.validee`** qui déclenche **asynchrone** : envoi email association (Resend, template n°16), envoi email transporteur (Resend, template n°18), envoi de l'ordre transporteur (cf. cascade V1/V2 ci-dessous).
+4. Aucun mouvement de pack : le crédit a été décompté à la programmation (la collecte porte déjà son pack, ou aucun si elle a été programmée sans crédit restant) ; la validation ne pose plus de réservation (décision Val 2026-11-02, voir [[05 - Règles métier#Débit d'un crédit]])
+5. **Publication d'un événement applicatif `attribution.validee`** qui déclenche **asynchrone** : envoi email association (Resend, template n°16), envoi de l'ordre transporteur (l'email transporteur, template n°18, est retiré — revue des emails, Val 2026-10-28) (cf. cascade V1/V2 ci-dessous).
 
    > **Mise en œuvre figée 2026-09-11 (Option A tranchée Val — divergence M2.3).** `fn_valider_attribution_ag` insère dans la **même transaction deux events sur le même agrégat** (la collecte) : `attribution.validee` (consumer **`attribution_job`**) puis `collecte.creee` (famille logistique). Les deux vivent dans `plateforme.outbox_events` mais sont **isolés par famille de consumer** :
    > - le worker logistique (`fn_claim_outbox_batch`) **exclut `attribution_job`** et calcule son head-of-line dans sa seule famille ;
@@ -145,16 +145,18 @@ Stocké dans `attributions_antgaspi.motif_override` (text, code preset ou texte 
 ### Email — Association bénéficiaire
 Envoyé à : adresse(s) de contact de l'association (`associations.email_contact`)
 
-Contenu :
-- Nom de l'événement, date/heure de collecte
-- Lieu (adresse complète + accès office si disponible)
+Contenu (texte : §06.02 template 16) :
+- Date et heure de collecte
 - Volume estimé en repas
-- Nom du transporteur mandaté (si applicable)
-- Contact Admin Savr pour questions
+- Ce que fait le transporteur (récupère les repas sur le lieu, les livre à l'association), réception à prévoir
+- Contact Savr (contact@gosavr.io) si l'association ne peut pas recevoir le don
+*(Revue des emails, Val 2026-10-29 : lieu, adresse et nom du transporteur retirés.)*
 
-Template Resend : `ag_attribution_association` (nouveau — à ajouter à [[02 - Templates emails V1]])
+Template Resend : `ag_attribution_association` (§06.02 template 16 — [[02 - Templates emails V1]])
 
-### Email — Transporteur
+### Email — Transporteur **Retiré V1 (revue des emails, Val 2026-10-28)**
+La mission arrive au transporteur par l'outil du prestataire logistique ou par l'équipe Savr. Gabarit `ag_attribution_transporteur` désactivé. Contenu historique ci-dessous.
+
 Envoyé à : adresse de contact du transporteur (`transporteurs.email_contact`)
 
 Contenu :
@@ -164,7 +166,7 @@ Contenu :
 - Volume estimé
 - Contact Admin Savr
 
-Template Resend : `ag_attribution_transporteur` (nouveau)
+Template Resend : `ag_attribution_transporteur` (désactivé, revue des emails Val 2026-10-28)
 
 **Pas de relance automatique en V1.** Unique email d'information. Si nécessaire, l'Admin relance manuellement hors plateforme.
 
@@ -181,7 +183,7 @@ Tableau historique : même structure que la file d'attente, avec colonnes suppl�
 
 ### Saisie du volume repas réalisé (post-collecte)
 
-**Décompte du pack AG sur le programmateur (clarification 2026-05-07)** : à la transition `collectes.statut → 'realisee'`, le crédit AG est décompté sur le pack actif de l'organisation programmatrice (`evenements.organisation_id`), **pas** du traiteur opérationnel. Si l'organisation programmatrice n'a pas de pack actif → erreur de transition (impossible normalement car la programmation aurait été bloquée en amont, cf. §06.01 sélection pack AG). Algo de matching prestataire/association reste basé sur le **lieu** (zone géographique), inchangé : la nature du programmateur n'impacte pas le scoring.
+**Décompte du pack AG sur le programmateur (clarification 2026-05-07)** : à la programmation (passage à `programmee`, décision Val 2026-11-02), le crédit AG est décompté sur le pack actif de l'organisation programmatrice (`evenements.organisation_id`), **pas** du traiteur opérationnel. Si l'organisation programmatrice n'a pas de pack actif → aucun débit, la collecte est facturée à l'unité, jamais de blocage (décision Val 2026-10-16, cf. §06.01 sélection pack AG). Algo de matching prestataire/association reste basé sur le **lieu** (zone géographique), inchangé : la nature du programmateur n'impacte pas le scoring.
 
 **Flux V1 (sans TMS Savr)** : Ops Savr saisit manuellement le `poids_repas_kg` dans l'onglet "Attributions validées" en analysant les **photos de pesées** remontées par le chauffeur. Ni Everest ni MTS-1 ne retournent ce poids en V1. La saisie est loggée dans `audit_log` (`action = 'poids_repas_saisi_ops'`). Permission : `ops_savr` + `admin_savr` peuvent UPDATE `attributions_antgaspi.poids_repas_kg` (à ajouter §09). **Flux V2 (avec TMS Savr)** : le chauffeur saisit le poids sur le TMS Savr ; le TMS pousse via webhook vers la Plateforme. **(Décision 2026-06-07, Val)**
 
@@ -218,7 +220,7 @@ Tableau de ~40 lignes maximum (V1) :
 1. Algorithme tourne normalement
 2. Si une configuration active porte l'organisation programmatrice de l'événement et l'association top 1, le transporteur recommandé (quand la configuration en fixe un) et une fourchette contenant le pax de LA collecte (bornes facultatives) : validation immédiate *(lot C2 : pax de la collecte, décision Val Q2 du 2026-10-24)*
 3. `attributions_antgaspi.mode_validation = 'auto_accept'` + `valide_par = null` (aucun humain) — refonte 2026-05-09 sobriété D2
-4. La collecte passe en statut `programmee` (et **non** `validee` — alignement ZD/AG 2026-05-29, cf. §3) + débit pack AG (cf. §3 transaction synchrone). `statut_tms = non_envoye` jusqu'à l'envoi de l'ordre (étape 5). `validee` dérivé à l'acceptation transporteur par le trigger.
+4. La collecte passe en statut `programmee` (et **non** `validee` — alignement ZD/AG 2026-05-29, cf. §3) (aucun mouvement de pack : crédit décompté à la programmation, décision Val 2026-11-02). `statut_tms = non_envoye` jusqu'à l'envoi de l'ordre (étape 5). `validee` dérivé à l'acceptation transporteur par le trigger.
 5. **Cascade asynchrone** déclenchée (cf. §3) : envoi emails + ordre transporteur via job queue (positionne `statut_tms = attribuee_en_attente_acceptation` à l'envoi, puis `acceptee` à l'acceptation → trigger → `validee`)
 6. L'Admin voit la ligne dans l'onglet "Attributions validées" avec badge "Auto" (pas dans la file à valider)
 
@@ -252,7 +254,7 @@ Pilotables par l'Admin Savr sans redéploiement. **Source de vérité unique = P
 
 **Modification d'un paramètre IDF** :
 - Champ obligatoire **motif** (texte libre min 10 caractères) loggé dans `audit_log.details`.
-- Bascule du flag `a_toutes_indisponible` à `true` : déclenche en plus une notification Ops "A Toutes! marqué indisponible — toutes les nouvelles attributions IDF jour basculent vers Marathon" (template `ag_a_toutes_indispo` à ajouter [[../02 - Templates emails V1]]).
+- Bascule du flag `a_toutes_indisponible` à `true` : : aucune notification email — le gabarit `ag_a_toutes_indispo` (§06.02 §18ter) est désactivé, aucun code ne l'envoie (revue des emails, Val 2026-10-29).
 - Avertissement standard : "Modifie les attributions futures uniquement. Les attributions déjà validées ne sont pas recalculées."
 
 ---
@@ -334,5 +336,5 @@ Pilotables par l'Admin Savr sans redéploiement. **Source de vérité unique = P
 - [[04 - Data Model]] — tables `attributions_antgaspi`, `associations`, `transporteurs`, `parametres_algo`
 - [[05 - Règles métier#3. Packs Anti-Gaspi — Décrémentation et blocage]] + [[06 - Back-office Admin Savr]] §8 onglet Packs AG
 - [[08 - APIs et intégrations]] — Everest API + MTS-1 (V1), webhooks E2/S2 (V2)
-- [[02 - Templates emails V1]] — templates `ag_attribution_association`, `ag_attribution_transporteur`, `ag_a_toutes_indispo` à ajouter
+- [[02 - Templates emails V1]] — template `ag_attribution_association` (16, actif) ; `ag_attribution_transporteur` (18) et `ag_a_toutes_indispo` (18ter) désactivés (revue des emails, Val 2026-10-28/29)
 - [[../../02 - Cahier des charges TMS/06 - Fonctionnalités détaillées/M12 - Attribution transporteur|TMS — M12 §4]] — pseudocode des 3 branches IDF (source de vérité V2)

@@ -43,8 +43,8 @@ Règles :
 | `user.invited` | info | `org_id, invited_role, by_user` | Back-office / espace client |
 | `user.role_changed` | warn | `target_user, role_avant, role_apres, by_user` | Admin (⚠ aussi audit_log) |
 | `pack.purchased` | info | `org_id, pack_id, credits, source` | Admin (référentiel packs AG) |
-| `pack.credit_consumed` | info | `org_id, pack_id, collecte_id, credits_restants` | Trigger conso AG (FIFO) |
-| `pack.credit_recredited` | info | `org_id, pack_id, collecte_id, motif(annulation)` | Trigger recrédit annulation |
+| `pack.credit_consumed` | info | `org_id, pack_id, collecte_id, credits_restants` | Débit à la programmation AG (`trg_pack_debit_programmation`, décision Val 2026-11-02) ; aucun émetteur de ce log n'est codé à ce jour (dette code notée le 2026-11-02 : log à émettre) |
+| `pack.credit_recredited` | info | `org_id, pack_id, collecte_id, motif(annulation\|rejet_prestataire)` | Recrédit (annulation à temps, refus du prestataire, annulation post-réalisation — décision Val 2026-11-02) ; aucun émetteur de ce log n'est codé à ce jour (dette code notée le 2026-11-02 : log à émettre) |
 | `pack.exhausted` | warn | `org_id, pack_id, last_collecte_id` | Trigger passage `epuise` |
 
 ### Événements / collectes / pesées

@@ -218,12 +218,14 @@ Scénario : gestionnaire_insert_evenement_traiteur_shadow_refuse
 
 Scénario : commercial_update_collecte_d_un_collegue_refuse
   Étant donné un événement créé par commercial2_kaspia
-  Quand `commercial1_kaspia` exécute UPDATE sur cet événement
-  Alors 0 ligne est affectée (écriture = created_by self only, lecture org-wide n'ouvre pas l'écriture)
+  Quand `commercial1_kaspia` exécute UPDATE sur cet événement en direct (PostgREST)
+  Alors 0 ligne est affectée (policy evt_commercial_update inerte, à supprimer — dette code)
+  Mais par la route : 200 dans la même organisation, 403 hors organisation (révision Val 2026-10-30, écriture alignée manager)
 
 Scénario : commercial_invitation_user_refuse
-  Quand `commercial1_kaspia` exécute INSERT sur `users`
-  Alors l'INSERT échoue (invitation réservée manager/gestionnaire/staff)
+  Quand `commercial1_kaspia` exécute INSERT sur `users` en direct
+  Alors l'INSERT échoue (aucune policy INSERT pour le commercial)
+  Mais la route d'invitation (service-role, rôle imposé traiteur_commercial) lui est ouverte (révision Val 2026-10-30)
 
 Scénario : commercial_update_profil_collegue_refuse (users_commercial_update_collegue_denied — F4 lot ⑪)
   Quand `commercial1_kaspia` exécute UPDATE sur le profil de commercial2_kaspia
@@ -457,6 +459,10 @@ Scénario : users_soft_deleted_invisibles_clients
   Et `val` (admin_savr) la voit toujours (policy usr_admin non gatée)
 
 Scénario : fn_anonymize_user_idempotente
+  # Source : §04 users — PII anonymisé étendu à telephone et poste (fiche M3.1_20261101, décision Val 2026-11-02)
+  Étant donné un user avec téléphone et poste renseignés
+  Quand le SERVICE_ROLE appelle fn_anonymize_user
+  Alors prénom, nom et email sont remplacés par des valeurs neutres, et telephone et poste sont vidés (NULL)
   Étant donné un user déjà anonymisé (deleted_at NOT NULL)
   Quand le SERVICE_ROLE rappelle fn_anonymize_user sur ce même user
   Alors l'appel est un no-op (aucune nouvelle écriture, deleted_at inchangé), et aucune entrée audit_log dupliquée

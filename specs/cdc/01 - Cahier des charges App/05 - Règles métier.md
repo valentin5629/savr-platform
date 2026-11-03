@@ -175,23 +175,24 @@ La grille tarifaire AG publique est gérée comme référentiel versionné (tabl
 **Implication renouvellement** : avant d'activer un nouveau pack, l'Admin doit clôturer l'ancien :
 - Si l'ancien pack est `epuise` (`credits_consommes = credits_initiaux`) → création directe du nouveau pack.
 - Si l'ancien pack est `actif` avec crédits restants (cas rachat anticipé) → l'Admin **annule** l'ancien pack (`statut = annule`, motif obligatoire) avant de créer le nouveau, et **reporte manuellement les crédits restants** sur le nouveau pack en ajustant `credits_initiaux` à la création (motif loggé dans `packs_antgaspi.commentaires`). Pas de logique automatique de transfert.
+- **Pack annulé alors que des collectes à venir y sont débitées** *(décision Val 2026-11-02, Q2 du lot débit à la programmation)* : à l'annulation du pack, les collectes AG encore à venir (`programmee`, `validee`, `en_cours`, `annulation_demandee`) qui portent ce pack **repassent sans pack** (`collectes.pack_antgaspi_id` → NULL). Le crédit n'est pas rendu (le pack est annulé, `credits_consommes` inchangé : les « crédits restants » reportés à la main sur le nouveau pack ne les comptent donc pas). Ces collectes seront **facturées à l'unité** (cf. « Cas sans pack actif au moment du débit »), sauf rattachement après coup au nouveau pack par l'Admin (« Rattacher au pack », cf. « Rattachement après coup à un pack pris plus tard »). Une **alerte Ops** in-app est levée, listant les collectes concernées. Les collectes passées (réalisées, clôturées, annulées tardivement) gardent leur pack (traçabilité). *Dette code : mécanisme à coder (déclencheur ou RPC d'annulation du pack + alerte).*
 
 **Justification** : 1 solde affiché côté traiteur (UX simple), zéro logique FIFO à coder, transfert manuel < 5 cas/an V1 estimés.
 
 ### Débit d'un crédit
 
-**Déclencheurs** *(2e déclencheur ajouté 2026-06-07 — test scenarios §06.01 F2, arbitrage Val)* :
-1. `collectes.statut` passe à `realisee` (signalé par le TMS Savr via API) — cas nominal.
-2. **Annulation tardive** : transition `collectes.statut → annulee` d'une collecte AG si annulation reçue **< 4h avant l'heure de collecte** (heure de Paris, strict ; décision Val 2026-10-15 : seuil 4h au lieu de 12h, et la condition « après mandat prestataire » est retirée — cf. §4bis) — trigger DB dédié `trg_pack_debit_annulation_tardive`. Le client « consomme » un crédit même si la collecte n'a pas eu lieu (aligné §4bis « plein tarif = débit pack AG »).
+**Déclencheur** *(décision Val 2026-11-02, remplace le débit au passage à `realisee` et à l'annulation tardive)* : une collecte AG devient `programmee` — création confirmée (formulaire), confirmation d'un brouillon, ou renvoi par l'Admin d'une collecte refusée par le prestataire (`rejetee_par_prestataire` → `programmee`). Trigger DB `trg_pack_debit_programmation`. Une collecte qui porte déjà un pack n'est jamais débitée deux fois ; un brouillon ne décompte rien. Motif (Val) : sans cela, un client qui programmait toutes ses collectes d'un coup en programmait plus que son pack ne couvrait, le compteur ne bougeant qu'aux réalisations.
 
-**Action** (identique pour les 2 déclencheurs) :
-1. `packs_antgaspi.credits_consommes` += 1 sur le pack `actif` unique de l'organisation programmatrice (`evenements.organisation_id`)
+Le passage à `realisee` ne débite plus rien (`trg_pack_debit_realisee` ne fait plus que lever l'alerte `ag_realisee_sans_pack_actif` quand la collecte ne porte aucun pack). L'annulation tardive (< 4h avant l'heure de collecte, cf. §4bis) ne débite plus non plus : le crédit décompté à la programmation reste acquis, le client « consomme » un crédit même si la collecte n'a pas eu lieu (cf. « Annulation d'une collecte AG » ci-dessous).
+
+**Action** :
+1. `packs_antgaspi.credits_consommes` += 1 sur le pack `actif` unique de l'organisation programmatrice (`evenements.organisation_id`), sous verrou du pack (`FOR UPDATE`)
 2. Si `credits_consommes = credits_initiaux` → `packs_antgaspi.statut` = `epuise`
-3. `collectes` reçoit une référence au pack consommé (`pack_antgaspi_id`) pour traçabilité (+ `audit_log` `action='pack_debite_annulation_tardive'` pour le déclencheur 2)
+3. `collectes.pack_antgaspi_id` reçoit le pack débité (« crédit décompté sur ce pack ») + `audit_log` `action='pack_debite_programmation'` (table `packs_antgaspi`)
 
 **Garde-fou** : jamais `credits_consommes > credits_initiaux` (le débit ne cible qu'un pack `actif` ; CHECK DB en double sécurité).
 
-**Cas sans pack actif au moment du débit** *(tranché Val 2026-06-07 — F3)* : si aucun pack `actif` n'existe à l'instant du déclencheur (pack devenu `epuise` ou `annule` entre programmation et réalisation — ex. 2 collectes AG programmées sur 1 crédit restant ; la réservation du pack posée à l'envoi au transporteur est alors levée, `collectes.pack_antgaspi_id` remis à NULL, et la collecte peut être rattachée plus tard à un nouveau pack, cf. « Rattachement après coup à un pack pris plus tard » — décision Val 2026-10-16) → **aucun débit ; la collecte est facturée à l'unité** *(décision Val 2026-10-16, remplace « aucune facturation automatique »)* : collecte réalisée → brouillon au tarif unitaire (`tarifs_packs_ag` type `unitaire` moins la remise AG négociée) créé au batch de clôture, sous réserve du gating SIRET, validé par l'Admin (cf. §5 « Anti-Gaspi — Hors pack ») ; annulation tardive → plein tarif au tarif unitaire, facturé à la main par l'Admin, qui garde la possibilité d'un geste commercial *(interprétation Claude Code, à valider par Val)*. Alerte Admin `ag_realisee_sans_pack_actif` (sévérité « Info ») ou `ag_annulee_tardive_sans_pack_actif` (« À traiter »).
+**Cas sans pack actif au moment du débit** *(tranché Val 2026-06-07 — F3)* : si aucun pack `actif` n'existe à la programmation (aucun pack, pack `epuise` ou `annule` — ex. 2 collectes AG programmées sur 1 crédit restant : la 1re prend le dernier crédit, la 2e n'en trouve plus ; décision Val 2026-11-02), la collecte n'est pas rattachée (`collectes.pack_antgaspi_id` NULL), sa programmation n'est jamais bloquée, et elle peut être rattachée plus tard à un nouveau pack (cf. « Rattachement après coup à un pack pris plus tard » — décision Val 2026-10-16) → **aucun débit ; la collecte est facturée à l'unité** *(décision Val 2026-10-16, remplace « aucune facturation automatique »)* : collecte réalisée → brouillon au tarif unitaire (`tarifs_packs_ag` type `unitaire` moins la remise AG négociée) créé au batch de clôture, sous réserve du gating SIRET, validé par l'Admin (cf. §5 « Anti-Gaspi — Hors pack ») ; annulation tardive → plein tarif au tarif unitaire, facturé à la main par l'Admin, qui garde la possibilité d'un geste commercial *(interprétation Claude Code, à valider par Val)*. Alerte Admin `ag_realisee_sans_pack_actif` (sévérité « Info ») ou `ag_annulee_tardive_sans_pack_actif` (« À traiter »).
 
 ### Pack épuisé : facturation à l'unité, jamais de blocage *(décision Val 2026-10-16)*
 
@@ -202,11 +203,12 @@ Quand le pack `actif` unique passe à `epuise` et qu'aucun nouveau pack `actif` 
 
 ### Annulation d'une collecte AG : recrédit automatique *(refonte 2026-05-08)*
 
-Le crédit pack étant débité **uniquement au statut `realisee`** (cf. règle "Débit d'un crédit" ci-dessus), le traitement du recrédit dépend du moment de l'annulation :
+Le crédit pack étant débité **dès la programmation** (cf. règle "Débit d'un crédit" ci-dessus, décision Val 2026-11-02), le traitement du recrédit dépend du moment de l'annulation :
 
-**Annulation avant `realisee`** (statuts `programmee`, `validee`, `en_cours`) — cas le plus courant, déclenché par le traiteur ou l'Admin :
-- Aucun débit pack n'a eu lieu → aucun recrédit nécessaire, le pack reste intact.
-- La collecte AG annulée n'apparaît plus dans la consommation du pack.
+**Annulation avant `realisee`** (statuts `programmee`, `validee`, `en_cours`, `annulation_demandee`) — cas le plus courant, déclenché par le traiteur ou l'Admin *(décision Val 2026-11-02 ; instant de référence de l'annulation : §4bis)* :
+- Annulation reçue **4h ou plus avant l'heure de collecte**, ou incident non imputable au client (`incident_imputable_a` ≠ `client`, RM-09) → **recrédit automatique** (mêmes effets que les points 1 à 3 ci-dessous, trigger `trg_pack_debit_annulation_tardive`, `audit_log` `action = 'pack_recredite_annulation_collecte'`) : la collecte AG annulée n'apparaît plus dans la consommation du pack.
+- Annulation **tardive** (< 4h, imputable au client ou sans incident, cf. §4bis) → le crédit décompté à la programmation **reste acquis**, aucun recrédit ; `collectes.pack_antgaspi_id` reste renseigné ; `audit_log` `action = 'pack_debite_annulation_tardive'`.
+- Collecte programmée sans crédit (`pack_antgaspi_id` NULL) → rien à recréditer ; si l'annulation est tardive, plein tarif au tarif unitaire (cf. « Cas sans pack actif au moment du débit » ci-dessus).
 
 **Annulation après `realisee`** (Admin Savr uniquement, cas exceptionnel — cf. §4 transitions de statut) :
 - **Recrédit automatique** déclenché par trigger DB sur la transition `collectes.statut: realisee → annulee` :
@@ -216,9 +218,11 @@ Le crédit pack étant débité **uniquement au statut `realisee`** (cf. règle 
   4. Audit_log automatique : `action = 'pack_recredite_annulation_collecte'`, `collecte_id`, `pack_antgaspi_id`, motif d'annulation hérité de `collectes.motif_annulation` (obligatoire pour annulation post-`realisee`)
 - Trigger DB pour atomicité (vs validation applicative) — pas de race condition possible entre annulation et débit concurrent.
 
-**Cas particulier — Annulation client < 4h avant créneau** (cf. §4bis Annulation last minute) — *révisé 2026-06-07 (test scenarios §06.01 F2, arbitrage Val : §4bis fait foi)* : **Le « plein tarif » AG = débit d'un crédit pack** : trigger dédié `trg_pack_debit_annulation_tardive` sur la transition `→ annulee` (cf. « Débit d'un crédit », déclencheur 2). Pas de facture standalone si un pack est actif. Si **aucun pack actif** à cet instant → aucun débit ; plein tarif au tarif unitaire, facturé à la main par l'Admin (ou geste commercial), alerte Admin (F3, révisé 2026-10-16 ; validé par Val le 2026-10-20). L'ancien invariant « 1 crédit pack = 1 collecte effectivement réalisée » est **amendé** : 1 crédit = 1 collecte réalisée OU annulée tardivement.
+**Refus définitif du prestataire** *(décision Val 2026-11-02)* : une collecte AG qui passe à `collectes.statut = rejetee_par_prestataire` (cf. §4) rend son crédit (mêmes effets que les points 1 à 3 ci-dessus, trigger `trg_pack_recredit`, `audit_log` `action = 'pack_recredite_rejet_prestataire'`). Le crédit est repris si l'Admin la renvoie (`rejetee_par_prestataire` → `programmee`, cf. « Débit d'un crédit »). Un `statut_tms = rejetee_par_prestataire` transitoire, `statut` restant `programmee`, ne rend rien *(interprétation Claude Code validée par Val le 2026-11-02)*. Une collecte `realisee_sans_collecte` garde son crédit (elle reste facturée).
 
-**Articulation avec le recrédit** : une collecte débitée par annulation tardive porte `pack_antgaspi_id` renseigné et est déjà `annulee` → le trigger de recrédit (`realisee → annulee`) ne s'applique pas (transition différente), aucun double mouvement possible. Un recrédit exceptionnel reste possible via l'override Admin « Ajuster crédits ».
+**Cas particulier — Annulation client < 4h avant créneau** (cf. §4bis Annulation last minute) — *révisé 2026-06-07 (test scenarios §06.01 F2, arbitrage Val : §4bis fait foi)* : **Le « plein tarif » AG = le crédit pack décompté à la programmation reste acquis** *(décision Val 2026-11-02 ; auparavant un débit à l'annulation)* : le trigger `trg_pack_debit_annulation_tardive` sur la transition `→ annulee` ne recrédite pas et trace l'audit `pack_debite_annulation_tardive`. Pas de facture standalone si la collecte porte un pack. Si la collecte **ne porte aucun pack** (programmée sans crédit) → aucun débit *(interprétation Claude Code validée par Val le 2026-11-02)* ; plein tarif au tarif unitaire, facturé à la main par l'Admin (ou geste commercial), alerte Admin (F3, révisé 2026-10-16 ; validé par Val le 2026-10-20). L'ancien invariant « 1 crédit pack = 1 collecte effectivement réalisée » est **amendé** : 1 crédit = 1 collecte programmée qui n'a été ni annulée à temps ni refusée par le prestataire : à venir, réalisée, réalisée sans collecte ou annulée tardivement (décision Val 2026-11-02).
+
+**Articulation avec le recrédit** : une collecte annulée tardivement garde `pack_antgaspi_id` renseigné et est déjà `annulee` → aucun recrédit ultérieur (le recrédit `realisee → annulee` ne s'applique pas, transition différente) et aucun second débit (le débit ne vise que le passage à `programmee`) : aucun double mouvement possible. Un recrédit exceptionnel reste possible via l'override Admin « Ajuster crédits ».
 
 **Override Admin** : l'action manuelle "Ajuster crédits" (§06 §8 onglet Packs AG) reste disponible pour les cas exceptionnels où le recrédit auto est inadapté (correction d'erreur saisie, geste commercial sortant du cadre, etc.). Motif obligatoire ≥ 10 caractères loggé dans `audit_log`.
 
@@ -226,10 +230,10 @@ Le crédit pack étant débité **uniquement au statut `realisee`** (cf. règle 
 
 Une collecte AG programmée sans pack actif est facturée à l'unité. Si le client prend un pack ensuite, l'Admin peut **rattacher** la collecte à ce pack depuis la fiche collecte (§06.06 Bloc 6) :
 
-- **Collectes rattachables** : AG, sans pack (`pack_antgaspi_id` NULL), crédit non annulé côté Savr, et `realisee`, `cloturee`, ou `annulee` après une annulation tardive sans pack (trace : alerte `ag_annulee_tardive_sans_pack_actif`). Une collecte encore à venir n'en a pas besoin : le pack actif est débité au passage à `realisee`. Une collecte réalisée sans pack actif perd la réservation posée à l'envoi (pack épuisé ou annulé entre-temps) : elle est donc facturée à l'unité et rattachable.
-- **Effet** : un crédit est décompté sur le pack `actif` unique de l'organisation programmatrice, exactement comme le débit à la réalisation (bascule `epuise`, alertes pack épuisé / pack bas) ; `collectes.pack_antgaspi_id` est posé ; les alertes « sans pack » de la collecte sont résolues ; `audit_log` action `pack_rattache_collecte`.
+- **Collectes rattachables** : AG, sans pack (`pack_antgaspi_id` NULL), crédit non annulé côté Savr, et à venir (`programmee`, `validee`, `en_cours`, `annulation_demandee`), `realisee`, `realisee_sans_collecte`, `cloturee`, ou `annulee` après une annulation tardive sans pack (trace : alerte `ag_annulee_tardive_sans_pack_actif`). Le crédit étant décompté à la programmation, une collecte programmée sans crédit restant n'est plus débitée plus tard : à venir comme passée, elle est facturée à l'unité et rattachable *(décision Val 2026-11-02 ; `realisee_sans_collecte` = interprétation Claude Code validée par Val le 2026-11-02)*.
+- **Effet** : un crédit est décompté sur le pack `actif` unique de l'organisation programmatrice, exactement comme le débit à la programmation (bascule `epuise`, alertes pack épuisé / pack bas) ; `collectes.pack_antgaspi_id` est posé ; les alertes « sans pack » de la collecte sont résolues ; `audit_log` action `pack_rattache_collecte`.
 - **Facture unitaire** : si elle est encore en **brouillon sans numéro**, la ligne de la collecte en est retirée (brouillon vidé → `annulee`, sinon totaux recalculés) ; la collecte clôturée est alors refacturée par le batch suivant selon son pack (`par_collecte` → prix du pack ; `globale_achat` → rien, déjà facturé à l'achat). Si elle est **déjà numérotée** (partie chez Pennylane, ou rejetée et revenue en brouillon avec son numéro), elle n'est jamais touchée (numérotation gapless) : le rattachement se fait quand même et l'Admin est averti d'émettre un **avoir** ou de la corriger.
-- **Historique « Mon pack AG »** du gestionnaire : une annulée tardive rattachée après coup y figure (trace : l'audit `pack_rattache_collecte`).
+- **Onglet « Mon pack Anti-Gaspi »** (tous les rôles clients, Val 2026-11-02) : une annulée tardive rattachée après coup y figure (trace : l'audit `pack_rattache_collecte`).
 - **Refus** : sans pack actif pour l'organisation, ou collecte non rattachable.
 - Réservé à `admin_savr` (l'action retire une ligne de facture, cf. §09). Pas d'action « détacher » : pour une collecte réalisée, « Annuler le crédit AG » recrédite le pack.
 
@@ -241,9 +245,9 @@ Une collecte AG programmée sans pack actif est facturée à l'unité. Si le cli
 brouillon → programmee → validee (auto) → en_cours → realisee → cloturee (auto)
                              ↑                                          ↑
                              │ validation admin UNIQUEMENT              │
-                             │ si modification/annulation post-programmation
+                             │ si modification post-programmation (annulation client directe depuis 2026-11-01)
                              ↓
-                        annulation_demandee → (validation admin) → annulee
+                        annulee (annulation du client effective sur-le-champ, Admin prévenu — Val 2026-11-01)
 ```
 
 | Transition | Déclencheur | Acteur |
@@ -253,8 +257,8 @@ brouillon → programmee → validee (auto) → en_cours → realisee → clotur
 | `validee` → `en_cours` | Démarrage de la collecte signalé par le TMS — **dès qu'au moins une** des tournées rattachées démarre (multi-camions, cf. R_statut_collecte_multi_tournees) | TMS Savr (automatique) |
 | `en_cours` → `realisee` | Fin de collecte signalée par le TMS via le **S5 terminal unique** (pesées agrégées des N camions + équivalent roll). Le TMS attend que **toutes** les tournées de la collecte soient terminées avant d'émettre ce S5 (cf. R_statut_collecte_multi_tournees) | TMS Savr (automatique) |
 | `realisee` → `cloturee` | **Automatique** — clôture après embargo H+24 (`realisee_at + 24h`), sans action Admin. Bordereaux, attestations et rapport RSE générés au batch J+1 à 6h (voir section 6) | Système (cron `cloture-embargo`) |
-| `programmee` → `rejetee_par_prestataire` | Refus du transporteur avant acceptation : refus Everest synchrone ou webhook (`mission_failed` / annulation externe), ou tous les tours MTS-1 `CANCELED`/`KO` (§08 §3 / §3bis.6). `statut_tms = rejetee_par_prestataire` + alerte Admin in-app « réattribution requise » | Adapter logistique (automatique) |
-| `rejetee_par_prestataire` → `programmee` | **Réattribution Ops** (dispatch Admin, `fn_dispatcher_collecte`) — `statut_tms` repasse à `non_envoye` ; la collecte reprend le parcours normal (arbitrage Val 2026-09-17) | Admin / Ops Savr |
+| `programmee` → `rejetee_par_prestataire` | Refus du transporteur avant acceptation : refus Everest synchrone ou webhook (`mission_failed` / annulation externe), ou tous les tours MTS-1 `CANCELED`/`KO` (§08 §3 / §3bis.6). `statut_tms = rejetee_par_prestataire` + alerte Admin in-app « réattribution requise ». AG : le crédit pack est rendu (décision Val 2026-11-02, cf. §3 « Refus définitif du prestataire ») | Adapter logistique (automatique) |
+| `rejetee_par_prestataire` → `programmee` | **Réattribution Ops** (dispatch Admin, `fn_dispatcher_collecte`) — `statut_tms` repasse à `non_envoye` ; la collecte reprend le parcours normal (arbitrage Val 2026-09-17). AG : un crédit est repris sur le pack actif, ou la collecte est facturée à l'unité s'il n'en reste pas (décision Val 2026-11-02, cf. §3 « Débit d'un crédit ») | Admin / Ops Savr |
 
 > **Frontière `programmee` / `validee` et envoi TMS (Sujet 2, propagation 2026-05-26)** : l'envoi au TMS (E1 `POST /collectes`) a lieu **à la soumission du formulaire** (`brouillon`→`programmee`) dans la cible V2, et **au dispatch Admin pour la ZD en V1** (décision Val 2026-10-07), pas au passage `validee`. `programmee` couvre tout le dispatch (`statut_tms ∈ non_envoye, a_attribuer, attribuee_en_attente_acceptation`) ; `validee` = collecte **acceptée par le prestataire** (`statut_tms ∈ acceptee, en_attente_execution`). La sous-transition `programmee ↔ validee` est **dérivée de `statut_tms`** par le trigger DB `fn_sync_statut_collecte_from_tms` (source de vérité = `statut_tms`, arbitrage 2a) — aucune logique applicative ne met à jour `statut` indépendamment sur cette plage, ce qui élimine tout risque de désync. Le trigger ne touche jamais aux statuts terminaux (`en_cours`/`realisee`/.../`annulee`), pilotés par les webhooks et le batch.
 
@@ -286,10 +290,11 @@ Une collecte peut être servie par N tournées (relation N↔N via `collecte_tou
 
 **Principe V1** : le cycle de vie normal d'une collecte est **100% automatisé**. L'Admin Savr n'intervient PAS sur une collecte qui se déroule sans incident. **Exception V1 assumée** : le dispatch d'une ZD (choix du prestataire) est fait par l'Admin tant que la règle « prestataire fixe par lieu/zone » n'est pas implémentée (décision Val 2026-10-07). Les rapports, factures, bordereaux et attestations sont générés et disponibles automatiquement.
 
-**Validation admin requise UNIQUEMENT dans ces 3 cas** :
-1. Demande d'annulation par le traiteur depuis son espace client
-2. Modification post-programmation d'une collecte déjà `validee` ou `en_cours`
-3. Incident signalé (collecte manquée, refus association, problème pesée)
+**Validation admin requise UNIQUEMENT dans ces 2 cas** :
+1. Modification post-programmation d'une collecte déjà `validee` ou `en_cours`
+2. Incident signalé (collecte manquée, refus association, problème pesée)
+
+L'annulation par le client n'en fait plus partie : elle est effective sur-le-champ, l'Admin est seulement prévenu et ne peut pas la refuser *(décision Val 2026-11-01)*.
 
 **Vision V2** : automatiser également la validation des modifications/annulations sous conditions (ex: délai > 48h avant collecte = annulation auto, sinon validation admin).
 
@@ -297,11 +302,7 @@ Une collecte peut être servie par N tournées (relation N↔N via `collecte_tou
 
 **Depuis `brouillon` ou `programmee`** : annulation directe possible par le Traiteur-Commercial, le Traiteur-Manager, ou l'Admin Savr. *(Révisé 2026-06-07 — test scenarios §06.04 F1+F5, arbitrage Val : cette section fait foi, le flux §06.04 ex-uniforme `annulation_demandee` est scindé)* : si `statut_tms ≠ non_envoye` (collecte déjà poussée TMS — cas ZD dès la soumission), l'annulation directe déclenche **systématiquement E3 `DELETE /collectes/:id`** vers le TMS, quel que soit l'acteur (traiteur, Ops, Admin) — le prestataire est informé côté TMS sans délai. Email info (non bloquant) à l'Admin Savr. Le DELETE physique reste limité à `statut = 'brouillon'` (cf. §06.04 policy DELETE).
 
-**Depuis `validee`** : le Traiteur (Commercial ou Manager) peut **soumettre une demande d'annulation** depuis son espace client. Cette demande :
-1. Passe le statut à `annulation_demandee` (statut intermédiaire)
-2. Déclenche une notification à l'Admin Savr : "Demande d'annulation pour [événement] par [traiteur]"
-3. Si le prestataire logistique a déjà été mandaté (`attributions_antgaspi` ou ordre TMS envoyé) : notification automatique au prestataire
-4. L'Admin Savr confirme ou refuse l'annulation → si confirmé, statut = `annulee`. Pour la règle de l'annulation tardive (§4bis), le délai se mesure à la **réception de la demande du client** (passage en `annulation_demandee`, horodaté `collectes.annulation_demandee_at`), pas à la confirmation de l'Admin, qui peut intervenir à tout moment, y compris après le créneau *(décision Val 2026-10-15)*
+**Depuis `validee`** : même chemin que depuis `brouillon` ou `programmee` *(décision Val 2026-11-01)*. Le client (traiteur, agence, gestionnaire de lieux sur ses propres programmations) annule lui-même : le statut passe **immédiatement** à `annulee`, E3 part vers le prestataire, le programmateur reçoit la confirmation (template `annulation_collecte`) et l'Admin Savr est prévenu (template `admin_collecte_annulee`), sans pouvoir refuser. Il n'y a plus de statut intermédiaire `annulation_demandee` : l'enum est conservé pour les collectes qui y étaient déjà, que l'Admin peut encore confirmer (délai d'annulation tardive alors jugé à `collectes.annulation_demandee_at`, décision Val 2026-10-15).
 
 **Depuis `en_cours` ou `realisee`** : Admin Savr uniquement, cas exceptionnel, avec champ obligatoire `motif_annulation`.
 
@@ -344,8 +345,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 **Réacceptation prestataire** : si modification de `date_collecte` ou `heure_collecte` sur collecte `statut_tms = acceptee`, le statut TMS repasse à `attribuee_en_attente_acceptation` (réutilisation enum existant + flag `flags_jsonb.re_confirmation_requise = true` côté TMS, cf. M04 W10) → notification au prestataire pour re-confirmation. **Conséquence côté statut métier (Sujet 2, 2026-05-26)** : le trigger `fn_sync_statut_collecte_from_tms` ramène alors `statut` de `validee` à `programmee` (la collecte n'est plus acceptée tant que le prestataire n'a pas re-confirmé) — côté traiteur, la fiche repasse de « Confirmée » à « En cours d'organisation », ce qui reflète fidèlement l'état réel. Au retour `acceptee`, le trigger repasse `programmee`→`validee`. Modifications mineures (notes, contact secours, etc.) : push silencieux sans réacceptation, `statut` inchangé.
 
 **Permissions** :
-- Programmeur (`cree_par_user_id`) : autorisé
-- Manager (`role = traiteur_manager`, même orga) : autorisé
+- Manager et commercial de la même organisation : autorisé (révision Val 2026-10-30) ; agence et gestionnaire : leur organisation
 - Collègue partagé : refusé (cohérent avec règle annulation)
 
 **Audit** : toute modification logguée dans `audit_log` global avec `user_id`, `collecte_id`, `champ_modifie`, `ancienne_valeur`, `nouvelle_valeur`, `timestamp`, `cascade_tms` (bool), `priorite_urgence` (bool si <12h). Pas de table dédiée `collectes_modifications` (sobriété — `audit_log` couvre).
@@ -362,7 +362,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 **Règles** *(modélisation révisée audit sobriété §04 2026-05-25 D1 — statut `manquee` supprimé)* :
 - `collectes.statut` = `annulee` + `incident_imputable_a` = `'prestataire'` + `motif_incident` renseigné (ex : "Prestataire non présenté"). Le no-show prestataire n'a plus de statut dédié : il est porté par l'annulation imputable.
-- **Pas de facturation** au client (ni ZD, ni débit de pack AG)
+- **Pas de facturation** au client (ni ZD, ni crédit de pack AG : le crédit décompté à la programmation est rendu, décision Val 2026-11-02)
 - Notification automatique au client : "Un incident est survenu de notre côté lors de la collecte. Nous vous prions de vouloir nous en excuser. La collecte ne sera évidemment pas facturée."
 - Alerte Admin Savr avec motif imputable au prestataire — à facturer potentiellement en pénalité au prestataire (hors V1, traitement manuel)
 - Option de reprogrammation : création d'une nouvelle collecte liée à l'événement (`collectes.collecte_remplacee_id`)
@@ -372,10 +372,10 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 **Définition** : le client (traiteur ou agence) annule une collecte après validation, dans un délai qui empêche la réallocation du prestataire.
 
 **Règles V1** :
-- Si annulation reçue **≥ 4h avant l'heure de collecte** : pas de facturation, même si le prestataire est déjà mandaté *(décision Val 2026-10-15 : seuil 4h au lieu de 12h, condition « après mandat prestataire » retirée ; vaut pour ZD et AG)*
-- Si annulation reçue **< 4h avant l'heure de collecte** : facturation **plein tarif** — ZD : facture standard ; AG : **débit d'un crédit pack** via trigger `trg_pack_debit_annulation_tardive` *(confirmé Val 2026-06-07 — F2, cette section fait foi ; mécanique détaillée §3 « Débit d'un crédit » déclencheur 2 ; sans pack actif → plein tarif au tarif unitaire, facturé à la main par l'Admin (ou geste commercial), alerte Admin, F3 révisé 2026-10-16 (validé par Val le 2026-10-20))*
+- Si annulation reçue **≥ 4h avant l'heure de collecte** : pas de facturation, même si le prestataire est déjà mandaté *(décision Val 2026-10-15 : seuil 4h au lieu de 12h, condition « après mandat prestataire » retirée ; vaut pour ZD et AG)* ; AG : le crédit pack décompté à la programmation est rendu *(décision Val 2026-11-02)*
+- Si annulation reçue **< 4h avant l'heure de collecte** : facturation **plein tarif** — ZD : facture standard ; AG : **le crédit pack décompté à la programmation reste acquis**, aucun recrédit (trigger `trg_pack_debit_annulation_tardive`, décision Val 2026-11-02) *(confirmé Val 2026-06-07 — F2, cette section fait foi ; mécanique détaillée §3 « Annulation d'une collecte AG » ; collecte programmée sans crédit → plein tarif au tarif unitaire, facturé à la main par l'Admin (ou geste commercial), alerte Admin, F3 révisé 2026-10-16 (validé par Val le 2026-10-20))*
 - **Pas de facturation partielle ni de pénalité** au-delà de ces règles en V1 (pas de dégressivité J-3/J-1)
-- **Instant de l'annulation** : celui de la demande du client. Une annulation demandée par le client puis confirmée par l'Admin (`annulation_demandee` → `annulee`) se juge à l'heure de la demande (`collectes.annulation_demandee_at`) ; une annulation directe, à l'heure où elle est faite *(décision Val 2026-10-15)*
+- **Instant de l'annulation** : celui où le client annule, l'annulation étant directe *(décision Val 2026-11-01)*. Pour une collecte restée en `annulation_demandee` d'avant cette décision et confirmée ensuite par l'Admin, l'heure de la demande (`collectes.annulation_demandee_at`) *(décision Val 2026-10-15)*
 - Notification automatique au client avec mention explicite de la règle de facturation
 
 **Note** : ces seuils (4h, plein tarif) sont les valeurs V1 actées (4h depuis le 2026-10-15, 12h auparavant). À intégrer aux CGV. Évolution possible V2 : facturation dégressive (ex: 50% entre J-3 et J-1, 100% < J-1).
@@ -718,7 +718,7 @@ collectes.volume_estime_repas = round(0.10 × collectes.pax)   -- pax de la coll
 - **Pas affiché côté traiteur** (ni dans le formulaire de programmation §06.01, ni dans l'espace client traiteur §06.04).
 - **Affiché côté Admin/Ops** dans la vue détail collecte §06 §3 Bloc 5 (Attribution AG complète).
 - Affiché côté association (email `ag_attribution_association`) pour l'aider à se positionner (déjà cas).
-- Affiché côté transporteur (email `ag_attribution_transporteur`) pour dimensionnement véhicule (déjà cas).
+- : email retiré (revue des emails, Val 2026-10-28) ; le transporteur reçoit sa mission par l'outil du prestataire logistique ou par l'équipe Savr.
 
 **Cas particuliers** :
 - **Supprimé 2026-06-07 (test scenarios §06.01 F4, arbitrage Val)** — cas impossible par construction : validation bloquante formulaire `pax ≥ 1` + `evenements.pax` NOT NULL. Le plus petit volume possible est `round(0.10 × 1) = 0`, déjà couvert par le flux nominal de l'algo.
@@ -934,7 +934,7 @@ Chaque séquence repart à 00001 au 1er janvier. La combinaison (préfixe + ann�
 
 | Profil | Périmètre visible |
 |--------|------------------|
-| Traiteur-Commercial | Événements qu'il a créés (`evenements.created_by = user.id`) |
+| Traiteur-Commercial | Même périmètre que le Manager (`f_collecte_visible`) — corrigé 2026-11-02 (ligne déjà fausse depuis la révision 2026-05-29, vue `v_registre_dechets` via `f_collecte_visible`, migration `20261024120000`) |
 | Traiteur-Manager | Tous les événements de son organisation (`evenements.organisation_id = user.organisation_id`) |
 | Agence | **Aucun accès** — exclue par la vue `v_registre_dechets` et refusée au niveau route (§06.11 différence n°5) |
 | Gestionnaire de lieux | Tous les événements sur les lieux qui lui sont associés (via `organisations_lieux`) |
@@ -964,6 +964,7 @@ Informations obligatoires à la création du compte :
 | `prenom` | Texte libre, 2 caractères min |
 | `nom` | Texte libre, 2 caractères min |
 | `telephone` | Format FR (validation regex) |
+| `poste` | Texte libre, obligatoire, 100 caractères max (décision Val 2026-11-01), saisi à l'étape 2 de /signup après la raison sociale ; refusé vide ou trop long à l'écran et par la route publique POST /api/auth/signup (422). Sans effet sur les droits ; modifiable ensuite dans « Mon profil ». Facultatif pour les comptes créés par invitation ou migrés (l'invitation ne le demande pas). |
 | `type_profil` | Enum : `traiteur` / `agence` / `gestionnaire_lieux` |
 | `raison_sociale` | Texte libre. **Pas d'auto-complétion à l'inscription** (arbitrage Val 2026-09-29) : elle exigerait un endpoint public révélant quels domaines email sont clients de Savr et sous quelle raison sociale. Le rattachement par domaine reste fait côté serveur, après soumission, via `organisations_domaines_email` ; sur ce chemin la raison sociale saisie est ignorée. |
 | `acceptation_cgu` | Checkbox obligatoire (horodatée) |
@@ -1029,13 +1030,12 @@ Canal unique V1 : **email transactionnel**. Pas de notifications in-app, pas de 
 | Événement déclencheur | Destinataire(s) | Objet |
 |----------------------|-----------------|-------|
 | Collecte programmée | `collectes.created_by` | Récapitulatif collecte (date, lieu, flux, contact) |
-| **Collecte programmée par un tiers** *(2026-05-07)* | `traiteur_operationnel_organisation_id` (manager + commerciaux du traiteur opérationnel) | **Info-only**, pas de validation requise. Template `collecte_programmee_tiers` *(ajouté 2026-06-07, F2 session test-scenarios §06.02)* + récap (date, lieu, flux, contact, programmateur). Déclenché uniquement si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id` ET si le traiteur opérationnel n'est pas une fiche shadow. Si shadow → pas de destinataire (silencieux). |
-| **Collecte modifiée ou annulée par un tiers** *(2026-05-07)* | `traiteur_operationnel_organisation_id` (manager + commerciaux) | Idem ci-dessus. Template `collecte_modifiee_tiers` *(ajouté 2026-06-07, F2 — variable `type_changement` modification/annulation)*. Déclenché uniquement si action effectuée par programmateur ≠ traiteur opérationnel. |
-| Collecte modifiée | `collectes.created_by` | Récap diff avant/après |
-| Collecte annulée | `collectes.created_by` (template `collecte_annulee`) + Admin Savr (template `admin_collecte_annulee`, *ajouté 2026-06-07 F2*) + (si tiers) `traiteur_operationnel_organisation_id` (`collecte_modifiee_tiers`, `type_changement=annulation`) | Confirmation annulation. |
+| **Collecte programmée par un tiers** *(2026-05-07)* | `traiteur_operationnel_organisation_id` (managers du traiteur opérationnel seulement, les commerciaux ne le reçoivent plus — revue des emails, Val 2026-10-29) | **Info-only**, pas de validation requise. Template `collecte_programmee_tiers` *(ajouté 2026-06-07, F2 session test-scenarios §06.02)* + récap (date, lieu, flux, contact, programmateur). Déclenché uniquement si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id` ET si le traiteur opérationnel n'est pas une fiche shadow. Si shadow → pas de destinataire (silencieux). |
+| **Collecte modifiée par quelqu'un d'autre que son programmateur tiers** *(2026-05-07 ; refonte revue des emails, Val 2026-10-28/29)* | Programmateur de la collecte (`evenements.created_by`) s'il est d'une agence ou d'un gestionnaire de lieux ; plus personne côté traiteur | Template `collecte_modifiee_tiers` : liste avant / après de chaque champ modifié (la même que l'email Admin `admin_modification_collecte_traiteur`), lien vers la fiche dans l'espace du programmateur. Déclenché uniquement si l'auteur n'est pas ce programmateur. Une annulation ne le déclenche pas. |
+| Collecte annulée | `evenements.created_by` (template `annulation_collecte`, seul email côté client, quel que soit l'auteur de l'annulation) + Admin Savr (template `admin_collecte_annulee`, *ajouté 2026-06-07 F2*, boîte `contact@gosavr.io`) | Confirmation annulation. Plus d'email `collecte_modifiee_tiers` à l'annulation (décision Val 2026-10-29). |
 | Rapport post-collecte disponible | `collectes.created_by` | Lien espace client + résumé impact |
-| Inscription | User | Template `verification_email` — lien d'activation valide 24h *(F5 corrigée 2026-06-07 : l'ancienne ligne « Première connexion → bienvenue + lien vérif » conflatait 2 templates)* |
-| Email vérifié | User | Template `bienvenue` — post-vérification, sans lien d'activation |
+| Inscription | User | Template `verification_email` — lien d'activation (variable `lien_verification`), durée de validité non annoncée, celle de la configuration Supabase (Val 2026-11-02, fiche M0.5_20261028) *(F5 corrigée 2026-06-07 : l'ancienne ligne « Première connexion → bienvenue + lien vérif » conflatait 2 templates)* |
+| Email vérifié | User | Template `bienvenue_organisation` — post-vérification, sans lien d'activation ; lien « Programmer ma première collecte » |
 | Pack AG bientôt épuisé — **franchissement** du seuil ≤ 10% des crédits initiaux restants (transition > 10% → ≤ 10%, pas de répétition à chaque décrément ; recrédit ré-arme — F4 tranchée 2026-06-07) | Admin Savr (V1) / + Traiteur-Manager (V2) | Alerte "pack bientôt épuisé" (template `admin_pack_ag_etat`, niveau=bas) |
 | Incident collecte (prestataire manqué, pesée contestée) | Admin Savr | Alerte opérationnelle |
 
@@ -1247,8 +1247,8 @@ END IF;
 ## Décisions prises
 
 - **Tarification ZD** : catalogue de grilles (`grilles_tarifaires_zd`, méthodes `paliers` | `fixe_variable`, formule affine `prix_base_ht + prix_par_couvert_ht × pax`), grille affectée par organisation (`grille_tarifaire_zd_id`, NULL = grille défaut « Standard paliers » : 1-250→450 / 251-500→600 / 501-750→800 / 751-1000→1000 / >1000→1€/pax). Composition base × remises figée à la facturation via `tarif_detail` + `montant_ligne_ht` (refonte 2026-05-26).
-- **Débit pack AG** : au statut `realisee` (dès confirmation TMS), sur le pack `actif` unique de l'organisation programmatrice (refonte 2026-05-08 — pack unique actif, suppression FIFO multi-packs)
-- **Recrédit annulation post-réalisation** : automatique via trigger DB (refonte 2026-05-08, ex-manuel) — `credits_consommes -= 1` + bascule `epuise → actif` si applicable + UPDATE `collectes.pack_antgaspi_id = NULL` + audit_log. Override manuel via "Ajuster crédits" pour cas exceptionnels.
+- **Débit pack AG** : à la programmation (passage à `programmee`, décision Val 2026-11-02 ; auparavant au statut `realisee`), sur le pack `actif` unique de l'organisation programmatrice (refonte 2026-05-08 — pack unique actif, suppression FIFO multi-packs)
+- **Recrédit** : automatique via trigger DB — annulation 4h ou plus avant le créneau ou incident non imputable au client, refus définitif du prestataire (décision Val 2026-11-02), annulation post-réalisation (refonte 2026-05-08, ex-manuel) ; une annulation tardive garde son crédit — `credits_consommes -= 1` + bascule `epuise → actif` si applicable + UPDATE `collectes.pack_antgaspi_id = NULL` + audit_log. Override manuel via "Ajuster crédits" pour cas exceptionnels.
 - **Facturation mensuelle** : génération de brouillon automatique possible, mais **validation Admin obligatoire avant envoi Pennylane** en V1. Automatisation totale V2.
 - **Annulation collecte validée** : demande soumise par le traiteur → notification admin + prestataire si mandaté → confirmation admin requise
 - **Sélection association AG** *(refonte 2026-05-09 — scoring supprimé)* : filtres binaires d'éligibilité (actif + région + horaires compatibles + `capacite_max_beneficiaires × 2 > volume_estime_repas`) puis **tri unique sur distance Haversine croissante**. Plus de scoring sur 100 points ni de pondération distance/capacité (supprimé car non utilisé en pratique — cf. §2 Sélection Association). Historique de fiabilité non retenu en V1.

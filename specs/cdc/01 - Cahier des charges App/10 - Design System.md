@@ -37,7 +37,7 @@ Ces 8 leviers transforment un build shadcn générique en interface Savr. Chacun
 | # | Levier | Règle concrète |
 |---|---|---|
 | 1 | **Neutres tintés navy** | Pas de gris pur. Les neutres sont **désaturés vers le navy** (cf. §2 échelle `neutral-*`). Donne une cohésion froide-institutionnelle, jamais le `slate`/`zinc` par défaut. |
-| 2 | **Bloc primaire plein** | Sidebar, hero d'écran et bandeaux clés sont des **aplats `primary-700`** texte blanc — signature visuelle institutionnelle (façon AEGOV), pas une nav blanche fade. |
+| 2 | **Bloc primaire plein** | La sidebar, la barre du haut (un seul cadre navy `primary-800` en L, décision Val 2026-11-02) et les bandeaux clés sont des **aplats navy** texte blanc — signature visuelle institutionnelle (façon AEGOV), pas une nav blanche fade. Le **hero d'écran** est un **bandeau pâle** `primary-100` à titre `primary-800` (§5.6, décision Val 2026-11-01). |
 | 3 | **Accent orange parcimonieux** | L'orange `accent-500` est réservé aux **CTA secondaires, highlights, états "à faire"**. Jamais en aplat de fond large. Sa rareté = sa force. |
 | 4 | **Focus ring signature** | Tout élément focusable a un `focus-visible` à **anneau primaire offset** (`outline: 2px solid primary-500; outline-offset: 2px`). Accessibilité = look institutionnel. Jamais le focus bleu navigateur par défaut. |
 | 5 | **Ombres sobres + bordures portantes** | Les cards reposent sur **bordure `neutral-200` + fond blanc**, ombre quasi nulle au repos. La hiérarchie vient de la bordure et de l'espace, pas d'ombres lourdes (anti-effet "carte qui flotte" générique). |
@@ -158,13 +158,16 @@ Inter et Archivo (Google Fonts, gratuites), chargées par `next/font` (auto-héb
 
 | Token | Taille | Poids | Tracking | Usage |
 |---|---|---|---|---|
+| `--text-3xs` | 10px | 700 | 0.08em | Étiquettes en majuscules, compteurs des puces de filtre *(décision Val 2026-10-28)* |
 | `--text-xs` | 12px | 400 | 0 | Labels de badge, metadata |
 | `--text-sm` | 14px | 400 | 0 | Texte de tableau, labels formulaire |
+| `--text-md` | 15px | 400 | 0 | En-têtes et sections des grandes fiches, texte du bouton `pilule` *(décision Val 2026-10-28)* |
 | `--text-base` | 16px | 400 | 0 | Corps de texte principal |
 | `--text-lg` | 18px | 500 | 0 | Sous-titres de section |
 | `--text-xl` | 20px | 600 | -0.01em | Titres de page (mobile) |
 | `--text-2xl` | 24px | 700 | -0.02em | Titres de page (desktop) |
 | `--text-3xl` | 30px | 700 | -0.02em | Grands chiffres dashboard (KPIs) |
+| `--text-kpi` | 34px | 800 | -0.02em | Chiffre des cartes KPI (`StatCard`, anneau du pack AG) *(décision Val 2026-10-28)* |
 | `--text-4xl` | 38px | 800 | -0.02em | Hero d'écran, valeur KPI vedette |
 
 **Interlignage** : `1.5` corps, `1.15`–`1.2` titres.
@@ -230,8 +233,9 @@ Les ombres sont **discrètes**. La hiérarchie repose d'abord sur la bordure `ne
 | `--motion-fast` | `120ms ease-out` | Hover, focus, changements d'état |
 | `--motion-base` | `200ms ease-out` | Ouverture dropdown, toast, tab switch |
 | `--motion-slow` | `320ms ease-out` | Entrée modal/sheet |
+| `--motion-chart` | `600ms ease-out` | Construction d'un graphique de dashboard ou de fiche collecte / événement, une seule fois par ouverture de la page ou de la fiche, quand il apparaît à l'écran (au moins un quart visible ; barres, courbes, donut, radar, jauges ; série décalée sur 240 ms au plus) ; jamais rejouée au changement d'un filtre, d'une période, d'une organisation ou d'un onglet ; aucune animation si `prefers-reduced-motion: reduce` ni à l'impression *(décision Val 2026-10-28)* |
 
-> Respecter `prefers-reduced-motion: reduce` → animations désactivées/réduites. Transitions franches, jamais de rebond (`bounce`) ni d'easing fantaisie.
+> Respecter `prefers-reduced-motion: reduce` → animations désactivées/réduites. Transitions franches, jamais de rebond (`bounce`) ni d'easing fantaisie. Seule exception : le léger recul et dépassement de la croix Savr de chargement de page (§7, Val 2026-10-31).
 
 ---
 
@@ -265,9 +269,9 @@ Les composants viennent de shadcn/ui ; ces recettes définissent **comment on le
 
 ### 5.3 Bloc primaire plein (levier #2)
 
-Pattern signature institutionnel — sidebar, hero d'écran, bandeau de page.
+Pattern signature institutionnel — sidebar, barre du haut et bandeaux clés. La sidebar et la barre du haut forment un seul cadre `primary-800` en L, sans trait entre elles ; le contenu s'en détache par un coin arrondi en haut à gauche (décision Val 2026-11-02). Le hero d'écran (bandeau de page) n'est plus un aplat navy : il suit le bandeau pâle (§5.6, décision Val 2026-11-01).
 
-- Fond `primary-700` (ou `primary-800` pour la sidebar, plus profonde).
+- Fond `primary-700` (ou `primary-800` pour la sidebar et la barre du haut, plus profondes).
 - Texte blanc, libellés secondaires `primary-200`.
 - Liens/items actifs : fond `primary-800` + barre accent `accent-500` 3px à gauche (sidebar).
 - Icônes en `primary-200`, actives en blanc.
@@ -289,13 +293,15 @@ Pattern signature institutionnel — sidebar, hero d'écran, bandeau de page.
 
 ### 5.6 PageHero (bandeau d'écran)
 
-Bandeau d'en-tête d'écran (liste collectes, fiche collecte), dérivé du bloc primaire plein §5.3 *(ajout 2026-07-04, divergence BOA-UI collectes — implémentation de référence `components/ui/page-hero`)*.
+Bandeau pâle d'en-tête de **toute page** de la plateforme, tous rôles, Admin compris *(ajout 2026-07-04, divergence BOA-UI collectes ; bandeau pâle et extension à toutes les pages : décision Val 2026-11-01, qui remplace l'arbitrage R-UI-6c Q3 b du 2026-10-06 — implémentation de référence `components/ui/page-hero`)*. Exceptions : page 403 et pages de connexion (cartes centrées hors menu), écran de confirmation de programmation, fiches en modale (grand en-tête des fiches §5.11).
 
-- Fond `primary-700` plein, texte blanc.
-- Titre `h1` Archivo poids 800, `letter-spacing -0.02em` (levier #7).
-- Sous-titre / contexte : `primary-200`.
-- Slot **actions à droite** (boutons `accent` / `secondary` sur fond sombre).
-- Radius `lg` si encart, pleine largeur sinon.
+- Fond `primary-100`, sans ombre, radius `md` (décision Val 2026-11-02, remplace « `lg` si encart »).
+- **Même hauteur sur toutes les pages, avec ou sans bouton** (décision Val 2026-11-01) : hauteur minimale = celle du bandeau portant un bouton `md` (80 px desktop, 84 px mobile).
+- Titre `h1` Archivo poids 800, `letter-spacing -0.02em` (levier #7), couleur `primary-800`.
+- **Aucun texte sous le titre** (ni sous-titre, ni compteur, ni phrase d'aide — décision Val 2026-11-01). Les badges de statut vont à droite, avec les actions.
+- Icône à gauche du titre en `primary-700` : sur un écran du menu, c'est le pictogramme de son entrée de menu ; sur une page de détail, la flèche de retour (avec `aria-label`) la précède.
+- Slot **actions à droite** : bouton principal `accent`, boutons secondaires `secondary` ; badges de statut autorisés. « Programmer une collecte » et le logo de l'organisation n'y figurent pas : ils sont dans la barre du haut (`TopBar`, décision Val 2026-11-02).
+- Écart avec la barre du haut : 16 px (décision Val 2026-11-02).
 
 ### 5.7 FilterChips (chips de filtre à compteur)
 
@@ -353,18 +359,18 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 
 | Composant | Description | Usage |
 |---|---|---|
-| `Sidebar` | Bloc primaire plein, repliable (§5.3) | Desktop |
-| `TopBar` | Barre supérieure mobile, burger menu | Mobile + tablet |
+| `Sidebar` | Bloc primaire plein, repliable (§5.3) ; 204 px dépliée (64 px repliée) ; logo Savr en tête, sur la ligne de la barre du haut (Val 2026-11-02) | Desktop |
+| `TopBar` | Barre navy du haut (`primary-800`, 56 px) : à droite « Programmer une collecte » (rôles qui programment : traiteur manager et commercial, agence, gestionnaire de lieux, équipe Savr ; jamais le client organisateur ; absent sur le formulaire lui-même ; sur une liste Collectes filtrée par type, le formulaire s'ouvre sur ce type) puis le logo de l'organisation (espaces clients) ; burger menu à gauche sur mobile et tablette (Val 2026-11-02) | Toutes largeurs |
 | `BottomNav` | Navigation bas d'écran (4-5 items) | Mobile |
 | `Breadcrumb` | Fil d'Ariane pages imbriquées | Dashboard → Événement → Collecte |
-| `PageHero` | Bandeau d'en-tête d'écran (§5.6) | **Listes Admin** (collectes, lieux, transporteurs, associations, clients…). **Pas sur la fiche collecte** *(refonte 2026-07-21)* : celle-ci s'ouvre en **pop-up centré (`Modal`)** ; le titre de la modale est réservé aux lecteurs d'écran et l'en-tête interne est le **grand en-tête commun des fiches** *(2026-10-01)*. |
+| `PageHero` | Bandeau pâle d'en-tête d'écran (§5.6) | **Toutes les pages** de la plateforme, tous rôles, Admin compris (Val 2026-11-01) ; seul composant de titre de page (`PageHeader` supprimé). **Pas sur la fiche collecte** *(refonte 2026-07-21)* : celle-ci s'ouvre en **pop-up centré (`Modal`)** ; le titre de la modale est réservé aux lecteurs d'écran et l'en-tête interne est le **grand en-tête commun des fiches** *(2026-10-01)*. |
 
 ### Données et tableaux
 
 | Composant | Description |
 |---|---|
-| `DataTable` | Data Table shadcn (TanStack Table) — format UNIQUE de toute liste de l'app (décision Val 2026-09-28). Tri colonne : côté serveur si la liste est paginée (colonnes en liste blanche), dans le navigateur si la liste est complète, absent si la liste est tronquée. Menu « Colonnes » optionnel, colonne d'actions fixable à droite, ligne activable au clavier. Adaptatif mobile (cards sous 640px) |
-| `StatCard` | KPI : valeur (`--text-3xl`/`4xl`), variation %, label, icône |
+| `DataTable` | Data Table shadcn (TanStack Table) — format UNIQUE de toute liste de l'app (décision Val 2026-09-28). Tri colonne : côté serveur si la liste est paginée (colonnes en liste blanche), dans le navigateur si la liste est complète, absent si la liste est tronquée. Menu « Colonnes » optionnel, précédé à sa gauche du bouton « Exporter CSV » (picto Télécharger) sur les listes qui ont un export *(demande Val 2026-10-30 ; exception : Factures Admin, sans menu « Colonnes », garde son bouton dans le bandeau)* ; barre affichée seulement si la liste a au moins une ligne ; colonne d'actions fixable à droite, ligne activable au clavier. **Hauteur de ligne constante** *(décision Val 2026-10-30, toutes les vues tables)* : sur ordinateur, toute ligne fait 64 px quel que soit le contenu des cellules ; une cellule ne passe jamais à la ligne (au plus 48 px de contenu, 16 rem de large, texte coupé par « … »), aucun contrôle ni contour de focus n'est coupé ; quand une cellule est coupée, son texte complet s'affiche au survol. Une rangée de badges montre les deux premiers puis une pastille « +N » (liste complète au survol). Une information que le CDC impose de montrer ne doit pas tenir au seul survol : la colonne qui la porte se conçoit pour tenir dans la cellule (exception assumée : colonne Indicateurs de la liste Collectes Admin, dont « Rapport consulté / non consulté » et « Sans excédent » peuvent être coupés — §06.06 §3, décision Val 2026-11-02). Adaptatif mobile (cards sous 640px, retour à la ligne conservé) |
+| `StatCard` | KPI : valeur (`--text-kpi` 34 px, décision Val 2026-10-28 ; `--text-4xl` pour une valeur vedette), variation %, label, icône |
 | `EmptyState` | État vide illustré + CTA |
 | `Badge` | Pilule statut (§5.4) |
 
@@ -422,15 +428,17 @@ Chaque écran gère 5 états — aucun laissé sans UI.
 
 | État | Description | Rendu attendu |
 |---|---|---|
-| **Loading** | Chargement | Skeleton screens (blocs `neutral-100` animés, forme du contenu) |
+| **Loading** | Chargement | Skeleton screens (blocs `neutral-100` animés, forme du contenu) ; chargement d'une page entière = croix Savr animée, seule et centrée (2026-10-31) |
 | **Empty** | Aucune donnée | Illustration + texte + CTA si applicable |
 | **Error** | Échec chargement/action | Message précis + bouton "Réessayer" |
 | **Success** | Action confirmée | Toast (disparaît après 4s) |
 | **Disabled** | Action impossible | Bouton grisé + tooltip ("Pack AG épuisé — contacter Savr") ; sur téléphone, où une infobulle ne s'affiche pas, la raison est écrite en clair près de l'action (menu « ⋯ », au-dessus du pied d'une fiche — 2026-10-28) |
 
-> **Exception densité — actions de ligne des listes Collectes traiteur et agence** *(revues écran 2026-07-15 et 2026-10-01, divergences M3.1)* : sur ces listes, une action indisponible est **retirée** de la carte (et non grisée), et les pictos des actions disponibles sont rendus à 10 px (cible tactile inchangée), pour la densité/lisibilité. L'état Disabled « grisé + tooltip » reste la règle par défaut partout ailleurs.
+> **Exception densité — actions de ligne des listes Collectes traiteur et agence** *(revues écran 2026-07-15, 2026-10-01 et 2026-10-29, divergences M3.1)* : sur ces listes, Modifier / Dupliquer / Annuler sont regroupées dans un menu « ⋯ » (2026-10-29, remplace les pictos de 10 px) ; comme sur la fiche, une action que le statut interdit en est absente, une action que le droit interdit (traiteur opérationnel d'une collecte programmée par un tiers) y est grisée, sa raison écrite sous elle, même texte que la fiche. Le picto « Télécharger le rapport » de la colonne Résultats, hors menu, reste **retiré** quand l'action est indisponible (rapport réservé au donneur d'ordre, §06.04). L'état Disabled « grisé + tooltip » reste la règle par défaut partout ailleurs.
 
 **Skeleton** : blocs `neutral-100` animés (shimmer subtil), jamais spinner seul.
+
+> **Exception — chargement d'une page entière** *(Val 2026-10-31)* : pendant le chargement d'une route (`loading.tsx`), la zone de contenu affiche la croix « + » du logo Savr, seule et centrée, avec « Chargement… » dessous. Bras haut, centre et bras droit en `accent-500`, bras gauche et bas en `primary-700`. Elle tourne par quarts de tour (4 sur 3,2 s, courte pause entre chacun, léger recul au départ et léger dépassement à l'arrivée). Fixe si `prefers-reduced-motion: reduce`. Les chargements internes à une page (liste, carte, onglet) restent en skeleton.
 
 **Illustrations d'état vide** : style trait fin Phosphor agrandi (ou pictos monochromes `primary-300`), jamais d'illustration 3D/stock générique. Cohérence avec l'iconographie.
 

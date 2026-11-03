@@ -32,7 +32,7 @@
   "deliverables": [
     {
       "id": "M3.4-liste-vues-a-venir-passees",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:151",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:150",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx + packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx (liens des cadrans « Événements ZD / AG » : onglet=passees)",
       "test": "M3.4/collectes_vues_a_venir_passees_par_date + M3.4/cockpit_declinaison_kpi_cards",
       "statut": "implemented",
@@ -136,7 +136,7 @@
     },
     {
       "id": "M3.4-cockpit-declinaison",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:151",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:150",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx",
       "test": "M3.4/cockpit_declinaison_kpi_cards",
       "statut": "implemented",
@@ -152,7 +152,7 @@
     },
     {
       "id": "M3.4-liste-organisateur-sans-excedent",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:163",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:166",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx (liste Collectes du client organisateur, onglet Anti-Gaspi, colonne « Repas » : « Sans excédent » pour une collecte AG `realisee_sans_collecte`, à la place du 0 que rend la route ; colonne Statut = « Réalisée » via le mapping client)",
       "test": "M3.4/liste_organisateur_sans_excedent",
       "statut": "implemented",
@@ -160,7 +160,7 @@
     },
     {
       "id": "M3.4-liste-organisateur-sans-excedent-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:163",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:166",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx (colonne « Repas », alignée à droite : le texte « Sans excédent » dans une colonne de nombres ; aucun style nouveau)",
       "test": "M3.4/liste_organisateur_sans_excedent",
       "statut": "à-vérifier",
@@ -168,7 +168,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "bdda90299b4af05a95c42396b4c5c2653218540ae7c8d83f6a448f09b0586e55",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "7e9aac4ab731ffcb03cb11fb33f6c02264e2c391540a2dda3ce54af5c261e8a9"
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "87c1aab8f65c3c441dde53838d9a377ca73bb9ba2fded8568fba0c4c3f4e84e9",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de"
   }
 }

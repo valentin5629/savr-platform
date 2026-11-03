@@ -2,10 +2,11 @@
 
 **Créé** : 2026-06-07. **Révisé 2026-09-16 (divergence M0.7_20260914).**
 
-**Deux couches temporelles**, et un lot d'événements multi-collectes daté sur la seconde (3.).
+**Deux couches temporelles**, et deux lots datés sur la seconde : événements multi-collectes (3.) et catalogue de cas (4.).
 1. *Socle figé* — la matrice CSV committée (`fixtures/data/matrix_collectes.csv`, 478 collectes, 2025-06 → 2026-05) porte la profondeur d'historique ; ses dates sont absolues et ne bougent jamais. `seed:check` garde des **comptes exacts** dessus.
 2. *Lot « pipeline vivant »* — les collectes récentes, en cours et à venir sont calculées relativement à une **ancre** = le jour d'exécution du seed (helper `ancreSeed()`, override `SEED_TODAY=YYYY-MM-DD` pour épingler la CI et les tests). Le déterminisme est garanti **à ancre donnée** (PRNG de graine l'ancre), ce que la constante figée visait, sans payer la péremption.
 3. *Événements multi-collectes* *(ajout 2026-10-20, demande Val)* — 7 événements passés (J-12 à J-68 de l'ancre), 24 collectes terminées (22 `cloturee`, 1 AG `realisee_sans_collecte`, 1 ZD `annulee`), définis en clair dans `packages/shared/src/seed/evenements-multi-collectes.ts`. Chacun isole un cas du bilan consolidé d'un événement (page Événements du gestionnaire) : plusieurs jours avec la même association servie deux fois ; deux associations ; 1 ZD + 1 AG le même soir ; AG sans excédent sur un événement programmé par une agence ; dominante AG sur le lieu d'un autre gestionnaire (Arts Forains) ; ZD seul avec une collecte annulée ; AG seul sans client organisateur. Les collectes ZD d'un même événement ont des pax distincts (un taux pondéré par le tonnage se distingue ainsi d'une moyenne simple) ; les deux ZD du même soir de `evt_multi_forum_ingenieurs` portent 700 et 400 convives (deux collectes du même type le même jour s'additionnent, règle du jour révisée le 2026-10-21). Les AG d'un même jour portent chacune leur part des convives (Forum Ingénieurs 700 + 400, Festival Gastronomie 900 + 600 le second jour, Dîner des mécènes 250 + 170). Une AG sans pax prend le total des pax des ZD non annulées du même jour, à défaut le pax par défaut de l'événement. Les alertes de pesée injectées par le seed (verre MIN, résiduel MAX) ne tombent jamais sur ces collectes.
+4. *Catalogue de cas* *(ajout 2026-11-02, demande Val)* — 41 collectes définies en clair dans `packages/shared/src/seed/catalogue-cas.ts`, datées depuis l'ancre (J-25 à J+40), chacune sur un événement nommé « Cas — … ». Couvre : les 10 statuts de collecte ; les statuts TMS non envoyé, en attente d'acceptation, acceptée, en attente d'exécution, rejetée par le prestataire, annulée par le traiteur ; des créneaux de 05:30 à 00:30 ; des pax de 8 à 15 000 (seuils 600 et 1 500) et 1 à 4 camions, avec une tournée unitaire par camion ; la province (Rouen, Lille, Lyon, Bordeaux, Marseille, Nantes) ; modifiée sans renvoi TMS, informations incomplètes, contrôle d'accès (infos à envoyer, envoyées), programmation par agence ; annulation demandée (tardive et à temps), annulée par le traiteur, annulée tardivement (pack débité), annulée par Savr ; incident, notes internes. Hors lot : A Toutes! (Everest), `rejetee_par_tms` (aucun code V1 ne l'écrit), rapports non consultés (documents fabriqués par `documents:dev`).
 
 > ⚠ Un état transitoire (`realisee` en attente de clôture, `en_cours`, `programmee`) **ne peut pas** être figé dans le passé : les crons le consomment (embargo H+24). C'est ce qui faisait échouer `pnpm seed:check` (attendu 426 `cloturee` / 52 `realisee`, base réelle 478 / 0).
 
@@ -70,13 +71,13 @@
 |---|---|---|
 | Collecte ZD → pesées (`collecte_flux`) | J0 | 3-4 flux/collecte |
 | Collecte → `cloturee` | J+3 | sauf 25 `realisee` récentes (mai 2026) non clôturées |
-| Clôture ZD → bordereau + impact (snapshot CO₂/taux figés) | J+3 | |
+| Clôture ZD → impact (snapshot CO₂/taux figés) ; bordereau fabriqué par `pnpm documents:dev` (2026-10-28) | J+3 | |
 | Facture ZD par collecte | J+7 | |
 | Facture ZD mensuelle (Kaspia) | agrégation auto le 1er du mois suivant (J+1 — F2 §06.08) | |
 | Facture AG pack | à l'achat du pack | 4 achats répartis dans l'année |
 | Paiements | 70 % à l'échéance (30 j), 20 % +30 j, 7 % +60 j, 3 % impayé > 90 j | les retards alimentent les dashboards créances |
-| Attestations de don AG | J+10 après collecte | 80 sur l'année |
-| Rapports RSE | 1/mois (12), dont 1 « sans excédent » (août) et 1 régénéré | |
+| Attestations de don AG | fabriquées par `pnpm documents:dev` (2026-10-28) | non semées |
+| Rapports RSE | fabriqués par `pnpm documents:dev` (2026-10-28) | non semés |
 
 ## États « courants » à l'ancre (jour d'exécution du seed)
 

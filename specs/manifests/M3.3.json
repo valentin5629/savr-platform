@@ -232,7 +232,7 @@
     },
     {
       "id": "BL-P1-AGENCE-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:249",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:267",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/pack-ag/renouvellement/route.ts + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/AGENCE01_renouvellement_role_agence_201 + M3.3/AGENCE01_renouvellement_role_non_autorise_403 + M3.3/AGENCE01_bouton_renouvellement_onglet_ag + M3.3/AGENCE01_bouton_renouvellement_poste_endpoint",
       "statut": "implemented",
@@ -377,7 +377,7 @@
     },
     {
       "id": "M3.3-popup-radar-agence",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:392",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:410",
       "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/[id]/benchmark/route.ts",
       "test": "M3.3/fiche_benchmark_agence",
       "statut": "implemented",
@@ -393,7 +393,7 @@
     },
     {
       "id": "M3.3-popup-coordonnees-urgence",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:388",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406",
       "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/[id]/coordonnees-urgence/route.ts",
       "test": "M3.3/urgence_agence_ok",
       "statut": "implemented",
@@ -401,7 +401,7 @@
     },
     {
       "id": "M3.3-popup-marque-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:388",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": "M3.3/fiche_popup_agence_marque_blanche",
       "statut": "implemented",
@@ -409,7 +409,7 @@
     },
     {
       "id": "M3.3-liste-onglets-etat",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:55 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:295",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:55 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:313",
       "artefact": "packages/plateforme/src/app/(agence)/agence/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.3/liste_agence_vues_a_venir_passees",
       "statut": "implemented",
@@ -417,7 +417,7 @@
     },
     {
       "id": "M3.3-liste-actions-ligne",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:321-325",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:339-343",
       "artefact": "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.3/liste_agence_actions_ligne",
       "statut": "implemented",
@@ -433,7 +433,7 @@
     },
     {
       "id": "M3.3-liste-api-resultats",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:319",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:337",
       "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/route.ts, packages/plateforme/src/lib/collectes/liste-collectes-client.ts",
       "test": "M3.3/liste_agence_resultats ; supabase/tests/liste_collectes_agence_lecture.test.sql",
       "statut": "implemented",
@@ -441,7 +441,7 @@
     },
     {
       "id": "M3.3-liste-api-filtres",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:367-368",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:385-386",
       "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/route.ts",
       "test": "M3.3/liste_agence_filtres_client_info",
       "statut": "implemented",
@@ -449,7 +449,7 @@
     },
     {
       "id": "M3.3-liste-filtres-options",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:362-368",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:380-386",
       "artefact": "packages/plateforme/src/app/api/v1/agence/collectes/filtres/route.ts",
       "test": "M3.3/liste_agence_options_filtres",
       "statut": "implemented",
@@ -457,7 +457,7 @@
     },
     {
       "id": "M3.3-liste-lien-profond-historique",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:186",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:196",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.3/liste_agence_lien_profond_passees",
       "statut": "implemented",
@@ -465,7 +465,7 @@
     },
     {
       "id": "M3.3-dupliquer-agence",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:324",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:342",
       "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
       "test": "M3.3/dupliquer_agence_traiteur_operationnel_preselectionne",
       "statut": "implemented",
@@ -473,7 +473,7 @@
     },
     {
       "id": "M3.3-liste-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:366",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:372",
       "artefact": "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -497,7 +497,7 @@
     },
     {
       "id": "M3.3-liste-filtres-choix-multiple-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:288",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:292",
       "artefact": "packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -530,7 +530,7 @@
     },
     {
       "id": "M3.3-kpi-cartes-pax-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:110",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:109",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx (cartes kg/pax moyen, Repas/pax moyen) + packages/plateforme/src/lib/dashboards/cockpit-derive.ts (aggregateKpis)",
       "test": "Lot3/agence_carte_kg_par_pax_collectes_a_convives",
       "statut": "implemented",
@@ -548,9 +548,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "174c1ff53572bad8d222fa7ba5e4c7902c839671017f913ebaebf9b226c22209",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "a0eea64d1fcd56b03477522b20175a1ac349a34452bcdc95a5bb680d03f2ef16",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "da40624cce6ab0a38d42199b3423b3f6765862da07096008119df63952f0c999",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "bdda90299b4af05a95c42396b4c5c2653218540ae7c8d83f6a448f09b0586e55"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3b3b4ebba18cfe5ef58baa1c73dd618d031c3b41d8a1494d28cbf18780f81a80",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "4482c9a343f5aadb36a4c9f139d30333f6a24eebb74d1c9a89c3e62c95018e34",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "c957507b8789dd429a600c8b84a11e336625486cd6d28ee3b6c0fe0b161ae26b",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "87c1aab8f65c3c441dde53838d9a377ca73bb9ba2fded8568fba0c4c3f4e84e9"
   }
 }

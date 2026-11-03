@@ -60,7 +60,7 @@
     },
     {
       "id": "M2.5-acceptation-manuelle-reference",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:273-293",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:275-295",
       "artefact": "supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql (fn_accepter_mission_everest_manuelle : tournees.external_ref_commande + collectes.tms_reference + everest_missions created_manually, atomique) ; packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts + packages/plateforme/src/lib/acceptation-manuelle-mission.ts (référence obligatoire, bornée) ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (modale « Acceptation manuelle »)",
       "test": "everest_acceptation_manuelle_reference.test.sql (A1 422 sans référence, A2 référence posée, A3 sort des non transmises, A4 renvoi = E2, A7 uniq_tournee_par_external_ref atomique, A9 annulation = E3, A11 tournée Everest visée) + adapter.m2-5.test.ts « mission acceptée manuellement AVEC référence » (cancelCollecte annule chez A Toutes!, E1 no-op) + everest-manual-accept.m2-5.test.ts + collecte-detail-panel.m0-6.test.tsx §06.06 Bloc 0",
       "statut": "implemented",
@@ -76,7 +76,7 @@
     },
     {
       "id": "M2.5-acceptation-manuelle-plans",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:283-289",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:285-291",
       "artefact": "supabase/migrations/20260916180000_plateforme_everest_acceptation_manuelle_refus_rejetee.sql (refus P0003 depuis rejetee_par_prestataire)",
       "test": "everest_acceptation_manuelle_plans.test.sql (statut_depart : a_attribuer / attribuee_en_attente_acceptation → acceptee, rejetee_par_prestataire → refus ; refus_409 : realisee / cloturee / annulee, aucune écriture) + everest_acceptation_manuelle_reference.test.sql (non_envoye A2c, non a_toutes A8b, mission API A8, autre référence A5c, référence d'une autre tournée A7) + everest-manual-accept.m2-5.test.ts (P0003 → 409, formats 422)",
       "statut": "implemented",
@@ -84,7 +84,7 @@
     },
     {
       "id": "M2.5-point-b-dropoff-association",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:163",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:165",
       "artefact": "packages/adapters/src/everest/adapter.ts (dispatchCollecte : refus permanent sans association attribuée, hors du try ; buildMissionPayload : address_end, address_end_name, address_end_tel = adresse et contact de l'association) ; packages/adapters/src/everest/client.ts (CreateMissionPayload.address_end) ; packages/adapters/src/outbox-worker.ts (résolution association via attributions_antgaspi → associations, composée une fois pour les deux adapters)",
       "test": "M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans address_end + M2.5 / dispatch — AG sans association attribuée → LogistiquePermanentError, aucune mission créée [adapter.m2-5.test.ts]",
       "statut": "implemented",
@@ -124,9 +124,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "f57726028bd4c45bd9de86de56072b6a689abe0eaf9f2e4a9308a69d144a642e",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "5bbb1231f0faf4bd292af49632c48eb26e736fc302881f07d08d590d9eac8ee7",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "045ea7ed7b0dd9880965c415994f968a11ecb9907f3151d63d692291f609117c",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "d5b6f644aa60e3d7ca36d414cdec3c06d0a954545705e865b8e06f935929f678",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "5129aa28dc9794a842f435362a1103998993507bd90e45787125ab474413aecd",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "1feba8e10b9a8c5d7065cfb3ab584be8c33e9913a4ea64f5558ac66344373597",
     "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "617e6f0af51993b7efa400740e712b60ad498a4ea94fdba122fbc3cb6cee2c01"
   }
 }

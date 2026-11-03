@@ -43,9 +43,11 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 ### Packs AG
 | `action` | `table_cible` | Déclencheur |
 |---|---|---|
-| `pack_recredite_annulation_collecte` | `packs_antgaspi` | Trigger recrédit (déjà §04) |
+| `pack_debite_programmation` | `packs_antgaspi` | Trigger `trg_pack_debit_programmation` — débit d'un crédit quand une collecte AG devient `programmee` ; `old_values` `{collecte_id}` (ajout 2026-11-02, décision Val) |
+| `pack_recredite_annulation_collecte` | `packs_antgaspi` | Trigger recrédit — annulation 4h ou plus avant le créneau (ou incident non imputable au client), ou annulation post-réalisation (déjà §04 ; étendu 2026-11-02) |
+| `pack_recredite_rejet_prestataire` | `packs_antgaspi` | Trigger `trg_pack_recredit` — refus définitif du prestataire (`→ rejetee_par_prestataire`), crédit rendu (ajout 2026-11-02, décision Val) |
 | `pack_rattache_collecte` | `collectes` | RPC `rpc_rattacher_collecte_pack` — rattachement Admin après coup (ajout 2026-10-16) |
-| `pack_debite_annulation_tardive` | `packs_antgaspi` | Trigger débit < 4h (déjà §04) |
+| `pack_debite_annulation_tardive` | `packs_antgaspi` | Trigger annulation < 4h : le crédit décompté à la programmation est conservé, sans nouveau débit (déjà §04 ; sens révisé 2026-11-02) |
 | `pack_ajuste_manuel` | `packs_antgaspi` | Ajustement Ops/Admin |
 | `annulation_pack` | `packs_antgaspi` | Action Admin « Annuler le pack » (§06.06 §8) — `ancienne_valeur` `{statut:'actif'}`, `nouvelle_valeur` `{statut:'annule'}`, motif obligatoire (≥ 10 car.), auteur `admin_savr`/`ops_savr` |
 

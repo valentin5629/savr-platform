@@ -9,6 +9,7 @@ import {
 } from '@/lib/api-auth.js';
 import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
+import { regionDepuisCodePostal } from '@/lib/lieux/region-code-postal.js';
 import { urlApplication } from '@/lib/url-application.js';
 
 // Colonnes proposées par l'autocomplétion — sous-ensemble de la liste blanche
@@ -229,6 +230,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       adresse_acces: String(adresse_acces),
       code_postal: String(code_postal),
       ville: String(ville),
+      // Sans elle l'algorithme d'attribution AG ne proposait rien (C1, Val 2026-11-03).
+      region: regionDepuisCodePostal(String(code_postal)),
       actif: false,
       stationnement: body.stationnement ?? null,
       type_vehicule_max: body.type_vehicule_max ?? 'camionnette',

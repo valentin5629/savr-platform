@@ -69,7 +69,15 @@ export interface AlgoResult {
   no_prestataire: boolean;
   delai_minutes: number;
   nb_pax: number;
+  // Lieu sans région ni code postal : rien ne peut être recommandé tant qu'il
+  // n'est pas complété (C1, Val 2026-11-03). Absent avant la migration.
+  region_inconnue?: boolean;
 }
+
+// Remplace les deux avertissements « aucune recommandation » : la cause est le
+// lieu, pas le créneau ni les prestataires.
+export const MESSAGE_LIEU_A_COMPLETER =
+  'Aucune recommandation possible : le lieu de cette collecte n’a ni région ni code postal. Complétez le lieu dans le menu Lieux, puis revenez sur cette collecte. Vous pouvez aussi choisir l’association et le transporteur vous-même ci-dessous.';
 
 interface AssoRef {
   id: string;
@@ -392,6 +400,7 @@ export function AttributionAgForm({
       (!!algo.transporteur && !transpIsReco) ||
       transpSource === 'libre') as boolean);
   const aucuneReco = !!algo && algo.no_asso && assoSource === 'libre';
+  const lieuACompleter = algo?.region_inconnue === true;
   const motifOk =
     !isOverride ||
     (motif !== '' && (motif !== 'autre' || motifLibre.length >= 10));
@@ -549,6 +558,11 @@ export function AttributionAgForm({
 
       {algo && (
         <>
+          {lieuACompleter && (
+            <AlertBar variant="warn" data-testid="lieu-a-completer">
+              {MESSAGE_LIEU_A_COMPLETER}
+            </AlertBar>
+          )}
           <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
             {/* Ligne 1 : titres */}
             <div className="flex h-7 items-center gap-2">
@@ -607,7 +621,7 @@ export function AttributionAgForm({
                 sélection courante, recommandée par défaut ; un clic ouvre la
                 liste complète pour en choisir une autre. */}
             <FormField label="Association" htmlFor="association-select">
-              {!assoTop1 && (
+              {!assoTop1 && !lieuACompleter && (
                 <AlertBar variant="warn" className="mb-2">
                   Aucune association disponible pour ce créneau. Traitement
                   manuel requis.
@@ -663,7 +677,7 @@ export function AttributionAgForm({
               )}
             </FormField>
             <FormField label="Transporteur" htmlFor="transporteur-select">
-              {!transpReco && (
+              {!transpReco && !lieuACompleter && (
                 <AlertBar variant="warn" className="mb-2">
                   Aucun prestataire éligible — traitement manuel. Choisissez un
                   transporteur ci-dessous.

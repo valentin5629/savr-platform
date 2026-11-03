@@ -73,8 +73,6 @@ const collecteZd = {
     },
   ],
   transporteur_nom: 'Strike',
-  factures_collectes: [{ montant_ht: 300 }],
-  packs_antgaspi: null,
   evenements: {
     nom_evenement: 'Gala ZD',
     pax: 120,
@@ -107,8 +105,6 @@ function ag(overrides: Record<string, unknown>) {
     collecte_flux: [],
     rapports_rse: [],
     transporteur_nom: 'Marathon',
-    factures_collectes: [],
-    packs_antgaspi: { prix_unitaire_ht: 45 },
     evenements: {
       nom_evenement: 'Cocktail AG',
       pax: 80,
@@ -703,7 +699,6 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         tms_reference: null,
         collecte_flux: [],
         rapports_rse: [],
-        factures_collectes: [],
       };
       const zdValidee = {
         ...zdProgrammee,
@@ -795,7 +790,6 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         tms_reference: null,
         collecte_flux: [],
         rapports_rse: [],
-        factures_collectes: [],
       };
       // Fiche détail renvoyée à l'ouverture du panneau (shape CollecteDetail).
       const detail = {

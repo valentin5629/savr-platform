@@ -104,7 +104,7 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
           mois: '2026-06-01',
           type_collecte: 'zero_dechet',
           nb_collectes: 5,
-          montant_factures_ht: 1200,
+          montant_ht: 1200,
         },
       ],
     });

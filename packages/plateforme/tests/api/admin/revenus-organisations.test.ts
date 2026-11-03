@@ -1,11 +1,10 @@
 /**
  * M3.5 — /admin/dashboard/revenus-organisations (BL-P2-03, §11 §1.1 Bloc 2).
- * Recâblé R20a : tableau « Revenus par organisation » à 6 colonnes (nom · type ·
- * nb ZD · CA ZD · nb AG · CA AG). Deux sources distinctes (comme l'histogramme) :
- *   - nb ZD/AG        ← `collectes` (hors annulee/brouillon), période sur date_collecte ;
- *   - montant ZD/AG HT ← `factures_collectes` × `factures!inner(statut)` emise/payee.
- * Imputation = organisation programmatrice (evenements.organisation_id). Le statut
- * est porté par `factures` (jamais factures_collectes). Tri défaut montant_total desc,
+ * Tableau « Revenus par organisation » à 6 colonnes (nom · type · nb ZD · CA ZD ·
+ * nb AG · CA AG). Décision Val 2026-11-03 : une seule source, les collectes
+ * programmées et réalisées de la période (date_collecte), au montant de la
+ * prestation (lib/montant-prestation), facturées ou non. Aucune facture lue.
+ * Imputation = organisation programmatrice (evenements.organisation_id). Tri défaut montant_total desc,
  * agrégation par ORGANISATION (plus de pagination sur les lignes brutes → count faux),
  * export CSV.
  */
@@ -14,8 +13,8 @@ import { NextRequest } from 'next/server';
 
 type Result = { data: unknown; error: unknown; count?: number };
 
-// Mock supabase : route le résultat par table (2 requêtes séquentielles :
-// collectes puis factures_collectes). `.not` ajouté (query 1 l'utilise).
+// Mock supabase : route le résultat par table (requêtes séquentielles :
+// collectes puis référentiel tarifaire).
 function makeChain() {
   const calls: Record<string, unknown[][]> = {};
   const record = (name: string, args: unknown[]) =>
@@ -123,6 +122,8 @@ function collecte(
   return {
     type,
     statut: opts.statut ?? 'cloturee',
+    pax: 100,
+    date_collecte: '2026-06-01',
     evenements: {
       organisation_id: orgId,
       organisations: { raison_sociale: orgName, type: orgType },
@@ -130,11 +131,31 @@ function collecte(
     packs_antgaspi: pack,
   };
 }
-function facture(montant_ht: number, type: string, orgId: string) {
-  return {
-    montant_ht,
-    collectes: { type, evenements: { organisation_id: orgId } },
-  };
+// Grille ZD par défaut : 100 € HT pour tout pax.
+function grilleZd100() {
+  admin.setResult('grilles_tarifaires_zd', {
+    data: [
+      {
+        id: 'g1',
+        est_defaut: true,
+        valide_du: '2026-01-01',
+        valide_jusqu: null,
+      },
+    ],
+    error: null,
+  });
+  admin.setResult('tarifs_zero_dechet', {
+    data: [
+      {
+        grille_id: 'g1',
+        pax_min: 1,
+        pax_max: null,
+        prix_base_ht: 100,
+        prix_par_couvert_ht: null,
+      },
+    ],
+    error: null,
+  });
 }
 
 beforeEach(() => {
@@ -143,14 +164,11 @@ beforeEach(() => {
 });
 
 describe('admin/revenus-organisations', () => {
-  it('revenus/statut_filtre_sur_factures_pas_factures_collectes — jointure factures!inner(statut)', async () => {
+  it('revenus/aucune_facture_lue — facturé ou non, le montant vient des collectes (Val 2026-11-03)', async () => {
     setupAuth('admin_savr');
+    grilleZd100();
     admin.setResult('collectes', {
       data: [collecte('zero_dechet', 'org-1', 'Kardamome SAS')],
-      error: null,
-    });
-    admin.setResult('factures_collectes', {
-      data: [facture(150, 'zero_dechet', 'org-1')],
       error: null,
     });
     const { GET } =
@@ -159,57 +177,48 @@ describe('admin/revenus-organisations', () => {
       makeReq('/api/v1/admin/dashboard/revenus-organisations'),
     );
     expect(res.status).toBe(200);
-
-    // Le SELECT de la requête montant joint factures!inner(statut).
-    const selects = (admin.__calls.select ?? []).map((a) => String(a[0]));
-    const factureSelect = selects.find((s) => s.includes('factures!inner'));
-    expect(factureSelect).toBeDefined();
-    expect(factureSelect).toContain('factures!inner(statut)');
-    // Le filtre statut porte sur factures.statut, jamais sur statut nu.
-    const inArgs = admin.__calls.in ?? [];
-    expect(inArgs.some((a) => a[0] === 'factures.statut')).toBe(true);
-    expect(inArgs.some((a) => a[0] === 'statut')).toBe(false);
+    const tables = (admin.__calls.from ?? []).map((a) => String(a[0]));
+    expect(tables).not.toContain('factures_collectes');
+    expect(tables).not.toContain('factures');
+    const json = (await res.json()) as {
+      data: Array<{ montant_zd_ht: number }>;
+    };
+    expect(json.data[0]?.montant_zd_ht).toBe(100);
   });
 
-  it('revenus/statuts_revenu_emise_payee — jamais brouillon/annulee', async () => {
+  it('revenus/statuts_programmees_et_realisees — hors brouillon, annulation demandée, annulée, rejetée', async () => {
     setupAuth('admin_savr');
     const { GET } =
       await import('@/app/api/v1/admin/dashboard/revenus-organisations/route.js');
     await GET(makeReq('/api/v1/admin/dashboard/revenus-organisations'));
     const statutFilter = (admin.__calls.in ?? []).find(
-      (a) => a[0] === 'factures.statut',
+      (a) => a[0] === 'statut',
     )?.[1] as string[] | undefined;
-    expect(statutFilter).toEqual(['emise', 'payee']);
-    // Les collectes excluent annulee/brouillon (source « nb »).
-    const notArgs = admin.__calls.not ?? [];
-    expect(
-      notArgs.some(
-        (a) => a[0] === 'statut' && String(a[2]).includes('annulee'),
-      ),
-    ).toBe(true);
+    expect(statutFilter).toEqual([
+      'programmee',
+      'validee',
+      'en_cours',
+      'realisee',
+      'realisee_sans_collecte',
+      'cloturee',
+    ]);
   });
 
-  it('revenus/6_colonnes_split_zd_ag — nb depuis collectes ; ZD depuis factures ; AG = coût/collecte pack (CA économique) ; tri montant_total desc', async () => {
+  it('revenus/6_colonnes_split_zd_ag — nb et montant depuis les mêmes collectes ; ZD au tarif, AG au prix du pack ; tri montant_total desc', async () => {
     setupAuth('ops_savr');
-    // org-1 : 2 collectes ZD + 1 AG (pack 120€/collecte, cloturee) ; org-2 : 1 collecte ZD.
+    grilleZd100();
+    // org-1 : 2 collectes ZD (100 € chacune) + 1 AG (pack 120 €) ; org-2 : 1 ZD.
     admin.setResult('collectes', {
       data: [
         collecte('zero_dechet', 'org-1', 'A'),
-        collecte('zero_dechet', 'org-1', 'A'),
+        collecte('zero_dechet', 'org-1', 'A', 'traiteur', {
+          statut: 'programmee',
+        }),
         collecte('anti_gaspi', 'org-1', 'A', 'traiteur', {
           prixUnitaireAg: 120,
+          statut: 'validee',
         }),
         collecte('zero_dechet', 'org-2', 'B', 'agence'),
-      ],
-      error: null,
-    });
-    // ZD montant depuis factures. La facture AG (40€) est IGNORÉE (AG = coût/collecte pack).
-    admin.setResult('factures_collectes', {
-      data: [
-        facture(100, 'zero_dechet', 'org-1'),
-        facture(50, 'zero_dechet', 'org-1'),
-        facture(40, 'anti_gaspi', 'org-1'), // ne doit PAS compter dans montant_ag
-        facture(300, 'zero_dechet', 'org-2'),
       ],
       error: null,
     });
@@ -229,17 +238,16 @@ describe('admin/revenus-organisations', () => {
         montant_total: number;
       }>;
     };
-    // org-2 (300) avant org-1 (270) — tri décroissant montant_total.
-    expect(json.data[0]?.organisation_id).toBe('org-2');
-    expect(json.data[0]?.montant_total).toBe(300);
-    expect(json.data[0]?.type_label).toBe('Agence');
-    const org1 = json.data.find((r) => r.organisation_id === 'org-1')!;
+    // org-1 (320) avant org-2 (100) — tri décroissant montant_total.
+    expect(json.data[0]?.organisation_id).toBe('org-1');
+    expect(json.data[1]?.type_label).toBe('Agence');
+    expect(json.data[1]?.montant_total).toBe(100);
+    const org1 = json.data[0]!;
     expect(org1.nb_zd).toBe(2);
-    expect(org1.montant_zd_ht).toBe(150);
+    expect(org1.montant_zd_ht).toBe(200);
     expect(org1.nb_ag).toBe(1);
-    // AG = coût/collecte pack (120€), PAS la facture AG (40€).
     expect(org1.montant_ag_ht).toBe(120);
-    expect(org1.montant_total).toBe(270); // 150 ZD + 120 AG
+    expect(org1.montant_total).toBe(320);
   });
 
   it('revenus/ca_ag_fallback_montant_sur_credits — coût/collecte = montant_total_ht/crédits si prix_unitaire NULL', async () => {
@@ -254,7 +262,6 @@ describe('admin/revenus-organisations', () => {
       ],
       error: null,
     });
-    admin.setResult('factures_collectes', { data: [], error: null });
     const { GET } =
       await import('@/app/api/v1/admin/dashboard/revenus-organisations/route.js');
     const res = await GET(
@@ -304,9 +311,8 @@ describe('admin/revenus-organisations', () => {
     );
     const gteArgs = admin.__calls.gte ?? [];
     const lteArgs = admin.__calls.lte ?? [];
-    // Les deux requêtes filtrent par date de COLLECTE (jamais date d'émission).
+    // Période sur la date de COLLECTE (jamais date d'émission).
     expect(gteArgs.some((a) => a[0] === 'date_collecte')).toBe(true);
-    expect(gteArgs.some((a) => a[0] === 'collectes.date_collecte')).toBe(true);
     expect(lteArgs.some((a) => String(a[0]).includes('date_collecte'))).toBe(
       true,
     );
@@ -315,17 +321,13 @@ describe('admin/revenus-organisations', () => {
 
   it('revenus/pagination_par_organisation_pas_lignes_brutes — 60 orgs → page 1 = 50, total = 60', async () => {
     setupAuth('admin_savr');
-    // Bug historique : la pagination portait sur les LIGNES factures_collectes
-    // (count faux dès qu'une org dépassait la fenêtre). Ici on agrège d'abord par
+    // Bug historique : la pagination portait sur les lignes brutes (count faux
+    // dès qu'une org dépassait la fenêtre). Ici on agrège d'abord par
     // organisation (60 orgs distinctes), PUIS on pagine les organisations.
     const collectes = Array.from({ length: 60 }, (_, i) =>
       collecte('zero_dechet', `org-${i}`, `Org ${i}`),
     );
-    const factures = Array.from({ length: 60 }, (_, i) =>
-      facture(i + 1, 'zero_dechet', `org-${i}`),
-    );
     admin.setResult('collectes', { data: collectes, error: null });
-    admin.setResult('factures_collectes', { data: factures, error: null });
     const { GET } =
       await import('@/app/api/v1/admin/dashboard/revenus-organisations/route.js');
     const res1 = await GET(
@@ -349,10 +351,6 @@ describe('admin/revenus-organisations', () => {
     setupAuth('admin_savr');
     admin.setResult('collectes', {
       data: [collecte('zero_dechet', 'org-1', 'Kardamome SAS')],
-      error: null,
-    });
-    admin.setResult('factures_collectes', {
-      data: [facture(150, 'zero_dechet', 'org-1')],
       error: null,
     });
     const { GET } =

@@ -47,8 +47,6 @@ const collecte = {
   collecte_flux: [],
   rapports_rse: [],
   transporteur_nom: 'Marathon',
-  factures_collectes: [],
-  packs_antgaspi: null,
   evenements: {
     nom_evenement: 'Cocktail ZD',
     pax: 80,

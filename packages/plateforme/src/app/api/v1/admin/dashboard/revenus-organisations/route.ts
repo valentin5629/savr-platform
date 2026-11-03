@@ -78,15 +78,13 @@ const SORT_KEYS: SortKey[] = [
   'montant_total',
 ];
 
-// Défaut de période si non fournie : 12 derniers mois (§11 §8 l.180, aligné
-// §06.04/§06.05 ; décision Val 2026-07-18, cf. divergence M3.5 vs §11 Bloc 2 l.38).
-// Fallback serveur cohérent avec le défaut UI (le tableau envoie toujours from/to).
-function defaultPeriodeRange(): { from: string; to: string } {
-  const now = new Date();
-  const to = jourParis(now);
-  const fromDate = new Date(now);
+// Début par défaut si non fourni : il y a 12 mois (§11 §8 l.180, aligné
+// §06.04/§06.05 ; décision Val 2026-07-18). Fin : aucune borne si `to` est absent,
+// les collectes programmées à venir comptent (décision Val 2026-11-03).
+function debutParDefaut(): string {
+  const fromDate = new Date();
   fromDate.setUTCMonth(fromDate.getUTCMonth() - 12);
-  return { from: jourParis(fromDate), to };
+  return jourParis(fromDate);
 }
 
 interface CollecteAggRow {
@@ -113,9 +111,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const sp = new URL(req.url).searchParams;
-  const defaults = defaultPeriodeRange();
-  const from = sp.get('from') ?? defaults.from;
-  const to = sp.get('to') ?? defaults.to;
+  const from = sp.get('from') || debutParDefaut();
+  const to = sp.get('to') || null;
   const format = sp.get('format');
   // Convention de tri unique des listes (R-UI-4a, E3) : `tri` + `ordre`, lus
   // par `lireTri` (liste blanche, défaut montant_total desc).
@@ -167,7 +164,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // ── Collectes de la période : nombre et montant de la prestation ──
   const collectesRes = await lireTout(async (offset) => {
     if (perimetre.vide) return { data: [], error: null };
-    const { data, error } = await appliquerPerimetreRevenus(
+    const q = appliquerPerimetreRevenus(
       supabase
         .from('collectes')
         .select(
@@ -179,11 +176,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
          packs_antgaspi(prix_unitaire_ht, montant_total_ht, credits_initiaux)`,
         )
         .in('statut', [...STATUTS_REVENUS])
-        .gte('date_collecte', from)
-        .lte('date_collecte', to),
+        .gte('date_collecte', from),
       perimetre,
       'evenements',
-    )
+    );
+    // Sans borne de fin : les collectes à venir comptent (Val 2026-11-03).
+    const { data, error } = await (to ? q.lte('date_collecte', to) : q)
       // Ordre stable : sans lui, la pagination par range peut doubler ou
       // sauter des lignes au-delà de 1000.
       .order('id')

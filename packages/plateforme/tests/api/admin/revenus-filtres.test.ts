@@ -347,6 +347,41 @@ describe('M3.5 / revenus Admin — histogramme mensuel', () => {
     );
   });
 
+  it('M3.5/revenus_periode_sans_fin — sans `to`, aucune borne de fin : les collectes programmées à venir comptent (Val 2026-11-03)', async () => {
+    setupAuth('admin_savr');
+    const mensuels =
+      await import('@/app/api/v1/admin/dashboard/revenus-mensuels/route.js');
+    await mensuels.GET(
+      makeReq('/api/v1/admin/dashboard/revenus-mensuels?from=2026-01-01'),
+    );
+    const organisations =
+      await import('@/app/api/v1/admin/dashboard/revenus-organisations/route.js');
+    await organisations.GET(
+      makeReq('/api/v1/admin/dashboard/revenus-organisations?from=2026-01-01'),
+    );
+    const bornes = admin.appels.filter(
+      (a) => a.table === 'collectes' && a.methode === 'lte',
+    );
+    expect(bornes).toEqual([]);
+    // Avec `to`, la borne est posée.
+    await mensuels.GET(
+      makeReq(
+        '/api/v1/admin/dashboard/revenus-mensuels?from=2026-01-01&to=2026-12-31',
+      ),
+    );
+    expect(
+      admin.appels.filter(
+        (a) => a.table === 'collectes' && a.methode === 'lte',
+      ),
+    ).toEqual([
+      {
+        table: 'collectes',
+        methode: 'lte',
+        args: ['date_collecte', '2026-12-31'],
+      },
+    ]);
+  });
+
   it('M3.5/revenus_mensuels_role — 403 hors équipe Savr', async () => {
     setupAuth('traiteur_manager');
     const { GET } =

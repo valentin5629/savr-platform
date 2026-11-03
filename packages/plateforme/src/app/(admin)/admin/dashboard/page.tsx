@@ -83,12 +83,13 @@ function badgeVeille(v: number, labelActif: string) {
 // affiche des dates ; le plan R-UI-4b D8 proposait l'inverse → arbitrage Val, PR #481).
 // Cette MÊME fenêtre pilote l'histogramme ET le tableau (filtre unique) ;
 // « Réinitialiser les filtres » y revient.
+// Défaut : les 12 derniers mois et tout l'avenir, sans borne de fin, pour que
+// les collectes programmées à venir comptent (décision Val 2026-11-03).
 function defaultPeriode(): { from: string; to: string } {
   const now = new Date();
-  const iso = (d: Date) => jourParis(d);
   return {
-    from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
-    to: iso(now),
+    from: jourParis(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
+    to: '',
   };
 }
 
@@ -197,7 +198,7 @@ export default function DashboardAdminPage() {
     () =>
       `/api/v1/admin/dashboard/revenus-organisations?${new URLSearchParams({
         from: periode.from,
-        to: periode.to,
+        ...(periode.to ? { to: periode.to } : {}),
         ...(lieuIds.length ? { lieu_ids: lieuIds.join(',') } : {}),
         ...(organisationIds.length
           ? { organisation_ids: organisationIds.join(',') }

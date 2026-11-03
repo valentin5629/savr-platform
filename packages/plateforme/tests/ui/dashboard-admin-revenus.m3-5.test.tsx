@@ -32,14 +32,15 @@ function jsonResponse(obj: unknown): Promise<Response> {
 }
 
 /** 1er du mois courant (jour Paris) — toujours affiché à l'ouverture d'un calendrier vide. */
+// Premier jour de la période par défaut : visible dans le calendrier, qui
+// s'ouvre sur le mois du début d'une période sans fin.
 function premierDuMois(): string {
-  const now = new Date();
-  return jourParis(new Date(now.getFullYear(), now.getMonth(), 1));
+  return defaultWindow().from;
 }
 
 /**
  * Pose la période « un seul jour = `jour` » via le DateRangePicker : Effacer (le
- * calendrier rouvre alors sur le mois précédent + le mois courant), clic sur le
+ * calendrier rouvre alors sur le début de la période par défaut), clic sur le
  * jour, Appliquer.
  */
 function choisirPeriodeUnJour(jour: string): void {
@@ -141,12 +142,13 @@ beforeEach(() => {
 
 // Fenêtre par défaut du bloc Revenus : 12 derniers mois glissants alignés au 1er du
 // mois — identique à defaultPeriode() de la page.
+// Défaut : 12 derniers mois alignés au 1er du mois, sans borne de fin (les
+// collectes programmées à venir comptent, décision Val 2026-11-03).
 function defaultWindow(): { from: string; to: string } {
   const now = new Date();
-  const iso = (d: Date) => jourParis(d);
   return {
-    from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
-    to: iso(now),
+    from: jourParis(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
+    to: '',
   };
 }
 
@@ -242,7 +244,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
   );
 
   it(
-    'M3.5/admin_revenus_defaut_12_mois — période par défaut = 12 derniers mois glissants (alignés au 1er du mois)',
+    'M3.5/admin_revenus_defaut_12_mois — période par défaut = 12 derniers mois glissants (alignés au 1er du mois), sans borne de fin',
     async () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
@@ -258,7 +260,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
           return (
             s.includes('/admin/dashboard/revenus-organisations') &&
             s.includes(`from=${from}`) &&
-            s.includes(`to=${to}`)
+            !s.includes('to=')
           );
         }),
       ).toBe(true);
@@ -271,7 +273,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
     async () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-      const { from, to } = defaultWindow();
+      const { from } = defaultWindow();
       // Au montage, l'histogramme (revenus-mensuels) est requêté sur la MÊME fenêtre que le tableau.
       expect(
         fetchMock.mock.calls.some(([u]) => {
@@ -279,7 +281,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
           return (
             s.includes('/admin/dashboard/revenus-mensuels') &&
             s.includes(`from=${from}`) &&
-            s.includes(`to=${to}`)
+            !s.includes('to=')
           );
         }),
       ).toBe(true);

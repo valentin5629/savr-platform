@@ -68,7 +68,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const from =
     sp.get('from') ||
     jourParis(new Date(now.getFullYear(), now.getMonth() - 11, 1));
-  const to = sp.get('to') || jourParis(now);
+  // Sans `to`, aucune borne de fin : les collectes programmées à venir comptent
+  // (décision Val 2026-11-03).
+  const to = sp.get('to') || null;
 
   const { perimetre, error: errPerimetre } = await lirePerimetreRevenus(
     supabase,
@@ -81,8 +83,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   if (perimetre.vide) return NextResponse.json({ kpi: [] });
 
-  const collectes = await lireTout((offset) =>
-    appliquerPerimetreRevenus(
+  const collectes = await lireTout((offset) => {
+    const q = appliquerPerimetreRevenus(
       supabase
         .from('collectes')
         .select(
@@ -91,16 +93,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
            packs_antgaspi(prix_unitaire_ht, montant_total_ht, credits_initiaux)`,
         )
         .in('statut', [...STATUTS_REVENUS])
-        .gte('date_collecte', from)
-        .lte('date_collecte', to),
+        .gte('date_collecte', from),
       perimetre,
       'evenements',
-    )
-      // Ordre stable : sans lui, la pagination par range peut doubler ou
-      // sauter des lignes au-delà de 1000.
-      .order('id')
-      .range(offset, offset + LOT_LECTURE - 1),
-  );
+    );
+    // Sans borne de fin : les collectes à venir comptent (Val 2026-11-03).
+    return (
+      (to ? q.lte('date_collecte', to) : q)
+        // Ordre stable : sans lui, la pagination par range peut doubler ou
+        // sauter des lignes au-delà de 1000.
+        .order('id')
+        .range(offset, offset + LOT_LECTURE - 1)
+    );
+  });
   if (collectes.error)
     return serverError(
       collectes.error,

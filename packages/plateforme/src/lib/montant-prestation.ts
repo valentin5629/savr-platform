@@ -50,6 +50,7 @@ export const STATUTS_REVENUS = [
 ] as const;
 
 const TAILLE_LOT_IN = 100;
+const PLAFOND_POSTGREST = 1000;
 
 interface Periode {
   valide_du: string;
@@ -104,7 +105,12 @@ async function lireParLots<T>(
   for (const lot of lots(ids)) {
     const { data, error } = await lire(lot);
     if (error) throw erreurInterne(error, contexte);
-    res.push(...((data ?? []) as T[]));
+    const lignes = (data ?? []) as T[];
+    // Plafond PostgREST : un lot plein peut être tronqué, et une remise perdue
+    // fausserait le montant sans le dire. On échoue plutôt.
+    if (lignes.length >= PLAFOND_POSTGREST)
+      throw erreurInterne(new Error('lecture tronquée'), contexte);
+    res.push(...lignes);
   }
   return res;
 }

@@ -216,6 +216,56 @@ describe('montantsPrestation — ZD', () => {
   });
 });
 
+describe('montantsPrestation — éligibilité des remises', () => {
+  const remise = (r: Partial<Ligne>): Ligne => ({
+    activite: 'zd',
+    scope: 'gestionnaire',
+    organisation_id: null,
+    gestionnaire_organisation_id: GEST,
+    lieu_id: null,
+    remise_pct: 0.2,
+    valide_du: '2026-01-01',
+    valide_jusqu_au: null,
+    ...r,
+  });
+
+  it('M3.5/montant_prestation_remise_eligibilite — gestionnaire tous lieux oui, autre lieu non, autre organisation non', async () => {
+    const tables = referentiel();
+    tables.organisations_lieux = [
+      { lieu_id: LIEU, organisation_id: GEST },
+      { lieu_id: AUTRE_LIEU, organisation_id: GEST },
+    ];
+    tables.tarifs_negocie = [
+      // Tous les lieux du gestionnaire : s'applique.
+      remise({ lieu_id: null, remise_pct: 0.2 }),
+      // Un autre lieu du même gestionnaire : ne s'applique pas sur LIEU.
+      remise({ lieu_id: AUTRE_LIEU, remise_pct: 0.5 }),
+      // Remise d'une autre organisation : jamais.
+      remise({
+        scope: 'organisation',
+        organisation_id: 'org-tierce',
+        gestionnaire_organisation_id: null,
+        remise_pct: 0.6,
+      }),
+    ];
+    const c = client(tables);
+    const m = await montantsPrestation(c as never, [
+      zd({ lieu_id: LIEU }), // 300 × 0,8
+      zd({ lieu_id: AUTRE_LIEU }), // 300 × 0,5 (max 0,2 / 0,5)
+      zd({ lieu_id: 'lieu-sans-gestionnaire' }),
+    ]);
+    expect(m).toEqual([240, 150, 300]);
+  });
+
+  it('M3.5/montant_prestation_ag_remise_gestionnaire — AG hors pack : remise AG du gestionnaire du lieu', async () => {
+    const tables = referentiel();
+    tables.tarifs_negocie = [remise({ activite: 'ag', remise_pct: 0.1 })];
+    const c = client(tables);
+    const [m] = await montantsPrestation(c as never, [ag({ lieu_id: LIEU })]);
+    expect(m).toBe(531); // 590 × 0,9
+  });
+});
+
 describe('montantsPrestation — AG', () => {
   it('M3.5/montant_prestation_ag_pack_debite — pack débité : son prix unitaire, sinon total ÷ crédits, sans remise', async () => {
     const c = client(referentiel());
@@ -253,6 +303,18 @@ describe('montantsPrestation — AG', () => {
 });
 
 describe('montantsPrestation — lot', () => {
+  it('M3.5/montant_prestation_lecture_tronquee — 1000 lignes pour un lot : erreur, jamais un montant sans sa remise', async () => {
+    const tables = referentiel();
+    tables.organisations_lieux = Array.from({ length: 1000 }, (_, i) => ({
+      lieu_id: LIEU,
+      organisation_id: `gest-${i}`,
+    }));
+    const c = client(tables);
+    await expect(
+      montantsPrestation(c as never, [zd({ lieu_id: LIEU })]),
+    ).rejects.toThrow();
+  });
+
   it('M3.5/montant_prestation_lot_vide — aucune collecte : aucune lecture', async () => {
     const c = client(referentiel());
     expect(await montantsPrestation(c as never, [])).toEqual([]);

@@ -369,3 +369,135 @@ describe('M0.6/statut_admin_creee_envoi_abandonne — GET /admin/collectes', () 
     expect(chain.range).not.toHaveBeenCalled();
   });
 });
+
+// Colonne « Montant » (Val 2026-11-03) : la route calcule le montant de la
+// prestation de chaque ligne depuis ce qu'elle lit (pack débité, organisation et
+// lieu de l'événement, pax et date de la collecte), sans lire aucune facture.
+describe('M3.5/montant_prestation_liste_route — GET /admin/collectes', () => {
+  const fromParDefaut = chain.from.getMockImplementation();
+  const ORG = '33333333-3333-4333-8333-333333333333';
+  const GEST = '44444444-4444-4444-8444-444444444444';
+  const LIEU = '55555555-5555-4555-8555-555555555555';
+
+  function lecture(data: unknown[]) {
+    const l: Record<string, unknown> = {
+      then: (resolve: (r: { data: unknown[]; error: null }) => unknown) =>
+        resolve({ data, error: null }),
+    };
+    for (const m of ['select', 'eq', 'in', 'is']) l[m] = () => l;
+    return l;
+  }
+
+  const referentiel: Record<string, unknown[]> = {
+    outbox_events: [],
+    grilles_tarifaires_zd: [
+      {
+        id: 'g1',
+        est_defaut: true,
+        valide_du: '2026-01-01',
+        valide_jusqu: null,
+      },
+    ],
+    tarifs_zero_dechet: [
+      {
+        grille_id: 'g1',
+        pax_min: 1,
+        pax_max: null,
+        prix_base_ht: 300,
+        prix_par_couvert_ht: null,
+      },
+    ],
+    organisations: [{ id: ORG, grille_tarifaire_zd_id: null }],
+    organisations_lieux: [{ lieu_id: LIEU, organisation_id: GEST }],
+    tarifs_negocie: [
+      {
+        activite: 'zd',
+        scope: 'gestionnaire',
+        organisation_id: null,
+        gestionnaire_organisation_id: GEST,
+        lieu_id: LIEU,
+        remise_pct: 0.25,
+        valide_du: '2026-01-01',
+        valide_jusqu: null,
+      },
+    ],
+    tarifs_packs_ag: [
+      { prix_unitaire_ht: 590, valide_du: '2026-01-01', valide_jusqu: null },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupAuth();
+    chain.from.mockImplementation((table: string) =>
+      table in referentiel ? lecture(referentiel[table]!) : chain,
+    );
+  });
+  afterEach(() => {
+    chain.from.mockImplementation(fromParDefaut ?? (() => chain));
+  });
+
+  it('M3.5/montant_prestation_liste_route — pack débité, tarif ZD remisé du gestionnaire du lieu, hors pack, inconnu', async () => {
+    const evenement = { organisation_id: ORG, lieu_id: LIEU };
+    chain.range.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'ag-pack',
+          type: 'anti_gaspi',
+          pax: 80,
+          date_collecte: '2026-11-10',
+          evenements: evenement,
+          packs_antgaspi: {
+            prix_unitaire_ht: 130,
+            montant_total_ht: 1300,
+            credits_initiaux: 10,
+          },
+        },
+        {
+          id: 'zd',
+          type: 'zero_dechet',
+          pax: 200,
+          date_collecte: '2026-11-10',
+          evenements: evenement,
+          packs_antgaspi: null,
+        },
+        {
+          id: 'ag-hors-pack',
+          type: 'anti_gaspi',
+          pax: 80,
+          date_collecte: '2026-11-10',
+          evenements: evenement,
+          packs_antgaspi: null,
+        },
+        {
+          id: 'zd-sans-pax',
+          type: 'zero_dechet',
+          pax: null,
+          date_collecte: '2026-11-10',
+          evenements: evenement,
+          packs_antgaspi: null,
+        },
+      ],
+      error: null,
+      count: 4,
+    });
+    const res = await callGet('');
+    expect(res.status).toBe(200);
+    const corps = (await res.json()) as {
+      data: { id: string; montant_ht: number | null }[];
+    };
+    expect(corps.data.map((r) => [r.id, r.montant_ht])).toEqual([
+      ['ag-pack', 130], // pack débité, jamais le pack actif de l'organisation
+      ['zd', 225], // 300 × (1 − 0,25)
+      ['ag-hors-pack', 590], // la remise du gestionnaire est ZD, pas AG
+      ['zd-sans-pax', null],
+    ]);
+    // Le pack lu est celui que la collecte a débité ; aucune facture lue.
+    const colonnes = String(chain.select.mock.calls[0]?.[0]);
+    expect(colonnes).toMatch(/packs_antgaspi!pack_antgaspi_id\(/);
+    expect(colonnes).not.toMatch(/factures_collectes/);
+    const tables = chain.from.mock.calls.map((a) => String(a[0]));
+    expect(tables).not.toContain('factures_collectes');
+    expect(tables).not.toContain('packs_antgaspi');
+  });
+});

@@ -668,6 +668,38 @@ describe('M0.6 / Dispatch AG / service du transporteur forcé', () => {
     );
   });
 
+  it('ops_savr : le choix du service est refusé (403), rien n’est écrit ni envoyé', async () => {
+    setupAuth('ops_savr');
+    // Renvoi au prestataire actuel (A Toutes!), sans forçage : seul le service
+    // est en jeu (aucun appel à l'algorithme).
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { ...collecteAg, prestataire_logistique_id: 'presta-atoutes' },
+      error: null,
+    });
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { id: 'attr-1', branche_attribution: 'ag_marathon_volume' },
+      error: null,
+    });
+    mockSupabaseChain.limit.mockResolvedValueOnce({
+      data: [{ type_tms: 'a_toutes' }],
+      error: null,
+    } as never);
+    const { POST } =
+      await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/collectes/col-ag/dispatch', {
+        branche_attribution: 'ag_marathon_volume_backup_camion',
+      }),
+      { params: Promise.resolve({ id: 'col-ag' }) },
+    );
+    expect(res.status).toBe(403);
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalledWith(
+      'fn_dispatcher_collecte',
+      expect.anything(),
+    );
+  });
+
   it('un service qui n’est pas celui du transporteur visé est refusé (422)', async () => {
     monter();
     const { POST } =

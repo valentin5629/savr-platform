@@ -316,6 +316,17 @@ export async function POST(
         : undefined;
     }
     if (!brancheCompatible(typeTms, attributionAg.branche_attribution)) {
+      // Choisir le service change ce qui est commandé : réservé aux admin
+      // Savr, comme le forçage du prestataire AG (§06.06 §3).
+      if (auth.ctx.role === 'ops_savr') {
+        return NextResponse.json(
+          {
+            error:
+              'Le choix du service du transporteur est réservé aux admin Savr',
+          },
+          { status: 403 },
+        );
+      }
       if (!brancheChoisie || !brancheCompatible(typeTms, brancheChoisie)) {
         return NextResponse.json(
           {

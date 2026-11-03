@@ -2558,11 +2558,12 @@ export function CollecteDetailPanel({
                                   coche || (aucuneCarteCochee && i === 0)
                                 }
                                 // Re-choisir le prestataire actuel = le conserver ('').
-                                onSelect={() =>
+                                onSelect={() => {
                                   setSelectedTransporteurId(
                                     estActuel ? '' : t.id,
-                                  )
-                                }
+                                  );
+                                  setServiceDispatch('');
+                                }}
                                 titre={t.nom}
                                 detail={libelleTypeTms(t.type_tms)}
                                 badges={

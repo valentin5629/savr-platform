@@ -13,7 +13,7 @@
 //   - Contraintes horaires : …
 //   - Accès office : …
 //   - Flux acceptés : …
-//   - Véhicule souhaité : …
+//   - Véhicule souhaité : …           (plusieurs : « - 2 vélos prévus … »)
 //   Contact : nom, téléphone
 //   Contact de secours : nom, téléphone
 //   Livraison :                       (AG : l'association)
@@ -169,28 +169,57 @@ function liste(valeur: unknown): string {
 export interface VehiculeSouhaite {
   /** Valeur de l'enum plateforme.type_vehicule, ou null si non précisé. */
   readonly type: string | null | undefined;
-  /** `collectes.nb_camions_demande` = nombre de commandes identiques. */
+  /** `collectes.nb_camions_demande` = nombre de véhicules (1 commande chacun). */
   readonly nombre: number;
+  /**
+   * `transporteurs.type_tms` du prestataire : nomme les véhicules quand l'Admin
+   * n'a pas précisé de type (« vélos » chez A Toutes!, « camions » chez MTS-1).
+   */
+  readonly typeTms?: string | null | undefined;
 }
 
+// Pluriel et accord, pour « N … prévu(e)s pour cette collecte ».
+const PLURIEL_VEHICULE: Record<string, { nom: string; feminin: boolean }> = {
+  velo_cargo: { nom: 'vélos cargo', feminin: false },
+  camionnette: { nom: 'camionnettes', feminin: true },
+  fourgon: { nom: 'fourgons', feminin: false },
+  vul: { nom: 'VUL', feminin: false },
+  poids_lourd: { nom: 'poids lourds', feminin: false },
+};
+
+// Sans type précisé par l'Admin : le véhicule habituel du prestataire.
+const PLURIEL_PAR_PRESTATAIRE: Record<string, string> = {
+  a_toutes: 'vélos',
+  mts1: 'camions',
+};
+
 /**
- * Véhicule demandé par l'Admin à l'attribution (décision Val 2026-10-01). Le
- * texte est composé UNE fois puis envoyé à l'identique sur les N commandes
- * (N véhicules = N commandes identiques) : il dit donc « 1 par commande » pour
- * qu'un prestataire ne lise pas « 2 × camionnette » comme 2 véhicules PAR
- * commande. Formes :
- *   - N = 1, type connu  → « camionnette »
- *   - N > 1, type connu  → « camionnette (1 par commande, 2 commandes identiques pour cette collecte) »
- *   - N > 1, sans type   → « 1 par commande, 3 commandes identiques pour cette collecte »
- *   - N = 1, sans type   → rien à dire.
+ * Ligne véhicule du commentaire, composée UNE fois puis envoyée à l'identique
+ * sur chaque commande. Un seul véhicule : « Véhicule souhaité : vélo cargo » si
+ * l'Admin l'a précisé, rien sinon. Plusieurs (décision Val 2026-11-03, à la
+ * place de « 1 par commande, N commandes identiques pour cette collecte ») :
+ *   « 2 vélos prévus pour cette collecte, veuillez vous coordonner pour les
+ *   appels au traiteur ».
  */
-function ligneVehicule(vehicule: VehiculeSouhaite | null): string {
-  if (!vehicule) return '';
-  const type = libelle(vehicule.type, LIBELLE_VEHICULE);
+function puceVehicule(vehicule: VehiculeSouhaite | null): Puce {
+  const vide: Puce = { libelle: 'Véhicule souhaité', valeur: '' };
+  if (!vehicule) return vide;
   const nombre = Number.isInteger(vehicule.nombre) ? vehicule.nombre : 1;
-  if (nombre <= 1) return type;
-  const repartition = `1 par commande, ${nombre} commandes identiques pour cette collecte`;
-  return type ? `${type} (${repartition})` : repartition;
+  if (nombre <= 1) {
+    return { ...vide, valeur: libelle(vehicule.type, LIBELLE_VEHICULE) };
+  }
+  const type = valeurLigne(vehicule.type);
+  const connu = PLURIEL_VEHICULE[type];
+  const nom =
+    connu?.nom ||
+    type ||
+    PLURIEL_PAR_PRESTATAIRE[valeurLigne(vehicule.typeTms)] ||
+    'véhicules';
+  const prevus = connu?.feminin ? 'prévues' : 'prévus';
+  return {
+    libelle: '',
+    valeur: `${nombre} ${nom} ${prevus} pour cette collecte, veuillez vous coordonner pour les appels au traiteur`,
+  };
 }
 
 /** « nom, téléphone », ou celui des deux qui existe. */
@@ -270,7 +299,12 @@ function rendre(blocs: Bloc[]): string {
       const puces = b.puces.filter((p) => p.valeur !== '');
       if (puces.length === 0) continue;
       lignes.push(`${b.libelle} :`);
-      for (const p of puces) lignes.push(`- ${p.libelle} : ${p.valeur}`);
+      for (const p of puces) {
+        // Puce sans libellé : une phrase complète (véhicules multiples).
+        lignes.push(
+          p.libelle ? `- ${p.libelle} : ${p.valeur}` : `- ${p.valeur}`,
+        );
+      }
     } else if (b.valeur) {
       lignes.push(`${b.libelle} : ${b.valeur}`);
     }
@@ -352,7 +386,7 @@ export function composerCommentaireTransporteur(
           valeur: uneLigne(liste(e.lieu.flux_autorises), LIMITE_LIGNE_LONGUE),
           abandon: 5,
         },
-        { libelle: 'Véhicule souhaité', valeur: ligneVehicule(e.vehicule) },
+        puceVehicule(e.vehicule),
       ],
     },
     {

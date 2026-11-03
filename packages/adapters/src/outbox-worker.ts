@@ -79,6 +79,7 @@ import {
 } from './index.js';
 import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
 import { composerCommentaireTransporteur } from './infos-acces.js';
+import type { EntreeCommentaire } from './infos-acces.js';
 import { applyLieuOverrides } from './lieu-overrides.js';
 import type { AdapterMts1 } from './mts1/adapter.js';
 
@@ -102,6 +103,9 @@ interface CollecteRow {
   statut_tms: string;
   controle_acces_requis: boolean;
   informations_supplementaires: string | null;
+  // Ce que rassemble le commentaire au transporteur : il n'est composé qu'une
+  // fois le transporteur lu (`toCollecte`), qui nomme les véhicules multiples.
+  entree_commentaire: EntreeCommentaire;
   notes_internes: string | null;
   contact_principal_nom: string;
   contact_principal_telephone: string;
@@ -367,8 +371,8 @@ async function processEvent(
       supabase,
       collecteRow.prestataire_logistique_id,
     );
-    const collecte = toCollecte(collecteRow);
     const transporteur = toTransporteur(transporteurRow);
+    const collecte = toCollecte(collecteRow, transporteur);
     const provider = getLogistiqueProvider(transporteur, supabase);
 
     if (event_type === 'collecte.creee') {
@@ -766,8 +770,8 @@ async function fetchCollecte(
   // Véhicule souhaité par l'Admin (migration 20261001213000) : lu à part et
   // tolérant à l'ABSENCE de la colonne — le code peut être déployé avant la
   // migration sans transformer chaque event en « collecte introuvable » → dead.
-  // Composé pour les N commandes identiques : « 1 par commande » (décision Val
-  // 2026-10-01, N véhicules = N commandes).
+  // N véhicules = N commandes (décision Val 2026-10-01) ; plusieurs véhicules
+  // = « N vélos prévus … » dans le commentaire (Val 2026-11-03, infos-acces.ts).
   const typeVehiculeSouhaite = await lireTypeVehiculeSouhaite(supabase, raw.id);
 
   return {
@@ -778,14 +782,16 @@ async function fetchCollecte(
     nb_camions_demande: raw.nb_camions_demande,
     statut_tms: raw.statut_tms,
     controle_acces_requis: raw.controle_acces_requis,
+    informations_supplementaires: raw.informations_supplementaires,
     // Commentaire au transporteur (format décidé par Val le 2026-10-15, C60-C62,
     // cf. infos-acces.ts) : le seul canal libre routé (`comment` / `notes`).
-    // Composé ICI, donc une seule fois pour les deux adapters (garde-fou 2), et à
-    // partir du lieu FUSIONNÉ — le lieu officiel retransmettrait précisément
-    // l'erreur corrigée par #304. Les informations d'accès, le nom du contact de
-    // secours (arbitrage Val 2026-09-14), le véhicule souhaité (décision Val
-    // 2026-10-01) et le point B n'ont aucun champ natif MTS-1/Everest en V1.
-    informations_supplementaires: composerCommentaireTransporteur({
+    // Rassemblé ICI et composé par `toCollecte`, donc une seule fois pour les
+    // deux adapters (garde-fou 2), et à partir du lieu FUSIONNÉ — le lieu
+    // officiel retransmettrait précisément l'erreur corrigée par #304. Les
+    // informations d'accès, le nom du contact de secours (arbitrage Val
+    // 2026-09-14), le véhicule souhaité (décision Val 2026-10-01) et le point B
+    // n'ont aucun champ natif MTS-1/Everest en V1.
+    entree_commentaire: {
       traiteurNom: traiteur?.nom,
       pax,
       lieu,
@@ -805,7 +811,7 @@ async function fetchCollecte(
       livraison: association
         ? { instructionsAcces: association.instructions_acces }
         : null,
-    }),
+    },
     traiteur_nom: traiteur?.nom ?? null,
     pax,
     notes_internes: raw.notes_internes,
@@ -936,7 +942,8 @@ async function fetchLieu(
 
 // ─── Mappers ─────────────────────────────────────────────────────────────────
 
-function toCollecte(row: CollecteRow): Collecte {
+function toCollecte(row: CollecteRow, transporteur: Transporteur): Collecte {
+  const entree = row.entree_commentaire;
   return {
     id: row.id,
     type: row.type as 'zero_dechet' | 'anti_gaspi',
@@ -945,7 +952,14 @@ function toCollecte(row: CollecteRow): Collecte {
     nb_camions_demande: row.nb_camions_demande,
     statut_tms: row.statut_tms,
     controle_acces_requis: row.controle_acces_requis,
-    informations_supplementaires: row.informations_supplementaires,
+    // Plusieurs véhicules sans type précisé : le transporteur les nomme
+    // (« 2 vélos prévus … » chez A Toutes!, décision Val 2026-11-03).
+    informations_supplementaires: composerCommentaireTransporteur({
+      ...entree,
+      vehicule: entree.vehicule
+        ? { ...entree.vehicule, typeTms: transporteur.type_tms }
+        : null,
+    }),
     notes_internes: row.notes_internes,
     traiteur_nom: row.traiteur_nom,
     pax: row.pax,

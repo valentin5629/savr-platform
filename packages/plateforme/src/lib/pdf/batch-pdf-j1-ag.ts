@@ -38,6 +38,8 @@ export interface BatchPdfJ1AgResult {
   /** Donateur sans SIRET vérifié → attestation différée + alerte Ops in-app. */
   skipped_siret_donateur: number;
   already_done: number;
+  /** Attestations en brouillon mises à jour après une correction de poids. */
+  refaits: number;
   errors: string[];
   /** Échec global (sélection KO / 0 produit sur N tentés) → job.cron.failed. */
   fatal?: BatchFatal;
@@ -93,6 +95,7 @@ export async function runBatchPdfJ1Ag(
     skipped_no_attribution: 0,
     skipped_siret_donateur: 0,
     already_done: 0,
+    refaits: 0,
     errors: [],
   };
 
@@ -149,13 +152,20 @@ export async function runBatchPdfJ1Ag(
   if (!eligible.length) return result;
 
   // 3. Exclure collectes déjà attestées (idempotence R8)
-  type AttRow = { collecte_id: string; statut: string };
+  type AttRow = {
+    id: string;
+    collecte_id: string;
+    statut: string;
+    version: number;
+    numero: string | null;
+    volume_repas: number | null;
+  };
   const { data: existingAtts, error: attSelErr } = await lireParLots<AttRow>(
     eligible.map((c) => c.id),
     (lot) =>
       supabase
         .from('attestations_don')
-        .select('collecte_id, statut')
+        .select('id, collecte_id, statut, version, numero, volume_repas')
         .in('collecte_id', lot),
   );
 
@@ -170,13 +180,40 @@ export async function runBatchPdfJ1Ag(
     return result;
   }
 
-  // Toute attestation existante, brouillon compris (rendu en attente ou en
-  // échec) : elle a déjà son numéro ATT-DON. La recréer brûlerait un numéro
-  // gapless à chaque passage (toutes les 15 min) avant d'échouer sur
-  // (collecte_id, version). Une correction passe par trg_regenerer_attestation.
-  const doneIds = new Set(existingAtts.map((a) => a.collecte_id));
+  // Dernière version de chaque collecte.
+  const derniere = new Map<string, AttRow>();
+  for (const a of existingAtts) {
+    const d = derniere.get(a.collecte_id);
+    if (!d || a.version > d.version) derniere.set(a.collecte_id, a);
+  }
+  const volumeDe = (c: CollecteAgRow) =>
+    c.attributions_antgaspi?.volume_repas_realise ?? null;
 
-  const toProcess = eligible.filter((c) => !doneIds.has(c.id));
+  // Une attestation existante n'est pas recréée (son numéro ATT-DON gapless est
+  // tiré). Restent à faire : la collecte sans attestation, la ligne restée sans
+  // numéro (reprise), et l'attestation émise dont le nombre de repas ne suit
+  // plus le poids (correction tombée pendant son rendu, que
+  // trg_regenerer_attestation n'a pas vue) → nouvelle version.
+  const toProcess = eligible.filter((c) => {
+    const d = derniere.get(c.id);
+    if (!d || d.numero == null) return true;
+    return d.statut === 'emise' && d.volume_repas !== volumeDe(c);
+  });
+
+  // 3bis. Attestation numérotée encore en brouillon (1er rendu en attente ou en
+  //       échec) dont le nombre de repas a changé : elle et son rendu prennent
+  //       les valeurs du moment. Rendu en cours : repris au passage suivant.
+  for (const c of eligible) {
+    const d = derniere.get(c.id);
+    if (!d || d.numero == null || d.statut !== 'brouillon') continue;
+    if (d.volume_repas === volumeDe(c)) continue;
+    try {
+      if (await reprendreBrouillon(supabase, c, d.id)) result.refaits++;
+    } catch (err) {
+      result.errors.push(`collecte AG ${c.id}: ${String(err)}`);
+      logCollecteEnEchec(JOB_NAME, c.id, err);
+    }
+  }
   result.already_done = eligible.length - toProcess.length;
 
   if (!toProcess.length) return result;
@@ -257,12 +294,6 @@ export async function runBatchPdfJ1Ag(
         continue;
       }
 
-      // 5. Allouer le numéro ATT-DON gapless
-      const { data: numeroData } = await supabase
-        .rpc('f_next_numero_attestation', { p_annee: annee })
-        .single();
-      const numero = numeroData as string;
-
       const today = jourParis();
       const dateEvenementStr = new Date(ev.date_evenement).toLocaleDateString(
         'fr-FR',
@@ -282,45 +313,87 @@ export async function runBatchPdfJ1Ag(
       // Disponible tout de suite (plus d'embargo, Val 2026-11-04).
       const disponibleA = new Date();
 
-      // 6. INSERT attestations_don (snapshot figé)
-      const { data: attRow, error: attErr } = await supabase
-        .from('attestations_don')
-        .insert({
-          collecte_id: collecte.id,
-          attribution_antgaspi_id: attr.id,
-          association_id: attr.association_id,
-          mention_fiscale_2041ge: mentionFiscale,
-          poids_kg: attr.poids_repas_kg ?? null,
-          nb_repas: attr.volume_repas_realise,
-          numero,
-          date_emission: today,
-          date_collecte: collecte.date_collecte,
-          donateur_entite_facturation_id: entite.id,
-          donateur_raison_sociale: entite.raison_sociale,
-          donateur_siret: entite.siret,
-          association_nom: asso?.nom ?? '',
-          // Instantané figé du n° RUP à l'émission (CDC §04 associations.numero_rup,
-          // source unique saisie dans la modale association §06.06 §5). Facultatif :
-          // NULL ⇒ le Cerfa 2041-GE est émis sans la mention RUP.
-          association_numero_rup: asso?.numero_rup ?? null,
-          association_habilitation: mentionFiscale
-            ? 'habilitee'
-            : 'non_habilitee',
-          volume_repas: attr.volume_repas_realise,
-          co2_evite_kg: collecte.co2_evite_kg,
-          co2_facteurs_snapshot: co2Snapshot,
-          version: 1,
-          statut: 'brouillon',
-          eligible_at: disponibleA.toISOString(),
-        })
-        .select('id')
-        .single();
+      // 5. INSERT attestations_don (snapshot figé), SANS numéro : l'unicité de
+      //    (collecte_id, version) départage deux fabrications simultanées avant
+      //    qu'un numéro gapless soit tiré. Une ligne restée sans numéro est
+      //    reprise telle quelle ; une version émise dépassée est suivie d'une
+      //    nouvelle version.
+      const precedente = derniere.get(collecte.id);
+      const reprise = precedente?.numero == null ? precedente : undefined;
+      let attestationId = reprise?.id;
+      if (!attestationId) {
+        const { data: attRow, error: attErr } = await supabase
+          .from('attestations_don')
+          .insert({
+            collecte_id: collecte.id,
+            attribution_antgaspi_id: attr.id,
+            association_id: attr.association_id,
+            mention_fiscale_2041ge: mentionFiscale,
+            poids_kg: attr.poids_repas_kg ?? null,
+            nb_repas: attr.volume_repas_realise,
+            numero: null,
+            date_emission: today,
+            date_collecte: collecte.date_collecte,
+            donateur_entite_facturation_id: entite.id,
+            donateur_raison_sociale: entite.raison_sociale,
+            donateur_siret: entite.siret,
+            association_nom: asso?.nom ?? '',
+            // Instantané figé du n° RUP à l'émission (CDC §04 associations.numero_rup,
+            // source unique saisie dans la modale association §06.06 §5). Facultatif :
+            // NULL ⇒ le Cerfa 2041-GE est émis sans la mention RUP.
+            association_numero_rup: asso?.numero_rup ?? null,
+            association_habilitation: mentionFiscale
+              ? 'habilitee'
+              : 'non_habilitee',
+            volume_repas: attr.volume_repas_realise,
+            co2_evite_kg: collecte.co2_evite_kg,
+            co2_facteurs_snapshot: co2Snapshot,
+            version: (precedente?.version ?? 0) + 1,
+            statut: 'brouillon',
+            eligible_at: disponibleA.toISOString(),
+          })
+          .select('id')
+          .single();
 
-      if (attErr || !attRow) {
-        throw erreurInterne(attErr, 'pdf.batch_ag.insert_attestation');
+        if (attErr?.code === '23505') {
+          // Créée à l'instant par une autre fabrication : rien à faire ici.
+          result.already_done++;
+          continue;
+        }
+        if (attErr || !attRow) {
+          throw erreurInterne(attErr, 'pdf.batch_ag.insert_attestation');
+        }
+        attestationId = (attRow as { id: string }).id;
       }
 
-      const attestationId = (attRow as { id: string }).id;
+      // 6. Numéro ATT-DON (gapless), tiré une fois la ligne acquise.
+      const { data: numeroData, error: numErr } = await supabase
+        .rpc('f_next_numero_attestation', { p_annee: annee })
+        .single();
+      if (numErr || !numeroData) {
+        throw erreurInterne(numErr, 'pdf.batch_ag.numero');
+      }
+      const numero = numeroData as string;
+      const { data: numerotee, error: numMajErr } = await supabase
+        .from('attestations_don')
+        .update({ numero })
+        .eq('id', attestationId)
+        .is('numero', null)
+        .select('id');
+      if (numMajErr) throw erreurInterne(numMajErr, 'pdf.batch_ag.numero_maj');
+      // Numérotée entre-temps par une autre reprise : la suite est la sienne.
+      if (!numerotee?.length) continue;
+
+      // Nouvelle version d'une attestation émise : l'ancienne est corrigée.
+      if (precedente && !reprise) {
+        const { error: corrErr } = await supabase
+          .from('attestations_don')
+          .update({ statut: 'corrigee' })
+          .eq('id', precedente.id)
+          .eq('statut', 'emise');
+        if (corrErr)
+          throw erreurInterne(corrErr, 'pdf.batch_ag.version_corrigee');
+      }
 
       // 6bis. §07/06 attestation_don_generee — trace fiscale (mention 2041-GE).
       // Batch J+1 sans utilisateur → user_id null (system). Best-effort : un échec
@@ -411,6 +484,63 @@ export async function runBatchPdfJ1Ag(
     }
   }
 
-  result.fatal = fatalSiAucuneProduite(result.enqueued, result.errors);
+  result.fatal = fatalSiAucuneProduite(
+    result.enqueued + result.refaits,
+    result.errors,
+  );
   return result;
+}
+
+/**
+ * Attestation numérotée encore en brouillon : nombre de repas, poids et CO₂ du
+ * moment, sur la ligne et sur ses rendus en attente ou en échec. Aucun rendu à
+ * reprendre (rendu en cours) : rien n'est touché, le passage suivant recommence.
+ * Rend `true` si l'attestation est mise à jour.
+ */
+async function reprendreBrouillon(
+  supabase: SupabaseClient,
+  collecte: CollecteAgRow,
+  attestationId: string,
+): Promise<boolean> {
+  const attr = collecte.attributions_antgaspi!;
+  const { data: rendus, error: lecErr } = await supabase
+    .from('jobs_pdf')
+    .select('id, payload')
+    .eq('entity_type', 'attestations_don')
+    .eq('entity_id', attestationId)
+    .in('statut', ['pending', 'failed']);
+  if (lecErr) throw erreurInterne(lecErr, 'pdf.batch_ag.lecture_rendu');
+  if (!rendus?.length) return false;
+
+  for (const r of rendus as Array<{
+    id: string;
+    payload: Record<string, unknown>;
+  }>) {
+    const { error } = await supabase
+      .from('jobs_pdf')
+      .update({
+        payload: {
+          ...r.payload,
+          volume_repas: attr.volume_repas_realise,
+          poids_kg: attr.poids_repas_kg,
+          co2_evite_kg: collecte.co2_evite_kg,
+        },
+      })
+      .eq('id', r.id)
+      .in('statut', ['pending', 'failed']);
+    if (error) throw erreurInterne(error, 'pdf.batch_ag.rendu_en_attente');
+  }
+
+  const { error: majErr } = await supabase
+    .from('attestations_don')
+    .update({
+      volume_repas: attr.volume_repas_realise,
+      nb_repas: attr.volume_repas_realise,
+      poids_kg: attr.poids_repas_kg,
+      co2_evite_kg: collecte.co2_evite_kg,
+    })
+    .eq('id', attestationId)
+    .eq('statut', 'brouillon');
+  if (majErr) throw erreurInterne(majErr, 'pdf.batch_ag.maj_brouillon');
+  return true;
 }

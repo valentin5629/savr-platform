@@ -4,9 +4,9 @@
 // (documents-sans-attendre). L'email « rapport disponible » part à la clôture
 // (emails-documents-disponibles), plus d'ici.
 // Le rapport de recyclage n'est plus fabriqué ici (décision Val 2026-10-16) : le
-// batch pose seulement sa ligne `rapports_rse` (fin d'embargo = disponible_a) et
-// prévient le programmateur ; le PDF est fabriqué au clic, au choix de celui qui
-// le télécharge (lib/collectes/rapport-a-la-demande).
+// batch pose seulement sa ligne `rapports_rse` (disponible_a = instant
+// d'émission) ; le PDF est fabriqué au clic, au choix de celui qui le
+// télécharge (lib/collectes/rapport-a-la-demande).
 // Règles : R-PDF3 (skip si 0 ligne collecte_flux),
 //          R-PDF4 (escalade R9 si > 48h sans bordereau).
 
@@ -152,6 +152,7 @@ export async function runBatchPdfJ1(
     id: string;
     collecte_id: string;
     statut: string;
+    numero: string | null;
     detail_flux: unknown;
     version: number;
   };
@@ -161,7 +162,7 @@ export async function runBatchPdfJ1(
       (lot) =>
         supabase
           .from('bordereaux_savr')
-          .select('id, collecte_id, statut, detail_flux, version')
+          .select('id, collecte_id, statut, numero, detail_flux, version')
           .in('collecte_id', lot),
     );
 
@@ -176,27 +177,48 @@ export async function runBatchPdfJ1(
     return result;
   }
 
-  const emis = new Map(
-    existingBordereaux
-      .filter((b) => b.statut !== 'brouillon')
-      .map((b) => [b.collecte_id, b]),
-  );
-  // Un bordereau encore en brouillon (rendu en attente, en échec, ou SIRET du
-  // producteur à vérifier) a déjà son numéro : on ne le recrée pas. Sinon chaque
-  // passage (toutes les 15 min) brûlerait un numéro BSAV gapless avant d'échouer
-  // sur l'unicité de collecte_id.
-  const existants = new Set(existingBordereaux.map((b) => b.collecte_id));
-
-  const toProcess = collectes.filter((c) => !existants.has(c.id));
+  // Un bordereau déjà créé n'est jamais recréé : il a son numéro BSAV gapless
+  // (ou le prendra, cf. reprise ci-dessous). Seule exception : une ligne restée
+  // sans numéro (échec entre sa création et le tirage du numéro), reprise ici.
+  const existants = new Map(existingBordereaux.map((b) => [b.collecte_id, b]));
+  const toProcess = collectes.filter((c) => {
+    const b = existants.get(c.id);
+    return !b || b.numero == null;
+  });
   result.already_done = collectes.length - toProcess.length;
 
-  // 2bis. Bordereau déjà émis : refait si les pesées ont changé depuis. Revu tant
-  //       que MTS-1 peut encore les corriger (realisee), et toujours pour une
-  //       collecte nommée (saisie Admin, possible même après la clôture).
+  // 2bis. Bordereau existant : refait si les pesées ont changé. Revu pour la
+  //       collecte nommée (saisie Admin) et pour toute collecte dont une pesée a
+  //       été écrite dans les 48 dernières heures (MTS-1 jusqu'à la clôture,
+  //       Admin à tout moment) : une correction tombée pendant un rendu en cours
+  //       est ainsi reprise au passage suivant, même après la clôture.
+  let aRevoir = new Set<string>();
+  const numerotes = existingBordereaux.some((b) => b.numero != null);
+  if (options.collecteId) {
+    aRevoir = new Set([options.collecteId]);
+  } else if (numerotes) {
+    const depuis = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+    const { data: recents, error: recErr } = await supabase
+      .from('collecte_flux')
+      .select('collecte_id')
+      .gte('updated_at', depuis);
+    if (recErr) {
+      result.fatal = fatalSelection(
+        result.errors,
+        'Sélection pesées récentes',
+        recErr,
+      );
+      return result;
+    }
+    aRevoir = new Set(
+      (recents ?? []).map((r: { collecte_id: string }) => r.collecte_id),
+    );
+  }
   for (const collecte of collectes) {
-    const bordereau = emis.get(collecte.id);
-    if (!bordereau) continue;
-    if (collecte.statut !== 'realisee' && !options.collecteId) continue;
+    const bordereau = existants.get(collecte.id);
+    if (!bordereau || bordereau.numero == null || !aRevoir.has(collecte.id)) {
+      continue;
+    }
     try {
       if (await refaireSiPeseesChangees(supabase, collecte.id, bordereau)) {
         result.refaits++;
@@ -221,7 +243,7 @@ export async function runBatchPdfJ1(
         // R-PDF3 : skip
         result.skipped_no_flux++;
 
-        // R-PDF4 / R9 : escalade si skip > 48h (base realisee_at, alignée embargo H+24)
+        // R-PDF4 / R9 : escalade si skip > 48h (base realisee_at)
         const realiseeAt = collecte.realisee_at
           ? new Date(collecte.realisee_at)
           : null;
@@ -246,16 +268,6 @@ export async function runBatchPdfJ1(
         supabase,
         collecte.id,
       );
-
-      // 5. Allouer le numéro BSAV (gapless)
-      // Année PARISIENNE : le batch tourne à 6h, mais une reprise manuelle juste
-      // après minuit le 1er janvier aurait tiré le numéro sur la séquence de
-      // l'année écoulée (process UTC).
-      const annee = anneeParis();
-      const { data: numeroData } = await supabase
-        .rpc('f_next_numero_bordereau', { p_annee: annee })
-        .single();
-      const numero = numeroData as string;
 
       const ev = collecte.evenements!;
       const lieu = ev.lieux;
@@ -301,7 +313,7 @@ export async function runBatchPdfJ1(
       });
 
       const bordereauPayload = {
-        numero,
+        numero: '',
         date_emission: dateEmissionStr,
         date_collecte: dateCollecteStr,
         date_evenement: dateEvenementStr,
@@ -321,55 +333,99 @@ export async function runBatchPdfJ1(
       // Disponible tout de suite (plus d'embargo, Val 2026-11-04).
       const disponibleA = new Date();
 
-      // 6. Créer la ligne bordereaux_savr (snapshot)
-      const { data: bordereauRow, error: bordErr } = await supabase
-        .from('bordereaux_savr')
-        .insert({
-          collecte_id: collecte.id,
-          numero,
-          date_emission: jourParis(),
-          // Snapshot de la date d'intervention (§04), pas du jour d'émission.
-          date_collecte: collecte.date_collecte,
-          producteur_raison_sociale: organisationProd?.raison_sociale ?? '',
-          producteur_siret: organisationProd?.siret ?? null,
-          producteur_adresse: organisationProd?.adresse ?? '',
-          transporteur_nom: transporteurNom,
-          transporteur_siret: transporteurSiret,
-          exutoire_nom: 'Prestataire Savr',
-          detail_flux: fluxDetails,
-          poids_total_kg: poidsTotalKg,
-          statut: 'brouillon',
-        })
-        .select('id')
-        .single();
+      // 5. Créer la ligne bordereaux_savr (snapshot), SANS numéro : l'unicité de
+      //    collecte_id départage deux fabrications simultanées (passage planifié
+      //    et saisie Admin) avant qu'un numéro gapless soit tiré. Une ligne
+      //    restée sans numéro est reprise telle quelle.
+      let bordereauId = existants.get(collecte.id)?.id;
+      if (!bordereauId) {
+        const { data: bordereauRow, error: bordErr } = await supabase
+          .from('bordereaux_savr')
+          .insert({
+            collecte_id: collecte.id,
+            numero: null,
+            date_emission: jourParis(),
+            // Snapshot de la date d'intervention (§04), pas du jour d'émission.
+            date_collecte: collecte.date_collecte,
+            producteur_raison_sociale: organisationProd?.raison_sociale ?? '',
+            producteur_siret: organisationProd?.siret ?? null,
+            producteur_adresse: organisationProd?.adresse ?? '',
+            transporteur_nom: transporteurNom,
+            transporteur_siret: transporteurSiret,
+            exutoire_nom: 'Prestataire Savr',
+            detail_flux: fluxDetails,
+            poids_total_kg: poidsTotalKg,
+            statut: 'brouillon',
+          })
+          .select('id')
+          .single();
 
-      if (bordErr || !bordereauRow) {
-        throw erreurInterne(bordErr, 'pdf.batch_zd.insert_bordereau');
+        if (bordErr?.code === '23505') {
+          // Créé à l'instant par une autre fabrication : rien à faire ici.
+          result.already_done++;
+          continue;
+        }
+        if (bordErr || !bordereauRow) {
+          throw erreurInterne(bordErr, 'pdf.batch_zd.insert_bordereau');
+        }
+        bordereauId = bordereauRow.id as string;
       }
 
-      // 7. Créer la ligne rapports_rse : le rapport devient téléchargeable (fabriqué
-      //    au clic) tout de suite. Aucun PDF n'est fabriqué ici.
-      const { data: rapportRow, error: rseErr } = await supabase
-        .from('rapports_rse')
-        .insert({
-          collecte_id: collecte.id,
-          evenement_id: collecte.evenement_id,
-          version: 1,
-          disponible_a: disponibleA.toISOString(),
-          genere_par: 'automatique',
-        })
-        .select('id')
+      // 6. Numéro BSAV (gapless), tiré une fois la ligne acquise.
+      // Année PARISIENNE : une reprise juste après minuit le 1er janvier aurait
+      // tiré le numéro sur la séquence de l'année écoulée (process UTC).
+      const { data: numeroData, error: numErr } = await supabase
+        .rpc('f_next_numero_bordereau', { p_annee: anneeParis() })
         .single();
+      if (numErr || !numeroData) {
+        throw erreurInterne(numErr, 'pdf.batch_zd.numero');
+      }
+      const numero = numeroData as string;
+      const { data: numerote, error: numMajErr } = await supabase
+        .from('bordereaux_savr')
+        .update({ numero })
+        .eq('id', bordereauId)
+        .is('numero', null)
+        .select('id');
+      if (numMajErr) throw erreurInterne(numMajErr, 'pdf.batch_zd.numero_maj');
+      // Numéroté entre-temps par une autre reprise : la suite est la sienne.
+      if (!numerote?.length) continue;
+      bordereauPayload.numero = numero;
 
-      if (rseErr || !rapportRow) {
-        throw erreurInterne(rseErr, 'pdf.batch_zd.insert_rapport');
+      // 7. Créer la ligne rapports_rse : le rapport devient téléchargeable (fabriqué
+      //    au clic) tout de suite. Aucun PDF n'est fabriqué ici. Une reprise ne
+      //    la recrée pas.
+      const { data: rapportExistant, error: rseLecErr } = await supabase
+        .from('rapports_rse')
+        .select('id')
+        .eq('collecte_id', collecte.id)
+        .limit(1)
+        .maybeSingle();
+      if (rseLecErr)
+        throw erreurInterne(rseLecErr, 'pdf.batch_zd.lecture_rapport');
+      if (!rapportExistant) {
+        const { data: rapportRow, error: rseErr } = await supabase
+          .from('rapports_rse')
+          .insert({
+            collecte_id: collecte.id,
+            evenement_id: collecte.evenement_id,
+            version: 1,
+            disponible_a: disponibleA.toISOString(),
+            genere_par: 'automatique',
+          })
+          .select('id')
+          .single();
+
+        if (rseErr || !rapportRow) {
+          throw erreurInterne(rseErr, 'pdf.batch_zd.insert_rapport');
+        }
       }
 
       // 8. Enqueuer le job bordereau
       await supabase.from('jobs_pdf').insert({
         type_document: 'bordereau-zd',
         entity_type: 'bordereaux_savr',
-        entity_id: bordereauRow.id,
+        entity_id: bordereauId,
         payload: bordereauPayload,
         statut: 'pending',
         attempts: 0,
@@ -382,7 +438,11 @@ export async function runBatchPdfJ1(
     }
   }
 
-  result.fatal = fatalSiAucuneProduite(result.enqueued, result.errors);
+  // Un passage qui n'a fait que refaire des bordereaux a produit quelque chose.
+  result.fatal = fatalSiAucuneProduite(
+    result.enqueued + result.refaits,
+    result.errors,
+  );
   return result;
 }
 
@@ -450,14 +510,21 @@ function empreinteFlux(flux: unknown): string {
 }
 
 /**
- * Refait le bordereau émis quand les pesées ont changé : même numéro, pesées et
- * total du moment, version suivante (le reste reprend le dernier rendu, comme la
- * régénération Admin). Rend `true` s'il est refait.
+ * Refait le bordereau quand les pesées ont changé : même numéro, pesées et total
+ * du moment ; version suivante s'il était déjà émis (le reste reprend le dernier
+ * rendu, comme la régénération Admin). Un rendu en attente ou en échec prend les
+ * nouvelles pesées ; un rendu en cours laisse le bordereau tel quel, repris au
+ * passage suivant (l'écart reste visible). Rend `true` s'il est refait.
  */
 async function refaireSiPeseesChangees(
   supabase: SupabaseClient,
   collecteId: string,
-  bordereau: { id: string; detail_flux: unknown; version: number },
+  bordereau: {
+    id: string;
+    statut: string;
+    detail_flux: unknown;
+    version: number;
+  },
 ): Promise<boolean> {
   const { fluxDetails, poidsTotalKg } = await lireFlux(supabase, collecteId);
   if (!fluxDetails.length) return false;
@@ -474,42 +541,48 @@ async function refaireSiPeseesChangees(
     .limit(1)
     .maybeSingle();
   if (jobErr) throw erreurInterne(jobErr, 'pdf.batch_zd.lecture_rendu');
-  if (!dernierJob) throw new Error('Bordereau émis sans rendu antérieur');
+  // Pas encore de rendu (bordereau tout juste créé) : son premier rendu lira
+  // les pesées du moment.
+  if (!dernierJob) return false;
 
+  const emis = bordereau.statut !== 'brouillon';
   const payload = {
     ...(dernierJob as { payload: Record<string, unknown> }).payload,
     flux: fluxDetails,
     poids_total_kg: poidsTotalKg,
-    regenere_le: new Date().toLocaleDateString('fr-FR', {
-      timeZone: 'Europe/Paris',
-    }),
+    ...(emis
+      ? {
+          regenere_le: new Date().toLocaleDateString('fr-FR', {
+            timeZone: 'Europe/Paris',
+          }),
+        }
+      : {}),
   };
 
-  // Rendu d'abord, pesées du bordereau ensuite : un échec entre les deux laisse
-  // l'écart visible au passage suivant, qui refera le rendu.
-  const { error: insErr } = await supabase.from('jobs_pdf').insert({
-    type_document: 'bordereau-zd',
-    entity_type: 'bordereaux_savr',
-    entity_id: bordereau.id,
-    payload,
-    statut: 'pending',
-    attempts: 0,
-  });
-  if (insErr?.code === '23505') {
-    // Un rendu attend déjà dans la file (index anti-doublon) : il prend les
-    // nouvelles pesées. En cours de rendu, rien n'est touché et le passage
-    // suivant recommence.
-    const { data: repris, error: repErr } = await supabase
-      .from('jobs_pdf')
-      .update({ payload })
-      .eq('entity_type', 'bordereaux_savr')
-      .eq('entity_id', bordereau.id)
-      .eq('statut', 'pending')
-      .select('id');
-    if (repErr) throw erreurInterne(repErr, 'pdf.batch_zd.rendu_en_attente');
-    if (!repris?.length) return false;
-  } else if (insErr) {
-    throw erreurInterne(insErr, 'pdf.batch_zd.mise_en_file');
+  // Rendus pas encore faits (en attente, ou en échec qui sera retenté) : ils
+  // prennent les nouvelles pesées, aucun ancien rendu ne repassera après.
+  const { data: repris, error: repErr } = await supabase
+    .from('jobs_pdf')
+    .update({ payload })
+    .eq('entity_type', 'bordereaux_savr')
+    .eq('entity_id', bordereau.id)
+    .in('statut', ['pending', 'failed'])
+    .select('id');
+  if (repErr) throw erreurInterne(repErr, 'pdf.batch_zd.rendu_en_attente');
+
+  if (!repris?.length) {
+    const { error: insErr } = await supabase.from('jobs_pdf').insert({
+      type_document: 'bordereau-zd',
+      entity_type: 'bordereaux_savr',
+      entity_id: bordereau.id,
+      payload,
+      statut: 'pending',
+      attempts: 0,
+    });
+    // Rendu en cours (index anti-doublon) : rien n'est touché, le passage
+    // suivant recommence tant que l'écart demeure.
+    if (insErr?.code === '23505') return false;
+    if (insErr) throw erreurInterne(insErr, 'pdf.batch_zd.mise_en_file');
   }
 
   const { error: majErr } = await supabase
@@ -517,7 +590,7 @@ async function refaireSiPeseesChangees(
     .update({
       detail_flux: fluxDetails,
       poids_total_kg: poidsTotalKg,
-      version: bordereau.version + 1,
+      ...(emis ? { version: bordereau.version + 1 } : {}),
     })
     .eq('id', bordereau.id);
   if (majErr) throw erreurInterne(majErr, 'pdf.batch_zd.maj_bordereau');

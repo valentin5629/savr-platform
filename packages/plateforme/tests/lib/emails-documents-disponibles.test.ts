@@ -4,6 +4,9 @@
  * des emails autrefois envoyés par les batchs : destinataire, variables du
  * gabarit, lien vers la fiche de l'espace du programmeur, prénom.
  */
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@savr/shared/src/email/index.js', () => ({
@@ -166,6 +169,58 @@ describe('emails « document disponible » à la clôture', () => {
     expect(vars.association_nom).toBe('Les Restos du Cœur');
     expect(vars.date_evenement).toBe('01/11/2026');
   });
+
+  // Contrat avec les gabarits : chaque variable déclarée par la DERNIÈRE
+  // migration qui définit le gabarit est fournie (une variable manquante fait
+  // refuser l'envoi). Lu dans le dossier des migrations, pas recopié ici.
+  it.each([
+    [
+      'rapport_disponible',
+      () => collecte(),
+      [{ collecte_id: 'col-1', poids_total_kg: 10 }],
+      [],
+    ],
+    [
+      'attestation_don_disponible',
+      () => collecteAg(),
+      [],
+      [{ collecte_id: 'col-ag' }],
+    ],
+  ] as const)(
+    '%s : chaque variable déclarée par le gabarit est fournie',
+    async (code, fabrique, bordereaux, attestations) => {
+      const dossier = fileURLToPath(
+        new URL('../../../../supabase/migrations/', import.meta.url),
+      );
+      let declarees: string[] | null = null;
+      for (const f of readdirSync(dossier)
+        .filter((n) => n.endsWith('.sql'))
+        .sort()) {
+        const sql = readFileSync(join(dossier, f), 'utf8');
+        const re = new RegExp(
+          `variables\\s*=\\s*ARRAY\\[([^\\]]+)\\][^;]*?WHERE code = '${code}'`,
+          'g',
+        );
+        for (const m of sql.matchAll(re)) {
+          declarees = m[1]!.split(',').map((v) => v.trim().replace(/'/g, ''));
+        }
+      }
+      expect(declarees, code).not.toBeNull();
+
+      const sb = makeSupabase([
+        { data: [fabrique()] },
+        { data: [] },
+        { data: [...bordereaux] },
+        { data: [...attestations] },
+      ]);
+      await envoyerEmailsDocumentsDisponibles(sb as never);
+      const [slug, , vars] = appels()[0]!;
+      expect(slug).toBe(code);
+      for (const v of declarees!) {
+        expect(vars[v], v).toEqual(expect.any(String));
+      }
+    },
+  );
 
   it('AG sans attestation émise (poids pas encore saisi) : rien n’est envoyé', async () => {
     const sb = makeSupabase([

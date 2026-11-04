@@ -222,8 +222,9 @@ describe('M2.4 / BatchPdfJ1Ag / alerte SIRET donateur — cycle de vie', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00002', error: null },
       { data: { id: 'att-new' }, error: null },
+      { data: 'ATT-DON-2026-00002', error: null },
+      { data: [{ id: 'att-new' }], error: null }, // numéro posé sur la ligne
     ]);
 
     const result = await runBatchPdfJ1Ag(sb as never);
@@ -271,8 +272,9 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
         ],
         error: null,
       }, // entites_facturation
-      { data: 'ATT-DON-2026-00001', error: null }, // rpc f_next_numero_attestation
       { data: { id: 'att-new' }, error: null }, // insert attestations_don
+      { data: 'ATT-DON-2026-00001', error: null }, // rpc f_next_numero_attestation
+      { data: [{ id: 'att-new' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // insert jobs_pdf
       { data: { email_principal: 'chef@kaspia.fr' }, error: null }, // select email organisation programmatrice
     ]);
@@ -296,7 +298,12 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
     expect(attInsert!.mention_fiscale_2041ge).toBe(true);
     expect(attInsert!.volume_repas).toBe(120);
     expect(attInsert!.co2_evite_kg).toBe(300.0);
-    expect(attInsert!.numero).toBe('ATT-DON-2026-00001');
+    // Ligne créée sans numéro, numéro posé ensuite (numéro gapless jamais
+    // tiré pour une ligne qu'une autre fabrication aurait déjà créée).
+    expect(attInsert!.numero).toBeNull();
+    const updates = (sb._chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    expect(updates[0]![0]).toEqual({ numero: 'ATT-DON-2026-00001' });
     expect(attInsert!.version).toBe(1);
     expect(attInsert!.statut).toBe('brouillon');
     // ECR-4 : date_collecte = vraie date de collecte, pas today
@@ -366,7 +373,19 @@ describe('M2.4 / BatchPdfJ1Ag / Idempotence R8', () => {
   it('attestation encore en brouillon (rendu en attente ou en échec) → aucun numéro ATT-DON tiré, rien recréé', async () => {
     const sb = makeSupabase([
       { data: [makeCollecteAg()], error: null },
-      { data: [{ collecte_id: 'col-ag-1', statut: 'brouillon' }], error: null },
+      {
+        data: [
+          {
+            id: 'att-b',
+            collecte_id: 'col-ag-1',
+            statut: 'brouillon',
+            version: 1,
+            numero: 'ATT-DON-2026-00070',
+            volume_repas: 120,
+          },
+        ],
+        error: null,
+      },
     ]);
 
     const result = await runBatchPdfJ1Ag(sb as never);
@@ -381,7 +400,19 @@ describe('M2.4 / BatchPdfJ1Ag / Idempotence R8', () => {
     const collecte = makeCollecteAg();
     const sb = makeSupabase([
       { data: [collecte], error: null },
-      { data: [{ collecte_id: 'col-ag-1', statut: 'emise' }], error: null },
+      {
+        data: [
+          {
+            id: 'att-e',
+            collecte_id: 'col-ag-1',
+            statut: 'emise',
+            version: 1,
+            numero: 'ATT-DON-2026-00071',
+            volume_repas: 120,
+          },
+        ],
+        error: null,
+      },
       { data: [], error: null }, // entites (pas atteint mais mockée)
     ]);
 
@@ -389,6 +420,131 @@ describe('M2.4 / BatchPdfJ1Ag / Idempotence R8', () => {
 
     expect(result.already_done).toBe(1);
     expect(result.enqueued).toBe(0);
+  });
+});
+
+// Val 2026-11-04 : fabrication toutes les 15 min et juste après la saisie
+// Admin. Une correction de poids tombée pendant un rendu n'est jamais perdue,
+// et deux fabrications simultanées ne brûlent pas de numéro gapless.
+describe('M2.4 / BatchPdfJ1Ag / Corrections et fabrications simultanées', () => {
+  const entite = {
+    data: [
+      {
+        id: 'entite-1',
+        organisation_id: 'org-1',
+        raison_sociale: 'Kaspia SAS',
+        siret: '12345678900001',
+        siret_verification: 'verifie',
+      },
+    ],
+    error: null,
+  };
+  const att = (o: Record<string, unknown>) => ({
+    id: 'att-1',
+    collecte_id: 'col-ag-1',
+    statut: 'emise',
+    version: 1,
+    numero: 'ATT-DON-2026-00090',
+    volume_repas: 120,
+    ...o,
+  });
+  const updates = (sb: ReturnType<typeof makeSupabase>) =>
+    (sb._chain.update as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [Record<string, unknown>]
+    >;
+
+  it('attestation créée à l’instant par une autre fabrication (23505) → aucun numéro ATT-DON tiré', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [], error: null },
+      entite,
+      { data: null, error: { code: '23505', message: 'duplicate' } },
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(sb.rpc).not.toHaveBeenCalled();
+    expect(result.already_done).toBe(1);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('brouillon numéroté, poids corrigé pendant que son rendu attend → rendu et ligne prennent les nouveaux repas', async () => {
+    const collecte = makeCollecteAg({ co2_evite_kg: 500 });
+    collecte.attributions_antgaspi.volume_repas_realise = 200;
+    collecte.attributions_antgaspi.poids_repas_kg = 90;
+    const sb = makeSupabase([
+      { data: [collecte], error: null },
+      { data: [att({ statut: 'brouillon', volume_repas: 120 })], error: null },
+      {
+        data: [
+          {
+            id: 'job-1',
+            payload: { numero: 'ATT-DON-2026-00090', volume_repas: 120 },
+          },
+        ],
+        error: null,
+      },
+      { data: null, error: null }, // update payload
+      { data: null, error: null }, // update attestation
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.refaits).toBe(1);
+    expect(sb.rpc).not.toHaveBeenCalled();
+    expect(sb._chain.insert).not.toHaveBeenCalled();
+    expect(updates(sb)[0]![0].payload).toMatchObject({
+      numero: 'ATT-DON-2026-00090',
+      volume_repas: 200,
+      poids_kg: 90,
+      co2_evite_kg: 500,
+    });
+    expect(updates(sb)[1]![0]).toMatchObject({
+      volume_repas: 200,
+      nb_repas: 200,
+      poids_kg: 90,
+    });
+  });
+
+  it('brouillon, rendu en cours (rien en attente) → rien touché, repris au passage suivant', async () => {
+    const collecte = makeCollecteAg();
+    collecte.attributions_antgaspi.volume_repas_realise = 200;
+    const sb = makeSupabase([
+      { data: [collecte], error: null },
+      { data: [att({ statut: 'brouillon', volume_repas: 120 })], error: null },
+      { data: [], error: null }, // aucun rendu en attente ou en échec
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.refaits).toBe(0);
+    expect(sb._chain.update).not.toHaveBeenCalled();
+  });
+
+  it('attestation émise dont les repas ne suivent plus le poids → nouvelle version, l’ancienne corrigée', async () => {
+    const collecte = makeCollecteAg();
+    collecte.attributions_antgaspi.volume_repas_realise = 200;
+    const sb = makeSupabase([
+      { data: [collecte], error: null },
+      { data: [att({ volume_repas: 120 })], error: null },
+      entite,
+      { data: { id: 'att-2' }, error: null }, // insert v2
+      { data: 'ATT-DON-2026-00091', error: null }, // rpc numéro
+      { data: [{ id: 'att-2' }], error: null }, // numéro posé
+      { data: null, error: null }, // ancienne → corrigee
+      { data: null, error: null }, // audit
+      { data: null, error: null }, // job
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.enqueued).toBe(1);
+    const inserts = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    expect(inserts[0]![0]).toMatchObject({ version: 2, volume_repas: 200 });
+    expect(updates(sb)[1]![0]).toEqual({ statut: 'corrigee' });
+  });
+
+  it('attestation émise à jour → rien n’est refait', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [att({ volume_repas: 120 })], error: null },
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.already_done).toBe(1);
+    expect(sb.rpc).not.toHaveBeenCalled();
   });
 });
 
@@ -421,8 +577,9 @@ describe('M2.4 / BatchPdfJ1Ag / Mention fiscale conditionnelle', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00002', error: null },
       { data: { id: 'att-new-2' }, error: null },
+      { data: 'ATT-DON-2026-00002', error: null },
+      { data: [{ id: 'att-new-2' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null },
       { data: null, error: null },
       { data: { email_principal: null }, error: null },
@@ -476,8 +633,9 @@ describe('M2.4 / BatchPdfJ1Ag / Snapshot résistant perte habilitation', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00003', error: null },
       { data: { id: 'att-new-3' }, error: null },
+      { data: 'ATT-DON-2026-00003', error: null },
+      { data: [{ id: 'att-new-3' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null },
       { data: null, error: null },
       { data: { email_principal: null }, error: null },
@@ -559,8 +717,9 @@ describe('M2.4 / BatchPdfJ1Ag / Sans embargo (Val 2026-11-04)', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00004', error: null },
       { data: { id: 'att-emb' }, error: null },
+      { data: 'ATT-DON-2026-00004', error: null },
+      { data: [{ id: 'att-emb' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null },
       { data: null, error: null },
     ]);
@@ -596,8 +755,9 @@ describe('M2.4 / BatchPdfJ1Ag / Sans embargo (Val 2026-11-04)', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00006', error: null },
       { data: { id: 'att-sans-email' }, error: null },
+      { data: 'ATT-DON-2026-00006', error: null },
+      { data: [{ id: 'att-sans-email' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null },
       { data: null, error: null },
     ]);
@@ -629,8 +789,9 @@ describe('M2.4 / BatchPdfJ1Ag / pas de rapports_rse pour une collecte AG', () =>
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00005', error: null },
       { data: { id: 'att-rse' }, error: null },
+      { data: 'ATT-DON-2026-00005', error: null },
+      { data: [{ id: 'att-rse' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // jobs_pdf
       { data: { email_principal: null }, error: null },
     ]);
@@ -707,8 +868,9 @@ describe('M2.4 / BatchPdfJ1Ag / instantané association_numero_rup', () => {
         ],
         error: null,
       }, // entites_facturation
-      { data: 'ATT-DON-2026-00042', error: null }, // rpc numéro
       { data: { id: 'att-new' }, error: null }, // insert attestations_don
+      { data: 'ATT-DON-2026-00042', error: null }, // rpc numéro
+      { data: [{ id: 'att-new' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // insert jobs_pdf
       { data: { email_principal: 'chef@kaspia.fr' }, error: null },
     ]);
@@ -771,8 +933,9 @@ describe('attestation de don — logo du client (Val 2026-10-30)', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00001', error: null },
       { data: { id: 'att-new' }, error: null },
+      { data: 'ATT-DON-2026-00001', error: null },
+      { data: [{ id: 'att-new' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null },
       { data: { email_principal: 'chef@kaspia.fr' }, error: null },
     ]);

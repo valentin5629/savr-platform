@@ -82,10 +82,10 @@ describe('fabrication des documents juste après une saisie Admin', () => {
     });
   });
 
-  it('rendus repris tant qu’il en reste, au plus 3 passages', async () => {
+  it('un seul passage du rendu (borne de 60 s de la route)', async () => {
     runPdfWorker.mockResolvedValue({ processed: 5 });
     await fabriquer(client as never, 'col-1', 'zero_dechet');
-    expect(runPdfWorker).toHaveBeenCalledTimes(3);
+    expect(runPdfWorker).toHaveBeenCalledTimes(1);
   });
 
   it('programmée après la réponse : rien ne tourne avant', async () => {

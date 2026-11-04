@@ -4,7 +4,7 @@
 -- aux rôles clients.
 
 BEGIN;
-SELECT plan(25);
+SELECT plan(26);
 
 SELECT set_config('role', 'postgres', true);
 SELECT set_config('request.jwt.claims', NULL, true);
@@ -244,6 +244,15 @@ SELECT is(
 SELECT ok(
   (SELECT co2_evite_kg FROM plateforme.collectes WHERE id = 'dd000000-0000-0006-0000-000000000001') > 231.60,
   'admin_savr (authenticated) : pesée ajoutée → CO₂ recalculé avec elle'
+);
+
+-- ── AG : poids saisi avant la réalisation → calculé au passage à realisee ───
+UPDATE plateforme.collectes SET statut = 'realisee', realisee_at = now()
+WHERE id = 'dd000000-0000-0005-0000-000000000001';
+SELECT is(
+  (SELECT co2_evite_kg FROM plateforme.collectes WHERE id = 'dd000000-0000-0005-0000-000000000001'),
+  250.000::decimal,
+  'AG : poids saisi avant la réalisation → CO₂ calculé au passage à réalisée'
 );
 
 -- ── Calculs fermés aux rôles clients ────────────────────────────────────────

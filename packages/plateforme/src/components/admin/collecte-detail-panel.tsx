@@ -3096,15 +3096,14 @@ export function CollecteDetailPanel({
               titre="Pesées ZD"
               action={
                 !editPesees && (
+                  // Modifiable à tout moment, même après la clôture (Val
+                  // 2026-11-04) : le bordereau est refait juste après.
                   <Button
                     size="sm"
                     variant="secondary"
-                    disabled={collecte.statut === 'cloturee'}
                     onClick={openEditPesees}
                   >
-                    {collecte.statut === 'cloturee'
-                      ? 'Clôturée — édition via avoir'
-                      : 'Éditer les pesées'}
+                    Éditer les pesées
                   </Button>
                 )
               }

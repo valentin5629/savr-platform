@@ -3478,6 +3478,30 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
+  // Val 2026-11-04 : l'Admin corrige les pesées ZD à tout moment, même après
+  // la clôture (le bordereau est refait juste après).
+  it(
+    'M0.6/pesees_zd_cloturee_modifiables — collecte ZD clôturée : « Éditer les pesées » actif, plus de renvoi vers un avoir',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        type: 'zero_dechet',
+        statut: 'cloturee',
+        attributions_antgaspi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const bouton = await screen.findByRole(
+        'button',
+        { name: 'Éditer les pesées' },
+        ATTENTE_UI,
+      );
+      expect(bouton).toBeEnabled();
+      expect(screen.queryByText(/édition via avoir/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // Poids des denrées AG noté à la main par l'équipe Savr (§06.09 §5) : le
   // nombre de repas en est calculé en base, il reste en lecture seule.
   it(

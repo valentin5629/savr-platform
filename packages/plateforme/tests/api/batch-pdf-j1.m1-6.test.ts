@@ -143,11 +143,13 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
           },
         ],
       }, // select flux (BL-P2-16 : nb_bacs / equivalent_roll)
-      { data: 'BSAV-2026-00001', error: null }, // rpc numero
       {
         data: { nom: 'Strike Transport', siret: '98765432100011' },
       }, // shared.prestataires (transporteur)
       { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr
+      { data: 'BSAV-2026-00001', error: null }, // rpc numero
+      { data: [{ id: 'bord-new' }], error: null }, // numéro posé sur la ligne
+      { data: null, error: null }, // aucun rapports_rse existant
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
       { data: null, error: null }, // insert job bordereau
     ]);
@@ -208,9 +210,11 @@ describe('M1.6 / BatchPdfJ1 / Convives de la collecte', () => {
           },
         ],
       }, // select flux
-      { data: 'BSAV-2026-00001', error: null }, // rpc numero
       { data: { nom: 'Strike Transport', siret: '98765432100011' } }, // prestataire
       { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr
+      { data: 'BSAV-2026-00001', error: null }, // rpc numero
+      { data: [{ id: 'bord-new' }], error: null }, // numéro posé sur la ligne
+      { data: null, error: null }, // aucun rapports_rse existant
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
       { data: null, error: null }, // insert job bordereau
     ]);
@@ -295,7 +299,17 @@ describe('M1.6 / BatchPdfJ1 / Idempotence', () => {
   it('bordereau encore en brouillon (rendu en attente ou en échec) → aucun numéro BSAV tiré, rien recréé', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'realisee' })], error: null },
-      { data: [{ collecte_id: 'col-1', statut: 'brouillon' }], error: null },
+      {
+        data: [
+          {
+            id: 'bord-1',
+            collecte_id: 'col-1',
+            statut: 'brouillon',
+            numero: 'BSAV-2026-00007',
+          },
+        ],
+        error: null,
+      },
     ]);
 
     const result = await runBatchPdfJ1(sb as never);
@@ -311,7 +325,12 @@ describe('M1.6 / BatchPdfJ1 / Idempotence', () => {
     const collecte = makeCollecte();
     const sb = makeSupabase([
       { data: [collecte], error: null },
-      { data: [{ collecte_id: 'col-1', statut: 'emis' }], error: null },
+      {
+        data: [
+          { collecte_id: 'col-1', statut: 'emis', numero: 'BSAV-2026-00008' },
+        ],
+        error: null,
+      },
     ]);
 
     const result = await runBatchPdfJ1(sb as never);
@@ -335,9 +354,11 @@ describe('M1.6 / BatchPdfJ1 / Sans embargo (Val 2026-11-04)', () => {
           { flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Biodéchets' } },
         ],
       },
-      { data: 'BSAV-2026-00002', error: null },
       { data: { nom: 'Strike Transport', siret: '98765432100011' } },
       { data: { id: 'bord-x' }, error: null },
+      { data: 'BSAV-2026-00002', error: null },
+      { data: [{ id: 'bord-x' }], error: null }, // numéro posé sur la ligne
+      { data: null, error: null }, // aucun rapports_rse existant
       { data: { id: 'rse-x' }, error: null },
       { data: null, error: null },
     ]);
@@ -382,9 +403,11 @@ describe('M1.6 / BatchPdfJ1 / Sans embargo (Val 2026-11-04)', () => {
       { data: [], error: null },
       { count: 1, error: null },
       { data: [{ flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Verre' } }] },
-      { data: 'BSAV-2026-00003', error: null },
       { data: { nom: 'Strike Transport', siret: '98765432100011' } },
       { data: { id: 'bord-y' }, error: null },
+      { data: 'BSAV-2026-00003', error: null },
+      { data: [{ id: 'bord-y' }], error: null }, // numéro posé sur la ligne
+      { data: null, error: null }, // aucun rapports_rse existant
       { data: { id: 'rse-y' }, error: null },
       { data: null, error: null },
     ]);
@@ -394,13 +417,16 @@ describe('M1.6 / BatchPdfJ1 / Sans embargo (Val 2026-11-04)', () => {
   });
 });
 
-// Val 2026-11-04 : une pesée corrigée refait le bordereau émis (même numéro,
-// version suivante), avant comme après la clôture quand l'Admin la saisit.
+// Val 2026-11-04 : une pesée corrigée refait le bordereau (même numéro, version
+// suivante), avant comme après la clôture quand l'Admin la saisit. Revu pour la
+// collecte nommée et pour toute collecte dont une pesée a été écrite dans les
+// 48 dernières heures (une correction tombée pendant un rendu est reprise).
 describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
   const emis = {
     id: 'bord-1',
     collecte_id: 'col-1',
     statut: 'emis',
+    numero: 'BSAV-2026-00009',
     version: 1,
     detail_flux: [
       { nom: 'Verre', poids_kg: 10, nb_bacs: null, equivalent_roll: null },
@@ -409,13 +435,23 @@ describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
   const dernierRendu = {
     payload: { numero: 'BSAV-2026-00009', date_emission: '01/11/2026' },
   };
+  const recente = { data: [{ collecte_id: 'col-1' }], error: null };
+  const flux = (kg: number) => ({
+    data: [{ flux_id: 'f1', poids_reel_kg: kg, flux: { nom: 'Verre' } }],
+  });
+  const updates = (sb: ReturnType<typeof makeSupabase>) =>
+    (sb._chain.update as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [Record<string, unknown>]
+    >;
 
-  it('collecte réalisée, pesée changée → rendu remis en file avec les nouvelles pesées, version 2', async () => {
+  it('pesée récente changée, aucun rendu en attente → rendu mis en file avec les nouvelles pesées, version 2', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'realisee' })], error: null },
       { data: [emis], error: null },
-      { data: [{ flux_id: 'f1', poids_reel_kg: 25, flux: { nom: 'Verre' } }] },
-      { data: dernierRendu, error: null }, // dernier job (maybeSingle)
+      recente,
+      flux(25),
+      { data: dernierRendu, error: null }, // dernier rendu
+      { data: [], error: null }, // aucun rendu en attente ou en échec
       { data: null, error: null }, // insert job
       { data: null, error: null }, // update bordereau
     ]);
@@ -432,16 +468,20 @@ describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
     expect(payload.numero).toBe('BSAV-2026-00009');
     expect(payload.poids_total_kg).toBe(25);
     expect(payload.regenere_le).toBeDefined();
-    const update = (sb._chain.update as ReturnType<typeof vi.fn>).mock
-      .calls[0]![0] as Record<string, unknown>;
-    expect(update).toMatchObject({ poids_total_kg: 25, version: 2 });
+    expect(updates(sb).at(-1)![0]).toMatchObject({
+      poids_total_kg: 25,
+      version: 2,
+    });
+    const gte = (sb._chain.gte as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(gte[0]).toBe('updated_at');
   });
 
   it('pesées inchangées → rien n’est refait', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'realisee' })], error: null },
       { data: [emis], error: null },
-      { data: [{ flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Verre' } }] },
+      recente,
+      flux(10),
     ]);
     const result = await runBatchPdfJ1(sb as never);
     expect(result.refaits).toBe(0);
@@ -449,10 +489,11 @@ describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
     expect(sb._chain.update).not.toHaveBeenCalled();
   });
 
-  it('collecte clôturée, passage planifié → pas revue (MTS-1 ne corrige plus)', async () => {
+  it('aucune pesée écrite depuis 48 h → bordereau pas revu', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'cloturee' })], error: null },
       { data: [emis], error: null },
+      { data: [], error: null }, // aucune pesée récente
     ]);
     const result = await runBatchPdfJ1(sb as never);
     expect(result.refaits).toBe(0);
@@ -460,70 +501,142 @@ describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
     expect(sb._chain.insert).not.toHaveBeenCalled();
   });
 
-  it('collecte clôturée nommée (saisie Admin) → revue et refaite', async () => {
+  it('collecte clôturée, pesée corrigée récemment (rendu alors en cours) → reprise au passage planifié', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'cloturee' })], error: null },
       { data: [emis], error: null },
-      { data: [{ flux_id: 'f1', poids_reel_kg: 30, flux: { nom: 'Verre' } }] },
+      recente,
+      flux(30),
       { data: dernierRendu, error: null },
+      { data: [], error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+    ]);
+    const result = await runBatchPdfJ1(sb as never);
+    expect(result.refaits).toBe(1);
+  });
+
+  it('collecte nommée (saisie Admin) → revue sans lire les pesées récentes', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecte({ statut: 'cloturee' })], error: null },
+      { data: [emis], error: null },
+      flux(30),
+      { data: dernierRendu, error: null },
+      { data: [], error: null },
       { data: null, error: null },
       { data: null, error: null },
     ]);
     const result = await runBatchPdfJ1(sb as never, { collecteId: 'col-1' });
     expect(result.refaits).toBe(1);
+    expect(sb._chain.gte).not.toHaveBeenCalled();
   });
 
-  it('un rendu attend déjà dans la file → il prend les nouvelles pesées', async () => {
+  it('rendu en attente ou en échec → il prend les nouvelles pesées, aucun rendu ajouté', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'realisee' })], error: null },
       { data: [emis], error: null },
-      { data: [{ flux_id: 'f1', poids_reel_kg: 25, flux: { nom: 'Verre' } }] },
+      recente,
+      flux(25),
       { data: dernierRendu, error: null },
-      { data: null, error: { code: '23505', message: 'duplicate' } }, // insert
-      { data: [{ id: 'job-attente' }], error: null }, // update payload du job
+      { data: [{ id: 'job-attente' }], error: null }, // payload repris
       { data: null, error: null }, // update bordereau
     ]);
     const result = await runBatchPdfJ1(sb as never);
     expect(result.refaits).toBe(1);
-    const updates = (sb._chain.update as ReturnType<typeof vi.fn>).mock
-      .calls as Array<[Record<string, unknown>]>;
+    expect(sb._chain.insert).not.toHaveBeenCalled();
+    const inCalls = (sb._chain.in as ReturnType<typeof vi.fn>).mock.calls;
+    expect(inCalls).toContainEqual(['statut', ['pending', 'failed']]);
     expect(
-      (updates[0]![0].payload as Record<string, unknown>).poids_total_kg,
+      (updates(sb)[0]![0].payload as Record<string, unknown>).poids_total_kg,
     ).toBe(25);
-    expect(updates[1]![0]).toMatchObject({ version: 2 });
+    expect(updates(sb)[1]![0]).toMatchObject({ version: 2 });
   });
 
-  it('rendu en cours (rien en attente à reprendre) → bordereau laissé tel quel, repris au passage suivant', async () => {
+  it('rendu en cours (anti-doublon) → bordereau laissé tel quel, repris au passage suivant', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'realisee' })], error: null },
       { data: [emis], error: null },
-      { data: [{ flux_id: 'f1', poids_reel_kg: 25, flux: { nom: 'Verre' } }] },
+      recente,
+      flux(25),
       { data: dernierRendu, error: null },
-      { data: null, error: { code: '23505', message: 'duplicate' } },
       { data: [], error: null },
+      { data: null, error: { code: '23505', message: 'duplicate' } },
     ]);
     const result = await runBatchPdfJ1(sb as never);
     expect(result.refaits).toBe(0);
-    expect(sb._chain.update).toHaveBeenCalledTimes(1);
+    // Seule la tentative de reprise du rendu : les pesées du bordereau ne
+    // bougent pas, l'écart reste visible au passage suivant.
+    expect(updates(sb)).toHaveLength(1);
+  });
+
+  it('bordereau numéroté encore en brouillon (1er rendu en attente) → rendu repris, version inchangée', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecte({ statut: 'realisee' })], error: null },
+      { data: [{ ...emis, statut: 'brouillon' }], error: null },
+      recente,
+      flux(25),
+      { data: dernierRendu, error: null },
+      { data: [{ id: 'job-attente' }], error: null },
+      { data: null, error: null },
+    ]);
+    const result = await runBatchPdfJ1(sb as never);
+    expect(result.refaits).toBe(1);
+    const payload = updates(sb)[0]![0].payload as Record<string, unknown>;
+    expect(payload.regenere_le).toBeUndefined();
+    expect(updates(sb)[1]![0]).not.toHaveProperty('version');
   });
 });
 
-/** Texte de la requête de sélection des collectes (1er `.select` embarquant `evenements`). */
-function selectionCollectes(sb: { _chain: Record<string, unknown> }): string {
-  const calls = (sb._chain['select'] as ReturnType<typeof vi.fn>).mock.calls;
-  return (
-    calls.map((c) => String(c[0])).find((s) => s.includes('evenements')) ?? ''
-  );
-}
+// Deux fabrications simultanées (passage planifié et saisie Admin) : la ligne
+// est créée avant le numéro gapless, son unicité départage sans brûler de numéro.
+describe('M1.6 / BatchPdfJ1 / Numéro gapless jamais brûlé', () => {
+  it('bordereau créé à l’instant par une autre fabrication (23505) → aucun numéro tiré', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecte()], error: null },
+      { data: [], error: null },
+      { count: 1, error: null },
+      { data: [{ flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Verre' } }] },
+      { data: { nom: 'Strike Transport', siret: '98765432100011' } },
+      { data: null, error: { code: '23505', message: 'duplicate' } }, // insert
+    ]);
+    const result = await runBatchPdfJ1(sb as never);
+    expect(sb.rpc).not.toHaveBeenCalled();
+    expect(result.already_done).toBe(1);
+    expect(result.errors).toHaveLength(0);
+  });
 
-describe('M1.6 / BatchPdfJ1 / requête de sélection', () => {
-  it("embed programmateur qualifié par sa FK — jamais d'embed `organisations(...)` ambigu", async () => {
-    const sb = makeSupabase([{ data: [], error: null }]);
-    await runBatchPdfJ1(sb as never);
-    const sel = selectionCollectes(sb);
-    expect(sel).not.toBe('');
-    expect(sel).toContain('organisations!organisation_id');
-    expect(sel).not.toMatch(/\borganisations\s*\(/);
+  it('ligne restée sans numéro → reprise : numéro tiré et posé, sans recréer la ligne', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecte()], error: null },
+      {
+        data: [
+          {
+            id: 'bord-orphelin',
+            collecte_id: 'col-1',
+            statut: 'brouillon',
+            numero: null,
+          },
+        ],
+        error: null,
+      },
+      { count: 1, error: null },
+      { data: [{ flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Verre' } }] },
+      { data: { nom: 'Strike Transport', siret: '98765432100011' } },
+      { data: 'BSAV-2026-00011', error: null }, // rpc numero
+      { data: [{ id: 'bord-orphelin' }], error: null }, // numéro posé
+      { data: { id: 'rse-deja' }, error: null }, // rapports_rse déjà là
+      { data: null, error: null }, // job
+    ]);
+    const result = await runBatchPdfJ1(sb as never);
+    expect(result.enqueued).toBe(1);
+    const inserts = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    // Ni bordereau ni rapports_rse recréés : seul le rendu part.
+    expect(inserts.map((c) => c[0].type_document)).toEqual(['bordereau-zd']);
+    expect(inserts[0]![0].entity_id).toBe('bord-orphelin');
+    expect((inserts[0]![0].payload as Record<string, unknown>).numero).toBe(
+      'BSAV-2026-00011',
+    );
   });
 });
 
@@ -562,11 +675,13 @@ describe('M1.6 / BatchPdfJ1 / Date d’intervention (§12 §1.1, §04 bordereaux
           { flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Biodéchets' } },
         ],
       }, // flux
-      { data: 'BSAV-2026-00042', error: null }, // rpc numero
       {
         data: { nom: 'Strike Transport', siret: '98765432100011' },
       }, // shared.prestataires
       { data: { id: 'bord-date' }, error: null }, // insert bordereaux_savr
+      { data: 'BSAV-2026-00042', error: null }, // rpc numero
+      { data: [{ id: 'bord-date' }], error: null }, // numéro posé sur la ligne
+      { data: null, error: null }, // aucun rapports_rse existant
       { data: { id: 'rse-date' }, error: null }, // insert rapports_rse
       { data: null, error: null }, // job bordereau
     ]);
@@ -585,7 +700,8 @@ describe('M1.6 / BatchPdfJ1 / Date d’intervention (§12 §1.1, §04 bordereaux
 
     // Ligne bordereaux_savr (document réglementaire, snapshot) : DATE « YYYY-MM-DD ».
     const bordRow = insertCalls.find(
-      (c) => c[0].numero === 'BSAV-2026-00042',
+      // Ligne créée sans numéro (posé ensuite) : reconnue à son snapshot.
+      (c) => 'producteur_raison_sociale' in c[0],
     )?.[0];
     expect(bordRow).toBeDefined();
     expect(bordRow!.date_collecte).toBe('2026-09-10');

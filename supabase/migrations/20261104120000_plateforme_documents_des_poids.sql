@@ -10,7 +10,8 @@
 --    sortent avant elle et sont refaits à chaque correction.
 --      ZD : au passage à realisee (pesées dérivées juste avant par l'adapter) et
 --           à toute écriture de collecte_flux ;
---      AG : à tout changement du nombre de repas (déduit du poids saisi).
+--      AG : à tout changement du nombre de repas (déduit du poids saisi), et
+--           au passage à realisee si le poids est déjà là.
 --    Les corps de calcul sont ceux des triggers de clôture (M4.3 ZD, M2.4 AG),
 --    inchangés, sortis dans deux fonctions que tous les triggers appellent.
 --
@@ -283,10 +284,31 @@ SECURITY DEFINER
 SET search_path = plateforme, pg_temp
 AS $$
 BEGIN
-  PERFORM plateforme.fn_calculer_co2_ag(NEW.id);
+  -- Au passage à realisee : seulement si le poids est déjà saisi (sinon le
+  -- calcul est fait à la saisie, trg_co2_ag_repas). À la clôture : toujours,
+  -- comme avant.
+  IF NEW.statut::text = 'cloturee' OR EXISTS (
+    SELECT 1 FROM plateforme.attributions_antgaspi
+    WHERE collecte_id = NEW.id AND volume_repas_realise IS NOT NULL
+  ) THEN
+    PERFORM plateforme.fn_calculer_co2_ag(NEW.id);
+  END IF;
   RETURN NEW;
 END;
 $$;
+
+-- Le passage à realisee calcule aussi (AG) : un poids saisi avant n'a pas de
+-- calcul sinon (trg_co2_ag_repas ne tire que sur une collecte déjà réalisée).
+DROP TRIGGER IF EXISTS trg_co2_ag_cloture ON plateforme.collectes;
+CREATE TRIGGER trg_co2_ag_cloture
+  AFTER UPDATE ON plateforme.collectes
+  FOR EACH ROW
+  WHEN (
+    NEW.statut::text IN ('realisee', 'cloturee')
+    AND OLD.statut IS DISTINCT FROM NEW.statut
+    AND NEW.type::text = 'anti_gaspi'
+  )
+  EXECUTE FUNCTION plateforme.fn_trg_co2_ag_cloture();
 
 -- Le passage à realisee recalcule aussi (ZD) : pesées dérivées juste avant.
 DROP TRIGGER IF EXISTS trg_co2_zd_cloture ON plateforme.collectes;

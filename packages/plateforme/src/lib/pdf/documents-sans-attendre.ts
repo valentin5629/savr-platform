@@ -19,9 +19,6 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 
 type ClientService = ReturnType<typeof createAdminSupabaseClient>;
 
-/** Passages du rendu, au plus : chacun prend jusqu'à 5 rendus en file. */
-const PASSAGES_RENDU_MAX = 3;
-
 export function fabriquerDocumentsSansAttendre(
   collecteId: string,
   type: 'zero_dechet' | 'anti_gaspi',
@@ -72,8 +69,8 @@ export async function fabriquer(
   if (error) throw erreurInterne(error, 'pdf.documents_sans_attendre.lecture');
   const entityIds = (documents ?? []).map((d: { id: string }) => d.id);
 
-  for (let i = 0; i < PASSAGES_RENDU_MAX; i++) {
-    const rendu = await runPdfWorker(supabase, { entityIds });
-    if (rendu.processed === 0) break;
-  }
+  // Un seul passage du rendu (jusqu'à 5 rendus, une collecte en a 1 ou 2) :
+  // la tâche reste sous la borne de 60 s de la route. Le reste, s'il y en a,
+  // part au passage planifié du rendu (toutes les 5 min).
+  await runPdfWorker(supabase, { entityIds });
 }

@@ -183,7 +183,9 @@ export async function runBatchPdfJ1(
   const existants = new Map(existingBordereaux.map((b) => [b.collecte_id, b]));
   const toProcess = collectes.filter((c) => {
     const b = existants.get(c.id);
-    return !b || b.numero == null;
+    // Reprise : seulement un brouillon sans numéro (création interrompue). Un
+    // document émis sans numéro (jeu de données, import) n'est jamais renuméroté.
+    return !b || (b.numero == null && b.statut === 'brouillon');
   });
   result.already_done = collectes.length - toProcess.length;
 

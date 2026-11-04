@@ -605,6 +605,27 @@ describe('M1.6 / BatchPdfJ1 / Numéro gapless jamais brûlé', () => {
     expect(result.errors).toHaveLength(0);
   });
 
+  it('bordereau émis sans numéro (jeu de données, import) → jamais renuméroté', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecte({ statut: 'cloturee' })], error: null },
+      {
+        data: [
+          {
+            id: 'bord-seed',
+            collecte_id: 'col-1',
+            statut: 'emis',
+            numero: null,
+          },
+        ],
+        error: null,
+      },
+    ]);
+    const result = await runBatchPdfJ1(sb as never);
+    expect(result.already_done).toBe(1);
+    expect(sb.rpc).not.toHaveBeenCalled();
+    expect(sb._chain.insert).not.toHaveBeenCalled();
+  });
+
   it('ligne restée sans numéro → reprise : numéro tiré et posé, sans recréer la ligne', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte()], error: null },

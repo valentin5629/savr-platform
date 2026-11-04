@@ -196,7 +196,9 @@ export async function runBatchPdfJ1Ag(
   // trg_regenerer_attestation n'a pas vue) → nouvelle version.
   const toProcess = eligible.filter((c) => {
     const d = derniere.get(c.id);
-    if (!d || d.numero == null) return true;
+    // Reprise : seulement un brouillon sans numéro (création interrompue). Une
+    // attestation émise sans numéro (jeu de données, import) n'est jamais renumérotée.
+    if (!d || (d.numero == null && d.statut === 'brouillon')) return true;
     return d.statut === 'emise' && d.volume_repas !== volumeDe(c);
   });
 
@@ -319,7 +321,10 @@ export async function runBatchPdfJ1Ag(
       //    reprise telle quelle ; une version émise dépassée est suivie d'une
       //    nouvelle version.
       const precedente = derniere.get(collecte.id);
-      const reprise = precedente?.numero == null ? precedente : undefined;
+      const reprise =
+        precedente?.numero == null && precedente?.statut === 'brouillon'
+          ? precedente
+          : undefined;
       let attestationId = reprise?.id;
       if (!attestationId) {
         const { data: attRow, error: attErr } = await supabase

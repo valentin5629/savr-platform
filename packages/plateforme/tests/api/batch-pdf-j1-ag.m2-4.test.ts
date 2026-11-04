@@ -537,6 +537,16 @@ describe('M2.4 / BatchPdfJ1Ag / Corrections et fabrications simultanées', () =>
     expect(updates(sb)[1]![0]).toEqual({ statut: 'corrigee' });
   });
 
+  it('attestation émise sans numéro (jeu de données, import) → jamais renumérotée', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [att({ numero: null })], error: null },
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.already_done).toBe(1);
+    expect(sb.rpc).not.toHaveBeenCalled();
+  });
+
   it('attestation émise à jour → rien n’est refait', async () => {
     const sb = makeSupabase([
       { data: [makeCollecteAg()], error: null },

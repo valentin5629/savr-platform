@@ -256,8 +256,11 @@ export function ListeCollectesClient({
     // Jamais de `statut` vide (valeur inconnue, lien fabriqué) : la liste reste
     // celle des statuts qu'elle sait afficher.
     const statuts = choisis.length > 0 ? choisis : STATUTS;
-    const periode = periodeDeLaVue(onglet, filtres, aujourdhui);
-    const qs = new URLSearchParams({ statut: statuts.join(',') });
+    // Aujourd'hui est partagé à la minute par la route (Val 2026-11-03).
+    const periode = periodeDeLaVue(onglet, filtres, aujourdhui, {
+      jourPartage: true,
+    });
+    const qs = new URLSearchParams({ statut: statuts.join(','), vue: onglet });
     // « Toutes » : pas de `type`, la route renvoie les deux.
     if (typeFiltre !== 'tous') qs.set('type', typeFiltre);
     if (filtres.lieuIds.length > 0)

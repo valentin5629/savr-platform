@@ -233,6 +233,8 @@ describe('M0.6 / liste Collectes Admin — export CSV', () => {
         'perimetre_org_ids[]': 'org-1',
         info_incomplete: 'true',
         rapport_non_consulte: 'true',
+        // Vue « passées » : aujourd'hui tranché à la minute (Val 2026-11-03).
+        vue: 'passees',
       });
       expect([...exporte]).toEqual(filtresDe(liste));
       // … sans tri ni page : le fichier porte toute la sélection, pas une page.

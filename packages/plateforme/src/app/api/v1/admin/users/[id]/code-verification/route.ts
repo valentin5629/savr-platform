@@ -26,16 +26,6 @@ export const DELETE = withApiTrace(
     if (auth.error) return auth.error;
 
     const { id } = await params;
-    if (id === auth.ctx.userId) {
-      return NextResponse.json(
-        {
-          error:
-            'Vous ne pouvez pas réinitialiser votre propre code : demandez-le à un autre administrateur.',
-        },
-        { status: 422 },
-      );
-    }
-
     const supabase = createAdminSupabaseClient();
     const { data: cible, error } = await supabase
       .from('users')
@@ -48,6 +38,19 @@ export const DELETE = withApiTrace(
         { status: 404 },
       );
     }
+    // Comparaison sur l'identifiant RELU en base, jamais sur le paramètre d'URL :
+    // Postgres lit un uuid sans tenir compte de la casse ni des accolades
+    // (« A0EE… » ou « {a0ee…} » désignent le même compte que « a0ee… »).
+    const cibleId = cible.id;
+    if (cibleId === auth.ctx.userId) {
+      return NextResponse.json(
+        {
+          error:
+            'Vous ne pouvez pas réinitialiser votre propre code : demandez-le à un autre administrateur.',
+        },
+        { status: 422 },
+      );
+    }
     if (!exigeCodeVerification(cible.role)) {
       return NextResponse.json(
         { error: 'Ce compte n’utilise pas de code de vérification.' },
@@ -55,18 +58,48 @@ export const DELETE = withApiTrace(
       );
     }
 
-    const { data: liste, error: listeError } =
-      await supabase.auth.admin.mfa.listFactors({ userId: id });
-    if (listeError || !liste) {
+    // §07/01 event business + §07/06 écriture sensible (audit_log, auteur =
+    // l'administrateur, ligne = le compte réinitialisé, aucune donnée
+    // personnelle). Aussi appelée après un échec partiel : ce qui a été retiré
+    // est tracé.
+    const tracer = async (retires: number): Promise<void> => {
+      logger.warn('auth.code_verification_reinitialise', {
+        by_user: auth.ctx.userId,
+        target_user: cibleId,
+        facteurs_retires: retires,
+      });
+      const { error: auditError } = await supabase.from('audit_log').insert({
+        table_name: 'users',
+        record_id: cibleId,
+        action: 'code_verification_reinitialise',
+        user_id: auth.ctx.userId,
+        role: auth.ctx.role,
+        new_values: { facteurs_retires: retires },
+      });
+      if (auditError) {
+        logger.error('auth.code_verification_reinitialise.audit_echec', {
+          by_user: auth.ctx.userId,
+          target_user: cibleId,
+          code: auditError.code ?? null,
+        });
+      }
+    };
+    const echec = (code: string | undefined, retires: number) => {
       logger.error('auth.code_verification_reinitialisation_echec', {
-        target_user: id,
-        code: listeError?.code ?? null,
+        by_user: auth.ctx.userId,
+        target_user: cibleId,
+        facteurs_retires: retires,
+        code: code ?? null,
       });
       return NextResponse.json(
         { error: 'Réinitialisation impossible pour le moment.' },
         { status: 502 },
       );
-    }
+    };
+
+    const { data: liste, error: listeError } =
+      await supabase.auth.admin.mfa.listFactors({ userId: cibleId });
+    if (listeError || !liste) return echec(listeError?.code, 0);
 
     let retires = 0;
     for (const facteur of liste.factors) {
@@ -74,17 +107,11 @@ export const DELETE = withApiTrace(
       const { error: suppressionError } =
         await supabase.auth.admin.mfa.deleteFactor({
           id: facteur.id,
-          userId: id,
+          userId: cibleId,
         });
       if (suppressionError) {
-        logger.error('auth.code_verification_reinitialisation_echec', {
-          target_user: id,
-          code: suppressionError.code ?? null,
-        });
-        return NextResponse.json(
-          { error: 'Réinitialisation impossible pour le moment.' },
-          { status: 502 },
-        );
+        if (retires > 0) await tracer(retires);
+        return echec(suppressionError.code, retires);
       }
       retires += 1;
     }
@@ -92,28 +119,7 @@ export const DELETE = withApiTrace(
     // Aucun code actif ni activation en cours : rien n'a changé, rien à tracer.
     if (retires === 0) return NextResponse.json({ facteurs_retires: 0 });
 
-    // §07/01 event business + §07/06 écriture sensible (audit_log, auteur =
-    // l'administrateur, ligne = le compte réinitialisé).
-    logger.warn('auth.code_verification_reinitialise', {
-      by_user: auth.ctx.userId,
-      target_user: id,
-      facteurs_retires: retires,
-    });
-    const { error: auditError } = await supabase.from('audit_log').insert({
-      table_name: 'users',
-      record_id: id,
-      action: 'code_verification_reinitialise',
-      user_id: auth.ctx.userId,
-      role: auth.ctx.role,
-      new_values: { facteurs_retires: retires },
-    });
-    if (auditError) {
-      logger.error('auth.code_verification_reinitialise.audit_echec', {
-        target_user: id,
-        code: auditError.code ?? null,
-      });
-    }
-
+    await tracer(retires);
     return NextResponse.json({ facteurs_retires: retires });
   },
 );

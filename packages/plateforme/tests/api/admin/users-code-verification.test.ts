@@ -198,7 +198,58 @@ describe('réinitialisation du code de vérification', () => {
     expect(mockInsert).not.toHaveBeenCalled();
     expect(error).toHaveBeenCalledWith(
       'auth.code_verification_reinitialisation_echec',
-      { target_user: CIBLE, code: 'unexpected_failure' },
+      {
+        by_user: 'admin-1',
+        target_user: CIBLE,
+        facteurs_retires: 0,
+        code: 'unexpected_failure',
+      },
+    );
+  });
+
+  it('échec partiel : ce qui a été retiré est tracé, 502', async () => {
+    connecte('admin_savr');
+    mockDeleteFactor
+      .mockResolvedValueOnce({ data: {}, error: null })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: 'unexpected_failure', message: 'x' },
+      });
+    const res = await reinitialiser();
+    expect(res.status).toBe(502);
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        record_id: CIBLE,
+        new_values: { facteurs_retires: 1 },
+      }),
+    );
+  });
+
+  // Postgres lit un uuid sans tenir compte de la casse ni des accolades : la
+  // garde compare l'identifiant relu en base, pas le paramètre d'URL.
+  it.each([
+    ['majuscules', CIBLE.toUpperCase()],
+    ['accolades', `{${CIBLE}}`],
+  ])(
+    'son propre compte écrit en %s → 422, rien retiré',
+    async (_forme, idUrl) => {
+      connecte('admin_savr', 'aal2', CIBLE);
+      expect((await reinitialiser(idUrl)).status).toBe(422);
+      expect(mockListFactors).not.toHaveBeenCalled();
+      expect(mockDeleteFactor).not.toHaveBeenCalled();
+    },
+  );
+
+  it('autre compte écrit en majuscules : les appels Supabase et la trace portent l’identifiant relu en base', async () => {
+    connecte('admin_savr');
+    await reinitialiser(CIBLE.toUpperCase());
+    expect(mockListFactors).toHaveBeenCalledWith({ userId: CIBLE });
+    expect(mockDeleteFactor).toHaveBeenCalledWith({
+      id: 'f-totp',
+      userId: CIBLE,
+    });
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ record_id: CIBLE }),
     );
   });
 });

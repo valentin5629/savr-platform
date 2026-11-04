@@ -1,9 +1,13 @@
-// Batch J+1 6h — émet le bordereau ZD des collectes cloturees de la veille.
+// Batch des bordereaux ZD — émet le bordereau d'une collecte dès que ses pesées
+// sont là (realisee ou cloturee, Val 2026-11-04), et le refait quand elles
+// changent. Passe toutes les 15 min, et sur-le-champ après une saisie Admin
+// (documents-sans-attendre). L'email « rapport disponible » part à la clôture
+// (emails-documents-disponibles), plus d'ici.
 // Le rapport de recyclage n'est plus fabriqué ici (décision Val 2026-10-16) : le
 // batch pose seulement sa ligne `rapports_rse` (fin d'embargo = disponible_a) et
 // prévient le programmateur ; le PDF est fabriqué au clic, au choix de celui qui
 // le télécharge (lib/collectes/rapport-a-la-demande).
-// Règles : R-PDF1 (cloturee only), R-PDF3 (skip si 0 ligne collecte_flux),
+// Règles : R-PDF3 (skip si 0 ligne collecte_flux),
 //          R-PDF4 (escalade R9 si > 48h sans bordereau).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
@@ -20,14 +24,11 @@ import {
   lireParPages,
   lireParLots,
 } from './selection-par-pages.js';
-import { escapeHtml } from '@savr/shared/src/email/html.js';
-import { logger } from '@savr/shared/src/logger/index.js';
 import {
   anneeParis,
   formatDateParis,
   jourParis,
 } from '@savr/shared/src/temps/index.js';
-import { urlCanonique } from '@/lib/url-application.js';
 import { ROUTES } from '@/lib/routes';
 
 export interface BatchPdfJ1Result {
@@ -36,14 +37,22 @@ export interface BatchPdfJ1Result {
   escalated_r9: number;
   already_done: number;
   errors: string[];
+  /** Bordereaux refaits après un changement de pesées. */
+  refaits: number;
   /** Échec global (sélection KO / 0 produit sur N tentés) → job.cron.failed. */
   fatal?: BatchFatal;
+}
+
+export interface BatchOptions {
+  /** Une seule collecte (saisie Admin) : son bordereau est toujours revu. */
+  collecteId?: string;
 }
 
 const JOB_NAME = 'bordereaux_rapports_batch';
 
 interface CollecteRow {
   id: string;
+  statut: string;
   evenement_id: string;
   realisee_at: string;
   // Date d'intervention du prestataire (§04 `collectes.date_collecte`, DATE
@@ -64,19 +73,12 @@ interface CollecteRow {
     nom_evenement: string;
     date_evenement: string;
     organisation_id: string;
-    // Programmeur de la collecte (evenements.created_by → users, FK unique
-    // evenements_created_by_fkey) → variable `prenom` de l'email (§06.02 §6).
-    programmeur: { prenom: string | null; organisation_id: string } | null;
     traiteur_operationnel_organisation_id: string | null;
     organisations: {
       nom: string;
       raison_sociale: string;
       siret: string | null;
       adresse: string | null;
-      // Destinataire email rapport_disponible = programmeur de la collecte (§06.02).
-      email_principal: string | null;
-      // Espace du programmateur → lien de l'email vers la fiche collecte.
-      type: string | null;
     } | null;
     traiteur_operationnel: {
       nom: string;
@@ -95,47 +97,43 @@ interface CollecteRow {
 
 export async function runBatchPdfJ1(
   supabase: SupabaseClient,
+  options: BatchOptions = {},
 ): Promise<BatchPdfJ1Result> {
   const result: BatchPdfJ1Result = {
     enqueued: 0,
     skipped_no_flux: 0,
     escalated_r9: 0,
     already_done: 0,
+    refaits: 0,
     errors: [],
   };
 
-  // Embargo H+24 (§12 énoncé canonique : « ni généré ni accessible avant
-  // realisee_at + 24h »). Le document figé (bordereau + rapport) ne doit pas
-  // être généré avant la fin de la fenêtre de correction de pesée. Le client
-  // Supabase ne sait pas exprimer now()-interval côté SQL → seuil calculé en JS
-  // (realisee_at = timestamptz), une seule fois pour toutes les pages.
-  // Prédicat canonique : realisee_at + 24h <= now().
-  const finEmbargo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-
-  // 1. Collectes ZD cloturees (toutes, par pages — cf. selection-par-pages)
+  // 1. Collectes ZD realisee ou cloturee (par pages — cf. selection-par-pages).
+  //    Plus d'embargo : le bordereau sort dès que les pesées sont là.
   const { data: collectes, error: selErr } = await lireParPages<CollecteRow>(
     (apresId) => {
       const pages = supabase
         .from('collectes')
         .select(
           `
-      id, evenement_id, realisee_at, date_collecte, pax,
+      id, statut, evenement_id, realisee_at, date_collecte, pax,
       taux_recyclage, co2_evite_kg, nb_camions_demande, prestataire_logistique_id,
       evenements (
         id, nom_evenement, date_evenement,
         organisation_id, traiteur_operationnel_organisation_id,
-        programmeur:users!created_by ( prenom, organisation_id ),
-        organisations!organisation_id ( nom, raison_sociale, siret, adresse, email_principal, type ),
+        organisations!organisation_id ( nom, raison_sociale, siret, adresse ),
         traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( nom, raison_sociale, siret, adresse ),
         lieux ( nom, adresse_acces, code_postal, ville )
       )
     `,
         )
         .eq('type', 'zero_dechet')
-        .eq('statut', 'cloturee')
-        .lte('realisee_at', finEmbargo)
+        .in('statut', ['realisee', 'cloturee'])
         .not('evenement_id', 'is', null);
-      return (apresId ? pages.gt('id', apresId) : pages)
+      const filtrees = options.collecteId
+        ? pages.eq('id', options.collecteId)
+        : pages;
+      return (apresId ? filtrees.gt('id', apresId) : filtrees)
         .order('id', { ascending: true })
         .limit(TAILLE_PAGE);
     },
@@ -149,14 +147,20 @@ export async function runBatchPdfJ1(
   if (!collectes.length) return result;
 
   // 2. Exclure celles qui ont déjà un bordereau
-  type BordRow = { collecte_id: string; statut: string };
+  type BordRow = {
+    id: string;
+    collecte_id: string;
+    statut: string;
+    detail_flux: unknown;
+    version: number;
+  };
   const { data: existingBordereaux, error: bordSelErr } =
     await lireParLots<BordRow>(
       collectes.map((c) => c.id),
       (lot) =>
         supabase
           .from('bordereaux_savr')
-          .select('collecte_id, statut')
+          .select('id, collecte_id, statut, detail_flux, version')
           .in('collecte_id', lot),
     );
 
@@ -171,14 +175,31 @@ export async function runBatchPdfJ1(
     return result;
   }
 
-  const doneIds = new Set(
+  const emis = new Map(
     existingBordereaux
       .filter((b) => b.statut !== 'brouillon')
-      .map((b) => b.collecte_id),
+      .map((b) => [b.collecte_id, b]),
   );
 
-  const toProcess = collectes.filter((c) => !doneIds.has(c.id));
+  const toProcess = collectes.filter((c) => !emis.has(c.id));
   result.already_done = collectes.length - toProcess.length;
+
+  // 2bis. Bordereau déjà émis : refait si les pesées ont changé depuis. Revu tant
+  //       que MTS-1 peut encore les corriger (realisee), et toujours pour une
+  //       collecte nommée (saisie Admin, possible même après la clôture).
+  for (const collecte of collectes) {
+    const bordereau = emis.get(collecte.id);
+    if (!bordereau) continue;
+    if (collecte.statut !== 'realisee' && !options.collecteId) continue;
+    try {
+      if (await refaireSiPeseesChangees(supabase, collecte.id, bordereau)) {
+        result.refaits++;
+      }
+    } catch (err) {
+      result.errors.push(`collecte ${collecte.id}: ${String(err)}`);
+      logCollecteEnEchec(JOB_NAME, collecte.id, err);
+    }
+  }
 
   const now = new Date();
 
@@ -215,23 +236,9 @@ export async function runBatchPdfJ1(
       }
 
       // 4. Charger les flux pour le payload (équivalent bacs/rolls inclus, §12 §1.1)
-      const { data: flux } = await supabase
-        .from('collecte_flux')
-        .select(
-          'flux_id, poids_reel_kg, nb_bacs, equivalent_roll, flux:flux_id ( nom, code )',
-        )
-        .eq('collecte_id', collecte.id);
-
-      const fluxDetails = (flux ?? []).map((f: Record<string, unknown>) => ({
-        nom: (f.flux as { nom: string } | null)?.nom ?? String(f.flux_id),
-        poids_kg: Number(f.poids_reel_kg),
-        nb_bacs: f.nb_bacs != null ? Number(f.nb_bacs) : null,
-        equivalent_roll:
-          f.equivalent_roll != null ? Number(f.equivalent_roll) : null,
-      }));
-      const poidsTotalKg = fluxDetails.reduce(
-        (s: number, f: { poids_kg: number }) => s + f.poids_kg,
-        0,
+      const { fluxDetails, poidsTotalKg } = await lireFlux(
+        supabase,
+        collecte.id,
       );
 
       // 5. Allouer le numéro BSAV (gapless)
@@ -305,9 +312,8 @@ export async function runBatchPdfJ1(
         poids_total_kg: poidsTotalKg,
       };
 
-      const disponibleA = new Date(
-        new Date(collecte.realisee_at).getTime() + 24 * 3600 * 1000,
-      );
+      // Disponible tout de suite (plus d'embargo, Val 2026-11-04).
+      const disponibleA = new Date();
 
       // 6. Créer la ligne bordereaux_savr (snapshot)
       const { data: bordereauRow, error: bordErr } = await supabase
@@ -336,7 +342,7 @@ export async function runBatchPdfJ1(
       }
 
       // 7. Créer la ligne rapports_rse : le rapport devient téléchargeable (fabriqué
-      //    au clic) à la fin de l'embargo. Aucun PDF n'est fabriqué ici.
+      //    au clic) tout de suite. Aucun PDF n'est fabriqué ici.
       const { data: rapportRow, error: rseErr } = await supabase
         .from('rapports_rse')
         .insert({
@@ -363,56 +369,6 @@ export async function runBatchPdfJ1(
         attempts: 0,
       });
 
-      // 9. Email rapport_disponible au programmeur de la collecte (async, non bloquant).
-      // Destinataire = email_principal de l'organisation programmante (§06.02 ; pas de
-      // contact_principal_email sur evenements en V1 — différé V1.1, cf. §04 Data Model).
-      // Variables = EXACTEMENT la liste du §06.02 §6 (prenom, date_collecte, lieu_nom,
-      // poids_total, co2_evite, taux_recyclage, lien_rapport) : sendEmail refuse l'envoi
-      // (MISSING_VARIABLE, §08 §4) dès qu'une variable déclarée au template manque.
-      // Divergence M1.6 tranchée Val 2026-09-14 — l'ancien payload (nom_evenement /
-      // date_evenement, CO₂ en tonnes) n'était pas celui du template.
-      const emailDestinataire = ev.organisations?.email_principal;
-      if (emailDestinataire) {
-        const { sendEmail } = await import('@savr/shared/src/email/index.js');
-        void sendEmail(
-          'rapport_disponible',
-          emailDestinataire,
-          {
-            // Programmeur = evenements.created_by, comme l'email d'annulation (tpl 5).
-            // '' si inconnu : valeur fournie, l'envoi n'est pas refusé.
-            // Prénom repris seulement si le programmeur est de l'organisation
-            // destinataire (comme le rapport de don). Textes saisis échappés.
-            prenom: escapeHtml(
-              ev.programmeur?.organisation_id === ev.organisation_id
-                ? (ev.programmeur.prenom?.trim() ?? '')
-                : '',
-            ),
-            nom_evenement: escapeHtml(ev.nom_evenement?.trim() ?? ''),
-            date_collecte: formatDateParis(collecte.date_collecte),
-            lieu_nom: escapeHtml(lieu?.nom ?? ''),
-            // Nombres nus : le corps du template porte les unités (« kg », « kg CO₂e », « % »).
-            poids_total: formatNombre(poidsTotalKg),
-            co2_evite: formatNombre(collecte.co2_evite_kg),
-            taux_recyclage: formatNombre(collecte.taux_recyclage),
-            lien_rapport: urlCanonique(
-              cheminFicheCollecte(ev.organisations?.type, collecte.id),
-            ),
-          },
-          { entityType: 'collectes', entityId: collecte.id },
-        ).catch((e: unknown) => {
-          // Best-effort : `void` seul laisse un rejet NON GÉRÉ qui tue le processus —
-          // un email raté (template absent, Resend KO) ne doit jamais faire tomber le
-          // batch ni priver les collectes suivantes de leurs documents. §07/01, sans
-          // destinataire dans le log.
-          logger.error('api.external.failed', {
-            service: 'resend',
-            endpoint: 'sendEmail',
-            template: 'rapport_disponible',
-            error: e instanceof Error ? e.message : String(e),
-          });
-        });
-      }
-
       result.enqueued++;
     } catch (err) {
       result.errors.push(`collecte ${collecte.id}: ${String(err)}`);
@@ -422,14 +378,6 @@ export async function runBatchPdfJ1(
 
   result.fatal = fatalSiAucuneProduite(result.enqueued, result.errors);
   return result;
-}
-
-// ─── Helpers email rapport_disponible (§06.02 §6) ────────────────────────────
-
-/** Nombre pour le corps de l'email, 1 décimale max, format FR (ex. « 12,5 ») ; « — » si absent. */
-function formatNombre(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return '—';
-  return n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
 }
 
 /**
@@ -445,4 +393,127 @@ export function cheminFicheCollecte(
   if (typeOrganisation === 'gestionnaire_lieux')
     return ROUTES.gestionnaire.collecte(collecteId);
   return ROUTES.traiteur.collecte(collecteId);
+}
+
+// ─── Pesées et document refait ──────────────────────────────────────────────
+
+interface FluxDetail {
+  nom: string;
+  poids_kg: number;
+  nb_bacs: number | null;
+  equivalent_roll: number | null;
+}
+
+async function lireFlux(
+  supabase: SupabaseClient,
+  collecteId: string,
+): Promise<{ fluxDetails: FluxDetail[]; poidsTotalKg: number }> {
+  const { data: flux, error } = await supabase
+    .from('collecte_flux')
+    .select(
+      'flux_id, poids_reel_kg, nb_bacs, equivalent_roll, flux:flux_id ( nom, code )',
+    )
+    .eq('collecte_id', collecteId)
+    .order('flux_id', { ascending: true });
+  if (error) throw new Error(`Lecture collecte_flux : ${error.message}`);
+
+  const fluxDetails = (flux ?? []).map((f: Record<string, unknown>) => ({
+    nom: (f.flux as { nom: string } | null)?.nom ?? String(f.flux_id),
+    poids_kg: Number(f.poids_reel_kg),
+    nb_bacs: f.nb_bacs != null ? Number(f.nb_bacs) : null,
+    equivalent_roll:
+      f.equivalent_roll != null ? Number(f.equivalent_roll) : null,
+  }));
+  const poidsTotalKg = fluxDetails.reduce((s, f) => s + f.poids_kg, 0);
+  return { fluxDetails, poidsTotalKg };
+}
+
+/** Pesées comparées par filière, dans un ordre stable. */
+function empreinteFlux(flux: unknown): string {
+  if (!Array.isArray(flux)) return '';
+  return JSON.stringify(
+    (flux as FluxDetail[])
+      .map((f) => [
+        f.nom,
+        Number(f.poids_kg),
+        f.nb_bacs ?? null,
+        f.equivalent_roll ?? null,
+      ])
+      .sort((x, y) => String(x[0]).localeCompare(String(y[0]))),
+  );
+}
+
+/**
+ * Refait le bordereau émis quand les pesées ont changé : même numéro, pesées et
+ * total du moment, version suivante (le reste reprend le dernier rendu, comme la
+ * régénération Admin). Rend `true` s'il est refait.
+ */
+async function refaireSiPeseesChangees(
+  supabase: SupabaseClient,
+  collecteId: string,
+  bordereau: { id: string; detail_flux: unknown; version: number },
+): Promise<boolean> {
+  const { fluxDetails, poidsTotalKg } = await lireFlux(supabase, collecteId);
+  if (!fluxDetails.length) return false;
+  if (empreinteFlux(fluxDetails) === empreinteFlux(bordereau.detail_flux)) {
+    return false;
+  }
+
+  const { data: dernierJob, error: jobErr } = await supabase
+    .from('jobs_pdf')
+    .select('payload')
+    .eq('entity_type', 'bordereaux_savr')
+    .eq('entity_id', bordereau.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (jobErr) throw new Error(`Lecture du dernier rendu : ${jobErr.message}`);
+  if (!dernierJob) throw new Error('Bordereau émis sans rendu antérieur');
+
+  const payload = {
+    ...(dernierJob as { payload: Record<string, unknown> }).payload,
+    flux: fluxDetails,
+    poids_total_kg: poidsTotalKg,
+    regenere_le: new Date().toLocaleDateString('fr-FR', {
+      timeZone: 'Europe/Paris',
+    }),
+  };
+
+  // Rendu d'abord, pesées du bordereau ensuite : un échec entre les deux laisse
+  // l'écart visible au passage suivant, qui refera le rendu.
+  const { error: insErr } = await supabase.from('jobs_pdf').insert({
+    type_document: 'bordereau-zd',
+    entity_type: 'bordereaux_savr',
+    entity_id: bordereau.id,
+    payload,
+    statut: 'pending',
+    attempts: 0,
+  });
+  if (insErr?.code === '23505') {
+    // Un rendu attend déjà dans la file (index anti-doublon) : il prend les
+    // nouvelles pesées. En cours de rendu, rien n'est touché et le passage
+    // suivant recommence.
+    const { data: repris, error: repErr } = await supabase
+      .from('jobs_pdf')
+      .update({ payload })
+      .eq('entity_type', 'bordereaux_savr')
+      .eq('entity_id', bordereau.id)
+      .eq('statut', 'pending')
+      .select('id');
+    if (repErr) throw new Error(`Rendu en attente : ${repErr.message}`);
+    if (!repris?.length) return false;
+  } else if (insErr) {
+    throw new Error(`Mise en file : ${insErr.message}`);
+  }
+
+  const { error: majErr } = await supabase
+    .from('bordereaux_savr')
+    .update({
+      detail_flux: fluxDetails,
+      poids_total_kg: poidsTotalKg,
+      version: bordereau.version + 1,
+    })
+    .eq('id', bordereau.id);
+  if (majErr) throw new Error(`Mise à jour bordereau : ${majErr.message}`);
+  return true;
 }

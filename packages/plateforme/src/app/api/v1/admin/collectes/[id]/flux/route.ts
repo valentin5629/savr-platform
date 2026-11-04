@@ -3,6 +3,10 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 import { FLUX_ZD_CODES } from '@/lib/libelles/flux.js';
+import { fabriquerDocumentsSansAttendre } from '@/lib/pdf/documents-sans-attendre.js';
+
+// Rendus PDF juste après la réponse (documents-sans-attendre).
+export const maxDuration = 60;
 
 // Saisie / édition manuelle des pesées ZD par flux (§06.06 fiche collecte Bloc 2/3 :
 // « Modifier les pesées par flux manuellement (ZD) », admin_savr + ops_savr, motif
@@ -10,9 +14,8 @@ import { FLUX_ZD_CODES } from '@/lib/libelles/flux.js';
 // manquantes → escalade saisie manuelle Admin) et corrige toute pesée terrain.
 //
 // UPSERT par (collecte_id, flux_id) — cohérent avec la dérivation
-// fn_agreger_terminal_collecte (§04 « collecte_flux dérivée »). Écrasement interdit
-// après clôture (§04 + §08 3bis.7) → 409 (la correction post-clôture passe par le
-// flux avoir, hors de cet endpoint).
+// fn_agreger_terminal_collecte (§04 « collecte_flux dérivée »). Possible même
+// après la clôture (Val 2026-11-04) : le bordereau est alors refait.
 
 // Codes des 5 flux ZD V1 : source unique `lib/libelles/flux` (R-UI-2 C12).
 const ZD_FLUX_CODES = FLUX_ZD_CODES;
@@ -81,10 +84,10 @@ async function patchHandler(
 
   const supabase = createAdminSupabaseClient();
 
-  // ── Collecte : existence, type ZD, non clôturée ──────────────────────────────
+  // ── Collecte : existence, type ZD ──────────────────────────────
   const { data: collecte, error: cErr } = await supabase
     .from('collectes')
-    .select('id, type, statut')
+    .select('id, type')
     .eq('id', id)
     .single();
 
@@ -102,15 +105,8 @@ async function patchHandler(
       { status: 422 },
     );
   }
-  if (collecte.statut === 'cloturee') {
-    return NextResponse.json(
-      {
-        error:
-          'Collecte clôturée : la correction des pesées passe par un avoir (édition Admin + recalcul), pas par cet endpoint',
-      },
-      { status: 409 },
-    );
-  }
+  // Clôturée ou non, l'Admin peut toujours corriger une pesée (Val 2026-11-04) :
+  // le bordereau est refait et le CO₂ recalculé juste après la réponse.
 
   // ── Résolution flux_code → flux_id ───────────────────────────────────────────
   const codes = pesees.map((p) => p.flux_code);
@@ -165,6 +161,8 @@ async function patchHandler(
     old_values: { pesees: before ?? [] },
     new_values: { pesees: after ?? [] },
   });
+
+  fabriquerDocumentsSansAttendre(id, 'zero_dechet');
 
   return NextResponse.json({ collecte_id: id, pesees: after ?? [] });
 }

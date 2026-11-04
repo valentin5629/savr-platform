@@ -23,6 +23,14 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 const mockSendEmail = vi.fn().mockResolvedValue(undefined);
+// Emails « document disponible » envoyés après la clôture : jugés dans
+// tests/lib/emails-documents-disponibles.test.ts ; ici seul l'enchaînement compte.
+const envoyerEmailsDocumentsDisponibles = vi.fn();
+vi.mock('@/lib/pdf/emails-documents-disponibles.js', () => ({
+  envoyerEmailsDocumentsDisponibles: (...a: unknown[]) =>
+    envoyerEmailsDocumentsDisponibles(...a),
+}));
+
 vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: (...args: unknown[]) => mockSendEmail(...args),
 }));
@@ -298,13 +306,17 @@ describe('M1.4 / machine à états / flux incident (RM-09)', () => {
   });
 });
 
-// ── RM-01 : cron clôture embargo H+24 ────────────────────────────────────────
-describe('M1.8 / clôture embargo H+24 (RM-01)', () => {
+// ── RM-01 : cron de clôture (48 h depuis le 2026-11-04) + emails ─────────────
+describe('M1.8 / clôture embargo (RM-01)', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('M1.8/RM-01 — cron appelle fn_cloturer_collectes_embargo et renvoie nb_traite', async () => {
     process.env['CRON_SECRET'] = 'test-secret';
     mockSupabaseChain.rpc.mockResolvedValueOnce({ data: 3, error: null });
+    envoyerEmailsDocumentsDisponibles.mockResolvedValueOnce({
+      envoyes: 2,
+      errors: [],
+    });
 
     const { POST } = await import('@/app/api/cron/cloture-embargo/route.js');
     const req = new NextRequest('http://localhost/api/cron/cloture-embargo', {
@@ -312,13 +324,20 @@ describe('M1.8 / clôture embargo H+24 (RM-01)', () => {
       headers: { authorization: 'Bearer test-secret' },
     });
     const res = await POST(req);
-    const json = (await res.json()) as { ok: boolean; nb_traite: number };
+    const json = (await res.json()) as {
+      ok: boolean;
+      nb_traite: number;
+      emails_envoyes: number;
+    };
 
     expect(res.status).toBe(200);
     expect(json.nb_traite).toBe(3);
     expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
       'fn_cloturer_collectes_embargo',
     );
+    // Email « document disponible » après la clôture, dans le même passage.
+    expect(envoyerEmailsDocumentsDisponibles).toHaveBeenCalledTimes(1);
+    expect(json.emails_envoyes).toBe(2);
   });
 
   it('M1.8/RM-01 — 401 sans CRON_SECRET valide', async () => {

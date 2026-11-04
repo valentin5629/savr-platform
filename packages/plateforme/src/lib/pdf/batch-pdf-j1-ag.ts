@@ -1,12 +1,15 @@
-// Batch J+1 6h — génère les attestations de don AG pour les collectes cloturees.
-// Règles : R1 (cloturee + anti_gaspi + volume_repas_realise IS NOT NULL),
-//          R2 (exclusion realisee_sans_collecte déjà filtrée sur statut=cloturee),
+// Batch des attestations de don AG — émet l'attestation dès que le poids est
+// saisi (collecte realisee ou cloturee, Val 2026-11-04). Passe toutes les 15 min,
+// et sur-le-champ après la saisie Admin (documents-sans-attendre). Une correction
+// de poids refait l'attestation (trg_regenerer_attestation). L'email « rapport
+// de don disponible » part à la clôture (emails-documents-disponibles).
+// Règles : R1 (realisee|cloturee + anti_gaspi + volume_repas_realise IS NOT NULL),
+//          R2 (realisee_sans_collecte exclue par le filtre de statut),
 //          R8 (idempotence : skip si attestation emise/corrigee),
 //          SIRET donateur (décision Val 2026-09-28) : pas d'attestation tant que
 //          l'entité de facturation du donateur n'a pas un SIRET vérifié.
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 
 import {
@@ -16,8 +19,6 @@ import {
   logCollecteEnEchec,
 } from './batch-fatal.js';
 import { anneeParis, jourParis } from '@savr/shared/src/temps/index.js';
-import { urlCanonique } from '@/lib/url-application.js';
-import { cheminFicheCollecte } from './batch-pdf-j1.js';
 import {
   TAILLE_PAGE,
   lireParPages,
@@ -69,9 +70,6 @@ interface CollecteAgRow {
         nom_evenement: string | null;
         date_evenement: string;
         organisation_id: string;
-        // Programmeur de la collecte (evenements.created_by → users) → variable
-        // `prenom` de l'email, s'il appartient à l'organisation destinataire.
-        programmeur: { prenom: string | null; organisation_id: string } | null;
       })
     | null;
   attributions_antgaspi: AttributionRow | null;
@@ -87,6 +85,7 @@ interface EntiteFacturation {
 
 export async function runBatchPdfJ1Ag(
   supabase: SupabaseClient,
+  options: { collecteId?: string } = {},
 ): Promise<BatchPdfJ1AgResult> {
   const result: BatchPdfJ1AgResult = {
     enqueued: 0,
@@ -96,14 +95,8 @@ export async function runBatchPdfJ1Ag(
     errors: [],
   };
 
-  // Embargo H+24 (§12 énoncé canonique + §05 SLAs : s'applique à l'attestation
-  // de don au même titre que bordereau/rapport). L'attestation (snapshot juridique
-  // 2041-GE) ne doit pas être figée avant realisee_at + 24h. Seuil calculé une
-  // seule fois pour toutes les pages.
-  const finEmbargo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-
-  // 1. Collectes AG cloturees (toutes, par pages — cf. selection-par-pages ; le
-  //    statut cloturee filtre déjà realisee_sans_collecte, exempté d'embargo §12)
+  // 1. Collectes AG realisee ou cloturee (par pages — cf. selection-par-pages).
+  //    Plus d'embargo : l'attestation sort dès que le poids est là.
   const { data: collectes, error: selErr } = await lireParPages<CollecteAgRow>(
     (apresId) => {
       const pages = supabase
@@ -114,7 +107,6 @@ export async function runBatchPdfJ1Ag(
       co2_evite_kg, co2_facteurs_snapshot,
       evenements (
         nom_evenement, date_evenement, organisation_id,
-        programmeur:users!created_by ( prenom, organisation_id ),
         ${SELECT_LOGOS_EVENEMENT}
       ),
       attributions_antgaspi (
@@ -124,10 +116,12 @@ export async function runBatchPdfJ1Ag(
     `,
         )
         .eq('type', 'anti_gaspi')
-        .eq('statut', 'cloturee')
-        .lte('realisee_at', finEmbargo)
+        .in('statut', ['realisee', 'cloturee'])
         .not('evenement_id', 'is', null);
-      return (apresId ? pages.gt('id', apresId) : pages)
+      const filtrees = options.collecteId
+        ? pages.eq('id', options.collecteId)
+        : pages;
+      return (apresId ? filtrees.gt('id', apresId) : filtrees)
         .order('id', { ascending: true })
         .limit(TAILLE_PAGE);
     },
@@ -284,9 +278,8 @@ export async function runBatchPdfJ1Ag(
           | undefined
       )?.km_voiture as number | undefined;
 
-      const disponibleA = new Date(
-        new Date(collecte.realisee_at).getTime() + 24 * 3600 * 1000,
-      );
+      // Disponible tout de suite (plus d'embargo, Val 2026-11-04).
+      const disponibleA = new Date();
 
       // 6. INSERT attestations_don (snapshot figé)
       const { data: attRow, error: attErr } = await supabase
@@ -390,78 +383,6 @@ export async function runBatchPdfJ1Ag(
       // (Pas de ligne rapports_rse pour une collecte AG avec excédents : son
       // document est l'attestation, affichée « Rapport de don ». L'ancienne étape 9
       // en créait une qu'aucun rendu ne suivait — décision Val 2026-10-09.)
-
-      // 10. Email attestation_don_disponible, « Votre rapport de don est
-      // disponible » (non bloquant). Destinataire = email_principal de
-      // l'organisation programmatrice (§06.02, tranché Val 2026-09-14, symétrie
-      // rapport_disponible). evenements n'a PAS de contact_principal_email en V1 :
-      // l'ancienne lecture renvoyait toujours vide → aucune attestation n'était
-      // jamais envoyée.
-      const { data: orgaData } = await supabase
-        .from('organisations')
-        .select('email_principal, type')
-        .eq('id', ev.organisation_id)
-        .single();
-
-      const orga = orgaData as {
-        email_principal: string | null;
-        type: string | null;
-      } | null;
-      const contactEmail = orga?.email_principal;
-      if (contactEmail) {
-        const { sendEmail } = await import('@savr/shared/src/email/index.js');
-        void sendEmail(
-          'attestation_don_disponible',
-          contactEmail,
-          // Variables = celles que le gabarit déclare (migration
-          // 20261013180000) : une variable déclarée et non fournie fait refuser
-          // l'envoi (findMissingVariables). L'ancien jeu ne les fournissait
-          // pas : aucun de ces emails n'est parti (savr-dev : 24 refus le
-          // 2026-10-09, aucun envoi).
-          {
-            // Programmeur = evenements.created_by. Son prénom n'est repris que
-            // s'il appartient à l'organisation destinataire : une collecte
-            // programmée par l'équipe Savr pour le compte d'un client ne doit
-            // pas saluer ce client par le prénom d'un membre de l'équipe.
-            // '' sinon : le gabarit écrit alors « Bonjour, ».
-            // Textes saisis : échappés (le corps est du HTML interpolé tel quel).
-            prenom: escapeHtml(
-              ev.programmeur?.organisation_id === ev.organisation_id
-                ? (ev.programmeur.prenom?.trim() ?? '')
-                : '',
-            ),
-            // Événement sans nom : même repli que l'email récapitulatif de
-            // programmation. Une valeur nulle ferait refuser l'envoi.
-            nom_evenement: escapeHtml(
-              ev.nom_evenement?.trim() || 'Votre événement',
-            ),
-            date_evenement: dateEvenementStr,
-            // Association bénéficiaire et repas donnés (revue des emails, Val
-            // 2026-10-29) : phrases facultatives du gabarit si inconnus.
-            association_nom: escapeHtml(asso?.nom?.trim() ?? ''),
-            nb_repas:
-              typeof attr.volume_repas_realise === 'number' &&
-              attr.volume_repas_realise > 0
-                ? String(attr.volume_repas_realise)
-                : '',
-            lien_rapport: urlCanonique(
-              cheminFicheCollecte(orga?.type, collecte.id),
-            ),
-          },
-          { entityType: 'collectes', entityId: collecte.id },
-        ).catch((e: unknown) => {
-          // Best-effort : `void` seul laisse un rejet NON GÉRÉ qui tue le processus —
-          // un email raté (template absent, Resend KO) ne doit jamais faire tomber le
-          // batch ni priver les collectes suivantes de leurs documents. §07/01, sans
-          // destinataire dans le log.
-          logger.error('api.external.failed', {
-            service: 'resend',
-            endpoint: 'sendEmail',
-            template: 'attestation_don_disponible',
-            error: e instanceof Error ? e.message : String(e),
-          });
-        });
-      }
 
       // 11. L'attestation est partie : l'alerte « SIRET donateur manquant » posée par
       // un batch précédent n'a plus d'objet → résolue (sinon la file critique de

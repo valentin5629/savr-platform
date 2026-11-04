@@ -7,11 +7,13 @@
  * Les crons Vercel ne tournent que sur le déploiement de production : sur dev, une
  * collecte « Réalisée » n'est jamais clôturée et ses documents ne sont jamais
  * produits (mesuré le 2026-10-09 : 66 collectes dans ce cas, boutons « Télécharger »
- * grisés sur la fiche collecte). Cette commande enchaîne, dans l'ordre, les trois
+ * grisés sur la fiche collecte). Une saisie de poids par l'Admin fabrique déjà
+ * les documents de sa collecte. Cette commande enchaîne, dans l'ordre, les
  * traitements de la chaîne des documents, avec le code du dépôt :
- *   1. clôture des collectes réalisées depuis plus de 24 h (cron cloture-embargo) ;
- *   2. batchs PDF J+1 — ZD, AG, sans excédent (cron batch-pdf-j1) ;
- *   3. fabrication des PDF en file, jusqu'à file vide (cron pdf-worker).
+ *   1. clôture des collectes réalisées depuis plus de 48 h (cron cloture-embargo) ;
+ *   2. batchs PDF — ZD, AG, sans excédent (cron batch-pdf-j1) ;
+ *   3. fabrication des PDF en file, jusqu'à file vide (cron pdf-worker) ;
+ *   4. email « document disponible » des collectes clôturées (cron cloture-embargo).
  *
  * Elle ne lance QUE cela : ni l'envoi des ordres aux prestataires logistiques, ni
  * l'attribution AG, ni la facturation. Aucun email n'atteint un vrai destinataire
@@ -35,6 +37,7 @@ import { runBatchPdfJ1 } from '../packages/plateforme/src/lib/pdf/batch-pdf-j1.j
 import { runBatchPdfJ1Ag } from '../packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.js';
 import { runBatchSansExcedent } from '../packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.js';
 import { runPdfWorker } from '../packages/plateforme/src/lib/pdf/pdf-worker.js';
+import { envoyerEmailsDocumentsDisponibles } from '../packages/plateforme/src/lib/pdf/emails-documents-disponibles.js';
 
 /**
  * Lève si l'environnement ne désigne pas, sans ambiguïté, la base savr-dev.
@@ -116,6 +119,13 @@ export async function main(): Promise<void> {
   console.log(`3. PDF fabriqués : ${faits}`);
   for (const erreur of erreursPdf) console.error(`   ⚠ ${erreur}`);
   if (erreursPdf.length > 0) echec = true;
+
+  // Email « document disponible » des collectes clôturées (comme le cron de
+  // clôture), après les rendus pour qu'il trouve leurs documents.
+  const emails = await envoyerEmailsDocumentsDisponibles(supabase);
+  console.log(`4. Emails « document disponible » : ${emails.envoyes}`);
+  for (const erreur of emails.errors) console.error(`   ⚠ ${erreur}`);
+  if (emails.errors.length > 0) echec = true;
 
   if (echec) {
     throw new Error(

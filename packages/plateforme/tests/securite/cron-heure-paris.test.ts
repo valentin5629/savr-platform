@@ -22,7 +22,6 @@ const vercel = JSON.parse(
 
 /** Heure métier attendue à Paris, par cron à heure fixe. */
 const HEURE_METIER_PARIS: Record<string, number> = {
-  '/api/cron/batch-pdf-j1': 6, // batch J+1 6h (bordereaux, attestations)
   '/api/cron/batch-brouillons-j1': 6, // batch J+1 6h (brouillons de facture)
   '/api/cron/purge-logs': 4,
   '/api/cron/polling-pennylane': 3,
@@ -62,7 +61,9 @@ describe('crons Vercel — ancrés sur l’heure de Paris', () => {
       .filter((c) => /^\d+ \d+ /.test(c.schedule))
       .map((c) => c.path)
       .filter((p) => !(p in HEURE_METIER_PARIS));
-    // cloture-embargo tourne toutes les heures (`0 * * * *`) → insensible au fuseau.
+    // cloture-embargo tourne toutes les heures (`0 * * * *`) et batch-pdf-j1
+    // toutes les 15 min depuis le 2026-11-04 (documents dès que les poids sont
+    // là) → insensibles au fuseau.
     expect(nonDeclares).toEqual([]);
   });
 });

@@ -181,9 +181,12 @@ describe('M3.1 — liste Collectes traiteur : tri par défaut (§06.04 §3)', ()
         screen.getByRole('tab', { name: 'Collectes passées' }),
       );
       await waitFor(
-        () => expect(dernierAppelListe().get('to')).toBe('2026-07-07'),
+        // Aujourd'hui compris : la route le tranche à la minute (Val
+        // 2026-11-03).
+        () => expect(dernierAppelListe().get('to')).toBe('2026-07-08'),
         ATTENTE_UI,
       );
+      expect(dernierAppelListe().get('vue')).toBe('passees');
       expect(dernierAppelListe().get('from')).toBeNull();
       await waitFor(
         () => expect(ordreDesCartes(container)).toEqual(ATTENDU_DECROISSANT),

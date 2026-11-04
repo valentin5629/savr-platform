@@ -123,6 +123,8 @@ import { FileButton } from '@/components/ui/file-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { telechargerRapportRecyclage } from '@/lib/collectes/rapport-telechargement-client';
 import { Label } from '@/components/ui/label';
+import { UploadSimpleIcon } from '@/components/ui/icones';
+import { PhotosTransporteurModal } from './photos-transporteur-modal';
 import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
 import { STATUTS_ANNULES } from '@/lib/collectes/fiche-client-types';
 import { MAX_PHOTOS_CLIENT } from '@/lib/collectes/photos-client';
@@ -283,6 +285,7 @@ interface CollecteDetail {
     branche_attribution?: string | null;
     valide_at: string | null;
     volume_repas_realise: number | null;
+    poids_repas_kg?: number | null;
     associations: {
       nom: string;
       ville?: string | null;
@@ -855,6 +858,14 @@ export function CollecteDetailPanel({
   // Type d'événement et contacts de la collecte, modifiés par l'équipe Savr
   // sans motif (décisions Val 2026-10-23, B1-Q1 et B1-Q3).
   const [infosModal, setInfosModal] = useState(false);
+  // Poids des denrées AG, noté à la main par l'équipe Savr (§06.09 §5) : le
+  // nombre de repas réalisés en est calculé en base ; motif obligatoire pour
+  // corriger un poids déjà posé.
+  const [poidsModal, setPoidsModal] = useState(false);
+  const [poidsValeur, setPoidsValeur] = useState('');
+  const [poidsMotif, setPoidsMotif] = useState('');
+  const [poidsSubmitting, setPoidsSubmitting] = useState(false);
+  const [poidsError, setPoidsError] = useState<string | null>(null);
   const [infosType, setInfosType] = useState('');
   const [infosCpNom, setInfosCpNom] = useState('');
   const [infosCpTel, setInfosCpTel] = useState('');
@@ -885,6 +896,8 @@ export function CollecteDetailPanel({
   const [avecRadar, setAvecRadar] = useState(false);
   const [fabrication, setFabrication] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  // Photos du livreur relues chez A Toutes! (décision Val 2026-11-03).
+  const [photosLivreurModal, setPhotosLivreurModal] = useState(false);
   const [photoEnCours, setPhotoEnCours] = useState<string | null>(null);
   const nbPhotosClient = (documents?.photos ?? []).filter(
     (p) => p.visible_client,
@@ -1452,6 +1465,53 @@ export function CollecteDetailPanel({
     setAcceptationSubmitting(false);
   };
 
+  const openPoidsModal = () => {
+    const actuel = collecte?.attributions_antgaspi?.poids_repas_kg;
+    setPoidsValeur(actuel != null ? String(actuel) : '');
+    setPoidsMotif('');
+    setPoidsError(null);
+    setPoidsModal(true);
+  };
+
+  const handleSavePoids = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPoidsSubmitting(true);
+    setPoidsError(null);
+    try {
+      const res = await fetch(
+        `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/poids`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            poids_repas_kg: Number(poidsValeur.replace(',', '.')),
+            motif: poidsMotif,
+          }),
+        },
+      );
+      if (res.ok) {
+        // Repas recalculés, rapport de don refait, ligne d'audit : les trois
+        // onglets se relisent.
+        await refetch();
+        void refetchDocuments();
+        void refetchAudit();
+        setPoidsModal(false);
+      } else {
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setPoidsError(body.error ?? 'Enregistrement impossible');
+        // Un poids posé entre-temps rend le motif obligatoire : la fiche se
+        // relit pour faire apparaître le champ.
+        if (res.status === 422) await refetch();
+      }
+    } catch {
+      setPoidsError('Enregistrement impossible : vérifiez votre connexion.');
+    } finally {
+      setPoidsSubmitting(false);
+    }
+  };
+
   const openEditPesees = () => {
     if (!collecte) return;
     const prefill: Record<string, string> = {};
@@ -1683,7 +1743,9 @@ export function CollecteDetailPanel({
     nbCamionsModal ||
     paxModal ||
     infosModal ||
-    acceptationModal;
+    poidsModal ||
+    acceptationModal ||
+    photosLivreurModal;
   if (blockCloseRef) blockCloseRef.current = anySubModalOpen;
 
   if (loading) {
@@ -2432,6 +2494,29 @@ export function CollecteDetailPanel({
                         <InfoItem label="Volume de repas estimés">
                           {collecte.volume_estime_repas ?? '—'}
                         </InfoItem>
+                        {repasRealisesConnus &&
+                          collecte.statut !== 'realisee_sans_collecte' && (
+                            <InfoItem label="Poids collecté">
+                              <span className="flex flex-wrap items-center gap-3">
+                                <span data-testid="poids-collecte-valeur">
+                                  {collecte.attributions_antgaspi
+                                    ?.poids_repas_kg != null
+                                    ? fmtKgAuto(
+                                        collecte.attributions_antgaspi
+                                          .poids_repas_kg,
+                                      )
+                                    : '—'}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={openPoidsModal}
+                                >
+                                  Modifier
+                                </Button>
+                              </span>
+                            </InfoItem>
+                          )}
                         {repasRealisesConnus && (
                           <InfoItem label="Volume de repas réalisés">
                             {collecte.statut === 'realisee_sans_collecte'
@@ -3468,17 +3553,31 @@ export function CollecteDetailPanel({
                   <Text variant="body" className="font-medium">
                     Photos ({documents?.photos?.length ?? 0})
                   </Text>
-                  <FileButton
-                    id="collecte-import-photo"
-                    variant="link"
-                    accept="image/png,image/jpeg,image/webp"
-                    loading={photoUploading}
-                    loadingText="Import…"
-                    onFile={(f) => void handleImportPhoto(f)}
-                    className="h-auto gap-1 px-0 font-normal sm:h-auto"
-                  >
-                    Importer des photos
-                  </FileButton>
+                  {/* A Toutes! : on choisit parmi les photos du livreur, plus
+                      d'import depuis l'ordinateur (décision Val 2026-11-03).
+                      Autres transporteurs : import depuis l'ordinateur. */}
+                  {collecte.prestataire_actuel?.type_tms === 'a_toutes' ? (
+                    <Button
+                      variant="link"
+                      onClick={() => setPhotosLivreurModal(true)}
+                      className="h-auto gap-1 px-0 font-normal sm:h-auto"
+                    >
+                      <UploadSimpleIcon aria-hidden="true" />
+                      Importer des photos
+                    </Button>
+                  ) : (
+                    <FileButton
+                      id="collecte-import-photo"
+                      variant="link"
+                      accept="image/png,image/jpeg,image/webp"
+                      loading={photoUploading}
+                      loadingText="Import…"
+                      onFile={(f) => void handleImportPhoto(f)}
+                      className="h-auto gap-1 px-0 font-normal sm:h-auto"
+                    >
+                      Importer des photos
+                    </FileButton>
+                  )}
                 </div>
                 {documents?.photos && documents.photos.length > 0 ? (
                   <>
@@ -3697,6 +3796,71 @@ export function CollecteDetailPanel({
         )}
       </ConfirmDialog>
 
+      {/* Modale — Poids collecté AG (§06.09 §5) */}
+      <Modal
+        open={poidsModal}
+        title="Poids collecté"
+        onClose={() => setPoidsModal(false)}
+      >
+        {poidsError && (
+          <AlertBar variant="err" className="mb-4">
+            {poidsError}
+          </AlertBar>
+        )}
+        <form onSubmit={(e) => void handleSavePoids(e)} className="space-y-4">
+          <Text>
+            Le nombre de repas réalisés est calculé à partir de ce poids. Si ce
+            nombre change, le rapport de don déjà produit est refait et le CO₂e
+            évité recalculé.
+          </Text>
+          <FormField
+            label="Poids des denrées collectées (kg)"
+            htmlFor="poids-collecte-input"
+            required
+          >
+            <Input
+              id="poids-collecte-input"
+              type="number"
+              inputMode="decimal"
+              min={0.1}
+              step={0.1}
+              value={poidsValeur}
+              onChange={(e) => setPoidsValeur(e.target.value)}
+              required
+            />
+          </FormField>
+          {collecte.attributions_antgaspi?.poids_repas_kg != null && (
+            <FormField
+              label="Motif de la correction (≥ 10 caractères)"
+              htmlFor="poids-collecte-motif"
+              required
+            >
+              <Textarea
+                id="poids-collecte-motif"
+                value={poidsMotif}
+                onChange={(e) => setPoidsMotif(e.target.value)}
+                rows={3}
+                minLength={10}
+                required
+              />
+            </FormField>
+          )}
+          <FormActions
+            cancel={{ label: 'Retour', onClick: () => setPoidsModal(false) }}
+            submit={{
+              label: 'Enregistrer',
+              disabled:
+                !(Number(poidsValeur.replace(',', '.')) > 0) ||
+                (collecte.attributions_antgaspi?.poids_repas_kg != null &&
+                  poidsMotif.trim().length < 10),
+            }}
+            loading={poidsSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
+        </form>
+      </Modal>
+
       {/* Modale — Forcer le statut (RM-08) */}
       <Modal
         open={forceStatutModal}
@@ -3771,6 +3935,17 @@ export function CollecteDetailPanel({
       </Modal>
 
       {/* Modale — Acceptation manuelle mission Everest (§06.06 §3 Bloc 0) */}
+      <PhotosTransporteurModal
+        open={photosLivreurModal}
+        collecteId={collecteId}
+        onClose={() => setPhotosLivreurModal(false)}
+        onImported={async (message) => {
+          toast({ title: message });
+          await refetchDocuments();
+          await refetchAudit();
+        }}
+      />
+
       <Modal
         open={acceptationModal}
         title="Acceptation manuelle — A Toutes!"

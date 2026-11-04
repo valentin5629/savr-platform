@@ -3478,6 +3478,138 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
+  // Poids des denrées AG noté à la main par l'équipe Savr (§06.09 §5) : le
+  // nombre de repas en est calculé en base, il reste en lecture seule.
+  it(
+    'M0.6/poids_ag_saisie_admin — 1re saisie du poids sans motif, envoyée à la route /poids',
+    async () => {
+      const fetchMock = installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
+
+      const poids = valeurResumeAttribution('Poids collecté');
+      expect(
+        within(poids).getByTestId('poids-collecte-valeur'),
+      ).toHaveTextContent(/^—$/);
+      // Le nombre de repas ne se saisit pas : seul le poids a un bouton.
+      expect(
+        within(valeurResumeAttribution('Volume de repas réalisés')).queryByRole(
+          'button',
+        ),
+      ).toBeNull();
+
+      fireEvent.click(within(poids).getByRole('button', { name: 'Modifier' }));
+      const champ = await screen.findByLabelText(
+        /Poids des denrées collectées/,
+        undefined,
+        ATTENTE_UI,
+      );
+      // 1re saisie : pas de motif demandé.
+      expect(screen.queryByLabelText(/Motif de la correction/)).toBeNull();
+      fireEvent.change(champ, { target: { value: '18.9' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          ([url, init]) =>
+            String(url).endsWith('/attributions-ag/c1/poids') &&
+            init?.method === 'PATCH',
+        );
+        expect(patch).toBeDefined();
+        expect(JSON.parse(String(patch?.[1]?.body))).toEqual({
+          poids_repas_kg: 18.9,
+          motif: '',
+        });
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/poids_ag_correction_admin — corriger un poids déjà posé exige un motif',
+    async () => {
+      installMock({
+        collecte: {
+          ...baseAg,
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            poids_repas_kg: 18.9,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
+
+      const poids = valeurResumeAttribution('Poids collecté');
+      expect(
+        within(poids).getByTestId('poids-collecte-valeur'),
+      ).toHaveTextContent(/^18,9\s?kg$/);
+      fireEvent.click(within(poids).getByRole('button', { name: 'Modifier' }));
+      const champ = await screen.findByLabelText(
+        /Poids des denrées collectées/,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(champ).toHaveValue(18.9);
+      fireEvent.change(champ, { target: { value: '20' } });
+      const enregistrer = screen.getByRole('button', { name: 'Enregistrer' });
+      expect(enregistrer).toBeDisabled();
+      fireEvent.change(screen.getByLabelText(/Motif de la correction/), {
+        target: { value: 'Pesée relue sur les photos' },
+      });
+      expect(enregistrer).toBeEnabled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/poids_ag_erreur_route — refus de la route affiché dans la fenêtre, qui reste ouverte',
+    async () => {
+      const fetchMock = installMock({});
+      const defaut = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(
+        (url: string, init?: { method?: string; body?: unknown }) =>
+          url.endsWith('/poids') && init?.method === 'PATCH'
+            ? Promise.resolve({
+                ok: false,
+                status: 422,
+                json: async () => ({ error: 'Motif requis pour corriger' }),
+              })
+            : defaut(url, init),
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Prestataire et Dispatch', undefined, ATTENTE_UI);
+
+      fireEvent.click(
+        within(valeurResumeAttribution('Poids collecté')).getByRole('button', {
+          name: 'Modifier',
+        }),
+      );
+      const champ = await screen.findByLabelText(
+        /Poids des denrées collectées/,
+        undefined,
+        ATTENTE_UI,
+      );
+      fireEvent.change(champ, { target: { value: '12' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      expect(
+        await screen.findByText(
+          'Motif requis pour corriger',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(/Poids des denrées collectées/),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // « Sans excédent » se lit là où se lisent les repas d'une collecte AG, pas
   // dans son statut (décision Val 2026-10-09).
   it(
@@ -3500,6 +3632,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         valeurResumeAttribution('Volume de repas réalisés'),
       ).toHaveTextContent(/^Sans excédent$/);
+      // Sans excédent : aucun poids à noter.
+      expect(screen.queryByText('Poids collecté')).toBeNull();
       const pastille = screen.getByTestId('statut-collecte-admin');
       expect(pastille).toHaveTextContent(/^Réalisée$/);
       expect(pastille).not.toHaveTextContent(/exc[ée]dent/i);
@@ -3534,6 +3668,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         valeurResumeAttribution('Volume de repas estimés'),
       ).toHaveTextContent(/^50$/);
       expect(screen.queryByText('Volume de repas réalisés')).toBeNull();
+      expect(screen.queryByText('Poids collecté')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -3600,6 +3735,95 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         expect(call).toBeTruthy();
         expect((call![1] as { body?: unknown }).body instanceof FormData).toBe(
           true,
+        );
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Décision Val 2026-11-03 : collecte A Toutes! = choix parmi les photos du
+  // livreur, plus d'import depuis l'ordinateur.
+  it(
+    'M0.6 — Bloc 3 A Toutes! : « Importer des photos » ouvre le choix des photos du livreur et importe les seules cochées',
+    async () => {
+      const ID_A = 'a'.repeat(64);
+      const ID_B = 'b'.repeat(64);
+      const fetchMock = installMock({
+        collecte: {
+          ...baseAg,
+          prestataire_actuel: {
+            transporteur_id: 't-atoutes',
+            nom: 'A Toutes!',
+            type_tms: 'a_toutes',
+          },
+        },
+      });
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((url, init) => {
+        if (String(url).endsWith('/photos/transporteur')) {
+          const post = init?.method === 'POST';
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () =>
+              post
+                ? { importees: 1, deja_importees: 0, echecs: 0 }
+                : {
+                    photos: [
+                      {
+                        id: ID_A,
+                        url: 'https://s3.exemple.test/a.jpg',
+                        prise_le: null,
+                        course: 1,
+                        deja_importee: false,
+                      },
+                      {
+                        id: ID_B,
+                        url: 'https://s3.exemple.test/b.jpg',
+                        prise_le: null,
+                        course: 1,
+                        deja_importee: true,
+                      },
+                    ],
+                  },
+          });
+        }
+        return base(url, init);
+      });
+      const { container } = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
+
+      // Plus de sélecteur de fichier pour les photos.
+      expect(container.querySelector('#collecte-import-photo')).toBeNull();
+      fireEvent.click(
+        screen.getByRole('button', { name: /Importer des photos/ }),
+      );
+
+      const dialogue = await screen.findByRole(
+        'dialog',
+        {
+          name: 'Photos du livreur',
+        },
+        ATTENTE_UI,
+      );
+      await within(dialogue).findByText('Déjà importée', undefined, ATTENTE_UI);
+      const cases = within(dialogue).getAllByRole('checkbox');
+      expect(cases[1]).toBeDisabled();
+      fireEvent.click(cases[0]!);
+      fireEvent.click(
+        within(dialogue).getByRole('button', { name: 'Importer 1 photo' }),
+      );
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          ([u, i]) =>
+            String(u).endsWith('/photos/transporteur') &&
+            (i as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        expect(JSON.parse(String((post![1] as { body: string }).body))).toEqual(
+          { ids: [ID_A] },
         );
       }, ATTENTE_UI);
     },

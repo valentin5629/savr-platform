@@ -10,6 +10,10 @@ import {
   lireFiltresListeCollectes,
 } from '@/lib/collectes/liste-collectes-client.js';
 import { inTextes } from '@/lib/filtre-csv.js';
+import {
+  creneauDeLaVue,
+  lireVueCollectes,
+} from '@/lib/collectes/vue-temporelle.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -37,6 +41,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const type = searchParams.get('type'); // 'zero_dechet' | 'anti_gaspi'
   const from = searchParams.get('from');
   const to = searchParams.get('to');
+  const vue = lireVueCollectes(searchParams.get('vue'));
   const filtres = lireFiltresListeCollectes(searchParams);
   // Drill-down « Top 5 commerciaux » du dashboard → filtre sur le commercial
   // créateur (evenements.created_by). Reste scopé org par la RLS col_select.
@@ -81,6 +86,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (filtres.statuts.length > 0) query = query.in('statut', filtres.statuts);
   if (from) query = query.gte('date_collecte', from);
   if (to) query = query.lte('date_collecte', to);
+  // Vue « à venir / passées » : rangée au créneau, à la minute (Val 2026-11-03).
+  if (vue) query = query.or(creneauDeLaVue(vue, new Date()));
   if (filtres.lieuIds.length > 0)
     query = query.in('evenements.lieu_id', filtres.lieuIds);
   if (commercialId) query = query.eq('evenements.created_by', commercialId);

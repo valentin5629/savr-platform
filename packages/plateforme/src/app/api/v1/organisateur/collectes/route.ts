@@ -5,6 +5,10 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import {
+  creneauDeLaVue,
+  lireVueCollectes,
+} from '@/lib/collectes/vue-temporelle.js';
 
 const ORGANISATEUR_ROLES: ClientRole[] = ['client_organisateur'];
 
@@ -25,6 +29,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const type = searchParams.get('type');
   const from = searchParams.get('from');
   const to = searchParams.get('to');
+  const vue = lireVueCollectes(searchParams.get('vue'));
 
   let query = supabase
     .from('collectes')
@@ -48,6 +53,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
   if (from) query = query.gte('date_collecte', from);
   if (to) query = query.lte('date_collecte', to);
+  // Vue « à venir / passées » : rangée au créneau, à la minute (Val 2026-11-03).
+  if (vue) query = query.or(creneauDeLaVue(vue, new Date()));
 
   const { data, error } = await query;
   if (error) return serverError(error, 'organisateur.collectes.list');

@@ -38,6 +38,21 @@ export interface EverestMissionDetail {
   statut_code?: string | null;
   /** Catégorie de l'étape, lue sur les drapeaux `is_*` de la mission relue. */
   etape?: EtapeMissionEverest | null;
+  /** Photos prises par le coursier (`medias` de type `photo`), dans l'ordre. */
+  photos?: PhotoMissionEverest[];
+}
+
+/**
+ * Photo prise par le coursier, lue dans `medias` de la mission relue (forme
+ * mesurée sur le compte A Toutes! le 2026-11-03 : `id` numérique, `type`
+ * `photo`, `src` adresse publique, `date` en secondes). Les autres médias
+ * (signatures…) ne sont pas des photos de la collecte.
+ */
+export interface PhotoMissionEverest {
+  id: string;
+  src: string;
+  /** Prise de vue, ISO 8601, ou null si la mission ne la donne pas. */
+  prise_le: string | null;
 }
 
 /**
@@ -72,6 +87,14 @@ export interface EverestHandlers {
   getMission: (
     missionId: string,
   ) => Promise<EverestResult<EverestMissionDetail>>;
+  /** Téléchargement d'une photo de mission. Absent : une image simulée. */
+  downloadPhoto?: (src: string) => Promise<PhotoTelechargee>;
+}
+
+/** Une photo téléchargée : son contenu et son type, lu sur la réponse. */
+export interface PhotoTelechargee {
+  contenu: Buffer;
+  content_type: string;
 }
 
 let _handlers: EverestHandlers | null = null;

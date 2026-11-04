@@ -415,10 +415,13 @@ export default function CollectesPage() {
     // Période de la barre bornée à la vue — sauf sous une pastille « à
     // venir » : une file d'action garde ses collectes en retard (décision Val
     // 2026-10-19), son chiffre reste celui de la liste.
-    const periode =
-      tab === 'a_venir' && quickFilter
-        ? { from, to }
-        : periodeDeLaVue(tab, { from, to }, aujourdhui);
+    // Hors pastille, aujourd'hui est partagé à la minute par la route (Val
+    // 2026-11-03).
+    const fileAction = tab === 'a_venir' && quickFilter;
+    const periode = fileAction
+      ? { from, to }
+      : periodeDeLaVue(tab, { from, to }, aujourdhui, { jourPartage: true });
+    if (!fileAction) params.set('vue', tab);
     // Type (segmenté) : même paramètre CSV qu'avant, absent pour « Toutes ».
     if (type !== 'tous') params.set('types', type);
 

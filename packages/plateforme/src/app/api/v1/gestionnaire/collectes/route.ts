@@ -11,6 +11,10 @@ import {
   lireFiltresCollectesGestionnaire,
 } from '@/lib/collectes-gestionnaire.js';
 import { parsePage } from '@/lib/pagination.js';
+import {
+  creneauDeLaVue,
+  lireVueCollectes,
+} from '@/lib/collectes/vue-temporelle.js';
 import { lireTri } from '@/lib/tri-liste.js';
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
@@ -116,6 +120,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const statut = sp.get('statut');
   const from = sp.get('from');
   const to = sp.get('to');
+  const vue = lireVueCollectes(sp.get('vue'));
   // Lieu, Traiteur, Type et Taille d'événement : lus par la même fonction que
   // l'export CSV de la liste (`lib/collectes-gestionnaire`).
   const { lieuIds, traiteurIds, typeEvtIds, predicatsTaille, aucunResultat } =
@@ -169,6 +174,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (statut) q = q.eq('statut', statut);
     if (from) q = q.gte('date_collecte', from);
     if (to) q = q.lte('date_collecte', to);
+    // Vue « à venir / passées » : rangée au créneau, à la minute (Val 2026-11-03).
+    if (vue) q = q.or(creneauDeLaVue(vue, new Date()));
     if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
     if (traiteurIds.length > 0)
       q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);

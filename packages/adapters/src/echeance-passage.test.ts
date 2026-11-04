@@ -178,6 +178,8 @@ describe('M1.5a / passage borné — cliquets sur les clients prestataires', () 
     expect(
       appels.filter((a) => a.garde).map((a) => `${a.fichier} | ${a.ligne}`),
     ).toEqual([
+      // Photo du coursier, importée par l'Admin (décision Val 2026-11-03).
+      'everest/client.ts | resp = await fetch(src, {',
       'everest/client.ts | return fetch(`${this.baseUrl}${path}`, {',
       'mts1/client.ts | res = await globalThis.fetch(`${this.baseUrl}${path}`, {',
     ]);
@@ -192,9 +194,9 @@ describe('M1.5a / passage borné — cliquets sur les clients prestataires', () 
       ].map((m) => Number(m[1]!.replaceAll('_', '')));
     });
 
-    // 3 délais côté MTS-1 (healthcheck, photo, appels), 1 côté Everest (toutes
-    // ses routes sont des POST, sans appel à /auth).
-    expect(delais).toHaveLength(4);
+    // 3 délais côté MTS-1 (healthcheck, photo, appels), 2 côté Everest (ses
+    // routes, toutes des POST sans appel à /auth, et la photo du coursier).
+    expect(delais).toHaveLength(5);
     expect(Math.max(...delais)).toBe(DUREE_MAX_APPEL_MS);
   });
 });

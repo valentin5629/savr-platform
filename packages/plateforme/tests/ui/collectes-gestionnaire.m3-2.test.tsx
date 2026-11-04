@@ -759,6 +759,8 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         );
         expect(aVenir.get('from')).toBe('2026-07-08');
         expect(aVenir.get('to')).toBeNull();
+        // Aujourd'hui est tranché à la minute par la route (Val 2026-11-03).
+        expect(aVenir.get('vue')).toBe('a_venir');
         expect(aVenir.get('tri')).toBe('date');
         expect(aVenir.get('ordre')).toBe('asc');
 
@@ -770,7 +772,8 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         const passees = new URLSearchParams(
           urls[urls.length - 1]!.split('?')[1],
         );
-        expect(passees.get('to')).toBe('2026-07-07');
+        expect(passees.get('to')).toBe('2026-07-08');
+        expect(passees.get('vue')).toBe('passees');
         expect(passees.get('from')).toBeNull();
         expect(passees.get('ordre')).toBe('desc');
         expect(new URLSearchParams(window.location.search).get('onglet')).toBe(
@@ -784,7 +787,8 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         const exportQs = new URLSearchParams(
           String(ouvrir.mock.calls.at(-1)?.[0] ?? '').split('?')[1],
         );
-        expect(exportQs.get('to')).toBe('2026-07-07');
+        expect(exportQs.get('to')).toBe('2026-07-08');
+        expect(exportQs.get('vue')).toBe('passees');
         expect(exportQs.get('from')).toBeNull();
       } finally {
         vi.useRealTimers();

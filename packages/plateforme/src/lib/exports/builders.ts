@@ -35,6 +35,10 @@ import {
   type FiltresCollectesAdmin,
 } from '@/lib/collectes-admin.js';
 import {
+  creneauDeLaVue,
+  lireVueCollectes,
+} from '@/lib/collectes/vue-temporelle.js';
+import {
   statutCollecteAdmin,
   type EnvoiCollecte,
 } from '@/lib/statut-collecte-admin.js';
@@ -88,6 +92,9 @@ export async function buildCollectesExport(
   const type = sp.get('type');
   const from = sp.get('from');
   const to = sp.get('to');
+  // Vue « à venir / passées » des listes clientes : rangée au créneau, à la
+  // minute (Val 2026-11-03) — l'Admin la lit dans ses propres filtres.
+  const vue = lireVueCollectes(sp.get('vue'));
   // Filtres de la barre des listes Collectes traiteur / agence (§12 « l'export
   // respecte les filtres actifs ») — lus par la MÊME fonction que leurs routes.
   const filtres = lireFiltresListeCollectes(sp);
@@ -177,6 +184,7 @@ export async function buildCollectesExport(
     if (filtres.statuts.length > 0) q = q.in('statut', filtres.statuts);
     if (from) q = q.gte('date_collecte', from);
     if (to) q = q.lte('date_collecte', to);
+    if (vue) q = q.or(creneauDeLaVue(vue, maintenant));
     if (filtres.lieuIds.length > 0)
       q = q.in('evenements.lieu_id', filtres.lieuIds);
     if (filtres.clients.length > 0)

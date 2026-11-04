@@ -5,6 +5,10 @@ import {
   isChipKey,
   type ChipQuery,
 } from '@/lib/collectes-chips.js';
+import {
+  creneauDeLaVue,
+  lireVueCollectes,
+} from '@/lib/collectes/vue-temporelle.js';
 import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
 import { filtreStatutsAdmin } from '@/lib/statut-collecte-admin.js';
 
@@ -38,6 +42,9 @@ export function lireFiltresCollectesAdmin(sp: URLSearchParams) {
     chip: sp.get('chip'),
     from: sp.get('from'),
     to: sp.get('to'),
+    // Vue « à venir / passées » : rangée au créneau, à la minute (Val
+    // 2026-11-03). Absente sous une pastille « à venir » (file d'action).
+    vue: lireVueCollectes(sp.get('vue')),
     organisationId: sp.get('organisation_id'), // organisation programmatrice
     // Filtre « traiteur » = traiteur OPÉRATIONNEL (décision Val R24c : un
     // traiteur = son activité d'opérateur, y compris sous-traité pour une
@@ -122,6 +129,7 @@ export function appliquerFiltresCollectesAdmin<Q>(
   if (f.statutTms) q = q.eq('statut_tms', f.statutTms);
   if (f.from) q = q.gte('date_collecte', f.from);
   if (f.to) q = q.lte('date_collecte', f.to);
+  if (f.vue) q = q.or(creneauDeLaVue(f.vue, now));
   if (f.organisationId)
     q = q.eq('evenements.organisation_id', f.organisationId);
   if (f.traiteurOperationnelIds.length > 0)

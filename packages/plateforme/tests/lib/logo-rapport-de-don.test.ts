@@ -74,6 +74,30 @@ describe('completerLogoAttestation', () => {
     );
   });
 
+  it('poids corrigé : le poids de la nouvelle version remplace celui repris par le trigger', async () => {
+    const s = sb([
+      { data: { collecte_id: 'c1', poids_kg: '20.000' } },
+      logos('cle-deposee'),
+    ]);
+    const p = await completerLogoAttestation(s as never, 'att-2', {
+      numero: 'x',
+      poids_kg: 18.9,
+    });
+    expect(p.poids_kg).toBe(20);
+    expect(p.logo_client_url).toBe('data:image/png;base64,cle-deposee');
+  });
+
+  it('poids corrigé gardé même si la lecture du logo échoue', async () => {
+    const s = sb([
+      { data: { collecte_id: 'c1', poids_kg: 20 } },
+      { error: { message: 'x' } },
+    ]);
+    const p = await completerLogoAttestation(s as never, 'att-2', {
+      poids_kg: 18.9,
+    });
+    expect(p).toEqual({ poids_kg: 20 });
+  });
+
   it('le worker PDF complète le logo des attestations avant le rendu', () => {
     const src = readFileSync(
       fileURLToPath(

@@ -1,0 +1,41 @@
+# Mises à jour des dépendances : une PR groupée par mois et par entrée (npm
+# racine, renderer PDF, actions). npm : versions majeures exclues (elles se
+# font à la main, avec relecture). Actions : référencées par leur version
+# majeure (@v4), elles ne reçoivent que des montées majeures, à relire.
+# Les ALERTES de sécurité et les PR de correctif de sécurité se règlent dans
+# les paramètres du dépôt (Settings → Code security), pas dans ce fichier.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      dependances:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+  # Renderer PDF : son propre package-lock.json (npm ci sur Railway).
+  - package-ecosystem: npm
+    directory: /apps/pdf-renderer
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      renderer:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      actions:
+        patterns: ['*']

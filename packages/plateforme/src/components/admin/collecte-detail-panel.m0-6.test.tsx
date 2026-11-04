@@ -3741,6 +3741,95 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
+  // Décision Val 2026-11-03 : collecte A Toutes! = choix parmi les photos du
+  // livreur, plus d'import depuis l'ordinateur.
+  it(
+    'M0.6 — Bloc 3 A Toutes! : « Importer des photos » ouvre le choix des photos du livreur et importe les seules cochées',
+    async () => {
+      const ID_A = 'a'.repeat(64);
+      const ID_B = 'b'.repeat(64);
+      const fetchMock = installMock({
+        collecte: {
+          ...baseAg,
+          prestataire_actuel: {
+            transporteur_id: 't-atoutes',
+            nom: 'A Toutes!',
+            type_tms: 'a_toutes',
+          },
+        },
+      });
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((url, init) => {
+        if (String(url).endsWith('/photos/transporteur')) {
+          const post = init?.method === 'POST';
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () =>
+              post
+                ? { importees: 1, deja_importees: 0, echecs: 0 }
+                : {
+                    photos: [
+                      {
+                        id: ID_A,
+                        url: 'https://s3.exemple.test/a.jpg',
+                        prise_le: null,
+                        course: 1,
+                        deja_importee: false,
+                      },
+                      {
+                        id: ID_B,
+                        url: 'https://s3.exemple.test/b.jpg',
+                        prise_le: null,
+                        course: 1,
+                        deja_importee: true,
+                      },
+                    ],
+                  },
+          });
+        }
+        return base(url, init);
+      });
+      const { container } = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
+
+      // Plus de sélecteur de fichier pour les photos.
+      expect(container.querySelector('#collecte-import-photo')).toBeNull();
+      fireEvent.click(
+        screen.getByRole('button', { name: /Importer des photos/ }),
+      );
+
+      const dialogue = await screen.findByRole(
+        'dialog',
+        {
+          name: 'Photos du livreur',
+        },
+        ATTENTE_UI,
+      );
+      await within(dialogue).findByText('Déjà importée', undefined, ATTENTE_UI);
+      const cases = within(dialogue).getAllByRole('checkbox');
+      expect(cases[1]).toBeDisabled();
+      fireEvent.click(cases[0]!);
+      fireEvent.click(
+        within(dialogue).getByRole('button', { name: 'Importer 1 photo' }),
+      );
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          ([u, i]) =>
+            String(u).endsWith('/photos/transporteur') &&
+            (i as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        expect(JSON.parse(String((post![1] as { body: string }).body))).toEqual(
+          { ids: [ID_A] },
+        );
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // Décisions Val 2026-10-07 : le client ne voit que les photos choisies par
   // l'équipe Savr dans cette galerie, 2 au maximum.
   const photo = (id: string, visible_client: boolean) => ({

@@ -30,6 +30,7 @@ import {
   jourParis,
 } from '@savr/shared/src/temps/index.js';
 import { ROUTES } from '@/lib/routes';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 export interface BatchPdfJ1Result {
   enqueued: number;
@@ -338,7 +339,7 @@ export async function runBatchPdfJ1(
         .single();
 
       if (bordErr || !bordereauRow) {
-        throw new Error(`INSERT bordereaux_savr : ${bordErr?.message}`);
+        throw erreurInterne(bordErr, 'pdf.batch_zd.insert_bordereau');
       }
 
       // 7. Créer la ligne rapports_rse : le rapport devient téléchargeable (fabriqué
@@ -356,7 +357,7 @@ export async function runBatchPdfJ1(
         .single();
 
       if (rseErr || !rapportRow) {
-        throw new Error(`INSERT rapports_rse : ${rseErr?.message}`);
+        throw erreurInterne(rseErr, 'pdf.batch_zd.insert_rapport');
       }
 
       // 8. Enqueuer le job bordereau
@@ -415,7 +416,7 @@ async function lireFlux(
     )
     .eq('collecte_id', collecteId)
     .order('flux_id', { ascending: true });
-  if (error) throw new Error(`Lecture collecte_flux : ${error.message}`);
+  if (error) throw erreurInterne(error, 'pdf.batch_zd.lecture_flux');
 
   const fluxDetails = (flux ?? []).map((f: Record<string, unknown>) => ({
     nom: (f.flux as { nom: string } | null)?.nom ?? String(f.flux_id),
@@ -467,7 +468,7 @@ async function refaireSiPeseesChangees(
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (jobErr) throw new Error(`Lecture du dernier rendu : ${jobErr.message}`);
+  if (jobErr) throw erreurInterne(jobErr, 'pdf.batch_zd.lecture_rendu');
   if (!dernierJob) throw new Error('Bordereau émis sans rendu antérieur');
 
   const payload = {
@@ -500,10 +501,10 @@ async function refaireSiPeseesChangees(
       .eq('entity_id', bordereau.id)
       .eq('statut', 'pending')
       .select('id');
-    if (repErr) throw new Error(`Rendu en attente : ${repErr.message}`);
+    if (repErr) throw erreurInterne(repErr, 'pdf.batch_zd.rendu_en_attente');
     if (!repris?.length) return false;
   } else if (insErr) {
-    throw new Error(`Mise en file : ${insErr.message}`);
+    throw erreurInterne(insErr, 'pdf.batch_zd.mise_en_file');
   }
 
   const { error: majErr } = await supabase
@@ -514,6 +515,6 @@ async function refaireSiPeseesChangees(
       version: bordereau.version + 1,
     })
     .eq('id', bordereau.id);
-  if (majErr) throw new Error(`Mise à jour bordereau : ${majErr.message}`);
+  if (majErr) throw erreurInterne(majErr, 'pdf.batch_zd.maj_bordereau');
   return true;
 }

@@ -30,6 +30,7 @@ import {
   cleLogoAttestation,
   type LogosEvenementRow,
 } from './logo-rapport-de-don.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 export interface BatchPdfJ1AgResult {
   enqueued: number;
@@ -316,7 +317,7 @@ export async function runBatchPdfJ1Ag(
         .single();
 
       if (attErr || !attRow) {
-        throw new Error(`INSERT attestations_don : ${attErr?.message}`);
+        throw erreurInterne(attErr, 'pdf.batch_ag.insert_attestation');
       }
 
       const attestationId = (attRow as { id: string }).id;

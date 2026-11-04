@@ -519,7 +519,9 @@ describe('M2.4 / BatchPdfJ1Ag / Sélection vide', () => {
     const result = await runBatchPdfJ1Ag(sb as never);
 
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain('connection timeout');
+    // Message de la base journalisé, jamais recopié (check-api-error-leak).
+    expect(result.errors[0]).toContain('échec de lecture');
+    expect(result.errors[0]).not.toContain('connection timeout');
   });
 });
 

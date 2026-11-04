@@ -15,6 +15,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { runBatchPdfJ1 } from './batch-pdf-j1.js';
 import { runBatchPdfJ1Ag } from './batch-pdf-j1-ag.js';
 import { runPdfWorker } from './pdf-worker.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 type ClientService = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -68,7 +69,7 @@ export async function fabriquer(
     .from(table)
     .select('id')
     .eq('collecte_id', collecteId);
-  if (error) throw new Error(`Lecture des documents : ${error.message}`);
+  if (error) throw erreurInterne(error, 'pdf.documents_sans_attendre.lecture');
   const entityIds = (documents ?? []).map((d: { id: string }) => d.id);
 
   for (let i = 0; i < PASSAGES_RENDU_MAX; i++) {

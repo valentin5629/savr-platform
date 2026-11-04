@@ -383,7 +383,8 @@ describe('M1.6 / batch ZD — 402 collectes clôturées (volume qui cassait savr
 
     expect(result.fatal).toMatchObject({
       etape: 'selection',
-      message: 'Sélection bordereaux existants : TypeError: fetch failed',
+      // Message de la base journalisé, jamais recopié (check-api-error-leak).
+      message: 'Sélection bordereaux existants : échec de lecture',
     });
     expect(result.enqueued).toBe(0);
     expect(base.ecritures()).toEqual([]);

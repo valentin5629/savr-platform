@@ -207,7 +207,10 @@ for (const cas of CAS_SELECTION) {
       expect(alertes[0]!.titre).toBe('Job cron critique échoué');
       expect(alertes[0]!.metadata?.job_name).toBe(cas.jobName);
       expect(alertes[0]!.metadata?.etape).toBe('selection');
-      expect(alertes[0]!.message).toContain('more than one relationship');
+      // Le code, pas le message de la base : les batchs sont aussi appelés depuis
+      // des routes Admin (check-api-error-leak) ; le message reste au journal.
+      expect(alertes[0]!.message).toContain('PGRST201');
+      expect(alertes[0]!.message).not.toContain('more than one relationship');
 
       // Isolation : les deux autres sous-batchs ne sont pas contaminés.
       for (const autre of JOBS.filter((j) => j !== cas.jobName)) {

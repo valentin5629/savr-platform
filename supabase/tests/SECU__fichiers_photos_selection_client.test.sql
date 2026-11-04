@@ -233,8 +233,11 @@ SELECT throws_ok($$UPDATE shared.fichiers SET rang_client = 1
 SELECT ok((SELECT qual LIKE '%rang_client IS NOT NULL%' FROM pg_policies
             WHERE schemaname = 'shared' AND tablename = 'fichiers' AND policyname = 'fichiers_select'),
   '33 la policy fichiers_select exige rang_client pour les photos de collecte');
-SELECT is((SELECT count(*)::int FROM pg_policies WHERE schemaname = 'shared' AND tablename = 'fichiers'), 2,
-  '34 shared.fichiers : exactement 2 policies (fichiers_select, fichiers_admin_write) — aucune autre ne peut rouvrir la lecture');
+-- Policies PERMISSIVES seules : la restrictive code_verification_equipe_savr
+-- (2026-11-04) ne peut que retirer des droits.
+SELECT is((SELECT count(*)::int FROM pg_policies WHERE schemaname = 'shared' AND tablename = 'fichiers'
+            AND permissive = 'PERMISSIVE'), 2,
+  '34 shared.fichiers : exactement 2 policies permissives (fichiers_select, fichiers_admin_write) — aucune autre ne peut rouvrir la lecture');
 SELECT is((SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid = 'shared.fichiers'::regclass), true,
   '35 shared.fichiers : RLS activée et forcée');
 

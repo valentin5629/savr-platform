@@ -189,6 +189,7 @@ SELECT is_empty(
       'f_collecte_editable',        -- seule sans garde interne (cf. en-tête)
       'f_traiteur_intervenu_lieux_gestionnaire',
       'f_fichier_visible',
+      'f_code_verification_active', -- rend un booléen sur le seul compte du jeton (2026-11-04)
       -- (b) garde de rôle interne explicite
       'f_volume_repas_realise',     -- gate f_collecte_visible ; aucune policy
       'f_benchmark_kg_pax_zd',

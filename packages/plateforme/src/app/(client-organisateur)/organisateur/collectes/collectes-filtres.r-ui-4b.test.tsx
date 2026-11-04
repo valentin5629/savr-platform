@@ -22,7 +22,7 @@ vi.mock('next/navigation', () => ({
 
 import CollectesPage from './page';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
-import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 const LIGNES = [
   {
@@ -125,6 +125,8 @@ describe('R-UI-4b / liste Collectes organisateur — barre de filtres', () => {
         const aVenir = demande(urls[urls.length - 1]!);
         expect(aVenir.get('from')).toBe('2026-07-08');
         expect(aVenir.get('to')).toBeNull();
+        // Aujourd'hui est tranché à la minute par la route (Val 2026-11-03).
+        expect(aVenir.get('vue')).toBe('a_venir');
         expect(ordreAffiche()).toEqual([...JOURS_VUES].sort());
 
         await act(async () => {
@@ -133,7 +135,8 @@ describe('R-UI-4b / liste Collectes organisateur — barre de filtres', () => {
           );
         });
         const passees = demande(urls[urls.length - 1]!);
-        expect(passees.get('to')).toBe('2026-07-07');
+        expect(passees.get('to')).toBe('2026-07-08');
+        expect(passees.get('vue')).toBe('passees');
         expect(passees.get('from')).toBeNull();
         expect(new URLSearchParams(window.location.search).get('onglet')).toBe(
           'passees',
@@ -220,8 +223,10 @@ describe('R-UI-4b / liste Collectes organisateur — barre de filtres', () => {
       });
       const apres = demande(urls[urls.length - 1]!);
       expect(apres.get('from')).toBeNull();
-      // La vue « passées » reste (navigation) et borne la liste à hier.
-      expect(apres.get('to')).toBe(decalerJour(jourParis(), -1));
+      // La vue « passées » reste (navigation) et borne la liste à maintenant
+      // (aujourd'hui tranché à la minute par la route).
+      expect(apres.get('to')).toBe(jourParis());
+      expect(apres.get('vue')).toBe('passees');
       // Le type est un axe de vue, pas un filtre : il survit au reset.
       expect(apres.get('type')).toBe('anti_gaspi');
       expect(window.location.search).toBe('?onglet=passees&type=anti_gaspi');

@@ -252,7 +252,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6/liste_vues_a_venir_passees_par_date — vues « à venir » / « passées » : rangées par date, tous statuts (décision Val 2026-10-19)',
+    'M0.6/liste_vues_a_venir_passees_par_date — vues « à venir » / « passées » : rangées par créneau à la minute, tous statuts (décision Val 2026-10-19, 2026-11-03)',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
@@ -266,9 +266,11 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       let q = derniereRequeteListe(fetchMock);
       expect(q.get('from')).toBe(aujourdhui);
       expect(q.get('to')).toBeNull();
+      expect(q.get('vue')).toBe('a_venir');
       expect(q.get('statuts')).toBeNull();
 
-      // « Passées » : avant aujourd'hui, toujours sans statut imposé.
+      // « Passées » : jusqu'à aujourd'hui, tranché à la minute par la route,
+      // toujours sans statut imposé.
       fireEvent.mouseDown(
         screen.getByRole('tab', { name: 'Collectes passées' }),
       );
@@ -276,7 +278,8 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         q = derniereRequeteListe(fetchMock);
         expect(q.get('to')).not.toBeNull();
       }, ATTENTE_UI);
-      expect(q.get('to')! < aujourdhui).toBe(true);
+      expect(q.get('to')).toBe(aujourdhui);
+      expect(q.get('vue')).toBe('passees');
       expect(q.get('from')).toBeNull();
       expect(q.get('statuts')).toBeNull();
     },

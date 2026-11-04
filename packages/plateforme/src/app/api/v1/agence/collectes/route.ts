@@ -10,6 +10,10 @@ import {
   lireFiltresListeCollectes,
 } from '@/lib/collectes/liste-collectes-client.js';
 import { inTextes } from '@/lib/filtre-csv.js';
+import {
+  creneauDeLaVue,
+  lireVueCollectes,
+} from '@/lib/collectes/vue-temporelle.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
@@ -34,6 +38,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const type = searchParams.get('type');
   const from = searchParams.get('from');
   const to = searchParams.get('to');
+  const vue = lireVueCollectes(searchParams.get('vue'));
   const filtres = lireFiltresListeCollectes(searchParams);
 
   let query = supabase
@@ -57,6 +62,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (filtres.statuts.length > 0) query = query.in('statut', filtres.statuts);
   if (from) query = query.gte('date_collecte', from);
   if (to) query = query.lte('date_collecte', to);
+  // Vue « à venir / passées » : rangée au créneau, à la minute (Val 2026-11-03).
+  if (vue) query = query.or(creneauDeLaVue(vue, new Date()));
   if (filtres.lieuIds.length > 0)
     query = query.in('evenements.lieu_id', filtres.lieuIds);
   if (filtres.clients.length > 0)

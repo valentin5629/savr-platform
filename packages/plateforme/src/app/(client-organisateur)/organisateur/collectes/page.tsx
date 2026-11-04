@@ -211,9 +211,16 @@ function CollectesContent() {
   const qs = useMemo(() => {
     const usp = new URLSearchParams();
     if (tab !== 'tous') usp.set('type', tab);
-    const periode = periodeDeLaVue(vue, { from: f.from, to: f.to }, aujourdhui);
+    const periode = periodeDeLaVue(
+      vue,
+      { from: f.from, to: f.to },
+      aujourdhui,
+      { jourPartage: true },
+    );
     if (periode.from) usp.set('from', periode.from);
     if (periode.to) usp.set('to', periode.to);
+    // Aujourd'hui est partagé à la minute par la route (Val 2026-11-03).
+    usp.set('vue', vue);
     return usp.toString();
   }, [tab, vue, aujourdhui, f.from, f.to]);
   // Liste non paginée (la route ne l'est pas) : garde anti-réponse périmée et

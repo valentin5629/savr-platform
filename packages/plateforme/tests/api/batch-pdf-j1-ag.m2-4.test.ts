@@ -363,6 +363,20 @@ describe('M2.4 / BatchPdfJ1Ag / Exclusion sans attribution', () => {
 });
 
 describe('M2.4 / BatchPdfJ1Ag / Idempotence R8', () => {
+  it('attestation encore en brouillon (rendu en attente ou en échec) → aucun numéro ATT-DON tiré, rien recréé', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [{ collecte_id: 'col-ag-1', statut: 'brouillon' }], error: null },
+    ]);
+
+    const result = await runBatchPdfJ1Ag(sb as never);
+
+    expect(result.already_done).toBe(1);
+    expect(result.enqueued).toBe(0);
+    expect(sb.rpc).not.toHaveBeenCalled();
+    expect(sb._chain.insert).not.toHaveBeenCalled();
+  });
+
   it("collecte déjà dotée d'une attestation emise → already_done, rien enqueué", async () => {
     const collecte = makeCollecteAg();
     const sb = makeSupabase([

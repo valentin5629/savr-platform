@@ -292,6 +292,21 @@ describe('M1.6 / BatchPdfJ1 / Escalade R9', () => {
 });
 
 describe('M1.6 / BatchPdfJ1 / Idempotence', () => {
+  it('bordereau encore en brouillon (rendu en attente ou en échec) → aucun numéro BSAV tiré, rien recréé', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecte({ statut: 'realisee' })], error: null },
+      { data: [{ collecte_id: 'col-1', statut: 'brouillon' }], error: null },
+    ]);
+
+    const result = await runBatchPdfJ1(sb as never);
+
+    expect(result.already_done).toBe(1);
+    expect(result.enqueued).toBe(0);
+    expect(result.errors).toHaveLength(0);
+    expect(sb.rpc).not.toHaveBeenCalled();
+    expect(sb._chain.insert).not.toHaveBeenCalled();
+  });
+
   it('collecte déjà traitée (bordereau emis) → already_done incrémenté, rien enqueué', async () => {
     const collecte = makeCollecte();
     const sb = makeSupabase([

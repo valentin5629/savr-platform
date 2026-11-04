@@ -181,8 +181,13 @@ export async function runBatchPdfJ1(
       .filter((b) => b.statut !== 'brouillon')
       .map((b) => [b.collecte_id, b]),
   );
+  // Un bordereau encore en brouillon (rendu en attente, en échec, ou SIRET du
+  // producteur à vérifier) a déjà son numéro : on ne le recrée pas. Sinon chaque
+  // passage (toutes les 15 min) brûlerait un numéro BSAV gapless avant d'échouer
+  // sur l'unicité de collecte_id.
+  const existants = new Set(existingBordereaux.map((b) => b.collecte_id));
 
-  const toProcess = collectes.filter((c) => !emis.has(c.id));
+  const toProcess = collectes.filter((c) => !existants.has(c.id));
   result.already_done = collectes.length - toProcess.length;
 
   // 2bis. Bordereau déjà émis : refait si les pesées ont changé depuis. Revu tant

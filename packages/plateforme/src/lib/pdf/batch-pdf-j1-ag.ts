@@ -170,11 +170,11 @@ export async function runBatchPdfJ1Ag(
     return result;
   }
 
-  const doneIds = new Set(
-    existingAtts
-      .filter((a) => a.statut === 'emise' || a.statut === 'corrigee')
-      .map((a) => a.collecte_id),
-  );
+  // Toute attestation existante, brouillon compris (rendu en attente ou en
+  // échec) : elle a déjà son numéro ATT-DON. La recréer brûlerait un numéro
+  // gapless à chaque passage (toutes les 15 min) avant d'échouer sur
+  // (collecte_id, version). Une correction passe par trg_regenerer_attestation.
+  const doneIds = new Set(existingAtts.map((a) => a.collecte_id));
 
   const toProcess = eligible.filter((c) => !doneIds.has(c.id));
   result.already_done = eligible.length - toProcess.length;

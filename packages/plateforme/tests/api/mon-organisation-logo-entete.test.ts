@@ -46,7 +46,11 @@ function connecter(role: string | null, organisationId = 'org-a') {
     error: null,
   });
   const payload = Buffer.from(
-    JSON.stringify({ user_role: role, organisation_id: organisationId }),
+    JSON.stringify({
+      aal: 'aal2',
+      user_role: role,
+      organisation_id: organisationId,
+    }),
   ).toString('base64url');
   mockGetSession.mockResolvedValue({
     data: { session: role ? { access_token: `h.${payload}.s` } : null },

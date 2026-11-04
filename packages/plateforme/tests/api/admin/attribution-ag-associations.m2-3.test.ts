@@ -53,7 +53,7 @@ vi.mock('next/headers', () => ({
 }));
 
 function setupAuth(role: string) {
-  const jwt = `h.${Buffer.from(JSON.stringify({ user_role: role, sub: 'u1' })).toString('base64url')}.s`;
+  const jwt = `h.${Buffer.from(JSON.stringify({ aal: 'aal2', user_role: role, sub: 'u1' })).toString('base64url')}.s`;
   mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
   mockGetSession.mockResolvedValue({
     data: { session: { access_token: jwt } },

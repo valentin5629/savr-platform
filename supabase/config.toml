@@ -80,6 +80,17 @@ minimum_password_length = 10
 [auth.sessions]
 timebox = "720h"
 
+# Code de vérification de l'équipe Savr (application d'authentification, TOTP) —
+# décision Val 2026-11-04, règle dans packages/plateforme/src/lib/code-verification.ts.
+# Activé par défaut sur les projets hébergés (documentation Supabase) ; posé ici
+# pour l'instance locale. Pas de SMS (payant chez Supabase).
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
 # CDC §09 l.96 : « Rate limit : 3 demandes max par heure ». email_sent = plafond
 # horaire des emails d'auth (recovery/confirmation) émis par l'instance GoTrue.
 # ⚠ Cap GLOBAL/instance, PAS per-email : le « 3/h par email » strict relèverait

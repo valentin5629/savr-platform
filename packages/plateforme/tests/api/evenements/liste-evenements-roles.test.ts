@@ -86,7 +86,7 @@ import { GET as FILTRES } from '@/app/api/v1/evenements/filtres/route.js';
 import { GET as FICHE } from '@/app/api/v1/evenements/[id]/route.js';
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 function connecte(role: string) {
   mockGetSession.mockResolvedValue({

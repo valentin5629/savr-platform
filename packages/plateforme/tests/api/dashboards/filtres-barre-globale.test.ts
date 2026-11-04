@@ -52,7 +52,7 @@ let rls = makeChain();
 let admin = makeChain();
 let jwt = '';
 const makeJwt = (c: Record<string, unknown>) =>
-  `h.${Buffer.from(JSON.stringify(c)).toString('base64url')}.s`;
+  `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...c })).toString('base64url')}.s`;
 
 vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({

@@ -62,7 +62,11 @@ vi.mock('next/headers', () => ({
 
 function setupStaff() {
   const payload = Buffer.from(
-    JSON.stringify({ user_role: 'admin_savr', organisation_id: null }),
+    JSON.stringify({
+      aal: 'aal2',
+      user_role: 'admin_savr',
+      organisation_id: null,
+    }),
   ).toString('base64url');
   mockGetUser.mockResolvedValue({
     data: { user: { id: 'user-admin-1' } },

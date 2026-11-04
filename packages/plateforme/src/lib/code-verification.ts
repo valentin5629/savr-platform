@@ -35,11 +35,13 @@ import { isStaff } from './roles';
 /**
  * Vrai sur le déploiement Vercel de production seulement (`app.gosavr.io`).
  *
- * Deux sources, l'une OU l'autre suffit : `VERCEL_ENV` est lue à l'exécution ;
- * `NEXT_PUBLIC_VERCEL_ENV` est figée au build, donc présente aussi dans le
- * middleware (Edge) si l'exécution ne fournissait pas la première. Écritures
- * LITTÉRALES obligatoires (`process.env.X`, jamais `process.env['X']`) : Vercel
- * et Next ne fournissent au code Edge que les variables qu'ils y lisent.
+ * Deux sources, l'une OU l'autre suffit : `VERCEL_ENV`, lue à l'exécution
+ * (fournie par Vercel ; sa présence dans le middleware Edge n'est pas mesurée) ;
+ * `NEXT_PUBLIC_VERCEL_ENV`, que Next remplace au build par sa valeur, y compris
+ * dans le middleware, mais seulement sous forme littérale (`process.env.X`,
+ * jamais `process.env['X']`). Les deux viennent du même réglage Vercel
+ * (exposition des variables système) : s'il était coupé, le code le serait
+ * aussi, sans signal (doc, « Limites connues »).
  * Absentes (local, CI) ou toute autre valeur (`preview`, `development`) : hors
  * production, aucun code.
  */

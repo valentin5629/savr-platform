@@ -162,6 +162,20 @@ describe('écran du code de vérification', () => {
     expect(await cibleRedirection(page('/agence'))).toBe('/agence');
   });
 
+  it.each([
+    ['client', 'agence'],
+    ['admin hors production', 'admin_savr'],
+  ])(
+    '%s avec un next externe → /, jamais l’adresse externe',
+    async (_cas, role) => {
+      if (role === 'admin_savr') vi.stubEnv('VERCEL_ENV', 'preview');
+      connecte(role, 'aal1');
+      expect(await cibleRedirection(page('https://exemple.com/piege'))).toBe(
+        '/',
+      );
+    },
+  );
+
   it('hors production : admin sans code → page demandée, pas de QR code', async () => {
     vi.stubEnv('VERCEL_ENV', 'preview');
     connecte('admin_savr', 'aal1');

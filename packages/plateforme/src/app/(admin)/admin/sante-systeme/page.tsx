@@ -13,6 +13,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { PulseIcon } from '@/components/ui/icones';
 import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
+import { codeVerificationManquant } from '@/lib/code-verification';
 import { isStaff } from '@/lib/roles';
 import { ROUTES } from '@/lib/routes';
 
@@ -109,6 +110,9 @@ export default async function SanteSystemePage() {
   const claims = parseJwtClaims(session?.access_token ?? '');
   const role = claims['user_role'] as string | undefined;
   if (!isStaff(role)) redirect(ROUTES.interdit);
+  // Équipe Savr sans code de vérification sur cette session (lib/code-verification.ts).
+  if (codeVerificationManquant(role, claims['aal']))
+    redirect(ROUTES.codeVerification);
 
   const data = await fetchOpsData();
 

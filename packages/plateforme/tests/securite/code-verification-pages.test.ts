@@ -93,6 +93,13 @@ describe('gardes de page', () => {
     );
   });
 
+  it('page Santé système (lit le rôle elle-même) : admin sans code → écran du code', async () => {
+    connecte('admin_savr', 'aal1');
+    const { default: Page } =
+      await import('@/app/(admin)/admin/sante-systeme/page.js');
+    expect(await cibleRedirection(Page())).toBe('/code-verification');
+  });
+
   it('requirePageSession : client sans code → page rendue', async () => {
     connecte('traiteur_manager', 'aal1');
     const { requirePageSession } = await import('@/lib/page-auth.js');

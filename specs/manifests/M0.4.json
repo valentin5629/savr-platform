@@ -301,23 +301,55 @@
     {
       "id": "M0.4-code-verification-equipe-savr",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:31",
-      "artefact": "packages/plateforme/src/lib/code-verification.ts (règle : admin_savr et ops_savr, claim aal = aal2) + packages/plateforme/src/middleware.ts (pages → /code-verification) + packages/plateforme/src/lib/api-auth.ts (getVerifiedClaims : null, donc 401 sur toutes les gardes d'API) + packages/plateforme/src/lib/page-auth.ts + packages/plateforme/src/app/api/health/full/route.ts + packages/plateforme/src/app/api/health/logistique/route.ts + packages/plateforme/src/app/api/auth/reset-password/confirm/route.ts + packages/plateforme/src/app/api/auth/update-password/route.ts + packages/plateforme/src/app/api/auth/code-verification/activation/route.ts + packages/plateforme/src/app/api/auth/code-verification/verification/route.ts",
-      "test": "packages/plateforme/tests/securite/middleware-actif.test.ts « middleware — code de vérification » + packages/plateforme/tests/api/auth/get-verified-claims.test.ts « api-auth — code de vérification de l’équipe Savr » + packages/plateforme/tests/securite/code-verification-pages.test.ts « gardes de page » « routes de santé réservées à l’équipe Savr » « écran du code de vérification » + packages/plateforme/tests/api/auth/code-verification.test.ts « activation du code » « saisie du code » + packages/plateforme/tests/api/auth/update-password.m0-4.test.ts « update-password : code de vérification de l’équipe Savr » + packages/plateforme/tests/api/auth/reset-password-confirm.test.ts « lien de réinitialisation et code de vérification » + packages/plateforme/src/lib/code-verification.test.ts",
+      "artefact": "packages/plateforme/src/lib/code-verification.ts (règle : admin_savr et ops_savr, claim aal = aal2) + packages/plateforme/src/middleware.ts (pages → /code-verification?next=…) + packages/plateforme/src/lib/api-auth.ts (getVerifiedClaims : null sur les deux chemins, donc 401 sur toutes les gardes d'API) + packages/plateforme/src/lib/page-auth.ts + packages/plateforme/src/app/(admin)/admin/sante-systeme/page.tsx + packages/plateforme/src/app/api/health/full/route.ts + packages/plateforme/src/app/api/health/logistique/route.ts",
+      "test": "packages/plateforme/tests/securite/middleware-actif.test.ts « middleware — code de vérification » + packages/plateforme/tests/api/auth/get-verified-claims.test.ts « api-auth — code de vérification de l’équipe Savr » + packages/plateforme/tests/securite/code-verification-pages.test.ts « gardes de page » « routes de santé réservées à l’équipe Savr » + packages/plateforme/src/lib/code-verification.test.ts",
       "statut": "implemented",
-      "libelle": "Code de vérification (TOTP) obligatoire pour l'équipe Savr, une fois par session, contrôlé côté serveur ; aucun code pour les clients (décision Val 2026-11-04, avance le CDC §15 « 2FA V1.1 » — fiche _Divergences/SECU-AUTH_20261104_code-verification-equipe-savr.md)"
+      "libelle": "Code de vérification (TOTP) obligatoire pour l'équipe Savr, une fois par session, contrôlé côté serveur (pages et API) ; aucun code pour les clients (décision Val 2026-11-04, avance le CDC §15 « 2FA V1.1 » — fiche _Divergences/SECU-AUTH_20261104_code-verification-equipe-savr.md)"
+    },
+    {
+      "id": "M0.4-code-verification-activation-saisie",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:31",
+      "artefact": "packages/plateforme/src/app/api/auth/code-verification/activation/route.ts (QR code + clé ; refus si un code est actif) + packages/plateforme/src/app/api/auth/code-verification/verification/route.ts (facteur choisi côté serveur, défi et vérification dans le même appel, session aal2) + packages/plateforme/src/app/code-verification/page.tsx (aiguillage activation / saisie, retour vers la page demandée) + supabase/config.toml ([auth.mfa.totp], instance locale)",
+      "test": "packages/plateforme/tests/api/auth/code-verification.test.ts « activation du code » « saisie du code » + packages/plateforme/tests/securite/code-verification-pages.test.ts « écran du code de vérification »",
+      "statut": "implemented",
+      "libelle": "Activation du code (QR code) à la première connexion, puis saisie à chaque nouvelle session"
+    },
+    {
+      "id": "M0.4-code-verification-mot-de-passe-oublie",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:94-98",
+      "artefact": "packages/plateforme/src/app/api/auth/reset-password/confirm/route.ts (compte avec un code actif → écran du code avant le formulaire) + packages/plateforme/src/app/api/auth/update-password/route.ts (403 sans code sur la session)",
+      "test": "packages/plateforme/tests/api/auth/reset-password-confirm.test.ts « lien de réinitialisation et code de vérification » + packages/plateforme/tests/api/auth/update-password.m0-4.test.ts « update-password : code de vérification de l’équipe Savr »",
+      "statut": "implemented",
+      "libelle": "Mot de passe oublié : un compte de l'équipe Savr qui a un code le saisit avant de choisir son nouveau mot de passe"
+    },
+    {
+      "id": "M0.4-code-verification-journal",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:31",
+      "artefact": "événements auth.code_verification_activation_demandee, auth.code_verification_ok, auth.code_verification_echec (avec l'IP) et auth.code_verification_reinitialise, émis par les routes packages/plateforme/src/app/api/auth/code-verification/* et packages/plateforme/src/app/api/v1/admin/users/[id]/code-verification/route.ts",
+      "test": "packages/plateforme/tests/api/auth/code-verification.test.ts « code de vérification — événements de journal » + packages/plateforme/tests/api/admin/users-code-verification.test.ts « réinitialisation du code de vérification événement de journal auth.code_verification_reinitialise »",
+      "statut": "implemented",
+      "libelle": "Événements de journal du code de vérification (log seul, aucune alerte V1)"
     },
     {
       "id": "M0.4-code-verification-reinitialisation",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:31",
-      "artefact": "packages/plateforme/src/app/api/v1/admin/users/[id]/code-verification/route.ts (DELETE : admin_savr avec code, jamais sur son propre compte, compte de l'équipe Savr seul, facteurs TOTP retirés, ligne audit_log code_verification_reinitialise) + packages/plateforme/src/app/(admin)/admin/settings/users/page.tsx (bouton « Réinitialiser », confirmation)",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/users/[id]/code-verification/route.ts (DELETE : admin_savr avec code, jamais sur son propre compte, compte de l'équipe Savr seul, facteurs TOTP retirés, ligne audit_log code_verification_reinitialise sans donnée personnelle, rien de tracé si aucun facteur)",
       "test": "packages/plateforme/tests/api/admin/users-code-verification.test.ts « réinitialisation du code de vérification »",
       "statut": "implemented",
       "libelle": "Téléphone perdu : réinitialisation du code d'un membre de l'équipe Savr par un autre admin_savr, tracée dans audit_log"
     },
     {
-      "id": "M0.4-code-verification-ecran",
+      "id": "M0.4-code-verification-reinitialisation-ecran",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:31",
-      "artefact": "packages/plateforme/src/app/code-verification/page.tsx + packages/plateforme/src/app/code-verification/formulaire-code-verification.tsx (gabarit AuthCard : activation avec QR code et clé, puis saisie ; « Se déconnecter »)",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/settings/users/page.tsx (colonne « Code de vérification » pour admin_savr seul, bouton « Réinitialiser » absent de sa propre ligne, confirmation, toast)",
+      "test": "packages/plateforme/tests/ui/utilisateurs-savr-code-verification.test.tsx « Utilisateurs Savr — réinitialisation du code de vérification »",
+      "statut": "à-vérifier",
+      "libelle": "Liste Utilisateurs Savr : bouton de réinitialisation du code et sa confirmation, rendu à vérifier par Val sur l'aperçu (GO-VISUAL)"
+    },
+    {
+      "id": "M0.4-code-verification-ecran",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:265",
+      "artefact": "packages/plateforme/src/app/code-verification/page.tsx + packages/plateforme/src/app/code-verification/formulaire-code-verification.tsx (gabarit AuthCard des écrans d'authentification : activation avec QR code et clé, puis saisie ; « Se déconnecter »)",
       "test": "packages/plateforme/tests/ui/code-verification.test.tsx « écran du code — activation » « écran du code — saisie »",
       "statut": "à-vérifier",
       "libelle": "Écran du code de vérification (activation par QR code puis saisie), rendu à vérifier par Val sur l'aperçu (GO-VISUAL)"

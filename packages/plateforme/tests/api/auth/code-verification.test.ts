@@ -10,6 +10,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 const mockGetUser = vi.fn();
 const mockGetSession = vi.fn();
@@ -251,5 +252,72 @@ describe('saisie du code', () => {
     const res = await verification({ code: '123456' });
     expect(res.status).toBe(502);
     expect(JSON.stringify(await res.json())).not.toContain('SENTINELLE');
+  });
+});
+
+// §07/01 : événements de journal de la sécurité (surveillance des tentatives).
+describe('code de vérification — événements de journal', () => {
+  it('activation : auth.code_verification_activation_demandee', async () => {
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => undefined);
+    connecte('admin_savr');
+    await activation();
+    expect(info).toHaveBeenCalledWith(
+      'auth.code_verification_activation_demandee',
+      { user_id: 'u-1' },
+    );
+  });
+
+  it('activation en panne : auth.code_verification_activation_echec', async () => {
+    const error = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+    connecte('admin_savr');
+    mockEnroll.mockResolvedValue({
+      data: null,
+      error: { code: 'mfa_totp_enroll_not_enabled', message: 'x' },
+    });
+    await activation();
+    expect(error).toHaveBeenCalledWith(
+      'auth.code_verification_activation_echec',
+      { user_id: 'u-1', code: 'mfa_totp_enroll_not_enabled' },
+    );
+  });
+
+  it('code accepté : auth.code_verification_ok', async () => {
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => undefined);
+    connecte('admin_savr', [ACTIF]);
+    await verification({ code: '123456' });
+    expect(info).toHaveBeenCalledWith('auth.code_verification_ok', {
+      user_id: 'u-1',
+      activation: false,
+    });
+  });
+
+  it('code refusé : auth.code_verification_echec avec l’IP', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    connecte('admin_savr', [ACTIF]);
+    mockChallengeAndVerify.mockResolvedValue({
+      data: null,
+      error: { code: 'mfa_verification_failed', status: 422, message: 'x' },
+    });
+    const { POST } =
+      await import('@/app/api/auth/code-verification/verification/route.js');
+    await POST(
+      new NextRequest(
+        'http://localhost/api/auth/code-verification/verification',
+        {
+          method: 'POST',
+          body: JSON.stringify({ code: '123456' }),
+          headers: {
+            'content-type': 'application/json',
+            'x-forwarded-for': '203.0.113.7',
+          },
+        },
+      ),
+    );
+    expect(warn).toHaveBeenCalledWith('auth.code_verification_echec', {
+      user_id: 'u-1',
+      ip: '203.0.113.7',
+      activation: false,
+      code: 'mfa_verification_failed',
+    });
   });
 });

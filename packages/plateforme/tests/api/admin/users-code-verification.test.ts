@@ -8,6 +8,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 const mockGetUser = vi.fn();
 const mockGetSession = vi.fn();
@@ -112,15 +113,42 @@ describe('réinitialisation du code de vérification', () => {
     expect(mockDeleteFactor).not.toHaveBeenCalledWith(
       expect.objectContaining({ id: 'f-tel' }),
     );
-    expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        table_name: 'users',
-        record_id: CIBLE,
-        action: 'code_verification_reinitialise',
-        user_id: 'admin-1',
-        role: 'admin_savr',
-      }),
-    );
+    // Aucune donnée personnelle recopiée dans la table non modifiable :
+    // `record_id` désigne le compte.
+    expect(mockInsert).toHaveBeenCalledWith({
+      table_name: 'users',
+      record_id: CIBLE,
+      action: 'code_verification_reinitialise',
+      user_id: 'admin-1',
+      role: 'admin_savr',
+      new_values: { facteurs_retires: 2 },
+    });
+  });
+
+  it('événement de journal auth.code_verification_reinitialise', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    connecte('admin_savr');
+    await reinitialiser();
+    expect(warn).toHaveBeenCalledWith('auth.code_verification_reinitialise', {
+      by_user: 'admin-1',
+      target_user: CIBLE,
+      facteurs_retires: 2,
+    });
+  });
+
+  it('membre sans code ni activation en cours : 200, rien retiré, rien tracé', async () => {
+    connecte('admin_savr');
+    mockListFactors.mockResolvedValue({
+      data: {
+        factors: [{ id: 'f-tel', factor_type: 'phone', status: 'verified' }],
+      },
+      error: null,
+    });
+    const res = await reinitialiser();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ facteurs_retires: 0 });
+    expect(mockDeleteFactor).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 
   it('admin SANS code sur cette session → 401, rien retiré', async () => {
@@ -158,6 +186,7 @@ describe('réinitialisation du code de vérification', () => {
   });
 
   it('échec Supabase au retrait → 502, aucune trace de réussite', async () => {
+    const error = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
     connecte('admin_savr');
     mockDeleteFactor.mockResolvedValue({
       data: null,
@@ -167,5 +196,9 @@ describe('réinitialisation du code de vérification', () => {
     expect(res.status).toBe(502);
     expect(JSON.stringify(await res.json())).not.toContain('SENTINELLE');
     expect(mockInsert).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      'auth.code_verification_reinitialisation_echec',
+      { target_user: CIBLE, code: 'unexpected_failure' },
+    );
   });
 });

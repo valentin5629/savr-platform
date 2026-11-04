@@ -28,11 +28,13 @@ interface StaffUser {
   derniere_connexion: string | null;
 }
 
-function colonnes(
-  peutReinitialiser: (row: StaffUser) => boolean,
-  onReinitialiser: (row: StaffUser) => void,
-): Column<StaffUser>[] {
-  return [
+// `reinitialisation` absent : pas de colonne « Code de vérification » (seul
+// admin_savr réinitialise un code ; ops_savr n'y verrait que des tirets).
+function colonnes(reinitialisation?: {
+  moi: string | undefined;
+  onReinitialiser: (row: StaffUser) => void;
+}): Column<StaffUser>[] {
+  const base: Column<StaffUser>[] = [
     {
       key: 'nom',
       header: 'Nom',
@@ -63,13 +65,19 @@ function colonnes(
             })
           : '—',
     },
+  ];
+  if (!reinitialisation) return base;
+  const { moi, onReinitialiser } = reinitialisation;
+  return [
+    ...base,
     {
       // Code de vérification (lib/code-verification.ts) : un administrateur le
-      // réinitialise pour un autre membre (téléphone perdu ou changé).
+      // réinitialise pour un autre membre (téléphone perdu ou changé), jamais
+      // pour lui-même.
       key: 'code_verification',
       header: 'Code de vérification',
       render: (row) =>
-        peutReinitialiser(row) ? (
+        moi && row.id !== moi ? (
           <Button
             size="sm"
             variant="ghost"
@@ -111,10 +119,20 @@ export default function SettingsUsersPage() {
         setReinitErreur(data.error ?? 'Réinitialisation impossible.');
         return;
       }
-      toast({
-        title: `Code de vérification de ${aReinitialiser.prenom} ${aReinitialiser.nom} réinitialisé.`,
-        variant: 'success',
-      });
+      const { facteurs_retires } = (await res.json().catch(() => ({}))) as {
+        facteurs_retires?: number;
+      };
+      toast(
+        facteurs_retires === 0
+          ? {
+              title: `${aReinitialiser.prenom} ${aReinitialiser.nom} n’avait pas encore de code : son activation sera demandée à sa prochaine connexion.`,
+              variant: 'info',
+            }
+          : {
+              title: `Code de vérification de ${aReinitialiser.prenom} ${aReinitialiser.nom} réinitialisé.`,
+              variant: 'success',
+            },
+      );
       setAReinitialiser(null);
     } catch {
       setReinitErreur('Réinitialisation impossible. Vérifiez votre connexion.');
@@ -172,11 +190,15 @@ export default function SettingsUsersPage() {
 
       <DataTable
         columns={colonnes(
-          (row) => role === 'admin_savr' && !!moi && row.id !== moi,
-          (row) => {
-            setReinitErreur(null);
-            setAReinitialiser(row);
-          },
+          role === 'admin_savr'
+            ? {
+                moi,
+                onReinitialiser: (row) => {
+                  setReinitErreur(null);
+                  setAReinitialiser(row);
+                },
+              }
+            : undefined,
         )}
         data={users}
         keyExtractor={(row) => row.id}

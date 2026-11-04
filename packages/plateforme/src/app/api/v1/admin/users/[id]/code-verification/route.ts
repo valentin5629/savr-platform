@@ -39,7 +39,7 @@ export const DELETE = withApiTrace(
     const supabase = createAdminSupabaseClient();
     const { data: cible, error } = await supabase
       .from('users')
-      .select('id, email, role')
+      .select('id, role')
       .eq('id', id)
       .single();
     if (error || !cible) {
@@ -89,6 +89,9 @@ export const DELETE = withApiTrace(
       retires += 1;
     }
 
+    // Aucun code actif ni activation en cours : rien n'a changé, rien à tracer.
+    if (retires === 0) return NextResponse.json({ facteurs_retires: 0 });
+
     // §07/01 event business + §07/06 écriture sensible (audit_log, auteur =
     // l'administrateur, ligne = le compte réinitialisé).
     logger.warn('auth.code_verification_reinitialise', {
@@ -102,7 +105,7 @@ export const DELETE = withApiTrace(
       action: 'code_verification_reinitialise',
       user_id: auth.ctx.userId,
       role: auth.ctx.role,
-      new_values: { email: cible.email, facteurs_retires: retires },
+      new_values: { facteurs_retires: retires },
     });
     if (auditError) {
       logger.error('auth.code_verification_reinitialise.audit_echec', {

@@ -91,7 +91,7 @@ beforeEach(() => {
 
 describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
   it(
-    'M3.1/fiche_popup_entete_badge_frise — badge ZD vert, réf., lieu, date, heure, pax, statut client en pastille',
+    'M3.1/fiche_popup_entete_badge_frise — badge ZD vert, lieu, date, heure, pax, statut client en pastille',
     async () => {
       stubFetchFiche(ficheClient({ statut: 'validee' }));
       render(fiche('c1'));
@@ -106,7 +106,6 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
       // (remplace ZD navy du 2026-09-29).
       expect(badge.className).toContain('bg-savr-success-strong');
       expect(badge.className).toContain('text-savr-white');
-      expect(screen.getByText('Réf. C1')).toBeTruthy();
       // Titre = nom de l'événement (décision Val 2026-10-27).
       expect(
         screen.getByRole('heading', { level: 3, name: 'Salon' }),
@@ -197,6 +196,22 @@ describe('M3.1 / pop-up fiche collecte client — en-tête (Q1, Q2)', () => {
       expect(within(liste).getAllByRole('tab')).toHaveLength(3);
       for (const nom of ['Informations', 'Logistique', 'Bilan & documents'])
         expect(within(liste).getByRole('tab', { name: nom })).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M0.8-43 — fiche collecte client : aucune référence en en-tête (BL-P3-03, Val 2026-11-03)', () => {
+  it(
+    'ni « Réf. » ni numéro de collecte : la référence ne sert pas l’utilisateur',
+    async () => {
+      stubFetchFiche(
+        ficheClient({ statut: 'validee', tms_reference: 'CMD-2026-001' }),
+      );
+      render(fiche('c1'));
+      await screen.findByTestId('badge-type-collecte', {}, ATTENTE_UI);
+      expect(screen.queryByText(/Réf\./)).toBeNull();
+      expect(screen.queryByText(/CMD-2026-001/)).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

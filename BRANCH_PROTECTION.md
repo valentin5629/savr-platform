@@ -22,6 +22,10 @@ Rend l'enforcement indépendant de l'agent (re-vérif serveur, pas contournable 
         filet des gardes locales de commit et de PR. Il tourne toujours (`!cancelled()`) et vérifie lui-même que les
         trois sont « success » : un job requis sauté parce qu'une dépendance a échoué compterait comme « Success »
       - `anti-coupling` = garde-fou 3 TMS-Ready (0 réf directe MTS-1/Everest hors `packages/adapters/`)
+      - `security` = gitleaks, puis audit des dépendances de production **bloquant au niveau critique** (depuis le
+        2026-11-04, questionnaire sécurité VIPARIS) : `pnpm audit --prod` et le lock npm du renderer PDF. Un nouvel avis
+        critique, ou une panne du service d'audit du registre, bloque donc toutes les PR jusqu'à correction. L'audit du
+        niveau élevé et des outils de développement reste informatif
       - `pgtap-rls-outbox` = la seule base de la CI (depuis le 2026-10-25) : application de toutes les migrations sur
         base neuve, puis RLS (rôle `authenticated`) **+** garde-fou 4 TMS-Ready (outbox par mutation) **+** oracles G9
         et integration-contracts (sortis du mode rapport, décision Val C3)

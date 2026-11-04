@@ -212,6 +212,18 @@ export {
   _getEverestHandlers,
 } from './everest/mock.js';
 
+// Photos du livreur relues chez le transporteur (décision Val 2026-11-03) —
+// point d'entrée neutre de la fiche collecte Admin (garde-fou 3).
+export {
+  listerPhotosTransporteur,
+  importerPhotosTransporteur,
+  PhotoTransporteurInconnueError,
+} from './photos-transporteur.js';
+export type {
+  PhotoTransporteur,
+  PhotosTransporteur,
+} from './photos-transporteur.js';
+
 export function getLogistiqueProvider(
   transporteur: Transporteur,
   supabase: SupabaseClient,

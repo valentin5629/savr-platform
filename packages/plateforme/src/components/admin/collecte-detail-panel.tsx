@@ -103,7 +103,6 @@ import {
   GRILLE_3,
 } from '@/components/collecte/fiche-collecte-client-onglets';
 import { InfoItem } from '@/components/ui/info-item';
-import { EnTeteMention } from '@/components/ui/fiche/fiche-en-tete';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
 import {
   FicheGrandEnTete,
@@ -114,7 +113,6 @@ import {
 import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
-import { refCourteCollecte } from '@/lib/collecte-ref';
 import { ROUTES } from '@/lib/routes';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { Text } from '@/components/ui/text';
@@ -125,6 +123,8 @@ import { FileButton } from '@/components/ui/file-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { telechargerRapportRecyclage } from '@/lib/collectes/rapport-telechargement-client';
 import { Label } from '@/components/ui/label';
+import { UploadSimpleIcon } from '@/components/ui/icones';
+import { PhotosTransporteurModal } from './photos-transporteur-modal';
 import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
 import { STATUTS_ANNULES } from '@/lib/collectes/fiche-client-types';
 import { MAX_PHOTOS_CLIENT } from '@/lib/collectes/photos-client';
@@ -896,6 +896,8 @@ export function CollecteDetailPanel({
   const [avecRadar, setAvecRadar] = useState(false);
   const [fabrication, setFabrication] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  // Photos du livreur relues chez A Toutes! (décision Val 2026-11-03).
+  const [photosLivreurModal, setPhotosLivreurModal] = useState(false);
   const [photoEnCours, setPhotoEnCours] = useState<string | null>(null);
   const nbPhotosClient = (documents?.photos ?? []).filter(
     (p) => p.visible_client,
@@ -1742,7 +1744,8 @@ export function CollecteDetailPanel({
     paxModal ||
     infosModal ||
     poidsModal ||
-    acceptationModal;
+    acceptationModal ||
+    photosLivreurModal;
   if (blockCloseRef) blockCloseRef.current = anySubModalOpen;
 
   if (loading) {
@@ -2167,13 +2170,13 @@ export function CollecteDetailPanel({
   return (
     <Tabs defaultValue="informations" className="flex h-full min-h-0 flex-col">
       {/* En-tête de la variante B (décision Val 2026-10-27) : sur-titre (type,
-          réf., « dirty TMS »), titre et pastille de statut, ligne d'infos à
-          pictos, onglets soulignés ; seul le corps défile. */}
+          « dirty TMS » ; plus de référence, Val 2026-11-03), titre et
+          pastille de statut, ligne d'infos à pictos, onglets soulignés ; seul
+          le corps défile. */}
       <FicheGrandEnTete
         surtitre={
           <>
             <TypeCollecteBadge type={collecte.type} forme="plein" />
-            <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
             {estModifieeSansRenvoi(collecte) && (
               <Badge variant="warning" className="flex items-center gap-1">
                 <WarningIcon className="h-3 w-3" />
@@ -3549,17 +3552,31 @@ export function CollecteDetailPanel({
                   <Text variant="body" className="font-medium">
                     Photos ({documents?.photos?.length ?? 0})
                   </Text>
-                  <FileButton
-                    id="collecte-import-photo"
-                    variant="link"
-                    accept="image/png,image/jpeg,image/webp"
-                    loading={photoUploading}
-                    loadingText="Import…"
-                    onFile={(f) => void handleImportPhoto(f)}
-                    className="h-auto gap-1 px-0 font-normal sm:h-auto"
-                  >
-                    Importer des photos
-                  </FileButton>
+                  {/* A Toutes! : on choisit parmi les photos du livreur, plus
+                      d'import depuis l'ordinateur (décision Val 2026-11-03).
+                      Autres transporteurs : import depuis l'ordinateur. */}
+                  {collecte.prestataire_actuel?.type_tms === 'a_toutes' ? (
+                    <Button
+                      variant="link"
+                      onClick={() => setPhotosLivreurModal(true)}
+                      className="h-auto gap-1 px-0 font-normal sm:h-auto"
+                    >
+                      <UploadSimpleIcon aria-hidden="true" />
+                      Importer des photos
+                    </Button>
+                  ) : (
+                    <FileButton
+                      id="collecte-import-photo"
+                      variant="link"
+                      accept="image/png,image/jpeg,image/webp"
+                      loading={photoUploading}
+                      loadingText="Import…"
+                      onFile={(f) => void handleImportPhoto(f)}
+                      className="h-auto gap-1 px-0 font-normal sm:h-auto"
+                    >
+                      Importer des photos
+                    </FileButton>
+                  )}
                 </div>
                 {documents?.photos && documents.photos.length > 0 ? (
                   <>
@@ -3917,6 +3934,17 @@ export function CollecteDetailPanel({
       </Modal>
 
       {/* Modale — Acceptation manuelle mission Everest (§06.06 §3 Bloc 0) */}
+      <PhotosTransporteurModal
+        open={photosLivreurModal}
+        collecteId={collecteId}
+        onClose={() => setPhotosLivreurModal(false)}
+        onImported={async (message) => {
+          toast({ title: message });
+          await refetchDocuments();
+          await refetchAudit();
+        }}
+      />
+
       <Modal
         open={acceptationModal}
         title="Acceptation manuelle — A Toutes!"

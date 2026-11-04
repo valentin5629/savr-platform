@@ -3,7 +3,7 @@
  * au signup). POST /api/auth/update-password vérifie validatePasswordStrength côté
  * serveur AVANT updateUser, et exige une session (récupération ou normale).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const mockGetUser = vi.fn();
@@ -116,6 +116,10 @@ describe('update-password : un lien d’invitation encore valable devient caduc'
 // qui a déjà un code ne change son mot de passe qu'une fois le code saisi sur
 // cette session — un lien « mot de passe oublié » seul ne suffit pas.
 describe('update-password : code de vérification de l’équipe Savr', () => {
+  // Code demandé en production seulement (lib/code-verification.ts).
+  beforeEach(() => vi.stubEnv('VERCEL_ENV', 'production'));
+  afterEach(() => vi.unstubAllEnvs());
+
   const ACTIF = { id: 'f-1', factor_type: 'totp', status: 'verified' };
   const jeton = (claims: Record<string, unknown>) =>
     `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
@@ -143,6 +147,14 @@ describe('update-password : code de vérification de l’équipe Savr', () => {
     const res = await POST(makeReq({ mot_de_passe: 'SavrTest2026!' }));
     expect(res.status).toBe(200);
     expect(mockUpdateUser).toHaveBeenCalled();
+  });
+
+  it('hors production : admin avec code actif en aal1 → 200', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    connecte('admin_savr', 'aal1');
+    const { POST } = await import('@/app/api/auth/update-password/route.js');
+    const res = await POST(makeReq({ mot_de_passe: 'SavrTest2026!' }));
+    expect(res.status).toBe(200);
   });
 
   it('admin sans code actif (premier mot de passe) → 200, le code viendra à l’entrée dans l’application', async () => {

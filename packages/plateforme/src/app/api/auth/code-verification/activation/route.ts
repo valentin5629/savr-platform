@@ -36,7 +36,7 @@ export const POST = withApiTrace(
     }
     if (!exigeCodeVerification(session.role)) {
       return NextResponse.json(
-        { error: 'Réservé à l’équipe Savr' },
+        { error: 'Aucun code de vérification n’est demandé pour ce compte.' },
         { status: 403 },
       );
     }

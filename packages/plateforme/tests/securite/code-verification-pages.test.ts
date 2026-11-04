@@ -6,7 +6,7 @@
  *  - l'écran du code (`app/code-verification/page.tsx`) : qui il accepte, où il
  *    renvoie, quel formulaire il affiche.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const mockGetUser = vi.fn();
@@ -65,7 +65,12 @@ async function cibleRedirection(p: Promise<unknown>): Promise<string | null> {
   }
 }
 
-beforeEach(() => vi.clearAllMocks());
+// Code demandé en production seulement (lib/code-verification.ts).
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.stubEnv('VERCEL_ENV', 'production');
+});
+afterEach(() => vi.unstubAllEnvs());
 
 describe('gardes de page', () => {
   it.each(['admin_savr', 'ops_savr'])(
@@ -98,6 +103,13 @@ describe('gardes de page', () => {
     const { default: Page } =
       await import('@/app/(admin)/admin/sante-systeme/page.js');
     expect(await cibleRedirection(Page())).toBe('/code-verification');
+  });
+
+  it('hors production : requireStaffPage laisse passer un admin sans code', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    connecte('admin_savr', 'aal1');
+    const { requireStaffPage } = await import('@/lib/page-auth.js');
+    expect((await requireStaffPage()).role).toBe('admin_savr');
   });
 
   it('requirePageSession : client sans code → page rendue', async () => {
@@ -145,9 +157,17 @@ describe('écran du code de vérification', () => {
     expect(await cibleRedirection(page('/admin'))).toBe('/login');
   });
 
-  it('client → son espace, jamais de code', async () => {
+  it('client → page demandée, jamais de code', async () => {
     connecte('agence', 'aal1');
-    expect(await cibleRedirection(page('/agence'))).toBe('/');
+    expect(await cibleRedirection(page('/agence'))).toBe('/agence');
+  });
+
+  it('hors production : admin sans code → page demandée, pas de QR code', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    connecte('admin_savr', 'aal1');
+    expect(await cibleRedirection(page('/admin/collectes'))).toBe(
+      '/admin/collectes',
+    );
   });
 
   it('code déjà passé → page demandée', async () => {

@@ -8,7 +8,7 @@
  * `factor_id` du client quand un code est actif), défi + vérification dans le
  * même appel, aucun texte de Supabase renvoyé, réponses jamais mises en cache.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { logger } from '@savr/shared/src/logger/index.js';
 
@@ -77,8 +77,11 @@ function post(chemin: string, body?: unknown): NextRequest {
   );
 }
 
+// Code demandé en production seulement (lib/code-verification.ts).
+afterEach(() => vi.unstubAllEnvs());
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('VERCEL_ENV', 'production');
   mockUnenroll.mockResolvedValue({ data: {}, error: null });
   mockEnroll.mockResolvedValue({
     data: {
@@ -148,6 +151,13 @@ describe('activation du code', () => {
     );
   });
 
+  it('hors production : admin → 403, aucun code créé', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    connecte('admin_savr');
+    expect((await activation()).status).toBe(403);
+    expect(mockEnroll).not.toHaveBeenCalled();
+  });
+
   it('ops_savr est aussi soumis au code (équipe Savr)', async () => {
     connecte('ops_savr');
     expect((await activation()).status).toBe(200);
@@ -178,6 +188,13 @@ describe('saisie du code', () => {
   it('sans session → 401', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     expect((await verification({ code: '123456' })).status).toBe(401);
+  });
+
+  it('hors production : admin → 403, aucune vérification', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    connecte('admin_savr', [ACTIF]);
+    expect((await verification({ code: '123456' })).status).toBe(403);
+    expect(mockChallengeAndVerify).not.toHaveBeenCalled();
   });
 
   it('client → 403, aucune vérification', async () => {

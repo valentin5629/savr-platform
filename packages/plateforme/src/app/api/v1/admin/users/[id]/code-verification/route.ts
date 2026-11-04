@@ -3,7 +3,7 @@
 // ses facteurs TOTP. À sa prochaine connexion, il active un nouveau code (QR
 // code). Ses sessions déjà ouvertes ne sont pas fermées.
 //
-// Réservé à `admin_savr` (session avec code, cf. getVerifiedClaims), jamais sur
+// Réservé à `admin_savr` (avec code en production, cf. getVerifiedClaims), jamais sur
 // son propre compte : la procédure suppose un autre administrateur. Tracé dans
 // `audit_log`. Procédure complète, y compris sans autre administrateur :
 // docs/claude/code-verification.md.
@@ -15,7 +15,7 @@ import { logger } from '@savr/shared/src/logger/index.js';
 
 import { requireAdmin } from '@/lib/api-auth.js';
 import { withApiTrace } from '@/lib/api-helpers.js';
-import { exigeCodeVerification } from '@/lib/code-verification';
+import { isStaff } from '@/lib/roles';
 
 export const DELETE = withApiTrace(
   async (
@@ -51,7 +51,10 @@ export const DELETE = withApiTrace(
         { status: 422 },
       );
     }
-    if (!exigeCodeVerification(cible.role)) {
+    // Compte de l'équipe Savr, en production comme ailleurs : hors production
+    // le code n'est pas demandé, mais un facteur activé lors d'un essai doit
+    // pouvoir être retiré.
+    if (!isStaff(cible.role)) {
       return NextResponse.json(
         { error: 'Ce compte n’utilise pas de code de vérification.' },
         { status: 422 },

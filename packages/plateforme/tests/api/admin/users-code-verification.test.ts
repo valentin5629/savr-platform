@@ -6,7 +6,7 @@
  * seulement un compte de l'équipe Savr, facteurs TOTP retirés, trace audit_log
  * (auteur = l'administrateur, ligne = le compte réinitialisé).
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { logger } from '@savr/shared/src/logger/index.js';
 
@@ -77,8 +77,12 @@ async function reinitialiser(id = CIBLE) {
   );
 }
 
+// Production simulée : la session de l'administrateur doit y avoir passé le
+// code (lib/code-verification.ts).
+afterEach(() => vi.unstubAllEnvs());
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('VERCEL_ENV', 'production');
   fromAppele.length = 0;
   mockSingle.mockResolvedValue({
     data: { id: CIBLE, email: 'ops@gosavr.io', role: 'ops_savr' },
@@ -157,6 +161,14 @@ describe('réinitialisation du code de vérification', () => {
     connecte('admin_savr', 'aal1');
     expect((await reinitialiser()).status).toBe(401);
     expect(mockListFactors).not.toHaveBeenCalled();
+  });
+
+  it('hors production : réinitialisation possible (facteur d’essai à retirer)', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    connecte('admin_savr', 'aal1');
+    const res = await reinitialiser();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ facteurs_retires: 2 });
   });
 
   it('ops_savr → 403 (réservé admin_savr)', async () => {

@@ -6,13 +6,15 @@
 
 Décision Val du 2026-11-04 : un code à 6 chiffres, donné par une application d'authentification (Google Authenticator, Microsoft Authenticator…), est **obligatoire pour l'équipe Savr** (`admin_savr`, `ops_savr`). Aucun code pour les clients, ni obligatoire ni facultatif. Pas de SMS (payant chez Supabase). Le CDC §15 prévoyait la double authentification en V1.1 : avancée par cette décision, fiche `_Divergences/` du 2026-11-04.
 
+**En production seulement** (Val 2026-11-04, pour ne pas le saisir sans cesse pendant le développement) : sur `app.gosavr.io`. Sur les aperçus Vercel, `dev.app.gosavr.io`, en local et en CI, aucun code n'est demandé. Détection : `codeVerificationActif()`, vrai si `VERCEL_ENV` (lue à l'exécution) ou `NEXT_PUBLIC_VERCEL_ENV` (figée au build, donc aussi dans le middleware Edge) vaut `production`. Preuve que la production le demande bien : à la première connexion Admin sur `app.gosavr.io` après le déploiement, l'écran du code doit apparaître ; sinon, aucune des deux variables n'est vue et le code est coupé en production.
+
 Fréquence : **une fois par session**. Le code est demandé à la connexion sur un nouvel appareil, après une déconnexion ou à la fin des 30 jours de la session (`[auth.sessions].timebox` de `supabase/config.toml`), jamais à chaque page.
 
 ## Fonctionnement
 
 Supabase Auth porte le niveau atteint dans le claim `aal` du jeton : `aal1` après le mot de passe, `aal2` après le code. Ce niveau survit au rafraîchissement du jeton, d'où « une fois par session ».
 
-Règle unique : `packages/plateforme/src/lib/code-verification.ts` (`exigeCodeVerification`, `codeVerificationManquant`). Elle est tenue côté serveur, en trois points :
+Règle unique : `packages/plateforme/src/lib/code-verification.ts` (`codeVerificationActif`, `exigeCodeVerification`, `codeVerificationManquant`). En production, elle est tenue côté serveur, en trois points :
 
 | Point de contrôle                                                                                                                                                                      | Effet pour l'équipe Savr sans code                         |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
@@ -22,9 +24,9 @@ Règle unique : `packages/plateforme/src/lib/code-verification.ts` (`exigeCodeVe
 
 **Toute nouvelle route ou page qui lit elle-même le rôle dans le jeton** (sans passer par ces gardes) doit appeler `codeVerificationManquant(role, claims.aal)`.
 
-L'écran du code et ses deux routes (`api/auth/code-verification/activation` et `/verification`) lisent la session sans passer par `getVerifiedClaims`, qui la refuserait (`lib/auth/session-code-verification.ts`), et refusent tout rôle hors équipe Savr.
+L'écran du code et ses deux routes (`api/auth/code-verification/activation` et `/verification`) lisent la session sans passer par `getVerifiedClaims`, qui la refuserait (`lib/auth/session-code-verification.ts`), et refusent tout rôle hors équipe Savr (et tout compte hors production).
 
-Tests : `src/lib/code-verification.test.ts`, `tests/securite/middleware-actif.test.ts` (describe « code de vérification »), `tests/api/auth/get-verified-claims.test.ts`, `tests/securite/code-verification-pages.test.ts`, `tests/api/auth/code-verification.test.ts`, `tests/ui/code-verification.test.tsx`, `tests/api/admin/users-code-verification.test.ts`, `tests/ui/utilisateurs-savr-code-verification.test.tsx`. Les sessions de l'équipe Savr simulées dans les autres tests portent `aal: 'aal2'` (état normal après le code).
+Tests : `src/lib/code-verification.test.ts`, `tests/securite/middleware-actif.test.ts` (describe « code de vérification »), `tests/api/auth/get-verified-claims.test.ts`, `tests/securite/code-verification-pages.test.ts`, `tests/api/auth/code-verification.test.ts`, `tests/ui/code-verification.test.tsx`, `tests/api/admin/users-code-verification.test.ts`, `tests/ui/utilisateurs-savr-code-verification.test.tsx`. Les tests du code simulent la production (`vi.stubEnv('VERCEL_ENV', 'production')`) et jouent aussi le hors-production. Les sessions de l'équipe Savr simulées dans les autres tests portent `aal: 'aal2'` (état normal après le code en production ; sans effet hors production).
 
 ## Parcours
 
@@ -38,7 +40,7 @@ Journal (§07/01) : `auth.code_verification_activation_demandee`, `auth.code_ver
 
 ## Téléphone perdu ou changé
 
-1. **Par un autre administrateur** (procédure normale) : Paramètres → Utilisateurs Savr → ligne du membre → « Réinitialiser » dans la colonne « Code de vérification » (colonne montrée au seul `admin_savr`). Route : `DELETE /api/v1/admin/users/[id]/code-verification` (`admin_savr` avec code, jamais sur son propre compte). Ses facteurs TOTP sont retirés ; à sa prochaine connexion, il active un nouveau code. Trace : une ligne `audit_log` (`action = 'code_verification_reinitialise'`, `user_id` = l'administrateur, `record_id` = le compte réinitialisé, `new_values` = `{facteurs_retires}`, sans donnée personnelle) ; aucune ligne si le membre n'avait ni code ni activation en cours. Ses sessions déjà ouvertes ne sont pas fermées : si le téléphone perdu ou volé porte lui-même une session ouverte de la plateforme, fermer aussi les sessions du compte depuis la console Supabase (geste de Val, libellé de la console non vérifié).
+1. **Par un autre administrateur** (procédure normale) : Paramètres → Utilisateurs Savr → ligne du membre → « Réinitialiser » dans la colonne « Code de vérification » (colonne montrée au seul `admin_savr`). Route : `DELETE /api/v1/admin/users/[id]/code-verification` (`admin_savr`, avec code en production, jamais sur son propre compte ; utilisable aussi hors production pour retirer un facteur d'essai). Ses facteurs TOTP sont retirés ; à sa prochaine connexion, il active un nouveau code. Trace : une ligne `audit_log` (`action = 'code_verification_reinitialise'`, `user_id` = l'administrateur, `record_id` = le compte réinitialisé, `new_values` = `{facteurs_retires}`, sans donnée personnelle) ; aucune ligne si le membre n'avait ni code ni activation en cours. Ses sessions déjà ouvertes ne sont pas fermées : si le téléphone perdu ou volé porte lui-même une session ouverte de la plateforme, fermer aussi les sessions du compte depuis la console Supabase (geste de Val, libellé de la console non vérifié).
 2. **Sans autre administrateur** (le seul administrateur a perdu son téléphone) : geste manuel de Val dans la console Supabase du projet (`savr-prod` ou `savr-dev`), Authentication → Users → le compte, retrait des facteurs MFA. Libellé exact de la console non vérifié au 2026-11-04. Cette voie n'écrit rien dans `audit_log` (seul le journal d'authentification de Supabase la trace).
 
 ## Comptes VIPARIS (non construit)
@@ -53,4 +55,5 @@ Décision Val : code pour les comptes VIPARIS seulement s'ils le choisissent à 
 - **Essais répétés de codes** : l'application ne freine pas elle-même la saisie de codes et aucune alerte ne porte sur `auth.code_verification_echec`. Supabase Auth limite les essais par adresse IP ; passant par la plateforme, il voit l'adresse de sortie de Vercel, commune à tous (non mesuré).
 - **Impersonation d'un membre de l'équipe Savr** (comportement antérieur à ce lot) : si ce membre n'a pas encore de code, l'administrateur qui l'impersone peut activer le code à sa place.
 - **Lien d'invitation** : `api/auth/invitation` pose le mot de passe par le client de service sans regarder les facteurs ; cas étroit (un lien encore valable sur un compte qui a déjà activé son code).
-- **Comptes de démonstration** de `savr-dev` (un `admin_savr`, trois `ops_savr` au 2026-11-04) : chacun devra activer un code à sa prochaine connexion.
+- **Hors production, aucun code** : les comptes de l'équipe Savr sur `savr-dev` (aperçus, `dev.app.gosavr.io`) n'ont pas de second facteur. Un compte qui en a activé un pendant un essai le garde ; Supabase Auth pourrait alors refuser un changement de mot de passe sans le code (non mesuré) : retirer ce facteur (bouton « Réinitialiser » par un autre administrateur, ou console Supabase).
+- **Comptes de démonstration** de `savr-dev` (un `admin_savr`, trois `ops_savr` au 2026-11-04) : aucun code demandé (hors production).

@@ -7,7 +7,7 @@
  * les cookies. Ces tests épinglent les deux bouts de ce contrat — la cible du lien
  * émis, et le comportement de la route d'échange, y compris quand il échoue.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const mockExchangeCodeForSession = vi.fn();
@@ -110,6 +110,10 @@ describe("route d'échange du code de réinitialisation", () => {
 // qui a déjà un code passe par l'écran du code avant de choisir son nouveau mot
 // de passe (`api/auth/update-password` refuse sans lui).
 describe('lien de réinitialisation et code de vérification', () => {
+  // Code demandé en production seulement (lib/code-verification.ts).
+  beforeEach(() => vi.stubEnv('VERCEL_ENV', 'production'));
+  afterEach(() => vi.unstubAllEnvs());
+
   const jeton = (claims: Record<string, unknown>) =>
     `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
   const session = (
@@ -138,6 +142,19 @@ describe('lien de réinitialisation et code de vérification', () => {
 
   it('admin sans code actif (premier mot de passe, code réinitialisé) → formulaire directement', async () => {
     mockExchangeCodeForSession.mockResolvedValue(session('admin_savr', []));
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?code=code-valide'));
+    expect(new URL(res.headers.get('location')!).pathname).toBe(
+      '/reset-password/confirm',
+    );
+  });
+
+  it('hors production : admin avec code actif → formulaire directement', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    mockExchangeCodeForSession.mockResolvedValue(
+      session('admin_savr', [ACTIF]),
+    );
     const { GET } =
       await import('@/app/api/auth/reset-password/confirm/route.js');
     const res = await GET(makeGet('?code=code-valide'));

@@ -7,6 +7,10 @@
  * à chaque page. Aucun code pour les clients. Avance le CDC §15 (« 2FA V1.1 ») :
  * fiche `_Divergences/` du 2026-11-04.
  *
+ * EN PRODUCTION SEULEMENT (Val 2026-11-04, pour ne pas le saisir sans cesse
+ * pendant le développement) : sur les aperçus Vercel, `dev.app.gosavr.io`, en
+ * local et en CI, aucun code n'est demandé (`codeVerificationActif`).
+ *
  * Le niveau atteint est le claim `aal` du JWT, posé par Supabase Auth : `aal1`
  * après le mot de passe, `aal2` après le code. Il survit au rafraîchissement du
  * jeton, d'où « une fois par session ».
@@ -28,11 +32,29 @@
  */
 import { isStaff } from './roles';
 
+/**
+ * Vrai sur le déploiement Vercel de production seulement (`app.gosavr.io`).
+ *
+ * Deux sources, l'une OU l'autre suffit : `VERCEL_ENV` est lue à l'exécution ;
+ * `NEXT_PUBLIC_VERCEL_ENV` est figée au build, donc présente aussi dans le
+ * middleware (Edge) si l'exécution ne fournissait pas la première. Écritures
+ * LITTÉRALES obligatoires (`process.env.X`, jamais `process.env['X']`) : Vercel
+ * et Next ne fournissent au code Edge que les variables qu'ils y lisent.
+ * Absentes (local, CI) ou toute autre valeur (`preview`, `development`) : hors
+ * production, aucun code.
+ */
+export function codeVerificationActif(): boolean {
+  return (
+    process.env.VERCEL_ENV === 'production' ||
+    process.env.NEXT_PUBLIC_VERCEL_ENV === 'production'
+  );
+}
+
 /** Vrai si ce rôle doit passer le code de vérification à chaque session. */
 export function exigeCodeVerification(
   role: string | null | undefined,
 ): boolean {
-  return isStaff(role);
+  return codeVerificationActif() && isStaff(role);
 }
 
 /**

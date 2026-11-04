@@ -301,10 +301,10 @@
     {
       "id": "M0.4-code-verification-equipe-savr",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:31",
-      "artefact": "packages/plateforme/src/lib/code-verification.ts (règle : admin_savr et ops_savr, claim aal = aal2) + packages/plateforme/src/middleware.ts (pages → /code-verification?next=…) + packages/plateforme/src/lib/api-auth.ts (getVerifiedClaims : null sur les deux chemins, donc 401 sur toutes les gardes d'API) + packages/plateforme/src/lib/page-auth.ts + packages/plateforme/src/app/(admin)/admin/sante-systeme/page.tsx + packages/plateforme/src/app/api/health/full/route.ts + packages/plateforme/src/app/api/health/logistique/route.ts",
+      "artefact": "packages/plateforme/src/lib/code-verification.ts (règle : admin_savr et ops_savr, claim aal = aal2, en production seulement — codeVerificationActif) + packages/plateforme/src/middleware.ts (pages → /code-verification?next=…) + packages/plateforme/src/lib/api-auth.ts (getVerifiedClaims : null sur les deux chemins, donc 401 sur toutes les gardes d'API) + packages/plateforme/src/lib/page-auth.ts + packages/plateforme/src/app/(admin)/admin/sante-systeme/page.tsx + packages/plateforme/src/app/api/health/full/route.ts + packages/plateforme/src/app/api/health/logistique/route.ts",
       "test": "packages/plateforme/tests/securite/middleware-actif.test.ts « middleware — code de vérification » + packages/plateforme/tests/api/auth/get-verified-claims.test.ts « api-auth — code de vérification de l’équipe Savr » + packages/plateforme/tests/securite/code-verification-pages.test.ts « gardes de page » « routes de santé réservées à l’équipe Savr » + packages/plateforme/src/lib/code-verification.test.ts",
       "statut": "implemented",
-      "libelle": "Code de vérification (TOTP) obligatoire pour l'équipe Savr, une fois par session, contrôlé côté serveur (pages et API) ; aucun code pour les clients (décision Val 2026-11-04, avance le CDC §15 « 2FA V1.1 » — fiche _Divergences/SECU-AUTH_20261104_code-verification-equipe-savr.md)"
+      "libelle": "Code de vérification (TOTP) obligatoire pour l'équipe Savr en production seulement (aperçus, dev, local : aucun code), une fois par session, contrôlé côté serveur (pages et API) ; aucun code pour les clients (décision Val 2026-11-04, avance le CDC §15 « 2FA V1.1 » — fiche _Divergences/SECU-AUTH_20261104_code-verification-equipe-savr.md)"
     },
     {
       "id": "M0.4-code-verification-activation-saisie",

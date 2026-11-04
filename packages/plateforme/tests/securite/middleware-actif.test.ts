@@ -17,7 +17,7 @@ import { join, relative, resolve, sep } from 'node:path';
 
 import { NextRequest } from 'next/server';
 import { unstable_doesMiddlewareMatch } from 'next/experimental/testing/server';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const PKG = resolve(__dirname, '../..');
 
@@ -274,6 +274,19 @@ describe('middleware — comportement', () => {
 
 // ─── 4. Code de vérification de l'équipe Savr (lib/code-verification.ts) ────
 describe('middleware — code de vérification', () => {
+  // Code demandé en production seulement (lib/code-verification.ts).
+  beforeEach(() => vi.stubEnv('VERCEL_ENV', 'production'));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([['preview'], ['']])(
+    'hors production (VERCEL_ENV=%j) : admin sans code → autorisé, pas d’écran du code',
+    async (env) => {
+      vi.stubEnv('VERCEL_ENV', env);
+      connecte({ user_role: 'admin_savr', aal: 'aal1' });
+      passe(await middleware(req('/admin/dashboard')));
+    },
+  );
+
   const versCode = (res: Response, next: string) => {
     redirigeVers(res, '/code-verification');
     expect(new URL(res.headers.get('location')!).searchParams.get('next')).toBe(

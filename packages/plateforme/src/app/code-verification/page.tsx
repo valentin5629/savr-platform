@@ -35,8 +35,9 @@ export default async function CodeVerificationPage({
     createSupabaseServerClient({ readonly: true }),
   );
   if (!session) redirect(ROUTES.login);
-  // Les clients n'ont pas de code : retour à leur espace.
-  if (!exigeCodeVerification(session.role)) redirect(ROUTES.racine);
+  // Aucun code pour ce compte (client, ou équipe Savr hors production) : la
+  // page demandée directement.
+  if (!exigeCodeVerification(session.role)) redirect(suite);
   // Code déjà passé sur cette session.
   if (!codeVerificationManquant(session.role, session.aal)) redirect(suite);
 

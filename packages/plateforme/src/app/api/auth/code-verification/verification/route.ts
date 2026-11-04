@@ -49,7 +49,10 @@ export const POST = withApiTrace(
     const session = await lireSessionCodeVerification(supabase);
     if (!session) return refus('Non autorisé', 401);
     if (!exigeCodeVerification(session.role)) {
-      return refus('Réservé à l’équipe Savr', 403);
+      return refus(
+        'Aucun code de vérification n’est demandé pour ce compte.',
+        403,
+      );
     }
 
     const { verifies, enAttente } = facteursTotp(session.user.factors);

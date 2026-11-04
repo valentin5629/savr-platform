@@ -7,7 +7,7 @@
  * 403 rôle, 403 organisation manquante, ET la preuve que `getUser()` (aller-retour
  * réseau) n'est PAS appelé quand getClaims réussit. Plus deux cas de repli.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const mockGetClaims = vi.fn();
@@ -175,6 +175,22 @@ describe('api-auth — chemin nominal getClaims (vérif locale, sans getUser ré
 // Tenu dans getVerifiedClaims : toutes les gardes d'API refusent une session de
 // l'équipe Savr qui ne l'a pas passé, sur les deux chemins, sans repli.
 describe('api-auth — code de vérification de l’équipe Savr', () => {
+  // Code demandé en production seulement (lib/code-verification.ts).
+  beforeEach(() => vi.stubEnv('VERCEL_ENV', 'production'));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('hors production : admin_savr en aal1 → accepté', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    mockGetClaims.mockResolvedValue({
+      data: { claims: { sub: 'a-1', user_role: 'admin_savr', aal: 'aal1' } },
+      error: null,
+    });
+    const { requireAdmin } = await import('@/lib/api-auth.js');
+    const res = await requireAdmin(req());
+    expect(res.error).toBeUndefined();
+    expect(res.ctx?.userId).toBe('a-1');
+  });
+
   type Garde = (r: NextRequest) => Promise<{ error?: { status: number } }>;
   async function gardes(): Promise<Array<[string, Garde]>> {
     const m = await import('@/lib/api-auth.js');

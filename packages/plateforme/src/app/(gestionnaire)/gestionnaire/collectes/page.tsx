@@ -284,7 +284,14 @@ function GestionnaireCollectesContent() {
   const qsFiltres = useMemo(() => {
     const qs = new URLSearchParams();
     // Période de la barre, bornée à la vue (à venir : aujourd'hui et après).
-    const periode = periodeDeLaVue(vue, { from: f.from, to: f.to }, aujourdhui);
+    // Aujourd'hui est partagé à la minute par la route (Val 2026-11-03).
+    const periode = periodeDeLaVue(
+      vue,
+      { from: f.from, to: f.to },
+      aujourdhui,
+      { jourPartage: true },
+    );
+    qs.set('vue', vue);
     if (f.lieu.length > 0) qs.set('lieu_ids', f.lieu.join(','));
     if (f.traiteur.length > 0) qs.set('traiteur_ids', f.traiteur.join(','));
     if (f.type) qs.set('type', f.type);

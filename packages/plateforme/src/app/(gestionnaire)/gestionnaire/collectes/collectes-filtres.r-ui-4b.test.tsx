@@ -22,7 +22,7 @@ vi.mock('next/navigation', () => ({
 
 import CollectesPage from './page';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
-import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 const API_LISTE = '/api/v1/gestionnaire/collectes';
 const LIGNES = [
@@ -341,8 +341,10 @@ describe('R-UI-4b / liste Collectes gestionnaire — barre de filtres', () => {
         'taille_evenements[]',
       ])
         expect(apres.get(k)).toBeNull();
-      // La vue est de la navigation : elle reste, et borne la liste à hier.
-      expect(apres.get('to')).toBe(decalerJour(jourParis(), -1));
+      // La vue est de la navigation : elle reste, et borne la liste à
+      // maintenant (aujourd'hui tranché à la minute par la route).
+      expect(apres.get('to')).toBe(jourParis());
+      expect(apres.get('vue')).toBe('passees');
       // Le tri par défaut reste envoyé (navigation, pas un filtre).
       expect(apres.get('tri')).toBe('date');
       expect(window.location.search).toBe('?onglet=passees');

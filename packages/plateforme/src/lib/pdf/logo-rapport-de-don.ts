@@ -74,6 +74,9 @@ export async function lireLogosEvenementDeCollecte(
  * Attestation mise en file SANS champ logo : celle que le trigger SQL de
  * correction de volume prépare lui-même (20260616100100). Le logo du client est
  * alors résolu au rendu, pour qu'elle le porte comme une attestation neuve.
+ * Le poids imprimé est relu au même endroit : le trigger reprend celui de la
+ * version précédente, alors que la nouvelle ligne `attestations_don` porte le
+ * poids corrigé (saisie du poids depuis la fiche collecte Admin).
  * Un contenu qui porte déjà le champ (même à null) n'est pas touché.
  * Best-effort : en cas d'échec, l'attestation sort avec « Savr » seul.
  */
@@ -83,18 +86,26 @@ export async function completerLogoAttestation(
   payload: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   if ('logo_client_url' in payload) return payload;
+  let complet = payload;
   try {
     const { data } = await supabase
       .from('attestations_don')
-      .select('collecte_id')
+      .select('collecte_id, poids_kg')
       .eq('id', attestationId)
       .maybeSingle();
-    const collecteId = (data as { collecte_id: string } | null)?.collecte_id;
-    if (!collecteId) return payload;
+    const ligne = data as {
+      collecte_id: string;
+      poids_kg: number | string | null;
+    } | null;
+    if (ligne?.poids_kg != null) {
+      complet = { ...payload, poids_kg: Number(ligne.poids_kg) };
+    }
+    const collecteId = ligne?.collecte_id;
+    if (!collecteId) return complet;
     const logos = await lireLogosEvenementDeCollecte(supabase, collecteId);
     const cle = logos ? cleLogoAttestation(logos) : undefined;
-    return { ...payload, logo_client_url: await logoKeyToDataUri(cle) };
+    return { ...complet, logo_client_url: await logoKeyToDataUri(cle) };
   } catch {
-    return payload;
+    return complet;
   }
 }

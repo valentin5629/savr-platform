@@ -4,7 +4,7 @@
 -- aux rôles clients.
 
 BEGIN;
-SELECT plan(12);
+SELECT plan(25);
 
 SELECT set_config('role', 'postgres', true);
 SELECT set_config('request.jwt.claims', NULL, true);
@@ -131,6 +131,119 @@ SELECT is(
   (SELECT co2_evite_kg FROM plateforme.collectes WHERE id = 'dd000000-0000-0005-0000-000000000001'),
   NULL::decimal,
   'AG validée (pas encore réalisée) : un poids saisi ne calcule rien'
+);
+
+-- ── Pesée déplacée d'une collecte à une autre : les deux sont recalculées ───
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, realisee_at)
+VALUES ('dd000000-0000-0006-0000-000000000001', 'dd000000-0000-0000-0000-000000000006', 'zero_dechet', 'realisee', 'non_envoye', '2026-06-15', '20:00', now() - interval '2 hours');
+UPDATE plateforme.collecte_flux SET collecte_id = 'dd000000-0000-0006-0000-000000000001'
+WHERE collecte_id = 'dd000000-0000-0001-0000-000000000001';
+SELECT is(
+  (SELECT co2_evite_kg FROM plateforme.collectes WHERE id = 'dd000000-0000-0001-0000-000000000001'),
+  NULL::decimal,
+  'ZD : pesée déplacée vers une autre collecte → l''ancienne n''a plus de pesée, son CO₂ est remis à vide'
+);
+SELECT is(
+  (SELECT co2_evite_kg FROM plateforme.collectes WHERE id = 'dd000000-0000-0006-0000-000000000001'),
+  231.60::decimal,
+  'ZD : pesée déplacée → la nouvelle collecte est recalculée'
+);
+
+-- ── Sous le rôle authenticated : client propriétaire ────────────────────────
+-- Collecte AG clôturée avec son attribution, pour les écritures ci-dessous.
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, realisee_at)
+VALUES ('dd000000-0000-0007-0000-000000000001', 'dd000000-0000-0000-0000-000000000006', 'anti_gaspi', 'cloturee', 'non_envoye', '2026-06-15', '20:00', now() - interval '3 days');
+INSERT INTO plateforme.attributions_antgaspi (id, collecte_id, association_id, transporteur_id, branche_attribution, mode_validation)
+VALUES ('dd000000-0000-0007-0000-000000000002', 'dd000000-0000-0007-0000-000000000001', 'dd000000-0000-0000-0000-000000000007', 'dd000000-0000-0000-0000-000000000008', 'ag_velo_idf', 'manuel_top1');
+
+SET LOCAL role = 'authenticated';
+SELECT set_config('request.jwt.claims',
+  '{"sub":"dd000000-0000-0000-0000-000000000002","user_role":"traiteur_manager","organisation_id":"dd000000-0000-0000-0000-000000000001"}', true);
+
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_calculer_co2_zd('dd000000-0000-0003-0000-000000000001') $$,
+  '42501', NULL,
+  'client : fn_calculer_co2_zd refusée (permission denied)'
+);
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_calculer_co2_ag('dd000000-0000-0007-0000-000000000001') $$,
+  '42501', NULL,
+  'client : fn_calculer_co2_ag refusée (permission denied)'
+);
+-- Écritures que la RLS ne lui ouvre pas : aucune ligne touchée.
+UPDATE plateforme.collecte_flux SET poids_reel_kg = 999
+WHERE collecte_id = 'dd000000-0000-0003-0000-000000000001';
+DELETE FROM plateforme.collecte_flux
+WHERE collecte_id = 'dd000000-0000-0003-0000-000000000001';
+UPDATE plateforme.attributions_antgaspi SET poids_repas_kg = 999
+WHERE id = 'dd000000-0000-0007-0000-000000000002';
+
+RESET role;
+SELECT set_config('request.jwt.claims', NULL, true);
+SELECT is(
+  (SELECT poids_reel_kg FROM plateforme.collecte_flux
+   WHERE collecte_id = 'dd000000-0000-0003-0000-000000000001'),
+  100::decimal,
+  'client : UPDATE et DELETE d''une pesée de sa collecte clôturée → 0 ligne, pesée intacte'
+);
+SELECT is(
+  (SELECT co2_evite_kg FROM plateforme.collectes WHERE id = 'dd000000-0000-0003-0000-000000000001'),
+  115.80::decimal,
+  'client : le CO₂ de sa collecte clôturée n''a pas bougé'
+);
+SELECT is(
+  (SELECT poids_repas_kg FROM plateforme.attributions_antgaspi WHERE id = 'dd000000-0000-0007-0000-000000000002'),
+  NULL::decimal,
+  'client : UPDATE du poids AG → 0 ligne'
+);
+
+-- ── Sous le rôle authenticated : client d'une autre organisation ────────────
+SET LOCAL role = 'authenticated';
+SELECT set_config('request.jwt.claims',
+  '{"sub":"ee000000-0000-0000-0000-000000000002","user_role":"traiteur_manager","organisation_id":"ee000000-0000-0000-0000-000000000001"}', true);
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.collecte_flux WHERE collecte_id::text LIKE 'dd000000-%'),
+  0,
+  'autre organisation : aucune pesée visible'
+);
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.collectes WHERE id::text LIKE 'dd000000-%'),
+  0,
+  'autre organisation : aucune collecte visible'
+);
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.bordereaux_savr WHERE collecte_id::text LIKE 'dd000000-%'),
+  0,
+  'autre organisation : aucun bordereau visible'
+);
+
+-- ── Sous le rôle authenticated : équipe Savr, la correction recalcule ───────
+SELECT set_config('request.jwt.claims',
+  '{"sub":"dd000000-0000-0000-0000-000000000002","user_role":"ops_savr","organisation_id":"dd000000-0000-0000-0000-000000000001"}', true);
+UPDATE plateforme.collecte_flux SET poids_reel_kg = 200
+WHERE collecte_id = 'dd000000-0000-0003-0000-000000000001';
+UPDATE plateforme.attributions_antgaspi SET poids_repas_kg = 45
+WHERE id = 'dd000000-0000-0007-0000-000000000002';
+SELECT set_config('request.jwt.claims',
+  '{"sub":"dd000000-0000-0000-0000-000000000002","user_role":"admin_savr","organisation_id":"dd000000-0000-0000-0000-000000000001"}', true);
+INSERT INTO plateforme.collecte_flux (collecte_id, flux_id, poids_reel_kg)
+SELECT 'dd000000-0000-0006-0000-000000000001', id, 50 FROM plateforme.flux_dechets WHERE code = 'carton';
+
+RESET role;
+SELECT set_config('request.jwt.claims', NULL, true);
+SELECT is(
+  (SELECT co2_evite_kg FROM plateforme.collectes WHERE id = 'dd000000-0000-0003-0000-000000000001'),
+  231.60::decimal,
+  'ops_savr (authenticated) : pesée corrigée sur collecte clôturée → CO₂ recalculé, sans erreur de droits'
+);
+SELECT is(
+  (SELECT co2_evite_kg FROM plateforme.collectes WHERE id = 'dd000000-0000-0007-0000-000000000001'),
+  250.000::decimal,
+  'ops_savr (authenticated) : poids AG saisi sur collecte clôturée → CO₂ recalculé'
+);
+SELECT ok(
+  (SELECT co2_evite_kg FROM plateforme.collectes WHERE id = 'dd000000-0000-0006-0000-000000000001') > 231.60,
+  'admin_savr (authenticated) : pesée ajoutée → CO₂ recalculé avec elle'
 );
 
 -- ── Calculs fermés aux rôles clients ────────────────────────────────────────

@@ -308,16 +308,25 @@ SECURITY DEFINER
 SET search_path = plateforme, pg_temp
 AS $$
 DECLARE
-  v_collecte_id uuid := COALESCE(NEW.collecte_id, OLD.collecte_id);
+  v_id uuid;
 BEGIN
-  IF EXISTS (
-    SELECT 1 FROM plateforme.collectes
-    WHERE id = v_collecte_id
-      AND type::text = 'zero_dechet'
-      AND statut::text IN ('realisee', 'cloturee')
-  ) THEN
-    PERFORM plateforme.fn_calculer_co2_zd(v_collecte_id);
-  END IF;
+  -- La collecte de la ligne écrite, et l'ancienne si une pesée change de
+  -- collecte (UPDATE de collecte_id) : les deux totaux bougent.
+  FOREACH v_id IN ARRAY ARRAY[
+    CASE WHEN TG_OP <> 'DELETE' THEN NEW.collecte_id END,
+    CASE WHEN TG_OP <> 'INSERT'
+              AND (TG_OP = 'DELETE' OR OLD.collecte_id IS DISTINCT FROM NEW.collecte_id)
+         THEN OLD.collecte_id END
+  ] LOOP
+    IF v_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM plateforme.collectes
+      WHERE id = v_id
+        AND type::text = 'zero_dechet'
+        AND statut::text IN ('realisee', 'cloturee')
+    ) THEN
+      PERFORM plateforme.fn_calculer_co2_zd(v_id);
+    END IF;
+  END LOOP;
   RETURN NULL;
 END;
 $$;

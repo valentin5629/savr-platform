@@ -12,6 +12,11 @@ import { validatePasswordStrength } from '@/lib/password.js';
 import { authAccountError } from '@/lib/api-helpers.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
+import { claimsJeton } from '@/lib/claims-jeton';
+import {
+  codeVerificationManquant,
+  facteursTotp,
+} from '@/lib/code-verification';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: Record<string, unknown>;
@@ -59,6 +64,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { error: 'Session de récupération requise' },
       { status: 401 },
     );
+  }
+
+  // Équipe Savr qui a déjà un code de vérification : le mot de passe ne change
+  // qu'une fois le code saisi sur cette session (lib/code-verification.ts). Un
+  // lien « mot de passe oublié » seul ne suffit donc pas. Sans code activé
+  // (premier mot de passe, code réinitialisé), rien ne change : le code sera
+  // demandé juste après, à l'entrée dans l'application.
+  if (facteursTotp(user.factors).verifies.length > 0) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const claims = claimsJeton(session?.access_token);
+    if (
+      codeVerificationManquant(
+        claims['user_role'] as string | undefined,
+        claims['aal'],
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Saisissez d’abord votre code de vérification, puis choisissez votre nouveau mot de passe.',
+        },
+        { status: 403 },
+      );
+    }
   }
 
   const { error } = await supabase.auth.updateUser({ password: mot_de_passe });

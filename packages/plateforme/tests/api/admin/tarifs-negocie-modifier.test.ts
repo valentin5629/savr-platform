@@ -90,7 +90,7 @@ vi.mock('next/headers', () => ({
 }));
 
 function setupRole(role: string) {
-  const jwt = `h.${Buffer.from(JSON.stringify({ user_role: role })).toString('base64url')}.s`;
+  const jwt = `h.${Buffer.from(JSON.stringify({ aal: 'aal2', user_role: role })).toString('base64url')}.s`;
   mockGetUser.mockResolvedValue({
     data: { user: { id: 'user-1' } },
     error: null,

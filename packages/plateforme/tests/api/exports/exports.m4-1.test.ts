@@ -100,7 +100,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 function setupAuth(role: string, organisationId: string | null = 'org-a') {
   mockGetUser.mockResolvedValue({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { codeVerificationManquant } from '@/lib/code-verification';
 import { isStaff } from '@/lib/roles';
 
 function parseJwtClaims(token: string): Record<string, unknown> {
@@ -57,6 +58,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const role = claims['user_role'] as string | undefined;
     if (!isStaff(role)) {
       return NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 });
+    }
+    // Équipe Savr sans code de vérification sur cette session (lib/code-verification.ts).
+    if (codeVerificationManquant(role, claims['aal'])) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
   }
 

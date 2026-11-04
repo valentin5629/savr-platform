@@ -35,7 +35,9 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 
 // Helper pour générer un JWT factice avec claims
 function makeJwt(claims: Record<string, unknown>): string {
-  const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({ aal: 'aal2', ...claims }),
+  ).toString('base64url');
   return `header.${payload}.sig`;
 }
 

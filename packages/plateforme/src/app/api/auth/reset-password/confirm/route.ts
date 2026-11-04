@@ -18,6 +18,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
+import { claimsJeton } from '@/lib/claims-jeton';
+import {
+  codeVerificationManquant,
+  facteursTotp,
+} from '@/lib/code-verification';
+import { ROUTES } from '@/lib/routes';
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const code = req.nextUrl.searchParams.get('code');
 
@@ -48,13 +55,29 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     },
   );
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     // Lien expiré (1 h, `[auth.email].otp_expiry`), déjà utilisé, ou ouvert dans
     // un autre navigateur que celui de la demande (cf. limite PKCE ci-dessus).
     return NextResponse.redirect(
       new URL('/reset-password?error=lien_invalide', req.url),
     );
+  }
+
+  // Équipe Savr qui a déjà un code de vérification : écran du code d'abord,
+  // puis retour au formulaire (`api/auth/update-password` refuse sans lui). On
+  // ne change que la cible : les cookies de session restent sur la réponse.
+  const claims = claimsJeton(data?.session?.access_token);
+  if (
+    facteursTotp(data?.user?.factors).verifies.length > 0 &&
+    codeVerificationManquant(
+      claims['user_role'] as string | undefined,
+      claims['aal'],
+    )
+  ) {
+    const codeUrl = new URL(ROUTES.codeVerification, req.url);
+    codeUrl.searchParams.set('next', '/reset-password/confirm');
+    response.headers.set('Location', codeUrl.toString());
   }
 
   return response;

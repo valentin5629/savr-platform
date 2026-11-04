@@ -17,7 +17,7 @@ import { join, relative, resolve, sep } from 'node:path';
 
 import { NextRequest } from 'next/server';
 import { unstable_doesMiddlewareMatch } from 'next/experimental/testing/server';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const PKG = resolve(__dirname, '../..');
 
@@ -78,7 +78,10 @@ function connecte(claims: Record<string, unknown>, confirme = true) {
     id: 'u-1',
     email_confirmed_at: confirme ? '2026-01-01T00:00:00Z' : null,
   };
-  state.claims = { app_domain: 'plateforme', ...claims };
+  // `aal2` par défaut : session qui a passé le code de vérification (état
+  // normal de l'équipe Savr, sans effet pour les clients). Les cas `aal1` sont
+  // posés explicitement (describe « code de vérification »).
+  state.claims = { app_domain: 'plateforme', aal: 'aal2', ...claims };
 }
 
 const passe = (res: Response) =>
@@ -266,6 +269,87 @@ describe('middleware — comportement', () => {
     expect(res.headers.get('x-middleware-request-cookie')).toContain(
       'sb-access=nouveau-jeton',
     );
+  });
+});
+
+// ─── 4. Code de vérification de l'équipe Savr (lib/code-verification.ts) ────
+describe('middleware — code de vérification', () => {
+  // Code demandé en production seulement (lib/code-verification.ts).
+  beforeEach(() => vi.stubEnv('VERCEL_ENV', 'production'));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([['preview'], ['']])(
+    'hors production (VERCEL_ENV=%j) : admin sans code → autorisé, pas d’écran du code',
+    async (env) => {
+      vi.stubEnv('VERCEL_ENV', env);
+      connecte({ user_role: 'admin_savr', aal: 'aal1' });
+      passe(await middleware(req('/admin/dashboard')));
+    },
+  );
+
+  const versCode = (res: Response, next: string) => {
+    redirigeVers(res, '/code-verification');
+    expect(new URL(res.headers.get('location')!).searchParams.get('next')).toBe(
+      next,
+    );
+  };
+
+  it.each([
+    ['admin_savr', '/admin/dashboard'],
+    ['admin_savr', '/registre'],
+    ['ops_savr', '/admin/collectes'],
+    ['ops_savr', '/programmer/nouveau'],
+  ])(
+    '%s sans code (aal1) sur %s → 307 /code-verification',
+    async (role, path) => {
+      connecte({ user_role: role, aal: 'aal1' });
+      versCode(await middleware(req(path)), path);
+    },
+  );
+
+  it('la page demandée est rendue avec ses paramètres après le code', async () => {
+    connecte({ user_role: 'admin_savr', aal: 'aal1' });
+    versCode(
+      await middleware(req('/admin/collectes?statut=realisee')),
+      '/admin/collectes?statut=realisee',
+    );
+  });
+
+  it('claim aal absent → code exigé (fail-closed)', async () => {
+    connecte({ user_role: 'admin_savr', aal: undefined });
+    versCode(await middleware(req('/admin')), '/admin');
+  });
+
+  it('code exigé avant le refus de rôle : admin sans code sur /traiteur → code, pas /403', async () => {
+    connecte({ user_role: 'admin_savr', aal: 'aal1' });
+    versCode(await middleware(req('/traiteur')), '/traiteur');
+  });
+
+  it('l’écran du code reste atteignable sans code (pas de boucle)', async () => {
+    connecte({ user_role: 'admin_savr', aal: 'aal1' });
+    passe(await middleware(req('/code-verification?next=/admin')));
+  });
+
+  it('l’écran du code exige une session → /login', async () => {
+    redirigeVers(await middleware(req('/code-verification')), '/login');
+  });
+
+  it.each([
+    ['traiteur_manager', '/traiteur'],
+    ['traiteur_commercial', '/registre'],
+    ['agence', '/agence/collectes'],
+    ['gestionnaire_lieux', '/gestionnaire'],
+    ['client_organisateur', '/organisateur'],
+  ])(
+    'client %s sans code (aal1) sur %s → autorisé (aucun code pour les clients)',
+    async (role, path) => {
+      connecte({ user_role: role, aal: 'aal1' });
+      passe(await middleware(req(path)));
+    },
+  );
+
+  it('écran du code hors des pages publiques', () => {
+    expect(isPublicPath('/code-verification')).toBe(false);
   });
 });
 

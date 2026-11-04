@@ -413,7 +413,7 @@ interface DocumentsData {
 
 // Ligne d'un document (rapport, bordereau, rapport de don) qui n'existe pas encore :
 // un seul texte, quel que soit le statut de la collecte (décision Val 2026-10-09).
-const DOCUMENT_A_VENIR = 'Généré sous 48h après la collecte';
+const DOCUMENT_A_VENIR = 'Généré dès que les poids sont connus';
 
 // Bloc 7 — Historique + audit log (GET /[id]/audit).
 interface AuditEntry {

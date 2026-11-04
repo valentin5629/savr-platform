@@ -301,7 +301,7 @@ export function FicheCollecteClientPanel({
       ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
       : 'Seule l’organisation qui a programmé la collecte peut la modifier.';
   // Rapport pas encore téléchargeable : son état d'attente (ex. « disponible
-  // dans les 48h après la collecte »).
+  // dès que les poids sont connus »).
   const motifRapport =
     rapport.desactive && c.rapport_etat !== 'disponible'
       ? LIBELLE_ETAT_RAPPORT[c.rapport_etat]

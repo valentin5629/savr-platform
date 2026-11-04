@@ -20,9 +20,15 @@ export const STATUTS_ASSOCIATION = [
   'cloturee',
 ];
 
-// Bilan affiché quand la collecte est « Réalisée » côté client (= `cloturee`,
-// mapping canonique §06.04) ; `realisee_sans_collecte` a son propre bloc.
-export const STATUT_BILAN = 'cloturee';
+// Statuts d'une collecte « Réalisée » côté client, qui porte son bilan dès que
+// ses chiffres sont là (Val 2026-11-04 : dès la réalisation, plus seulement à la
+// clôture) ; `realisee_sans_collecte` a son propre bloc.
+export const STATUTS_BILAN: readonly string[] = ['realisee', 'cloturee'];
+
+/** La collecte est-elle « Réalisée » côté client (bilan possible) ? */
+export function statutBilan(statut: string): boolean {
+  return STATUTS_BILAN.includes(statut);
+}
 
 export const STATUTS_ANNULES = ['annulee', 'annulation_demandee'];
 
@@ -70,7 +76,7 @@ export const LIBELLE_ETAT_RAPPORT: Record<EtatRapport, string> = {
   reserve: LIBELLE_RAPPORT_RESERVE,
   disponible: 'PDF',
   en_preparation: 'En cours de préparation',
-  a_venir: 'Document disponible dans les 48h après la collecte',
+  a_venir: 'Document disponible dès que les poids sont connus',
 };
 
 const ECHEANCE_RAPPORT_MS = 24 * 3600 * 1000;
@@ -87,7 +93,7 @@ export function etatRapport(p: {
   // Collecte terminée sans date de réalisation (historique repris) : il n'y a
   // plus d'échéance à promettre.
   if (p.realisee_at == null)
-    return p.statut === STATUT_BILAN || p.statut === 'realisee_sans_collecte'
+    return statutBilan(p.statut) || p.statut === 'realisee_sans_collecte'
       ? 'en_preparation'
       : 'a_venir';
   return new Date(p.realisee_at).getTime() + ECHEANCE_RAPPORT_MS <= p.maintenant

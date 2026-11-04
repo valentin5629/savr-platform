@@ -357,7 +357,19 @@ describe('M3.1 / fiche client — contenu servi', () => {
     expect(json.data.co2_evite_kg).toBe(312);
   });
 
-  it('M3.1/fiche_get_bilan_flux_avant_realisation — pas de bilan avant « Réalisée »', async () => {
+  it('M3.1/fiche_get_bilan_flux_avant_realisation — pas de bilan avant « Réalisée » (en_cours), bilan dès `realisee` (Val 2026-11-04)', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        statut: 'en_cours',
+        collecte_flux: [
+          { poids_reel_kg: 400, flux_dechets: { code: 'biodechet' } },
+        ],
+      }),
+      error: null,
+    };
+    const avant = await getFiche();
+    expect(avant.json.data.bilan_flux).toBeNull();
+
     rls.results.collectes = {
       data: ligneCollecte({
         statut: 'realisee',
@@ -367,8 +379,8 @@ describe('M3.1 / fiche client — contenu servi', () => {
       }),
       error: null,
     };
-    const { json } = await getFiche();
-    expect(json.data.bilan_flux).toBeNull();
+    const realisee = await getFiche();
+    expect(realisee.json.data.bilan_flux).toEqual({ biodechet: 400 });
   });
 
   it('M3.1/fiche_get_association_ag — AG validée : association (nom, ville, présentation) + repas, lus sous RLS', async () => {

@@ -36,7 +36,7 @@ import {
 } from '@/lib/evenements-gestionnaire';
 import { estUuid, listeCsv } from '@/lib/filtre-csv';
 import { nomOrganisation } from '@/lib/evenements/filtres-evenements';
-import { STATUT_BILAN } from '@/lib/collectes/fiche-client-types';
+import { statutBilan } from '@/lib/collectes/fiche-client-types';
 import { parsePage } from '@/lib/pagination';
 import { lireTri } from '@/lib/tri-liste';
 import type { Role } from '@/lib/roles';
@@ -341,7 +341,7 @@ export async function listerEvenements(
     await Promise.all(
       brutes.flatMap((e) =>
         (e.collectes ?? [])
-          .filter((c) => c.type === 'anti_gaspi' && c.statut === STATUT_BILAN)
+          .filter((c) => c.type === 'anti_gaspi' && statutBilan(c.statut))
           .map(async (c) => {
             const { data: repas, error: echec } = await supabase.rpc(
               'f_volume_repas_realise',

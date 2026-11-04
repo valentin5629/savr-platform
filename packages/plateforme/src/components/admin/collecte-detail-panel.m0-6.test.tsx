@@ -3236,7 +3236,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     attestation: null,
     photos: [],
   };
-  const TEXTE_DOCUMENT_A_VENIR = 'Généré sous 48h après la collecte';
+  const TEXTE_DOCUMENT_A_VENIR = 'Généré dès que les poids sont connus';
   const ligneDocument = (libelle: string): HTMLElement =>
     screen.getByText(libelle).parentElement as HTMLElement;
   const boutonsDeLaLigne = (libelle: string): HTMLElement[] =>
@@ -4505,15 +4505,16 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6/documents_regeneration_radar_retire — statut forcé hors clôture après réglage du radar : le rapport avec radar part sans benchmark_filters (repli serveur annoncé à l’écran)',
+    'M0.6/documents_regeneration_radar_retire — statut forcé avant la réalisation après réglage du radar : le rapport avec radar part sans benchmark_filters (repli serveur annoncé à l’écran)',
     async () => {
       const collecte = { ...zdCloturee };
       const fetchMock = installMock({ collecte, documents: documentsZd });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirDocumentsAvecRadar(fetchMock);
 
-      // Forçage du statut : la fiche relue n'est plus clôturée, le radar part.
-      collecte.statut = 'realisee';
+      // Forçage du statut : la fiche relue n'est plus réalisée (`realisee` porte
+      // désormais son bilan, Val 2026-11-04), le radar part.
+      collecte.statut = 'en_cours';
       fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
       const dialog = screen
         .getByText('Forcer le statut de la collecte')
@@ -4524,7 +4525,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       fireEvent.click(
         screen
           .getAllByRole('option')
-          .find((o) => o.getAttribute('data-value') === 'realisee')!,
+          .find((o) => o.getAttribute('data-value') === 'en_cours')!,
       );
       fireEvent.change(within(dialog).getByLabelText(/^Motif \(≥ 10/), {
         target: { value: 'Pesée à reprendre avant clôture' },

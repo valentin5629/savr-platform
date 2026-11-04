@@ -26,7 +26,7 @@ import {
   createSupabaseServerClient,
   type UserAuthContext,
 } from '@/lib/api-auth';
-import { STATUT_BILAN } from '@/lib/collectes/fiche-client-types';
+import { statutBilan } from '@/lib/collectes/fiche-client-types';
 import type { EspaceEvenements } from '@/lib/evenements/liste-evenements';
 import { nomOrganisation } from '@/lib/evenements/filtres-evenements';
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
@@ -232,7 +232,7 @@ export async function chargerFicheEvenement(
   if (organisateur)
     await Promise.all(
       (evt.collectes ?? [])
-        .filter((c) => c.type === 'anti_gaspi' && c.statut === STATUT_BILAN)
+        .filter((c) => c.type === 'anti_gaspi' && statutBilan(c.statut))
         .map(async (c) => {
           const { data: repas, error: echec } = await supabase.rpc(
             'f_volume_repas_realise',

@@ -76,7 +76,6 @@ import { Label } from '@/components/ui/label';
 import {
   LIBELLE_ETAT_RAPPORT,
   STATUTS_ANNULES,
-  STATUT_BILAN,
   type EspaceClient,
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
@@ -333,8 +332,8 @@ function BilanConsolide({
       {nbCollectes > 0 && nbRealisees === 0 && (
         <BandeauBilanAttente titre="Votre bilan sera disponible après les collectes">
           Poids collectés, CO₂ évité, repas donnés et répartition par flux
-          s’afficheront ici le lendemain de chaque collecte, et se cumuleront au
-          fil des collectes de l’événement.
+          s’afficheront ici dès que les poids de chaque collecte seront connus,
+          et se cumuleront au fil des collectes de l’événement.
         </BandeauBilanAttente>
       )}
       <Text variant="hint" data-testid="bilan-consolide-couverture">
@@ -1022,7 +1021,7 @@ export function FicheEvenementModal({
     `/api/v1/evenements/${encodeURIComponent(evenementId)}/benchmark`,
     // Radar pour tous les rôles (décision Val 2026-10-30).
     b && b.nb_realisees_zd > 0
-      ? { type: 'zero_dechet', statut: STATUT_BILAN }
+      ? { type: 'zero_dechet', statut: 'cloturee' }
       : null,
   );
   const adresseLieu =

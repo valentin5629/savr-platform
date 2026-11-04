@@ -88,7 +88,7 @@ export default function ClientOrganisateurDocumentsPage() {
       accessorFn: (d) => (d.sous_embargo ? 1 : d.disponible ? 0 : 2),
       cell: ({ row: { original: d } }) =>
         d.sous_embargo ? (
-          <Badge variant="warning">Disponible sous 24 h</Badge>
+          <Badge variant="warning">Bientôt disponible</Badge>
         ) : d.disponible ? (
           <Badge variant="success">Disponible</Badge>
         ) : (

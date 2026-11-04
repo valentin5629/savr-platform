@@ -156,6 +156,7 @@ DECLARE
   idx int;
   n_lisibles bigint;
   n_ecrites bigint;
+  n_insert bigint;
 BEGIN
   PERFORM test_cv_superuser();
   SELECT array_agg(format('%I.%I', n.nspname, c.relname) ORDER BY n.nspname, c.relname)
@@ -190,11 +191,13 @@ BEGIN
        FROM generate_subscripts(v_tables, 1) i WHERE e_aal1[i] ~ 'lignes=[1-9]'),
     '{}'::text[],
     p_role || ' sans code : aucune écriture (INSERT, UPDATE, DELETE) ne touche une ligne, sur aucune table');
+  -- 42501 seulement (privilège ou policy) : un INSERT par défaut échoue aussi sur
+  -- une colonne NOT NULL (23502), ce qui ne prouverait rien.
   RETURN NEXT is(
     (SELECT coalesce(array_agg(v_tables[i] || ' : ' || e_aal1[i]), '{}')
-       FROM generate_subscripts(v_tables, 1) i WHERE e_aal1[i] ~ 'INSERT=lignes'),
+       FROM generate_subscripts(v_tables, 1) i WHERE e_aal1[i] !~ 'INSERT=refus:42501'),
     '{}'::text[],
-    p_role || ' sans code : tout INSERT est refusé, sur toutes les tables');
+    p_role || ' sans code : tout INSERT est refusé par le contrôle d''accès (42501), sur toutes les tables');
   RETURN NEXT is(
     (SELECT coalesce(array_agg(v_tables[i] || ' (' || l_sans[i] || ' → ' || l_aal2[i] || ')'), '{}')
        FROM generate_subscripts(v_tables, 1) i WHERE l_aal2[i] IS DISTINCT FROM l_sans[i]),
@@ -209,11 +212,15 @@ BEGIN
   SELECT count(*) INTO n_lisibles FROM generate_subscripts(v_tables, 1) i WHERE l_sans[i] > 0;
   SELECT count(*) INTO n_ecrites FROM generate_subscripts(v_tables, 1) i
    WHERE e_sans[i] ~ '(UPDATE|DELETE)=lignes=[1-9]';
+  -- Tables où l'INSERT passait le contrôle d'accès avant (autre refus que 42501) :
+  -- c'est là que l'assertion « tout INSERT est refusé (42501) » discrimine.
+  SELECT count(*) INTO n_insert FROM generate_subscripts(v_tables, 1) i
+   WHERE e_sans[i] !~ 'INSERT=refus:42501';
   -- Seuils sous les valeurs mesurées le 2026-11-04 (admin_savr : 23 et 17 ;
   -- ops_savr, qui écrit moins de tables : 21 et 4).
-  RETURN NEXT ok(n_lisibles >= 20 AND n_ecrites >= 3,
-    format('%s non-vacuité : avant, au moins 20 tables lisibles et 3 écrites (mesuré : %s et %s)',
-           p_role, n_lisibles, n_ecrites));
+  RETURN NEXT ok(n_lisibles >= 20 AND n_ecrites >= 3 AND n_insert >= 1,
+    format('%s non-vacuité : avant, au moins 20 tables lisibles, 3 écrites et 1 où l''INSERT passait le contrôle d''accès (mesuré : %s, %s et %s)',
+           p_role, n_lisibles, n_ecrites, n_insert));
 END $$;
 
 -- Fonctions et vues pour un rôle : 35 assertions.

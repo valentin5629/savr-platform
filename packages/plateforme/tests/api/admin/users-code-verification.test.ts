@@ -61,7 +61,9 @@ function connecte(role: string, aal = 'aal2', userId = 'admin-1') {
   });
 }
 
-const CIBLE = '11111111-1111-4111-8111-111111111111';
+// Lettres hexadécimales voulues : `toUpperCase()` doit produire une AUTRE
+// chaîne, sinon les cas « majuscules » ne prouvent rien.
+const CIBLE = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 
 async function reinitialiser(id = CIBLE) {
   const { DELETE } =
@@ -250,6 +252,37 @@ describe('réinitialisation du code de vérification', () => {
     });
     expect(mockInsert).toHaveBeenCalledWith(
       expect.objectContaining({ record_id: CIBLE }),
+    );
+  });
+
+  it('liste des facteurs illisible → 502, journal d’erreur avec l’auteur', async () => {
+    const error = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+    connecte('admin_savr');
+    mockListFactors.mockResolvedValue({
+      data: null,
+      error: { code: 'unexpected_failure', message: 'x' },
+    });
+    expect((await reinitialiser()).status).toBe(502);
+    expect(mockDeleteFactor).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      'auth.code_verification_reinitialisation_echec',
+      {
+        by_user: 'admin-1',
+        target_user: CIBLE,
+        facteurs_retires: 0,
+        code: 'unexpected_failure',
+      },
+    );
+  });
+
+  it('écriture audit_log en échec → 200, journal d’erreur', async () => {
+    const error = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+    connecte('admin_savr');
+    mockInsert.mockResolvedValue({ data: null, error: { code: '42501' } });
+    expect((await reinitialiser()).status).toBe(200);
+    expect(error).toHaveBeenCalledWith(
+      'auth.code_verification_reinitialise.audit_echec',
+      { by_user: 'admin-1', target_user: CIBLE, code: '42501' },
     );
   });
 });

@@ -494,10 +494,10 @@
     {
       "id": "BL-P3-03",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:426",
-      "artefact": "packages/plateforme/src/lib/collecte-ref.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
-      "test": "M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court (BL-P3-03)",
+      "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
+      "test": "M0.8-43 — fiche collecte client : aucune référence en en-tête (BL-P3-03, Val 2026-11-03)",
       "statut": "implemented",
-      "libelle": "BL-P3-03 — Fiche collecte traiteur : sous-titre référence courte (tms_reference sinon UUID court, plus l'UUID brut) + tooltip méthode UE 2019/1004 sur le taux (§06.04 l.381/l.422). Le message vélo cargo A Toutes! a été retiré le 2026-09-29 (bloc Logistique réduit à chauffeur + plaque + téléphone, cf. M3.1-fiche-popup-logistique ; plaque « Sans objet (vélo cargo) »)."
+      "libelle": "BL-P3-03 — Fiche collecte traiteur : plus aucune référence en en-tête (ex-sous-titre référence courte retiré, décision Val 2026-11-03 : elle ne sert pas l'utilisateur ; fiche de divergence M3.1_20261103) + tooltip méthode UE 2019/1004 sur le taux (§06.04 l.381/l.422). Le message vélo cargo A Toutes! a été retiré le 2026-09-29 (bloc Logistique réduit à chauffeur + plaque + téléphone, cf. M3.1-fiche-popup-logistique ; plaque « Sans objet (vélo cargo) »)."
     },
     {
       "id": "BL-P3-04",

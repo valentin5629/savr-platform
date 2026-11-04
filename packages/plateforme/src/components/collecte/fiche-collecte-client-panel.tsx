@@ -48,7 +48,6 @@ import {
   useRapportCollecte,
 } from '@/components/collecte/fiche-collecte-client-bilan';
 import { dateLongueCapitalisee } from '@/components/collecte/fiche-blocs';
-import { EnTeteMention } from '@/components/ui/fiche/fiche-en-tete';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
 import {
   FicheGrandEnTete,
@@ -60,7 +59,6 @@ import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { libelleMisAJour } from '@/lib/format-date-collecte';
 import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
-import { refCourteCollecte } from '@/lib/collecte-ref';
 import { ROUTES } from '@/lib/routes';
 import {
   LIBELLE_ETAT_RAPPORT,
@@ -395,12 +393,7 @@ export function FicheCollecteClientPanel({
       className="flex h-full min-h-0 flex-col"
     >
       <FicheGrandEnTete
-        surtitre={
-          <>
-            <TypeCollecteBadge type={c.type} forme="plein" />
-            <EnTeteMention>Réf. {refCourteCollecte(c)}</EnTeteMention>
-          </>
-        }
+        surtitre={<TypeCollecteBadge type={c.type} forme="plein" />}
         titre={titre}
         sousTitre={sousTitre || undefined}
         statut={<StatutCollecteClient statut={c.statut} />}

@@ -727,7 +727,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.1/fiche_popup_entete_badge_frise",
       "statut": "implemented",
-      "libelle": "Refonte pop-up (Val 2026-09-29) — en-tête : badge type (arbitrage Q1 Val 2026-10-07 : ZD vert success-strong / AG navy primary-700, texte blanc — remplace ZD navy / AG orange du 2026-09-29, divergence D59), « Réf. » courte, titre = nom du lieu, sous-ligne « Mercredi 28 octobre 2026 · 22:00 · 4 200 pax », frise discrète en haut à droite, croix isolée. Badge AG prouvé par M3.1/fiche_popup_badge_ag_navy."
+      "libelle": "Refonte pop-up (Val 2026-09-29) — en-tête : badge type (arbitrage Q1 Val 2026-10-07 : ZD vert success-strong / AG navy primary-700, texte blanc — remplace ZD navy / AG orange du 2026-09-29, divergence D59), plus de « Réf. » courte (retirée, Val 2026-11-03), titre = nom du lieu, sous-ligne « Mercredi 28 octobre 2026 · 22:00 · 4 200 pax », frise discrète en haut à droite, croix isolée. Badge AG prouvé par M3.1/fiche_popup_badge_ag_navy."
     },
     {
       "id": "M3.1-popup-client-frise-vocabulaire",
@@ -751,7 +751,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx",
       "test": "M3.1/fiche_popup_onglets_horizontaux",
       "statut": "implemented",
-      "libelle": "Onglets seuls en barre horizontale sous le grand en-tête commun des fiches (FicheEnTete : badge type, réf., lieu, date · heure · pax, frise client à droite) — décision Val 2026-10-01, remplace les onglets en colonne du 2026-09-29 : Informations / Logistique / Bilan & documents ; cadre commun des fiches (max-w-5xl, hauteur fixe dès md, pied d'actions)."
+      "libelle": "Onglets seuls en barre horizontale sous le grand en-tête commun des fiches (FicheEnTete : badge type, lieu, date · heure · pax, frise client à droite) — décision Val 2026-10-01, remplace les onglets en colonne du 2026-09-29 : Informations / Logistique / Bilan & documents ; cadre commun des fiches (max-w-5xl, hauteur fixe dès md, pied d'actions)."
     },
     {
       "id": "M3.1-popup-client-pied-actions",

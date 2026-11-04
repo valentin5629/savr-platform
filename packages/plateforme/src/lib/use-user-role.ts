@@ -28,8 +28,8 @@ function decodeClaim(
   }
 }
 
-export function useUserRole(): string | undefined {
-  const [role, setRole] = React.useState<string | undefined>(undefined);
+function useClaim(key: string): string | undefined {
+  const [valeur, setValeur] = React.useState<string | undefined>(undefined);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -39,12 +39,21 @@ export function useUserRole(): string | undefined {
         data: { session },
       } = await supabase.auth.getSession();
       if (cancelled) return;
-      setRole(decodeClaim(session?.access_token, 'user_role'));
+      setValeur(decodeClaim(session?.access_token, key));
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [key]);
 
-  return role;
+  return valeur;
+}
+
+export function useUserRole(): string | undefined {
+  return useClaim('user_role');
+}
+
+/** Identifiant de l'utilisateur courant (claim `sub`), même usage UI seul. */
+export function useUserId(): string | undefined {
+  return useClaim('sub');
 }

@@ -24,6 +24,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 - **Stockage fichiers volumineux** : Cloudflare R2 (URLs pré-signées), référencés via `shared.fichiers`. **Un bucket par environnement** (Val 2026-10-07) : `R2_BUCKET_NAME` = `savr-dev` (aperçu + local) ou `savr-prod`, obligatoire, **aucun repli**. La nature du fichier est un **dossier** de la clé (`bordereaux/`, `rapports/`, `attestations/`, `factures/`, `syntheses/`, `photos/collectes/`, `logos/`), jamais un bucket. **Aucun nom de bucket en dur** : `uploadObject` / `getObject` (`@savr/shared/src/r2/`) n'en prennent pas, les lecteurs refusent une clé d'un autre bucket (cliquets : `packages/shared/src/r2/upload.test.ts`, `packages/plateforme/src/lib/pdf/r2-client.test.ts`). ⚠ L'étanchéité dev/prod tient aux clés d'API Cloudflare, pas au code ; seule la clé de `.env.local` a été mesurée (2026-10-09). **Ne rien écrire ni supprimer sur R2 en supposant une étanchéité que cette mesure ne couvre pas.** Niveaux de preuve et cas non couverts : `docs/claude/stockage-r2.md`.
 - **Emails** : Resend (**18 templates actifs + 15 désactivés** en seed DB, lignes conservées — catalogue §06.02 au 2026-11-02, après la revue des emails et l'annulation cliente directe ; vouvoiement, FR, 0 emoji, signature « L'équipe Savr »).
 - App mobile = **responsive PWA** (React Native = jamais, hors scope).
+- **Code de vérification à la connexion (TOTP, Val 2026-11-04)** : obligatoire pour l'équipe Savr (`admin_savr`, `ops_savr`), une fois par session (30 jours), jamais pour un client. Tenu côté serveur par le middleware et `getVerifiedClaims` (claim `aal` = `aal2`) : **toute route qui lit elle-même le rôle dans le jeton appelle `codeVerificationManquant`** (`packages/plateforme/src/lib/code-verification.ts`). ⚠ La base (RLS) ne lit pas `aal`. Téléphone perdu, comptes VIPARIS, limites : `docs/claude/code-verification.md`.
 
 ### Règles DB absolues
 - Noms tables/colonnes/fonctions SQL : **en français** (sauf IDs techniques, timestamps, booléens).
@@ -63,7 +64,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 ### Hors scope V1 (NE PAS développer, ne pas anticiper)
 - **TMS natif Savr** (tout `02 - Cahier des charges TMS/` = V2) : app chauffeur M05, dispatch M02/M12, portail prestataire M03, tournées, pesées natives.
 - Modules App reportés : benchmark client (M12 UI), reporting REP/Citeo (M13, V1.1), app native (M14), multi-langues (M15), signature électronique (M16), import brief IA (M19, 6 tables non créées).
-- 2FA (V1.1), SSO SAML (V2, archi anticipée), Trackdéchets (V2), lien partage public rapport (V1.1), QR vérif PDF (V1.1), export PDF registre formaté (V1.1), UI édition templates emails (V1.1), coûts Veolia auto (V2), scoring prestataires (V2), multi-régions (V2), notifs in-app/SMS (V1.1), archivage > 3 ans (V2).
+- 2FA des clients (V1.1 ; celle de l'équipe Savr est livrée, cf. §2), SSO SAML (V2, archi anticipée), Trackdéchets (V2), lien partage public rapport (V1.1), QR vérif PDF (V1.1), export PDF registre formaté (V1.1), UI édition templates emails (V1.1), coûts Veolia auto (V2), scoring prestataires (V2), multi-régions (V2), notifs in-app/SMS (V1.1), archivage > 3 ans (V2).
 
 ## 3bis. Frontière TMS-Ready V1 — 5 garde-fous BLOQUANTS
 

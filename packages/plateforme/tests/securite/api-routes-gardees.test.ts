@@ -93,6 +93,16 @@ const EXCEPTIONS: Record<string, { garde: RegExp | null; raison: string }> = {
     garde: /auth\.getUser\(/,
     raison: 'session impersonée',
   },
+  // Code de vérification : acceptent une session de l'équipe Savr SANS code
+  // (getVerifiedClaims la refuse), et refusent tout autre rôle.
+  'auth/code-verification/activation': {
+    garde: /\blireSessionCodeVerification\([\s\S]*\bexigeCodeVerification\(/,
+    raison: 'session sans code, équipe Savr seule (lib/code-verification.ts)',
+  },
+  'auth/code-verification/verification': {
+    garde: /\blireSessionCodeVerification\([\s\S]*\bexigeCodeVerification\(/,
+    raison: 'session sans code, équipe Savr seule (lib/code-verification.ts)',
+  },
   // Sondes : liveness publique (Better Uptime), détail réservé staff.
   health: { garde: null, raison: 'liveness Better Uptime, sans donnée' },
   'health/full': { garde: /auth\.getUser\(/, raison: 'staff (claim vérifié)' },

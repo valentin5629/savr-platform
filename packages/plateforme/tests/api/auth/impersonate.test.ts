@@ -62,7 +62,7 @@ function postReq(url: string): NextRequest {
   return new NextRequest(`http://localhost${url}`, { method: 'POST' });
 }
 function jwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 
 const ADMIN = 'admin-9';

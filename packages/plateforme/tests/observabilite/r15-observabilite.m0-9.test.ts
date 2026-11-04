@@ -201,7 +201,7 @@ vi.mock('next/headers', () => ({
 }));
 
 function jwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 function authAs(role: string) {
   mockGetUser.mockResolvedValue({

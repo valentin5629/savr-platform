@@ -121,6 +121,9 @@ export const ROUTES = {
   resetPassword: '/reset-password',
   // Choix du mot de passe depuis l'email d'invitation (lien Savr valable 7 jours).
   invitation: '/invitation',
+  // Code de vérification de l'équipe Savr (lib/code-verification.ts) : activation
+  // puis saisie. Exige une session : PAS dans les pages publiques du middleware.
+  codeVerification: '/code-verification',
   cgu: '/cgu',
   interdit: '/403',
 

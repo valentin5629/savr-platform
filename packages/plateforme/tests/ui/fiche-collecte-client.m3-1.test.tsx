@@ -1249,7 +1249,7 @@ describe('logo du client imprimé sur les rapports (Val 2026-10-30)', () => {
 
 describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 2026-09-30)', () => {
   it(
-    'M3.1/fiche_popup_document_a_venir — avant l’échéance : « dès que les poids sont connus » en infobulle, téléchargement inactif',
+    'M3.1/fiche_popup_document_a_venir — avant l’échéance : promesse des 48 h en infobulle, téléchargement inactif',
     async () => {
       stubFetchFiche(
         ficheClient({ statut: 'realisee', rapport_etat: 'a_venir' }),
@@ -1265,7 +1265,7 @@ describe('M3.1 / pop-up — ligne document selon l’état servi (arbitrage Val 
       );
       expect(screen.queryByTestId('bloc-documents')).toBeNull();
       expect(bouton.getAttribute('title')).toBe(
-        'Document disponible dès que les poids sont connus',
+        'Document disponible dans les 48h après la collecte',
       );
       expect(bouton).toHaveProperty('disabled', true);
     },
@@ -1832,7 +1832,7 @@ describe('Variante B — cadre de la fiche collecte client', () => {
       expect(annuler).toHaveAttribute('aria-describedby', 'motif-menu-annuler');
       // Rapport pas encore disponible : son état d'attente.
       expect(screen.getByTestId('motif-menu-telecharger')).toHaveTextContent(
-        'Document disponible dès que les poids sont connus',
+        'Document disponible dans les 48h après la collecte',
       );
     },
     ATTENTE_CAS_MS,

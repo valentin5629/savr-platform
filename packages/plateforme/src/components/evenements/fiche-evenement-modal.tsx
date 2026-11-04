@@ -332,8 +332,8 @@ function BilanConsolide({
       {nbCollectes > 0 && nbRealisees === 0 && (
         <BandeauBilanAttente titre="Votre bilan sera disponible après les collectes">
           Poids collectés, CO₂ évité, repas donnés et répartition par flux
-          s’afficheront ici dès que les poids de chaque collecte seront connus,
-          et se cumuleront au fil des collectes de l’événement.
+          s’afficheront ici le lendemain de chaque collecte, et se cumuleront au
+          fil des collectes de l’événement.
         </BandeauBilanAttente>
       )}
       <Text variant="hint" data-testid="bilan-consolide-couverture">

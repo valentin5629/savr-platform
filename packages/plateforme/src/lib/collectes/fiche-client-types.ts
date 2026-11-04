@@ -76,7 +76,7 @@ export const LIBELLE_ETAT_RAPPORT: Record<EtatRapport, string> = {
   reserve: LIBELLE_RAPPORT_RESERVE,
   disponible: 'PDF',
   en_preparation: 'En cours de préparation',
-  a_venir: 'Document disponible dès que les poids sont connus',
+  a_venir: 'Document disponible dans les 48h après la collecte',
 };
 
 const ECHEANCE_RAPPORT_MS = 24 * 3600 * 1000;

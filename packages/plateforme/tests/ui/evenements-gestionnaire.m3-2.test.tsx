@@ -1186,7 +1186,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(lignes).toHaveLength(2);
       expect(lignes[0]).toHaveTextContent('Rapport RSE');
       expect(lignes[1]).toHaveTextContent(
-        'Document disponible dès que les poids sont connus',
+        'Document disponible dans les 48h après la collecte',
       );
       expect(
         within(lignes[1]!).getByRole('button', { name: 'Télécharger' }),

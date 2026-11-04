@@ -394,8 +394,8 @@ export function BilanCollecte({
       {!bilanDispo && (
         <BandeauBilanAttente titre="Votre bilan sera disponible après la collecte">
           {isAg
-            ? 'Repas donnés, CO₂ évité et association bénéficiaire s’afficheront ici dès que les poids seront connus.'
-            : 'Poids collectés, CO₂ évité, répartition par flux et comparaison avec des événements similaires s’afficheront ici dès que les poids seront connus.'}
+            ? 'Repas donnés, CO₂ évité et association bénéficiaire s’afficheront ici le lendemain de la collecte.'
+            : 'Poids collectés, CO₂ évité, répartition par flux et comparaison avec des événements similaires s’afficheront ici le lendemain de la collecte.'}
         </BandeauBilanAttente>
       )}
 

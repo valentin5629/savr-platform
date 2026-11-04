@@ -3236,7 +3236,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     attestation: null,
     photos: [],
   };
-  const TEXTE_DOCUMENT_A_VENIR = 'Généré dès que les poids sont connus';
+  const TEXTE_DOCUMENT_A_VENIR = 'Généré sous 48h après la collecte';
   const ligneDocument = (libelle: string): HTMLElement =>
     screen.getByText(libelle).parentElement as HTMLElement;
   const boutonsDeLaLigne = (libelle: string): HTMLElement[] =>
@@ -3285,6 +3285,29 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       if (!libelles.includes('Rapport RSE')) {
         expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
       }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Val 2026-11-04 : une collecte ZD réalisée sans pesée n'a ni rapport de
+  // recyclage ni radar (le bilan n'apparaît qu'avec ses chiffres).
+  it(
+    'M0.6 — Bloc 3 : collecte ZD réalisée sans pesée : rapport non téléchargeable, aucun radar proposé',
+    async () => {
+      installMock({
+        collecte: { ...baseZd, statut: 'realisee', collecte_flux: [] },
+        documents: sansDocument,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      for (const bouton of boutonsDeLaLigne('Rapport RSE'))
+        expect(bouton).toBeDisabled();
+      expect(
+        screen.queryByRole('checkbox', {
+          name: 'Inclure le radar de comparaison dans le rapport',
+        }),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

@@ -887,7 +887,7 @@ function CarteCollecte({
             <div className="flex flex-wrap justify-end gap-2">
               {annuler !== 'absent' && (
                 <Button
-                  variant="ghost-destructive"
+                  variant="outline-destructive"
                   data-testid="action-annuler"
                   disabled={annuler === 'grise'}
                   title={annuler === 'grise' ? gestes?.motifGrise : undefined}

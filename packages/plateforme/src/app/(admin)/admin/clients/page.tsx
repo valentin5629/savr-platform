@@ -227,7 +227,7 @@ export default function ClientsPage() {
             description={
               f.q
                 ? 'Aucun résultat pour cette recherche.'
-                : 'Créez la première organisation.'
+                : 'Créez le premier client.'
             }
           />
         }

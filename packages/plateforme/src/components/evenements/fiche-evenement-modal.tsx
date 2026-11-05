@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ComponentProps,
+  type ReactNode,
 } from 'react';
 import {
   CalendarDotsIcon,
@@ -14,9 +15,11 @@ import {
   HandHeartIcon,
   InfoIcon,
   MapPinIcon,
+  PencilSimpleIcon,
   PlusCircleIcon,
   TruckIcon,
   UsersIcon,
+  XIcon,
 } from '@/components/ui/icones';
 import Link from 'next/link';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -40,6 +43,7 @@ import {
 import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { Heading } from '@/components/ui/heading';
 import { InfoItem } from '@/components/ui/info-item';
+import { cn } from '@/lib/utils';
 import { CodeAffaireViparis } from '@/components/evenements/code-affaire-viparis';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -61,6 +65,32 @@ import {
 import { Chauffeurs } from '@/components/collecte/fiche-collecte-client-onglets';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
+import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
+import { ConfirmationModificationCollecte } from '@/components/collecte/confirmation-modification-collecte';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import {
+  ContactCombobox,
+  type ContactOption,
+} from '@/components/programmation/contact-combobox';
+import { NouveauContactModal } from '@/components/programmation/nouveau-contact-modal';
+import { contactDepuis, nomContact } from '@/lib/programmation/cartes-saisie';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { TimePicker } from '@/components/ui/time-picker';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
+import {
+  avertissementsCollecte,
+  changementsCollecte,
+  erreurSaisieCollecte,
+  saisieInitiale,
+  type SaisieCollecte,
+} from '@/lib/collectes/edition-collecte';
+import {
+  estAnnulationTardive,
+  SEUIL_ANNULATION_TARDIVE_HEURES,
+} from '@/lib/annulation-tardive';
 import type { EspaceFiche } from '@/lib/evenements/fiche-evenement';
 import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
 import {
@@ -75,6 +105,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
   LIBELLE_ETAT_RAPPORT,
+  motifActionGrisee,
   STATUTS_ANNULES,
   type EspaceClient,
   type FicheCollecteClient,
@@ -114,12 +145,18 @@ import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
 // consolidé, rapports de chaque collecte). En-tête : pastille d'avancement,
 // dérivée des collectes, à la place de la frise (décision Val 2026-10-27).
 //
-// Consultation (§06.05 §2), à deux gestes près : « Ajouter une collecte » sur
-// les événements que l'organisation de l'utilisateur a programmés (décision Val
-// 2026-10-21), et la demande urgente des coordonnées d'un chauffeur, la même que
-// sur la fiche collecte. Une fiche collecte s'ouvre par-dessus (« Voir la
-// collecte », « Accéder au bilan… ») : tant qu'elle est ouverte, la fiche
-// événement ne se ferme pas, et sa fermeture recharge l'événement.
+// Gestes : « Ajouter une collecte » sur les événements que l'organisation de
+// l'utilisateur a programmés (décision Val 2026-10-21), la demande urgente des
+// coordonnées d'un chauffeur, la même que sur la fiche collecte, et, dans les
+// espaces clients (décision Val 2026-11-05) : sur chaque carte, « Annuler la
+// collecte » et « Modifier la collecte », aux droits de la fiche collecte, la
+// modification se faisant sur place (la carte garde sa forme, ses valeurs
+// deviennent des champs) ; dans « Informations générales », « Modifier
+// l'événement » (nom, client final, référence, sur place) et « Annuler
+// l'événement » (annule chacune de ses collectes annulables). La fiche collecte
+// client ne s'ouvre plus que par « Accéder au bilan… » ; l'Admin garde « Voir la
+// collecte », vers sa fiche Admin. Tant qu'une fiche collecte ou une
+// confirmation est ouverte, la fiche événement ne se ferme pas.
 
 interface EvenementDetail {
   id: string;
@@ -139,6 +176,8 @@ interface EvenementDetail {
   code_affaire_modifiable: boolean;
   // Événement programmé par l'organisation de l'utilisateur (cf. la route).
   ajouter_collecte: boolean;
+  // « Modifier l'événement » : mêmes conditions que la route d'écriture.
+  modifier_evenement: boolean;
   bilan: BilanEvenement;
   // Fiche de chaque collecte, dans l'ordre chronologique.
   fiches: FicheCollecteClient[];
@@ -705,11 +744,106 @@ function DocumentsEvenement({
   );
 }
 
+/** Type d'événement proposé à la modification d'une collecte. */
+interface TypeEvenementOption {
+  id: string;
+  libelle: string;
+}
+
+/** Modification sur place ouverte sur une carte (espaces clients). */
+interface EditionCarte {
+  /** PATCH de la collecte, par la route de l'espace. */
+  endpoint: string;
+  types: TypeEvenementOption[];
+  /** Fin de la modification ; `enregistree` : l'événement est à relire. */
+  onFin: (enregistree: boolean) => void;
+  onConfirmOpenChange: (open: boolean) => void;
+}
+
+/** En-tête de carte : type, titre (lecture ou créneau modifiable), statut. */
+function EnTeteCarte({
+  f,
+  statutAdmin,
+  titre,
+}: {
+  f: FicheCollecteClient;
+  statutAdmin?: string;
+  titre: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+        <TypeCollecteBadge type={f.type} />
+        {titre}
+      </div>
+      {statutAdmin ? (
+        <CollecteStatutBadge statut={statutAdmin} vue="admin" />
+      ) : (
+        <CollecteStatutBadge statut={f.statut} />
+      )}
+    </div>
+  );
+}
+
+/** Colonne chauffeur(s) de la carte, identique en lecture et en modification. */
+function BlocLogistique({
+  f,
+  urgence,
+  onDemanderUrgence,
+}: {
+  f: FicheCollecteClient;
+  urgence: Urgence | undefined;
+  onDemanderUrgence: () => void;
+}) {
+  return (
+    <div
+      className="space-y-3 border-t border-dashed border-savr-neutral-200 pt-4 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
+      data-testid="bloc-logistique"
+    >
+      <Text as="p" tone="ink" className="flex items-center gap-2 font-semibold">
+        <TruckIcon
+          className="h-4 w-4 text-savr-primary-700"
+          aria-hidden="true"
+        />
+        {f.tournees.length > 1 ? 'Chauffeurs' : 'Chauffeur'}
+      </Text>
+      <Chauffeurs
+        c={f}
+        urgence={urgence?.etat ?? 'idle'}
+        urgenceErreur={urgence?.erreur ?? null}
+        onDemanderUrgence={onDemanderUrgence}
+      />
+    </div>
+  );
+}
+
+// Une carte par ligne, pleine largeur (la plupart des événements n'ont qu'une
+// collecte — demande Val 2026-10-29) : informations à gauche, chauffeur à
+// droite sur grand écran, l'un sous l'autre ailleurs.
+// Valeur devenue champ (modification sur place) : un espace sous le libellé,
+// sinon le contour de sélection du champ (décalé de 2 px) mord sur le libellé
+// (Val 2026-11-05).
+const VALEUR_CHAMP = 'mt-1.5';
+// Sur grand écran, aucun écart entre les colonnes : la marge droite de la
+// colonne gauche (`COLONNE_GAUCHE`) et la marge gauche du bloc chauffeur sont
+// égales, le trait pointillé tombe au milieu de la carte (Val 2026-11-05).
+const GRILLE_CARTE = 'grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-0';
+const COLONNE_GAUCHE = 'lg:pr-8';
+// Colonne gauche d'une carte des espaces clients : informations, puis les
+// boutons en bas, centrés (Val 2026-11-05 : ils portent sur la collecte, pas
+// sur le chauffeur de droite). `lg:pb-3` = marge intérieure basse du bloc
+// « Demander les coordonnées en urgence » : les boutons s'alignent sur le sien.
+const COLONNE_INFOS = 'flex flex-col gap-5';
+const BAS_GAUCHE = 'mt-auto lg:pb-3';
+const GRILLE_INFOS = 'grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2';
+
 /**
  * Carte d'une collecte dans « Informations collectes » : ses informations
  * (pax, type d'événement, contacts, informations supplémentaires) et sa
  * logistique (chauffeur, plaque, téléphone, demande urgente) réunies
- * (décision Val 2026-10-26).
+ * (décision Val 2026-10-26). Espaces clients : « Annuler la collecte » et
+ * « Modifier la collecte » ; la modification se fait sur place, la carte
+ * gardant sa forme (Val 2026-11-05).
  */
 function CarteCollecte({
   f,
@@ -718,10 +852,20 @@ function CarteCollecte({
   urgence,
   onDemanderUrgence,
   onOuvrir,
+  gestes,
+  edition,
   detail,
   statutAdmin,
 }: {
   f: FicheCollecteClient;
+  /** Espaces clients : modifier et annuler, selon `f.actions`. */
+  gestes?: {
+    motifGrise: string;
+    onModifier: () => void;
+    onAnnuler: () => void;
+  };
+  /** Modification sur place ouverte sur cette carte. */
+  edition?: EditionCarte;
   /** Staff : statut en vue Admin (granularité complète), sinon vue client. */
   statutAdmin?: string;
   /** Contacts, informations supplémentaires et chauffeurs : fiche collecte client seulement. */
@@ -732,11 +876,82 @@ function CarteCollecte({
   avecAcces: boolean;
   urgence: Urgence | undefined;
   onDemanderUrgence: () => void;
-  /** Absent : pas de fiche collecte à ouvrir (client organisateur). */
+  /** Admin : sa fiche collecte, par-dessus. */
   onOuvrir?: () => void;
 }) {
+  if (edition)
+    return (
+      <CarteCollecteEdition
+        f={f}
+        edition={edition}
+        avecAdresse={avecAdresse}
+        avecAcces={avecAcces}
+        urgence={urgence}
+        onDemanderUrgence={onDemanderUrgence}
+      />
+    );
+  const modifier = gestes ? f.actions.modifier : 'absent';
+  const annuler = gestes ? f.actions.annuler : 'absent';
+  const grise = modifier === 'grise' || annuler === 'grise';
   const secours = Boolean(
     f.contact_secours_nom?.trim() || f.contact_secours_telephone?.trim(),
+  );
+  const avecBoutons =
+    !!onOuvrir || modifier !== 'absent' || annuler !== 'absent';
+  // Espaces clients (gestes + détail) : boutons en bas de la colonne gauche ;
+  // Admin (« Voir la collecte ») : en bas à droite de la carte.
+  const aGauche = detail && !!gestes;
+  const boutons = avecBoutons && (
+    <div
+      className={cn(
+        'mt-auto flex flex-col gap-2',
+        aGauche ? cn(BAS_GAUCHE, 'items-center text-center') : 'items-end',
+      )}
+    >
+      <div
+        className={cn(
+          'flex flex-wrap gap-2',
+          aGauche ? 'justify-center' : 'justify-end',
+        )}
+      >
+        {annuler !== 'absent' && (
+          <Button
+            // « Annuler la collecte » : contour rouge, même rendu partout (DS).
+            variant="outline-destructive"
+            data-testid="action-annuler"
+            disabled={annuler === 'grise'}
+            title={annuler === 'grise' ? gestes?.motifGrise : undefined}
+            onClick={gestes?.onAnnuler}
+          >
+            <XIcon />
+            Annuler la collecte
+          </Button>
+        )}
+        {modifier !== 'absent' && (
+          <Button
+            variant="secondary"
+            data-testid="action-modifier"
+            disabled={modifier === 'grise'}
+            title={modifier === 'grise' ? gestes?.motifGrise : undefined}
+            onClick={gestes?.onModifier}
+          >
+            <PencilSimpleIcon />
+            Modifier la collecte
+          </Button>
+        )}
+        {onOuvrir && (
+          <Button variant="secondary" onClick={onOuvrir}>
+            Voir la collecte
+          </Button>
+        )}
+      </div>
+      {/* Au toucher, le `title` d'un bouton grisé ne s'affiche pas. */}
+      {grise && (
+        <Text variant="hint" data-testid="motif-gestes-grises">
+          {gestes?.motifGrise}
+        </Text>
+      )}
+    </div>
   );
   return (
     <Card
@@ -744,121 +959,559 @@ function CarteCollecte({
       className="flex flex-col gap-4"
       data-testid="carte-collecte"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <TypeCollecteBadge type={f.type} />
+      <EnTeteCarte
+        f={f}
+        statutAdmin={statutAdmin}
+        titre={
           <Heading level={3} size="base" weight="extrabold">
             {titreCollecte(f)}
           </Heading>
-        </div>
-        {statutAdmin ? (
-          <CollecteStatutBadge statut={statutAdmin} vue="admin" />
-        ) : (
-          <CollecteStatutBadge statut={f.statut} />
-        )}
-      </div>
-      {/* Une carte par ligne, pleine largeur (la plupart des événements n'ont
-          qu'une collecte — demande Val 2026-10-29) : informations à gauche,
-          chauffeur à droite sur grand écran, l'un sous l'autre ailleurs. */}
-      <div
-        className={
-          detail ? 'grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8' : undefined
         }
-      >
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-          <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
-          <InfoItem label="Type d’événement">
-            {f.type_evenement?.libelle ?? VIDE}
-          </InfoItem>
-          {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
+      />
+      <div className={detail ? GRILLE_CARTE : undefined}>
+        <div
+          className={
+            cn(aGauche && COLONNE_INFOS, detail && COLONNE_GAUCHE) || undefined
+          }
+          data-testid="colonne-infos"
+        >
+          <dl className={GRILLE_INFOS}>
+            <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
+            <InfoItem label="Type d’événement">
+              {f.type_evenement?.libelle ?? VIDE}
+            </InfoItem>
+            {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
             traiteur tiers (§06.05), décidé par le serveur. */}
-          {!detail ? null : f.contacts_visibles ? (
-            <>
-              <InfoItem label="Contact principal">
-                {f.contact_principal_nom ?? VIDE}
-                <span className="block font-normal">
-                  <TelephoneLien telephone={f.contact_principal_telephone} />
+            {!detail ? null : f.contacts_visibles ? (
+              <>
+                <InfoItem label="Contact principal">
+                  {f.contact_principal_nom ?? VIDE}
+                  <span className="block font-normal">
+                    <TelephoneLien telephone={f.contact_principal_telephone} />
+                  </span>
+                </InfoItem>
+                <InfoItem label="Contact de secours">
+                  {secours ? (
+                    <>
+                      {f.contact_secours_nom ?? VIDE}
+                      <span className="block font-normal">
+                        <TelephoneLien
+                          telephone={f.contact_secours_telephone}
+                        />
+                      </span>
+                    </>
+                  ) : (
+                    VIDE
+                  )}
+                </InfoItem>
+              </>
+            ) : (
+              <InfoItem label="Contacts sur place" className="sm:col-span-2">
+                <span className="font-normal text-savr-neutral-500">
+                  Réservés au traiteur qui a programmé la collecte.
                 </span>
               </InfoItem>
-              <InfoItem label="Contact de secours">
-                {secours ? (
-                  <>
-                    {f.contact_secours_nom ?? VIDE}
-                    <span className="block font-normal">
-                      <TelephoneLien telephone={f.contact_secours_telephone} />
-                    </span>
-                  </>
-                ) : (
-                  VIDE
-                )}
+            )}
+            {avecAdresse && (
+              <InfoItem label="Adresse" className="sm:col-span-2">
+                {adresseDe(f) ?? VIDE}
               </InfoItem>
-            </>
-          ) : (
-            <InfoItem label="Contacts sur place" className="sm:col-span-2">
-              <span className="font-normal text-savr-neutral-500">
-                Réservés au traiteur qui a programmé la collecte.
-              </span>
+            )}
+            {avecAcces && (
+              <InfoItem
+                variant="texte"
+                label="Instructions d’accès"
+                className="sm:col-span-2"
+                valueClassName="whitespace-pre-line"
+              >
+                {accesDe(f) ?? VIDE}
+              </InfoItem>
+            )}
+            {detail && (
+              <InfoItem
+                variant="texte"
+                label="Informations supplémentaires"
+                className="sm:col-span-2"
+                valueClassName="whitespace-pre-line"
+              >
+                {f.informations_supplementaires?.trim() || VIDE}
+              </InfoItem>
+            )}
+          </dl>
+          {aGauche && boutons}
+        </div>
+        {detail && (
+          <BlocLogistique
+            f={f}
+            urgence={urgence}
+            onDemanderUrgence={onDemanderUrgence}
+          />
+        )}
+      </div>
+      {!aGauche && boutons}
+    </Card>
+  );
+}
+
+/**
+ * Carte en modification (Val 2026-11-05) : même forme qu'en lecture, chaque
+ * valeur devient son champ ; créneau dans le titre, contrôle d'accès ajouté le
+ * temps de la saisie. Mêmes règles que le formulaire de la fiche collecte
+ * (lib/collectes/edition-collecte), même confirmation (< 12 h, reconfirmation).
+ */
+function CarteCollecteEdition({
+  f,
+  edition,
+  avecAdresse,
+  avecAcces,
+  urgence,
+  onDemanderUrgence,
+}: {
+  f: FicheCollecteClient;
+  edition: EditionCarte;
+  avecAdresse: boolean;
+  avecAcces: boolean;
+  urgence: Urgence | undefined;
+  onDemanderUrgence: () => void;
+}) {
+  const [s, setS] = useState<SaisieCollecte>(() => saisieInitiale(f));
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // « Ajouter un nouveau contact » du répertoire, pour l'un des deux contacts.
+  const [ajoutContact, setAjoutContact] = useState<
+    'principal' | 'secours' | null
+  >(null);
+  const sousModale = confirmOpen || ajoutContact !== null;
+  const { onConfirmOpenChange } = edition;
+  useEffect(() => {
+    onConfirmOpenChange(sousModale);
+    // Démontage sous-modale ouverte : la garde de la fiche ne reste pas bloquée.
+    return () => onConfirmOpenChange(false);
+  }, [sousModale, onConfirmOpenChange]);
+  // Contact choisi dans le répertoire de l'organisation (même sélecteur que la
+  // programmation) : « prénom nom » et téléphone, comme à la programmation.
+  const choisirContact = (
+    role: 'principal' | 'secours',
+    c: ContactOption | null,
+  ) =>
+    setS((avant) =>
+      role === 'principal'
+        ? { ...avant, cpNom: c ? nomContact(c) : '', cpTel: c?.telephone ?? '' }
+        : {
+            ...avant,
+            csNom: c ? nomContact(c) : '',
+            csTel: c?.telephone ?? '',
+          },
+    );
+  const { urgence: proche, reacceptation } = avertissementsCollecte(f, s);
+  const champ =
+    <K extends keyof SaisieCollecte>(k: K) =>
+    (v: SaisieCollecte[K]) =>
+      setS((avant) => ({ ...avant, [k]: v }));
+
+  function soumettre() {
+    const refus = erreurSaisieCollecte(f, s);
+    if (refus) {
+      setErreur(refus);
+      return;
+    }
+    if (proche || reacceptation) setConfirmOpen(true);
+    else void enregistrer();
+  }
+
+  async function enregistrer() {
+    const changements = changementsCollecte(f, s);
+    // Rien de modifié : aucune écriture, aucun email à l'équipe Savr.
+    if (Object.keys(changements).length === 0) {
+      edition.onFin(false);
+      return;
+    }
+    setEnCours(true);
+    setErreur(null);
+    try {
+      const res = await fetch(edition.endpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(changements),
+      });
+      if (res.ok) {
+        edition.onFin(true);
+        return;
+      }
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      setErreur(j.error ?? 'La modification n’a pas pu être enregistrée.');
+    } catch {
+      setErreur('La modification n’a pas pu être enregistrée.');
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  const optionsTypes =
+    edition.types.length === 0 && s.typeEvtId
+      ? [{ value: s.typeEvtId, label: f.type_evenement?.libelle ?? '—' }]
+      : edition.types.map((t) => ({ value: t.id, label: t.libelle }));
+
+  return (
+    <Card
+      padding="md"
+      className="flex flex-col gap-4"
+      data-testid="carte-collecte"
+    >
+      <EnTeteCarte
+        f={f}
+        titre={
+          <div
+            className="flex flex-wrap items-center gap-2"
+            data-testid="carte-creneau"
+          >
+            <Heading level={3} size="base" weight="extrabold">
+              Collecte du
+            </Heading>
+            <DatePicker
+              aria-label="Date de collecte"
+              value={s.dateCollecte}
+              onChange={champ('dateCollecte')}
+            />
+            <TimePicker
+              aria-label="Heure de collecte"
+              value={s.heureCollecte}
+              onChange={champ('heureCollecte')}
+            />
+          </div>
+        }
+      />
+      <div className={GRILLE_CARTE} data-testid="carte-edition">
+        <div
+          className={cn(COLONNE_INFOS, COLONNE_GAUCHE)}
+          data-testid="colonne-infos"
+        >
+          <dl className={GRILLE_INFOS}>
+            <InfoItem label="Pax" valueClassName={VALEUR_CHAMP}>
+              <Input
+                aria-label="Pax"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                value={s.pax}
+                onChange={(e) => champ('pax')(e.target.value)}
+              />
             </InfoItem>
-          )}
-          {avecAdresse && (
-            <InfoItem label="Adresse" className="sm:col-span-2">
-              {adresseDe(f) ?? VIDE}
+            <InfoItem label="Type d’événement" valueClassName={VALEUR_CHAMP}>
+              <Combobox
+                aria-label="Type d’événement"
+                icon={null}
+                placeholder="Choisir un type"
+                searchPlaceholder="Rechercher un type…"
+                options={optionsTypes}
+                value={s.typeEvtId}
+                onChange={champ('typeEvtId')}
+              />
             </InfoItem>
-          )}
-          {avecAcces && (
-            <InfoItem
-              variant="texte"
-              label="Instructions d’accès"
-              className="sm:col-span-2"
-              valueClassName="whitespace-pre-line"
-            >
-              {accesDe(f) ?? VIDE}
-            </InfoItem>
-          )}
-          {detail && (
+            {f.contacts_visibles && (
+              <>
+                <InfoItem
+                  label="Contact principal"
+                  valueClassName={VALEUR_CHAMP}
+                >
+                  <ContactCombobox
+                    value={contactDepuis(s.cpNom, s.cpTel)}
+                    onChange={(c) => choisirContact('principal', c)}
+                    onAddInline={() => setAjoutContact('principal')}
+                  />
+                </InfoItem>
+                <InfoItem
+                  label="Contact de secours"
+                  valueClassName={VALEUR_CHAMP}
+                >
+                  <ContactCombobox
+                    value={contactDepuis(s.csNom, s.csTel)}
+                    onChange={(c) => choisirContact('secours', c)}
+                    onAddInline={() => setAjoutContact('secours')}
+                    label="Ajouter un contact de secours…"
+                  />
+                </InfoItem>
+              </>
+            )}
+            {avecAdresse && (
+              <InfoItem label="Adresse" className="sm:col-span-2">
+                {adresseDe(f) ?? VIDE}
+              </InfoItem>
+            )}
+            {avecAcces && (
+              <InfoItem
+                variant="texte"
+                label="Instructions d’accès"
+                className="sm:col-span-2"
+                valueClassName="whitespace-pre-line"
+              >
+                {accesDe(f) ?? VIDE}
+              </InfoItem>
+            )}
             <InfoItem
               variant="texte"
               label="Informations supplémentaires"
               className="sm:col-span-2"
-              valueClassName="whitespace-pre-line"
+              valueClassName={VALEUR_CHAMP}
             >
-              {f.informations_supplementaires?.trim() || VIDE}
-            </InfoItem>
-          )}
-        </dl>
-        {detail && (
-          <div
-            className="space-y-3 border-t border-dashed border-savr-neutral-200 pt-4 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
-            data-testid="bloc-logistique"
-          >
-            <Text
-              as="p"
-              tone="ink"
-              className="flex items-center gap-2 font-semibold"
-            >
-              <TruckIcon
-                className="h-4 w-4 text-savr-primary-700"
-                aria-hidden="true"
+              <Textarea
+                aria-label="Informations supplémentaires"
+                rows={3}
+                maxLength={BORNES_TEXTE_LIBRE.informations_supplementaires.max}
+                value={s.infosSuppl}
+                onChange={(e) => champ('infosSuppl')(e.target.value)}
               />
-              {f.tournees.length > 1 ? 'Chauffeurs' : 'Chauffeur'}
-            </Text>
-            <Chauffeurs
-              c={f}
-              urgence={urgence?.etat ?? 'idle'}
-              urgenceErreur={urgence?.erreur ?? null}
-              onDemanderUrgence={onDemanderUrgence}
-            />
+            </InfoItem>
+            <div className="sm:col-span-2">
+              <Label variant="choice" className="flex items-center gap-3">
+                <Checkbox
+                  checked={s.controleAcces}
+                  onCheckedChange={(v) => champ('controleAcces')(v === true)}
+                />
+                <span>Contrôle d’accès requis</span>
+              </Label>
+            </div>
+          </dl>
+          {proche && (
+            <AlertBar variant="warn">
+              Cette modification a lieu moins de 12h avant la collecte. Notre
+              équipe Ops sera alertée en urgence.
+            </AlertBar>
+          )}
+          {erreur && (
+            <AlertBar variant="err" role="alert">
+              {erreur}
+            </AlertBar>
+          )}
+          <div
+            className={cn(BAS_GAUCHE, 'flex flex-wrap justify-center gap-2')}
+          >
+            <Button
+              variant="ghost"
+              disabled={enCours}
+              onClick={() => edition.onFin(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              data-testid="action-enregistrer"
+              loading={enCours}
+              loadingText="Enregistrement…"
+              onClick={soumettre}
+            >
+              Confirmer la modification
+            </Button>
           </div>
+        </div>
+        <BlocLogistique
+          f={f}
+          urgence={urgence}
+          onDemanderUrgence={onDemanderUrgence}
+        />
+      </div>
+      <NouveauContactModal
+        open={ajoutContact !== null}
+        onClose={() => setAjoutContact(null)}
+        onCree={(c) => {
+          if (ajoutContact) choisirContact(ajoutContact, c);
+          setAjoutContact(null);
+        }}
+      />
+      <ConfirmationModificationCollecte
+        open={confirmOpen}
+        urgence={proche}
+        reacceptation={reacceptation}
+        loading={enCours}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          void enregistrer();
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </Card>
+  );
+}
+
+/** Champs de l'événement modifiables sur place (Val 2026-11-05). */
+interface SaisieEvenement {
+  nom: string;
+  client: string;
+  reference: string;
+}
+
+function valeursEvenement(evt: EvenementDetail): SaisieEvenement {
+  return {
+    nom: evt.nom_evenement ?? '',
+    client: evt.client_nom ?? '',
+    reference: evt.fiches[0]?.evenement?.reference_affaire ?? '',
+  };
+}
+
+/** Collectes que l'utilisateur peut annuler (droit servi par le serveur). */
+const annulablesDe = (evt: EvenementDetail) =>
+  evt.fiches.filter((f) => f.actions.annuler === 'actif');
+
+/**
+ * Gestes de l'onglet « Informations générales » (Val 2026-11-05) : « Annuler
+ * l'événement » quand au moins une collecte est annulable par l'utilisateur,
+ * « Modifier l'événement » aux conditions de la route d'écriture ; en
+ * modification, les valeurs deviennent leurs champs sur place.
+ */
+function GestesEvenement({
+  evt,
+  saisie,
+  enCours,
+  erreur,
+  onModifier,
+  onAbandonner,
+  onEnregistrer,
+  onAnnuler,
+}: {
+  evt: EvenementDetail;
+  saisie: SaisieEvenement | null;
+  enCours: boolean;
+  erreur: string | null;
+  onModifier: () => void;
+  onAbandonner: () => void;
+  onEnregistrer: () => void;
+  onAnnuler: () => void;
+}) {
+  const annulable = annulablesDe(evt).length > 0;
+  if (!saisie && !annulable && !evt.modifier_evenement) return null;
+  return (
+    // Pleine largeur de la section (sous le libellé et les champs), boutons
+    // côte à côte à droite (Val 2026-11-05) : sans `col-span`, le bloc tombait
+    // dans la colonne du libellé, les boutons l'un sous l'autre.
+    <div className="space-y-3 md:col-span-2" data-testid="gestes-evenement">
+      {erreur && (
+        <AlertBar variant="err" role="alert">
+          {erreur}
+        </AlertBar>
+      )}
+      <div className="flex flex-wrap justify-end gap-2">
+        {saisie ? (
+          <>
+            <Button variant="ghost" disabled={enCours} onClick={onAbandonner}>
+              Annuler
+            </Button>
+            <Button
+              data-testid="action-enregistrer-evenement"
+              loading={enCours}
+              loadingText="Enregistrement…"
+              onClick={onEnregistrer}
+            >
+              Confirmer la modification
+            </Button>
+          </>
+        ) : (
+          <>
+            {annulable && (
+              <Button
+                // Contour rouge, comme « Annuler la collecte » (DS).
+                variant="outline-destructive"
+                data-testid="action-annuler-evenement"
+                onClick={onAnnuler}
+              >
+                <XIcon />
+                Annuler l’événement
+              </Button>
+            )}
+            {evt.modifier_evenement && (
+              <Button
+                variant="secondary"
+                data-testid="action-modifier-evenement"
+                onClick={onModifier}
+              >
+                <PencilSimpleIcon />
+                Modifier l’événement
+              </Button>
+            )}
+          </>
         )}
       </div>
-      {onOuvrir && (
-        <div className="mt-auto flex justify-end">
-          <Button variant="secondary" onClick={onOuvrir}>
-            Voir la collecte
-          </Button>
-        </div>
+    </div>
+  );
+}
+
+/**
+ * Confirmation de « Annuler l'événement » : les collectes qui seront annulées,
+ * et, pour celles à moins de 4 h, les mêmes avertissements que l'annulation
+ * d'une collecte (§05, Val 2026-11-01/02).
+ */
+function AnnulationEvenementDialog({
+  open,
+  collectes,
+  loading,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  collectes: FicheCollecteClient[];
+  loading: boolean;
+  error: string | null;
+  onConfirm: (motif: string) => void;
+  onCancel: () => void;
+}) {
+  const maintenant = Date.now();
+  const tardives = open
+    ? collectes.filter((f) =>
+        estAnnulationTardive(f.date_collecte, f.heure_collecte, maintenant),
+      )
+    : [];
+  const tardiveAg = tardives.some((f) => f.type === 'anti_gaspi');
+  const tardiveZd = tardives.some((f) => f.type !== 'anti_gaspi');
+  // Anti-Gaspi annulée à temps : crédit rendu, comme l'annulation d'une collecte.
+  const agATemps = collectes.some(
+    (f) => f.type === 'anti_gaspi' && !tardives.includes(f),
+  );
+  return (
+    <ConfirmDialog
+      open={open}
+      title="Annuler l’événement"
+      confirmLabel="Confirmer l’annulation"
+      cancelLabel="Retour"
+      variant="destructive"
+      loading={loading}
+      error={error}
+      motif={{ label: 'Motif' }}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    >
+      <Text>
+        {collectes.length > 1
+          ? 'Ces collectes seront annulées immédiatement. Nous prévenons notre équipe logistique.'
+          : 'Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique.'}
+      </Text>
+      <ul
+        className="list-disc space-y-1 pl-5 text-sm text-savr-neutral-700"
+        data-testid="collectes-a-annuler"
+      >
+        {collectes.map((f) => (
+          <li key={f.id}>
+            {libelleTypeCollecte(f.type)} · {titreCollecte(f)}
+          </li>
+        ))}
+      </ul>
+      {tardives.length > 0 && (
+        <AlertBar variant="warn" data-testid="mention-annulation-tardive">
+          {`${tardives.length > 1 ? `${tardives.length} collectes ont lieu` : 'Une collecte a lieu'} dans moins de ${SEUIL_ANNULATION_TARDIVE_HEURES} h : `}
+          {tardiveZd &&
+            'une collecte Zéro Déchet annulée est facturée au plein tarif. '}
+          {tardiveAg &&
+            'Une collecte Anti-Gaspi annulée est facturée comme une collecte réalisée : le crédit de votre pack décompté à sa programmation ne vous est pas rendu.'}
+        </AlertBar>
       )}
-    </Card>
+      {agATemps && (
+        <AlertBar variant="success" data-testid="mention-credit-ag">
+          {tardiveAg
+            ? 'Pour les autres collectes Anti-Gaspi, le crédit de votre pack décompté à leur programmation vous est rendu.'
+            : 'Si une collecte Anti-Gaspi a décompté un crédit de votre pack à sa programmation, il vous est rendu.'}
+        </AlertBar>
+      )}
+    </ConfirmDialog>
   );
 }
 
@@ -886,6 +1539,20 @@ export function FicheEvenementModal({
   const espaceClient: EspaceClient | null =
     espace === 'admin' || espace === 'organisateur' ? null : espace;
   const ouvrable = espace !== 'organisateur';
+  // Espaces clients : modification sur place dans la carte, annulation d'une
+  // collecte ou de l'événement, modification de l'événement (Val 2026-11-05).
+  const [edition, setEdition] = useState<string | null>(null);
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false);
+  const [types, setTypes] = useState<TypeEvenementOption[] | null>(null);
+  const [saisieEvt, setSaisieEvt] = useState<SaisieEvenement | null>(null);
+  const [evtEnCours, setEvtEnCours] = useState(false);
+  const [evtErreur, setEvtErreur] = useState<string | null>(null);
+  const [annulEvtOpen, setAnnulEvtOpen] = useState(false);
+  const [annulation, setAnnulation] = useState<FicheCollecteClient | null>(
+    null,
+  );
+  const [annulEnCours, setAnnulEnCours] = useState(false);
+  const [annulErreur, setAnnulErreur] = useState<string | null>(null);
   const [evt, setEvt] = useState<EvenementDetail | null>(null);
   const [etat, setEtat] = useState<Etat>('chargement');
   const [tentative, setTentative] = useState(0);
@@ -962,9 +1629,9 @@ export function FicheEvenementModal({
   // Tant que la fiche collecte est ouverte, Échap et le clic hors panneau ne
   // ferment qu'elle.
   const fermer = useCallback(() => {
-    if (fiche) return;
+    if (fiche || annulation || annulEvtOpen || editConfirmOpen) return;
     onClose();
-  }, [fiche, onClose]);
+  }, [fiche, annulation, annulEvtOpen, editConfirmOpen, onClose]);
 
   function ouvrirCollecte(collecteId: string, ongletFiche?: OngletFiche) {
     setFiche({ id: collecteId, onglet: ongletFiche });
@@ -976,6 +1643,130 @@ export function FicheEvenementModal({
     recharger();
   }
 
+  const routeCollecte = (collecteId: string) =>
+    `/api/v1/${encodeURIComponent(espace)}/collectes/${encodeURIComponent(collecteId)}`;
+
+  async function confirmerAnnulation(collecteId: string, motif: string) {
+    setAnnulEnCours(true);
+    setAnnulErreur(null);
+    try {
+      const res = await fetch(`${routeCollecte(collecteId)}/annulation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motif }),
+      });
+      if (res.ok) {
+        setAnnulation(null);
+        recharger();
+      } else {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        setAnnulErreur(j.error ?? 'L’annulation a échoué.');
+      }
+    } catch {
+      setAnnulErreur('L’annulation a échoué.');
+    } finally {
+      setAnnulEnCours(false);
+    }
+  }
+
+  // Types d'événement de la modification sur place : lus à la première
+  // ouverture (même liste que le formulaire de la fiche collecte).
+  function modifierCollecte(collecteId: string) {
+    setEdition(collecteId);
+    if (types !== null) return;
+    setTypes([]);
+    fetch('/api/v1/programmation/types-evenements')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((j) =>
+        setTypes(Array.isArray(j) ? (j as TypeEvenementOption[]) : []),
+      )
+      .catch(() => setTypes([]));
+  }
+
+  // Annulation de l'événement = annulation de chacune de ses collectes que
+  // l'utilisateur peut annuler, aux règles habituelles (Val 2026-11-05). Les
+  // collectes en cours ou réalisées restent. Une par une, par la route de
+  // l'espace ; un échec n'arrête pas les suivantes et se dit à la fin.
+  async function annulerEvenement(
+    aAnnuler: FicheCollecteClient[],
+    motif: string,
+  ) {
+    setAnnulEnCours(true);
+    setAnnulErreur(null);
+    const echecs: string[] = [];
+    for (const f of aAnnuler) {
+      try {
+        const res = await fetch(`${routeCollecte(f.id)}/annulation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ motif }),
+        });
+        if (!res.ok) echecs.push(titreCollecte(f));
+      } catch {
+        echecs.push(titreCollecte(f));
+      }
+    }
+    setAnnulEnCours(false);
+    recharger();
+    if (echecs.length === 0) {
+      setAnnulEvtOpen(false);
+      return;
+    }
+    setAnnulErreur(
+      `L’annulation a échoué pour : ${echecs.join(', ')}. Réessayez ou contactez l’équipe Savr.`,
+    );
+  }
+
+  async function enregistrerEvenement(s: SaisieEvenement) {
+    if (!evt) return;
+    const avant = valeursEvenement(evt);
+    const maj: Record<string, string | null> = {};
+    if (s.nom !== avant.nom) maj.nom_evenement = s.nom || null;
+    if (s.client !== avant.client)
+      maj.nom_client_organisateur = s.client || null;
+    if (s.reference !== avant.reference)
+      maj.reference_affaire = s.reference || null;
+    if (Object.keys(maj).length === 0) {
+      setSaisieEvt(null);
+      return;
+    }
+    // Client final : jamais vidé par une modification (décision Val 2026-10-30).
+    if ('nom_client_organisateur' in maj && !s.client.trim()) {
+      setEvtErreur('Le client final est obligatoire.');
+      return;
+    }
+    // L'email à l'équipe Savr part de la route quand elle nomme une collecte
+    // encore modifiable de l'événement.
+    const notifiee = evt.fiches.find((f) =>
+      ['programmee', 'validee'].includes(f.statut),
+    );
+    setEvtEnCours(true);
+    setEvtErreur(null);
+    try {
+      const res = await fetch(
+        `/api/v1/programmation/evenements/${encodeURIComponent(evt.id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(
+            notifiee ? { ...maj, collecte_id: notifiee.id } : maj,
+          ),
+        },
+      );
+      if (res.ok) {
+        setSaisieEvt(null);
+        recharger();
+        return;
+      }
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      setEvtErreur(j.error ?? 'La modification n’a pas pu être enregistrée.');
+    } catch {
+      setEvtErreur('La modification n’a pas pu être enregistrée.');
+    } finally {
+      setEvtEnCours(false);
+    }
+  }
+
   async function demanderUrgence(collecteId: string) {
     setUrgences((u) => ({
       ...u,
@@ -984,7 +1775,7 @@ export function FicheEvenementModal({
     let erreur = 'La demande n’a pas pu être envoyée.';
     try {
       const res = await fetch(
-        `/api/v1/${encodeURIComponent(espace)}/collectes/${encodeURIComponent(collecteId)}/coordonnees-urgence`,
+        `${routeCollecte(collecteId)}/coordonnees-urgence`,
         { method: 'POST' },
       );
       if (res.ok) {
@@ -1155,18 +1946,63 @@ export function FicheEvenementModal({
               <TabsContent value="informations" className="mt-0">
                 <FicheSection titre="Événement" data-testid="bloc-evenement">
                   <dl className={GRILLE} data-testid="evenement-entete">
-                    <InfoItem label="Nom de l’événement">
-                      {evt.nom_evenement ?? VIDE}
+                    <InfoItem
+                      label="Nom de l’événement"
+                      valueClassName={saisieEvt ? VALEUR_CHAMP : undefined}
+                    >
+                      {saisieEvt ? (
+                        <Input
+                          aria-label="Nom de l’événement"
+                          value={saisieEvt.nom}
+                          onChange={(e) =>
+                            setSaisieEvt({ ...saisieEvt, nom: e.target.value })
+                          }
+                        />
+                      ) : (
+                        (evt.nom_evenement ?? VIDE)
+                      )}
                     </InfoItem>
-                    <InfoItem label="Client final">
-                      {evt.client_nom ?? VIDE}
+                    <InfoItem
+                      label="Client final"
+                      valueClassName={saisieEvt ? VALEUR_CHAMP : undefined}
+                    >
+                      {saisieEvt ? (
+                        <Input
+                          aria-label="Client final"
+                          value={saisieEvt.client}
+                          onChange={(e) =>
+                            setSaisieEvt({
+                              ...saisieEvt,
+                              client: e.target.value,
+                            })
+                          }
+                        />
+                      ) : (
+                        (evt.client_nom ?? VIDE)
+                      )}
                     </InfoItem>
                     {/* Référence interne : servie à l'organisation qui a
                           programmé (Frontière 5), jamais sur l'événement d'un
                           traiteur tiers. */}
                     {evt.ajouter_collecte && (
-                      <InfoItem label="Référence interne">
-                        {evt.fiches[0]?.evenement?.reference_affaire ?? VIDE}
+                      <InfoItem
+                        label="Référence interne"
+                        valueClassName={saisieEvt ? VALEUR_CHAMP : undefined}
+                      >
+                        {saisieEvt ? (
+                          <Input
+                            aria-label="Référence interne"
+                            value={saisieEvt.reference}
+                            onChange={(e) =>
+                              setSaisieEvt({
+                                ...saisieEvt,
+                                reference: e.target.value,
+                              })
+                            }
+                          />
+                        ) : (
+                          (evt.fiches[0]?.evenement?.reference_affaire ?? VIDE)
+                        )}
                       </InfoItem>
                     )}
                     {/* §06.05 §2 : traiteur = nom + logo, pas d'email /
@@ -1223,6 +2059,24 @@ export function FicheEvenementModal({
                       />
                     )}
                   </dl>
+                  <GestesEvenement
+                    evt={evt}
+                    saisie={saisieEvt}
+                    enCours={evtEnCours}
+                    erreur={evtErreur}
+                    onModifier={() => {
+                      setEvtErreur(null);
+                      setSaisieEvt(valeursEvenement(evt));
+                    }}
+                    onAbandonner={() => setSaisieEvt(null)}
+                    onEnregistrer={() =>
+                      saisieEvt && void enregistrerEvenement(saisieEvt)
+                    }
+                    onAnnuler={() => {
+                      setAnnulErreur(null);
+                      setAnnulEvtOpen(true);
+                    }}
+                  />
                 </FicheSection>
 
                 <FicheSection titre="Lieu" data-testid="bloc-lieu">
@@ -1278,7 +2132,34 @@ export function FicheEvenementModal({
                         statutAdmin={evt.statuts_admin?.[f.id]}
                         onDemanderUrgence={() => void demanderUrgence(f.id)}
                         onOuvrir={
-                          ouvrable ? () => ouvrirCollecte(f.id) : undefined
+                          espace === 'admin'
+                            ? () => ouvrirCollecte(f.id)
+                            : undefined
+                        }
+                        gestes={
+                          espaceClient
+                            ? {
+                                motifGrise: motifActionGrisee(espaceClient),
+                                onModifier: () => modifierCollecte(f.id),
+                                onAnnuler: () => {
+                                  setAnnulErreur(null);
+                                  setAnnulation(f);
+                                },
+                              }
+                            : undefined
+                        }
+                        edition={
+                          edition === f.id
+                            ? {
+                                endpoint: routeCollecte(f.id),
+                                types: types ?? [],
+                                onFin: (enregistree) => {
+                                  setEdition(null);
+                                  if (enregistree) recharger();
+                                },
+                                onConfirmOpenChange: setEditConfirmOpen,
+                              }
+                            : undefined
                         }
                       />
                     ))}
@@ -1343,6 +2224,30 @@ export function FicheEvenementModal({
           </Tabs>
         )}
       </FicheModal>
+
+      {evt && (
+        <AnnulationEvenementDialog
+          open={annulEvtOpen}
+          collectes={annulablesDe(evt)}
+          loading={annulEnCours}
+          error={annulErreur}
+          onConfirm={(motif) => void annulerEvenement(annulablesDe(evt), motif)}
+          onCancel={() => setAnnulEvtOpen(false)}
+        />
+      )}
+
+      <AnnulationCollecteDialog
+        open={annulation !== null}
+        antiGaspi={annulation?.type === 'anti_gaspi'}
+        dateCollecte={annulation?.date_collecte}
+        heureCollecte={annulation?.heure_collecte}
+        loading={annulEnCours}
+        error={annulErreur}
+        onConfirm={(motif) =>
+          annulation && void confirmerAnnulation(annulation.id, motif)
+        }
+        onCancel={() => setAnnulation(null)}
+      />
 
       {espaceClient ? (
         <FicheCollecteClientModal

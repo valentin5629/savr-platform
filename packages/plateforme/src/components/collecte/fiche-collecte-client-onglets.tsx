@@ -483,11 +483,11 @@ export function Chauffeurs({
           data-testid="zone-urgence"
           // Mobile : bouton pleine largeur sous le texte. Au-delà, sur une
           // ligne, qui passe à la ligne si la place manque (carte étroite de la
-          // fiche événement).
+          // fiche événement) : le bouton est alors centré (Val 2026-11-05).
           className={
             vb
               ? 'mt-8 flex flex-col items-center justify-center gap-4 rounded-savr-xl border border-savr-sable-200 bg-savr-sable-50 px-5 py-4 text-center sm:flex-row sm:text-left md:-ml-[15.5rem]'
-              : 'flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center'
+              : 'flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center'
           }
         >
           {demandeEnvoyee ? (

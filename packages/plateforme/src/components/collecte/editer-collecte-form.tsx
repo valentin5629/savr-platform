@@ -13,13 +13,17 @@ import { Label } from '@/components/ui/label';
 import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
-import { modificationUrgente } from '@/lib/collectes/urgence-modification';
+import {
+  avertissementsCollecte,
+  changementsCollecte,
+  erreurSaisieCollecte,
+  type SaisieCollecte,
+} from '@/lib/collectes/edition-collecte';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ConfirmationModificationCollecte } from '@/components/collecte/confirmation-modification-collecte';
 import { FormActions } from '@/components/ui/form-actions';
-import { paxSaisiValide } from '@/lib/programmation/cartes-saisie';
 
 interface TypeEvenement {
   id: string;
@@ -129,49 +133,28 @@ export function EditerCollecteForm({
 
   const editable = STATUTS_EDITABLES.includes(collecte.statut);
 
-  // Ancien OU nouveau créneau à moins de 12h → avertissement priorité (§05
-  // l.316, §06.04 l.483) — même règle que l'email à l'équipe Savr.
-  const urgence = modificationUrgente(
-    { date: collecte.date_collecte, heure: collecte.heure_collecte },
-    { date: dateCollecte, heure: heureCollecte ? `${heureCollecte}:00` : null },
-  );
-  // Réacceptation prestataire (§06.04 l.505) : modif de créneau sur collecte
-  // acceptée → le prestataire devra re-confirmer.
-  const dateHeureModifiee =
-    dateCollecte !== collecte.date_collecte ||
-    heureCollecte !== (collecte.heure_collecte?.slice(0, 5) ?? '');
-  const reacceptation = dateHeureModifiee && collecte.statut_tms === 'acceptee';
+  const saisie: SaisieCollecte = {
+    dateCollecte,
+    heureCollecte,
+    pax,
+    typeEvtId,
+    cpNom,
+    cpTel,
+    csNom,
+    csTel,
+    controleAcces,
+    infosSuppl,
+  };
+  // Urgence < 12h (§05 l.316) et reconfirmation du prestataire (§06.04 l.505).
+  const { urgence, reacceptation } = avertissementsCollecte(collecte, saisie);
 
   // Confirmation (§06.04 l.501-507) : modal unique empilant les avertissements
   // applicables (priorité urgence < 12h + réacceptation prestataire). Si aucun
   // avertissement → sauvegarde directe sans modal.
   function onSubmitClick() {
-    // Le pax est un entier >= 1 (même règle que la route) : refusé ici plutôt
-    // que renvoyé par le serveur. Contrôlé seulement s'il a été modifié : une
-    // collecte reprise de Bubble à pax 0 (inconnu) reste modifiable pour le reste.
-    if (pax !== String(collecte.pax) && !paxSaisiValide(pax)) {
-      setError(
-        'Nombre de convives : saisissez un nombre entier de 1 à 100 000.',
-      );
-      return;
-    }
-    // Contact principal : nom et téléphone obligatoires (même règle que la
-    // route, contrôlée seulement s'ils ont été modifiés).
-    const cpModifie =
-      cpNom !== (collecte.contact_principal_nom ?? '') ||
-      cpTel !== (collecte.contact_principal_telephone ?? '');
-    if (cpModifie && (cpNom.trim() === '' || cpTel.trim() === '')) {
-      setError('Le contact principal et son téléphone sont obligatoires.');
-      return;
-    }
-    // Contact de secours et client final : obligatoires aussi (décision Val
-    // 2026-10-30), contrôlés seulement s'ils ont été modifiés (une collecte
-    // ancienne qui n'en a pas reste modifiable pour le reste).
-    const csModifie =
-      csNom !== (collecte.contact_secours_nom ?? '') ||
-      csTel !== (collecte.contact_secours_telephone ?? '');
-    if (csModifie && (csNom.trim() === '' || csTel.trim() === '')) {
-      setError('Le contact de secours et son téléphone sont obligatoires.');
+    const refus = erreurSaisieCollecte(collecte, saisie);
+    if (refus) {
+      setError(refus);
       return;
     }
     if (
@@ -199,33 +182,7 @@ export function EditerCollecteForm({
         evtUpdates.reference_affaire = refAffaire || null;
 
       // 2. Champs COLLECTE modifiés (type d'événement et contacts compris).
-      const colUpdates: Record<string, unknown> = {};
-      if (typeEvtId && typeEvtId !== (collecte.type_evenement_id ?? ''))
-        colUpdates.type_evenement_id = typeEvtId;
-      if (cpNom !== (collecte.contact_principal_nom ?? ''))
-        colUpdates.contact_principal_nom = cpNom;
-      if (cpTel !== (collecte.contact_principal_telephone ?? ''))
-        colUpdates.contact_principal_telephone = cpTel;
-      // Nom et téléphone de secours partent ensemble (la route l'exige).
-      if (
-        csNom !== (collecte.contact_secours_nom ?? '') ||
-        csTel !== (collecte.contact_secours_telephone ?? '')
-      ) {
-        colUpdates.contact_secours_nom = csNom;
-        colUpdates.contact_secours_telephone = csTel;
-      }
-      if (dateCollecte !== collecte.date_collecte)
-        colUpdates.date_collecte = dateCollecte;
-      if (heureCollecte !== (collecte.heure_collecte?.slice(0, 5) ?? ''))
-        colUpdates.heure_collecte = heureCollecte
-          ? `${heureCollecte}:00`
-          : null;
-      if (pax !== String(collecte.pax))
-        colUpdates.pax = Number.parseInt(pax, 10);
-      if (controleAcces !== collecte.controle_acces_requis)
-        colUpdates.controle_acces_requis = controleAcces;
-      if (infosSuppl !== (collecte.informations_supplementaires ?? ''))
-        colUpdates.informations_supplementaires = infosSuppl || null;
+      const colUpdates = changementsCollecte(collecte, saisie);
 
       // L'équipe Savr reçoit UN email par enregistrement, envoyé par la dernière
       // des deux requêtes (cf. lib/collectes/email-modification) : la collecte
@@ -474,34 +431,17 @@ export function EditerCollecteForm({
 
         {/* Modal de confirmation unique (§06.04 l.501-507) — empile les
             avertissements applicables avant la sauvegarde. */}
-        <ConfirmDialog
+        <ConfirmationModificationCollecte
           open={confirmOpen}
-          title="Confirmer la modification"
-          confirmLabel="Confirmer la modification"
-          cancelLabel="Annuler"
-          variant="primary"
+          urgence={urgence}
+          reacceptation={reacceptation}
           loading={saving}
           onConfirm={() => {
             setConfirmOpen(false);
             void save();
           }}
           onCancel={() => setConfirmOpen(false)}
-        >
-          <ul className="list-disc space-y-2 pl-5 text-sm text-savr-neutral-700">
-            {urgence && (
-              <li>
-                Cette modification a lieu moins de 12h avant la collecte. Notre
-                équipe Ops sera alertée en urgence.
-              </li>
-            )}
-            {reacceptation && (
-              <li>
-                Ce nouveau créneau devra être reconfirmé par notre équipe
-                logistique.
-              </li>
-            )}
-          </ul>
-        </ConfirmDialog>
+        />
       </CardContent>
     </Card>
   );

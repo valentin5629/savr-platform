@@ -62,6 +62,7 @@ import { libelleTypeOrganisationMinuscule } from '@/lib/libelles/organisation';
 import { ROUTES } from '@/lib/routes';
 import {
   LIBELLE_ETAT_RAPPORT,
+  motifActionGrisee,
   type EspaceClient,
 } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
@@ -296,10 +297,7 @@ export function FicheCollecteClientPanel({
         : lienAjouterCollecte
           ? 'ajouter'
           : null;
-  const motifGrise =
-    espace === 'traiteur'
-      ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
-      : 'Seule l’organisation qui a programmé la collecte peut la modifier.';
+  const motifGrise = motifActionGrisee(espace);
   // Rapport pas encore téléchargeable : son état d'attente (ex. « disponible
   // dans les 48h après la collecte »).
   const motifRapport =

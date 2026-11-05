@@ -801,3 +801,33 @@ describe('M1.2 — ajouter une collecte depuis la fiche événement du gestionna
     expect(JSON.stringify(data)).not.toContain('org-traiteur-tiers');
   });
 });
+
+describe('Fiche événement — « Modifier l’événement » (Val 2026-11-05)', () => {
+  type Drapeau = { data: { modifier_evenement: boolean } };
+
+  it('EVT/modifier_evenement_programme_par_soi — son organisation, une collecte encore modifiable : permis', async () => {
+    rls.__set({
+      data: evenementBrut({ organisation_id: 'org-gl' }),
+      error: null,
+    });
+    const { data } = (await (await fiche()).json()) as Drapeau;
+    expect(data.modifier_evenement).toBe(true);
+  });
+
+  it('EVT/modifier_evenement_collectes_terminees — toutes ses collectes terminées : refusé, comme la route d’écriture (f_collecte_editable)', async () => {
+    const brut = evenementBrut({ organisation_id: 'org-gl' });
+    brut.collectes = brut.collectes.map((c) => ({ ...c, statut: 'cloturee' }));
+    rls.__set({ data: brut, error: null });
+    const { data } = (await (await fiche()).json()) as Drapeau;
+    expect(data.modifier_evenement).toBe(false);
+  });
+
+  it('EVT/modifier_evenement_traiteur_tiers — événement d’un traiteur tiers sur ses lieux : refusé', async () => {
+    rls.__set({
+      data: evenementBrut({ organisation_id: 'org-traiteur-tiers' }),
+      error: null,
+    });
+    const { data } = (await (await fiche()).json()) as Drapeau;
+    expect(data.modifier_evenement).toBe(false);
+  });
+});

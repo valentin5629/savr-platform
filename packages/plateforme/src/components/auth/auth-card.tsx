@@ -6,6 +6,8 @@ import { Card } from '@/components/ui/card';
 import { SavrLogoMark } from '@/components/layout/savr-logo';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { TextLink } from '@/components/ui/text-link';
+import { ROUTES } from '@/lib/routes';
 
 // Gabarit commun des écrans d'authentification (connexion, inscription,
 // réinitialisation) : logo Savr au-dessus, carte avec titre centré, contenu et
@@ -29,6 +31,15 @@ export function AuthPage({ children }: { children: React.ReactNode }) {
         className="mb-8 h-12 w-auto text-savr-accent-500"
       />
       {children}
+      {/* Politique de confidentialité : lisible depuis tous les écrans
+          d'authentification (CDC §15, 3.4). */}
+      <TextLink
+        href={ROUTES.confidentialite}
+        touch
+        className="mt-8 text-sm text-savr-neutral-600"
+      >
+        Politique de confidentialité
+      </TextLink>
     </main>
   );
 }

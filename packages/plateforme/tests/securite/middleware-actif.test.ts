@@ -205,6 +205,11 @@ describe('middleware — comportement', () => {
     expect(createServerClient).not.toHaveBeenCalled();
   });
 
+  it('politique de confidentialité sans session → lisible (CDC §15, 3.4)', async () => {
+    passe(await middleware(req('/confidentialite')));
+    expect(createServerClient).not.toHaveBeenCalled();
+  });
+
   it('callback d’impersonation sans session → pas de redirection (validé par son OTP)', async () => {
     const res = await middleware(
       req('/auth/impersonate-callback?token_hash=t&type=magiclink'),

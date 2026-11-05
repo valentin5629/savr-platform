@@ -88,7 +88,7 @@ const CHIPS_A_VENIR_CATALOGUE = [
   { key: '', label: 'Toutes' },
   { key: 'non_transmises_zd', label: 'Non transmises ZD' },
   { key: 'non_transmises_ag', label: 'Non transmises AG' },
-  { key: 'attente_prestataire', label: 'En attente prestataire' },
+  { key: 'attente_prestataire', label: 'En attente transporteur' },
   { key: 'dirty_tms', label: 'Modifiées sans renvoi TMS' },
   { key: 'ag_attente_attribution', label: 'AG en attente attribution' },
   { key: 'zd_48h', label: 'ZD 48 h' },

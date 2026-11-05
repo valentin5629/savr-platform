@@ -18,7 +18,7 @@ export const STATUT_TMS_DISPLAY: Record<
   acceptee: { label: 'Acceptée presta', variant: 'success' },
   en_attente_execution: { label: 'En attente exécution', variant: 'info' },
   rejetee_par_prestataire: {
-    label: 'Rejetée par prestataire',
+    label: 'Rejetée par transporteur',
     variant: 'error',
   },
   annulee_par_traiteur: { label: 'Annulée par traiteur', variant: 'error' },

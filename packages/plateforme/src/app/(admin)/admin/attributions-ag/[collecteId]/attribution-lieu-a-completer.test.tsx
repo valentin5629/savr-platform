@@ -2,7 +2,7 @@
  * Écran Attribution AG — lieu sans région ni code postal (C1, Val 2026-11-03).
  * L'algorithme ne peut rien recommander : un seul message dit que c'est le
  * lieu qu'il faut compléter, à la place des deux avertissements « Aucune
- * association disponible… » et « Aucun prestataire éligible… ».
+ * association disponible… » et « Aucun transporteur éligible… ».
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -60,7 +60,7 @@ describe('Attribution AG — lieu à compléter', () => {
         await screen.findByText(MESSAGE_LIEU_A_COMPLETER, {}, ATTENTE_UI),
       ).toBeTruthy();
       expect(screen.queryByText(/Aucune association disponible/)).toBeNull();
-      expect(screen.queryByText(/Aucun prestataire éligible/)).toBeNull();
+      expect(screen.queryByText(/Aucun transporteur éligible/)).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -78,7 +78,7 @@ describe('Attribution AG — lieu à compléter', () => {
           ATTENTE_UI,
         ),
       ).toBeTruthy();
-      expect(screen.getByText(/Aucun prestataire éligible/)).toBeTruthy();
+      expect(screen.getByText(/Aucun transporteur éligible/)).toBeTruthy();
       expect(screen.queryByText(MESSAGE_LIEU_A_COMPLETER)).toBeNull();
     },
     ATTENTE_CAS_MS,

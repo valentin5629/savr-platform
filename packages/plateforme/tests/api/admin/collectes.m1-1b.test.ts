@@ -188,7 +188,7 @@ describe('M1.1b / Dispatch / Permissions', () => {
   });
 });
 
-// ZD (décision Val 2026-10-07, C1) — l'Admin choisit le prestataire sur la fiche.
+// ZD (décision Val 2026-10-07, C1) — l'Admin choisit le transporteur sur la fiche.
 // Avant, rien ne posait de prestataire sur une ZD : « Envoyer » émettait un
 // ordre que le worker classait « rien à envoyer ».
 describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
@@ -211,7 +211,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     },
     error: null,
   });
-  // Transporteur résolu depuis le prestataire choisi (validation serveur).
+  // Transporteur résolu depuis le transporteur choisi (validation serveur).
   const transporteur = (t: { type_tms: string; actif: boolean } | null) =>
     mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
       data: t,
@@ -290,7 +290,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
 
     expect(res.status).toBe(422);
     expect(((await res.json()) as { error: string }).error).toMatch(
-      /Choisissez d'abord le prestataire logistique/,
+      /Choisissez d'abord le transporteur/,
     );
     expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
@@ -317,7 +317,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     );
   });
 
-  it('M0.6/dispatch_zd_changement_motif — changer un prestataire déjà posé : motif exigé, message propre à la ZD', async () => {
+  it('M0.6/dispatch_zd_changement_motif — changer un transporteur déjà posé : motif exigé, message propre à la ZD', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce(collecteZd('prest-strike'));
     transporteur({ type_tms: 'mts1', actif: true });
@@ -326,7 +326,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
 
     expect(res.status).toBe(422);
     expect(((await res.json()) as { error: string }).error).toMatch(
-      /pour changer le prestataire déjà attribué/,
+      /pour changer le transporteur déjà attribué/,
     );
     expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
@@ -400,7 +400,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     expect(res.status).toBe(200);
   });
 
-  it('collecte en demande d’annulation : choix d’un prestataire refusé (409)', async () => {
+  it('collecte en demande d’annulation : choix d’un transporteur refusé (409)', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce(
       collecteZd(null, { statut: 'annulation_demandee' }),
@@ -427,7 +427,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     expect(mockSupabaseChain.maybeSingle).not.toHaveBeenCalled();
   });
 
-  it('renvoi chez le prestataire déjà posé (corps vide) : réémission sans motif', async () => {
+  it('renvoi chez le transporteur déjà posé (corps vide) : réémission sans motif', async () => {
     setupAuth('ops_savr');
     mockSupabaseChain.single.mockResolvedValueOnce(collecteZd('prest-strike'));
     mockSupabaseChain.rpc.mockResolvedValueOnce({
@@ -446,7 +446,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
 });
 
 // BL-P1-BOA-06 (Val 2026-07-02) — Bloc 0 AG : le motif override est obligatoire
-// UNIQUEMENT si le prestataire choisi ≠ top-1 de l'algo (calculé serveur), pas ≠
+// UNIQUEMENT si le transporteur choisi ≠ top-1 de l'algo (calculé serveur), pas ≠
 // prestataire actuel. Valider le top-1 = 0 motif.
 describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -474,7 +474,7 @@ describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
     nb_pax: 80,
   };
 
-  // AG : l'association est choisie AVANT le prestataire (décision Val 2026-10-01)
+  // AG : l'association est choisie AVANT le transporteur (décision Val 2026-10-01)
   // — son adresse est le point B transmis par l'adapter. Sans attribution, 422.
   it('M0.6/dispatch AG — 422 si aucune association attribuée (adresse de livraison inconnue)', async () => {
     setupAuth('admin_savr');
@@ -670,7 +670,7 @@ describe('M0.6 / Dispatch AG / service du transporteur forcé', () => {
 
   it('ops_savr : le choix du service est refusé (403), rien n’est écrit ni envoyé', async () => {
     setupAuth('ops_savr');
-    // Renvoi au prestataire actuel (A Toutes!), sans forçage : seul le service
+    // Renvoi au transporteur actuel (A Toutes!), sans forçage : seul le service
     // est en jeu (aucun appel à l'algorithme).
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: { ...collecteAg, prestataire_logistique_id: 'presta-atoutes' },

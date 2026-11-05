@@ -573,7 +573,7 @@ function EncartOrdreEnvoi({
     ordre?.etat === 'echec_reprise' || ordre?.etat === 'echec_definitif';
   if (!enFile && !enEchec) return null;
 
-  const aPrestataire = prestataire ? `à ${prestataire}` : 'au prestataire';
+  const aPrestataire = prestataire ? `à ${prestataire}` : 'au transporteur';
   if (!ordre || !enEchec) {
     return (
       <AlertBar variant="info">
@@ -581,7 +581,7 @@ function EncartOrdreEnvoi({
           Collecte envoyée {aPrestataire}
           {aPrestataire.endsWith('!') ? '' : '.'}{' '}
           <span className="font-normal">
-            La commande part vers {canal ?? 'le prestataire'} dans les secondes
+            La commande part vers {canal ?? 'le transporteur'} dans les secondes
             qui suivent l’envoi ; à défaut, au prochain passage automatique. Le
             statut « Attente acceptation presta » s’affichera ici dès sa prise
             en compte.
@@ -627,9 +627,9 @@ function EncartOrdreEnvoi({
       : `${objet} n’a pas encore été transmise ${aPrestataire} (${tentatives}).`;
     suite = abandonne
       ? ordre.nature === 'modification'
-        ? 'Prévenez le prestataire, ou modifiez de nouveau la collecte pour renvoyer son état complet.'
+        ? 'Prévenez le transporteur, ou modifiez de nouveau la collecte pour renvoyer son état complet.'
         : ordre.nature === 'annulation'
-          ? 'Prévenez le prestataire : il n’est pas averti de l’annulation.'
+          ? 'Prévenez le transporteur : il n’est pas averti de l’annulation.'
           : 'Corrigez la cause si besoin, puis renvoyez la collecte depuis cette fiche.'
       : reprise;
   }
@@ -1996,10 +1996,10 @@ export function CollecteDetailPanel({
   // Sans badge du mode d'envoi : doublon de l'en-tête et du statut TMS
   // (décision Val 2026-10-27).
   const champPrestataireActuel = (
-    <InfoItem label="Prestataire actuel">
+    <InfoItem label="Transporteur actuel">
       {currentTransporteur?.nom ?? (
         <span className="text-savr-neutral-400">
-          {libelleSansNom ?? 'Aucun prestataire attribué'}
+          {libelleSansNom ?? 'Aucun transporteur attribué'}
         </span>
       )}
     </InfoItem>
@@ -2212,7 +2212,7 @@ export function CollecteDetailPanel({
               <span className="inline-flex flex-wrap items-center gap-2">
                 {currentTransporteur?.nom ??
                   libelleSansNom ??
-                  'Prestataire non attribué'}
+                  'Transporteur non attribué'}
                 <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
               </span>
             </FicheRepere>
@@ -2450,7 +2450,7 @@ export function CollecteDetailPanel({
               <FicheSection titre="Attribution & dispatch">
                 <div className="min-w-0 space-y-4">
                   <AlertBar variant="warn">
-                    L&apos;attribution (association, prestataire) n&apos;est
+                    L&apos;attribution (association, transporteur) n&apos;est
                     possible qu&apos;au statut «{' '}
                     {statutCollecteDisplay('creee', 'admin').label} » — statut
                     actuel : « {statutCollecteDisplay(collecte.statut).label} ».
@@ -2462,8 +2462,8 @@ export function CollecteDetailPanel({
             <FicheSection
               titre={
                 agAttribuee
-                  ? 'Prestataire et Dispatch'
-                  : 'Prestataire & Dispatch'
+                  ? 'Transporteur et Dispatch'
+                  : 'Transporteur & Dispatch'
               }
             >
               <div className="min-w-0 space-y-4">
@@ -2601,12 +2601,12 @@ export function CollecteDetailPanel({
                         id="dispatch-transporteur-label"
                       >
                         {ordreEnFileEnvoi || choixMasqueSansClic
-                          ? 'Changer de prestataire'
-                          : 'Prestataire à attribuer'}
+                          ? 'Changer de transporteur'
+                          : 'Transporteur à attribuer'}
                       </Text>
                       {prestataireAChoisir && (
                         <Text variant="hint">
-                          Choisissez le prestataire qui réalisera la collecte,
+                          Choisissez le transporteur qui réalisera la collecte,
                           puis envoyez.
                         </Text>
                       )}
@@ -2670,8 +2670,8 @@ export function CollecteDetailPanel({
                         <FormField
                           label={
                             changementPrestataireZd
-                              ? 'Motif du changement de prestataire (≥ 5 car.)'
-                              : 'Motif override (≥ 5 car. — prestataire ≠ reco algo)'
+                              ? 'Motif du changement de transporteur (≥ 5 car.)'
+                              : 'Motif override (≥ 5 car. — transporteur ≠ reco algo)'
                           }
                           htmlFor="dispatch-motif"
                           required
@@ -2684,8 +2684,8 @@ export function CollecteDetailPanel({
                             onChange={(e) => setMotifOverride(e.target.value)}
                             placeholder={
                               changementPrestataireZd
-                                ? 'Raison du changement de prestataire…'
-                                : "Raison du choix d'un prestataire différent de la recommandation…"
+                                ? 'Raison du changement de transporteur…'
+                                : "Raison du choix d'un transporteur différent de la recommandation…"
                             }
                           />
                         </FormField>
@@ -2751,7 +2751,7 @@ export function CollecteDetailPanel({
                           onClick={() => setChangerPrestataire(true)}
                         >
                           <TruckIcon />
-                          Changer de prestataire
+                          Changer de transporteur
                         </Button>
                       )}
                       {estModifieeSansRenvoi(collecte) && (
@@ -2778,7 +2778,7 @@ export function CollecteDetailPanel({
                               setMotifOverride('');
                             }}
                           >
-                            Garder le prestataire actuel
+                            Garder le transporteur actuel
                           </Button>
                         )}
                       {((!choixMasque && !envoiZdParti) ||
@@ -2948,7 +2948,7 @@ export function CollecteDetailPanel({
                         )}
                         {t === null && (
                           <Text variant="hint" tone="soft" className="mb-1.5">
-                            Tournée pas encore créée par le prestataire — la
+                            Tournée pas encore créée par le transporteur — la
                             saisie la crée.
                           </Text>
                         )}
@@ -4061,7 +4061,7 @@ export function CollecteDetailPanel({
         <form onSubmit={(e) => void handleModifierPax(e)} className="space-y-4">
           <Text>
             Le nombre de pax de l&apos;événement est recalculé. Si une commande
-            existe déjà chez le prestataire, la modification lui est envoyée,
+            existe déjà chez le transporteur, la modification lui est envoyée,
             sauf pour une collecte réalisée, clôturée ou annulée. L&apos;action
             est tracée dans l&apos;audit (motif obligatoire).
           </Text>
@@ -4127,7 +4127,7 @@ export function CollecteDetailPanel({
         >
           <Text>
             Ces informations sont celles de cette collecte. Si une commande
-            existe déjà chez le prestataire, un changement de contact lui est
+            existe déjà chez le transporteur, un changement de contact lui est
             envoyé, sauf pour une collecte réalisée, clôturée ou annulée. Le
             type d&apos;événement ne lui est pas transmis. L&apos;action est
             tracée dans l&apos;audit.

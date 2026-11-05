@@ -830,7 +830,7 @@ async function handleEventType(
           mission,
           missionId,
           eventType,
-          'annulée par le prestataire',
+          'annulée par le transporteur',
         );
       }
       // Mission terminale écrite EN DERNIER (rejeu possible, cf. mission_finished).
@@ -1239,7 +1239,7 @@ async function rejeterSiPreAcceptation(
 
   await alerteApresTransition(supabase, {
     p_code: 'collecte_rejetee_prestataire',
-    p_titre: 'Course Everest rejetée par le prestataire',
+    p_titre: 'Course Everest rejetée par le transporteur',
     p_message: `Mission Everest ${motifCourt} avant acceptation (${missionId}) — collecte ${mission.collecte_id} passée en rejetee_par_prestataire. Réattribution requise (§08 §3).`,
     p_entity_type: 'collectes',
     p_entity_id: mission.collecte_id,

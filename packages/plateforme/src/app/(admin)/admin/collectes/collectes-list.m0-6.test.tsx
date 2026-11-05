@@ -489,12 +489,12 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     async () => {
       mockCollectesFetch();
       render(<CollectesPage />);
-      // « En attente prestataire » = chip conservé dans la rangée par défaut
+      // « En attente transporteur » = chip conservé dans la rangée par défaut
       // (« Non transmises ZD/AG » et « ZD/AG 48h » masqués — décision Val 2026-07-15).
       const chip = await screen.findByRole(
         'button',
         {
-          name: /En attente prestataire/,
+          name: /En attente transporteur/,
         },
         ATTENTE_UI,
       );
@@ -510,7 +510,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       render(<CollectesPage />);
       await screen.findByRole(
         'button',
-        { name: /En attente prestataire/ },
+        { name: /En attente transporteur/ },
         ATTENTE_UI,
       );
       expect(
@@ -1357,7 +1357,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
       fireEvent.click(
-        screen.getByRole('button', { name: /En attente prestataire/ }),
+        screen.getByRole('button', { name: /En attente transporteur/ }),
       );
       fireEvent.click(screen.getByTestId('collectes-filtre-traiteur'));
       fireEvent.click(
@@ -1372,7 +1372,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         expect(q.get('traiteur_operationnel_ids')).toBe('org-1');
       }, ATTENTE_UI);
       expect(
-        screen.getByRole('button', { name: /En attente prestataire/ }),
+        screen.getByRole('button', { name: /En attente transporteur/ }),
       ).toHaveAttribute('aria-pressed', 'true');
     },
     ATTENTE_CAS_MS,

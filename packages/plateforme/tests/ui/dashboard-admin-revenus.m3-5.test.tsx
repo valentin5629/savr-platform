@@ -282,6 +282,33 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
   );
 
   it(
+    'M3.5/admin_revenus_repartition_survol — survol d’une part : carte avec nom du client, CA et part du total (Val 2026-11-05)',
+    async () => {
+      render(<DashboardAdminPage />);
+      const bloc = await screen.findByTestId(
+        'repartition-revenus-clients',
+        undefined,
+        ATTENTE_UI,
+      );
+      const arc = await within(bloc).findByLabelText(
+        /^Traiteur Alpha :/,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(bloc).queryByRole('tooltip')).toBeNull();
+      fireEvent.mouseEnter(arc);
+      fireEvent.mouseMove(arc, { clientX: 40, clientY: 50 });
+      const carte = within(bloc).getByRole('tooltip');
+      expect(carte).toHaveTextContent('Traiteur Alpha');
+      expect(carte).toHaveTextContent('CA HT');
+      expect(carte).toHaveTextContent('Part du total');
+      // 1 500 € sur 2 000 € : 75 %.
+      expect(carte).toHaveTextContent('75');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.5/admin_revenus_controls — titre bloc + champs de période présents, presets + export CSV retirés (revue E2E 2026-07-18)',
     async () => {
       render(<DashboardAdminPage />);

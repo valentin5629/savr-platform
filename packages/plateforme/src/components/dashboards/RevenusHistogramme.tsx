@@ -176,7 +176,11 @@ export function RevenusHistogramme({
           value={toggle}
           onValueChange={(v) => {
             // Choix obligatoire : un clic sur l'item actif ne le désélectionne pas.
-            if (v === 'montant' || v === 'nombre') setToggle(v);
+            if ((v === 'montant' || v === 'nombre') && v !== toggle) {
+              setToggle(v);
+              // Même entrée qu'à l'ouverture de la page (Val 2026-11-05).
+              entree.rejouer();
+            }
           }}
           className="h-9 sm:h-9"
         >
@@ -223,6 +227,7 @@ export function RevenusHistogramme({
             </div>
 
             <div
+              key={entree.tour}
               ref={entree.ref}
               className={cn(
                 'relative flex h-full items-end gap-1',

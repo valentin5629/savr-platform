@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ChartCard } from './charts/cockpit/ChartCard';
-import { INK, TEXT_MUTED, GRID } from './charts/cockpit/palette';
+import { INK, TEXT_MUTED, GRID, WHITE } from './charts/cockpit/palette';
+import { useCompteur, useEntreeGraphique } from './charts/entree-graphique';
+import { ChartTooltip } from '@/components/ui/chart-tooltip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -73,6 +75,15 @@ export function RepartitionRevenusClients({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [survol, setSurvol] = useState<number | null>(null);
+  const [curseur, setCurseur] = useState<{ x: number; y: number } | null>(null);
+  const entree = useEntreeGraphique<SVGSVGElement>('repartition-clients');
+  const { rejouer } = entree;
+  const totalAnime = useCompteur(total, entree.phase);
+  // useId rend des « : » : retirés pour une référence url(#…) sûre.
+  const masqueId = `entree-repartition-${useId().replace(/[^\w-]/g, '')}`;
+  // Une bascule Toutes / ZD / AG rejoue l'entrée quand ses données arrivent
+  // (Val 2026-11-05) ; un changement de filtre ne la rejoue pas.
+  const rejouerALArrivee = useRef(false);
   const lieux = lieuIds.join(',');
   const organisations = organisationIds.join(',');
 
@@ -119,6 +130,10 @@ export function RepartitionRevenusClients({
             });
           setParts(suivantes);
           setTotal(tout);
+          if (rejouerALArrivee.current) {
+            rejouerALArrivee.current = false;
+            rejouer();
+          }
         },
       )
       .catch(() => {
@@ -133,7 +148,7 @@ export function RepartitionRevenusClients({
     return () => {
       perimee = true;
     };
-  }, [type, from, to, lieux, organisations]);
+  }, [type, from, to, lieux, organisations, rejouer]);
 
   const bascule = (
     <ToggleGroup
@@ -142,7 +157,10 @@ export function RepartitionRevenusClients({
       value={type}
       onValueChange={(v) => {
         // Choix obligatoire : un clic sur l'item actif ne le désélectionne pas.
-        if (v === 'toutes' || v === 'zd' || v === 'ag') setType(v);
+        if ((v === 'toutes' || v === 'zd' || v === 'ag') && v !== type) {
+          rejouerALArrivee.current = true;
+          setType(v);
+        }
       }}
       className="h-9 sm:h-9"
     >
@@ -167,6 +185,7 @@ export function RepartitionRevenusClients({
     return arc;
   });
   const focus = survol != null ? parts[survol] : undefined;
+  const part = (p: Part) => fmtPct((p.montant / total) * 100, 0);
 
   return (
     <ChartCard
@@ -175,71 +194,147 @@ export function RepartitionRevenusClients({
       className={className}
     >
       <div data-testid="repartition-revenus-clients">
-        {loading ? (
+        {/* Squelette au premier chargement seulement : une bascule garde le
+            camembert affiché jusqu'aux nouvelles données, puis rejoue l'entrée. */}
+        {loading && parts.length === 0 ? (
           <LoadingState variant="bloc" lignes={1} className="[&>div]:h-48" />
         ) : parts.length === 0 ? (
           <EmptyState size="inline" title="Aucune donnée sur la période." />
         ) : (
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
-            <svg
-              viewBox="0 0 200 200"
-              width={196}
-              height={196}
-              className="shrink-0"
-              role="img"
-              aria-label={`Répartition des revenus par client, total ${fmtEuro(total, 0)}`}
-              onMouseLeave={() => setSurvol(null)}
+            <div
+              className="relative shrink-0"
+              onMouseLeave={() => {
+                setSurvol(null);
+                setCurseur(null);
+              }}
             >
-              <circle
-                cx={100}
-                cy={100}
-                r={R}
-                fill="none"
-                stroke={GRID}
-                strokeWidth={28}
-              />
-              {arcs.map((a, i) => (
+              <svg
+                key={entree.tour}
+                ref={entree.ref}
+                className={entree.classe}
+                viewBox="0 0 200 200"
+                width={196}
+                height={196}
+                style={{ display: 'block' }}
+                role="img"
+                aria-label={`Répartition des revenus par client, total ${fmtEuro(total, 0)}`}
+              >
+                {/* Entrée : un masque se remplit dans le sens horaire et révèle
+                    les arcs, comme le donut des tonnages. */}
+                {entree.actif && (
+                  <defs>
+                    <mask id={masqueId}>
+                      <circle
+                        data-entree="tourne"
+                        cx={100}
+                        cy={100}
+                        r={R}
+                        fill="none"
+                        stroke={WHITE}
+                        strokeWidth={40}
+                        pathLength={1}
+                        strokeDasharray="1 1"
+                        transform="rotate(-90 100 100)"
+                      />
+                    </mask>
+                  </defs>
+                )}
                 <circle
-                  key={parts[i]!.cle}
                   cx={100}
                   cy={100}
                   r={R}
                   fill="none"
-                  stroke={parts[i]!.couleur}
-                  strokeWidth={survol === i ? 32 : 28}
-                  strokeDasharray={a.dasharray}
-                  strokeDashoffset={a.dashoffset}
-                  transform="rotate(-90 100 100)"
-                  opacity={survol != null && survol !== i ? 0.35 : 1}
-                  style={{
-                    cursor: 'pointer',
-                    transition:
-                      'opacity var(--transition-duration-savr-fast), stroke-width var(--transition-duration-savr-fast)',
-                  }}
-                  onMouseEnter={() => setSurvol(i)}
+                  stroke={GRID}
+                  strokeWidth={28}
+                />
+                <g mask={entree.actif ? `url(#${masqueId})` : undefined}>
+                  {arcs.map((a, i) => (
+                    <circle
+                      key={parts[i]!.cle}
+                      cx={100}
+                      cy={100}
+                      r={R}
+                      fill="none"
+                      stroke={parts[i]!.couleur}
+                      strokeWidth={survol === i ? 32 : 28}
+                      strokeDasharray={a.dasharray}
+                      strokeDashoffset={a.dashoffset}
+                      transform="rotate(-90 100 100)"
+                      opacity={survol != null && survol !== i ? 0.35 : 1}
+                      style={{
+                        cursor: 'pointer',
+                        transition:
+                          'opacity var(--transition-duration-savr-fast), stroke-width var(--transition-duration-savr-fast)',
+                      }}
+                      aria-label={`${parts[i]!.nom} : ${fmtEuro(parts[i]!.montant, 0)} (${part(parts[i]!)})`}
+                      onMouseEnter={() => setSurvol(i)}
+                      onMouseMove={(e) => {
+                        const boite =
+                          e.currentTarget.ownerSVGElement?.getBoundingClientRect();
+                        if (boite)
+                          setCurseur({
+                            x: e.clientX - boite.left,
+                            y: e.clientY - boite.top,
+                          });
+                      }}
+                    />
+                  ))}
+                </g>
+                {/* Centre : le total, qui monte de 0 pendant l'entrée. */}
+                <text
+                  x={100}
+                  y={98}
+                  textAnchor="middle"
+                  className="tabular-nums"
+                  style={{ fontSize: 22, fontWeight: 900, fill: INK }}
                 >
-                  <title>{`${parts[i]!.nom} : ${fmtEuro(parts[i]!.montant, 0)} (${fmtPct((parts[i]!.montant / total) * 100, 0)})`}</title>
-                </circle>
-              ))}
-              {/* Centre : le client survolé, sinon le total. */}
-              <text
-                x={100}
-                y={98}
-                textAnchor="middle"
-                className="tabular-nums"
-                style={{ fontSize: 22, fontWeight: 900, fill: INK }}
-              >
-                {fmtEuro(focus ? focus.montant : total, 0)}
-              </text>
-              <text
-                x={100}
-                y={118}
-                textAnchor="middle"
-                style={{ fontSize: 11, fontWeight: 600, fill: TEXT_MUTED }}
-              >
-                {focus ? fmtPct((focus.montant / total) * 100, 0) : 'Total HT'}
-              </text>
-            </svg>
+                  {fmtEuro(totalAnime, 0)}
+                </text>
+                <text
+                  x={100}
+                  y={118}
+                  textAnchor="middle"
+                  style={{ fontSize: 11, fontWeight: 600, fill: TEXT_MUTED }}
+                >
+                  Total HT
+                </text>
+              </svg>
+
+              {/* Carte au survol d'une part, comme l'histogramme : nom, CA et
+                  part du total (Val 2026-11-05). Elle suit le curseur. */}
+              {focus && curseur && (
+                <ChartTooltip
+                  role="tooltip"
+                  className="whitespace-nowrap text-left"
+                  style={{ left: curseur.x + 14, top: curseur.y + 14 }}
+                >
+                  <Text as="div" variant="hint" className="mb-1 font-semibold">
+                    {focus.nom}
+                  </Text>
+                  <div className="flex items-center justify-between gap-5 text-sm">
+                    <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
+                      <span
+                        className="inline-block h-2 w-2 rounded-savr-sm"
+                        style={{ background: focus.couleur }}
+                      />
+                      CA HT
+                    </span>
+                    <span className="font-extrabold tabular-nums text-savr-neutral-900">
+                      {fmtEuro(focus.montant, 0)}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1.5 text-sm">
+                    <span className="font-semibold text-savr-neutral-500">
+                      Part du total
+                    </span>
+                    <span className="font-extrabold tabular-nums text-savr-neutral-900">
+                      {part(focus)}
+                    </span>
+                  </div>
+                </ChartTooltip>
+              )}
+            </div>
 
             {/* Légende : nom, part et montant de chaque client. */}
             <ul className="w-full min-w-0 space-y-1.5">
@@ -263,7 +358,7 @@ export function RepartitionRevenusClients({
                     {p.nom}
                   </Text>
                   <Text as="span" className="tabular-nums">
-                    {fmtPct((p.montant / total) * 100, 0)}
+                    {part(p)}
                   </Text>
                   <Text
                     as="span"

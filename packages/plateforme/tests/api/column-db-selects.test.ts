@@ -89,7 +89,7 @@ function setupAuth(role: string, organisationId: string | null = 'org-a') {
   mockGetSession.mockResolvedValue({
     data: {
       session: {
-        access_token: `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`,
+        access_token: `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`,
       },
     },
     error: null,

@@ -58,7 +58,7 @@ vi.mock('next/headers', () => ({
 }));
 
 function setupAdmin() {
-  const jwt = `h.${Buffer.from(JSON.stringify({ user_role: 'admin_savr' })).toString('base64url')}.s`;
+  const jwt = `h.${Buffer.from(JSON.stringify({ aal: 'aal2', user_role: 'admin_savr' })).toString('base64url')}.s`;
   mockGetUser.mockResolvedValue({
     data: { user: { id: 'user-1' } },
     error: null,

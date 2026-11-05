@@ -9,7 +9,9 @@ import { ListFooter } from '@/components/ui/list-footer';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
-import { useUserRole } from '@/lib/use-user-role';
+import { useUserId, useUserRole } from '@/lib/use-user-role';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 import { InviteUserModal } from './invite-user-modal';
 import { PageHero } from '@/components/ui/page-hero';
 import { TextLink } from '@/components/ui/text-link';
@@ -26,43 +28,118 @@ interface StaffUser {
   derniere_connexion: string | null;
 }
 
-const columns: Column<StaffUser>[] = [
-  {
-    key: 'nom',
-    header: 'Nom',
-    render: (row) => (
-      <span className="font-medium">
-        {row.prenom} {row.nom}
-      </span>
-    ),
-  },
-  { key: 'email', header: 'Email' },
-  {
-    key: 'role',
-    header: 'Rôle',
-    render: (row) => <Badge variant="neutral">{libelleRole(row.role)}</Badge>,
-  },
-  {
-    key: 'actif',
-    header: 'Statut',
-    render: (row) => <ActifBadge actif={row.actif} />,
-  },
-  {
-    key: 'derniere_connexion',
-    header: 'Dernière connexion',
-    render: (row) =>
-      row.derniere_connexion
-        ? new Date(row.derniere_connexion).toLocaleDateString('fr-FR', {
-            timeZone: 'Europe/Paris',
-          })
-        : '—',
-  },
-];
+// `reinitialisation` absent : pas de colonne « Code de vérification » (seul
+// admin_savr réinitialise un code ; ops_savr n'y verrait que des tirets).
+function colonnes(reinitialisation?: {
+  moi: string | undefined;
+  onReinitialiser: (row: StaffUser) => void;
+}): Column<StaffUser>[] {
+  const base: Column<StaffUser>[] = [
+    {
+      key: 'nom',
+      header: 'Nom',
+      render: (row) => (
+        <span className="font-medium">
+          {row.prenom} {row.nom}
+        </span>
+      ),
+    },
+    { key: 'email', header: 'Email' },
+    {
+      key: 'role',
+      header: 'Rôle',
+      render: (row) => <Badge variant="neutral">{libelleRole(row.role)}</Badge>,
+    },
+    {
+      key: 'actif',
+      header: 'Statut',
+      render: (row) => <ActifBadge actif={row.actif} />,
+    },
+    {
+      key: 'derniere_connexion',
+      header: 'Dernière connexion',
+      render: (row) =>
+        row.derniere_connexion
+          ? new Date(row.derniere_connexion).toLocaleDateString('fr-FR', {
+              timeZone: 'Europe/Paris',
+            })
+          : '—',
+    },
+  ];
+  if (!reinitialisation) return base;
+  const { moi, onReinitialiser } = reinitialisation;
+  return [
+    ...base,
+    {
+      // Code de vérification (lib/code-verification.ts) : un administrateur le
+      // réinitialise pour un autre membre (téléphone perdu ou changé), jamais
+      // pour lui-même.
+      key: 'code_verification',
+      header: 'Code de vérification',
+      render: (row) =>
+        moi && row.id !== moi ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onReinitialiser(row)}
+            aria-label={`Réinitialiser le code de vérification de ${row.prenom} ${row.nom}`}
+          >
+            Réinitialiser
+          </Button>
+        ) : (
+          '—'
+        ),
+    },
+  ];
+}
 
 export default function SettingsUsersPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [page, setPage] = useState(1);
   const role = useUserRole();
+  const moi = useUserId();
+  const { toast } = useToast();
+  const [aReinitialiser, setAReinitialiser] = useState<StaffUser | null>(null);
+  const [reinitEnCours, setReinitEnCours] = useState(false);
+  const [reinitErreur, setReinitErreur] = useState<string | null>(null);
+
+  async function reinitialiser() {
+    if (!aReinitialiser) return;
+    setReinitEnCours(true);
+    setReinitErreur(null);
+    try {
+      const res = await fetch(
+        `/api/v1/admin/users/${encodeURIComponent(aReinitialiser.id)}/code-verification`,
+        { method: 'DELETE' },
+      );
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setReinitErreur(data.error ?? 'Réinitialisation impossible.');
+        return;
+      }
+      const { facteurs_retires } = (await res.json().catch(() => ({}))) as {
+        facteurs_retires?: number;
+      };
+      toast(
+        facteurs_retires === 0
+          ? {
+              title: `${aReinitialiser.prenom} ${aReinitialiser.nom} n’avait pas encore de code : son activation sera demandée à sa prochaine connexion.`,
+              variant: 'info',
+            }
+          : {
+              title: `Code de vérification de ${aReinitialiser.prenom} ${aReinitialiser.nom} réinitialisé.`,
+              variant: 'success',
+            },
+      );
+      setAReinitialiser(null);
+    } catch {
+      setReinitErreur('Réinitialisation impossible. Vérifiez votre connexion.');
+    } finally {
+      setReinitEnCours(false);
+    }
+  }
   // Un seul appel paginé (R-UI-4a, E5) : avant, deux appels par rôle plafonnés
   // à 50 lignes chacun, concaténés et re-triés — au-delà, les membres manquaient
   // sans que le compteur (somme des totaux) ne le dise.
@@ -112,7 +189,17 @@ export default function SettingsUsersPage() {
       </div>
 
       <DataTable
-        columns={columns}
+        columns={colonnes(
+          role === 'admin_savr'
+            ? {
+                moi,
+                onReinitialiser: (row) => {
+                  setReinitErreur(null);
+                  setAReinitialiser(row);
+                },
+              }
+            : undefined,
+        )}
         data={users}
         keyExtractor={(row) => row.id}
         loading={loading}
@@ -127,6 +214,23 @@ export default function SettingsUsersPage() {
         }
       />
       <ListFooter total={total} page={page} onPageChange={setPage} />
+
+      <ConfirmDialog
+        open={aReinitialiser !== null}
+        title="Réinitialiser le code de vérification"
+        confirmLabel="Réinitialiser"
+        cancelLabel="Annuler"
+        variant="destructive"
+        loading={reinitEnCours}
+        loadingText="Réinitialisation…"
+        error={reinitErreur}
+        onConfirm={() => void reinitialiser()}
+        onCancel={() => setAReinitialiser(null)}
+      >
+        À sa prochaine connexion, {aReinitialiser?.prenom} {aReinitialiser?.nom}{' '}
+        devra activer un nouveau code en scannant un QR code avec son téléphone.
+        Ses connexions déjà ouvertes restent actives.
+      </ConfirmDialog>
     </div>
   );
 }

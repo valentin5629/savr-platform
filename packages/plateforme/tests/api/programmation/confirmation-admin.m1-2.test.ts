@@ -97,7 +97,7 @@ vi.mock('@/lib/attribution-ag/auto-accept.js', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 function setupAuth(role: string, organisationId: string, userId = 'user-1') {
   mockGetUser.mockResolvedValue({

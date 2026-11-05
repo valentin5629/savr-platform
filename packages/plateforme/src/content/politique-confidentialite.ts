@@ -121,7 +121,7 @@ export const POLITIQUE_CONFIDENTIALITE_SECTIONS: SectionCgu[] = [
     titre: 'Sécurité',
     blocs: [
       p(
-        'Les données sont protégées par des comptes nominatifs, un cloisonnement entre organisations (chacune ne voit que ses données et celles des événements auxquels elle participe), le chiffrement des échanges et du stockage, et des sauvegardes quotidiennes de la base de données.',
+        'Les données sont protégées par des comptes nominatifs, un cloisonnement entre organisations (chacune ne voit que ses données et celles des événements auxquels elle participe ou qui se tiennent sur ses lieux), le chiffrement des échanges et du stockage, et des sauvegardes quotidiennes de la base de données.',
       ),
     ],
   },

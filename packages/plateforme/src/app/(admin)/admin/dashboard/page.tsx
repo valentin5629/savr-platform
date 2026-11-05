@@ -20,6 +20,7 @@ import { RevenusHistogramme } from '@/components/dashboards/index.js';
 // components/dashboards → aucun impact sur le gate orphan-components).
 import { StatCard } from '@/components/ui/stat-card';
 import { ChartCard } from '@/components/dashboards/charts/cockpit/ChartCard';
+import { RepartitionRevenusClients } from '@/components/dashboards/RepartitionRevenusClients';
 import { fmtInt } from '@/components/dashboards/charts/cockpit/fmt';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { OPS_DOT } from '@/components/dashboards/charts/cockpit/palette';
@@ -402,18 +403,26 @@ export default function DashboardAdminPage() {
             />
           </FilterBar>
 
-          {/* Graphe puis tableau, chacun sur sa propre ligne pleine largeur
-            (revue E2E Val 2026-11-05, lisibilité ; remplace le 50/50 du 2026-07-18). */}
+          {/* Ligne 1 : histogramme à gauche, répartition par client à droite
+            (50/50 ≥ lg) ; ligne 2 : tableau pleine largeur (revue E2E Val
+            2026-11-05). Tous sur les mêmes filtres. */}
           <div className="grid grid-cols-1 gap-6">
-            {/* Histogramme — MÊME fenêtre de période que le tableau (filtre commun). */}
-            <ChartCard>
-              <RevenusHistogramme
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-stretch">
+              <ChartCard>
+                <RevenusHistogramme
+                  from={periode.from}
+                  to={periode.to}
+                  lieuIds={lieuIds}
+                  organisationIds={organisationIds}
+                />
+              </ChartCard>
+              <RepartitionRevenusClients
                 from={periode.from}
                 to={periode.to}
                 lieuIds={lieuIds}
                 organisationIds={organisationIds}
               />
-            </ChartCard>
+            </div>
 
             {/* Bloc « Revenu par client » — titre DANS la carte, comme
               l'histogramme (ChartCard) (revue E2E Val 2026-09-28). */}

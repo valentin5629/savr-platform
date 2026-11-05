@@ -378,6 +378,40 @@ describe('admin/revenus-organisations', () => {
     expect(json2.data.length).toBe(10);
   });
 
+  it('revenus/totaux_toute_la_periode — totaux sur toutes les organisations, pas seulement la page (camembert, Val 2026-11-05)', async () => {
+    setupAuth('admin_savr');
+    grilleZd100();
+    const collectes = Array.from({ length: 60 }, (_, i) =>
+      collecte('zero_dechet', `org-${i}`, `Org ${i}`),
+    );
+    admin.setResult('collectes', { data: collectes, error: null });
+    const { GET } =
+      await import('@/app/api/v1/admin/dashboard/revenus-organisations/route.js');
+    const lire = async (page: number) =>
+      (await (
+        await GET(
+          makeReq(`/api/v1/admin/dashboard/revenus-organisations?page=${page}`),
+        )
+      ).json()) as {
+        data: { montant_zd_ht: number; montant_total: number }[];
+        totaux: {
+          montant_zd_ht: number;
+          montant_ag_ht: number;
+          montant_total: number;
+        };
+      };
+    const [p1, p2] = [await lire(1), await lire(2)];
+    const somme = [...p1.data, ...p2.data].reduce(
+      (s, o) => s + o.montant_zd_ht,
+      0,
+    );
+    expect(somme).toBe(6000); // 60 collectes ZD à 100 €
+    expect(p1.totaux.montant_zd_ht).toBeCloseTo(somme, 2);
+    expect(p1.totaux.montant_total).toBeCloseTo(somme, 2);
+    expect(p1.totaux.montant_ag_ht).toBe(0);
+    expect(p2.totaux).toEqual(p1.totaux);
+  });
+
   it('revenus/export_csv — format=csv renvoie un text/csv avec en-tête 6 colonnes', async () => {
     setupAuth('admin_savr');
     admin.setResult('collectes', {

@@ -57,7 +57,7 @@ describe('/confidentialite : contenu exigé par le CDC §15 3.4', () => {
     expect(texte).toContain('anonymisées sur simple demande');
     expect(texte).toContain('conservées 10 ans');
     expect(texte).toContain('journal conservé 5 ans');
-    expect(texte).toContain('journalisés 2 ans');
+    expect(texte).toContain('journalisés et conservés 2 à 3 ans');
   });
 
   it("ne promet aucune purge qui n'existe pas (contacts, comptes)", () => {

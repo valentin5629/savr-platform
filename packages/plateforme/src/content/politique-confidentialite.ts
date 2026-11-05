@@ -61,7 +61,7 @@ export const POLITIQUE_CONFIDENTIALITE_SECTIONS: SectionCgu[] = [
       ),
       li(
         'Chauffeurs',
-        "nom et téléphone du chauffeur et immatriculation du véhicule, reçus du transporteur et communiqués au client pour l'accès au lieu de collecte (exécution du contrat). Ils sont conservés avec la fiche de la collecte.",
+        "nom et téléphone du chauffeur et immatriculation du véhicule, reçus du transporteur ou saisis par l'équipe Savr, et communiqués au client pour l'accès au lieu de collecte (exécution du contrat). Ils sont conservés avec la fiche de la collecte.",
       ),
       li(
         'Associations bénéficiaires',
@@ -69,7 +69,7 @@ export const POLITIQUE_CONFIDENTIALITE_SECTIONS: SectionCgu[] = [
       ),
       li(
         'Journaux',
-        "les actions sensibles sont inscrites dans un journal conservé 5 ans, pour la sécurité et la preuve (intérêt légitime). Les échanges avec les transporteurs sont journalisés 2 ans. Les journaux techniques de nos hébergeurs (connexions, erreurs) sont conservés pour une durée limitée, fixée par chacun d'eux.",
+        "les actions sensibles sont inscrites dans un journal conservé 5 ans, pour la sécurité et la preuve (intérêt légitime). Les échanges avec les transporteurs sont journalisés et conservés 2 à 3 ans. Les journaux techniques de nos hébergeurs (connexions, erreurs) sont conservés pour une durée limitée, fixée par chacun d'eux.",
       ),
       p(
         "Savr n'utilise pas ces données à des fins publicitaires et ne les vend pas.",

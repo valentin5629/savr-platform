@@ -2012,6 +2012,38 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
   );
 
   it(
+    'EVT/gestes_disposition — boutons de l’événement sur toute la largeur de la section, côte à côte à droite ; croix sur « Annuler », crayon sur « Modifier », sur l’événement comme sur la carte (Val 2026-11-05)',
+    async () => {
+      stubFetch(() => ({
+        body: {
+          data: {
+            ...uneCollecte(),
+            ajouter_collecte: true,
+            modifier_evenement: true,
+          },
+        },
+      }));
+      monterFiche({ espace: 'traiteur' });
+      await ficheChargee();
+      const gestes = screen.getByTestId('gestes-evenement');
+      // Sans `md:col-span-2`, le bloc tombe dans la colonne du libellé de la
+      // section : boutons à gauche, l'un sous l'autre.
+      expect(gestes).toHaveClass('md:col-span-2');
+      expect(gestes.querySelector('.justify-end')).not.toBeNull();
+      const avecPicto = (b: HTMLElement) =>
+        expect(b.querySelector('svg')).not.toBeNull();
+      avecPicto(screen.getByRole('button', { name: 'Annuler l’événement' }));
+      avecPicto(screen.getByRole('button', { name: 'Modifier l’événement' }));
+      const c = await carte();
+      avecPicto(within(c).getByRole('button', { name: 'Annuler la collecte' }));
+      avecPicto(
+        within(c).getByRole('button', { name: 'Modifier la collecte' }),
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'EVT/gestes_evenement_absents — aucune collecte annulable ni droit de modifier : ni « Annuler l’événement » ni « Modifier l’événement »',
     async () => {
       stubFetch(() => ({ body: { data: detail() } }));

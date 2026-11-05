@@ -15,9 +15,11 @@ import {
   HandHeartIcon,
   InfoIcon,
   MapPinIcon,
+  PencilSimpleIcon,
   PlusCircleIcon,
   TruckIcon,
   UsersIcon,
+  XIcon,
 } from '@/components/ui/icones';
 import Link from 'next/link';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -976,6 +978,7 @@ function CarteCollecte({
                 title={annuler === 'grise' ? gestes?.motifGrise : undefined}
                 onClick={gestes?.onAnnuler}
               >
+                <XIcon />
                 Annuler la collecte
               </Button>
             )}
@@ -987,6 +990,7 @@ function CarteCollecte({
                 title={modifier === 'grise' ? gestes?.motifGrise : undefined}
                 onClick={gestes?.onModifier}
               >
+                <PencilSimpleIcon />
                 Modifier la collecte
               </Button>
             )}
@@ -1322,7 +1326,10 @@ function GestesEvenement({
   const annulable = annulablesDe(evt).length > 0;
   if (!saisie && !annulable && !evt.modifier_evenement) return null;
   return (
-    <div className="mt-4 space-y-3" data-testid="gestes-evenement">
+    // Pleine largeur de la section (sous le libellé et les champs), boutons
+    // côte à côte à droite (Val 2026-11-05) : sans `col-span`, le bloc tombait
+    // dans la colonne du libellé, les boutons l'un sous l'autre.
+    <div className="space-y-3 md:col-span-2" data-testid="gestes-evenement">
       {erreur && (
         <AlertBar variant="err" role="alert">
           {erreur}
@@ -1352,6 +1359,7 @@ function GestesEvenement({
                 data-testid="action-annuler-evenement"
                 onClick={onAnnuler}
               >
+                <XIcon />
                 Annuler l’événement
               </Button>
             )}
@@ -1361,6 +1369,7 @@ function GestesEvenement({
                 data-testid="action-modifier-evenement"
                 onClick={onModifier}
               >
+                <PencilSimpleIcon />
                 Modifier l’événement
               </Button>
             )}

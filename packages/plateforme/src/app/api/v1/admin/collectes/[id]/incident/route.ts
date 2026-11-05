@@ -24,7 +24,7 @@ const IMPUTABLE = ['prestataire', 'client', 'association', 'savr', 'externe'];
 
 // Libellés de l'email Admin (revue des emails, Val 2026-10-29).
 const LIBELLE_IMPUTABLE: Record<string, string> = {
-  prestataire: 'le prestataire logistique',
+  prestataire: 'le transporteur',
   client: 'le client',
   association: "l'association",
   savr: 'Savr',

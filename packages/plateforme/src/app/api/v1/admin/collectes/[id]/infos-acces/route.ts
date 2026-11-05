@@ -192,7 +192,7 @@ async function patchHandler(
         return NextResponse.json(
           {
             error:
-              'Aucun prestataire logistique sur la collecte : attribuez un prestataire avant de saisir le chauffeur.',
+              'Aucun transporteur sur la collecte : attribuez un transporteur avant de saisir le chauffeur.',
           },
           { status: 422 },
         );
@@ -305,7 +305,7 @@ async function patchHandler(
           await auditer();
           return NextResponse.json(
             {
-              error: `Le prestataire vient de créer la tournée du camion ${rang} : rechargez la fiche avant de saisir.`,
+              error: `Le transporteur vient de créer la tournée du camion ${rang} : rechargez la fiche avant de saisir.`,
             },
             { status: 409 },
           );

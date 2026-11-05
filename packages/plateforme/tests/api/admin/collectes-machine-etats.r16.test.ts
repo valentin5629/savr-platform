@@ -73,10 +73,10 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
 // `fn_modifier_collecte` n'a pas de branche `collecte.creee`. Depuis que le gate
 // E2 porte la dimension provider, un PATCH qui bascule `prestataire_logistique_id`
 // vers un transporteur de l'autre type n'émettrait AUCUN event : la collecte
-// pointerait sur un prestataire chez qui rien n'est commandé, sans même la ligne
+// pointerait sur un transporteur chez qui rien n'est commandé, sans même la ligne
 // outbox consommée en no-op. Le champ est donc hors de l'allowlist — la bascule
 // passe par `POST …/dispatch` (fn_dispatcher_collecte), qui décide du bon event.
-describe('M1.4 / le PATCH ne bascule pas le prestataire', () => {
+describe('M1.4 / le PATCH ne bascule pas le transporteur', () => {
   beforeEach(() => vi.clearAllMocks());
 
   // Un brouillon n'apparaît dans aucune liste Admin (décision Val 2026-10-07)
@@ -264,7 +264,7 @@ describe('M1.4 / machine à états / flux incident (RM-09)', () => {
     expect(mockSendEmail).toHaveBeenCalledWith(
       'admin_incident_collecte',
       expect.any(String),
-      expect.objectContaining({ imputable_a: 'le prestataire logistique' }),
+      expect.objectContaining({ imputable_a: 'le transporteur' }),
     );
     // Notification client (§05 §4bis l.347) : programmeur informé via annulation_collecte.
     expect(mockSendEmail).toHaveBeenCalledWith(

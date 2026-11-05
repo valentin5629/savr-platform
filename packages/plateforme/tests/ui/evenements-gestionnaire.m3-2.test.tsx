@@ -2046,6 +2046,31 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
       avecPicto(
         within(c).getByRole('button', { name: 'Modifier la collecte' }),
       );
+      // Carte : boutons en bas de la colonne des informations (à gauche),
+      // jamais sous le chauffeur (Val 2026-11-05).
+      const gauche = within(c).getByTestId('colonne-infos');
+      expect(
+        within(gauche).getByRole('button', { name: 'Modifier la collecte' }),
+      ).toBeInTheDocument();
+      expect(
+        within(gauche).getByRole('button', { name: 'Annuler la collecte' }),
+      ).toBeInTheDocument();
+      expect(
+        within(within(c).getByTestId('bloc-logistique')).queryByRole('button', {
+          name: /collecte/,
+        }),
+      ).toBeNull();
+      // En modification, « Confirmer la modification » reste à gauche.
+      fireEvent.click(
+        within(c).getByRole('button', { name: 'Modifier la collecte' }),
+      );
+      expect(
+        within(
+          within(screen.getByTestId('carte-collecte')).getByTestId(
+            'colonne-infos',
+          ),
+        ).getByRole('button', { name: 'Confirmer la modification' }),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

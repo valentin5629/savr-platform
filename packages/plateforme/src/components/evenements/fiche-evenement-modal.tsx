@@ -43,6 +43,7 @@ import {
 import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { Heading } from '@/components/ui/heading';
 import { InfoItem } from '@/components/ui/info-item';
+import { cn } from '@/lib/utils';
 import { CodeAffaireViparis } from '@/components/evenements/code-affaire-viparis';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -824,6 +825,12 @@ function BlocLogistique({
 // (Val 2026-11-05).
 const VALEUR_CHAMP = 'mt-1.5';
 const GRILLE_CARTE = 'grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8';
+// Colonne gauche d'une carte des espaces clients : informations, puis les
+// boutons en bas (Val 2026-11-05 : ils portent sur la collecte, pas sur le
+// chauffeur de droite). `lg:pb-3` = marge intérieure basse du bloc
+// « Demander les coordonnées en urgence » : les boutons s'alignent sur le sien.
+const COLONNE_INFOS = 'flex flex-col gap-5';
+const BAS_GAUCHE = 'mt-auto lg:pb-3';
 const GRILLE_INFOS = 'grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2';
 
 /**
@@ -885,6 +892,58 @@ function CarteCollecte({
   const secours = Boolean(
     f.contact_secours_nom?.trim() || f.contact_secours_telephone?.trim(),
   );
+  const avecBoutons =
+    !!onOuvrir || modifier !== 'absent' || annuler !== 'absent';
+  // Espaces clients (gestes + détail) : boutons en bas de la colonne gauche ;
+  // Admin (« Voir la collecte ») : en bas à droite de la carte.
+  const aGauche = detail && !!gestes;
+  const boutons = avecBoutons && (
+    <div
+      className={cn(
+        'mt-auto flex flex-col gap-2',
+        aGauche ? cn(BAS_GAUCHE, 'items-start') : 'items-end',
+      )}
+    >
+      <div className={cn('flex flex-wrap gap-2', !aGauche && 'justify-end')}>
+        {annuler !== 'absent' && (
+          <Button
+            // « Annuler la collecte » : contour rouge, même rendu partout (DS).
+            variant="outline-destructive"
+            data-testid="action-annuler"
+            disabled={annuler === 'grise'}
+            title={annuler === 'grise' ? gestes?.motifGrise : undefined}
+            onClick={gestes?.onAnnuler}
+          >
+            <XIcon />
+            Annuler la collecte
+          </Button>
+        )}
+        {modifier !== 'absent' && (
+          <Button
+            variant="secondary"
+            data-testid="action-modifier"
+            disabled={modifier === 'grise'}
+            title={modifier === 'grise' ? gestes?.motifGrise : undefined}
+            onClick={gestes?.onModifier}
+          >
+            <PencilSimpleIcon />
+            Modifier la collecte
+          </Button>
+        )}
+        {onOuvrir && (
+          <Button variant="secondary" onClick={onOuvrir}>
+            Voir la collecte
+          </Button>
+        )}
+      </div>
+      {/* Au toucher, le `title` d'un bouton grisé ne s'affiche pas. */}
+      {grise && (
+        <Text variant="hint" data-testid="motif-gestes-grises">
+          {gestes?.motifGrise}
+        </Text>
+      )}
+    </div>
+  );
   return (
     <Card
       padding="md"
@@ -901,67 +960,75 @@ function CarteCollecte({
         }
       />
       <div className={detail ? GRILLE_CARTE : undefined}>
-        <dl className={GRILLE_INFOS}>
-          <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
-          <InfoItem label="Type d’événement">
-            {f.type_evenement?.libelle ?? VIDE}
-          </InfoItem>
-          {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
+        <div
+          className={aGauche ? COLONNE_INFOS : undefined}
+          data-testid="colonne-infos"
+        >
+          <dl className={GRILLE_INFOS}>
+            <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
+            <InfoItem label="Type d’événement">
+              {f.type_evenement?.libelle ?? VIDE}
+            </InfoItem>
+            {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
             traiteur tiers (§06.05), décidé par le serveur. */}
-          {!detail ? null : f.contacts_visibles ? (
-            <>
-              <InfoItem label="Contact principal">
-                {f.contact_principal_nom ?? VIDE}
-                <span className="block font-normal">
-                  <TelephoneLien telephone={f.contact_principal_telephone} />
+            {!detail ? null : f.contacts_visibles ? (
+              <>
+                <InfoItem label="Contact principal">
+                  {f.contact_principal_nom ?? VIDE}
+                  <span className="block font-normal">
+                    <TelephoneLien telephone={f.contact_principal_telephone} />
+                  </span>
+                </InfoItem>
+                <InfoItem label="Contact de secours">
+                  {secours ? (
+                    <>
+                      {f.contact_secours_nom ?? VIDE}
+                      <span className="block font-normal">
+                        <TelephoneLien
+                          telephone={f.contact_secours_telephone}
+                        />
+                      </span>
+                    </>
+                  ) : (
+                    VIDE
+                  )}
+                </InfoItem>
+              </>
+            ) : (
+              <InfoItem label="Contacts sur place" className="sm:col-span-2">
+                <span className="font-normal text-savr-neutral-500">
+                  Réservés au traiteur qui a programmé la collecte.
                 </span>
               </InfoItem>
-              <InfoItem label="Contact de secours">
-                {secours ? (
-                  <>
-                    {f.contact_secours_nom ?? VIDE}
-                    <span className="block font-normal">
-                      <TelephoneLien telephone={f.contact_secours_telephone} />
-                    </span>
-                  </>
-                ) : (
-                  VIDE
-                )}
+            )}
+            {avecAdresse && (
+              <InfoItem label="Adresse" className="sm:col-span-2">
+                {adresseDe(f) ?? VIDE}
               </InfoItem>
-            </>
-          ) : (
-            <InfoItem label="Contacts sur place" className="sm:col-span-2">
-              <span className="font-normal text-savr-neutral-500">
-                Réservés au traiteur qui a programmé la collecte.
-              </span>
-            </InfoItem>
-          )}
-          {avecAdresse && (
-            <InfoItem label="Adresse" className="sm:col-span-2">
-              {adresseDe(f) ?? VIDE}
-            </InfoItem>
-          )}
-          {avecAcces && (
-            <InfoItem
-              variant="texte"
-              label="Instructions d’accès"
-              className="sm:col-span-2"
-              valueClassName="whitespace-pre-line"
-            >
-              {accesDe(f) ?? VIDE}
-            </InfoItem>
-          )}
-          {detail && (
-            <InfoItem
-              variant="texte"
-              label="Informations supplémentaires"
-              className="sm:col-span-2"
-              valueClassName="whitespace-pre-line"
-            >
-              {f.informations_supplementaires?.trim() || VIDE}
-            </InfoItem>
-          )}
-        </dl>
+            )}
+            {avecAcces && (
+              <InfoItem
+                variant="texte"
+                label="Instructions d’accès"
+                className="sm:col-span-2"
+                valueClassName="whitespace-pre-line"
+              >
+                {accesDe(f) ?? VIDE}
+              </InfoItem>
+            )}
+            {detail && (
+              <InfoItem
+                variant="texte"
+                label="Informations supplémentaires"
+                className="sm:col-span-2"
+                valueClassName="whitespace-pre-line"
+              >
+                {f.informations_supplementaires?.trim() || VIDE}
+              </InfoItem>
+            )}
+          </dl>
+          {aGauche && boutons}
+        </div>
         {detail && (
           <BlocLogistique
             f={f}
@@ -970,48 +1037,7 @@ function CarteCollecte({
           />
         )}
       </div>
-      {(onOuvrir || modifier !== 'absent' || annuler !== 'absent') && (
-        <div className="mt-auto flex flex-col items-end gap-2">
-          <div className="flex flex-wrap justify-end gap-2">
-            {annuler !== 'absent' && (
-              <Button
-                // « Annuler la collecte » : contour rouge, même rendu partout (DS).
-                variant="outline-destructive"
-                data-testid="action-annuler"
-                disabled={annuler === 'grise'}
-                title={annuler === 'grise' ? gestes?.motifGrise : undefined}
-                onClick={gestes?.onAnnuler}
-              >
-                <XIcon />
-                Annuler la collecte
-              </Button>
-            )}
-            {modifier !== 'absent' && (
-              <Button
-                variant="secondary"
-                data-testid="action-modifier"
-                disabled={modifier === 'grise'}
-                title={modifier === 'grise' ? gestes?.motifGrise : undefined}
-                onClick={gestes?.onModifier}
-              >
-                <PencilSimpleIcon />
-                Modifier la collecte
-              </Button>
-            )}
-            {onOuvrir && (
-              <Button variant="secondary" onClick={onOuvrir}>
-                Voir la collecte
-              </Button>
-            )}
-          </div>
-          {/* Au toucher, le `title` d'un bouton grisé ne s'affiche pas. */}
-          {grise && (
-            <Text variant="hint" data-testid="motif-gestes-grises">
-              {gestes?.motifGrise}
-            </Text>
-          )}
-        </div>
-      )}
+      {!aGauche && boutons}
     </Card>
   );
 }
@@ -1146,123 +1172,128 @@ function CarteCollecteEdition({
         }
       />
       <div className={GRILLE_CARTE} data-testid="carte-edition">
-        <dl className={GRILLE_INFOS}>
-          <InfoItem label="Pax" valueClassName={VALEUR_CHAMP}>
-            <Input
-              aria-label="Pax"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              step={1}
-              value={s.pax}
-              onChange={(e) => champ('pax')(e.target.value)}
-            />
-          </InfoItem>
-          <InfoItem label="Type d’événement" valueClassName={VALEUR_CHAMP}>
-            <Combobox
-              aria-label="Type d’événement"
-              icon={null}
-              placeholder="Choisir un type"
-              searchPlaceholder="Rechercher un type…"
-              options={optionsTypes}
-              value={s.typeEvtId}
-              onChange={champ('typeEvtId')}
-            />
-          </InfoItem>
-          {f.contacts_visibles && (
-            <>
-              <InfoItem label="Contact principal" valueClassName={VALEUR_CHAMP}>
-                <ContactCombobox
-                  value={contactDepuis(s.cpNom, s.cpTel)}
-                  onChange={(c) => choisirContact('principal', c)}
-                  onAddInline={() => setAjoutContact('principal')}
-                />
-              </InfoItem>
-              <InfoItem
-                label="Contact de secours"
-                valueClassName={VALEUR_CHAMP}
-              >
-                <ContactCombobox
-                  value={contactDepuis(s.csNom, s.csTel)}
-                  onChange={(c) => choisirContact('secours', c)}
-                  onAddInline={() => setAjoutContact('secours')}
-                  label="Ajouter un contact de secours…"
-                />
-              </InfoItem>
-            </>
-          )}
-          {avecAdresse && (
-            <InfoItem label="Adresse" className="sm:col-span-2">
-              {adresseDe(f) ?? VIDE}
+        <div className={COLONNE_INFOS} data-testid="colonne-infos">
+          <dl className={GRILLE_INFOS}>
+            <InfoItem label="Pax" valueClassName={VALEUR_CHAMP}>
+              <Input
+                aria-label="Pax"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                value={s.pax}
+                onChange={(e) => champ('pax')(e.target.value)}
+              />
             </InfoItem>
-          )}
-          {avecAcces && (
+            <InfoItem label="Type d’événement" valueClassName={VALEUR_CHAMP}>
+              <Combobox
+                aria-label="Type d’événement"
+                icon={null}
+                placeholder="Choisir un type"
+                searchPlaceholder="Rechercher un type…"
+                options={optionsTypes}
+                value={s.typeEvtId}
+                onChange={champ('typeEvtId')}
+              />
+            </InfoItem>
+            {f.contacts_visibles && (
+              <>
+                <InfoItem
+                  label="Contact principal"
+                  valueClassName={VALEUR_CHAMP}
+                >
+                  <ContactCombobox
+                    value={contactDepuis(s.cpNom, s.cpTel)}
+                    onChange={(c) => choisirContact('principal', c)}
+                    onAddInline={() => setAjoutContact('principal')}
+                  />
+                </InfoItem>
+                <InfoItem
+                  label="Contact de secours"
+                  valueClassName={VALEUR_CHAMP}
+                >
+                  <ContactCombobox
+                    value={contactDepuis(s.csNom, s.csTel)}
+                    onChange={(c) => choisirContact('secours', c)}
+                    onAddInline={() => setAjoutContact('secours')}
+                    label="Ajouter un contact de secours…"
+                  />
+                </InfoItem>
+              </>
+            )}
+            {avecAdresse && (
+              <InfoItem label="Adresse" className="sm:col-span-2">
+                {adresseDe(f) ?? VIDE}
+              </InfoItem>
+            )}
+            {avecAcces && (
+              <InfoItem
+                variant="texte"
+                label="Instructions d’accès"
+                className="sm:col-span-2"
+                valueClassName="whitespace-pre-line"
+              >
+                {accesDe(f) ?? VIDE}
+              </InfoItem>
+            )}
             <InfoItem
               variant="texte"
-              label="Instructions d’accès"
+              label="Informations supplémentaires"
               className="sm:col-span-2"
-              valueClassName="whitespace-pre-line"
+              valueClassName={VALEUR_CHAMP}
             >
-              {accesDe(f) ?? VIDE}
-            </InfoItem>
-          )}
-          <InfoItem
-            variant="texte"
-            label="Informations supplémentaires"
-            className="sm:col-span-2"
-            valueClassName={VALEUR_CHAMP}
-          >
-            <Textarea
-              aria-label="Informations supplémentaires"
-              rows={3}
-              maxLength={BORNES_TEXTE_LIBRE.informations_supplementaires.max}
-              value={s.infosSuppl}
-              onChange={(e) => champ('infosSuppl')(e.target.value)}
-            />
-          </InfoItem>
-          <div className="sm:col-span-2">
-            <Label variant="choice" className="flex items-center gap-3">
-              <Checkbox
-                checked={s.controleAcces}
-                onCheckedChange={(v) => champ('controleAcces')(v === true)}
+              <Textarea
+                aria-label="Informations supplémentaires"
+                rows={3}
+                maxLength={BORNES_TEXTE_LIBRE.informations_supplementaires.max}
+                value={s.infosSuppl}
+                onChange={(e) => champ('infosSuppl')(e.target.value)}
               />
-              <span>Contrôle d’accès requis</span>
-            </Label>
+            </InfoItem>
+            <div className="sm:col-span-2">
+              <Label variant="choice" className="flex items-center gap-3">
+                <Checkbox
+                  checked={s.controleAcces}
+                  onCheckedChange={(v) => champ('controleAcces')(v === true)}
+                />
+                <span>Contrôle d’accès requis</span>
+              </Label>
+            </div>
+          </dl>
+          {proche && (
+            <AlertBar variant="warn">
+              Cette modification a lieu moins de 12h avant la collecte. Notre
+              équipe Ops sera alertée en urgence.
+            </AlertBar>
+          )}
+          {erreur && (
+            <AlertBar variant="err" role="alert">
+              {erreur}
+            </AlertBar>
+          )}
+          <div className={cn(BAS_GAUCHE, 'flex flex-wrap gap-2')}>
+            <Button
+              variant="ghost"
+              disabled={enCours}
+              onClick={() => edition.onFin(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              data-testid="action-enregistrer"
+              loading={enCours}
+              loadingText="Enregistrement…"
+              onClick={soumettre}
+            >
+              Confirmer la modification
+            </Button>
           </div>
-        </dl>
+        </div>
         <BlocLogistique
           f={f}
           urgence={urgence}
           onDemanderUrgence={onDemanderUrgence}
         />
-      </div>
-      {proche && (
-        <AlertBar variant="warn">
-          Cette modification a lieu moins de 12h avant la collecte. Notre équipe
-          Ops sera alertée en urgence.
-        </AlertBar>
-      )}
-      {erreur && (
-        <AlertBar variant="err" role="alert">
-          {erreur}
-        </AlertBar>
-      )}
-      <div className="mt-auto flex flex-wrap justify-end gap-2">
-        <Button
-          variant="ghost"
-          disabled={enCours}
-          onClick={() => edition.onFin(false)}
-        >
-          Annuler
-        </Button>
-        <Button
-          data-testid="action-enregistrer"
-          loading={enCours}
-          loadingText="Enregistrement…"
-          onClick={soumettre}
-        >
-          Confirmer la modification
-        </Button>
       </div>
       <NouveauContactModal
         open={ajoutContact !== null}

@@ -236,7 +236,8 @@ export function carteComplete(c: CarteSaisie): boolean {
   );
 }
 
-const nomContact = (c: ContactOption): string => `${c.prenom} ${c.nom}`.trim();
+export const nomContact = (c: ContactOption): string =>
+  `${c.prenom} ${c.nom}`.trim();
 
 /** Corps envoyé à la route pour une carte (valeurs affichées). */
 export function carteVersCorps(c: CarteSaisie) {

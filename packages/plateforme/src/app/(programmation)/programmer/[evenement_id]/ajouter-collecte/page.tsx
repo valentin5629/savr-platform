@@ -8,15 +8,11 @@ import {
   CarteCollecte,
   type TypeEvenementOption,
 } from '@/components/programmation/carte-collecte';
-import type { ContactOption } from '@/components/programmation/contact-combobox';
 import { usePackAg } from '@/components/programmation/use-pack-ag';
 import { useSignalZdSelection } from '@/components/layout/logo-context';
 import { PageHero } from '@/components/ui/page-hero';
 import { FormActions } from '@/components/ui/form-actions';
-import { FormField } from '@/components/ui/form-field';
-import { FormGrid } from '@/components/ui/form-grid';
-import { Input } from '@/components/ui/input';
-import { Modal } from '@/components/ui/modal';
+import { NouveauContactModal } from '@/components/programmation/nouveau-contact-modal';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 import {
   libelleTypeCollecte,
@@ -108,8 +104,6 @@ function nonAnnuleesDansLOrdre(
     .sort((a, b) => cle(a).localeCompare(cle(b)));
 }
 
-const CONTACT_VIDE = { prenom: '', nom: '', telephone: '', fonction: '' };
-
 export default function AjouterCollectePage() {
   const { evenement_id } = useParams<{ evenement_id: string }>();
   const router = useRouter();
@@ -124,7 +118,6 @@ export default function AjouterCollectePage() {
   const [contactCible, setContactCible] = useState<
     'principal' | 'secours' | null
   >(null);
-  const [newContact, setNewContact] = useState(CONTACT_VIDE);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -213,28 +206,6 @@ export default function AjouterCollectePage() {
     champ: K,
     valeur: CarteSaisie[K],
   ) => setCarte((c) => ({ ...c, [champ]: valeur }));
-
-  const handleAddContactInline = async () => {
-    if (!contactCible) return;
-    if (!newContact.prenom || !newContact.nom || !newContact.telephone) return;
-    const res = await fetch('/api/v1/programmation/contacts', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(
-        orgEvenement
-          ? { ...newContact, organisation_id: orgEvenement }
-          : newContact,
-      ),
-    });
-    if (!res.ok) return;
-    const created = (await res.json()) as ContactOption;
-    changerCarte(
-      contactCible === 'principal' ? 'contact_principal' : 'contact_secours',
-      created,
-    );
-    setContactCible(null);
-    setNewContact(CONTACT_VIDE);
-  };
 
   const valid = carteComplete(carte);
 
@@ -351,74 +322,21 @@ export default function AjouterCollectePage() {
         onAjouterContact={setContactCible}
       />
 
-      <Modal
+      <NouveauContactModal
         open={contactCible !== null}
-        title="Nouveau contact"
+        organisationId={orgEvenement}
         onClose={() => setContactCible(null)}
-        footer={
-          <FormActions
-            cancel={{
-              label: 'Annuler',
-              onClick: () => setContactCible(null),
-            }}
-            submit={{
-              label: 'Ajouter',
-              onClick: () => void handleAddContactInline(),
-              disabled:
-                !newContact.prenom || !newContact.nom || !newContact.telephone,
-            }}
-          />
-        }
-      >
-        <div className="space-y-4">
-          <FormGrid>
-            <FormField label="Prénom" htmlFor="contact-prenom" required>
-              <Input
-                id="contact-prenom"
-                required
-                value={newContact.prenom}
-                onChange={(e) =>
-                  setNewContact((p) => ({ ...p, prenom: e.target.value }))
-                }
-                placeholder="Prénom"
-              />
-            </FormField>
-            <FormField label="Nom" htmlFor="contact-nom" required>
-              <Input
-                id="contact-nom"
-                required
-                value={newContact.nom}
-                onChange={(e) =>
-                  setNewContact((p) => ({ ...p, nom: e.target.value }))
-                }
-                placeholder="Nom"
-              />
-            </FormField>
-          </FormGrid>
-          <FormField label="Téléphone" htmlFor="contact-tel" required>
-            <Input
-              id="contact-tel"
-              type="tel"
-              required
-              value={newContact.telephone}
-              onChange={(e) =>
-                setNewContact((p) => ({ ...p, telephone: e.target.value }))
-              }
-              placeholder="06 12 34 56 78"
-            />
-          </FormField>
-          <FormField label="Fonction (optionnel)" htmlFor="contact-fonction">
-            <Input
-              id="contact-fonction"
-              value={newContact.fonction}
-              onChange={(e) =>
-                setNewContact((p) => ({ ...p, fonction: e.target.value }))
-              }
-              placeholder="Ex : Responsable salle"
-            />
-          </FormField>
-        </div>
-      </Modal>
+        onCree={(created) => {
+          if (contactCible)
+            changerCarte(
+              contactCible === 'principal'
+                ? 'contact_principal'
+                : 'contact_secours',
+              created,
+            );
+          setContactCible(null);
+        }}
+      />
 
       {error && (
         <AlertBar variant="err" role="alert" icon={<WarningIcon />}>

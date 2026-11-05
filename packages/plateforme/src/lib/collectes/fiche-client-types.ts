@@ -6,6 +6,13 @@
 
 export type EspaceClient = 'traiteur' | 'agence' | 'gestionnaire';
 
+/** Raison d'une action « Modifier » / « Annuler » grisée, selon l'espace. */
+export function motifActionGrisee(espace: EspaceClient): string {
+  return espace === 'traiteur'
+    ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
+    : 'Seule l’organisation qui a programmé la collecte peut la modifier.';
+}
+
 // Camions : chauffeur, plaque et téléphone visibles tant que la collecte n'est
 // pas terminée (bloc « Logistique », §06.04). Hors de cette fenêtre la route ne
 // renvoie AUCUN camion — le téléphone du chauffeur n'a plus de raison d'être lu.

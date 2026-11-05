@@ -408,6 +408,16 @@ export async function chargerFicheEvenement(
       // Admin et client organisateur : jamais (C6/C7).
       ajouter_collecte:
         !!espaceClient && evt.organisation_id === ctx.organisationId,
+      // « Modifier l'événement » (nom, client final, référence — décision Val
+      // 2026-11-05) : mêmes conditions que la route d'écriture
+      // (PATCH /programmation/evenements/[id]) — organisation programmatrice,
+      // et une collecte encore modifiable (`f_collecte_editable`).
+      modifier_evenement:
+        !!espaceClient &&
+        evt.organisation_id === ctx.organisationId &&
+        collectes.some((c) =>
+          ['brouillon', 'programmee', 'validee'].includes(c.statut),
+        ),
       bilan,
       // Instructions d'accès du lieu de référence (les précisions propres à
       // une collecte sont sur sa fiche).

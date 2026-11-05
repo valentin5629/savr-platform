@@ -233,7 +233,8 @@ function detail(over: Record<string, unknown> = {}) {
 
 type Reponse = { status?: number; body: unknown };
 function stubFetch(routes: (url: string) => Reponse) {
-  const mock = vi.fn((input: RequestInfo | URL) => {
+  // Second argument déclaré : les tests lisent la méthode et le corps envoyés.
+  const mock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
     const { status = 200, body } = routes(String(input));
     return Promise.resolve({
       ok: status >= 200 && status < 300,
@@ -894,13 +895,13 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       );
       expect(cartes[1]).not.toHaveTextContent('Contact principal');
 
-      fireEvent.click(
-        within(cartes[1]!).getByRole('button', { name: 'Voir la collecte' }),
-      );
-      expect(screen.getByTestId('fiche-collecte-ouverte')).toHaveTextContent(
-        'c2',
-      );
-      expect(changerCollecte).toHaveBeenLastCalledWith('c2');
+      // Espaces clients : plus de « Voir la collecte » (Val 2026-11-05), la
+      // fiche collecte s'ouvre par « Accéder au bilan… ». Sans droit de
+      // modifier ni d'annuler, la carte n'a aucun bouton.
+      expect(
+        screen.queryByRole('button', { name: 'Voir la collecte' }),
+      ).toBeNull();
+      expect(within(cartes[0]!).queryByRole('button')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -1558,6 +1559,178 @@ describe('M3.2 / fiche Événement traiteur et agence — écran', () => {
         ATTENTE_UI,
       );
       expect(urls.some((u) => u.includes('/gestionnaire/'))).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 2026-11-05)', () => {
+  const ACTIFS = {
+    actions: { modifier: 'actif', annuler: 'actif', annulation: 'directe' },
+  };
+  const uneCollecte = (over: Record<string, unknown> = {}) =>
+    detail({
+      fiches: [
+        ficheCollecte({ id: 'c1', statut: 'validee', ...ACTIFS, ...over }),
+      ],
+    });
+  const carte = async () => {
+    onglet('Informations collectes');
+    const [c] = await screen.findAllByTestId(
+      'carte-collecte',
+      undefined,
+      ATTENTE_UI,
+    );
+    return c!;
+  };
+
+  it(
+    'EVT/modifier_dans_la_carte — le formulaire remplace les informations de la carte, enregistre par la route de l’espace et recharge l’événement',
+    async () => {
+      const fetchMock = stubFetch((url) =>
+        url.includes('/types-evenements')
+          ? { body: [] }
+          : {
+              body: {
+                // Créneau lointain : aucune confirmation « moins de 12 h ».
+                data: uneCollecte({ date_collecte: '2099-03-10' }),
+              },
+            },
+      );
+      monterFiche({ espace: 'traiteur' });
+      await ficheChargee();
+      const c = await carte();
+      expect(
+        within(c).queryByRole('button', { name: 'Voir la collecte' }),
+      ).toBeNull();
+      fireEvent.click(
+        within(c).getByRole('button', { name: 'Modifier la collecte' }),
+      );
+      const form = within(c).getByTestId('editer-collecte-form');
+      expect(within(c).queryByTestId('bloc-logistique')).toBeNull();
+      // Dans la carte, sans seconde carte ni titre « Éditer ».
+      expect(c).not.toHaveTextContent('Éditer la collecte et l’événement');
+      fireEvent.change(within(form).getByLabelText(/Nombre de convives/), {
+        target: { value: '450' },
+      });
+      fireEvent.click(
+        within(form).getByRole('button', { name: 'Confirmer la modification' }),
+      );
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(
+              ([u, init]) =>
+                String(u) === '/api/v1/traiteur/collectes/c1' &&
+                init?.method === 'PATCH' &&
+                JSON.parse(String(init?.body)).pax === 450,
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(screen.queryByTestId('editer-collecte-form')).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain(
+        `/api/v1/evenements/${EVT_ID}`,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/modifier_abandon — « Annuler » du formulaire rend la carte telle quelle, sans écriture',
+    async () => {
+      const fetchMock = stubFetch((url) =>
+        url.includes('/types-evenements')
+          ? { body: [] }
+          : { body: { data: uneCollecte() } },
+      );
+      monterFiche({ espace: 'agence' });
+      await ficheChargee();
+      const c = await carte();
+      fireEvent.click(
+        within(c).getByRole('button', { name: 'Modifier la collecte' }),
+      );
+      fireEvent.click(within(c).getByRole('button', { name: 'Annuler' }));
+      expect(screen.queryByTestId('editer-collecte-form')).toBeNull();
+      expect(within(c).getByTestId('bloc-logistique')).toBeInTheDocument();
+      expect(
+        fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH'),
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/annuler_depuis_la_carte — confirmation, POST d’annulation par la route de l’espace ; Échap pendant la confirmation ne ferme pas la fiche',
+    async () => {
+      const fetchMock = stubFetch(() => ({ body: { data: uneCollecte() } }));
+      monterFiche({ espace: 'gestionnaire' });
+      await ficheChargee();
+      const c = await carte();
+      fireEvent.click(
+        within(c).getByRole('button', { name: 'Annuler la collecte' }),
+      );
+      const confirmer = await screen.findByRole(
+        'button',
+        { name: 'Confirmer l’annulation' },
+        ATTENTE_UI,
+      );
+      // Échap ferme la confirmation, jamais la fiche événement dessous.
+      fireEvent.keyDown(confirmer, { key: 'Escape' });
+      expect(fermerEvenement).not.toHaveBeenCalled();
+      fireEvent.click(
+        within(c).getByRole('button', { name: 'Annuler la collecte' }),
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Confirmer l’annulation' }),
+      );
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(
+              ([u, init]) =>
+                String(u) === '/api/v1/gestionnaire/collectes/c1/annulation' &&
+                init?.method === 'POST',
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () =>
+          expect(
+            screen.queryByRole('button', { name: 'Confirmer l’annulation' }),
+          ).toBeNull(),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/gestes_grises — sans le droit sur cette collecte : boutons grisés, raison écrite sous eux',
+    async () => {
+      stubFetch(() => ({
+        body: {
+          data: uneCollecte({
+            actions: { modifier: 'grise', annuler: 'grise', annulation: null },
+          }),
+        },
+      }));
+      monterFiche({ espace: 'traiteur' });
+      await ficheChargee();
+      const c = await carte();
+      expect(
+        within(c).getByRole('button', { name: 'Modifier la collecte' }),
+      ).toBeDisabled();
+      expect(
+        within(c).getByRole('button', { name: 'Annuler la collecte' }),
+      ).toBeDisabled();
+      expect(within(c).getByTestId('motif-gestes-grises')).toHaveTextContent(
+        'Seul le créateur de la collecte ou un manager peut la modifier.',
+      );
     },
     ATTENTE_CAS_MS,
   );

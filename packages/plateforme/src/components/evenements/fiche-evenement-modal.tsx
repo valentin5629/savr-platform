@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ComponentProps,
+  type ReactNode,
 } from 'react';
 import {
   CalendarDotsIcon,
@@ -61,6 +62,8 @@ import {
 import { Chauffeurs } from '@/components/collecte/fiche-collecte-client-onglets';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
+import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
+import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
 import type { EspaceFiche } from '@/lib/evenements/fiche-evenement';
 import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
 import {
@@ -75,6 +78,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
   LIBELLE_ETAT_RAPPORT,
+  motifActionGrisee,
   STATUTS_ANNULES,
   type EspaceClient,
   type FicheCollecteClient,
@@ -114,12 +118,16 @@ import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
 // consolidé, rapports de chaque collecte). En-tête : pastille d'avancement,
 // dérivée des collectes, à la place de la frise (décision Val 2026-10-27).
 //
-// Consultation (§06.05 §2), à deux gestes près : « Ajouter une collecte » sur
-// les événements que l'organisation de l'utilisateur a programmés (décision Val
-// 2026-10-21), et la demande urgente des coordonnées d'un chauffeur, la même que
-// sur la fiche collecte. Une fiche collecte s'ouvre par-dessus (« Voir la
-// collecte », « Accéder au bilan… ») : tant qu'elle est ouverte, la fiche
-// événement ne se ferme pas, et sa fermeture recharge l'événement.
+// Gestes : « Ajouter une collecte » sur les événements que l'organisation de
+// l'utilisateur a programmés (décision Val 2026-10-21), la demande urgente des
+// coordonnées d'un chauffeur, la même que sur la fiche collecte, et, sur chaque
+// carte des espaces clients, « Modifier la collecte » (le formulaire de la
+// fiche collecte, dans la carte) et « Annuler la collecte », aux mêmes droits
+// que la fiche collecte (décision Val 2026-11-05). La fiche collecte client ne
+// s'ouvre plus que par « Accéder au bilan… » ; l'Admin garde « Voir la
+// collecte », vers sa fiche Admin. Tant qu'une fiche collecte, la confirmation
+// d'annulation ou celle d'une modification est ouverte, la fiche événement ne
+// se ferme pas ; leur issue recharge l'événement.
 
 interface EvenementDetail {
   id: string;
@@ -709,7 +717,9 @@ function DocumentsEvenement({
  * Carte d'une collecte dans « Informations collectes » : ses informations
  * (pax, type d'événement, contacts, informations supplémentaires) et sa
  * logistique (chauffeur, plaque, téléphone, demande urgente) réunies
- * (décision Val 2026-10-26).
+ * (décision Val 2026-10-26). Espaces clients : « Annuler » et « Modifier la
+ * collecte », dont le formulaire prend la place des informations (Val
+ * 2026-11-05).
  */
 function CarteCollecte({
   f,
@@ -718,10 +728,20 @@ function CarteCollecte({
   urgence,
   onDemanderUrgence,
   onOuvrir,
+  gestes,
+  edition,
   detail,
   statutAdmin,
 }: {
   f: FicheCollecteClient;
+  /** Espaces clients : modifier et annuler, selon `f.actions`. */
+  gestes?: {
+    motifGrise: string;
+    onModifier: () => void;
+    onAnnuler: () => void;
+  };
+  /** Formulaire de modification ouvert sur cette carte. */
+  edition?: ReactNode;
   /** Staff : statut en vue Admin (granularité complète), sinon vue client. */
   statutAdmin?: string;
   /** Contacts, informations supplémentaires et chauffeurs : fiche collecte client seulement. */
@@ -732,9 +752,12 @@ function CarteCollecte({
   avecAcces: boolean;
   urgence: Urgence | undefined;
   onDemanderUrgence: () => void;
-  /** Absent : pas de fiche collecte à ouvrir (client organisateur). */
+  /** Admin : sa fiche collecte, par-dessus. */
   onOuvrir?: () => void;
 }) {
+  const modifier = gestes ? f.actions.modifier : 'absent';
+  const annuler = gestes ? f.actions.annuler : 'absent';
+  const grise = modifier === 'grise' || annuler === 'grise';
   const secours = Boolean(
     f.contact_secours_nom?.trim() || f.contact_secours_telephone?.trim(),
   );
@@ -757,107 +780,147 @@ function CarteCollecte({
           <CollecteStatutBadge statut={f.statut} />
         )}
       </div>
+      {edition}
       {/* Une carte par ligne, pleine largeur (la plupart des événements n'ont
           qu'une collecte — demande Val 2026-10-29) : informations à gauche,
           chauffeur à droite sur grand écran, l'un sous l'autre ailleurs. */}
-      <div
-        className={
-          detail ? 'grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8' : undefined
-        }
-      >
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-          <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
-          <InfoItem label="Type d’événement">
-            {f.type_evenement?.libelle ?? VIDE}
-          </InfoItem>
-          {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
+      {!edition && (
+        <div
+          className={
+            detail
+              ? 'grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8'
+              : undefined
+          }
+        >
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+            <InfoItem label="Pax">{fmtInt(f.pax)}</InfoItem>
+            <InfoItem label="Type d’événement">
+              {f.type_evenement?.libelle ?? VIDE}
+            </InfoItem>
+            {/* Contacts : ceux de LA collecte ; masqués sur la collecte d'un
             traiteur tiers (§06.05), décidé par le serveur. */}
-          {!detail ? null : f.contacts_visibles ? (
-            <>
-              <InfoItem label="Contact principal">
-                {f.contact_principal_nom ?? VIDE}
-                <span className="block font-normal">
-                  <TelephoneLien telephone={f.contact_principal_telephone} />
+            {!detail ? null : f.contacts_visibles ? (
+              <>
+                <InfoItem label="Contact principal">
+                  {f.contact_principal_nom ?? VIDE}
+                  <span className="block font-normal">
+                    <TelephoneLien telephone={f.contact_principal_telephone} />
+                  </span>
+                </InfoItem>
+                <InfoItem label="Contact de secours">
+                  {secours ? (
+                    <>
+                      {f.contact_secours_nom ?? VIDE}
+                      <span className="block font-normal">
+                        <TelephoneLien
+                          telephone={f.contact_secours_telephone}
+                        />
+                      </span>
+                    </>
+                  ) : (
+                    VIDE
+                  )}
+                </InfoItem>
+              </>
+            ) : (
+              <InfoItem label="Contacts sur place" className="sm:col-span-2">
+                <span className="font-normal text-savr-neutral-500">
+                  Réservés au traiteur qui a programmé la collecte.
                 </span>
               </InfoItem>
-              <InfoItem label="Contact de secours">
-                {secours ? (
-                  <>
-                    {f.contact_secours_nom ?? VIDE}
-                    <span className="block font-normal">
-                      <TelephoneLien telephone={f.contact_secours_telephone} />
-                    </span>
-                  </>
-                ) : (
-                  VIDE
-                )}
+            )}
+            {avecAdresse && (
+              <InfoItem label="Adresse" className="sm:col-span-2">
+                {adresseDe(f) ?? VIDE}
               </InfoItem>
-            </>
-          ) : (
-            <InfoItem label="Contacts sur place" className="sm:col-span-2">
-              <span className="font-normal text-savr-neutral-500">
-                Réservés au traiteur qui a programmé la collecte.
-              </span>
-            </InfoItem>
-          )}
-          {avecAdresse && (
-            <InfoItem label="Adresse" className="sm:col-span-2">
-              {adresseDe(f) ?? VIDE}
-            </InfoItem>
-          )}
-          {avecAcces && (
-            <InfoItem
-              variant="texte"
-              label="Instructions d’accès"
-              className="sm:col-span-2"
-              valueClassName="whitespace-pre-line"
-            >
-              {accesDe(f) ?? VIDE}
-            </InfoItem>
-          )}
+            )}
+            {avecAcces && (
+              <InfoItem
+                variant="texte"
+                label="Instructions d’accès"
+                className="sm:col-span-2"
+                valueClassName="whitespace-pre-line"
+              >
+                {accesDe(f) ?? VIDE}
+              </InfoItem>
+            )}
+            {detail && (
+              <InfoItem
+                variant="texte"
+                label="Informations supplémentaires"
+                className="sm:col-span-2"
+                valueClassName="whitespace-pre-line"
+              >
+                {f.informations_supplementaires?.trim() || VIDE}
+              </InfoItem>
+            )}
+          </dl>
           {detail && (
-            <InfoItem
-              variant="texte"
-              label="Informations supplémentaires"
-              className="sm:col-span-2"
-              valueClassName="whitespace-pre-line"
+            <div
+              className="space-y-3 border-t border-dashed border-savr-neutral-200 pt-4 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
+              data-testid="bloc-logistique"
             >
-              {f.informations_supplementaires?.trim() || VIDE}
-            </InfoItem>
-          )}
-        </dl>
-        {detail && (
-          <div
-            className="space-y-3 border-t border-dashed border-savr-neutral-200 pt-4 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
-            data-testid="bloc-logistique"
-          >
-            <Text
-              as="p"
-              tone="ink"
-              className="flex items-center gap-2 font-semibold"
-            >
-              <TruckIcon
-                className="h-4 w-4 text-savr-primary-700"
-                aria-hidden="true"
+              <Text
+                as="p"
+                tone="ink"
+                className="flex items-center gap-2 font-semibold"
+              >
+                <TruckIcon
+                  className="h-4 w-4 text-savr-primary-700"
+                  aria-hidden="true"
+                />
+                {f.tournees.length > 1 ? 'Chauffeurs' : 'Chauffeur'}
+              </Text>
+              <Chauffeurs
+                c={f}
+                urgence={urgence?.etat ?? 'idle'}
+                urgenceErreur={urgence?.erreur ?? null}
+                onDemanderUrgence={onDemanderUrgence}
               />
-              {f.tournees.length > 1 ? 'Chauffeurs' : 'Chauffeur'}
-            </Text>
-            <Chauffeurs
-              c={f}
-              urgence={urgence?.etat ?? 'idle'}
-              urgenceErreur={urgence?.erreur ?? null}
-              onDemanderUrgence={onDemanderUrgence}
-            />
-          </div>
-        )}
-      </div>
-      {onOuvrir && (
-        <div className="mt-auto flex justify-end">
-          <Button variant="secondary" onClick={onOuvrir}>
-            Voir la collecte
-          </Button>
+            </div>
+          )}
         </div>
       )}
+      {!edition &&
+        (onOuvrir || modifier !== 'absent' || annuler !== 'absent') && (
+          <div className="mt-auto flex flex-col items-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              {annuler !== 'absent' && (
+                <Button
+                  variant="ghost-destructive"
+                  data-testid="action-annuler"
+                  disabled={annuler === 'grise'}
+                  title={annuler === 'grise' ? gestes?.motifGrise : undefined}
+                  onClick={gestes?.onAnnuler}
+                >
+                  Annuler la collecte
+                </Button>
+              )}
+              {modifier !== 'absent' && (
+                <Button
+                  variant="secondary"
+                  data-testid="action-modifier"
+                  disabled={modifier === 'grise'}
+                  title={modifier === 'grise' ? gestes?.motifGrise : undefined}
+                  onClick={gestes?.onModifier}
+                >
+                  Modifier la collecte
+                </Button>
+              )}
+              {onOuvrir && (
+                <Button variant="secondary" onClick={onOuvrir}>
+                  Voir la collecte
+                </Button>
+              )}
+            </div>
+            {/* Au toucher, le `title` d'un bouton grisé ne s'affiche pas. */}
+            {grise && (
+              <Text variant="hint" data-testid="motif-gestes-grises">
+                {gestes?.motifGrise}
+              </Text>
+            )}
+          </div>
+        )}
     </Card>
   );
 }
@@ -886,6 +949,14 @@ export function FicheEvenementModal({
   const espaceClient: EspaceClient | null =
     espace === 'admin' || espace === 'organisateur' ? null : espace;
   const ouvrable = espace !== 'organisateur';
+  // Espaces clients : modification dans la carte, annulation (Val 2026-11-05).
+  const [edition, setEdition] = useState<string | null>(null);
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false);
+  const [annulation, setAnnulation] = useState<FicheCollecteClient | null>(
+    null,
+  );
+  const [annulEnCours, setAnnulEnCours] = useState(false);
+  const [annulErreur, setAnnulErreur] = useState<string | null>(null);
   const [evt, setEvt] = useState<EvenementDetail | null>(null);
   const [etat, setEtat] = useState<Etat>('chargement');
   const [tentative, setTentative] = useState(0);
@@ -962,9 +1033,9 @@ export function FicheEvenementModal({
   // Tant que la fiche collecte est ouverte, Échap et le clic hors panneau ne
   // ferment qu'elle.
   const fermer = useCallback(() => {
-    if (fiche) return;
+    if (fiche || annulation || editConfirmOpen) return;
     onClose();
-  }, [fiche, onClose]);
+  }, [fiche, annulation, editConfirmOpen, onClose]);
 
   function ouvrirCollecte(collecteId: string, ongletFiche?: OngletFiche) {
     setFiche({ id: collecteId, onglet: ongletFiche });
@@ -976,6 +1047,32 @@ export function FicheEvenementModal({
     recharger();
   }
 
+  const routeCollecte = (collecteId: string) =>
+    `/api/v1/${encodeURIComponent(espace)}/collectes/${encodeURIComponent(collecteId)}`;
+
+  async function confirmerAnnulation(collecteId: string, motif: string) {
+    setAnnulEnCours(true);
+    setAnnulErreur(null);
+    try {
+      const res = await fetch(`${routeCollecte(collecteId)}/annulation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motif }),
+      });
+      if (res.ok) {
+        setAnnulation(null);
+        recharger();
+      } else {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        setAnnulErreur(j.error ?? 'L’annulation a échoué.');
+      }
+    } catch {
+      setAnnulErreur('L’annulation a échoué.');
+    } finally {
+      setAnnulEnCours(false);
+    }
+  }
+
   async function demanderUrgence(collecteId: string) {
     setUrgences((u) => ({
       ...u,
@@ -984,7 +1081,7 @@ export function FicheEvenementModal({
     let erreur = 'La demande n’a pas pu être envoyée.';
     try {
       const res = await fetch(
-        `/api/v1/${encodeURIComponent(espace)}/collectes/${encodeURIComponent(collecteId)}/coordonnees-urgence`,
+        `${routeCollecte(collecteId)}/coordonnees-urgence`,
         { method: 'POST' },
       );
       if (res.ok) {
@@ -1278,7 +1375,63 @@ export function FicheEvenementModal({
                         statutAdmin={evt.statuts_admin?.[f.id]}
                         onDemanderUrgence={() => void demanderUrgence(f.id)}
                         onOuvrir={
-                          ouvrable ? () => ouvrirCollecte(f.id) : undefined
+                          espace === 'admin'
+                            ? () => ouvrirCollecte(f.id)
+                            : undefined
+                        }
+                        gestes={
+                          espaceClient
+                            ? {
+                                motifGrise: motifActionGrisee(espaceClient),
+                                onModifier: () => setEdition(f.id),
+                                onAnnuler: () => {
+                                  setAnnulErreur(null);
+                                  setAnnulation(f);
+                                },
+                              }
+                            : undefined
+                        }
+                        edition={
+                          edition === f.id && f.evenement ? (
+                            <EditerCollecteForm
+                              cadre={false}
+                              collecte={{
+                                id: f.id,
+                                type: f.type,
+                                statut: f.statut,
+                                statut_tms: f.statut_tms,
+                                date_collecte: f.date_collecte,
+                                heure_collecte: f.heure_collecte,
+                                pax: f.pax,
+                                controle_acces_requis: f.controle_acces_requis,
+                                informations_supplementaires:
+                                  f.informations_supplementaires,
+                                type_evenement_id: f.type_evenement_id,
+                                contact_principal_nom: f.contact_principal_nom,
+                                contact_principal_telephone:
+                                  f.contact_principal_telephone,
+                                contact_secours_nom: f.contact_secours_nom,
+                                contact_secours_telephone:
+                                  f.contact_secours_telephone,
+                                lieu_nom: f.evenement.lieu?.nom ?? null,
+                                evenement: {
+                                  id: f.evenement.id,
+                                  nom_evenement: f.evenement.nom_evenement,
+                                  nom_client_organisateur:
+                                    f.evenement.nom_client_organisateur,
+                                  reference_affaire:
+                                    f.evenement.reference_affaire,
+                                },
+                              }}
+                              collecteEndpoint={routeCollecte(f.id)}
+                              onSaved={() => {
+                                setEdition(null);
+                                recharger();
+                              }}
+                              onCancel={() => setEdition(null)}
+                              onConfirmOpenChange={setEditConfirmOpen}
+                            />
+                          ) : undefined
                         }
                       />
                     ))}
@@ -1343,6 +1496,19 @@ export function FicheEvenementModal({
           </Tabs>
         )}
       </FicheModal>
+
+      <AnnulationCollecteDialog
+        open={annulation !== null}
+        antiGaspi={annulation?.type === 'anti_gaspi'}
+        dateCollecte={annulation?.date_collecte}
+        heureCollecte={annulation?.heure_collecte}
+        loading={annulEnCours}
+        error={annulErreur}
+        onConfirm={(motif) =>
+          annulation && void confirmerAnnulation(annulation.id, motif)
+        }
+        onCancel={() => setAnnulation(null)}
+      />
 
       {espaceClient ? (
         <FicheCollecteClientModal

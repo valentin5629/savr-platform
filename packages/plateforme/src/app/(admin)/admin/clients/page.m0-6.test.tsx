@@ -88,7 +88,7 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
   it(
-    'affiche le bandeau « Clients » et le CTA « Nouvelle organisation »',
+    'affiche le bandeau « Clients » et le CTA « Nouveau client »',
     async () => {
       render(<ClientsPage />);
       await waitFor(
@@ -103,7 +103,7 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
       ).toBeInTheDocument();
       // Bouton (pas un lien vers /admin/clients/nouveau, route inexistante).
       expect(
-        screen.getByRole('button', { name: /Nouvelle organisation/ }),
+        screen.getByRole('button', { name: /Nouveau client/ }),
       ).toBeInTheDocument();
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     },
@@ -130,13 +130,9 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
         ).length;
       const avant = listCalls();
 
-      fireEvent.click(
-        screen.getByRole('button', { name: /Nouvelle organisation/ }),
-      );
+      fireEvent.click(screen.getByRole('button', { name: /Nouveau client/ }));
       const dialog = screen.getByRole('dialog');
-      expect(
-        within(dialog).getByText('Nouvelle organisation'),
-      ).toBeInTheDocument();
+      expect(within(dialog).getByText('Nouveau client')).toBeInTheDocument();
 
       fetchMock.mockImplementationOnce(() =>
         Promise.resolve({ ok: true, json: async () => ({ id: 'org-new' }) }),
@@ -154,7 +150,7 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
         target: { value: 'a@b.fr' },
       });
       fireEvent.click(
-        within(dialog).getByRole('button', { name: /Créer l.organisation/ }),
+        within(dialog).getByRole('button', { name: /Créer le client/ }),
       );
 
       await waitFor(

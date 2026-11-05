@@ -316,7 +316,7 @@ describe('M1.7 — liste Factures Admin : filtres à choix multiple', () => {
         ).toBeTruthy();
 
       // (b) Organisation : 2 cochées → organisation_ids CSV.
-      const orgs = await ouvrir('filtre-organisation', 'Organisation');
+      const orgs = await ouvrir('filtre-organisation', 'Client');
       await waitFor(
         () => orgs.getByRole('checkbox', { name: 'Kaspia' }),
         ATTENTE_UI,

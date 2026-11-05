@@ -27,6 +27,9 @@ import {
  *     tarif de la grille moins la remise, AG au prix du pack débité, sinon au
  *     tarif unitaire moins la remise.
  * Filtres lieu et organisation : `lib/dashboards/revenus-admin` (Val 2026-10-30).
+ * Part « à venir » (Val 2026-11-05) : collectes dont la date tombe après
+ * aujourd'hui (heure de Paris), comptées aussi dans les totaux du mois ;
+ * l'histogramme les affiche dans une teinte plus claire.
  * Période `from`/`to` sur la date du jour (premier mois partiel si la fenêtre
  * ne commence pas le 1er, accepté au CDC).
  */
@@ -36,6 +39,9 @@ interface Ligne {
   type_collecte: 'zero_dechet' | 'anti_gaspi';
   nb_collectes: number;
   montant_ht: number;
+  /** Sous-ensemble de `nb_collectes` / `montant_ht` daté après aujourd'hui. */
+  nb_collectes_a_venir: number;
+  montant_ht_a_venir: number;
 }
 
 interface CollecteRow {
@@ -143,21 +149,32 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         type_collecte: type,
         nb_collectes: 0,
         montant_ht: 0,
+        nb_collectes_a_venir: 0,
+        montant_ht_a_venir: 0,
       };
       parCle.set(cle, l);
     }
     return l;
   };
 
+  const aujourdhui = jourParis(now);
   for (const [i, c] of lignes.entries()) {
     if (c.type !== 'zero_dechet' && c.type !== 'anti_gaspi') continue;
     const l = ligne(moisDe(c.date_collecte), c.type);
+    const montant = montants[i] ?? 0;
     l.nb_collectes += 1;
-    l.montant_ht += montants[i] ?? 0;
+    l.montant_ht += montant;
+    if (c.date_collecte > aujourdhui) {
+      l.nb_collectes_a_venir += 1;
+      l.montant_ht_a_venir += montant;
+    }
   }
 
   // Sommes de montants décimaux : arrondies au centime avant la réponse.
-  for (const l of parCle.values()) l.montant_ht = round2(l.montant_ht);
+  for (const l of parCle.values()) {
+    l.montant_ht = round2(l.montant_ht);
+    l.montant_ht_a_venir = round2(l.montant_ht_a_venir);
+  }
 
   const kpi = [...parCle.values()].sort((a, b) =>
     a.mois === b.mois

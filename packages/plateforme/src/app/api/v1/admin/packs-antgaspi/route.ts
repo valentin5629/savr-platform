@@ -126,7 +126,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
       (packActif.credits_consommes as number);
     return NextResponse.json(
       {
-        error: `Cette organisation a déjà un pack actif (${packActif.type_pack} — ${restants} crédits restants). Annulez-le avant d'en créer un nouveau.`,
+        error: `Ce client a déjà un pack actif (${packActif.type_pack} — ${restants} crédits restants). Annulez-le avant d'en créer un nouveau.`,
         pack_actif: packActif,
       },
       { status: 409 },

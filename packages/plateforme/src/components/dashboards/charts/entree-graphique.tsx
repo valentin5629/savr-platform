@@ -5,6 +5,8 @@ import * as React from 'react';
 // Entrée des graphiques des dashboards (Val 2026-10-28) : chaque graphique se
 // construit une seule fois par ouverture de page, quand il apparaît à l'écran.
 // Un rechargement des données (filtre, période) ne rejoue pas l'animation.
+// Exception (Val 2026-11-05) : une bascule propre au graphique (ex. Montant /
+// Nb collectes, Toutes / ZD / AG) appelle `rejouer()` et rejoue l'entrée.
 // Hors <EntreeGraphiques> (fiches, modales), aucun graphique ne s'anime.
 //
 // Le graphique pose `classe` et `ref` sur un conteneur, et `data-entree` sur
@@ -40,6 +42,9 @@ export function useEntreeGraphique<T extends Element>(cle: string) {
   const [etat, setEtat] = React.useState<Etat>(() =>
     dejaAnimes && !dejaAnimes.has(cle) ? 'attente' : 'aucune',
   );
+  // Compteur de passages : en `key` des éléments animés, il les remonte pour
+  // que le navigateur relance leurs keyframes.
+  const [tour, setTour] = React.useState(0);
 
   React.useEffect(() => {
     if (etat !== 'attente' || !el) return;
@@ -69,7 +74,15 @@ export function useEntreeGraphique<T extends Element>(cle: string) {
       DUREE_MS + DECALAGE_MAX_MS + 100,
     );
     return () => clearTimeout(minuteur);
-  }, [etat]);
+  }, [etat, tour]);
+
+  // Rejoue l'entrée sur un graphique déjà visible (jamais avant la première,
+  // ni hors <EntreeGraphiques>, ni si le système demande moins d'animations).
+  const rejouer = React.useCallback(() => {
+    if (!dejaAnimes || mouvementReduit()) return;
+    setEtat((e) => (e === 'attente' ? e : 'en_cours'));
+    setTour((t) => t + 1);
+  }, [dejaAnimes]);
 
   const classe =
     etat === 'attente'
@@ -77,7 +90,14 @@ export function useEntreeGraphique<T extends Element>(cle: string) {
       : etat === 'en_cours'
         ? 'savr-entree'
         : undefined;
-  return { ref, classe, actif: classe !== undefined, phase: etat };
+  return {
+    ref,
+    classe,
+    actif: classe !== undefined,
+    phase: etat,
+    tour,
+    rejouer,
+  };
 }
 
 export type PhaseEntree = Etat;

@@ -280,7 +280,7 @@ export async function runBatchPdfJ1Ag(
             p_code: 'attestation_ag_siret_donateur_manquant',
             p_titre:
               'Attestation de don bloquée — SIRET du donateur non vérifié',
-            p_message: `Collecte ${collecte.id} : l'attestation de don (Cerfa 2041-GE) ne sera émise qu'une fois le SIRET de l'entité de facturation de l'organisation vérifié. Compléter ou corriger le SIRET dans la fiche de l'organisation.`,
+            p_message: `Collecte ${collecte.id} : l'attestation de don (Cerfa 2041-GE) ne sera émise qu'une fois le SIRET de l'entité de facturation du client vérifié. Compléter ou corriger le SIRET dans la fiche du client.`,
             p_entity_type: 'collectes',
             p_entity_id: collecte.id,
           },

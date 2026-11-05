@@ -205,9 +205,9 @@ function LignePack({
   );
 }
 
-/** Message transmis à l'Admin quand l'organisation n'a encore aucun pack. */
+/** Message transmis à l'Admin (lu dans son espace) quand le client n'a encore aucun pack. */
 export const MESSAGE_PREMIER_PACK =
-  "Première activation : l'organisation n'a encore aucun pack Anti-Gaspi.";
+  "Première activation : le client n'a encore aucun pack Anti-Gaspi.";
 
 export function MonPackAg() {
   const [data, setData] = useState<DonneesPack | null>(null);

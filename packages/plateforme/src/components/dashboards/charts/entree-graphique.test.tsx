@@ -66,6 +66,52 @@ describe('useEntreeGraphique', () => {
     expect(classe(container)).toBeNull();
   });
 
+  it('rejouer() : une bascule du graphique rejoue l’entrée, puis la retire (Val 2026-11-05)', () => {
+    let rejouer = () => {};
+    function GraphiqueBascule() {
+      const entree = useEntreeGraphique<HTMLDivElement>('b');
+      rejouer = entree.rejouer;
+      return (
+        <div
+          key={entree.tour}
+          data-testid="graphique"
+          ref={entree.ref}
+          className={entree.classe}
+        />
+      );
+    }
+    const { container } = render(
+      <EntreeGraphiques>
+        <GraphiqueBascule />
+      </EntreeGraphiques>,
+    );
+    rendreVisible();
+    act(() => vi.advanceTimersByTime(1000));
+    expect(classe(container)).toBeNull();
+    act(() => rejouer());
+    expect(classe(container)).toBe('savr-entree');
+    act(() => vi.advanceTimersByTime(1000));
+    expect(classe(container)).toBeNull();
+  });
+
+  it('rejouer() hors dashboard : rien ne bouge', () => {
+    let rejouer = () => {};
+    function GraphiqueBascule() {
+      const entree = useEntreeGraphique<HTMLDivElement>('b');
+      rejouer = entree.rejouer;
+      return (
+        <div
+          data-testid="graphique"
+          ref={entree.ref}
+          className={entree.classe}
+        />
+      );
+    }
+    const { container } = render(<GraphiqueBascule />);
+    act(() => rejouer());
+    expect(classe(container)).toBeNull();
+  });
+
   it('remonté après un rechargement des données : pas rejoué', () => {
     function Page({ charge }: { charge: boolean }) {
       return (

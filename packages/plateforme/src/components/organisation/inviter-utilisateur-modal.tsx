@@ -174,7 +174,7 @@ export function InviterUtilisateurModal({
     e.preventDefault();
     const orgId = organisationId ?? org?.id;
     if (!orgId) {
-      setErreur('Sélectionnez une organisation.');
+      setErreur('Sélectionnez un client.');
       return;
     }
     await envoyer(
@@ -238,15 +238,11 @@ export function InviterUtilisateurModal({
         </FormField>
 
         {choixOrganisation && rechercherOrganisations && (
-          <FormField
-            label="Organisation"
-            htmlFor="invite-organisation"
-            required
-          >
+          <FormField label="Client" htmlFor="invite-organisation" required>
             <Autocomplete
               id="invite-organisation"
-              aria-label="Organisation"
-              placeholder="Rechercher une organisation…"
+              aria-label="Client"
+              placeholder="Rechercher un client…"
               fetchOptions={rechercherOrganisations}
               selected={org}
               onChange={setOrg}

@@ -148,7 +148,7 @@ export function OrganisationModal({
     <FormActions
       cancel={{ label: 'Annuler', onClick: onClose }}
       submit={{
-        label: 'Créer l’organisation',
+        label: 'Créer le client',
         type: 'button',
         onClick: () => void submitForm(),
       }}
@@ -162,7 +162,7 @@ export function OrganisationModal({
       open={open}
       onClose={fermer}
       wide
-      title="Nouvelle organisation"
+      title="Nouveau client"
       footer={footer}
     >
       <form onSubmit={handleFormSubmit} noValidate className="space-y-4">

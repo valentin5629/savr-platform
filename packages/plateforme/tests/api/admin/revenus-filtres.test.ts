@@ -314,18 +314,24 @@ describe('M3.5 / revenus Admin — histogramme mensuel', () => {
         type_collecte: 'anti_gaspi',
         nb_collectes: 1,
         montant_ht: 100,
+        nb_collectes_a_venir: 0,
+        montant_ht_a_venir: 0,
       },
       {
         mois: '2026-09-01',
         type_collecte: 'zero_dechet',
         nb_collectes: 1,
         montant_ht: 300,
+        nb_collectes_a_venir: 0,
+        montant_ht_a_venir: 0,
       },
       {
         mois: '2026-10-01',
         type_collecte: 'anti_gaspi',
         nb_collectes: 1,
         montant_ht: 80,
+        nb_collectes_a_venir: 0,
+        montant_ht_a_venir: 0,
       },
     ]);
     // Statuts comptés : programmées et réalisées, plus les annulations
@@ -340,6 +346,75 @@ describe('M3.5 / revenus Admin — histogramme mensuel', () => {
     expect(admin.appels.some((a) => a.table === 'factures_collectes')).toBe(
       false,
     );
+  });
+
+  it('M3.5/revenus_mensuels_a_venir — part datée après aujourd’hui (Paris) isolée, comptée aussi dans le total (Val 2026-11-05)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-05T10:00:00Z'));
+    try {
+      setupAuth('ops_savr');
+      const zd = (date_collecte: string) => ({
+        type: 'zero_dechet',
+        pax: 100,
+        date_collecte,
+        evenements: { organisation_id: T1, lieu_id: L1 },
+        packs_antgaspi: null,
+      });
+      // Aujourd'hui compte comme acquis ; demain et le mois suivant, à venir.
+      admin.setResult('collectes', {
+        data: [zd('2026-11-05'), zd('2026-11-06'), zd('2026-12-01')],
+        error: null,
+      });
+      admin.setResult('grilles_tarifaires_zd', {
+        data: [
+          {
+            id: 'g1',
+            est_defaut: true,
+            valide_du: '2026-01-01',
+            valide_jusqu: null,
+          },
+        ],
+        error: null,
+      });
+      admin.setResult('tarifs_zero_dechet', {
+        data: [
+          {
+            grille_id: 'g1',
+            pax_min: 1,
+            pax_max: null,
+            prix_base_ht: 300,
+            prix_par_couvert_ht: null,
+          },
+        ],
+        error: null,
+      });
+      const { GET } =
+        await import('@/app/api/v1/admin/dashboard/revenus-mensuels/route.js');
+      const res = await GET(
+        makeReq('/api/v1/admin/dashboard/revenus-mensuels?from=2026-11-01'),
+      );
+      expect(res.status).toBe(200);
+      expect((await res.json()).kpi).toEqual([
+        {
+          mois: '2026-11-01',
+          type_collecte: 'zero_dechet',
+          nb_collectes: 2,
+          montant_ht: 600,
+          nb_collectes_a_venir: 1,
+          montant_ht_a_venir: 300,
+        },
+        {
+          mois: '2026-12-01',
+          type_collecte: 'zero_dechet',
+          nb_collectes: 1,
+          montant_ht: 300,
+          nb_collectes_a_venir: 1,
+          montant_ht_a_venir: 300,
+        },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('M3.5/revenus_periode_sans_fin — sans `to`, aucune borne de fin : les collectes programmées à venir comptent (Val 2026-11-03)', async () => {
@@ -431,6 +506,8 @@ describe('M3.5 / revenus Admin — histogramme mensuel', () => {
         type_collecte: 'zero_dechet',
         nb_collectes: 2,
         montant_ht: 600,
+        nb_collectes_a_venir: 0,
+        montant_ht_a_venir: 0,
       },
     ]);
     const statuts = admin.appels.find(

@@ -47,10 +47,7 @@ export async function GET(
     .single();
 
   if (error || !org) {
-    return NextResponse.json(
-      { error: 'Organisation non trouvée' },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: 'Client non trouvé' }, { status: 404 });
   }
 
   return NextResponse.json(org);
@@ -172,7 +169,7 @@ export async function PATCH(
     if ((count ?? 0) > 0) {
       return NextResponse.json(
         {
-          error: `Cette organisation gère ${count} lieu(x). Retirez-la comme gestionnaire de ces lieux avant de changer son type.`,
+          error: `Ce client gère ${count} lieu(x). Retirez-le comme gestionnaire de ces lieux avant de changer son type.`,
           champs_invalides: ['type'],
         },
         { status: 422 },
@@ -195,7 +192,7 @@ export async function PATCH(
     if ((count ?? 0) > 0) {
       return NextResponse.json(
         {
-          error: `Cette organisation a ${count} domaine(s) email. Retirez-les avant d’en faire un client organisateur.`,
+          error: `Ce client a ${count} domaine(s) email. Retirez-les avant d’en faire un client organisateur.`,
           champs_invalides: ['type'],
         },
         { status: 422 },
@@ -230,10 +227,7 @@ export async function PATCH(
     return writeError(error, 'admin.organisations.update');
   }
   if (!org) {
-    return NextResponse.json(
-      { error: 'Organisation non trouvée' },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: 'Client non trouvé' }, { status: 404 });
   }
 
   if (tarifChange) {

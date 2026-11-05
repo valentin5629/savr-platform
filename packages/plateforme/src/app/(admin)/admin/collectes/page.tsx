@@ -183,7 +183,7 @@ function KpiTile({
   icon: Icone;
   count: number;
   label: string;
-  sublabel: string;
+  sublabel?: string;
   tone: KpiTone;
   active: boolean;
   onClick: () => void;
@@ -208,9 +208,11 @@ function KpiTile({
         <Text as="div" tone="strong" className="mt-1 font-bold leading-tight">
           {label}
         </Text>
-        <Text as="div" variant="hint" className="font-semibold leading-tight">
-          {sublabel}
-        </Text>
+        {sublabel && (
+          <Text as="div" variant="hint" className="font-semibold leading-tight">
+            {sublabel}
+          </Text>
+        )}
       </div>
       <ArrowRightIcon className="ml-auto h-4 w-4 shrink-0 text-savr-neutral-300" />
     </ChoiceCard>
@@ -603,14 +605,15 @@ export default function CollectesPage() {
           Tuiles « AG / ZD à venir » retirées (décision Val 2026-10-01).
           Un clic sur « AG / ZD à dispatcher » pose le chip « Non transmises
           AG / ZD » et efface le filtre Type : la liste montre les collectes
-          comptées (décisions Val 2026-10-01) ; un re-clic retire le chip. */}
+          comptées (décisions Val 2026-10-01) ; un re-clic retire le chip.
+          Pas de sous-titre sur ces deux tuiles (Val 2026-11-05) : l'ancien
+          « validées transporteur » ne disait plus ce qu'elles comptent. */}
       {tab === 'a_venir' && (
         <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           <KpiTile
             icon={ForkKnifeIcon}
             count={chipCounts.ag_a_dispatcher ?? 0}
             label="AG à dispatcher"
-            sublabel="validées transporteur"
             tone="warning"
             active={quickFilter === 'non_transmises_ag'}
             onClick={() => basculerADispatcher('non_transmises_ag')}
@@ -619,7 +622,6 @@ export default function CollectesPage() {
             icon={RecycleIcon}
             count={chipCounts.zd_a_dispatcher ?? 0}
             label="ZD à dispatcher"
-            sublabel="validées transporteur"
             tone="success"
             active={quickFilter === 'non_transmises_zd'}
             onClick={() => basculerADispatcher('non_transmises_zd')}

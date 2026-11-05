@@ -696,7 +696,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                       <FormField
                         label="Gestionnaire de lieux"
                         htmlFor="lm_gestionnaire"
-                        hint="Organisation gestionnaire rattachée — optionnel"
+                        hint="Client gestionnaire rattaché — optionnel"
                         className="sm:col-span-2"
                       >
                         <Combobox

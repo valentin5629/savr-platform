@@ -17,6 +17,7 @@ import {
   fireEvent,
   waitFor,
   cleanup,
+  within,
 } from '@testing-library/react';
 
 import DashboardAdminPage from '@/app/(admin)/admin/dashboard/page.js';
@@ -97,6 +98,7 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
       total: totalRevenus,
       page: 1,
       limit: 50,
+      totaux: { montant_zd_ht: 1600, montant_ag_ht: 300, montant_total: 2000 },
     });
   if (url.includes('/admin/dashboard/revenus-mensuels'))
     return jsonResponse({
@@ -106,6 +108,8 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
           type_collecte: 'zero_dechet',
           nb_collectes: 5,
           montant_ht: 1200,
+          nb_collectes_a_venir: 2,
+          montant_ht_a_venir: 400,
         },
       ],
     });
@@ -162,7 +166,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
           .length,
       ).toBeGreaterThan(0);
       for (const header of [
-        'Organisation',
+        'Client',
         'Type',
         'Nb ZD',
         'CA ZD HT',
@@ -217,11 +221,99 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
   );
 
   it(
+    'M3.5/admin_revenus_a_venir_teinte — la part à venir a son propre segment, plus clair, et sa légende (Val 2026-11-05)',
+    async () => {
+      render(<DashboardAdminPage />);
+      const histo = await screen.findByTestId(
+        'revenus-histogramme',
+        undefined,
+        ATTENTE_UI,
+      );
+      const aVenir = within(histo).getByLabelText(/^ZD à venir/);
+      const acquis = within(histo).getByLabelText(/^ZD juin/);
+      expect(aVenir).toHaveClass('bg-savr-success-soft');
+      expect(acquis).toHaveClass('bg-savr-success');
+      // 400 € à venir sur 1 200 € : 1/3 du total pour le segment clair.
+      expect(parseFloat(aVenir.style.height)).toBeCloseTo(
+        parseFloat(acquis.style.height) / 2,
+      );
+      expect(
+        within(histo).getByText('Zéro Déchet à venir'),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.5/admin_revenus_repartition_clients — camembert à droite de l’histogramme : clients, part « Autres » tirée des totaux, bascule Toutes / ZD / AG (Val 2026-11-05)',
+    async () => {
+      render(<DashboardAdminPage />);
+      const bloc = await screen.findByTestId(
+        'repartition-revenus-clients',
+        undefined,
+        ATTENTE_UI,
+      );
+      // Toutes : 1 500 + 200 sur 2 000 → « Autres » = 300 (15 %).
+      await waitFor(
+        () =>
+          expect(within(bloc).getByText('Traiteur Alpha')).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(within(bloc).getByText('Agence Beta')).toBeInTheDocument();
+      const autres = within(bloc).getByText('Autres').closest('li')!;
+      expect(autres).toHaveTextContent('15');
+      // La bascule ZD redemande le tableau trié sur le montant ZD.
+      fireEvent.click(screen.getByRole('radio', { name: 'ZD' }));
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([u]) => {
+              const s = String(u);
+              return (
+                s.includes('/admin/dashboard/revenus-organisations') &&
+                s.includes('tri=montant_zd_ht')
+              );
+            }),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.5/admin_revenus_repartition_survol — survol d’une part : carte avec nom du client, CA et part du total (Val 2026-11-05)',
+    async () => {
+      render(<DashboardAdminPage />);
+      const bloc = await screen.findByTestId(
+        'repartition-revenus-clients',
+        undefined,
+        ATTENTE_UI,
+      );
+      const arc = await within(bloc).findByLabelText(
+        /^Traiteur Alpha :/,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(bloc).queryByRole('tooltip')).toBeNull();
+      fireEvent.mouseEnter(arc);
+      fireEvent.mouseMove(arc, { clientX: 40, clientY: 50 });
+      const carte = within(bloc).getByRole('tooltip');
+      expect(carte).toHaveTextContent('Traiteur Alpha');
+      expect(carte).toHaveTextContent('CA HT');
+      expect(carte).toHaveTextContent('Part du total');
+      // 1 500 € sur 2 000 € : 75 %.
+      expect(carte).toHaveTextContent('75');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.5/admin_revenus_controls — titre bloc + champs de période présents, presets + export CSV retirés (revue E2E 2026-07-18)',
     async () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-      expect(screen.getByText('Revenu par organisation')).toBeInTheDocument();
+      expect(screen.getByText('Revenu par client')).toBeInTheDocument();
       expect(screen.getByTestId('revenus-periode')).toBeInTheDocument();
       // Filtre en ligne « Période  <période> ▾ » (décision Val 2026-09-30).
       expect(screen.getByRole('button', { name: /^Période/ })).toBe(

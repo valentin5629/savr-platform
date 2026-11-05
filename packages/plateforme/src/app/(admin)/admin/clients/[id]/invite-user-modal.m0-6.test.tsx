@@ -72,7 +72,7 @@ describe('M0.6 — fiche organisation : ajouter un utilisateur', () => {
       );
 
       // Aucun sélecteur d'organisation : l'org est imposée par la fiche.
-      expect(screen.queryByLabelText('Organisation')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Client')).not.toBeInTheDocument();
 
       fireEvent.change(screen.getByLabelText(/Prénom/), {
         target: { value: 'Adèle' },

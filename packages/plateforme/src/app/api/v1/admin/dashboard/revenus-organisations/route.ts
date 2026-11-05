@@ -256,7 +256,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (format === 'csv') {
     const header = [
-      'Organisation',
+      'Client',
       'Type',
       'Nb ZD',
       'Montant ZD HT',
@@ -298,11 +298,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     type_label: ORG_TYPE_LABELS[o.type_organisation] ?? o.type_organisation,
   }));
 
+  // Totaux de toute la période, pas seulement de la page : le camembert de
+  // répartition par client en tire sa part « Autres » (Val 2026-11-05).
+  const totaux = {
+    montant_zd_ht: round2(rows.reduce((s, o) => s + o.montant_zd_ht, 0)),
+    montant_ag_ht: round2(rows.reduce((s, o) => s + o.montant_ag_ht, 0)),
+    montant_total: round2(rows.reduce((s, o) => s + o.montant_total, 0)),
+  };
+
   return NextResponse.json({
     data: pageRows,
     total,
     page,
     limit: PAGE_SIZE,
     periode: { from, to },
+    totaux,
   });
 }

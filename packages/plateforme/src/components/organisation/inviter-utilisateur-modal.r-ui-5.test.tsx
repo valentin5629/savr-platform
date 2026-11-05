@@ -53,14 +53,10 @@ describe('R-UI-5 G5 — InviterUtilisateurModal', () => {
           onCreated={onCreated}
         />,
       );
-      expect(screen.getByLabelText('Organisation')).toBeInTheDocument();
+      expect(screen.getByLabelText('Client')).toBeInTheDocument();
       remplir();
       fireEvent.click(screen.getByRole('button', { name: 'Inviter' }));
-      await screen.findByText(
-        'Sélectionnez une organisation.',
-        undefined,
-        ATTENTE_UI,
-      );
+      await screen.findByText('Sélectionnez un client.', undefined, ATTENTE_UI);
       expect(fetchMock).not.toHaveBeenCalled();
       expect(onCreated).not.toHaveBeenCalled();
     },
@@ -86,7 +82,7 @@ describe('R-UI-5 G5 — InviterUtilisateurModal', () => {
           onCreated={() => {}}
         />,
       );
-      expect(screen.queryByLabelText('Organisation')).toBeNull();
+      expect(screen.queryByLabelText('Client')).toBeNull();
       expect(document.getElementById('invite-prenom')).not.toBeNull();
       expect(document.getElementById('invite-role')).not.toBeNull();
       remplir();

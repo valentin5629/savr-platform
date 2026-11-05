@@ -321,9 +321,9 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         ATTENTE_UI,
       );
       await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
-      // Sous-libellé : 4e surface du scénario, exact depuis que la tuile
-      // compte aussi les collectes validées transporteur.
-      expect(zdTile).toHaveTextContent('validées transporteur');
+      // Plus de sous-titre (Val 2026-11-05) : « validées transporteur » ne
+      // disait plus ce que la tuile compte (jamais envoyées + rejetées).
+      expect(zdTile).not.toHaveTextContent('validées transporteur');
 
       // Le segmenté porte déjà un AUTRE type : sans effacement, le clic sur la
       // tuile ZD rendrait une liste vide alors que la tuile affiche 3.

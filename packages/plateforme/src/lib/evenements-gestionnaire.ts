@@ -9,8 +9,8 @@
 //
 // Règles du bilan, alignées sur celles des écrans existants pour qu'un même
 // chiffre ne diffère jamais d'un écran à l'autre :
-//  - seules les collectes RÉALISÉES (vue client : statut `cloturee`, cf.
-//    STATUT_BILAN) portent des résultats — comme la colonne « Résultats » de la
+//  - seules les collectes RÉALISÉES (vue client : `realisee` ou `cloturee`,
+//    cf. STATUTS_BILAN) portent des résultats — comme la colonne « Résultats » de la
 //    liste Collectes et l'onglet Bilan de la fiche collecte, qui n'en montrent
 //    aucun avant. Une collecte AG `realisee_sans_collecte` compte réalisée, avec
 //    0 repas (« Sans excédent ») ;
@@ -22,7 +22,7 @@
 //    `v_attributions_gestionnaire` (une collecte d'un traiteur tiers n'est pas
 //    lisible autrement par le rôle, C-1).
 
-import { STATUT_BILAN } from '@/lib/collectes/fiche-client-types';
+import { statutBilan } from '@/lib/collectes/fiche-client-types';
 import { paxCumules, ratioParPax } from '@/lib/dashboard-kpi';
 import { FLUX_ZD_CODES, type FluxZdCode } from '@/lib/libelles/flux';
 import {
@@ -111,9 +111,7 @@ const SANS_EXCEDENT = 'realisee_sans_collecte';
 
 /** La collecte porte-t-elle un résultat (bilan disponible côté client) ? */
 export function collecteRealisee(c: { type: string; statut: string }): boolean {
-  return (
-    c.statut === STATUT_BILAN || (c.type === AG && c.statut === SANS_EXCEDENT)
-  );
+  return statutBilan(c.statut) || (c.type === AG && c.statut === SANS_EXCEDENT);
 }
 
 /** Σ des pesées d'une collecte (une pesée absente compte 0). */

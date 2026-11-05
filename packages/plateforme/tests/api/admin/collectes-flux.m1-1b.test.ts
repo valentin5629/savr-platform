@@ -1,7 +1,8 @@
 /**
  * M1.1b — Saisie/édition manuelle des pesées ZD (PATCH /admin/collectes/[id]/flux).
  * BL-P0-01 (2e volet) : endpoint Admin d'édition collecte_flux.poids_reel_kg, motif
- * obligatoire + audit_log, UPSERT par (collecte_id, flux_id), 409 si cloturee.
+ * obligatoire + audit_log, UPSERT par (collecte_id, flux_id). Possible même sur
+ * une collecte clôturée (Val 2026-11-04) ; le bordereau est refait juste après.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -10,6 +11,13 @@ import { NextRequest } from 'next/server';
 let adminClient: ReturnType<typeof makeSeqSupabase>;
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => adminClient,
+}));
+
+// Documents refaits juste après la réponse : seul l'appel compte ici.
+const fabriquerDocumentsSansAttendre = vi.fn();
+vi.mock('@/lib/pdf/documents-sans-attendre.js', () => ({
+  fabriquerDocumentsSansAttendre: (...a: unknown[]) =>
+    fabriquerDocumentsSansAttendre(...a),
 }));
 
 const mockGetUser = vi.fn();
@@ -147,10 +155,14 @@ describe('M1.1b / Pesées ZD / Saisie manuelle', () => {
     expect(res.status).toBe(404);
   });
 
-  it('M1.1b/flux/manuel — 409 si collecte cloturee (correction via avoir)', async () => {
+  it('M1.1b/flux/manuel — collecte clôturée : pesée corrigée quand même, bordereau refait (Val 2026-11-04)', async () => {
     setupAuth('admin_savr');
     adminClient = makeSeqSupabase([
-      { data: { id: 'col-1', type: 'zero_dechet', statut: 'cloturee' } },
+      { data: { id: 'col-1', type: 'zero_dechet' } },
+      { data: [{ id: 'fbio', code: 'biodechet' }] },
+      { data: [] },
+      { data: [{ flux_id: 'fbio', poids_reel_kg: 10 }] },
+      { data: null },
     ]);
     const { PATCH } =
       await import('@/app/api/v1/admin/collectes/[id]/flux/route.js');
@@ -161,7 +173,11 @@ describe('M1.1b / Pesées ZD / Saisie manuelle', () => {
       }),
       PARAMS,
     );
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
+    expect(fabriquerDocumentsSansAttendre).toHaveBeenCalledWith(
+      'col-1',
+      'zero_dechet',
+    );
   });
 
   it('M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif', async () => {
@@ -213,6 +229,12 @@ describe('M1.1b / Pesées ZD / Saisie manuelle', () => {
         }),
       ]),
       expect.objectContaining({ onConflict: 'collecte_id,flux_id' }),
+    );
+
+    // Documents refaits juste après la réponse.
+    expect(fabriquerDocumentsSansAttendre).toHaveBeenCalledWith(
+      'col-1',
+      'zero_dechet',
     );
 
     // audit_log avec motif obligatoire

@@ -36,6 +36,7 @@ export interface PdfWorkerResult {
 
 export async function runPdfWorker(
   supabase: SupabaseClient,
+  options: { entityIds?: string[] } = {},
 ): Promise<PdfWorkerResult> {
   const result: PdfWorkerResult = {
     processed: 0,
@@ -45,11 +46,17 @@ export async function runPdfWorker(
   };
 
   // Claim jusqu'à 5 jobs pending/failed dont la prochaine tentative est passée
-  const { data: jobs, error: claimErr } = await supabase
+  if (options.entityIds && !options.entityIds.length) return result;
+  // `entityIds` : seuls les rendus de ces documents (fabrication sur-le-champ
+  // après une saisie Admin), sans prendre ceux des autres collectes.
+  const selection = supabase
     .from('jobs_pdf')
     .select('id, type_document, entity_type, entity_id, payload, attempts')
     .in('statut', ['pending', 'failed'])
-    .or(`next_retry_at.is.null,next_retry_at.lte.${new Date().toISOString()}`)
+    .or(`next_retry_at.is.null,next_retry_at.lte.${new Date().toISOString()}`);
+  const { data: jobs, error: claimErr } = await (
+    options.entityIds ? selection.in('entity_id', options.entityIds) : selection
+  )
     .order('created_at', { ascending: true })
     .limit(5);
 

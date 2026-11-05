@@ -3289,6 +3289,29 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
+  // Val 2026-11-04 : une collecte ZD réalisée sans pesée n'a ni rapport de
+  // recyclage ni radar (le bilan n'apparaît qu'avec ses chiffres).
+  it(
+    'M0.6 — Bloc 3 : collecte ZD réalisée sans pesée : rapport non téléchargeable, aucun radar proposé',
+    async () => {
+      installMock({
+        collecte: { ...baseZd, statut: 'realisee', collecte_flux: [] },
+        documents: sansDocument,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      for (const bouton of boutonsDeLaLigne('Rapport RSE'))
+        expect(bouton).toBeDisabled();
+      expect(
+        screen.queryByRole('checkbox', {
+          name: 'Inclure le radar de comparaison dans le rapport',
+        }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'M0.6 — Bloc 3 : collecte AG avec excédents, rapport en base sans PDF : aucune ligne Rapport RSE',
     async () => {
@@ -3474,6 +3497,30 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         screen.queryByText(/algo V2.*Non disponible en V1/),
       ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Val 2026-11-04 : l'Admin corrige les pesées ZD à tout moment, même après
+  // la clôture (le bordereau est refait juste après).
+  it(
+    'M0.6/pesees_zd_cloturee_modifiables — collecte ZD clôturée : « Éditer les pesées » actif, plus de renvoi vers un avoir',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        type: 'zero_dechet',
+        statut: 'cloturee',
+        attributions_antgaspi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const bouton = await screen.findByRole(
+        'button',
+        { name: 'Éditer les pesées' },
+        ATTENTE_UI,
+      );
+      expect(bouton).toBeEnabled();
+      expect(screen.queryByText(/édition via avoir/)).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -4481,15 +4528,16 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6/documents_regeneration_radar_retire — statut forcé hors clôture après réglage du radar : le rapport avec radar part sans benchmark_filters (repli serveur annoncé à l’écran)',
+    'M0.6/documents_regeneration_radar_retire — statut forcé avant la réalisation après réglage du radar : le rapport avec radar part sans benchmark_filters (repli serveur annoncé à l’écran)',
     async () => {
       const collecte = { ...zdCloturee };
       const fetchMock = installMock({ collecte, documents: documentsZd });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirDocumentsAvecRadar(fetchMock);
 
-      // Forçage du statut : la fiche relue n'est plus clôturée, le radar part.
-      collecte.statut = 'realisee';
+      // Forçage du statut : la fiche relue n'est plus réalisée (`realisee` porte
+      // désormais son bilan, Val 2026-11-04), le radar part.
+      collecte.statut = 'en_cours';
       fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
       const dialog = screen
         .getByText('Forcer le statut de la collecte')
@@ -4500,7 +4548,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       fireEvent.click(
         screen
           .getAllByRole('option')
-          .find((o) => o.getAttribute('data-value') === 'realisee')!,
+          .find((o) => o.getAttribute('data-value') === 'en_cours')!,
       );
       fireEvent.change(within(dialog).getByLabelText(/^Motif \(≥ 10/), {
         target: { value: 'Pesée à reprendre avant clôture' },

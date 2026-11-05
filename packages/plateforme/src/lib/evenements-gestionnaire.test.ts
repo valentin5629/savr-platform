@@ -115,16 +115,42 @@ describe('M3.2 / bilan consolidé d’un événement', () => {
     expect(b.tonnage_zd_kg).toBe(1050);
   });
 
-  it('M3.2/evenement_bilan_collectes_non_realisees_sans_resultat — avant clôture, rien ne compte', () => {
-    // Pesées déjà reçues sur une collecte `realisee` (embargo non levé) : la
-    // liste Collectes et la fiche n'en montrent rien, le bilan non plus.
+  it('M3.2/evenement_bilan_collectes_non_realisees_sans_resultat — une collecte `realisee` compte dès la réalisation, une collecte pas encore réalisée ne compte pas', () => {
+    // Val 2026-11-04 : le bilan compte une collecte dès `realisee` (plus
+    // seulement à la clôture). Une collecte `en_cours`, `validee` ou
+    // `programmee` n'en porte aucun, même si des pesées ou des repas sont déjà
+    // remontés.
     const b = consoliderEvenement([
       zd('realisee', [flux('biodechet', 500)], {
         taux_recyclage: 90,
         co2_evite_kg: 80,
       }),
+      zd('en_cours', [flux('biodechet', 300)], {
+        taux_recyclage: 50,
+        co2_evite_kg: 40,
+      }),
       zd('programmee', []),
-      ag('validee', null, null),
+      ag('realisee', 40, 'Linkee', { co2_evite_kg: 100 }),
+      ag('validee', 70, 'Restos du Cœur', { co2_evite_kg: 175 }),
+    ]);
+    expect(b.nb_realisees_zd).toBe(1);
+    expect(b.nb_realisees_ag).toBe(1);
+    expect(b.tonnage_zd_kg).toBe(500);
+    expect(b.taux_recyclage).toBe(90);
+    expect(b.co2_evite_zd_kg).toBe(80);
+    expect(b.repas_donnes).toBe(40);
+    expect(b.co2_evite_ag_kg).toBe(100);
+    expect(b.flux_kg.biodechet).toBe(500);
+  });
+
+  it('M3.2/evenement_bilan_collectes_non_realisees_sans_resultat — avant la réalisation, rien ne compte', () => {
+    const b = consoliderEvenement([
+      zd('en_cours', [flux('biodechet', 500)], {
+        taux_recyclage: 90,
+        co2_evite_kg: 80,
+      }),
+      zd('programmee', []),
+      ag('validee', 50, 'Linkee'),
     ]);
     expect(b.nb_realisees_zd).toBe(0);
     expect(b.nb_realisees_ag).toBe(0);

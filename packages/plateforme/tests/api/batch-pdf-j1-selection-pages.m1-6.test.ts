@@ -68,6 +68,7 @@ function fausseBase(repondre: (q: Requete) => Reponse) {
         return chaine;
       },
       lte: () => chaine,
+      gte: () => chaine,
       not: () => chaine,
       gt: (_colonne: string, valeur: string) => {
         q.apresId = valeur;
@@ -311,6 +312,7 @@ describe('M1.6 / batch ZD — 402 collectes clôturées (volume qui cassait savr
           data: (q.dans ?? []).map((collecte_id) => ({
             collecte_id,
             statut: 'emis',
+            numero: `BSAV-${collecte_id}`,
           })),
           error: null,
         };
@@ -351,6 +353,7 @@ describe('M1.6 / batch ZD — 402 collectes clôturées (volume qui cassait savr
               data: (q.dans ?? []).map((collecte_id) => ({
                 collecte_id,
                 statut: 'emis',
+                numero: `BSAV-${collecte_id}`,
               })),
               error: null,
             };
@@ -383,7 +386,8 @@ describe('M1.6 / batch ZD — 402 collectes clôturées (volume qui cassait savr
 
     expect(result.fatal).toMatchObject({
       etape: 'selection',
-      message: 'Sélection bordereaux existants : TypeError: fetch failed',
+      // Message de la base journalisé, jamais recopié (check-api-error-leak).
+      message: 'Sélection bordereaux existants : échec de lecture',
     });
     expect(result.enqueued).toBe(0);
     expect(base.ecritures()).toEqual([]);
@@ -411,8 +415,13 @@ describe('M2.4 / batch AG — attestation déjà émise au-delà de la 1re tranc
       if (q.table === 'attestations_don' && q.op === 'select')
         return {
           data: (q.dans ?? []).map((collecte_id) => ({
+            id: `att-${collecte_id}`,
             collecte_id,
             statut: 'emise',
+            version: 1,
+            numero: `ATT-${collecte_id}`,
+            // Même nombre de repas que l'attribution : rien à refaire.
+            volume_repas: 100,
           })),
           error: null,
         };

@@ -211,11 +211,13 @@ describe('M1.8 / E2E / scenario-nominal', () => {
           { flux_id: 'f1', poids_reel_kg: 100, flux: { nom: 'Biodéchets' } },
         ],
       }, // flux details (dérivés — cf. pgTAP m1_8_collecte_flux_derive)
-      { data: 'BSAV-2026-00001', error: null }, // rpc f_next_numero_bordereau (single)
       {
         data: { nom: 'Strike Transport', siret: '98765432100011' },
       }, // shared.prestataires (transporteur, single)
-      { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr (single)
+      { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr, sans numéro (single)
+      { data: 'BSAV-2026-00001', error: null }, // rpc f_next_numero_bordereau (single)
+      { data: [{ id: 'bord-new' }], error: null }, // numéro posé sur la ligne
+      { data: null, error: null }, // aucun rapports_rse existant (maybeSingle)
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse (single)
       { data: null, error: null }, // insert job bordereau (then)
     ]);

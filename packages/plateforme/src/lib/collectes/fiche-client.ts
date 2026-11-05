@@ -9,7 +9,7 @@ import {
   CODE_ALERTE_COORDONNEES_URGENCE,
   STATUTS_ASSOCIATION,
   STATUTS_LOGISTIQUE,
-  STATUT_BILAN,
+  statutBilan,
   etatRapport,
   rapportReserveDonneurOrdre,
   type ActionsFiche,
@@ -395,9 +395,9 @@ export async function chargerFicheCollecteClient(
 
   // ── Bilan ───────────────────────────────────────────────────────────────
   // ZD « Réalisée » : pesées par flux (collecte_flux, lue sous RLS avec la
-  // collecte). Valeurs figées à la clôture, jamais recalculées ici.
+  // collecte), du moment (corrigeables par l'Admin, Val 2026-11-04).
   let bilan_flux: Record<string, number> | null = null;
-  if (!isAg && c.statut === STATUT_BILAN) {
+  if (!isAg && statutBilan(c.statut)) {
     bilan_flux = {};
     for (const cf of c.collecte_flux ?? []) {
       const code = one(cf.flux_dechets)?.code;

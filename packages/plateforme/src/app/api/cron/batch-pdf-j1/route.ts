@@ -1,5 +1,5 @@
-// Cron Vercel — batch J+1 6h génération PDF ZD (M1.6) + AG (M2.4).
-// Déclenché quotidiennement à 6h00 (vercel.json).
+// Cron Vercel — batch des documents ZD (M1.6) + AG (M2.4), émis dès que les
+// poids sont là (Val 2026-11-04). Déclenché toutes les 15 min (vercel.json).
 
 import { NextResponse } from 'next/server';
 

@@ -38,7 +38,7 @@ import { UNITE_KG_CO2E } from '@/lib/format';
 import {
   LIBELLE_ETAT_RAPPORT,
   STATUTS_ANNULES,
-  STATUT_BILAN,
+  statutBilan,
   type EspaceClient,
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
@@ -260,10 +260,25 @@ export type BilanFiche = Pick<
  */
 export function useRadarFiche(
   benchmarkUrl: string,
-  c: Pick<BilanFiche, 'type' | 'statut'> | null,
+  c:
+    | (Pick<BilanFiche, 'type' | 'statut'> & {
+        bilan_flux?: BilanFiche['bilan_flux'];
+        collecte_flux?: readonly unknown[];
+      })
+    | null,
 ) {
+  // Même condition que l'affichage du bilan ZD : réalisée ET pesées connues
+  // (sinon le radar serait « disponible » sans barre de filtres à l'écran).
+  // Pesées lues sur le bilan (fiche client) ou sur la collecte (fiche Admin) ;
+  // inconnues (cumul d'un événement) : seul le statut compte.
+  const pesees =
+    c?.bilan_flux !== undefined
+      ? Object.keys(c.bilan_flux ?? {}).length > 0
+      : c?.collecte_flux !== undefined
+        ? c.collecte_flux.length > 0
+        : true;
   const visible =
-    c != null && c.type !== 'anti_gaspi' && c.statut === STATUT_BILAN;
+    c != null && c.type !== 'anti_gaspi' && statutBilan(c.statut) && pesees;
   const [bench, setBench] = useState<Record<string, BenchmarkFlux> | null>(
     null,
   );
@@ -332,7 +347,12 @@ export function BilanCollecte({
   if (STATUTS_ANNULES.includes(c.statut)) return null;
   const isAg = c.type === 'anti_gaspi';
   const sansExcedent = c.statut === 'realisee_sans_collecte';
-  const realisee = c.statut === STATUT_BILAN;
+  // Bilan dès que la collecte est réalisée ET que ses chiffres sont là
+  // (Val 2026-11-04) : repas connus (AG), pesées connues (ZD).
+  const chiffres = isAg
+    ? c.repas_donnes != null
+    : Object.keys(c.bilan_flux ?? {}).length > 0;
+  const realisee = statutBilan(c.statut) && chiffres;
   const bilanDispo = realisee || sansExcedent;
   const pax = c.pax ?? null;
   const bench = radar.bench;

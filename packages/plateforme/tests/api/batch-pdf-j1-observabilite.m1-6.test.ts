@@ -68,7 +68,11 @@ function fakeSupabase(resolve: Resolveur = () => undefined) {
         q.filtres[k] = v;
         return chain;
       },
-      in: () => chain,
+      // Statuts multiples (realisee|cloturee depuis le 2026-11-04) : clé jointe.
+      in: (k: string, v: unknown) => {
+        if (k === 'statut' && Array.isArray(v)) q.filtres[k] = v.join('|');
+        return chain;
+      },
       not: () => chain,
       lte: () => chain,
       gt: () => chain,
@@ -162,12 +166,12 @@ const CAS_SELECTION = [
   {
     module: 'M1.6',
     jobName: 'bordereaux_rapports_batch',
-    selection: 'zero_dechet/cloturee',
+    selection: 'zero_dechet/realisee|cloturee',
   },
   {
     module: 'M2.4',
     jobName: 'attestations_batch',
-    selection: 'anti_gaspi/cloturee',
+    selection: 'anti_gaspi/realisee|cloturee',
   },
   {
     module: 'M2.4',
@@ -203,7 +207,10 @@ for (const cas of CAS_SELECTION) {
       expect(alertes[0]!.titre).toBe('Job cron critique échoué');
       expect(alertes[0]!.metadata?.job_name).toBe(cas.jobName);
       expect(alertes[0]!.metadata?.etape).toBe('selection');
-      expect(alertes[0]!.message).toContain('more than one relationship');
+      // Le code, pas le message de la base : les batchs sont aussi appelés depuis
+      // des routes Admin (check-api-error-leak) ; le message reste au journal.
+      expect(alertes[0]!.message).toContain('PGRST201');
+      expect(alertes[0]!.message).not.toContain('more than one relationship');
 
       // Isolation : les deux autres sous-batchs ne sont pas contaminés.
       for (const autre of JOBS.filter((j) => j !== cas.jobName)) {
@@ -241,7 +248,7 @@ const ERREUR_DB = { message: 'connection timeout', code: '57014' };
 describe('M1.6 / batch ZD — lecture bordereaux existants en échec', () => {
   it('fatal etape=selection, aucun INSERT', async () => {
     const sb = fakeSupabase((q) => {
-      if (cleSelection(q) === 'zero_dechet/cloturee')
+      if (cleSelection(q) === 'zero_dechet/realisee|cloturee')
         return { data: [{ id: 'col-1', evenement_id: 'ev-1' }] };
       if (q.table === 'bordereaux_savr' && q.op === 'select')
         return { data: null, error: ERREUR_DB };
@@ -260,7 +267,7 @@ describe('M1.6 / batch ZD — lecture bordereaux existants en échec', () => {
 describe('M2.4 / batch AG — lecture attestations existantes en échec', () => {
   it('fatal etape=selection, aucun INSERT (pas d’attestation fiscale en double)', async () => {
     const sb = fakeSupabase((q) => {
-      if (cleSelection(q) === 'anti_gaspi/cloturee')
+      if (cleSelection(q) === 'anti_gaspi/realisee|cloturee')
         return {
           data: [
             {

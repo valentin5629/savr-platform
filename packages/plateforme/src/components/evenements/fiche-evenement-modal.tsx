@@ -76,7 +76,6 @@ import { Label } from '@/components/ui/label';
 import {
   LIBELLE_ETAT_RAPPORT,
   STATUTS_ANNULES,
-  STATUT_BILAN,
   type EspaceClient,
   type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
@@ -1022,7 +1021,7 @@ export function FicheEvenementModal({
     `/api/v1/evenements/${encodeURIComponent(evenementId)}/benchmark`,
     // Radar pour tous les rôles (décision Val 2026-10-30).
     b && b.nb_realisees_zd > 0
-      ? { type: 'zero_dechet', statut: STATUT_BILAN }
+      ? { type: 'zero_dechet', statut: 'cloturee' }
       : null,
   );
   const adresseLieu =

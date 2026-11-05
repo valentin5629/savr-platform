@@ -225,6 +225,14 @@
       "libelle": "Publication du texte des CGU accepté à la création du compte (preuve opposable Art. 11/22)"
     },
     {
+      "id": "M0.4-politique-confidentialite-publiee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:124-128",
+      "artefact": "packages/plateforme/src/app/confidentialite/page.tsx + packages/plateforme/src/content/politique-confidentialite.ts (données, durées §15 3.2, destinataires, cookies, droits, contact gestion@gosavr.io) + packages/plateforme/src/middleware.ts (/confidentialite public) + packages/plateforme/src/components/auth/auth-card.tsx (lien sous les écrans d'authentification) + packages/plateforme/src/components/layout/sidebar.tsx (menu de l'utilisateur) + packages/shared/src/email/enveloppe.ts (pied de page des emails)",
+      "test": "packages/plateforme/tests/ui/confidentialite.test.tsx « /confidentialite : contenu exigé par le CDC §15 3.4 » + packages/plateforme/tests/securite/middleware-actif.test.ts « politique de confidentialité sans session » + packages/shared/src/email/enveloppe.test.ts « document complet : logo, corps, pied de page avec le contact »",
+      "statut": "implemented",
+      "libelle": "Politique de confidentialité publiée : page publique, liens depuis l'application et les emails"
+    },
+    {
       "id": "M0.4-signup-erreurs-serveur-lisibles",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:68",
       "artefact": "packages/plateforme/src/app/signup/page.tsx (422 / 409 rendus tels que la route les formule ; 429 traduit avec le délai d'attente)",

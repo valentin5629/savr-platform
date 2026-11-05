@@ -45,6 +45,11 @@ describe('enveloppe commune', () => {
     expect(html).toContain('Bonjour Jeanne');
     expect(html).toContain('contact@gosavr.io');
     expect(html).toContain('Vous recevez cet email parce que');
+    // Lien vers la politique de confidentialité (CDC §15, 3.4), resté un lien
+    // (le pied de page n'est pas transformé en bouton).
+    expect(html).toContain(
+      '<a href="https://app.gosavr.io/confidentialite" style="color:#6e7790">Politique de confidentialité</a>',
+    );
   });
 
   it("l'objet est neutralisé dans le titre du document", () => {
@@ -62,6 +67,9 @@ describe('enveloppe commune', () => {
     expect(t).toContain('Traiteur & Fils <Paris>');
     expect(t).not.toMatch(/<\/?(p|a|ul|li|br|strong)\b/i);
     expect(t).toContain('contact@gosavr.io');
+    expect(t).toContain(
+      'Politique de confidentialité : https://app.gosavr.io/confidentialite',
+    );
   });
 
   it('le logo est joint à l’envoi seulement quand le HTML l’affiche', () => {

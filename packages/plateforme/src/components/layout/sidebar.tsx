@@ -13,6 +13,7 @@ import {
   CaretRightIcon,
   CaretUpDownIcon,
   GearIcon,
+  LockSimpleIcon,
   SignOutIcon,
 } from '@/components/ui/icones';
 import {
@@ -320,7 +321,19 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                     </Link>
                   </DropdownItem>
                 )}
-                {hrefParametres && <DropdownSeparator />}
+                {/* Politique de confidentialité (CDC §15, 3.4), dans un nouvel
+                    onglet pour ne pas quitter l'écran en cours. */}
+                <DropdownItem asChild className="min-h-11">
+                  <Link
+                    href={ROUTES.confidentialite}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <LockSimpleIcon aria-hidden="true" />
+                    Confidentialité
+                  </Link>
+                </DropdownItem>
+                <DropdownSeparator />
                 <DropdownItem
                   className="min-h-11"
                   disabled={loggingOut}

@@ -125,6 +125,8 @@ export const ROUTES = {
   // puis saisie. Exige une session : PAS dans les pages publiques du middleware.
   codeVerification: '/code-verification',
   cgu: '/cgu',
+  // Politique de confidentialité : publique (CDC §15, 3.4).
+  confidentialite: '/confidentialite',
   interdit: '/403',
 
   registre: REG,

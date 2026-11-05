@@ -1938,6 +1938,8 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
         ATTENTE_UI,
       );
       expect(within(liste).getAllByRole('listitem')).toHaveLength(2);
+      // c2 (Anti-Gaspi, lointaine) : crédit rendu.
+      expect(screen.getByTestId('mention-credit-ag')).toBeInTheDocument();
       fireEvent.click(
         screen.getByRole('button', { name: 'Confirmer l’annulation' }),
       );

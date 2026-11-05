@@ -1376,6 +1376,10 @@ function AnnulationEvenementDialog({
     : [];
   const tardiveAg = tardives.some((f) => f.type === 'anti_gaspi');
   const tardiveZd = tardives.some((f) => f.type !== 'anti_gaspi');
+  // Anti-Gaspi annulée à temps : crédit rendu, comme l'annulation d'une collecte.
+  const agATemps = collectes.some(
+    (f) => f.type === 'anti_gaspi' && !tardives.includes(f),
+  );
   return (
     <ConfirmDialog
       open={open}
@@ -1411,6 +1415,13 @@ function AnnulationEvenementDialog({
             'une collecte Zéro Déchet annulée est facturée au plein tarif. '}
           {tardiveAg &&
             'Une collecte Anti-Gaspi annulée est facturée comme une collecte réalisée : le crédit de votre pack décompté à sa programmation ne vous est pas rendu.'}
+        </AlertBar>
+      )}
+      {agATemps && (
+        <AlertBar variant="success" data-testid="mention-credit-ag">
+          {tardiveAg
+            ? 'Pour les autres collectes Anti-Gaspi, le crédit de votre pack décompté à leur programmation vous est rendu.'
+            : 'Si une collecte Anti-Gaspi a décompté un crédit de votre pack à sa programmation, il vous est rendu.'}
         </AlertBar>
       )}
     </ConfirmDialog>

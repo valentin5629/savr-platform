@@ -120,15 +120,20 @@ describe('M0.6 — modale invitation', () => {
         />,
       );
       const fenetre = screen.getByRole('dialog', { name: 'Inviter un membre' });
-      fireEvent.change(screen.getByLabelText('Organisation'), {
-        target: { value: 'Kaspia' },
-      });
+      // La fenêtre prend le focus à l'ouverture (setTimeout 0) : l'attendre
+      // avant de placer le focus dans le champ.
+      await waitFor(() => expect(fenetre).toHaveFocus(), ATTENTE_UI);
+      const champ = screen.getByLabelText('Organisation');
+      champ.focus();
+      fireEvent.change(champ, { target: { value: 'Kaspia' } });
       const choix = await screen.findByRole(
         'option',
         { name: 'Kaspia SAS' },
         ATTENTE_UI,
       );
       expect(fenetre).not.toContainElement(choix);
+      // La liste ouverte, la saisie reste dans le champ.
+      expect(champ).toHaveFocus();
 
       // Un clic dans le champ ne referme pas la liste ; un clic hors de la
       // liste, si.
@@ -142,6 +147,59 @@ describe('M0.6 — modale invitation', () => {
           ).not.toBeInTheDocument(),
         ATTENTE_UI,
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'organisation choisie au clavier : flèche bas puis Entrée',
+    async () => {
+      const onCreated = vi.fn();
+      render(
+        <InviteUserModal
+          canInviteAdmin={true}
+          onClose={() => {}}
+          onCreated={onCreated}
+        />,
+      );
+      fireEvent.change(screen.getByLabelText('Prénom'), {
+        target: { value: 'Alice' },
+      });
+      fireEvent.change(screen.getByLabelText('Nom'), {
+        target: { value: 'Martin' },
+      });
+      fireEvent.change(screen.getByLabelText('Email'), {
+        target: { value: 'alice@kaspia.fr' },
+      });
+      const champ = screen.getByLabelText('Organisation');
+      fireEvent.change(champ, { target: { value: 'Kaspia' } });
+      const choix = await screen.findByRole(
+        'option',
+        { name: 'Kaspia SAS' },
+        ATTENTE_UI,
+      );
+      expect(choix).toHaveAttribute('aria-selected', 'false');
+
+      fireEvent.keyDown(champ, { key: 'ArrowDown' });
+      expect(choix).toHaveAttribute('aria-selected', 'true');
+      expect(champ).toHaveAttribute('aria-activedescendant', choix.id);
+
+      fireEvent.keyDown(champ, { key: 'Enter' });
+      await waitFor(
+        () =>
+          expect(
+            screen.getByRole('button', { name: 'Effacer la sélection' }),
+          ).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(screen.getByText('Kaspia SAS')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Inviter'));
+      await waitFor(() => expect(onCreated).toHaveBeenCalled(), ATTENTE_UI);
+      const post = calls.find(
+        (c) => c.method === 'POST' && c.url === '/api/v1/admin/users',
+      );
+      expect(post?.body).toMatchObject({ organisation_id: 'org-9' });
     },
     ATTENTE_CAS_MS,
   );

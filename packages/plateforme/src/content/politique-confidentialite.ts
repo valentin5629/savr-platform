@@ -89,6 +89,10 @@ export const POLITIQUE_CONFIDENTIALITE_SECTIONS: SectionCgu[] = [
         'date, heure et volume estimé de la collecte.',
       ),
       li(
+        "Les organisations de l'événement",
+        "le traiteur, l'agence et le client organisateur d'un même événement voient ses collectes.",
+      ),
+      li(
         'Le gestionnaire du lieu',
         "pour les collectes réalisées sur son lieu (article 15 des Conditions Générales d'Utilisation).",
       ),
@@ -117,7 +121,7 @@ export const POLITIQUE_CONFIDENTIALITE_SECTIONS: SectionCgu[] = [
     titre: 'Sécurité',
     blocs: [
       p(
-        'Les données sont protégées par des comptes nominatifs, un cloisonnement strict entre clients, le chiffrement des échanges et du stockage, et des sauvegardes quotidiennes.',
+        'Les données sont protégées par des comptes nominatifs, un cloisonnement entre organisations (chacune ne voit que ses données et celles des événements auxquels elle participe), le chiffrement des échanges et du stockage, et des sauvegardes quotidiennes de la base de données.',
       ),
     ],
   },

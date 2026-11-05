@@ -89,6 +89,7 @@ describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)',
     // Politique de confidentialité (CDC §15, 3.4) : nouvel onglet.
     expect(items[1]!.getAttribute('href')).toBe('/confidentialite');
     expect(items[1]!.getAttribute('target')).toBe('_blank');
+    expect(items[1]!.getAttribute('rel')).toBe('noopener');
   });
 
   it('« Paramètres » quitte la navigation principale', () => {

@@ -356,6 +356,12 @@ describe('middleware — code de vérification', () => {
   it('écran du code hors des pages publiques', () => {
     expect(isPublicPath('/code-verification')).toBe(false);
   });
+
+  it('politique de confidentialité : chemin exact public, jamais un préfixe de chaîne', () => {
+    expect(isPublicPath('/confidentialite')).toBe(true);
+    expect(isPublicPath('/confidentialite-x')).toBe(false);
+    expect(isPublicPath('/confidentialitex')).toBe(false);
+  });
 });
 
 describe('middleware — tables de routage', () => {

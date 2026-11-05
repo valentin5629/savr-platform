@@ -65,6 +65,12 @@ import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
 import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
 import { ConfirmationModificationCollecte } from '@/components/collecte/confirmation-modification-collecte';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import {
+  ContactCombobox,
+  type ContactOption,
+} from '@/components/programmation/contact-combobox';
+import { NouveauContactModal } from '@/components/programmation/nouveau-contact-modal';
+import { contactDepuis, nomContact } from '@/lib/programmation/cartes-saisie';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
@@ -1027,12 +1033,32 @@ function CarteCollecteEdition({
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // « Ajouter un nouveau contact » du répertoire, pour l'un des deux contacts.
+  const [ajoutContact, setAjoutContact] = useState<
+    'principal' | 'secours' | null
+  >(null);
+  const sousModale = confirmOpen || ajoutContact !== null;
   const { onConfirmOpenChange } = edition;
   useEffect(() => {
-    onConfirmOpenChange(confirmOpen);
-    // Démontage confirmation ouverte : la garde de la fiche ne reste pas bloquée.
+    onConfirmOpenChange(sousModale);
+    // Démontage sous-modale ouverte : la garde de la fiche ne reste pas bloquée.
     return () => onConfirmOpenChange(false);
-  }, [confirmOpen, onConfirmOpenChange]);
+  }, [sousModale, onConfirmOpenChange]);
+  // Contact choisi dans le répertoire de l'organisation (même sélecteur que la
+  // programmation) : « prénom nom » et téléphone, comme à la programmation.
+  const choisirContact = (
+    role: 'principal' | 'secours',
+    c: ContactOption | null,
+  ) =>
+    setS((avant) =>
+      role === 'principal'
+        ? { ...avant, cpNom: c ? nomContact(c) : '', cpTel: c?.telephone ?? '' }
+        : {
+            ...avant,
+            csNom: c ? nomContact(c) : '',
+            csTel: c?.telephone ?? '',
+          },
+    );
   const { urgence: proche, reacceptation } = avertissementsCollecte(f, s);
   const champ =
     <K extends keyof SaisieCollecte>(k: K) =>
@@ -1137,30 +1163,19 @@ function CarteCollecteEdition({
           </InfoItem>
           {f.contacts_visibles && (
             <>
-              <InfoItem label="Contact principal" valueClassName="space-y-2">
-                <Input
-                  aria-label="Contact principal : prénom et nom"
-                  value={s.cpNom}
-                  onChange={(e) => champ('cpNom')(e.target.value)}
-                />
-                <Input
-                  aria-label="Contact principal : téléphone"
-                  type="tel"
-                  value={s.cpTel}
-                  onChange={(e) => champ('cpTel')(e.target.value)}
+              <InfoItem label="Contact principal">
+                <ContactCombobox
+                  value={contactDepuis(s.cpNom, s.cpTel)}
+                  onChange={(c) => choisirContact('principal', c)}
+                  onAddInline={() => setAjoutContact('principal')}
                 />
               </InfoItem>
-              <InfoItem label="Contact de secours" valueClassName="space-y-2">
-                <Input
-                  aria-label="Contact de secours : prénom et nom"
-                  value={s.csNom}
-                  onChange={(e) => champ('csNom')(e.target.value)}
-                />
-                <Input
-                  aria-label="Contact de secours : téléphone"
-                  type="tel"
-                  value={s.csTel}
-                  onChange={(e) => champ('csTel')(e.target.value)}
+              <InfoItem label="Contact de secours">
+                <ContactCombobox
+                  value={contactDepuis(s.csNom, s.csTel)}
+                  onChange={(c) => choisirContact('secours', c)}
+                  onAddInline={() => setAjoutContact('secours')}
+                  label="Ajouter un contact de secours…"
                 />
               </InfoItem>
             </>
@@ -1237,6 +1252,14 @@ function CarteCollecteEdition({
           Confirmer la modification
         </Button>
       </div>
+      <NouveauContactModal
+        open={ajoutContact !== null}
+        onClose={() => setAjoutContact(null)}
+        onCree={(c) => {
+          if (ajoutContact) choisirContact(ajoutContact, c);
+          setAjoutContact(null);
+        }}
+      />
       <ConfirmationModificationCollecte
         open={confirmOpen}
         urgence={proche}

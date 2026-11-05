@@ -1627,9 +1627,9 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
         }),
       ).toBeInTheDocument();
       expect(within(carteEditee).getByLabelText('Pax')).toHaveValue(400);
-      expect(
-        within(carteEditee).getByLabelText('Contact principal : prénom et nom'),
-      ).toHaveValue('Léa Martin');
+      // Contacts : sélecteur du répertoire de l'organisation, contact actuel
+      // affiché.
+      expect(carteEditee).toHaveTextContent('Léa Martin — 06 12 34 56 78');
 
       fireEvent.change(within(carteEditee).getByLabelText('Pax'), {
         target: { value: '450' },
@@ -1673,7 +1673,7 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
   );
 
   it(
-    'EVT/modifier_refus_et_abandon — contact vidé refusé sans écriture ; « Annuler » rend la carte en lecture, rien n’est envoyé',
+    'EVT/modifier_refus_et_abandon — nombre de convives invalide refusé sans écriture ; « Annuler » rend la carte en lecture, rien n’est envoyé',
     async () => {
       const fetchMock = stubFetch((url) =>
         url.includes('/types-evenements')
@@ -1686,14 +1686,14 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
       fireEvent.click(
         within(c).getByRole('button', { name: 'Modifier la collecte' }),
       );
-      fireEvent.change(screen.getByLabelText('Contact principal : téléphone'), {
-        target: { value: '' },
+      fireEvent.change(screen.getByLabelText('Pax'), {
+        target: { value: '0' },
       });
       fireEvent.click(
         screen.getByRole('button', { name: 'Confirmer la modification' }),
       );
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Le contact principal et son téléphone sont obligatoires.',
+        'Nombre de convives : saisissez un nombre entier de 1 à 100 000.',
       );
       fireEvent.click(screen.getByRole('button', { name: 'Annuler' }));
       expect(screen.queryByTestId('carte-edition')).toBeNull();
@@ -1703,6 +1703,56 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
       expect(
         fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH'),
       ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/modifier_contact_repertoire — le contact se choisit dans le répertoire de l’organisation, comme à la programmation ; « prénom nom » et téléphone partent au PATCH',
+    async () => {
+      const fetchMock = stubFetch((url) =>
+        url.includes('/types-evenements')
+          ? { body: [] }
+          : url.includes('/programmation/contacts')
+            ? {
+                body: [
+                  {
+                    id: 'k1',
+                    prenom: 'Paul',
+                    nom: 'Roux',
+                    telephone: '07 00 00 00 02',
+                  },
+                ],
+              }
+            : { body: { data: uneCollecte({ date_collecte: '2099-03-10' }) } },
+      );
+      monterFiche({ espace: 'traiteur' });
+      await ficheChargee();
+      const c = await carte();
+      fireEvent.click(
+        within(c).getByRole('button', { name: 'Modifier la collecte' }),
+      );
+      fireEvent.click(screen.getByText('Léa Martin — 06 12 34 56 78'));
+      fireEvent.click(
+        await screen.findByRole('option', { name: /Paul Roux/ }, ATTENTE_UI),
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Confirmer la modification' }),
+      );
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH'),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      const patch = fetchMock.mock.calls.find(
+        ([, init]) => init?.method === 'PATCH',
+      );
+      expect(JSON.parse(String(patch?.[1]?.body))).toEqual({
+        contact_principal_nom: 'Paul Roux',
+        contact_principal_telephone: '07 00 00 00 02',
+      });
     },
     ATTENTE_CAS_MS,
   );

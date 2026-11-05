@@ -819,6 +819,10 @@ function BlocLogistique({
 // Une carte par ligne, pleine largeur (la plupart des événements n'ont qu'une
 // collecte — demande Val 2026-10-29) : informations à gauche, chauffeur à
 // droite sur grand écran, l'un sous l'autre ailleurs.
+// Valeur devenue champ (modification sur place) : un espace sous le libellé,
+// sinon le contour de sélection du champ (décalé de 2 px) mord sur le libellé
+// (Val 2026-11-05).
+const VALEUR_CHAMP = 'mt-1.5';
 const GRILLE_CARTE = 'grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8';
 const GRILLE_INFOS = 'grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2';
 
@@ -1143,7 +1147,7 @@ function CarteCollecteEdition({
       />
       <div className={GRILLE_CARTE} data-testid="carte-edition">
         <dl className={GRILLE_INFOS}>
-          <InfoItem label="Pax">
+          <InfoItem label="Pax" valueClassName={VALEUR_CHAMP}>
             <Input
               aria-label="Pax"
               type="number"
@@ -1154,7 +1158,7 @@ function CarteCollecteEdition({
               onChange={(e) => champ('pax')(e.target.value)}
             />
           </InfoItem>
-          <InfoItem label="Type d’événement">
+          <InfoItem label="Type d’événement" valueClassName={VALEUR_CHAMP}>
             <Combobox
               aria-label="Type d’événement"
               icon={null}
@@ -1167,14 +1171,17 @@ function CarteCollecteEdition({
           </InfoItem>
           {f.contacts_visibles && (
             <>
-              <InfoItem label="Contact principal">
+              <InfoItem label="Contact principal" valueClassName={VALEUR_CHAMP}>
                 <ContactCombobox
                   value={contactDepuis(s.cpNom, s.cpTel)}
                   onChange={(c) => choisirContact('principal', c)}
                   onAddInline={() => setAjoutContact('principal')}
                 />
               </InfoItem>
-              <InfoItem label="Contact de secours">
+              <InfoItem
+                label="Contact de secours"
+                valueClassName={VALEUR_CHAMP}
+              >
                 <ContactCombobox
                   value={contactDepuis(s.csNom, s.csTel)}
                   onChange={(c) => choisirContact('secours', c)}
@@ -1203,6 +1210,7 @@ function CarteCollecteEdition({
             variant="texte"
             label="Informations supplémentaires"
             className="sm:col-span-2"
+            valueClassName={VALEUR_CHAMP}
           >
             <Textarea
               aria-label="Informations supplémentaires"
@@ -1891,7 +1899,10 @@ export function FicheEvenementModal({
               <TabsContent value="informations" className="mt-0">
                 <FicheSection titre="Événement" data-testid="bloc-evenement">
                   <dl className={GRILLE} data-testid="evenement-entete">
-                    <InfoItem label="Nom de l’événement">
+                    <InfoItem
+                      label="Nom de l’événement"
+                      valueClassName={saisieEvt ? VALEUR_CHAMP : undefined}
+                    >
                       {saisieEvt ? (
                         <Input
                           aria-label="Nom de l’événement"
@@ -1904,7 +1915,10 @@ export function FicheEvenementModal({
                         (evt.nom_evenement ?? VIDE)
                       )}
                     </InfoItem>
-                    <InfoItem label="Client final">
+                    <InfoItem
+                      label="Client final"
+                      valueClassName={saisieEvt ? VALEUR_CHAMP : undefined}
+                    >
                       {saisieEvt ? (
                         <Input
                           aria-label="Client final"
@@ -1924,7 +1938,10 @@ export function FicheEvenementModal({
                           programmé (Frontière 5), jamais sur l'événement d'un
                           traiteur tiers. */}
                     {evt.ajouter_collecte && (
-                      <InfoItem label="Référence interne">
+                      <InfoItem
+                        label="Référence interne"
+                        valueClassName={saisieEvt ? VALEUR_CHAMP : undefined}
+                      >
                         {saisieEvt ? (
                           <Input
                             aria-label="Référence interne"

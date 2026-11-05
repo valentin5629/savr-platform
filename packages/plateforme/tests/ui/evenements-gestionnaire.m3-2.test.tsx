@@ -1627,6 +1627,10 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
         }),
       ).toBeInTheDocument();
       expect(within(carteEditee).getByLabelText('Pax')).toHaveValue(400);
+      // Espace sous le libellé : le contour de sélection ne le mord pas.
+      expect(
+        within(carteEditee).getByLabelText('Pax').closest('dd'),
+      ).toHaveClass('mt-1.5');
       // Contacts : sélecteur du répertoire de l'organisation, contact actuel
       // affiché.
       expect(carteEditee).toHaveTextContent('Léa Martin — 06 12 34 56 78');
@@ -1898,6 +1902,9 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
       expect(within(bloc).getByLabelText('Nom de l’événement')).toHaveValue(
         'Salon Équip’Hôtel',
       );
+      expect(
+        within(bloc).getByLabelText('Nom de l’événement').closest('dd'),
+      ).toHaveClass('mt-1.5');
       expect(within(bloc).getByLabelText('Référence interne')).toHaveValue(
         'AFF-2026-12',
       );

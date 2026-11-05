@@ -287,7 +287,7 @@ export default function DashboardAdminPage() {
               />
               <StatCard
                 reserveTwoLineLabel
-                label="Attente prestataire"
+                label="Attente transporteur"
                 value={fmtInt(kpi.attente_prestataire)}
                 href={`${ROUTES.admin.collectes}?chip=attente_prestataire`}
                 dotColor={

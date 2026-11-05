@@ -349,7 +349,7 @@ describe('M0.6 / PATCH infos-acces — camion demandé sans tournée (création 
     expect(ecrituresDe()).toEqual([]);
   });
 
-  it('collecte sans prestataire logistique → 422 explicite, aucune écriture', async () => {
+  it('collecte sans transporteur → 422 explicite, aucune écriture', async () => {
     admin.results['collectes'] = {
       data: { ...collecte2Camions, prestataire_logistique_id: null },
       error: null,
@@ -361,7 +361,7 @@ describe('M0.6 / PATCH infos-acces — camion demandé sans tournée (création 
     );
     expect(res.status).toBe(422);
     const body = (await res.json()) as { error: string };
-    expect(body.error).toMatch(/prestataire/);
+    expect(body.error).toMatch(/transporteur/);
     expect(ecrituresDe()).toEqual([]);
     expect(mockEvaluer).not.toHaveBeenCalled();
   });

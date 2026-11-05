@@ -35,7 +35,7 @@ async function refusChoixPrestataireZd(
   if (!['programmee', 'rejetee_par_prestataire'].includes(c.statut)) {
     return NextResponse.json(
       {
-        error: `Impossible de choisir un prestataire pour une collecte au statut '${c.statut}'`,
+        error: `Impossible de choisir un transporteur pour une collecte au statut '${c.statut}'`,
       },
       { status: 409 },
     );
@@ -47,7 +47,7 @@ async function refusChoixPrestataireZd(
     return NextResponse.json(
       {
         error:
-          'Cette collecte est déjà commandée chez son prestataire : le changement de prestataire n’est pas possible tant que la commande est en cours.',
+          'Cette collecte est déjà commandée chez son transporteur : le changement de transporteur n’est pas possible tant que la commande est en cours.',
       },
       { status: 409 },
     );
@@ -63,7 +63,7 @@ async function refusChoixPrestataireZd(
   const t = transporteur as { type_tms: string; actif: boolean } | null;
   if (!t?.actif) {
     return NextResponse.json(
-      { error: 'Prestataire inconnu ou inactif dans le référentiel' },
+      { error: 'Transporteur inconnu ou inactif dans le référentiel' },
       { status: 422 },
     );
   }
@@ -166,7 +166,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Choisissez d'abord l'association bénéficiaire : son adresse est transmise au prestataire logistique pour la livraison.",
+            "Choisissez d'abord l'association bénéficiaire : son adresse est transmise au transporteur pour la livraison.",
         },
         { status: 422 },
       );
@@ -189,7 +189,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Choisissez d'abord le prestataire logistique : sans lui, la collecte ne peut pas être transmise.",
+          "Choisissez d'abord le transporteur : sans lui, la collecte ne peut pas être transmise.",
       },
       { status: 422 },
     );
@@ -247,7 +247,7 @@ export async function POST(
   if (isOverride) {
     if (auth.ctx.role === 'ops_savr') {
       return NextResponse.json(
-        { error: "L'override de prestataire est réservé aux admin Savr" },
+        { error: "L'override de transporteur est réservé aux admin Savr" },
         { status: 403 },
       );
     }
@@ -259,8 +259,8 @@ export async function POST(
         {
           error:
             c.type === 'anti_gaspi'
-              ? "motif_override_prestataire obligatoire (≥ 5 caractères) lorsqu'on choisit un prestataire ≠ recommandation algo (top 1)"
-              : 'motif_override_prestataire obligatoire (≥ 5 caractères) pour changer le prestataire déjà attribué',
+              ? "motif_override_prestataire obligatoire (≥ 5 caractères) lorsqu'on choisit un transporteur ≠ recommandation algo (top 1)"
+              : 'motif_override_prestataire obligatoire (≥ 5 caractères) pour changer le transporteur déjà attribué',
         },
         { status: 422 },
       );

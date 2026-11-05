@@ -547,8 +547,8 @@ export function AttributionAgForm({
       toast({
         title: 'Attribution validée.',
         description: envoiAuto
-          ? "L'ordre part au prestataire, les emails sont en cours d'envoi."
-          : "Dispatch manuel à réaliser auprès du prestataire ; les emails sont en cours d'envoi.",
+          ? "L'ordre part au transporteur, les emails sont en cours d'envoi."
+          : "Dispatch manuel à réaliser auprès du transporteur ; les emails sont en cours d'envoi.",
         variant: 'success',
       });
       onValidee?.();
@@ -605,7 +605,7 @@ export function AttributionAgForm({
                 2
               </span>
               <Text tone="ink" className="font-bold">
-                Prestataire logistique
+                Transporteur
               </Text>
             </div>
 
@@ -706,13 +706,13 @@ export function AttributionAgForm({
             <FormField label="Transporteur" htmlFor="transporteur-select">
               {!transpReco && !lieuACompleter && (
                 <AlertBar variant="warn" className="mb-2">
-                  Aucun prestataire éligible — traitement manuel. Choisissez un
+                  Aucun transporteur éligible — traitement manuel. Choisissez un
                   transporteur ci-dessous.
                 </AlertBar>
               )}
               <Combobox
                 id="transporteur-select"
-                searchPlaceholder="Rechercher un prestataire…"
+                searchPlaceholder="Rechercher un transporteur…"
                 options={[
                   { value: '', label: 'Choisir un transporteur…' },
                   ...optionsTransp.map((t) => ({

@@ -9,7 +9,8 @@
  *    flèche (Val 2026-10-29). Un lien au milieu d'une phrase sort de la phrase :
  *    le texte reste en paragraphe, le bouton suit, son libellé sans le point
  *    final ;
- *  - un pied de page avec le contact et la raison de l'envoi ;
+ *  - un pied de page avec le contact, la raison de l'envoi et le lien vers la
+ *    politique de confidentialité (CDC §15, 3.4) ;
  *  - une version texte, pour les messageries qui n'affichent pas le HTML.
  *
  * Mise en page en tableaux et styles en ligne : c'est ce que les messageries
@@ -26,6 +27,9 @@ const DISCRET = '#6e7790';
 const FOND = '#f7f8fb';
 const BORD = '#dde1ea';
 const POLICE = 'Arial, Helvetica, sans-serif';
+// Page publique, même texte sur tous les environnements : l'adresse de
+// production sert aussi aux emails de dev.
+const URL_CONFIDENTIALITE = 'https://app.gosavr.io/confidentialite';
 // Espacements validés par Val le 2026-10-29 (3 lignes de plus, puis −20 % sous
 // le logo et deux fois −25 % autour des boutons).
 const ESPACE_SOUS_LOGO = 64;
@@ -91,7 +95,8 @@ export function envelopperHtml(corps: string, sujet: string): string {
     `</table>` +
     `<p style="max-width:560px;margin:16px auto 0;font:12px/1.5 ${POLICE};color:${DISCRET}">` +
     `Savr — collecte et valorisation des surplus d'événements · contact@gosavr.io<br>` +
-    `Vous recevez cet email parce que vous utilisez la plateforme Savr.</p>` +
+    `Vous recevez cet email parce que vous utilisez la plateforme Savr. ` +
+    `<a href="${URL_CONFIDENTIALITE}" style="color:${DISCRET}">Politique de confidentialité</a></p>` +
     `</td></tr></table></body></html>`
   );
 }
@@ -119,6 +124,7 @@ export function versionTexte(corps: string): string {
     .trim();
   return (
     `${texte}\n\n--\nSavr — collecte et valorisation des surplus d'événements · contact@gosavr.io\n` +
-    `Vous recevez cet email parce que vous utilisez la plateforme Savr.`
+    `Vous recevez cet email parce que vous utilisez la plateforme Savr.\n` +
+    `Politique de confidentialité : ${URL_CONFIDENTIALITE}`
   );
 }

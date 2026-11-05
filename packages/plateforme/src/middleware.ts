@@ -46,6 +46,8 @@ const PUBLIC_PREFIXES = [
   ROUTES.invitation,
   // Texte des CGU : accepté à l'inscription, donc lisible AVANT d'avoir un compte.
   ROUTES.cgu,
+  // Politique de confidentialité : lisible sans compte (CDC §15, 3.4).
+  ROUTES.confidentialite,
   ROUTES.interdit,
   // Pages de smoke-test de composants (dev-only, présentationnel, sans donnée
   // sensible) — délibérément hors du gating /admin/* réservé admin_savr/ops_savr.

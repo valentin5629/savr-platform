@@ -824,10 +824,14 @@ function BlocLogistique({
 // sinon le contour de sélection du champ (décalé de 2 px) mord sur le libellé
 // (Val 2026-11-05).
 const VALEUR_CHAMP = 'mt-1.5';
-const GRILLE_CARTE = 'grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8';
+// Sur grand écran, aucun écart entre les colonnes : la marge droite de la
+// colonne gauche (`COLONNE_GAUCHE`) et la marge gauche du bloc chauffeur sont
+// égales, le trait pointillé tombe au milieu de la carte (Val 2026-11-05).
+const GRILLE_CARTE = 'grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-0';
+const COLONNE_GAUCHE = 'lg:pr-8';
 // Colonne gauche d'une carte des espaces clients : informations, puis les
-// boutons en bas (Val 2026-11-05 : ils portent sur la collecte, pas sur le
-// chauffeur de droite). `lg:pb-3` = marge intérieure basse du bloc
+// boutons en bas, centrés (Val 2026-11-05 : ils portent sur la collecte, pas
+// sur le chauffeur de droite). `lg:pb-3` = marge intérieure basse du bloc
 // « Demander les coordonnées en urgence » : les boutons s'alignent sur le sien.
 const COLONNE_INFOS = 'flex flex-col gap-5';
 const BAS_GAUCHE = 'mt-auto lg:pb-3';
@@ -901,10 +905,15 @@ function CarteCollecte({
     <div
       className={cn(
         'mt-auto flex flex-col gap-2',
-        aGauche ? cn(BAS_GAUCHE, 'items-start') : 'items-end',
+        aGauche ? cn(BAS_GAUCHE, 'items-center text-center') : 'items-end',
       )}
     >
-      <div className={cn('flex flex-wrap gap-2', !aGauche && 'justify-end')}>
+      <div
+        className={cn(
+          'flex flex-wrap gap-2',
+          aGauche ? 'justify-center' : 'justify-end',
+        )}
+      >
         {annuler !== 'absent' && (
           <Button
             // « Annuler la collecte » : contour rouge, même rendu partout (DS).
@@ -961,7 +970,9 @@ function CarteCollecte({
       />
       <div className={detail ? GRILLE_CARTE : undefined}>
         <div
-          className={aGauche ? COLONNE_INFOS : undefined}
+          className={
+            cn(aGauche && COLONNE_INFOS, detail && COLONNE_GAUCHE) || undefined
+          }
           data-testid="colonne-infos"
         >
           <dl className={GRILLE_INFOS}>
@@ -1172,7 +1183,10 @@ function CarteCollecteEdition({
         }
       />
       <div className={GRILLE_CARTE} data-testid="carte-edition">
-        <div className={COLONNE_INFOS} data-testid="colonne-infos">
+        <div
+          className={cn(COLONNE_INFOS, COLONNE_GAUCHE)}
+          data-testid="colonne-infos"
+        >
           <dl className={GRILLE_INFOS}>
             <InfoItem label="Pax" valueClassName={VALEUR_CHAMP}>
               <Input
@@ -1271,7 +1285,9 @@ function CarteCollecteEdition({
               {erreur}
             </AlertBar>
           )}
-          <div className={cn(BAS_GAUCHE, 'flex flex-wrap gap-2')}>
+          <div
+            className={cn(BAS_GAUCHE, 'flex flex-wrap justify-center gap-2')}
+          >
             <Button
               variant="ghost"
               disabled={enCours}

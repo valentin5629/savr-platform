@@ -2060,6 +2060,16 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
           name: /collecte/,
         }),
       ).toBeNull();
+      // Boutons centrés dans leur colonne ; colonnes sans écart, marges égales
+      // de part et d'autre du trait pointillé : il tombe au milieu.
+      expect(
+        within(gauche)
+          .getByRole('button', { name: 'Modifier la collecte' })
+          .closest('.flex-wrap'),
+      ).toHaveClass('justify-center');
+      expect(gauche).toHaveClass('lg:pr-8');
+      expect(gauche.parentElement).toHaveClass('lg:gap-0');
+      expect(within(c).getByTestId('bloc-logistique')).toHaveClass('lg:pl-8');
       // En modification, « Confirmer la modification » reste à gauche.
       fireEvent.click(
         within(c).getByRole('button', { name: 'Modifier la collecte' }),

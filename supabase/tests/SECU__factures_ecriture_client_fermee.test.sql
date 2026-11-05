@@ -207,11 +207,13 @@ SELECT ok(
 -- `fac_ops_update` reste pleinement ACTIVE, l'UPDATE n'étant pas révoqué.
 -- Compte TOTAL, pas `polname IN (…)` : un filtre par nom détecte une suppression
 -- mais pas un AJOUT de policy — strictement plus faible (relevé en revue sécurité).
+-- Compte des policies PERMISSIVES : la restrictive code_verification_equipe_savr
+-- (2026-11-04, cliquet SECU__code_verification_base) ne peut que retirer des droits.
 SELECT is(
   (SELECT count(*)::int FROM pg_policy
-    WHERE polrelid = 'plateforme.factures'::regclass),
+    WHERE polrelid = 'plateforme.factures'::regclass AND polpermissive),
   4,
-  'A7 exactement 4 policies sur factures : aucune retiree, aucune ajoutee'
+  'A7 exactement 4 policies permissives sur factures : aucune retiree, aucune ajoutee'
 );
 
 SELECT ok(

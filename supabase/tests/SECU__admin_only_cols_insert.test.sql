@@ -129,12 +129,14 @@ SELECT lives_ok(
 );
 
 -- 3. Cliquet : le jeu des policies ouvrant l'INSERT sur associations reste réduit à
---    l'admin. Toute policy INSERT (ou ALL) supplémentaire rougit ce test.
+--    l'admin. Toute policy PERMISSIVE INSERT (ou ALL) supplémentaire rougit ce
+--    test. Les policies restrictives (code_verification_equipe_savr, 2026-11-04)
+--    sont hors du compte : elles ne peuvent que retirer des droits.
 SELECT is(
   (SELECT array_agg(policyname::text ORDER BY policyname)
      FROM pg_policies
     WHERE schemaname = 'plateforme' AND tablename = 'associations'
-      AND cmd IN ('INSERT', 'ALL')),
+      AND cmd IN ('INSERT', 'ALL') AND permissive = 'PERMISSIVE'),
   ARRAY['asso_admin'],
   'associations : seule asso_admin ouvre la création (aucune policy INSERT ops/client)'
 );
@@ -155,7 +157,7 @@ SELECT is(
   (SELECT array_agg(policyname::text ORDER BY policyname)
      FROM pg_policies
     WHERE schemaname = 'plateforme' AND tablename = 'factures'
-      AND cmd IN ('INSERT', 'ALL')),
+      AND cmd IN ('INSERT', 'ALL') AND permissive = 'PERMISSIVE'),
   ARRAY['fac_admin'],
   'factures : seule fac_admin ouvre la création (aucune policy INSERT ops/client)'
 );

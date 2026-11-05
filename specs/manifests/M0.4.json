@@ -353,6 +353,15 @@
       "test": "packages/plateforme/tests/ui/code-verification.test.tsx « écran du code — activation » « écran du code — saisie »",
       "statut": "à-vérifier",
       "libelle": "Écran du code de vérification (activation par QR code puis saisie), rendu à vérifier par Val sur l'aperçu (GO-VISUAL)"
+    },
+    {
+      "id": "M0.4-code-verification-base",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:137",
+      "artefact": "supabase/migrations/20261104200000_plateforme_code_verification_base.sql (plateforme.f_code_verification_ok, règle intégrée à la requête, et f_code_verification_active, SECURITY DEFINER, seule à lire auth.mfa_factors ; policy RESTRICTIVE code_verification_equipe_savr FOR ALL TO authenticated sur chaque table de plateforme et shared ; même règle en tête des 13 fonctions SECURITY DEFINER et dans le WHERE des 4 vues security_invoker = false ouvertes à authenticated)",
+      "test": "supabase/tests/SECU__code_verification_base.test.sql (1-11 la règle cas par cas ; 12-18 cliquets : chaque table porte la policy, chaque fonction SECURITY DEFINER et chaque vue « droits du propriétaire » ouvertes à authenticated appellent la règle, EXECUTE exact des deux fonctions ; 19-30 balayage de toutes les tables en lecture et en écriture pour admin_savr puis ops_savr, sans code refusé, avec code identique à avant, non-vacuité mesurée ; 31-34 création et modification d'une association ; 35-104 les 13 fonctions et les 4 vues, refus sans code et résultat identique avec code)",
+      "statut": "implemented",
+      "libelle": "La base refuse toute lecture et écriture à une session admin_savr ou ops_savr sans code de vérification (aal différent de aal2) dont le compte a activé son code, y compris par l'API Supabase en direct ; sans code activé (dev, local, CI, production avant la première connexion), rien ne change (décision Val 2026-11-04, questionnaire VIPARIS IAM1)",
+      "ref_divergence": "_Divergences/SECU-RLS_20261104_code-verification-base.md"
     }
   ],
   "cdc_source_hash": {

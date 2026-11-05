@@ -67,11 +67,13 @@ SELECT col_is_pk('plateforme', 'collecte_contacts', 'collecte_id', 'collecte_id 
 SELECT ok((SELECT relrowsecurity AND relforcerowsecurity FROM pg_class
             WHERE oid = 'plateforme.collecte_contacts'::regclass),
   'RLS activée et forcée sur collecte_contacts');
-SELECT is((SELECT array_agg(policyname || ' ' || cmd || ' ' || qual || ' ' || with_check)
+-- + la restrictive du code de vérification (2026-11-04), qui ne retire que des droits.
+SELECT is((SELECT array_agg(policyname || ' ' || cmd || ' ' || qual || ' ' || with_check ORDER BY policyname)
              FROM pg_policies
             WHERE schemaname = 'plateforme' AND tablename = 'collecte_contacts'),
-  ARRAY['collecte_contacts_ferme ALL false false'],
-  'une seule policy sur collecte_contacts, qui refuse tout');
+  ARRAY['code_verification_equipe_savr ALL plateforme.f_code_verification_ok() plateforme.f_code_verification_ok()',
+        'collecte_contacts_ferme ALL false false'],
+  'une seule policy permissive sur collecte_contacts, qui refuse tout (et la restrictive du code de vérification)');
 SELECT ok(NOT has_table_privilege('authenticated', 'plateforme.collecte_contacts', 'SELECT'),
   'authenticated : pas de SELECT');
 SELECT ok(NOT has_table_privilege('authenticated', 'plateforme.collecte_contacts', 'INSERT, UPDATE, DELETE'),

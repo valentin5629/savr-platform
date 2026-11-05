@@ -81,8 +81,9 @@ DELETE FROM plateforme.alertes_admin WHERE code = 'test_dedup';
 SELECT policies_are(
   'plateforme',
   'alertes_admin',
-  ARRAY['aa_admin'],
-  'alertes_admin a la policy aa_admin'
+  -- + la restrictive du code de vérification (2026-11-04)
+  ARRAY['aa_admin', 'code_verification_equipe_savr'],
+  'alertes_admin a la policy aa_admin (et la restrictive du code de vérification)'
 );
 
 -- Insérer une ligne (superuser/owner, bypass RLS) pour tester le deny réel

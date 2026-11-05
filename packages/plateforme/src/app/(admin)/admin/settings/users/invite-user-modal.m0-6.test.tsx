@@ -184,6 +184,18 @@ describe('M0.6 — modale invitation', () => {
       expect(choix).toHaveAttribute('aria-selected', 'true');
       expect(champ).toHaveAttribute('aria-activedescendant', choix.id);
 
+      // Une nouvelle saisie remet l'option active à zéro.
+      fireEvent.change(champ, { target: { value: 'Kaspia S' } });
+      await waitFor(
+        () =>
+          expect(
+            screen.getByRole('option', { name: 'Kaspia SAS' }),
+          ).toHaveAttribute('aria-selected', 'false'),
+        ATTENTE_UI,
+      );
+      expect(champ).not.toHaveAttribute('aria-activedescendant');
+
+      fireEvent.keyDown(champ, { key: 'ArrowDown' });
       fireEvent.keyDown(champ, { key: 'Enter' });
       await waitFor(
         () =>

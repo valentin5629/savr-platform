@@ -215,7 +215,7 @@ function Autocomplete({
                 onClick={() => choisir(opt)}
                 onMouseMove={() => setActif(i)}
                 className={cn(
-                  'cursor-pointer px-3 py-2 text-sm text-savr-neutral-800',
+                  'cursor-pointer px-3 py-2 text-sm text-savr-neutral-800 hover:bg-savr-neutral-50',
                   i === actifVisible && 'bg-savr-neutral-50',
                 )}
               >

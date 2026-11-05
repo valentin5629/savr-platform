@@ -4,11 +4,21 @@ import * as React from 'react';
 import { MagnifyingGlassIcon, XIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from '@/components/ui/popover';
 import { DELAI_DEBOUNCE_MS } from '@/lib/hooks/use-debounce';
 
 // Autocomplete §5.5 — champ de recherche + liste de suggestions résolue par un
 // `fetchOptions` fourni par l'appelant (autocomplétion traiteur/lieu de la liste
 // collectes §06.06 §3, réutilisable). Sélection = chip effaçable.
+//
+// La liste s'ouvre dans le panneau flottant du DS (Popover, posé sur la page
+// et accroché sous le champ), comme celles du Combobox : dessinée dans le
+// champ, elle restait cachée sous le pied d'une modale, dont le corps défile
+// (fenêtre « Inviter un membre », constaté en production le 2026-11-05).
 export interface AutocompleteOption {
   id: string;
   label: string;
@@ -72,17 +82,6 @@ function Autocomplete({
     };
   }, [query, selected, minChars, fetchOptions]);
 
-  // Fermeture au clic extérieur.
-  React.useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
-
   if (selected) {
     return (
       <div
@@ -110,28 +109,36 @@ function Autocomplete({
   }
 
   return (
-    <div ref={rootRef} className={cn('relative', className)}>
-      <div className="relative">
-        <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
-        {/* Champ du DS (R-UI-4b, D7 : avant, classes de `Input` recopiées). */}
-        <Input
-          type="text"
-          id={id}
-          role="combobox"
-          aria-expanded={open}
-          aria-label={ariaLabel}
-          value={query}
-          placeholder={placeholder}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => options.length > 0 && setOpen(true)}
-          className="pl-9"
-        />
-      </div>
-      {open && (
-        <ul
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-savr-md border border-savr-neutral-200 bg-savr-white py-1 shadow-lg"
-        >
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <div ref={rootRef} className={cn('relative', className)}>
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400" />
+          {/* Champ du DS (R-UI-4b, D7 : avant, classes de `Input` recopiées). */}
+          <Input
+            type="text"
+            id={id}
+            role="combobox"
+            aria-expanded={open}
+            aria-label={ariaLabel}
+            value={query}
+            placeholder={placeholder}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => options.length > 0 && setOpen(true)}
+            className="pl-9"
+          />
+        </div>
+      </PopoverAnchor>
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+        // La saisie continue dans le champ : le panneau ne prend pas le focus.
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        // Un clic dans le champ n'est pas un clic « hors du panneau ».
+        onInteractOutside={(e) => {
+          if (rootRef.current?.contains(e.target as Node)) e.preventDefault();
+        }}
+      >
+        <ul role="listbox" className="max-h-64 overflow-auto py-1">
           {loading ? (
             <li className="px-3 py-2 text-sm text-savr-neutral-400">
               Recherche…
@@ -157,8 +164,8 @@ function Autocomplete({
             ))
           )}
         </ul>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

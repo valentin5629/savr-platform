@@ -107,6 +107,45 @@ describe('M0.6 — modale invitation', () => {
     ATTENTE_CAS_MS,
   );
 
+  it(
+    'la liste des organisations s’ouvre hors du corps défilant de la fenêtre',
+    async () => {
+      // Constaté en production le 2026-11-05 : dessinée dans la fenêtre, la
+      // liste restait cachée sous son pied (corps en overflow-y-auto).
+      render(
+        <InviteUserModal
+          canInviteAdmin={true}
+          onClose={() => {}}
+          onCreated={() => {}}
+        />,
+      );
+      const fenetre = screen.getByRole('dialog', { name: 'Inviter un membre' });
+      fireEvent.change(screen.getByLabelText('Organisation'), {
+        target: { value: 'Kaspia' },
+      });
+      const choix = await screen.findByRole(
+        'option',
+        { name: 'Kaspia SAS' },
+        ATTENTE_UI,
+      );
+      expect(fenetre).not.toContainElement(choix);
+
+      // Un clic dans le champ ne referme pas la liste ; un clic hors de la
+      // liste, si.
+      fireEvent.pointerDown(screen.getByLabelText('Organisation'));
+      expect(screen.getByRole('option', { name: 'Kaspia SAS' })).toBeVisible();
+      fireEvent.pointerDown(screen.getByLabelText('Prénom'));
+      await waitFor(
+        () =>
+          expect(
+            screen.queryByRole('option', { name: 'Kaspia SAS' }),
+          ).not.toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it('admin : l’option Admin Savr est proposée', () => {
     render(
       <InviteUserModal

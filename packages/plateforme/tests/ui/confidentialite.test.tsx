@@ -50,13 +50,22 @@ describe('/confidentialite : contenu exigé par le CDC §15 3.4', () => {
     );
   });
 
-  it('les durées de conservation du CDC §15 3.2 sont publiées', () => {
+  it('les durées publiées sont celles que la plateforme applique', () => {
     const { container } = render(<ConfidentialitePage />);
     const texte = container.textContent ?? '';
-    expect(texte).toContain('pendant la durée du compte, puis 3 ans');
+    expect(texte).toContain('conservées pendant la durée du compte');
+    expect(texte).toContain('anonymisées sur simple demande');
     expect(texte).toContain('conservées 10 ans');
-    expect(texte).toContain("un an après l'événement");
     expect(texte).toContain('journal conservé 5 ans');
+    expect(texte).toContain('journalisés 2 ans');
+  });
+
+  it("ne promet aucune purge qui n'existe pas (contacts, comptes)", () => {
+    // Aucun job ne supprime les contacts ni les comptes : les durées du
+    // §15 3.2 (« événement + 1 an », « compte + 3 ans ») seraient fausses.
+    const { container } = render(<ConfidentialitePage />);
+    const texte = container.textContent ?? '';
+    expect(texte).not.toMatch(/un an après l.événement|puis 3 ans/);
   });
 });
 

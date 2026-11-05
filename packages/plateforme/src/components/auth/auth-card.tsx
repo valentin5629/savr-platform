@@ -33,11 +33,7 @@ export function AuthPage({ children }: { children: React.ReactNode }) {
       {children}
       {/* Politique de confidentialité : lisible depuis tous les écrans
           d'authentification (CDC §15, 3.4). */}
-      <TextLink
-        href={ROUTES.confidentialite}
-        touch
-        className="mt-8 text-sm text-savr-neutral-600"
-      >
+      <TextLink href={ROUTES.confidentialite} touch className="mt-8 text-sm">
         Politique de confidentialité
       </TextLink>
     </main>

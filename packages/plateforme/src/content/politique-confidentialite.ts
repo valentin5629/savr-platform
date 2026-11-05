@@ -1,9 +1,12 @@
 // Texte de la politique de confidentialité, publiée sur /confidentialite.
 //
 // Exigée avant le go-live par le CDC (§15 Sécurité et conformité, 3.4) : page
-// lisible sans connexion, liée depuis l'application et les emails. Données,
-// bases légales et durées : tableau §15 3.2, aligné sur l'article 24 des CGU.
-// Même format que les CGU (`cgu-v1.ts`) : segments {texte, gras}, jamais de HTML.
+// lisible sans connexion, liée depuis l'application et les emails. Données et
+// bases légales : tableau §15 3.2. Durées : celles que la plateforme applique
+// réellement (aucune purge des contacts ni des comptes n'existe) ; les écarts
+// au §15 3.2 sont tracés dans `_Divergences/SECU-RGPD_20261105_politique-
+// confidentialite.md`. Même format que les CGU (`cgu-v1.ts`) : segments
+// {texte, gras}, jamais de HTML.
 //
 // Modifier ce texte = mettre à jour `POLITIQUE_CONFIDENTIALITE_MISE_A_JOUR`.
 
@@ -42,11 +45,11 @@ export const POLITIQUE_CONFIDENTIALITE_SECTIONS: SectionCgu[] = [
     blocs: [
       li(
         'Compte utilisateur',
-        "nom, prénom, adresse email, téléphone, fonction et mot de passe (conservé sous une forme qui ne permet pas de le retrouver). Ces données servent à créer et sécuriser l'accès à la plateforme (exécution du contrat). Elles sont conservées pendant la durée du compte, puis 3 ans.",
+        "nom, prénom, adresse email, téléphone, fonction et mot de passe (conservé sous une forme qui ne permet pas de le retrouver). Ces données servent à créer et sécuriser l'accès à la plateforme (exécution du contrat). Elles sont conservées pendant la durée du compte ; après sa fermeture, elles sont anonymisées sur simple demande.",
       ),
       li(
         'Organisation et facturation',
-        'raison sociale, numéros SIRET et de TVA, adresse et contact de facturation, pour établir les factures (obligation légale). Les pièces comptables sont conservées 10 ans.',
+        'raison sociale, numéros SIRET et de TVA, adresse et contact de facturation, pour gérer la relation commerciale et établir les factures (exécution du contrat, obligation légale). Les pièces comptables sont conservées 10 ans.',
       ),
       li(
         'Événements et collectes',
@@ -54,11 +57,19 @@ export const POLITIQUE_CONFIDENTIALITE_SECTIONS: SectionCgu[] = [
       ),
       li(
         'Contacts sur place',
-        "nom et téléphone de la personne présente lors de la collecte, transmis au transporteur pour la réaliser (exécution du contrat). Ils sont conservés un an après l'événement.",
+        "nom, téléphone, adresse email et fonction de la personne à joindre lors de la collecte, pour l'organiser avec le transporteur (exécution du contrat). Ils sont gardés dans le carnet de contacts de votre organisation, pour vous être proposés lors des prochaines programmations, et avec la fiche de l'événement. Vous pouvez en demander l'effacement à tout moment.",
+      ),
+      li(
+        'Chauffeurs',
+        "nom et téléphone du chauffeur et immatriculation du véhicule, reçus du transporteur et communiqués au client pour l'accès au lieu de collecte (exécution du contrat). Ils sont conservés avec la fiche de la collecte.",
+      ),
+      li(
+        'Associations bénéficiaires',
+        "nom et téléphone de la personne qui réceptionne les dons, transmis au transporteur pour la livraison (exécution du contrat). Ils sont conservés avec la fiche de l'association.",
       ),
       li(
         'Journaux',
-        'les actions sensibles sont inscrites dans un journal conservé 5 ans, pour la sécurité et la preuve (intérêt légitime). Les journaux techniques de connexion sont conservés peu de temps par nos hébergeurs.',
+        "les actions sensibles sont inscrites dans un journal conservé 5 ans, pour la sécurité et la preuve (intérêt légitime). Les échanges avec les transporteurs sont journalisés 2 ans. Les journaux techniques de nos hébergeurs (connexions, erreurs) sont conservés pour une durée limitée, fixée par chacun d'eux.",
       ),
       p(
         "Savr n'utilise pas ces données à des fins publicitaires et ne les vend pas.",
@@ -70,8 +81,12 @@ export const POLITIQUE_CONFIDENTIALITE_SECTIONS: SectionCgu[] = [
     blocs: [
       li("L'équipe Savr", 'dans la limite de ses missions.'),
       li(
-        'Les transporteurs et les associations bénéficiaires',
-        'uniquement les informations nécessaires à la collecte : adresse, créneau, contact sur place.',
+        'Les transporteurs',
+        "adresse et créneau de la collecte, contact sur place et, pour un don, contact de l'association bénéficiaire.",
+      ),
+      li(
+        'Les associations bénéficiaires',
+        'date, heure et volume estimé de la collecte.',
       ),
       li(
         'Le gestionnaire du lieu',
@@ -81,8 +96,12 @@ export const POLITIQUE_CONFIDENTIALITE_SECTIONS: SectionCgu[] = [
         'Nos prestataires techniques',
         'hébergement (Vercel, Supabase, Cloudflare, Railway), envoi des emails (Resend), suivi des erreurs (Sentry), alertes internes (Slack) et facturation (Pennylane). Ils ne traitent les données que pour nous fournir leur service.',
       ),
+      li(
+        'Les services publics de vérification',
+        'INSEE et VIES pour les numéros SIRET et de TVA, Base Adresse Nationale (IGN) pour les adresses saisies.',
+      ),
       p(
-        "La base de données est hébergée à Paris. Lorsqu'un prestataire, ou l'un de ses propres sous-traitants, traite des données hors de l'Union européenne, ce transfert est encadré par les garanties prévues par le RGPD (clauses contractuelles types de la Commission européenne ou Data Privacy Framework).",
+        "La base de données est hébergée à Paris. Certains prestataires, ou leurs propres sous-traitants, peuvent traiter des données hors de l'Union européenne, notamment aux États-Unis ; ces transferts reposent sur les garanties prévues par le RGPD (clauses contractuelles types de la Commission européenne ou Data Privacy Framework).",
       ),
     ],
   },

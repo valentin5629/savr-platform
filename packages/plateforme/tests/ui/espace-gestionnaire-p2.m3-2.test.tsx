@@ -153,8 +153,10 @@ describe('M3.2 / P2 nav gestionnaire', () => {
     render(<Sidebar role="gestionnaire_lieux" />);
     expect(screen.getByText('Mon pack Anti-Gaspi')).toBeInTheDocument();
     expect(screen.queryByText('Mon pack AG')).not.toBeInTheDocument();
-    // Override Val : Collectes + Registre réglementaire conservés.
-    expect(screen.getByText('Collectes')).toBeInTheDocument();
+    // Registre réglementaire conservé (override Val 2026-07-06) ; « Collectes »
+    // a quitté le menu des rôles clients (Val 2026-11-05), « Événements » reste.
+    expect(screen.queryByText('Collectes')).not.toBeInTheDocument();
+    expect(screen.getByText('Événements')).toBeInTheDocument();
     expect(screen.getByText('Registre réglementaire')).toBeInTheDocument();
   });
 });

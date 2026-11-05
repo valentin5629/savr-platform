@@ -142,19 +142,20 @@ describe('Nav « Mon pack Anti-Gaspi » — toujours visible (Val 2026-11-02)', 
   it('M3.2/nav_pack_autres_roles_sans_lecture — un traiteur sur le registre voit aussi l’entrée, sans comptage de packs', async () => {
     etat.role = 'traiteur_manager';
     const menu = await menuDe(RegistreLayout, '/registre');
-    expect(menu).toContain('Collectes');
+    expect(menu).toContain('Événements');
+    expect(menu).not.toContain('Collectes');
     expect(menu).toContain('Mon pack Anti-Gaspi');
     expect(menu).not.toContain('Mes lieux');
     expect(etat.tablesLues).not.toContain('packs_antgaspi');
   });
 });
 
-// « Événements », remise par Val le 2026-10-18, s'insère sous « Collectes ».
+// « Événements », remise par Val le 2026-10-18 ; « Collectes » retirée du menu
+// le 2026-11-05 (décision Val).
 describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () => {
   it('M3.2/nav_ordre_menu_gestionnaire — barre latérale dans l’ordre fixé, « Mon pack Anti-Gaspi » avant « Paramètres » (où vit « Mon organisation » depuis le 2026-10-31), barre mobile = 4 premières entrées', async () => {
     expect(await menuDe(GestionnaireLayout, '/gestionnaire')).toEqual([
       'Dashboard',
-      'Collectes',
       'Événements',
       'Traiteurs',
       'Mes lieux',
@@ -170,7 +171,7 @@ describe('M3.2 / ordre du menu du gestionnaire (décision Val 2026-10-07)', () =
       within(barreMobile)
         .getAllByRole('link')
         .map((lien) => lien.textContent ?? ''),
-    ).toEqual(['Dashboard', 'Collectes', 'Événements', 'Traiteurs']);
+    ).toEqual(['Dashboard', 'Événements', 'Traiteurs', 'Mes lieux']);
   });
 });
 

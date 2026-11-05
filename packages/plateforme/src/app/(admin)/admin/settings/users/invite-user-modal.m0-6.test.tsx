@@ -56,7 +56,7 @@ afterEach(() => {
 });
 
 async function pickOrg() {
-  const search = screen.getByLabelText('Organisation');
+  const search = screen.getByLabelText('Client');
   fireEvent.change(search, { target: { value: 'Kaspia' } });
   await waitFor(() => screen.getByText('Kaspia SAS'), ATTENTE_UI);
   fireEvent.click(screen.getByText('Kaspia SAS'));
@@ -123,7 +123,7 @@ describe('M0.6 — modale invitation', () => {
       // La fenêtre prend le focus à l'ouverture (setTimeout 0) : l'attendre
       // avant de placer le focus dans le champ.
       await waitFor(() => expect(fenetre).toHaveFocus(), ATTENTE_UI);
-      const champ = screen.getByLabelText('Organisation');
+      const champ = screen.getByLabelText('Client');
       champ.focus();
       fireEvent.change(champ, { target: { value: 'Kaspia' } });
       const choix = await screen.findByRole(
@@ -137,7 +137,7 @@ describe('M0.6 — modale invitation', () => {
 
       // Un clic dans le champ ne referme pas la liste ; un clic hors de la
       // liste, si.
-      fireEvent.pointerDown(screen.getByLabelText('Organisation'));
+      fireEvent.pointerDown(screen.getByLabelText('Client'));
       expect(screen.getByRole('option', { name: 'Kaspia SAS' })).toBeVisible();
       fireEvent.pointerDown(screen.getByLabelText('Prénom'));
       await waitFor(
@@ -171,7 +171,7 @@ describe('M0.6 — modale invitation', () => {
       fireEvent.change(screen.getByLabelText('Email'), {
         target: { value: 'alice@kaspia.fr' },
       });
-      const champ = screen.getByLabelText('Organisation');
+      const champ = screen.getByLabelText('Client');
       fireEvent.change(champ, { target: { value: 'Kaspia' } });
       const choix = await screen.findByRole(
         'option',

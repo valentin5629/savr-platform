@@ -391,7 +391,7 @@ describe('admin/revenus-organisations', () => {
     );
     expect(res.headers.get('Content-Type')).toContain('text/csv');
     const body = await res.text();
-    expect(body).toContain('Organisation');
+    expect(body).toContain('Client');
     expect(body).toContain('Nb ZD');
     expect(body).toContain('Kardamome SAS');
   });

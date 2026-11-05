@@ -654,9 +654,7 @@ describe('M0.6 — onglet Remises négociées', () => {
       );
       expect(tableau().getByText('Tous ses lieux')).toBeInTheDocument();
       expect(tableau().getByText('Paris Expo')).toBeInTheDocument();
-      expect(
-        tableau().getByText('Organisation (en direct)'),
-      ).toBeInTheDocument();
+      expect(tableau().getByText('Client (en direct)')).toBeInTheDocument();
 
       fireEvent.click(screen.getByText('Créer une remise'));
       fireEvent.change(screen.getByLabelText('Remise (%)'), {

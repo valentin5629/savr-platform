@@ -194,7 +194,7 @@ export function OngletCollectes({
         <EmptyState
           icon={<ChartBarIcon />}
           title="Aucune collecte"
-          description="Cette organisation n'a aucune collecte enregistrée."
+          description="Ce client n'a aucune collecte enregistrée."
         />
       </Card>
     );
@@ -314,7 +314,7 @@ export function OngletFactures({
         <EmptyState
           icon={<CreditCardIcon />}
           title="Aucune facture"
-          description="Cette organisation n'a aucune facture."
+          description="Ce client n'a aucune facture."
         />
       </Card>
     );
@@ -953,7 +953,7 @@ interface Remise {
 const porteeRemise = (r: Remise): string =>
   r.scope === 'gestionnaire'
     ? (r.lieux?.nom ?? 'Tous ses lieux')
-    : 'Organisation (en direct)';
+    : 'Client (en direct)';
 
 // Fiche gestionnaire de lieux : la remise est portée par le gestionnaire
 // (scope=gestionnaire) et s'applique à toutes les collectes sur ses lieux, quel
@@ -1221,7 +1221,7 @@ export function OngletRemises({
           description={
             estGestionnaire
               ? "Aucune remise n'est appliquée aux collectes sur les lieux de ce gestionnaire."
-              : "Aucune remise n'a été accordée à cette organisation."
+              : "Aucune remise n'a été accordée à ce client."
           }
         />
       ) : (

@@ -285,8 +285,8 @@ export default function ClientFichePage({
     return (
       <EmptyState
         icon={<BuildingsIcon />}
-        title="Organisation introuvable"
-        description="Cette organisation n'existe pas ou a été supprimée."
+        title="Client introuvable"
+        description="Ce client n'existe pas ou a été supprimé."
       />
     );
 
@@ -679,7 +679,7 @@ export default function ClientFichePage({
               <EmptyState
                 icon={<PackageIcon />}
                 title="Aucun pack actif"
-                description="Créez un pack pour cette organisation."
+                description="Créez un pack pour ce client."
               />
             </Card>
           )}

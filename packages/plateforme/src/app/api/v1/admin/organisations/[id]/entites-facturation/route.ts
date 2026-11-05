@@ -120,10 +120,7 @@ export async function POST(
 
   if (error) {
     if (error.code === '23503')
-      return NextResponse.json(
-        { error: 'Organisation non trouvée' },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: 'Client non trouvé' }, { status: 404 });
     return writeError(error, 'admin.organisations.entites_facturation.create');
   }
 

@@ -256,7 +256,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (format === 'csv') {
     const header = [
-      'Organisation',
+      'Client',
       'Type',
       'Nb ZD',
       'Montant ZD HT',

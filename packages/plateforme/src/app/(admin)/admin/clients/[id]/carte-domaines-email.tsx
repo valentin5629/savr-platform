@@ -94,10 +94,7 @@ export function CarteDomainesEmail({
       <SectionHeader icon={TagIcon} title="Domaines email" />
       {erreur && !aRetirer && <AlertBar variant="err">{erreur}</AlertBar>}
       {domaines.length === 0 ? (
-        <EmptyState
-          size="inline"
-          title="Aucun domaine email pour cette organisation."
-        />
+        <EmptyState size="inline" title="Aucun domaine email pour ce client." />
       ) : (
         <ul className="space-y-1">
           {domaines.map((d) => (
@@ -182,7 +179,7 @@ export function CarteDomainesEmail({
         onCancel={() => setARetirer(null)}
       >
         Les personnes qui s’inscriront avec une adresse @{aRetirer?.domaine} ne
-        seront plus rattachées automatiquement à cette organisation. Les comptes
+        seront plus rattachées automatiquement à ce client. Les comptes
         existants ne changent pas.
       </ConfirmDialog>
     </Card>

@@ -20,10 +20,7 @@ export async function POST(
     .single();
 
   if (error || !data) {
-    return NextResponse.json(
-      { error: 'Organisation non trouvée' },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: 'Client non trouvé' }, { status: 404 });
   }
 
   return NextResponse.json(data);

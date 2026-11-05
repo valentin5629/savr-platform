@@ -355,7 +355,7 @@ export default function FactureDetailPage() {
             </div>
           </div>
           <div>
-            <div className="text-savr-neutral-500">Organisation</div>
+            <div className="text-savr-neutral-500">Client</div>
             <div className="font-medium">
               {facture.organisations?.raison_sociale ?? '—'}
             </div>

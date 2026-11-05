@@ -34,6 +34,8 @@ interface StatCardProps {
    * Opt-in (défaut inchangé) pour ne pas décaler les dashboards cockpit existants.
    */
   reserveTwoLineLabel?: boolean;
+  /** Grand pictogramme à droite de la valeur (ex. ZD / AG). Absent = rien. */
+  pictogramme?: React.ReactNode;
 }
 
 function StatCard({
@@ -48,6 +50,7 @@ function StatCard({
   headerRight,
   footer,
   reserveTwoLineLabel,
+  pictogramme,
 }: StatCardProps): React.JSX.Element {
   const rootClassName = cn(
     'flex h-full flex-col rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-5 shadow-savr-sm transition-[transform,box-shadow,border-color] duration-savr-fast hover:-translate-y-0.5 hover:border-savr-neutral-300 hover:shadow-savr-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
@@ -82,7 +85,7 @@ function StatCard({
         )}
       </div>
 
-      <div className="mt-2.5">
+      <div className="mt-2.5 flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-1">
           <span className="text-kpi font-extrabold leading-none tracking-[-0.02em] tabular-nums text-savr-neutral-900">
             {value}
@@ -93,6 +96,7 @@ function StatCard({
             </span>
           )}
         </div>
+        {pictogramme}
       </div>
 
       <div className="mt-auto">

@@ -79,10 +79,7 @@ export async function POST(
   if (orgErr)
     return serverError(orgErr, 'admin.organisations.domaines_email.org');
   if (!org)
-    return NextResponse.json(
-      { error: 'Organisation non trouvée' },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: 'Client non trouvé' }, { status: 404 });
   if ((org as { type: string }).type === 'client_organisateur')
     return NextResponse.json(
       {
@@ -103,7 +100,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          'Domaine public (messagerie grand public) : il ne peut pas rattacher une organisation.',
+          'Domaine public (messagerie grand public) : il ne peut pas rattacher un client.',
       },
       { status: 422 },
     );
@@ -121,14 +118,11 @@ export async function POST(
   if (error) {
     if (error.code === '23505')
       return NextResponse.json(
-        { error: 'Ce domaine est déjà rattaché à une organisation.' },
+        { error: 'Ce domaine est déjà rattaché à un client.' },
         { status: 409 },
       );
     if (error.code === '23503')
-      return NextResponse.json(
-        { error: 'Organisation non trouvée' },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: 'Client non trouvé' }, { status: 404 });
     return writeError(error, 'admin.organisations.domaines_email.create');
   }
 

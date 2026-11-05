@@ -162,7 +162,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
           .length,
       ).toBeGreaterThan(0);
       for (const header of [
-        'Organisation',
+        'Client',
         'Type',
         'Nb ZD',
         'CA ZD HT',
@@ -221,7 +221,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
     async () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-      expect(screen.getByText('Revenu par organisation')).toBeInTheDocument();
+      expect(screen.getByText('Revenu par client')).toBeInTheDocument();
       expect(screen.getByTestId('revenus-periode')).toBeInTheDocument();
       // Filtre en ligne « Période  <période> ▾ » (décision Val 2026-09-30).
       expect(screen.getByRole('button', { name: /^Période/ })).toBe(

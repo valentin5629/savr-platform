@@ -96,7 +96,7 @@ const COLONNES_GRILLES: ColumnDef<Grille, unknown>[] = [
   },
   {
     id: 'organisations',
-    header: 'Organisations',
+    header: 'Clients',
     accessorFn: (g) => g.nb_organisations,
     meta: { className: 'text-right text-savr-neutral-700' },
     cell: ({ row: { original: g } }) => g.nb_organisations,

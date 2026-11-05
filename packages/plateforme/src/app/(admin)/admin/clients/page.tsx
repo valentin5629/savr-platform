@@ -171,7 +171,7 @@ export default function ClientsPage() {
           // (admin) et requireStaff bornent déjà aux 2 rôles staff.
           <Button variant="accent" onClick={() => setModalOpen(true)}>
             <PlusIcon />
-            Nouvelle organisation
+            Nouveau client
           </Button>
         }
       />
@@ -182,7 +182,7 @@ export default function ClientsPage() {
       {/* Filtres */}
       <FilterBar
         data-testid="clients-filtres"
-        count={compteurResultats(total, 'organisation', 'organisations')}
+        count={compteurResultats(total, 'client', 'clients')}
         actif={filtresActifs}
         onReset={reset}
       >
@@ -223,7 +223,7 @@ export default function ClientsPage() {
         empty={
           <EmptyState
             icon={<BuildingsIcon />}
-            title="Aucune organisation"
+            title="Aucun client"
             description={
               f.q
                 ? 'Aucun résultat pour cette recherche.'

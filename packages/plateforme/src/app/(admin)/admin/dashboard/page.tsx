@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { SquaresFourIcon } from '@/components/ui/icones';
+import {
+  ForkKnifeIcon,
+  RecycleIcon,
+  SquaresFourIcon,
+  type Icone,
+} from '@/components/ui/icones';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -48,6 +53,29 @@ interface RevenusRow {
   nb_ag: number;
   montant_ag_ht: number;
   montant_total: number;
+}
+
+// Grand pictogramme ZD / AG des cartes « Non transmises » (revue E2E Val
+// 2026-11-05) : mêmes icônes et teintes que les tuiles de la liste Collectes.
+const TON_PICTO = {
+  success: 'bg-savr-success-subtle text-savr-success-strong',
+  warning: 'bg-savr-warning-subtle text-savr-warning-strong',
+} as const;
+
+function PictoType({
+  icone: IconeType,
+  ton,
+}: {
+  icone: Icone;
+  ton: keyof typeof TON_PICTO;
+}) {
+  return (
+    <span
+      className={`grid h-14 w-14 shrink-0 place-items-center rounded-savr-lg ${TON_PICTO[ton]}`}
+    >
+      <IconeType className="h-8 w-8" aria-hidden="true" />
+    </span>
+  );
 }
 
 function euro(v: number): string {
@@ -100,7 +128,7 @@ function periodePosee(p: { from: string; to: string }): boolean {
 }
 
 const revenusColumns: Column<RevenusRow>[] = [
-  { key: 'raison_sociale', header: 'Organisation', sortable: true },
+  { key: 'raison_sociale', header: 'Client', sortable: true },
   {
     key: 'type_organisation',
     header: 'Type',
@@ -260,6 +288,7 @@ export default function DashboardAdminPage() {
               <StatCard
                 reserveTwoLineLabel
                 label="Non transmises ZD"
+                pictogramme={<PictoType icone={RecycleIcon} ton="success" />}
                 value={fmtInt(kpi.non_transmises_zd)}
                 href={`${ROUTES.admin.collectes}?chip=non_transmises_zd`}
                 dotColor={
@@ -274,6 +303,7 @@ export default function DashboardAdminPage() {
               <StatCard
                 reserveTwoLineLabel
                 label="Non transmises AG"
+                pictogramme={<PictoType icone={ForkKnifeIcon} ton="warning" />}
                 value={fmtInt(kpi.non_transmises_ag)}
                 href={`${ROUTES.admin.collectes}?chip=non_transmises_ag`}
                 dotColor={
@@ -372,10 +402,9 @@ export default function DashboardAdminPage() {
             />
           </FilterBar>
 
-          {/* Graphe (50 %) + tableau (50 %) sur la même ligne ≥ lg (revue E2E Val
-            2026-07-18) — empilés en dessous. `items-start` : chaque colonne garde
-            sa hauteur propre, pas d'étirement du graphe sur la hauteur du tableau. */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+          {/* Graphe puis tableau, chacun sur sa propre ligne pleine largeur
+            (revue E2E Val 2026-11-05, lisibilité ; remplace le 50/50 du 2026-07-18). */}
+          <div className="grid grid-cols-1 gap-6">
             {/* Histogramme — MÊME fenêtre de période que le tableau (filtre commun). */}
             <ChartCard>
               <RevenusHistogramme
@@ -386,9 +415,8 @@ export default function DashboardAdminPage() {
               />
             </ChartCard>
 
-            {/* Colonne « Revenus par organisation » — titre DANS la carte, comme
-              l'histogramme (ChartCard) : les deux cartes et leurs titres partent
-              de la même ligne (revue E2E Val 2026-09-28). */}
+            {/* Bloc « Revenu par client » — titre DANS la carte, comme
+              l'histogramme (ChartCard) (revue E2E Val 2026-09-28). */}
             <div>
               <Card variant="elevated" className="overflow-hidden">
                 {/* Titre du bloc tableau (revue E2E Val 2026-07-15). */}
@@ -397,7 +425,7 @@ export default function DashboardAdminPage() {
                   weight="extrabold"
                   className="px-6 pb-4 pt-6 tracking-[-0.01em]"
                 >
-                  Revenu par organisation
+                  Revenu par client
                 </Heading>
                 <DataTable
                   columnsToggle={false}
@@ -417,7 +445,7 @@ export default function DashboardAdminPage() {
                   toolbar={
                     !loadingRevenus && total > 0 ? (
                       <Text as="span" className="px-6">
-                        {total} organisation{total > 1 ? 's' : ''}
+                        {total} client{total > 1 ? 's' : ''}
                       </Text>
                     ) : null
                   }

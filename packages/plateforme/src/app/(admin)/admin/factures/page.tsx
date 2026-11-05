@@ -97,7 +97,7 @@ const columns: Column<Facture>[] = [
   },
   {
     key: 'organisations',
-    header: 'Organisation',
+    header: 'Client',
     render: (row) => row.organisations?.raison_sociale ?? '—',
   },
   {
@@ -306,7 +306,7 @@ export default function FacturesPage() {
           onChange={(p) => set({ date_debut: p.from, date_fin: p.to })}
         />
         <FiltreCoches
-          label="Organisation"
+          label="Client"
           testid="filtre-organisation"
           libelleVide="Toutes"
           libelleTous="Toutes"

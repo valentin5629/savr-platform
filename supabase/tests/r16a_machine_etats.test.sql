@@ -69,20 +69,21 @@ VALUES ('e16a0006-0000-0000-0000-000000000002'::uuid, 'e16a0001-0000-0000-0000-0
 ON CONFLICT (id) DO NOTHING;
 
 -- =====================================================================
--- RM-01 — Clôture embargo H+24
+-- RM-01 — Clôture à realisee_at + 48 h (Val 2026-11-04, ex-24 h)
 -- =====================================================================
--- C1 : realisee, realisee_at = now()-25h → doit être clôturée.
+-- C1 : realisee, realisee_at = now()-49h → doit être clôturée.
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, realisee_at)
 VALUES ('e16a0c01-0000-0000-0000-000000000001'::uuid, 'e16a0006-0000-0000-0000-000000000001'::uuid,
-        'anti_gaspi', 'realisee', 'en_attente_execution', current_date - 2, '08:00', 1, now() - interval '25 hours');
--- C2 : realisee, realisee_at = now()-1h → embargo non expiré, reste realisee.
+        'anti_gaspi', 'realisee', 'en_attente_execution', current_date - 3, '08:00', 1, now() - interval '49 hours');
+-- C2 : realisee, realisee_at = now()-25h → moins de 48 h, reste realisee
+--      (l'ancien seuil de 24 h l'aurait clôturée).
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, realisee_at)
 VALUES ('e16a0c01-0000-0000-0000-000000000002'::uuid, 'e16a0006-0000-0000-0000-000000000001'::uuid,
-        'anti_gaspi', 'realisee', 'en_attente_execution', current_date, '08:00', 1, now() - interval '1 hour');
+        'anti_gaspi', 'realisee', 'en_attente_execution', current_date - 1, '08:00', 1, now() - interval '25 hours');
 -- C3 : realisee_sans_collecte ancienne → JAMAIS clôturée (état terminal distinct).
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, realisee_at)
 VALUES ('e16a0c01-0000-0000-0000-000000000003'::uuid, 'e16a0006-0000-0000-0000-000000000001'::uuid,
-        'anti_gaspi', 'realisee_sans_collecte', 'en_attente_execution', current_date - 3, '08:00', 1, now() - interval '48 hours');
+        'anti_gaspi', 'realisee_sans_collecte', 'en_attente_execution', current_date - 3, '08:00', 1, now() - interval '72 hours');
 
 SELECT ok(
   plateforme.fn_cloturer_collectes_embargo() >= 1,
@@ -91,12 +92,12 @@ SELECT ok(
 SELECT is(
   (SELECT statut::text FROM plateforme.collectes WHERE id = 'e16a0c01-0000-0000-0000-000000000001'::uuid),
   'cloturee',
-  'RM-01 : realisee + realisee_at ≥ H+24 → cloturee'
+  'RM-01 : realisee + realisee_at ≥ H+48 → cloturee'
 );
 SELECT is(
   (SELECT statut::text FROM plateforme.collectes WHERE id = 'e16a0c01-0000-0000-0000-000000000002'::uuid),
   'realisee',
-  'RM-01 : realisee + realisee_at < H+24 → reste realisee (embargo)'
+  'RM-01 : realisee + realisee_at < H+48 → reste realisee'
 );
 SELECT is(
   (SELECT statut::text FROM plateforme.collectes WHERE id = 'e16a0c01-0000-0000-0000-000000000003'::uuid),

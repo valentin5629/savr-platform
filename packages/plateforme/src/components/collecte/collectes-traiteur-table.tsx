@@ -27,7 +27,10 @@ import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
-import { LIBELLE_RAPPORT_RESERVE } from '@/lib/collectes/fiche-client-types';
+import {
+  LIBELLE_RAPPORT_RESERVE,
+  statutBilan,
+} from '@/lib/collectes/fiche-client-types';
 import { LIBELLE_SANS_EXCEDENT } from '@/lib/statut-collecte-labels';
 import { CelluleVide } from '@/components/ui/data-grid';
 import { Text } from '@/components/ui/text';
@@ -142,7 +145,8 @@ export function ResultatsCollecte({
   onTelecharger: () => void;
 }) {
   const sansExcedent = c.statut === 'realisee_sans_collecte';
-  if (c.statut !== 'cloturee' && !sansExcedent) return <CelluleVide />;
+  // Résultats dès la réalisation (Val 2026-11-04), plus seulement à la clôture.
+  if (!statutBilan(c.statut) && !sansExcedent) return <CelluleVide />;
   const zd = c.type === 'zero_dechet';
   return (
     <Text

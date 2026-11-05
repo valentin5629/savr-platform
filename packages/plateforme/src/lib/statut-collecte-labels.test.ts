@@ -41,7 +41,7 @@ describe('R12 statutCollecteDisplay — vue client (collapse Val)', () => {
     ['programmee', 'Créée'], // jamais « Programmée » côté client
     ['validee', 'Validée'],
     ['en_cours', 'En cours'],
-    ['realisee', 'En cours'], // « Réalisée » attend la clôture
+    ['realisee', 'Réalisée'], // dès la réalisation (Val 2026-11-04)
     ['realisee_sans_collecte', 'Réalisée'], // pas un statut à part (Val 2026-10-09)
     ['cloturee', 'Réalisée'],
     ['annulation_demandee', 'Annulée'],
@@ -70,7 +70,7 @@ describe('R12 statutCollecteDisplay — vue client (collapse Val)', () => {
     expect(labels).not.toContain('Programmée');
   });
 
-  it('client : « Réalisée » pour cloturee et pour une AG sans excédent, jamais pour realisee', () => {
+  it('client : « Réalisée » pour realisee, cloturee et une AG sans excédent, jamais avant la réalisation', () => {
     const realisee = [
       'brouillon',
       'programmee',
@@ -82,7 +82,11 @@ describe('R12 statutCollecteDisplay — vue client (collapse Val)', () => {
       'annulee',
       'rejetee_par_prestataire',
     ].filter((s) => statutCollecteDisplay(s, 'client').label === 'Réalisée');
-    expect(realisee).toEqual(['realisee_sans_collecte', 'cloturee']);
+    expect(realisee).toEqual([
+      'realisee',
+      'realisee_sans_collecte',
+      'cloturee',
+    ]);
   });
 });
 
@@ -144,8 +148,9 @@ describe('M3.1 / frise de statut client', () => {
     expect(courante('programmee')).toBe('Créée');
     expect(courante('rejetee_par_prestataire')).toBe('Créée');
     expect(courante('validee')).toBe('Validée');
-    // `realisee` DB = « En cours » côté client (mapping canonique 2026-06-30).
-    expect(courante('realisee')).toBe('En cours');
+    // `realisee` DB = « Réalisée » côté client dès la réalisation (Val 2026-11-04).
+    expect(courante('en_cours')).toBe('En cours');
+    expect(courante('realisee')).toBe('Réalisée');
     expect(courante('cloturee')).toBe('Réalisée');
   });
 
@@ -225,8 +230,8 @@ describe('Fiche événement — frise Créé → Réalisé (Val 2026-10-26)', ()
     expect(courante(['validee', 'programmee'])).toBe('Créé');
     expect(courante(['validee', 'en_cours'])).toBe('Validé');
     expect(courante(['cloturee', 'en_cours'])).toBe('En cours');
-    // `realisee` attend sa clôture : « En cours » côté client.
-    expect(courante(['cloturee', 'realisee'])).toBe('En cours');
+    // `realisee` est « Réalisée » côté client dès la réalisation (Val 2026-11-04).
+    expect(courante(['cloturee', 'realisee'])).toBe('Réalisé');
     expect(courante(['cloturee', 'realisee_sans_collecte'])).toBe('Réalisé');
     expect(friseStatutEvenement(['cloturee']).map((e) => e.label)).toEqual([
       'Créé',
@@ -261,7 +266,8 @@ describe('Fiche événement — frise Créé → Réalisé (Val 2026-10-26)', ()
   it.each([
     [['validee', 'cloturee'], 'Validé'],
     [['cloturee', 'cloturee'], 'Réalisé'],
-    [['realisee', 'cloturee'], 'En cours'],
+    [['realisee', 'cloturee'], 'Réalisé'],
+    [['en_cours', 'cloturee'], 'En cours'],
     [['annulee', 'cloturee'], 'Réalisé'],
     [['annulation_demandee', 'validee'], 'Validé'],
     [['rejetee_par_prestataire', 'cloturee'], 'Réalisé'],

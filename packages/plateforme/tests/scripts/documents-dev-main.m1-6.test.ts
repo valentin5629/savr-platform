@@ -3,7 +3,7 @@
  *
  * La garde « savr-dev seulement » est la seule barrière de cette commande, qui
  * agit avec la clé de service : elle doit passer AVANT toute création de client,
- * sur l'environnement réellement utilisé. Ici la fabrique du client, les quatre
+ * sur l'environnement réellement utilisé. Ici la fabrique du client, les cinq
  * traitements et le lecteur du bucket sont simulés : rien de réel n'est appelé,
  * même si la garde était retirée — c'est alors l'assertion qui échoue.
  */
@@ -60,6 +60,12 @@ vi.mock('../../src/lib/pdf/batch-pdf-j1-ag.js', () => ({
 }));
 vi.mock('../../src/lib/pdf/batch-pdf-sans-excedent.js', () => ({
   runBatchSansExcedent: sim.batch('sans_excedent'),
+}));
+vi.mock('../../src/lib/pdf/emails-documents-disponibles.js', () => ({
+  envoyerEmailsDocumentsDisponibles: async () => {
+    sim.appels.push('emails');
+    return { envoyes: 0, errors: [] as string[] };
+  },
 }));
 vi.mock('../../src/lib/pdf/pdf-worker.js', () => ({
   runPdfWorker: async () => {
@@ -122,7 +128,7 @@ describe('M1.6 / documents:dev — la garde passe avant tout', () => {
 });
 
 describe('M1.6 / documents:dev — enchaînement sur savr-dev', () => {
-  it('clôture, puis les trois batchs, puis le worker jusqu’à file vide', async () => {
+  it('clôture, puis les trois batchs, puis le worker jusqu’à file vide, puis les emails', async () => {
     sim.passes = [
       { processed: 5, done: 5, dead: 0, errors: [] },
       { processed: 2, done: 2, dead: 0, errors: [] },
@@ -140,6 +146,7 @@ describe('M1.6 / documents:dev — enchaînement sur savr-dev', () => {
       'worker',
       'worker',
       'worker',
+      'emails',
     ]);
   });
 
@@ -154,6 +161,7 @@ describe('M1.6 / documents:dev — enchaînement sur savr-dev', () => {
       'ag',
       'sans_excedent',
       'worker',
+      'emails',
     ]);
   });
 

@@ -25,6 +25,13 @@ function makeJwt(claims: Record<string, unknown>): string {
 }
 const mockGetUser = vi.fn();
 const mockGetSession = vi.fn();
+// Rapport de don fabriqué juste après la réponse : seul l'appel compte ici.
+const fabriquerDocumentsSansAttendre = vi.fn();
+vi.mock('@/lib/pdf/documents-sans-attendre.js', () => ({
+  fabriquerDocumentsSansAttendre: (...a: unknown[]) =>
+    fabriquerDocumentsSansAttendre(...a),
+}));
+
 vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
     auth: { getUser: mockGetUser, getSession: mockGetSession },
@@ -97,6 +104,11 @@ describe('M2.4 / correction volume AG (RM-10)', () => {
       params,
     );
     expect(res.status).toBe(200);
+    // Rapport de don émis ou refait juste après la réponse (Val 2026-11-04).
+    expect(fabriquerDocumentsSansAttendre).toHaveBeenCalledWith(
+      expect.any(String),
+      'anti_gaspi',
+    );
     expect(mockChain.update).toHaveBeenCalledWith({ poids_repas_kg: 50 });
     // Le motif est tracé (le trigger DB audite sans contexte requête).
     expect(mockChain.insert).toHaveBeenCalledWith(
@@ -123,6 +135,11 @@ describe('M2.4 / correction volume AG (RM-10)', () => {
       await import('@/app/api/v1/admin/attributions-ag/[collecteId]/poids/route.js');
     const res = await PATCH(req({ poids_repas_kg: 45 }), params);
     expect(res.status).toBe(200);
+    // Rapport de don émis ou refait juste après la réponse (Val 2026-11-04).
+    expect(fabriquerDocumentsSansAttendre).toHaveBeenCalledWith(
+      expect.any(String),
+      'anti_gaspi',
+    );
     expect(mockChain.update).toHaveBeenCalledWith({ poids_repas_kg: 45 });
     // 1re saisie : pas de motif exigé → pas d'entrée audit motivée depuis la route
     // (le trigger DB écrit poids_repas_saisi_ops de son côté).

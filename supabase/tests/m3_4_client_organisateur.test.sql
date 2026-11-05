@@ -94,6 +94,12 @@ DO $$ BEGIN
 
   INSERT INTO plateforme.collecte_flux (collecte_id, flux_id, poids_reel_kg) VALUES
     ('e7000000-0000-0000-0000-0000000000a1'::uuid, (SELECT id FROM plateforme.flux_dechets WHERE code = 'biodechet'), 100.00);
+  -- Une pesée écrite sur une collecte clôturée recalcule son CO₂ (migration
+  -- 20261104120000) : les valeurs fixées par ce test sont reposées après elle.
+  UPDATE plateforme.collectes
+  SET taux_recyclage = 80.00, co2_induit_kg = 10.00, co2_evite_kg = 5.00,
+      co2_net_kg = -5.00, energie_primaire_evitee_kwh = 120.00
+  WHERE id = 'e7000000-0000-0000-0000-0000000000a1'::uuid;
 
   -- Association + transporteur (attribution AG)
   INSERT INTO plateforme.associations (id, nom, adresse, region, ville, contact_email, description_rapport_impact) VALUES

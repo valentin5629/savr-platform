@@ -445,12 +445,14 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
     expect(mockPdf).not.toHaveBeenCalled();
   });
 
-  it('EVT/api_zd_relecture_sans_resultat — collecte qui n’a plus de résultat à la relecture : pas imprimée (409 si c’était la seule)', async () => {
+  it('EVT/api_zd_relecture_sans_resultat — collecte qui n’a plus de résultat à la relecture (revenue avant « Réalisée ») : pas imprimée (409 si c’était la seule)', async () => {
     evenementVisible();
     evenementAdmin();
     collectesZdAdmin();
+    // `realisee` porte désormais un résultat (Val 2026-11-04) : seule une
+    // collecte pas encore réalisée n'en a plus.
     (admin.results.collectes!.data as { statut: string }[])[0]!.statut =
-      'realisee';
+      'en_cours';
     expect((await rapport('rapport-rse')).status).toBe(409);
   });
 

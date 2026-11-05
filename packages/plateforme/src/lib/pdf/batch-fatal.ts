@@ -5,6 +5,8 @@
 
 import { logger } from '@savr/shared/src/logger/index.js';
 
+import { erreurInterne } from '@/lib/api-helpers.js';
+
 export interface BatchFatal {
   /**
    * - `selection`  : une requête de sélection (collectes éligibles, documents déjà émis,
@@ -18,13 +20,19 @@ export interface BatchFatal {
   code?: string;
 }
 
-/** Échec d'une requête de sélection : trace le message dans errors[] et qualifie le fatal. */
+/**
+ * Échec d'une requête de sélection : qualifie le fatal et le range dans errors[].
+ * Le message de la base est journalisé (`api_route.error`), jamais recopié : les
+ * batchs sont aussi appelés depuis des routes Admin (documents-sans-attendre).
+ * Le code de l'erreur reste, il porte le diagnostic de job.cron.failed.
+ */
 export function fatalSelection(
   errors: string[],
   contexte: string,
   err: { message: string; code?: string },
 ): BatchFatal {
-  const message = `${contexte} : ${err.message}`;
+  erreurInterne(err, `pdf.batch.selection`);
+  const message = `${contexte} : échec de lecture${err.code ? ` (${err.code})` : ''}`;
   errors.push(message);
   return { etape: 'selection', message, code: err.code };
 }

@@ -178,6 +178,14 @@ DO $$ BEGIN
     ('d7000000-0000-0000-0000-000000000001'::uuid, (SELECT id FROM plateforme.flux_dechets WHERE code = 'biodechet'), 100.00),
     ('d7000000-0000-0000-0000-000000000002'::uuid, (SELECT id FROM plateforme.flux_dechets WHERE code = 'biodechet'), 50.00);
   -- C3 n'a pas de collecte_flux (pesées = 0)
+  -- Une pesée écrite sur une collecte clôturée recalcule son CO₂ et son taux
+  -- (migration 20261104120000) : les valeurs fixées par ce test sont reposées.
+  UPDATE plateforme.collectes
+  SET taux_recyclage = 80.00, co2_induit_kg = 10.00, co2_evite_kg = 5.00, co2_net_kg = -5.00
+  WHERE id = 'd7000000-0000-0000-0000-000000000001'::uuid;
+  UPDATE plateforme.collectes
+  SET taux_recyclage = 60.00, co2_induit_kg = 8.00, co2_evite_kg = 3.00, co2_net_kg = -5.00
+  WHERE id = 'd7000000-0000-0000-0000-000000000002'::uuid;
 
   -- Facture ZD Kardamome liée à C1 (pour test marge)
   INSERT INTO plateforme.factures (

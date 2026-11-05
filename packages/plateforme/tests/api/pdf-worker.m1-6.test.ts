@@ -91,6 +91,33 @@ describe('M1.6 / PdfWorker / Aucun job pending', () => {
   });
 });
 
+// Fabrication sur-le-champ après une saisie Admin (Val 2026-11-04) : seuls les
+// rendus des documents de cette collecte, jamais ceux des autres.
+describe('PdfWorker / rendus d’une collecte seule (entityIds)', () => {
+  it('filtre la file sur les documents demandés', async () => {
+    const chain = buildChain([{ data: [], error: null }]);
+    mockFrom.mockReturnValue(chain);
+    await runPdfWorker(supabase, { entityIds: ['bord-1'] });
+    expect(chain.in).toHaveBeenCalledWith('entity_id', ['bord-1']);
+  });
+
+  it('sans document demandé : rien n’est lu ni rendu', async () => {
+    const result = await runPdfWorker(supabase, { entityIds: [] });
+    expect(result.processed).toBe(0);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('passage planifié (sans option) : aucune restriction sur entity_id', async () => {
+    const chain = buildChain([{ data: [], error: null }]);
+    mockFrom.mockReturnValue(chain);
+    await runPdfWorker(supabase);
+    const colonnes = (chain.in as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => c[0],
+    );
+    expect(colonnes).not.toContain('entity_id');
+  });
+});
+
 describe('Lot B / M5 — claim atomique', () => {
   it('claim renvoie 0 ligne (déjà pris par un run concurrent) → job NON traité', async () => {
     const job = makePendingJob();

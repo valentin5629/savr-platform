@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { fabriquerDocumentsSansAttendre } from '@/lib/pdf/documents-sans-attendre.js';
+
+// Rendus PDF juste après la réponse (documents-sans-attendre).
+export const maxDuration = 60;
 
 // PATCH /api/v1/admin/attributions-ag/[collecteId]/poids
 // Saisie / correction du poids réel AG par Ops (§06.09 l.177/183).
@@ -102,6 +106,10 @@ export async function PATCH(
       },
     });
   }
+
+  // Rapport de don émis (1re saisie) ou rendu de sa nouvelle version
+  // (correction), juste après la réponse (Val 2026-11-04).
+  fabriquerDocumentsSansAttendre(collecteId, 'anti_gaspi');
 
   return NextResponse.json({ data });
 }

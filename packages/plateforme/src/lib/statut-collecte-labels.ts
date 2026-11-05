@@ -12,7 +12,7 @@ import type { BadgeProps } from '@/components/ui/badge';
  *   n'apparaît pas côté Admin ; son libellé « Brouillon » n'est qu'un repli.
  * - `client` : vue simplifiée pour les rôles non-admin (traiteur, agence,
  *   gestionnaire de lieux, client organisateur). Jamais « Programmée » ;
- *   « Réalisée » à `cloturee` ; le rejet prestataire est masqué (affiché
+ *   « Réalisée » dès `realisee` ; le rejet prestataire est masqué (affiché
  *   « Créée », sujet interne Ops).
  *
  * « Sans excédent » n'est pas un statut d'avancement (décision Val 2026-10-09) :
@@ -57,13 +57,14 @@ const ADMIN: Record<StatutCollecteAdmin, StatutDisplay> = {
 
 // Vue client (non-admin) — collapse 2026-06-30 (Val) :
 //   brouillon, programmee, rejetee_par_prestataire → « Créée »
-//   realisee → « En cours » (« Réalisée » réservé à cloturee)
+//   realisee → « Réalisée » (Val 2026-11-04 : dès la réalisation, plus
+//   seulement à la clôture)
 const CLIENT: Record<StatutCollecteDb, StatutDisplay> = {
   brouillon: { label: 'Créée', variant: 'neutral' },
   programmee: { label: 'Créée', variant: 'neutral' },
   validee: { label: 'Validée', variant: 'primary' },
   en_cours: { label: 'En cours', variant: 'info' },
-  realisee: { label: 'En cours', variant: 'info' },
+  realisee: { label: 'Réalisée', variant: 'success' },
   realisee_sans_collecte: { label: 'Réalisée', variant: 'success' },
   cloturee: { label: 'Réalisée', variant: 'success' },
   annulation_demandee: { label: 'Annulée', variant: 'error' },
@@ -139,8 +140,8 @@ export function statutCollecteDisplay(
  * Groupes de statuts pour le filtre « Statut » des listes CLIENT (§06.04 §3).
  *
  * En vue client plusieurs statuts DB partagent un libellé (« Créée » =
- * brouillon + programmee + rejetee_par_prestataire ; « En cours » = en_cours +
- * realisee ; « Réalisée » = realisee_sans_collecte + cloturee ; « Annulée » =
+ * brouillon + programmee + rejetee_par_prestataire ; « En cours » = en_cours ;
+ * « Réalisée » = realisee + realisee_sans_collecte + cloturee ; « Annulée » =
  * annulation_demandee + annulee). Le filtre doit donc
  * proposer les LIBELLÉS affichés — l'utilisateur ne voit jamais « Programmée » —
  * et chaque libellé retenu se traduit par l'ensemble des statuts DB qu'il couvre.
@@ -174,7 +175,7 @@ const RANG_FRISE_CLIENT: Record<string, number> = {
   rejetee_par_prestataire: 0,
   validee: 1,
   en_cours: 2,
-  realisee: 2,
+  realisee: 3,
   cloturee: 3,
   realisee_sans_collecte: 3,
 };

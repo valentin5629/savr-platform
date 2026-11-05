@@ -1,7 +1,7 @@
 {
   "module": "M1.6",
   "titre": "Génération PDF ZD — bordereau de pesée + rapport de recyclage",
-  "description": "Moteur PDF Railway/Puppeteer (transverse A+B) + batch J+1 6h pour collectes ZD cloturees : bordereau de pesée (BSAV-YYYY-NNNNN) + rapport de recyclage multi-pages avec embargo H+24. Worker jobs_pdf (retry 15min/4h, dead → alerte Admin in-app). Escalade R9 si pesées manquantes > 48h. Endpoints Admin URL pré-signée R2 (15 min) avec contrôle embargo applicatif. Pas d'attestation AG (M2.4).",
+  "description": "Moteur PDF Railway/Puppeteer (transverse A+B) + batch des collectes ZD réalisées ou clôturées, dès que les pesées sont là (toutes les 15 min, ou juste après une saisie Admin ; plus d'embargo depuis le 2026-11-04) : bordereau de pesée (BSAV-YYYY-NNNNN), refait si les pesées changent, + rapport de recyclage multi-pages. Worker jobs_pdf (retry 15min/4h, dead → alerte Admin in-app). Escalade R9 si pesées manquantes > 48h. Endpoints Admin URL pré-signée R2 (15 min) avec contrôle embargo applicatif. Pas d'attestation AG (M2.4).",
   "garde_fous_tms_ready": {
     "G1": "Colonnes bordereaux_savr et rapports_rse alignées sur DDL cible V2 (numero, producteur_*, detail_flux, genere_par). jobs_pdf colonnes renommées : tentatives→attempts, prochaine_tentative_at→next_retry_at, resultat_fichier_id→fichier_id, erreur_detail→last_error.",
     "G3": "0 référence mts1/everest hors packages/adapters/ — non concerné par M1.6",
@@ -292,7 +292,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.1/rapport_download_ok — URL pré-signée (embargo levé) + M3.1/rapport_download_embargo — 425",
       "statut": "implemented",
-      "libelle": "Téléchargement rapport RSE traiteur (R19a) : embargo H+24 (425) + URL pré-signée R2 (900 s). Vérifié inchangé + transcrit."
+      "libelle": "Téléchargement rapport RSE traiteur (R19a) : 425 tant que disponible_a n'est pas atteint (disponible_a = instant d'émission depuis le 2026-11-04) + URL pré-signée R2 (900 s)."
     },
     {
       "id": "BL-P2-19",
@@ -313,10 +313,18 @@
     {
       "id": "M1.6-email-rapport-disponible",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:138",
-      "artefact": "supabase/migrations/20261002100000_plateforme_email_template_rapport_disponible.sql + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (étape 9) + packages/shared/src/seed/constants.ts",
-      "test": "envoi_rapport_disponible_apres_batch_j1 + M1.6/seed_slug_rapport_disponible_pas_bordereau + supabase/tests/email_template_rapport_disponible.test.sql",
+      "artefact": "supabase/migrations/20261002100000_plateforme_email_template_rapport_disponible.sql + packages/plateforme/src/lib/pdf/emails-documents-disponibles.ts (étape 9) + packages/shared/src/seed/constants.ts",
+      "test": "ZD avec bordereau émis : rapport_disponible au email_principal, variables du gabarit + M1.6/seed_slug_rapport_disponible_pas_bordereau + supabase/tests/email_template_rapport_disponible.test.sql",
       "statut": "implemented",
-      "libelle": "Email rapport post-collecte ZD (§06.02 §6) : slug `rapport_disponible` en base (ex `bordereau_disponible`, divergence M1.6 tranchée Val 2026-09-14), objet/corps/variables du CDC, batch J+1 → organisations.email_principal avec exactement prenom, date_collecte, lieu_nom, poids_total, co2_evite, taux_recyclage, lien_rapport."
+      "libelle": "Email rapport post-collecte ZD (§06.02 §6) : slug `rapport_disponible` en base (ex `bordereau_disponible`, divergence M1.6 tranchée Val 2026-09-14), objet/corps/variables du CDC, envoi unique à la clôture, 48 h après la collecte (emails-documents-disponibles, Val 2026-11-04) → organisations.email_principal avec exactement prenom, date_collecte, lieu_nom, poids_total, co2_evite, taux_recyclage, lien_rapport."
+    },
+    {
+      "id": "M1.6-documents-des-poids",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:13",
+      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts + batch-pdf-j1-ag.ts (realisee|cloturee, plus d'embargo, bordereau refait sur pesées changées) ; packages/plateforme/src/lib/pdf/documents-sans-attendre.ts + routes PATCH …/admin/collectes/[id]/flux et …/admin/attributions-ag/[collecteId]/poids (fabrication juste après la saisie, plus de 409 après clôture) ; packages/plateforme/src/lib/pdf/pdf-worker.ts (entityIds) ; packages/plateforme/src/lib/pdf/emails-documents-disponibles.ts + cron cloture-embargo (email à la clôture) ; packages/plateforme/vercel.json (batch toutes les 15 min) ; supabase/migrations/20261104120000_plateforme_documents_des_poids.sql (clôture 48 h, CO₂ recalculé à chaque changement de poids) ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (« Éditer les pesées » actif après la clôture)",
+      "test": "M1.6 / BatchPdfJ1 / Sans embargo (Val 2026-11-04) ; M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées ; M2.4 / BatchPdfJ1Ag / Sans embargo (Val 2026-11-04) ; fabrication des documents juste après une saisie Admin ; emails « document disponible » à la clôture ; PdfWorker / rendus d’une collecte seule (entityIds) ; M1.1b/flux/manuel — collecte clôturée : pesée corrigée quand même, bordereau refait (Val 2026-11-04) ; supabase/tests/documents_des_poids.test.sql ; supabase/tests/r16a_machine_etats.test.sql « RM-01 : realisee + realisee_at ≥ H+48 → cloturee » ; M1.6 / BatchPdfJ1 / Numéro gapless jamais brûlé ; M2.4 / BatchPdfJ1Ag / Corrections et fabrications simultanées ; M0.6/pesees_zd_cloturee_modifiables (packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx)",
+      "statut": "implemented",
+      "libelle": "Documents d'une collecte dès que les poids sont là (Val 2026-11-04) : bordereau ZD et rapport de don AG émis sans embargo (visibles de tous tout de suite), batch toutes les 15 min et fabrication sur-le-champ après une saisie Admin ; pesées toujours corrigeables par l'Admin, même après la clôture, chaque correction refait le document (même numéro, version suivante) ; CO₂ et taux recalculés en base à chaque changement de poids d'une collecte réalisée ou clôturée ; clôture à realisee_at + 48 h ; email « document disponible » une seule fois, à la clôture. Une correction tombée pendant un rendu est reprise (pesées écrites dans les 48 h revues à chaque passage ; brouillon AG mis à jour, attestation émise dépassée refaite en nouvelle version) ; la ligne du document est créée avant le numéro gapless, que deux fabrications simultanées ne brûlent pas."
     },
     {
       "id": "M1.6-stockage-bucket-environnement",

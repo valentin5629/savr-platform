@@ -343,7 +343,9 @@ describe('M2.4 / batch sans-excédent — idempotence & sélection', () => {
     ]);
     const result = await runBatchSansExcedent(sb as never);
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain('connection timeout');
+    // Message de la base journalisé, jamais recopié (check-api-error-leak).
+    expect(result.errors[0]).toContain('échec de lecture');
+    expect(result.errors[0]).not.toContain('connection timeout');
   });
 });
 

@@ -1627,6 +1627,10 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
         }),
       ).toBeInTheDocument();
       expect(within(carteEditee).getByLabelText('Pax')).toHaveValue(400);
+      // Espace sous le libellé : le contour de sélection ne le mord pas.
+      expect(
+        within(carteEditee).getByLabelText('Pax').closest('dd'),
+      ).toHaveClass('mt-1.5');
       // Contacts : sélecteur du répertoire de l'organisation, contact actuel
       // affiché.
       expect(carteEditee).toHaveTextContent('Léa Martin — 06 12 34 56 78');
@@ -1898,6 +1902,9 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
       expect(within(bloc).getByLabelText('Nom de l’événement')).toHaveValue(
         'Salon Équip’Hôtel',
       );
+      expect(
+        within(bloc).getByLabelText('Nom de l’événement').closest('dd'),
+      ).toHaveClass('mt-1.5');
       expect(within(bloc).getByLabelText('Référence interne')).toHaveValue(
         'AFF-2026-12',
       );
@@ -2007,6 +2014,73 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
         ATTENTE_UI,
       );
       expect(fermerEvenement).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'EVT/gestes_disposition — boutons de l’événement sur toute la largeur de la section, côte à côte à droite ; croix sur « Annuler », crayon sur « Modifier », sur l’événement comme sur la carte (Val 2026-11-05)',
+    async () => {
+      stubFetch(() => ({
+        body: {
+          data: {
+            ...uneCollecte(),
+            ajouter_collecte: true,
+            modifier_evenement: true,
+          },
+        },
+      }));
+      monterFiche({ espace: 'traiteur' });
+      await ficheChargee();
+      const gestes = screen.getByTestId('gestes-evenement');
+      // Sans `md:col-span-2`, le bloc tombe dans la colonne du libellé de la
+      // section : boutons à gauche, l'un sous l'autre.
+      expect(gestes).toHaveClass('md:col-span-2');
+      expect(gestes.querySelector('.justify-end')).not.toBeNull();
+      const avecPicto = (b: HTMLElement) =>
+        expect(b.querySelector('svg')).not.toBeNull();
+      avecPicto(screen.getByRole('button', { name: 'Annuler l’événement' }));
+      avecPicto(screen.getByRole('button', { name: 'Modifier l’événement' }));
+      const c = await carte();
+      avecPicto(within(c).getByRole('button', { name: 'Annuler la collecte' }));
+      avecPicto(
+        within(c).getByRole('button', { name: 'Modifier la collecte' }),
+      );
+      // Carte : boutons en bas de la colonne des informations (à gauche),
+      // jamais sous le chauffeur (Val 2026-11-05).
+      const gauche = within(c).getByTestId('colonne-infos');
+      expect(
+        within(gauche).getByRole('button', { name: 'Modifier la collecte' }),
+      ).toBeInTheDocument();
+      expect(
+        within(gauche).getByRole('button', { name: 'Annuler la collecte' }),
+      ).toBeInTheDocument();
+      expect(
+        within(within(c).getByTestId('bloc-logistique')).queryByRole('button', {
+          name: /collecte/,
+        }),
+      ).toBeNull();
+      // Boutons centrés dans leur colonne ; colonnes sans écart, marges égales
+      // de part et d'autre du trait pointillé : il tombe au milieu.
+      expect(
+        within(gauche)
+          .getByRole('button', { name: 'Modifier la collecte' })
+          .closest('.flex-wrap'),
+      ).toHaveClass('justify-center');
+      expect(gauche).toHaveClass('lg:pr-8');
+      expect(gauche.parentElement).toHaveClass('lg:gap-0');
+      expect(within(c).getByTestId('bloc-logistique')).toHaveClass('lg:pl-8');
+      // En modification, « Confirmer la modification » reste à gauche.
+      fireEvent.click(
+        within(c).getByRole('button', { name: 'Modifier la collecte' }),
+      );
+      expect(
+        within(
+          within(screen.getByTestId('carte-collecte')).getByTestId(
+            'colonne-infos',
+          ),
+        ).getByRole('button', { name: 'Confirmer la modification' }),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

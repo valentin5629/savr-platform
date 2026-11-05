@@ -57,7 +57,6 @@ const ANCIEN_API_COLLECTES = {
 
 const NAV_TRAITEUR = [
   ['Dashboard', '/traiteur'],
-  ['Collectes', '/traiteur/collectes'],
   ['Événements', '/traiteur/evenements'],
   ['Paramètres', '/traiteur/parametres'],
   ['Mon pack Anti-Gaspi', '/traiteur/mon-pack-ag'],
@@ -82,14 +81,12 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
   traiteur_commercial: NAV_TRAITEUR,
   agence: [
     ['Dashboard', '/agence'],
-    ['Collectes', '/agence/collectes'],
     ['Événements', '/agence/evenements'],
     ['Paramètres', '/agence/parametres'],
     ['Mon pack Anti-Gaspi', '/agence/mon-pack-ag'],
   ],
   gestionnaire_lieux: [
     ['Dashboard', '/gestionnaire'],
-    ['Collectes', '/gestionnaire/collectes'],
     ['Événements', '/gestionnaire/evenements'],
     ['Traiteurs', '/gestionnaire/traiteurs'],
     ['Mes lieux', '/gestionnaire/lieux'],
@@ -99,7 +96,6 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
   ],
   client_organisateur: [
     ['Dashboard', '/organisateur'],
-    ['Collectes', '/organisateur/collectes'],
     ['Événements', '/organisateur/evenements'],
     ['Documents', '/organisateur/documents'],
     ['Registre réglementaire', '/registre'],

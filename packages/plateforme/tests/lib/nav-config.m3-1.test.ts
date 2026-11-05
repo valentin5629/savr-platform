@@ -8,7 +8,8 @@
  * depuis le 2026-11-02 (décision Val : onglet pour tous les rôles clients). Le « Registre réglementaire » avait été
  * injecté à tort dans les 2 rôles traiteur → il est retiré ici. Le Registre
  * reste légitime pour gestionnaire_lieux / client_organisateur (contrôle
- * de non-régression ci-dessous).
+ * de non-régression ci-dessous). Plus d'entrée « Collectes » depuis le
+ * 2026-11-05 (décision Val : « Événements » seule pour les rôles clients).
  */
 import { describe, it, expect } from 'vitest';
 import { NAV_CONFIG } from '../../src/lib/nav-config.js';
@@ -21,10 +22,9 @@ function hrefs(role: keyof typeof NAV_CONFIG): string[] {
 }
 
 describe('M3.1 / navigation traiteur', () => {
-  it('M3.1/nav_traiteur_manager_5_entrees_sans_registre', () => {
+  it('M3.1/nav_traiteur_manager_4_entrees_sans_registre', () => {
     expect(labels('traiteur_manager')).toEqual([
       'Dashboard',
-      'Collectes',
       'Événements',
       'Paramètres',
       'Mon pack Anti-Gaspi',
@@ -32,10 +32,9 @@ describe('M3.1 / navigation traiteur', () => {
     expect(hrefs('traiteur_manager')).not.toContain('/registre');
   });
 
-  it('M3.1/nav_traiteur_commercial_5_entrees_sans_registre', () => {
+  it('M3.1/nav_traiteur_commercial_4_entrees_sans_registre', () => {
     expect(labels('traiteur_commercial')).toEqual([
       'Dashboard',
-      'Collectes',
       'Événements',
       'Paramètres',
       'Mon pack Anti-Gaspi',

@@ -470,17 +470,18 @@ it('M0.8-15 — Sidebar affiche le fond primary-700/800 (levier #2)', () => {
 
 const NAV_EXPECTATIONS: Record<Role, string[]> = {
   admin_savr: ['Clients', 'Paramètres', 'Collectes'],
-  // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1.
-  traiteur_manager: ['Dashboard', 'Collectes', 'Paramètres'],
-  traiteur_commercial: ['Dashboard', 'Collectes', 'Paramètres'],
-  agence: ['Dashboard', 'Collectes', 'Paramètres'],
+  // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1. Plus d'entrée
+  // « Collectes » côté client depuis le 2026-11-05 (décision Val).
+  traiteur_manager: ['Dashboard', 'Événements', 'Paramètres'],
+  traiteur_commercial: ['Dashboard', 'Événements', 'Paramètres'],
+  agence: ['Dashboard', 'Événements', 'Paramètres'],
   gestionnaire_lieux: [
     'Dashboard',
     'Mes lieux',
-    'Collectes',
+    'Événements',
     'Registre réglementaire',
   ],
-  client_organisateur: ['Dashboard', 'Collectes', 'Événements'],
+  client_organisateur: ['Dashboard', 'Événements', 'Documents'],
 };
 
 it('M0.8-16 — nav admin_savr affiche les entrées admin (Clients, Paramètres, Collectes)', () => {
@@ -490,14 +491,14 @@ it('M0.8-16 — nav admin_savr affiche les entrées admin (Clients, Paramètres,
   }
 });
 
-it('M0.8-17 — nav traiteur_manager affiche les entrées traiteur (Événements, Collectes, Dashboard)', () => {
+it('M0.8-17 — nav traiteur_manager affiche les entrées traiteur (Dashboard, Événements, Paramètres)', () => {
   const items = getNavItems('traiteur_manager').map((i) => i.label);
   for (const expected of NAV_EXPECTATIONS.traiteur_manager) {
     expect(items).toContain(expected);
   }
 });
 
-it('M0.8-18 — nav traiteur_commercial affiche les entrées commercial (Programmation, Collectes)', () => {
+it('M0.8-18 — nav traiteur_commercial affiche les entrées commercial (Dashboard, Événements, Paramètres)', () => {
   const items = getNavItems('traiteur_commercial').map((i) => i.label);
   for (const expected of NAV_EXPECTATIONS.traiteur_commercial) {
     expect(items).toContain(expected);
@@ -517,8 +518,9 @@ it('M0.8-20 — nav gestionnaire_lieux affiche les entrées gestionnaire de lieu
     expect(items).toContain(expected);
   }
   // Retirée le 2026-10-07, remise par Val le 2026-10-18 (vue consolidée d'un
-  // événement à plusieurs collectes), juste après « Collectes ».
-  expect(items.indexOf('Événements')).toBe(items.indexOf('Collectes') + 1);
+  // événement à plusieurs collectes), juste après « Dashboard » depuis que
+  // « Collectes » a quitté le menu (Val 2026-11-05).
+  expect(items.indexOf('Événements')).toBe(items.indexOf('Dashboard') + 1);
 });
 
 it('M0.8-21 — nav client_organisateur affiche les entrées client organisateur', () => {

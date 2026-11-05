@@ -36,11 +36,9 @@ const ECRANS_MENU: [string, string][] = [
   ['app/(admin)/admin/alertes/page.tsx', 'BellIcon'],
   ['app/(admin)/admin/sante-systeme/page.tsx', 'PulseIcon'],
   ['app/(traiteur)/traiteur/traiteur-dashboard-client.tsx', 'SquaresFourIcon'],
-  ['components/collecte/liste-collectes-client.tsx', 'TruckIcon'],
   ['components/parametres/parametres-onglets.tsx', 'GearIcon'],
   ['app/(agence)/agence/page.tsx', 'SquaresFourIcon'],
   ['app/(gestionnaire)/gestionnaire/page.tsx', 'SquaresFourIcon'],
-  ['app/(gestionnaire)/gestionnaire/collectes/page.tsx', 'ClipboardTextIcon'],
   ['app/(gestionnaire)/gestionnaire/traiteurs/page.tsx', 'ChefHatIcon'],
   ['app/(gestionnaire)/gestionnaire/lieux/page.tsx', 'MapPinIcon'],
   ['app/(registre)/registre/page.tsx', 'BookOpenIcon'],
@@ -51,11 +49,18 @@ const ECRANS_MENU: [string, string][] = [
     'GearIcon',
   ],
   ['app/(client-organisateur)/organisateur/page.tsx', 'SquaresFourIcon'],
+  ['app/(client-organisateur)/organisateur/documents/page.tsx', 'FileTextIcon'],
+];
+
+// Listes de collectes des espaces clients : hors menu depuis le 2026-11-05
+// (décision Val), elles gardent leur bandeau et leur pictogramme.
+const ECRANS_HORS_MENU: [string, string][] = [
+  ['components/collecte/liste-collectes-client.tsx', 'TruckIcon'],
+  ['app/(gestionnaire)/gestionnaire/collectes/page.tsx', 'ClipboardTextIcon'],
   [
     'app/(client-organisateur)/organisateur/collectes/page.tsx',
     'ClipboardTextIcon',
   ],
-  ['app/(client-organisateur)/organisateur/documents/page.tsx', 'FileTextIcon'],
 ];
 
 const LISTES = [
@@ -88,11 +93,14 @@ const rel = (chemin: string) => relative(APP, chemin).split(sep).join('/');
 const lire = (r: string) => readFileSync(join(APP, r), 'utf8');
 
 describe('Écrans du menu : bandeau PageHero (Val 2026-11-01)', () => {
-  it.each(ECRANS_MENU)('%s ouvre sur PageHero avec %s', (r, icone) => {
-    const src = readFileSync(join(SRC, r), 'utf8');
-    expect(src).toMatch(/<PageHero\b/);
-    expect(src).toMatch(new RegExp(`icon=\\{\\s*<${icone}\\b`));
-  });
+  it.each([...ECRANS_MENU, ...ECRANS_HORS_MENU])(
+    '%s ouvre sur PageHero avec %s',
+    (r, icone) => {
+      const src = readFileSync(join(SRC, r), 'utf8');
+      expect(src).toMatch(/<PageHero\b/);
+      expect(src).toMatch(new RegExp(`icon=\\{\\s*<${icone}\\b`));
+    },
+  );
 
   it('chaque pictogramme attendu est celui d’une entrée du menu', () => {
     const nav = readFileSync(join(SRC, 'lib/nav-config.ts'), 'utf8');

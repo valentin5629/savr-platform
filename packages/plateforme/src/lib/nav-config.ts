@@ -6,7 +6,6 @@ import {
   ChartBarIcon,
   BookOpenIcon,
   ChefHatIcon,
-  ClipboardTextIcon,
   FileTextIcon,
   GearIcon,
   HeartIcon,
@@ -27,6 +26,12 @@ export interface NavItem {
   href: string;
   icon: Icone;
   badge?: string;
+  /**
+   * Autres adresses (et leurs sous-pages) qui allument cette entrée. Sert à
+   * « Événements » des espaces clients : les pages collectes n'ont plus
+   * d'entrée à elles (Val 2026-11-05), on y arrive depuis un événement.
+   */
+  aussiActifSur?: string[];
 }
 
 export interface NavGroup {
@@ -88,6 +93,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
     },
   ],
 
+  // Espaces clients (5 rôles) : plus d'entrée « Collectes » dans le menu,
+  // « Événements » seule (décision Val 2026-11-05). Les pages
+  // `…/collectes` et les fiches collecte restent ouvertes (liens depuis un
+  // événement, le dashboard, les emails) ; seul l'Admin garde l'entrée.
+  //
   // §06.04 §1 — nav traiteur (refonte 2026-05-05) : Dashboard / Collectes /
   // Paramètres, plus « Événements » sous « Collectes »
   // (décision Val 2026-10-29 : la liste Événements est commune à tous les rôles).
@@ -104,14 +114,10 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: SquaresFourIcon,
         },
         {
-          label: 'Collectes',
-          href: ROUTES.traiteur.collectes,
-          icon: TruckIcon,
-        },
-        {
           label: 'Événements',
           href: ROUTES.traiteur.evenements,
           icon: CalendarDotsIcon,
+          aussiActifSur: [ROUTES.traiteur.collectes],
         },
         {
           label: 'Paramètres',
@@ -136,14 +142,10 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: SquaresFourIcon,
         },
         {
-          label: 'Collectes',
-          href: ROUTES.traiteur.collectes,
-          icon: TruckIcon,
-        },
-        {
           label: 'Événements',
           href: ROUTES.traiteur.evenements,
           icon: CalendarDotsIcon,
+          aussiActifSur: [ROUTES.traiteur.collectes],
         },
         {
           label: 'Paramètres',
@@ -171,11 +173,11 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           href: ROUTES.agence.racine,
           icon: SquaresFourIcon,
         },
-        { label: 'Collectes', href: ROUTES.agence.collectes, icon: TruckIcon },
         {
           label: 'Événements',
           href: ROUTES.agence.evenements,
           icon: CalendarDotsIcon,
+          aussiActifSur: [ROUTES.agence.collectes],
         },
         {
           label: 'Paramètres',
@@ -202,10 +204,9 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
   // menu de l'utilisateur ; elle est donc la dernière entrée visible de la
   // barre latérale, et la barre mobile (4 premières entrées) garde
   // « Paramètres ».
-  // Ordre fixé par Val le 2026-10-07 (il diffère de la liste du CDC), où
-  // « Événements » s'insère sous « Collectes », sa voisine. La barre mobile
-  // affiche les 4 premières entrées : Dashboard, Collectes, Événements,
-  // Traiteurs.
+  // Ordre fixé par Val le 2026-10-07 (il diffère de la liste du CDC), sans
+  // « Collectes » depuis le 2026-11-05. La barre mobile affiche les 4
+  // premières entrées : Dashboard, Événements, Traiteurs, Mes lieux.
   gestionnaire_lieux: [
     {
       items: [
@@ -215,14 +216,10 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: SquaresFourIcon,
         },
         {
-          label: 'Collectes',
-          href: ROUTES.gestionnaire.collectes,
-          icon: ClipboardTextIcon,
-        },
-        {
           label: 'Événements',
           href: ROUTES.gestionnaire.evenements,
           icon: CalendarDotsIcon,
+          aussiActifSur: [ROUTES.gestionnaire.collectes],
         },
         {
           label: 'Traiteurs',
@@ -264,14 +261,10 @@ export const NAV_CONFIG: Record<NavRole, NavGroup[]> = {
           icon: SquaresFourIcon,
         },
         {
-          label: 'Collectes',
-          href: ROUTES.organisateur.collectes,
-          icon: ClipboardTextIcon,
-        },
-        {
           label: 'Événements',
           href: ROUTES.organisateur.evenements,
           icon: CalendarDotsIcon,
+          aussiActifSur: [ROUTES.organisateur.collectes],
         },
         {
           label: 'Documents',
@@ -307,7 +300,8 @@ export function getNavItems(role: NavRole): NavItem[] {
  * `aria-current` sur l'item de nav actif). Plusieurs entrées peuvent préfixer le
  * chemin courant — le Dashboard d'un espace client vit à la racine de l'espace
  * (`/gestionnaire`), donc préfixe toutes ses voisines (`/gestionnaire/collectes`).
- * La plus précise l'emporte : celle dont le href est le plus long.
+ * La plus précise l'emporte : celle dont l'adresse (`href` ou `aussiActifSur`)
+ * est la plus longue.
  *
  * Cherchée parmi TOUTES les entrées du rôle, y compris celles que l'écran ne
  * montre pas (entrée masquée, au-delà des 4 de la barre mobile) : sur leur page,
@@ -318,9 +312,16 @@ export function hrefNavActif(
   pathname: string,
 ): string | undefined {
   let actif: string | undefined;
-  for (const { href } of getNavItems(role)) {
-    const correspond = pathname === href || pathname.startsWith(href + '/');
-    if (correspond && (!actif || href.length > actif.length)) actif = href;
+  let longueur = 0;
+  for (const { href, aussiActifSur = [] } of getNavItems(role)) {
+    for (const adresse of [href, ...aussiActifSur]) {
+      const correspond =
+        pathname === adresse || pathname.startsWith(adresse + '/');
+      if (correspond && adresse.length > longueur) {
+        actif = href;
+        longueur = adresse.length;
+      }
+    }
   }
   return actif;
 }

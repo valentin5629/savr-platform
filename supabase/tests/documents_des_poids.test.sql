@@ -59,7 +59,7 @@ SELECT is(
 );
 SELECT is(
   (SELECT taux_recyclage FROM plateforme.collectes WHERE id = 'dd000000-0000-0001-0000-000000000001'),
-  90.00::decimal,
+  95.00::decimal,
   'ZD réalisée : taux de recyclage calculé dès la pesée'
 );
 

@@ -22,6 +22,17 @@ import {
 // ses phrases tiennent dans les deux cas. L'heure
 // est celle de l'appareil à l'ouverture ; la base juge à l'instant de
 // l'écriture.
+// Motifs d'annulation proposés au client (Val 2026-11-06) : liste, motif
+// facultatif ; « Autre motif » ouvre un champ pour le préciser.
+export const MOTIF_ANNULATION_AUTRE = 'Autre motif';
+export const MOTIF_ANNULATION_CLIENT = {
+  label: 'Motif',
+  choix: {
+    options: ['Erreur de création', 'Événement annulé', MOTIF_ANNULATION_AUTRE],
+    autre: MOTIF_ANNULATION_AUTRE,
+  },
+} as const;
+
 export interface AnnulationCollecteDialogProps {
   open: boolean;
   /** Collecte Anti-Gaspi : mention du crédit (rendu, ou gardé si tardive). */
@@ -59,7 +70,7 @@ export function AnnulationCollecteDialog({
       variant="destructive"
       loading={loading}
       error={error}
-      motif={{ label: 'Motif' }}
+      motif={MOTIF_ANNULATION_CLIENT}
       onConfirm={onConfirm}
       onCancel={onCancel}
     >

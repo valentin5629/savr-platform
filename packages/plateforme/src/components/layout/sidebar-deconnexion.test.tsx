@@ -83,6 +83,7 @@ describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)',
     expect(items.map((i) => i.textContent)).toEqual([
       'Paramètres',
       'Confidentialité',
+      'Mentions légales',
       'Se déconnecter',
     ]);
     expect(items[0]!.getAttribute('href')).toBe('/traiteur/parametres');
@@ -90,6 +91,8 @@ describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)',
     expect(items[1]!.getAttribute('href')).toBe('/confidentialite');
     expect(items[1]!.getAttribute('target')).toBe('_blank');
     expect(items[1]!.getAttribute('rel')).toBe('noopener');
+    expect(items[2]!.getAttribute('href')).toBe('/mentions-legales');
+    expect(items[2]!.getAttribute('target')).toBe('_blank');
   });
 
   it('« Paramètres » quitte la navigation principale', () => {
@@ -129,7 +132,7 @@ describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)',
       screen.getByRole('button', { name: 'Menu de Camille Martin' }),
     ).toHaveTextContent('CM');
     ouvrir();
-    expect(screen.getAllByRole('menuitem')).toHaveLength(3);
+    expect(screen.getAllByRole('menuitem')).toHaveLength(4);
   });
 
   it('Admin : « Paramètres » (réglages métier) reste dans la barre, le menu ne porte que la confidentialité et la déconnexion', () => {
@@ -140,6 +143,7 @@ describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)',
     ouvrir();
     expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
       'Confidentialité',
+      'Mentions légales',
       'Se déconnecter',
     ]);
   });

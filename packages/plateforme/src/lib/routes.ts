@@ -127,6 +127,8 @@ export const ROUTES = {
   cgu: '/cgu',
   // Politique de confidentialité : publique (CDC §15, 3.4).
   confidentialite: '/confidentialite',
+  // Mentions légales : publiques (LCEN, art. 6-III).
+  mentionsLegales: '/mentions-legales',
   interdit: '/403',
 
   registre: REG,

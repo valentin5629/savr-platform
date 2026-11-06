@@ -14,6 +14,7 @@ import {
   CaretUpDownIcon,
   GearIcon,
   LockSimpleIcon,
+  ScalesIcon,
   SignOutIcon,
 } from '@/components/ui/icones';
 import {
@@ -331,6 +332,16 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                   >
                     <LockSimpleIcon aria-hidden="true" />
                     Confidentialité
+                  </Link>
+                </DropdownItem>
+                <DropdownItem asChild className="min-h-11">
+                  <Link
+                    href={ROUTES.mentionsLegales}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <ScalesIcon aria-hidden="true" />
+                    Mentions légales
                   </Link>
                 </DropdownItem>
                 <DropdownSeparator />

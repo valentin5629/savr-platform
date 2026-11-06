@@ -103,17 +103,17 @@ Le Client peut souscrire à l'une ou aux deux Activités.
 
 ### 4.1. Activité Zéro-Déchet
 
-**Collecte et tri** : SAVR ou son Prestataire se présente sur le Point de Collecte à l'heure convenue pour collecter les Déchets préalablement triés par flux (verre, carton, biodéchets, emballages, déchet résiduel) et les peser. La pesée est effectuée par flux, au moyen d'une balance de terrain. Les résultats de pesée sont transmis à la Plateforme via le TMS Savr.
+**Collecte et tri** : SAVR ou son Prestataire se présente sur le Point de Collecte à l'heure convenue pour collecter les Déchets préalablement triés par flux (verre, carton, biodéchets, emballages, déchet résiduel) et les peser. La pesée est effectuée par flux, au moyen d'une balance de terrain. Les résultats de pesée sont transmis à la Plateforme par le Prestataire.
 
 **Transport et valorisation** : SAVR ou son Prestataire transporte les Déchets collectés jusqu'à l'Exutoire approprié pour chaque flux. SAVR s'engage à acheminer les Déchets vers des filières de valorisation conformes à la réglementation applicable (notamment la réglementation relative aux Déchets Industriels Banals, aux biodéchets et aux emballages).
 
-**Documents réglementaires** : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte (batch quotidien), sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.
+**Documents réglementaires** : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.
 
 ### 4.2. Activité Anti-Gaspi
 
 **Sélection d'une Association** : à partir des données communiquées par le Client sur l'Espace Client, SAVR détermine via l'Algorithme l'Association à même d'accepter les Excédents déclarés, en tenant compte du type de denrées, de la géolocalisation, des quantités et des horaires.
 
-**Enlèvement et acheminement** : SAVR ou son Prestataire se présente sur le Point de Collecte pour retirer les Excédents déclarés par le Client, dans un délai n'excédant pas 30 minutes après l'heure prévue de la Collecte, et les livre à l'Association sélectionnée dans des conditions permettant le respect de la chaîne du froid.
+**Enlèvement et acheminement** : SAVR ou son Prestataire se présente sur le Point de Collecte pour retirer les Excédents déclarés par le Client, en s'efforçant d'y être au plus tard 30 minutes après l'heure prévue de la Collecte, et les livre à l'Association sélectionnée dans des conditions permettant le respect de la chaîne du froid.
 
 **Rapport de don** : à l'issue de chaque Collecte AG, la Plateforme génère automatiquement un Rapport de don, disponible dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou vérification en cours des informations du Client. Lorsque des Excédents ont été donnés, le Rapport de don vaut attestation de don : si l'Association est habilitée au titre de l'article 238 bis du CGI, il mentionne les informations permettant au Client de bénéficier de la réduction fiscale prévue par l'article 2041-GE. Lorsqu'aucun Excédent n'a été collecté, le Rapport de don constate l'absence d'excédent et ne vaut pas reçu fiscal.
 
@@ -157,19 +157,16 @@ SAVR s'engage à :
 
 **6.5. Respect de la réglementation.** Le Client est seul responsable du respect de la réglementation applicable à ses Déchets (nature, conditionnement, déclaration) et à ses Excédents (hygiène, DLC, emballage) jusqu'à leur remise à SAVR ou à son Prestataire, moment à partir duquel le transfert de responsabilité s'opère.
 
-**6.6. Propriété intellectuelle.** Le Client s'engage à respecter les droits de propriété intellectuelle de SAVR sur la Plateforme, l'Espace Client et l'Algorithme. Aucune disposition du Contrat ne saurait être interprétée comme une cession de ces droits.
-
 ---
 
 ## ARTICLE 7 — CONTESTATION DES PESÉES
 
-**Délai.** Le Client dispose d'un délai de **48 heures à compter de la réception du Rapport RSE** pour contester une pesée depuis son Espace Client. Passé ce délai, la pesée est réputée acceptée définitivement.
+**Délai.** Le Client dispose d'un délai de **48 heures à compter de la mise à disposition du document de la Collecte (Bordereau, Rapport RSE ou Rapport de don) dans son Espace Client** pour contester une pesée, par email à l'adresse louis@gosavr.io. Passé ce délai, la pesée est réputée acceptée définitivement.
 
 **Procédure.** En cas de contestation dans le délai imparti :
-1. La collecte passe au statut « en réexamen ».
-2. L'Admin Savr instruit la contestation avec le Prestataire logistique.
-3. En cas de correction validée : le Bordereau est régénéré (version incrémentée, ancien PDF archivé), le Rapport RSE est mis à jour, et si une facture a déjà été émise, un avoir est émis suivi d'une nouvelle facture rectificative.
-4. En cas de rejet de la contestation : le Client est notifié avec les justificatifs correspondants.
+1. SAVR instruit la contestation avec le Prestataire.
+2. En cas de correction validée : SAVR corrige la pesée, les documents de la Collecte (Bordereau, Rapport RSE, Rapport de don) sont régénérés, et si une facture a déjà été émise, un avoir est émis suivi d'une nouvelle facture rectificative.
+3. En cas de rejet de la contestation : le Client en est informé, avec les justificatifs correspondants.
 
 ---
 
@@ -181,7 +178,7 @@ SAVR est libre de réaliser les opérations de collecte, transport et valorisati
 
 ## ARTICLE 9 — TRANSFERT DE PROPRIÉTÉ ET DES RISQUES
 
-**Déchets (ZD).** La responsabilité des Déchets est transférée de SAVR au Client jusqu'à la prise de possession par SAVR ou son Prestataire sur le Point de Collecte. À partir de la prise de possession, SAVR supporte la responsabilité du transport et de la destination de valorisation.
+**Déchets (ZD).** Le Client reste responsable des Déchets jusqu'à leur prise de possession par SAVR ou son Prestataire sur le Point de Collecte. À partir de la prise de possession, SAVR supporte la responsabilité du transport et de la destination de valorisation.
 
 **Excédents (AG).** La propriété des Excédents est transférée du Client à SAVR à titre gratuit dès lors que SAVR ou son Prestataire prend possession des Excédents. Le transfert de la responsabilité de SAVR à l'Association se réalise après déchargement du véhicule de livraison sur le site de l'Association.
 
@@ -199,7 +196,7 @@ SAVR est libre de réaliser les opérations de collecte, transport et valorisati
 
 ## ARTICLE 11 — ENTRÉE EN VIGUEUR ET DURÉE
 
-Le Contrat prend effet à compter de la création du Compte Utilisateur, qui vaut acceptation des présentes CGU. Il est conclu pour une durée indéterminée, sauf résiliation dans les conditions de l'article 16.
+Le Contrat prend effet à compter de la création du Compte Utilisateur, qui vaut acceptation des présentes CGU. Il est conclu pour une durée indéterminée, sauf résiliation dans les conditions de l'article 18.
 
 ---
 
@@ -207,13 +204,13 @@ Le Contrat prend effet à compter de la création du Compte Utilisateur, qui vau
 
 **12.1. Prix.** En contrepartie des Services, le Client règle à SAVR le tarif correspondant à l'Offre souscrite, tel que précisé en Annexe 1.
 
-**12.2. Délai d'émission des factures.** SAVR ne prend aucun engagement contractuel sur le délai d'émission de la facture. La génération du brouillon de facture est automatisée après chaque Collecte ; son envoi dépend de la validation par l'équipe SAVR.
+**12.2. Délai d'émission des factures.** SAVR ne prend aucun engagement contractuel sur le délai d'émission de la facture.
 
-**12.3. Révision des tarifs.** SAVR garantit ses tarifs pour une durée d'un an. Les tarifs révisés sont notifiés au Client deux mois avant leur entrée en vigueur et donnent lieu à la signature d'un avenant. Le Client qui refuse la modification tarifaire peut résilier le Contrat dans les conditions de l'article 16.2.
+**12.3. Révision des tarifs.** SAVR garantit ses tarifs pour une durée d'un an. Les tarifs révisés sont notifiés au Client deux mois avant leur entrée en vigueur et donnent lieu à la signature d'un avenant. Le Client qui refuse la modification tarifaire peut résilier le Contrat dans les conditions de l'article 18.2.
 
 **12.4. Conditions de règlement.** Le règlement est effectué par virement bancaire à 30 jours fin de mois.
 
-**12.5. Incidents de paiement.** Tout retard de paiement à l'échéance entraîne, sans mise en demeure, l'application de pénalités de retard égales à trois fois le taux d'intérêt légal, exigibles le lendemain de la date d'échéance. En cas de défaut de paiement 15 jours après l'envoi d'une mise en demeure, SAVR peut suspendre les Collectes en cours, refuser de nouvelles Demandes, et résilier le Contrat dans les conditions de l'article 16.3.
+**12.5. Incidents de paiement.** Tout retard de paiement à l'échéance entraîne, sans mise en demeure, l'application de pénalités de retard égales à trois fois le taux d'intérêt légal, exigibles le lendemain de la date d'échéance. En cas de défaut de paiement 15 jours après l'envoi d'une mise en demeure, SAVR peut suspendre les Collectes en cours, refuser de nouvelles Demandes, et résilier le Contrat dans les conditions de l'article 18.3.
 
 ---
 
@@ -309,13 +306,13 @@ SAVR est seule titulaire des droits de propriété intellectuelle sur la Platefo
 
 **24.4. Mesures de sécurité.** SAVR met en œuvre les mesures techniques et organisationnelles appropriées pour garantir un niveau de sécurité adapté au risque (chiffrement, contrôle d'accès, journalisation, sauvegardes quotidiennes).
 
-**24.5. Sous-traitants ultérieurs.** SAVR peut recourir à des sous-traitants ultérieurs pour l'hébergement des données (Supabase, hébergé sur serveurs AWS EU) et l'envoi des emails transactionnels (Resend). Ces sous-traitants sont soumis aux mêmes obligations de protection des données.
+**24.5. Sous-traitants ultérieurs.** SAVR peut recourir à des sous-traitants ultérieurs pour l'hébergement de la Plateforme et des données (Vercel, Supabase, Cloudflare, Railway), l'envoi des emails transactionnels (Resend), le suivi des erreurs (Sentry), les alertes internes (Slack) et la facturation (Pennylane). La base de données est hébergée à Paris. Ces sous-traitants sont soumis aux mêmes obligations de protection des données.
 
-**24.6. Transferts hors UE.** SAVR ne transfère pas de données à caractère personnel en dehors de l'Espace Économique Européen sans garanties appropriées.
+**24.6. Transferts hors UE.** Certains sous-traitants ultérieurs, ou leurs propres sous-traitants, peuvent traiter des données à caractère personnel en dehors de l'Espace Économique Européen, notamment aux États-Unis. Ces transferts reposent sur les garanties prévues par le RGPD (clauses contractuelles types de la Commission européenne ou Data Privacy Framework).
 
 **24.7. Droits des personnes.** SAVR s'engage à assister le Client dans le respect des droits des personnes concernées (accès, rectification, effacement, portabilité, opposition) dans un délai raisonnable. Les demandes peuvent être adressées à : gestion@gosavr.io.
 
-**24.8. Conservation.** Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Rapports de don à valeur réglementaire). Les données personnelles non soumises à obligation légale sont anonymisées dans les 12 mois suivant la résiliation du Contrat.
+**24.8. Conservation.** Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Rapports de don à valeur réglementaire). Après la résiliation du Contrat, les données personnelles non soumises à obligation légale sont anonymisées sur simple demande adressée à gestion@gosavr.io.
 
 **24.9. Notification des violations.** SAVR notifie au Client toute violation de données à caractère personnel dans les 72 heures suivant sa constatation.
 
@@ -347,7 +344,7 @@ Pour l'exécution du Contrat, les Parties font élection de domicile en leurs si
 
 ## Annexes
 
-**Annexe 1** : Grille tarifaire ZD et AG (à joindre — voir paramétrage Plateforme)
+**Annexe 1** : Grille tarifaire ZD et AG — les tarifs applicables sont ceux affichés dans la Plateforme à la date de programmation de chaque Collecte.
 **Annexe 2** : Accord de Sous-Traitance de données (DPA) — à rédiger avec l'appui d'un juriste RGPD avant mise en production
 
 ---

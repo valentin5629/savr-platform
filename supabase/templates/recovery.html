@@ -1,6 +1,9 @@
 <!--
   Email de réinitialisation de mot de passe — CDC §06.02 template 11 « reset_password ».
-  Délivrance GoTrue-native (CDC §09 « lien magique signé par Supabase »), contenu Savr brandé.
+  ⚠ L'application ne s'en sert plus depuis le 2026-11-06 (Val) : l'email part par Resend, gabarit
+  `reset_password` en base (api/auth/reset-password). Ce fichier ne sert qu'à un envoi déclenché
+  directement par Supabase Auth (console, instance locale).
+  Contenu Savr brandé (CDC §09 « lien magique signé par Supabase »).
   Variable GoTrue disponible : {{ .ConfirmationURL }} (lien de réinitialisation signé, valide 1 h
   via [auth.email].otp_expiry = 3600). GoTrue n'expose pas le prénom → pas de « Bonjour {prenom} »
   (arbitrage Val R23c : reste GoTrue-natif, sans personnalisation prénom).

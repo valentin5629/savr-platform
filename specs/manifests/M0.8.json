@@ -563,7 +563,7 @@
       "artefact": "supabase/config.toml ([auth.email.template.recovery]) ; supabase/templates/recovery.html ; supabase/migrations/20260710120000_plateforme_r23c_reset_password_slug.sql ; packages/shared/src/seed/constants.ts",
       "test": "M0.8-59 — reset_password : recovery template GoTrue brandé + slug catalogue (BL-P3-11)",
       "statut": "implemented",
-      "libelle": "BL-P3-11 — Slug catalogue reset_password (§06.02) : email de reset brandé Savr via recovery template GoTrue (délivrance GoTrue-native §09, sans {prenom}), code seed aligné reinitialisation_mot_de_passe→reset_password. Arbitrage Val R23c : contradiction §06.02↔§09 tranchée = template GoTrue brandé."
+      "libelle": "BL-P3-11 — Slug catalogue reset_password (§06.02) : email de reset brandé Savr via recovery template GoTrue (délivrance GoTrue-native §09, sans {prenom}), code seed aligné reinitialisation_mot_de_passe→reset_password. Arbitrage Val R23c : contradiction §06.02↔§09 tranchée = template GoTrue brandé. ⚠ Depuis le 2026-11-06 (Val) : l'application envoie cet email par Resend (gabarit reset_password réactivé, livrable M0.4-mot-de-passe-oublie-resend) ; ce livrable ne couvre plus que le slug et le gabarit GoTrue resté pour un envoi direct."
     },
     {
       "id": "BL-P3-12",

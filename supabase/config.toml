@@ -107,7 +107,9 @@ max_frequency = "1s"
 # CDC §09 l.95 : lien de réinitialisation / OTP email valide 1 heure (3600 s).
 otp_expiry = 3600
 
-# CDC §06.02 template 11 « reset_password » (arbitrage Val R23c) : la délivrance
+# ⚠ Depuis le 2026-11-06 (Val), l'application envoie cet email par Resend (gabarit
+# `reset_password` en base) : ce gabarit GoTrue ne sert plus qu'à un envoi direct.
+# Historique — CDC §06.02 template 11 « reset_password » (arbitrage Val R23c) : la délivrance
 # reste GoTrue-native (§09 « lien magique signé par Supabase ») mais l'email porte
 # le contenu Savr brandé (objet + corps FR, « valide 1 heure », signature Savr).
 # GoTrue n'expose pas la variable prénom → pas de « Bonjour {prenom} » côté reset.

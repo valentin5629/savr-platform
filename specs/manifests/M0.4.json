@@ -219,7 +219,7 @@
     {
       "id": "M0.4-cgu-texte-publie",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:197-201",
-      "artefact": "packages/plateforme/src/app/cgu/page.tsx + packages/plateforme/src/content/cgu-v1.ts (27 articles + préambule + annexes, dérivés du CDC ; section « Notes pour révision juridique » non publiée) + packages/plateforme/src/middleware.ts (/cgu public)",
+      "artefact": "packages/plateforme/src/app/cgu/page.tsx + packages/plateforme/src/content/cgu-texte.ts (27 articles + préambule + annexes, dérivés du CDC ; section « Notes pour révision juridique » non publiée) + packages/plateforme/src/middleware.ts (/cgu public)",
       "test": "M0.4 — /cgu : le texte publié est celui du CDC",
       "statut": "implemented",
       "libelle": "Publication du texte des CGU accepté à la création du compte (preuve opposable Art. 11/22)"

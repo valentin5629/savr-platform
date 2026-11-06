@@ -57,7 +57,7 @@ export const MENTIONS_LEGALES_SECTIONS: SectionCgu[] = [
       ),
       li(
         'Base de données',
-        'Supabase (supabase.com), sur des serveurs situés à Paris',
+        'Supabase Pte. Ltd., 65 Chulia Street #38-02/03, OCBC Centre, Singapour 049513 (supabase.com), sur des serveurs situés à Paris',
       ),
     ],
   },

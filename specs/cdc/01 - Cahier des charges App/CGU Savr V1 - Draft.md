@@ -107,7 +107,7 @@ Le Client peut souscrire à l'une ou aux deux Activités.
 
 **Transport et valorisation** : SAVR ou son Prestataire transporte les Déchets collectés jusqu'à l'Exutoire approprié pour chaque flux. SAVR s'engage à acheminer les Déchets vers des filières de valorisation conformes à la réglementation applicable (notamment la réglementation relative aux Déchets Industriels Banals, aux biodéchets et aux emballages).
 
-**Documents réglementaires** : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte (batch quotidien), sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.
+**Documents réglementaires** : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.
 
 ### 4.2. Activité Anti-Gaspi
 
@@ -312,7 +312,7 @@ SAVR est seule titulaire des droits de propriété intellectuelle sur la Platefo
 
 **24.7. Droits des personnes.** SAVR s'engage à assister le Client dans le respect des droits des personnes concernées (accès, rectification, effacement, portabilité, opposition) dans un délai raisonnable. Les demandes peuvent être adressées à : gestion@gosavr.io.
 
-**24.8. Conservation.** Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Rapports de don à valeur réglementaire). Les données personnelles non soumises à obligation légale sont anonymisées dans les 12 mois suivant la résiliation du Contrat.
+**24.8. Conservation.** Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Rapports de don à valeur réglementaire). Après la résiliation du Contrat, les données personnelles non soumises à obligation légale sont anonymisées sur simple demande adressée à gestion@gosavr.io.
 
 **24.9. Notification des violations.** SAVR notifie au Client toute violation de données à caractère personnel dans les 72 heures suivant sa constatation.
 

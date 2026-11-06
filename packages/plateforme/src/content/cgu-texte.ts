@@ -535,7 +535,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Documents réglementaires', gras: true },
           {
             texte:
-              " : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte (batch quotidien), sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.",
+              " : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.",
             gras: false,
           },
         ],
@@ -1356,7 +1356,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: '24.8. Conservation.', gras: true },
           {
             texte:
-              ' Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Rapports de don à valeur réglementaire). Les données personnelles non soumises à obligation légale sont anonymisées dans les 12 mois suivant la résiliation du Contrat.',
+              ' Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Rapports de don à valeur réglementaire). Après la résiliation du Contrat, les données personnelles non soumises à obligation légale sont anonymisées sur simple demande adressée à gestion@gosavr.io.',
             gras: false,
           },
         ],

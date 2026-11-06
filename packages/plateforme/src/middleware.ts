@@ -48,6 +48,8 @@ const PUBLIC_PREFIXES = [
   ROUTES.cgu,
   // Politique de confidentialité : lisible sans compte (CDC §15, 3.4).
   ROUTES.confidentialite,
+  // Mentions légales : lisibles sans compte (LCEN, art. 6-III).
+  ROUTES.mentionsLegales,
   ROUTES.interdit,
   // Pages de smoke-test de composants (dev-only, présentationnel, sans donnée
   // sensible) — délibérément hors du gating /admin/* réservé admin_savr/ops_savr.

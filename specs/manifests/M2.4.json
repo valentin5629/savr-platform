@@ -170,11 +170,11 @@
     {
       "id": "M2.4-rapport-de-don-nom-pdf-fichier-email-cgu",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:167-169",
-      "artefact": "packages/plateforme/src/content/cgu-v1.ts (définitions « Espace Client » et « Rapport de don », obligations de SAVR, Art. 24.8 : « Rapport de don » au lieu de « Attestation », aligné sur les CGU du Vault au sync du 2026-10-20)",
+      "artefact": "packages/plateforme/src/content/cgu-texte.ts (définitions « Espace Client » et « Rapport de don », obligations de SAVR, Art. 24.8 : « Rapport de don » au lieu de « Attestation », aligné sur les CGU du Vault au sync du 2026-10-20)",
       "test": "packages/plateforme/tests/ui/cgu.test.tsx « M0.4 — /cgu : le texte publié est celui du CDC »",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M2.4_20261013_rapport-de-don-pdf-fichier-email-cgu.md",
-      "libelle": "Document d'une collecte AG nommé « Rapport de don » partout, plus seulement à l'écran (décision Val 2026-10-13). Livrés : le titre imprimé des deux PDF (M2.4-rapport-de-don-titre-pdf), le nom des fichiers (M2.4-rapport-de-don-nom-fichier) et l'email de disponibilité (M2.4-rapport-de-don-email-disponibilite). Livrées au sync du 2026-10-20 : les CGU publiées (`packages/plateforme/src/content/cgu-v1.ts`), recopiées des CGU du Vault une fois celles-ci patchées ; `tests/ui/cgu.test.tsx` échoue si le texte publié s'en écarte (fiche _Divergences/M2.4_20261013_rapport-de-don-pdf-fichier-email-cgu.md, version gardée « v1 »)."
+      "libelle": "Document d'une collecte AG nommé « Rapport de don » partout, plus seulement à l'écran (décision Val 2026-10-13). Livrés : le titre imprimé des deux PDF (M2.4-rapport-de-don-titre-pdf), le nom des fichiers (M2.4-rapport-de-don-nom-fichier) et l'email de disponibilité (M2.4-rapport-de-don-email-disponibilite). Livrées au sync du 2026-10-20 : les CGU publiées (`packages/plateforme/src/content/cgu-texte.ts`), recopiées des CGU du Vault une fois celles-ci patchées ; `tests/ui/cgu.test.tsx` échoue si le texte publié s'en écarte (fiche _Divergences/M2.4_20261013_rapport-de-don-pdf-fichier-email-cgu.md, version gardée « v1 »)."
     },
     {
       "id": "M2.4-sans-excedent-convives-de-la-collecte",

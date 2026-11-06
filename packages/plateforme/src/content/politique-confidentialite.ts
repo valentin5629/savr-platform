@@ -6,12 +6,12 @@
 // référentiels CNIL justifient (Val 2026-11-06) ; aucune n'est atteinte avant
 // 2030, une purge doit exister avant (historique Bubble, journal d'audit). Les
 // écarts au §15 3.2 sont tracés dans `_Divergences/SECU-RGPD_20261105_politique-
-// confidentialite.md`. Même format que les CGU (`cgu-v1.ts`) : segments
+// confidentialite.md`. Même format que les CGU (`cgu-texte.ts`) : segments
 // {texte, gras}, jamais de HTML.
 //
 // Modifier ce texte = mettre à jour `POLITIQUE_CONFIDENTIALITE_MISE_A_JOUR`.
 
-import type { BlocCgu, SectionCgu } from './cgu-v1';
+import type { BlocCgu, SectionCgu } from './cgu-texte';
 
 export const POLITIQUE_CONFIDENTIALITE_MISE_A_JOUR = '6 novembre 2026';
 

@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import CguPage from '@/app/cgu/page.js';
-import { CGU_TEXTE_VERSION } from '@/content/cgu-v1';
+import { CGU_TEXTE_VERSION } from '@/content/cgu-texte';
 import { CGU_VERSION_COURANTE } from '@/lib/cgu';
 
 const SOURCE_CDC = join(

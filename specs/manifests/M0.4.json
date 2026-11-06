@@ -42,7 +42,7 @@
   "deliverables": [
     {
       "id": "BL-P0-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:202",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:199",
       "artefact": "supabase/migrations/20260625000001_plateforme_r6_cgu_persistance.sql + packages/plateforme/src/app/api/auth/signup/route.ts (INSERT users : cgu_accepte_le + cgu_version) + packages/plateforme/src/lib/cgu.ts (CGU_VERSION_COURANTE)",
       "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — persistance acceptation CGU (BL-P0-04…) » + supabase/tests/signup_users_cgu_colonnes_guard.test.sql",
       "statut": "implemented",
@@ -210,7 +210,7 @@
     },
     {
       "id": "M0.4-signup-cgu-bloquante-et-lisible",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:286-290",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:283-287",
       "artefact": "packages/plateforme/src/app/signup/page.tsx (case CGU bloquante + lien vers /cgu) ; l'horodatage est déjà couvert par BL-P0-04",
       "test": "M0.4 — /signup : mot de passe et CGU refusés AVANT le réseau > CGU non cochées → création refusée, la route n’est jamais appelée",
       "statut": "implemented",
@@ -218,8 +218,8 @@
     },
     {
       "id": "M0.4-cgu-texte-publie",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:200-204",
-      "artefact": "packages/plateforme/src/app/cgu/page.tsx + packages/plateforme/src/content/cgu-v1.ts (27 articles + préambule + annexes, dérivés du CDC ; section « Notes pour révision juridique » non publiée) + packages/plateforme/src/middleware.ts (/cgu public)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:197-201",
+      "artefact": "packages/plateforme/src/app/cgu/page.tsx + packages/plateforme/src/content/cgu-texte.ts (27 articles + préambule + annexes, dérivés du CDC ; section « Notes pour révision juridique » non publiée) + packages/plateforme/src/middleware.ts (/cgu public)",
       "test": "M0.4 — /cgu : le texte publié est celui du CDC",
       "statut": "implemented",
       "libelle": "Publication du texte des CGU accepté à la création du compte (preuve opposable Art. 11/22)"
@@ -377,6 +377,6 @@
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "61267fa23e3119d403e0fcd711c943f4f192f83091a81dbe945d86f392ee4594",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "c957507b8789dd429a600c8b84a11e336625486cd6d28ee3b6c0fe0b161ae26b",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "c644989ef4f9ce490f7eb8fe4897e06e57bc506d458a1b876a8a8224896cdeaf",
-    "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "8972a4b996caf3c65407cbba087977dfc6d5eb31f5a116e0fe18a0f2be393860"
+    "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "9fa916185db8b53ec027cf688c8cab232a4e35b6f246493934adbe4921f4423d"
   }
 }

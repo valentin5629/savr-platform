@@ -53,6 +53,7 @@ function baseParams(over: Partial<SyntheseParams> = {}): SyntheseParams {
     lieuIds: [],
     traiteurIds: [],
     clientOrgaIds: [],
+    clientNoms: [],
     commercialIds: [],
     typeEvtIds: [],
     tailleEvts: [],
@@ -157,6 +158,40 @@ describe('M3.5 / synthèse PDF — snapshot §12 §1.6', () => {
     expect(snap.evolution?.length).toBe(1);
     // Q2 : type figé ZD → pas d'assos AG.
     expect(snap.associations_ag).toBeNull();
+  });
+
+  it('M3.5/synthese_filtres_type_et_taille_de_la_collecte — type en SQL sur collectes.type_evenement_id, taille sur le pax de la collecte (Q3 Val 2026-10-24)', async () => {
+    const TYPE = '7e000000-0000-4000-8000-0000000000d3';
+    // Deux soirées d'un même événement de 900 convives (XL) : 300 (S), 600 (M).
+    const soirees = evt({ pax: 900 });
+    const { client, calls } = makeSupabase({
+      collectes: {
+        data: [
+          { ...ZD_COLLECTE, id: 'c-s', pax: 300, evenements: soirees },
+          { ...ZD_COLLECTE, id: 'c-m', pax: 600, evenements: soirees },
+        ],
+        error: null,
+      },
+    });
+    const snap = await buildSyntheseSnapshot(
+      client,
+      ctxTraiteur,
+      baseParams({
+        types: ['zero_dechet'],
+        typeEvtIds: [TYPE],
+        tailleEvts: ['M'],
+      }),
+      CLOCK,
+    );
+    expect(calls.in ?? []).toContainEqual(['type_evenement_id', [TYPE]]);
+    expect(
+      (calls.in ?? []).some((a) => a[0] === 'evenements.type_evenement_id'),
+    ).toBe(false);
+    // Le pax de la COLLECTE est demandé à la base (hors de l'embed evenements).
+    expect(String(calls.select?.[0]?.[0])).toMatch(/date_collecte, pax,/);
+    // Lu à l'événement (XL), le filtre M ne retiendrait aucune collecte.
+    expect(snap.nb_collectes).toBe(1);
+    expect(snap.tonnage_zd_kg).toBe(180);
   });
 
   it('export AG : ventilation Anti-Gaspi + repas, PAS de flux/CO₂/évolution ZD (Q2)', async () => {
@@ -423,5 +458,26 @@ describe('synthèse PDF AG — attributions lues par rôle (vue gestionnaire / t
       expect(s).not.toContain('v_attributions_gestionnaire');
     }
     expect(snap.nb_repas_donnes).toBe(150);
+  });
+});
+
+// Barre de filtres globale reprise sur le dashboard traiteur (2026-10-30) : le
+// client organisateur choisi dans la barre filtre aussi la synthèse PDF.
+describe('M3.5 / synthèse PDF — filtre Client organisateur de la barre', () => {
+  it('client_noms → filtre sur evenements.nom_client_organisateur, compté dans la légende', async () => {
+    const { client, calls } = makeSupabase({
+      collectes: { data: [ZD_COLLECTE], error: null },
+    });
+    const snap = await buildSyntheseSnapshot(
+      client,
+      ctxTraiteur,
+      baseParams({ types: ['zero_dechet'], clientNoms: ['Dior'] }),
+      CLOCK,
+    );
+    expect(calls.in).toContainEqual([
+      'evenements.nom_client_organisateur',
+      ['Dior'],
+    ]);
+    expect(snap.filtres_label).toContain('Clients : 1 sélectionné(s)');
   });
 });

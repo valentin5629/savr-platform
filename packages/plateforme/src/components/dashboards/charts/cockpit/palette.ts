@@ -29,9 +29,10 @@ export const GRID_BASELINE = 'var(--color-savr-neutral-200)'; // ligne de base
 export const TRACK = 'var(--color-savr-neutral-100)'; // fond de jauge / anneau
 export const SURFACE_HOVER = 'var(--color-savr-neutral-50)'; // survol de ligne
 
-// ── Navy de repère (bullet, ratio) et moyenne parc ────────────────────────
-export const NAVY = 'var(--color-savr-primary-700)';
-export const PARC = 'var(--color-savr-primary-300)';
+// ── Radar de comparaison (style unique de la fiche collecte, Val 2026-10-28) :
+// série mesurée orange remplie, repère en pointillés bleu nuit ───────────
+export const RADAR_SERIE = 'var(--color-savr-accent-500)';
+export const RADAR_REPERE = 'var(--color-savr-primary-900)';
 
 // ── Texte orange lisible (axe droit / valeurs taux) ───────────────────────
 export const ACCENT_TEXT = 'var(--color-savr-accent-700)';
@@ -67,16 +68,6 @@ export const STATUT = {
     badgeBg: 'var(--color-savr-error-subtle)',
   },
 } as const;
-
-// ── Badge de variation KPI (▲/▼) ──────────────────────────────────────────
-export const VAR_POS = {
-  color: 'var(--color-savr-success-strong)',
-  bg: 'var(--color-savr-success-subtle)',
-};
-export const VAR_NEG = {
-  color: 'var(--color-savr-error)',
-  bg: 'var(--color-savr-error-subtle)',
-};
 
 // ── Badge d'alerte du pack (épuisé = rouge, solde faible = orange) ────────
 export const PACK_BADGE = {

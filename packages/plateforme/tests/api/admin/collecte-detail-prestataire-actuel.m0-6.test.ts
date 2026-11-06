@@ -16,6 +16,7 @@ type Reponse = { data: unknown; error: unknown };
 // Mock à réponses PAR TABLE (et non à file d'ordre) : chaque test dit ce que
 // renvoie chaque table, et relit les filtres réellement posés dessus.
 const reponses = new Map<string, Reponse>();
+const retenues = new Map<string, Promise<void>>();
 const appels: {
   cible: string;
   select: string;
@@ -29,8 +30,11 @@ function chaine(cible: string) {
     filtres: [] as [string, unknown][],
   };
   appels.push(appel);
+  // Une table « retenue » ne répond que quand le test la libère.
   const fin = (): Promise<Reponse> =>
-    Promise.resolve(reponses.get(cible) ?? { data: null, error: null });
+    (retenues.get(cible) ?? Promise.resolve()).then(
+      () => reponses.get(cible) ?? { data: null, error: null },
+    );
   const c = {
     select: (colonnes: string) => {
       appel.select = colonnes;
@@ -42,6 +46,8 @@ function chaine(cible: string) {
     },
     single: fin,
     maybeSingle: fin,
+    // Lecture de plusieurs lignes : la requête est attendue telle quelle.
+    then: <T>(suite: (r: Reponse) => T) => fin().then(suite),
   };
   return c;
 }
@@ -52,13 +58,15 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
     schema: (schema: string) => ({
       from: (table: string) => chaine(`${schema}.${table}`),
     }),
+    // f_collecte_rattachable_pack (collecte AG sans pack) : hors sujet ici.
+    rpc: () => Promise.resolve({ data: false, error: null }),
   }),
 }));
 
 vi.mock('@savr/shared/src/email/index.js', () => ({ sendEmail: vi.fn() }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 
 const mockGetUser = vi.fn();
@@ -96,6 +104,7 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     reponses.clear();
+    retenues.clear();
     appels.length = 0;
     setupAuth('ops_savr');
   });
@@ -113,6 +122,14 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
       id: 'col-1',
       prestataire_logistique_id: null,
       prestataire_actuel: null,
+      // Collecte sans contrôle d'accès : pas d'email « infos d'accès » à suivre.
+      infos_acces_email: null,
+      // Aucun ordre en file pour cette collecte.
+      ordre_envoi: null,
+      // Donc rien d'abandonné : le statut affiché suit les signaux d'envoi.
+      envoi_abandonne: false,
+      // Pas une collecte AG sans pack : rien à rattacher.
+      rattachement_pack: null,
     });
     expect(appelsSur('plateforme.transporteurs')).toHaveLength(0);
     expect(appelsSur('shared.prestataires')).toHaveLength(0);
@@ -333,5 +350,193 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
 
     expect(res.status).toBe(403);
     expect(appels).toHaveLength(0);
+  });
+});
+
+// Décision Val 2026-10-12 (C6) : la fiche affiche ce qu'il est réellement advenu
+// de l'ordre mis en file, lu dans `outbox_events` — pas déduit de `statut_tms`.
+describe("M0.6 — GET admin/collectes/[id] : ordre d'envoi au prestataire", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    reponses.clear();
+    retenues.clear();
+    appels.length = 0;
+    setupAuth('ops_savr');
+    reponses.set('plateforme.collectes', {
+      data: { id: 'col-1', prestataire_logistique_id: null },
+      error: null,
+    });
+  });
+
+  it("M0.6/ordre_envoi_route — ordre de tête en échec avec reprise : rendu tel qu'il est en file, lu sur les seuls ordres de CETTE collecte", async () => {
+    reponses.set('plateforme.outbox_events', {
+      data: [
+        {
+          seq: 77,
+          event_type: 'collecte.creee',
+          statut: 'pending',
+          consumer: 'adapter_mts1',
+          attempts: 0,
+          next_retry_at: null,
+          last_error: null,
+        },
+        {
+          seq: 72,
+          event_type: 'collecte.creee',
+          statut: 'failed',
+          consumer: 'adapter_mts1',
+          attempts: 2,
+          next_retry_at: '2026-10-12T09:35:00Z',
+          last_error: '503 Service Unavailable',
+        },
+      ],
+      error: null,
+    });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect(
+      ((await res.json()) as { ordre_envoi: unknown }).ordre_envoi,
+    ).toEqual({
+      etat: 'echec_reprise',
+      nature: 'creation',
+      tentatives: 2,
+      prochaine_tentative_at: '2026-10-12T09:35:00Z',
+      // ops_savr voit l'état sans le message brut (décision Val 2026-10-13).
+      erreur: null,
+    });
+    const lectures = appelsSur('plateforme.outbox_events');
+    expect(lectures).toHaveLength(1);
+    expect(lectures[0]!.filtres).toEqual([
+      ['aggregate_type', 'collecte'],
+      ['aggregate_id', 'col-1'],
+    ]);
+  });
+
+  // Décision Val 2026-10-13 (§06.06 « la fiche lit la file d'envoi ») : le
+  // motif technique, message brut du prestataire, est rendu à admin_savr seul.
+  describe('M0.6/fiche_collecte_admin_ordre_etat_reel — motif technique par rôle', () => {
+    const ordre = (statut: string) => ({
+      data: [
+        {
+          seq: 72,
+          event_type: 'collecte.creee',
+          statut,
+          consumer: 'adapter_mts1',
+          attempts: statut === 'dead' ? 4 : 2,
+          next_retry_at: statut === 'failed' ? '2026-10-12T09:35:00Z' : null,
+          last_error: '400 Bad Request: carrierCode inconnu',
+        },
+      ],
+      error: null,
+    });
+
+    it.each([
+      ['failed', 'echec_reprise'],
+      ['dead', 'echec_definitif'],
+    ])('ordre %s : admin_savr reçoit le motif', async (statut, etat) => {
+      setupAuth('admin_savr');
+      reponses.set('plateforme.outbox_events', ordre(statut));
+
+      const res = await getDetail();
+
+      expect(res.status).toBe(200);
+      const { ordre_envoi } = (await res.json()) as {
+        ordre_envoi: { etat: string; erreur: string | null };
+      };
+      expect(ordre_envoi.etat).toBe(etat);
+      expect(ordre_envoi.erreur).toBe('400 Bad Request: carrierCode inconnu');
+    });
+
+    it.each([
+      ['failed', 'echec_reprise'],
+      ['dead', 'echec_definitif'],
+    ])(
+      'ordre %s : ops_savr reçoit l’état sans le motif, absent de toute la réponse',
+      async (statut, etat) => {
+        setupAuth('ops_savr');
+        reponses.set('plateforme.outbox_events', ordre(statut));
+
+        const res = await getDetail();
+
+        expect(res.status).toBe(200);
+        const texte = await res.text();
+        expect(texte).not.toContain('carrierCode');
+        const { ordre_envoi, envoi_abandonne } = JSON.parse(texte) as {
+          ordre_envoi: { etat: string; erreur: string | null };
+          envoi_abandonne: boolean;
+        };
+        expect(ordre_envoi.etat).toBe(etat);
+        expect(ordre_envoi.erreur).toBeNull();
+        expect(envoi_abandonne).toBe(statut === 'dead');
+      },
+    );
+  });
+
+  it('tous les ordres sont terminés : ordre_envoi null', async () => {
+    reponses.set('plateforme.outbox_events', {
+      data: [
+        {
+          seq: 1,
+          event_type: 'collecte.creee',
+          statut: 'done',
+          consumer: 'adapter_mts1',
+          attempts: 1,
+          next_retry_at: null,
+          last_error: null,
+        },
+      ],
+      error: null,
+    });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect(
+      ((await res.json()) as { ordre_envoi: unknown }).ordre_envoi,
+    ).toBeNull();
+  });
+
+  // Décision Val 2026-10-20 (C3) : la file est lue AVANT la collecte. Un envoi
+  // qui se termine entre les deux lectures rend alors « ordre en file » +
+  // référence, jamais « aucun ordre » + « aucune référence » (la fiche dirait
+  // « Non envoyé » juste après un envoi réussi, et cesserait de se relire).
+  it('M0.6/ordre_envoi_lu_avant_collecte — la collecte n’est lue qu’une fois la file d’envoi lue', async () => {
+    reponses.set('plateforme.outbox_events', { data: [], error: null });
+    // La file ne répond que sur ordre : deux lectures lancées ensemble (ou la
+    // file attendue après coup) liraient la collecte pendant qu'elle attend.
+    let libererFile!: () => void;
+    retenues.set(
+      'plateforme.outbox_events',
+      new Promise<void>((resolve) => {
+        libererFile = resolve;
+      }),
+    );
+
+    const enCours = getDetail();
+    await vi.waitFor(() =>
+      expect(appelsSur('plateforme.outbox_events')).toHaveLength(1),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(appelsSur('plateforme.collectes')).toHaveLength(0);
+
+    libererFile();
+    const res = await enCours;
+
+    expect(res.status).toBe(200);
+    expect(appelsSur('plateforme.collectes')).toHaveLength(1);
+  });
+
+  it('lecture de la file en erreur : 500, message neutre (pas de fiche servie avec un état faux)', async () => {
+    reponses.set('plateforme.outbox_events', {
+      data: null,
+      error: { code: '42703', message: 'column "x" does not exist' },
+    });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Erreur serveur' });
   });
 });

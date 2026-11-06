@@ -88,3 +88,38 @@ describe('M1.6/seed_slug_rapport_disponible_pas_bordereau — seed aligné', () 
     expect(SEED_MINIMAL).toContain("'rapport_disponible'");
   });
 });
+
+describe('M1.6/email_rapport_disponible_a_telecharger — migration 20261016200000 (Val 2026-10-16)', () => {
+  const MAJ = lire(
+    '../../../../supabase/migrations/20261016200000_plateforme_email_rapport_disponible_a_telecharger.sql',
+  );
+
+  // Le corps posé par l'UPDATE (les commentaires d'en-tête citent l'ancien texte).
+  const CORPS = MAJ.slice(
+    MAJ.indexOf('corps_html ='),
+    MAJ.indexOf('description ='),
+  );
+
+  it('le corps dit que le rapport se télécharge sur la plateforme, radar au choix ; plus « est prêt »', () => {
+    expect(CORPS).toContain('peut ');
+    expect(CORPS).toContain('être téléchargé sur la plateforme.');
+    expect(CORPS).toContain('radar de comparaison');
+    expect(CORPS).toContain(
+      '<a href="{{lien_rapport}}">Télécharger le rapport</a>',
+    );
+    expect(CORPS).not.toContain('est prêt');
+    // Charte : signature, aucun emoji.
+    expect(CORPS).toContain("L''équipe Savr");
+    expect(MAJ).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
+  it('data-only : objet, variables et code inchangés, aucune structure ni aucun droit', () => {
+    expect(MAJ).toMatch(/UPDATE plateforme\.email_templates/);
+    expect(MAJ).toContain("WHERE code = 'rapport_disponible'");
+    expect(MAJ).not.toMatch(/\bsujet\s*=/);
+    expect(MAJ).not.toMatch(/\bvariables\s*=/);
+    expect(MAJ).not.toMatch(
+      /\b(ALTER|CREATE|GRANT|REVOKE|DROP|DELETE|INSERT)\b/i,
+    );
+  });
+});

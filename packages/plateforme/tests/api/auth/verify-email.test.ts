@@ -15,6 +15,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { sendEmail } from '@savr/shared/src/email/index.js';
 
 type Resp = { data?: unknown; error?: unknown };
 
@@ -143,5 +144,20 @@ describe('M0.4 — verify-email : le clic prouve le domaine', () => {
 
     expect(res.headers.get('location')).toContain('verification_echouee');
     expect(updateCalls).toHaveLength(0);
+  });
+
+  it('l’email de bienvenue mène au formulaire de programmation (revue des emails, Val 2026-10-29)', async () => {
+    await (
+      await import('@/app/api/auth/verify-email/route.js')
+    ).GET(makeReq('?token_hash=tok&type=signup'));
+
+    expect(sendEmail).toHaveBeenCalledWith(
+      'bienvenue_organisation',
+      'marie@dalloyau.fr',
+      {
+        prenom: 'Marie',
+        lien_programmation_collecte: 'http://localhost/programmer/nouveau',
+      },
+    );
   });
 });

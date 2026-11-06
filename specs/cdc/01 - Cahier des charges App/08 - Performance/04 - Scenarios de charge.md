@@ -1,7 +1,5 @@
 # 08 - Performance / 04 - Scenarios de charge
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-06-08 (skill `cdc-perf-load`)
 **Décision Val 2026-06-08** : scénarios **1 (nominal) + 4 (endurance) = BLOQUANTS** avant `cdc-readiness-check` mode PROD. Scénarios 2 / 3 / 5 = documentés, exécution reportée V1.1 (ou avant go-live grand compte si pic anticipé).
 **Outil** : k6 (gratuit, scripts versionnés dans `tests/load/`). Base de données : `seed_demo` chargé au volume An 1.
 

@@ -46,7 +46,7 @@ describe('M3.3 / pop-up fiche collecte — espace agence', () => {
       expect(screen.getByTestId('frise-statut-client')).toBeTruthy();
       expect(screen.getAllByRole('tab')).toHaveLength(3);
       expect(screen.getByTestId('action-annuler').textContent).toContain(
-        'Demander l’annulation',
+        'Annuler la collecte',
       );
     },
     ATTENTE_CAS_MS,

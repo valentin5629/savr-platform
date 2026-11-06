@@ -39,30 +39,36 @@ export interface ChipQuery {
   not(column: string, operator: string, value: unknown): ChipQuery;
   gte(column: string, value: unknown): ChipQuery;
   lte(column: string, value: unknown): ChipQuery;
+  or(filters: string): ChipQuery;
 }
 
-// Définition canonique de « à dispatcher » (§11 §1.1, tranchée Val 2026-09-14) :
-// non envoyée au TMS, sans référence de commande, encore ouverte (programmée OU
-// validée transporteur). Elle vit ici sous deux formes côte à côte : filtre de
-// requête (`aDispatcher`) et test d'une ligne déjà chargée (`estADispatcher`).
-// Seule la liste des statuts est littéralement partagée ; l'accord des deux
-// formes est tenu par tests/api/admin/collectes-chip-counts.m0-6.test.ts. En
-// dépendent : les chips « Non transmises ZD/AG », les tuiles « AG/ZD à
-// dispatcher » (chip-counts reprend le compteur de ces chips), l'action
-// « Dispatcher » de la liste (collectes-table) et l'état « ordre en file
-// d'envoi » de la fiche collecte Admin (collecte-detail-panel : collecte à
-// dispatcher dont le prestataire adapter est déjà posé). Les cartes Bloc 1 du Dashboard
-// Admin (dashboard/kpi/route.ts) en portent encore leur propre copie.
+// Définition canonique de « à dispatcher » (§11 §1.1) : soit jamais envoyée
+// (non envoyée au TMS, sans référence de commande, programmée OU validée —
+// tranchée Val 2026-09-14), soit rejetée par son prestataire et à réattribuer
+// (Val 2026-11-03). Le rejet se lit sur `statut` : un seul camion refusé d'une
+// collecte validée n'est pas un rejet de la collecte.
+// Elle vit ici sous deux formes côte à côte : filtre de requête
+// (`FILTRE_A_DISPATCHER`, pour `.or()`) et test d'une ligne déjà chargée
+// (`estADispatcher`). L'accord des deux formes est tenu par
+// tests/api/admin/collectes-chip-counts.m0-6.test.ts. En dépendent : les chips
+// « Non transmises ZD/AG », les tuiles « AG/ZD à dispatcher » (chip-counts
+// reprend le compteur de ces chips), l'action « Dispatcher » de la liste
+// (collectes-table) et les cartes Bloc 1 du Dashboard Admin
+// (dashboard/kpi/route.ts, dashboards/kpi-admin/route.ts).
+// L'état « ordre en file d'envoi » de la fiche collecte Admin ne lit que la
+// première branche (`estNonEnvoyee`) : une collecte rejetée n'a pas d'envoi en
+// cours.
 const STATUTS_A_DISPATCHER: readonly string[] = ['programmee', 'validee'];
 
+export const FILTRE_A_DISPATCHER =
+  'and(statut_tms.eq.non_envoye,tms_reference.is.null,statut.in.(programmee,validee)),' +
+  'statut.eq.rejetee_par_prestataire';
+
 function aDispatcher(query: ChipQuery): ChipQuery {
-  return query
-    .eq('statut_tms', 'non_envoye')
-    .is('tms_reference', null)
-    .in('statut', STATUTS_A_DISPATCHER);
+  return query.or(FILTRE_A_DISPATCHER);
 }
 
-export function estADispatcher(row: {
+export function estNonEnvoyee(row: {
   statut: string;
   statut_tms: string;
   tms_reference: string | null;
@@ -72,6 +78,40 @@ export function estADispatcher(row: {
     row.tms_reference === null &&
     STATUTS_A_DISPATCHER.includes(row.statut)
   );
+}
+
+export function estADispatcher(row: {
+  statut: string;
+  statut_tms: string;
+  tms_reference: string | null;
+}): boolean {
+  return estNonEnvoyee(row) || row.statut === 'rejetee_par_prestataire';
+}
+
+// « Modifiée sans renvoi » (arbitrage Val 2026-10-09) : une collecte déjà partie
+// vers le prestataire a été modifiée et n'a pas été renvoyée. « Partie puis
+// modifiée » est porté par le drapeau `dirty_tms`, que les déclencheurs de
+// `collectes` et d'`evenements` arment dès le clic de l'Admin (migration
+// 20261009210000) et que le renvoi vide. Ici on ne garde que les collectes
+// encore à réaliser : une collecte terminée n'a plus rien à renvoyer.
+// Aucune condition sur `tms_reference` : une commande en file d'envoi n'en a pas
+// encore, un transporteur joint par mail ou téléphone n'en aura jamais.
+// Source unique du chip, de son compteur, de la carte du Dashboard Admin et du
+// compteur de la route `dashboards/kpi-admin`.
+// Deux formes côte à côte, comme « à dispatcher » : filtre de requête
+// (`STATUTS_A_RENVOYER`) et test d'une ligne déjà chargée
+// (`estModifieeSansRenvoi`, badge et bouton de la fiche collecte Admin).
+export const STATUTS_A_RENVOYER: readonly string[] = [
+  'programmee',
+  'validee',
+  'en_cours',
+];
+
+export function estModifieeSansRenvoi(row: {
+  dirty_tms: boolean;
+  statut: string;
+}): boolean {
+  return row.dirty_tms && STATUTS_A_RENVOYER.includes(row.statut);
 }
 
 // Applique le prédicat d'un chip à une requête collectes. `now` injecté pour la
@@ -89,8 +129,8 @@ export function applyChipPredicate(
       // « Non transmises au TMS » = programmée ET sans référence de commande.
       return query.eq('statut', 'programmee').is('tms_reference', null);
     // « Non transmises ZD/AG » = « à dispatcher » par type, miroir EXACT des
-    // cartes Bloc 1 du Dashboard Admin (§11 §1.1). Toute évolution DOIT rester
-    // alignée sur dashboard/kpi/route.ts.
+    // cartes Bloc 1 du Dashboard Admin (§11 §1.1), qui lisent le même
+    // `FILTRE_A_DISPATCHER`.
     case 'non_transmises_zd':
       return aDispatcher(query.eq('type', 'zero_dechet'));
     case 'non_transmises_ag':
@@ -98,7 +138,7 @@ export function applyChipPredicate(
     case 'attente_prestataire':
       return query.eq('statut_tms', 'attribuee_en_attente_acceptation');
     case 'dirty_tms':
-      return query.eq('dirty_tms', true).not('tms_reference', 'is', null);
+      return query.eq('dirty_tms', true).in('statut', STATUTS_A_RENVOYER);
     case 'ag_attente_attribution':
       // AG programmée SANS attribution encore (anti-jointure : la relation
       // `attributions_antgaspi` doit être embarquée dans le select appelant).

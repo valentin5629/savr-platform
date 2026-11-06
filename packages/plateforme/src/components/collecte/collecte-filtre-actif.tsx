@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { XIcon } from '@/components/ui/icones';
 import { Text } from '@/components/ui/text';
 import { IconButton } from '@/components/ui/icon-button';
 
@@ -43,7 +43,7 @@ export function CollecteFiltreActif({ label, scope, onClear }: Props) {
           aria-label="Retirer le filtre"
           className="-my-1.5 rounded-savr-full text-savr-primary-700 hover:bg-savr-primary-100 hover:text-savr-primary-800 [&>svg]:h-4 [&>svg]:w-4"
         >
-          <X className="h-4 w-4" aria-hidden />
+          <XIcon className="h-4 w-4" aria-hidden />
         </IconButton>
       </span>
     </div>

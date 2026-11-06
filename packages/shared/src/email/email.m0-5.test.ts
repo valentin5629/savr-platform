@@ -49,7 +49,8 @@ vi.mock('../supabase-client.js', () => ({
   }),
 }));
 
-import { sendEmail, setEmailCaptureSink } from './index.js';
+import { objetEnTexte, sendEmail, setEmailCaptureSink } from './index.js';
+import { escapeHtml } from './html.js';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -79,5 +80,20 @@ describe('AUTH-9 — sendEmail sink (RESEND_API_KEY=test)', () => {
     expect(row.envoye_at).toBeTruthy();
     // Sujet interpolé depuis le template.
     expect(row.sujet).toBe('Bienvenue Jean');
+  });
+});
+
+describe('objet des emails : texte brut, sans entités HTML', () => {
+  it("un nom échappé pour le corps s'affiche en clair dans l'objet", async () => {
+    await sendEmail('verification_email', 'jean@traiteur-test.fr', {
+      prenom: 'Dupont &amp; Fils &lt;b&gt;',
+    });
+    const row = h.state.insertCalls.at(-1)!;
+    expect(row.sujet).toBe('Bienvenue Dupont & Fils <b>');
+  });
+
+  it('objetEnTexte défait exactement escapeHtml', () => {
+    const brut = `Tom & "Jerry" <b>&amp;</b>`;
+    expect(objetEnTexte(escapeHtml(brut))).toBe(brut);
   });
 });

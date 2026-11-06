@@ -5,6 +5,10 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import {
+  creneauDeLaVue,
+  lireVueCollectes,
+} from '@/lib/collectes/vue-temporelle.js';
 
 const ORGANISATEUR_ROLES: ClientRole[] = ['client_organisateur'];
 
@@ -25,15 +29,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const type = searchParams.get('type');
   const from = searchParams.get('from');
   const to = searchParams.get('to');
+  const vue = lireVueCollectes(searchParams.get('vue'));
 
   let query = supabase
     .from('collectes')
     .select(
-      `id, type, statut, date_collecte, heure_collecte, taux_recyclage,
+      `id, type, statut, date_collecte, heure_collecte, pax, taux_recyclage,
        co2_induit_kg, co2_evite_kg, co2_net_kg, energie_primaire_evitee_kwh,
        evenements!inner(
          id, client_organisateur_organisation_id, traiteur_operationnel_organisation_id,
-         nom_evenement, pax,
+         nom_evenement,
          lieux!lieu_id(id, nom, code_postal, ville)
        )`,
     )
@@ -48,6 +53,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
   if (from) query = query.gte('date_collecte', from);
   if (to) query = query.lte('date_collecte', to);
+  // Vue « à venir / passées » : rangée au créneau, à la minute (Val 2026-11-03).
+  if (vue) query = query.or(creneauDeLaVue(vue, new Date()));
 
   const { data, error } = await query;
   if (error) return serverError(error, 'organisateur.collectes.list');

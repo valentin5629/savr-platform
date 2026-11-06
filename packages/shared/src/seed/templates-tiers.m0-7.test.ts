@@ -43,7 +43,7 @@ describe('M0.7/bl-p2-22-templates-seedes — présence des 4 codes', () => {
     // tpl 21 : deux branches (modification / annulation)
     expect(SQL).toContain('{{#if est_modification}}');
     expect(SQL).toContain('{{#if est_annulation}}');
-    // tpl 22 : annulation tardive (<12h)
+    // tpl 22 : annulation tardive (seuil 4h depuis 20261015180000)
     expect(SQL).toContain('{{#if annulation_tardive}}');
     // tpl 9 : niveau bas / épuisé
     expect(SQL).toContain('{{#if niveau_bas}}');

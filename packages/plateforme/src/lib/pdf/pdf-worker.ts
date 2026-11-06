@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import {
+  DOSSIER_STOCKAGE,
   TEMPLATE_VERSIONS,
   isPdfDocumentType,
   type PdfDocumentType,
@@ -11,7 +12,8 @@ import { sendAlert } from '@savr/shared/src/alerting/slack.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 
 import { generatePdf } from './railway-client.js';
-import { uploadPdf, type R2Bucket } from './r2-client.js';
+import { uploadPdf } from './r2-client.js';
+import { completerLogoAttestation } from './logo-rapport-de-don.js';
 
 const MAX_ATTEMPTS = 16;
 const RETRY_INTERVAL_MS = 15 * 60 * 1000;
@@ -34,6 +36,7 @@ export interface PdfWorkerResult {
 
 export async function runPdfWorker(
   supabase: SupabaseClient,
+  options: { entityIds?: string[] } = {},
 ): Promise<PdfWorkerResult> {
   const result: PdfWorkerResult = {
     processed: 0,
@@ -43,11 +46,17 @@ export async function runPdfWorker(
   };
 
   // Claim jusqu'à 5 jobs pending/failed dont la prochaine tentative est passée
-  const { data: jobs, error: claimErr } = await supabase
+  if (options.entityIds && !options.entityIds.length) return result;
+  // `entityIds` : seuls les rendus de ces documents (fabrication sur-le-champ
+  // après une saisie Admin), sans prendre ceux des autres collectes.
+  const selection = supabase
     .from('jobs_pdf')
     .select('id, type_document, entity_type, entity_id, payload, attempts')
     .in('statut', ['pending', 'failed'])
-    .or(`next_retry_at.is.null,next_retry_at.lte.${new Date().toISOString()}`)
+    .or(`next_retry_at.is.null,next_retry_at.lte.${new Date().toISOString()}`);
+  const { data: jobs, error: claimErr } = await (
+    options.entityIds ? selection.in('entity_id', options.entityIds) : selection
+  )
     .order('created_at', { ascending: true })
     .limit(5);
 
@@ -76,12 +85,18 @@ export async function runPdfWorker(
         throw new Error(`type_document inconnu : ${job.type_document}`);
       }
       const pdfType: PdfDocumentType = job.type_document;
-      const { pdfBuffer } = await generatePdf(pdfType, job.payload);
+      // Attestation mise en file sans logo (correction de volume) : logo
+      // du client résolu au rendu.
+      const payload =
+        pdfType === 'attestation-don'
+          ? await completerLogoAttestation(supabase, job.entity_id, job.payload)
+          : job.payload;
+      const { pdfBuffer } = await generatePdf(pdfType, payload);
 
-      const bucket: R2Bucket =
-        pdfType === 'bordereau-zd' ? 'bordereaux' : 'rapports';
-      const key = `${job.entity_id}/${pdfType}-v${job.attempts + 1}-${Date.now()}.pdf`;
-      const storageKey = await uploadPdf(bucket, key, pdfBuffer);
+      // Bucket = celui de l'environnement (rendu par l'upload) ; la nature du
+      // document est le dossier en tête de clé.
+      const key = `${DOSSIER_STOCKAGE[pdfType]}/${job.entity_id}/${pdfType}-v${job.attempts + 1}-${Date.now()}.pdf`;
+      const { bucket, storageKey } = await uploadPdf(key, pdfBuffer);
 
       // Insérer dans shared.fichiers (colonnes réelles : storage_provider/bucket/
       // key/content_type/size_bytes — cf. migration bloc1. L'ancien jeu nom/mime_type/

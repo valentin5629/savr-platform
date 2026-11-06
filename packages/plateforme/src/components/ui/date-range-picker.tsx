@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import type { DateRange } from 'react-day-picker';
-import { CalendarDays, ChevronDown } from 'lucide-react';
+import { CalendarDotsIcon, CaretDownIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -214,7 +214,7 @@ function DateRangePicker({
             <ContenuDeclencheur titre={titre} valeur={libelle ?? placeholder} />
           ) : (
             <>
-              <CalendarDays
+              <CalendarDotsIcon
                 className="h-4 w-4 shrink-0 text-savr-neutral-400"
                 aria-hidden="true"
               />
@@ -226,7 +226,7 @@ function DateRangePicker({
               >
                 {libelle ?? placeholder}
               </span>
-              <ChevronDown
+              <CaretDownIcon
                 className="h-4 w-4 shrink-0 text-savr-neutral-400"
                 aria-hidden="true"
               />

@@ -38,12 +38,13 @@
     "91": "ag_marathon_volume_backup_camion"
   },
   "divergences": [
-    "M2.5_20260615.md"
+    "M2.5_20260615.md",
+    "M2.5_20261030_everest-modification-mission.md"
   ],
   "deliverables": [
     {
       "id": "BL-P0-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:247-285",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:245-283",
       "artefact": "packages/adapters/src/everest/client.ts (EverestClient.getMission + fetchEverestMissionDetails) ; packages/adapters/src/everest/mock.ts (handler getMission) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (mission_finished/success : cout/preuve/statut depuis l'API re-fetchée, jamais le payload)",
       "test": "M2.5 / webhook Everest — re-fetch API (BL-P0-07) (packages/plateforme/tests/api/webhooks/everest.m2-5.test.ts) — payload.cost ≠ API.cost prouve la valeur API persistée",
       "statut": "implemented",
@@ -51,15 +52,15 @@
     },
     {
       "id": "BL-P1-API-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:275",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:273",
       "artefact": "packages/adapters/src/everest/adapter.ts, packages/plateforme/src/app/api/webhooks/everest/route.ts, supabase/migrations/20260629110000_plateforme_r10a_everest_service_77.sql",
       "test": "service 77 (ag_everest_camion_express) [adapter.m2-5.test.ts] + course-vide→realisee_sans_collecte (AG) + rejet→rejetee_par_prestataire [everest.m2-5.test.ts] + ALTER CHECK 71/74/77/91 [r10a_everest_service_77.test.sql]",
       "statut": "implemented",
-      "libelle": "Everest : (a) mapping branche ag_everest_camion_express→service 77 + (b) ALTER CHECK everest_service_id IN(71,74,77,91) ; (c) rejet async (mission_failed/annulation externe AVANT acceptation) → statut_tms=rejetee_par_prestataire + alerte Ops + retour file (§08 §3 l.276) ; (d) course sans marchandise (mission_status re-fetché ∈ {Pas de commande, Client absent/Marchandise refusée}) → realisee_sans_collecte AG (§05) + alerte collecte_aucun_repas. Wire ambigu tracé _Divergences/M2.5_R10a_20260629.md."
+      "libelle": "Everest : (a) mapping branche ag_everest_camion_express→service 77 + (b) ALTER CHECK everest_service_id IN(71,74,77,91) ; (c) rejet async (échec/annulation externe sur collecte non engagée : en attente d'acceptation, programmee, et aucune autre course avec coursier — Val 2026-11-03) → statut_tms=rejetee_par_prestataire + alerte Ops + retour file (§08 §3 l.276) ; (d) course sans marchandise (code d'étape re-fetché ∈ {pas-de-commande, client-absent-marchandise-refusee}, à défaut libellé ∈ {Pas de commande, Client absent/Marchandise refusée}) → realisee_sans_collecte AG (§05) + alerte collecte_aucun_repas. Wire ambigu tracé _Divergences/M2.5_R10a_20260629.md."
     },
     {
       "id": "M2.5-acceptation-manuelle-reference",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:274-294",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:275-295",
       "artefact": "supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql (fn_accepter_mission_everest_manuelle : tournees.external_ref_commande + collectes.tms_reference + everest_missions created_manually, atomique) ; packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts + packages/plateforme/src/lib/acceptation-manuelle-mission.ts (référence obligatoire, bornée) ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (modale « Acceptation manuelle »)",
       "test": "everest_acceptation_manuelle_reference.test.sql (A1 422 sans référence, A2 référence posée, A3 sort des non transmises, A4 renvoi = E2, A7 uniq_tournee_par_external_ref atomique, A9 annulation = E3, A11 tournée Everest visée) + adapter.m2-5.test.ts « mission acceptée manuellement AVEC référence » (cancelCollecte annule chez A Toutes!, E1 no-op) + everest-manual-accept.m2-5.test.ts + collecte-detail-panel.m0-6.test.tsx §06.06 Bloc 0",
       "statut": "implemented",
@@ -75,7 +76,7 @@
     },
     {
       "id": "M2.5-acceptation-manuelle-plans",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:284-290",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:285-291",
       "artefact": "supabase/migrations/20260916180000_plateforme_everest_acceptation_manuelle_refus_rejetee.sql (refus P0003 depuis rejetee_par_prestataire)",
       "test": "everest_acceptation_manuelle_plans.test.sql (statut_depart : a_attribuer / attribuee_en_attente_acceptation → acceptee, rejetee_par_prestataire → refus ; refus_409 : realisee / cloturee / annulee, aucune écriture) + everest_acceptation_manuelle_reference.test.sql (non_envoye A2c, non a_toutes A8b, mission API A8, autre référence A5c, référence d'une autre tournée A7) + everest-manual-accept.m2-5.test.ts (P0003 → 409, formats 422)",
       "statut": "implemented",
@@ -84,24 +85,56 @@
     {
       "id": "M2.5-point-b-dropoff-association",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:165",
-      "artefact": "packages/adapters/src/everest/adapter.ts (dispatchCollecte : refus permanent sans association attribuée, hors du try ; buildMissionPayload : dropoff = adresse + contact de l'association) ; packages/adapters/src/everest/client.ts (CreateMissionPayload.dropoff) ; packages/adapters/src/outbox-worker.ts (résolution association via attributions_antgaspi → associations, composée une fois pour les deux adapters)",
-      "test": "M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans dropoff + M2.5 / dispatch — AG sans association attribuée → LogistiquePermanentError, aucune mission créée [adapter.m2-5.test.ts]",
+      "artefact": "packages/adapters/src/everest/adapter.ts (dispatchCollecte : refus permanent sans association attribuée, hors du try ; buildMissionPayload : address_end, address_end_name, address_end_tel = adresse et contact de l'association) ; packages/adapters/src/everest/client.ts (CreateMissionPayload.address_end) ; packages/adapters/src/outbox-worker.ts (résolution association via attributions_antgaspi → associations, composée une fois pour les deux adapters)",
+      "test": "M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans address_end + M2.5 / dispatch — AG sans association attribuée → LogistiquePermanentError, aucune mission créée [adapter.m2-5.test.ts]",
       "statut": "implemented",
-      "libelle": "Everest : la mission porte le point B (adresse de livraison = association bénéficiaire, §06.09 §4 « Adresse de livraison (siège association) ») dans `dropoff` {address, contact}, symétrique de `pickup` ; AG sans association attribuée = LogistiquePermanentError avant tout POST (décision Val 2026-10-01 — l'association est choisie AVANT le prestataire). ⚠ Nom de champ wire (`dropoff` vs `address_end` du CDC TMS M14) à figer au compte de test Everest, comme le reste du wire V1."
+      "libelle": "Everest : la mission porte le point B (adresse de livraison = association bénéficiaire, §06.09 §4 « Adresse de livraison (siège association) ») dans `address_end` (+ `address_end_name` / `address_end_tel` = contact de l'association), symétrique de `address_start` ; AG sans association attribuée = LogistiquePermanentError avant tout POST (décision Val 2026-10-01 — l'association est choisie AVANT le prestataire). Noms de champs du swagger Everest 1.291.1 (réalignement du 2026-10-19)."
     },
     {
       "id": "M2.5-coursier-propage-tournee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:285",
-      "artefact": "packages/plateforme/src/app/api/webhooks/everest/route.ts (mission_dispatched, après la garde mission courante : coursier RELU sur l'API Everest via fetchEverestMissionDetails — jamais pris du payload — → UPDATE tournees.chauffeur_nom + chauffeur_telephone WHERE id = tournee de la mission AND external_ref_commande = mission_id ; API sans coursier = aucune écriture ; re-fetch KO ou UPDATE refusé = tracé, 200) ; téléphone écrit seulement s'il est fourni par l'API (même règle que MTS-1 : saisie Admin jamais effacée) ; après écriture, evaluerInfosAccesEtEnvoyer (email récap infos d'accès si requis + complet) ; collecte annulee → rien (ni écriture, ni email, ni appel API) ; packages/adapters/src/everest/adapter.ts (dispatch : une tournée créée par l'Admin avant dispatch — C2 Val 2026-10-06, type_vehicule NULL — est reprise telle quelle et reçoit son type de véhicule d'après le service Everest, jamais une seconde tournée)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:283",
+      "artefact": "packages/plateforme/src/app/api/webhooks/everest/route.ts (propagerCoursier : à mission_dispatched et, depuis le 2026-11-03, à chaque notification mission_status — best-effort —, après la garde mission courante : coursier RELU sur l'API Everest via fetchEverestMissionDetails — jamais pris du payload — → UPDATE tournees.chauffeur_nom + chauffeur_telephone WHERE id = tournee de la mission AND external_ref_commande = mission_id ; API sans coursier = aucune écriture ; re-fetch KO ou UPDATE refusé = tracé, 200) ; téléphone écrit seulement s'il est fourni par l'API (même règle que MTS-1 : saisie Admin jamais effacée) ; après écriture, evaluerInfosAccesEtEnvoyer (email récap infos d'accès si requis + complet) ; collecte annulee → rien (ni écriture, ni email, ni appel API) ; packages/adapters/src/everest/adapter.ts (dispatch : une tournée créée par l'Admin avant dispatch — C2 Val 2026-10-06, type_vehicule NULL — est reprise telle quelle et reçoit son type de véhicule d'après le service Everest, jamais une seconde tournée)",
       "test": "mission_dispatched — coursier relu sur l’API Everest → tournees.chauffeur_nom / chauffeur_telephone, garde WHERE sur la mission, JAMAIS depuis le payload + mission_dispatched — API Everest sans coursier (ou téléphone seul) → la tournée n’est pas touchée (saisie Admin conservée) + mission_dispatched — re-fetch Everest en échec → rien d’écrit sur la tournée (payload ignoré), mission quand même assigned, 200 + mission_dispatched après réattribution, coursier présent sur l’API → aucune écriture sur la tournée ni appel API (garde mission courante AVANT la propagation) + mission_dispatched — coursier écrit → l’email récap « infos d’accès » est réévalué (fn_infos_acces_marquer_si_complet sur la collecte) + mission_dispatched — UPDATE tournees refusé → 200, tracé coursier_non_propage, pas de réévaluation email + mission_dispatched — API sans téléphone → seul le nom est écrit (le téléphone, peut-être saisi par l’Admin, n’est pas touché — même règle que MTS-1) + mission_dispatched — collecte déjà annulée côté Savr → ni coursier écrit, ni email récap, ni appel API (annulation pas encore parvenue à Everest) + tournée créée par l’Admin (type_vehicule NULL, saisie chauffeur avant dispatch — C2 Val 2026-10-06) : reprise telle quelle, type de véhicule posé, une seule mission + tournée existante dont le type de véhicule n’a pas été lu : aucune écriture de type_vehicule",
       "statut": "implemented",
       "libelle": "Le coursier A Toutes! assigné (webhook Everest mission_dispatched = signal → coursier relu sur l'API, CDC §08 §3) alimente tournees.chauffeur_nom / chauffeur_telephone de la tournée qui porte encore la mission, ce que lisent les blocs « Chauffeur » des fiches client (§06.04) et Admin (§06.06). Avant : écrit dans everest_missions seulement → « En attente » permanent côté fiches pour toute collecte A Toutes!. Décision Val 2026-10-02, divergence M0.6_20261002_bloc-chauffeur-onglet-logistique (volet §08)."
+    },
+    {
+      "id": "M2.5-jeton-fixe",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:283",
+      "artefact": "packages/adapters/src/everest/client.ts (lireJetonEverest : EVEREST_API_TOKEN, blancs des bords retirés ; aucun appel à POST /auth ; jeton absent ou réponse 401 = LogistiqueTransientError + alerte Slack critique « Jeton Everest absent » / « Jeton Everest refusé », sans le jeton) ; packages/adapters/src/everest/adapter.ts (constructeur et sonde de santé sur le jeton ; everest_missions.everest_client_id n'est plus écrit) ; .env.example (section Everest)",
+      "test": "M2.5/everest_jeton_fixe_bearer + M2.5/everest_jeton_fixe_blancs + M2.5/everest_jeton_absent + M2.5/everest_jeton_refuse + M2.5/everest_jeton_alerte_en_echec + M2.5/everest_jeton_refuse_sans_rejet",
+      "statut": "implemented",
+      "libelle": "Everest : jeton fixe par compte A Toutes! (SAVR en production, SAVR TEST ailleurs) lu dans EVEREST_API_TOKEN et envoyé en Bearer ; plus aucun appel à POST /auth, qui révoque le jeton en cours à chaque appel (réponse d'Everest relayée par A Toutes! le 2026-10-19 ; décision Val 2026-10-19). Jeton absent ou refusé (401) = erreur passagère (le worker retente) + alerte Slack critique, jamais un rejet de la collecte. Divergence M2.5_20261019_everest-jeton-fixe."
+    },
+    {
+      "id": "M2.5-contrat-swagger",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:283",
+      "artefact": "packages/adapters/src/everest/client.ts (CreateMissionPayload au format du swagger : service_id, client_ref, start_date en secondes Unix, address_start/_name/_tel/_comment, address_end/_name/_tel/_comment, comment ; annulation POST /missions/cancel { ref } ; relecture POST /missions/get { ref } ; lireMission : réponse { mission }, référence = mission.ref, 200 sans ref = erreur ambiguë ; détail relu : status_text (à défaut status), price_excl, première image de medias, agent_name, agent_tel, agent_vehicle.name) ; packages/adapters/src/everest/adapter.ts (start_date = heure demandée à Paris via instantParis, illisible = refus permanent avant tout envoi ; comment = commentaire de la mission composé par le worker (consigne « Veuillez peser et prendre de belles photos de ce que vous récupérez svp », Val 2026-11-03, à la place de « Pesée obligatoire, photo marchandise obligatoire »), address_start_comment / address_end_comment = commentaires des adresses ; annulation par ref) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (notification lue sur ref, event, date et agent_name ; clé d'idempotence ref-event-date) ; getMission rend aussi statut_code (slug `status`) et etape (drapeaux is_dispatch/is_pickup/is_success/is_fail/is_cancel, 2026-11-03)",
+      "test": "M2.5/everest_contrat_create + M2.5/everest_contrat_create_sans_ref + M2.5/everest_contrat_cancel + M2.5/everest_contrat_get + M2.5/everest_contrat_get_minimal + M2.5/everest_contrat_get_sans_ref + M2.5/everest_contrat_get_types_inattendus + M2.5/everest_notification_date_vide + M2.5/everest_contact_association_incomplet + M2.5/everest_contrat_creation + M2.5/everest_start_date_heure_demandee + M2.5/everest_start_date_illisible + M2.5/everest_comment_consigne_seule + M2.5/everest_notification_champs_swagger + chaque texte composé part dans son champ : mission, départ, arrivée",
+      "statut": "implemented",
+      "libelle": "Everest : création, annulation, relecture et notifications réalignées sur le swagger Everest 1.291.1 (relevé le 2026-10-19 ; le code envoyait pickup / dropoff / timeslot / notes / metadata, sans les deux adresses obligatoires, annulait avec mission_id, relisait par GET /missions/{id} et lisait mission_id / event_type / occurred_at dans les notifications). start_date = heure demandée par le traiteur (décision Val 2026-10-19) ; comment = consigne d'A Toutes! puis commentaire au transporteur (décision Val 2026-10-19) ; notifications réalignées dans le même lot (décision Val 2026-10-19). Divergence M2.5_20261019_everest-contrat-swagger."
+    },
+    {
+      "id": "M2.5-update-mission",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:539",
+      "artefact": "packages/adapters/src/everest/adapter.ts (updateCollecte : POST /missions/update sur chaque mission ouverte des rangs 1 à N, tous les champs via champsMission commun E1/E2, contact d'association vidé envoyé vide, mission close non renvoyée, refus 4xx d'une mission n'empêchant pas les autres puis remonté, jamais de rejet de la collecte, alerte info si écart de véhicules) ; packages/adapters/src/everest/client.ts (updateMission : 4xx permanent, 5xx et sans réponse passagers) ; packages/adapters/src/everest/mock.ts (handler updateMission)",
+      "test": "adapter.m2-5.test.ts describe « AdapterEverest — updateCollecte » (mission ouverte tous champs, contact retiré part vide, jamais envoyée, mission close ×4, 4xx sans rejet, 5xx, véhicules augmentés, véhicules réduits, sans association, heure illisible, refus sur un camion) + client.contrat-swagger.test.ts (M2.5/everest_contrat_update + M2.5/everest_contrat_update_sans_reponse)",
+      "statut": "implemented",
+      "libelle": "Everest : une collecte déjà transmise à A Toutes! voit ses modifications envoyées par POST /missions/update (swagger 1.294.1, relevé le 2026-10-30), mêmes champs et même oracle que MTS-1 (§08 3bis.8). Décision Val 2026-10-30, fiche M2.5_20261030_everest-modification-mission. Avant, updateCollecte ne faisait qu'une alerte info."
+    },
+    {
+      "id": "M2.5-notification-mission-status",
+      "libelle": "Notification réelle A Toutes! (mesurée le 2026-11-03 sur le compte de test) : `event` vaut toujours `mission_status`, l'étape est dans `status_slug`. Avant : rangée en event_type_inconnu, aucune collecte A Toutes! ne bougeait. La route relit la mission et choisit le traitement sur la catégorie de l'étape relue (drapeaux is_dispatch/is_pickup/is_success/is_fail/is_cancel). Décisions Val 2026-11-03 : course enlevée → collecte en_cours ; course réussie → tournée terminee puis fn_agreger_terminal_collecte (même agrégation que MTS-1, échec après acceptation → tournée annulee) ; collecte acceptée seulement quand toutes ses courses sont affectées ; coursier relu à chaque étape ; course vide lue par code d'étape (pas-de-commande, client-absent-marchandise-refusee). Échec ou annulation hors Savr d'une course : incident (tournée annulee + agrégation) dès que la collecte est engagée (acceptée, démarrée, ou une autre course avec coursier), sinon refus (Val 2026-11-03, C5). Les noms du swagger (mission_dispatched, mission_finished…), jamais envoyés par A Toutes!, sont traités comme mission_status : le nom reçu ne décide de rien, seule l'étape relue (revue sécurité 2026-11-03).",
+      "artefact": "packages/plateforme/src/app/api/webhooks/everest/route.ts (case mission_status, accepterSiToutesAffectees, cloreCourse, propagerCoursier, isCourseVide par code d'étape) ; packages/adapters/src/everest/client.ts (getMission : statut_code + etape lus sur les drapeaux is_*) ; packages/adapters/src/everest/mock.ts (EtapeMissionEverest)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:291",
+      "statut": "implemented",
+      "test": "M2.5 / webhook Everest — notification réelle `mission_status` + M2.5/everest_contrat_get_etape (dont « sécurité : event=mission_finished alors que l’API dit « enlevée » »)"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "a217d2a2fc80d1152d1bb6417705a8a5dd72dd09a5923415b96807803c2c27cb",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "65773f43050134ec19709eea830bf5cc266b269c516caf55dd2b656b75633ec7",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7",
-    "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "f27893604204edd42c80f59795ff3e93e81eecf9557ccd9904f3dbac6c071cde"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "d5b6f644aa60e3d7ca36d414cdec3c06d0a954545705e865b8e06f935929f678",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "5129aa28dc9794a842f435362a1103998993507bd90e45787125ab474413aecd",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "1feba8e10b9a8c5d7065cfb3ab584be8c33e9913a4ea64f5558ac66344373597",
+    "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "617e6f0af51993b7efa400740e712b60ad498a4ea94fdba122fbc3cb6cee2c01"
   }
 }

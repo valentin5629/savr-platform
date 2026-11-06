@@ -19,18 +19,18 @@ import { libelleRole } from '@/lib/libelles/role';
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Building2,
-  Users,
-  Package,
-  CreditCard,
-  BarChart3,
-  Tag,
-  Percent,
-  DollarSign,
-  FlaskConical,
-  ArrowLeft,
-  UserPlus,
-} from 'lucide-react';
+  ArrowLeftIcon,
+  BuildingsIcon,
+  ChartBarIcon,
+  CreditCardIcon,
+  CurrencyEurIcon,
+  FlaskIcon,
+  PackageIcon,
+  PercentIcon,
+  TagIcon,
+  UserPlusIcon,
+  UsersIcon,
+} from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { LoadingState } from '@/components/ui/loading-state';
@@ -56,6 +56,12 @@ import {
   PackAjustementsHistorique,
 } from './onglets';
 import { ClientInviteUserModal } from './invite-user-modal';
+import { ModaleInformationsLegales } from './modale-informations-legales';
+import {
+  ModaleEntiteFacturation,
+  type EntiteFacturation,
+} from './modale-entite-facturation';
+import { CarteDomainesEmail, type DomaineEmail } from './carte-domaines-email';
 import { Heading } from '@/components/ui/heading';
 import { SectionHeader } from '@/components/ui/section-header';
 import { InfoItem } from '@/components/ui/info-item';
@@ -66,23 +72,22 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface OrgDetail {
   id: string;
+  nom: string;
   raison_sociale: string;
   type: string;
   siret: string | null;
   email_principal: string | null;
   telephone: string | null;
+  adresse: string | null;
   actif: boolean;
   logo_url: string | null;
   tarif_refacture_pax_zd: number | null;
   grille_tarifaire_zd_id: string | null;
-  entites_facturation: {
-    id: string;
-    raison_sociale: string;
-    siret: string;
+  entites_facturation: (EntiteFacturation & {
     siret_verification: string;
-    entite_par_defaut: boolean;
-  }[];
-  organisations_domaines_email: { domaine: string }[];
+    actif: boolean;
+  })[];
+  organisations_domaines_email: DomaineEmail[];
   users: {
     id: string;
     prenom: string;
@@ -124,15 +129,15 @@ interface OrgDetail {
 }
 
 const ONGLETS = [
-  { key: 'informations', label: 'Informations légales', icon: Building2 },
-  { key: 'users', label: 'Utilisateurs', icon: Users },
-  { key: 'packs', label: 'Packs AG', icon: Package },
-  { key: 'collectes', label: 'Collectes', icon: BarChart3 },
-  { key: 'factures', label: 'Factures', icon: CreditCard },
-  { key: 'grille', label: 'Grille tarifaire ZD', icon: Tag },
-  { key: 'remises', label: 'Remises négociées', icon: Percent },
-  { key: 'tarif-refacture', label: 'Tarif refacturé', icon: DollarSign },
-  { key: 'coefficients', label: 'Coeff. perte labo', icon: FlaskConical },
+  { key: 'informations', label: 'Informations légales', icon: BuildingsIcon },
+  { key: 'users', label: 'Utilisateurs', icon: UsersIcon },
+  { key: 'packs', label: 'Packs AG', icon: PackageIcon },
+  { key: 'collectes', label: 'Collectes', icon: ChartBarIcon },
+  { key: 'factures', label: 'Factures', icon: CreditCardIcon },
+  { key: 'grille', label: 'Grille tarifaire ZD', icon: TagIcon },
+  { key: 'remises', label: 'Remises négociées', icon: PercentIcon },
+  { key: 'tarif-refacture', label: 'Tarif refacturé', icon: CurrencyEurIcon },
+  { key: 'coefficients', label: 'Coeff. perte labo', icon: FlaskIcon },
 ] as const;
 
 type OngletKey = (typeof ONGLETS)[number]['key'];
@@ -239,6 +244,11 @@ export default function ClientFichePage({
   const [loading, setLoading] = useState(true);
   const [onglet, setOnglet] = useState<OngletKey>('informations');
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [infosOpen, setInfosOpen] = useState(false);
+  // Entité de facturation : undefined = fermée, null = ajout, sinon modification.
+  const [entiteEditee, setEntiteEditee] = useState<
+    EntiteFacturation | null | undefined
+  >(undefined);
   const [modal, setModal] = useState<ModalType>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -274,9 +284,9 @@ export default function ClientFichePage({
   if (!org)
     return (
       <EmptyState
-        icon={<Building2 />}
-        title="Organisation introuvable"
-        description="Cette organisation n'existe pas ou a été supprimée."
+        icon={<BuildingsIcon />}
+        title="Client introuvable"
+        description="Ce client n'existe pas ou a été supprimé."
       />
     );
 
@@ -394,7 +404,7 @@ export default function ClientFichePage({
 
   return (
     <div className="space-y-6">
-      {/* En-tête — bandeau navy (levier #2 §10) : logo + nom + type + statut */}
+      {/* En-tête — bandeau pâle (PageHero) : logo + nom + type + statut */}
       <PageHero
         icon={
           <div className="flex items-center gap-2">
@@ -402,9 +412,9 @@ export default function ClientFichePage({
               size="sm"
               onClick={() => router.back()}
               aria-label="Retour"
-              className="text-savr-white hover:bg-savr-white/10 hover:text-savr-white [&>svg]:h-4 [&>svg]:w-4"
+              className="text-savr-primary-700 hover:bg-savr-primary-200/60 hover:text-savr-primary-800 [&>svg]:h-4 [&>svg]:w-4"
             >
-              <ArrowLeft />
+              <ArrowLeftIcon />
             </IconButton>
             {org.logo_url && !logoKo ? (
               <img
@@ -413,15 +423,14 @@ export default function ClientFichePage({
                 src={`/api/v1/admin/uploads/logo?key=${encodeURIComponent(org.logo_url)}`}
                 alt=""
                 onError={() => setLogoKo(true)}
-                className="h-10 w-10 rounded-savr-md border border-savr-white/20 bg-savr-white object-contain"
+                className="h-10 w-10 rounded-savr-md border border-savr-primary-200 bg-savr-white object-contain"
               />
             ) : (
-              <Building2 className="h-6 w-6 text-savr-primary-200" />
+              <BuildingsIcon className="h-6 w-6" />
             )}
           </div>
         }
         title={org.raison_sociale}
-        subtitle={libelleTypeOrganisation(org.type)}
         actions={<ActifBadge actif={org.actif} />}
       />
 
@@ -444,7 +453,19 @@ export default function ClientFichePage({
         <TabsContent value="informations" className="space-y-4">
           <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
             <Card padding="lg" className="space-y-4">
-              <SectionHeader icon={Building2} title="Informations légales" />
+              <SectionHeader
+                icon={BuildingsIcon}
+                title="Informations légales"
+                action={
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setInfosOpen(true)}
+                  >
+                    Modifier
+                  </Button>
+                }
+              />
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <InfoItem label="SIREN/SIRET" valueClassName="mt-1 font-mono">
                   {org.siret ?? '—'}
@@ -458,11 +479,26 @@ export default function ClientFichePage({
                 <InfoItem label="Téléphone" valueClassName="mt-1">
                   {org.telephone ?? '—'}
                 </InfoItem>
+                <InfoItem
+                  label="Adresse"
+                  valueClassName="mt-1"
+                  className="sm:col-span-2"
+                >
+                  {org.adresse ?? '—'}
+                </InfoItem>
               </dl>
             </Card>
 
             <Card padding="lg" className="space-y-4">
-              <SectionHeader icon={CreditCard} title="Entités de facturation" />
+              <SectionHeader
+                icon={CreditCardIcon}
+                title="Entités de facturation"
+                action={
+                  <Button size="sm" onClick={() => setEntiteEditee(null)}>
+                    Ajouter
+                  </Button>
+                }
+              />
               {org.entites_facturation.length === 0 ? (
                 <EmptyState
                   size="inline"
@@ -473,7 +509,7 @@ export default function ClientFichePage({
                   {org.entites_facturation.map((ef) => (
                     <div
                       key={ef.id}
-                      className="flex items-center gap-3 border-b border-savr-neutral-100 py-2 last:border-0"
+                      className="flex flex-wrap items-center gap-3 border-b border-savr-neutral-100 py-2 last:border-0"
                     >
                       <span className="flex-1 text-sm font-medium">
                         {ef.raison_sociale}
@@ -491,6 +527,15 @@ export default function ClientFichePage({
                       {ef.entite_par_defaut && (
                         <Badge variant="neutral">Défaut</Badge>
                       )}
+                      {!ef.actif && <Badge variant="neutral">Inactive</Badge>}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEntiteEditee(ef)}
+                        aria-label={`Modifier ${ef.raison_sociale}`}
+                      >
+                        Modifier
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -499,28 +544,12 @@ export default function ClientFichePage({
 
             {/* Domaines email — fusionnés dans « Informations légales »
                 (décision Val 2026-07-03, onglet Domaines supprimé). */}
-            <Card padding="lg" className="space-y-4 md:col-span-2">
-              <SectionHeader icon={Tag} title="Domaines email" />
-              {org.organisations_domaines_email.length === 0 ? (
-                <EmptyState
-                  size="inline"
-                  title="Aucun domaine whitelisté pour cette organisation."
-                />
-              ) : (
-                <ul className="flex flex-wrap gap-2">
-                  {org.organisations_domaines_email.map(({ domaine }) => (
-                    <Text
-                      as="li"
-                      variant="body"
-                      className="rounded-savr-md bg-savr-neutral-50 px-3 py-1.5 font-mono"
-                      key={domaine}
-                    >
-                      @{domaine}
-                    </Text>
-                  ))}
-                </ul>
-              )}
-            </Card>
+            <CarteDomainesEmail
+              organisationId={id}
+              clientOrganisateur={org.type === 'client_organisateur'}
+              domaines={org.organisations_domaines_email}
+              onChange={() => void refreshOrg()}
+            />
           </div>
         </TabsContent>
 
@@ -528,18 +557,18 @@ export default function ClientFichePage({
         <TabsContent value="users">
           <Card padding="lg" className="space-y-4">
             <SectionHeader
-              icon={Users}
+              icon={UsersIcon}
               title="Utilisateurs"
               action={
                 <Button size="sm" onClick={() => setInviteOpen(true)}>
-                  <UserPlus />
+                  <UserPlusIcon />
                   Ajouter un utilisateur
                 </Button>
               }
             />
             {org.users.length === 0 ? (
               <EmptyState
-                icon={<Users />}
+                icon={<UsersIcon />}
                 title="Aucun utilisateur"
                 description="Invitez le premier utilisateur."
               />
@@ -648,9 +677,9 @@ export default function ClientFichePage({
           ) : (
             <Card padding="lg">
               <EmptyState
-                icon={<Package />}
+                icon={<PackageIcon />}
                 title="Aucun pack actif"
-                description="Créez un pack pour cette organisation."
+                description="Créez un pack pour ce client."
               />
             </Card>
           )}
@@ -922,6 +951,37 @@ export default function ClientFichePage({
           </Text>
         )}
       </ConfirmDialog>
+
+      {/* ── Modales : informations légales, entité de facturation ─────────── */}
+      {infosOpen && (
+        <ModaleInformationsLegales
+          organisationId={id}
+          valeurs={{
+            nom: org.nom,
+            raison_sociale: org.raison_sociale,
+            type: org.type,
+            siret: org.siret,
+            email_principal: org.email_principal,
+            telephone: org.telephone,
+            adresse: org.adresse,
+            logo_url: org.logo_url,
+          }}
+          onClose={() => setInfosOpen(false)}
+          onSaved={() => {
+            setLogoKo(false);
+            void refreshOrg();
+          }}
+        />
+      )}
+      {entiteEditee !== undefined && (
+        <ModaleEntiteFacturation
+          organisationId={id}
+          entite={entiteEditee}
+          premiere={!org.entites_facturation.some((e) => e.actif)}
+          onClose={() => setEntiteEditee(undefined)}
+          onSaved={() => void refreshOrg()}
+        />
+      )}
 
       {/* ── Modale : Ajouter un utilisateur (org imposée = la fiche) ───────── */}
       {inviteOpen && (

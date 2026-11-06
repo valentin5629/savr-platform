@@ -20,11 +20,16 @@ import {
   setSlackSink,
   type SlackPayload,
 } from '@savr/shared/src/alerting/slack.js';
-import { jourParis, jourParisDecale } from '@savr/shared/src/temps/index.js';
+import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 
 import { LogistiqueTransientError } from './index.js';
 import { AdapterMts1 } from './mts1/adapter.js';
 import { runOutboxWorker } from './outbox-worker.js';
+
+// Jours décalés en CALENDRIER depuis le jour de Paris. `jourParisDecale` retire
+// 24 h à l'instant présent : le jour du passage à l'heure d'hiver (25 h), entre
+// 23 h et minuit, « hier » y retombe sur aujourd'hui.
+const jourDecale = (jours: number) => decalerJour(jourParis(), jours);
 
 const LIEU_ID = '11111111-1111-1111-1111-111111111111';
 const AUTRE_LIEU_ID = '22222222-2222-2222-2222-222222222222';
@@ -251,8 +256,8 @@ describe('Alerte anticipée outbox — events aggregate_type=lieu (E5)', () => {
     const supabase = makeSupabase({
       attempts: 2,
       collectes: [
-        collecte('col-hier', jourParisDecale(-1), 'en_cours'),
-        collecte('col-dans-10j', jourParisDecale(10)),
+        collecte('col-hier', jourDecale(-1), 'en_cours'),
+        collecte('col-dans-10j', jourDecale(10)),
       ],
     });
 
@@ -267,9 +272,9 @@ describe('Alerte anticipée outbox — events aggregate_type=lieu (E5)', () => {
     const supabase = makeSupabase({
       attempts: 3,
       collectes: [
-        collecte('col-dans-10j', jourParisDecale(10)),
+        collecte('col-dans-10j', jourDecale(10)),
         collecte('col-ce-soir', jourParis(), 'programmee'),
-        collecte('col-dans-5j', jourParisDecale(5)),
+        collecte('col-dans-5j', jourDecale(5)),
       ],
     });
 

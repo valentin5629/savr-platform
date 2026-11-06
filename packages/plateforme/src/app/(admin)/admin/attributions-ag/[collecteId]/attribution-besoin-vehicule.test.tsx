@@ -58,6 +58,7 @@ const COLLECTE_OPS = {
   heure_collecte: '22:00:00',
   nb_camions_demande: 3,
   type_vehicule_souhaite: null,
+  pax: 150,
   evenements: { pax: 150 },
 };
 
@@ -245,6 +246,28 @@ describe('M2.3 / Attribution AG (écran dédié) — besoin véhicule jamais env
         expect(sent?.nb_camions_demande).toBe(2);
         expect(sent?.type_vehicule_souhaite).toBe('fourgon');
       }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+describe('Écran Attribution AG dédié : « Volume estimé » n’affiche que les repas (Val 2026-10-27)', () => {
+  it(
+    'collecte à 80 pax et 120 repas estimés : « 120 repas », sans le pax',
+    async () => {
+      installFetch(() =>
+        Promise.resolve({ ok: true, body: { ...COLLECTE_OPS, pax: 80 } }),
+      );
+      render(<AttributionDetailPage />);
+      await attendreFormulairePret();
+      // Du texte, pas un champ de saisie (décision Val 2026-10-27).
+      const volume = screen.getByTestId('attribution-volume');
+      expect(volume.querySelector('input')).toBeNull();
+      await waitFor(
+        () =>
+          expect(volume.querySelector('dd')).toHaveTextContent(/^120 repas$/),
+        ATTENTE_UI,
+      );
     },
     ATTENTE_CAS_MS,
   );

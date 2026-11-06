@@ -1,5 +1,6 @@
 /**
- * Job attribution AG — emails association (§06.02 n°16) + transporteur (n°18).
+ * Job attribution AG — email à l'association (§06.02 n°16). L'email au
+ * transporteur (n°18) est retiré (revue des emails, Val 2026-10-28).
  *
  * Régression 2026-09-11 : le job appelait la RPC `fn_envoyer_email_template`, qui n'a
  * jamais existé (ni migration, ni dev, ni prod) → aucun email d'attribution n'était
@@ -68,39 +69,55 @@ describe('job attribution AG — emails via sendEmail', () => {
     sendEmail.mockResolvedValue(undefined);
   });
 
-  it('envoie les 2 emails par sendEmail avec les variables des templates (chaînes)', async () => {
+  it('un seul email, à l’association : date, heure et volume (revue des emails, Val 2026-10-28)', async () => {
     await processAttributionValidee(PAYLOAD);
 
-    expect(sendEmail).toHaveBeenCalledTimes(2);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(
       'ag_attribution_association',
       'asso@example.org',
       {
         evenement_nom: 'Gala',
-        date_collecte: '2026-05-28 22:00',
-        lieu_adresse: '53 av., Paris',
+        date_collecte: '28/05/2026',
+        heure_collecte: '22:00',
         volume_estime_repas: '120',
-        transporteur_nom: 'A Toutes!',
       },
       { entityType: 'collectes', entityId: 'col-1' },
     );
-    expect(sendEmail).toHaveBeenCalledWith(
+    // Le transporteur reçoit sa mission par son outil, plus par email.
+    expect(sendEmail).not.toHaveBeenCalledWith(
       'ag_attribution_transporteur',
-      'transp@example.org',
-      {
-        evenement_nom: 'Gala',
-        date_collecte: '2026-05-28 22:00',
-        lieu_adresse: '53 av., Paris',
-        association_adresse: '1 rue, Paris',
-        volume_estime_repas: '120',
-      },
-      { entityType: 'collectes', entityId: 'col-1' },
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
     );
     // L'ancienne RPC fictive n'est plus jamais appelée.
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("un email en échec est tracé sans destinataire et n'empêche pas le second", async () => {
+  it("échappe le texte saisi : aucun HTML d'un client ne part chez l'association", async () => {
+    single.mockResolvedValue({
+      data: {
+        ...ATTRIBUTION,
+        collectes: {
+          ...ATTRIBUTION.collectes,
+          evenements: {
+            ...ATTRIBUTION.collectes.evenements,
+            nom_evenement: '<a href="https://piege.example">Cliquez</a>',
+          },
+        },
+      },
+      error: null,
+    });
+    await processAttributionValidee(PAYLOAD);
+
+    const v = sendEmail.mock.calls[0]![2] as Record<string, string>;
+    expect(v.evenement_nom).toBe(
+      '&lt;a href=&quot;https://piege.example&quot;&gt;Cliquez&lt;/a&gt;',
+    );
+  });
+
+  it('un email en échec est tracé sans destinataire, le job aboutit', async () => {
     sendEmail.mockRejectedValueOnce(
       new Error('Template email introuvable : ag_attribution_association'),
     );
@@ -108,7 +125,6 @@ describe('job attribution AG — emails via sendEmail', () => {
 
     await expect(processAttributionValidee(PAYLOAD)).resolves.toBeUndefined();
 
-    expect(sendEmail).toHaveBeenCalledTimes(2);
     expect(logErr).toHaveBeenCalledWith(
       'api.external.failed',
       expect.objectContaining({

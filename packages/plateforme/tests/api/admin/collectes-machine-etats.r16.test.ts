@@ -23,12 +23,20 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 const mockSendEmail = vi.fn().mockResolvedValue(undefined);
+// Emails « document disponible » envoyés après la clôture : jugés dans
+// tests/lib/emails-documents-disponibles.test.ts ; ici seul l'enchaînement compte.
+const envoyerEmailsDocumentsDisponibles = vi.fn();
+vi.mock('@/lib/pdf/emails-documents-disponibles.js', () => ({
+  envoyerEmailsDocumentsDisponibles: (...a: unknown[]) =>
+    envoyerEmailsDocumentsDisponibles(...a),
+}));
+
 vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: (...args: unknown[]) => mockSendEmail(...args),
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 
 const mockGetUser = vi.fn();
@@ -65,10 +73,10 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
 // `fn_modifier_collecte` n'a pas de branche `collecte.creee`. Depuis que le gate
 // E2 porte la dimension provider, un PATCH qui bascule `prestataire_logistique_id`
 // vers un transporteur de l'autre type n'émettrait AUCUN event : la collecte
-// pointerait sur un prestataire chez qui rien n'est commandé, sans même la ligne
+// pointerait sur un transporteur chez qui rien n'est commandé, sans même la ligne
 // outbox consommée en no-op. Le champ est donc hors de l'allowlist — la bascule
 // passe par `POST …/dispatch` (fn_dispatcher_collecte), qui décide du bon event.
-describe('M1.4 / le PATCH ne bascule pas le prestataire', () => {
+describe('M1.4 / le PATCH ne bascule pas le transporteur', () => {
   beforeEach(() => vi.clearAllMocks());
 
   // Un brouillon n'apparaît dans aucune liste Admin (décision Val 2026-10-07)
@@ -256,7 +264,7 @@ describe('M1.4 / machine à états / flux incident (RM-09)', () => {
     expect(mockSendEmail).toHaveBeenCalledWith(
       'admin_incident_collecte',
       expect.any(String),
-      expect.objectContaining({ imputable_a: 'prestataire' }),
+      expect.objectContaining({ imputable_a: 'le transporteur' }),
     );
     // Notification client (§05 §4bis l.347) : programmeur informé via annulation_collecte.
     expect(mockSendEmail).toHaveBeenCalledWith(
@@ -298,13 +306,17 @@ describe('M1.4 / machine à états / flux incident (RM-09)', () => {
   });
 });
 
-// ── RM-01 : cron clôture embargo H+24 ────────────────────────────────────────
-describe('M1.8 / clôture embargo H+24 (RM-01)', () => {
+// ── RM-01 : cron de clôture (48 h depuis le 2026-11-04) + emails ─────────────
+describe('M1.8 / clôture embargo (RM-01)', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('M1.8/RM-01 — cron appelle fn_cloturer_collectes_embargo et renvoie nb_traite', async () => {
     process.env['CRON_SECRET'] = 'test-secret';
     mockSupabaseChain.rpc.mockResolvedValueOnce({ data: 3, error: null });
+    envoyerEmailsDocumentsDisponibles.mockResolvedValueOnce({
+      envoyes: 2,
+      errors: [],
+    });
 
     const { POST } = await import('@/app/api/cron/cloture-embargo/route.js');
     const req = new NextRequest('http://localhost/api/cron/cloture-embargo', {
@@ -312,13 +324,20 @@ describe('M1.8 / clôture embargo H+24 (RM-01)', () => {
       headers: { authorization: 'Bearer test-secret' },
     });
     const res = await POST(req);
-    const json = (await res.json()) as { ok: boolean; nb_traite: number };
+    const json = (await res.json()) as {
+      ok: boolean;
+      nb_traite: number;
+      emails_envoyes: number;
+    };
 
     expect(res.status).toBe(200);
     expect(json.nb_traite).toBe(3);
     expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
       'fn_cloturer_collectes_embargo',
     );
+    // Email « document disponible » après la clôture, dans le même passage.
+    expect(envoyerEmailsDocumentsDisponibles).toHaveBeenCalledTimes(1);
+    expect(json.emails_envoyes).toBe(2);
   });
 
   it('M1.8/RM-01 — 401 sans CRON_SECRET valide', async () => {

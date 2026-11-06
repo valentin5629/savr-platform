@@ -4,31 +4,20 @@
  *
  * Ces trois colonnes sont des `text` sans aucune contrainte (5 000 caractères
  * acceptés, mesuré) et les routes ne filtraient que les CLÉS. Elles partent au
- * transporteur, deux d'entre elles par le canal de texte libre où toutes les
- * informations d'exploitation sont concaténées.
+ * transporteur, deux d'entre elles par le canal de texte libre (le commentaire
+ * au transporteur, composé par `composerCommentairesTransporteur`,
+ * packages/adapters/src/infos-acces.ts).
  *
- * ÉVICTION : fermée pour les DEUX champs, à ne pas revendiquer ici (l'énoncé
- * était faux et a été corrigé deux fois en revue). Le NOM passe par `nomContact`
- * (blancs repliés, puis troncature à 120) ; et depuis #324 la note du traiteur et
- * le bloc composé par Savr se partagent l'enveloppe sans pouvoir s'évincer — le
- * bloc Savr est servi le premier dans la limite de `BUDGET_AGREGAT`, la note
- * prend le reste. Aucun des deux ne peut donc chasser l'adresse d'accès du
- * message lu par le chauffeur.
- *
- * FAUSSE LIGNE D'EN-TÊTE : deux moitiés, une seule est close — ne pas nier le
- * tout (défaut relevé en revue sécurité sur ce fichier même). Par le NOM, c'est
- * impossible : `valeurLigne` replie toute rupture de ligne, y compris NEL et les
- * séparateurs C1, et pas seulement `\s` (mesuré : un nom multiligne ressort en
- * UNE ligne). Par la NOTE, c'est possible et ASSUMÉ : elle est légitimement
- * multiligne (#322 y refuse les caractères de contrôle HORS blancs, les
- * demi-surrogates orphelins et le dépassement de 1000 caractères — mais pas le
- * saut de ligne, c'est un `<textarea>`), et elle ouvre le message : elle peut
- * donc poser un faux `SEPARATEUR_AGREGAT` au-dessus du vrai,
- * que le chauffeur rencontre en premier (mesuré). Val a tranché de NE PAS fermer
- * ce vecteur (2026-09-15), le cas reproduit sous les yeux ; le raisonnement
- * complet est dans le commentaire de `SEPARATEUR_AGREGAT`
- * (packages/adapters/src/infos-acces.ts). Rien ici ne doit laisser croire le
- * contraire.
+ * Depuis le format décidé par Val le 2026-10-15, ce commentaire tient chaque
+ * valeur sur UNE ligne (`uneLigne` → `valeurLigne` replie toute rupture de
+ * ligne, y compris NEL et les séparateurs C1), la saisie du traiteur comprise :
+ * ni un nom ni la note ne peuvent plus poser une fausse ligne lue comme
+ * composée par Savr. L'ancien format (note multiligne puis « — Infos Savr — »)
+ * laissait à la note ce vecteur, que Val avait accepté le 2026-09-15 ; il n'existe
+ * plus. ÉVICTION : les lignes longues (dont la note) sont amputées puis retirées
+ * dans un ordre fixe, les contacts sont bornés par construction ; aucune valeur
+ * ne chasse les autres de l'enveloppe de 1000 caractères. Ces propriétés sont
+ * tenues et testées à l'émission (infos-acces.test.ts), pas ici.
  *
  * Ce que la borne d'entrée tient, elle, c'est l'INTÉGRITÉ DE LA DONNÉE : la
  * colonne, les exports, le rendu des fiches — plus une propriété qui ne tient
@@ -37,6 +26,11 @@
  * Chaque cas vérifie DEUX choses : le 422, et l'ABSENCE d'écriture (ni insert ni
  * RPC) — c'est cette seconde assertion qui distingue « refusé » de « refusé après
  * avoir écrit ».
+ *
+ * Lot B1 (décision Val 2026-10-23) : les contacts sur place se modifient sur
+ * chaque collecte (`collecte_contacts`, via fn_modifier_collecte) ; les routes
+ * PATCH événement les refusent (422 `champs_verrouilles`). Les bornes des
+ * contacts à l'édition sont donc éprouvées sur les routes PATCH collecte.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest, type NextResponse } from 'next/server';
@@ -77,7 +71,7 @@ vi.mock('@/lib/tarif-zd.js', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 
 const mockGetUser = vi.fn();
@@ -120,9 +114,16 @@ function setupAuth(
 
 function resetChain(): void {
   vi.clearAllMocks();
+  // `clearAllMocks` ne vide pas les réponses « Once » en attente : un cas qui
+  // s'arrête avant de les consommer les laisserait au suivant.
+  mockRpc.mockReset();
+  mockSingle.mockReset();
+  mockMaybeSingle.mockReset();
   argsRpcCaptures.length = 0;
+  mockSupabaseChain.from.mockImplementation((table: string) =>
+    table === 'types_evenements' ? lectureTypesEvenements() : mockSupabaseChain,
+  );
   for (const m of [
-    'from',
     'select',
     'insert',
     'update',
@@ -187,17 +188,61 @@ function argsRpc(nom: string): unknown {
 const NOM_DEMESURE = 'a'.repeat(5000);
 const INFOS_1001 = 'x'.repeat(1001);
 
-const BODY_ZD = {
+// Cartes du formulaire (refonte, lot B2 ; décisions Val 2026-10-22/24) : les
+// contacts et les informations supplémentaires sont portés par CHAQUE collecte
+// (une carte), plus par l'événement. Le type d'événement de la carte est
+// vérifié dans le référentiel en une lecture attendue sans terminal.
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+
+interface LectureTypes {
+  select: () => LectureTypes;
+  in: (col: string, ids: string[]) => LectureTypes;
+  eq: (col: string, valeur: unknown) => LectureTypes;
+  then: (
+    ok: (r: { data: { id: string }[]; error: null }) => unknown,
+    ko?: (e: unknown) => unknown,
+  ) => Promise<unknown>;
+}
+
+function lectureTypesEvenements(): LectureTypes {
+  let lignes = [{ id: TYPE_EVT, actif: true }];
+  const q: LectureTypes = {
+    select: () => q,
+    in: (_col, ids) => {
+      lignes = lignes.filter((l) => ids.includes(l.id));
+      return q;
+    },
+    eq: (_col, valeur) => {
+      lignes = lignes.filter((l) => l.actif === valeur);
+      return q;
+    },
+    then: (ok, ko) =>
+      Promise.resolve({
+        data: lignes.map(({ id }) => ({ id })),
+        error: null as null,
+      }).then(ok, ko),
+  };
+  return q;
+}
+
+const CARTE_ZD = {
+  type: 'zd',
+  date_collecte: '2097-01-15',
+  heure_collecte: '08:00',
   pax: 80,
-  type_evenement_id: 'type-1',
-  lieu_id: 'lieu-1',
+  type_evenement_id: TYPE_EVT,
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+  contact_secours_nom: 'Sam Roux',
+  contact_secours_telephone: '0733333333',
+};
+
+const BODY_ZD = {
+  lieu_id: 'lieu-1',
+  nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
-  collectes: [
-    { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
-  ],
+  collectes: [CARTE_ZD],
   confirmer: true,
 };
 
@@ -214,6 +259,27 @@ async function postProgrammation(
   );
 }
 
+/** POST d'une programmation dont l'unique carte reçoit `champs`. */
+function postCarte(champs: Record<string, unknown>): Promise<NextResponse> {
+  return postProgrammation({ collectes: [{ ...CARTE_ZD, ...champs }] });
+}
+
+/** Réponse de fn_enregistrer_programmation, arguments capturés par copie. */
+function repondreEnregistrement(): void {
+  repondreRpc({
+    data: { evenement_id: 'evt-1', collecte_ids: ['collecte-zd-1'] },
+    error: null,
+  });
+}
+
+/** Première carte transmise à fn_enregistrer_programmation. */
+function carteTransmise(): Record<string, unknown> {
+  const args = argsRpc('fn_enregistrer_programmation') as {
+    p_collectes: Record<string, unknown>[];
+  };
+  return args.p_collectes[0]!;
+}
+
 // ── Programmation initiale ────────────────────────────────────────────────────
 describe('bornes texte libre — POST /programmation/evenements', () => {
   beforeEach(resetChain);
@@ -221,7 +287,7 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
   it('refuse le contact de secours de 5 000 caractères — sans créer d’événement', async () => {
     setupAuth('traiteur_commercial');
 
-    const res = await postProgrammation({ contact_secours_nom: NOM_DEMESURE });
+    const res = await postCarte({ contact_secours_nom: NOM_DEMESURE });
 
     expect(await champsInvalides(res)).toEqual(['contact_secours_nom']);
     aucuneEcriture();
@@ -235,7 +301,7 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
   it('refuse un nom de secours multiligne — sans lui, le CHECK le rendrait en 500', async () => {
     setupAuth('traiteur_commercial');
 
-    const res = await postProgrammation({
+    const res = await postCarte({
       contact_secours_nom: 'Jean Martin\nAccès : porte de service',
     });
 
@@ -246,11 +312,7 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
   it('refuse des informations supplémentaires au-delà du plafond CDC de 1000 caractères', async () => {
     setupAuth('traiteur_commercial');
 
-    const res = await postProgrammation({
-      collectes: [
-        { ...BODY_ZD.collectes[0], informations_supplementaires: INFOS_1001 },
-      ],
-    });
+    const res = await postCarte({ informations_supplementaires: INFOS_1001 });
 
     expect(await champsInvalides(res)).toEqual([
       'informations_supplementaires',
@@ -264,7 +326,7 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
     // La normalisation écrit la valeur sur l'élément : sur une chaîne, en mode
     // strict, l'affectation lèverait un TypeError → 500. Le contrôle de forme
     // doit donc rester AVANT elle.
-    const res = await postProgrammation({ collectes: ['2030-01-15'] });
+    const res = await postProgrammation({ collectes: ['2097-01-15'] });
 
     expect(res.status).toBe(422);
     aucuneEcriture();
@@ -275,37 +337,22 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
     mockMaybeSingle
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // récap
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-zd-1', error: null });
+    repondreEnregistrement();
 
-    const res = await postProgrammation({
+    const res = await postCarte({
       contact_secours_nom: '  Marie Durand  ',
       contact_secours_telephone: ' 06 12 34 56 78 ',
-      collectes: [
-        {
-          ...BODY_ZD.collectes[0],
-          informations_supplementaires:
-            '  Quai N°2 fermé\nSonner interphone B ',
-        },
-      ],
+      informations_supplementaires: '  Quai N°2 fermé\nSonner interphone B ',
     });
 
     expect(res.status).toBe(201);
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contact_secours_nom: 'Marie Durand',
-        contact_secours_telephone: '06 12 34 56 78',
-      }),
-    );
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_creer_collecte',
-      expect.objectContaining({
-        p_info_suppl: 'Quai N°2 fermé\nSonner interphone B',
-      }),
-    );
+    // Valeurs figées à l'appel : la carte qui part à la RPC (seule écriture de
+    // la route) porte les valeurs normalisées, jamais le corps brut.
+    expect(carteTransmise()).toMatchObject({
+      contact_secours_nom: 'Marie Durand',
+      contact_secours_telephone: '06 12 34 56 78',
+      informations_supplementaires: 'Quai N°2 fermé\nSonner interphone B',
+    });
   });
 });
 
@@ -313,17 +360,15 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
 // Ces deux champs partent dans le champ NATIF de contact de la commande, pas dans
 // le canal libre : pas de risque d'ÉVICTION, mais un nom de 5 000 caractères reste
 // une donnée aberrante transmise au transporteur. Ils sont `obligatoire` : le
-// contrôle de présence en tête de route ne teste que `!body.x`, il laisse passer
-// `'   '`, un objet, ou 5 000 caractères.
+// contrôle de présence de la carte (lib/programmation/cartes) ne teste que la
+// clé, il laisse passer `'   '`, un objet, ou 5 000 caractères.
 describe('bornes texte libre — contacts principaux', () => {
   beforeEach(resetChain);
 
   it('POST : refuse le nom principal de 5 000 caractères — sans créer d’événement', async () => {
     setupAuth('traiteur_commercial');
 
-    const res = await postProgrammation({
-      contact_principal_nom: NOM_DEMESURE,
-    });
+    const res = await postCarte({ contact_principal_nom: NOM_DEMESURE });
 
     expect(await champsInvalides(res)).toEqual(['contact_principal_nom']);
     aucuneEcriture();
@@ -332,7 +377,7 @@ describe('bornes texte libre — contacts principaux', () => {
   it('POST : refuse un contact principal BLANC — le « truthy » de la route le laissait passer', async () => {
     setupAuth('traiteur_commercial');
 
-    const res = await postProgrammation({ contact_principal_nom: '   ' });
+    const res = await postCarte({ contact_principal_nom: '   ' });
 
     expect(await champsInvalides(res)).toEqual(['contact_principal_nom']);
     aucuneEcriture();
@@ -343,27 +388,65 @@ describe('bornes texte libre — contacts principaux', () => {
     mockMaybeSingle
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // récap
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-zd-1', error: null });
+    repondreEnregistrement();
 
-    const res = await postProgrammation({
+    const res = await postCarte({
       contact_principal_nom: '  Jean Martin  ',
       contact_principal_telephone: '  06 12 34 56 78  ',
     });
 
     expect(res.status).toBe(201);
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contact_principal_nom: 'Jean Martin',
-        contact_principal_telephone: '06 12 34 56 78',
-      }),
-    );
+    // L'INSERT est fait par fn_enregistrer_programmation, avec la carte reçue :
+    // c'est elle qui doit porter la valeur normalisée.
+    expect(carteTransmise()).toMatchObject({
+      contact_principal_nom: 'Jean Martin',
+      contact_principal_telephone: '06 12 34 56 78',
+    });
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
   });
 
-  it('PATCH /programmation/evenements/[id] : refuse d’EFFACER un contact principal (colonne NOT NULL)', async () => {
+  // Depuis le lot B1, le contact principal se modifie sur la collecte : c'est
+  // là que l'effacement est refusé (colonne NOT NULL de `collecte_contacts`).
+  for (const { espace, role, charger } of [
+    {
+      espace: 'traiteur',
+      role: 'traiteur_manager',
+      charger: () => import('@/app/api/v1/traiteur/collectes/[id]/route.js'),
+    },
+    {
+      espace: 'gestionnaire',
+      role: 'gestionnaire_lieux',
+      charger: () =>
+        import('@/app/api/v1/gestionnaire/collectes/[id]/route.js'),
+    },
+    {
+      espace: 'agence',
+      role: 'agence',
+      charger: () => import('@/app/api/v1/agence/collectes/[id]/route.js'),
+    },
+    {
+      espace: 'admin',
+      role: 'admin_savr',
+      charger: () => import('@/app/api/v1/admin/collectes/[id]/route.js'),
+    },
+  ] as const) {
+    it(`PATCH /${espace}/collectes/[id] : refuse d’EFFACER le contact principal de la collecte (colonne NOT NULL)`, async () => {
+      setupAuth(role, 'org-traiteur-1', 'user-1');
+
+      const { PATCH } = await charger();
+      const res = await PATCH(
+        makeReq('PATCH', `/api/v1/${espace}/collectes/col-1`, {
+          contact_principal_nom: '',
+        }),
+        { params: Promise.resolve({ id: 'col-1' }) },
+      );
+
+      expect(await champsInvalides(res)).toEqual(['contact_principal_nom']);
+      expect(mockRpc).not.toHaveBeenCalled();
+    });
+  }
+
+  it('PATCH /programmation/evenements/[id] : un contact principal n’est plus un champ de l’événement — 422, même vide, sans RPC', async () => {
     setupAuth('traiteur_manager', 'org-traiteur-1', 'user-1');
 
     const { PATCH } =
@@ -375,12 +458,20 @@ describe('bornes texte libre — contacts principaux', () => {
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
 
-    expect(await champsInvalides(res)).toEqual(['contact_principal_nom']);
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { champs_verrouilles?: string[] };
+    expect(json.champs_verrouilles).toEqual(['contact_principal_nom']);
     expect(mockRpc).not.toHaveBeenCalled();
   });
 });
 
 // ── Édition événement (programmateur + back-office) ───────────────────────────
+// Depuis le lot B1 (décision Val 2026-10-23), aucun champ borné ici n'est plus
+// modifiable sur l'événement : les deux routes PATCH refusent les contacts en
+// 422 `champs_verrouilles`, avant toute écriture. Leurs bornes et leur
+// normalisation à l'édition sont éprouvées sur les routes collecte (plus bas).
+// La création back-office (POST /admin/evenements) écrit encore les contacts de
+// l'événement : ses bornes restent éprouvées ici.
 describe('bornes texte libre — PATCH événement', () => {
   beforeEach(resetChain);
 
@@ -396,11 +487,13 @@ describe('bornes texte libre — PATCH événement', () => {
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
 
-    expect(await champsInvalides(res)).toEqual(['contact_secours_nom']);
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { champs_verrouilles?: string[] };
+    expect(json.champs_verrouilles).toEqual(['contact_secours_nom']);
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it('PATCH /admin/evenements/[id] : refuse une valeur non textuelle, que `->>` aurait coercée', async () => {
+  it('PATCH /admin/evenements/[id] : un contact, même non textuel, est refusé avant toute écriture', async () => {
     setupAuth('admin_savr');
 
     const { PATCH } =
@@ -412,7 +505,9 @@ describe('bornes texte libre — PATCH événement', () => {
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
 
-    expect(await champsInvalides(res)).toEqual(['contact_secours_nom']);
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { champs_verrouilles?: string[] };
+    expect(json.champs_verrouilles).toEqual(['contact_secours_nom']);
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
@@ -473,110 +568,6 @@ describe('bornes texte libre — PATCH événement', () => {
     );
   });
 
-  // ── Contre-épreuve des trois cas de refus ci-dessus ─────────────────────────
-  //
-  // Ils prouvent que la borne REJETTE ; aucun ne prouve que la valeur qui part en
-  // base est la valeur NORMALISÉE. Mesuré : neutraliser
-  // `Object.assign(updates, texteValide.valeurs)` dans les DEUX routes PATCH à la
-  // fois laissait la suite ENTIÈRE verte, sans un seul échec — `updates` repartait
-  // avec le corps brut et la normalisation était calculée pour rien. (Pas de compte
-  // de tests ici : il se périme à chaque lot et n'est vérifiable par personne.)
-  //
-  // La base ne rattrape pas ce chemin. Les deux CHECK de la migration
-  // 20260915180000 — `chk_evenements_contact_secours_nom_borne` et
-  // `chk_evenements_contact_secours_telephone_borne` — ne testent QUE deux
-  // choses : `length(col) <= 120|40` et `col !~ '[[:cntrl:]]'`. `'   '` n'est pas
-  // NULL, il est donc évalué par ce prédicat interne, qu'il satisfait : 3
-  // caractères, et l'espace U+0020 n'est pas un caractère de contrôle. La
-  // blancheur n'est regardée nulle part (aucun `btrim`, aucun `<> ''` sur ces
-  // colonnes dans TOUTES les migrations, vérifié). Ni le « trimé » ni le
-  // `'' → null` ne sont donc tenus en base.
-  //
-  // Ce que chacune des deux propriétés protège, mesuré sur le code d'émission —
-  // et NON « une ligne orpheline dans le canal libre », qui ne peut pas se
-  // produire : `lignesCanalLibre` (packages/adapters/src/infos-acces.ts) passe le
-  // nom par `nomContact` → `valeurLigne` → `texte()` → `.trim()`, puis filtre
-  // `valeur !== ''`, si bien que l'aval rattrape déjà `''` comme `'   '` pour le
-  // NOM (motif corrigé en revue sécurité, l'énoncé initial était faux ; chaîne
-  // re-vérifiée après #324, qui a inséré `valeurLigne` sans changer ce point) :
-  //   · `contact_secours_telephone: '' → null` est le SEUL rempart contre un
-  //     numéro blanc parti verbatim sur le fil. `buildContact`, dans l'adapter
-  //     camion de `packages/adapters/`, lit la colonne SANS trim et émet
-  //     `...(secoursPhone ? { phoneAlternatives: [secoursPhone] } : {})` — `''`
-  //     est falsy et tombe, `'   '` est TRUTHY et part tel quel à MTS-1.
-  //   · le `trim()` du NOM protège la donnée stockée et son rendu : la fiche
-  //     traiteur teste `evt?.contact_secours_nom &&`, donc `'   '` y affiche un
-  //     bloc « contact de secours » sans personne à appeler.
-  //
-  // Les deux tests portent des noms DISTINCTS l'un de l'autre et de tous leurs
-  // voisins : `toHaveBeenCalledWith` est satisfait par n'importe quel appel
-  // enregistré, donc une valeur partagée pourrait être fournie par le test d'à
-  // côté si le `beforeEach(resetChain)` de ce `describe` venait à disparaître.
-  it('PATCH /programmation/evenements/[id] : appelle fn_modifier_evenement avec les valeurs NORMALISÉES, pas le body brut', async () => {
-    setupAuth('traiteur_manager');
-    mockMaybeSingle
-      .mockResolvedValueOnce({
-        data: {
-          id: 'evt-1',
-          organisation_id: 'org-traiteur-1',
-          created_by: 'user-1',
-        },
-        error: null,
-      }) // lecture RLS-scopée de l'événement
-      .mockResolvedValueOnce({ data: null, error: null }); // collecte représentative (notif)
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala' },
-      error: null,
-    }); // `before` de l'audit
-    mockRpc.mockResolvedValueOnce({ data: true, error: null }); // f_collecte_editable
-    repondreRpc({ data: { id: 'evt-1' }, error: null }); // fn_modifier_evenement
-
-    const { PATCH } =
-      await import('@/app/api/v1/programmation/evenements/[id]/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/programmation/evenements/evt-1', {
-        contact_secours_nom: '  Claire Bonnet  ',
-        contact_secours_telephone: '   ',
-      }),
-      { params: Promise.resolve({ id: 'evt-1' }) },
-    );
-
-    expect(res.status).toBe(200);
-    expect(argsRpc('fn_modifier_evenement')).toEqual(
-      expect.objectContaining({
-        p_updates: expect.objectContaining({
-          contact_secours_nom: 'Claire Bonnet',
-          contact_secours_telephone: null,
-        }),
-      }),
-    );
-  });
-
-  it('PATCH /admin/evenements/[id] : appelle fn_modifier_evenement avec les valeurs NORMALISÉES, pas le body brut', async () => {
-    setupAuth('admin_savr');
-    repondreRpc({ data: { id: 'evt-1' }, error: null });
-
-    const { PATCH } =
-      await import('@/app/api/v1/admin/evenements/[id]/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/admin/evenements/evt-1', {
-        contact_secours_nom: '  Hugo Petit  ',
-        contact_secours_telephone: '   ',
-      }),
-      { params: Promise.resolve({ id: 'evt-1' }) },
-    );
-
-    expect(res.status).toBe(200);
-    expect(argsRpc('fn_modifier_evenement')).toEqual(
-      expect.objectContaining({
-        p_updates: expect.objectContaining({
-          contact_secours_nom: 'Hugo Petit',
-          contact_secours_telephone: null,
-        }),
-      }),
-    );
-  });
-
   // Jumeau de l'oracle « contacts principaux » de #328, sur les contacts de
   // SECOURS : même route, même spy `insert`, champs disjoints. Les valeurs des
   // deux cas doivent rester distinctes — `toHaveBeenCalledWith` est satisfait par
@@ -611,6 +602,213 @@ describe('bornes texte libre — PATCH événement', () => {
   });
 });
 
+// ── Contacts de la collecte (lot B1) : bornes et normalisation à l'édition ────
+//
+// Ces cas reprennent ceux qu'éprouvaient les deux routes PATCH événement avant
+// le lot B1 (décision Val 2026-10-23) : la borne REJETTE (5 000 caractères,
+// valeur non textuelle), puis la valeur qui part à la RPC est la valeur
+// NORMALISÉE. Mesuré à l'époque sur les routes événement : neutraliser
+// `Object.assign(updates, texteValide.valeurs)` laissait la suite ENTIÈRE verte
+// — `updates` repartait avec le corps brut et la normalisation était calculée
+// pour rien.
+//
+// La base ne rattrape pas ce chemin. Les CHECK des contacts de secours de
+// `collecte_contacts` (migration 20261022210000, mêmes bornes que ceux de
+// l'événement) ne testent QUE `length(col) <= 120|40` et
+// `col !~ '[[:cntrl:]]'` : `'   '` les satisfait, la blancheur n'y est pas
+// regardée (seuls les contacts PRINCIPAUX y portent un `btrim(…) <> ''`). Ni le
+// « trimé » ni le `'' → null` des contacts de secours ne sont donc tenus en base.
+//
+// Ce que chacune des deux propriétés protège, mesuré sur le code d'émission :
+//   · `contact_secours_telephone: '' → null` est le SEUL rempart contre un
+//     numéro blanc parti verbatim sur le fil. `contactMts1`, dans l'adapter
+//     camion de `packages/adapters/`, lit la colonne SANS trim et émet
+//     `...(telephoneSecours ? { phoneAlternatives: [telephoneSecours] } : {})` —
+//     `''` est falsy et tombe, `'   '` est TRUTHY et part tel quel à MTS-1.
+//   · le `trim()` du NOM protège la donnée stockée et son rendu (l'aval du canal
+//     libre rattrape déjà `''` comme `'   '` pour le nom : `ligneContact`, dans
+//     packages/adapters/src/infos-acces.ts, passe par `.trim()` et écarte une
+//     valeur vide).
+//
+// Valeurs DISTINCTES de toutes les autres du fichier : `toHaveBeenCalledWith`
+// est satisfait par n'importe quel appel enregistré sur le spy.
+describe('bornes texte libre — contacts sur les routes collecte', () => {
+  beforeEach(resetChain);
+
+  // Contacts « avant » de la collecte, lus par la route (état de l'audit et de
+  // l'email à l'équipe Savr).
+  const CONTACTS_AVANT = {
+    data: {
+      contact_principal_nom: 'Jean Martin',
+      contact_principal_telephone: '0612345678',
+      contact_secours_nom: null,
+      contact_secours_telephone: null,
+    },
+    error: null,
+  };
+
+  it('PATCH /traiteur/collectes/[id] : refuse le contact de secours de 5 000 caractères — fn_modifier_collecte jamais appelée', async () => {
+    setupAuth('traiteur_manager');
+
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/collectes/col-1', {
+        contact_secours_nom: NOM_DEMESURE,
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    expect(await champsInvalides(res)).toEqual(['contact_secours_nom']);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('PATCH /admin/collectes/[id] : refuse une valeur non textuelle, que `->>` aurait coercée', async () => {
+    setupAuth('admin_savr');
+
+    const { PATCH } =
+      await import('@/app/api/v1/admin/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/collectes/col-1', {
+        contact_secours_nom: { $ne: 1 },
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    expect(await champsInvalides(res)).toEqual(['contact_secours_nom']);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('PATCH /traiteur/collectes/[id] : appelle fn_modifier_collecte avec les contacts NORMALISÉS, pas le body brut', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1', 'user-1');
+    mockMaybeSingle
+      .mockResolvedValueOnce({
+        data: {
+          id: 'col-1',
+          statut: 'programmee',
+          statut_tms: 'non_envoye',
+          date_collecte: '2097-01-15',
+          heure_collecte: '08:00:00',
+          evenement: {
+            created_by: 'user-1',
+            organisation_id: 'org-traiteur-1',
+          },
+        },
+        error: null,
+      }) // lecture RLS-scopée (gate statut + autorisation acteur)
+      .mockResolvedValueOnce(CONTACTS_AVANT); // contacts de la collecte (avant)
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'col-1', statut: 'programmee' },
+      error: null,
+    }); // `before` de l'audit
+    repondreRpc({ data: { id: 'col-1' }, error: null }); // fn_modifier_collecte
+
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/collectes/col-1', {
+        contact_secours_nom: '  Claire Bonnet  ',
+        contact_secours_telephone: '  07 11 11 11 11  ',
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(argsRpc('fn_modifier_collecte')).toEqual(
+      expect.objectContaining({
+        p_updates: {
+          contact_secours_nom: 'Claire Bonnet',
+          contact_secours_telephone: '07 11 11 11 11',
+        },
+      }),
+    );
+  });
+
+  it('PATCH /admin/collectes/[id] : appelle fn_modifier_collecte avec les contacts NORMALISÉS, pas le body brut', async () => {
+    setupAuth('admin_savr');
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'col-1', statut: 'programmee' },
+      error: null,
+    }); // `before` de l'audit
+    mockMaybeSingle.mockResolvedValueOnce(CONTACTS_AVANT); // contacts (avant)
+    repondreRpc({
+      data: { id: 'col-1', statut: 'programmee' },
+      error: null,
+    }); // fn_modifier_collecte
+
+    const { PATCH } =
+      await import('@/app/api/v1/admin/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/collectes/col-1', {
+        contact_secours_nom: '  Hugo Petit  ',
+        contact_secours_telephone: '  07 22 22 22 22  ',
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(argsRpc('fn_modifier_collecte')).toEqual(
+      expect.objectContaining({
+        p_updates: {
+          contact_secours_nom: 'Hugo Petit',
+          contact_secours_telephone: '07 22 22 22 22',
+        },
+      }),
+    );
+  });
+
+  // Contact de secours obligatoire (décision Val 2026-10-30) : un secours
+  // vidé ou blanc est refusé sur les quatre routes, jamais normalisé en null.
+  for (const [espace, role, charger] of [
+    [
+      'traiteur',
+      'traiteur_manager',
+      () => import('@/app/api/v1/traiteur/collectes/[id]/route.js'),
+    ],
+    [
+      'gestionnaire',
+      'gestionnaire_lieux',
+      () => import('@/app/api/v1/gestionnaire/collectes/[id]/route.js'),
+    ],
+    [
+      'agence',
+      'agence',
+      () => import('@/app/api/v1/agence/collectes/[id]/route.js'),
+    ],
+    [
+      'admin',
+      'admin_savr',
+      () => import('@/app/api/v1/admin/collectes/[id]/route.js'),
+    ],
+  ] as const) {
+    for (const [champ, valeur] of [
+      ['contact_secours_nom', null],
+      ['contact_secours_telephone', '   '],
+    ] as const) {
+      it(`PATCH /${espace}/collectes/[id] : ${champ} vidé → 422, fn_modifier_collecte jamais appelée`, async () => {
+        setupAuth(role);
+        const { PATCH } = await charger();
+        const res = await PATCH(
+          makeReq('PATCH', `/api/v1/${espace}/collectes/col-1`, {
+            [champ]: valeur,
+          }),
+          { params: Promise.resolve({ id: 'col-1' }) },
+        );
+
+        expect(res.status).toBe(422);
+        expect(await res.json()).toMatchObject({
+          error: 'Le contact de secours et son téléphone sont obligatoires.',
+          champ,
+        });
+        expect(mockRpc).not.toHaveBeenCalledWith(
+          'fn_modifier_collecte',
+          expect.anything(),
+        );
+      });
+    }
+  }
+});
+
 // ── Écriture de `informations_supplementaires` au niveau collecte ─────────────
 describe('bornes texte libre — routes collecte', () => {
   beforeEach(resetChain);
@@ -622,9 +820,7 @@ describe('bornes texte libre — routes collecte', () => {
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
-        type: 'zd',
-        date_collecte: '2030-01-15',
-        heure_collecte: '08:00',
+        ...CARTE_ZD,
         informations_supplementaires: INFOS_1001,
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
@@ -644,8 +840,9 @@ describe('bornes texte libre — routes collecte', () => {
       makeReq('POST', '/api/v1/admin/collectes', {
         evenement_id: 'evt-1',
         type: 'zero_dechet',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00',
+        pax: 80,
         informations_supplementaires: INFOS_1001,
       }),
     );
@@ -731,11 +928,11 @@ describe('bornes texte libre — routes collecte', () => {
   // `<> ''` sur cette colonne dans TOUTES les migrations (vérifié).
   //
   // Ce que le `trim()` protège ici, relevé sur le code d'émission et NON déduit :
-  // l'aval rattrape déjà le cas BLANC pour ce champ — `composerInformations-
-  // Supplementaires` (packages/adapters/src/infos-acces.ts) le passe par
-  // `texte()` → `.trim()` et ne garde la note que si elle est non vide (`if
-  // (!base) return assemblerAgregat('', lignes, …)`, formulation post-#324), si
-  // bien que `'   '` n'ouvre aucune ligne chez le chauffeur. Ce que le `trim()`
+  // l'aval rattrape déjà le cas BLANC pour ce champ — `composerCommentaire-
+  // Transporteur` (packages/adapters/src/infos-acces.ts) le passe par `uneLigne`
+  // → `texte()` → `.trim()`, et aucune ligne n'est émise pour une valeur vide
+  // (format du 2026-10-15), si bien que `'   '` n'ouvre aucune ligne chez le
+  // chauffeur. Ce que le `trim()`
   // tient, ce sont la donnée STOCKÉE, les exports et le rendu — pas le fil.
   // (La propriété qui, elle, ne tient qu'ici est celle de
   // `contact_secours_telephone`, contre-éprouvée sur les routes événement.)
@@ -782,7 +979,7 @@ describe('bornes texte libre — routes collecte', () => {
         id: 'col-1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00:00',
         evenement: {
           created_by: 'user-1',
@@ -792,6 +989,7 @@ describe('bornes texte libre — routes collecte', () => {
       },
       error: null,
     }); // lecture RLS-scopée (gate statut + autorisation acteur)
+    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null }); // contacts de la collecte (avant)
     mockSingle.mockResolvedValueOnce({
       data: { id: 'col-1', statut: 'programmee' },
       error: null,
@@ -824,7 +1022,7 @@ describe('bornes texte libre — routes collecte', () => {
         id: 'col-1',
         statut: 'validee',
         statut_tms: 'non_envoye',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00:00',
         // Périmètre d'écriture gestionnaire : l'org de l'événement DOIT être la
         // sienne, sinon la route rend 403 avant la RPC.
@@ -832,6 +1030,7 @@ describe('bornes texte libre — routes collecte', () => {
       },
       error: null,
     });
+    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null }); // contacts de la collecte (avant)
     mockSingle.mockResolvedValueOnce({
       data: { id: 'col-1', statut: 'validee' },
       error: null,
@@ -859,19 +1058,22 @@ describe('bornes texte libre — routes collecte', () => {
 
   it('PATCH /agence/collectes/[id] : appelle fn_modifier_collecte avec la valeur NORMALISÉE, pas le body brut', async () => {
     setupAuth('agence', 'org-agence-1', 'user-agence-1');
-    // Cette route n'a pas de relecture `before` : la lecture RLS-scopée est son
-    // seul SELECT avant la RPC.
     mockMaybeSingle.mockResolvedValueOnce({
       data: {
         id: 'col-1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00:00',
         evenement: { organisation_id: 'org-agence-1' },
       },
       error: null,
     });
+    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null }); // contacts de la collecte (avant)
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'col-1' },
+      error: null,
+    }); // `before` de l'email à l'équipe Savr
     repondreRpc({ data: { id: 'col-1' }, error: null }); // fn_modifier_collecte
 
     const { PATCH } =
@@ -912,8 +1114,9 @@ describe('bornes texte libre — routes collecte', () => {
       makeReq('POST', '/api/v1/admin/collectes', {
         evenement_id: 'evt-1',
         type: 'zero_dechet',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         heure_collecte: '08:00',
+        pax: 80,
         informations_supplementaires: '  Cuisine au sous-sol, ascenseur B  ',
       }),
     );
@@ -927,7 +1130,7 @@ describe('bornes texte libre — routes collecte', () => {
     );
   });
 
-  it('POST /programmation/evenements/[id]/collectes : passe à fn_ajouter_collecte_evenement la valeur NORMALISÉE', async () => {
+  it('POST /programmation/evenements/[id]/collectes : passe à fn_creer_collecte_carte la valeur NORMALISÉE', async () => {
     setupAuth('traiteur_manager');
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -937,29 +1140,26 @@ describe('bornes texte libre — routes collecte', () => {
         pax: 80,
       },
       error: null,
-    }); // vérification propriété/éditabilité de l'événement
-    mockRpc
-      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
-      .mockResolvedValueOnce({ data: 'col-neuve', error: null }); // fn_ajouter_collecte_evenement
+    }); // vérification de propriété de l'événement
+    repondreRpc({ data: 'col-neuve', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
-        type: 'zd',
-        date_collecte: '2030-01-15',
-        heure_collecte: '08:00',
+        ...CARTE_ZD,
         informations_supplementaires: '  Sonner au 3e, porte droite  ',
+        contact_secours_nom: '  Marie Durand  ',
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
 
     expect(res.status).toBe(201);
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_ajouter_collecte_evenement',
-      expect.objectContaining({
-        p_info_suppl: 'Sonner au 3e, porte droite',
-      }),
-    );
+    expect(argsRpc('fn_creer_collecte_carte')).toMatchObject({
+      p_carte: {
+        informations_supplementaires: 'Sonner au 3e, porte droite',
+        contact_secours_nom: 'Marie Durand',
+      },
+    });
   });
 });

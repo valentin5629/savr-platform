@@ -1,43 +1,41 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChefHat, MapPin } from 'lucide-react';
+import { ChefHatIcon, MapPinIcon } from '@/components/ui/icones';
 import { Card } from '@/components/ui/card';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { EnTetePuce, FicheEnTete } from '@/components/ui/fiche/fiche-en-tete';
+import { EnTetePuce } from '@/components/ui/fiche/fiche-en-tete';
+import {
+  FicheGrandEnTete,
+  FicheOnglet,
+  FicheOnglets,
+  FicheRepere,
+} from '@/components/ui/fiche/fiche-grand-en-tete';
 import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
-import { SectionHeader } from '@/components/ui/section-header';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { Skeleton } from '@/components/ui/skeleton';
-import { StatCard } from '@/components/ui/stat-card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import {
   ToggleTypeCollecte,
   type CollecteType,
 } from '@/components/collecte/toggle-type-collecte';
+import { CartesKpiGestionnaire } from '@/components/dashboards/CartesKpiGestionnaire';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
-import {
-  fmtDec,
-  fmtInt,
-  fmtMasse,
-} from '@/components/dashboards/charts/cockpit/fmt';
-import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { fmtInt } from '@/components/dashboards/charts/cockpit/fmt';
 import type { DashboardFilters } from '@/components/dashboards/DashboardFilterBar';
 import { useEvolutionBlocs } from '@/components/dashboards/useEvolutionBlocs';
-import {
-  previousWindow,
-  sparkFromSeries,
-  variationPct,
-} from '@/lib/dashboards/cockpit-derive';
+import { useKpisGestionnaire } from '@/components/dashboards/useKpisGestionnaire';
 import { estUuid } from '@/lib/filtre-csv';
 import { periodeDerniers } from '@/lib/periodes-raccourcis';
 
 // Fiche traiteur du gestionnaire de lieux, en pop-up sur la liste Traiteurs
 // (§06.05 §5 — arbitrage Val 2026-10-07, ex-page /gestionnaire/traiteurs/[id]).
-// Cadre commun des fiches (FicheModal : grand en-tête, onglets, corps défilant).
+// Grand format de la variante B (décision Val 2026-10-27) : grand en-tête,
+// onglets soulignés dans l'en-tête, seul le corps défile, sections en lignes.
 //
 // Vue non commerciale et en lecture seule : nom et logo du traiteur, puis ce
 // qu'il a fait SUR LES LIEUX DE L'ORGANISATION — jamais ailleurs, jamais de
@@ -126,10 +124,11 @@ export function FicheTraiteurModal({
       open
       title={traiteur?.nom ?? 'Fiche traiteur'}
       onClose={onClose}
+      taille="grand"
     >
       {etat === 'chargement' && (
         <>
-          <FicheEnTete titre="Fiche traiteur" />
+          <FicheGrandEnTete titre="Fiche traiteur" />
           {/* §10 §7 « Loading » : skeletons à la forme du contenu. */}
           <FicheCorps className="space-y-4 py-6" aria-busy="true">
             <Skeleton className="h-10 w-full" />
@@ -140,7 +139,7 @@ export function FicheTraiteurModal({
 
       {etat === 'erreur' && (
         <>
-          <FicheEnTete titre="Fiche traiteur" />
+          <FicheGrandEnTete titre="Fiche traiteur" />
           <FicheCorps className="py-6">
             <ErrorState
               message="Impossible de charger ce traiteur. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
@@ -152,10 +151,10 @@ export function FicheTraiteurModal({
 
       {etat === 'introuvable' && (
         <>
-          <FicheEnTete titre="Fiche traiteur" />
+          <FicheGrandEnTete titre="Fiche traiteur" />
           <FicheCorps className="py-6">
             <EmptyState
-              icon={<ChefHat className="h-8 w-8" />}
+              icon={<ChefHatIcon className="h-8 w-8" />}
               title="Traiteur non trouvé"
               description="Ce traiteur n'existe pas ou n'est pas intervenu sur vos lieux."
             />
@@ -164,8 +163,8 @@ export function FicheTraiteurModal({
       )}
 
       {etat === 'pret' && traiteur && (
-        <>
-          <FicheEnTete
+        <Tabs defaultValue="lieux" className="flex min-h-0 flex-1 flex-col">
+          <FicheGrandEnTete
             surtitre={
               <>
                 {traiteur.logo_url && !logoKo && (
@@ -182,61 +181,53 @@ export function FicheTraiteurModal({
               </>
             }
             titre={traiteur.nom}
-            infosTestId="fiche-traiteur-infos"
-            infos={[
-              {
-                icon: MapPin,
-                texte:
-                  nbLieux > 0
-                    ? `${nbLieux} lieu${nbLieux > 1 ? 'x' : ''} d’intervention sur 24 mois`
-                    : 'Aucune intervention sur 24 mois',
-              },
-            ]}
+            reperesTestId="fiche-traiteur-infos"
+            reperes={
+              <FicheRepere icon={MapPinIcon}>
+                {nbLieux > 0
+                  ? `${nbLieux} lieu${nbLieux > 1 ? 'x' : ''} d’intervention sur 24 mois`
+                  : 'Aucune intervention sur 24 mois'}
+              </FicheRepere>
+            }
+            onglets={
+              <FicheOnglets aria-label="Sections de la fiche traiteur">
+                <FicheOnglet value="lieux">
+                  Lieux d’intervention{nbLieux > 0 ? ` (${nbLieux})` : ''}
+                </FicheOnglet>
+                <FicheOnglet value="activite">Activité</FicheOnglet>
+              </FicheOnglets>
+            }
           />
           <FicheCorps>
-            <Tabs defaultValue="lieux">
-              <TabsList>
-                <TabsTrigger value="lieux">
-                  Lieux d’intervention{nbLieux > 0 ? ` (${nbLieux})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="activite">Activité</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="lieux" className="space-y-4">
-                <Card padding="md" className="space-y-4">
-                  <SectionHeader
-                    icon={MapPin}
-                    title="Lieux d’intervention"
-                    level={3}
+            <TabsContent value="lieux" className="mt-0">
+              <FicheSection titre="Lieux d’intervention">
+                {nbLieux === 0 ? (
+                  <EmptyState
+                    size="inline"
+                    title="Aucune collecte clôturée sur vos lieux au cours des 24 derniers mois."
                   />
-                  {nbLieux === 0 ? (
-                    <EmptyState
-                      size="inline"
-                      title="Aucune collecte clôturée sur vos lieux au cours des 24 derniers mois."
+                ) : (
+                  <div className="min-w-0 space-y-4">
+                    <Text variant="hint">
+                      Collectes clôturées de ce traiteur sur vos lieux, au cours
+                      des 24 derniers mois.
+                    </Text>
+                    <DataTable
+                      columnsToggle={false}
+                      columns={COLONNES_LIEUX}
+                      data={traiteur.lieux_intervention}
+                      keyExtractor={(l) => l.id}
                     />
-                  ) : (
-                    <>
-                      <Text variant="hint">
-                        Collectes clôturées de ce traiteur sur vos lieux, au
-                        cours des 24 derniers mois.
-                      </Text>
-                      <DataTable
-                        columnsToggle={false}
-                        columns={COLONNES_LIEUX}
-                        data={traiteur.lieux_intervention}
-                        keyExtractor={(l) => l.id}
-                      />
-                    </>
-                  )}
-                </Card>
-              </TabsContent>
+                  </div>
+                )}
+              </FicheSection>
+            </TabsContent>
 
-              <TabsContent value="activite">
-                <ActiviteTraiteur traiteurId={traiteur.id} />
-              </TabsContent>
-            </Tabs>
+            <TabsContent value="activite" className="mt-0">
+              <ActiviteTraiteur traiteurId={traiteur.id} />
+            </TabsContent>
           </FicheCorps>
-        </>
+        </Tabs>
       )}
     </FicheModal>
   );
@@ -271,69 +262,6 @@ function ActiviteTraiteur({ traiteurId }: { traiteurId: string }) {
   );
 }
 
-// Les 4 cartes du dashboard gestionnaire (`/api/v1/gestionnaire/dashboard`).
-interface Kpis {
-  nb_collectes: number | null;
-  tonnage_kg?: number | null;
-  taux_recyclage_pondere?: number | null;
-  kg_par_pax?: number | null;
-  nb_repas_donnes?: number | null;
-  pax_total?: number | null;
-  repas_par_pax?: number | null;
-}
-
-// KPIs de la période et de la période précédente équivalente (variation des
-// cartes), comme le dashboard. La période précédente n'est pas bloquante : son
-// échec ne masque que les variations.
-function useKpis(filtres: DashboardFilters | null, type: CollecteType) {
-  const [kpi, setKpi] = useState<Kpis | null>(null);
-  const [kpiPrev, setKpiPrev] = useState<Kpis | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [erreur, setErreur] = useState(false);
-
-  useEffect(() => {
-    if (!filtres) return;
-    let annule = false;
-    setLoading(true);
-    setErreur(false);
-    const lire = (from: string, to: string): Promise<Kpis | null> => {
-      const qs = new URLSearchParams({ from, to, type });
-      (filtres.traiteur_ids ?? []).forEach((id) =>
-        qs.append('traiteur_ids[]', id),
-      );
-      return fetch(`/api/v1/gestionnaire/dashboard?${qs}`)
-        .then((r) => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json() as Promise<{ data?: { kpis?: Kpis | null } }>;
-        })
-        .then((j) => j.data?.kpis ?? null);
-    };
-    const precedente = previousWindow(filtres.from, filtres.to);
-    Promise.all([
-      lire(filtres.from, filtres.to),
-      precedente
-        ? lire(precedente.from, precedente.to).catch(() => null)
-        : Promise.resolve(null),
-    ])
-      .then(([courant, avant]) => {
-        if (annule) return;
-        setKpi(courant);
-        setKpiPrev(avant);
-      })
-      .catch(() => {
-        if (!annule) setErreur(true);
-      })
-      .finally(() => {
-        if (!annule) setLoading(false);
-      });
-    return () => {
-      annule = true;
-    };
-  }, [filtres, type]);
-
-  return { kpi, kpiPrev, loading, erreur };
-}
-
 function BlocActivite({
   traiteurId,
   type,
@@ -348,7 +276,7 @@ function BlocActivite({
     return periode ? { ...periode, traiteur_ids: [traiteurId] } : null;
   }, [traiteurId]);
   const evolution = useEvolutionBlocs(filtres, type);
-  const { kpi, kpiPrev, loading, erreur } = useKpis(filtres, type);
+  const { kpi, kpiPrev, loading, erreur } = useKpisGestionnaire(filtres, type);
   const zd = type === 'zero_dechet';
 
   if (erreur || evolution.erreur)
@@ -380,109 +308,14 @@ function BlocActivite({
     );
 
   const { zdSeries, agSeries, granularite } = evolution;
-  // Cartes : mêmes libellés, formats et couleurs que le Bloc 1 du dashboard
-  // gestionnaire (`(gestionnaire)/gestionnaire/page.tsx`).
   return (
     <div className="space-y-4">
-      <div
-        className="grid grid-cols-2 gap-4 lg:grid-cols-4"
-        data-testid="fiche-traiteur-kpis"
-      >
-        {zd ? (
-          <>
-            <StatCard
-              label="Nombre de collectes"
-              value={fmtInt(kpi.nb_collectes)}
-              dotColor={KPI_DOT.navy}
-              variationPct={variationPct(
-                kpi.nb_collectes,
-                kpiPrev?.nb_collectes ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(zdSeries, (p) => p.nb_collectes)}
-            />
-            <StatCard
-              label="Tonnage collecté"
-              value={fmtMasse(kpi.tonnage_kg ?? 0).value}
-              unit={fmtMasse(kpi.tonnage_kg ?? 0).unit}
-              dotColor={KPI_DOT.navy2}
-              variationPct={variationPct(
-                kpi.tonnage_kg ?? 0,
-                kpiPrev?.tonnage_kg ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(zdSeries, (p) => p.tonnage_total)}
-            />
-            <StatCard
-              label="Taux de recyclage"
-              value={
-                kpi.taux_recyclage_pondere != null
-                  ? fmtDec(kpi.taux_recyclage_pondere, 1)
-                  : '—'
-              }
-              unit={kpi.taux_recyclage_pondere != null ? '%' : undefined}
-              dotColor={KPI_DOT.green}
-              variationPct={variationPct(
-                kpi.taux_recyclage_pondere ?? 0,
-                kpiPrev?.taux_recyclage_pondere ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(zdSeries, (p) => p.taux_recyclage)}
-              sparkColor={KPI_DOT.green}
-            />
-            {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
-              mieux », §06.05 l.136). */}
-            <StatCard
-              label="kg/pax moyen"
-              value={kpi.kg_par_pax != null ? fmtDec(kpi.kg_par_pax, 2) : '—'}
-              unit={kpi.kg_par_pax != null ? 'kg/pax' : undefined}
-              dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromSeries(zdSeries, (p) =>
-                p.pax ? p.tonnage_total / p.pax : 0,
-              )}
-            />
-          </>
-        ) : (
-          <>
-            <StatCard
-              label="Nombre de collectes"
-              value={fmtInt(kpi.nb_collectes)}
-              dotColor={KPI_DOT.navy}
-              variationPct={variationPct(
-                kpi.nb_collectes,
-                kpiPrev?.nb_collectes ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.nb_collectes)}
-            />
-            <StatCard
-              label="Repas donnés"
-              value={fmtInt(kpi.nb_repas_donnes ?? 0)}
-              dotColor={KPI_DOT.accent}
-              variationPct={variationPct(
-                kpi.nb_repas_donnes ?? 0,
-                kpiPrev?.nb_repas_donnes ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
-              sparkColor={KPI_DOT.accent}
-            />
-            <StatCard
-              label="Pax cumulés"
-              value={fmtInt(kpi.pax_total ?? 0)}
-              dotColor={KPI_DOT.navy2}
-              variationPct={variationPct(
-                kpi.pax_total ?? 0,
-                kpiPrev?.pax_total ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.pax)}
-            />
-            <StatCard
-              label="Repas/pax moyen"
-              value={
-                kpi.repas_par_pax != null ? fmtDec(kpi.repas_par_pax, 2) : '—'
-              }
-              dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.ratio)}
-            />
-          </>
-        )}
-      </div>
+      <CartesKpiGestionnaire
+        type={type}
+        kpi={kpi}
+        kpiPrev={kpiPrev}
+        testId="fiche-traiteur-kpis"
+      />
       {zd ? (
         <EvolutionZdChart series={zdSeries} granularite={granularite} />
       ) : (

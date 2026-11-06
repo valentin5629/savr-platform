@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { urlApplication } from '@/lib/url-application.js';
+import { ROUTES } from '@/lib/routes';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -77,9 +80,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     if (userProfile?.prenom) {
+      // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
       await sendEmail('bienvenue_organisation', data.user.email!, {
-        prenom: userProfile.prenom as string,
-        organisation_nom: '',
+        prenom: escapeHtml(userProfile.prenom as string),
+        lien_programmation_collecte: urlApplication(
+          req,
+          ROUTES.programmer.nouveau,
+        ),
       });
     }
   } catch {

@@ -15,9 +15,16 @@ import {
 } from '@testing-library/react';
 
 import { filtrerFactures, type FiltresFactures } from './factures-filtres-bar';
-import { FacturesAgenceTable } from '@/app/(agence)/agence/mon-organisation/factures-table';
-import MonOrganisationGestionnairePage from '@/app/(gestionnaire)/gestionnaire/mon-organisation/page';
+import { FacturesAgenceTable } from '@/app/(agence)/agence/parametres/factures-table';
+import { ParametresGestionnaireClient } from '@/app/(gestionnaire)/gestionnaire/parametres/parametres-client';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+
+// Facturation sur la plateforme allumée : ce fichier vérifie les listes de
+// factures telles qu'elles reviendront. Au go-live elles sont masquées (décision
+// Val 2026-10-22), ce que prouve tests/ui/facturation-hors-plateforme.test.tsx.
+vi.mock('@/lib/facturation-plateforme', () => ({
+  facturationPlateformeActive: () => true,
+}));
 
 const VIDES: FiltresFactures = {
   statuts: [],
@@ -158,7 +165,7 @@ describe('R-UI-4b / factures gestionnaire — onglet Factures', () => {
           ),
         ),
       );
-      render(<MonOrganisationGestionnairePage />);
+      render(<ParametresGestionnaireClient />);
       fireEvent.mouseDown(screen.getByRole('tab', { name: 'Factures' }));
       await screen.findByRole('table', {}, ATTENTE_UI);
 
@@ -178,7 +185,8 @@ describe('R-UI-4b / factures gestionnaire — onglet Factures', () => {
       expect(screen.getByTestId('factures-filtres-count')).toHaveTextContent(
         '2 factures',
       );
-      expect(window.location.search).toBe('?statuts=emise');
+      // L'onglet ouvert reste dans l'URL avec les filtres (Paramètres, Val 2026-10-31).
+      expect(window.location.search).toBe('?onglet=factures&statuts=emise');
     },
     ATTENTE_CAS_MS,
   );

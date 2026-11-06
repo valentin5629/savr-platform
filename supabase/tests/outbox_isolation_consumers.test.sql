@@ -111,10 +111,12 @@ SELECT is(
   0,
   'Attribution : head-of-line conservé dans la famille (2e event bloqué par le 1er non done)');
 
--- Agrégat F (logistique) : E1 dead puis E2 pending → E2 toujours bloqué (OUTBOX-02 intact).
-INSERT INTO plateforme.outbox_events (id, txid, aggregate_type, aggregate_id, event_type, payload, statut, consumer)
+-- Agrégat F (logistique) : E1 en cours puis E2 pending → E2 bloqué (head-of-line
+-- intact dans la famille ; un E1 'dead' ne bloque plus depuis le 2026-11-03,
+-- cf. outbox_claim_collecte.test.sql, parité F).
+INSERT INTO plateforme.outbox_events (id, txid, aggregate_type, aggregate_id, event_type, payload, statut, consumer, claimed_until)
 VALUES ('f1ffffff-0000-0000-0000-000000000001', 1, 'collecte',
-        'f0000000-0000-0000-0000-0000000000f1', 'collecte.creee', '{}'::jsonb, 'dead', 'adapter_mts1');
+        'f0000000-0000-0000-0000-0000000000f1', 'collecte.creee', '{}'::jsonb, 'processing', 'adapter_mts1', now() + interval '2 minutes');
 INSERT INTO plateforme.outbox_events (id, txid, aggregate_type, aggregate_id, event_type, payload, statut, consumer)
 VALUES ('f2ffffff-0000-0000-0000-000000000002', 1, 'collecte',
         'f0000000-0000-0000-0000-0000000000f1', 'collecte.modifiee', '{}'::jsonb, 'pending', NULL);
@@ -123,7 +125,7 @@ SELECT is(
   (SELECT count(*)::int FROM plateforme.fn_claim_outbox_batch(50)
      WHERE id = 'f2ffffff-0000-0000-0000-000000000002'),
   0,
-  'Logistique : OUTBOX-02 intact — un E1 dead bloque toujours E2 de sa famille');
+  'Logistique : head-of-line intact — un E1 en cours bloque E2 de sa famille');
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 5. Durcissement : privilèges et attributs SECURITY DEFINER conservés

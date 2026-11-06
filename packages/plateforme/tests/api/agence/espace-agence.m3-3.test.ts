@@ -32,6 +32,7 @@ function makeChain() {
     'eq',
     'in',
     'gte',
+    'gt',
     'lte',
     'neq',
     'order',
@@ -47,6 +48,18 @@ function makeChain() {
   }
   chain.maybeSingle = () => Promise.resolve(next());
   chain.single = () => Promise.resolve(next());
+  // File d'envoi (`outbox_events`, envoi abandonné lu par l'email à l'équipe) :
+  // aucun abandon, hors de la file de réponses et des appels enregistrés.
+  const sansAbandon = {
+    select: () => sansAbandon,
+    eq: () => sansAbandon,
+    in: () => sansAbandon,
+    then: (resolve: (r: Result) => unknown) =>
+      resolve({ data: [], error: null }),
+  };
+  const fromParDefaut = chain.from as (...args: unknown[]) => unknown;
+  chain.from = (...args: unknown[]) =>
+    args[0] === 'outbox_events' ? sansAbandon : fromParDefaut(...args);
   chain.rpc = (...args: unknown[]) => {
     record('rpc', args);
     return Promise.resolve(next());
@@ -82,7 +95,7 @@ vi.mock('next/headers', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 function setupAuth(
   role: string,
@@ -117,6 +130,13 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
   });
 }
 
+// Refus : rien n'est lu ni écrit par le client de service, aucun email ne part.
+function rienNEstParti() {
+  expect(admin.__calls.from ?? []).toEqual([]);
+  expect(admin.__calls.rpc ?? []).toEqual([]);
+  expect(mockSendEmail).not.toHaveBeenCalled();
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   rls = makeChain();
@@ -142,21 +162,22 @@ describe('M3.3 / auth guard', () => {
 
 // ── Dashboard sans marge (diff #7) ──────────────────────────────────────────
 describe('M3.3 / dashboard sans marge', () => {
-  it('M3.3/dashboard_agence_4_cartes_zd_sans_marge — marge_zd_ht absent de la réponse', async () => {
+  // Cartes calculées depuis les collectes (filtres globaux, 2026-10-30) : la
+  // marge n'est calculée que pour le traiteur, jamais pour l'agence (§06.11 #7).
+  const collecteZd = (id: string) => ({
+    id,
+    type: 'zero_dechet',
+    date_collecte: '2026-06-10',
+    pax: 100,
+    evenement_id: `e-${id}`,
+    taux_recyclage: 80,
+    collecte_flux: [{ poids_reel_kg: 40 }],
+  });
+
+  it('M3.3/dashboard_agence_4_cartes_zd_sans_marge — aucune marge dans la réponse', async () => {
     setupAuth('agence');
     rls.push({
-      data: [
-        {
-          organisation_id: 'org-wpm',
-          mois: '2026-06-01',
-          type_collecte: 'zero_dechet',
-          nb_collectes: 3,
-          tonnage_kg: 120,
-          taux_recyclage_pondere: 80,
-          pax_total: 300,
-          marge_zd_ht: 450,
-        },
-      ],
+      data: [collecteZd('c1'), collecteZd('c2'), collecteZd('c3')],
       error: null,
     });
     const { GET } =
@@ -169,17 +190,27 @@ describe('M3.3 / dashboard sans marge', () => {
     );
     const json = (await res.json()) as {
       data: Array<Record<string, unknown>>;
+      tarif_refacture_pax_zd: unknown;
     };
-    expect(json.data[0]).not.toHaveProperty('marge_zd_ht');
+    expect(json.data[0]?.marge_zd_ht).toBeNull();
     expect(json.data[0]?.nb_collectes).toBe(3);
+    expect(json.data[0]?.tonnage_kg).toBe(120);
+    expect(json.tarif_refacture_pax_zd).toBeNull();
+    // Périmètre agence : événements qu'elle a programmés.
+    expect(rls.__calls.eq).toContainEqual([
+      'evenements.organisation_id',
+      'org-wpm',
+    ]);
   });
 
-  it('M3.3/dashboard_marge_conservee_pour_traiteur — marge_zd_ht présent (contrôle)', async () => {
+  it('M3.3/dashboard_marge_conservee_pour_traiteur — marge ZD recalculée (tarif × pax − factures), contrôle', async () => {
     setupAuth('traiteur_manager');
+    rls.push({ data: 12, error: null }); // f_tarif_refacture_pax_zd
+    rls.push({ data: [collecteZd('c1')], error: null }); // collectes
     rls.push({
-      data: [{ nb_collectes: 1, marge_zd_ht: 450 }],
+      data: [{ collecte_id: 'c1', montant_ht: 300 }],
       error: null,
-    });
+    }); // factures ZD émises ou payées
     const { GET } =
       await import('@/app/api/v1/dashboards/kpi-traiteur/route.js');
     const res = await GET(
@@ -188,7 +219,12 @@ describe('M3.3 / dashboard sans marge', () => {
     const json = (await res.json()) as {
       data: Array<Record<string, unknown>>;
     };
-    expect(json.data[0]).toHaveProperty('marge_zd_ht', 450);
+    // 12 € × 100 pax − 300 € facturés.
+    expect(json.data[0]?.marge_zd_ht).toBe(900);
+    expect(rls.__calls.in).toContainEqual([
+      'factures.statut',
+      ['emise', 'payee'],
+    ]);
   });
 });
 
@@ -288,55 +324,225 @@ describe('M3.3 / collectes', () => {
     expect(json.champs_verrouilles).toContain('lieu_id');
   });
 
-  it('M3.3/edition_refusee_hors_fenetre_422 — statut en_cours', async () => {
+  // ── Édition : gardes de la route PATCH ────────────────────────────────────
+  // L'agence (organisation « org-wpm ») envoie un champ réellement éditable.
+  // Côté client de service, la file porte ce qu'il faut pour qu'une modification
+  // aboutisse (état d'avant, RPC, relecture pour l'email, compte du
+  // programmateur) : le témoin « sa propre programmation » va jusqu'à l'appel de
+  // la RPC et de l'envoi d'email (faux `sendEmail` : l'appel est contrôlé, pas
+  // la livraison) ; les refus ne lisent rien, n'écrivent rien, n'appellent pas
+  // l'envoi.
+  const LUE = {
+    id: 'c1',
+    statut: 'programmee',
+    statut_tms: 'non_envoye',
+    date_collecte: '2030-01-01',
+    heure_collecte: '10:00:00',
+  };
+  async function modifierLaDate(
+    collecteLue: unknown,
+    corpsEnPlus: Record<string, unknown> = {},
+  ) {
     setupAuth('agence');
-    rls.push({
+    rls.push({ data: collecteLue, error: null });
+    admin.push({ data: LUE, error: null }); // état d'avant l'écriture
+    admin.push({ data: null, error: null }); // contacts de la collecte (lot B1)
+    admin.push({ data: { id: 'c1' }, error: null }); // fn_modifier_collecte
+    admin.push({
       data: {
-        id: 'c1',
-        statut: 'en_cours',
-        statut_tms: 'acceptee',
-        date_collecte: '2030-01-01',
-        heure_collecte: '10:00:00',
-        evenement: { organisation_id: 'org-wpm' },
+        ...LUE,
+        date_collecte: '2030-02-01',
+        evenement_id: 'e1',
+        tms_reference: null,
+        prestataire_logistique_id: null,
+        attributions_antgaspi: null,
+        evenement: {
+          pax: 100,
+          created_by: 'user-prog',
+          lieu: { nom: 'Pavillon' },
+          organisation: { nom: 'WPM' },
+        },
       },
       error: null,
-    });
+    }); // relecture pour l'email
+    admin.push({
+      data: { prenom: 'Julie', nom: 'Martin', telephone: null },
+      error: null,
+    }); // programmateur
     const { PATCH } =
       await import('@/app/api/v1/agence/collectes/[id]/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/agence/collectes/c1', { notes_internes: 'x' }),
+    return PATCH(
+      makeReq('PATCH', '/api/v1/agence/collectes/c1', {
+        date_collecte: '2030-02-01',
+        ...corpsEnPlus,
+      }),
       { params: Promise.resolve({ id: 'c1' }) },
     );
+  }
+
+  const SIEN = { organisation_id: 'org-wpm' };
+  it.each([
+    ['programmée, événement en objet', { evenement: SIEN }],
+    ['programmée, événement en tableau', { evenement: [SIEN] }],
+    ['validée', { statut: 'validee', evenement: SIEN }],
+  ])(
+    'M3.3/edition_propre_programmation_200 — témoin : RPC et email (%s)',
+    async (_cas, lue) => {
+      const res = await modifierLaDate({ ...LUE, ...lue });
+      expect(res.status).toBe(200);
+      expect(admin.__calls.rpc).toEqual([
+        [
+          'fn_modifier_collecte',
+          {
+            p_id: 'c1',
+            p_updates: { date_collecte: '2030-02-01' },
+            p_champs_modifies: ['date_collecte'],
+          },
+        ],
+      ]);
+      expect(mockSendEmail).toHaveBeenCalledTimes(1);
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        'admin_modification_collecte_traiteur',
+        'contact@gosavr.io',
+        expect.objectContaining({ organisation_nom: 'WPM' }),
+      );
+    },
+  );
+
+  // Corps fabriqué : seuls les champs éditables atteignent la RPC, qui écrit
+  // sous le client de service ce qu'on lui passe.
+  it('M3.3/edition_corps_fabrique — seuls les champs éditables atteignent la RPC', async () => {
+    const res = await modifierLaDate(
+      { ...LUE, evenement: SIEN },
+      { statut: 'cloturee', notes_internes: 'x', evenement_id: 'e-autre' },
+    );
+    expect(res.status).toBe(200);
+    expect(admin.__calls.rpc).toEqual([
+      [
+        'fn_modifier_collecte',
+        {
+          p_id: 'c1',
+          p_updates: { date_collecte: '2030-02-01' },
+          p_champs_modifies: ['date_collecte'],
+        },
+      ],
+    ]);
+  });
+
+  const AUTRE_ORG = { organisation_id: 'org-autre' };
+  it.each([
+    ['autre organisation, événement en objet', { evenement: AUTRE_ORG }],
+    ['autre organisation, événement en tableau', { evenement: [AUTRE_ORG] }],
+    ['événement non rendu par la lecture', { evenement: null }],
+    ['événement en tableau vide', { evenement: [] }],
+    [
+      'collecte validée, autre organisation',
+      { statut: 'validee', evenement: AUTRE_ORG },
+    ],
+  ])(
+    'M3.3/edition_autre_organisation_403 — collecte lisible, hors de ses programmations (%s)',
+    async (_cas, lue) => {
+      const res = await modifierLaDate({ ...LUE, ...lue });
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: 'Modification non autorisée' });
+      rienNEstParti();
+    },
+  );
+
+  it('M3.3/edition_collecte_invisible_404 — la lecture sous RLS ne rend rien', async () => {
+    const res = await modifierLaDate(null);
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: 'Collecte introuvable' });
+    rienNEstParti();
+  });
+
+  it('M3.3/edition_refusee_hors_fenetre_422 — statut en_cours', async () => {
+    const res = await modifierLaDate({
+      ...LUE,
+      statut: 'en_cours',
+      statut_tms: 'acceptee',
+      evenement: { organisation_id: 'org-wpm' },
+    });
     expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({
+      error: 'Édition impossible au statut en_cours',
+    });
+    rienNEstParti();
   });
 });
 
 // ── Annulation ──────────────────────────────────────────────────────────────
 describe('M3.3 / annulation', () => {
-  it('M3.3/annulation_directe_programmee — statut annulee', async () => {
-    setupAuth('agence');
-    rls.push({
-      data: {
-        id: 'c1',
-        statut: 'programmee',
-        statut_tms: 'non_envoye',
-        date_collecte: '2030-01-01',
-        evenement: { organisation_id: 'org-wpm', organisation: { nom: 'WPM' } },
-      },
-      error: null,
-    });
-    admin.push({ data: { id: 'c1' }, error: null });
-    const { POST } =
-      await import('@/app/api/v1/agence/collectes/[id]/annulation/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/agence/collectes/c1/annulation', { motif: 'x' }),
-      { params: Promise.resolve({ id: 'c1' }) },
-    );
-    const json = (await res.json()) as { data: { statut: string } };
-    expect(json.data.statut).toBe('annulee');
-  });
+  const SIENNE = {
+    created_by: 'u-prog',
+    organisation_id: 'org-wpm',
+    organisation: { nom: 'WPM' },
+    lieu: { nom: 'Salle Wagram' },
+  };
+  // Compte lu après l'écriture : le programmateur (annulation directe) ou le
+  // demandeur (demande d'annulation).
+  const COMPTE = {
+    data: { email: 'prog@savr-test.local', prenom: 'Paul', nom: 'Martin' },
+    error: null,
+  };
+  it.each([
+    ['événement en objet', SIENNE],
+    ['événement en tableau', [SIENNE]],
+  ])(
+    'M3.3/annulation_directe_programmee — statut annulee (%s)',
+    async (_cas, evenement) => {
+      setupAuth('agence');
+      rls.push({
+        data: {
+          id: 'c1',
+          statut: 'programmee',
+          statut_tms: 'non_envoye',
+          date_collecte: '2030-01-01',
+          evenement,
+        },
+        error: null,
+      });
+      admin.push({ data: { id: 'c1' }, error: null });
+      admin.push(COMPTE);
+      const { POST } =
+        await import('@/app/api/v1/agence/collectes/[id]/annulation/route.js');
+      const res = await POST(
+        makeReq('POST', '/api/v1/agence/collectes/c1/annulation', {
+          motif: 'x',
+        }),
+        { params: Promise.resolve({ id: 'c1' }) },
+      );
+      const json = (await res.json()) as { data: { statut: string } };
+      expect(json.data.statut).toBe('annulee');
+      // Témoin des refus plus bas : sur sa propre programmation, l'annulation
+      // appelle la RPC et l'envoi d'email (faux `sendEmail` : l'appel est
+      // contrôlé, pas la livraison).
+      expect(admin.__calls.rpc?.[0]).toEqual([
+        'fn_annuler_collecte_client',
+        {
+          p_id: 'c1',
+          p_motif: 'x',
+        },
+      ]);
+      // Template 5 : la confirmation part au programmateur, avec la date et le
+      // lieu que le gabarit exige (l'équipe Savr reçoit le template 22).
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        'annulation_collecte',
+        'prog@savr-test.local',
+        {
+          prenom: 'Paul',
+          date_collecte: '01/01/2030',
+          heure_collecte: '',
+          lieu_nom: 'Salle Wagram',
+          nom_evenement: '',
+          motif: 'x',
+        },
+      );
+      expect(admin.__calls.eq).toContainEqual(['id', 'u-prog']);
+    },
+  );
 
-  it('M3.3/annulation_demande_validee — statut annulation_demandee', async () => {
+  it('M3.3/annulation_directe_validee — statut annulee, plus de demande à l’Admin (Val 2026-11-01)', async () => {
     setupAuth('agence');
     rls.push({
       data: {
@@ -349,6 +555,7 @@ describe('M3.3 / annulation', () => {
       error: null,
     });
     admin.push({ data: { id: 'c1' }, error: null });
+    admin.push(COMPTE);
     const { POST } =
       await import('@/app/api/v1/agence/collectes/[id]/annulation/route.js');
     const res = await POST(
@@ -356,8 +563,64 @@ describe('M3.3 / annulation', () => {
       { params: Promise.resolve({ id: 'c1' }) },
     );
     const json = (await res.json()) as { data: { statut: string } };
-    expect(json.data.statut).toBe('annulation_demandee');
+    expect(json.data.statut).toBe('annulee');
+    expect(admin.__calls.rpc?.[0]).toEqual([
+      'fn_annuler_collecte_client',
+      {
+        p_id: 'c1',
+        p_motif: '',
+      },
+    ]);
+    expect(mockSendEmail).not.toHaveBeenCalledWith(
+      'admin_demande_annulation',
+      expect.anything(),
+      expect.anything(),
+    );
   });
+
+  const AUTRE = {
+    organisation_id: 'org-autre',
+    organisation: { nom: 'Autre' },
+  };
+  it.each([
+    ['programmée, autre organisation, événement en objet', 'programmee', AUTRE],
+    [
+      'programmée, autre organisation, événement en tableau',
+      'programmee',
+      [AUTRE],
+    ],
+    ['programmée, événement non rendu par la lecture', 'programmee', null],
+    ['programmée, événement en tableau vide', 'programmee', []],
+    ['validée, autre organisation', 'validee', AUTRE],
+    ['brouillon, autre organisation', 'brouillon', AUTRE],
+  ])(
+    'M3.3/annulation_autre_organisation_403 — collecte lisible, hors de ses programmations (%s)',
+    async (_cas, statut, evenement) => {
+      setupAuth('agence');
+      rls.push({
+        data: {
+          id: 'c1',
+          statut,
+          statut_tms: 'non_envoye',
+          date_collecte: '2030-01-01',
+          evenement,
+        },
+        error: null,
+      });
+      admin.push({ data: { id: 'c1' }, error: null });
+      const { POST } =
+        await import('@/app/api/v1/agence/collectes/[id]/annulation/route.js');
+      const res = await POST(
+        makeReq('POST', '/api/v1/agence/collectes/c1/annulation', {
+          motif: 'x',
+        }),
+        { params: Promise.resolve({ id: 'c1' }) },
+      );
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: 'Annulation non autorisée' });
+      rienNEstParti();
+    },
+  );
 });
 
 // ── Complétion SIRET shadow (F2) ────────────────────────────────────────────
@@ -483,9 +746,14 @@ describe('M3.3 / création shadow F3', () => {
 // §06.11 l.36/l.44 : onglet AG identique au §06.04 → l'agence doit pouvoir
 // demander un renouvellement (endpoint partagé /traiteur/pack-ag/renouvellement).
 describe('M3.3 / renouvellement pack AG (BL-P1-AGENCE-01)', () => {
+  const COMPTE_DEMANDEUR = {
+    data: { email: 'prog@savr-test.local', prenom: 'Paul', nom: 'Martin' },
+    error: null,
+  };
   it('M3.3/AGENCE01_renouvellement_role_agence_201 — agence autorisée + email admin', async () => {
     setupAuth('agence', 'org-wpm');
     admin.push({ data: { nom: 'WPM Agence' }, error: null }); // lookup organisations.nom
+    admin.push(COMPTE_DEMANDEUR); // lookup users (demandeur)
     const { POST } =
       await import('@/app/api/v1/traiteur/pack-ag/renouvellement/route.js');
     const res = await POST(
@@ -497,12 +765,31 @@ describe('M3.3 / renouvellement pack AG (BL-P1-AGENCE-01)', () => {
     expect(mockSendEmail).toHaveBeenCalledWith(
       'admin_demande_renouvellement_pack',
       expect.any(String),
-      expect.objectContaining({ organisation_nom: 'WPM Agence' }),
+      expect.objectContaining({
+        organisation_nom: 'WPM Agence',
+        demandeur_nom: 'Paul Martin',
+        demandeur_email: 'prog@savr-test.local',
+      }),
     );
   });
 
-  it('M3.3/AGENCE01_renouvellement_role_non_autorise_403 — client_organisateur bloqué, aucun email', async () => {
-    setupAuth('client_organisateur', 'org-wpm');
+  it('M3.3/renouvellement_roles_onglet_pack_201 — gestionnaire et organisateur autorisés depuis l’onglet « Mon pack Anti-Gaspi » (Val 2026-11-02)', async () => {
+    const { POST } =
+      await import('@/app/api/v1/traiteur/pack-ag/renouvellement/route.js');
+    for (const role of ['gestionnaire_lieux', 'client_organisateur']) {
+      setupAuth(role, 'org-viparis');
+      admin.push({ data: { nom: 'Viparis' }, error: null }); // organisations.nom
+      admin.push(COMPTE_DEMANDEUR); // users (demandeur)
+      const res = await POST(
+        makeReq('POST', '/api/v1/traiteur/pack-ag/renouvellement', {}),
+      );
+      expect(res.status, role).toBe(201);
+    }
+    expect(mockSendEmail).toHaveBeenCalledTimes(2);
+  });
+
+  it('M3.3/AGENCE01_renouvellement_role_non_autorise_403 — l’Admin (rôle staff) bloqué, aucun email', async () => {
+    setupAuth('admin_savr', 'org-wpm');
     const { POST } =
       await import('@/app/api/v1/traiteur/pack-ag/renouvellement/route.js');
     const res = await POST(

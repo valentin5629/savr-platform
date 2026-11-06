@@ -59,18 +59,16 @@ function fillRequired() {
 }
 
 const submit = () =>
-  fireEvent.click(screen.getByRole('button', { name: /Créer l.organisation/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Créer le client/ }));
 
 describe('M1.1b — Modale Nouvelle organisation (§06.06)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.unstubAllGlobals());
 
-  it('titre « Nouvelle organisation » et exactement les 7 champs de l’allowlist', () => {
+  it('titre « Nouveau client » et exactement les 7 champs de l’allowlist', () => {
     renderModal();
     const dialog = screen.getByRole('dialog');
-    expect(
-      within(dialog).getByText('Nouvelle organisation'),
-    ).toBeInTheDocument();
+    expect(within(dialog).getByText('Nouveau client')).toBeInTheDocument();
     const ids = Array.from(
       dialog.querySelectorAll<HTMLElement>(
         'input, select, textarea, [role="combobox"]',

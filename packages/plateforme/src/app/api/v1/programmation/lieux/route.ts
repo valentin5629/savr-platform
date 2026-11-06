@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
+import { adresseLieu } from '@/lib/notifications/traiteur-operationnel.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import {
@@ -7,6 +9,7 @@ import {
 } from '@/lib/api-auth.js';
 import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
+import { regionDepuisCodePostal } from '@/lib/lieux/region-code-postal.js';
 import { urlApplication } from '@/lib/url-application.js';
 
 // Colonnes proposées par l'autocomplétion — sous-ensemble de la liste blanche
@@ -14,6 +17,34 @@ import { urlApplication } from '@/lib/url-application.js';
 const COLONNES_LIEU = `id, nom, adresse_acces, code_postal, ville, acces_details,
    acces_office, stationnement, type_vehicule_max,
    controle_acces_requis_default, contraintes_horaires, flux_autorises`;
+
+// Code site VIPARIS (Val 2026-11-02) : il décide si le formulaire propose le
+// champ « Code affaire VIPARIS ». La colonne n'est pas dans la liste blanche de
+// `v_lieux_clients` : elle est lue ici en service_role, pour les SEULS lieux que
+// la lecture précédente a déjà rendus à l'appelant (rien d'autre n'est exposé).
+async function avecCodeSiteViparis(
+  lieux: Array<Record<string, unknown> & { id: string }>,
+): Promise<NextResponse> {
+  if (lieux.length === 0) return NextResponse.json([]);
+  const { data, error } = await createAdminSupabaseClient()
+    .from('lieux')
+    .select('id, code_site_viparis')
+    .in(
+      'id',
+      lieux.map((l) => l.id),
+    )
+    .not('code_site_viparis', 'is', null);
+  if (error) return serverError(error, 'programmation.lieux.code_site');
+  const codes = new Map(
+    (data ?? []).map((r) => [
+      (r as { id: string }).id,
+      (r as { code_site_viparis: string }).code_site_viparis,
+    ]),
+  );
+  return NextResponse.json(
+    lieux.map((l) => ({ ...l, code_site_viparis: codes.get(l.id) ?? null })),
+  );
+}
 
 function filtreRecherche<T extends { or: (f: string) => T }>(
   query: T,
@@ -79,7 +110,9 @@ async function lieuxDuDemandeur(q: string): Promise<NextResponse> {
   );
 
   if (error) return serverError(error, 'programmation.lieux.list');
-  return NextResponse.json(data ?? []);
+  return avecCodeSiteViparis(
+    (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>,
+  );
 }
 
 // Admin support : « les lieux que verrait l'organisation cible ». Transcription
@@ -163,7 +196,9 @@ async function lieuxDeLOrgCible(
   );
 
   if (error) return serverError(error, 'programmation.lieux.list');
-  return NextResponse.json(data ?? []);
+  return avecCodeSiteViparis(
+    (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>,
+  );
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -195,6 +230,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       adresse_acces: String(adresse_acces),
       code_postal: String(code_postal),
       ville: String(ville),
+      // Sans elle l'algorithme d'attribution AG ne proposait rien (C1, Val 2026-11-03).
+      region: regionDepuisCodePostal(String(code_postal)),
       actif: false,
       stationnement: body.stationnement ?? null,
       type_vehicule_max: body.type_vehicule_max ?? 'camionnette',
@@ -233,15 +270,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : Promise.resolve({ data: null }),
   ]);
   const org = orgRes.data;
-  const lieu = data as { id: string; nom: string; adresse_acces: string };
-  void sendEmail('admin_demande_ajout_lieu', 'hello@gosavr.io', {
-    lieu_nom: lieu.nom,
-    lieu_adresse: lieu.adresse_acces,
-    user_nom: user
-      ? `${(user as { prenom: string }).prenom} ${(user as { nom: string }).nom}`
-      : '',
-    organisation_nom: (org as { nom?: string } | null)?.nom ?? '',
-    date_collecte: '',
+  const lieu = data as {
+    id: string;
+    nom: string;
+    adresse_acces: string | null;
+    code_postal: string | null;
+    ville: string | null;
+  };
+  const u = user as { prenom?: string | null; nom?: string | null } | null;
+  // Texte saisi interpolé tel quel dans le HTML du gabarit : échappé ici.
+  void sendEmail('admin_demande_ajout_lieu', 'contact@gosavr.io', {
+    lieu_nom: escapeHtml(lieu.nom),
+    lieu_adresse: escapeHtml(adresseLieu(lieu)),
+    user_nom: escapeHtml(
+      [u?.prenom, u?.nom]
+        .map((v) => (v ?? '').trim())
+        .filter(Boolean)
+        .join(' '),
+    ),
+    organisation_nom: escapeHtml((org as { nom?: string } | null)?.nom ?? ''),
     lien_lieu: urlApplication(req, `/admin/lieux/${lieu.id}`),
   }).catch(() => null);
 

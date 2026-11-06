@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
+import { heureCourte } from '@/lib/exports/shared';
+import { envoyerConfirmationAnnulation } from '@/lib/notifications/annulation-client.js';
 import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 import { urlApplication } from '@/lib/url-application.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 // POST /api/v1/admin/collectes/[id]/incident — §05 §4bis « Gestion des incidents »
 // Flux incident (collecte manquée / refus / pesée) : passe la collecte à `annulee`
@@ -12,6 +21,15 @@ import { urlApplication } from '@/lib/url-application.js';
 // même UPDATE → le trigger pack-debit saute le débit si imputable ≠ client, RM-09).
 // Émet l'alerte Admin (template `admin_incident_collecte`, §06.02 item 10).
 const IMPUTABLE = ['prestataire', 'client', 'association', 'savr', 'externe'];
+
+// Libellés de l'email Admin (revue des emails, Val 2026-10-29).
+const LIBELLE_IMPUTABLE: Record<string, string> = {
+  prestataire: 'le transporteur',
+  client: 'le client',
+  association: "l'association",
+  savr: 'Savr',
+  externe: 'une cause extérieure',
+};
 
 async function postHandler(
   req: NextRequest,
@@ -53,8 +71,11 @@ async function postHandler(
   const { data: before, error: fetchErr } = await supabase
     .from('collectes')
     .select(
-      `id, statut, type, date_collecte, heure_collecte,
-       evenements!inner(created_by, lieux!lieu_id(nom))`,
+      // `*` plutôt qu'une liste : `annulation_demandee_at` (migration
+      // 20261015180000) manque tant que la base n'est pas migrée, et une colonne
+      // nommée absente ferait échouer la lecture (404) au lieu de juger le délai
+      // à « maintenant ».
+      `*, evenements!inner(created_by, nom_evenement, lieux!lieu_id(nom), organisations!organisation_id(nom))`,
     )
     .eq('id', id)
     .single();
@@ -100,6 +121,10 @@ async function postHandler(
   );
   if (error) return serverError(error, 'admin.collectes.incident');
 
+  // L'ordre éventuel est en file : il part sans attendre le passage planifié
+  // (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(id);
+
   // Audit §07/06 : la bascule manuelle de statut (annulee) via incident = statut forcé.
   await supabase.from('audit_log').insert({
     table_name: 'collectes',
@@ -116,7 +141,9 @@ async function postHandler(
     before as {
       evenements?: {
         created_by?: string;
+        nom_evenement?: string | null;
         lieux?: { nom?: string } | { nom?: string }[];
+        organisations?: { nom?: string } | { nom?: string }[];
       };
     }
   ).evenements;
@@ -125,13 +152,22 @@ async function postHandler(
   const dateCollecte =
     (before as { date_collecte?: string }).date_collecte ?? '';
 
-  // Alerte Admin — template §06.02 item 10 (destinataire admin_savr).
-  await sendEmail('admin_incident_collecte', 'hello@gosavr.io', {
-    lieu_nom: lieu?.nom ?? '',
-    date_collecte: dateCollecte,
-    type_incident: 'collecte_manquee',
-    imputable_a: imputable,
-    description: motif,
+  const organisation = Array.isArray(evtObj?.organisations)
+    ? evtObj?.organisations[0]
+    : evtObj?.organisations;
+  const heureCollecte = (before as { heure_collecte?: string | null })
+    .heure_collecte;
+
+  // Alerte Admin — template §06.02 item 10 (destinataire admin_savr). Le corps
+  // est du HTML interpolé tel quel : le texte saisi est échappé.
+  await sendEmail('admin_incident_collecte', 'contact@gosavr.io', {
+    lieu_nom: escapeHtml(lieu?.nom ?? ''),
+    date_collecte: formatDateParis(dateCollecte),
+    heure_collecte: heureCourte(heureCollecte),
+    organisation_nom: escapeHtml(organisation?.nom ?? ''),
+    type_incident: 'Collecte manquée',
+    imputable_a: LIBELLE_IMPUTABLE[imputable] ?? imputable,
+    description: escapeHtml(motif),
     lien_collecte: urlApplication(req, `/admin/collectes/${id}`),
   });
 
@@ -139,25 +175,16 @@ async function postHandler(
   // collecte est informé de l'annulation. Facturation : un incident NON imputable au
   // client (prestataire/savr/association/externe) n'est pas facturé (§05 §4bis) ; un
   // incident imputable au client suit la règle d'annulation tardive standard.
-  const createdBy = evtObj?.created_by;
-  if (createdBy) {
-    const { data: prog } = await supabase
-      .from('users')
-      .select('email, prenom')
-      .eq('id', createdBy)
-      .maybeSingle();
-    const email = (prog as { email?: string } | null)?.email;
-    if (email) {
-      const infoFacturation =
-        imputable === 'client' ? '' : ' Cet incident ne vous sera pas facturé.';
-      await sendEmail('annulation_collecte', email, {
-        prenom: (prog as { prenom?: string } | null)?.prenom ?? '',
-        date_collecte: dateCollecte,
-        lieu_nom: lieu?.nom ?? '',
-        motif: `Incident survenu lors de la collecte : ${motif}.${infoFacturation}`,
-      });
-    }
-  }
+  await envoyerConfirmationAnnulation(supabase, {
+    programmateurId: evtObj?.created_by,
+    dateCollecte,
+    heureCollecte,
+    lieuNom: lieu?.nom ?? '',
+    nomEvenement: evtObj?.nom_evenement,
+    motif: `Incident survenu lors de la collecte : ${motif}.${
+      imputable === 'client' ? '' : ' Cet incident ne vous sera pas facturé.'
+    }`,
+  });
 
   // BL-P2-22 (tpl 22) : alerte Admin « collecte annulée », en parallèle du
   // template 5 (annulation_collecte). Le nom d'organisation est résolu par le
@@ -165,15 +192,17 @@ async function postHandler(
   // distinct — jamais bloquant pour la réponse).
   void notifierAdminAnnulation(supabase, {
     collecteId: id,
-    collecteRef: id,
     dateCollecte,
-    heureCollecte: (before as { heure_collecte?: string | null })
-      .heure_collecte,
+    heureCollecte,
     lieuNom: lieu?.nom ?? '',
+    motif,
     acteurUserId: auth.ctx.userId,
     acteurRole: auth.ctx.role,
     infoFacturation:
       imputable === 'client' ? '' : 'Incident non imputable au client',
+    statutAvant: statutCourant,
+    annulationDemandeeAt: (before as { annulation_demandee_at?: string | null })
+      .annulation_demandee_at,
   }).catch(() => undefined);
 
   return NextResponse.json(updatedJson);

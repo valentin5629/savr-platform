@@ -9,7 +9,7 @@
 //
 // sync() = no-op (Everest est push-only via webhooks entrants).
 // updateLieu() = no-op (adresse inline dans le payload mission).
-// updateCollecte() = no-op + warning (endpoint non spécifié Everest V1).
+// updateCollecte() = POST /missions/update sur chaque mission encore ouverte.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -33,27 +33,32 @@ import {
   retenirTourneesDuProvider,
 } from '../provider-tournees.js';
 import type { CreateMissionPayload } from './client.js';
-import { EverestClient } from './client.js';
+import { EverestClient, lireJetonEverest } from './client.js';
+import { CONSIGNE_PESEE_PHOTOS } from '../infos-acces.js';
 import { logger } from '@savr/shared/src/logger/index.js';
+import { instantParis } from '@savr/shared/src/temps/index.js';
 
 // Mapping branche_attribution → service_id Everest (§08 §3 V1, tableau l.264-269).
 // BL-P1-API-04 — service 77 (camion express > 3,5h, Marathon indisponible) mappé
 // sur la branche `ag_everest_camion_express` que l'algo M2.3 produit déjà
 // (DIV-3, décision Val 2026-06-15). Sans ce mapping le dispatch express échoue.
-const BRANCHE_TO_SERVICE: Record<string, number> = {
+export const BRANCHE_TO_SERVICE: Record<string, number> = {
   ag_velo_programme: 71,
   ag_velo_express: 74,
   ag_everest_camion_express: 77,
   ag_marathon_volume_backup_camion: 91,
 };
 
-// Durée créneau par service (minutes)
-const SERVICE_SLOT_MINUTES: Record<number, number> = {
-  71: 30,
-  74: 30,
-  77: 60,
-  91: 30,
-};
+// Début de mission envoyé à Everest : l'heure demandée par le traiteur, à Paris
+// (décision Val 2026-10-19), en secondes Unix. Le créneau (30 min, 1 h pour le
+// 77) est porté par le service. null si la date ou l'heure est illisible.
+function debutMissionEverest(collecte: Collecte): number | null {
+  const debut = instantParis(
+    collecte.date_collecte,
+    collecte.heure_collecte.slice(0, 5),
+  ).getTime();
+  return Number.isFinite(debut) ? Math.floor(debut / 1000) : null;
+}
 
 // `prestataire_logistique_id` : seule marque du provider exécutant portée par une
 // tournée — `external_ref_commande` est partagée (MTS-1 y stocke son
@@ -107,22 +112,26 @@ const MISSION_VIVANTE = new Set([
   'completed_incomplete',
 ]);
 
+// Statuts d'une mission close chez Everest (ou jamais créée) : ni annulée ni
+// modifiée une seconde fois.
+const MISSION_CLOSE = new Set([
+  'cancelled',
+  'cancelled_externally',
+  'completed',
+  'completed_incomplete',
+  'failed',
+  'creation_failed',
+]);
+
 export class AdapterEverest implements LogistiqueProvider {
   private readonly client: EverestClient;
-  private readonly clientId: string;
 
   constructor(
     private readonly transporteur: Transporteur,
     private readonly supabase: SupabaseClient,
   ) {
-    // Lit client_id depuis shared.prestataires via transporteur (injecté par la factory)
-    // et client_secret depuis env var (alimentée depuis Vault en production).
-    const clientId =
-      process.env['EVEREST_CLIENT_ID'] ?? 'everest-client-id-missing';
-    const clientSecret =
-      process.env['EVEREST_CLIENT_SECRET'] ?? 'everest-client-secret-missing';
-    this.clientId = clientId;
-    this.client = new EverestClient(clientId, clientSecret, supabase);
+    // Jeton fixe du compte A Toutes! lu dans EVEREST_API_TOKEN (cf. client.ts).
+    this.client = new EverestClient(supabase);
   }
 
   // ─── E1 collecte.creee ───────────────────────────────────────────────────────
@@ -180,6 +189,14 @@ export class AdapterEverest implements LogistiqueProvider {
         `collecte AG ${collecte.id} sans association attribuée : aucune adresse de livraison à transmettre à Everest`,
       );
     }
+    // Même règle pour l'heure : sans start_date, Everest prendrait le prochain
+    // créneau libre.
+    const debutMission = debutMissionEverest(collecte);
+    if (debutMission === null) {
+      throw new LogistiquePermanentError(
+        `collecte AG ${collecte.id} : date ou heure de collecte illisible, aucune heure de mission à transmettre à Everest`,
+      );
+    }
 
     // Créer ou récupérer la tournée. Le rang déjà lié à une tournée A Toutes!
     // est repris tel quel : c'est le cas d'une mission refusée puis réattribuée,
@@ -215,6 +232,7 @@ export class AdapterEverest implements LogistiqueProvider {
         tournee.id,
         serviceId,
         adresseLivraison,
+        debutMission,
       );
       const pushAt = new Date().toISOString();
       const created = await this.client.createMission(payload, collecte.id);
@@ -227,7 +245,6 @@ export class AdapterEverest implements LogistiqueProvider {
         everest_mission_id: missionId,
         everest_service_id: serviceId,
         statut_everest: 'created',
-        everest_client_id: this.clientId,
         payload_create: payload,
         push_create_at: pushAt,
       });
@@ -272,21 +289,91 @@ export class AdapterEverest implements LogistiqueProvider {
   // ─── E2 collecte.modifiee ────────────────────────────────────────────────────
 
   async updateCollecte(collecte: Collecte): Promise<ConsumerTag> {
-    // Endpoint de modification non spécifié côté Everest V1.
-    // Divergence enregistrée dans _Divergences/M2.5_20260615.md (type: ambigu).
-    // BL-P2-34 : alerte Ops in-app (canal info), pas un console.warn perdu — une
-    // modification d'une collecte AG déjà dispatchée Everest doit être traitée
-    // manuellement (re-création mission), donc visible.
-    await sendAlert({
-      canal: 'info',
-      titre: 'Modification collecte Everest non propagée',
-      message: `updateCollecte Everest non implémenté V1 (endpoint non spécifié) — collecte ${collecte.id} : reporter la modification manuellement auprès d'A Toutes!.`,
-      metadata: {
-        collecte_id: collecte.id,
-        event: 'everest.update_collecte.noop',
-      },
-    });
-    return 'noop_no_remote';
+    const tournees = await this.findTournees(collecte.id);
+    const avecRef = tournees.filter((t) => t.external_ref_commande);
+
+    // Jamais envoyée à Everest : la création partira avec les valeurs du jour.
+    if (avecRef.length === 0) {
+      return 'noop_no_remote';
+    }
+
+    // Mêmes gardes qu'à la création : sans elles la mission perdrait son point
+    // B ou son heure.
+    const adresseLivraison = collecte.association_adresse;
+    if (!adresseLivraison) {
+      throw new LogistiquePermanentError(
+        `collecte AG ${collecte.id} sans association attribuée : aucune adresse de livraison à transmettre à Everest`,
+      );
+    }
+    const debutMission = debutMissionEverest(collecte);
+    if (debutMission === null) {
+      throw new LogistiquePermanentError(
+        `collecte AG ${collecte.id} : date ou heure de collecte illisible, aucune heure de mission à transmettre à Everest`,
+      );
+    }
+
+    // Tous les champs de la mission, à chaque modification (§08 3bis.8) : un
+    // contact d'association vidé part vide, jamais omis, sinon le coursier
+    // garderait l'ancien.
+    const champs = this.champsMission(collecte, adresseLivraison, debutMission);
+    const corps = {
+      ...champs,
+      address_end_name: champs.address_end_name ?? '',
+      address_end_tel: champs.address_end_tel ?? '',
+    };
+
+    const n = collecte.nb_camions_demande;
+    let envoyees = 0;
+    // Un refus d'A Toutes! sur une mission n'empêche pas de modifier les
+    // autres : il remonte une fois la boucle finie (comme MTS-1, §08 3bis.8).
+    const refus: LogistiquePermanentError[] = [];
+    for (const t of avecRef.filter((t) => t.rang <= n)) {
+      const mission = await this.findMission(t.id);
+      if (
+        mission?.statut_everest &&
+        MISSION_CLOSE.has(mission.statut_everest as string)
+      ) {
+        continue;
+      }
+      try {
+        await this.client.updateMission(
+          { ref: t.external_ref_commande!, ...corps },
+          `update-${collecte.id}-${t.id}`,
+        );
+        envoyees++;
+      } catch (err) {
+        if (!(err instanceof LogistiquePermanentError)) throw err;
+        refus.push(err);
+      }
+    }
+
+    // Le nombre de véhicules ne passe pas par /missions/update : une mission
+    // par véhicule, créée ou annulée une à une. Un écart reste à reporter à la
+    // main.
+    const rangsAvecMission = new Set(avecRef.map((t) => t.rang));
+    const ecartVehicules =
+      avecRef.some((t) => t.rang > n) || rangsAvecMission.size < n;
+    if (ecartVehicules) {
+      await sendAlert({
+        canal: 'info',
+        titre: 'Nombre de véhicules A Toutes! non propagé',
+        message:
+          `Collecte ${collecte.id} : ${n} véhicule(s) demandé(s), ${rangsAvecMission.size} mission(s) A Toutes! ` +
+          `enregistrée(s). Ajouter ou annuler les courses manquantes auprès d'A Toutes!.`,
+        metadata: {
+          collecte_id: collecte.id,
+          event: 'everest.update_collecte.nb_vehicules',
+        },
+      });
+    }
+
+    if (refus.length > 0) {
+      throw new LogistiquePermanentError(
+        refus.map((e) => e.message).join(' ; '),
+      );
+    }
+
+    return envoyees > 0 ? 'adapter_everest' : 'noop_no_remote';
   }
 
   // ─── E3 collecte.annulee ─────────────────────────────────────────────────────
@@ -306,23 +393,13 @@ export class AdapterEverest implements LogistiqueProvider {
       // Idempotence : déjà annulée ou terminée
       if (
         mission?.statut_everest &&
-        [
-          'cancelled',
-          'cancelled_externally',
-          'completed',
-          'completed_incomplete',
-          'failed',
-          'creation_failed',
-        ].includes(mission.statut_everest as string)
+        MISSION_CLOSE.has(mission.statut_everest as string)
       ) {
         continue;
       }
 
       await this.client.cancelMission(
-        {
-          mission_id: t.external_ref_commande!,
-          reason: 'collecte_annulee',
-        },
+        { ref: t.external_ref_commande! },
         `cancel-${collecte.id}-${t.id}`,
       );
 
@@ -396,16 +473,14 @@ export class AdapterEverest implements LogistiqueProvider {
 
   async healthCheck(): Promise<HealthCheckResult> {
     // Push-only (webhooks entrants) : aucun endpoint read-only de sonde en V1.
-    // On rapporte seulement la présence des credentials, sans appel réseau.
-    const configured =
-      !!process.env['EVEREST_CLIENT_ID'] &&
-      !!process.env['EVEREST_CLIENT_SECRET'];
+    // On rapporte seulement la présence du jeton, sans appel réseau.
+    const configured = lireJetonEverest() !== null;
     return {
       ok: true,
       etat: 'non_applicable',
       message: configured
         ? 'Everest push-only (webhooks entrants) — pas de sonde read-only V1.'
-        : 'Everest push-only — credentials EVEREST_CLIENT_ID / EVEREST_CLIENT_SECRET absents.',
+        : 'Everest push-only — jeton EVEREST_API_TOKEN absent.',
     };
   }
 
@@ -441,53 +516,44 @@ export class AdapterEverest implements LogistiqueProvider {
     tourneeId: string,
     serviceId: number,
     adresseLivraison: string,
+    debutMission: number,
   ): CreateMissionPayload {
-    const slotMinutes = SERVICE_SLOT_MINUTES[serviceId] ?? 30;
-    const [h = '00', m = '00'] = (collecte.heure_collecte ?? '00:00:00')
-      .slice(0, 5)
-      .split(':');
-    const startHour = parseInt(h, 10);
-    const startMin = parseInt(m, 10);
-    const endMin = (startMin + slotMinutes) % 60;
-    const endHour = startHour + Math.floor((startMin + slotMinutes) / 60);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const timeStart = `${pad(startHour)}:${pad(startMin)}`;
-    const timeEnd = `${pad(endHour % 24)}:${pad(endMin)}`;
-
     return {
       service_id: serviceId,
       client_ref: tourneeId,
-      pickup: {
-        address: `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`,
-        contact: {
-          name: collecte.contact_principal_nom,
-          phone: collecte.contact_principal_telephone,
-        },
-      },
-      // Point B (adresse vérifiée non vide par dispatchCollecte).
-      dropoff: {
-        address: adresseLivraison,
-        ...(collecte.association_contact_nom &&
-        collecte.association_contact_telephone
-          ? {
-              contact: {
-                name: collecte.association_contact_nom,
-                phone: collecte.association_contact_telephone,
-              },
-            }
-          : {}),
-      },
-      timeslot: {
-        date: collecte.date_collecte,
-        start: timeStart,
-        end: timeEnd,
-      },
-      notes: collecte.informations_supplementaires ?? undefined,
-      metadata: {
-        savr_ref_type: 'collecte',
-        savr_collecte_id: collecte.id,
-        savr_transporteur_id: this.transporteur.id,
-      },
+      ...this.champsMission(collecte, adresseLivraison, debutMission),
+    };
+  }
+
+  // Champs d'une mission tirés de la collecte, communs à la création et à la
+  // modification (parité E1/E2, §08 3bis.8) : un champ ajouté ici part dans les
+  // deux.
+  private champsMission(
+    collecte: Collecte,
+    adresseLivraison: string,
+    debutMission: number,
+  ): Omit<CreateMissionPayload, 'service_id' | 'client_ref'> {
+    // Commentaires composés par le worker (infos-acces.ts, format Val
+    // 2026-11-03) : un par adresse, et celui de la mission. Toujours envoyés,
+    // vides compris, pour qu'une modification efface un texte périmé.
+    const general = collecte.commentaire_general?.trim();
+    return {
+      start_date: debutMission,
+      address_start: `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`,
+      address_start_name: collecte.contact_principal_nom,
+      address_start_tel: collecte.contact_principal_telephone,
+      address_start_comment: collecte.commentaire_depart?.trim() ?? '',
+      address_end_comment: collecte.commentaire_arrivee?.trim() ?? '',
+      // Point B (adresse vérifiée non vide par l'appelant).
+      address_end: adresseLivraison,
+      ...(collecte.association_contact_nom &&
+      collecte.association_contact_telephone
+        ? {
+            address_end_name: collecte.association_contact_nom,
+            address_end_tel: collecte.association_contact_telephone,
+          }
+        : {}),
+      comment: general || CONSIGNE_PESEE_PHOTOS,
     };
   }
 
@@ -717,7 +783,6 @@ export class AdapterEverest implements LogistiqueProvider {
       everest_mission_id: string | null;
       everest_service_id: number;
       statut_everest: string;
-      everest_client_id?: string;
       payload_create?: unknown;
       push_create_at?: string;
     },
@@ -730,8 +795,6 @@ export class AdapterEverest implements LogistiqueProvider {
       statut_everest: fields.statut_everest,
       derniere_sync_at: new Date().toISOString(),
     };
-    if (fields.everest_client_id !== undefined)
-      row['everest_client_id'] = fields.everest_client_id;
     if (fields.payload_create !== undefined)
       row['payload_create'] = fields.payload_create;
     if (fields.push_create_at !== undefined)

@@ -18,8 +18,9 @@ import {
   type BlocsData,
 } from '@/components/dashboards/index.js';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
+import { CartesKpiGestionnaire } from '@/components/dashboards/CartesKpiGestionnaire';
+import { useKpisGestionnaire } from '@/components/dashboards/useKpisGestionnaire';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
-import { StatCard } from '@/components/ui/stat-card';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
@@ -33,41 +34,22 @@ import {
 import {
   aggregateBenchmarkPerFlux,
   benchmarkItems,
-  previousWindow,
-  sparkFromSeries,
-  variationPct,
   type BenchmarkRow,
 } from '@/lib/dashboards/cockpit-derive';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
+import { ErrorState } from '@/components/ui/error-state';
 import { Heading } from '@/components/ui/heading';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { SquaresFourIcon } from '@/components/ui/icones';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
 import { Card } from '@/components/ui/card';
 import { ROUTES } from '@/lib/routes';
+import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphique';
 
 function masseStr(kg: number): string {
   const m = fmtMasse(kg);
   return `${m.value} ${m.unit}`;
-}
-
-interface KpiData {
-  nb_collectes: number;
-  tonnage_kg: number | null;
-  taux_recyclage_pondere: number | null;
-  kg_par_pax: number | null;
-  nb_repas_donnes: number | null;
-  pax_total: number | null;
-  repas_par_pax: number | null;
-}
-
-interface PackActif {
-  id: string;
-  nb_collectes_total: number;
-  nb_collectes_restantes: number;
-  statut: string;
 }
 
 export default function GestionnaireDashboardPage() {
@@ -77,13 +59,6 @@ export default function GestionnaireDashboardPage() {
   const [parcOptions, setParcOptions] = useState<ParcFilterOptions | undefined>(
     undefined,
   );
-  const [kpi, setKpi] = useState<KpiData | null>(null);
-  // KPIs de la période précédente équivalente (N-1) — variation des cartes
-  // (§06.05 l.136). Même endpoint, fenêtre `previousWindow`, mêmes filtres parc.
-  const [kpiPrev, setKpiPrev] = useState<KpiData | null>(null);
-  const [perFlux, setPerFlux] = useState<Record<string, number>>({});
-  const [pack, setPack] = useState<PackActif | null>(null);
-  const [loading, setLoading] = useState(true);
   const [benchmarkFilters, setBenchmarkFilters] =
     useState<BenchmarkFilters | null>(null);
   const [benchmarkRows, setBenchmarkRows] = useState<BenchmarkRow[]>([]);
@@ -97,6 +72,19 @@ export default function GestionnaireDashboardPage() {
 
   // Bloc 2 (évolution) + Bloc 4 (donut) — série partagée §11, honore les filtres parc.
   const { granularite, zdSeries, agSeries } = useEvolutionBlocs(filters, tab);
+  // Bloc 1 (cartes KPI + variation N-1, §06.05 l.136), kg/pax par flux du
+  // benchmark et pack AG : une seule réponse, mêmes filtres parc.
+  const {
+    kpi,
+    kpiPrev,
+    kgParPaxParFlux: perFlux,
+    pack,
+    loading,
+    erreur,
+  } = useKpisGestionnaire(filters, tab);
+  // « Réessayer » : des filtres identiques mais neufs relancent les chargements
+  // qu'ils pilotent (KPI, évolution, Top listes), tous touchés par la même panne.
+  const recharger = () => setFilters((f) => (f ? { ...f } : f));
 
   useEffect(() => {
     fetch('/api/v1/gestionnaire/filtres')
@@ -106,48 +94,6 @@ export default function GestionnaireDashboardPage() {
       })
       .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (!filters) return;
-    setLoading(true);
-    const qs = new URLSearchParams({
-      from: filters.from,
-      to: filters.to,
-      type: tab,
-    });
-    (filters.lieu_ids ?? []).forEach((id) => qs.append('lieu_ids[]', id));
-    (filters.traiteur_ids ?? []).forEach((id) =>
-      qs.append('traiteur_ids[]', id),
-    );
-    (filters.type_evenement_ids ?? []).forEach((id) =>
-      qs.append('type_evenement_ids[]', id),
-    );
-    (filters.taille_evenement_codes ?? []).forEach((c) =>
-      qs.append('taille_evenements[]', c),
-    );
-    const fenetrePrev = previousWindow(filters.from, filters.to);
-    const qsPrev = new URLSearchParams(qs);
-    if (fenetrePrev) {
-      qsPrev.set('from', fenetrePrev.from);
-      qsPrev.set('to', fenetrePrev.to);
-    }
-    const lire = (q: URLSearchParams) =>
-      fetch(`/api/v1/gestionnaire/dashboard?${q}`).then((r) => r.json());
-    Promise.all([
-      lire(qs),
-      // N-1 non bloquant : un échec ne masque que les variations.
-      fenetrePrev ? lire(qsPrev).catch(() => null) : Promise.resolve(null),
-    ])
-      .then(([j, jPrev]) => {
-        setKpi((j.data?.kpis ?? null) as KpiData | null);
-        setKpiPrev((jPrev?.data?.kpis ?? null) as KpiData | null);
-        setPerFlux(
-          (j.data?.kg_par_pax_par_flux ?? {}) as Record<string, number>,
-        );
-        setPack((j.data?.pack ?? null) as PackActif | null);
-      })
-      .finally(() => setLoading(false));
-  }, [filters, tab]);
 
   // Blocs 6/7/3AG (§11) — endpoint partagé, mêmes filtres globaux parc.
   useEffect(() => {
@@ -196,11 +142,9 @@ export default function GestionnaireDashboardPage() {
       .catch(() => setBenchmarkRows([]));
   }, [benchmarkFilters, tab]);
 
-  const packEpuise = pack && pack.nb_collectes_restantes === 0;
+  const packEpuise = pack && pack.credits_restants === 0;
   const packBas =
-    pack &&
-    !packEpuise &&
-    pack.nb_collectes_restantes <= 0.1 * pack.nb_collectes_total;
+    pack && !packEpuise && pack.credits_restants <= 0.1 * pack.credits_initiaux;
 
   // ── Top listes (Cockpit) — colonnes §06.05 préservées via `secondary`. ──
   const nbColl = (n: number) => `${fmtInt(n)} collecte${n > 1 ? 's' : ''}`;
@@ -260,8 +204,10 @@ export default function GestionnaireDashboardPage() {
   // ouvrir large sur son parc. Ne pas « harmoniser » en remettant type/statut ici :
   // c'est précisément la règle traiteur qui avait été appliquée par erreur au
   // gestionnaire (53bec7c, 2026-07-14), contre le texte du §06.05.
+  // Le dashboard mesure ce qui a été collecté : le lien ouvre la vue
+  // « Collectes passées » (décision Val 2026-10-19).
   const drillUrl = (cle: 'lieu' | 'traiteur', id: string): string => {
-    const qs = new URLSearchParams({ [cle]: id });
+    const qs = new URLSearchParams({ [cle]: id, onglet: 'passees' });
     if (filters) {
       qs.set('from', filters.from);
       qs.set('to', filters.to);
@@ -294,251 +240,189 @@ export default function GestionnaireDashboardPage() {
   );
 
   return (
-    <div className="space-y-6" data-testid="gestionnaire-dashboard">
-      <PageHeader
-        title="Dashboard"
-        actions={
-          <Button asChild>
-            <a href={ROUTES.programmer.nouveau}>Programmer une collecte</a>
-          </Button>
-        }
-      />
+    <EntreeGraphiques>
+      <div className="space-y-6" data-testid="gestionnaire-dashboard">
+        <PageHero
+          icon={<SquaresFourIcon className="h-6 w-6" />}
+          title="Dashboard"
+        />
 
-      <DashboardFilterBar
-        storageKey="gestionnaire-dashboard"
-        onChange={handleFilters}
-        parcOptions={parcOptions}
-      />
-      {!loading && kpi && (
-        <Text data-testid="dashboard-collectes-count">
-          {kpi.nb_collectes} collecte{kpi.nb_collectes > 1 ? 's' : ''}{' '}
-          correspond{kpi.nb_collectes > 1 ? 'ent' : ''}
-        </Text>
-      )}
-      <ToggleTypeCollecte value={tab} onChange={setTab} />
+        <DashboardFilterBar
+          storageKey="gestionnaire-dashboard"
+          onChange={handleFilters}
+          parcOptions={parcOptions}
+          toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
+          count={
+            !loading && kpi ? (
+              <span data-testid="dashboard-collectes-count">
+                {kpi.nb_collectes} collecte
+                {(kpi.nb_collectes ?? 0) > 1 ? 's' : ''} correspond
+                {(kpi.nb_collectes ?? 0) > 1 ? 'ent' : ''} à votre sélection
+              </span>
+            ) : undefined
+          }
+        />
 
-      {loading ? (
-        <LoadingState />
-      ) : !kpi || kpi.nb_collectes === 0 ? (
-        <EmptyDashboardState />
-      ) : tab === 'zero_dechet' ? (
-        <>
-          {/* Bloc 1 — KPIs Cockpit (non cliquables, décision Val 2026-07-10) */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard
-              label="Nombre de collectes"
-              value={fmtInt(kpi.nb_collectes)}
-              dotColor={KPI_DOT.navy}
-              variationPct={variationPct(
-                kpi.nb_collectes,
-                kpiPrev?.nb_collectes ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(zdSeries, (p) => p.nb_collectes)}
-            />
-            <StatCard
-              label="Tonnage collecté"
-              value={fmtMasse(kpi.tonnage_kg ?? 0).value}
-              unit={fmtMasse(kpi.tonnage_kg ?? 0).unit}
-              dotColor={KPI_DOT.navy2}
-              variationPct={variationPct(
-                kpi.tonnage_kg ?? 0,
-                kpiPrev?.tonnage_kg ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(zdSeries, (p) => p.tonnage_total)}
-            />
-            <StatCard
-              label="Taux de recyclage"
-              value={
-                kpi.taux_recyclage_pondere != null
-                  ? fmtDec(kpi.taux_recyclage_pondere, 1)
-                  : '—'
-              }
-              unit={kpi.taux_recyclage_pondere != null ? '%' : undefined}
-              dotColor={KPI_DOT.green}
-              variationPct={variationPct(
-                kpi.taux_recyclage_pondere ?? 0,
-                kpiPrev?.taux_recyclage_pondere ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(zdSeries, (p) => p.taux_recyclage)}
-              sparkColor={KPI_DOT.green}
-            />
-            {/* kg/pax : sparkline seule, pas de variation (sens « plus bas =
-                mieux », §06.05 l.136). */}
-            <StatCard
-              label="kg/pax moyen"
-              value={kpi.kg_par_pax != null ? fmtDec(kpi.kg_par_pax, 2) : '—'}
-              unit={kpi.kg_par_pax != null ? 'kg/pax' : undefined}
-              dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromSeries(zdSeries, (p) =>
-                p.pax ? p.tonnage_total / p.pax : 0,
-              )}
-            />
-          </div>
-
-          {/* Bloc 2 — Évolution mensuelle ZD */}
-          <div data-testid="bloc-2-gestionnaire">
-            <EvolutionZdChart series={zdSeries} granularite={granularite} />
-          </div>
-
-          {/* Bloc 3 ZD — Filtres du repère + radar kg/pax en UN seul bloc
-              (retour Val R24b : filtres imbriqués dans la carte du benchmark). */}
-          <BenchmarkRadar
-            items={gaugeItems}
-            filtersSlot={
-              <BenchmarkFilterBar
-                perimetre="rattache"
-                onChange={handleBenchmarkFilters}
-                initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
-                initialTailleCodes={filters?.taille_evenement_codes ?? []}
-              />
-            }
+        {erreur ? (
+          // §10 §7 « Error » : une panne de chargement ne se lit jamais comme un
+          // dashboard sans collecte.
+          <ErrorState
+            message="Impossible de charger le dashboard. Le service n'a pas répondu. Vérifiez votre connexion puis réessayez."
+            onRetry={recharger}
           />
+        ) : loading ? (
+          <LoadingState />
+        ) : !kpi || kpi.nb_collectes === 0 ? (
+          <EmptyDashboardState />
+        ) : tab === 'zero_dechet' ? (
+          <>
+            {/* Bloc 1 — KPIs Cockpit (non cliquables, décision Val 2026-07-10) */}
+            <CartesKpiGestionnaire type={tab} kpi={kpi} kpiPrev={kpiPrev} />
 
-          {/* Bloc 4 donut + Bloc 6 lieux + Bloc 7 traiteurs */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div data-testid="bloc-4-gestionnaire">
-              <TonnagesDonut series={zdSeries} />
+            {/* Bloc 2 — Évolution mensuelle ZD */}
+            <div data-testid="bloc-2-gestionnaire">
+              <EvolutionZdChart series={zdSeries} granularite={granularite} />
             </div>
-            <div data-testid="bloc-6-top-lieux">
-              <TopRankList
-                title="Top 5 lieux"
-                subtitle="Par tonnage collecté"
-                items={withBars(topLieuxItems)}
-                onItemClick={goToLieu}
-                showBar
-              />
+
+            {/* Bloc 4 donut + Bloc 3 radar sur la même ligne, comme la fiche
+              collecte (Val 2026-10-28) ; filtres du repère en pastilles. */}
+            <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+              <div data-testid="bloc-4-gestionnaire" className="h-full">
+                <TonnagesDonut
+                  series={zdSeries}
+                  disposition="ligne"
+                  className="h-full p-5"
+                />
+              </div>
+              <div data-testid="bloc-3-gestionnaire" className="h-full">
+                <BenchmarkRadar
+                  className="h-full p-5"
+                  items={gaugeItems}
+                  filtersSlot={
+                    <BenchmarkFilterBar
+                      disposition="pastilles"
+                      perimetre="rattache"
+                      onChange={handleBenchmarkFilters}
+                      initialTypeEvenementIds={
+                        filters?.type_evenement_ids ?? []
+                      }
+                      initialTailleCodes={filters?.taille_evenement_codes ?? []}
+                    />
+                  }
+                />
+              </div>
             </div>
-            {blocs?.topActeurs && blocs.acteurLabel && (
-              <div data-testid="bloc-7-top-acteurs">
+
+            {/* Bloc 6 top lieux + Bloc 7 (pleine largeur sans Bloc 7) */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div
+                data-testid="bloc-6-top-lieux"
+                className={
+                  blocs?.topActeurs && blocs.acteurLabel
+                    ? undefined
+                    : 'lg:col-span-2'
+                }
+              >
                 <TopRankList
-                  title={acteurTitre}
-                  subtitle="Par nombre de collectes"
-                  items={withBars(topActeursItems)}
-                  onItemClick={goToActeur}
+                  title="Top 5 lieux"
+                  subtitle="Par tonnage collecté"
+                  items={withBars(topLieuxItems)}
+                  onItemClick={goToLieu}
                   showBar
                 />
               </div>
-            )}
-          </div>
-
-          {/* Bloc 8 — Export synthèse PDF */}
-          <ExportSyntheseBloc filters={filters} tab={tab} />
-        </>
-      ) : (
-        <>
-          {/* Bloc 1 — KPIs Cockpit AG (non cliquables) */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard
-              label="Nombre de collectes"
-              value={fmtInt(kpi.nb_collectes)}
-              dotColor={KPI_DOT.navy}
-              variationPct={variationPct(
-                kpi.nb_collectes,
-                kpiPrev?.nb_collectes ?? 0,
+              {blocs?.topActeurs && blocs.acteurLabel && (
+                <div data-testid="bloc-7-top-acteurs">
+                  <TopRankList
+                    title={acteurTitre}
+                    subtitle="Par nombre de collectes"
+                    items={withBars(topActeursItems)}
+                    onItemClick={goToActeur}
+                    showBar
+                  />
+                </div>
               )}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.nb_collectes)}
-            />
-            <StatCard
-              label="Repas donnés"
-              value={fmtInt(kpi.nb_repas_donnes ?? 0)}
-              dotColor={KPI_DOT.accent}
-              variationPct={variationPct(
-                kpi.nb_repas_donnes ?? 0,
-                kpiPrev?.nb_repas_donnes ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.repas_donnes)}
-              sparkColor={KPI_DOT.accent}
-            />
-            <StatCard
-              label="Pax cumulés"
-              value={fmtInt(kpi.pax_total ?? 0)}
-              dotColor={KPI_DOT.navy2}
-              variationPct={variationPct(
-                kpi.pax_total ?? 0,
-                kpiPrev?.pax_total ?? 0,
-              )}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.pax)}
-            />
-            <StatCard
-              label="Repas/pax moyen"
-              value={
-                kpi.repas_par_pax != null ? fmtDec(kpi.repas_par_pax, 2) : '—'
-              }
-              dotColor={KPI_DOT.navy3}
-              sparkPoints={sparkFromSeries(agSeries, (p) => p.ratio)}
-            />
-          </div>
+            </div>
 
-          {/* Bloc 2 — Évolution Anti-Gaspi */}
-          <div data-testid="bloc-2-gestionnaire">
-            <EvolutionAgChart series={agSeries} granularite={granularite} />
-          </div>
+            {/* Bloc 8 — Export synthèse PDF */}
+            <ExportSyntheseBloc filters={filters} tab={tab} />
+          </>
+        ) : (
+          <>
+            {/* Bloc 1 — KPIs Cockpit AG (non cliquables) */}
+            <CartesKpiGestionnaire type={tab} kpi={kpi} kpiPrev={kpiPrev} />
 
-          {/* Bloc 3 AG — Top associations bénéficiaires */}
-          <div data-testid="bloc-3ag-top-associations">
-            <TopRankList
-              title="Top associations bénéficiaires"
-              subtitle="Par repas reçus"
-              items={withBars(topAssociationsItems)}
-              avatarShape="round"
-              avatarTint="orange"
-              showBar
-            />
-          </div>
+            {/* Bloc 2 — Évolution Anti-Gaspi */}
+            <div data-testid="bloc-2-gestionnaire">
+              <EvolutionAgChart series={agSeries} granularite={granularite} />
+            </div>
 
-          {/* Mon pack AG (lecture seule gestionnaire) */}
-          {pack && (
-            <Card variant="elevated" padding="lg" data-testid="bloc-pack-ag">
-              <Heading level={3} weight="extrabold" className="mb-2">
-                Mon pack Anti-Gaspi
-              </Heading>
-              <Text variant="body">
-                Crédits restants :{' '}
-                <strong className="tabular-nums">
-                  {pack.nb_collectes_restantes}
-                </strong>{' '}
-                / {pack.nb_collectes_total}
-              </Text>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {packEpuise && <Badge variant="error">Pack épuisé</Badge>}
-                {packBas && (
-                  <Badge variant="warning">Pack bientôt épuisé</Badge>
-                )}
-              </div>
-              <Text className="mt-2">
-                Contactez votre responsable Savr pour renouveler votre pack.
-              </Text>
-            </Card>
-          )}
-
-          {/* Bloc 6 lieux + Bloc 7 traiteurs */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div data-testid="bloc-6-top-lieux">
+            {/* Bloc 3 AG — Top associations bénéficiaires */}
+            <div data-testid="bloc-3ag-top-associations">
               <TopRankList
-                title="Top 5 lieux"
-                subtitle="Par repas donnés"
-                items={withBars(topLieuxItems)}
-                onItemClick={goToLieu}
+                title="Top associations bénéficiaires"
+                subtitle="Par repas reçus"
+                items={withBars(topAssociationsItems)}
+                avatarShape="round"
+                avatarTint="orange"
                 showBar
               />
             </div>
-            {blocs?.topActeurs && blocs.acteurLabel && (
-              <div data-testid="bloc-7-top-acteurs">
+
+            {/* Mon pack AG (lecture seule gestionnaire) */}
+            {pack && (
+              <Card variant="elevated" padding="lg" data-testid="bloc-pack-ag">
+                <Heading level={3} weight="extrabold" className="mb-2">
+                  Mon pack Anti-Gaspi
+                </Heading>
+                <Text variant="body">
+                  Crédits restants :{' '}
+                  <strong className="tabular-nums">
+                    {pack.credits_restants}
+                  </strong>{' '}
+                  / {pack.credits_initiaux}
+                </Text>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {packEpuise && <Badge variant="error">Pack épuisé</Badge>}
+                  {packBas && (
+                    <Badge variant="warning">Pack bientôt épuisé</Badge>
+                  )}
+                </div>
+                <Text className="mt-2">
+                  Contactez votre responsable Savr pour renouveler votre pack.
+                </Text>
+              </Card>
+            )}
+
+            {/* Bloc 6 lieux + Bloc 7 traiteurs */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div data-testid="bloc-6-top-lieux">
                 <TopRankList
-                  title={acteurTitre}
-                  subtitle="Par nombre de collectes"
-                  items={withBars(topActeursItems)}
-                  onItemClick={goToActeur}
+                  title="Top 5 lieux"
+                  subtitle="Par repas donnés"
+                  items={withBars(topLieuxItems)}
+                  onItemClick={goToLieu}
                   showBar
                 />
               </div>
-            )}
-          </div>
+              {blocs?.topActeurs && blocs.acteurLabel && (
+                <div data-testid="bloc-7-top-acteurs">
+                  <TopRankList
+                    title={acteurTitre}
+                    subtitle="Par nombre de collectes"
+                    items={withBars(topActeursItems)}
+                    onItemClick={goToActeur}
+                    showBar
+                  />
+                </div>
+              )}
+            </div>
 
-          {/* Bloc 8 — Export synthèse PDF */}
-          <ExportSyntheseBloc filters={filters} tab={tab} />
-        </>
-      )}
-    </div>
+            {/* Bloc 8 — Export synthèse PDF */}
+            <ExportSyntheseBloc filters={filters} tab={tab} />
+          </>
+        )}
+      </div>
+    </EntreeGraphiques>
   );
 }

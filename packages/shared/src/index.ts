@@ -1,5 +1,3 @@
-export type TypeCollecte = 'ag' | 'zd';
-
-export function libelleTypeCollecte(type: TypeCollecte): string {
-  return type === 'ag' ? 'Anti-Gaspi' : 'Zéro Déchet';
-}
+// Point d'entrée déclaré du paquet (`main`). Les modules de @savr/shared
+// s'importent par leur chemin (`@savr/shared/src/...`) : rien n'est exposé ici.
+export {};

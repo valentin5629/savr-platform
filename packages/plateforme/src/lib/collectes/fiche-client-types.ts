@@ -6,6 +6,13 @@
 
 export type EspaceClient = 'traiteur' | 'agence' | 'gestionnaire';
 
+/** Raison d'une action « Modifier » / « Annuler » grisée, selon l'espace. */
+export function motifActionGrisee(espace: EspaceClient): string {
+  return espace === 'traiteur'
+    ? 'Seul le créateur de la collecte ou un manager peut la modifier.'
+    : 'Seule l’organisation qui a programmé la collecte peut la modifier.';
+}
+
 // Camions : chauffeur, plaque et téléphone visibles tant que la collecte n'est
 // pas terminée (bloc « Logistique », §06.04). Hors de cette fenêtre la route ne
 // renvoie AUCUN camion — le téléphone du chauffeur n'a plus de raison d'être lu.
@@ -20,9 +27,15 @@ export const STATUTS_ASSOCIATION = [
   'cloturee',
 ];
 
-// Bilan affiché quand la collecte est « Réalisée » côté client (= `cloturee`,
-// mapping canonique §06.04) ; `realisee_sans_collecte` a son propre bloc.
-export const STATUT_BILAN = 'cloturee';
+// Statuts d'une collecte « Réalisée » côté client, qui porte son bilan dès que
+// ses chiffres sont là (Val 2026-11-04 : dès la réalisation, plus seulement à la
+// clôture) ; `realisee_sans_collecte` a son propre bloc.
+export const STATUTS_BILAN: readonly string[] = ['realisee', 'cloturee'];
+
+/** La collecte est-elle « Réalisée » côté client (bilan possible) ? */
+export function statutBilan(statut: string): boolean {
+  return STATUTS_BILAN.includes(statut);
+}
 
 export const STATUTS_ANNULES = ['annulee', 'annulation_demandee'];
 
@@ -87,7 +100,7 @@ export function etatRapport(p: {
   // Collecte terminée sans date de réalisation (historique repris) : il n'y a
   // plus d'échéance à promettre.
   if (p.realisee_at == null)
-    return p.statut === STATUT_BILAN || p.statut === 'realisee_sans_collecte'
+    return statutBilan(p.statut) || p.statut === 'realisee_sans_collecte'
       ? 'en_preparation'
       : 'a_venir';
   return new Date(p.realisee_at).getTime() + ECHEANCE_RAPPORT_MS <= p.maintenant
@@ -116,18 +129,11 @@ export interface EvenementFiche {
   id: string;
   nom_evenement: string | null;
   pax: number | null;
-  type_evenement_id: string | null;
-  type_evenement: { libelle: string | null } | null;
   nom_client_organisateur: string | null;
   // Servie à l'organisation programmatrice seule (null sinon).
   reference_affaire: string | null;
-  // false = bloc « Contacts sur place » masqué : gestionnaire sur la collecte
-  // d'un traiteur tiers (§06.05). Les quatre champs contact sont alors null.
-  contacts_visibles: boolean;
-  contact_principal_nom: string | null;
-  contact_principal_telephone: string | null;
-  contact_secours_nom: string | null;
-  contact_secours_telephone: string | null;
+  // Code site VIPARIS du lieu (Val 2026-11-02), lisible des trois espaces.
+  code_site_viparis: string | null;
   lieu: LieuFiche | null;
 }
 
@@ -145,8 +151,13 @@ export type EtatAction = 'actif' | 'grise' | 'absent';
 export interface ActionsFiche {
   modifier: EtatAction;
   annuler: EtatAction;
-  // directe (brouillon/programmee) ou demande validée par l'Admin (validee).
-  annulation: 'directe' | 'demande' | null;
+  // Annulation directe (brouillon, programmée, validée), sinon aucune.
+  annulation: 'directe' | null;
+  // « Ajouter une collecte à cet événement » : seulement sur un événement de
+  // l'organisation de l'utilisateur (la route d'ajout répond 404 sinon), quel
+  // que soit le statut de la collecte hors brouillon (décision Val 2026-10-21).
+  // Toujours posé par le serveur ; absent (fixtures d'écran) = non.
+  ajouter_collecte?: boolean;
 }
 
 export interface FicheCollecteClient {
@@ -157,14 +168,27 @@ export interface FicheCollecteClient {
   tms_reference: string | null;
   date_collecte: string;
   heure_collecte: string | null;
+  // Nombre de convives de la collecte (décision Val 2026-10-20) ; celui de
+  // l'événement (`evenement.pax`) en est calculé.
+  pax: number;
   controle_acces_requis: boolean;
   informations_completes: boolean;
   informations_supplementaires: string | null;
   taux_recyclage: number | null;
-  co2_net_kg: number | null;
   co2_evite_kg: number | null;
   realisee_at: string | null;
   aucun_repas_motif: string | null;
+  // Type d'événement et contacts sur place de LA collecte (refonte du
+  // formulaire, lot B1, décision Val 2026-10-23).
+  type_evenement_id: string | null;
+  type_evenement: { libelle: string | null } | null;
+  // false = bloc « Contacts sur place » masqué : gestionnaire sur la collecte
+  // d'un traiteur tiers (§06.05). Les quatre champs contact sont alors null.
+  contacts_visibles: boolean;
+  contact_principal_nom: string | null;
+  contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
   taille_bracket: string | null;
   evenement: EvenementFiche | null;
   tournees: TourneeFiche[];
@@ -179,7 +203,10 @@ export interface FicheCollecteClient {
   repas_donnes: number | null;
   association: AssociationFiche | null;
   rapport_rse_disponible: boolean;
-  rapport_rse_regenere: boolean;
+  // Date de la dernière mise à jour du document stocké (rapport « sans
+  // excédent » régénéré, attestation de don en version > 1) ; null s'il n'a
+  // jamais été mis à jour (§05 « Indicateur de mise à jour », §12 §1.4).
+  rapport_mis_a_jour_at: string | null;
   // Traiteur opérationnel d'une collecte AG programmée par une autre
   // organisation : l'attestation de don est émise au nom du donneur d'ordre et
   // ne lui est pas servie (att_traiteur_select — D12, arbitrage Val 2026-09-30).

@@ -6,10 +6,12 @@
  *  · attribution AG (repas, association) lue par la vue
  *    v_attributions_gestionnaire (§04) — jamais par la table (aa_select jamais
  *    élargie), jamais en service-role ;
- *  · radar : f_benchmark_single_collecte refuse les collectes de traiteurs tiers →
- *    « pas de radar » (200, data null), JAMAIS de contournement ;
+ *  · radar : collecte visible mais refusée par f_benchmark_single_collecte →
+ *    « pas de radar » (200, data null), JAMAIS de contournement (depuis le
+ *    2026-10-20, la fonction accepte aussi le gestionnaire du lieu) ;
  *  · documents lus sous la RLS du gestionnaire, jamais en service-role ;
- *  · aucune annulation (§05 : gestion exclusive au traiteur).
+ *  · annulation de ses propres programmations seulement (Val 2026-10-26) ;
+ *    aucun bouton sur la collecte d'un traiteur tenue sur ses lieux.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -17,6 +19,7 @@ import {
   makeClient,
   ligneCollecte,
   reserveEvenement,
+  contactsCollecte,
 } from '../helpers/fiche-client-mock';
 import { ERREUR_FILTRE_HORS_PERIMETRE } from '@/lib/dashboards/loaders.js';
 
@@ -35,6 +38,15 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 vi.mock('@savr/shared/src/email/index.js', () => ({ sendEmail: vi.fn() }));
 vi.mock('@/lib/pdf/r2-client.js', () => ({
   getPresignedUrl: (...a: unknown[]) => mockPresigned(...a),
+}));
+// Rapport de recyclage ZD fabriqué au clic (décision Val 2026-10-16).
+const mockPayload = vi.fn();
+const mockPdf = vi.fn();
+vi.mock('@/lib/pdf/payload-rapport.js', () => ({
+  construirePayloadRapport: (...a: unknown[]) => mockPayload(...a),
+}));
+vi.mock('@/lib/pdf/railway-client.js', () => ({
+  generatePdf: (...a: unknown[]) => mockPdf(...a),
 }));
 
 function req(path: string, method = 'GET') {
@@ -111,28 +123,41 @@ describe('M3.2 / fiche client gestionnaire — association (vue v_attributions_g
 
 // §06.05 : le gestionnaire ne voit pas les données personnelles / commerciales
 // des traiteurs au-delà du nom et du logo (arbitrages Val C2/C3 2026-10-01).
+// Depuis le lot B1 (décision Val 2026-10-23), les contacts sont ceux de LA
+// collecte (`collecte_contacts`), servis au niveau de la collecte ; la référence
+// d'affaire reste une colonne de l'événement.
 describe('M3.2 / fiche client gestionnaire — contacts et référence d’affaire', () => {
   it('M3.2/fiche_get_contacts_tiers_masques — collecte d’un traiteur tiers : contacts et référence ni lus ni servis', async () => {
     rls.results.collectes = { data: ligneCollecte(TIERS), error: null };
     // Piège : la base renverrait tout si on la lisait.
     admin.results.evenements = { data: reserveEvenement(), error: null };
+    admin.results.collecte_contacts = {
+      data: contactsCollecte(),
+      error: null,
+    };
     const { res, json } = await getFiche();
     expect(res.status).toBe(200);
-    expect(json.data.evenement).toMatchObject({
+    expect(json.data).toMatchObject({
       contacts_visibles: false,
       contact_principal_nom: null,
       contact_principal_telephone: null,
       contact_secours_nom: null,
       contact_secours_telephone: null,
-      reference_affaire: null,
     });
+    expect(json.data.evenement).toMatchObject({ reference_affaire: null });
     const texte = JSON.stringify(json);
+    expect(texte).not.toContain('Paul');
     expect(texte).not.toContain('0611223344');
     expect(texte).not.toContain('0655443322');
     expect(texte).not.toContain('AFF-2026-042');
-    // Pas seulement caché : aucune lecture, ni sous RLS ni en service-role.
-    expect(admin.calls).not.toContain('evenements');
+    // Pas seulement caché : jamais demandés. L'événement n'est lu en
+    // service-role que pour ses codes VIPARIS (Val 2026-11-02).
+    expect(admin.selects.evenements).toEqual([
+      'lieu:lieux!lieu_id(code_site_viparis)',
+    ]);
+    expect(admin.calls).not.toContain('collecte_contacts');
     expect(rls.calls).not.toContain('evenements');
+    expect(rls.calls).not.toContain('collecte_contacts');
     expect(rls.selects.collectes?.[0]).not.toContain('contact_');
     expect(rls.selects.collectes?.[0]).not.toContain('reference_affaire');
   });
@@ -148,14 +173,21 @@ describe('M3.2 / fiche client gestionnaire — contacts et référence d’affai
       error: null,
     };
     admin.results.evenements = { data: reserveEvenement(), error: null };
+    admin.results.collecte_contacts = {
+      data: contactsCollecte(),
+      error: null,
+    };
     const { json } = await getFiche();
-    expect(json.data.evenement).toMatchObject({
+    expect(json.data).toMatchObject({
       contacts_visibles: true,
       contact_principal_nom: 'Paul',
       contact_principal_telephone: '0611223344',
+    });
+    expect(json.data.evenement).toMatchObject({
       reference_affaire: 'AFF-2026-042',
     });
     expect(admin.eqs.evenements).toEqual([['id', 'e1']]);
+    expect(admin.eqs.collecte_contacts).toEqual([['collecte_id', 'c1']]);
   });
 });
 
@@ -260,13 +292,16 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
     expect(admin.calls).not.toContain('attestations_don');
   });
 
-  it('M3.2/fiche_get_actions_gestionnaire — jamais d’annulation ; modifier : ses programmations seulement', async () => {
+  it('M3.2/fiche_get_actions_gestionnaire — modifier et annuler : ses programmations seulement (annulation : Val 2026-10-26)', async () => {
     rls.results.collectes = { data: ligneCollecte(TIERS), error: null };
     let { json } = await getFiche();
     expect(json.data.actions).toEqual({
       modifier: 'grise',
+      // Collecte d'un traiteur tiers : pas de bouton d'annulation du tout.
       annuler: 'absent',
       annulation: null,
+      // Événement d'un traiteur tiers : la route d'ajout répondrait 404.
+      ajouter_collecte: false,
     });
 
     rls.results.collectes = {
@@ -279,14 +314,42 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
       error: null,
     };
     ({ json } = await getFiche());
+    // Sa propre programmation, validée (statut de la fixture) : une demande.
     expect(json.data.actions).toEqual({
       modifier: 'actif',
-      annuler: 'absent',
-      annulation: null,
+      annuler: 'actif',
+      annulation: 'directe',
+      ajouter_collecte: true,
+    });
+
+    rls.results.collectes = {
+      data: ligneCollecte({
+        statut: 'programmee',
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-gest',
+        },
+      }),
+      error: null,
+    };
+    ({ json } = await getFiche());
+    expect(json.data.actions).toEqual({
+      modifier: 'actif',
+      annuler: 'actif',
+      annulation: 'directe',
+      ajouter_collecte: true,
     });
   });
 
-  it('M3.2/rapport_download_gestionnaire_sous_rls — documents lus sous sa RLS, jamais en service-role', async () => {
+  it('M3.2/rapport_download_gestionnaire_sous_rls — accès établi sous sa RLS ; seules les données mesurées et la marque « consulté » passent en service-role', async () => {
+    mockPayload.mockResolvedValue({
+      ok: true,
+      payload: {
+        options: { benchmark: false },
+        bordereau: { date_collecte: '28/09/2026' },
+      },
+    });
+    mockPdf.mockResolvedValue({ pdfBuffer: Buffer.from('%PDF') });
     rls.results.collectes = {
       data: { id: 'c1', type: 'zero_dechet', statut: 'cloturee' },
       error: null,
@@ -295,24 +358,38 @@ describe('M3.2 / fiche client gestionnaire — documents et actions', () => {
       data: {
         id: 'r1',
         disponible_a: '2020-01-01T00:00:00Z',
-        genere_at: '2020-01-01T00:00:00Z',
-        pdf_url: 'rapports/r1.pdf',
+        consulte_par_user_at: null,
       },
       error: null,
     };
-    const { GET } =
-      await import('@/app/api/v1/gestionnaire/collectes/[id]/rapport-rse/download/route.js');
-    const res = await GET(
-      req('/api/v1/gestionnaire/collectes/c1/rapport-rse/download'),
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/collectes/[id]/rapport-rse/route.js');
+    let res = await POST(
+      req('/api/v1/gestionnaire/collectes/c1/rapport-rse', 'POST'),
       params,
     );
     expect(res.status).toBe(200);
-    expect(admin.calls).toHaveLength(0);
+    expect(res.headers.get('Content-Type')).toBe('application/pdf');
+    // Accès établi sous la RLS du demandeur (collecte puis rapport).
+    expect(rls.calls).toEqual(['collectes', 'rapports_rse']);
+    // Service-role : seulement la marque « consulté » (données mesurées : mock).
+    expect(admin.calls).toEqual(['rapports_rse']);
+    expect(admin.updates.map((u) => u.table)).toEqual(['rapports_rse']);
+
+    rls.results.rapports_rse = {
+      data: { id: 'r1', disponible_a: '2999-01-01T00:00:00Z' },
+      error: null,
+    };
+    res = await POST(
+      req('/api/v1/gestionnaire/collectes/c1/rapport-rse', 'POST'),
+      params,
+    );
+    expect(res.status).toBe(425);
   });
 });
 
-describe('M3.2 / fiche client gestionnaire — radar (garde non élargie)', () => {
-  it('M3.2/fiche_benchmark_tiers_masque — collecte visible refusée par la fonction : 200 data null, pas de contournement', async () => {
+describe('M3.2 / fiche client gestionnaire — radar (garde de la fonction, jamais contournée)', () => {
+  it('M3.2/fiche_benchmark_refus_fonction_sans_radar — collecte visible refusée par la fonction : 200 data null, pas de contournement', async () => {
     rls.rpcResults.f_benchmark_single_collecte = {
       data: null,
       error: { message: 'Collecte not accessible' },

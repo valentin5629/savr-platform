@@ -1,4 +1,4 @@
-import { Truck } from 'lucide-react';
+import { TruckIcon } from '@/components/ui/icones';
 
 import { plaqueTmsComplete } from '@/lib/statut-tms-labels';
 
@@ -31,7 +31,7 @@ export function PlaqueTmsPicto({
       }
       aria-label={complete ? 'Plaque TMS communiquée' : 'Plaque TMS manquante'}
     >
-      <Truck className="h-3.5 w-3.5" aria-hidden="true" />
+      <TruckIcon className="h-3.5 w-3.5" aria-hidden="true" />
       Plaque TMS
     </span>
   );

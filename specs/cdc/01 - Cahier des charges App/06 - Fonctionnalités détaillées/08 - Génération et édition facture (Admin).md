@@ -1,7 +1,5 @@
 # 08 - Génération et édition facture (Admin)
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-06-07 (session test-scenarios lot ⑦ — 5 floues tranchées Val + 2 recos : F1 avoir sur `payee` autorisé, F2 mensuelle = agrégation auto J+1 confirmée, F3 lignes libres → `factures_collectes` étendue, F4 numéro conservé après 4xx + table `sequences_facturation`, F5 `factures.marge_logistique` + vue `v_factures_client`, Reco A échéance = `conditions_paiement_jours`, Reco B trigger anti-double-facturation) / 2026-05-08 (revue de sobriété appliquée)
 **Lié à** : [[05 - Règles métier]] §4 — Facturation · [[04 - Data Model]] tables `factures`, `factures_collectes`, `tarifs_zero_dechet` · [[08 - APIs et intégrations]] (Pennylane v2)
 
 ---
@@ -109,6 +107,8 @@ Pas d'automatisation V1 (pas de batch de rattrapage, pas de flag fallback) — l
 
 La facture brouillon est générée **automatiquement à la clôture de la collecte** (`collectes.statut = cloturee`), au batch J+1 à 6h du matin.
 
+> ⚠ **Go-live : batch éteint (décision Val 2026-10-22)** — facturation faite hors plateforme : le batch répond sans préparer de brouillon (interrupteur `facturationPlateformeActive()`). Avant de le rallumer, le borner à une date de départ : sinon il préparerait un brouillon pour chaque collecte clôturée sans facture, historique migré compris, déjà facturée hors plateforme.
+
 ### ZD
 - 1 facture brouillon par collecte (mode défaut `par_collecte`)
 - Si l'organisation a le mode `mensuelle` activé : la collecte est ajoutée à un brouillon en cours pour le mois en cours (agrégation `factures_collectes`)
@@ -196,7 +196,7 @@ Bouton "Ajouter une ligne" → ouvre un sélecteur :
 
 ### ZD *(refonte 2026-05-26 — base de grille + remises)*
 Pré-rempli = **base × remises** (cf. [[05 - Règles métier#Tarifs et remises — résolution du prix]]) :
-- **Base** : grille du catalogue affectée à l'organisation (`organisations.grille_tarifaire_zd_id`, NULL = grille défaut), ligne couvrant le pax → `montant_fixe_ht + montant_par_pax_ht × pax`.
+- **Base** : grille du catalogue affectée à l'organisation (`organisations.grille_tarifaire_zd_id`, NULL = grille défaut), ligne couvrant le pax de LA collecte (`collectes.pax`) → `montant_fixe_ht + montant_par_pax_ht × pax` ; grille et remises en vigueur à la date de la collecte *(lot C2, décisions Val C2 du 2026-10-20 et Q4 du 2026-10-24)*.
 - **Remises** éligibles (`tarifs_negocie`, scope organisation et/ou gestionnaire du lieu) cumulées multiplicativement.
 - Exemple : Butard (grille « Forfait + variable » 200 € + 1 €/pax), 300 pax chez Viparis (−5 %) → 500 × 0,95 = **475 € HT**.
 

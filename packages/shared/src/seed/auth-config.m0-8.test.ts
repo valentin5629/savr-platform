@@ -72,6 +72,12 @@ describe('M0.8-59 — reset_password : recovery template GoTrue brandé + slug c
     expect(RECOVERY).not.toContain('{{ .prenom }}');
   });
 
+  it('recovery.html : lien vers la politique de confidentialité (CDC §15, 3.4)', () => {
+    // Seul email envoyé par GoTrue et non par l'enveloppe commune : il porte
+    // le lien lui-même.
+    expect(RECOVERY).toContain('href="https://app.gosavr.io/confidentialite"');
+  });
+
   it('migration : slug catalogue aligné reset_password (ex reinitialisation_mot_de_passe)', () => {
     expect(MIGRATION).toContain("code = 'reset_password'");
     expect(MIGRATION).toContain("WHERE code = 'reinitialisation_mot_de_passe'");

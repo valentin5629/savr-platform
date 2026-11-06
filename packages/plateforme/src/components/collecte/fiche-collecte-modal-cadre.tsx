@@ -8,6 +8,7 @@ import {
   type MutableRefObject,
 } from 'react';
 import { FicheModal } from '@/components/ui/fiche/fiche-modal';
+import { EntreeGraphiques } from '@/components/dashboards/charts/entree-graphique';
 
 export interface FicheCollecteMeta {
   title: string;
@@ -25,11 +26,14 @@ export interface FicheCollecteMeta {
 export function FicheCollecteModalCadre({
   collecteId,
   onClose,
+  taille,
   children,
 }: {
   // null = fermé.
   collecteId: string | null;
   onClose: () => void;
+  /** `grand` : fiches collecte client et Admin (variante B, Val 2026-10-27). */
+  taille?: 'standard' | 'grand';
   children: (panneau: {
     onLoaded: (meta: FicheCollecteMeta) => void;
     blockCloseRef: MutableRefObject<boolean>;
@@ -54,8 +58,15 @@ export function FicheCollecteModalCadre({
       open={collecteId != null}
       title={meta?.title ?? 'Collecte'}
       onClose={handleClose}
+      taille={taille}
     >
-      {collecteId != null && children({ onLoaded: setMeta, blockCloseRef })}
+      {/* Graphiques du bilan construits à l'ouverture de chaque collecte
+          (Val 2026-10-28, comme les dashboards). */}
+      {collecteId != null && (
+        <EntreeGraphiques key={collecteId}>
+          {children({ onLoaded: setMeta, blockCloseRef })}
+        </EntreeGraphiques>
+      )}
     </FicheModal>
   );
 }

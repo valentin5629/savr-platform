@@ -1,7 +1,5 @@
 # 08 - Performance / 06 - Monitoring perf prod
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-06-08 (skill `cdc-perf-load`)
 **Nature** : extension perf du dossier [[../07 - Observabilité/]]. Stack inchangée (décision 2026-06-08) : **Supabase Logs + Sentry + Better Uptime + Slack 3 canaux**. Aucun outil ajouté.
 
 ---

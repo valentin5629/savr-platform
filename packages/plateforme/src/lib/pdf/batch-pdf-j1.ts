@@ -1,5 +1,13 @@
-// Batch J+1 6h — génère les PDFs ZD pour les collectes cloturees de la veille.
-// Règles : R-PDF1 (cloturee only), R-PDF3 (skip si 0 ligne collecte_flux),
+// Batch des bordereaux ZD — émet le bordereau d'une collecte dès que ses pesées
+// sont là (realisee ou cloturee, Val 2026-11-04), et le refait quand elles
+// changent. Passe toutes les 15 min, et sur-le-champ après une saisie Admin
+// (documents-sans-attendre). L'email « rapport disponible » part à la clôture
+// (emails-documents-disponibles), plus d'ici.
+// Le rapport de recyclage n'est plus fabriqué ici (décision Val 2026-10-16) : le
+// batch pose seulement sa ligne `rapports_rse` (disponible_a = instant
+// d'émission) ; le PDF est fabriqué au clic, au choix de celui qui le
+// télécharge (lib/collectes/rapport-a-la-demande).
+// Règles : R-PDF3 (skip si 0 ligne collecte_flux),
 //          R-PDF4 (escalade R9 si > 48h sans bordereau).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
@@ -10,17 +18,19 @@ import {
   fatalSiAucuneProduite,
   logCollecteEnEchec,
 } from './batch-fatal.js';
-import { resolveRapportBenchmark } from './rapport-benchmark.js';
-import { resolveRapportLogo } from './logo-cascade.js';
-import { makeLogoResolver } from './logo-inline.js';
-import { logger } from '@savr/shared/src/logger/index.js';
+import { convivesImprimes } from './convives-imprimes.js';
+import {
+  TAILLE_PAGE,
+  lireParPages,
+  lireParLots,
+} from './selection-par-pages.js';
 import {
   anneeParis,
   formatDateParis,
   jourParis,
 } from '@savr/shared/src/temps/index.js';
-import { urlCanonique } from '@/lib/url-application.js';
 import { ROUTES } from '@/lib/routes';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 export interface BatchPdfJ1Result {
   enqueued: number;
@@ -28,14 +38,22 @@ export interface BatchPdfJ1Result {
   escalated_r9: number;
   already_done: number;
   errors: string[];
+  /** Bordereaux refaits après un changement de pesées. */
+  refaits: number;
   /** Échec global (sélection KO / 0 produit sur N tentés) → job.cron.failed. */
   fatal?: BatchFatal;
+}
+
+export interface BatchOptions {
+  /** Une seule collecte (saisie Admin) : son bordereau est toujours revu. */
+  collecteId?: string;
 }
 
 const JOB_NAME = 'bordereaux_rapports_batch';
 
 interface CollecteRow {
   id: string;
+  statut: string;
   evenement_id: string;
   realisee_at: string;
   // Date d'intervention du prestataire (§04 `collectes.date_collecte`, DATE
@@ -43,12 +61,10 @@ interface CollecteRow {
   // affichée « Intervention le … » sur bordereau + rapport (§12 §1.1 / §1.2) et
   // variable `date_collecte` de l'email rapport_disponible (§06.02 §6).
   date_collecte: string;
+  // Convives de LA collecte, imprimés sur le bordereau (Val Q5 du 2026-10-24).
+  pax: number | null;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
-  co2_induit_kg: number | null;
-  co2_net_kg: number | null;
-  energie_primaire_evitee_kwh: number | null;
-  co2_facteurs_snapshot: Record<string, unknown> | null;
   nb_camions_demande: number;
   // Transporteur = prestataire logistique de la collecte (shared.prestataires).
   // tournees n'a pas de transporteur_id ; la FK est prestataire_logistique_id → shared.prestataires.
@@ -57,34 +73,19 @@ interface CollecteRow {
     id: string;
     nom_evenement: string;
     date_evenement: string;
-    pax: number | null;
     organisation_id: string;
-    // Programmeur de la collecte (evenements.created_by → users, FK unique
-    // evenements_created_by_fkey) → variable `prenom` de l'email (§06.02 §6).
-    programmeur: { prenom: string | null } | null;
     traiteur_operationnel_organisation_id: string | null;
-    // Cascade logo §1.2 (BL-P2-19).
-    client_organisateur_organisation_id: string | null;
-    logo_client_organisateur_url: string | null;
     organisations: {
+      nom: string;
       raison_sociale: string;
       siret: string | null;
       adresse: string | null;
-      // Destinataire email rapport_disponible = programmeur de la collecte (§06.02).
-      email_principal: string | null;
-      // Cascade logo §1.2 : type (agence prime) + logo du programmateur.
-      type: string | null;
-      logo_url: string | null;
     } | null;
     traiteur_operationnel: {
+      nom: string;
       raison_sociale: string;
       siret: string | null;
       adresse: string | null;
-      logo_url: string | null;
-    } | null;
-    // Organisation du client organisateur (compte Savr) — logo cascade §1.2 étape 2.
-    client_organisateur: {
-      logo_url: string | null;
     } | null;
     lieux: {
       nom: string;
@@ -95,102 +96,75 @@ interface CollecteRow {
   } | null;
 }
 
-/** Ligne retournée par la RPC plateforme.f_taux_recyclage_moyen_parc (§12 §1.2 l.67). */
-interface ParcMoyenRow {
-  taux_moyen_pondere: number;
-  nb_organisations: number;
-  nb_collectes: number;
-}
-
-/**
- * Équivalences pédagogiques du CO₂ évité (§12 §1.2 l.63/l.65). Les facteurs sont figés
- * dans `co2_facteurs_snapshot.equivalences` à la clôture (reproductibilité) :
- *   - km_voiture / repas_boeuf = kgCO₂e par unité → compte = co2_evite_kg / facteur
- *   - foyer_kwh = kWh/an d'un foyer → compte = energie_primaire_evitee_kwh / facteur
- * Retourne undefined si pas de CO₂ évité ou pas de snapshot (bloc masqué côté PDF).
- */
-export function buildEquivalences(
-  co2EviteKg: number | null,
-  energiePrimaireKwh: number | null,
-  snapshot: Record<string, unknown> | null,
-):
-  | {
-      km_voiture: number | null;
-      repas_boeuf: number | null;
-      foyer: number | null;
-    }
-  | undefined {
-  if (co2EviteKg == null || !snapshot) return undefined;
-  const eqv = (snapshot as { equivalences?: Record<string, unknown> })
-    .equivalences;
-  if (!eqv) return undefined;
-  const feKm = Number(eqv.km_voiture);
-  const feBoeuf = Number(eqv.repas_boeuf);
-  const feFoyer = Number(eqv.foyer_kwh);
-  return {
-    km_voiture: feKm > 0 ? Math.round(co2EviteKg / feKm) : null,
-    repas_boeuf: feBoeuf > 0 ? Math.round(co2EviteKg / feBoeuf) : null,
-    foyer:
-      energiePrimaireKwh != null && feFoyer > 0
-        ? Math.round(energiePrimaireKwh / feFoyer)
-        : null,
-  };
-}
-
 export async function runBatchPdfJ1(
   supabase: SupabaseClient,
+  options: BatchOptions = {},
 ): Promise<BatchPdfJ1Result> {
   const result: BatchPdfJ1Result = {
     enqueued: 0,
     skipped_no_flux: 0,
     escalated_r9: 0,
     already_done: 0,
+    refaits: 0,
     errors: [],
   };
 
-  // 1. Collectes ZD cloturees sans bordereau emis
-  const { data: collectes, error: selErr } = await supabase
-    .from('collectes')
-    .select(
-      `
-      id, evenement_id, realisee_at, date_collecte,
-      taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh,
-      co2_facteurs_snapshot, nb_camions_demande, prestataire_logistique_id,
+  // 1. Collectes ZD realisee ou cloturee (par pages — cf. selection-par-pages).
+  //    Plus d'embargo : le bordereau sort dès que les pesées sont là.
+  const { data: collectes, error: selErr } = await lireParPages<CollecteRow>(
+    (apresId) => {
+      const pages = supabase
+        .from('collectes')
+        .select(
+          `
+      id, statut, evenement_id, realisee_at, date_collecte, pax,
+      taux_recyclage, co2_evite_kg, nb_camions_demande, prestataire_logistique_id,
       evenements (
-        id, nom_evenement, date_evenement, pax,
+        id, nom_evenement, date_evenement,
         organisation_id, traiteur_operationnel_organisation_id,
-        programmeur:users!created_by ( prenom ),
-        client_organisateur_organisation_id, logo_client_organisateur_url,
-        organisations!organisation_id ( raison_sociale, siret, adresse, email_principal, type, logo_url ),
-        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( raison_sociale, siret, adresse, logo_url ),
-        client_organisateur:organisations!client_organisateur_organisation_id ( logo_url ),
+        organisations!organisation_id ( nom, raison_sociale, siret, adresse ),
+        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( nom, raison_sociale, siret, adresse ),
         lieux ( nom, adresse_acces, code_postal, ville )
       )
     `,
-    )
-    .eq('type', 'zero_dechet')
-    .eq('statut', 'cloturee')
-    // Embargo H+24 (§12 énoncé canonique : « ni généré ni accessible avant
-    // realisee_at + 24h »). Le document figé (bordereau + rapport) ne doit pas
-    // être généré avant la fin de la fenêtre de correction de pesée. Le client
-    // Supabase ne sait pas exprimer now()-interval côté SQL → seuil calculé en JS
-    // (realisee_at = timestamptz). Prédicat canonique : realisee_at + 24h <= now().
-    .lte('realisee_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
-    .not('evenement_id', 'is', null);
+        )
+        .eq('type', 'zero_dechet')
+        .in('statut', ['realisee', 'cloturee'])
+        .not('evenement_id', 'is', null);
+      const filtrees = options.collecteId
+        ? pages.eq('id', options.collecteId)
+        : pages;
+      return (apresId ? filtrees.gt('id', apresId) : filtrees)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    },
+  );
 
   if (selErr) {
     result.fatal = fatalSelection(result.errors, 'Sélection collectes', selErr);
     return result;
   }
 
-  if (!collectes?.length) return result;
+  if (!collectes.length) return result;
 
   // 2. Exclure celles qui ont déjà un bordereau
-  const collecteIds = collectes.map((c: { id: string }) => c.id);
-  const { data: existingBordereaux, error: bordSelErr } = await supabase
-    .from('bordereaux_savr')
-    .select('collecte_id, statut')
-    .in('collecte_id', collecteIds);
+  type BordRow = {
+    id: string;
+    collecte_id: string;
+    statut: string;
+    numero: string | null;
+    detail_flux: unknown;
+    version: number;
+  };
+  const { data: existingBordereaux, error: bordSelErr } =
+    await lireParLots<BordRow>(
+      collectes.map((c) => c.id),
+      (lot) =>
+        supabase
+          .from('bordereaux_savr')
+          .select('id, collecte_id, statut, numero, detail_flux, version')
+          .in('collecte_id', lot),
+    );
 
   // Fail-closed : sans la liste des bordereaux émis, traiter = ré-émettre (BSAV gapless
   // consommé, doublon de document réglementaire).
@@ -203,39 +177,61 @@ export async function runBatchPdfJ1(
     return result;
   }
 
-  type BordRow = { collecte_id: string; statut: string };
-  const doneIds = new Set(
-    ((existingBordereaux ?? []) as BordRow[])
-      .filter((b) => b.statut !== 'brouillon')
-      .map((b) => b.collecte_id),
-  );
-
-  const toProcess = (collectes as unknown as CollecteRow[]).filter(
-    (c) => !doneIds.has(c.id),
-  );
+  // Un bordereau déjà créé n'est jamais recréé : il a son numéro BSAV gapless
+  // (ou le prendra, cf. reprise ci-dessous). Seule exception : une ligne restée
+  // sans numéro (échec entre sa création et le tirage du numéro), reprise ici.
+  const existants = new Map(existingBordereaux.map((b) => [b.collecte_id, b]));
+  const toProcess = collectes.filter((c) => {
+    const b = existants.get(c.id);
+    // Reprise : seulement un brouillon sans numéro (création interrompue). Un
+    // document émis sans numéro (jeu de données, import) n'est jamais renuméroté.
+    return !b || (b.numero == null && b.statut === 'brouillon');
+  });
   result.already_done = collectes.length - toProcess.length;
 
-  const now = new Date();
-
-  // Comparaison vs moyenne Savr anonymisée (§12 §1.2 l.67) — parc-wide, identique pour
-  // toutes les collectes du batch → calculée une seule fois. Masquée si < 3 acteurs
-  // (la fonction ne retourne aucune ligne). Distinct du benchmark kg/pax (k≥5, par collecte).
-  const { data: parcRows } = await supabase.rpc(
-    'f_taux_recyclage_moyen_parc',
-    {},
-  );
-  const parc = ((parcRows ?? []) as ParcMoyenRow[])[0];
-  const comparaisonSavr = parc
-    ? {
-        taux_moyen_pondere: Number(parc.taux_moyen_pondere),
-        nb_organisations: parc.nb_organisations,
+  // 2bis. Bordereau existant : refait si les pesées ont changé. Revu pour la
+  //       collecte nommée (saisie Admin) et pour toute collecte dont une pesée a
+  //       été écrite dans les 48 dernières heures (MTS-1 jusqu'à la clôture,
+  //       Admin à tout moment) : une correction tombée pendant un rendu en cours
+  //       est ainsi reprise au passage suivant, même après la clôture.
+  let aRevoir = new Set<string>();
+  const numerotes = existingBordereaux.some((b) => b.numero != null);
+  if (options.collecteId) {
+    aRevoir = new Set([options.collecteId]);
+  } else if (numerotes) {
+    const depuis = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+    const { data: recents, error: recErr } = await supabase
+      .from('collecte_flux')
+      .select('collecte_id')
+      .gte('updated_at', depuis);
+    if (recErr) {
+      result.fatal = fatalSelection(
+        result.errors,
+        'Sélection pesées récentes',
+        recErr,
+      );
+      return result;
+    }
+    aRevoir = new Set(
+      (recents ?? []).map((r: { collecte_id: string }) => r.collecte_id),
+    );
+  }
+  for (const collecte of collectes) {
+    const bordereau = existants.get(collecte.id);
+    if (!bordereau || bordereau.numero == null || !aRevoir.has(collecte.id)) {
+      continue;
+    }
+    try {
+      if (await refaireSiPeseesChangees(supabase, collecte.id, bordereau)) {
+        result.refaits++;
       }
-    : undefined;
+    } catch (err) {
+      result.errors.push(`collecte ${collecte.id}: ${String(err)}`);
+      logCollecteEnEchec(JOB_NAME, collecte.id, err);
+    }
+  }
 
-  // Inline logo mémoïsé (BL-P3-05) : la cascade renvoie une clé R2 brute que le
-  // renderer n'affiche pas → data URI. Cache partagé sur tout le batch (même logo
-  // d'agence réutilisé sur N rapports).
-  const resolveLogoUri = makeLogoResolver();
+  const now = new Date();
 
   for (const collecte of toProcess) {
     try {
@@ -249,7 +245,7 @@ export async function runBatchPdfJ1(
         // R-PDF3 : skip
         result.skipped_no_flux++;
 
-        // R-PDF4 / R9 : escalade si skip > 48h (base realisee_at, alignée embargo H+24)
+        // R-PDF4 / R9 : escalade si skip > 48h (base realisee_at)
         const realiseeAt = collecte.realisee_at
           ? new Date(collecte.realisee_at)
           : null;
@@ -270,34 +266,10 @@ export async function runBatchPdfJ1(
       }
 
       // 4. Charger les flux pour le payload (équivalent bacs/rolls inclus, §12 §1.1)
-      const { data: flux } = await supabase
-        .from('collecte_flux')
-        .select(
-          'flux_id, poids_reel_kg, nb_bacs, equivalent_roll, flux:flux_id ( nom )',
-        )
-        .eq('collecte_id', collecte.id);
-
-      const fluxDetails = (flux ?? []).map((f: Record<string, unknown>) => ({
-        nom: (f.flux as { nom: string } | null)?.nom ?? String(f.flux_id),
-        poids_kg: Number(f.poids_reel_kg),
-        nb_bacs: f.nb_bacs != null ? Number(f.nb_bacs) : null,
-        equivalent_roll:
-          f.equivalent_roll != null ? Number(f.equivalent_roll) : null,
-      }));
-      const poidsTotalKg = fluxDetails.reduce(
-        (s: number, f: { poids_kg: number }) => s + f.poids_kg,
-        0,
+      const { fluxDetails, poidsTotalKg } = await lireFlux(
+        supabase,
+        collecte.id,
       );
-
-      // 5. Allouer le numéro BSAV (gapless)
-      // Année PARISIENNE : le batch tourne à 6h, mais une reprise manuelle juste
-      // après minuit le 1er janvier aurait tiré le numéro sur la séquence de
-      // l'année écoulée (process UTC).
-      const annee = anneeParis();
-      const { data: numeroData } = await supabase
-        .rpc('f_next_numero_bordereau', { p_annee: annee })
-        .single();
-      const numero = numeroData as string;
 
       const ev = collecte.evenements!;
       const lieu = ev.lieux;
@@ -343,7 +315,7 @@ export async function runBatchPdfJ1(
       });
 
       const bordereauPayload = {
-        numero,
+        numero: '',
         date_emission: dateEmissionStr,
         date_collecte: dateCollecteStr,
         date_evenement: dateEvenementStr,
@@ -355,174 +327,111 @@ export async function runBatchPdfJ1(
         producteur_adresse: organisationProd?.adresse ?? '',
         transporteur_nom: transporteurNom,
         exutoire_nom: 'Prestataire Savr',
-        nb_pax: ev.pax,
+        nb_pax: convivesImprimes(collecte.pax),
         flux: fluxDetails,
         poids_total_kg: poidsTotalKg,
       };
 
-      const disponibleA = new Date(
-        new Date(collecte.realisee_at).getTime() + 24 * 3600 * 1000,
-      );
+      // Disponible tout de suite (plus d'embargo, Val 2026-11-04).
+      const disponibleA = new Date();
 
-      // 5bis. Bloc benchmark §12 §1.2 (BL-P1-RPT-01) — 5 jauges kg/pax + point rouge
-      // parc. Défaut batch auto (pas de filtres) : segment = type d'événement + taille
-      // de la collecte ; le helper résout filtres, légende et snapshot (k-anonymat ≥5).
-      const benchmark = await resolveRapportBenchmark(supabase, collecte.id);
-      const filtresBenchmark = benchmark.filtres_benchmark;
+      // 5. Créer la ligne bordereaux_savr (snapshot), SANS numéro : l'unicité de
+      //    collecte_id départage deux fabrications simultanées (passage planifié
+      //    et saisie Admin) avant qu'un numéro gapless soit tiré. Une ligne
+      //    restée sans numéro est reprise telle quelle.
+      let bordereauId = existants.get(collecte.id)?.id;
+      if (!bordereauId) {
+        const { data: bordereauRow, error: bordErr } = await supabase
+          .from('bordereaux_savr')
+          .insert({
+            collecte_id: collecte.id,
+            numero: null,
+            date_emission: jourParis(),
+            // Snapshot de la date d'intervention (§04), pas du jour d'émission.
+            date_collecte: collecte.date_collecte,
+            producteur_raison_sociale: organisationProd?.raison_sociale ?? '',
+            producteur_siret: organisationProd?.siret ?? null,
+            producteur_adresse: organisationProd?.adresse ?? '',
+            transporteur_nom: transporteurNom,
+            transporteur_siret: transporteurSiret,
+            exutoire_nom: 'Prestataire Savr',
+            detail_flux: fluxDetails,
+            poids_total_kg: poidsTotalKg,
+            statut: 'brouillon',
+          })
+          .select('id')
+          .single();
 
-      // Équivalences pédagogiques du CO₂ évité (§12 §1.2 l.63) — comptes dérivés des
-      // FACTEURS figés dans co2_facteurs_snapshot.equivalences (km_voiture/repas_boeuf =
-      // kgCO₂e/unité ; foyer_kwh = kWh/an). Absent si pas de snapshot / pas de CO₂.
-      const equivalences = buildEquivalences(
-        collecte.co2_evite_kg,
-        collecte.energie_primaire_evitee_kwh,
-        collecte.co2_facteurs_snapshot,
-      );
-
-      // Cascade logo client §12 §1.2 (BL-P2-19) : agence prime → client organisateur
-      // (compte Savr, sinon upload) → traiteur opérationnel → Savr (fallback template).
-      const logo = resolveRapportLogo({
-        programmateur: ev.organisations,
-        client_organisateur: ev.client_organisateur,
-        evenement_logo_client_url: ev.logo_client_organisateur_url,
-        traiteur_operationnel: ev.traiteur_operationnel ?? ev.organisations,
-      });
-
-      const rapportPayload = {
-        nom_evenement: ev.nom_evenement,
-        date_evenement: dateEvenementStr,
-        date_collecte: dateCollecteStr,
-        lieu_nom: lieu?.nom ?? '',
-        lieu_adresse: adresseLieu,
-        nb_pax: ev.pax,
-        traiteur_nom: organisationProd?.raison_sociale ?? '',
-        logo_url: (await resolveLogoUri(logo.logo_url)) ?? undefined,
-        taux_recyclage: collecte.taux_recyclage,
-        flux: fluxDetails,
-        poids_total_kg: poidsTotalKg,
-        co2_evite_kg: collecte.co2_evite_kg,
-        co2_induit_kg: collecte.co2_induit_kg,
-        co2_net_kg: collecte.co2_net_kg,
-        energie_primaire_evitee_kwh: collecte.energie_primaire_evitee_kwh,
-        co2_facteurs_version: (
-          collecte.co2_facteurs_snapshot as Record<string, unknown> | null
-        )?.version_parametres_at as string | undefined,
-        equivalences,
-        comparaison_savr: comparaisonSavr,
-        benchmark_flux: benchmark.benchmark_flux,
-        benchmark_legende: benchmark.benchmark_legende,
-        bordereau: bordereauPayload,
-      };
-
-      // 6. Créer la ligne bordereaux_savr (snapshot)
-      const { data: bordereauRow, error: bordErr } = await supabase
-        .from('bordereaux_savr')
-        .insert({
-          collecte_id: collecte.id,
-          numero,
-          date_emission: jourParis(),
-          // Snapshot de la date d'intervention (§04), pas du jour d'émission.
-          date_collecte: collecte.date_collecte,
-          producteur_raison_sociale: organisationProd?.raison_sociale ?? '',
-          producteur_siret: organisationProd?.siret ?? null,
-          producteur_adresse: organisationProd?.adresse ?? '',
-          transporteur_nom: transporteurNom,
-          transporteur_siret: transporteurSiret,
-          exutoire_nom: 'Prestataire Savr',
-          detail_flux: fluxDetails,
-          poids_total_kg: poidsTotalKg,
-          statut: 'brouillon',
-        })
-        .select('id')
-        .single();
-
-      if (bordErr || !bordereauRow) {
-        throw new Error(`INSERT bordereaux_savr : ${bordErr?.message}`);
+        if (bordErr?.code === '23505') {
+          // Créé à l'instant par une autre fabrication : rien à faire ici.
+          result.already_done++;
+          continue;
+        }
+        if (bordErr || !bordereauRow) {
+          throw erreurInterne(bordErr, 'pdf.batch_zd.insert_bordereau');
+        }
+        bordereauId = bordereauRow.id as string;
       }
 
-      // 7. Créer la ligne rapports_rse
-      const { data: rapportRow, error: rseErr } = await supabase
-        .from('rapports_rse')
-        .insert({
-          collecte_id: collecte.id,
-          evenement_id: collecte.evenement_id,
-          version: 1,
-          disponible_a: disponibleA.toISOString(),
-          genere_par: 'automatique',
-          filtres_benchmark: filtresBenchmark,
-        })
-        .select('id')
+      // 6. Numéro BSAV (gapless), tiré une fois la ligne acquise.
+      // Année PARISIENNE : une reprise juste après minuit le 1er janvier aurait
+      // tiré le numéro sur la séquence de l'année écoulée (process UTC).
+      const { data: numeroData, error: numErr } = await supabase
+        .rpc('f_next_numero_bordereau', { p_annee: anneeParis() })
         .single();
+      if (numErr || !numeroData) {
+        throw erreurInterne(numErr, 'pdf.batch_zd.numero');
+      }
+      const numero = numeroData as string;
+      const { data: numerote, error: numMajErr } = await supabase
+        .from('bordereaux_savr')
+        .update({ numero })
+        .eq('id', bordereauId)
+        .is('numero', null)
+        .select('id');
+      if (numMajErr) throw erreurInterne(numMajErr, 'pdf.batch_zd.numero_maj');
+      // Numéroté entre-temps par une autre reprise : la suite est la sienne.
+      if (!numerote?.length) continue;
+      bordereauPayload.numero = numero;
 
-      if (rseErr || !rapportRow) {
-        throw new Error(`INSERT rapports_rse : ${rseErr?.message}`);
+      // 7. Créer la ligne rapports_rse : le rapport devient téléchargeable (fabriqué
+      //    au clic) tout de suite. Aucun PDF n'est fabriqué ici. Une reprise ne
+      //    la recrée pas.
+      const { data: rapportExistant, error: rseLecErr } = await supabase
+        .from('rapports_rse')
+        .select('id')
+        .eq('collecte_id', collecte.id)
+        .limit(1)
+        .maybeSingle();
+      if (rseLecErr)
+        throw erreurInterne(rseLecErr, 'pdf.batch_zd.lecture_rapport');
+      if (!rapportExistant) {
+        const { data: rapportRow, error: rseErr } = await supabase
+          .from('rapports_rse')
+          .insert({
+            collecte_id: collecte.id,
+            evenement_id: collecte.evenement_id,
+            version: 1,
+            disponible_a: disponibleA.toISOString(),
+            genere_par: 'automatique',
+          })
+          .select('id')
+          .single();
+
+        if (rseErr || !rapportRow) {
+          throw erreurInterne(rseErr, 'pdf.batch_zd.insert_rapport');
+        }
       }
 
       // 8. Enqueuer le job bordereau
       await supabase.from('jobs_pdf').insert({
         type_document: 'bordereau-zd',
         entity_type: 'bordereaux_savr',
-        entity_id: bordereauRow.id,
+        entity_id: bordereauId,
         payload: bordereauPayload,
         statut: 'pending',
         attempts: 0,
       });
-
-      // 9. Enqueuer le job rapport
-      await supabase.from('jobs_pdf').insert({
-        type_document: 'rapport-recyclage-zd',
-        entity_type: 'rapports_rse',
-        entity_id: rapportRow.id,
-        payload: rapportPayload,
-        statut: 'pending',
-        attempts: 0,
-      });
-
-      // 10. Email rapport_disponible au programmeur de la collecte (async, non bloquant).
-      // Destinataire = email_principal de l'organisation programmante (§06.02 ; pas de
-      // contact_principal_email sur evenements en V1 — différé V1.1, cf. §04 Data Model).
-      // Variables = EXACTEMENT la liste du §06.02 §6 (prenom, date_collecte, lieu_nom,
-      // poids_total, co2_evite, taux_recyclage, lien_rapport) : sendEmail refuse l'envoi
-      // (MISSING_VARIABLE, §08 §4) dès qu'une variable déclarée au template manque.
-      // Divergence M1.6 tranchée Val 2026-09-14 — l'ancien payload (nom_evenement /
-      // date_evenement, CO₂ en tonnes) n'était pas celui du template.
-      const emailDestinataire = ev.organisations?.email_principal;
-      if (emailDestinataire) {
-        const { sendEmail } = await import('@savr/shared/src/email/index.js');
-        void sendEmail(
-          'rapport_disponible',
-          emailDestinataire,
-          {
-            // Programmeur = evenements.created_by, comme l'email d'annulation (tpl 5).
-            // '' si inconnu : valeur fournie, l'envoi n'est pas refusé.
-            prenom: ev.programmeur?.prenom ?? '',
-            date_collecte: new Date(collecte.date_collecte).toLocaleDateString(
-              'fr-FR',
-              { timeZone: 'Europe/Paris' },
-            ),
-            lieu_nom: lieu?.nom ?? '',
-            // Nombres nus : le corps du template porte les unités (« kg », « kg CO₂e », « % »).
-            poids_total: formatNombre(poidsTotalKg),
-            co2_evite: formatNombre(collecte.co2_evite_kg),
-            taux_recyclage: formatNombre(collecte.taux_recyclage),
-            lien_rapport: urlCanonique(
-              cheminFicheCollecte(ev.organisations?.type, collecte.id),
-            ),
-          },
-          { entityType: 'collectes', entityId: collecte.id },
-        ).catch((e: unknown) => {
-          // Best-effort : `void` seul laisse un rejet NON GÉRÉ qui tue le processus —
-          // un email raté (template absent, Resend KO) ne doit jamais faire tomber le
-          // batch ni priver les collectes suivantes de leurs documents. §07/01, sans
-          // destinataire dans le log.
-          logger.error('api.external.failed', {
-            service: 'resend',
-            endpoint: 'sendEmail',
-            template: 'rapport_disponible',
-            error: e instanceof Error ? e.message : String(e),
-          });
-        });
-      }
 
       result.enqueued++;
     } catch (err) {
@@ -531,16 +440,12 @@ export async function runBatchPdfJ1(
     }
   }
 
-  result.fatal = fatalSiAucuneProduite(result.enqueued, result.errors);
+  // Un passage qui n'a fait que refaire des bordereaux a produit quelque chose.
+  result.fatal = fatalSiAucuneProduite(
+    result.enqueued + result.refaits,
+    result.errors,
+  );
   return result;
-}
-
-// ─── Helpers email rapport_disponible (§06.02 §6) ────────────────────────────
-
-/** Nombre pour le corps de l'email, 1 décimale max, format FR (ex. « 12,5 ») ; « — » si absent. */
-function formatNombre(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return '—';
-  return n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
 }
 
 /**
@@ -548,7 +453,7 @@ function formatNombre(n: number | null | undefined): string {
  * rapport se télécharge depuis la fiche collecte de chaque espace client ; le
  * chemin dépend du type de l'organisation programmatrice.
  */
-function cheminFicheCollecte(
+export function cheminFicheCollecte(
   typeOrganisation: string | null | undefined,
   collecteId: string,
 ): string {
@@ -556,4 +461,140 @@ function cheminFicheCollecte(
   if (typeOrganisation === 'gestionnaire_lieux')
     return ROUTES.gestionnaire.collecte(collecteId);
   return ROUTES.traiteur.collecte(collecteId);
+}
+
+// ─── Pesées et document refait ──────────────────────────────────────────────
+
+interface FluxDetail {
+  nom: string;
+  poids_kg: number;
+  nb_bacs: number | null;
+  equivalent_roll: number | null;
+}
+
+async function lireFlux(
+  supabase: SupabaseClient,
+  collecteId: string,
+): Promise<{ fluxDetails: FluxDetail[]; poidsTotalKg: number }> {
+  const { data: flux, error } = await supabase
+    .from('collecte_flux')
+    .select(
+      'flux_id, poids_reel_kg, nb_bacs, equivalent_roll, flux:flux_id ( nom, code )',
+    )
+    .eq('collecte_id', collecteId)
+    .order('flux_id', { ascending: true });
+  if (error) throw erreurInterne(error, 'pdf.batch_zd.lecture_flux');
+
+  const fluxDetails = (flux ?? []).map((f: Record<string, unknown>) => ({
+    nom: (f.flux as { nom: string } | null)?.nom ?? String(f.flux_id),
+    poids_kg: Number(f.poids_reel_kg),
+    nb_bacs: f.nb_bacs != null ? Number(f.nb_bacs) : null,
+    equivalent_roll:
+      f.equivalent_roll != null ? Number(f.equivalent_roll) : null,
+  }));
+  const poidsTotalKg = fluxDetails.reduce((s, f) => s + f.poids_kg, 0);
+  return { fluxDetails, poidsTotalKg };
+}
+
+/** Pesées comparées par filière, dans un ordre stable. */
+function empreinteFlux(flux: unknown): string {
+  if (!Array.isArray(flux)) return '';
+  return JSON.stringify(
+    (flux as FluxDetail[])
+      .map((f) => [
+        f.nom,
+        Number(f.poids_kg),
+        f.nb_bacs ?? null,
+        f.equivalent_roll ?? null,
+      ])
+      .sort((x, y) => String(x[0]).localeCompare(String(y[0]))),
+  );
+}
+
+/**
+ * Refait le bordereau quand les pesées ont changé : même numéro, pesées et total
+ * du moment ; version suivante s'il était déjà émis (le reste reprend le dernier
+ * rendu, comme la régénération Admin). Un rendu en attente ou en échec prend les
+ * nouvelles pesées ; un rendu en cours laisse le bordereau tel quel, repris au
+ * passage suivant (l'écart reste visible). Rend `true` s'il est refait.
+ */
+async function refaireSiPeseesChangees(
+  supabase: SupabaseClient,
+  collecteId: string,
+  bordereau: {
+    id: string;
+    statut: string;
+    detail_flux: unknown;
+    version: number;
+  },
+): Promise<boolean> {
+  const { fluxDetails, poidsTotalKg } = await lireFlux(supabase, collecteId);
+  if (!fluxDetails.length) return false;
+  if (empreinteFlux(fluxDetails) === empreinteFlux(bordereau.detail_flux)) {
+    return false;
+  }
+
+  const { data: dernierJob, error: jobErr } = await supabase
+    .from('jobs_pdf')
+    .select('payload')
+    .eq('entity_type', 'bordereaux_savr')
+    .eq('entity_id', bordereau.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (jobErr) throw erreurInterne(jobErr, 'pdf.batch_zd.lecture_rendu');
+  // Pas encore de rendu (bordereau tout juste créé) : son premier rendu lira
+  // les pesées du moment.
+  if (!dernierJob) return false;
+
+  const emis = bordereau.statut !== 'brouillon';
+  const payload = {
+    ...(dernierJob as { payload: Record<string, unknown> }).payload,
+    flux: fluxDetails,
+    poids_total_kg: poidsTotalKg,
+    ...(emis
+      ? {
+          regenere_le: new Date().toLocaleDateString('fr-FR', {
+            timeZone: 'Europe/Paris',
+          }),
+        }
+      : {}),
+  };
+
+  // Rendus pas encore faits (en attente, ou en échec qui sera retenté) : ils
+  // prennent les nouvelles pesées, aucun ancien rendu ne repassera après.
+  const { data: repris, error: repErr } = await supabase
+    .from('jobs_pdf')
+    .update({ payload })
+    .eq('entity_type', 'bordereaux_savr')
+    .eq('entity_id', bordereau.id)
+    .in('statut', ['pending', 'failed'])
+    .select('id');
+  if (repErr) throw erreurInterne(repErr, 'pdf.batch_zd.rendu_en_attente');
+
+  if (!repris?.length) {
+    const { error: insErr } = await supabase.from('jobs_pdf').insert({
+      type_document: 'bordereau-zd',
+      entity_type: 'bordereaux_savr',
+      entity_id: bordereau.id,
+      payload,
+      statut: 'pending',
+      attempts: 0,
+    });
+    // Rendu en cours (index anti-doublon) : rien n'est touché, le passage
+    // suivant recommence tant que l'écart demeure.
+    if (insErr?.code === '23505') return false;
+    if (insErr) throw erreurInterne(insErr, 'pdf.batch_zd.mise_en_file');
+  }
+
+  const { error: majErr } = await supabase
+    .from('bordereaux_savr')
+    .update({
+      detail_flux: fluxDetails,
+      poids_total_kg: poidsTotalKg,
+      ...(emis ? { version: bordereau.version + 1 } : {}),
+    })
+    .eq('id', bordereau.id);
+  if (majErr) throw erreurInterne(majErr, 'pdf.batch_zd.maj_bordereau');
+  return true;
 }

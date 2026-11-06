@@ -1,9 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Ban, Clock3, FileText, Info, MinusCircle } from 'lucide-react';
-import { AlertBar } from '@/components/ui/alert-bar';
+import { useEffect, useState, type ComponentProps } from 'react';
+import {
+  CheckIcon,
+  ClockIcon,
+  FilePlusIcon,
+  FileTextIcon,
+  InfoIcon,
+  MinusCircleIcon,
+  ProhibitIcon,
+} from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { StatCard } from '@/components/ui/stat-card';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -25,19 +33,28 @@ import {
   fmtInt,
   fmtMasse,
 } from '@/components/dashboards/charts/cockpit/fmt';
+import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
 import { UNITE_KG_CO2E } from '@/lib/format';
 import {
   LIBELLE_ETAT_RAPPORT,
   STATUTS_ANNULES,
-  STATUT_BILAN,
+  statutBilan,
   type EspaceClient,
+  type FicheCollecteClient,
 } from '@/lib/collectes/fiche-client-types';
 import { Text } from '@/components/ui/text';
+import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
+import {
+  ouvrirRapportDeDon,
+  telechargerRapportRecyclage,
+} from '@/lib/collectes/rapport-telechargement-client';
 
 // Onglet « Bilan & documents » du pop-up fiche collecte CLIENT (§06.04 refonte
 // Val 2026-09-29). Valeurs FIGÉES à la clôture (taux de recyclage, CO₂) : lues,
 // jamais recalculées ici. Avant « Réalisée » : mêmes blocs estompés, sans
 // valeurs, sous le bandeau « Votre bilan sera disponible après la collecte ».
+// Le bilan (BilanCollecte) est aussi celui de l'onglet Documents de la fiche
+// Admin : l'équipe Savr voit ce que voit le client (décision Val 2026-10-16).
 
 // Tooltip méthode UE (§06.04 Bloc 2bis) — texte figé.
 const TOOLTIP_TAUX_UE =
@@ -46,26 +63,25 @@ const TOOLTIP_TAUX_UE =
   'résiduel) entre uniquement au dénominateur. Voir Méthodologie.';
 
 const TITRE_RADAR = 'Votre collecte face aux événements comparables';
-const SOUS_TITRE_RADAR =
-  'Déchets par convive (kg/pax), flux par flux, comparés à la moyenne anonymisée ' +
-  'des événements Savr des 24 derniers mois. À l’intérieur du repère, vous ' +
-  'produisez moins que la moyenne.';
 
 interface BenchmarkFlux {
   ratio_user: number | null;
   benchmark_kg_pax: number | null;
 }
 
-function Estompe({
+export function Estompe({
   actif,
   children,
+  large = false,
 }: {
   actif: boolean;
   children: React.ReactNode;
+  /** Espacement de la variante B (fiche client). */
+  large?: boolean;
 }) {
   return (
     <div
-      className={actif ? 'space-y-3 opacity-40' : 'space-y-3'}
+      className={cn(large ? 'space-y-4' : 'space-y-3', actif && 'opacity-40')}
       aria-hidden={actif || undefined}
       data-testid={actif ? 'bilan-estompe' : undefined}
     >
@@ -75,7 +91,7 @@ function Estompe({
 }
 
 // Carte de graphe sans valeur (bilan à venir) : même titre que le graphe réel.
-function GrapheEnAttente({ titre }: { titre: string }) {
+export function GrapheEnAttente({ titre }: { titre: string }) {
   return (
     <Card padding="md" className="space-y-3">
       <Text
@@ -92,9 +108,37 @@ function GrapheEnAttente({ titre }: { titre: string }) {
   );
 }
 
+/** Bandeau « bilan à venir » (repris par la fiche événement du gestionnaire). */
+export function BandeauBilanAttente({
+  titre,
+  children,
+}: {
+  titre: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      data-testid="bandeau-bilan-attente"
+      className="flex items-start gap-3 rounded-savr-lg bg-savr-primary-50 px-5 py-4"
+    >
+      <ClockIcon
+        className="mt-0.5 h-5 w-5 shrink-0 text-savr-primary-700"
+        aria-hidden="true"
+      />
+      <div>
+        <Text size="base" tone="ink" className="font-bold">
+          {titre}
+        </Text>
+        <Text tone="soft">{children}</Text>
+      </div>
+    </div>
+  );
+}
+
 // Carte KPI : chiffre en grand + unité plus petite, sur UNE seule ligne
 // (retour Val 2026-09-30 : « −100 kg CO₂e » ne doit jamais passer à la ligne).
-function Kpi({
+// Reprise par le bilan consolidé de la fiche événement du gestionnaire.
+export function Kpi({
   label,
   nombre,
   unite,
@@ -105,6 +149,8 @@ function Kpi({
   nombre: string;
   unite?: string;
   aide?: string;
+  /** Accepté pour la variante B (ChiffreCle) ; sans effet sur la carte. */
+  ton?: 'succes';
 }) {
   return (
     <StatCard
@@ -119,7 +165,7 @@ function Kpi({
               aria-label={aide}
               className="inline-flex cursor-help"
             >
-              <Info className="h-4 w-4" />
+              <InfoIcon className="h-4 w-4" />
             </span>
           </Tooltip>
         ) : undefined
@@ -128,52 +174,134 @@ function Kpi({
   );
 }
 
-export function OngletBilan({
-  c,
-  base,
-  espace,
+// Chiffre clé de la variante B (décision Val 2026-10-27) : bandeau ouvert,
+// sans carte, libellé en capitales, grand chiffre Archivo et unité plus
+// petite sur la même ligne, filets entre les chiffres.
+function ChiffreCle({
+  label,
+  nombre,
+  unite,
+  aide,
+  ton,
 }: {
-  c: FicheClientDonnees;
-  // Préfixe déjà encodé : /api/v1/<espace>/collectes/<id>.
-  base: string;
-  espace: EspaceClient;
+  label: string;
+  nombre: string;
+  unite?: string;
+  aide?: string;
+  ton?: 'succes';
 }) {
-  const isAg = c.type === 'anti_gaspi';
-  const annulee = STATUTS_ANNULES.includes(c.statut);
-  const sansExcedent = c.statut === 'realisee_sans_collecte';
-  const realisee = c.statut === STATUT_BILAN;
-  const pax = c.evenement?.pax ?? null;
+  return (
+    <div className="flex min-w-0 flex-col gap-1 border-savr-sable-200 sm:border-l sm:pl-6 sm:first:border-l-0 sm:first:pl-0 lg:pl-8">
+      <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-savr-neutral-500">
+        {label}
+        {aide && (
+          <Tooltip content={aide}>
+            <span
+              tabIndex={0}
+              aria-label={aide}
+              className="inline-flex cursor-help normal-case tracking-normal"
+            >
+              <InfoIcon className="h-3.5 w-3.5" />
+            </span>
+          </Tooltip>
+        )}
+      </span>
+      <span className="flex items-baseline gap-1.5 whitespace-nowrap">
+        <span
+          className={
+            ton === 'succes'
+              ? 'font-display text-3xl font-semibold leading-none tracking-[-0.045em] text-savr-success-strong tabular-nums'
+              : 'font-display text-3xl font-semibold leading-none tracking-[-0.045em] text-savr-primary-900 tabular-nums'
+          }
+        >
+          {nombre}
+        </span>
+        {unite && (
+          <span className="text-md font-medium text-savr-neutral-600">
+            {unite}
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
 
-  // Radar (ZD réalisée) : repère parc recalculé à chaque changement de filtre ;
-  // `null` renvoyé par la route = pas de radar pour cette collecte (collecte
-  // d'un traiteur tiers vue par un gestionnaire) → bloc masqué.
-  const radarVisible = !isAg && realisee;
+const BANDE_CHIFFRES =
+  'grid grid-cols-1 gap-y-4 border-b border-savr-sable-200 pb-4 sm:grid-cols-2 lg:grid-cols-4';
+
+/** Ce que le bilan lit d'une collecte : fiche client, ou fiche Admin. */
+export type BilanFiche = Pick<
+  FicheCollecteClient,
+  | 'id'
+  | 'type'
+  | 'statut'
+  | 'date_collecte'
+  | 'taux_recyclage'
+  | 'co2_evite_kg'
+  | 'realisee_at'
+  | 'aucun_repas_motif'
+  | 'taille_bracket'
+  | 'bilan_flux'
+  | 'repas_donnes'
+  | 'association'
+  // Type d'événement de LA collecte (lot B1) : filtre du radar par défaut.
+  | 'type_evenement_id'
+  // Convives de LA collecte (lot C1, C4 du 2026-10-20) : « Repas par pax » et
+  // « Pesée par pax » se divisent par eux, jamais par le total de l'événement.
+  | 'pax'
+>;
+
+/**
+ * Radar de la fiche (ZD réalisée) : repère parc recalculé à chaque changement
+ * de filtre, lu sur `benchmarkUrl` (route `…/collectes/<id>/benchmark` de
+ * l'espace). `null` renvoyé par la route = pas de radar pour cette collecte
+ * (visible, mais refusée par la garde de la fonction SQL) → bloc masqué. Les
+ * filtres réglés servent aussi la régénération du rapport avec radar.
+ */
+export function useRadarFiche(
+  benchmarkUrl: string,
+  c:
+    | (Pick<BilanFiche, 'type' | 'statut'> & {
+        bilan_flux?: BilanFiche['bilan_flux'];
+        collecte_flux?: readonly unknown[];
+      })
+    | null,
+) {
+  // Même condition que l'affichage du bilan ZD : réalisée ET pesées connues
+  // (sinon le radar serait « disponible » sans barre de filtres à l'écran).
+  // Pesées lues sur le bilan (fiche client) ou sur la collecte (fiche Admin) ;
+  // inconnues (cumul d'un événement) : seul le statut compte.
+  const pesees =
+    c?.bilan_flux !== undefined
+      ? Object.keys(c.bilan_flux ?? {}).length > 0
+      : c?.collecte_flux !== undefined
+        ? c.collecte_flux.length > 0
+        : true;
+  const visible =
+    c != null && c.type !== 'anti_gaspi' && statutBilan(c.statut) && pesees;
   const [bench, setBench] = useState<Record<string, BenchmarkFlux> | null>(
     null,
   );
-  const [benchIndisponible, setBenchIndisponible] = useState(false);
-  const [benchFilters, setBenchFilters] = useState<BenchmarkFilters | null>(
-    null,
-  );
+  const [indisponible, setIndisponible] = useState(false);
+  const [filtres, setFiltres] = useState<BenchmarkFilters | null>(null);
   useEffect(() => {
-    if (!radarVisible || !benchFilters) return;
+    if (!visible || !filtres) return;
     const qs = new URLSearchParams();
-    if (benchFilters.type_evenement_ids.length)
-      qs.set('type_evenement_ids', benchFilters.type_evenement_ids.join(','));
-    if (benchFilters.taille_evenement_codes.length)
+    if (filtres.type_evenement_ids.length)
+      qs.set('type_evenement_ids', filtres.type_evenement_ids.join(','));
+    if (filtres.taille_evenement_codes.length)
       qs.set(
         'taille_evenement_codes',
-        benchFilters.taille_evenement_codes.join(','),
+        filtres.taille_evenement_codes.join(','),
       );
-    if (benchFilters.lieu_ids.length)
-      qs.set('lieu_ids', benchFilters.lieu_ids.join(','));
+    if (filtres.lieu_ids.length) qs.set('lieu_ids', filtres.lieu_ids.join(','));
     let annule = false;
-    fetch(`${base}/benchmark?${qs.toString()}`)
+    fetch(`${benchmarkUrl}?${qs.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { data?: { flux?: Record<string, BenchmarkFlux> } | null }) => {
         if (annule) return;
         if (j && j.data === null) {
-          setBenchIndisponible(true);
+          setIndisponible(true);
           return;
         }
         // Échec du recalcul ⇒ on RETIRE le repère plutôt que de laisser celui
@@ -186,67 +314,51 @@ export function OngletBilan({
     return () => {
       annule = true;
     };
-  }, [base, radarVisible, benchFilters]);
+  }, [benchmarkUrl, visible, filtres]);
+  return { visible, bench, indisponible, filtres, setFiltres };
+}
 
-  // Documents
-  const [telechargement, setTelechargement] = useState<string | null>(null);
-  const [regenEnCours, setRegenEnCours] = useState(false);
-  const [regenFait, setRegenFait] = useState(false);
+export type RadarFiche = ReturnType<typeof useRadarFiche>;
 
-  async function telechargerRapport() {
-    setTelechargement(null);
-    const res = await fetch(`${base}/rapport-rse/download`);
-    const j = (await res.json().catch(() => ({}))) as { url?: string };
-    if (res.ok && j.url) {
-      window.open(j.url, '_blank');
-      return;
-    }
-    setTelechargement(
-      res.status === 425 || res.status === 202
-        ? 'Le rapport n’est pas encore disponible.'
-        : 'Le téléchargement a échoué. Réessayez dans un instant.',
-    );
-  }
-
-  // Régénération manuelle du rapport RSE (RPT-04 — manager traiteur, ZD).
-  async function regenererRapport() {
-    setRegenEnCours(true);
-    try {
-      const res = await fetch(
-        `${base}/documents/rapport-recyclage-zd/regenerate`,
-        { method: 'POST' },
-      );
-      if (res.ok) setRegenFait(true);
-    } finally {
-      setRegenEnCours(false);
-    }
-  }
-
-  if (annulee) {
-    return (
-      <Card
-        padding="md"
-        className="flex items-start gap-3"
-        data-testid="bilan-annulee"
-      >
-        <Ban
-          className="mt-0.5 h-5 w-5 shrink-0 text-savr-neutral-400"
-          aria-hidden="true"
-        />
-        <Text variant="body">Collecte annulée : aucun bilan ni document.</Text>
-      </Card>
-    );
-  }
-
-  const rapportNom = sansExcedent
-    ? 'Rapport « Événement sans excédent alimentaire »'
-    : isAg
-      ? 'Rapport de don'
-      : 'Rapport RSE';
+/**
+ * Bilan d'une collecte : chiffres clés, répartition des tonnages et radar de
+ * comparaison avec sa barre « Comparer avec » (ZD), ou repas donnés et
+ * association (AG). Rien pour une collecte annulée.
+ */
+export function BilanCollecte({
+  c,
+  radar,
+  barre,
+  actionRadar,
+}: {
+  c: BilanFiche;
+  radar: RadarFiche;
+  /**
+   * Action posée à côté du radar compact (variante B) : le bouton « Intégrer
+   * la comparaison au rapport à télécharger » de la fiche client.
+   */
+  actionRadar?: React.ReactNode;
+  // Réglages de la barre « Comparer avec » propres à l'espace.
+  barre?: Pick<
+    ComponentProps<typeof BenchmarkFilterBar>,
+    'perimetre' | 'filtresEndpoint' | 'avertissementComparaisonSoi'
+  >;
+}) {
+  if (STATUTS_ANNULES.includes(c.statut)) return null;
+  const isAg = c.type === 'anti_gaspi';
+  const sansExcedent = c.statut === 'realisee_sans_collecte';
+  // Bilan dès que la collecte est réalisée ET que ses chiffres sont là
+  // (Val 2026-11-04) : repas connus (AG), pesées connues (ZD).
+  const chiffres = isAg
+    ? c.repas_donnes != null
+    : Object.keys(c.bilan_flux ?? {}).length > 0;
+  const realisee = statutBilan(c.statut) && chiffres;
   const bilanDispo = realisee || sansExcedent;
-  const factures = (c.factures ?? []).filter(
-    (f) => f.statut !== 'brouillon' && (f.pdf_url_pennylane || f.pdf_url_savr),
-  );
+  const pax = c.pax ?? null;
+  const bench = radar.bench;
+  // Variante B (fiches collecte client et Admin, décisions Val 2026-10-27) :
+  // chiffres en bandeau ouvert, répartition et radar compact sur une ligne,
+  // filtres en pastilles.
 
   // ── Bilan ZD ────────────────────────────────────────────────────────────
   const flux = c.bilan_flux ?? {};
@@ -272,40 +384,28 @@ export function OngletBilan({
     benchmark: bench?.[f.code]?.benchmark_kg_pax ?? null,
   }));
 
+  const radarAffiche = radar.visible && !radar.indisponible;
+
   // ── Bilan AG ────────────────────────────────────────────────────────────
   const repas = realisee ? c.repas_donnes : null;
 
   return (
-    <div className="space-y-3">
+    <>
       {!bilanDispo && (
-        <div
-          data-testid="bandeau-bilan-attente"
-          className="flex items-start gap-3 rounded-savr-lg bg-savr-primary-50 px-5 py-4"
-        >
-          <Clock3
-            className="mt-0.5 h-5 w-5 shrink-0 text-savr-primary-700"
-            aria-hidden="true"
-          />
-          <div>
-            <Text size="base" tone="ink" className="font-bold">
-              Votre bilan sera disponible après la collecte
-            </Text>
-            <Text tone="soft">
-              {isAg
-                ? 'Repas donnés, CO₂ évité et association bénéficiaire s’afficheront ici le lendemain de la collecte.'
-                : 'Poids collectés, CO₂ évité, répartition par flux et comparaison avec des événements similaires s’afficheront ici le lendemain de la collecte.'}
-            </Text>
-          </div>
-        </div>
+        <BandeauBilanAttente titre="Votre bilan sera disponible après la collecte">
+          {isAg
+            ? 'Repas donnés, CO₂ évité et association bénéficiaire s’afficheront ici le lendemain de la collecte.'
+            : 'Poids collectés, CO₂ évité, répartition par flux et comparaison avec des événements similaires s’afficheront ici le lendemain de la collecte.'}
+        </BandeauBilanAttente>
       )}
 
       {sansExcedent ? (
         <Card padding="md" className="space-y-4" data-testid="bloc-aucun-repas">
-          <SectionHeader icon={MinusCircle} title="Aucun repas collecté" />
+          <SectionHeader icon={MinusCircleIcon} title="Aucun repas collecté" />
           <Text tone="soft" className="leading-relaxed">
             Notre chauffeur s’est présenté sur place, mais il n’y avait pas
-            d’excédent alimentaire à donner. Aucune attestation de don n’est
-            émise pour cette collecte.
+            d’excédent alimentaire à donner. Votre rapport de don atteste que
+            cet événement était sans excédent.
           </Text>
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-2">
             <InfoItem label="Motif">
@@ -330,21 +430,22 @@ export function OngletBilan({
           </dl>
         </Card>
       ) : isAg ? (
-        <Estompe actif={!realisee}>
+        <Estompe actif={!realisee} large>
           <div
-            className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+            className="grid grid-cols-1 gap-y-4 border-b border-savr-sable-200 pb-4 sm:grid-cols-3"
             data-testid="kpi-ag"
           >
-            <Kpi
+            <ChiffreCle
               label="Repas donnés"
               nombre={repas != null ? fmtInt(repas) : '—'}
               unite="repas"
             />
-            <Kpi
+            <ChiffreCle
               label="Repas par pax"
               nombre={repas != null && pax ? fmtDec(repas / pax, 2) : '—'}
             />
-            <Kpi
+            <ChiffreCle
+              ton="succes"
               label="CO₂ évité"
               nombre={
                 realisee && c.co2_evite_kg != null
@@ -359,24 +460,24 @@ export function OngletBilan({
           )}
         </Estompe>
       ) : (
-        <Estompe actif={!realisee}>
-          <div
-            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-            data-testid="kpi-zd"
-          >
-            <Kpi
+        <Estompe actif={!realisee} large>
+          <div className={BANDE_CHIFFRES} data-testid="kpi-zd">
+            <ChiffreCle
               label="Poids total collecté"
               nombre={masse ? masse.value : '—'}
               unite={masse ? masse.unit : 'kg'}
             />
-            <Kpi
-              label="CO₂ évité (net)"
+            <ChiffreCle
+              ton="succes"
+              label="CO₂ évité"
               nombre={
-                realisee && c.co2_net_kg != null ? fmtInt(c.co2_net_kg) : '—'
+                realisee && c.co2_evite_kg != null
+                  ? fmtInt(c.co2_evite_kg)
+                  : '—'
               }
               unite={UNITE_KG_CO2E}
             />
-            <Kpi
+            <ChiffreCle
               label="Taux de recyclage"
               aide={TOOLTIP_TAUX_UE}
               nombre={
@@ -386,7 +487,7 @@ export function OngletBilan({
               }
               unite="%"
             />
-            <Kpi
+            <ChiffreCle
               label="Pesée par pax"
               nombre={
                 poidsTotal != null && pax
@@ -396,129 +497,289 @@ export function OngletBilan({
               unite="g"
             />
           </div>
-          {realisee ? (
-            <TonnagesDonut series={serieDonut} disposition="ligne" />
-          ) : (
-            <GrapheEnAttente titre="Répartition des tonnages" />
-          )}
-          {!realisee ? (
-            <GrapheEnAttente titre={TITRE_RADAR} />
-          ) : (
-            radarVisible &&
-            !benchIndisponible && (
-              <div data-testid="bloc-3-zd-fiche" key={c.id}>
-                <BenchmarkRadar
-                  title={TITRE_RADAR}
-                  subtitle={SOUS_TITRE_RADAR}
-                  items={gaugeItems}
-                  filtersSlot={
-                    <BenchmarkFilterBar
-                      masquerTraiteurs
-                      perimetre={
-                        espace === 'gestionnaire' ? 'rattache' : 'parc'
-                      }
-                      onChange={setBenchFilters}
-                      initialTypeEvenementIds={
-                        c.evenement?.type_evenement_id
-                          ? [c.evenement.type_evenement_id]
-                          : []
-                      }
-                      initialTailleCodes={
-                        c.taille_bracket ? [c.taille_bracket] : []
-                      }
-                    />
-                  }
-                />
-              </div>
-            )
-          )}
+          {/* Variante B : répartition et radar sur la même ligne. */}
+          <div
+            className={
+              radarAffiche || !realisee
+                ? 'grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2'
+                : 'grid grid-cols-1 gap-5'
+            }
+          >
+            {realisee ? (
+              <TonnagesDonut
+                series={serieDonut}
+                disposition="ligne"
+                className="h-full p-5"
+              />
+            ) : (
+              <GrapheEnAttente titre="Répartition des tonnages" />
+            )}
+            {!realisee ? (
+              <GrapheEnAttente titre={TITRE_RADAR} />
+            ) : (
+              radarAffiche && (
+                <div
+                  data-testid="bloc-3-zd-fiche"
+                  key={c.id}
+                  className="h-full"
+                >
+                  <BenchmarkRadar
+                    title={TITRE_RADAR}
+                    items={gaugeItems}
+                    serieLabel="Votre collecte"
+                    referenceLabel="Moyenne des événements comparables"
+                    className="h-full p-5"
+                    actionSlot={actionRadar}
+                    filtersSlot={
+                      <BenchmarkFilterBar
+                        masquerTraiteurs
+                        disposition="pastilles"
+                        {...barre}
+                        onChange={radar.setFiltres}
+                        // Barre remontée (retour sur l'onglet Admin, dont l'état
+                        // du radar survit à l'onglet) : elle reprend les filtres
+                        // réglés. Fiche client : null au montage, sans effet.
+                        initialFilters={radar.filtres ?? undefined}
+                        initialTypeEvenementIds={
+                          c.type_evenement_id ? [c.type_evenement_id] : []
+                        }
+                        initialTailleCodes={
+                          c.taille_bracket ? [c.taille_bracket] : []
+                        }
+                      />
+                    }
+                  />
+                </div>
+              )
+            )}
+          </div>
         </Estompe>
       )}
+    </>
+  );
+}
 
-      {/* Documents : un seul rapport (bordereau ZD intégré au PDF) + facture
-          côté traiteur. */}
+/**
+ * Téléchargement du rapport de la collecte (« Rapport RSE » ZD fabriqué au
+ * clic, « Rapport de don » AG déjà fabriqué). Porté par le panneau : le bouton
+ * « Télécharger le rapport » est dans le pied de la fiche, visible sans
+ * défiler (décision Val 2026-10-27) ; le bouton « Intégrer la comparaison au
+ * rapport » est à côté du radar, l'état du rapport en infobulle du bouton grisé.
+ */
+export function useRapportCollecte(
+  c: FicheClientDonnees | null,
+  base: string,
+  radar: RadarFiche,
+) {
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [fabrication, setFabrication] = useState(false);
+  // Rapport de recyclage ZD : fabriqué au clic, avec ou sans le radar de
+  // comparaison, au choix de celui qui le télécharge (décision Val 2026-10-16).
+  // Le choix n'existe que là où le radar existe à l'écran (même garde côté
+  // serveur) ; il part désactivé.
+  const [avecRadar, setAvecRadar] = useState(false);
+  const isAg = c?.type === 'anti_gaspi';
+  const choixRadarPossible = radar.visible && !radar.indisponible;
+  const benchFilters = radar.filtres;
+  // Bouton présent sauf sur une collecte annulée ou pour un rapport réservé au
+  // donneur d'ordre (D12 2026-09-30) ; grisé tant que le rapport n'est pas
+  // disponible (arbitrage Val 2026-09-30).
+  const visible =
+    c != null &&
+    !STATUTS_ANNULES.includes(c.statut) &&
+    !c.rapport_reserve_donneur_ordre;
+  // Radar demandé : on attend les filtres de la fiche (sans eux, le serveur
+  // comparerait à « Tous », pas à ce que l'écran affiche).
+  const desactive =
+    !c?.rapport_rse_disponible ||
+    (choixRadarPossible && avecRadar && !benchFilters);
+
+  async function telecharger() {
+    setErreur(null);
+    if (!isAg) {
+      // ZD : le PDF est fabriqué par la route, avec les filtres affichés si le
+      // radar est demandé.
+      const radarDemande = choixRadarPossible && avecRadar;
+      setFabrication(true);
+      const e = await telechargerRapportRecyclage(`${base}/rapport-rse`, {
+        options: { benchmark: radarDemande },
+        ...(radarDemande && benchFilters
+          ? {
+              benchmark_filters: {
+                lieu_ids: benchFilters.lieu_ids,
+                type_evenement_ids: benchFilters.type_evenement_ids,
+                taille_evenement_codes: benchFilters.taille_evenement_codes,
+              },
+            }
+          : {}),
+      });
+      setFabrication(false);
+      setErreur(e);
+      return;
+    }
+    // AG : le « Rapport de don » est un fichier déjà fabriqué (URL pré-signée).
+    setErreur(await ouvrirRapportDeDon(base));
+  }
+
+  return {
+    visible,
+    desactive,
+    fabrication,
+    erreur,
+    avecRadar,
+    setAvecRadar,
+    choixRadarPossible,
+    telecharger,
+  };
+}
+
+export type RapportCollecte = ReturnType<typeof useRapportCollecte>;
+
+export function OngletBilan({
+  c,
+  espace,
+  radar,
+  rapport,
+}: {
+  c: FicheClientDonnees;
+  espace: EspaceClient;
+  radar: RadarFiche;
+  rapport: RapportCollecte;
+}) {
+  const isAg = c.type === 'anti_gaspi';
+  const annulee = STATUTS_ANNULES.includes(c.statut);
+  const { avecRadar, setAvecRadar, choixRadarPossible } = rapport;
+
+  if (annulee) {
+    return (
       <Card
-        className="divide-y divide-savr-neutral-100 p-0"
-        data-testid="bloc-documents"
+        padding="md"
+        className="flex items-start gap-3"
+        data-testid="bilan-annulee"
       >
-        <div className="flex flex-wrap items-center gap-3 px-5 py-3.5">
-          <FileText
-            className="h-5 w-5 shrink-0 text-savr-primary-700"
-            aria-hidden="true"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-savr-neutral-900">
-              {rapportNom}
-            </p>
-            <Text>
-              {LIBELLE_ETAT_RAPPORT[c.rapport_etat]}
-              {c.rapport_rse_regenere && (
-                <span data-testid="rapport-regenere">
-                  {' '}
-                  · Rapport mis à jour
-                </span>
-              )}
-            </Text>
-          </div>
-          {espace === 'traiteur' &&
-            c.can_regenerate &&
-            c.rapport_rse_disponible && (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={regenFait}
-                loading={regenEnCours}
-                loadingText="Régénération…"
-                onClick={() => void regenererRapport()}
-              >
-                {regenFait ? 'Régénération demandée' : 'Régénérer le rapport'}
-              </Button>
-            )}
-          {!c.rapport_reserve_donneur_ordre && (
-            <Button
-              variant="secondary"
-              disabled={!c.rapport_rse_disponible}
-              onClick={() => void telechargerRapport()}
-            >
-              Télécharger
-            </Button>
-          )}
-        </div>
-        {factures.map((f) => (
-          <div
-            key={f.id}
-            className="flex flex-wrap items-center gap-3 px-5 py-3.5"
-            data-testid="document-facture"
-          >
-            <FileText
-              className="h-5 w-5 shrink-0 text-savr-primary-700"
-              aria-hidden="true"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold text-savr-neutral-900">
-                Facture {f.numero_facture}
-              </p>
-              <Text>PDF</Text>
-            </div>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                window.open(
-                  f.pdf_url_pennylane ?? f.pdf_url_savr ?? '',
-                  '_blank',
-                )
-              }
-            >
-              Télécharger
-            </Button>
-          </div>
-        ))}
-        {telechargement && (
-          <AlertBar variant="err" role="alert" className="mx-5 my-3">
-            {telechargement}
-          </AlertBar>
-        )}
+        <ProhibitIcon
+          className="mt-0.5 h-5 w-5 shrink-0 text-savr-neutral-400"
+          aria-hidden="true"
+        />
+        <Text variant="body">Collecte annulée : aucun bilan ni document.</Text>
       </Card>
+    );
+  }
+
+  // Factures masquées tant que la facturation se fait hors plateforme
+  // (décision Val 2026-10-22).
+  const factures = facturationPlateformeActive()
+    ? (c.factures ?? []).filter(
+        (f) =>
+          f.statut !== 'brouillon' && (f.pdf_url_pennylane || f.pdf_url_savr),
+      )
+    : [];
+
+  const reserve = c.rapport_reserve_donneur_ordre;
+
+  // Rapport RSE fabriqué avec ou sans le radar, au choix de celui qui le
+  // télécharge (Val 2026-10-16). Variante B (Val 2026-10-27) : le choix est un
+  // bouton à côté du radar ; le rapport se télécharge depuis le pied de la
+  // fiche (plus d'encadré « Rapport RSE » dans l'onglet).
+  const actionRadar =
+    !isAg && !c.rapport_reserve_donneur_ordre && choixRadarPossible ? (
+      // Visible dès que le radar l'est ; grisé, comme « Télécharger le
+      // rapport », tant que le rapport n'est pas disponible (Val 2026-10-27).
+      <Button
+        variant="sable"
+        size="sm"
+        aria-pressed={avecRadar}
+        data-testid="option-rapport-radar"
+        disabled={!c.rapport_rse_disponible}
+        title="Le radar du rapport reprend les filtres de comparaison réglés ici."
+        onClick={() => setAvecRadar(!avecRadar)}
+        className={cn(
+          'h-auto min-h-9 w-full justify-start whitespace-normal rounded-savr-lg px-3 py-2 text-left',
+          avecRadar &&
+            'bg-savr-primary-50 text-savr-primary-900 hover:bg-savr-primary-100',
+        )}
+      >
+        {avecRadar ? (
+          <CheckIcon aria-hidden="true" />
+        ) : (
+          <FilePlusIcon aria-hidden="true" />
+        )}
+        Intégrer la comparaison au rapport à télécharger
+      </Button>
+    ) : undefined;
+
+  return (
+    <div className="space-y-3">
+      <BilanCollecte
+        c={c}
+        radar={radar}
+        barre={{ perimetre: espace === 'gestionnaire' ? 'rattache' : 'parc' }}
+        actionRadar={actionRadar}
+      />
+
+      {/* Logo du client imprimé sur les rapports (Val 2026-10-30) : déposé
+          par tout utilisateur qui peut télécharger le rapport. */}
+      {!reserve && (
+        <Card className="px-5 py-0.5">
+          <LogoClientRapport
+            id="fiche-logo-client"
+            endpoint={`/api/v1/${encodeURIComponent(espace)}/collectes/${encodeURIComponent(c.id)}/logo-client`}
+          />
+        </Card>
+      )}
+
+      {/* Le rapport se télécharge depuis le pied. Restent ici : le rapport
+          réservé au donneur d'ordre (pas de bouton, D12) et les factures. */}
+      {(reserve || factures.length > 0) && (
+        <Card
+          className="divide-y divide-savr-neutral-100 p-0"
+          data-testid="bloc-documents"
+        >
+          {reserve && (
+            <div className="flex items-center gap-3 px-5 py-3.5">
+              <FileTextIcon
+                className="h-5 w-5 shrink-0 text-savr-primary-700"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-savr-neutral-900">
+                  {isAg ? 'Rapport de don' : 'Rapport RSE'}
+                </p>
+                <Text>{LIBELLE_ETAT_RAPPORT.reserve}</Text>
+              </div>
+            </div>
+          )}
+          {factures.map((f) => (
+            <div
+              key={f.id}
+              className="flex flex-wrap items-center gap-3 px-5 py-3.5"
+              data-testid="document-facture"
+            >
+              <FileTextIcon
+                className="h-5 w-5 shrink-0 text-savr-primary-700"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-md font-semibold text-savr-neutral-900">
+                  Facture {f.numero_facture}
+                </p>
+                <Text>PDF</Text>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  window.open(
+                    f.pdf_url_pennylane ?? f.pdf_url_savr ?? '',
+                    '_blank',
+                  )
+                }
+              >
+                Télécharger
+              </Button>
+            </div>
+          ))}
+        </Card>
+      )}
     </div>
   );
 }

@@ -1,14 +1,11 @@
 'use client';
 
 import {
-  BellRing,
-  CalendarDays,
-  CheckCircle2,
-  HandHeart,
-  MapPin,
-  Truck,
-  Users,
-} from 'lucide-react';
+  BellRingingIcon,
+  CheckCircleIcon,
+  HandHeartIcon,
+  PlusIcon,
+} from '@/components/ui/icones';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge, BadgeBouton } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -17,6 +14,7 @@ import { Card } from '@/components/ui/card';
 import { TelephoneLien } from '@/components/collecte/fiche-blocs';
 import { SectionHeader } from '@/components/ui/section-header';
 import { InfoItem } from '@/components/ui/info-item';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import {
   STATUTS_LOGISTIQUE,
   coordonneesCompletes,
@@ -53,12 +51,11 @@ export interface FactureInfo {
 }
 
 // Réponse des routes GET /api/v1/{espace}/collectes/[id] : socle commun + les
-// seuls compléments de rôle (traiteur : programmée par, factures, régénération ;
-// agence : traiteur opérationnel).
+// seuls compléments de rôle (traiteur : programmée par, factures ; agence :
+// traiteur opérationnel).
 export interface FicheClientDonnees extends FicheCollecteClient {
   programmee_par?: ProgrammeePar | null;
   factures?: FactureInfo[];
-  can_regenerate?: boolean;
   traiteur_operationnel?: TraiteurOperationnel | null;
 }
 
@@ -71,14 +68,89 @@ function Vide({ children = '—' }: { children?: React.ReactNode }) {
 
 // ── Informations ─────────────────────────────────────────────────────────────
 
+export const GRILLE_3 =
+  'grid grid-cols-1 gap-x-10 gap-y-5 text-sm sm:grid-cols-2 lg:grid-cols-3';
+
+function initiales(nom: string | null | undefined): string {
+  return (nom ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((m) => m.charAt(0).toUpperCase())
+    .join('');
+}
+
+export function CarteContact({
+  nom,
+  telephone,
+  role,
+}: {
+  nom: string | null | undefined;
+  telephone: string | null | undefined;
+  role: string;
+}) {
+  return (
+    <div className="flex items-center gap-3.5">
+      <span
+        aria-hidden="true"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-50 font-display text-sm font-semibold text-savr-primary-700"
+      >
+        {initiales(nom) || '—'}
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5 text-sm">
+        <span className="font-semibold text-savr-neutral-900">
+          {nom?.trim() || <Vide />}
+        </span>
+        <span className="text-sm text-savr-neutral-600">
+          <TelephoneLien telephone={telephone} />
+        </span>
+        <span className="text-xs text-savr-neutral-500">{role}</span>
+      </span>
+    </div>
+  );
+}
+
+// Bouton « Ajouter un contact de secours » de la variante B (Val 2026-10-27) :
+// fiche client (ouvre l'édition) et fiche Admin (ouvre la fenêtre des contacts).
+export function AjoutContactSecours({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      onClick={onClick}
+      data-testid="action-ajouter-contact-secours"
+      className="h-auto justify-start gap-3.5 whitespace-normal rounded-savr-lg p-0 text-left font-normal text-savr-accent-700 hover:bg-transparent hover:text-savr-accent-800 active:bg-transparent"
+    >
+      <span
+        aria-hidden="true"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-savr-full border-[1.5px] border-dashed border-savr-accent-400"
+      >
+        <PlusIcon className="h-4 w-4" />
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span className="text-sm font-semibold">
+          Ajouter un contact de secours
+        </span>
+        <span className="text-sm text-savr-neutral-500">
+          À compléter avant la collecte
+        </span>
+      </span>
+    </Button>
+  );
+}
+
 export function OngletInformations({
   c,
   onProgrammeePar,
   onHorsReferentiel,
+  onAjouterSecours,
 }: {
   c: FicheClientDonnees;
   onProgrammeePar: () => void;
   onHorsReferentiel: () => void;
+  /** Ouvre l'édition de la collecte ; absent si l'utilisateur ne peut pas la
+   *  modifier (bouton « Ajouter un contact de secours » masqué). */
+  onAjouterSecours?: () => void;
 }) {
   const evt = c.evenement;
   const lieu = evt?.lieu ?? null;
@@ -97,8 +169,9 @@ export function OngletInformations({
   const instructions = [lieu?.acces_details, c.informations_supplementaires]
     .map((v) => v?.trim())
     .filter(Boolean);
+  // Contacts et type d'événement : ceux de LA collecte (lot B1).
   const avecSecours = Boolean(
-    evt?.contact_secours_nom?.trim() || evt?.contact_secours_telephone?.trim(),
+    c.contact_secours_nom?.trim() || c.contact_secours_telephone?.trim(),
   );
   const traiteurOp = c.traiteur_operationnel;
   const progTypeLabel = c.programmee_par
@@ -106,10 +179,9 @@ export function OngletInformations({
     : null;
 
   return (
-    <div className="space-y-3">
-      <Card padding="md" className="space-y-4" data-testid="bloc-evenement">
-        <SectionHeader icon={CalendarDays} title="Événement" />
-        <dl className={GRILLE_4}>
+    <div>
+      <FicheSection titre="Événement" data-testid="bloc-evenement">
+        <dl className={GRILLE_3}>
           <InfoItem label="Client">
             {evt?.nom_client_organisateur ?? <Vide />}
           </InfoItem>
@@ -117,12 +189,10 @@ export function OngletInformations({
             {dateCourte}
             {heure ? `, ${heure}` : ''}
           </InfoItem>
-          <InfoItem label="Pax">
-            {evt?.pax != null ? fmtInt(evt.pax) : <Vide />}
-          </InfoItem>
+          <InfoItem label="Pax">{fmtInt(c.pax)}</InfoItem>
           <InfoItem label="Type d’événement">
             <span className="flex flex-wrap items-center gap-2">
-              {evt?.type_evenement?.libelle ?? <Vide />}
+              {c.type_evenement?.libelle ?? <Vide />}
               {c.taille_bracket && (
                 <Badge
                   variant="neutral"
@@ -138,7 +208,6 @@ export function OngletInformations({
           {c.traiteur_operationnel !== undefined && (
             <InfoItem
               label="Traiteur opérationnel"
-              pleineLargeur
               data-testid="traiteur-operationnel"
               valueClassName="flex flex-wrap items-center gap-2"
             >
@@ -157,7 +226,7 @@ export function OngletInformations({
           {/* Badge « Programmée par » (§06.04, ajout 2026-05-07) : événement
               programmé par un tiers, le traiteur est l'opérationnel sur place. */}
           {c.programmee_par && (
-            <div className="sm:col-span-2 lg:col-span-4">
+            <div className="sm:col-span-2 lg:col-span-3">
               <BadgeBouton
                 variant="action"
                 data-testid="badge-programmee-par"
@@ -168,12 +237,11 @@ export function OngletInformations({
             </div>
           )}
         </dl>
-      </Card>
+      </FicheSection>
 
-      <Card padding="md" className="space-y-4" data-testid="bloc-lieu">
-        <SectionHeader icon={MapPin} title="Lieu" />
-        <dl className={GRILLE_4}>
-          <InfoItem label="Adresse" pleineLargeur>
+      <FicheSection titre="Lieu et accès" data-testid="bloc-lieu">
+        <dl className={GRILLE_3}>
+          <InfoItem label="Adresse">
             {lieu?.nom ?? <Vide />}
             {adresse && (
               <span className="block font-normal text-savr-neutral-600">
@@ -181,45 +249,50 @@ export function OngletInformations({
               </span>
             )}
           </InfoItem>
+          {evt?.code_site_viparis && (
+            <InfoItem label="Code site VIPARIS" data-testid="code-site-viparis">
+              {evt.code_site_viparis}
+            </InfoItem>
+          )}
           <InfoItem label="Contrôle d’accès">
             {c.controle_acces_requis ? 'Oui' : 'Non'}
           </InfoItem>
           <InfoItem
             variant="texte"
             label="Instructions d’accès"
-            className="sm:col-span-2 lg:col-span-4"
             valueClassName="whitespace-pre-line"
           >
             {instructions.length > 0 ? instructions.join('\n\n') : <Vide />}
           </InfoItem>
         </dl>
-      </Card>
+      </FicheSection>
 
       {/* Bloc absent pour le gestionnaire sur la collecte d'un traiteur tiers
           (§06.05 : rien de personnel sur un traiteur tiers) — décidé serveur. */}
-      {evt?.contacts_visibles && (
-        <Card padding="md" className="space-y-4" data-testid="bloc-contacts">
-          <SectionHeader icon={Users} title="Contacts sur place" />
-          <dl className={GRILLE_4}>
-            <InfoItem label="Contact principal">
-              {evt.contact_principal_nom ?? <Vide />}
-            </InfoItem>
-            <InfoItem label="Téléphone">
-              <TelephoneLien telephone={evt.contact_principal_telephone} />
-            </InfoItem>
-            {/* Contact de secours (Q4) : ligne masquée seulement si vide. */}
-            {avecSecours && (
-              <>
-                <InfoItem label="Contact de secours">
-                  {evt.contact_secours_nom ?? <Vide />}
-                </InfoItem>
-                <InfoItem label="Téléphone">
-                  <TelephoneLien telephone={evt.contact_secours_telephone} />
-                </InfoItem>
-              </>
+      {c.contacts_visibles && (
+        <FicheSection titre="Contacts sur place" data-testid="bloc-contacts">
+          <div className={GRILLE_3}>
+            <CarteContact
+              nom={c.contact_principal_nom}
+              telephone={c.contact_principal_telephone}
+              role="Contact principal"
+            />
+            {/* Contact de secours (Q4) : affiché s'il est renseigné ; sinon,
+                bouton d'ajout pour qui peut modifier la collecte (Val
+                2026-10-27), rien pour les autres. */}
+            {avecSecours ? (
+              <CarteContact
+                nom={c.contact_secours_nom}
+                telephone={c.contact_secours_telephone}
+                role="Contact de secours"
+              />
+            ) : (
+              onAjouterSecours && (
+                <AjoutContactSecours onClick={onAjouterSecours} />
+              )
             )}
-          </dl>
-        </Card>
+          </div>
+        </FicheSection>
       )}
     </div>
   );
@@ -234,7 +307,7 @@ export function BlocAssociation({
 }) {
   return (
     <Card padding="md" className="space-y-4" data-testid="bloc-association">
-      <SectionHeader icon={HandHeart} title="Association bénéficiaire" />
+      <SectionHeader icon={HandHeartIcon} title="Association bénéficiaire" />
       <dl className={GRILLE_4}>
         <InfoItem label="Association" pleineLargeur>
           {association.nom}
@@ -254,21 +327,61 @@ export function BlocAssociation({
 
 // ── Logistique ───────────────────────────────────────────────────────────────
 
+// Lignes « libellé à gauche, valeur à droite » d'un camion (variante B).
+const LIGNES_CAMION =
+  'divide-y divide-savr-sable-200 text-sm [&>div]:flex [&>div]:items-baseline [&>div]:justify-between [&>div]:gap-4 [&>div]:py-3 [&>div>dd]:text-right';
+
 function EnAttente() {
   return <span className="text-savr-neutral-400">En attente</span>;
 }
 
-export function OngletLogistique({
+interface PropsChauffeurs {
+  c: FicheCollecteClient;
+  urgence: 'idle' | 'envoi' | 'envoyee';
+  urgenceErreur: string | null;
+  onDemanderUrgence: () => void;
+  /** `variante-b` : onglet Logistique de la fiche client (Val 2026-10-27). */
+  presentation?: 'standard' | 'variante-b';
+}
+
+// Variante B (décision Val 2026-10-27) : la section « Vos chauffeurs » seule
+// (ni suivi en temps réel, ni association : C3, l'association n'est pas
+// affichée avant la collecte), libellé à gauche, camions sur deux colonnes,
+// demande urgente discrète sur sa propre ligne, centrée sur la largeur.
+export function OngletLogistique(props: PropsChauffeurs) {
+  const fenetre = STATUTS_LOGISTIQUE.includes(props.c.statut);
+  const tournees = props.c.tournees;
+  const titre = !fenetre
+    ? 'Logistique'
+    : tournees.length === 0
+      ? 'Chauffeur pas encore affecté'
+      : tournees.length > 1
+        ? 'Vos chauffeurs'
+        : 'Votre chauffeur';
+  return (
+    <div data-testid="bloc-logistique">
+      <FicheSection titre={titre}>
+        <div className="min-w-0">
+          <Chauffeurs {...props} presentation="variante-b" />
+        </div>
+      </FicheSection>
+    </div>
+  );
+}
+
+/**
+ * Coordonnées du chauffeur d'une collecte, par camion, et demande urgente.
+ * Reprises dans la carte de chaque collecte de la fiche événement du
+ * gestionnaire (décision Val 2026-10-26).
+ */
+export function Chauffeurs({
   c,
   urgence,
   urgenceErreur,
   onDemanderUrgence,
-}: {
-  c: FicheClientDonnees;
-  urgence: 'idle' | 'envoi' | 'envoyee';
-  urgenceErreur: string | null;
-  onDemanderUrgence: () => void;
-}) {
+  presentation = 'standard',
+}: PropsChauffeurs) {
+  const vb = presentation === 'variante-b';
   const fenetre = STATUTS_LOGISTIQUE.includes(c.statut);
   const tournees = c.tournees;
   const complet = coordonneesCompletes(tournees);
@@ -276,135 +389,154 @@ export function OngletLogistique({
     urgence === 'envoyee' || c.coordonnees_urgence_demandee;
 
   return (
-    <div className="space-y-3">
-      <Card padding="md" className="space-y-4" data-testid="bloc-logistique">
-        <SectionHeader
-          icon={Truck}
-          title={
-            !fenetre
-              ? 'Logistique'
-              : tournees.length === 0
-                ? 'Chauffeur pas encore affecté'
-                : tournees.length > 1
-                  ? 'Vos chauffeurs'
-                  : 'Votre chauffeur'
-          }
+    <>
+      {!fenetre ? (
+        <EmptyState
+          size="inline"
+          title="Aucune information logistique à afficher pour cette collecte."
         />
-        {!fenetre ? (
-          <EmptyState
-            size="inline"
-            title="Aucune information logistique à afficher pour cette collecte."
-          />
-        ) : tournees.length === 0 ? (
-          <>
-            <Text tone="soft" className="leading-relaxed">
-              Nous affectons votre chauffeur avant la collecte. Son nom, la
-              plaque du véhicule et son téléphone apparaîtront ici dès qu’il
-              sera désigné.
-            </Text>
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-3">
-              <InfoItem label="Chauffeur">
-                <Vide />
-              </InfoItem>
-              <InfoItem label="Plaque">
-                <Vide />
-              </InfoItem>
-              <InfoItem label="Téléphone">
-                <Vide />
-              </InfoItem>
-            </dl>
-          </>
-        ) : (
-          <div className="space-y-2">
-            {tournees.map((t, i) => (
-              <div
-                key={i}
-                data-testid="camion"
-                className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
+      ) : tournees.length === 0 ? (
+        <>
+          <Text tone="soft" className="leading-relaxed">
+            Nous affectons votre chauffeur avant la collecte. Son nom, la plaque
+            du véhicule et son téléphone apparaîtront ici dès qu’il sera
+            désigné.
+          </Text>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-dashed border-savr-neutral-200 pt-4 text-sm sm:grid-cols-3">
+            <InfoItem label="Chauffeur">
+              <Vide />
+            </InfoItem>
+            <InfoItem label="Plaque">
+              <Vide />
+            </InfoItem>
+            <InfoItem label="Téléphone">
+              <Vide />
+            </InfoItem>
+          </dl>
+        </>
+      ) : (
+        <div
+          className={
+            vb
+              ? 'grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-2'
+              : 'space-y-2'
+          }
+        >
+          {tournees.map((t, i) => (
+            <div
+              key={i}
+              data-testid="camion"
+              className={
+                vb
+                  ? 'flex min-w-0 flex-col gap-3'
+                  : 'rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm'
+              }
+            >
+              {tournees.length > 1 && (
+                <p
+                  className={
+                    vb
+                      ? 'font-display text-md font-semibold text-savr-neutral-900'
+                      : 'mb-1.5 font-medium'
+                  }
+                >
+                  Camion {i + 1}
+                </p>
+              )}
+              <dl
+                className={
+                  vb
+                    ? LIGNES_CAMION
+                    : 'grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3'
+                }
               >
-                {tournees.length > 1 && (
-                  <p className="mb-1.5 font-medium">Camion {i + 1}</p>
-                )}
-                <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3">
-                  <InfoItem label="Chauffeur">
-                    {t.chauffeur_nom?.trim() || <EnAttente />}
-                  </InfoItem>
-                  <InfoItem label="Plaque d’immatriculation">
-                    {t.plaque_immatriculation?.trim() ||
-                      (t.type_vehicule === 'velo_cargo' ? (
-                        // Vélo cargo : jamais de plaque, jamais « En attente ».
-                        <span className="text-savr-neutral-400">
-                          Sans objet (vélo cargo)
-                        </span>
-                      ) : (
-                        <EnAttente />
-                      ))}
-                  </InfoItem>
-                  <InfoItem label="Téléphone">
-                    {t.chauffeur_telephone?.trim() ? (
-                      <TelephoneLien telephone={t.chauffeur_telephone} />
+                <InfoItem label="Chauffeur">
+                  {t.chauffeur_nom?.trim() || <EnAttente />}
+                </InfoItem>
+                <InfoItem label="Plaque d’immatriculation">
+                  {t.plaque_immatriculation?.trim() ||
+                    (t.type_vehicule === 'velo_cargo' ? (
+                      // Vélo cargo : jamais de plaque, jamais « En attente ».
+                      <span className="text-savr-neutral-400">
+                        Sans objet (vélo cargo)
+                      </span>
                     ) : (
                       <EnAttente />
-                    )}
-                  </InfoItem>
-                </dl>
-              </div>
-            ))}
-          </div>
-        )}
+                    ))}
+                </InfoItem>
+                <InfoItem label="Téléphone">
+                  {t.chauffeur_telephone?.trim() ? (
+                    <TelephoneLien telephone={t.chauffeur_telephone} />
+                  ) : (
+                    <EnAttente />
+                  )}
+                </InfoItem>
+              </dl>
+            </div>
+          ))}
+        </div>
+      )}
 
-        {/* Demande urgente (Q3) : alerte in-app Ops seule, 1 par collecte. */}
-        {fenetre && !complet && (
-          <div
-            data-testid="zone-urgence"
-            className="flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:items-center"
-          >
-            {demandeEnvoyee ? (
+      {/* Demande urgente (Q3) : alerte in-app Ops seule, 1 par collecte. */}
+      {fenetre && !complet && (
+        <div
+          data-testid="zone-urgence"
+          // Mobile : bouton pleine largeur sous le texte. Au-delà, sur une
+          // ligne, qui passe à la ligne si la place manque (carte étroite de la
+          // fiche événement) : le bouton est alors centré (Val 2026-11-05).
+          className={
+            vb
+              ? 'mt-8 flex flex-col items-center justify-center gap-4 rounded-savr-xl border border-savr-sable-200 bg-savr-sable-50 px-5 py-4 text-center sm:flex-row sm:text-left md:-ml-[15.5rem]'
+              : 'flex flex-col gap-3 rounded-savr-md bg-savr-warning-subtle px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center'
+          }
+        >
+          {demandeEnvoyee ? (
+            <Text
+              variant="body"
+              className="flex flex-1 items-start gap-2"
+              role="status"
+            >
+              <CheckCircleIcon
+                className="mt-0.5 h-4 w-4 shrink-0 text-savr-success-strong"
+                aria-hidden="true"
+              />
+              <span>
+                <strong className="text-savr-neutral-900">
+                  Demande envoyée à l’équipe Savr.
+                </strong>{' '}
+                Nous revenons vers vous au plus vite avec les coordonnées du
+                chauffeur.
+              </span>
+            </Text>
+          ) : (
+            <>
               <Text
                 variant="body"
-                className="flex flex-1 items-start gap-2"
-                role="status"
+                className={
+                  vb ? 'text-savr-neutral-600' : 'min-w-[14rem] flex-1'
+                }
               >
-                <CheckCircle2
-                  className="mt-0.5 h-4 w-4 shrink-0 text-savr-success-strong"
-                  aria-hidden="true"
-                />
-                <span>
-                  <strong className="text-savr-neutral-900">
-                    Demande envoyée à l’équipe Savr.
-                  </strong>{' '}
-                  Nous revenons vers vous au plus vite avec les coordonnées du
-                  chauffeur.
-                </span>
+                Besoin de ces informations rapidement (accès au site, liste de
+                sécurité) ?
               </Text>
-            ) : (
-              <>
-                <Text variant="body" className="flex-1">
-                  Besoin de ces informations rapidement (accès au site, liste de
-                  sécurité) ?
-                </Text>
-                <Button
-                  variant="outline-warning"
-                  onClick={onDemanderUrgence}
-                  disabled={urgence === 'envoi'}
-                >
-                  <BellRing className="h-4 w-4" aria-hidden="true" />
-                  Demander les coordonnées en urgence
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-        {urgenceErreur && (
-          <AlertBar variant="err" role="alert">
-            {urgenceErreur}
-          </AlertBar>
-        )}
-      </Card>
-
-      {c.type === 'anti_gaspi' && c.association && (
-        <BlocAssociation association={c.association} />
+              <Button
+                variant="outline-warning"
+                size={vb ? 'pilule' : undefined}
+                onClick={onDemanderUrgence}
+                disabled={urgence === 'envoi'}
+              >
+                <BellRingingIcon className="h-4 w-4" aria-hidden="true" />
+                Demander les coordonnées en urgence
+              </Button>
+            </>
+          )}
+        </div>
       )}
-    </div>
+      {urgenceErreur && (
+        <AlertBar variant="err" role="alert">
+          {urgenceErreur}
+        </AlertBar>
+      )}
+    </>
   );
 }

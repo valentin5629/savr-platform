@@ -14,7 +14,11 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { applyChipPredicate, type ChipQuery } from '@/lib/collectes-chips';
+import {
+  applyChipPredicate,
+  estModifieeSansRenvoi,
+  type ChipQuery,
+} from '@/lib/collectes-chips';
 import {
   aDispatcherZd,
   type CollecteRow,
@@ -65,6 +69,19 @@ const LIGNES: Ligne[] = [
   ligne('zd-en-cours', { statut: 'en_cours' }),
   ligne('zd-annulation-demandee', { statut: 'annulation_demandee' }),
   ligne('zd-annulee', { statut: 'annulee' }),
+  // Rejetée par son prestataire, à réattribuer (Val 2026-11-03) : comptée,
+  // même avec la référence de la commande refusée.
+  ligne('zd-rejetee', {
+    statut: 'rejetee_par_prestataire',
+    statut_tms: 'rejetee_par_prestataire',
+    tms_reference: 'CO-3',
+  }),
+  // Un seul camion refusé d'une collecte validée : pas un rejet de la collecte.
+  ligne('zd-validee-camion-refuse', {
+    statut: 'validee',
+    statut_tms: 'rejetee_par_prestataire',
+    tms_reference: 'CO-4',
+  }),
   ligne('ag-validee', { type: 'anti_gaspi', statut: 'validee' }),
   // Mêmes leurres côté AG, une clause à la fois.
   ligne('ag-avec-reference', { type: 'anti_gaspi', tms_reference: 'M-8' }),
@@ -77,6 +94,12 @@ const LIGNES: Ligne[] = [
     type: 'anti_gaspi',
     statut_tms: 'acceptee',
     tms_reference: 'M-9',
+  }),
+  ligne('ag-rejetee', {
+    type: 'anti_gaspi',
+    statut: 'rejetee_par_prestataire',
+    statut_tms: 'rejetee_par_prestataire',
+    tms_reference: 'M-10',
   }),
   // Tuiles « Infos accès à envoyer » / « Infos à récupérer » : une collecte en
   // cours comptée, et son jumeau en brouillon, que la liste ne sert jamais.
@@ -113,6 +136,40 @@ function listePostgrest(brut: unknown): string[] {
     .map((v) => v.replace(/^"|"$/g, ''));
 }
 
+// `.or('a.eq.x,and(b.is.null,c.in.(d,e))')` : sous-ensemble PostgREST lu par
+// les prédicats (eq, is null, in, and imbriqué).
+function decoupeHautNiveau(expr: string): string[] {
+  const parts: string[] = [];
+  let prof = 0;
+  let courant = '';
+  for (const ch of expr) {
+    if (ch === '(') prof++;
+    if (ch === ')') prof--;
+    if (ch === ',' && prof === 0) {
+      parts.push(courant);
+      courant = '';
+    } else courant += ch;
+  }
+  parts.push(courant);
+  return parts;
+}
+
+function condition(expr: string): (l: Ligne) => boolean {
+  if (expr.startsWith('and(')) {
+    const conds = decoupeHautNiveau(expr.slice(4, -1)).map(condition);
+    return (l) => conds.every((c) => c(l));
+  }
+  const [col, op, ...reste] = expr.split('.');
+  const v = reste.join('.');
+  if (op === 'eq') return (l) => String(valeur(l, col!)) === v;
+  if (op === 'is' && v === 'null') return (l) => valeur(l, col!) === null;
+  if (op === 'in') {
+    const vs = listePostgrest(v);
+    return (l) => vs.includes(String(valeur(l, col!)));
+  }
+  throw new Error(`filtre non géré par le client factice : ${expr}`);
+}
+
 interface RequeteFactice extends ChipQuery {
   select(): RequeteFactice;
   neq(colonne: string, v: unknown): RequeteFactice;
@@ -123,13 +180,13 @@ interface RequeteFactice extends ChipQuery {
   ): Promise<unknown>;
 }
 
-function requeteFactice(): RequeteFactice {
+function requeteFactice(lignes: Ligne[] = LIGNES): RequeteFactice {
   const filtres: ((l: Ligne) => boolean)[] = [];
   const ajoute = (f: (l: Ligne) => boolean) => {
     filtres.push(f);
     return requete;
   };
-  const retenues = () => LIGNES.filter((l) => filtres.every((f) => f(l)));
+  const retenues = () => lignes.filter((l) => filtres.every((f) => f(l)));
   const requete: RequeteFactice = {
     select: () => requete,
     eq: (c, v) => ajoute((l) => valeur(l, c) === v),
@@ -146,6 +203,10 @@ function requeteFactice(): RequeteFactice {
     },
     gte: (c, v) => ajoute((l) => String(valeur(l, c)) >= String(v)),
     lte: (c, v) => ajoute((l) => String(valeur(l, c)) <= String(v)),
+    or: (expr) => {
+      const conds = decoupeHautNiveau(expr).map(condition);
+      return ajoute((l) => conds.some((c) => c(l)));
+    },
     retenues,
     then: (ok, ko) =>
       Promise.resolve({ count: retenues().length, error: null }).then(ok, ko),
@@ -165,7 +226,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 
 const mockGetUser = vi.fn();
@@ -226,10 +287,11 @@ describe('M0.6 — API GET collectes/chip-counts : tuiles « à dispatcher » (k
     // Les DEUX collectes du scénario, et elles seules : ni la transmise, ni
     // celle qui porte une référence, ni celle déjà chez le prestataire, ni les
     // statuts fermés (en cours, annulée).
-    expect(c.zd_a_dispatcher).toBe(2);
+    expect(c.zd_a_dispatcher).toBe(3);
     expect(idsDuChip('non_transmises_zd')).toEqual([
       'zd-programmee',
       'zd-validee',
+      'zd-rejetee',
     ]);
   });
 
@@ -238,8 +300,11 @@ describe('M0.6 — API GET collectes/chip-counts : tuiles « à dispatcher » (k
     expect(c.zd_a_dispatcher).toBe(c.non_transmises_zd);
     expect(c.ag_a_dispatcher).toBe(c.non_transmises_ag);
     // Scission par type : l'AG validée non transmise est comptée côté AG seul.
-    expect(c.ag_a_dispatcher).toBe(1);
-    expect(idsDuChip('non_transmises_ag')).toEqual(['ag-validee']);
+    expect(c.ag_a_dispatcher).toBe(2);
+    expect(idsDuChip('non_transmises_ag')).toEqual([
+      'ag-validee',
+      'ag-rejetee',
+    ]);
   });
 
   it('M0.6 — kpi_a_dispatcher_predicat_unique : la tuile ZD n’est jamais inférieure au nombre de lignes offrant « Dispatcher »', async () => {
@@ -248,7 +313,11 @@ describe('M0.6 — API GET collectes/chip-counts : tuiles « à dispatcher » (k
     const offrantDispatcher = LIGNES.filter((l) =>
       aDispatcherZd(l as unknown as CollecteRow),
     ).map((l) => l.id);
-    expect(offrantDispatcher).toEqual(['zd-programmee', 'zd-validee']);
+    expect(offrantDispatcher).toEqual([
+      'zd-programmee',
+      'zd-validee',
+      'zd-rejetee',
+    ]);
     expect(c.zd_a_dispatcher).toBeGreaterThanOrEqual(offrantDispatcher.length);
     // Prédicat unique : l'action et le chip désignent les mêmes collectes.
     expect(offrantDispatcher).toEqual(idsDuChip('non_transmises_zd'));
@@ -268,5 +337,60 @@ describe('M0.6 — API GET collectes/chip-counts : tuiles « à dispatcher » (k
     const res = await appelle();
     expect(res.status).toBe(403);
     expect(tablesLues).toHaveLength(0);
+  });
+});
+
+// Arbitrage Val 2026-10-09 : « Modifiées sans renvoi TMS » = un client a modifié
+// après l'envoi de l'Admin. Le drapeau `dirty_tms` porte « partie puis
+// modifiée » (déclencheurs DB, pgTAP collectes_modifiees_apres_envoi) ; le
+// prédicat n'y ajoute que « encore à réaliser ».
+describe('M0.6/dirty_tms_apres_envoi — pastille « Modifiées sans renvoi TMS »', () => {
+  const MODIFIEES: Ligne[] = [
+    // Le constat de Val : envoyée par l'Admin, commande pas encore reçue par le
+    // prestataire (ni statut TMS avancé, ni référence), modifiée par le client.
+    ligne('en-file-modifiee', { dirty_tms: true }),
+    ligne('commandee-modifiee', {
+      statut: 'validee',
+      statut_tms: 'acceptee',
+      tms_reference: 'CO-1',
+      dirty_tms: true,
+    }),
+    ligne('en-cours-modifiee', { statut: 'en_cours', dirty_tms: true }),
+    // Terminées ou fermées : plus rien à renvoyer.
+    ligne('realisee-modifiee', { statut: 'realisee', dirty_tms: true }),
+    ligne('cloturee-modifiee', { statut: 'cloturee', dirty_tms: true }),
+    ligne('annulee-modifiee', { statut: 'annulee', dirty_tms: true }),
+    ligne('annulation-demandee-modifiee', {
+      statut: 'annulation_demandee',
+      dirty_tms: true,
+    }),
+    // Jamais modifiée depuis l'envoi.
+    ligne('commandee-non-modifiee', {
+      statut: 'validee',
+      statut_tms: 'acceptee',
+      tms_reference: 'CO-2',
+    }),
+  ];
+
+  it('retient les collectes modifiées encore à réaliser, avec ou sans référence de commande', () => {
+    const q = requeteFactice(MODIFIEES);
+    applyChipPredicate(q, 'dirty_tms', new Date());
+    expect(q.retenues().map((l) => l.id)).toEqual([
+      'en-file-modifiee',
+      'commandee-modifiee',
+      'en-cours-modifiee',
+    ]);
+  });
+
+  it('le badge et le bouton de la fiche (ligne déjà chargée) désignent les mêmes collectes que la pastille', () => {
+    const q = requeteFactice(MODIFIEES);
+    applyChipPredicate(q, 'dirty_tms', new Date());
+    const parLaPastille = q.retenues().map((l) => l.id);
+    const parLaFiche = MODIFIEES.filter((l) =>
+      estModifieeSansRenvoi(
+        l as unknown as { dirty_tms: boolean; statut: string },
+      ),
+    ).map((l) => l.id);
+    expect(parLaFiche).toEqual(parLaPastille);
   });
 });

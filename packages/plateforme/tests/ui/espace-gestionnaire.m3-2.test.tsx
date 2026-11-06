@@ -3,7 +3,8 @@
  * Couvre les livrables BL-P1-GEST-01..04 :
  *  - GEST-01 : bouton « Programmer une collecte » (point d'entrée dashboard, libellé unique Q11) ;
  *  - GEST-02 : formulaire partagé « cas Gestionnaire » (sélecteur traiteur +
- *              blocage AG sans pack actif) ;
+ *              AG sans pack actif programmable, facturée à l'unité — décision
+ *              Val 2026-10-16, ex-blocage) ;
  *  - GEST-03 : KPI dashboard affichés (clé data.kpis, plus d'EmptyState systématique) ;
  *  - GEST-04 : jauge benchmark consommant la moyenne pondérée (benchmark_kg_pax).
  */
@@ -43,6 +44,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => {
   };
 });
 
+import { TopBar } from '@/components/layout/top-bar';
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
 import NouveauProgrammationPage from '@/app/(programmation)/programmer/nouveau/page.js';
 import { BenchmarkFilterBar } from '@/components/dashboards/BenchmarkFilterBar.js';
@@ -148,7 +150,9 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
   it(
     "M3.2/GEST01_bouton_programmer_present — point d'entrée programmation sur le dashboard",
     async () => {
-      render(<GestionnaireDashboardPage />);
+      // Le bouton est dans la barre navy du haut de l'espace, au-dessus du
+      // dashboard (Val 2026-11-02), plus dans son bandeau.
+      render(<TopBar role="gestionnaire_lieux" />);
 
       // Le parcours métier principal du gestionnaire : bouton « Programmer une collecte »
       // (libellé unique du CTA vers le formulaire, arbitrage Q11 Val 2026-10-07)
@@ -211,11 +215,10 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
       expect(screen.getByTestId('benchmark-filter-type')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-taille')).toBeInTheDocument();
       expect(screen.getByTestId('benchmark-filter-lieux')).toBeInTheDocument();
-      // Listes bornées au périmètre du gestionnaire (décision Val 2026-10-06) :
-      // sans sélection le repère couvre tout le parc, et l'écran le dit dès ce
-      // premier rendu — avant même que les listes soient chargées.
+      // Pastille sans sélection = nom du filtre (Val 2026-10-28), dès le
+      // premier rendu (case de tête « Tous » : benchmark-filtres-rattaches.m3-2).
       expect(screen.getByTestId('benchmark-filter-lieux')).toHaveTextContent(
-        'Tout le parc Savr',
+        'Lieux' + 'Lieux',
       );
       // Période fixe 24 mois (décision Val 2026-09-28) : plus aucun choix affiché.
       expect(screen.queryByTestId('benchmark-preset-24m')).toBeNull();
@@ -297,7 +300,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
   );
 
   it(
-    'M3.2/GEST02_form_cas_gestionnaire — sélecteur traiteur + blocage AG sans pack',
+    'M3.2/GEST02_form_cas_gestionnaire — sélecteur traiteur + AG sans pack programmable',
     async () => {
       render(<NouveauProgrammationPage />);
 
@@ -306,13 +309,25 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
         await screen.findByText(/Traiteur opérant/i, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
 
-      // Cocher Anti-Gaspi sans pack actif → soumission AG bloquée (alerte).
-      fireEvent.click(screen.getByRole('checkbox', { name: /Anti-Gaspi/i }));
+      // Une collecte Anti-Gaspi demandée sans pack actif → le nombre reste
+      // saisi, une simple information annonce la facturation à l'unité
+      // (décision Val 2026-10-16, ex-blocage ; nombre de collectes par type au
+      // lieu de la case à cocher depuis le lot B2).
+      // Compteur − / + depuis le retour Val du 2026-10-26.
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Ajouter une collecte Anti-Gaspi',
+        }),
+      );
+      const nombreAg = screen.getByRole('status', { name: /Anti-Gaspi/i });
       await waitFor(
         () =>
-          expect(screen.getByText(/Aucun pack AG actif/i)).toBeInTheDocument(),
+          expect(
+            screen.getByText(/seront facturées à l.unité/i),
+          ).toBeInTheDocument(),
         ATTENTE_UI,
       );
+      expect(nombreAg).toHaveTextContent(/^1$/);
     },
     ATTENTE_CAS_MS,
   );

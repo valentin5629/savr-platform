@@ -55,10 +55,13 @@ export function InfosLegalesCard({
   profil,
   urlProfil,
   onSaved,
+  lectureSeule: tousEnLecture = false,
 }: {
   profil: ProfilOrganisation;
   urlProfil: string;
   onSaved: (p: ProfilOrganisation) => void;
+  // Commercial traiteur : Mon organisation en lecture seule (Val 2026-10-30).
+  lectureSeule?: boolean;
 }) {
   const [valeurs, setValeurs] = useState(() => valeursDe(profil));
   const [saving, setSaving] = useState(false);
@@ -119,6 +122,9 @@ export function InfosLegalesCard({
   }
 
   const lectureSeule = [
+    ...(tousEnLecture
+      ? CHAMPS.map(({ cle, libelle }) => [libelle, profil[cle]] as const)
+      : []),
     ['Nom', profil.nom],
     ['Email', profil.email_principal],
     ['Téléphone', profil.telephone],
@@ -130,30 +136,32 @@ export function InfosLegalesCard({
         <CardTitle>Informations légales</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <form onSubmit={save} className="space-y-3 md:max-w-xl">
-          {CHAMPS.map(({ cle, libelle, id }) => (
-            <FormField key={cle} label={libelle} htmlFor={id}>
-              <Input
-                id={id}
-                value={valeurs[cle]}
-                maxLength={500}
-                onChange={(e) => {
-                  setValeurs((v) => ({ ...v, [cle]: e.target.value }));
-                  setErreur('');
-                }}
-              />
-            </FormField>
-          ))}
-          <FormError>{erreur}</FormError>
-          <Button
-            type="submit"
-            disabled={modifies.length === 0}
-            loading={saving}
-            loadingText="Enregistrement…"
-          >
-            Enregistrer
-          </Button>
-        </form>
+        {!tousEnLecture && (
+          <form onSubmit={save} className="space-y-3 md:max-w-xl">
+            {CHAMPS.map(({ cle, libelle, id }) => (
+              <FormField key={cle} label={libelle} htmlFor={id}>
+                <Input
+                  id={id}
+                  value={valeurs[cle]}
+                  maxLength={500}
+                  onChange={(e) => {
+                    setValeurs((v) => ({ ...v, [cle]: e.target.value }));
+                    setErreur('');
+                  }}
+                />
+              </FormField>
+            ))}
+            <FormError>{erreur}</FormError>
+            <Button
+              type="submit"
+              disabled={modifies.length === 0}
+              loading={saving}
+              loadingText="Enregistrement…"
+            >
+              Enregistrer
+            </Button>
+          </form>
+        )}
         <div className="space-y-2">
           <dl className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
             {lectureSeule.map(([libelle, valeur]) => (
@@ -165,9 +173,11 @@ export function InfosLegalesCard({
               </div>
             ))}
           </dl>
-          <Text variant="hint">
-            Nom, email et téléphone : modification via le support Savr.
-          </Text>
+          {!tousEnLecture && (
+            <Text variant="hint">
+              Nom, email et téléphone : modification via le support Savr.
+            </Text>
+          )}
         </div>
       </CardContent>
     </Card>

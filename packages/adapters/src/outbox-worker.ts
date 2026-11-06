@@ -2,8 +2,9 @@
 //
 // Flux :
 //   1. fn_reap_outbox_claims() — re-queue les claims expirés
-//   2. fn_claim_outbox_batch() — TX courte de claim (SKIP LOCKED + visibilité txid)
-//   3. Pour chaque event : appel adapter MTS-1 HORS TRANSACTION
+//   2. fn_claim_outbox_batch() — TX courte de claim (SKIP LOCKED + visibilité txid),
+//      UN event à la fois : chacun a son propre bail
+//   3. Pour l'event réservé : appel adapter HORS TRANSACTION, borné par son échéance
 //   4. fn_result_outbox() — TX de résultat (done/failed/dead)
 //
 // Alertes Slack :
@@ -15,12 +16,48 @@
 // re-POST silencieux à attempts inchangé). La valeur lue au claim compte donc la
 // tentative courante → palier = getNextRetryAt(attempts).
 //
-// A3 (concurrence claim/reaper) : aucune double-exécution concurrente possible
-// dans ce déploiement — le lease (120 s) dépasse maxDuration de la route cron
-// (60 s, cf. api/cron/outbox-worker/route.ts) et les invocations Vercel Cron ne se
-// chevauchent pas (intervalle 15 min). Le reaper ne re-queue qu'un claim EXPIRÉ,
-// donc tenu par un run mort. Si maxDuration venait à dépasser le lease, il faudrait
-// un heartbeat de lease ou 1 event/run — invariant à préserver.
+// A3 (concurrence claim/reaper) : depuis l'envoi immédiat au clic (décision Val
+// 2026-10-12), PLUSIEURS passages peuvent tourner en même temps — le passage
+// planifié (runOutboxWorker) et des passages ciblés par clic
+// (runOutboxWorkerPourCollecte). Ce qui empêche la double exécution d'un ordre :
+//   1. la réservation est atomique (FOR UPDATE SKIP LOCKED + statut 'processing') :
+//      un ordre n'est rendu qu'à UN passage ;
+//   2. le head-of-line bloque l'ordre suivant d'un MÊME agrégat tant que le
+//      précédent n'est ni 'done' ni abandonné ('dead', Val 2026-11-03) : jamais
+//      deux ordres d'une même collecte en vol.
+//      Il ne lie pas deux agrégats : un ordre « lieu » (passage planifié) et un
+//      ordre d'une collecte de ce lieu (clic) peuvent se chevaucher ;
+//   3. le reaper ne re-queue qu'une réservation EXPIRÉE, et un passage ne parle
+//      plus au prestataire quand la sienne approche de sa fin. Cette borne est
+//      tenue DANS LE CODE (echeance-passage.ts) : pour un ordre réservé à T,
+//      aucun appel au prestataire ne démarre après T + bail − 40 s, aucune
+//      écriture de résultat n'est lancée après T + bail − 5 s (ce que cette
+//      borne ne couvre pas est listé en tête de echeance-passage.ts).
+//      `maxDuration = 60` (route cron et routes qui déclenchent l'envoi immédiat ;
+//      cliquet : plateforme/tests/api/admin/envoi-immediat-routes.test.ts) ne
+//      borne pas seul la durée de vie d'un passage. Sur un serveur local
+//      (`next dev`, `next start`), il n'est pas appliqué. Sur Vercel, mesuré le
+//      2026-10-12 sur des déploiements d'aperçu (Fluid Compute), avec une tâche
+//      `after()` de 150 s sous `maxDuration = 60` :
+//        - seule dans son processus, la tâche s'est arrêtée à 60 s ;
+//        - avec une autre invocation en cours dans le même processus à cette
+//          échéance, la plateforme a journalisé le dépassement et cessé
+//          d'enregistrer les journaux de la tâche, mais son code a continué,
+//          appels HTTP sortants compris : dernier appel reçu 100,5 s après le
+//          départ de la tâche, plus aucun une fois l'autre invocation arrivée
+//          à sa propre limite ;
+//        - les deux routes d'envoi immédiat et les routes cron à 60 s, dont
+//          celle de ce worker, étaient servies par la même instance.
+//      Aucune tâche n'a été vue active au-delà de 120 s ; rien de mesuré ne
+//      l'exclut. Non mesuré : la production, et le cas où l'autre invocation se
+//      termine avant sa propre limite.
+// Le passage planifié réserve UN ordre à la fois : réservés par dix sous un seul
+// bail, les derniers commençaient bail expiré. SEUL le passage planifié lance le
+// reaper : un clic ne libère jamais la réservation d'un autre passage.
+//
+// Limite connue : l'écriture du résultat (fn_result_outbox) n'est pas
+// conditionnée en base à la réservation ; elle est bornée ici par l'horloge du
+// passage (règle des 5 s ci-dessus).
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -29,6 +66,12 @@ import { logger } from '@savr/shared/src/logger/index.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
 import {
+  BAIL_RESERVATION_MS,
+  avecEcheance,
+  echeanceOrdre,
+  limiteEcriture,
+} from './echeance-passage.js';
+import {
   CancelWindowClosedError,
   LogistiqueAmbiguousError,
   LogistiquePermanentError,
@@ -36,7 +79,8 @@ import {
   getLogistiqueProvider,
 } from './index.js';
 import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
-import { composerInformationsSupplementaires } from './infos-acces.js';
+import { composerCommentairesTransporteur } from './infos-acces.js';
+import type { EntreeCommentaire } from './infos-acces.js';
 import { applyLieuOverrides } from './lieu-overrides.js';
 import type { AdapterMts1 } from './mts1/adapter.js';
 
@@ -60,6 +104,10 @@ interface CollecteRow {
   statut_tms: string;
   controle_acces_requis: boolean;
   informations_supplementaires: string | null;
+  // Ce que rassemblent les commentaires au transporteur : ils ne sont composés
+  // qu'une fois le transporteur lu (`toCollecte`), qui nomme les véhicules
+  // multiples.
+  entree_commentaire: EntreeCommentaire;
   notes_internes: string | null;
   contact_principal_nom: string;
   contact_principal_telephone: string;
@@ -67,9 +115,11 @@ interface CollecteRow {
   contact_secours_telephone: string | null;
   prestataire_logistique_id: string | null;
   type_vehicule_souhaite: string | null;
+  traiteur_nom: string | null;
+  pax: number | null;
   // AG uniquement (BL-P1-API-02) — association destinataire (point B), résolue
   // via attributions_antgaspi → associations : placeId favori MTS-1 + adresse
-  // postale (adresse inline MTS-1 sans point favori, dropoff Everest).
+  // postale (adresse inline MTS-1 sans point favori, address_end Everest).
   association_id_point_collecte_mts1: string | null;
   association_adresse: string | null;
   association_contact_nom: string | null;
@@ -112,6 +162,19 @@ const RETRY_DELAYS_MS = [
   24 * 60 * 60 * 1000, // attempt 3 → retry dans 24h
 ];
 
+// Bail passé explicitement aux réservations : l'échéance des appels et le bail
+// en base viennent ainsi de la même constante (echeance-passage.ts).
+const BAIL = `${BAIL_RESERVATION_MS / 1000} seconds`;
+
+/** Ordres traités au plus par passage planifié (un par réservation). */
+const PASSAGE_PLANIFIE_MAX_ORDRES = 10;
+/**
+ * Passé ce délai, compté depuis le début du passage, on ne réserve plus de
+ * nouvel ordre. Il ne borne pas le traitement de l'ordre en cours : c'est le
+ * rôle de son échéance.
+ */
+const BUDGET_PASSAGE_MS = 40_000;
+
 export async function runOutboxWorker(
   supabase: SupabaseClient,
 ): Promise<WorkerResult> {
@@ -124,36 +187,169 @@ export async function runOutboxWorker(
   };
 
   // ── 1. Reaper : re-queue claims expirés ─────────────────────────────────────
-  const { data: reaped } = await supabase.rpc('fn_reap_outbox_claims');
+  // Son erreur n'est pas ignorée : un reaper muet laisserait pour toujours en
+  // 'processing' les ordres qu'un passage a laissés derrière lui.
+  const { data: reaped, error: erreurReaper } = await supabase.rpc(
+    'fn_reap_outbox_claims',
+  );
+  if (erreurReaper) {
+    throw new Error(`fn_reap_outbox_claims : ${erreurReaper.message}`);
+  }
   result.reaped = (reaped as number | null) ?? 0;
 
-  // ── 2. Claim batch ──────────────────────────────────────────────────────────
-  const { data: events } = await supabase.rpc('fn_claim_outbox_batch', {
-    p_limit: 10,
-  });
+  // ── 2-3. Un ordre à la fois : réservation, puis traitement sous SON bail ─────
+  const debut = Date.now();
+  const traites = new Set<string>();
+  for (let n = 0; n < PASSAGE_PLANIFIE_MAX_ORDRES; n++) {
+    if (Date.now() - debut > BUDGET_PASSAGE_MS) break;
 
-  const claimed = (events as ClaimedEvent[] | null) ?? [];
-  result.claimed = claimed.length;
+    const reserveA = Date.now();
+    const { data: events, error } = await supabase.rpc(
+      'fn_claim_outbox_batch',
+      { p_limit: 1, p_lease_duration: BAIL },
+    );
+    // Réservation impossible : le dire, plutôt qu'un passage muet à zéro ordre.
+    if (error) {
+      throw new Error(`fn_claim_outbox_batch : ${error.message}`);
+    }
+    const event = ((events as ClaimedEvent[] | null) ?? [])[0];
+    // Rien à réserver, ou un ordre déjà traité par CE passage : on s'arrête. Dans
+    // ce second cas (inattendu : un ordre traité n'est plus réservable), l'ordre
+    // vient d'être réservé de nouveau et n'est pas traité : il reste
+    // 'processing', une tentative comptée, jusqu'au reaper.
+    if (!event || traites.has(event.id)) break;
+    traites.add(event.id);
 
-  // ── 3. Traitement séquentiel ─────────────────────────────────────────────────
-  for (const event of claimed) {
-    try {
-      const consumer = await processEvent(supabase, event);
-      await markDone(supabase, event.id, consumer);
-      result.done++;
-    } catch (err) {
-      const status = await handleError(supabase, event, err);
-      if (status === 'dead') {
-        result.dead++;
-        await alertOutboxDead(event, err);
-      } else {
-        result.failed++;
-        await maybeAlertEarlyCollecte(supabase, event);
-      }
+    result.claimed++;
+    await traiterEvent(supabase, event, result, reserveA);
+  }
+
+  return result;
+}
+
+// Traitement d'un ordre réservé : appel du prestataire HORS transaction, puis
+// transaction de résultat. Commun au passage planifié et à l'envoi immédiat.
+// `reserveA` = instant pris AVANT la requête de réservation : il fonde l'échéance
+// des appels au prestataire et la limite d'écriture du résultat.
+async function traiterEvent(
+  supabase: SupabaseClient,
+  event: ClaimedEvent,
+  result: WorkerResult,
+  reserveA: number,
+): Promise<void> {
+  // Bail presque écoulé : l'ordre ne nous appartient plus de façon sûre. On
+  // n'écrit RIEN — ni succès, ni échec, ni alerte : le reaper le remettra en
+  // file avec réconciliation obligatoire.
+  // Le journal dit ce qui est écarté : un SUCCÈS écarté veut dire que l'ordre a
+  // peut-être abouti chez le prestataire sans que la file le sache.
+  const horsBail = (resultat: 'succes' | 'erreur', err?: unknown): boolean => {
+    if (Date.now() < limiteEcriture(reserveA)) return false;
+    logger.warn('outbox.passage_hors_bail', {
+      event_id: event.id,
+      aggregate_id: event.aggregate_id,
+      event_type: event.event_type,
+      resultat,
+      ...(resultat === 'erreur' ? { erreur: String(err).slice(0, 200) } : {}),
+    });
+    return true;
+  };
+
+  try {
+    const consumer = await avecEcheance(echeanceOrdre(reserveA), () =>
+      processEvent(supabase, event),
+    );
+    if (horsBail('succes')) return;
+    await markDone(supabase, event.id, consumer);
+    result.done++;
+  } catch (err) {
+    if (horsBail('erreur', err)) return;
+    const status = await handleError(supabase, event, err);
+    if (status === 'dead') {
+      result.dead++;
+      await alertOutboxDead(event, err);
+    } else {
+      result.failed++;
+      await maybeAlertEarlyCollecte(supabase, event);
+    }
+  }
+}
+
+// ─── Envoi immédiat des ordres d'UNE collecte (décision Val 2026-10-12) ──────
+//
+// Appelé juste après la mutation qui a écrit l'ordre dans la file (clic
+// « Envoyer », validation d'une attribution) : réservation, appel du prestataire
+// et résultat comme le passage planifié, bornés à une collecte. Le passage
+// planifié reste le filet (reprises après erreur, ordre pas encore visible).
+//
+// Pas de reaper ici (invariant A3) : une réservation laissée par un passage
+// mort n'est libérée que par le passage planifié. Là où il ne tourne pas (dev,
+// local), l'ordre reste 'processing' et bloque les suivants de sa collecte.
+//
+// Le head-of-line ne rend qu'UN ordre à la fois par collecte : on rappelle la
+// réservation après chaque ordre traité. Elle rend vide quand il n'en reste
+// plus, ou quand l'ordre précédent peut encore partir (ni 'done' ni 'dead') :
+// la boucle s'arrête là.
+
+/** Plafond d'ordres traités par appel : ceinture contre une boucle sans fin. */
+const ENVOI_IMMEDIAT_MAX_ORDRES = 5;
+/**
+ * Seconde chance quand la première réservation est vide : l'ordre tout juste
+ * écrit n'est pas réservable tant qu'une transaction plus ancienne est encore
+ * ouverte (garde de visibilité txid). Une seule attente, puis le filet planifié.
+ */
+const ENVOI_IMMEDIAT_ATTENTE_VISIBILITE_MS = 1_000;
+
+export async function runOutboxWorkerPourCollecte(
+  supabase: SupabaseClient,
+  collecteId: string,
+): Promise<WorkerResult> {
+  const result: WorkerResult = {
+    reaped: 0,
+    claimed: 0,
+    done: 0,
+    failed: 0,
+    dead: 0,
+  };
+
+  const debut = Date.now();
+  for (let n = 0; n < ENVOI_IMMEDIAT_MAX_ORDRES; n++) {
+    if (Date.now() - debut > BUDGET_PASSAGE_MS) break;
+
+    let reserveA = Date.now();
+    let claimed = await claimCollecte(supabase, collecteId);
+    if (claimed.length === 0 && n === 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, ENVOI_IMMEDIAT_ATTENTE_VISIBILITE_MS),
+      );
+      reserveA = Date.now();
+      claimed = await claimCollecte(supabase, collecteId);
+    }
+    if (claimed.length === 0) break;
+
+    result.claimed += claimed.length;
+    for (const event of claimed) {
+      await traiterEvent(supabase, event, result, reserveA);
     }
   }
 
   return result;
+}
+
+async function claimCollecte(
+  supabase: SupabaseClient,
+  collecteId: string,
+): Promise<ClaimedEvent[]> {
+  const { data, error } = await supabase.rpc('fn_claim_outbox_collecte', {
+    p_collecte_id: collecteId,
+    p_lease_duration: BAIL,
+  });
+  // Réservation impossible (fonction absente : migration pas encore appliquée ;
+  // base injoignable) : le dire à l'appelant, qui le journalise. L'ordre reste
+  // en file, le passage planifié l'enverra.
+  if (error) {
+    throw new Error(`fn_claim_outbox_collecte : ${error.message}`);
+  }
+  return (data as ClaimedEvent[] | null) ?? [];
 }
 
 // ─── Routing par event_type ───────────────────────────────────────────────────
@@ -178,8 +374,8 @@ async function processEvent(
       supabase,
       collecteRow.prestataire_logistique_id,
     );
-    const collecte = toCollecte(collecteRow);
     const transporteur = toTransporteur(transporteurRow);
+    const collecte = toCollecte(collecteRow, transporteur);
     const provider = getLogistiqueProvider(transporteur, supabase);
 
     if (event_type === 'collecte.creee') {
@@ -481,20 +677,25 @@ async function fetchCollecte(
   supabase: SupabaseClient,
   collecteId: string,
 ): Promise<CollecteRow> {
-  // Contacts + lieu sont portés par l'ÉVÉNEMENT parent (§06.04 l.375 « Pas de
-  // duplication côté collectes » ; §08 l.411 contacts ← evenements.contact_*).
-  // On les lit donc via la jointure evenements → un re-dispatch E2 propage bien
-  // les champs événement édités (requirement B1, fix M1.5a 2026-06-26).
+  // Le lieu est porté par l'ÉVÉNEMENT parent ; les contacts, par LA collecte
+  // (`collecte_contacts`, refonte Val 2026-10-22, C1–C2) : deux collectes d'un
+  // même événement peuvent avoir des contacts différents. Une modification des
+  // contacts au niveau de l'événement est recopiée sur ses collectes
+  // (fn_modifier_evenement), donc un re-dispatch E2 propage bien les champs
+  // édités (requirement B1, fix M1.5a 2026-06-26).
   const { data, error } = await supabase
     .from('collectes')
     .select(
       `
-      id, type, date_collecte, heure_collecte, nb_camions_demande,
+      id, type, date_collecte, heure_collecte, nb_camions_demande, pax,
       statut_tms, controle_acces_requis, informations_supplementaires, notes_internes,
       prestataire_logistique_id, lieu_overrides,
-      evenement:evenements!inner(
+      contacts:collecte_contacts(
         contact_principal_nom, contact_principal_telephone,
-        contact_secours_nom, contact_secours_telephone,
+        contact_secours_nom, contact_secours_telephone
+      ),
+      evenement:evenements!inner(
+        traiteur:organisations!traiteur_operationnel_organisation_id(nom),
         lieux:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, latitude, longitude, acces_details, type_vehicule_max, contraintes_horaires, stationnement, acces_office, flux_autorises)
       )
     `,
@@ -510,25 +711,47 @@ async function fetchCollecte(
   // `evenements.lieu_id`) : PostgREST renvoie un OBJET. Le déballage reste
   // défensif (Array.isArray) — il couvre les deux formes.
   type EvenementJoin = {
+    traiteur: { nom: string | null } | { nom: string | null }[] | null;
+    lieux: CollecteRow['lieux'] | CollecteRow['lieux'][];
+  };
+  type ContactsJoin = {
     contact_principal_nom: string;
     contact_principal_telephone: string;
     contact_secours_nom: string | null;
     contact_secours_telephone: string | null;
-    lieux: CollecteRow['lieux'] | CollecteRow['lieux'][];
   };
   const raw = data as unknown as Omit<
     CollecteRow,
     | 'lieux'
+    | 'traiteur_nom'
+    | 'pax'
     | 'contact_principal_nom'
     | 'contact_principal_telephone'
     | 'contact_secours_nom'
     | 'contact_secours_telephone'
   > & {
     evenement: EvenementJoin | EvenementJoin[];
+    contacts: ContactsJoin | ContactsJoin[] | null;
     lieu_overrides: Record<string, unknown> | null;
+    pax: number | null;
   };
 
   const evt = Array.isArray(raw.evenement) ? raw.evenement[0]! : raw.evenement;
+  // Relation 1–1 (la clé étrangère est aussi la clé primaire) : PostgREST rend
+  // un objet ; le déballage reste défensif. Absente = jamais le contact d'une
+  // autre collecte ni celui de l'événement : la commande ne part pas.
+  const contacts = Array.isArray(raw.contacts)
+    ? (raw.contacts[0] ?? null)
+    : raw.contacts;
+  if (!contacts) {
+    throw new LogistiquePermanentError(
+      `contacts de la collecte introuvables : ${collecteId}`,
+    );
+  }
+  // Pax de LA collecte (décision Val 2026-10-20), jamais celui de l'événement :
+  // c'est la somme des jours.
+  const pax = raw.pax;
+  const traiteur = Array.isArray(evt.traiteur) ? evt.traiteur[0] : evt.traiteur;
   const lieuOfficiel = Array.isArray(evt.lieux) ? evt.lieux[0]! : evt.lieux;
   // PROG-01/PROG-03 — l'adresse d'accès corrigée par collecte (lieu_overrides,
   // §06.01) doit parvenir au transporteur. Sans ce merge, le worker re-fetch le
@@ -550,8 +773,8 @@ async function fetchCollecte(
   // Véhicule souhaité par l'Admin (migration 20261001213000) : lu à part et
   // tolérant à l'ABSENCE de la colonne — le code peut être déployé avant la
   // migration sans transformer chaque event en « collecte introuvable » → dead.
-  // Composé pour les N commandes identiques : « 1 par commande » (décision Val
-  // 2026-10-01, N véhicules = N commandes).
+  // N véhicules = N commandes (décision Val 2026-10-01) ; plusieurs véhicules
+  // = « N vélos prévus … » dans le commentaire (Val 2026-11-03, infos-acces.ts).
   const typeVehiculeSouhaite = await lireTypeVehiculeSouhaite(supabase, raw.id);
 
   return {
@@ -562,38 +785,57 @@ async function fetchCollecte(
     nb_camions_demande: raw.nb_camions_demande,
     statut_tms: raw.statut_tms,
     controle_acces_requis: raw.controle_acces_requis,
-    // Arbitrage Val 2026-09-15 — les 6 informations d'accès du lieu n'ont pas de
-    // champ natif MTS-1/Everest : elles sont agrégées dans le seul canal libre
-    // routé (`comment` / `notes`). Composé ICI, donc une seule fois pour les deux
-    // adapters (garde-fou 2), et à partir du lieu FUSIONNÉ — le lieu officiel
-    // retransmettrait précisément l'erreur corrigée par #304.
-    // Le nom du contact de secours y est joint (arbitrage Val 2026-09-14) : son
-    // téléphone part nativement (`phoneAlternatives` MTS-1), son nom n'a aucun
-    // champ d'accueil chez MTS-1 comme chez Everest.
-    // Le véhicule souhaité par l'Admin (type + nombre) emprunte le même canal :
-    // aucun champ natif MTS-1/Everest en V1 (décision Val 2026-10-01).
-    informations_supplementaires: composerInformationsSupplementaires(
+    informations_supplementaires: raw.informations_supplementaires,
+    // Commentaires au transporteur (format décidé par Val le 2026-11-03, cf.
+    // infos-acces.ts) : le seul canal libre routé. Rassemblés ICI et composés
+    // par `toCollecte`, donc une seule fois pour les deux adapters (garde-fou
+    // 2), et à partir du lieu FUSIONNÉ — le lieu officiel retransmettrait
+    // précisément l'erreur corrigée par #304. Les instructions d'accès, le nom du
+    // contact de secours (arbitrage Val 2026-09-14) et les véhicules multiples
+    // n'ont aucun champ natif MTS-1/Everest en V1.
+    entree_commentaire: {
       lieu,
-      raw.informations_supplementaires,
-      evt.contact_secours_nom,
-      raw.type === 'anti_gaspi'
-        ? { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande }
+      informationsSupplementaires: raw.informations_supplementaires,
+      contact: {
+        nom: contacts.contact_principal_nom,
+        telephone: contacts.contact_principal_telephone,
+      },
+      contactSecours: {
+        nom: contacts.contact_secours_nom,
+        telephone: contacts.contact_secours_telephone,
+      },
+      vehicule:
+        raw.type === 'anti_gaspi'
+          ? { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande }
+          : null,
+      livraison: association
+        ? {
+            instructionsAcces: association.instructions_acces,
+            contact: {
+              nom: association.contact_nom,
+              telephone: association.contact_telephone,
+            },
+          }
         : null,
-    ),
+    },
+    traiteur_nom: traiteur?.nom ?? null,
+    pax,
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
     type_vehicule_souhaite: typeVehiculeSouhaite,
     association_id_point_collecte_mts1:
       association?.id_point_collecte_mts1 ?? null,
+    // `associations` n'a pas de colonne code_postal : il est saisi dans
+    // `adresse`. La demander à PostgREST fait échouer la lecture (#683).
     association_adresse: association
       ? `${association.adresse}, ${association.ville}`
       : null,
     association_contact_nom: association?.contact_nom ?? null,
     association_contact_telephone: association?.contact_telephone ?? null,
-    contact_principal_nom: evt.contact_principal_nom,
-    contact_principal_telephone: evt.contact_principal_telephone,
-    contact_secours_nom: evt.contact_secours_nom,
-    contact_secours_telephone: evt.contact_secours_telephone,
+    contact_principal_nom: contacts.contact_principal_nom,
+    contact_principal_telephone: contacts.contact_principal_telephone,
+    contact_secours_nom: contacts.contact_secours_nom,
+    contact_secours_telephone: contacts.contact_secours_telephone,
     lieux: lieu,
   };
 }
@@ -642,6 +884,7 @@ interface AssociationDestinataireRow {
   ville: string;
   contact_nom: string | null;
   contact_telephone: string | null;
+  instructions_acces: string | null;
 }
 
 async function fetchAssociationDestinataire(
@@ -651,7 +894,7 @@ async function fetchAssociationDestinataire(
   const { data, error } = await supabase
     .from('attributions_antgaspi')
     .select(
-      'associations:association_id(id_point_collecte_mts1, adresse, ville, contact_nom, contact_telephone)',
+      'associations:association_id(id_point_collecte_mts1, adresse, ville, contact_nom, contact_telephone, instructions_acces)',
     )
     .eq('collecte_id', collecteId)
     .maybeSingle();
@@ -705,7 +948,16 @@ async function fetchLieu(
 
 // ─── Mappers ─────────────────────────────────────────────────────────────────
 
-function toCollecte(row: CollecteRow): Collecte {
+function toCollecte(row: CollecteRow, transporteur: Transporteur): Collecte {
+  const entree = row.entree_commentaire;
+  // Plusieurs véhicules sans type précisé : le transporteur les nomme
+  // (« 2 vélos prévus … » chez A Toutes!, décision Val 2026-11-03).
+  const commentaires = composerCommentairesTransporteur({
+    ...entree,
+    vehicule: entree.vehicule
+      ? { ...entree.vehicule, typeTms: transporteur.type_tms }
+      : null,
+  });
   return {
     id: row.id,
     type: row.type as 'zero_dechet' | 'anti_gaspi',
@@ -714,8 +966,13 @@ function toCollecte(row: CollecteRow): Collecte {
     nb_camions_demande: row.nb_camions_demande,
     statut_tms: row.statut_tms,
     controle_acces_requis: row.controle_acces_requis,
-    informations_supplementaires: row.informations_supplementaires,
+    informations_supplementaires: commentaires.unique,
+    commentaire_general: commentaires.general,
+    commentaire_depart: commentaires.depart,
+    commentaire_arrivee: commentaires.arrivee,
     notes_internes: row.notes_internes,
+    traiteur_nom: row.traiteur_nom,
+    pax: row.pax,
     type_vehicule_souhaite: row.type_vehicule_souhaite,
     contact_principal_nom: row.contact_principal_nom,
     contact_principal_telephone: row.contact_principal_telephone,

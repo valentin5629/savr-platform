@@ -14,9 +14,15 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { ChevronDown, ChevronUp, ChevronsUpDown, Columns3 } from 'lucide-react';
+import {
+  CaretDownIcon,
+  CaretUpDownIcon,
+  CaretUpIcon,
+  ColumnsIcon,
+} from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { TAILLE_BOUTON_BARRE_TABLEAU } from '@/components/ui/bouton-export-csv';
 import { ErrorState } from '@/components/ui/error-state';
 import {
   Dropdown,
@@ -92,6 +98,8 @@ interface DataGridProps<T> {
   columnsToggle?: boolean;
   /** Contenu à gauche de la barre d'outils (compteur, filtres…). */
   toolbar?: React.ReactNode;
+  /** Actions à droite de la barre, juste avant « Colonnes » (ex. export CSV). */
+  toolbarActions?: React.ReactNode;
   onRowClick?: (row: T) => void;
   /** Nom accessible de la ligne cliquable (lecteurs d'écran). */
   rowLabel?: (row: T) => string;
@@ -107,13 +115,54 @@ const STICKY_HEAD =
 const STICKY_CELL =
   'sticky right-0 z-[1] bg-savr-white shadow-[inset_1px_0_0_var(--color-savr-neutral-100)] group-hover:bg-savr-neutral-50';
 
+// Hauteur de ligne constante (décision Val 2026-10-30) : la ligne fait 64 px
+// quel que soit son contenu. Chaque cellule tient dans 48 px de haut (deux
+// lignes de texte, ou un bouton de 44 px) et 16 rem de large ; au-delà, le
+// contenu est coupé (« … » sur le texte), jamais renvoyé à la ligne, même
+// dans un conteneur `flex-wrap`. `w-max` : la colonne prend la largeur du
+// contenu (jusqu'à 16 rem) au lieu de l'écraser ; une colonne `text-right`
+// garde son alignement. Chaque ligne de texte en bloc porte son « … ». Le
+// `p-1 -m-1` laisse la place au contour de focus (2 px à 2 px du contrôle),
+// que `overflow-hidden` couperait sinon. Quand quelque chose est coupé, le
+// texte complet s'affiche au survol (`titreSiCoupe`). La carte mobile garde
+// le retour à la ligne.
+const LIGNE = 'h-16';
+const CELLULE = 'py-2';
+const CONTENU_CELLULE =
+  '-m-1 w-max max-w-[16rem] max-h-14 overflow-hidden p-1 text-ellipsis [&_*]:whitespace-nowrap [&_.flex-wrap]:flex-nowrap [&_:is(div,p):not(.flex,.inline-flex)]:truncate [.text-right>&]:ml-auto [.text-center>&]:mx-auto';
+
+// Pose, au survol, le texte complet de la cellule en infobulle si son contenu
+// (ou un de ses éléments) est coupé. Une infobulle déjà posée par la colonne
+// est conservée ; celle posée ici est recalculée à chaque survol (le contenu
+// d'une ligne peut changer).
+function titreSiCoupe(event: React.MouseEvent<HTMLDivElement>) {
+  const cellule = event.currentTarget;
+  const auto = cellule.dataset.titreAuto === '1';
+  if (!auto && (cellule.title || cellule.querySelector('[title]'))) return;
+  const coupe = [cellule, ...cellule.querySelectorAll('*')].some(
+    (el) =>
+      el.scrollWidth > el.clientWidth + 1 ||
+      el.scrollHeight > el.clientHeight + 1,
+  );
+  if (coupe) {
+    cellule.title = cellule.innerText.replace(/\s*\n+\s*/g, ' · ').trim();
+    cellule.dataset.titreAuto = '1';
+  } else if (auto) {
+    cellule.removeAttribute('title');
+    delete cellule.dataset.titreAuto;
+  }
+}
+
 function SortIcon<T>({ column }: { column: Column<T, unknown> }) {
   const dir = column.getIsSorted();
-  if (dir === 'asc') return <ChevronUp className="h-3.5 w-3.5" aria-hidden />;
+  if (dir === 'asc') return <CaretUpIcon className="h-3.5 w-3.5" aria-hidden />;
   if (dir === 'desc')
-    return <ChevronDown className="h-3.5 w-3.5" aria-hidden />;
+    return <CaretDownIcon className="h-3.5 w-3.5" aria-hidden />;
   return (
-    <ChevronsUpDown className="h-3.5 w-3.5 text-savr-neutral-400" aria-hidden />
+    <CaretUpDownIcon
+      className="h-3.5 w-3.5 text-savr-neutral-400"
+      aria-hidden
+    />
   );
 }
 
@@ -145,6 +194,7 @@ function DataGrid<T>({
   // 2026-09-28 : même format partout) ; `false` pour le retirer.
   columnsToggle = true,
   toolbar,
+  toolbarActions,
   onRowClick,
   rowLabel,
   rowClassName,
@@ -189,9 +239,15 @@ function DataGrid<T>({
       onRowClick(row);
     };
 
+  // Une cellule `interactive` garde ses clics pour ses contrôles, sauf sur
+  // un élément marqué `data-ouvre-ligne` (chevron de fin de ligne) : son clic
+  // remonte à la ligne et ouvre la fiche.
   const stopIfInteractive =
     (interactive: boolean | undefined) => (e: React.SyntheticEvent) => {
-      if (interactive) e.stopPropagation();
+      if (!interactive) return;
+      const cible = e.target as Element | null;
+      if (cible?.closest?.('[data-ouvre-ligne]')) return;
+      e.stopPropagation();
     };
 
   // Colonnes proposées dans le menu : celles qui ont un titre visible. Une
@@ -218,35 +274,42 @@ function DataGrid<T>({
 
   return (
     <div className={cn('space-y-3', className)} data-testid={testId}>
-      {!erreur && !loading && rows.length > 0 && (toolbar || columnsToggle) && (
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="min-w-0 flex-1">{toolbar}</div>
-          {columnsToggle && hideable.length > 0 && (
-            <Dropdown>
-              <DropdownTrigger asChild>
-                <Button variant="secondary" className="h-11 sm:h-10">
-                  <Columns3 className="h-4 w-4" />
-                  Colonnes
-                </Button>
-              </DropdownTrigger>
-              <DropdownContent align="end" className="min-w-[12rem]">
-                <DropdownLabel>Colonnes affichées</DropdownLabel>
-                <DropdownSeparator />
-                {hideable.map((column) => (
-                  <DropdownCheckboxItem
-                    key={column.id}
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(v) => column.toggleVisibility(!!v)}
-                    onSelect={(e) => e.preventDefault()}
+      {!erreur &&
+        !loading &&
+        rows.length > 0 &&
+        (toolbar || toolbarActions || columnsToggle) && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1">{toolbar}</div>
+            {toolbarActions}
+            {columnsToggle && hideable.length > 0 && (
+              <Dropdown>
+                <DropdownTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    className={TAILLE_BOUTON_BARRE_TABLEAU}
                   >
-                    {headerLabel(column)}
-                  </DropdownCheckboxItem>
-                ))}
-              </DropdownContent>
-            </Dropdown>
-          )}
-        </div>
-      )}
+                    <ColumnsIcon />
+                    Colonnes
+                  </Button>
+                </DropdownTrigger>
+                <DropdownContent align="end" className="min-w-[12rem]">
+                  <DropdownLabel>Colonnes affichées</DropdownLabel>
+                  <DropdownSeparator />
+                  {hideable.map((column) => (
+                    <DropdownCheckboxItem
+                      key={column.id}
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(v) => column.toggleVisibility(!!v)}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {headerLabel(column)}
+                    </DropdownCheckboxItem>
+                  ))}
+                </DropdownContent>
+              </Dropdown>
+            )}
+          </div>
+        )}
 
       {erreur ? (
         <ErrorState
@@ -322,6 +385,7 @@ function DataGrid<T>({
                     {...rowProps(row)}
                     className={cn(
                       'group',
+                      LIGNE,
                       onRowClick &&
                         'cursor-pointer focus-visible:-outline-offset-2',
                       rowClassName?.(row.original),
@@ -333,16 +397,22 @@ function DataGrid<T>({
                         <TableCell
                           key={cell.id}
                           className={cn(
+                            CELLULE,
                             meta?.stickyRight && STICKY_CELL,
                             meta?.className,
                           )}
                           onClick={stopIfInteractive(meta?.interactive)}
                           onKeyDown={stopIfInteractive(meta?.interactive)}
                         >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
+                          <div
+                            className={CONTENU_CELLULE}
+                            onMouseEnter={titreSiCoupe}
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </div>
                         </TableCell>
                       );
                     })}

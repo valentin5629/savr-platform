@@ -126,7 +126,12 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
       data: {
         lieux: [{ id: LIEU.id, nom: LIEU.nom }],
         traiteurs: [{ id: ACTEUR.id, nom: ACTEUR.nom }],
-        types: [{ id: 'ty-gala', libelle: 'Gala' }],
+        // Les deux types mémorisés figurent dans les options : la barre
+        // retire désormais une valeur absente des options (2026-10-30).
+        types: [
+          { id: 'ty-gala', libelle: 'Gala' },
+          { id: 'ty-cocktail', libelle: 'Cocktail' },
+        ],
       },
     });
   if (url.includes('/dashboards/benchmark/filtres'))
@@ -249,6 +254,9 @@ describe('M3.2 / drill-down Top listes gestionnaire (§06.05 l.209)', () => {
         // Ces deux-là sont exactement ce que le code posait à tort.
         expect(p.get('statut')).toBeNull();
         expect(p.get('type')).toBeNull();
+        // Le dashboard mesure le collecté : la liste s'ouvre sur les
+        // collectes passées (décision Val 2026-10-19).
+        expect(p.get('onglet')).toBe('passees');
       },
       ATTENTE_CAS_MS,
     );

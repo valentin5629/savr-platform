@@ -36,13 +36,6 @@ VALUES
   ('b1000000-0000-0000-0000-000000000020'::uuid, 'Lieu Province R11', '5 Quai Rouen', 'Rouen', '76000', 'poids_lourd', 49.4431, 1.0993, 'province'),
   ('b1000000-0000-0000-0000-000000000021'::uuid, 'Lieu IDF R11', '1 Rue Rivoli', 'Paris', '75001', 'camionnette', 48.8566, 2.3522, 'idf');
 
--- 3 transporteurs province (mts1) à distances croissantes du lieu Rouen
-INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
-VALUES
-  ('b1000000-0000-0000-0000-000000000040'::uuid, 'ProvA R11', '111111111', '1 Quai', '76000', 'Rouen', 'mts1', true, 'A', 'a@t.test', '0600000001', ARRAY['fourgon'], 49.4431, 1.0993),
-  ('b1000000-0000-0000-0000-000000000041'::uuid, 'ProvB R11', '222222222', '2 Quai', '76100', 'Rouen', 'mts1', true, 'B', 'b@t.test', '0600000002', ARRAY['fourgon'], 49.4631, 1.1593),
-  ('b1000000-0000-0000-0000-000000000042'::uuid, 'ProvC R11', '333333333', '3 Quai', '76200', 'Rouen', 'mts1', true, 'C', 'c@t.test', '0600000003', ARRAY['fourgon'], 49.5031, 1.2593);
-
 -- Prestataires shared correspondants (rayon NULL = pas de filtre rayon)
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut, nb_collectes_6_mois_cache)
 VALUES
@@ -50,6 +43,13 @@ VALUES
   ('b1000000-0000-0000-0000-000000000051'::uuid, 'ProvB R11', 'PROVB_R11', ARRAY['ag'], 'mts1', '222222222012345', 'actif', 4),
   ('b1000000-0000-0000-0000-000000000052'::uuid, 'ProvC R11', 'PROVC_R11', ARRAY['ag'], 'mts1', '333333333012345', 'actif', 1)
 ON CONFLICT (id) DO NOTHING;
+
+-- 3 transporteurs province (mts1) à distances croissantes du lieu Rouen
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
+VALUES
+  ('b1000000-0000-0000-0000-000000000040'::uuid, 'ProvA R11', '111111111', '1 Quai', '76000', 'Rouen', 'mts1', true, 'A', 'a@t.test', '0600000001', ARRAY['fourgon'], 49.4431, 1.0993, 'b1000000-0000-0000-0000-000000000050'::uuid),
+  ('b1000000-0000-0000-0000-000000000041'::uuid, 'ProvB R11', '222222222', '2 Quai', '76100', 'Rouen', 'mts1', true, 'B', 'b@t.test', '0600000002', ARRAY['fourgon'], 49.4631, 1.1593, 'b1000000-0000-0000-0000-000000000051'::uuid),
+  ('b1000000-0000-0000-0000-000000000042'::uuid, 'ProvC R11', '333333333', '3 Quai', '76200', 'Rouen', 'mts1', true, 'C', 'c@t.test', '0600000003', ARRAY['fourgon'], 49.5031, 1.2593, 'b1000000-0000-0000-0000-000000000052'::uuid);
 
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut)
 VALUES ('b1000000-0000-0000-0000-000000000053'::uuid, 'Marathon R11', 'MARA_R11', ARRAY['ag'], 'mts1', '444444444012345', 'actif')
@@ -62,35 +62,35 @@ VALUES ('b1000000-0000-0000-0000-000000000043'::uuid, 'Marathon R11', '444444444
 
 -- §05 R2 filtres province : transporteur ZD-only (prestataire sans 'ag') au lieu
 -- Rouen (distance 0 → serait top1 SI éligible) — doit être EXCLU du top 3.
-INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
-VALUES ('b1000000-0000-0000-0000-000000000044'::uuid, 'ProvZD R11', '555555555', '0 Quai', '76000', 'Rouen', 'mts1', true, 'Z', 'z@t.test', '0600000005', ARRAY['fourgon'], 49.4431, 1.0993);
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut, nb_collectes_6_mois_cache)
 VALUES ('b1000000-0000-0000-0000-000000000054'::uuid, 'ProvZD R11', 'PROVZD_R11', ARRAY['zd'], 'mts1', '555555555012345', 'actif', 0)
 ON CONFLICT (id) DO NOTHING;
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
+VALUES ('b1000000-0000-0000-0000-000000000044'::uuid, 'ProvZD R11', '555555555', '0 Quai', '76000', 'Rouen', 'mts1', true, 'Z', 'z@t.test', '0600000005', ARRAY['fourgon'], 49.4431, 1.0993, 'b1000000-0000-0000-0000-000000000054'::uuid);
 
 -- §05 R2 compat véhicule : lieu province ÉTROIT (type_vehicule_max='camionnette')
 -- situé à LYON (loin de Rouen, pour ne pas polluer le top 3 de la collecte 080).
 -- Transporteur 'poids_lourd' (incompatible, EXCLU) vs 'camionnette' (OK).
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, ville, code_postal, type_vehicule_max, latitude, longitude, region)
 VALUES ('b1000000-0000-0000-0000-000000000022'::uuid, 'Lieu Province Étroit', '9 Ruelle', 'Lyon', '69001', 'camionnette', 45.7640, 4.8357, 'province');
-INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
-VALUES
-  ('b1000000-0000-0000-0000-000000000045'::uuid, 'ProvBig R11', '666666666', '1 Quai', '69001', 'Lyon', 'mts1', true, 'BG', 'bg@t.test', '0600000006', ARRAY['poids_lourd'], 45.7640, 4.8357),
-  ('b1000000-0000-0000-0000-000000000046'::uuid, 'ProvSmall R11', '777777777', '2 Quai', '69001', 'Lyon', 'mts1', true, 'SM', 'sm@t.test', '0600000007', ARRAY['camionnette'], 45.7640, 4.8357);
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut, nb_collectes_6_mois_cache)
 VALUES
   ('b1000000-0000-0000-0000-000000000055'::uuid, 'ProvBig R11', 'PROVBIG_R11', ARRAY['ag'], 'mts1', '666666666012345', 'actif', 0),
   ('b1000000-0000-0000-0000-000000000056'::uuid, 'ProvSmall R11', 'PROVSMALL_R11', ARRAY['ag'], 'mts1', '777777777012345', 'actif', 0)
 ON CONFLICT (id) DO NOTHING;
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
+VALUES
+  ('b1000000-0000-0000-0000-000000000045'::uuid, 'ProvBig R11', '666666666', '1 Quai', '69001', 'Lyon', 'mts1', true, 'BG', 'bg@t.test', '0600000006', ARRAY['poids_lourd'], 45.7640, 4.8357, 'b1000000-0000-0000-0000-000000000055'::uuid),
+  ('b1000000-0000-0000-0000-000000000046'::uuid, 'ProvSmall R11', '777777777', '2 Quai', '69001', 'Lyon', 'mts1', true, 'SM', 'sm@t.test', '0600000007', ARRAY['camionnette'], 45.7640, 4.8357, 'b1000000-0000-0000-0000-000000000056'::uuid);
 
 -- Robustesse : transporteur avec types_vehicules HORS enum (colonne text[] sans
 -- CHECK) au lieu Rouen — le filtre compat véhicule ne doit pas lever d'exception
 -- (array_position NULL → exclu), l'algo doit continuer.
-INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
-VALUES ('b1000000-0000-0000-0000-000000000047'::uuid, 'ProvBadVeh R11', '888888888', '3 Quai', '76000', 'Rouen', 'mts1', true, 'BV', 'bv@t.test', '0600000008', ARRAY['camion_16m3'], 49.4431, 1.0993);
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut, nb_collectes_6_mois_cache)
 VALUES ('b1000000-0000-0000-0000-000000000057'::uuid, 'ProvBadVeh R11', 'PROVBAD_R11', ARRAY['ag'], 'mts1', '888888888012345', 'actif', 0)
 ON CONFLICT (id) DO NOTHING;
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
+VALUES ('b1000000-0000-0000-0000-000000000047'::uuid, 'ProvBadVeh R11', '888888888', '3 Quai', '76000', 'Rouen', 'mts1', true, 'BV', 'bv@t.test', '0600000008', ARRAY['camion_16m3'], 49.4431, 1.0993, 'b1000000-0000-0000-0000-000000000057'::uuid);
 
 -- Associations : 1 province (Rouen) + 2 IDF (A = la plus proche, B = config auto-accept différente)
 INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, capacite_max_beneficiaires, actif, description_rapport_impact, latitude, longitude)

@@ -6,7 +6,8 @@
  * sur ses lieux, 10 425 repas en base, 0 attribution lisible — `aa_select` (C-1)
  * refuse la table au gestionnaire dès que l'événement vient d'un traiteur tiers.
  * « Repas donnés » restait à 0 sur le dashboard, la liste et la fiche Traiteurs,
- * et Mon pack AG.
+ * et Mon pack AG (cette page lit désormais par le client de service, bornée à
+ * l'organisation : tests/api/mon-pack-ag/mon-pack-ag.test.ts).
  *
  * Ce que ces tests tiennent : chaque route DEMANDE la vue (sous l'alias
  * `attributions_antgaspi`), jamais la table — un mock ne verrait pas la
@@ -61,12 +62,6 @@ vi.mock('@/lib/api-auth.js', () => ({
   requireUser: (...a: unknown[]) => mockRequireUser(...a),
   createSupabaseServerClient: () => rls,
 }));
-// Mon pack AG interroge le journal d'audit par le client de service dès qu'une
-// collecte annulée porte un pack : ici le mock par table rend les mêmes lignes
-// aux deux lectures de collectes, d'où un appel, sans trace de débit en retour.
-vi.mock('@savr/shared/src/supabase-client.js', () => ({
-  createAdminSupabaseClient: () => rls,
-}));
 
 function req(path: string) {
   return new NextRequest(`http://localhost${path}`, { method: 'GET' });
@@ -79,7 +74,11 @@ const TABLE = /attributions_antgaspi\s*\(/;
 
 // Collecte AG clôturée d'un traiteur TIERS sur un lieu du gestionnaire, telle
 // que PostgREST la rend : l'embed de la vue est un OBJET (to-one, mesuré).
-function collecteAg(id: string, repas: number | null, evt: object) {
+function collecteAg(
+  id: string,
+  repas: number | null,
+  evt: { pax?: number; [cle: string]: unknown },
+) {
   return {
     id,
     type: 'anti_gaspi',
@@ -87,6 +86,8 @@ function collecteAg(id: string, repas: number | null, evt: object) {
     date_collecte: jourParis(new Date()),
     taux_recyclage: null,
     realisee_at: null,
+    // Convives de la collecte (lot 3) : ceux de son événement à une collecte.
+    pax: evt.pax ?? 0,
     evenements: evt,
     collecte_flux: [],
     attributions_antgaspi:
@@ -167,53 +168,6 @@ describe('M3.2 / traiteurs gestionnaire — repas donnés par la vue', () => {
 
     const select = rls.selects.collectes?.[0] ?? '';
     expect(select).toContain(VUE_REPAS);
-    expect(select).not.toMatch(TABLE);
-  });
-});
-
-describe('M3.2 / Mon pack AG — historique de consommation par la vue', () => {
-  it('M3.2/pack_ag_consommation_par_vue — repas et association lus par la vue, nom à plat', async () => {
-    rls.results.collectes = {
-      data: [
-        {
-          id: 'c-ag',
-          date_collecte: '2026-06-01',
-          statut: 'cloturee',
-          packs_antgaspi: { id: 'pack-org' },
-          evenements: {
-            nom_evenement: 'Gala',
-            date_evenement: '2026-06-01',
-            lieux: { nom: 'Palais' },
-          },
-          attributions_antgaspi: {
-            volume_repas_realise: 55,
-            association_nom: 'Les Restos',
-          },
-        },
-      ],
-      error: null,
-    };
-    const { GET } = await import('@/app/api/v1/gestionnaire/pack-ag/route.js');
-    const res = await GET(req('/api/v1/gestionnaire/pack-ag'));
-    expect(res.status).toBe(200);
-    const { data } = (await res.json()) as {
-      data: {
-        historique_consommation: Array<{
-          repas_donnes: number;
-          associations: Array<{ nom: string | null; repas: number }>;
-        }>;
-      };
-    };
-    expect(data.historique_consommation[0]).toMatchObject({
-      repas_donnes: 55,
-      associations: [{ nom: 'Les Restos', repas: 55 }],
-    });
-
-    const select = rls.selects.collectes?.[0] ?? '';
-    expect(select).toContain(
-      'attributions_antgaspi:v_attributions_gestionnaire(',
-    );
-    expect(select).toContain('association_nom');
     expect(select).not.toMatch(TABLE);
   });
 });

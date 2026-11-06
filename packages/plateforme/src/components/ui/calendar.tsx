@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { DayPicker, getDefaultClassNames } from 'react-day-picker';
 import { fr } from 'react-day-picker/locale';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CaretLeftIcon, CaretRightIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 // Calendar — react-day-picker v9, locale FR, semaine du lundi (shadcn stylé
@@ -62,9 +62,9 @@ function Calendar({
       components={{
         Chevron: ({ orientation }) =>
           orientation === 'left' ? (
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            <CaretLeftIcon className="h-4 w-4" aria-hidden="true" />
           ) : (
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            <CaretRightIcon className="h-4 w-4" aria-hidden="true" />
           ),
       }}
       {...props}

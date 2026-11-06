@@ -89,7 +89,7 @@ function setupAuth(role: string, organisationId: string | null = 'org-a') {
   mockGetSession.mockResolvedValue({
     data: {
       session: {
-        access_token: `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`,
+        access_token: `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`,
       },
     },
     error: null,
@@ -150,28 +150,75 @@ describe('G7 / bordereau PDF : pdf_fichier_id → shared.fichiers(bucket, key)',
     ]);
     expect(db.__calls.schema).toEqual([['shared']]);
     const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
-    expect(getPresignedUrl).toHaveBeenCalledWith('bordereaux/b1/v1.pdf', 900);
+    // Un bordereau garde le nom de son fichier stocké : aucun nom imposé.
+    expect(getPresignedUrl).toHaveBeenCalledWith(
+      'bordereaux/b1/v1.pdf',
+      900,
+      undefined,
+    );
   });
 });
 
 describe('G7 / admin', () => {
-  it('rapports-rse/:id/download : pdf_url lu direct (clé R2), sans embed fichiers', async () => {
+  it('rapports-rse/:id/download : rapport de recyclage ZD → 409 (fabriqué au clic), colonnes lues existantes', async () => {
     setupAuth('admin_savr', null);
     db.push({
       data: {
         id: 'r1',
+        collecte_id: 'c-zd',
         disponible_a: '2026-01-01T00:00:00Z',
         genere_at: '2026-01-01T06:00:00Z',
         pdf_url: 'rapports/r1.pdf',
       },
     });
+    db.push({ data: { type: 'zero_dechet' } });
     const { GET } =
       await import('@/app/api/v1/admin/rapports-rse/[id]/download/route.js');
     const res = await GET(req('/api/v1/admin/rapports-rse/r1/download'), {
       params: Promise.resolve({ id: 'r1' }),
     });
+    expect(res.status).toBe(409);
+    expect(selects()).toEqual([
+      'id, collecte_id, disponible_a, genere_at, pdf_url',
+      'type',
+    ]);
+    const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
+    expect(getPresignedUrl).not.toHaveBeenCalled();
+  });
+
+  it('rapports-rse/:id/download : rapport d’une collecte AG sans excédent servi sous un nom « rapport-de-don »', async () => {
+    setupAuth('admin_savr', null);
+    db.push({
+      data: {
+        id: 'r2',
+        collecte_id: 'c-sans',
+        disponible_a: '2026-01-01T00:00:00Z',
+        genere_at: '2026-01-01T06:00:00Z',
+        pdf_url: 'rapports/r2.pdf',
+      },
+    });
+    // Type de la collecte (rapport de don : fichier stocké), puis lecture du nom.
+    db.push({ data: { type: 'anti_gaspi' } });
+    db.push({
+      data: {
+        type: 'anti_gaspi',
+        statut: 'realisee_sans_collecte',
+        evenements: { nom_evenement: 'Gala', date_evenement: '2026-01-01' },
+      },
+    });
+    const { GET } =
+      await import('@/app/api/v1/admin/rapports-rse/[id]/download/route.js');
+    const res = await GET(req('/api/v1/admin/rapports-rse/r2/download'), {
+      params: Promise.resolve({ id: 'r2' }),
+    });
     expect(res.status).toBe(200);
-    expect(selects()).toEqual(['id, disponible_a, genere_at, pdf_url']);
+    expect(db.__calls.eq).toContainEqual(['id', 'c-sans']);
+    const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
+    expect(getPresignedUrl).toHaveBeenCalledWith(
+      'rapports/r2.pdf',
+      900,
+      'rapport-de-don-2026-01-01-gala.pdf',
+    );
   });
 
   it('evenements/:id : types_evenements(libelle)', async () => {

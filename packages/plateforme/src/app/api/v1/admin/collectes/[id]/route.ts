@@ -1,15 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { envoyerConfirmationAnnulation } from '@/lib/notifications/annulation-client.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { sendEmail } from '@savr/shared/src/email/index.js';
-import {
-  notifierAdminAnnulation,
-  notifierTraiteurOperationnel,
-} from '@/lib/notifications/traiteur-operationnel.js';
+import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
+import {
+  erreurInterne,
+  readJsonBody,
+  serverError,
+  withApiTrace,
+} from '@/lib/api-helpers.js';
 import { validerLieuOverrides } from '@/lib/programmation/lieu-override.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { refusPaxCollecte } from '@/lib/pax-collecte.js';
+import {
+  deriverSuiviEmail,
+  lireDernierEmailInfosAcces,
+  type SuiviEmailInfosAcces,
+} from '@/lib/infos-acces/suivi-email.js';
+import {
+  deriverOrdreEnvoi,
+  envoiAbandonne,
+  lireOrdresCollecte,
+} from '@/lib/ordre-envoi.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { CHAMPS_TYPE_CONTACTS_COLLECTE } from '@/lib/collectes/champs-editables.js';
+import {
+  CHAMPS_CONTACTS_COLLECTE,
+  lireContactsCollecte,
+} from '@/lib/collectes/contacts-collecte.js';
+import { refusTypeContactsCollecte } from '@/lib/collectes/type-contacts-collecte.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
+
+// Statuts où une AG sans pack peut être rattachée à un pack pris plus tard ;
+// la base tranche (f_collecte_rattachable_pack, migration 20261102180000).
+const STATUTS_RATTACHABLES = [
+  'programmee',
+  'validee',
+  'en_cours',
+  'annulation_demandee',
+  'realisee',
+  'realisee_sans_collecte',
+  'cloturee',
+  'annulee',
+];
 
 async function getHandler(
   req: NextRequest,
@@ -21,10 +58,21 @@ async function getHandler(
   const { id } = await params;
   const supabase = createAdminSupabaseClient();
 
+  // Ordre d'envoi au prestataire : ce qu'il est advenu de l'ordre mis en file,
+  // lu dans la file elle-même — `statut_tms` reste « non envoyé » que l'ordre
+  // attende, soit en échec ou abandonné (décision Val 2026-10-12). Lu AVANT la
+  // collecte (décision Val 2026-10-20, C3) : un envoi qui se termine entre les
+  // deux lectures donne alors un ordre en file ET une référence déjà écrite,
+  // jamais « aucun ordre » et « aucune référence », que la fiche lirait
+  // « Non envoyé » juste après un envoi réussi.
+  const ordres = await lireOrdresCollecte(supabase, id);
+
   const { data, error } = await supabase
     .from('collectes')
     .select(
       `*,
+       type_evenement:types_evenements!type_evenement_id(libelle),
+       contacts:collecte_contacts(contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone),
        evenements!inner(
          *, organisations!organisation_id(raison_sociale, siret),
          client_organisateur:organisations!client_organisateur_organisation_id(raison_sociale),
@@ -35,7 +83,7 @@ async function getHandler(
          *, tournees(id, statut, tms_reference, external_ref_commande, plaque_immatriculation, chauffeur_nom, chauffeur_telephone, accompagnant_nom, accompagnant_telephone, type_vehicule)
        ),
        packs_antgaspi!pack_antgaspi_id(id, type_pack, credits_restants, statut),
-       attributions_antgaspi(id, mode_validation, valide_at, volume_repas_realise, associations!association_id(nom), transporteurs!transporteur_id(id, nom, type_tms)),
+       attributions_antgaspi(id, mode_validation, branche_attribution, valide_at, volume_repas_realise, poids_repas_kg, associations!association_id(nom, ville, description_rapport_impact), transporteurs!transporteur_id(id, nom, type_tms)),
        factures_collectes(id, montant_ht, factures!facture_id(statut))`,
     )
     .eq('id', id)
@@ -129,7 +177,84 @@ async function getHandler(
     }
   }
 
-  return NextResponse.json({ ...data, prestataire_actuel: prestataireActuel });
+  // Email « infos d'accès chauffeur » : ce qu'il est réellement advenu de
+  // l'envoi, lu dans le journal des emails — le tampon de la collecte est posé
+  // AVANT l'envoi et ne dit pas si l'email est parti (décision Val 2026-10-08).
+  let infosAccesEmail: SuiviEmailInfosAcces | null = null;
+  const fiche = data as {
+    controle_acces_requis: boolean;
+    infos_acces_email_envoye_at: string | null;
+  };
+  if (fiche.controle_acces_requis) {
+    const dernier = await lireDernierEmailInfosAcces(supabase, id);
+    if (dernier.error) return serverError(dernier.error, 'admin.collectes.get');
+    infosAccesEmail = deriverSuiviEmail(
+      dernier.data,
+      fiche.infos_acces_email_envoye_at,
+    );
+  }
+
+  // Ordres lus en tête de route (voir plus haut).
+  if (ordres.error) return serverError(ordres.error, 'admin.collectes.get');
+
+  // Rattachement après coup à un pack pris plus tard (décision Val 2026-10-16) :
+  // null si la collecte ne l'est pas — même règle que la RPC, lue dans la même
+  // fonction — ou si l'appelant ne peut pas l'exécuter (admin_savr seul, cf. la
+  // route rattacher-pack). `pack_actif` = le pack que le rattachement débiterait
+  // (celui de l'organisation programmatrice), null s'il n'y en a pas encore.
+  type PackActif = {
+    id: string;
+    type_pack: string;
+    credits_initiaux: number;
+    credits_restants: number;
+  };
+  let rattachementPack: { pack_actif: PackActif | null } | null = null;
+  const ag = data as {
+    type: string;
+    statut: string;
+    pack_antgaspi_id: string | null;
+    evenements: { organisation_id: string };
+  };
+  // Seuls les statuts éligibles interrogent la base. Une AG à venir sans pack
+  // (programmée sans crédit restant) l'est aussi depuis que le crédit se
+  // décompte à la programmation (Val 2026-11-02).
+  if (
+    auth.ctx.role === 'admin_savr' &&
+    ag.type === 'anti_gaspi' &&
+    !ag.pack_antgaspi_id &&
+    STATUTS_RATTACHABLES.includes(ag.statut)
+  ) {
+    const rattachable = await supabase.rpc('f_collecte_rattachable_pack', {
+      p_collecte_id: id,
+    });
+    // Non bloquant : erreur journalisée, la fiche reste lisible sans l'action.
+    if (rattachable.error)
+      erreurInterne(rattachable.error, 'admin.collectes.get.rattachement');
+    if (rattachable.data === true) {
+      const pack = await supabase
+        .from('packs_antgaspi')
+        .select('id, type_pack, credits_initiaux, credits_restants')
+        .eq('organisation_id', ag.evenements.organisation_id)
+        .eq('statut', 'actif')
+        .maybeSingle();
+      if (pack.error) return serverError(pack.error, 'admin.collectes.get');
+      rattachementPack = { pack_actif: pack.data as PackActif | null };
+    }
+  }
+
+  const ordreEnvoi = deriverOrdreEnvoi(ordres.data);
+  // Le motif d'échec reprend le message brut du prestataire : rendu à
+  // admin_savr seul, ops_savr voit l'état sans lui (décision Val 2026-10-13).
+  if (ordreEnvoi && auth.ctx.role !== 'admin_savr') ordreEnvoi.erreur = null;
+  return NextResponse.json({
+    ...data,
+    prestataire_actuel: prestataireActuel,
+    infos_acces_email: infosAccesEmail,
+    ordre_envoi: ordreEnvoi,
+    // Ramène le statut affiché à « Créée » (lib/statut-collecte-admin).
+    envoi_abandonne: envoiAbandonne(ordreEnvoi),
+    rattachement_pack: rattachementPack,
+  });
 }
 
 async function patchHandler(
@@ -148,9 +273,17 @@ async function patchHandler(
     'date_collecte',
     'heure_collecte',
     'nb_camions_demande',
+    // Nombre de convives de la collecte (décision Val 2026-10-21) : motif
+    // obligatoire, cf. plus bas.
+    'pax',
     'controle_acces_requis',
     'notes_internes',
     'informations_supplementaires',
+    // Type d'événement et contacts de LA collecte (lot B1, décisions Val
+    // 2026-10-23 B1-Q1 et B1-Q3) : modifiés par l'équipe Savr sans motif, comme
+    // les autres informations ; ligne d'audit UPDATE, E2 si la collecte est
+    // commandée (fn_modifier_collecte).
+    ...CHAMPS_TYPE_CONTACTS_COLLECTE,
     // `prestataire_logistique_id` est VOLONTAIREMENT absent : le changement de
     // prestataire passe par `POST …/dispatch` (fn_dispatcher_collecte), seul
     // chemin qui décide ensuite du bon event — `collecte.creee` quand la bascule
@@ -198,6 +331,13 @@ async function patchHandler(
     if (refusHeure) return refusHeure;
   }
 
+  // Type d'événement et contacts : refusés en 422 s'ils sont vides ou inconnus.
+  const refusTypeContacts = await refusTypeContactsCollecte(
+    createAdminSupabaseClient(),
+    updates,
+  );
+  if (refusTypeContacts) return refusTypeContacts;
+
   // §07/06 collecte_statut_force — une bascule MANUELLE de statut exige un motif
   // (≥ 10 car., §07/06 pt2). Les éditions de routine (date, notes, camions…)
   // restent une simple action 'UPDATE' sans motif.
@@ -222,18 +362,54 @@ async function patchHandler(
     );
   }
 
+  // Nombre de convives (décision Val 2026-10-21, §05 R_pax_collecte) : modifié
+  // par l'équipe Savr avec un motif, comme toute correction staff (§07/06 §5).
+  // Il se modifie seul : un forçage de statut écrit sa propre ligne d'audit, et
+  // le motif d'une requête ne doit justifier qu'un seul geste.
+  const paxModifie = Object.hasOwn(updates, 'pax');
+  if (paxModifie) {
+    if (forceStatut) {
+      return NextResponse.json(
+        {
+          error: 'Le nombre de convives et le statut se modifient séparément',
+        },
+        { status: 422 },
+      );
+    }
+    const refusPax = refusPaxCollecte(updates.pax);
+    if (refusPax) return refusPax;
+    if (motif.length < 10) {
+      return NextResponse.json(
+        {
+          error:
+            'Un motif d’au moins 10 caractères est requis pour modifier le nombre de convives',
+        },
+        { status: 422 },
+      );
+    }
+  }
+
   const supabase = createAdminSupabaseClient();
-  const { data: before, error: fetchErr } = await supabase
+  const { data: beforeCollecte, error: fetchErr } = await supabase
     .from('collectes')
     .select('*')
     .eq('id', id)
     .single();
 
-  if (fetchErr?.code === 'PGRST116' || !before) {
+  if (fetchErr?.code === 'PGRST116' || !beforeCollecte) {
     return NextResponse.json(
       { error: 'Collecte introuvable' },
       { status: 404 },
     );
+  }
+  // Contacts de la collecte (collecte_contacts, lot B1) : état « avant » de la
+  // ligne d'audit quand ils changent.
+  let before: Record<string, unknown> = beforeCollecte;
+  if (CHAMPS_TYPE_CONTACTS_COLLECTE.some((f) => Object.hasOwn(updates, f))) {
+    const lectureContacts = await lireContactsCollecte(supabase, id);
+    if ('erreur' in lectureContacts)
+      return serverError(lectureContacts.erreur, 'admin.collectes.contacts');
+    before = { ...beforeCollecte, ...(lectureContacts.contacts ?? {}) };
   }
 
   // fn_modifier_collecte : UPDATE + outbox E2 conditionnel dans la même transaction (G4)
@@ -279,36 +455,50 @@ async function patchHandler(
     return serverError(error, 'admin.collectes.update');
   }
 
-  const data = updatedJson as Record<string, unknown>;
+  // L'ordre éventuel est en file : il part sans attendre le passage planifié
+  // (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(id);
 
-  if (forceStatut) {
-    await supabase.from('audit_log').insert({
-      table_name: 'collectes',
-      record_id: id,
-      action: 'collecte_statut_force',
-      user_id: auth.ctx.userId,
-      motif,
-      old_values: { statut: (before as { statut?: unknown }).statut },
-      new_values: { statut: updates.statut },
-    });
-  } else {
-    await supabase.from('audit_log').insert({
-      table_name: 'collectes',
-      record_id: id,
-      action: 'UPDATE',
-      user_id: auth.ctx.userId,
-      old_values: before,
-      new_values: data,
-    });
-  }
+  const data = updatedJson as Record<string, unknown>;
+  // Les contacts vivent dans collecte_contacts, absents de la ligne rendue par
+  // la RPC : la ligne d'audit porte à part ceux qui ont été modifiés (lot B1).
+  const contactsModifies = Object.fromEntries(
+    CHAMPS_CONTACTS_COLLECTE.filter((f) => Object.hasOwn(updates, f)).map(
+      (f) => [f, updates[f]],
+    ),
+  );
+
+  // La modification est déjà écrite : une ligne d'audit refusée ne l'annule
+  // pas, mais elle est la seule trace du motif — l'échec est journalisé.
+  const { error: auditErr } = await supabase.from('audit_log').insert(
+    forceStatut
+      ? {
+          table_name: 'collectes',
+          record_id: id,
+          action: 'collecte_statut_force',
+          user_id: auth.ctx.userId,
+          motif,
+          old_values: { statut: (before as { statut?: unknown }).statut },
+          new_values: { statut: updates.statut },
+        }
+      : {
+          table_name: 'collectes',
+          record_id: id,
+          action: 'UPDATE',
+          user_id: auth.ctx.userId,
+          ...(paxModifie ? { motif } : {}),
+          old_values: before,
+          new_values: { ...data, ...contactsModifies },
+        },
+  );
+  if (auditErr) erreurInterne(auditErr, 'admin.collectes.update.audit');
 
   // ─── Notifications d'annulation (§06.02 tpl 5/21/22 + §05 machine à états) ────
   // Annulation en 2 temps : la bascule finale annulation_demandee → annulee est
   // validée par l'Admin via ce PATCH générique (statut forcé). À ce moment — comme
   // sur l'annulation directe (routes traiteur/agence) — on notifie le programmeur
-  // (tpl 5 annulation_collecte), l'Admin (tpl 22 admin_collecte_annulee) et, si le
-  // donneur d'ordre est un tiers non-shadow, le traiteur opérationnel (tpl 21
-  // collecte_modifiee_tiers, branche annulation ; garde dans le helper).
+  // (tpl 5 annulation_collecte) et l'Admin (tpl 22 admin_collecte_annulee). Le
+  // programmateur ne reçoit pas en plus le tpl 21 (Val 2026-10-29).
   // Best-effort, APRÈS les requêtes propres de la route (le mock à file d'ordre des
   // tests consommerait sinon les réponses destinées à ces requêtes).
   const statutAvant = (before as { statut?: string }).statut;
@@ -323,13 +513,14 @@ async function patchHandler(
       type EvtCtx = {
         created_by?: string;
         organisation_id?: string;
+        nom_evenement?: string | null;
         lieux?: { nom?: string } | { nom?: string }[] | null;
         organisations?: { nom?: string } | { nom?: string }[] | null;
       };
       const ctxRes = await supabase
         .from('collectes')
         .select(
-          `evenements!inner(created_by, organisation_id,
+          `evenements!inner(created_by, organisation_id, nom_evenement,
              lieux!lieu_id(nom), organisations!organisation_id(nom))`,
         )
         .eq('id', id)
@@ -350,49 +541,44 @@ async function patchHandler(
       const heureCollecte = (before as { heure_collecte?: string | null })
         .heure_collecte;
 
+      // Motif du client (sa demande d'annulation), jamais le texte saisi par
+      // l'Admin pour forcer le statut (revue des emails, Val 2026-10-29).
+      const motifClient = (
+        ((data as { annulee_cote_savr_motif?: string | null })
+          .annulee_cote_savr_motif ??
+          (before as { annulee_cote_savr_motif?: string | null })
+            .annulee_cote_savr_motif) ||
+        ''
+      ).trim();
+      const annulationDemandeeAt = (
+        before as { annulation_demandee_at?: string | null }
+      ).annulation_demandee_at;
+
       // tpl 5 (annulation_collecte) → programmeur de l'événement.
-      const envoyerClient = async (): Promise<void> => {
-        const createdBy = evt?.created_by;
-        if (!createdBy) return;
-        const progRes = await supabase
-          .from('users')
-          .select('email, prenom')
-          .eq('id', createdBy)
-          .maybeSingle();
-        const prog = progRes?.data as {
-          email?: string;
-          prenom?: string;
-        } | null;
-        if (!prog?.email) return;
-        await sendEmail('annulation_collecte', prog.email, {
-          prenom: prog.prenom ?? '',
-          date_collecte: dateCollecte,
-          lieu_nom: lieuNom,
-          motif,
+      const envoyerClient = (): Promise<void> =>
+        envoyerConfirmationAnnulation(supabase, {
+          programmateurId: evt?.created_by,
+          dateCollecte,
+          heureCollecte,
+          lieuNom,
+          nomEvenement: evt?.nom_evenement,
+          motif: motifClient,
         });
-      };
 
       await Promise.allSettled([
         envoyerClient(),
         // tpl 22 (admin_collecte_annulee) → Admin Savr.
         notifierAdminAnnulation(supabase, {
           collecteId: id,
-          collecteRef: id,
           organisationNom: orgNom,
           dateCollecte,
           heureCollecte,
           lieuNom,
+          motif: motifClient,
           acteurUserId,
           acteurRole,
-        }),
-        // tpl 21 (collecte_modifiee_tiers, annulation) → traiteur opérationnel si le
-        // donneur d'ordre est un tiers non-shadow. acteurOrgId = organisation de
-        // l'événement (donneur d'ordre) : identique à ce que les routes directes
-        // traiteur/agence passent (auth.ctx.organisationId == org de l'événement).
-        notifierTraiteurOperationnel(supabase, {
-          collecteId: id,
-          acteurOrgId: evt?.organisation_id,
-          changement: { kind: 'annulation' },
+          statutAvant,
+          annulationDemandeeAt,
         }),
       ]);
     })().catch(() => undefined);

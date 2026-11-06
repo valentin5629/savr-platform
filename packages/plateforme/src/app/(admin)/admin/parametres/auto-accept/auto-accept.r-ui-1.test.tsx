@@ -18,7 +18,8 @@ const config = {
   notes: null,
   created_at: '2026-10-01T00:00:00Z',
   organisations: { raison_sociale: 'Traiteur Test' },
-  associations: null,
+  // Association obligatoire (décision Val I4 du 2026-10-25).
+  associations: { nom: 'Asso Test' },
   transporteurs: null,
 };
 

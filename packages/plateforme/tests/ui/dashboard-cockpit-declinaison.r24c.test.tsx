@@ -118,7 +118,9 @@ describe('M3.3 / agence — déclinaison Cockpit', () => {
         await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       // Benchmark Cockpit (BenchmarkRadar — titre propre à la lib figée).
-      expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/face aux événements comparables/),
+      ).toBeInTheDocument();
       // Top listes Cockpit (TopRankList).
       expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
       expect(screen.getByText('Lieu A')).toBeInTheDocument();
@@ -143,9 +145,9 @@ describe('M3.3 / agence — déclinaison Cockpit', () => {
 
       expect(pushMock).toHaveBeenCalledTimes(1);
       const url = String(pushMock.mock.calls[0]![0]);
-      // Onglet Historique : la liste agence est celle du traiteur (§06.11),
-      // `cloturee` n'existe pas dans l'onglet Programmées.
-      expect(url).toContain('/agence/collectes?onglet=historique&lieu=A');
+      // Vue « Collectes passées » (décision Val 2026-10-19) : une collecte
+      // clôturée est datée d'avant aujourd'hui.
+      expect(url).toContain('/agence/collectes?onglet=passees&lieu=A');
       expect(url).toContain('type=zero_dechet');
       expect(url).toContain('statut=cloturee');
     },
@@ -194,6 +196,49 @@ describe('M3.4 / organisateur — déclinaison Cockpit', () => {
       ).toBeInTheDocument();
       expect(screen.getByText('CO₂ évité')).toBeInTheDocument();
       expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
+      // Le cadran mesure l'impact réalisé : son lien ouvre les collectes
+      // passées (décision Val 2026-10-19).
+      expect(
+        screen.getByText('Événements ZD').closest('a')?.getAttribute('href'),
+      ).toBe('/organisateur/collectes?onglet=passees&type=zero_dechet');
+      // Compteur en pied de la barre de filtres, comme la liste Événements
+      // (décision Val 2026-11-01).
+      const compteur = screen.getByTestId('dashboard-collectes-count');
+      expect(compteur).toHaveTextContent(
+        '2 collectes correspondent à votre sélection',
+      );
+      expect(screen.getByTestId('dashboard-filter-bar')).toContainElement(
+        compteur,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'chargement raté → aucun compteur (jamais un chiffre faux)',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((input: RequestInfo | URL) => {
+          if (String(input).includes('/dashboards/kpi-client-organisateur'))
+            return Promise.resolve({
+              ok: false,
+              status: 500,
+              json: () => Promise.resolve({}),
+            } as Response);
+          return jsonResponse({});
+        }),
+      );
+      render(<ClientOrganisateurDashboardPage />);
+      expect(
+        await screen.findByTestId(
+          'dashboard-filter-bar',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(screen.queryByTestId('dashboard-collectes-count')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -343,8 +388,10 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
-      // Graphes Cockpit : radar benchmark (« Intensité par flux »), Top listes.
-      expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+      // Graphes Cockpit : radar benchmark (« … face aux événements comparables »), Top listes.
+      expect(
+        screen.getByText(/face aux événements comparables/),
+      ).toBeInTheDocument();
       expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
       expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();
       expect(screen.getByText('Lieu A')).toBeInTheDocument();
@@ -355,6 +402,10 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
       expect(screen.queryByText(/Performance vs benchmark parc/)).toBeNull();
       // Lecture seule DONNÉES + badge présent (pas d'écriture).
       expect(screen.getByTestId('lecture-seule-badge')).toBeInTheDocument();
+      // Compteur en pied de la barre de filtres (décision Val 2026-11-01).
+      expect(screen.getByTestId('dashboard-collectes-count')).toHaveTextContent(
+        '12 collectes correspondent à votre sélection',
+      );
     },
     ATTENTE_CAS_MS,
   );

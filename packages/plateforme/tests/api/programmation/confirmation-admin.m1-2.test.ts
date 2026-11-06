@@ -37,7 +37,19 @@ function makeChain() {
       return chain;
     },
   };
-  for (const m of ['from', 'select', 'eq', 'in', 'is', 'update', 'insert']) {
+  // `order` et `limit` : lecture du journal des emails par le GET (état de l'email
+  // récapitulatif) — sans réponse en file, elle rend « aucune ligne ».
+  for (const m of [
+    'from',
+    'select',
+    'eq',
+    'in',
+    'is',
+    'update',
+    'insert',
+    'order',
+    'limit',
+  ]) {
     chain[m] = (...args: unknown[]) => {
       record(m, args);
       return chain;
@@ -85,7 +97,7 @@ vi.mock('@/lib/attribution-ag/auto-accept.js', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 function setupAuth(role: string, organisationId: string, userId = 'user-1') {
   mockGetUser.mockResolvedValue({
@@ -126,6 +138,7 @@ const EVT = {
       statut: 'programmee',
       date_collecte: '2099-08-01',
       heure_collecte: '14:30:00',
+      pax: 80,
     },
   ],
 };
@@ -141,6 +154,12 @@ async function getEvenement() {
   );
 }
 
+// Carte de la collecte ajoutée (refonte du formulaire, lot B2) : son type
+// d'événement est vérifié dans le référentiel AVANT la lecture de l'événement —
+// première réponse de la file.
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+const TYPES_ACTIFS = { data: [{ id: TYPE_EVT }], error: null };
+
 async function ajouterCollecte(type: string) {
   const { POST } =
     await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
@@ -153,6 +172,12 @@ async function ajouterCollecte(type: string) {
           type,
           date_collecte: '2099-01-01',
           heure_collecte: '14:30',
+          pax: 80,
+          type_evenement_id: TYPE_EVT,
+          contact_principal_nom: 'Marie Dupont',
+          contact_principal_telephone: '0600000000',
+          contact_secours_nom: 'Sam Roux',
+          contact_secours_telephone: '0733333333',
         }),
         headers: { 'content-type': 'application/json' },
       },
@@ -218,39 +243,41 @@ describe('M1.2 — confirmation de programmation : détail événement (mode adm
 describe('M1.2 — confirmation de programmation : action « Ajouter une collecte » (mode admin support)', () => {
   it('admin_savr peut ajouter une collecte à un événement (action §06.01 étape 13)', async () => {
     setupAuth('admin_savr', 'org-savr');
+    admin.push(TYPES_ACTIFS); // référentiel des types
     admin.push({ data: EVT, error: null }); // select événement
-    admin.push({ data: true, error: null }); // rpc f_collecte_editable
-    admin.push({ data: 'col-new', error: null }); // rpc fn_ajouter_collecte_evenement
+    admin.push({ data: 'col-new', error: null }); // rpc fn_creer_collecte_carte
 
     const res = await ajouterCollecte('zd');
 
     expect(res.status).toBe(201);
     expect(orgPredicates()).toEqual([]);
+    expect(admin.__calls.rpc?.[0]?.[0]).toBe('fn_creer_collecte_carte');
   });
 
-  it("le pack AG est lu sur l'org de l'événement, jamais sur l'org du JWT staff", async () => {
+  it('une collecte AG s’ajoute sans lire aucun pack (facturée à l’unité sans pack actif)', async () => {
     setupAuth('admin_savr', 'org-savr');
+    admin.push(TYPES_ACTIFS); // référentiel des types
     admin.push({ data: EVT, error: null }); // select événement
-    admin.push({ data: true, error: null }); // rpc f_collecte_editable
-    admin.push({ data: { id: 'pack-1', credits_restants: 3 }, error: null }); // pack
-    admin.push({ data: 'col-new', error: null }); // rpc fn_ajouter_collecte_evenement
+    admin.push({ data: 'col-new', error: null }); // rpc fn_creer_collecte_carte
 
     const res = await ajouterCollecte('ag');
 
+    // Décision Val 2026-10-16 : plus de garde pack AG. Sans elle, la seule
+    // question d'organisation qui restait (pack cherché sur `org-savr` au lieu
+    // de l'org de l'événement) disparaît avec la lecture elle-même.
     expect(res.status).toBe(201);
-    // C'est cette assertion qui fait foi : le stub sert le pack quel que soit le
-    // prédicat, donc le 201 ci-dessus survivrait à une régression. En prod, un
-    // pack cherché sur `org-savr` serait introuvable → 422 « Aucun pack actif ».
-    expect(orgPredicates()).toEqual([['organisation_id', 'org-kaspia']]);
+    expect((admin.__calls.from ?? []).map(([t]) => t)).not.toContain(
+      'packs_antgaspi',
+    );
   });
 
   it("l'admin agit AU NOM de l'org cible (pas de notification « tiers » parasite)", async () => {
     setupAuth('admin_savr', 'org-savr');
+    admin.push(TYPES_ACTIFS);
     admin.push({ data: EVT, error: null });
-    admin.push({ data: true, error: null });
     admin.push({ data: 'col-new', error: null });
 
-    await ajouterCollecte('zd');
+    expect((await ajouterCollecte('zd')).status).toBe(201);
 
     // Miroir du POST de création (#223), qui passe l'org cible en acteurOrgId :
     // avec `org-savr`, le traiteur opérationnel serait notifié à tort d'un tiers.
@@ -262,8 +289,8 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
 
   it('un rôle client reste cloisonné sur son organisation', async () => {
     setupAuth('traiteur_manager', 'org-kaspia');
+    admin.push(TYPES_ACTIFS);
     admin.push({ data: EVT, error: null });
-    admin.push({ data: true, error: null });
     admin.push({ data: 'col-new', error: null });
 
     const res = await ajouterCollecte('zd');
@@ -279,5 +306,83 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
     // même verrou que le GET (le CDC §06.01 l.19 tient les clients finaux en
     // lecture seule).
     expect((await ajouterCollecte('zd')).status).toBe(403);
+  });
+});
+
+// ── État réel de l'email récapitulatif (décision Val 2026-10-08) ─────────────
+// L'écran de confirmation ne dit « email envoyé » que si c'est vrai : le GET
+// rend l'état lu dans le journal des emails, après la garde de périmètre.
+describe('M1.2/confirmation_email_recap_issue_reelle — GET détail événement', () => {
+  it.each([
+    [
+      'email accepté par Resend',
+      { statut: 'sent', tentative_numero: 1 },
+      'envoye',
+    ],
+    [
+      'email refusé, reprise en cours',
+      { statut: 'failed', tentative_numero: 2 },
+      'en_reprise',
+    ],
+    [
+      '4 tentatives épuisées',
+      { statut: 'failed', tentative_numero: 4 },
+      'non_envoye',
+    ],
+    ['aucune ligne d’envoi', null, 'non_envoye'],
+  ])('%s → email_recap = %s', async (_cas, ligne, attendu) => {
+    setupAuth('traiteur_manager', 'org-kaspia');
+    admin.push({ data: EVT, error: null });
+    admin.push({ data: ligne, error: null });
+
+    const res = await getEvenement();
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      id: 'e1',
+      email_recap: attendu,
+    });
+  });
+
+  it('journal des emails illisible → 200, état inconnu (null) : le récapitulatif reste servi', async () => {
+    setupAuth('traiteur_manager', 'org-kaspia');
+    admin.push({ data: EVT, error: null });
+    admin.push({ data: null, error: { code: '57014', message: 'timeout' } });
+
+    const res = await getEvenement();
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      id: 'e1',
+      collectes: [{ id: 'col-1' }],
+      email_recap: null,
+    });
+  });
+
+  it('seul l’état sort : ni adresse, ni message d’erreur, ni colonne du journal', async () => {
+    setupAuth('traiteur_manager', 'org-kaspia');
+    admin.push({ data: EVT, error: null });
+    admin.push({
+      data: { statut: 'failed', tentative_numero: 1 },
+      error: null,
+    });
+
+    const corps = (await (await getEvenement()).json()) as Record<
+      string,
+      unknown
+    >;
+
+    expect(corps.email_recap).toBe('en_reprise');
+    for (const cle of ['destinataire', 'erreur', 'statut', 'tentative_numero'])
+      expect(corps).not.toHaveProperty(cle);
+    // Les seules colonnes demandées au journal.
+    expect(admin.__calls.select).toContainEqual(['statut, tentative_numero']);
+  });
+
+  it('rôle hors périmètre → 403, le journal des emails n’est pas lu', async () => {
+    setupAuth('client_organisateur', 'org-kaspia');
+
+    expect((await getEvenement()).status).toBe(403);
+    expect(admin.__calls.from ?? []).toEqual([]);
   });
 });

@@ -1,7 +1,5 @@
 # 09 - Flux algo attribution AG (Admin)
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-04-21
 **Lié à** : [[05 - Règles métier]] §2 — Algorithme d'attribution Anti-Gaspi · [[04 - Data Model]] tables `attributions_antgaspi`, `associations`, `transporteurs`, `parametres_algo`
 
 ---
@@ -54,7 +52,7 @@ Tri unique par **distance Haversine croissante** entre `lieux.latitude/longitude
 
 - Si une association est exclue par horaire : affichée en grisé avec mention "Exclue — horaires incompatibles"
 - Bouton **"Sélectionner"** sur chaque ligne pour choisir une alternative au top 1
-- Liste déroulante **« Association »** : toutes les associations actives, triées par distance croissante au lieu de la collecte (distance inconnue en fin de liste, puis ordre alphabétique). Libellé de chaque option, dans cet ordre : **distance · capacité · nom** (ex. « 12,4 km · cap. 300 · Association Alpha » ; « Distance inconnue » si coordonnées manquantes ; segment capacité omis si inconnue) — ni ville, ni 2041-GE, ni marque « (suggérée) » *(décision Val 2026-09-29)* ; la suggestion top 1 est pré-sélectionnée. Si l'URL porte `?association=<id>` (arrivée depuis la carte « Choisir » de la fiche collecte §06.06) et que cette association fait partie des recommandations de l'algo, elle est présélectionnée à la place du top 1 ; les règles d'override (motif si ≠ top 1) s'appliquent. Id absent des recommandations = repli sur le top 1, **annoncé** par une ligne d'information (décision Val 2026-09-29, C6). La liste inclut les associations **non éligibles** (hors région, capacité insuffisante, fermées au créneau) — l'Admin arbitre. *(décision Val 2026-09-17, confirmée 2026-09-18 ; remplace la recherche libre et ses filtres ville / capacité min / 2041-GE)*
+- Liste déroulante **« Association »** : toutes les associations actives, triées par distance croissante au lieu de la collecte (distance inconnue en fin de liste, puis ordre alphabétique). Libellé de chaque option, dans cet ordre : **distance · repas cumulés / capacité · nom** (ex. « 12,4 km · 40/300 · Association Alpha » ; « Distance inconnue » si coordonnées manquantes ; « — » à la place de la capacité si inconnue ; segment omis si les repas cumulés n'ont pas pu être lus) — ni ville, ni 2041-GE, ni marque « (suggérée) » *(décisions Val 2026-09-29 et 2026-10-27)*. **Repas cumulés** *(décisions Val 2026-10-27)* : repas que l'association reçoit déjà = repas des collectes AG attribuées à cette association dont le créneau tombe à 12 h au plus avant ou après (heure de Paris), la collecte à attribuer exclue (0/300 tant qu'elle n'a rien reçu) ; volume réalisé s'il est connu, sinon estimé ; collectes `brouillon`, `annulee`, `rejetee_par_prestataire` exclues, `realisee_sans_collecte` = 0. **Une carte par choix** *(décision Val 2026-10-27)* : la carte de l'association et celle du transporteur montrent la sélection courante — la recommandation par défaut — et ouvrent la liste au clic (plus de carte recommandée séparée de la liste). Carte de l'association : nom, compteur « repas cumulés / capacité », badge « Recommandée » si c'est la recommandation, distance · capacité (plus d'email) ; carte du transporteur : nom, badge « Recommandé » s'il est recommandé, ville (plus de branche, zone, pax ni type de TMS) ; champ « Volume estimé » = nombre de repas seul ; plus de champ « Créneau de livraison » ni des mentions « son adresse est le point de livraison » / « reçoit l'adresse de l'association » *(décision Val 2026-10-27)* ; la suggestion top 1 est pré-sélectionnée. Si l'URL porte `?association=<id>` (arrivée depuis la carte « Choisir » de la fiche collecte §06.06) et que cette association fait partie des recommandations de l'algo, elle est présélectionnée à la place du top 1 ; les règles d'override (motif si ≠ top 1) s'appliquent. Id absent des recommandations = repli sur le top 1, **annoncé** par une ligne d'information (décision Val 2026-09-29, C6). La liste inclut les associations **non éligibles** (hors région, capacité insuffisante, fermées au créneau) — l'Admin arbitre. *(décision Val 2026-09-17, confirmée 2026-09-18 ; remplace la recherche libre et ses filtres ville / capacité min / 2041-GE)*
 
 **Bloc recommandation algorithme — Transporteurs**
 
@@ -78,13 +76,13 @@ La sélection du transporteur AG suit **deux logiques distinctes selon la régio
 
 **Affichage Admin Savr** : pour une attribution AG IDF, l'écran affiche un bandeau au-dessus du bloc transporteur indiquant la branche calculée (ex : "Branche AG vélo express — A Toutes! vélo, délai 1h12 avant collecte") + le transporteur résultant. Pas de top 3 transporteurs (la branche détermine un transporteur unique, pas un classement). Override via la liste déroulante « Transporteur » (tous les transporteurs actifs, le recommandé pré-sélectionné) + motif obligatoire si le choix ≠ recommandation (cf. §3 Override). *(décision Val 2026-09-17, remplace la recherche libre)*
 
-**Cas modification `nb_pax` post-attribution (refonte sobriété A2 2026-05-09)** : aucun workflow dédié V1. Si un Admin modifie `nb_pax` après validation et que la branche calculée diffère, la collecte n'est **pas re-routée automatiquement** ni notifiée par template dédié. Si l'Admin souhaite changer de transporteur, il rouvre l'écran d'attribution et applique un override standard (motif libre `autre`). Justification : edge case rare en pratique, l'audit cohérence + la file d'attente standard suffisent.
+**Cas modification `nb_pax` post-attribution (refonte sobriété A2 2026-05-09)** : aucun workflow dédié V1. Si un Admin modifie le pax de la collecte (`collectes.pax`, lot C2) après validation et que la branche calculée diffère, la collecte n'est **pas re-routée automatiquement** ni notifiée par template dédié. Si l'Admin souhaite changer de transporteur, il rouvre l'écran d'attribution et applique un override standard (motif libre `autre`). Justification : edge case rare en pratique, l'audit cohérence + la file d'attente standard suffisent.
 
 **Cas `ag_everest_camion_express`** (branche 9, ajout 2026-06-15 DIV-8, tranché Val) : rescue grand volume urgent IDF. Se déclenche quand la branche initiale aurait retourné `aucun_prestataire` **ET** `nb_pax ≥ seuil_pax_velo (600)` **ET** `a_toutes_indisponible = false` **ET** `delai_minutes < seuil_h2_minutes (90)`. Dans ce cas, A Toutes! est sollicitée via le service Everest **77 (camion express)** au lieu de laisser la collecte en traitement manuel. L'écran affiche le bandeau "Branche AG Everest camion express — A Toutes!, délai urgent". L'Admin peut overrider avec motif.
 
 **Cas `aucun_prestataire`** : la branche n'a pas trouvé de transporteur valide (Marathon exclu sans backup possible **et** conditions `ag_everest_camion_express` non remplies). L'écran affiche "Aucun prestataire éligible — traitement manuel". L'Admin doit sélectionner un transporteur dans la liste déroulante des transporteurs actifs + motif obligatoire.
 
-> **Go-live — branche backup camion morte (décision consciente Val 2026-06-10, challenge logistique)** : tant que la gate Everest est active (adapter Everest = V1.1, hors go-live), `parametres_algo.a_toutes_indisponible = true` est **seedé au go-live**. Conséquences : les branches vélo basculent `ag_velo_fallback_marathon` (Marathon/MTS-1, nominal prévu) **et la branche backup `ag_marathon_volume_backup_camion` (service Everest 91) est inopérante** → si Marathon est exclu sur un gros volume, la collecte tombe **directement en `aucun_prestataire`** = traitement manuel Ops ci-dessus. Cas rare, assumé. Réactivation automatique du backup à la livraison de l'adapter Everest V1.1 (repasser le flag à `false`). **Ne pas coder de fallback Strike camion** à la place (non validé opérationnellement).
+> **Go-live — branche backup camion morte (décision consciente Val 2026-06-10, challenge logistique)** : la gate Everest est levée depuis le 2026-06-15 (adapter Everest en scope go-live V1), mais `parametres_algo.a_toutes_indisponible = true` reste **seedé au go-live** tant que Val ne l'a pas repassé à `false` (décision opérationnelle). Conséquences : les branches vélo basculent `ag_velo_fallback_marathon` (Marathon/MTS-1, nominal prévu) **et la branche backup `ag_marathon_volume_backup_camion` (service Everest 91) est inopérante** → si Marathon est exclu sur un gros volume, la collecte tombe **directement en `aucun_prestataire`** = traitement manuel Ops ci-dessus. Cas rare, assumé. Réactivation du backup dès que le flag est repassé à `false`. **Ne pas coder de fallback Strike camion** à la place (non validé opérationnellement).
 
 **Gros volume AG de jour servi par plusieurs vélos (décision 2026-05-29)** : V1 **ne modélise pas** le multi-vélo. Pour un gros événement de jour à servir en vélo cargo A Toutes!, l'Admin crée **une seule course Everest** côté Savr ; la duplication en N vélos est réalisée **manuellement par A Toutes! sur sa plateforme Everest**. Savr ne voit donc qu'**une** course, **un** poids total (agrégé chez A Toutes!) et des photos rattachées à la collecte (déjà illimitées par collecte, cf. [[../08 - APIs et intégrations]] contrainte photos) — **aucun champ ni table multi-vélo en V1**, 0 changement de data model. **V2** (Everest passe sous le Savr TMS) : le TMS programmera **N courses automatiquement** et agrégera poids/coût **au niveau collecte**, en réutilisant le substrat multi-camions **générique** déjà en place (`collecte_tournees` N↔N + S5 terminal agrégé + [[../05 - Règles métier#R_statut_collecte_multi_tournees|R_statut_collecte_multi_tournees]]) — ce n'est pas un nouveau mécanisme. Volet à spécifier en session `cdc-tms-savr`.
 
@@ -99,8 +97,8 @@ Actif uniquement si une association est sélectionnée ET un transporteur est s�
 1. `attributions_antgaspi.valide_par` = `current_user.id`, `valide_at` = `now()`
 2. `attributions_antgaspi.mode_validation` = `'manuel_top1'` si reco non modifiée, `'manuel_override'` si override (voir §8 enum)
 3. **La collecte passe au statut `programmee`** (et **non** `validee`). **Alignement machine à états ZD/AG (Sujet AG statuts, 2026-05-29)** : la validation d'attribution Admin = décision de dispatch (choix asso + transporteur), équivalent fonctionnel de l'envoi prestataire en ZD — donc `programmee`, pas `validee`. `statut_tms` reste `non_envoye` à ce stade (l'ordre n'est pas encore parti : étape 5, asynchrone). Le passage `programmee → validee` est dérivé **ultérieurement** par le trigger `fn_sync_statut_collecte_from_tms` à l'acceptation transporteur (cf. cascade ci-dessous + [[05 - Règles métier]] §4). Aucune écriture applicative directe de `statut` sur la plage `programmee ↔ validee`.
-4. Débit du pack AG (voir [[05 - Règles métier#3. Packs Anti-Gaspi — Décrémentation et blocage]])
-5. **Publication d'un événement applicatif `attribution.validee`** qui déclenche **asynchrone** : envoi email association (Resend, template n°16), envoi email transporteur (Resend, template n°18), envoi de l'ordre transporteur (cf. cascade V1/V2 ci-dessous).
+4. Aucun mouvement de pack : le crédit a été décompté à la programmation (la collecte porte déjà son pack, ou aucun si elle a été programmée sans crédit restant) ; la validation ne pose plus de réservation (décision Val 2026-11-02, voir [[05 - Règles métier#Débit d'un crédit]])
+5. **Publication d'un événement applicatif `attribution.validee`** qui déclenche **asynchrone** : envoi email association (Resend, template n°16), envoi de l'ordre transporteur (l'email transporteur, template n°18, est retiré — revue des emails, Val 2026-10-28) (cf. cascade V1/V2 ci-dessous).
 
    > **Mise en œuvre figée 2026-09-11 (Option A tranchée Val — divergence M2.3).** `fn_valider_attribution_ag` insère dans la **même transaction deux events sur le même agrégat** (la collecte) : `attribution.validee` (consumer **`attribution_job`**) puis `collecte.creee` (famille logistique). Les deux vivent dans `plateforme.outbox_events` mais sont **isolés par famille de consumer** :
    > - le worker logistique (`fn_claim_outbox_batch`) **exclut `attribution_job`** et calcule son head-of-line dans sa seule famille ;
@@ -147,16 +145,18 @@ Stocké dans `attributions_antgaspi.motif_override` (text, code preset ou texte 
 ### Email — Association bénéficiaire
 Envoyé à : adresse(s) de contact de l'association (`associations.email_contact`)
 
-Contenu :
-- Nom de l'événement, date/heure de collecte
-- Lieu (adresse complète + accès office si disponible)
+Contenu (texte : §06.02 template 16) :
+- Date et heure de collecte
 - Volume estimé en repas
-- Nom du transporteur mandaté (si applicable)
-- Contact Admin Savr pour questions
+- Ce que fait le transporteur (récupère les repas sur le lieu, les livre à l'association), réception à prévoir
+- Contact Savr (contact@gosavr.io) si l'association ne peut pas recevoir le don
+*(Revue des emails, Val 2026-10-29 : lieu, adresse et nom du transporteur retirés.)*
 
-Template Resend : `ag_attribution_association` (nouveau — à ajouter à [[02 - Templates emails V1]])
+Template Resend : `ag_attribution_association` (§06.02 template 16 — [[02 - Templates emails V1]])
 
-### Email — Transporteur
+### Email — Transporteur **Retiré V1 (revue des emails, Val 2026-10-28)**
+La mission arrive au transporteur par l'outil du prestataire logistique ou par l'équipe Savr. Gabarit `ag_attribution_transporteur` désactivé. Contenu historique ci-dessous.
+
 Envoyé à : adresse de contact du transporteur (`transporteurs.email_contact`)
 
 Contenu :
@@ -166,7 +166,7 @@ Contenu :
 - Volume estimé
 - Contact Admin Savr
 
-Template Resend : `ag_attribution_transporteur` (nouveau)
+Template Resend : `ag_attribution_transporteur` (désactivé, revue des emails Val 2026-10-28)
 
 **Pas de relance automatique en V1.** Unique email d'information. Si nécessaire, l'Admin relance manuellement hors plateforme.
 
@@ -183,7 +183,7 @@ Tableau historique : même structure que la file d'attente, avec colonnes suppl�
 
 ### Saisie du volume repas réalisé (post-collecte)
 
-**Décompte du pack AG sur le programmateur (clarification 2026-05-07)** : à la transition `collectes.statut → 'realisee'`, le crédit AG est décompté sur le pack actif de l'organisation programmatrice (`evenements.organisation_id`), **pas** du traiteur opérationnel. Si l'organisation programmatrice n'a pas de pack actif → erreur de transition (impossible normalement car la programmation aurait été bloquée en amont, cf. §06.01 sélection pack AG). Algo de matching prestataire/association reste basé sur le **lieu** (zone géographique), inchangé : la nature du programmateur n'impacte pas le scoring.
+**Décompte du pack AG sur le programmateur (clarification 2026-05-07)** : à la programmation (passage à `programmee`, décision Val 2026-11-02), le crédit AG est décompté sur le pack actif de l'organisation programmatrice (`evenements.organisation_id`), **pas** du traiteur opérationnel. Si l'organisation programmatrice n'a pas de pack actif → aucun débit, la collecte est facturée à l'unité, jamais de blocage (décision Val 2026-10-16, cf. §06.01 sélection pack AG). Algo de matching prestataire/association reste basé sur le **lieu** (zone géographique), inchangé : la nature du programmateur n'impacte pas le scoring.
 
 **Flux V1 (sans TMS Savr)** : Ops Savr saisit manuellement le `poids_repas_kg` dans l'onglet "Attributions validées" en analysant les **photos de pesées** remontées par le chauffeur. Ni Everest ni MTS-1 ne retournent ce poids en V1. La saisie est loggée dans `audit_log` (`action = 'poids_repas_saisi_ops'`). Permission : `ops_savr` + `admin_savr` peuvent UPDATE `attributions_antgaspi.poids_repas_kg` (à ajouter §09). **Flux V2 (avec TMS Savr)** : le chauffeur saisit le poids sur le TMS Savr ; le TMS pousse via webhook vers la Plateforme. **(Décision 2026-06-07, Val)**
 
@@ -198,32 +198,34 @@ L'Admin voit la valeur mise à jour dans l'onglet "Attributions validées" sans 
 ## 6. Auto-accept
 
 ### Définition
-Pour certaines combinaisons `(association_id, type_evenement_id)` connues et fiables, l'Admin peut activer le mode **auto-accept** : l'attribution est validée automatiquement sans intervention humaine.
+Pour certaines combinaisons connues et fiables — organisation programmatrice × association (`organisation_id`, `association_id`), éventuellement restreintes à un transporteur (`transporteur_id`) et à une fourchette de pax de LA collecte (`seuil_pax_min`, `seuil_pax_max`) —, l'Admin peut activer le mode **auto-accept** : l'attribution est validée automatiquement sans intervention humaine. Aucun critère de type d'événement *(décision Val Q1 du 2026-10-24, lot C2 : la configuration réalisée est gardée ; la version « association × type d'événement » n'a jamais été construite)*.
 
 ### Écran de configuration
 Accessible via : Back-office Admin → Paramètres → Auto-accept AG
 
 Tableau de ~40 lignes maximum (V1) :
 
-| Association | Type d'événement | Activé | Modifié par | Modifié le |
-|------------|-----------------|--------|------------|-----------|
-| Les Restos du Cœur | Mariage | ✓ | Admin A | 12 avr 2026 |
-| Secours Pop | Cocktail | | | |
+| Traiteur | Association fixe | Transporteur fixe | Seuil PAX | Auto-accept | Notes |
+|---------|------------------|-------------------|-----------|-------------|-------|
+| Kaspia | Les Restos du Cœur | Algo | 100 – 400 | ✓ | |
+| Fleurdemets | Secours Pop | Marathon | Tous | | |
+
+*Association fixe obligatoire à la saisie (décision Val I4 du 2026-10-25) : une ligne sans association ne peut jamais se déclencher (le top 1 doit égaler l'association configurée) ; « Algo » ne vaut que pour le transporteur (NULL = tout transporteur).*
 
 - Bouton toggle par ligne
 - Pas de pagination en V1 (< 50 lignes)
-- Filtre rapide par association ou type d'événement
+- Pas de filtre ; tri sur les colonnes « Auto-accept » et « Notes »
 
 ### Comportement en auto-accept
 1. Algorithme tourne normalement
-2. Si top 1 = association concernée ET type_evenement correspond : validation immédiate
+2. Si une configuration active porte l'organisation programmatrice de l'événement et l'association top 1, le transporteur recommandé (quand la configuration en fixe un) et une fourchette contenant le pax de LA collecte (bornes facultatives) : validation immédiate *(lot C2 : pax de la collecte, décision Val Q2 du 2026-10-24)*
 3. `attributions_antgaspi.mode_validation = 'auto_accept'` + `valide_par = null` (aucun humain) — refonte 2026-05-09 sobriété D2
-4. La collecte passe en statut `programmee` (et **non** `validee` — alignement ZD/AG 2026-05-29, cf. §3) + débit pack AG (cf. §3 transaction synchrone). `statut_tms = non_envoye` jusqu'à l'envoi de l'ordre (étape 5). `validee` dérivé à l'acceptation transporteur par le trigger.
+4. La collecte passe en statut `programmee` (et **non** `validee` — alignement ZD/AG 2026-05-29, cf. §3) (aucun mouvement de pack : crédit décompté à la programmation, décision Val 2026-11-02). `statut_tms = non_envoye` jusqu'à l'envoi de l'ordre (étape 5). `validee` dérivé à l'acceptation transporteur par le trigger.
 5. **Cascade asynchrone** déclenchée (cf. §3) : envoi emails + ordre transporteur via job queue (positionne `statut_tms = attribuee_en_attente_acceptation` à l'envoi, puis `acceptee` à l'acceptation → trigger → `validee`)
 6. L'Admin voit la ligne dans l'onglet "Attributions validées" avec badge "Auto" (pas dans la file à valider)
 
 ### Cas de non-déclenchement de l'auto-accept
-Si le top 1 ne correspond pas à l'association configurée en auto-accept (ex : association exclue pour horaires ce jour-là), le workflow revient en validation manuelle normale. Aucun fallback automatique sur une autre association.
+Si aucune configuration active ne correspond (top 1 différent de l'association configurée — ex : association exclue pour horaires ce jour-là —, transporteur recommandé différent du transporteur fixé, pax de la collecte hors de la fourchette), le workflow revient en validation manuelle normale. Aucun fallback automatique sur une autre association.
 
 ---
 
@@ -242,7 +244,7 @@ Pilotables par l'Admin Savr sans redéploiement. **Source de vérité unique = P
 
 | Paramètre | Type | Défaut | Description |
 |-----------|------|--------|-------------|
-| `regle_ag_seuil_pax_velo` | int | 600 | Seuil `evenements.nb_pax` au-delà duquel grand événement jour → Marathon (branche 2) |
+| `regle_ag_seuil_pax_velo` | int | 600 | Seuil du pax de LA collecte AG (`collectes.pax`, lot C2 — décision Val Q2 du 2026-10-24) au-delà duquel grand événement jour → Marathon (branche 2) |
 | `regle_ag_plage_velo_debut` | time | 07:00 | Début plage horaire jour (A Toutes! ouvert) |
 | `regle_ag_plage_velo_fin` | time | 20:00 | Fin plage horaire jour (A Toutes! ouvert) — couvre vélo cargo **et** camion (décision 2026-05-09) |
 | `regle_ag_seuil_h2_minutes` | int | 90 | Frontière express vs programmé (minutes restantes avant collecte) — sous-branche 3 |
@@ -252,7 +254,7 @@ Pilotables par l'Admin Savr sans redéploiement. **Source de vérité unique = P
 
 **Modification d'un paramètre IDF** :
 - Champ obligatoire **motif** (texte libre min 10 caractères) loggé dans `audit_log.details`.
-- Bascule du flag `a_toutes_indisponible` à `true` : déclenche en plus une notification Ops "A Toutes! marqué indisponible — toutes les nouvelles attributions IDF jour basculent vers Marathon" (template `ag_a_toutes_indispo` à ajouter [[../02 - Templates emails V1]]).
+- Bascule du flag `a_toutes_indisponible` à `true` : : aucune notification email — le gabarit `ag_a_toutes_indispo` (§06.02 §18ter) est désactivé, aucun code ne l'envoie (revue des emails, Val 2026-10-29).
 - Avertissement standard : "Modifie les attributions futures uniquement. Les attributions déjà validées ne sont pas recalculées."
 
 ---
@@ -334,5 +336,5 @@ Pilotables par l'Admin Savr sans redéploiement. **Source de vérité unique = P
 - [[04 - Data Model]] — tables `attributions_antgaspi`, `associations`, `transporteurs`, `parametres_algo`
 - [[05 - Règles métier#3. Packs Anti-Gaspi — Décrémentation et blocage]] + [[06 - Back-office Admin Savr]] §8 onglet Packs AG
 - [[08 - APIs et intégrations]] — Everest API + MTS-1 (V1), webhooks E2/S2 (V2)
-- [[02 - Templates emails V1]] — templates `ag_attribution_association`, `ag_attribution_transporteur`, `ag_a_toutes_indispo` à ajouter
+- [[02 - Templates emails V1]] — template `ag_attribution_association` (16, actif) ; `ag_attribution_transporteur` (18) et `ag_a_toutes_indispo` (18ter) désactivés (revue des emails, Val 2026-10-28/29)
 - [[../../02 - Cahier des charges TMS/06 - Fonctionnalités détaillées/M12 - Attribution transporteur|TMS — M12 §4]] — pseudocode des 3 branches IDF (source de vérité V2)

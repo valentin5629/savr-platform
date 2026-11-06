@@ -23,7 +23,7 @@ export interface CollecteFiltresOptions {
 }
 
 export interface CollecteFiltres {
-  /** Statuts DB sélectionnés ; vide = tous ceux de l'onglet courant. */
+  /** Statuts DB sélectionnés ; vide = tous ceux que la liste propose. */
   statuts: string[];
   from: string;
   to: string;
@@ -124,7 +124,7 @@ export type FiltreCollecteStandard =
   | 'programmeePar';
 
 interface Props {
-  /** Statuts DB couverts par l'onglet actif (Programmées ou Historique). */
+  /** Statuts DB proposés par le filtre Statut. */
   statutsOnglet: readonly string[];
   options: CollecteFiltresOptions;
   value: CollecteFiltres;
@@ -186,9 +186,12 @@ export function CollecteFiltresBar({
   const visible = (f: FiltreCollecteStandard) => filtres?.[f] ?? true;
   const groupes = groupesStatutClient(statutsOnglet);
   const statutsSet = new Set(value.statuts);
-  // Un groupe est coché quand TOUS ses statuts DB sont sélectionnés.
+  // Un groupe est coché dès qu'UN de ses statuts DB est sélectionné : un lien de
+  // tableau de bord ne porte que `cloturee`, et « Réalisée » (cloturee +
+  // realisee_sans_collecte) doit alors se lire cochée — la liste reste filtrée
+  // sur ce que porte l'URL (miroir du chiffre du tableau de bord).
   const groupesSelectionnes = groupes
-    .filter((g) => g.statuts.every((s) => statutsSet.has(s)))
+    .filter((g) => g.statuts.some((s) => statutsSet.has(s)))
     .map((g) => g.label);
 
   const set = <K extends keyof CollecteFiltres>(

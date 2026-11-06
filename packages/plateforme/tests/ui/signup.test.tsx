@@ -44,6 +44,7 @@ const IDENTITE_OK = {
   '#email': 'marie@traiteur.fr',
   '#telephone': '0123456789',
   '#raison-sociale': 'Traiteur Durand SAS',
+  '#poste': 'Responsable RSE',
 };
 
 function remplir(c: HTMLElement, selecteur: string, valeur: string) {
@@ -108,6 +109,7 @@ describe('M0.4 — /signup : parcours complet (CDC §05 §8 étape 1)', () => {
         prenom: 'Marie',
         nom: 'Durand',
         telephone: '0123456789',
+        poste: 'Responsable RSE',
         type_profil: 'gestionnaire_lieux',
         raison_sociale: 'Traiteur Durand SAS',
         acceptation_cgu: true,
@@ -183,6 +185,7 @@ describe('M0.4 — /signup : chaque champ et son refus (CDC §05 §8)', () => {
     ['téléphone trop court', { '#telephone': '01020304' }, 'téléphone'],
     ['téléphone étranger', { '#telephone': '+4915112345678' }, 'téléphone'],
     ['raison sociale vide', { '#raison-sociale': '   ' }, 'raison sociale'],
+    ['poste vide', { '#poste': '   ' }, 'votre poste'],
   ];
 
   for (const [libelle, patch, attendu] of refus) {

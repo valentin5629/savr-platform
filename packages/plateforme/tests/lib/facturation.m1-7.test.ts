@@ -667,11 +667,12 @@ const COLLECTE_ZD_CLOTUREE = {
   statut: 'cloturee',
   annulee_cote_savr: false,
   pack_antgaspi_id: null,
+  // Pax et date de LA collecte (lot C2 : décisions Val C2 et Q4).
+  pax: 250,
+  date_collecte: '2026-06-10',
   evenements: {
     id: 'ev-001',
     organisation_id: 'org-001',
-    pax: 250,
-    date_evenement: '2026-06-10',
     organisations: {
       mode_facturation_zd: 'par_collecte',
       grille_tarifaire_zd_id: 'grille-001',
@@ -838,11 +839,11 @@ const COLLECTE_ZD_MENSUELLE = {
   statut: 'cloturee',
   annulee_cote_savr: false,
   pack_antgaspi_id: null,
+  pax: 200,
+  date_collecte: '2026-06-05',
   evenements: {
     id: 'ev-mensuel-001',
     organisation_id: 'org-mensuel-001',
-    pax: 200,
-    date_evenement: '2026-06-05',
     organisations: {
       mode_facturation_zd: 'mensuelle',
       grille_tarifaire_zd_id: 'grille-001',
@@ -996,11 +997,11 @@ const COLLECTE_AG_CLOTUREE = {
   statut: 'cloturee',
   annulee_cote_savr: false,
   pack_antgaspi_id: null,
+  pax: 100,
+  date_collecte: '2026-06-10',
   evenements: {
     id: 'ev-ag-001',
     organisation_id: 'org-ag-001',
-    pax: 100,
-    date_evenement: '2026-06-10',
     organisations: {
       mode_facturation_zd: null,
       grille_tarifaire_zd_id: null,

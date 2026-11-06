@@ -1,5 +1,6 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { requirePageSession } from '@/lib/page-auth';
+import { chargerIdentiteSession } from '@/lib/identite-session';
 
 const ORGANISATEUR_ROLES = ['client_organisateur'] as const;
 
@@ -13,9 +14,11 @@ export default async function ClientOrganisateurLayout({
   return (
     <AppShell
       role={session.role}
-      userName={session.email}
-      pageTitle="Mon impact RSE"
-      hiddenNavHrefs={[]}
+      identite={await chargerIdentiteSession({
+        userId: session.userId,
+        email: session.email,
+        logoAffichable: true,
+      })}
     >
       {children}
     </AppShell>

@@ -13,11 +13,16 @@ import { Label } from '@/components/ui/label';
 import { BORNES_TEXTE_LIBRE } from '@/lib/champs-texte-libre-bornes';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Textarea } from '@/components/ui/textarea';
-import { instantParis } from '@savr/shared/src/temps/index.js';
+import {
+  avertissementsCollecte,
+  changementsCollecte,
+  erreurSaisieCollecte,
+  type SaisieCollecte,
+} from '@/lib/collectes/edition-collecte';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ConfirmationModificationCollecte } from '@/components/collecte/confirmation-modification-collecte';
 import { FormActions } from '@/components/ui/form-actions';
 
 interface TypeEvenement {
@@ -26,22 +31,20 @@ interface TypeEvenement {
 }
 
 // Décision produit Val 2026-06-26 : depuis la fiche collecte, un rôle programmateur
-// édite TOUS les champs métier de l'événement parent ET de la collecte (§06.04 l.444,
-// §05 §4). lieu / type = verrouillés (§05 l.314). L'enregistrement appelle 2 endpoints :
-//   • événement → PATCH /api/v1/programmation/evenements/:id (unifié 4 rôles, émet E2)
-//   • collecte  → PATCH {collecteEndpoint} (par espace : traiteur/agence/gestionnaire)
+// édite les champs métier de l'événement parent ET de la collecte (§06.04 l.444,
+// §05 §4). lieu / type = verrouillés (§05 l.314). Le type d'événement et les
+// contacts sont ceux de LA collecte (refonte du formulaire, lot B1, décision Val
+// 2026-10-23). L'enregistrement appelle 2 endpoints :
+//   • événement → PATCH /api/v1/programmation/evenements/:id (nom, client,
+//     référence ; unifié 4 rôles)
+//   • collecte  → PATCH {collecteEndpoint} (par espace : traiteur/agence/
+//     gestionnaire ; émet l'E2 de cette collecte si elle est commandée)
 
 export interface EvenementEditData {
   id: string;
   nom_evenement: string | null;
-  pax: number | null;
-  type_evenement_id: string | null;
   nom_client_organisateur: string | null;
   reference_affaire: string | null;
-  contact_principal_nom: string | null;
-  contact_principal_telephone: string | null;
-  contact_secours_nom: string | null;
-  contact_secours_telephone: string | null;
 }
 
 export interface CollecteEditData {
@@ -53,8 +56,17 @@ export interface CollecteEditData {
   statut_tms?: string;
   date_collecte: string;
   heure_collecte: string | null;
+  // Nombre de convives de la collecte (décision Val 2026-10-20) : il se modifie
+  // ici, sur la collecte ; celui de l'événement en est calculé en base.
+  pax: number;
   controle_acces_requis: boolean;
   informations_supplementaires: string | null;
+  // Type d'événement et contacts de LA collecte (lot B1).
+  type_evenement_id: string | null;
+  contact_principal_nom: string | null;
+  contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
   lieu_nom: string | null;
   evenement: EvenementEditData;
 }
@@ -79,17 +91,19 @@ export function EditerCollecteForm({
   const e = collecte.evenement;
   // État formulaire — événement
   const [nomEvenement, setNomEvenement] = useState(e.nom_evenement ?? '');
-  const [pax, setPax] = useState(e.pax != null ? String(e.pax) : '');
-  const [typeEvtId, setTypeEvtId] = useState(e.type_evenement_id ?? '');
-  const [types, setTypes] = useState<TypeEvenement[]>([]);
   const [nomClient, setNomClient] = useState(e.nom_client_organisateur ?? '');
   const [refAffaire, setRefAffaire] = useState(e.reference_affaire ?? '');
-  const [cpNom, setCpNom] = useState(e.contact_principal_nom ?? '');
-  const [cpTel, setCpTel] = useState(e.contact_principal_telephone ?? '');
-  const [csNom, setCsNom] = useState(e.contact_secours_nom ?? '');
-  const [csTel, setCsTel] = useState(e.contact_secours_telephone ?? '');
-  // État formulaire — collecte
+  // État formulaire — collecte (type d'événement et contacts : lot B1)
+  const [typeEvtId, setTypeEvtId] = useState(collecte.type_evenement_id ?? '');
+  const [types, setTypes] = useState<TypeEvenement[]>([]);
+  const [cpNom, setCpNom] = useState(collecte.contact_principal_nom ?? '');
+  const [cpTel, setCpTel] = useState(
+    collecte.contact_principal_telephone ?? '',
+  );
+  const [csNom, setCsNom] = useState(collecte.contact_secours_nom ?? '');
+  const [csTel, setCsTel] = useState(collecte.contact_secours_telephone ?? '');
   const [dateCollecte, setDateCollecte] = useState(collecte.date_collecte);
+  const [pax, setPax] = useState(String(collecte.pax));
   const [heureCollecte, setHeureCollecte] = useState(
     collecte.heure_collecte?.slice(0, 5) ?? '',
   );
@@ -119,20 +133,37 @@ export function EditerCollecteForm({
 
   const editable = STATUTS_EDITABLES.includes(collecte.statut);
 
-  // Créneau < 12h → avertissement priorité (§05 l.316, §06.04 l.483).
-  const creneau = instantParis(dateCollecte, `${heureCollecte || '00:00'}:00`);
-  const urgence = creneau.getTime() - Date.now() < 12 * 3600 * 1000;
-  // Réacceptation prestataire (§06.04 l.505) : modif de créneau sur collecte
-  // acceptée → le prestataire devra re-confirmer.
-  const dateHeureModifiee =
-    dateCollecte !== collecte.date_collecte ||
-    heureCollecte !== (collecte.heure_collecte?.slice(0, 5) ?? '');
-  const reacceptation = dateHeureModifiee && collecte.statut_tms === 'acceptee';
+  const saisie: SaisieCollecte = {
+    dateCollecte,
+    heureCollecte,
+    pax,
+    typeEvtId,
+    cpNom,
+    cpTel,
+    csNom,
+    csTel,
+    controleAcces,
+    infosSuppl,
+  };
+  // Urgence < 12h (§05 l.316) et reconfirmation du prestataire (§06.04 l.505).
+  const { urgence, reacceptation } = avertissementsCollecte(collecte, saisie);
 
   // Confirmation (§06.04 l.501-507) : modal unique empilant les avertissements
   // applicables (priorité urgence < 12h + réacceptation prestataire). Si aucun
   // avertissement → sauvegarde directe sans modal.
   function onSubmitClick() {
+    const refus = erreurSaisieCollecte(collecte, saisie);
+    if (refus) {
+      setError(refus);
+      return;
+    }
+    if (
+      nomClient !== (e.nom_client_organisateur ?? '') &&
+      nomClient.trim() === ''
+    ) {
+      setError('Le client final est obligatoire.');
+      return;
+    }
     if (urgence || reacceptation) setConfirmOpen(true);
     else void save();
   }
@@ -145,30 +176,32 @@ export function EditerCollecteForm({
       const evtUpdates: Record<string, unknown> = {};
       if (nomEvenement !== (e.nom_evenement ?? ''))
         evtUpdates.nom_evenement = nomEvenement || null;
-      if (pax !== (e.pax != null ? String(e.pax) : ''))
-        evtUpdates.pax = pax === '' ? null : Number(pax);
-      if (typeEvtId && typeEvtId !== (e.type_evenement_id ?? ''))
-        evtUpdates.type_evenement_id = typeEvtId;
       if (nomClient !== (e.nom_client_organisateur ?? ''))
         evtUpdates.nom_client_organisateur = nomClient || null;
       if (refAffaire !== (e.reference_affaire ?? ''))
         evtUpdates.reference_affaire = refAffaire || null;
-      if (cpNom !== (e.contact_principal_nom ?? ''))
-        evtUpdates.contact_principal_nom = cpNom;
-      if (cpTel !== (e.contact_principal_telephone ?? ''))
-        evtUpdates.contact_principal_telephone = cpTel;
-      if (csNom !== (e.contact_secours_nom ?? ''))
-        evtUpdates.contact_secours_nom = csNom || null;
-      if (csTel !== (e.contact_secours_telephone ?? ''))
-        evtUpdates.contact_secours_telephone = csTel || null;
 
-      if (Object.keys(evtUpdates).length > 0) {
+      // 2. Champs COLLECTE modifiés (type d'événement et contacts compris).
+      const colUpdates = changementsCollecte(collecte, saisie);
+
+      // L'équipe Savr reçoit UN email par enregistrement, envoyé par la dernière
+      // des deux requêtes (cf. lib/collectes/email-modification) : la collecte
+      // quand elle change, prévenue que l'événement vient d'être modifié ; sinon
+      // l'événement, à qui l'on nomme la collecte d'où ce formulaire est ouvert.
+      const evenementModifie = Object.keys(evtUpdates).length > 0;
+      const collecteModifiee = Object.keys(colUpdates).length > 0;
+
+      if (evenementModifie) {
         const res = await fetch(
           `/api/v1/programmation/evenements/${encodeURIComponent(e.id)}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(evtUpdates),
+            body: JSON.stringify(
+              collecteModifiee
+                ? evtUpdates
+                : { ...evtUpdates, collecte_id: collecte.id },
+            ),
           },
         );
         if (!res.ok) {
@@ -177,24 +210,15 @@ export function EditerCollecteForm({
         }
       }
 
-      // 2. Champs COLLECTE modifiés.
-      const colUpdates: Record<string, unknown> = {};
-      if (dateCollecte !== collecte.date_collecte)
-        colUpdates.date_collecte = dateCollecte;
-      if (heureCollecte !== (collecte.heure_collecte?.slice(0, 5) ?? ''))
-        colUpdates.heure_collecte = heureCollecte
-          ? `${heureCollecte}:00`
-          : null;
-      if (controleAcces !== collecte.controle_acces_requis)
-        colUpdates.controle_acces_requis = controleAcces;
-      if (infosSuppl !== (collecte.informations_supplementaires ?? ''))
-        colUpdates.informations_supplementaires = infosSuppl || null;
-
-      if (Object.keys(colUpdates).length > 0) {
+      if (collecteModifiee) {
         const res = await fetch(collecteEndpoint, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(colUpdates),
+          body: JSON.stringify(
+            evenementModifie
+              ? { ...colUpdates, evenement_modifie: true }
+              : colUpdates,
+          ),
         });
         if (!res.ok) {
           const j = (await res.json()) as { error?: string };
@@ -238,27 +262,57 @@ export function EditerCollecteForm({
               onChange={(ev) => setNomEvenement(ev.target.value)}
             />
           </FormField>
+          <FormField label="Client final" htmlFor="edit-evt-client" required>
+            <Input
+              id="edit-evt-client"
+              value={nomClient}
+              onChange={(ev) => setNomClient(ev.target.value)}
+            />
+          </FormField>
+          <FormField label="Référence affaire" htmlFor="edit-evt-ref-affaire">
+            <Input
+              id="edit-evt-ref-affaire"
+              value={refAffaire}
+              onChange={(ev) => setRefAffaire(ev.target.value)}
+            />
+          </FormField>
+        </section>
+
+        {/* ── Champs collecte ───────────────────────────────────────── */}
+        <section className="space-y-4">
+          <Heading level={3} size="sm">
+            Collecte
+          </Heading>
           <FormGrid>
-            <FormField label="Nombre de convives (pax)" htmlFor="edit-evt-pax">
+            <FormField label="Date de collecte" htmlFor="edit-date-collecte">
+              <DatePicker
+                id="edit-date-collecte"
+                value={dateCollecte}
+                onChange={setDateCollecte}
+              />
+            </FormField>
+            <FormField label="Heure de collecte" htmlFor="edit-heure-collecte">
+              <TimePicker
+                id="edit-heure-collecte"
+                value={heureCollecte}
+                onChange={setHeureCollecte}
+              />
+            </FormField>
+            <FormField label="Nombre de convives" htmlFor="edit-col-pax">
               <Input
-                id="edit-evt-pax"
+                id="edit-col-pax"
                 type="number"
-                min={0}
+                inputMode="numeric"
+                min={1}
+                step={1}
                 value={pax}
                 onChange={(ev) => setPax(ev.target.value)}
               />
             </FormField>
-            <FormField label="Client final" htmlFor="edit-evt-client">
-              <Input
-                id="edit-evt-client"
-                value={nomClient}
-                onChange={(ev) => setNomClient(ev.target.value)}
-              />
-            </FormField>
           </FormGrid>
-          <FormField label="Type d'événement" htmlFor="edit-evt-type">
+          <FormField label="Type d'événement" htmlFor="edit-col-type">
             <Combobox
-              id="edit-evt-type"
+              id="edit-col-type"
               icon={null}
               placeholder="Choisir un type"
               searchPlaceholder="Rechercher un type…"
@@ -269,13 +323,6 @@ export function EditerCollecteForm({
               }
               value={typeEvtId}
               onChange={setTypeEvtId}
-            />
-          </FormField>
-          <FormField label="Référence affaire" htmlFor="edit-evt-ref-affaire">
-            <Input
-              id="edit-evt-ref-affaire"
-              value={refAffaire}
-              onChange={(ev) => setRefAffaire(ev.target.value)}
             />
           </FormField>
           {/* Contact principal (sous-bloc) */}
@@ -322,29 +369,6 @@ export function EditerCollecteForm({
               </FormField>
             </FormGrid>
           </div>
-        </section>
-
-        {/* ── Champs collecte ───────────────────────────────────────── */}
-        <section className="space-y-4">
-          <Heading level={3} size="sm">
-            Collecte
-          </Heading>
-          <FormGrid>
-            <FormField label="Date de collecte" htmlFor="edit-date-collecte">
-              <DatePicker
-                id="edit-date-collecte"
-                value={dateCollecte}
-                onChange={setDateCollecte}
-              />
-            </FormField>
-            <FormField label="Heure de collecte" htmlFor="edit-heure-collecte">
-              <TimePicker
-                id="edit-heure-collecte"
-                value={heureCollecte}
-                onChange={setHeureCollecte}
-              />
-            </FormField>
-          </FormGrid>
           <Label variant="choice" className="flex items-center gap-3">
             <Checkbox
               checked={controleAcces}
@@ -407,34 +431,17 @@ export function EditerCollecteForm({
 
         {/* Modal de confirmation unique (§06.04 l.501-507) — empile les
             avertissements applicables avant la sauvegarde. */}
-        <ConfirmDialog
+        <ConfirmationModificationCollecte
           open={confirmOpen}
-          title="Confirmer la modification"
-          confirmLabel="Confirmer la modification"
-          cancelLabel="Annuler"
-          variant="primary"
+          urgence={urgence}
+          reacceptation={reacceptation}
           loading={saving}
           onConfirm={() => {
             setConfirmOpen(false);
             void save();
           }}
           onCancel={() => setConfirmOpen(false)}
-        >
-          <ul className="list-disc space-y-2 pl-5 text-sm text-savr-neutral-700">
-            {urgence && (
-              <li>
-                Cette modification a lieu moins de 12h avant la collecte. Notre
-                équipe Ops sera alertée en urgence.
-              </li>
-            )}
-            {reacceptation && (
-              <li>
-                Ce nouveau créneau devra être reconfirmé par notre équipe
-                logistique.
-              </li>
-            )}
-          </ul>
-        </ConfirmDialog>
+        />
       </CardContent>
     </Card>
   );

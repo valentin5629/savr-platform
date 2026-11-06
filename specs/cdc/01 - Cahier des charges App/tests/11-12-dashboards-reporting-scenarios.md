@@ -2,7 +2,6 @@
 
 **Source CDC** : [[11 - Dashboards]] + [[12 - Reporting et exports]] + [[05 - Règles métier]] (R_taux_recyclage, R_co2_calcul, R_co2_ag, R_co2_snapshot_fige, R_marge_zd_traiteur, R_revenus_imputation_organisation) + [[04 - Data Model]] (`rapports_rse`, `bordereaux_savr`, `attestations_don`, `exports_registre`, `documents_generaux_savr`, `f_benchmark_kg_pax_zd`, vues `v_kpi_*`, `v_registre_dechets`) + [[09 - Authentification et permissions]] (A8, A9, A10, matrices bordereaux/attestations)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests des modules §11 Dashboards et §12 Reporting/exports.
 > Pour chaque scénario :
@@ -38,12 +37,13 @@
 # Couche : api
 # Priorité : P1-critique
 
-Scénario : dashboard_admin_cinq_cartes_actions
-  Étant donné 1 collecte ZD "programmee" "statut_tms=non_envoye" "tms_reference IS NULL" (hors 48h), 1 collecte AG "programmee" "statut_tms=non_envoye" (hors 48h), 1 collecte "statut_tms=attribuee_en_attente_acceptation" (hors 48h), 1 collecte "dirty_tms=true", et 1 collecte "programmee" "statut_tms=a_attribuer" à J+1 (dans 48h, non verrouillée)
+Scénario : dashboard_admin_quatre_cartes_actions
+  Étant donné 1 collecte ZD "programmee" "statut_tms=non_envoye" "tms_reference IS NULL" (hors 48h), 1 collecte AG "programmee" "statut_tms=non_envoye" (hors 48h), 1 collecte "statut_tms=attribuee_en_attente_acceptation" (hors 48h), et 1 collecte "programmee" "statut_tms=a_attribuer" à J+1 (dans 48h, non verrouillée)
   Quand un admin_savr charge le Dashboard Admin
-  Alors les 5 cartes « Non transmises ZD » / « Non transmises AG » / « En attente prestataire » / « Modifiées sans renvoi TMS » / « Collectes <48h non validées » affichent respectivement 1 / 1 / 1 / 1 / 1 (rangée refondue 2026-07-15 : split Non transmises M3.5 + fusion 48h M3.6)
-  Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le chip miroir pré-appliqué (`non_transmises_zd` / `non_transmises_ag` / `attente_prestataire` / `dirty_tms` / `collectes_48h_non_validees`), sans page intermédiaire
+  Alors les 4 cartes « Non transmises ZD » / « Non transmises AG » / « En attente prestataire » / « Collectes <48h non validées » affichent respectivement 1 / 1 / 1 / 1 (rangée refondue 2026-07-15 : split Non transmises M3.5 + fusion 48h M3.6)
+  Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le chip miroir pré-appliqué (`non_transmises_zd` / `non_transmises_ag` / `attente_prestataire` / `collectes_48h_non_validees`), sans page intermédiaire
   Et la carte « non transmises » et son chip miroir comptent exactement le même ensemble : statut_tms='non_envoye' ET tms_reference IS NULL ET statut IN ('programmee','validee') — prédicat canonique tranché Val 2026-09-14
+  Et aucune carte « Modifiées sans renvoi TMS » n'est affichée (retirée, décision Val 2026-10-28)
 ```
 
 ```gherkin
@@ -52,7 +52,7 @@ Scénario : dashboard_admin_cinq_cartes_actions
 Scénario : dashboard_admin_revenus_defaut_12_mois
   Étant donné un `admin_savr` qui ouvre /admin/dashboard
   Alors le Bloc 2 Revenus affiche l'histogramme et le tableau côte à côte (50/50 à partir de lg)
-    Et une SEULE barre de filtre Du/Au pilote les deux blocs
+    Et une SEULE barre de filtres (Période, Lieux, Traiteur, Agence, Gestionnaire de lieux) pilote les deux blocs
     Et la période par défaut est les 12 derniers mois glissants, alignés au 1er du mois (12 buckets mensuels pleins)
     Et ce n'est PAS le mois en cours (l'ancien défaut isolé du §11 est supprimé)
     Et aucune rangée de presets n'est affichée sous la barre ; les raccourcis standard (7 derniers jours … Année civile) figurent dans le panneau du filtre Période, comme sur tous les filtres de date (Val 2026-09-30)
@@ -60,6 +60,23 @@ Scénario : dashboard_admin_revenus_defaut_12_mois
   Quand l'admin clique « Réinitialiser »
   Alors la période revient aux 12 derniers mois, pas au mois en cours
   Et la même liste de raccourcis figure dans le panneau Période des autres dashboards (traiteur §06.04, gestionnaire §06.05, agence) et du registre
+```
+
+```gherkin
+# Source : §11 §1.1 Bloc 2 — filtres lieu et organisation (décision Val 2026-10-30)
+# Couche : api | Priorité : P2-important
+Scénario : dashboard_admin_revenus_filtres_lieu_organisation
+  Étant donné un traiteur Kaspia qui a programmé 2 collectes et opéré 1 collecte programmée par l'agence Caromy
+    Et un gestionnaire Viparis dont le parc compte le lieu Pavillon Gabriel, où 1 collecte a été programmée par un autre traiteur
+  Quand l'admin coche Kaspia dans le filtre Traiteur
+  Alors l'histogramme et le tableau comptent 3 collectes, imputées à Kaspia (2) et à Caromy (1)
+    Et les 4 cartes « Suivi opérationnel » ne changent pas
+  Quand l'admin coche aussi Viparis dans le filtre Gestionnaire de lieux
+  Alors 4 collectes sont comptées (union des organisations cochées)
+  Quand l'admin coche le seul lieu Pavillon Gabriel dans le filtre Lieux
+  Alors seule la collecte tenue sur Pavillon Gabriel est comptée
+  Quand l'admin clique « Réinitialiser les filtres »
+  Alors la période revient aux 12 derniers mois et tous les lieux et organisations sont rétablis
 ```
 
 ```gherkin
@@ -370,14 +387,14 @@ Scénario : marge_zd_null_et_negative
 ```
 
 ```gherkin
-# Source : §05 R_marge_zd_traiteur (DISTINCT pax)
+# Source : §05 R_marge_zd_traiteur (pax des collectes ZD, lot 3)
 # Couche : db
 # Priorité : P1-critique
 
 Scénario : marge_zd_distinct_pax_multi_collectes
-  Étant donné un événement 500 pax portant 2 collectes ZD (mid-event + fin-event), tarif_refacture = 1,50 €
+  Étant donné un événement de 500 pax portant 2 collectes ZD clôturées le même soir (mid-event 300 convives + fin-event 200 convives), tarif_refacture = 1,50 €
   Quand le revenu du KPI Marge se calcule
-  Alors le revenu = 1,50 × 500 = 750 € (les pax comptés UNE fois par événement, pas 1 500 €)
+  Alors le revenu = 1,50 × (300 + 200) = 750 € (chaque collecte compte ses propres convives, et non 1 500 € en reprenant les 500 de l'événement pour chacune — lot 3, décision Val Q3 du 2026-10-25)
 ```
 
 ```gherkin
@@ -448,7 +465,7 @@ Scénario : rapport_recyclage_radar_flux_masque_retire
   Et avec moins de 3 axes exploitables la liste est affichée seule, sans radar
   Et l'en-tête affiche le nom du client organisateur, la date de collecte (pas la date de l'événement), l'adresse du lieu et le poids par convive
   Et le bloc carbone ne porte ni équivalence « repas bœuf » ni mention d'incertitude (±50 % figure dans la méthodologie)
-  Et au plus 3 photos sont affichées, et la comparaison au parc ne cite pas le nombre d'organisations
+  Et au plus 2 photos sont affichées, uniquement celles que l'équipe Savr a choisies (aucune photo choisie = pas de bloc photos), et la comparaison au parc ne cite pas le nombre d'organisations
 ```
 
 ---
@@ -509,7 +526,8 @@ Scénario : regeneration_bordereau_et_attestation_interdites_traiteur
   Étant donné un traiteur_manager
   Quand il tente de régénérer un bordereau de pesée §1.1, une attestation de don §1.3 ou un rapport sans excédent §1.3-bis
   Alors les trois tentatives sont refusées (régénération admin_savr uniquement)
-  Et la régénération du rapport RSE §1.2 lui reste, elle, accessible
+  Et le rapport de recyclage §1.2 ne se régénère pas non plus : il se télécharge, fabriqué au clic (décision Val 2026-10-16)
+  Mais quand il dépose, remplace ou retire le logo du client de l'événement (programmateur ou traiteur opérationnel, hors règle D12), l'attestation et le rapport sans excédent déjà produits sont refaits automatiquement — seul le logo est relu (décision Val 2026-10-30)
 ```
 
 ```gherkin
@@ -675,7 +693,7 @@ Scénario : documents_generaux_public_actif_seulement
 
 Scénario : matrice_exports_csv_par_profil (paramétré × 4)
   Étant donné la matrice §12 §2 (7 entités V1 — "Courses logistiques" hors scope V1)
-  Quand un traiteur_commercial demande l'export "Pesées par flux" → refusé (—)
+  Quand un traiteur_commercial demande l'export "Pesées par flux", "Associations bénéficiaires AG", "Impact RSE consolidé" ou "Packs AG" → servi (révision Val 2026-10-30 ; Packs AG : reco validée Val 2026-11-02, dette code migration d'élargissement)
   Et quand un gestionnaire_lieux demande l'export "Associations bénéficiaires AG" → refusé (—)
   Et quand une agence demande l'export "Associations bénéficiaires AG" → refusé (—)
   Et quand admin_savr demande l'export "courses-logistiques" → refusé 404 (entité non supportée V1 — EXPORT_MATRIX ne la connaît pas)
@@ -713,13 +731,12 @@ Scénario : synthese_perimetre_rls_du_demandeur
 # Couche : api
 # Priorité : P1-critique
 
-Scénario : regeneration_rapport_rse_versionnee_pas_dupliquee
-  Étant donné un rapport RSE version=1 généré automatiquement
-  Quand l'admin corrige une pesée et régénère
-  Alors la MÊME ligne `rapports_rse` est mise à jour : version=2, regenere_at posé, regenere_par_user_id renseigné (UPDATE, pas de 2e ligne)
-  Et l'UI affiche le picto ⟳ + "Mis à jour le …"
-  Et le PDF du rapport de recyclage ne porte AUCUNE mention de régénération (le bordereau unitaire conserve "Version mise à jour — générée le …")
-  Et l'audit_log trace qui / quel profil / quand
+Scénario : rapport_recyclage_correction_pesee_reprise_au_telechargement
+  Étant donné une collecte ZD clôturée dont le rapport a déjà été téléchargé
+  Quand l'admin corrige une pesée
+  Alors aucune régénération n'est lancée et aucune ligne `rapports_rse` n'est modifiée (version, regenere_at, pdf_url inchangés)
+  Et le téléchargement suivant fabrique un rapport qui reprend la pesée corrigée (décision Val 2026-10-16)
+  Et le PDF du rapport de recyclage ne porte AUCUNE mention de régénération
 ```
 
 ```gherkin
@@ -754,7 +771,19 @@ Scénario : modification_facteur_sans_effet_sur_collectes_figees
   Étant donné une collecte cloturee avec taux_recyclage=78,4 % et co2_* figés (snapshots caps_appliques + co2_facteurs_snapshot)
   Quand l'admin modifie un taux de captation et un facteur CO₂
   Alors taux_recyclage, co2_* et les snapshots de la collecte restent strictement inchangés
-  Et le PDF re-téléchargé est identique
+  Et le rapport re-téléchargé reprend ces valeurs figées (taux de recyclage, CO₂)
+```
+
+```gherkin
+# Source : §04 parametres_co2_divers (km_collecte_aller_retour = 15, décision Val 2026-10-20) + §05 R_co2_calcul
+# Couche : db
+# Priorité : P2-important
+
+Scénario : co2_forfait_transport_15km
+  Étant donné km_collecte_aller_retour = 15 et un facteur transport de 2,1 kgCO₂e/km
+  Quand une collecte ZD est clôturée
+  Alors la part transport de co2_induit_kg vaut 31,5 kg CO₂e, quelle que soit la taille de la collecte
+  Et une collecte déjà clôturée avant le changement garde ses valeurs figées
 ```
 
 ```gherkin
@@ -770,14 +799,15 @@ Scénario : recalcul_apres_correction_pesee_facteurs_du_moment
 ```
 
 ```gherkin
-# Source : §12 §1.2 + §04 rapports_rse.filtres_benchmark
+# Source : §12 §1.2 — rapport de recyclage fabriqué au clic, rien n'est stocké (décision Val 2026-10-16 ; remplace benchmark_pdf_reproductible_via_snapshot)
 # Couche : api
 # Priorité : P1-critique
 
-Scénario : benchmark_pdf_reproductible_via_snapshot
-  Étant donné un rapport RSE généré avec filtres benchmark figés dans `rapports_rse.filtres_benchmark`
-  Quand de nouvelles collectes parc modifient la moyenne benchmark, puis le traiteur re-télécharge le même PDF
-  Alors le radar benchmark du PDF et sa liste par flux affichent exactement les valeurs d'origine (snapshot)
+Scénario : rapport_radar_calcule_au_telechargement
+  Étant donné un rapport de recyclage ZD déjà téléchargé avec le radar
+  Quand de nouvelles collectes du parc modifient la moyenne benchmark, puis le traiteur télécharge à nouveau le rapport avec d'autres filtres
+  Alors le radar du PDF et sa liste par flux reflètent la moyenne et les filtres du moment du téléchargement
+  Et `rapports_rse.filtres_benchmark` n'est pas écrit et aucun PDF n'est stocké
   Et la légende sous le graphe liste les filtres appliqués (période, lieux, type, taille — jamais traiteurs)
 ```
 
@@ -795,6 +825,25 @@ Scénario : benchmark_agregation_segments_ponderee_ecran_et_pdf
   Et aucun des deux ne retourne 0,350 (moyenne simple non pondérée — comportement PDF avant 2026-09-22)
   Et le cas est atteint sans action utilisateur : type d'événement ou bracket de taille absent
     -> retombée sur les 5 brackets, donc plusieurs segments
+```
+
+```gherkin
+# Source : §04 f_benchmark_kg_pax_zd + f_benchmark_single_collecte + f_rapport_benchmark_zd (lot C1 — décisions Val C3 2026-10-22, C4 2026-10-20, Q4 2026-10-24)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : benchmark_grain_collecte_type_taille_pax_zero
+  Étant donné un événement « Gala » de deux soirées : collecte ZD n°1 « Cocktail apéritif » 300 convives et collecte ZD « Repas assis » 600 convives, toutes deux clôturées (événement à 900 convives, type recopié « Cocktail apéritif »)
+  Quand f_benchmark_kg_pax_zd agrège le parc
+  Alors la collecte « Repas assis » entre dans le segment (Repas assis, M) avec son poids et ses 600 convives
+  Et la collecte n°1 entre dans le segment (Cocktail apéritif, S) avec ses 300 convives
+  Et aucune des deux n'entre dans un segment L ni n'est divisée par 900
+  Quand f_benchmark_single_collecte est appelée sur la collecte « Repas assis »
+  Alors ratio_user = poids du flux / 600, sur le segment (Repas assis, M)
+  Et f_rapport_benchmark_zd compare le PDF de cette collecte au même segment que l'écran
+  Étant donné une collecte ZD clôturée à 0 convive (inconnu, reprise Bubble) avec 80 kg de biodéchet
+  Alors elle n'entre dans aucun segment : ni son poids, ni ses convives, ni dans nb_collectes_segment
+  Et f_benchmark_single_collecte rend ratio_user = NULL pour elle (pas de point « Vous »)
 ```
 
 ```gherkin
@@ -848,15 +897,17 @@ Scénario : consulte_par_user_at_pose_une_seule_fois
 # Couche : api + ui
 # Priorité : P1-critique
 
-Scénario : regeneration_rapport_blocs_optionnels_figes
-  Étant donné un rapport de recyclage généré par le batch J+1 (options_rapport NULL = tout affiché)
-  Quand un utilisateur autorisé à télécharger le rapport (traiteur, agence ou gestionnaire programmateur, client organisateur) ouvre la boîte de dialogue de régénération
-  Alors les cases « Comparaison au parc », « Benchmark » et « Photos » sont cochées par défaut
-  Quand il décoche « Benchmark » et « Photos » et régénère
-  Alors rapports_rse.options_rapport = {"comparaison_parc": true, "benchmark": false, "photos": false} et version = version + 1
-  Et le PDF ne contient ni radar benchmark ni photos, mais toujours le taux, les tonnages, le bloc carbone, l'en-tête, la méthodologie et la page 2
-  Et tout téléchargement ultérieur reproduit le même document
-  Et une régénération demandée par un utilisateur d'une autre organisation répond 403
+Scénario : telechargement_rapport_avec_ou_sans_radar
+  Étant donné une collecte ZD clôturée dont l'embargo H+24 est écoulé (ligne rapports_rse posée par le batch J+1, aucun PDF fabriqué)
+  Quand un utilisateur autorisé à lire le rapport (traiteur manager ou commercial, agence, gestionnaire de lieux) ouvre l'onglet « Bilan & documents » de la fiche collecte
+  Alors le bouton bascule « Intégrer la comparaison au rapport à télécharger » (à côté du radar) est désactivé à l'ouverture
+  Quand il règle les filtres de comparaison, active le bouton et clique sur « Télécharger le rapport » dans le pied de la fiche
+  Alors il reçoit un PDF qui porte le radar calculé avec ces filtres sous son identité
+  Et le PDF contient toujours le taux, les tonnages, le bloc carbone, l'en-tête, la méthodologie et la page 2 (bordereau intégré) quand le demandeur peut lire le bordereau sous sa RLS — sinon page 1 seule (§12 §1.7, décision Val 2026-10-27)
+  Quand un autre utilisateur télécharge le rapport sans activer la comparaison
+  Alors il reçoit un PDF sans radar, et le premier n'en est pas modifié (rien n'est stocké)
+  Et le premier téléchargement par un client pose rapports_rse.consulte_par_user_at
+  Et un téléchargement demandé par un utilisateur d'une autre organisation répond 403
 ```
 
 ---
@@ -1048,3 +1099,134 @@ Scénario : kpi_filtre_periode_date_collecte (M3.6 dashboard client admin)
 - **Notice méthodologique CSRD (bloc "À INTÉGRER")** : contenu éditorial à figer au rendu graphique — pas de scénario automatisable.
 - **Persistance préférences filtres** : `localStorage` navigateur (sobriété B1) — pas de table serveur, test UI léger seulement (hors P1).
 - **Vues matérialisées `mv_kpi_*`** : supprimées V1 (sobriété A1) — ne pas tester de refresh cron ; seule `mv_benchmark_kg_pax_zd_base` (refresh quotidien) reste, couverte via f_benchmark.
+
+
+## Ajouts divergences 2026-10-13 (run cdc-patch-divergences)
+
+```gherkin
+Scénario : liste_organisateur_sans_excedent
+  Étant donné une collecte AG « réalisée sans collecte »
+  Quand le client organisateur ouvre l'onglet Anti-Gaspi de sa liste Collectes
+  Alors la colonne Statut affiche « Réalisée »
+  Et la colonne Repas affiche « Sans excédent », jamais « 0 »
+
+Scénario : export_collectes_sans_excedent_zero_repas
+  Étant donné une collecte AG « réalisée sans collecte »
+  Quand un export CSV Collectes ou Impact RSE est produit
+  Alors la colonne Statut vaut « Réalisée » (export Collectes)
+  Et la colonne « Repas AG » vaut 0
+```
+
+## Ajouts divergences 2026-10-20 (run cdc-patch-divergences — Rapport de don, M2.4)
+
+```gherkin
+Scénario : rapport_de_don_titre_imprime_des_deux_pdf
+  Étant donné une collecte AG clôturée avec une attestation de don émise
+  Quand son PDF est rendu
+  Alors le titre imprimé est « Rapport de don » et le sous-titre « Attestation de don »
+  Et le numéro ATT-DON et les mentions fiscales sont ceux d'avant
+  Étant donné une collecte AG au statut « réalisée sans collecte »
+  Quand son PDF est rendu
+  Alors le titre imprimé est « Rapport de don » et le sous-titre « Événement sans excédent alimentaire »
+  Et le bloc Conséquences dit « Aucun don n'ayant eu lieu, ce rapport ne vaut pas reçu fiscal. »
+
+Scénario : rapport_de_don_nom_du_fichier_servi
+  Étant donné une collecte AG clôturée dont l'attestation porte le numéro ATT-DON-2026-00001
+  Quand un utilisateur autorisé télécharge son document
+  Alors le fichier servi s'appelle « rapport-de-don-ATT-DON-2026-00001.pdf »
+  Étant donné une collecte AG « réalisée sans collecte » de l'événement « Gala » du 2026-10-09
+  Quand un utilisateur autorisé télécharge son document
+  Alors le fichier servi s'appelle « rapport-de-don-2026-10-09-gala.pdf »
+  Étant donné une collecte ZD
+  Quand un utilisateur autorisé télécharge son rapport de recyclage
+  Alors aucun nom de fichier n'est imposé
+```
+
+### Ajouts cdc-patch-divergences 2026-11-02 — logo du client sur les rapports de don (M1.6_20261030)
+
+```gherkin
+# Source : §12 §1.2 « Logos du client et du traiteur » + §09 « Logo du client de l'événement » (fiche M1.6_20261030_logo-client-rapport-de-don, décision Val 2026-11-02 ; dette code : garde serveur)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : logo_client_qui_peut_remplacer_ou_seulement_deposer
+  Étant donné un événement programmé par Kaspia sur un lieu Viparis, client organisateur Danone, sans logo client
+  Quand le gestionnaire Viparis dépose un logo depuis la fiche collecte
+  Alors le dépôt est accepté (aucun logo existant), tracé `logo_client_depose` dans audit_log
+  Quand le gestionnaire Viparis tente ensuite de le remplacer ou de le retirer
+  Alors la route répond 403 (gestionnaire tiers : dépôt seulement)
+  Et le client organisateur Danone, depuis la fiche événement, reçoit aussi 403 au remplacement comme au retrait
+  Quand un commercial de Kaspia (organisation programmatrice) le remplace
+  Alors le remplacement est accepté et les rapports de don déjà produits de l'événement sont refaits avec le nouveau logo
+  Et l'Admin Savr peut le retirer depuis l'onglet Documents de sa fiche collecte
+  Et le traiteur opérationnel d'un événement programmé par une agence peut remplacer ou retirer, sauf dès que l'événement porte une collecte AG non annulée et non « sans excédent » (règle D12 : « Réservé à l'organisation qui a programmé la collecte »)
+
+Scénario : logo_client_cascade_et_attestation
+  Étant donné un événement programmé par l'agence WPM (logo agence) avec un logo client déposé sur l'événement
+  Quand l'attestation de don d'une de ses collectes AG est produite
+  Alors l'en-tête porte le logo client déposé à côté du logo Savr, jamais le logo du traiteur
+  Et un fichier de plus de 1 Mo est refusé au dépôt
+```
+
+### Ajouts cdc-patch-divergences 2026-11-02 — lot A : barre de filtres sur tous les dashboards (M3_20261030) et animation d'entrée des graphiques (DS_20261028)
+
+```gherkin
+# Source : §11 §7 Dashboard client_organisateur + §06.06 §2 Dashboard Client + §06.04 Barre de filtres globale (fiche M3_20261030_barre-filtres-tous-dashboards, décision Val 2026-11-02)
+# Couche : ui
+# Priorité : P2-important
+
+Scénario : barre_filtres_dashboard_organisateur
+  Étant donné un client organisateur rattaché à des événements opérés par Kaspia et Butard sur 3 lieux depuis 24 mois, dont une collecte brouillon sur un 4e lieu et une collecte annulée chez un 3e traiteur
+  Quand il ouvre son dashboard
+  Alors la barre propose Période, Lieux, Traiteurs, Type d'événement, Taille d'événement et « Réinitialiser les filtres »
+  Et la liste Lieux propose les 3 lieux, la liste Traiteurs Kaspia et Butard (ni le 4e lieu ni le 3e traiteur : brouillons et annulées écartés des options)
+  Quand il filtre sur un lieu
+  Alors les cadrans et cartes des onglets ZD et AG sont recalculés sur les seules collectes de ce lieu
+  Et le bandeau de tête (synthèse YTD) reste calculé sur l'année entière, non filtré
+
+Scénario : barre_filtres_dashboard_client_admin
+  Étant donné l'Admin sur le Dashboard Client avec l'organisation Kaspia choisie
+  Quand il ouvre la barre de filtres
+  Alors elle porte, après Période et Organisations, Lieux, Traiteurs, Type d'événement et Taille d'événement, toutes sans choix
+  Et les listes Lieux et Traiteurs proposent ceux des collectes des 24 derniers mois de Kaspia (programmatrice OU traiteur opérationnel), brouillons et annulées écartés
+  Et un Type ou une Taille choisis dans la barre ne modifient pas les filtres de l'encart « Comparer avec » du radar
+```
+
+```gherkin
+# Source : 10 - Design System §4.5 `--motion-chart` (fiche DS_20261028_entree-graphiques-dashboards, décision Val 2026-11-02)
+# Couche : ui
+# Priorité : P3-nominal
+
+Scénario : graphiques_animation_entree_une_fois
+  Étant donné le dashboard du gestionnaire, dont le bloc Anti-Gaspi est sous la ligne de flottaison
+  Quand la page s'ouvre
+  Alors les graphiques visibles se construisent en environ 600 ms (barres depuis leur pied, courbes de gauche à droite, donut dans le sens horaire, radar depuis son centre, jauges depuis la gauche)
+  Et un graphique hors de l'écran ne s'anime qu'une fois au moins un quart visible
+  Quand il change la période ou un filtre
+  Alors les graphiques déjà animés se mettent à jour sans rejouer l'animation
+  Et quitter la page puis y revenir rejoue l'animation ; dans une fiche collecte, ouvrir une autre collecte la rejoue, changer d'onglet non
+  Et avec `prefers-reduced-motion: reduce`, ou à l'impression, les graphiques s'affichent directement sans animation
+```
+
+### Ajouts cdc-patch-divergences 2026-11-02 — exports Collectes et Événements : codes VIPARIS et poids par flux (M3.2_20261102_codes-viparis-site-affaire)
+
+```gherkin
+# Source : §12 §2 Exports CSV Collectes et Événements (demande VIPARIS, décision Val 2026-11-02)
+# Couche : api
+# Priorité : P2-important
+
+Scénario : export_collectes_entetes_code_affaire_et_poids_par_flux
+  Étant donné un gestionnaire Viparis, une collecte ZD clôturée sur un lieu PCP d'un événement au code affaire « 26SIAL1 » (biodéchets 120 kg, verre 40 kg) et une collecte AG réalisée de 35 repas
+  Quand il exporte la liste Collectes
+  Alors les en-têtes sont, dans l'ordre : Date événement ; Date collecte ; Heure ; Événement ; Code affaire VIPARIS ; Lieu ; Code postal ; Ville ; Traiteur ; Client organisateur ; Type ; Statut ; Tonnage ZD (kg) ; Biodéchets (kg) ; Emballages (kg) ; Cartons (kg) ; Verre (kg) ; Déchet résiduel (kg) ; Taux recyclage (%) ; CO2 évité (kg) ; Repas AG
+  Et la ligne ZD porte « 26SIAL1 », 120 en Biodéchets, 40 en Verre et 0 ou vide dans les autres flux, la ligne AG porte des flux vides et 35 en Repas AG
+  Et une collecte d'un lieu sans code ou d'un événement sans code affaire a une colonne Code affaire VIPARIS vide
+  Et le code est lu en service_role pour les seuls événements des lignes lues sous la RLS du demandeur
+
+Scénario : export_evenements_entetes_code_affaire_et_poids_par_flux
+  Étant donné un événement au code affaire « 26SIAL1 » avec 2 collectes ZD (biodéchets 120 et 80 kg) et 1 collecte AG
+  Quand l'utilisateur exporte la liste Événements
+  Alors la colonne `code_affaire_viparis` suit `nom_evenement`
+  Et cinq colonnes Biodéchets, Emballages, Cartons, Verre, Déchet résiduel (kg) suivent `tonnage_zd_kg`, cumulées sur les collectes ZD de l'événement (Biodéchets = 200)
+  Et la colonne des repas AG donnés garde son libellé
+```

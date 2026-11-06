@@ -4,13 +4,18 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { PlusCircle, FileEdit, CalendarDays, Trash2 } from 'lucide-react';
+import {
+  CalendarDotsIcon,
+  NotePencilIcon,
+  TrashIcon,
+} from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ROUTES } from '@/lib/routes';
+import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
 
 interface BrouillonRow {
   id: string;
@@ -56,23 +61,15 @@ export default function BrouillonsPage() {
     <div className="space-y-6">
       {dialogue}
       <PageHero
-        icon={<FileEdit className="h-6 w-6 text-savr-primary-200" />}
+        icon={<NotePencilIcon className="h-6 w-6" />}
         title="Mes brouillons"
-        actions={
-          <Button variant="accent" asChild>
-            <Link href={ROUTES.programmer.nouveau}>
-              <PlusCircle />
-              Programmer une collecte
-            </Link>
-          </Button>
-        }
       />
 
       {loading && <LoadingState variant="bloc" />}
 
       {!loading && rows.length === 0 && (
         <EmptyState
-          icon={<FileEdit className="h-10 w-10 text-savr-neutral-400" />}
+          icon={<NotePencilIcon className="h-10 w-10 text-savr-neutral-400" />}
           title="Aucun brouillon"
           description="Vos programmations enregistrées en brouillon apparaîtront ici."
           action={{
@@ -91,8 +88,8 @@ export default function BrouillonsPage() {
             >
               <div className="min-w-0 space-y-0.5">
                 <p className="font-medium text-savr-neutral-900 truncate">
-                  {row.nom_client_organisateur ??
-                    row.nom_evenement ??
+                  {row.nom_evenement ??
+                    row.nom_client_organisateur ??
                     'Sans nom'}
                 </p>
                 <Text
@@ -101,11 +98,13 @@ export default function BrouillonsPage() {
                   className="flex items-center gap-3"
                 >
                   <span className="flex items-center gap-1">
-                    <CalendarDays className="h-3.5 w-3.5" />
+                    <CalendarDotsIcon className="h-3.5 w-3.5" />
                     {row.collectes[0]?.date_collecte ?? 'Date à définir'}
                   </span>
                   <span>
-                    {row.collectes.map((c) => c.type.toUpperCase()).join(' + ')}
+                    {row.collectes
+                      .map((c) => libelleTypeCollecte(c.type))
+                      .join(' + ')}
                   </span>
                 </Text>
               </div>
@@ -122,7 +121,7 @@ export default function BrouillonsPage() {
                   disabled={deleting === row.id}
                   className="text-savr-error hover:bg-savr-error-subtle hover:border-savr-error"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <TrashIcon className="h-3.5 w-3.5" />
                   Supprimer
                 </Button>
               </div>

@@ -39,16 +39,16 @@ export const LIBELLE_FLUX: Record<FluxZdCode, string> = {
   dechet_residuel: 'Déchet résiduel',
 };
 
-// Couleurs = palette data-viz figée du Design System §2.4 (catégoriel, dashboards),
-// DÉRIVÉE des tokens `--color-savr-dataviz-1..6` de globals.css (R-UI-6a) :
-// 1 navy · 2 orange · 3 navy-500 · 4 vert · 5 navy-400 · 6 orange-600.
-// Pas de gris pur (§2.3).
+// Couleurs figées par flux (décision Val 2026-10-30), tokens `--color-savr-flux-*`
+// de globals.css : emballages jaune doré, biodéchets vert, verre bleu marine,
+// cartons marron, déchet résiduel (DIB) gris. Le rapport de recyclage PDF reprend
+// les mêmes codes (FLUX_REF du pdf-renderer).
 export const COULEUR_FLUX: Record<FluxZdCode, string> = {
-  biodechet: 'var(--color-savr-dataviz-4)',
-  emballage: 'var(--color-savr-dataviz-3)',
-  carton: 'var(--color-savr-dataviz-6)',
-  verre: 'var(--color-savr-dataviz-5)',
-  dechet_residuel: 'var(--color-savr-dataviz-1)',
+  biodechet: 'var(--color-savr-flux-biodechet)',
+  emballage: 'var(--color-savr-flux-emballage)',
+  carton: 'var(--color-savr-flux-carton)',
+  verre: 'var(--color-savr-flux-verre)',
+  dechet_residuel: 'var(--color-savr-flux-residuel)',
 };
 
 /** Les 5 flux dans l'ordre d'affichage, avec libellé et couleur. */

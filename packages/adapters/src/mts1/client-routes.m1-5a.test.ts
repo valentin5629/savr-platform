@@ -5,8 +5,10 @@ import { _setMts1Handlers } from './mock.js';
 
 // Tests « wire » : ils forcent le chemin réel (fetch, handlers=null) et vérifient
 // l'URL + méthode + body EXACTS envoyés à MTS-1. C'est le seul niveau qui aurait
-// attrapé le 404 BAD_ROUTE sur l'ancienne route de dispatch — les mocks de
-// handlers (adapter.m1-5a.test.ts) ne voient jamais l'URL.
+// attrapé le 404 BAD_ROUTE de l'ancienne route d'envoi d'une tournée — les mocks
+// de handlers (adapter.m1-5a.test.ts) ne voient jamais l'URL. L'envoi au
+// transporteur et la validation ne partent plus de Savr : l'Admin les fait dans
+// la console MTS-1 (décision Val 2026-10-15).
 
 const fakeSupabase = {
   from: () => ({ insert: async () => ({ error: null }) }),
@@ -33,22 +35,6 @@ describe('M1.5a / MTS-1 client — routes sortantes (wire)', () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     _setMts1Handlers(null);
-  });
-
-  it('dispatchTour → POST /v3/dispatch/{tourId}/toCarrier (route V3 réelle, pas /v3/tours/{id}/dispatch)', async () => {
-    const fetchMock = stubFetchOk();
-    await new Mts1Client(fakeSupabase).dispatchTour('T-1', 'CA_49TWSU', 'corr');
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as [
-      string,
-      { method: string; body: string },
-    ];
-    expect(url).toBe('https://mts1.test/v3/dispatch/T-1/toCarrier');
-    expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body)).toEqual({
-      carrierShareableCode: 'CA_49TWSU',
-    });
   });
 
   it('addCustomerOrderToTour → PUT /v3/tours/addCustomerOrder { tourId, customerOrderId }', async () => {

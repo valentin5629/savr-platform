@@ -292,10 +292,12 @@ SELECT is(plateforme.f_collecte_editable('09e70000-0000-0000-0000-0000000000e1':
 SELECT test_as_superuser();
 SET LOCAL role service_role;
 SELECT lives_ok(
-  $$ SELECT plateforme.fn_modifier_evenement('09e70000-0000-0000-0000-0000000000e1'::uuid, '{"pax": 150}'::jsonb, ARRAY['pax']) $$,
+  $$ SELECT plateforme.fn_modifier_evenement('09e70000-0000-0000-0000-0000000000e1'::uuid, '{"nom_evenement": "Renomme B2"}'::jsonb, ARRAY['nom_evenement']) $$,
   'B2 route (service_role) — fn_modifier_evenement reussit dans la fenetre');
 RESET role;
-SELECT is((SELECT pax FROM plateforme.evenements WHERE id = '09e70000-0000-0000-0000-0000000000e1'::uuid), 150,
+-- Champ porté par l'événement : le pax ne l'est plus depuis le 2026-10-20 (il se
+-- modifie sur la collecte et celui de l'événement en est calculé).
+SELECT is((SELECT nom_evenement FROM plateforme.evenements WHERE id = '09e70000-0000-0000-0000-0000000000e1'::uuid), 'Renomme B2',
   'B3 la mise a jour est effective');
 
 SELECT test_set_jwt('traiteur_manager', '09e70000-0000-0000-0000-000000000001'::uuid, '09e70000-0000-0000-0000-0000000000a1'::uuid);

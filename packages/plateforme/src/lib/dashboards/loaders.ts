@@ -18,12 +18,13 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { messageErreur } from '@/lib/api-helpers.js';
 import { FLUX_ZD_CODES } from '@/lib/libelles/flux.js';
+import { estUuid } from '@/lib/filtre-csv.js';
+import { aDesConvives, paxCumules, ratioParPax } from '@/lib/dashboard-kpi.js';
 import {
   createSupabaseServerClient,
   type UserAuthContext,
 } from '@/lib/api-auth.js';
 import {
-  previousWindow,
   FACTEURS_CO2_DEFAUT,
   type FacteursCo2,
 } from '@/lib/dashboards/cockpit-derive.js';
@@ -33,6 +34,11 @@ import {
   premierDuMois,
 } from '@savr/shared/src/temps/index.js';
 import { periodeBenchmark } from './periode-benchmark.js';
+import {
+  FILTRES_GLOBAUX_VIDES,
+  loadKpiCollectes,
+  type FiltresGlobaux,
+} from './kpi-collectes.js';
 import {
   attributionsAgOf,
   embedAttributionsAg,
@@ -261,69 +267,22 @@ export async function loadKpiTraiteur(
     to: string | null;
     type: string | null;
     compare?: string | null;
+    /** Filtres de la barre globale (Lieux, Client organisateur, Type, Taille). */
+    filtres?: FiltresGlobaux;
   },
 ): Promise<KpiLoaderResult> {
-  const { from, to, type } = params;
+  const { from, to } = params;
+  const type =
+    params.type === 'zero_dechet' || params.type === 'anti_gaspi'
+      ? params.type
+      : null;
   const isAgence = ctx.role === 'agence';
 
-  // §06.11 diff #7 — l'agence n'a pas de KPI « Marge générée » : marge_zd_ht est
-  // retiré de la réponse côté serveur (aucune donnée de marge ne transite), ni
-  // sur la période courante ni sur N-1.
-  const stripMarge = (rows: unknown[] | null): unknown[] =>
-    isAgence
-      ? (rows ?? []).map((r) => {
-          const { marge_zd_ht: _omit, ...rest } = r as Record<string, unknown>;
-          void _omit;
-          return rest;
-        })
-      : (rows ?? []);
-
-  // v_kpi_traiteur pour une fenêtre donnée (défense en profondeur : scope org
-  // côté serveur EN PLUS de la RLS security_invoker).
-  const runFenetre = async (
-    f: string | null,
-    t: string | null,
-    // L'erreur PostgREST circule TELLE QUELLE (et non son `.message`) : elle n'est
-    // dénaturée qu'au throw, par `loaderDbError`, seul point qui la logge.
-  ): Promise<{
-    rows: unknown[] | null;
-    error: { message: string; code?: string } | null;
-  }> => {
-    let query = supabase
-      .from('v_kpi_traiteur')
-      .select('*')
-      .eq('organisation_id', ctx.organisationId);
-    if (f) query = query.gte('mois', f);
-    if (t) query = query.lte('mois', t);
-    if (type === 'zero_dechet' || type === 'anti_gaspi') {
-      query = query.eq('type_collecte', type);
-    }
-    query = query.order('mois', { ascending: false });
-    const { data, error } = await query;
-    return { rows: data, error };
-  };
-
-  // N-1 (Cockpit R24) : variation vs période précédente équivalente, déclenchée
-  // UNIQUEMENT via compare='n1'. previousWindow rend une fenêtre CONTIGUË et
-  // strictement antérieure à `from` → on interroge la vue UNE seule fois sur
-  // [N-1 → courante] puis on découpe en JS (la vue est la requête la plus lourde).
-  const win = params.compare === 'n1' ? previousWindow(from, to) : null;
-  const unionFrom = win ? win.from : from;
-
-  // La vue (requête lourde) et les facteurs/méthode CO₂ (client service_role
-  // séparé) sont indépendants → lancés en parallèle.
-  const [union, facteurs_co2, co2_methode] = await Promise.all([
-    runFenetre(unionFrom, to),
-    lireFacteursCo2(),
-    lireMethodeCo2(),
-  ]);
-
-  if (union.error) throw loaderDbError(union.error, 'dashboards.kpi_traiteur');
-
-  // tarif_refacture_pax_zd (BL-P3-02) — tooltip formule du KPI Marge. Lecture
-  // traiteur autorisée (§04 l.928). Non exposé à l'agence (pas de carte Marge).
-  // La colonne est hors GRANT SELECT authenticated (20260918100000) : lecture par
-  // la fonction gardée, qui ne rend la valeur qu'au traiteur propriétaire.
+  // tarif_refacture_pax_zd (BL-P3-02) — formule de la marge ZD et tooltip du KPI
+  // Marge. Lecture traiteur autorisée (§04 l.928). Non exposé à l'agence (pas de
+  // carte Marge, §06.11 diff #7). La colonne est hors GRANT SELECT authenticated
+  // (20260918100000) : lecture par la fonction gardée, qui ne rend la valeur
+  // qu'au traiteur propriétaire.
   let tarif_refacture_pax_zd: number | null = null;
   if (!isAgence) {
     const { data: tarif, error: tarifError } = await supabase.rpc(
@@ -334,29 +293,31 @@ export async function loadKpiTraiteur(
     tarif_refacture_pax_zd = (tarif as number | null) ?? null;
   }
 
-  // Découpe la fenêtre unique en courante / précédente (réplique .gte/.lte SQL).
-  const rows = union.rows ?? [];
-  const inWindow = (
-    r: unknown,
-    lo: string | null,
-    hi: string | null,
-  ): boolean => {
-    const m = (r as { mois?: unknown }).mois;
-    const lowOk = !lo || (typeof m === 'string' && m >= lo);
-    const highOk = !hi || (typeof m === 'string' && m <= hi);
-    return lowOk && highOk;
-  };
-  const currentRows = rows.filter((r) => inWindow(r, from, to));
-  const previous = win
-    ? stripMarge(rows.filter((r) => inWindow(r, win.from, win.to)))
-    : undefined;
+  // Lignes mensuelles recalculées depuis les collectes filtrées (les vues
+  // mensuelles ne savent pas filtrer par lieu ni par client, cf. kpi-collectes),
+  // marge comprise pour le traiteur ; facteurs et méthode CO₂ (client
+  // service_role séparé) lus en parallèle.
+  const [kpi, facteurs_co2, co2_methode] = await Promise.all([
+    loadKpiCollectes(supabase, ctx, {
+      from,
+      to,
+      type,
+      compare: params.compare,
+      filtres: params.filtres ?? FILTRES_GLOBAUX_VIDES,
+      ...(isAgence ? {} : { marge: { tarif: tarif_refacture_pax_zd } }),
+    }).catch((e: unknown) => {
+      throw loaderDbError(e, 'dashboards.kpi_traiteur');
+    }),
+    lireFacteursCo2(),
+    lireMethodeCo2(),
+  ]);
 
   return {
-    data: stripMarge(currentRows),
+    data: kpi.data,
     tarif_refacture_pax_zd,
     facteurs_co2,
     co2_methode,
-    ...(previous !== undefined ? { previous } : {}),
+    ...(kpi.previous !== undefined ? { previous: kpi.previous } : {}),
   };
 }
 
@@ -372,7 +333,6 @@ type Granularite = 'jour' | 'semaine' | 'mois';
 interface EvoEvtEmbed {
   id: string;
   lieu_id: string | null;
-  pax: number | null;
   organisation_id: string;
   type_evenement_id: string | null;
   traiteur_operationnel_organisation_id: string | null;
@@ -383,8 +343,11 @@ export interface EvoCollecteRow {
   type: string;
   taux_recyclage: number | null;
   date_collecte: string;
+  /** Convives de la COLLECTE : porte le filtre Taille (lot C1, Q3 Val 2026-10-24)
+   *  et les pax des séries (lot 3, décisions Val Q1 et Q2 du 2026-10-25). */
+  pax?: number | null;
   /** CO₂ évité figé (sélectionné par le loader Admin « Dashboard Client »
-   *  seulement) — alimente la sparkline de la carte CO₂. */
+   *  seulement) — CO₂ évité par bucket. */
   co2_evite_kg?: number | string | null;
   evenements: EvoEvtEmbed | EvoEvtEmbed[] | null;
   collecte_flux:
@@ -418,6 +381,8 @@ export interface EvolutionParams {
   to: string | null;
   lieuIds?: string[];
   traiteurIds?: string[];
+  /** Noms de client organisateur (traiteur, agence). */
+  clientNoms?: string[];
   typeEvtIds?: string[];
   tailleEvts?: string[];
 }
@@ -439,12 +404,24 @@ export async function loadEvolution(
   const type = params.type === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
   const from = params.from;
   const to = params.to;
-  const lieuIds = params.lieuIds ?? [];
+  const lieuxDemandes = params.lieuIds ?? [];
+  const lieuIds = lieuxDemandes.filter(estUuid);
   const traiteurIds = params.traiteurIds ?? [];
-  const typeEvtIds = params.typeEvtIds ?? [];
+  const clientNoms = params.clientNoms ?? [];
+  const typesDemandes = params.typeEvtIds ?? [];
+  const typeEvtIds = typesDemandes.filter(estUuid);
   const tailleEvts = params.tailleEvts ?? [];
 
   const isGestionnaire = ctx.role === 'gestionnaire_lieux';
+
+  // Filtre Type demandé sans identifiant lisible : série vide, jamais un filtre
+  // ignoré ni une erreur de PostgREST (comme lireFiltresCollectesGestionnaire).
+  if (
+    (typesDemandes.length > 0 && typeEvtIds.length === 0) ||
+    (lieuxDemandes.length > 0 && lieuIds.length === 0)
+  ) {
+    return { granularite: granulariteFor(from ?? '', to ?? ''), series: [] };
+  }
 
   // Périmètre gestionnaire = lieux de l'organisation (RLS sur organisations_lieux).
   let perimetreLieuIds: string[] = [];
@@ -466,8 +443,8 @@ export async function loadEvolution(
   let q = supabase
     .from('collectes')
     .select(
-      `id, type, taux_recyclage, date_collecte,
-       evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
+      `id, type, taux_recyclage, date_collecte, pax,
+       evenements!inner(id, lieu_id, organisation_id, type_evenement_id,
          traiteur_operationnel_organisation_id),
        collecte_flux(poids_reel_kg, flux_dechets(code)),
        ${embedRepasAg(ctx.role)}`,
@@ -482,11 +459,14 @@ export async function loadEvolution(
   } else {
     q = q.eq('evenements.organisation_id', ctx.organisationId);
     if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
+    if (clientNoms.length > 0)
+      q = q.in('evenements.nom_client_organisateur', clientNoms);
   }
   if (from) q = q.gte('date_collecte', from);
   if (to) q = q.lte('date_collecte', to);
-  if (typeEvtIds.length > 0)
-    q = q.in('evenements.type_evenement_id', typeEvtIds);
+  // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
+  // 2026-10-22, Q3 du 2026-10-24 « Collecte, dès C1 »).
+  if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
 
   const { data, error } = await q;
   if (error) throw loaderDbError(error, 'dashboards.evolution');
@@ -495,7 +475,7 @@ export async function loadEvolution(
     const evt = firstOf(c.evenements);
     if (!evt) return false;
     if (tailleEvts.length > 0) {
-      if (!tailleEvts.includes(tailleBracket(evt.pax ?? 0))) return false;
+      if (!tailleEvts.includes(tailleBracket(c.pax ?? 0))) return false;
     }
     return true;
   });
@@ -535,7 +515,7 @@ export function buildEvolutionSeries(
         tauxDen: number;
         nb: number;
         co2: number;
-        paxParEvt: Map<string, number>;
+        collectes: EvoCollecteRow[];
       }
     >();
     for (const c of rows) {
@@ -549,7 +529,7 @@ export function buildEvolutionSeries(
           tauxDen: 0,
           nb: 0,
           co2: 0,
-          paxParEvt: new Map(),
+          collectes: [],
         };
         for (const fc of FLUX_CODES) b.flux[fc] = 0;
         buckets.set(key, b);
@@ -565,9 +545,7 @@ export function buildEvolutionSeries(
       b.tonnage += kgCollecte;
       b.nb += 1;
       b.co2 += Number(c.co2_evite_kg ?? 0) || 0;
-      const evtZd = firstOf(c.evenements);
-      if (evtZd?.id && !b.paxParEvt.has(evtZd.id))
-        b.paxParEvt.set(evtZd.id, evtZd.pax ?? 0);
+      b.collectes.push(c);
       if (c.taux_recyclage != null && kgCollecte > 0) {
         b.tauxNum += c.taux_recyclage * kgCollecte;
         b.tauxDen += kgCollecte;
@@ -580,51 +558,58 @@ export function buildEvolutionSeries(
         ...b.flux,
         tonnage_total: b.tonnage,
         taux_recyclage: b.tauxDen > 0 ? b.tauxNum / b.tauxDen : null,
-        // Sparklines des cartes KPI (gestionnaire / Dashboard Client Admin) :
-        // nombre de collectes et pax distincts par événement du bucket.
+        // Par bucket (les cartes KPI ne portent plus de courbe, Val 2026-10-30) :
+        // nombre de collectes, pax et kg/pax des collectes du bucket (lot 3).
         nb_collectes: b.nb,
-        pax: [...b.paxParEvt.values()].reduce((s, p) => s + p, 0),
+        pax: paxCumules(b.collectes),
+        kg_par_pax: ratioParPax(b.collectes, kgEvo),
         co2_evite_kg: b.co2,
       }));
   }
 
-  // anti_gaspi — repas donnés + pax distinct par événement par bucket.
+  // anti_gaspi — repas donnés + pax et repas/pax des collectes du bucket (lot 3).
   const buckets = new Map<
     string,
-    { repas: number; nb: number; co2: number; paxParEvt: Map<string, number> }
+    { repas: number; nb: number; co2: number; collectes: EvoCollecteRow[] }
   >();
   for (const c of rows) {
     const key = bucketKey(c.date_collecte, g);
     let b = buckets.get(key);
     if (!b) {
-      b = { repas: 0, nb: 0, co2: 0, paxParEvt: new Map() };
+      b = { repas: 0, nb: 0, co2: 0, collectes: [] };
       buckets.set(key, b);
     }
-    const attrs = Array.isArray(c.attributions_antgaspi)
-      ? c.attributions_antgaspi
-      : c.attributions_antgaspi
-        ? [c.attributions_antgaspi]
-        : [];
-    for (const a of attrs) b.repas += a.volume_repas_realise ?? 0;
+    b.repas += repasEvo(c);
     b.nb += 1;
     b.co2 += Number(c.co2_evite_kg ?? 0) || 0;
-    const evt = firstOf(c.evenements);
-    if (evt?.id && !b.paxParEvt.has(evt.id))
-      b.paxParEvt.set(evt.id, evt.pax ?? 0);
+    b.collectes.push(c);
   }
   return [...buckets.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([periode, b]) => {
-      const pax = [...b.paxParEvt.values()].reduce((s, p) => s + p, 0);
-      return {
-        periode,
-        repas_donnes: b.repas,
-        pax,
-        nb_collectes: b.nb,
-        co2_evite_kg: b.co2,
-        ratio: pax > 0 ? b.repas / pax : null,
-      };
-    });
+    .map(([periode, b]) => ({
+      periode,
+      repas_donnes: b.repas,
+      pax: paxCumules(b.collectes),
+      nb_collectes: b.nb,
+      co2_evite_kg: b.co2,
+      ratio: ratioParPax(b.collectes, repasEvo),
+    }));
+}
+
+/** Poids d'une collecte (Σ poids_reel_kg de ses flux). */
+function kgEvo(c: EvoCollecteRow): number {
+  const flux = Array.isArray(c.collecte_flux) ? c.collecte_flux : [];
+  return flux.reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
+}
+
+/** Repas donnés d'une collecte AG (embed objet ou tableau). */
+function repasEvo(c: EvoCollecteRow): number {
+  const attrs = Array.isArray(c.attributions_antgaspi)
+    ? c.attributions_antgaspi
+    : c.attributions_antgaspi
+      ? [c.attributions_antgaspi]
+      : [];
+  return attrs.reduce((s, a) => s + (a.volume_repas_realise ?? 0), 0);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -636,7 +621,6 @@ const TOP_N = 5;
 interface BlocsEvtEmbed {
   id: string;
   lieu_id: string | null;
-  pax: number | null;
   organisation_id: string;
   type_evenement_id: string | null;
   traiteur_operationnel_organisation_id: string | null;
@@ -649,6 +633,10 @@ export interface BlocsCollecteRow {
   type: string;
   taux_recyclage: number | null;
   date_collecte: string;
+  /** Convives de la COLLECTE : porte le filtre Taille (lot C1, Q3 Val 2026-10-24),
+   *  le repère parc de l'Admin (Q4) et les cumuls de pax des blocs (lot 3,
+   *  décisions Val Q1 et Q2 du 2026-10-25 : `ratioParPax`). */
+  pax?: number | null;
   evenements: BlocsEvtEmbed | BlocsEvtEmbed[] | null;
   collecte_flux:
     | { poids_reel_kg: number | null; flux_dechets?: { code: string } | null }[]
@@ -666,20 +654,8 @@ function kgOf(c: BlocsCollecteRow): number {
   return flux.reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
 }
 
-// Somme des pax sur événements DISTINCTS (réplique v_kpi_traiteur).
-function paxDistinct(rows: BlocsCollecteRow[]): number {
-  const parEvt = new Map<string, number>();
-  let sansId = 0;
-  for (const c of rows) {
-    const evt = firstOf(c.evenements);
-    const pax = evt?.pax ?? 0;
-    const id = evt?.id ?? null;
-    if (id == null) sansId += pax;
-    else if (!parEvt.has(id)) parEvt.set(id, pax);
-  }
-  let total = sansId;
-  for (const p of parEvt.values()) total += p;
-  return total;
+function repasOf(c: BlocsCollecteRow): number {
+  return attrsOf(c).reduce((s, a) => s + (a.volume_repas_realise ?? 0), 0);
 }
 
 export interface LieuRow {
@@ -750,7 +726,6 @@ export function topLieuxFrom(
         repas_par_pax: null,
       };
     }
-    const pax = paxDistinct(g.rowsForPax);
     return {
       lieu_id,
       lieu_nom: g.nom,
@@ -758,7 +733,7 @@ export function topLieuxFrom(
       tonnage_kg: null,
       taux_recyclage: null,
       repas_donnes: g.repas,
-      repas_par_pax: pax > 0 ? g.repas / pax : null,
+      repas_par_pax: ratioParPax(g.rowsForPax, repasOf),
     };
   });
   list.sort((a, b) =>
@@ -837,7 +812,6 @@ export function aggregateActeurs(
         repas_par_pax: null,
       };
     }
-    const pax = paxDistinct(g.rowsForPax);
     return {
       id,
       label: '',
@@ -845,7 +819,7 @@ export function aggregateActeurs(
       tonnage_kg: null,
       taux_recyclage: null,
       repas_donnes: g.repas,
-      repas_par_pax: pax > 0 ? g.repas / pax : null,
+      repas_par_pax: ratioParPax(g.rowsForPax, repasOf),
     };
   });
   list.sort((a, b) => b.nb_collectes - a.nb_collectes);
@@ -931,13 +905,19 @@ export function topAssociationsFrom(
   return list.slice(0, TOP_N);
 }
 
+/**
+ * kg/pax par flux : Σ poids du flux / Σ pax des seules collectes à convives
+ * connus — une collecte à 0 convive sort des deux (lot 3, décision Val Q1 du
+ * 2026-10-25 ; même formule que le repère parc, lot C1 Q4).
+ */
 export function kgParPaxParFluxFrom(
   rows: BlocsCollecteRow[],
 ): Record<string, number> {
-  const pax = paxDistinct(rows);
+  const avecPax = rows.filter(aDesConvives);
+  const pax = paxCumules(avecPax);
   if (pax <= 0) return {};
   const poidsParFlux: Record<string, number> = {};
-  for (const c of rows) {
+  for (const c of avecPax) {
     const flux = Array.isArray(c.collecte_flux) ? c.collecte_flux : [];
     for (const f of flux) {
       const fd = (
@@ -969,6 +949,8 @@ export interface BlocsParams {
   to: string | null;
   lieuIds?: string[];
   traiteurIds?: string[];
+  /** Noms de client organisateur (traiteur, agence). */
+  clientNoms?: string[];
   typeEvtIds?: string[];
   tailleEvts?: string[];
 }
@@ -993,14 +975,26 @@ export async function loadBlocs(
   const type = params.type === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
   const from = params.from;
   const to = params.to;
-  const lieuIds = params.lieuIds ?? [];
+  const lieuxDemandes = params.lieuIds ?? [];
+  const lieuIds = lieuxDemandes.filter(estUuid);
   const traiteurIds = params.traiteurIds ?? [];
-  const typeEvtIds = params.typeEvtIds ?? [];
+  const clientNoms = params.clientNoms ?? [];
+  const typesDemandes = params.typeEvtIds ?? [];
+  const typeEvtIds = typesDemandes.filter(estUuid);
   const tailleEvts = params.tailleEvts ?? [];
 
   const role = ctx.role;
   const isGestionnaire = role === 'gestionnaire_lieux';
   const isAgence = role === 'agence';
+
+  // Filtre Type demandé sans identifiant lisible : blocs vides, jamais un filtre
+  // ignoré ni une erreur de PostgREST (comme lireFiltresCollectesGestionnaire).
+  if (
+    (typesDemandes.length > 0 && typeEvtIds.length === 0) ||
+    (lieuxDemandes.length > 0 && lieuIds.length === 0)
+  ) {
+    return emptyBlocs(type, isGestionnaire, isAgence) as BlocsResult;
+  }
 
   let perimetreLieuIds: string[] = [];
   if (isGestionnaire) {
@@ -1033,26 +1027,30 @@ export async function loadBlocs(
     } else {
       query = query.eq('evenements.organisation_id', ctx.organisationId);
       if (lieuIds.length > 0) query = query.in('evenements.lieu_id', lieuIds);
+      if (clientNoms.length > 0)
+        query = query.in('evenements.nom_client_organisateur', clientNoms);
     }
+    // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
+    // 2026-10-22, Q3 du 2026-10-24 « Collecte, dès C1 »).
     if (typeEvtIds.length > 0)
-      query = query.in('evenements.type_evenement_id', typeEvtIds);
+      query = query.in('type_evenement_id', typeEvtIds);
     return query as unknown as T;
   };
 
-  const tailleOk = (evt: BlocsEvtEmbed | null): boolean => {
-    if (!evt) return false;
+  const tailleOk = (c: BlocsCollecteRow): boolean => {
+    if (!firstOf(c.evenements)) return false;
     if (tailleEvts.length === 0) return true;
-    return tailleEvts.includes(tailleBracket(evt.pax ?? 0));
+    return tailleEvts.includes(tailleBracket(c.pax ?? 0));
   };
 
   const selectHistorique =
     type === 'zero_dechet'
-      ? `id, type, taux_recyclage, date_collecte,
-         evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
+      ? `id, type, taux_recyclage, date_collecte, pax,
+         evenements!inner(id, lieu_id, organisation_id, type_evenement_id,
            traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
          collecte_flux(poids_reel_kg, flux_dechets(code))`
-      : `id, type, taux_recyclage, date_collecte,
-         evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
+      : `id, type, taux_recyclage, date_collecte, pax,
+         evenements!inner(id, lieu_id, organisation_id, type_evenement_id,
            traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
          ${embedAttributionsAg(role)}`;
 
@@ -1069,7 +1067,7 @@ export async function loadBlocs(
   if (histErr) throw loaderDbError(histErr, 'dashboards.blocs.hist_err');
 
   const histRows = ((histData ?? []) as unknown as BlocsCollecteRow[]).filter(
-    (c) => tailleOk(firstOf(c.evenements)),
+    (c) => tailleOk(c),
   );
 
   const topLieux = topLieuxFrom(histRows, type);
@@ -1120,21 +1118,52 @@ export async function loadBlocs(
  */
 export async function loadMargeAttente(
   supabase: DbClient,
-  params: { from: string | null; to: string | null },
+  params: { from: string | null; to: string | null; filtres?: FiltresGlobaux },
 ): Promise<{ nb_en_attente: number }> {
   const { from, to } = params;
+  // Périmètre filtré (§06.04 : collectes ZD clôturées « du périmètre filtré »
+  // sans facture émise ou payée) : mêmes filtres de la barre que les cartes.
+  const filtres = params.filtres ?? FILTRES_GLOBAUX_VIDES;
+  const lieuIds = filtres.lieuIds.filter(estUuid);
+  const typeEvtIds = filtres.typeEvtIds.filter(estUuid);
+  if (
+    (filtres.lieuIds.length > 0 && lieuIds.length === 0) ||
+    (filtres.typeEvtIds.length > 0 && typeEvtIds.length === 0)
+  )
+    return { nb_en_attente: 0 };
+  // Événement joint seulement quand un filtre le demande : sans filtre, le
+  // décompte reste celui d'avant (collectes lisibles sous RLS).
+  const parEvenement = lieuIds.length > 0 || filtres.clientNoms.length > 0;
   let q = supabase
     .from('collectes')
     .select(
-      'id, date_collecte, factures_collectes(facture_id, factures(statut))',
+      `id, date_collecte, pax, factures_collectes(facture_id, factures(statut))${
+        parEvenement
+          ? ', evenements!inner(lieu_id, nom_client_organisateur)'
+          : ''
+      }`,
     )
     .eq('type', 'zero_dechet')
     .eq('statut', 'cloturee');
   if (from) q = q.gte('date_collecte', from);
   if (to) q = q.lte('date_collecte', to);
+  if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
+  if (filtres.clientNoms.length > 0)
+    q = q.in('evenements.nom_client_organisateur', filtres.clientNoms);
+  if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
 
-  const { data, error } = await q;
+  const { data: lues, error } = await q;
   if (error) throw loaderDbError(error, 'dashboards.marge_attente');
+  const data = (
+    (lues ?? []) as unknown as {
+      pax: number | null;
+      factures_collectes: unknown;
+    }[]
+  ).filter(
+    (c) =>
+      filtres.tailleEvts.length === 0 ||
+      filtres.tailleEvts.includes(tailleBracket(c.pax ?? 0)),
+  );
 
   type FactureLien = {
     factures: { statut: string } | { statut: string }[] | null;
@@ -1221,8 +1250,8 @@ export interface BenchmarkParams {
 /**
  * Repère parc kg/pax (RPC f_benchmark_kg_pax_zd, SECURITY DEFINER k-anonyme).
  * ⚠ Contrat identique à `GET /api/v1/dashboards/benchmark` (renvoie le tableau
- * `data`). Le filtre `traiteurIds` est INTERDIT pour traiteur/agence (§04
- * préservation compétitive) → LoaderError 403. Un gestionnaire ne nomme que ses
+ * `data`). Le filtre `traiteurIds` est INTERDIT pour traiteur/agence/client
+ * organisateur (§04 préservation compétitive) → LoaderError 403. Un gestionnaire ne nomme que ses
  * lieux rattachés et les traiteurs de sa vue `v_traiteurs_gestionnaire` (§06.05,
  * décision Val 2026-10-06) : la fonction le refuse, relayé ici en LoaderError 403.
  */
@@ -1244,11 +1273,14 @@ export async function loadBenchmark(
   // jamais « tout l'historique » (défaut NULL de la RPC).
   const periode = periodeBenchmark();
 
-  const isTraiteur =
+  // Client organisateur compris depuis qu'il a le radar de la fiche événement
+  // (décision Val 2026-10-30) : il ne nomme pas plus un traiteur que l'agence.
+  const traiteursInterdits =
     ctx.role === 'traiteur_manager' ||
     ctx.role === 'traiteur_commercial' ||
-    ctx.role === 'agence';
-  if (isTraiteur && traiteurIds && traiteurIds.length) {
+    ctx.role === 'agence' ||
+    ctx.role === 'client_organisateur';
+  if (traiteursInterdits && traiteurIds && traiteurIds.length) {
     throw new LoaderError(ERREUR_FILTRE_TRAITEURS_INTERDIT, 403);
   }
 
@@ -1389,8 +1421,12 @@ export async function loadBenchmarkFiltres(
     };
   }
 
+  // Client organisateur : pas de liste des lieux du parc (la base la lui
+  // refuse) ; son radar se règle sur le type et la taille (Val 2026-10-30).
   const [lieux, typesRes] = await Promise.all([
-    supabase.rpc('f_benchmark_lieux_parc'),
+    ctx.role === 'client_organisateur'
+      ? Promise.resolve({ data: [], error: null })
+      : supabase.rpc('f_benchmark_lieux_parc'),
     types,
   ]);
 
@@ -1413,6 +1449,8 @@ export interface TraiteurDashboardParams {
   from: string | null;
   to: string | null;
   type: string; // 'zero_dechet' | 'anti_gaspi'
+  /** Filtres de la barre globale (§06.04 : Lieux, Client organisateur, Type, Taille). */
+  filtres?: FiltresGlobaux;
 }
 
 export interface TraiteurDashboardPayload {
@@ -1439,15 +1477,18 @@ export async function loadTraiteurDashboard(
 ): Promise<TraiteurDashboardPayload> {
   const type = params.type === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
   const isZd = type === 'zero_dechet';
-  // Le dashboard traiteur n'a PAS de filtres « parc » (DashboardFilterBar monté
-  // sans parcOptions) → évolution/blocs défaultent lieu/type/taille à [] en interne.
+  // Mêmes filtres globaux pour les cartes, l'évolution et les Top listes.
   const { from, to } = params;
+  // Traiteurs : ignoré hors gestionnaire par l'évolution et les blocs.
+  const filtres = params.filtres ?? FILTRES_GLOBAUX_VIDES;
 
   const [kpi, evolution, blocs, marge, pack] = await Promise.all([
-    loadKpiTraiteur(supabase, ctx, { from, to, type, compare: 'n1' }),
-    loadEvolution(supabase, ctx, { type, from, to }),
-    loadBlocs(supabase, ctx, { type, from, to }),
-    isZd ? loadMargeAttente(supabase, { from, to }) : Promise.resolve(null),
+    loadKpiTraiteur(supabase, ctx, { from, to, type, compare: 'n1', filtres }),
+    loadEvolution(supabase, ctx, { type, from, to, ...filtres }),
+    loadBlocs(supabase, ctx, { type, from, to, ...filtres }),
+    isZd
+      ? loadMargeAttente(supabase, { from, to, filtres })
+      : Promise.resolve(null),
     isZd ? Promise.resolve(null) : loadPackAg(ctx),
   ]);
 

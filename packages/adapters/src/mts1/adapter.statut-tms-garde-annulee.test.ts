@@ -146,28 +146,25 @@ function makeSupabase(collecte: Ligne) {
   };
 }
 
-function armerPoll(status: Mts1CustomerOrder['status']) {
+function armerPoll(status: Mts1CustomerOrder['customerOrderStatus']) {
   _setMts1Handlers({
-    pollOrders: vi.fn().mockResolvedValue({
-      customerOrders: [
-        {
-          id: 'MTS1-ORDER-GARDE',
-          externalReference: 'col-garde-1',
-          status,
-          pickupDate: '2026-07-15T22:00:00Z',
-        },
-      ],
-      totalCount: 1,
-      page: 1,
-      pageSize: 50,
-    }),
+    pollOrders: vi.fn().mockResolvedValue([
+      {
+        customerOrderId: 'MTS1-ORDER-GARDE',
+        orderNumber: 'col-garde-1',
+        customerOrderStatus: status,
+        orderDate: '2026-07-15T22:00:00.000Z',
+      },
+    ]),
     getTour: vi.fn(),
-    getPhotos: vi.fn().mockResolvedValue([]),
     postOrder: vi.fn(),
   });
 }
 
-async function poller(statut: string, status: Mts1CustomerOrder['status']) {
+async function poller(
+  statut: string,
+  status: Mts1CustomerOrder['customerOrderStatus'],
+) {
   armerPoll(status);
   const collecte: Ligne = {
     id: 'col-garde',
@@ -216,10 +213,13 @@ describe('polling MTS-1 — statut_tms gardé sur les collectes en exécution', 
     },
   );
 
-  it('collecte programmee + ordre VALIDATED → statut_tms acceptee (la garde ne sur-ferme pas)', async () => {
+  it('collecte programmee + ordre VALIDATED → statut_tms inchangé : une commande validée ne vaut pas acceptation', async () => {
+    // L'acceptation se lit sur la tournée de la commande (décision Val
+    // 2026-10-13), plus sur le statut de la commande : la garde, elle, reste
+    // prouvée par les refus ci-dessus sur une collecte en exécution.
     const { collecte } = await poller('programmee', 'VALIDATED');
 
-    expect(collecte.statut_tms).toBe('acceptee');
+    expect(collecte.statut_tms).toBe(STATUT_TMS_INITIAL);
   });
 
   it('collecte annulee + ordre VALIDATED → statut_tms inchangé', async () => {

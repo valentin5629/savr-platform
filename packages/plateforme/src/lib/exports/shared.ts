@@ -1,4 +1,12 @@
-import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import {
+  createAdminSupabaseClient,
+  type SupabaseClient,
+} from '@savr/shared/src/supabase-client.js';
+import {
+  FLUX_ZD_CODES,
+  LIBELLE_FLUX,
+  type FluxZdCode,
+} from '@/lib/libelles/flux.js';
 import type { AnyRole } from '@/lib/api-auth.js';
 import { ROLES_STAFF } from '@/lib/roles';
 import { erreurInterne } from '@/lib/api-helpers.js';
@@ -7,7 +15,8 @@ import { erreurInterne } from '@/lib/api-helpers.js';
 // Entités exportables (transverse D, §12 §2) + matrice d'autorisation par rôle.
 // Source : §12 §2 « Exports disponibles par profil ». La RLS scope les LIGNES ;
 // cette matrice scope la CAPACITÉ (un rôle non listé reçoit 403, même si la RLS
-// l'autoriserait à lire la donnée — ex. commercial exclu de Pesées).
+// l'autoriserait à lire la donnée). Commercial traiteur aligné sur le manager
+// (Val 2026-10-30), sauf Packs AG : la RLS de packs_antgaspi ne le lit pas.
 // Le gestionnaire de lieux exporte Collectes depuis sa liste Collectes (décision
 // Val 2026-10-07 : la liste Événements, qui portait son seul export, est retirée).
 // « Courses logistiques » (Admin only §12) est HORS V1 : dépend de tms.* inexistant.
@@ -43,7 +52,13 @@ export const EXPORT_MATRIX: Record<ExportEntity, AnyRole[]> = {
     'gestionnaire_lieux',
     'client_organisateur',
   ],
-  pesees: [...STAFF, 'traiteur_manager', 'agence', 'client_organisateur'],
+  pesees: [
+    ...STAFF,
+    'traiteur_manager',
+    'traiteur_commercial',
+    'agence',
+    'client_organisateur',
+  ],
   factures: [
     ...STAFF,
     'traiteur_manager',
@@ -52,10 +67,11 @@ export const EXPORT_MATRIX: Record<ExportEntity, AnyRole[]> = {
     'gestionnaire_lieux',
   ],
   'packs-ag': [...STAFF, 'traiteur_manager', 'agence', 'gestionnaire_lieux'],
-  'associations-ag': [...STAFF, 'traiteur_manager'],
+  'associations-ag': [...STAFF, 'traiteur_manager', 'traiteur_commercial'],
   'impact-rse': [
     ...STAFF,
     'traiteur_manager',
+    'traiteur_commercial',
     'agence',
     'gestionnaire_lieux',
     'client_organisateur',
@@ -230,6 +246,121 @@ export function sommePoidsFlux(
   flux: { poids_reel_kg?: number | null }[] | null | undefined,
 ): number {
   return (flux ?? []).reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
+}
+
+/** Flux d'une collecte, avec le code de son flux (colonnes par flux des exports). */
+export type FluxPese = {
+  poids_reel_kg?: number | null;
+  flux_dechets?: { code?: string | null } | { code?: string | null }[] | null;
+};
+
+/**
+ * Poids réel (kg) par flux ZD, sommé sur une ou plusieurs collectes. Un flux
+ * sans pesée vaut 0, comme le « Tonnage ZD » ; un code hors des 5 flux V1 est
+ * ignoré.
+ */
+export function poidsParFlux(
+  flux: FluxPese[] | null | undefined,
+): Record<FluxZdCode, number> {
+  const out = Object.fromEntries(FLUX_ZD_CODES.map((c) => [c, 0])) as Record<
+    FluxZdCode,
+    number
+  >;
+  for (const f of flux ?? []) {
+    const code = unwrap(f.flux_dechets).code as string | undefined;
+    if (code && code in out)
+      out[code as FluxZdCode] += Number(f.poids_reel_kg ?? 0);
+  }
+  return out;
+}
+
+/** Colonnes « <Flux> (kg) », dans l'ordre d'affichage des flux. */
+export const COLONNES_FLUX = FLUX_ZD_CODES.map((code) => ({
+  code,
+  header: `${LIBELLE_FLUX[code]} (kg)`,
+}));
+
+// Identifiants par requête `in(id, …)` : au-delà de quelques centaines, l'URL
+// est refusée (mesuré sur savr-dev le 2026-10-07, cf. l'export Collectes).
+const IDS_PAR_LECTURE = 100;
+
+/** Lit en service_role (staff : son propre client), par lots de 100 identifiants. */
+async function lireParLotsHorsListeBlanche<T>(
+  ctx: ExportContext,
+  ids: string[],
+  lire: (
+    lecteur: ExportContext['supabase'],
+    lot: string[],
+  ) => PromiseLike<{ data: unknown; error: unknown }>,
+): Promise<T[]> {
+  const uniques = [...new Set(ids.filter((v): v is string => !!v))];
+  const out: T[] = [];
+  if (uniques.length === 0) return out;
+  const lecteur = ctx.isStaff ? ctx.supabase : createAdminSupabaseClient();
+  for (let i = 0; i < uniques.length; i += IDS_PAR_LECTURE) {
+    const { data, error } = await lire(
+      lecteur,
+      uniques.slice(i, i + IDS_PAR_LECTURE),
+    );
+    if (error) throw erreurInterne(error, 'exports.codes_viparis');
+    out.push(...((data ?? []) as T[]));
+  }
+  return out;
+}
+
+/**
+ * Codes affaire VIPARIS des événements (Val 2026-11-02). La colonne est hors de
+ * la liste blanche de lecture des clients : lue en service_role, pour les seuls
+ * événements que l'export vient de lire sous la RLS du demandeur (staff : son
+ * client service_role). Ne rend que les événements qui ont un code.
+ */
+export async function lireCodesAffaireViparis(
+  ctx: ExportContext,
+  evenementIds: string[],
+): Promise<Map<string, string>> {
+  const lignes = await lireParLotsHorsListeBlanche<{
+    id: string;
+    code_affaire_viparis: string | null;
+  }>(ctx, evenementIds, (lecteur, lot) =>
+    lecteur
+      .from('evenements')
+      .select('id, code_affaire_viparis')
+      .in('id', lot)
+      .not('code_affaire_viparis', 'is', null),
+  );
+  const out = new Map<string, string>();
+  for (const e of lignes)
+    if (e.code_affaire_viparis) out.set(e.id, e.code_affaire_viparis);
+  return out;
+}
+
+/**
+ * Codes VIPARIS d'un événement : son code affaire et le code site de son lieu
+ * (Val 2026-11-03, export Événements). Même régime que le code affaire seul :
+ * deux colonnes hors listes blanches, lues en service_role pour les seuls
+ * événements lus sous la RLS du demandeur. Chaînes vides si non renseignés.
+ */
+export async function lireCodesViparis(
+  ctx: ExportContext,
+  evenementIds: string[],
+): Promise<Map<string, { affaire: string; site: string }>> {
+  const lignes = await lireParLotsHorsListeBlanche<{
+    id: string;
+    code_affaire_viparis: string | null;
+    lieu: unknown;
+  }>(ctx, evenementIds, (lecteur, lot) =>
+    lecteur
+      .from('evenements')
+      .select('id, code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)')
+      .in('id', lot),
+  );
+  const out = new Map<string, { affaire: string; site: string }>();
+  for (const e of lignes)
+    out.set(e.id, {
+      affaire: e.code_affaire_viparis ?? '',
+      site: (unwrap(e.lieu).code_site_viparis as string | null) ?? '',
+    });
+  return out;
 }
 
 /** Déballe une relation Supabase (objet ou tableau-1) en objet. */

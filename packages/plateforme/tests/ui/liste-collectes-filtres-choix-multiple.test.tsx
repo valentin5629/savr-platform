@@ -16,7 +16,15 @@
  *  - une réponse plus ancienne que la dernière demande est ignorée ;
  *  - l'export CSV reprend exactement les paramètres de la liste (§12).
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  onTestFinished,
+} from 'vitest';
 import {
   act,
   render,
@@ -101,6 +109,32 @@ const fetchMock = vi.fn((input: RequestInfo | URL): Promise<Response> => {
   }
   return Promise.resolve(reponse([]));
 });
+
+/** Une ligne de liste, pour que la barre du tableau (et son export) s'affiche. */
+const LIGNE_EXPORT = {
+  id: 'c-export',
+  type: 'zero_dechet',
+  statut: 'programmee',
+  date_collecte: '2026-12-18',
+  heure_collecte: '22:00:00',
+  programmee_par_tiers: false,
+  rapport_reserve_donneur_ordre: false,
+  poids_total_kg: 0,
+  taux_recyclage: null,
+  co2_evite_kg: null,
+  nb_repas_donnes: 0,
+  pax: 650,
+  evenements: {
+    pax: 650,
+    nom_client_organisateur: null,
+    lieux: {
+      nom: 'Pavillon Gabriel',
+      adresse_acces: null,
+      code_postal: null,
+      ville: null,
+    },
+  },
+};
 
 const ESPACES = [
   {
@@ -385,8 +419,14 @@ for (const { module, espace, api, Page } of ESPACES) {
           () => expect(derniereListe().has('lieu_ids')).toBe(false),
           ATTENTE_UI,
         );
-        // Plus aucun filtre visible : plus aucun filtre appliqué, hors onglet et type.
-        expect([...derniereListe().keys()].sort()).toEqual(['statut', 'type']);
+        // Plus aucun filtre visible : plus aucun filtre appliqué, hors type et
+        // vue (les collectes passées s'arrêtent à maintenant : `to` + `vue`).
+        expect([...derniereListe().keys()].sort()).toEqual([
+          'statut',
+          'to',
+          'type',
+          'vue',
+        ]);
         expect(derniereUrl().has('perimetre')).toBe(false);
         expect(screen.queryByTestId('filtre-actif')).toBeNull();
       },
@@ -422,10 +462,13 @@ for (const { module, espace, api, Page } of ESPACES) {
           'onglet=programmees&lieu=l-gabriel,l-louvre&client=Danone&client=Kering%2C+Paris&info=oui',
         );
         render(<Page />);
+        // « Toutes » par défaut (Val 2026-10-31) : la liste part sans type.
         await waitFor(
-          () => expect(derniereListe().get('type')).toBe('zero_dechet'),
+          () =>
+            expect(derniereListe().get('lieu_ids')).toBe('l-gabriel,l-louvre'),
           ATTENTE_UI,
         );
+        expect(derniereListe().has('type')).toBe(false);
         fireEvent.click(screen.getByRole('radio', { name: 'Anti-Gaspi' }));
         await waitFor(
           () => expect(derniereListe().get('type')).toBe('anti_gaspi'),
@@ -454,13 +497,35 @@ for (const { module, espace, api, Page } of ESPACES) {
         );
         const ouvrirFenetre = vi.fn();
         vi.stubGlobal('open', ouvrirFenetre);
+        // Le bouton vit dans la barre du tableau (à gauche de « Colonnes »),
+        // affichée dès que la liste a une ligne. Le mock est rétabli en fin de
+        // cas (mockClear ne remet pas l'implémentation d'origine).
+        const fetchOrigine = fetchMock.getMockImplementation()!;
+        onTestFinished(() => {
+          fetchMock.mockImplementation(fetchOrigine);
+        });
+        fetchMock.mockImplementation((input: RequestInfo | URL) =>
+          Promise.resolve(
+            reponse(
+              String(input).endsWith('/collectes/filtres')
+                ? { lieux: LIEUX, clients: CLIENTS, programmateurs: [] }
+                : [LIGNE_EXPORT],
+            ),
+          ),
+        );
         render(<Page />);
         await waitFor(
           () =>
             expect(derniereListe().get('lieu_ids')).toBe('l-gabriel,l-louvre'),
           ATTENTE_UI,
         );
-        fireEvent.click(screen.getByRole('button', { name: 'Exporter CSV' }));
+        fireEvent.click(
+          await screen.findByRole(
+            'button',
+            { name: 'Exporter CSV' },
+            ATTENTE_UI,
+          ),
+        );
         const exportUrl = String(ouvrirFenetre.mock.calls.at(-1)?.[0] ?? '');
         expect(exportUrl.startsWith('/api/v1/exports/collectes?')).toBe(true);
         const qs = new URLSearchParams(exportUrl.split('?')[1]);

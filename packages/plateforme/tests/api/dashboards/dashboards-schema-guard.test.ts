@@ -19,7 +19,17 @@ import { NextRequest } from 'next/server';
 function makeStubClient() {
   const result = { data: [] as unknown[], error: null };
   const chain: Record<string, unknown> = {};
-  for (const m of ['from', 'select', 'eq', 'in', 'gte', 'lte', 'order']) {
+  for (const m of [
+    'from',
+    'select',
+    'eq',
+    'in',
+    'gte',
+    'gt',
+    'lte',
+    'order',
+    'limit',
+  ]) {
     chain[m] = () => chain;
   }
   chain.then = (resolve: (r: unknown) => unknown) => resolve(result);
@@ -72,12 +82,6 @@ const ROUTES = [
     chemin: '@/app/api/v1/dashboards/kpi-traiteur/route.js',
     role: 'traiteur_manager',
     url: '/api/v1/dashboards/kpi-traiteur?from=2025-10-31&to=2026-06-17&type=zero_dechet',
-  },
-  {
-    nom: 'kpi-lieu',
-    chemin: '@/app/api/v1/dashboards/kpi-lieu/route.js',
-    role: 'gestionnaire_lieux',
-    url: '/api/v1/dashboards/kpi-lieu?from=2025-10-31&to=2026-06-17',
   },
   {
     nom: 'kpi-client-organisateur',

@@ -22,7 +22,7 @@ ni à une zone déjà figée.
 
 > **Deuxième principe : les garde-fous sont mécaniques, pas déclaratifs.** gate-brief, pre-commit (coupling G3
 >
-> - typecheck + lint + test:unit, exit 2 = bloqué), gate-pr (tests verts + `conformite-spec` GO), pgTAP RLS,
+> - typecheck + lint + tests liés au changement, exit 2 = bloqué), gate-pr (suite complète verte + `conformite-spec` GO), pgTAP RLS,
 >   outbox G4 — ils BLOQUENT. Cette skill s'appuie dessus, elle ne les remplace pas par de la bonne volonté.
 
 ## Sources de contexte (ordre strict — ne jamais sauter un niveau)
@@ -94,6 +94,17 @@ Puis charger le contexte de l'écran dans l'ordre des sources ci-dessus. Identif
   une autre session (une branche `feat/…` active). Si oui → signaler à Val, ne pas entrer en collision.
 - **Localiser** le fichier via la route (`packages/plateforme/src/app/…`). Confirmer le symbole réel
   (`grep -rn`), ne jamais se fier à un chemin supposé.
+- **Traces réelles d'abord** (connecteurs Sentry et Vercel, s'ils sont chargés dans la session) : avant de
+  supposer une cause, chercher l'erreur de l'écran à l'heure du constat. Sentry (`search_issues` /
+  `search_errors`, sur la route ou le message affiché) donne la pile et la requête fautive ; Vercel
+  (`get_runtime_errors`, puis `get_runtime_logs` sur le déploiement de l'environnement testé) donne la réponse
+  de la route API. Identifier l'organisation et le projet par leurs outils de liste (`find_projects`,
+  `list_projects`), jamais deviner. Lecture seule : aucune action sur une issue ou un déploiement sans demande
+  de Val. Une trace peut contenir des données personnelles (email, nom, contenu de requête) : ne jamais la
+  recopier dans un commit, une PR ou une fiche (dépôt public), la résumer. Aucune trace = constat à noter (le défaut est alors côté rendu ou donnée, pas une exception).
+- **Constat de lenteur** (« ça rame », « met du temps à charger ») : mesurer avec Chrome DevTools MCP avant de
+  supposer une cause (trace de performance, durée des appels `/api/…`, à la deuxième visite). Quand l'utiliser
+  et ce que vaut une mesure locale : `docs/claude/navigateurs.md`.
 - **Trancher** : écart visuel/logique isolé = bug de code → étape 3. Comportement conforme au code mais
   divergent du CDC, ou règle métier non couverte = **question de spec** → `spec-resolver`, sinon STOP + Val.
   Bug/ambiguïté de spec détecté → écrire un fichier `_Divergences/` (cf. CLAUDE.md §4), ne pas patcher `specs/`.
@@ -135,6 +146,10 @@ Reconnaître l'état AVANT tout : `git fetch --quiet && git branch -a && git wor
   ⚠️ La preview tourne depuis le **clone principal**, pas le worktree → une route worktree-only renvoie 404 en
   preview. Pour valider visuellement une branche worktree, c'est un **checkpoint avec Val** (GO-VISUAL), pas une preview auto.
   Connexion en local : personas `<role>.<slug>@savr-test.local` / `savr` (agence = `agence.caromy`), après `pnpm seed:minimal && pnpm seed:auth`, dev sur `:3001`.
+- **Mesure de performance** (Chrome DevTools MCP), en plus de la preuve navigateur, quand le fix touche le
+  chargement des données d'un écran (requête, filtre, pagination), un écran « À optimiser » du CDC (dashboard
+  Admin, exports, inscription), ou corrige une lenteur : durée des appels `/api/…` avant / après, sur le même
+  poste. Une mesure locale détecte une régression, elle ne prouve pas un SLA. Détail : `docs/claude/navigateurs.md`.
 - **Tests** : `pnpm test:module <M>` + `pnpm check:coverage <M>` (jamais `pnpm test --filter`). Reproduire chaque
   GET/POST touché contre `savr-dev` — les mocks masquent les 400 réels.
 - **Reviewers à contexte neuf**, lancés **séquentiellement** (jamais en parallèle = corruption git), read-only :
@@ -156,6 +171,7 @@ Reconnaître l'état AVANT tout : `git fetch --quiet && git branch -a && git wor
 
 - ✅ Pré-vol collision de session passé en tête ; si une session concurrente est détectée, ALERTE + décision de Val (reporter/continuer) AVANT de démarrer.
 - ✅ Rôle + route + attendu établis avant de coder ; module CDC lu dans `specs/cdc/…`.
+- ✅ Traces Sentry / Vercel lues avant de supposer une cause (quand les connecteurs sont là).
 - ✅ Diagnostic explicite bug-de-code vs question-de-spec ; STOP + Val si non couvert (jamais d'interprétation).
 - ✅ Zone figée / session parallèle vérifiée et signalée AVANT de coder.
 - ✅ Branche neuve, unique (local + remote), en worktree dédié ; `main` jamais touché ; branche re-vérifiée avant commit.

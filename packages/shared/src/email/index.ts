@@ -1,14 +1,25 @@
-import { Resend } from 'resend';
 import { createAdminSupabaseClient } from '../supabase-client.js';
-import {
-  throttleOutbound,
-  honorRetryAfter,
-  parseRetryAfter,
-} from '../rate-limit/outbound-throttle.js';
+import { logger } from '../logger/index.js';
+import { dispatchToResend } from './transport.js';
+import { envelopperHtml, versionTexte } from './enveloppe.js';
 
 export interface SendEmailOptions {
   entityType?: string;
   entityId?: string;
+}
+
+// Ce qu'il est advenu de l'envoi, pour l'appelant qui doit l'afficher ou en tirer
+// une suite (ex. infos d'accès chauffeur) :
+//   'sent'     — accepté par Resend ;
+//   'retrying' — refusé pour l'instant, ligne emails_envoyes en échec : le worker
+//                de retry porte la suite, l'appelant ne doit PAS renvoyer ;
+//   'dropped'  — rien n'est parti et rien ne reprendra l'envoi (template inactif,
+//                variable requise manquante, hors production sans redirection,
+//                ou échec dont la ligne n'a pas pu être écrite).
+export type SendEmailStatut = 'sent' | 'retrying' | 'dropped';
+
+export interface SendEmailResult {
+  statut: SendEmailStatut;
 }
 
 export interface CapturedEmail {
@@ -38,6 +49,20 @@ function isBlockTruthy(v: string | undefined | null): boolean {
   if (v === undefined || v === null) return false;
   const t = v.trim().toLowerCase();
   return t !== '' && t !== 'false' && t !== '0' && t !== 'non';
+}
+
+/**
+ * Objet d'un email : texte brut, jamais du HTML. Les appelants échappent le texte
+ * saisi pour le corps (`escapeHtml`) et passent les mêmes valeurs à l'objet ; sans
+ * ce retour au texte, « Dupont & Fils » s'afficherait « Dupont &amp; Fils » dans
+ * l'objet. Défait exactement ce que fait `escapeHtml` (`&amp;` en dernier).
+ */
+export function objetEnTexte(sujet: string): string {
+  return sujet
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&');
 }
 
 export function interpolate(
@@ -104,48 +129,6 @@ export function findMissingVariables(
   );
 }
 
-type SendOutcome = {
-  resendId: string | null;
-  statut: 'sent' | 'failed';
-  erreur: string | null;
-};
-
-// Rendu déjà fait : émet vers Resend (ou no-op sink si RESEND_API_KEY='test').
-// Réutilisé par sendEmail (envoi initial) ET runEmailRetryWorker (retries).
-async function dispatchToResend(
-  sujet: string,
-  html: string,
-  to: string,
-): Promise<SendOutcome> {
-  const apiKey = process.env['RESEND_API_KEY'] ?? '';
-  if (apiKey === 'test') {
-    return { resendId: null, statut: 'sent', erreur: null };
-  }
-  // VOLET 3 R22g — espacement défensif (§08 l.655, Resend 10 req/s) : borne le débit
-  // des envois groupés (batch / retries) sous le plafond de l'éditeur. Chemin réel
-  // uniquement (le sink 'test' ci-dessus court-circuite → aucun impact sur les tests).
-  await throttleOutbound('resend');
-  const resend = new Resend(apiKey);
-  const result = await resend.emails.send({
-    from: process.env['RESEND_FROM'] ?? 'noreply@gosavr.io',
-    to,
-    subject: sujet,
-    html,
-  });
-  if (result.error) {
-    // 429 Resend : honore Retry-After (décale le prochain envoi) — l'échec est ensuite
-    // retenté par le worker email-retry (§08 §6, paliers 5 min/1 h/24 h) (VOLET 3 R22g).
-    if (result.error.name === 'rate_limit_exceeded') {
-      honorRetryAfter(
-        'resend',
-        parseRetryAfter(result.headers?.['retry-after'] ?? null),
-      );
-    }
-    return { resendId: null, statut: 'failed', erreur: result.error.message };
-  }
-  return { resendId: result.data?.id ?? null, statut: 'sent', erreur: null };
-}
-
 async function traceResendLog(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
   erreur: string,
@@ -164,10 +147,10 @@ export async function sendEmail(
   to: string,
   variables: Record<string, string>,
   options: SendEmailOptions = {},
-): Promise<void> {
+): Promise<SendEmailResult> {
   if (_captureFn) {
     _captureFn({ slug, to, variables, options });
-    return;
+    return { statut: 'sent' };
   }
 
   const supabase = createAdminSupabaseClient();
@@ -187,7 +170,7 @@ export async function sendEmail(
   if (!tpl.actif) {
     // Template inactif : aucun appel Resend, trace (CDC §08 §4 l.548 « skip inactif »).
     await traceResendLog(supabase, `SKIP_INACTIF: ${slug}`);
-    return;
+    return { statut: 'dropped' };
   }
 
   // Variable requise manquante → refus d'envoi + trace (CDC §08 §4 l.547).
@@ -203,27 +186,53 @@ export async function sendEmail(
       supabase,
       `MISSING_VARIABLE: ${slug} [${missing.join(', ')}]`,
     );
-    return;
+    return { statut: 'dropped' };
   }
 
-  const sujet = interpolate(tpl.sujet as string, variables);
-  const html = interpolate(tpl.corps_html as string, variables);
+  const sujet = objetEnTexte(interpolate(tpl.sujet as string, variables));
+  const corps = interpolate(tpl.corps_html as string, variables);
+  // Enveloppe commune (logo, bouton, pied de page) et version texte (revue des
+  // emails, Val 2026-10-29) : la même pour tous les gabarits.
+  const html = envelopperHtml(corps, sujet);
 
-  const outcome = await dispatchToResend(sujet, html, to);
-
-  await supabase.from('emails_envoyes').insert({
-    template_code: slug,
-    destinataire: to,
-    sujet,
-    statut: outcome.statut,
-    resend_id: outcome.resendId,
-    entity_type: options.entityType ?? null,
-    entity_id: options.entityId ?? null,
-    erreur: outcome.erreur,
-    envoye_at: outcome.statut === 'sent' ? new Date().toISOString() : null,
-    variables_jsonb: variables,
-    tentative_numero: 1,
+  const outcome = await dispatchToResend({
+    to,
+    subject: sujet,
+    html,
+    text: versionTexte(corps),
   });
+  // Hors production sans adresse de redirection : rien n'est parti, donc rien à
+  // historiser ni à retenter (une ligne 'failed' serait reprise par le worker).
+  if (outcome.statut === 'skipped') return { statut: 'dropped' };
+
+  // `destinataire` et `sujet` restent ceux du métier, même quand le transport a
+  // redirigé l'envoi : le worker de retry repart de cette ligne.
+  const { error: historiqueErr } = await supabase
+    .from('emails_envoyes')
+    .insert({
+      template_code: slug,
+      destinataire: to,
+      sujet,
+      statut: outcome.statut,
+      resend_id: outcome.resendId,
+      entity_type: options.entityType ?? null,
+      entity_id: options.entityId ?? null,
+      erreur: outcome.erreur,
+      envoye_at: outcome.statut === 'sent' ? new Date().toISOString() : null,
+      variables_jsonb: variables,
+      tentative_numero: 1,
+    });
+  if (historiqueErr) {
+    // Ni le destinataire ni le contenu : le template et le code d'erreur suffisent.
+    logger.error('email.historique_non_ecrit', {
+      template: slug,
+      statut_envoi: outcome.statut,
+      error_code: (historiqueErr as { code?: string }).code ?? 'UNKNOWN',
+    });
+    // Un échec sans ligne n'a rien que le worker puisse reprendre.
+    return { statut: outcome.statut === 'sent' ? 'sent' : 'dropped' };
+  }
+  return { statut: outcome.statut === 'sent' ? 'sent' : 'retrying' };
 }
 
 // ─── Retry worker (cron) — CDC §08 §4 l.546 ──────────────────────────────────
@@ -231,7 +240,8 @@ export async function sendEmail(
 // _Divergences/M0.5_20260629.md). tentative_numero 1 = envoi initial, 2-4 = retries.
 // La prochaine tentative est dérivée de created_at + offset cumulatif (0 colonne
 // d'ordonnancement). Après tentative 4 échouée → statut='failed' (echec terminal) +
-// trace integrations_logs (echec_final). Pas de DLQ V1 (dashboard Admin sur statut='failed').
+// trace integrations_logs (echec_final). Pas de DLQ V1 : les lignes abandonnées sont
+// rendues à l'appelant (`epuises`), qui en tire l'alerte in-app Admin (§08 §6).
 
 const PALIERS_SECONDS = [5 * 60, 60 * 60, 24 * 60 * 60];
 
@@ -245,21 +255,39 @@ function cumulativeOffsetSeconds(tentativeNumero: number): number {
   return total;
 }
 
+// Email dont le sort vient d'être tranché à ce passage : de quoi laisser l'appelant
+// en tirer les suites métier (alerte, tampon), sans que ce module les connaisse.
+export interface EmailTranche {
+  id: string;
+  template_code: string;
+  destinataire: string;
+  entity_type: string | null;
+  entity_id: string | null;
+}
+
 export interface EmailRetryResult {
   scanned: number;
   retried: number;
   succeeded: number;
   exhausted: number;
+  // Lignes parties à ce passage, et lignes abandonnées après la 4e tentative.
+  reussis: EmailTranche[];
+  epuises: EmailTranche[];
 }
 
-interface FailedEmailRow {
-  id: string;
-  template_code: string;
-  destinataire: string;
+interface FailedEmailRow extends EmailTranche {
   variables_jsonb: Record<string, string> | null;
   tentative_numero: number;
   created_at: string;
 }
+
+const tranche = (row: FailedEmailRow): EmailTranche => ({
+  id: row.id,
+  template_code: row.template_code,
+  destinataire: row.destinataire,
+  entity_type: row.entity_type ?? null,
+  entity_id: row.entity_id ?? null,
+});
 
 export async function runEmailRetryWorker(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
@@ -270,7 +298,7 @@ export async function runEmailRetryWorker(
   const { data: rows } = await supabase
     .from('emails_envoyes')
     .select(
-      'id, template_code, destinataire, variables_jsonb, tentative_numero, created_at',
+      'id, template_code, destinataire, variables_jsonb, tentative_numero, created_at, entity_type, entity_id',
     )
     .eq('statut', 'failed')
     .lt('tentative_numero', 4);
@@ -281,6 +309,8 @@ export async function runEmailRetryWorker(
     retried: 0,
     succeeded: 0,
     exhausted: 0,
+    reussis: [],
+    epuises: [],
   };
 
   for (const row of failed) {
@@ -297,10 +327,17 @@ export async function runEmailRetryWorker(
     if (!tpl || !tpl.actif) continue;
 
     const vars = (row.variables_jsonb ?? {}) as Record<string, string>;
-    const sujet = interpolate(tpl.sujet as string, vars);
-    const html = interpolate(tpl.corps_html as string, vars);
+    const sujet = objetEnTexte(interpolate(tpl.sujet as string, vars));
+    const corps = interpolate(tpl.corps_html as string, vars);
 
-    const outcome = await dispatchToResend(sujet, html, row.destinataire);
+    const outcome = await dispatchToResend({
+      to: row.destinataire,
+      subject: sujet,
+      html: envelopperHtml(corps, sujet),
+      text: versionTexte(corps),
+    });
+    // Rien n'est parti (hors production sans redirection) : la ligne reste en l'état.
+    if (outcome.statut === 'skipped') continue;
     result.retried += 1;
     const nextTentative = row.tentative_numero + 1;
 
@@ -316,6 +353,7 @@ export async function runEmailRetryWorker(
         })
         .eq('id', row.id);
       result.succeeded += 1;
+      result.reussis.push(tranche(row));
     } else {
       await supabase
         .from('emails_envoyes')
@@ -332,6 +370,7 @@ export async function runEmailRetryWorker(
           `echec_final: ${row.template_code} -> ${row.destinataire}`,
         );
         result.exhausted += 1;
+        result.epuises.push(tranche(row));
       }
     }
   }

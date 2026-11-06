@@ -118,6 +118,13 @@ INSERT INTO plateforme.evenements (
    '7a1e1001-0000-0000-0000-0000000000c2'::uuid, '7a1e7e01-0000-0000-0000-0000000000c2'::uuid,
    'VTG Brouillon', NULL, 100, 'Contact', '0600000020');
 
+-- Une collecte confirmée sur l'événement daté de T, à sa date : le traiteur
+-- n'est « intervenu » sur L que par un événement qui porte une collecte hors
+-- brouillon (20261024190000, décision Val 2026-10-24).
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
+VALUES ('7a1ec001-0000-0000-0000-0000000000c2'::uuid, '7a1ee001-0000-0000-0000-0000000000c2'::uuid,
+        'zero_dechet', 'cloturee', 'non_envoye', '2026-06-15', '20:00');
+
 -- =============================================================================
 -- 1-2 — gestionnaire : la table n'ouvre plus que sa propre ligne
 -- =============================================================================

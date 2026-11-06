@@ -47,8 +47,6 @@ const collecte = {
   collecte_flux: [],
   rapports_rse: [],
   transporteur_nom: 'Marathon',
-  factures_collectes: [],
-  packs_antgaspi: null,
   evenements: {
     nom_evenement: 'Cocktail ZD',
     pax: 80,
@@ -235,6 +233,8 @@ describe('M0.6 / liste Collectes Admin — export CSV', () => {
         'perimetre_org_ids[]': 'org-1',
         info_incomplete: 'true',
         rapport_non_consulte: 'true',
+        // Vue « passées » : aujourd'hui tranché à la minute (Val 2026-11-03).
+        vue: 'passees',
       });
       expect([...exporte]).toEqual(filtresDe(liste));
       // … sans tri ni page : le fichier porte toute la sélection, pas une page.
@@ -294,11 +294,10 @@ describe('M0.6 / liste Collectes Admin — export CSV', () => {
           /\/admin\/collectes\?/.test(String(c[0])),
         ),
       ).toBe(false);
-      // … et l'export non plus.
-      expect(
-        screen.getByRole('button', { name: 'Exporter CSV' }),
-      ).toBeDisabled();
-      expect(exporter(ouvrir)).toBeNull();
+      // … et l'export non plus : sans ligne, la barre du tableau (et son
+      // bouton, à gauche de « Colonnes ») n'est pas affichée.
+      expect(screen.queryByRole('button', { name: 'Exporter CSV' })).toBeNull();
+      expect(ouvrir).not.toHaveBeenCalled();
     },
     ATTENTE_CAS_MS,
   );

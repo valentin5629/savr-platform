@@ -5,6 +5,10 @@
  * Les deux formes de la règle (ligne chargée / filtre PostgREST de la liste)
  * sont tenues d'accord ici.
  */
+import { STATUTS_A_RENVOYER } from './collectes-chips';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
   filtreStatutsAdmin,
@@ -64,6 +68,34 @@ describe('M0.6 / statut Admin — Créée puis Programmée', () => {
     ).toBe('programmee');
   });
 
+  // Décision Val 2026-11-02 : la demande partie mais abandonnée n'est jamais
+  // arrivée — retour à « Créée », quels que soient les signaux posés au clic.
+  it('M0.6/statut_admin_creee_envoi_abandonne — ordre de création abandonné, rien de revenu = « Créée »', () => {
+    const abandonnee: EnvoiCollecte = {
+      ...CREEE,
+      prestataire_logistique_id: 'presta-1',
+      attributions_antgaspi: { id: 'attr-1' },
+      envoi_abandonne: true,
+    };
+    expect(statutCollecteAdmin(abandonnee)).toBe('creee');
+    // Quelque chose est revenu du prestataire (acceptation manuelle,
+    // référence) : la demande est arrivée, « Programmée ».
+    expect(statutCollecteAdmin({ ...abandonnee, statut_tms: 'acceptee' })).toBe(
+      'programmee',
+    );
+    expect(
+      statutCollecteAdmin({ ...abandonnee, tms_reference: 'MISSION-7' }),
+    ).toBe('programmee');
+    // Sans abandon (échec avec reprise compris) : inchangé.
+    expect(statutCollecteAdmin({ ...abandonnee, envoi_abandonne: false })).toBe(
+      'programmee',
+    );
+    // Hors `programmee`, l'abandon ne change rien.
+    expect(statutCollecteAdmin({ ...abandonnee, statut: 'validee' })).toBe(
+      'validee',
+    );
+  });
+
   it('hors `programmee`, la clé d’affichage est le statut DB', () => {
     for (const statut of [
       'brouillon',
@@ -111,6 +143,9 @@ function vrai(terme: string, ligne: Record<string, unknown>): boolean {
   const valeur = ligne[colonne];
   const vide = Array.isArray(valeur) ? valeur.length === 0 : valeur == null;
   const op = reste.join('.');
+  const horsListe = /^not\.in\.\((.*)\)$/.exec(op);
+  if (horsListe)
+    return !(horsListe[1] ?? '').split(',').includes(String(valeur));
   if (op === 'is.null') return vide;
   if (op === 'not.is.null') return !vide;
   if (op.startsWith('eq.')) return valeur === op.slice(3);
@@ -120,8 +155,12 @@ function vrai(terme: string, ligne: Record<string, unknown>): boolean {
   throw new Error(`terme PostgREST non géré par le test : ${terme}`);
 }
 
-function retenue(cles: string[], ligne: EnvoiCollecte): boolean {
-  const filtre = filtreStatutsAdmin(cles);
+function retenue(
+  cles: string[],
+  ligne: EnvoiCollecte,
+  idsAbandonnes: string[] = [],
+): boolean {
+  const filtre = filtreStatutsAdmin(cles, idsAbandonnes);
   if (!filtre) throw new Error('filtre attendu');
   return 'or' in filtre
     ? decoupe(filtre.or).some((t) =>
@@ -159,6 +198,52 @@ describe('M0.6 / statut Admin — filtre « Statut » de la liste Collectes', ()
     },
   );
 
+  it.each([
+    [['creee']],
+    [['programmee']],
+    [['creee', 'validee']],
+    [['programmee', 'en_cours']],
+  ])(
+    'M0.6/statut_admin_filtre_envoi_abandonne — sélection %j : une collecte à l’envoi abandonné suit son libellé « Créée »',
+    (cles) => {
+      const ID_A = '11111111-1111-4111-8111-111111111111';
+      const ID_B = '22222222-2222-4222-8222-222222222222';
+      const ids = [ID_A];
+      const lignes: (EnvoiCollecte & { id: string })[] = [
+        // Abandonnée, signaux posés au clic.
+        {
+          ...CREEE,
+          id: ID_A,
+          prestataire_logistique_id: 'p',
+          attributions_antgaspi: { id: 'a' },
+        },
+        // Abandonnée mais acceptée à la main depuis.
+        {
+          ...CREEE,
+          id: ID_A,
+          prestataire_logistique_id: 'p',
+          statut_tms: 'acceptee',
+        },
+        // Non abandonnée.
+        { ...CREEE, id: ID_B, prestataire_logistique_id: 'p' },
+        { ...CREEE, id: ID_B },
+        { ...CREEE, id: ID_A, statut: 'validee', statut_tms: 'acceptee' },
+      ];
+      for (const ligne of lignes) {
+        const affiche = statutCollecteAdmin({
+          ...ligne,
+          envoi_abandonne: ids.includes(ligne.id),
+        });
+        expect(retenue(cles, ligne, ids)).toBe(cles.includes(affiche));
+      }
+    },
+  );
+
+  it('identifiants d’abandon : seuls des UUID partent dans `.or()`', () => {
+    const filtre = filtreStatutsAdmin(['creee'], ['x),statut.neq.zz']);
+    expect(filtre).toEqual(filtreStatutsAdmin(['creee']));
+  });
+
   it('« Créée » et « Programmée » cochées ensemble (ou aucune) : simple liste de statuts DB', () => {
     expect(filtreStatutsAdmin(['creee', 'programmee', 'validee'])).toEqual({
       statuts: ['programmee', 'validee'],
@@ -168,6 +253,29 @@ describe('M0.6 / statut Admin — filtre « Statut » de la liste Collectes', ()
     });
   });
 
+  // « Réalisée » se lit aussi sur une collecte AG sans excédent : le filtre n'en
+  // propose qu'une, qui couvre les deux statuts DB (décision Val 2026-10-09).
+  it('M0.6/statut_admin_filtre_realisee_couvre_sans_excedent — « Réalisée » filtre realisee ET realisee_sans_collecte', () => {
+    expect(filtreStatutsAdmin(['realisee'])).toEqual({
+      statuts: ['realisee', 'realisee_sans_collecte'],
+    });
+    // Jamais de doublon quand l'ancienne clé arrive aussi (lien enregistré).
+    expect(
+      filtreStatutsAdmin(['realisee', 'realisee_sans_collecte', 'cloturee']),
+    ).toEqual({
+      statuts: ['realisee', 'realisee_sans_collecte', 'cloturee'],
+    });
+    // Les autres statuts ne l'embarquent pas.
+    expect(filtreStatutsAdmin(['cloturee', 'annulee'])).toEqual({
+      statuts: ['cloturee', 'annulee'],
+    });
+    // Forme `or=(…)` (« Créée » seule + « Réalisée ») : même couverture.
+    const filtre = filtreStatutsAdmin(['creee', 'realisee']);
+    expect(filtre && 'or' in filtre ? filtre.or : '').toContain(
+      'statut.in.(realisee,realisee_sans_collecte)',
+    );
+  });
+
   it('M0.6/statut_admin_brouillon_absent — clés inconnues et `brouillon` écartés : rien ne part tel quel dans `.or()`', () => {
     expect(filtreStatutsAdmin([])).toBeNull();
     expect(filtreStatutsAdmin(['brouillon'])).toBeNull();
@@ -175,5 +283,86 @@ describe('M0.6 / statut Admin — filtre « Statut » de la liste Collectes', ()
     expect(
       filtreStatutsAdmin(['creee', 'brouillon', 'x),statut.neq.zz']),
     ).toEqual(filtreStatutsAdmin(['creee']));
+  });
+});
+
+// Le drapeau « modifiée sans renvoi » (`collectes.dirty_tms`) s'arme en base dès
+// que la demande est partie (arbitrage Val 2026-10-09) : les déclencheurs de
+// `collectes` et d'`evenements` recopient les quatre signaux de cet écran. Une
+// règle modifiée ici sans eux, ou l'inverse, ferait diverger le libellé
+// « Programmée » et la pastille « Modifiées sans renvoi TMS ».
+describe('M0.6/dirty_tms_apres_envoi — « demande partie » : mêmes signaux à l’écran et dans les déclencheurs', () => {
+  const dossier = fileURLToPath(
+    new URL('../../../../supabase/migrations', import.meta.url),
+  );
+  // La dernière migration qui définit chaque fonction fait foi.
+  const corps = (fonction: string): string => {
+    let trouve: string | null = null;
+    for (const f of readdirSync(dossier).sort()) {
+      const sql = readFileSync(join(dossier, f), 'utf8');
+      // La définition, pas une mention en commentaire (le bloc de retour arrière
+      // d'une migration cite la fonction avant de la créer).
+      const i = sql.indexOf(
+        `CREATE OR REPLACE FUNCTION plateforme.${fonction}(`,
+      );
+      if (i === -1) continue;
+      const fin = sql.indexOf('$$;', i);
+      trouve = sql.slice(i, fin === -1 ? undefined : fin);
+    }
+    if (trouve == null) throw new Error(`${fonction} introuvable`);
+    return trouve;
+  };
+
+  // Les signaux, lus dans le filtre que la liste Collectes Admin envoie.
+  const filtre = filtreStatutsAdmin(['programmee']) as { or: string };
+  const signaux = [
+    ...new Set(
+      [...filtre.or.matchAll(/(\w+)\.(?:neq|not)\./g)].map((m) => m[1]!),
+    ),
+  ];
+
+  it('l’écran lit quatre signaux', () => {
+    expect(signaux.sort()).toEqual([
+      'attributions_antgaspi',
+      'prestataire_logistique_id',
+      'statut_tms',
+      'tms_reference',
+    ]);
+  });
+
+  // Lot B1 (2026-10-23) : les contacts sont portés par la collecte ; c'est le
+  // déclencheur de `collecte_contacts` qui arme le drapeau, celui de
+  // l'événement est sans effet (sa copie des contacts ne part pas au
+  // prestataire).
+  it.each([
+    'fn_set_collectes_dirty_tms',
+    'fn_collecte_contacts_marque_collecte_modifiee',
+  ])('%s les lit tous les quatre', (fonction) => {
+    const sql = corps(fonction);
+    for (const signal of signaux) expect(sql).toContain(signal);
+  });
+
+  it('les deux fonctions lues sont bien deux corps distincts (cliquet non vacant)', () => {
+    const collecte = corps('fn_set_collectes_dirty_tms');
+    const contacts = corps('fn_collecte_contacts_marque_collecte_modifiee');
+    expect(collecte).toContain('NEW.dirty_tms := true');
+    expect(collecte).not.toContain('UPDATE plateforme.collectes');
+    expect(contacts).toContain('UPDATE plateforme.collectes');
+    expect(contacts).not.toContain('NEW.dirty_tms := true');
+  });
+
+  it('le déclencheur des contacts de collecte arme les statuts que la pastille compte, et eux seuls', () => {
+    const liste = corps('fn_collecte_contacts_marque_collecte_modifiee').match(
+      /c\.statut IN \(([^)]*)\)/,
+    );
+    expect(liste).not.toBeNull();
+    const statuts = [...liste![1]!.matchAll(/'(\w+)'/g)].map((m) => m[1]!);
+    expect(statuts.sort()).toEqual([...STATUTS_A_RENVOYER].sort());
+  });
+
+  it('le déclencheur de l’événement n’arme plus rien (lot B1 : sa copie des contacts ne part pas au prestataire)', () => {
+    const evenement = corps('fn_evenement_marque_collectes_modifiees');
+    expect(evenement).not.toContain('UPDATE plateforme.collectes');
+    expect(evenement).toContain('RETURN NULL');
   });
 });

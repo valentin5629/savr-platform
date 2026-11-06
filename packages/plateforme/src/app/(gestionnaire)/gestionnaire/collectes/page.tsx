@@ -10,8 +10,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ClipboardList, Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ClipboardTextIcon } from '@/components/ui/icones';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import {
   CelluleVide,
@@ -19,6 +18,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@/components/ui/data-grid';
+import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
 import {
   FiltreCoches,
   type OptionFiltre,
@@ -34,6 +34,7 @@ import {
   type CollecteFiltresOptions,
 } from '@/components/collecte/collecte-filtres-bar';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
+import { OngletsVueCollectes } from '@/components/collecte/onglets-vue-collectes';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { TAILLE_OPTIONS } from '@/components/dashboards/taille-options';
 import { readCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
@@ -51,9 +52,17 @@ import {
 } from '@/lib/hooks/use-filtres-url';
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
+import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
 import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
+import { ouvrirDocumentPresigne } from '@/lib/collectes/rapport-telechargement-client';
 import { fmtKg, fmtPax } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
+import { jourParis } from '@savr/shared/src/temps/index.js';
+import {
+  lireVueCollectes,
+  periodeDeLaVue,
+  triDateDescendant,
+} from '@/lib/collectes/vue-temporelle';
 
 interface CollecteRow {
   id: string;
@@ -98,10 +107,11 @@ const OPTIONS_BARRE: CollecteFiltresOptions = {
 // sont à choix multiple (Design System §5.5 règle 7), en CSV dans l'URL comme
 // sur les listes traiteur et agence : le lien d'un drill-down (`?lieu=<id>`)
 // est une liste d'un élément. La route n'accepte qu'UNE valeur pour `type` et
-// `statut` : Type est un segmenté levable (« Toutes »), et il n'y a ni onglets
-// Programmées / Historique ni filtre Statut (ils demandent une liste de
-// statuts) — reliquat route. `statut` reste lu et transmis : une URL écrite à
-// la main doit filtrer comme elle l'annonce. Type / Taille d'événement
+// `statut` : Type est un segmenté levable (« Toutes »), et il n'y a pas de
+// filtre Statut (il demande une liste de statuts) — reliquat route. `statut`
+// reste lu et transmis : une URL écrite à la main doit filtrer comme elle
+// l'annonce. Les vues « Collectes à venir / passées » (`onglet`, décision Val
+// 2026-10-19) se rangent par date : elles bornent la période envoyée. Type / Taille d'événement
 // (§06.05 l.209) sont en CSV dans l'URL ; les liens `x[]` (dashboard,
 // favoris) restent lus, cf. `lireHeritageCrochets`.
 const FILTRES = {
@@ -113,10 +123,13 @@ const FILTRES = {
   to: texte(),
   type_evenement_ids: liste(),
   taille_evenements: liste(),
+  // Vue à venir (défaut) / passées : de la navigation, hors « Réinitialiser ».
+  onglet: navigation(texte('')),
   // Tri de la Data Table, envoyé à l'API (liste paginée : trier la seule page
-  // chargée donnerait un ordre faux). Défaut = date décroissante, comme la route.
+  // chargée donnerait un ordre faux). `ordre` vide = celui de la vue : la plus
+  // proche d'aujourd'hui d'abord.
   tri: navigation(texte('date')),
-  ordre: navigation(texte('desc')),
+  ordre: navigation(texte('')),
   page: navigation(entier(1, 1)),
 };
 
@@ -182,12 +195,14 @@ const SqueletteListe = () => (
 function GestionnaireCollectesContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const [fiche, setFiche] = useState<{ id: string; edit: boolean } | null>(
-    () => {
-      const id = params.get('collecte');
-      return id ? { id, edit: params.get('edit') === '1' } : null;
-    },
-  );
+  const [fiche, setFiche] = useState<{
+    id: string;
+    edit: boolean;
+    onglet?: OngletFiche;
+  } | null>(() => {
+    const id = params.get('collecte');
+    return id ? { id, edit: params.get('edit') === '1' } : null;
+  });
   const {
     valeurs: f,
     set,
@@ -250,7 +265,12 @@ function GestionnaireCollectesContent() {
 
   const page = f.page;
   const allerPage = (p: number) => set({ page: p });
-  const sorting: SortingState = [{ id: f.tri, desc: f.ordre === 'desc' }];
+  const vue = lireVueCollectes(f.onglet) ?? 'a_venir';
+  const ordre = f.ordre || (triDateDescendant(vue) ? 'desc' : 'asc');
+  const sorting: SortingState = [{ id: f.tri, desc: ordre === 'desc' }];
+  // Changer de vue reprend son tri par défaut.
+  const changerVue = (v: typeof vue) =>
+    poser({ onglet: v, tri: 'date', ordre: '' });
 
   // Liste paginée serveur (R-UI-4a) : URL mémoïsée, garde anti-réponse périmée
   // et état Error portés par `useListePaginee`. Sans la garde `!r.ok`, un 500
@@ -258,27 +278,50 @@ function GestionnaireCollectesContent() {
   // une panne serveur se lisait comme un parc sans collecte (§10 §7).
   // Filtres de la liste, sans tri ni page : la liste ET l'export CSV partent de
   // la même chaîne, le fichier contient donc les lignes de la liste (§12 §2).
+  // Jour lu à chaque rendu : une page restée ouverte passé minuit se recale
+  // au premier geste.
+  const aujourdhui = jourParis();
   const qsFiltres = useMemo(() => {
     const qs = new URLSearchParams();
+    // Période de la barre, bornée à la vue (à venir : aujourd'hui et après).
+    // Aujourd'hui est partagé à la minute par la route (Val 2026-11-03).
+    const periode = periodeDeLaVue(
+      vue,
+      { from: f.from, to: f.to },
+      aujourdhui,
+      { jourPartage: true },
+    );
+    qs.set('vue', vue);
     if (f.lieu.length > 0) qs.set('lieu_ids', f.lieu.join(','));
     if (f.traiteur.length > 0) qs.set('traiteur_ids', f.traiteur.join(','));
     if (f.type) qs.set('type', f.type);
     if (f.statut) qs.set('statut', f.statut);
-    if (f.from) qs.set('from', f.from);
-    if (f.to) qs.set('to', f.to);
+    if (periode.from) qs.set('from', periode.from);
+    if (periode.to) qs.set('to', periode.to);
     // La route lit ces deux filtres en paramètre RÉPÉTÉ (`getAll('x[]')`), pas
     // en CSV : l'appel est construit en `x[]` depuis l'état CSV.
     typeEvtIds.forEach((v) => qs.append('type_evenement_ids[]', v));
     tailles.forEach((v) => qs.append('taille_evenements[]', v));
     return qs.toString();
-  }, [f.lieu, f.traiteur, f.type, f.statut, f.from, f.to, typeEvtIds, tailles]);
+  }, [
+    vue,
+    aujourdhui,
+    f.lieu,
+    f.traiteur,
+    f.type,
+    f.statut,
+    f.from,
+    f.to,
+    typeEvtIds,
+    tailles,
+  ]);
   const urlListe = useMemo(() => {
     const qs = new URLSearchParams(qsFiltres);
     qs.set('tri', f.tri);
-    qs.set('ordre', f.ordre);
+    qs.set('ordre', ordre);
     if (page > 1) qs.set('page', String(page));
     return `/api/v1/gestionnaire/collectes?${qs}`;
-  }, [qsFiltres, f.tri, f.ordre, page]);
+  }, [qsFiltres, f.tri, ordre, page]);
   const {
     data: rows,
     total,
@@ -393,8 +436,8 @@ function GestionnaireCollectesContent() {
     const s = usp.toString();
     router.replace(`${ROUTES.gestionnaire.collectes}${s ? `?${s}` : ''}`);
   }
-  function ouvrirFiche(id: string) {
-    const f = { id, edit: false };
+  function ouvrirFiche(id: string, onglet?: OngletFiche) {
+    const f = { id, edit: false, onglet };
     setFiche(f);
     majUrlFiche(f);
   }
@@ -406,20 +449,15 @@ function GestionnaireCollectesContent() {
     charger();
   }
 
-  // Téléchargement du rapport de la collecte réalisée (ZD = rapport recyclage,
-  // AG = attestation de don) — miroir de la liste traiteur : URL R2 pré-signée,
-  // no-op silencieux si indisponible (embargo H+24, PDF non encore généré).
-  async function telechargerRapport(collecteId: string) {
-    try {
-      const res = await fetch(
-        `/api/v1/gestionnaire/collectes/${encodeURIComponent(collecteId)}/rapport-rse/download`,
-      );
-      if (!res.ok) return;
-      const { url } = (await res.json()) as { url?: string };
-      if (url) window.open(url, '_blank');
-    } catch {
-      // Réseau indisponible : no-op silencieux (l'action reste réessayable).
-    }
+  // Téléchargement du « Rapport de don » d'une collecte AG réalisée — miroir de la
+  // liste traiteur : URL R2 pré-signée, no-op silencieux si indisponible (embargo
+  // H+24, PDF non encore généré). Le rapport de recyclage ZD se fabrique dans la
+  // fiche, où l'on choisit le radar : le picto l'ouvre sur « Bilan & documents »
+  // (décision Val 2026-10-16).
+  function telechargerRapport(collecteId: string) {
+    return ouvrirDocumentPresigne(
+      `/api/v1/gestionnaire/collectes/${encodeURIComponent(collecteId)}/rapport-rse/download`,
+    );
   }
 
   // Mêmes colonnes que la liste traiteur (collectes-traiteur-table.tsx), plus
@@ -476,7 +514,11 @@ function GestionnaireCollectesContent() {
           // Le gestionnaire est servi de tous les rapports des collectes tenues
           // sur ses lieux (§06.05) : jamais « réservé au donneur d'ordre ».
           c={{ ...c, rapport_reserve_donneur_ordre: false }}
-          onTelecharger={() => void telechargerRapport(c.id)}
+          onTelecharger={() =>
+            c.type === 'zero_dechet'
+              ? ouvrirFiche(c.id, 'bilan')
+              : void telechargerRapport(c.id)
+          }
         />
       ),
     },
@@ -524,13 +566,20 @@ function GestionnaireCollectesContent() {
     <SqueletteListe />
   ) : rows.length === 0 ? (
     <EmptyState
-      icon={<ClipboardList />}
+      icon={<ClipboardTextIcon />}
       title="Aucune collecte"
       description="Aucune collecte sur vos lieux pour ce périmètre."
     />
   ) : (
     <>
       <DataGrid
+        toolbarActions={
+          <BoutonExportCsv
+            onClick={() =>
+              window.open(`/api/v1/exports/collectes?${qsFiltres}`)
+            }
+          />
+        }
         data-testid="collectes-table"
         columns={colonnes}
         data={rows}
@@ -540,12 +589,12 @@ function GestionnaireCollectesContent() {
         onSortingChange={(u) => {
           const suivant = typeof u === 'function' ? u(sorting) : u;
           const t = suivant[0];
-          // Tri retiré (cycle TanStack) = tri par défaut de la route. Changer
+          // Tri retiré (cycle TanStack) = tri par défaut de la vue. Changer
           // de tri renvoie aussi en page 1 (`set` sans `page`).
           set(
             t
               ? { tri: t.id, ordre: t.desc ? 'desc' : 'asc' }
-              : { tri: 'date', ordre: 'desc' },
+              : { tri: 'date', ordre: '' },
           );
         }}
         onRowClick={(c) => ouvrirFiche(c.id)}
@@ -567,20 +616,8 @@ function GestionnaireCollectesContent() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<ClipboardList className="h-6 w-6 text-savr-primary-200" />}
+        icon={<ClipboardTextIcon className="h-6 w-6" />}
         title="Collectes"
-        subtitle="Collectes sur les lieux de votre organisation · cliquez une ligne pour ouvrir la fiche"
-        actions={
-          <Button
-            variant="secondary"
-            onClick={() =>
-              window.open(`/api/v1/exports/collectes?${qsFiltres}`)
-            }
-          >
-            <Download />
-            Exporter CSV
-          </Button>
-        }
       />
 
       {/* Filtre actif à l'arrivée d'un drill-down (§06.05 l.215) : nomme la
@@ -596,13 +633,14 @@ function GestionnaireCollectesContent() {
         />
       )}
 
-      {/* Barre de filtres DS (D10 : la même que traiteur / agence) : type
-          ZD / AG levable en en-tête, puis Période · Lieu · Traiteur · Type et
-          Taille d'événement (§06.05 l.209), compteur et réinitialisation en
-          pied — tous à choix multiple, case « Tous » en tête (DS §5.5). Sans
-          onglets Programmées / Historique ni filtre Statut : la route
-          n'accepte qu'un statut (cf. FILTRES). */}
+      {/* Barre de filtres DS (D10 : la même que traiteur / agence) : vues
+          à venir / passées et type ZD / AG levable en en-tête, puis Période ·
+          Lieu · Traiteur · Type et Taille d'événement (§06.05 l.209), compteur
+          et réinitialisation en pied — tous à choix multiple, case « Tous » en
+          tête (DS §5.5). Sans filtre Statut : la route n'accepte qu'un statut
+          (cf. FILTRES). */}
       <CollecteFiltresBar
+        tabs={<OngletsVueCollectes value={vue} onChange={changerVue} />}
         toggle={
           <ToggleTypeCollecte
             avecTous
@@ -665,6 +703,7 @@ function GestionnaireCollectesContent() {
         espace="gestionnaire"
         collecteId={fiche?.id ?? null}
         initialEditing={fiche?.edit ?? false}
+        initialOnglet={fiche?.onglet}
         onClose={fermerFiche}
       />
     </div>

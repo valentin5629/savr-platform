@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { isDisposableEmail } from '@savr/shared/src/email-denylist.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { verifySiret, isValidSiretFormat } from '@savr/shared/src/api/siret.js';
 import { enqueueSiretRevalidation } from '@savr/shared/src/siret/revalidation.js';
 import {
@@ -12,7 +13,9 @@ import { validatePasswordStrength } from '@/lib/password.js';
 import {
   isValidEmailFormat,
   isValidNomOuPrenom,
+  isValidPoste,
   isValidTelephoneFr,
+  POSTE_MAX_LENGTH,
 } from '@/lib/identite-signup.js';
 import { CGU_VERSION_COURANTE } from '@/lib/cgu.js';
 import { writeError, authAccountError } from '@/lib/api-helpers.js';
@@ -68,6 +71,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     prenom,
     nom,
     telephone,
+    poste,
     type_profil,
     raison_sociale,
     siret,
@@ -78,6 +82,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     prenom?: string;
     nom?: string;
     telephone?: string;
+    poste?: string;
     type_profil?: string;
     raison_sociale?: string;
     siret?: string;
@@ -91,6 +96,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     !prenom ||
     !nom ||
     !telephone ||
+    typeof poste !== 'string' ||
     !type_profil ||
     !raison_sociale
   ) {
@@ -126,6 +132,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!isValidTelephoneFr(telephone)) {
     return NextResponse.json(
       { error: 'Numéro de téléphone français invalide.' },
+      { status: 422 },
+    );
+  }
+  // Poste : obligatoire à l'inscription (Val 2026-11-01), sans effet sur les droits.
+  if (!isValidPoste(poste)) {
+    return NextResponse.json(
+      { error: `Poste : obligatoire, ${POSTE_MAX_LENGTH} caractères maximum.` },
       { status: 422 },
     );
   }
@@ -193,14 +206,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .not('verifie_at', 'is', null)
       .maybeSingle();
 
-    if (domainRow?.organisation_id) {
+    const rawOrg = domainRow?.organisations as
+      | { type: string }
+      | { type: string }[]
+      | null
+      | undefined;
+    const orgType =
+      (Array.isArray(rawOrg) ? rawOrg[0] : rawOrg)?.type ?? type_profil;
+    // Un client organisateur ne rejoint JAMAIS Savr en libre-service (CLAUDE.md
+    // §4, création Admin §06.06) : son domaine, même vérifié, ne rattache
+    // personne. Garde posée ICI, seul point par où passent tous les chemins
+    // (domaine ajouté par l'Admin, vérifié à l'activation, organisation passée
+    // en client organisateur après coup). L'inscrit prend alors le chemin
+    // « création », où le domaine déjà rattaché fait refuser l'inscription (409).
+    if (domainRow?.organisation_id && orgType !== 'client_organisateur') {
       attachOrganisationId = domainRow.organisation_id;
-      const rawOrg = domainRow.organisations as
-        | { type: string }
-        | { type: string }[]
-        | null;
-      const orgType =
-        (Array.isArray(rawOrg) ? rawOrg[0] : rawOrg)?.type ?? type_profil;
       attachRole = rolePourDomaineConu(orgType);
     }
   }
@@ -296,7 +316,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               'Ce domaine email est déjà rattaché à une organisation. Si un ' +
               'collègue vient de créer le compte de votre entreprise, demandez-lui ' +
               "d'activer le sien via le lien reçu par email, puis réessayez. " +
-              'Sinon, écrivez-nous à hello@gosavr.io.',
+              'Sinon, écrivez-nous à contact@gosavr.io.',
           },
           { status: 409 },
         );
@@ -347,6 +367,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     email,
     prenom,
     nom,
+    poste: poste.trim(),
     role: userRole,
     cgu_accepte_le: new Date().toISOString(),
     cgu_version: CGU_VERSION_COURANTE,
@@ -375,7 +396,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       `/api/auth/verify-email?token_hash=${hashedToken}&type=signup`,
     );
     void sendEmail('verification_email', email, {
-      prenom: prenom ?? '',
+      // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
+      prenom: escapeHtml(prenom ?? ''),
       lien_verification: verifyUrl,
     }).catch(() => null);
   }

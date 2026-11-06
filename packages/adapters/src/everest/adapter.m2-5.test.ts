@@ -15,9 +15,13 @@ import {
   getLogistiqueProvider,
 } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
-import { composerInformationsSupplementaires } from '../infos-acces.js';
+import { composerCommentairesTransporteur } from '../infos-acces.js';
 import { AdapterEverest } from './adapter.js';
-import { _setEverestHandlers, setupEverestMock } from './mock.js';
+import {
+  _getEverestHandlers,
+  _setEverestHandlers,
+  setupEverestMock,
+} from './mock.js';
 import {
   PRESTA_EVEREST,
   builderTransporteurs,
@@ -103,6 +107,11 @@ interface SupabaseMockOpts {
   updateCollecteError?: 'statut_tms' | 'tms_reference';
   /** `collectes.statut` en base, contre lequel un filtre `.eq('statut', …)` est évalué. */
   statutCollecte?: string;
+  /** Tournées des rangs 2 et suivants (la tournée existante est le rang 1). */
+  autresTournees?: Array<{
+    rang: number;
+    tournee: NonNullable<SupabaseMockOpts['tourneeExistante']>;
+  }>;
 }
 
 function makeMockSupabase(opts: SupabaseMockOpts = {}) {
@@ -119,6 +128,7 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     insertAuditError = false,
     updateCollecteError,
     statutCollecte = 'programmee',
+    autresTournees = [],
   } = opts;
 
   const insertedRows: Record<string, unknown[]> = {};
@@ -344,9 +354,12 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     ) => {
       let data: unknown;
       if (table === 'collecte_tournees') {
-        data = tourneeExistante
-          ? [{ rang: 1, tournees: tourneeExistante }]
-          : [];
+        data = [
+          ...(tourneeExistante
+            ? [{ rang: 1, tournees: tourneeExistante }]
+            : []),
+          ...autresTournees.map((a) => ({ rang: a.rang, tournees: a.tournee })),
+        ];
       } else {
         data = null;
       }
@@ -417,7 +430,7 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     expect(mission.client_ref).toBe('tournee-everest-new-001');
   });
 
-  it('M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans dropoff', async () => {
+  it('M2.5 / dispatch — point B : l’adresse de l’association attribuée part dans address_end', async () => {
     const { payloads } = setupEverestMock();
     const supabase = makeMockSupabase({
       brancheAttribution: 'ag_velo_programme',
@@ -426,16 +439,66 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
 
     await adapter.dispatchCollecte(COLLECTE_AG, 1);
 
-    const payload = payloads.get('tournee-everest-new-001') as {
-      pickup?: { address: string };
-      dropoff?: { address: string; contact?: { name: string; phone: string } };
-    };
-    // Point A = lieu de collecte, point B = association (décision Val 2026-10-01).
-    expect(payload?.pickup?.address).toBe('45 rue La Boétie, 75008 Paris');
-    expect(payload?.dropoff).toEqual({
-      address: '12 rue des Associations, Ivry-sur-Seine',
-      contact: { name: 'Nadia Benali', phone: '+33699990001' },
+    // Point A = lieu de collecte, point B = association (décision Val 2026-10-01),
+    // aux noms de champs du swagger Everest.
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      address_start: '45 rue La Boétie, 75008 Paris',
+      address_start_name: COLLECTE_AG.contact_principal_nom,
+      address_start_tel: COLLECTE_AG.contact_principal_telephone,
+      address_end: '12 rue des Associations, Ivry-sur-Seine',
+      address_end_name: 'Nadia Benali',
+      address_end_tel: '+33699990001',
     });
+  });
+
+  it('M2.5/everest_contact_association_incomplet — contact de l’association sans téléphone : ni address_end_name ni address_end_tel', async () => {
+    const { payloads } = setupEverestMock();
+    const adapter = new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
+    );
+
+    await adapter.dispatchCollecte(
+      { ...COLLECTE_AG, association_contact_telephone: null },
+      1,
+    );
+
+    const payload = payloads.get('tournee-everest-new-001') ?? {};
+    expect(payload).toMatchObject({
+      address_end: '12 rue des Associations, Ivry-sur-Seine',
+    });
+    expect(payload).not.toHaveProperty('address_end_name');
+    expect(payload).not.toHaveProperty('address_end_tel');
+  });
+
+  it('M2.5/everest_contrat_creation — la création n’envoie que des champs du swagger Everest', async () => {
+    const { payloads } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+
+    // Propriétés de POST /missions/create (swagger 1.291.1) utilisées par Savr.
+    // Avant : pickup / dropoff / timeslot / notes / metadata, inconnus d'Everest,
+    // sans les deux adresses obligatoires.
+    expect(
+      Object.keys(payloads.get('tournee-everest-new-001') ?? {}).sort(),
+    ).toEqual([
+      'address_end',
+      'address_end_comment',
+      'address_end_name',
+      'address_end_tel',
+      'address_start',
+      'address_start_comment',
+      'address_start_name',
+      'address_start_tel',
+      'client_ref',
+      'comment',
+      'service_id',
+      'start_date',
+    ]);
   });
 
   it('M2.5 / dispatch — AG sans association attribuée → LogistiquePermanentError, aucune mission créée', async () => {
@@ -508,30 +571,54 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
 
     const mission = [...missions.values()][0]!;
     expect(mission.service_id).toBe(77);
-    // service 77 = créneau 1h (SERVICE_SLOT_MINUTES[77]=60)
-    const payload = payloads.get('tournee-everest-new-001') as {
-      timeslot?: { start: string; end: string };
-    };
-    expect(payload?.timeslot?.start).toBe('22:00');
-    expect(payload?.timeslot?.end).toBe('23:00');
+    // Le créneau d'1 h du 77 est porté par le service : seul son début part.
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      start_date: 1784577600,
+    });
   });
 
-  it('dispatch timeslot — start=22:00, end=22:30 (30 min service 71)', async () => {
+  it('M2.5/everest_start_date_heure_demandee — start_date = heure demandée par le traiteur, à Paris, en secondes Unix (heure d’été et d’hiver)', async () => {
     const { payloads } = setupEverestMock();
+    const adapter = new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
+    );
+
+    // 20/07/2026 22:00 à Paris (UTC+2) = 20:00 UTC.
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      start_date: 1784577600,
+    });
+
+    // 15/12/2026 22:00 à Paris (UTC+1) = 21:00 UTC.
+    const { payloads: hiver } = setupEverestMock();
+    await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
+    ).dispatchCollecte({ ...COLLECTE_AG, date_collecte: '2026-12-15' }, 1);
+    expect(hiver.get('tournee-everest-new-001')).toMatchObject({
+      start_date: 1797368400,
+    });
+  });
+
+  it('M2.5/everest_start_date_illisible — date de collecte illisible → LogistiquePermanentError avant tout envoi, collecte non rejetée', async () => {
+    const { missions } = setupEverestMock();
     const supabase = makeMockSupabase({
       brancheAttribution: 'ag_velo_programme',
     });
     const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
 
-    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+    await expect(
+      adapter.dispatchCollecte(
+        { ...COLLECTE_AG, date_collecte: 'pas-une-date' },
+        1,
+      ),
+    ).rejects.toThrow(/date ou heure de collecte illisible/);
 
-    // Le payload brut envoyé à createMission contient le timeslot
-    // client_ref = tournee.id → la clé du Map est 'tournee-everest-new-001'
-    const payload = payloads.get('tournee-everest-new-001') as {
-      timeslot?: { start: string; end: string };
-    };
-    expect(payload?.timeslot?.start).toBe('22:00');
-    expect(payload?.timeslot?.end).toBe('22:30');
+    // Sans start_date, Everest prendrait le prochain créneau libre : rien ne part.
+    expect(missions.size).toBe(0);
+    expect(supabase._inserted['tournees']).toBeUndefined();
+    expect(supabase._applied['collectes']).toBeUndefined();
   });
 
   it('idempotence — mission active existante → no createMission (no-op)', async () => {
@@ -703,6 +790,37 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
           'rejetee_par_prestataire',
       ),
     ).toBe(false);
+  });
+
+  it('M2.5/everest_jeton_refuse_sans_rejet — Everest 401 (jeton refusé) → erreur passagère, collecte ni rejetée ni signalée « rejetée », alerte Slack critique', async () => {
+    setupEverestMock({ createFails: true, createFailsStatus: 401 });
+    const slack: SlackPayload[] = [];
+    setSlackSink(async (p) => {
+      slack.push(p);
+    });
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    try {
+      await expect(adapter.dispatchCollecte(COLLECTE_AG, 1)).rejects.toThrow(
+        LogistiqueTransientError,
+      );
+    } finally {
+      setSlackSink(async () => {});
+    }
+
+    // Un réglage à corriger n'est pas un refus du transporteur : avant ce lot,
+    // un 401 persistant passait la collecte en rejetee_par_prestataire.
+    expect(supabase._applied['collectes']).toBeUndefined();
+    expect(alertesOps(supabase)).toEqual([]);
+    expect(slack).toEqual([
+      expect.objectContaining({
+        canal: 'critique',
+        titre: 'Jeton Everest refusé',
+      }),
+    ]);
   });
 });
 
@@ -1268,26 +1386,250 @@ describe('M2.5 / AdapterEverest — sync + updateLieu', () => {
 
     await expect(adapter.updateLieu(LIEU_FIXTURE)).resolves.toBeUndefined();
   });
+});
 
-  it('updateCollecte() = no-op tracé : consumer "noop_no_remote" + alerte Ops info (BL-P2-34)', async () => {
-    setupEverestMock();
-    const supabase = makeMockSupabase();
-    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+// ─── E2 : modification d'une mission envoyée (POST /missions/update) ──────────
+//
+// Avant le 2026-10-30, une modification n'atteignait jamais A Toutes! (alerte
+// seule) : un changement de contacts sur une course déjà envoyée restait chez
+// Savr.
 
-    const alerts: SlackPayload[] = [];
+describe('M2.5 / AdapterEverest — updateCollecte', () => {
+  const TOURNEE_ENVOYEE = {
+    id: 'tournee-001',
+    external_ref_commande: 'EVR-REF-001',
+    statut: 'planifiee',
+    prestataire_logistique_id: PRESTA_EVEREST,
+  };
+  let alerts: SlackPayload[];
+
+  beforeEach(() => {
+    alerts = [];
     setSlackSink(async (p) => {
       alerts.push(p);
     });
+  });
+  afterEach(() => {
+    _setEverestHandlers(null);
+    setSlackSink(async () => {});
+  });
 
-    // Renvoie noop_no_remote (pas de propagation MTS-1/Everest) ...
+  it('mission ouverte : tous ses champs partent, par sa référence, sans service ni référence client', async () => {
+    const { updates } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+    const modifiee: Collecte = {
+      ...COLLECTE_AG,
+      contact_principal_nom: 'Louis Martin',
+      contact_principal_telephone: '07 90 90 19 19',
+      commentaire_general: 'Consigne',
+      commentaire_depart: '- Instructions d’accès : Quai B',
+      commentaire_arrivee: null,
+    };
+
+    await expect(adapter.updateCollecte(modifiee)).resolves.toBe(
+      'adapter_everest',
+    );
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toEqual({
+      ref: 'EVR-REF-001',
+      start_date: Math.floor(Date.parse('2026-07-20T22:00:00+02:00') / 1000),
+      address_start: '45 rue La Boétie, 75008 Paris',
+      address_start_name: 'Louis Martin',
+      address_start_tel: '07 90 90 19 19',
+      // Arrivée sans commentaire : part vide, pour effacer un texte périmé.
+      address_start_comment: '- Instructions d’accès : Quai B',
+      address_end_comment: '',
+      address_end: '12 rue des Associations, Ivry-sur-Seine',
+      address_end_name: 'Nadia Benali',
+      address_end_tel: '+33699990001',
+      comment: 'Consigne',
+    });
+    expect(alerts).toHaveLength(0);
+  });
+
+  it('contact de l’association retiré : il part vide, jamais omis', async () => {
+    const { updates } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      missionExistante: { id: 'em-001', statut_everest: 'created' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.updateCollecte({
+      ...COLLECTE_AG,
+      association_contact_nom: null,
+      association_contact_telephone: null,
+    });
+
+    expect(updates[0]).toMatchObject({
+      address_end_name: '',
+      address_end_tel: '',
+    });
+  });
+
+  it('jamais envoyée à A Toutes! : rien à modifier', async () => {
+    const { updates } = setupEverestMock();
+    const supabase = makeMockSupabase({ tourneeExistante: null });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
     await expect(adapter.updateCollecte(COLLECTE_AG)).resolves.toBe(
       'noop_no_remote',
     );
-    // ... ET émet une alerte Ops canal info (plus de console.warn perdu).
-    const info = alerts.filter((a) => a.canal === 'info');
-    expect(info.length).toBe(1);
+    expect(updates).toHaveLength(0);
+  });
 
-    setSlackSink(async () => {});
+  it.each(['cancelled', 'completed', 'completed_incomplete', 'failed'])(
+    'mission close (%s) : rien n’est renvoyé',
+    async (statut) => {
+      const { updates } = setupEverestMock();
+      const supabase = makeMockSupabase({
+        tourneeExistante: TOURNEE_ENVOYEE,
+        missionExistante: { id: 'em-001', statut_everest: statut },
+      });
+      const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+      await expect(adapter.updateCollecte(COLLECTE_AG)).resolves.toBe(
+        'noop_no_remote',
+      );
+      expect(updates).toHaveLength(0);
+    },
+  );
+
+  it('refus d’A Toutes! (4xx) : erreur définitive, la collecte n’est PAS rejetée', async () => {
+    setupEverestMock({ updateFailsStatus: 400 });
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(adapter.updateCollecte(COLLECTE_AG)).rejects.toBeInstanceOf(
+      LogistiquePermanentError,
+    );
+    // Une course déjà acceptée reste due : seule la création rejette.
+    expect(supabase._updated['collectes'] ?? []).toHaveLength(0);
+  });
+
+  it('5xx : erreur passagère, retentée par le worker', async () => {
+    setupEverestMock({ updateFailsStatus: 503 });
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(adapter.updateCollecte(COLLECTE_AG)).rejects.toBeInstanceOf(
+      LogistiqueTransientError,
+    );
+  });
+
+  it('nombre de véhicules augmenté : les missions existantes sont modifiées, l’écart part en alerte', async () => {
+    const { updates } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.updateCollecte({ ...COLLECTE_AG, nb_camions_demande: 2 });
+
+    expect(updates).toHaveLength(1);
+    const info = alerts.filter((a) => a.canal === 'info');
+    expect(info).toHaveLength(1);
+    expect(info[0]!.titre).toBe('Nombre de véhicules A Toutes! non propagé');
+  });
+  it('sans association attribuée : refus définitif, rien n’est envoyé', async () => {
+    const { updates } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(
+      adapter.updateCollecte({ ...COLLECTE_AG, association_adresse: null }),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+    expect(updates).toHaveLength(0);
+  });
+
+  it('heure illisible : refus définitif, rien n’est envoyé', async () => {
+    const { updates } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(
+      adapter.updateCollecte({ ...COLLECTE_AG, heure_collecte: 'xx:yy' }),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+    expect(updates).toHaveLength(0);
+  });
+
+  it('nombre de véhicules réduit : la mission au-delà de N n’est pas modifiée, l’écart part en alerte', async () => {
+    const { updates } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      autresTournees: [
+        {
+          rang: 2,
+          tournee: {
+            ...TOURNEE_ENVOYEE,
+            id: 'tournee-002',
+            external_ref_commande: 'EVR-REF-002',
+          },
+        },
+      ],
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.updateCollecte({ ...COLLECTE_AG, nb_camions_demande: 1 });
+
+    expect(updates.map((u) => u['ref'])).toEqual(['EVR-REF-001']);
+    expect(alerts.filter((a) => a.canal === 'info')).toHaveLength(1);
+  });
+
+  it('refus sur un camion : les autres sont quand même modifiés, puis le refus remonte', async () => {
+    const { updates } = setupEverestMock();
+    const defaut = _getEverestHandlers()!;
+    _setEverestHandlers({
+      ...defaut,
+      updateMission: async (payload) =>
+        payload['ref'] === 'EVR-REF-001'
+          ? { ok: false, status: 400, error: 'mission verrouillée' }
+          : defaut.updateMission(payload),
+    });
+    const supabase = makeMockSupabase({
+      tourneeExistante: TOURNEE_ENVOYEE,
+      autresTournees: [
+        {
+          rang: 2,
+          tournee: {
+            ...TOURNEE_ENVOYEE,
+            id: 'tournee-002',
+            external_ref_commande: 'EVR-REF-002',
+          },
+        },
+      ],
+      missionExistante: { id: 'em-001', statut_everest: 'assigned' },
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    const erreur = await adapter
+      .updateCollecte({ ...COLLECTE_AG, nb_camions_demande: 2 })
+      .catch((e: unknown) => e);
+
+    expect(updates.map((u) => u['ref'])).toEqual(['EVR-REF-002']);
+    expect(erreur).toBeInstanceOf(LogistiquePermanentError);
+    expect((erreur as Error).message).toBe(
+      'Everest updateMission 400 : mission verrouillée',
+    );
   });
 });
 
@@ -1301,64 +1643,81 @@ describe('M2.5 / Garde-fou G3 — anti-couplage', () => {
   });
 });
 
-// ─── Infos d'accès du lieu → `notes` Everest (Val 2026-09-15) ─────────────────
+// ─── Commentaires au transporteur → Everest (Val 2026-11-03) ──────────────────
 //
-// Les 6 informations d'accès éditables par collecte n'ont pas de champ natif
-// Everest : elles sont agrégées en amont dans `informations_supplementaires`
-// (composerInformationsSupplementaires, appelé par fetchCollecte pour les DEUX
-// adapters). Ce test ferme le dernier maillon côté Everest : ce qui est agrégé
-// atteint bien le fil, dans `notes`.
-describe('M1.5 / infos d’accès du lieu → notes Everest', () => {
+// Composés en amont par le worker (composerCommentairesTransporteur, partagé
+// par les DEUX adapters, format Val 2026-11-03). Ce test ferme le dernier
+// maillon côté Everest : chaque texte part dans son champ — mission
+// (`comment`), adresse de départ (`address_start_comment`), adresse d'arrivée
+// (`address_end_comment`).
+describe('M1.5 / commentaires au transporteur → champs Everest', () => {
   afterEach(() => _setEverestHandlers(null));
 
   const LIEU_ACCES: Lieu = {
     ...LIEU_FIXTURE,
     acces_details: 'Quai n°2, sonner interphone B',
-    stationnement: 'difficile',
     contraintes_horaires: 'Livraison avant 9h uniquement',
-    acces_office: 'tres_difficile',
-    type_vehicule_max: 'camionnette',
-    flux_autorises: ['biodéchets', 'carton'],
   };
 
-  it.each([
-    ['acces_details', 'Accès : Quai n°2, sonner interphone B'],
-    ['stationnement', 'Stationnement : difficile'],
-    [
-      'contraintes_horaires',
-      'Contraintes horaires : Livraison avant 9h uniquement',
-    ],
-    ['acces_office', 'Accès office : très difficile'],
-    ['type_vehicule_max', 'Véhicule max : camionnette'],
-    ['flux_autorises', 'Flux acceptés : biodéchets, carton'],
-  ])(
-    '%s est présent dans notes du payload createMission',
-    async (_c, ligne) => {
-      const { payloads } = setupEverestMock();
-      const supabase = makeMockSupabase({
-        brancheAttribution: 'ag_velo_programme',
-      });
+  it('chaque texte composé part dans son champ : mission, départ, arrivée', async () => {
+    const { payloads } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const c = composerCommentairesTransporteur({
+      lieu: LIEU_ACCES,
+      informationsSupplementaires: 'Demander Karim à la plonge',
+      contact: { nom: 'Alice Martin', telephone: '+33600000001' },
+      contactSecours: { nom: null, telephone: null },
+      vehicule: { type: null, nombre: 2, typeTms: 'a_toutes' },
+      livraison: {
+        instructionsAcces: 'Sonner à l’accueil',
+        contact: { nom: 'Nadia Benali', telephone: '+33699990001' },
+      },
+    });
 
-      await new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
-        {
-          ...COLLECTE_AG,
-          lieu: LIEU_ACCES,
-          informations_supplementaires: composerInformationsSupplementaires(
-            LIEU_ACCES,
-            'Demander Karim à la plonge',
-            null,
-            null,
-          ),
-        },
-        1,
-      );
+    await new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
+      {
+        ...COLLECTE_AG,
+        lieu: LIEU_ACCES,
+        informations_supplementaires: c.unique,
+        commentaire_general: c.general,
+        commentaire_depart: c.depart,
+        commentaire_arrivee: c.arrivee,
+      },
+      1,
+    );
 
-      const payload = payloads.get('tournee-everest-new-001') as {
-        notes?: string;
-      };
-      expect(payload?.notes).toContain(ligne);
-      // La saisie du traiteur part avec, jamais remplacée.
-      expect(payload?.notes).toContain('Demander Karim à la plonge');
-    },
-  );
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      comment: [
+        'Veuillez peser et prendre de belles photos de ce que vous récupérez svp',
+        '2 vélos prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur',
+      ].join('\n'),
+      address_start_comment: [
+        "- Instructions d'accès : Quai n°2, sonner interphone B",
+        '- Précisions du traiteur : Demander Karim à la plonge',
+        '- Contact 1 : Alice Martin, +33600000001',
+        "En cas d'urgence, appeler le 0761912997",
+      ].join('\n'),
+      address_end_comment: [
+        "- Instructions d'accès : Sonner à l’accueil",
+        '- Contact : Nadia Benali, +33699990001',
+      ].join('\n'),
+    });
+  });
+
+  it('M2.5/everest_comment_consigne_seule — sans commentaire composé : la consigne seule, adresses vides', async () => {
+    const { payloads } = setupEverestMock();
+    await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
+    ).dispatchCollecte({ ...COLLECTE_AG, commentaire_general: '   ' }, 1);
+
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      comment:
+        'Veuillez peser et prendre de belles photos de ce que vous récupérez svp',
+      address_start_comment: '',
+      address_end_comment: '',
+    });
+  });
 });

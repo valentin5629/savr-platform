@@ -238,10 +238,12 @@ SELECT is(
                     || ' | ' || coalesce(qual, '-') || ' | ' || coalesce(with_check, '-') ORDER BY policyname)
      FROM pg_policies WHERE schemaname = 'plateforme' AND tablename = 'transporteurs'),
   ARRAY[
+    -- Restrictive du code de vérification (2026-11-04) : ne retire que des droits.
+    'code_verification_equipe_savr | ALL | RESTRICTIVE | authenticated | plateforme.f_code_verification_ok() | plateforme.f_code_verification_ok()',
     'transp_admin | ALL | PERMISSIVE | public | (plateforme.f_app_role() = ''admin_savr''::text) | (plateforme.f_app_role() = ''admin_savr''::text)',
     'transp_ops_select | SELECT | PERMISSIVE | public | (plateforme.f_app_role() = ''ops_savr''::text) | -',
     'transp_ops_write | UPDATE | PERMISSIVE | public | (plateforme.f_app_role() = ''ops_savr''::text) | (plateforme.f_app_role() = ''ops_savr''::text)'],
-  '2. cliquet : les policies de transporteurs sont EXACTEMENT les 3 du staff, prédicat compris (ajout ou élargissement rougit)');
+  '2. cliquet : les policies de transporteurs sont EXACTEMENT les 3 du staff et la restrictive du code de vérification, prédicat compris (ajout ou élargissement rougit)');
 
 SELECT is(
   (SELECT relrowsecurity::text || '|' || relforcerowsecurity::text

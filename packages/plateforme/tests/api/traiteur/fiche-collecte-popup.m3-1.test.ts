@@ -19,6 +19,7 @@ import {
   makeClient,
   ligneCollecte,
   reserveEvenement,
+  contactsCollecte,
 } from '../helpers/fiche-client-mock';
 import { etatRapport } from '@/lib/collectes/fiche-client-types';
 
@@ -184,7 +185,11 @@ describe('M3.1 / fiche client — réponse GET (sécurité)', () => {
 
 // Colonnes d'`evenements` hors GRANT SELECT authenticated (migration
 // 20261001103000, arbitrages Val C2/C3/C5) : la lecture RLS ne les demande plus,
-// le chargeur les lit en service-role pour qui y a titre.
+// le chargeur les lit en service-role pour qui y a titre. Depuis le lot B1
+// (décision Val 2026-10-23), les contacts sur place et le type d'événement sont
+// ceux de LA collecte : contacts lus en service-role dans `collecte_contacts`
+// (fermée aux clients), servis au niveau de la collecte ; l'événement n'apporte
+// plus que la référence d'affaire.
 describe('M3.1 / fiche client — colonnes réservées de l’événement', () => {
   const COLONNES_FERMEES = [
     'contact_principal_nom',
@@ -195,28 +200,59 @@ describe('M3.1 / fiche client — colonnes réservées de l’événement', () =
     'notes_internes',
     'entite_facturation_id',
   ];
+  const CHAMPS_DE_LA_COLLECTE = [
+    'type_evenement_id',
+    'type_evenement',
+    'contacts_visibles',
+    'contact_principal_nom',
+    'contact_principal_telephone',
+    'contact_secours_nom',
+    'contact_secours_telephone',
+  ];
 
   it('M3.1/fiche_get_contacts_service_role — traiteur programmateur : contacts + référence d’affaire, jamais demandés sous RLS', async () => {
     rls.results.collectes = { data: ligneCollecte(), error: null };
-    admin.results.evenements = { data: reserveEvenement(), error: null };
+    // Piège : la copie que garde l'événement (celle de sa collecte n°1) ne doit
+    // jamais être servie à la place des contacts de CETTE collecte.
+    admin.results.evenements = {
+      data: reserveEvenement({
+        contact_principal_nom: 'Copie de la collecte n°1',
+        contact_principal_telephone: '0600000001',
+      }),
+      error: null,
+    };
+    admin.results.collecte_contacts = {
+      data: contactsCollecte(),
+      error: null,
+    };
     const { res, json } = await getFiche();
     expect(res.status).toBe(200);
-    const evt = json.data.evenement as Record<string, unknown>;
-    expect(evt).toMatchObject({
+    expect(json.data).toMatchObject({
       contacts_visibles: true,
       contact_principal_nom: 'Paul',
       contact_principal_telephone: '0611223344',
       contact_secours_nom: 'Léa',
       contact_secours_telephone: '0655443322',
-      reference_affaire: 'AFF-2026-042',
     });
+    const evt = json.data.evenement as Record<string, unknown>;
+    expect(evt.reference_affaire).toBe('AFF-2026-042');
+    // L'événement ne porte plus ni contacts ni type d'événement (lot B1).
+    for (const champ of CHAMPS_DE_LA_COLLECTE)
+      expect(evt).not.toHaveProperty(champ);
+    expect(JSON.stringify(json)).not.toContain('0600000001');
     // La lecture sous l'identité de l'utilisateur ne cite AUCUNE colonne fermée
     // (elle lèverait 42501 : la fiche entière tomberait en 500).
     for (const col of COLONNES_FERMEES)
       expect(rls.selects.collectes?.[0]).not.toContain(col);
     expect(rls.calls).not.toContain('evenements');
-    // Lecture service-role bornée à CET événement.
+    expect(rls.calls).not.toContain('collecte_contacts');
+    // Lectures service-role bornées à CETTE collecte et à CET événement.
+    expect(admin.eqs.collecte_contacts).toEqual([['collecte_id', 'c1']]);
+    expect(admin.selects.collecte_contacts?.[0]).toContain(
+      'contact_principal_telephone',
+    );
     expect(admin.eqs.evenements).toEqual([['id', 'e1']]);
+    expect(admin.selects.evenements?.[0]).not.toContain('contact_');
     expect(admin.selects.evenements?.[0]).not.toContain('notes_internes');
     expect(admin.selects.evenements?.[0]).not.toContain(
       'entite_facturation_id',
@@ -236,19 +272,66 @@ describe('M3.1 / fiche client — colonnes réservées de l’événement', () =
     };
     // Piège : la base renverrait la référence si on la demandait.
     admin.results.evenements = { data: reserveEvenement(), error: null };
+    admin.results.collecte_contacts = {
+      data: contactsCollecte(),
+      error: null,
+    };
     const { json } = await getFiche();
-    const evt = json.data.evenement as Record<string, unknown>;
-    expect(evt.contacts_visibles).toBe(true);
-    expect(evt.contact_principal_telephone).toBe('0611223344');
-    expect(admin.selects.evenements?.[0]).not.toContain('reference_affaire');
-    expect(admin.selects.evenements?.[0]).toContain('contact_principal_nom');
+    expect(json.data.contacts_visibles).toBe(true);
+    expect(json.data.contact_principal_telephone).toBe('0611223344');
+    expect(admin.selects.collecte_contacts?.[0]).toContain(
+      'contact_principal_nom',
+    );
+    expect(
+      (json.data.evenement as { reference_affaire: unknown }).reference_affaire,
+    ).toBeNull();
+    expect(JSON.stringify(json)).not.toContain('AFF-2026-042');
+    // L'événement n'est lu que pour ses codes VIPARIS (Val 2026-11-02) : la
+    // référence d'affaire n'est jamais demandée.
+    expect(admin.selects.evenements).toEqual([
+      'lieu:lieux!lieu_id(code_site_viparis)',
+    ]);
   });
 
   it('M3.1/fiche_get_contacts_erreur_500 — lecture des contacts en échec : 500, jamais « aucun contact »', async () => {
     rls.results.collectes = { data: ligneCollecte(), error: null };
-    admin.results.evenements = { data: null, error: { message: 'boom' } };
+    admin.results.evenements = { data: reserveEvenement(), error: null };
+    admin.results.collecte_contacts = {
+      data: null,
+      error: { message: 'boom' },
+    };
     const { res } = await getFiche();
     expect(res.status).toBe(500);
+  });
+
+  it('M3.1/fiche_get_reference_affaire_erreur_500 — lecture de la référence d’affaire en échec : 500, jamais « aucune référence »', async () => {
+    rls.results.collectes = { data: ligneCollecte(), error: null };
+    admin.results.evenements = { data: null, error: { message: 'boom' } };
+    admin.results.collecte_contacts = {
+      data: contactsCollecte(),
+      error: null,
+    };
+    const { res } = await getFiche();
+    expect(res.status).toBe(500);
+  });
+
+  it('M3.1/fiche_get_type_evenement_collecte — type d’événement de LA collecte, lu sur la collecte et non sur l’événement', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        type_evenement_id: 't2',
+        type_evenement: { libelle: 'Dîner assis' },
+      }),
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.type_evenement_id).toBe('t2');
+    expect(json.data.type_evenement).toEqual({ libelle: 'Dîner assis' });
+    // L'embed du type est demandé sur la collecte, hors de l'embed événement.
+    const select = rls.selects.collectes![0]!;
+    const embedType = select.indexOf('types_evenements!type_evenement_id');
+    expect(embedType).toBeGreaterThan(-1);
+    expect(embedType).toBeLessThan(select.indexOf('evenement:evenements'));
+    expect(select.lastIndexOf('types_evenements')).toBe(embedType);
   });
 });
 
@@ -258,7 +341,7 @@ describe('M3.1 / fiche client — contenu servi', () => {
       data: ligneCollecte({
         statut: 'cloturee',
         taux_recyclage: 78.4,
-        co2_net_kg: 312,
+        co2_evite_kg: 312,
         collecte_flux: [
           { poids_reel_kg: 400, flux_dechets: { code: 'biodechet' } },
           { poids_reel_kg: 20, flux_dechets: { code: 'biodechet' } },
@@ -271,10 +354,22 @@ describe('M3.1 / fiche client — contenu servi', () => {
     const { json } = await getFiche();
     expect(json.data.bilan_flux).toEqual({ biodechet: 420, verre: 90 });
     expect(json.data.taux_recyclage).toBe(78.4);
-    expect(json.data.co2_net_kg).toBe(312);
+    expect(json.data.co2_evite_kg).toBe(312);
   });
 
-  it('M3.1/fiche_get_bilan_flux_avant_realisation — pas de bilan avant « Réalisée »', async () => {
+  it('M3.1/fiche_get_bilan_flux_avant_realisation — pas de bilan avant « Réalisée » (en_cours), bilan dès `realisee` (Val 2026-11-04)', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        statut: 'en_cours',
+        collecte_flux: [
+          { poids_reel_kg: 400, flux_dechets: { code: 'biodechet' } },
+        ],
+      }),
+      error: null,
+    };
+    const avant = await getFiche();
+    expect(avant.json.data.bilan_flux).toBeNull();
+
     rls.results.collectes = {
       data: ligneCollecte({
         statut: 'realisee',
@@ -284,8 +379,8 @@ describe('M3.1 / fiche client — contenu servi', () => {
       }),
       error: null,
     };
-    const { json } = await getFiche();
-    expect(json.data.bilan_flux).toBeNull();
+    const realisee = await getFiche();
+    expect(realisee.json.data.bilan_flux).toEqual({ biodechet: 400 });
   });
 
   it('M3.1/fiche_get_association_ag — AG validée : association (nom, ville, présentation) + repas, lus sous RLS', async () => {
@@ -344,21 +439,24 @@ describe('M3.1 / fiche client — contenu servi', () => {
     expect(admin.eqs.alertes_admin).toContainEqual(['statut', 'ouverte']);
   });
 
-  it('M3.1/fiche_get_actions_par_role — manager de l’orga actif, commercial non créateur grisé, terminal absent', async () => {
+  it('M3.1/fiche_get_actions_par_role — manager et commercial non créateur de l’orga actifs (Val 2026-10-30), terminal absent', async () => {
     rls.results.collectes = { data: ligneCollecte(), error: null };
     let { json } = await getFiche();
     expect(json.data.actions).toEqual({
       modifier: 'actif',
       annuler: 'actif',
-      annulation: 'demande',
+      annulation: 'directe',
+      ajouter_collecte: true,
     });
 
     auth('traiteur_commercial', 'org-1', 'user-autre');
     ({ json } = await getFiche());
     expect(json.data.actions).toEqual({
-      modifier: 'grise',
-      annuler: 'grise',
-      annulation: 'demande',
+      // Le commercial agit sur toute son organisation, comme le manager.
+      modifier: 'actif',
+      annuler: 'actif',
+      annulation: 'directe',
+      ajouter_collecte: true,
     });
 
     auth();
@@ -380,7 +478,59 @@ describe('M3.1 / fiche client — contenu servi', () => {
       modifier: 'absent',
       annuler: 'absent',
       annulation: null,
+      // Collecte terminée : l'ajout à l'événement reste ouvert (Val 2026-10-21).
+      ajouter_collecte: true,
     });
+  });
+
+  it('M1.2/ajout_collecte_depuis_fiche_collecte — traiteur opérationnel d’une collecte programmée par un tiers : pas d’ajout', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        evenement: {
+          ...ligneCollecte().evenement,
+          organisation_id: 'org-agence',
+          traiteur_operationnel_organisation_id: 'org-1',
+        },
+      }),
+      error: null,
+    };
+    const { json } = await getFiche();
+    // La route d'ajout répondrait 404 : l'événement n'est pas le sien.
+    expect(
+      (json.data.actions as { ajouter_collecte: boolean }).ajouter_collecte,
+    ).toBe(false);
+  });
+
+  // Collecte annulée : ni annulation ni modification, mais l'ajout reste
+  // proposé — c'est le seul point d'entrée du traiteur quand l'unique collecte
+  // de l'événement est annulée (décision Val 2026-10-21, point I2 de la fiche
+  // de divergence M1.2_20261021).
+  it.each(['annulee', 'annulation_demandee'])(
+    'M1.2/ajout_collecte_depuis_fiche_annulee — %s : seule l’action d’ajout reste',
+    async (statut) => {
+      rls.results.collectes = {
+        data: ligneCollecte({ statut }),
+        error: null,
+      };
+      const { json } = await getFiche();
+      expect(json.data.actions).toEqual({
+        modifier: 'absent',
+        annuler: 'absent',
+        annulation: null,
+        ajouter_collecte: true,
+      });
+    },
+  );
+
+  it('M1.2/ajout_collecte_depuis_fiche_brouillon — collecte en brouillon de son organisation : pas d’ajout, l’événement n’est pas confirmé', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ statut: 'brouillon' }),
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(
+      (json.data.actions as { ajouter_collecte: boolean }).ajouter_collecte,
+    ).toBe(false);
   });
 });
 
@@ -452,6 +602,96 @@ describe('M3.1 / documents de la fiche — lus sous la RLS du traiteur (D12)', (
     expect(json.data.rapport_reserve_donneur_ordre).toBe(false);
   });
 
+  it('M3.1/fiche_get_rapport_zd_disponible_sans_pdf — ZD : téléchargeable dès la fin de l’embargo, sans PDF préalable (fabriqué au clic, Val 2026-10-16) ; ni version ni « mis à jour »', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ statut: 'cloturee' }),
+      error: null,
+    };
+    rls.results.rapports_rse = {
+      data: {
+        disponible_a: '2020-01-02T00:00:00Z',
+        genere_at: null,
+        // Ancienne régénération d'un rapport stocké : sans objet désormais.
+        regenere_at: '2020-01-05T00:00:00Z',
+      },
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.rapport_rse_disponible).toBe(true);
+    expect(json.data.rapport_etat).toBe('disponible');
+    expect(json.data.rapport_mis_a_jour_at).toBeNull();
+    expect(json.data).not.toHaveProperty('can_regenerate');
+    expect(json.data).not.toHaveProperty('rapport_avec_radar');
+
+    // Embargo en cours : pas encore téléchargeable.
+    rls.results.rapports_rse = {
+      data: {
+        disponible_a: '2999-01-01T00:00:00Z',
+        genere_at: null,
+        regenere_at: null,
+      },
+      error: null,
+    };
+    expect((await getFiche()).json.data.rapport_rse_disponible).toBe(false);
+  });
+
+  it('M3.1/fiche_get_rapport_ag_fichier_stocke — AG sans excédent : téléchargeable une fois le PDF fabriqué, « mis à jour » après une régénération Admin', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({
+        type: 'anti_gaspi',
+        statut: 'realisee_sans_collecte',
+      }),
+      error: null,
+    };
+    rls.results.rapports_rse = {
+      data: {
+        disponible_a: '2020-01-02T00:00:00Z',
+        genere_at: null,
+        regenere_at: null,
+      },
+      error: null,
+    };
+    expect((await getFiche()).json.data.rapport_rse_disponible).toBe(false);
+    rls.results.rapports_rse = {
+      data: {
+        disponible_a: '2020-01-02T00:00:00Z',
+        genere_at: '2020-01-02T00:00:00Z',
+        regenere_at: '2020-01-05T00:00:00Z',
+      },
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.rapport_rse_disponible).toBe(true);
+    expect(json.data.rapport_mis_a_jour_at).toBe('2020-01-05T00:00:00Z');
+  });
+
+  it('M3.1/fiche_get_attestation_mise_a_jour — AG : « mis à jour » daté de la version corrigée de l’attestation, rien sur la version 1', async () => {
+    rls.results.collectes = {
+      data: ligneCollecte({ type: 'anti_gaspi', statut: 'cloturee' }),
+      error: null,
+    };
+    rls.results.attestations_don = {
+      data: {
+        ...ATTESTATION_AGENCE.data,
+        version: 1,
+        created_at: '2020-01-01T00:00:00Z',
+      },
+      error: null,
+    };
+    expect((await getFiche()).json.data.rapport_mis_a_jour_at).toBeNull();
+    rls.results.attestations_don = {
+      data: {
+        ...ATTESTATION_AGENCE.data,
+        version: 2,
+        created_at: '2020-01-06T09:30:00Z',
+      },
+      error: null,
+    };
+    const { json } = await getFiche();
+    expect(json.data.rapport_rse_disponible).toBe(true);
+    expect(json.data.rapport_mis_a_jour_at).toBe('2020-01-06T09:30:00Z');
+  });
+
   it('M3.1/rapport_download_attestation_donneur_ordre_404 — téléchargement refusé au traiteur opérationnel', async () => {
     rls.results.collectes = {
       data: { id: 'c1', type: 'anti_gaspi', statut: 'cloturee' },
@@ -515,9 +755,9 @@ describe('M3.1 / ligne document — état calculé par le serveur (arbitrage Val
       null,
     ],
     [
-      'ZD clôturée, rendu PDF pas encore fait',
-      'zero_dechet',
-      'cloturee',
+      'AG sans excédent, rendu PDF pas encore fait',
+      'anti_gaspi',
+      'realisee_sans_collecte',
       ilYa(30 * H),
       'rapports_rse',
       { disponible_a: ilYa(6 * H), genere_at: null, regenere_at: null },
@@ -552,7 +792,7 @@ describe('M3.1 / ligne document — état calculé par le serveur (arbitrage Val
     },
   );
 
-  it('M3.1/fiche_get_rapport_etat_disponible — PDF généré, embargo écoulé', async () => {
+  it('M3.1/fiche_get_rapport_etat_disponible — embargo écoulé', async () => {
     rls.results.collectes = {
       data: ligneCollecte({ statut: 'cloturee', realisee_at: ilYa(30 * H) }),
       error: null,

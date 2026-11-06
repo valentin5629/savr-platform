@@ -5,7 +5,9 @@
  *    liste d'un élément) → filtres evenements.* + aplatissement
  *    des noms (lieu_nom / evenement_nom) via l'embed evenements!inner + lieux,
  *    plus Type/Taille d'événement propagés depuis les filtres globaux du
- *    dashboard (§06.05 l.209) — la taille est un bracket sur `evenements.pax`.
+ *    dashboard (§06.05 l.209) — type et taille sont ceux de la COLLECTE
+ *    (`collectes.type_evenement_id`, bracket sur `collectes.pax` : décisions Val
+ *    C3 du 2026-10-22 et C4 du 2026-10-20, lot C1).
  * La chaîne PostgREST mockée ENREGISTRE les filtres (eq) pour les assertions.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -273,13 +275,18 @@ describe('API gestionnaire/collectes — filtres lieu / traiteur + noms', () => 
  * la route = 0 résultat avant ce lot), donc un gestionnaire qui filtrait son
  * dashboard sur « Gala / XL » retombait sur la liste complète de son parc.
  *
- * La taille est un BRACKET calculé sur `evenements.pax` (XS <250, S <500, M <750,
- * L <1000, XL ≥1000, §06.05 l.115), pas une colonne : elle se traduit en prédicats
- * `.or()` sur l'embed. Ces prédicats sont mesurés ici tels qu'ils partent vers
+ * Type et taille sont ceux de la COLLECTE depuis le lot C1 (décisions Val C3 du
+ * 2026-10-22 et C4 du 2026-10-20) : `.in('type_evenement_id')` sur la table
+ * interrogée, et la taille, BRACKET calculé sur `collectes.pax` (XS <250, S <500,
+ * M <750, L <1000, XL ≥1000, §06.05 l.115), pas une colonne : elle se traduit en
+ * prédicats `.or()` sans `referencedTable`. Ces prédicats sont mesurés ici tels qu'ils partent vers
  * PostgREST — c'est la chaîne exacte validée contre le PostgREST local (partition
  * exhaustive : XS 21 + M 7 + XL 1 = 29 = total sans filtre).
  */
 describe('API gestionnaire/collectes — Type / Taille d’événement (§06.05 l.209)', () => {
+  // Identifiants de type au format UUID : la route écarte les autres (lot C1).
+  const TY_GALA = '7e000000-0000-4000-8000-0000000000a1';
+  const TY_COCKTAIL = '7e000000-0000-4000-8000-0000000000a2';
   async function call(url: string) {
     mockRequireUser.mockResolvedValue({
       ctx: {
@@ -293,25 +300,40 @@ describe('API gestionnaire/collectes — Type / Taille d’événement (§06.05 
     return GET(new NextRequest(url));
   }
 
-  it('M3.2/collectes_route_filtre_type_evenement — type_evenement_ids[] → .in(evenements.type_evenement_id)', async () => {
+  it('M3.2/collectes_route_filtre_type_evenement — type_evenement_ids[] → .in(type_evenement_id) de la COLLECTE (C3, lot C1)', async () => {
     rls = makeChain({ data: [], error: null });
     await call(
-      `http://localhost/api/v1/gestionnaire/collectes?lieu_id=${LIEU_1}&type_evenement_ids[]=ty-gala&type_evenement_ids[]=ty-cocktail`,
+      `http://localhost/api/v1/gestionnaire/collectes?lieu_id=${LIEU_1}&type_evenement_ids[]=${TY_GALA}&type_evenement_ids[]=${TY_COCKTAIL}`,
     );
     expect(rls.__in).toContainEqual([
-      'evenements.type_evenement_id',
-      ['ty-gala', 'ty-cocktail'],
+      'type_evenement_id',
+      [TY_GALA, TY_COCKTAIL],
     ]);
+    // Plus jamais le type de l'événement (copie de sa collecte n°1).
+    expect(
+      rls.__in.some(([col]) => col === 'evenements.type_evenement_id'),
+    ).toBe(false);
   });
 
-  it('M3.2/collectes_route_filtre_taille_evenement — un bracket → un .or() sur l’embed evenements', async () => {
+  it('M3.2/collectes_route_type_non_uuid_liste_vide — un identifiant de type mal formé rend une liste vide, sans requête (lot C1)', async () => {
+    rls = makeChain({ data: [], error: null });
+    const res = await call(
+      'http://localhost/api/v1/gestionnaire/collectes?type_evenement_ids[]=ty-gala',
+    );
+    const body = (await res.json()) as { data: unknown[]; total: number };
+    expect(body).toMatchObject({ data: [], total: 0 });
+    expect(rls.__from).toHaveLength(0);
+  });
+
+  it('M3.2/collectes_route_filtre_taille_evenement — un bracket → un .or() sur le pax de la COLLECTE (C4, lot C1)', async () => {
     rls = makeChain({ data: [], error: null });
     await call(
       'http://localhost/api/v1/gestionnaire/collectes?taille_evenements[]=M',
     );
-    expect(rls.__or).toEqual([
-      ['and(pax.gte.500,pax.lt.750)', { referencedTable: 'evenements' }],
-    ]);
+    expect(rls.__or).toHaveLength(1);
+    expect(rls.__or[0]![0]).toBe('and(pax.gte.500,pax.lt.750)');
+    // Sans `referencedTable` : le prédicat porte sur `collectes.pax`.
+    expect(rls.__or[0]![1]).toBeUndefined();
   });
 
   it('M3.2/collectes_route_taille_xs_inclut_pax_null — XS couvre pax NULL, comme le dashboard', async () => {
@@ -375,22 +397,22 @@ describe('API gestionnaire/collectes — Type / Taille d’événement (§06.05 
     );
     expect(rls.__or).toHaveLength(0);
     expect(
-      rls.__in.some(([col]) => col === 'evenements.type_evenement_id'),
+      rls.__in.some(
+        ([col]) =>
+          col === 'type_evenement_id' || col === 'evenements.type_evenement_id',
+      ),
     ).toBe(false);
   });
 
   it('M3.2/collectes_route_type_et_taille_se_cumulent — les deux filtres coexistent avec lieu + période', async () => {
     rls = makeChain({ data: [], error: null });
     await call(
-      `http://localhost/api/v1/gestionnaire/collectes?lieu_id=${LIEU_1}&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&taille_evenements[]=L`,
+      `http://localhost/api/v1/gestionnaire/collectes?lieu_id=${LIEU_1}&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=${TY_GALA}&taille_evenements[]=L`,
     );
     expect(rls.__in).toContainEqual(['evenements.lieu_id', [LIEU_1]]);
     expect(rls.__gte).toContainEqual(['date_collecte', '2026-01-01']);
     expect(rls.__lte).toContainEqual(['date_collecte', '2026-06-30']);
-    expect(rls.__in).toContainEqual([
-      'evenements.type_evenement_id',
-      ['ty-gala'],
-    ]);
+    expect(rls.__in).toContainEqual(['type_evenement_id', [TY_GALA]]);
     expect(rls.__or[0]![0]).toBe('and(pax.gte.750,pax.lt.1000)');
   });
 

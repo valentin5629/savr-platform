@@ -4,10 +4,6 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { serverError } from '@/lib/api-helpers.js';
-import {
-  refusLienPrestataireDepuisDb,
-  validerLienPrestataire,
-} from '@/lib/transporteur-lien-prestataire.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { listeCsv, parmi } from '@/lib/filtre-csv.js';
 import { Constants } from '@savr/shared/src/database.types.js';
@@ -106,15 +102,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const prestataireId = body.prestataire_logistique_id ?? null;
-  const lienInvalide = validerLienPrestataire(type_tms, prestataireId);
-  if (lienInvalide) {
-    return NextResponse.json(
-      { error: lienInvalide.error },
-      { status: lienInvalide.status },
-    );
-  }
-
   // Géocodage en background au save (§6 Transporteurs « Adresse + géocodage »),
   // fail-open — cf. packages/plateforme/src/lib/geocoding.ts.
   const coords = await geocodeAdresse(
@@ -124,6 +111,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   );
 
   const supabase = createAdminSupabaseClient();
+  // `prestataire_logistique_id` n'est jamais lu du corps : pour un transporteur
+  // `mts1` / `a_toutes`, la base crée la fiche prestataire du même nom et pose
+  // le lien dans la même instruction (trg_transporteur_prestataire_auto,
+  // décision Val 2026-10-16). Les types manuels restent sans prestataire.
   const { data, error } = await supabase
     .from('transporteurs')
     .insert({
@@ -140,7 +131,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       contact_email,
       contact_telephone,
       code_transporteur_mts1: body.code_transporteur_mts1 ?? null,
-      prestataire_logistique_id: prestataireId,
       tarif_par_course: body.tarif_par_course ?? null,
       commentaires_internes: body.commentaires_internes ?? null,
       latitude: coords?.latitude ?? null,
@@ -149,16 +139,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select()
     .single();
 
-  if (error) {
-    const refus = refusLienPrestataireDepuisDb(error);
-    if (refus) {
-      return NextResponse.json(
-        { error: refus.error },
-        { status: refus.status },
-      );
-    }
-    return serverError(error, 'admin.transporteurs.create');
-  }
+  if (error) return serverError(error, 'admin.transporteurs.create');
 
   await supabase.from('audit_log').insert({
     table_name: 'transporteurs',

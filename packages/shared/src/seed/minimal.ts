@@ -18,6 +18,11 @@
 import type pg from 'pg';
 import { seedUuid } from './uuid.js';
 import { upsert, lookupMap, jsonb, type Row } from './db.js';
+import { codeMts1Seed } from './codes-mts1.js';
+import {
+  TYPES_COLLECTE_TRANSPORTEUR,
+  typePrestation,
+} from './transporteurs-par-type.js';
 import {
   SEED_REF_DATE,
   fakePhone,
@@ -386,13 +391,20 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
     client,
     'shared.prestataires',
     [
-      prest('prest_strike', 'Strike', 'STRIKE', '77777777700019'),
-      prest('prest_marathon', 'Marathon', 'MARATHON', '88888888800026'),
+      prest('prest_strike', 'Strike', 'STRIKE', '77777777700019', 'strike'),
+      prest(
+        'prest_marathon',
+        'Marathon',
+        'MARATHON',
+        '88888888800026',
+        'marathon',
+      ),
       prest(
         'prest_transnormandie',
         'Transnormandie',
         'TRANSNOR',
         '99999999900033',
+        'transnor',
       ),
     ],
     ['id'],
@@ -409,7 +421,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         '75019',
         'Paris',
         ['poids_lourd'],
-        'STRIKE-MTS1',
+        codeMts1Seed('strike'),
         'strike',
       ),
       transp(
@@ -420,7 +432,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         '75020',
         'Paris',
         ['fourgon', 'poids_lourd'],
-        'MARATHON-MTS1',
+        codeMts1Seed('marathon'),
         'marathon',
       ),
       transp(
@@ -431,7 +443,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         '76000',
         'Rouen',
         ['fourgon'],
-        'TRANSNOR-MTS1',
+        codeMts1Seed('transnormandie'),
         'transnormandie',
       ),
     ],
@@ -597,7 +609,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       pax: 200,
       type: tEvCocktail,
       off: -30,
-      nom: 'Fleur annulé H-6',
+      nom: 'Fleur annulé H-2',
     },
     {
       slug: 'ev_f5',
@@ -704,7 +716,9 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
 
   // ── 11. Collectes (20) ────────────────────────────────────────────────────
   const collectes: ColSpec[] = [
-    // Kaspia ZD
+    // Kaspia ZD. ev_k1 a deux jours de collecte : chaque collecte porte son
+    // pax (décision Val 2026-10-20), et les 500 convives de ev_k1 en sont la
+    // somme (règle du jour : par jour, puis somme des jours).
     col(
       'col_zd_cloturee_01',
       'ev_k1',
@@ -712,7 +726,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'cloturee',
       -200,
       PS('strike'),
-      { taux_recyclage: 78.5 },
+      { taux_recyclage: 78.5, pax: 300 },
     ),
     col(
       'col_zd_palier_haut',
@@ -730,7 +744,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'cloturee',
       -210,
       PS('strike'),
-      { historique_partiel: true, taux_recyclage: 68.0 },
+      { historique_partiel: true, taux_recyclage: 68.0, pax: 200 },
     ),
     col(
       'col_zd_cloturee_nonfac',
@@ -801,7 +815,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       {
         pack_antgaspi_id: U('pack_fleurdemets'),
         annulee_cote_savr: true,
-        annulee_cote_savr_motif: 'Annulation client H-6',
+        annulee_cote_savr_motif: 'Annulation client H-2',
       },
     ),
     col(
@@ -810,7 +824,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'zero_dechet',
       'cloturee',
       -180,
-      PS('marathon'),
+      PS('strike'),
       { taux_recyclage: 72.0 },
     ),
     col(
@@ -820,7 +834,8 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'programmee',
       5,
       PS('strike'),
-      { statut_tms: 'non_envoye' },
+      // ev_f6 (300 convives) sur deux jours : 150 par collecte.
+      { statut_tms: 'non_envoye', pax: 150 },
     ),
     col(
       'col_dispatch_dirty',
@@ -829,7 +844,14 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'programmee',
       8,
       PS('marathon'),
-      { statut_tms: 'acceptee', dirty_tms: true },
+      // Crédit décompté à la programmation (Val 2026-11-02) : pack posé d'avance,
+      // sinon le déclencheur le débiterait à chaque relance du jeu de données.
+      {
+        statut_tms: 'acceptee',
+        dirty_tms: true,
+        pax: 150,
+        pack_antgaspi_id: U('pack_fleurdemets'),
+      },
     ),
     col(
       'col_dispatch_rejetee',
@@ -861,7 +883,8 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       'zero_dechet',
       'cloturee',
       -110,
-      PS('transnormandie'),
+      // Strike : seul transporteur du seed qui prend les ZD, y compris à Rouen.
+      PS('strike'),
       { taux_recyclage: 70.0 },
     ),
     col(
@@ -927,30 +950,41 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
     client,
     'plateforme.attributions_antgaspi',
     [
-      attr(
-        'attr_nominal',
-        'col_ag_nominal',
-        'asso_alpha',
-        TR('marathon'),
-        'idf',
-        'manuel_top1',
+      // Collectes clôturées : leur attribution est validée (en production elle
+      // naît validée). Auto-accept : `valide_par` NULL, aucun humain.
+      validee(
+        attr(
+          'attr_nominal',
+          'col_ag_nominal',
+          'asso_alpha',
+          TR('marathon'),
+          'idf',
+          'manuel_top1',
+        ),
+        -90,
       ),
-      attr(
-        'attr_override',
-        'col_ag_poids_ops',
-        'asso_bravo',
-        TR('marathon'),
-        'idf',
-        'manuel_override',
-        'Réattribution Admin après refus asso initiale',
+      validee(
+        attr(
+          'attr_override',
+          'col_ag_poids_ops',
+          'asso_bravo',
+          TR('marathon'),
+          'idf',
+          'manuel_override',
+          'Réattribution Admin après refus asso initiale',
+        ),
+        -95,
       ),
-      attr(
-        'attr_auto',
-        'col_ag_cirette_rouen',
-        'asso_alpha',
-        TR('transnor'),
-        'province',
-        'auto_accept',
+      validee(
+        attr(
+          'attr_auto',
+          'col_ag_cirette_rouen',
+          'asso_alpha',
+          TR('transnor'),
+          'province',
+          'auto_accept',
+        ),
+        -120,
       ),
       attr(
         'attr_annule',
@@ -1055,6 +1089,9 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         PS('marathon'),
         'MTS1-ORDER-MIN-02',
       ),
+      // 2e camion de col_zd_multi_tour : chez Strike comme la collecte (une
+      // tournée ne porte que des collectes que son prestataire prend).
+      tournee('tour_03', 'TOUR-MIN-03', -7, PS('strike'), 'MTS1-ORDER-MIN-03'),
     ],
     ['id'],
   );
@@ -1065,7 +1102,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       ct('col_zd_cloturee_01', 'tour_01'),
       ct('col_ag_nominal', 'tour_02'),
       ct('col_zd_multi_tour', 'tour_01'),
-      ct('col_zd_multi_tour', 'tour_02'),
+      ct('col_zd_multi_tour', 'tour_03'),
     ],
     ['id'],
   );
@@ -1633,12 +1670,19 @@ function orgLieu(orgSlug: string, lieuSlug: string): Row {
     lieu_id: U(lieuSlug),
   };
 }
-function prest(slug: string, nom: string, code: string, siret: string): Row {
+function prest(
+  slug: string,
+  nom: string,
+  code: string,
+  siret: string,
+  transporteurSlug: string,
+): Row {
   return {
     id: U(slug),
     nom,
     code,
-    type_prestation: ['zd', 'ag'],
+    // Mêmes flux que le transporteur rattaché : l'algo AG filtre dessus.
+    type_prestation: typePrestation(transporteurSlug),
     mode_integration: 'mts1',
     siret,
     statut: 'actif',
@@ -1665,6 +1709,8 @@ function transp(
     types_vehicules: vehicules,
     type_tms: 'mts1',
     code_transporteur_mts1: codeMts1,
+    // Flux pris en charge (Strike = ZD, les autres = AG), cf. transporteurs-par-type.
+    types_collecte: TYPES_COLLECTE_TRANSPORTEUR[slug.replace(/^transp_/, '')]!,
     contact_nom: 'Ops ' + nom,
     contact_email: seedEmail('ops.' + slug),
     contact_telephone: fakePhone(200 + siren.length),
@@ -1769,6 +1815,14 @@ function attr(
     r.motif_override_libre = override;
   }
   return r;
+}
+/** Pose la validation d'une attribution (jour de la collecte, 10 h). */
+function validee(r: Row, off: number): Row {
+  return {
+    ...r,
+    valide_at: ts(off, 10),
+    valide_par: r.mode_validation === 'auto_accept' ? null : U('user_admin'),
+  };
 }
 function tournee(
   slug: string,

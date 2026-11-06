@@ -8,13 +8,14 @@ import {
   loadTraiteurDashboard,
   LoaderError,
 } from '@/lib/dashboards/loaders.js';
+import { lireFiltresGlobaux } from '@/lib/dashboards/kpi-collectes.js';
 
 /**
  * GET /api/v1/dashboards/traiteur-full — endpoint CONSOLIDÉ du dashboard traiteur.
  *
  * Exécute tous les loaders de l'onglet demandé (kpi + évolution + blocs + marge|pack)
  * en UN seul Promise.all serveur, à côté de la base, et renvoie un payload unique.
- * Le composant client l'utilise pour ses re-fetch (changement d'onglet / de période)
+ * Le composant client l'utilise pour ses re-fetch (changement d'onglet / de filtres)
  * → 1 aller-retour au lieu de ~4. Le benchmark (Bloc 3 ZD) est piloté par ses
  * propres filtres et reste servi par /dashboards/benchmark (inchangé).
  *
@@ -38,6 +39,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       from: sp.get('from'),
       to: sp.get('to'),
       type: sp.get('type') === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet',
+      filtres: lireFiltresGlobaux(sp),
     });
     return NextResponse.json(
       { data },

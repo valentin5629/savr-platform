@@ -29,7 +29,7 @@
 
 | Appel | Endpoint | Rôle / champs clés |
 |---|---|---|
-| Liste commandes | `GET /v3/customerOrders?minDate&maxDate` | Boucle de polling sur fenêtre de dates. |
+| Liste commandes | `GET /v3/customerOrders?minDate&maxDate` | Boucle de polling sur fenêtre de dates. **Mesuré le 2026-10-13** : dates en `yyyy-MM-dd` seulement (bornes incluses, jour compté à Paris), filtres `orderNumber` et `customerOrderIds`, réponse = tableau JSON nu — contrat complet au §08 §3bis.7. |
 | Détail commande | `GET /v3/customerOrders/{customerOrderId}` | `customerOrderStatus` (DRAFT…), `stuffs[]` (`name`, `task: PICKUP`, `measurement{height,length,width,weight}`), `contact`, `place`, `orderNumber`, `trackingUrl`. |
 | **Détail tournée** | `GET /v3/tours/{tourId}` | **Porte les pesées réelles.** Voir détail ci-dessous. |
 | Photo | `GET {photo_URL}` (type Text) | MTS-1 fournit des **URLs de photos** dans le payload ; Bubble les télécharge une par une. |
@@ -46,7 +46,7 @@
 - `dispatch { carrierShareableCode, transporterUserShareableCode, vehicleShareableCode }`
 
 ### Mapping remontée → Plateforme V1
-- **Pesées** : `tours.stops[].weight` (+ `quantityAfterPickup/Delivery`) → `collectes` / lignes de flux (pesées ZD).
+- **Pesées** : `tours.stops[].weight` (+ `quantityAfterPickup/Delivery`) → `collectes` / lignes de flux (pesées ZD). ⚠ **Mesuré en DEMO le 2026-10-13** : pas de champ `weight` sur l'arrêt ; sur le seul tour de déchets terminé du compte, les kilos sont dans `stops[].stuffs[].quantityAfterPickup`. Champ lu, sur l'arrêt d'enlèvement seul : `quantityAfterPickup` (décision Val 2026-10-13, cf. §08 §3bis.7).
 - **Statut collecte** : `customerOrderStatus` / `customerOrderProgressionStatus` + `status{dispatch,payment,validation}` → `collectes.statut_tms` → trigger `fn_sync_statut_collecte_from_tms`.
 - **Photos** : URLs du payload → téléchargées (`GET {photo_URL}`) → ré-upload Storage Savr (persistance légale).
 - **Coût / km** : `summary` (info).
@@ -60,7 +60,7 @@
 | Create tour **dechet** *(DRAFT)* | `POST /v3/tours` | Crée la tournée ZD. **Corrigé 2026-09-04 (doc OpenAPI V3)** : `TourInput` = `{ tourDate*, tourNumber?, customerOrders?[], comments? }`. `tourDate` (string `yyyy-MM-dd`) est **obligatoire** (400 `INVALID_REQUEST` sinon) ; `customerOrderId`, `stuffs` et `deliveryPlace` y sont **ignorés** → `volume_du_camion` et point B se portent sur les `stuffs` de la COMMANDE. Réponse `TourCreateResponse = { tourId, … }`. |
 | Create tour alimentaire | `POST /v3/tours` | Idem pour AG. |
 | **Rattacher commande ↔ tournée** | `PUT /v3/tours/addCustomerOrder` | **Étape ajoutée 2026-09-04** — body `{ tourId, customerOrderId }` (`AddCustomerOrderToTourInput`). Sans elle la tournée reste VIDE. Rejouée inconditionnellement tant que la tournée est `planifiee`. |
-| Dispatch tour | `POST /v3/dispatch/{tourId}/toCarrier` | **Route corrigée 2026-09-04** — l'ancienne `POST /v3/tours/{tourId}/dispatch` du relevé Bubble renvoie **404 `BAD_ROUTE`**, elle n'existe pas dans la spec V3. Body `DispatchToCarrierInput { carrierShareableCode?, transporterShareableCode?, vehicleShareableCode? }` — on envoie `{ carrierShareableCode }` (= `transporteurs.code_transporteur_mts1`, ex `CA_49TWSU`) → assigne Strike/Marathon. |
+| Dispatch tour | `POST /v3/dispatch/{tourId}/toCarrier` | **Route corrigée 2026-09-04** — l'ancienne `POST /v3/tours/{tourId}/dispatch` du relevé Bubble renvoie **404 `BAD_ROUTE`**, elle n'existe pas dans la spec V3. Body `DispatchToCarrierInput { carrierShareableCode?, transporterShareableCode?, vehicleShareableCode? }` — on envoie `{ carrierShareableCode }` (= `transporteurs.code_transporteur_mts1`, ex `CA_EXEMPLE`) → assigne Strike/Marathon. |
 | Validate tour | PUT | Body vide → passe `status.validation` à `VALIDATED`. |
 
 **Réponse de `POST /v3/customerOrders`** (corrigée 2026-09-04, doc OpenAPI) : schéma `CreateCustomerOrderResponse = { customerOrderId*, orderNumber*, customerOrderStatus, customerOrderMergedParentId, price, trackingUrl }`. L'id technique s'appelle **`customerOrderId`**, pas `id` — c'est lui qui est stocké dans `tournees.external_ref_commande` (lire `id` renvoyait `undefined` → 400 à l'étape `addCustomerOrder`).
@@ -76,13 +76,13 @@
 - **`contact` est un objet UNIQUE** (`CustomerOrderContactInput` : `firstname`, `lastname`, `phone`, `phoneAlternatives`, `email`), **pas** un tableau `contacts` `{name, role}`.
 - **Le créneau est porté par `place.timeslots`** (`Timeslot[{start, end}]`, format **`HH:mm`** — pas un datetime ISO), **pas** au niveau commande. Point fixe V1 : `start = end = heure_collecte` tronquée en `HH:mm`.
 - **Mapping du nom** : Savr n'a qu'un `contact_principal_nom` (nom complet) → **1er mot = `firstname`, reste = `lastname`** (« Paul Pol » → firstname « Paul », lastname « Pol »).
-- **Contact de secours** : MTS-1 n'expose qu'un contact par commande → son **téléphone** va dans `phoneAlternatives`, et **son nom est concaténé dans le champ `comment`** de la commande *(arbitrage Val 2026-09-14 — sans quoi le chauffeur a un numéro de secours sans savoir qui appeler)*.
+- **Contact de secours** : MTS-1 n'expose qu'un contact par commande → son **téléphone** va dans `phoneAlternatives`, et **son nom (avec son téléphone) figure dans le champ `comment`** de la commande, ligne « Contact de secours » *(arbitrage Val 2026-09-14 — sans quoi le chauffeur a un numéro de secours sans savoir qui appeler ; format du commentaire décidé par Val le 2026-10-15)*.
 
-**Flux nominal V3 corrigé** : `POST /v3/customerOrders` → `POST /v3/tours {tourDate}` → `PUT /v3/tours/addCustomerOrder` → `POST /v3/dispatch/{tourId}/toCarrier` → `PUT /v3/tours/{tourId}/validate`.
+**Flux nominal V3 corrigé** : `POST /v3/customerOrders` → `POST /v3/tours {tourDate}` → `PUT /v3/tours/addCustomerOrder`. **Depuis le 2026-10-15 (décisions Val), plus d'envoi au transporteur (`POST /v3/dispatch/{tourId}/toCarrier`) ni de validation (`PUT /v3/tours/{tourId}/validate`) par Savr** : la tournée unitaire de chaque camion attend dans « Commander → Tournées » de la console MTS-1 ; l'Admin Savr fusionne des tournées (plusieurs points de collecte sur une même tournée), les confie au transporteur et les valide. Avec Bubble, d'après Val, les collectes arrivaient de même en tournées unitaires : la route d'envoi au transporteur qu'appelait Bubble n'existait pas (404 `BAD_ROUTE`), le transporteur n'a donc jamais été saisi par Bubble (explication probable, non mesurée).
 
 **Clé de corrélation** : `orderNumber = collecte.reference` (`#1601…`) — sert à rapprocher commandes/tournées MTS-1 ↔ collectes Plateforme.
 
-> ⚠ **Source des contacts + lieu dans le payload V1** : les champs `contacts` et `place` du `POST /v3/customerOrders` sont peuplés depuis l'**ÉVÉNEMENT parent** (`evenements.contact_principal_*` / `contact_secours_*` / `evenements.lieu_id`), **jamais depuis `collectes`** (pas de duplication en V1, §06.04 l.375). Le worker `outbox-worker.fetchCollecte` doit requêter `evenements!inner(contact_principal_nom, contact_principal_prenom, contact_principal_telephone, contact_secours_*, lieu_id, lieux!inner(adresse_complete))`. `mts1/adapter.updateLieu` filtre via `evenements.lieu_id`, non `collectes.lieu_id`. Patch appliqué suite à divergence M1.5a_20260626.
+> ⚠ **Source des contacts + lieu dans le payload V1** : le champ `place` du `POST /v3/customerOrders` est peuplé depuis l'**ÉVÉNEMENT parent** (`evenements.lieu_id`), jamais depuis `collectes`. Les `contacts` viennent de **LA collecte** (`collecte_contacts.contact_principal_*` / `contact_secours_*`) depuis la refonte Val du 2026-10-22 (avant : `evenements.contact_*`). Le worker `outbox-worker.fetchCollecte` lit les contacts sur `collecte_contacts` et le lieu sur l'événement ; une collecte sans ligne de contacts n'est jamais envoyée avec ceux de l'événement (erreur définitive). `mts1/adapter.updateLieu` filtre via `evenements.lieu_id`, non `collectes.lieu_id`. Patch appliqué suite à divergence M1.5a_20260626.
 
 ## 5. Everest (A Toutes! / AG vélo cargo) — hors pilote Kaspia ZD
 - `POST Create mission` + `GET Get mission` (même pattern create + poll). À détailler quand l'AG entre dans le périmètre.
@@ -91,7 +91,7 @@
 
 La plaque **n'est pas** sur le tour/la commande. Elle est sur l'objet véhicule de **`GET /v3/carrier`** :
 ```
-carriers[] : { carrierShareableCode, name, vehicles[], transporters[] }
+[ { carrierShareableCode, name, vehicles[], transporters[] } ]   // tableau nu, pas d'enveloppe « carriers » (mesuré le 2026-10-13)
 vehicles[] : { name, numberPlate, vehicleShareableCode }   // ex numberPlate = "12ABC23"
 ```
 **Algo adapter** :
@@ -110,7 +110,7 @@ vehicles[] : { name, numberPlate, vehicleShareableCode }   // ex numberPlate = "
 - Webhook **tour/progress** / **customerOrder/progress** eventType : `STARTED, FINISHED`
 - Webhook **stop/progress** eventType : `ON_THE_WAY, AT_PLACE, FINISHED, RESET` ; `stopStatus { globalStatus, deliveryStatus, pickupStatus }`
 - `appointmentStatus` : `NONE, AWAIT_RESPONSE, RESPONSE_KO, RESPONSE_OK`
-- Photos : sur le webhook `stop/progress` (`photos[]` = StopPhoto download links) + `GET /v3/tours/photo/{tourId}/{stopId}/{photoId}` ; signatures via `GET /v3/tours/signature/{tourId}/{stopId}/{signatoryType}` (`contact` | `transporter`).
+- Photos : sur le webhook `stop/progress` (`photos[]` = StopPhoto download links) + `GET /v3/tours/photo/{tourId}/{stopId}/{photoId}` — **mesuré en DEMO le 2026-10-13** : ces adresses sont aussi dans le détail du tour (`stops[].photos[].downloadUrl`) ; il n'existe pas de route `GET /v3/tours/{tourId}/photos` (404 `BAD_ROUTE`) ; le téléchargement exige la clé d'API (401 sans) et rend le JPEG écrit en base64 ; une photo inconnue répond 200 avec un corps vide ; signatures via `GET /v3/tours/signature/{tourId}/{stopId}/{signatoryType}` (`contact` | `transporter`).
 
 ## 8. Webhooks push — alternative recommandée au polling
 

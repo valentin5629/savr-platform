@@ -1,14 +1,19 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Zap, AlertTriangle, Plus, Building2 } from 'lucide-react';
+import {
+  BuildingsIcon,
+  LightningIcon,
+  PlusIcon,
+  WarningIcon,
+} from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { LoadingState } from '@/components/ui/loading-state';
 import { useToast } from '@/components/ui/toast';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { ActifBadge } from '@/components/ui/actif-badge';
 
 interface ConfigAutoAccept {
@@ -30,7 +35,7 @@ const columns: Column<ConfigAutoAccept>[] = [
     header: 'Traiteur',
     render: (row) => (
       <div className="flex items-center gap-1.5">
-        <Building2 className="h-3.5 w-3.5 text-savr-neutral-400" />
+        <BuildingsIcon className="h-3.5 w-3.5 text-savr-neutral-400" />
         {row.organisations?.raison_sociale ?? row.organisation_id}
       </div>
     ),
@@ -38,10 +43,10 @@ const columns: Column<ConfigAutoAccept>[] = [
   {
     key: 'associations',
     header: 'Association fixe',
+    // Toujours renseignée (décision Val I4 du 2026-10-25) : « Algo » ne vaut que
+    // pour le transporteur.
     render: (row) =>
-      row.associations?.nom ?? (
-        <span className="text-savr-neutral-400">Algo</span>
-      ),
+      row.associations?.nom ?? <span className="text-savr-neutral-400">—</span>,
   },
   {
     key: 'transporteurs',
@@ -147,27 +152,19 @@ export default function AutoAcceptPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHero
         title="Configuration auto-accept"
-        description="Activation de la validation automatique par traiteur"
-        tone="neutral"
-        size="xl"
-        weight="semibold"
-        icon={<Zap className="h-6 w-6 text-savr-warning" />}
+        icon={<LightningIcon className="h-6 w-6" />}
         actions={
           <Button size="sm" variant="secondary" disabled>
-            <Plus />
+            <PlusIcon />
             Nouvelle config
           </Button>
         }
       />
 
       {error && (
-        <AlertBar
-          variant="err"
-          icon={<AlertTriangle />}
-          className="font-normal"
-        >
+        <AlertBar variant="err" icon={<WarningIcon />} className="font-normal">
           {error}
         </AlertBar>
       )}
@@ -176,7 +173,7 @@ export default function AutoAcceptPage() {
         <LoadingState variant="bloc" lignes={4} />
       ) : configs.length === 0 ? (
         <EmptyState
-          icon={<Zap className="h-8 w-8 text-savr-warning" />}
+          icon={<LightningIcon className="h-8 w-8 text-savr-warning" />}
           title="Aucune configuration"
           description="Aucun traiteur n'a de configuration auto-accept définie."
         />

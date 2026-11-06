@@ -92,6 +92,9 @@ const gate = vi.fn(() =>
   Promise.resolve({ ok: true as const, entiteFacturationId: 'ef-1' }),
 );
 vi.mock('@/lib/onboarding-guards.js', () => ({
+  // La route lit l'entité avant ses gardes, puis la résout après son frein de
+  // débit : les deux appels portent sur la même organisation, même capture.
+  lireEntiteFacturation: (...a: unknown[]) => gate(...(a as [])),
   requireCompletedOrganisation: (...a: unknown[]) => gate(...(a as [])),
 }));
 
@@ -117,7 +120,7 @@ vi.mock('@/lib/attribution-ag/auto-accept.js', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 function setupAuth(
   role: string,
@@ -147,9 +150,22 @@ const EVT = {
   id: 'e1',
   organisation_id: 'org-kaspia',
   nom_evenement: 'Gala Kaspia',
+  nom_client_organisateur: 'Entreprise Dupont',
   pax: 120,
   lieu_id: 'lieu-1',
 };
+
+/** Contacts de secours complets d'une collecte (décision Val 2026-10-30). */
+const secoursDe = (collecte_id: string) => ({
+  data: [
+    {
+      collecte_id,
+      contact_secours_nom: 'Sam Roux',
+      contact_secours_telephone: '0733333333',
+    },
+  ],
+  error: null,
+});
 
 const COLLECTE_ZD = {
   id: 'col-1',
@@ -176,6 +192,10 @@ async function listerBrouillons() {
   );
 }
 
+// Type d'événement de la carte (refonte du formulaire, lot B2) : vérifié par la
+// route dans le référentiel, une lecture servie par la file de réponses.
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+
 async function creerBrouillon(type: string) {
   const { POST } =
     await import('@/app/api/v1/programmation/evenements/route.js');
@@ -184,14 +204,20 @@ async function creerBrouillon(type: string) {
       method: 'POST',
       body: JSON.stringify({
         organisation_id: 'org-kaspia',
-        pax: 120,
-        type_evenement_id: 'te-1',
         lieu_id: 'lieu-1',
-        contact_principal_nom: 'Marie Dupont',
-        contact_principal_telephone: '0600000000',
         controle_acces_requis: false,
         collectes: [
-          { type, date_collecte: '2099-08-01', heure_collecte: '14:30' },
+          {
+            type,
+            date_collecte: '2099-08-01',
+            heure_collecte: '14:30',
+            pax: 80,
+            type_evenement_id: TYPE_EVT,
+            contact_principal_nom: 'Marie Dupont',
+            contact_principal_telephone: '0600000000',
+            contact_secours_nom: 'Sam Roux',
+            contact_secours_telephone: '0733333333',
+          },
         ],
         confirmer: false,
       }),
@@ -233,30 +259,40 @@ beforeEach(() => {
 });
 
 describe('M1.2 — création d’un brouillon : normalisation du type', () => {
-  // Le chemin CONFIRMÉ passe par fn_creer_collecte, qui normalise 'zd'/'ag' vers
-  // l'enum (CASE). Le chemin BROUILLON insérait en direct, sans normalisation :
-  // « invalid input value for enum plateforme.collecte_type: "zd" » → 500 +
-  // rollback de l'événement. « Enregistrer en brouillon » ne fonctionnait donc pour
-  // AUCUN rôle, et /brouillons était structurellement vide — ce qui a masqué les
-  // défauts des routes en aval (dont un DELETE mort depuis toujours).
+  // Historique : le chemin BROUILLON insérait en direct, sans normaliser
+  // 'zd'/'ag' vers l'enum : « invalid input value for enum
+  // plateforme.collecte_type: "zd" » → 500. « Enregistrer en brouillon » ne
+  // fonctionnait pour AUCUN rôle, et /brouillons était structurellement vide.
+  // Depuis le lot B2 (décision Val 2026-10-24), brouillon et confirmation
+  // passent par la même RPC (fn_enregistrer_programmation) : la route n'insère
+  // plus rien, l'alias part tel quel dans la carte, et c'est
+  // fn_creer_collecte_carte qui le normalise (CASE) avant l'INSERT du brouillon
+  // (supabase/tests/programmation_par_carte.test.sql).
   it.each([
     ['zd', 'zero_dechet'],
     ['ag', 'anti_gaspi'],
   ])(
-    'l’alias UI « %s » est normalisé en « %s » avant INSERT',
-    async (alias, attendu) => {
+    'l’alias UI « %s » part tel quel à fn_enregistrer_programmation, normalisé en « %s » par la base — aucun INSERT direct',
+    async (alias) => {
       setupAuth('admin_savr', 'org-savr');
-      admin.push({ data: { id: 'e1', nom_evenement: null }, error: null }); // insert evenement
-      admin.push({ data: { id: 'col-1' }, error: null }); // insert collecte
+      admin.push({ data: [{ id: TYPE_EVT }], error: null }); // types_evenements
+      admin.push({
+        data: { evenement_id: 'e1', collecte_ids: ['col-1'] },
+        error: null,
+      }); // rpc fn_enregistrer_programmation
 
       const res = await creerBrouillon(alias);
 
       expect(res.status).toBe(201);
-      // [0] = INSERT evenements, [1] = INSERT collectes.
-      expect((admin.__calls.insert ?? [])[1]?.[0]).toMatchObject({
-        type: attendu,
-        statut: 'brouillon',
-      });
+      expect(admin.__calls.insert).toBeUndefined();
+      expect(admin.__calls.rpc).toHaveLength(1);
+      const [nom, args] = admin.__calls.rpc![0]! as [
+        string,
+        { p_collectes: { type: string }[]; p_confirmer: boolean },
+      ];
+      expect(nom).toBe('fn_enregistrer_programmation');
+      expect(args.p_confirmer).toBe(false);
+      expect(args.p_collectes.map((c) => c.type)).toEqual([alias]);
     },
   );
 });
@@ -303,6 +339,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null }); // select événement
     admin.push({ data: [COLLECTE_ZD], error: null }); // collectes brouillon
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null }); // rpc fn_confirmer_programmation_brouillon
 
     const res = await confirmer();
@@ -319,6 +356,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null });
     admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null });
 
     await confirmer();
@@ -329,28 +367,29 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     expect(gate).not.toHaveBeenCalled();
   });
 
-  it("le pack AG est lu sur l'org de l'événement, jamais sur l'org du JWT staff", async () => {
+  it('un brouillon AG se confirme sans lire aucun pack (facturé à l’unité sans pack actif)', async () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null }); // select événement
     admin.push({ data: [COLLECTE_AG], error: null }); // collectes brouillon
-    admin.push({ data: { id: 'pack-1', credits_restants: 3 }, error: null }); // pack
+    admin.push(secoursDe('col-2')); // contacts de secours
     admin.push({ data: null, error: null }); // rpc confirmer
 
     const res = await confirmer();
 
+    // Décision Val 2026-10-16 : plus de garde pack AG à la confirmation. Sans
+    // elle, la seule question d'organisation qui restait (pack cherché sur
+    // `org-savr` au lieu de l'org de l'événement) disparaît avec la lecture.
     expect(res.status).toBe(200);
-    // C'est cette assertion qui fait foi : le stub sert le pack quel que soit le
-    // prédicat, donc le 200 ci-dessus survivrait à une régression. En prod, un
-    // pack cherché sur `org-savr` serait introuvable → 422 « Aucun pack actif ».
-    expect(predicatesOn('organisation_id')).toEqual([
-      ['organisation_id', 'org-kaspia'],
-    ]);
+    expect((admin.__calls.from ?? []).map(([t]) => t)).not.toContain(
+      'packs_antgaspi',
+    );
   });
 
   it("l'admin agit AU NOM de l'org cible (pas de notification « tiers » parasite)", async () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: EVT, error: null });
     admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null });
 
     await confirmer();
@@ -365,6 +404,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     setupAuth('traiteur_manager', 'org-kaspia', 'user-tm');
     admin.push({ data: EVT, error: null });
     admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null });
 
     const res = await confirmer();
@@ -375,17 +415,16 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     ]);
   });
 
-  it("un traiteur_commercial ne peut pas confirmer le brouillon d'un collègue", async () => {
+  it("un traiteur_commercial confirme le brouillon d'un collègue de son organisation (Val 2026-10-30)", async () => {
     setupAuth('traiteur_commercial', 'org-kaspia', 'user-commercial');
     admin.push({ data: { ...EVT, created_by: 'user-collegue' }, error: null });
+    admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push(secoursDe('col-1')); // contacts de secours
+    admin.push({ data: null, error: null });
 
-    const res = await confirmer();
-
-    // Confirmer = écriture à effets réels (E1 vers le TMS, débit pack AG). Miroir
-    // de col_delete_brouillon : commercial = ses propres créations. Refus AVANT la
-    // lecture des collectes → pas de RPC.
-    expect(res.status).toBe(403);
-    expect(admin.__calls.rpc).toBeUndefined();
+    // Aligné sur le manager : le périmètre est l'organisation (prédicat posé
+    // par la lecture de l'événement), plus la création.
+    expect((await confirmer()).status).toBe(200);
   });
 
   it('un traiteur_commercial confirme son propre brouillon', async () => {
@@ -395,6 +434,7 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
       error: null,
     });
     admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push(secoursDe('col-1')); // contacts de secours
     admin.push({ data: null, error: null });
 
     expect((await confirmer()).status).toBe(200);
@@ -456,21 +496,15 @@ describe('M1.2 — suppression d’un brouillon (mode admin support)', () => {
     ]);
   });
 
-  it("un traiteur_commercial ne peut pas supprimer le brouillon d'un collègue", async () => {
+  it("un traiteur_commercial supprime le brouillon d'un collègue de son organisation (Val 2026-10-30)", async () => {
     setupAuth('traiteur_commercial', 'org-kaspia', 'user-commercial');
     admin.push({
       data: { id: 'e1', created_by: 'user-collegue' },
       error: null,
     });
+    admin.push({ data: null, error: null });
 
-    const res = await supprimer();
-
-    // Miroir de la policy col_delete_brouillon (§09) : commercial = ses propres
-    // créations. RLS ne rattrape pas (route sous service-role). Le défaut était
-    // inerte tant que le DELETE échouait en 500 pour tout le monde ; il devient
-    // atteignable dès que la route fonctionne.
-    expect(res.status).toBe(403);
-    expect(admin.__calls.rpc).toBeUndefined();
+    expect((await supprimer()).status).toBe(204);
   });
 
   it('un traiteur_commercial supprime son propre brouillon', async () => {

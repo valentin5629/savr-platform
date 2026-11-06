@@ -8,7 +8,7 @@ import { NextRequest } from 'next/server';
 // ─── Mocks communs ────────────────────────────────────────────────────────────
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 
 const mockGetUser = vi.fn();
@@ -40,6 +40,8 @@ const mockClientChain = {
   gte: vi.fn().mockReturnThis(),
   lte: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
+  gt: vi.fn().mockReturnThis(),
+  limit: vi.fn().mockReturnThis(),
   order: vi.fn().mockResolvedValue({ data: [], error: null }),
   // BL-P3-02 : le tarif du tooltip Marge passe par la RPC f_tarif_refacture_pax_zd
   // (colonne hors GRANT SELECT depuis 20260918100000) ; maybeSingle() reste
@@ -55,6 +57,7 @@ const mockAdminChain = {
   eq: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
+  or: vi.fn().mockReturnThis(),
   not: vi.fn().mockReturnThis(),
   gte: vi.fn().mockReturnThis(),
   lte: vi.fn().mockReturnThis(),
@@ -130,26 +133,23 @@ describe('M3.5 / kpi-traiteur', () => {
     expect(res.status).toBe(401);
   });
 
-  // Cockpit R24 — N-1 : une seule requête de vue couvrant [N-1 → courante], puis
-  // découpe en JS. Vérifie que les lignes sont partitionnées par fenêtre à partir
-  // d'UNE seule résolution de `.order()` (au lieu de 2 requêtes de vue en série).
-  it('compare=n1 — découpe courante / précédente sur une requête unique', async () => {
+  // Cockpit R24 — N-1 : une seule lecture couvrant [N-1 → courante], puis découpe
+  // en JS. Les cartes sont calculées depuis les collectes (filtres globaux, lot
+  // du 2026-10-30) : la période porte sur date_collecte.
+  it('compare=n1 — découpe courante / précédente sur une lecture unique', async () => {
     setupAuth('traiteur_manager');
-    const rowCurrent = {
-      organisation_id: 'org-1',
-      mois: '2025-08-01',
-      type_collecte: 'zero_dechet',
-      nb_collectes: 3,
-    };
-    const rowPrev = {
-      organisation_id: 'org-1',
-      mois: '2024-09-01',
-      type_collecte: 'zero_dechet',
-      nb_collectes: 1,
-    };
-    // La vue n'est interrogée qu'une fois → une seule résolution de order().
+    const collecte = (id: string, date_collecte: string) => ({
+      id,
+      type: 'zero_dechet',
+      date_collecte,
+      pax: 100,
+      evenement_id: `e-${id}`,
+      taux_recyclage: 80,
+      collecte_flux: [{ poids_reel_kg: 10 }],
+    });
+    // Une page (< 200 lignes) → une seule résolution de order().
     mockClientChain.order.mockResolvedValueOnce({
-      data: [rowCurrent, rowPrev],
+      data: [collecte('a', '2025-08-12'), collecte('b', '2024-09-03')],
       error: null,
     });
     const { GET } =
@@ -161,35 +161,38 @@ describe('M3.5 / kpi-traiteur', () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    // from/to = fenêtre courante (12 mois) ; previousWindow rend [2024-07-02,
-    // 2025-06-30] → rowPrev (2024-09) tombe dans previous, rowCurrent (2025-08)
-    // dans data.
-    expect(body.data).toEqual([rowCurrent]);
-    expect(body.previous).toEqual([rowPrev]);
-    // Une seule requête de vue (un seul appel terminal .order()).
+    // previousWindow rend [2024-07-01, 2025-06-30] : 2024-09 tombe dans previous,
+    // 2025-08 dans data.
+    expect(body.data.map((l: { mois: string }) => l.mois)).toEqual([
+      '2025-08-01',
+    ]);
+    expect(body.previous.map((l: { mois: string }) => l.mois)).toEqual([
+      '2024-09-01',
+    ]);
+    expect(mockClientChain.gte).toHaveBeenCalledWith(
+      'date_collecte',
+      '2024-07-01',
+    );
     expect(mockClientChain.order).toHaveBeenCalledTimes(1);
   });
-});
 
-// ─── kpi-lieu ─────────────────────────────────────────────────────────────────
-
-describe('M3.5 / kpi-lieu', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('200 — gestionnaire_lieux', async () => {
-    setupAuth('gestionnaire_lieux');
-    const { GET } = await import('@/app/api/v1/dashboards/kpi-lieu/route.js');
-    const res = await GET(makeReq('/api/v1/dashboards/kpi-lieu'));
+  it('filtres globaux transmis : Lieux et Client organisateur', async () => {
+    setupAuth('traiteur_manager');
+    const { GET } =
+      await import('@/app/api/v1/dashboards/kpi-traiteur/route.js');
+    const res = await GET(
+      makeReq(
+        '/api/v1/dashboards/kpi-traiteur?type=zero_dechet&lieu_ids[]=22222222-2222-4222-8222-222222222222&client_noms[]=Dior',
+      ),
+    );
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toHaveProperty('data');
-  });
-
-  it('401 — sans JWT', async () => {
-    setupNoAuth();
-    const { GET } = await import('@/app/api/v1/dashboards/kpi-lieu/route.js');
-    const res = await GET(makeReq('/api/v1/dashboards/kpi-lieu'));
-    expect(res.status).toBe(401);
+    expect(mockClientChain.in).toHaveBeenCalledWith('evenements.lieu_id', [
+      '22222222-2222-4222-8222-222222222222',
+    ]);
+    expect(mockClientChain.in).toHaveBeenCalledWith(
+      'evenements.nom_client_organisateur',
+      ['Dior'],
+    );
   });
 });
 
@@ -212,6 +215,20 @@ describe('M3.5 / kpi-admin', () => {
     const body = await res.json();
     expect(body).toHaveProperty('cartes_actions');
     expect(body).toHaveProperty('kpi');
+    // M0.6/dirty_tms_apres_envoi (arbitrage Val 2026-10-09) : la carte « Modifiées
+    // sans renvoi TMS » compte les collectes modifiées encore à réaliser, sans
+    // exiger de référence de commande — même prédicat que la pastille de la liste.
+    expect(mockAdminChain.eq).toHaveBeenCalledWith('dirty_tms', true);
+    expect(mockAdminChain.in).toHaveBeenCalledWith('statut', [
+      'programmee',
+      'validee',
+      'en_cours',
+    ]);
+    expect(mockAdminChain.not).not.toHaveBeenCalledWith(
+      'tms_reference',
+      'is',
+      null,
+    );
   });
 
   it('401 — sans JWT', async () => {

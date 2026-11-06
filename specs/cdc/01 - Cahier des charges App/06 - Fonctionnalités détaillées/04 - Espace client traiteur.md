@@ -1,7 +1,5 @@
 # 04 - Espace client traiteur
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-06-07 (**Test scenarios §06.04 (skill `cdc-test-scenarios`, lot ④)** — 54 scénarios générés (`tests/06.04-espace-traiteur-scenarios.md`). **5 specs floues TRANCHÉES Val + propagées** : F1 annulation `brouillon`/`programmee` = **directe sans validation Admin** (§05 fait foi, flux §Annulation scindé A/B) ; F2 badge pack bas + bouton renouvellement = **seuil relatif ≤ 10 % des crédits initiaux** (aligné email admin, ex < 10 crédits absolu) ; F3 badge « X collectes en attente de facturation » = **dès X ≥ 1** incl. facturation partielle ; F4 mention « SLA d'acceptation » retirée du bloc Contrôle d'accès (aucune source App) ; F5 **DELETE physique limité à `brouillon`** + toute annulation sur collecte poussée TMS → **E3 systématique** tous acteurs (prestataire informé côté TMS). Propagé : §05 (§Annulation + R_marge_zd_traiteur), §09 (restriction DELETE `collectes`). Précédente mise à jour 2026-06-03 (**Revue sobriété §06.04 (skill `cdc-review-sobriete`)** — 2 items appliqués. (1) **Annulation de la revue §12 B2** sur arbitrage Val : la colonne `rapports_rse.filtres_benchmark` est **rétablie** (snapshot des filtres benchmark persisté → PDF reproductible), complétée par une **légende sous le graphe benchmark du PDF** précisant les filtres appliqués. Le calcul à la volée est abandonné. Propagé : §04 Data Model, §12 Reporting, §06.11 Espace agence, §00 Index. (2) **Sobriété B2 Contrôle d'accès** : état "Modification en cours" fusionné dans "Communiqué" (toujours la dernière valeur plaque/nom), 3→2 états. Cross-CDC 0 (benchmark + affichage = Plateforme-only). B1 (retrait filtres benchmark fiche collecte) **refusé Val**. Précédente mise à jour 2026-05-10 — Dashboard : refonte alignement §06.05 — blocs communs (Prochaines collectes, Top 5 lieux, Top 5 commerciaux) rattachés à chaque onglet ZD/AG (numérotation suffixée). Bouton "Exporter une synthèse PDF" du bandeau actions rapides **retiré**, remplacé par **Bloc 8 ZD / Bloc 8 AG** par onglet (pré-rempli filtres globaux + type de collecte selon onglet actif). Pattern strictement aligné §06.05 et §06.11. Précédente mise à jour 2026-05-07 — Dashboard ZD : KPI **Marge générée** ajouté (Bloc 1 → 5 cartes ZD) — formule `tarif_refacture_pax_zd × pax cumulés − coût total Savr facturé`. Liste collectes : suppression vue "Toutes les collectes", remplacement par **2 onglets ZD/AG**. Bouton "Programmer une collecte" devient **contextuel** par onglet. Cf. [[04 - Data Model]] addendum 2026-05-07 + [[05 - Règles métier#R_marge_zd_traiteur]].)
 **Lié à** : [[02 - Personas et cas d'usage]] (profils `traiteur_manager`, `traiteur_commercial`) · [[09 - Authentification et permissions]] · [[11 - Dashboards]] · [[01 - Formulaire de programmation de collecte]] · [[05 - Espace client gestionnaire de lieux]] (structure dashboard héritée)
 
 ---
@@ -11,7 +9,7 @@
 L'espace client traiteur est l'interface principale des utilisateurs côté traiteur. Il couvre deux profils :
 
 - **`traiteur_manager`** : vision complète de l'organisation (toutes les collectes, toutes les factures, gestion de l'équipe)
-- **`traiteur_commercial`** *(révision 2026-05-29)* : **lecture identique au Manager** (toutes les collectes, toutes les factures, dashboards et benchmarks de l'orga). Il ne diffère du Manager que sur deux points : (a) en **écriture**, il ne peut créer/modifier/supprimer que **les collectes qu'il a lui-même créées** (`created_by = auth.uid()`) ; (b) il **n'a pas la gestion des utilisateurs** ni l'édition des paramètres de l'organisation (logo, infos, facturation), réservées au Manager.
+- **`traiteur_commercial`** *(révision 2026-05-29)* : **lecture identique au Manager** (toutes les collectes, toutes les factures, dashboards et benchmarks de l'orga). *(Révision Val 2026-10-30)* Il a les mêmes droits que le Manager, **écriture comprise** (toutes les collectes et événements de l'orga), sauf sur l'organisation (onglets Organisation · Membres · Facturation de « Paramètres ») : **aucune édition** (logo, infos, facturation, domaines) ; dans l'onglet Membres, il peut seulement **inviter un collaborateur** et **transférer ses propres collectes** à un collègue (ni changement de rôle, ni suspension). Il lit aussi le pack Anti-Gaspi de l'organisation et l'exporte (reco validée Val 2026-11-02 ; dette code : migration d'élargissement de la RLS `packs_antgaspi` + GO reviewer-rls-securite).
 
 Le périmètre des données visibles (lecture) et des actions (écriture) est filtré par RLS Supabase (voir [[09 - Authentification et permissions]]).
 
@@ -19,25 +17,31 @@ Le périmètre des données visibles (lecture) et des actions (écriture) est fi
 
 ## 1. Navigation principale
 
-Barre latérale (desktop) / menu burger (mobile) — **4 entrées V1** (refonte 2026-05-05 : suppression entrée "Factures" fondue dans Mon organisation > Facturation manager only, suppression entrée "Rapports RSE" remplacée par bouton "Exporter une synthèse PDF" depuis dashboard) :
+Barre latérale (desktop) / menu burger (mobile) — **4 entrées V1 + le menu de l'utilisateur en pied de barre** (« Mon pack Anti-Gaspi » ajouté le 2026-11-02 ; « Paramètres » passé dans le menu de l'utilisateur le 2026-11-02 ; « Mon organisation » + « Mon profil » réunis en « Paramètres » le 2026-10-31 ; Événements ajouté 2026-10-29 ; refonte 2026-05-05 : suppression entrée "Factures" fondue dans Paramètres > Facturation manager only, suppression entrée "Rapports RSE" remplacée par bouton "Exporter une synthèse PDF" depuis dashboard) :
 
 1. **Dashboard** (page d'accueil)
 2. **Collectes** (liste + programmation)
-3. **Mon organisation** — *(révision 2026-05-29)* visible Manager **et** Commercial. **Commercial = lecture seule** sur Facturation + Infos/Logo ; sous-section **Utilisateurs masquée** (gestion des utilisateurs = Manager uniquement). Toute édition des paramètres org reste Manager only.
-4. **Mon profil**
+3. **Événements** — liste commune à tous les rôles, une ligne par événement, résultats cumulés sur ses collectes (§06.05 §2 ; décision Val 2026-10-29). Le traiteur n'a ni colonne ni filtre « Traiteur ». Clic sur une ligne → fiche Événement commune (§06.05 « Détail événement ») : sans déchets labo estimés ni logo du traiteur ; radar de comparaison avec la barre de l'espace (lieux du parc, types, tailles ; décision Val 2026-10-30) ; chaque collecte y est la fiche collecte §06.04 ; rapports RSE et de don cumulés.
+4. **Mon pack Anti-Gaspi** *(ajout Val 2026-11-02)* — dernière entrée visible de la barre latérale (« Paramètres » étant dans le menu de l'utilisateur en pied de barre), pour les 5 rôles clients (traiteur manager et commercial, agence, gestionnaire de lieux, client organisateur), jamais pour l'Admin ; toujours affichée, même sans pack. Écran commun décrit au Bloc 4 AG ci-dessous (« Onglet Mon pack Anti-Gaspi »).
+5. **Paramètres** — **hors barre latérale depuis le 2026-11-02** : s'ouvre depuis le menu de l'utilisateur (ci-dessous) *(décision Val 2026-10-31 : « Mon organisation » et « Mon profil » réunis en une entrée, à onglets Mon profil · Organisation · Membres · Facturation, ordre Val 2026-11-01 ; Facturation masqué tant que la facturation est hors plateforme ; « Paramètres » s'ouvre sur « Mon profil », onglet porté par l'adresse `?onglet=`, anciennes adresses `/mon-organisation` et `/mon-profil` redirigées)* — visible Manager **et** Commercial. **Commercial** *(révision Val 2026-10-30)* : onglets Organisation et Facturation en **lecture seule** ; onglet **Membres** visible : liste en lecture, **inviter un collaborateur**, **transférer ses propres collectes** (ni changement de rôle, ni suspension). Toute édition des paramètres org reste Manager only.
+*(« Mon profil » n'est plus une entrée du menu : c'est le premier onglet de « Paramètres », décision Val 2026-10-31.)*
+
+**Menu de l'utilisateur** *(Val 2026-11-02)* : en pied de barre latérale, l'avatar aux initiales « Prénom Nom », le nom et le poste de l'utilisateur forment un bouton qui ouvre un menu « Paramètres » puis « Se déconnecter » (composant Dropdown du [[10 - Design System]], aucun composant nouveau). « Paramètres » (Mon profil, Organisation, Membres) n'est alors plus une entrée de la barre latérale ; page Paramètres ouverte, le bouton du menu porte la marque de l'entrée active. Règle commune aux espaces traiteur, agence, gestionnaire de lieux et client organisateur. Admin et Ops : « Paramètres » (réglages métier) reste dans la barre latérale et le menu ne porte que « Se déconnecter » (§06.06 §Navigation). Le logo de l'organisation est dans la barre navy du haut ([[10 - Design System]] §6 `TopBar`), pas dans le pied de barre.
+
+> **Barre mobile** *(décision Val 2026-10-29, C4)* : la barre du bas affiche les 4 premières entrées du menu : Dashboard · Collectes · Événements · Paramètres (« Mon profil » y est l'onglet d'ouverture de « Paramètres », décision Val 2026-10-31), comme le gestionnaire (§06.05). « Mon pack Anti-Gaspi » n'y figure pas : la barre mobile garde « Paramètres » (interprétation Claude Code validée par Val le 2026-11-02).
 
 ### Différences `traiteur_manager` vs `traiteur_commercial`
 
 | Section          | Manager                                                                                                                                                                      | Commercial                                                                                                                                                                |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Dashboard        | Données de toute l'organisation + bloc Mon pack AG (onglet AG) + bloc Top 5 commerciaux                                                                                      | **Identique au Manager** : données de toute l'orga + Mon pack AG (lecture + demande renouvellement) + **Top 5 commerciaux visible** (révision 2026-05-29)                  |
-| Collectes        | Toutes les collectes de l'orga                                                                                                                                               | **Lecture : toutes les collectes de l'orga**. Programmation / modification / suppression : **uniquement ses propres collectes** (`created_by = auth.uid()`) (rév. 2026-05-29) |
-| Factures         | Vue liste + filtres dans Mon organisation > Facturation (toutes factures de l'orga)                                                                                          | **Vue liste lecture seule** dans Mon organisation > Facturation (toutes factures de l'orga) — révision 2026-05-29, l'ancienne restriction « fiche collecte uniquement / option C » est levée |
+| Collectes        | Toutes les collectes de l'orga                                                                                                                                               | **Identique au Manager** : toutes les collectes de l'orga, en lecture et en écriture (révision Val 2026-10-30) |
+| Factures         | Vue liste + filtres dans Paramètres > Facturation (toutes factures de l'orga)                                                                                          | **Vue liste lecture seule** dans Paramètres > Facturation (toutes factures de l'orga) — révision 2026-05-29, l'ancienne restriction « fiche collecte uniquement / option C » est levée |
 | Rapports RSE     | Synthèses générées à la demande via bouton "Exporter une synthèse PDF" du dashboard ; rapports par collecte téléchargeables depuis liste collectes (picto) ou fiche collecte | Idem manager, **périmètre orga complet** (révision 2026-05-29)                                                                                                            |
-| Mon organisation | Accès complet (users, logo, infos, facturation)                                                                                                                              | **Lecture seule** (Facturation + Infos + Logo) ; **sous-section Utilisateurs masquée** ; aucune édition (révision 2026-05-29)                                              |
-| Mon profil       | Édition de son profil                                                                                                                                                        | Édition de son profil                                                                                                                                                     |
+| Paramètres > Organisation · Membres · Facturation | Accès complet (users, logo, infos, facturation)                                                                                                                              | **Lecture seule** (Facturation + Infos + Logo) ; onglet **Membres** visible : liste en lecture, **inviter un collaborateur** et **transférer ses propres collectes** (révision Val 2026-10-30)                                              |
+| Paramètres > Mon profil | Édition de son profil                                                                                                                                                        | Édition de son profil                                                                                                                                                     |
 
-*(Révision 2026-05-29)* Un commercial **voit en lecture** toutes les collectes et factures de l'organisation (comme le Manager) ; il ne peut **modifier/supprimer** que celles qu'il a lui-même créées.
+*(Révision 2026-05-29)* Un commercial **voit en lecture** toutes les collectes et factures de l'organisation (comme le Manager) ; *(Révision Val 2026-10-30)* il les modifie, annule et supprime aussi, comme le Manager.
 
 ---
 
@@ -45,13 +49,15 @@ Barre latérale (desktop) / menu burger (mobile) — **4 entrées V1** (refonte 
 
 ### Principe (refonte 2026-05-04)
 
-Le dashboard reprend **intégralement la structure du §05 Espace gestionnaire de lieux** (2 onglets ZD/AG, barre de filtres globaux, blocs hérités), filtrée sur le **périmètre du traiteur connecté**. *(Révision 2026-05-29)* : en **lecture**, manager et commercial voient le **même périmètre** (toute l'orga) ; ils ne diffèrent qu'en écriture (commercial = ses propres collectes). Pas de duplication de composants côté dev — cible : composants partagés réutilisables.
+Le dashboard reprend **intégralement la structure du §05 Espace gestionnaire de lieux** (2 onglets ZD/AG, barre de filtres globaux, blocs hérités), filtrée sur le **périmètre du traiteur connecté**. *(Révision 2026-05-29)* : en **lecture**, manager et commercial voient le **même périmètre** (toute l'orga) ; *(révision Val 2026-10-30)* l'écriture est elle aussi alignée ; seules l'édition de l'organisation et la gestion des membres diffèrent. Pas de duplication de composants côté dev — cible : composants partagés réutilisables.
 
 Mutualisation logique : 1 dashboard, 2 contextes (gestionnaire / traiteur), filtres et RLS adaptés au rôle.
 
-### Bandeau actions rapides (au-dessus des onglets, toujours visible)
+### Bouton « Programmer une collecte » (barre du haut, toujours visible)
 
-**Refonte 2026-05-21 (formulaire unique événement-centré)** : bouton unique **[ Programmer un événement ]** (action transversale aux deux onglets). Ouvre le formulaire unique §06.01 où l'utilisateur choisit le ou les types de collecte (☐ Zéro-Déchet ☐ Anti-Gaspi) en étape 1. Pour préserver l'économie de clic du contexte d'onglet, l'ouverture depuis l'onglet ZD pré-coche Zéro-Déchet, depuis l'onglet AG pré-coche Anti-Gaspi (l'utilisateur peut cocher l'autre type pour programmer les deux en une passe).
+*(Décision Val 2026-11-02 : le bouton est dans la barre navy du haut de l'écran, présente sur toutes les pages, et non plus dans le bandeau du dashboard — cf. [[10 - Design System]] §6 `TopBar`. Libellé aligné sur le code : « Programmer une collecte », arbitrage Q11 Val 2026-10-07.)*
+
+**Refonte 2026-05-21 (formulaire unique événement-centré)** : bouton unique **[ Programmer une collecte ]** (action transversale aux deux onglets). Ouvre le formulaire unique §06.01 où l'utilisateur saisit le nombre de collectes Zéro-Déchet et Anti-Gaspi à l'écran 1 (refonte Val 2026-10-22). Pour préserver l'économie de clic du contexte d'onglet, l'ouverture depuis l'onglet ZD propose une collecte Zéro-Déchet, depuis l'onglet AG une collecte Anti-Gaspi, nombres modifiables *(décision Val 2026-10-24, I11 : à coder — dette code ouverte)*.
 
 **Retiré V1 (refonte formulaire unique 2026-05-21)** — l'entrée se fait désormais par un bouton unique ouvrant le formulaire événement-centré.
 
@@ -77,28 +83,30 @@ Chaque onglet affiche son propre jeu de blocs adaptés au métier. La barre de f
 | Lieux                | Multi-select                   | Lieux où le traiteur est intervenu sur les 24 derniers mois — défaut "Tous"                                              |
 | Client organisateur  | Multi-select                   | Clients organisateurs renseignés sur ses collectes — défaut "Tous"                                                       |
 | Type d'événement     | Multi-select                   | `types_evenements.libelle` — référentiel extensible Admin                                                                |
-| Taille d'événement   | Multi-select                   | Bracket calculé sur `evenements.pax` : **XS** [0-249], **S** [250-499], **M** [500-749], **L** [750-999], **XL** [1000+] |
+| Taille d'événement   | Multi-select                   | Bracket calculé sur `collectes.pax` (taille de la collecte, décision Val Q3 du 2026-10-24) : **XS** [0-249], **S** [250-499], **M** [500-749], **L** [750-999], **XL** [1000+] |
 
 Bouton "Réinitialiser" ramène aux valeurs par défaut. Compteur "X collectes correspondent" sous la barre.
 
+**Options des listes** *(décision Val 2026-11-02, fiche M3_20261030)* : les options des filtres (Lieux, Client organisateur, Traiteurs…) écartent les collectes brouillon et annulées, qui ne comptent dans aucun bloc (un lieu ou un client choisi n'y donnerait qu'un dashboard vide). Règle commune aux barres des dashboards traiteur, agence, client organisateur et Admin. Le badge « X collectes en attente de facturation » (masqué au go-live) suit lui aussi les filtres de la barre.
+
 > **Note** : pas de filtre "Traiteurs" côté traiteur (par construction = lui seul). Filtre "Commercial" disponible dans la liste Collectes pour le manager **et le commercial** *(révision 2026-05-29 — le commercial voyant désormais toute l'orga, il peut filtrer par commercial)*.
 
-### Bloc 1 — KPIs (5 cartes ZD / 5 cartes AG)
+### Bloc 1 — KPIs (5 cartes ZD / 4 cartes AG)
 
 Cartes chiffres clés en haut de page (recalcul live selon les filtres actifs) :
 
 Mapping par onglet :
-- **ZD (5 cartes)** : Nombre de collectes · Tonnage collecté (kg) · **Taux de recyclage** (%) *(renommé 2026-05-06 — ex "Taux de tri global". Moyenne pondérée par tonnage des `collectes.taux_recyclage`, formule à captation par filière cf. [[05 - Règles métier#R_taux_recyclage]])* · kg/pax moyen · **CO₂ évité (kg/t CO₂e)** *(décision Val 2026-07-13 — remplace « Marge générée » dans la rangée KPI ; carte cliquable → modale « Détail de l'impact carbone » si Σ co2_evite > 0. Formule Marge et endpoint conservés, réversible — cf. section ci-dessous)*
-- **AG (5 cartes)** : Nombre de collectes · Repas donnés · Pax cumulés · Repas/pax moyen · **CO₂ évité (kg/t CO₂e)** *(décision Val 2026-07-13 — ajout, pas un remplacement ; §06.04 l.106 « pas de KPI marge AG V1 » inchangé. Carte cliquable → modale « Détail de l'impact carbone » (héros évité seul + méthode par repas ≈ 2,5 kgCO₂e/repas FAO) si Σ co2_evite > 0)*
+- **ZD (5 cartes)** : Nombre de collectes · Tonnage collecté (kg) · **Taux de recyclage** (%) *(renommé 2026-05-06 — ex "Taux de tri global". Moyenne pondérée par tonnage des `collectes.taux_recyclage`, formule à captation par filière cf. [[05 - Règles métier#R_taux_recyclage]])* · kg/pax moyen *(Σ poids / Σ pax des collectes à convives connus : une collecte à 0 convive sort des deux — lot 3, décision Val Q1 du 2026-10-25)* · **CO₂ évité (kg/t CO₂e)** *(décision Val 2026-07-13 — remplace « Marge générée » dans la rangée KPI ; carte cliquable → modale « Détail de l'impact carbone » si Σ co2_evite > 0. Formule Marge et endpoint conservés, réversible — cf. section ci-dessous)*
+- **AG (4 cartes)** : Nombre de collectes · Repas donnés · Repas/pax moyen *(Σ repas / Σ pax des collectes à convives connus — lot 3, décision Val Q2 du 2026-10-25)* · **CO₂ évité (kg/t CO₂e)** *(décision Val 2026-07-13 — ajout, pas un remplacement ; §06.04 l.106 « pas de KPI marge AG V1 » inchangé. Carte cliquable → modale « Détail de l'impact carbone » (héros évité seul + méthode par repas ≈ 2,5 kgCO₂e/repas FAO) si Σ co2_evite > 0)* *Carte « Pax cumulés » retirée, le total des convives reste le dénominateur de « Repas/pax moyen » (décision Val 2026-10-30).*
 
-Chaque carte porte une **sparkline** (tendance mensuelle) et une **variation vs période précédente équivalente (N-1)**, sauf « kg/pax » (sens « plus bas = mieux » ambigu) *(lot R24 GO-VISUAL Val 2026-07-10)*. **Les cartes KPI ne sont PAS cliquables vers la liste Collectes** *(décision Val GO-VISUAL 2026-07-10 — revient sur BL-P2-11/BL-P2-43)*. **Seule exception** : la carte **CO₂ évité** est cliquable → ouvre la **modale « Détail de l'impact carbone »** (aucune navigation vers `/traiteur/collectes` ; l'invariant « aucune carte KPI ne renvoie vers la liste » reste vrai).
+Chaque carte porte une **variation vs période précédente équivalente (N-1)**, sauf « kg/pax » (sens « plus bas = mieux » ambigu) et « Repas/pax moyen » *(arbitrage Val 2026-10-08)* *(lot R24 GO-VISUAL Val 2026-07-10)*. Aucune carte ne porte de courbe de tendance *(décision Val 2026-10-30)*. **Les cartes KPI ne sont PAS cliquables vers la liste Collectes** *(décision Val GO-VISUAL 2026-07-10 — revient sur BL-P2-11/BL-P2-43)*. **Seule exception** : la carte **CO₂ évité** est cliquable → ouvre la **modale « Détail de l'impact carbone »** (aucune navigation vers `/traiteur/collectes` ; l'invariant « aucune carte KPI ne renvoie vers la liste » reste vrai).
 
 #### KPI **Marge générée (€)** — retiré de la rangée KPI (décision Val 2026-07-13), formule conservée
 
 > **Retrait rangée KPI (décision Val 2026-07-13)** : la carte « Marge générée » est retirée de la rangée KPI ZD au profit de « CO₂ évité ». La formule ci-dessous et l'endpoint (`marge_zd_ht` / `tarif_refacture_pax_zd`) restent en place — réversible. Le badge « X collectes en attente de facturation » est **relogé sous la rangée KPI**.
 
-- **Formule** : `(organisations.tarif_refacture_pax_zd) × Σ evenements.pax − Σ factures_collectes.montant_ht`
-  - **Numérateur revenu** : `tarif_refacture_pax_zd` (paramètre par traiteur, défaut 1.50 €, modifiable Admin Savr only — cf. [[04 - Data Model]] §`organisations`) × pax cumulés des collectes ZD du périmètre filtré (les pax de chaque événement comptent une fois, pas de double comptage si plusieurs collectes par événement — `DISTINCT evenements.id`)
+- **Formule** : `(organisations.tarif_refacture_pax_zd) × Σ collectes.pax − Σ factures_collectes.montant_ht`
+  - **Numérateur revenu** : `tarif_refacture_pax_zd` (paramètre par traiteur, défaut 1.50 €, modifiable Admin Savr only — cf. [[04 - Data Model]] §`organisations`) × pax cumulés des collectes ZD `cloturee` du périmètre filtré (chaque collecte compte ses propres convives ; une collecte AG du même événement n'entre pas — lot 3, décision Val Q3 du 2026-10-25)
   - **Numérateur coût** : somme des montants HT des lignes `factures_collectes` rattachées aux collectes ZD du périmètre filtré, **uniquement sur factures de statut `emise` ou `payee`** (les brouillons et avoirs ne comptent pas — cohérent §06.04 vue facturation)
 - **Format affichage** : `1 234,56 €` (€ avec 2 décimales). Couleur neutre. Pas de seuil rouge/vert V1.
 - **Cas null/zéro** :
@@ -136,15 +144,15 @@ Légende cliquable. Tooltip au survol : valeurs kg + % par flux.
 
 #### Bloc 3 ZD — Radar kg/pax par flux × benchmark parc
 
-**Représentation (décision Val 2026-09-28 — remplace les 5 jauges bullet)** : radar 5 axes « lignes seules » (1 axe par flux ZD), échelle **indice parc = 100 par flux** (le parc forme un pentagone régulier `primary-300`, « Vous » = ligne navy `primary-700` sans remplissage, grille polygonale sans rayons). Liste à côté du radar : par flux, kg/pax réel + repère parc + badge d'écart coloré + légende des statuts. Flux sans donnée : axe « n/d » grisé, pas de point, badge « Données manquantes ». Survol d'un axe ou d'une ligne : infobulle Vous / Parc / Écart. Données, filtres, k-anonymat et seuils de couleur inchangés ; dans la suite, « jauge » se lit « axe du radar » et « point rouge » se lit « repère parc ».
+**Représentation (décision Val 2026-09-28 — remplace les 5 jauges bullet)** : radar 5 axes (1 axe par flux ZD), échelle **indice parc = 100 par flux**, même bloc que la fiche collecte variante B (décisions Val 2026-10-28) : titre « Vos tonnages face aux événements comparables », sous-titre « Déchets par convive (kg/pax) face à la moyenne Savr sur 24 mois. » ; le repère forme un pentagone régulier en pointillés bleu nuit `primary-900`, la série mesurée est en orange `accent-500` remplie, grille polygonale sans rayons, légende sous le radar (« Vos collectes » / « Moyenne des événements comparables ») ; filtres du repère empilés à droite en pastilles ; le bloc est sur la même ligne que le Bloc 4 (donut, à gauche), sous le Bloc 2. La liste des flux (kg/pax réel + repère parc + badge d'écart coloré) n'est plus affichée : elle reste lue par les lecteurs d'écran, et les valeurs et l'écart sont au survol de chaque axe. Flux sans donnée : axe « n/d » grisé, pas de point, badge « Données manquantes ». Survol d'un axe : infobulle Vos collectes / Parc / Écart. Données, filtres, k-anonymat et seuils de couleur inchangés ; dans la suite, « jauge » se lit « axe du radar » et « point rouge » se lit « repère parc ».
 
 Bloc hérité §05 avec **adaptation traiteur** :
 - **Jauge gestionnaire** → **jauge traiteur** : ratio `kg du flux / pax cumulés` sur le périmètre des **filtres globaux** (les collectes du traiteur).
 - **Point rouge benchmark** : moyenne `kg flux / pax` calculée sur **l'ensemble du parc Savr** selon les **filtres benchmark dédiés**.
 
-##### Barre de filtre benchmark dédiée (au-dessus du bloc, distincte de la barre globale)
+##### Filtres benchmark dédiés (pastilles à droite du radar, comme la fiche collecte — décision Val 2026-10-28 ; distincts de la barre globale)
 
-Encart compact "Filtres benchmark" affichant **3 critères** (et non 4 comme côté gestionnaire ; période fixe 24 mois) :
+Filtres benchmark en pastilles empilées à droite du radar (décision Val 2026-10-28) : **3 critères** (et non 4 comme côté gestionnaire ; période fixe 24 mois) :
 
 | Filtre benchmark              | Type                           | Valeurs                                                                       |
 | ----------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
@@ -185,7 +193,7 @@ Donut affichant la part relative des 5 flux ZD sur la période filtrée. Tooltip
 
 Tableau ordonné par tonnage, période filtrée :
 - Lieu · Nombre de collectes ZD · Tonnage · Taux de recyclage *(moyenne pondérée par tonnage)*
-- **Chaque ligne cliquable → liste Collectes (onglet Historique) filtrée sur le lieu** *(drill-down, décision Val 2026-07-14)*. Miroir **5/5** du calcul du Top liste : type (onglet ZD/AG) + période + statut `cloturee` + `perimetre=organisation` + **Type d'événement + Taille d'événement**. Chip « Filtre actif » en tête de liste ; libellé du lieu via `sessionStorage` (jamais en query string, seul l'ID opaque transite). **Sortie du drill-down** *(2026-10-01, confirmé Val)* : le chip reste affiché tant que la barre filtre sur le seul lieu reçu. Dès qu'un autre lieu est coché, que le lieu est décoché ou que les filtres sont réinitialisés, l'utilisateur sort du drill-down : le chip disparaît et le périmètre miroir du Top liste (événements possédés par l'organisation) n'est plus appliqué ; le statut et la période, visibles dans la barre, restent posés.
+- **Chaque ligne cliquable → liste Collectes (vue « Collectes passées ») filtrée sur le lieu** *(drill-down, décision Val 2026-07-14)*. Miroir **5/5** du calcul du Top liste : type (onglet ZD/AG) + période + statut `cloturee` + `perimetre=organisation` + **Type d'événement + Taille d'événement**. Chip « Filtre actif » en tête de liste ; libellé du lieu via `sessionStorage` (jamais en query string, seul l'ID opaque transite). **Sortie du drill-down** *(2026-10-01, confirmé Val)* : le chip reste affiché tant que la barre filtre sur le seul lieu reçu. Dès qu'un autre lieu est coché, que le lieu est décoché ou que les filtres sont réinitialisés, l'utilisateur sort du drill-down : le chip disparaît et le périmètre miroir du Top liste (événements possédés par l'organisation) n'est plus appliqué ; le statut et la période, visibles dans la barre, restent posés.
 
 #### Bloc 7 ZD — Top 5 commerciaux ZD
 
@@ -193,7 +201,7 @@ Visible pour `traiteur_manager` **et** `traiteur_commercial` *(ouvert 2026-05-29
 
 Tableau ordonné par nombre de collectes ZD, période filtrée :
 - Commercial · Nombre de collectes ZD · Tonnage · Taux de recyclage *(moyenne pondérée par tonnage)*
-- **Chaque ligne cliquable → liste Collectes (onglet Historique) filtrée sur le commercial** *(drill-down, décision Val 2026-07-14 ; mêmes règles de miroir 5/5 que le Bloc 6)*.
+- **Chaque ligne cliquable → liste Collectes (vue « Collectes passées ») filtrée sur le commercial** *(drill-down, décision Val 2026-07-14 ; mêmes règles de miroir 5/5 que le Bloc 6)*.
 
 > **Note vs §05** : remplacement du bloc "Top 5 traiteurs" du §05 (sans objet côté traiteur) par "Top 5 commerciaux".
 
@@ -237,7 +245,7 @@ Bloc fondu depuis l'ancienne section §6 (refonte 2026-05-04). Position : pleine
 
 **Règle métier V1** : un traiteur a **au plus un pack actif à un instant T**. Pas de FIFO multi-packs (refonte 2026-05-05). Le pack suivant n'est activé qu'après épuisement (ou annulation Admin) du pack en cours.
 
-Visible uniquement aux organisations avec un pack actif.
+Visible aux organisations avec un pack actif, et à celles dont le dernier pack est épuisé tant qu'aucun nouveau pack n'est actif (le bloc affiche alors ce pack épuisé : solde 0, badge rouge, renouvellement actif).
 
 **Affichage (refonte 2026-05-05 — pack unique)** :
 - Type pack + date d'achat
@@ -245,7 +253,15 @@ Visible uniquement aux organisations avec un pack actif.
 - Crédits restants (compteur principal)
 - Progression visuelle (barre ou anneau, % consommé)
 
-> **Pas d'historique des packs précédents (épuisés / annulés)** affiché en V1. Si un traiteur a besoin de l'historique → support ou Admin Savr le communique. V1.1 selon retours.
+> **Historique des packs** *(Val 2026-11-02, remplace « pas d'historique des packs précédents »)* : affiché dans l'onglet « Mon pack Anti-Gaspi », pas dans ce bloc.
+
+**Onglet « Mon pack Anti-Gaspi »** *(ajout Val 2026-11-02)* — entrée de la barre latérale des 5 rôles clients (traiteur manager et commercial, agence, gestionnaire de lieux, client organisateur), toujours affichée, même sans pack ; jamais pour l'Admin. Un seul écran pour tous :
+- **Solde** du pack en tête (même jauge que ce bloc) : le pack actif, sinon le dernier pack s'il est épuisé ; aucun si le dernier pack est annulé (« Aucun pack Anti-Gaspi actif ») — interprétation Claude Code validée par Val le 2026-11-02.
+- **Historique des packs** de l'organisation (actif, épuisés, annulés) : une ligne par pack, le pack en cours en haut puis du plus récent au plus ancien par date d'achat, le plus ancien en bas (Val 2026-11-02) (type, statut, crédits utilisés / initiaux, date d'achat, expiration, nombre de collectes). Aucun montant.
+- **Collectes rattachées** : chaque ligne de pack se déplie sur la liste de ses collectes (celle du pack en tête est dépliée d'office — interprétation Claude Code validée par Val le 2026-11-02), toutes, sans plafond ; règles de l'historique de consommation du §06.05 item 7 (annulation tardive signalée, sans repas ni association). Une collecte d'un tiers débitée sur le pack d'une autre organisation n'y figure jamais.
+- **Sans aucun pack** : « Votre organisation n'a pas de pack Anti-Gaspi. Contactez votre responsable Savr pour en souscrire un. »
+- **« Demander un renouvellement »** : pour tout rôle dont l'organisation a au moins un pack (gestionnaire et client organisateur compris) ; actif dès solde ≤ 10 % des crédits initiaux, ou sans pack actif (organisation ayant un historique de packs — interprétation Claude Code validée par Val le 2026-11-02). Sans aucun pack, pas de bouton (pas de « Demander l'activation d'un pack »). Même action et même email que ce bloc.
+- Lecture : `GET /api/v1/mon-pack-ag`, ouverte aux 5 rôles clients, bornée à l'organisation du jeton (lecture serveur : le commercial et l'organisateur n'ont pas de policy sur `packs_antgaspi`).
 
 **Actions** (manager + commercial, RLS lecture sur le solde, action ouverte aux deux) :
 - Bouton "Demander un renouvellement" : actif dès que **solde ≤ 10 % des crédits initiaux** *(révisé 2026-06-07 — test scenarios §06.04 F2, arbitrage Val : seuil relatif aligné sur l'alerte email admin `admin_pack_ag_etat` au franchissement ≤ 10 %, ex-seuil absolu < 10 crédits)*, toujours actif si solde = 0
@@ -254,7 +270,7 @@ Visible uniquement aux organisations avec un pack actif.
 
 **Alertes visuelles intégrées** *(seuil révisé 2026-06-07 F2 — relatif ≤ 10 %, une seule logique UI + email)* :
 - Badge orange si **solde ≤ 10 % des crédits initiaux** (ex : Pack 20 → badge dès 2 crédits restants ; Pack 60 → dès 6)
-- Badge rouge "Pack épuisé" si solde = 0 → la programmation AG est bloquée jusqu'au renouvellement (la programmation ZD reste possible)
+- Badge rouge "Pack épuisé" si solde = 0 → les collectes AG restent programmables et sont facturées à l'unité jusqu'au renouvellement (décision Val 2026-10-16)
 
 #### Bloc 5 AG — retiré
 
@@ -264,7 +280,7 @@ Visible uniquement aux organisations avec un pack actif.
 
 Tableau ordonné par repas donnés, période filtrée :
 - Lieu · Nombre de collectes AG · Repas donnés · Repas/pax
-- **Chaque ligne cliquable → liste Collectes (onglet Historique) filtrée sur le lieu** *(drill-down AG, décision Val 2026-07-14 ; miroir 5/5)*.
+- **Chaque ligne cliquable → liste Collectes (vue « Collectes passées ») filtrée sur le lieu** *(drill-down AG, décision Val 2026-07-14 ; miroir 5/5)*.
 
 #### Bloc 7 AG — Top 5 commerciaux AG
 
@@ -272,7 +288,7 @@ Visible pour `traiteur_manager` **et** `traiteur_commercial` *(ouvert 2026-05-29
 
 Tableau ordonné par nombre de collectes AG, période filtrée :
 - Commercial · Nombre de collectes AG · Repas donnés · Repas/pax
-- **Chaque ligne cliquable → liste Collectes (onglet Historique) filtrée sur le commercial** *(drill-down AG, décision Val 2026-07-14)*.
+- **Chaque ligne cliquable → liste Collectes (vue « Collectes passées ») filtrée sur le commercial** *(drill-down AG, décision Val 2026-07-14)*.
 
 #### Bloc 8 AG — Exporter une synthèse PDF (AG)
 
@@ -294,40 +310,41 @@ Contenu évolutif selon les retours utilisateurs. Structure V1 volontairement re
 
 ## 3. Collectes
 
-### Structure : onglets Programmées / Historique + sélecteur de type (refonte 2026-07-05)
+### Structure : vues « Collectes à venir » / « Collectes passées » + sélecteur de type (refonte 2026-07-05, vues 2026-10-19)
 
 La page Collectes adopte le modèle de la **liste Admin, épuré**. Deux niveaux de navigation :
-- **2 onglets par ÉTAT** au sommet :
-  - **Programmées** (sélectionné par défaut) : statuts `brouillon`, `programmee`, `validee`, `en_cours`
-  - **Historique** : statuts `realisee`, `realisee_sans_collecte`, `cloturee`, `annulation_demandee`, `annulee`, `rejetee_par_prestataire`
-- **Sélecteur de type** séparé et bien visible : **Zéro-Déchet / Anti-Gaspi** (filtre transverse aux deux onglets, persisté en query string, deep-linkable).
+- **2 vues par DATE de collecte** au sommet *(décision Val 2026-10-19 — remplacent les onglets par état « Programmées / Historique »)*, mêmes libellés et même règle dans tous les espaces (traiteur, agence, gestionnaire de lieux, client organisateur, Admin §06.06) :
+  - **Collectes à venir** (sélectionnée par défaut) : `date_collecte` ≥ aujourd'hui (jour à Paris : aujourd'hui compte dans « à venir »), tous statuts — de la plus proche à la plus lointaine (date croissante)
+  - **Collectes passées** : `date_collecte` < aujourd'hui, tous statuts — de la plus proche à la plus lointaine (date décroissante)
+  - Une collecte de demain annulée reste dans « à venir » avec son badge ; une collecte d'hier pas encore réalisée passe dans « passées ». La période choisie dans la barre est croisée avec la vue (une période révolue, vue « à venir », ne rend aucune ligne) ; l'export CSV porte les collectes de la vue (mêmes bornes de date ; ses lignes restent triées par date décroissante). Les liens d'avant (`onglet=programmees` / `onglet=historique`) ouvrent la vue correspondante.
+- **Sélecteur de type** séparé et bien visible : **Toutes / Zéro-Déchet / Anti-Gaspi**, « Toutes » par défaut comme la liste Événements, chaque bouton précédé du picto de son type (recyclage vert ZD, couverts navy AG, les deux sur « Toutes », blancs sur le bouton choisi) ; filtre transverse aux deux vues, persisté en query string quand un type est choisi, deep-linkable (décisions Val 2026-10-31). Sur « Toutes », ni la liste ni l'export CSV n'envoient de type et l'URL ne porte pas `type` ; un lien `?type=zero_dechet|anti_gaspi` (drill-down des dashboards) garde son type. Vaut pour les listes Collectes traiteur, agence (§06.11) et client organisateur (§11 §7) ; Admin et gestionnaire l'avaient déjà ; les dashboards gardent leurs 2 onglets ZD / AG.
 
-> **Refonte 2026-07-05** : remplace la refonte 2026-05-07 (« 2 onglets ZD / AG »). Le dashboard §2 conserve ses 2 onglets par type ; seule la **liste** Collectes bascule sur une navigation par état + sélecteur de type.
+> **Refonte 2026-07-05** : remplace la refonte 2026-05-07 (« 2 onglets ZD / AG »). Le dashboard §2 conserve ses 2 onglets par type ; seule la **liste** Collectes bascule sur une navigation par état + sélecteur de type. *(décision Val 2026-10-19 : la navigation par état devient une navigation par date, vues « Collectes à venir » / « Collectes passées ».)*
 
 ### Bouton "Programmer une collecte" (contextuel par sélecteur de type — refonte 2026-07-05)
 
-Au-dessus de la liste, à droite, **un bouton unique [ Programmer un événement ]**. Clic → ouvre le formulaire unique §06.01 avec le **type pré-coché selon le sélecteur de type actif** (Zéro-Déchet ou Anti-Gaspi), l'utilisateur pouvant cocher l'autre type.
+Dans la barre navy du haut (décision Val 2026-11-02), **un bouton unique [ Programmer une collecte ]**. Clic → ouvre le formulaire unique §06.01 avec une collecte du **type du sélecteur actif** proposée (Zéro-Déchet ou Anti-Gaspi ; sans type proposé sur « Toutes », décision Val 2026-10-31), l'utilisateur pouvant changer le nombre de collectes de chaque type *(décision Val 2026-10-24, I11 : à coder — dette code ouverte)*.
 
-> **Cas pack AG épuisé** : si le sélecteur de type est sur Anti-Gaspi ET le pack actif a un solde = 0, la **case Anti-Gaspi est cochée mais la soumission AG est bloquée** (alerte "Pack épuisé — demander un renouvellement depuis le dashboard onglet AG"). La collecte ZD reste programmable si l'utilisateur coche aussi Zéro-Déchet. Cohérent avec règle Bloc 4 AG dashboard et §06.01 Sélection pack AG.
+> **Cas pack AG épuisé** : si une collecte Anti-Gaspi est demandée sans pack actif (pack épuisé), le nombre reste saisi et la soumission AG passe ; le formulaire affiche « Pas de pack Anti-Gaspi actif : les collectes Anti-Gaspi seront facturées à l'unité. » à l'écran 1 et « Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité. » dans chaque carte Anti-Gaspi (refonte du formulaire, lot B2, fiche M1.2_20261024 I10) (décision Val 2026-10-16, ex-blocage). Cohérent avec §06.01 Sélection pack AG.
 
 ### Vue liste (Data Table, décision Val 2026-09-28 — remplace la vue cartes)
 
-Les collectes s'affichent dans une **Data Table** (colonnes Date · Lieu · Client · Pax · Résultats (onglet Historique) · Statut · Actions), triée par défaut par date décroissante (plus récentes en premier), colonnes triables. Plus de groupement par semaine. Les icônes d'action Modifier / Annuler / Dupliquer restent visibles sur la ligne (arbitrage 2026-07-15). Le reste de la section est inchangé ; « Carte simplifiée » se lit « Ligne ».
+Les collectes s'affichent dans une **Data Table** (colonnes Date · Type (sélecteur sur « Toutes » seulement : badge ZD / AG avec son picto — picto recyclage + « ZD », couverts + « AG », décision Val 2026-10-31) · Lieu · Client · Pax · Résultats (vue « Collectes passées ») · Statut · Actions), triée par défaut de la plus proche à la plus lointaine — date croissante dans « Collectes à venir », décroissante dans « Collectes passées » (décision Val 2026-10-19, remplace le tri décroissant unique du 2026-09-21) —, colonnes triables. Plus de groupement par semaine. Les actions Modifier / Dupliquer / Annuler sont regroupées dans un menu « ⋯ » en fin de ligne, suivi d'un chevron qui signale que la ligne ouvre la fiche (revue écran 2026-10-29, décision Val — remplace les icônes visibles sur la ligne de l'arbitrage 2026-07-15 ; la consigne « cliquez une ligne pour ouvrir la fiche » est retirée du sous-titre des listes traiteur et agence). Le reste de la section est inchangé ; « Carte simplifiée » se lit « Ligne ».
 
 **Carte simplifiée** — affiche :
-- **Date · Heure · Lieu · Client · Pax · Statut** (badge coloré, libellés selon le mapping canonique ci-dessous ; badge dédié « Sans excédents » pour `realisee_sans_collecte`, AG uniquement). *(Ajout 2026-10-01, revue écran E2E — décision Val)* **Client** = client organisateur de l'événement (`evenements.nom_client_organisateur`), placé à droite du lieu ; « — » si non renseigné.
-- **Indicateur « programmée par un tiers »** : picto orange « user-tag » si l'utilisateur est le traiteur opérationnel (`traiteur_operationnel_organisation_id` = son organisation) et que l'événement a été programmé par une autre organisation (`evenements.organisation_id ≠` son organisation) — jamais affiché côté agence (§06.11), qui programme toutes ses collectes ; tooltip « Programmée par {{nom organisation}} ».
-- **Bande de résultats sur collectes réalisées** *(ajout 2026-07-15, divergence M3.1 — revue écran)* : sur les collectes **`cloturee`** (badge « Réalisée »), afficher **à gauche du badge** les résultats — **ZD** = poids total (Σ `collecte_flux.poids_reel_kg`) · taux de recyclage (`collectes.taux_recyclage`) · CO₂ évité (`collectes.co2_evite_kg`) ; **AG** = repas donnés (Σ `attributions_antgaspi.volume_repas_realise`) · CO₂ évité. Mêmes sources que la fiche Admin et les loaders dashboards (aucune nouvelle règle de calcul). `realisee_sans_collecte` non concerné (badge « Sans excédents » distinct).
+- **Date · Heure · Lieu · Client · Pax · Statut** (badge coloré, libellés selon le mapping canonique ci-dessous ; une collecte AG `realisee_sans_collecte` s'affiche « Réalisée » : « Sans excédent » n'est pas un statut d'avancement mais un résultat, affiché dans la bande de résultats — décision Val 2026-10-09). *(Ajout 2026-10-01, revue écran E2E — décision Val)* **Client** = client organisateur de l'événement (`evenements.nom_client_organisateur`), placé à droite du lieu ; cellule vide si non renseigné (revue écran 2026-10-29, décision Val). **Repère de date** *(2026-10-29)* : pastille « Aujourd’hui » (orange) ou « Demain » (bleue) à droite de la date, selon le jour de Paris ; aucune sur une collecte annulée ou en annulation demandée.
+- **Indicateur « programmée par un tiers »** : pastille orange « Par un tiers » à droite du nom du lieu (revue écran 2026-10-29, remplace le picto « user-tag ») si l'utilisateur est le traiteur opérationnel (`traiteur_operationnel_organisation_id` = son organisation) et que l'événement a été programmé par une autre organisation (`evenements.organisation_id ≠` son organisation) — jamais affiché côté agence (§06.11), qui programme toutes ses collectes ; tooltip « Programmée par {{nom organisation}} ».
+- **Bande de résultats sur collectes réalisées** *(ajout 2026-07-15, divergence M3.1 — revue écran)* : sur les collectes **`cloturee`** (badge « Réalisée »), afficher **à gauche du badge** les résultats — **ZD** = poids total (Σ `collecte_flux.poids_reel_kg`) · taux de recyclage (`collectes.taux_recyclage`) · CO₂ évité (`collectes.co2_evite_kg`) ; **AG** = repas donnés (Σ `attributions_antgaspi.volume_repas_realise`) · CO₂ évité. Mêmes sources que la fiche Admin et les loaders dashboards (aucune nouvelle règle de calcul). Collecte AG `realisee_sans_collecte` (badge « Réalisée ») : la bande affiche **« Sans excédent »** à la place des repas (décision Val 2026-10-09) ; le CO₂ évité n'y figure que s'il est renseigné et supérieur à 0, ce qui n'est pas le cas d'une collecte sans don.
 
-**Actions par carte** *(icône seule — refonte 2026-07-15, divergence M3.1)* : les actions sont rendues via le composant DS `IconButton` (icône seule, `aria-label` obligatoire, libellé au survol via `title`, cf. [[10 - Design System]] §6). **Une action indisponible est masquée** (retirée de la carte), et non grisée (nuance §7 États). Les gates de statut (`STATUTS_EDITABLES` / `STATUTS_ANNULABLES`) sont inchangés — seul le rendu change.
+**Actions par ligne** *(menu « ⋯ » — revue écran 2026-10-29, décision Val, remplace l'icône seule du 2026-07-15)* : un bouton « ⋯ » (`IconButton`, `aria-label` « Actions sur la collecte ») ouvre un menu (composant DS `Dropdown`, cf. [[10 - Design System]] §6) : « Modifier la collecte », « Dupliquer la collecte », puis, séparée et en rouge, « Annuler la collecte » (« Demander l’annulation » sur une collecte `validee`, même libellé que la fiche). Comme sur la fiche, une action que le **statut** interdit est absente du menu ; une action que le **droit** interdit — seul cas depuis l'alignement du commercial sur le manager (révision Val 2026-10-30) : le traiteur opérationnel d'une collecte programmée par un tiers — est grisée, sa raison écrite sous elle, avec le même texte que la fiche collecte : « Collecte programmée par un tiers : seule l’organisation qui l’a programmée peut la modifier ou l’annuler. Adressez-vous à elle ou à l’équipe Savr. » Les gates de statut (`STATUTS_EDITABLES` / `STATUTS_ANNULABLES`) sont inchangés.
 - **Modifier** → ouvre la fiche en édition (statuts `programmee` / `validee`).
 - **Annuler** → modale + motif facultatif (optionnel V1, cf. §Annulation) (statuts `brouillon` / `programmee` / `validee` ; `validee` = demande soumise à l'Admin, cf. §Annulation).
 - **Dupliquer** *(nouveau 2026-07-05)* → pré-remplit le formulaire de programmation (`/programmer/nouveau?from=<collecteId>`), **date laissée vide** ; côté agence (§06.11), le traiteur opérationnel de la collecte source est pré-sélectionné (modifiable) ; rien n'est créé tant que l'utilisateur ne valide pas (réutilise tout le flux §06.01 : tarif ZD, vérif pack AG). Toujours présent.
-- **Télécharger le rapport** *(réintroduit dans la liste 2026-07-15, divergence M3.1)* → sur les collectes **`cloturee`** uniquement, **sauf** rapport de don réservé au donneur d'ordre (traiteur opérationnel d'une collecte AG hors « sans excédent » programmée par une autre organisation — D12 2026-09-30) : picto retiré (action indisponible, exception densité §10 §7) et mention « Réservé à l'organisation qui a programmé la collecte » à sa place (précédée du picto document), même règle que la fiche (`rapport_reserve_donneur_ordre` exposé par `GET /api/v1/traiteur/collectes`). Sinon picto Téléchargement à gauche du badge « Réalisée », branché sur la route `api/v1/traiteur/collectes/[id]/rapport-rse/download` (ZD = rapport recyclage, AG = attestation ; embargo H+24 conservé).
+- **Télécharger le rapport** *(réintroduit dans la liste 2026-07-15, divergence M3.1)* → sur les collectes **`cloturee`** et sur les collectes AG **`realisee_sans_collecte`** (leur rapport de don, décision Val 2026-10-09), **sauf** rapport de don réservé au donneur d'ordre (traiteur opérationnel d'une collecte AG hors « sans excédent » programmée par une autre organisation — D12 2026-09-30) : picto retiré (action indisponible, exception densité §10 §7) et mention « Réservé à l'organisation qui a programmé la collecte » à sa place (précédée du picto document), même règle que la fiche (`rapport_reserve_donneur_ordre` exposé par `GET /api/v1/traiteur/collectes`). Sinon picto Téléchargement à gauche du badge « Réalisée » : pour une collecte AG, il télécharge le rapport de don (route `api/v1/traiteur/collectes/[id]/rapport-rse/download`, embargo H+24 conservé) ; pour une collecte ZD, il ouvre la fiche sur l'onglet « Bilan & documents », où le rapport de recyclage se fabrique au clic, avec ou sans radar (décision Val 2026-10-16).
 
-> **Téléchargement du rapport — de nouveau accessible depuis la liste** *(révision 2026-07-15, divergence M3.1 — supersede le retrait 2026-05-04)* : le rapport de la collecte réalisée (`cloturee`) est téléchargeable directement depuis la carte (picto ci-dessus), **en plus** de la fiche collecte — sauf rapport de don réservé au donneur d'ordre (ni picto dans la liste, ni bouton dans la fiche, D12 2026-09-30). La facture reste, elle, accessible depuis la **fiche** (cf. §Actions fiche, BL-P1-TRAIT-03).
+> **Téléchargement du rapport — de nouveau accessible depuis la liste** *(révision 2026-07-15, divergence M3.1 — supersede le retrait 2026-05-04)* : le rapport de don d'une collecte AG réalisée est téléchargeable directement depuis la carte (picto ci-dessus), **en plus** de la fiche collecte ; pour une collecte ZD, le picto ouvre la fiche sur « Bilan & documents », où le rapport de recyclage se fabrique au clic (décision Val 2026-10-16) — sauf rapport de don réservé au donneur d'ordre (ni picto dans la liste, ni bouton dans la fiche, D12 2026-09-30). La facture reste, elle, accessible depuis la **fiche** (cf. §Actions fiche, BL-P1-TRAIT-03).
 
-> **Périmètre commercial** *(révision 2026-05-29 conservée)* : le `traiteur_commercial` voit **toutes les collectes de l'organisation** ; sur les collectes d'un autre (`created_by ≠ auth.uid()`), actions **Modifier / Annuler grisées** (lecture seule) ; **Dupliquer reste disponible** (crée une nouvelle collecte à son nom).
+> **Périmètre commercial** *(révision Val 2026-10-30)* : le `traiteur_commercial` voit **toutes les collectes de l'organisation** et y a **les mêmes actions que le Manager** (Modifier, Dupliquer, Annuler) — plus d'actions grisées sur les collectes d'un collègue.
 
 #### Mapping d'affichage du statut collecte côté client (canonique — décision Val 2026-06-30, divergence UX-STATUTS)
 
@@ -340,13 +357,13 @@ Les collectes s'affichent dans une **Data Table** (colonnes Date · Lieu · Clie
 | `validee` | Validée |
 | `en_cours` | En cours |
 | `realisee` | En cours |
-| `realisee_sans_collecte` | Sans excédents |
+| `realisee_sans_collecte` | **Réalisée** (« Sans excédent » se lit dans la colonne Résultats — décision Val 2026-10-09) |
 | `cloturee` | **Réalisée** |
 | `annulation_demandee` | Annulée |
 | `annulee` | Annulée |
 | `rejetee_par_prestataire` | Créée (rejet = interne Ops, masqué) |
 
-> **Vue Admin** : granularité complète inchangée — seul `brouillon` est ré-étiqueté **« Créée »** (rename global admin + client). Le badge AG `realisee_sans_collecte` = libellé **« Sans excédents »** (cf. cas ci-dessous).
+> **Vue Admin** : granularité complète — le statut DB `programmee` s'y affiche **« Créée »** puis **« Programmée »** selon que la demande est partie vers le prestataire *(décision Val 2026-10-07, cf. [[06 - Back-office Admin Savr]] §3)* ; un `brouillon` n'apparaît pas côté Admin. Côté client, `brouillon` et `programmee` restent « Créée ». Une collecte AG `realisee_sans_collecte` s'affiche **« Réalisée »** dans les deux vues ; « Sans excédent » est un résultat (colonne « Indicateurs » de la liste Admin, « Résultats » des listes traiteur, agence et gestionnaire de lieux, « Repas » de la liste du client organisateur, ou « Résultats » quand elle est sur « Toutes »), jamais un statut *(décision Val 2026-10-09)*.
 
 **Cas "Aucun repas à collecter" (AG)** :
 
@@ -363,37 +380,38 @@ Ces informations sont visibles par le traiteur (contexte sur sa propre collecte)
 **Filtres disponibles** :
 - — **retiré 2026-05-07**, géré par le sélecteur de type ZD / AG en haut de page
 - Période — **en premier** dans la barre (décision Val 2026-09-30)
-- Statut (multi — inclut `realisee_sans_collecte` AG-only)
+- Statut (multi — « Réalisée » couvre `cloturee` et `realisee_sans_collecte` ; plus d'option « Sans excédents », décision Val 2026-10-09) — mêmes statuts proposés dans les deux vues (décision Val 2026-10-19)
 - Lieu (**choix multiple**, case « Tous »)
 - Client Organisateur (**choix multiple**, case « Tous » ; filtre sur le nom saisi à la programmation)
 - "Info incomplète" (deux cases Oui / Non, case « Toutes » ; une seule cochée filtre)
 - **Programmée par** (multi : "Mon organisation" / "Agence : {{nom}}" / "Gestionnaire : {{nom}}") — ajout 2026-05-07. Permet au traiteur de filtrer les collectes programmées par des tiers (cas où il opère pour le compte d'une agence ou d'un gestionnaire de lieux).
 - **Persistance (2026-09-28, formes précisées 2026-10-01)** : filtres synchronisés dans l'URL (`statut`, `from`, `to`, `lieu`, `client`, `info`, `par` — deep-linkable, survivent au rechargement), clés partagées avec le drill-down des Top listes. `statut`, `lieu` et `par` sont des listes séparées par des virgules ; `client` est répété (`?client=A&client=B`, un nom peut contenir une virgule). Un lien à valeur unique (`?lieu=<id>`, `?client=<nom>`) reste valide : liste d'un élément. Rendu via `FilterBar` (§10).
-- Le sélecteur de type ZD / AG et les onglets Programmées / Historique restent à valeur unique : ce sont des axes de vue, pas des filtres de la barre *(confirmé Val)*.
+- Le sélecteur de type (Toutes / ZD / AG) et les vues « Collectes à venir » / « Collectes passées » restent à valeur unique : ce sont des axes de vue, pas des filtres de la barre *(confirmé Val ; « Toutes » ajouté le 2026-10-31)*.
 
-**Indicateur sur la carte (ajout 2026-05-07, vue cartes 2026-07-05)** : si l'utilisateur est le traiteur opérationnel (`traiteur_operationnel_organisation_id` = son organisation) et que l'événement a été programmé par une autre organisation (`evenements.organisation_id ≠` son organisation), picto orange à côté du nom du lieu (icône "user-tag") — jamais affiché côté agence (§06.11), qui programme toutes ses collectes *(précisé 2026-09-30, décision Val)*. Tooltip "Programmée par {{nom organisation programmatrice}}".
+**Indicateur sur la carte (ajout 2026-05-07, vue cartes 2026-07-05)** : si l'utilisateur est le traiteur opérationnel (`traiteur_operationnel_organisation_id` = son organisation) et que l'événement a été programmé par une autre organisation (`evenements.organisation_id ≠` son organisation), pastille orange « Par un tiers » à droite du nom du lieu (revue écran 2026-10-29, remplace le picto « user-tag ») — jamais affiché côté agence (§06.11), qui programme toutes ses collectes *(précisé 2026-09-30, décision Val)*. Tooltip "Programmée par {{nom organisation programmatrice}}".
 
-**Tri par défaut** : date décroissante (les plus récentes en premier).
+**Tri par défaut** : de la plus proche à la plus lointaine — date croissante dans « Collectes à venir », décroissante dans « Collectes passées » (décision Val 2026-10-19).
 
-Pour le `traiteur_commercial` *(révision 2026-05-29)* : la liste affiche **toutes les collectes de l'organisation** (lecture alignée Manager, RLS lecture `organisation_id` + collectes où le traiteur est opérationnel). Seules les actions d'écriture (modifier/supprimer/programmer) sont restreintes à ses propres collectes (`created_by = auth.uid()`) ; les collectes d'un autre commercial s'affichent en lecture seule (actions grisées).
+Pour le `traiteur_commercial` *(révision 2026-05-29)* : la liste affiche **toutes les collectes de l'organisation** (lecture alignée Manager, RLS lecture `organisation_id` + collectes où le traiteur est opérationnel). Les actions d'écriture portent sur toute l'organisation (révision Val 2026-10-30) : les collectes d'un autre commercial ont les mêmes actions que les siennes.
 
 ### Fiche collecte (vue détail)
 
-> **Refonte pop-up (décisions Val 2026-09-29 — fait foi sur tout ce qui suit dans cette section en cas de contradiction).** S'applique à **tous les rôles clients** (traiteur, agence §06.11, gestionnaire §06.05) ; seules changent les actions autorisées au rôle. Client organisateur : hors lot (liste seule, pas de fiche).
+> **Refonte pop-up (décisions Val 2026-09-29 — fait foi sur tout ce qui suit dans cette section en cas de contradiction).** S'applique à **tous les rôles clients** (traiteur, agence §06.11, gestionnaire §06.05) ; seules changent les actions autorisées au rôle. Client organisateur : hors lot (liste seule, pas de fiche). **Sur téléphone** *(variante B, décision Val 2026-10-27)* : la fiche est une feuille montée du bas ; onglets en pastilles « Infos » / « Logistique » / « Bilan » ; pied réduit à l'action principale (« Modifier la collecte », à défaut « Télécharger le rapport », à défaut « Ajouter une collecte à cet événement ») et un bouton « ⋯ » qui ouvre les autres actions (dont l'annulation). Une action grisée y porte sa raison, écrite sous elle ; la raison de l'action principale grisée est écrite au-dessus du pied (une infobulle ne s'affiche pas au toucher — 2026-10-28).
 >
 > - **Format** : pop-up centré sur la liste Collectes (`/traiteur/collectes?collecte=<id>`, `&edit=1` pour l'ouverture en édition). L'URL `/traiteur/collectes/<id>` reste valide et redirige vers la liste pop-up ouverte (liens emails `lien_collecte` et dashboards préservés). Échap sur une sous-modale (annulation, programmée par, confirmation d'édition) ne ferme que la sous-modale.
-> - **En-tête** : badge type (**ZD navy `primary-700`** / **AG orange `accent-500`**, texte `primary-950` — aligné DS dataviz-1/2 ; remplace le cadre orange/vert) + « Réf. », titre = nom du lieu, sous-ligne « Mercredi 28 octobre 2026 · 22:00 · 4 200 pax » ; **frise de statut discrète en vocabulaire client** en haut à droite (Créée · Validée · En cours · Réalisée, « Sans excédents » en AG, « Annulée » — jamais Programmée/Clôturée, collapse 2026-06-30 ; étape courante pleine opacité + gras) ; croix de fermeture isolée. Le composite « Date - Lieu - Client organisateur - pax » est remplacé ; le client organisateur passe en champ « Client » de l'onglet Informations.
-> - **Navigation** : onglets en **barre horizontale** sous l'en-tête, fixe au défilement — cadre commun des fiches, décision Val 2026-10-01 (modale `max-w-5xl`, hauteur fixe) : **Informations / Logistique / Bilan & documents**.
-> - **Pied** : « Demander l'annulation » (contour rouge) puis « Modifier la collecte » (primaire), en bas à droite — selon les droits du rôle.
-> - **Informations** : Événement (Client, Date et heure, Pax, Type) ; Lieu (Adresse, Contrôle d'accès, Instructions d'accès pleine largeur = `acces_details` effectif du lieu, surcharge `lieu_overrides` de la collecte comprise, + `collectes.informations_supplementaires` ; jamais les notes internes — D5 2026-09-30) ; Contacts sur place (contact principal + téléphone ; **contact de secours + téléphone** (`evenements.contact_secours_*`) — ligne masquée si vide, D6 2026-09-30). *(Arbitrages Val C2/C3/C5 2026-10-01)* Les contacts sont servis par la route de la fiche (jamais lisibles par PostgREST direct) : au traiteur (programmateur ou opérationnel) et à l'agence toujours, au gestionnaire sur ses seules programmations — bloc absent sinon. La référence d'affaire n'est servie qu'à l'organisation programmatrice (formulaire d'édition).
-> - **Logistique** : voir bloc « Logistique » ci-dessous (chauffeur / plaque / téléphone). Wording 100 % « Savr » : aucun libellé client ne mentionne le transporteur ni un prestataire (« Nous affectons votre chauffeur avant la collecte… »). Bouton **« Demander les coordonnées en urgence »** → alerte **in-app Ops seule** (pas d'email, pas de Slack), **1 demande OUVERTE à la fois par collecte** (D10 2026-09-30 : tant que l'alerte Ops est ouverte, un nouveau clic ne crée rien ; après clôture — coordonnées reçues puis perdues, ou clôture manuelle Ops — une nouvelle demande ouvre une nouvelle alerte), confirmation « Demande envoyée à l'équipe Savr », alerte **clôturée automatiquement** à réception des coordonnées. AG : bloc **Association bénéficiaire** (nom, ville, présentation = `associations.description_rapport_impact`) dès la validation — **masqué au gestionnaire** tant que `v_attributions_gestionnaire` n'est pas implémentée.
-> - **Collecte annulée** (`annulee`, `annulation_demandee`) *(C3 2026-09-29)* : frise « Créée · Annulée », onglet Bilan « Collecte annulée : aucun bilan ni document. », aucune action en pied.
+> - **En-tête** : badge type (**ZD navy `primary-700`** / **AG orange `accent-500`**, texte `primary-950` — aligné DS dataviz-1/2 ; remplace le cadre orange/vert) + « Réf. », titre = **nom de l'événement** (le lieu à défaut, décision Val 2026-10-27), dessous « lieu · client » quand ils sont renseignés, puis une ligne à pictos « Mercredi 28 octobre 2026 », « 22:00 », « 4 200 pax » (pax de la collecte, décision Val 2026-10-20), ville du lieu (variante B, décision Val 2026-10-27) ; **pastille de statut en vocabulaire client** à droite du titre (variante B, décision Val 2026-10-27 : elle remplace la frise et ne montre que l'étape courante, parmi Créée · Validée · En cours · Réalisée — une collecte AG sans excédent s'y lit « Réalisée » comme les autres, décision Val 2026-10-09 —, « Annulée » — jamais Programmée/Clôturée, collapse 2026-06-30) ; croix de fermeture ronde isolée. Le composite « Date - Lieu - Client organisateur - pax » est remplacé ; le client organisateur passe en champ « Client » de l'onglet Informations.
+> - **Navigation** : onglets en **barre horizontale** sous l'en-tête, au bas de l'en-tête, seul le corps défile — décision Val 2026-10-01, grand format de la variante B le 2026-10-27 (modale 1 200 px, angles 20 px, hauteur fixe ; les fiches Admin transporteur, association et lieu suivent le même format depuis le 2026-10-27) : **Informations / Logistique / Bilan & documents**.
+> - **Pied** : à gauche, « Annuler la collecte » en texte rouge sans contour ; à droite, « Ajouter une collecte à cet événement » (pilule sable — sur un événement de l'organisation de l'utilisateur, hors brouillon, *décision Val 2026-10-21*, §06.01) puis « Télécharger le rapport » (pilule bleu nuit quand la collecte ne se modifie plus, sable sinon ; grisé tant que le rapport n'est pas disponible ; absent sur une collecte annulée ou un rapport réservé au donneur d'ordre), puis « Modifier la collecte » (pilule bleu nuit `primary-700`, flèche) — selon les droits du rôle (variante B, décisions Val 2026-10-27).
+> - **Informations** *(variante B, décision Val 2026-10-27 : une section par ligne, libellé à gauche, champs sur trois colonnes, filets entre les sections ; « Lieu » devient « Lieu et accès » ; chaque contact en carte : initiales, nom, téléphone, rôle)* : Événement (Client, Date et heure, Pax de la collecte — décision Val 2026-10-20, Type) ; Lieu (Adresse, Code site VIPARIS s'il est renseigné — ajout 2026-11-02, Contrôle d'accès, Instructions d'accès (troisième colonne de la grille, variante B 2026-10-27) = `acces_details` effectif du lieu, surcharge `lieu_overrides` de la collecte comprise, + `collectes.informations_supplementaires` ; jamais les notes internes — D5 2026-09-30) ; Contacts sur place (contact principal + téléphone ; **contact de secours + téléphone** — absent s'il est vide, D6 2026-09-30 ; à sa place, pour qui peut modifier la collecte, un bouton « Ajouter un contact de secours » (« À compléter avant la collecte ») qui ouvre l'édition de la collecte, décision Val 2026-10-27) : ceux de LA collecte (`collecte_contacts`), comme le type d'événement (`collectes.type_evenement_id`) — lot B1, décision Val 2026-10-23. *(Arbitrages Val C2/C3/C5 2026-10-01)* Les contacts sont servis par la route de la fiche (jamais lisibles par PostgREST direct) : au traiteur (programmateur ou opérationnel) et à l'agence toujours, au gestionnaire sur ses seules programmations — bloc absent sinon. La référence d'affaire n'est servie qu'à l'organisation programmatrice (formulaire d'édition).
+> - **Logistique** : voir bloc « Logistique » ci-dessous (chauffeur / plaque / téléphone). *(Variante B, décision Val 2026-10-27 : l'onglet ne montre que les chauffeurs — section « Vos chauffeurs », libellé à gauche, camions sur deux colonnes en lignes « libellé / valeur » ; pas de suivi en temps réel, la plateforme n'en dispose pas ; la demande urgente est sur sa propre ligne, dans un encadré discret sur toute la largeur.)* Wording 100 % « Savr » : aucun libellé client ne mentionne le transporteur ni un prestataire (« Nous affectons votre chauffeur avant la collecte… »). Bouton **« Demander les coordonnées en urgence »** → alerte **in-app Ops seule** (pas d'email, pas de Slack), **1 demande OUVERTE à la fois par collecte** (D10 2026-09-30 : tant que l'alerte Ops est ouverte, un nouveau clic ne crée rien ; après clôture — coordonnées reçues puis perdues, ou clôture manuelle Ops — une nouvelle demande ouvre une nouvelle alerte), confirmation « Demande envoyée à l'équipe Savr », alerte **clôturée automatiquement** à réception des coordonnées. AG : bloc **Association bénéficiaire** (nom, ville, présentation = `associations.description_rapport_impact`) dans l'onglet Bilan, une fois la collecte réalisée — jamais avant la collecte ni dans l'onglet Logistique (C3, décision Val 2026-10-27) — pour le gestionnaire de lieux, lu par la vue `v_attributions_gestionnaire` (cf. §06.05 « Fiche collecte »).
+> - **Collecte annulée** (`annulee`, `annulation_demandee`) *(C3 2026-09-29)* : pastille « Annulée », onglet Bilan « Collecte annulée : aucun bilan ni document. », aucune action en pied hormis « Ajouter une collecte à cet événement » sur un événement de l'organisation de l'utilisateur *(décision Val 2026-10-21 : l'ajout vaut sur tout événement, y compris celui dont les collectes sont annulées ; la fiche de la collecte annulée est alors le seul point d'entrée du traiteur et de l'agence)*.
 > - **Bilan affiché quand la collecte est « Réalisée » côté client (`cloturee`)** ; `realisee` DB (« En cours » client) = blocs estompés *(D4 2026-09-30)*.
 > - **Traiteur opérationnel d'une collecte AG programmée par une autre organisation (agence)** *(D12 2026-09-30)* : l'attestation de don est émise au nom du donneur d'ordre et ne lui est pas servie (matrice §09 `attestations_don`, lecture sous RLS) — ligne « Rapport de don » avec la mention « Réservé à l'organisation qui a programmé la collecte », sans téléchargement.
-> - **Bilan & documents ZD** (collecte réalisée) : 4 KPI (Poids total collecté, CO₂ évité net, Taux de recyclage, Pesée par pax) ; donut « Répartition des tonnages » (`TonnagesDonut`) ; radar benchmark « Votre collecte face aux événements comparables » (`BenchmarkRadar`, période fixe 24 mois, filtres Type d'événement / Taille / Lieux en titres cliquables ouvrant une liste à cocher, une seule ligne ; pas de filtre traiteurs) ; document **« Rapport RSE » seul** (bordereau intégré au PDF).
-> - **Bilan & documents AG** : 3 KPI (Repas donnés, Repas par pax, CO₂ évité) + bloc Association ; document affiché **« Rapport de don »** (renommage d'affichage seul — titre PDF, nom de fichier et emails inchangés). Sans excédents : bloc « Aucun repas collecté » (motif + horodatage, pas d'attestation) + « Rapport "Événement sans excédent alimentaire" ». Pas de benchmark AG.
+> - **Bilan & documents ZD** (collecte réalisée) : 4 KPI (Poids total collecté, CO₂ évité, Taux de recyclage, Pesée par pax) *(décision Val 2026-10-20 : « CO₂ évité » = `co2_evite_kg` figé ; l'ex-carte « CO₂ évité net » affichait le bilan net induit − évité sous un libellé « évité » ; le bilan net reste au Rapport RSE, règle ABC)* ; donut « Répartition des tonnages » (`TonnagesDonut`) et radar benchmark « Votre collecte face aux événements comparables » (`BenchmarkRadar` en disposition compacte) **sur la même ligne** (variante B, décision Val 2026-10-27) : radar à gauche (votre collecte en orange remplie, moyenne des événements comparables en pointillés bleu nuit), filtres Type d'événement / Taille / Lieux empilés à droite en pastilles qui ne montrent que leur valeur (sans sélection, le nom du filtre : « Types », « Tailles », « Lieux », « Traiteurs » — décision Val 2026-10-28 ; la case de tête de la liste reste « Tous », cochée par défaut et décochée dès qu'une valeur est cochée, y compris pour les listes rattachées du gestionnaire) et ouvrent une liste à cocher, légende dessous ; kg/pax par flux au survol (la liste des flux reste lue par les lecteurs d'écran) ; période fixe 24 mois ; pas de filtre traiteurs. Les KPI forment un bandeau ouvert, sans carte, séparés par des filets (ZD et AG) ; le rapport (« Rapport RSE », bordereau intégré au PDF) se télécharge depuis le pied de la fiche, sans ligne de document dans l'onglet (variante B, décision Val 2026-10-27).
+> - **Bilan & documents AG** : 3 KPI (Repas donnés, Repas par pax, CO₂ évité) + bloc Association ; document **« Rapport de don »**, téléchargé depuis le pied de la fiche, sans ligne de document dans l'onglet (variante B, décision Val 2026-10-27) (nom étendu au titre imprimé des PDF, aux noms des fichiers téléchargés, à l'email de disponibilité et aux CGU par la décision Val du 2026-10-13 — cf. [[12 - Reporting et exports]] §1.3-bis ; livré le 2026-10-13 pour les PDF, les fichiers et l'email, et le 2026-10-20 pour les CGU publiées). Sans excédents : bloc « Aucun repas collecté » (motif + horodatage ; phrase « Votre rapport de don atteste que cet événement était sans excédent ») + document nommé **« Rapport de don »**, comme avec excédents, téléchargé depuis le pied de la fiche (variante B, décision Val 2026-10-27) (décision Val 2026-10-09 : un seul nom pour le client, deux PDF distincts — l'attestation de don, ou le rapport « Événement sans excédent alimentaire »). Pas de benchmark AG.
 > - **Avant réalisation** : mêmes blocs Bilan affichés estompés (40 %) sans valeurs, bandeau « Votre bilan sera disponible après la collecte ».
-> - **Ligne du document** (Rapport RSE / Rapport de don / Rapport « Événement sans excédent alimentaire ») — état calculé serveur (`rapport_etat` ∈ `reserve`/`disponible`/`a_venir`/`en_preparation`), jamais par l'écran (arbitrage Val 2026-09-30, C1/C3) ; priorité réservé > disponible > échéance : **réservé** (D12) → « Réservé à l'organisation qui a programmé la collecte », sans bouton ; **disponible** → « PDF », Télécharger actif ; **avant l'échéance** (réalisation + 24 h, embargo H+24) → « Document disponible dans les 48h après la collecte », Télécharger grisé ; **échéance passée sans PDF** (attente du lot quotidien de 6 h, rendu relancé, pesées manquantes, attestation différée ; ou collecte terminée sans `realisee_at`, historique repris) → « En cours de préparation », Télécharger grisé. Aucune date promise ni cause affichée après l'échéance, aucun prestataire nommé. *(Mention spécifique AG bloquée par SIRET non vérifié : C2 reporté, lot séparé — ne jamais dire « votre SIRET » au gestionnaire.)*
+> - **Logo du client** *(décision Val 2026-10-30)* : dans l'onglet « Bilan & documents », sous le bilan, ligne « Logo du client » (aperçu, « Ajouter le logo » ou « Remplacer le logo », « Retirer » ; JPG ou PNG, 1 Mo maximum). Ouverte à tout utilisateur qui peut télécharger le rapport (traiteur manager et commercial, agence, gestionnaire de lieux) ; masquée sur une collecte annulée et quand le rapport est réservé au donneur d'ordre (D12 ; règle jugée sur l'événement : un traiteur opérationnel ne dépose ni ne retire dès que l'événement porte une collecte AG non annulée et non « sans excédent » programmée par une autre organisation — refus affiché au dépôt, « Réservé à l'organisation qui a programmé la collecte »). **Remplacer ou retirer** : organisation programmatrice de l'événement, traiteur opérationnel et Admin uniquement ; un gestionnaire de lieux tiers (et le client organisateur, depuis la fiche événement) peut seulement déposer un logo quand il n'y en a aucun (arbitrage Val 2026-11-02 ; dette code : garde serveur). Le logo est rangé sur l'événement, vaut pour tous ceux qui téléchargent, et prime dans la cascade (§12 §1.2) ; les rapports de don déjà produits de l'événement sont refaits avec lui.
+> - **État du document** (« Rapport RSE » pour une collecte ZD ; « Rapport de don » pour une collecte AG, avec ou sans excédents — décision Val 2026-10-09) *(variante B, décision Val 2026-10-27 : plus de ligne de document dans l'onglet ; l'état d'attente est l'infobulle du bouton grisé « Télécharger le rapport » du pied, écrit en clair sur téléphone (sous l'action dans « ⋯ », ou au-dessus du pied quand c'est l'action principale) ; un document refait après sa première émission porte « ⟳ Mis à jour le [date] à [heure] » dans l'espace libre du pied, à gauche des boutons (au-dessus du pied sur téléphone) — rapport « sans excédent » régénéré, ou attestation de don en version > 1 *(2026-10-28)* ; seul le rapport réservé garde sa ligne dans l'onglet, faute de bouton)* — état calculé serveur (`rapport_etat` ∈ `reserve`/`disponible`/`a_venir`/`en_preparation`), jamais par l'écran (arbitrage Val 2026-09-30, C1/C3) ; priorité réservé > disponible > échéance : **réservé** (D12) → « Réservé à l'organisation qui a programmé la collecte », sans bouton ; **disponible** → « PDF », bouton « Télécharger le rapport » actif — dans le pied de la fiche, à droite de « Ajouter une collecte à cet événement », visible depuis les trois onglets sans défiler (décision Val 2026-10-27) ; le choix du radar est le bouton « Intégrer la comparaison au rapport à télécharger », à côté du radar (cf. `M3.1_20261027_fiche-collecte-logistique-mobile.md`) ; **avant l'échéance** (réalisation + 24 h, embargo H+24) → « Document disponible dans les 48h après la collecte » en infobulle du bouton « Télécharger le rapport », grisé dans le pied de la fiche ; **échéance passée sans PDF** (attente du lot quotidien de 6 h, rendu relancé, pesées manquantes, attestation différée ; ou collecte terminée sans `realisee_at`, historique repris) — un rapport de recyclage ZD, lui, est **disponible dès la fin de l'embargo**, sans PDF préalable : il est fabriqué au clic (décision Val 2026-10-16) → « En cours de préparation » en infobulle du bouton « Télécharger le rapport », grisé dans le pied de la fiche. Aucune date promise ni cause affichée après l'échéance, aucun prestataire nommé. *(Mention spécifique AG bloquée par SIRET non vérifié : C2 reporté, lot séparé — ne jamais dire « votre SIRET » au gestionnaire.)*
 > - **RGPD** : téléphone du chauffeur (salarié du transporteur) affiché au client — base légale intérêt légitime (coordination sur place), à mentionner dans la notice §15.
 
 
@@ -411,26 +429,26 @@ Composition : `<Date collecte> - <Nom du lieu> - <Nom du client organisateur> - 
 
 Infos pilotantes affichées en bloc compact :
 - Adresse complète du lieu (`lieux.adresse` + complément si fourni)
-- Contact principal collecte (`evenements.contact_principal_nom` + téléphone)
-- Contact secours collecte (`evenements.contact_secours_nom` + téléphone, affiché uniquement si renseigné)
+- Contact principal collecte (`collecte_contacts.contact_principal_nom` + téléphone — contacts de LA collecte depuis le lot B1)
+- Contact secours collecte (`collecte_contacts.contact_secours_nom` + téléphone, affiché uniquement si renseigné)
 
 > **Email de contact terrain : hors périmètre V1** (correction 2026-09-22). La colonne `evenements.contact_principal_email` a été supprimée à la refonte 2026-04-28 (§04 Data Model, audit cohérence inter-CDC A2) et reportée V1.1 — le téléphone seul suffit le jour J. Si V1.1 la réintroduit : le formulaire de programmation (§06.01) devra la saisir et le payload E1 vers le transporteur la transmettre.
-- Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax)
+- Type d'événement + taille (XS/S/M/L/XL bracket calculé sur le pax de la collecte, `collectes.pax` ; 0 convive = pas de taille — lot C1, C4 du 2026-10-20)
 - Heure de collecte
 - Statut (badge)
-- **Programmée par** (badge orange — affiché uniquement si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id`, ajout 2026-05-07) : "Programmée par {{nom organisation programmatrice}} ({{type : agence | gestionnaire de lieux}})". Cliquable → modal info "Cette collecte a été programmée par {{nom}}, {{type}}. Vous êtes le traiteur opérationnel sur place. Pour toute question : {{email contact organisation programmatrice}}." Pas d'action depuis cette modal — le traiteur peut annuler/éditer la collecte via les workflows existants (droit de retrait conservé).
+- **Programmée par** (badge orange — affiché uniquement si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id`, ajout 2026-05-07) : "Programmée par {{nom organisation programmatrice}} ({{type : agence | gestionnaire de lieux}})". Cliquable → modal info "Cette collecte a été programmée par {{nom}}, {{type}}. Vous êtes le traiteur opérationnel sur place. Pour toute question : {{email contact organisation programmatrice}}." Pas d'action depuis cette modal. Le traiteur opérationnel ne modifie ni n'annule une collecte programmée par un tiers : ces actions restent à l'organisation qui a programmé (matrice [[09 - Authentification et permissions]]). Les boutons « Modifier la collecte » et « Annuler la collecte » sont affichés grisés ; pour un changement, il s'adresse au programmateur (email de la modale) ou à l'équipe Savr *(décision Val 2026-10-10)*. Raison écrite sous les actions grisées, même texte dans la fiche et dans la liste (décision Val 2026-11-02) : « Collecte programmée par un tiers : seule l’organisation qui l’a programmée peut la modifier ou l’annuler. Adressez-vous à elle ou à l’équipe Savr. » Elle remplace « Seul le créateur de la collecte ou un manager peut la modifier. », devenu inexact (tout manager ou commercial de l'organisation programmatrice peut modifier, révision Val 2026-10-30) — dette code : aligner le texte de la fiche (`motifGrise`) et celui de la liste.
 
-> **Cohérence cross-CDC** : ces champs sont les contacts portés par l'événement parent (cf. décision 2026-04-28 audit cohérence — contacts relogés sur `evenements.contact_principal_*` + `contact_secours_*`, plus sur `lieux`). Pas de duplication côté `collectes`.
+> **Cohérence cross-CDC** : ces champs sont les contacts de LA collecte (`collecte_contacts`, refonte du formulaire, lots A et B1 — décisions Val 2026-10-22 et 2026-10-23) ; l'événement n'en garde qu'une copie, celle de sa collecte n°1 (cf. [[04 - Data Model]] `evenements`). Historique : relogés de `lieux` sur `evenements` le 2026-04-28 (audit cohérence).
 
 **Actions possibles (traiteur)**
 
 | Action                                                  | Statut autorisé                                                                | Qui                                            |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------- |
-| **Éditer les informations de la collecte** (couvre complétion ET modification — fusion sobriété B1) | Voir §Édition d'une collecte à venir ci-dessous (source unique : [[05 - Règles métier]]) | Programmeur (créateur) ou manager |
-| Annuler la collecte (**directe** — sans validation Admin) *(révisé 2026-06-07, test scenarios §06.04 F1 : §05 fait foi)* | `statut IN (brouillon, programmee)` — annulation immédiate `→ annulee` ; si `statut_tms ≠ non_envoye`, E3 `DELETE /collectes/:id` déclenché vers TMS (prestataire informé côté TMS) | Programmeur (créateur) ou manager |
-| Demander une annulation (validation Admin)              | `statut = validee` *(révisé 2026-06-07 F1 — l'ancien gate `statut IN (programmee, validee)` uniforme est scindé : `programmee` = annulation directe ci-dessus ; Sujet 2 2026-05-26 : condition `statut_tms ≠ en_cours/cloturee` retirée)* | Programmeur (créateur) ou manager                         |
-| Télécharger le rapport RSE                              | Si PDF généré (lot quotidien 6h, après clôture H+24) — sinon libellé d'attente, cf. « Ligne du document » *(2026-09-30)* | Tous · **picto actif**                         |
-| **Télécharger la facture** (bouton explicite — refonte 2026-05-05) | Si facture émise (statut `emise` ou ultérieur)                                 | Manager / commercial *(révision 2026-05-29 : commercial accède à toutes les factures de l'orga, via fiche collecte **et** via la vue liste Mon organisation > Facturation en lecture seule — l'ancienne restriction option C est levée)* |
+| **Éditer les informations de la collecte** (couvre complétion ET modification — fusion sobriété B1) | Voir §Édition d'une collecte à venir ci-dessous (source unique : [[05 - Règles métier]]) | Manager ou commercial de l'organisation (révision Val 2026-10-30) |
+| Annuler la collecte (**directe** — sans validation Admin) *(révisé 2026-06-07, test scenarios §06.04 F1 : §05 fait foi)* | `statut IN (brouillon, programmee)` — annulation immédiate `→ annulee` ; si `statut_tms ≠ non_envoye`, E3 `DELETE /collectes/:id` déclenché vers TMS (prestataire informé côté TMS) | Manager ou commercial de l'organisation (révision Val 2026-10-30) |
+| Demander une annulation (validation Admin)              | `statut = validee` *(révisé 2026-06-07 F1 — l'ancien gate `statut IN (programmee, validee)` uniforme est scindé : `programmee` = annulation directe ci-dessus ; Sujet 2 2026-05-26 : condition `statut_tms ≠ en_cours/cloturee` retirée)* | Manager ou commercial de l'organisation (révision Val 2026-10-30)                         |
+| Télécharger le rapport RSE                              | Dès la fin de l'embargo H+24 : le rapport est fabriqué au clic, avec ou sans radar (décision Val 2026-10-16) — sinon libellé d'attente en infobulle du bouton grisé (écrit en clair sur téléphone), cf. « État du document » *(2026-09-30, variante B 2026-10-27)* | Tous · **picto actif**                         |
+| **Télécharger la facture** (bouton explicite — refonte 2026-05-05) | Si facture émise (statut `emise` ou ultérieur)                                 | Manager / commercial *(révision 2026-05-29 : commercial accède à toutes les factures de l'orga, via fiche collecte **et** via la vue liste Paramètres > Facturation en lecture seule — l'ancienne restriction option C est levée)* |
 
 **Actions retirées de la fiche traiteur V1 (refonte 2026-05-04)**
 - : **intégrés au rapport RSE PDF** comme pages supplémentaires (spec §12). La notion de bordereau ZD reste affichée et accessible côté Registre réglementaire (§06.03), Espace gestionnaire de lieux (§05) et back-office Admin (§06.06).
@@ -458,31 +476,31 @@ Cette valeur est **également imprimée sur le PDF Rapport RSE** §1.2 page 1 (S
 Affiché uniquement sur collectes **ZD clôturées** (`statut = cloturee` — « Réalisée » client ; `realisee` retiré, D4 2026-09-30). Permet au traiteur de visualiser les performances de cette collecte unique vs benchmark parc Savr.
 
 Structure (radar, 1 axe par flux ZD = 5 axes — même représentation que le Bloc 3 ZD du dashboard) :
-- **Valeur traiteur** : ratio `kg du flux sur cette collecte / pax de cet événement` (grain `single collecte`)
+- **Valeur traiteur** : ratio `kg du flux sur cette collecte / pax de cette collecte` (`collectes.pax` ; grain `single collecte`, lot C1 ; pas de point « Vous » si la collecte compte 0 convive)
 - **Échelle** : indice parc = 100 par flux (identique Bloc 3 ZD dashboard)
 - **Point rouge benchmark** : moyenne parc Savr selon **filtres benchmark dédiés** (4 dimensions, voir §2 Bloc 3 ZD pour la liste)
 - **K-anonymat parc appliqué côté serveur — ≥ 5 collectes ET ≥ 3 acteurs distincts** (durci 2026-09-22, cf. §04 « RLS / k-anonymat »). Si l'un des deux seuils n'est pas atteint → point rouge masqué + tooltip "Données insuffisantes pour benchmark" (libellé neutre : il ne cite pas la cause)
 - **Légende couleur** identique §2 Bloc 3 ZD (vert ≤ benchmark, orange 100-130%, rouge >130%, gris masqué)
 
-**Filtres benchmark modifiables (encart compact au-dessus du bloc)**
+**Filtres benchmark modifiables (pastilles empilées à droite du radar — variante B, style unique des radars, décision Val 2026-10-28)**
 
 Mêmes critères qu'au dashboard (Lieux / Type événement / Taille événement ; période fixe 24 mois glissants). Pas de filtre `traiteur_ids[]` (idem dashboard, motif concurrentiel).
 
 **Initialisation** : à l'ouverture de la fiche collecte, les filtres benchmark sont pré-remplis avec les caractéristiques de la collecte courante :
 - Période benchmark = 24 mois glissants (fixe, non modifiable — 2026-09-28)
 - Lieux benchmark = "Tous"
-- Type événement benchmark = type de cette collecte (`evenements.type_evenement_id`)
+- Type événement benchmark = type de cette collecte (`collectes.type_evenement_id`, lot B1 du 2026-10-23). Depuis le lot C1 (2026-10-24), le segment parc (`f_benchmark_kg_pax_zd`) et le point « Vous » (`f_benchmark_single_collecte`) sont calculés sur le type et le pax de cette collecte : le filtre affiché et le segment du point « Vous » sont ceux de la collecte. Une collecte à 0 convive (inconnu) n'a pas de taille sur la fiche, pas de filtre de taille par défaut et pas de point « Vous ».
 - Taille événement benchmark = bracket calculé sur le pax de cette collecte
 
 Bouton "Réinitialiser" pour revenir aux valeurs par défaut.
 
-**Lien avec rapport RSE** : ce graphique avec les filtres sélectionnés est **intégré au PDF rapport RSE** que le traiteur télécharge / envoie au client. **Snapshot persisté (`rapports_rse.filtres_benchmark` jsonb — rétabli 2026-06-03, annulation revue §12 B2 sur arbitrage Val)** : les filtres benchmark choisis à la génération sont figés sur le rapport ; le re-téléchargement du même PDF redonne exactement les mêmes valeurs de référence (PDF reproductible). **Légende sous le graphe (ajout 2026-06-03)** : le PDF affiche, en dessous du graphe benchmark, une légende précisant les filtres effectivement appliqués au point de comparaison parc (période / lieux / type d'événement / taille) — le lecteur sait sur quel segment le benchmark a été calculé, y compris quand le traiteur a personnalisé les filtres. Le filtre `traiteur_ids[]` reste rejeté côté serveur (motif concurrentiel). Le taux de recyclage affiché reste figé (`collectes.taux_recyclage`). Cf. [[12 - Reporting et exports]] §1.2.
+**Lien avec rapport RSE** : ce graphique avec les filtres sélectionnés est **intégré au PDF rapport RSE quand l'utilisateur active « Intégrer la comparaison au rapport à télécharger » (bouton bascule à côté du radar, sous ses filtres, grisé tant que le rapport n'est pas disponible — variante B, décision Val 2026-10-27) avant de le télécharger** (règles Val 2026-10-13 et 2026-10-16) ; sans ce choix, le rapport ne porte pas le radar. Le rapport est fabriqué au clic et n'est pas stocké. **Rien n'est stocké (décision Val 2026-10-16)** : le radar est calculé à chaque téléchargement, avec les filtres choisis à ce moment ; `rapports_rse.filtres_benchmark` n'est plus écrit pour un rapport ZD (cf. [[12 - Reporting et exports]] §1.2). **Légende sous le graphe (ajout 2026-06-03)** : le PDF affiche, en dessous du graphe benchmark, une légende précisant les filtres effectivement appliqués au point de comparaison parc (période / lieux / type d'événement / taille) — le lecteur sait sur quel segment le benchmark a été calculé, y compris quand le traiteur a personnalisé les filtres. Le filtre `traiteur_ids[]` reste rejeté côté serveur (motif concurrentiel). Le taux de recyclage affiché reste figé (`collectes.taux_recyclage`). Cf. [[12 - Reporting et exports]] §1.2.
 
 > **Règle d'agrégation des segments parc (tranchée 2026-09-22 — divergence M3.1 « benchmark écran vs PDF », option (a))** : le point de comparaison parc est la **moyenne des segments pondérée par `nb_collectes_segment`**. Cette règle est **partagée par l'écran et par le PDF** — c'est la condition du « même graphe » exigé ci-dessus, et un **seul et même helper** doit servir les deux chemins.
 > - **Écran** : règle déjà en place (`aggregateBenchmarkPerFlux`), commune aux 4 écrans à jauges (traiteur, gestionnaire, agence, dashboard-client admin) et à la fiche collecte — inchangée.
-> - **PDF** : `f_rapport_benchmark_zd` calculait `AVG(kg_par_pax_moyen)`, **moyenne simple non pondérée** → **à aligner** sur la pondération par `nb_collectes_segment`. Écart mesuré : segments `(0,30 ; n=5)` et `(0,40 ; n=15)` → écran **0,375** vs PDF **0,350**. Le cas multi-segments ne demande aucune action de l'utilisateur : il survient dès que le type d'événement ou le bracket de taille est absent (retombée sur les 5 brackets) et à chaque élargissement de filtre.
+> - **PDF** : depuis le gabarit `@3` (2026-10-13), le PDF n'a plus de fonction propre. Il appelle la fonction de l'écran (`f_benchmark_single_collecte` + `f_benchmark_kg_pax_zd`, agrégation `aggregateBenchmarkPerFlux`) sous l'identité du demandeur : un seul helper sert les deux chemins, la pondération par `nb_collectes_segment` est la même par construction. `f_rapport_benchmark_zd` (alignée le 2026-09-22) n'est plus appelée.
 > - **Option (b) écartée** (pondération au tonnage `SUM(poids)/SUM(pax)` de la lettre du §04) : elle supposerait d'exposer `SUM(pax)` en sortie de `f_benchmark_kg_pax_zd`, fonction partagée par tous les dashboards — coût et surface de revue hors de proportion avec l'écart constaté. Option (c) (assumer deux chiffres différents) écartée : le PDF part au client final.
-> - **Effet sur les rapports existants** : le changement modifie la valeur des rapports **régénérés**, pas celle des PDF déjà rendus (`rapports_rse.filtres_benchmark` fige les filtres, pas le résultat).
+> - **Effet sur les rapports existants** : le changement modifie la valeur des rapports **régénérés**, pas celle des PDF déjà rendus (`rapports_rse.filtres_benchmark` fige les filtres, pas le résultat). *(Depuis le 2026-10-16, le rapport ZD est fabriqué à chaque téléchargement : la règle s'applique à tout rapport téléchargé, rien n'est stocké.)*
 
 **Source de données** : fonction `f_benchmark_kg_pax_zd` étendue (refonte 2026-05-05) — signature accepte un grain `single_collecte` (paramètre `p_collecte_id` uuid) en plus du grain agrégé existant. Cf. [[04 - Data Model]].
 
@@ -496,8 +514,8 @@ Bouton "Réinitialiser" pour revenir aux valeurs par défaut.
 
 Tous les champs métier de la collecte et de l'événement parent :
 - Date, heure de collecte
-- Pax, type d'événement, taille
-- Contacts principal / secours (événement)
+- Pax, taille
+- Type d'événement et contacts principal / secours de LA collecte (`collectes.type_evenement_id`, `collecte_contacts` — lot B1, décision Val 2026-10-23 ; ils ne se modifient plus sur l'événement)
 - Flag `controle_acces_requis`
 - **Informations supplémentaires concernant la collecte** (text 1000 car., refonte 2026-05-06 §06.01 §2.a)
 
@@ -523,11 +541,9 @@ Tous les champs métier de la collecte et de l'événement parent :
 - `controle_acces_requis` : push silencieux, le bloc "Contrôle d'accès" se met à jour côté fiche
 
 **Permissions** (cf. §05 source unique) — *modification* d'une collecte :
-- Programmeur / créateur (`created_by = auth.uid()`) : oui
-- Manager (`role = traiteur_manager` même orga) : oui
-- Autre commercial de la même orga : **non** (lecture seule — il voit la collecte mais ne peut pas la modifier ; révision 2026-05-29)
+- Manager et commercial de l'organisation : oui, sur toute collecte de l'orga (révision Val 2026-10-30 — l'ancienne restriction du commercial à ses créations, 2026-05-29, est levée)
 
-> **Synthèse d'implémentation M1.2 (2026-06-26)** : les 4 rôles programmateurs (`traiteur_manager`, `traiteur_commercial`, `agence`, `gestionnaire_lieux`) peuvent éditer les champs événement ET collecte depuis la fiche collecte (une seule modale, `editer-collecte-form.tsx`). `client_organisateur` = lecture seule. Route événement unifiée : `PATCH /api/v1/programmation/evenements/:id` (RPC `fn_modifier_evenement`, `requireProgrammateur`, transactional outbox E2 par collecte dispatchée rattachée). Périmètre d'écriture : `traiteur_commercial` = ses créations (`created_by`) ; les 3 autres = leur organisation. Patch M1.2_20260626.
+> **Synthèse d'implémentation M1.2 (2026-06-26)** : les 4 rôles programmateurs (`traiteur_manager`, `traiteur_commercial`, `agence`, `gestionnaire_lieux`) peuvent éditer les champs événement ET collecte depuis la fiche collecte (une seule modale, `editer-collecte-form.tsx`) ; depuis le lot B1 (décision Val 2026-10-23), le type d'événement et les contacts sont des champs de la collecte, envoyés à la route de la collecte (contacts principal et de secours obligatoires — secours : décision Val 2026-10-30, exigé à la confirmation, jamais vidé en modification, nom et téléphone envoyés ensemble ; type du référentiel ; client final jamais vidé). `client_organisateur` = lecture seule. Route événement unifiée : `PATCH /api/v1/programmation/evenements/:id` (RPC `fn_modifier_evenement`, `requireProgrammateur` : nom, client final, référence ; type d'événement et contacts refusés en 422 ; aucun E2). Périmètre d'écriture : leur organisation pour les 4 rôles (commercial aligné sur le manager, Val 2026-10-30). Patch M1.2_20260626.
 
 **Audit** : `audit_log` global rempli (champs `user_id`, `collecte_id`, `champ_modifie`, `ancienne_valeur`, `nouvelle_valeur`, `timestamp`, `cascade_tms`, `priorite_urgence`). Pas d'onglet front traiteur (sobriété A2 2026-05-04). Audit accessible Admin Savr uniquement via back-office §06.06.
 
@@ -536,7 +552,7 @@ Tous les champs métier de la collecte et de l'événement parent :
 **Confirmation utilisateur** (sobriété B2 2026-05-04 — modal unique au lieu de 3)
 
 Une seule modal de confirmation, contenu adapté dynamiquement aux flags applicables. Avant sauvegarde, si **au moins un** des contextes ci-dessous est vrai, la modal s'affiche en empilant les avertissements pertinents (sinon save direct sans modal) :
-- `priorite_urgence` (modification < 12h avant créneau) → ligne "Cette modification a lieu moins de 12h avant la collecte. Notre équipe Ops sera alertée en urgence." *(marque blanche, C2 2026-09-29)*
+- `priorite_urgence` (modification < 12h avant créneau — l'ancien **ou** le nouveau, décision Val 2026-10-09) → ligne "Cette modification a lieu moins de 12h avant la collecte. Notre équipe Ops sera alertée en urgence." *(marque blanche, C2 2026-09-29)*
 - `reacceptation_requise` (modif date/heure sur collecte `acceptee`) → ligne "Ce nouveau créneau devra être reconfirmé par notre équipe logistique." *(marque blanche, C2 2026-09-29)*
 
 Bouton unique "Confirmer la modification" (et "Annuler" pour fermer la modal).
@@ -586,8 +602,7 @@ Le bloc s'affiche dans la fiche collecte uniquement si `collectes.controle_acces
 ### Programmation d'une collecte
 
 Voir [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]]. Le formulaire est accessible :
-- Via les boutons du dashboard (accueil — bandeau actions rapides §2)
-- Via le bouton **unique** `[ Programmer un événement ]` en haut de la liste Collectes (refonte 2026-05-21 — formulaire unique événement-centré). Le **type est pré-coché selon l'onglet actif** (onglet ZD → Zéro-Déchet pré-coché ; onglet AG → Anti-Gaspi pré-coché), l'utilisateur pouvant cocher l'autre type en étape 1 du formulaire §06.01.
+- Via le bouton **unique** `[ Programmer une collecte ]` de la barre du haut, sur toutes les pages (décision Val 2026-11-02) ; depuis la liste Collectes (refonte 2026-05-21 — formulaire unique événement-centré). Une collecte du **type de l'onglet actif** est proposée (onglet ZD → une collecte Zéro-Déchet ; onglet AG → une collecte Anti-Gaspi), l'utilisateur pouvant changer le nombre de collectes de chaque type à l'écran 1 du formulaire §06.01 *(décision Val 2026-10-24, I11 : à coder — dette code ouverte)*.
 
 **Rappel** : la programmation est possible même avec des champs non bloquants vides (voir sous-page 01 §Champs non bloquants). La collecte est créée avec `informations_completes = false` et peut être complétée ultérieurement depuis la fiche collecte.
 
@@ -604,7 +619,7 @@ Un commercial qui programme une collecte pour un autre collègue (cas fréquent 
 **Depuis le formulaire de programmation** (section optionnelle étape 3) :
 - Champ "Partager cette collecte avec un collègue"
 - Saisie d'une ou plusieurs adresses emails de collègues de la même organisation
-- Validation à la saisie : l'email doit correspondre à un user actif de la même organisation. Sinon message d'erreur : "Cet email ne correspond à aucun membre de votre équipe. Invitez d'abord le collaborateur depuis Mon organisation."
+- Validation à la saisie : l'email doit correspondre à un user actif de la même organisation. Sinon message d'erreur : "Cet email ne correspond à aucun membre de votre équipe. Invitez d'abord le collaborateur depuis Paramètres > Membres."
 
 **Depuis la fiche collecte (après programmation)** :
 - Section "Partage" en bas de page
@@ -616,48 +631,42 @@ Un commercial qui programme une collecte pour un autre collègue (cas fréquent 
 - La collecte apparaît dans sa liste des collectes avec un badge "Partagée par [prénom nom]"
 - Accès en lecture sur la fiche collecte
 - Possibilité de compléter les informations manquantes
-- Pas de possibilité de demander l'annulation (réservée au programmeur et au manager)
+- Pas de possibilité d'annuler la collecte (réservée au programmeur et au manager)
 - Accès aux rapports RSE de cette collecte
 
 **Impact data model** : table `collecte_partages` **reportée V1.1** (audit sobriété §04 2026-05-25, A4 — voir §Impact data model ci-dessous).
 
-### Annulation / Demande d'annulation *(scindé 2026-06-07 — test scenarios §06.04 F1, arbitrage Val : §05 fait foi)*
+### Annulation *(scindé 2026-06-07 — test scenarios §06.04 F1, arbitrage Val : §05 fait foi ; chemin unique depuis le 2026-11-01, décision Val : annulation cliente effective sur-le-champ)*
 
-**Deux chemins selon le statut** (cf. [[05 - Règles métier#Annulation]], source unique) :
+Cf. [[05 - Règles métier#Annulation]], source unique :
 
-**A. Annulation directe — `statut IN (brouillon, programmee)`** (sans validation Admin) :
-1. Clic "Annuler la collecte" → modal de confirmation (motif texte libre, optionnel V1). Libellé (pop-up ET liste) : « Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique. » *(marque blanche, C2 2026-09-29)*
+**Annulation directe — `statut IN (brouillon, programmee, validee)`** (sans validation Admin, *décision Val 2026-11-01 pour `validee`*) :
+1. Clic "Annuler la collecte" → modal de confirmation (motif texte libre, optionnel V1). Libellé (pop-up ET liste) : « Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique. » *(marque blanche, C2 2026-09-29)*. À moins de 4 h du créneau (seuil strict, heure de Paris, comme le déclencheur), la boîte avertit, pour une collecte ZD : « Cette collecte a lieu dans moins de 4 h : son annulation est facturée au plein tarif. » ; pour une collecte AG, textes de la modale ci-dessous (« Ces règles sont rappelées dans la modal… ») *(décision Val 2026-11-01, textes AG remplacés le 2026-11-02 par ceux du débit à la programmation)*. La fenêtre ne sait pas si la collecte porte un pack ; l'heure est celle de l'appareil à l'ouverture, la base juge à l'écriture.
 2. Statut collecte passe **immédiatement** à `annulee`
 3. Si `statut_tms ≠ non_envoye` (collecte déjà poussée TMS) : **E3 `DELETE /collectes/:id` déclenché systématiquement** vers le TMS → le prestataire est informé côté TMS sans délai *(exigence Val 2026-06-07 F5 : toute annulation/suppression — traiteur, Ops ou Admin — doit être propagée au TMS)*
 4. Notification email info à l'Admin Savr (pas de validation requise)
-5. Règles de facturation/débit pack identiques (cf. ci-dessous — le seuil 12h s'applique quel que soit le chemin)
+5. Règles de facturation/débit pack identiques (cf. ci-dessous — le seuil 4h s'applique quel que soit le chemin)
 
-**B. Demande d'annulation — `statut = validee`** (validation Admin requise) :
-1. Clic "Demander l'annulation" → modal de confirmation
-2. Saisie d'un motif (texte libre, optionnel V1)
-3. Clic "Confirmer la demande"
-4. Statut collecte passe à `annulation_demandee`
-5. Notification email à l'Admin Savr (template `admin_demande_annulation` existant)
-6. Si prestataire déjà mandaté : notification automatique au prestataire
-7. L'Admin valide ou refuse → statut final ; si validée → `annulee` + E3 vers TMS
+Plus de demande d'annulation soumise à l'Admin *(décision Val 2026-11-01)* : une collecte `validee` s'annule comme une collecte programmée (chemin ci-dessus). Les collectes restées en `annulation_demandee` d'avant cette décision se lisent « Annulée » et restent confirmables par l'Admin.
 
 **Règle de facturation V1** (voir [[05 - Règles métier]]) :
-- Annulation ≥ 12h avant créneau : pas de facturation
-- Annulation < 12h avant créneau (ou après mandat prestataire) : facturation plein tarif. Pour AG : **débit d'un crédit pack** via trigger `trg_pack_debit_annulation_tardive` *(révisé 2026-06-07 — test scenarios §06.01 F2, arbitrage Val : §4bis fait foi)*. Sans pack actif → alerte Admin + arbitrage manuel, pas de facture automatique (F3). Cf. [[05 - Règles métier#Débit d'un crédit]].
+- Annulation ≥ 4h avant créneau : pas de facturation, même si le prestataire est déjà mandaté ; pour AG, le crédit pack décompté à la programmation est rendu (décision Val 2026-11-02)
+- Annulation < 4h avant créneau : facturation plein tarif. Pour AG : **le crédit pack décompté à la programmation reste acquis** (trigger `trg_pack_debit_annulation_tardive`, décision Val 2026-11-02) *(révisé 2026-06-07 — test scenarios §06.01 F2, arbitrage Val : §4bis fait foi)*. Collecte programmée sans crédit → plein tarif au tarif unitaire, facturé à la main par l'Admin (ou geste commercial), alerte Admin (F3 révisé 2026-10-16, validé par Val le 2026-10-20). Cf. [[05 - Règles métier#Débit d'un crédit]].
 
-**Recrédit pack AG (refonte 2026-05-08)** : si la collecte annulée est de type AG :
-- Annulation **avant `realisee`** (cas standard) : aucun débit pack n'a été fait, donc rien à recréditer. Le pack reste intact.
+**Recrédit pack AG (refonte 2026-05-08, révisé 2026-11-02 — décision Val : le crédit est décompté dès la programmation)** : si la collecte annulée est de type AG :
+- Annulation **avant `realisee`**, 4h ou plus avant le créneau (cas standard) : le crédit décompté à la programmation est rendu automatiquement au pack (trigger DB).
+- Annulation **avant `realisee`**, moins de 4h avant le créneau : le crédit reste décompté (cf. ci-dessus).
 - Annulation **après `realisee`** (cas exceptionnel, traité Admin) : recrédit automatique du pack via trigger DB. Aucune action manuelle requise du traiteur ou de l'Admin.
 
-Ces règles sont rappelées dans la modal avant confirmation, avec une mention explicite pour AG : *"Votre crédit Anti-Gaspi sera préservé : il n'a pas encore été débité (annulation avant réalisation de la collecte)."*
+Ces règles sont rappelées dans la modal avant confirmation, avec une mention explicite pour AG : *"Si cette collecte a décompté un crédit de votre pack Anti-Gaspi à sa programmation, il vous est rendu."* (annulation à 4h ou plus de l'heure de collecte ; la modale ne sait pas si la collecte porte un pack, la phrase tient dans les deux cas). Annulation à moins de 4h d'une collecte AG : *"Cette collecte a lieu dans moins de 4 h : son annulation est facturée comme une collecte réalisée. Le crédit de votre pack Anti-Gaspi décompté à sa programmation ne vous est pas rendu."* *(texte révisé 2026-11-02 — l'ancien « il n'a pas encore été débité » est devenu faux avec le débit à la programmation ; formulation validée par Val le 2026-11-02)*
 
 ---
 
-## 4. Factures (déplacé dans Mon organisation > Facturation — refonte 2026-05-05)
+## 4. Factures (déplacé dans Paramètres > Facturation — refonte 2026-05-05)
 
 > **Refonte 2026-05-05** : entrée nav supprimée. Vue liste + filtres + fiche facture déplacés en sous-section "Facturation" de Mon organisation (voir §3 Mon organisation ci-dessous, désormais §3 après renumérotation).
 > 
-> **Pour `traiteur_commercial`** *(révision 2026-05-29)* : **vue liste accessible en lecture seule** (toutes les factures de l'orga, comme le Manager). L'ancienne restriction option C (accès via fiche collecte uniquement, périmètre ses propres collectes) est **levée**. Le commercial ne peut toujours pas agir sur les factures (lecture/téléchargement seulement) ni accéder à la sous-section Utilisateurs.
+> **Pour `traiteur_commercial`** *(révision 2026-05-29)* : **vue liste accessible en lecture seule** (toutes les factures de l'orga, comme le Manager). L'ancienne restriction option C (accès via fiche collecte uniquement, périmètre ses propres collectes) est **levée**. Le commercial ne peut toujours pas agir sur les factures (lecture/téléchargement seulement) *(révision Val 2026-10-30 : l'onglet Membres lui est ouvert pour inviter un collaborateur et transférer ses propres collectes)*.
 
 ---
 
@@ -680,35 +689,38 @@ Ces règles sont rappelées dans la modal avant confirmation, avec une mention e
 
 ---
 
-## 6. Mon organisation
+## 6. Mon organisation — onglets Organisation · Membres · Facturation de « Paramètres »
 
-*(Révision 2026-05-29)* Accessible au `traiteur_manager` (accès complet, édition) **et** au `traiteur_commercial` (**lecture seule**, sous-section **Équipe/Utilisateurs masquée**). Détail des droits par sous-section ci-dessous.
+> *(Décision Val 2026-10-31, ordre des onglets 2026-11-01)* : « Mon organisation » n'est plus une entrée du menu ; son contenu s'affiche dans « Paramètres », onglets **Organisation** (ex « Informations légales »), **Membres** (ex « Équipe ») et **Facturation** (masqué tant que la facturation est hors plateforme), après l'onglet **Mon profil** (§7). Mêmes noms d'onglets pour tous les rôles clients (traiteur, gestionnaire de lieux, agence, client organisateur). Aucun droit ne change (mêmes routes d'API).
+
+*(Révision 2026-05-29, puis Val 2026-10-30)* Accessible au `traiteur_manager` (accès complet, édition) **et** au `traiteur_commercial` (**lecture seule** ; onglet Membres réduit à inviter et transférer ses collectes). Détail des droits par sous-section ci-dessous.
 
 | Sous-section | Manager | Commercial (rév. 2026-05-29) |
 |---|---|---|
-| Informations légales (raison sociale, SIRET, adresse) | Lecture + édition | **Lecture + édition** (décision Val 2026-09-28, auditée `organisation_infos_legales_update`) |
+| Organisation — informations légales (raison sociale, SIRET, adresse) | Lecture + édition | **Lecture seule** (révision Val 2026-10-30, retour sur la décision du 2026-09-28) |
 | Entités facturation / Logo | Lecture + édition | **Lecture seule** |
-| Équipe (utilisateurs) | Accès complet (inviter, rôles, suspendre, transfert) | **Masquée** (gestion des utilisateurs = Manager uniquement) |
+| Membres (utilisateurs) | Accès complet (inviter, rôles, suspendre, transfert) | Liste en lecture ; **inviter un collaborateur** ; **transférer ses propres collectes** (vers un manager ou commercial de l'orga, tous ses événements passés compris) ; changement de rôle et suspension = Manager (révision Val 2026-10-30) |
 | Facturation (paramètres + liste + fiche) | Lecture + édition paramètres | **Lecture seule** (toutes factures orga, téléchargement PDF ; pas d'édition des paramètres de facturation) |
-| Préférences | Lecture + édition | **Lecture seule** |
 
 ### Sous-sections
 
-**Informations légales**
+**Informations légales** (onglet « Organisation »)
 - Raison sociale, SIREN, adresse — **modifiables par le manager** (toute modification est loguée dans `audit_log`)
 - Entités de facturation (multi-SIRET) — ajout/modification/suppression par le manager
 - Domaines email autorisés (pour l'onboarding auto des collaborateurs) — un domaine ajouté ici n'est pas encore _vérifié_ : il apparaît dans la liste, mais ne rattache automatiquement les nouveaux inscrits qu'une fois qu'un utilisateur de ce domaine a activé son compte dans l'organisation (cf. §05 §8 « Preuve de contrôle du domaine »).
 - Logo de l'organisation (upload, affiché dans les rapports)
 
-**Équipe (users rattachés)**
-- Liste des utilisateurs avec : nom, email, rôle, dernière connexion
-- Actions manager :
+**Équipe (users rattachés)** (onglet « Membres »)
+- Liste des utilisateurs avec : nom, poste (champ libre de « Mon profil », Val 2026-11-01 ; « — » s'il n'est pas renseigné), email, rôle, dernière connexion
+- Actions manager (le commercial n'a que « Inviter » et « Transférer », ce dernier limité à ses propres collectes — révision Val 2026-10-30) :
   - **Inviter un collaborateur** : prénom + nom + email (rôle imposé `traiteur_commercial`)
   - Modifier le rôle d'un collaborateur (jamais le sien : un manager ne peut pas changer son propre rôle — même logique que l'auto-suspension interdite. Une rétrogradation de manager passe par l'Admin Savr. Garde DB `trg_users_block_role_escalation` volet 3, migration `20260921170000`.)
   - Suspendre un compte (soft delete)
-  - Transférer les collectes d'un commercial vers un autre (en cas de départ)
+  - Transférer les collectes d'un commercial vers un autre (en cas de départ) — commercial : ses propres collectes seulement, vers un manager ou un commercial de l'organisation, tous ses événements passés compris (carte « Transférer mes collectes », sans champ « Depuis » ; route : 403 si la source n'est pas lui)
 
 **Facturation** (refonte 2026-05-05 — fusion ex-onglet Factures + ex-sous-section Facturation Mon organisation)
+
+> ⚠ **Go-live : masqué (décision Val 2026-10-22)** — facturation faite hors plateforme. Interrupteur `facturationPlateformeActive()` éteint : pas de sous-section Facturation, pas de bouton « Télécharger la facture » dans la fiche collecte, pas de badge « X collectes en attente de facturation » au dashboard. Vaut aussi pour l'agence (§06.11) et le gestionnaire de lieux (§06.05), qui reprennent cette sous-section. La carte « Entités de facturation » des Informations légales reste (son SIRET vérifié est requis pour l'attestation de don AG). Retour plus tard (échéance non fixée).
 
 Sous-section unifiée. *(Révision 2026-05-29)* : édition des **paramètres de facturation** = Manager only ; **vue liste + fiche facture** accessibles au commercial en **lecture seule** (toutes les factures de l'orga).
 
@@ -741,19 +753,17 @@ Toutes les factures de l'organisation sont visibles (factures par collecte, fact
 
 **Indicateurs** :
 - Badge "En retard" rouge si échéance dépassée
-- Lien vers "Me contacter" pour toute question facturation (ouvre un mailto hello@gosavr.io)
+- Lien vers "Me contacter" pour toute question facturation (ouvre un mailto contact@gosavr.io)
 
-> **Accès commercial** *(révision 2026-05-29 — l'option C 2026-05-05 est levée)* : le commercial accède à la **vue liste complète des factures de l'orga en lecture seule** (Mon organisation > Facturation), en plus du bouton "Télécharger la facture" sur la fiche collecte. RLS lecture alignée sur `organisation_id`. Il ne peut pas éditer les paramètres de facturation.
+> **Accès commercial** *(révision 2026-05-29 — l'option C 2026-05-05 est levée)* : le commercial accède à la **vue liste complète des factures de l'orga en lecture seule** (Paramètres > Facturation), en plus du bouton "Télécharger la facture" sur la fiche collecte. RLS lecture alignée sur `organisation_id`. Il ne peut pas éditer les paramètres de facturation.
 
-**Préférences**
-- Notifications email (activer/désactiver par type d'événement) — V1.1
-- Langue de l'interface (FR uniquement V1)
+**Préférences** — *retiré de l'écran (décisions Val 2026-10-30 et 2026-11-01) : langue FR seule en V1, notifications par type = V1.1.*
 
 ### Invitation de collaborateur (flux)
 
 Mode unique : **provisioning direct** — *(décision Val 2026-07-01, M3.1 — le mode self-service a été écarté, « doublon inutile »)* :
 
-1. Le manager saisit **prénom + nom + email** (rôle imposé = `traiteur_commercial`).
+1. Le manager — ou le commercial (révision Val 2026-10-30) — saisit **prénom + nom + email** (rôle imposé = `traiteur_commercial`).
 2. Le compte est provisionné directement à l'invitation : `organisation_id` = organisation de l'invitant, posé côté serveur (JWT de l'invitant), jamais depuis le body ; pas d'email natif Supabase.
 3. Le collaborateur reçoit un lien d'activation (email brandé `invitation_utilisateur`, catalogue §06.02) pour définir son mot de passe.
 
@@ -761,13 +771,14 @@ Le rattachement à l'organisation de l'invitant est **garanti** (posé à la cr�
 
 ---
 
-## 7. Mon profil
+## 7. Mon profil — premier onglet de « Paramètres » (décision Val 2026-10-31)
 
 Section commune à tous les users :
 
-- Informations personnelles : prénom, nom, email, téléphone
+- Informations personnelles : prénom, nom, email, téléphone, poste (champ libre, ≤ 100 caractères, sans effet sur les droits — Val 2026-11-01)
 - Changement de mot de passe
-- Préférences (si applicable)
+- **Accès de l'équipe Savr à votre compte** : liste des accès de l'Admin Savr en impersonation sur le compte (lecture self `f_mes_acces_compte`, GET /api/me/acces) — transparence §15 §2.3 conservée *(arbitrage Val 2026-11-02 ; dette code : réafficher le bloc, retiré de l'écran avec la carte « Sécurité du compte » le 2026-11-01)*
+- *(Ni « Préférences » ni carte « Sécurité du compte » dans « Mon profil », décision Val 2026-11-01 — vaut pour les quatre espaces client : traiteur, gestionnaire de lieux, agence, client organisateur.)*
 - Lien "Demander la suppression de mon compte" (soft delete 48h + hard delete / anonymisation — voir [[09 - Authentification et permissions]])
 
 ---
@@ -783,7 +794,7 @@ Tous les écrans de l'espace traiteur doivent être responsives sur mobile, y co
 **Priorisation V1** :
 - Programmation de collecte sur mobile : usage fréquent (les commerciaux programment souvent depuis le terrain)
 - Téléchargement de PDF : accessible depuis mobile
-- Édition "Mon organisation" : admis en mobile mais pas prioritaire (usage desktop principal)
+- Édition de « Paramètres » (onglets Organisation, Membres) : admis en mobile mais pas prioritaire (usage desktop principal)
 
 Voir [[10 - Design System]] pour les règles responsive détaillées.
 
@@ -799,19 +810,17 @@ Rappel synthétique (voir [[09 - Authentification et permissions]] pour le déta
 - Lecture factures : toutes celles de l'orga
 - Actions utilisateurs : CRUD sur les users de son orga
 
-### `traiteur_commercial` *(révision 2026-05-29 — lecture alignée Manager, écriture limitée à ses créations)*
+### `traiteur_commercial` *(révision 2026-05-29 — lecture alignée Manager ; écriture alignée Manager, Val 2026-10-30)*
 - **Lecture** sur toutes les entités où `organisation_id = current_user.organisation_id` (collectes, événements, factures, dashboards, benchmarks) — **périmètre identique au Manager**. Couvre aussi les collectes où son traiteur est opérationnel (`traiteur_operationnel_organisation_id = current_user.organisation_id`).
-- **Écriture** sur `collectes` / `evenements` WHERE `created_by = current_user.id` uniquement (création + modification/suppression libre des champs métier de ses propres collectes futures, voir §2 Édition). Aucune écriture sur les collectes d'un autre commercial.
-- **Factures** : lecture sur toutes les factures de l'orga (vue liste Mon organisation > Facturation en lecture seule **+** bouton "Télécharger la facture" sur fiche collecte). Aucune action d'écriture.
-- Lecture pack AG de l'orga (solde) **+ action "Demander un renouvellement"** (refonte 2026-05-04 : action ouverte au commercial dans le bloc Mon pack AG du dashboard onglet AG)
-- **`organisations`** : lecture seule (Mon organisation accessible en consultation : infos, logo, facturation). **Édition des seules informations légales (raison sociale, SIRET, adresse) de sa propre organisation** (décision Val 2026-09-28, liste blanche trigger `trg_block_org_gestionnaire_cols_update`) ; logo, nom, email, téléphone, entités de facturation, domaines et équipe = Manager only / support. Sous-section **Utilisateurs/Équipe masquée** (gestion des utilisateurs = Manager only).
+- **Écriture** sur les `collectes` / `evenements` de son organisation, comme le Manager (Val 2026-10-30), par les routes sous service-role ; les policies d'écriture directes `evt_commercial_update`, `col_update_commercial`, `evt_commercial_insert` sont inertes et **à supprimer (dette code)**.
+- **Factures** : lecture sur toutes les factures de l'orga (vue liste Paramètres > Facturation en lecture seule **+** bouton "Télécharger la facture" sur fiche collecte). Aucune action d'écriture.
+- Lecture pack AG de l'orga (solde) **+ action "Demander un renouvellement"** *(lecture du pack et export Packs AG ouverts au commercial — reco validée Val 2026-11-02 ; dette code : migration d'élargissement de la policy `pa_select_programmateurs` + GO reviewer-rls-securite)* (refonte 2026-05-04 : action ouverte au commercial dans le bloc Mon pack AG du dashboard onglet AG)
+- **`organisations`** : lecture seule, aucune édition (Val 2026-10-30, policy `org_commercial_update` retirée par la migration `20261030140000`). Onglet Membres : inviter un collaborateur + transférer ses propres collectes.
 - Lecture autorisée sur `f_benchmark_kg_pax_zd` (paramètre `traiteur_ids[]` rejeté côté serveur — cf. §2 Bloc 3 ZD benchmark, applicable au dashboard ET au bloc fiche collecte refonte 2026-05-05)
 
-### Permissions modification collecte (refonte 2026-05-04, révision 2026-05-29)
+### Permissions modification collecte (refonte 2026-05-04, révisions 2026-05-29 et 2026-10-30)
 
-- Programmeur / créateur (`created_by = auth.uid()`) : modification autorisée sur tous champs métier collecte/événement
-- Manager (`role = traiteur_manager` même orga) : modification autorisée sur toute collecte de l'orga
-- Autre commercial de la même orga : **lecture seule** (voit la collecte mais ne peut pas la modifier/supprimer — révision 2026-05-29)
+- Manager et commercial de l'organisation : modification autorisée sur tous champs métier collecte/événement, sur toute collecte de l'orga (Val 2026-10-30)
 - Collègue partagé (table `collecte_partages`) : sans objet V1 (partage reporté V1.1, A4) — mécanisme V1.1 destiné à étendre l'**écriture** à un collègue désigné
 - Toute modification logguée dans `audit_log` global avec champs `cascade_tms` (bool) et `priorite_urgence` (bool si <12h)
 
@@ -851,10 +860,9 @@ Déploiement : valeur par défaut 1.50 € appliquée à toutes les organisation
 - `collectes.traiteur_operationnel_organisation_id = user.organisation_id` (collectes où son traiteur est opérationnel, programmées par un tiers).
 
 *Policy ÉCRITURE (INSERT/UPDATE)* — un user peut écrire une collecte si :
-- `collectes.created_by = auth.uid()` (créateur : ses propres collectes), OU
-- `collectes.organisation_id = user.organisation_id AND user.role = 'traiteur_manager'` (manager : toutes les collectes de l'orga).
+- `evenements.organisation_id = user.organisation_id AND user.role IN ('traiteur_manager','traiteur_commercial')` (toutes les collectes de l'orga — révision Val 2026-10-30) — appliqué par les routes sous service-role ; les policies d'écriture directes sont inertes (cf. §09).
 
-*Policy DELETE — restreinte 2026-06-07 (test scenarios §06.04 F5, arbitrage Val)* : le DELETE physique est limité à **`collectes.statut = 'brouillon'`** (jamais poussée TMS), avec le même prédicat acteur que l'écriture (créateur ou manager). Toute collecte `programmee+` se supprime **uniquement via l'annulation** (statut `annulee`), qui déclenche systématiquement E3 `DELETE /collectes/:id` vers le TMS si `statut_tms ≠ non_envoye` — le prestataire est informé sans délai (chemins traiteur, Ops et Admin confondus). pgTAP : deny DELETE sur `programmee+` tous rôles traiteur.
+*Policy DELETE — restreinte 2026-06-07 (test scenarios §06.04 F5, arbitrage Val)* : le DELETE physique est limité à **`collectes.statut = 'brouillon'`** (jamais poussée TMS), avec le même prédicat acteur que l'écriture (manager ou commercial de l'organisation, révision Val 2026-10-30). Toute collecte `programmee+` se supprime **uniquement via l'annulation** (statut `annulee`), qui déclenche systématiquement E3 `DELETE /collectes/:id` vers le TMS si `statut_tms ≠ non_envoye` — le prestataire est informé sans délai (chemins traiteur, Ops et Admin confondus). pgTAP : deny DELETE sur `programmee+` tous rôles traiteur.
 
 La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réactivation V1.1 sur la policy écriture).
 
@@ -868,6 +876,8 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 
 ### Champ `rapports_rse.filtres_benchmark` (jsonb, nullable) — rétabli 2026-06-03
 
+> **Depuis le 2026-10-16 (décision Val)** : la colonne n'est plus écrite pour un rapport ZD — le rapport est fabriqué à chaque téléchargement, avec les filtres réglés à ce moment, et rien n'est stocké (§1.2 de [[12 - Reporting et exports]]). Le snapshot décrit ci-dessous ne vaut que pour les rapports antérieurs.
+
 > **Rétabli 2026-06-03 (session sobriété §06.04, arbitrage Val — annulation revue §12 B2)** : colonne `rapports_rse.filtres_benchmark` **conservée/rétablie**. Le bloc benchmark du rapport RSE (§1.2) est **figé par snapshot** : les filtres benchmark choisis par le traiteur au moment de la génération sont persistés, le re-téléchargement du même PDF redonne exactement les mêmes valeurs (PDF reproductible). Une **légende affichée sous le graphe benchmark du PDF** précise les filtres appliqués (période / lieux / type d'événement / taille). Motif Val : permettre un benchmark personnalisé reproductible sur le rapport client, sans ambiguïté sur le segment de comparaison.
 >
 > *(Historique : la revue §12 du même jour, B2, avait supprimé cette colonne au profit d'un recalcul à la volée — décision **annulée** par Val. Le calcul à la volée est abandonné.)*
@@ -878,13 +888,14 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 
 ## Décisions prises
 
-> **Révision structurante 2026-05-29 — droits `traiteur_commercial`** : le commercial a désormais une **lecture identique au Manager** (toutes les collectes, factures, dashboards, benchmarks, Bloc 7 de l'organisation). Il ne diffère du Manager que sur (a) l'**écriture**, limitée à ses propres collectes (`created_by = auth.uid()`), et (b) l'absence de **gestion des utilisateurs** + d'édition des paramètres de l'organisation. Plusieurs décisions ci-dessous sont marquées RÉVISÉ en conséquence. Propagé : [[02 - Personas et cas d'usage]], [[11 - Dashboards]], [[09 - Authentification et permissions]].
+> **Révision structurante 2026-05-29 — droits `traiteur_commercial`** : le commercial a désormais une **lecture identique au Manager** (toutes les collectes, factures, dashboards, benchmarks, Bloc 7 de l'organisation). *(Révision Val 2026-10-30)* Il ne diffère du Manager que sur l'édition de l'organisation (aucune) et la gestion des utilisateurs (limitée à inviter un collaborateur et transférer ses propres collectes) ; l'écriture sur les collectes est alignée sur le Manager. Plusieurs décisions ci-dessous sont marquées RÉVISÉ en conséquence. Propagé : [[02 - Personas et cas d'usage]], [[11 - Dashboards]], [[09 - Authentification et permissions]].
 
 | Décision | Alternative écartée | Raison |
 |----------|-------------------|--------|
 | Dashboard = page d'accueil | Liste collectes directe | Vue d'ensemble d'abord, actions ensuite. Cohérent avec le flux commercial |
 | Boutons "Programmer collecte" proéminents sur dashboard | Menu accessible | La programmation est l'action principale → visibilité maximale |
 | **RÉVISÉ 2026-05-29** : lecture = toute l'orga (comme Manager) ; seule l'écriture reste limitée à ses propres collectes | Vision équipe partagée | Décision initiale (confidentialité commerciale) annulée sur demande Val : le commercial doit avoir la même vision que le Manager, hors gestion des utilisateurs |
+| **RÉVISÉ 2026-10-30 (demande Val)** : écriture du commercial = toute l'orga (comme Manager) ; organisation en lecture seule ; onglet Membres : inviter + transférer ses collectes ; lecture et export du pack AG ouverts (reco validée Val 2026-11-02) | Écriture limitée à ses créations ; infos légales éditables (2026-09-28) | « Accès à tout sauf à l'édition de la page Mon organisation » (Val) ; dettes code : suppression des policies inertes `evt_commercial_update` / `col_update_commercial` / `evt_commercial_insert`, migration d'élargissement `packs_antgaspi` + GO reviewer-rls-securite |
 | Pas de paiement CB en V1 | Paiement intégré | Complexité juridique (CGV, PSD2, Stripe) hors scope V1 |
 | Invitation collaborateur = manager uniquement | Auto-service avec domaine email | Contrôle manager sur qui rejoint l'équipe |
 | Rapports RSE section dédiée + accès via fiche collecte | Accès uniquement via fiche collecte | Usage fréquent = accès direct justifié |
@@ -895,7 +906,7 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 | **Bloc 7 "Top 5 commerciaux"** *(ouvert au commercial 2026-05-29)* | "Top 5 traiteurs" §05 | Sans objet côté traiteur (un seul traiteur) — top commerciaux apporte valeur métier ; visible Manager **et** Commercial depuis l'alignement lecture 2026-05-29 |
 | **Suppression KPI "CA collecte" du dashboard** | Conserver en 5e KPI manager | CA reste dans section Factures, dashboard recentré sur indicateurs RSE |
 | **Bloc 3 ZD benchmark ouvert aux traiteurs** sans filtre `traiteur_ids[]` | Réservé gestionnaires | Apporte de la valeur à tous les utilisateurs ; filtre traiteurs interdit pour préserver le compétitif |
-| **Mon pack AG fondu dans onglet AG** (bloc dédié pleine largeur sous KPIs) | Section navigation séparée | Suppression entrée nav (8→7), regroupement contexte AG, suppression page dédiée |
+| **Mon pack AG fondu dans onglet AG** (bloc dédié pleine largeur sous KPIs) | Section navigation séparée | Suppression entrée nav (8→7), regroupement contexte AG, suppression page dédiée. *Levé partiellement le 2026-11-02 (Val) : entrée « Mon pack Anti-Gaspi » ajoutée à la barre latérale des 5 rôles clients, le bloc du dashboard restant en place.* |
 | **Bouton "Exporter une synthèse PDF"** au-dessus des onglets, ouvre formulaire §5 pré-rempli filtres dashboard | Génération one-click directe | Réutilise existant, l'utilisateur peut ajuster avant génération |
 | **Picto rapport téléchargeable** dans liste collectes (à côté indicateur "Disponible") | Indicateur passif uniquement | UX directe — gain de temps pour traiteurs qui consultent leurs rapports régulièrement |
 | **Suppression UI "Bordereau ZD / Attestation AG" et "Voir les photos"** depuis fiche collecte traiteur | Conserver en actions séparées | Bordereau intégré au PDF rapport RSE (page supplémentaire) ; photos restent dans le rapport RSE PDF ; cas `realisee_sans_collecte` → nouveau PDF "Événement sans excédent alimentaire" sans photos |
@@ -911,10 +922,11 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 | **Sobriété B1 2026-05-04** — Fusion "Compléter infos manquantes" + "Modifier les informations" en 1 seul flow `[Éditer la collecte]` | 2 actions distinctes | Mêmes champs, mêmes permissions, même logique. 1 composant front au lieu de 2 |
 | **Sobriété B2 2026-05-04** — Modal de confirmation unique avec avertissements empilés dynamiquement | 3 modals distinctes (urgence / type-lieu / réacceptation) | 1 composant testable au lieu de 3. La modal A4 disparaît avec verrouillage UI |
 | **Sobriété B3 2026-05-04** — Badge "Compléter infos" rouge retiré de la vue liste, bandeau orange fiche conservé | Double signalement liste + fiche | Évite double-rendu et incohérence couleur (rouge vs orange) |
-| **Sobriété B4 2026-05-04** — Mon pack AG affiche uniquement les packs actifs, pas l'historique | Accordéon historique repliable | Surface UI réduite. Historique disponible via support ou Admin Savr V1.1 selon retour |
+| **Sobriété B4 2026-05-04** — Mon pack AG affiche uniquement les packs actifs, pas l'historique | Accordéon historique repliable | Surface UI réduite. Historique disponible via support ou Admin Savr V1.1 selon retour. *Levé le 2026-11-02 (Val) : historique des packs dans l'onglet « Mon pack Anti-Gaspi » (une ligne dépliable par pack).* |
 | **Sobriété B5 2026-05-04** — Champ `side_effects` retiré du payload `PATCH /collectes/:id` | Payload Plateforme calcule + envoie `reacceptation_requise` | Le TMS source de vérité sur le workflow prestataire, pas le frontoffice. Contrat API plus net |
 | **Sobriété C1+C2 2026-05-04** — Source unique des règles modification = §05 Règles métier (statuts autorisés + cut-off) | 3 endroits redondants (§06.04 + §05 + §08) | Évite drift maintenance |
 | **Refonte nav 2026-05-05** — 6→4 entrées : suppression "Factures" (déplacé dans Mon organisation manager only) + suppression "Rapports RSE" (remplacé par bouton "Exporter une synthèse PDF" dashboard) | Conserver 6 entrées | Réduction surface UI, regroupement par contexte (facturation = admin orga, synthèses = depuis le dashboard où on a déjà les filtres) |
+| **Nav : « Mon organisation » + « Mon profil » réunis en « Paramètres » (décision Val 2026-10-31, ordre des onglets 2026-11-01)** — onglets Mon profil · Organisation · Membres · Facturation, mêmes noms pour tous les rôles clients ; nav traiteur et agence = Dashboard · Collectes · Événements · Paramètres | Deux entrées distinctes | Un seul point d'entrée pour tout ce qui relève du compte et de l'organisation ; aucun droit ne change |
 | **RÉVISÉ 2026-05-29** : commercial accède à la vue liste complète (toutes factures orga) en lecture seule + fiche collecte | A. Coupure totale ; B. Mon orga partiel | Option C levée : lecture commercial alignée Manager. Le commercial ne peut toujours pas éditer les paramètres de facturation |
 | **Suppression batchs auto synthèses + table `rapports_synthese`** (option A) | B. Conservation batchs sans UI ; C. Batchs envoyés par email | Sobriété V1 max. Si traiteur veut une synthèse régulière → 1 clic depuis le dashboard avec filtres pré-remplis |
 | **Bloc 3 ZD jauges sur fiche collecte ZD terminée** + filtres benchmark modifiables intégrés au PDF rapport RSE | Pas de jauge sur fiche, lecture KPI seulement | Apporte le benchmark au grain collecte unique, support visuel pour le rapport RSE envoyé au client |
@@ -928,16 +940,17 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 | **Liste collectes : ajout colonne Client (2026-10-01, revue écran E2E)** | Conserver Date · Heure · Lieu · Pax · Statut | Le client organisateur identifie l'événement aussi sûrement que le lieu ; il était déjà un filtre de la liste. Colonne reprise par l'agence (§06.11, parité) et par le gestionnaire (§06.05). Pas de colonne côté client organisateur (elle afficherait son propre nom). |
 | **Bloc 3 AG : suppression Distance moyenne** | Conservation | Donnée non actionnable côté traiteur (pas de levier sur la distance asso<>lieu) |
 | **Bloc 4 AG : 1 seul pack actif à la fois (pas de FIFO)** | Multi-packs FIFO | Règle métier : pack suivant activé après épuisement du précédent. Simplifie l'affichage et la logique de débit |
-| **Notification info-only collecte programmée par tiers (2026-05-07)** | Validation explicite par le traiteur | Ouverture programmation aux agences/gestionnaires : le traiteur opérationnel reçoit un email récap (cf. §05 §9), pas de validation requise. Droit de retrait conservé via workflow annulation existant |
+| **Notification info-only collecte programmée par tiers (2026-05-07)** | Validation explicite par le traiteur | Ouverture programmation aux agences/gestionnaires : le traiteur opérationnel reçoit un email récap (cf. §05 §9), pas de validation requise. Pas de droit de modification ni d'annulation sur la programmation d'un tiers depuis l'espace traiteur (décision Val 2026-10-10) : il passe par le programmateur ou l'équipe Savr |
 | **Badge "Programmée par X" sur fiche collecte + picto liste (2026-05-07)** | Pas d'indicateur visuel | Le traiteur opérationnel doit identifier en un coup d'œil les collectes programmées par tiers (responsabilité opérationnelle reste sienne, visibilité sur le donneur d'ordre) |
 | **Filtre liste "Programmée par" (2026-05-07)** | Filtres existants suffisants | Cas d'usage : un traiteur multi-agences peut isoler les collectes WPM vs Quintessence vs ses propres directs |
 | **RLS commercial étendue aux collectes programmées par tiers (2026-05-07)** | Restreindre à `created_by = self` | Le commercial doit voir toutes les collectes pour lesquelles son traiteur opère, peu importe qui les a programmées (responsabilité opérationnelle) |
 | **KPI Marge ZD ajouté Bloc 1 dashboard (2026-05-07)** — formule `tarif_refacture_pax_zd × pax − Σ factures HT ZD émises/payées` | Pas de KPI marge / KPI CA brut | Pilotage économique côté traiteur (impact direct sur la perception de valeur Savr). Distinct du CA = lecture facture seule. Numérateur revenu paramétré par traiteur, défaut 1.50 € |
 | **Tarif refacturé par couvert paramétré par traiteur** (`organisations.tarif_refacture_pax_zd` numeric, défaut 1.50 €, Admin Savr only) | Constante hardcodée pour tous traiteurs | Chaque traiteur facture son client final à son propre tarif. Constante = KPI faux dès le 2e traiteur avec un autre tarif. Édition réservée Admin Savr (cohérent paramètres financiers §06.06) |
-| **Périmètre coût marge ZD = factures statut `emise` + `payee`** | Inclure brouillons / facturer_dans_factures | Cohérent avec lecture financière Mon organisation > Facturation. Brouillon = encore éditable par Savr, ne devrait pas dégrader la marge prématurément |
+| **Périmètre coût marge ZD = factures statut `emise` + `payee`** | Inclure brouillons / facturer_dans_factures | Cohérent avec lecture financière Paramètres > Facturation. Brouillon = encore éditable par Savr, ne devrait pas dégrader la marge prématurément |
 | **Liste Collectes : suppression vue "Toutes les collectes" → 2 onglets ZD/AG (2026-05-07)** | Conserver filtre Type 3 valeurs | Cohérence dashboard §2 (déjà 2 onglets ZD/AG) → 1 seul pattern UI traiteur. Réduit charge cognitive et 1 zone à maintenir |
-| **Bouton "Programmer une collecte" contextuel par onglet (2026-05-07)** | Bouton générique avec popup de choix type | Économise 1 clic, exploite le contexte de l'onglet, cohérent avec le bandeau dashboard (déjà 2 boutons ZD + AG) |
-| **Bouton unique "Programmer un événement" + type pré-coché selon l'onglet (refonte 2026-05-21)** | Conservation des 2 boutons distincts ZD/AG | Formulaire unique événement-centré (D1) : un seul point d'entrée, choix ☐ZD ☐AG en étape 1. Le pré-cochage selon l'onglet conserve l'économie de clic du contexte. |
+| **Liste Collectes : retour de « Toutes » dans le sélecteur de type (2026-10-31, revue écran E2E)** | Sélecteur ZD / AG à valeur unique | Même sélecteur que la liste Événements (Toutes par défaut) ; sur « Toutes », une colonne Type (badge ZD / AG) identifie chaque ligne. Vaut pour l'agence (§06.11) et le client organisateur (sa colonne « Repas » / « Recyclage » devient « Résultats » sur « Toutes »). Admin et gestionnaire l'avaient déjà. Les dashboards gardent leurs 2 onglets. |
+| **Bouton "Programmer une collecte" contextuel par onglet (2026-05-07)** | Bouton générique avec popup de choix type | Économise 1 clic, exploite le contexte de l'onglet, cohérent avec le bandeau dashboard (déjà 2 boutons ZD + AG) ; depuis le 2026-11-02, le bouton est dans la barre navy du haut (Val) |
+| **Bouton unique "Programmer une collecte" (refonte 2026-05-21 ; libellé aligné sur le code le 2026-11-02) + collecte du type de l'onglet proposée (décision Val 2026-10-24, I11 : à coder — dette code ouverte)** | Conservation des 2 boutons distincts ZD/AG | Formulaire unique événement-centré (D1) : un seul point d'entrée, nombre de collectes par type à l'écran 1 (refonte Val 2026-10-22). Le pré-remplissage selon l'onglet conserve l'économie de clic du contexte (décision Val 2026-10-24, I11 : à coder — dette code ouverte). |
 | **Invitation collaborateur : n'importe quelle adresse email autorisée (2026-05-29)** | Restreindre aux emails du domaine de l'organisation | Le manager gate déjà l'invitation manuellement (saisie explicite email + rôle). La restriction domaine bloque des cas légitimes (commercial freelance en email perso) et ajoute une logique de validation pour un gain de sécurité marginal. |
 | **Transfert de collectes entre commerciaux : réassignation simple + `audit_log` (2026-05-29)** | Table d'historique dédiée `collectes_transferts` | Cas départ d'un commercial : le manager réassigne les collectes (mise à jour `cree_par_user_id`), l'opération est tracée dans `audit_log` global. Pas de table d'historique dédiée — `audit_log` couvre déjà la trace (cohérent avec la décision « Audit modifications via `audit_log` global » ci-dessus). |
 | — **DESCOPÉ V1 (décision Val 2026-07-10)** | | **DESCOPÉ V1** : rapports RSE téléchargeables individuellement depuis la fiche collecte (bouton « Télécharger le rapport RSE », route `GET /api/v1/traiteur/collectes/:id/rapport-rse/download`, canal V1 livré BL-P1-TRAIT-03). L'export groupé alourdit l'UI (multi-sélection liste collectes) sans valeur ajoutée démontrée. Réévaluable V1.1. |
@@ -969,4 +982,4 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 - [[11 - Dashboards]] — nav traiteur 6→4 entrées (refonte 2026-05-05) + KPIs traiteur ZD 4→5 (ajout Marge — refonte 2026-05-07)
 - [[06 - Fonctionnalités détaillées/06 - Back-office Admin Savr]] — édition `tarif_refacture_pax_zd` par Admin Savr (refonte 2026-05-07)
 - [[12 - Reporting et exports]] — bordereau ZD intégré au rapport RSE PDF + template "Événement sans excédent alimentaire" + bloc benchmark dans rapport RSE par collecte (refonte 2026-05-05) + suppression batchs auto synthèses (refonte 2026-05-05)
-- [[02 - Templates emails V1]] — template `invitation_utilisateur` (existant) ; `admin_modification_collecte_traiteur` (à ajouter) ; `admin_demande_renouvellement_pack` + `admin_demande_annulation` (ajoutés en M3.1, voir §06.02 — catalogue à mettre à jour 19→21 templates)
+- [[02 - Templates emails V1]] — template `invitation_utilisateur` (existant) ; `admin_modification_collecte_traiteur` (à ajouter) ; `admin_demande_renouvellement_pack` + `admin_demande_annulation` (ajoutés en M3.1 ; `admin_demande_annulation` désactivé le 2026-11-02, annulation cliente directe) — catalogue §06.02 : **18 templates actifs, 15 désactivés** (revue des emails 2026-10-29 + annulation directe 2026-11-02)

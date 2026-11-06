@@ -7,6 +7,8 @@
  * le filtre de période pilote désormais l'histogramme comme le tableau ; blocs 50/50.
  * DS « Mise en page des formulaires et filtres » : les deux champs Du/au sont
  * remplacés par UN DateRangePicker « Période » (bornes lues via data-from/data-to).
+ * Filtres Lieux / Traiteur / Agence / Gestionnaire de lieux (Val 2026-10-30) :
+ * passés au graphe ET au tableau, effacés par « Réinitialiser ».
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -15,6 +17,7 @@ import {
   fireEvent,
   waitFor,
   cleanup,
+  within,
 } from '@testing-library/react';
 
 import DashboardAdminPage from '@/app/(admin)/admin/dashboard/page.js';
@@ -30,14 +33,15 @@ function jsonResponse(obj: unknown): Promise<Response> {
 }
 
 /** 1er du mois courant (jour Paris) — toujours affiché à l'ouverture d'un calendrier vide. */
+// Premier jour de la période par défaut : visible dans le calendrier, qui
+// s'ouvre sur le mois du début d'une période sans fin.
 function premierDuMois(): string {
-  const now = new Date();
-  return jourParis(new Date(now.getFullYear(), now.getMonth(), 1));
+  return defaultWindow().from;
 }
 
 /**
  * Pose la période « un seul jour = `jour` » via le DateRangePicker : Effacer (le
- * calendrier rouvre alors sur le mois précédent + le mois courant), clic sur le
+ * calendrier rouvre alors sur le début de la période par défaut), clic sur le
  * jour, Appliquer.
  */
 function choisirPeriodeUnJour(jour: string): void {
@@ -75,6 +79,9 @@ const revenusRows = [
   },
 ];
 
+// Total renvoyé par le tableau : 2 par défaut, plus pour tester la pagination.
+let totalRevenus = 2;
+
 const fetchMock = vi.fn((input: RequestInfo | URL) => {
   const url = String(input);
   if (url.includes('/admin/dashboard/kpi'))
@@ -86,36 +93,66 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
       collectes_48h_non_validees: 0,
     });
   if (url.includes('/admin/dashboard/revenus-organisations'))
-    return jsonResponse({ data: revenusRows, total: 2, page: 1, limit: 50 });
-  if (url.includes('/dashboards/kpi-admin'))
+    return jsonResponse({
+      data: revenusRows,
+      total: totalRevenus,
+      page: 1,
+      limit: 50,
+      totaux: { montant_zd_ht: 1600, montant_ag_ht: 300, montant_total: 2000 },
+    });
+  if (url.includes('/admin/dashboard/revenus-mensuels'))
     return jsonResponse({
       kpi: [
         {
           mois: '2026-06-01',
           type_collecte: 'zero_dechet',
           nb_collectes: 5,
-          nb_cloturees: 5,
-          montant_factures_ht: 1200,
+          montant_ht: 1200,
+          nb_collectes_a_venir: 2,
+          montant_ht_a_venir: 400,
         },
       ],
+    });
+  if (url.includes('/admin/dashboard-client/organisations'))
+    return jsonResponse({
+      data: [
+        {
+          id: 't1',
+          nom: 'Kaspia',
+          raison_sociale: 'Kaspia SAS',
+          type: 'traiteur',
+        },
+        {
+          id: 'g1',
+          nom: 'Viparis',
+          raison_sociale: null,
+          type: 'gestionnaire_lieux',
+        },
+      ],
+    });
+  if (url.includes('/admin/lieux'))
+    return jsonResponse({
+      data: [{ id: 'l1', nom: 'Pavillon Gabriel', ville: 'Paris' }],
     });
   return jsonResponse({});
 });
 
 beforeEach(() => {
   cleanup();
+  totalRevenus = 2;
   fetchMock.mockClear();
   vi.stubGlobal('fetch', fetchMock);
 });
 
 // Fenêtre par défaut du bloc Revenus : 12 derniers mois glissants alignés au 1er du
 // mois — identique à defaultPeriode() de la page.
+// Défaut : 12 derniers mois alignés au 1er du mois, sans borne de fin (les
+// collectes programmées à venir comptent, décision Val 2026-11-03).
 function defaultWindow(): { from: string; to: string } {
   const now = new Date();
-  const iso = (d: Date) => jourParis(d);
   return {
-    from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
-    to: iso(now),
+    from: jourParis(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
+    to: '',
   };
 }
 
@@ -129,7 +166,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
           .length,
       ).toBeGreaterThan(0);
       for (const header of [
-        'Organisation',
+        'Client',
         'Type',
         'Nb ZD',
         'CA ZD HT',
@@ -155,17 +192,19 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       const hrefs = screen
         .getAllByRole('link')
         .map((l) => l.getAttribute('href'));
-      // Les 5 cartes-actions pointent vers le chip du MÊME prédicat que leur compteur
+      // Les 4 cartes-actions pointent vers le chip du MÊME prédicat que leur compteur
       // (fusion ex ZD/AG 48h → collectes_48h_non_validees, revue E2E 2026-07-15).
       for (const chip of [
         'non_transmises_zd',
         'non_transmises_ag',
         'attente_prestataire',
-        'dirty_tms',
         'collectes_48h_non_validees',
       ]) {
         expect(hrefs).toContain(`/admin/collectes?chip=${chip}`);
       }
+      // Carte « Dirty TMS » retirée du dashboard (décision Val 2026-10-28).
+      expect(hrefs).not.toContain('/admin/collectes?chip=dirty_tms');
+      expect(screen.queryByText('Dirty TMS')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -182,11 +221,99 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
   );
 
   it(
+    'M3.5/admin_revenus_a_venir_teinte — la part à venir a son propre segment, plus clair, et sa légende (Val 2026-11-05)',
+    async () => {
+      render(<DashboardAdminPage />);
+      const histo = await screen.findByTestId(
+        'revenus-histogramme',
+        undefined,
+        ATTENTE_UI,
+      );
+      const aVenir = within(histo).getByLabelText(/^ZD à venir/);
+      const acquis = within(histo).getByLabelText(/^ZD juin/);
+      expect(aVenir).toHaveClass('bg-savr-success-soft');
+      expect(acquis).toHaveClass('bg-savr-success');
+      // 400 € à venir sur 1 200 € : 1/3 du total pour le segment clair.
+      expect(parseFloat(aVenir.style.height)).toBeCloseTo(
+        parseFloat(acquis.style.height) / 2,
+      );
+      expect(
+        within(histo).getByText('Zéro Déchet à venir'),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.5/admin_revenus_repartition_clients — camembert à droite de l’histogramme : clients, part « Autres » tirée des totaux, bascule Toutes / ZD / AG (Val 2026-11-05)',
+    async () => {
+      render(<DashboardAdminPage />);
+      const bloc = await screen.findByTestId(
+        'repartition-revenus-clients',
+        undefined,
+        ATTENTE_UI,
+      );
+      // Toutes : 1 500 + 200 sur 2 000 → « Autres » = 300 (15 %).
+      await waitFor(
+        () =>
+          expect(within(bloc).getByText('Traiteur Alpha')).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(within(bloc).getByText('Agence Beta')).toBeInTheDocument();
+      const autres = within(bloc).getByText('Autres').closest('li')!;
+      expect(autres).toHaveTextContent('15');
+      // La bascule ZD redemande le tableau trié sur le montant ZD.
+      fireEvent.click(screen.getByRole('radio', { name: 'ZD' }));
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([u]) => {
+              const s = String(u);
+              return (
+                s.includes('/admin/dashboard/revenus-organisations') &&
+                s.includes('tri=montant_zd_ht')
+              );
+            }),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.5/admin_revenus_repartition_survol — survol d’une part : carte avec nom du client, CA et part du total (Val 2026-11-05)',
+    async () => {
+      render(<DashboardAdminPage />);
+      const bloc = await screen.findByTestId(
+        'repartition-revenus-clients',
+        undefined,
+        ATTENTE_UI,
+      );
+      const arc = await within(bloc).findByLabelText(
+        /^Traiteur Alpha :/,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(bloc).queryByRole('tooltip')).toBeNull();
+      fireEvent.mouseEnter(arc);
+      fireEvent.mouseMove(arc, { clientX: 40, clientY: 50 });
+      const carte = within(bloc).getByRole('tooltip');
+      expect(carte).toHaveTextContent('Traiteur Alpha');
+      expect(carte).toHaveTextContent('CA HT');
+      expect(carte).toHaveTextContent('Part du total');
+      // 1 500 € sur 2 000 € : 75 %.
+      expect(carte).toHaveTextContent('75');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.5/admin_revenus_controls — titre bloc + champs de période présents, presets + export CSV retirés (revue E2E 2026-07-18)',
     async () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-      expect(screen.getByText('Revenu par organisation')).toBeInTheDocument();
+      expect(screen.getByText('Revenu par client')).toBeInTheDocument();
       expect(screen.getByTestId('revenus-periode')).toBeInTheDocument();
       // Filtre en ligne « Période  <période> ▾ » (décision Val 2026-09-30).
       expect(screen.getByRole('button', { name: /^Période/ })).toBe(
@@ -209,7 +336,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
   );
 
   it(
-    'M3.5/admin_revenus_defaut_12_mois — période par défaut = 12 derniers mois glissants (alignés au 1er du mois)',
+    'M3.5/admin_revenus_defaut_12_mois — période par défaut = 12 derniers mois glissants (alignés au 1er du mois), sans borne de fin',
     async () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
@@ -225,7 +352,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
           return (
             s.includes('/admin/dashboard/revenus-organisations') &&
             s.includes(`from=${from}`) &&
-            s.includes(`to=${to}`)
+            !s.includes('to=')
           );
         }),
       ).toBe(true);
@@ -238,15 +365,15 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
     async () => {
       render(<DashboardAdminPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-      const { from, to } = defaultWindow();
-      // Au montage, l'histogramme (kpi-admin) est requêté sur la MÊME fenêtre que le tableau.
+      const { from } = defaultWindow();
+      // Au montage, l'histogramme (revenus-mensuels) est requêté sur la MÊME fenêtre que le tableau.
       expect(
         fetchMock.mock.calls.some(([u]) => {
           const s = String(u);
           return (
-            s.includes('/dashboards/kpi-admin') &&
+            s.includes('/admin/dashboard/revenus-mensuels') &&
             s.includes(`from=${from}`) &&
-            s.includes(`to=${to}`)
+            !s.includes('to=')
           );
         }),
       ).toBe(true);
@@ -260,7 +387,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
             fetchMock.mock.calls.some(([u]) => {
               const s = String(u);
               return (
-                s.includes('/dashboards/kpi-admin') &&
+                s.includes('/admin/dashboard/revenus-mensuels') &&
                 s.includes(`from=${jour}`) &&
                 s.includes(`to=${jour}`)
               );
@@ -306,6 +433,107 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
             fetchMock.mock.calls.some(([u]) =>
               String(u).includes('tri=montant_ag_ht'),
             ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.5/admin_revenus_filtres_lieu_organisation — lieu et organisation cochés partent au graphe et au tableau, Réinitialiser les retire',
+    async () => {
+      render(<DashboardAdminPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+      const appels = (route: string, attendu: string) =>
+        fetchMock.mock.calls.some(([u]) => {
+          const s = String(u);
+          return s.includes(route) && s.includes(attendu);
+        });
+
+      fetchMock.mockClear();
+      fireEvent.click(screen.getByTestId('revenus-filtre-lieux'));
+      fireEvent.click(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Pavillon Gabriel — Paris' },
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(screen.getByTestId('org-filtre-gestionnaire_lieux'));
+      fireEvent.click(
+        await screen.findByRole('checkbox', { name: 'Viparis' }, ATTENTE_UI),
+      );
+      await waitFor(() => {
+        for (const route of [
+          '/admin/dashboard/revenus-organisations',
+          '/admin/dashboard/revenus-mensuels',
+        ]) {
+          expect(appels(route, 'lieu_ids=l1')).toBe(true);
+          expect(appels(route, 'organisation_ids=g1')).toBe(true);
+        }
+      }, ATTENTE_UI);
+
+      // Filtre posé → « Réinitialiser » visible ; il retire lieux et organisations.
+      fetchMock.mockClear();
+      fireEvent.click(screen.getByTestId('revenus-reinitialiser'));
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([u]) => {
+              const s = String(u);
+              return (
+                s.includes('/admin/dashboard/revenus-organisations') &&
+                !s.includes('lieu_ids') &&
+                !s.includes('organisation_ids')
+              );
+            }),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByTestId('org-filtre-gestionnaire_lieux'),
+      ).toHaveTextContent('Tous');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.5/admin_revenus_filtre_retour_page_1 — cocher un filtre depuis la page 2 recharge la page 1',
+    async () => {
+      totalRevenus = 120;
+      render(<DashboardAdminPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+      fireEvent.click(
+        await screen.findByLabelText('Page 2', undefined, ATTENTE_UI),
+      );
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([u]) => String(u).includes('page=2')),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      fetchMock.mockClear();
+      fireEvent.click(screen.getByTestId('revenus-filtre-lieux'));
+      fireEvent.click(
+        await screen.findByRole(
+          'checkbox',
+          { name: 'Pavillon Gabriel — Paris' },
+          ATTENTE_UI,
+        ),
+      );
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([u]) => {
+              const s = String(u);
+              return (
+                s.includes('/admin/dashboard/revenus-organisations') &&
+                s.includes('lieu_ids=l1') &&
+                s.includes('page=1')
+              );
+            }),
           ).toBe(true),
         ATTENTE_UI,
       );

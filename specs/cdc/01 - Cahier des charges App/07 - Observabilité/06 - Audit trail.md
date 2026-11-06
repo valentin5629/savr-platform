@@ -29,6 +29,8 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 | `tarif_refacture_pax_zd_update` | `organisations` | Modif tarif refacturé (route Admin, service_role — câblé R15) |
 | `parametres_algo_update` | `parametres_algo` | Modif paramètre algo/tarif (déjà tracé §04) |
 | `parametres_co2_divers_update` | `parametres_co2_divers` | Modif facteur CO₂ (déjà tracé §04) |
+| `parametres_facteurs_co2_correction` | `parametres_facteurs_co2` | Correction des valeurs d'origine par migration (`20261020220000`, 2026-10-20) : lignes avant / après + motif, sans auteur (aucune ligne `parametres_facteurs_co2_history`) |
+| `parametres_mix_emballages_correction` | `parametres_mix_emballages` | Idem pour le mix emballages (aucune ligne `parametres_mix_emballages_history`) |
 
 ### Fiscal / réglementaire
 | `action` | `table_cible` | Déclencheur |
@@ -41,8 +43,11 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 ### Packs AG
 | `action` | `table_cible` | Déclencheur |
 |---|---|---|
-| `pack_recredite_annulation_collecte` | `packs_antgaspi` | Trigger recrédit (déjà §04) |
-| `pack_debite_annulation_tardive` | `packs_antgaspi` | Trigger débit < 12h (déjà §04) |
+| `pack_debite_programmation` | `packs_antgaspi` | Trigger `trg_pack_debit_programmation` — débit d'un crédit quand une collecte AG devient `programmee` ; `old_values` `{collecte_id}` (ajout 2026-11-02, décision Val) |
+| `pack_recredite_annulation_collecte` | `packs_antgaspi` | Trigger recrédit — annulation 4h ou plus avant le créneau (ou incident non imputable au client), ou annulation post-réalisation (déjà §04 ; étendu 2026-11-02) |
+| `pack_recredite_rejet_prestataire` | `packs_antgaspi` | Trigger `trg_pack_recredit` — refus définitif du prestataire (`→ rejetee_par_prestataire`), crédit rendu (ajout 2026-11-02, décision Val) |
+| `pack_rattache_collecte` | `collectes` | RPC `rpc_rattacher_collecte_pack` — rattachement Admin après coup (ajout 2026-10-16) |
+| `pack_debite_annulation_tardive` | `packs_antgaspi` | Trigger annulation < 4h : le crédit décompté à la programmation est conservé, sans nouveau débit (déjà §04 ; sens révisé 2026-11-02) |
 | `pack_ajuste_manuel` | `packs_antgaspi` | Ajustement Ops/Admin |
 | `annulation_pack` | `packs_antgaspi` | Action Admin « Annuler le pack » (§06.06 §8) — `ancienne_valeur` `{statut:'actif'}`, `nouvelle_valeur` `{statut:'annule'}`, motif obligatoire (≥ 10 car.), auteur `admin_savr`/`ops_savr` |
 
@@ -58,6 +63,8 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 > Les lignes « déjà §04 » sont les actions que les sessions précédentes ont câblées dans la table ; ce fichier les **consolide en un catalogue unique** et ajoute les actions financières/fiscales/sécurité manquantes pour couverture complète.
 
 > **Frontière audit vs logs (précision R15).** Les connexions (login/logout) relèvent des logs business §07/01 (`auth.login_success` / `auth.login_failed`), **pas de l'`audit_log`** (la route login tourne en client anon et ne peut pas insérer ; ces logs alimentent la chaîne d'alerte bruteforce). L'envoi Pennylane est couvert par l'action `facture_emise` (déclencheur « Validation Admin → Pennylane ») — **pas d'action `pennylane_envoi` distincte**.
+
+> **Traces d'auteur hors catalogue** *(2026-10-06 / 2026-10-07)* : `lieu_modification_demandee` (sur `lieux`) et `lieu_ajout_demande` (sur `organisations`) tracent l'auteur d'une demande déposée par un gestionnaire (qui, quand ; sans les textes saisis, non recopiés dans une table non modifiable). Écrites par la route **après** l'alerte, hors transaction, au mieux (un échec est journalisé, la demande reste valable). Ce ne sont **pas** des actions sensibles au sens du §2 : les exigences du §5 (même transaction que la mutation, motif) ne s'y appliquent pas.
 
 ---
 
@@ -78,6 +85,6 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 ## 5. À implémenter (Claude Code)
 
 1. Pour chaque `action` du §2 non encore câblée (financier/fiscal/sécurité), brancher l'INSERT `audit_log` dans le trigger DB ou la fonction serveur correspondante, dans **la même transaction** que la mutation.
-2. `motif` obligatoire (≥ 10 car., validation applicative) pour : `collecte_statut_force`, `pesee_corrigee`, `pack_ajuste_manuel`, `annulation_pack`, `user_role_modifie`, `user_desactive` — **uniquement sur les routes STAFF** (`admin/users/[id]` et équivalentes). *(Arbitrage Val 2026-09-21, option (a))* : `user_role_modifie` / `user_desactive` émis depuis les routes **client** (`traiteur/equipe/[id]`, `gestionnaire/mon-organisation/users/[id]`) s'écrivent **sans motif** — exiger une justification écrite à chaque changement de rôle alourdirait un geste courant. Ces routes tournant sous `createSupabaseServerClient`, l'INSERT `audit_log` doit passer par le client admin (`authenticated` ne peut pas écrire `audit_log` : `permission denied for sequence audit_log_id_seq`).
+2. `motif` obligatoire (≥ 10 car., validation applicative) pour : `collecte_statut_force`, `pesee_corrigee`, `pack_ajuste_manuel`, `annulation_pack`, `user_role_modifie`, `user_desactive` — **uniquement sur les routes STAFF** (`admin/users/[id]` et équivalentes). *(Arbitrage Val 2026-09-21, option (a))* : `user_role_modifie` / `user_desactive` émis depuis les routes **client** (`traiteur/equipe/[id]`, `gestionnaire/mon-organisation/users/[id]`) s'écrivent **sans motif** — exiger une justification écrite à chaque changement de rôle alourdirait un geste courant. Ces routes tournant sous `createSupabaseServerClient`, l'INSERT `audit_log` doit passer par le client admin (`authenticated` ne peut pas écrire `audit_log` : `permission denied for sequence audit_log_id_seq`). La modification du pax d'une collecte par l'équipe Savr (fiche collecte Admin, [[05 - Règles métier#R_pax_collecte]]) exige aussi un motif (≥ 10 car.) : il est écrit dans la ligne d'audit `UPDATE` de la modification, sans action dédiée au catalogue §2 *(décision Val 2026-10-21)*.
 3. Aucun chemin d'écriture `audit_log` via une route API exposée — uniquement `SERVICE_ROLE`/`SECURITY DEFINER`.
 4. Test pgTAP : vérifier l'immuabilité — UPDATE, DELETE et vidage de table (TRUNCATE) refusés pour tous les **rôles applicatifs** (`service_role`, `authenticated`, `anon`), y compris en visant une partition annuelle directement. ⚠ **Le cas depuis une fonction `SECURITY DEFINER` n'est pas facultatif** : les trois rôles applicatifs n'ayant de toute façon pas le privilège de vidage (`20260617160000_plateforme_grant_service_role.sql` n'accorde que SELECT/INSERT/UPDATE/DELETE), c'est la SEULE assertion qui mesure réellement la présence du trigger — sans elle le test est vert par construction, trigger ou pas. Le propriétaire de la base (`postgres`) est **hors garantie** : un REVOKE lui est inopérant et il peut désactiver un trigger — la protection vise le bug et l'accident, pas un accès administrateur délibéré. Vérifier aussi la présence d'une ligne `audit_log` par action du §2.

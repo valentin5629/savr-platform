@@ -12,8 +12,13 @@ import type { BadgeProps } from '@/components/ui/badge';
  *   n'apparaît pas côté Admin ; son libellé « Brouillon » n'est qu'un repli.
  * - `client` : vue simplifiée pour les rôles non-admin (traiteur, agence,
  *   gestionnaire de lieux, client organisateur). Jamais « Programmée » ;
- *   « Réalisée » seulement à `cloturee` ; le rejet prestataire est masqué
- *   (affiché « Créée », sujet interne Ops).
+ *   « Réalisée » dès `realisee` ; le rejet prestataire est masqué (affiché
+ *   « Créée », sujet interne Ops).
+ *
+ * « Sans excédent » n'est pas un statut d'avancement (décision Val 2026-10-09) :
+ * une collecte AG `realisee_sans_collecte` s'affiche « Réalisée » dans les deux
+ * vues. Qu'elle n'ait rien donné est un RÉSULTAT, affiché là où se lisent les
+ * repas d'une collecte AG (`LIBELLE_SANS_EXCEDENT`).
  */
 /** Statut d'une collecte = enum DB `collecte_statut` (type unique, R-UI-2 C1). */
 export type StatutCollecteDb =
@@ -43,7 +48,7 @@ const ADMIN: Record<StatutCollecteAdmin, StatutDisplay> = {
   validee: { label: 'Validée', variant: 'primary' },
   en_cours: { label: 'En cours', variant: 'info' },
   realisee: { label: 'Réalisée', variant: 'success' },
-  realisee_sans_collecte: { label: 'Sans excédents', variant: 'warning' },
+  realisee_sans_collecte: { label: 'Réalisée', variant: 'success' },
   cloturee: { label: 'Clôturée', variant: 'neutral' },
   annulation_demandee: { label: 'Annulation demandée', variant: 'error' },
   annulee: { label: 'Annulée', variant: 'error' },
@@ -52,19 +57,27 @@ const ADMIN: Record<StatutCollecteAdmin, StatutDisplay> = {
 
 // Vue client (non-admin) — collapse 2026-06-30 (Val) :
 //   brouillon, programmee, rejetee_par_prestataire → « Créée »
-//   realisee → « En cours » (« Réalisée » réservé à cloturee)
+//   realisee → « Réalisée » (Val 2026-11-04 : dès la réalisation, plus
+//   seulement à la clôture)
 const CLIENT: Record<StatutCollecteDb, StatutDisplay> = {
   brouillon: { label: 'Créée', variant: 'neutral' },
   programmee: { label: 'Créée', variant: 'neutral' },
   validee: { label: 'Validée', variant: 'primary' },
   en_cours: { label: 'En cours', variant: 'info' },
-  realisee: { label: 'En cours', variant: 'info' },
-  realisee_sans_collecte: { label: 'Sans excédents', variant: 'warning' },
+  realisee: { label: 'Réalisée', variant: 'success' },
+  realisee_sans_collecte: { label: 'Réalisée', variant: 'success' },
   cloturee: { label: 'Réalisée', variant: 'success' },
   annulation_demandee: { label: 'Annulée', variant: 'error' },
   annulee: { label: 'Annulée', variant: 'error' },
   rejetee_par_prestataire: { label: 'Créée', variant: 'neutral' },
 };
+
+/**
+ * Résultat d'une collecte AG `realisee_sans_collecte`, affiché à la place des
+ * repas donnés : colonne « Indicateurs » de la liste Admin, colonne
+ * « Résultats » des listes client, fiche Admin (décision Val 2026-10-09).
+ */
+export const LIBELLE_SANS_EXCEDENT = 'Sans excédent';
 
 /**
  * Libellés du statut collecte pour les exports CSV : vue admin (granularité
@@ -93,7 +106,7 @@ export const ETAPES_STATUT_COLLECTE = [
 /**
  * Rang de chaque statut sur le parcours nominal (1 = creee … 6 = cloturee ;
  * 0 = hors parcours : brouillon, annulation, rejet). `realisee_sans_collecte`
- * (AG sans excédents) occupe le rang de `realisee`.
+ * (AG sans excédent) occupe le rang de `realisee`, sous le même libellé.
  */
 export const RANG_STATUT_COLLECTE: Record<StatutCollecteAdmin, number> = {
   brouillon: 0,
@@ -127,8 +140,9 @@ export function statutCollecteDisplay(
  * Groupes de statuts pour le filtre « Statut » des listes CLIENT (§06.04 §3).
  *
  * En vue client plusieurs statuts DB partagent un libellé (« Créée » =
- * brouillon + programmee + rejetee_par_prestataire ; « En cours » = en_cours +
- * realisee ; « Annulée » = annulation_demandee + annulee). Le filtre doit donc
+ * brouillon + programmee + rejetee_par_prestataire ; « En cours » = en_cours ;
+ * « Réalisée » = realisee + realisee_sans_collecte + cloturee ; « Annulée » =
+ * annulation_demandee + annulee). Le filtre doit donc
  * proposer les LIBELLÉS affichés — l'utilisateur ne voit jamais « Programmée » —
  * et chaque libellé retenu se traduit par l'ensemble des statuts DB qu'il couvre.
  *
@@ -154,14 +168,14 @@ export interface EtapeFriseClient {
 }
 
 // Rang de chaque statut DB sur la frise client : Créée(0) · Validée(1) ·
-// En cours(2) · Réalisée / Sans excédents(3).
+// En cours(2) · Réalisée(3).
 const RANG_FRISE_CLIENT: Record<string, number> = {
   brouillon: 0,
   programmee: 0,
   rejetee_par_prestataire: 0,
   validee: 1,
   en_cours: 2,
-  realisee: 2,
+  realisee: 3,
   cloturee: 3,
   realisee_sans_collecte: 3,
 };
@@ -170,8 +184,8 @@ const RANG_FRISE_CLIENT: Record<string, number> = {
  * Frise de statut de la fiche collecte CLIENT (§06.04 refonte pop-up, décision
  * Val 2026-09-29, Q1) — vocabulaire client uniquement, dérivé du mapping
  * canonique ci-dessus (jamais « Programmée » ni « Clôturée ») :
- *  · parcours : Créée · Validée · En cours · Réalisée ;
- *  · AG sans excédents : la dernière étape devient « Sans excédents » ;
+ *  · parcours : Créée · Validée · En cours · Réalisée (une collecte AG sans
+ *    excédent s'y lit « Réalisée » comme les autres, décision Val 2026-10-09) ;
  *  · collecte annulée : Créée · Annulée (étape courante « Annulée »).
  */
 export function friseStatutClient(statut: string): EtapeFriseClient[] {
@@ -188,12 +202,50 @@ export function friseStatutClient(statut: string): EtapeFriseClient[] {
     label('programmee'),
     label('validee'),
     label('en_cours'),
-    statut === 'realisee_sans_collecte'
-      ? label('realisee_sans_collecte')
-      : label('cloturee'),
+    label('cloturee'),
   ];
   return etapes.map((l, i) => ({
     label: l,
+    etat: i < courant ? 'passee' : i === courant ? 'courante' : 'a_venir',
+  }));
+}
+
+const STATUTS_ANNULES_FRISE = new Set(['annulee', 'annulation_demandee']);
+// Ne retiennent pas la frise non plus (décision Val 2026-10-27) : une collecte
+// refusée par le prestataire ou restée en brouillon n'avancera plus d'elle-même.
+const STATUTS_HORS_FRISE = new Set([
+  ...STATUTS_ANNULES_FRISE,
+  'rejetee_par_prestataire',
+  'brouillon',
+]);
+
+/**
+ * Frise de la fiche événement du gestionnaire (décision Val 2026-10-26) : mêmes
+ * étapes que la frise client, au masculin. L'événement passe à l'étape suivante
+ * quand TOUTES ses collectes l'ont passée : son étape est la plus basse de ses
+ * collectes. Les collectes annulées, refusées par le prestataire ou en brouillon
+ * n'y comptent pas. Quand aucune ne compte et qu'au moins une est annulée, la
+ * frise se lit « Créé · Annulé ». Sans collecte qui compte : « Créé ».
+ */
+export function friseStatutEvenement(
+  statuts: readonly string[],
+): EtapeFriseClient[] {
+  const actives = statuts.filter((s) => !STATUTS_HORS_FRISE.has(s));
+  if (
+    actives.length === 0 &&
+    statuts.some((s) => STATUTS_ANNULES_FRISE.has(s))
+  ) {
+    return [
+      { label: 'Créé', etat: 'passee' },
+      { label: 'Annulé', etat: 'courante' },
+    ];
+  }
+  const courant =
+    actives.length === 0
+      ? 0
+      : Math.min(...actives.map((s) => RANG_FRISE_CLIENT[s] ?? 0));
+  return ['Créé', 'Validé', 'En cours', 'Réalisé'].map((label, i) => ({
+    label,
     etat: i < courant ? 'passee' : i === courant ? 'courante' : 'a_venir',
   }));
 }

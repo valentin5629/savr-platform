@@ -6,18 +6,27 @@ import {
 } from '@/components/ui/filtre-en-ligne';
 import { TAILLE_OPTIONS } from './taille-options.js';
 
-// Valeurs des 4 filtres « parc » communs (§06.05 §1) — hors Période (gérée par la
-// barre parente). Utilisé par la barre globale du dashboard.
+// Valeurs des filtres de la barre globale des dashboards, hors Période (gérée
+// par la barre parente).
 export interface ParcFilterValue {
   lieu_ids: string[];
   traiteur_ids: string[];
+  /** Noms de client organisateur (traiteur, agence — §06.04). */
+  client_noms: string[];
   type_evenement_ids: string[];
   taille_evenement_codes: string[];
 }
 
+/**
+ * Options de la barre. Chaque rôle n'en reçoit que les siennes : `traiteurs`
+ * (gestionnaire, client organisateur, Dashboard Client Admin) ou `clients`
+ * (traiteur, agence, §06.04 : pas de filtre Traiteurs, c'est lui seul). Un
+ * filtre sans options fournies n'est pas affiché.
+ */
 export interface ParcFilterOptions {
   lieux: OptionFiltre[];
-  traiteurs: OptionFiltre[];
+  traiteurs?: OptionFiltre[];
+  clients?: OptionFiltre[];
   /** Types d'événement (référentiel) au format { id, libelle }. */
   types: { id: string; libelle: string }[];
 }
@@ -31,8 +40,9 @@ interface ParcMultiSelectsProps {
 }
 
 /**
- * 4 filtres à cocher « parc » (Lieux / Traiteurs / Type d'événement / Taille) —
- * §06.05 §1, au format en ligne (à placer dans une `BarreFiltres`).
+ * Filtres à cocher de la barre globale, au format en ligne (à placer dans une
+ * `BarreFiltres`) : Lieux, puis Client organisateur (traiteur, agence) ou
+ * Traiteurs (§06.05 §1), puis Type et Taille d'événement.
  * Composant présentationnel pur : aucune fetch, aucun état, aucune écriture.
  */
 export function ParcMultiSelects({
@@ -55,13 +65,24 @@ export function ParcMultiSelects({
         onChange={(ids) => onChange({ lieu_ids: ids })}
         testid={`${testidPrefix}-lieux`}
       />
-      <FiltreCoches
-        label="Traiteurs"
-        options={options.traiteurs}
-        selected={value.traiteur_ids}
-        onChange={(ids) => onChange({ traiteur_ids: ids })}
-        testid={`${testidPrefix}-traiteurs`}
-      />
+      {options.clients && (
+        <FiltreCoches
+          label="Client organisateur"
+          options={options.clients}
+          selected={value.client_noms}
+          onChange={(ids) => onChange({ client_noms: ids })}
+          testid={`${testidPrefix}-clients`}
+        />
+      )}
+      {options.traiteurs && (
+        <FiltreCoches
+          label="Traiteurs"
+          options={options.traiteurs}
+          selected={value.traiteur_ids}
+          onChange={(ids) => onChange({ traiteur_ids: ids })}
+          testid={`${testidPrefix}-traiteurs`}
+        />
+      )}
       <FiltreCoches
         label="Type d'événement"
         options={typeOptions}

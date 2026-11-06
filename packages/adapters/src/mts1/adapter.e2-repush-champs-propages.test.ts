@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { AdapterMts1 } from './adapter.js';
-import type { Mts1CreatedTour } from './mock.js';
 import {
   PRESTA_MTS1,
   builderTransporteurs,
@@ -74,7 +73,7 @@ const TRANSPORTEUR: Transporteur = {
 // (`collecte_tournees.tournee_id` → `tournees.id`), donc PostgREST renvoie un
 // objet, jamais un tableau. Ce fichier épingle le CONTENU du payload ; la forme
 // de l'embed est ancrée par `embed-cardinalite.test.ts`.
-function mockSupabaseDispatched() {
+function mockSupabaseDispatched(referenceInterne?: string) {
   const mockQuery = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockResolvedValue({
@@ -83,6 +82,9 @@ function mockSupabaseDispatched() {
           rang: 1,
           tournees: {
             id: 'tournee-e2-001',
+            ...(referenceInterne
+              ? { reference_interne: referenceInterne }
+              : {}),
             external_ref_commande: 'MTS1-ORDER-E2-001',
             tms_reference: 'MTS1-TOUR-E2-001',
             statut: 'en_cours',
@@ -125,6 +127,7 @@ function mockSupabaseVierge() {
     upsert: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     not: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
     // findTournees lit une LISTE (plus de maybeSingle) → builder thenable.
@@ -141,6 +144,7 @@ function mockSupabaseVierge() {
 /** Joue E2 sur `collecte` et rend le corps du PUT réellement adressé à MTS-1. */
 async function putPayload(
   collecte: Collecte,
+  referenceInterne?: string,
 ): Promise<Record<string, unknown>> {
   const updateOrder = vi.fn().mockResolvedValue(undefined);
   _setMts1Handlers({
@@ -149,9 +153,10 @@ async function putPayload(
     postOrder: vi.fn(),
     updateOrder,
   });
-  await new AdapterMts1(TRANSPORTEUR, mockSupabaseDispatched()).updateCollecte(
-    collecte,
-  );
+  await new AdapterMts1(
+    TRANSPORTEUR,
+    mockSupabaseDispatched(referenceInterne),
+  ).updateCollecte(collecte);
   expect(updateOrder).toHaveBeenCalledOnce();
   return updateOrder.mock.calls[0]![1] as Record<string, unknown>;
 }
@@ -177,10 +182,8 @@ async function postPayload(
       status: 'DRAFT',
       createdAt: '',
       customerOrderId: 'MTS1-ORDER-NEW-E2',
-    } satisfies Mts1CreatedTour),
+    }),
     addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-    dispatchTour: vi.fn().mockResolvedValue(undefined),
-    validateTour: vi.fn().mockResolvedValue(undefined),
   });
   await new AdapterMts1(TRANSPORTEUR, mockSupabaseVierge()).dispatchCollecte(
     collecte,
@@ -320,8 +323,37 @@ describe('E1/E2 — rien d’INTERNE ne sort vers le prestataire', () => {
       'comment',
       'contact',
       'orderDate',
+      'orderNumber',
       'place',
     ]);
+  });
+});
+
+describe('E2 — le numéro de commande suit le libellé (décision Val 2026-10-15, C59)', () => {
+  afterEach(() => _setMts1Handlers(null));
+
+  it('M1.5a/modification_renomme_commande — pax modifiés : le PUT renvoie « Traiteur - Lieu - N pax » à jour, suivi de la même clé', async () => {
+    const payload = await putPayload({
+      ...COLLECTE_DISPATCHEE,
+      traiteur_nom: 'Traiteur Essai',
+      pax: 150,
+    });
+    expect(payload['orderNumber']).toBe(
+      'Traiteur Essai - Salle Pleyel - 150 pax · col-e2-001-1',
+    );
+  });
+
+  it('M1.5a/modification_renomme_commande_tentative — camion refusé puis réattribué : le numéro renvoyé garde la clé de la tentative (-r2), jamais celle de la commande annulée', async () => {
+    // Sans le suffixe, le numéro porterait la clé de l'ancienne commande : une
+    // reprise ultérieure chercherait « …-1-r2 », ne la trouverait plus et
+    // re-créerait la commande.
+    const payload = await putPayload(
+      { ...COLLECTE_DISPATCHEE, traiteur_nom: 'Traiteur Essai', pax: 150 },
+      'TMS-col-e2-001-1-r2',
+    );
+    expect(payload['orderNumber']).toBe(
+      'Traiteur Essai - Salle Pleyel - 150 pax · col-e2-001-1-r2',
+    );
   });
 });
 
@@ -362,6 +394,9 @@ const MAPPING_E2: Record<string, { cle: string } | { exclu: string }> = {
   heure_collecte: { cle: 'place.timeslots' },
   lieu_overrides: { cle: 'place.address' },
   informations_supplementaires: { cle: 'comment' },
+  // Pax de la collecte (décision Val 2026-10-20) : il part dans le numéro de
+  // commande (« Traiteur - Lieu - N pax ») et en tête du commentaire.
+  pax: { cle: 'orderNumber' },
   // MTS-1 n'a aucun champ natif pour le contrôle d'accès (concern V2 TMS via
   // validate_tournee_controle_acces) — hors payload sortant V1, déjà tracé.
   controle_acces_requis: { exclu: 'aucun champ natif MTS-1 (V1)' },
@@ -439,6 +474,7 @@ describe('Cliquet — tout champ « propagé au TMS » a une contrepartie E2', (
         { informations_supplementaires: 'Quai 3' },
         { informations_supplementaires: 'Quai 4' },
       ],
+      pax: [{ pax: 120 }, { pax: 480 }],
     };
 
     for (const [champ, [va, vb]] of Object.entries(variantes)) {

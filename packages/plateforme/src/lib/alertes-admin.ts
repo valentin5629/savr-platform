@@ -9,6 +9,10 @@
 // Admin »), jamais poussées sur Slack. Cet écran est ce canal.
 
 import { ROUTES } from '@/lib/routes';
+import {
+  CODE_ALERTE_EMAIL_NON_REMIS,
+  CODE_ALERTE_INFOS_ACCES_NON_REMISES,
+} from '@/lib/emails/codes-alertes';
 import { CODE_ALERTE_LIEU_AJOUT } from '@/lib/lieux/demande-ajout';
 import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification';
 
@@ -20,7 +24,6 @@ export type AlerteSeverite = 'critique' | 'attention' | 'info';
 const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // Critiques — action requise, risque métier/comptable/logistique.
   pack_ag_epuise: 'critique',
-  ag_realisee_sans_pack_actif: 'critique',
   pdf_job_dead: 'critique',
   pennylane_echec_final: 'critique',
   collecte_rejetee_prestataire: 'critique',
@@ -31,6 +34,13 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // Client qui demande en urgence les coordonnées du chauffeur (fiche collecte,
   // §06.04 refonte 2026-09-29) : clôturée automatiquement à leur réception.
   coordonnees_chauffeur_urgence: 'critique',
+  // Email définitivement perdu (4 tentatives épuisées, ou refus de la messagerie
+  // du destinataire) — même rang que les échecs finaux PDF et Pennylane (§08 §6).
+  [CODE_ALERTE_EMAIL_NON_REMIS]: 'critique',
+  // Email des coordonnées chauffeur non parvenu au programmateur : le contrôle
+  // d'accès du site n'a pas le nom du chauffeur. Close automatiquement si
+  // l'email finit par partir.
+  [CODE_ALERTE_INFOS_ACCES_NON_REMISES]: 'critique',
   // À traiter — anomalie à instruire, sans urgence bloquante.
   ag_annulee_tardive_sans_pack_actif: 'attention',
   attribution_aucun_prestataire: 'attention',
@@ -48,6 +58,10 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // actif : risque de double passage (M14 EC11, warning). Même angle mort que
   // ci-dessus : aucun mot-clé de repli ne la teinte.
   everest_mission_hors_attribution: 'attention',
+  // Tournée confiée dans la console MTS-1 à un transporteur que le référentiel
+  // Savr ne connaît pas (ou que plusieurs transporteurs portent) : la fiche
+  // garde l'ancien transporteur. Aucun mot-clé de repli ne la teinte.
+  transporteur_mts1_inconnu: 'attention',
   // Gestionnaire qui demande la correction d'une information de son lieu (fiche
   // lieu, bouton « Demande de modification d'information ») : l'Admin corrige
   // la fiche puis résout l'alerte — tant qu'elle est ouverte, le gestionnaire
@@ -58,6 +72,10 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // puis résout l'alerte, rattachée à l'organisation qui demande.
   [CODE_ALERTE_LIEU_AJOUT]: 'attention',
   // Informatives — trace d'un événement à connaître.
+  // Collecte AG réalisée sans pack actif : facturée à l'unité, rien à arbitrer ;
+  // l'alerte reste pour retrouver les collectes à rattacher à un pack pris plus
+  // tard (décision Val 2026-10-16, ex-critique).
+  ag_realisee_sans_pack_actif: 'info',
   shadow_traiteur_cree: 'info',
   shadow_siret_complete: 'info',
   lieu_override_programmation: 'info',

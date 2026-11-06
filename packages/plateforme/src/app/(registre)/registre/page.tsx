@@ -5,9 +5,10 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { fmtKg } from '@/lib/format';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookOpen } from 'lucide-react';
+import { BookOpenIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
+import { BadgesLigne } from '@/components/ui/badges-ligne';
 import {
   DataGrid,
   type ColumnDef,
@@ -251,13 +252,7 @@ function RegistreContent() {
       id: 'flux',
       header: 'Flux',
       cell: ({ row: { original: r } }) => (
-        <div className="flex flex-wrap gap-1">
-          {(r.flux_codes ?? []).map((c) => (
-            <Badge key={c} variant="neutral">
-              {libelleFlux(c)}
-            </Badge>
-          ))}
-        </div>
+        <BadgesLigne libelles={(r.flux_codes ?? []).map(libelleFlux)} />
       ),
     },
     {
@@ -291,20 +286,12 @@ function RegistreContent() {
   return (
     <div className="space-y-4">
       <PageHero
-        icon={<BookOpen className="h-6 w-6 text-savr-primary-200" />}
+        icon={<BookOpenIcon className="h-6 w-6" />}
         title="Registre réglementaire"
         actions={
           <>
             <Button variant="secondary" asChild>
               <a href={ROUTES.registreMethodologie}>Méthodologie</a>
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                window.open(`/api/v1/registre/export-csv?${queryString(true)}`)
-              }
-            >
-              Exporter CSV
             </Button>
             <Button
               variant="accent"
@@ -379,6 +366,13 @@ function RegistreContent() {
           comme un registre vide. */}
       <DataGrid
         data-testid="registre-table"
+        toolbarActions={
+          <BoutonExportCsv
+            onClick={() =>
+              window.open(`/api/v1/registre/export-csv?${queryString(true)}`)
+            }
+          />
+        }
         columns={colonnes}
         data={rows}
         getRowId={(r) => r.collecte_id}

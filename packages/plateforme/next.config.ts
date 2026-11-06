@@ -1,8 +1,20 @@
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
+import { enTetesSecurite } from './src/lib/en-tetes-securite';
 
 const config: NextConfig = {
   transpilePackages: ['@savr/shared'],
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: enTetesSecurite(
+          process.env.NODE_ENV === 'production',
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+        ),
+      },
+    ];
+  },
   env: {
     // Environnement Sentry figé AU BUILD (lu serveur ET navigateur) : Vercel pose
     // NODE_ENV=production en Preview comme en Production, seul VERCEL_ENV les

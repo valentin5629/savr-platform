@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  lireEntiteFacturation,
   requireCompletedOrganisation,
   requireValidatedOrganisation,
 } from '@/lib/onboarding-guards.js';
@@ -150,6 +151,67 @@ describe('M0.4 — requireCompletedOrganisation (BL-P1-ONB-05)', () => {
       const json = (await res.error.json()) as { error: string };
       expect(json.error).not.toMatch(/SIRET/);
     }
+  });
+});
+
+// Lecture et création séparées : la route de programmation lit l'entité avant
+// ses gardes, et ne la crée qu'après son frein de débit (décision Val 2026-10-13).
+describe('M0.4 — lireEntiteFacturation, puis création après coup', () => {
+  it('lireEntiteFacturation ne crée jamais : entité rendue, ou null quand l’organisation n’en a pas', async () => {
+    const avec = fakeSupabase({ lectures: [{ id: 'ef-1' }] });
+    expect(await lireEntiteFacturation(avec.client, 'org-1')).toEqual({
+      ok: true,
+      entiteFacturationId: 'ef-1',
+    });
+
+    const sans = fakeSupabase({ lectures: [null] });
+    expect(await lireEntiteFacturation(sans.client, 'org-1')).toEqual({
+      ok: true,
+      entiteFacturationId: null,
+    });
+    for (const { appels } of [avec, sans]) {
+      expect(appels.some((a) => a.maillon === 'insert')).toBe(false);
+      expect(new Set(appels.map((a) => a.table))).toEqual(
+        new Set(['entites_facturation']),
+      );
+    }
+  });
+
+  it('lireEntiteFacturation : lecture en échec → erreur 500, jamais « aucune entité »', async () => {
+    const { client } = fakeSupabase({
+      lectures: [null],
+      erreurLecture: { message: 'timeout' },
+    });
+    const res = await lireEntiteFacturation(client, 'org-1');
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.status).toBe(500);
+  });
+
+  it('entité déjà lue et présente : rendue telle quelle, aucune requête', async () => {
+    const { client, appels } = fakeSupabase({ lectures: [] });
+    const res = await requireCompletedOrganisation(client, 'org-1', {
+      entiteFacturationId: 'ef-1',
+    });
+    expect(res).toEqual({ ok: true, entiteFacturationId: 'ef-1' });
+    expect(appels).toEqual([]);
+  });
+
+  it('entité déjà lue et absente : créée sans relire l’entité', async () => {
+    const { client, appels } = fakeSupabase({
+      lectures: [{ nom: 'Traiteur Dupont' }],
+      insert: { data: { id: 'ef-creee' }, error: null },
+    });
+    const res = await requireCompletedOrganisation(client, 'org-1', {
+      entiteFacturationId: null,
+    });
+    expect(res).toEqual({ ok: true, entiteFacturationId: 'ef-creee' });
+    // Première requête : l'organisation, pas une seconde lecture de l'entité.
+    expect(appels[0]).toMatchObject({ table: 'organisations' });
+    expect(
+      appels.filter(
+        (a) => a.table === 'entites_facturation' && a.maillon === 'insert',
+      ),
+    ).toHaveLength(1);
   });
 });
 

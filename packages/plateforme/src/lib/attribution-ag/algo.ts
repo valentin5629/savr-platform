@@ -27,6 +27,8 @@ export interface AlgoAttributionResult {
   no_prestataire: boolean;
   delai_minutes: number;
   nb_pax: number;
+  // Lieu sans région ni code postal (migration 20261103170000).
+  region_inconnue?: boolean;
 }
 
 export async function calculerAlgoAttributionAg(

@@ -11,6 +11,10 @@ import {
   lireFiltresCollectesGestionnaire,
 } from '@/lib/collectes-gestionnaire.js';
 import { parsePage } from '@/lib/pagination.js';
+import {
+  creneauDeLaVue,
+  lireVueCollectes,
+} from '@/lib/collectes/vue-temporelle.js';
 import { lireTri } from '@/lib/tri-liste.js';
 
 // Colonnes triables de la liste (paramètre `tri`) → colonnes SQL.
@@ -22,6 +26,25 @@ const TRIS = {
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
+// Déchets labo estimés de LA collecte = pax de la collecte × coefficient (Val Q3
+// du 2026-10-24). `f_dechets_labo_estimes` rend celui de l'événement (pax de
+// l'événement × coefficient) sans exposer le coefficient : la part de la
+// collecte en est tirée au prorata des pax. Pax de la collecte ou de
+// l'événement à 0 (inconnu) → NULL, « — » à l'écran, comme la règle §05.
+function partDeLaCollecte(
+  estimationEvenement: number | null,
+  paxCollecte: number | null,
+  paxEvenement: number | null,
+): number | null {
+  if (estimationEvenement == null) return null;
+  if (!paxCollecte || paxCollecte <= 0 || !paxEvenement || paxEvenement <= 0)
+    return null;
+  const kg = (Number(estimationEvenement) * paxCollecte) / paxEvenement;
+  // Le coefficient a 4 décimales : arrondir au même pas efface l'erreur de calcul
+  // en virgule flottante sans changer la valeur.
+  return Math.round(kg * 10000) / 10000;
+}
+
 // Embed to-one PostgREST : objet ou tableau selon le cache de schéma.
 type UnOuListe<T> = T | T[] | null;
 function un<T>(v: UnOuListe<T>): T | null {
@@ -32,12 +55,17 @@ function un<T>(v: UnOuListe<T>): T | null {
 type LigneBrute = Record<string, unknown> & {
   type: string;
   evenement_id: string | null;
+  // Pax de LA collecte (décision Val 2026-10-20), pas celui de l'événement.
+  pax: number | null;
   collecte_flux: { poids_reel_kg: number | null }[] | null;
   attributions_antgaspi: UnOuListe<{ volume_repas_realise: number | null }>;
   evenements: UnOuListe<{
     nom_evenement: string | null;
     nom_client_organisateur: string | null;
-    pax: number | null;
+    // Pax de l'événement, lu sous un autre nom pour ne jamais être pris pour
+    // celui de la ligne : sert seulement à tirer des déchets labo estimés de
+    // l'événement la part de la collecte (voir `partDeLaCollecte`).
+    pax_evenement: number | null;
     lieux: UnOuListe<{
       nom: string | null;
       adresse_acces: string | null;
@@ -92,6 +120,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const statut = sp.get('statut');
   const from = sp.get('from');
   const to = sp.get('to');
+  const vue = lireVueCollectes(sp.get('vue'));
   // Lieu, Traiteur, Type et Taille d'événement : lus par la même fonction que
   // l'export CSV de la liste (`lib/collectes-gestionnaire`).
   const { lieuIds, traiteurIds, typeEvtIds, predicatsTaille, aucunResultat } =
@@ -122,11 +151,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // écrans du rôle.
     let q = supabase.from('collectes').select(
       `id, evenement_id, type, statut, statut_tms, date_collecte,
-       heure_collecte, taux_recyclage, co2_evite_kg, realisee_at,
+       heure_collecte, pax, taux_recyclage, co2_evite_kg, realisee_at,
        collecte_flux(poids_reel_kg),
        attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise),
        evenements!inner(
-         nom_evenement, nom_client_organisateur, pax, lieu_id,
+         nom_evenement, nom_client_organisateur, pax_evenement:pax, lieu_id,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, adresse_acces, code_postal, ville),
          organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(nom)
@@ -145,17 +174,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (statut) q = q.eq('statut', statut);
     if (from) q = q.gte('date_collecte', from);
     if (to) q = q.lte('date_collecte', to);
+    // Vue « à venir / passées » : rangée au créneau, à la minute (Val 2026-11-03).
+    if (vue) q = q.or(creneauDeLaVue(vue, new Date()));
     if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
     if (traiteurIds.length > 0)
       q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
-    if (typeEvtIds.length > 0)
-      q = q.in('evenements.type_evenement_id', typeEvtIds);
+    // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
+    // 2026-10-22 et C4 du 2026-10-20, lot C1) — une collecte « Repas assis » d'un
+    // événement « Cocktail » sort sous « Repas assis », et une soirée de 300
+    // convives d'un événement de deux soirées est rangée selon ses 300 convives.
+    if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
     // Un seul `.or()` pour tous les brackets retenus : ses termes sont OU-és entre
     // eux et l'ensemble est ET-é avec les filtres ci-dessus. Mesuré contre le
     // PostgREST local : `lieu_id` seul = 7 lignes, `lieu_id` + taille M = 6 — le
-    // `.or()` ne désarme pas les filtres voisins.
-    if (predicatsTaille.length > 0)
-      q = q.or(predicatsTaille.join(','), { referencedTable: 'evenements' });
+    // `.or()` ne désarme pas les filtres voisins. Sans `referencedTable` : il
+    // porte sur `collectes.pax`.
+    if (predicatsTaille.length > 0) q = q.or(predicatsTaille.join(','));
     return q;
   };
 
@@ -190,12 +224,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // décision Val 2026-10-07 : sur les collectes ZÉRO DÉCHET seulement (« la
   // notion ne tient pas pour les collectes AG »). Une collecte anti-gaspi ne
   // porte donc aucune estimation, et la fonction n'est pas appelée pour elle.
-  // C'est une estimation de l'ÉVÉNEMENT (couverts × coefficient annuel du
-  // traiteur opérationnel) : deux collectes ZD d'un même événement portent la
-  // même valeur, calculée une seule fois. Fonction SECURITY DEFINER : la
-  // session ne lit jamais `coefficients_perte_labo`, seuls les kg sortent. Elle n'est appelée que
-  // pour les événements de la page que la RLS vient de rendre, soit PAGE_SIZE
-  // appels au plus.
+  // La ligne porte l'estimation de LA collecte (pax de la collecte × coefficient,
+  // décision Val Q3 du 2026-10-24), tirée de celle de l'événement que rend la
+  // fonction (`partDeLaCollecte`), appelée une fois par événement. Fonction
+  // SECURITY DEFINER : la session ne lit jamais `coefficients_perte_labo`,
+  // seuls les kg sortent. Elle n'est appelée que pour les événements de la page
+  // que la RLS vient de rendre, soit PAGE_SIZE appels au plus.
   // NULL = coefficient non communiqué → « — » à l'écran ; 0 = coefficient
   // déclaré à zéro, une vraie valeur. Un appel en échec vaut NULL lui aussi —
   // l'estimation est un complément, elle ne fait pas tomber la liste — mais il
@@ -240,7 +274,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       // saisie faite d'espaces vaut « non renseigné ».
       client_nom: evt?.nom_client_organisateur?.trim() || null,
       traiteur_nom: un(evt?.organisations ?? null)?.nom ?? null,
-      pax: evt?.pax ?? null,
+      pax: c.pax ?? null,
       lieu_nom: lieu?.nom ?? null,
       lieu_adresse:
         [lieu?.adresse_acces, lieu?.code_postal, lieu?.ville]
@@ -257,7 +291,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       nb_repas_donnes: un(attributions_antgaspi)?.volume_repas_realise ?? null,
       dechets_labo_kg:
         porteEstimation(c) && c.evenement_id
-          ? (dechetsLabo.get(c.evenement_id) ?? null)
+          ? partDeLaCollecte(
+              dechetsLabo.get(c.evenement_id) ?? null,
+              c.pax,
+              evt?.pax_evenement ?? null,
+            )
           : null,
     };
   });

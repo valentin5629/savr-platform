@@ -2,10 +2,12 @@
 
 import * as React from 'react';
 import { fmtInt } from './fmt';
+import { useCompteur, useEntreeGraphique } from '../entree-graphique';
 import { RING_OK, RING_LOW, TRACK, PACK_BADGE, WHITE } from './palette';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { fmtPct } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 export interface PackAgRingProps {
   creditsInitiaux: number;
@@ -20,6 +22,9 @@ export function PackAgRing({
   creditsInitiaux,
   creditsRestants,
 }: PackAgRingProps) {
+  const entree = useEntreeGraphique<HTMLDivElement>('pack-ag');
+  // Le grand chiffre monte de 0 à sa valeur pendant l'entrée de la jauge.
+  const restantsAnimes = useCompteur(creditsRestants, entree.phase);
   const consommes = Math.max(0, creditsInitiaux - creditsRestants);
   const pctRestant =
     creditsInitiaux > 0 ? creditsRestants / creditsInitiaux : 0;
@@ -34,7 +39,7 @@ export function PackAgRing({
   if (creditsRestants === 0) {
     badge = (
       <span
-        className="inline-block rounded-savr-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] tabular-nums"
+        className="inline-block rounded-savr-full px-2.5 py-1 text-3xs font-bold uppercase tracking-[0.08em] tabular-nums"
         style={PACK_BADGE.epuise}
       >
         Pack épuisé
@@ -43,7 +48,7 @@ export function PackAgRing({
   } else if (low) {
     badge = (
       <span
-        className="inline-block rounded-savr-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] tabular-nums"
+        className="inline-block rounded-savr-full px-2.5 py-1 text-3xs font-bold uppercase tracking-[0.08em] tabular-nums"
         style={PACK_BADGE.faible}
       >
         {`Solde faible · ${fmtPct(pctRestant * 100, 1)}`}
@@ -55,7 +60,7 @@ export function PackAgRing({
     <Card variant="elevated" padding="lg">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-[15px] font-extrabold text-savr-neutral-900">
+          <div className="text-md font-extrabold text-savr-neutral-900">
             Mon pack Anti-Gaspi
           </div>
           <Text as="div" className="mt-0.5">
@@ -67,10 +72,10 @@ export function PackAgRing({
           </Text>
         </div>
         <div className="shrink-0 text-right">
-          <span className="text-[34px] font-black leading-none tabular-nums text-savr-neutral-900">
-            {fmtInt(creditsRestants)}
+          <span className="text-kpi font-black leading-none tabular-nums text-savr-neutral-900">
+            {fmtInt(restantsAnimes)}
           </span>
-          <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-savr-neutral-400">
+          <div className="mt-0.5 text-3xs font-bold uppercase tracking-[0.08em] text-savr-neutral-400">
             crédits restants
           </div>
         </div>
@@ -78,7 +83,11 @@ export function PackAgRing({
 
       {/* Jauge linéaire — remplissage = restant, rouge sous 10 %. */}
       <div
-        className="relative h-3 overflow-hidden rounded-savr-full"
+        ref={entree.ref}
+        className={cn(
+          'relative h-3 overflow-hidden rounded-savr-full',
+          entree.classe,
+        )}
         style={{ background: TRACK }}
         role="progressbar"
         aria-valuemin={0}
@@ -87,6 +96,7 @@ export function PackAgRing({
         aria-label="Crédits restants du pack Anti-Gaspi"
       >
         <div
+          data-entree="deploie"
           className="h-full rounded-savr-full"
           style={{
             width: `${pctFill}%`,

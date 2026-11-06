@@ -196,15 +196,16 @@ SELECT is(
   'collecte.creee',
   'G6 premier envoi (aucune commande) -> collecte.creee');
 
--- ── G7 : fn_modifier_evenement, meme gate ────────────────────────────────────
-SELECT plateforme.fn_modifier_evenement(
-  'e29a0000-0000-0000-0000-0000000000e3'::uuid,
+-- ── G7 : contact de la collecte (lot B1, 2026-10-23), meme gate ──────────────
+SELECT plateforme.fn_modifier_collecte(
+  'e29a0000-0000-0000-0000-0000000000c3'::uuid,
   '{"contact_principal_nom": "Contact Modifie"}'::jsonb, ARRAY['contact_principal_nom']);
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
      WHERE aggregate_id = 'e29a0000-0000-0000-0000-0000000000c3'::uuid
-       AND event_type = 'collecte.modifiee' AND payload->>'source' = 'evenement'),
-  1, 'G7 modif contact evenement + commande existante -> E2 emis (meme gate)');
+       AND event_type = 'collecte.modifiee'
+       AND payload->'champs_modifies' ? 'contact_principal_nom'),
+  1, 'G7 modif contact collecte + commande existante -> E2 emis (meme gate)');
 
 -- ── G8 : annulation → E3 et jamais E2 (regression preservee) ─────────────────
 SELECT plateforme.fn_modifier_collecte(

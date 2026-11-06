@@ -54,6 +54,7 @@ import { FormError } from '@/components/ui/form-error';
 import { Input } from '@/components/ui/input';
 import { StatCard, StatCardGrid } from '@/components/ui/stat-card';
 import { Sidebar } from '@/components/layout/sidebar';
+import { ROUTES } from '@/lib/routes';
 import { getNavItems } from '@/lib/nav-config';
 import type { NavRole as Role } from '@/lib/roles';
 
@@ -462,34 +463,25 @@ it('M0.8-14 — DataTable affiche les données en colonnes sur desktop', () => {
 it('M0.8-15 — Sidebar affiche le fond primary-700/800 (levier #2)', () => {
   const { container } = render(<Sidebar role="admin_savr" />);
   const nav = container.querySelector('nav')!;
-  expect(nav.className).toContain('bg-savr-primary-800');
+  expect(nav.className).toContain('bg-savr-primary-700');
 });
 
 // ── Navigation par rôle (tests sur la config — §8 §9 Design System) ─────────
 
 const NAV_EXPECTATIONS: Record<Role, string[]> = {
   admin_savr: ['Clients', 'Paramètres', 'Collectes'],
-  // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1.
-  traiteur_manager: [
-    'Dashboard',
-    'Collectes',
-    'Mon organisation',
-    'Mon profil',
-  ],
-  traiteur_commercial: [
-    'Dashboard',
-    'Collectes',
-    'Mon organisation',
-    'Mon profil',
-  ],
-  agence: ['Dashboard', 'Collectes', 'Mon organisation', 'Mon profil'],
+  // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1. Plus d'entrée
+  // « Collectes » côté client depuis le 2026-11-05 (décision Val).
+  traiteur_manager: ['Dashboard', 'Événements', 'Paramètres'],
+  traiteur_commercial: ['Dashboard', 'Événements', 'Paramètres'],
+  agence: ['Dashboard', 'Événements', 'Paramètres'],
   gestionnaire_lieux: [
     'Dashboard',
     'Mes lieux',
-    'Collectes',
+    'Événements',
     'Registre réglementaire',
   ],
-  client_organisateur: ['Mes événements', 'Collectes'],
+  client_organisateur: ['Dashboard', 'Événements', 'Documents'],
 };
 
 it('M0.8-16 — nav admin_savr affiche les entrées admin (Clients, Paramètres, Collectes)', () => {
@@ -499,14 +491,14 @@ it('M0.8-16 — nav admin_savr affiche les entrées admin (Clients, Paramètres,
   }
 });
 
-it('M0.8-17 — nav traiteur_manager affiche les entrées traiteur (Événements, Collectes, Dashboard)', () => {
+it('M0.8-17 — nav traiteur_manager affiche les entrées traiteur (Dashboard, Événements, Paramètres)', () => {
   const items = getNavItems('traiteur_manager').map((i) => i.label);
   for (const expected of NAV_EXPECTATIONS.traiteur_manager) {
     expect(items).toContain(expected);
   }
 });
 
-it('M0.8-18 — nav traiteur_commercial affiche les entrées commercial (Programmation, Collectes)', () => {
+it('M0.8-18 — nav traiteur_commercial affiche les entrées commercial (Dashboard, Événements, Paramètres)', () => {
   const items = getNavItems('traiteur_commercial').map((i) => i.label);
   for (const expected of NAV_EXPECTATIONS.traiteur_commercial) {
     expect(items).toContain(expected);
@@ -525,8 +517,10 @@ it('M0.8-20 — nav gestionnaire_lieux affiche les entrées gestionnaire de lieu
   for (const expected of NAV_EXPECTATIONS.gestionnaire_lieux) {
     expect(items).toContain(expected);
   }
-  // Décision Val 2026-10-07 : « Événements » doublonnait « Collectes », retirée.
-  expect(items).not.toContain('Événements');
+  // Retirée le 2026-10-07, remise par Val le 2026-10-18 (vue consolidée d'un
+  // événement à plusieurs collectes), juste après « Dashboard » depuis que
+  // « Collectes » a quitté le menu (Val 2026-11-05).
+  expect(items.indexOf('Événements')).toBe(items.indexOf('Dashboard') + 1);
 });
 
 it('M0.8-21 — nav client_organisateur affiche les entrées client organisateur', () => {
@@ -542,7 +536,11 @@ it('M0.8-22 — entrées non autorisées pour le rôle sont absentes de la navig
     (i) => i.label,
   );
   expect(commercialItems).not.toContain('Clients');
-  expect(commercialItems).not.toContain('Paramètres');
+  // Ni les paramètres Admin : son « Paramètres » est celui de son espace
+  // (décision Val 2026-10-31).
+  expect(getNavItems('traiteur_commercial').map((i) => i.href)).not.toContain(
+    ROUTES.admin.parametres,
+  );
 
   // Un client_organisateur ne doit pas voir les entrées admin
   const clientItems = getNavItems('client_organisateur').map((i) => i.label);

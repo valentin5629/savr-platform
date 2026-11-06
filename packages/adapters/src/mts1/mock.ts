@@ -27,33 +27,74 @@ export type Mts1OrderStatus =
   | 'CANCELED'
   | 'KO';
 
-export interface Mts1Stop {
-  stopId: string;
-  address: string;
-  status?: string;
-  completedAt?: string | null;
-}
-
+// Commande telle que la rend GET /v3/customerOrders — mesuré sur le compte de
+// démonstration le 2026-10-13. La réponse est un TABLEAU JSON NU de ces objets,
+// sans enveloppe ni pagination. Sont typés les champs que lit l'adapter, plus
+// `orderDate` (non lu) ; l'API en rend d'autres (`place`, `stuffs`, `contact`,
+// `currentTours`, …).
+//   - `customerOrderId` : identifiant technique, celui que garde
+//     `tournees.external_ref_commande` ;
+//   - `orderNumber` : la clé « {collecte}-{rang} » posée à la création. Elle
+//     n'est PAS unique chez MTS-1 (jusqu'à 25 commandes mesurées sous un même
+//     numéro) ;
+//   - `orderDate` : instant UTC du créneau (« 2026-10-16T09:30:00.000Z »).
+// Ni `id`, ni `externalReference`, ni `status` n'existent sur le fil.
 export interface Mts1CustomerOrder {
-  id: string;
-  externalReference: string;
-  status: Mts1OrderStatus;
-  pickupDate?: string | null;
-  deliveryDate?: string | null;
-  stops?: Mts1Stop[];
+  customerOrderId: string;
+  orderNumber: string;
+  customerOrderStatus: Mts1OrderStatus;
+  orderDate?: string;
+  // Tournée à laquelle la commande est rattachée : `{ tourId, stopId, tourDate,
+  // scheduleId }`. Sans `tourId` tant qu'elle ne l'est à aucune. `currentTours`
+  // porte le même élément (mesuré le 2026-10-13 sur le compte de démonstration).
+  currentTour?: { tourId?: string } | null;
 }
 
-export interface Mts1StopItem {
-  stuff: string;
-  qty: number;
-  weight: number | null;
+// Détail d'un tour tel que le rend GET /v3/tours/{tourId} — mesuré sur le compte
+// de démonstration le 2026-10-13. Sont typés les champs que lisent l'adapter, les
+// tests et les fixtures ; l'API en rend d'autres (`summary`, `signatures`,
+// `stopStatus`, `place`, `contact`, …). Aucun arrêt ne porte de clé `items` ni
+// `weight`, aucun stuff de clé `weight` : la forme lue jusque-là n'existait pas.
+
+// Marchandise d'un arrêt. `quantityAfterPickup` et `quantityAfterDelivery` valent
+// `null` tant que le chauffeur n'a rien saisi ; sur le seul tour de déchets
+// terminé du compte, ce sont eux qui portent les kilos, alors que
+// `quantity` vaut 0 et `measurement.weight` 0.
+export interface Mts1StopStuff {
+  name: string;
+  task?: string;
+  quantity?: number | null;
+  quantityAfterPickup?: number | null;
+  quantityAfterDelivery?: number | null;
+  measurement?: { weight?: number | null };
 }
 
+// Commande que sert un arrêt. `customerOrderProgressionStatus` (`NOT_STARTED`,
+// `FINISHED` mesurés) n'existe que là : ni la liste ni le détail des commandes
+// ne le portent.
+export interface Mts1StopCustomerOrder {
+  customerOrderId: string;
+  orderNumber?: string;
+  customerOrderStatus?: string;
+  customerOrderProgressionStatus?: string;
+}
+
+// Photo d'un arrêt : une adresse et rien d'autre (ni identifiant, ni date, ni
+// type). Elle a la forme `<connecteur>/v3/tours/photo/{tourId}/{stopId}/{photoId}`
+// et ne se lit qu'avec la clé d'API (401 sans).
+export interface Mts1StopPhoto {
+  downloadUrl: string;
+}
+
+// `stopType` : `CUSTOMER_ORDER` = enlèvement chez le client ; `CUSTOMER_ORDER_LINKED`
+// ou `DEPOT` = dépôt. Les stuffs d'une commande sont répétés sur son enlèvement
+// ET sur son dépôt.
 export interface Mts1TourStop {
   stopId: string;
-  address: string;
-  completedAt?: string | null;
-  items?: Mts1StopItem[];
+  stopType?: string;
+  customerOrders?: Mts1StopCustomerOrder[];
+  stuffs?: Mts1StopStuff[];
+  photos?: Mts1StopPhoto[];
 }
 
 // Bloc dispatch du tour (as-built §7) — porte les codes opaques résolus en
@@ -64,13 +105,28 @@ export interface Mts1TourDispatch {
   vehicleShareableCode?: string | null;
 }
 
-export interface Mts1Tour {
-  tourId: string;
-  externalReference: string;
-  status: string;
+// `status` est un OBJET, pas un libellé (valeurs mesurées : `dispatch` ∈
+// TO_BE_DISPATCHED / PROPOSED / ACCEPTED / COMPLETED, `progression` ∈ NOT_STARTED /
+// FINISHED).
+export interface Mts1TourStatus {
+  dispatch?: string;
+  validation?: string;
+  progression?: string;
+  payment?: string;
+  dispatchedAt?: string | null;
   startedAt?: string | null;
-  completedAt?: string | null;
-  stops: Mts1TourStop[];
+  finishedAt?: string | null;
+}
+
+export interface Mts1Tour {
+  // `tourId` et `stops` sont absents quand l'identifiant est inconnu de MTS-1, qui
+  // répond alors 200 avec `{ status, summary }` ; un tour sans commande porte
+  // `stops: []` (mesuré le 2026-10-13).
+  tourId?: string;
+  tourNumber?: string;
+  tourDate?: string;
+  status?: Mts1TourStatus;
+  stops?: Mts1TourStop[];
   dispatch?: Mts1TourDispatch;
 }
 
@@ -98,23 +154,6 @@ export interface Mts1Carrier {
   name?: string;
   vehicles: Mts1CarrierVehicle[];
   transporters: Mts1CarrierTransporter[];
-}
-
-export interface Mts1Photo {
-  tourId: string;
-  stopId: string;
-  photoId: string;
-  url: string;
-  takenAt: string;
-  type: string;
-  weight_kg: number | null;
-}
-
-export interface Mts1PollResult {
-  customerOrders: Mts1CustomerOrder[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
 }
 
 export type Mts1PostSuccess = {
@@ -145,32 +184,42 @@ export interface Mts1CreatedTour {
 }
 
 export interface Mts1Handlers {
-  // M1.5b — entrant
-  pollOrders: () => Promise<Mts1PollResult>;
+  // M1.5b — entrant. Rend le tableau nu, comme le fil.
+  pollOrders: () => Promise<Mts1CustomerOrder[]>;
   getTour: (tourId: string) => Promise<Mts1Tour>;
-  getPhotos?: (tourId: string) => Promise<Mts1Photo[]>;
+  // Téléchargement d'une photo par son adresse (lue dans le détail du tour).
+  // `null` = photo absente. Sans ce handler, le client rend un JPEG simulé.
+  downloadPhoto?: (downloadUrl: string) => Promise<Buffer | null>;
   // M1.5b — référentiel transporteurs (résolution plaque/chauffeur, BL-P1-API-03)
   getCarrier?: () => Promise<Mts1Carrier[]>;
   // M1.5a — sortant
+  // Commande, puis tournée unitaire et rattachement ; jamais d'envoi au
+  // transporteur ni de validation : l'Admin regroupe et envoie les tournées dans
+  // la console MTS-1 (décision Val 2026-10-15).
   postOrder: (payload: Record<string, unknown>) => Promise<Mts1PostResult>;
   createTour?: (payload: Record<string, unknown>) => Promise<Mts1CreatedTour>;
   // Rattachement commande↔tournée (PUT /v3/tours/addCustomerOrder)
   addCustomerOrder?: (tourId: string, customerOrderId: string) => Promise<void>;
-  dispatchTour?: (
-    tourId: string,
-    carrierShareableCode: string,
-  ) => Promise<void>;
-  validateTour?: (tourId: string) => Promise<void>;
   updateOrder?: (
     orderId: string,
     payload: Record<string, unknown>,
   ) => Promise<void>;
   deleteOrder?: (orderId: string) => Promise<void>;
+  // Recherche par fenêtre de jours (« yyyy-MM-dd »), filtrée par numéro de
+  // commande quand il est donné.
   scanOrdersByDateRange?: (
     minDate: string,
     maxDate: string,
+    orderNumber?: string,
+  ) => Promise<Mts1CustomerOrder[]>;
+  // Recherche par identifiants : un identifiant inconnu est absent du tableau.
+  findOrdersByIds?: (
+    customerOrderIds: string[],
   ) => Promise<Mts1CustomerOrder[]>;
 }
+
+/** Un JPEG minimal (il commence par FF D8 FF et finit par FF D9). */
+export const JPEG_SIMULE = Buffer.from('ffd8ffe000104a464946ffd9', 'hex');
 
 let _handlers: Mts1Handlers | null = null;
 
@@ -192,7 +241,6 @@ export type Mts1PollScenario =
   | 'pesees_incompletes';
 
 interface PollFixture {
-  customerOrders?: Mts1CustomerOrder[];
   payload_a?: { event_id: string };
   payload_b?: { event_id: string };
 }
@@ -202,57 +250,38 @@ interface MultiCamionsFixture {
   tours: Mts1Tour[];
 }
 
-const POLL_SCENARIOS: Record<Mts1PollScenario, () => Mts1PollResult> = {
-  nominal: () => loadFixture<Mts1PollResult>('poll_statuts_nominal.json'),
+const POLL_SCENARIOS: Record<Mts1PollScenario, () => Mts1CustomerOrder[]> = {
+  nominal: () =>
+    loadFixture<{ response: Mts1CustomerOrder[] }>('poll_statuts_nominal.json')
+      .response,
   dedup: () => {
     const f = loadFixture<PollFixture>('poll_dedup_pair.json');
-    return {
-      customerOrders: [
-        {
-          id: 'MTS1-DEDUP-001',
-          externalReference: f.payload_a?.event_id ?? 'dedup-ref',
-          status: 'OK',
-        },
-      ],
-      totalCount: 1,
-      page: 1,
-      pageSize: 50,
-    };
+    return [
+      {
+        customerOrderId: 'MTS1-DEDUP-001',
+        orderNumber: f.payload_a?.event_id ?? 'dedup-ref',
+        customerOrderStatus: 'OK',
+      },
+    ];
   },
-  multi_camions: () => {
-    const f = loadFixture<MultiCamionsFixture>('tours_multi_camions.json');
-    return {
-      customerOrders: f.customerOrders,
-      totalCount: f.customerOrders.length,
-      page: 1,
-      pageSize: 50,
-    };
-  },
-  ko_partiel: () => {
-    const f = loadFixture<{ customerOrders: Mts1CustomerOrder[] }>(
+  multi_camions: () =>
+    loadFixture<MultiCamionsFixture>('tours_multi_camions.json').customerOrders,
+  ko_partiel: () =>
+    loadFixture<{ customerOrders: Mts1CustomerOrder[] }>(
       'tours_ko_partiel.json',
-    );
-    return {
-      customerOrders: f.customerOrders,
-      totalCount: f.customerOrders.length,
-      page: 1,
-      pageSize: 50,
-    };
-  },
+    ).customerOrders,
   pesees_incompletes: () => {
     const f = loadFixture<{ tour: Mts1Tour }>('tours_pesees_incompletes.json');
-    return {
-      customerOrders: [
-        {
-          id: f.tour.tourId,
-          externalReference: f.tour.externalReference,
-          status: 'OK',
-        },
-      ],
-      totalCount: 1,
-      page: 1,
-      pageSize: 50,
-    };
+    const commande = f.tour.stops?.[0]?.customerOrders?.[0];
+    if (!commande) throw new Error('fixture manquante: commande du tour');
+    return [
+      {
+        customerOrderId: commande.customerOrderId,
+        orderNumber: commande.orderNumber ?? '',
+        customerOrderStatus: 'OK',
+        currentTour: { tourId: f.tour.tourId },
+      },
+    ];
   },
 };
 
@@ -261,7 +290,8 @@ export type Mts1TourScenario =
   | 'stuff_inconnu'
   | 'multi_camions_tour1'
   | 'multi_camions_tour2'
-  | 'pesees_incompletes';
+  | 'pesees_incompletes'
+  | 'photos';
 
 interface ToursFixture {
   tour_nominal?: Mts1Tour;
@@ -298,6 +328,10 @@ const TOUR_SCENARIOS: Record<Mts1TourScenario, () => Mts1Tour> = {
     const f = loadFixture<{ tour: Mts1Tour }>('tours_pesees_incompletes.json');
     return f.tour;
   },
+  photos: () => {
+    const f = loadFixture<{ tour: Mts1Tour }>('pesees_photos.json');
+    return f.tour;
+  },
 };
 
 export type Mts1PostScenario = 'success' | 'rejet_422' | 'timeout_plan_b';
@@ -317,9 +351,7 @@ interface PostErrorFixture {
 
 interface TimeoutFixture {
   plan_b_scan: {
-    response: {
-      customerOrders: Mts1CustomerOrder[];
-    };
+    response: Mts1CustomerOrder[];
   };
 }
 
@@ -340,16 +372,13 @@ const POST_SCENARIOS: Record<Mts1PostScenario, () => Mts1PostResult> = {
   },
   timeout_plan_b: () => {
     const f = loadFixture<TimeoutFixture>('post_timeout.json');
-    const order = f.plan_b_scan.response.customerOrders[0];
-    if (!order)
-      throw new Error(
-        'fixture manquante: plan_b_scan.response.customerOrders[0]',
-      );
+    const order = f.plan_b_scan.response[0];
+    if (!order) throw new Error('fixture manquante: plan_b_scan.response[0]');
     return {
       ok: true,
-      id: order.id,
-      externalReference: order.externalReference,
-      status: order.status,
+      id: order.customerOrderId,
+      externalReference: order.orderNumber,
+      status: order.customerOrderStatus,
       createdAt: '',
     };
   },
@@ -367,7 +396,7 @@ export function setupMts1Mock(opts: {
   poll?: Mts1PollScenario;
   tour?: Mts1TourScenario;
   post?: Mts1PostScenario;
-  photosUrl404?: boolean;
+  photoAbsente?: boolean;
 }): () => void {
   const pollScenario = opts.poll ?? 'nominal';
   const postScenario = opts.post ?? 'success';
@@ -378,18 +407,9 @@ export function setupMts1Mock(opts: {
     getTour: async (_tourId: string) => TOUR_SCENARIOS[tourScenario](),
     postOrder: async (_payload: Record<string, unknown>) =>
       POST_SCENARIOS[postScenario](),
-    getPhotos: opts.photosUrl404
-      ? async (_tourId: string) => {
-          const f = loadFixture<{ photos: Mts1Photo[] }>('pesees_photos.json');
-          return f.photos.map((p) => ({
-            ...p,
-            url: 'https://mts1-storage.example.com/photos/not-found-404.jpg',
-          }));
-        }
-      : async (_tourId: string) => {
-          const f = loadFixture<{ photos: Mts1Photo[] }>('pesees_photos.json');
-          return f.photos;
-        },
+    ...(opts.photoAbsente
+      ? { downloadPhoto: async (_downloadUrl: string) => null }
+      : {}),
   });
 
   return () => _setMts1Handlers(null);

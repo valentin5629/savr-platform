@@ -1,5 +1,8 @@
 // GET /api/v1/admin/rapports-rse/:id/download
-// Retourne une URL pré-signée R2 (15 min) pour un rapport de recyclage ZD.
+// Retourne une URL pré-signée R2 (15 min) pour le rapport d'une collecte AG sans
+// excédent, servi sous le nom « rapport-de-don-<date>-<événement>.pdf » (§12
+// §1.3-bis). Le rapport de recyclage ZD n'est plus stocké : il se fabrique au clic
+// (POST /api/v1/admin/collectes/[id]/rapport-rse, décision Val 2026-10-16) → 409.
 // Contrôle applicatif embargo H+24 : refuse si now() < disponible_a (R-PDF2).
 // Accès : admin_savr + ops_savr.
 
@@ -8,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { requireStaff } from '@/lib/api-auth.js';
+import { nomFichierDuRapportDeLaCollecte } from '@/lib/pdf/nom-fichier-rapport-de-don.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 
 export const runtime = 'nodejs';
@@ -25,12 +29,27 @@ export async function GET(
 
   const { data: rapport, error } = await supabase
     .from('rapports_rse')
-    .select('id, disponible_a, genere_at, pdf_url')
+    .select('id, collecte_id, disponible_a, genere_at, pdf_url')
     .eq('id', id)
     .single();
 
   if (error || !rapport) {
     return NextResponse.json({ error: 'Rapport introuvable' }, { status: 404 });
+  }
+
+  const { data: collecte } = await supabase
+    .from('collectes')
+    .select('type')
+    .eq('id', rapport.collecte_id as string)
+    .maybeSingle();
+  if ((collecte as { type: string } | null)?.type === 'zero_dechet') {
+    return NextResponse.json(
+      {
+        error:
+          'Le rapport de recyclage se télécharge depuis l’onglet Documents de la collecte.',
+      },
+      { status: 409 },
+    );
   }
 
   // Contrôle embargo applicatif (R-PDF2) — jamais contournable même pour admin
@@ -58,6 +77,13 @@ export async function GET(
     return NextResponse.json({ error: 'Fichier PDF absent' }, { status: 404 });
   }
 
-  const url = await getPresignedUrl(storageKey, 900);
+  const url = await getPresignedUrl(
+    storageKey,
+    900,
+    await nomFichierDuRapportDeLaCollecte(
+      supabase,
+      rapport.collecte_id as string,
+    ),
+  );
   return NextResponse.json({ url, expires_in: 900 });
 }

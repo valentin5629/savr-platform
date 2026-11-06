@@ -89,11 +89,6 @@
       "M0.6-61": "T56",
       "M0.6-62": "T57",
       "M0.6-63": "T58",
-      "BL-P1-BOA-07": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA-07) » (10 scénarios : Bloc 3 rapport/attestation/régénérer/picto/bordereau-ZD/galerie-photos/import, Bloc 4 pack/recrédit, Bloc 5 asso-transporteur-lien + scores, Bloc 7 timeline) + packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — régénération PDF collecte » (5) + packages/plateforme/tests/api/admin/attestations-download.m0-6.test.ts « M0.6 — download attestation AG » (4 : embargo/200/202/404) — routes reproduites HTTP 200 contre savr-dev (embeds pack/attribution + shared.fichiers + filtre JSON recredit + reads régén)",
-      "M0.6-col-bloc3-documents": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 3 Documents : rapport RSE + attestation AG affichés ; le bouton Régénérer appelle l’endpoint » + « M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale » + « M0.6 — Bloc 3 : bordereau ZD affiché pour une collecte ZD (numéro + statut) ; pas d’attestation AG » + « M0.6 — Bloc 3 : la galerie affiche les photos importées (shared.fichiers, URL R2) » + « M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos » + packages/plateforme/tests/api/admin/attestations-download.m0-6.test.ts « M0.6 — download attestation AG (BL-P1-BOA-07) » (embargo H+24 → 425, 200 URL R2, 202, 404)",
-      "M0.6-col-bloc4-pack": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 4 Pack AG : pack rattaché + crédits restants + statut » + « M0.6 — Bloc 4 : badge « Crédit recrédité » si collecte annulee après réalisation »",
-      "M0.6-col-bloc5-attribution": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 5 Attribution AG : association + transporteur retenus + lien vers l’écran complet (plus de stub « algo V2 ») » + « M0.6 — Bloc 5 : top 3 affiche les scores détaillés (distance + capacité, §06.06 l.253) »",
-      "M0.6-col-bloc7-timeline": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 7 Timeline : les entrées d’audit sont rendues (action + transition de statut) »",
       "BL-P1-API-01": "P0 — traiteur_manager NE PEUT PAS s'auto-promouvoir ops_savr (la faille corrigée)"
     },
     "M0.8": {
@@ -118,7 +113,6 @@
       "M0.10-02": "M0.10-2 — f_log_audit() SECURITY DEFINER insère dans audit_log depuis service_role",
       "M0.10-03": "M0.10-3 — f_log_audit() refusé pour INSERT direct authenticated (pas de policy INSERT)",
       "M0.10-04": "M0.10-4 — trigger controle_acces_cascade_upgrade : UPDATE collectes.controle_acces_requis=true → ligne audit_log",
-      "M0.10-05": "M0.10-5 — trigger pack_debite_annulation_tardive : collecte AG annulee < 12h → ligne audit_log + nb_annulees++",
       "M0.10-06": "M0.10-6 — trigger pack_recredite_annulation_collecte : collecte AG realisee → annulee → ligne audit_log + nb_utilisees--",
       "M0.10-07": "M0.10-7 — trigger config_auto_accept_update : UPDATE config_auto_accept_ag → ligne audit_log",
       "M0.10-08": "M0.10-8 — trigger parametres_algo_update : UPDATE parametres_algo → ligne audit_log avec old/new valeur",
@@ -213,12 +207,10 @@
       "BL-P1-RM-09": "supabase/tests/r16a_machine_etats.test.sql (RM-09 : incident prestataire → aucun débit pack ; client → débit) ; M1.4/RM-09 — incident prestataire : annulee + email Admin + notif client (annulation_collecte) + 200 ; motif<10 → 422 ; imputable invalide → 422"
     },
     "M1.5a": {
-      "M1.5a-01": "E1 dispatch ZD rang=1 nominal : POST order → create tour → dispatch → validate",
       "M1.5a-02": "E1 dispatch AG : orderCategories=['Alimentaire'], sans stuffs",
       "M1.5a-03": "E1 dispatch ZD : stuffs contient 5 flux + volume_du_camion",
       "M1.5a-04": "E1 multi-camions N=2 : 2 ordres créés rang 1 et rang 2",
       "M1.5a-05": "E1 idempotent : rang déjà en_cours → no-op sans appel HTTP",
-      "M1.5a-06": "E1 reprise étape 2 : external_ref_commande présent + tms_reference absent → POST tour seulement",
       "M1.5a-07": "E1 POST 422 → LogistiquePermanentError (dead immédiat)",
       "M1.5a-08": "E1 réconciliation : requires_reconciliation=true + ordre trouvé → pas de re-POST",
       "M1.5a-09": "E1 réconciliation : ordre introuvable → re-POST autorisé",
@@ -236,7 +228,6 @@
       "BL-P1-RM-04": "M1.5a / RM-04 réduction N→N−k — supprime sélectivement les rangs > N ; 404 idempotent ; N inchangé → PUT seul"
     },
     "M1.5b": {
-      "BL-P1-OUTBOX-04": "claim entrant atomique : conflit concurrent → skip (upsert ignoreDuplicates) ; erreur ≠23505 propagée [adapter.m1-5b.test.ts]",
       "BL-P1-API-03": "M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque_immatriculation + chauffeur_nom [adapter.m1-5b.test.ts]"
     },
     "M1.6": {
@@ -252,8 +243,7 @@
       "M1.6-10": "Download rapport Admin après embargo → URL pré-signée 15min",
       "M1.6-11": "f_next_numero_bordereau gapless BSAV-YYYY-NNNNN",
       "M1.6-12": "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)",
-      "BL-P2-16": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs",
-      "BL-P2-19": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19) : programmateur agence → logo agence dans le payload"
+      "BL-P2-16": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs"
     },
     "M1.7": {
       "M1.7-01": "Collecte ZD cloturee SIRET verifie → batch J+1 → brouillon FZD créé",
@@ -274,10 +264,7 @@
       "BL-P2-01": "M1.7 / R22b fact-col-pdf-savr + fact-pastille-orange-2h + fact-bandeau-en-attente [packages/plateforme/tests/lib/facturation.m1-7.test.ts] ; M1.7 / R22b Facture copie de travail [apps/pdf-renderer/src/render.test.ts]"
     },
     "M2.1": {
-      "M2.1-01": "collecte AG passe à realisee → credits_consommes+1, pack_antgaspi_id rattaché",
-      "M2.1-02": "dernier crédit consommé → pack bascule epuise + alerte Admin",
       "M2.1-03": "collecte annulee depuis realisee → recrédit GREATEST(0, consommes-1), pack réactivé si était epuise",
-      "M2.1-04": "annulation < 12h ou prestataire mandaté → débit tardif pack",
       "M2.1-05": "RPC annuler-credit : collecte reste realisee, pack décrémenté, audit_log",
       "M2.1-06": "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne"
     },
@@ -304,7 +291,6 @@
       "BL-P1-ALGO-02": "M2.3 / R11 ALGO-02 file criticité (packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts) — criticite true <48h / false sinon (même logique que estUrgente). Badge URGENT + fond rose sur Collectes = preuve-visuelle (GO-VISUAL)",
       "BL-P1-ALGO-04": "M2.3 / Attribution AG — liste déroulante transporteur (attribution-transporteur-select.test.tsx) — liste tous les transporteurs actifs, reco pré-sélectionné sans motif ; autre transporteur → motif obligatoire puis POST transporteur choisi. Rendu liste déroulante = preuve-visuelle (GO-VISUAL)",
       "BL-P1-ALGO-05": "M2.3 / R11 ALGO-05 cron registration (algo-attribution-ag-r11.m2-3.test.ts) — vercel.json déclare le cron ; emails couverts par M2.3 job + dispatch par BL-P0-08 (R5)",
-      "BL-P1-ALGO-06": "R11-T7/T8/T9 (supabase/tests/r11_algo_ag.test.sql) déclenche=true / mode auto_accept valide_par NULL / SINON=false ; M2.3 / R11 ALGO-06 auto-accept (algo-attribution-ag-r11.m2-3.test.ts) endpoint + 403 ops",
       "BL-P1-ALGO-07": "Everest 422 (rejet permanent) → statut_tms = rejetee_par_prestataire + Everest 5xx (transient) → PAS de rejet (packages/adapters/src/everest/adapter.m2-5.test.ts) ; mission_dispatched → statut_tms=acceptee (webhooks/everest.m2-5.test.ts)"
     },
     "M2.4": {

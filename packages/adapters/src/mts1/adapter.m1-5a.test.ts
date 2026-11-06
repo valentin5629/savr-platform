@@ -8,10 +8,9 @@ import {
   getLogistiqueProvider,
 } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
-import { composerInformationsSupplementaires } from '../infos-acces.js';
+import { composerCommentairesTransporteur } from '../infos-acces.js';
 import { ProviderManual } from '../manual/provider.js';
-import { AdapterMts1 } from './adapter.js';
-import type { Mts1CreatedTour } from './mock.js';
+import { AdapterMts1, numeroPorteLaCle } from './adapter.js';
 import { _setMts1Handlers, setupMts1Mock } from './mock.js';
 import {
   PRESTA_MTS1,
@@ -134,6 +133,7 @@ function makeMockSupabase(
       return mockQuery;
     }),
     insert: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     not: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
   };
@@ -153,6 +153,20 @@ function makeMockSupabase(
   return supabase as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 
+/** Tournée unitaire simulée : création, puis rattachement de la commande. */
+function tourneeUnitaireSimulee(tourId = 'MTS1-TOUR-001') {
+  return {
+    createTour: vi.fn().mockResolvedValue({
+      tourId,
+      externalReference: '',
+      status: 'DRAFT',
+      createdAt: '',
+      customerOrderId: '',
+    }),
+    addCustomerOrder: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 // ─── Tests adapter MTS-1 (M1.5a) ─────────────────────────────────────────────
 
 describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
@@ -161,7 +175,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     vi.unstubAllEnvs();
   });
 
-  it('M1.5a / dispatch ZD rang=1 — POST order + create tour + dispatch + validate', async () => {
+  it('M1.5a / dispatch ZD rang=1 — commande et tournée unitaire, sans envoi au transporteur ni validation', async () => {
     const postOrder = vi.fn().mockResolvedValue({
       ok: true,
       id: 'MTS1-ORDER-001',
@@ -169,25 +183,15 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-001',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-001',
-    } satisfies Mts1CreatedTour);
-    const addCustomerOrder = vi.fn().mockResolvedValue(undefined);
-    const dispatchTour = vi.fn().mockResolvedValue(undefined);
-    const validateTour = vi.fn().mockResolvedValue(undefined);
+    const tournee = tourneeUnitaireSimulee();
 
+    // Aucun crochet d'envoi au transporteur ni de validation : un tel appel
+    // partirait sur le fil et échouerait.
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder,
-      dispatchTour,
-      validateTour,
+      ...tournee,
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -196,7 +200,9 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
 
     expect(postOrder).toHaveBeenCalledOnce();
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
-    expect(orderPayload['orderNumber']).toBe('col-zd-001-1');
+    // Nom du point dans la console : le libellé (ici le seul lieu, ni traiteur
+    // ni pax dans cette collecte), puis la clé de la commande.
+    expect(orderPayload['orderNumber']).toBe('Salle Pleyel · col-zd-001-1');
     expect(orderPayload['orderCategories']).toEqual(['Déchets']);
     // Contact terrain = objet UNIQUE firstname/lastname/phone (CustomerOrderContactInput),
     // plus l'ancien tableau `contacts` (ignoré par MTS-1 → arrivait vide).
@@ -214,19 +220,35 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     expect(place.timeslots).toEqual([{ start: '22:00', end: '22:00' }]);
     expect(orderPayload['timeslots']).toBeUndefined();
 
-    expect(createTour).toHaveBeenCalledOnce();
-    // `tourDate` (yyyy-MM-dd) obligatoire sur POST /v3/tours — MTS-1 rejette en
-    // 400 sans lui (régression découverte au 1er dispatch réel sandbox).
-    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
-    expect(tourPayload['tourDate']).toBe('2026-07-15');
-    // Rattachement obligatoire commande↔tournée (le customerOrderId du POST /tours
-    // est ignoré par MTS-1 → sans ce PUT la tournée serait vide).
-    expect(addCustomerOrder).toHaveBeenCalledWith(
+    // Tournée unitaire : `tourDate` (yyyy-MM-dd) obligatoire sur POST /v3/tours,
+    // puis la commande y est rattachée (le customerOrderId du POST /v3/tours est
+    // ignoré par MTS-1). Elle n'est ni envoyée au transporteur ni validée :
+    // l'Admin regroupe et envoie dans la console MTS-1 (décision Val 2026-10-15).
+    expect(tournee.createTour).toHaveBeenCalledOnce();
+    expect(
+      (tournee.createTour.mock.calls[0]![0] as Record<string, unknown>)[
+        'tourDate'
+      ],
+    ).toBe('2026-07-15');
+    expect(tournee.addCustomerOrder).toHaveBeenCalledWith(
       'MTS1-TOUR-001',
       'MTS1-ORDER-001',
     );
-    expect(dispatchTour).toHaveBeenCalledWith('MTS1-TOUR-001', 'STRIKE-IDF');
-    expect(validateTour).toHaveBeenCalledWith('MTS1-TOUR-001');
+    // La commande et la tournée sont enregistrées (curseurs de reprise), la fiche
+    // affiche l'identifiant de la commande, la collecte attend sa tournée.
+    const q = supabase as unknown as {
+      _mockQuery: { upsert: ReturnType<typeof vi.fn> };
+      _updated: Record<string, unknown>[];
+    };
+    expect(q._mockQuery.upsert.mock.calls[0]![0]).toMatchObject({
+      external_ref_commande: 'MTS1-ORDER-001',
+      statut: 'planifiee',
+    });
+    expect(q._updated).toContainEqual({ tms_reference: 'MTS1-TOUR-001' });
+    expect(q._updated).toContainEqual({ tms_reference: 'MTS1-ORDER-001' });
+    expect(q._updated).toContainEqual(
+      expect.objectContaining({ statut_tms: 'a_attribuer' }),
+    );
   });
 
   it('M1.5a / dispatch AG — orderCategories = Alimentaire', async () => {
@@ -237,21 +259,11 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-AG-001',
-      externalReference: 'col-ag-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-AG-001',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
+      ...tourneeUnitaireSimulee(),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -287,21 +299,11 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-AG-FAV',
-      externalReference: 'col-ag-fav-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-AG-FAV',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
+      ...tourneeUnitaireSimulee(),
     });
 
     const collecteAgFavorite: Collecte = {
@@ -316,9 +318,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     );
 
     // Point B AG = point de dépôt de l'association, porté par le stuff « Don
-    // alimentaire » (relatedAddress.placeId). La tournée ne porte plus de deliveryPlace.
-    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
-    expect(tourPayload['deliveryPlace']).toBeUndefined();
+    // alimentaire » (relatedAddress.placeId).
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     const stuffs = orderPayload['stuffs'] as Array<{
       name: string;
@@ -342,21 +342,11 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'T-AG-NOFAV',
-      externalReference: 'col-ag-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'O-AG-NOFAV',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
+      ...tourneeUnitaireSimulee(),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -366,8 +356,6 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       1,
     );
 
-    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
-    expect(tourPayload['deliveryPlace']).toBeUndefined();
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     const stuffs = orderPayload['stuffs'] as Array<{
       name: string;
@@ -387,15 +375,11 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
   // avant le prestataire — jamais un camion qui ne sait pas où livrer).
   it('M1.5a / dispatch AG — sans association attribuée → LogistiquePermanentError, aucun POST', async () => {
     const postOrder = vi.fn();
-    const createTour = vi.fn();
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn(),
-      dispatchTour: vi.fn(),
-      validateTour: vi.fn(),
+      ...tourneeUnitaireSimulee(),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -411,7 +395,6 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     ).rejects.toBeInstanceOf(LogistiquePermanentError);
     // Aucun effet de bord : ni commande, ni tournée MTS-1, ni tournée en base.
     expect(postOrder).not.toHaveBeenCalled();
-    expect(createTour).not.toHaveBeenCalled();
     expect(
       (supabase as unknown as { _upserted: unknown[] })._upserted,
     ).toHaveLength(0);
@@ -425,21 +408,11 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'T1',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'O1',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
+      ...tourneeUnitaireSimulee(),
     });
 
     vi.stubEnv('MTS1_ENTREPOT_PLACE_ID', 'Entrepôt Savr');
@@ -461,10 +434,6 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     for (const s of stuffs) {
       expect(s.relatedAddress).toEqual({ placeId: 'Entrepôt Savr' });
     }
-    // La tournée ne porte plus ni stuffs ni deliveryPlace (déplacés sur la commande).
-    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
-    expect(tourPayload['stuffs']).toBeUndefined();
-    expect(tourPayload['deliveryPlace']).toBeUndefined();
   });
 
   it('M1.5a / dispatch ZD — MTS1_ENTREPOT_PLACE_ID absent → stuffs sans relatedAddress (dégradation gracieuse)', async () => {
@@ -475,21 +444,11 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'T-NOENV',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'O-NOENV',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
+      ...tourneeUnitaireSimulee(),
     });
 
     // Config entrepôt absente → aucun point B, mais pas de throw : les stuffs
@@ -527,23 +486,11 @@ describe('M1.5a / AdapterMts1 — multi-camions', () => {
         createdAt: '',
       });
     });
-    const createTour = vi.fn().mockImplementation(() =>
-      Promise.resolve({
-        tourId: `MTS1-TOUR-00${callCount}`,
-        externalReference: `col-multi-001-${callCount}`,
-        status: 'DRAFT',
-        createdAt: '',
-        customerOrderId: `MTS1-ORDER-00${callCount}`,
-      } satisfies Mts1CreatedTour),
-    );
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
+      ...tourneeUnitaireSimulee(),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -555,107 +502,41 @@ describe('M1.5a / AdapterMts1 — multi-camions', () => {
     expect(postOrder).toHaveBeenCalledTimes(2);
     expect(
       (postOrder.mock.calls[0]![0] as Record<string, unknown>)['orderNumber'],
-    ).toBe('col-multi-001-1');
+    ).toBe('Salle Pleyel · col-multi-001-1');
     expect(
       (postOrder.mock.calls[1]![0] as Record<string, unknown>)['orderNumber'],
-    ).toBe('col-multi-001-2');
+    ).toBe('Salle Pleyel · col-multi-001-2');
   });
 });
 
 describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it('M1.5a / dispatch idempotent — rang déjà dispatchée (tms_reference + statut en_cours) = no-op', async () => {
-    const postOrder = vi.fn();
-    _setMts1Handlers({
-      pollOrders: vi.fn(),
-      getTour: vi.fn(),
-      postOrder,
-      createTour: vi.fn(),
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn(),
-      validateTour: vi.fn(),
-    });
+  const statutsDepuis = (supabase: unknown) =>
+    (
+      supabase as { _mockQuery: { in: ReturnType<typeof vi.fn> } }
+    )._mockQuery.in.mock.calls.filter((c) => c[0] === 'statut_tms');
 
-    const supabase = makeMockSupabase({
-      tourneeExistante: {
-        id: 'tournee-existing',
-        external_ref_commande: 'MTS1-ORDER-EXISTING',
-        tms_reference: 'MTS1-TOUR-EXISTING',
-        statut: 'en_cours',
-        prestataire_logistique_id: PRESTA_MTS1,
+  it('M1.5a / dispatch idempotent — commande du rang déjà enregistrée : aucun POST, la reprise ne recule pas le statut', async () => {
+    const postOrder = vi.fn();
+    const tournee = tourneeUnitaireSimulee();
+    // La commande est relue : elle est déjà dans sa tournée.
+    const findOrdersByIds = vi.fn().mockResolvedValue([
+      {
+        customerOrderId: 'MTS1-ORDER-EXISTING',
+        orderNumber: 'col-zd-001-1',
+        customerOrderStatus: 'DRAFT',
+        currentTour: { tourId: 'MTS1-TOUR-EXISTING' },
       },
-    });
-
-    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
-      COLLECTE_ZD,
-      1,
-    );
-    expect(postOrder).not.toHaveBeenCalled();
-  });
-
-  it('M1.5a / dispatch reprise étape 2 — external_ref_commande présent, tms_reference absent', async () => {
-    const postOrder = vi.fn();
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-REPRISE',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-EXISTING',
-    } satisfies Mts1CreatedTour);
-    const dispatchTour = vi.fn().mockResolvedValue(undefined);
-    const validateTour = vi.fn().mockResolvedValue(undefined);
+    ]);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour,
-      validateTour,
+      findOrdersByIds,
+      ...tournee,
     });
 
-    const supabase = makeMockSupabase({
-      tourneeExistante: {
-        id: 'tournee-existing',
-        external_ref_commande: 'MTS1-ORDER-EXISTING',
-        tms_reference: null,
-        statut: 'planifiee',
-        prestataire_logistique_id: PRESTA_MTS1,
-      },
-    });
-
-    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
-      COLLECTE_ZD,
-      1,
-    );
-
-    expect(postOrder).not.toHaveBeenCalled();
-    expect(createTour).toHaveBeenCalledOnce();
-    expect(dispatchTour).toHaveBeenCalledWith(
-      'MTS1-TOUR-REPRISE',
-      'STRIKE-IDF',
-    );
-  });
-
-  it('M1.5a / reprise étapes 2bis-4 — tms_reference présent + statut planifiee → rattachement+dispatch+validate rejoués, order/tour NON recréés', async () => {
-    const postOrder = vi.fn();
-    const createTour = vi.fn();
-    const addCustomerOrder = vi.fn().mockResolvedValue(undefined);
-    const dispatchTour = vi.fn().mockResolvedValue(undefined);
-    const validateTour = vi.fn().mockResolvedValue(undefined);
-    _setMts1Handlers({
-      pollOrders: vi.fn(),
-      getTour: vi.fn(),
-      postOrder,
-      createTour,
-      addCustomerOrder,
-      dispatchTour,
-      validateTour,
-    });
-
-    // Étapes 1+2 déjà committées (curseurs présents) mais dispatch/validate ont
-    // échoué au run précédent → tournée encore 'planifiee'.
     const supabase = makeMockSupabase({
       tourneeExistante: {
         id: 'tournee-existing',
@@ -672,60 +553,53 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
     );
 
     expect(postOrder).not.toHaveBeenCalled();
-    expect(createTour).not.toHaveBeenCalled();
-    // Régression (item reviewer) : le rattachement commande↔tournée est INCONDITIONNEL
-    // → rejoué sur reprise même si la tournée existe déjà, pour ne jamais dispatcher
-    // une tournée vide (le customerOrderId du POST /v3/tours est ignoré par MTS-1).
-    expect(addCustomerOrder).toHaveBeenCalledWith(
-      'MTS1-TOUR-EXISTING',
-      'MTS1-ORDER-EXISTING',
-    );
-    expect(dispatchTour).toHaveBeenCalledWith(
-      'MTS1-TOUR-EXISTING',
-      'STRIKE-IDF',
-    );
-    expect(validateTour).toHaveBeenCalledWith('MTS1-TOUR-EXISTING');
+    expect(findOrdersByIds).toHaveBeenCalledWith(['MTS1-ORDER-EXISTING']);
+    expect(tournee.createTour).not.toHaveBeenCalled();
+    expect(tournee.addCustomerOrder).not.toHaveBeenCalled();
+    // La référence et « à attribuer » sont réécrites (coupure entre la commande
+    // enregistrée et ces écritures) ; le statut ne part que de « non envoyé » :
+    // la relève a pu l'avancer entre-temps.
+    expect(
+      (supabase as unknown as { _updated: Record<string, unknown>[] })._updated,
+    ).toContainEqual({ tms_reference: 'MTS1-ORDER-EXISTING' });
+    expect(statutsDepuis(supabase)).toEqual([['statut_tms', ['non_envoye']]]);
   });
 
-  it("M1.5a / curseur C2 — statut 'en_cours' jamais posé avant un validate réussi (régression)", async () => {
-    // dispatch échoue (transient) → aucune écriture statut='en_cours' ne doit avoir
-    // eu lieu : sinon la garde de reprise court-circuiterait dispatch/validate au
-    // retry et le camion ne serait jamais commandé (bug C2).
-    const dispatchTour = vi
-      .fn()
-      .mockRejectedValue(new LogistiqueTransientError('5xx dispatch'));
+  it('M1.5a / commande neuve — « à attribuer » depuis tout statut de l’attribution (un camion ajouté ramène la collecte à attribuer)', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder: vi.fn().mockResolvedValue({
         ok: true,
-        id: 'O1',
-        externalReference: 'col-zd-001-1',
+        id: 'MTS1-ORDER-RANG-2',
+        externalReference: 'col-multi-001-2',
         status: 'PLANNED',
         createdAt: '',
       }),
-      createTour: vi.fn().mockResolvedValue({
-        tourId: 'T1',
-        externalReference: 'col-zd-001-1',
-        status: 'DRAFT',
-        createdAt: '',
-        customerOrderId: 'O1',
-      } satisfies Mts1CreatedTour),
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour,
-      validateTour: vi.fn(),
+      ...tourneeUnitaireSimulee('MTS1-TOUR-RANG-2'),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
+    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+      COLLECTE_MULTI,
+      2,
+    );
 
-    await expect(
-      new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(COLLECTE_ZD, 1),
-    ).rejects.toThrow();
-
-    const updates = (
-      supabase as unknown as { _updated: Record<string, unknown>[] }
-    )._updated;
-    expect(updates.some((u) => u['statut'] === 'en_cours')).toBe(false);
+    expect(statutsDepuis(supabase)).toEqual([
+      [
+        'statut_tms',
+        [
+          'non_envoye',
+          'a_attribuer',
+          'attribuee_en_attente_acceptation',
+          'acceptee',
+        ],
+      ],
+    ]);
+    // Rang 2 : la référence affichée reste celle du rang 1.
+    expect(
+      (supabase as unknown as { _updated: Record<string, unknown>[] })._updated,
+    ).not.toContainEqual({ tms_reference: 'MTS1-ORDER-RANG-2' });
   });
 });
 
@@ -746,28 +620,18 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
   it("M1.5a / réconciliation requires_reconciliation=true — scan minDate/maxDate retrouve l'ordre", async () => {
     const scanOrdersByDateRange = vi.fn().mockResolvedValue([
       {
-        id: 'MTS1-ORDER-FOUND',
-        externalReference: 'col-zd-001-1',
-        status: 'PLANNED',
+        customerOrderId: 'MTS1-ORDER-FOUND',
+        orderNumber: 'col-zd-001-1',
+        customerOrderStatus: 'PLANNED',
       },
     ]);
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-FOUND',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-FOUND',
-    } satisfies Mts1CreatedTour);
     const postOrder = vi.fn();
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
       scanOrdersByDateRange,
+      ...tourneeUnitaireSimulee(),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -777,19 +641,27 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
       { requiresReconciliation: true },
     );
 
-    // L'ordre a été retrouvé via scan — pas de re-POST
+    // L'ordre a été retrouvé via scan — pas de re-POST, et c'est lui qui est
+    // enregistré.
     expect(postOrder).not.toHaveBeenCalled();
     expect(scanOrdersByDateRange).toHaveBeenCalledOnce();
-    expect(createTour).toHaveBeenCalledOnce();
+    expect(
+      (
+        supabase as unknown as {
+          _mockQuery: { upsert: ReturnType<typeof vi.fn> };
+        }
+      )._mockQuery.upsert.mock.calls[0]![0],
+    ).toMatchObject({ external_ref_commande: 'MTS1-ORDER-FOUND' });
 
-    // Bornes à MINUIT PARIS (22h00 UTC l'été), pas minuit UTC : les collectes ont
-    // lieu de nuit, la fenêtre doit encadrer le jour métier quel que soit le
-    // fuseau du process. Borne haute à J+2 pour que le jour de collecte reste
-    // franchement à l'intérieur quelle que soit la lecture de maxDate par MTS-1
-    // (un ordre manqué ferait re-POSTer un doublon).
+    // Fenêtre en JOURS, J-1 → J+1 autour de la collecte, sans filtre de numéro
+    // (le libellé a pu changer, la clé est reconnue par l'adapter) : l'API ne lit
+    // que des « yyyy-MM-dd », bornes incluses, jour compté à Paris (mesuré le
+    // 2026-10-13). Les instants envoyés avant (« 2026-07-13T22:00:00.000Z ») lui
+    // faisaient répondre 500.
     expect(scanOrdersByDateRange).toHaveBeenCalledWith(
-      '2026-07-13T22:00:00.000Z',
-      '2026-07-16T22:00:00.000Z',
+      '2026-07-14',
+      '2026-07-16',
+      undefined,
     );
   });
 
@@ -802,22 +674,12 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
       status: 'PLANNED',
       createdAt: '',
     });
-    const createTour = vi.fn().mockResolvedValue({
-      tourId: 'MTS1-TOUR-NEW',
-      externalReference: 'col-zd-001-1',
-      status: 'DRAFT',
-      createdAt: '',
-      customerOrderId: 'MTS1-ORDER-NEW',
-    } satisfies Mts1CreatedTour);
     _setMts1Handlers({
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour,
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
       scanOrdersByDateRange,
+      ...tourneeUnitaireSimulee(),
     });
 
     const supabase = makeMockSupabase({ tourneeExistante: null });
@@ -1005,16 +867,7 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder,
-      createTour: vi.fn().mockResolvedValue({
-        tourId: 'MTS1-TOUR-C',
-        externalReference: 'x',
-        status: 'DRAFT',
-        createdAt: '',
-        customerOrderId: 'MTS1-ORDER-C',
-      } satisfies Mts1CreatedTour),
-      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
-      dispatchTour: vi.fn().mockResolvedValue(undefined),
-      validateTour: vi.fn().mockResolvedValue(undefined),
+      ...tourneeUnitaireSimulee(),
     });
     return postOrder;
   }
@@ -1033,75 +886,25 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     expect(orderPayload['comment']).toBe('Sonner interphone B au RDC');
   });
 
-  // ─── Infos d'accès du lieu → `comment` MTS-1 (Val 2026-09-15) ──────────────
-  // Les 6 informations d'accès éditables par collecte n'ont pas de champ natif
-  // MTS-1 : elles sont agrégées en amont dans `informations_supplementaires`
-  // (composerInformationsSupplementaires, appelé par fetchCollecte pour les DEUX
-  // adapters). Ce test ferme le dernier maillon côté MTS-1 : ce qui est agrégé
-  // atteint bien le fil, dans `comment`.
-  it.each([
-    ['acces_details', 'Accès : Quai n°2, sonner interphone B'],
-    ['stationnement', 'Stationnement : difficile'],
-    [
-      'contraintes_horaires',
-      'Contraintes horaires : Livraison avant 9h uniquement',
-    ],
-    ['acces_office', 'Accès office : très difficile'],
-    ['type_vehicule_max', 'Véhicule max : camionnette'],
-    ['flux_autorises', 'Flux acceptés : biodéchets, carton'],
-  ])(
-    'M1.5 / %s est présent dans comment du payload customerOrders',
-    async (_champ, ligne) => {
-      const postOrder = setupHandlers();
-      const supabase = makeMockSupabase({ tourneeExistante: null });
-      const lieuAcces: Lieu = {
-        ...LIEU_FIXTURE,
-        acces_details: 'Quai n°2, sonner interphone B',
-        stationnement: 'difficile',
-        contraintes_horaires: 'Livraison avant 9h uniquement',
-        acces_office: 'tres_difficile',
-        type_vehicule_max: 'camionnette',
-        flux_autorises: ['biodéchets', 'carton'],
-      };
-
-      await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
-        {
-          ...COLLECTE_ZD,
-          lieu: lieuAcces,
-          informations_supplementaires: composerInformationsSupplementaires(
-            lieuAcces,
-            'Demander Karim à la plonge',
-            null,
-            null,
-          ),
-        },
-        1,
-      );
-
-      const orderPayload = postOrder.mock.calls[0]![0] as Record<
-        string,
-        unknown
-      >;
-      expect(orderPayload['comment']).toContain(ligne);
-      // La saisie du traiteur part avec, jamais remplacée.
-      expect(orderPayload['comment']).toContain('Demander Karim à la plonge');
-    },
-  );
-
-  // ─── Contact de secours : téléphone natif + NOM dans `comment` ─────────────
-  // Règle complète du §08 l.393-397 (relevé as-built MTS-1 l.79, arbitrage Val
-  // 2026-09-14) : MTS-1 n'expose qu'un contact par commande, donc le téléphone du
-  // secours part en `phoneAlternatives` ET son nom est concaténé au `comment` —
-  // « sans quoi le chauffeur a un numéro de secours sans savoir qui appeler ».
-  // Seule la 1re moitié était implémentée. Le nom est agrégé en amont par
-  // fetchCollecte (composerInformationsSupplementaires, partagé avec Everest) :
-  // ce test ferme le maillon aval, sur le fil.
-  it('M1.5 / le nom du secours est dans comment, son téléphone en phoneAlternatives', async () => {
+  // ─── Commentaire au transporteur → `comment` MTS-1 (Val 2026-11-03) ─────────
+  // Composé en amont par le worker (composerCommentairesTransporteur, partagé
+  // avec Everest) ; MTS-1 n'a pas de commentaire par adresse : il reçoit le
+  // texte unique (consigne, véhicules, Départ, Arrivée) dans `comment`.
+  it('M1.5 / commentaire au transporteur : consigne, véhicules et bloc Départ, au format de Val, dans comment', async () => {
     const postOrder = setupHandlers();
     const supabase = makeMockSupabase({ tourneeExistante: null });
-
+    const lieuAcces: Lieu = {
+      ...LIEU_FIXTURE,
+      acces_details: 'Quai n°2, sonner interphone B',
+      stationnement: 'difficile',
+      contraintes_horaires: 'Livraison avant 9h uniquement',
+      acces_office: 'tres_difficile',
+      type_vehicule_max: 'camionnette',
+      flux_autorises: ['biodéchets', 'carton'],
+    };
     const collecte: Collecte = {
       ...COLLECTE_ZD,
+      lieu: lieuAcces,
       contact_secours_nom: 'Bruno Secours',
       contact_secours_telephone: '+33600000002',
     };
@@ -1109,12 +912,20 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
       {
         ...collecte,
-        informations_supplementaires: composerInformationsSupplementaires(
-          collecte.lieu,
-          null,
-          collecte.contact_secours_nom,
-          null,
-        ),
+        informations_supplementaires: composerCommentairesTransporteur({
+          lieu: lieuAcces,
+          informationsSupplementaires: 'Demander Karim à la plonge',
+          contact: {
+            nom: collecte.contact_principal_nom,
+            telephone: collecte.contact_principal_telephone,
+          },
+          contactSecours: {
+            nom: collecte.contact_secours_nom,
+            telephone: collecte.contact_secours_telephone,
+          },
+          vehicule: { type: null, nombre: 2, typeTms: 'mts1' },
+          livraison: null,
+        }).unique,
       },
       1,
     );
@@ -1123,9 +934,19 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
       comment?: string;
       contact?: { phoneAlternatives?: string[] };
     };
-    expect(orderPayload.comment).toContain(
-      'Contact de secours : Bruno Secours',
+    expect(orderPayload.comment).toBe(
+      [
+        'Veuillez peser et prendre de belles photos de ce que vous récupérez svp',
+        '2 camions prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur',
+        'Départ :',
+        "- Instructions d'accès : Quai n°2, sonner interphone B",
+        '- Précisions du traiteur : Demander Karim à la plonge',
+        `- Contact 1 : ${collecte.contact_principal_nom}, ${collecte.contact_principal_telephone}`,
+        '- Contact 2 : Bruno Secours, +33600000002',
+        "En cas d'urgence, appeler le 0761912997",
+      ].join('\n'),
     );
+    // Le téléphone de secours part aussi nativement.
     expect(orderPayload.contact?.phoneAlternatives).toEqual(['+33600000002']);
   });
 
@@ -1138,5 +959,136 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     );
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     expect(orderPayload['comment']).toBeUndefined();
+  });
+});
+
+// ─── Nom du point et contact de livraison (décisions Val 2026-10-15) ─────────
+// MTS-1 affiche le numéro de commande comme nom du point (C59) ; le contact de
+// livraison (« Contact livr. ») est celui de l'association quand son adresse part
+// en clair (C62). Formes mesurées sur le compte de démonstration le 2026-10-15.
+
+describe('M1.5a / nom du point et contact de livraison (Val 2026-10-15)', () => {
+  afterEach(() => _setMts1Handlers(null));
+
+  async function corpsCree(collecte: Collecte): Promise<{
+    orderNumber: string;
+    stuffs: Array<Record<string, unknown>>;
+  }> {
+    const postOrder = vi.fn().mockResolvedValue({
+      ok: true,
+      id: 'MTS1-ORDER-LIB',
+      externalReference: '',
+      status: 'DRAFT',
+      createdAt: '',
+    });
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder,
+      ...tourneeUnitaireSimulee(),
+    });
+    await new AdapterMts1(
+      TRANSPORTEUR,
+      makeMockSupabase({ tourneeExistante: null }),
+    ).dispatchCollecte(collecte, 1);
+    return postOrder.mock.calls[0]![0] as {
+      orderNumber: string;
+      stuffs: Array<Record<string, unknown>>;
+    };
+  }
+
+  it('M1.5a/numero_commande_libelle — « Traiteur - Lieu - N pax · clé »', async () => {
+    const corps = await corpsCree({
+      ...COLLECTE_ZD,
+      traiteur_nom: 'Traiteur Essai',
+      pax: 120,
+    });
+    expect(corps.orderNumber).toBe(
+      'Traiteur Essai - Salle Pleyel - 120 pax · col-zd-001-1',
+    );
+  });
+
+  it('M1.5a/numero_commande_libelle_borne — traiteur et lieu repliés sur une ligne et bornés à 40 caractères chacun, pax absent ou nul omis', async () => {
+    const corps = await corpsCree({
+      ...COLLECTE_ZD,
+      traiteur_nom: `Traiteur\nau nom ${'très '.repeat(10)}long`,
+      pax: 0,
+      lieu: { ...LIEU_FIXTURE, nom: `  Château\tde ${'l’Essai '.repeat(6)} ` },
+    });
+    const [libelle, cle] = corps.orderNumber.split(' · ');
+    expect(cle).toBe('col-zd-001-1');
+    const [traiteur, lieu, ...reste] = libelle!.split(' - ');
+    expect(reste).toEqual([]);
+    expect(traiteur).toBe(
+      `${'Traiteur au nom très très très très très'.slice(0, 39)}…`,
+    );
+    expect(traiteur).toHaveLength(40);
+    expect(lieu!.startsWith('Château de l’Essai')).toBe(true);
+    expect(lieu!.length).toBeLessThanOrEqual(40);
+    expect(corps.orderNumber).not.toMatch(/[\n\t]/);
+  });
+
+  it('M1.5a/numero_commande_sans_libelle — ni traiteur, ni lieu nommé, ni pax : le numéro est la clé seule', async () => {
+    const corps = await corpsCree({
+      ...COLLECTE_ZD,
+      lieu: { ...LIEU_FIXTURE, nom: '   ' },
+    });
+    expect(corps.orderNumber).toBe('col-zd-001-1');
+  });
+
+  it('M1.5a/contact_livraison_association — AG, adresse de l’association en clair : son contact part en contact de livraison (relatedContact)', async () => {
+    const corps = await corpsCree(COLLECTE_AG);
+    expect(corps.stuffs[0]!['relatedContact']).toEqual({
+      firstname: 'Nadia',
+      lastname: 'Benali',
+      phone: '+33699990001',
+    });
+  });
+
+  it.each([
+    [
+      'AG, association lieu favori (placeId)',
+      {
+        ...COLLECTE_AG,
+        association_id_point_collecte_mts1: 'PLACE_ASSO_FAVORI',
+      } as Collecte,
+    ],
+    [
+      'AG, association sans contact',
+      {
+        ...COLLECTE_AG,
+        association_contact_nom: null,
+        association_contact_telephone: null,
+      } as Collecte,
+    ],
+  ])(
+    'M1.5a/contact_livraison_absent — %s : aucun contact de livraison',
+    async (_cas, collecte) => {
+      const corps = await corpsCree(collecte);
+      expect(corps.stuffs[0]).not.toHaveProperty('relatedContact');
+    },
+  );
+});
+
+describe('M1.5a / reconnaissance de la clé dans un numéro (numeroPorteLaCle)', () => {
+  it.each([
+    ['la clé seule (commande d’avant le 2026-10-15)', 'col-1-1', true],
+    ['le libellé puis la clé', 'Traiteur - Lieu - 120 pax · col-1-1', true],
+    [
+      'un autre libellé puis la clé',
+      'Autre - Ailleurs - 80 pax · col-1-1',
+      true,
+    ],
+    ['la clé du rang 11', 'Traiteur - Lieu · col-1-11', false],
+    ['la clé d’une tentative r2', 'Traiteur - Lieu · col-1-1-r2', false],
+    ['la clé collée sans séparateur', 'Traiteur - Lieucol-1-1', false],
+    ['la clé d’une autre collecte', 'Traiteur · autre-col-1-1', false],
+  ])('M1.5a/numero_porte_la_cle — %s', (_cas, numero, attendu) => {
+    expect(numeroPorteLaCle(numero, 'col-1-1')).toBe(attendu);
+  });
+
+  it('M1.5a/numero_porte_la_cle — un numéro qui n’est pas une chaîne ne porte aucune clé', () => {
+    expect(numeroPorteLaCle(undefined, 'col-1-1')).toBe(false);
+    expect(numeroPorteLaCle(42, 'col-1-1')).toBe(false);
   });
 });

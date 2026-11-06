@@ -81,13 +81,38 @@ describe('M3.1 / R25a — groupes de statuts en vue client', () => {
       'annulation_demandee',
       'annulee',
     ]);
-    // « Réalisée » = cloturee SEUL ; realisee reste « En cours ».
+    // « Réalisée » = realisee + cloturee + AG sans excédent (Val 2026-10-09,
+    // realisee dès la réalisation Val 2026-11-04) : plus de « En cours » ici.
     expect(groupes.find((g) => g.label === 'Réalisée')?.statuts).toEqual([
+      'realisee',
+      'realisee_sans_collecte',
       'cloturee',
     ]);
-    expect(groupes.find((g) => g.label === 'En cours')?.statuts).toEqual([
-      'realisee',
-    ]);
+    expect(groupes.map((g) => g.label)).not.toContain('Sans excédents');
+    expect(groupes.map((g) => g.label)).not.toContain('En cours');
+  });
+
+  // Un lien de tableau de bord ne porte que `cloturee` : « Réalisée » doit se
+  // lire cochée, sinon la barre afficherait « Tous » sur une liste filtrée.
+  it('M3.1/filtre_statut_realisee_cochee_sur_lien_cloturee — un seul statut du groupe sélectionné : le groupe se lit coché', () => {
+    renderBar(
+      { ...FILTRES_COLLECTE_VIDES, statuts: ['cloturee'] },
+      STATUTS_HISTORIQUE,
+    );
+    fireEvent.click(screen.getByTestId('filtre-statut'));
+    expect(screen.getByRole('checkbox', { name: 'Réalisée' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Annulée' })).not.toBeChecked();
+  });
+
+  it('M3.1/filtre_statut_realisee_couvre_sans_excedent — cocher « Réalisée » rend realisee, cloturee ET realisee_sans_collecte', () => {
+    const { onChange } = renderBar(FILTRES_COLLECTE_VIDES, STATUTS_HISTORIQUE);
+    fireEvent.click(screen.getByTestId('filtre-statut'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Réalisée' }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statuts: ['realisee', 'realisee_sans_collecte', 'cloturee'],
+      }),
+    );
   });
 
   it('R25a/statut_selectionne_rend_tous_les_statuts_db_du_groupe', () => {

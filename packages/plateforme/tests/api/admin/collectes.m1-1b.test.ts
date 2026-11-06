@@ -21,6 +21,7 @@ const mockSupabaseChain = {
   or: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
   range: vi.fn().mockReturnThis(),
+  limit: vi.fn().mockReturnThis(),
   single: vi.fn(),
   maybeSingle: vi.fn(),
   rpc: vi.fn(),
@@ -31,7 +32,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 
 const mockGetUser = vi.fn();
@@ -187,7 +188,7 @@ describe('M1.1b / Dispatch / Permissions', () => {
   });
 });
 
-// ZD (décision Val 2026-10-07, C1) — l'Admin choisit le prestataire sur la fiche.
+// ZD (décision Val 2026-10-07, C1) — l'Admin choisit le transporteur sur la fiche.
 // Avant, rien ne posait de prestataire sur une ZD : « Envoyer » émettait un
 // ordre que le worker classait « rien à envoyer ».
 describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
@@ -210,7 +211,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     },
     error: null,
   });
-  // Transporteur résolu depuis le prestataire choisi (validation serveur).
+  // Transporteur résolu depuis le transporteur choisi (validation serveur).
   const transporteur = (t: { type_tms: string; actif: boolean } | null) =>
     mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
       data: t,
@@ -227,6 +228,60 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     );
   };
 
+  // Besoin véhicule saisi au choix du prestataire (décision Val 2026-10-27).
+  it('besoin véhicule : nombre puis type écrits AVANT l’event de dispatch', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(collecteZd(null));
+    transporteur({ type_tms: 'mts1', actif: true });
+    mockSupabaseChain.rpc
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: 'collecte.creee', error: null });
+
+    const res = await dispatch({
+      prestataire_logistique_id: 'prest-strike',
+      nb_camions_demande: 3,
+      type_vehicule_souhaite: 'fourgon',
+    });
+
+    expect(res.status).toBe(200);
+    const appels = mockSupabaseChain.rpc.mock.calls.map((c) => c[0]);
+    expect(appels).toEqual(['fn_modifier_collecte', 'fn_dispatcher_collecte']);
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith('fn_modifier_collecte', {
+      p_id: 'col-1',
+      p_updates: { nb_camions_demande: 3 },
+      p_champs_modifies: ['nb_camions_demande'],
+    });
+    expect(mockSupabaseChain.update).toHaveBeenCalledWith({
+      type_vehicule_souhaite: 'fourgon',
+    });
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('statut', [
+      'programmee',
+      'rejetee_par_prestataire',
+    ]);
+  });
+
+  it('besoin véhicule hors bornes : 422 sans rien écrire', async () => {
+    setupAuth('admin_savr');
+    const res = await dispatch({
+      prestataire_logistique_id: 'prest-strike',
+      nb_camions_demande: 21,
+    });
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
+  it('besoin véhicule sur une collecte déjà validée : 409 sans rien écrire', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(
+      collecteZd('prest-strike', { statut: 'validee' }),
+    );
+    const res = await dispatch({ type_vehicule_souhaite: 'fourgon' });
+    expect(res.status).toBe(409);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
   it('M0.6/dispatch_zd_sans_prestataire_refuse — ni prestataire choisi ni prestataire posé : 422, aucun ordre émis', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce(collecteZd(null));
@@ -235,7 +290,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
 
     expect(res.status).toBe(422);
     expect(((await res.json()) as { error: string }).error).toMatch(
-      /Choisissez d'abord le prestataire logistique/,
+      /Choisissez d'abord le transporteur/,
     );
     expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
@@ -262,7 +317,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     );
   });
 
-  it('M0.6/dispatch_zd_changement_motif — changer un prestataire déjà posé : motif exigé, message propre à la ZD', async () => {
+  it('M0.6/dispatch_zd_changement_motif — changer un transporteur déjà posé : motif exigé, message propre à la ZD', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce(collecteZd('prest-strike'));
     transporteur({ type_tms: 'mts1', actif: true });
@@ -271,7 +326,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
 
     expect(res.status).toBe(422);
     expect(((await res.json()) as { error: string }).error).toMatch(
-      /pour changer le prestataire déjà attribué/,
+      /pour changer le transporteur déjà attribué/,
     );
     expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
@@ -345,7 +400,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     expect(res.status).toBe(200);
   });
 
-  it('collecte en demande d’annulation : choix d’un prestataire refusé (409)', async () => {
+  it('collecte en demande d’annulation : choix d’un transporteur refusé (409)', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce(
       collecteZd(null, { statut: 'annulation_demandee' }),
@@ -372,7 +427,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     expect(mockSupabaseChain.maybeSingle).not.toHaveBeenCalled();
   });
 
-  it('renvoi chez le prestataire déjà posé (corps vide) : réémission sans motif', async () => {
+  it('renvoi chez le transporteur déjà posé (corps vide) : réémission sans motif', async () => {
     setupAuth('ops_savr');
     mockSupabaseChain.single.mockResolvedValueOnce(collecteZd('prest-strike'));
     mockSupabaseChain.rpc.mockResolvedValueOnce({
@@ -391,7 +446,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
 });
 
 // BL-P1-BOA-06 (Val 2026-07-02) — Bloc 0 AG : le motif override est obligatoire
-// UNIQUEMENT si le prestataire choisi ≠ top-1 de l'algo (calculé serveur), pas ≠
+// UNIQUEMENT si le transporteur choisi ≠ top-1 de l'algo (calculé serveur), pas ≠
 // prestataire actuel. Valider le top-1 = 0 motif.
 describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -419,7 +474,7 @@ describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
     nb_pax: 80,
   };
 
-  // AG : l'association est choisie AVANT le prestataire (décision Val 2026-10-01)
+  // AG : l'association est choisie AVANT le transporteur (décision Val 2026-10-01)
   // — son adresse est le point B transmis par l'adapter. Sans attribution, 422.
   it('M0.6/dispatch AG — 422 si aucune association attribuée (adresse de livraison inconnue)', async () => {
     setupAuth('admin_savr');
@@ -497,6 +552,168 @@ describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
       { params: Promise.resolve({ id: 'col-ag' }) },
     );
     expect(res.status).toBe(200);
+  });
+});
+
+// Décision Val 2026-11-03 : AG envoyée à A Toutes! alors que la branche retenue
+// (Marathon) ne désigne aucun de ses services → l'Admin choisit le service,
+// rangé comme branche retenue avant l'ordre d'envoi (cas du 2026-11-02).
+describe('M0.6 / Dispatch AG / service du transporteur forcé', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const collecteAg = {
+    id: 'col-ag',
+    statut: 'programmee',
+    statut_tms: 'non_envoye',
+    tms_reference: null,
+    type: 'anti_gaspi',
+    date_collecte: '2026-07-01',
+    dirty_tms: false,
+    prestataire_logistique_id: 'presta-marathon',
+  };
+
+  function monter() {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single
+      .mockResolvedValueOnce({ data: collecteAg, error: null }) // collecte
+      .mockResolvedValueOnce({
+        data: { prestataire_logistique_id: 'presta-marathon' },
+        error: null,
+      }); // transporteur top-1
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { id: 'attr-1', branche_attribution: 'ag_marathon_volume' },
+      error: null,
+    }); // attribution validée, branche Marathon
+    mockSupabaseChain.limit.mockResolvedValueOnce({
+      data: [{ type_tms: 'a_toutes' }],
+      error: null,
+    } as never); // transporteur visé = A Toutes!
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: {
+        transporteur: { id: 't-marathon', nom: 'Marathon', type_tms: 'mts1' },
+        associations: [],
+        assoc_count: 0,
+        branche: 'ag_marathon_volume',
+        is_idf: true,
+        no_asso: false,
+        no_prestataire: false,
+        delai_minutes: 600,
+        nb_pax: 2000,
+      },
+      error: null,
+    }); // algo
+  }
+
+  it('M0.6/dispatch_service_a_toutes — sans service choisi : 422, rien n’est écrit ni envoyé', async () => {
+    monter();
+    const { POST } =
+      await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/collectes/col-ag/dispatch', {
+        prestataire_logistique_id: 'presta-atoutes',
+        motif_override_prestataire: 'Marathon indisponible',
+      }),
+      { params: Promise.resolve({ id: 'col-ag' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toMatch(
+      /Choisissez le service du transporteur/,
+    );
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith(
+      'prestataire_logistique_id',
+      'presta-atoutes',
+    );
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalledWith(
+      'fn_dispatcher_collecte',
+      expect.anything(),
+    );
+  });
+
+  it('M0.6/dispatch_service_a_toutes — service choisi : rangé comme branche, audité, puis l’ordre part', async () => {
+    monter();
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.creee',
+      error: null,
+    }); // dispatcher
+    const { POST } =
+      await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/collectes/col-ag/dispatch', {
+        prestataire_logistique_id: 'presta-atoutes',
+        motif_override_prestataire: 'Marathon indisponible',
+        branche_attribution: 'ag_marathon_volume_backup_camion',
+      }),
+      { params: Promise.resolve({ id: 'col-ag' }) },
+    );
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.update).toHaveBeenCalledWith({
+      branche_attribution: 'ag_marathon_volume_backup_camion',
+    });
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith('id', 'attr-1');
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'SERVICE_TRANSPORTEUR',
+        old_values: { branche_attribution: 'ag_marathon_volume' },
+        new_values: { branche_attribution: 'ag_marathon_volume_backup_camion' },
+      }),
+    );
+    const noms = mockSupabaseChain.rpc.mock.calls.map((c) => c[0]);
+    expect(noms).toContain('fn_dispatcher_collecte');
+    // Rangé AVANT l'ordre d'envoi : l'adapter lit la branche à la consommation.
+    expect(mockSupabaseChain.update.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSupabaseChain.rpc.mock.invocationCallOrder[
+        noms.indexOf('fn_dispatcher_collecte')
+      ]!,
+    );
+  });
+
+  it('ops_savr : le choix du service est refusé (403), rien n’est écrit ni envoyé', async () => {
+    setupAuth('ops_savr');
+    // Renvoi au transporteur actuel (A Toutes!), sans forçage : seul le service
+    // est en jeu (aucun appel à l'algorithme).
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { ...collecteAg, prestataire_logistique_id: 'presta-atoutes' },
+      error: null,
+    });
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { id: 'attr-1', branche_attribution: 'ag_marathon_volume' },
+      error: null,
+    });
+    mockSupabaseChain.limit.mockResolvedValueOnce({
+      data: [{ type_tms: 'a_toutes' }],
+      error: null,
+    } as never);
+    const { POST } =
+      await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/collectes/col-ag/dispatch', {
+        branche_attribution: 'ag_marathon_volume_backup_camion',
+      }),
+      { params: Promise.resolve({ id: 'col-ag' }) },
+    );
+    expect(res.status).toBe(403);
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalledWith(
+      'fn_dispatcher_collecte',
+      expect.anything(),
+    );
+  });
+
+  it('un service qui n’est pas celui du transporteur visé est refusé (422)', async () => {
+    monter();
+    const { POST } =
+      await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/collectes/col-ag/dispatch', {
+        prestataire_logistique_id: 'presta-atoutes',
+        motif_override_prestataire: 'Marathon indisponible',
+        branche_attribution: 'ag_marathon_nuit',
+      }),
+      { params: Promise.resolve({ id: 'col-ag' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
   });
 });
 

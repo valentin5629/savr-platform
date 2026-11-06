@@ -24,6 +24,7 @@ import {
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { messageErreur } from '@/lib/api-helpers.js';
+import { codeVerificationManquant } from '@/lib/code-verification';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -77,9 +78,10 @@ async function isAuthorized(req: NextRequest): Promise<boolean> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  const role = parseJwtClaims(session?.access_token ?? '')['user_role'] as
-    | string
-    | undefined;
+  const claims = parseJwtClaims(session?.access_token ?? '');
+  const role = claims['user_role'] as string | undefined;
+  // Équipe Savr sans code de vérification sur cette session (lib/code-verification.ts).
+  if (codeVerificationManquant(role, claims['aal'])) return false;
   return !!role && ALLOWED_ROLES.includes(role);
 }
 

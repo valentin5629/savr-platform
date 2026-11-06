@@ -1,30 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import {
   requireProgrammateur,
   requireProgrammateurOuAdmin,
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
-import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
+import { refusClientFinalVide } from '@/lib/evenements/client-final.js';
+import {
+  CHAMPS_EVENEMENT_EDITABLES,
+  CHAMPS_TYPE_CONTACTS_COLLECTE,
+} from '@/lib/collectes/champs-editables.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
+import { lireEtatRecapEmail } from '@/lib/programmation/suivi-recap-email.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
+import { envoyerOrdresEvenementSansAttendre } from '@/lib/envoi-immediat.js';
+import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
+import { controleAccesEvenement } from '@/lib/programmation/niveau-evenement.js';
 
-// Champs métier ÉVÉNEMENT éditables par les rôles programmateurs (§06.04 l.444,
-// §05 l.307). lieu_id et type_collecte = verrouillés (§05 l.314 / §06.04 l.459) :
-// changer le lieu = annuler + reprogrammer. organisation_id / traiteur_operationnel
-// / entite_facturation = immuables par construction → jamais exposés.
-const EVENT_EDITABLE_FIELDS = [
-  'nom_evenement',
-  'pax',
-  'type_evenement_id',
-  'contact_principal_nom',
-  'contact_principal_telephone',
-  'contact_secours_nom',
-  'contact_secours_telephone',
-  'nom_client_organisateur',
-  'logo_client_organisateur_url',
-  'reference_affaire',
-];
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
+
 // Verrouillés pour les programmateurs (refus 422). lieu_id / type / organisation =
 // immuables (§05 l.314). client_organisateur_organisation_id = RATTACHEMENT d'une
 // org cliente (donne accès en lecture via evt_client_orga_select) → réservé Admin
@@ -59,7 +57,7 @@ export async function GET(
   const query = supabase
     .from('evenements')
     .select(
-      'id, nom_evenement, pax, contact_principal_nom, lieux(nom, adresse_acces, code_postal, ville), collectes(id, type, statut, date_collecte, heure_collecte)',
+      'id, organisation_id, traiteur_operationnel_organisation_id, lieu_id, nom_evenement, nom_client_organisateur, reference_affaire, code_affaire_viparis, date_evenement, pax, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone, type_evenement:types_evenements!type_evenement_id(libelle), traiteur_operationnel:organisations!traiteur_operationnel_organisation_id(id, nom, raison_sociale), organisation:organisations!organisation_id(id, nom, raison_sociale), lieux(nom, adresse_acces, code_postal, ville, acces_details, controle_acces_requis_default, code_site_viparis), collectes(id, type, statut, date_collecte, heure_collecte, pax, controle_acces_requis, type_evenement_id, informations_supplementaires, lieu_overrides, created_at, type_evenement:types_evenements!type_evenement_id(libelle))',
     )
     .eq('id', evenementId);
 
@@ -75,13 +73,105 @@ export async function GET(
       { status: 404 },
     );
 
-  return NextResponse.json(data);
+  // Écran de confirmation (§06.01 étape 13) : état réel de l'email récapitulatif.
+  // Lu APRÈS la garde ci-dessus, donc jamais pour un événement hors du périmètre
+  // de l'appelant.
+  const emailRecap = await lireEtatRecapEmail(supabase, evenementId);
+
+  // Contacts de CHAQUE collecte (refonte du formulaire, lot B2) : table
+  // `collecte_contacts`, fermée aux clients, lue ici en service-role après la
+  // garde. L'appelant programme pour l'organisation de l'événement (ou est
+  // l'équipe Savr) : il voit les contacts de ses programmations (§09,
+  // arbitrages C2/C5 du 2026-10-01). Un échec de lecture est une erreur,
+  // jamais « aucun contact ».
+  // Ordre de création (puis identifiant) : la reprise d'un brouillon rouvre
+  // ses cartes dans l'ordre où elles ont été enregistrées ; la lecture
+  // embarquée n'a pas d'ordre garanti.
+  const collectesBrutes = [
+    ...((data.collectes ?? []) as Array<
+      Record<string, unknown> & {
+        id: string;
+        type_evenement?: unknown;
+        created_at?: string | null;
+      }
+    >),
+  ].sort((a, b) =>
+    `${a.created_at ?? ''}|${a.id}` < `${b.created_at ?? ''}|${b.id}` ? -1 : 1,
+  );
+  const contactsParCollecte = new Map<string, Record<string, unknown>>();
+  if (collectesBrutes.length > 0) {
+    const { data: contacts, error: contactsErr } = await supabase
+      .from('collecte_contacts')
+      .select(
+        'collecte_id, contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone',
+      )
+      .in(
+        'collecte_id',
+        collectesBrutes.map((c) => c.id),
+      );
+    if (contactsErr)
+      return serverError(contactsErr, 'programmation.evenements.contacts');
+    for (const ligne of (contacts ?? []) as Array<
+      Record<string, unknown> & { collecte_id: string }
+    >) {
+      const { collecte_id, ...valeurs } = ligne;
+      contactsParCollecte.set(collecte_id, valeurs);
+    }
+  }
+  const collectes = collectesBrutes.map((c) => {
+    const type = (
+      Array.isArray(c.type_evenement) ? c.type_evenement[0] : c.type_evenement
+    ) as { libelle: string | null } | null | undefined;
+    return {
+      ...c,
+      type_evenement: type?.libelle ?? null,
+      contacts: contactsParCollecte.get(c.id) ?? null,
+    };
+  });
+
+  // Niveau événement de la page « Ajouter une collecte » (§06.01), affiché figé :
+  // le contrôle d'accès est celui que la route d'ajout imposera.
+  // Relation to-one : PostgREST renvoie un objet, on tolère le tableau.
+  const typeEvenement = (
+    Array.isArray(data.type_evenement)
+      ? data.type_evenement[0]
+      : data.type_evenement
+  ) as { libelle: string | null } | null | undefined;
+  // Traiteur opérant (reprise d'un brouillon d'agence ou de gestionnaire) et
+  // organisation programmatrice (reprise par l'équipe Savr, qui programme pour
+  // son compte) : leur nom d'affichage seul, comme la liste du sélecteur.
+  type OrgLue = {
+    id: string;
+    nom: string | null;
+    raison_sociale: string | null;
+  };
+  const nomAffiche = (o: unknown): { id: string; nom: string } | null => {
+    const org = (Array.isArray(o) ? o[0] : o) as OrgLue | null | undefined;
+    return org
+      ? {
+          id: org.id,
+          nom: (org.nom ?? '').trim() || (org.raison_sociale ?? ''),
+        }
+      : null;
+  };
+  return NextResponse.json({
+    ...data,
+    traiteur_operationnel: nomAffiche(data.traiteur_operationnel),
+    organisation: nomAffiche(data.organisation),
+    collectes,
+    type_evenement: typeEvenement?.libelle ?? null,
+    controle_acces_requis: controleAccesEvenement(data.collectes),
+    email_recap: emailRecap,
+  });
 }
 
 // Édition des champs métier de l'événement par un rôle programmateur (4 rôles).
 // Décision produit Val 2026-06-26 : édition événement + collecte depuis la fiche
 // collecte, fenêtre brouillon/programmee/validee, verrou dès en_cours (§06.04 l.444,
-// §05 §4). E2 par collecte déjà dispatchée émis par fn_modifier_evenement.
+// §05 §4). Le type d'événement et les contacts se modifient sur chaque collecte
+// depuis le lot B1 (décision Val 2026-10-23) : refusés ici (422), et
+// fn_modifier_evenement n'émet plus d'E2 (aucun champ restant ne part au
+// prestataire).
 // Reste volontairement fermé au staff (contrairement au GET) : editer-collecte-form
 // n'est monté que sur les fiches traiteur/agence/gestionnaire, l'admin éditant par
 // le back-office (/api/v1/admin/evenements/[id], requireStaff). Aucun chemin admin
@@ -109,8 +199,39 @@ export async function PATCH(
     );
   }
 
+  // Le pax n'est plus un champ de l'événement (décision Val 2026-10-20) : il se
+  // modifie sur chaque collecte, et celui de l'événement en est calculé en base.
+  // Refusé plutôt qu'ignoré, pour qu'un appelant resté à l'ancien contrat le sache.
+  if ('pax' in body) {
+    return NextResponse.json(
+      {
+        error:
+          'Le nombre de convives se modifie sur chaque collecte, pas sur l’événement.',
+        champs_verrouilles: ['pax'],
+      },
+      { status: 422 },
+    );
+  }
+
+  // Le type d'événement et les contacts se modifient sur chaque collecte (lot
+  // B1, décision Val 2026-10-23) ; l'événement garde la copie de sa collecte
+  // n°1, tenue par la base. Refusés plutôt qu'ignorés.
+  const typeContacts = CHAMPS_TYPE_CONTACTS_COLLECTE.filter((f) => f in body);
+  if (typeContacts.length > 0) {
+    return NextResponse.json(
+      {
+        error:
+          'Le type d’événement et les contacts se modifient sur chaque collecte, pas sur l’événement.',
+        champs_verrouilles: typeContacts,
+      },
+      { status: 422 },
+    );
+  }
+
   const updates = Object.fromEntries(
-    Object.entries(body).filter(([k]) => EVENT_EDITABLE_FIELDS.includes(k)),
+    Object.entries(body).filter(([k]) =>
+      CHAMPS_EVENEMENT_EDITABLES.includes(k),
+    ),
   );
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
@@ -127,6 +248,10 @@ export async function PATCH(
   if ('error' in texteValide) return texteValide.error;
   Object.assign(updates, texteValide.valeurs);
 
+  // Client final : jamais vidé par une modification (décision Val 2026-10-30).
+  const refusClient = refusClientFinalVide(updates);
+  if (refusClient) return refusClient;
+
   // Lecture RLS-scopée (cloisonnement org : si invisible → 404).
   const rls = createSupabaseServerClient();
   const { data: evt } = await rls
@@ -141,12 +266,9 @@ export async function PATCH(
     );
   }
 
-  // Périmètre d'ÉCRITURE — miroir des policies evt_*_update (§09) :
-  // commercial = ses propres créations ; manager/agence/gestionnaire = son orga.
-  const autorise =
-    auth.ctx.role === 'traiteur_commercial'
-      ? evt.created_by === auth.ctx.userId
-      : evt.organisation_id === auth.ctx.organisationId;
+  // Périmètre d'ÉCRITURE : l'organisation, pour tous les programmateurs
+  // (Val 2026-10-30 : le commercial écrit comme le manager, sur toute son organisation.)
+  const autorise = evt.organisation_id === auth.ctx.organisationId;
   if (!autorise) {
     return NextResponse.json(
       { error: 'Modification non autorisée' },
@@ -168,8 +290,16 @@ export async function PATCH(
     );
   }
 
-  // Écriture via RPC service-role : UPDATE événement + recalcul volume si pax +
-  // émission E2 par collecte dispatchée (atomique, row lock avant outbox — G4).
+  // Débit des écritures clientes (cf. lib/frein-ecritures-client). L'identifiant
+  // est celui que rend la base, jamais le paramètre d'URL.
+  const frein = freinerEcritureCliente({
+    organisationId: auth.ctx.organisationId,
+    modification: { evenement: evt.id },
+  });
+  if (frein) return frein;
+
+  // Écriture via RPC service-role : UPDATE de l'événement (aucun E2 depuis le
+  // lot B1, cf. ci-dessus).
   const admin = createAdminSupabaseClient();
   const { data: before } = await admin
     .from('evenements')
@@ -184,10 +314,17 @@ export async function PATCH(
   });
   if (error) return serverError(error, 'programmation.evenements.update');
 
+  // Un ordre par collecte déjà commandée : ils partent sans attendre le passage
+  // planifié (décision Val 2026-10-12).
+  envoyerOrdresEvenementSansAttendre(evt.id);
+
   // Audit (§05 l.330 audit_log global — accessible Admin only). Session impersonée :
   // user_id = identité assumée ET impersonator_id = admin réel (§09 §7) — écrit ici
   // car l'INSERT part sous service_role, sans le JWT de la session.
-  await admin.from('audit_log').insert({
+  // Cette ligne est aussi ce que la route collecte relit pour l'email à l'équipe
+  // Savr (`{ updates }`, cf. lib/collectes/email-modification) : son échec ne
+  // doit pas passer inaperçu.
+  const { error: auditErr } = await admin.from('audit_log').insert({
     table_name: 'evenements',
     record_id: id,
     action: 'UPDATE',
@@ -196,28 +333,37 @@ export async function PATCH(
     old_values: before ?? {},
     new_values: { updates },
   });
+  if (auditErr)
+    logger.error('programmation.evenements.audit_echec', {
+      evenement_id: id,
+      erreur: auditErr.message,
+    });
 
   // Recompute de `informations_completes` (§04 Data Model) — BL-P1-TRAIT-04.
-  // Le badge « Info incomplète » (posé à la programmation quand contact principal
-  // ou client final manquait) se lève dès que ces champs sont renseignés à
-  // l'édition. Miroir strict de la règle de programmation (§programmation/
-  // evenements) : complet = contact_principal_telephone ET nom_client_organisateur
-  // renseignés. Les collectes à lieu_overrides restent incomplètes (override lieu
-  // non levé ici) → exclues du recompute.
-  if (
-    'contact_principal_telephone' in updates ||
-    'nom_client_organisateur' in updates
-  ) {
+  // À l'édition, le badge « Info incomplète » est recalculé sur le téléphone du
+  // contact principal ET le nom de l'événement ; le client final, facultatif,
+  // n'en fait pas partie (décision Val 2026-10-19). Depuis le lot B1, le
+  // téléphone ne se modifie plus ici : c'est celui de la copie gardée par
+  // l'événement (collecte n°1), jamais vide pour une collecte créée depuis
+  // (collecte_contacts l'exige) ; seule une modification du nom déclenche ce
+  // recalcul. À la programmation, ces deux
+  // champs sont exigés (422) : seule une surcharge du lieu y pose le badge. Les
+  // collectes à lieu_overrides restent incomplètes (override lieu non levé ici)
+  // → exclues du recompute.
+  if ('contact_principal_telephone' in updates || 'nom_evenement' in updates) {
     const beforeRow = (before ?? {}) as Record<string, unknown>;
     const contactTel =
       'contact_principal_telephone' in updates
         ? updates.contact_principal_telephone
         : beforeRow.contact_principal_telephone;
-    const nomClient =
-      'nom_client_organisateur' in updates
-        ? updates.nom_client_organisateur
-        : beforeRow.nom_client_organisateur;
-    const complet = Boolean(contactTel) && Boolean(nomClient);
+    const nomEvenement =
+      'nom_evenement' in updates
+        ? updates.nom_evenement
+        : beforeRow.nom_evenement;
+    // Un nom fait d'espaces vaut un nom absent, comme à la création.
+    const nomRenseigne =
+      typeof nomEvenement === 'string' && nomEvenement.trim() !== '';
+    const complet = Boolean(contactTel) && nomRenseigne;
     await admin
       .from('collectes')
       .update({ informations_completes: complet })
@@ -225,29 +371,27 @@ export async function PATCH(
       .is('lieu_overrides', null);
   }
 
-  // BL-P2-22 (tpl 21, modification) : info-only au traiteur opérationnel si la
-  // modification est faite par un tiers (garde tiers-non-shadow dans le helper).
-  // Modif événement = niveau événement → une collecte représentative. Best-effort :
-  // tout le bloc est protégé — une notification ne doit JAMAIS casser la modification.
-  try {
-    const { data: colNotif } = await admin
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification) : il part d'ici
+  // quand l'enregistrement ne touche que l'événement — le formulaire nomme alors
+  // la collecte d'où il est ouvert (`collecte_id`). La collecte nommée doit être
+  // de CET événement et encore modifiable (mêmes statuts que les routes
+  // collecte) : ni brouillon, ni collecte terminée.
+  const collecteNotifiee = body.collecte_id;
+  if (typeof collecteNotifiee === 'string') {
+    const { data: collecte } = await admin
       .from('collectes')
       .select('id')
+      .eq('id', collecteNotifiee)
       .eq('evenement_id', id)
-      .limit(1)
+      .in('statut', ['programmee', 'validee'])
       .maybeSingle();
-    if (colNotif) {
-      void notifierTraiteurOperationnel(admin, {
-        collecteId: colNotif.id,
-        acteurOrgId: auth.ctx.organisationId,
-        changement: {
-          kind: 'modification',
-          champsModifies: Object.keys(updates),
-        },
-      }).catch(() => undefined);
-    }
-  } catch {
-    // notification best-effort — ignorée si irrésoluble
+    if (collecte)
+      await notifierEquipeModificationCollecte(admin, req, {
+        collecteId: collecte.id,
+        acteurUserId: auth.ctx.userId,
+        evenementAvant: (before ?? null) as Record<string, unknown> | null,
+        majEvenement: updates,
+      });
   }
 
   // `fn_modifier_evenement` rend la ligne ENTIÈRE (`to_jsonb`), dont
@@ -257,7 +401,7 @@ export async function PATCH(
   // champs que ce rôle peut éditer ; l'écran n'en consomme que le statut HTTP.
   const ligne = (updated ?? {}) as Record<string, unknown>;
   const data = Object.fromEntries(
-    ['id', ...EVENT_EDITABLE_FIELDS]
+    ['id', ...CHAMPS_EVENEMENT_EDITABLES]
       .filter((champ) => champ in ligne)
       .map((champ) => [champ, ligne[champ]]),
   );
@@ -265,15 +409,12 @@ export async function PATCH(
 }
 
 // Rôles clients dont le DELETE brouillon est borné à leurs PROPRES créations
-// (`created_by = auth.uid()`, matrice §09 tranchée Val 2026-09-14). Absent de cette
-// liste : `traiteur_manager`, dont la matrice accorde le périmètre organisation, et
-// le staff (`admin_savr`/`ops_savr`), global. La garde qui s'appuie dessus est
+// (`created_by = auth.uid()`, matrice §09 tranchée Val 2026-09-14). Absents de cette
+// liste : `traiteur_manager` et `traiteur_commercial` (aligné sur le manager, Val
+// 2026-10-30), qui ont le périmètre organisation, et le staff (`admin_savr`/`ops_savr`),
+// global. La garde qui s'appuie dessus est
 // APPLICATIVE par nécessité : la route DELETE tourne en service-role.
-const DELETE_ROLES_PROPRIETAIRE: string[] = [
-  'traiteur_commercial',
-  'agence',
-  'gestionnaire_lieux',
-];
+const DELETE_ROLES_PROPRIETAIRE: string[] = ['agence', 'gestionnaire_lieux'];
 
 // Suppression d'un événement brouillon (et ses collectes) par son propriétaire.
 // Ouverte à l'admin en mode support, comme la liste qui l'appelle : depuis que
@@ -313,9 +454,9 @@ export async function DELETE(
 
   // Périmètre d'ÉCRITURE — matrice DELETE `evenements` §09 (tranché Val 2026-09-14,
   // divergences `M1.2_20260717` / `M1.2_20260717_delete-service-role`) : « chacun
-  // supprime ses propres brouillons ». `traiteur_commercial`, `agence` et
-  // `gestionnaire_lieux` sont bornés à `created_by = auth.uid()` ; seul
-  // `traiteur_manager` garde le périmètre organisation (déjà posé par le SELECT
+  // supprime ses propres brouillons ». `agence` et `gestionnaire_lieux` sont
+  // bornés à `created_by = auth.uid()` ; `traiteur_manager` et `traiteur_commercial`
+  // (Val 2026-10-30) gardent le périmètre organisation (déjà posé par le SELECT
   // ci-dessus), et le staff reste global. Le §09 exige explicitement que cette
   // matrice soit posée en garde de rôle APPLICATIVE (403) et pas seulement en
   // policy : la route tourne sous service-role, la RLS est bypassée et ne rattrape

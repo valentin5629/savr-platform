@@ -123,12 +123,12 @@ if [[ ${#FILES_AMBIGU[@]} -gt 0 ]]; then
   echo "    1. Réponds aux divergences ambiguës ci-dessus"
   echo "    2. Lance cdc-patch-divergences dans Cowork"
   echo "    3. Lance cdc-devfacing-export dans Cowork"
-  echo "    4. Dis-moi 'specs sync' → je lance sync-specs.sh et débloque"
+  echo "    4. Dis-moi 'specs sync' → je lance sync-specs.sh dans un worktree dédié depuis origin/main, j'ouvre la PR « specs: sync » et je débloque"
   exit 2
 else
   echo "⏳  ACTION REQUISE avant le prochain module :"
   echo "    1. Lance cdc-patch-divergences dans Cowork"
   echo "    2. Lance cdc-devfacing-export dans Cowork"
-  echo "    3. Dis-moi 'specs sync' → je lance sync-specs.sh et débloque"
+  echo "    3. Dis-moi 'specs sync' → je lance sync-specs.sh dans un worktree dédié depuis origin/main, j'ouvre la PR « specs: sync » et je débloque"
   exit 1
 fi

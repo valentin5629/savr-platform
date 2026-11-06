@@ -3,8 +3,8 @@
 import { ErrorState } from '@/components/ui/error-state';
 import { fmtKg, fmtPct } from '@/lib/format';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChefHat } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ChefHatIcon } from '@/components/ui/icones';
+import { BadgesLigne } from '@/components/ui/badges-ligne';
 import {
   CelluleVide,
   DataGrid,
@@ -150,13 +150,10 @@ export default function GestionnaireTraiteursPage() {
       header: "Lieux d'intervention",
       cell: ({ row: { original: t } }) =>
         t.lieux_intervention.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {t.lieux_intervention.map((l) => (
-              <Badge key={l.id} variant="neutral" dot={false}>
-                {l.nom}
-              </Badge>
-            ))}
-          </div>
+          <BadgesLigne
+            libelles={t.lieux_intervention.map((l) => l.nom)}
+            dot={false}
+          />
         ) : (
           <CelluleVide />
         ),
@@ -168,11 +165,7 @@ export default function GestionnaireTraiteursPage() {
   // liste vide.
   return (
     <div className="space-y-4">
-      <PageHero
-        icon={<ChefHat className="h-6 w-6 text-savr-primary-200" />}
-        title="Traiteurs"
-        subtitle="Traiteurs intervenus sur vos lieux (24 derniers mois)."
-      />
+      <PageHero icon={<ChefHatIcon className="h-6 w-6" />} title="Traiteurs" />
 
       {erreur ? (
         <ErrorState
@@ -189,7 +182,7 @@ export default function GestionnaireTraiteursPage() {
           loading={loading}
           empty={
             <EmptyState
-              icon={<ChefHat />}
+              icon={<ChefHatIcon />}
               title="Aucun traiteur"
               description="Aucun traiteur n'est intervenu sur vos lieux au cours des 24 derniers mois."
             />

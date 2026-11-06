@@ -30,9 +30,11 @@ function makeChain() {
     'eq',
     'in',
     'gte',
+    'gt',
     'lte',
     'neq',
     'order',
+    'limit',
   ]) {
     chain[m] = (...args: unknown[]) => {
       record(m, args);
@@ -70,6 +72,32 @@ vi.mock('next/headers', () => ({
 vi.mock('@/lib/pdf/r2-client.js', () => ({
   getPresignedUrl: (...a: unknown[]) => mockPresign(...a),
 }));
+// Rapport de recyclage ZD fabriqué au clic (décision Val 2026-10-16).
+const mockPayload = vi.fn();
+const mockPdf = vi.fn();
+vi.mock('@/lib/pdf/payload-rapport.js', () => ({
+  construirePayloadRapport: (...a: unknown[]) => mockPayload(...a),
+}));
+vi.mock('@/lib/pdf/railway-client.js', () => ({
+  generatePdf: (...a: unknown[]) => mockPdf(...a),
+}));
+// Marque « consulté » (service-role) : écritures relevées.
+const majsAdmin: { table: string; valeurs: unknown }[] = [];
+vi.mock('@savr/shared/src/supabase-client.js', () => ({
+  createAdminSupabaseClient: () => ({
+    from: (table: string) => {
+      const c: Record<string, unknown> = {
+        update: (valeurs: unknown) => {
+          majsAdmin.push({ table, valeurs });
+          return c;
+        },
+        eq: () => c,
+        is: () => Promise.resolve({ data: null, error: null }),
+      };
+      return c;
+    },
+  }),
+}));
 
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
@@ -100,6 +128,7 @@ function makeReq(url: string): NextRequest {
 }
 
 beforeEach(() => {
+  majsAdmin.length = 0;
   vi.clearAllMocks();
   rls = makeChain();
   mockPresign.mockResolvedValue('https://r2.example/signed');
@@ -229,12 +258,17 @@ describe('M3.4 / dashboard KPI', () => {
     rls.push({
       data: [
         {
-          mois: '2026-05-01',
-          type_collecte: 'zero_dechet',
+          id: 'c1',
+          type: 'zero_dechet',
+          date_collecte: '2026-05-12',
+          pax: 100,
+          evenement_id: 'e1',
+          taux_recyclage: 70,
           co2_evite_kg: 5,
           co2_induit_kg: 10,
           co2_net_kg: -5,
           energie_primaire_evitee_kwh: 120,
+          collecte_flux: [{ poids_reel_kg: 30 }],
         },
       ],
       error: null,
@@ -250,6 +284,12 @@ describe('M3.4 / dashboard KPI', () => {
     expect(res.status).toBe(200);
     expect(json.data[0]).toHaveProperty('co2_induit_kg', 10);
     expect(json.data[0]).toHaveProperty('energie_primaire_evitee_kwh', 120);
+    expect(json.data[0]).toHaveProperty('nb_evenements', 1);
+    // Périmètre : événements dont l'organisation est le client rattaché.
+    expect(rls.__calls.eq).toContainEqual([
+      'evenements.client_organisateur_organisation_id',
+      'org-a',
+    ]);
   });
 });
 
@@ -265,6 +305,7 @@ describe('M3.4 / documents', () => {
           collecte_id: 'c1',
           disponible_a: '2020-01-01T00:00:00Z',
           genere_at: '2020-01-02T00:00:00Z',
+          collectes: { type: 'zero_dechet', statut: 'cloturee' },
           evenements: { nom_evenement: 'Gala', date_evenement: '2026-05-10' },
         },
       ],
@@ -312,6 +353,71 @@ describe('M3.4 / documents', () => {
     expect(types).toEqual(['attestation', 'bordereau', 'rapport']);
     expect(json.data.every((d) => d.disponible)).toBe(true);
   });
+
+  it('M3.4/documents_collecte_ag_un_seul_rapport_de_don — AG : un document par collecte, nommé « Rapport de don » avec ou sans excédents', async () => {
+    setupAuth('client_organisateur', 'org-a');
+    const evt = { nom_evenement: 'Gala', date_evenement: '2026-05-10' };
+    const rapport = (
+      id: string,
+      collecte_id: string,
+      type: string,
+      statut: string,
+      genere_at: string | null,
+    ) => ({
+      id,
+      collecte_id,
+      disponible_a: '2020-01-01T00:00:00Z',
+      genere_at,
+      collectes: { type, statut },
+      evenements: evt,
+    });
+    // rapports — une ZD, une AG sans excédents (vrai PDF), et une AG avec
+    // excédents dont la ligne de rapport, jamais rendue, n'est pas un document.
+    rls.push({
+      data: [
+        rapport('r-zd', 'c-zd', 'zero_dechet', 'cloturee', '2020-01-02'),
+        rapport(
+          'r-sans',
+          'c-sans',
+          'anti_gaspi',
+          'realisee_sans_collecte',
+          '2020-01-02',
+        ),
+        rapport('r-fantome', 'c-don', 'anti_gaspi', 'cloturee', null),
+      ],
+      error: null,
+    });
+    rls.push({ data: [], error: null }); // bordereaux
+    rls.push({
+      data: [
+        {
+          id: 'a-don',
+          collecte_id: 'c-don',
+          genere_at: '2020-01-02T00:00:00Z',
+          pdf_url: 'attestations/a.pdf',
+          collectes: { evenements: evt },
+        },
+      ],
+      error: null,
+    });
+
+    const { GET } =
+      await import('@/app/api/v1/organisateur/documents/route.js');
+    const res = await GET(makeReq('/api/v1/organisateur/documents'));
+    const json = (await res.json()) as {
+      data: Array<{ id: string; type: string; nom: string }>;
+    };
+
+    expect(res.status).toBe(200);
+    expect(json.data.map((d) => [d.id, d.type, d.nom]).sort()).toEqual([
+      ['a-don', 'attestation', 'Rapport de don'],
+      ['r-sans', 'rapport', 'Rapport de don'],
+      ['r-zd', 'rapport', 'Rapport RSE'],
+    ]);
+    // Une seule ligne par collecte AG.
+    const parCollecteAg = json.data.filter((d) => d.nom === 'Rapport de don');
+    expect(parCollecteAg).toHaveLength(2);
+  });
 });
 
 // ── Download ──────────────────────────────────────────────────────────────
@@ -327,22 +433,129 @@ describe('M3.4 / download', () => {
     );
   }
 
-  it('M3.4/document_download_rapport_ok — URL pré-signée renvoyée', async () => {
+  it('M3.4/document_download_rapport_ok — rapport de recyclage ZD fabriqué au clic, sans radar (pas de fiche où le choisir), rendu en PDF', async () => {
     setupAuth('client_organisateur', 'org-a');
+    mockPayload.mockResolvedValueOnce({
+      ok: true,
+      payload: {
+        options: { benchmark: false },
+        bordereau: { date_collecte: '28/09/2026' },
+      },
+      dateCollecte: '28/09/2026',
+    });
+    mockPdf.mockResolvedValueOnce({ pdfBuffer: Buffer.from('%PDF orga') });
     rls.push({
       data: {
         id: 'r1',
+        collecte_id: 'c-zd',
         disponible_a: '2020-01-01T00:00:00Z',
-        genere_at: '2020-01-02T00:00:00Z',
-        pdf_url: 'rapports/r1.pdf',
+        genere_at: null,
+        pdf_url: null,
       },
       error: null,
     });
+    // Type de la collecte, lu sous la RLS du client organisateur.
+    rls.push({ data: { type: 'zero_dechet' }, error: null });
     const res = await callDownload('rapport', 'r1');
-    const json = (await res.json()) as { url?: string };
     expect(res.status).toBe(200);
-    expect(json.url).toBe('https://r2.example/signed');
-    expect(mockPresign).toHaveBeenCalledWith('rapports/r1.pdf', 900);
+    expect(res.headers.get('Content-Type')).toBe('application/pdf');
+    expect(mockPdf.mock.calls[0]![0]).toBe('rapport-recyclage-zd');
+    expect((mockPdf.mock.calls[0]![1] as { options: unknown }).options).toEqual(
+      { benchmark: false },
+    );
+    // Bordereau de la page 2 testé sous la RLS du client organisateur (§12 §1.7),
+    // jamais avec le client service-role.
+    const [, lecteur, collecteId] = mockPayload.mock.calls[0]! as [
+      unknown,
+      { auth?: { getUser?: unknown } },
+      string,
+    ];
+    expect(collecteId).toBe('c-zd');
+    // Le client SSR de la requête (session du demandeur), pas le service-role.
+    expect(lecteur.auth?.getUser).toBe(mockGetUser);
+    // Aucun fichier stocké servi.
+    expect(mockPresign).not.toHaveBeenCalled();
+    // Premier téléchargement par le client organisateur : « Rapport consulté ».
+    expect(majsAdmin.map((m) => m.table)).toEqual(['rapports_rse']);
+    expect(majsAdmin[0]!.valeurs).toHaveProperty('consulte_par_user_at');
+  });
+
+  it('M3.4/document_download_rapport_de_don_sans_excedent — fichier nommé « rapport-de-don », date et événement', async () => {
+    setupAuth('client_organisateur', 'org-a');
+    rls.push({
+      data: {
+        id: 'r2',
+        collecte_id: 'c-sans',
+        disponible_a: '2020-01-01T00:00:00Z',
+        genere_at: '2020-01-02T00:00:00Z',
+        pdf_url: 'rapports/r2.pdf',
+      },
+      error: null,
+    });
+    // Type de la collecte (rapport de don : fichier stocké), puis lecture du nom.
+    rls.push({ data: { type: 'anti_gaspi' }, error: null });
+    rls.push({
+      data: {
+        type: 'anti_gaspi',
+        statut: 'realisee_sans_collecte',
+        evenements: {
+          nom_evenement: 'Dîner d’été — Château',
+          date_evenement: '2026-07-01',
+        },
+      },
+      error: null,
+    });
+    const res = await callDownload('rapport', 'r2');
+    expect(res.status).toBe(200);
+    expect(rls.__calls.eq).toContainEqual(['id', 'c-sans']);
+    expect(mockPresign).toHaveBeenCalledWith(
+      'rapports/r2.pdf',
+      900,
+      'rapport-de-don-2026-07-01-diner-d-ete-chateau.pdf',
+    );
+  });
+
+  it('M3.4/document_download_rapport_de_don_nom_illisible — la collecte ne se lit pas : téléchargement servi, sans nom imposé', async () => {
+    setupAuth('client_organisateur', 'org-a');
+    rls.push({
+      data: {
+        id: 'r2',
+        collecte_id: 'c-sans',
+        disponible_a: '2020-01-01T00:00:00Z',
+        genere_at: '2020-01-02T00:00:00Z',
+        pdf_url: 'rapports/r2.pdf',
+      },
+      error: null,
+    });
+    // Ni le type ni le nom ne se lisent : le fichier stocké est servi.
+    rls.push({ data: null, error: { message: 'boom' } });
+    rls.push({ data: null, error: { message: 'boom' } });
+    const res = await callDownload('rapport', 'r2');
+    expect(res.status).toBe(200);
+    expect(mockPresign).toHaveBeenCalledWith('rapports/r2.pdf', 900, undefined);
+  });
+
+  it('M3.4/document_download_rapport_de_don_attestation — fichier nommé par le numéro de l’attestation', async () => {
+    setupAuth('client_organisateur', 'org-a');
+    rls.push({
+      data: {
+        id: 'a1',
+        numero: 'ATT-DON-2026-00003',
+        genere_at: '2020-01-02T00:00:00Z',
+        pdf_url: 'attestations/a1.pdf',
+      },
+      error: null,
+    });
+    const res = await callDownload('attestation', 'a1');
+    expect(res.status).toBe(200);
+    expect(rls.__calls.select).toContainEqual([
+      'id, numero, genere_at, pdf_url',
+    ]);
+    expect(mockPresign).toHaveBeenCalledWith(
+      'attestations/a1.pdf',
+      900,
+      'rapport-de-don-ATT-DON-2026-00003.pdf',
+    );
   });
 
   it('M3.4/document_embargo_h24_refuse — 425 si disponible_a dans le futur', async () => {

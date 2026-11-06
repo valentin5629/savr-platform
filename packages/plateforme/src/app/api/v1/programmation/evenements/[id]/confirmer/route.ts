@@ -2,10 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
+import {
+  lienCollectesProgrammeur,
+  lienEvenementProgrammeur,
+} from '@/lib/programmation/apres-confirmation.js';
 import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
+import {
+  clientFinalRenseigne,
+  MESSAGE_CLIENT_FINAL_OBLIGATOIRE,
+} from '@/lib/evenements/client-final.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
+
+const renseigne = (v: unknown): boolean =>
+  typeof v === 'string' && v.trim() !== '';
 
 // Confirmation d'un brouillon. Ouverte à l'admin en mode support (§06.01 l.17
 // « admin_savr : programmation de support, tous périmètres ») comme le POST de
@@ -27,7 +44,9 @@ export async function PATCH(
   // le poser en prédicat ne cloisonnerait rien, ça masquerait tout).
   const evtQuery = supabase
     .from('evenements')
-    .select('id, organisation_id, nom_evenement, pax, lieu_id, created_by')
+    .select(
+      'id, organisation_id, nom_evenement, nom_client_organisateur, lieu_id, created_by',
+    )
     .eq('id', evenementId);
 
   const { data: evt, error: evtErr } = await (
@@ -43,27 +62,14 @@ export async function PATCH(
     );
   }
 
-  // Périmètre d'ÉCRITURE — miroir des policies `evt_commercial_update` /
-  // `col_delete_brouillon` (§09) : `traiteur_commercial` = ses propres créations.
-  // La confirmation est une écriture à effets réels (transition brouillon→programmee,
-  // émission E1 vers le TMS, débit d'un crédit pack AG) : sans cette garde, un
-  // commercial confirmerait — et dispatcherait/facturerait — le brouillon d'un
-  // collègue. Miroir strict du DELETE et du PATCH d'édition ; RLS ne rattrape pas
-  // (route sous service-role).
-  if (
-    auth.ctx.role === 'traiteur_commercial' &&
-    evt.created_by !== auth.ctx.userId
-  ) {
-    return NextResponse.json(
-      { error: 'Confirmation non autorisée' },
-      { status: 403 },
-    );
-  }
+  // Périmètre d'ÉCRITURE : le commercial confirme les brouillons de toute son
+  // organisation, comme le manager (Val 2026-10-30). Le prédicat organisation
+  // est posé par la lecture ci-dessus (route sous service-role).
 
   // Vérification collectes brouillon présentes
   const { data: collectes } = await supabase
     .from('collectes')
-    .select('id, type, date_collecte, lieu_overrides')
+    .select('id, type, lieu_overrides')
     .eq('evenement_id', evenementId)
     .eq('statut', 'brouillon');
 
@@ -74,29 +80,61 @@ export async function PATCH(
     );
   }
 
+  // Client final et contact de secours obligatoires à la confirmation (décision
+  // Val 2026-10-30), comme par le formulaire : un brouillon enregistré sans eux
+  // ne se confirme pas par cette route non plus.
+  if (!clientFinalRenseigne(evt.nom_client_organisateur)) {
+    return NextResponse.json(
+      {
+        error: MESSAGE_CLIENT_FINAL_OBLIGATOIRE,
+        champ: 'nom_client_organisateur',
+      },
+      { status: 422 },
+    );
+  }
+  const { data: contacts, error: contactsErr } = await supabase
+    .from('collecte_contacts')
+    .select('collecte_id, contact_secours_nom, contact_secours_telephone')
+    .in(
+      'collecte_id',
+      collectes.map((c) => c.id),
+    );
+  if (contactsErr)
+    return serverError(
+      contactsErr,
+      'programmation.evenements.confirmer.contacts',
+    );
+  const secoursComplet = new Set(
+    (contacts ?? [])
+      .filter(
+        (c) =>
+          renseigne(c.contact_secours_nom) &&
+          renseigne(c.contact_secours_telephone),
+      )
+      .map((c) => c.collecte_id),
+  );
+  if (collectes.some((c) => !secoursComplet.has(c.id))) {
+    return NextResponse.json(
+      {
+        error:
+          'Le contact de secours et son téléphone sont obligatoires pour chaque collecte.',
+      },
+      { status: 422 },
+    );
+  }
+
   // Aucune garde « profil entreprise » ici : l'événement porte déjà son entité de
   // facturation (evenements.entite_facturation_id NOT NULL, résolue à la création),
   // et le SIRET ne bloque pas la programmation (décision Val 2026-09-28).
+  // Pas de garde pack AG non plus : sans pack actif, la collecte AG est facturée à
+  // l'unité (décision Val 2026-10-16, ex-gate R3).
 
-  // Gate pack AG (R3) — si des collectes AG sont présentes dans ce brouillon.
-  // ⚠ Les collectes viennent de la DB : type = 'anti_gaspi' (valeur enum), jamais 'ag'
-  // (alias d'entrée). L'ancienne comparaison `=== 'ag'` était toujours fausse → la gate
-  // pack ne se déclenchait jamais à la confirmation d'un brouillon (bug latent PROG-05).
-  const hasAg = collectes.some((c) => c.type === 'anti_gaspi');
-  if (hasAg) {
-    const { data: pack } = await supabase
-      .from('packs_antgaspi')
-      .select('id, credits_restants')
-      .eq('organisation_id', evt.organisation_id)
-      .eq('statut', 'actif')
-      .maybeSingle();
-    if (!pack || (pack.credits_restants ?? 0) <= 0) {
-      return NextResponse.json(
-        { error: 'Aucun pack Anti-Gaspi actif disponible pour confirmer' },
-        { status: 422 },
-      );
-    }
-  }
+  // Débit des écritures clientes (cf. lib/frein-ecritures-client).
+  const frein = freinerEcritureCliente({
+    organisationId: evt.organisation_id,
+    equipeSavr: auth.ctx.isAdmin,
+  });
+  if (frein) return frein;
 
   // RPC atomique : brouillon → programmee + E1 pour ZD
   const { error: rpcErr } = await supabase.rpc(
@@ -106,6 +144,11 @@ export async function PATCH(
 
   if (rpcErr)
     return serverError(rpcErr, 'programmation.evenements.confirmer.update');
+
+  // Les ordres de création sont en file (et, après l'acceptation automatique
+  // AG plus bas, l'ordre d'envoi) : traités après la réponse, sans attendre le
+  // passage planifié (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(collectes.map((c) => c.id));
 
   // PROG-01 : override lieu persisté au brouillon → signalement Admin à la confirmation.
   const overrideCollecte = collectes.find(
@@ -133,18 +176,16 @@ export async function PATCH(
       ),
   );
 
-  // PROG-04 : email récap au programmeur (un seul email, tarif ZD inclus).
+  // PROG-04 : email récap au programmeur (un seul email, une ligne par collecte).
   await envoyerRecapProgrammation(supabase, {
     programmeurUserId: auth.ctx.userId,
     evenementId,
     nomEvenement: evt.nom_evenement,
-    pax: evt.pax,
     organisationId: evt.organisation_id,
     lieuId: evt.lieu_id,
-    collectes: collectes.map((c) => ({
-      type: c.type,
-      date_collecte: c.date_collecte,
-    })),
+    collecteIds: collectes.map((c) => c.id),
+    lienCollectes: lienCollectesProgrammeur(req, auth.ctx.role),
+    lienEvenement: lienEvenementProgrammeur(req, auth.ctx.role, evenementId),
   }).catch(() => undefined); // non-bloquant
 
   // BL-P2-22 (tpl 20) : info-only au traiteur opérationnel si programmé par un

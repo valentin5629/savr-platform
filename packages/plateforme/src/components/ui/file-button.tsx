@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Upload } from 'lucide-react';
+import { UploadSimpleIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './button';
 
@@ -63,7 +63,7 @@ export function FileButton({
           className,
         )}
       >
-        <Upload aria-hidden="true" />
+        <UploadSimpleIcon aria-hidden="true" />
         {loading ? loadingText : children}
       </label>
     </span>

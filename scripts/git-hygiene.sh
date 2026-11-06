@@ -17,10 +17,17 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-echo "→ git fetch --prune (récupère les suppressions distantes → marque les [gone])"
-git fetch --prune --quiet || echo "  (fetch échoué — hors ligne ? on continue sur l'état local)"
+# --bref (hook SessionStart) : seulement le bilan d'une ligne. Le détail, branche
+# par branche, coûtait ~16 Ko de contexte à chaque session (42 worktrees
+# signalés un par un, mesuré le 2026-10-25). À la main : le détail complet.
+BREF=0
+[ "${1:-}" = "--bref" ] && BREF=1
+detail() { [ "$BREF" -eq 1 ] || echo "$@"; }
 
-echo "→ git worktree prune (métadonnées de worktrees disparus)"
+detail "→ git fetch --prune (récupère les suppressions distantes → marque les [gone])"
+git fetch --prune --quiet || detail "  (fetch échoué — hors ligne ? on continue sur l'état local)"
+
+detail "→ git worktree prune (métadonnées de worktrees disparus)"
 git worktree prune
 
 current="$(git branch --show-current 2>/dev/null || true)"
@@ -47,13 +54,13 @@ while IFS=' ' read -r name track; do
   else
     # La branche existe toujours mais -D refuse = extraite dans un AUTRE worktree
     # non encore démonté (couche 3 sautée).
-    echo "  ⚠ $name : non purgée (extraite dans un worktree non démonté) → 'git worktree remove <wt>' puis relancer"
+    detail "  ⚠ $name : non purgée (extraite dans un worktree non démonté) → 'git worktree remove <wt>' puis relancer"
     skipped=$((skipped + 1))
   fi
 done < <(git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads)
 
 if [ "$purged" -eq 0 ] && [ "$skipped" -eq 0 ]; then
-  echo "→ aucune branche locale [gone] à purger"
+  detail "→ aucune branche locale [gone] à purger"
 fi
 
 # Worktrees dont la branche est [gone] (mergée) = couche 3 probablement sautée.
@@ -64,9 +71,12 @@ while IFS=' ' read -r wt_path wt_branch; do
   [ "$wt_path" = "$current_root" ] && continue
   t="$(git for-each-ref --format='%(upstream:track)' "refs/heads/$wt_branch" 2>/dev/null || true)"
   if [ "$t" = "[gone]" ]; then
-    echo "  ⚠ worktree probablement obsolète : $wt_path (branche $wt_branch mergée) → 'git worktree remove $wt_path'"
+    detail "  ⚠ worktree probablement obsolète : $wt_path (branche $wt_branch mergée) → 'git worktree remove $wt_path'"
     stale_wt=$((stale_wt + 1))
   fi
 done < <(git worktree list --porcelain | awk '/^worktree /{p=$2} /^branch /{b=$2; sub("refs/heads/","",b); print p" "b}')
 
 echo "hygiène git : OK ✅ ($purged purgée(s), $skipped ignorée(s), $stale_wt worktree(s) obsolète(s) signalé(s))"
+if [ "$BREF" -eq 1 ] && [ $((skipped + stale_wt)) -gt 0 ]; then
+  echo "  détail et commandes de retrait : pnpm git:hygiene"
+fi

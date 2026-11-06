@@ -134,7 +134,6 @@ Généré par `node scripts/ds-usages.mjs` sur `df276f63` le 2026-10-07. Compte 
 | `ImpersonationBanner`      | ui      |           0 |        0 | `components/ui/impersonation-banner.tsx`                  |
 | `Pagination`               | ui      |           0 |        0 | `components/ui/pagination.tsx`                            |
 | `PopoverAnchor`            | ui      |           0 |        0 | `components/ui/popover.tsx`                               |
-| `Sparkline`                | ui      |           0 |        0 | `components/ui/sparkline.tsx`                             |
 | `StatCardGrid`             | ui      |           0 |        0 | `components/ui/stat-card.tsx`                             |
 | `TooltipContent`           | ui      |           0 |        0 | `components/ui/tooltip.tsx`                               |
 | `TooltipProvider`          | ui      |           0 |        0 | `components/ui/tooltip.tsx`                               |

@@ -166,6 +166,20 @@ describe('M3.2 / encart filtres benchmark', () => {
     expect(mockRpc).not.toHaveBeenCalledWith('f_benchmark_traiteurs_parc');
   });
 
+  it('EVT/filtres_organisateur — client organisateur (radar de la fiche événement, Val 2026-10-30) : types servis, ni lieux ni traiteurs', async () => {
+    setupAuth('client_organisateur');
+    const { GET } =
+      await import('@/app/api/v1/dashboards/benchmark/filtres/route.js');
+    const res = await GET(makeReq('/api/v1/dashboards/benchmark/filtres'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { lieux: unknown[]; traiteurs: unknown[] };
+    };
+    expect(body.data.lieux).toEqual([]);
+    expect(body.data.traiteurs).toEqual([]);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it('M3.2/GEST04_route_forward_7_params — encart → RPC f_benchmark_kg_pax_zd', async () => {
     setupAuth('gestionnaire_lieux');
     const { GET } = await import('@/app/api/v1/dashboards/benchmark/route.js');

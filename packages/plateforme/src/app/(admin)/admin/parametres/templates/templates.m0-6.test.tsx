@@ -1,6 +1,6 @@
 /**
  * M0.6 — Page Templates emails (lecture seule, BL-P2-07)
- * Vérifie : liste des templates actifs + compteur, aperçu (variables + iframe corps).
+ * Vérifie : liste des templates actifs, aperçu (variables + iframe corps).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -42,7 +42,7 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('M0.6 — Templates emails page', () => {
   it(
-    'M0.6/templates/page — rend la liste + le compteur de templates actifs',
+    'M0.6/templates/page — rend la liste des templates actifs',
     async () => {
       render(<TemplatesEmailPage />);
       // facture_emise n'est pas sélectionné → n'apparaît que dans la liste (unique).
@@ -50,7 +50,9 @@ describe('M0.6 — Templates emails page', () => {
         () => expect(screen.getByText('facture_emise')).toBeDefined(),
         ATTENTE_UI,
       );
-      expect(screen.getByText(/2 templates actifs/)).toBeDefined();
+      // Le compteur sous le titre est retiré (Val 2026-11-01 : aucun texte sous
+      // le titre de page).
+      expect(screen.queryByText(/templates actifs/)).toBeNull();
       // confirmation_collecte (sélectionné) apparaît en liste + aperçu.
       expect(
         screen.getAllByText('confirmation_collecte').length,

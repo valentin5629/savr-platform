@@ -14,7 +14,7 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
-import { resolveRapportLogo } from './logo-cascade.js';
+import { cleLogoSansExcedent } from './logo-rapport-de-don.js';
 import { makeLogoResolver } from './logo-inline.js';
 import {
   type BatchFatal,
@@ -22,6 +22,12 @@ import {
   fatalSiAucuneProduite,
   logCollecteEnEchec,
 } from './batch-fatal.js';
+import { convivesImprimes } from './convives-imprimes.js';
+import {
+  TAILLE_PAGE,
+  lireParPages,
+  lireParLots,
+} from './selection-par-pages.js';
 
 export interface BatchSansExcedentResult {
   enqueued: number;
@@ -44,10 +50,11 @@ interface CollecteSansExcedentRow {
   evenement_id: string;
   controle_acces_requis: boolean;
   aucun_repas_motif: string | null;
+  // Convives de LA collecte, imprimés sur le rapport (Val Q5 du 2026-10-24).
+  pax: number | null;
   evenements: {
     nom_evenement: string;
     date_evenement: string;
-    pax: number | null;
     nom_client_organisateur: string | null;
     organisation_id: string;
     traiteur_operationnel_organisation_id: string | null;
@@ -83,13 +90,15 @@ export async function runBatchSansExcedent(
   // 1. Collectes AG en realisee_sans_collecte — PAS d'embargo H+24 (§1.3-bis) : aucune
   //    garde .lte('realisee_at', …). L'unique transition vers ce statut en V1 provient
   //    de l'adapter logistique (course vide AG, cf. packages/adapters/).
-  const { data: collectes, error: selErr } = await supabase
-    .from('collectes')
-    .select(
-      `
-      id, evenement_id, controle_acces_requis, aucun_repas_motif,
+  const { data: collectes, error: selErr } =
+    await lireParPages<CollecteSansExcedentRow>((apresId) => {
+      const pages = supabase
+        .from('collectes')
+        .select(
+          `
+      id, evenement_id, controle_acces_requis, aucun_repas_motif, pax,
       evenements (
-        nom_evenement, date_evenement, pax, nom_client_organisateur,
+        nom_evenement, date_evenement, nom_client_organisateur,
         organisation_id, traiteur_operationnel_organisation_id,
         client_organisateur_organisation_id, logo_client_organisateur_url,
         organisations!organisation_id ( raison_sociale, type, logo_url ),
@@ -98,10 +107,14 @@ export async function runBatchSansExcedent(
         lieux ( nom, adresse_acces, code_postal, ville )
       )
     `,
-    )
-    .eq('type', 'anti_gaspi')
-    .eq('statut', 'realisee_sans_collecte')
-    .not('evenement_id', 'is', null);
+        )
+        .eq('type', 'anti_gaspi')
+        .eq('statut', 'realisee_sans_collecte')
+        .not('evenement_id', 'is', null);
+      return (apresId ? pages.gt('id', apresId) : pages)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    });
 
   if (selErr) {
     result.fatal = fatalSelection(
@@ -112,18 +125,21 @@ export async function runBatchSansExcedent(
     return result;
   }
 
-  if (!collectes?.length) return result;
+  if (!collectes.length) return result;
 
   // 2. Idempotence : exclure les collectes ayant déjà une ligne rapports_rse. Une
   //    collecte AG realisee_sans_collecte n'a de rapports_rse que via CE batch (ZD et
   //    attestation ne traitent que cloturee) → l'existence suffit comme garde.
-  const collecteIds = (collectes as unknown as CollecteSansExcedentRow[]).map(
-    (c) => c.id,
+  const { data: existingRapports, error: rapSelErr } = await lireParLots<{
+    collecte_id: string;
+  }>(
+    collectes.map((c) => c.id),
+    (lot) =>
+      supabase
+        .from('rapports_rse')
+        .select('collecte_id')
+        .in('collecte_id', lot),
   );
-  const { data: existingRapports, error: rapSelErr } = await supabase
-    .from('rapports_rse')
-    .select('collecte_id')
-    .in('collecte_id', collecteIds);
 
   // Fail-closed : sans la liste des rapports existants, traiter = rapport en double.
   if (rapSelErr) {
@@ -135,15 +151,9 @@ export async function runBatchSansExcedent(
     return result;
   }
 
-  const doneIds = new Set(
-    ((existingRapports ?? []) as { collecte_id: string }[]).map(
-      (r) => r.collecte_id,
-    ),
-  );
+  const doneIds = new Set(existingRapports.map((r) => r.collecte_id));
 
-  const toProcess = (collectes as unknown as CollecteSansExcedentRow[]).filter(
-    (c) => !doneIds.has(c.id),
-  );
+  const toProcess = collectes.filter((c) => !doneIds.has(c.id));
   result.already_done = collectes.length - toProcess.length;
 
   if (!toProcess.length) return result;
@@ -220,14 +230,8 @@ export async function runBatchSansExcedent(
               Boolean(f?.numero_facture) && f?.statut !== 'brouillon',
           )?.numero_facture ?? null;
 
-      // 5. Cascade logo client §12 §1.2 (BL-P2-19 — cohérence AG).
-      const logo = resolveRapportLogo({
-        programmateur: ev.organisations,
-        client_organisateur: ev.client_organisateur,
-        evenement_logo_client_url: ev.logo_client_organisateur_url,
-        traiteur_operationnel: ev.traiteur_operationnel ?? ev.organisations,
-      });
-
+      // 5. Cascade logo client §12 §1.2 (BL-P2-19) : même règle que la
+      //    régénération (lib/pdf/logo-rapport-de-don).
       const payload = {
         nom_evenement: ev.nom_evenement,
         date_evenement: new Date(ev.date_evenement).toLocaleDateString(
@@ -237,9 +241,9 @@ export async function runBatchSansExcedent(
         lieu_nom: lieu?.nom ?? '',
         lieu_adresse: adresseLieu,
         traiteur_nom: traiteurNom,
-        nb_pax: ev.pax,
+        nb_pax: convivesImprimes(collecte.pax),
         client_organisateur_nom: ev.nom_client_organisateur,
-        logo_url: (await resolveLogoUri(logo.logo_url)) ?? null,
+        logo_url: (await resolveLogoUri(cleLogoSansExcedent(ev))) ?? null,
         presentation_datetime: presentationDatetime,
         chauffeur_nom: tournee?.chauffeur_nom ?? null,
         plaque_immatriculation: plaque,

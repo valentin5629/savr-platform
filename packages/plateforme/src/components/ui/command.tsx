@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Command as CommandPrimitive } from 'cmdk';
-import { Search } from 'lucide-react';
+import { MagnifyingGlassIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 // Command — liste filtrable au clavier (cmdk, shadcn stylé Savr). Utilisé par le
@@ -27,7 +27,7 @@ const CommandInput = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
 >(({ className, ...props }, ref) => (
   <div className="flex items-center gap-2 border-b border-savr-neutral-200 px-3">
-    <Search
+    <MagnifyingGlassIcon
       className="h-4 w-4 shrink-0 text-savr-neutral-400"
       aria-hidden="true"
     />

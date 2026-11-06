@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { AlertTriangle } from 'lucide-react';
+import { WarningIcon } from '@/components/ui/icones';
 
 interface ImpersonationBannerProps {
   userName: string;
@@ -17,6 +17,7 @@ const ImpersonationBanner = React.forwardRef<
   <div
     ref={ref}
     role="alert"
+    data-bandeau-impersonation
     className={cn(
       // Texte centré dans toute la largeur ; bouton « Quitter » ancré à droite
       // (positionné en absolu pour ne pas décentrer le texte).
@@ -25,7 +26,7 @@ const ImpersonationBanner = React.forwardRef<
       className,
     )}
   >
-    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+    <WarningIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
     <span className="text-center">
       Vous consultez l'espace de <strong className="mx-1">{userName}</strong> en
       mode administrateur

@@ -7,25 +7,33 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { libelleErreurReseau } from '@savr/shared/src/api/erreur-reseau.js';
+
 import {
   LogistiqueAmbiguousError,
   LogistiquePermanentError,
   LogistiqueTransientError,
 } from '../index.js';
-import type {
-  Mts1Carrier,
-  Mts1CustomerOrder,
-  Mts1Photo,
-  Mts1Tour,
-} from './mock.js';
-import { _getMts1Handlers } from './mock.js';
+import { verifierEcheance } from '../echeance-passage.js';
+import type { Mts1Carrier, Mts1CustomerOrder, Mts1Tour } from './mock.js';
+import { JPEG_SIMULE, _getMts1Handlers } from './mock.js';
 
 // Point de dépôt (B) d'un stuff : favoritePlace MTS-1 ou adresse inline.
 export type PointLivraison =
   | { placeId: string }
   | { address: { addressSingleLine: string } };
 
+// Contact = CustomerOrderContactInput.
+export interface ContactCommande {
+  firstname?: string;
+  lastname?: string;
+  phone?: string;
+  phoneAlternatives?: string[];
+}
+
 export interface CreateOrderPayload {
+  // Numéro de commande = nom du point dans la console MTS-1 : « Traiteur - Lieu
+  // - N pax · clé » (décision Val 2026-10-15, C59 ; cf. AdapterMts1.orderNumber).
   orderNumber: string;
   orderDate: string;
   timezone: string;
@@ -42,12 +50,7 @@ export interface CreateOrderPayload {
   // Contact terrain = CustomerOrderContactInput, objet UNIQUE (pas un tableau
   // `contacts`) : MTS-1 attend `firstname`/`lastname`/`phone` (+ `phoneAlternatives`),
   // PAS `name`/`role` — sinon le contact arrive vide (`{}`).
-  contact?: {
-    firstname?: string;
-    lastname?: string;
-    phone?: string;
-    phoneAlternatives?: string[];
-  };
+  contact?: ContactCommande;
   // `relatedAddress` = point de dépôt (B) du stuff : `placeId` d'un favoritePlace
   // (entrepôt Savr pour le ZD / association pour l'AG) OU adresse inline. Le `place`
   // de la commande est le PICKUP (point A).
@@ -56,9 +59,13 @@ export interface CreateOrderPayload {
     task: string;
     quantity: number;
     relatedAddress?: PointLivraison;
+    // Contact de livraison (« Contact livr. »), pris en compte par MTS-1
+    // « seulement si l'adresse liée n'a pas de placeId » (documentation V3, lu le
+    // 2026-10-15 ; rendu à l'identique, mesuré sur le compte de démonstration).
+    relatedContact?: ContactCommande;
   }>;
-  // Instructions logistiques libres transmises au prestataire (M01/M03/M05).
-  // MTS-1 as-built §3bis.5 l.389 : `comment` ← collectes.informations_supplementaires.
+  // Commentaire au transporteur, affiché sous l'adresse de chargement : composé
+  // par le worker (infos-acces.ts, format décidé par Val le 2026-10-15).
   comment?: string;
 }
 
@@ -88,6 +95,96 @@ export interface CreatedTour {
 }
 
 export type ScanResult = Mts1CustomerOrder[];
+
+// Seule écriture de date que lit GET /v3/customerOrders (mesuré 2026-10-13).
+const JOUR_SEUL = /^\d{4}-\d{2}-\d{2}$/;
+
+// Identifiant MTS-1 que Savr accepte d'adopter, c'est-à-dire d'écrire dans
+// `tournees.external_ref_commande` ou `tournees.tms_reference` (et, pour la
+// commande du rang 1, dans `collectes.tms_reference`), ou de placer dans un
+// chemin. Mesuré le 2026-10-13 sur
+// le compte de démonstration, en lecture seule : 98 identifiants distincts,
+// commandes et tournées, tous de 24 caractères hexadécimaux minuscules. La
+// règle est plus large que la mesure, le compte de production n'ayant jamais
+// été interrogé : lettres, chiffres, tiret et souligné, soit aucun caractère
+// qui ait un sens dans un chemin ou dans une requête ; 128 caractères au plus.
+const IDENTIFIANT_MTS1 = /^[A-Za-z0-9_-]{1,128}$/;
+
+export function estIdentifiantMts1(valeur: unknown): valeur is string {
+  return typeof valeur === 'string' && IDENTIFIANT_MTS1.test(valeur);
+}
+
+// Segment de chemin portant un identifiant, qu'il soit lu en base ou rendu par
+// MTS-1. Encodé : avec « / », « ? » ou « # », la requête envoyée reste celle de
+// la route appelée. Sans effet sur les identifiants mesurés (l'encodage n'en
+// modifie aucun) ; ce que le serveur fait d'un segment encodé n'est donc pas
+// mesuré. « . » et « .. » en sortent intacts, et `fetch` les résout comme des
+// segments relatifs (« /v3/tours/../validate » part vers « /v3/validate ») :
+// refusés, comme l'identifiant vide, une valeur qui n'est pas une chaîne, et
+// une chaîne que l'encodage refuse (demi-caractère UTF-16 isolé).
+const IDENTIFIANT_INUTILISABLE =
+  'MTS-1 : identifiant inutilisable dans un chemin (vide, « . », « .. » ou non encodable)';
+
+function segment(identifiant: unknown): string {
+  if (
+    typeof identifiant !== 'string' ||
+    !identifiant ||
+    identifiant === '.' ||
+    identifiant === '..'
+  ) {
+    throw new LogistiquePermanentError(IDENTIFIANT_INUTILISABLE);
+  }
+  try {
+    return encodeURIComponent(identifiant);
+  } catch {
+    throw new LogistiquePermanentError(IDENTIFIANT_INUTILISABLE);
+  }
+}
+
+// Plafond du corps d'une photo. MTS-1 n'en annonce pas la taille (aucun
+// Content-Length sur les 7 photos mesurées le 2026-10-13, 131 à 231 Ko de base64).
+const PLAFOND_CORPS_PHOTO = 15 * 1024 * 1024;
+
+// Corps lu morceau par morceau, arrêté au plafond. Une lecture interrompue par
+// l'échéance (signal) lève une erreur ambiguë, comme une réponse qui n'arrive pas.
+async function lireCorpsPlafonne(
+  res: Response,
+  signal: AbortSignal,
+): Promise<Buffer> {
+  try {
+    if (!res.body) return Buffer.alloc(0);
+    const lecteur = res.body.getReader();
+    const morceaux: Buffer[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await lecteur.read();
+      if (done) return Buffer.concat(morceaux);
+      total += value.byteLength;
+      if (total > PLAFOND_CORPS_PHOTO) {
+        await lecteur.cancel();
+        throw new LogistiqueTransientError(
+          'MTS-1 : photo de plus de 15 Mo, non téléchargée',
+        );
+      }
+      morceaux.push(Buffer.from(value));
+    }
+  } catch (err) {
+    if (signal.aborted) {
+      throw new LogistiqueAmbiguousError('MTS-1 timeout : photo');
+    }
+    throw err;
+  }
+}
+
+// Un fichier JPEG commence par les octets FF D8 FF.
+function estJpeg(octets: Buffer): boolean {
+  return (
+    octets.length > 3 &&
+    octets[0] === 0xff &&
+    octets[1] === 0xd8 &&
+    octets[2] === 0xff
+  );
+}
 
 export class Mts1Client {
   private readonly baseUrl: string;
@@ -128,7 +225,7 @@ export class Mts1Client {
         correlation_id: payload.orderNumber,
       });
       return {
-        id: result.id,
+        id: this.identifiantCree(result, 'id', 'POST /v3/customerOrders'),
         externalReference: result.externalReference,
         status: result.status,
         createdAt: result.createdAt,
@@ -144,17 +241,20 @@ export class Mts1Client {
     );
     // La réponse V3 (`CreateCustomerOrderResponse`) nomme l'id technique
     // `customerOrderId`, PAS `id` → mapper explicitement. Sinon `created.id` est
-    // `undefined` → `external_ref_commande` jamais enregistré → l'étape
-    // addCustomerOrder échoue en 400 « customerOrderId is mandatory ».
-    const body = (await res.json()) as {
-      customerOrderId: string;
+    // `undefined` et `external_ref_commande` n'est jamais enregistré.
+    const body = (await res.json().catch(() => null)) as {
+      customerOrderId?: string;
       orderNumber?: string;
       customerOrderStatus?: string;
-    };
+    } | null;
     return {
-      id: body.customerOrderId,
-      externalReference: body.orderNumber ?? '',
-      status: body.customerOrderStatus ?? '',
+      id: this.identifiantCree(
+        body,
+        'customerOrderId',
+        'POST /v3/customerOrders',
+      ),
+      externalReference: body?.orderNumber ?? '',
+      status: body?.customerOrderStatus ?? '',
       createdAt: '',
     };
   }
@@ -174,7 +274,10 @@ export class Mts1Client {
         duree_ms: Date.now() - t0,
         correlation_id: payload.orderNumber,
       });
-      return result;
+      return {
+        ...result,
+        tourId: this.identifiantCree(result, 'tourId', 'POST /v3/tours'),
+      };
     }
 
     const res = await this.fetch(
@@ -184,7 +287,11 @@ export class Mts1Client {
       payload.orderNumber,
       t0,
     );
-    return (await res.json()) as CreatedTour;
+    const body = (await res.json().catch(() => null)) as CreatedTour | null;
+    return {
+      ...(body as CreatedTour),
+      tourId: this.identifiantCree(body, 'tourId', 'POST /v3/tours'),
+    };
   }
 
   // Rattache une commande EXISTANTE à une tournée (PUT /v3/tours/addCustomerOrder,
@@ -220,67 +327,12 @@ export class Mts1Client {
     );
   }
 
-  async dispatchTour(
-    tourId: string,
-    carrierShareableCode: string,
-    correlationId?: string,
-  ): Promise<void> {
-    const handlers = _getMts1Handlers();
-    const t0 = Date.now();
-
-    // Route V3 réelle = POST /v3/dispatch/{tourId}/toCarrier (le relevé as-built
-    // Bubble « /v3/tours/{tourId}/dispatch » n'existe pas → 404 BAD_ROUTE).
-    if (handlers?.dispatchTour) {
-      await handlers.dispatchTour(tourId, carrierShareableCode);
-      await this.log({
-        methode: 'POST',
-        endpoint: `/v3/dispatch/${tourId}/toCarrier`,
-        statut_http: 200,
-        duree_ms: Date.now() - t0,
-        correlation_id: correlationId,
-      });
-      return;
-    }
-
-    await this.fetch(
-      'POST',
-      `/v3/dispatch/${tourId}/toCarrier`,
-      { carrierShareableCode },
-      correlationId,
-      t0,
-    );
-  }
-
-  async validateTour(tourId: string, correlationId?: string): Promise<void> {
-    const handlers = _getMts1Handlers();
-    const t0 = Date.now();
-
-    if (handlers?.validateTour) {
-      await handlers.validateTour(tourId);
-      await this.log({
-        methode: 'PUT',
-        endpoint: `/v3/tours/${tourId}/validate`,
-        statut_http: 200,
-        duree_ms: Date.now() - t0,
-        correlation_id: correlationId,
-      });
-      return;
-    }
-
-    await this.fetch(
-      'PUT',
-      `/v3/tours/${tourId}/validate`,
-      {},
-      correlationId,
-      t0,
-    );
-  }
-
   async updateOrder(
     orderId: string,
     payload: Record<string, unknown>,
     correlationId?: string,
   ): Promise<void> {
+    const chemin = `/v3/customerOrders/${segment(orderId)}`;
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
@@ -288,7 +340,7 @@ export class Mts1Client {
       await handlers.updateOrder(orderId, payload);
       await this.log({
         methode: 'PUT',
-        endpoint: `/v3/customerOrders/${orderId}`,
+        endpoint: chemin,
         statut_http: 200,
         duree_ms: Date.now() - t0,
         correlation_id: correlationId,
@@ -296,16 +348,11 @@ export class Mts1Client {
       return;
     }
 
-    await this.fetch(
-      'PUT',
-      `/v3/customerOrders/${orderId}`,
-      payload,
-      correlationId,
-      t0,
-    );
+    await this.fetch('PUT', chemin, payload, correlationId, t0);
   }
 
   async deleteOrder(orderId: string, correlationId?: string): Promise<void> {
+    const chemin = `/v3/customerOrders/${segment(orderId)}`;
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
@@ -313,7 +360,7 @@ export class Mts1Client {
       await handlers.deleteOrder(orderId);
       await this.log({
         methode: 'DELETE',
-        endpoint: `/v3/customerOrders/${orderId}`,
+        endpoint: chemin,
         statut_http: 200,
         duree_ms: Date.now() - t0,
         correlation_id: correlationId,
@@ -321,29 +368,58 @@ export class Mts1Client {
       return;
     }
 
-    await this.fetch(
-      'DELETE',
-      `/v3/customerOrders/${orderId}`,
-      undefined,
-      correlationId,
-      t0,
-    );
+    await this.fetch('DELETE', chemin, undefined, correlationId, t0);
   }
 
+  /**
+   * Recherche de commandes par fenêtre de JOURS — GET /v3/customerOrders.
+   *
+   * Contrat mesuré sur le compte de démonstration (2026-10-13, lecture seule) :
+   *   - `minDate` / `maxDate` ne se lisent qu'en « yyyy-MM-dd ». Un instant (ISO
+   *     avec ou sans millisecondes, avec ou sans fuseau) répond
+   *     500 INTERNAL_ERROR, des bornes inversées aussi ;
+   *   - les deux bornes sont INCLUSES et le jour est compté à Paris, pas en UTC
+   *     (une commande à 22h01 UTC le 9 sort pour le 10, pas pour le 9) ;
+   *   - `orderNumber` filtre à l'égalité stricte, casse comprise, et ne dispense
+   *     pas des dates (seul, il répond 400) ;
+   *   - la réponse est un tableau JSON nu, sans ordre garanti et sans
+   *     pagination (`pageSize`, `page`, `limit` sont ignorés). Aucun plafond n'a
+   *     pu être mesuré au-delà des 72 commandes du compte : garder la fenêtre
+   *     étroite.
+   */
   async scanOrdersByDateRange(
     minDate: string,
     maxDate: string,
+    orderNumber?: string,
   ): Promise<ScanResult> {
+    // Refus AVANT tout appel, mock compris : un instant ferait répondre 500 à
+    // MTS-1, soit une erreur passagère, rejouée jusqu'à la quatrième tentative
+    // sans jamais aboutir.
+    if (
+      !JOUR_SEUL.test(minDate) ||
+      !JOUR_SEUL.test(maxDate) ||
+      minDate > maxDate
+    ) {
+      throw new LogistiquePermanentError(
+        `MTS-1 : fenêtre de recherche invalide (« ${minDate} » → « ${maxDate} »), deux jours yyyy-MM-dd attendus, dans l'ordre`,
+      );
+    }
+
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
     if (handlers?.scanOrdersByDateRange) {
-      const result = await handlers.scanOrdersByDateRange(minDate, maxDate);
+      const result = await handlers.scanOrdersByDateRange(
+        minDate,
+        maxDate,
+        orderNumber,
+      );
       await this.log({
         methode: 'GET',
         endpoint: '/v3/customerOrders',
         statut_http: 200,
         duree_ms: Date.now() - t0,
+        correlation_id: orderNumber,
       });
       return result;
     }
@@ -356,11 +432,52 @@ export class Mts1Client {
         endpoint: '/v3/customerOrders',
         statut_http: 200,
         duree_ms: Date.now() - t0,
+        correlation_id: orderNumber,
       });
-      return result.customerOrders;
+      return result;
     }
 
-    const params = new URLSearchParams({ minDate, maxDate, pageSize: '200' });
+    const params = new URLSearchParams({ minDate, maxDate });
+    if (orderNumber) params.set('orderNumber', orderNumber);
+    const res = await this.fetch(
+      'GET',
+      `/v3/customerOrders?${params.toString()}`,
+      undefined,
+      orderNumber,
+      t0,
+    );
+    return this.lireCommandes(res);
+  }
+
+  /**
+   * Commandes par identifiant — GET /v3/customerOrders?customerOrderIds=a,b.
+   *
+   * C'est CETTE lecture qui dit si une commande existe encore (mesuré
+   * 2026-10-13) : un identifiant inconnu est simplement absent du tableau rendu
+   * (200, jamais 404), quelle que soit la date de la commande. Le détail
+   * GET /v3/customerOrders/{id} ne le dit pas : sur un identifiant inconnu il
+   * répond 200 avec un objet creux.
+   */
+  async findOrdersByIds(customerOrderIds: string[]): Promise<ScanResult> {
+    if (customerOrderIds.length === 0) return [];
+
+    const handlers = _getMts1Handlers();
+    const t0 = Date.now();
+
+    if (handlers?.findOrdersByIds) {
+      const result = await handlers.findOrdersByIds(customerOrderIds);
+      await this.log({
+        methode: 'GET',
+        endpoint: '/v3/customerOrders',
+        statut_http: 200,
+        duree_ms: Date.now() - t0,
+      });
+      return result;
+    }
+
+    const params = new URLSearchParams({
+      customerOrderIds: customerOrderIds.join(','),
+    });
     const res = await this.fetch(
       'GET',
       `/v3/customerOrders?${params.toString()}`,
@@ -368,11 +485,11 @@ export class Mts1Client {
       undefined,
       t0,
     );
-    const body = (await res.json()) as { customerOrders: ScanResult };
-    return body.customerOrders;
+    return this.lireCommandes(res);
   }
 
   async getTour(tourId: string): Promise<Mts1Tour> {
+    const chemin = `/v3/tours/${segment(tourId)}`;
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
@@ -380,7 +497,7 @@ export class Mts1Client {
       const result = await handlers.getTour(tourId);
       await this.log({
         methode: 'GET',
-        endpoint: `/v3/tours/${tourId}`,
+        endpoint: chemin,
         statut_http: 200,
         duree_ms: Date.now() - t0,
         correlation_id: tourId,
@@ -391,41 +508,13 @@ export class Mts1Client {
 
     const res = await this.fetch(
       'GET',
-      `/v3/tours/${tourId}`,
+      chemin,
       undefined,
       tourId,
       t0,
       'entrant',
     );
     return (await res.json()) as Mts1Tour;
-  }
-
-  async getPhotos(tourId: string): Promise<Mts1Photo[]> {
-    const handlers = _getMts1Handlers();
-    const t0 = Date.now();
-
-    if (handlers?.getPhotos) {
-      const result = await handlers.getPhotos(tourId);
-      await this.log({
-        methode: 'GET',
-        endpoint: `/v3/tours/${tourId}/photos`,
-        statut_http: 200,
-        duree_ms: Date.now() - t0,
-        correlation_id: tourId,
-        direction: 'entrant',
-      });
-      return result;
-    }
-
-    const res = await this.fetch(
-      'GET',
-      `/v3/tours/${tourId}/photos`,
-      undefined,
-      tourId,
-      t0,
-      'entrant',
-    );
-    return (await res.json()) as Mts1Photo[];
   }
 
   // BL-P1-API-03 — référentiel transporteurs. La plaque (`numberPlate`) et le
@@ -458,9 +547,13 @@ export class Mts1Client {
       t0,
       'entrant',
     );
-    const body = (await res.json()) as { carriers: Mts1Carrier[] };
-    this.carrierCache = body.carriers;
-    return body.carriers;
+    // Tableau nu, comme les commandes (mesuré 2026-10-13) — pas `{ carriers }`.
+    const carriers = (await this.lireTableau(
+      res,
+      'GET /v3/carrier',
+    )) as Mts1Carrier[];
+    this.carrierCache = carriers;
+    return carriers;
   }
 
   /**
@@ -533,7 +626,7 @@ export class Mts1Client {
       const erreur =
         err instanceof Error && err.name === 'AbortError'
           ? 'Timeout (5 s)'
-          : `Réseau : ${String(err)}`;
+          : `Réseau : ${libelleErreurReseau(err)}`;
       await this.log({
         methode: 'GET',
         endpoint: '/v3/carrier',
@@ -546,36 +639,155 @@ export class Mts1Client {
     }
   }
 
-  async downloadPhoto(url: string): Promise<Buffer | null> {
-    // In mock mode, signal 404 via URL pattern
-    if (_getMts1Handlers()) {
-      if (url.includes('not-found-404')) return null;
-      return Buffer.from('FAKE_PHOTO_DATA');
+  /**
+   * Photo d'un arrêt — GET sur l'adresse `downloadUrl` lue dans le détail du tour
+   * (`<connecteur>/v3/tours/photo/{tourId}/{stopId}/{photoId}`).
+   *
+   * Mesuré sur le compte de démonstration le 2026-10-13, sur ses 7 photos :
+   *   - sans clé d'API, 401 `BAD_CREDENTIALS` ; avec, 200 sans redirection ;
+   *   - le corps n'est pas le fichier : c'est le JPEG écrit en base64, sans
+   *     préfixe ni saut de ligne, annoncé « text/html » ;
+   *   - un identifiant de photo inventé répond 200 avec un corps vide, pas 404.
+   *
+   * Rend `null` pour une photo absente (corps vide, ou 404 par précaution) :
+   * l'appelant la retente au passage suivant. Lève si le corps n'est pas un
+   * JPEG : rien d'illisible n'est stocké.
+   */
+  async downloadPhoto(downloadUrl: string): Promise<Buffer | null> {
+    const handlers = _getMts1Handlers();
+    if (handlers) {
+      return handlers.downloadPhoto
+        ? handlers.downloadPhoto(downloadUrl)
+        : JPEG_SIMULE;
     }
 
+    // La clé d'API ne part que vers le connecteur. L'adresse vient d'une réponse :
+    // d'un autre hôte, elle livrerait la clé à un tiers. Une redirection est
+    // refusée pour la même raison (aucune n'a été mesurée).
+    if (!this.estAdresseDuConnecteur(downloadUrl)) {
+      throw new LogistiquePermanentError(
+        'MTS-1 : adresse de photo hors du connecteur, non téléchargée',
+      );
+    }
+
+    // Une seule échéance de 30 s pour la réponse ET son corps : levée plus tôt, un
+    // corps qui traîne retenait le passage au-delà, sous `maxDuration = 60`.
+    const t0 = Date.now();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
-      const res = await globalThis.fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (res.status === 404) return null;
-      if (!res.ok) {
+      let res: Response;
+      try {
+        res = await globalThis.fetch(downloadUrl, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${this.apiKey}` },
+          redirect: 'error',
+          signal: controller.signal,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw new LogistiqueAmbiguousError('MTS-1 timeout : photo');
+        }
+        // Jamais le texte de l'erreur : `fetch` y recopie la valeur d'en-tête
+        // qu'il refuse, donc la clé entière (cf. libelleErreurReseau).
         throw new LogistiqueTransientError(
-          `Photo download ${res.status}: ${url}`,
+          `MTS-1 réseau (photo) : ${libelleErreurReseau(err)}`,
         );
       }
-      const buf = await res.arrayBuffer();
-      return Buffer.from(buf);
-    } catch (err) {
+
+      await this.log({
+        methode: 'GET',
+        endpoint: '/v3/tours/photo',
+        statut_http: res.status,
+        duree_ms: Date.now() - t0,
+        direction: 'entrant',
+      });
+
+      if (res.status === 404) return null;
+      if (!res.ok) throw this.httpError(res.status, 'photo');
+
+      const corps = await lireCorpsPlafonne(res, controller.signal);
+      if (corps.length === 0) return null;
+      // Forme mesurée : le JPEG en base64. Un JPEG déjà binaire est pris tel quel
+      // (non mesuré) ; c'est le contenu qui est vérifié, pas l'en-tête de type.
+      if (estJpeg(corps)) return corps;
+      const decode = Buffer.from(corps.toString('latin1'), 'base64');
+      if (estJpeg(decode)) return decode;
+      throw new LogistiqueTransientError(
+        'MTS-1 : photo illisible (ni JPEG, ni JPEG écrit en base64)',
+      );
+    } finally {
       clearTimeout(timeout);
-      if (err instanceof Error && err.name === 'AbortError') {
-        throw new LogistiqueAmbiguousError(`Photo timeout: ${url}`);
-      }
-      throw err;
+    }
+  }
+
+  private estAdresseDuConnecteur(adresse: string): boolean {
+    try {
+      return new URL(adresse).origin === new URL(this.baseUrl).origin;
+    } catch {
+      return false;
     }
   }
 
   // ─── Internals ──────────────────────────────────────────────────────────────
+
+  // Identifiant rendu par une CRÉATION (201). À ce stade l'objet existe chez
+  // MTS-1, que sa réponse soit lisible ou non : un identifiant illisible n'est
+  // ni un refus ni une erreur passagère (un simple rejeu créerait un second
+  // objet, l'API étant présumée non idempotente — CLAUDE.md §2). Erreur AMBIGUË :
+  // la reprise passe par la réconciliation avant tout re-POST. Illisible : absent,
+  // pas une chaîne, ou hors de l'alphabet adopté (cf. IDENTIFIANT_MTS1).
+  private identifiantCree(
+    corps: unknown,
+    champ: string,
+    route: string,
+  ): string {
+    const valeur = (corps as Record<string, unknown> | null | undefined)?.[
+      champ
+    ];
+    if (!estIdentifiantMts1(valeur)) {
+      throw new LogistiqueAmbiguousError(
+        `MTS-1 ${route} : création acceptée, mais « ${champ} » est illisible dans la réponse`,
+      );
+    }
+    return valeur;
+  }
+
+  // Les deux listes lues ici (/v3/customerOrders, /v3/carrier) sont des tableaux
+  // JSON nus (mesuré le 2026-10-13). Toute autre forme est REFUSÉE par une
+  // erreur passagère (rejouée, puis signalée) : la lire comme
+  // une liste vide ferait conclure « commande absente », donc re-POSTer un
+  // doublon sur une API présumée non idempotente (CLAUDE.md §2).
+  private async lireTableau(res: Response, route: string): Promise<unknown[]> {
+    const body: unknown = await res.json().catch(() => undefined);
+    if (!Array.isArray(body)) {
+      throw new LogistiqueTransientError(
+        `MTS-1 ${route} : réponse inattendue, tableau attendu`,
+      );
+    }
+    return body;
+  }
+
+  // Une commande sans `customerOrderId` n'est pas lisible : l'identifiant est ce
+  // que la relève rapproche d'une tournée et ce que la réconciliation adopte.
+  // Une seule suffit à refuser toute la réponse : le contrat a changé.
+  // (L'ancien code lisait `id`, qui n'existe pas, sans que rien ne le signale.)
+  private async lireCommandes(res: Response): Promise<ScanResult> {
+    const commandes = (await this.lireTableau(
+      res,
+      'GET /v3/customerOrders',
+    )) as Array<Partial<Mts1CustomerOrder> | null>;
+    if (
+      commandes.some(
+        (c) => typeof c?.customerOrderId !== 'string' || !c.customerOrderId,
+      )
+    ) {
+      throw new LogistiqueTransientError(
+        'MTS-1 GET /v3/customerOrders : réponse inattendue, commande sans customerOrderId',
+      );
+    }
+    return commandes as ScanResult;
+  }
 
   private async fetch(
     method: string,
@@ -585,6 +797,9 @@ export class Mts1Client {
     t0: number,
     direction: 'sortant' | 'entrant' = 'sortant',
   ): Promise<Response> {
+    // Passage du worker : plus aucun appel ne démarre après l'échéance de l'ordre.
+    verifierEcheance(`MTS-1 ${method} ${path}`);
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
 
@@ -601,18 +816,22 @@ export class Mts1Client {
       });
     } catch (err) {
       clearTimeout(timeout);
+      // Jamais le texte de l'erreur : `fetch` y recopie la valeur d'en-tête qu'il
+      // refuse, donc la clé entière (cf. libelleErreurReseau). Ce libellé va dans
+      // integrations_logs, puis outbox_events.last_error, l'alerte et la fiche.
+      const libelle = libelleErreurReseau(err);
       await this.log({
         methode: method,
         endpoint: path,
         duree_ms: Date.now() - t0,
-        erreur: String(err),
+        erreur: libelle,
         correlation_id: correlationId,
         direction,
       });
       if (err instanceof Error && err.name === 'AbortError') {
         throw new LogistiqueAmbiguousError(`MTS-1 timeout : ${method} ${path}`);
       }
-      throw new LogistiqueTransientError(`MTS-1 réseau : ${String(err)}`);
+      throw new LogistiqueTransientError(`MTS-1 réseau : ${libelle}`);
     }
     clearTimeout(timeout);
 

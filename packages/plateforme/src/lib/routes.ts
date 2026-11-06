@@ -27,7 +27,7 @@ interface DefinitionEspace {
   readonly accueil: string;
   /** Rôles de l'espace (ordre = ordre de la liste du middleware). */
   readonly roles: readonly Role[];
-  /** Base LITTÉRALE de l'API liste collectes (espaces traiteur/agence). */
+  /** Base LITTÉRALE de l'API collectes (espaces traiteur/agence/gestionnaire). */
   readonly apiCollectes?: string;
 }
 
@@ -53,6 +53,7 @@ export const ESPACES = {
     prefixe: '/gestionnaire',
     accueil: '/gestionnaire',
     roles: ['gestionnaire_lieux'],
+    apiCollectes: '/api/v1/gestionnaire/collectes',
   },
   organisateur: {
     prefixe: '/organisateur',
@@ -64,7 +65,7 @@ export const ESPACES = {
 export type Espace = keyof typeof ESPACES;
 
 /** Rôles autorisés à programmer (formulaire + brouillons), staff en support. */
-const ROLES_PROGRAMMATION = [
+export const ROLES_PROGRAMMATION = [
   'traiteur_commercial',
   'traiteur_manager',
   'agence',
@@ -107,13 +108,25 @@ const O = ESPACES.organisateur.prefixe;
 const PROG = '/programmer';
 const REG = '/registre';
 
+/** Onglets de la page « Paramètres » des espaces client. « Mon profil » est le
+ * premier, ouvert par défaut (Val 2026-11-01). */
+export const ONGLET_PROFIL = 'profil';
+export const ONGLET_ORGANISATION = 'organisation';
+
 export const ROUTES = {
   racine: '/',
   login: '/login',
   signup: '/signup',
   verifyEmail: '/verify-email',
   resetPassword: '/reset-password',
+  // Choix du mot de passe depuis l'email d'invitation (lien Savr valable 7 jours).
+  invitation: '/invitation',
+  // Code de vérification de l'équipe Savr (lib/code-verification.ts) : activation
+  // puis saisie. Exige une session : PAS dans les pages publiques du middleware.
+  codeVerification: '/code-verification',
   cgu: '/cgu',
+  // Politique de confidentialité : publique (CDC §15, 3.4).
+  confidentialite: '/confidentialite',
   interdit: '/403',
 
   registre: REG,
@@ -136,6 +149,7 @@ export const ROUTES = {
     dashboardClient: `${A}/dashboard-client`,
     collectes: `${A}/collectes`,
     collecte: (id: string) => `${A}/collectes/${id}`,
+    evenements: `${A}/evenements`,
     factures: `${A}/factures`,
     facture: (id: string) => `${A}/factures/${id}`,
     associations: `${A}/associations`,
@@ -163,16 +177,20 @@ export const ROUTES = {
     racine: T,
     collectes: `${T}/collectes`,
     collecte: (id: string) => `${T}/collectes/${id}`,
-    monOrganisation: `${T}/mon-organisation`,
-    monProfil: `${T}/mon-profil`,
+    evenements: `${T}/evenements`,
+    monPackAg: `${T}/mon-pack-ag`,
+    parametres: `${T}/parametres`,
+    parametresOrganisation: `${T}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },
 
   agence: {
     racine: AG,
     collectes: `${AG}/collectes`,
     collecte: (id: string) => `${AG}/collectes/${id}`,
-    monOrganisation: `${AG}/mon-organisation`,
-    monProfil: `${AG}/mon-profil`,
+    evenements: `${AG}/evenements`,
+    monPackAg: `${AG}/mon-pack-ag`,
+    parametres: `${AG}/parametres`,
+    parametresOrganisation: `${AG}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },
 
   gestionnaire: {
@@ -181,19 +199,23 @@ export const ROUTES = {
     lieu: (id: string) => `${G}/lieux/${id}`,
     collectes: `${G}/collectes`,
     collecte: (id: string) => `${G}/collectes/${id}`,
+    evenements: `${G}/evenements`,
+    evenement: (id: string) => `${G}/evenements/${id}`,
     traiteurs: `${G}/traiteurs`,
     traiteur: (id: string) => `${G}/traiteurs/${id}`,
     monPackAg: `${G}/mon-pack-ag`,
-    monOrganisation: `${G}/mon-organisation`,
     parametres: `${G}/parametres`,
+    parametresOrganisation: `${G}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },
 
   organisateur: {
     racine: O,
     collectes: `${O}/collectes`,
+    evenements: `${O}/evenements`,
     documents: `${O}/documents`,
-    monOrganisation: `${O}/mon-organisation`,
-    monProfil: `${O}/mon-profil`,
+    monPackAg: `${O}/mon-pack-ag`,
+    parametres: `${O}/parametres`,
+    parametresOrganisation: `${O}/parametres?onglet=${ONGLET_ORGANISATION}`,
   },
 } as const;
 

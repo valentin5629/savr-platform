@@ -3,10 +3,18 @@
  * realisee_sans_collecte_pas_d_attestation, idempotence, mention fiscale conditionnelle,
  * snapshot résistant perte habilitation, régénération auto sur correction volume).
  */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Inline du logo : pas de lecture R2 en test, la clé est rendue lisible.
+vi.mock('../../src/lib/pdf/logo-inline.js', () => ({
+  makeLogoResolver: () => async (cle: string | null | undefined) =>
+    cle ? `data:${cle}` : null,
 }));
 
 import { runBatchPdfJ1Ag } from '../../src/lib/pdf/batch-pdf-j1-ag.js';
@@ -26,6 +34,7 @@ function makeCollecteAg(overrides: Record<string, unknown> = {}) {
       nom_evenement: 'Gala Kaspia',
       date_evenement: '2026-06-13',
       organisation_id: 'org-1',
+      programmeur: { prenom: 'Julie', organisation_id: 'org-1' },
     },
     attributions_antgaspi: {
       id: 'attr-1',
@@ -213,8 +222,9 @@ describe('M2.4 / BatchPdfJ1Ag / alerte SIRET donateur — cycle de vie', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00002', error: null },
       { data: { id: 'att-new' }, error: null },
+      { data: 'ATT-DON-2026-00002', error: null },
+      { data: [{ id: 'att-new' }], error: null }, // numéro posé sur la ligne
     ]);
 
     const result = await runBatchPdfJ1Ag(sb as never);
@@ -262,10 +272,10 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
         ],
         error: null,
       }, // entites_facturation
-      { data: 'ATT-DON-2026-00001', error: null }, // rpc f_next_numero_attestation
       { data: { id: 'att-new' }, error: null }, // insert attestations_don
+      { data: 'ATT-DON-2026-00001', error: null }, // rpc f_next_numero_attestation
+      { data: [{ id: 'att-new' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // insert jobs_pdf
-      { data: null, error: null }, // insert rapports_rse
       { data: { email_principal: 'chef@kaspia.fr' }, error: null }, // select email organisation programmatrice
     ]);
 
@@ -288,7 +298,12 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
     expect(attInsert!.mention_fiscale_2041ge).toBe(true);
     expect(attInsert!.volume_repas).toBe(120);
     expect(attInsert!.co2_evite_kg).toBe(300.0);
-    expect(attInsert!.numero).toBe('ATT-DON-2026-00001');
+    // Ligne créée sans numéro, numéro posé ensuite (numéro gapless jamais
+    // tiré pour une ligne qu'une autre fabrication aurait déjà créée).
+    expect(attInsert!.numero).toBeNull();
+    const updates = (sb._chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    expect(updates[0]![0]).toEqual({ numero: 'ATT-DON-2026-00001' });
     expect(attInsert!.version).toBe(1);
     expect(attInsert!.statut).toBe('brouillon');
     // ECR-4 : date_collecte = vraie date de collecte, pas today
@@ -355,11 +370,49 @@ describe('M2.4 / BatchPdfJ1Ag / Exclusion sans attribution', () => {
 });
 
 describe('M2.4 / BatchPdfJ1Ag / Idempotence R8', () => {
+  it('attestation encore en brouillon (rendu en attente ou en échec) → aucun numéro ATT-DON tiré, rien recréé', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      {
+        data: [
+          {
+            id: 'att-b',
+            collecte_id: 'col-ag-1',
+            statut: 'brouillon',
+            version: 1,
+            numero: 'ATT-DON-2026-00070',
+            volume_repas: 120,
+          },
+        ],
+        error: null,
+      },
+    ]);
+
+    const result = await runBatchPdfJ1Ag(sb as never);
+
+    expect(result.already_done).toBe(1);
+    expect(result.enqueued).toBe(0);
+    expect(sb.rpc).not.toHaveBeenCalled();
+    expect(sb._chain.insert).not.toHaveBeenCalled();
+  });
+
   it("collecte déjà dotée d'une attestation emise → already_done, rien enqueué", async () => {
     const collecte = makeCollecteAg();
     const sb = makeSupabase([
       { data: [collecte], error: null },
-      { data: [{ collecte_id: 'col-ag-1', statut: 'emise' }], error: null },
+      {
+        data: [
+          {
+            id: 'att-e',
+            collecte_id: 'col-ag-1',
+            statut: 'emise',
+            version: 1,
+            numero: 'ATT-DON-2026-00071',
+            volume_repas: 120,
+          },
+        ],
+        error: null,
+      },
       { data: [], error: null }, // entites (pas atteint mais mockée)
     ]);
 
@@ -367,6 +420,141 @@ describe('M2.4 / BatchPdfJ1Ag / Idempotence R8', () => {
 
     expect(result.already_done).toBe(1);
     expect(result.enqueued).toBe(0);
+  });
+});
+
+// Val 2026-11-04 : fabrication toutes les 15 min et juste après la saisie
+// Admin. Une correction de poids tombée pendant un rendu n'est jamais perdue,
+// et deux fabrications simultanées ne brûlent pas de numéro gapless.
+describe('M2.4 / BatchPdfJ1Ag / Corrections et fabrications simultanées', () => {
+  const entite = {
+    data: [
+      {
+        id: 'entite-1',
+        organisation_id: 'org-1',
+        raison_sociale: 'Kaspia SAS',
+        siret: '12345678900001',
+        siret_verification: 'verifie',
+      },
+    ],
+    error: null,
+  };
+  const att = (o: Record<string, unknown>) => ({
+    id: 'att-1',
+    collecte_id: 'col-ag-1',
+    statut: 'emise',
+    version: 1,
+    numero: 'ATT-DON-2026-00090',
+    volume_repas: 120,
+    ...o,
+  });
+  const updates = (sb: ReturnType<typeof makeSupabase>) =>
+    (sb._chain.update as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [Record<string, unknown>]
+    >;
+
+  it('attestation créée à l’instant par une autre fabrication (23505) → aucun numéro ATT-DON tiré', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [], error: null },
+      entite,
+      { data: null, error: { code: '23505', message: 'duplicate' } },
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(sb.rpc).not.toHaveBeenCalled();
+    expect(result.already_done).toBe(1);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('brouillon numéroté, poids corrigé pendant que son rendu attend → rendu et ligne prennent les nouveaux repas', async () => {
+    const collecte = makeCollecteAg({ co2_evite_kg: 500 });
+    collecte.attributions_antgaspi.volume_repas_realise = 200;
+    collecte.attributions_antgaspi.poids_repas_kg = 90;
+    const sb = makeSupabase([
+      { data: [collecte], error: null },
+      { data: [att({ statut: 'brouillon', volume_repas: 120 })], error: null },
+      {
+        data: [
+          {
+            id: 'job-1',
+            payload: { numero: 'ATT-DON-2026-00090', volume_repas: 120 },
+          },
+        ],
+        error: null,
+      },
+      { data: null, error: null }, // update payload
+      { data: null, error: null }, // update attestation
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.refaits).toBe(1);
+    expect(sb.rpc).not.toHaveBeenCalled();
+    expect(sb._chain.insert).not.toHaveBeenCalled();
+    expect(updates(sb)[0]![0].payload).toMatchObject({
+      numero: 'ATT-DON-2026-00090',
+      volume_repas: 200,
+      poids_kg: 90,
+      co2_evite_kg: 500,
+    });
+    expect(updates(sb)[1]![0]).toMatchObject({
+      volume_repas: 200,
+      nb_repas: 200,
+      poids_kg: 90,
+    });
+  });
+
+  it('brouillon, rendu en cours (rien en attente) → rien touché, repris au passage suivant', async () => {
+    const collecte = makeCollecteAg();
+    collecte.attributions_antgaspi.volume_repas_realise = 200;
+    const sb = makeSupabase([
+      { data: [collecte], error: null },
+      { data: [att({ statut: 'brouillon', volume_repas: 120 })], error: null },
+      { data: [], error: null }, // aucun rendu en attente ou en échec
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.refaits).toBe(0);
+    expect(sb._chain.update).not.toHaveBeenCalled();
+  });
+
+  it('attestation émise dont les repas ne suivent plus le poids → nouvelle version, l’ancienne corrigée', async () => {
+    const collecte = makeCollecteAg();
+    collecte.attributions_antgaspi.volume_repas_realise = 200;
+    const sb = makeSupabase([
+      { data: [collecte], error: null },
+      { data: [att({ volume_repas: 120 })], error: null },
+      entite,
+      { data: { id: 'att-2' }, error: null }, // insert v2
+      { data: 'ATT-DON-2026-00091', error: null }, // rpc numéro
+      { data: [{ id: 'att-2' }], error: null }, // numéro posé
+      { data: null, error: null }, // ancienne → corrigee
+      { data: null, error: null }, // audit
+      { data: null, error: null }, // job
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.enqueued).toBe(1);
+    const inserts = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    expect(inserts[0]![0]).toMatchObject({ version: 2, volume_repas: 200 });
+    expect(updates(sb)[1]![0]).toEqual({ statut: 'corrigee' });
+  });
+
+  it('attestation émise sans numéro (jeu de données, import) → jamais renumérotée', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [att({ numero: null })], error: null },
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.already_done).toBe(1);
+    expect(sb.rpc).not.toHaveBeenCalled();
+  });
+
+  it('attestation émise à jour → rien n’est refait', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [att({ volume_repas: 120 })], error: null },
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.already_done).toBe(1);
+    expect(sb.rpc).not.toHaveBeenCalled();
   });
 });
 
@@ -399,8 +587,9 @@ describe('M2.4 / BatchPdfJ1Ag / Mention fiscale conditionnelle', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00002', error: null },
       { data: { id: 'att-new-2' }, error: null },
+      { data: 'ATT-DON-2026-00002', error: null },
+      { data: [{ id: 'att-new-2' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null },
       { data: null, error: null },
       { data: { email_principal: null }, error: null },
@@ -454,8 +643,9 @@ describe('M2.4 / BatchPdfJ1Ag / Snapshot résistant perte habilitation', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00003', error: null },
       { data: { id: 'att-new-3' }, error: null },
+      { data: 'ATT-DON-2026-00003', error: null },
+      { data: [{ id: 'att-new-3' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null },
       { data: null, error: null },
       { data: { email_principal: null }, error: null },
@@ -484,23 +674,23 @@ describe('M2.4 / BatchPdfJ1Ag / Sélection vide', () => {
     expect(result.errors).toHaveLength(0);
   });
 
-  it("E1 : l'attestation est gatée par realisee_at + 24h <= now() (filtre .lte sur la sélection)", async () => {
-    // Collecte AG encore sous embargo → exclue par le filtre → aucune attestation figée.
+  it('sélection : collectes AG réalisées ou clôturées, sans seuil sur realisee_at (Val 2026-11-04)', async () => {
     const sb = makeSupabase([{ data: [], error: null }]);
-
-    const before = Date.now();
-    const result = await runBatchPdfJ1Ag(sb as never);
-    const after = Date.now();
-
-    expect(result.enqueued).toBe(0);
-
+    await runBatchPdfJ1Ag(sb as never);
+    const inCalls = (sb._chain.in as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[string, unknown]>;
+    expect(inCalls).toContainEqual(['statut', ['realisee', 'cloturee']]);
     const lteCalls = (sb._chain.lte as ReturnType<typeof vi.fn>).mock
       .calls as Array<[string, string]>;
-    const embargoFilter = lteCalls.find((c) => c[0] === 'realisee_at');
-    expect(embargoFilter).toBeDefined();
-    const seuil = new Date(embargoFilter![1]).getTime();
-    expect(seuil).toBeGreaterThanOrEqual(before - 24 * 3600 * 1000 - 1000);
-    expect(seuil).toBeLessThanOrEqual(after - 24 * 3600 * 1000 + 1000);
+    expect(lteCalls.find((c) => c[0] === 'realisee_at')).toBeUndefined();
+  });
+
+  it('collecteId : la sélection est restreinte à cette collecte', async () => {
+    const sb = makeSupabase([{ data: [], error: null }]);
+    await runBatchPdfJ1Ag(sb as never, { collecteId: 'col-ag-9' });
+    const eqCalls = (sb._chain.eq as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[string, unknown]>;
+    expect(eqCalls).toContainEqual(['id', 'col-ag-9']);
   });
 
   it('erreur DB à la sélection → erreur remontée', async () => {
@@ -511,14 +701,17 @@ describe('M2.4 / BatchPdfJ1Ag / Sélection vide', () => {
     const result = await runBatchPdfJ1Ag(sb as never);
 
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain('connection timeout');
+    // Message de la base journalisé, jamais recopié (check-api-error-leak).
+    expect(result.errors[0]).toContain('échec de lecture');
+    expect(result.errors[0]).not.toContain('connection timeout');
   });
 });
 
-describe('M2.4 / BatchPdfJ1Ag / Embargo H+24', () => {
-  it("eligible_at = realisee_at + 24h dans l'attestation", async () => {
-    const realiseeAt = new Date(Date.now() - 26 * 3600 * 1000);
-    const collecte = makeCollecteAg({ realisee_at: realiseeAt.toISOString() });
+describe('M2.4 / BatchPdfJ1Ag / Sans embargo (Val 2026-11-04)', () => {
+  it('eligible_at = maintenant : le rapport de don est visible dès son émission', async () => {
+    const collecte = makeCollecteAg({
+      realisee_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+    });
     const sb = makeSupabase([
       { data: [collecte], error: null },
       { data: [], error: null },
@@ -534,31 +727,61 @@ describe('M2.4 / BatchPdfJ1Ag / Embargo H+24', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00004', error: null },
       { data: { id: 'att-emb' }, error: null },
+      { data: 'ATT-DON-2026-00004', error: null },
+      { data: [{ id: 'att-emb' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null },
       { data: null, error: null },
-      { data: { email_principal: null }, error: null },
     ]);
 
-    await runBatchPdfJ1Ag(sb as never);
+    const before = Date.now();
+    const result = await runBatchPdfJ1Ag(sb as never);
 
+    expect(result.enqueued).toBe(1);
     const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
       .calls as Array<[Record<string, unknown>]>;
     const attInsert = insertCalls.find(
       (c) => c[0].eligible_at !== undefined,
     )?.[0];
-    expect(attInsert).toBeDefined();
-    const eligibleA = new Date(attInsert!.eligible_at as string);
-    const expected = new Date(realiseeAt.getTime() + 24 * 3600 * 1000);
-    expect(Math.abs(eligibleA.getTime() - expected.getTime())).toBeLessThan(
-      5000,
-    );
+    const eligibleA = new Date(attInsert!.eligible_at as string).getTime();
+    expect(eligibleA).toBeGreaterThanOrEqual(before - 1000);
+    expect(eligibleA).toBeLessThanOrEqual(Date.now() + 1000);
+  });
+
+  it('n’envoie plus l’email « rapport de don disponible » (parti à la clôture, à 48 h)', async () => {
+    const { sendEmail } = await import('@savr/shared/src/email/index.js');
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null },
+      { data: [], error: null },
+      {
+        data: [
+          {
+            id: 'entite-1',
+            organisation_id: 'org-1',
+            raison_sociale: 'Kaspia SAS',
+            siret: '12345678900001',
+            siret_verification: 'verifie',
+          },
+        ],
+        error: null,
+      },
+      { data: { id: 'att-sans-email' }, error: null },
+      { data: 'ATT-DON-2026-00006', error: null },
+      { data: [{ id: 'att-sans-email' }], error: null }, // numéro posé sur la ligne
+      { data: null, error: null },
+      { data: null, error: null },
+    ]);
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.enqueued).toBe(1);
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 });
 
-describe('M2.4 / BatchPdfJ1Ag / rapports_rse AG', () => {
-  it('INSERT rapports_rse avec disponible_a = realisee_at + 24h', async () => {
+// Une collecte AG avec excédents n'a qu'un document : l'attestation, affichée
+// « Rapport de don » (décision Val 2026-10-09). Le batch ne crée plus de ligne
+// rapports_rse pour elle ; la disponibilité est portée par l'attestation.
+describe('M2.4 / BatchPdfJ1Ag / pas de rapports_rse pour une collecte AG', () => {
+  it('aucune ligne rapports_rse ; l’attestation porte sa date de disponibilité', async () => {
     const realiseeAt = new Date(Date.now() - 26 * 3600 * 1000);
     const collecte = makeCollecteAg({ realisee_at: realiseeAt.toISOString() });
     const sb = makeSupabase([
@@ -576,26 +799,31 @@ describe('M2.4 / BatchPdfJ1Ag / rapports_rse AG', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00005', error: null },
       { data: { id: 'att-rse' }, error: null },
+      { data: 'ATT-DON-2026-00005', error: null },
+      { data: [{ id: 'att-rse' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // jobs_pdf
-      { data: null, error: null }, // rapports_rse
       { data: { email_principal: null }, error: null },
     ]);
 
-    await runBatchPdfJ1Ag(sb as never);
+    const result = await runBatchPdfJ1Ag(sb as never);
+
+    expect(result.enqueued).toBe(1);
+    const tables = (sb.from as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => c[0] as string,
+    );
+    expect(tables).toContain('attestations_don');
+    expect(tables).not.toContain('rapports_rse');
 
     const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
       .calls as Array<[Record<string, unknown>]>;
-    const rseInsert = insertCalls.find(
-      (c) => c[0].disponible_a !== undefined,
-    )?.[0];
-    expect(rseInsert).toBeDefined();
-    const disponibleA = new Date(rseInsert!.disponible_a as string);
-    const expected = new Date(realiseeAt.getTime() + 24 * 3600 * 1000);
-    expect(Math.abs(disponibleA.getTime() - expected.getTime())).toBeLessThan(
-      5000,
+    expect(insertCalls.some((c) => c[0].disponible_a !== undefined)).toBe(
+      false,
     );
+    const attestation = insertCalls.find(
+      (c) => c[0].eligible_at !== undefined,
+    )?.[0];
+    expect(attestation).toBeDefined();
   });
 });
 
@@ -650,10 +878,10 @@ describe('M2.4 / BatchPdfJ1Ag / instantané association_numero_rup', () => {
         ],
         error: null,
       }, // entites_facturation
-      { data: 'ATT-DON-2026-00042', error: null }, // rpc numéro
       { data: { id: 'att-new' }, error: null }, // insert attestations_don
+      { data: 'ATT-DON-2026-00042', error: null }, // rpc numéro
+      { data: [{ id: 'att-new' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // insert jobs_pdf
-      { data: null, error: null }, // insert rapports_rse
       { data: { email_principal: 'chef@kaspia.fr' }, error: null },
     ]);
 
@@ -698,12 +926,11 @@ describe('M2.4 / BatchPdfJ1Ag / instantané association_numero_rup', () => {
 // tranché Val 2026-09-14) : destinataire = organisations.email_principal de
 // l'organisation programmatrice ; evenements.contact_principal_email n'existe
 // pas en V1 (G7 column-db) → jamais lu.
-describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
-  it('envoie au email_principal de l’organisation programmatrice (jamais evenements.contact_principal_email)', async () => {
-    const { sendEmail } = await import('@savr/shared/src/email/index.js');
-    const sb = makeSupabase([
-      { data: [makeCollecteAg()], error: null }, // select collectes AG
-      { data: [], error: null }, // attestations_don existantes
+describe('attestation de don — logo du client (Val 2026-10-30)', () => {
+  function sbPour(collecte: unknown) {
+    return makeSupabase([
+      { data: [collecte], error: null },
+      { data: [], error: null },
       {
         data: [
           {
@@ -715,39 +942,59 @@ describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
           },
         ],
         error: null,
-      }, // entites_facturation
-      { data: 'ATT-DON-2026-00077', error: null }, // rpc numéro
-      { data: { id: 'att-new' }, error: null }, // insert attestations_don
-      { data: null, error: null }, // insert audit_log
-      { data: null, error: null }, // insert jobs_pdf
-      { data: null, error: null }, // insert rapports_rse
-      { data: { email_principal: 'compta@kaspia.fr' }, error: null },
+      },
+      { data: { id: 'att-new' }, error: null },
+      { data: 'ATT-DON-2026-00001', error: null },
+      { data: [{ id: 'att-new' }], error: null }, // numéro posé sur la ligne
+      { data: null, error: null },
+      { data: { email_principal: 'chef@kaspia.fr' }, error: null },
     ]);
+  }
+  function payloadJob(sb: ReturnType<typeof makeSupabase>) {
+    const calls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    return calls.find((c) => c[0].type_document !== undefined)![0]
+      .payload as Record<string, unknown>;
+  }
+  const base = makeCollecteAg();
 
-    const result = await runBatchPdfJ1Ag(sb as never);
-    expect(result.errors).toHaveLength(0);
+  it('logo déposé sur l’événement → imprimé, devant celui du compte client', async () => {
+    const sb = sbPour({
+      ...base,
+      evenements: {
+        ...base.evenements,
+        logo_client_organisateur_url: 'cle-deposee',
+        organisations: { type: 'traiteur', logo_url: 'cle-traiteur' },
+        traiteur_operationnel: null,
+        client_organisateur: { logo_url: 'cle-compte-client' },
+      },
+    });
+    await runBatchPdfJ1Ag(sb as never);
+    expect(payloadJob(sb).logo_client_url).toBe('data:cle-deposee');
+  });
 
-    const tables = (sb.from as ReturnType<typeof vi.fn>).mock.calls.map(
-      (c) => c[0] as string,
+  it('seul le traiteur a un logo → aucun logo client (le traiteur ne prend pas la place)', async () => {
+    const sb = sbPour({
+      ...base,
+      evenements: {
+        ...base.evenements,
+        logo_client_organisateur_url: null,
+        organisations: { type: 'traiteur', logo_url: 'cle-traiteur' },
+        traiteur_operationnel: null,
+        client_organisateur: null,
+      },
+    });
+    await runBatchPdfJ1Ag(sb as never);
+    expect(payloadJob(sb).logo_client_url).toBeNull();
+  });
+
+  it('sélectionne les logos de l’événement dans la lecture des collectes', () => {
+    const src = readFileSync(
+      fileURLToPath(
+        new URL('../../src/lib/pdf/batch-pdf-j1-ag.ts', import.meta.url),
+      ),
+      'utf8',
     );
-    // Dernière lecture métier = organisations (email) ; la toute dernière
-    // opération est la résolution de l'alerte SIRET donateur (étape 11).
-    expect(tables.at(-2)).toBe('organisations');
-    expect(tables.at(-1)).toBe('alertes_admin');
-    const selects = (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls
-      .map((c) => String(c[0]))
-      .join('\n');
-    expect(selects).not.toContain('contact_principal_email');
-    expect(
-      (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0],
-    ).toBe('email_principal');
-    expect(sb._chain.eq).toHaveBeenCalledWith('id', 'org-1');
-
-    expect(sendEmail).toHaveBeenCalledWith(
-      'attestation_don_disponible',
-      'compta@kaspia.fr',
-      expect.objectContaining({ numero_attestation: 'ATT-DON-2026-00077' }),
-      { entityType: 'collectes', entityId: 'col-ag-1' },
-    );
+    expect(src).toContain('${SELECT_LOGOS_EVENEMENT}');
   });
 });

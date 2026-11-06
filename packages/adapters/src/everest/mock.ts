@@ -3,25 +3,27 @@
 
 // ─── Types as-built Everest ───────────────────────────────────────────────────
 
+// Formes lues par l'adapter et la route, après lecture de `{ mission }` par le
+// client (client.ts). `mission_id` porte la `ref` Everest de la mission.
 export interface EverestCreatedMission {
   mission_id: string;
   client_ref: string;
   service_id: number;
   status: string;
-  created_at: string;
 }
 
 export interface EverestCancelResponse {
   mission_id: string;
   status: string;
-  cancelled_at: string;
 }
 
-export interface EverestAuthResponse {
-  access_token: string;
+export interface EverestUpdateResponse {
+  mission_id: string;
+  status: string;
 }
 
-// Détail mission re-fetché par GET /missions/{id} (BL-P0-07).
+// Détail mission relu par POST /missions/get (BL-P0-07). `status` = libellé du
+// statut (`status_text`), à défaut son slug.
 // Source de vérité du coût + de la preuve : webhook = signal, API = vérité
 // (CDC 08 - APIs §3 l.241/279 « ne jamais faire confiance au payload »).
 export interface EverestMissionDetail {
@@ -32,7 +34,39 @@ export interface EverestMissionDetail {
   coursier_nom: string | null;
   coursier_telephone: string | null;
   vehicule_type: string | null;
+  /** Code de l'étape (`status` de la mission, ex. `livraison-terminee`). */
+  statut_code?: string | null;
+  /** Catégorie de l'étape, lue sur les drapeaux `is_*` de la mission relue. */
+  etape?: EtapeMissionEverest | null;
+  /** Photos prises par le coursier (`medias` de type `photo`), dans l'ordre. */
+  photos?: PhotoMissionEverest[];
 }
+
+/**
+ * Photo prise par le coursier, lue dans `medias` de la mission relue (forme
+ * mesurée sur le compte A Toutes! le 2026-11-03 : `id` numérique, `type`
+ * `photo`, `src` adresse publique, `date` en secondes). Les autres médias
+ * (signatures…) ne sont pas des photos de la collecte.
+ */
+export interface PhotoMissionEverest {
+  id: string;
+  src: string;
+  /** Prise de vue, ISO 8601, ou null si la mission ne la donne pas. */
+  prise_le: string | null;
+}
+
+/**
+ * Catégorie d'une étape Everest, d'après les drapeaux de la mission relue
+ * (`is_cancel`, `is_fail`, `is_success`, `is_pickup`, `is_dispatch`, lus sur
+ * le compte A Toutes! le 2026-11-03). `null` = étape sans catégorie (mission
+ * créée, coursier arrivé à destination…).
+ */
+export type EtapeMissionEverest =
+  | 'affectee'
+  | 'enlevee'
+  | 'reussie'
+  | 'echouee'
+  | 'annulee';
 
 export type EverestPostSuccess<T> = { ok: true; data: T };
 export type EverestPostError = { ok: false; status: number; error: string };
@@ -41,18 +75,26 @@ export type EverestResult<T> = EverestPostSuccess<T> | EverestPostError;
 // ─── Handlers injectables ─────────────────────────────────────────────────────
 
 export interface EverestHandlers {
-  auth: (
-    payload: Record<string, unknown>,
-  ) => Promise<EverestResult<EverestAuthResponse>>;
   createMission: (
     payload: Record<string, unknown>,
   ) => Promise<EverestResult<EverestCreatedMission>>;
   cancelMission: (
     payload: Record<string, unknown>,
   ) => Promise<EverestResult<EverestCancelResponse>>;
+  updateMission: (
+    payload: Record<string, unknown>,
+  ) => Promise<EverestResult<EverestUpdateResponse>>;
   getMission: (
     missionId: string,
   ) => Promise<EverestResult<EverestMissionDetail>>;
+  /** Téléchargement d'une photo de mission. Absent : une image simulée. */
+  downloadPhoto?: (src: string) => Promise<PhotoTelechargee>;
+}
+
+/** Une photo téléchargée : son contenu et son type, lu sur la réponse. */
+export interface PhotoTelechargee {
+  contenu: Buffer;
+  content_type: string;
 }
 
 let _handlers: EverestHandlers | null = null;
@@ -72,16 +114,18 @@ export interface MockMissionState {
   /** Payload brut envoyé à createMission, keyed par client_ref */
   payloads: Map<string, Record<string, unknown>>;
   cancelledIds: Set<string>;
-  /** Détails re-fetchés par GET /missions/{id}, keyed par mission_id (BL-P0-07) */
+  /** Corps envoyés à updateMission, dans l'ordre. */
+  updates: Array<Record<string, unknown>>;
+  /** Détails relus par POST /missions/get, keyed par mission_id (BL-P0-07) */
   details: Map<string, EverestMissionDetail>;
 }
 
 export function setupEverestMock(
   opts: {
-    authFails?: boolean;
     createFails?: boolean;
     createFailsStatus?: number;
     cancelFails?: boolean;
+    updateFailsStatus?: number;
     getMissionFails?: boolean;
     getMissionFailsStatus?: number;
   } = {},
@@ -90,19 +134,13 @@ export function setupEverestMock(
     missions: new Map(),
     payloads: new Map(),
     cancelledIds: new Set(),
+    updates: [],
     details: new Map(),
   };
 
   let missionCounter = 0;
 
   _setEverestHandlers({
-    auth: async (_payload) => {
-      if (opts.authFails) {
-        return { ok: false, status: 401, error: 'Unauthorized' };
-      }
-      return { ok: true, data: { access_token: 'mock-bearer-token' } };
-    },
-
     createMission: async (payload) => {
       if (opts.createFails) {
         return {
@@ -119,7 +157,6 @@ export function setupEverestMock(
         client_ref,
         service_id,
         status: 'pending',
-        created_at: new Date().toISOString(),
       };
       state.missions.set(client_ref, mission);
       state.payloads.set(client_ref, payload);
@@ -130,16 +167,22 @@ export function setupEverestMock(
       if (opts.cancelFails) {
         return { ok: false, status: 500, error: 'Cancel error' };
       }
-      const mission_id = String(payload['mission_id'] ?? '');
+      const mission_id = String(payload['ref'] ?? '');
       state.cancelledIds.add(mission_id);
-      return {
-        ok: true,
-        data: {
-          mission_id,
-          status: 'cancelled',
-          cancelled_at: new Date().toISOString(),
-        },
-      };
+      return { ok: true, data: { mission_id, status: 'cancelled' } };
+    },
+
+    updateMission: async (payload) => {
+      if (opts.updateFailsStatus) {
+        return {
+          ok: false,
+          status: opts.updateFailsStatus,
+          error: 'Everest updateMission error',
+        };
+      }
+      state.updates.push(payload);
+      const mission_id = String(payload['ref'] ?? '');
+      return { ok: true, data: { mission_id, status: 'pending' } };
     },
 
     getMission: async (missionId) => {

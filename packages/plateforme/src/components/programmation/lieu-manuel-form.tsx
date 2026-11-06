@@ -1,32 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
-import { FormGrid } from '@/components/ui/form-grid';
 import { FormError } from '@/components/ui/form-error';
 import type { LieuOption } from '@/components/programmation/lieu-combobox';
 import { AdresseAutocompleteInput } from '@/components/programmation/adresse-autocomplete-input';
 import { FormActions } from '@/components/ui/form-actions';
 
-const OPTIONS_VEHICULE = [
-  { value: '', label: 'Optionnel' },
-  { value: 'velo_cargo', label: 'Vélo cargo' },
-  { value: 'camionnette', label: 'Camionnette' },
-  { value: 'fourgon', label: 'Fourgon' },
-  { value: 'vul', label: 'VUL' },
-  { value: 'poids_lourd', label: 'Poids lourd' },
-];
-
-const OPTIONS_DIFFICULTE = [
-  { value: '', label: 'Optionnel' },
-  { value: 'facile', label: 'Facile' },
-  { value: 'difficile', label: 'Difficile' },
-  { value: 'tres_difficile', label: 'Très difficile' },
-];
-
 // Formulaire lieu manuel inline (quick-add « lieu hors référentiel » §06.01).
+// Type de véhicule max, stationnement et accès office n'y sont plus demandés
+// (décision Val 2026-10-16) : l'équipe Savr les renseigne dans la fiche lieu Admin.
 // Extrait dans son propre fichier (pas exporté depuis la page) : Next.js App Router
 // interdit les exports nommés arbitraires dans un `page.tsx` (échec `next build`).
 export function LieuManuelForm({
@@ -44,9 +28,6 @@ export function LieuManuelForm({
     adresse_acces: '',
     code_postal: '',
     ville: '',
-    stationnement: '',
-    type_vehicule_max: '',
-    acces_office: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,10 +41,6 @@ export function LieuManuelForm({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          // Champs optionnels : ne jamais envoyer '' (invalide pour un enum Postgres)
-          stationnement: form.stationnement || undefined,
-          type_vehicule_max: form.type_vehicule_max || undefined,
-          acces_office: form.acces_office || undefined,
           organisation_id: organisationId || undefined,
         }),
       });
@@ -136,38 +113,6 @@ export function LieuManuelForm({
           </FormField>
         ),
       )}
-      <FormGrid cols={3}>
-        <FormField label="Type de véhicule max" htmlFor="lieu-vehicule">
-          <Combobox
-            id="lieu-vehicule"
-            icon={null}
-            placeholder="Optionnel"
-            options={OPTIONS_VEHICULE}
-            value={form.type_vehicule_max}
-            onChange={(v) => setForm((p) => ({ ...p, type_vehicule_max: v }))}
-          />
-        </FormField>
-        <FormField label="Stationnement" htmlFor="lieu-stationnement">
-          <Combobox
-            id="lieu-stationnement"
-            icon={null}
-            placeholder="Optionnel"
-            options={OPTIONS_DIFFICULTE}
-            value={form.stationnement}
-            onChange={(v) => setForm((p) => ({ ...p, stationnement: v }))}
-          />
-        </FormField>
-        <FormField label="Accès office" htmlFor="lieu-office">
-          <Combobox
-            id="lieu-office"
-            icon={null}
-            placeholder="Optionnel"
-            options={OPTIONS_DIFFICULTE}
-            value={form.acces_office}
-            onChange={(v) => setForm((p) => ({ ...p, acces_office: v }))}
-          />
-        </FormField>
-      </FormGrid>
       {error && <FormError>{error}</FormError>}
       <FormActions
         cancel={{ label: 'Annuler', onClick: onCancel }}

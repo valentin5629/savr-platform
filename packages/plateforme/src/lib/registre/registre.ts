@@ -77,6 +77,9 @@ export interface RegistreRow {
   bordereau_date_emission: string | null;
   bordereau_version: number | null;
   historique_partiel: boolean | null;
+  // Codes VIPARIS (Val 2026-11-02), repris à l'export CSV.
+  lieu_code_site_viparis: string | null;
+  evenement_code_affaire_viparis: string | null;
 }
 
 export const SORT_COLUMNS = [

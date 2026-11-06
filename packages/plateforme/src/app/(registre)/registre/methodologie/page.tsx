@@ -1,7 +1,9 @@
 import { Card } from '@/components/ui/card';
 import { Heading } from '@/components/ui/heading';
-import { TextLink } from '@/components/ui/text-link';
 import { ROUTES } from '@/lib/routes';
+import { PageHero } from '@/components/ui/page-hero';
+import Link from 'next/link';
+import { ArrowLeftIcon } from '@/components/ui/icones';
 
 // Notice méthodologique unique (§06.03 + §12) — même source que le rapport de
 // recyclage (sobriété C2 : pas de PDF méthodo séparé). Contenu canonique in-app.
@@ -9,14 +11,18 @@ import { ROUTES } from '@/lib/routes';
 export default function MethodologiePage() {
   return (
     <div className="space-y-4">
-      <div>
-        <TextLink href={ROUTES.registre} className="text-sm">
-          ← Registre
-        </TextLink>
-        <Heading level={1} tone="primary">
-          Méthodologie de calcul
-        </Heading>
-      </div>
+      <PageHero
+        icon={
+          <Link
+            href={ROUTES.registre}
+            aria-label="Retour au registre"
+            className="rounded-savr-md p-1 text-savr-primary-700 hover:bg-savr-primary-200/60 hover:text-savr-primary-800"
+          >
+            <ArrowLeftIcon className="h-5 w-5" />
+          </Link>
+        }
+        title="Méthodologie de calcul"
+      />
 
       <Card
         padding="lg"

@@ -3,7 +3,7 @@
  * La liste est une Data Table plate (DataGrid, décision Val 2026-09-28) : une
  * ligne par collecte, tri serveur par en-tête, actions dans le menu « ⋯ » :
  * - contenu ligne (traiteur, lieu, client organisateur, adresse, transporteur),
- * - segment Programmées / Historique (preset du filtre `statuts`),
+ * - vues « à venir » / « passées » (bornes de date, tous statuts),
  * - tuiles KPI « à dispatcher », chips + compteurs, barre de filtres toujours
  *   visible, sans recherche libre (traiteur / lieu → filtrage serveur),
  *   indicateurs Historique (poids/taux ZD, repas AG, rapport consulté).
@@ -73,8 +73,6 @@ const collecteZd = {
     },
   ],
   transporteur_nom: 'Strike',
-  factures_collectes: [{ montant_ht: 300 }],
-  packs_antgaspi: null,
   evenements: {
     nom_evenement: 'Gala ZD',
     pax: 120,
@@ -107,8 +105,6 @@ function ag(overrides: Record<string, unknown>) {
     collecte_flux: [],
     rapports_rse: [],
     transporteur_nom: 'Marathon',
-    factures_collectes: [],
-    packs_antgaspi: { prix_unitaire_ht: 45 },
     evenements: {
       nom_evenement: 'Cocktail AG',
       pax: 80,
@@ -249,30 +245,43 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       expect(screen.getAllByText('Fondation X').length).toBeGreaterThan(0);
       // Transporteur (ligne 2)
       expect(screen.getAllByText('Marathon').length).toBeGreaterThan(0);
+      // Revue écran 2026-10-29 : le chevron signale le clic, plus la consigne.
+      expect(screen.queryByText(/cliquez une ligne/)).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M0.6 — segment Historique repasse la requête sur les statuts terminaux',
+    'M0.6/liste_vues_a_venir_passees_par_date — vues « à venir » / « passées » : rangées par créneau à la minute, tous statuts (décision Val 2026-10-19, 2026-11-03)',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+      const aujourdhui = jourParis();
 
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
+      // « À venir » par défaut : aujourd'hui et après, aucun statut imposé.
+      expect(
+        screen.getByRole('tab', { name: 'Collectes à venir' }),
+      ).toHaveAttribute('aria-selected', 'true');
+      let q = derniereRequeteListe(fetchMock);
+      expect(q.get('from')).toBe(aujourdhui);
+      expect(q.get('to')).toBeNull();
+      expect(q.get('vue')).toBe('a_venir');
+      expect(q.get('statuts')).toBeNull();
 
+      // « Passées » : jusqu'à aujourd'hui, tranché à la minute par la route,
+      // toujours sans statut imposé.
+      fireEvent.mouseDown(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      );
       await waitFor(() => {
-        const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-        expect(
-          urls.some(
-            (u) =>
-              u.startsWith('/api/v1/admin/collectes?') &&
-              u.includes('statuts=') &&
-              u.includes('cloturee'),
-          ),
-        ).toBe(true);
+        q = derniereRequeteListe(fetchMock);
+        expect(q.get('to')).not.toBeNull();
       }, ATTENTE_UI);
+      expect(q.get('to')).toBe(aujourdhui);
+      expect(q.get('vue')).toBe('passees');
+      expect(q.get('from')).toBeNull();
+      expect(q.get('statuts')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -312,9 +321,9 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         ATTENTE_UI,
       );
       await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
-      // Sous-libellé : 4e surface du scénario, exact depuis que la tuile
-      // compte aussi les collectes validées transporteur.
-      expect(zdTile).toHaveTextContent('validées transporteur');
+      // Plus de sous-titre (Val 2026-11-05) : « validées transporteur » ne
+      // disait plus ce que la tuile compte (jamais envoyées + rejetées).
+      expect(zdTile).not.toHaveTextContent('validées transporteur');
 
       // Le segmenté porte déjà un AUTRE type : sans effacement, le clic sur la
       // tuile ZD rendrait une liste vide alors que la tuile affiche 3.
@@ -335,6 +344,9 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         const q = derniereRequeteListe(fetchMock);
         expect(q.get('chip')).toBe('non_transmises_zd');
         expect(q.get('types')).toBeNull();
+        // File d'action : ses collectes en retard restent visibles, aucune
+        // borne de date (décision Val 2026-10-19).
+        expect(q.get('from')).toBeNull();
       }, ATTENTE_UI);
       expect(zdTile).toHaveAttribute('aria-pressed', 'true');
       expect(pastilleAg).toHaveAttribute('aria-checked', 'false');
@@ -360,12 +372,13 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       expect(agTile).toHaveAttribute('aria-pressed', 'true');
       expect(zdTile).toHaveAttribute('aria-pressed', 'false');
 
-      // Re-clic : retour à la liste Programmées complète.
+      // Re-clic : retour à la liste complète des collectes à venir.
       fireEvent.click(agTile);
       await waitFor(() => {
         const q = derniereRequeteListe(fetchMock);
         expect(q.get('chip')).toBeNull();
-        expect(q.get('statuts')).toBe('creee,programmee,validee,en_cours');
+        expect(q.get('statuts')).toBeNull();
+        expect(q.get('from')).toBe(jourParis());
       }, ATTENTE_UI);
       expect(agTile).toHaveAttribute('aria-pressed', 'false');
     },
@@ -476,12 +489,12 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     async () => {
       mockCollectesFetch();
       render(<CollectesPage />);
-      // « En attente prestataire » = chip conservé dans la rangée par défaut
+      // « En attente transporteur » = chip conservé dans la rangée par défaut
       // (« Non transmises ZD/AG » et « ZD/AG 48h » masqués — décision Val 2026-07-15).
       const chip = await screen.findByRole(
         'button',
         {
-          name: /En attente prestataire/,
+          name: /En attente transporteur/,
         },
         ATTENTE_UI,
       );
@@ -497,7 +510,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       render(<CollectesPage />);
       await screen.findByRole(
         'button',
-        { name: /En attente prestataire/ },
+        { name: /En attente transporteur/ },
         ATTENTE_UI,
       );
       expect(
@@ -596,6 +609,62 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     ATTENTE_CAS_MS,
   );
 
+  // Une collecte AG avec excédents n'a pas de rapport : son document est
+  // l'attestation de don. Une ligne de rapport en base (anciens batchs, jamais
+  // rendue en PDF) n'annonce donc rien. Une AG sans excédents, elle, a un vrai
+  // rapport, nommé « Rapport de don » côté documents.
+  it.each([
+    ['AG clôturée avec excédents', 'cloturee', false],
+    ['AG sans excédents', 'realisee_sans_collecte', true],
+  ])(
+    'M0.6 — indicateur de rapport de la liste, %s',
+    async (_cas, statut, indicateurAttendu) => {
+      const ligne = ag({
+        id: 'ag-rapport',
+        statut,
+        statut_tms: 'acceptee',
+        rapports_rse: [
+          {
+            disponible_a: '2026-05-11T06:00:00Z',
+            genere_at: null,
+            regenere_at: null,
+            consulte_par_user_at: null,
+            version: 1,
+          },
+        ],
+      });
+      const fetchMock = vi.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        }
+        if (
+          typeof url === 'string' &&
+          url.startsWith('/api/v1/admin/collectes')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [ligne], total: 1 }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<CollectesPage />);
+      await screen.findAllByText(
+        ligne.evenements.organisations.raison_sociale,
+        undefined,
+        ATTENTE_UI,
+      );
+
+      // Lu DANS le tableau : la barre de filtres porte une case du même nom.
+      expect(tableau().queryAllByText(/Rapport non consulté/).length > 0).toBe(
+        indicateurAttendu,
+      );
+      expect(tableau().queryByText(/Rapport consulté/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'M0.6 — carte AG à attribuer : badge Info incomplète + bouton Attribuer',
     async () => {
@@ -633,7 +702,6 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         tms_reference: null,
         collecte_flux: [],
         rapports_rse: [],
-        factures_collectes: [],
       };
       const zdValidee = {
         ...zdProgrammee,
@@ -725,7 +793,6 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         tms_reference: null,
         collecte_flux: [],
         rapports_rse: [],
-        factures_collectes: [],
       };
       // Fiche détail renvoyée à l'ouverture du panneau (shape CollecteDetail).
       const detail = {
@@ -965,7 +1032,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
-      // Statut multi-sélection scopée à l'onglet Programmées : filtre en ligne
+      // Statut multi-sélection (mêmes options dans les deux vues) : filtre en ligne
       // « Statut  Tous ▾ » → liste à cocher (case distincte du badge de carte).
       fireEvent.click(screen.getByTestId('collectes-filtre-statut'));
       fireEvent.click(
@@ -1000,8 +1067,88 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
 
       await waitFor(() => {
         const q = derniereRequeteListe(fetchMock);
-        // La sélection remplace le preset de l'onglet.
+        // La sélection restreint la liste aux statuts cochés.
         expect(q.get('statuts')).toBe('creee');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // « Sans excédent » n'est pas un statut d'avancement (décision Val
+  // 2026-10-09) : la ligne se lit « Réalisée », la mention est un indicateur.
+  it(
+    'M0.6/liste_sans_excedent_en_indicateur — AG sans excédent : statut « Réalisée », « Sans excédent » dans Indicateurs, jamais « 0 repas »',
+    async () => {
+      const ligne = ag({
+        id: 'ag-sans-excedent',
+        statut: 'realisee_sans_collecte',
+        statut_tms: 'acceptee',
+        attributions_antgaspi: {
+          id: 'att-9',
+          valide_at: '2026-05-01T12:00:00Z',
+          mode_validation: 'manuel_top1',
+          volume_repas_realise: 0,
+        },
+      });
+      const fetchMock = vi.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        }
+        if (
+          typeof url === 'string' &&
+          url.startsWith('/api/v1/admin/collectes')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [ligne], total: 1 }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<CollectesPage />);
+      await screen.findAllByText(
+        ligne.evenements.organisations.raison_sociale,
+        undefined,
+        ATTENTE_UI,
+      );
+
+      expect(tableau().getByText('Sans excédent')).toBeInTheDocument();
+      expect(tableau().getAllByText('Réalisée').length).toBeGreaterThan(0);
+      expect(tableau().queryByText(/Sans excédents/)).toBeNull();
+      expect(tableau().queryByText(/\d+ repas/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/liste_filtre_statut_une_seule_realisee — le filtre Statut ne propose qu’une « Réalisée », envoyée statuts=realisee',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.mouseDown(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      );
+      // Aucun statut imposé par la vue : « Réalisée » couvre les sans
+      // excédent côté serveur (la clé propre n'est jamais envoyée).
+      await waitFor(() => {
+        expect(derniereRequeteListe(fetchMock).get('to')).not.toBeNull();
+      }, ATTENTE_UI);
+      expect(derniereRequeteListe(fetchMock).get('statuts')).toBeNull();
+
+      fireEvent.click(screen.getByTestId('collectes-filtre-statut'));
+      // `findByRole` échoue s'il y a deux cases du même nom.
+      fireEvent.click(
+        await screen.findByRole('checkbox', { name: 'Réalisée' }, ATTENTE_UI),
+      );
+      expect(
+        screen.queryByRole('checkbox', { name: /exc[ée]dent/i }),
+      ).toBeNull();
+
+      await waitFor(() => {
+        expect(derniereRequeteListe(fetchMock).get('statuts')).toBe('realisee');
       }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
@@ -1030,7 +1177,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6/statut_admin_brouillon_absent — ?statut=brouillon sur Programmées : aucun résultat, sans appel API (jamais une liste élargie)',
+    'M0.6/statut_admin_brouillon_absent — ?statut=brouillon : aucun résultat, sans appel API (jamais une liste élargie)',
     async () => {
       navState.search = new URLSearchParams('statut=brouillon');
       const fetchMock = mockCollectesFetch();
@@ -1097,10 +1244,13 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         date_collecte: jourParis(new Date(Date.now() + 2 * 60 * 60 * 1000)),
         heure_collecte: '10:00:00',
       });
-      // AG à attribuer, mais loin (> 48h) : pas urgente.
+      // AG à attribuer, mais loin (> 48h) : pas urgente. Posée à J+10 depuis
+      // l'heure courante : une date fixe deviendrait urgente 48 h avant elle.
       const lointaine = ag({
         id: 'ag-lointaine',
-        date_collecte: '2027-01-15',
+        date_collecte: jourParis(
+          new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+        ),
         heure_collecte: '10:00:00',
       });
       const fetchMock = vi.fn((url: string) => {
@@ -1131,7 +1281,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — tri de la Data Table envoyé au serveur (liste paginée) : défaut par onglet + clic en-tête',
+    'M0.6 — tri de la Data Table envoyé au serveur (liste paginée) : défaut par vue + clic en-tête',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
@@ -1141,7 +1291,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
           .map((c) => String(c[0]))
           .filter((u) => u.startsWith('/api/v1/admin/collectes?'));
 
-      // Programmées : prochaines collectes d'abord.
+      // « À venir » : la plus proche d'abord.
       expect(urls().at(-1)).toContain('tri=date&ordre=asc');
 
       // Clic sur « Type » → tri serveur par type, retour page 1.
@@ -1155,12 +1305,47 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         ATTENTE_UI,
       );
 
-      // Historique : les plus récentes d'abord.
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
+      // « Passées » : la plus récente d'abord.
+      fireEvent.mouseDown(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      );
       await waitFor(
         () => expect(urls().at(-1)).toContain('tri=date&ordre=desc'),
         ATTENTE_UI,
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+  it(
+    'M0.6/liste_pastille_action_toutes_dates — une pastille d’action lève la borne de la vue, pas la période de la barre',
+    async () => {
+      // Période de la barre à cheval sur aujourd'hui, pastille d'action posée.
+      navState.search = new URLSearchParams(
+        'from=2020-01-01&to=2099-12-31&chip=attente_prestataire',
+      );
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      // File d'action : ses collectes en retard restent visibles (aucune
+      // borne « aujourd'hui »), la période choisie s'applique telle quelle.
+      let q = derniereRequeteListe(fetchMock);
+      expect(q.get('chip')).toBe('attente_prestataire');
+      expect(q.get('from')).toBe('2020-01-01');
+      expect(q.get('to')).toBe('2099-12-31');
+
+      // Sans pastille, la vue « à venir » borne de nouveau à aujourd'hui.
+      fireEvent.click(
+        within(
+          screen.getByRole('group', { name: 'Filtres rapides' }),
+        ).getByRole('button', { name: /^Toutes/ }),
+      );
+      await waitFor(() => {
+        q = derniereRequeteListe(fetchMock);
+        expect(q.get('chip')).toBeNull();
+      }, ATTENTE_UI);
+      expect(q.get('from')).toBe(jourParis());
+      expect(q.get('to')).toBe('2099-12-31');
     },
     ATTENTE_CAS_MS,
   );
@@ -1172,7 +1357,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
       fireEvent.click(
-        screen.getByRole('button', { name: /En attente prestataire/ }),
+        screen.getByRole('button', { name: /En attente transporteur/ }),
       );
       fireEvent.click(screen.getByTestId('collectes-filtre-traiteur'));
       fireEvent.click(
@@ -1187,19 +1372,21 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         expect(q.get('traiteur_operationnel_ids')).toBe('org-1');
       }, ATTENTE_UI);
       expect(
-        screen.getByRole('button', { name: /En attente prestataire/ }),
+        screen.getByRole('button', { name: /En attente transporteur/ }),
       ).toHaveAttribute('aria-pressed', 'true');
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M0.6 — Historique : pastille Annulées × Statut Clôturée = aucun résultat, sans appel API',
+    'M0.6 — collectes passées : pastille Annulées × Statut Clôturée = aucun résultat, sans appel API',
     async () => {
       const fetchMock = mockCollectesFetch();
       render(<CollectesPage />);
       await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
+      fireEvent.mouseDown(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      );
       // Les pastilles Anti-Gaspi / Zéro Déchet n'existent plus (R-UI-4b, D1) :
       // le type ne se filtre que par le segmenté.
       const rapides = within(
@@ -1252,11 +1439,10 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         expect(q.get('statuts')).toBe('cloturee');
         expect(q.getAll('perimetre_org_ids[]')).toEqual([p]);
       }, ATTENTE_UI);
-      // Onglet Historique, segmenté de type sur Zéro Déchet.
-      expect(screen.getByRole('tab', { name: 'Historique' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      );
+      // Vue « passées » (une clôturée est révolue), segmenté sur Zéro Déchet.
+      expect(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      ).toHaveAttribute('aria-selected', 'true');
       expect(
         screen.getByRole('radio', { name: 'Zéro Déchet' }),
       ).toHaveAttribute('aria-checked', 'true');

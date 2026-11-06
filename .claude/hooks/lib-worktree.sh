@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # lib-worktree.sh — rend les hooks .claude/ « worktree-aware ».
 #
-# PROBLÈME : les hooks PreToolUse (gate-pr / gate-brief / pre-commit-gate)
-# s'exécutent dans le cwd du CLONE PRINCIPAL (souvent sur `main`), PAS dans le
-# worktree dédié où tourne une session de lot (../savr-<lot>). Le `cd <worktree>`
-# d'une commande n'a pas encore pris effet quand le hook se déclenche. Conséquences
-# observées (lot R2, 2026-06-24) :
+# PROBLÈME : un hook PreToolUse (gate-pr / gate-brief / pre-commit-gate) ne
+# démarre pas forcément dans le worktree que vise la commande. Il démarre à la
+# racine du dépôt du dossier où Claude Code le lance, quand ce dossier est dans
+# un dépôt (cf. .claude/settings.json) ; cas relevés : le dossier courant de la
+# session, ou la racine de configuration posée par l'hôte
+# (`--project-config-root`). Et le `cd <worktree>` d'une commande n'a pas encore
+# pris effet quand le hook se déclenche. Conséquences observées (lot R2,
+# 2026-06-24, hooks partis du CLONE PRINCIPAL, souvent sur `main`, pour une
+# session travaillant dans un worktree `../savr-<lot>`) :
 #   - gate-pr cherchait les markers `…-main` (vides) + lançait les tests du clone
 #     principal → toute PR de worktree bloquée ;
 #   - pre-commit-gate testait le clone principal, pas le diff du worktree ;

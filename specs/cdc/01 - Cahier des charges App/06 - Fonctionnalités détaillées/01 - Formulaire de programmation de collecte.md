@@ -1,7 +1,5 @@
 # 06.01 - Formulaire de programmation de collecte
 
-**Statut** : Draft V1 (refonte formulaire unique événement-centré 2026-05-21)
-**Dernière mise à jour** : 2026-05-29 (revue de sobriété — A1/A2/B1/C1-C5)
 
 ---
 
@@ -16,6 +14,8 @@ Utilisé par les 3 types d'organisations programmatrices :
 - `gestionnaire_lieux` (programmation sur ses propres lieux, pour un traiteur du référentiel Savr)
 - `admin_savr` **et `ops_savr`** (programmation de support, tous périmètres) *(ops_savr ajouté 2026-09-14 — alignement CDC ↔ production : les routes `/api/v1/programmation/*` (`requireProgrammateurOuAdmin`), le mode support du formulaire et le bouton « Programmer une collecte » de `/admin/collectes` l'autorisent depuis la PR #223 ; le middleware Next `src/middleware.ts` (`ROLE_PREFIXES` `/programmer`, `/brouillons`) est aligné en conséquence. Voir la matrice étendue §09.)*
 
+**Menu affiché** *(décision Val 2026-10-07)* : celui de l'espace du rôle connecté (depuis le 2026-11-02, plus aucune entrée n'y est masquée : « Mon pack Anti-Gaspi » est toujours affichée). Le staff (`admin_savr`, `ops_savr`) y garde le menu du back-office.
+
 Les **clients finaux** n'accèdent pas au formulaire (lecture seule).
 
 Bloqué si l'organisation programmatrice n'a pas complété ses infos de facturation — règle bloquante identique pour les 3 types (voir [[05 - Règles métier#8. Onboarding]]).
@@ -28,60 +28,71 @@ Bloqué si l'organisation programmatrice n'a pas complété ses infos de factura
 
 Le traiteur raisonne en **événement** (un gala, un mariage, un sommet). Un événement physique peut nécessiter :
 
-- une collecte **Zéro-Déchet** (pesées des déchets triés),
-- une collecte **Anti-Gaspi** (don des excédents alimentaires),
-- ou les deux.
+- une ou plusieurs collectes **Zéro-Déchet** (pesées des déchets triés),
+- une ou plusieurs collectes **Anti-Gaspi** (don des excédents alimentaires),
+- ou les deux — par exemple une collecte par soirée ou par espace. Le nombre de collectes de chaque type se choisit dès la programmation *(décision Val 2026-10-22)*.
 
 **1 événement (`evenements`) → N collectes (`collectes`).** La table `evenements` est centrale ; les collectes lui sont rattachées explicitement via `collectes.evenement_id` (refonte 2026-05-21 — fin du rattachement par matching date+lieu+client, source de doublons).
 
 **Une seule date : la date de collecte (refonte 2026-05-29)** :
 
 - **Date + heure de collecte** (`collectes.date_collecte` + `collectes.heure_collecte`) : moment où le prestataire intervient. C'est la vérité logistique transmise au TMS et **l'unique date saisie par l'utilisateur**. Chaque collecte porte la sienne.
-- `evenements.date_evenement` : champ **backend uniquement**, auto-calculé = `MIN(collectes.date_collecte)` de l'événement (trigger `fn_set_date_evenement`). Jamais affiché dans les formulaires. Sert de référence pour les rapports PDF client (§12).
+- `evenements.date_evenement` : champ **backend uniquement**, auto-calculé = `MIN(collectes.date_collecte)` de l'événement (trigger `fn_set_date_evenement`). Jamais saisi ; jamais affiché dans les formulaires, sauf en lecture seule dans le niveau événement figé de « Ajouter une collecte à un événement existant ». Sert de référence pour les rapports PDF client (§12).
 
-**Retiré V1 (2026-05-29)** — le pax reste **unique au niveau événement** (`evenements.pax`), non modifiable par collecte. Le cas multi-jours à pax variable est reporté V2.
+**Pax porté par la collecte (décision Val 2026-10-20)** — chaque collecte porte son nombre de convives (`collectes.pax`), saisi avec sa date à l'étape 3 (§ 3.a). Le pax de l'événement (`evenements.pax`) n'est plus saisi : il est calculé depuis ses collectes, pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (une ZD et une AG du même soir comptent une fois ; deux ZD ou deux AG du même jour s'additionnent ; deux soirées s'additionnent — règle révisée par Val le 2026-10-21). Annule le retrait du 2026-05-29 (pax unique au niveau événement, multi-jours à pax variable reporté V2).
 
 ---
 
 ## Nouveau pattern V1 (refonte 2026-05-21)
 
-1. **Point d'entrée unique** : bouton **"Programmer une collecte"** sur la page d'accueil **(refonte 2026-05-29 — anciennement "Programmer un événement")** — le concept exposé à l'utilisateur est la collecte, pas l'événement (conteneur purement technique).
-2. **Formulaire en 3 étapes** :
-   - **Étape 1 — Événement** : infos événement + choix du ou des types de collecte (☐ Zéro-Déchet ☐ Anti-Gaspi, au moins un coché).
-   - **Étape 2 — Lieu, contacts, contrôle d'accès** : communs à l'événement (saisis une fois, hérités par toutes les collectes).
-   - **Étape 3 — Spécificités par collecte + récapitulatif** : pour chaque type coché, sa date+heure de collecte et ses informations propres, puis récap et confirmation.
-3. **Une soumission crée l'événement + 1 ou 2 collectes** (selon les types cochés), avec un appel webhook E1 `POST /collectes` par collecte vers le TMS.
-4. **Ajout ultérieur** : une collecte peut être ajoutée à un événement existant après coup (cas ZD aujourd'hui, AG la semaine suivante) — voir §"Ajouter une collecte à un événement existant". *(Le cas « camion supplémentaire » est retiré — multi-camions interne TMS, révisé 2026-05-25 Sujet 1.)*
+1. **Point d'entrée unique** : bouton **"Programmer une collecte"** dans la barre navy du haut, sur toutes les pages (décision Val 2026-11-02) **(refonte 2026-05-29 — anciennement "Programmer un événement")** — le concept exposé à l'utilisateur est la collecte, pas l'événement (conteneur purement technique).
+2. **Formulaire en deux écrans, puis une page de confirmation** *(refonte Val 2026-10-22)* :
+   - **Écran 1 — Informations sur l'événement** (§ Étape 1 et § Étape 2) : nom de l'événement, client final, référence interne, lieu, contrôle d'accès, et **nombre de collectes souhaitées** par type (Zéro-Déchet, Anti-Gaspi ; au moins une au total).
+   - **Écran 2 — Informations sur les collectes** (§ Étape 3) : une carte par collecte (« Collecte Zéro-Déchet #1 », « Collecte Zéro-Déchet #2 », puis « Collecte Anti-Gaspi #1 »…) avec date et heure, nombre de convives, type d'événement, contact principal, contact de secours et informations supplémentaires ; bouton « Ajouter une collecte » ; bouton « Confirmer la/les programmations ».
+   - **Page de confirmation** (§ Actions post-confirmation, point 13).
+3. **Une soumission crée l'événement + ses N collectes** (une par carte de l'écran 2), avec un appel webhook E1 `POST /collectes` par collecte vers le TMS.
+4. **Ajout ultérieur** : une collecte peut être ajoutée à un événement existant après coup (cas ZD aujourd'hui, AG la semaine suivante) — voir §"Ajouter une collecte à un événement existant". *(Le cas « camion supplémentaire » reste hors formulaire — multi-camions interne TMS, révisé 2026-05-25 Sujet 1 : une collecte = un passage, et l'équipe Savr fixe le nombre de camions d'un passage.)*
 
 ---
 
-## Étape 1 — Informations événement
+## Étape 1 — Informations événement (écran 1)
 
-| #   | Champ                                     | Obligatoire | Composant                                           | Règle                                                                                                                                                                                                                                                                          |
-| --- | ----------------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | **Nom du client final** (= nom événement) | Oui         | Input text libre                                    | Ex: "Gala LVMH", "Mariage Dupont", "Sommet européen Dalloyau". Sert aussi de nom événement dans l'historique et les rapports.                                                                                                                                                  |
-| 2   | **Nombre de pax**                         | Oui         | Input number                                        | ≥ 1. Pax par défaut de l'événement (repris en étape 3, modifiable par collecte si pax varie jour à jour). Base de la tarification ZD et du calcul auto **backend invisible** du volume AG (10% du pax — sert uniquement à l'algo d'attribution association, pas affiché côté traiteur).                                                                                            |
-| 3   | **Type d'événement**                      | Oui         | Select (depuis `types_evenements`)                  | 4 catégories de **format de service** : Cocktail apéritif, Cocktail repas complet, Repas assis, Autre. **Refonte Sujet 4 (2026-05-26)** : « Autre » est une simple catégorie fourre-tout sélectionnable — **plus de champ texte libre ni de notification de normalisation** (`type_evenement_libre` + `R_type_evenement_libre` retirés V1). Le type ne porte plus de nombre ; la **taille** se dérive du `pax` (`taille_evenement_bracket()`). Référentiel extensible par ajout direct de ligne (Admin/Supabase).                            |
-| 4   | **Référence client**                      | Non         | Input text libre                                    | Référence interne client (ex: numéro d'affaire Potel & Chabot). Reportée sur la facture Pennylane (champ "Référence") et sur le PDF Savr. → `evenements.reference_affaire`                                                                                                     |
-| -   | Logo du client final                      | Non         | Upload image (JPG/PNG, max 2 Mo)                    | Logo affiché dans le rapport de recyclage PDF. Si le client final a un compte Savr avec logo renseigné (`organisations.logo_url`), ce logo prime automatiquement.                                                                                                              |
+| #   | Champ                                     | Obligatoire | Composant                                           | Règle |
+| --- | ----------------------------------------- | ----------- | --------------------------------------------------- | ----- |
+| 1   | **Nom de l'événement**                    | Oui         | Input text libre                                    | Ex: "Gala de printemps", "Séminaire annuel". Nom de l'événement dans l'historique, les listes, les emails et les rapports → `evenements.nom_evenement`. Seul nom exigé à la confirmation. *(Décision Val 2026-10-19 : remplace « Nom du client final (= nom événement) », qui remplissait aussi le client final.)* |
+| 2   | *(Nombre de pax : retiré de l'étape 1 — décision Val 2026-10-20)* | — | — | Le nombre de convives se saisit dans chaque carte de collecte (étape 3, § 3.a). Le pax de l'événement en est calculé (cf. note « Pax porté par la collecte » ci-dessus). |
+| 3   | *(Type d'événement : déplacé au niveau collecte — décision Val 2026-10-22)* | — | — | Il se choisit dans chaque carte de collecte (étape 3, § 3.a), `collectes.type_evenement_id`. `evenements.type_evenement_id` garde celui de la collecte n°1 (C1), copie tenue par la base (lot B1, décision Val 2026-10-23, B1-Q2). |
+| -   | Client final                              | Oui         | Input text libre                                    | Nom du client organisateur (ex: "Entreprise Dupont") → `evenements.nom_client_organisateur`. Affiché « Client » / « Client final » dans les listes et fiches, filtre « Client », titre du rapport de recyclage (à défaut : nom de l'événement). N'entre pas dans « Info incomplète ». *(Décision Val 2026-10-19 ; obligatoire pour tous les rôles, équipe Savr comprise, **à la confirmation seulement** (pas exigé pour enregistrer un brouillon), jamais vidé en modification (422 « Le client final est obligatoire. ») — décision Val 2026-10-30, précisée 2026-11-02. La colonne reste nullable (contrôle par les routes) : brouillons et événements antérieurs ; un événement ancien sans client final reste modifiable tant que ce champ n'est pas envoyé.)* |
+| 4   | **Référence interne**                     | Non         | Input text libre                                    | Référence interne du programmateur (ex: numéro d'affaire Potel & Chabot). Reportée sur la facture Pennylane (champ "Référence") et sur le PDF Savr. → `evenements.reference_affaire`. *(Libellé « Référence client » renommé « Référence interne » — décision Val 2026-10-22 ; même donnée.)* |
+| 4bis | **Code affaire VIPARIS (optionnel)**     | Non         | Input text, 7 lettres ou chiffres (ex. 26SIAL1), mis en majuscules | **Ajout 2026-11-02 (demande VIPARIS, décisions Val C1–C2)** — affiché sous le lieu, seulement quand le lieu choisi porte un code site VIPARIS (`lieux.code_site_viparis`). Format contrôlé à l'écran et par la route (422). → `evenements.code_affaire_viparis`, écrit dans la même transaction que l'événement. Distinct de la référence interne. |
+| -   | Logo du client final                      | Non         | Upload image (JPG/PNG, max 2 Mo)                    | Logo affiché dans le rapport de recyclage PDF et sur les deux rapports de don (attestation de don, rapport « sans excédent »). Rangé sur l'événement, il prime sur tout autre logo client (agence, compte Savr du client final — décision Val 2026-10-30) ; il peut aussi être déposé plus tard depuis la fiche collecte ou la fiche événement, et remplacé ou retiré par l'organisation programmatrice, le traiteur opérationnel ou l'Admin (arbitrage Val 2026-11-02, §12 §1.2). |
 
 > **Refonte 2026-05-29** : plus de "Date de l'événement" en étape 1. La date est saisie **par collecte en étape 3** (champ `date_collecte`, obligatoire, sans défaut). `evenements.date_evenement` est auto-calculé en backend = `MIN(date_collecte)` des collectes de l'événement.
 
-### Choix du ou des types de collecte (NOUVEAU 2026-05-21)
+### Nombre de collectes souhaitées *(refonte Val 2026-10-22 — remplace le choix ☐ Zéro-Déchet ☐ Anti-Gaspi du 2026-05-21)*
 
 | Champ | Obligatoire | Composant | Règle |
 | ----- | ----------- | --------- | ----- |
-| **Type(s) de collecte** | Oui (au moins un) | 2 cases à cocher | ☐ **Zéro-Déchet** ☐ **Anti-Gaspi**. Au moins une cochée. Détermine les sous-blocs de spécificités affichés en étape 3. Si Anti-Gaspi coché → vérification pack AG actif (voir §"Sélection pack AG"). |
+| **Zéro-Déchet** | Oui (au moins une collecte au total) | Compteur « − valeur + » (boutons ronds ; − grisé à 0, + grisé à 10 ; la valeur ne se tape pas) — nombre entier de 0 à 10 *(décision Val 2026-10-26, remplace le champ de saisie du 2026-10-24)* | Autant de cartes « Collecte Zéro-Déchet #n » à l'écran 2. Au plus 10 *(décision Val 2026-10-24, B2-Q4)*. |
+| **Anti-Gaspi** | Oui (au moins une collecte au total) | Compteur « − valeur + », comme Zéro-Déchet — nombre entier de 0 à 10 *(décision Val 2026-10-26)* | Autant de cartes « Collecte Anti-Gaspi #n » à l'écran 2 ; au plus 10 *(B2-Q4)*. Dès une collecte Anti-Gaspi → lecture du pack AG actif, informative seulement, jamais bloquante (voir §"Sélection pack AG"). |
+
+**Valeurs à l'ouverture selon l'onglet** *(décision Val 2026-10-24, fiche M1.2_20261024 I11 — à coder, dette code ouverte)* : ouvert depuis l'onglet ZD d'un dashboard, le formulaire propose une collecte Zéro-Déchet ; depuis l'onglet AG, une collecte Anti-Gaspi ; les deux nombres restent modifiables (cf. §06.04, repris par §06.05 et §06.11).
+
+Retirer une collecte au compteur retire la dernière carte de ce type ; les autres cartes gardent leur saisie *(décision Val 2026-10-26)*.
+
+**Mise en page propre à ce formulaire** *(décision Val 2026-10-26, écart voulu au Design System §5.5, limité au formulaire de programmation)* : (1) les libellés des champs (au-dessus d'un champ) sont en gras et en neutral-900, pour les distinguer des valeurs saisies ; les libellés de case à cocher gardent leur poids normal ; (2) écran 1 : espace de 48 px entre la case « Plaque d'immatriculation et nom du chauffeur requis » et « Nombre de collectes souhaitées » ; (3) les compteurs Zéro-Déchet et Anti-Gaspi sont centrés dans leur colonne, libellé compris, et titrés « Zéro Déchet » et « Anti-Gaspi », sans sigle (ZD) / (AG).
+
+Une collecte = un passage du prestataire. Un gros volume le même soir ne se programme pas en plusieurs collectes : l'équipe Savr fixe le nombre de camions d'une collecte (Sujet 1, 2026-05-25 ; avertissement au § 3.a).
 
 **Cas Agence / Gestionnaire de lieux** : le sélecteur "Traiteur opérant" apparaît ici (voir §"Cas Agence" et §"Cas Gestionnaire de lieux" ci-dessous).
 
-**Action** : bouton "Continuer" → sauvegarde brouillon + étape 2.
+L'étape 2 (lieu, contrôle d'accès) suit sur le même écran.
 
 ---
 
-## Étape 2 — Lieu, contacts et contrôle d'accès (niveau événement)
+## Étape 2 — Lieu et contrôle d'accès (niveau événement, écran 1)
 
-Ces informations sont **communes à l'événement** : saisies une fois, héritées par toutes les collectes générées (refonte 2026-05-21).
+Ces informations sont **communes à l'événement** : saisies une fois, héritées par toutes les collectes générées (refonte 2026-05-21). Les **contacts** ne sont plus à ce niveau : ils se saisissent dans chaque carte de collecte (§ 2.b, § 3.a — décision Val 2026-10-22).
 
 ### 2.a — Lieu
 
@@ -97,13 +108,12 @@ Ces informations sont **communes à l'événement** : saisies une fois, hérité
 | **Adresse accès livraison**         | Oui         | **Renommé 2026-05-08** (ex "Adresse accès"). Adresse logistique unique (collecte/livraison). Champ DB `adresse_acces` inchangé.                                                                                                                                                 |
 | Code postal                         | Oui         |                                                                                                                                                                                                                                                                                 |
 | Ville                               | Oui         |                                                                                                                                                                                                                                                                                 |
-| **Stationnement**                   | Non         | **Refonte 2026-05-08** — Select enum (`facile` / `difficile` / `très difficile`).                                                                                                                                                                                               |
-| **Type de véhicule max**            | Non         | **Refonte 2026-05-08** — Select enum (`vélo cargo` / `camionnette` / `fourgon` / `VUL` / `poids lourd`). Aligné sur enum véhicules transporteurs. Le lieu impose un max → tous les véhicules ≤ max sont compatibles (cf. [[05 - Règles métier#R_compatibilite_vehicule_lieu]]). |
-| **Accès office**                    | Non         | **Refonte 2026-05-08** — Select enum (`facile` / `difficile` / `très difficile`).                                                                                                                                                                                               |
+
+Stationnement, type de véhicule max et accès office ne sont plus demandés à la saisie manuelle, pour tous les rôles (décision Val 2026-10-16) : l'équipe Savr les renseigne dans la fiche lieu Admin.
 
 Le lieu saisi manuellement est créé avec `actif = false` côté référentiel : utilisable immédiatement pour les collectes en cours, puis validé/normalisé par l'Admin Savr en asynchrone (notification dédiée).
 
-**Cas "lieu existant"** : à la sélection d'un lieu via la combobox, **tous les champs associés au lieu (sauf le nom du lieu) s'affichent en autocomplete pré-remplis et éditables**. Champs concernés (**9** — `acces_details` ajouté 2026-09-16, arbitrage Val, divergence M1.5a_20260915_acces-details-editable-client : l'énumération était incomplète face à la phrase-chapeau, et le code l'autorisait depuis #193) : adresse accès livraison, code postal, ville, stationnement, type de véhicule max, accès office, contraintes horaires, flux acceptés, **détails d'accès** (`acces_details` — carnet d'accès terrain : badge, code, interphone, contact gardien, digicode/bip parking) (lecture/édition selon RLS).
+**Cas "lieu existant"** : à la sélection d'un lieu via la combobox, **les champs d'adresse et d'accès du lieu s'affichent pré-remplis et éditables**. Champs concernés (**4** — réduits de 9 à 4 le 2026-10-16, décision Val, pour tous les rôles : stationnement, type de véhicule max, accès office, contraintes horaires et flux acceptés ne sont plus proposés au formulaire ; ils restent au référentiel lieu, renseignés par l'équipe Savr) : adresse accès livraison, code postal, ville, **détails d'accès** (`acces_details` — carnet d'accès terrain : badge, code, interphone, contact gardien, digicode/bip parking) (lecture/édition selon RLS).
 
 > **`acces_details` — surcharge per-collecte assumée.** §04 marque ce champ « RW Admin Savr » : cet ownership porte sur la **valeur de RÉFÉRENCE** dans `lieux`, et n'empêche pas une surcharge per-collecte via `collectes.lieu_overrides` — le programmeur connaît son site mieux que le référentiel. Le `lieux` officiel n'est **jamais** modifié (les autres programmeurs continuent de voir la référence), la surcharge est tracée (`audit_log` + notification Admin) et bornée (1000 car., CHECK `collectes_lieu_overrides_valide_chk`). `acces_details` **ne rejoint pas** `R_lieux_admin_only_fields`, qui reste à 4 champs (`commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo`).
 >
@@ -119,7 +129,7 @@ Le **nom du lieu** reste figé (identifiant lieu). Tout autre champ modifié dé
 
 > **Forme admise de `collectes.lieu_overrides`** *(arbitrage Val 2026-09-15, documenté 2026-09-16 — divergence M1.5a_20260915_lieu-overrides-typage-bornes)*
 >
-> Les valeurs de `lieu_overrides` sont du **texte** : chaîne (la chaîne vide vaut « non renseigné »), tableau de chaînes pour `flux_autorises`, ou `null` (équivaut à l'absence de surcharge). Toute autre valeur, toute clé hors des champs éditables et toute valeur au-delà des longueurs admises sont **refusées en `422`**.
+> Les valeurs de `lieu_overrides` sont du **texte** : chaîne (la chaîne vide vaut « non renseigné »), tableau de chaînes pour `flux_autorises`, ou `null` (équivaut à l'absence de surcharge). Toute autre valeur, toute clé hors des 9 champs acceptés par la route (les 4 que le formulaire propose depuis le 2026-10-16, plus stationnement, type de véhicule max, accès office, contraintes horaires et flux acceptés, que la route accepte toujours) et toute valeur au-delà des longueurs admises sont **refusées en `422`**.
 >
 > Les bornes sont posées **aux deux niveaux — route ET base** (CHECK `collectes_lieu_overrides_valide_chk` + `chk_collectes_lieu_overrides_textuel`, migration `20260915160000`), la validation applicative seule étant contournable. C'est `[[:cntrl:]]` (SQL) qui fait foi sur les caractères de contrôle : l'applicatif peut être plus strict, jamais plus permissif (sinon 500 au lieu de 422).
 >
@@ -129,14 +139,14 @@ Le **nom du lieu** reste figé (identifiant lieu). Tout autre champ modifié dé
 
 (Voir règle [[05 - Règles métier#R_lieu_modif_pending]].)
 
-### 2.b — Contacts sur place
+### 2.b — Contacts sur place *(niveau collecte — refonte Val 2026-10-22)*
 
-Référentiel autocomplete depuis `contacts_traiteurs` (scoped organisation). Niveau **événement** (`evenements.contact_principal_*` + `contact_secours_*`) — partagés par toutes les collectes.
+Référentiel autocomplete depuis `contacts_traiteurs` (scoped organisation). Niveau **collecte** *(décision Val 2026-10-22, C1–C2)* : chaque carte de collecte (§ 3.a) porte son contact principal et son contact de secours, rangés dans la table `collecte_contacts` (une ligne par collecte, lue et écrite par le serveur seul — cf. [[04 - Data Model]] et [[09 - Authentification et permissions]]). L'événement garde les contacts de sa collecte n°1 (copie tenue par la base — lot B1, décision Val 2026-10-23, B1-Q2).
 
 | Champ             | Obligatoire | Composant                                                                              | Règle                               |
 | ----------------- | ----------- | -------------------------------------------------------------------------------------- | ----------------------------------- |
 | Contact principal | Oui         | Combobox autocomplete (prenom + nom + téléphone) + option "Ajouter un nouveau contact" | Référentiel filtré par organisation. **Bornes (2026-09-16)** — nom : texte libre, **120 car. max**, mono-ligne, **non vide** ; téléphone : texte libre, **40 car. max**, **non vide**, aucun format imposé (E.164 reporté). Ces deux champs alimentent les champs natifs de contact de la commande (`contact` MTS-1 / `pickup.contact` Everest) ; ils sont obligatoires (cf. validations bloquantes) et leurs colonnes sont `NOT NULL` → une saisie faite de blancs (`'   '`) rend **422**, jamais un 500. |
-| Contact secours   | Non         | Idem                                                                                   | **Bornes (2026-09-16)** — nom : texte libre, **120 car. max**, mono-ligne ; téléphone : texte libre, **40 car. max**. Ces deux champs sont **concaténés dans le canal de texte libre** transmis au transporteur (`comment` MTS-1 / `notes` Everest) et le **nom ouvre l'agrégat** : une saisie démesurée y évince toutes les lignes suivantes (dont l'adresse d'accès) et une valeur multiligne y forge une fausse ligne d'en-tête. Bornes posées route (422) **et** base (CHECK, migration `20260915180000`). |
+| Contact secours   | Oui à la confirmation, pas au brouillon (décision Val 2026-10-30, précisée 2026-11-02) | Idem                                                                                   | **Bornes (2026-09-16)** — nom : texte libre, **120 car. max**, mono-ligne ; téléphone : texte libre, **40 car. max**. Ces deux champs sont **concaténés dans le canal de texte libre** transmis au transporteur (`comment` MTS-1 et Everest) et le **nom ouvre l'agrégat** : une saisie démesurée y évince toutes les lignes suivantes (dont l'adresse d'accès) et une valeur multiligne y forge une fausse ligne d'en-tête. Bornes posées route (422) **et** base (CHECK, migration `20260915180000`). |
 
 **Comportement "Ajouter un nouveau contact"** : sous-formulaire inline (prenom / nom / téléphone / fonction optionnelle) → enregistré dans `contacts_traiteurs` à la validation. Chaque sélection incrémente `contacts_traiteurs.utilise_nb_fois`.
 
@@ -164,23 +174,31 @@ Référentiel autocomplete depuis `contacts_traiteurs` (scoped organisation). Ni
 - Traiteur **coche** alors que `lieux.controle_acces_requis_default = false` → **update lieu** à `true` (impacte tous les futurs traiteurs).
 - Traiteur **décoche** alors que `lieux.controle_acces_requis_default = true` → **PAS d'update lieu** (les collectes de l'événement portent `false`, le lieu reste `true` pour les futurs). Downgrade = acte Admin uniquement.
 
-**Cas vélo cargo A Toutes! (AG uniquement)** : si `controle_acces_requis = true` ET une collecte AG vélo cargo est générée (prestataire `integration_externe='everest'` + véhicule vélo cargo) → **message UX inline** sur le sous-bloc AG en étape 3 : "Vélo cargo — pas de plaque possible. La demande sera transmise mais le manager n'aura pas de plaque à saisir." Soumission autorisée. Côté TMS, le trigger `validate_tournee_controle_acces` autorise la validation via exception explicite sur le critère plaque (chauffeur reste obligatoire).
+**Cas vélo cargo A Toutes! (AG uniquement)** : si `controle_acces_requis = true` ET une collecte AG vélo cargo est générée (prestataire `integration_externe='everest'` + véhicule vélo cargo) → **message UX inline** sur la carte de la collecte AG (écran 2, étape 3) : "Vélo cargo — pas de plaque possible. La demande sera transmise mais le manager n'aura pas de plaque à saisir." Soumission autorisée. Côté TMS, le trigger `validate_tournee_controle_acces` autorise la validation via exception explicite sur le critère plaque (chauffeur reste obligatoire).
 
-**Action** : bouton "Continuer" → étape 3.
+**Action** : bouton « Continuer » (fin de l'écran 1) → écran 2 (étape 3).
 
 ---
 
-## Étape 3 — Spécificités par collecte et récapitulatif
+## Étape 3 — Informations sur les collectes (écran 2)
 
-Pour **chaque type de collecte coché** en étape 1, un sous-bloc dédié est affiché. Une collecte distincte est créée par sous-bloc.
+Une **carte par collecte** : autant de cartes Zéro-Déchet et Anti-Gaspi que de collectes demandées à l'écran 1, numérotées par type (« Collecte Zéro-Déchet #1 », « Collecte Zéro-Déchet #2 », « Collecte Anti-Gaspi #1 »…). Une collecte distincte est créée par carte. *(Refonte Val 2026-10-22, remplace « un sous-bloc par type coché ».)*
 
-### 3.a — Sous-bloc commun à chaque collecte (ZD et AG)
+- **Reprise de la collecte #1** *(décision Val 2026-10-22, C5)* : la première carte (Zéro-Déchet #1, ou Anti-Gaspi #1 s'il n'y a pas de collecte Zéro-Déchet) sert de modèle. Les autres cartes reprennent, champ par champ, son nombre de convives, son type d'événement, ses contacts et ses informations supplémentaires **tant que l'utilisateur n'a pas modifié ce champ dans la carte** ; un champ modifié dans une carte ne suit plus la #1. La date et l'heure ne sont jamais reprises.
+- **« Ajouter une collecte »** : ajoute une carte (Zéro-Déchet ou Anti-Gaspi, au choix), qui suit la collecte #1 de la même façon.
+- **Deux collectes du même type à la même date et à la même heure** *(décision Val 2026-10-22, C4)* : avertissement non bloquant « Pour un gros volume, une seule collecte suffit : l'équipe Savr fixe le nombre de camions. » Aucun avertissement si l'heure diffère.
+
+### 3.a — Carte de chaque collecte (ZD et AG)
 
 | Champ | Obligatoire | Composant | Règle |
 | ----- | ----------- | --------- | ----- |
 | **Date de collecte** | Oui | Date picker | **Sans défaut (refonte 2026-05-29)** — saisie obligatoire, aucune valeur pré-remplie. (supprimé : `date_evenement` est désormais dérivé de cette date, pas l'inverse). ≥ aujourd'hui. Stockée dans `collectes.date_collecte`. |
 | **Heure de collecte** | Oui | `TimePicker` — liste de créneaux toutes les 15 min, de 00:00 à 23:45 | Heure unique de présence prestataire (point fixe V1, pas de fenêtre). Stockée dans `collectes.heure_collecte`. Propre à chaque collecte. |
-| **Informations supplémentaires concernant la collecte** | Non | Textarea (1000 car. max) | Texte libre, niveau **collecte**. Ex: "Sonner interphone B au RDC", "Quai N°2 fermé le lundi". Stocké sur `collectes.informations_supplementaires`. Chaque collecte (ZD/AG) porte les siennes. **Plafond 1000 car. désormais appliqué en ÉCRITURE (2026-09-16)** — route (422) + CHECK base (migration `20260915180000`) ; auparavant seul le compteur client tronquait. Sauts de ligne et tabulation admis. ⚠ **Ce champ est le SEUL canal routé vers les deux transporteurs** (`comment` MTS-1 / `notes` Everest) : il agrège aussi le nom du contact de secours et les informations d'accès du lieu (cf. [[08 - APIs et intégrations]]). |
+| **Nombre de convives** | Oui | Champ de saisie, chiffres seuls, sans flèches ni molette (entier de 1 à 100 000 ; décision Val 2026-10-24) | Pax de **cette** collecte → `collectes.pax` (décision Val 2026-10-20). Base du calcul backend invisible du volume AG (10 %, cf. 3.c). Chaque carte a son propre champ ; les cartes suivantes reprennent celui de la collecte #1 tant qu'il n'y est pas modifié (décision Val 2026-10-22, C5). Exigé pour confirmer comme pour enregistrer en brouillon. |
+| **Type d'événement** | Oui | Select (depuis `types_evenements`) | **Niveau collecte (décision Val 2026-10-22, C1)** → `collectes.type_evenement_id` ; un type **actif** du référentiel, sinon refus 422 (lot B2). 4 catégories de **format de service** : Cocktail apéritif, Cocktail repas complet, Repas assis, Autre (catégorie sèche, sans texte libre — Sujet 4, 2026-05-26). Repris de la collecte #1 tant qu'il n'est pas modifié. `evenements.type_evenement_id` garde celui de la collecte n°1 (copie tenue par la base, lot B1). |
+| **Contact principal** | Oui | Combobox autocomplete (prénom + nom + téléphone) + option « Ajouter un nouveau contact » | Cf. § 2.b, bornes inchangées (nom : 120 car., mono-ligne, non vide ; téléphone : 40 car., non vide). → `collecte_contacts.contact_principal_nom` / `contact_principal_telephone`. Repris de la collecte #1 tant qu'il n'est pas modifié. Transmis au transporteur de CETTE collecte. |
+| **Contact de secours** | Oui | Idem | Nom et téléphone obligatoires ensemble sur chaque collecte **à la confirmation** (programmation, reprise d'un brouillon, ajout d'une collecte à un événement existant), pas exigés pour enregistrer un brouillon — symétrique du client final ; jamais vidés en modification, où nom et téléphone sont envoyés ensemble (422 « Le contact de secours et son téléphone sont obligatoires. ») (décision Val 2026-10-30, précisée 2026-11-02). Colonnes nullables, contrôle par les routes : brouillons et collectes antérieures ; une collecte ancienne sans contact de secours reste modifiable tant que ces champs ne sont pas envoyés. Cf. § 2.b, bornes inchangées. → `collecte_contacts.contact_secours_nom` / `contact_secours_telephone`. Repris de la collecte #1 tant qu'il n'est pas modifié. |
+| **Informations supplémentaires concernant la collecte** | Non | Textarea (1000 car. max) | Texte libre, niveau **collecte**. Ex: "Sonner interphone B au RDC", "Quai N°2 fermé le lundi". Stocké sur `collectes.informations_supplementaires`. Chaque collecte (ZD/AG) porte les siennes. **Plafond 1000 car. désormais appliqué en ÉCRITURE (2026-09-16)** — route (422) + CHECK base (migration `20260915180000`) ; auparavant seul le compteur client tronquait. Sauts de ligne et tabulation admis. ⚠ **Ce champ est le SEUL canal routé vers les deux transporteurs** (`comment` MTS-1 et Everest) : il agrège aussi le nom du contact de secours et les informations d'accès du lieu (cf. [[08 - APIs et intégrations]]). |
 
 **Visibilité aval des informations supplémentaires** :
 
@@ -195,32 +213,23 @@ Aucun champ ZD additionnel V1 au-delà du sous-bloc commun. Les flux sont peupl�
 
 **Tarif non affiché dans le formulaire (décision Sujet 5, 2026-05-26)** : aucun montant ZD n'est présenté pendant la saisie ni au récapitulatif, pour réduire la friction au moment de programmer. Le tarif applicable (grille de base affectée à l'organisation `grilles_tarifaires_zd` × remises éligibles `tarifs_negocie`, cf. [[05 - Règles métier#Tarifs et remises — résolution du prix]]) est calculé en backend, puis communiqué **après confirmation** : dans l'email récap `collecte_programmee` ([[06 - Fonctionnalités détaillées/02 - Templates emails V1]]) et sur la facture.
 
+> ⚠ **Go-live : tarif retiré de l'email (décision Val 2026-10-22)** — facturation faite hors plateforme : l'email `collecte_programmee` ne donne plus le tarif ZD (ligne vide) : la plateforme ne communique plus le tarif. Retour avec la facturation sur la plateforme.
+
 > **Retiré V1 (Sujet 5, propagation 2026-05-26)** — contredisait le récap §3.d. Référence `tarifs_zd_par_gestionnaire` également obsolète (table remplacée par `tarifs_negocie` le 2026-04-28).
 
 ### 3.c — Sous-bloc spécifique Anti-Gaspi
 
 | Champ | Obligatoire | Composant | Règle |
 | ----- | --------- | --------- | ----- |
-| Pack AG applicable | Auto | Affichage | Pack actif de l'orga programmatrice OU blocage si absent (voir §"Sélection pack AG"). |
+| Pack AG applicable | Auto | Affichage | Pack actif de l'orga programmatrice, sinon information « facturée à l'unité » (voir §"Sélection pack AG"). |
 
-**État du pack AG** : "Pack AG 50 crédits — il vous reste 12 crédits" ou (si pas de pack actif) blocage de la soumission AG.
+**État du pack AG** : "Pack AG 50 crédits — il vous reste 12 crédits" ou (si pas de pack actif) « Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité. » — information, jamais bloquante.
 
-> **Note** : le volume estimé de repas n'est pas saisi. Calculé en backend invisible `round(0.10 × evenements.pax)` à l'INSERT collecte AG, stocké dans `collectes.volume_estime_repas`, utilisé uniquement par l'algo d'attribution association (R_capacite_min_50pct). Le traiteur ne le voit jamais. Voir [[05 - Règles métier#R_volume_estime_ag_calcule]].
+> **Note** : le volume estimé de repas n'est pas saisi. Calculé en backend invisible `round(0.10 × collectes.pax)` (pax de la collecte, décision Val 2026-10-20) à l'INSERT collecte AG, stocké dans `collectes.volume_estime_repas`, utilisé uniquement par l'algo d'attribution association (R_capacite_min_50pct). Le traiteur ne le voit jamais. Voir [[05 - Règles métier#R_volume_estime_ag_calcule]].
 
-### 3.d — Récapitulatif et confirmation
+### 3.d — Confirmation
 
-Affichage fiche récap + bouton "Modifier" (retour étape 1 ou 2).
-
-| Bloc récap                 | Contenu                                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Client / Événement         | Nom du client final, pax, type, référence client. **Date de l'événement affichée uniquement si l'événement porte >1 collecte à dates différentes** (revue sobriété 2026-05-29, B1) — en mono-collecte `date_evenement = date_collecte`, l'afficher deux fois est redondant. |
-| Lieu et contacts           | Lieu, adresses, contact principal, contact secours                                                     |
-| Contrôle d'accès           | "Plaque + nom chauffeur requis" si `controle_acces_requis = true`, sinon ligne masquée                 |
-| **Collecte Zéro-Déchet** (si cochée) | Date de collecte, heure de collecte, informations supplémentaires (masqué si vide), **tarif non affiché** (réduction friction — communiqué dans l'email récap après confirmation, cf. §3.b) |
-| **Collecte Anti-Gaspi** (si cochée) | Date de collecte, heure de collecte, informations supplémentaires (masqué si vide), pack AG décompté |
-| **Partage avec collègues** | Emails des collègues partagés (optionnel, voir §ci-dessous)                                            |
-
-> **Note** : le récap distingue clairement la **date de l'événement** (bloc Client) des **dates de collecte** (par collecte) pour lever toute ambiguïté quand elles diffèrent.
+Pas de récapitulatif à l'écran 2 (décision Val 2026-10-16) : le récapitulatif est affiché après confirmation, sur la page de confirmation (cf. § Actions post-confirmation, point 13). Le bouton « Retour » ramène à l'écran 1.
 
 ### Section optionnelle — Partager avec un collègue → Reportée V1.1 *(audit sobriété §04 2026-05-25, A4)*
 
@@ -230,10 +239,10 @@ Affichage fiche récap + bouton "Modifier" (retour étape 1 ou 2).
 
 **Boutons** :
 
-- "Enregistrer en brouillon" : statut `brouillon` (toutes collectes).
-- "Confirmer la programmation" : statut `programmee` → création événement + collectes + envoi TMS + email récap.
+- "Enregistrer en brouillon" (écran 2 seulement — décision Val 2026-10-24, B2-Q1) : statut `brouillon` (toutes collectes).
+- « Confirmer la programmation » (une collecte) ou « Confirmer les programmations » (plusieurs) : statut `programmee` → création événement + collectes + envoi TMS + email récap.
 
-> **Mention informative** sous le bouton de confirmation : "Toute collecte annulée à moins de 12h de l'heure de collecte donne lieu à facturation plein tarif — pour une collecte Anti-Gaspi sous pack, un crédit est décompté (cf. CGV)." (CGV acceptées à la création de compte.) *(Précision AG = débit crédit ajoutée 2026-06-07 — F2.)*
+> **Mention informative** sous le bouton de confirmation : "Toute collecte annulée à moins de 4h de l'heure de collecte donne lieu à facturation plein tarif (cf. CGV). Une collecte Anti-Gaspi sous pack décompte un crédit dès sa programmation : il est rendu si la collecte est annulée 4h ou plus avant l'heure de collecte." (CGV acceptées à la création de compte.) *(Précision AG = débit crédit ajoutée 2026-06-07 — F2 ; texte révisé 2026-11-02, décision Val : débit à la programmation.)*
 
 ---
 
@@ -241,15 +250,17 @@ Affichage fiche récap + bouton "Modifier" (retour étape 1 ou 2).
 
 Couvre le cas : ajouter l'autre type de collecte plus tard (ZD programmé aujourd'hui, AG la semaine suivante). **Retiré — Révisé 2026-05-25 (Sujet 1, option A)** : le gros volume nécessitant plusieurs camions est désormais géré **en interne par le TMS** (1 collecte ZD traiteur → N tournées prestataire, décidées par l'Admin Savr au dispatch) et ne crée plus de collectes ZD supplémentaires côté traiteur.
 
-**Workflow** : depuis la fiche événement (page détail), bouton "Ajouter une collecte" → rouvre le formulaire avec le **niveau événement figé et pré-rempli** (client, date événement, pax, type d'événement, lieu, contacts, contrôle d'accès). L'utilisateur :
+**Workflow** : depuis la fiche événement (page détail), bouton "Ajouter une collecte", ou depuis la fiche collecte, action « Ajouter une collecte à cet événement » (pied de la fiche collecte des rôles qui programment — traiteur manager et commercial, agence, gestionnaire de lieux — et de la fiche collecte Admin, programmation de support) *(décision Val 2026-10-21)*, ou depuis la page de confirmation (point 13) → rouvre le formulaire avec le **niveau événement figé et pré-rempli** (client, date événement, lieu, contrôle d'accès), affiché en lecture seule et jamais renvoyé par la page : la création relit l'événement. Le **contrôle d'accès** de la nouvelle collecte est celui de l'événement : il n'a pas de colonne sur `evenements` (copié sur chaque collecte, modifiable sur une seule), il est donc **requis dès qu'une collecte de l'événement l'exige** — la contrainte vient du site *(décision Val 2026-10-21)*. Le **nombre de convives**, le **type d'événement** et les **contacts** de la nouvelle collecte se saisissent dans sa carte, pré-remplis avec ceux de la dernière collecte non annulée de l'événement, modifiables (convives : décision Val 2026-10-20 ; type et contacts : décision Val 2026-10-22). L'utilisateur :
 
 1. Choisit le type de collecte à ajouter (ZD ou AG).
-2. Saisit le sous-bloc spécifique (date+heure de collecte, infos supplémentaires) — étape 3.
+2. Remplit la carte de la collecte (§ 3.a : date et heure, convives, type d'événement, contacts, informations supplémentaires). Collecte AG : la carte affiche l'état du pack de l'organisation de l'événement — sans pack actif, l'information « Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité. », jamais bloquante (décision Val 2026-10-16).
 3. Confirme → création d'une nouvelle `collectes` rattachée à l'`evenement_id` existant + webhook E1.
 
 **Rattachement explicite** : la nouvelle collecte pointe sur l'`evenement_id` (plus de matching textuel date+lieu+client, supprimé 2026-05-21). Zéro risque de doublon d'événement.
 
-**Contrainte** : pas de doublon de type implicite — si l'événement a déjà une collecte AG, en ajouter une seconde reste possible (cas multi-points AG rare) mais l'UI avertit "Cet événement a déjà une collecte Anti-Gaspi. Confirmer l'ajout d'une seconde ?".
+**Événements éligibles** *(décision Val 2026-10-21)* : l'ajout est possible sur **tout événement**, quel que soit l'état de ses autres collectes (en cours, réalisées, clôturées, annulées), tant que la nouvelle collecte est datée d'aujourd'hui ou après (jour en heure de Paris, l'heure de collecte n'entrant pas dans la comparaison ; date passée → refus « Date de collecte dans le passé », rien n'est créé). La fenêtre d'édition `f_collecte_editable` ne s'applique pas à l'ajout : elle reste celle de la modification. L'action n'est proposée que sur un événement de l'organisation de l'utilisateur (périmètre de `col_insert`, [[09 - Authentification et permissions]]) — jamais sur l'événement d'un traiteur tiers tenu sur les lieux d'un gestionnaire, ni au traiteur opérationnel d'une collecte programmée par un tiers, ni au client organisateur. Sur la fiche collecte, elle est proposée quel que soit le statut de la collecte affichée, annulée comprise (seule action alors proposée), sauf un brouillon (événement pas encore confirmé). L'Admin y a accès sur toute collecte hors brouillon (programmation de support). Un événement en brouillon (au moins une collecte en brouillon) est aussi refusé par le serveur, pour tous les rôles, Admin compris : 422 « Événement en brouillon : confirmez-le avant d’y ajouter une collecte. », rien n'est créé *(décision Val 2026-10-21)*.
+
+**Deux collectes du même type au même moment** *(décision Val 2026-10-22, C4 — remplace l'avertissement « Cet événement a déjà une collecte Anti-Gaspi. Confirmer l'ajout d'une seconde ? »)* : rien n'empêche plusieurs collectes du même type sur un événement. Si la nouvelle collecte a le même type, la même date et la même heure qu'une collecte non annulée de l'événement, l'avertissement non bloquant du § 3.a s'affiche. Aucun avertissement si l'heure diffère.
 
 ---
 
@@ -303,14 +314,14 @@ Le sélecteur "Traiteur opérant" apparaît à l'étape 1 :
 
 ## Sélection pack AG (3 types, conservée)
 
-Si la case **Anti-Gaspi** est cochée en étape 1, le formulaire vérifie l'existence d'un pack AG actif sur l'organisation programmatrice (`packs_antgaspi WHERE organisation_id = organisation_programmatrice.id AND statut = 'actif'`). Règle identique pour les 3 types :
+Dès qu'une collecte **Anti-Gaspi** est demandée à l'écran 1 *(refonte 2026-10-22)*, le formulaire vérifie l'existence d'un pack AG actif sur l'organisation programmatrice (`packs_antgaspi WHERE organisation_id = organisation_programmatrice.id AND statut = 'actif'`). Règle identique pour les 3 types :
 
-- **0 pack actif** : alerte bloquante "Vous n'avez pas de pack Anti-Gaspi actif. Contactez Savr pour en négocier un." → **blocage de la collecte AG uniquement**. La collecte ZD (si cochée) reste programmable (grille tarifaire publique). **Moment du blocage (tranché Val 2026-06-07 — test scenarios F5)** : la vérification a lieu **à la coche de la case Anti-Gaspi en étape 1** — la case n'est pas validable (alerte inline), l'utilisateur la décoche pour poursuivre en ZD seule. Aucune soumission partielle implicite (pas de récap avec AG ignorée silencieusement).
-- **1 pack actif** : sélection automatique, indicateur "X crédits restants sur Y".
+- **0 pack actif** (aucun pack, pack épuisé ou annulé, ou pack actif sans crédit restant) : **jamais bloquant** *(décision Val 2026-10-16, remplace le blocage à la coche F5 du 2026-06-07)*. La collecte Anti-Gaspi reste demandée ; une information s'affiche sous le nombre de collectes Anti-Gaspi (écran 1) et dans chaque carte Anti-Gaspi (écran 2) : « Pas de pack Anti-Gaspi actif : cette collecte sera facturée à l'unité. » — sans montant, le prix dépendant de la remise négociée. La collecte AG est facturée au tarif unitaire (`tarifs_packs_ag` type `unitaire`, moins la remise AG négociée la plus élevée, cf. [[08 - Génération et édition facture (Admin)]] §5). Aucun contrôle serveur ne refuse une collecte AG faute de pack. Programmation de support Admin : le pack lu est celui du traiteur choisi ; tant qu'aucun traiteur n'est choisi, rien n'est affiché.
+- **1 pack actif** : sélection automatique, indicateur "X crédits restants sur Y". Le crédit étant décompté à la programmation, si la programmation demande plus de collectes Anti-Gaspi que de crédits restants, une information s'affiche sous le nombre de collectes Anti-Gaspi (écran 1) : « Sur votre pack Anti-Gaspi, il reste N crédits : X collectes Anti-Gaspi seront facturées à l'unité. » (au singulier : « il reste 1 crédit », « 1 collecte Anti-Gaspi sera facturée à l'unité ») ; à l'écran 2, chaque carte Anti-Gaspi indique les crédits restants une fois décomptés les crédits des cartes Anti-Gaspi qui la précèdent et le sien (libellé « Crédits pack AG restants après cette collecte ») ; une carte dont le solde avant elle est nul porte l'information « facturée à l'unité » ; la même carte sert la page « Ajouter une collecte » *(décision Val 2026-11-02 ; ordre des cartes = interprétation Claude Code validée par Val le 2026-11-02)*. Jamais bloquant.
 
-> **Retiré (revue sobriété 2026-05-29, A1)** — cas impossible par construction : l'unicité du pack actif est garantie au niveau DB par le partial unique index `uniq_pack_actif_par_org` (cf. [[05 - Règles métier#Règle V1 — Pack unique actif refonte 2026-05-08]] + [[04 - Data Model]]). Une organisation a **au plus un** pack `statut='actif'`. Deux cas seulement : 0 (blocage) ou 1 (auto-sélection).
+> **Retiré (revue sobriété 2026-05-29, A1)** — cas impossible par construction : l'unicité du pack actif est garantie au niveau DB par le partial unique index `uniq_pack_actif_par_org` (cf. [[05 - Règles métier#Règle V1 — Pack unique actif refonte 2026-05-08]] + [[04 - Data Model]]). Une organisation a **au plus un** pack `statut='actif'`. Deux cas seulement : 0 (facturation à l'unité, information non bloquante) ou 1 (auto-sélection).
 
-**Déclenchement décompte** : à la transition `collectes.statut → 'realisee'` OU à l'**annulation tardive** (< 12h avant l'heure de collecte ou après mandat prestataire — trigger `trg_pack_debit_annulation_tardive`, ajout 2026-06-07 F2 ; cf. §05 §3 Packs AG « Débit d'un crédit »). L'organisation décomptée est `evenements.organisation_id` (programmateur).
+**Déclenchement décompte** : à la **programmation**, quand la collecte AG passe à `programmee` (confirmation de la programmation ou d'un brouillon — trigger `trg_pack_debit_programmation`, décision Val 2026-11-02 ; auparavant à `realisee` ou à l'annulation tardive). Le crédit est rendu si la collecte est annulée 4h ou plus avant l'heure de collecte ou refusée par le prestataire ; il reste acquis sur une annulation tardive (< 4h, décision Val 2026-10-15). Cf. §05 §3 Packs AG « Débit d'un crédit ». L'organisation décomptée est `evenements.organisation_id` (programmateur).
 
 ---
 
@@ -318,24 +329,24 @@ Si la case **Anti-Gaspi** est cochée en étape 1, le formulaire vérifie l'exis
 
 ### Sauvegarde brouillon
 
-- Sauvegarde **manuelle** via le bouton "Enregistrer en brouillon" (étape 1, 2 et 3). **Retiré V1 (revue sobriété 2026-05-29, A2)** — l'autosave debounced (gestion de conflit + reprise d'état partiel multi-collectes) est du confort disproportionné pour un formulaire rempli en une passe. Le bouton manuel couvre le besoin. Autosave reportable V1.1 si retour terrain.
-- Brouillon récupérable depuis la liste des collectes (filtre "Brouillons"). Un brouillon d'événement multi-collectes est repris dans son état complet (étapes + types cochés).
+- Sauvegarde **manuelle** via le bouton "Enregistrer en brouillon", sur l'écran 2 seulement *(décision Val 2026-10-24, B2-Q1 : un brouillon porte ses cartes — date, heure, convives, type d'événement et contact principal de chaque collecte sont exigés comme à la confirmation, car la base les exige ; l'écran 1 n'a que « Continuer »)*. **Retiré V1 (revue sobriété 2026-05-29, A2)** — l'autosave debounced (gestion de conflit + reprise d'état partiel multi-collectes) est du confort disproportionné pour un formulaire rempli en une passe. Le bouton manuel couvre le besoin. Autosave reportable V1.1 si retour terrain.
+- Brouillon récupérable depuis la liste des collectes (filtre "Brouillons"). Un brouillon d'événement multi-collectes est repris dans son état complet (écrans 1 et 2 : nombre de collectes par type et cartes saisies), dans le formulaire, modifiable *(décision Val 2026-10-24, B2-Q2)* : « Enregistrer en brouillon » ou « Confirmer » remplace ses collectes par celles du formulaire, en une seule opération (route `PUT /api/v1/programmation/evenements/:id/brouillon`, mêmes validations et mêmes contrôles de périmètre que la création ; un événement dont une collecte est déjà confirmée ne se reprend pas). Sur un brouillon repris par l'équipe Savr, le traiteur pour le compte duquel elle programme ne change pas.
 - **Périmètre de la liste des brouillons (décision Val 2026-07-17)** : rôles clients = les brouillons de leur **organisation** (miroir de la policy `evt_*_select` — un manager voit ceux de ses commerciaux). Staff (`admin_savr`, `ops_savr`) en mode support = **les brouillons qu'il a lui-même créés** (`created_by`), toutes organisations cibles confondues. Le staff n'ayant pas d'organisation cliente (son JWT porte l'org interne `org_savr`), un périmètre org ne le cloisonnerait pas : il masquerait tout. La liste n'est dans aucune navigation — on n'y atterrit que par la redirection qui suit « Enregistrer en brouillon » — donc le périmètre utile est celui qui rend ce qu'on vient d'enregistrer. Le « tous périmètres » ci-dessus porte sur les **organisations pour lesquelles le staff peut programmer**, pas sur une bannette globale des brouillons d'autrui.
-- **Confirmation et suppression d'un brouillon** sont ouvertes aux mêmes rôles que sa création, staff inclus (sans quoi un brouillon de support est orphelin dès sa création). L'organisation de rattachement est lue **sur l'événement**, jamais sur le JWT de l'appelant. Le **périmètre d'écriture** suit la matrice §09 : `traiteur_commercial`, `agence` et `gestionnaire_lieux` = **leurs propres créations** (`created_by`), `traiteur_manager` = son organisation. Confirmer et supprimer sont des écritures (émission E1 vers le TMS, débit pack AG, suppression) : un commercial ne confirme ni ne supprime donc jamais le brouillon d'un collègue.
+- **Confirmation et suppression d'un brouillon** sont ouvertes aux mêmes rôles que sa création, staff inclus (sans quoi un brouillon de support est orphelin dès sa création). L'organisation de rattachement est lue **sur l'événement**, jamais sur le JWT de l'appelant. Le **périmètre d'écriture** suit la matrice §09 : `agence` et `gestionnaire_lieux` = **leurs propres créations** (`created_by`), `traiteur_manager` et `traiteur_commercial` = leur organisation (révision Val 2026-10-30). Confirmer et supprimer sont des écritures (émission E1 vers le TMS, débit pack AG, suppression) : une agence ou un gestionnaire ne confirme ni ne supprime donc jamais le brouillon d'un collègue.
 - **Idiomes `requireProgrammateurOuAdmin`** (à respecter sur toute route de programmation) : route de **collection** → l'organisation cible est déclarée en body/query ; route d'**item** (clé par PK) → l'organisation est lue **sur la ligne**. Ne jamais la déduire du JWT de l'appelant en mode support.
 - Suppression manuelle par l'utilisateur ("Supprimer ce brouillon"). Pas de suppression automatique par ancienneté V1.
 
 ### Validations bloquantes (à la confirmation)
 
-- Pax ≥ 1
+- Nombre de convives : entier de 1 à 100 000 sur chaque collecte (décision Val 2026-10-20 : il se saisit à l'étape 3 ; plafond décidé par Val le 2026-10-21)
 - **Retiré (revue sobriété 2026-05-29, C1)** — `date_evenement` n'est plus saisie (dérivée de `MIN(date_collecte)`). La contrainte est portée par la validation "date de collecte ≥ aujourd'hui" ci-dessous.
-- Au moins un type de collecte coché (ZD et/ou AG)
-- Nom du client renseigné
-- Type d'événement sélectionné (catégorie parmi les 4 ; **plus de texte libre obligatoire pour "Autre"** — corrigé revue sobriété 2026-05-29, C2, alignement Sujet 4 2026-05-26)
+- Au moins une collecte (Zéro-Déchet et/ou Anti-Gaspi), au plus 10 de chaque type dans une même programmation — formulaire de création et reprise d'un brouillon *(décision Val 2026-10-24, B2-Q4 ; le bouton « Ajouter une collecte » de l'écran 2 s'arrête au plafond, la route refuse au-delà en 422)*. Le plafond ne s'applique pas à « Ajouter une collecte à un événement existant », qui crée une collecte à la fois.
+- Nom de l'événement et client final renseignés (client final obligatoire — décision Val 2026-10-30, remplace « facultatif » du 2026-10-19 ; exigé à la confirmation, pas au brouillon)
+- **Pour chaque collecte** : type d'événement sélectionné (catégorie parmi les 4 ; **plus de texte libre obligatoire pour "Autre"** — corrigé revue sobriété 2026-05-29, C2, alignement Sujet 4 2026-05-26 ; niveau collecte depuis le 2026-10-22)
 - Lieu sélectionné (référentiel ou manuel complet)
-- Contact principal renseigné
+- **Pour chaque collecte** : contact principal et contact de secours renseignés (nom et téléphone ; niveau collecte depuis le 2026-10-22 ; contact de secours obligatoire à la confirmation, pas au brouillon — décision Val 2026-10-30, précisée 2026-11-02)
 - **Pour chaque collecte** : date de collecte ≥ aujourd'hui + heure de collecte renseignée
-- Si AG coché : pack AG actif (sinon blocage AG seul)
+- Si une collecte AG : aucune condition de pack (sans pack actif, la collecte AG est facturée à l'unité)
 
 ### Champs non bloquants (marquage "Info incomplète")
 
@@ -345,67 +356,65 @@ Soumission possible sans ces champs ; au moins un manquant → `collectes.inform
 - Nom du contact sur le lieu
 - Instructions d'accès spécifiques au lieu
 - Logo du client final
-- Référence client
+- Référence interne
 - Informations supplémentaires concernant la collecte
 
 **Justification** : le traiteur n'a pas toujours ces infos à la programmation (souvent plusieurs semaines avant). Bloquer créerait une friction opérationnelle.
 
 ### Validations non bloquantes (warnings inline)
 
-- Date de collecte dans les 48h → "Attention, vous programmez à moins de 48h. La disponibilité du prestataire n'est pas garantie."
-  - **Pas de délai minimum bloquant V1 (tranché Val 2026-06-10, challenge logistique — ne pas re-proposer)** : une collecte peut être programmée à n'importe quelle échéance, y compris < 1h. Le filet assumé est **l'acceptation explicite** (la collecte reste `programmee`/`attribuee_en_attente_acceptation` tant que le transporteur n'a pas confirmé — jamais d'acceptation par délai, cf. [[../08 - APIs et intégrations]] §3) + le **monitoring Admin des collectes non confirmées** (§06.06) pour relance Ops. La latence outbox (worker 15 min) est couverte par ce même filet.
+- Date et heure de collecte à moins de 24h de maintenant, en heure de Paris → « Programmation à moins de 24h — Nous vous demandons de nous appeler pour valider la faisabilité — 07 61 91 29 97 » (numéro cliquable). Tant que l'heure n'est pas choisie, seule une collecte le jour même déclenche l'alerte (validé par Val le 2026-10-20). *(Décision Val 2026-10-16 : remplace l'alerte « à moins de 48h, disponibilité non garantie ».)*
+  - **Pas de délai minimum bloquant V1 (tranché Val 2026-06-10, challenge logistique — ne pas re-proposer)** : une collecte peut être programmée à n'importe quelle échéance, y compris < 1h. Le filet assumé est **l'acceptation explicite** (la collecte reste `programmee`/`attribuee_en_attente_acceptation` tant que le transporteur n'a pas confirmé — jamais d'acceptation par délai, cf. [[../08 - APIs et intégrations]] §3) + le **monitoring Admin des collectes non confirmées** (§06.06) pour relance Ops. La latence outbox (envoi immédiat après toute mutation qui écrit un ordre de collecte depuis le 2026-10-12 ; worker 15 min en filet, pour les reprises et pour l'ordre « lieu ») est couverte par ce même filet.
 - **Retiré (refonte 2026-05-29)** : `date_evenement` est auto-dérivé, plus de divergence à signaler. L'info "collecte le lendemain" est implicitement correcte (le programmeur saisit directement la bonne date de collecte).
 - Champs non bloquants vides → "Certaines informations ne sont pas encore renseignées. Vous pourrez les compléter plus tard depuis votre espace."
+- Deux collectes du même type à la même date et à la même heure → « Pour un gros volume, une seule collecte suffit : l'équipe Savr fixe le nombre de camions. » (décision Val 2026-10-22, C4 ; aucun avertissement si l'heure diffère).
 
 ---
 
-## Wireframe textuel (vue desktop) — refonte 2026-05-21, màj 2026-05-29
+## Wireframe textuel (vue desktop) — refonte 2026-10-22
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Savr — Programmer une collecte                      │
-├─────────────────────────────────────────────────────┤
-│  Étape 1/3 — Informations événement                  │
-│                                                      │
-│  [ Nom du client final : ______________________ ]    │
-│  (Agence/Gestionnaire) [ Traiteur opérant : ____ ▼ ] │
-│  [ Pax : ___ ]                                       │
-│  [ Type d'événement : Cocktail repas complet ▼ ]     │
-│      (Cocktail apéritif / Cocktail repas complet /   │
-│       Repas assis / Autre — pas de texte libre)      │
-│  [ Référence client : _________________ ] (opt.)     │
-│  [ Logo client (upload) ] (opt.)                     │
-│   (Pas de "Date de l'événement" — dérivée backend)   │
-│                                                      │
-│  Type(s) de collecte pour cet événement :            │
-│   ☐ Zéro-Déchet    ☐ Anti-Gaspi   (au moins un)      │
-│                                                      │
-│                    [ Enregistrer ]  [ Continuer ]    │
-├─────────────────────────────────────────────────────┤
-│  Étape 2/3 — Lieu, contacts, contrôle d'accès        │
-│   (communs à l'événement)                            │
-├─────────────────────────────────────────────────────┤
-│  Étape 3/3 — Spécificités par collecte + récap       │
-│   ┌ Collecte Zéro-Déchet ────────────────────┐       │
-│   │ Date collecte __/__/__ (oblig., sans déf.)│       │
-│   │ Heure __h__   Infos supplémentaires ...   │       │
-│   └───────────────────────────────────────────┘       │
-│   ┌ Collecte Anti-Gaspi ──────────────────────┐       │
-│   │ Date collecte __/__/__   Heure __h__      │       │
-│   │ Pack AG : 12 crédits restants             │       │
-│   └───────────────────────────────────────────┘       │
-│   [ Récapitulatif ]   [ Confirmer la programmation ] │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  Savr — Programmer une collecte                           │
+├──────────────────────────────────────────────────────────┤
+│  Écran 1 — Informations sur l'événement                   │
+│  [ Nom de l'événement : ____________________ ]            │
+│  [ Client final : ___________ ]                           │
+│  [ Référence interne : ______ ] (opt.)                    │
+│  (Agence / Gestionnaire / Admin) [ Traiteur : ______ ▼ ]  │
+│  [ Lieu de collecte : _____________________ ▼ ]           │
+│    adresse, CP, ville, détails d'accès (modifiables)      │
+│  ☐ Plaque d'immatriculation et nom du chauffeur requis    │
+│  Nombre de collectes souhaitées :                         │
+│    Zéro-Déchet (−) 2 (+)   Anti-Gaspi (−) 1 (+)           │
+│                                        [ Continuer ]      │
+├──────────────────────────────────────────────────────────┤
+│  Écran 2 — Informations sur les collectes                 │
+│   ┌ Collecte Zéro-Déchet #1 ─────────────────────────┐    │
+│   │ Date __/__/__  Heure __h__  Convives ___         │    │
+│   │ Type d'événement ▼  Contact principal ▼          │    │
+│   │ Contact de secours ▼  Informations ...           │    │
+│   └──────────────────────────────────────────────────┘    │
+│   ┌ Collecte Zéro-Déchet #2 ─────────────────────────┐    │
+│   │ Date __/__/__  Heure __h__                       │    │
+│   │ (convives, type, contacts, informations :        │    │
+│   │  repris de la #1 tant qu'ils ne sont pas changés)│    │
+│   └──────────────────────────────────────────────────┘    │
+│   ┌ Collecte Anti-Gaspi #1 ── (idem) ── Pack AG : 12 ┐    │
+│   └──────────────────────────────────────────────────┘    │
+│   [ + Ajouter une collecte ]                              │
+│   [ Brouillon ]      [ Confirmer la/les programmations ]  │
+└──────────────────────────────────────────────────────────┘
 ```
 
-Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons stacked.
+Responsive mobile : écrans en single-column, cartes collecte stacked, boutons stacked.
 
 ---
 
 ## Actions post-confirmation
 
-1. Création `evenements` (1) avec `pax`, `type_evenement_id`, contacts, contrôle d'accès, traiteur opérationnel. `date_evenement` est auto-calculé par trigger après l'insertion des collectes.
-2. Création de **N `collectes`** (1 par type coché), chacune avec son `date_collecte` + `heure_collecte` + `informations_supplementaires`, rattachées à l'`evenement_id` (rattachement explicite).
+1. Création `evenements` (1) avec le contrôle d'accès, le traiteur opérationnel, et le type d'événement et les contacts **de la collecte n°1** (copie tenue par la base — lot B1, décisions Val 2026-10-22 C1 et 2026-10-23 B1-Q2). L'événement et toutes ses collectes sont créés **en une seule opération** : une collecte refusée n'en laisse aucune, ni l'événement (lot B2). `date_evenement` et `pax` sont auto-calculés par trigger après l'insertion des collectes (`pax` : pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (une ZD et une AG du même soir comptent une fois ; deux ZD ou deux AG du même jour s'additionnent ; deux soirées s'additionnent — règle révisée par Val le 2026-10-21) — décision Val 2026-10-20).
+2. Création de **N `collectes`** (une par carte de l'écran 2), chacune avec son `date_collecte` + `heure_collecte` + `pax` + `type_evenement_id` + `informations_supplementaires`, et ses contacts dans `collecte_contacts`, rattachées à l'`evenement_id` (rattachement explicite).
 3. Copie de `controle_acces_requis` (niveau événement) sur chaque collecte.
 4. Upsert des contacts saisis dans `contacts_traiteurs`.
 5. Upsert du lieu saisi manuellement dans `lieux` (`actif = false`).
@@ -416,7 +425,16 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 10. Email récap au programmeur (un seul email couvrant l'événement et ses collectes — [[05 - Règles métier#9. Notifications V1]]).
 11. Si AG : lancement algo attribution → notification Admin pour validation.
 12. Si `controle_acces_requis = true` côté TMS : R_M04.CONTROLE_ACCES active.
-13. Redirection vers un **écran de confirmation dédié** `/programmer/confirmation?id=…` (bandeau succès + récapitulatif des collectes créées + rappel email récap), offrant les actions « Ajouter une collecte à cet événement », « Programmer un autre événement » et « Accueil ». _(Décision Val 2026-07-16, divergence M1.2 : écran de succès dédié plutôt que redirection directe vers le détail événement.)_
+13. Redirection vers une **page de confirmation dédiée** `/programmer/confirmation?id=…` *(refonte Val 2026-10-22 ; écran de succès dédié plutôt que redirection vers le détail événement : décision Val 2026-07-16, divergence M1.2)* :
+    - **En-tête** : sur-titre « Événement programmé » (seulement si l'événement a pu être lu), le nom de l'événement en titre et, dessous, le lieu (nom et adresse). *(Maquette v2, Val 2026-10-26 ; la page s'organise en deux colonnes sur grand écran : le détail à gauche, le panneau « Gérer votre événement » à droite.)*
+    - **« Votre événement »** (récapitulatif, informations de l'écran 1 quand elles sont remplies — décision Val 2026-10-26) : client final et référence interne (s'ils sont renseignés), traiteur opérant (s'il n'est pas l'organisation programmatrice : choisi par l'agence, le gestionnaire de lieux ou l'équipe Savr), contrôle d'accès requis. Le nombre de collectes n'y figure plus : il est dans le titre « Vos {nombre} collectes », compté sur les collectes non annulées de l'événement (aucune donnée stockée en plus).
+    - **« Vos {nombre} collectes »** (« Votre collecte » s'il n'y en a qu'une) : une carte par collecte, titrée par une pastille de type (« Zéro Déchet #1 »…, verte en Zéro-Déchet, orange en Anti-Gaspi), avec la date et l'heure (« Mardi 27 octobre · 08:15 »), « Convives » (nombre de convives · type d'événement), contact principal et contact de secours chacun sur une ligne avec son téléphone, « Instructions » (les informations supplémentaires de la collecte, « Aucune » si elles sont vides) et statut, et deux boutons : **« Modifier »** (ouvre sa fiche en édition dans l'espace du rôle, la fiche collecte Admin pour le staff — décision Val 2026-10-16) et **« Annuler »** (décision Val 2026-10-22, C6 ; libellé court de la maquette v2, 2026-10-26 : règles habituelles d'annulation — [[05 - Règles métier]], annulation tardive à moins de 4 h, ordre d'annulation au transporteur si la demande est partie, demande d'annulation pour un rôle qui n'annule pas directement). *(Lot B2, 2026-10-24 :)* « Modifier » est offert sur une collecte programmée ou validée, celle qu'on peut encore modifier ; « Annuler » à qui peut annuler — traiteur, agence et gestionnaire de lieux (ses propres programmations, décision Val 2026-10-26, §06.05), avec la boîte d'annulation de leur espace (« Annuler » quel que soit le statut annulable — brouillon, programmée, validée —, l'annulation étant effective sur-le-champ, décision Val 2026-11-01), l'équipe Savr étant renvoyée à la fiche collecte Admin ; après une annulation, la page se relit. Les cartes sont numérotées par type dans l'ordre de date, d'heure puis de création ; une collecte annulée garde son numéro (même numéro que l'email récapitulatif, qui garde « Collecte Zéro Déchet #1 »). Une collecte annulée ou en demande d'annulation n'est pas comptée dans « Vos {nombre} collectes ».
+    - **Panneau « Gérer votre événement »** (colonne de droite sur grand écran, sous le titre sur téléphone) : bandeau « Votre événement est programmé. » suivi du rappel de l'email récapitulatif (ci-dessous), puis « Ajouter une collecte » (§ Ajouter une collecte à un événement existant), « Programmer un autre événement » et « Retour au tableau de bord ». Dessous, l'encadré **« Besoin d'aide ? »** : « Collecte dans moins de 24 h ou demande particulière : appelez l'équipe Savr. », avec le 07 61 91 29 97 (numéro de l'alerte < 24 h du formulaire) et contact@gosavr.io.
+    - **Rappel email récap = issue réelle de l'envoi** *(décision Val 2026-10-08)* : l'écran ne dit « envoyé » que si l'email est réellement parti. L'état est lu dans `emails_envoyes` (dernier envoi `collecte_programmee` de l'événement) et servi aux rôles programmateurs, et au staff en programmation de support, sous la forme d'un état seul — ni adresse du destinataire, ni message d'erreur.
+        - Email accepté par Resend : « Un email récapitulatif vient de vous être envoyé. »
+        - Email refusé pour l'instant, reprise automatique en cours ([[08 - APIs et intégrations]] §4) : « L'email récapitulatif n'a pas pu partir pour l'instant. Nous le renvoyons automatiquement. »
+        - Rien n'est parti et rien ne repartira (4 tentatives épuisées, refus de la messagerie du destinataire, ou aucun envoi tracé), en bandeau d'avertissement : « L'email récapitulatif n'a pas pu vous être envoyé. Votre programmation est bien enregistrée : vous la retrouvez dans vos collectes. Pour toute question, écrivez-nous à contact@gosavr.io. »
+        - État inconnu (journal des emails illisible, ou statut non reconnu) : aucune mention de l'email.
 
 ---
 
@@ -427,18 +445,21 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 - **Date événement vs date collecte distinguées (2026-05-21, révisé 2026-05-29)** : `collectes.date_collecte` (vérité logistique, **saisie étape 3, sans défaut, obligatoire**) est la seule date saisie ; `evenements.date_evenement` est **auto-dérivé en backend** = `MIN(date_collecte)` (trigger `fn_set_date_evenement`), jamais saisi au formulaire. inversé par la refonte 2026-05-29. Heure de collecte propre à chaque collecte.
 - **Contrôle d'accès niveau événement (2026-05-21)** : saisi une fois, copié sur chaque collecte (la contrainte vient du site, pas de la collecte). Cascade lieu upgrade-only conservée. Exception vélo cargo AG conservée.
 - **Révisé 2026-05-25 (Sujet 1, option A)** : multi-camions interne au TMS — 1 collecte ZD traiteur → N tournées prestataire (Admin au dispatch), agrégation des pesées au niveau de la collecte ZD. Plus de collectes ZD multiples côté traiteur ni d'agrégation niveau événement.
-- **Ajout d'une collecte à un événement existant (2026-05-21)** : bouton depuis la fiche événement, niveau événement pré-rempli figé.
-- **3 étapes** : événement → lieu/contacts/contrôle d'accès → spécificités par collecte + récap.
-- **Nom du client = nom de l'événement**.
+- **Ajout d'une collecte à un événement existant (2026-05-21)** : bouton depuis la fiche événement, niveau événement pré-rempli figé (client, date, lieu, contrôle d'accès) ; convives, type d'événement et contacts de la nouvelle collecte pré-remplis depuis la dernière collecte, modifiables (2026-10-22).
+- **Deux écrans + page de confirmation (refonte Val 2026-10-22)** : écran 1 événement (identité, lieu, contrôle d'accès, nombre de collectes par type), écran 2 une carte par collecte ; récapitulatif sur la page de confirmation (décision Val 2026-10-16).
+- **Nom de l'événement et client final distincts (décision Val 2026-10-19)** : « Nom de l'événement » obligatoire (`evenements.nom_evenement`), « Client final » (`evenements.nom_client_organisateur`) obligatoire depuis la décision Val 2026-10-30, à la confirmation (pas au brouillon) ; au formulaire de modification, il ne peut plus être vidé. Remplace la règle « Nom du client = nom de l'événement » (une seule case écrite dans les deux colonnes).
 - **Heure de collecte unique** (point fixe, pas de fenêtre) — par collecte, choisie dans une liste de créneaux de 15 min (00:00 → 23:45).
 - **Caduc (revue sobriété 2026-05-29, C3)** — "Autre" est une catégorie sèche sélectionnable depuis Sujet 4 (2026-05-26) : plus de texte libre ni de notification de normalisation.
 - **Lieu hors référentiel autorisé** + validation Admin asynchrone.
 - **Lieu existant éditable** (override collecte + patch en attente Admin, option C).
-- **Contacts niveau événement** (autocomplete `contacts_traiteurs`).
+- **Contacts et type d'événement niveau collecte (refonte Val 2026-10-22, C1–C2)** : autocomplete `contacts_traiteurs` ; contacts rangés dans `collecte_contacts` (lue et écrite par le serveur seul), type dans `collectes.type_evenement_id` ; l'événement garde ceux de la collecte n°1 pendant la transition.
+- **Plusieurs collectes du même type dès la programmation (refonte Val 2026-10-22)** : nombre de collectes par type à l'écran 1 ; avertissement non bloquant si deux collectes du même type ont la même date et la même heure (C4).
+- **Cartes de collecte qui reprennent la #1 (refonte Val 2026-10-22, C5)** : champ par champ, tant que l'utilisateur ne l'a pas modifié dans la carte.
+- **Page de confirmation (refonte Val 2026-10-22, C6–C7)** : « Modifier » et « Annuler » (libellé court, maquette v2 de Val 2026-10-26) sur chaque collecte ; sélecteur de traiteur, brouillon, champs du lieu, pack AG, rappel annulation, « Programmer un autre événement », « Retour au tableau de bord » (ex-« Accueil », maquette v2 de Val 2026-10-26) et message de l'email conservés ; mise en page en deux colonnes, cf. point 13.
 - **Informations supplémentaires niveau collecte** (chaque collecte ZD/AG les siennes).
-- **Volume AG = 10% pax** auto-calculé backend invisible.
-- **Pack AG bloquant pour la collecte AG seule** (la ZD reste programmable).
-- **Récap distinguant date événement et dates de collecte**.
+- **Volume AG = 10% du pax de la collecte** auto-calculé backend invisible.
+- **Pack AG jamais bloquant** : sans pack actif, la collecte AG se programme et est facturée à l'unité (décision Val 2026-10-16).
+- **Récapitulatif sur l'écran de confirmation** (décision Val 2026-10-16) : client, lieu, convives, date et heure de chaque collecte, contacts principal et de secours avec téléphone ; plus de récapitulatif à l'étape 3.
 - **Tarif ZD non affiché au formulaire (Sujet 5, 2026-05-26)** : aucun montant pendant la saisie ni au récap (réduction de friction). Le tarif applicable est calculé en backend et communiqué **après confirmation** (email récap `collecte_programmee` + facture). Option A retenue (Val). Lève la contradiction §3.b vs §3.d et solde la référence obsolète `tarifs_zd_par_gestionnaire` → `tarifs_negocie`. Question ouverte 5 (nom gestionnaire vs anonyme) rendue caduque.
 - **Suppression case CGV** : couvertes à la création de compte.
 - **Brouillon persistant** : suppression explicite par user.
@@ -493,6 +514,10 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 | **2026-05-21** | **Ajout d'une collecte à un événement existant** (bouton fiche événement)                             | **Refonte Val 2026-05-21 (sous-arbitrage 1)** |
 | **2026-05-25** | **Révision D3/4a — multi-camions interne TMS (option A)** : 1 collecte ZD traiteur → N tournées prestataire (Admin au dispatch), agrégation pesées niveau collecte ZD. Annule N collectes ZD niveau événement. | **Révision Val 2026-05-25 (Sujet 1)** |
 | **2026-05-29** | **Retrait de l'override pax par collecte** : `collectes.pax_collecte` supprimé V1. Pax unique au niveau événement (`evenements.pax`). Cas multi-jours à pax variable reporté V2. Annule l'ajout du 2026-05-29 (même jour). | **Val 2026-05-29** |
+| **2026-10-20** | **Pax porté par la collecte** : `collectes.pax`, saisi avec la date de chaque collecte (étape 3, plus à l'étape 1) ; `evenements.pax` calculé depuis les collectes (pour chaque jour de collecte, le plus grand des deux totaux du jour — somme des pax des collectes ZD non annulées, somme des pax des collectes AG non annulées —, puis la somme des jours (une ZD et une AG du même soir comptent une fois ; deux ZD ou deux AG du même jour s'additionnent ; deux soirées s'additionnent — règle révisée par Val le 2026-10-21)). « Ajouter une collecte » demande le pax, pré-rempli avec celui de la dernière collecte. Annule le retrait du 2026-05-29. | **Val 2026-10-20** |
+| **2026-10-21** | **Pax de l'événement — règle du jour révisée** : par jour, le plus grand des deux totaux (Σ pax des ZD, Σ pax des AG) des collectes non annulées, puis la somme des jours ; remplace le « plus grand pax du jour » du 2026-10-20 (contre-cas assumé : un déjeuner et un dîner pour les mêmes convives comptent deux fois). L'équipe Savr modifie le pax d'une collecte depuis la fiche collecte Admin (lot à livrer avant le lot 2 de facturation). | **Val 2026-10-21** |
 | **2026-05-26** | **Tarif ZD non affiché au formulaire (Sujet 5, option A)** : alignement §3.b sur §3.d (non affiché, réduction friction). Tarif communiqué post-confirmation (email récap + facture). Question ouverte 5 caduque. Réf obsolète `tarifs_zd_par_gestionnaire` → `tarifs_negocie`. | **Sujet 5 — Val 2026-05-26** |
 | **2026-05-29** | **Duplication de collecte → V1.1** (Q1). **Normalisation lieux saisis manuellement = best-effort sans SLA** (Q2). **Matching AG = géo + capacité créneau uniquement** (Q4). Q3 (SLA modifs lieu) caduque — workflow `lieux_modifications_en_attente` supprimé. | **Arbitrages micro-points — Val 2026-05-29** |
 | **2026-05-29** | **Revue de sobriété §06.01** : A1 cas "N packs actifs" supprimé (impossible — index unique DB) · A2 autosave 30s retiré (sauvegarde manuelle V1) · B1 date événement au récap conditionnée (mono-collecte) · C1 validation "date événement ≥ aujourd'hui" retirée (champ dérivé) · C2 validation type "Autre" texte libre corrigée · C3 décision "Autre → notif Admin" caduque · C4 décision "date collecte défaut = date événement" réalignée · C5 wireframe màj. | **Revue sobriété — Val 2026-05-29** |
+| **2026-10-22** | **Refonte du formulaire** : deux écrans + page de confirmation ; nombre de collectes par type dès la programmation ; une carte par collecte (date et heure, convives, type d'événement, contacts, informations) qui reprend la #1 champ par champ ; contacts (`collecte_contacts`) et type d'événement (`collectes.type_evenement_id`) au niveau collecte ; « Référence client » renommée « Référence interne » ; avertissement si deux collectes du même type ont la même date et la même heure ; page de confirmation avec « Modifier » et « Annuler la collecte » par collecte. | **Val 2026-10-22 (C1–C8)** |
+| **2026-10-26** | **Page de confirmation en deux colonnes (maquette v2)** : sur-titre « Événement programmé », nom de l'événement en titre et lieu dessous ; panneau « Gérer votre événement » (confirmation, email, « Ajouter une collecte », « Programmer un autre événement », « Retour au tableau de bord ») et encadré « Besoin d'aide ? » ; « Votre événement » (client final, référence interne, traiteur opérant, contrôle d'accès ; plus de nombre de collectes) et « Vos N collectes » ; cartes « Zéro Déchet #1 » avec « Convives », contacts sur une ligne, « Instructions » (« Aucune » si vides), « Modifier » et « Annuler ». | **Val 2026-10-26** |

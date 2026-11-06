@@ -4,7 +4,7 @@
  * statut=programmee ET tms_reference IS NULL) + les filtres serveur ajoutés
  * (statut multi, info incomplète, organisation/lieu, rapport non consulté).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const chain = {
@@ -27,7 +27,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 
 const mockGetUser = vi.fn();
@@ -256,5 +256,291 @@ describe('M0.6 — API GET collectes filtres (BL-P1-BOA-05)', () => {
       'rapports_rse.consulte_par_user_at',
       null,
     );
+  });
+
+  // Une collecte AG avec excédents n'a pas de rapport (son document est
+  // l'attestation de don) : le filtre ne retient que les ZD et les AG sans
+  // excédents. Mesuré sur savr-dev le 2026-10-09 : 79 collectes sans cette
+  // règle (dont 24 AG clôturées avec une ligne de rapport jamais rendue), 55 avec.
+  it('M0.6 — filtre rapport_non_consulte=true → seulement ZD et AG sans excédents', async () => {
+    await callGet('?rapport_non_consulte=true');
+    expect(chain.or).toHaveBeenCalledWith(
+      'type.eq.zero_dechet,statut.eq.realisee_sans_collecte',
+    );
+  });
+
+  it('M0.6 — sans le filtre rapport_non_consulte, aucune restriction de type n’est posée', async () => {
+    await callGet('');
+    expect(
+      chain.or.mock.calls.some((c) =>
+        String(c[0]).includes('realisee_sans_collecte'),
+      ),
+    ).toBe(false);
+  });
+});
+
+// Décision Val 2026-11-02 : une collecte dont l'ordre de création est abandonné
+// dans la file d'envoi s'affiche « Créée ». La route lit ces abandons, les sert
+// sur chaque ligne (`envoi_abandonne`) et les passe au filtre de statut.
+describe('M0.6/statut_admin_creee_envoi_abandonne — GET /admin/collectes', () => {
+  const ABANDONNEE = '11111111-1111-4111-8111-111111111111';
+  const AUTRE = '22222222-2222-4222-8222-222222222222';
+  const fromParDefaut = chain.from.getMockImplementation();
+
+  // Une lecture terminale (thenable) qui enregistre ses filtres.
+  function lecture(reponse: { data: unknown; error: unknown }) {
+    const filtres: unknown[][] = [];
+    const l: Record<string, unknown> = {
+      then: (resolve: (r: typeof reponse) => unknown) => resolve(reponse),
+    };
+    for (const m of ['select', 'eq', 'in', 'is'])
+      l[m] = (...args: unknown[]) => {
+        filtres.push([m, ...args]);
+        return l;
+      };
+    return { l, filtres };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupAuth();
+  });
+  afterEach(() => {
+    chain.from.mockImplementation(fromParDefaut ?? (() => chain));
+  });
+
+  function brancher(
+    file: { data: unknown; error: unknown },
+    // Toutes les créations des collectes candidates (2e lecture de la file) :
+    // une création plus récente que l'abandon le remplace (Val 2026-11-03).
+    creations: { data: unknown; error: unknown } = {
+      data: [{ aggregate_id: ABANDONNEE, seq: 7, statut: 'dead' }],
+      error: null,
+    },
+  ) {
+    const fileEnvoi = lecture(file);
+    const toutesCreations = lecture(creations);
+    const encore = lecture({ data: [{ id: ABANDONNEE }], error: null });
+    let collectes = 0;
+    let file_ = 0;
+    chain.from.mockImplementation((table: string) => {
+      if (table === 'outbox_events')
+        return file_++ === 0 ? fileEnvoi.l : toutesCreations.l;
+      // 1re lecture de `collectes` = la liste ; 2e = abandons encore concernés.
+      if (table === 'collectes' && collectes++ === 1) return encore.l;
+      return chain;
+    });
+    return { fileEnvoi, toutesCreations, encore };
+  }
+
+  it('ligne abandonnée marquée, filtre « Créée » qui la retient', async () => {
+    const { fileEnvoi, encore } = brancher({
+      data: [{ aggregate_id: ABANDONNEE }],
+      error: null,
+    });
+    chain.range.mockResolvedValueOnce({
+      data: [{ id: ABANDONNEE }, { id: AUTRE }],
+      error: null,
+      count: 2,
+    });
+    const res = await callGet('?statuts=creee');
+    expect(res.status).toBe(200);
+    const corps = (await res.json()) as {
+      data: { id: string; envoi_abandonne: boolean }[];
+    };
+    expect(corps.data.map((r) => [r.id, r.envoi_abandonne])).toEqual([
+      [ABANDONNEE, true],
+      [AUTRE, false],
+    ]);
+    // Seuls les ordres de création abandonnés…
+    expect(fileEnvoi.filtres).toEqual(
+      expect.arrayContaining([
+        ['eq', 'event_type', 'collecte.creee'],
+        ['eq', 'statut', 'dead'],
+      ]),
+    );
+    // … de collectes que l'exception touche encore.
+    expect(encore.filtres).toEqual(
+      expect.arrayContaining([
+        ['in', 'id', [ABANDONNEE]],
+        ['eq', 'statut', 'programmee'],
+        ['eq', 'statut_tms', 'non_envoye'],
+        ['is', 'tms_reference', null],
+      ]),
+    );
+    expect(String(chain.or.mock.calls[0]?.[0])).toContain(
+      `id.in.(${ABANDONNEE})`,
+    );
+  });
+
+  it('M0.6/ordre_abandonne_remplace — création abandonnée puis renvoyée : la collecte ne compte plus parmi les abandons', async () => {
+    const { toutesCreations } = brancher(
+      { data: [{ aggregate_id: ABANDONNEE }], error: null },
+      {
+        data: [
+          { aggregate_id: ABANDONNEE, seq: 7, statut: 'dead' },
+          { aggregate_id: ABANDONNEE, seq: 9, statut: 'pending' },
+        ],
+        error: null,
+      },
+    );
+    chain.range.mockResolvedValueOnce({
+      data: [{ id: ABANDONNEE }],
+      error: null,
+      count: 1,
+    });
+    const res = await callGet('');
+    expect(res.status).toBe(200);
+    const corps = (await res.json()) as {
+      data: { id: string; envoi_abandonne: boolean }[];
+    };
+    expect(corps.data.map((r) => [r.id, r.envoi_abandonne])).toEqual([
+      [ABANDONNEE, false],
+    ]);
+    expect(toutesCreations.filtres).toEqual(
+      expect.arrayContaining([
+        ['eq', 'event_type', 'collecte.creee'],
+        ['in', 'aggregate_id', [ABANDONNEE]],
+      ]),
+    );
+  });
+
+  it('lecture de la file en échec : 500, jamais une liste aux statuts faux', async () => {
+    brancher({ data: null, error: { code: '57014', message: 'timeout' } });
+    const res = await callGet('');
+    expect(res.status).toBe(500);
+    expect(chain.range).not.toHaveBeenCalled();
+  });
+});
+
+// Colonne « Montant » (Val 2026-11-03) : la route calcule le montant de la
+// prestation de chaque ligne depuis ce qu'elle lit (pack débité, organisation et
+// lieu de l'événement, pax et date de la collecte), sans lire aucune facture.
+describe('M3.5/montant_prestation_liste_route — GET /admin/collectes', () => {
+  const fromParDefaut = chain.from.getMockImplementation();
+  const ORG = '33333333-3333-4333-8333-333333333333';
+  const GEST = '44444444-4444-4444-8444-444444444444';
+  const LIEU = '55555555-5555-4555-8555-555555555555';
+
+  function lecture(data: unknown[]) {
+    const l: Record<string, unknown> = {
+      then: (resolve: (r: { data: unknown[]; error: null }) => unknown) =>
+        resolve({ data, error: null }),
+    };
+    for (const m of ['select', 'eq', 'in', 'is']) l[m] = () => l;
+    return l;
+  }
+
+  const referentiel: Record<string, unknown[]> = {
+    outbox_events: [],
+    grilles_tarifaires_zd: [
+      {
+        id: 'g1',
+        est_defaut: true,
+        valide_du: '2026-01-01',
+        valide_jusqu: null,
+      },
+    ],
+    tarifs_zero_dechet: [
+      {
+        grille_id: 'g1',
+        pax_min: 1,
+        pax_max: null,
+        prix_base_ht: 300,
+        prix_par_couvert_ht: null,
+      },
+    ],
+    organisations: [{ id: ORG, grille_tarifaire_zd_id: null }],
+    organisations_lieux: [{ lieu_id: LIEU, organisation_id: GEST }],
+    tarifs_negocie: [
+      {
+        activite: 'zd',
+        scope: 'gestionnaire',
+        organisation_id: null,
+        gestionnaire_organisation_id: GEST,
+        lieu_id: LIEU,
+        remise_pct: 0.25,
+        valide_du: '2026-01-01',
+        valide_jusqu: null,
+      },
+    ],
+    tarifs_packs_ag: [
+      { prix_unitaire_ht: 590, valide_du: '2026-01-01', valide_jusqu: null },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupAuth();
+    chain.from.mockImplementation((table: string) =>
+      table in referentiel ? lecture(referentiel[table]!) : chain,
+    );
+  });
+  afterEach(() => {
+    chain.from.mockImplementation(fromParDefaut ?? (() => chain));
+  });
+
+  it('M3.5/montant_prestation_liste_route — pack débité, tarif ZD remisé du gestionnaire du lieu, hors pack, inconnu', async () => {
+    const evenement = { organisation_id: ORG, lieu_id: LIEU };
+    chain.range.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'ag-pack',
+          type: 'anti_gaspi',
+          pax: 80,
+          date_collecte: '2026-11-10',
+          evenements: evenement,
+          packs_antgaspi: {
+            prix_unitaire_ht: 130,
+            montant_total_ht: 1300,
+            credits_initiaux: 10,
+          },
+        },
+        {
+          id: 'zd',
+          type: 'zero_dechet',
+          pax: 200,
+          date_collecte: '2026-11-10',
+          evenements: evenement,
+          packs_antgaspi: null,
+        },
+        {
+          id: 'ag-hors-pack',
+          type: 'anti_gaspi',
+          pax: 80,
+          date_collecte: '2026-11-10',
+          evenements: evenement,
+          packs_antgaspi: null,
+        },
+        {
+          id: 'zd-sans-pax',
+          type: 'zero_dechet',
+          pax: null,
+          date_collecte: '2026-11-10',
+          evenements: evenement,
+          packs_antgaspi: null,
+        },
+      ],
+      error: null,
+      count: 4,
+    });
+    const res = await callGet('');
+    expect(res.status).toBe(200);
+    const corps = (await res.json()) as {
+      data: { id: string; montant_ht: number | null }[];
+    };
+    expect(corps.data.map((r) => [r.id, r.montant_ht])).toEqual([
+      ['ag-pack', 130], // pack débité, jamais le pack actif de l'organisation
+      ['zd', 225], // 300 × (1 − 0,25)
+      ['ag-hors-pack', 590], // la remise du gestionnaire est ZD, pas AG
+      ['zd-sans-pax', null],
+    ]);
+    // Le pack lu est celui que la collecte a débité ; aucune facture lue.
+    const colonnes = String(chain.select.mock.calls[0]?.[0]);
+    expect(colonnes).toMatch(/packs_antgaspi!pack_antgaspi_id\(/);
+    expect(colonnes).not.toMatch(/factures_collectes/);
+    const tables = chain.from.mock.calls.map((a) => String(a[0]));
+    expect(tables).not.toContain('factures_collectes');
+    expect(tables).not.toContain('packs_antgaspi');
   });
 });

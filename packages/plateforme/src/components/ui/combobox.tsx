@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, ChevronDown, MapPin } from 'lucide-react';
+import { CaretDownIcon, CheckIcon, MapPinIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -58,6 +58,12 @@ interface ComboboxBaseProps {
   required?: boolean;
   error?: boolean;
   className?: string;
+  /**
+   * Contenu du déclencheur à la place du champ standard (ex. carte de la
+   * sélection courante de l'attribution AG, décision Val 2026-10-27) : même
+   * liste, même clavier ; `className` habille alors seul le bouton.
+   */
+  contenu?: React.ReactNode;
   'aria-label'?: string;
   'aria-describedby'?: string;
   'data-testid'?: string;
@@ -94,6 +100,7 @@ function Combobox(props: ComboboxProps) {
     required,
     error,
     className,
+    contenu,
     'aria-label': ariaLabel,
     'aria-describedby': ariaDescribedBy,
     'data-testid': testId,
@@ -149,7 +156,8 @@ function Combobox(props: ComboboxProps) {
   })();
 
   const avecRecherche = searchable ?? options.length > SEUIL_RECHERCHE;
-  const iconeTete = icon === undefined ? <MapPin aria-hidden="true" /> : icon;
+  const iconeTete =
+    icon === undefined ? <MapPinIcon aria-hidden="true" /> : icon;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -167,12 +175,16 @@ function Combobox(props: ComboboxProps) {
           aria-required={required || undefined}
           data-testid={testId}
           className={
-            titre
-              ? cn(declencheurFiltre, className)
-              : cn(classesChampDeclencheur({ error, open }), className)
+            contenu !== undefined
+              ? cn('w-full text-left', className)
+              : titre
+                ? cn(declencheurFiltre, className)
+                : cn(classesChampDeclencheur({ error, open }), className)
           }
         >
-          {titre ? (
+          {contenu !== undefined ? (
+            contenu
+          ) : titre ? (
             <ContenuDeclencheur
               titre={titre}
               titreId={titreId}
@@ -193,7 +205,7 @@ function Combobox(props: ComboboxProps) {
               >
                 {resume ?? placeholder}
               </span>
-              <ChevronDown
+              <CaretDownIcon
                 className="h-4 w-4 shrink-0 text-savr-neutral-400"
                 aria-hidden="true"
               />
@@ -238,7 +250,7 @@ function Combobox(props: ComboboxProps) {
                 onSelect={() => choisir('')}
                 data-checked={selection.size === 0}
               >
-                <Check
+                <CheckIcon
                   className={cn(
                     selection.size === 0 ? 'opacity-100' : 'opacity-0',
                   )}
@@ -259,7 +271,7 @@ function Combobox(props: ComboboxProps) {
                   onSelect={() => choisir(o.value)}
                   data-checked={actif}
                 >
-                  <Check
+                  <CheckIcon
                     className={cn(
                       'text-savr-primary-700',
                       actif ? 'opacity-100' : 'opacity-0',

@@ -54,6 +54,15 @@ packages/plateforme/tests/api/admin/transporteurs.m1-1b.test.ts
 # les appels sortants passent par packages/adapters/everest/. 'customerOrders' reste banni.
 packages/plateforme/src/app/api/webhooks/everest/route.ts
 packages/plateforme/tests/api/webhooks/everest.m2-5.test.ts
+# packages/plateforme/.../webhooks/mts1/[[...chemin]]/route.ts (2026-10-13) — endpoint récepteur
+# des notifications MTS-1 (étape 1 : enregistrement seul dans integrations_inbox, aucun effet
+# métier). "mts1" = nom du prestataire dans les commentaires, le nom de l'en-tête du jeton et le
+# nom des événements de journal. Aucun appel HTTP MTS-1 ici : les appels sortants et la relecture
+# passent par packages/adapters/mts1/. 'customerOrders' reste banni.
+# Exception AU FICHIER PRÈS (crochets échappés : ce sont des caractères de glob) : un fichier
+# ajouté sous ce dossier ne serait pas exempté.
+packages/plateforme/src/app/api/webhooks/mts1/\[\[...chemin\]\]/route.ts
+packages/plateforme/tests/api/webhooks/mts1-notifications.test.ts
 # packages/plateforme/.../admin/everest/* (M2.5) — endpoint Admin de secours pour acceptation
 # manuelle (Everest down, Ops a appelé A Toutes! par téléphone). "everest" = nom de la table
 # `everest_missions` (schéma plateforme) + message d'erreur UI. Aucun appel HTTP. 'customerOrders' banni.
@@ -210,14 +219,6 @@ supabase/migrations/20260915220000_plateforme_gate_e2_dimension_provider.sql
 # 'customerOrders' reste banni.
 packages/plateforme/tests/api/admin/everest-manual-accept.m2-5.test.ts
 
-# packages/plateforme/src/lib/transporteur-lien-prestataire.ts (lien transporteur →
-# prestataire logistique) — CONSTANTE d'enum `transporteurs.type_tms` : la liste
-# des types routés vers un adapter, pour lesquels le lien est obligatoire (sans
-# lui `prestatairesDuType` lève et tous les événements partent en DLQ). Partagée
-# par les routes admin transporteurs ET la modale (déjà exemptées) pour n'avoir
-# qu'une définition. Aucun appel à un transporteur, aucune logique d'adapter.
-packages/plateforme/src/lib/transporteur-lien-prestataire.ts
-
 # 20260916150000 transporteurs_cols_immuables (arbitrage Val 2026-09-16) — la
 # migration ne cite « mts1 » que dans son commentaire de mesure des données ; le
 # pgTAP porte les VALEURS d'enum transporteurs.type_tms / prestataires.mode_integration
@@ -225,6 +226,14 @@ packages/plateforme/src/lib/transporteur-lien-prestataire.ts
 # DELETE) : aucune logique adapter, aucun appel HTTP. 'customerOrders' reste banni.
 supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql
 supabase/tests/SECU__transporteur_cols_immuables.test.sql
+# 20261016160000 transporteurs_prestataire_auto (décision Val 2026-10-16, C1) + son
+# pgTAP — trigger d'intégrité : à l'insertion d'un transporteur dont l'ENUM
+# type_tms vaut 'mts1' ou 'a_toutes' sans lien, crée la fiche shared.prestataires
+# du même nom ; 'mts1' / 'everest' = valeurs de prestataires.mode_integration
+# (mêmes que les seeds). Aucune logique adapter, aucun appel HTTP. 'customerOrders'
+# reste banni.
+supabase/migrations/20261016160000_plateforme_transporteurs_prestataire_auto.sql
+supabase/tests/SECU__transporteur_prestataire_auto.test.sql
 # Acceptation manuelle d'une mission A Toutes! avec référence obligatoire (2026-09-16,
 # §06.06 §3 Bloc 0) — RPC `fn_accepter_mission_everest_manuelle` et son pgTAP : 'everest'
 # = nom de la table `everest_missions` / de la colonne `everest_mission_id` et du segment
@@ -264,3 +273,31 @@ supabase/tests/reattribution_meme_type_tms.test.sql
 # HTTP transporteur. 'customerOrders' banni.
 supabase/migrations/20260929100000_plateforme_algo_ag_distance_inconnue_null.sql
 packages/plateforme/src/lib/type-tms-labels.ts
+# Relève MTS-1, fenêtre et relève par compte (2026-10-14) : 'mts1' = segment du chemin
+# de la route cron testée (@/app/api/cron/polling-mts1/route.js), valeur de l'enum
+# type_tms dans les transporteurs simulés et libellés de test. Le test lit seulement la
+# fenêtre passée à sync() et le nombre de relèves ; le provider est simulé, aucun appel
+# HTTP transporteur. 'customerOrders' banni.
+packages/plateforme/tests/api/cron/polling-mts1-fenetre.test.ts
+# pgTAP de la relève MTS-1 (2026-10-14) : 'mts1' = valeur de integrations_inbox.source et
+# préfixe de la clé de réservation d'un statut, plus un chemin cité en commentaire.
+# Écritures DB en transaction annulée, aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/tests/releve_mts1_ecritures_base.test.sql
+# Lot C2, pax de la collecte (2026-10-25) : corps de fn_calculer_algo_attribution_ag de
+# 20260929100000 recopié VERBATIM hors la lecture du pax (c.pax au lieu de e.pax).
+# 'mts1'/'Everest' = valeur enum type_tms + libellés de branches/commentaires existants ;
+# aucun appel HTTP transporteur. Le pgTAP du lot pose un transporteur de type 'mts1'
+# (valeur d'enum de la fixture), en transaction annulée. 'customerOrders' banni.
+supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql
+supabase/tests/pax_collecte_lot_c2.test.sql
+# Pack AG débité à la programmation (2026-11-02) : corps de rpc_valider_attribution_ag de
+# 20260702020200 recopié VERBATIM hors la réservation du pack (retirée). Mêmes
+# 'mts1'/'adapter_mts1' (valeur enum type_tms → consumer). Aucun appel HTTP transporteur :
+# la fonction émet un event outbox, l'adapter le consomme. 'customerOrders' banni.
+supabase/migrations/20261102180000_plateforme_pack_ag_debit_programmation.sql
+# Région du lieu déduite du code postal (2026-11-03, choix C1 Val) : corps de
+# fn_calculer_algo_attribution_ag de 20261025100000 recopié VERBATIM hors la ligne
+# v_region (repli sur le code postal) et la clé region_inconnue du résultat. Mêmes
+# 'mts1'/'Everest' (valeur enum type_tms + commentaires de branches existants) ;
+# aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/migrations/20261103170000_plateforme_algo_ag_region_depuis_code_postal.sql

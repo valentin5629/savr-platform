@@ -72,9 +72,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .map(([id, nom]) => ({ id, nom }))
     .sort((a, b) => a.nom.localeCompare(b.nom));
 
-  // ── Commercial — manager traiteur uniquement (§1.6 l.268) ──
+  // ── Commercial — manager et commercial traiteur (Val 2026-10-30) ──
   let commerciaux: Option[] = [];
-  if (role === 'traiteur_manager') {
+  if (role === 'traiteur_manager' || role === 'traiteur_commercial') {
     const { data: evRows, error: evErr } = await supabase
       .from('evenements')
       .select('created_by')

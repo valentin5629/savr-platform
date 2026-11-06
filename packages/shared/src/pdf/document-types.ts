@@ -29,6 +29,12 @@ export const PDF_DOCUMENT_TYPES = [
   // légale (celle-ci = Factur-X Pennylane, pdf_url_pennylane). Enfilée à l'émission
   // (validerFacture succès), écrite dans factures.pdf_url_savr par le worker. R22b BL-P2-01.
   'facture',
+  // Rapports CUMULÉS sur un événement (décision Val 2026-10-26) : recyclage ZD
+  // (page de synthèse @3 + détail des collectes) et récapitulatif de don AG,
+  // sans valeur fiscale. Fabriqués au clic depuis la fiche événement, comme le
+  // rapport de recyclage d'une collecte : jamais enfilés, jamais stockés.
+  'rapport-recyclage-evenement',
+  'rapport-don-evenement',
 ] as const;
 
 export type PdfDocumentType = (typeof PDF_DOCUMENT_TYPES)[number];
@@ -41,11 +47,36 @@ export type PdfDocumentType = (typeof PDF_DOCUMENT_TYPES)[number];
  */
 export const TEMPLATE_VERSIONS: Record<PdfDocumentType, string> = {
   'bordereau-zd': 'bordereau-zd@2',
-  'rapport-recyclage-zd': 'rapport-recyclage-zd@2',
-  'attestation-don': 'attestation-don@2',
+  'rapport-recyclage-zd': 'rapport-recyclage-zd@3',
+  'attestation-don': 'attestation-don@4',
   'synthese-dashboard': 'synthese-dashboard@1',
-  'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@1',
+  'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@2',
   facture: 'facture@1',
+  'rapport-recyclage-evenement': 'rapport-recyclage-evenement@1',
+  'rapport-don-evenement': 'rapport-don-evenement@1',
+};
+
+/**
+ * Dossier R2 de chaque document, premier segment de la clé dans le bucket de
+ * l'environnement (`@savr/shared/src/r2/bucket`) : un dossier par NATURE de
+ * document, pour pouvoir régler plus tard une durée de conservation par nature
+ * (décision Val 2026-10-07). Le type `Record<PdfDocumentType, …>` oblige à choisir
+ * un dossier dès qu'un document est ajouté à la liste.
+ *
+ * ⚠ Le dossier est persisté dans `shared.fichiers.key` et dans les colonnes
+ * `pdf_url` : en changer un après le premier document de production, c'est
+ * déplacer des documents légaux. Ajouter une entrée est libre, renommer ne l'est pas.
+ */
+export const DOSSIER_STOCKAGE: Record<PdfDocumentType, string> = {
+  'bordereau-zd': 'bordereaux',
+  'rapport-recyclage-zd': 'rapports',
+  'attestation-don': 'attestations',
+  'synthese-dashboard': 'syntheses',
+  'rapport-evenement-sans-excedent': 'rapports',
+  facture: 'factures',
+  // Jamais stockés (fabriqués au clic) : dossier exigé par le type seulement.
+  'rapport-recyclage-evenement': 'rapports',
+  'rapport-don-evenement': 'rapports',
 };
 
 /** Garde de type : `x` est-il un type de document PDF connu ? */

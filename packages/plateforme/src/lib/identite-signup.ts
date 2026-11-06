@@ -2,7 +2,9 @@
 // (CDC §05 §8 « Étape 1 — Inscription », tableau des champs obligatoires) :
 //   email      → format email valide (l'unicité, elle, est garantie par GoTrue) ;
 //   prenom/nom → 2 caractères minimum ;
-//   telephone  → format FR.
+//   telephone  → format FR ;
+//   poste      → obligatoire, 100 caractères maximum (Val 2026-11-01 ; borne
+//                aussi tenue par la table, chk_users_poste_borne).
 //
 // Un seul jeu de règles, partagé par l'écran /signup et par la route
 // `POST /api/auth/signup`. L'écran s'en sert pour refuser AVANT le réseau ; la
@@ -16,6 +18,16 @@ import { estEmail, estTelephoneFr } from '@savr/shared/src/validation/index.js';
 
 /** Longueur minimale de `prenom` et `nom` (CDC §05 §8 : « 2 caractères min »). */
 export const NOM_MIN_LENGTH = 2;
+
+/** Longueur maximale de `poste` (champ libre, sans effet sur les droits). */
+export const POSTE_MAX_LENGTH = 100;
+
+/** Poste : non vide une fois trimé, 100 caractères maximum (en points de code,
+ * comme le `char_length` de la contrainte de table). */
+export function isValidPoste(poste: string): boolean {
+  const longueur = Array.from(poste.trim()).length;
+  return longueur > 0 && longueur <= POSTE_MAX_LENGTH;
+}
 
 export function isValidEmailFormat(email: string): boolean {
   // Volontairement permissif (une adresse valide ne doit jamais être refusée) :

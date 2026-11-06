@@ -69,20 +69,21 @@ VALUES ('e16a0006-0000-0000-0000-000000000002'::uuid, 'e16a0001-0000-0000-0000-0
 ON CONFLICT (id) DO NOTHING;
 
 -- =====================================================================
--- RM-01 — Clôture embargo H+24
+-- RM-01 — Clôture à realisee_at + 48 h (Val 2026-11-04, ex-24 h)
 -- =====================================================================
--- C1 : realisee, realisee_at = now()-25h → doit être clôturée.
+-- C1 : realisee, realisee_at = now()-49h → doit être clôturée.
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, realisee_at)
 VALUES ('e16a0c01-0000-0000-0000-000000000001'::uuid, 'e16a0006-0000-0000-0000-000000000001'::uuid,
-        'anti_gaspi', 'realisee', 'en_attente_execution', current_date - 2, '08:00', 1, now() - interval '25 hours');
--- C2 : realisee, realisee_at = now()-1h → embargo non expiré, reste realisee.
+        'anti_gaspi', 'realisee', 'en_attente_execution', current_date - 3, '08:00', 1, now() - interval '49 hours');
+-- C2 : realisee, realisee_at = now()-25h → moins de 48 h, reste realisee
+--      (l'ancien seuil de 24 h l'aurait clôturée).
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, realisee_at)
 VALUES ('e16a0c01-0000-0000-0000-000000000002'::uuid, 'e16a0006-0000-0000-0000-000000000001'::uuid,
-        'anti_gaspi', 'realisee', 'en_attente_execution', current_date, '08:00', 1, now() - interval '1 hour');
+        'anti_gaspi', 'realisee', 'en_attente_execution', current_date - 1, '08:00', 1, now() - interval '25 hours');
 -- C3 : realisee_sans_collecte ancienne → JAMAIS clôturée (état terminal distinct).
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, realisee_at)
 VALUES ('e16a0c01-0000-0000-0000-000000000003'::uuid, 'e16a0006-0000-0000-0000-000000000001'::uuid,
-        'anti_gaspi', 'realisee_sans_collecte', 'en_attente_execution', current_date - 3, '08:00', 1, now() - interval '48 hours');
+        'anti_gaspi', 'realisee_sans_collecte', 'en_attente_execution', current_date - 3, '08:00', 1, now() - interval '72 hours');
 
 SELECT ok(
   plateforme.fn_cloturer_collectes_embargo() >= 1,
@@ -91,12 +92,12 @@ SELECT ok(
 SELECT is(
   (SELECT statut::text FROM plateforme.collectes WHERE id = 'e16a0c01-0000-0000-0000-000000000001'::uuid),
   'cloturee',
-  'RM-01 : realisee + realisee_at ≥ H+24 → cloturee'
+  'RM-01 : realisee + realisee_at ≥ H+48 → cloturee'
 );
 SELECT is(
   (SELECT statut::text FROM plateforme.collectes WHERE id = 'e16a0c01-0000-0000-0000-000000000002'::uuid),
   'realisee',
-  'RM-01 : realisee + realisee_at < H+24 → reste realisee (embargo)'
+  'RM-01 : realisee + realisee_at < H+48 → reste realisee'
 );
 SELECT is(
   (SELECT statut::text FROM plateforme.collectes WHERE id = 'e16a0c01-0000-0000-0000-000000000003'::uuid),
@@ -196,25 +197,27 @@ SELECT ok(
 -- =====================================================================
 -- RM-09 — garde incident sur le débit de crédit pack AG
 -- =====================================================================
--- Pack actif org1 (cas incident prestataire → PAS de débit).
+-- Le crédit de chaque collecte a été décompté à sa programmation (règle Val
+-- 2026-11-02) : pack posé sur la collecte, un crédit consommé.
+-- Pack actif org1 (cas incident prestataire → crédit rendu).
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_initiaux, credits_consommes, statut, date_achat)
 VALUES ('e16a0f01-0000-0000-0000-000000000001'::uuid, 'e16a0001-0000-0000-0000-000000000001'::uuid,
-        'pack_10', 10, 0, 'actif', current_date);
--- Pack actif org2 (cas incident client → débit).
+        'pack_10', 10, 1, 'actif', current_date);
+-- Pack actif org2 (cas incident client → crédit gardé).
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_initiaux, credits_consommes, statut, date_achat)
 VALUES ('e16a0f01-0000-0000-0000-000000000002'::uuid, 'e16a0001-0000-0000-0000-000000000002'::uuid,
-        'pack_10', 10, 0, 'actif', current_date);
+        'pack_10', 10, 1, 'actif', current_date);
 
--- Collecte AG mandatée, mission passée (< 12h), pack attaché — cas incident prestataire.
+-- Collecte AG mandatée, mission passée (< 4h), pack attaché — cas incident prestataire.
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, pack_antgaspi_id)
 VALUES ('e16a0c05-0000-0000-0000-000000000001'::uuid, 'e16a0006-0000-0000-0000-000000000001'::uuid,
         'anti_gaspi', 'validee', 'acceptee', current_date, '00:00', 1, 'e16a0f01-0000-0000-0000-000000000001'::uuid);
--- Collecte AG mandatée, mission passée (< 12h), pack attaché — cas incident client.
+-- Collecte AG mandatée, mission passée (< 4h), pack attaché — cas incident client.
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, nb_camions_demande, pack_antgaspi_id)
 VALUES ('e16a0c05-0000-0000-0000-000000000002'::uuid, 'e16a0006-0000-0000-0000-000000000002'::uuid,
         'anti_gaspi', 'validee', 'acceptee', current_date, '00:00', 1, 'e16a0f01-0000-0000-0000-000000000002'::uuid);
 
--- Incident prestataire → annulee + incident_imputable_a='prestataire' : PAS de débit.
+-- Incident prestataire → annulee + incident_imputable_a='prestataire' : crédit rendu.
 UPDATE plateforme.collectes
 SET statut = 'annulee', incident_imputable_a = 'prestataire', motif_incident = 'Prestataire non présenté'
 WHERE id = 'e16a0c05-0000-0000-0000-000000000001'::uuid;
@@ -222,10 +225,10 @@ WHERE id = 'e16a0c05-0000-0000-0000-000000000001'::uuid;
 SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e16a0f01-0000-0000-0000-000000000001'::uuid),
   0,
-  'RM-09 : incident imputable prestataire → aucun débit de crédit pack (collecte manquée non facturable)'
+  'RM-09 : incident imputable prestataire → crédit pack rendu (collecte manquée non facturable)'
 );
 
--- Annulation tardive imputable client → débit normal.
+-- Annulation tardive imputable client → le crédit décompté reste acquis.
 UPDATE plateforme.collectes
 SET statut = 'annulee', incident_imputable_a = 'client', motif_incident = 'Annulation last minute client'
 WHERE id = 'e16a0c05-0000-0000-0000-000000000002'::uuid;
@@ -233,7 +236,7 @@ WHERE id = 'e16a0c05-0000-0000-0000-000000000002'::uuid;
 SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi WHERE id = 'e16a0f01-0000-0000-0000-000000000002'::uuid),
   1,
-  'RM-09 : annulation tardive imputable client → débit d''un crédit pack'
+  'RM-09 : annulation tardive imputable client → crédit pack gardé'
 );
 
 SELECT * FROM finish();

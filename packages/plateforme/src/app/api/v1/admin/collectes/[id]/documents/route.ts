@@ -97,8 +97,30 @@ export async function GET(
     }),
   );
 
+  // Téléchargeable maintenant : fin d'embargo, et pour un document stocké (rapport
+  // « sans excédent » AG) un PDF déjà fabriqué. Le rapport de recyclage ZD, lui,
+  // se fabrique au clic (décision Val 2026-10-16) : la fin d'embargo suffit.
+  const r = rapport as {
+    disponible_a: string | null;
+    genere_at: string | null;
+  } | null;
+  const finEmbargo =
+    r?.disponible_a != null && new Date(r.disponible_a).getTime() <= Date.now();
+  const { data: collecte } = await supabase
+    .from('collectes')
+    .select('type')
+    .eq('id', id)
+    .maybeSingle();
+  const fabriqueAuClic =
+    (collecte as { type: string } | null)?.type === 'zero_dechet';
+
   return NextResponse.json({
-    rapport: rapport ?? null,
+    rapport: rapport
+      ? {
+          ...rapport,
+          disponible: finEmbargo && (fabriqueAuClic || r?.genere_at != null),
+        }
+      : null,
     bordereau: bordereau ?? null,
     attestation: attestation ?? null,
     photos,

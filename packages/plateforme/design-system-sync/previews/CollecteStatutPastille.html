@@ -1,0 +1,8 @@
+<!-- @dsCard group="Métier" height=70 -->
+<div id="root" style="padding:20px"></div>
+<script>
+const h = React.createElement, S = window.SavrDS;
+ReactDOM.createRoot(document.getElementById('root')).render(
+h('div',{className:'flex flex-wrap gap-3'},h(S.CollecteStatutPastille,{statut:'programmee'}),h(S.CollecteStatutPastille,{statut:'en_cours'}),h(S.CollecteStatutPastille,{statut:'cloturee'}),h(S.CollecteStatutPastille,{statut:'annulee'}))
+);
+</script>

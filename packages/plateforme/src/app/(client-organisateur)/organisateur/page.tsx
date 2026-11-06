@@ -9,6 +9,8 @@ import {
   type CollecteType,
   type DashboardFilters,
 } from '@/components/dashboards/index.js';
+import { ajouterFiltresGlobaux } from '@/components/dashboards/filtres-query';
+import { useOptionsBarre } from '@/components/dashboards/useOptionsBarre';
 import { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
 // Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
 import { StatCard } from '@/components/ui/stat-card';
@@ -16,7 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { SquaresFourIcon } from '@/components/ui/icones';
 import { fmtInt, fmtDec, fmtMasse, uniteCo2 } from '@/lib/format';
 import { ROUTES } from '@/lib/routes';
 
@@ -64,22 +67,35 @@ export default function ClientOrganisateurDashboardPage() {
   const [rows, setRows] = useState<KpiRow[]>([]);
   const [ytd, setYtd] = useState<KpiRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState(false);
   const [showAbc, setShowAbc] = useState(false);
+
+  // Options de la barre : Lieux, Traiteurs, Type et Taille d'événement (décision
+  // Val du 2026-10-30, au-delà du « filtre période » du §11 §7).
+  const parcOptions = useOptionsBarre('/api/v1/dashboards/filtres');
 
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
 
-  // Cadrans de l'onglet — suivent la période du filtre (défaut 12 derniers mois, §11 §8)
+  // Cadrans de l'onglet — suivent les filtres de la barre (période par défaut :
+  // 12 derniers mois, §11 §8). Le bandeau YTD, lui, reste l'année entière.
   useEffect(() => {
     if (!filters) return;
     setLoading(true);
+    setErreur(false);
     const qs = new URLSearchParams({
       from: filters.from,
       to: filters.to,
       type: tab,
     });
+    ajouterFiltresGlobaux(qs, filters);
     fetch(`/api/v1/dashboards/kpi-client-organisateur?${qs}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((j) => setRows((j.data ?? []) as KpiRow[]))
+      // Chargement raté : pas de compteur, plutôt qu'un chiffre faux.
+      .catch(() => setErreur(true))
       .finally(() => setLoading(false));
   }, [filters, tab]);
 
@@ -125,7 +141,10 @@ export default function ClientOrganisateurDashboardPage() {
 
   return (
     <div className="space-y-6" data-testid="organisateur-dashboard">
-      <PageHeader title="Mon impact RSE" />
+      <PageHero
+        icon={<SquaresFourIcon className="h-6 w-6" />}
+        title="Mon impact RSE"
+      />
 
       {/* Bandeau de tête — synthèse RSE annuelle (YTD), commun aux 2 onglets */}
       <Card data-testid="organisateur-bandeau-ytd">
@@ -169,8 +188,17 @@ export default function ClientOrganisateurDashboardPage() {
       <DashboardFilterBar
         storageKey="organisateur-dashboard"
         onChange={handleFilters}
+        parcOptions={parcOptions}
+        toggle={<ToggleTypeCollecte value={tab} onChange={setTab} />}
+        count={
+          !loading && !erreur ? (
+            <span data-testid="dashboard-collectes-count">
+              {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
+              {nbCollectes > 1 ? 'ent' : ''} à votre sélection
+            </span>
+          ) : undefined
+        }
       />
-      <ToggleTypeCollecte value={tab} onChange={setTab} />
 
       {loading ? (
         <LoadingState />
@@ -182,11 +210,13 @@ export default function ClientOrganisateurDashboardPage() {
             className="grid grid-cols-2 gap-4 lg:grid-cols-4"
             data-testid="organisateur-kpi-zd"
           >
+            {/* Les cadrans mesurent l'impact réalisé : le lien ouvre les
+                collectes passées (décision Val 2026-10-19). */}
             <StatCard
               label="Événements ZD"
               value={nbEvenements}
               dotColor={KPI_DOT.navy}
-              href={`${ROUTES.organisateur.collectes}?type=zero_dechet`}
+              href={`${ROUTES.organisateur.collectes}?onglet=passees&type=zero_dechet`}
             />
             <StatCard
               label="Déchets détournés"
@@ -253,7 +283,7 @@ export default function ClientOrganisateurDashboardPage() {
             label="Événements AG"
             value={nbEvenements}
             dotColor={KPI_DOT.navy}
-            href={`${ROUTES.organisateur.collectes}?type=anti_gaspi`}
+            href={`${ROUTES.organisateur.collectes}?onglet=passees&type=anti_gaspi`}
           />
           <StatCard
             label="Repas détournés"

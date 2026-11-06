@@ -43,8 +43,8 @@ Règles :
 | `user.invited` | info | `org_id, invited_role, by_user` | Back-office / espace client |
 | `user.role_changed` | warn | `target_user, role_avant, role_apres, by_user` | Admin (⚠ aussi audit_log) |
 | `pack.purchased` | info | `org_id, pack_id, credits, source` | Admin (référentiel packs AG) |
-| `pack.credit_consumed` | info | `org_id, pack_id, collecte_id, credits_restants` | Trigger conso AG (FIFO) |
-| `pack.credit_recredited` | info | `org_id, pack_id, collecte_id, motif(annulation)` | Trigger recrédit annulation |
+| `pack.credit_consumed` | info | `org_id, pack_id, collecte_id, credits_restants` | Débit à la programmation AG (`trg_pack_debit_programmation`, décision Val 2026-11-02) ; aucun émetteur de ce log n'est codé à ce jour (dette code notée le 2026-11-02 : log à émettre) |
+| `pack.credit_recredited` | info | `org_id, pack_id, collecte_id, motif(annulation\|rejet_prestataire)` | Recrédit (annulation à temps, refus du prestataire, annulation post-réalisation — décision Val 2026-11-02) ; aucun émetteur de ce log n'est codé à ce jour (dette code notée le 2026-11-02 : log à émettre) |
 | `pack.exhausted` | warn | `org_id, pack_id, last_collecte_id` | Trigger passage `epuise` |
 
 ### Événements / collectes / pesées
@@ -89,6 +89,8 @@ Règles :
 | `auth.impersonation_started` | warn | `impersonator_id, target_user, by_role` | Mode impersonation §09 (⚠ aussi audit_log) |
 | `api.external.called` | info | `service(pennylane\|everest\|mts1\|resend\|mistral), endpoint, latency_ms, http_status` | Tout appel sortant |
 | `api.external.failed` | error | `service, endpoint, error_code, retry_count` | Échec appel sortant (→ alerte, cf. `03`) |
+| `email.envoi_ignore` *(ajout 2026-10-07)* | warn | `raison, detail, vercel_env` | Transport email — envoi non émis hors production sans `EMAIL_REDIRECT_TO` (§08 §4) |
+| `email.configuration_manquante` *(ajout 2026-10-07)* | error | `variables_en_defaut` | Transport email — `RESEND_API_KEY` absente ou invalide, ou `RESEND_FROM` absente, au moment d'un envoi réel (§08 §4) |
 
 ---
 

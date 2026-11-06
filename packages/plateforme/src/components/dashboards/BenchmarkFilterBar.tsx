@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { FilterBar } from '@/components/ui/filter-bar';
@@ -60,11 +61,10 @@ export interface BenchmarkFilterOptions {
 }
 
 // Listes bornées au périmètre de l'appelant : sans rien cocher, le repère reste
-// calculé sur tout le parc Savr. « Tous » se lirait « tous mes lieux » — la case
-// de tête le dit, et cocher toutes les lignes reste une sélection explicite.
+// calculé sur tout le parc Savr ; cocher toutes les lignes reste donc une
+// sélection explicite. La case de tête s'appelle « Tous » comme ailleurs (Val
+// 2026-10-28, remplace « Tout le parc Savr » du 2026-10-06).
 const LISTES_RATTACHEES = {
-  libelleVide: 'Tout le parc Savr',
-  libelleTous: 'Tout le parc Savr',
   listePartielle: true,
 } as const;
 
@@ -85,6 +85,11 @@ interface BenchmarkFilterBarProps {
   /** Masque le filtre Traiteurs même pour un rôle qui y a droit (fiche collecte). */
   masquerTraiteurs?: boolean;
   /**
+   * Masque le filtre Lieux : client organisateur, à qui la base ne donne pas la
+   * liste des lieux du parc (radar de la fiche événement, Val 2026-10-30).
+   */
+  masquerLieux?: boolean;
+  /**
    * Avertissement « comparaison à soi-même » (§06.05 l.176) quand Lieux ou
    * Traiteurs sont filtrés. `false` pour l'Admin, qui compare deux périmètres du
    * parc et n'a pas de « propres » lieux ou traiteurs.
@@ -103,7 +108,26 @@ interface BenchmarkFilterBarProps {
    * Prioritaire sur l'héritage Type/Taille ; « Réinitialiser » revient à l'héritage.
    */
   initialFilters?: BenchmarkFilters;
+  /**
+   * `pastilles` : filtres empilés en pastilles sable, sans encart « Comparer
+   * avec » (colonne du radar compact de la fiche collecte, variante B Val
+   * 2026-10-27). Défaut : barre en ligne.
+   */
+  disposition?: 'barre' | 'pastilles';
 }
+
+const PASTILLE =
+  'h-auto min-h-11 max-w-full rounded-savr-full bg-savr-sable-100 px-3.5 py-1 text-left text-sm font-semibold text-savr-neutral-800 hover:bg-savr-sable-200 data-[state=open]:bg-savr-sable-200 sm:min-h-8 [&>span:first-child]:sr-only [&>span:nth-child(2)]:font-semibold [&>span:nth-child(2)]:text-savr-neutral-800';
+
+// Pastilles : seule la valeur est visible (le titre reste lu par les lecteurs
+// d'écran) ; sans sélection, elle affiche le nom du filtre (Val 2026-10-28).
+// La case de tête de la liste reste « Tous ».
+const VIDE_PASTILLE = {
+  type: 'Types',
+  taille: 'Tailles',
+  lieux: 'Lieux',
+  traiteurs: 'Traiteurs',
+} as const;
 
 /**
  * Encart « Filtres benchmark » (§06.05 Bloc 3 ZD), imbriqué dans la carte du
@@ -111,10 +135,10 @@ interface BenchmarkFilterBarProps {
  * barres de filtres, décision Val 2026-09-30). Critères qui ne s'appliquent
  * qu'au point rouge : Type d'événement, Taille, Lieux, Traiteurs. Ces deux
  * listes couvrent tout le parc, ou (`perimetre="rattache"`) les seuls lieux
- * rattachés et traiteurs intervenus du gestionnaire — la case de tête
- * s'appelle alors « Tout le parc Savr » (décision Val 2026-10-06). La
+ * rattachés et traiteurs intervenus du gestionnaire (décision Val 2026-10-06) ;
+ * la case de tête s'appelle toujours « Tous » (Val 2026-10-28). La
  * période est fixe (24 mois glissants, non affichée). Bâti sur `FilterBar`
- * (R-UI-4b, D5 façon C, `surface="encart"`, `count={null}`) : « Réinitialiser
+ * (R-UI-4b, `surface="encart"`, `count={null}`) : « Réinitialiser
  * les filtres » (retour à l'héritage Type/Taille, Lieux/Traiteurs vidés)
  * seulement si un critère diffère de l'héritage.
  */
@@ -125,9 +149,11 @@ export function BenchmarkFilterBar({
   initialTailleCodes,
   initialOptions,
   masquerTraiteurs = false,
+  masquerLieux = false,
   avertissementComparaisonSoi = true,
   perimetre = 'parc',
   initialFilters,
+  disposition = 'barre',
 }: BenchmarkFilterBarProps) {
   const [filters, setFilters] = useState<BenchmarkFilters>(
     () =>
@@ -205,6 +231,75 @@ export function BenchmarkFilterBar({
     defaultFilters(initialTypeEvenementIds, initialTailleCodes),
   );
 
+  if (disposition === 'pastilles') {
+    const pastille = PASTILLE;
+    return (
+      <div
+        data-testid="benchmark-filter-bar"
+        className="flex flex-col items-start gap-2"
+      >
+        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-savr-neutral-500">
+          Comparer avec
+        </span>
+        <FiltreCoches
+          label="Type d'événement"
+          options={types}
+          selected={filters.type_evenement_ids}
+          onChange={(ids) => apply({ ...filters, type_evenement_ids: ids })}
+          testid="benchmark-filter-type"
+          declencheurClassName={pastille}
+          libelleVide={VIDE_PASTILLE.type}
+        />
+        <FiltreCoches
+          label="Taille d'événement"
+          options={TAILLE_OPTIONS}
+          selected={filters.taille_evenement_codes}
+          onChange={(ids) => apply({ ...filters, taille_evenement_codes: ids })}
+          testid="benchmark-filter-taille"
+          declencheurClassName={pastille}
+          libelleVide={VIDE_PASTILLE.taille}
+        />
+        {!masquerLieux && (
+          <FiltreCoches
+            label="Lieux"
+            options={lieux}
+            selected={filters.lieu_ids}
+            onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
+            testid="benchmark-filter-lieux"
+            declencheurClassName={pastille}
+            {...listes}
+            libelleVide={VIDE_PASTILLE.lieux}
+          />
+        )}
+        {/* Filtre traiteurs masqué pour les rôles traiteur (liste vide renvoyée). */}
+        {traiteursVisibles && (
+          <FiltreCoches
+            label="Traiteurs"
+            options={traiteurs}
+            selected={filters.traiteur_ids}
+            onChange={(ids) => apply({ ...filters, traiteur_ids: ids })}
+            testid="benchmark-filter-traiteurs"
+            declencheurClassName={pastille}
+            {...listes}
+            libelleVide={VIDE_PASTILLE.traiteurs}
+          />
+        )}
+        {actif && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={reset}
+            data-testid="benchmark-reinitialiser"
+            className="h-11 px-1 sm:h-8"
+          >
+            Réinitialiser les filtres
+          </Button>
+        )}
+        {avertissementSoi}
+      </div>
+    );
+  }
+
   return (
     <div data-testid="benchmark-filter-bar" className="space-y-2">
       <FilterBar
@@ -229,14 +324,16 @@ export function BenchmarkFilterBar({
           onChange={(ids) => apply({ ...filters, taille_evenement_codes: ids })}
           testid="benchmark-filter-taille"
         />
-        <FiltreCoches
-          label="Lieux"
-          options={lieux}
-          selected={filters.lieu_ids}
-          onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
-          testid="benchmark-filter-lieux"
-          {...listes}
-        />
+        {!masquerLieux && (
+          <FiltreCoches
+            label="Lieux"
+            options={lieux}
+            selected={filters.lieu_ids}
+            onChange={(ids) => apply({ ...filters, lieu_ids: ids })}
+            testid="benchmark-filter-lieux"
+            {...listes}
+          />
+        )}
         {/* Filtre traiteurs masqué pour les rôles traiteur (liste vide renvoyée). */}
         {traiteursVisibles && (
           <FiltreCoches

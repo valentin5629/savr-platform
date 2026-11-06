@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarX2 } from 'lucide-react';
+import { CalendarXIcon } from '@/components/ui/icones';
 import { EmptyState } from '@/components/ui/empty-state';
 
 interface EmptyDashboardStateProps {
@@ -15,7 +15,7 @@ export function EmptyDashboardState({ className }: EmptyDashboardStateProps) {
   return (
     <div className={className} data-testid="empty-dashboard-state">
       <EmptyState
-        icon={<CalendarX2 />}
+        icon={<CalendarXIcon />}
         title="Aucune collecte sur la période sélectionnée."
         description="Ajustez les filtres ou programmez votre première collecte."
       />

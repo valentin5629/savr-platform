@@ -3,6 +3,18 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { calculerAlgoAttributionAg } from '@/lib/attribution-ag/algo.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import {
+  ecrireBesoinVehicule,
+  refusBesoinVehicule,
+  type BesoinVehicule,
+} from '@/lib/collectes/besoin-vehicule.js';
+import { brancheCompatible } from '@savr/adapters/src/services-transporteur.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche, la moitié du bail de réservation des ordres. Elle ne borne pas
+// seule la durée de vie du passage (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 const STATUTS_TERMINAUX = [
   'realisee',
@@ -23,7 +35,7 @@ async function refusChoixPrestataireZd(
   if (!['programmee', 'rejetee_par_prestataire'].includes(c.statut)) {
     return NextResponse.json(
       {
-        error: `Impossible de choisir un prestataire pour une collecte au statut '${c.statut}'`,
+        error: `Impossible de choisir un transporteur pour une collecte au statut '${c.statut}'`,
       },
       { status: 409 },
     );
@@ -35,7 +47,7 @@ async function refusChoixPrestataireZd(
     return NextResponse.json(
       {
         error:
-          'Cette collecte est déjà commandée chez son prestataire : le changement de prestataire n’est pas possible tant que la commande est en cours.',
+          'Cette collecte est déjà commandée chez son transporteur : le changement de transporteur n’est pas possible tant que la commande est en cours.',
       },
       { status: 409 },
     );
@@ -51,7 +63,7 @@ async function refusChoixPrestataireZd(
   const t = transporteur as { type_tms: string; actif: boolean } | null;
   if (!t?.actif) {
     return NextResponse.json(
-      { error: 'Prestataire inconnu ou inactif dans le référentiel' },
+      { error: 'Transporteur inconnu ou inactif dans le référentiel' },
       { status: 422 },
     );
   }
@@ -79,6 +91,23 @@ export async function POST(
   const { id } = await params;
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const { prestataire_logistique_id, motif_override_prestataire } = body;
+  // Service choisi par l'Admin quand le transporteur visé en distingue et que
+  // la branche retenue n'en désigne aucun (A Toutes!, décision Val 2026-11-03).
+  const brancheChoisie =
+    typeof body.branche_attribution === 'string'
+      ? body.branche_attribution
+      : null;
+  // Besoin véhicule saisi au choix du prestataire (décision Val 2026-10-27) :
+  // envoyé seulement s'il a changé, écrit avant l'event de dispatch.
+  const besoin: BesoinVehicule = {
+    nb_camions_demande: body.nb_camions_demande as number | undefined,
+    type_vehicule_souhaite: body.type_vehicule_souhaite as
+      | string
+      | null
+      | undefined,
+  };
+  const refusBesoin = refusBesoinVehicule(besoin);
+  if (refusBesoin) return refusBesoin;
 
   const supabase = createAdminSupabaseClient();
   const { data: collecte, error: fetchErr } = await supabase
@@ -121,11 +150,13 @@ export async function POST(
   // Val 2026-10-01) — son adresse est le point B transmis au prestataire par
   // l'adapter. Sans attribution, l'ordre partirait sans adresse de livraison :
   // on refuse l'envoi tant que l'association n'est pas attribuée (§06.09 §3).
+  let attributionAg: { id: string; branche_attribution: string | null } | null =
+    null;
   if (c.type === 'anti_gaspi') {
     // (association_id NOT NULL : la ligne existe ⇔ l'association est attribuée)
     const { data: attribution, error: attrErr } = await supabase
       .from('attributions_antgaspi')
-      .select('id')
+      .select('id, branche_attribution')
       .eq('collecte_id', id)
       .maybeSingle();
     if (attrErr) {
@@ -135,11 +166,15 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Choisissez d'abord l'association bénéficiaire : son adresse est transmise au prestataire logistique pour la livraison.",
+            "Choisissez d'abord l'association bénéficiaire : son adresse est transmise au transporteur pour la livraison.",
         },
         { status: 422 },
       );
     }
+    attributionAg = attribution as {
+      id: string;
+      branche_attribution: string | null;
+    };
   }
 
   // ZD : l'Admin choisit le prestataire sur la fiche (décision Val 2026-10-07).
@@ -154,7 +189,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Choisissez d'abord le prestataire logistique : sans lui, la collecte ne peut pas être transmise.",
+          "Choisissez d'abord le transporteur : sans lui, la collecte ne peut pas être transmise.",
       },
       { status: 422 },
     );
@@ -212,7 +247,7 @@ export async function POST(
   if (isOverride) {
     if (auth.ctx.role === 'ops_savr') {
       return NextResponse.json(
-        { error: "L'override de prestataire est réservé aux admin Savr" },
+        { error: "L'override de transporteur est réservé aux admin Savr" },
         { status: 403 },
       );
     }
@@ -224,11 +259,98 @@ export async function POST(
         {
           error:
             c.type === 'anti_gaspi'
-              ? "motif_override_prestataire obligatoire (≥ 5 caractères) lorsqu'on choisit un prestataire ≠ recommandation algo (top 1)"
-              : 'motif_override_prestataire obligatoire (≥ 5 caractères) pour changer le prestataire déjà attribué',
+              ? "motif_override_prestataire obligatoire (≥ 5 caractères) lorsqu'on choisit un transporteur ≠ recommandation algo (top 1)"
+              : 'motif_override_prestataire obligatoire (≥ 5 caractères) pour changer le transporteur déjà attribué',
         },
         { status: 422 },
       );
+    }
+  }
+
+  // Seulement sur une collecte qu'on peut encore attribuer (même garde que le
+  // choix du prestataire d'une ZD) : jamais sur une commande en cours.
+  if (
+    besoin.nb_camions_demande !== undefined ||
+    besoin.type_vehicule_souhaite !== undefined
+  ) {
+    if (!['programmee', 'rejetee_par_prestataire'].includes(c.statut)) {
+      return NextResponse.json(
+        {
+          error: `Besoin véhicule non modifiable pour une collecte au statut '${c.statut}'`,
+        },
+        { status: 409 },
+      );
+    }
+    const refusEcriture = await ecrireBesoinVehicule(
+      supabase,
+      id,
+      besoin,
+      { statuts: ['programmee', 'rejetee_par_prestataire'] },
+      'admin.collectes.dispatch',
+    );
+    if (refusEcriture) return refusEcriture;
+  }
+
+  // AG vers un transporteur qui distingue ses services (A Toutes!) : la branche
+  // retenue doit en désigner un, sinon l'envoi échoue en définitif (vécu le
+  // 2026-11-02 : branche Marathon gardée en forçant A Toutes!). L'Admin choisit
+  // alors le service, rangé comme branche retenue AVANT l'ordre d'envoi, que
+  // l'adapter lit à la consommation (décision Val 2026-11-03).
+  if (attributionAg) {
+    const prestaVise =
+      (typeof prestataire_logistique_id === 'string' &&
+        prestataire_logistique_id) ||
+      c.prestataire_logistique_id;
+    let typeTms: string | undefined;
+    if (prestaVise) {
+      const { data: tv, error: tvErr } = await supabase
+        .from('transporteurs')
+        .select('type_tms')
+        .eq('prestataire_logistique_id', prestaVise)
+        .limit(1);
+      if (tvErr) {
+        return serverError(tvErr, 'admin.collectes.dispatch.service');
+      }
+      typeTms = Array.isArray(tv)
+        ? (tv[0] as { type_tms?: string } | undefined)?.type_tms
+        : undefined;
+    }
+    if (!brancheCompatible(typeTms, attributionAg.branche_attribution)) {
+      // Choisir le service change ce qui est commandé : réservé aux admin
+      // Savr, comme le forçage du prestataire AG (§06.06 §3).
+      if (auth.ctx.role === 'ops_savr') {
+        return NextResponse.json(
+          {
+            error:
+              'Le choix du service du transporteur est réservé aux admin Savr',
+          },
+          { status: 403 },
+        );
+      }
+      if (!brancheChoisie || !brancheCompatible(typeTms, brancheChoisie)) {
+        return NextResponse.json(
+          {
+            error:
+              'Choisissez le service du transporteur : la branche retenue ne correspond à aucun de ses services.',
+          },
+          { status: 422 },
+        );
+      }
+      const { error: majErr } = await supabase
+        .from('attributions_antgaspi')
+        .update({ branche_attribution: brancheChoisie })
+        .eq('id', attributionAg.id);
+      if (majErr) {
+        return serverError(majErr, 'admin.collectes.dispatch.service');
+      }
+      await supabase.from('audit_log').insert({
+        table_name: 'attributions_antgaspi',
+        record_id: attributionAg.id,
+        action: 'SERVICE_TRANSPORTEUR',
+        user_id: auth.ctx.userId,
+        old_values: { branche_attribution: attributionAg.branche_attribution },
+        new_values: { branche_attribution: brancheChoisie },
+      });
     }
   }
 
@@ -258,6 +380,10 @@ export async function POST(
       motif_override_prestataire,
     },
   });
+
+  // L'ordre est en file : il part vers le prestataire sans attendre le passage
+  // planifié (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(id);
 
   return NextResponse.json({ ok: true, event_type: eventType });
 }

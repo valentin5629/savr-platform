@@ -82,8 +82,9 @@ export interface Lieu {
   readonly type_vehicule_max: string;
   readonly contraintes_horaires?: string | null;
   // Informations d'accès éditables par collecte (`LieuEdits`, §06.01 §2.a) et
-  // transmises au transporteur — agrégées dans le champ libre par
-  // `composerInformationsSupplementaires` (infos-acces.ts), faute de champ natif
+  // transmises au transporteur — rassemblées dans le champ libre par
+  // `composerCommentairesTransporteur` (infos-acces.ts ; seul `acces_details`
+  // part encore depuis le 2026-11-03), faute de champ natif
   // MTS-1/Everest. Sans leur présence ICI, elles ne sont ni fusionnables
   // (`CHAMPS_LIEU_SURCHARGEABLES` = intersection `LieuEdits` ∩ `Lieu`) ni même
   // visibles du worker. Typage volontairement large (`string`), comme
@@ -104,15 +105,28 @@ export interface Collecte {
   readonly nb_camions_demande: number;
   readonly statut_tms: string;
   readonly controle_acces_requis: boolean;
+  // Commentaires au transporteur composés par le worker (infos-acces.ts, format
+  // Val 2026-11-03). `informations_supplementaires` = les trois réunis, pour le
+  // `comment` MTS-1 (aucun commentaire par adresse) ; Everest envoie les trois
+  // autres dans `comment`, `address_start_comment` et `address_end_comment`.
   readonly informations_supplementaires?: string | null;
+  readonly commentaire_general?: string | null;
+  readonly commentaire_depart?: string | null;
+  readonly commentaire_arrivee?: string | null;
   readonly notes_internes?: string | null;
+  // Nom du traiteur opérationnel de l'événement et nombre de pax de la collecte
+  // (porté par la collecte depuis la décision Val du 2026-10-20) : libellé de la
+  // commande MTS-1 (« Traiteur - Lieu - N pax », décision Val 2026-10-15, C59)
+  // et tête du commentaire au transporteur.
+  readonly traiteur_nom?: string | null;
+  readonly pax?: number | null;
   readonly lieu: Lieu;
   readonly contact_principal_nom: string;
   readonly contact_principal_telephone: string;
   readonly contact_secours_nom?: string | null;
   readonly contact_secours_telephone?: string | null;
   // Véhicule souhaité par l'Admin (enum plateforme.type_vehicule, nullable).
-  // Transmis dans le canal libre (comment / notes), composé par le worker.
+  // Transmis dans le canal libre (`comment`), composé par le worker.
   readonly type_vehicule_souhaite?: string | null;
   // AG uniquement — association destinataire (point B = livraison du don),
   // résolue par le worker via attributions_antgaspi → associations. Composée
@@ -185,7 +199,10 @@ import { ProviderManual } from './manual/provider.js';
 // Re-fetch mission Everest (BL-P0-07) — seul point d'entrée autorisé pour le
 // code métier (webhook), qui ne parle jamais directement à Everest (garde-fou 3).
 export { fetchEverestMissionDetails, EverestClient } from './everest/client.js';
-export type { EverestMissionDetail } from './everest/mock.js';
+export type {
+  EverestMissionDetail,
+  EtapeMissionEverest,
+} from './everest/mock.js';
 // Mock injectable (test-only, no-op en prod tant qu'aucun handler n'est posé) —
 // ré-exporté ici pour que les tests cross-package (webhook) partagent le MÊME
 // singleton de handlers que fetchEverestMissionDetails (même specifier).
@@ -194,6 +211,18 @@ export {
   _setEverestHandlers,
   _getEverestHandlers,
 } from './everest/mock.js';
+
+// Photos du livreur relues chez le transporteur (décision Val 2026-11-03) —
+// point d'entrée neutre de la fiche collecte Admin (garde-fou 3).
+export {
+  listerPhotosTransporteur,
+  importerPhotosTransporteur,
+  PhotoTransporteurInconnueError,
+} from './photos-transporteur.js';
+export type {
+  PhotoTransporteur,
+  PhotosTransporteur,
+} from './photos-transporteur.js';
 
 export function getLogistiqueProvider(
   transporteur: Transporteur,

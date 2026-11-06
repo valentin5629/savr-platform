@@ -41,8 +41,6 @@ const collecte = {
   collecte_flux: [],
   rapports_rse: [],
   transporteur_nom: 'Marathon',
-  factures_collectes: [],
-  packs_antgaspi: null,
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
@@ -104,7 +102,9 @@ describe('R-UI-4b — Collectes admin : un seul contrôle de type, FilterBar com
         name: 'Type de collecte',
       });
       expect(
-        within(barre).getByRole('tablist', { name: 'Vue collectes' }),
+        within(barre).getByRole('tablist', {
+          name: 'Collectes à venir ou passées',
+        }),
       ).toBeInTheDocument();
       // Aucun autre contrôle de type : ni pilules « Filtrer par type », ni
       // liste à cocher « Type », ni pastilles Anti-Gaspi / Zéro Déchet.

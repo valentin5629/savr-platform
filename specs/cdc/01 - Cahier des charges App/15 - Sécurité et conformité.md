@@ -1,7 +1,5 @@
 # 15 - Sécurité et conformité
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-04-20
 
 ---
 
@@ -45,7 +43,7 @@ L'Admin Savr peut se connecter à la place d'un utilisateur pour résoudre un in
 
 - Bandeau orange permanent visible à l'écran pendant toute la session impersonée
 - Chaque action réalisée en mode impersonation est loggée dans `audit_log` avec `impersonator_id` distinct de `user_id`
-- L'utilisateur impersoné peut voir dans son historique que son compte a été accédé (page "Sécurité du compte")
+- L'utilisateur impersoné voit que son compte a été accédé : bloc « Accès de l'équipe Savr à votre compte » de l'onglet « Mon profil » de « Paramètres » (lecture self `f_mes_acces_compte`, GET /api/me/acces). La carte « Sécurité du compte » est retirée de l'écran (décision Val 2026-11-01), mais la transparence est conservée (arbitrage Val 2026-11-02 ; dette code : réafficher le bloc). La trace reste dans `audit_log`.
 
 ### 2.4 Gestion des secrets
 
@@ -70,7 +68,20 @@ L'onboarding étant 100% automatisé en V1, les contrôles suivants limitent les
 - **Rate limiting** sur le formulaire d'inscription : max 5 tentatives/IP/heure. **V1 = limiteur in-memory best-effort** (par instance serverless, non distribué — décision Val 2026-06-22) — suffisant comme filet anti-abus. Le quota distribué (strict global toutes instances) = V1.1/archi, sans Redis ni table DB (mécanisme à trancher avec Val le moment venu).
 - **Admin Savr peut désactiver** tout compte a posteriori si comportement anormal détecté
 - **Domaines email publics/jetables non rattachables** *(validé revue dev senior (frère) 2026-06-08)* : un domaine **public** (gmail, outlook, hotmail, yahoo, free, orange, etc.) ou **jetable** (**source figée 2026-06-10, challenge onboarding** : package npm **`disposable-email-domains`** vendorisé dans le repo — pas de fetch runtime — MAJ de la liste à chaque release ; liste des domaines publics maintenue en **seed DB** éditable Admin) n'est **jamais** utilisé comme clé de rattachement automatique à une organisation existante (cf. règle §09 « domaine reconnu → `traiteur_commercial` »). Un inscrit sur un domaine public crée toujours une organisation isolée et n'hérite d'aucun accès à une orga préexistante partageant ce domaine ; un domaine jetable est refusé à l'inscription. Sans ce garde-fou, deux entités sans lien partageant `gmail.com` seraient fusionnées par rattachement automatique (usurpation d'accès).
-- **Dégradation gracieuse si INSEE/VIES indisponible** *(validé revue dev senior (frère) 2026-06-08)* : si l'API INSEE/Sirene ou VIES est injoignable (timeout > 3 s, 5xx) au moment de l'inscription, celle-ci **n'est pas bloquée** — le compte est créé avec un marqueur de vérification `en_attente` — **matérialisé 2026-06-10 (challenge onboarding)** : colonnes `entites_facturation.siret_verification` (`en_attente`/`verifie`/`echec`) + `siret_verifie_le` + `tva_verification` (`en_attente`/`verifie`/`echec`/`non_applicable`) + `tva_verifiee_le` (cf. [[04 - Data Model#Table : `entites_facturation`]]) — un job asynchrone re-tente la validation (3 paliers : 15 min / 1 h / 24 h) et l'Admin voit le flag dans le filtre « nouvelles organisations » du back-office. **Gating tranché (Val 2026-06-10)** : la **facturation est conditionnée au seul `siret_verification = 'verifie'`** (cf. [[05 - Règles métier]] §8 étape 3) ; la TVA VIES **n'est pas bloquante** (`en_attente`/`echec` = alerte Admin in-app seule — VIES trop instable pour conditionner du cash). Distinction des cas : INSEE **répond** « SIRET inexistant/inactif » = erreur bloquante de saisie côté formulaire (l'utilisateur corrige) ; INSEE **injoignable** = passage `en_attente` sans blocage. Ne jamais hard-bloquer l'inscription sur une API tierce down.
+- **Dégradation gracieuse si INSEE/VIES indisponible** *(validé revue dev senior (frère) 2026-06-08)* : si l'API INSEE/Sirene ou VIES est injoignable (timeout > 3 s, 5xx, quota dépassé — réponse 429 —, ou, pour l'INSEE, accès de Savr refusé par l'API — réponses 401 / 403 : clé absente, invalide ou révoquée) au moment de l'inscription, celle-ci **n'est pas bloquée** — le compte est créé avec un marqueur de vérification `en_attente` — **matérialisé 2026-06-10 (challenge onboarding)** : colonnes `entites_facturation.siret_verification` (`en_attente`/`verifie`/`echec`) + `siret_verifie_le` + `tva_verification` (`en_attente`/`verifie`/`echec`/`non_applicable`) + `tva_verifiee_le` (cf. [[04 - Data Model#Table : `entites_facturation`]]) — un job asynchrone re-tente la validation (3 paliers : 15 min / 1 h / 24 h) et l'Admin voit le flag dans le filtre « nouvelles organisations » du back-office. **Gating tranché (Val 2026-06-10)** : la **facturation est conditionnée au seul `siret_verification = 'verifie'`** (cf. [[05 - Règles métier]] §8 étape 3) ; la TVA VIES **n'est pas bloquante** (`en_attente`/`echec` = alerte Admin in-app seule — VIES trop instable pour conditionner du cash). Distinction des cas : INSEE **répond** « SIRET inexistant/inactif » = erreur bloquante de saisie côté formulaire (l'utilisateur corrige) ; INSEE **injoignable** = passage `en_attente` sans blocage. Ne jamais hard-bloquer l'inscription sur une API tierce down.
+
+### 2.7 Débit des écritures des espaces clients *(décision Val 2026-10-13)*
+
+Depuis l'envoi immédiat au clic ([[04 - Data Model#Table : `outbox_events`]]), une écriture faite depuis un espace client peut lancer une tâche de fond, et la modification d'une collecte déjà commandée produit un appel au prestataire et un email à l'équipe Savr. Les onze routes clientes qui déclenchent cet envoi sont freinées : modification et annulation d'une collecte (traiteur, agence, gestionnaire de lieux — annulation du gestionnaire : décision Val 2026-10-26), programmation d'un événement, collecte ajoutée, confirmation d'un brouillon, reprise d'un brouillon dans le formulaire, modification d'un événement.
+
+- **Par organisation** : 100 écritures par fenêtre glissante de 10 minutes, toutes ces routes confondues. Une écriture est une requête, quel que soit le nombre de collectes ou d'ordres qu'elle produit.
+- **Par objet modifié** : 10 modifications de la même collecte, ou du même événement, par fenêtre glissante de 10 minutes ; l'objet est désigné par l'identifiant que rend la base, jamais par le paramètre d'URL. Seule une modification est comptée par objet : ni une création, ni une collecte ajoutée, ni la confirmation d'un brouillon, ni une annulation.
+- **Au-delà** : réponse 429 avec l'en-tête `Retry-After`, message « Trop de modifications en peu de temps. Réessayez dans quelques minutes. », rien n'est écrit. Une requête refusée par une garde de la route (403, 422) n'est pas comptée ; un refus du frein non plus.
+- **Équipe Savr** (`admin_savr`, `ops_savr`) : jamais freinée sous son propre rôle (back-office, programmation de support). Une session Admin ouverte sous l'identité d'un client est freinée comme ce client.
+- **V1 = compteurs en mémoire, par instance de serveur, non partagés** — même choix que la limite de l'inscription (§2.6). Ils repartent de zéro à chaque démarrage d'instance ; avec plusieurs instances, la limite réelle est multipliée d'autant. Un compteur tenu en base reste à arbitrer.
+- **Journal** : chaque refus écrit `frein_ecritures_client.refus` (organisation, compteur atteint, attente). Aucune alerte Slack.
+
+**Restent à arbitrer** : ne plus écrire d'event `collecte.modifiee` quand rien n'a changé (aujourd'hui `fn_modifier_collecte` l'écrit à chaque appel sur une collecte commandée qui n'est ni réalisée, ni clôturée, ni annulée, sauf quand l'appel ne porte que sur le type d'événement, qui n'est pas transmis au prestataire — lot B1, 2026-10-23 ; `fn_modifier_evenement` n'en écrit plus aucun) ; fusionner les events de modification encore en file ; compteur tenu en base.
 
 ---
 
@@ -102,11 +113,11 @@ Tous les droits RGPD sont exercés via :
 
 | Droit | Implémentation V1 |
 |---|---|
-| Accès | Export des données personnelles disponible depuis l'espace compte (JSON) |
+| Accès | Export JSON des données personnelles servi par la route `GET /api/me/export-rgpd` (utilisateur connecté, ses propres données). **Aucun bouton dans l'espace compte** : le bloc « Mes données (RGPD) » a été retiré de l'écran le 2026-10-06 (décision Val), la route est conservée. |
 | Rectification | Modification directe depuis le profil utilisateur |
 | Suppression | Soft delete (défaut) ou hard delete / anonymisation PII sur demande RGPD explicite |
 | Opposition | Désactivation des emails non transactionnels (hors scope V1 — pas d'emails marketing) |
-| Portabilité | Export JSON des données personnelles |
+| Portabilité | Même export JSON que le droit d'accès (route conservée, sans bouton dans l'espace compte depuis le 2026-10-06). |
 
 **Contrainte légale sur la suppression** : les données comptables (factures, bordereaux) et les registres réglementaires ne peuvent pas être supprimés avant l'échéance légale, même sur demande RGPD. Seules les données personnelles identifiantes (nom, email, téléphone) sont anonymisées.
 

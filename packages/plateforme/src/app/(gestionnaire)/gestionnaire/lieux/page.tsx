@@ -3,7 +3,7 @@
 import { ErrorState } from '@/components/ui/error-state';
 import { fmtInt, fmtKg } from '@/lib/format';
 import { useCallback, useEffect, useState } from 'react';
-import { MapPin, Plus } from 'lucide-react';
+import { MapPinIcon, PlusIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { PageHero } from '@/components/ui/page-hero';
 import { DataTable, type Column } from '@/components/ui/data-table';
@@ -135,7 +135,7 @@ export default function GestionnaireLieuxPage() {
     />
   ) : !loading && rows.length === 0 ? (
     <EmptyState
-      icon={<MapPin className="h-8 w-8" />}
+      icon={<MapPinIcon className="h-8 w-8" />}
       title="Aucun lieu associé"
       description="Les lieux rattachés à votre organisation apparaîtront ici."
     />
@@ -152,19 +152,14 @@ export default function GestionnaireLieuxPage() {
   return (
     <div className="space-y-5">
       <PageHero
-        icon={<MapPin className="h-6 w-6 text-savr-primary-200" />}
+        icon={<MapPinIcon className="h-6 w-6" />}
         title="Lieux"
-        subtitle={
-          loading || erreur
-            ? undefined
-            : `${rows.length} lieu${rows.length > 1 ? 'x' : ''} rattaché${rows.length > 1 ? 's' : ''} à votre organisation`
-        }
         actions={
           <>
             {ajoutEnCours && (
               <span
                 id="demande-ajout-en-cours"
-                className="text-sm text-savr-primary-200"
+                className="text-sm text-savr-neutral-600"
               >
                 Une demande d’ajout est en cours de traitement par l’équipe
                 Savr.
@@ -178,7 +173,7 @@ export default function GestionnaireLieuxPage() {
               }
               onClick={() => setAjoutOuvert(true)}
             >
-              <Plus />
+              <PlusIcon />
               Demander l’ajout d’un lieu
             </Button>
           </>

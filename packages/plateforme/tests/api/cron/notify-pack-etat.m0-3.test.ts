@@ -143,7 +143,7 @@ describe('M0.3 — cron notify-pack-etat (template 9)', () => {
     expect(captured).toHaveLength(1);
     const mail = captured[0]!;
     expect(mail.slug).toBe('admin_pack_ag_etat');
-    expect(mail.to).toBe('hello@gosavr.io');
+    expect(mail.to).toBe('contact@gosavr.io');
     expect(mail.variables.niveau).toBe('bas');
     expect(mail.variables.niveau_bas).toBe('true');
     expect(mail.variables.niveau_epuise).toBe('');
@@ -155,7 +155,7 @@ describe('M0.3 — cron notify-pack-etat (template 9)', () => {
     ).toBeTruthy();
   });
 
-  it('M0.3-6 — alerte pack_ag_epuise → template 9 niveau=epuise (bloc programmation bloquée)', async () => {
+  it('M0.3-6 — alerte pack_ag_epuise → template 9 niveau=epuise (bloc facturation à l’unité)', async () => {
     const cfg: Cfg = {
       alertes: [
         {
@@ -233,6 +233,6 @@ describe('M0.3 — cron notify-pack-etat (template 9)', () => {
     expect(v.credits_initiaux).toBe('50');
     expect(v.pct_restant).toBe('8'); // 4/50 = 8 %
     expect(v.etat_libelle).toBe('bientôt épuisé');
-    expect(v.derniere_collecte_date).toBe('2026-07-05');
+    expect(v.derniere_collecte_date).toBe('05/07/2026');
   });
 });

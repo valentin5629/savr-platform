@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { Bell, CheckCircle2 } from 'lucide-react';
+import { BellIcon, CheckCircleIcon } from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
@@ -99,16 +99,18 @@ export default function AlertesPage() {
       header: 'Alerte',
       sortable: true,
       render: (row) => (
-        <div className="max-w-xl">
+        // Deux lignes au plus (hauteur de ligne constante, décision Val
+        // 2026-10-30) : le code de l'alerte passe au survol.
+        <div
+          className="max-w-xl"
+          title={[row.titre, row.message, row.code].filter(Boolean).join('\n')}
+        >
           <p className="font-medium text-savr-neutral-900">{row.titre}</p>
           {row.message && (
             <Text variant="hint" className="mt-0.5">
               {row.message}
             </Text>
           )}
-          <Text variant="hint" tone="faint" className="mt-0.5 font-mono">
-            {row.code}
-          </Text>
         </div>
       ),
     },
@@ -158,7 +160,7 @@ export default function AlertesPage() {
             variant="hint"
             className="inline-flex items-center gap-1"
           >
-            <CheckCircle2 className="h-3.5 w-3.5 text-savr-success" />
+            <CheckCircleIcon className="h-3.5 w-3.5 text-savr-success" />
             Résolue
           </Text>
         ),
@@ -167,11 +169,7 @@ export default function AlertesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHero
-        icon={<Bell className="h-6 w-6 text-savr-primary-200" />}
-        title="Alertes"
-        subtitle="Alertes Admin in-app à traiter (packs, pesées, PDF, facturation, dispatch…). Le canal d'action des alertes fonctionnelles est cet écran, pas Slack."
-      />
+      <PageHero icon={<BellIcon className="h-6 w-6" />} title="Alertes" />
 
       <FilterBar
         data-testid="alertes-filtres"
@@ -189,7 +187,7 @@ export default function AlertesPage() {
 
       {!loading && !erreur && alertes.length === 0 ? (
         <EmptyState
-          icon={<Bell />}
+          icon={<BellIcon />}
           title="Aucune alerte"
           description={
             statut === 'ouverte'

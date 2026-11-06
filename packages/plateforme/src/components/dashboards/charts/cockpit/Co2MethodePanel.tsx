@@ -57,7 +57,7 @@ export function Co2MethodePanel({
 }: Co2MethodePanelProps): React.ReactElement {
   return (
     <section className="rounded-savr-lg border border-savr-neutral-200 bg-savr-neutral-50 p-5">
-      <h4 className="text-[15px] font-extrabold text-savr-neutral-900">
+      <h4 className="text-md font-extrabold text-savr-neutral-900">
         Comment ces chiffres sont-ils calculés ?
       </h4>
       <Text className="mt-0.5">

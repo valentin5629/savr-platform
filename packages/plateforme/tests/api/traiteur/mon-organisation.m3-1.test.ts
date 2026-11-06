@@ -166,38 +166,8 @@ describe('M3.1 / mon-organisation infos légales', () => {
     expect(insertArgs.table_name).toBe('organisations');
   });
 
-  // Décision Val 2026-09-28 : le commercial modifie les informations légales
-  // (écart au tableau des droits §06.04 §6), mais pas le logo.
-  it('M3.1/trait_monorga_profil_commercial_infos_legales — commercial édite et audite', async () => {
-    setupAuth('traiteur_commercial');
-    rls.push({
-      data: { raison_sociale: 'Ancien', siret: '111', adresse: 'A' },
-      error: null,
-    });
-    rls.push({
-      data: { id: 'org-1', raison_sociale: 'Nouveau', siret: '111' },
-      error: null,
-    });
-    admin.push({ data: null, error: null }); // insert audit_log
-    const { PATCH } =
-      await import('@/app/api/v1/traiteur/mon-organisation/profil/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/traiteur/mon-organisation/profil', {
-        raison_sociale: 'Nouveau',
-        logo_url: 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
-      }),
-    );
-    expect(res.status).toBe(200);
-    // Le logo est filtré : seul le champ légal part dans l'UPDATE.
-    expect(rls.__calls.update?.[0]?.[0]).toEqual({ raison_sociale: 'Nouveau' });
-    expect(rls.__calls.eq).toContainEqual(['id', 'org-1']);
-    expect((admin.__calls.insert?.[0]?.[0] as { action: string }).action).toBe(
-      'organisation_infos_legales_update',
-    );
-  });
-
   it('M3.1/trait_monorga_profil_validation_commune — vide → null, type invalide → 422', async () => {
-    setupAuth('traiteur_commercial');
+    setupAuth('traiteur_manager');
     rls.push({ data: { siret: '111' }, error: null });
     rls.push({ data: { id: 'org-1' }, error: null });
     const { PATCH } =
@@ -218,17 +188,31 @@ describe('M3.1 / mon-organisation infos légales', () => {
     expect((await res.json()).error).toBe('Adresse : valeur invalide');
   });
 
-  it('M3.1/trait_monorga_profil_commercial_logo_refuse — logo seul → 400', async () => {
+  // Val 2026-10-30 : Mon organisation en lecture seule pour le commercial
+  // (retour sur la décision du 2026-09-28).
+  it('M3.1/trait_monorga_profil_commercial_lecture_seule — PATCH 403, rien n’est écrit', async () => {
     setupAuth('traiteur_commercial');
     const { PATCH } =
       await import('@/app/api/v1/traiteur/mon-organisation/profil/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/traiteur/mon-organisation/profil', {
-        logo_url: 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
+        raison_sociale: 'Nouveau',
       }),
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
     expect(rls.__calls.update).toBeUndefined();
+    expect(admin.__calls.insert).toBeUndefined();
+  });
+
+  it('M3.1/trait_monorga_profil_commercial_lecture — GET 200', async () => {
+    setupAuth('traiteur_commercial');
+    rls.push({ data: { id: 'org-1', raison_sociale: 'Kaspia' }, error: null });
+    const { GET } =
+      await import('@/app/api/v1/traiteur/mon-organisation/profil/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/traiteur/mon-organisation/profil'),
+    );
+    expect(res.status).toBe(200);
   });
 });
 
@@ -603,12 +587,69 @@ describe('M3.1 / mon-organisation équipe', () => {
     expect(res.status).toBe(404);
   });
 
-  it('M3.1/trait_monorga_equipe_liste_commercial_denied — liste équipe masquée au commercial (403)', async () => {
+  // Val 2026-10-30 : le commercial voit l'équipe, invite, et transfère SES
+  // collectes ; changer un rôle ou suspendre reste au manager.
+  it('M3.1/trait_monorga_equipe_liste_commercial — liste équipe lisible (200)', async () => {
     setupAuth('traiteur_commercial');
+    rls.push({ data: [{ id: 'user-1' }, { id: 'u2' }], error: null });
     const { GET } = await import('@/app/api/v1/traiteur/equipe/route.js');
     const res = await GET(makeReq('GET', '/api/v1/traiteur/equipe'));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
+
+  it('M3.1/trait_monorga_transfert_commercial_ses_collectes — 200', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    admin.push({
+      data: [
+        { id: 'user-1', role: 'traiteur_commercial', organisation_id: 'org-1' },
+        { id: 'dst', role: 'traiteur_manager', organisation_id: 'org-1' },
+      ],
+      error: null,
+    }); // membres
+    admin.push({ data: [{ id: 'e1' }], error: null }); // update evenements
+    const { POST } =
+      await import('@/app/api/v1/traiteur/equipe/transfert/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/traiteur/equipe/transfert', {
+        source_user_id: 'user-1',
+        cible_user_id: 'dst',
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(
+      ((await res.json()) as { data: { transferes: number } }).data.transferes,
+    ).toBe(1);
+  });
+
+  it('M3.1/trait_monorga_transfert_commercial_collectes_d_autrui — 403, rien n’est lu ni écrit', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    const { POST } =
+      await import('@/app/api/v1/traiteur/equipe/transfert/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/traiteur/equipe/transfert', {
+        source_user_id: 'u2',
+        cible_user_id: 'user-1',
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(admin.__calls.from).toBeUndefined();
+    expect(admin.__calls.update).toBeUndefined();
+  });
+
+  it.each([{ role: 'traiteur_manager' }, { actif: false }])(
+    'M3.1/trait_monorga_equipe_commercial_gestion_refusee — %o → 403',
+    async (body) => {
+      setupAuth('traiteur_commercial', 'org-1', 'user-1');
+      const { PATCH } =
+        await import('@/app/api/v1/traiteur/equipe/[id]/route.js');
+      const res = await PATCH(
+        makeReq('PATCH', '/api/v1/traiteur/equipe/u2', body),
+        { params: Promise.resolve({ id: 'u2' }) },
+      );
+      expect(res.status).toBe(403);
+      expect(rls.__calls.update).toBeUndefined();
+    },
+  );
 });
 
 // ── Logo ────────────────────────────────────────────────────────────────────
@@ -627,7 +668,11 @@ describe('M3.1 / mon-organisation logo', () => {
   }
 
   it('M3.1/trait_monorga_logo_upload — manager upload logo (201)', async () => {
-    mockUploadObject.mockResolvedValue('savr-dev/logos/abc.png');
+    mockUploadObject.mockResolvedValue({
+      bucket: 'savr-dev',
+      key: 'logos/abc.png',
+      storageKey: 'savr-dev/logos/abc.png',
+    });
     const { POST } =
       await import('@/app/api/v1/traiteur/mon-organisation/logo/route.js');
     const res = await POST(makeUploadReq('traiteur_manager'));
@@ -667,11 +712,30 @@ describe('M3.1 / mon-organisation logo', () => {
     });
     const res = await getProxy(LOGO);
     expect(res.status).toBe(200);
+    // Lecture par la clé seule : le bucket est celui de l'environnement.
     expect(mockGetObject).toHaveBeenCalledWith(
-      'savr-dev',
       'logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png',
     );
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  // Serveur mal configuré ≠ clé refusée : sans R2_BUCKET_NAME la garde lève et la
+  // route laisse remonter (500), au lieu de comparer à `savr-dev` comme avant le
+  // 2026-10-07 ou de répondre 403 comme pour une clé interdite.
+  it('M3.1/trait_monorga_logo_proxy_sans_bucket — R2_BUCKET_NAME absent : erreur remontée, aucune lecture R2', async () => {
+    setupAuth('traiteur_commercial');
+    vi.stubEnv('R2_BUCKET_NAME', '');
+    const { GET } =
+      await import('@/app/api/v1/traiteur/mon-organisation/logo/route.js');
+    await expect(
+      GET(
+        makeReq(
+          'GET',
+          `/api/v1/traiteur/mon-organisation/logo?key=${encodeURIComponent(LOGO)}`,
+        ),
+      ),
+    ).rejects.toThrow('R2_BUCKET_NAME');
+    expect(mockGetObject).not.toHaveBeenCalled();
   });
 
   it.each([

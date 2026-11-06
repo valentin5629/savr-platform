@@ -55,12 +55,6 @@ export function classesAplatTypeCollecte(
   );
 }
 
-/** Ordre d'affichage (options, listes) : ZD puis AG. */
-export const TYPES_COLLECTE = [
-  'zero_dechet',
-  'anti_gaspi',
-] as const satisfies readonly TypeCollecte[];
-
 const ALIAS: Record<string, TypeCollecte> = {
   zd: 'zero_dechet',
   ag: 'anti_gaspi',

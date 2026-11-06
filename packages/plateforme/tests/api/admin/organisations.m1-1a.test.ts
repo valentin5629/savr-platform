@@ -35,7 +35,9 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 
 // Helper pour générer un JWT factice avec claims
 function makeJwt(claims: Record<string, unknown>): string {
-  const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({ aal: 'aal2', ...claims }),
+  ).toString('base64url');
   return `header.${payload}.sig`;
 }
 
@@ -821,7 +823,13 @@ describe('M1.1a / Organisations / Fiche (GET [id])', () => {
     expect(res.status).toBe(200);
 
     const selectArg = mockSupabaseChain.select.mock.calls[0]?.[0] as string;
-    expect(selectArg).not.toMatch(/code_postal|ville|type_remise/);
+    // code_postal / ville n'existent pas sur `organisations` ; ils existent sur
+    // `entites_facturation` (lue pour la modification par l'Admin) : le cliquet
+    // porte sur la lecture hors de ce sous-select.
+    expect(selectArg).toMatch(/entites_facturation\([^)]*code_postal/);
+    expect(selectArg.replace(/entites_facturation\([^)]*\)/, '')).not.toMatch(
+      /code_postal|ville|type_remise/,
+    );
     expect(selectArg).toContain('tarifs_negocie!organisation_id');
     expect(selectArg).toContain('activite');
   });

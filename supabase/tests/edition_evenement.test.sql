@@ -6,13 +6,17 @@
 --     inertes, le privilège UPDATE ayant été retiré des deux tables — preuve par
 --     rôle dans SECU__evenements_ecriture_client_fermee.test.sql et
 --     SECU__collectes_ecriture_client_fermee.test.sql.
---   • fn_modifier_evenement (service_role) : E2 par collecte dispatchée + recalcul
---     volume_estime_repas sur changement de pax + pas d'E2 pour champ non-TMS / non
---     dispatché (garde-fou 4 transactional outbox).
+--   • fn_modifier_evenement (service_role) : refus du pax (porté par la collecte
+--     depuis le 2026-10-20) et du type d'événement et des contacts (portés par la
+--     collecte depuis le lot B1, décision Val 2026-10-23) ; pas d'E2 pour un champ
+--     de l'événement (aucun ne part au prestataire) ;
+--   • fn_modifier_collecte : E2 pour la seule collecte dispatchée dont un contact
+--     change ; aucun pour une collecte non dispatchée (garde-fou 4 transactional
+--     outbox).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(6);
+SELECT plan(7);
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
@@ -158,22 +162,31 @@ SELECT ok(
   'T10 edition collecte par PATCH direct fermee (privilege UPDATE retire)'
 );
 
--- ── fn_modifier_evenement (service_role / SECURITY DEFINER) ──────────────────
--- T14 E2 émis pour la collecte AG dispatchée (une commande existe) sur édition pax.
+-- ── fn_modifier_evenement / fn_modifier_collecte (service_role) ──────────────
+-- T14 E2 émis pour la collecte AG dispatchée (une commande existe) quand un de
+-- SES contacts change (lot B1 : les contacts sont portés par la collecte).
 SELECT test_as_superuser();
-SELECT plateforme.fn_modifier_evenement(
-  '0e000000-0000-0000-0000-0000000000f1'::uuid, '{"pax": 500}'::jsonb, ARRAY['pax']);
+SELECT plateforme.fn_modifier_collecte(
+  'cc000000-0000-0000-0000-0000000000f1'::uuid, '{"contact_principal_telephone": "0699000001"}'::jsonb, ARRAY['contact_principal_telephone']);
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
      WHERE aggregate_id = 'cc000000-0000-0000-0000-0000000000f1'::uuid
-       AND event_type = 'collecte.modifiee'
-       AND payload->>'source' = 'evenement'),
-  1, 'T14 fn_modifier_evenement : E2 par collecte dispatchee sur edition pax');
+       AND event_type = 'collecte.modifiee'),
+  1, 'T14 fn_modifier_collecte : E2 pour la collecte dispatchee dont un contact change');
 
--- T15 recalcul volume_estime_repas = ROUND(0.10 * 500) = 50 (AG non terminale).
-SELECT is(
-  (SELECT volume_estime_repas FROM plateforme.collectes WHERE id='cc000000-0000-0000-0000-0000000000f1'::uuid),
-  50, 'T15 recalcul volume_estime_repas sur edition pax');
+-- T14b le type d'événement et les contacts ne se modifient plus sur l'événement.
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_modifier_evenement(
+       '0e000000-0000-0000-0000-0000000000f1'::uuid, '{"contact_principal_telephone": "0699000009"}'::jsonb, ARRAY['contact_principal_telephone']) $$,
+  'P0001', 'TYPE_CONTACTS_SUR_COLLECTE: le type d''événement et les contacts se modifient sur chaque collecte',
+  'T14b fn_modifier_evenement refuse les contacts (portes par la collecte)');
+
+-- T15 le pax n'est plus un champ de l'événement : refus explicite.
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_modifier_evenement(
+       '0e000000-0000-0000-0000-0000000000f1'::uuid, '{"pax": 500}'::jsonb, ARRAY['pax']) $$,
+  'P0001', 'PAX_SUR_COLLECTE: le nombre de convives se modifie sur chaque collecte',
+  'T15 fn_modifier_evenement refuse le pax (porte par la collecte)');
 
 -- T16 pas d'E2 pour un champ non persisté côté TMS (nom_evenement).
 SELECT plateforme.fn_modifier_evenement(
@@ -184,9 +197,10 @@ SELECT is(
        AND event_type = 'collecte.modifiee'),
   1, 'T16 pas d''E2 supplementaire pour un champ non-TMS (nom_evenement)');
 
--- T17 pas d'E2 pour une collecte non dispatchée (aucune commande) malgré pax.
-SELECT plateforme.fn_modifier_evenement(
-  '0e000000-0000-0000-0000-0000000000f2'::uuid, '{"pax": 400}'::jsonb, ARRAY['pax']);
+-- T17 pas d'E2 pour une collecte non dispatchée (aucune commande) malgré un
+-- contact modifié.
+SELECT plateforme.fn_modifier_collecte(
+  'cc000000-0000-0000-0000-0000000000f2'::uuid, '{"contact_principal_telephone": "0699000002"}'::jsonb, ARRAY['contact_principal_telephone']);
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
      WHERE aggregate_id = 'cc000000-0000-0000-0000-0000000000f2'::uuid

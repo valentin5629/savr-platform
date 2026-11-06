@@ -16,5 +16,5 @@ root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 script="$root/scripts/git-hygiene.sh"
 [ -f "$script" ] || exit 0
 
-bash "$script" || true
+bash "$script" --bref || true
 exit 0

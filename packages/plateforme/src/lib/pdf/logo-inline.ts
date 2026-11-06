@@ -29,14 +29,21 @@ const MIME_BY_EXT: Record<string, string> = {
 // (~1,33 Mo base64) on risque de dépasser la limite AVEC le reste du payload → on
 // retombe sur l'en-tête Savr (best-effort, jamais bloquant) plutôt que de faire échouer
 // TOUTE la génération PDF pour un logo simplement trop lourd (revue conformité R23b-2).
-const MAX_LOGO_BYTES = 1_000_000;
+export const MAX_LOGO_BYTES = 1_000_000;
 
 export async function logoKeyToDataUri(
   storageKey: string | null | undefined,
 ): Promise<string | null> {
-  const cle = parseCleLogo(storageKey);
-  if (!cle) return null;
   try {
+    // Dans le `try` : sans la variable du bucket la garde lève (plus de repli savr-dev),
+    // et un logo ne doit jamais faire échouer un PDF. La mauvaise configuration
+    // n'est pas masquée pour autant : l'ENVOI du PDF lève, lui (synthèse : dans
+    // la même requête ; batchs : au passage du worker, job en échec puis rejoué).
+    // ⚠ Les batchs inlinent le logo à la mise en file : un job enfilé pendant que
+    // la variable manque garde son payload sans logo, même une fois la
+    // configuration réparée — document à régénérer.
+    const cle = parseCleLogo(storageKey);
+    if (!cle) return null;
     const bytes = await getObjectBytes(`${cle.bucket}/${cle.key}`);
     if (bytes.byteLength > MAX_LOGO_BYTES) return null;
     const ext = cle.key.split('.').pop() ?? '';
@@ -64,4 +71,22 @@ export function makeLogoResolver(): (
     cache.set(key, uri);
     return uri;
   };
+}
+
+// Budget commun aux DEUX logos du rapport de recyclage @3 (client + traiteur).
+// Chacun passe le plafond unitaire ci-dessus, mais leur somme peut atteindre
+// ~2,67 Mo de base64 : au-delà du corps de 2 Mo accepté par le renderer, le rendu
+// répondrait 413 et le rapport ne serait jamais généré. Au-delà du budget (l'ordre
+// de grandeur d'un seul logo au plafond, qui passait déjà en @2), on garde le
+// logo du client et on renonce à celui du traiteur.
+export const MAX_LOGOS_RAPPORT_CHARS = 1_400_000;
+
+export function bornerLogosRapport(logos: {
+  client: string | null;
+  traiteur: string | null;
+}): { client: string | null; traiteur: string | null } {
+  const total = (logos.client?.length ?? 0) + (logos.traiteur?.length ?? 0);
+  return total > MAX_LOGOS_RAPPORT_CHARS && logos.client
+    ? { client: logos.client, traiteur: null }
+    : logos;
 }

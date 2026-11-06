@@ -113,7 +113,10 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
           String(u).includes('/api/v1/admin/transporteurs?actif=true'),
         ),
       ).toBe(true);
-      expect(select).toHaveTextContent('Transport Reco · Paris (recommandé)');
+      // Carte de la sélection (décision Val 2026-10-27) : le recommandé.
+      expect(select).toHaveTextContent('Transport Reco');
+      expect(select).toHaveTextContent('Recommandé');
+      expect(select).toHaveTextContent('Paris');
       expect(
         screen.getByRole('option', {
           name: 'Transport Reco · Paris (recommandé)',
@@ -140,7 +143,9 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       const select = await ouvrirTransporteurs();
 
       await choisirTransporteur('Transport Autre · Montreuil');
-      expect(select).toHaveTextContent('Transport Autre · Montreuil');
+      expect(select).toHaveTextContent('Transport Autre');
+      expect(select).toHaveTextContent('Montreuil');
+      expect(select).not.toHaveTextContent('Recommandé');
 
       const valider = screen.getByRole('button', {
         name: /^Valider/,
@@ -248,10 +253,10 @@ describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
       ).toBeTruthy();
       const select = screen.getByRole('combobox', { name: 'Transporteur' });
       // La sélection reste affichée même sans la liste chargée.
-      await waitFor(
-        () => expect(select).toHaveTextContent('Transport Reco (recommandé)'),
-        ATTENTE_UI,
-      );
+      await waitFor(() => {
+        expect(select).toHaveTextContent('Transport Reco');
+        expect(select).toHaveTextContent('Recommandé');
+      }, ATTENTE_UI);
 
       ko = false;
       fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));

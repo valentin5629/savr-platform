@@ -51,9 +51,10 @@
     "specs/manifests/M1.1b.json",
     ".claude/brief-ack-feat-m1.1-backoffice-admin",
     "packages/plateforme/src/lib/transporteur-lien-prestataire.ts",
-    "packages/plateforme/src/app/api/v1/admin/prestataires/route.ts",
     "packages/plateforme/src/components/admin/transporteur-modal.tsx",
     "supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql",
+    "supabase/migrations/20261016160000_plateforme_transporteurs_prestataire_auto.sql",
+    "supabase/tests/SECU__transporteur_prestataire_auto.test.sql",
     "packages/plateforme/src/app/api/v1/admin/lieux/[id]/activite/route.ts",
     "packages/plateforme/tests/api/admin/lieux-activite.m1-1b.test.ts"
   ],
@@ -78,11 +79,11 @@
     "M1.1b/transporteurs/create — 403 si rôle client",
     "M1.1b/transporteurs/create — 422 si type_tms=mts1 sans code",
     "M1.1b/transporteurs/patch — 422 si un transporteur mts1 perd son code (type lu en base)",
-    "create — 422 si type_tms=a_toutes sans prestataire logistique, rien n'est écrit",
-    "create — a_toutes avec prestataire : le lien est ÉCRIT",
+    "create — type_tms=a_toutes sans prestataire : 201, le lien est laissé à la base",
+    "create — un prestataire_logistique_id envoyé est ignoré, jamais écrit",
     "patch — refus même quand la valeur envoyée est identique à l'existant",
     "patch — « Désactiver » un transporteur mts1 sans prestataire reste LIBRE, et n'écrit que actif",
-    "édition : Type de TMS et Prestataire logistique verrouillés, affichant la valeur posée",
+    "édition : Type de TMS verrouillé, affichant la valeur posée",
     "M1.1b/dispatch — 403 si ops tente override prestataire",
     "M1.1b/dispatch — 404 si collecte inconnue",
     "M1.1b/dispatch — 422 si override sans motif du tout",
@@ -321,7 +322,7 @@
     },
     {
       "id": "M1.1b-24",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:324",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:325",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/flux/route.ts, packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx",
       "test": "M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
       "statut": "implemented",
@@ -329,7 +330,7 @@
     },
     {
       "id": "M1.1b-25",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:390",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:394",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/route.ts",
       "test": "M1.1b/collectes/create — outbox E1 atomique via fn_creer_collecte",
       "statut": "implemented",
@@ -341,11 +342,11 @@
       "artefact": "packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts",
       "test": "M1.1b/admin_evenement_edit_emet_e2 — PATCH passe par fn_modifier_evenement",
       "statut": "implemented",
-      "libelle": "PATCH /admin/evenements via fn_modifier_evenement (émet E2 par collecte dispatchée — fix trou Admin, ex .update() silencieux)"
+      "libelle": "PATCH /admin/evenements via fn_modifier_evenement (émet E2 par collecte dispatchée — fix trou Admin, ex .update() silencieux) Depuis le lot B1 (2026-10-23) : fn_modifier_evenement n'émet plus d'E2 (aucun champ de l'événement ne part au prestataire) et la route refuse le type d'événement et les contacts (422) — le titre du test, cité tel quel, garde sa mention d'origine."
     },
     {
       "id": "M1.1b-numero-rup",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:498",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:504",
       "artefact": "packages/plateforme/src/components/admin/association-modal.tsx",
       "test": "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL",
       "statut": "implemented",
@@ -354,10 +355,10 @@
     {
       "id": "M1.1b-transporteur-lien-requis",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": "packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts",
-      "test": "create — 422 si type_tms=a_toutes sans prestataire logistique, rien n'est écrit",
+      "artefact": "supabase/migrations/20261016160000_plateforme_transporteurs_prestataire_auto.sql",
+      "test": "supabase/tests/SECU__transporteur_prestataire_auto.test.sql",
       "statut": "implemented",
-      "libelle": "§6 Prestataire logistique : saisi à la création, requis si type_tms ∈ {mts1, a_toutes}, prestataire déjà rattaché grisé/refusé (UNIQUE)"
+      "libelle": "§6 Prestataire logistique : plus saisi à l'écran (décision Val 2026-10-16, C1) — à l'insertion d'un transporteur type_tms ∈ {mts1, a_toutes}, la base crée la fiche shared.prestataires du même nom et pose le lien (trg_transporteur_prestataire_auto) ; la route ne l'envoie jamais"
     },
     {
       "id": "M1.1b-transporteur-cols-immuables",
@@ -377,7 +378,7 @@
     },
     {
       "id": "M1.1b-organisation-siret-format",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:703",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:709",
       "artefact": "packages/plateforme/src/lib/siret-organisation.ts, packages/plateforme/src/app/api/v1/admin/organisations/route.ts, packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
       "test": "M1.1b/orgas/siret — POST : espaces retirés avant INSERT (14 chiffres)",
       "statut": "implemented",
@@ -385,7 +386,7 @@
     },
     {
       "id": "M1.1b-organisation-creation-modale",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:696",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:702",
       "artefact": "packages/plateforme/src/components/admin/organisation-modal.tsx",
       "test": "M1.1b — Modale Nouvelle organisation (§06.06) + M1.1b — le CTA ouvre la modale",
       "statut": "implemented",
@@ -393,7 +394,7 @@
     },
     {
       "id": "M1.1b-lieu-fiche-onglets",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:612",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:618",
       "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
       "test": "M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé + M1.1b/lieux/fiche-onglets — création : en-tête « Nouveau lieu », onglets seuls sans colonne résumé + M1.1b/lieux/fiche-onglets — réponse tardive d'un lieu précédent ignorée (ni affichée ni enregistrée)",
       "statut": "implemented",
@@ -401,7 +402,7 @@
     },
     {
       "id": "M1.1b-lieu-champs-admin-onglet-interne",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:656",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:663",
       "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
       "test": "M1.1b/lieux/fiche-onglets — commentaire sur le lieu dans l'onglet Interne Savr (admin/ops only) + rendu création — tous les champs de la modale sont présents",
       "statut": "implemented",
@@ -409,7 +410,7 @@
     },
     {
       "id": "M1.1b-lieu-creation-onglet-en-erreur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:612",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:618",
       "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx",
       "test": "M1.1b/lieux/fiche-onglets — champ obligatoire d'un autre onglet : ouvre l'onglet en erreur",
       "statut": "implemented",
@@ -417,7 +418,7 @@
     },
     {
       "id": "M1.1b-lieu-activite",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:642",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:648",
       "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/[id]/activite/route.ts",
       "test": "M1.1b/lieux/activite — traiteurs opérant agrégés par traiteur opérationnel, triés par nombre de collectes + M1.1b/lieux/activite — historique : audit_log du lieu, champs réellement modifiés et auteur + M1.1b/lieux/activite — historique tronqué signalé quand la limite de 200 écritures est atteinte + M1.1b/lieux/activite — réponse minimale : jamais les valeurs avant/après de l'audit (champs admin-only)",
       "statut": "implemented",
@@ -425,7 +426,7 @@
     },
     {
       "id": "M1.1b-association-fiche-onglets-entete",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:476",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:482",
       "artefact": "packages/plateforme/src/components/admin/association-modal.tsx",
       "test": "en-tête : région, ville, capacité et statut de l’association enregistrée + pas de colonne résumé : l’en-tête et les onglets seuls",
       "statut": "implemented",
@@ -433,7 +434,7 @@
     },
     {
       "id": "M1.1b-fiches-admin-entete-commun",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:476",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:482",
       "artefact": "packages/plateforme/src/components/collecte/fiche-blocs.tsx",
       "test": "en-tête : type de TMS, SIREN, ville, véhicules, téléphone et statut du transporteur enregistré + M1.1b/lieux/fiche-onglets — édition : grand en-tête et 4 onglets, sans colonne résumé + en-tête : région, ville, capacité et statut de l’association enregistrée + erreur dans un onglet caché : la fiche y bascule et marque les onglets à corriger + avec sur-titre : le statut partage sa ligne, le titre garde toute la largeur + sans sur-titre : pas de ligne vide, le statut se place à droite du titre",
       "statut": "implemented",
@@ -441,7 +442,7 @@
     },
     {
       "id": "M1.1b-transporteurs-filtres-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:535",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:541",
       "artefact": "packages/plateforme/src/app/(admin)/admin/transporteurs/page.tsx (Type / Statut en FiltreCoches, « Actifs » pré-coché) + packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts (types_tms CSV en liste blanche de l'enum type_tms ; l'ancien type_tms lu comme une liste d'un élément)",
       "test": "M1.1b — Transporteurs : Type + M1.1b/transporteurs_liste_types_tms_csv + M1.1b/transporteurs_liste_types_tms_hors_enum_ecartes + M1.1b/transporteurs_liste_type_tms_mono_conserve + M1.1b/transporteurs_liste_types_tms_prioritaire_sur_mono",
       "statut": "à-vérifier",
@@ -449,7 +450,7 @@
     },
     {
       "id": "M1.1b-associations-filtre-statut-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:464",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:470",
       "artefact": "packages/plateforme/src/app/(admin)/admin/associations/page.tsx (Statut en FiltreCoches, « Actives » pré-cochée ; route inchangée)",
       "test": "M1.1b — Associations : « Actives » pré-cochée",
       "statut": "à-vérifier",
@@ -457,7 +458,7 @@
     },
     {
       "id": "M1.1b-lieux-filtre-statut-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:610",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:616",
       "artefact": "packages/plateforme/src/app/(admin)/admin/lieux/page.tsx (Statut en FiltreCoches, « Actifs » pré-coché ; route inchangée)",
       "test": "M1.1b — Lieux : Statut « Actifs » pré-coché",
       "statut": "à-vérifier",
@@ -465,7 +466,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "a217d2a2fc80d1152d1bb6417705a8a5dd72dd09a5923415b96807803c2c27cb",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "1624f7d10800fae8c89bb6757d87949d81edab35aa94e96d8c8e6d668c58208a"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "d5b6f644aa60e3d7ca36d414cdec3c06d0a954545705e865b8e06f935929f678",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "87c1aab8f65c3c441dde53838d9a377ca73bb9ba2fded8568fba0c4c3f4e84e9"
   }
 }

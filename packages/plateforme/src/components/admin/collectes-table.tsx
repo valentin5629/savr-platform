@@ -1,22 +1,24 @@
 'use client';
 
+import type * as React from 'react';
 import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  ArrowRight,
-  CheckCircle2,
-  Eye,
-  FileText,
-  MoreHorizontal,
-  Package,
-  Recycle,
-  Scale,
-  Send,
-} from 'lucide-react';
+  ArrowRightIcon,
+  CheckCircleIcon,
+  DotsThreeIcon,
+  EyeIcon,
+  FileTextIcon,
+  PackageIcon,
+  PaperPlaneTiltIcon,
+  RecycleIcon,
+  ScalesIcon,
+} from '@/components/ui/icones';
 import { Badge } from '@/components/ui/badge';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { StatusCollecte } from '@/components/ui/status-collecte';
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
+import { LIBELLE_SANS_EXCEDENT } from '@/lib/statut-collecte-labels';
 import {
   Dropdown,
   DropdownContent,
@@ -29,13 +31,14 @@ import { cn } from '@/lib/utils';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { formatDateHeure, heureOuMinuit } from '@/lib/format-date-collecte';
 import { CelluleVide } from '@/components/ui/data-grid';
+import { ChevronLigne } from '@/components/collecte/repere-jour';
 import { Text } from '@/components/ui/text';
 import { fmtEuro, fmtKgAuto, fmtPct } from '@/lib/format';
 import { IconButton } from '@/components/ui/icon-button';
 import { ROUTES } from '@/lib/routes';
 
 // ── Type de ligne collecte de la liste Admin (§06.06 §3) ──────────────────────
-// Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
+// Superset du SELECT liste : les champs transporteur_nom / montant_ht sont
 // optionnels → la ligne se rend même si la route ne les câble pas encore.
 interface RapportRse {
   disponible_a: string | null;
@@ -54,9 +57,14 @@ export interface CollecteRow {
   // Prestataire posé au dispatch — l'un des signaux « demande partie » qui
   // séparent « Créée » de « Programmée » (lib/statut-collecte-admin).
   prestataire_logistique_id: string | null;
+  // Ordre de création abandonné : ramène à « Créée » (GET /admin/collectes).
+  envoi_abandonne?: boolean;
   dirty_tms: boolean;
   date_collecte: string;
   heure_collecte: string;
+  // Pax de LA collecte (décision Val 2026-10-20) ; celui de l'événement est la
+  // somme des jours, il n'a pas sa place sur une ligne de collecte.
+  pax?: number | null;
   controle_acces_requis: boolean;
   informations_completes: boolean;
   taux_recyclage: number | null;
@@ -70,7 +78,6 @@ export interface CollecteRow {
   rapports_rse: RapportRse[];
   evenements: {
     nom_evenement: string | null;
-    pax: number | null;
     nom_client_organisateur: string | null;
     organisations: { raison_sociale: string };
     client_organisateur: { raison_sociale: string } | null;
@@ -83,13 +90,11 @@ export interface CollecteRow {
   };
   // Champs additifs (câblés par la route liste) — optionnels.
   transporteur_nom?: string | null;
-  // Montant résolu côté route (ZD = facture, AG = pack actif de l'org).
+  // Montant de la prestation, calculé par la route (lib/montant-prestation).
   montant_ht?: number | null;
-  factures_collectes?: { montant_ht: number | null }[];
-  packs_antgaspi?: { prix_unitaire_ht: number | null } | null;
 }
 
-// ── Statuts terminaux (= vue Historique). Source unique. ───────────────────────
+// ── Statuts terminaux. Source unique. ──────────────────────────────────────────
 export const STATUTS_TERMINAUX = new Set([
   'realisee',
   'realisee_sans_collecte',
@@ -144,20 +149,6 @@ function poidsTotalZd(row: CollecteRow): number {
   return row.collecte_flux.reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
 }
 
-// Montant de la collecte (§ décision Val 2026-07-04) :
-//   ZD  → montant HT facturé (factures_collectes) quand la facture existe ;
-//   AG  → prix du pack ramené à la collecte = packs_antgaspi.prix_unitaire_ht.
-// Retourne null si non déterminable (ZD non encore facturée) → affiché « — ».
-function montantCollecte(row: CollecteRow): number | null {
-  // Priorité au montant résolu côté route (source unique : pack actif / facture).
-  if (row.montant_ht != null) return row.montant_ht;
-  if (row.type === 'anti_gaspi') {
-    return row.packs_antgaspi?.prix_unitaire_ht ?? null;
-  }
-  const fc = row.factures_collectes?.find((f) => f.montant_ht != null);
-  return fc?.montant_ht ?? null;
-}
-
 // Statut d'attribution AG (§06.06 §3 l.182) — 3 des 4 états dérivables.
 function attributionBadge(row: CollecteRow): {
   label: string;
@@ -175,50 +166,93 @@ function formatEuro(n: number, type: CollecteRow['type']): string {
   return type === 'zero_dechet' ? `${v} HT` : v;
 }
 
-// ── Indicateurs de résultat (vue Historique) — repas AG / kg + taux ZD / rapport.
+// ── Indicateurs de résultat (collecte terminée) — repas AG ou « Sans excédent » /
+// kg + taux ZD / rapport. « Sans excédent » est le résultat d'une collecte AG
+// qui n'a rien donné, pas son statut (décision Val 2026-10-09).
 function IndicateursHistorique({ row }: { row: CollecteRow }) {
-  const rapport = row.rapports_rse[0];
+  const sansExcedent = row.statut === 'realisee_sans_collecte';
+  // Une collecte AG avec excédents n'a pas de rapport : son document est
+  // l'attestation de don. Une ligne rapports_rse peut exister en base pour elle
+  // (anciens batchs, jamais rendue en PDF) : elle n'annonce rien ici. Même règle
+  // que le filtre « Rapport non consulté » (lib/collectes-admin).
+  const aUnRapport = row.type === 'zero_dechet' || sansExcedent;
+  const rapport = aUnRapport ? row.rapports_rse[0] : undefined;
   const poids = poidsTotalZd(row);
   const repas = row.attributions_antgaspi?.volume_repas_realise;
 
+  const indicateurs: IndicateurProps[] = [];
+  if (sansExcedent)
+    indicateurs.push({ icone: PackageIcon, texte: LIBELLE_SANS_EXCEDENT });
+  if (row.type === 'anti_gaspi' && !sansExcedent && repas != null)
+    indicateurs.push({ icone: PackageIcon, texte: `${repas} repas` });
+  if (row.type === 'zero_dechet' && poids > 0)
+    indicateurs.push({ icone: ScalesIcon, texte: fmtKgAuto(poids) });
+  if (row.type === 'zero_dechet' && row.taux_recyclage != null)
+    indicateurs.push({
+      icone: RecycleIcon,
+      texte: fmtPct(row.taux_recyclage, 0),
+    });
+  if (rapport)
+    indicateurs.push(
+      rapport.consulte_par_user_at
+        ? {
+            icone: CheckCircleIcon,
+            texte: 'Rapport consulté',
+            className: 'text-savr-success-strong',
+            iconeClassName: 'text-savr-success',
+          }
+        : {
+            icone: FileTextIcon,
+            texte: 'Rapport non consulté',
+            className: 'text-savr-warning-strong',
+            iconeClassName: 'text-savr-warning',
+          },
+    );
+
   return (
+    // Sur le tableau, une seule ligne : le dernier élément est coupé en « … »
+    // quand la place manque (décision Val 2026-10-30), texte complet au survol.
     <Text
       as="div"
       variant="hint"
       tone="soft"
-      className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 font-bold sm:justify-start"
+      title={indicateurs.map((i) => i.texte).join(' · ') || undefined}
+      className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 font-bold sm:justify-start"
     >
-      {row.type === 'anti_gaspi' && repas != null && (
-        <span className="inline-flex items-center gap-1.5">
-          <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {repas} repas
-        </span>
-      )}
-      {row.type === 'zero_dechet' && poids > 0 && (
-        <span className="inline-flex items-center gap-1.5">
-          <Scale className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {fmtKgAuto(poids)}
-        </span>
-      )}
-      {row.type === 'zero_dechet' && row.taux_recyclage != null && (
-        <span className="inline-flex items-center gap-1.5">
-          <Recycle className="h-3.5 w-3.5 text-savr-neutral-400" />
-          {fmtPct(row.taux_recyclage, 0)}
-        </span>
-      )}
-      {rapport &&
-        (rapport.consulte_par_user_at ? (
-          <span className="inline-flex items-center gap-1.5 text-savr-success-strong">
-            <CheckCircle2 className="h-3.5 w-3.5 text-savr-success" />
-            Rapport consulté
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 text-savr-warning-strong">
-            <FileText className="h-3.5 w-3.5 text-savr-warning" />
-            Rapport non consulté
-          </span>
-        ))}
+      {indicateurs.map((i, n) => (
+        // Seul le dernier élément se coupe : un chiffre reste entier.
+        <Indicateur
+          key={i.texte}
+          {...i}
+          className={cn(
+            n === indicateurs.length - 1 ? 'min-w-0' : 'shrink-0',
+            i.className,
+          )}
+        />
+      ))}
     </Text>
+  );
+}
+
+interface IndicateurProps {
+  icone: React.ComponentType<{ className?: string }>;
+  texte: string;
+  className?: string;
+  iconeClassName?: string;
+}
+
+// Un indicateur : pictogramme fixe, texte qui se coupe en « … ».
+function Indicateur({
+  icone: Icone,
+  texte,
+  className,
+  iconeClassName = 'text-savr-neutral-400',
+}: IndicateurProps) {
+  return (
+    <span className={cn('inline-flex items-center gap-1.5', className)}>
+      <Icone className={cn('h-3.5 w-3.5 shrink-0', iconeClassName)} />
+      <span className="truncate">{texte}</span>
+    </span>
   );
 }
 
@@ -360,15 +394,18 @@ export function colonnesCollectesAdmin({
       id: 'pax',
       header: 'Pax',
       meta: { className: 'text-right tabular-nums' },
-      cell: ({ row: { original: r } }) => r.evenements.pax ?? <CelluleVide />,
+      cell: ({ row: { original: r } }) => r.pax ?? <CelluleVide />,
     },
     {
       id: 'client',
       header: 'Client organisateur',
       meta: { hideOnMobile: true },
+      // Non renseigné : cellule laissée vide (revue écran 2026-10-29, comme la
+      // liste traiteur).
       cell: ({ row: { original: r } }) =>
-        r.evenements.client_organisateur?.raison_sociale ??
-        r.evenements.nom_client_organisateur ?? <CelluleVide />,
+        (r.evenements.client_organisateur?.raison_sociale ??
+          r.evenements.nom_client_organisateur?.trim()) ||
+        null,
     },
     {
       id: 'transporteur',
@@ -407,7 +444,9 @@ export function colonnesCollectesAdmin({
       header: 'Montant',
       meta: { className: 'text-right' },
       cell: ({ row: { original: r } }) => {
-        const m = montantCollecte(r);
+        // Montant de la prestation, calculé par la route (Val 2026-11-03) ;
+        // null (pax ou tarif introuvable) → « — ».
+        const m = r.montant_ht ?? null;
         return m != null ? (
           <span className="whitespace-nowrap font-extrabold text-savr-neutral-900 tabular-nums">
             {formatEuro(m, r.type)}
@@ -425,10 +464,14 @@ export function colonnesCollectesAdmin({
         label: 'Actions',
         interactive: true,
         stickyRight: true,
-        className: 'w-12 text-right',
+        className: 'w-[1%] whitespace-nowrap text-right',
       },
       cell: ({ row: { original: r } }) => (
-        <ActionsCollecte row={r} onOpen={onOpen} />
+        <div className="flex items-center justify-end gap-1">
+          <ActionsCollecte row={r} onOpen={onOpen} />
+          {/* Chevron : la ligne ouvre la fiche (revue écran 2026-10-29). */}
+          <ChevronLigne />
+        </div>
       ),
     },
   ];
@@ -461,25 +504,25 @@ function ActionsCollecte({
               'bg-savr-accent-500 text-savr-primary-950 hover:bg-savr-accent-600 hover:text-savr-primary-950',
           )}
         >
-          <MoreHorizontal aria-hidden="true" />
+          <DotsThreeIcon aria-hidden="true" />
         </IconButton>
       </DropdownTrigger>
       <DropdownContent align="end">
         <DropdownItem onSelect={() => onOpen(row.id)}>
-          <Eye aria-hidden="true" />
+          <EyeIcon aria-hidden="true" />
           Ouvrir la fiche
         </DropdownItem>
         {aAttribuer(row) && (
           <DropdownItem asChild>
             <Link href={ROUTES.admin.attributionAg(row.id)}>
-              <ArrowRight aria-hidden="true" />
+              <ArrowRightIcon aria-hidden="true" />
               Attribuer
             </Link>
           </DropdownItem>
         )}
         {aDispatcherZd(row) && (
           <DropdownItem onSelect={() => onOpen(row.id)}>
-            <Send aria-hidden="true" />
+            <PaperPlaneTiltIcon aria-hidden="true" />
             Dispatcher
           </DropdownItem>
         )}

@@ -31,6 +31,26 @@ async function lireEntiteActive(
   return { id: (data as { id: string } | null)?.id ?? null, erreur: error };
 }
 
+const echec = (err: unknown) => ({
+  ok: false as const,
+  error: serverError(err ?? MESSAGE_ERREUR, 'programmation.entite_facturation'),
+});
+
+// lireEntiteFacturation — l'entité de facturation active de l'organisation, ou
+// `null` si elle n'en a pas. Lecture seule, n'écrit jamais.
+// Lecture en échec ≠ « aucune entité » : ne jamais créer sur une panne de lecture.
+export async function lireEntiteFacturation(
+  supabase: SupabaseClient,
+  organisationId: string,
+): Promise<
+  | { ok: true; entiteFacturationId: string | null }
+  | { ok: false; error: NextResponse }
+> {
+  const existante = await lireEntiteActive(supabase, organisationId);
+  if (existante.erreur) return echec(existante.erreur);
+  return { ok: true, entiteFacturationId: existante.id };
+}
+
 // requireCompletedOrganisation — résout l'entité de facturation de l'organisation
 // programmatrice (evenements.entite_facturation_id est NOT NULL, règle V1
 // programmateur = facturé, §05 §8). Ne bloque JAMAIS la programmation (décision Val
@@ -45,24 +65,24 @@ async function lireEntiteActive(
 // orga à plusieurs entités. Course entre deux programmations simultanées : l'index
 // UNIQUE partiel uniq_entite_defaut_par_org fait échouer le second INSERT (23505)
 // → on relit l'entité créée par le premier.
+//
+// `dejaLue` : résultat d'un `lireEntiteFacturation` fait plus tôt par l'appelant,
+// qui veut séparer la lecture de la création (la route de programmation ne crée
+// l'entité qu'après son frein de débit). La lecture n'est alors pas refaite.
 export async function requireCompletedOrganisation(
   supabase: SupabaseClient,
   organisationId: string,
+  dejaLue?: { entiteFacturationId: string | null },
 ): Promise<
   { ok: true; entiteFacturationId: string } | { ok: false; error: NextResponse }
 > {
-  const echec = (err: unknown) => ({
-    ok: false as const,
-    error: serverError(
-      err ?? MESSAGE_ERREUR,
-      'programmation.entite_facturation',
-    ),
-  });
-
-  // Lecture en échec ≠ « aucune entité » : ne jamais créer sur une panne de lecture.
-  const existante = await lireEntiteActive(supabase, organisationId);
-  if (existante.erreur) return echec(existante.erreur);
-  if (existante.id) return { ok: true, entiteFacturationId: existante.id };
+  let entiteFacturationId = dejaLue?.entiteFacturationId ?? null;
+  if (!dejaLue) {
+    const lue = await lireEntiteFacturation(supabase, organisationId);
+    if (!lue.ok) return lue;
+    entiteFacturationId = lue.entiteFacturationId;
+  }
+  if (entiteFacturationId) return { ok: true, entiteFacturationId };
 
   const { data: org, error: orgErr } = await supabase
     .from('organisations')

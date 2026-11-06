@@ -25,7 +25,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, AGENCE_ROLES);
   if (auth.error) return auth.error;
 
-  // Aucune borne de date (options valables pour Programmées ET Historique) ;
+  // Aucune borne de date (options valables pour les collectes à venir ET passées) ;
   // tri date décroissante pour que la troncature `max_rows` garde le plus récent.
   const { data, error } = await createSupabaseServerClient()
     .from('collectes')

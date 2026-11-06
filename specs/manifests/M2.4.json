@@ -17,15 +17,15 @@
   "deliverables": [
     {
       "id": "BL-P0-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:156",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:151",
       "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts",
       "test": "association habilitée → mention fiscale article 238 bis CGI présente",
       "statut": "implemented",
-      "libelle": "template attestation 2041-GE + branche renderer : contenu §12 §1.3 (donateur, nom+adresse association, repas+poids, CO₂ évité + km voiture + méthodo FAO) + mention fiscale conditionnelle (habilitee_attestation_fiscale)"
+      "libelle": "template attestation 2041-GE + branche renderer : contenu §12 §1.3 (donateur, nom+adresse association, repas+poids, CO₂ évité + km voiture + méthodo FAO) + mention fiscale conditionnelle (habilitee_attestation_fiscale) ; titre imprimé « Rapport de don », « Attestation de don » en sous-titre (gabarit @3, livrable M2.4-rapport-de-don-titre-pdf)"
     },
     {
       "id": "BL-P0-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:23",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:21",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2/route.ts",
       "test": "M2.4 / facteurs-co2 / PUT → rpc_maj_facteurs_co2 avec colonnes réelles",
       "statut": "implemented",
@@ -33,7 +33,7 @@
     },
     {
       "id": "M2.4-co2-facteur-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:607",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:621",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2-ag/route.ts",
       "test": "M2.4 / facteurs-co2-ag / PUT → rpc_maj_facteur_co2_ag (facteur_co2_evite_par_repas_kg)",
       "statut": "implemented",
@@ -41,7 +41,7 @@
     },
     {
       "id": "M2.4-co2-mix-emballages",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:577",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:591",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/mix-emballages/route.ts",
       "test": "M2.4 / mix-emballages / PUT → rpc_maj_mix_emballages (part_pct)",
       "statut": "implemented",
@@ -49,7 +49,7 @@
     },
     {
       "id": "M2.4-co2-divers",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:583",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:597",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/co2/page.tsx",
       "test": "M2.4 / co2-divers / PUT → rpc_maj_co2_divers (key-value cle/valeur)",
       "statut": "implemented",
@@ -57,7 +57,7 @@
     },
     {
       "id": "M2.4-taux-recyclage",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:583",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:597",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/taux-recyclage/[filiere_id]/route.ts",
       "test": "M2_4__co2_params_rpc.test.sql :: taux_recyclage : 1 ligne d'historique tracée",
       "statut": "implemented",
@@ -65,7 +65,7 @@
     },
     {
       "id": "M2.4-co2-audit-rpc",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:583",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:597",
       "artefact": "supabase/migrations/20260624150000_plateforme_r3_co2_audit_rpc.sql",
       "test": "M2_4__co2_params_rpc.test.sql :: facteurs_co2 : 1 ligne d'historique tracée (auteur + commentaire)",
       "statut": "implemented",
@@ -81,7 +81,7 @@
     },
     {
       "id": "M2.4-p2-18-ag-attestation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:78",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:75",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts (branche AG) + packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts (disponibilité AG via attestations_don)",
       "test": "M2.4 / rapport RSE AG = attestation standalone (option a Val) : collecte AG → sert l'attestation ; embargo H+24 → 425",
       "statut": "implemented",
@@ -89,7 +89,7 @@
     },
     {
       "id": "M2.4-p2-20-attestation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:211",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:209",
       "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts (mention de régénération)",
       "test": "M2.4 / attestation de don — mention de régénération : présente uniquement si régénérée",
       "statut": "implemented",
@@ -97,11 +97,11 @@
     },
     {
       "id": "BL-P1-RPT-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:171",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:167",
       "artefact": "apps/pdf-renderer/src/templates/rapport-evenement-sans-excedent.ts + packages/shared/src/pdf/document-types.ts (type rapport-evenement-sans-excedent) + apps/pdf-renderer/src/render.ts + packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts (runBatchSansExcedent) + packages/plateforme/src/app/api/cron/batch-pdf-j1/route.ts + packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts (branche realisee_sans_collecte) + packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts (rapport_rse_disponible) + packages/plateforme/src/lib/pdf/regenerate.ts (DOC_ENTITY rapport-evenement-sans-excedent + regenere_at/version) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (régén Admin)",
       "test": "M2.4 / batch sans-excédent — génération (BL-P1-RPT-02) ; M2.4 / renderer — rapport « Événement sans excédent » §1.3-bis (BL-P1-RPT-02) ; M2.4 / download rapport sans-excédent (BL-P1-RPT-02) ; M2.4 / fiche collecte GET — disponibilité sans-excédent (BL-P1-RPT-02) ; M2.4 / régénération Admin rapport sans-excédent (BL-P1-RPT-02)",
       "statut": "implemented",
-      "libelle": "Rapport « Événement sans excédent alimentaire » §1.3-bis (AG realisee_sans_collecte) : nouveau type PDF `rapport-evenement-sans-excedent` texte seul (sans photos, sans watermark V1.1) — en-tête événement + logo cascade §1.2, bloc Constat (heure_debut_reelle + chauffeur + plaque si controle_acces_requis + motif), bloc Conséquences (mention fixe « aucune attestation 2041-GE, tarif normal » + réf facture). Génération : batch dédié nightly runBatchSansExcedent (décision Val 2026-07-07 : archi V1 batch vs CDC « immédiat » → cf. _Divergences M2.4_20260707_declencheur) SANS embargo H+24 (disponible_a=genere_at), porté par rapports_rse standard (pas de colonne discriminante) + shared.fichiers entity_type='plateforme.rapports_rse'. Download/dispo traiteur servent le rapport (pas d'attestation). Régénération Admin uniquement (§1.3-bis l.198, DOC_ENTITY regenerate.ts + regenere_at/version ; traiteur exclu 403). CDC cite tournees.heure_reelle_arrivee inexistant → heure_debut_reelle (cf. _Divergences M2.4_20260707_heure)."
+      "libelle": "Rapport « Événement sans excédent alimentaire » §1.3-bis (AG realisee_sans_collecte) : nouveau type PDF `rapport-evenement-sans-excedent` texte seul (sans photos, sans watermark V1.1) — en-tête événement + logo cascade §1.2, bloc Constat (heure_debut_reelle + chauffeur + plaque si controle_acces_requis + motif), bloc Conséquences (mention fixe « Aucun don n'ayant eu lieu, ce rapport ne vaut pas reçu fiscal », tarif normal + réf facture — phrase arbitrée par Val le 2026-10-13, CDC patché au sync du 2026-10-20 : cf. _Divergences/M2.4_20261013_rapport-de-don-pdf-fichier-email-cgu.md) ; titre imprimé « Rapport de don », « Événement sans excédent alimentaire » en sous-titre (gabarit @2, livrable M2.4-rapport-de-don-titre-pdf). Génération : batch dédié nightly runBatchSansExcedent (décision Val 2026-07-07 : archi V1 batch vs CDC « immédiat » → cf. _Divergences M2.4_20260707_declencheur) SANS embargo H+24 (disponible_a=genere_at), porté par rapports_rse standard (pas de colonne discriminante) + shared.fichiers entity_type='plateforme.rapports_rse'. Download/dispo traiteur servent le rapport (pas d'attestation). Régénération Admin uniquement (§1.3-bis l.198, DOC_ENTITY regenerate.ts + regenere_at/version ; traiteur exclu 403). CDC cite tournees.heure_reelle_arrivee inexistant → heure_debut_reelle (cf. _Divergences M2.4_20260707_heure)."
     },
     {
       "id": "BL-P1-RM-10",
@@ -112,8 +112,16 @@
       "libelle": "Correction volume aberrant AG : motif obligatoire sur correction (§06.09 l.183) + audit poids_repas_saisi_ops motivé ; régénération attestation (nouvelle version + re-enqueue jobs_pdf) assurée par trg_regenerer_attestation"
     },
     {
+      "id": "M2.4-poids-ag-saisie-fiche-admin",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:188",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Logistique : ligne « Poids collecté », bouton « Modifier », fenêtre de saisie branchée sur PATCH /api/v1/admin/attributions-ag/[collecteId]/poids) ; poids_repas_kg lu par GET /api/v1/admin/collectes/[id] ; poids corrigé imprimé sur le rapport de don refait : packages/plateforme/src/lib/pdf/logo-rapport-de-don.ts (completerLogoAttestation relit attestations_don.poids_kg)",
+      "test": "M0.6/poids_ag_saisie_admin, M0.6/poids_ag_correction_admin, M0.6/poids_ag_erreur_route (packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx) ; « poids corrigé » (packages/plateforme/tests/lib/logo-rapport-de-don.test.ts)",
+      "statut": "implemented",
+      "libelle": "Saisie manuelle du poids des denrées AG par l'équipe Savr depuis la fiche collecte Admin (collecte réalisée ou clôturée, hors « sans excédent ») : poids en kg, motif ≥ 10 caractères pour corriger un poids déjà posé (règle de la route /poids, BL-P1-RM-10) ; le nombre de repas réalisés en est calculé par trg_calc_volume_repas_realise (ceil(poids / poids_par_repas_kg)) et affiché en lecture seule ; rapport de don émis refait et CO₂e recalculé par trg_regenerer_attestation. Le rapport refait imprime le poids corrigé (le trigger reprenait celui de la version précédente dans le contenu du PDF)."
+    },
+    {
       "id": "M2.4-numero-rup-instantane",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1388",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1389",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",
       "test": "association AVEC n° RUP : instantané figé + mention transmise au Cerfa",
       "statut": "implemented",
@@ -121,18 +129,69 @@
     },
     {
       "id": "M2.4-siret-donateur-verifie",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2013",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2034",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",
       "test": "entité SIRET en_attente → attestation différée, AUCUN numéro consommé, alerte Ops in-app",
       "statut": "implemented",
       "libelle": "Attestation de don différée (aucun numéro ATT-DON alloué) + alerte Ops in-app attestation_ag_siret_donateur_manquant tant que l'entité de facturation du donateur n'a pas un SIRET vérifié — décision Val 2026-09-28 (la programmation n'exige plus de SIRET, _Divergences/M1.2_20260928)"
+    },
+    {
+      "id": "M2.4-batch-ag-sans-rapports-rse",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:75",
+      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts (l'ancienne étape 9, qui insérait une ligne rapports_rse pour chaque collecte AG attestée sans demander de rendu, est retirée ; la disponibilité est portée par `attestations_don.eligible_at`, instant d'émission depuis le 2026-11-04)",
+      "test": "packages/plateforme/tests/api/batch-pdf-j1-ag.m2-4.test.ts « M2.4 / BatchPdfJ1Ag / pas de rapports_rse pour une collecte AG »",
+      "statut": "implemented",
+      "libelle": "Batch AG : aucune ligne rapports_rse pour une collecte AG avec excédents — son seul document est l'attestation, affichée « Rapport de don » (décision Val 2026-10-09). Les lignes déjà créées restent en base, ignorées par les écrans."
+    },
+    {
+      "id": "M2.4-rapport-de-don-titre-pdf",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:169",
+      "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts + apps/pdf-renderer/src/templates/rapport-evenement-sans-excedent.ts + packages/shared/src/pdf/document-types.ts (TEMPLATE_VERSIONS : attestation-don@3, rapport-evenement-sans-excedent@2)",
+      "test": "M2.4 / renderer — titre imprimé « Rapport de don » des deux PDF AG ; apps/pdf-renderer/src/render.test.ts « bloc Conséquences : mention fixe (pas de reçu fiscal, tarif normal) »",
+      "statut": "implemented",
+      "libelle": "Titre imprimé des deux PDF d'une collecte AG : « Rapport de don » (décision Val 2026-10-13). Sous-titre « Attestation de don » sur la pièce fiscale, qui garde son numéro ATT-DON et ses mentions fiscales ; sous-titre « Événement sans excédent alimentaire » sur le rapport d'une collecte sans excédent, dont la phrase « Aucune attestation de don 2041-GE n'est générée » devient « Aucun don n'ayant eu lieu, ce rapport ne vaut pas reçu fiscal ». Les documents déjà produits ne sont pas régénérés (« Régénérer » au cas par cas depuis la fiche Admin)."
+    },
+    {
+      "id": "M2.4-rapport-de-don-nom-fichier",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:169",
+      "artefact": "packages/plateforme/src/lib/pdf/nom-fichier-rapport-de-don.ts + packages/plateforme/src/lib/pdf/r2-client.ts (getPresignedUrl, paramètre nomFichier) + packages/plateforme/src/lib/collectes/rapport-download.ts + packages/plateforme/src/app/api/v1/admin/attestations/[id]/download/route.ts + packages/plateforme/src/app/api/v1/admin/rapports-rse/[id]/download/route.ts + packages/plateforme/src/app/api/v1/organisateur/documents/[type]/[id]/download/route.ts",
+      "test": "M2.4 / nom de fichier « Rapport de don » — avec excédents ; M2.4 / nom de fichier « Rapport de don » — sans excédent ; M2.4 / nom de fichier du rapport d’une collecte ; packages/plateforme/src/lib/pdf/r2-client.test.ts « getPresignedUrl avec un nom de fichier », « getPresignedUrl ignore un nom de fichier hors motif sûr » ; M3.4/document_download_rapport_de_don_sans_excedent ; M3.4/document_download_rapport_de_don_attestation ; M3.4/document_download_rapport_de_don_nom_illisible ; packages/plateforme/tests/api/admin/attestations-download.m0-6.test.ts « M0.6 — hors embargo + PDF généré » ; packages/plateforme/tests/api/column-db-selects.test.ts « rapports-rse/:id/download : rapport d’une collecte AG sans excédent », « rapports-rse/:id/download : rapport de recyclage ZD → 409 (fabriqué au clic) », « organisateur/documents/bordereau/:id/download » ; packages/plateforme/tests/api/traiteur/sans-excedent-download.m2-4.test.ts « AG realisee_sans_collecte → sert rapports_rse », « AG cloturee → sert toujours l’attestation » ; packages/plateforme/tests/api/traiteur/fiche-collecte-trait03.m3-1.test.ts « M3.1/rapport_download_ok »",
+      "statut": "implemented",
+      "libelle": "Nom du fichier servi pour le document d'une collecte AG : « rapport-de-don-<numéro d'attestation>.pdf » avec excédents, « rapport-de-don-<date>-<événement>.pdf » sans excédent (décision Val 2026-10-13). Le nom est imposé à la signature de l'URL (en-tête Content-Disposition, « inline » : le document s'ouvre toujours dans l'onglet) ; le fichier stocké garde sa clé, aucun document déjà produit n'est renommé. Vaut pour les quatre téléchargements : fiche collecte des espaces traiteur, agence et gestionnaire, fiche Admin (attestation, rapport), page Documents du client organisateur. Un rapport de recyclage ZD et un bordereau gardent le nom de leur fichier stocké. Une lecture en échec du nom ne prive jamais du téléchargement ; elle est journalisée (code seul). Nom limité à 150 caractères et aux lettres, chiffres, points et tirets : au-delà, l'URL est signée sans nom."
+    },
+    {
+      "id": "M2.4-rapport-de-don-email-disponibilite",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:783",
+      "artefact": "supabase/migrations/20261013180000_plateforme_email_template_rapport_de_don.sql + packages/plateforme/src/lib/pdf/emails-documents-disponibles.ts (envoi unique à la clôture, Val 2026-11-04)",
+      "test": "emails « document disponible » à la clôture ; supabase/tests/email_template_rapport_de_don.test.sql « objet : », « variables citées (revue des emails 20261029150000) », « objet et corps : plus aucun » ; M2.4 / gabarit « rapport de don disponible » — migration 20261013180000",
+      "statut": "implemented",
+      "libelle": "Email de disponibilité du document d'une collecte AG avec excédents (gabarit `attestation_don_disponible`, code inchangé) : objet « Votre rapport de don est disponible — <événement> », corps avec la date de l'événement et un lien vers la fiche collecte de l'espace du programmeur (texte arbitré par Val le 2026-10-13, le CDC §06.02 n'en donnait pas). Le prénom du programmeur n'est repris que s'il appartient à l'organisation destinataire (« Bonjour, » sinon) ; un événement sans nom est appelé « Votre événement », comme dans l'email récapitulatif de programmation. L'email ne partait pas : le gabarit déclarait prenom, association_nom et lien_pdf, que le batch ne fournissait pas (savr-dev : 24 envois refusés le 2026-10-09, aucun email parti) ; il déclare désormais les variables que le batch fournit, et un test relit cette liste dans la migration. Une collecte AG sans excédent ne reçoit toujours aucun email (lot à part, décision Val 2026-10-13)."
+    },
+    {
+      "id": "M2.4-rapport-de-don-nom-pdf-fichier-email-cgu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:167-169",
+      "artefact": "packages/plateforme/src/content/cgu-v1.ts (définitions « Espace Client » et « Rapport de don », obligations de SAVR, Art. 24.8 : « Rapport de don » au lieu de « Attestation », aligné sur les CGU du Vault au sync du 2026-10-20)",
+      "test": "packages/plateforme/tests/ui/cgu.test.tsx « M0.4 — /cgu : le texte publié est celui du CDC »",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M2.4_20261013_rapport-de-don-pdf-fichier-email-cgu.md",
+      "libelle": "Document d'une collecte AG nommé « Rapport de don » partout, plus seulement à l'écran (décision Val 2026-10-13). Livrés : le titre imprimé des deux PDF (M2.4-rapport-de-don-titre-pdf), le nom des fichiers (M2.4-rapport-de-don-nom-fichier) et l'email de disponibilité (M2.4-rapport-de-don-email-disponibilite). Livrées au sync du 2026-10-20 : les CGU publiées (`packages/plateforme/src/content/cgu-v1.ts`), recopiées des CGU du Vault une fois celles-ci patchées ; `tests/ui/cgu.test.tsx` échoue si le texte publié s'en écarte (fiche _Divergences/M2.4_20261013_rapport-de-don-pdf-fichier-email-cgu.md, version gardée « v1 »)."
+    },
+    {
+      "id": "M2.4-sans-excedent-convives-de-la-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:177",
+      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts",
+      "test": "M2.4 / batch sans-excédent — convives de la collecte + M2.4 / renderer — rapport sans excédent : convives de la collecte",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
+      "libelle": "Rapport « Événement sans excédent alimentaire » : convives de LA collecte AG, plus ceux de l'événement (lot C2, décision Val Q5 du 2026-10-24) ; 0 convive (inconnu) → nb_pax null, la mention « N convives » est omise. L'attestation de don n'imprime pas de pax : rien à changer."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "dc7c7b63843f273b9144972c1a4822c32cbdd399da5e9d88b8bab759812f9aba",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "81b4328dfe14fa1e73ab8c37697f0222d02d73b73b74dfb6584e3f2fb0bd0518",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "a217d2a2fc80d1152d1bb6417705a8a5dd72dd09a5923415b96807803c2c27cb",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "65773f43050134ec19709eea830bf5cc266b269c516caf55dd2b656b75633ec7",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "87b52982e648da1cfe74d0cea8a049cda073c246dbc4252b0bb4cb4884804760"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "71a5aff3d68f1e2cd3712add634d51f0ddc97f94d758c1a2f2d36edcf5474cad",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "454cf1fef34eda6c8f510d347b1d5b2d580c6d90febf31d0bdacabe33bf322a3",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "d5b6f644aa60e3d7ca36d414cdec3c06d0a954545705e865b8e06f935929f678",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "5129aa28dc9794a842f435362a1103998993507bd90e45787125ab474413aecd",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de"
   }
 }

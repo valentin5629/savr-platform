@@ -136,15 +136,15 @@
     },
     {
       "id": "M4.1-export-collectes-gestionnaire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:365",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:370",
       "artefact": "packages/plateforme/src/lib/exports/shared.ts (EXPORT_MATRIX.collectes) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport) + packages/plateforme/src/lib/collectes-gestionnaire.ts",
       "test": "M4.1/export_collectes_gestionnaire_autorise + M4.1/export_collectes_gestionnaire_filtres_liste + M4.1/export_collectes_gestionnaire_filtre_illisible_vide + M4.1/export_collectes_filtres_gestionnaire_bornes_au_role",
       "statut": "implemented",
-      "libelle": "Export Collectes ouvert au gestionnaire de lieux (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md ; le CDC §12 l.365/l.387 le bornait au grain événement). Le rôle entre dans la matrice de l'export Collectes : même requête que les autres rôles clients, sous la RLS de sa session (jamais service_role), donc le périmètre de sa liste — ses programmations et les collectes tenues sur ses lieux. L'export lit en plus les filtres propres à sa liste (traiteurs, type et taille d'événement) par la même fonction que la route de la liste ; un filtre demandé dont aucune valeur n'est lisible rend un fichier sans ligne, sans envoyer la requête. Ces filtres sont bornés au rôle : les exports traiteur et agence gardent leur règle « valeur illisible = filtre ignoré »."
+      "libelle": "Export Collectes ouvert au gestionnaire de lieux (décision Val 2026-10-07, _Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md ; le CDC §12 l.365/l.387 le bornait au grain événement). Le rôle entre dans la matrice de l'export Collectes : même requête que les autres rôles clients, sous la RLS de sa session (jamais service_role), donc le périmètre de sa liste — ses programmations et les collectes tenues sur ses lieux. L'export lit en plus les filtres propres à sa liste (traiteurs, type et taille d'événement) par la même fonction que la route de la liste ; un filtre demandé dont aucune valeur n'est lisible rend un fichier sans ligne, sans envoyer la requête. Ces filtres sont bornés au rôle : les exports traiteur et agence gardent leur règle « valeur illisible = filtre ignoré ». Lot C1 (2026-10-24) : type et taille sont ceux de la COLLECTE, comme la liste (`.in('type_evenement_id')`, `.or()` sur collectes.pax) ; un identifiant de type mal formé rend un fichier sans ligne."
     },
     {
       "id": "M4.1-export-collectes-admin-filtres-liste",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:402",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:407",
       "artefact": "packages/plateforme/src/lib/collectes-admin.ts (lireFiltresCollectesAdmin + appliquerFiltresCollectesAdmin : lecture ET application des filtres de la liste Collectes Admin, appelées par GET /api/v1/admin/collectes et par l'export) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport, branche staff)",
       "test": "M4.1/export_collectes_admin_filtres_liste + M4.1/export_collectes_admin_sans_tri_ni_page + M4.1/export_collectes_filtres_admin_bornes_au_staff",
       "statut": "implemented",
@@ -152,14 +152,57 @@
     },
     {
       "id": "M4.1-export-collectes-lecture-par-tranches",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:365",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:370",
       "artefact": "packages/plateforme/src/lib/exports/shared.ts (lireParTranches) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport : requête reconstruite à chaque tranche, tri date_collecte puis id, total exact demandé ; repas AG du staff lus dans l'embed attributions_antgaspi)",
       "test": "M4.1/export_collectes_lecture_par_tranches + M4.1/export_collectes_total_absent_echec + staff : repas AG lus dans l’embed de la ligne",
       "statut": "implemented",
       "libelle": "Export Collectes complet au-delà du plafond de lignes de PostgREST (1 000 par réponse, mesuré sur savr-dev le 2026-10-07 : 2 010 lignes demandées, 1 000 servies). Le builder lit par tranches jusqu'au total exact annoncé par la requête, pour tous les rôles ; sans total, l'export échoue (500) plutôt que de rendre un fichier incomplet. Le staff est le premier rôle à dépasser 1 000 collectes (historique repris de Bubble). Repas AG du staff lus dans la ligne elle-même : l'ancienne lecture à part (in(collecte_id, …)) échouait sans erreur au-delà d'environ 250 collectes AG (URL trop longue, mesuré le même jour) et laissait la colonne vide. Les autres exports (pesées, événements, impact RSE, factures, packs) ne sont pas paginés par ce lot."
+    },
+    {
+      "id": "M4.1-export-sans-excedent-zero-repas",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:385",
+      "artefact": "packages/plateforme/src/lib/exports/builders.ts (repasAgExport, colonne « Repas AG » des exports Collectes et Impact RSE : 0 pour une collecte AG `realisee_sans_collecte`, jamais une cellule vide ; dans l'export Collectes, la colonne « Statut » la dit « Réalisée » via LIBELLE_STATUT_COLLECTE — l'export Impact RSE n'a pas de colonne « Statut »)",
+      "test": "M4.1/export_collectes_sans_excedent_zero_repas + M4.1/export_impact_rse_sans_excedent_zero_repas",
+      "statut": "implemented",
+      "libelle": "Exports CSV Collectes et Impact RSE : « Repas AG » = 0 pour une collecte AG sans excédent — c'est là que l'export garde l'information, l'export Collectes la disant « Réalisée » (arbitrage Val 2026-10-09 : « Repas AG = 0 »)"
+    },
+    {
+      "id": "M4.1-export-evenements-types-des-collectes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:394",
+      "artefact": "packages/plateforme/src/lib/exports/evenements.ts + packages/plateforme/src/lib/collectes/types-evenement-collectes.ts",
+      "test": "M4.1/export_evenements_type_des_collectes",
+      "statut": "implemented",
+      "libelle": "Export Événements, colonne « Type d'événement » (lot C1, Q2 Val 2026-10-24 « Types de ses collectes ») : les types de ses collectes non annulées, sans doublon, ordre de la collecte n°1 ; la copie de l'événement n'est qu'un repli. Taille et pax de la ligne restent ceux de l'événement (C4)."
+    },
+    {
+      "id": "M4.1-export-evenements-pax-de-l-evenement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:394",
+      "artefact": "packages/plateforme/src/lib/exports/evenements.ts (inchangé : evenements.pax et sa taille)",
+      "test": "Lot3/export_evenements_pax_et_taille_de_l_evenement",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "Export Événements : colonnes Taille et Pax = celles de l'ÉVÉNEMENT, son pax calculé (par jour le plus grand des totaux ZD et AG, puis somme des jours), et non la somme des pax de ses collectes (lot 3, décision Val Q4 du 2026-10-25). Rien à coder ; le test fige la décision."
+    },
+    {
+      "id": "M4.1-export-viparis-code-affaire-et-flux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:385",
+      "artefact": "packages/plateforme/src/lib/exports/shared.ts (lireCodesAffaireViparis, poidsParFlux, COLONNES_FLUX) + packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport) + packages/plateforme/src/lib/exports/evenements.ts",
+      "test": "VIPARIS/export_collectes_code_affaire_et_flux + VIPARIS/export_codes_par_lots + VIPARIS/export_codes_echec_500 + VIPARIS/export_evenements_code_affaire_et_flux",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M3.2_20261102_codes-viparis-site-affaire.md",
+      "libelle": "Exports Collectes et Événements (demande Val 2026-11-02) : colonne « Code affaire VIPARIS » (lue en service_role pour les seuls événements des lignes lues sous la RLS, par lots de 100) et cinq colonnes de poids par flux ZD juste après « Tonnage ZD (kg) » (Collectes : la collecte ZD, vides pour une AG ; Événements : cumul de ses collectes ZD). Repas donnés déjà présents (« Repas AG », « Repas AG donnés »)."
+    },
+    {
+      "id": "M4.1-export-evenements-code-site-viparis",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:394",
+      "artefact": "packages/plateforme/src/lib/exports/shared.ts (lireCodesViparis) + packages/plateforme/src/lib/exports/evenements.ts",
+      "test": "VIPARIS/export_evenements_code_site + VIPARIS/export_evenements_code_affaire_et_flux",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M4.1_20261103_export-evenements-code-site-viparis.md",
+      "libelle": "Export Événements (demande Val 2026-11-03) : colonne « Code site VIPARIS » juste après « Lieu » (code site du lieu de l'événement, vide hors VIPARIS), lue en service_role avec le code affaire, en une lecture par lot de 100 événements lus sous la RLS du demandeur."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "87b52982e648da1cfe74d0cea8a049cda073c246dbc4252b0bb4cb4884804760"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de"
   }
 }

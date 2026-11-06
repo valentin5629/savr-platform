@@ -1,7 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { CalendarDays, ChevronDown, Clock } from 'lucide-react';
+import {
+  CalendarDotsIcon,
+  CaretDownIcon,
+  ClockIcon,
+} from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -108,7 +112,7 @@ const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
                 bordureChamp(error, open),
               )}
             >
-              <CalendarDays
+              <CalendarDotsIcon
                 className="h-4 w-4 shrink-0 text-savr-neutral-400"
                 aria-hidden="true"
               />
@@ -120,7 +124,7 @@ const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
               >
                 {selection ? formatJourLong(selection) : placeholder}
               </span>
-              <ChevronDown
+              <CaretDownIcon
                 className="h-4 w-4 shrink-0 text-savr-neutral-400"
                 aria-hidden="true"
               />
@@ -172,7 +176,7 @@ const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
                 bordureChamp(error),
               )}
             />
-            <Clock
+            <ClockIcon
               className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400"
               aria-hidden="true"
             />

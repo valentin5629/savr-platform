@@ -245,46 +245,50 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
             ? reponse(200, { url: 'https://r2.example/rapport.pdf' })
             : String(url).startsWith('/api/v1/gestionnaire/collectes/c1')
               ? reponse(200, { data: ficheClient() })
-              : reponse(200, {
-                  data: [
-                    LIGNES[0],
-                    {
-                      id: 'zd/1',
-                      type: 'zero_dechet',
-                      statut: 'cloturee',
-                      date_collecte: '2026-10-11',
-                      heure_collecte: '22:00:00',
-                      evenement_nom: null,
-                      lieu_nom: 'Musée des Arts Forains',
-                      lieu_adresse:
-                        '53 Avenue des Terroirs de France 75012 Paris',
-                      client_nom: null,
-                      traiteur_nom: 'Fleurdemets',
-                      pax: 500,
-                      poids_total_kg: 412.5,
-                      taux_recyclage: 87,
-                      co2_evite_kg: 96,
-                      nb_repas_donnes: null,
-                    },
-                    {
-                      id: 'ag-1',
-                      type: 'anti_gaspi',
-                      statut: 'cloturee',
-                      date_collecte: '2026-10-04',
-                      heure_collecte: '23:00:00',
-                      evenement_nom: null,
-                      lieu_nom: 'Paris Nord Villepinte',
-                      lieu_adresse: null,
-                      client_nom: null,
-                      traiteur_nom: 'Kaspia Réceptions',
-                      pax: 238,
-                      poids_total_kg: 0,
-                      taux_recyclage: null,
-                      co2_evite_kg: 450,
-                      nb_repas_donnes: 180,
-                    },
-                  ],
-                }),
+              : String(url).startsWith('/api/v1/gestionnaire/collectes/zd%2F1')
+                ? reponse(200, {
+                    data: ficheClient({ id: 'zd/1', statut: 'cloturee' }),
+                  })
+                : reponse(200, {
+                    data: [
+                      LIGNES[0],
+                      {
+                        id: 'zd/1',
+                        type: 'zero_dechet',
+                        statut: 'cloturee',
+                        date_collecte: '2026-10-11',
+                        heure_collecte: '22:00:00',
+                        evenement_nom: null,
+                        lieu_nom: 'Musée des Arts Forains',
+                        lieu_adresse:
+                          '53 Avenue des Terroirs de France 75012 Paris',
+                        client_nom: null,
+                        traiteur_nom: 'Fleurdemets',
+                        pax: 500,
+                        poids_total_kg: 412.5,
+                        taux_recyclage: 87,
+                        co2_evite_kg: 96,
+                        nb_repas_donnes: null,
+                      },
+                      {
+                        id: 'ag-1',
+                        type: 'anti_gaspi',
+                        statut: 'cloturee',
+                        date_collecte: '2026-10-04',
+                        heure_collecte: '23:00:00',
+                        evenement_nom: null,
+                        lieu_nom: 'Paris Nord Villepinte',
+                        lieu_adresse: null,
+                        client_nom: null,
+                        traiteur_nom: 'Kaspia Réceptions',
+                        pax: 238,
+                        poids_total_kg: 0,
+                        taux_recyclage: null,
+                        co2_evite_kg: 450,
+                        nb_repas_donnes: 180,
+                      },
+                    ],
+                  }),
         ),
       );
       vi.stubGlobal('fetch', fetchMock);
@@ -323,10 +327,10 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       expect(within(ligneAg).getByText('180 repas')).toBeTruthy();
       expect(within(ligneAg).getByText(/450\s*kg CO₂e/)).toBeTruthy();
 
-      // Téléchargement du rapport : route gestionnaire, id encodé, sans ouvrir
-      // la fiche (cellule interactive).
+      // Rapport de don AG : téléchargé directement (fichier stocké), route
+      // gestionnaire, sans ouvrir la fiche (cellule interactive).
       fireEvent.click(
-        within(ligneZd).getByRole('button', {
+        within(ligneAg).getByRole('button', {
           name: 'Télécharger le rapport de la collecte',
         }),
       );
@@ -337,9 +341,32 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         ),
       );
       expect(fetchMock.mock.calls.map(([u]) => String(u))).toContain(
-        '/api/v1/gestionnaire/collectes/zd%2F1/rapport-rse/download',
+        '/api/v1/gestionnaire/collectes/ag-1/rapport-rse/download',
       );
       expect(replace).not.toHaveBeenCalled();
+
+      // Rapport de recyclage ZD : il se fabrique dans la fiche, où l'on choisit
+      // le radar — le picto l'ouvre sur « Bilan & documents » (Val 2026-10-16),
+      // id encodé dans l'URL, aucun téléchargement direct.
+      fireEvent.click(
+        within(ligneZd).getByRole('button', {
+          name: 'Télécharger le rapport de la collecte',
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(String(replace.mock.calls.at(-1)?.[0])).toContain(
+          'collecte=zd%2F1',
+        ),
+      );
+      const ongletBilan = await screen.findByRole(
+        'tab',
+        { name: 'Bilan & documents' },
+        ATTENTE_UI,
+      );
+      expect(ongletBilan.getAttribute('aria-selected')).toBe('true');
+      expect(fetchMock.mock.calls.map(([u]) => String(u))).not.toContain(
+        '/api/v1/gestionnaire/collectes/zd%2F1/rapport-rse/download',
+      );
 
       // Collecte non réalisée : pas de résultats ; aucun picto d'action
       // (Modifier / Annuler / Dupliquer) sur aucune ligne.
@@ -678,8 +705,8 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
 
-      // Tri par défaut = celui de la route (date décroissante).
-      expect(urls[0]).toContain('tri=date&ordre=desc');
+      // Tri par défaut = celui de la vue « à venir » : la plus proche d'abord.
+      expect(urls[0]).toContain('tri=date&ordre=asc');
 
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
@@ -698,6 +725,74 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       const derniere = urls[urls.length - 1]!;
       expect(derniere).toMatch(/tri=statut&ordre=/);
       expect(derniere).not.toContain('page=');
+
+      // Changer de vue reprend son tri : « passées », la plus récente d'abord.
+      await act(async () => {
+        fireEvent.mouseDown(
+          screen.getByRole('tab', { name: 'Collectes passées' }),
+        );
+      });
+      expect(urls[urls.length - 1]).toContain('tri=date&ordre=desc');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_vues_a_venir_passees_par_date — « à venir » par défaut (aujourd’hui et après, date croissante), « passées » (avant aujourd’hui, date décroissante)',
+    async () => {
+      // Horloge seule figée (minuteries réelles) : 8 juillet 2026, 10 h à Paris.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-08T08:00:00Z'));
+      try {
+        const urls = fetchEspion({ data: LIGNES, total: LIGNES.length });
+        render(<CollectesPage />);
+        await screen.findByRole('table', {}, ATTENTE_UI);
+
+        // Les deux vues sont en tête de barre, « à venir » sélectionnée.
+        expect(
+          screen.getByRole('tab', { name: 'Collectes à venir' }),
+        ).toHaveAttribute('aria-selected', 'true');
+        // Liste paginée : la borne ET le sens du tri partent au serveur, sinon
+        // la page 1 ne montrerait pas les collectes les plus proches.
+        const aVenir = new URLSearchParams(
+          urls[urls.length - 1]!.split('?')[1],
+        );
+        expect(aVenir.get('from')).toBe('2026-07-08');
+        expect(aVenir.get('to')).toBeNull();
+        // Aujourd'hui est tranché à la minute par la route (Val 2026-11-03).
+        expect(aVenir.get('vue')).toBe('a_venir');
+        expect(aVenir.get('tri')).toBe('date');
+        expect(aVenir.get('ordre')).toBe('asc');
+
+        await act(async () => {
+          fireEvent.mouseDown(
+            screen.getByRole('tab', { name: 'Collectes passées' }),
+          );
+        });
+        const passees = new URLSearchParams(
+          urls[urls.length - 1]!.split('?')[1],
+        );
+        expect(passees.get('to')).toBe('2026-07-08');
+        expect(passees.get('vue')).toBe('passees');
+        expect(passees.get('from')).toBeNull();
+        expect(passees.get('ordre')).toBe('desc');
+        expect(new URLSearchParams(window.location.search).get('onglet')).toBe(
+          'passees',
+        );
+
+        // L'export CSV suit la vue : même borne que la liste.
+        const ouvrir = vi.fn();
+        vi.stubGlobal('open', ouvrir);
+        fireEvent.click(screen.getByRole('button', { name: /Exporter CSV/ }));
+        const exportQs = new URLSearchParams(
+          String(ouvrir.mock.calls.at(-1)?.[0] ?? '').split('?')[1],
+        );
+        expect(exportQs.get('to')).toBe('2026-07-08');
+        expect(exportQs.get('vue')).toBe('passees');
+        expect(exportQs.get('from')).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
     },
     ATTENTE_CAS_MS,
   );
@@ -1054,8 +1149,9 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         id: 'L1',
         label: 'Pavillon Royal',
       });
+      // Lien du dashboard : il ouvre la vue « Collectes passées ».
       urlParams.current =
-        'lieu=L1&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&taille_evenements[]=M';
+        'lieu=L1&onglet=passees&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&taille_evenements[]=M';
       const urls = fetchEspion(TROIS_LIGNES);
       render(<CollectesPage />);
       await screen.findByRole('table', {}, ATTENTE_UI);
@@ -1075,7 +1171,9 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       expect(apres).not.toContain('lieu_id');
       expect(apres).not.toContain('type_evenement_ids');
       expect(apres).not.toContain('taille_evenements');
+      // La vue reste « passées » : plus de début de période, la fin = hier.
       expect(apres).not.toContain('from=');
+      expect(apres).not.toContain('to=2026-06-30');
       expect(chip()).toBeNull();
     },
     ATTENTE_CAS_MS,

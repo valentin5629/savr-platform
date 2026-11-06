@@ -5,6 +5,10 @@ import {
   isChipKey,
   type ChipQuery,
 } from '@/lib/collectes-chips.js';
+import {
+  creneauDeLaVue,
+  lireVueCollectes,
+} from '@/lib/collectes/vue-temporelle.js';
 import { estUuid, listeCsv, parmi } from '@/lib/filtre-csv.js';
 import { filtreStatutsAdmin } from '@/lib/statut-collecte-admin.js';
 
@@ -38,6 +42,9 @@ export function lireFiltresCollectesAdmin(sp: URLSearchParams) {
     chip: sp.get('chip'),
     from: sp.get('from'),
     to: sp.get('to'),
+    // Vue « à venir / passées » : rangée au créneau, à la minute (Val
+    // 2026-11-03). Absente sous une pastille « à venir » (file d'action).
+    vue: lireVueCollectes(sp.get('vue')),
     organisationId: sp.get('organisation_id'), // organisation programmatrice
     // Filtre « traiteur » = traiteur OPÉRATIONNEL (décision Val R24c : un
     // traiteur = son activité d'opérateur, y compris sous-traité pour une
@@ -54,7 +61,8 @@ export function lireFiltresCollectesAdmin(sp: URLSearchParams) {
     lieuIds: listeCsv(sp.get('lieu_ids'), estUuid),
     lieuId: sp.get('lieu_id'),
     infoIncomplete: sp.get('info_incomplete') === 'true',
-    // « Infos accès à envoyer » = contrôle d'accès requis ET email non envoyé
+    // « Infos accès à envoyer » = contrôle d'accès requis ET aucun envoi de
+    // l'email réservé (tampon posé AVANT l'envoi, retiré si l'email est perdu)
     // ET à venir.
     controleAcces: sp.get('controle_acces') === 'true',
     rapportNonConsulte: sp.get('rapport_non_consulte') === 'true',
@@ -86,11 +94,14 @@ interface RequeteCollectes {
  * et, quand `rapportNonConsulte` est demandé, `rapports_rse` en `!inner` — sans
  * cet embed PostgREST refuse la requête, il ne l'élargit pas.
  * `now` est injecté pour les fenêtres 48 h des pastilles et « à venir ».
+ * `idsEnvoiAbandonne` : collectes à l'ordre de création abandonné, rangées
+ * sous « Créée » (`lireCollectesEnvoiAbandonne`, décision Val 2026-11-02).
  */
 export function appliquerFiltresCollectesAdmin<Q>(
   requete: Q,
   f: FiltresCollectesAdmin,
   now: Date,
+  idsEnvoiAbandonne: readonly string[] = [],
 ): Q {
   let q = requete as unknown as RequeteCollectes;
 
@@ -106,7 +117,7 @@ export function appliquerFiltresCollectesAdmin<Q>(
   // n'apparaît dans aucune liste Admin (décision Val 2026-10-07).
   q = q.neq('statut', 'brouillon');
   if (f.statutsDemandes.length > 0) {
-    const filtre = filtreStatutsAdmin(f.statutsDemandes);
+    const filtre = filtreStatutsAdmin(f.statutsDemandes, idsEnvoiAbandonne);
     // Rien de valide demandé (clé inconnue, brouillon) : aucune ligne, jamais
     // une liste élargie.
     if (!filtre) q = q.in('statut', []);
@@ -118,6 +129,7 @@ export function appliquerFiltresCollectesAdmin<Q>(
   if (f.statutTms) q = q.eq('statut_tms', f.statutTms);
   if (f.from) q = q.gte('date_collecte', f.from);
   if (f.to) q = q.lte('date_collecte', f.to);
+  if (f.vue) q = q.or(creneauDeLaVue(f.vue, now));
   if (f.organisationId)
     q = q.eq('evenements.organisation_id', f.organisationId);
   if (f.traiteurOperationnelIds.length > 0)
@@ -141,14 +153,22 @@ export function appliquerFiltresCollectesAdmin<Q>(
   else if (f.lieuId) q = q.eq('evenements.lieu_id', f.lieuId);
   if (f.infoIncomplete) q = q.eq('informations_completes', false);
   // Miroir EXACT du compteur KPI `controle_acces_a_envoyer` (chip-counts) :
-  // requis ET email récap non encore envoyé ET à venir → compteur = liste.
+  // requis ET aucun envoi de l'email récap réservé ET à venir → compteur = liste.
   if (f.controleAcces) {
     q = q
       .eq('controle_acces_requis', true)
       .is('infos_acces_email_envoye_at', null)
       .gte('date_collecte', jourParis(now));
   }
-  if (f.rapportNonConsulte) q = q.is('rapports_rse.consulte_par_user_at', null);
+  if (f.rapportNonConsulte) {
+    // Seules les collectes qui ont un rapport : ZD, et AG sans excédents. Une
+    // collecte AG avec excédents n'en a pas (son document est l'attestation de
+    // don), même si une ligne rapports_rse existe en base pour elle — même règle
+    // que l'indicateur de la liste (components/admin/collectes-table).
+    q = q
+      .is('rapports_rse.consulte_par_user_at', null)
+      .or('type.eq.zero_dechet,statut.eq.realisee_sans_collecte');
+  }
 
   return q as unknown as Q;
 }

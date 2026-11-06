@@ -84,9 +84,24 @@ const EXCEPTIONS: Record<string, { garde: RegExp | null; raison: string }> = {
     garde: /auth\.getUser\(/,
     raison: 'session de recovery GoTrue',
   },
+  'auth/invitation': {
+    garde: /\blireEtatInvitation\(/,
+    raison:
+      'choix du mot de passe depuis le lien d’invitation (jeton signé, 7 jours, nonce à usage unique)',
+  },
   'auth/exit-impersonation': {
     garde: /auth\.getUser\(/,
     raison: 'session impersonée',
+  },
+  // Code de vérification : acceptent une session de l'équipe Savr SANS code
+  // (getVerifiedClaims la refuse), et refusent tout autre rôle.
+  'auth/code-verification/activation': {
+    garde: /\blireSessionCodeVerification\([\s\S]*\bexigeCodeVerification\(/,
+    raison: 'session sans code, équipe Savr seule (lib/code-verification.ts)',
+  },
+  'auth/code-verification/verification': {
+    garde: /\blireSessionCodeVerification\([\s\S]*\bexigeCodeVerification\(/,
+    raison: 'session sans code, équipe Savr seule (lib/code-verification.ts)',
   },
   // Sondes : liveness publique (Better Uptime), détail réservé staff.
   health: { garde: null, raison: 'liveness Better Uptime, sans donnée' },
@@ -105,6 +120,12 @@ const EXCEPTIONS: Record<string, { garde: RegExp | null; raison: string }> = {
   'webhooks/everest': {
     garde: /\btimingSafeEqual\(/,
     raison: 'jeton X-Webhook-Token',
+  },
+  // Notifications MTS-1 (étape 1 : enregistrement seul, aucun effet métier).
+  // Refuse tout tant que MTS1_WEBHOOK_TOKEN n'est pas posé.
+  'webhooks/mts1/[[...chemin]]': {
+    garde: /\btimingSafeEqual\(/,
+    raison: 'jeton X-Mts1-Webhook-Token',
   },
 };
 

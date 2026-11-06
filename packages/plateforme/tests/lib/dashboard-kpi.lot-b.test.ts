@@ -1,70 +1,125 @@
-// Régression Lot B — M3 : le PAX ne doit pas être double-compté quand un
-// événement a 2+ collectes (dédup par evenement_id, comme v_kpi_traiteur).
+// KPI des dashboards — pax des COLLECTES (lot 3, décisions Val Q1 et Q2 du
+// 2026-10-25). Remplace le dédoublonnage par événement du lot B : chaque collecte
+// compte ses propres convives, et une collecte à 0 convive (reprise Bubble) sort
+// du numérateur ET du dénominateur des ratios par pax.
+// Les lignes portent aussi le pax de leur ÉVÉNEMENT, celui que lisait l'ancien
+// calcul : chaque test rougit s'il revient au pax de l'événement.
 import { describe, expect, it } from 'vitest';
 
 import {
   computeDashboardKpi,
-  paxTotalEvenementsDistincts,
+  paxCumules,
+  ratioParPax,
   type DashboardCollecteRow,
 } from '../../src/lib/dashboard-kpi.js';
 
-describe('Lot B / M3 — dédup PAX par événement', () => {
-  it('paxTotalEvenementsDistincts : un événement à 2 collectes ne compte qu’une fois', () => {
-    const rows: DashboardCollecteRow[] = [
-      { evenements: { id: 'ev1', pax: 100 } },
-      { evenements: { id: 'ev1', pax: 100 } }, // 2e collecte du MÊME événement
-      { evenements: { id: 'ev2', pax: 50 } },
-    ];
-    // Avant le fix : 100 + 100 + 50 = 250. Après : 100 + 50 = 150.
-    expect(paxTotalEvenementsDistincts(rows)).toBe(150);
-  });
+type Ligne = DashboardCollecteRow & {
+  evenements: { id: string; pax: number };
+};
+const lignes = (rows: Ligne[]): DashboardCollecteRow[] =>
+  rows as unknown as DashboardCollecteRow[];
 
-  it('ZD : kg_par_pax utilise le pax dédupliqué (pas gonflé)', () => {
-    const rows: DashboardCollecteRow[] = [
-      {
-        evenements: { id: 'ev1', pax: 200 },
-        collecte_flux: [{ poids_reel_kg: 300 }],
-        taux_recyclage: 80,
-      },
-      {
-        evenements: { id: 'ev1', pax: 200 }, // même événement
-        collecte_flux: [{ poids_reel_kg: 100 }],
-        taux_recyclage: 80,
-      },
-    ];
-    const kpi = computeDashboardKpi(rows, 'zero_dechet');
-    // tonnage = 400 ; pax distinct = 200 (pas 400) → kg/pax = 2 (et non 1)
-    expect(kpi).toMatchObject({ nb_collectes: 2, tonnage_kg: 400 });
-    expect((kpi as { kg_par_pax: number }).kg_par_pax).toBeCloseTo(2, 5);
-  });
-
-  it('AG : repas_par_pax utilise le pax dédupliqué', () => {
-    const rows: DashboardCollecteRow[] = [
-      {
-        evenements: { id: 'ev1', pax: 100 },
-        attributions_antgaspi: [{ volume_repas_realise: 30 }],
-      },
-      {
-        evenements: { id: 'ev1', pax: 100 }, // même événement
-        attributions_antgaspi: [{ volume_repas_realise: 20 }],
-      },
-    ];
-    const kpi = computeDashboardKpi(rows, 'anti_gaspi');
-    // repas = 50 ; pax distinct = 100 (pas 200) → repas/pax = 0.5 (et non 0.25)
-    expect(kpi).toMatchObject({ nb_repas_donnes: 50, pax_total: 100 });
+describe('Lot 3 / KPI — pax des collectes', () => {
+  it('Lot3/kpi_pax_deux_soirees — deux collectes d’un événement de deux soirées s’additionnent (300 + 200), pas le pax de l’événement', () => {
+    const rows = lignes([
+      { pax: 300, evenements: { id: 'ev1', pax: 500 } },
+      { pax: 200, evenements: { id: 'ev1', pax: 500 } },
+    ]);
+    expect(paxCumules(rows)).toBe(500);
+    const kpi = computeDashboardKpi(
+      lignes([
+        {
+          pax: 300,
+          evenements: { id: 'ev1', pax: 800 },
+          attributions_antgaspi: [{ volume_repas_realise: 60 }],
+        },
+      ]),
+      'anti_gaspi',
+    );
+    // Onglet AG d'un événement dont la ZD du même soir comptait 800 convives :
+    // seuls les 300 de la collecte AG entrent.
+    expect(kpi).toMatchObject({ pax_total: 300, nb_repas_donnes: 60 });
     expect((kpi as { repas_par_pax: number }).repas_par_pax).toBeCloseTo(
-      0.5,
+      0.2,
       5,
     );
   });
 
-  it('événements distincts : pax sommés normalement', () => {
-    const rows: DashboardCollecteRow[] = [
-      { evenements: { id: 'ev1', pax: 100 } },
-      { evenements: { id: 'ev2', pax: 200 } },
-      { evenements: { id: 'ev3', pax: 300 } },
-    ];
-    expect(paxTotalEvenementsDistincts(rows)).toBe(600);
+  it('Lot3/kpi_zd_kg_par_pax_filtre_partiel — filtre Type ou Taille qui ne retient qu’une soirée : kg/pax sur ses 300 convives, pas les 800 de l’événement (I5)', () => {
+    const rows = lignes([
+      {
+        pax: 300,
+        evenements: { id: 'ev1', pax: 800 },
+        collecte_flux: [{ poids_reel_kg: 600 }],
+        taux_recyclage: 80,
+      },
+    ]);
+    const kpi = computeDashboardKpi(rows, 'zero_dechet');
+    expect(kpi).toMatchObject({ nb_collectes: 1, tonnage_kg: 600 });
+    expect((kpi as { kg_par_pax: number }).kg_par_pax).toBeCloseTo(2, 5);
+  });
+
+  it('Lot3/kpi_zd_collecte_sans_convives_ecartee — tonnage complet, mais le kg/pax écarte le poids et le pax de la collecte à 0 convive', () => {
+    const rows = lignes([
+      {
+        pax: 200,
+        evenements: { id: 'ev1', pax: 200 },
+        collecte_flux: [{ poids_reel_kg: 300 }],
+      },
+      {
+        pax: 100,
+        evenements: { id: 'ev2', pax: 100 },
+        collecte_flux: [{ poids_reel_kg: 100 }],
+      },
+      {
+        pax: 0,
+        evenements: { id: 'ev3', pax: 0 },
+        collecte_flux: [{ poids_reel_kg: 50 }],
+      },
+    ]);
+    const kpi = computeDashboardKpi(rows, 'zero_dechet');
+    expect(kpi).toMatchObject({ nb_collectes: 3, tonnage_kg: 450 });
+    // (300 + 100) / (200 + 100), et non 450 / 300
+    expect((kpi as { kg_par_pax: number }).kg_par_pax).toBeCloseTo(
+      400 / 300,
+      5,
+    );
+  });
+
+  it('Lot3/kpi_ag_collecte_sans_convives_ecartee — repas donnés complets, mais le repas/pax écarte la collecte à 0 convive', () => {
+    const rows = lignes([
+      {
+        pax: 100,
+        evenements: { id: 'ev1', pax: 100 },
+        attributions_antgaspi: [{ volume_repas_realise: 30 }],
+      },
+      {
+        pax: 0,
+        evenements: { id: 'ev1', pax: 100 },
+        attributions_antgaspi: [{ volume_repas_realise: 20 }],
+      },
+    ]);
+    const kpi = computeDashboardKpi(rows, 'anti_gaspi');
+    expect(kpi).toMatchObject({ nb_repas_donnes: 50, pax_total: 100 });
+    expect((kpi as { repas_par_pax: number }).repas_par_pax).toBeCloseTo(
+      0.3,
+      5,
+    );
+  });
+
+  it('Lot3/kpi_ratio_aucun_convive — aucune collecte à convives connus : ratio absent (null), jamais une division par 0', () => {
+    const rows = lignes([
+      {
+        pax: 0,
+        evenements: { id: 'ev1', pax: 400 },
+        collecte_flux: [{ poids_reel_kg: 80 }],
+      },
+    ]);
+    expect(ratioParPax(rows, () => 80)).toBeNull();
+    expect(
+      (computeDashboardKpi(rows, 'zero_dechet') as { kg_par_pax: unknown })
+        .kg_par_pax,
+    ).toBeNull();
   });
 });
 
@@ -78,12 +133,12 @@ describe('AG — embed attributions_antgaspi to-one (objet PostgREST)', () => {
   it('objet unique : repas comptés, aucun crash', () => {
     const rows: DashboardCollecteRow[] = [
       {
-        evenements: { id: 'ev1', pax: 100 },
+        pax: 100,
         // ⚠ OBJET, pas tableau — forme réelle renvoyée par PostgREST.
         attributions_antgaspi: { volume_repas_realise: 30 },
       },
       {
-        evenements: { id: 'ev2', pax: 50 },
+        pax: 50,
         attributions_antgaspi: { volume_repas_realise: 20 },
       },
     ];
@@ -98,15 +153,15 @@ describe('AG — embed attributions_antgaspi to-one (objet PostgREST)', () => {
   it('formes objet et tableau mélangées : somme cohérente', () => {
     const rows: DashboardCollecteRow[] = [
       {
-        evenements: { id: 'ev1', pax: 100 },
+        pax: 100,
         attributions_antgaspi: { volume_repas_realise: 30 }, // objet
       },
       {
-        evenements: { id: 'ev2', pax: 100 },
+        pax: 100,
         attributions_antgaspi: [{ volume_repas_realise: 20 }], // tableau
       },
       {
-        evenements: { id: 'ev3', pax: 100 },
+        pax: 100,
         attributions_antgaspi: null, // aucune attribution
       },
     ];

@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { ChartCard } from './ChartCard';
+import { delaiEntree, useEntreeGraphique } from '../entree-graphique';
+import { cn } from '@/lib/utils';
 import { initiales } from './fmt';
 import { RANK, TINT, TRACK } from './palette';
 import { Text } from '@/components/ui/text';
@@ -57,6 +59,9 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
     },
     ref,
   ) => {
+    const entree = useEntreeGraphique<HTMLDivElement>(
+      `top:${title}:${subtitle ?? ''}`,
+    );
     const tint = TINT[avatarTint];
     const avatarRadius =
       avatarShape === 'round' ? 'rounded-savr-full' : 'rounded-savr-md';
@@ -67,7 +72,10 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
           {items.length === 0 ? (
             <EmptyState size="inline" title="Aucune donnée sur la période." />
           ) : (
-            <div className="flex flex-col gap-3.5">
+            <div
+              ref={entree.ref}
+              className={cn('flex flex-col gap-3.5', entree.classe)}
+            >
               {items.map((item, i) => {
                 const color = rankColor(i);
                 const hasBar = showBar && item.barPct != null;
@@ -117,7 +125,9 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
                           style={{ background: TRACK }}
                         >
                           <div
+                            data-entree="deploie"
                             style={{
+                              ...delaiEntree(i, items.length),
                               width: `${item.barPct}%`,
                               height: 6,
                               background: color,

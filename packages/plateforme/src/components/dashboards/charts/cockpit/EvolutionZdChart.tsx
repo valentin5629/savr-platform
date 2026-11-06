@@ -6,6 +6,8 @@ import type { FluxSeriePoint } from '@/components/dashboards/useEvolutionBlocs';
 import type { Granularite } from '../types';
 import { formatPeriode } from '../format';
 import { ChartCard } from './ChartCard';
+import { delaiEntree, useEntreeGraphique } from '../entree-graphique';
+import { courbeLissee } from '../courbe';
 import { fmtInt, fmtDec } from './fmt';
 import {
   TEXT_MUTED,
@@ -58,6 +60,7 @@ const EvolutionZdChart = React.forwardRef<
   EvolutionZdChartProps
 >(({ series, granularite }, ref) => {
   const [hidden, setHidden] = React.useState<Set<string>>(new Set());
+  const entree = useEntreeGraphique<SVGSVGElement>('evolution-zd');
   // Survol au grain FLUX (segment de couleur), pas la barre entière (retour Val).
   // `midY` = centre vertical du segment survolé (unités viewBox) → ancre le
   // tooltip à côté de la barre, jamais au-dessus du graphe (retour Val R24b).
@@ -119,6 +122,8 @@ const EvolutionZdChart = React.forwardRef<
         <>
           <div className="relative">
             <svg
+              ref={entree.ref}
+              className={entree.classe}
               viewBox={`0 0 ${VBW} ${VBH}`}
               width="100%"
               style={{ display: 'block', maxHeight: 340 }}
@@ -177,7 +182,11 @@ const EvolutionZdChart = React.forwardRef<
                 const visible = STACK.filter((f) => !hidden.has(f.code));
                 let yCursor = BASE;
                 return (
-                  <g key={p.periode}>
+                  <g
+                    key={p.periode}
+                    data-entree="monte"
+                    style={delaiEntree(i, series.length)}
+                  >
                     {visible.map((f, vi) => {
                       const val =
                         Number(p[f.code as keyof FluxSeriePoint]) || 0;
@@ -242,11 +251,9 @@ const EvolutionZdChart = React.forwardRef<
 
               {/* courbe taux de recyclage (fine) — masquable via la légende */}
               {ratePts.length > 0 && !hidden.has(TAUX) && (
-                <>
-                  <polyline
-                    points={ratePts
-                      .map((pt) => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`)
-                      .join(' ')}
+                <g data-entree="balaye" data-serie="taux">
+                  <path
+                    d={courbeLissee(ratePts)}
                     fill="none"
                     stroke={TAUX_RECYCLAGE_COLOR}
                     strokeWidth={1}
@@ -288,7 +295,7 @@ const EvolutionZdChart = React.forwardRef<
                       }
                     />
                   ))}
-                </>
+                </g>
               )}
 
               {/* étiquettes X */}

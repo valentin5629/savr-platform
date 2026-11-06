@@ -2,7 +2,12 @@
 
 import * as React from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Search, User, PlusCircle, Check } from 'lucide-react';
+import {
+  CheckIcon,
+  MagnifyingGlassIcon,
+  PlusCircleIcon,
+  UserIcon,
+} from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -80,7 +85,7 @@ export function ContactCombobox({
           className={cn('justify-between', className)}
         >
           <span className="flex items-center gap-2 min-w-0">
-            <User className="h-4 w-4 text-savr-neutral-400 shrink-0" />
+            <UserIcon className="h-4 w-4 text-savr-neutral-400 shrink-0" />
             {displayLabel ? (
               <span className="truncate">{displayLabel}</span>
             ) : (
@@ -96,7 +101,7 @@ export function ContactCombobox({
           sideOffset={4}
         >
           <div className="flex items-center border-b border-savr-neutral-100 px-3">
-            <Search className="h-4 w-4 text-savr-neutral-400 shrink-0 mr-2" />
+            <MagnifyingGlassIcon className="h-4 w-4 text-savr-neutral-400 shrink-0 mr-2" />
             {/* Champ du DS, sans bordure propre : la ligne porte la sienne
                 (R-UI-4b, D7 : avant, <input> brut). */}
             <Input
@@ -138,7 +143,7 @@ export function ContactCombobox({
                   setQuery('');
                 }}
               >
-                <Check
+                <CheckIcon
                   className={cn(
                     'h-4 w-4 shrink-0',
                     value?.id === c.id
@@ -168,7 +173,7 @@ export function ContactCombobox({
                 onAddInline();
               }}
             >
-              <PlusCircle className="h-4 w-4" />
+              <PlusCircleIcon className="h-4 w-4" />
               Ajouter un nouveau contact
             </Button>
           </div>

@@ -25,12 +25,15 @@ interface CollecteAFacturer {
   statut: string;
   annulee_cote_savr: boolean;
   pack_antgaspi_id: string | null;
+  // Pax et date de LA collecte : base du tarif ZD et date qui choisit la grille,
+  // le tarif AG et les remises en vigueur (décisions Val C2 du 2026-10-20 et Q4
+  // du 2026-10-24).
+  pax: number | null;
+  date_collecte: string;
   evenements: {
     id: string;
     organisation_id: string;
     lieu_id: string | null;
-    pax: number | null;
-    date_evenement: string;
     organisations: {
       mode_facturation_zd: string | null;
       grille_tarifaire_zd_id: string | null;
@@ -70,9 +73,9 @@ export async function runBatchBrouillonsJ1(
   const { data: collectes, error: selErr } = await supabase
     .from('collectes')
     .select(
-      `id, type, statut, annulee_cote_savr, pack_antgaspi_id,
+      `id, type, statut, annulee_cote_savr, pack_antgaspi_id, pax, date_collecte,
        evenements!inner (
-         id, organisation_id, lieu_id, pax, date_evenement,
+         id, organisation_id, lieu_id,
          organisations!organisation_id (
            mode_facturation_zd, grille_tarifaire_zd_id,
            entites_facturation ( id, siret_verification )
@@ -162,12 +165,12 @@ async function traiterCollecteZd(
   moisCourant: string,
   result: BatchBrouillonsResult,
 ): Promise<void> {
-  const pax = ev.pax ?? 0;
-  const dateFacturation = new Date(ev.date_evenement);
+  // Une collecte à 0 convive (inconnu, reprise Bubble) est refusée par
+  // calculer_tarif_zd : pas de brouillon, l'erreur remonte au rapport du batch.
   const tarifResult = await calculer_tarif_zd(
-    pax,
+    collecte.pax ?? 0,
     ev.organisation_id,
-    dateFacturation,
+    new Date(collecte.date_collecte),
     supabase,
     ev.lieu_id,
   );
@@ -342,7 +345,7 @@ async function traiterCollecteAg(
     packAntgaspiId: collecte.pack_antgaspi_id,
     organisationId: ev.organisation_id,
     lieuId: ev.lieu_id,
-    date: new Date(ev.date_evenement),
+    date: new Date(collecte.date_collecte),
   });
   if (tarif.skip) return; // pack globale_achat : brouillon FPK déjà créé au pack
 

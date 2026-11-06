@@ -2,22 +2,25 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Truck } from 'lucide-react';
+import { TruckIcon } from '@/components/ui/icones';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 import { PageHero } from '@/components/ui/page-hero';
-import { Button } from '@/components/ui/button';
-import type { CollecteType } from '@/components/dashboards/index.js';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  ToggleTypeCollecte,
+  type TypeCollecteFiltre,
+} from '@/components/collecte/toggle-type-collecte';
 import {
   colonnesCollectesTraiteur,
   type TraiteurCollecteLigne,
 } from '@/components/collecte/collectes-traiteur-table';
 import { DataGrid } from '@/components/ui/data-grid';
+import { BoutonExportCsv } from '@/components/ui/bouton-export-csv';
 import { EmptyState } from '@/components/ui/empty-state';
 import { libelleDateHeure } from '@/lib/format-date-collecte';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
+import type { OngletFiche } from '@/components/collecte/fiche-collecte-client-panel';
 import {
   CollecteFiltresBar,
   ecrireFiltresCollecte,
@@ -34,12 +37,21 @@ import type { EspaceClient } from '@/lib/collectes/fiche-client-types';
 import { valeurUnique } from '@/lib/filtre-csv';
 import { API_COLLECTES as API_COLLECTES_ESPACE, ROUTES } from '@/lib/routes';
 import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
+import { OngletsVueCollectes } from '@/components/collecte/onglets-vue-collectes';
+import {
+  lireVueCollectes,
+  periodeDeLaVue,
+  triDateDescendant,
+  type VueCollectes,
+} from '@/lib/collectes/vue-temporelle';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
-// actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
-// Programmées / Historique (statut) × sélecteur ZD / AG (type), cartes
-// simplifiées, actions Modifier / Annuler / Dupliquer. Passée en Data Table
-// (décision Val 2026-09-28 : tableau plat, colonnes triables).
+// actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : vues ×
+// sélecteur ZD / AG (type), cartes simplifiées, actions Modifier / Annuler /
+// Dupliquer. Passée en Data Table (décision Val 2026-09-28 : tableau plat,
+// colonnes triables). Vues « Collectes à venir / passées » rangées par date, à
+// la place des onglets par état Programmées / Historique (décision Val
+// 2026-10-19, lib/collectes/vue-temporelle).
 //
 // Composant UNIQUE des listes traiteur et agence : §06.11 impose à l'agence la
 // liste du §06.04 « à l'identique » (« toute évolution du §06.04 s'applique
@@ -55,9 +67,10 @@ type EspaceListeCollectes = Extract<EspaceClient, 'traiteur' | 'agence'>;
 const API_COLLECTES: Record<EspaceListeCollectes, string> =
   API_COLLECTES_ESPACE;
 
-// Répartition des statuts par onglet (aligné Admin, + brouillon/annulation_demandee).
-const STATUTS_PROGRAMMEES = ['brouillon', 'programmee', 'validee', 'en_cours'];
-const STATUTS_HISTORIQUE = [
+// Statuts d'une collecte terminée ou annulée, puis tous ceux de la liste : les
+// deux vues proposent tous les statuts (une collecte de demain peut être
+// annulée, une d'hier encore « Validée »).
+const STATUTS_TERMINES = [
   'realisee',
   'realisee_sans_collecte',
   'cloturee',
@@ -65,8 +78,13 @@ const STATUTS_HISTORIQUE = [
   'annulee',
   'rejetee_par_prestataire',
 ];
-
-type Onglet = 'programmees' | 'historique';
+const STATUTS = [
+  'brouillon',
+  'programmee',
+  'validee',
+  'en_cours',
+  ...STATUTS_TERMINES,
+];
 
 /** Dimensions de drill-down dashboard sans contrôle dans la barre de filtres. */
 interface Drill {
@@ -87,7 +105,6 @@ interface Lieu {
 }
 interface Evenement {
   created_by: string | null;
-  pax: number | null;
   nom_client_organisateur: string | null;
   lieux: Lieu | Lieu[] | null;
 }
@@ -97,6 +114,8 @@ interface CollecteRow {
   statut: string;
   date_collecte: string;
   heure_collecte: string | null;
+  // Pax de LA collecte (décision Val 2026-10-20).
+  pax?: number | null;
   programmee_par_tiers: boolean;
   rapport_reserve_donneur_ordre: boolean;
   // Résultats de la collecte réalisée (renvoyés par la route, agrégés côté serveur).
@@ -112,17 +131,17 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-// Onglet de l'URL ; à défaut, déduit des statuts demandés : un lien sans
-// `onglet` dont tous les statuts relèvent de l'Historique (ancien format du
-// drill-down Top lieux agence, `?lieu=…&statut=cloturee`) ouvre l'Historique.
-function ongletInitial(params: URLSearchParams): Onglet {
-  const o = params.get('onglet');
-  if (o === 'historique' || o === 'programmees') return o;
+// Vue de l'URL (`onglet`) ; à défaut, déduite des statuts demandés : un lien
+// sans `onglet` dont tous les statuts sont terminés (ancien format du
+// drill-down Top lieux agence, `?lieu=…&statut=cloturee`) ouvre les passées.
+function ongletInitial(params: URLSearchParams): VueCollectes {
+  const vue = lireVueCollectes(params.get('onglet'));
+  if (vue) return vue;
   const statuts = (params.get('statut') ?? '').split(',').filter(Boolean);
   return statuts.length > 0 &&
-    statuts.every((s) => STATUTS_HISTORIQUE.includes(s))
-    ? 'historique'
-    : 'programmees';
+    statuts.every((s) => STATUTS_TERMINES.includes(s))
+    ? 'passees'
+    : 'a_venir';
 }
 
 function parseJwt(token: string): Record<string, unknown> {
@@ -144,10 +163,13 @@ export function ListeCollectesClient({
   const params = useSearchParams();
   const api = API_COLLECTES[espace];
 
-  const initialType: CollecteType =
-    params.get('type') === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
-  const [typeFiltre, setTypeFiltre] = useState<CollecteType>(initialType);
-  const [onglet, setOnglet] = useState<Onglet>(() =>
+  // « Toutes » par défaut, comme la liste Événements (décision Val
+  // 2026-10-31) ; un lien `?type=zero_dechet|anti_gaspi` garde son type.
+  const typeUrl = params.get('type');
+  const initialType: TypeCollecteFiltre =
+    typeUrl === 'zero_dechet' || typeUrl === 'anti_gaspi' ? typeUrl : 'tous';
+  const [typeFiltre, setTypeFiltre] = useState<TypeCollecteFiltre>(initialType);
+  const [onglet, setOnglet] = useState<VueCollectes>(() =>
     ongletInitial(new URLSearchParams(params.toString())),
   );
   // Filtres §06.04 §3 (BL-P2-14), synchronisés dans l'URL : l'état local est la
@@ -165,12 +187,14 @@ export function ListeCollectesClient({
   // Fiche collecte en pop-up (même format que l'Admin, décision Val 2026-09-29) :
   // ouverte depuis l'URL (?collecte=<id>[&edit=1]) → les liens profonds (emails,
   // dashboards, ancienne route [id] qui redirige ici) rouvrent la fiche.
-  const [fiche, setFiche] = useState<{ id: string; edit: boolean } | null>(
-    () => {
-      const id = params.get('collecte');
-      return id ? { id, edit: params.get('edit') === '1' } : null;
-    },
-  );
+  const [fiche, setFiche] = useState<{
+    id: string;
+    edit: boolean;
+    onglet?: OngletFiche;
+  } | null>(() => {
+    const id = params.get('collecte');
+    return id ? { id, edit: params.get('edit') === '1' } : null;
+  });
   const [drill, setDrill] = useState<Drill>(() => ({
     // Un seul lieu dans l'URL (lien de drill-down) ; plusieurs = simple filtre.
     lieu: valeurUnique(filtres.lieuIds) ?? '',
@@ -191,7 +215,6 @@ export function ListeCollectesClient({
   });
 
   const [role, setRole] = useState('');
-  const [userId, setUserId] = useState('');
 
   // Annulation (modale liste — réutilise l'endpoint de la fiche).
   const [annulTarget, setAnnulTarget] = useState<CollecteRow | null>(null);
@@ -205,7 +228,6 @@ export function ListeCollectesClient({
       if (!tok) return;
       const claims = parseJwt(tok);
       setRole(String(claims.user_role ?? ''));
-      setUserId(String(claims.sub ?? ''));
     });
   }, []);
 
@@ -223,20 +245,24 @@ export function ListeCollectesClient({
   }, [api]);
 
   // Paramètres de la liste — partagés avec l'export CSV (§12 « l'export respecte
-  // les filtres actifs »). Les statuts sélectionnés sont TOUJOURS bornés à
-  // l'onglet courant : l'onglet est une partition par état, un filtre ne doit
-  // jamais le déborder.
+  // les filtres actifs »). La période envoyée est TOUJOURS bornée à la vue
+  // courante (à venir : aujourd'hui et après ; passées : avant aujourd'hui) :
+  // un filtre ne doit jamais la déborder.
+  // Jour lu à chaque rendu : une page restée ouverte passé minuit se recale
+  // au premier geste (fermeture de fiche comprise).
+  const aujourdhui = jourParis();
   const qsListe = useMemo(() => {
-    const statutsOnglet =
-      onglet === 'programmees' ? STATUTS_PROGRAMMEES : STATUTS_HISTORIQUE;
-    const choisis = filtres.statuts.filter((s) => statutsOnglet.includes(s));
-    // Jamais de `statut` vide (sélection hors onglet, lien fabriqué) : les
-    // routes et l'export ne filtreraient alors plus aucun statut.
-    const statuts = choisis.length > 0 ? choisis : statutsOnglet;
-    const qs = new URLSearchParams({
-      type: typeFiltre,
-      statut: statuts.join(','),
+    const choisis = filtres.statuts.filter((s) => STATUTS.includes(s));
+    // Jamais de `statut` vide (valeur inconnue, lien fabriqué) : la liste reste
+    // celle des statuts qu'elle sait afficher.
+    const statuts = choisis.length > 0 ? choisis : STATUTS;
+    // Aujourd'hui est partagé à la minute par la route (Val 2026-11-03).
+    const periode = periodeDeLaVue(onglet, filtres, aujourdhui, {
+      jourPartage: true,
     });
+    const qs = new URLSearchParams({ statut: statuts.join(','), vue: onglet });
+    // « Toutes » : pas de `type`, la route renvoie les deux.
+    if (typeFiltre !== 'tous') qs.set('type', typeFiltre);
     if (filtres.lieuIds.length > 0)
       qs.set('lieu_ids', filtres.lieuIds.join(','));
     // Noms saisis à la main (virgule possible) : paramètre répété, pas de CSV.
@@ -245,8 +271,8 @@ export function ListeCollectesClient({
       qs.set('info_incomplete', filtres.infoIncomplete);
     if (filtres.programmeePar.length > 0)
       qs.set('programmee_par', filtres.programmeePar.join(','));
-    if (filtres.from) qs.set('from', filtres.from);
-    if (filtres.to) qs.set('to', filtres.to);
+    if (periode.from) qs.set('from', periode.from);
+    if (periode.to) qs.set('to', periode.to);
     // Drill-down depuis les Top listes du dashboard (pas des filtres d'UI).
     if (commercialFiltre) qs.set('commercial_id', commercialFiltre);
     if (associationFiltre) qs.set('association_id', associationFiltre);
@@ -255,6 +281,7 @@ export function ListeCollectesClient({
   }, [
     typeFiltre,
     onglet,
+    aujourdhui,
     filtres,
     commercialFiltre,
     associationFiltre,
@@ -297,18 +324,17 @@ export function ListeCollectesClient({
   // `useSearchParams`, en retard d'un rendu après un `router.replace` : deux
   // changements rapprochés — onglet puis type — perdraient le premier).
   function majUrl(etat: {
-    onglet?: Onglet;
-    type?: CollecteType;
+    onglet?: VueCollectes;
+    type?: TypeCollecteFiltre;
     filtres?: CollecteFiltres;
     drill?: Drill;
     fiche?: { id: string; edit: boolean } | null;
   }) {
     const d = etat.drill ?? drill;
     const f = etat.fiche !== undefined ? etat.fiche : fiche;
-    const usp = new URLSearchParams({
-      onglet: etat.onglet ?? onglet,
-      type: etat.type ?? typeFiltre,
-    });
+    const usp = new URLSearchParams({ onglet: etat.onglet ?? onglet });
+    const t = etat.type ?? typeFiltre;
+    if (t !== 'tous') usp.set('type', t);
     if (d.commercial) usp.set('commercial', d.commercial);
     if (d.association) usp.set('association', d.association);
     if (d.perimetre) usp.set('perimetre', d.perimetre);
@@ -318,8 +344,8 @@ export function ListeCollectesClient({
       `/${espace}/collectes?${ecrireFiltresCollecte(usp, etat.filtres ?? filtres)}`,
     );
   }
-  function ouvrirFiche(id: string, edit = false) {
-    const f = { id, edit };
+  function ouvrirFiche(id: string, edit = false, onglet?: OngletFiche) {
+    const f = { id, edit, onglet };
     setFiche(f);
     majUrl({ fiche: f });
   }
@@ -349,7 +375,7 @@ export function ListeCollectesClient({
     majUrl({ filtres: f, drill: d });
   }
 
-  function changeType(t: CollecteType) {
+  function changeType(t: TypeCollecteFiltre) {
     setTypeFiltre(t);
     // Changer de type ZD/AG sort du miroir : on lâche le périmètre miroir
     // (statut/période/perimetre) ET le filtre association (AG-only → liste vide
@@ -361,11 +387,10 @@ export function ListeCollectesClient({
     setDrill(d);
     majUrl({ type: t, filtres: f, drill: d });
   }
-  function changeOnglet(o: Onglet) {
+  function changeOnglet(o: VueCollectes) {
     setOnglet(o);
-    // L'onglet partitionne les statuts : une sélection faite dans l'autre onglet
-    // n'a plus de sens ici (intersection vide). Changer d'onglet lève donc aussi
-    // la restriction `cloturee` du drill-down ; lieu + période restent.
+    // Changer de vue repart de tous les statuts : la sélection, dont la
+    // restriction `cloturee` du drill-down, est levée ; lieu + période restent.
     const f = { ...filtres, statuts: [] };
     setFiltresEtat(f);
     majUrl({ onglet: o, filtres: f });
@@ -405,7 +430,7 @@ export function ListeCollectesClient({
   })();
 
   // Mêmes paramètres que la liste affichée. Le builder d'export applique type,
-  // statuts de l'onglet, période, lieu, client, info incomplète, programmée
+  // statuts, période bornée à la vue, lieu, client, info incomplète, programmée
   // par ; il IGNORE encore les dimensions de drill-down traiteur
   // (commercial_id, association_id, perimetre) : après un clic depuis une Top
   // liste du dashboard, l'export peut contenir plus de lignes que la liste.
@@ -413,10 +438,11 @@ export function ListeCollectesClient({
     window.open(`/api/v1/exports/collectes?${qsListe}`);
   }
 
-  // Téléchargement du rapport de la collecte réalisée (ZD = rapport recyclage,
-  // AG = attestation de don) — miroir du bouton de la fiche : URL R2 pré-signée,
-  // no-op silencieux si indisponible (embargo H+24, PDF non encore généré) ou en
-  // cas d'échec réseau.
+  // Téléchargement du « Rapport de don » d'une collecte AG réalisée — miroir du
+  // bouton de la fiche : URL R2 pré-signée, no-op silencieux si indisponible
+  // (embargo H+24, PDF non encore généré) ou en cas d'échec réseau. Le rapport de
+  // recyclage ZD se fabrique dans la fiche, où l'on choisit le radar : le picto
+  // l'ouvre sur « Bilan & documents » (décision Val 2026-10-16).
   async function telechargerRapport(collecteId: string) {
     try {
       const res = await fetch(
@@ -434,9 +460,12 @@ export function ListeCollectesClient({
   // L'agence est un rôle unique qui voit toute l'activité de son organisation,
   // « comme un traiteur_manager » (§06.11 différence #2).
   function canWrite(row: CollecteRow): boolean {
-    if (role === 'traiteur_manager' || role === 'agence') return true;
-    const evt = one(row.evenements);
-    return role === 'traiteur_commercial' && evt?.created_by === userId;
+    if (role === 'agence') return true;
+    // Programmée par un tiers : le traiteur opérationnel ne la modifie ni ne
+    // l'annule (§06.04, décision Val 2026-10-10), comme sur la fiche.
+    if (row.programmee_par_tiers) return false;
+    // Manager et commercial : toute l'organisation (Val 2026-10-30).
+    return role === 'traiteur_manager' || role === 'traiteur_commercial';
   }
 
   async function confirmerAnnulation(motif: string) {
@@ -483,7 +512,8 @@ export function ListeCollectesClient({
               .join(' ') || null,
           // Texte libre : une saisie faite d'espaces vaut « non renseigné ».
           client_nom: evt?.nom_client_organisateur?.trim() || null,
-          pax: evt?.pax ?? null,
+          // Pax de LA collecte (décision Val 2026-10-20).
+          pax: c.pax ?? null,
           programmee_par_tiers: c.programmee_par_tiers,
           rapport_reserve_donneur_ordre: c.rapport_reserve_donneur_ordre,
           canWrite: canWrite(c),
@@ -493,50 +523,38 @@ export function ListeCollectesClient({
           nb_repas_donnes: c.nb_repas_donnes,
         };
       }),
-    // canWrite dépend de role / userId (claims JWT chargés après coup).
-    [rows, role, userId],
+    // canWrite dépend du rôle (claims JWT chargés après coup).
+    [rows, role],
   );
 
   const colonnes = useMemo(
     () =>
-      colonnesCollectesTraiteur({
-        onModifier: (c) => ouvrirFicheRef.current(c.id, true),
-        onAnnuler: (c) => {
-          setAnnulErreur(null);
-          setAnnulTarget(rows.find((r) => r.id === c.id) ?? null);
+      colonnesCollectesTraiteur(
+        {
+          onModifier: (c) => ouvrirFicheRef.current(c.id, true),
+          onAnnuler: (c) => {
+            setAnnulErreur(null);
+            setAnnulTarget(rows.find((r) => r.id === c.id) ?? null);
+          },
+          onDupliquer: (c) =>
+            router.push(`${ROUTES.programmer.nouveau}?from=${c.id}`),
+          onTelecharger: (c) =>
+            c.type === 'zero_dechet'
+              ? ouvrirFicheRef.current(c.id, false, 'bilan')
+              : void telechargerRapport(c.id),
         },
-        onDupliquer: (c) =>
-          router.push(`${ROUTES.programmer.nouveau}?from=${c.id}`),
-        onTelecharger: (c) => void telechargerRapport(c.id),
-      }),
+        aujourdhui,
+        // Colonne Type (picto ZD / AG) seulement quand les deux types sont
+        // mêlés (décision Val 2026-10-31).
+        typeFiltre === 'tous',
+      ),
     // telechargerRapport ne dépend que de `api` (aucune dépendance d'état).
-    [router, rows, api],
+    [router, rows, api, aujourdhui, typeFiltre],
   );
-
-  const estDemande = annulTarget?.statut === 'validee';
 
   return (
     <div className="space-y-5">
-      <PageHero
-        title="Collectes"
-        icon={<Truck className="h-6 w-6" />}
-        subtitle="Vos collectes Zéro Déchet et Anti-Gaspi · cliquez une ligne pour ouvrir la fiche"
-        actions={
-          // Sur l'aplat navy du bandeau : secondaire (fond blanc) + CTA accent,
-          // comme les autres PageHero ; un ghost navy y était invisible. Pas de
-          // wrapper : le slot d'actions du PageHero passe à la ligne sur mobile.
-          <>
-            <Button variant="secondary" onClick={exportCsv}>
-              Exporter CSV
-            </Button>
-            <Button variant="accent" asChild>
-              <a href={`${ROUTES.programmer.nouveau}?type=${typeFiltre}`}>
-                Programmer une collecte
-              </a>
-            </Button>
-          </>
-        }
-      />
+      <PageHero title="Collectes" icon={<TruckIcon className="h-6 w-6" />} />
 
       {/* Filtre actif (drill-down depuis une Top liste du dashboard) */}
       {chipLabel && (
@@ -547,55 +565,42 @@ export function ListeCollectesClient({
         />
       )}
 
-      {/* Barre de filtres DS : onglets Programmées / Historique + type ZD / AG
-          en en-tête, puis Période / Statut / Lieu / Client / Info incomplète /
+      {/* Barre de filtres DS : vues à venir / passées + type ZD / AG en
+          en-tête, puis Période / Statut / Lieu / Client / Info incomplète /
           Programmée par (§06.04 §3), compteur et réinitialisation en pied. */}
       <CollecteFiltresBar
-        tabs={
-          <Tabs value={onglet} onValueChange={(v) => changeOnglet(v as Onglet)}>
-            <TabsList aria-label="Statut des collectes">
-              <TabsTrigger value="programmees">Programmées</TabsTrigger>
-              <TabsTrigger value="historique">Historique</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        }
+        tabs={<OngletsVueCollectes value={onglet} onChange={changeOnglet} />}
         toggle={
-          <ToggleGroup
-            type="single"
-            aria-label="Type de collecte"
+          <ToggleTypeCollecte
+            avecTous
             value={typeFiltre}
-            onValueChange={(v) => {
-              // Un clic sur l'item actif le désélectionne (v = '') : le type
-              // est obligatoire, on l'ignore.
-              if (v) changeType(v as CollecteType);
-            }}
-          >
-            <ToggleGroupItem value="zero_dechet">Zéro Déchet</ToggleGroupItem>
-            <ToggleGroupItem value="anti_gaspi">Anti-Gaspi</ToggleGroupItem>
-          </ToggleGroup>
+            onChange={changeType}
+          />
         }
-        statutsOnglet={
-          onglet === 'programmees' ? STATUTS_PROGRAMMEES : STATUTS_HISTORIQUE
-        }
+        statutsOnglet={STATUTS}
         options={options}
         value={filtres}
         onChange={setFiltres}
         resultats={rows.length}
       />
 
-      {/* Tri par défaut §06.04 §3 : date DÉCROISSANTE, sans exception d'onglet
-          (arbitrage Val 2026-09-21, cf. _Divergences/_traités/2026-09/
-          M3.1_20260921_tri_liste_collectes.md). Colonnes triables ensuite. */}
+      {/* Tri par défaut : de la plus proche à la plus lointaine — date
+          croissante à venir, décroissante dans le passé (décision Val
+          2026-10-19, remplace le tri décroissant unique du 2026-09-21).
+          Colonnes triables ensuite. */}
       <DataGrid
-        key={onglet}
+        toolbarActions={<BoutonExportCsv onClick={exportCsv} />}
+        // Remonté quand la colonne Type apparaît ou disparaît : un tri posé
+        // sur elle ne survit pas à sa disparition.
+        key={`${onglet}-${typeFiltre === 'tous'}`}
         data-testid="collectes-table"
         columns={colonnes}
         data={lignes}
         getRowId={(c) => c.id}
         loading={loading}
-        initialSorting={[{ id: 'date', desc: true }]}
+        initialSorting={[{ id: 'date', desc: triDateDescendant(onglet) }]}
         initialColumnVisibility={
-          onglet === 'programmees' ? { resultats: false } : {}
+          onglet === 'a_venir' ? { resultats: false } : {}
         }
         onRowClick={(c) => ouvrirFiche(c.id)}
         rowLabel={(c) =>
@@ -603,7 +608,7 @@ export function ListeCollectesClient({
         }
         empty={
           <EmptyState
-            icon={<Truck className="h-8 w-8" />}
+            icon={<TruckIcon className="h-8 w-8" />}
             title="Aucune collecte"
             description="Aucune collecte ne correspond à ces filtres."
           />
@@ -614,14 +619,16 @@ export function ListeCollectesClient({
         espace={espace}
         collecteId={fiche?.id ?? null}
         initialEditing={fiche?.edit ?? false}
+        initialOnglet={fiche?.onglet}
         onClose={fermerFiche}
       />
 
       {/* Modale d'annulation (liste) */}
       <AnnulationCollecteDialog
         open={annulTarget !== null}
-        demande={estDemande}
         antiGaspi={annulTarget?.type === 'anti_gaspi'}
+        dateCollecte={annulTarget?.date_collecte}
+        heureCollecte={annulTarget?.heure_collecte}
         loading={annulEnCours}
         error={annulErreur}
         onConfirm={(motif) => void confirmerAnnulation(motif)}

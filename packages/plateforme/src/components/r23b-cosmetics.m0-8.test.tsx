@@ -11,40 +11,9 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/',
 }));
 
-import { refCourteCollecte } from '@/lib/collecte-ref';
 import { margeTooltipZd } from '@/lib/marge-tooltip';
-import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { DashboardFilterBar } from '@/components/dashboards/DashboardFilterBar';
 import { periodeDerniers } from '@/lib/periodes-raccourcis';
-
-// ── BL-P3-03 — référence courte (jamais l'UUID brut) ────────────────────────
-describe('M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court (BL-P3-03)', () => {
-  it('rend la référence TMS quand elle existe', () => {
-    expect(
-      refCourteCollecte({
-        tms_reference: 'CMD-2026-001',
-        id: 'abcdef01-2345-6789-abcd-ef0123456789',
-      }),
-    ).toBe('CMD-2026-001');
-  });
-  it('abrège l’UUID (8 hex majuscules) sans référence TMS', () => {
-    expect(
-      refCourteCollecte({
-        tms_reference: null,
-        id: 'abcdef01-2345-6789-abcd-ef0123456789',
-      }),
-    ).toBe('ABCDEF01');
-  });
-});
-
-// ── BL-P3-08 — bloc Préférences (langue FR figé) ────────────────────────────
-describe('M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)', () => {
-  it('rend « Français (FR) » en lecture seule', () => {
-    render(<PreferencesLangueCard />);
-    expect(screen.getByTestId('preferences-langue')).toBeInTheDocument();
-    expect(screen.getByText(/Français \(FR\)/)).toBeInTheDocument();
-  });
-});
 
 // ── BL-P3-02 — presets période + Réinitialiser généralisé ───────────────────
 describe('M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mode parc (BL-P3-02)', () => {

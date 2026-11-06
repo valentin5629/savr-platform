@@ -84,7 +84,7 @@ VALUES ('a09f0008-0000-0000-0000-000000000001'::uuid, '2026-01-01', 'unitaire', 
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, statut, date_achat, credits_initiaux, type_pack)
 VALUES ('a09f0009-0000-0000-0000-000000000001'::uuid, 'a09f0001-0000-0000-0000-000000000001'::uuid, 'actif', current_date, 5, 'personnalise');
 
--- Collecte AG programmee (pour trigger pack_debit — date dans moins de 12h)
+-- Collecte AG programmee (pour trigger pack_debit — date dans moins de 4h)
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, pack_antgaspi_id)
 VALUES (
   'a09f000a-0000-0000-0000-000000000001'::uuid,
@@ -113,9 +113,16 @@ VALUES ('a09f000c-0000-0000-0000-000000000001'::uuid, 'seuil_test_audit', '"42"'
 INSERT INTO plateforme.parametres_co2_divers (id, cle, valeur, unite, description)
 VALUES ('a09f000d-0000-0000-0000-000000000001'::uuid, 'co2_test_audit', 1.5, 'kgCO2e', 'CO2 test audit');
 
--- Config auto-accept (pour trigger config)
-INSERT INTO plateforme.config_auto_accept_ag (id, organisation_id, auto_accept_actif)
-VALUES ('a09f000e-0000-0000-0000-000000000001'::uuid, 'a09f0001-0000-0000-0000-000000000001'::uuid, false);
+-- Config auto-accept (pour trigger config). L'association est obligatoire
+-- (décision Val I4 du 2026-10-25, migration 20261025200000).
+INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, capacite_max_beneficiaires,
+  actif, description_rapport_impact, latitude, longitude)
+VALUES ('a09f000f-0000-0000-0000-000000000001'::uuid, 'Asso audit', '1 rue Audit', 'Paris', 'idf', 'asso@audit.test', 100,
+  true, 'Association des tests de l''audit trail.', 48.8600, 2.3500);
+
+INSERT INTO plateforme.config_auto_accept_ag (id, organisation_id, association_id, auto_accept_actif)
+VALUES ('a09f000e-0000-0000-0000-000000000001'::uuid, 'a09f0001-0000-0000-0000-000000000001'::uuid,
+  'a09f000f-0000-0000-0000-000000000001'::uuid, false);
 
 -- =====================================================================
 -- T01 : audit_log a la colonne impersonator_id
@@ -172,7 +179,7 @@ SELECT results_eq(
 
 -- =====================================================================
 -- T05 : trigger pack_debit_annulation_tardive → écrit dans audit_log
--- Passe collecte AG à annulee avec date_collecte dans moins de 12h.
+-- Passe collecte AG à annulee avec date_collecte dans moins de 4h.
 -- La FORME de la ligne est un contrat : la route gestionnaire/pack-ag la lit
 -- (table_name, action, record_id = pack, old_values.collecte_id = collecte)
 -- pour lister les annulations tardives débitées (§06.05 « Mon pack AG »).

@@ -112,7 +112,11 @@ VALUES ('a0000000-0000-0000-0000-000000000043'::uuid, 'Manuel Test', '555555555'
 
 -- ── Événements + collectes de test ────────────────────────────────────────
 
--- Événement IDF (200 pax, heure matin)
+-- Événement IDF (200 pax, heure matin). Ses quatre collectes AG tombent le même
+-- jour : depuis la règle du jour révisée par Val le 2026-10-21, leurs pax
+-- s'additionnent dans celui de l'événement, que l'algorithme lit (jusqu'au lot 2
+-- du pax par collecte). Elles portent donc 50 pax chacune (4 × 50 = 200) : à
+-- 200 chacune, l'événement passerait à 800, au-dessus du seuil vélo de 600.
 INSERT INTO plateforme.evenements (
   id, organisation_id, traiteur_operationnel_organisation_id,
   entite_facturation_id, created_by, lieu_id, type_evenement_id,
@@ -181,21 +185,21 @@ INSERT INTO plateforme.evenements (
 );
 
 -- Collecte AG IDF — heure 10:00, futur lointain (délai > 90 min)
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas, pax)
 VALUES (
   'a0000000-0000-0000-0000-000000000070'::uuid,
   'a0000000-0000-0000-0000-000000000060'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
-  CURRENT_DATE + 7, '10:00', 200
+  CURRENT_DATE + 7, '10:00', 200, 50
 );
 
 -- Collecte AG IDF — nuit (heure 22:00)
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas, pax)
 VALUES (
   'a0000000-0000-0000-0000-000000000071'::uuid,
   'a0000000-0000-0000-0000-000000000060'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
-  CURRENT_DATE + 7, '22:00', 200
+  CURRENT_DATE + 7, '22:00', 200, 50
 );
 
 -- Collecte AG IDF — grand volume (600 pax = seuil, heure 12:00) — liée à événement 0062 (pax=600)
@@ -208,12 +212,12 @@ VALUES (
 );
 
 -- Collecte AG IDF — volume 599 pax (sous seuil vélo)
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas, pax)
 VALUES (
   'a0000000-0000-0000-0000-000000000073'::uuid,
   'a0000000-0000-0000-0000-000000000060'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
-  CURRENT_DATE + 7, '12:00', 599
+  CURRENT_DATE + 7, '12:00', 599, 50
 );
 
 -- Collecte pour test RLS cross-org (org2)
@@ -289,12 +293,12 @@ UPDATE plateforme.parametres_algo SET valeur = 'false'::jsonb WHERE cle = 'a_tou
 
 -- ── T5 : Heure 07:00 exactement = plage début = JOUR (pas nuit) ──────────
 
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas, pax)
 VALUES (
   'a0000000-0000-0000-0000-000000000075'::uuid,
   'a0000000-0000-0000-0000-000000000060'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
-  CURRENT_DATE + 7, '07:00', 200
+  CURRENT_DATE + 7, '07:00', 200, 50
 );
 
 SELECT ok(
@@ -747,14 +751,16 @@ SELECT is(
   'T25 : 7 paramètres AG présents dans parametres_algo'
 );
 
--- ── T26 : email templates AG présents (3 nouveaux) ───────────────────────
+-- ── T26 : email AG à l'association actif ─────────────────────────────────
+-- Revue des emails (Val 2026-10-28/29) : ag_attribution_transporteur et
+-- ag_a_toutes_indispo sont désactivés (migration 20261029150000).
 
 SELECT is(
   (SELECT COUNT(*)::integer FROM plateforme.email_templates
    WHERE code IN ('ag_attribution_association', 'ag_attribution_transporteur', 'ag_a_toutes_indispo')
      AND actif = true),
-  3,
-  'T26 : 3 templates email AG actifs dans email_templates'
+  1,
+  'T26 : seul le template email AG à l''association reste actif'
 );
 
 -- ── T27 : trigger fn_trg_calc_volume_repas_realise existe ────────────────
@@ -801,13 +807,15 @@ INSERT INTO plateforme.evenements (
 INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, capacite_max_beneficiaires, actif, description_rapport_impact, latitude, longitude)
 VALUES ('a0000000-0000-0000-0000-000000000035'::uuid, 'Asso Province Rouen', '1 Rue Province', 'Rouen', 'province', 'rouen@asso.test', 800, true, 'Association province Normandie, collectes invendus Rouen.', 49.4431, 1.0993);
 
--- Transporteur province (pas a_toutes, actif)
-INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
-VALUES ('a0000000-0000-0000-0000-000000000042'::uuid, 'Transnormandie Test', '456789123', '5 Quai', '76000', 'Rouen', 'mts1', true, 'Contact Trans', 'trans@test.test', '0600000003', ARRAY['fourgon'], 49.4431, 1.0993);
-
+-- Transporteur province (pas a_toutes, actif), lié à sa fiche prestataire dès
+-- la création comme tout transporteur mts1 (sinon la base en crée une seconde
+-- du même nom, cf. trg_transporteur_prestataire_auto).
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut, nb_collectes_6_mois_cache)
-VALUES ('a0000000-0000-0000-0000-000000000051'::uuid, 'Transnormandie Test', 'TRANSNOR_TEST', ARRAY['ag'], 'mts1', '456789123012345', 'actif', 5)
+VALUES ('a0000000-0000-0000-0000-000000000053'::uuid, 'Transnormandie Test', 'TRANSNOR_TEST', ARRAY['ag'], 'mts1', '456789123012345', 'actif', 5)
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
+VALUES ('a0000000-0000-0000-0000-000000000042'::uuid, 'Transnormandie Test', '456789123', '5 Quai', '76000', 'Rouen', 'mts1', true, 'Contact Trans', 'trans@test.test', '0600000003', ARRAY['fourgon'], 49.4431, 1.0993, 'a0000000-0000-0000-0000-000000000053'::uuid);
 
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
 VALUES (

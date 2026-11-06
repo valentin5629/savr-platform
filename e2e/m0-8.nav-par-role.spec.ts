@@ -9,23 +9,27 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001';
 type NavResponse = { role: string; items: { label: string; href: string }[] };
 
 const EXPECTED: Record<string, string[]> = {
-  admin_savr: ['Clients', 'Paramètres', 'Collectes'],
-  // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1.
-  traiteur_manager: [
-    'Dashboard',
-    'Collectes',
-    'Mon organisation',
-    'Mon profil',
-  ],
-  traiteur_commercial: [
-    'Dashboard',
-    'Collectes',
-    'Mon organisation',
-    'Mon profil',
-  ],
-  agence: ['Dashboard', 'Collectes', 'Mon organisation', 'Mon profil'],
-  gestionnaire_lieux: ['Mes lieux', 'Collectes'],
-  client_organisateur: ['Mes événements', 'Collectes'],
+  admin_savr: ['Clients', 'Paramètres', 'Collectes', 'Événements'],
+  // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1, plus « Événements »
+  // (Val 2026-10-29). « Mon organisation » et « Mon profil » sont des onglets
+  // de « Paramètres » (Val 2026-10-31). Plus d'entrée « Collectes » côté
+  // client depuis le 2026-11-05 (Val) : cf. ABSENT ci-dessous.
+  traiteur_manager: ['Dashboard', 'Événements', 'Paramètres'],
+  traiteur_commercial: ['Dashboard', 'Événements', 'Paramètres'],
+  agence: ['Dashboard', 'Événements', 'Paramètres'],
+  gestionnaire_lieux: ['Mes lieux', 'Événements'],
+  // « Mes événements » renommé « Dashboard » (Val 2026-10-29).
+  client_organisateur: ['Dashboard', 'Événements'],
+};
+
+// Entrées qu'un rôle ne doit PAS avoir (Val 2026-11-05 : « Collectes »
+// réservée à l'Admin).
+const ABSENT: Record<string, string[]> = {
+  traiteur_manager: ['Collectes'],
+  traiteur_commercial: ['Collectes'],
+  agence: ['Collectes'],
+  gestionnaire_lieux: ['Collectes'],
+  client_organisateur: ['Collectes'],
 };
 
 for (const [role, expectedLabels] of Object.entries(EXPECTED)) {
@@ -44,6 +48,12 @@ for (const [role, expectedLabels] of Object.entries(EXPECTED)) {
       expect(labels, `rôle ${role} doit exposer "${expected}"`).toContain(
         expected,
       );
+    }
+    for (const absent of ABSENT[role] ?? []) {
+      expect(
+        labels,
+        `rôle ${role} ne doit pas exposer "${absent}"`,
+      ).not.toContain(absent);
     }
   });
 }

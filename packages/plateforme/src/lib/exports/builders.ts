@@ -18,8 +18,12 @@ import {
   resolveTraiteurNoms,
   resolveRepas,
   sommePoidsFlux,
+  poidsParFlux,
+  COLONNES_FLUX,
+  lireCodesAffaireViparis,
   lireParTranches,
   unwrap,
+  type FluxPese,
 } from './shared.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { estUuid, inTextes, listeCsv, parmi } from '@/lib/filtre-csv.js';
@@ -31,12 +35,28 @@ import {
   type FiltresCollectesAdmin,
 } from '@/lib/collectes-admin.js';
 import {
+  creneauDeLaVue,
+  lireVueCollectes,
+} from '@/lib/collectes/vue-temporelle.js';
+import {
   statutCollecteAdmin,
   type EnvoiCollecte,
 } from '@/lib/statut-collecte-admin.js';
 import { Constants } from '@savr/shared/src/database.types.js';
+import { lireCollectesEnvoiAbandonne } from '@/lib/ordre-envoi.js';
 
 type Row = Record<string, unknown>;
+
+/**
+ * Colonne « Repas AG » d'une ligne collecte. Une collecte AG sans excédent vaut
+ * 0, jamais une cellule vide : la colonne « Statut » la dit « Réalisée », c'est
+ * ici que l'export garde l'information (décision Val 2026-10-09).
+ */
+function repasAgExport(r: Row, repas: Map<string, number>): number | '' {
+  if (r.type !== 'anti_gaspi') return '';
+  if (r.statut === 'realisee_sans_collecte') return 0;
+  return repas.get(r.id as string) ?? '';
+}
 
 /**
  * Repas détournés par collecte AG, lus dans l'embed `attributions_antgaspi`
@@ -72,6 +92,9 @@ export async function buildCollectesExport(
   const type = sp.get('type');
   const from = sp.get('from');
   const to = sp.get('to');
+  // Vue « à venir / passées » des listes clientes : rangée au créneau, à la
+  // minute (Val 2026-11-03) — l'Admin la lit dans ses propres filtres.
+  const vue = lireVueCollectes(sp.get('vue'));
   // Filtres de la barre des listes Collectes traiteur / agence (§12 « l'export
   // respecte les filtres actifs ») — lus par la MÊME fonction que leurs routes.
   const filtres = lireFiltresListeCollectes(sp);
@@ -92,6 +115,14 @@ export async function buildCollectesExport(
   const filtresAdmin = ctx.isStaff ? lireFiltresCollectesAdmin(sp) : null;
   // Un seul « maintenant » pour toutes les tranches (fenêtres 48 h des pastilles).
   const maintenant = new Date();
+  // Staff : envoi abandonné = « Créée », comme la liste (décision Val
+  // 2026-11-02) — pour le filtre et pour le statut de chaque ligne.
+  let abandons = new Set<string>();
+  if (filtresAdmin) {
+    const lu = await lireCollectesEnvoiAbandonne(ctx.supabase);
+    if (lu.error) throw erreurInterne(lu.error, 'exports.builders');
+    abandons = lu.data;
+  }
 
   // Staff : le statut exporté est celui de l'écran Admin (« Créée » tant que la
   // demande n'est pas partie, « Programmée » ensuite — décision Val 2026-10-07),
@@ -101,8 +132,8 @@ export async function buildCollectesExport(
   const selectClient = () =>
     ctx.supabase.from('collectes').select(
       `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
-       collecte_flux(poids_reel_kg),
-       evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
+       collecte_flux(poids_reel_kg, flux_dechets!flux_id(code)),
+       evenements!inner(id, nom_evenement, date_evenement, nom_client_organisateur,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, code_postal, ville))`,
       { count: 'exact' },
@@ -112,8 +143,8 @@ export async function buildCollectesExport(
       `id, type, statut, date_collecte, heure_collecte, taux_recyclage, co2_evite_kg,
        statut_tms, tms_reference, prestataire_logistique_id,
        attributions_antgaspi!collecte_id(id, volume_repas_realise),
-       collecte_flux(poids_reel_kg),
-       evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
+       collecte_flux(poids_reel_kg, flux_dechets!flux_id(code)),
+       evenements!inner(id, nom_evenement, date_evenement, nom_client_organisateur,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, code_postal, ville))`,
       { count: 'exact' },
@@ -126,8 +157,8 @@ export async function buildCollectesExport(
        statut_tms, tms_reference, prestataire_logistique_id,
        attributions_antgaspi!collecte_id(id, volume_repas_realise),
        rapports_rse!collecte_id!inner(consulte_par_user_at),
-       collecte_flux(poids_reel_kg),
-       evenements!inner(nom_evenement, date_evenement, nom_client_organisateur,
+       collecte_flux(poids_reel_kg, flux_dechets!flux_id(code)),
+       evenements!inner(id, nom_evenement, date_evenement, nom_client_organisateur,
          traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom, code_postal, ville))`,
       { count: 'exact' },
@@ -143,6 +174,7 @@ export async function buildCollectesExport(
         .order('id', { ascending: false }),
       f,
       maintenant,
+      [...abandons],
     );
   const requeteClient = () => {
     let q = selectClient()
@@ -152,6 +184,7 @@ export async function buildCollectesExport(
     if (filtres.statuts.length > 0) q = q.in('statut', filtres.statuts);
     if (from) q = q.gte('date_collecte', from);
     if (to) q = q.lte('date_collecte', to);
+    if (vue) q = q.or(creneauDeLaVue(vue, maintenant));
     if (filtres.lieuIds.length > 0)
       q = q.in('evenements.lieu_id', filtres.lieuIds);
     if (filtres.clients.length > 0)
@@ -171,10 +204,10 @@ export async function buildCollectesExport(
           'evenements.traiteur_operationnel_organisation_id',
           traiteurIds,
         );
-      if (typeEvtIds.length > 0)
-        q = q.in('evenements.type_evenement_id', typeEvtIds);
-      if (predicatsTaille.length > 0)
-        q = q.or(predicatsTaille.join(','), { referencedTable: 'evenements' });
+      // Type et taille de la COLLECTE, comme la liste (décisions Val C3 du
+      // 2026-10-22 et C4 du 2026-10-20, lot C1) : `.or()` sur `collectes.pax`.
+      if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
+      if (predicatsTaille.length > 0) q = q.or(predicatsTaille.join(','));
     }
     return q;
   };
@@ -209,6 +242,21 @@ export async function buildCollectesExport(
 
   const evt = (r: Row) => unwrap(r.evenements);
   const lieuOf = (r: Row) => unwrap(evt(r).lieux);
+  // Code affaire VIPARIS de l'événement (Val 2026-11-02) : lu pour les seuls
+  // événements des lignes lues ci-dessus.
+  const codesAffaire = await lireCodesAffaireViparis(
+    ctx,
+    rows.map((r) => evt(r).id as string),
+  );
+  // Poids par flux, collectes ZD seules (vide pour une collecte AG).
+  const flux = new Map(
+    rows
+      .filter((r) => r.type === 'zero_dechet')
+      .map((r) => [
+        r.id as string,
+        poidsParFlux(r.collecte_flux as FluxPese[]),
+      ]),
+  );
 
   const columns: CsvColumn<Row>[] = [
     {
@@ -221,6 +269,10 @@ export async function buildCollectesExport(
     },
     { header: 'Heure', value: (r) => heureCourte(r.heure_collecte) },
     { header: 'Événement', value: (r) => evt(r).nom_evenement as string },
+    {
+      header: 'Code affaire VIPARIS',
+      value: (r) => codesAffaire.get(evt(r).id as string) ?? '',
+    },
     { header: 'Lieu', value: (r) => lieuOf(r).nom as string },
     { header: 'Code postal', value: (r) => lieuOf(r).code_postal as string },
     { header: 'Ville', value: (r) => lieuOf(r).ville as string },
@@ -245,7 +297,10 @@ export async function buildCollectesExport(
         libelle(
           STATUT_COLLECTE_LIBELLE,
           ctx.isStaff
-            ? statutCollecteAdmin(r as unknown as EnvoiCollecte)
+            ? statutCollecteAdmin({
+                ...(r as unknown as EnvoiCollecte),
+                envoi_abandonne: abandons.has(r.id as string),
+              })
             : r.statut === 'brouillon'
               ? 'creee'
               : r.statut,
@@ -262,6 +317,15 @@ export async function buildCollectesExport(
             )
           : '',
     },
+    ...COLONNES_FLUX.map(
+      ({ code, header }): CsvColumn<Row> => ({
+        header,
+        value: (r) => {
+          const poids = flux.get(r.id as string);
+          return poids ? formatPoidsKg(poids[code]) : '';
+        },
+      }),
+    ),
     {
       header: 'Taux recyclage (%)',
       value: (r) => formatNombreFr(r.taux_recyclage as number),
@@ -272,8 +336,7 @@ export async function buildCollectesExport(
     },
     {
       header: 'Repas AG',
-      value: (r) =>
-        r.type === 'anti_gaspi' ? (repas.get(r.id as string) ?? '') : '',
+      value: (r) => repasAgExport(r, repas),
     },
   ];
 
@@ -694,8 +757,7 @@ export async function buildImpactRseExport(
     },
     {
       header: 'Repas AG',
-      value: (r) =>
-        r.type === 'anti_gaspi' ? (repas.get(r.id as string) ?? '') : '',
+      value: (r) => repasAgExport(r, repas),
     },
   ];
 

@@ -1,83 +1,356 @@
 {
-  "_description": "Réponse GET /v3/tours/{id} avec stops[] portant pesées par flux. Libellés exacts as-built MTS-1. Inclut variante stuff inconnu.",
+  "_description": "Réponse de GET /v3/tours/{tourId} : un tour de déchets terminé, pesé par flux, et sa variante au stuff inconnu. Forme mesurée sur le compte de démonstration le 2026-10-13 (les valeurs sont inventées) : `status` est un objet, chaque arrêt porte `stopType`, `customerOrders[]`, `stuffs[]` et `photos[]`. Les kilos sont dans `stuffs[].quantityAfterPickup` (`quantity` reste à 0, `measurement.weight` aussi) et les stuffs d'une commande sont répétés sur son arrêt d'enlèvement (`CUSTOMER_ORDER`) et sur son arrêt de dépôt (`CUSTOMER_ORDER_LINKED` ou `DEPOT`) : ne lire que l'enlèvement. Ni `items`, ni `weight` sur l'arrêt ou le stuff. Libellés des flux : exacts, as-built.",
   "tour_nominal": {
     "tourId": "MTS1-TOUR-ZD-001",
-    "externalReference": "tour_strike_202605_01",
-    "status": "OK",
-    "startedAt": "2026-05-06T22:00:00Z",
-    "completedAt": "2026-05-07T00:00:00Z",
+    "tourNumber": "26/05-01",
+    "tourDate": "2026-05-06T20:00:00.000Z",
+    "status": {
+      "dispatch": "COMPLETED",
+      "dispatchedAt": "2026-05-05T20:00:00.000Z",
+      "startedAt": "2026-05-06T20:05:00.000Z",
+      "finishedAt": "2026-05-06T22:00:00.000Z",
+      "payment": "VALIDATED",
+      "validation": "VALIDATED",
+      "progression": "FINISHED"
+    },
     "stops": [
       {
         "stopId": "stop-zd-001",
-        "address": "1 Place de la Porte de Versailles, 75015 Paris",
-        "completedAt": "2026-05-06T23:45:00Z",
-        "items": [
+        "stopType": "CUSTOMER_ORDER",
+        "customerOrders": [
           {
-            "stuff": "<volume_du_camion>",
-            "qty": 1,
-            "weight": null,
-            "_note": "À ignorer — volume du camion, pas une pesée"
+            "customerOrderId": "MTS1-ORDER-COL-ZD-KASPIA-001",
+            "customerOrderStatus": "VALIDATED",
+            "orderNumber": "tour_strike_202605_01",
+            "customerOrderProgressionStatus": "FINISHED"
+          }
+        ],
+        "stuffs": [
+          {
+            "name": "<volume_du_camion>",
+            "task": "PICKUP",
+            "quantity": 1,
+            "quantityAfterPickup": 1,
+            "quantityAfterDelivery": 1,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
           },
           {
-            "stuff": "Bio-déchets (en kg)",
-            "qty": 1,
-            "weight": 234.5
+            "name": "Bio-déchets (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 234.5,
+            "quantityAfterDelivery": 234.5,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
           },
           {
-            "stuff": "Carton (en kg)",
-            "qty": 1,
-            "weight": 87.2
+            "name": "Carton (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 87.2,
+            "quantityAfterDelivery": 87.2,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
           },
           {
-            "stuff": "D.I.B (en kg)",
-            "qty": 1,
-            "weight": 45.0
+            "name": "D.I.B (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 45,
+            "quantityAfterDelivery": 45,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
           },
           {
-            "stuff": "Film plastique (en kg)",
-            "qty": 1,
-            "weight": 12.8
+            "name": "Film plastique (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 12.8,
+            "quantityAfterDelivery": 12.8,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
           },
           {
-            "stuff": "Verre (en kg)",
-            "qty": 1,
-            "weight": 156.3
+            "name": "Verre (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 156.3,
+            "quantityAfterDelivery": 156.3,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          }
+        ],
+        "photos": [
+          {
+            "downloadUrl": "https://connecteur.mts1.example.test/v3/tours/photo/MTS1-TOUR-ZD-001/stop-zd-001/photo-zd-001-a"
+          }
+        ]
+      },
+      {
+        "stopId": "stop-zd-001-depot",
+        "stopType": "DEPOT",
+        "customerOrders": [
+          {
+            "customerOrderId": "MTS1-ORDER-COL-ZD-KASPIA-001",
+            "customerOrderStatus": "VALIDATED",
+            "orderNumber": "tour_strike_202605_01",
+            "customerOrderProgressionStatus": "FINISHED"
+          }
+        ],
+        "stuffs": [
+          {
+            "name": "<volume_du_camion>",
+            "task": "PICKUP",
+            "quantity": 1,
+            "quantityAfterPickup": 1,
+            "quantityAfterDelivery": 1,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Bio-déchets (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 234.5,
+            "quantityAfterDelivery": 234.5,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Carton (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 87.2,
+            "quantityAfterDelivery": 87.2,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "D.I.B (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 45,
+            "quantityAfterDelivery": 45,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Film plastique (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 12.8,
+            "quantityAfterDelivery": 12.8,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Verre (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 156.3,
+            "quantityAfterDelivery": 156.3,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          }
+        ],
+        "photos": [
+          {
+            "downloadUrl": "https://connecteur.mts1.example.test/v3/tours/photo/MTS1-TOUR-ZD-001/stop-zd-001-depot/photo-zd-001-b"
           }
         ]
       }
-    ]
+    ],
+    "summary": {
+      "durationInMinutes": 115,
+      "distanceInKilometers": 21
+    },
+    "dispatch": {
+      "carrierShareableCode": "CA_FIXTURE",
+      "transporterUserShareableCode": null,
+      "vehicleShareableCode": null
+    }
   },
   "tour_stuff_inconnu": {
     "tourId": "MTS1-TOUR-ZD-002",
-    "externalReference": "tour_strike_202605_03",
-    "status": "OK",
-    "startedAt": "2026-05-20T22:00:00Z",
-    "completedAt": "2026-05-21T01:00:00Z",
+    "tourNumber": "26/05-03",
+    "tourDate": "2026-05-20T20:00:00.000Z",
+    "status": {
+      "dispatch": "COMPLETED",
+      "dispatchedAt": "2026-05-19T20:00:00.000Z",
+      "startedAt": "2026-05-20T20:05:00.000Z",
+      "finishedAt": "2026-05-20T22:00:00.000Z",
+      "payment": "VALIDATED",
+      "validation": "VALIDATED",
+      "progression": "FINISHED"
+    },
     "stops": [
       {
         "stopId": "stop-zd-002",
-        "address": "2 Rue de la Porte de Champerret, 75017 Paris",
-        "completedAt": "2026-05-21T00:30:00Z",
-        "items": [
+        "stopType": "CUSTOMER_ORDER",
+        "customerOrders": [
           {
-            "stuff": "<volume_du_camion>",
-            "qty": 1,
-            "weight": null
-          },
-          {
-            "stuff": "Bio-déchets (en kg)",
-            "qty": 1,
-            "weight": 178.0
-          },
-          {
-            "stuff": "Gravats (en kg)",
-            "qty": 1,
-            "weight": 320.0,
-            "_note": "Stuff inconnu → alerte Ops attendue, non mappé sur flux_dechets"
+            "customerOrderId": "MTS1-ORDER-COL-ZD-KASPIA-003",
+            "customerOrderStatus": "VALIDATED",
+            "orderNumber": "tour_strike_202605_03",
+            "customerOrderProgressionStatus": "FINISHED"
           }
-        ]
+        ],
+        "stuffs": [
+          {
+            "name": "<volume_du_camion>",
+            "task": "PICKUP",
+            "quantity": 1,
+            "quantityAfterPickup": 1,
+            "quantityAfterDelivery": 1,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Bio-déchets (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 178,
+            "quantityAfterDelivery": 178,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Gravats (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 320,
+            "quantityAfterDelivery": 320,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          }
+        ],
+        "photos": []
+      },
+      {
+        "stopId": "stop-zd-002-depot",
+        "stopType": "DEPOT",
+        "customerOrders": [
+          {
+            "customerOrderId": "MTS1-ORDER-COL-ZD-KASPIA-003",
+            "customerOrderStatus": "VALIDATED",
+            "orderNumber": "tour_strike_202605_03",
+            "customerOrderProgressionStatus": "FINISHED"
+          }
+        ],
+        "stuffs": [
+          {
+            "name": "<volume_du_camion>",
+            "task": "PICKUP",
+            "quantity": 1,
+            "quantityAfterPickup": 1,
+            "quantityAfterDelivery": 1,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Bio-déchets (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 178,
+            "quantityAfterDelivery": 178,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          },
+          {
+            "name": "Gravats (en kg)",
+            "task": "PICKUP",
+            "quantity": 0,
+            "quantityAfterPickup": 320,
+            "quantityAfterDelivery": 320,
+            "measurement": {
+              "height": 0,
+              "length": 0,
+              "width": 0,
+              "weight": 0
+            }
+          }
+        ],
+        "photos": []
       }
-    ]
+    ],
+    "summary": {
+      "durationInMinutes": 115,
+      "distanceInKilometers": 21
+    },
+    "dispatch": {
+      "carrierShareableCode": "CA_FIXTURE",
+      "transporterUserShareableCode": null,
+      "vehicleShareableCode": null
+    }
   },
   "_mapping_libelles": {
     "Bio-déchets (en kg)": "biodechets",

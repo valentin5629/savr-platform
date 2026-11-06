@@ -53,9 +53,10 @@ type RegleChamp =
   | { kind: 'liste_texte'; maxItems: number; maxParItem: number };
 
 /**
- * Champs du lieu éditables à la programmation (CDC §06.01 l.104 : « tous les champs
- * associés au lieu (sauf le nom du lieu) s'affichent en autocomplete pré-remplis et
- * éditables »), miroir exact de `LieuEdits` (lieu-champs-editables.tsx). Le nom du
+ * Champs du lieu que la route accepte en surcharge (CDC §06.01 l.104). Le
+ * formulaire n'en propose plus que 4 depuis le 2026-10-16 (`LieuEdits`,
+ * lieu-champs-editables.tsx, décision Val) ; les 5 autres restent acceptés ici,
+ * pour les surcharges déjà enregistrées, jusqu'à décision de les refuser. Le nom du
  * lieu reste figé (identifiant) et les champs admin/ops-only (`commentaire_lieu`,
  * `siren`, `email_gestionnaire`, `reference_citeo`, l.106) ne sont jamais
  * surchargeables — toute autre clé est refusée.

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import {
+  FILTRE_A_DISPATCHER,
+  STATUTS_A_RENVOYER,
+} from '@/lib/collectes-chips.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -24,16 +28,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .from('collectes')
       .select('id', { count: 'exact', head: true })
       .eq('type', 'zero_dechet')
-      .eq('statut_tms', 'non_envoye')
-      .is('tms_reference', null)
-      .in('statut', ['programmee', 'validee']),
+      .or(FILTRE_A_DISPATCHER),
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })
       .eq('type', 'anti_gaspi')
-      .eq('statut_tms', 'non_envoye')
-      .is('tms_reference', null)
-      .in('statut', ['programmee', 'validee']),
+      .or(FILTRE_A_DISPATCHER),
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .from('collectes')
       .select('id', { count: 'exact', head: true })
       .eq('dirty_tms', true)
-      .not('tms_reference', 'is', null)
+      .in('statut', STATUTS_A_RENVOYER)
       .in('type', ['zero_dechet', 'anti_gaspi']),
     // Collectes ZD + AG prévues dans les 48 h, encore actives, que le prestataire
     // logistique n'a PAS validées (= statut_tms hors `acceptee`/`en_attente_execution`) :

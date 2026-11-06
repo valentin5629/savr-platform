@@ -2,7 +2,8 @@
  * M1.2 / R12b — Tests Vitest : Formulaire de programmation (BL-P1-PROG-01..05).
  * Couvre : override lieu → fn_creer_collecte + notif Admin (PROG-01), traiteur shadow +
  * fix colonne-DB (PROG-02), récap email programmeur + tarif (PROG-04), auto-accept AG à
- * la confirmation + fix gate pack 'anti_gaspi' (PROG-05). Le payload E1 (PROG-03) est
+ * la confirmation sur le type 'anti_gaspi' (PROG-05 ; la garde pack qui l'accompagnait
+ * est retirée — décision Val 2026-10-16). Le payload E1 (PROG-03) est
  * couvert par pgTAP (supabase/tests/M1_2__programmation.test.sql) et l'adapter comment
  * par packages/adapters (adapter.m1-5a).
  */
@@ -48,9 +49,15 @@ vi.mock('@/lib/tarif-zd.js', () => ({
     .mockResolvedValue({ montant_ht: 120, montant_brut_ht: 120 }),
   TarifZdError: class extends Error {},
 }));
+// Facturation sur la plateforme allumée : PROG-04 vérifie la ligne de tarif telle
+// qu'elle reviendra. Au go-live elle est retirée (décision Val 2026-10-22), ce que
+// prouve tests/api/facturation-hors-plateforme.test.ts.
+vi.mock('@/lib/facturation-plateforme.js', () => ({
+  facturationPlateformeActive: () => true,
+}));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 
 const mockGetUser = vi.fn();
@@ -89,13 +96,13 @@ function setupAuth(
 
 function resetChain(): void {
   vi.resetAllMocks();
-  vi.mocked(emailModule.sendEmail).mockResolvedValue(undefined);
+  vi.mocked(emailModule.sendEmail).mockResolvedValue({ statut: 'sent' });
   // resetAllMocks efface aussi l'implémentation du mock tarif (défini au factory) → réarmer.
   vi.mocked(calculer_tarif_zd).mockResolvedValue({
     montant_ht: 120,
     montant_brut_ht: 120,
   } as Awaited<ReturnType<typeof calculer_tarif_zd>>);
-  mockSupabaseChain.from.mockReturnThis();
+  routerTables();
   mockSupabaseChain.select.mockReturnThis();
   mockSupabaseChain.insert.mockReturnThis();
   mockSupabaseChain.update.mockReturnThis();
@@ -117,16 +124,113 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
   });
 }
 
-const BODY_ZD = {
-  pax: 80,
-  type_evenement_id: 'type-1',
-  lieu_id: 'lieu-1',
+// ── Cartes du formulaire (refonte, lot B2 ; décisions Val 2026-10-22/24) ────
+// Chaque collecte est une carte qui porte son type d'événement et ses contacts ;
+// la route vérifie les types dans le référentiel (`.in('id', …).eq('actif',
+// true)`, attendue sans terminal), puis enregistre événement et collectes en
+// une transaction (fn_enregistrer_programmation).
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+
+type Thenable<T> = {
+  then: (
+    ok: (r: T) => unknown,
+    ko?: (e: unknown) => unknown,
+  ) => Promise<unknown>;
+};
+interface LectureTypes extends Thenable<{
+  data: { id: string }[];
+  error: null;
+}> {
+  select: () => LectureTypes;
+  in: (col: string, ids: string[]) => LectureTypes;
+  eq: (col: string, valeur: unknown) => LectureTypes;
+}
+
+/** Référentiel des types : applique `.in('id')` et `.eq('actif')` comme PostgREST. */
+function lectureTypesEvenements(): LectureTypes {
+  let lignes = [{ id: TYPE_EVT, actif: true }];
+  const q: LectureTypes = {
+    select: () => q,
+    in: (col, ids) => {
+      if (col !== 'id') throw new Error(`filtre inattendu : ${col}`);
+      lignes = lignes.filter((l) => ids.includes(l.id));
+      return q;
+    },
+    eq: (col, valeur) => {
+      if (col !== 'actif') throw new Error(`filtre inattendu : ${col}`);
+      lignes = lignes.filter((l) => l.actif === valeur);
+      return q;
+    },
+    then: (ok, ko) =>
+      Promise.resolve({
+        data: lignes.map(({ id }) => ({ id })),
+        error: null as null,
+      }).then(ok, ko),
+  };
+  return q;
+}
+
+/**
+ * Collectes de l'événement relues par l'email récapitulatif (une ligne par
+ * collecte, numérotée par type) : chaîne attendue sans terminal. Ses maillons
+ * restent enregistrés sur les espions partagés.
+ */
+let collectesEnBase: Record<string, unknown>[] | null = null;
+function lectureCollectes() {
+  const q: Record<string, unknown> & Thenable<unknown> = {
+    then: (ok, ko) =>
+      Promise.resolve({ data: collectesEnBase, error: null }).then(ok, ko),
+  };
+  for (const m of ['select', 'eq', 'in', 'is', 'update'] as const)
+    q[m] = (...a: unknown[]) => {
+      (mockSupabaseChain[m] as (...x: unknown[]) => unknown)(...a);
+      return q;
+    };
+  q.maybeSingle = (...a: unknown[]) => mockMaybeSingle(...a);
+  q.single = (...a: unknown[]) => mockSingle(...a);
+  return q;
+}
+
+/**
+ * Le référentiel des types à part ; les collectes aussi quand le test les pose
+ * (email récapitulatif) ; toute autre table sur la chaîne partagée.
+ */
+function routerTables(collectes: Record<string, unknown>[] | null = null) {
+  collectesEnBase = collectes;
+  mockSupabaseChain.from.mockImplementation((table: string) => {
+    if (table === 'types_evenements') return lectureTypesEvenements();
+    if (table === 'collectes' && collectesEnBase) return lectureCollectes();
+    return mockSupabaseChain;
+  });
+}
+
+/** Réponse de fn_enregistrer_programmation. */
+const enregistree = (evenement_id: string, ...collecte_ids: string[]) => ({
+  data: { evenement_id, collecte_ids },
+  error: null,
+});
+
+const CARTE = {
+  type_evenement_id: TYPE_EVT,
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+  contact_secours_nom: 'Sam Roux',
+  contact_secours_telephone: '0733333333',
+};
+
+const BODY_ZD = {
+  lieu_id: 'lieu-1',
+  nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
   collectes: [
-    { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+    {
+      type: 'zd',
+      date_collecte: '2097-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+      ...CARTE,
+    },
   ],
   confirmer: true,
 };
@@ -135,17 +239,13 @@ const BODY_ZD = {
 describe('M1.2 / PROG-01 override lieu', () => {
   beforeEach(resetChain);
 
-  it('M1.2 — PROG-01 override lieu : lieu_overrides passé à fn_creer_collecte + notif Admin + audit_log', async () => {
+  it('M1.2 — PROG-01 override lieu : lieu_overrides passé à fn_enregistrer_programmation + notif Admin + audit_log', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // users récap
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala' },
-      error: null,
-    });
     mockRpc
-      .mockResolvedValueOnce({ data: 'collecte-zd-1', error: null }) // fn_creer_collecte
+      .mockResolvedValueOnce(enregistree('evt-1', 'collecte-zd-1')) // fn_enregistrer_programmation
       .mockResolvedValueOnce({ data: null, error: null }); // f_upsert_alerte_admin
 
     const { POST } =
@@ -158,13 +258,22 @@ describe('M1.2 / PROG-01 override lieu', () => {
     );
 
     expect(res.status).toBe(201);
-    // p_lieu_overrides transmis à la RPC (→ écrit sur la ligne ET dans le payload E1)
+    // Override transmis à la RPC d'enregistrement, qui le passe à
+    // fn_creer_collecte pour chaque collecte (→ écrit sur la ligne ET dans le
+    // payload E1, dans la même transaction).
     expect(mockRpc).toHaveBeenCalledWith(
-      'fn_creer_collecte',
+      'fn_enregistrer_programmation',
       expect.objectContaining({
-        p_lieu_overrides: { adresse_acces: '12 rue Neuve' },
+        p_evenement: expect.objectContaining({
+          lieu_overrides: { adresse_acces: '12 rue Neuve' },
+        }),
       }),
     );
+    // Badge « Info incomplète » sur les collectes créées.
+    expect(mockSupabaseChain.update).toHaveBeenCalledWith({
+      informations_completes: false,
+    });
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('id', ['collecte-zd-1']);
     // Signalement Admin léger + trace audit_log
     expect(mockRpc).toHaveBeenCalledWith(
       'f_upsert_alerte_admin',
@@ -181,12 +290,7 @@ describe('M1.2 / PROG-01 override lieu', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle
-      .mockResolvedValueOnce({
-        data: { id: 'evt-2', nom_evenement: null },
-        error: null,
-      })
-      .mockResolvedValueOnce({ data: { id: 'brouillon-1' }, error: null });
+    mockRpc.mockResolvedValueOnce(enregistree('evt-2', 'brouillon-1'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -199,9 +303,20 @@ describe('M1.2 / PROG-01 override lieu', () => {
     );
 
     expect(res.status).toBe(201);
-    // L'INSERT brouillon porte lieu_overrides (sinon perdu à la confirmation).
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ lieu_overrides: { ville: 'Lyon' } }),
+    // Le brouillon enregistré porte lieu_overrides (sinon perdu à la
+    // confirmation) ; le signalement Admin attend la confirmation.
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_enregistrer_programmation',
+      expect.objectContaining({
+        p_evenement: expect.objectContaining({
+          lieu_overrides: { ville: 'Lyon' },
+        }),
+        p_confirmer: false,
+      }),
+    );
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'f_upsert_alerte_admin',
+      expect.anything(),
     );
   });
 });
@@ -317,14 +432,21 @@ describe('M1.2 / PROG-04 récap programmation', () => {
 
   it('M1.2 — PROG-04 récap programmation envoyé au programmeur avec tarif ZD', async () => {
     setupAuth('traiteur_commercial');
+    // L'email relit les collectes de l'événement après leur création.
+    routerTables([
+      {
+        id: 'collecte-zd-1',
+        type: 'zero_dechet',
+        date_collecte: '2097-01-15',
+        heure_collecte: '08:00:00',
+        pax: 80,
+        created_at: '2097-01-01T10:00:00Z',
+      },
+    ]);
     mockMaybeSingle
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // users récap
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-zd-1', error: null });
+    mockRpc.mockResolvedValueOnce(enregistree('evt-1', 'collecte-zd-1'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -337,8 +459,18 @@ describe('M1.2 / PROG-04 récap programmation', () => {
       'prog@x.fr',
       expect.objectContaining({
         tarif_ligne: expect.stringContaining('120.00'),
+        nombre_collectes: '1 collecte',
+        liste_collectes: expect.stringContaining('Collecte Zéro Déchet #1'),
       }),
       expect.anything(),
+    );
+    // Tarif calculé sur le pax de la collecte relue.
+    expect(vi.mocked(calculer_tarif_zd)).toHaveBeenCalledWith(
+      80,
+      'org-traiteur-1',
+      expect.any(Date),
+      expect.anything(),
+      'lieu-1',
     );
   });
 
@@ -347,11 +479,7 @@ describe('M1.2 / PROG-04 récap programmation', () => {
     mockMaybeSingle
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
       .mockResolvedValueOnce({ data: null, error: null }); // users récap → pas d'email
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-zd-1', error: null });
+    mockRpc.mockResolvedValueOnce(enregistree('evt-1', 'collecte-zd-1'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -363,7 +491,7 @@ describe('M1.2 / PROG-04 récap programmation', () => {
   });
 });
 
-// ── PROG-05 : auto-accept AG à la confirmation + fix gate pack 'anti_gaspi' ────
+// ── PROG-05 : auto-accept AG à la confirmation (type 'anti_gaspi') ────────────
 describe('M1.2 / PROG-05 auto-accept AG', () => {
   beforeEach(resetChain);
 
@@ -371,17 +499,9 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
-      .mockResolvedValueOnce({
-        data: { id: 'pack-1', credits_restants: 5 },
-        error: null,
-      }) // pack
       .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // users récap
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-ag-1', nom_evenement: 'AG' },
-      error: null,
-    });
     mockRpc
-      .mockResolvedValueOnce({ data: 'collecte-ag-1', error: null }) // fn_creer_collecte
+      .mockResolvedValueOnce(enregistree('evt-ag-1', 'collecte-ag-1')) // fn_enregistrer_programmation
       .mockResolvedValueOnce({
         data: { auto_accepted: false, reason: 'no_config' },
         error: null,
@@ -393,7 +513,13 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       makeReq('POST', '/api/v1/programmation/evenements', {
         ...BODY_ZD,
         collectes: [
-          { type: 'ag', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+          {
+            type: 'ag',
+            date_collecte: '2097-01-15',
+            heure_collecte: '08:00',
+            pax: 80,
+            ...CARTE,
+          },
         ],
       }),
     );
@@ -403,15 +529,17 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
     });
   });
 
-  it('M1.2 — PROG-05 gate pack AG à la confirmation (type anti_gaspi)', async () => {
-    // Oracle du fix 'ag'→'anti_gaspi' : les collectes viennent de la DB (type='anti_gaspi').
-    // Avec l'ancien `=== 'ag'`, hasAg=false → la gate serait sautée (200). Ici : 422.
+  it('M1.2 — PROG-05 confirmation d’un brouillon AG sans pack actif : 200 + auto-accept (type anti_gaspi)', async () => {
+    // Les collectes viennent de la DB (type='anti_gaspi', jamais l'alias 'ag') :
+    // l'auto-accept filtre sur cette valeur. Sans pack actif, rien ne bloque — la
+    // collecte sera facturée à l'unité (décision Val 2026-10-16) : aucun pack lu.
     setupAuth('traiteur_commercial', 'org-traiteur-1');
     mockSingle.mockResolvedValueOnce({
       data: {
         id: 'evt-b',
         organisation_id: 'org-traiteur-1',
         nom_evenement: 'B',
+        nom_client_organisateur: 'Entreprise Dupont',
         pax: 50,
         lieu_id: 'lieu-1',
         // Le commercial confirme SON propre brouillon (created_by = caller).
@@ -423,7 +551,7 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       {
         id: 'c1',
         type: 'anti_gaspi',
-        date_collecte: '2030-01-15',
+        date_collecte: '2097-01-15',
         lieu_overrides: null,
       },
     ];
@@ -434,12 +562,31 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
         resolve: (v: { data: typeof collectesData; error: null }) => void,
       ) => Promise.resolve({ data: collectesData, error: null }).then(resolve),
     };
+    // Contact de secours complet (obligatoire, décision Val 2026-10-30).
+    const contactsData = [
+      {
+        collecte_id: 'c1',
+        contact_secours_nom: 'Sam Roux',
+        contact_secours_telephone: '0733333333',
+      },
+    ];
+    const contactsChain = {
+      select: () => contactsChain,
+      in: () => contactsChain,
+      then: (
+        resolve: (v: { data: typeof contactsData; error: null }) => void,
+      ) => Promise.resolve({ data: contactsData, error: null }).then(resolve),
+    };
     mockSupabaseChain.from.mockImplementation((table: string) =>
-      table === 'collectes' ? collectesChain : mockSupabaseChain,
+      table === 'collectes'
+        ? collectesChain
+        : table === 'collecte_contacts'
+          ? contactsChain
+          : mockSupabaseChain,
     );
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
-      .mockResolvedValueOnce({ data: null, error: null }); // pack absent → 422
+    mockRpc
+      .mockResolvedValueOnce({ data: null, error: null }) // fn_confirmer_programmation_brouillon
+      .mockResolvedValueOnce({ data: { auto_accepted: false }, error: null }); // rpc_evaluer_auto_accept_ag
 
     const { PATCH } =
       await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
@@ -447,13 +594,25 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       makeReq('PATCH', '/api/v1/programmation/evenements/evt-b/confirmer'),
       { params: Promise.resolve({ id: 'evt-b' }) },
     );
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/pack|Anti-Gaspi/i);
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('rpc_evaluer_auto_accept_ag', {
+      p_collecte_id: 'c1',
+    });
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith('packs_antgaspi');
   });
 
   it('M1.2 — PROG-04/05 ajout collecte AG à un événement existant déclenche auto-accept + récap', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
+    routerTables([
+      {
+        id: 'new-collecte-ag',
+        type: 'anti_gaspi',
+        date_collecte: '2097-02-01',
+        heure_collecte: '10:00:00',
+        pax: 80,
+        created_at: '2097-01-01T10:00:00Z',
+      },
+    ]);
     mockSingle.mockResolvedValueOnce({
       data: {
         id: 'evt-1',
@@ -464,23 +623,22 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
       error: null,
     });
     mockRpc
-      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
-      .mockResolvedValueOnce({ data: 'new-collecte-ag', error: null }) // fn_ajouter_collecte_evenement
+      .mockResolvedValueOnce({ data: 'new-collecte-ag', error: null }) // fn_creer_collecte_carte
       .mockResolvedValueOnce({ data: { auto_accepted: false }, error: null }); // rpc_evaluer_auto_accept_ag
-    mockMaybeSingle
-      .mockResolvedValueOnce({
-        data: { id: 'pack-1', credits_restants: 5 },
-        error: null,
-      }) // pack
-      .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // users récap
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { email: 'prog@x.fr' },
+      error: null,
+    }); // users récap
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
         type: 'ag',
-        date_collecte: '2030-02-01',
+        date_collecte: '2097-02-01',
         heure_collecte: '10:00',
+        pax: 80,
+        ...CARTE,
       }),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
@@ -491,7 +649,10 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
     expect(vi.mocked(emailModule.sendEmail)).toHaveBeenCalledWith(
       'collecte_programmee',
       'prog@x.fr',
-      expect.objectContaining({ tarif_ligne: expect.any(String) }),
+      expect.objectContaining({
+        tarif_ligne: expect.any(String),
+        liste_collectes: expect.stringContaining('Collecte Anti-Gaspi #1'),
+      }),
       expect.anything(),
     );
   });

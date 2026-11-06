@@ -2,7 +2,8 @@
 // G7 (colonne-DB par route) — SHIM TYPÉ, report-only.
 // =============================================================================
 // Ce module n'est JAMAIS importé par le code de production. Il sert UNIQUEMENT
-// au job CI `column-db` (mode rapport) via `tsconfig.column-db.json`, qui remappe
+// au rapport G7 `pnpm check:column-db` (compteur du méta-cliquet CI `gate-ratchet`, mode
+// rapport) via `tsconfig.column-db.json`, qui remappe
 // l'import `@savr/shared/src/supabase-client.js` vers ce fichier.
 //
 // Effet : pendant la passe `tsc -p tsconfig.column-db.json`, les factories

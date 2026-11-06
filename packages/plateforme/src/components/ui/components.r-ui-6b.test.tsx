@@ -1,5 +1,5 @@
 /**
- * R-UI-6b — primitives typo & structure : Heading, PageHeader, Text, Card
+ * R-UI-6b — primitives typo & structure : Heading, Text, Card
  * (padding / variant / CardTitle size), StatCard fusionné, ChartTooltip,
  * ToggleChip, LogoCard. Chaque test fige la RECETTE (classes) que la primitive
  * centralise, pour que l'iso-rendu de la migration soit vérifiable ici et non
@@ -10,7 +10,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 import { renderAvecToasts } from '@/test-utils/toasts';
 import { Heading, headingClasses } from '@/components/ui/heading';
-import { PageHeader } from '@/components/ui/page-header';
 import { Text, textClasses } from '@/components/ui/text';
 import { Card, CardClickable, CardTitle } from '@/components/ui/card';
 import { StatCard, StatCardGrid } from '@/components/ui/stat-card';
@@ -57,41 +56,6 @@ describe('Heading — recettes de titres centralisées', () => {
   });
 });
 
-describe('PageHeader — en-tête sobre', () => {
-  it('porte le h1 (tone primary par défaut), la description, l’icône et les actions', () => {
-    render(
-      <PageHeader
-        title="Transporteurs"
-        description="Référentiel"
-        icon={<span data-testid="icone" />}
-        actions={<button type="button">Nouveau</button>}
-      />,
-    );
-    const h1 = screen.getByRole('heading', { level: 1, name: 'Transporteurs' });
-    expect(h1.className).toBe('text-2xl font-bold text-savr-primary-800');
-    expect(screen.getByText('Référentiel').className).toBe(
-      'text-sm text-savr-neutral-500',
-    );
-    expect(screen.getByTestId('icone')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Nouveau' })).toBeInTheDocument();
-    expect(h1.closest('header')?.className).toContain('justify-between');
-  });
-
-  it('tone neutral + size xl + weight semibold = recette Admin « text-xl font-semibold text-savr-neutral-900 »', () => {
-    render(
-      <PageHeader
-        title="Paramètres"
-        tone="neutral"
-        size="xl"
-        weight="semibold"
-      />,
-    );
-    expect(screen.getByRole('heading', { level: 1 }).className).toBe(
-      'text-xl font-semibold text-savr-neutral-900',
-    );
-  });
-});
-
 describe('Text — texte courant', () => {
   it("variantes = recettes majoritaires actuelles (A8) ; tailles de l'échelle Tailwind (Q9 b)", () => {
     expect(textClasses({})).toBe('text-sm text-savr-neutral-500'); // muted ×73
@@ -111,9 +75,7 @@ describe('Text — texte courant', () => {
     expect(textClasses({ variant: 'hint', size: 'sm', tone: 'soft' })).toBe(
       'text-sm text-savr-neutral-600',
     );
-    expect(textClasses({ size: '3xs' })).toBe(
-      'text-[10px] text-savr-neutral-500',
-    );
+    expect(textClasses({ size: '3xs' })).toBe('text-3xs text-savr-neutral-500');
   });
 
   it('Q9 b : les tailles 11/13 px (`2xs`, `xs-plus`) n’existent plus', () => {
@@ -194,7 +156,7 @@ describe('Card — padding, variante elevated, CardTitle size', () => {
 });
 
 describe('StatCard — carte KPI unique (ex-KpiCockpitCard)', () => {
-  it('rend libellé, valeur, unité, pastille, badge de variation FR et sparkline', () => {
+  it('rend libellé, valeur, unité, pastille, badge de variation FR, sans courbe de tendance', () => {
     const { container } = render(
       <StatCard
         label="Tonnage"
@@ -202,14 +164,13 @@ describe('StatCard — carte KPI unique (ex-KpiCockpitCard)', () => {
         unit="t"
         dotColor="var(--color-savr-dataviz-1)"
         variationPct={-4}
-        sparkPoints={[1, 2, 3]}
       />,
     );
     expect(screen.getByText('Tonnage')).toBeInTheDocument();
     expect(screen.getByText('19,6')).toBeInTheDocument();
     expect(screen.getByText('t')).toBeInTheDocument();
     expect(screen.getByText(/▼ 4,0/)).toBeInTheDocument();
-    expect(container.querySelector('svg')).not.toBeNull();
+    expect(container.querySelector('svg')).toBeNull();
     expect(
       (container.querySelector('span[style]') as HTMLElement).style.background,
     ).toBe('var(--color-savr-dataviz-1)');

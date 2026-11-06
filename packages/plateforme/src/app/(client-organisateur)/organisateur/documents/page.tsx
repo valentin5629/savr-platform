@@ -2,14 +2,17 @@
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useState } from 'react';
-import { FileText } from 'lucide-react';
+import { FileTextIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { PageHero } from '@/components/ui/page-hero';
+import { enregistrerReponsePdf } from '@/lib/collectes/rapport-telechargement-client';
 
 interface DocItem {
   type: 'rapport' | 'bordereau' | 'attestation';
+  // Nom du document, décidé par la route (une collecte AG : « Rapport de don »).
+  nom: string;
   id: string;
   collecte_id: string;
   evenement_nom: string | null;
@@ -19,16 +22,10 @@ interface DocItem {
   disponible_a: string | null;
 }
 
-const LABELS: Record<DocItem['type'], string> = {
-  rapport: 'Rapport RSE',
-  bordereau: 'Bordereau ZD',
-  attestation: 'Attestation de don',
-};
-
 /** Clé unique d'un document (les id ne sont uniques que par type). */
 const cle = (d: DocItem) => `${d.type}-${d.id}`;
 
-// §11 §7 — Accès lecture seule aux documents PDF (rapports RSE / bordereaux / attestations).
+// §11 §7 — Accès lecture seule aux documents PDF (rapports RSE / bordereaux / rapports de don).
 // Le téléchargement passe par une URL pré-signée R2 (embargo H+24 re-vérifié côté serveur).
 export default function ClientOrganisateurDocumentsPage() {
   const [items, setItems] = useState<DocItem[]>([]);
@@ -48,6 +45,14 @@ export default function ClientOrganisateurDocumentsPage() {
       const res = await fetch(
         `/api/v1/organisateur/documents/${encodeURIComponent(d.type)}/${encodeURIComponent(d.id)}/download`,
       );
+      // Rapport de recyclage ZD : fabriqué au clic, la réponse est le PDF.
+      if (
+        res.ok &&
+        res.headers.get('Content-Type')?.includes('application/pdf')
+      ) {
+        await enregistrerReponsePdf(res);
+        return;
+      }
       const json = (await res.json()) as { url?: string };
       if (res.ok && json.url) {
         window.open(json.url, '_blank', 'noopener');
@@ -61,8 +66,8 @@ export default function ClientOrganisateurDocumentsPage() {
     {
       id: 'document',
       header: 'Document',
-      accessorFn: (d) => LABELS[d.type],
-      cell: ({ row: { original: d } }) => LABELS[d.type],
+      accessorFn: (d) => d.nom,
+      cell: ({ row: { original: d } }) => d.nom,
     },
     {
       id: 'evenement',
@@ -109,7 +114,7 @@ export default function ClientOrganisateurDocumentsPage() {
   return (
     <div className="space-y-4">
       <PageHero
-        icon={<FileText className="h-6 w-6 text-savr-primary-200" />}
+        icon={<FileTextIcon className="h-6 w-6" />}
         title="Mes documents"
       />
 

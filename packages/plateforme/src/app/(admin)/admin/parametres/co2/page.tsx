@@ -2,7 +2,11 @@
 
 import { fmtPct } from '@/lib/format';
 import { useEffect, useId, useState } from 'react';
-import { Leaf, Save, AlertCircle } from 'lucide-react';
+import {
+  FloppyDiskIcon,
+  LeafIcon,
+  WarningCircleIcon,
+} from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
@@ -13,7 +17,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { useUserRole } from '@/lib/use-user-role';
 import { Heading } from '@/components/ui/heading';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';
 import {
   Table,
@@ -226,10 +230,9 @@ export default function ParametresCo2Page() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
+      <PageHero
         title="Paramètres — CO₂"
-        tone="neutral"
-        icon={<Leaf className="h-6 w-6 text-savr-neutral-600" />}
+        icon={<LeafIcon className="h-6 w-6" />}
       />
 
       {!canEdit && <OpsReadOnlyBanner />}
@@ -247,7 +250,7 @@ export default function ParametresCo2Page() {
             loading={savingFacteurs}
             loadingText="Enregistrement…"
           >
-            <Save /> Enregistrer
+            <FloppyDiskIcon /> Enregistrer
           </Button>
         </div>
         <Text variant="hint">
@@ -366,7 +369,7 @@ export default function ParametresCo2Page() {
             loading={savingMix}
             loadingText="Enregistrement…"
           >
-            <Save /> Enregistrer
+            <FloppyDiskIcon /> Enregistrer
           </Button>
         </div>
 
@@ -374,7 +377,7 @@ export default function ParametresCo2Page() {
         <div
           className={`flex items-center gap-2 text-sm font-medium ${mixValid ? 'text-savr-success-strong' : 'text-savr-error-strong'}`}
         >
-          {!mixValid && <AlertCircle className="h-4 w-4" />}
+          {!mixValid && <WarningCircleIcon className="h-4 w-4" />}
           Total : {fmtPct(mixTotal, 2)}{' '}
           {mixValid ? '✓' : `— doit être égal à 100 %`}
         </div>
@@ -476,7 +479,7 @@ export default function ParametresCo2Page() {
               loading={savingAg}
               loadingText="Enregistrement…"
             >
-              <Save /> Enregistrer
+              <FloppyDiskIcon /> Enregistrer
             </Button>
           </div>
           <FormField
@@ -512,7 +515,7 @@ export default function ParametresCo2Page() {
               loading={savingDivers}
               loadingText="Enregistrement…"
             >
-              <Save /> Enregistrer
+              <FloppyDiskIcon /> Enregistrer
             </Button>
           </div>
           {/* Libellé au-dessus du champ (DS « Mise en page des formulaires »),

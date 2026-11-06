@@ -13,8 +13,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   let organisationId = auth.ctx.organisationId;
   if (auth.ctx.isAdmin) {
     const orgParam = new URL(req.url).searchParams.get('organisation_id');
-    // Pas d'org cible encore sélectionnée → pas de pack à vérifier (l'UI bloque l'AG).
-    if (!orgParam) return NextResponse.json({ pack_actif: false });
+    // Pas d'org cible : le pack est inconnu, pas absent — refusé plutôt que rendu
+    // comme « sans pack » (le formulaire attend que le traiteur soit choisi).
+    if (!orgParam)
+      return NextResponse.json(
+        { error: 'organisation_id requis' },
+        { status: 422 },
+      );
     organisationId = orgParam;
   }
 

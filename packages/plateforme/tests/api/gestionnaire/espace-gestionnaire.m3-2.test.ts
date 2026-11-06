@@ -68,6 +68,7 @@ const mockGetUser = vi.fn();
 const mockGetSession = vi.fn();
 const mockCreateUser = vi.fn();
 const mockGenerateLink = vi.fn();
+const mockUpdateUserById = vi.fn();
 const mockDeleteUser = vi.fn();
 const mockSendEmail = vi.fn().mockResolvedValue(undefined);
 
@@ -90,6 +91,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
         createUser: mockCreateUser,
         generateLink: mockGenerateLink,
         deleteUser: mockDeleteUser,
+        updateUserById: (...a: unknown[]) => mockUpdateUserById(...a),
       },
     },
   }),
@@ -140,7 +142,12 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
 }
 
 beforeEach(() => {
+  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'cle-de-service-de-test');
+  mockUpdateUserById.mockResolvedValue({ data: {}, error: null });
   vi.clearAllMocks();
+  // Bucket de l'environnement : les clés de logo y sont bornées (lib/logo-key.ts).
+  // Obligatoire depuis le 2026-10-07 — ces cas passaient sur le repli `savr-dev`.
+  vi.stubEnv('R2_BUCKET_NAME', 'savr-dev');
   rls = makeChain();
   adminClient = makeChain();
   mockCreateUser.mockResolvedValue({
@@ -157,6 +164,31 @@ beforeEach(() => {
 });
 
 // ── Auth guard ───────────────────────────────────────────────────────────────
+
+// Lien d'invitation Savr (7 jours, usage unique) : il pointe vers /invitation, son
+// jeton est signé et porte le nonce posé dans l'app_metadata du compte.
+async function verifierLienInvitation(
+  lien: string | undefined,
+  updateUserById: { mock: { calls: unknown[][] } },
+  userId: string,
+): Promise<void> {
+  const { lireJetonInvitation, DUREE_INVITATION_MS } =
+    await import('@/lib/auth/jeton-invitation.js');
+  expect(lien).toMatch(/\/invitation\?jeton=/);
+  const jeton = decodeURIComponent(String(lien).split('jeton=')[1] ?? '');
+  const lecture = lireJetonInvitation(jeton);
+  expect(lecture.ok).toBe(true);
+  if (!lecture.ok) return;
+  expect(lecture.userId).toBe(userId);
+  const restant = lecture.expireA - Date.now();
+  expect(restant).toBeGreaterThan(DUREE_INVITATION_MS - 60_000);
+  expect(restant).toBeLessThanOrEqual(DUREE_INVITATION_MS);
+  expect(updateUserById.mock.calls).toContainEqual([
+    userId,
+    { app_metadata: { invitation_nonce: lecture.nonce } },
+  ]);
+}
+
 describe('M3.2 / auth guard', () => {
   it('M3.2/auth_guard_non_gestionnaire_401 — traiteur_manager bloqué', async () => {
     setupAuth('traiteur_manager');
@@ -230,7 +262,10 @@ describe('M3.2 / dashboard', () => {
           type: 'zero_dechet',
           statut: 'cloturee',
           taux_recyclage: 0.8,
-          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 100 },
+          // Pax de la collecte (lot 3) ; l'événement en compte 400 sur ses
+          // autres soirées, hors du ratio.
+          pax: 100,
+          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 400 },
           collecte_flux: [
             { poids_reel_kg: 50, flux_dechets: { code: 'biodechet' } },
             { poids_reel_kg: 20, flux_dechets: { code: 'verre' } },
@@ -380,9 +415,146 @@ describe('M3.2 / dashboard', () => {
       makeReq('GET', '/api/v1/gestionnaire/dashboard?type=anti_gaspi'),
     );
     const json = (await res.json()) as {
-      data: { pack: { credits_restants: number } | null };
+      data: {
+        pack: { credits_initiaux: number; credits_restants: number } | null;
+      };
     };
     expect(json.data.pack?.credits_restants).toBe(2);
+    expect(json.data.pack?.credits_initiaux).toBe(20);
+    // Oracle sur la requête : le bloc « Mon pack Anti-Gaspi » du dashboard lit ces
+    // deux colonnes. Sans `credits_initiaux` dans la sélection, il afficherait
+    // « 2 / » — et la fixture ci-dessus, posée à la main, ne le montrerait pas.
+    const fromCalls = rls.__calls.from ?? [];
+    const idx = fromCalls.findIndex((c) => c[0] === 'packs_antgaspi');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    const colonnes = String(rls.__calls.select?.[idx]?.[0] ?? '')
+      .split(',')
+      .map((c) => c.trim());
+    expect(colonnes).toEqual(
+      expect.arrayContaining(['credits_initiaux', 'credits_restants']),
+    );
+  });
+});
+
+// Lot 3 du pax porté par la collecte (décisions Val Q1 et Q2 du 2026-10-25) et
+// reliquat C1/C2 (filtre Type lu comme UUID) — route KPI du gestionnaire.
+describe('Lot 3 / dashboard gestionnaire — pax des collectes et filtre Type', () => {
+  it('Lot3/gestionnaire_kpi_zd_filtre_partiel — filtre Type qui ne retient qu’une soirée de 300 convives : kg/pax 600 / 300, pas / 800 de l’événement (I5)', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          taux_recyclage: 80,
+          pax: 300,
+          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 800 },
+          collecte_flux: [
+            { poids_reel_kg: 600, flux_dechets: { code: 'biodechet' } },
+          ],
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: null, error: null }); // pack AG
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/dashboard/route.js');
+    const res = await GET(
+      makeReq(
+        'GET',
+        '/api/v1/gestionnaire/dashboard?type=zero_dechet&type_evenement_ids[]=7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+      ),
+    );
+    const json = (await res.json()) as {
+      data: {
+        kpis: { kg_par_pax: number };
+        kg_par_pax_par_flux: Record<string, number>;
+      };
+    };
+    expect(json.data.kpis.kg_par_pax).toBeCloseTo(2, 5);
+    expect(json.data.kg_par_pax_par_flux.biodechet).toBeCloseTo(2, 5);
+  });
+
+  it('Lot3/gestionnaire_kpi_ag_pax_collectes — deux soirées AG (300 convives puis 0) : 300 pax cumulés, repas/pax 60 / 300', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          pax: 300,
+          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 800 },
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 60 },
+        },
+        {
+          id: 'c2',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          pax: 0,
+          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 800 },
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 20 },
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: null, error: null }); // pack AG
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/dashboard/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/dashboard?type=anti_gaspi'),
+    );
+    const json = (await res.json()) as {
+      data: {
+        kpis: {
+          nb_repas_donnes: number;
+          pax_total: number;
+          repas_par_pax: number;
+        };
+      };
+    };
+    expect(json.data.kpis).toMatchObject({
+      nb_repas_donnes: 80,
+      pax_total: 300,
+    });
+    expect(json.data.kpis.repas_par_pax).toBeCloseTo(0.2, 5);
+  });
+
+  it('Lot3/gestionnaire_type_evenement_illisible_vide — type_evenement_ids[] sans UUID lisible : aucune collecte retenue, aucune lecture des collectes', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          pax: 100,
+          evenements: { id: 'e1', lieu_id: 'lieu-1' },
+          collecte_flux: [{ poids_reel_kg: 50 }],
+        },
+      ],
+      error: null,
+    });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/dashboard/route.js');
+    const res = await GET(
+      makeReq(
+        'GET',
+        '/api/v1/gestionnaire/dashboard?type=zero_dechet&type_evenement_ids[]=abc',
+      ),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: { kpis: { nb_collectes: number; tonnage_kg: number } };
+    };
+    expect(json.data.kpis).toMatchObject({ nb_collectes: 0, tonnage_kg: 0 });
+    expect(rls.__calls.from ?? []).not.toContainEqual(['collectes']);
   });
 });
 
@@ -583,108 +755,6 @@ describe('M3.2 / traiteurs', () => {
     };
     expect(json.data[0]?.nom).toBe('Kaspia');
     expect(json.data[0]?.repas_donnes_12m).toBe(70);
-  });
-});
-
-// ── Pack AG ──────────────────────────────────────────────────────────────────
-describe('M3.2 / pack AG', () => {
-  it('M3.2/pack_ag_actif_retourne_restants — colonnes réelles mappées (pas de colonne phantom)', async () => {
-    setupAuth('gestionnaire_lieux');
-    // Le mock fournit les colonnes RÉELLES de packs_antgaspi (convergées M2.1).
-    // Si la route sélectionnait des colonnes inexistantes (reference/date_debut/
-    // prix_ht…), les champs mappés seraient undefined → ce test échouerait.
-    rls.push({
-      data: {
-        id: 'p1',
-        type_pack: 'pack_30',
-        credits_initiaux: 20,
-        credits_consommes: 8,
-        credits_restants: 12,
-        date_achat: '2026-01-15',
-        date_expiration: null,
-        statut: 'actif',
-      },
-      error: null,
-    });
-    rls.push({ data: [], error: null }); // consommation
-    const { GET } = await import('@/app/api/v1/gestionnaire/pack-ag/route.js');
-    const res = await GET(makeReq('GET', '/api/v1/gestionnaire/pack-ag'));
-    const json = (await res.json()) as {
-      data: {
-        pack_actif: {
-          nb_collectes_total: number;
-          nb_collectes_restantes: number;
-          reference: string | null;
-          date_debut: string | null;
-          date_fin: string | null;
-          // financier (prix/montant/devise) NON exposé côté gestionnaire (§06.05)
-          prix_ht?: unknown;
-          montant_total_ht?: unknown;
-        } | null;
-      };
-    };
-    const pack = json.data.pack_actif;
-    expect(pack?.nb_collectes_restantes).toBe(12);
-    expect(pack?.nb_collectes_total).toBe(20);
-    expect(pack?.reference).toBe('pack_30');
-    expect(pack?.date_debut).toBe('2026-01-15');
-    expect(pack?.date_fin).toBeNull();
-    // masquage financier
-    expect(pack?.prix_ht).toBeUndefined();
-    expect(pack?.montant_total_ht).toBeUndefined();
-  });
-
-  it('M3.2/pack_ag_aucun_actif_null — retour pack_actif null', async () => {
-    setupAuth('gestionnaire_lieux');
-    rls.push({ data: null, error: null }); // pas de pack actif
-    rls.push({ data: [], error: null }); // consommation
-    const { GET } = await import('@/app/api/v1/gestionnaire/pack-ag/route.js');
-    const res = await GET(makeReq('GET', '/api/v1/gestionnaire/pack-ag'));
-    const json = (await res.json()) as {
-      data: { pack_actif: null };
-    };
-    expect(json.data.pack_actif).toBeNull();
-  });
-
-  it('M3.2/pack_ag_consommation_repas_objet — historique conso : embed to-one (OBJET) compté', async () => {
-    // Régression : la ligne d'historique de consommation pack AG lit
-    // attributions_antgaspi en OBJET (to-one) → `: []` mettait repas_donnes = 0.
-    setupAuth('gestionnaire_lieux');
-    rls.push({ data: null, error: null }); // pas de pack actif
-    rls.push({
-      data: [
-        {
-          id: 'c-ag',
-          date_collecte: '2026-06-01',
-          statut: 'cloturee',
-          evenements: {
-            nom_evenement: 'Gala',
-            date_evenement: '2026-06-01',
-            lieux: { nom: 'Palais' },
-          },
-          // ⚠ OBJET, pas tableau — forme réelle PostgREST, sur la vue
-          // v_attributions_gestionnaire (nom de l'association à plat).
-          attributions_antgaspi: {
-            volume_repas_realise: 55,
-            association_nom: 'Les Restos',
-          },
-        },
-      ],
-      error: null,
-    }); // consommation
-    const { GET } = await import('@/app/api/v1/gestionnaire/pack-ag/route.js');
-    const res = await GET(makeReq('GET', '/api/v1/gestionnaire/pack-ag'));
-    const json = (await res.json()) as {
-      data: {
-        historique_consommation: Array<{
-          repas_donnes: number;
-          associations: Array<{ nom: string | null }>;
-        }>;
-      };
-    };
-    const ligne = json.data.historique_consommation[0]!;
-    expect(ligne.repas_donnes).toBe(55);
-    expect(ligne.associations[0]?.nom).toBe('Les Restos');
   });
 });
 
@@ -900,8 +970,12 @@ describe('M3.2 / mon-organisation / logo', () => {
 
   it('M3.2/logo_upload_201 — clé logos/<uuid>.png', async () => {
     setupAuth('gestionnaire_lieux');
-    mockUploadObject.mockImplementation((bucket: string, key: string) =>
-      Promise.resolve(`${bucket}/${key}`),
+    mockUploadObject.mockImplementation((key: string) =>
+      Promise.resolve({
+        bucket: 'savr-dev',
+        key,
+        storageKey: `savr-dev/${key}`,
+      }),
     );
     const { POST } =
       await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
@@ -964,7 +1038,6 @@ describe('M3.2 / mon-organisation / logo', () => {
     expect(res.headers.get('content-type')).toBe('image/png');
     expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
     expect(mockGetObject).toHaveBeenCalledWith(
-      'savr-dev',
       LOGO_KEY.slice('savr-dev/'.length),
     );
   });
@@ -1021,9 +1094,9 @@ describe('M3.2 / traiteurs / logo (proxy scopé)', () => {
     // Jamais le client service-role : il contournerait le périmètre de la vue.
     expect(adminClient.__calls.from).toBeUndefined();
     // Oracle de consommation : l'objet servi est celui de la BASE (capture par
-    // valeur : getObject reçoit deux chaînes).
+    // valeur : getObject reçoit la clé, une chaîne — le bucket est celui de
+    // l'environnement).
     expect(mockGetObject).toHaveBeenCalledWith(
-      'savr-dev',
       LOGO_KEY.slice('savr-dev/'.length),
     );
     expect(mockGetObject).toHaveBeenCalledTimes(1);
@@ -1106,18 +1179,12 @@ describe('M3.2 / mon-organisation / users (F5)', () => {
       lien_invitation?: string;
     };
     expect(emailVars.lien_invitation).toBeTruthy();
-    // `redirectTo` doit viser la route d'échange PKCE (`/api/auth/reset-password
-    // /confirm`) — `/auth/new-password` n'existe pas (404), régression mesurée
-    // 2026-09-28.
-    expect(mockGenerateLink).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'recovery',
-        options: expect.objectContaining({
-          redirectTo: expect.stringContaining(
-            '/api/auth/reset-password/confirm',
-          ),
-        }),
-      }),
+    // Lien Savr valable 7 jours (plus de lien Supabase de récupération).
+    expect(mockGenerateLink).not.toHaveBeenCalled();
+    await verifierLienInvitation(
+      emailVars.lien_invitation,
+      mockUpdateUserById,
+      'new-user-id',
     );
   });
 

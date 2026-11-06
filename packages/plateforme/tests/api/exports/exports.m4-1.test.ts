@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { FILTRE_A_DISPATCHER } from '@/lib/collectes-chips';
 
 type Result = { data: unknown; error: unknown; count?: number | null };
 
@@ -51,6 +52,19 @@ function makeChain() {
       return chain;
     };
   }
+  // File d'envoi (`outbox_events`, envois abandonnés lus par l'export staff) :
+  // aucun abandon, hors de la file de réponses et des appels enregistrés, pour
+  // que chaque cas serve ses lignes comme avant.
+  const sansAbandon = {
+    select: () => sansAbandon,
+    eq: () => sansAbandon,
+    in: () => sansAbandon,
+    then: (resolve: (r: Result) => unknown) =>
+      resolve({ data: [], error: null }),
+  };
+  const fromParDefaut = chain.from as (...args: unknown[]) => unknown;
+  chain.from = (...args: unknown[]) =>
+    args[0] === 'outbox_events' ? sansAbandon : fromParDefaut(...args);
   chain.rpc = (...args: unknown[]) => {
     record('rpc', args);
     return Promise.resolve(next());
@@ -86,7 +100,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 function setupAuth(role: string, organisationId: string | null = 'org-a') {
   mockGetUser.mockResolvedValue({
@@ -153,9 +167,23 @@ describe('M4.1 / garde', () => {
 
 // ── Matrice d'autorisation (P1) ──────────────────────────────────────────────
 describe('M4.1 / matrice_exports_csv_par_profil', () => {
-  it('commercial → pesees : 403 (non autorisé)', async () => {
+  // Val 2026-10-30 : le commercial exporte comme le manager, sauf Packs AG
+  // (la RLS de packs_antgaspi ne lui ouvre pas la table).
+  it.each(['pesees', 'associations-ag', 'impact-rse'] as const)(
+    'commercial → %s : 200, sous sa session',
+    async (entite) => {
+      setupAuth('traiteur_commercial');
+      rls.push({ data: [], error: null });
+      rls.push({ data: [], error: null });
+      const res = await call(entite);
+      expect(res.status).toBe(200);
+      expect(mockCreateAdmin).not.toHaveBeenCalled();
+    },
+  );
+
+  it('commercial → packs-ag : 403 (non autorisé)', async () => {
     setupAuth('traiteur_commercial');
-    expect((await call('pesees')).status).toBe(403);
+    expect((await call('packs-ag')).status).toBe(403);
   });
 
   // Décision Val 2026-10-07 : la liste Événements du gestionnaire est retirée,
@@ -335,6 +363,71 @@ describe('M4.1 / export collectes — statut affiché Admin', () => {
     expect(select).toMatch(/\bprestataire_logistique_id\b/);
     expect(select).toMatch(/attributions_antgaspi!collecte_id\(id\b/);
     expect(admin.__calls.neq).toContainEqual(['statut', 'brouillon']);
+  });
+
+  // « Sans excédent » n'est pas un statut (décision Val 2026-10-09) : l'export
+  // dit « Réalisée » et garde l'information dans « Repas AG », qui vaut 0.
+  it('M4.1/export_collectes_sans_excedent_zero_repas — AG sans excédent : statut « Réalisée », « Repas AG » = 0, jamais une cellule vide', async () => {
+    setupAuth('admin_savr', null);
+    admin.push({
+      data: [
+        ligne('evt-sans-excedent', {
+          type: 'anti_gaspi',
+          statut: 'realisee_sans_collecte',
+          statut_tms: 'acceptee',
+        }),
+        ligne('evt-ag-sans-attribution', {
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          statut_tms: 'acceptee',
+        }),
+        ligne('evt-zd', { statut: 'cloturee', statut_tms: 'acceptee' }),
+      ],
+      error: null,
+    });
+    const csv = await (await call('collectes')).text();
+    const repasDe = (id: string) =>
+      csv
+        .split('\r\n')
+        .find((l) => l.includes(id))
+        ?.split(';')
+        .pop();
+
+    expect(statutDe(csv, 'evt-sans-excedent')).toBe('Réalisée');
+    // Aucune cellule ne porte l'ancien libellé de statut.
+    expect(csv.split(/;|\r\n/)).not.toContain('Sans excédents');
+    expect(repasDe('evt-sans-excedent')).toBe('0');
+    // Témoins : sans cette règle, une AG sans attribution lue et une ZD
+    // laissent la cellule vide.
+    expect(repasDe('evt-ag-sans-attribution')).toBe('');
+    expect(repasDe('evt-zd')).toBe('');
+  });
+
+  it('M4.1/export_impact_rse_sans_excedent_zero_repas — même règle dans l’export Impact RSE', async () => {
+    setupAuth('admin_savr', null);
+    admin.push({
+      data: [
+        ligne('evt-sans-excedent', {
+          type: 'anti_gaspi',
+          statut: 'realisee_sans_collecte',
+        }),
+        ligne('evt-ag-sans-attribution', {
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+        }),
+      ],
+      error: null,
+    });
+    const res = await call('impact-rse');
+    const csv = await res.text();
+    expect(res.status).toBe(200);
+    const lignes = csv.split('\r\n');
+    const colonne = (lignes[0] ?? '').split(';').indexOf('Repas AG');
+    expect(colonne).toBeGreaterThan(-1);
+    const repasDe = (id: string) =>
+      lignes.find((l) => l.includes(id))?.split(';')[colonne];
+    expect(repasDe('evt-sans-excedent')).toBe('0');
+    expect(repasDe('evt-ag-sans-attribution')).toBe('');
   });
 
   it('client : ni signaux d’envoi lus (pas de lecture de attributions_antgaspi), ni changement de libellé', async () => {
@@ -541,13 +634,15 @@ describe('M4.1 / export collectes — filtres de la liste gestionnaire', () => {
       'evenements.traiteur_operationnel_organisation_id',
       [TRAITEUR_1],
     ]);
-    expect(inn).toContainEqual(['evenements.type_evenement_id', [TYPE_EVT]]);
-    // Un seul `.or()` sur l'embed, prédicats de la table de constantes.
+    // Type et taille de la COLLECTE, comme la liste (C3 du 2026-10-22, C4 du
+    // 2026-10-20, lot C1).
+    expect(inn).toContainEqual(['type_evenement_id', [TYPE_EVT]]);
+    expect(inn.some(([col]) => col === 'evenements.type_evenement_id')).toBe(
+      false,
+    );
+    // Un seul `.or()`, sans `referencedTable` : sur `collectes.pax`.
     expect(rls.__calls.or).toEqual([
-      [
-        'and(pax.gte.500,pax.lt.750),pax.is.null,pax.lt.250',
-        { referencedTable: 'evenements' },
-      ],
+      ['and(pax.gte.500,pax.lt.750),pax.is.null,pax.lt.250'],
     ]);
   });
 
@@ -556,6 +651,7 @@ describe('M4.1 / export collectes — filtres de la liste gestionnaire', () => {
     ['clé héritée', '?taille_evenements[]=toString'],
     ['traiteur mal formé', '?traiteur_ids=pas-un-uuid'],
     ['lieu mal formé', '?lieu_ids=pas-un-uuid'],
+    ['type d’événement mal formé', '?type_evenement_ids[]=pas-un-uuid'],
   ])(
     'M4.1/export_collectes_gestionnaire_filtre_illisible_vide — %s : fichier sans ligne, jamais le périmètre entier',
     async (_cas, query) => {
@@ -651,6 +747,14 @@ describe('M4.1 / export collectes — filtres de la liste Admin', () => {
       ],
     ],
     [
+      // Décision Val 2026-10-09 : « Réalisée » se lit aussi sur une collecte AG
+      // sans excédent, le filtre n'en propose qu'une.
+      'statut « Réalisée » : couvre aussi la collecte AG sans excédent',
+      '?statuts=realisee,cloturee',
+      'in',
+      ['statut', ['realisee', 'realisee_sans_collecte', 'cloturee']],
+    ],
+    [
       'aucun statut lisible : aucune ligne, jamais la liste entière',
       '?statuts=inconnu,brouillon',
       'in',
@@ -711,14 +815,14 @@ describe('M4.1 / export collectes — filtres de la liste Admin', () => {
     [
       'pastille « Non transmises ZD »',
       '?chip=non_transmises_zd',
-      'eq',
-      ['statut_tms', 'non_envoye'],
+      'or',
+      [FILTRE_A_DISPATCHER],
     ],
     [
       'pastille « Modifiées sans renvoi TMS »',
       '?chip=dirty_tms',
-      'not',
-      ['tms_reference', 'is', null],
+      'in',
+      ['statut', ['programmee', 'validee', 'en_cours']],
     ],
     [
       'pastille « AG en attente attribution »',
@@ -953,6 +1057,200 @@ describe('M4.1 / evenements', () => {
   });
 });
 
+// Le fichier reprend la sélection de la liste Événements (§12 §2, demande Val
+// 2026-10-30) : mêmes filtres, brouillons écartés, aucun tri d'écran ni page.
+describe('M4.1 / evenements — filtres de la liste', () => {
+  const LIEU = '11111111-1111-4111-8111-111111111111';
+  it('M3.2/export_evenements_filtres_liste — période, lieu, type et écart des brouillons', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: [], error: null });
+    const res = await call(
+      'evenements',
+      `?from=2026-11-01&to=2026-11-30&lieu_ids=${LIEU}&type=zero_dechet`,
+    );
+    expect(res.status).toBe(200);
+    expect(rls.__calls.gte).toContainEqual(['date_evenement', '2026-11-01']);
+    expect(rls.__calls.lte).toContainEqual(['date_evenement', '2026-11-30']);
+    expect(rls.__calls.in).toContainEqual(['lieu_id', [LIEU]]);
+    expect(rls.__calls.eq).toContainEqual(['filtre_type.type', 'zero_dechet']);
+    expect(rls.__calls.neq).toContainEqual([
+      'hors_brouillon.statut',
+      'brouillon',
+    ]);
+    expect(String(rls.__calls.select?.[0]?.[0])).toContain(
+      'hors_brouillon:collectes(id)',
+    );
+    // Aucune page d'écran : lecture depuis la première ligne, par tranches.
+    expect(rls.__calls.range?.[0]).toEqual([0, 999]);
+  });
+
+  it('M3.2/export_evenements_par_tranches — au-delà d’une réponse PostgREST, toutes les lignes sortent', async () => {
+    setupAuth('admin_savr', null);
+    const evt = (id: string) => ({
+      id,
+      nom_evenement: id,
+      date_evenement: '2026-11-02',
+      pax: 10,
+      traiteur_operationnel_organisation_id: null,
+      lieux: { nom: 'Hall' },
+      collectes: [],
+    });
+    admin.push({ data: [evt('evt-tranche-1')], error: null, count: 2 });
+    admin.push({ data: [evt('evt-tranche-2')], error: null, count: 2 });
+    const text = await (await call('evenements')).text();
+    expect(text).toContain('evt-tranche-1');
+    expect(text).toContain('evt-tranche-2');
+    expect(admin.__calls.range).toHaveLength(2);
+    expect(admin.__calls.order).toContainEqual(['id', { ascending: false }]);
+  });
+
+  it('M3.2/export_evenements_selection_vide — type inconnu : fichier vide, aucune lecture', async () => {
+    setupAuth('traiteur_manager');
+    const res = await call('evenements', '?type=inconnu');
+    expect(res.status).toBe(200);
+    expect(rls.__calls.from).toBeUndefined();
+    const lignes = (await res.text()).split('\r\n').filter(Boolean);
+    expect(lignes).toHaveLength(1); // en-tête seul
+  });
+});
+
+// Lot 3 du pax porté par la collecte, décision Val Q4 du 2026-10-25 : l'export
+// Événements garde le pax CALCULÉ de l'événement et sa taille.
+describe('Lot 3 / export Événements — pax et taille de l’événement (Q4)', () => {
+  it('Lot3/export_evenements_pax_et_taille_de_l_evenement — colonnes Taille et Pax : L et 800 de l’événement, pas M et 500 de ses collectes', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({
+      data: [
+        {
+          id: 'e1',
+          nom_evenement: 'Salon',
+          date_evenement: '2026-02-01',
+          pax: 800,
+          traiteur_operationnel_organisation_id: 'tr-1',
+          lieux: { nom: 'Dock' },
+          types_evenements: { libelle: 'Salon pro' },
+          collectes: [
+            {
+              id: 'c1',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-01',
+              pax: 300,
+              taux_recyclage: 80,
+              collecte_flux: [{ poids_reel_kg: 40 }],
+            },
+            {
+              id: 'c2',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-02',
+              pax: 200,
+              taux_recyclage: 80,
+              collecte_flux: [{ poids_reel_kg: 10 }],
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [{ id: 'tr-1', nom: 'Tr' }], error: null });
+
+    const res = await call('evenements');
+    const text = new TextDecoder().decode(
+      new Uint8Array(await res.arrayBuffer()),
+    );
+    const [header, line1] = text.split('\r\n');
+    expect(res.status).toBe(200);
+    const colonnes = (header ?? '').split(';');
+    const valeurs = (line1 ?? '').split(';');
+    expect(valeurs[colonnes.findIndex((c) => /^Pax$/i.test(c.trim()))]).toBe(
+      '800',
+    );
+    expect(
+      valeurs[
+        colonnes.findIndex((c) =>
+          /^Taille/i.test(c.replace(/^\uFEFF/, '').trim()),
+        )
+      ],
+    ).toBe('L');
+  });
+});
+
+describe('M4.1 / evenements — type d’événement de ses collectes (lot C1, Q2)', () => {
+  it('M4.1/export_evenements_type_des_collectes — colonne « Type d’événement » : types de ses collectes, ordre de la collecte n°1, sans doublon ni collecte annulée', async () => {
+    setupAuth('traiteur_manager');
+    const col = (o: Record<string, unknown>) => ({
+      taux_recyclage: null,
+      heure_collecte: '20:00:00',
+      created_at: '2026-01-01T00:00:00Z',
+      collecte_flux: [],
+      ...o,
+    });
+    rls.push({
+      data: [
+        {
+          id: 'e1',
+          nom_evenement: 'Salon',
+          date_evenement: '2026-02-01',
+          pax: 300,
+          traiteur_operationnel_organisation_id: 'tr-1',
+          lieux: { nom: 'Dock' },
+          // Copie de la collecte n°1 : jamais seule affichée.
+          types_evenements: { libelle: 'Cocktail apéritif' },
+          collectes: [
+            // AG la veille : après les ZD (règle de la collecte n°1).
+            col({
+              id: 'c0',
+              type: 'anti_gaspi',
+              statut: 'validee',
+              date_collecte: '2026-01-31',
+              type_evenement: { libelle: 'Autre' },
+            }),
+            col({
+              id: 'c1',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-01',
+              type_evenement: { libelle: 'Cocktail apéritif' },
+            }),
+            col({
+              id: 'c2',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-02',
+              type_evenement: { libelle: 'Repas assis' },
+            }),
+            col({
+              id: 'c3',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-03',
+              type_evenement: { libelle: 'Repas assis' },
+            }),
+            col({
+              id: 'c4',
+              type: 'zero_dechet',
+              statut: 'annulee',
+              date_collecte: '2026-01-30',
+              type_evenement: { libelle: 'Cocktail repas complet' },
+            }),
+          ],
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [{ id: 'tr-1', nom: 'Tr' }], error: null });
+
+    const res = await call('evenements');
+    const text = new TextDecoder().decode(
+      new Uint8Array(await res.arrayBuffer()),
+    );
+    expect(res.status).toBe(200);
+    expect(text).toContain(';Cocktail apéritif, Repas assis, Autre;');
+    expect(text).not.toContain('Cocktail repas complet');
+  });
+});
+
 describe('M4.1 / packs-ag', () => {
   it('colonnes réelles packs_antgaspi + SANS financier (masquage gestionnaire §06.05)', async () => {
     setupAuth('gestionnaire_lieux');
@@ -987,5 +1285,281 @@ describe('M4.1 / packs-ag', () => {
     expect(header).not.toContain('Devise');
     expect(line1).toContain('pack_30');
     expect(line1).toContain('25');
+  });
+});
+
+// ── Code affaire VIPARIS et poids par flux (Val 2026-11-02) ─────────────────
+// Le code affaire est hors de la liste blanche de lecture des clients : lu en
+// service_role pour les seuls événements des lignes que la RLS a rendues.
+describe('VIPARIS / exports Collectes et Événements — code affaire, poids par flux', () => {
+  const FLUX_HEADERS = [
+    'Biodéchets (kg)',
+    'Emballages (kg)',
+    'Cartons (kg)',
+    'Verre (kg)',
+    'Déchet résiduel (kg)',
+  ];
+  const flux = (code: string, kg: number) => ({
+    poids_reel_kg: kg,
+    flux_dechets: { code },
+  });
+  const evenement = (id: string) => ({
+    id,
+    nom_evenement: `Salon ${id}`,
+    date_evenement: '2026-01-14',
+    nom_client_organisateur: 'ACME',
+    traiteur_operationnel_organisation_id: 'tr-1',
+    lieux: { nom: 'Espace Champerret', code_postal: '75017', ville: 'Paris' },
+  });
+  const lire = async (res: Response) => {
+    const lignes = (await res.text()).split('\r\n');
+    const entetes = (lignes[0] ?? '').split(';');
+    const cellule = (n: number, entete: string) =>
+      (lignes[n] ?? '').split(';')[entetes.indexOf(entete)];
+    return { entetes, cellule };
+  };
+
+  it('VIPARIS/export_collectes_code_affaire_et_flux — code de l’événement, un poids par flux pour une ZD, cellules vides pour une AG', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          date_collecte: '2026-01-15',
+          heure_collecte: '23:00:00',
+          taux_recyclage: 80,
+          co2_evite_kg: 10,
+          collecte_flux: [
+            flux('biodechet', 100),
+            flux('carton', 25.5),
+            flux('verre', 4),
+          ],
+          evenements: evenement('e1'),
+        },
+        {
+          id: 'c2',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          date_collecte: '2026-01-16',
+          heure_collecte: null,
+          taux_recyclage: null,
+          co2_evite_kg: null,
+          collecte_flux: [],
+          evenements: evenement('e2'),
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [{ id: 'tr-1', nom: 'Traiteur Un' }], error: null });
+    rls.push({ data: 120, error: null }); // f_volume_repas_realise (c2)
+    admin.push({
+      data: [{ id: 'e1', code_affaire_viparis: '26SIAL1' }],
+      error: null,
+    });
+
+    const res = await call('collectes');
+    expect(res.status).toBe(200);
+    const { entetes, cellule } = await lire(res);
+    // Code affaire juste après « Événement », flux juste après le tonnage.
+    expect(entetes.indexOf('Code affaire VIPARIS')).toBe(
+      entetes.indexOf('Événement') + 1,
+    );
+    const iTonnage = entetes.indexOf('Tonnage ZD (kg)');
+    expect(entetes.slice(iTonnage + 1, iTonnage + 6)).toEqual(FLUX_HEADERS);
+    expect(entetes).toContain('Repas AG');
+
+    expect(cellule(1, 'Code affaire VIPARIS')).toBe('26SIAL1');
+    expect(cellule(1, 'Biodéchets (kg)')).toBe('100');
+    expect(cellule(1, 'Cartons (kg)')).toBe('25,5');
+    expect(cellule(1, 'Verre (kg)')).toBe('4');
+    expect(cellule(1, 'Emballages (kg)')).toBe('0');
+    // AG : pas de flux, mais ses repas.
+    expect(cellule(2, 'Code affaire VIPARIS')).toBe('');
+    for (const h of FLUX_HEADERS) expect(cellule(2, h)).toBe('');
+    expect(cellule(2, 'Repas AG')).toBe('120');
+
+    // Lignes lues sous la RLS, avec le code du flux et l'id de l'événement.
+    const select = String(rls.__calls.select?.[0]?.[0]);
+    expect(select).toContain(
+      'collecte_flux(poids_reel_kg, flux_dechets!flux_id(code))',
+    );
+    expect(select).toContain('evenements!inner(id,');
+    // Service_role : la seule colonne du code, pour les événements des lignes.
+    expect(admin.__calls.from).toEqual([['evenements']]);
+    expect(admin.__calls.select).toEqual([['id, code_affaire_viparis']]);
+    expect(admin.__calls.in).toEqual([['id', ['e1', 'e2']]]);
+    expect(admin.__calls.not).toEqual([['code_affaire_viparis', 'is', null]]);
+  });
+
+  it('VIPARIS/export_codes_par_lots — au-delà de 100 événements, lecture par lots (jamais une URL refusée)', async () => {
+    setupAuth('traiteur_manager');
+    const lignes = Array.from({ length: 150 }, (_, i) => ({
+      id: `c${i}`,
+      type: 'zero_dechet',
+      statut: 'programmee',
+      date_collecte: '2026-01-15',
+      heure_collecte: null,
+      taux_recyclage: null,
+      co2_evite_kg: null,
+      collecte_flux: [],
+      evenements: evenement(`e${i}`),
+    }));
+    rls.push({ data: lignes, error: null });
+    rls.push({ data: [], error: null });
+    admin.push({ data: [], error: null });
+    admin.push({ data: [], error: null });
+    const res = await call('collectes');
+    expect(res.status).toBe(200);
+    const lots = (admin.__calls.in ?? []).map((a) => (a[1] as string[]).length);
+    expect(lots).toEqual([100, 50]);
+  });
+
+  it('VIPARIS/export_codes_echec_500 — lecture des codes en échec : 500, jamais un fichier à colonne vide', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          date_collecte: '2026-01-15',
+          heure_collecte: null,
+          taux_recyclage: null,
+          co2_evite_kg: null,
+          collecte_flux: [],
+          evenements: evenement('e1'),
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [], error: null });
+    admin.push({ data: null, error: { message: 'boom' } });
+    const res = await call('collectes');
+    expect(res.status).toBe(500);
+    expect(await res.text()).not.toContain('boom');
+  });
+
+  it('VIPARIS/export_evenements_code_affaire_et_flux — code de l’événement, poids par flux cumulés sur ses collectes ZD', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({
+      data: [
+        {
+          id: 'e1',
+          nom_evenement: 'Salon',
+          date_evenement: '2026-02-01',
+          pax: 300,
+          traiteur_operationnel_organisation_id: 'tr-1',
+          lieux: { nom: 'Espace Champerret' },
+          types_evenements: { libelle: 'Salon pro' },
+          collectes: [
+            {
+              id: 'c1',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-01',
+              taux_recyclage: 80,
+              collecte_flux: [flux('biodechet', 40), flux('carton', 10)],
+            },
+            {
+              id: 'c2',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-02-02',
+              taux_recyclage: 70,
+              collecte_flux: [
+                flux('biodechet', 2.5),
+                flux('dechet_residuel', 7),
+              ],
+            },
+            {
+              id: 'c3',
+              type: 'anti_gaspi',
+              statut: 'cloturee',
+              date_collecte: '2026-02-02',
+              taux_recyclage: null,
+              collecte_flux: [],
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: [{ id: 'tr-1', nom: 'Tr' }], error: null });
+    rls.push({ data: 90, error: null }); // f_volume_repas_realise (c3)
+    admin.push({
+      data: [
+        {
+          id: 'e1',
+          code_affaire_viparis: '26SIAL1',
+          lieu: { code_site_viparis: 'CHAMP' },
+        },
+      ],
+      error: null,
+    });
+
+    const res = await call('evenements');
+    expect(res.status).toBe(200);
+    const { entetes, cellule } = await lire(res);
+    expect(entetes.indexOf('Code affaire VIPARIS')).toBe(
+      entetes.indexOf('Nom événement') + 1,
+    );
+    const iTonnage = entetes.indexOf('Tonnage ZD (kg)');
+    expect(entetes.slice(iTonnage + 1, iTonnage + 6)).toEqual(FLUX_HEADERS);
+    expect(cellule(1, 'Code affaire VIPARIS')).toBe('26SIAL1');
+    expect(cellule(1, 'Tonnage ZD (kg)')).toBe('59,5');
+    expect(cellule(1, 'Biodéchets (kg)')).toBe('42,5');
+    expect(cellule(1, 'Cartons (kg)')).toBe('10');
+    expect(cellule(1, 'Déchet résiduel (kg)')).toBe('7');
+    expect(cellule(1, 'Verre (kg)')).toBe('0');
+    expect(cellule(1, 'Repas AG donnés')).toBe('90');
+    expect(admin.__calls.in).toEqual([['id', ['e1']]]);
+  });
+
+  it('VIPARIS/export_evenements_code_site — code site du lieu juste après « Lieu », vide hors VIPARIS', async () => {
+    setupAuth('traiteur_manager');
+    const evt = (id: string, lieu: string) => ({
+      id,
+      nom_evenement: `Salon ${id}`,
+      date_evenement: '2026-02-01',
+      pax: 100,
+      traiteur_operationnel_organisation_id: 'tr-1',
+      lieux: { nom: lieu },
+      types_evenements: { libelle: 'Salon pro' },
+      collectes: [],
+    });
+    rls.push({
+      data: [evt('e1', 'Paris Expo'), evt('e2', 'Salle des fêtes')],
+      error: null,
+    });
+    rls.push({ data: [{ id: 'tr-1', nom: 'Tr' }], error: null });
+    admin.push({
+      data: [
+        {
+          id: 'e1',
+          code_affaire_viparis: null,
+          lieu: [{ code_site_viparis: 'PDV' }],
+        },
+        { id: 'e2', code_affaire_viparis: null, lieu: null },
+      ],
+      error: null,
+    });
+
+    const res = await call('evenements');
+    expect(res.status).toBe(200);
+    const { entetes, cellule } = await lire(res);
+    expect(entetes.indexOf('Code site VIPARIS')).toBe(
+      entetes.indexOf('Lieu') + 1,
+    );
+    expect(cellule(1, 'Code site VIPARIS')).toBe('PDV');
+    expect(cellule(1, 'Code affaire VIPARIS')).toBe('');
+    expect(cellule(2, 'Code site VIPARIS')).toBe('');
+    // Service_role : les deux codes en une lecture, pour les événements lus.
+    expect(admin.__calls.from).toEqual([['evenements']]);
+    expect(admin.__calls.select).toEqual([
+      ['id, code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)'],
+    ]);
+    expect(admin.__calls.in).toEqual([['id', ['e1', 'e2']]]);
   });
 });

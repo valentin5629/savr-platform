@@ -2,7 +2,6 @@
 
 **Source CDC** : §09 (matrice §3 + matrice étendue ops_savr + §3ter audit RLS V1 + Bloc D) + §04 (RLS inline `sequences_facturation`, `audit_log`, `config_auto_accept_ag`, tables history) + §05 (`f_collecte_editable`) + §06.06 (matrice écrans) + §11 (Bloc 7)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests RLS transverses de la Plateforme.
 > Pour chaque scénario :
@@ -104,10 +103,10 @@ Scénario : traiteur_operationnel_ne_peut_pas_modifier_programmation_tierce
   Alors 0 ligne est affectée (UPDATE limité à organisation_id = self)
 
 Scénario : gestionnaire_brouillon_tiers_exclu (evenements_brouillon_tiers_denied)
-  Étant donné un brouillon Kaspia (date_evenement NULL) sur le lieu L1 de Viparis
+  Étant donné un brouillon Kaspia (collectes au statut `brouillon`, daté) sur le lieu L1 de Viparis
   Quand `gest_viparis` exécute SELECT sur `evenements`
   Alors le brouillon n'apparaît pas (anti-fuite d'intention commerciale — décision F3 lot ⑤)
-  Et son propre brouillon (organisation_id = Viparis, date NULL) reste visible
+  Et son propre brouillon (organisation_id = Viparis) reste visible
 
 Scénario : manager_update_dans_fenetre_edition_ok (F3 lot ⑪ — révisé 2026-09-16, REVOKE evenements)
   Étant donné un événement Kaspia dont une collecte est au statut `programmee`
@@ -218,12 +217,14 @@ Scénario : gestionnaire_insert_evenement_traiteur_shadow_refuse
 
 Scénario : commercial_update_collecte_d_un_collegue_refuse
   Étant donné un événement créé par commercial2_kaspia
-  Quand `commercial1_kaspia` exécute UPDATE sur cet événement
-  Alors 0 ligne est affectée (écriture = created_by self only, lecture org-wide n'ouvre pas l'écriture)
+  Quand `commercial1_kaspia` exécute UPDATE sur cet événement en direct (PostgREST)
+  Alors 0 ligne est affectée (policy evt_commercial_update inerte, à supprimer — dette code)
+  Mais par la route : 200 dans la même organisation, 403 hors organisation (révision Val 2026-10-30, écriture alignée manager)
 
 Scénario : commercial_invitation_user_refuse
-  Quand `commercial1_kaspia` exécute INSERT sur `users`
-  Alors l'INSERT échoue (invitation réservée manager/gestionnaire/staff)
+  Quand `commercial1_kaspia` exécute INSERT sur `users` en direct
+  Alors l'INSERT échoue (aucune policy INSERT pour le commercial)
+  Mais la route d'invitation (service-role, rôle imposé traiteur_commercial) lui est ouverte (révision Val 2026-10-30)
 
 Scénario : commercial_update_profil_collegue_refuse (users_commercial_update_collegue_denied — F4 lot ⑪)
   Quand `commercial1_kaspia` exécute UPDATE sur le profil de commercial2_kaspia
@@ -340,8 +341,10 @@ Scénario : benchmark_listes_filtres_garde_role
   Étant donné un parc contenant au moins un lieu et un traiteur éligibles au filtre benchmark
   Quand `kaspia_manager` (traiteur_manager) exécute `plateforme.f_benchmark_traiteurs_parc()` sous `authenticated`
   Alors l'appel lève `Role non autorise pour la liste traiteurs benchmark` — la liste nominative des traiteurs du parc est une donnée concurrentielle, elle ne sort jamais vers un rôle traiteur
-  Quand `gest_viparis` (gestionnaire_lieux) exécute la même fonction
+  Quand `ops1` (ops_savr) exécute la même fonction
   Alors la liste retournée est NON VIDE (contrôle positif de non-vacuité : sans lui, un refus global rendrait le scénario vert à tort)
+  Quand `gest_viparis` (gestionnaire_lieux) exécute `f_benchmark_traiteurs_parc()`, puis `f_benchmark_lieux_parc()`
+  Alors les deux lèvent leur message de liste blanche (le gestionnaire lit ses lieux dans `organisations_lieux` et ses traiteurs dans `v_traiteurs_gestionnaire`, depuis le 2026-10-06)
   Quand un jeton SANS claim `user_role` (compte présent dans `auth.users`, absent de `plateforme.users`) exécute `f_benchmark_traiteurs_parc()`, puis `f_benchmark_lieux_parc()`
   Alors les deux lèvent `Role applicatif absent (acces refuse)` — et non le message de liste blanche
   # ⚠ La garde « rôle absent » doit être distincte et première : `NULL NOT IN (…)` vaut NULL et n'entre dans aucun IF, une liste blanche seule est silencieusement fail-open
@@ -349,7 +352,7 @@ Scénario : benchmark_listes_filtres_garde_role
 Scénario : rpc_security_definer_pas_oracle_existence
   # Source : §09 3quinquies (2) — interdiction d'oracle d'existence ; §04 f_benchmark_single_collecte
   # Priorité : P2-important
-  Étant donné une collecte C1 appartenant à l'organisation Kaspia
+  Étant donné une collecte C1 appartenant à l'organisation Kaspia, tenue sur un lieu qui n'est pas rattaché à Viparis
   Quand `gest_viparis` exécute `plateforme.f_benchmark_single_collecte(C1)`, puis `f_benchmark_single_collecte(<uuid inexistant>)`
   Alors les deux appels lèvent EXACTEMENT le même message `Collecte not accessible` — le message ne permet pas de distinguer « n'existe pas » de « appartient à une autre organisation »
   Quand un jeton SANS claim `user_role` exécute `f_benchmark_single_collecte(C1)`
@@ -455,6 +458,10 @@ Scénario : users_soft_deleted_invisibles_clients
   Et `val` (admin_savr) la voit toujours (policy usr_admin non gatée)
 
 Scénario : fn_anonymize_user_idempotente
+  # Source : §04 users — PII anonymisé étendu à telephone et poste (fiche M3.1_20261101, décision Val 2026-11-02)
+  Étant donné un user avec téléphone et poste renseignés
+  Quand le SERVICE_ROLE appelle fn_anonymize_user
+  Alors prénom, nom et email sont remplacés par des valeurs neutres, et telephone et poste sont vidés (NULL)
   Étant donné un user déjà anonymisé (deleted_at NOT NULL)
   Quand le SERVICE_ROLE rappelle fn_anonymize_user sur ce même user
   Alors l'appel est un no-op (aucune nouvelle écriture, deleted_at inchangé), et aucune entrée audit_log dupliquée
@@ -563,6 +570,22 @@ Scénario : migration_policies_idempotentes
 
 ---
 
+
+### Catégorie 9 — Ajouts post-développement (cdc-patch-divergences 2026-10-09)
+
+```gherkin
+# Source : §09 + §08 — photo du lieu « aucun repas » réservée à l'équipe Savr (arbitrage Val 2026-10-07, option A)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : photo_aucun_repas_lecture_equipe_savr_seule
+  Étant donné une collecte AG `realisee_sans_collecte` portant `aucun_repas_photo_url`
+  Quand un rôle client (traiteur, agence, gestionnaire, client organisateur) lit la collecte par PostgREST
+  Alors `aucun_repas_photo_url` ne lui est pas servie
+  Et `admin_savr` et `ops_savr` la lisent
+```
+
+
 ## Scénarios hors scope (à générer en V1.1)
 
 - **Couverture 100 % des policies** (1 allow + 1 deny par policy de chaque table de référentiel) — promue V1.1 (sobriété 2026-06-03 B2). Ce fichier couvre le périmètre critique V1.
@@ -598,6 +621,27 @@ Scénario : tournees_colonnes_sensibles_fermees_clients
   Alors la ligne est visible sur les 10 colonnes de la liste blanche (id, date, créneau, heures prévues/réelles, statut, created_at, updated_at)
   Mais la lecture de chauffeur_telephone, type_vehicule, prestataire_logistique_id, reference_interne ou notes_internes est refusée (42501)
   Et select=* est refusé (42501)
+```
+
+```gherkin
+# Source : §09 §3 Tables bordereaux_savr + attestations_don — ligne « tout rôle client qui voit la collecte » (décisions Val 2026-10-27 et 2026-10-28)
+# Couche : db (pgTAP SECU__bordereaux_select_collecte_visible ; attestations_don : dette code)
+# Priorité : P1-critique
+
+Scénario Outline : bordereaux_attestations_select_collecte_visible
+  Étant donné une collecte clôturée avec sa ligne <table>, programmée par une agence avec un traiteur opérationnel désigné, et une collecte programmée par un gestionnaire de lieux sur un lieu qui n'est pas le sien
+  Quand <role> exécute SELECT sur <table> sous `authenticated`
+  Alors <resultat>
+  Et toute écriture (INSERT, UPDATE, DELETE) par ce rôle est refusée
+
+  Exemples :
+    | table             | role                                              | resultat                                   |
+    | bordereaux_savr   | le traiteur opérationnel désigné par l'agence     | la ligne est retournée                      |
+    | bordereaux_savr   | le gestionnaire qui programme hors de ses lieux   | la ligne est retournée                      |
+    | bordereaux_savr   | un utilisateur d'une autre organisation           | 0 ligne (cross-org refusé)                  |
+    | attestations_don  | le traiteur opérationnel désigné par l'agence     | la ligne est retournée                      |
+    | attestations_don  | le gestionnaire qui programme hors de ses lieux   | la ligne est retournée                      |
+    | attestations_don  | un utilisateur d'une autre organisation           | 0 ligne (cross-org refusé)                  |
 ```
 
 ## Recommandations loggées (non bloquantes — à confirmer)

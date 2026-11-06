@@ -1,6 +1,6 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { requirePageSession } from '@/lib/page-auth';
-import { entreesNavMasquees } from '@/lib/nav-masquee';
+import { chargerIdentiteSession } from '@/lib/identite-session';
 
 const GESTIONNAIRE_ROLES = ['gestionnaire_lieux'] as const;
 
@@ -11,14 +11,14 @@ export default async function GestionnaireLayout({
 }) {
   const session = await requirePageSession(GESTIONNAIRE_ROLES);
 
-  const hiddenNavHrefs = await entreesNavMasquees(session.role);
-
   return (
     <AppShell
       role={session.role}
-      userName={session.email}
-      pageTitle="Espace gestionnaire de lieux"
-      hiddenNavHrefs={hiddenNavHrefs}
+      identite={await chargerIdentiteSession({
+        userId: session.userId,
+        email: session.email,
+        logoAffichable: true,
+      })}
     >
       {children}
     </AppShell>

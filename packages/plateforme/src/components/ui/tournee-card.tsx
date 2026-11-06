@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Truck, User, Package } from 'lucide-react';
+import { PackageIcon, TruckIcon, UserIcon } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 
@@ -30,7 +30,7 @@ const TourneeCard = React.forwardRef<HTMLDivElement, TourneeCardProps>(
     <Card ref={ref} className={cn('flex flex-col gap-3 p-6', className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Truck
+          <TruckIcon
             className="h-5 w-5 shrink-0 text-savr-primary-500"
             aria-hidden="true"
           />
@@ -50,7 +50,7 @@ const TourneeCard = React.forwardRef<HTMLDivElement, TourneeCardProps>(
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-savr-neutral-600">
         <span className="inline-flex items-center gap-1.5">
-          <Package
+          <PackageIcon
             className="h-4 w-4 text-savr-neutral-400"
             aria-hidden="true"
           />
@@ -58,7 +58,7 @@ const TourneeCard = React.forwardRef<HTMLDivElement, TourneeCardProps>(
         </span>
         {chauffeur && (
           <span className="inline-flex items-center gap-1.5">
-            <User
+            <UserIcon
               className="h-4 w-4 text-savr-neutral-400"
               aria-hidden="true"
             />

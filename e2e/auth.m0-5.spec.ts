@@ -17,6 +17,7 @@ const VALID_BODY = {
   prenom: 'Alice',
   nom: 'Dupont',
   telephone: '+33600000000',
+  poste: 'Responsable RSE',
   type_profil: 'traiteur',
   raison_sociale: 'Acme Traiteur',
   acceptation_cgu: true,

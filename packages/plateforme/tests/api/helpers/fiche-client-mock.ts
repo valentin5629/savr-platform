@@ -13,6 +13,7 @@ export function makeClient() {
   const selects: Record<string, string[]> = {};
   const eqs: Record<string, Array<[string, unknown]>> = {};
   const inserts: Array<{ table: string; row: unknown }> = [];
+  const updates: Array<{ table: string; row: unknown }> = [];
   const rpcCalls: Array<{ name: string; args: unknown }> = [];
   let insertResult: Result = { data: null, error: null };
 
@@ -37,6 +38,10 @@ export function makeClient() {
         inserts.push({ table, row });
         return Promise.resolve(insertResult);
       },
+      update: (row: unknown) => {
+        updates.push({ table, row });
+        return c;
+      },
       then: (resolve: (v: Result) => unknown) => resolve(res()),
     };
     return c;
@@ -58,6 +63,7 @@ export function makeClient() {
     results,
     rpcResults,
     calls,
+    updates,
     selects,
     eqs,
     inserts,
@@ -67,17 +73,30 @@ export function makeClient() {
 }
 
 /**
- * Colonnes réservées d'`evenements` (hors GRANT SELECT authenticated) telles que
- * les renvoie la lecture service-role du chargeur — à poser dans
- * `admin.results.evenements`.
+ * Colonne réservée d'`evenements` (hors GRANT SELECT authenticated) telle que la
+ * renvoie la lecture service-role du chargeur — à poser dans
+ * `admin.results.evenements`. Depuis le lot B1 (décision Val 2026-10-23), seule
+ * la référence d'affaire y est lue : les contacts sont ceux de la collecte
+ * (`contactsCollecte`).
  */
 export function reserveEvenement(over: Record<string, unknown> = {}) {
+  return {
+    reference_affaire: 'AFF-2026-042',
+    ...over,
+  };
+}
+
+/**
+ * Contacts sur place de LA collecte (`collecte_contacts`, fermée aux clients,
+ * lue en service-role par le chargeur — lots A et B1 de la refonte du
+ * formulaire) — à poser dans `admin.results.collecte_contacts`.
+ */
+export function contactsCollecte(over: Record<string, unknown> = {}) {
   return {
     contact_principal_nom: 'Paul',
     contact_principal_telephone: '0611223344',
     contact_secours_nom: 'Léa',
     contact_secours_telephone: '0655443322',
-    reference_affaire: 'AFF-2026-042',
     ...over,
   };
 }
@@ -85,6 +104,8 @@ export function reserveEvenement(over: Record<string, unknown> = {}) {
 /**
  * Ligne `collectes` telle que la renvoie la lecture RLS du chargeur : l'embed
  * `evenement` ne porte AUCUNE colonne réservée (contacts, référence d'affaire).
+ * Le type d'événement est celui de LA collecte (lot B1, décision Val
+ * 2026-10-23) : l'embed `evenement` n'en porte plus.
  */
 export function ligneCollecte(over: Record<string, unknown> = {}) {
   return {
@@ -99,11 +120,12 @@ export function ligneCollecte(over: Record<string, unknown> = {}) {
     informations_completes: true,
     informations_supplementaires: null,
     taux_recyclage: null,
-    co2_net_kg: null,
     co2_evite_kg: null,
     realisee_at: null,
     aucun_repas_motif: null,
     lieu_overrides: null,
+    type_evenement_id: 't1',
+    type_evenement: { libelle: 'Cocktail apéritif' },
     evenement: {
       id: 'e1',
       organisation_id: 'org-1',
@@ -111,9 +133,7 @@ export function ligneCollecte(over: Record<string, unknown> = {}) {
       created_by: 'user-1',
       nom_evenement: 'Salon',
       pax: 4200,
-      type_evenement_id: 't1',
       nom_client_organisateur: 'Maison Client',
-      type_evenement: { libelle: 'Cocktail apéritif' },
       lieu: {
         id: 'l1',
         nom: 'Paris Expo',

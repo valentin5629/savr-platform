@@ -150,10 +150,10 @@ describe('E2E / AG / scenario-nominal-habilite', () => {
         ],
         error: null,
       }, // entites_facturation
+      { data: { id: 'att-e2e-001' }, error: null }, // insert attestations_don (sans numéro)
       { data: 'ATT-DON-2026-00001', error: null }, // rpc f_next_numero_attestation
-      { data: { id: 'att-e2e-001' }, error: null }, // insert attestations_don
+      { data: [{ id: 'att-e2e-001' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // insert jobs_pdf
-      { data: null, error: null }, // insert rapports_rse
       { data: { contact_principal_email: 'chef@kaspia.fr' }, error: null }, // contact email
     ]);
 
@@ -173,7 +173,8 @@ describe('E2E / AG / scenario-nominal-habilite', () => {
     expect(attInsert!.mention_fiscale_2041ge).toBe(true);
     expect(attInsert!.association_habilitation).toBe('habilitee');
     expect(attInsert!.volume_repas).toBe(120);
-    expect(attInsert!.numero).toBe('ATT-DON-2026-00001');
+    // Ligne créée sans numéro, numéro gapless posé ensuite.
+    expect(attInsert!.numero).toBeNull();
     expect(attInsert!.version).toBe(1);
     expect(attInsert!.statut).toBe('brouillon');
   });
@@ -248,8 +249,9 @@ describe('E2E / AG / scenario-non-habilite', () => {
         ],
         error: null,
       },
-      { data: 'ATT-DON-2026-00002', error: null },
       { data: { id: 'att-e2e-002' }, error: null },
+      { data: 'ATT-DON-2026-00002', error: null },
+      { data: [{ id: 'att-e2e-002' }], error: null },
       { data: null, error: null },
       { data: null, error: null },
       { data: { contact_principal_email: null }, error: null },
@@ -308,7 +310,16 @@ describe('E2E / AG / scenario-idempotence', () => {
     const sb = makeSupabaseBatch([
       { data: [makeCollecteAg()], error: null },
       {
-        data: [{ collecte_id: 'col-ag-e2e-001', statut: 'emise' }],
+        data: [
+          {
+            id: 'att-e2e-001',
+            collecte_id: 'col-ag-e2e-001',
+            statut: 'emise',
+            version: 1,
+            numero: 'ATT-DON-2026-00001',
+            volume_repas: 120,
+          },
+        ],
         error: null,
       }, // attestation existante
       { data: [], error: null },

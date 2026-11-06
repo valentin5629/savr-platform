@@ -7,7 +7,8 @@
 --
 -- Source de vérité :
 --   - plateforme.* + shared.fichiers : 01 - Cahier des charges App/04 - Data Model.md (living, 2026-09-21)
---     Dernier regel partiel : 2026-09-21 (plateforme.audit_log — noms de colonnes M0.10,
+--     Dernier regel partiel : 2026-10-07 (plateforme.flux_dechets.code_traitement — migration
+--     20261004203000, PR #485) ; avant : 2026-09-21 (plateforme.audit_log — noms de colonnes M0.10,
 --     id bigint, PK composite, PARTITION BY). Les autres tables datent du regel 2026-07-06.
 --   - shared.prestataires + tms.*     : 02 - Cahier des charges TMS/04 - Data Model TMS.md
 --   - Modules V2 reportés (Module 19 impact enrichi) inclus car cible = CDC complet.
@@ -93,6 +94,10 @@
 --     rapprochant ses ordres de la même façon).
 --   Une colonne sur un CREATE TABLE existant n'ajoute aucun statement ; l'index en ajoute UN.
 --   Comptes : 93 tables / 56 enums / 162 FK / **321 statements** (+1).
+-- Regelé le : 2026-10-20 (cdc-patch-divergences — M1.5_20261013_tournees-tms-reference-unique-ddl-cible, option A Val) :
+--   + index UNIQUE partiel uniq_tournee_par_tms_reference sur plateforme.tournees.tms_reference
+--     (invariant V1 migration 20261013210000, découle de tms.tournees.plateforme_tournee_id UNIQUE).
+--   Comptes : 93 tables / 56 enums / 162 FK / **322 statements** (+1). Revalidation pglast à rejouer.
 --   ⚠ DETTE TRACÉE — écarts du même type NON traités, faute de divergence dédiée :
 --     · plateforme.collecte_tournees.rang et sa contrainte uniq_collecte_tournee_rang existent dans
 --       les migrations V1 mais PAS dans ce fichier (le CREATE TABLE ci-dessous n'a que
@@ -100,6 +105,13 @@
 --     · scripts/check-schema-vs-cible.ts (G6) ne compare que les COLONNES via pg_attribute — il ne
 --       voit ni les contraintes ni les index, donc ce type d'écart continuera de passer inaperçu.
 --       Élargir G6 aux contraintes et index = lot dédié.
+-- Regelé le : 2026-10-25 (décision Val I4 + alignement §04 App, table plateforme.config_auto_accept_ag) :
+--   association_id passe NOT NULL (une règle sans association ne se déclenchait jamais) ;
+--   modifie_par / modifie_le remplacés par created_at / updated_at (structure réalisée V1, auteur
+--   tracé dans audit_log) → FK modifie_par → plateforme.users retirée.
+--   Comptes MESURÉS pglast v7.14 : 94 tables (59 plateforme, 33 tms, 2 shared) / 56 enums /
+--   **163 FK** (−1) / **324 statements** (−1). Avant ce regel, mesuré 94 / 164 / 325 : les comptes
+--   « 93 / 162 / 322 » des regels précédents avaient dérivé (non recomptés depuis le 2026-07-06).
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -288,6 +300,7 @@ CREATE TABLE plateforme.users (
   role               plateforme.user_role NOT NULL,
   actif              boolean NOT NULL DEFAULT true,
   derniere_connexion timestamptz,
+  poste              text CHECK (poste IS NULL OR char_length(poste) <= 100), -- « Mon profil », sans effet sur les droits ; V1 migration 20261101100000
   created_at         timestamptz NOT NULL DEFAULT now(),
   cgu_accepte_le     timestamptz,                          -- acceptation CGU = création compte (Art. 11/22, preuve opposable) ; NULL = compte migré sans trace
   cgu_version        text                                  -- version CGU acceptée (CGU_VERSION_COURANTE) ; NULL = compte migré
@@ -396,6 +409,7 @@ CREATE TABLE plateforme.lieux (
   siren                          text CHECK (siren ~ '^[0-9]{9}$'),
   email_gestionnaire             text,
   reference_citeo                boolean NOT NULL DEFAULT false,
+  code_site_viparis              text CHECK (code_site_viparis IN ('PCP','PCC','CNIT2','CDL','CHAMP','PDV','PNV','PLB')),  -- ajout 2026-11-02 (demande VIPARIS, décision Val)
   actif                          boolean NOT NULL DEFAULT true,
   created_at                     timestamptz NOT NULL DEFAULT now(),
   updated_at                     timestamptz NOT NULL DEFAULT now()
@@ -444,6 +458,16 @@ CREATE TABLE plateforme.tournees (
   updated_at               timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE plateforme.collecte_contacts (
+  collecte_id                 uuid PRIMARY KEY,
+  contact_principal_nom       text NOT NULL,
+  contact_principal_telephone text NOT NULL,
+  contact_secours_nom         text,
+  contact_secours_telephone   text,
+  created_at                  timestamptz NOT NULL DEFAULT now(),
+  updated_at                  timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE plateforme.collecte_tournees (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   collecte_id uuid NOT NULL,
@@ -478,6 +502,7 @@ CREATE TABLE plateforme.flux_dechets (
   exutoire_adresse     text,
   exutoire_siret       text,
   code_dechet_europeen text,
+  code_traitement      text,
   filiere_valorisation plateforme.filiere_valorisation NOT NULL,
   eligible_citeo       boolean DEFAULT false,
   actif                boolean NOT NULL DEFAULT true
@@ -704,6 +729,7 @@ CREATE TABLE plateforme.evenements (
   logo_client_organisateur_url           text,
   client_organisateur_organisation_id    uuid,
   reference_affaire                      text,
+  code_affaire_viparis                   text CHECK (code_affaire_viparis ~ '^[A-Z0-9]{7}$'),  -- ajout 2026-11-02 (demande VIPARIS, décision Val)
   notes_internes                         text,
   created_at                             timestamptz NOT NULL DEFAULT now(),
   updated_at                             timestamptz NOT NULL DEFAULT now()
@@ -728,6 +754,8 @@ CREATE TABLE plateforme.collectes (
   heure_debut_reelle       timestamptz,                    -- time→timestamptz (2026-06-11 audit : collectes de nuit, passage minuit ; aligné tms)
   heure_fin_reelle         timestamptz,                    -- time→timestamptz (2026-06-11 idem)
   volume_estime_repas      integer,
+  pax                      integer NOT NULL DEFAULT 0 CHECK (pax >= 0 AND pax <= 100000), -- pax de la collecte (décision Val 2026-10-20) ; evenements.pax en est calculé
+  type_evenement_id        uuid,                           -- type d'événement de la collecte (refonte Val 2026-10-22) ; NULL à l'insertion = celui de l'événement
   controle_acces_requis    boolean NOT NULL DEFAULT false,
   infos_acces_email_envoye_at timestamptz,                 -- infos accès chauffeur V1 (réintro Val 2026-07-15) — suivi d'envoi de l'email récap (ex-`email_plaque_envoye_at`)
   notes_internes           text,
@@ -749,6 +777,7 @@ CREATE TABLE plateforme.collectes (
   pack_antgaspi_id         uuid,                           -- FK -> packs_antgaspi
   lieu_overrides           jsonb,
   realisee_at              timestamptz,                    -- base embargo H+24
+  annulation_demandee_at   timestamptz,                    -- demande d'annulation du client (base du délai d'annulation tardive, Val 2026-10-15)
   created_at               timestamptz NOT NULL DEFAULT now(),
   updated_at               timestamptz NOT NULL DEFAULT now()
 );
@@ -1214,14 +1243,14 @@ CREATE TABLE plateforme.audit_log (
 CREATE TABLE plateforme.config_auto_accept_ag (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organisation_id     uuid NOT NULL,
-  association_id      uuid,
+  association_id      uuid NOT NULL,
   transporteur_id     uuid,
   auto_accept_actif   boolean NOT NULL DEFAULT false,
   seuil_pax_min       integer,
   seuil_pax_max       integer,
   notes               text,
-  modifie_par         uuid,
-  modifie_le          timestamptz NOT NULL DEFAULT now()
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now()
 );
 
 -- ---------------------------------------------------------------------
@@ -1960,6 +1989,15 @@ CREATE UNIQUE INDEX uniq_tournee_par_external_ref
   ON plateforme.tournees (external_ref_commande)
   WHERE external_ref_commande IS NOT NULL;
 
+-- Partial unique index (une référence de tournée prestataire = au plus une ligne tournees
+--   — divergence M1.5_20261013_tournees-tms-reference-unique-ddl-cible)
+--   La reprise d'un envoi refuse de reprendre une tournée qu'une ligne porte déjà, par une lecture
+--   suivie d'une écriture : l'index ferme la course entre deux passages simultanés.
+--   Partiel : une tournée dont le tour n'est pas encore créé n'a pas de référence (NULL multiples).
+CREATE UNIQUE INDEX uniq_tournee_par_tms_reference
+  ON plateforme.tournees (tms_reference)
+  WHERE tms_reference IS NOT NULL;
+
 -- ---------------------------------------------------------------------
 -- 5. FOREIGN KEYS  (toutes différées en fin de fichier — ordre-indépendant)
 --    Règle : FK cross-schema autorisées UNIQUEMENT vers shared.prestataires
@@ -2005,6 +2043,8 @@ ALTER TABLE plateforme.collectes                ADD FOREIGN KEY (evenement_id)  
 ALTER TABLE plateforme.collectes                ADD FOREIGN KEY (prestataire_logistique_id) REFERENCES shared.prestataires(id);
 ALTER TABLE plateforme.collectes                ADD FOREIGN KEY (collecte_remplacee_id)    REFERENCES plateforme.collectes(id);
 ALTER TABLE plateforme.collectes                ADD FOREIGN KEY (pack_antgaspi_id)         REFERENCES plateforme.packs_antgaspi(id);
+ALTER TABLE plateforme.collectes                ADD FOREIGN KEY (type_evenement_id)        REFERENCES plateforme.types_evenements(id);
+ALTER TABLE plateforme.collecte_contacts        ADD FOREIGN KEY (collecte_id)              REFERENCES plateforme.collectes(id) ON DELETE CASCADE;
 ALTER TABLE plateforme.collecte_flux            ADD FOREIGN KEY (collecte_id)              REFERENCES plateforme.collectes(id);
 ALTER TABLE plateforme.collecte_flux            ADD FOREIGN KEY (flux_id)                  REFERENCES plateforme.flux_dechets(id);
 ALTER TABLE plateforme.pesees_tournees          ADD FOREIGN KEY (tournee_id)               REFERENCES plateforme.tournees(id) ON DELETE CASCADE;  -- ajout 2026-06-11 (INC-0)
@@ -2053,7 +2093,6 @@ ALTER TABLE plateforme.audit_log                ADD FOREIGN KEY (impersonator_id
 ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (organisation_id)          REFERENCES plateforme.organisations(id);
 ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (association_id)           REFERENCES plateforme.associations(id);
 ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (transporteur_id)          REFERENCES plateforme.transporteurs(id);
-ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (modifie_par)              REFERENCES plateforme.users(id);
 
 -- 5b. tms.* (intra-schéma + vers shared.prestataires uniquement)
 ALTER TABLE tms.users_tms                    ADD FOREIGN KEY (prestataire_id)         REFERENCES shared.prestataires(id);

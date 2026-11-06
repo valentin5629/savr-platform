@@ -9,9 +9,11 @@ import {
   type OpsBatch,
   type OpsIntegration,
 } from './tableaux-sante';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { PulseIcon } from '@/components/ui/icones';
 import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
+import { codeVerificationManquant } from '@/lib/code-verification';
 import { isStaff } from '@/lib/roles';
 import { ROUTES } from '@/lib/routes';
 
@@ -108,6 +110,9 @@ export default async function SanteSystemePage() {
   const claims = parseJwtClaims(session?.access_token ?? '');
   const role = claims['user_role'] as string | undefined;
   if (!isStaff(role)) redirect(ROUTES.interdit);
+  // Équipe Savr sans code de vérification sur cette session (lib/code-verification.ts).
+  if (codeVerificationManquant(role, claims['aal']))
+    redirect(ROUTES.codeVerification);
 
   const data = await fetchOpsData();
 
@@ -117,7 +122,10 @@ export default async function SanteSystemePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Santé système" />
+      <PageHero
+        icon={<PulseIcon className="h-6 w-6" />}
+        title="Santé système"
+      />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {/* Outbox */}

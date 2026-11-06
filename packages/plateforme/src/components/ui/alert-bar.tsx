@@ -29,7 +29,7 @@ export interface AlertBarProps
   extends
     React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof alertBarVariants> {
-  /** Icône optionnelle rendue à gauche (lucide, 16px). */
+  /** Icône optionnelle rendue à gauche (Phosphor, 16px, cf. components/ui/icones). */
   icon?: React.ReactNode;
 }
 

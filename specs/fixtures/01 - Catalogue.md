@@ -75,7 +75,7 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 | `entites_facturation` | 6 | 14 | Potel = 2 entités |
 | `users` staff Savr | 4 | 6 | 1 admin, 2 ops, 1 commercial (+2 demo) |
 | `users` clients | 11 | 28 | 2/traiteur (manager+collaborateur), 2 Viparis, 1/autre gest., 2 agence |
-| `lieux` | 6 | 18 | 3→10 Viparis + autres + ponctuels |
+| `lieux` | 6 | 23 | 3→10 Viparis + autres + ponctuels ; *(2026-11-02)* + 5 lieux de province (Lille, Lyon, Bordeaux, Marseille, Nantes) du catalogue de cas |
 | `organisations_lieux` | 4 | 24 | jointures N-N, gestionnaires de lieux uniquement (1 gestionnaire par lieu) — 2026-09-29 |
 | `contacts_traiteurs` | 2 | 8 | |
 | `transporteurs` / `shared.prestataires` | 3 | 4 | |
@@ -85,8 +85,8 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 | `packs_antgaspi` actifs | 3 | 12 | 1 seul actif/traiteur (R pack unique) |
 | `packs_antgaspi` épuisés | 1 | 4 | + 1 pack bas ≤ 10 % (minimal et demo) |
 | `evenements` à venir | 4 | 30 | dont 1 `date_evenement` NULL, 1 AG bloqué coche étape 1 |
-| `evenements` passés | 14 | ~440 | support des 478 collectes (qq événements multi-collectes) |
-| `evenements` annulés | 2 | 12 | dont 1 AG < 12 h (débit crédit pack) |
+| `evenements` passés | 14 | ~440 | support des 478 collectes ; *(précisé 2026-10-20)* dont 7 événements multi-collectes (24 collectes ZD + AG terminées, cf. `03 - Timeline seed_demo` couche 3), les autres portent une seule collecte |
+| `evenements` annulés | 2 | 12 | dont 1 AG < 4 h (crédit pack conservé) |
 | `evenements.nom_client_organisateur` | non posé | ~70 % des événements | *(ajout 2026-10-01, décision Val)* 8 noms inventés réutilisés, les ~30 % restants à NULL — alimente la colonne « Client » des listes Collectes et le filtre « Client organisateur ». `client_organisateur_organisation_id` (rattachement réservé Admin) jamais posé par le seed. |
 | `collectes` brouillon | 2 | 6 | dont 1 brouillon tiers (exclu vues gestionnaire) |
 | `collectes` à venir (programmee/acceptee) | 3 | 20 | |
@@ -102,9 +102,9 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 | `factures` | 7 | ~120 | par collecte ZD, mensuelle groupée, achat pack AG, hors pack ; statuts : non_envoye, emise, payee, rejetée 4xx (numéro conservé) ; 1 avoir **sur payee** |
 | `factures_collectes` (lignes) | 12 | ~260 | dont ligne `collecte_id` NULL (designation libre) |
 | `sequences_facturation` | 1/entité | idem | alignées gapless sur factures seedées |
-| `bordereaux_savr` | 3 | 60 | ZD clôturées (sous-ensemble demo) |
-| `attestations_don` | 2 | 80 | habilitée vs non habilitée. *(ajout 2026-10-01)* Une attestation seedée recopie l'attribution de la même collecte : même association, `nb_repas` = `attributions_antgaspi.volume_repas_realise` — comme le batch J+1. Jamais de second calcul. *(2026-10-04)* Le gestionnaire de lieux lit désormais les repas dans l'attribution par la vue `v_attributions_gestionnaire` (plus dans l'attestation de don) ; le traiteur les lit dans l'attribution. |
-| `rapports_rse` | 1 | 12 | dont 1 « sans excédent », 1 régénéré manager |
+| `bordereaux_savr` | 3 | 0 | *(2026-10-28, Val)* seed_demo n'en sème plus : `pnpm documents:dev` les fabrique sur savr-dev (batch J+1 ZD, numéro + PDF). |
+| `attestations_don` | 2 | 0 | habilitée vs non habilitée. *(ajout 2026-10-01)* Une attestation seedée recopie l'attribution de la même collecte : même association, `nb_repas` = `attributions_antgaspi.volume_repas_realise` — comme le batch J+1. Jamais de second calcul. *(2026-10-04)* Le gestionnaire de lieux lit désormais les repas dans l'attribution par la vue `v_attributions_gestionnaire` (plus dans l'attestation de don) ; le traiteur les lit dans l'attribution. *(2026-10-28, Val)* seed_demo n'en sème plus : `pnpm documents:dev` les fabrique sur savr-dev par le batch J+1 AG, à partir de l'attribution. |
+| `rapports_rse` | 1 | 0 | *(2026-10-28, Val)* seed_demo n'en sème plus : `pnpm documents:dev` les fabrique sur savr-dev. |
 | `exports_registre` | 3 | 6 | 1 par format : csv, zip, pdf |
 | `documents_generaux_savr` | 2 | 4 | |
 | `shared.fichiers` | 12 | ~300 | répartis sur les 9 `entity_type` ; PDF placeholder 1 page |

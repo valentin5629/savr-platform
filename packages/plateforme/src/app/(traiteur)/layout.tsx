@@ -1,5 +1,6 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { requirePageSession } from '@/lib/page-auth';
+import { chargerIdentiteSession } from '@/lib/identite-session';
 
 const TRAITEUR_ROLES = ['traiteur_manager', 'traiteur_commercial'] as const;
 
@@ -13,9 +14,11 @@ export default async function TraiteurLayout({
   return (
     <AppShell
       role={session.role}
-      userName={session.email}
-      pageTitle="Espace traiteur"
-      hiddenNavHrefs={[]}
+      identite={await chargerIdentiteSession({
+        userId: session.userId,
+        email: session.email,
+        logoAffichable: true,
+      })}
     >
       {children}
     </AppShell>

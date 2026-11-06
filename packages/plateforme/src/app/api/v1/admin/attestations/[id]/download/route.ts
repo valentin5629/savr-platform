@@ -1,5 +1,6 @@
 // GET /api/v1/admin/attestations/:id/download
 // Retourne une URL pré-signée R2 (15 min) pour une attestation de don AG.
+// Fichier servi sous le nom « rapport-de-don-<numéro>.pdf » (§12 §1.3-bis).
 // Contrôle applicatif embargo H+24 : refuse si now() < eligible_at.
 // Accès : admin_savr + ops_savr (requireStaff).
 //
@@ -11,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { requireStaff } from '@/lib/api-auth.js';
+import { nomFichierAttestation } from '@/lib/pdf/nom-fichier-rapport-de-don.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 
 export const runtime = 'nodejs';
@@ -28,7 +30,7 @@ export async function GET(
 
   const { data: attestation, error } = await supabase
     .from('attestations_don')
-    .select('id, statut, eligible_at, genere_at, pdf_url')
+    .select('id, numero, statut, eligible_at, genere_at, pdf_url')
     .eq('id', id)
     .single();
 
@@ -65,6 +67,10 @@ export async function GET(
     return NextResponse.json({ error: 'Fichier PDF absent' }, { status: 404 });
   }
 
-  const url = await getPresignedUrl(storageKey, 900);
+  const url = await getPresignedUrl(
+    storageKey,
+    900,
+    nomFichierAttestation(attestation.numero as string | null),
+  );
   return NextResponse.json({ url, expires_in: 900 });
 }

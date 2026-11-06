@@ -3,15 +3,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
-  Send,
-  RotateCcw,
-  FileX,
-  Plus,
-  Trash2,
-  Save,
-  Download,
-} from 'lucide-react';
+  ArrowCounterClockwiseIcon,
+  ArrowLeftIcon,
+  DownloadSimpleIcon,
+  FileXIcon,
+  FloppyDiskIcon,
+  PaperPlaneTiltIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@/components/ui/icones';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
@@ -34,6 +34,7 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ROUTES } from '@/lib/routes';
+import { PageHero } from '@/components/ui/page-hero';
 
 interface Ligne {
   id: string;
@@ -269,18 +270,23 @@ export default function FactureDetailPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       {dialogue}
-      <div className="flex items-center gap-3">
-        <Link
-          href={ROUTES.admin.factures}
-          className="text-savr-neutral-500 hover:text-savr-neutral-700"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <Heading level={1} size="xl" weight="semibold" tone="inherit">
-          {facture.numero_facture ?? '— brouillon (numéro à attribuer) —'}
-        </Heading>
-        <Badge variant="neutral">{libelleStatutFacture(facture.statut)}</Badge>
-      </div>
+      <PageHero
+        icon={
+          <Link
+            href={ROUTES.admin.factures}
+            aria-label="Retour aux factures"
+            className="rounded-savr-md p-1 text-savr-primary-700 hover:bg-savr-primary-200/60 hover:text-savr-primary-800"
+          >
+            <ArrowLeftIcon className="h-5 w-5" />
+          </Link>
+        }
+        title={facture.numero_facture ?? '— brouillon (numéro à attribuer) —'}
+        actions={
+          <Badge variant="neutral">
+            {libelleStatutFacture(facture.statut)}
+          </Badge>
+        }
+      />
 
       {error && (
         <AlertBar variant="err" className="font-normal">
@@ -324,7 +330,7 @@ export default function FactureDetailPage() {
               loading={actionLoading === 'renvoyer'}
               loadingText="Envoi…"
             >
-              <RotateCcw /> Renvoyer
+              <ArrowCounterClockwiseIcon /> Renvoyer
             </Button>
           </div>
         </AlertBar>
@@ -349,7 +355,7 @@ export default function FactureDetailPage() {
             </div>
           </div>
           <div>
-            <div className="text-savr-neutral-500">Organisation</div>
+            <div className="text-savr-neutral-500">Client</div>
             <div className="font-medium">
               {facture.organisations?.raison_sociale ?? '—'}
             </div>
@@ -450,7 +456,7 @@ export default function FactureDetailPage() {
               onClick={addLigne}
               loading={actionLoading === 'add'}
             >
-              <Plus /> Ajouter
+              <PlusIcon /> Ajouter
             </Button>
           </div>
         )}
@@ -505,7 +511,7 @@ export default function FactureDetailPage() {
             loading={actionLoading === 'header'}
             loadingText="Enregistrement…"
           >
-            <Save /> Enregistrer l’en-tête
+            <FloppyDiskIcon /> Enregistrer l’en-tête
           </Button>
         )}
       </section>
@@ -525,7 +531,7 @@ export default function FactureDetailPage() {
         {/* Copie de travail §06.08 §1 — clé R2 pré-signée à la volée. */}
         {facture.pdf_url_savr && (
           <TextLink onClick={downloadPdfSavr} className="gap-2 text-sm">
-            <Download className="h-4 w-4" />
+            <DownloadSimpleIcon className="h-4 w-4" />
             Télécharger le PDF Savr (copie de travail)
           </TextLink>
         )}
@@ -540,7 +546,7 @@ export default function FactureDetailPage() {
             loading={actionLoading === 'valider'}
             loadingText="Envoi…"
           >
-            <Send /> Valider et envoyer à Pennylane
+            <PaperPlaneTiltIcon /> Valider et envoyer à Pennylane
           </Button>
         )}
 
@@ -555,7 +561,7 @@ export default function FactureDetailPage() {
             loading={actionLoading === 'avoir'}
             loadingText="Création…"
           >
-            <FileX /> Générer un avoir
+            <FileXIcon /> Générer un avoir
           </Button>
         )}
       </section>
@@ -656,7 +662,7 @@ function LigneRow({
         disabled={!dirty}
         loading={busy}
       >
-        <Save />
+        <FloppyDiskIcon />
       </IconButton>
       <IconButton
         size="sm"
@@ -665,7 +671,7 @@ function LigneRow({
         onClick={onDelete}
         loading={deleting}
       >
-        <Trash2 />
+        <TrashIcon />
       </IconButton>
     </div>
   );

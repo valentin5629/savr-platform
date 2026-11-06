@@ -2,7 +2,7 @@
  * M1.2 — Tests Vitest API : Formulaire programmation collecte
  * Scénarios P1 : création ZD/AG, validations bloquantes, pack AG, facturation.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import * as emailModule from '@savr/shared/src/email/index.js';
 
@@ -76,7 +76,7 @@ const mockAuthChain = {
 } as AuthChainMock;
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 
 const mockGetUser = vi.fn();
@@ -117,8 +117,8 @@ function setupAuth(
 function resetChain() {
   vi.resetAllMocks();
   // Restore default chaining behavior after reset
-  vi.mocked(emailModule.sendEmail).mockResolvedValue(undefined);
-  mockSupabaseChain.from.mockReturnThis();
+  vi.mocked(emailModule.sendEmail).mockResolvedValue({ statut: 'sent' });
+  routerTables();
   mockSupabaseChain.select.mockReturnThis();
   mockSupabaseChain.insert.mockReturnThis();
   mockSupabaseChain.update.mockReturnThis();
@@ -144,16 +144,91 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
   });
 }
 
-const BODY_ZD = {
-  pax: 80,
-  type_evenement_id: 'type-1',
-  lieu_id: 'lieu-1',
+// ── Cartes du formulaire (refonte, lot B2 ; décisions Val 2026-10-22/24) ────
+// Chaque collecte est une carte qui porte son type d'événement et ses contacts.
+// La route vérifie les types dans le référentiel en UNE lecture
+// (`.in('id', …).eq('actif', true)`), attendue sans terminal : cette chaîne
+// dédiée applique ses deux filtres, comme PostgREST.
+const TYPE_EVT = '11111111-1111-4111-8111-111111111111';
+const TYPES_EVENEMENTS = [{ id: TYPE_EVT, actif: true }];
+
+interface LectureTypes {
+  select: () => LectureTypes;
+  in: (col: string, ids: string[]) => LectureTypes;
+  eq: (col: string, valeur: unknown) => LectureTypes;
+  then: (
+    ok: (r: { data: { id: string }[]; error: null }) => unknown,
+    ko?: (e: unknown) => unknown,
+  ) => Promise<unknown>;
+}
+
+function lectureTypesEvenements(): LectureTypes {
+  let lignes = TYPES_EVENEMENTS;
+  const q: LectureTypes = {
+    select: () => q,
+    in: (col, ids) => {
+      if (col !== 'id') throw new Error(`filtre inattendu : ${col}`);
+      lignes = lignes.filter((l) => ids.includes(l.id));
+      return q;
+    },
+    eq: (col, valeur) => {
+      if (col !== 'actif') throw new Error(`filtre inattendu : ${col}`);
+      lignes = lignes.filter((l) => l.actif === valeur);
+      return q;
+    },
+    then: (ok, ko) =>
+      Promise.resolve({
+        data: lignes.map(({ id }) => ({ id })),
+        error: null as null,
+      }).then(ok, ko),
+  };
+  return q;
+}
+
+/** Le référentiel des types à part ; toute autre table sur la chaîne partagée. */
+function routerTables() {
+  mockSupabaseChain.from.mockImplementation((table: string) =>
+    table === 'types_evenements' ? lectureTypesEvenements() : mockSupabaseChain,
+  );
+}
+
+/** Champs propres à chaque carte, en plus de la date, de l'heure et du pax. */
+const CARTE = {
+  type_evenement_id: TYPE_EVT,
   contact_principal_nom: 'Jean Martin',
   contact_principal_telephone: '0612345678',
+  contact_secours_nom: 'Sam Roux',
+  contact_secours_telephone: '0733333333',
+};
+
+/** Réponse de fn_enregistrer_programmation (événement + collectes, une transaction). */
+const enregistree = (evenement_id: string, ...collecte_ids: string[]) => ({
+  data: { evenement_id, collecte_ids },
+  error: null,
+});
+
+/** Arguments du premier appel de fn_enregistrer_programmation. */
+function argsEnregistrement(): Record<string, unknown> {
+  const appel = mockRpc.mock.calls.find(
+    ([fn]) => fn === 'fn_enregistrer_programmation',
+  );
+  expect(appel, 'fn_enregistrer_programmation jamais appelée').toBeDefined();
+  return appel?.[1] as Record<string, unknown>;
+}
+
+const BODY_ZD = {
+  lieu_id: 'lieu-1',
+  nom_evenement: 'Gala 2030',
   nom_client_organisateur: 'Traiteur Dupont',
   controle_acces_requis: false,
   collectes: [
-    { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+    {
+      type: 'zd',
+      date_collecte: '2097-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+      ...CARTE,
+    },
   ],
   confirmer: true,
 };
@@ -161,17 +236,45 @@ const BODY_ZD = {
 const BODY_AG = {
   ...BODY_ZD,
   collectes: [
-    { type: 'ag', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+    {
+      type: 'ag',
+      date_collecte: '2097-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+      ...CARTE,
+    },
   ],
 };
 
 const BODY_MIXTE = {
   ...BODY_ZD,
   collectes: [
-    { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
-    { type: 'ag', date_collecte: '2030-01-15', heure_collecte: '09:00' },
+    {
+      type: 'zd',
+      date_collecte: '2097-01-15',
+      heure_collecte: '08:00',
+      pax: 80,
+      ...CARTE,
+    },
+    {
+      type: 'ag',
+      date_collecte: '2097-01-15',
+      heure_collecte: '09:00',
+      pax: 80,
+      ...CARTE,
+    },
   ],
 };
+
+/** Corps d'une collecte ajoutée à un événement existant : une carte. */
+const ajout = (date_collecte: string, extra: Record<string, unknown> = {}) => ({
+  type: 'zd',
+  date_collecte,
+  heure_collecte: '10:00',
+  pax: 80,
+  ...CARTE,
+  ...extra,
+});
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
@@ -184,11 +287,9 @@ describe('M1.2 / Programmation ZD — flux confirmé', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-1', nom_evenement: 'Gala 2030' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-zd-1', error: null });
+    // Événement et collectes en une transaction ; l'ordre E1 de la collecte ZD
+    // y est émis par fn_creer_collecte (supabase/tests/programmation_par_carte).
+    mockRpc.mockResolvedValueOnce(enregistree('evt-1', 'collecte-zd-1'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -202,6 +303,9 @@ describe('M1.2 / Programmation ZD — flux confirmé', () => {
     };
     expect(json.evenement_id).toBe('evt-1');
     expect(json.collecte_ids).toContain('collecte-zd-1');
+    expect(argsEnregistrement()).toMatchObject({ p_confirmer: true });
+    // Création : aucun identifiant d'événement (réservé à la reprise d'un brouillon).
+    expect(argsEnregistrement()).not.toHaveProperty('p_evenement_id');
   });
 
   it('programmation_zd_brouillon — 201 sans appel fn_creer_collecte', async () => {
@@ -210,12 +314,7 @@ describe('M1.2 / Programmation ZD — flux confirmé', () => {
       data: { id: 'entite-1' },
       error: null,
     });
-    mockSingle
-      .mockResolvedValueOnce({
-        data: { id: 'evt-2', nom_evenement: null },
-        error: null,
-      })
-      .mockResolvedValueOnce({ data: { id: 'brouillon-1' }, error: null });
+    mockRpc.mockResolvedValueOnce(enregistree('evt-2', 'brouillon-1'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -230,25 +329,25 @@ describe('M1.2 / Programmation ZD — flux confirmé', () => {
       'fn_creer_collecte',
       expect.anything(),
     );
+    // Un brouillon n'émet rien et n'a aucune suite : une seule RPC, sans
+    // confirmation.
+    expect(mockRpc.mock.calls.map(([fn]) => fn)).toEqual([
+      'fn_enregistrer_programmation',
+    ]);
+    expect(argsEnregistrement()).toMatchObject({ p_confirmer: false });
   });
 });
 
-describe('M1.2 / Programmation AG — pack actif', () => {
+describe('M1.2 / Programmation AG — pack actif ou non', () => {
   beforeEach(resetChain);
 
   it('programmation_ag_pack_actif — 201 sans envoi TMS', async () => {
     setupAuth('traiteur_commercial');
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null })
-      .mockResolvedValueOnce({
-        data: { id: 'pack-1', credits_restants: 5 },
-        error: null,
-      });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-ag-1', nom_evenement: 'AG Test' },
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'entite-1' },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-ag-1', error: null });
+    mockRpc.mockResolvedValueOnce(enregistree('evt-ag-1', 'collecte-ag-1'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -258,37 +357,24 @@ describe('M1.2 / Programmation AG — pack actif', () => {
     expect(res.status).toBe(201);
   });
 
-  it('ag_bloquee_sans_pack_actif — 422 si aucun pack actif', async () => {
+  // Décision Val 2026-10-16 : sans pack actif (aucun, épuisé ou sans crédit), la
+  // collecte AG se programme et sera facturée à l'unité — la route ne lit plus
+  // aucun pack, donc aucun état de pack ne peut la refuser.
+  it('ag_sans_pack_actif — 201, aucun pack lu (facturée à l’unité)', async () => {
     setupAuth('traiteur_commercial');
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'entite-1' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce(enregistree('evt-ag-2', 'collecte-ag-2'));
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements', BODY_AG),
     );
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/pack/i);
-  });
-
-  it('ag_bloquee_pack_credits_zero — 422 si credits_restants = 0', async () => {
-    setupAuth('traiteur_commercial');
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null })
-      .mockResolvedValueOnce({
-        data: { id: 'pack-1', credits_restants: 0 },
-        error: null,
-      });
-
-    const { POST } =
-      await import('@/app/api/v1/programmation/evenements/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements', BODY_AG),
-    );
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith('packs_antgaspi');
   });
 });
 
@@ -297,19 +383,13 @@ describe('M1.2 / Programmation mixte ZD+AG', () => {
 
   it('programmation_mixte_zd_ag — 201 deux collectes créées', async () => {
     setupAuth('traiteur_commercial');
-    mockMaybeSingle
-      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null })
-      .mockResolvedValueOnce({
-        data: { id: 'pack-1', credits_restants: 3 },
-        error: null,
-      });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-mixte-1', nom_evenement: 'Mixte' },
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'entite-1' },
       error: null,
     });
-    mockRpc
-      .mockResolvedValueOnce({ data: 'collecte-zd-m', error: null })
-      .mockResolvedValueOnce({ data: 'collecte-ag-m', error: null });
+    mockRpc.mockResolvedValueOnce(
+      enregistree('evt-mixte-1', 'collecte-zd-m', 'collecte-ag-m'),
+    );
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -318,14 +398,19 @@ describe('M1.2 / Programmation mixte ZD+AG', () => {
     );
     expect(res.status).toBe(201);
     const json = (await res.json()) as { collecte_ids: string[] };
-    expect(json.collecte_ids).toHaveLength(2);
+    expect(json.collecte_ids).toEqual(['collecte-zd-m', 'collecte-ag-m']);
+    // Les deux cartes partent dans le même appel, dans l'ordre du formulaire.
+    const cartes = argsEnregistrement().p_collectes as { type: string }[];
+    expect(cartes.map((c) => c.type)).toEqual(['zd', 'ag']);
   });
 });
 
 describe('M1.2 / Validations bloquantes', () => {
   beforeEach(resetChain);
 
-  it('validations_champs_manquants — 422 si pax absent', async () => {
+  // Pax porté par la collecte (décision Val 2026-10-20) : il est exigé sur
+  // chaque collecte, plus sur l'événement.
+  it('validations_champs_manquants — 422 si le pax de la collecte est absent', async () => {
     setupAuth('traiteur_commercial');
     // Pas de mock DB — la route court-circuite avant toute requête
 
@@ -333,19 +418,137 @@ describe('M1.2 / Validations bloquantes', () => {
       await import('@/app/api/v1/programmation/evenements/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements', {
-        type_evenement_id: 'type-1',
         lieu_id: 'lieu-1',
-        contact_principal_nom: 'Jean',
-        contact_principal_telephone: '0612345678',
+        nom_evenement: 'Gala 2030',
+        nom_client_organisateur: 'Traiteur Dupont',
         collectes: [
-          { type: 'zd', date_collecte: '2030-01-15', heure_collecte: '08:00' },
+          {
+            type: 'zd',
+            date_collecte: '2097-01-15',
+            heure_collecte: '08:00',
+            ...CARTE,
+          },
         ],
         confirmer: true,
         controle_acces_requis: false,
-        // pax absent → 422 avant tout appel DB
+        // pax de la collecte absent → 422 avant tout appel DB
       }),
     );
     expect(res.status).toBe(422);
+    expect(
+      ((await res.json()) as { champs_invalides?: string[] }).champs_invalides,
+    ).toEqual(['pax']);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  // Décision Val 2026-10-19 : le formulaire sépare « Nom de l'événement »
+  // (obligatoire) et « Client final » (facultatif).
+  it('validations_nom_evenement_vide — 422 à la confirmation, même avec un client final', async () => {
+    setupAuth('traiteur_commercial');
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', {
+        ...BODY_ZD,
+        nom_evenement: '   ',
+      }),
+    );
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe(
+      "Nom de l'événement obligatoire pour confirmer la programmation",
+    );
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('validations_nom_evenement_non_texte — 422, jamais une erreur 500', async () => {
+    setupAuth('traiteur_commercial');
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', {
+        ...BODY_ZD,
+        nom_evenement: 42,
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('client_final_renseigne — chaque nom écrit dans sa colonne', async () => {
+    setupAuth('traiteur_commercial');
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'entite-1' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce(
+      enregistree('evt-avec-client', 'collecte-avec-client'),
+    );
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', BODY_ZD),
+    );
+    expect(res.status).toBe(201);
+    // Niveau événement de fn_enregistrer_programmation : une clé par colonne.
+    expect(argsEnregistrement().p_evenement).toMatchObject({
+      nom_evenement: 'Gala 2030',
+      nom_client_organisateur: 'Traiteur Dupont',
+    });
+  });
+
+  // Client final obligatoire à la confirmation, pour tous les rôles (décision
+  // Val 2026-10-30, remplace « client final facultatif » du 2026-10-19).
+  it('client_final_obligatoire — 422 à la confirmation sans client final, rien n’est écrit', async () => {
+    setupAuth('traiteur_commercial');
+    const sansClient: Record<string, unknown> = { ...BODY_ZD };
+    delete sansClient.nom_client_organisateur;
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', sansClient),
+    );
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({
+      error: 'Le client final est obligatoire.',
+      champ: 'nom_client_organisateur',
+    });
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'fn_enregistrer_programmation',
+      expect.anything(),
+    );
+  });
+
+  it('client_final_obligatoire — brouillon sans client final : 201', async () => {
+    setupAuth('traiteur_commercial');
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'entite-1' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce(
+      enregistree('evt-sans-client', 'collecte-sans-client'),
+    );
+    const sansClient: Record<string, unknown> = {
+      ...BODY_ZD,
+      confirmer: false,
+    };
+    delete sansClient.nom_client_organisateur;
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', sansClient),
+    );
+    expect(res.status).toBe(201);
+    expect(argsEnregistrement().p_evenement).toMatchObject({
+      nom_client_organisateur: null,
+    });
   });
 
   it('validations_date_passe — 422 si date_collecte dans le passé', async () => {
@@ -357,11 +560,21 @@ describe('M1.2 / Validations bloquantes', () => {
       makeReq('POST', '/api/v1/programmation/evenements', {
         ...BODY_ZD,
         collectes: [
-          { type: 'zd', date_collecte: '2020-01-01', heure_collecte: '08:00' },
+          {
+            type: 'zd',
+            date_collecte: '2020-01-01',
+            heure_collecte: '08:00',
+            pax: 80,
+            ...CARTE,
+          },
         ],
       }),
     );
     expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'Date de collecte dans le passé : 2020-01-01',
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('validations_sans_collectes — 422 si tableau collectes vide', async () => {
@@ -376,6 +589,7 @@ describe('M1.2 / Validations bloquantes', () => {
       }),
     );
     expect(res.status).toBe(422);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('programmation_sans_entite_facturation_non_bloquee — entité créée à la volée (SIRET en_attente), jamais de refus', async () => {
@@ -383,9 +597,9 @@ describe('M1.2 / Validations bloquantes', () => {
     mockMaybeSingle
       .mockResolvedValueOnce({ data: null, error: null }) // aucune entité active
       .mockResolvedValueOnce({ data: { nom: 'Agence AREP' }, error: null }); // org
-    mockSingle
-      .mockResolvedValueOnce({ data: { id: 'ef-creee' }, error: null }) // INSERT entité
-      .mockResolvedValueOnce({ data: null, error: { message: 'stop' } }); // INSERT événement : on s'arrête là
+    mockSingle.mockResolvedValueOnce({ data: { id: 'ef-creee' }, error: null }); // INSERT entité
+    // Enregistrement de l'événement : on s'arrête là.
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'stop' } });
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -401,9 +615,9 @@ describe('M1.2 / Validations bloquantes', () => {
         siret_verification: 'en_attente',
       }),
     ); // …et c'est CETTE entité qui est rattachée à l'événement.
-    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ entite_facturation_id: 'ef-creee' }),
-    );
+    expect(argsEnregistrement().p_evenement).toMatchObject({
+      entite_facturation_id: 'ef-creee',
+    });
   });
 
   it('programmation_admin_sans_org — 422 si admin_savr sans organisation_id dans le body', async () => {
@@ -453,6 +667,7 @@ describe('M1.2 / Validations bloquantes', () => {
 
 describe('M1.2 / Ajout collecte à événement existant', () => {
   beforeEach(resetChain);
+  afterEach(() => vi.useRealTimers());
 
   it('ajout_collecte_zd_evenement_existant — 201 collecte ajoutée', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
@@ -460,44 +675,342 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
       data: { id: 'evt-1', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    mockRpc
-      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
-      .mockResolvedValueOnce({ data: 'new-collecte-1', error: null }); // fn_ajouter_collecte_evenement
+    mockRpc.mockResolvedValueOnce({ data: 'new-collecte-1', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
-        type: 'zd',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-1/collectes',
+        ajout('2097-02-01', {
+          // Champs hostiles : aucun ne doit atteindre la création (un autre
+          // événement, une autre organisation, des camions, des notes internes,
+          // une adresse, un contrôle d'accès que l'événement n'exige pas).
+          evenement_id: 'evt-autre-org',
+          organisation_id: 'org-autre',
+          nb_camions: 3,
+          notes: 'note hostile',
+          lieu_overrides: { adresse_acces: 'adresse hostile' },
+          controle_acces_requis: true,
+        }),
+      ),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
     expect(res.status).toBe(201);
     const json = (await res.json()) as { collecte_id: string };
     expect(json.collecte_id).toBe('new-collecte-1');
+    // Rattachement explicite au MÊME événement, par la fonction qui crée la
+    // collecte (fn_creer_collecte, donc l'E1) avec sa carte. Paramètres exacts
+    // (toStrictEqual : une clé de plus, même `undefined`, fait échouer) : seuls
+    // ces champs atteignent la création.
+    expect(mockRpc.mock.calls[0]).toStrictEqual([
+      'fn_creer_collecte_carte',
+      {
+        p_evenement_id: 'evt-1',
+        p_carte: {
+          type: 'zd',
+          date_collecte: '2097-02-01',
+          heure_collecte: '10:00',
+          pax: 80,
+          informations_supplementaires: null,
+          type_evenement_id: TYPE_EVT,
+          contact_principal_nom: 'Jean Martin',
+          contact_principal_telephone: '0612345678',
+          contact_secours_nom: 'Sam Roux',
+          contact_secours_telephone: '0733333333',
+        },
+        p_controle_acces: false,
+        p_lieu_overrides: null,
+        p_confirmer: true,
+      },
+    ]);
   });
 
-  it('ajout_collecte_non_editable — 422 si événement terminal', async () => {
-    setupAuth('traiteur_commercial', 'org-traiteur-1');
+  // Niveau événement figé (§06.01 « Ajouter une collecte à un événement
+  // existant ») : le contrôle d'accès de la collecte ajoutée est celui de
+  // l'événement, lu sur ses collectes, jamais celui du corps.
+  it('ajout_collecte_controle_acces_evenement — l’événement exige plaque et nom du chauffeur : la collecte ajoutée aussi', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
     mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-2', organisation_id: 'org-traiteur-1' },
+      data: {
+        id: 'evt-1',
+        organisation_id: 'org-traiteur-1',
+        collectes: [
+          { statut: 'programmee', controle_acces_requis: false },
+          { statut: 'validee', controle_acces_requis: true },
+        ],
+      },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: false, error: null }); // f_collecte_editable=false
+    mockRpc.mockResolvedValueOnce({ data: 'col-acces', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-2/collectes', {
-        type: 'zd',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-1/collectes',
+        // Valeur du navigateur : ignorée.
+        ajout('2097-02-01', { controle_acces_requis: false }),
+      ),
+      { params: Promise.resolve({ id: 'evt-1' }) },
+    );
+    expect(res.status).toBe(201);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_creer_collecte_carte',
+      expect.objectContaining({ p_controle_acces: true }),
+    );
+    // Lu sur les collectes de l'événement, dans la requête de propriété.
+    expect(mockSupabaseChain.select).toHaveBeenCalledWith(
+      expect.stringContaining('collectes(statut, controle_acces_requis)'),
+    );
+  });
+
+  // Décision Val 2026-10-21 : un événement en brouillon (pas encore confirmé)
+  // est refusé par le serveur, pas seulement par le bouton masqué. Sinon une
+  // collecte programmée — un ordre au transporteur pour une ZD — naîtrait à
+  // côté d'un brouillon, y compris celui d'un collègue commercial, qu'il ne
+  // peut pas confirmer lui-même.
+  it('ajout_collecte_evenement_brouillon — 422, rien n’est créé', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1', 'user-collegue');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-brouillon',
+        organisation_id: 'org-traiteur-1',
+        collectes: [{ statut: 'brouillon', controle_acces_requis: false }],
+      },
+      error: null,
+    });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-brouillon/collectes',
+        ajout('2097-02-01'),
+      ),
+      { params: Promise.resolve({ id: 'evt-brouillon' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'Événement en brouillon : confirmez-le avant d’y ajouter une collecte.',
+    );
+    // Aucune création, donc ni ordre E1 ni envoi immédiat.
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  // Une seule collecte en brouillon suffit : avant ce lot, l'ajout sur un
+  // brouillon créait une collecte programmée à côté, d'où des événements
+  // mixtes, toujours pas confirmés.
+  it('ajout_collecte_evenement_brouillon_mixte — une collecte programmée, une en brouillon : 422, rien n’est créé', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-mixte',
+        organisation_id: 'org-traiteur-1',
+        collectes: [
+          { statut: 'programmee', controle_acces_requis: false },
+          { statut: 'brouillon', controle_acces_requis: false },
+        ],
+      },
+      error: null,
+    });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-mixte/collectes',
+        ajout('2097-02-01'),
+      ),
+      { params: Promise.resolve({ id: 'evt-mixte' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'Événement en brouillon : confirmez-le avant d’y ajouter une collecte.',
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('ajout_collecte_evenement_brouillon_admin — l’équipe Savr aussi : 422, rien n’est créé', async () => {
+    setupAuth('admin_savr', 'org-savr');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-brouillon',
+        organisation_id: 'org-traiteur-1',
+        collectes: [
+          { statut: 'brouillon', controle_acces_requis: false },
+          { statut: 'brouillon', controle_acces_requis: false },
+        ],
+      },
+      error: null,
+    });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-brouillon/collectes',
+        ajout('2097-02-01', { type: 'ag' }),
+      ),
+      { params: Promise.resolve({ id: 'evt-brouillon' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'Événement en brouillon : confirmez-le avant d’y ajouter une collecte.',
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('ajout_collecte_controle_acces_navigateur_ignore — événement sans contrôle d’accès : le corps ne peut pas l’imposer', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-1',
+        organisation_id: 'org-traiteur-1',
+        collectes: [{ statut: 'programmee', controle_acces_requis: false }],
+      },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: 'col-sans-acces', error: null }); // fn_creer_collecte_carte
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-1/collectes',
+        ajout('2097-02-01', { controle_acces_requis: true }),
+      ),
+      { params: Promise.resolve({ id: 'evt-1' }) },
+    );
+    expect(res.status).toBe(201);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_creer_collecte_carte',
+      expect.objectContaining({ p_controle_acces: false }),
+    );
+  });
+
+  // Décision Val 2026-10-21 : l'ajout vaut sur TOUT événement, quel que soit
+  // l'état de ses autres collectes — la fenêtre d'édition de l'événement
+  // (f_collecte_editable) n'est plus consultée, ni la fonction qui l'imposait.
+  it('ajout_collecte_evenement_termine — 201 même si toutes les collectes sont en cours ou clôturées', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-2', organisation_id: 'org-traiteur-1' },
+      error: null,
+    });
+    // Toute garde de statut lirait `false` ici : seule la création répond.
+    mockRpc.mockImplementation((fn: string) =>
+      Promise.resolve(
+        fn === 'fn_creer_collecte_carte'
+          ? { data: 'collecte-apres-coup', error: null }
+          : { data: false, error: null },
+      ),
+    );
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-2/collectes',
+        ajout('2097-02-01'),
+      ),
+      { params: Promise.resolve({ id: 'evt-2' }) },
+    );
+    expect(res.status).toBe(201);
+    const appels = mockRpc.mock.calls.map(([fn]) => fn);
+    expect(appels).toContain('fn_creer_collecte_carte');
+    expect(appels).not.toContain('f_collecte_editable');
+    expect(appels).not.toContain('fn_ajouter_collecte_evenement');
+  });
+
+  it('ajout_collecte_date_passee — 422, rien n’est créé', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-2/collectes',
+        ajout('2020-01-01'),
+      ),
       { params: Promise.resolve({ id: 'evt-2' }) },
     );
     expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'Date de collecte dans le passé : 2020-01-01',
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  // « Aujourd'hui ou après » se lit sur le jour en heure de Paris ; l'heure de
+  // collecte n'entre pas dans la comparaison.
+  it('ajout_collecte_aujourdhui_heure_passee — 201 : collecte datée du jour de Paris, heure déjà passée', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-21T18:00:00Z')); // 20:00 à Paris
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-2', organisation_id: 'org-traiteur-1' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-du-jour', error: null }); // fn_creer_collecte_carte
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-2/collectes',
+        ajout('2026-10-21', { heure_collecte: '09:00' }),
+      ),
+      { params: Promise.resolve({ id: 'evt-2' }) },
+    );
+    expect(res.status).toBe(201);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_creer_collecte_carte',
+      expect.objectContaining({
+        p_carte: expect.objectContaining({
+          date_collecte: '2026-10-21',
+          heure_collecte: '09:00',
+        }),
+      }),
+    );
+  });
+
+  it('ajout_collecte_jour_de_paris — à 00:30 à Paris (22:30 UTC la veille) : la veille est refusée, le jour même accepté', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-21T22:30:00Z')); // 22/10 00:30 à Paris
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const ajouter = (date: string) =>
+      POST(
+        makeReq(
+          'POST',
+          '/api/v1/programmation/evenements/evt-2/collectes',
+          ajout(date, { heure_collecte: '23:00' }),
+        ),
+        { params: Promise.resolve({ id: 'evt-2' }) },
+      );
+
+    // Encore le 21 en UTC, déjà le 22 à Paris : le 21 est passé.
+    const refus = await ajouter('2026-10-21');
+    expect(refus.status).toBe(422);
+    expect(mockRpc).not.toHaveBeenCalled();
+
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-2', organisation_id: 'org-traiteur-1' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-22', error: null }); // fn_creer_collecte_carte
+    expect((await ajouter('2026-10-22')).status).toBe(201);
   });
 
   it('ajout_collecte_org_mismatch — 404 si organisation différente', async () => {
@@ -507,110 +1020,96 @@ describe('M1.2 / Ajout collecte à événement existant', () => {
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
-        type: 'zd',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-1/collectes',
+        ajout('2097-02-01'),
+      ),
       { params: Promise.resolve({ id: 'evt-1' }) },
     );
     expect(res.status).toBe(404);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 });
 
 describe('M1.2 / Confirmation brouillon', () => {
   beforeEach(resetChain);
 
-  it('confirmer_brouillon — 200 statut=programmee', async () => {
-    setupAuth('traiteur_commercial', 'org-traiteur-1');
+  /** Chaîne awaitable directement (pas de terminal .single()). */
+  function thenable<T>(resultat: { data: T; error: unknown }) {
+    const chaine = {
+      select: () => chaine,
+      eq: () => chaine,
+      in: () => chaine,
+      then: (resolve: (v: typeof resultat) => void) =>
+        Promise.resolve(resultat).then(resolve),
+    };
+    return chaine;
+  }
 
-    // Ownership check (from='evenements') → single()
+  /** Secours complet d'une collecte (décision Val 2026-10-30). */
+  const SECOURS_C1 = {
+    collecte_id: 'c1',
+    contact_secours_nom: 'Sam Roux',
+    contact_secours_telephone: '0733333333',
+  };
+
+  /**
+   * Branche la lecture des collectes brouillon et de leurs contacts ; rend
+   * l'appel de la route pour l'événement `evt`.
+   */
+  async function confirmer(opts: {
+    evt?: Record<string, unknown>;
+    collectes?: { id: string; type: string }[];
+    contacts?: { data: unknown; error: unknown };
+  }) {
     mockSingle.mockResolvedValueOnce({
       data: {
         id: 'evt-b',
         organisation_id: 'org-traiteur-1',
         nom_evenement: 'B',
-        // Le commercial confirme SON propre brouillon (created_by = caller) : miroir
-        // de col_delete_brouillon (§09), un commercial ne confirme que ses créations.
+        nom_client_organisateur: 'Entreprise Dupont',
         created_by: 'user-1',
+        ...opts.evt,
       },
       error: null,
     });
-
-    // La query collectes n'a pas de terminal .single() — elle est awaitable directement.
-    // On surcharge `from` pour intercepter la table 'collectes' et retourner un thenable.
-    const collectesData = [
-      { id: 'c1', type: 'zd', date_collecte: '2030-01-15' },
-    ];
-    const collectesChain = {
-      select: () => collectesChain,
-      eq: () => collectesChain,
-      then: (
-        resolve: (v: { data: typeof collectesData; error: null }) => void,
-        _reject?: (e: unknown) => void,
-      ) => Promise.resolve({ data: collectesData, error: null }).then(resolve),
-    };
+    const collectes = opts.collectes ?? [{ id: 'c1', type: 'zd' }];
+    const contacts = opts.contacts ?? { data: [SECOURS_C1], error: null };
     mockSupabaseChain.from.mockImplementation((table: string) => {
-      if (table === 'collectes') return collectesChain;
+      if (table === 'collectes')
+        return thenable({ data: collectes, error: null });
+      if (table === 'collecte_contacts') return thenable(contacts);
       return mockSupabaseChain;
     });
-
-    // Gate entité de facturation — entites_facturation
-    mockMaybeSingle.mockResolvedValueOnce({
-      data: { id: 'entite-1' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: null, error: null }); // fn_confirmer_programmation_brouillon
+    mockRpc.mockResolvedValue({ data: null, error: null });
 
     const { PATCH } =
       await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
-    const res = await PATCH(
+    return PATCH(
       makeReq('PATCH', '/api/v1/programmation/evenements/evt-b/confirmer'),
       { params: Promise.resolve({ id: 'evt-b' }) },
     );
+  }
+
+  const rpcConfirmation = () =>
+    mockRpc.mock.calls.filter(
+      ([fn]) => fn === 'fn_confirmer_programmation_brouillon',
+    );
+
+  it('confirmer_brouillon — 200 statut=programmee', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    const res = await confirmer({});
     expect(res.status).toBe(200);
     const json = (await res.json()) as { statut: string };
     expect(json.statut).toBe('programmee');
+    expect(rpcConfirmation()).toHaveLength(1);
   });
 
   it('confirmer_brouillon_sans_siret_non_bloque — aucune garde entité/SIRET à la confirmation', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
-    mockSingle.mockResolvedValueOnce({
-      data: {
-        id: 'evt-d',
-        organisation_id: 'org-traiteur-1',
-        nom_evenement: 'D',
-        created_by: 'user-1',
-      },
-      error: null,
-    });
-    const collectesChain2 = {
-      select: () => collectesChain2,
-      eq: () => collectesChain2,
-      then: (
-        resolve: (v: {
-          data: { id: string; type: string; date_collecte: string }[];
-          error: null;
-        }) => void,
-      ) =>
-        Promise.resolve({
-          data: [{ id: 'c1', type: 'zd', date_collecte: '2030-01-15' }],
-          error: null,
-        }).then(resolve),
-    };
-    mockSupabaseChain.from.mockImplementation((table: string) => {
-      if (table === 'collectes') return collectesChain2;
-      return mockSupabaseChain;
-    });
     // L'événement porte déjà son entité : la confirmation ne la re-résout pas.
-    mockRpc.mockResolvedValueOnce({ data: null, error: null });
-
-    const { PATCH } =
-      await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/programmation/evenements/evt-d/confirmer'),
-      { params: Promise.resolve({ id: 'evt-d' }) },
-    );
+    const res = await confirmer({ evt: { id: 'evt-d', nom_evenement: 'D' } });
     const json = (await res.json()) as { error?: string };
     expect(json.error ?? '').not.toMatch(/SIRET|entité de facturation|profil/i);
     expect(res.status).toBe(200);
@@ -621,37 +1120,81 @@ describe('M1.2 / Confirmation brouillon', () => {
 
   it('confirmer_brouillon_sans_collectes — 422 si aucun brouillon', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
-    mockSingle.mockResolvedValueOnce({
-      data: {
-        id: 'evt-c',
-        organisation_id: 'org-traiteur-1',
-        nom_evenement: 'C',
-        created_by: 'user-1',
-      },
-      error: null,
-    });
-
-    // Collectes vides
-    const emptyChain = {
-      select: () => emptyChain,
-      eq: () => emptyChain,
-      then: (
-        resolve: (v: { data: never[]; error: null }) => void,
-        _reject?: (e: unknown) => void,
-      ) => Promise.resolve({ data: [], error: null }).then(resolve),
-    };
-    mockSupabaseChain.from.mockImplementation((table: string) => {
-      if (table === 'collectes') return emptyChain;
-      return mockSupabaseChain;
-    });
-
-    const { PATCH } =
-      await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/programmation/evenements/evt-c/confirmer'),
-      { params: Promise.resolve({ id: 'evt-c' }) },
-    );
+    const res = await confirmer({ collectes: [] });
     expect(res.status).toBe(422);
+    expect(rpcConfirmation()).toEqual([]);
+  });
+
+  // Client final et contact de secours obligatoires (décision Val 2026-10-30) :
+  // un brouillon enregistré sans eux ne se confirme pas par cette route.
+  for (const [cas, valeur] of [
+    ['absent', null],
+    ['fait de blancs', '   '],
+  ] as const) {
+    it(`confirmer_brouillon_client_final_obligatoire — client final ${cas} : 422, aucune confirmation`, async () => {
+      setupAuth('traiteur_commercial', 'org-traiteur-1');
+      const res = await confirmer({ evt: { nom_client_organisateur: valeur } });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({
+        error: 'Le client final est obligatoire.',
+        champ: 'nom_client_organisateur',
+      });
+      expect(rpcConfirmation()).toEqual([]);
+    });
+  }
+
+  for (const [cas, lignes] of [
+    ['sans ligne de contacts', []],
+    ['sans contact de secours', [{ ...SECOURS_C1, contact_secours_nom: null }]],
+    [
+      'téléphone de secours vide',
+      [{ ...SECOURS_C1, contact_secours_telephone: '  ' }],
+    ],
+    ['une collecte sur deux sans secours', [SECOURS_C1]],
+  ] as const) {
+    it(`confirmer_brouillon_secours_obligatoire — ${cas} : 422, aucune confirmation`, async () => {
+      setupAuth('traiteur_commercial', 'org-traiteur-1');
+      const res = await confirmer({
+        collectes: [
+          { id: 'c1', type: 'zd' },
+          ...(cas === 'une collecte sur deux sans secours'
+            ? [{ id: 'c2', type: 'ag' }]
+            : []),
+        ],
+        contacts: { data: lignes, error: null },
+      });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({
+        error:
+          'Le contact de secours et son téléphone sont obligatoires pour chaque collecte.',
+      });
+      expect(rpcConfirmation()).toEqual([]);
+    });
+  }
+
+  it('confirmer_brouillon_contacts_illisibles — lecture des contacts en échec : 500, aucune confirmation', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    const res = await confirmer({
+      contacts: { data: null, error: { message: 'boom' } },
+    });
+    expect(res.status).toBe(500);
+    expect(rpcConfirmation()).toEqual([]);
+  });
+
+  it('confirmer_brouillon_secours_obligatoire — contre-épreuve : deux collectes au secours complet, 200', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    const res = await confirmer({
+      collectes: [
+        { id: 'c1', type: 'zd' },
+        { id: 'c2', type: 'ag' },
+      ],
+      contacts: {
+        data: [SECOURS_C1, { ...SECOURS_C1, collecte_id: 'c2' }],
+        error: null,
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(rpcConfirmation()).toHaveLength(1);
   });
 });
 
@@ -674,6 +1217,7 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
     expect(res.status).toBe(403);
     const json = (await res.json()) as { error: string };
     expect(json.error).toMatch(/lieu/i);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('agence_traiteur_non_autorise — 403 si agence spécifie un traiteur non shadow de son compte', async () => {
@@ -692,33 +1236,31 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
     expect(res.status).toBe(403);
     const json = (await res.json()) as { error: string };
     expect(json.error).toMatch(/traiteur/i);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it('ajout_collecte_ag_sans_pack_existant — 422 si AG ajouté sans pack actif', async () => {
+  it('ajout_collecte_ag_sans_pack_existant — 201 si AG ajouté sans pack actif (facturée à l’unité)', async () => {
     setupAuth('traiteur_commercial', 'org-traiteur-1');
     // Ownership check
     mockSingle.mockResolvedValueOnce({
       data: { id: 'evt-sec', organisation_id: 'org-traiteur-1' },
       error: null,
     });
-    // f_collecte_editable → true
-    mockRpc.mockResolvedValueOnce({ data: true, error: null });
-    // packs_antgaspi → null (pas de pack)
-    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-sec-ag', error: null }); // fn_creer_collecte_carte
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
     const res = await POST(
-      makeReq('POST', '/api/v1/programmation/evenements/evt-sec/collectes', {
-        type: 'ag',
-        date_collecte: '2030-02-01',
-        heure_collecte: '10:00',
-      }),
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-sec/collectes',
+        ajout('2097-02-01', { type: 'ag' }),
+      ),
       { params: Promise.resolve({ id: 'evt-sec' }) },
     );
-    expect(res.status).toBe(422);
-    const json = (await res.json()) as { error: string };
-    expect(json.error).toMatch(/pack|Anti-Gaspi/i);
+    // Décision Val 2026-10-16 : aucun pack n'est lu, aucun n'est exigé.
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith('packs_antgaspi');
   });
 
   it('agence_traiteur_reel_autorise — 201 si agence spécifie un traiteur réel non-shadow', async () => {
@@ -736,11 +1278,9 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
       })
       // Gate entité de facturation
       .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null });
-    mockSingle.mockResolvedValueOnce({
-      data: { id: 'evt-agence-1', nom_evenement: 'Gala Agence' },
-      error: null,
-    });
-    mockRpc.mockResolvedValueOnce({ data: 'collecte-agence-1', error: null });
+    mockRpc.mockResolvedValueOnce(
+      enregistree('evt-agence-1', 'collecte-agence-1'),
+    );
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
@@ -751,6 +1291,10 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
       }),
     );
     expect(res.status).toBe(201);
+    expect(argsEnregistrement().p_evenement).toMatchObject({
+      organisation_id: 'org-agence-1',
+      traiteur_operationnel_organisation_id: 'traiteur-reel-1',
+    });
   });
 });
 
@@ -872,14 +1416,56 @@ describe('M1.2 / Lieux — alignement sur la RLS', () => {
     const res = await getLieux();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([
-      { id: 'lieu-opere-1', nom: 'Lieu opéré par un tiers' },
+      {
+        id: 'lieu-opere-1',
+        nom: 'Lieu opéré par un tiers',
+        code_site_viparis: null,
+      },
     ]);
 
-    // Lu sous `authenticated`, via la vue en liste blanche de colonnes.
+    // Lu sous `authenticated`, via la vue en liste blanche de colonnes : c'est
+    // ce qui garantit que la policy — donc ses 4 branches — décide seule des
+    // lieux proposés.
     expect(mockAuthChain.from).toHaveBeenCalledWith('v_lieux_clients');
-    // Et JAMAIS via le client service_role : c'est ce qui garantit que la
-    // policy — donc ses 4 branches — décide seule.
-    expect(mockSupabaseChain.from).not.toHaveBeenCalled();
+    // Le service_role ne lit ensuite que le code site VIPARIS (Val 2026-11-02),
+    // hors liste blanche, et seulement pour les lieux que la RLS vient de rendre.
+    expect(mockSupabaseChain.from.mock.calls).toEqual([['lieux']]);
+    expect(mockSupabaseChain.select).toHaveBeenCalledWith(
+      'id, code_site_viparis',
+    );
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('id', ['lieu-opere-1']);
+  });
+
+  it('VIPARIS/lieux_code_site_rendu — lieu VIPARIS : son code site est rendu avec le lieu', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    setResultatAuth({
+      data: [
+        { id: 'lieu-viparis', nom: 'Paris Expo' },
+        { id: 'lieu-autre', nom: 'Pavillon Cambon' },
+      ],
+      error: null,
+    });
+    // Lecture service-role des codes : rend une ligne pour le seul lieu VIPARIS.
+    mockSupabaseChain.not.mockResolvedValueOnce({
+      data: [{ id: 'lieu-viparis', code_site_viparis: 'PCP' }],
+      error: null,
+    });
+
+    const res = await getLieux();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([
+      { id: 'lieu-viparis', nom: 'Paris Expo', code_site_viparis: 'PCP' },
+      { id: 'lieu-autre', nom: 'Pavillon Cambon', code_site_viparis: null },
+    ]);
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('id', [
+      'lieu-viparis',
+      'lieu-autre',
+    ]);
+    expect(mockSupabaseChain.not).toHaveBeenCalledWith(
+      'code_site_viparis',
+      'is',
+      null,
+    );
   });
 
   it('lieux_client_aucune_transcription_du_predicat — ni organisations_lieux ni evenements', async () => {

@@ -127,7 +127,7 @@
     },
     {
       "id": "M3.6-scope-operateur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:124",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:122",
       "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (applyScope .or)",
       "test": "M3.6/kpi_organisations_selectionnees_filtre_in + M3.6/kpi_toutes_organisations_sans_filtre_org",
       "statut": "implemented",
@@ -143,7 +143,7 @@
     },
     {
       "id": "M3.6-org-selecteur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:124",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:122",
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx + packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx (enCarte, children, onReset) + packages/plateforme/src/components/ui/filtre-en-ligne.tsx (FiltreCoches libelleVide)",
       "test": "M3.6/dashboard_client_filtres_organisations_par_type + M3.6/dashboard_client_toutes_organisations_lecture_seule + M3.6 — « Tous » d’un type sans autre sélection rétablit « Toutes les organisations »",
       "statut": "à-vérifier",
@@ -153,21 +153,38 @@
       "id": "M3.6-kpi-sparkline-n1",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:135",
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx + packages/plateforme/src/lib/dashboards/loaders.ts",
-      "test": "M3.6/kpi_cartes_sparkline_et_variation_n1_co2_compris",
+      "test": "M3.6/kpi_cartes_variation_n1_co2_compris_sans_courbe",
       "statut": "implemented",
-      "libelle": "Dashboard Client Admin = reprise exacte du gestionnaire (§06.05 l.136) : sparkline + variation N-1 sur les cartes (sauf kg/pax), CO₂ évité compris (co2_evite_kg par bucket, sélectionné par le loader Admin). Variation = 2e appel /admin/dashboard-client sur previousWindow, même périmètre d'organisations, non bloquant."
+      "libelle": "Dashboard Client Admin = reprise exacte du gestionnaire (§06.05 l.136) : variation N-1 sur les cartes (sauf kg/pax), sans courbe de tendance (retirée, Val 2026-10-30), CO₂ évité compris (co2_evite_kg par bucket, sélectionné par le loader Admin). Variation = 2e appel /admin/dashboard-client sur previousWindow, même périmètre d'organisations, non bloquant."
     },
     {
       "id": "M3.6-benchmark-admin-reference",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:141",
       "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (loadAdminBenchmarkComparaison + loadAdminBenchmarkFiltres) + packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/route.ts + packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/filtres/route.ts + packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx + packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx (avertissementComparaisonSoi) + packages/plateforme/src/components/dashboards/charts/cockpit/BenchmarkRadar.tsx (referenceLabel/referenceCourt)",
-      "test": "M3.6/benchmark_admin_reference_filtres_sans_k_anonymat + M3.6/benchmark_admin_filtres_options + M3.6/benchmark_staff_service_role",
+      "test": "M3.6/benchmark_admin_reference_filtres_sans_k_anonymat + M3.6/benchmark_admin_filtres_options + M3.6/benchmark_staff_service_role + M3.6/benchmark_admin_reference_type_de_la_collecte",
       "statut": "implemented",
-      "libelle": "Décision Val 2026-10-02 (divergence _Divergences/M3.6_20261002_benchmark-admin-reference-sans-k-anonymat.md, à patcher dans le Vault) : le radar Bloc 3 ZD du Dashboard Client Admin gagne l'encart « Comparer avec » (Type d'événement / Taille / Lieux / Traiteurs, même BenchmarkFilterBar que les clients, options servies par la route Admin /benchmark/filtres en service_role) qui paramètre la ligne de référence — ex. comparer un traiteur (périmètre sélectionné = « Vous ») à un autre (filtre Traiteurs). La référence est calculée côté serveur par loadAdminBenchmarkComparaison (collectes clôturées ZD du parc, période fixe 24 mois glissants §06.05 l.172, filtres traiteur opérationnel / lieu / type / taille, Σ kg flux / Σ pax = formule identique à la ligne « Vous » via kgParPaxParFluxFrom) SANS k-anonymat : l'Admin voit déjà chaque organisation en clair, un segment masqué ne protégerait rien. f_benchmark_kg_pax_zd (k ≥ 5 collectes et ≥ 3 acteurs) n'est plus appelée côté Admin et reste la seule source des dashboards clients, inchangée. UI : légende « Moyenne parc » (parc entier, défaut) → « Périmètre comparé » dès qu'un lieu ou un traiteur est filtré ; ligne « Référence : N collectes clôturées Zéro Déchet du … au …, sans seuil d'anonymisation (vue Admin) » ; pas d'avertissement « vos propres données » (l'Admin n'a pas de lieux/traiteurs à lui). Aucune migration, aucune policy RLS touchée, requireStaff inchangé (401/403 testés)."
+      "libelle": "Décision Val 2026-10-02 (divergence _Divergences/M3.6_20261002_benchmark-admin-reference-sans-k-anonymat.md) : le radar Bloc 3 ZD du Dashboard Client Admin gagne l'encart « Comparer avec » (Type d'événement / Taille / Lieux / Traiteurs, même BenchmarkFilterBar que les clients, options servies par la route Admin /benchmark/filtres en service_role) qui paramètre la ligne de référence — ex. comparer un traiteur (périmètre sélectionné = « Vous ») à un autre (filtre Traiteurs). La référence est calculée côté serveur par loadAdminBenchmarkComparaison (collectes clôturées ZD du parc, période fixe 24 mois glissants §06.05 l.172, filtres traiteur opérationnel / lieu / type / taille, Σ kg flux / Σ pax des COLLECTES, collecte à 0 convive écartée — lot C1, Q4 Val 2026-10-24 ; la ligne « Vous » suit la même formule depuis le lot 3, livrable M3.6-kpi-vous-pax-collecte) SANS k-anonymat : l'Admin voit déjà chaque organisation en clair, un segment masqué ne protégerait rien. f_benchmark_kg_pax_zd (k ≥ 5 collectes et ≥ 3 acteurs) n'est plus appelée côté Admin et reste la seule source des dashboards clients, inchangée. UI : légende « Moyenne parc » (parc entier, défaut) → « Périmètre comparé » dès qu'un lieu ou un traiteur est filtré ; ligne « Référence : N collectes clôturées Zéro Déchet du … au …, sans seuil d'anonymisation (vue Admin) » ; pas d'avertissement « vos propres données » (l'Admin n'a pas de lieux/traiteurs à lui). Aucune migration, aucune policy RLS touchée, requireStaff inchangé (401/403 testés). Lot C1 (2026-10-24) : filtres type et taille sur la COLLECTE (C3, C4)."
+    },
+    {
+      "id": "M3.6-kpi-filtres-type-taille-grain-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:137",
+      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (applyScope, tailleOk)",
+      "test": "M3.6/kpi_filtres_type_et_taille_de_la_collecte",
+      "statut": "implemented",
+      "libelle": "Dashboard Client Admin, filtres globaux Type et Taille d'événement au grain de la COLLECTE (lot C1, 2026-10-24 ; C3, Q3 Val 2026-10-24) : `.in('type_evenement_id')` sur collectes, taille en JS sur collectes.pax ; les KPI cumulés sont au pax des collectes depuis le lot 3 (livrable M3.6-kpi-vous-pax-collecte)."
+    },
+    {
+      "id": "M3.6-kpi-vous-pax-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:141",
+      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (loadAdminDashboardClient, loadAdminBenchmarkComparaison) + packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
+      "test": "Lot3/admin_kpi_et_vous_pax_collectes",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
+      "libelle": "Dashboard Client Admin : KPI, blocs et ligne « Vous » du radar au pax des collectes, collecte à 0 convive écartée des ratios (lot 3, décisions Val Q1 à Q5 du 2026-10-25) — la même formule que la ligne de référence (lot C1, Q4) : les deux lignes du radar ne diffèrent plus que par leur périmètre."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "a217d2a2fc80d1152d1bb6417705a8a5dd72dd09a5923415b96807803c2c27cb",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "1624f7d10800fae8c89bb6757d87949d81edab35aa94e96d8c8e6d668c58208a"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "d5b6f644aa60e3d7ca36d414cdec3c06d0a954545705e865b8e06f935929f678",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "87c1aab8f65c3c441dde53838d9a377ca73bb9ba2fded8568fba0c4c3f4e84e9"
   }
 }

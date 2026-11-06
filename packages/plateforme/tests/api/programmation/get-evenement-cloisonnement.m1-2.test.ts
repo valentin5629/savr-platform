@@ -34,14 +34,20 @@ type Row = Record<string, unknown>;
  * Fake PostgREST minimal : applique les prédicats `.eq()` sur un store en mémoire
  * et modélise `.single()` comme PostgREST (0 ligne → data null + PGRST116). Il ne
  * modélise PAS la projection de colonnes — la ligne stockée est renvoyée telle
- * quelle : c'est le FILTRAGE que ce test doit prouver, pas le `select`.
+ * quelle : c'est le FILTRAGE que ce test doit prouver. Le `select` demandé est
+ * seulement relevé, pour vérifier les colonnes dont l'écran de confirmation a
+ * besoin.
  */
 function makeEvenementsStore(rows: Row[]) {
   const eqCalls: Array<[string, unknown]> = [];
+  const selectCalls: string[] = [];
   const builder = () => {
     const filters: Array<[string, unknown]> = [];
     const b = {
-      select: () => b,
+      select: (colonnes: string) => {
+        selectCalls.push(colonnes);
+        return b;
+      },
       eq: (col: string, val: unknown) => {
         filters.push([col, val]);
         eqCalls.push([col, val]);
@@ -67,9 +73,46 @@ function makeEvenementsStore(rows: Row[]) {
     };
     return b;
   };
+  // Journal des emails : lu par le GET pour l'état de l'email récapitulatif, une
+  // fois l'événement trouvé. Aucune ligne ici ; seuls ses filtres sont tracés.
+  const journalEq: Array<[string, unknown]> = [];
+  const journal = () => {
+    const j = {
+      select: () => j,
+      eq: (col: string, val: unknown) => {
+        journalEq.push([col, val]);
+        return j;
+      },
+      order: () => j,
+      limit: () => j,
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
+    };
+    return j;
+  };
+  // Contacts de chaque collecte (refonte du formulaire, lot B2) : lus une fois
+  // l'événement trouvé, par `.in('collecte_id', …)` attendue sans terminal.
+  // Aucune ligne ici ; seuls les identifiants demandés sont tracés.
+  const contactsIn: Array<[string, unknown[]]> = [];
+  const contacts = () => {
+    const c = {
+      select: () => c,
+      in: (col: string, ids: unknown[]) => {
+        contactsIn.push([col, ids]);
+        return c;
+      },
+      then: (ok: (r: unknown) => unknown, ko?: (e: unknown) => unknown) =>
+        Promise.resolve({ data: [], error: null }).then(ok, ko),
+    };
+    return c;
+  };
   return {
     __eqCalls: eqCalls,
+    __selectCalls: selectCalls,
+    __journalEq: journalEq,
+    __contactsIn: contactsIn,
     from: (table: string) => {
+      if (table === 'emails_envoyes') return journal();
+      if (table === 'collecte_contacts') return contacts();
       if (table !== 'evenements')
         throw new Error(`table inattendue dans le GET : ${table}`);
       return builder();
@@ -184,6 +227,11 @@ describe('M1.2 / GET détail événement — cloisonnement inter-organisation', 
     // (Prouve l'égalité, pas la dérivation — c'est la contre-épreuve org B
     // ci-dessous qui prouve que le filtre SUIT le JWT au lieu d'être figé.)
     expect(store.__eqCalls).toContainEqual(['organisation_id', ORG_A]);
+    // Le journal des emails n'est jamais lu pour un événement hors périmètre :
+    // même un état à trois valeurs trahirait l'existence de l'événement. Ni les
+    // contacts de ses collectes (lot B2).
+    expect(store.__journalEq).toEqual([]);
+    expect(store.__contactsIn).toEqual([]);
   });
 
   it('M1.2 — GET événement de sa propre organisation → 200 + détail (contre-épreuve : le fake sait renvoyer une ligne)', async () => {
@@ -195,7 +243,15 @@ describe('M1.2 / GET détail événement — cloisonnement inter-organisation', 
     expect(await res.json()).toMatchObject({
       id: 'evt-org-a',
       nom_evenement: 'Cocktail Org A',
+      // Aucune ligne d'envoi dans le journal → rien n'est parti.
+      email_recap: 'non_envoye',
     });
+    // Le journal est lu pour CET événement, et pour l'email récapitulatif seul.
+    expect(store.__journalEq).toEqual([
+      ['template_code', 'collecte_programmee'],
+      ['entity_type', 'evenement'],
+      ['entity_id', 'evt-org-a'],
+    ]);
   });
 
   // ANTI-VACUITÉ (revue rls-securite du 2026-07-17, mutations M3/M4) : sans ce
@@ -215,5 +271,95 @@ describe('M1.2 / GET détail événement — cloisonnement inter-organisation', 
       contact_principal_nom: PII_CONTACT_B,
     });
     expect(store.__eqCalls).toContainEqual(['organisation_id', ORG_B]);
+  });
+});
+
+describe('M1.2 / formulaire_simplifie — GET détail événement : colonnes du récapitulatif', () => {
+  // Décision Val 2026-10-16 : l'écran « Votre collecte est programmée » affiche le
+  // client et le téléphone des contacts. Sans ces colonnes dans le `select`, il
+  // afficherait « — » et « Non renseigné » pour des valeurs qui existent.
+  it('le select demande client, téléphones et contact de secours', async () => {
+    setupAuth('traiteur_manager', ORG_A, 'user-a');
+
+    await getEvenement('evt-org-a');
+
+    expect(store.__selectCalls).toHaveLength(1);
+    const colonnes = store.__selectCalls[0]!.split(/[\s,()]+/);
+    for (const colonne of [
+      'nom_client_organisateur',
+      'pax',
+      'contact_principal_nom',
+      'contact_principal_telephone',
+      'contact_secours_nom',
+      'contact_secours_telephone',
+      'date_collecte',
+      'heure_collecte',
+    ])
+      expect(colonnes).toContain(colonne);
+  });
+});
+
+describe('M1.2 / ajout_collecte_niveau_evenement — GET détail événement : niveau événement figé', () => {
+  // §06.01 « Ajouter une collecte à un événement existant » : la page affiche le
+  // niveau événement figé et pré-rempli (client, date de l'événement, type
+  // d'événement, lieu, contacts, contrôle d'accès).
+  it('le select demande la date et le type de l’événement, et le contrôle d’accès de ses collectes', async () => {
+    setupAuth('traiteur_manager', ORG_A, 'user-a');
+
+    await getEvenement('evt-org-a');
+
+    const select = store.__selectCalls[0]!;
+    expect(select).toContain('date_evenement');
+    expect(select).toContain(
+      'type_evenement:types_evenements!type_evenement_id(libelle)',
+    );
+    expect(select).toMatch(/collectes\([^)]*controle_acces_requis[^)]*\)/);
+  });
+
+  it('rend le libellé du type d’événement et le contrôle d’accès de l’événement (requis dès qu’une collecte l’exige)', async () => {
+    store = makeEvenementsStore([
+      {
+        ...EVT_ORG_A,
+        date_evenement: '2030-01-15',
+        type_evenement: { libelle: 'Repas assis' },
+        collectes: [
+          { id: 'c1', statut: 'programmee', controle_acces_requis: false },
+          { id: 'c2', statut: 'validee', controle_acces_requis: true },
+        ],
+      },
+    ]);
+    setupAuth('traiteur_manager', ORG_A, 'user-a');
+
+    const res = await getEvenement('evt-org-a');
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      date_evenement: '2030-01-15',
+      type_evenement: 'Repas assis',
+      controle_acces_requis: true,
+    });
+    // Contacts de CES collectes, demandés une fois l'événement trouvé.
+    expect(store.__contactsIn).toEqual([['collecte_id', ['c1', 'c2']]]);
+  });
+
+  it('aucune collecte n’exige de contrôle d’accès → non requis ; type absent → null', async () => {
+    store = makeEvenementsStore([
+      {
+        ...EVT_ORG_A,
+        type_evenement: null,
+        collectes: [
+          { id: 'c1', statut: 'programmee', controle_acces_requis: false },
+        ],
+      },
+    ]);
+    setupAuth('traiteur_manager', ORG_A, 'user-a');
+
+    const json = (await (await getEvenement('evt-org-a')).json()) as Record<
+      string,
+      unknown
+    >;
+
+    expect(json.controle_acces_requis).toBe(false);
+    expect(json.type_evenement).toBeNull();
   });
 });

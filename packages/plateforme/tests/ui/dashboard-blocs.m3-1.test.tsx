@@ -9,7 +9,13 @@
  * d'onglet re-fetch l'endpoint consolidé `/api/v1/dashboards/traiteur-full`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  cleanup,
+  within,
+} from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -186,6 +192,28 @@ beforeEach(() => {
 
 describe('M3.1 / dashboard traiteur — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => {
   it(
+    'M3.1/dash_cartes_kpi_sans_courbe — aucune courbe de tendance dans les cartes KPI, même avec plusieurs mois (Val 2026-10-30)',
+    async () => {
+      const ligne = ZD_PAYLOAD.kpi.data[0]!;
+      renderClient({
+        ...ZD_PAYLOAD,
+        kpi: kpiResult([ligne, { ...ligne, mois: '2026-05-01' }]),
+      });
+      const titre = await screen.findByText(
+        'Nombre de collectes',
+        undefined,
+        ATTENTE_UI,
+      );
+      let grille: HTMLElement | null = titre;
+      while (grille && !grille.className.includes('grid'))
+        grille = grille.parentElement;
+      expect(grille).not.toBeNull();
+      expect(grille!.querySelector('polyline')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.1/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD',
     async () => {
       renderClient(ZD_PAYLOAD);
@@ -215,6 +243,32 @@ describe('M3.1 / dashboard traiteur — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => 
       ).toBeInTheDocument();
       expect(screen.queryByTestId('bloc-4-traiteur')).toBeNull();
       expect(screen.getByText(/Évolution Anti-Gaspi/)).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1/dash_donut_radar_meme_ligne — comme la fiche collecte (Val 2026-10-28) : donut et radar sur la même ligne, radar renommé, filtres en pastilles',
+    async () => {
+      renderClient(ZD_PAYLOAD);
+      const donut = await screen.findByTestId(
+        'bloc-4-traiteur',
+        undefined,
+        ATTENTE_UI,
+      );
+      const radar = screen.getByTestId('bloc-3-traiteur');
+      expect(donut.parentElement).toBe(radar.parentElement);
+      expect(donut.parentElement).toHaveClass('lg:grid-cols-2');
+      expect(
+        within(radar).getByText('Vos tonnages face aux événements comparables'),
+      ).toBeInTheDocument();
+      // Pastilles : sans sélection, le nom du filtre (« Types »…).
+      expect(within(radar).getByText('Types')).toBeInTheDocument();
+      expect(within(radar).getByText('Tailles')).toBeInTheDocument();
+      // Jamais de filtre Traiteurs côté traiteur.
+      expect(
+        within(radar).queryByTestId('benchmark-filter-traiteurs'),
+      ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

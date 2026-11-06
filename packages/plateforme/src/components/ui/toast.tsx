@@ -3,13 +3,13 @@
 import * as React from 'react';
 import * as ToastPrimitive from '@radix-ui/react-toast';
 import {
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Info,
-  Bell,
-  X,
-} from 'lucide-react';
+  BellIcon,
+  CheckCircleIcon,
+  InfoIcon,
+  WarningIcon,
+  XCircleIcon,
+  XIcon,
+} from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 
 // Toast — notification temporaire (§10 §6 « Toast » ; §7 état Success :
@@ -21,11 +21,11 @@ const VARIANT_ICON: Record<
   ToastVariant,
   React.ComponentType<{ className?: string }>
 > = {
-  success: CheckCircle2,
-  error: XCircle,
-  warning: AlertTriangle,
-  info: Info,
-  neutral: Bell,
+  success: CheckCircleIcon,
+  error: XCircleIcon,
+  warning: WarningIcon,
+  info: InfoIcon,
+  neutral: BellIcon,
 };
 
 const VARIANT_ICON_COLOR: Record<ToastVariant, string> = {
@@ -93,7 +93,7 @@ function ToastItem({
         aria-label="Fermer"
         className="shrink-0 rounded-savr-sm text-savr-neutral-400 transition-colors hover:text-savr-neutral-700"
       >
-        <X className="h-4 w-4" />
+        <XIcon className="h-4 w-4" />
       </ToastPrimitive.Close>
     </ToastPrimitive.Root>
   );

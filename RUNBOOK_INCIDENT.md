@@ -40,11 +40,18 @@ de la route protégée avant rollback hook).
 
 ## Déblocage DLQ outbox (events `dead`) — R9
 
-Un event outbox en statut `dead` **bloque son agrégat** (head-of-line par collecte :
-seul un event `done` libère). Sans déblocage, un E1 mort empêche à jamais E2/E3 de
-la même collecte de partir (ex. E1 mort → E3 annulation jamais poussée → camion sur
-une collecte annulée). Symptôme : alerte Slack `#savr-alerts-critique` `[DLQ]`, et
-collecte bloquée en `non_envoye`/`dirty_tms`.
+Depuis la décision Val du 2026-11-03 (migration `20261103150000`), un event outbox
+en statut `dead` **ne bloque plus son agrégat** : les ordres suivants de la collecte
+partent (seuls `pending`, `processing` et `failed` bloquent encore). Le geste
+courant n'est donc plus en base : l'Admin corrige la cause sur la fiche collecte
+(par exemple le prestataire) et clique sur « Renvoyer », ce qui écrit un nouvel
+ordre. Une annulation abandonnée laisse le transporteur non prévenu : l'appeler.
+Symptôme : alerte Slack `#savr-alerts-critique` `[DLQ]`, encart « Échec d'envoi »
+sur la fiche.
+
+Les procédures ci-dessous restent disponibles pour reprendre ou clore un event
+abandonné sans passer par la fiche (le reprendre tel quel, le marquer sans objet,
+ou le déclarer fait à la main).
 
 **Qui :** `admin_savr` uniquement (les RPC valident via `f_assert_audit_context` :
 auteur `admin_savr` actif + **motif ≥ 5 caractères**). Toute action est tracée dans
@@ -66,7 +73,7 @@ WHERE statut = 'dead' ORDER BY seq;
    SELECT plateforme.fn_admin_requeue_outbox('<event_id>', '<admin_id>', 'MTS-1 rétabli, nouvelle tentative');
    ```
 2. **Skip motivé** — abandonner l'event devenu sans objet (ex. collecte annulée
-   depuis). Passe `done` → **débloque l'agrégat** sans rien pousser :
+   depuis). Passe `done` sans rien pousser (la fiche cesse de l'afficher) :
    ```sql
    SELECT plateforme.fn_admin_skip_outbox('<event_id>', '<admin_id>', 'Collecte annulée entre-temps, E1 sans objet');
    ```
@@ -75,6 +82,49 @@ WHERE statut = 'dead' ORDER BY seq;
    ```sql
    SELECT plateforme.fn_admin_resolve_outbox('<event_id>', '<admin_id>', 'Commande créée manuellement côté MTS-1');
    ```
+
+⚠ Ni le skip ni le resolve ne touchent aux lignes `tournees`. Toute modification
+ultérieure de la collecte (ordre `collecte.modifiee`, y compris une modification
+faite par le client) crée chez MTS-1 la commande et la tournée unitaire des
+rangs qui n'en ont pas, dès qu'au moins un rang de la collecte a une commande.
+Si ce camion a été commandé à la main chez MTS-1, il serait commandé une seconde
+fois. Aucun geste de l'application ne l'évite : après un resolve manuel d'un
+ordre de création, faire aligner par un développeur la ligne `tournees` du rang
+(`external_ref_commande` = identifiant de la commande MTS-1) AVANT toute
+modification de la collecte. La référence de la tournée peut rester vide : à la
+modification suivante, l'adapter relit la commande et reprend sa tournée sans en
+créer d'autre, ni la sortir d'une tournée où l'Admin l'a placée.
+
+⚠ Faire cet alignement AVANT de rendre la main à l'équipe Ops (décision Val
+2026-10-20). Après un resolve, la fiche collecte Admin ne trouve plus d'ordre
+dans la file : tant que la collecte n'a pas de référence, elle affiche
+« Non envoyé » et propose « Envoyer à MTS-1 » en bouton principal. Sans
+alignement, ce clic émet un nouvel ordre de création, donc une seconde commande
+chez MTS-1. Aligné, il émet une modification à la place
+(`fn_collecte_commandee_chez_provider`), à quatre conditions : la ligne
+`tournees` du rang existe (l'adapter ne la crée qu'après une commande réussie :
+un ordre mort avant tout envoi n'en a pas, le développeur la crée), elle est
+liée à la collecte par `collecte_tournees`, elle porte `external_ref_commande`
+= identifiant de la commande MTS-1, et son `prestataire_logistique_id` est
+celui d'un transporteur MTS-1.
+
+⚠ L'index `uniq_tournee_par_tms_reference` (migration `20261013210000`) refuse
+toujours (erreur `23505`) d'écrire sur une ligne `tournees` une référence de
+tournée qu'une AUTRE ligne porte déjà. Une tournée regroupée par l'Admin
+pouvant porter plusieurs collectes, ne pas y écrire de référence à la main pour
+les relier — le remonter à Val.
+
+⚠ Ordre de création en échec définitif avec le message « … est déjà terminée
+chez MTS-1 … — ni reprise ni nouvelle création » : une commande du même numéro
+est terminée ou archivée chez MTS-1. Le remettre en file répète l'arrêt.
+Vérifier la collecte chez MTS-1 avant tout geste ; un skip ou un resolve laisse
+les lignes `tournees` telles quelles (voir les notes ci-dessus).
+
+⚠ Même effet, à la reprise de la tournée d'une commande déjà enregistrée :
+« … est déjà terminée | refusée ou annulée chez MTS-1 (STATUT) — tournée ni
+reprise ni créée », ou « commande introuvable chez MTS-1 pour le rang N (…) —
+tournée non créée » (une commande annulée n'est plus rendue par MTS-1). Le
+remettre en file répète l'arrêt : vérifier la collecte chez MTS-1 d'abord.
 
 Garde-fous : ces RPC n'agissent que sur un event **`dead`** (sinon erreur `22023`) ;
 un motif < 5 caractères → `22023` ; un auteur non `admin_savr` → `42501`.

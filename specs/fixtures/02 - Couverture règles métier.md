@@ -33,11 +33,11 @@ Convention d'ID : slugs déterministes (cf. [[05 - Spec d'injection]]). `★` = 
 | Règle | Objet fixture | Dataset |
 |---|---|---|
 | Pack unique actif par traiteur | 1 pack actif/traiteur, jamais 2 | ★ |
-| Débit d'un crédit à la collecte | `pack_fleurdemets_actif` (crédits partiellement consommés) | ★ |
+| Débit d'un crédit à la programmation (décision Val 2026-11-02) | `pack_fleurdemets_actif` (crédits partiellement consommés, collectes à venir comprises) | ★ |
 | **Blocage création si pack épuisé** | `pack_lenotre_epuise` (0 crédit) — demo ; `pack_epuise_01` ★ |
 | Badge pack bas ≤ 10 % relatif (F2 §06.04) | `pack_butard_bas` (3/30) | ★ |
-| Annulation AG < 12 h = **débit crédit pack** (trigger `trg_pack_debit_annulation_tardive`, F2 §06.01 — §4bis fait foi) | `ev_ag_annule_tardif` (annulé H-6) | ★ |
-| Annulation > 12 h = recrédit | `ev_ag_annule_recredite` | ★ |
+| Annulation AG < 4 h = **crédit pack conservé** (décompté à la programmation, décision Val 2026-11-02) (trigger `trg_pack_debit_annulation_tardive`, F2 §06.01 — §4bis fait foi) | `ev_ag_annule_tardif` (annulé H-2) | ★ |
+| Annulation ≥ 4 h = recrédit | `ev_ag_annule_recredite` | ★ |
 | Sans pack actif = alerte seule, pas de blocage (F3 §06.01) | `org_tr_grandchemin` (aucun pack) + `ev_ag_sans_pack` | ★ |
 | Hors pack (négociation directe) | `facture_ag_hors_pack_potel` | demo |
 
@@ -83,13 +83,15 @@ Convention d'ID : slugs déterministes (cf. [[05 - Spec d'injection]]). `★` = 
 
 ## §05 §6 — Documents réglementaires et impact
 
+> *(2026-11-02, Val — fiche Fixtures_20261028)* seed_demo ne sème plus aucun document de collecte : les cas « rapport sans excédent » et « rapport régénéré manager » ne sont plus garantis par le seed ; ils dépendent de `pnpm documents:dev` sur savr-dev, qui n'est pas déterministe. Les 24 collectes AG clôturées que le batch AG ne traite pas (SIRET donateur absent ou volume réalisé absent) lèvent l'alerte Admin prévue : ces 24 alertes sont acceptées en démo.
+
 | Règle | Objet fixture | Dataset |
 |---|---|---|
 | Bordereau Savr (ZD) | `bord_zd_01` + PDF placeholder | ★ |
 | Attestation de don habilitée vs non | `att_don_alpha` (habilitée) / `att_don_bravo` (non) | ★ |
-| Rapport RSE standard | `rapport_rse_kaspia_2025` | demo |
+| Rapport RSE standard | fabriqué par `pnpm documents:dev` sur savr-dev (2026-10-28, plus semé) | demo |
 | Rapport « sans excédent » = ligne `rapports_rse` standard sans embargo (F1 §11-12) | `rapport_rse_sans_excedent` | ★ |
-| Régénération manager = Edge Function SERVICE_ROLE (F3 §11-12) | `rapport_rse_regen` | demo |
+| Régénération manager = Edge Function SERVICE_ROLE (F3 §11-12) | à partir d'un rapport fabriqué par `pnpm documents:dev` (2026-10-28, plus semé) | demo |
 | Alerte pesées min/max — **ZD only, in-app seule** (F2 §11-12) | `flux_alerte_min` ×2, `flux_alerte_max` ×2 | ★ |
 | R_taux_recyclage (captation par filière) | flux multi-filières sur `col_zd_cloturee_*` | ★ |
 | R_co2_calcul / R_co2_snapshot_fige | `impact_calc_*` snapshots figés ≠ paramètres courants (1 param modifié post-clôture) | ★ |
@@ -121,7 +123,7 @@ Convention d'ID : slugs déterministes (cf. [[05 - Spec d'injection]]). `★` = 
 
 | Règle | Objet fixture | Dataset |
 |---|---|---|
-| 19 templates actifs dont 3 tiers/admin (F2 §06.02) | `email_templates` seed complet | ★ |
+| 18 templates actifs + 15 désactivés (catalogue §06.02 au 2026-11-02) | `email_templates` seed complet | ★ |
 | Échec Resend : statut `echec`, 3 retries, svix (F3 §06.02) | `email_echec_3retries` + payloads inbox | ★ |
 | Pack bas au franchissement (F4 §06.02) | `email_pack_bas_butard` | demo |
 | Alerte pesées **in-app seule** (pas de template — F2 §11-12) | aucun template seedé (test négatif) | — |

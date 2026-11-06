@@ -11,6 +11,10 @@
 //
 // Le rapport RSE porte en plus regenere_at / regenere_par_user_id / version → alimente
 // le picto ⟳ « Rapport régénéré » (§06.06 l.170 : version actuelle ≠ initiale).
+//
+// Le rapport de recyclage ZD n'en fait plus partie : il n'est plus stocké, chaque
+// téléchargement le fabrique au clic (décision Val 2026-10-16,
+// lib/collectes/rapport-a-la-demande).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
@@ -19,10 +23,20 @@ import {
   isPdfDocumentType,
   type PdfDocumentType,
 } from '@savr/shared/src/pdf/document-types.js';
+import { logoKeyToDataUri } from './logo-inline.js';
 import {
-  resolveRapportBenchmark,
-  type BenchmarkFilters,
-} from './rapport-benchmark.js';
+  cleLogoAttestation,
+  cleLogoSansExcedent,
+  lireLogosEvenementDeCollecte,
+} from './logo-rapport-de-don.js';
+
+// Champ du payload qui porte le logo du client, par document (Val 2026-10-30) :
+// relu à chaque régénération, pour qu'un logo déposé ou changé sur l'événement
+// s'applique au rapport déjà fabriqué. Le reste du payload reste figé.
+const CHAMP_LOGO: Partial<Record<PdfDocumentType, string>> = {
+  'attestation-don': 'logo_client_url',
+  'rapport-evenement-sans-excedent': 'logo_url',
+};
 
 interface DocEntity {
   /** Table plateforme.* portant la ligne document (clé collecte_id). */
@@ -36,10 +50,9 @@ interface DocEntity {
 // d'archivage §12 §1.6) et n'est jamais re-enqueue via ce flux → absente de la map.
 // 'rapport-evenement-sans-excedent' (§12 §1.3-bis l.198 « Régénération : Admin Savr
 // uniquement, correction motif chauffeur / plaque post-saisie ») est porté par
-// rapports_rse → régénérable comme le rapport de recyclage.
+// rapports_rse. Le rapport de recyclage ZD, fabriqué au clic, n'est pas ici.
 const DOC_ENTITY: Partial<Record<PdfDocumentType, DocEntity>> = {
   'bordereau-zd': { table: 'bordereaux_savr', entityType: 'bordereaux_savr' },
-  'rapport-recyclage-zd': { table: 'rapports_rse', entityType: 'rapports_rse' },
   'attestation-don': {
     table: 'attestations_don',
     entityType: 'attestations_don',
@@ -80,10 +93,6 @@ export async function regenerateCollecteDocument(
   collecteId: string,
   type: string,
   actor: { userId: string; role?: string },
-  // Filtres benchmark choisis à la régénération (§12 §1.2 « défaut batch / choisis à la
-  // régén »). Uniquement pris en compte pour 'rapport-recyclage-zd' ; sinon le PDF est
-  // reproduit à l'identique depuis le payload figé.
-  benchmarkFilters?: BenchmarkFilters,
 ): Promise<RegenerateResult> {
   if (!isPdfDocumentType(type)) {
     return {
@@ -156,21 +165,39 @@ export async function regenerateCollecteDocument(
     }),
   };
 
-  // Rapport RSE : le demandeur peut surcharger les filtres benchmark à la régénération
-  // (§12 §1.2). On recalcule alors le bloc benchmark + on ré-fige le snapshot
-  // rapports_rse.filtres_benchmark. Sans filtres → reproduction fidèle du payload figé.
-  if (type === 'rapport-recyclage-zd' && benchmarkFilters) {
-    const bench = await resolveRapportBenchmark(
-      supabase,
-      collecteId,
-      benchmarkFilters,
-    );
-    payload.benchmark_flux = bench.benchmark_flux;
-    payload.benchmark_legende = bench.benchmark_legende;
-    await supabase
+  // 3bis. Rapport de don : logo du client relu sur l'événement (le seul champ qui
+  //       n'est pas figé). Lecture en échec → aucun rendu, plutôt qu'un rapport
+  //       refait avec un logo périmé.
+  const champLogo = CHAMP_LOGO[type];
+  if (champLogo) {
+    let logos;
+    try {
+      logos = await lireLogosEvenementDeCollecte(supabase, collecteId);
+    } catch (e) {
+      return dbError(e, 'pdf.regenerate.lecture_logos');
+    }
+    const cle = logos
+      ? type === 'attestation-don'
+        ? cleLogoAttestation(logos)
+        : cleLogoSansExcedent(logos)
+      : undefined;
+    const uri = await logoKeyToDataUri(cle);
+    // Logo présent mais illisible (stockage indisponible, fichier trop lourd) :
+    // le logo figé est gardé plutôt que d'imprimer « Savr » seul.
+    payload[champLogo] = uri ?? (cle ? (frozen[champLogo] ?? null) : null);
+  }
+
+  // Version courante du rapport, lue AVANT la mise en file : une lecture en échec
+  // ne doit ni lancer un rendu, ni faire retomber la version à 2.
+  let nextVersion = 0;
+  if (cfg.table === 'rapports_rse') {
+    const { data: cur, error: curErr } = await supabase
       .from('rapports_rse')
-      .update({ filtres_benchmark: bench.filtres_benchmark })
-      .eq('id', entityId);
+      .select('version')
+      .eq('id', entityId)
+      .single();
+    if (curErr) return dbError(curErr, 'pdf.regenerate.lecture_version');
+    nextVersion = ((cur as { version: number } | null)?.version ?? 1) + 1;
   }
 
   // 4. Ré-enqueuer un job frais (même contrat que le batch : statut pending, attempts 0).
@@ -193,16 +220,10 @@ export async function regenerateCollecteDocument(
 
   // 6. Rapport RSE : marquer la régénération (picto ⟳ « Rapport régénéré », §06.06
   //    l.170) — regenere_at + regenere_par_user_id + bump version (≠ version initiale).
-  //    Couvre les deux documents portés par rapports_rse : recyclage ZD ET rapport
-  //    « Événement sans excédent » AG (§12 §1.3-bis, régénération Admin).
+  //    Document porté par rapports_rse régénérable : le rapport « Événement sans
+  //    excédent » AG (§12 §1.3-bis, régénération Admin).
   if (cfg.table === 'rapports_rse') {
-    const { data: cur } = await supabase
-      .from('rapports_rse')
-      .select('version')
-      .eq('id', entityId)
-      .single();
-    const nextVersion = ((cur as { version: number } | null)?.version ?? 1) + 1;
-    await supabase
+    const { error: majErr } = await supabase
       .from('rapports_rse')
       .update({
         regenere_at: new Date().toISOString(),
@@ -210,6 +231,18 @@ export async function regenerateCollecteDocument(
         version: nextVersion,
       })
       .eq('id', entityId);
+    // Marquage en échec : la ligne dirait une version, le PDF à venir une autre.
+    // On retire le job qu'on vient de poser (le dernier payload figé redevient
+    // celui d'avant) et on répond en erreur. Si ce retrait échoue lui aussi,
+    // l'écart subsiste : il est journalisé à part.
+    if (majErr) {
+      const { error: retraitErr } = await supabase
+        .from('jobs_pdf')
+        .delete()
+        .eq('id', (newJob as { id: string }).id);
+      if (retraitErr) dbError(retraitErr, 'pdf.regenerate.retrait_job');
+      return dbError(majErr, 'pdf.regenerate.marquage_rapport');
+    }
   }
 
   // 7. Audit (modèle poids/route.ts) — action tracée, table du document régénéré.

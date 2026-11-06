@@ -3,14 +3,13 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { fmtPct } from '@/lib/format';
-import { Sparkline } from './sparkline';
 
 // StatCard — carte KPI unique de l'app (R-UI-6b, I6 : fusion de l'ancienne
 // `StatCard` ui, 1 usage, et de `KpiCockpitCard`, 55 usages — API et rendu de
 // cette dernière conservés). Pastille couleur optionnelle, grande valeur,
-// badge de variation coloré (vert ≥ 0 / rouge < 0) et micro sparkline
-// optionnelle. Colonne flex `h-full` : la rangée du bas (badge + sparkline +
-// `footer`) est plaquée en bas via `mt-auto` → toutes les cartes d'une même
+// badge de variation coloré (vert ≥ 0 / rouge < 0), sans courbe de
+// tendance (retirée, Val 2026-10-30). Colonne flex `h-full` : la rangée du bas
+// (badge + `footer`) est plaquée en bas via `mt-auto` → toutes les cartes d'une même
 // rangée gardent la MÊME hauteur, quel que soit leur contenu. `headerRight`
 // (ex. tooltip d'aide) et `footer` (ex. badge d'état) vivent DANS la carte
 // pour ne pas déformer la grille. Purement présentationnel.
@@ -21,8 +20,6 @@ interface StatCardProps {
   /** Couleur de la pastille (token `var(--color-savr-*)`). Absente = pas de pastille. */
   dotColor?: string;
   variationPct?: number | null;
-  sparkPoints?: number[];
-  sparkColor?: string;
   href?: string;
   /** Carte cliquable (ex. ouvre une modale de détail) — rendue en <button>. */
   onClick?: () => void;
@@ -37,6 +34,8 @@ interface StatCardProps {
    * Opt-in (défaut inchangé) pour ne pas décaler les dashboards cockpit existants.
    */
   reserveTwoLineLabel?: boolean;
+  /** Grand pictogramme à droite de la valeur (ex. ZD / AG). Absent = rien. */
+  pictogramme?: React.ReactNode;
 }
 
 function StatCard({
@@ -45,14 +44,13 @@ function StatCard({
   unit,
   dotColor,
   variationPct,
-  sparkPoints,
-  sparkColor,
   href,
   onClick,
   className,
   headerRight,
   footer,
   reserveTwoLineLabel,
+  pictogramme,
 }: StatCardProps): React.JSX.Element {
   const rootClassName = cn(
     'flex h-full flex-col rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-5 shadow-savr-sm transition-[transform,box-shadow,border-color] duration-savr-fast hover:-translate-y-0.5 hover:border-savr-neutral-300 hover:shadow-savr-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
@@ -64,7 +62,7 @@ function StatCard({
       <div className="flex items-start justify-between gap-2">
         <span
           className={cn(
-            'text-[10px] font-bold uppercase tracking-[0.08em] text-savr-neutral-500',
+            'text-3xs font-bold uppercase tracking-[0.08em] text-savr-neutral-500',
             reserveTwoLineLabel && 'block min-h-[2.6em] leading-[1.3]',
           )}
         >
@@ -87,22 +85,23 @@ function StatCard({
         )}
       </div>
 
-      <div className="mt-2.5">
+      <div className="mt-2.5 flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-1">
-          <span className="text-[34px] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-savr-neutral-900">
+          <span className="text-kpi font-extrabold leading-none tracking-[-0.02em] tabular-nums text-savr-neutral-900">
             {value}
           </span>
           {unit && (
-            <span className="text-[17px] font-bold text-savr-neutral-400">
+            <span className="text-lg font-bold text-savr-neutral-400">
               {unit}
             </span>
           )}
         </div>
+        {pictogramme}
       </div>
 
       <div className="mt-auto">
-        <div className="mt-3 flex items-center justify-between">
-          {variationPct != null ? (
+        {variationPct != null && (
+          <div className="mt-3 flex items-center">
             <span
               title="Variation vs période précédente équivalente"
               className={cn(
@@ -114,16 +113,8 @@ function StatCard({
             >
               {`${variationPct >= 0 ? '▲' : '▼'} ${fmtPct(Math.abs(variationPct), 1)}`}
             </span>
-          ) : (
-            <span />
-          )}
-          {sparkPoints != null && sparkPoints.length >= 2 && (
-            <Sparkline
-              points={sparkPoints}
-              color={sparkColor ?? dotColor ?? 'var(--color-savr-primary-700)'}
-            />
-          )}
-        </div>
+          </div>
+        )}
         {footer && <div className="mt-2.5">{footer}</div>}
       </div>
     </>

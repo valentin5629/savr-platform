@@ -1,33 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { sendEmail } from '@savr/shared/src/email/index.js';
 import {
   requireUser,
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { instantParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { refusPaxCollecte } from '@/lib/pax-collecte.js';
 import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
+import {
+  CHAMPS_COLLECTE_EDITABLES,
+  CHAMPS_COLLECTE_VERROUILLES,
+} from '@/lib/collectes/champs-editables.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
+import { lireContactsCollecte } from '@/lib/collectes/contacts-collecte.js';
+import { refusTypeContactsCollecte } from '@/lib/collectes/type-contacts-collecte.js';
+import { modificationUrgente } from '@/lib/collectes/urgence-modification.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
   'traiteur_commercial',
 ];
-
-// Champs métier éditables côté traiteur (§06.04 §Édition). type_collecte, lieu_id
-// et traiteur sont verrouillés (sobriété A4) → rejetés explicitement.
-// `notes_internes` n'en fait PAS partie : commentaire Admin Savr « non visible
-// par le client » (§04 Data Model) — arbitrage Val 2026-09-29 (C1).
-const EDITABLE_FIELDS = [
-  'date_collecte',
-  'heure_collecte',
-  'controle_acces_requis',
-  'informations_supplementaires',
-];
-const LOCKED_FIELDS = ['type', 'type_collecte', 'lieu_id', 'organisation_id'];
 
 interface CollecteRow {
   id: string;
@@ -38,53 +39,30 @@ interface CollecteRow {
   evenement: {
     created_by: string;
     organisation_id: string;
-    organisation?: { nom: string } | null;
   } | null;
 }
 
 async function loadCollecteForUser(id: string): Promise<CollecteRow | null> {
   // Lecture RLS-scopée : si la collecte n'est pas visible (cross-org), null.
-  // Le nom de l'organisation programmatrice alimente l'email Ops de modification.
   const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from('collectes')
     .select(
       `id, statut, statut_tms, date_collecte, heure_collecte,
-       evenement:evenements!inner(created_by, organisation_id,
-         organisation:organisations!organisation_id(nom))`,
+       evenement:evenements!inner(created_by, organisation_id)`,
     )
     .eq('id', id)
     .maybeSingle();
   if (!data) return null;
-  const evtRaw = Array.isArray(data.evenement)
-    ? data.evenement[0]
+  const evenement = Array.isArray(data.evenement)
+    ? (data.evenement[0] ?? null)
     : data.evenement;
-  // PostgREST embarque les relations imbriquées en tableau → normaliser organisation.
-  const org = evtRaw
-    ? Array.isArray(evtRaw.organisation)
-      ? (evtRaw.organisation[0] ?? null)
-      : (evtRaw.organisation ?? null)
-    : null;
-  const evenement = evtRaw
-    ? {
-        created_by: evtRaw.created_by,
-        organisation_id: evtRaw.organisation_id,
-        organisation: org,
-      }
-    : null;
   return { ...data, evenement } as unknown as CollecteRow;
 }
 
-function canWrite(
-  c: CollecteRow,
-  role: string,
-  userId: string,
-  orgId: string,
-): boolean {
-  if (role === 'traiteur_manager')
-    return c.evenement?.organisation_id === orgId;
-  // commercial : seulement ses propres collectes
-  return c.evenement?.created_by === userId;
+// Manager et commercial : toute collecte de l'organisation (Val 2026-10-30).
+function canWrite(c: CollecteRow, orgId: string): boolean {
+  return c.evenement?.organisation_id === orgId;
 }
 
 export async function GET(
@@ -136,11 +114,6 @@ export async function GET(
     .map((f) => (Array.isArray(f.facture) ? f.facture[0] : f.facture))
     .filter((f): f is FactureInfo => f != null && f.statut !== 'brouillon');
 
-  // Régénération traiteur (RPT-04, décision Val 2026-07-07) : manager, ZD
-  // uniquement (attestation AG + rapport sans-excédent = Admin seul).
-  const can_regenerate =
-    auth.ctx.role === 'traiteur_manager' && fiche.type !== 'anti_gaspi';
-
   // Badge « Programmée par » (§06.04, ajout 2026-05-07) — seulement quand
   // l'événement a été programmé par un TIERS (agence / gestionnaire de lieux).
   // Lecture service-role bornée à CETTE organisation et à 3 colonnes, car le
@@ -168,7 +141,7 @@ export async function GET(
   }
 
   return NextResponse.json({
-    data: { ...fiche, programmee_par, factures, can_regenerate },
+    data: { ...fiche, programmee_par, factures },
   });
 }
 
@@ -182,7 +155,7 @@ export async function PATCH(
   const body = (await req.json()) as Record<string, unknown>;
 
   // Champs verrouillés (§Édition sobriété A4) — refus explicite
-  const lockedAttempt = LOCKED_FIELDS.filter((f) => f in body);
+  const lockedAttempt = CHAMPS_COLLECTE_VERROUILLES.filter((f) => f in body);
   if (lockedAttempt.length > 0) {
     return NextResponse.json(
       {
@@ -195,7 +168,7 @@ export async function PATCH(
   }
 
   const updates = Object.fromEntries(
-    Object.entries(body).filter(([k]) => EDITABLE_FIELDS.includes(k)),
+    Object.entries(body).filter(([k]) => CHAMPS_COLLECTE_EDITABLES.includes(k)),
   );
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
@@ -217,6 +190,21 @@ export async function PATCH(
     if (refusHeure) return refusHeure;
   }
 
+  // Pax de la collecte (décision Val 2026-10-20) : entier >= 1, refusé en 422
+  // avant la RPC (qui le refuserait aussi, mais en erreur serveur).
+  if (Object.hasOwn(updates, 'pax')) {
+    const refusPax = refusPaxCollecte(updates.pax);
+    if (refusPax) return refusPax;
+  }
+
+  // Type d'événement et contacts de la collecte (lot B1, décision Val
+  // 2026-10-23) : refusés en 422 avant la RPC s'ils sont vides ou inconnus.
+  const refusTypeContacts = await refusTypeContactsCollecte(
+    createAdminSupabaseClient(),
+    updates,
+  );
+  if (refusTypeContacts) return refusTypeContacts;
+
   const collecte = await loadCollecteForUser(id);
   if (!collecte)
     return NextResponse.json(
@@ -232,9 +220,7 @@ export async function PATCH(
     );
   }
   // Autorisation acteur
-  if (
-    !canWrite(collecte, auth.ctx.role, auth.ctx.userId, auth.ctx.organisationId)
-  ) {
+  if (!canWrite(collecte, auth.ctx.organisationId)) {
     return NextResponse.json(
       { error: 'Modification non autorisée' },
       {
@@ -243,14 +229,26 @@ export async function PATCH(
     );
   }
 
+  // Débit des écritures clientes (cf. lib/frein-ecritures-client). L'identifiant
+  // est celui que rend la base, jamais le paramètre d'URL.
+  const frein = freinerEcritureCliente({
+    organisationId: auth.ctx.organisationId,
+    modification: { collecte: collecte.id },
+  });
+  if (frein) return frein;
+
   // Flags modal/audit (§06.04 modal unique + cut-off 12h)
-  // Heure murale parisienne : le trigger SQL qui débite le crédit du pack ancre
-  // le seuil 12h en Europe/Paris — l'API doit tomber au même instant.
-  const creneau = instantParis(
-    collecte.date_collecte as string,
-    (collecte.heure_collecte as string) ?? '00:00:00',
-  );
-  const priorite_urgence = creneau.getTime() - Date.now() < 12 * 3600 * 1000;
+  const ancienCreneau = {
+    date: collecte.date_collecte,
+    heure: collecte.heure_collecte,
+  };
+  const priorite_urgence = modificationUrgente(ancienCreneau, {
+    date: (updates.date_collecte as string | undefined) ?? ancienCreneau.date,
+    heure:
+      'heure_collecte' in updates
+        ? (updates.heure_collecte as string | null)
+        : ancienCreneau.heure,
+  });
   const dateHeureModifiee =
     'date_collecte' in updates || 'heure_collecte' in updates;
   const reacceptation_requise =
@@ -263,11 +261,19 @@ export async function PATCH(
   }
 
   const admin = createAdminSupabaseClient();
-  const { data: before } = await admin
+  const { data: beforeCollecte } = await admin
     .from('collectes')
     .select('*')
     .eq('id', id)
     .single();
+  // Contacts de la collecte (collecte_contacts, lot B1) : valeurs « avant » de
+  // l'email à l'équipe Savr et de l'audit.
+  const lectureContacts = await lireContactsCollecte(admin, id);
+  if ('erreur' in lectureContacts)
+    return serverError(lectureContacts.erreur, 'traiteur.collectes.contacts');
+  const before = beforeCollecte
+    ? { ...beforeCollecte, ...(lectureContacts.contacts ?? {}) }
+    : beforeCollecte;
 
   const { data: updated, error } = await admin.rpc('fn_modifier_collecte', {
     p_id: id,
@@ -275,6 +281,10 @@ export async function PATCH(
     p_champs_modifies: Object.keys(updates),
   });
   if (error) return serverError(error, 'traiteur.collectes.update');
+
+  // L'ordre éventuel est en file : il part sans attendre le passage planifié
+  // (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(collecte.id);
 
   if (reacceptation_requise) {
     await admin
@@ -294,17 +304,14 @@ export async function PATCH(
     new_values: { updates, cascade_tms, priorite_urgence },
   });
 
-  // Alerte Ops de modification (§05 l.316-318) — une seule alerte, sévérité
-  // modulée par la proximité du créneau : priorité « normale » >= 12h, « haute »
-  // < 12h (le modal de confirmation côté traiteur double le cas < 12h).
-  const orgNom = collecte.evenement?.organisation?.nom ?? '';
-  await sendEmail('admin_modification_collecte_traiteur', 'hello@gosavr.io', {
-    organisation_nom: orgNom,
-    demandeur_nom: auth.ctx.userId,
-    collecte_ref: id,
-    date_collecte: collecte.date_collecte ?? '',
-    champs_modifies: Object.keys(updates).join(', '),
-    priorite: priorite_urgence ? 'haute' : 'normale',
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification).
+  await notifierEquipeModificationCollecte(admin, req, {
+    collecteId: id,
+    acteurUserId: auth.ctx.userId,
+    collecteAvant: before,
+    majCollecte: updates,
+    evenementModifiePar:
+      body.evenement_modifie === true ? auth.ctx.userId : undefined,
   });
 
   return NextResponse.json({

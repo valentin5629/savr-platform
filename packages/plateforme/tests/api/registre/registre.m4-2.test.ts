@@ -84,7 +84,7 @@ vi.mock('@/lib/pdf/r2-client.js', () => ({
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
-  return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
 function setupAuth(role: string, organisationId: string | null = 'org-a') {
   mockGetUser.mockResolvedValue({
@@ -210,12 +210,16 @@ const LIGNE_REGISTRE = {
   exutoire_nom: 'Prestataire Savr',
   bordereau_numero: 'BSAV-2026-00001',
   bordereau_statut: 'emis',
+  lieu_code_site_viparis: 'PCP',
+  evenement_code_affaire_viparis: '26SIAL1',
 };
 const EN_TETES_CSV = [
   'Nature du déchet',
   'Code nomenclature déchets',
   'Identité du producteur de déchet',
   'Lieu',
+  'Code site VIPARIS',
+  'Code affaire VIPARIS',
   "Date d'expédition",
   'Quantité (tonnage)',
   'Filière de traitement finale',
@@ -280,7 +284,7 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     expect(insertArgs?.organisation_id).toBe('org-a');
   });
 
-  it('M4.2/export_csv_ligne_par_flux — une ligne par flux pesé, les 20 colonnes du modèle + le lieu après le producteur', async () => {
+  it('M4.2/export_csv_ligne_par_flux — une ligne par flux pesé, les 20 colonnes du modèle + le lieu et les codes VIPARIS après le producteur', async () => {
     setupAuth('gestionnaire_lieux', 'org-a');
     rls.push({ data: [LIGNE_REGISTRE], count: 1, error: null });
     rls.push({
@@ -319,13 +323,13 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     const entrepot = '3 rue du Fort de la Briche;93200;Saint-Denis';
     expect(lignes).toEqual([
       [
-        'Biodéchets;20 01 08;Kaspia SARL;Pavillon Cambon;13/05/2026;0,036;Méthanisation;R3;BSAV-2026-00001',
+        'Biodéchets;20 01 08;Kaspia SARL;Pavillon Cambon;PCP;26SIAL1;13/05/2026;0,036;Méthanisation;R3;BSAV-2026-00001',
         'Savr;50 rue des Moines;75017;Paris',
         `Entrepôt Savr;${entrepot}`,
         'GENERIS VSG DCDT;ZI des Graviers, 6 avenue Winston Churchill;94190;Villeneuve-Saint-Georges',
       ].join(';'),
       [
-        'Verre;15 01 07;Kaspia SARL;Pavillon Cambon;13/05/2026;0,4687;Recyclage;R5;BSAV-2026-00001',
+        'Verre;15 01 07;Kaspia SARL;Pavillon Cambon;PCP;26SIAL1;13/05/2026;0,4687;Recyclage;R5;BSAV-2026-00001',
         'Savr;50 rue des Moines;75017;Paris',
         `Entrepôt Savr;${entrepot}`,
         'REVIVAL GENNEVILLIERS TRSFT;9 route du Môle Central;92230;Gennevilliers',
@@ -401,7 +405,7 @@ describe('M4.2 / export_csv_registre_filtre_trace', () => {
     const entrepot = '3 rue du Fort de la Briche;93200;Saint-Denis';
     expect(lignes).toEqual([
       [
-        'Emballages;;Kaspia SARL;Pavillon Cambon;13/05/2026;0,012;;;',
+        'Emballages;;Kaspia SARL;Pavillon Cambon;PCP;26SIAL1;13/05/2026;0,012;;;',
         'Savr;50 rue des Moines;75017;Paris',
         `Entrepôt Savr;${entrepot}`,
         ';;;',
@@ -561,6 +565,47 @@ describe('M4.2 / détail du registre', () => {
       'Méthanisation',
       'Valorisation énergétique',
     ]);
+  });
+});
+
+describe('M4.2 / détail registre — convives et type de la collecte (lot C1)', () => {
+  it('M4.2/detail_registre_pax_et_type_de_la_collecte — bloc 1 : convives et type d’événement de LA collecte, pas ceux de l’événement', async () => {
+    setupAuth('gestionnaire_lieux', 'org-a');
+    rls.push({ data: LIGNE_REGISTRE, error: null }); // ligne registre
+    rls.push({ data: null, error: null }); // bordereau
+    rls.push({ data: [], error: null }); // flux
+    // Collecte n°2 d'un événement de deux soirées : 300 convives, « Repas
+    // assis » ; l'événement compte 900 convives et garde le type de sa n°1.
+    rls.push({
+      data: {
+        heure_collecte: '22:00',
+        pax: 300,
+        type_evenement: { libelle: 'Repas assis' },
+        evenements: {
+          nom_evenement: 'Salon',
+          date_evenement: '2026-04-10',
+          pax: 900,
+          nom_client_organisateur: null,
+          types_evenements: { libelle: 'Cocktail apéritif' },
+          lieux: {
+            nom: 'Pavillon',
+            adresse_acces: '1 rue',
+            code_postal: '75001',
+            ville: 'Paris',
+          },
+        },
+      },
+      error: null,
+    }); // collecte
+    rls.push({ data: [], error: null }); // audit
+
+    const res = await callDetail('c1');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      evenement: { pax: number | null; type_evenement: string | null };
+    };
+    expect(body.evenement.pax).toBe(300);
+    expect(body.evenement.type_evenement).toBe('Repas assis');
   });
 });
 

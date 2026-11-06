@@ -5,8 +5,9 @@
  * onglets Programmées / Historique ni les actions de ligne.
  *
  * Épingle le câblage agence du composant commun : routes `/api/v1/agence/…`
- * (jamais `/api/v1/traiteur/…`, qui refusent le rôle), partition des statuts par
- * onglet, actions Modifier / Annuler / Dupliquer pour le rôle unique `agence`.
+ * (jamais `/api/v1/traiteur/…`, qui refusent le rôle), vues « Collectes à venir
+ * / passées » rangées par date (décision Val 2026-10-19), actions Modifier /
+ * Annuler / Dupliquer pour le rôle unique `agence`.
  *
  * Requêtes bornées au <table> : DataGrid rend aussi chaque ligne en carte
  * mobile (< 640 px), qui dupliquerait chaque libellé.
@@ -21,6 +22,7 @@ import {
   within,
 } from '@testing-library/react';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
+import { ficheClient } from '@/test-utils/fiche-collecte-client';
 
 const push = vi.fn();
 const replace = vi.fn();
@@ -68,6 +70,9 @@ function collecte(
     taux_recyclage: null,
     co2_evite_kg: null,
     nb_repas_donnes: 0,
+    // Pax de LA collecte (décision Val 2026-10-20) ; celui de l'événement
+    // (1 443, somme des jours) ne doit jamais s'afficher sur la ligne.
+    pax: 650,
     evenements: {
       pax: 1443,
       nom_client_organisateur: client,
@@ -99,7 +104,9 @@ const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
   // La route de téléchargement répond { url } (URL R2 pré-signée), sans `data`.
   const corps = url.includes('/rapport-rse/download')
     ? { url: 'https://r2.example/rapport.pdf' }
-    : { data };
+    : url.startsWith('/api/v1/agence/collectes/c-clot')
+      ? { data: ficheClient({ id: 'c-clot', statut: 'cloturee' }) }
+      : { data };
   return Promise.resolve({
     ok: true,
     json: () => Promise.resolve(corps),
@@ -107,6 +114,17 @@ const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
 });
 
 const urls = () => fetchMock.mock.calls.map(([u]) => String(u));
+/** Tous les statuts de la liste : aucune vue ne les partitionne. */
+const TOUS_STATUTS =
+  'brouillon,programmee,validee,en_cours,realisee,realisee_sans_collecte,cloturee,annulation_demandee,annulee,rejetee_par_prestataire';
+/** Paramètres du dernier appel de liste (hors options / actions). */
+const dernierAppelListe = () =>
+  new URLSearchParams(
+    urls()
+      .filter((u) => /\/api\/v1\/agence\/collectes\?/.test(u))
+      .at(-1)
+      ?.split('?')[1],
+  );
 /** Statuts demandés par les appels de liste (hors options / actions). */
 const statutsDemandes = () =>
   urls()
@@ -115,6 +133,10 @@ const statutsDemandes = () =>
 
 describe('M3.3 / liste Collectes agence — parité §06.04', () => {
   beforeEach(() => {
+    // Horloge seule figée (minuteries réelles pour waitFor) : 8 juillet 2026,
+    // 10 h à Paris.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-08T08:00:00Z'));
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockClear();
     push.mockClear();
@@ -124,36 +146,55 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it(
-    'M3.3/liste_agence_onglets_programmees_historique — onglets par état, Programmées par défaut, statuts partitionnés',
+    'M1.2/pax_par_collecte — liste agence (composant commun du traiteur) : le pax de la collecte, jamais celui de l’événement',
     async () => {
       render(<AgenceCollectesPage />);
-      const programmees = screen.getByRole('tab', { name: 'Programmées' });
-      expect(programmees).toHaveAttribute('aria-selected', 'true');
+      const table = within(await screen.findByRole('table', {}, ATTENTE_UI));
       await waitFor(
         () =>
-          expect(statutsDemandes()).toContain(
-            'brouillon,programmee,validee,en_cours',
-          ),
+          expect(table.getAllByText(/^650\spax$/).length).toBeGreaterThan(0),
         ATTENTE_UI,
       );
+      expect(table.queryByText(/1\s?443/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
+  it(
+    'M3.3/liste_agence_vues_a_venir_passees — vues par date, « à venir » par défaut, tous statuts dans les deux',
+    async () => {
+      render(<AgenceCollectesPage />);
+      const aVenir = screen.getByRole('tab', { name: 'Collectes à venir' });
+      expect(aVenir).toHaveAttribute('aria-selected', 'true');
+      await waitFor(
+        () => expect(statutsDemandes()).toContain(TOUS_STATUTS),
+        ATTENTE_UI,
+      );
+      // Aujourd'hui compte dans « à venir ».
+      expect(dernierAppelListe().get('from')).toBe('2026-07-08');
+      expect(dernierAppelListe().get('to')).toBeNull();
+
+      fireEvent.mouseDown(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      );
       // L'URL (deep-link, rechargement) est réécrite sous l'espace agence.
       await waitFor(() => {
         const url = String(replace.mock.calls.at(-1)?.[0] ?? '');
         expect(url.startsWith('/agence/collectes?')).toBe(true);
-        expect(url).toContain('onglet=historique');
+        expect(url).toContain('onglet=passees');
       }, ATTENTE_UI);
-      await waitFor(
-        () =>
-          expect(statutsDemandes()).toContain(
-            'realisee,realisee_sans_collecte,cloturee,annulation_demandee,annulee,rejetee_par_prestataire',
-          ),
-        ATTENTE_UI,
-      );
+      await waitFor(() => {
+        // Aujourd'hui compris : la route le tranche à la minute (Val
+        // 2026-11-03).
+        expect(dernierAppelListe().get('to')).toBe('2026-07-08');
+        expect(dernierAppelListe().get('vue')).toBe('passees');
+      }, ATTENTE_UI);
+      expect(dernierAppelListe().get('from')).toBeNull();
+      expect(dernierAppelListe().get('statut')).toBe(TOUS_STATUTS);
       // Sélecteur de type conservé à côté des onglets.
       expect(screen.getByRole('radio', { name: 'Zéro Déchet' })).toBeTruthy();
     },
@@ -173,7 +214,8 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
         await table.findByText('Maison Lenôtre', undefined, ATTENTE_UI),
       ).toBeTruthy();
       expect(table.getByRole('columnheader', { name: 'Client' })).toBeTruthy();
-      // Saisie faite d'espaces : cellule vide du DS, pas une cellule blanche.
+      // Saisie faite d'espaces : non renseigné, cellule laissée vide (revue
+      // écran 2026-10-29).
       const entetes = table
         .getAllByRole('columnheader')
         .map((th) => th.textContent?.trim());
@@ -183,22 +225,21 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
       expect(
         within(ligne!).getAllByRole('cell')[entetes.indexOf('Client')]
           ?.textContent,
-      ).toBe('—');
+      ).toBe('');
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.3/liste_agence_lien_profond_historique — ?onglet=historique (drill-down Top lieux) ouvre l’Historique',
+    'M3.3/liste_agence_lien_profond_passees — ?onglet=passees (drill-down Top lieux) ouvre les collectes passées',
     async () => {
       searchParams = new URLSearchParams(
-        'onglet=historique&lieu=lieu-1&type=zero_dechet&statut=cloturee',
+        'onglet=passees&lieu=lieu-1&type=zero_dechet&statut=cloturee',
       );
       render(<AgenceCollectesPage />);
-      expect(screen.getByRole('tab', { name: 'Historique' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      );
+      expect(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      ).toHaveAttribute('aria-selected', 'true');
       await waitFor(
         () => expect(statutsDemandes()).toContain('cloturee'),
         ATTENTE_UI,
@@ -228,23 +269,38 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
           )
         ).closest('tr') as HTMLElement,
       );
-      // Le droit d'écriture dépend du rôle lu dans la session (asynchrone).
-      await ligne.findByRole(
-        'button',
-        { name: 'Modifier la collecte' },
-        ATTENTE_UI,
-      );
-      expect(
-        ligne.getByRole('button', { name: 'Dupliquer la collecte' }),
-      ).toBeTruthy();
+      // Actions dans le menu « ⋯ » (revue écran 2026-10-29), ouvert au
+      // clavier. Le droit d'écriture dépend du rôle lu dans la session
+      // (asynchrone) : « Modifier » devient actif une fois le rôle connu.
+      const ouvrirMenu = () => {
+        fireEvent.keyDown(
+          ligne.getByRole('button', { name: 'Actions sur la collecte' }),
+          { key: 'Enter' },
+        );
+        return within(screen.getByRole('menu'));
+      };
+      await waitFor(() => {
+        const m = ouvrirMenu();
+        let grise: string | null;
+        try {
+          grise = m
+            .getByRole('menuitem', { name: /^Modifier la collecte/ })
+            .getAttribute('aria-disabled');
+        } finally {
+          // Menu refermé à chaque passage : ouvert, il masque le reste de la
+          // page et le passage suivant ne retrouverait plus « ⋯ ».
+          fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+        }
+        expect(grise).not.toBe('true');
+      }, ATTENTE_UI);
 
       fireEvent.click(
-        ligne.getByRole('button', { name: 'Dupliquer la collecte' }),
+        ouvrirMenu().getByRole('menuitem', { name: 'Dupliquer la collecte' }),
       );
       expect(push).toHaveBeenCalledWith('/programmer/nouveau?from=c-prog');
 
       fireEvent.click(
-        ligne.getByRole('button', { name: 'Annuler la collecte' }),
+        ouvrirMenu().getByRole('menuitem', { name: 'Annuler la collecte' }),
       );
       fireEvent.click(
         await screen.findByRole(
@@ -283,9 +339,9 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
   );
 
   it(
-    'M3.3/liste_agence_telecharger_et_export — rapport via la route agence, export CSV aux filtres actifs',
+    'M3.3/liste_agence_telecharger_et_export — picto du rapport ZD : ouvre la fiche sur « Bilan & documents » (rapport fabriqué au clic) ; export CSV aux filtres actifs',
     async () => {
-      searchParams = new URLSearchParams('onglet=historique&type=zero_dechet');
+      searchParams = new URLSearchParams('onglet=passees&type=zero_dechet');
       const ouvrir = vi.fn();
       vi.stubGlobal('open', ouvrir);
       render(<AgenceCollectesPage />);
@@ -295,69 +351,85 @@ describe('M3.3 / liste Collectes agence — parité §06.04', () => {
           await table.findByText('Palais des Congrès de Paris', {}, ATTENTE_UI)
         ).closest('tr') as HTMLElement,
       );
+      fireEvent.click(screen.getByRole('button', { name: 'Exporter CSV' }));
+      const exportUrl = String(ouvrir.mock.calls.at(-1)?.[0] ?? '');
+      expect(exportUrl.startsWith('/api/v1/exports/collectes?')).toBe(true);
+      // Mêmes paramètres que la liste affichée : type, statuts et période
+      // bornée à la vue (passées : jusqu'à aujourd'hui, tranché à la minute).
+      const qs = new URLSearchParams(exportUrl.split('?')[1]);
+      expect(qs.get('type')).toBe('zero_dechet');
+      expect(qs.get('statut')).toBe(TOUS_STATUTS);
+      expect(qs.get('to')).toBe('2026-07-08');
+      expect(qs.get('vue')).toBe('passees');
+      expect(qs.get('from')).toBeNull();
       fireEvent.click(
         ligne.getByRole('button', {
           name: 'Télécharger le rapport de la collecte',
         }),
       );
+      // Le rapport de recyclage se fabrique dans la fiche, où l'on choisit le
+      // radar (décision Val 2026-10-16) : pas de téléchargement direct.
       await waitFor(
         () =>
-          expect(ouvrir).toHaveBeenCalledWith(
-            'https://r2.example/rapport.pdf',
-            '_blank',
-          ),
+          expect(
+            urls().some((u) => u.startsWith('/api/v1/agence/collectes/c-clot')),
+          ).toBe(true),
         ATTENTE_UI,
       );
-      expect(urls()).toContain(
+      expect(urls()).not.toContain(
         '/api/v1/agence/collectes/c-clot/rapport-rse/download',
       );
-
-      fireEvent.click(screen.getByRole('button', { name: 'Exporter CSV' }));
-      const exportUrl = String(ouvrir.mock.calls.at(-1)?.[0] ?? '');
-      expect(exportUrl.startsWith('/api/v1/exports/collectes?')).toBe(true);
-      // Mêmes paramètres que la liste affichée : type + statuts de l'onglet.
-      const qs = new URLSearchParams(exportUrl.split('?')[1]);
-      expect(qs.get('type')).toBe('zero_dechet');
-      expect(qs.get('statut')).toBe(
-        'realisee,realisee_sans_collecte,cloturee,annulation_demandee,annulee,rejetee_par_prestataire',
+      // Seul l'export a ouvert un onglet ; la fiche s'ouvre sur le bilan.
+      expect(ouvrir).toHaveBeenCalledTimes(1);
+      const ongletBilan = await screen.findByRole(
+        'tab',
+        { name: 'Bilan & documents' },
+        ATTENTE_UI,
       );
+      expect(ongletBilan.getAttribute('aria-selected')).toBe('true');
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.3/liste_agence_ancien_lien_sans_onglet — ?lieu=…&statut=cloturee sans onglet ouvre l’Historique',
+    'M3.3/liste_agence_ancien_lien_sans_onglet — ?lieu=…&statut=cloturee sans onglet, ou ?onglet=historique, ouvre les collectes passées',
     async () => {
       searchParams = new URLSearchParams(
         'lieu=lieu-1&type=zero_dechet&statut=cloturee',
       );
       render(<AgenceCollectesPage />);
-      expect(screen.getByRole('tab', { name: 'Historique' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      );
+      expect(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      ).toHaveAttribute('aria-selected', 'true');
       await waitFor(
         () => expect(statutsDemandes()).toContain('cloturee'),
         ATTENTE_UI,
       );
+      cleanup();
+
+      // Les liens d'avant (emails, favoris) nomment encore l'onglet Historique.
+      searchParams = new URLSearchParams('onglet=historique&type=zero_dechet');
+      render(<AgenceCollectesPage />);
+      expect(
+        screen.getByRole('tab', { name: 'Collectes passées' }),
+      ).toHaveAttribute('aria-selected', 'true');
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.3/liste_agence_statut_hors_onglet_jamais_vide — un statut hors onglet retombe sur les statuts de l’onglet',
+    'M3.3/liste_agence_statut_inconnu_jamais_vide — un statut inconnu retombe sur tous les statuts de la liste',
     async () => {
-      searchParams = new URLSearchParams('onglet=programmees&statut=cloturee');
+      searchParams = new URLSearchParams('onglet=a_venir&statut=inconnu');
       render(<AgenceCollectesPage />);
       await waitFor(
         () => expect(statutsDemandes().length).toBeGreaterThan(0),
         ATTENTE_UI,
       );
-      // Jamais `statut=` vide : les routes ne filtreraient plus aucun statut.
+      // Jamais `statut=` vide ni inconnu : la liste reste celle des statuts
+      // qu'elle sait afficher.
       expect(statutsDemandes()).not.toContain('');
-      expect(statutsDemandes()).toContain(
-        'brouillon,programmee,validee,en_cours',
-      );
+      expect(statutsDemandes()).toContain(TOUS_STATUTS);
     },
     ATTENTE_CAS_MS,
   );

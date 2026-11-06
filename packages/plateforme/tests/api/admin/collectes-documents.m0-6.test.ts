@@ -12,11 +12,16 @@ interface MockResults {
   lastJob?: { payload: Record<string, unknown> } | null;
   newJob?: { id: string };
   cur?: { version: number };
+  /** Erreur rendue par l'UPDATE de la ligne rapports_rse. */
+  majErreur?: { message: string };
+  /** Erreur rendue par la lecture de la version courante du rapport. */
+  curErreur?: { message: string };
 }
 
 function makeSupabase(r: MockResults) {
   const inserts: { table: string; payload: Record<string, unknown> }[] = [];
   const updates: { table: string; payload: Record<string, unknown> }[] = [];
+  const retraits: { table: string; id: unknown }[] = [];
 
   const from = (table: string) => {
     const chain: Record<string, unknown> = {
@@ -28,7 +33,10 @@ function makeSupabase(r: MockResults) {
         table === 'jobs_pdf'
           ? { data: r.lastJob ?? null, error: null }
           : { data: r.docRow ?? null, error: null },
-      single: async () => ({ data: r.cur ?? { version: 1 }, error: null }),
+      single: async () =>
+        r.curErreur
+          ? { data: null, error: r.curErreur }
+          : { data: r.cur ?? { version: 1 }, error: null },
       insert: (payload: Record<string, unknown>) => {
         inserts.push({ table, payload });
         return {
@@ -44,13 +52,21 @@ function makeSupabase(r: MockResults) {
       },
       update: (payload: Record<string, unknown>) => {
         updates.push({ table, payload });
-        return { eq: async () => ({ data: null, error: null }) };
+        return {
+          eq: async () => ({ data: null, error: r.majErreur ?? null }),
+        };
       },
+      delete: () => ({
+        eq: async (_col: string, id: unknown) => {
+          retraits.push({ table, id });
+          return { data: null, error: null };
+        },
+      }),
     };
     return chain;
   };
 
-  return { supabase: { from } as never, inserts, updates };
+  return { supabase: { from } as never, inserts, updates, retraits };
 }
 
 const actor = { userId: 'admin-1', role: 'admin_savr' };
@@ -91,7 +107,7 @@ describe('M0.6 — régénération PDF collecte (BL-P1-BOA-07)', () => {
     if (!res.ok) expect(res.code).toBe('NO_PRIOR_JOB');
   });
 
-  it('M0.6 — succès rapport RSE : ré-enqueue jobs_pdf (payload copié) + audit_log + bump regenere_at/version', async () => {
+  it('M0.6 — succès rapport porté par rapports_rse (« sans excédent » AG) : ré-enqueue jobs_pdf (payload copié) + audit_log + bump regenere_at/version', async () => {
     const { supabase, inserts, updates } = makeSupabase({
       docRow: { id: 'r1' },
       lastJob: { payload: { numero: 'BSAV-1', poids_total_kg: 12 } },
@@ -101,7 +117,7 @@ describe('M0.6 — régénération PDF collecte (BL-P1-BOA-07)', () => {
     const res = await regenerateCollecteDocument(
       supabase,
       'c1',
-      'rapport-recyclage-zd',
+      'rapport-evenement-sans-excedent',
       actor,
     );
     expect(res.ok).toBe(true);
@@ -110,7 +126,7 @@ describe('M0.6 — régénération PDF collecte (BL-P1-BOA-07)', () => {
     // jobs_pdf ré-enqueué avec le type + le payload figé recopié.
     const job = inserts.find((i) => i.table === 'jobs_pdf');
     expect(job).toBeTruthy();
-    expect(job!.payload.type_document).toBe('rapport-recyclage-zd');
+    expect(job!.payload.type_document).toBe('rapport-evenement-sans-excedent');
     expect(job!.payload.entity_type).toBe('rapports_rse');
     expect(job!.payload.entity_id).toBe('r1');
     // Payload figé recopié + mention de régénération pied de page (§12 §1.4, BL-P2-20).
@@ -152,5 +168,83 @@ describe('M0.6 — régénération PDF collecte (BL-P1-BOA-07)', () => {
     expect(job!.payload.entity_type).toBe('attestations_don');
     // Pas d'update rapports_rse (bump ⟳ réservé au rapport RSE).
     expect(updates.find((u) => u.table === 'rapports_rse')).toBeUndefined();
+  });
+});
+
+// Le rapport de recyclage ZD n'est plus stocké : il se fabrique au clic, au choix
+// de celui qui le télécharge (décision Val 2026-10-16). Il ne se régénère donc
+// plus ; les gardes de la régénération restent éprouvées sur le rapport « sans
+// excédent », l'autre document porté par rapports_rse.
+describe('M1.6 / régénération — le rapport de recyclage ZD n’en fait plus partie', () => {
+  it('rapport-recyclage-zd → refusé (non régénérable), rien n’est lu ni mis en file', async () => {
+    const m = makeSupabase({
+      docRow: { id: 'r1' },
+      lastJob: { payload: { nom_evenement: 'Gala' } },
+    });
+    const res = await regenerateCollecteDocument(
+      m.supabase,
+      'c1',
+      'rapport-recyclage-zd',
+      actor,
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.code).toBe('NO_DOCUMENT');
+      expect(res.message).toBe(
+        'type_document non régénérable : rapport-recyclage-zd',
+      );
+    }
+    expect(m.inserts).toEqual([]);
+    expect(m.updates).toEqual([]);
+  });
+
+  async function regenerer(
+    majErreur?: { message: string },
+    curErreur?: { message: string },
+  ) {
+    const m = makeSupabase({
+      docRow: { id: 'r1' },
+      lastJob: { payload: { motif: 'Client absent' } },
+      majErreur,
+      curErreur,
+    });
+    const res = await regenerateCollecteDocument(
+      m.supabase,
+      'c1',
+      'rapport-evenement-sans-excedent',
+      actor,
+    );
+    const maj = m.updates.find((u) => u.table === 'rapports_rse')?.payload;
+    return { res, maj, retraits: m.retraits, inserts: m.inserts };
+  }
+
+  it('marquage du rapport en échec → DB_ERROR au message neutre, et le rendu mis en file est retiré', async () => {
+    const { res, retraits, inserts } = await regenerer({
+      message: 'permission denied for table rapports_rse',
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.code).toBe('DB_ERROR');
+      expect(res.message).toBe('Erreur serveur');
+    }
+    expect(retraits).toEqual([{ table: 'jobs_pdf', id: 'job-new' }]);
+    expect(inserts.some((i) => i.table === 'audit_log')).toBe(false);
+  });
+
+  it('marquage réussi → aucun retrait du rendu mis en file, aucun filtre de radar écrit', async () => {
+    const { res, retraits, maj } = await regenerer();
+    expect(res.ok).toBe(true);
+    expect(retraits).toEqual([]);
+    expect(maj).not.toHaveProperty('filtres_benchmark');
+  });
+
+  it('version courante illisible → DB_ERROR avant toute mise en file (aucun rendu lancé)', async () => {
+    const { res, inserts, maj } = await regenerer(undefined, {
+      message: 'connection reset',
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe('DB_ERROR');
+    expect(inserts).toEqual([]);
+    expect(maj).toBeUndefined();
   });
 });

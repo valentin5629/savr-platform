@@ -1,7 +1,5 @@
 # 16 - Roadmap et priorisation
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-04-20
 
 ---
 
@@ -66,10 +64,10 @@ Le back-office Admin est la colonne vertébrale opérationnelle. À construire a
 
 Le use case central de la plateforme — ce que fait le traiteur commercial au quotidien.
 
-- Formulaire 3 étapes : événement (nom client, logo, date, pax, type) → lieu/contacts → récap
+- Formulaire en deux écrans (refonte Val 2026-10-22) : événement (nom, client final, référence interne, lieu, contrôle d'accès, nombre de collectes par type) → une carte par collecte (date, heure, convives, type d'événement, contacts, informations) ; récapitulatif sur la page de confirmation
 - Autocomplétion lieux (référentiel) + saisie manuelle si hors référentiel
 - Autocomplétion contacts traiteurs
-- Gestion collecte ZD + AG sur le même événement (**formulaire unique événement-centré** — choix ☐ZD ☐AG en étape 1, rattachement explicite `evenement_id`, refonte 2026-05-21) + date événement distincte de date collecte *(multi-camions retiré du périmètre App 2026-05-25 — devenu interne TMS, Sujet 1 option A)*
+- Gestion collecte ZD + AG sur le même événement (**formulaire unique événement-centré** — nombre de collectes ZD et AG à l'écran 1 (refonte Val 2026-10-22), rattachement explicite `evenement_id`, refonte 2026-05-21) + date événement distincte de date collecte *(multi-camions retiré du périmètre App 2026-05-25 — devenu interne TMS, Sujet 1 option A)*
 - Calcul automatique tarif ZD selon pax + tarifs préférentiels gestionnaire
 - Vérification pack AG disponible (blocage si épuisé)
 - Email de confirmation programmation
@@ -103,7 +101,7 @@ Sans cette phase, les collectes restent bloquées au statut `programmee` pour to
 - Batch cron J+1 à 6h (bordereaux + rapports + attestations)
 - Embargo H+24 sur rapport de recyclage
 - Alerte pesées anormales déclenchée avant le batch
-- Stockage PDFs dans Cloudflare R2 (buckets dédiés, URLs pré-signées)
+- Stockage PDFs dans Cloudflare R2 (bucket de l'environnement, un dossier par nature de document, URLs pré-signées)
 - Accès PDFs depuis back-office Admin
 
 **Jalon** : une collecte réalisée déclenche la génération automatique des 3 documents au batch J+1. Val vérifie le rendu PDF.

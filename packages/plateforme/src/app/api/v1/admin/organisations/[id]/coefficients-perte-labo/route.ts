@@ -106,10 +106,7 @@ async function postHandler(
     .maybeSingle();
 
   if (!org) {
-    return NextResponse.json(
-      { error: 'Organisation introuvable' },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: 'Client introuvable' }, { status: 404 });
   }
   if (org.type !== 'traiteur') {
     return NextResponse.json(
@@ -135,7 +132,7 @@ async function postHandler(
       return NextResponse.json(
         {
           error:
-            'Un coefficient existe déjà pour cette organisation et cette année (utiliser la modification)',
+            'Un coefficient existe déjà pour ce client et cette année (utiliser la modification)',
         },
         { status: 409 },
       );

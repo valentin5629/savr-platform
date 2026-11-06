@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { Building2 } from 'lucide-react';
+import { BuildingsIcon } from '@/components/ui/icones';
 import { SectionCard, SectionHeader } from '@/components/ui/section-header';
 import { InfoItem } from '@/components/ui/info-item';
 import {
@@ -21,7 +21,7 @@ import { Tabs, TabsList } from '@/components/ui/tabs';
 describe('R-UI-5 F4 — SectionHeader / SectionCard', () => {
   it('h2 par défaut : pastille primary-50 + titre extrabold tronqué', () => {
     const { container } = render(
-      <SectionHeader icon={Building2} title="Informations légales" />,
+      <SectionHeader icon={BuildingsIcon} title="Informations légales" />,
     );
     const titre = screen.getByRole('heading', {
       level: 2,
@@ -45,7 +45,7 @@ describe('R-UI-5 F4 — SectionHeader / SectionCard', () => {
     const onClick = vi.fn();
     render(
       <SectionHeader
-        icon={Building2}
+        icon={BuildingsIcon}
         title="Utilisateurs"
         action={<button onClick={onClick}>Ajouter un utilisateur</button>}
       />,
@@ -63,7 +63,7 @@ describe('R-UI-5 F4 — SectionHeader / SectionCard', () => {
 
   it('SectionCard : carte bordée p-4 sm:p-5, titre h3 non tronqué, champs espacés', () => {
     const { container } = render(
-      <SectionCard icon={Building2} title="Identité">
+      <SectionCard icon={BuildingsIcon} title="Identité">
         <p>champ</p>
       </SectionCard>,
     );

@@ -9,7 +9,7 @@ import {
   CODE_ALERTE_COORDONNEES_URGENCE,
   STATUTS_ASSOCIATION,
   STATUTS_LOGISTIQUE,
-  STATUT_BILAN,
+  statutBilan,
   etatRapport,
   rapportReserveDonneurOrdre,
   type ActionsFiche,
@@ -19,6 +19,10 @@ import {
   type FicheCollecteClient,
   type TourneeFiche,
 } from './fiche-client-types.js';
+import {
+  COLONNES_CONTACTS_COLLECTE,
+  type ContactsCollecte,
+} from './contacts-collecte';
 
 // Chargeur UNIQUE de la fiche collecte des rôles clients (pop-up commun, §06.04
 // « Fiche collecte (vue détail) », refonte Val 2026-09-29). Les trois routes GET
@@ -37,25 +41,30 @@ import {
 //  4. gestionnaire : l'attribution AG (repas, association) est lue par la vue
 //     v_attributions_gestionnaire (§04) — aa_select n'est jamais élargie, la
 //     vue ne rend que les collectes de SES lieux et 5 colonnes ;
-//  5. contacts sur place et référence d'affaire : colonnes d'`evenements` hors
-//     GRANT SELECT authenticated (migration 20261001103000), lues en
-//     service-role sur CET événement et seulement pour qui y a titre —
-//     contacts : traiteur et agence, gestionnaire sur ses seules programmations
+//  5. contacts sur place : ceux de LA collecte (`collecte_contacts`, fermée aux
+//     clients — lots A et B1 de la refonte, 2026-10-22/23), lus en service-role
+//     sur CETTE collecte et seulement pour qui y a titre : traiteur (programmateur
+//     ou opérationnel) et agence, gestionnaire sur ses seules programmations
 //     (§06.05 : rien de personnel sur un traiteur tiers) ; référence d'affaire :
-//     organisation programmatrice seule (arbitrages Val C2/C3 2026-10-01).
+//     colonne d'`evenements` hors GRANT SELECT authenticated, servie à
+//     l'organisation programmatrice seule (arbitrages Val C2/C3/C5 2026-10-01) ;
+//  6. code site VIPARIS du lieu (Val 2026-11-02) : sans confidentialité, lu en
+//     service-role sur l'événement de CETTE collecte pour les trois espaces
+//     (colonne hors liste blanche). Le code affaire, porté par l'événement, est
+//     sur la fiche événement, pas sur la fiche collecte (Val 2026-11-02).
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 
-const COLONNES_CONTACTS =
-  'contact_principal_nom, contact_principal_telephone, contact_secours_nom, contact_secours_telephone';
-
+// Colonnes de l'événement hors liste blanche, lues en service-role (5 et 6).
 interface EvenementReserve {
-  contact_principal_nom: string | null;
-  contact_principal_telephone: string | null;
-  contact_secours_nom: string | null;
-  contact_secours_telephone: string | null;
   reference_affaire?: string | null;
+  lieu:
+    | { code_site_viparis: string | null }
+    | { code_site_viparis: string | null }[]
+    | null;
 }
+
+const COLONNES_CODES_VIPARIS = 'lieu:lieux!lieu_id(code_site_viparis)';
 
 function one<T>(v: T | T[] | null | undefined): T | null {
   if (!v) return null;
@@ -69,12 +78,7 @@ interface EvenementRow {
   created_by: string | null;
   nom_evenement: string | null;
   pax: number | null;
-  type_evenement_id: string | null;
   nom_client_organisateur: string | null;
-  type_evenement:
-    | { libelle: string | null }
-    | { libelle: string | null }[]
-    | null;
   lieu:
     | {
         id: string;
@@ -103,15 +107,21 @@ interface CollecteRow {
   tms_reference: string | null;
   date_collecte: string;
   heure_collecte: string | null;
+  pax: number;
   controle_acces_requis: boolean;
   informations_completes: boolean;
   informations_supplementaires: string | null;
   taux_recyclage: number | null;
-  co2_net_kg: number | null;
   co2_evite_kg: number | null;
   realisee_at: string | null;
   aucun_repas_motif: string | null;
   lieu_overrides: Record<string, unknown> | null;
+  // Type d'événement de LA collecte (lot B1).
+  type_evenement_id: string | null;
+  type_evenement:
+    | { libelle: string | null }
+    | { libelle: string | null }[]
+    | null;
   evenement: EvenementRow | EvenementRow[] | null;
   collecte_flux?:
     | {
@@ -145,21 +155,17 @@ export function droitsFiche(
   evt: { organisation_id: string; created_by: string | null },
 ): ActionsFiche {
   const statutModifiable = STATUTS_EDITABLES.includes(statut);
-  const mode =
-    statut === 'brouillon' || statut === 'programmee'
-      ? 'directe'
-      : statut === 'validee'
-        ? 'demande'
-        : null;
+  // Le client annule lui-même, sur-le-champ, jusqu'à « Validée » incluse :
+  // plus de demande soumise à l'Admin (Val 2026-11-01).
+  const mode = ['brouillon', 'programmee', 'validee'].includes(statut)
+    ? 'directe'
+    : null;
 
   let peutModifier: boolean;
   let peutAnnuler: boolean;
   if (espace === 'traiteur') {
-    // Manager : collectes de son organisation ; commercial : ses créations.
-    const autorise =
-      ctx.role === 'traiteur_manager'
-        ? evt.organisation_id === ctx.organisationId
-        : evt.created_by === ctx.userId;
+    // Manager et commercial : collectes de leur organisation (Val 2026-10-30).
+    const autorise = evt.organisation_id === ctx.organisationId;
     peutModifier = autorise;
     peutAnnuler = autorise;
   } else if (espace === 'agence') {
@@ -167,21 +173,33 @@ export function droitsFiche(
     peutModifier = true;
     peutAnnuler = true;
   } else {
-    // Gestionnaire : modifie ses propres programmations, n'annule jamais
-    // (§05 « la gestion des collectes reste exclusive au traiteur »).
+    // Gestionnaire : modifie et annule ses propres programmations (annulation :
+    // décision Val 2026-10-26). La RLS lui ouvre aussi les collectes des
+    // traiteurs tenues sur ses lieux : sur celles-là, ni l'un ni l'autre.
     peutModifier = evt.organisation_id === ctx.organisationId;
-    peutAnnuler = false;
+    peutAnnuler = evt.organisation_id === ctx.organisationId;
   }
+
+  // Gestionnaire sur la collecte d'un traiteur tiers : pas de bouton
+  // d'annulation du tout (Val 2026-10-26), là où « Modifier » reste grisé.
+  const annulationMasquee = espace === 'gestionnaire' && !peutAnnuler;
 
   return {
     modifier: !statutModifiable ? 'absent' : peutModifier ? 'actif' : 'grise',
     annuler:
-      espace === 'gestionnaire' || mode === null
+      annulationMasquee || mode === null
         ? 'absent'
         : peutAnnuler
           ? 'actif'
           : 'grise',
-    annulation: espace === 'gestionnaire' ? null : mode,
+    annulation: annulationMasquee ? null : mode,
+    // Périmètre de la route d'ajout : l'organisation de l'événement, pour tous
+    // les rôles (§09, un commercial ajoute à l'événement d'un collègue). Le
+    // traiteur opérationnel d'une collecte programmée par un tiers, ou le
+    // gestionnaire sur celle d'un traiteur, n'y ont pas droit. Pas depuis un
+    // brouillon : l'événement n'est pas encore confirmé.
+    ajouter_collecte:
+      statut !== 'brouillon' && evt.organisation_id === ctx.organisationId,
   };
 }
 
@@ -195,13 +213,13 @@ export async function chargerFicheCollecteClient(
     .from('collectes')
     .select(
       `id, type, statut, statut_tms, tms_reference, date_collecte, heure_collecte,
-       controle_acces_requis, informations_completes, informations_supplementaires,
-       taux_recyclage, co2_net_kg, co2_evite_kg, realisee_at, aucun_repas_motif,
-       lieu_overrides,
+       pax, controle_acces_requis, informations_completes, informations_supplementaires,
+       taux_recyclage, co2_evite_kg, realisee_at, aucun_repas_motif,
+       lieu_overrides, type_evenement_id,
+       type_evenement:types_evenements!type_evenement_id(libelle),
        evenement:evenements!inner(
          id, organisation_id, traiteur_operationnel_organisation_id, created_by,
-         nom_evenement, pax, type_evenement_id, nom_client_organisateur,
-         type_evenement:types_evenements!type_evenement_id(libelle),
+         nom_evenement, pax, nom_client_organisateur,
          lieu:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, acces_details)
        ),
        collecte_flux(poids_reel_kg, flux_dechets(code))`,
@@ -233,81 +251,92 @@ export async function chargerFicheCollecteClient(
   // téléchargement. Le traiteur opérationnel d'une collecte AG programmée par
   // une agence ne lit donc pas l'attestation de don du donneur d'ordre (D12,
   // arbitrage Val 2026-09-30) ; le rapport RSE ZD lui reste servi (rr_select).
-  const [ctRes, rapRes, attRes, aaRes, alerteRes, evtRes] = await Promise.all([
-    avecCamions
-      ? admin
-          .from('collecte_tournees')
-          .select(
-            'rang, tournee:tournees(plaque_immatriculation, chauffeur_nom, chauffeur_telephone, type_vehicule)',
-          )
-          .eq('collecte_id', id)
-          .order('rang', { ascending: true })
-      : Promise.resolve({ data: [] as unknown[], error: null }),
-    useRapportsRse
-      ? rls
-          .from('rapports_rse')
-          .select('disponible_a, genere_at, regenere_at')
-          .eq('collecte_id', id)
-          .order('version', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-    useRapportsRse
-      ? Promise.resolve({ data: null, error: null })
-      : rls
-          .from('attestations_don')
-          .select('eligible_at, pdf_url')
-          .eq('collecte_id', id)
-          .order('version', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-    // Attribution AG sous la RLS de l'utilisateur. Traiteur et agence : la table
-    // (aa_select). Gestionnaire : la vue v_attributions_gestionnaire, seul chemin
-    // qui lui rende une collecte programmée par un traiteur tiers (C-1) — nom et
-    // ville de l'association à plat, sa description par l'`association_id` de la
-    // vue (associations, policy asso_read).
-    avecAssociation
-      ? espace === 'gestionnaire'
+  const [ctRes, rapRes, attRes, aaRes, alerteRes, evtRes, contactsRes] =
+    await Promise.all([
+      avecCamions
+        ? admin
+            .from('collecte_tournees')
+            .select(
+              'rang, tournee:tournees(plaque_immatriculation, chauffeur_nom, chauffeur_telephone, type_vehicule)',
+            )
+            .eq('collecte_id', id)
+            .order('rang', { ascending: true })
+        : Promise.resolve({ data: [] as unknown[], error: null }),
+      useRapportsRse
         ? rls
-            .from('v_attributions_gestionnaire')
-            .select(
-              'volume_repas_realise, association_nom, association_ville, association:associations(description_rapport_impact)',
-            )
+            .from('rapports_rse')
+            .select('disponible_a, genere_at, regenere_at')
             .eq('collecte_id', id)
+            .order('version', { ascending: false })
+            .limit(1)
             .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      useRapportsRse
+        ? Promise.resolve({ data: null, error: null })
         : rls
-            .from('attributions_antgaspi')
+            .from('attestations_don')
+            .select('eligible_at, pdf_url, version, created_at')
+            .eq('collecte_id', id)
+            .order('version', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+      // Attribution AG sous la RLS de l'utilisateur. Traiteur et agence : la table
+      // (aa_select). Gestionnaire : la vue v_attributions_gestionnaire, seul chemin
+      // qui lui rende une collecte programmée par un traiteur tiers (C-1) — nom et
+      // ville de l'association à plat, sa description par l'`association_id` de la
+      // vue (associations, policy asso_read).
+      avecAssociation
+        ? espace === 'gestionnaire'
+          ? rls
+              .from('v_attributions_gestionnaire')
+              .select(
+                'volume_repas_realise, association_nom, association_ville, association:associations(description_rapport_impact)',
+              )
+              .eq('collecte_id', id)
+              .maybeSingle()
+          : rls
+              .from('attributions_antgaspi')
+              .select(
+                'volume_repas_realise, association:associations!association_id(nom, ville, description_rapport_impact)',
+              )
+              .eq('collecte_id', id)
+              .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      avecCamions
+        ? admin
+            .from('alertes_admin')
+            .select('id')
+            .eq('code', CODE_ALERTE_COORDONNEES_URGENCE)
+            .eq('entity_id', id)
+            .eq('statut', 'ouverte')
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      // Référence d'affaire : demandée pour l'organisation programmatrice seule.
+      evt
+        ? admin
+            .from('evenements')
             .select(
-              'volume_repas_realise, association:associations!association_id(nom, ville, description_rapport_impact)',
+              programmeParSoi
+                ? `reference_affaire, ${COLONNES_CODES_VIPARIS}`
+                : COLONNES_CODES_VIPARIS,
             )
+            .eq('id', evt.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      contactsVisibles
+        ? admin
+            .from('collecte_contacts')
+            .select(COLONNES_CONTACTS_COLLECTE)
             .eq('collecte_id', id)
             .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-    avecCamions
-      ? admin
-          .from('alertes_admin')
-          .select('id')
-          .eq('code', CODE_ALERTE_COORDONNEES_URGENCE)
-          .eq('entity_id', id)
-          .eq('statut', 'ouverte')
-          .limit(1)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-    contactsVisibles && evt
-      ? admin
-          .from('evenements')
-          .select(
-            programmeParSoi
-              ? `${COLONNES_CONTACTS}, reference_affaire`
-              : COLONNES_CONTACTS,
-          )
-          .eq('id', evt.id)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-  ]);
-  // Un échec de cette lecture ne doit pas se lire comme « aucun contact ».
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+  // Un échec de ces lectures ne doit pas se lire comme « aucun contact ».
   if (evtRes.error) return { erreur: evtRes.error };
+  if (contactsRes.error) return { erreur: contactsRes.error };
   const reserve = evtRes.data as EvenementReserve | null;
+  const contacts = contactsRes.data as ContactsCollecte | null;
 
   // ── Camions (Logistique) ────────────────────────────────────────────────
   type TourneeRow = TourneeFiche;
@@ -332,25 +361,43 @@ export async function chargerFicheCollecteClient(
   const att = attRes.data as {
     eligible_at: string | null;
     pdf_url: string | null;
+    version: number | null;
+    created_at: string | null;
   } | null;
   const maintenant = Date.now();
-  const rapport_rse_disponible = useRapportsRse
-    ? Boolean(rap?.genere_at) &&
-      rap?.disponible_a != null &&
+  // Rapport de recyclage ZD : fabriqué au clic (décision Val 2026-10-16), il est
+  // disponible dès la fin de l'embargo, sans PDF préalable. Le rapport « sans
+  // excédent » d'une collecte AG reste un fichier fabriqué par le batch.
+  const rapport_rse_disponible = !isAg
+    ? rap?.disponible_a != null &&
       new Date(rap.disponible_a).getTime() <= maintenant
-    : Boolean(att?.pdf_url) &&
-      att?.eligible_at != null &&
-      new Date(att.eligible_at).getTime() <= maintenant;
-  const rapport_rse_regenere = useRapportsRse && Boolean(rap?.regenere_at);
+    : useRapportsRse
+      ? Boolean(rap?.genere_at) &&
+        rap?.disponible_a != null &&
+        new Date(rap.disponible_a).getTime() <= maintenant
+      : Boolean(att?.pdf_url) &&
+        att?.eligible_at != null &&
+        new Date(att.eligible_at).getTime() <= maintenant;
+  // « Mis à jour le … » (§05 « Indicateur de mise à jour », §12 §1.4) : document
+  // AG stocké refait après sa première émission — rapport « sans excédent »
+  // régénéré, ou attestation de don en version > 1 (correction de volume). Le
+  // rapport de recyclage ZD, fabriqué au clic, n'en a pas.
+  const rapport_mis_a_jour_at = !isAg
+    ? null
+    : useRapportsRse
+      ? (rap?.regenere_at ?? null)
+      : (att?.version ?? 1) > 1
+        ? (att?.created_at ?? null)
+        : null;
   const rapport_reserve_donneur_ordre =
     espace === 'traiteur' &&
     rapportReserveDonneurOrdre(c, evt?.organisation_id, ctx.organisationId);
 
   // ── Bilan ───────────────────────────────────────────────────────────────
   // ZD « Réalisée » : pesées par flux (collecte_flux, lue sous RLS avec la
-  // collecte). Valeurs figées à la clôture, jamais recalculées ici.
+  // collecte), du moment (corrigeables par l'Admin, Val 2026-11-04).
   let bilan_flux: Record<string, number> | null = null;
-  if (!isAg && c.statut === STATUT_BILAN) {
+  if (!isAg && statutBilan(c.statut)) {
     bilan_flux = {};
     for (const cf of c.collecte_flux ?? []) {
       const code = one(cf.flux_dechets)?.code;
@@ -398,16 +445,12 @@ export async function chargerFicheCollecteClient(
         id: evt.id,
         nom_evenement: evt.nom_evenement,
         pax: evt.pax,
-        type_evenement_id: evt.type_evenement_id,
-        type_evenement: one(evt.type_evenement),
         nom_client_organisateur: evt.nom_client_organisateur,
-        reference_affaire: reserve?.reference_affaire ?? null,
-        contacts_visibles: contactsVisibles,
-        contact_principal_nom: reserve?.contact_principal_nom ?? null,
-        contact_principal_telephone:
-          reserve?.contact_principal_telephone ?? null,
-        contact_secours_nom: reserve?.contact_secours_nom ?? null,
-        contact_secours_telephone: reserve?.contact_secours_telephone ?? null,
+        reference_affaire: programmeParSoi
+          ? (reserve?.reference_affaire ?? null)
+          : null,
+        code_site_viparis:
+          one(reserve?.lieu ?? null)?.code_site_viparis ?? null,
         lieu: lieuEffectif
           ? {
               id: lieuEffectif.id,
@@ -429,17 +472,25 @@ export async function chargerFicheCollecteClient(
     tms_reference: c.tms_reference,
     date_collecte: c.date_collecte,
     heure_collecte: c.heure_collecte,
+    pax: c.pax,
     controle_acces_requis: c.controle_acces_requis,
     informations_completes: c.informations_completes,
     informations_supplementaires: c.informations_supplementaires,
     taux_recyclage: c.taux_recyclage,
-    co2_net_kg: c.co2_net_kg,
     co2_evite_kg: c.co2_evite_kg,
     realisee_at: c.realisee_at,
     aucun_repas_motif: c.aucun_repas_motif,
-    // Entête §06.04 « Type d'événement + taille » : bracket canonique, jamais
-    // inventé sans pax.
-    taille_bracket: evt?.pax != null ? tailleBracket(evt.pax) : null,
+    type_evenement_id: c.type_evenement_id,
+    type_evenement: one(c.type_evenement),
+    contacts_visibles: contactsVisibles,
+    contact_principal_nom: contacts?.contact_principal_nom ?? null,
+    contact_principal_telephone: contacts?.contact_principal_telephone ?? null,
+    contact_secours_nom: contacts?.contact_secours_nom ?? null,
+    contact_secours_telephone: contacts?.contact_secours_telephone ?? null,
+    // Entête §06.04 « Type d'événement + taille » : bracket canonique sur le pax
+    // de LA collecte (décision Val C4 du 2026-10-20, lot C1), jamais inventé sans
+    // pax (0 = convives inconnus : pas de taille).
+    taille_bracket: c.pax != null && c.pax > 0 ? tailleBracket(c.pax) : null,
     evenement,
     tournees,
     coordonnees_urgence_demandee: Boolean(alerteRes.data),
@@ -447,7 +498,7 @@ export async function chargerFicheCollecteClient(
     repas_donnes,
     association,
     rapport_rse_disponible,
-    rapport_rse_regenere,
+    rapport_mis_a_jour_at,
     rapport_reserve_donneur_ordre,
     rapport_etat: etatRapport({
       reserve: rapport_reserve_donneur_ordre,
@@ -461,7 +512,12 @@ export async function chargerFicheCollecteClient(
           organisation_id: evt.organisation_id,
           created_by: evt.created_by,
         })
-      : { modifier: 'absent', annuler: 'absent', annulation: null },
+      : {
+          modifier: 'absent',
+          annuler: 'absent',
+          annulation: null,
+          ajouter_collecte: false,
+        },
   };
 
   return {

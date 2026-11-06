@@ -1,21 +1,19 @@
 # 13 - Migration depuis Bubble
 
-**Statut** : Cadrage — le plan d'exécution détaillé vit dans `04 - Migration/` du Vault ([[../04 - Migration/01 - Inventaire source Bubble|01 - Inventaire source Bubble]], Phase 10 `cdc-migration-data` 2026-06-07)
-**Dernière mise à jour** : 2026-06-07 (amendements post-Phase 10 : factures = Pennylane, bordereaux/attestations = archive cold, volumes réels, source référentiel lieux)
 
 ---
 
 ## Coordination cross-CDC avec §13 TMS Migration MTS-1 (propagation 2026-04-27)
 
 Les deux migrations sont **simultanées** sur la même fenêtre temporelle :
-- **Côté Plateforme** (ce document) : Bubble → nouvelle Plateforme Savr (utilisateurs, packs AG, lieux, historique collectes, factures)
+- **Côté Plateforme** (ce document) : Bubble → nouvelle Plateforme Savr (organisations et leurs domaines email, packs AG, lieux, historique collectes ; ni utilisateurs — réinscription, Val 2026-10-30 — ni factures)
 - **Côté TMS** ([[../02 - Cahier des charges TMS/13 - Migration MTS-1]]) : MTS-1 → nouvelle TMS Savr (référentiel prestataires, double-run total 1 mois)
 
 **Alignements clés à acter en V1 finale** :
 - **Durée double-run** : 1 mois (cf. §13 TMS — aligner Phase 2 ci-dessous "2 à 4 semaines" sur 1 mois fixe)
 - **Communications** : clients (Plateforme) vs prestataires/chauffeurs (TMS) → audiences distinctes, à coordonner pour éviter doublons emails sur dirigeants prestataires qui seraient aussi clients
 - **Source légale fenêtre migration** : Bubble + MTS-1 (production) ; Plateforme nouvelle + TMS Savr = shadow + tests
-- **Mode migration côté nouvelle Plateforme** : à acter — flag équivalent `migration_mode_active` côté Plateforme pour bloquer envois emails clients + facturation pendant le mois (question ouverte cross-CDC)
+- **Mode migration côté nouvelle Plateforme** : ✅ acté 2026-10-28 (Val) — les emails clients sont coupés pendant tout le double fonctionnement (mécanisme construit en M5.4) ; la facturation est déjà hors plateforme au go-live (décision Val 2026-10-22, interrupteur `facturationPlateformeActive()`)
 
 **Écart cross-CDC — résolu (2026-06-11)** : la colonne `contexte` (mode migration) vit sur `tms.audit_logs` (cf. [[../02 - Cahier des charges TMS/04 - Data Model TMS#3. tms.audit_logs — 1 nouvelle colonne contexte]]), table TMS distincte du journal App `plateforme.audit_log`. Depuis la dissolution de `shared.audit_logs` (audit canonique = 2 journaux séparés `plateforme.audit_log` + `tms.audit_logs`), il n'y a plus de table partagée ni de colonne fantôme côté App : aucun écart. Si un mode migration côté App devient nécessaire V1.1+, ajouter explicitement la colonne à `plateforme.audit_log`.
 
@@ -27,7 +25,7 @@ Les deux migrations sont **simultanées** sur la même fenêtre temporelle :
 |--------|--------|
 | Collectes alimentaires (AG) | **1 755** (2021→2026) |
 | Collectes déchets (ZD) | **222** |
-| Utilisateurs | **306** lignes (~30-36 éligibles après filtre activité 12 mois) |
+| Utilisateurs | **306** lignes — **aucun migré** (réinscription, Val 2026-10-30) |
 | Organisations traiteurs | **133** (avant fusion doublons) + 157 agences |
 | Lieux | **773** lignes `Lieu événementiels` (avant dédup par adresse) |
 | Packs AG | **24** + 22 abonnements historiques |
@@ -41,7 +39,7 @@ Les deux migrations sont **simultanées** sur la même fenêtre temporelle :
 
 ### Critiques (obligatoires avant go-live nouvelle app — bloquantes)
 
-1. **Utilisateurs** : email, nom, prénom, téléphone, rôle, organisation → permet continuité de service
+1. **Utilisateurs** : **Amendé 2026-10-30 (Val)** : non migrés. La continuité de service passe par la réinscription : les domaines email des organisations sont importés comme vérifiés, ce qui rattache chaque nouvel inscrit à son organisation historique
 2. **Organisations** : raison sociale, SIRET, entités de facturation, contacts → permet reprise facturation
 3. **Packs AG actifs (non épuisés)** : crédits initiaux, crédits consommés, crédits restants, mode de facturation, date de validité → critique pour ne pas perdre d'argent
 4. **Référentiel lieux initié via migration** (normalisé + enrichi : adresse accès unique — `adresse_grand_public` supprimée revue sobriété M05 2026-04-29, accès office, stationnement enum, type véhicule max, traiteurs opérant) — ensuite **modifiable Admin Savr** exclusivement. **Précision 2026-06-07 (Phase 10, tranché Val)** : source = Data Type Bubble `Lieu événementiels` (773 lignes, dédupliquées par adresse normalisée) + 2e passe sur les adresses des collectes ; `type_vehicule_max` initialisé `poids_lourd` (resserrage Admin lieu par lieu), `stationnement`/`acces_office` NULL (cf. cas particulier 2026-05-08 ci-dessous). Fiche complète : `04 - Migration/02 - Mappings/03`.
@@ -81,8 +79,8 @@ Si une collecte historique Bubble est incomplète (pas d'exutoire, pas de pesée
 
 1. **Export complet Bubble** en JSON/CSV dès la décision de migration (sauvegarde cold)
 2. **Audit de qualité des données** par Val (nettoyage Bubble en amont pour limiter la casse côté import)
-3. **Scripts de migration sur mesure** (Python) :
-   - Mapping users Bubble → Supabase + envoi emails "votre compte est prêt"
+3. **Scripts de migration sur mesure** (TypeScript, dans le dépôt — décision Val 2026-10-28) :
+ - **Amendé 2026-10-30 (Val)** : aucun compte utilisateur n'est migré ; chacun crée son compte à la bascule, se rattache à son organisation par son domaine email et accepte les CGU à ce moment (cf. `04 - Migration/02 - Mappings/02`)
    - Mapping packs AG actifs (calcul crédits restants)
    - Mapping **référentiel lieux** (normalisation `adresse_acces` unique — `adresse_grand_public` supprimée revue sobriété M05 2026-04-29 ; si Bubble fournit les 2 valeurs, prendre `adresse_acces_livraison` en priorité, sinon `adresse_grand_public`. **Refonte 2026-05-08** : `stationnement` + `acces_office` + `type_vehicule_max` ne sont **pas** migrés depuis Bubble — nouveau référentiel à ressaisir post-migration (cf. ci-dessous). Rattachement traiteurs opérant conservé.)
    - Mapping **historique complet collectes** avec gestion des cas partiels
@@ -118,10 +116,10 @@ Le type d'organisation `lieu_independant` est supprimé (cf. [[09 - Authentifica
 
 - Toute org Bubble typée « lieu indépendant » / `lieu_independant` → `organisations.type = 'gestionnaire_lieux'`.
 - Ses lieux sont rattachés normalement via `organisations_lieux` (un lieu autonome = une seule ligne de rattachement). Aucune perte de donnée, aucune UX dégradée (dashboard gestionnaire scopé à 1 lieu).
-- Les users associés (rôle Bubble équivalent) → `users.role = 'gestionnaire_lieux'`.
+- Les users associés : non migrés (Val 2026-10-30) ; ils se réinscrivent ; leur rôle découle du type de leur organisation (fiche 01 : `traiteur` par défaut, sauf `type_overrides.csv`), l'Admin l'ajuste.
 
 4. **Phase de test parallèle** 2-4 semaines (ops sur les deux apps en simultané)
-5. **Communication client** : email pré-migration (15 jours avant, **confirmé**), email jour J, email post-migration. Template dans `06 - Fonctionnalités détaillées/02 - Templates emails V1`.
+5. **Communication client** : email pré-migration (15 jours avant, **confirmé**), email jour J, email post-migration. Template dans `06 - Fonctionnalités détaillées/02 - Templates emails V1`. *Interprétation Claude Code, validée par Val le 2026-11-02* : la coupure des emails clients pendant le double fonctionnement (C5, Val 2026-10-28) vise les emails automatiques de la Plateforme ; ces trois communications de bascule en sont exemptées. L'email pré-migration invite à créer son compte avec son adresse professionnelle.
 
 ---
 
@@ -133,7 +131,7 @@ Le type d'organisation `lieu_independant` est supprimé (cf. [[09 - Authentifica
 - **Bascule après période de test parallèle** 2-4 semaines (ops sur les deux apps)
 - **Email pré-migration 15 jours avant** confirmé (template dans 06/02 Emails)
 - Val accompagne activement la migration (pas de dev tiers autonome)
-- Priorité : **utilisateurs + packs AG actifs + référentiel lieux + historique complet**
+- Priorité : **organisations et domaines email + packs AG actifs + référentiel lieux + historique complet** (utilisateurs : réinscription, Val 2026-10-30)
 - Pas de migration 1:1 : la qualité actuelle des données Bubble ne le permet pas
 - **Décommissionnement Bubble 30 jours après bascule** + archive cold
 

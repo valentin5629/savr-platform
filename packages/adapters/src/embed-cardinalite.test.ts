@@ -207,10 +207,6 @@ describe("cardinalité de l'embed collecte_tournees → tournees", () => {
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder: vi.fn(),
-      createTour: vi.fn(),
-      addCustomerOrder: vi.fn(),
-      dispatchTour: vi.fn(),
-      validateTour: vi.fn(),
       updateOrder,
     });
 
@@ -229,10 +225,6 @@ describe("cardinalité de l'embed collecte_tournees → tournees", () => {
       pollOrders: vi.fn(),
       getTour: vi.fn(),
       postOrder: vi.fn(),
-      createTour: vi.fn(),
-      addCustomerOrder: vi.fn(),
-      dispatchTour: vi.fn(),
-      validateTour: vi.fn(),
       updateOrder,
     });
 

@@ -5,21 +5,38 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { DEFAULT_PAGE_SIZE, parsePage } from '@/lib/pagination.js';
+import {
+  appliquerPerimetreRevenus,
+  lirePerimetreRevenus,
+  lireTout,
+  LOT_LECTURE,
+} from '@/lib/dashboards/revenus-admin.js';
+import {
+  montantsPrestation,
+  round2,
+  FILTRE_STATUTS_REVENUS,
+  type PackPrix,
+} from '@/lib/montant-prestation.js';
 
 /**
  * GET /api/v1/admin/dashboard/revenus-organisations — Bloc 2 « Revenus par
  * organisation » du Dashboard Admin (§11 §1.1 Bloc 2).
  *
  * Colonnes (§11 §1.1) : nom · type · nb ZD · montant ZD HT · nb AG · montant AG HT.
- *   - nb ZD / nb AG   ← `collectes` (hors annulee/brouillon), imputées à
- *     `evenements.organisation_id` (org programmatrice, R_revenus_imputation_organisation),
- *     période sur `date_collecte`. Source « nb » distincte de « montant » (comme l'histogramme).
- *   - montant ZD/AG HT ← `factures_collectes` × `factures` emises/payees, même imputation.
+ *   Décision Val 2026-11-03 : tout vient des collectes, facturées ou non.
+ *   - nb ZD / nb AG   ← collectes programmées et réalisées, plus les annulations
+ *     tardives (`FILTRE_STATUTS_REVENUS`, Val 2026-11-03), imputées à
+ *     `evenements.organisation_id` (org programmatrice,
+ *     R_revenus_imputation_organisation), période sur `date_collecte` ;
+ *   - montant ZD/AG HT ← montant de la prestation de ces mêmes collectes
+ *     (`lib/montant-prestation`).
  *
  * Agrégation server-side par organisation (l'ancien endpoint paginait les LIGNES
  * `factures_collectes` → totaux par org faux dès qu'une org dépassait la fenêtre de
  * 50 lignes ; corrigé ici : on agrège TOUTES les lignes de la période, puis on
- * trie/pagine les ORGANISATIONS). Tri défaut `montant_total` desc (`tri`/`ordre`), pagination 50/page,
+ * trie/pagine les ORGANISATIONS). Filtres `lieu_ids` / `organisation_ids` (CSV) :
+ * même périmètre que l'histogramme, cf. `lib/dashboards/revenus-admin.ts`
+ * (décision Val 2026-10-30). Tri défaut `montant_total` desc (`tri`/`ordre`), pagination 50/page,
  * export CSV (`?format=csv`).
  */
 
@@ -31,7 +48,6 @@ const ORG_TYPE_LABELS: Record<string, string> = {
 };
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
-const FETCH_BATCH = 1000;
 
 interface OrgRevenus {
   organisation_id: string;
@@ -63,73 +79,31 @@ const SORT_KEYS: SortKey[] = [
   'montant_total',
 ];
 
-// Défaut de période si non fournie : 12 derniers mois (§11 §8 l.180, aligné
-// §06.04/§06.05 ; décision Val 2026-07-18, cf. divergence M3.5 vs §11 Bloc 2 l.38).
-// Fallback serveur cohérent avec le défaut UI (le tableau envoie toujours from/to).
-function defaultPeriodeRange(): { from: string; to: string } {
-  const now = new Date();
-  const to = jourParis(now);
-  const fromDate = new Date(now);
+// Début par défaut si non fourni : il y a 12 mois (§11 §8 l.180, aligné
+// §06.04/§06.05 ; décision Val 2026-07-18). Fin : aucune borne si `to` est absent,
+// les collectes programmées à venir comptent (décision Val 2026-11-03).
+function debutParDefaut(): string {
+  const fromDate = new Date();
   fromDate.setUTCMonth(fromDate.getUTCMonth() - 12);
-  return { from: jourParis(fromDate), to };
-}
-
-// Récupère toutes les lignes d'une requête paginée (au-delà du plafond 1000 lignes).
-// Découplé des types supabase-js (embeds inférés en tableaux) : renvoie unknown[],
-// le call-site caste vers sa forme métier.
-async function fetchAll(
-  make: (offset: number) => Promise<{ data: unknown[] | null; error: unknown }>,
-): Promise<{ rows: unknown[]; error: unknown }> {
-  const rows: unknown[] = [];
-  let offset = 0;
-  for (;;) {
-    const { data, error } = await make(offset);
-    if (error) return { rows, error };
-    const batch = data ?? [];
-    rows.push(...batch);
-    if (batch.length < FETCH_BATCH) break;
-    offset += FETCH_BATCH;
-  }
-  return { rows, error: null };
-}
-
-interface PackEmbed {
-  prix_unitaire_ht: number | null;
-  montant_total_ht: number | null;
-  credits_initiaux: number | null;
+  return jourParis(fromDate);
 }
 
 interface CollecteAggRow {
   type: string;
-  statut: string;
+  pax: number | null;
+  date_collecte: string;
   evenements: {
     organisation_id: string;
+    lieu_id: string | null;
     organisations: { raison_sociale: string; type: string } | null;
   } | null;
-  // Relation to-one PostgREST → objet (ou tableau). Coût/collecte AG (CA économique).
-  packs_antgaspi: PackEmbed | PackEmbed[] | null;
-}
-
-interface FactureAggRow {
-  montant_ht: number;
-  collectes: {
-    type: string;
-    evenements: { organisation_id: string } | null;
-  } | null;
+  // Relation to-one PostgREST → objet (ou tableau) : pack débité.
+  packs_antgaspi: PackPrix | PackPrix[] | null;
 }
 
 function csvEscape(v: string | number): string {
   const s = String(v);
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-// Coût par collecte AG = prix_unitaire du pack (fallback montant / crédits).
-function coutCollecteAg(pack: PackEmbed | null): number {
-  if (!pack) return 0;
-  if (pack.prix_unitaire_ht != null) return pack.prix_unitaire_ht;
-  if (pack.montant_total_ht != null && pack.credits_initiaux)
-    return pack.montant_total_ht / pack.credits_initiaux;
-  return 0;
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -138,9 +112,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const sp = new URL(req.url).searchParams;
-  const defaults = defaultPeriodeRange();
-  const from = sp.get('from') ?? defaults.from;
-  const to = sp.get('to') ?? defaults.to;
+  const from = sp.get('from') || debutParDefaut();
+  const to = sp.get('to') || null;
   const format = sp.get('format');
   // Convention de tri unique des listes (R-UI-4a, E3) : `tri` + `ordre`, lus
   // par `lireTri` (liste blanche, défaut montant_total desc).
@@ -155,6 +128,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const sortKey = tri.colonnes[0] as SortKey;
   const sortDir = tri.ascendant ? 'asc' : 'desc';
   const page = parsePage(sp);
+
+  const { perimetre, error: errPerimetre } = await lirePerimetreRevenus(
+    supabase,
+    sp,
+  );
+  if (errPerimetre)
+    return serverError(
+      errPerimetre,
+      'admin.dashboard.revenus_organisations.filtres',
+    );
 
   const byOrg = new Map<string, OrgRevenus>();
   function ensure(
@@ -179,22 +162,31 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return o;
   }
 
-  // ── Query 1 : nb collectes par org × type + CA économique AG (coût/collecte pack) ──
-  const collectesRes = await fetchAll(async (offset) => {
-    const { data, error } = await supabase
-      .from('collectes')
-      .select(
-        `type, statut,
+  // ── Collectes de la période : nombre et montant de la prestation ──
+  const collectesRes = await lireTout(async (offset) => {
+    if (perimetre.vide) return { data: [], error: null };
+    const q = appliquerPerimetreRevenus(
+      supabase
+        .from('collectes')
+        .select(
+          `type, pax, date_collecte,
          evenements!inner(
-           organisation_id,
+           organisation_id, lieu_id,
            organisations!organisation_id(raison_sociale, type)
          ),
          packs_antgaspi(prix_unitaire_ht, montant_total_ht, credits_initiaux)`,
-      )
-      .not('statut', 'in', '(annulee,brouillon)')
-      .gte('date_collecte', from)
-      .lte('date_collecte', to)
-      .range(offset, offset + FETCH_BATCH - 1);
+        )
+        .or(FILTRE_STATUTS_REVENUS)
+        .gte('date_collecte', from),
+      perimetre,
+      'evenements',
+    );
+    // Sans borne de fin : les collectes à venir comptent (Val 2026-11-03).
+    const { data, error } = await (to ? q.lte('date_collecte', to) : q)
+      // Ordre stable : sans lui, la pagination par range peut doubler ou
+      // sauter des lignes au-delà de 1000.
+      .order('id')
+      .range(offset, offset + LOT_LECTURE - 1);
     return { data: data as unknown[] | null, error };
   });
   if (collectesRes.error)
@@ -203,76 +195,54 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       'admin.dashboard.revenus_organisations.collectes',
     );
 
-  for (const r of collectesRes.rows as CollecteAggRow[]) {
-    const evt = Array.isArray(r.evenements) ? r.evenements[0] : r.evenements;
+  const premier = <T>(v: T | T[] | null): T | null =>
+    Array.isArray(v) ? (v[0] ?? null) : v;
+  const lignes = collectesRes.rows as CollecteAggRow[];
+  let montants: (number | null)[];
+  try {
+    montants = await montantsPrestation(
+      supabase,
+      lignes.map((r) => {
+        const evt = premier(r.evenements);
+        return {
+          type: r.type,
+          pax: r.pax,
+          date_collecte: r.date_collecte,
+          organisation_id: evt?.organisation_id ?? null,
+          lieu_id: evt?.lieu_id ?? null,
+          pack: premier(r.packs_antgaspi),
+        };
+      }),
+    );
+  } catch (e) {
+    return serverError(e, 'admin.dashboard.revenus_organisations.montants');
+  }
+
+  for (const [i, r] of lignes.entries()) {
+    const evt = premier(r.evenements);
     if (!evt) continue;
-    const org = Array.isArray(evt.organisations)
-      ? evt.organisations[0]
-      : evt.organisations;
+    const org = premier(evt.organisations);
     const o = ensure(
       evt.organisation_id,
       org?.raison_sociale ?? '—',
       org?.type ?? '',
     );
-    if (r.type === 'zero_dechet') o.nb_zd += 1;
-    else if (r.type === 'anti_gaspi') {
+    const montant = montants[i] ?? 0;
+    if (r.type === 'zero_dechet') {
+      o.nb_zd += 1;
+      o.montant_zd_ht += montant;
+    } else if (r.type === 'anti_gaspi') {
       o.nb_ag += 1;
-      // CA économique AG = coût/collecte du pack, sur les collectes livrées.
-      if (r.statut === 'realisee' || r.statut === 'cloturee') {
-        const pack = Array.isArray(r.packs_antgaspi)
-          ? (r.packs_antgaspi[0] ?? null)
-          : r.packs_antgaspi;
-        o.montant_ag_ht += coutCollecteAg(pack);
-      }
+      o.montant_ag_ht += montant;
     }
   }
 
-  // ── Query 2 : montant ZD HT par org (factures emises/payees) ──
-  // AG exclu : son CA « économique » est calculé en Query 1 (coût/collecte du pack),
-  // pas via les factures (décision Val 2026-07-07, cf. _Divergences §11 §1.1).
-  const facturesRes = await fetchAll(async (offset) => {
-    const { data, error } = await supabase
-      .from('factures_collectes')
-      .select(
-        `montant_ht,
-         factures!inner(statut),
-         collectes!inner(
-           type,
-           date_collecte,
-           evenements!inner(organisation_id)
-         )`,
-      )
-      .in('factures.statut', ['emise', 'payee'])
-      .eq('collectes.type', 'zero_dechet')
-      .gte('collectes.date_collecte', from)
-      .lte('collectes.date_collecte', to)
-      .range(offset, offset + FETCH_BATCH - 1);
-    return { data: data as unknown[] | null, error };
-  });
-  if (facturesRes.error)
-    return serverError(
-      facturesRes.error,
-      'admin.dashboard.revenus_organisations.factures',
-    );
-
-  for (const r of facturesRes.rows as FactureAggRow[]) {
-    const col = Array.isArray(r.collectes) ? r.collectes[0] : r.collectes;
-    const evt = col
-      ? Array.isArray(col.evenements)
-        ? col.evenements[0]
-        : col.evenements
-      : null;
-    if (!col || !evt) continue;
-    // Une org peut n'apparaître que dans les factures (collecte hors période nb ?
-    // non : même filtre date_collecte). ensure() sans nom si absente de Q1.
-    const o = ensure(evt.organisation_id, '—', '');
-    // Query 2 filtrée sur type=zero_dechet → seul le montant ZD est agrégé ici.
-    if (col.type === 'zero_dechet') o.montant_zd_ht += r.montant_ht ?? 0;
-  }
-
+  // Sommes de montants décimaux : arrondies au centime avant la réponse.
   const rows = [...byOrg.values()].map((o) => ({
     ...o,
-    montant_total: o.montant_zd_ht + o.montant_ag_ht,
+    montant_zd_ht: round2(o.montant_zd_ht),
+    montant_ag_ht: round2(o.montant_ag_ht),
+    montant_total: round2(o.montant_zd_ht + o.montant_ag_ht),
   }));
 
   rows.sort((a, b) => {
@@ -286,7 +256,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (format === 'csv') {
     const header = [
-      'Organisation',
+      'Client',
       'Type',
       'Nb ZD',
       'Montant ZD HT',
@@ -328,11 +298,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     type_label: ORG_TYPE_LABELS[o.type_organisation] ?? o.type_organisation,
   }));
 
+  // Totaux de toute la période, pas seulement de la page : le camembert de
+  // répartition par client en tire sa part « Autres » (Val 2026-11-05).
+  const totaux = {
+    montant_zd_ht: round2(rows.reduce((s, o) => s + o.montant_zd_ht, 0)),
+    montant_ag_ht: round2(rows.reduce((s, o) => s + o.montant_ag_ht, 0)),
+    montant_total: round2(rows.reduce((s, o) => s + o.montant_total, 0)),
+  };
+
   return NextResponse.json({
     data: pageRows,
     total,
     page,
     limit: PAGE_SIZE,
     periode: { from, to },
+    totaux,
   });
 }

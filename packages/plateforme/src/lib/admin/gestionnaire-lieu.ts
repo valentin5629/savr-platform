@@ -63,7 +63,7 @@ export async function lireGestionnaireLieu(
   }
   if (!data || (data as { type: string }).type !== 'gestionnaire_lieux') {
     return refus(
-      'Le gestionnaire rattaché doit être une organisation de type « gestionnaire de lieux ».',
+      'Le gestionnaire rattaché doit être un client de type « gestionnaire de lieux ».',
     );
   }
   return { ok: true, organisationId: valeur };

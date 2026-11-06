@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { requireUser, type ClientRole } from '@/lib/api-auth.js';
+import { lireCompte } from '@/lib/notifications/annulation-client.js';
+import { urlApplication } from '@/lib/url-application.js';
+import { ROUTES } from '@/lib/routes';
 
 // Action ouverte au manager, au commercial ET à l'agence (§06.04 Bloc 4 AG,
 // répliqué à l'identique pour l'agence — §06.11 l.36/l.44 « pack AG fondu dans
-// l'onglet AG, identique au §06.04 », BL-P1-AGENCE-01). Endpoint partagé : le
-// chemin /traiteur/… est cosmétique, l'action et le template sont identiques.
+// l'onglet AG, identique au §06.04 », BL-P1-AGENCE-01), puis à tous les rôles
+// clients depuis l'onglet « Mon pack Anti-Gaspi » (Val 2026-11-02 : bouton pour
+// tout rôle dont l'organisation a un pack). Endpoint partagé : le chemin
+// /traiteur/… est cosmétique, l'action et le template sont identiques.
 const PACK_RENOUVELLEMENT_ROLES: ClientRole[] = [
   'traiteur_manager',
   'traiteur_commercial',
   'agence',
+  'gestionnaire_lieux',
+  'client_organisateur',
 ];
 
 // POST /api/v1/traiteur/pack-ag/renouvellement — demande de renouvellement de
@@ -29,13 +37,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('nom')
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
+  const demandeur = await lireCompte(admin, auth.ctx.userId);
+  // Crédits restants du pack le plus récent (actif ou épuisé : une demande de
+  // renouvellement suit souvent un pack épuisé).
+  const { data: packs } = await admin
+    .from('packs_antgaspi')
+    .select('credits_restants')
+    .eq('organisation_id', auth.ctx.organisationId)
+    .order('created_at', { ascending: false });
+  const creditsRestants = (
+    (packs ?? []) as Array<{ credits_restants?: number | null }>
+  )[0]?.credits_restants;
 
-  await sendEmail('admin_demande_renouvellement_pack', 'hello@gosavr.io', {
-    organisation_nom: org?.nom ?? '',
-    demandeur_nom: auth.ctx.userId,
-    demandeur_email: '',
-    pack_souhaite: body.pack_souhaite ?? '',
-    message: body.message ?? '',
+  // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
+  await sendEmail('admin_demande_renouvellement_pack', 'contact@gosavr.io', {
+    organisation_nom: escapeHtml(org?.nom ?? ''),
+    demandeur_nom: escapeHtml(demandeur?.nomComplet ?? ''),
+    demandeur_email: escapeHtml(demandeur?.email ?? ''),
+    pack_souhaite: escapeHtml(body.pack_souhaite ?? ''),
+    message: escapeHtml(body.message ?? ''),
+    // « 0 » se lirait comme vide dans le bloc conditionnel du gabarit.
+    credits_restants:
+      typeof creditsRestants === 'number'
+        ? creditsRestants > 0
+          ? String(creditsRestants)
+          : 'aucun'
+        : '',
+    lien_fiche_org: urlApplication(
+      req,
+      ROUTES.admin.organisation(auth.ctx.organisationId),
+    ),
   });
 
   return NextResponse.json({ data: { demande: 'envoyee' } }, { status: 201 });

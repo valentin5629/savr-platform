@@ -1,7 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, Search, X } from 'lucide-react';
+import {
+  CaretDownIcon,
+  MagnifyingGlassIcon,
+  XIcon,
+} from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -44,7 +48,7 @@ export function ContenuDeclencheur({
       <span className="max-w-[16rem] truncate font-normal text-savr-neutral-600">
         {valeur}
       </span>
-      <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <CaretDownIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
     </>
   );
 }
@@ -57,12 +61,6 @@ interface BarreFiltresProps {
   onReset?: () => void;
   resetLabel?: string;
   resetTestId?: string;
-  /**
-   * 'carte' (défaut) : bandeau neutral-50 posé dans une carte blanche.
-   * 'page' : posé sur le fond de page neutral-50, le bandeau passe en blanc
-   * bordé pour rester visible.
-   */
-  surface?: 'carte' | 'page';
   className?: string;
   'data-testid'?: string;
 }
@@ -75,7 +73,6 @@ export function BarreFiltres({
   // Libellé unique de remise à zéro (R-UI-4b, D5 : 2 libellés → 1).
   resetLabel = 'Réinitialiser les filtres',
   resetTestId,
-  surface = 'carte',
   className,
   'data-testid': testId,
 }: BarreFiltresProps) {
@@ -83,10 +80,7 @@ export function BarreFiltres({
     <div
       data-testid={testId}
       className={cn(
-        'flex flex-wrap items-center gap-1 rounded-savr-md px-3 py-2',
-        surface === 'page'
-          ? 'border border-savr-neutral-200 bg-savr-white'
-          : 'bg-savr-neutral-50',
+        'flex flex-wrap items-center gap-1 rounded-savr-md bg-savr-neutral-50 px-3 py-2',
         className,
       )}
     >
@@ -160,6 +154,9 @@ interface FiltreCochesProps {
    * reste une sélection explicite, ni vidée ni résumée en `libelleTous`.
    */
   listePartielle?: boolean;
+  /** Classes ajoutées au déclencheur (ex. pastille sable du radar de la fiche
+   *  collecte, variante B 2026-10-27). */
+  declencheurClassName?: string;
 }
 
 // Résumé affiché à côté du titre : « Tous » (ou `libelleVide`), `libelleTous`
@@ -214,6 +211,7 @@ export function FiltreCoches({
   libelleTous = 'Tous',
   tous,
   listePartielle = false,
+  declencheurClassName,
 }: FiltreCochesProps) {
   const [recherche, setRecherche] = React.useState('');
   const avecRecherche = options.length > SEUIL_RECHERCHE;
@@ -243,7 +241,7 @@ export function FiltreCoches({
         <button
           type="button"
           data-testid={testid}
-          className={declencheurFiltre}
+          className={cn(declencheurFiltre, declencheurClassName)}
         >
           <ContenuDeclencheur
             titre={label}
@@ -392,7 +390,7 @@ export const FiltreRecherche = React.forwardRef<
 
     return (
       <div className="relative w-full sm:mr-2 sm:w-60">
-        <Search
+        <MagnifyingGlassIcon
           className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-savr-neutral-400"
           aria-hidden="true"
         />
@@ -426,7 +424,7 @@ export const FiltreRecherche = React.forwardRef<
             onClick={effacer}
             className="absolute right-1 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-savr-sm text-savr-neutral-500 hover:bg-savr-neutral-100 hover:text-savr-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
           >
-            <X className="h-4 w-4" aria-hidden="true" />
+            <XIcon className="h-4 w-4" aria-hidden="true" />
           </button>
         )}
       </div>

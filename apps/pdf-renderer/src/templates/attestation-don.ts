@@ -1,5 +1,10 @@
 // Template PDF — Attestation de don Anti-Gaspi (Cerfa 2041-GE).
 //
+// Titre imprimé : « Rapport de don », le nom unique du document d'une collecte AG
+// (§12 §1.3-bis, décision Val 2026-10-13). « Attestation de don » reste en
+// sous-titre, avec le numéro ATT-DON et les mentions fiscales : c'est la pièce
+// fiscale, son contenu ne change pas.
+//
 // Données = `attestationPayload` enqueué par le batch J+1 AG
 // (packages/plateforme/.../batch-pdf-j1-ag.ts). La mention fiscale 238 bis CGI
 // n'apparaît QUE si `mention_fiscale_2041ge` (snapshot de
@@ -12,7 +17,9 @@
 // du contrat partagé (@savr/shared/src/pdf/document-types.ts). Vérifié par le gate
 // CI check:integration-contracts. Incrémenter @N à toute modif structurelle.
 // @2 (R21a) : mention pied de page de régénération (§12 §1.4).
-export const TEMPLATE_VERSION = 'attestation-don@2';
+// @3 : titre « Rapport de don », « Attestation de don » en sous-titre (§12 §1.3-bis).
+// @4 : logo du client à côté de « Savr » dans l'en-tête (décision Val 2026-10-30).
+export const TEMPLATE_VERSION = 'attestation-don@4';
 
 export interface AttestationDonData {
   numero: string;
@@ -35,6 +42,11 @@ export interface AttestationDonData {
   co2_facteurs_version?: string | null;
   /** Mention de régénération (§12 §1.4) — présente uniquement sur un document régénéré. */
   regenere_le?: string | null;
+  /**
+   * Logo du client (cascade §12 §1.2, emplacement « client »), en data URI inliné
+   * par la plateforme. Absent : l'en-tête garde « Savr » seul.
+   */
+  logo_client_url?: string | null;
 }
 
 export function renderAttestationDon(data: AttestationDonData): string {
@@ -91,8 +103,11 @@ export function renderAttestationDon(data: AttestationDonData): string {
   body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #1a1a1a; padding: 28px 32px; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #16a34a; padding-bottom: 14px; margin-bottom: 20px; }
   .logo-savr { font-size: 22px; font-weight: 800; color: #16a34a; letter-spacing: -0.5px; }
+  .logos { display: flex; align-items: center; gap: 16px; }
+  .logo-client { max-height: 40px; max-width: 160px; object-fit: contain; }
   .doc-title { text-align: right; }
   .doc-title h1 { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+  .doc-title .sous-titre { font-size: 12px; font-weight: 600; color: #374151; margin-top: 2px; }
   .doc-title .numero { font-size: 12px; color: #6b7280; margin-top: 2px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
   .section { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px 14px; }
@@ -127,9 +142,13 @@ export function renderAttestationDon(data: AttestationDonData): string {
 </head>
 <body>
   <div class="header">
-    <div class="logo-savr">Savr</div>
+    <div class="logos">
+      <div class="logo-savr">Savr</div>
+      ${data.logo_client_url ? `<img class="logo-client" src="${esc(data.logo_client_url)}" alt="Logo du client"/>` : ''}
+    </div>
     <div class="doc-title">
-      <h1>Attestation de don</h1>
+      <h1>Rapport de don</h1>
+      <div class="sous-titre">Attestation de don</div>
       <div class="numero">${esc(data.numero)}</div>
       <div class="numero">Émise le ${esc(data.date_emission)}</div>
     </div>

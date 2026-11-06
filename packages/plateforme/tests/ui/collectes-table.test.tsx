@@ -13,7 +13,8 @@
  */
 import type { ReactElement } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { DataGrid } from '@/components/ui/data-grid';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 
 import {
@@ -36,6 +37,7 @@ function row(over: Partial<CollecteRow> = {}): CollecteRow {
     dirty_tms: false,
     date_collecte: '2026-07-08',
     heure_collecte: '20:00:00',
+    pax: 120,
     controle_acces_requis: false,
     informations_completes: true,
     taux_recyclage: null,
@@ -44,7 +46,6 @@ function row(over: Partial<CollecteRow> = {}): CollecteRow {
     rapports_rse: [],
     evenements: {
       nom_evenement: 'Gala',
-      pax: 120,
       nom_client_organisateur: null,
       organisations: { raison_sociale: 'Traiteur Test' },
       client_organisateur: null,
@@ -284,5 +285,175 @@ describe('collectes-table / colonne Statut — Créée puis Programmée', () => 
         }),
       ),
     ).toBe('Validée');
+  });
+});
+
+// Pax porté par la collecte (décision Val 2026-10-20) : la colonne « Pax » lit
+// celui de la collecte ; celui de l'événement est la somme des jours.
+describe('collectes-table / colonne Pax — M1.2/pax_par_collecte', () => {
+  it('M1.2/pax_par_collecte — liste Admin : le pax de la collecte (650), jamais celui de l’événement (1 200)', () => {
+    const colonne = colonnesCollectesAdmin({ onOpen: () => {} }).find(
+      (c) => c.id === 'pax',
+    );
+    const cell = colonne?.cell as (ctx: {
+      row: { original: CollecteRow };
+    }) => ReactElement;
+    const r = row({ pax: 650 });
+    // Valeur de l'événement présente dans la ligne : la colonne ne doit pas la lire.
+    (r.evenements as unknown as { pax: number }).pax = 1200;
+    const { container } = render(<>{cell({ row: { original: r } })}</>);
+    expect(container.textContent).toBe('650');
+  });
+});
+
+// Revue écran 2026-10-29 (décision Val) : chevron en fin de ligne, après le
+// menu « ⋯ » inchangé ; « Client organisateur » vide quand il n'est pas
+// renseigné (même règle que la liste traiteur).
+describe('collectes-table / chevron et client vide (revue écran 2026-10-29)', () => {
+  function monte(r: CollecteRow, onRowClick: () => void = () => {}) {
+    render(
+      <DataGrid
+        columns={colonnesCollectesAdmin({ onOpen: () => {} })}
+        data={[r]}
+        getRowId={(x) => x.id}
+        onRowClick={onRowClick}
+      />,
+    );
+    return within(screen.getByRole('table'));
+  }
+  function celluleClient(table: ReturnType<typeof within>): string | null {
+    const i = table
+      .getAllByRole('columnheader')
+      .findIndex((h: HTMLElement) => h.textContent === 'Client organisateur');
+    return table.getAllByRole('cell')[i]?.textContent ?? null;
+  }
+
+  it('M0.6/liste_admin_chevron_apres_menu — chevron dans la colonne Actions, après « ⋯ »', () => {
+    const table = monte(row());
+    const menu = table.getByRole('button', { name: /Actions sur la collecte/ });
+    const chevron = within(menu.closest('td')!).getByTestId('chevron-ligne');
+    expect(
+      menu.compareDocumentPosition(chevron) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('M0.6/liste_admin_chevron_ouvre_la_fiche — un clic sur le chevron ouvre la fiche, un clic sur « ⋯ » non', () => {
+    const ouvrir = vi.fn();
+    const table = monte(row(), ouvrir);
+    fireEvent.click(
+      table.getByRole('button', { name: /Actions sur la collecte/ }),
+    );
+    expect(ouvrir).not.toHaveBeenCalled();
+    fireEvent.click(table.getByTestId('chevron-ligne'));
+    expect(ouvrir).toHaveBeenCalledOnce();
+  });
+
+  it('M0.6/liste_admin_client_vide — client non renseigné : cellule vide, plus de « — »', () => {
+    expect(celluleClient(monte(row()))).toBe('');
+  });
+
+  it('M0.6/liste_admin_client_renseigne — client renseigné : affiché', () => {
+    const r = row();
+    expect(
+      celluleClient(
+        monte({
+          ...r,
+          evenements: {
+            ...r.evenements,
+            nom_client_organisateur: 'Maison Lenôtre',
+          },
+        }),
+      ),
+    ).toBe('Maison Lenôtre');
+  });
+
+  it('M0.6/liste_admin_client_priorite_raison_sociale — organisation cliente liée avant le nom saisi', () => {
+    const r = row();
+    expect(
+      celluleClient(
+        monte({
+          ...r,
+          evenements: {
+            ...r.evenements,
+            client_organisateur: { raison_sociale: 'Mairie de Paris' },
+            nom_client_organisateur: 'Maison Lenôtre',
+          },
+        }),
+      ),
+    ).toBe('Mairie de Paris');
+  });
+});
+
+// Hauteur de ligne constante (décision Val 2026-10-30) : les Indicateurs
+// tiennent sur une ligne, seul le dernier élément se coupe (un chiffre reste
+// entier), texte complet au survol.
+describe('collectes-table / Indicateurs sur une ligne (2026-10-30)', () => {
+  it('texte complet au survol, seul le dernier élément peut se couper', () => {
+    render(
+      <DataGrid
+        columns={colonnesCollectesAdmin({ onOpen: () => {} })}
+        data={[
+          row({
+            type: 'zero_dechet',
+            statut: 'cloturee',
+            taux_recyclage: 73,
+            collecte_flux: [{ poids_reel_kg: 424.3 }],
+            rapports_rse: [
+              {
+                disponible_a: null,
+                genere_at: null,
+                regenere_at: null,
+                consulte_par_user_at: null,
+                version: 1,
+              },
+            ],
+          }),
+        ]}
+        getRowId={(x) => x.id}
+        columnsToggle={false}
+      />,
+    );
+    const table = within(screen.getByRole('table'));
+    const conteneur = table
+      .getByText('Rapport non consulté')
+      .closest('[title]') as HTMLElement;
+    expect(conteneur.title).toContain('Rapport non consulté');
+    expect(conteneur.title).toContain('73');
+    const classes = [...conteneur.children].map((e) => e.className);
+    expect(classes).toHaveLength(3);
+    expect(classes[0]).toContain('shrink-0');
+    expect(classes[1]).toContain('shrink-0');
+    expect(classes[2]).toContain('min-w-0');
+  });
+});
+
+// Colonne « Montant » (Val 2026-11-03) : le montant de la prestation calculé
+// par la route, « — » quand il est inconnu (jamais 0 €).
+describe('collectes-table / colonne Montant — montant de la prestation', () => {
+  function montantAffiche(r: CollecteRow): string | null {
+    const colonne = colonnesCollectesAdmin({ onOpen: () => {} }).find(
+      (c) => c.id === 'montant',
+    );
+    const cell = colonne?.cell as (ctx: {
+      row: { original: CollecteRow };
+    }) => ReactElement;
+    const { container, unmount } = render(cell({ row: { original: r } }));
+    const texte = container.textContent;
+    unmount();
+    return texte;
+  }
+
+  it('M3.5/montant_prestation_liste_affichage — montant servi affiché, ZD en HT, inconnu = « — »', () => {
+    expect(montantAffiche(row({ montant_ht: 130 }))?.replace(/\s/g, ' ')).toBe(
+      '130 €',
+    );
+    expect(
+      montantAffiche(row({ type: 'zero_dechet', montant_ht: 1900 }))?.replace(
+        /\s/g,
+        ' ',
+      ),
+    ).toBe('1 900 € HT');
+    expect(montantAffiche(row({ montant_ht: null }))).toBe('—');
+    expect(montantAffiche(row({}))).toBe('—');
   });
 });

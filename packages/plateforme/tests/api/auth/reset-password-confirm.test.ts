@@ -7,7 +7,7 @@
  * les cookies. Ces tests épinglent les deux bouts de ce contrat — la cible du lien
  * émis, et le comportement de la route d'échange, y compris quand il échoue.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const mockExchangeCodeForSession = vi.fn();
@@ -103,5 +103,75 @@ describe("route d'échange du code de réinitialisation", () => {
     // Sans cette garde, l'utilisateur atteint un formulaire qui ne peut pas
     // aboutir : il saisit deux fois un mot de passe pour un 401 final.
     expect(location.pathname).not.toBe('/reset-password/confirm');
+  });
+});
+
+// Code de vérification de l'équipe Savr (lib/code-verification.ts) : un compte
+// qui a déjà un code passe par l'écran du code avant de choisir son nouveau mot
+// de passe (`api/auth/update-password` refuse sans lui).
+describe('lien de réinitialisation et code de vérification', () => {
+  // Code demandé en production seulement (lib/code-verification.ts).
+  beforeEach(() => vi.stubEnv('VERCEL_ENV', 'production'));
+  afterEach(() => vi.unstubAllEnvs());
+
+  const jeton = (claims: Record<string, unknown>) =>
+    `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+  const session = (
+    role: string,
+    factors: Array<{ id: string; factor_type: string; status: string }>,
+  ) => ({
+    data: {
+      session: { access_token: jeton({ user_role: role, aal: 'aal1' }) },
+      user: { id: 'u-1', factors },
+    },
+    error: null,
+  });
+  const ACTIF = { id: 'f-1', factor_type: 'totp', status: 'verified' };
+
+  it('admin avec un code actif → écran du code, puis retour au formulaire', async () => {
+    mockExchangeCodeForSession.mockResolvedValue(
+      session('admin_savr', [ACTIF]),
+    );
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?code=code-valide'));
+    const location = new URL(res.headers.get('location')!);
+    expect(location.pathname).toBe('/code-verification');
+    expect(location.searchParams.get('next')).toBe('/reset-password/confirm');
+  });
+
+  it('admin sans code actif (premier mot de passe, code réinitialisé) → formulaire directement', async () => {
+    mockExchangeCodeForSession.mockResolvedValue(session('admin_savr', []));
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?code=code-valide'));
+    expect(new URL(res.headers.get('location')!).pathname).toBe(
+      '/reset-password/confirm',
+    );
+  });
+
+  it('hors production : admin avec code actif → formulaire directement', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    mockExchangeCodeForSession.mockResolvedValue(
+      session('admin_savr', [ACTIF]),
+    );
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?code=code-valide'));
+    expect(new URL(res.headers.get('location')!).pathname).toBe(
+      '/reset-password/confirm',
+    );
+  });
+
+  it('client → formulaire directement (aucun code pour les clients)', async () => {
+    mockExchangeCodeForSession.mockResolvedValue(
+      session('traiteur_manager', [ACTIF]),
+    );
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?code=code-valide'));
+    expect(new URL(res.headers.get('location')!).pathname).toBe(
+      '/reset-password/confirm',
+    );
   });
 });

@@ -1,7 +1,7 @@
 /**
  * M3.1 — Dérivations pures du dashboard « Cockpit » (R24). Vérifie les agrégats
- * KPI, la variation N-1, les totaux/équivalences CO₂ (facteurs ADEME), la
- * sparkline dérivée, l'agrégation benchmark par flux et la fenêtre N-1.
+ * KPI, la variation N-1, les totaux/équivalences CO₂ (facteurs ADEME), l'agrégation
+ * benchmark par flux et la fenêtre N-1.
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -9,7 +9,6 @@ import {
   co2Totals,
   co2Equivalences,
   variationPct,
-  sparkFromRows,
   aggregateBenchmarkPerFlux,
   benchmarkItems,
   previousWindow,
@@ -38,6 +37,7 @@ describe('M3.1 / cockpit-derive', () => {
         mois: '2026-05-01',
         nb_collectes: 2,
         tonnage_kg: 100,
+        tonnage_kg_pax_connu: 100,
         taux_recyclage_pondere: 90,
         pax_total: 50,
         marge_zd_ht: 200,
@@ -46,6 +46,8 @@ describe('M3.1 / cockpit-derive', () => {
         mois: '2026-06-01',
         nb_collectes: 3,
         tonnage_kg: 300,
+        // 50 kg d'une collecte à 0 convive (reprise Bubble) : hors kg/pax
+        tonnage_kg_pax_connu: 250,
         taux_recyclage_pondere: 70,
         pax_total: 150,
         marge_zd_ht: 100,
@@ -57,9 +59,34 @@ describe('M3.1 / cockpit-derive', () => {
     expect(a.pax).toBe(200);
     // taux pondéré tonnage = (90*100 + 70*300)/400 = 75
     expect(a.taux).toBeCloseTo(75, 6);
-    // kg/pax = 400/200 = 2
-    expect(a.kgPax).toBeCloseTo(2, 6);
+    // kg/pax = poids des collectes à convives connus / pax = 350/200 (lot 3)
+    expect(a.kgPax).toBeCloseTo(1.75, 6);
     expect(a.marge).toBe(300);
+  });
+
+  it('Lot3/cockpit_repas_par_pax_collectes_a_convives — repas/pax = repas des collectes à convives connus / pax cumulés', () => {
+    const rows = [
+      row({
+        type_collecte: 'anti_gaspi',
+        tonnage_kg: null,
+        nb_repas_donnes: 80,
+        nb_repas_pax_connu: 60,
+        pax_total: 120,
+      }),
+      row({
+        mois: '2026-07-01',
+        type_collecte: 'anti_gaspi',
+        tonnage_kg: null,
+        nb_repas_donnes: 40,
+        nb_repas_pax_connu: 40,
+        pax_total: 80,
+      }),
+    ];
+    const a = aggregateKpis(rows);
+    expect(a.repas).toBe(120);
+    expect(a.pax).toBe(200);
+    expect(a.repasPax).toBeCloseTo(0.5, 6); // (60 + 40) / 200, et non 120 / 200
+    expect(aggregateKpis([row({ pax_total: 0 })]).repasPax).toBeNull();
   });
 
   it('M3.1/dash_cockpit_marge_null_quand_aucune_ligne_marge', () => {
@@ -91,18 +118,6 @@ describe('M3.1 / cockpit-derive', () => {
     expect(variationPct(80, 100)).toBeCloseTo(-20, 6);
     // Période précédente vide/nulle → pas de base de comparaison → null.
     expect(variationPct(50, 0)).toBeNull();
-  });
-
-  it('M3.1/dash_cockpit_sparkline_triee_min_2_points', () => {
-    const rows = [
-      row({ mois: '2026-06-01', tonnage_kg: 300 }),
-      row({ mois: '2026-04-01', tonnage_kg: 100 }),
-      row({ mois: '2026-05-01', tonnage_kg: 200 }),
-    ];
-    // Triée chronologiquement (avr, mai, juin).
-    expect(sparkFromRows(rows, (r) => r.tonnage_kg)).toEqual([100, 200, 300]);
-    // Moins de 2 points → série vide (la Sparkline se masque).
-    expect(sparkFromRows([rows[0]!], (r) => r.tonnage_kg)).toEqual([]);
   });
 
   it('M3.1/dash_cockpit_benchmark_par_flux_pondere', () => {

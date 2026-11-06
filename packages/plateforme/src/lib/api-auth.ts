@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
+import { codeVerificationManquant } from '@/lib/code-verification';
 import {
   isStaff as estRoleStaff,
   type ClientRole,
@@ -59,6 +60,13 @@ function parseJwtClaims(token: string): Record<string, unknown> {
  * Sécurité équivalente pour de l'auth de route (tokens courte durée), recommandé
  * par Supabase.
  *
+ * Code de vérification (`lib/code-verification.ts`) : une session de l'équipe
+ * Savr qui ne l'a pas passé (claim `aal` ≠ `aal2`) rend `null`, sur les deux
+ * chemins. Tenu ICI, en un seul point, pour que toutes les gardes d'API qui en
+ * dépendent (requireStaff, requireAdmin, requireAnyUser, requireUser,
+ * requireProgrammateurOuAdmin, requireRegistreUser) et les pages qui l'appellent
+ * refusent sans exception, sans que chacune ait à y penser (→ 401).
+ *
  * Repli — `getUser()` : conservé comme filet si getClaims échoue (JWKS
  * momentanément injoignable, WebCrypto absent) et comme chemin des environnements
  * sans getClaims (mocks de test). Retourne null si aucune session valide.
@@ -80,6 +88,11 @@ export async function getVerifiedClaims(
       const { data } = await auth.getClaims();
       const claims = data?.claims as Record<string, unknown> | undefined;
       if (claims && typeof claims['sub'] === 'string') {
+        // Session vérifiée, mais l'équipe Savr n'a pas encore passé le code :
+        // pas une session valide pour l'API (refus définitif, pas de repli).
+        if (codeVerificationManquant(str(claims['user_role']), claims['aal'])) {
+          return null;
+        }
         return {
           userId: claims['sub'] as string,
           role: str(claims['user_role']),
@@ -100,6 +113,9 @@ export async function getVerifiedClaims(
     data: { session },
   } = await auth.getSession();
   const claims = parseJwtClaims(session?.access_token ?? '');
+  if (codeVerificationManquant(str(claims['user_role']), claims['aal'])) {
+    return null;
+  }
   return {
     userId: user.id,
     role: str(claims['user_role']),
@@ -227,6 +243,8 @@ export interface AnyUserAuthContext {
   /** Organisation métier (null pour le staff admin/ops, périmètre global). */
   organisationId: string | null;
   isStaff: boolean;
+  /** Admin réel d'une session impersonée (cf. UserAuthContext). */
+  impersonatorId?: string;
 }
 
 // Authentifie un utilisateur quel que soit son rôle (staff OU client) et renvoie
@@ -285,6 +303,7 @@ export async function requireAnyUser(
       role: role as AnyRole,
       organisationId: organisationId ?? null,
       isStaff,
+      impersonatorId: claims.impersonatorId,
     },
   };
 }

@@ -316,6 +316,7 @@ describe('M3.2 / fiche traiteur — routes du dashboard appelées par l’onglet
           id: 'c1',
           type: 'zero_dechet',
           taux_recyclage: 40,
+          pax: 1000,
           evenements: { id: 'e1', lieu_id: PORTE_VERSAILLES.id, pax: 1000 },
           collecte_flux: [
             { poids_reel_kg: 300, flux_dechets: { code: 'biodechet' } },
@@ -325,6 +326,7 @@ describe('M3.2 / fiche traiteur — routes du dashboard appelées par l’onglet
           id: 'c2',
           type: 'zero_dechet',
           taux_recyclage: 20,
+          pax: 500,
           evenements: { id: 'e2', lieu_id: CHAMPERRET.id, pax: 500 },
           collecte_flux: [
             { poids_reel_kg: 100, flux_dechets: { code: 'verre' } },

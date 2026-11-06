@@ -6,7 +6,7 @@
  * loaders qui font l'I/O (fenêtre N-1 kpi, strip marge agence, garde traiteur_ids
  * benchmark, marge en attente) via un faux client Supabase (chaînage + rpc).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   topLieuxFrom,
   aggregateActeurs,
@@ -48,6 +48,8 @@ function makeSupabase(config: FakeConfig): DbClient {
       gte: () => q,
       lte: () => q,
       in: () => q,
+      gt: () => q,
+      limit: () => q,
       order: () => q,
       maybeSingle: () =>
         Promise.resolve({ data: rows(table)[0] ?? null, error: null }),
@@ -74,6 +76,10 @@ const CTX_TRAITEUR: LoaderCtx = {
 };
 const CTX_AGENCE: LoaderCtx = { ...CTX_TRAITEUR, role: 'agence' };
 const CTX_GEST: LoaderCtx = { ...CTX_TRAITEUR, role: 'gestionnaire_lieux' };
+const CTX_ORGANISATEUR: LoaderCtx = {
+  ...CTX_TRAITEUR,
+  role: 'client_organisateur',
+};
 
 // Ligne « collecte historique » minimale pour les transforms (evenements + flux).
 function coll(over: Record<string, unknown> = {}) {
@@ -192,27 +198,48 @@ describe('loaders — transforms pures §11', () => {
     expect(out[0]!.ville).toBe('Paris');
   });
 
-  it('kgParPaxParFluxFrom divise le poids du flux par le pax distinct', () => {
+  it('Lot3/kg_par_pax_par_flux_collectes — poids du flux / pax des collectes à convives connus, pas le pax de l’événement', () => {
+    // Événement de 100 convives (embed de coll()) ; ses deux collectes ZD : 40
+    // convives, puis 0 (reprise Bubble). Le poids de la seconde sort du ratio.
     const rows = [
       coll({
+        pax: 40,
         collecte_flux: [
           { poids_reel_kg: 200, flux_dechets: { code: 'biodechet' } },
         ],
       }),
+      coll({
+        id: 'c2',
+        pax: 0,
+        collecte_flux: [
+          { poids_reel_kg: 90, flux_dechets: { code: 'biodechet' } },
+        ],
+      }),
     ];
     const out = kgParPaxParFluxFrom(rows as never);
-    expect(out.biodechet).toBeCloseTo(200 / 100, 5); // pax = 100
+    expect(out.biodechet).toBeCloseTo(200 / 40, 5);
   });
 });
 
 describe('loaders — I/O (faux Supabase)', () => {
   it('loadKpiTraiteur découpe la fenêtre N-1 (courante vs précédente)', async () => {
+    // Cartes calculées depuis les collectes (kpi-collectes) : la période porte
+    // sur date_collecte, la fenêtre N-1 est accolée juste avant `from`.
+    const collecte = (id: string, date_collecte: string) => ({
+      id,
+      type: 'zero_dechet',
+      date_collecte,
+      pax: 100,
+      evenement_id: `e-${id}`,
+      taux_recyclage: 80,
+      collecte_flux: [{ poids_reel_kg: 50 }],
+    });
     const supabase = makeSupabase({
       tables: {
-        v_kpi_traiteur: [
-          { mois: '2026-03-01', type_collecte: 'zero_dechet', marge_zd_ht: 10 },
-          { mois: '2026-05-01', type_collecte: 'zero_dechet', marge_zd_ht: 20 },
-          { mois: '2025-09-01', type_collecte: 'zero_dechet', marge_zd_ht: 5 },
+        collectes: [
+          collecte('c1', '2026-03-15'),
+          collecte('c2', '2026-05-02'),
+          collecte('c3', '2025-09-10'),
         ],
       },
       rpc: { f_tarif_refacture_pax_zd: 12 },
@@ -226,15 +253,21 @@ describe('loaders — I/O (faux Supabase)', () => {
     expect(res.data).toHaveLength(2); // 2026-03 + 2026-05
     expect(res.previous).toHaveLength(1); // 2025-09 (fenêtre N-1)
     expect(res.tarif_refacture_pax_zd).toBe(12);
-    // marge conservée pour le traiteur.
-    expect((res.data[0] as { marge_zd_ht?: number }).marge_zd_ht).toBeDefined();
   });
 
-  it('loadKpiTraiteur retire marge_zd_ht pour l’agence (§06.11 diff #7)', async () => {
+  it('loadKpiTraiteur : aucune marge transmise, ni tarif pour l’agence (§06.11 diff #7)', async () => {
     const supabase = makeSupabase({
       tables: {
-        v_kpi_traiteur: [
-          { mois: '2026-03-01', type_collecte: 'zero_dechet', marge_zd_ht: 10 },
+        collectes: [
+          {
+            id: 'c1',
+            type: 'zero_dechet',
+            date_collecte: '2026-03-15',
+            pax: 100,
+            evenement_id: 'e1',
+            taux_recyclage: 80,
+            collecte_flux: [{ poids_reel_kg: 50 }],
+          },
         ],
       },
     });
@@ -244,7 +277,7 @@ describe('loaders — I/O (faux Supabase)', () => {
       type: 'zero_dechet',
       compare: 'n1',
     });
-    expect('marge_zd_ht' in (res.data[0] as object)).toBe(false);
+    expect((res.data[0] as { marge_zd_ht: unknown }).marge_zd_ht).toBeNull();
     // L'agence n'obtient pas le tarif de refacturation (pas de carte Marge).
     expect(res.tarif_refacture_pax_zd).toBeNull();
   });
@@ -283,6 +316,35 @@ describe('loaders — I/O (faux Supabase)', () => {
     await expect(
       loadBenchmark(supabase, CTX_TRAITEUR, { traiteurIds: ['x'] }),
     ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('loadBenchmark rejette traiteur_ids pour l’agence (403 §04 compétitif)', async () => {
+    const supabase = makeSupabase({ rpc: { f_benchmark_kg_pax_zd: [] } });
+    await expect(
+      loadBenchmark(supabase, CTX_AGENCE, { traiteurIds: ['x'] }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('loadBenchmark rejette traiteur_ids pour le client organisateur (radar de la fiche événement, Val 2026-10-30)', async () => {
+    const supabase = makeSupabase({ rpc: { f_benchmark_kg_pax_zd: [] } });
+    await expect(
+      loadBenchmark(supabase, CTX_ORGANISATEUR, { traiteurIds: ['x'] }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('loadBenchmarkFiltres (client organisateur) : types seuls, ni lieux du parc ni traiteurs, liste des lieux jamais demandée', async () => {
+    const supabase = makeSupabase({
+      rpc: { f_benchmark_lieux_parc: [{ id: 'L1', nom: 'Lieu A' }] },
+      tables: { types_evenements: [{ id: 'ty1', libelle: 'Gala' }] },
+    });
+    const rpc = vi.spyOn(supabase, 'rpc');
+    const res = await loadBenchmarkFiltres(supabase, CTX_ORGANISATEUR);
+    expect(res).toEqual({
+      lieux: [],
+      traiteurs: [],
+      types: [{ id: 'ty1', libelle: 'Gala' }],
+    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('loadBenchmark autorise traiteur_ids pour le gestionnaire + passe la RPC', async () => {
@@ -454,10 +516,7 @@ describe('loaders — I/O (faux Supabase)', () => {
   it('loadTraiteurDashboard (ZD) renvoie marge + pack null en UN payload', async () => {
     const supabase = makeSupabase({
       tables: {
-        v_kpi_traiteur: [
-          { mois: '2026-03-01', type_collecte: 'zero_dechet', marge_zd_ht: 10 },
-        ],
-        collectes: [], // évolution/blocs vides — I/O uniquement, transforms testés à part
+        collectes: [], // cartes, évolution, blocs vides — I/O uniquement, transforms testés à part
       },
       rpc: { f_tarif_refacture_pax_zd: 12 },
     });
@@ -466,7 +525,7 @@ describe('loaders — I/O (faux Supabase)', () => {
       to: '2026-06-30',
       type: 'zero_dechet',
     });
-    expect(res.kpi.data).toHaveLength(1);
+    expect(res.kpi.data).toEqual([]);
     expect(res.evolution.series).toEqual([]);
     expect(res.marge).toEqual({ nb_en_attente: 0 });
     expect(res.pack).toBeNull(); // pack = AG only (aucun appel service_role en ZD)

@@ -27,7 +27,7 @@
  *     encode chaque segment lui-même (la signature interdit de lui passer un
  *     chemin déjà composé) ;
  *   - `(gestionnaire)/gestionnaire/collectes/page.tsx` et
- *     `(traiteur)/…/mon-organisation-client.tsx` → suffixe de QUERY issu de
+ *     `(traiteur)/…/parametres-client.tsx` → suffixe de QUERY issu de
  *     `URLSearchParams.toString()` (déjà encodé, jamais un segment).
  * Toute nouvelle composition doit encoder à la source, comme `callEdit`.
  * Même angle mort pour un segment PARTIEL (`/api/v1/x/pref${id}`, `${…}` non

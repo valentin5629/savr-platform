@@ -10,6 +10,13 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { validatePasswordStrength } from '@/lib/password.js';
 import { authAccountError } from '@/lib/api-helpers.js';
+import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
+import { claimsJeton } from '@/lib/claims-jeton';
+import {
+  codeVerificationManquant,
+  facteursTotp,
+} from '@/lib/code-verification';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: Record<string, unknown>;
@@ -59,6 +66,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Équipe Savr qui a déjà un code de vérification : le mot de passe ne change
+  // qu'une fois le code saisi sur cette session (lib/code-verification.ts). Un
+  // lien « mot de passe oublié » seul ne suffit donc pas. Sans code activé
+  // (premier mot de passe, code réinitialisé), rien ne change : le code sera
+  // demandé juste après, à l'entrée dans l'application.
+  if (facteursTotp(user.factors).verifies.length > 0) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const claims = claimsJeton(session?.access_token);
+    if (
+      codeVerificationManquant(
+        claims['user_role'] as string | undefined,
+        claims['aal'],
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Saisissez d’abord votre code de vérification, puis choisissez votre nouveau mot de passe.',
+        },
+        { status: 403 },
+      );
+    }
+  }
+
   const { error } = await supabase.auth.updateUser({ password: mot_de_passe });
   if (error) {
     // Pas `writeError` : « Enregistrement impossible (données invalides ou
@@ -70,6 +103,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       'auth.update_password',
       'Modification du mot de passe impossible.',
     );
+  }
+
+  // Un mot de passe choisi par « mot de passe oublié » rend caduc le lien
+  // d'invitation encore valable (7 jours) : son nonce est effacé, sinon ce lien
+  // pourrait réécrire le mot de passe d'un compte déjà actif. Best-effort : le
+  // mot de passe est déjà changé, un échec est seulement tracé.
+  const nonceInvitation = (
+    user.app_metadata as { invitation_nonce?: unknown } | undefined
+  )?.invitation_nonce;
+  if (nonceInvitation) {
+    const { error: errNonce } = await createAdminSupabaseClient()
+      .auth.admin.updateUserById(user.id, {
+        app_metadata: { invitation_nonce: null },
+      })
+      .catch((e: unknown) => ({ error: e as { code?: string } }));
+    if (errNonce) {
+      logger.error('invitation.nonce_non_efface', {
+        code: (errNonce as { code?: string }).code ?? null,
+      });
+    }
   }
 
   return NextResponse.json(

@@ -64,9 +64,11 @@ INSERT INTO plateforme.types_evenements (id, code, libelle, ordre_affichage, act
 -- ── Parc : segment A (5 collectes, 30 kg / 100 pax ⇒ 150/500 = 0,30)
 --          segment B (15 collectes, 40 kg / 100 pax ⇒ 600/1500 = 0,40)
 --          segment C (3 collectes  ⇒ sous le k-anonymat, jamais retourné)
---          segment D (5 collectes à pax = 0 ⇒ SUM(pax) = 0 ⇒ kg_par_pax_moyen NULL,
---                     alors que le segment passe le k-anonymat : le seul cas où un
---                     segment compte au dénominateur sans rien apporter au numérateur)
+--          segment D (5 collectes à pax = 0 : convives inconnus. Depuis le lot C1
+--                     (décision Val 2026-10-24, Q4), une collecte à 0 convive sort du
+--                     parc — poids, convives et nombre — : le segment n'existe plus.
+--                     Avant, il passait le k-anonymat avec un kg/pax NULL et comptait
+--                     au dénominateur sans rien apporter au numérateur.)
 INSERT INTO plateforme.evenements (
   id, organisation_id, traiteur_operationnel_organisation_id, entite_facturation_id,
   created_by, lieu_id, type_evenement_id, nom_evenement, date_evenement, pax,
@@ -241,33 +243,29 @@ SELECT is(
   'BENCH-PDF-8 : collecte_kg_pax (25/100) inchangé — seule l''agrégation parc bouge'
 );
 
--- 9. Segment dont `kg_par_pax_moyen` est NULL (Σpax = 0) : il compte au dénominateur
---    mais n'apporte rien au numérateur — `SUM` ignore le terme NULL. Même résultat que la
---    règle écran, où `num(null)` vaut 0 : (0,30×5 + ⌀×5) / (5+5) = 0,15.
---    Sans cette équivalence, le point parc du PDF s'écarterait de celui de l'écran dès
---    qu'un segment du parc a un pax total nul (`evenements.pax` est NOT NULL mais n'a
---    AUCUN CHECK > 0 : le cas est atteignable en base).
+-- 9. Collectes à 0 convive (segment D) : hors du parc depuis le lot C1 (décision Val
+--    2026-10-24, Q4 « Collectes, 0 écartée »). Filtrer sur les types A et D ne rend
+--    donc que le segment A : 0,30, et non plus (0,30×5 + ⌀×5) / (5+5) = 0,15. Leur poids
+--    ne gonfle plus le repère et leur nombre ne dilue plus la moyenne.
 SELECT is(
   (SELECT round(benchmark_kg_pax, 6) FROM plateforme.f_rapport_benchmark_zd(
      p_collecte_id        => 'bb000000-0000-0000-0000-0000000000c9'::uuid,
      p_type_evenement_ids => ARRAY['bb000000-0000-0000-0000-0000000000d1'::uuid,
                                    'bb000000-0000-0000-0000-0000000000d4'::uuid])
     WHERE flux_code = 'biodechet'),
-  round(0.15, 6),
-  'BENCH-PDF-9 : segment à kg/pax NULL ⇒ compté au dénominateur, ignoré au numérateur (0,15)'
+  round(0.30, 6),
+  'BENCH-PDF-9 : collectes à 0 convive hors du parc ⇒ seul le segment A reste (0,30, Q4 du 2026-10-24)'
 );
 
--- 10. Le même cas ne doit PAS faire disparaître le point parc : un segment NULL ne
---     propage pas son NULL à l'agrégat (le PDF afficherait « Données insuffisantes »
---     alors que 5 collectes du parc sont exploitables).
+-- 10. Le compte du parc n'inclut plus les 5 collectes à 0 convive : 5, et non 5 + 5.
 SELECT is(
   (SELECT nb_collectes_segment FROM plateforme.f_rapport_benchmark_zd(
      p_collecte_id        => 'bb000000-0000-0000-0000-0000000000c9'::uuid,
      p_type_evenement_ids => ARRAY['bb000000-0000-0000-0000-0000000000d1'::uuid,
                                    'bb000000-0000-0000-0000-0000000000d4'::uuid])
     WHERE flux_code = 'biodechet'),
-  10,
-  'BENCH-PDF-10 : le segment à kg/pax NULL entre bien dans le compte (5 + 5)'
+  5,
+  'BENCH-PDF-10 : les collectes à 0 convive ne comptent plus dans le parc (5, et non 5 + 5)'
 );
 
 SELECT * FROM finish();

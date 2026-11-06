@@ -7,6 +7,8 @@ import { describe, it, expect } from 'vitest';
 import {
   ETAPES_STATUT_COLLECTE,
   friseStatutClient,
+  friseStatutEvenement,
+  LIBELLE_SANS_EXCEDENT,
   LIBELLE_STATUT_COLLECTE,
   RANG_STATUT_COLLECTE,
   statutCollecteDisplay,
@@ -20,7 +22,7 @@ describe('R12 statutCollecteDisplay — vue admin', () => {
     ['validee', 'Validée'],
     ['en_cours', 'En cours'],
     ['realisee', 'Réalisée'],
-    ['realisee_sans_collecte', 'Sans excédents'],
+    ['realisee_sans_collecte', 'Réalisée'], // pas un statut à part (Val 2026-10-09)
     ['cloturee', 'Clôturée'],
     ['annulation_demandee', 'Annulation demandée'],
     ['annulee', 'Annulée'],
@@ -39,8 +41,8 @@ describe('R12 statutCollecteDisplay — vue client (collapse Val)', () => {
     ['programmee', 'Créée'], // jamais « Programmée » côté client
     ['validee', 'Validée'],
     ['en_cours', 'En cours'],
-    ['realisee', 'En cours'], // « Réalisée » réservé à cloturee
-    ['realisee_sans_collecte', 'Sans excédents'],
+    ['realisee', 'Réalisée'], // dès la réalisation (Val 2026-11-04)
+    ['realisee_sans_collecte', 'Réalisée'], // pas un statut à part (Val 2026-10-09)
     ['cloturee', 'Réalisée'],
     ['annulation_demandee', 'Annulée'],
     ['annulee', 'Annulée'],
@@ -68,7 +70,7 @@ describe('R12 statutCollecteDisplay — vue client (collapse Val)', () => {
     expect(labels).not.toContain('Programmée');
   });
 
-  it('client : « Réalisée » uniquement pour cloturee', () => {
+  it('client : « Réalisée » pour realisee, cloturee et une AG sans excédent, jamais avant la réalisation', () => {
     const realisee = [
       'brouillon',
       'programmee',
@@ -80,7 +82,48 @@ describe('R12 statutCollecteDisplay — vue client (collapse Val)', () => {
       'annulee',
       'rejetee_par_prestataire',
     ].filter((s) => statutCollecteDisplay(s, 'client').label === 'Réalisée');
-    expect(realisee).toEqual(['cloturee']);
+    expect(realisee).toEqual([
+      'realisee',
+      'realisee_sans_collecte',
+      'cloturee',
+    ]);
+  });
+});
+
+// « Sans excédent » n'est pas un statut d'avancement (décision Val 2026-10-09) :
+// c'est le résultat d'une collecte AG, affiché là où se lisent ses repas.
+describe('M0.6 / M3.1 — « Sans excédent » n’est pas un statut', () => {
+  const STATUTS = [
+    'brouillon',
+    'creee',
+    'programmee',
+    'validee',
+    'en_cours',
+    'realisee',
+    'realisee_sans_collecte',
+    'cloturee',
+    'annulation_demandee',
+    'annulee',
+    'rejetee_par_prestataire',
+  ];
+
+  it('M0.6/statut_sans_excedent_affiche_realisee — aucun libellé de statut ne dit « Sans excédent », dans aucune vue', () => {
+    for (const vue of ['admin', 'client'] as const)
+      for (const s of STATUTS)
+        expect(statutCollecteDisplay(s, vue).label).not.toMatch(/exc[ée]dent/i);
+  });
+
+  it('même badge que « Réalisée » : celui de `realisee` côté Admin, de `cloturee` côté client', () => {
+    expect(statutCollecteDisplay('realisee_sans_collecte', 'admin')).toEqual(
+      statutCollecteDisplay('realisee', 'admin'),
+    );
+    expect(statutCollecteDisplay('realisee_sans_collecte', 'client')).toEqual(
+      statutCollecteDisplay('cloturee', 'client'),
+    );
+  });
+
+  it('la mention de résultat est « Sans excédent », au singulier', () => {
+    expect(LIBELLE_SANS_EXCEDENT).toBe('Sans excédent');
   });
 });
 
@@ -105,19 +148,20 @@ describe('M3.1 / frise de statut client', () => {
     expect(courante('programmee')).toBe('Créée');
     expect(courante('rejetee_par_prestataire')).toBe('Créée');
     expect(courante('validee')).toBe('Validée');
-    // `realisee` DB = « En cours » côté client (mapping canonique 2026-06-30).
-    expect(courante('realisee')).toBe('En cours');
+    // `realisee` DB = « Réalisée » côté client dès la réalisation (Val 2026-11-04).
+    expect(courante('en_cours')).toBe('En cours');
+    expect(courante('realisee')).toBe('Réalisée');
     expect(courante('cloturee')).toBe('Réalisée');
   });
 
-  it('M3.1/frise_client_sans_excedents — AG sans excédents : dernière étape « Sans excédents »', () => {
+  it('M3.1/frise_client_sans_excedents — AG sans excédent : la frise de toutes les collectes, dernière étape « Réalisée »', () => {
     expect(labels('realisee_sans_collecte')).toEqual([
       'Créée',
       'Validée',
       'En cours',
-      'Sans excédents',
+      'Réalisée',
     ]);
-    expect(courante('realisee_sans_collecte')).toBe('Sans excédents');
+    expect(courante('realisee_sans_collecte')).toBe('Réalisée');
   });
 
   it('M3.1/frise_client_annulee — Créée · Annulée (demande comprise)', () => {
@@ -172,10 +216,68 @@ describe('R-UI-2 C1 — source unique statut collecte (étapes, rangs, export)',
       expect(label).toBe(statutCollecteDisplay(statut, 'admin').label);
     expect(LIBELLE_STATUT_COLLECTE.brouillon).toBe('Brouillon');
     expect(LIBELLE_STATUT_COLLECTE.creee).toBe('Créée');
-    expect(LIBELLE_STATUT_COLLECTE.realisee_sans_collecte).toBe(
-      'Sans excédents',
-    );
+    expect(LIBELLE_STATUT_COLLECTE.realisee_sans_collecte).toBe('Réalisée');
     // Les 10 statuts DB + la clé d'affichage Admin « Créée ».
     expect(Object.keys(LIBELLE_STATUT_COLLECTE)).toHaveLength(11);
   });
+});
+
+describe('Fiche événement — frise Créé → Réalisé (Val 2026-10-26)', () => {
+  const courante = (statuts: string[]) =>
+    friseStatutEvenement(statuts).find((e) => e.etat === 'courante')?.label;
+
+  it('EVT-FRISE/etape_la_plus_basse — l’événement avance quand TOUTES ses collectes ont avancé', () => {
+    expect(courante(['validee', 'programmee'])).toBe('Créé');
+    expect(courante(['validee', 'en_cours'])).toBe('Validé');
+    expect(courante(['cloturee', 'en_cours'])).toBe('En cours');
+    // `realisee` est « Réalisée » côté client dès la réalisation (Val 2026-11-04).
+    expect(courante(['cloturee', 'realisee'])).toBe('Réalisé');
+    expect(courante(['cloturee', 'realisee_sans_collecte'])).toBe('Réalisé');
+    expect(friseStatutEvenement(['cloturee']).map((e) => e.label)).toEqual([
+      'Créé',
+      'Validé',
+      'En cours',
+      'Réalisé',
+    ]);
+  });
+
+  it('EVT-FRISE/annulees_ignorees — une collecte annulée ne retient pas l’événement ; toutes annulées : « Annulé »', () => {
+    expect(courante(['cloturee', 'annulee'])).toBe('Réalisé');
+    expect(courante(['validee', 'annulation_demandee'])).toBe('Validé');
+    expect(friseStatutEvenement(['annulee', 'annulee'])).toEqual([
+      { label: 'Créé', etat: 'passee' },
+      { label: 'Annulé', etat: 'courante' },
+    ]);
+  });
+
+  it('EVT-FRISE/sans_collecte — aucune collecte : « Créé »', () => {
+    expect(courante([])).toBe('Créé');
+  });
+
+  it('EVT-FRISE/rejetee_et_brouillon_ignores — une collecte refusée par le prestataire ou en brouillon ne retient pas la frise (Val 2026-10-27)', () => {
+    expect(courante(['rejetee_par_prestataire', 'cloturee'])).toBe('Réalisé');
+    expect(courante(['brouillon', 'validee'])).toBe('Validé');
+    // Seule, elle n'annule pas l'événement : rien n'a avancé, « Créé ».
+    expect(courante(['rejetee_par_prestataire'])).toBe('Créé');
+    expect(courante(['brouillon', 'annulee'])).toBe('Annulé');
+  });
+
+  // Scénario Outline 06.05 fiche_evenement_frise_avancement, ligne par ligne.
+  it.each([
+    [['validee', 'cloturee'], 'Validé'],
+    [['cloturee', 'cloturee'], 'Réalisé'],
+    [['realisee', 'cloturee'], 'Réalisé'],
+    [['en_cours', 'cloturee'], 'En cours'],
+    [['annulee', 'cloturee'], 'Réalisé'],
+    [['annulation_demandee', 'validee'], 'Validé'],
+    [['rejetee_par_prestataire', 'cloturee'], 'Réalisé'],
+    [['brouillon', 'validee'], 'Validé'],
+    [['annulee', 'annulee'], 'Annulé'],
+    [[], 'Créé'],
+  ])(
+    'EVT-FRISE/fiche_evenement_frise_avancement — %j → « %s »',
+    (statuts, etape) => {
+      expect(courante(statuts)).toBe(etape);
+    },
+  );
 });

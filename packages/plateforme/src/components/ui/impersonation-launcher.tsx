@@ -2,7 +2,7 @@
 
 import { libelleRole } from '@/lib/libelles/role';
 import * as React from 'react';
-import { UserCog } from 'lucide-react';
+import { UserGearIcon } from '@/components/ui/icones';
 import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
@@ -104,7 +104,10 @@ export function ImpersonationLauncher(): React.ReactElement | null {
   return (
     <div className="rounded-md border border-savr-neutral-200 bg-savr-neutral-50 px-4 py-3">
       <div className="flex items-center gap-2 mb-2">
-        <UserCog className="w-4 h-4 text-savr-neutral-600" aria-hidden="true" />
+        <UserGearIcon
+          className="w-4 h-4 text-savr-neutral-600"
+          aria-hidden="true"
+        />
         <span className="text-sm font-medium text-savr-neutral-700">
           Impersonation
         </span>
@@ -142,7 +145,7 @@ export function ImpersonationLauncher(): React.ReactElement | null {
           loading={loading}
           loadingText="Connexion…"
         >
-          <UserCog />
+          <UserGearIcon />
           Impersoner
         </Button>
       </div>

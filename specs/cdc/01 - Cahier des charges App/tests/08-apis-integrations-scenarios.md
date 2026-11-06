@@ -2,7 +2,6 @@
 
 **Source CDC** : §08 APIs et intégrations + §05 Règles métier (retry, idempotence) + §09 RLS (integrations_logs, emails_envoyes, parametres_*)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module §08.
 > Pour chaque scénario :
@@ -233,7 +232,7 @@ Scénario : s11_collecte_rejetee_par_tms_alerte_admin
 ---
 
 ```gherkin
-# Source : §08 §3bis — MTS-1 flux nominal (create order → tour → dispatch → validate)
+# Source : §08 §3bis.5 — MTS-1 flux nominal (create order → tour unitaire, ni dispatch ni validate — décision Val 2026-10-15)
 # Couche : api
 # Priorité : P1-critique
 
@@ -243,18 +242,16 @@ Scénario : mts1_flux_nominal_creation_ordre_tournee_dispatch
     Et MTS-1 DEMO retourne 201 sur POST /v3/customerOrders avec la réponse {customerOrderId:CO_42XZ, orderNumber:.., customerOrderStatus:..}
     Et MTS-1 DEMO retourne 201 sur POST /v3/tours avec tourId=T_99AB
     Et MTS-1 DEMO retourne 200 sur PUT /v3/tours/addCustomerOrder
-    Et MTS-1 DEMO retourne 200 sur POST /v3/dispatch/T_99AB/toCarrier
-    Et MTS-1 DEMO retourne 200 sur PUT /v3/tours/T_99AB/validate
   Quand le flux de création MTS-1 est déclenché
-  Alors collectes.statut_tms = attribuee_en_attente_acceptation
-    Et attributions_antgaspi.confirmation_transporteur = {statut:.., reference_externe:CO_42XZ, tour_id:T_99AB, recu_at:.., brut:..}
+  Alors collectes.statut_tms = a_attribuer
+    Et aucun appel n'est fait à POST /v3/dispatch/{tourId}/toCarrier ni à PUT /v3/tours/{tourId}/validate
     Et les headers MTS-1 contiennent Authorization: Bearer <token_vault>
     Et le payload POST /v3/customerOrders contient orderNumber = collecte.reference + '-' + rang (clé de corrélation)
     Et tournees.external_ref_commande = CO_42XZ (id lu sur `customerOrderId` de la réponse, JAMAIS sur `id`)
     Et le payload POST /v3/tours contient tourDate = date_collecte au format yyyy-MM-dd (champ obligatoire)
     Et le payload POST /v3/tours ne contient NI customerOrderId, NI stuffs, NI deliveryPlace (ignorés par TourInput)
     Et le rattachement passe par PUT /v3/tours/addCustomerOrder body {tourId:T_99AB, customerOrderId:CO_42XZ}
-    Et 5 lignes integrations_logs sont créées (system=mts1, direction=sortant, actions: create_order, create_tour, add_customer_order, dispatch, validate)
+    Et 3 lignes integrations_logs sont créées, une par appel : POST /v3/customerOrders, POST /v3/tours, PUT /v3/tours/addCustomerOrder
 ```
 
 ---
@@ -271,7 +268,7 @@ Scénario : mts1_routes_v3_reelles_cliquet
   Et quand il appelle POST /v3/tours/{tourId}/dispatch (ancienne route du relevé Bubble)
   Alors MTS-1 répond 404 {"reasons":["BAD_ROUTE"]} — la route n'existe pas en V3
   Et quand il omet PUT /v3/tours/addCustomerOrder
-  Alors la tournée est dispatchée VIDE (aucune commande rattachée) — régression interdite
+  Alors la tournée reste VIDE (aucune commande rattachée) — régression interdite
   Et les URL réelles sont pinnées par des tests « wire » (niveau qui attrape un 404 invisible aux mocks de handlers)
 ```
 
@@ -283,7 +280,7 @@ Scénario : mts1_routes_v3_reelles_cliquet
 # Priorité : P1-critique
 
 Scénario : mts1_payload_commande_contact_et_creneau
-  Étant donné une collecte dont l'événement porte contact_principal_nom="Paul Pol", contact_principal_telephone="+33600000001"
+  Étant donné une collecte qui porte (collecte_contacts) contact_principal_nom="Paul Pol", contact_principal_telephone="+33600000001"
     Et un contact de secours nommé "Marie Dubois", téléphone "+33600000002"
     Et heure_collecte = 22:30
   Quand l'adapter construit le payload POST /v3/customerOrders
@@ -411,7 +408,7 @@ Scénario : puppeteer_generation_bordereau_zd
   Étant donné une collecte ZD clôturée avec pesees[] renseignées
     Et Puppeteer container Railway est disponible
   Quand la Next.js API Route generate-pdf est appelée (template=bordereau_savr)
-  Alors un PDF est généré et uploadé dans Cloudflare R2 (bucket=bordereaux)
+  Alors un PDF est généré et uploadé dans Cloudflare R2 (bucket de l'environnement, clé sous bordereaux/)
     Et bordereaux_savr.fichier_id est renseigné (référence shared.fichiers)
     Et bordereaux_savr.template_version est enregistrée
 ```
@@ -613,7 +610,7 @@ Scénario : mts1_polling_tous_tours_ko_collecte_annulee_ou_demande_inchangee
   Quand l'adapter MTS-1 traite l'ordre au polling et lance l'agrégation terminale
   Alors collectes.statut et collectes.statut_tms sont inchangés
   Et aucune alerte Admin « collecte_rejetee_par_prestataire » n'est posée
-  Et la demande d'annulation est conservée : l'Admin la tranche (un refus ramène la collecte en validee)
+  Et une collecte restée en annulation_demandee (d'avant le 2026-11-01) le reste : l'Admin la tranche ; depuis l'annulation cliente directe (décision Val 2026-11-01), aucune nouvelle collecte n'entre en annulation_demandee
   Et l'écriture n'a lieu que si statut ∈ (programmee, validee, en_cours) — liste positive, symétrique de la branche realisee
 ```
 
@@ -1138,7 +1135,7 @@ Scénario : everest_confirmation_positive_statut_tms_acceptee
 Scénario : everest_course_vide_refetch_realisee_sans_collecte
   Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut=en_cours, non terminal)
     Et Everest envoie un webhook terminal (mission_failed)
-    Et le re-fetch de la mission retourne mission_status="Client absent / Marchandise refusée"
+    Et le re-fetch de la mission retourne status_text="Client absent / Marchandise refusée"
   Quand l'adapter Everest traite le webhook (re-fetch mission, jamais le payload)
   Alors collectes.statut = realisee_sans_collecte
     Et collectes.realisee_at = now()
@@ -1159,7 +1156,7 @@ Scénario : everest_course_vide_refetch_realisee_sans_collecte
 Scénario : everest_mission_failed_avant_acceptation_rejetee
   Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut_tms=attribuee_en_attente_acceptation)
     Et Everest envoie mission_failed / annulation externe avant acceptation
-  Quand l'adapter Everest traite le webhook (re-fetch mission_status)
+  Quand l'adapter Everest traite le webhook (re-fetch status_text)
   Alors collectes.statut_tms = rejetee_par_prestataire
     Et collectes.statut = rejetee_par_prestataire (visibilité dashboard)
     Et une alerte Admin in-app « réattribution requise » est créée
@@ -1168,20 +1165,20 @@ Scénario : everest_mission_failed_avant_acceptation_rejetee
 ---
 
 ```gherkin
-# Source : §08 §3bis.7 — MTS-1 chaîne polling complète : create → dispatch → poll STARTED → poll OK
+# Source : §08 §3bis.7 — MTS-1 chaîne polling complète : create → tournée confiée par l'Admin → poll STARTED → poll OK
 # Couche : api + db
 # Priorité : P1-critique
 
 Scénario : mts1_chaine_polling_complete
   Étant donné une collecte ZD Strike (type_tms=mts1)
   Quand :
-    1. Création commande+tour+dispatch+validate MTS-1 → statut_tms=attribuee_en_attente_acceptation
+    1. Création commande + tournée unitaire MTS-1 → statut_tms=a_attribuer ; l'Admin confie et valide la tournée dans la console
     2. Polling : customerOrderStatus=PLANNED, tour.status.dispatch=ACCEPTED → statut_tms=acceptee, statut=validee
-    3. Polling : customerOrderProgressionStatus=STARTED → statut=en_cours
-    4. Polling : customerOrderStatus=OK, GET /v3/tours/{id} → pesées[stops.weight] → statut=realisee + collecte_flux créés
+    3. Polling : customerOrderStatus=IN_PROGRESSION → statut=en_cours
+    4. Polling : customerOrderStatus=OK, GET /v3/tours/{id} → pesées (`quantityAfterPickup` de chaque marchandise de l'arrêt d'enlèvement) → statut=realisee + collecte_flux créés
     5. Photos téléchargées + ré-uploadées Storage Plateforme
   Alors l'état final est collectes.statut=realisee avec collecte_flux et photos stockées
-    Et integrations_inbox contient 3 entrées (PLANNED, STARTED, OK) avec statut=traite
+    Et integrations_inbox contient 3 entrées (PLANNED, IN_PROGRESSION, OK) avec statut=traite
 ```
 
 ```gherkin
@@ -1351,6 +1348,20 @@ Scénario : revalidation_siret_3_paliers_epuises_reste_en_attente
 ```
 
 ```gherkin
+# Source : §05 §8 Étape 1 + §04 users.poste (fiche M3.1_20261101_mon-profil-poste-sans-securite-preferences, décision Val 2026-11-02)
+# Couche : api
+# Priorité : P2-important
+
+Scénario : signup_poste_obligatoire
+  Étant donné un candidat sur /signup
+  Quand il soumet POST /api/auth/signup sans poste, ou avec un poste de 101 caractères
+  Alors la route publique répond 422 et aucun compte n'est créé
+  Quand il soumet avec le poste « Responsable RSE »
+  Alors le compte est créé avec users.poste = « Responsable RSE »
+  Et un compte créé par invitation (manager, gestionnaire, Admin) est créé sans poste (champ non demandé à l'invitation)
+```
+
+```gherkin
 # Source : §15 §2.6 l.69 + §04 index uniq_entites_facturation_siret — SIRET déjà rattaché → inscription bloquée
 # Couche : api + db
 # Priorité : P1-critique
@@ -1372,6 +1383,46 @@ Scénario : siret_vide_plusieurs_entites_autorise
   Étant donné une entite_facturation existante avec siret = '' (onboarding partiel / shadow)
   Quand une seconde entite_facturation est créée avec siret = ''
   Alors les deux coexistent sans conflit (l'index unique ne s'applique qu'aux siret non vides)
+```
+
+### Ajouts cdc-patch-divergences 2026-11-02 — E2 Everest (M2.5_20261030_everest-modification-mission)
+
+```gherkin
+# Source : §08 §3bis.8 « Règles de composition du payload E2 » — Côté Everest (décision Val 2026-10-30, validée 2026-11-02)
+# Couche : adapter
+# Priorité : P1-critique
+# ⚠ POST /missions/update (swagger 1.294.1) jamais appelé en conditions réelles : à faire confirmer par A Toutes! (Mathieu) avant la mise en production
+
+Plan du scénario : e2_everest_modification_mission
+  Étant donné une collecte AG transmise à Everest avec 2 missions (rangs 1 et 2), dont <etat_missions>
+  Quand l'Admin modifie le contact sur place et l'heure de collecte, ce qui émet un ordre E2 collecte.modifiee
+  Alors l'adapter Everest <effet>
+  Et l'ordre E2 sort en <issue>
+
+  Exemples :
+    | etat_missions                                   | effet                                                                                                                       | issue                                    |
+    | les 2 missions ouvertes                          | appelle POST /missions/update une fois par mission (ref), avec start_date, adresses et contacts de départ et d'arrivée, comment | succès                                   |
+    | la mission 1 terminée, la mission 2 ouverte      | n'appelle POST /missions/update que pour la mission 2                                                                        | succès                                   |
+    | les 2 missions closes (annulées ou échouées)     | n'appelle rien                                                                                                              | succès sans appel (noop)                 |
+
+Scénario : e2_everest_collecte_jamais_transmise_noop
+  Étant donné une collecte AG dont aucune mission n'a été créée chez Everest
+  Quand un ordre E2 collecte.modifiee est consommé par l'adapter Everest
+  Alors aucun appel n'est fait et l'ordre est consommé en noop_no_remote
+
+Scénario : e2_everest_refus_4xx_definitif_5xx_retente
+  Étant donné une collecte AG avec 2 missions ouvertes
+  Quand Everest répond 400 sur la mission 1 et 200 sur la mission 2
+  Alors la mission 2 est modifiée, l'ordre sort en échec définitif avec la raison donnée par A Toutes!, et la collecte n'est pas rejetée
+  Quand Everest répond 503 ou ne répond pas
+  Alors l'ordre est retenté (renvoyer les mêmes valeurs ne change rien)
+
+Scénario : e2_everest_contact_association_vide_et_nombre_vehicules
+  Étant donné une collecte AG avec 1 mission ouverte et un contact d'association vidé
+  Quand l'E2 est envoyé
+  Alors le contact d'arrivée part vide, jamais omis, et ni service_id ni client_ref ne sont envoyés
+  Quand le nombre de véhicules de la collecte passe de 1 à 2
+  Alors aucune mission n'est créée par POST /missions/update et une alerte Ops canal info est levée (à traiter à la main chez A Toutes!)
 ```
 
 ---

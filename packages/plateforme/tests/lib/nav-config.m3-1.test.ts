@@ -1,10 +1,15 @@
 /**
  * M3.1 — Navigation traiteur (BL-P1-TRAIT-05).
  * CDC §06.04 §1 : nav traiteur = 4 entrées V1 (Dashboard / Collectes /
- * Mon organisation / Mon profil). Le « Registre réglementaire » avait été
+ * Mon organisation / Mon profil), plus « Événements » sous « Collectes »
+ * depuis le 2026-10-29 (décision Val : liste commune à tous les rôles), et
+ * « Mon organisation » + « Mon profil » réunis en « Paramètres » depuis le
+ * 2026-10-31 (décision Val), et « Mon pack Anti-Gaspi » après « Paramètres »
+ * depuis le 2026-11-02 (décision Val : onglet pour tous les rôles clients). Le « Registre réglementaire » avait été
  * injecté à tort dans les 2 rôles traiteur → il est retiré ici. Le Registre
  * reste légitime pour gestionnaire_lieux / client_organisateur (contrôle
- * de non-régression ci-dessous).
+ * de non-régression ci-dessous). Plus d'entrée « Collectes » depuis le
+ * 2026-11-05 (décision Val : « Événements » seule pour les rôles clients).
  */
 import { describe, it, expect } from 'vitest';
 import { NAV_CONFIG } from '../../src/lib/nav-config.js';
@@ -20,9 +25,9 @@ describe('M3.1 / navigation traiteur', () => {
   it('M3.1/nav_traiteur_manager_4_entrees_sans_registre', () => {
     expect(labels('traiteur_manager')).toEqual([
       'Dashboard',
-      'Collectes',
-      'Mon organisation',
-      'Mon profil',
+      'Événements',
+      'Paramètres',
+      'Mon pack Anti-Gaspi',
     ]);
     expect(hrefs('traiteur_manager')).not.toContain('/registre');
   });
@@ -30,9 +35,9 @@ describe('M3.1 / navigation traiteur', () => {
   it('M3.1/nav_traiteur_commercial_4_entrees_sans_registre', () => {
     expect(labels('traiteur_commercial')).toEqual([
       'Dashboard',
-      'Collectes',
-      'Mon organisation',
-      'Mon profil',
+      'Événements',
+      'Paramètres',
+      'Mon pack Anti-Gaspi',
     ]);
     expect(hrefs('traiteur_commercial')).not.toContain('/registre');
   });

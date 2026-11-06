@@ -57,15 +57,16 @@ const ANCIEN_API_COLLECTES = {
 
 const NAV_TRAITEUR = [
   ['Dashboard', '/traiteur'],
-  ['Collectes', '/traiteur/collectes'],
-  ['Mon organisation', '/traiteur/mon-organisation'],
-  ['Mon profil', '/traiteur/mon-profil'],
+  ['Événements', '/traiteur/evenements'],
+  ['Paramètres', '/traiteur/parametres'],
+  ['Mon pack Anti-Gaspi', '/traiteur/mon-pack-ag'],
 ];
 const ANCIENNE_NAV: Record<string, string[][]> = {
   admin_savr: [
     ['Dashboard Admin', '/admin/dashboard'],
     ['Dashboard Client', '/admin/dashboard-client'],
     ['Collectes', '/admin/collectes'],
+    ['Événements', '/admin/evenements'],
     ['Facturation', '/admin/factures'],
     ['Associations', '/admin/associations'],
     ['Transporteurs', '/admin/transporteurs'],
@@ -80,27 +81,26 @@ const ANCIENNE_NAV: Record<string, string[][]> = {
   traiteur_commercial: NAV_TRAITEUR,
   agence: [
     ['Dashboard', '/agence'],
-    ['Collectes', '/agence/collectes'],
-    ['Mon organisation', '/agence/mon-organisation'],
-    ['Mon profil', '/agence/mon-profil'],
+    ['Événements', '/agence/evenements'],
+    ['Paramètres', '/agence/parametres'],
+    ['Mon pack Anti-Gaspi', '/agence/mon-pack-ag'],
   ],
   gestionnaire_lieux: [
     ['Dashboard', '/gestionnaire'],
-    ['Mes lieux', '/gestionnaire/lieux'],
-    ['Collectes', '/gestionnaire/collectes'],
-    ['Registre réglementaire', '/registre'],
+    ['Événements', '/gestionnaire/evenements'],
     ['Traiteurs', '/gestionnaire/traiteurs'],
-    ['Mon pack AG', '/gestionnaire/mon-pack-ag'],
-    ['Mon organisation', '/gestionnaire/mon-organisation'],
+    ['Mes lieux', '/gestionnaire/lieux'],
+    ['Registre réglementaire', '/registre'],
+    ['Mon pack Anti-Gaspi', '/gestionnaire/mon-pack-ag'],
     ['Paramètres', '/gestionnaire/parametres'],
   ],
   client_organisateur: [
-    ['Mes événements', '/organisateur'],
-    ['Collectes', '/organisateur/collectes'],
+    ['Dashboard', '/organisateur'],
+    ['Événements', '/organisateur/evenements'],
     ['Documents', '/organisateur/documents'],
     ['Registre réglementaire', '/registre'],
-    ['Mon organisation', '/organisateur/mon-organisation'],
-    ['Mon profil', '/organisateur/mon-profil'],
+    ['Paramètres', '/organisateur/parametres'],
+    ['Mon pack Anti-Gaspi', '/organisateur/mon-pack-ag'],
   ],
 };
 
@@ -184,6 +184,9 @@ describe('lib/routes — chemins', () => {
     expect(ROUTES.agence.collecte('1')).toBe('/agence/collectes/1');
     expect(ROUTES.gestionnaire.collecte('1')).toBe('/gestionnaire/collectes/1');
     expect(ROUTES.gestionnaire.lieu('1')).toBe('/gestionnaire/lieux/1');
+    expect(ROUTES.gestionnaire.evenement('1')).toBe(
+      '/gestionnaire/evenements/1',
+    );
     expect(ROUTES.gestionnaire.traiteur('1')).toBe('/gestionnaire/traiteurs/1');
     expect(ROUTES.programmer.brouillon('b')).toBe('/programmer/brouillon/b');
     expect(ROUTES.programmer.ajouterCollecte('e')).toBe(

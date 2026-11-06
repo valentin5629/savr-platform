@@ -6,6 +6,7 @@ import { Text } from '@/components/ui/text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { cn } from '@/lib/utils';
+import { delaiEntree, useEntreeGraphique } from './charts/entree-graphique';
 import { ChartTooltip } from '@/components/ui/chart-tooltip';
 import { fmtEuro, fmtInt } from '@/lib/format';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -14,8 +15,10 @@ interface KpiAdminRow {
   mois: string;
   type_collecte: string;
   nb_collectes: number;
-  nb_cloturees: number;
-  montant_factures_ht: number;
+  montant_ht: number;
+  /** Part datée après aujourd'hui, incluse dans les totaux (Val 2026-11-05). */
+  nb_collectes_a_venir?: number;
+  montant_ht_a_venir?: number;
 }
 
 type Toggle = 'nombre' | 'montant';
@@ -23,35 +26,58 @@ type Toggle = 'nombre' | 'montant';
 interface RevenusHistogrammeProps {
   from?: string;
   to?: string;
+  /** Filtres de la section Revenus (CSV d'identifiants), cf. revenus-admin.ts. */
+  lieuIds?: string[];
+  organisationIds?: string[];
   className?: string;
 }
 
 /**
  * Histogramme 12 mois glissants — barres empilées ZD + AG, toggle nombre/montant (§11 §1.1 Bloc 2).
- * Source : /api/v1/dashboards/kpi-admin
+ * Source : /api/v1/admin/dashboard/revenus-mensuels (filtrable par lieu et organisation)
  * Avoirs comptés en négatif sur leur mois d'émission (F5 lot ⑫).
+ * Revenus à venir (collectes datées après aujourd'hui) dans une teinte plus
+ * claire de la couleur du type (Val 2026-11-05).
  */
 export function RevenusHistogramme({
   from,
   to,
+  lieuIds = [],
+  organisationIds = [],
   className,
 }: RevenusHistogrammeProps) {
+  const lieux = lieuIds.join(',');
+  const organisations = organisationIds.join(',');
   const [rows, setRows] = useState<KpiAdminRow[]>([]);
   const [toggle, setToggle] = useState<Toggle>('montant');
   const [loading, setLoading] = useState(true);
+  const entree = useEntreeGraphique<HTMLDivElement>('revenus');
 
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    if (lieux) params.set('lieu_ids', lieux);
+    if (organisations) params.set('organisation_ids', organisations);
 
-    fetch(`/api/v1/dashboards/kpi-admin?${params}`)
+    // Une réponse arrivée après un nouveau choix de filtre est ignorée.
+    let perimee = false;
+    fetch(`/api/v1/admin/dashboard/revenus-mensuels?${params}`)
       .then((r) => r.json())
-      .then((json: { kpi?: KpiAdminRow[] }) => setRows(json.kpi ?? []))
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-  }, [from, to]);
+      .then((json: { kpi?: KpiAdminRow[] }) => {
+        if (!perimee) setRows(json.kpi ?? []);
+      })
+      .catch(() => {
+        if (!perimee) setRows([]);
+      })
+      .finally(() => {
+        if (!perimee) setLoading(false);
+      });
+    return () => {
+      perimee = true;
+    };
+  }, [from, to, lieux, organisations]);
 
   // Grouper par mois
   const moisSet = Array.from(new Set(rows.map((r) => r.mois))).sort();
@@ -69,8 +95,17 @@ export function RevenusHistogramme({
 
   function getValue(row: KpiAdminRow | undefined): number {
     if (!row) return 0;
-    return toggle === 'montant' ? row.montant_factures_ht : row.nb_collectes;
+    return toggle === 'montant' ? row.montant_ht : row.nb_collectes;
   }
+
+  function getAVenir(row: KpiAdminRow | undefined): number {
+    if (!row) return 0;
+    return toggle === 'montant'
+      ? (row.montant_ht_a_venir ?? 0)
+      : (row.nb_collectes_a_venir ?? 0);
+  }
+
+  const aDuAVenir = rows.some((r) => (r.nb_collectes_a_venir ?? 0) > 0);
 
   // Formatage d'une valeur selon la bascule active — € sans décimales en montant,
   // entier en nombre de collectes (alimente le tooltip de survol des barres).
@@ -141,7 +176,11 @@ export function RevenusHistogramme({
           value={toggle}
           onValueChange={(v) => {
             // Choix obligatoire : un clic sur l'item actif ne le désélectionne pas.
-            if (v === 'montant' || v === 'nombre') setToggle(v);
+            if ((v === 'montant' || v === 'nombre') && v !== toggle) {
+              setToggle(v);
+              // Même entrée qu'à l'ouverture de la page (Val 2026-11-05).
+              entree.rejouer();
+            }
           }}
           className="h-9 sm:h-9"
         >
@@ -187,13 +226,27 @@ export function RevenusHistogramme({
               ))}
             </div>
 
-            <div className="relative flex h-full items-end gap-1">
-              {moisSet.map((mois) => {
+            <div
+              key={entree.tour}
+              ref={entree.ref}
+              className={cn(
+                'relative flex h-full items-end gap-1',
+                entree.classe,
+              )}
+            >
+              {moisSet.map((mois, i) => {
                 const zdVal = getValue(zdByMois[mois]);
                 const agVal = getValue(agByMois[mois]);
                 const total = zdVal + agVal;
-                const zdPct = total > 0 ? (zdVal / maxVal) * 100 : 0;
-                const agPct = total > 0 ? (agVal / maxVal) * 100 : 0;
+                const zdAVenir = getAVenir(zdByMois[mois]);
+                const agAVenir = getAVenir(agByMois[mois]);
+                // Hauteurs en % de maxVal : part acquise et part à venir.
+                const pct = (v: number) =>
+                  total > 0 ? (Math.max(0, v) / maxVal) * 100 : 0;
+                const zdAcquisPct = pct(zdVal - zdAVenir);
+                const zdAVenirPct = pct(zdAVenir);
+                const agAcquisPct = pct(agVal - agAVenir);
+                const agAVenirPct = pct(agAVenir);
                 const label = new Date(mois).toLocaleDateString('fr-FR', {
                   timeZone: 'Europe/Paris',
                   month: 'short',
@@ -228,6 +281,12 @@ export function RevenusHistogramme({
                           {fmtVal(zdVal)}
                         </span>
                       </div>
+                      {zdAVenir > 0 && (
+                        <LigneAVenir
+                          pastille="bg-savr-success-soft"
+                          valeur={fmtVal(zdAVenir)}
+                        />
+                      )}
                       <div className="mt-1 flex items-center justify-between gap-5 text-sm">
                         <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
                           <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-primary-700" />
@@ -237,6 +296,12 @@ export function RevenusHistogramme({
                           {fmtVal(agVal)}
                         </span>
                       </div>
+                      {agAVenir > 0 && (
+                        <LigneAVenir
+                          pastille="bg-savr-primary-300"
+                          valeur={fmtVal(agAVenir)}
+                        />
+                      )}
                       <div className="mt-1.5 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1.5 text-sm">
                         <span className="font-semibold text-savr-neutral-500">
                           Total
@@ -246,23 +311,59 @@ export function RevenusHistogramme({
                         </span>
                       </div>
                     </ChartTooltip>
-                    {agVal > 0 && (
-                      <div
-                        className="w-full rounded-t-savr-sm bg-savr-primary-700"
-                        style={{ height: `${agPct}%` }}
-                        aria-label={`AG ${label}`}
-                      />
-                    )}
-                    {zdVal > 0 && (
-                      <div
-                        className={`w-full ${agVal > 0 ? '' : 'rounded-t-savr-sm'} bg-savr-success`}
-                        style={{ height: `${zdPct}%` }}
-                        aria-label={`ZD ${label}`}
-                      />
-                    )}
-                    {zdVal <= 0 && agVal <= 0 && (
-                      <div className="h-1 w-full rounded-savr-sm bg-savr-neutral-200" />
-                    )}
+                    {/* Barres empilées dans un calque pleine hauteur : elles
+                        poussent ensemble depuis le pied à l'entrée, sans
+                        entraîner l'infobulle. */}
+                    <div
+                      data-entree="monte"
+                      className="pointer-events-none absolute inset-0 flex flex-col justify-end"
+                      style={delaiEntree(i, moisSet.length)}
+                    >
+                      {/* Du haut vers le bas : AG à venir, AG, ZD à venir, ZD.
+                          Seul le segment du haut porte l'arrondi. */}
+                      {[
+                        {
+                          cle: 'ag-a-venir',
+                          pct: agAVenirPct,
+                          couleur: 'bg-savr-primary-300',
+                          aria: `AG à venir ${label}`,
+                        },
+                        {
+                          cle: 'ag',
+                          pct: agAcquisPct,
+                          couleur: 'bg-savr-primary-700',
+                          aria: `AG ${label}`,
+                        },
+                        {
+                          cle: 'zd-a-venir',
+                          pct: zdAVenirPct,
+                          couleur: 'bg-savr-success-soft',
+                          aria: `ZD à venir ${label}`,
+                        },
+                        {
+                          cle: 'zd',
+                          pct: zdAcquisPct,
+                          couleur: 'bg-savr-success',
+                          aria: `ZD ${label}`,
+                        },
+                      ]
+                        .filter((seg) => seg.pct > 0)
+                        .map((seg, k) => (
+                          <div
+                            key={seg.cle}
+                            className={cn(
+                              'w-full',
+                              seg.couleur,
+                              k === 0 && 'rounded-t-savr-sm',
+                            )}
+                            style={{ height: `${seg.pct}%` }}
+                            aria-label={seg.aria}
+                          />
+                        ))}
+                      {zdVal <= 0 && agVal <= 0 && (
+                        <div className="h-1 w-full rounded-savr-sm bg-savr-neutral-200" />
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -299,7 +400,40 @@ export function RevenusHistogramme({
           <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-primary-700" />
           Anti-Gaspi
         </span>
+        {aDuAVenir && (
+          <>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-success-soft" />
+              Zéro Déchet à venir
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-primary-300" />
+              Anti-Gaspi à venir
+            </span>
+          </>
+        )}
       </Text>
+    </div>
+  );
+}
+
+// Ligne « dont à venir » de l'infobulle, sous la valeur de son type.
+function LigneAVenir({
+  pastille,
+  valeur,
+}: {
+  pastille: string;
+  valeur: string;
+}) {
+  return (
+    <div className="mt-0.5 flex items-center justify-between gap-5 pl-3.5 text-xs">
+      <span className="flex items-center gap-1.5 text-savr-neutral-500">
+        <span className={`inline-block h-2 w-2 rounded-savr-sm ${pastille}`} />
+        dont à venir
+      </span>
+      <span className="font-bold tabular-nums text-savr-neutral-500">
+        {valeur}
+      </span>
     </div>
   );
 }

@@ -1,9 +1,11 @@
 /**
  * M3.2 — Pop-up fiche collecte client, espace gestionnaire de lieux (§06.05 :
  * « la fiche collecte reprend le pop-up client §06.04 », refonte Val
- * 2026-09-29). Écarts propres au rôle : jamais d'annulation (§05), pas de bloc
- * Association bénéficiaire (Q7), radar masqué pour une collecte de traiteur
- * tiers (garde SQL non élargie).
+ * 2026-09-29). Écarts propres au rôle : annulation de ses seules programmations
+ * (décision Val 2026-10-26 ; aucun bouton sur la collecte d'un traiteur tenue
+ * sur ses lieux). Radar affiché aussi sur une collecte de
+ * traiteur tiers tenue sur ses lieux (décision Val 2026-10-20) ; masqué
+ * seulement quand la route répond « pas de radar ».
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -18,6 +20,7 @@ import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-c
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 import {
   ficheClient,
+  rapportsDemandes,
   stubFetchFiche,
   urlsAppelees,
 } from '@/test-utils/fiche-collecte-client';
@@ -50,7 +53,7 @@ beforeEach(() => {
 
 describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   it(
-    'M3.2/fiche_popup_gestionnaire_sans_annulation — pas de bouton d’annulation, « Modifier » grisé hors de ses programmations',
+    'M3.2/fiche_popup_gestionnaire_sans_annulation — collecte d’un traiteur sur ses lieux : pas de bouton d’annulation, « Modifier » grisé',
     async () => {
       stubFetchFiche(ficheGestionnaire());
       render(fiche());
@@ -70,10 +73,53 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
     ATTENTE_CAS_MS,
   );
 
+  // Décision Val 2026-10-26 : le gestionnaire annule ses propres programmations.
+  it(
+    'M3.2/fiche_popup_gestionnaire_annulation_sa_programmation — « Annuler la collecte » part sur la route du gestionnaire',
+    async () => {
+      stubFetchFiche(
+        ficheGestionnaire({
+          statut: 'programmee',
+          actions: {
+            modifier: 'actif',
+            annuler: 'actif',
+            annulation: 'directe',
+          },
+        }),
+      );
+      render(fiche());
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Annuler la collecte' },
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Confirmer l’annulation' },
+          ATTENTE_UI,
+        ),
+      );
+
+      await waitFor(
+        () =>
+          expect(urlsAppelees()).toContainEqual({
+            url: '/api/v1/gestionnaire/collectes/c1/annulation',
+            method: 'POST',
+          }),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // §06.05 l.85 : le masquage du bloc était une limite technique, levée par la
   // vue v_attributions_gestionnaire (§04).
   it(
-    'M3.2/fiche_popup_gestionnaire_association_affichee — AG : bloc Association bénéficiaire sur Logistique et Bilan',
+    'M3.2/fiche_popup_gestionnaire_association_affichee — AG réalisée : bloc Association bénéficiaire sur le Bilan seul (C3, Val 2026-10-27)',
     async () => {
       stubFetchFiche(
         ficheGestionnaire({
@@ -92,22 +138,16 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
       render(fiche());
 
       await ouvrirOnglet('Logistique');
-      const bloc = await screen.findByTestId(
-        'bloc-association',
-        {},
-        ATTENTE_UI,
-      );
-      expect(bloc.textContent).toContain('Les Restos du Cœur');
-      expect(bloc.textContent).toContain('Paris');
-      expect(bloc.textContent).toContain('Aide alimentaire');
+      await screen.findByTestId('bloc-logistique', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('bloc-association')).toBeNull();
       await ouvrirOnglet('Bilan & documents');
       await screen.findByTestId('kpi-ag', {}, ATTENTE_UI);
       expect(screen.getByTestId('bloc-association').textContent).toContain(
         'Les Restos du Cœur',
       );
-      expect(screen.getByTestId('bloc-documents').textContent).toContain(
-        'Rapport de don',
-      );
+      // Rapport de don téléchargé depuis le pied (Val 2026-10-27).
+      expect(screen.queryByTestId('bloc-documents')).toBeNull();
+      expect(screen.getByTestId('action-telecharger-rapport')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
@@ -135,14 +175,62 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   );
 
   it(
-    'M3.2/fiche_popup_gestionnaire_radar_masque_tiers — radar indisponible (traiteur tiers) : bloc masqué, KPI conservés',
+    'M3.2/fiche_popup_gestionnaire_radar_tiers_affiche — collecte d’un traiteur tiers sur son lieu : radar et case « radar dans le rapport » affichés',
+    async () => {
+      const base = ficheGestionnaire({
+        statut: 'cloturee',
+        bilan_flux: { biodechet: 420 },
+        taux_recyclage: 70,
+        co2_evite_kg: 100,
+        rapport_rse_disponible: true,
+        // Collecte d'un tiers : ni modification, ni contacts sur place.
+        actions: { modifier: 'absent', annuler: 'absent', annulation: null },
+      });
+      // Contacts sur place : ceux de LA collecte (lot B1, décision Val
+      // 2026-10-23).
+      stubFetchFiche({
+        ...base,
+        contacts_visibles: false,
+        contact_principal_nom: null,
+        contact_principal_telephone: null,
+      });
+      render(fiche());
+      await ouvrirOnglet('Bilan & documents');
+
+      // La route radar a répondu, et le bloc porte une valeur venue de sa
+      // réponse (0,4 kg/pax) : il ne s'agit pas du bloc affiché d'emblée.
+      await waitFor(() => {
+        expect(
+          urlsAppelees().some((c) =>
+            c.url.startsWith('/api/v1/gestionnaire/collectes/c1/benchmark?'),
+          ),
+        ).toBe(true);
+        const radar = screen.getByTestId('bloc-3-zd-fiche');
+        expect(radar.textContent).toContain(
+          'Votre collecte face aux événements comparables',
+        );
+        expect(radar.textContent).toContain('0,40 kg/pax');
+      }, ATTENTE_UI);
+      expect(
+        await screen.findByRole(
+          'button',
+          { name: 'Intégrer la comparaison au rapport à télécharger' },
+          ATTENTE_UI,
+        ),
+      ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/fiche_popup_gestionnaire_radar_indisponible_masque — route « pas de radar » : bloc masqué, KPI conservés',
     async () => {
       stubFetchFiche(
         ficheGestionnaire({
           statut: 'cloturee',
           bilan_flux: { biodechet: 420 },
           taux_recyclage: 70,
-          co2_net_kg: 100,
+          co2_evite_kg: 100,
           actions: { modifier: 'absent', annuler: 'absent', annulation: null },
         }),
         { benchmark: 'indisponible' },
@@ -169,17 +257,52 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
   );
 
   it(
+    'M3.2/fiche_popup_gestionnaire_rapport — le gestionnaire télécharge le rapport fabriqué au clic ; route « pas de radar » : pas de bouton d’intégration, rapport sans radar',
+    async () => {
+      stubFetchFiche(
+        ficheGestionnaire({
+          statut: 'cloturee',
+          bilan_flux: { biodechet: 420 },
+          taux_recyclage: 70,
+          co2_evite_kg: 100,
+          rapport_rse_disponible: true,
+          actions: { modifier: 'absent', annuler: 'absent', annulation: null },
+        }),
+        { benchmark: 'indisponible' },
+      );
+      render(fiche());
+      await ouvrirOnglet('Bilan & documents');
+      await waitFor(() => {
+        expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
+      }, ATTENTE_UI);
+      expect(screen.queryByTestId('option-rapport-radar')).toBeNull();
+
+      fireEvent.click(
+        await screen.findByTestId('action-telecharger-rapport', {}, ATTENTE_UI),
+      );
+      await waitFor(
+        () => expect(rapportsDemandes()).toHaveLength(1),
+        ATTENTE_UI,
+      );
+      expect(rapportsDemandes()[0]).toEqual({
+        url: '/api/v1/gestionnaire/collectes/c1/rapport-rse',
+        corps: { options: { benchmark: false } },
+      });
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/fiche_popup_gestionnaire_contacts_tiers_masques — collecte d’un traiteur tiers : pas de bloc Contacts sur place',
     async () => {
       const base = ficheGestionnaire();
+      // Contacts sur place : ceux de LA collecte (lot B1, décision Val
+      // 2026-10-23).
       stubFetchFiche({
         ...base,
-        evenement: {
-          ...base.evenement!,
-          contacts_visibles: false,
-          contact_principal_nom: null,
-          contact_principal_telephone: null,
-        },
+        contacts_visibles: false,
+        contact_principal_nom: null,
+        contact_principal_telephone: null,
       });
       render(fiche());
 
@@ -225,6 +348,44 @@ describe('M3.2 / pop-up fiche collecte — espace gestionnaire', () => {
           /transporteur|prestataire/i,
         );
       }
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// Codes VIPARIS (Val 2026-11-02) : le code site du lieu se lit sur la fiche
+// collecte ; le code affaire, porté par l'événement, est sur la fiche événement
+// seule, pas sur la fiche collecte.
+describe('M3.2 / pop-up fiche collecte — codes VIPARIS', () => {
+  it(
+    'VIPARIS/fiche_collecte_code_site_sans_code_affaire — lieu à code site : code site affiché, code affaire absent de la fiche collecte',
+    async () => {
+      const base = ficheGestionnaire();
+      stubFetchFiche(
+        ficheGestionnaire({
+          evenement: { ...base.evenement!, code_site_viparis: 'PCP' },
+        }),
+      );
+      render(fiche());
+      const site = await screen.findByTestId(
+        'code-site-viparis',
+        {},
+        ATTENTE_UI,
+      );
+      expect(site.textContent).toContain('PCP');
+      expect(screen.queryByTestId('code-affaire-viparis')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'VIPARIS/fiche_codes_hors_viparis — lieu sans code site ni code affaire : aucun des deux blocs',
+    async () => {
+      stubFetchFiche(ficheGestionnaire());
+      render(fiche());
+      await screen.findByTestId('bloc-evenement', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('code-affaire-viparis')).toBeNull();
+      expect(screen.queryByTestId('code-site-viparis')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

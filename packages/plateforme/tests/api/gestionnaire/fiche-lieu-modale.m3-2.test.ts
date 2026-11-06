@@ -318,14 +318,16 @@ describe('M3.2 / fiche lieu — lecture', () => {
   it('M3.2/fiche_lieu_demande_en_cours_exposee — une alerte ouverte neutralise le bouton, son contenu ne sort pas', async () => {
     lieuDuParc();
     rls.push({ data: [], error: null });
+    admin.push({ data: { code_site_viparis: null }, error: null });
     admin.push({ data: { id: 'alerte-1' }, error: null });
     const res = await getFiche();
     const json = (await res.json()) as { data: Fiche };
     expect(json.data.demande_modification_possible).toBe(true);
     expect(json.data.demande_modification_en_cours).toBe(true);
     expect(JSON.stringify(json)).not.toContain('alerte-1');
-    expect(tables(admin)).toEqual(['alertes_admin']);
+    expect(tables(admin)).toEqual(['lieux', 'alertes_admin']);
     expect(appelsDe(admin, 'eq').map((a) => a.args)).toEqual([
+      ['id', LIEU],
       ['code', CODE_ALERTE_LIEU_MODIFICATION],
       ['entity_type', 'lieux'],
       ['entity_id', LIEU],
@@ -344,6 +346,7 @@ describe('M3.2 / fiche lieu — lecture', () => {
   it('M3.2/fiche_lieu_demande_lecture_en_echec_500 — l’état de la demande illisible n’est pas rendu comme « aucune demande »', async () => {
     lieuDuParc();
     rls.push({ data: [], error: null });
+    admin.push({ data: { code_site_viparis: null }, error: null });
     admin.push({ data: null, error: { message: 'boom', code: 'XX000' } });
     const res = await getFiche();
     expect(res.status).toBe(500);
@@ -361,12 +364,35 @@ describe('M3.2 / fiche lieu — lecture', () => {
     expect(data.demande_modification_possible).toBe(false);
     // Une demande ouverte par le vrai gestionnaire du lieu ne se lit pas d'ici.
     expect(data.demande_modification_en_cours).toBe(false);
-    expect(admin.appels).toHaveLength(0);
+    // Le service-role ne lit que le code site VIPARIS de CE lieu.
+    expect(tables(admin)).toEqual(['lieux']);
     // Le parc est lu pour SON organisation.
     expect(appelsDe(rls, 'eq').map((a) => a.args)).toContainEqual([
       'organisation_id',
       'org-viparis',
     ]);
+  });
+
+  it('VIPARIS/fiche_lieu_code_site — le code site VIPARIS du lieu est servi, lu en service-role pour CE lieu seul', async () => {
+    lieuDuParc();
+    rls.push({ data: [], error: null });
+    admin.push({ data: { code_site_viparis: 'CNIT2' }, error: null });
+    admin.push({ data: null, error: null });
+    const res = await getFiche();
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as {
+      data: Fiche & { code_site_viparis: string | null };
+    };
+    expect(data.code_site_viparis).toBe('CNIT2');
+    expect(appelsDe(admin, 'select')[0]?.args[0]).toBe('code_site_viparis');
+    expect(appelsDe(admin, 'eq')[0]?.args).toEqual(['id', LIEU]);
+  });
+
+  it('VIPARIS/fiche_lieu_code_site_illisible_500 — lecture du code en échec : 500, jamais une fiche sans code', async () => {
+    lieuDuParc();
+    admin.push({ data: null, error: { message: 'boom', code: 'XX000' } });
+    const res = await getFiche();
+    expect(res.status).toBe(500);
   });
 
   it('M3.2/fiche_lieu_hors_perimetre_sans_lecture_service_role — un lieu que la session ne lit pas : 404, file Admin jamais interrogée', async () => {

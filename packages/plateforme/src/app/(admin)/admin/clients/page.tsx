@@ -2,7 +2,7 @@
 
 import { libelleTypePack } from '@/lib/libelles/pack';
 import { useState, useMemo } from 'react';
-import { Building2, Plus } from 'lucide-react';
+import { BuildingsIcon, PlusIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
@@ -161,16 +161,17 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Bandeau d'en-tête — composant DS PageHero (§10 §5.6, aplat primary-700) */}
+      {/* Bandeau d'en-tête — composant DS PageHero (§10 §5.6, bandeau pâle) */}
       {/* Pas de compteur ici : il vit dans le pied de la FilterBar (D5). */}
       <PageHero
+        icon={<BuildingsIcon className="h-6 w-6" />}
         title="Clients"
         actions={
           // admin_savr ET ops_savr (§06.06 + matrice ops §09) : le layout
           // (admin) et requireStaff bornent déjà aux 2 rôles staff.
           <Button variant="accent" onClick={() => setModalOpen(true)}>
-            <Plus />
-            Nouvelle organisation
+            <PlusIcon />
+            Nouveau client
           </Button>
         }
       />
@@ -181,7 +182,7 @@ export default function ClientsPage() {
       {/* Filtres */}
       <FilterBar
         data-testid="clients-filtres"
-        count={compteurResultats(total, 'organisation', 'organisations')}
+        count={compteurResultats(total, 'client', 'clients')}
         actif={filtresActifs}
         onReset={reset}
       >
@@ -221,12 +222,12 @@ export default function ClientsPage() {
         onRecharger={recharger}
         empty={
           <EmptyState
-            icon={<Building2 />}
-            title="Aucune organisation"
+            icon={<BuildingsIcon />}
+            title="Aucun client"
             description={
               f.q
                 ? 'Aucun résultat pour cette recherche.'
-                : 'Créez la première organisation.'
+                : 'Créez le premier client.'
             }
           />
         }

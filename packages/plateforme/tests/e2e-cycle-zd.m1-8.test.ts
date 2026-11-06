@@ -81,11 +81,12 @@ function makeCollectePdf(overrides: Record<string, unknown> = {}) {
     energie_primaire_evitee_kwh: 120,
     co2_facteurs_snapshot: { version_parametres_at: 'ADEME 2024' },
     nb_camions_demande: 1,
+    // Convives de LA collecte, imprimés sur le bordereau (lot C2, Q5).
+    pax: 250,
     evenements: {
       id: 'ev-m18-001',
       nom_evenement: 'Gala M1.8 Test',
       date_evenement: '2026-07-15',
-      pax: 250,
       organisation_id: 'org-m18-001',
       traiteur_operationnel_organisation_id: null,
       organisations: {
@@ -113,11 +114,12 @@ const COLLECTE_ZD_CLOTUREE_BROUILLON = {
   statut: 'cloturee',
   annulee_cote_savr: false,
   pack_antgaspi_id: null,
+  // Pax et date de LA collecte : base et date du tarif (lot C2, C2 et Q4).
+  pax: 250,
+  date_collecte: '2026-07-15',
   evenements: {
     id: 'ev-m18-001',
     organisation_id: 'org-m18-001',
-    pax: 250,
-    date_evenement: '2026-07-15',
     organisations: {
       mode_facturation_zd: 'par_collecte',
       grille_tarifaire_zd_id: null,
@@ -190,15 +192,14 @@ describe('M1.8 / E2E / scenario-nominal', () => {
     vi.clearAllMocks();
   });
 
-  it('cycle nominal : collecte ZD cloturee → batch PDF 2 jobs + brouillon → valider → emise FZD-2026-00001', async () => {
+  it('cycle nominal : collecte ZD cloturee → batch PDF (bordereau, rapport à télécharger) + brouillon → valider → emise FZD-2026-00001', async () => {
     // ── Étape A : batch PDF J+1 ──────────────────────────────────────────────
-    // NB : ce mock rend `rpc()` thenable (`{single, then}`) → un `await supabase.rpc()`
-    // sans `.single()` consomme une réponse. Les 2 RPC R21a (f_taux_recyclage_moyen_parc
-    // avant la boucle, f_rapport_benchmark_zd dans le helper) consomment donc chacune un slot.
+    // NB : ce mock rend `rpc()` thenable (`{single, then}`). Le batch n'appelle plus
+    // que `f_next_numero_bordereau` : il ne fabrique plus le rapport (fabriqué
+    // au clic, décision Val 2026-10-16) et ne lit rien du parc.
     const sbPdf = makeSupabase([
       { data: [makeCollectePdf()], error: null }, // select collectes
       { data: [], error: null }, // select bordereaux existants
-      { data: null, error: null }, // rpc f_taux_recyclage_moyen_parc (await → then, R21a)
       { count: 1, error: null }, // count collecte_flux (> 0)
       {
         // flux details : poids_reel_kg ici est DÉRIVÉ de pesees_tournees par
@@ -210,23 +211,15 @@ describe('M1.8 / E2E / scenario-nominal', () => {
           { flux_id: 'f1', poids_reel_kg: 100, flux: { nom: 'Biodéchets' } },
         ],
       }, // flux details (dérivés — cf. pgTAP m1_8_collecte_flux_derive)
-      { data: 'BSAV-2026-00001', error: null }, // rpc f_next_numero_bordereau (single)
       {
         data: { nom: 'Strike Transport', siret: '98765432100011' },
       }, // shared.prestataires (transporteur, single)
-      { data: [], error: null }, // rpc f_rapport_benchmark_zd (await → then, R21a)
-      {
-        data: {
-          evenement: {
-            type_evenement_id: 't1',
-            type_evenement: { libelle: 'Gala' },
-          },
-        },
-      }, // resolveRapportBenchmark : fetch type d'événement (R21a benchmark)
-      { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr (single)
+      { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr, sans numéro (single)
+      { data: 'BSAV-2026-00001', error: null }, // rpc f_next_numero_bordereau (single)
+      { data: [{ id: 'bord-new' }], error: null }, // numéro posé sur la ligne
+      { data: null, error: null }, // aucun rapports_rse existant (maybeSingle)
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse (single)
       { data: null, error: null }, // insert job bordereau (then)
-      { data: null, error: null }, // insert job rapport (then)
     ]);
 
     const pdfResult = await runBatchPdfJ1(sbPdf as never);
@@ -238,8 +231,12 @@ describe('M1.8 / E2E / scenario-nominal', () => {
     const types = insertCalls
       .map((c) => c[0].type_document)
       .filter(Boolean) as string[];
-    expect(types).toContain('bordereau-zd');
-    expect(types).toContain('rapport-recyclage-zd');
+    // Le bordereau part au rendu ; le rapport de recyclage n'est plus fabriqué
+    // par le batch : il le sera au clic de celui qui le télécharge (Val 2026-10-16).
+    expect(types).toEqual(['bordereau-zd']);
+    expect(insertCalls.some((c) => c[0].genere_par === 'automatique')).toBe(
+      true,
+    );
 
     // ── Étape B : batch brouillons J+1 ──────────────────────────────────────
     const sbBrouillons = makeSupabase([

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { codeVerificationManquant } from '@/lib/code-verification';
 import { ROLE_PREFIXES, ROUTES } from '@/lib/routes';
 
 // ⚠ EMPLACEMENT : ce fichier DOIT rester dans `src/`. Next 15 cherche le middleware
@@ -41,8 +42,12 @@ const PUBLIC_PREFIXES = [
   ROUTES.signup,
   ROUTES.verifyEmail,
   ROUTES.resetPassword,
+  // Lien de l'email d'invitation : la personne n'a pas encore de mot de passe.
+  ROUTES.invitation,
   // Texte des CGU : accepté à l'inscription, donc lisible AVANT d'avoir un compte.
   ROUTES.cgu,
+  // Politique de confidentialité : lisible sans compte (CDC §15, 3.4).
+  ROUTES.confidentialite,
   ROUTES.interdit,
   // Pages de smoke-test de composants (dev-only, présentationnel, sans donnée
   // sensible) — délibérément hors du gating /admin/* réservé admin_savr/ops_savr.
@@ -148,6 +153,22 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   // app_domain != 'plateforme' → 403 (§09 : un compte TMS ne se logue jamais ici)
   if (appDomain !== null && appDomain !== 'plateforme') {
     return redirect(new URL(ROUTES.interdit, req.url));
+  }
+
+  // Équipe Savr sans code de vérification sur cette session → écran du code
+  // (lib/code-verification.ts). Placé AVANT le contrôle de rôle : l'Admin passe
+  // le code avant tout, y compris avant un 403. L'écran du code lui-même reste
+  // atteignable (sinon boucle) ; il exige une session, d'où sa place ici et non
+  // dans PUBLIC_PREFIXES.
+  if (
+    pathname !== ROUTES.codeVerification &&
+    codeVerificationManquant(role, claims['aal'])
+  ) {
+    const codeUrl = req.nextUrl.clone();
+    codeUrl.pathname = ROUTES.codeVerification;
+    codeUrl.search = '';
+    codeUrl.searchParams.set('next', pathname + req.nextUrl.search);
+    return redirect(codeUrl);
   }
 
   // Vérification du rôle requis pour le préfixe de route (fail-closed) : si la

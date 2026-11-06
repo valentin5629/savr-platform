@@ -74,11 +74,11 @@
     },
     {
       "id": "M0.11/MTS1/pesees-incompletes/batch-skip",
-      "description": "pesées incomplètes : tour DELIVERED sans items flux (batch J+1 skip attendu)"
+      "description": "pesées incomplètes : tour terminé sans poids de flux (batch J+1 skip attendu)"
     },
     {
       "id": "M0.11/MTS1/photos/404-non-bloquant",
-      "description": "photo 404 non bloquante : getPhotos retourne sans erreur même avec URL 404"
+      "description": "photo absente non bloquante : le téléchargement simulé rend null sans erreur"
     },
     {
       "id": "M0.11/MTS1/photos/dedup-cle",
@@ -328,7 +328,7 @@
       "artefact": "packages/adapters/src/mts1/mock.ts",
       "test": "M0.11/MTS1/pesees-incompletes/batch-skip",
       "statut": "implemented",
-      "libelle": "pesées incomplètes : tour DELIVERED sans items flux (batch J+1 skip attendu)"
+      "libelle": "pesées incomplètes : tour terminé sans poids de flux (batch J+1 skip attendu)"
     },
     {
       "id": "M0.11-15",
@@ -336,7 +336,7 @@
       "artefact": "packages/adapters/src/mts1/mock.ts",
       "test": "M0.11/MTS1/photos/404-non-bloquant",
       "statut": "implemented",
-      "libelle": "photo 404 non bloquante : getPhotos retourne sans erreur même avec URL 404"
+      "libelle": "photo absente non bloquante : le téléchargement simulé rend null sans erreur"
     },
     {
       "id": "M0.11-16",
@@ -612,7 +612,7 @@
     },
     {
       "id": "BL-P1-API-09",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:617",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:647",
       "artefact": "packages/plateforme/src/app/api/webhooks/resend/route.ts",
       "test": "signature valide + email.delivered → 200 et statut emails_envoyes = delivered",
       "statut": "implemented",
@@ -620,6 +620,6 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "1feba8e10b9a8c5d7065cfb3ab584be8c33e9913a4ea64f5558ac66344373597"
   }
 }

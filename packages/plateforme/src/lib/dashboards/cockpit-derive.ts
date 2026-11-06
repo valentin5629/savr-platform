@@ -1,7 +1,7 @@
 import { jourParis } from '@savr/shared/src/temps/index.js';
 /**
- * Dérivations pures du dashboard « Cockpit » (R24) — agrégats KPI, séries
- * sparkline, variation N-1, totaux/équivalences CO₂, items du radar benchmark.
+ * Dérivations pures du dashboard « Cockpit » (R24) — agrégats KPI,
+ * variation N-1, totaux/équivalences CO₂, items du radar benchmark.
  *
  * Séparé de la page (client) pour être TESTABLE sans jsdom et RÉUTILISABLE par la
  * déclinaison Cockpit des 5 autres dashboards. Aucune donnée n'est inventée : les
@@ -19,7 +19,12 @@ export interface TraiteurKpiRow {
   taux_recyclage_pondere: number | null;
   nb_repas_donnes: number | null;
   marge_zd_ht: number | null;
+  /** Σ pax des collectes clôturées de la ligne (lot 3, décisions Val du 2026-10-25). */
   pax_total: number;
+  /** Poids (ZD) et repas (AG) des seules collectes à convives connus :
+   *  numérateurs de kg/pax et repas/pax (collecte à 0 convive écartée). */
+  tonnage_kg_pax_connu?: number | null;
+  nb_repas_pax_connu?: number | null;
   co2_evite_kg?: number | null;
   co2_induit_kg?: number | null;
   co2_net_kg?: number | null;
@@ -59,8 +64,10 @@ export interface KpiAgg {
   repas: number;
   /** Taux de recyclage pondéré par tonnage (%) — null si aucun tonnage tracé. */
   taux: number | null;
-  /** kg/pax moyen — null si pax = 0. */
+  /** kg/pax moyen (collectes à convives connus) — null si pax = 0. */
   kgPax: number | null;
+  /** Repas/pax moyen (collectes à convives connus) — null si pax = 0. */
+  repasPax: number | null;
   /** Marge ZD HT (€) — null si aucune ligne ne porte de marge. */
   marge: number | null;
 }
@@ -84,13 +91,25 @@ export function aggregateKpis(rows: TraiteurKpiRow[]): KpiAgg {
     0,
   );
   const taux = tauxDen > 0 ? tauxNum / tauxDen : null;
-  const kgPax = pax > 0 ? tonnage / pax : null;
+  const kgPax = ratioLignes(rows, (r) => r.tonnage_kg_pax_connu);
+  const repasPax = ratioLignes(rows, (r) => r.nb_repas_pax_connu);
   const margeRows = rows.filter((r) => r.marge_zd_ht != null);
   const marge =
     margeRows.length > 0
       ? margeRows.reduce((s, r) => s + num(r.marge_zd_ht), 0)
       : null;
-  return { nbCollectes, tonnage, pax, repas, taux, kgPax, marge };
+  return { nbCollectes, tonnage, pax, repas, taux, kgPax, repasPax, marge };
+}
+
+/** Σ numérateur / Σ pax_total des lignes ; null si aucun pax. */
+function ratioLignes(
+  rows: TraiteurKpiRow[],
+  numerateur: (r: TraiteurKpiRow) => number | string | null | undefined,
+): number | null {
+  const pax = rows.reduce((s, r) => s + num(r.pax_total), 0);
+  return pax > 0
+    ? rows.reduce((s, r) => s + num(numerateur(r)), 0) / pax
+    : null;
 }
 
 export interface Co2Totals {
@@ -161,34 +180,6 @@ export function co2Equivalences(
 export function variationPct(current: number, previous: number): number | null {
   if (!Number.isFinite(previous) || previous === 0) return null;
   return ((current - previous) / previous) * 100;
-}
-
-/**
- * Série sparkline : une valeur par mois, triée chronologiquement. Renvoie `[]` si
- * moins de 2 points (la Sparkline se masque d'elle-même sous 2 points).
- */
-export function sparkFromRows(
-  rows: TraiteurKpiRow[],
-  pick: (r: TraiteurKpiRow) => number | string | null | undefined,
-): number[] {
-  const pts = [...rows]
-    .sort((a, b) => a.mois.localeCompare(b.mois))
-    .map((r) => num(pick(r)));
-  return pts.length >= 2 ? pts : [];
-}
-
-/**
- * Série sparkline depuis une série d'évolution (buckets déjà triés
- * chronologiquement : `buildEvolutionSeries`). Même règle que `sparkFromRows` :
- * `[]` sous 2 points. Sert aux dashboards sans lignes mensuelles KPI
- * (gestionnaire, Dashboard Client Admin).
- */
-export function sparkFromSeries<T>(
-  series: T[],
-  pick: (p: T) => number | string | null | undefined,
-): number[] {
-  const pts = series.map((p) => num(pick(p)));
-  return pts.length >= 2 ? pts : [];
 }
 
 /** Ligne renvoyée par f_benchmark_kg_pax_zd (grain flux × type × taille). */

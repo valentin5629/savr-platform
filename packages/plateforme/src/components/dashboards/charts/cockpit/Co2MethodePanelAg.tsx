@@ -53,7 +53,7 @@ export function Co2MethodePanelAg({
   const evite = fmtMasse(eviteKg);
   return (
     <section className="rounded-savr-lg border border-savr-neutral-200 bg-savr-neutral-50 p-5">
-      <h4 className="text-[15px] font-extrabold text-savr-neutral-900">
+      <h4 className="text-md font-extrabold text-savr-neutral-900">
         Comment ce chiffre est-il calculé ?
       </h4>
       <Text className="mt-0.5">

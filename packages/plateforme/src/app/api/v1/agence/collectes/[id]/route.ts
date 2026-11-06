@@ -5,24 +5,26 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
+import { refusPaxCollecte } from '@/lib/pax-collecte.js';
 import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
+import {
+  CHAMPS_COLLECTE_EDITABLES,
+  CHAMPS_COLLECTE_VERROUILLES,
+} from '@/lib/collectes/champs-editables.js';
+import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
+import { lireContactsCollecte } from '@/lib/collectes/contacts-collecte.js';
+import { refusTypeContactsCollecte } from '@/lib/collectes/type-contacts-collecte.js';
+import { envoyerOrdresSansAttendre } from '@/lib/envoi-immediat.js';
+import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
+
+// Envoi immédiat après la réponse : limite exigée de toute route qui le
+// déclenche (cf. lib/envoi-immediat.ts).
+export const maxDuration = 60;
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
-
-// Champs métier éditables (réplique §06.04 §Édition, sobriété A4). type/lieu/traiteur
-// verrouillés → rejetés explicitement.
-// `notes_internes` exclu : commentaire Admin Savr (§04), arbitrage Val C1.
-const EDITABLE_FIELDS = [
-  'date_collecte',
-  'heure_collecte',
-  'controle_acces_requis',
-  'informations_supplementaires',
-];
-const LOCKED_FIELDS = ['type', 'type_collecte', 'lieu_id', 'organisation_id'];
 
 // Résolution du nom du traiteur opérationnel (§06.11 diff #3).
 // La RLS organisations n'autorise pas l'agence à lire le référentiel → on passe
@@ -106,7 +108,7 @@ export async function PATCH(
   const { id } = await params;
   const body = (await req.json()) as Record<string, unknown>;
 
-  const lockedAttempt = LOCKED_FIELDS.filter((f) => f in body);
+  const lockedAttempt = CHAMPS_COLLECTE_VERROUILLES.filter((f) => f in body);
   if (lockedAttempt.length > 0) {
     return NextResponse.json(
       {
@@ -119,7 +121,7 @@ export async function PATCH(
   }
 
   const updates = Object.fromEntries(
-    Object.entries(body).filter(([k]) => EDITABLE_FIELDS.includes(k)),
+    Object.entries(body).filter(([k]) => CHAMPS_COLLECTE_EDITABLES.includes(k)),
   );
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
@@ -140,6 +142,21 @@ export async function PATCH(
     const refusHeure = refusHeureCollecte(updates.heure_collecte);
     if (refusHeure) return refusHeure;
   }
+
+  // Pax de la collecte (décision Val 2026-10-20) : entier >= 1, refusé en 422
+  // avant la RPC (qui le refuserait aussi, mais en erreur serveur).
+  if (Object.hasOwn(updates, 'pax')) {
+    const refusPax = refusPaxCollecte(updates.pax);
+    if (refusPax) return refusPax;
+  }
+
+  // Type d'événement et contacts de la collecte (lot B1, décision Val
+  // 2026-10-23) : refusés en 422 avant la RPC s'ils sont vides ou inconnus.
+  const refusTypeContacts = await refusTypeContactsCollecte(
+    createAdminSupabaseClient(),
+    updates,
+  );
+  if (refusTypeContacts) return refusTypeContacts;
 
   // Lecture RLS-scopée (donneur d'ordre) + gate statut
   const rls = createSupabaseServerClient();
@@ -164,6 +181,28 @@ export async function PATCH(
     );
   }
 
+  // Périmètre d'écriture agence (miroir de la route gestionnaire) : ses propres
+  // programmations (organisation_id = son orga). L'écriture qui suit passe par le
+  // client de service : sans cette borne, seule la lecture RLS ci-dessus la
+  // limiterait.
+  const evenement = Array.isArray(collecte.evenement)
+    ? collecte.evenement[0]
+    : collecte.evenement;
+  if (evenement?.organisation_id !== auth.ctx.organisationId) {
+    return NextResponse.json(
+      { error: 'Modification non autorisée' },
+      { status: 403 },
+    );
+  }
+
+  // Débit des écritures clientes (cf. lib/frein-ecritures-client). L'identifiant
+  // est celui que rend la base, jamais le paramètre d'URL.
+  const frein = freinerEcritureCliente({
+    organisationId: auth.ctx.organisationId,
+    modification: { collecte: collecte.id },
+  });
+  if (frein) return frein;
+
   // Réacceptation prestataire si le créneau change (cascade E2 informe le TMS)
   const dateHeureModifiee =
     'date_collecte' in updates || 'heure_collecte' in updates;
@@ -174,12 +213,31 @@ export async function PATCH(
   }
 
   const admin = createAdminSupabaseClient();
+  // État d'avant l'écriture : valeurs « avant » de l'email à l'équipe Savr.
+  const { data: beforeCollecte } = await admin
+    .from('collectes')
+    .select('*')
+    .eq('id', id)
+    .single();
+  // Contacts de la collecte (collecte_contacts, lot B1) : valeurs « avant » de
+  // l'email à l'équipe Savr.
+  const lectureContacts = await lireContactsCollecte(admin, id);
+  if ('erreur' in lectureContacts)
+    return serverError(lectureContacts.erreur, 'agence.collectes.contacts');
+  const before = beforeCollecte
+    ? { ...beforeCollecte, ...(lectureContacts.contacts ?? {}) }
+    : beforeCollecte;
+
   const { data: updated, error } = await admin.rpc('fn_modifier_collecte', {
     p_id: id,
     p_updates: updates,
     p_champs_modifies: Object.keys(updates),
   });
   if (error) return serverError(error, 'agence.collectes.update');
+
+  // L'ordre éventuel est en file : il part sans attendre le passage planifié
+  // (décision Val 2026-10-12).
+  envoyerOrdresSansAttendre(collecte.id);
 
   if (reacceptation_requise) {
     await admin
@@ -188,17 +246,15 @@ export async function PATCH(
       .eq('id', id);
   }
 
-  // BL-P2-22 (tpl 21, modification) : info-only au traiteur opérationnel — l'agence
-  // est un tiers dès que le traiteur op est une org distincte non-shadow (garde
-  // dans le helper). Best-effort.
-  void notifierTraiteurOperationnel(admin, {
+  // Email à l'équipe Savr (cf. lib/collectes/email-modification).
+  await notifierEquipeModificationCollecte(admin, req, {
     collecteId: id,
-    acteurOrgId: auth.ctx.organisationId,
-    changement: {
-      kind: 'modification',
-      champsModifies: Object.keys(updates),
-    },
-  }).catch(() => undefined);
+    acteurUserId: auth.ctx.userId,
+    collecteAvant: before,
+    majCollecte: updates,
+    evenementModifiePar:
+      body.evenement_modifie === true ? auth.ctx.userId : undefined,
+  });
 
   return NextResponse.json({
     data: updated,

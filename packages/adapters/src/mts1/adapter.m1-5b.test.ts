@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // L'upload R2 (signature Sig V4) vit dans @savr/shared (uploadObject) — mocké ici
-// pour piloter succès/échec sans appel R2 réel (BL-P0-02). Par défaut : résout.
+// pour piloter succès/échec sans appel R2 réel (BL-P0-02). Par défaut : résout en
+// rendant l'objet écrit (l'adapter persiste le bucket de ce retour).
 vi.mock('@savr/shared/src/r2/upload.js', () => ({
-  uploadObject: vi.fn(),
+  uploadObject: vi.fn(async (key: string) => ({
+    bucket: 'savr-test',
+    key,
+    storageKey: `savr-test/${key}`,
+  })),
 }));
 
 import { uploadObject } from '@savr/shared/src/r2/upload.js';
@@ -13,94 +18,63 @@ import {
   builderTransporteurs,
 } from '../mock-referentiel-transporteurs.js';
 import { AdapterMts1 } from './adapter.js';
-import type {
-  Mts1Carrier,
-  Mts1CustomerOrder,
-  Mts1Photo,
-  Mts1Tour,
-} from './mock.js';
+import type { Mts1Carrier, Mts1CustomerOrder, Mts1Tour } from './mock.js';
 import { _setMts1Handlers } from './mock.js';
+import { stuffSimule, tourSimule } from './mock-tour.js';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
+// Tours dans la forme mesurée le 2026-10-13 (valeurs inventées) : les stuffs sont
+// sur l'arrêt d'enlèvement ET répétés sur l'arrêt de dépôt, les kilos dans
+// `quantityAfterPickup`.
 
-const TOUR_NOMINAL: Mts1Tour = {
+const TOUR_NOMINAL: Mts1Tour = tourSimule({
   tourId: 'MTS1-TOUR-ZD-001',
-  externalReference: 'tour_strike_001',
-  status: 'OK',
-  startedAt: '2026-07-15T22:00:00Z',
-  completedAt: '2026-07-16T00:00:00Z',
-  stops: [
-    {
-      stopId: 'stop-001',
-      address: '1 Place de la Porte de Versailles, 75015 Paris',
-      completedAt: '2026-07-15T23:45:00Z',
-      items: [
-        { stuff: '<volume_du_camion>', qty: 1, weight: null },
-        { stuff: 'Bio-déchets (en kg)', qty: 1, weight: 234.5 },
-        { stuff: 'Carton (en kg)', qty: 1, weight: 87.2 },
-        { stuff: 'D.I.B (en kg)', qty: 1, weight: 45.0 },
-        { stuff: 'Film plastique (en kg)', qty: 1, weight: 12.8 },
-        { stuff: 'Verre (en kg)', qty: 1, weight: 156.3 },
-      ],
-    },
+  customerOrderId: 'MTS1-ORDER-001',
+  stopId: 'stop-001',
+  stuffs: [
+    stuffSimule('<volume_du_camion>', 1, 1),
+    stuffSimule('Bio-déchets (en kg)', 234.5),
+    stuffSimule('Carton (en kg)', 87.2),
+    stuffSimule('D.I.B (en kg)', 45.0),
+    stuffSimule('Film plastique (en kg)', 12.8),
+    stuffSimule('Verre (en kg)', 156.3),
   ],
-};
+});
 
-const TOUR_STUFF_INCONNU: Mts1Tour = {
-  ...TOUR_NOMINAL,
+const TOUR_STUFF_INCONNU: Mts1Tour = tourSimule({
   tourId: 'MTS1-TOUR-ZD-002',
-  stops: [
-    {
-      stopId: 'stop-002',
-      address: '2 Rue du Test, 75001 Paris',
-      completedAt: '2026-07-15T23:30:00Z',
-      items: [
-        { stuff: 'Bio-déchets (en kg)', qty: 1, weight: 178.0 },
-        { stuff: 'Gravats (en kg)', qty: 1, weight: 320.0 }, // inconnu
-      ],
-    },
+  customerOrderId: 'MTS1-ORDER-001',
+  stopId: 'stop-002',
+  stuffs: [
+    stuffSimule('Bio-déchets (en kg)', 178.0),
+    stuffSimule('Gravats (en kg)', 320.0), // inconnu
   ],
-};
+});
 
-const PHOTOS_NOMINAL: Mts1Photo[] = [
-  {
-    tourId: 'MTS1-TOUR-ZD-001',
-    stopId: 'stop-001',
-    photoId: 'photo-001-a',
-    url: 'https://mts1-storage.example.com/photos/photo-001-a.jpg',
-    takenAt: '2026-07-15T23:15:00Z',
-    type: 'PESEE',
-    weight_kg: null,
-  },
-];
-
-const PHOTOS_404: Mts1Photo[] = [
-  {
-    tourId: 'MTS1-TOUR-ZD-001',
-    stopId: 'stop-001',
-    photoId: 'photo-404',
-    url: 'https://mts1-storage.example.com/photos/not-found-404.jpg',
-    takenAt: '2026-07-15T23:15:00Z',
-    type: 'PESEE',
-    weight_kg: null,
-  },
-];
+// Le même tour, avec une photo sur l'arrêt d'enlèvement.
+const TOUR_AVEC_PHOTO: Mts1Tour = tourSimule({
+  tourId: 'MTS1-TOUR-ZD-001',
+  customerOrderId: 'MTS1-ORDER-001',
+  stopId: 'stop-001',
+  stuffs: TOUR_NOMINAL.stops![0]!.stuffs!,
+  photosEnlevement: ['photo-001-a'],
+});
 
 const ORDER_VALIDATED: Mts1CustomerOrder = {
-  id: 'MTS1-ORDER-001',
-  externalReference: 'col-zd-001-1',
-  status: 'VALIDATED',
-  pickupDate: '2026-07-15T22:00:00Z',
+  customerOrderId: 'MTS1-ORDER-001',
+  orderNumber: 'col-zd-001-1',
+  customerOrderStatus: 'VALIDATED',
+  orderDate: '2026-07-15T22:00:00.000Z',
 };
 
 const ORDER_IN_PROGRESSION: Mts1CustomerOrder = {
   ...ORDER_VALIDATED,
-  status: 'IN_PROGRESSION',
+  customerOrderStatus: 'IN_PROGRESSION',
 };
 
 const ORDER_OK: Mts1CustomerOrder = {
   ...ORDER_VALIDATED,
-  status: 'OK',
+  customerOrderStatus: 'OK',
 };
 
 // ─── Mock Supabase ────────────────────────────────────────────────────────────
@@ -124,16 +98,18 @@ function makeSyncSupabase(opts: {
   } | null;
   /** La photo existe déjà dans shared.fichiers ? */
   photoExistante?: boolean;
-  /** La pesée existe déjà dans pesees_tournees ? */
-  peseeExistante?: { poids_kg: number } | null;
-  /** integrations_inbox claim (upsert) retourne 0 ligne (conflit concurrent) ? */
-  inboxClaimRetourneRien?: boolean;
+  /** Pesées déjà écrites pour l'arrêt (lecture de liste de pesees_tournees). */
+  peseesExistantes?: Array<{ flux_id: string; poids_kg: number }>;
+  /** La réservation du statut bute sur l'unicité (23505) : clé déjà posée. */
+  statutDejaReserve?: boolean;
   /** integrations_inbox claim renvoie une erreur DB (code testé : ≠23505 propage) */
   inboxClaimError?: { code: string; message?: string };
   /** ligne integrations_inbox déjà existante au re-query (crash-recovery A4-A2) */
   inboxExistant?: { traite: boolean };
   /** collecte.statut_tms courant */
   collecteStatutTms?: string;
+  /** L'état d'attribution de la tournée nominale a déjà été relevé. */
+  attributionDejaVue?: boolean;
 }) {
   const calls: TableCall[] = [];
 
@@ -147,29 +123,48 @@ function makeSyncSupabase(opts: {
           collecteStatut: 'validee',
         };
 
+  const DOUBLON = {
+    code: '23505',
+    message: 'duplicate key value violates unique constraint',
+  };
+
   function makeQuery(table: string) {
     const q: Record<string, unknown> = {};
     const filters: Record<string, unknown> = {};
+    let derniere: { op: string; data?: unknown } = { op: '' };
+
+    // Résultat d'une chaîne attendue telle quelle (ni maybeSingle ni limit) :
+    // la liste des pesées de l'arrêt.
+    const resultatDirect = () => {
+      if (table === 'pesees_tournees' && derniere.op === 'select') {
+        return { data: opts.peseesExistantes ?? [], error: null };
+      }
+      return { data: null, error: null };
+    };
 
     const self = {
+      then: (
+        resolve: (v: unknown) => unknown,
+        reject?: (e: unknown) => unknown,
+      ) => Promise.resolve(resultatDirect()).then(resolve, reject),
       select: vi.fn((_fields?: string) => {
         calls.push({ table, op: 'select', filters });
+        if (derniere.op !== 'insert') derniere = { op: 'select' };
         return self;
       }),
       insert: vi.fn((data: unknown) => {
         calls.push({ table, op: 'insert', data, filters });
-        // integrations_inbox : simule ON CONFLICT DO NOTHING
-        if (table === 'integrations_inbox' && opts.inboxClaimRetourneRien) {
-          return { ...self, data: [] };
-        }
-        return { ...self, data: [{ id: 'inbox-001' }] };
+        derniere = { op: 'insert', data };
+        return self;
       }),
       upsert: vi.fn((data: unknown) => {
         calls.push({ table, op: 'upsert', data, filters });
+        derniere = { op: 'upsert', data };
         return self;
       }),
       update: vi.fn((data: unknown) => {
         calls.push({ table, op: 'update', data, filters });
+        derniere = { op: 'update', data };
         return self;
       }),
       eq: vi.fn((col: string, val: unknown) => {
@@ -180,10 +175,29 @@ function makeSyncSupabase(opts: {
         filters[col] = vals;
         return self;
       }),
+      neq: vi.fn((col: string, val: unknown) => {
+        filters[`neq:${col}`] = val;
+        return self;
+      }),
       limit: vi.fn((_n: number) => {
-        // integrations_inbox claim (upsert ON CONFLICT DO NOTHING) :
+        // integrations_inbox, lecture seule (clé d'attribution déjà relevée ?).
+        if (table === 'integrations_inbox' && derniere.op === 'select') {
+          // État déjà vu = celui de la tournée nominale (acceptée).
+          return Promise.resolve({
+            data: opts.attributionDejaVue
+              ? [
+                  {
+                    id: 'inbox-attribution',
+                    payload: { etat: 'MTS1-TOUR-ZD-001:2' },
+                  },
+                ]
+              : [],
+            error: null,
+          });
+        }
+        // integrations_inbox, réservation du statut (INSERT nu … RETURNING id) :
         //   - erreur DB simulée → propagée par l'adapter si code≠23505 (OUTBOX-04)
-        //   - 0 ligne = conflit concurrent ; sinon la ligne claimée
+        //   - 23505 = clé déjà posée ; sinon la ligne réservée
         if (table === 'integrations_inbox') {
           if (opts.inboxClaimError) {
             return Promise.resolve({
@@ -194,8 +208,10 @@ function makeSyncSupabase(opts: {
               },
             });
           }
-          const row = opts.inboxClaimRetourneRien ? [] : [{ id: 'inbox-001' }];
-          return Promise.resolve({ data: row, error: null });
+          if (opts.statutDejaReserve) {
+            return Promise.resolve({ data: null, error: DOUBLON });
+          }
+          return Promise.resolve({ data: [{ id: 'inbox-001' }], error: null });
         }
         return Promise.resolve({ data: [], error: null });
       }),
@@ -219,14 +235,23 @@ function makeSyncSupabase(opts: {
           return Promise.resolve({
             data: {
               id: tourneeInfo.tourneeId,
+              statut: 'planifiee',
               tms_reference: tourneeInfo.tmsReference,
+              prestataire_logistique_id:
+                tourneeInfo.prestataireId ?? PRESTA_MTS1,
               collecte_tournees: [
                 {
                   collecte_id: tourneeInfo.collecteId,
+                  rang: 1,
                   // FK sortante `collecte_tournees.collecte_id` → OBJET.
                   collectes: {
                     id: tourneeInfo.collecteId,
                     statut: tourneeInfo.collecteStatut,
+                    statut_tms:
+                      opts.collecteStatutTms ??
+                      'attribuee_en_attente_acceptation',
+                    prestataire_logistique_id:
+                      tourneeInfo.prestataireId ?? PRESTA_MTS1,
                   },
                 },
               ],
@@ -240,12 +265,6 @@ function makeSyncSupabase(opts: {
             data: opts.inboxExistant
               ? { id: 'inbox-001', traite: opts.inboxExistant.traite }
               : null,
-            error: null,
-          });
-        }
-        if (table === 'pesees_tournees') {
-          return Promise.resolve({
-            data: opts.peseeExistante ?? null,
             error: null,
           });
         }
@@ -302,9 +321,20 @@ function makeSyncSupabase(opts: {
     from: fromFn,
     schema: vi.fn((_s: string) => ({ from: fromFn })),
     // f_upsert_alerte_admin (pesée hors seuil / divergence post-clôture) passe par rpc
-    rpc: vi.fn(async (name: string, args?: unknown) => {
+    // L'agrégation se lit par `.single()`, les alertes s'attendent telles quelles.
+    rpc: vi.fn((name: string, args?: unknown) => {
       calls.push({ table: name, op: 'rpc', data: args });
-      return { data: null, error: null };
+      const resultat = {
+        data: name === 'fn_agreger_terminal_collecte' ? 'pending' : null,
+        error: null,
+      };
+      return {
+        single: () => Promise.resolve(resultat),
+        then: (
+          resolve: (v: unknown) => unknown,
+          reject?: (e: unknown) => unknown,
+        ) => Promise.resolve(resultat).then(resolve, reject),
+      };
     }),
     _calls: calls,
   };
@@ -319,16 +349,10 @@ function makeSyncSupabase(opts: {
 describe('M1.5b / AdapterMts1.sync — nominal', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it('M1.5b-1 / poll nominal VALIDATED → statut_tms="acceptee", pesées upsertées, photo uploadée', async () => {
+  it('M1.5b-1 / poll nominal, tournée acceptée par le transporteur → statut_tms="acceptee", pesées upsertées, photo uploadée', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
-      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue(PHOTOS_NOMINAL),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
+      getTour: vi.fn().mockResolvedValue(TOUR_AVEC_PHOTO),
       postOrder: vi.fn(),
     });
 
@@ -350,10 +374,9 @@ describe('M1.5b / AdapterMts1.sync — nominal', () => {
 
     const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
 
-    // Vérifier qu'un claim inbox ATOMIQUE (upsert ON CONFLICT) a bien eu lieu
-    // (OUTBOX-04 : plus de .insert() check-then-act).
+    // Le statut est réservé par un INSERT nu (OUTBOX-04 : l'unicité arbitre).
     const inboxClaim = calls.find(
-      (c) => c.table === 'integrations_inbox' && c.op === 'upsert',
+      (c) => c.table === 'integrations_inbox' && c.op === 'insert',
     );
     expect(inboxClaim).toBeDefined();
 
@@ -366,11 +389,15 @@ describe('M1.5b / AdapterMts1.sync — nominal', () => {
       (collecteUpdate!.data as Record<string, unknown>)['statut_tms'],
     ).toBe('acceptee');
 
-    // Vérifier upsert pesées (5 flux valides)
+    // Vérifier upsert pesées : 5 flux, lus sur l'arrêt d'enlèvement seul (les
+    // mêmes stuffs sont répétés sur l'arrêt de dépôt ; les lire donnerait 10).
     const peseesUpserts = calls.filter(
       (c) => c.table === 'pesees_tournees' && c.op === 'upsert',
     );
     expect(peseesUpserts.length).toBe(5);
+    expect(
+      peseesUpserts.map((c) => (c.data as { stop_id: string }).stop_id),
+    ).toEqual(['stop-001', 'stop-001', 'stop-001', 'stop-001', 'stop-001']);
 
     // Vérifier insert photo dans fichiers
     const fichierInsert = calls.find(
@@ -419,14 +446,8 @@ describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
   it('M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque + chauffeur_nom', async () => {
     const getCarrier = vi.fn().mockResolvedValue(CARRIER_FIXTURE);
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_WITH_DISPATCH),
-      getPhotos: vi.fn().mockResolvedValue([]),
       getCarrier,
       postOrder: vi.fn(),
     });
@@ -469,14 +490,8 @@ describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
   it('M1.5b-carrier / tour sans dispatch → aucun appel carrier, aucune écriture plaque', async () => {
     const getCarrier = vi.fn().mockResolvedValue(CARRIER_FIXTURE);
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL), // pas de dispatch
-      getPhotos: vi.fn().mockResolvedValue([]),
       getCarrier,
       postOrder: vi.fn(),
     });
@@ -513,14 +528,8 @@ describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
   it('M1.5b-carrier / téléphone NON exposé par MTS-1 → chauffeur_telephone reste NULL (as-built §6)', async () => {
     const getCarrier = vi.fn().mockResolvedValue(CARRIER_FIXTURE); // transporters[] sans phone
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_WITH_DISPATCH),
-      getPhotos: vi.fn().mockResolvedValue([]),
       getCarrier,
       postOrder: vi.fn(),
     });
@@ -580,14 +589,8 @@ describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
     ];
     const getCarrier = vi.fn().mockResolvedValue(carrierAvecTel);
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn().mockResolvedValue(TOUR_WITH_DISPATCH),
-      getPhotos: vi.fn().mockResolvedValue([]),
       getCarrier,
       postOrder: vi.fn(),
     });
@@ -625,20 +628,21 @@ describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
 describe('M1.5b / AdapterMts1.sync — dédup statut', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it('M1.5b-2 / même ordre même statut → claim inbox retourne rien → skip complet', async () => {
+  it('M1.5b-2 / même ordre même statut → statut non rejoué, tour relu quand même', async () => {
+    const getTour = vi.fn().mockResolvedValue(TOUR_NOMINAL);
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
-      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue([]),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
+      getTour,
       postOrder: vi.fn(),
     });
 
-    const supabase = makeSyncSupabase({ inboxClaimRetourneRien: true });
+    // La clé du statut est déjà posée (23505) et entièrement traitée (re-lecture
+    // = null par défaut → tenu pour traité). L'état d'attribution de la tournée
+    // aussi : il a sa propre clé (adapter.attribution-transporteur.test.ts).
+    const supabase = makeSyncSupabase({
+      statutDejaReserve: true,
+      attributionDejaVue: true,
+    });
     const adapter = new AdapterMts1(
       {
         id: 'presta-001',
@@ -656,17 +660,19 @@ describe('M1.5b / AdapterMts1.sync — dédup statut', () => {
 
     const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
 
-    // Aucune mise à jour collectes (skip total après dédup)
+    // Le statut n'est pas rejoué : aucune mise à jour de la collecte.
     const collecteUpdate = calls.find(
       (c) => c.table === 'collectes' && c.op === 'update',
     );
     expect(collecteUpdate).toBeUndefined();
 
-    // Aucun upsert pesées
+    // Le tour, lui, est relu à chaque passage (§08 §3bis.7, décision Val
+    // 2026-10-13) : les pesées qui manquaient sont écrites.
+    expect(getTour).toHaveBeenCalledOnce();
     const peseesUpserts = calls.filter(
       (c) => c.table === 'pesees_tournees' && c.op === 'upsert',
     );
-    expect(peseesUpserts.length).toBe(0);
+    expect(peseesUpserts.length).toBe(5);
   });
 });
 
@@ -675,17 +681,13 @@ describe('M1.5b / AdapterMts1.sync — IN_PROGRESSION', () => {
 
   it('M1.5b-3 / IN_PROGRESSION → collectes.statut mis à en_cours (pas de changement statut_tms)', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_IN_PROGRESSION],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_IN_PROGRESSION]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
+    // L'attribution de la tournée est déjà relevée : seul le statut de la
+    // commande joue ici.
     const supabase = makeSyncSupabase({
       tourneeInfo: {
         collecteId: 'col-001',
@@ -693,6 +695,7 @@ describe('M1.5b / AdapterMts1.sync — IN_PROGRESSION', () => {
         tmsReference: 'MTS1-TOUR-ZD-001',
         collecteStatut: 'validee',
       },
+      attributionDejaVue: true,
     });
     const adapter = new AdapterMts1(
       {
@@ -736,14 +739,8 @@ describe('M1.5b / AdapterMts1.sync — stuff inconnu', () => {
 
   it('M1.5b-4 / stuff inconnu → integrations_logs STUFF_INCONNU, pesées connues upsertées quand même', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(TOUR_STUFF_INCONNU),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
@@ -796,14 +793,8 @@ describe('M1.5b / AdapterMts1.sync — divergence post-clôture', () => {
 
   it('M1.5b-5 / collecte cloturee + poids différent → aucune écriture + log PESEE_DIVERGENCE_POST_CLOTURE', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
@@ -815,7 +806,7 @@ describe('M1.5b / AdapterMts1.sync — divergence post-clôture', () => {
         collecteStatut: 'cloturee',
       },
       // Pesée locale différente du distant (234.5 vs 200.0)
-      peseeExistante: { poids_kg: 200.0 },
+      peseesExistantes: [{ flux_id: 'flux-biodechet', poids_kg: 200.0 }],
     });
     const adapter = new AdapterMts1(
       {
@@ -864,134 +855,117 @@ describe('M1.5b / AdapterMts1.sync — divergence post-clôture', () => {
   });
 });
 
-// ─── OUTBOX-04 : claim entrant atomique (upsert ON CONFLICT) ──────────────────
+// ─── OUTBOX-04 : réservation atomique du statut (INSERT nu, unicité) ──────────
+// ⚠ Jamais d'`upsert … onConflict` sur integrations_inbox : son index unique est
+// PARTIEL et PostgreSQL ne l'infère pas sans son prédicat. Mesuré le 2026-10-13
+// sur la base locale, en SQL comme par l'API : 42P10. Écrite ainsi, la
+// réservation échouait pour chaque commande sur une base réelle (la base
+// simulée de ces tests ne pouvait pas le voir).
 describe('M1.5b / AdapterMts1.sync — claim entrant atomique (BL-P1-OUTBOX-04)', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it('conflit concurrent (0 ligne) + traité → skip complet (aucun upsert pesées)', async () => {
+  const TRANSPORTEUR = {
+    id: 'presta-001',
+    type_tms: 'mts1',
+    code_transporteur_mts1: 'STRIKE',
+    prestataire_logistique_id: 'presta-001',
+  } as const;
+  const FENETRE = {
+    depuis: new Date('2026-07-15T00:00:00Z'),
+    jusqu_a: new Date('2026-07-17T00:00:00Z'),
+  };
+  const handlers = () =>
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
-    // upsert renvoie 0 ligne (un run concurrent a claimé l'event) ; le re-query
-    // existant (maybeSingle integrations_inbox = null par défaut → considéré traité)
-    // → skip. Aucune double-écriture.
-    const supabase = makeSyncSupabase({ inboxClaimRetourneRien: true });
-    const adapter = new AdapterMts1(
-      {
-        id: 'presta-001',
-        type_tms: 'mts1',
-        code_transporteur_mts1: 'STRIKE',
-        prestataire_logistique_id: 'presta-001',
-      },
-      supabase,
-    );
-
-    await adapter.sync({
-      depuis: new Date('2026-07-15T00:00:00Z'),
-      jusqu_a: new Date('2026-07-17T00:00:00Z'),
-    });
+  it('M1.5b/releve_reservation_statut_insert — le statut est réservé par un INSERT, jamais par un upsert', async () => {
+    handlers();
+    const supabase = makeSyncSupabase({});
+    await new AdapterMts1(TRANSPORTEUR, supabase).sync(FENETRE);
 
     const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
-    // Claim via upsert (jamais .insert check-then-act)
+    const reservations = calls.filter(
+      (c) =>
+        c.table === 'integrations_inbox' &&
+        c.op === 'insert' &&
+        (c.data as Record<string, unknown>)['event_type'] === 'order_status',
+    );
+    expect(reservations).toHaveLength(1);
+    expect(reservations[0]!.data).toEqual({
+      source: 'mts1',
+      event_type: 'order_status',
+      event_id_externe: 'mts1:MTS1-ORDER-001:OK',
+      payload: { orderId: 'MTS1-ORDER-001', status: 'OK' },
+    });
     expect(
       calls.some((c) => c.table === 'integrations_inbox' && c.op === 'upsert'),
-    ).toBe(true);
-    expect(
-      calls.some((c) => c.table === 'integrations_inbox' && c.op === 'insert'),
     ).toBe(false);
-    // Skippé → aucune pesée upsertée
-    expect(
-      calls.filter((c) => c.table === 'pesees_tournees' && c.op === 'upsert')
-        .length,
-    ).toBe(0);
   });
 
-  it('conflit (0 ligne) mais event NON traité (crash-recovery A4-A2) → REJOUE (effets idempotents)', async () => {
-    _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
-      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue([]),
-      postOrder: vi.fn(),
-    });
-
-    // upsert renvoie 0 ligne (clé déjà posée par un run précédent CRASHÉ avant
-    // markInboxDone) ; le re-query trouve la ligne avec traite=false → on REJOUE
-    // (tous les effets sont idempotents : upsert pesées par clé, etc.). Sans ce
-    // replay, la collecte ne passerait jamais realisee (A4-A2).
+  it('clé déjà posée (23505) et statut traité → statut non rejoué (ni collecte, ni tournée, ni agrégation)', async () => {
+    handlers();
+    // La re-lecture de la ligne rend null par défaut → tenu pour traité. L'état
+    // d'attribution de la tournée est déjà relevé lui aussi.
     const supabase = makeSyncSupabase({
-      inboxClaimRetourneRien: true,
-      inboxExistant: { traite: false },
+      statutDejaReserve: true,
+      attributionDejaVue: true,
     });
-    const adapter = new AdapterMts1(
-      {
-        id: 'presta-001',
-        type_tms: 'mts1',
-        code_transporteur_mts1: 'STRIKE',
-        prestataire_logistique_id: 'presta-001',
-      },
-      supabase,
-    );
-
-    await adapter.sync({
-      depuis: new Date('2026-07-15T00:00:00Z'),
-      jusqu_a: new Date('2026-07-17T00:00:00Z'),
-    });
+    await new AdapterMts1(TRANSPORTEUR, supabase).sync(FENETRE);
 
     const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
-    // Replay → les pesées sont (ré)upsertées (5 flux valides) malgré le conflit.
     expect(
-      calls.filter((c) => c.table === 'pesees_tournees' && c.op === 'upsert')
-        .length,
-    ).toBe(5);
+      calls.filter((c) => c.table === 'collectes' && c.op === 'update'),
+    ).toEqual([]);
+    expect(
+      calls.filter((c) => c.table === 'tournees' && c.op === 'update'),
+    ).toEqual([]);
+    expect(
+      calls.filter((c) => c.table === 'fn_agreger_terminal_collecte'),
+    ).toEqual([]);
+  });
+
+  it('clé déjà posée (23505) mais statut NON traité (crash-recovery A4-A2) → REJOUE (effets idempotents)', async () => {
+    handlers();
+    // Un run précédent a posé la clé puis CRASHÉ avant markInboxDone : la
+    // re-lecture trouve la ligne avec traite=false → on REJOUE (tous les effets
+    // sont idempotents). Sans ce rejeu, la collecte ne passerait jamais realisee.
+    const supabase = makeSyncSupabase({
+      statutDejaReserve: true,
+      inboxExistant: { traite: false },
+    });
+    await new AdapterMts1(TRANSPORTEUR, supabase).sync(FENETRE);
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    // Rejeu du statut terminal `OK` : tournée terminée, collecte agrégée, ligne
+    // marquée traitée.
+    expect(
+      calls.find((c) => c.table === 'tournees' && c.op === 'update')!.data,
+    ).toEqual({ statut: 'terminee' });
+    expect(
+      calls.filter((c) => c.table === 'fn_agreger_terminal_collecte'),
+    ).toHaveLength(1);
+    expect(
+      calls.some(
+        (c) =>
+          c.table === 'integrations_inbox' &&
+          c.op === 'update' &&
+          (c.data as { traite?: boolean }).traite === true,
+      ),
+    ).toBe(true);
   });
 
   it('erreur DB ≠ 23505 sur le claim → propagée (jamais avalée comme « déjà traité »)', async () => {
-    _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
-      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue([]),
-      postOrder: vi.fn(),
-    });
-
+    handlers();
     // Erreur transitoire (ex : connexion) — DOIT remonter, pas être confondue avec
     // un doublon bénin → l'event est retenté au poll suivant (sync log l'échec).
     const supabase = makeSyncSupabase({
       inboxClaimError: { code: '08006', message: 'connection failure' },
     });
-    const adapter = new AdapterMts1(
-      {
-        id: 'presta-001',
-        type_tms: 'mts1',
-        code_transporteur_mts1: 'STRIKE',
-        prestataire_logistique_id: 'presta-001',
-      },
-      supabase,
-    );
-
     // sync() isole par collecte (try/catch) → log SYNC_ORDER_FAILED, pas de throw global
-    await adapter.sync({
-      depuis: new Date('2026-07-15T00:00:00Z'),
-      jusqu_a: new Date('2026-07-17T00:00:00Z'),
-    });
+    await new AdapterMts1(TRANSPORTEUR, supabase).sync(FENETRE);
 
     const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
     // L'erreur a été propagée → loggée comme échec de traitement, pas de pesées écrites
@@ -1017,16 +991,10 @@ describe('M1.5b / AdapterMts1.sync — dédup photo', () => {
   it('M1.5b-6 / photo déjà dans shared.fichiers → skip download', async () => {
     const downloadPhoto = vi.fn().mockResolvedValue(Buffer.from('DATA'));
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
-      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue(PHOTOS_NOMINAL),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
+      getTour: vi.fn().mockResolvedValue(TOUR_AVEC_PHOTO),
+      downloadPhoto,
       postOrder: vi.fn(),
-      // Override downloadPhoto via mock de bas niveau
     });
 
     const supabase = makeSyncSupabase({ photoExistante: true });
@@ -1053,24 +1021,21 @@ describe('M1.5b / AdapterMts1.sync — dédup photo', () => {
     );
     expect(fichierInsert).toBeUndefined();
 
-    // downloadPhoto non appelé (le mock handler est la barrière)
+    // Et aucun téléchargement.
     expect(downloadPhoto).not.toHaveBeenCalled();
   });
 });
 
-describe('M1.5b / AdapterMts1.sync — photo 404', () => {
+describe('M1.5b / AdapterMts1.sync — photo absente', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it("M1.5b-7 / photo 404 → log PHOTO_DOWNLOAD_FAILED, poll continue (pas d'exception)", async () => {
+  // MTS-1 répond 200 avec un corps vide pour une photo qu'il n'a pas (mesuré le
+  // 2026-10-13, pas 404) : le client rend `null` dans les deux cas.
+  it("M1.5b-7 / photo absente → log PHOTO_DOWNLOAD_FAILED, poll continue (pas d'exception)", async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_OK],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
-      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue(PHOTOS_404),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_OK]),
+      getTour: vi.fn().mockResolvedValue(TOUR_AVEC_PHOTO),
+      downloadPhoto: vi.fn().mockResolvedValue(null),
       postOrder: vi.fn(),
     });
 
@@ -1111,6 +1076,15 @@ describe('M1.5b / AdapterMts1.sync — photo 404', () => {
       (c) => c.table === 'fichiers' && c.op === 'insert',
     );
     expect(fichierInsert).toBeUndefined();
+
+    // Le traitement de la commande n'est pas en échec pour autant.
+    expect(
+      calls.filter((c) =>
+        String((c.data as { erreur?: string } | undefined)?.erreur).startsWith(
+          'SYNC_ORDER_FAILED',
+        ),
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -1119,14 +1093,8 @@ describe('M1.5b / AdapterMts1.sync — ordre sans tournée Savr', () => {
 
   it('M1.5b-8 / ordre MTS-1 sans tournée dans notre système → ignoré sans erreur', async () => {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
       getTour: vi.fn(),
-      getPhotos: vi.fn(),
       postOrder: vi.fn(),
     });
 
@@ -1163,31 +1131,32 @@ describe('M1.5b / AdapterMts1.sync — isolation par collecte', () => {
 
   it("M1.5b-9 / échec d'une collecte → les autres collectes du run passent quand même", async () => {
     const ORDER_OK: Mts1CustomerOrder = {
-      id: 'MTS1-ORDER-OK',
-      externalReference: 'col-ok-1',
-      status: 'VALIDATED',
+      customerOrderId: 'MTS1-ORDER-OK',
+      orderNumber: 'col-ok-1',
+      customerOrderStatus: 'VALIDATED',
     };
     const ORDER_KO: Mts1CustomerOrder = {
-      id: 'MTS1-ORDER-KO',
-      externalReference: 'col-ko-1',
-      status: 'VALIDATED',
+      customerOrderId: 'MTS1-ORDER-KO',
+      orderNumber: 'col-ko-1',
+      customerOrderStatus: 'VALIDATED',
     };
 
     let getTourCallCount = 0;
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_KO, ORDER_OK],
-        totalCount: 2,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_KO, ORDER_OK]),
       getTour: vi.fn().mockImplementation(() => {
         getTourCallCount++;
         if (getTourCallCount === 1)
           throw new Error('MTS-1 500: internal error');
-        return Promise.resolve(TOUR_NOMINAL);
+        return Promise.resolve(
+          tourSimule({
+            tourId: 'MTS1-TOUR-ZD-001',
+            customerOrderId: 'MTS1-ORDER-OK',
+            stopId: 'stop-001',
+            stuffs: [stuffSimule('Bio-déchets (en kg)', 234.5)],
+          }),
+        );
       }),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
@@ -1224,19 +1193,13 @@ describe('M1.5b / AdapterMts1.sync — CANCELED', () => {
   it('M1.5b-10 / CANCELED → statut_tms="rejetee_par_prestataire"', async () => {
     const ORDER_CANCELED: Mts1CustomerOrder = {
       ...ORDER_VALIDATED,
-      id: 'MTS1-ORDER-CANCELED',
-      status: 'CANCELED',
+      customerOrderId: 'MTS1-ORDER-CANCELED',
+      customerOrderStatus: 'CANCELED',
     };
 
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_CANCELED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_CANCELED]),
       getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue([]),
       postOrder: vi.fn(),
     });
 
@@ -1279,21 +1242,20 @@ describe('M1.5b / AdapterMts1.sync — CANCELED', () => {
 describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
   afterEach(() => _setMts1Handlers(null));
   beforeEach(() => {
-    // État par défaut : upload R2 réussit (résout).
+    // État par défaut : upload R2 réussit et rend l'objet écrit, dans le bucket
+    // de l'environnement (l'adapter ne choisit plus de bucket).
     vi.mocked(uploadObject).mockReset();
-    vi.mocked(uploadObject).mockResolvedValue('collectes/x');
+    vi.mocked(uploadObject).mockImplementation(async (key) => ({
+      bucket: 'savr-test',
+      key,
+      storageKey: `savr-test/${key}`,
+    }));
   });
 
   function setNominalHandlers() {
     _setMts1Handlers({
-      pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_VALIDATED],
-        totalCount: 1,
-        page: 1,
-        pageSize: 50,
-      }),
-      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
-      getPhotos: vi.fn().mockResolvedValue(PHOTOS_NOMINAL),
+      pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
+      getTour: vi.fn().mockResolvedValue(TOUR_AVEC_PHOTO),
       postOrder: vi.fn(),
     });
   }
@@ -1305,7 +1267,16 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
     prestataire_logistique_id: 'presta-001',
   } as const;
 
-  it('photo téléchargée → upload R2 + ligne shared.fichiers (bucket collectes)', async () => {
+  // Clé attendue pour la photo de TOUR_AVEC_PHOTO sur la collecte col-001, écrite
+  // EN DUR : sha256 de JSON.stringify(['MTS1-TOUR-ZD-001', 'stop-001', 'photo-001-a']).
+  // La dédup cherche cette clé en base — si la formule change, les photos déjà
+  // stockées ne sont plus reconnues et sont re-téléchargées : ce littéral le fige.
+  const CLE_PHOTO =
+    'photos/collectes/col-001/af17919c2fb43ce5b5ced39e1857b565dccb535a0233b93654d398096682c2ad.jpg';
+
+  // Avant le 2026-10-07 l'adapter écrivait dans un bucket `collectes` codé en dur,
+  // commun à dev et prod — et absent du compte Cloudflare (404 mesuré).
+  it("photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement)", async () => {
     setNominalHandlers();
     const supabase = makeSyncSupabase({});
     await new AdapterMts1(TRANSPORTEUR, supabase).sync({
@@ -1313,11 +1284,10 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
       jusqu_a: new Date('2026-07-17T00:00:00Z'),
     });
 
-    // uploadObject appelé AVANT l'insert, sur le bucket 'collectes' + clé photos/…
+    // uploadObject appelé AVANT l'insert, sans bucket : seulement la clé photos/…
     expect(uploadObject).toHaveBeenCalledTimes(1);
     expect(uploadObject).toHaveBeenCalledWith(
-      'collectes',
-      'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
+      CLE_PHOTO,
       expect.any(Buffer),
       'image/jpeg',
     );
@@ -1329,12 +1299,99 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
     expect(fichierInsert).toBeDefined();
     expect(fichierInsert!.data).toMatchObject({
       storage_provider: 'r2',
-      bucket: 'collectes',
-      key: 'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
+      // Bucket persisté = celui que l'upload a rendu, pas une constante.
+      bucket: 'savr-test',
+      key: CLE_PHOTO,
       content_type: 'image/jpeg',
       entity_type: 'plateforme.collectes',
       entity_id: 'col-001',
     });
+  });
+
+  // La ligne shared.fichiers est lisible par les clients de la collecte (§09 C1) :
+  // sa clé ne doit plus montrer les identifiants du logiciel du transporteur
+  // (décision Val 2026-10-07). Elle reste déterministe et ne porte que le triplet
+  // (tour, arrêt, photo) : l'hôte et le début du chemin de l'adresse peuvent
+  // changer sans que la dédup cesse de reconnaître la photo.
+  it('M1.5b-photo-cle-opaque / la clé ne porte aucun identifiant du transporteur et ne dépend que du triplet', async () => {
+    const cleEnvoyee = async (downloadUrl: string) => {
+      vi.mocked(uploadObject).mockClear();
+      _setMts1Handlers({
+        pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
+        getTour: vi.fn().mockResolvedValue({
+          ...TOUR_AVEC_PHOTO,
+          stops: [{ ...TOUR_AVEC_PHOTO.stops![0]!, photos: [{ downloadUrl }] }],
+        }),
+        postOrder: vi.fn(),
+      });
+      await new AdapterMts1(TRANSPORTEUR, makeSyncSupabase({})).sync({
+        depuis: new Date('2026-07-15T00:00:00Z'),
+        jusqu_a: new Date('2026-07-17T00:00:00Z'),
+      });
+      return vi.mocked(uploadObject).mock.calls[0]?.[0];
+    };
+
+    const cle = await cleEnvoyee(
+      'https://connecteur-a.example.test/v3/tours/photo/MTS1-TOUR-ZD-001/stop-001/photo-001-a',
+    );
+    expect(cle).toBe(CLE_PHOTO);
+    for (const identifiant of ['MTS1-TOUR-ZD-001', 'stop-001', 'photo-001-a']) {
+      expect(cle).not.toContain(identifiant);
+    }
+    // Même photo, autre hôte et chemin préfixé → même clé.
+    expect(
+      await cleEnvoyee(
+        'https://connecteur-b.example.test/api/v3/tours/photo/MTS1-TOUR-ZD-001/stop-001/photo-001-a',
+      ),
+    ).toBe(cle);
+  });
+
+  // L'identifiant d'une photo ne se lit que dans son adresse. Une adresse d'une
+  // autre forme n'est pas devinée : lire son dernier segment pourrait donner le
+  // même identifiant à deux photos, et la dédup n'en garderait qu'une.
+  it('M1.5b/releve_photo_adresse_inattendue — adresse hors de la forme mesurée : ni téléchargée ni stockée, trace', async () => {
+    const downloadPhoto = vi.fn();
+    for (const downloadUrl of [
+      // un autre tour, un autre arrêt, un segment de trop, pas une adresse
+      'https://mts1.test/v3/tours/photo/AUTRE-TOUR/stop-001/photo-001-a',
+      'https://mts1.test/v3/tours/photo/MTS1-TOUR-ZD-001/autre-arret/photo-001-a',
+      'https://mts1.test/v3/tours/photo/MTS1-TOUR-ZD-001/stop-001/photo-001-a/miniature',
+      'https://mts1.test/v3/tours/autre/MTS1-TOUR-ZD-001/stop-001/photo-001-a',
+      'https://mts1.test/v3/photos?id=photo-001-a',
+      'photo-001-a',
+    ]) {
+      vi.mocked(uploadObject).mockClear();
+      _setMts1Handlers({
+        pollOrders: vi.fn().mockResolvedValue([ORDER_VALIDATED]),
+        getTour: vi.fn().mockResolvedValue({
+          ...TOUR_AVEC_PHOTO,
+          stops: [{ ...TOUR_AVEC_PHOTO.stops![0]!, photos: [{ downloadUrl }] }],
+        }),
+        downloadPhoto,
+        postOrder: vi.fn(),
+      });
+      const supabase = makeSyncSupabase({});
+      await new AdapterMts1(TRANSPORTEUR, supabase).sync({
+        depuis: new Date('2026-07-15T00:00:00Z'),
+        jusqu_a: new Date('2026-07-17T00:00:00Z'),
+      });
+      const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+
+      expect(downloadPhoto, downloadUrl).not.toHaveBeenCalled();
+      expect(uploadObject, downloadUrl).not.toHaveBeenCalled();
+      expect(
+        calls.filter((c) => c.table === 'fichiers' && c.op === 'insert'),
+        downloadUrl,
+      ).toEqual([]);
+      expect(
+        calls.filter((c) =>
+          String(
+            (c.data as { erreur?: string } | undefined)?.erreur,
+          ).startsWith('PHOTO_ADRESSE_INATTENDUE'),
+        ),
+        downloadUrl,
+      ).toHaveLength(1);
+    }
   });
 
   // §09 C1 : shared.f_fichier_visible refuse tout entity_type hors liste, et la
@@ -1378,9 +1435,7 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
       (c) => c.table === 'fichiers' && c.op === 'select',
     );
     expect(recherches).toHaveLength(1);
-    expect(recherches[0]!.filters).toEqual({
-      key: 'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
-    });
+    expect(recherches[0]!.filters).toEqual({ key: CLE_PHOTO });
     expect(uploadObject).not.toHaveBeenCalled();
     expect(
       calls.find((c) => c.table === 'fichiers' && c.op === 'insert'),
@@ -1411,5 +1466,190 @@ describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
       (c) => c.table === 'collectes' && c.op === 'update',
     );
     expect(collecteUpdate).toBeDefined();
+  });
+});
+
+// ─── Recherche des commandes : contrat mesuré le 2026-10-13 ───────────────────
+// GET /v3/customerOrders ne lit que des jours « yyyy-MM-dd » (bornes incluses,
+// jour compté à Paris) et rend un tableau nu de commandes nommées
+// `customerOrderId` / `customerOrderStatus`. Avant, la relève envoyait des
+// instants ISO (500 à chaque passage) et lisait `id` / `status`.
+// Ces tests portent sur la remontée des statuts ; pesées et photos sur la forme
+// réelle du tour : adapter.releve-pesees-photos.test.ts.
+
+describe('M1.5b / AdapterMts1.sync — recherche des commandes (forme réelle)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    _setMts1Handlers(null);
+  });
+
+  const ADAPTER = {
+    id: 'presta-001',
+    type_tms: 'mts1' as const,
+    code_transporteur_mts1: 'STRIKE',
+    prestataire_logistique_id: PRESTA_MTS1,
+  };
+
+  it('M1.5b/releve_fenetre_en_jours_paris — la fenêtre du cron part en jours comptés à Paris, sans filtre de numéro', async () => {
+    const scanOrdersByDateRange = vi.fn().mockResolvedValue([]);
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder: vi.fn(),
+      scanOrdersByDateRange,
+    });
+
+    await new AdapterMts1(ADAPTER, makeSyncSupabase({})).sync({
+      // 22h30 UTC le 13 = 00h30 à Paris le 14 : en UTC la borne basse serait le 13.
+      depuis: new Date('2026-10-13T22:30:00.000Z'),
+      // 22h30 UTC le 15 = 00h30 à Paris le 16 : en UTC la borne haute serait le 15.
+      jusqu_a: new Date('2026-10-15T22:30:00.000Z'),
+    });
+
+    expect(scanOrdersByDateRange).toHaveBeenCalledOnce();
+    expect(scanOrdersByDateRange.mock.calls[0]).toEqual([
+      '2026-10-14',
+      '2026-10-16',
+      undefined,
+    ]);
+  });
+
+  it('M1.5b/releve_fil_statut_relaye — chemin réel : adresse en jours, tableau nu, statut et véhicule relayés', async () => {
+    _setMts1Handlers(null); // force le chemin réel (fetch)
+    vi.stubEnv('MTS1_BASE_URL', 'https://mts1.test');
+    vi.stubEnv('MTS1_API_KEY', 'k');
+
+    // Réponses dans la forme mesurée : tableaux nus, vrais noms de champs, tour
+    // portant `stuffs` (pas `items`) sur l'arrêt qui nomme la commande.
+    const reponses: Record<string, { status: number; corps: unknown }> = {
+      '/v3/customerOrders?minDate=2026-07-15&maxDate=2026-07-17': {
+        status: 200,
+        corps: [
+          {
+            customerOrderId: 'MTS1-ORDER-001',
+            orderNumber: 'col-001-1',
+            customerOrderStatus: 'VALIDATED',
+            orderDate: '2026-07-15T20:00:00.000Z',
+            currentTour: { tourId: 'MTS1-TOUR-ZD-001', stopId: 'stop-001' },
+          },
+        ],
+      },
+      '/v3/tours/MTS1-TOUR-ZD-001': {
+        status: 200,
+        corps: {
+          ...tourSimule({
+            tourId: 'MTS1-TOUR-ZD-001',
+            customerOrderId: 'MTS1-ORDER-001',
+            stopId: 'stop-001',
+            stuffs: [stuffSimule('Bio-déchets (en kg)', null)],
+          }),
+          dispatch: {
+            carrierShareableCode: 'CA_STRIKE',
+            vehicleShareableCode: 'VE_001',
+            transporterUserShareableCode: 'TR_001',
+          },
+        },
+      },
+      '/v3/carrier': { status: 200, corps: CARRIER_FIXTURE },
+    };
+    const adresses: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        adresses.push(url);
+        const r = reponses[url.replace('https://mts1.test', '')];
+        if (!r) throw new Error(`adresse inattendue : ${url}`);
+        return {
+          ok: r.status === 200,
+          status: r.status,
+          text: async () => JSON.stringify(r.corps),
+          json: async () => r.corps,
+        };
+      }) as never,
+    );
+
+    const supabase = makeSyncSupabase({});
+    await new AdapterMts1(ADAPTER, supabase).sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+
+    // Adresse mesurée en 200 ; la forme d'avant (instants ISO + pageSize) → 500.
+    expect(adresses[0]).toBe(
+      'https://mts1.test/v3/customerOrders?minDate=2026-07-15&maxDate=2026-07-17',
+    );
+
+    // La clé de dédup porte l'identifiant et le statut réels de la commande —
+    // lus sous les anciens noms, elle valait « mts1:undefined:undefined » pour
+    // toutes les commandes.
+    const claim = calls.find(
+      (c) => c.table === 'integrations_inbox' && c.op === 'insert',
+    );
+    expect((claim!.data as Record<string, unknown>)['event_id_externe']).toBe(
+      'mts1:MTS1-ORDER-001:VALIDATED',
+    );
+    expect((claim!.data as Record<string, unknown>)['payload']).toEqual({
+      orderId: 'MTS1-ORDER-001',
+      status: 'VALIDATED',
+    });
+
+    // La tournée est rapprochée par l'identifiant de la commande…
+    const rapprochement = calls.find(
+      (c) => c.table === 'tournees' && c.op === 'select',
+    );
+    expect(rapprochement!.filters!['external_ref_commande']).toBe(
+      'MTS1-ORDER-001',
+    );
+    // … et le statut relayé à la collecte.
+    const collecteUpdate = calls.find(
+      (c) => c.table === 'collectes' && c.op === 'update',
+    );
+    expect(
+      (collecteUpdate!.data as Record<string, unknown>)['statut_tms'],
+    ).toBe('acceptee');
+
+    // Le référentiel transporteurs (tableau nu) résout plaque et chauffeur. Lu
+    // sous l'enveloppe supposée `{ carriers }`, il levait ici et le traitement de
+    // la commande s'arrêtait avant son statut terminal.
+    const tourneeUpdate = calls.find(
+      (c) => c.table === 'tournees' && c.op === 'update',
+    );
+    expect(tourneeUpdate!.data).toMatchObject({
+      plaque_immatriculation: '12ABC23',
+      chauffeur_nom: 'Jean Dupont',
+    });
+
+    // Aucune commande en échec de traitement.
+    expect(
+      calls.filter((c) =>
+        String((c.data as { erreur?: string } | undefined)?.erreur).startsWith(
+          'SYNC_ORDER_FAILED',
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it('M1.5b/releve_fil_recherche_en_echec — un 500 de la recherche fait échouer le passage (jamais « rien à relever »)', async () => {
+    _setMts1Handlers(null);
+    vi.stubEnv('MTS1_BASE_URL', 'https://mts1.test');
+    vi.stubEnv('MTS1_API_KEY', 'k');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 500,
+        text: async () => '{"reasons":["INTERNAL_ERROR"]}',
+        json: async () => ({ reasons: ['INTERNAL_ERROR'] }),
+      })) as never,
+    );
+
+    await expect(
+      new AdapterMts1(ADAPTER, makeSyncSupabase({})).sync({
+        depuis: new Date('2026-07-15T00:00:00Z'),
+        jusqu_a: new Date('2026-07-17T00:00:00Z'),
+      }),
+    ).rejects.toThrow('MTS-1 500');
   });
 });

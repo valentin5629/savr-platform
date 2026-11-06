@@ -937,6 +937,58 @@ export type Database = {
           },
         ]
       }
+      collecte_contacts: {
+        Row: {
+          collecte_id: string
+          contact_principal_nom: string
+          contact_principal_telephone: string
+          contact_secours_nom: string | null
+          contact_secours_telephone: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          collecte_id: string
+          contact_principal_nom: string
+          contact_principal_telephone: string
+          contact_secours_nom?: string | null
+          contact_secours_telephone?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          collecte_id?: string
+          contact_principal_nom?: string
+          contact_principal_telephone?: string
+          contact_secours_nom?: string | null
+          contact_secours_telephone?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collecte_contacts_collecte_id_fkey"
+            columns: ["collecte_id"]
+            isOneToOne: true
+            referencedRelation: "collectes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collecte_contacts_collecte_id_fkey"
+            columns: ["collecte_id"]
+            isOneToOne: true
+            referencedRelation: "v_collectes_gestionnaire_lieux"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collecte_contacts_collecte_id_fkey"
+            columns: ["collecte_id"]
+            isOneToOne: true
+            referencedRelation: "v_registre_dechets"
+            referencedColumns: ["collecte_id"]
+          },
+        ]
+      }
       collecte_flux: {
         Row: {
           collecte_id: string
@@ -1057,6 +1109,8 @@ export type Database = {
       }
       collectes: {
         Row: {
+          annulation_demandee_at: string | null
+          annulation_tardive: boolean | null
           annulee_cote_savr: boolean
           annulee_cote_savr_motif: string | null
           aucun_repas_motif: string | null
@@ -1090,6 +1144,7 @@ export type Database = {
           nb_camions_demande: number
           notes_internes: string | null
           pack_antgaspi_id: string | null
+          pax: number
           prestataire_logistique_id: string | null
           realisee_at: string | null
           statut: Database["plateforme"]["Enums"]["collecte_statut"]
@@ -1099,10 +1154,13 @@ export type Database = {
           tms_reference: string | null
           type_vehicule_souhaite: Database["plateforme"]["Enums"]["type_vehicule"] | null
           type: Database["plateforme"]["Enums"]["collecte_type"]
+          type_evenement_id: string | null
           updated_at: string
           volume_estime_repas: number | null
         }
         Insert: {
+          annulation_demandee_at?: string | null
+          annulation_tardive?: boolean | null
           annulee_cote_savr?: boolean
           annulee_cote_savr_motif?: string | null
           aucun_repas_motif?: string | null
@@ -1136,6 +1194,7 @@ export type Database = {
           nb_camions_demande?: number
           notes_internes?: string | null
           pack_antgaspi_id?: string | null
+          pax?: number
           prestataire_logistique_id?: string | null
           realisee_at?: string | null
           statut?: Database["plateforme"]["Enums"]["collecte_statut"]
@@ -1145,10 +1204,13 @@ export type Database = {
           tms_reference?: string | null
           type_vehicule_souhaite?: Database["plateforme"]["Enums"]["type_vehicule"] | null
           type: Database["plateforme"]["Enums"]["collecte_type"]
+          type_evenement_id?: string | null
           updated_at?: string
           volume_estime_repas?: number | null
         }
         Update: {
+          annulation_demandee_at?: string | null
+          annulation_tardive?: boolean | null
           annulee_cote_savr?: boolean
           annulee_cote_savr_motif?: string | null
           aucun_repas_motif?: string | null
@@ -1182,6 +1244,7 @@ export type Database = {
           nb_camions_demande?: number
           notes_internes?: string | null
           pack_antgaspi_id?: string | null
+          pax?: number
           prestataire_logistique_id?: string | null
           realisee_at?: string | null
           statut?: Database["plateforme"]["Enums"]["collecte_statut"]
@@ -1191,6 +1254,7 @@ export type Database = {
           tms_reference?: string | null
           type_vehicule_souhaite?: Database["plateforme"]["Enums"]["type_vehicule"] | null
           type?: Database["plateforme"]["Enums"]["collecte_type"]
+          type_evenement_id?: string | null
           updated_at?: string
           volume_estime_repas?: number | null
         }
@@ -1224,6 +1288,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "collectes_type_evenement_id_fkey"
+            columns: ["type_evenement_id"]
+            isOneToOne: false
+            referencedRelation: "types_evenements"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_collectes_pack_antgaspi"
             columns: ["pack_antgaspi_id"]
             isOneToOne: false
@@ -1234,7 +1305,7 @@ export type Database = {
       }
       config_auto_accept_ag: {
         Row: {
-          association_id: string | null
+          association_id: string
           auto_accept_actif: boolean
           created_at: string
           id: string
@@ -1246,7 +1317,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          association_id?: string | null
+          association_id: string
           auto_accept_actif?: boolean
           created_at?: string
           id?: string
@@ -1258,7 +1329,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          association_id?: string | null
+          association_id?: string
           auto_accept_actif?: boolean
           created_at?: string
           id?: string
@@ -1677,6 +1748,7 @@ export type Database = {
       evenements: {
         Row: {
           client_organisateur_organisation_id: string | null
+          code_affaire_viparis: string | null
           contact_principal_nom: string
           contact_principal_telephone: string
           contact_secours_nom: string | null
@@ -1700,6 +1772,7 @@ export type Database = {
         }
         Insert: {
           client_organisateur_organisation_id?: string | null
+          code_affaire_viparis?: string | null
           contact_principal_nom: string
           contact_principal_telephone: string
           contact_secours_nom?: string | null
@@ -1723,6 +1796,7 @@ export type Database = {
         }
         Update: {
           client_organisateur_organisation_id?: string | null
+          code_affaire_viparis?: string | null
           contact_principal_nom?: string
           contact_principal_telephone?: string
           contact_secours_nom?: string | null
@@ -2639,6 +2713,7 @@ export type Database = {
           adresse_acces: string
           capacite_maximum: number | null
           code_postal: string
+          code_site_viparis: string | null
           commentaire_lieu: string | null
           commentaires_internes: string | null
           contraintes_horaires: string | null
@@ -2673,6 +2748,7 @@ export type Database = {
           adresse_acces: string
           capacite_maximum?: number | null
           code_postal: string
+          code_site_viparis?: string | null
           commentaire_lieu?: string | null
           commentaires_internes?: string | null
           contraintes_horaires?: string | null
@@ -2707,6 +2783,7 @@ export type Database = {
           adresse_acces?: string
           capacite_maximum?: number | null
           code_postal?: string
+          code_site_viparis?: string | null
           commentaire_lieu?: string | null
           commentaires_internes?: string | null
           contraintes_horaires?: string | null
@@ -4149,6 +4226,7 @@ export type Database = {
           organisation_id: string
           prenom: string
           role: Database["plateforme"]["Enums"]["user_role"]
+          poste: string | null
           telephone: string | null
         }
         Insert: {
@@ -4164,6 +4242,7 @@ export type Database = {
           organisation_id: string
           prenom: string
           role: Database["plateforme"]["Enums"]["user_role"]
+          poste?: string | null
           telephone?: string | null
         }
         Update: {
@@ -4179,6 +4258,7 @@ export type Database = {
           organisation_id?: string
           prenom?: string
           role?: Database["plateforme"]["Enums"]["user_role"]
+          poste?: string | null
           telephone?: string | null
         }
         Relationships: [
@@ -4594,10 +4674,12 @@ export type Database = {
           mois: string | null
           nb_collectes: number | null
           nb_repas_donnes: number | null
+          nb_repas_pax_connu: number | null
           organisation_id: string | null
           pax_total: number | null
           taux_recyclage_pondere: number | null
           tonnage_kg: number | null
+          tonnage_kg_pax_connu: number | null
           type_collecte: Database["plateforme"]["Enums"]["collecte_type"] | null
         }
         Relationships: [
@@ -4837,12 +4919,14 @@ export type Database = {
           created_at: string | null
           date_collecte: string | null
           date_evenement: string | null
+          evenement_code_affaire_viparis: string | null
           evenement_id: string | null
           evenement_nom: string | null
           exutoire_nom: string | null
           flux_codes: string[] | null
           historique_partiel: boolean | null
           lieu_adresse: string | null
+          lieu_code_site_viparis: string | null
           lieu_id: string | null
           lieu_nom: string | null
           pax: number | null
@@ -5050,6 +5134,10 @@ export type Database = {
         Args: { p_evenement_id: string }
         Returns: boolean
       }
+      f_collecte_rattachable_pack: {
+        Args: { p_collecte_id: string }
+        Returns: boolean
+      }
       f_collecte_visible: { Args: { p_collecte_id: string }; Returns: boolean }
       f_completer_siret_shadow: {
         Args: { p_org_id: string; p_siret: string }
@@ -5092,6 +5180,7 @@ export type Database = {
         Args: { p_annee: number; p_serie: string }
         Returns: number
       }
+      f_pax_evenement: { Args: { p_evenement_id: string }; Returns: number }
       f_purge_logs: { Args: { p_now?: string }; Returns: Json }
       f_rapport_benchmark_zd: {
         Args: {
@@ -5185,9 +5274,14 @@ export type Database = {
           p_evenement_id: string
           p_heure_collecte: string
           p_info_suppl?: string
+          p_pax?: number
           p_type: string
         }
         Returns: string
+      }
+      fn_annuler_collecte_client: {
+        Args: { p_id: string; p_motif: string }
+        Returns: Json
       }
       fn_anonymize_user: {
         Args: {
@@ -5240,6 +5334,19 @@ export type Database = {
           requires_reconciliation: boolean
         }[]
       }
+      fn_claim_outbox_collecte: {
+        Args: { p_collecte_id: string; p_lease_duration?: string }
+        Returns: {
+          aggregate_id: string
+          aggregate_type: string
+          attempts: number
+          consumer: string
+          event_type: string
+          id: string
+          payload: Json
+          requires_reconciliation: boolean
+        }[]
+      }
       fn_cloturer_collectes_embargo: { Args: never; Returns: number }
       fn_confirmer_programmation_brouillon: {
         Args: { p_evenement_id: string }
@@ -5255,7 +5362,18 @@ export type Database = {
           p_lieu_overrides?: Json
           p_nb_camions?: number
           p_notes?: string
+          p_pax?: number
           p_type: string
+        }
+        Returns: string
+      }
+      fn_creer_collecte_carte: {
+        Args: {
+          p_carte: Json
+          p_confirmer: boolean
+          p_controle_acces: boolean
+          p_evenement_id: string
+          p_lieu_overrides: Json
         }
         Returns: string
       }
@@ -5267,6 +5385,15 @@ export type Database = {
           p_prestataire_logistique_id?: string
         }
         Returns: string
+      }
+      fn_enregistrer_programmation: {
+        Args: {
+          p_collectes: Json
+          p_confirmer: boolean
+          p_evenement: Json
+          p_evenement_id?: string
+        }
+        Returns: Json
       }
       fn_est_debit_pack_attendu: {
         Args: {
@@ -5389,6 +5516,10 @@ export type Database = {
           p_id: string
           p_taux: number
         }
+        Returns: Json
+      }
+      rpc_rattacher_collecte_pack: {
+        Args: { p_collecte_id: string; p_role: string; p_user_id: string }
         Returns: Json
       }
       rpc_valider_attribution_ag: {

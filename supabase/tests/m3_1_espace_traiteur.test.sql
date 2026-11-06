@@ -4,7 +4,7 @@
 --         DELETE collectes restreint à 'brouillon'.
 
 BEGIN;
-SELECT plan(11);
+SELECT plan(12);
 
 -- ── Helpers JWT (identiques aux autres tests RLS) ───────────────────────────
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -216,17 +216,21 @@ WITH d AS (
 )
 SELECT is(count(*)::int, 0, 'T10 : DELETE collecte programmee refusé (brouillon-only)') FROM d;
 
--- T11 : commercial UPDATE organisations (nom) → refusé. Depuis 20260928100000
--- (décision Val 2026-09-28), le commercial a une policy UPDATE own-org limitée aux
--- informations légales (raison_sociale, siret, adresse) : le nom est rejeté par la
--- liste blanche du trigger trg_block_org_gestionnaire_cols_update (42501).
+-- T11-T12 : commercial UPDATE organisations (nom) → sans effet. Depuis 20261030140000
+-- (Val 2026-10-30), le commercial n'a plus aucune policy UPDATE sur organisations :
+-- l'UPDATE ne touche aucune ligne et ne lève rien (T11) ; la relecture prouve que le
+-- nom est inchangé (T12, valeur posée par le manager en T5).
 SELECT test_set_jwt('traiteur_commercial', 'bb000000-0000-0000-0000-00000000000a'::uuid,
                     'bb000000-0000-0000-0000-000000000a02'::uuid);
-SELECT throws_ok(
+SELECT lives_ok(
   $$ UPDATE plateforme.organisations SET nom = 'Hack'
       WHERE id = 'bb000000-0000-0000-0000-00000000000a'::uuid $$,
-  '42501', NULL,
-  'T11 : commercial ne peut PAS renommer son organisation (liste blanche du trigger)');
+  'T11 : UPDATE du nom par le commercial sans erreur (0 ligne)');
+SELECT test_as_superuser();
+SELECT is(
+  (SELECT nom FROM plateforme.organisations WHERE id = 'bb000000-0000-0000-0000-00000000000a'::uuid),
+  'Kaspia Traiteur',
+  'T12 : commercial ne peut PAS renommer son organisation (nom inchangé)');
 
 SELECT test_as_superuser();
 SELECT * FROM finish();

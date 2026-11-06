@@ -16,6 +16,13 @@ import {
   horairesAssociationSeed,
 } from './constants.js';
 import { assertDev, upsert, jsonb, type Row } from './db.js';
+import {
+  TRANSPORTEUR_DU_PRESTATAIRE,
+  TYPES_COLLECTE_TRANSPORTEUR,
+  prestatairePourCollecte,
+  prestatairePrend,
+  typePrestation,
+} from './transporteurs-par-type.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..', '..', '..');
@@ -263,5 +270,69 @@ describe('horairesAssociationSeed — format éditeur Admin', () => {
         (j) => j.ouvert && j.creneaux[0]!.fin <= j.creneaux[0]!.debut,
       ),
     ).toBe(true);
+  });
+});
+
+// Transporteur ↔ type de collecte (Val 2026-10-27). Le seed posait les
+// prestataires en alternance : 223 ZD chez Marathon / Transnormandie et 112 AG
+// chez Strike sur savr-dev. `seed:check` le contrôle en base ; ici, la règle et
+// son branchement dans les deux jeux de données, sans base.
+describe('seed — transporteur selon le type de collecte', () => {
+  const sources = ['demo.ts', 'minimal.ts'].map((f) =>
+    readFileSync(resolve(REPO_ROOT, 'packages/shared/src/seed', f), 'utf8'),
+  );
+
+  it('M0.7-33 — Strike ne prend que les ZD ; Marathon, Transnormandie, A Toutes! et Presta sans code que les AG', () => {
+    expect(TYPES_COLLECTE_TRANSPORTEUR).toEqual({
+      strike: ['zero_dechet'],
+      marathon: ['anti_gaspi'],
+      transnor: ['anti_gaspi'],
+      a_toutes: ['anti_gaspi'],
+      sans_code: ['anti_gaspi'],
+    });
+    expect(typePrestation('strike')).toEqual(['zd']);
+    expect(typePrestation('marathon')).toEqual(['ag']);
+  });
+
+  it('M0.7-34 — une collecte reçoit toujours un prestataire qui prend son type', () => {
+    for (const type of ['zero_dechet', 'anti_gaspi'] as const) {
+      for (const province of [false, true]) {
+        const p = prestatairePourCollecte(type, province);
+        expect(prestatairePrend(p, type)).toBe(true);
+      }
+    }
+    expect(prestatairePourCollecte('zero_dechet', true)).toBe('strike');
+    expect(prestatairePourCollecte('anti_gaspi', false)).toBe('marathon');
+    expect(prestatairePourCollecte('anti_gaspi', true)).toBe('transnormandie');
+  });
+
+  it('M0.7-35 — chaque transporteur et prestataire seedé a ses flux dans la règle', () => {
+    for (const source of sources) {
+      const transporteurs = [
+        ...source.matchAll(/transp\(\s*'transp_([a-z_]+)'/g),
+      ].map((m) => m[1]!);
+      expect(transporteurs.length).toBeGreaterThan(0);
+      for (const t of transporteurs) {
+        expect(TYPES_COLLECTE_TRANSPORTEUR).toHaveProperty(t);
+      }
+      // Les helpers posent bien les flux, pas une valeur en dur.
+      expect(source).toContain('types_collecte: TYPES_COLLECTE_TRANSPORTEUR[');
+      expect(source).toContain('type_prestation: typePrestation(');
+      expect(source).not.toContain("type_prestation: ['zd', 'ag']");
+    }
+    for (const transp of Object.values(TRANSPORTEUR_DU_PRESTATAIRE)) {
+      expect(TYPES_COLLECTE_TRANSPORTEUR).toHaveProperty(transp);
+    }
+  });
+
+  it('M0.7-36 — seed_demo choisit le prestataire de la collecte et de son attribution par la règle', () => {
+    const demo = sources[0]!;
+    // Collecte + attribution : plus d'alternance par index.
+    expect(demo.match(/prestatairePourCollecte\(/g)?.length).toBe(2);
+    expect(demo).not.toMatch(/\? 'strike'\s*:\s*'marathon'/);
+    expect(demo).not.toMatch(/\? 'marathon'\s*:\s*'strike'/);
+    // Attribution d'une collecte validée ou au-delà : validée.
+    expect(demo).toContain('STATUTS_ATTRIBUTION_VALIDEE');
+    expect(demo).toContain('a.valide_at = tsAt(');
   });
 });

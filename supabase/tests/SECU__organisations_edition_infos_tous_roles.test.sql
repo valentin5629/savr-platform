@@ -3,24 +3,23 @@
 -- Migration prouvée : 20260928100000_plateforme_organisations_edition_infos_tous_roles
 -- =============================================================================
 -- Décision Val 2026-09-28 : raison sociale, SIRET et adresse de SA propre organisation
--- modifiables par traiteur_commercial et client_organisateur (en plus du manager, de
--- l'agence et du gestionnaire). Rien d'autre : nom, email, téléphone, updated_at
--- restent refusés à ces deux rôles ; l'organisation d'un tiers reste intouchable.
+-- modifiables par client_organisateur (en plus du manager, de l'agence et du
+-- gestionnaire). Rien d'autre : nom, email, téléphone, updated_at lui restent
+-- refusés ; l'organisation d'un tiers reste intouchable.
+-- Val 2026-10-30 (20261030140000) : traiteur_commercial repasse en lecture seule
+-- (policy org_commercial_update retirée) — tests 1-4.
 --
--- NON-VACUITÉ (mesurée 2026-09-28 sur base jetable fidèle à la CI) :
---   - sans la migration : 2-5, 8-11, 13-14 tombent (aucune policy UPDATE → 0 ligne,
---     la valeur relue est l'ancienne ; 1 et 7 restent verts, un UPDATE de 0 ligne
---     n'échoue pas — c'est 2 et 8 qui portent la preuve) ;
---   - avec les policies mais l'ANCIEN corps du trigger (gestionnaire seul) : 3-5 et
---     9-11 tombent → l'ouverture est bien bornée aux trois colonnes légales par le
---     trigger, pas par un hasard de privilège.
---   6 et 12 : la policy reste own-org.
+-- NON-VACUITÉ :
+--   - client_organisateur (mesurée 2026-09-28) : sans la migration 20260928100000,
+--     8-11 et 14 tombent ; avec l'ANCIEN corps du trigger, 9-11 tombent ; 12 = own-org.
+--   - commercial : sans 20261030140000, 2 et 4 tombent (la policy laisse passer
+--     l'UPDATE des trois colonnes légales).
 --
 -- ⚠ JWT au format PRODUCTION (claim réservé `role` + claim métier `user_role`).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(16);
+SELECT plan(12);
 
 CREATE OR REPLACE FUNCTION test_set_jwt_prod(
   p_role text,
@@ -61,39 +60,34 @@ VALUES
    '55520000000003', 'tiers@edit.test', NULL, '3 rue Tiers');
 
 -- =============================================================================
--- 1-6 — traiteur_commercial
+-- 1-4 — traiteur_commercial : lecture seule depuis 20261030140000 (Val 2026-10-30)
 -- =============================================================================
 SELECT test_set_jwt_prod('traiteur_commercial', '5e2e0001-0000-0000-0000-0000000000c1'::uuid);
 
+-- Sans policy UPDATE pour son rôle, l'UPDATE ne touche aucune ligne : il ne lève
+-- rien (1), c'est la relecture (2) qui porte la preuve.
 SELECT lives_ok(
   $$ UPDATE plateforme.organisations
         SET raison_sociale = 'EDIT Trait Bis', siret = '55520000000099', adresse = '9 rue Neuve'
       WHERE id = '5e2e0001-0000-0000-0000-0000000000c1' $$,
-  '1. commercial : raison_sociale + siret + adresse de sa propre orga modifiables');
+  '1. commercial : l''UPDATE de sa propre orga ne lève pas d''erreur');
 SELECT is(
   (SELECT raison_sociale || '|' || siret || '|' || adresse
      FROM plateforme.organisations WHERE id = '5e2e0001-0000-0000-0000-0000000000c1'),
-  'EDIT Trait Bis|55520000000099|9 rue Neuve',
-  '2. commercial : l''UPDATE a bien été appliqué (policy org_commercial_update)');
-
-SELECT throws_ok(
-  $$ UPDATE plateforme.organisations SET nom = 'Renommé' WHERE id = '5e2e0001-0000-0000-0000-0000000000c1' $$,
-  '42501', NULL, '3. commercial : nom non modifiable');
-SELECT throws_ok(
-  $$ UPDATE plateforme.organisations SET email_principal = 'x@y.test', telephone = '0'
-      WHERE id = '5e2e0001-0000-0000-0000-0000000000c1' $$,
-  '42501', NULL, '4. commercial : email / téléphone non modifiables');
-SELECT throws_ok(
-  $$ UPDATE plateforme.organisations SET logo_url = 'savr-dev/logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png'
-      WHERE id = '5e2e0001-0000-0000-0000-0000000000c1' $$,
-  '42501', NULL, '5. commercial : logo non modifiable (hors liste blanche du rôle)');
+  'EDIT Trait SAS|55520000000001|1 rue Trait',
+  '2. commercial : sa propre organisation reste inchangée (lecture seule)');
 
 UPDATE plateforme.organisations SET adresse = 'piraté' WHERE id = '5e2e0003-0000-0000-0000-0000000000c1';
 SELECT test_as_superuser();
 SELECT is(
   (SELECT adresse FROM plateforme.organisations WHERE id = '5e2e0003-0000-0000-0000-0000000000c1'),
   '3 rue Tiers',
-  '6. commercial : l''organisation d''un tiers n''est pas modifiable (0 ligne)');
+  '3. commercial : l''organisation d''un tiers n''est pas modifiable (0 ligne)');
+SELECT is(
+  (SELECT count(*)::int FROM pg_policies WHERE schemaname = 'plateforme' AND tablename = 'organisations'
+      AND cmd IN ('UPDATE', 'ALL') AND (qual LIKE '%traiteur_commercial%' OR with_check LIKE '%traiteur_commercial%')),
+  0,
+  '4. aucune policy UPDATE ne cite traiteur_commercial sur organisations');
 
 -- =============================================================================
 -- 7-12 — client_organisateur
@@ -130,18 +124,8 @@ SELECT is(
   '12. client_organisateur : l''organisation d''un tiers n''est pas modifiable (0 ligne)');
 
 -- =============================================================================
--- 13-14b — cliquets : prédicats own-org (USING + WITH CHECK) des deux nouvelles policies
+-- 14-14b — cliquets : prédicats own-org (USING + WITH CHECK) de org_client_orga_update
 -- =============================================================================
-SELECT is(
-  (SELECT qual FROM pg_policies WHERE schemaname = 'plateforme' AND tablename = 'organisations'
-      AND policyname = 'org_commercial_update'),
-  '((plateforme.f_app_role() = ''traiteur_commercial''::text) AND (id = ((auth.jwt() ->> ''organisation_id''::text))::uuid))',
-  '13. org_commercial_update : USING = rôle commercial ET id = organisation du JWT');
-SELECT is(
-  (SELECT with_check FROM pg_policies WHERE schemaname = 'plateforme' AND tablename = 'organisations'
-      AND policyname = 'org_commercial_update'),
-  '((plateforme.f_app_role() = ''traiteur_commercial''::text) AND (id = ((auth.jwt() ->> ''organisation_id''::text))::uuid))',
-  '13b. org_commercial_update : WITH CHECK = rôle ET id = organisation du JWT');
 SELECT is(
   (SELECT qual FROM pg_policies WHERE schemaname = 'plateforme' AND tablename = 'organisations'
       AND policyname = 'org_client_orga_update'),

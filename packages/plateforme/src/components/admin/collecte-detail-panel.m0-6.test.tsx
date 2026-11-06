@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  act,
   render,
   screen,
   waitFor,
@@ -49,8 +50,8 @@ const collecteAg = {
   annulee_cote_savr: false,
   pack_antgaspi_id: null,
   packs_antgaspi: null,
-  // Collecte AG non encore attribuée à un prestataire (comme sur le preview réel),
-  // mais dont l'association est déjà choisie : l'envoi au prestataire n'est
+  // Collecte AG non encore attribuée à un transporteur (comme sur le preview réel),
+  // mais dont l'association est déjà choisie : l'envoi au transporteur n'est
   // possible qu'après (décision Val 2026-10-01 — son adresse est le point B).
   prestataire_logistique_id: null,
   attributions_antgaspi: {
@@ -61,6 +62,11 @@ const collecteAg = {
     associations: { nom: 'Les Restos du Cœur' },
     transporteurs: null,
   },
+  pax: 80,
+  // Type d'événement de LA collecte (lot B1, décision Val 2026-10-23), servi
+  // par le GET Admin (`type_evenement:types_evenements!type_evenement_id`).
+  type_evenement_id: 't1',
+  type_evenement: { libelle: 'Cocktail apéritif' },
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
@@ -68,6 +74,7 @@ const collecteAg = {
     organisations: { raison_sociale: 'Traiteur Beta' },
     client_organisateur: { raison_sociale: 'Org Cliente SA' },
     lieux: { nom: 'Pavillon', ville: 'Paris', adresse_acces: '1 rue X' },
+    // Copie de la collecte n°1, tenue par la base : jamais affichée.
     types_evenements: { libelle: 'Cocktail apéritif' },
   },
   collecte_flux: [],
@@ -87,6 +94,17 @@ const collecteAg = {
   factures_collectes: [
     { id: 'fc-1', montant_ht: 120, factures: { statut: 'emise' } },
   ],
+};
+
+// Ordre de création qui attend dans la file d'envoi, tel que la route détail le
+// rend (`ordre_envoi`) juste après « Envoyer » : sans lui, la fiche ne dit plus
+// la collecte envoyée (décision Val 2026-10-20, C1).
+const ORDRE_EN_FILE = {
+  etat: 'en_attente',
+  nature: 'creation',
+  tentatives: 0,
+  prochaine_tentative_at: null,
+  erreur: null,
 };
 
 const transporteurs = [
@@ -246,7 +264,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       // Collecte non attribuée
       expect(
-        screen.getByText('Aucun prestataire attribué'),
+        screen.getByText('Aucun transporteur attribué'),
       ).toBeInTheDocument();
 
       // Pré-sélection du top-1 recommandé → bouton « Envoyer à MTS-1 », et AUCUN
@@ -264,23 +282,75 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6 — Logistique AG : le bloc « Attribution AG » précède « Prestataire & Dispatch »',
+    'M0.6 — Logistique AG : un seul bloc « Transporteur et Dispatch » en trois colonnes (prestataire et véhicules, attribution, statut TMS)',
     async () => {
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
-      const attribution = await screen.findByText(
-        'Attribution AG',
+      // Blocs fusionnés en trois colonnes (décisions Val 2026-10-27).
+      await screen.findByText(
+        'Transporteur et Dispatch',
         undefined,
         ATTENTE_UI,
       );
-      const dispatch = screen.getByText('Prestataire & Dispatch');
-      // L'association est choisie AVANT le prestataire (décision Val 2026-10-01).
-      expect(
-        attribution.compareDocumentPosition(dispatch) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
+      expect(screen.queryByText('Transporteur & Dispatch')).toBeNull();
+      expect(screen.queryByText('Attribution AG')).toBeNull();
+      const colonnes = Array.from(
+        (screen.getByText('Association retenue').closest('dl') as HTMLElement)
+          .children,
+      ).map((c) =>
+        Array.from(c.querySelectorAll('dt')).map((dt) => dt.textContent),
+      );
+      expect(colonnes.slice(0, 3)).toEqual([
+        [
+          'Transporteur actuel',
+          'Type de véhicule souhaité',
+          'Nombre de véhicules',
+        ],
+        ['Association retenue', 'Volume de repas estimés'],
+        ['Statut TMS'],
+      ]);
+      // Plus de ligne « Validation » (mode et date de validation).
+      expect(screen.queryByText('Validation')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/pax_par_collecte — fiche Admin : titre, en-tête et « Nombre de pax » lisent le pax de la collecte (650), pas celui de l’événement (1 200) ; l’attribution intégrée n’affiche que les repas (Val 2026-10-27)',
+    async () => {
+      const onLoaded = vi.fn();
+      mockFetch({
+        ...collecteAg,
+        attributions_antgaspi: null,
+        pax: 650,
+        evenements: { ...collecteAg.evenements, pax: 1200 },
+      });
+      render(<CollecteDetailPanel collecteId="c1" onLoaded={onLoaded} />);
+
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        {},
+        ATTENTE_UI,
+      );
+      expect(sousLigne).toHaveTextContent('650 pax');
+      expect(sousLigne).not.toHaveTextContent(/jusqu/);
+      expect(sousLigne).not.toHaveTextContent(/1\s?200/);
+      await waitFor(() => expect(onLoaded).toHaveBeenCalled(), ATTENTE_UI);
+      const arg = onLoaded.mock.calls.at(-1)?.[0] as { title: string };
+      expect(arg.title).toContain("jusqu'à 650\u00a0pax");
+
+      const infos = screen.getByRole('tabpanel');
+      expect(within(infos).getByText(/^650/)).toBeInTheDocument();
+      expect(within(infos).queryByText(/jusqu.à 1\s?200/)).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      await screen.findByRole('combobox', { name: 'Association' }, ATTENTE_UI);
+      // Du texte, pas un champ de saisie (décision Val 2026-10-27).
+      const volume = screen.getByTestId('attribution-volume');
+      expect(volume.querySelector('input')).toBeNull();
+      expect(volume.querySelector('dd')).toHaveTextContent(/^12 repas$/);
     },
     ATTENTE_CAS_MS,
   );
@@ -296,7 +366,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       await ouvrirOnglet('Logistique');
 
       // Association d'abord (son adresse est le point de livraison), puis le
-      // besoin véhicule et le prestataire — dans le popup, sans page dédiée.
+      // besoin véhicule et le transporteur — dans le popup, sans page dédiée.
       expect(
         await screen.findByText(
           'Attribution & dispatch',
@@ -326,7 +396,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         screen.queryByRole('button', { name: /^Envoyer à/ }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByText('Prestataire & Dispatch'),
+        screen.queryByText('Transporteur & Dispatch'),
       ).not.toBeInTheDocument();
 
       // Nombre de véhicules → 2 ; validation = POST /valider avec le besoin véhicule.
@@ -355,6 +425,312 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect(body.transporteur_id).toBe('t-mts1');
         expect(body.nb_camions_demande).toBe(2);
         expect(body.type_vehicule_souhaite).toBeNull();
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Recommandation servie avec la liste des services par transporteur.
+  function servirServicesATouts(fetchMock: ReturnType<typeof mockFetch>) {
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url, opts) => {
+      const r = (await base(url, opts)) as {
+        ok: boolean;
+        json: () => Promise<{ data: object }>;
+      };
+      if (!String(url).includes('/recommandation')) return r;
+      const { data } = await r.json();
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            ...data,
+            services_par_type_tms: {
+              a_toutes: [
+                {
+                  branche: 'ag_velo_programme',
+                  libelle: 'Vélo cargo programmé',
+                },
+                {
+                  branche: 'ag_marathon_volume_backup_camion',
+                  libelle: 'Camion',
+                },
+              ],
+            },
+          },
+        }),
+      };
+    });
+  }
+
+  const chezATouts = {
+    ...collecteAg,
+    prestataire_logistique_id: 'presta-atoutes',
+    prestataire_actuel: {
+      transporteur_id: 't-atoutes',
+      nom: 'A Toutes!',
+      type_tms: 'a_toutes',
+    },
+  };
+
+  // Cas vécu le 2026-11-02, après #725 : création abandonnée chez A Toutes! sur
+  // une branche Marathon. La fiche rouvre l'envoi ET demande le service.
+  it(
+    'M0.6/dispatch_service_a_toutes — création abandonnée chez A Toutes! sur une branche Marathon : service demandé avant « Renvoyer »',
+    async () => {
+      const fetchMock = mockFetch({
+        ...chezATouts,
+        attributions_antgaspi: {
+          ...collecteAg.attributions_antgaspi,
+          branche_attribution: 'ag_marathon_volume',
+        },
+        envoi_abandonne: true,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_definitif',
+          tentatives: 1,
+          erreur: 'branche non mappée',
+        }),
+      });
+      servirServicesATouts(fetchMock);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const renvoyer = await screen.findByRole(
+        'button',
+        { name: /^Renvoyer à A Toutes!/ },
+        ATTENTE_UI,
+      );
+      const service = await screen.findByRole(
+        'combobox',
+        { name: /Service du transporteur/ },
+        ATTENTE_UI,
+      );
+      expect(renvoyer).toBeDisabled();
+      fireEvent.click(service);
+      fireEvent.click(screen.getByRole('option', { name: 'Camion' }));
+      await waitFor(() => expect(renvoyer).not.toBeDisabled(), ATTENTE_UI);
+      fireEvent.click(renvoyer);
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(([u]) =>
+          String(u).includes('/dispatch'),
+        );
+        expect(post).toBeTruthy();
+        const body = JSON.parse(
+          String((post![1] as { body: string }).body),
+        ) as Record<string, unknown>;
+        expect(body.branche_attribution).toBe(
+          'ag_marathon_volume_backup_camion',
+        );
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'branche déjà A Toutes! (attribution recommandée vers A Toutes!) : aucun service demandé',
+    async () => {
+      const fetchMock = mockFetch({
+        ...chezATouts,
+        attributions_antgaspi: {
+          ...collecteAg.attributions_antgaspi,
+          branche_attribution: 'ag_velo_programme',
+        },
+      });
+      servirServicesATouts(fetchMock);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      await screen.findByRole(
+        'button',
+        { name: /^(Envoyer|Renvoyer) à A Toutes!/ },
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(([u]) =>
+              String(u).includes('/recommandation'),
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.queryByRole('combobox', { name: /Service du transporteur/ }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Même décision, depuis le bloc d'envoi d'une AG déjà attribuée (branche
+  // Marathon) : choisir la carte A Toutes! fait demander le service, envoyé
+  // avec l'ordre comme branche retenue.
+  it(
+    'M0.6/dispatch_service_a_toutes — AG attribuée sur une branche Marathon, carte A Toutes! cochée : service demandé avant l’envoi',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        attributions_antgaspi: {
+          ...collecteAg.attributions_antgaspi,
+          branche_attribution: 'ag_marathon_volume',
+        },
+      });
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(async (url, opts) => {
+        const r = (await base(url, opts)) as {
+          ok: boolean;
+          json: () => Promise<{ data: object }>;
+        };
+        if (!String(url).includes('/recommandation')) return r;
+        const { data } = await r.json();
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              ...data,
+              services_par_type_tms: {
+                a_toutes: [
+                  {
+                    branche: 'ag_velo_programme',
+                    libelle: 'Vélo cargo programmé',
+                  },
+                  {
+                    branche: 'ag_marathon_volume_backup_camion',
+                    libelle: 'Camion',
+                  },
+                ],
+              },
+            },
+          }),
+        };
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      fireEvent.click(
+        await screen.findByRole('radio', { name: /A Toutes!/ }, ATTENTE_UI),
+      );
+      fireEvent.change(
+        await screen.findByLabelText(/Motif override/, undefined, ATTENTE_UI),
+        {
+          target: { value: 'Marathon indisponible' },
+        },
+      );
+      const envoyer = await screen.findByRole(
+        'button',
+        { name: /^Envoyer à A Toutes!/ },
+        ATTENTE_UI,
+      );
+      expect(envoyer).toBeDisabled();
+
+      fireEvent.click(
+        screen.getByRole('combobox', { name: /Service du transporteur/ }),
+      );
+      fireEvent.click(screen.getByRole('option', { name: 'Camion' }));
+      await waitFor(() => expect(envoyer).not.toBeDisabled(), ATTENTE_UI);
+      fireEvent.click(envoyer);
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(([u]) =>
+          String(u).includes('/dispatch'),
+        );
+        expect(post).toBeTruthy();
+        const body = JSON.parse(
+          String((post![1] as { body: string }).body),
+        ) as Record<string, unknown>;
+        expect(body.prestataire_logistique_id).toBe('presta-atoutes');
+        expect(body.branche_attribution).toBe(
+          'ag_marathon_volume_backup_camion',
+        );
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Décision Val 2026-11-03 : A Toutes! forcé alors que la branche calculée
+  // (Marathon) ne désigne aucun de ses services → l'Admin choisit le service,
+  // qui part comme branche retenue (cas du 2026-11-02 : échec d'envoi).
+  it(
+    'M0.6/attribution_service_a_toutes — A Toutes! forcé sur une branche Marathon : service demandé, puis envoyé comme branche',
+    async () => {
+      const fetchMock = mockFetch({
+        ...collecteAg,
+        attributions_antgaspi: null,
+      });
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(async (url, opts) => {
+        const r = (await base(url, opts)) as {
+          ok: boolean;
+          json: () => Promise<{ data: object }>;
+        };
+        if (!String(url).includes('/recommandation')) return r;
+        const { data } = await r.json();
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              ...data,
+              branche: 'ag_marathon_volume',
+              services_par_type_tms: {
+                a_toutes: [
+                  {
+                    branche: 'ag_velo_programme',
+                    libelle: 'Vélo cargo programmé',
+                  },
+                  {
+                    branche: 'ag_marathon_volume_backup_camion',
+                    libelle: 'Camion',
+                  },
+                ],
+              },
+            },
+          }),
+        };
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      // Transporteur recommandé (MTS-1) : aucun service demandé.
+      await screen.findByRole('combobox', { name: 'Transporteur' }, ATTENTE_UI);
+      expect(
+        screen.queryByRole('combobox', { name: /Service du transporteur/ }),
+      ).toBeNull();
+
+      fireEvent.click(screen.getByRole('combobox', { name: 'Transporteur' }));
+      fireEvent.click(
+        await screen.findByRole('option', { name: 'A Toutes!' }, ATTENTE_UI),
+      );
+      fireEvent.click(screen.getByRole('combobox', { name: 'Motif' }));
+      fireEvent.click(
+        screen.getByRole('option', { name: 'Transporteur top 1 indisponible' }),
+      );
+      const valider = await screen.findByRole(
+        'button',
+        { name: /^Valider et envoyer à A Toutes!/ },
+        ATTENTE_UI,
+      );
+      expect(valider).toBeDisabled();
+
+      fireEvent.click(
+        screen.getByRole('combobox', { name: /Service du transporteur/ }),
+      );
+      fireEvent.click(screen.getByRole('option', { name: 'Camion' }));
+      await waitFor(() => expect(valider).not.toBeDisabled(), ATTENTE_UI);
+      fireEvent.click(valider);
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          ([u, o]) =>
+            String(u).includes('/valider') &&
+            (o as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        const body = JSON.parse(
+          String((post![1] as { body: string }).body),
+        ) as Record<string, unknown>;
+        expect(body.transporteur_id).toBe('t-atoutes');
+        expect(body.branche_attribution).toBe(
+          'ag_marathon_volume_backup_camion',
+        );
       }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
@@ -399,6 +775,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           nom: 'A Toutes!',
           type_tms: 'a_toutes',
         },
+        ordre_envoi: ORDRE_EN_FILE,
         attributions_antgaspi: {
           id: 'attr-1',
           mode_validation: 'manuel_override',
@@ -416,7 +793,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       // Après refetch : l'ordre est en file d'envoi → la fiche dit la collecte
       // envoyée à A Toutes!, sans carte ni bouton d'envoi (décision Val
-      // 2026-10-02, C1). « Changer de prestataire » rouvre les cartes : « Actuel »
+      // 2026-10-02, C1). « Changer de transporteur » rouvre les cartes : « Actuel »
       // = A Toutes! cochée, bouton forké sur A Toutes!, rien vers le recommandé.
       expect(
         await screen.findByText(
@@ -430,7 +807,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
       ).toBeNull();
       fireEvent.click(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
       );
       const carteAToutes = await screen.findByRole(
         'radio',
@@ -556,7 +933,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       await ouvrirOnglet('Logistique');
       expect(
         await screen.findByText(
-          'Aucun prestataire attribué',
+          'Aucun transporteur attribué',
           undefined,
           ATTENTE_UI,
         ),
@@ -574,7 +951,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Prestataire actuel (§06.06 §3 Bloc 0 : « depuis collectes.prestataire_logistique_id »).
+  // Transporteur actuel (§06.06 §3 Bloc 0 : « depuis collectes.prestataire_logistique_id »).
   // La fiche le cherchait dans la liste des transporteurs ACTIFS, chargée à part :
   // transporteur désactivé depuis, liste absente ou en échec → « non attribué »
   // sur une collecte attribuée, de quoi pousser un Ops à la ré-attribuer.
@@ -621,6 +998,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           nom: 'Marathon',
           type_tms: 'mts1',
         },
+        ordre_envoi: ORDRE_EN_FILE,
       });
       render(<CollecteDetailPanel collecteId="c1" />);
 
@@ -631,20 +1009,20 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       await ouvrirOnglet('Logistique');
       const ligne = (
-        await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI)
+        await screen.findByText('Transporteur actuel', undefined, ATTENTE_UI)
       ).parentElement!;
       expect(within(ligne).getByText('Marathon')).toBeInTheDocument();
-      expect(screen.queryByText('Aucun prestataire attribué')).toBeNull();
+      expect(screen.queryByText('Aucun transporteur attribué')).toBeNull();
       // Ordre en file d'envoi : la fiche le dit envoyé à Marathon ; les cartes
-      // ne reviennent que sur « Changer de prestataire ».
+      // ne reviennent que sur « Changer de transporteur ».
       expect(
         screen.getByText(/Collecte envoyée à Marathon/),
       ).toBeInTheDocument();
       fireEvent.click(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
       );
       // Désactivé = plus proposé à l'attribution : pas de carte, donc pas de
-      // badge « Actuel » — c'est la ligne « Prestataire actuel » qui le nomme.
+      // badge « Actuel » — c'est la ligne « Transporteur actuel » qui le nomme.
       await screen.findByRole('radio', { name: /Strike/ }, ATTENTE_UI);
       expect(screen.queryByRole('radio', { name: /Marathon/ })).toBeNull();
       expect(screen.queryByText('Actuel')).toBeNull();
@@ -658,7 +1036,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'liste des transporteurs en échec : le prestataire actuel reste nommé et son mode d’envoi connu',
+    'liste des transporteurs en échec : le transporteur actuel reste nommé et son mode d’envoi connu',
     async () => {
       mockFetchPrestataire(
         {
@@ -681,7 +1059,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(screen.queryByText(NON_ATTRIBUE)).toBeNull();
 
       await ouvrirOnglet('Logistique');
-      // `type_tms` lu sur le prestataire actuel, sans la liste : l'acceptation
+      // `type_tms` lu sur le transporteur actuel, sans la liste : l'acceptation
       // manuelle (réservée à A Toutes!) reste offerte.
       expect(
         await screen.findByRole(
@@ -690,7 +1068,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           ATTENTE_UI,
         ),
       ).toBeInTheDocument();
-      expect(screen.queryByText('Aucun prestataire attribué')).toBeNull();
+      expect(screen.queryByText('Aucun transporteur attribué')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -717,12 +1095,12 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       await ouvrirOnglet('Logistique');
       const ligne = (
-        await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI)
+        await screen.findByText('Transporteur actuel', undefined, ATTENTE_UI)
       ).parentElement!;
       expect(
         within(ligne).getByText('Attribué — nom indisponible'),
       ).toBeInTheDocument();
-      expect(screen.queryByText('Aucun prestataire attribué')).toBeNull();
+      expect(screen.queryByText('Aucun transporteur attribué')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -738,6 +1116,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           nom: 'A Toutes!',
           type_tms: 'a_toutes',
         },
+        ordre_envoi: ORDRE_EN_FILE,
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
@@ -746,7 +1125,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(
         await screen.findByRole(
           'button',
-          { name: 'Changer de prestataire' },
+          { name: 'Modifier l’attribution' },
           ATTENTE_UI,
         ),
       );
@@ -769,7 +1148,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   // Ordre en file d'envoi (décision Val 2026-10-02, C1). Entre « Valider et
   // envoyer » et le passage du worker outbox (15 min), `tms_reference` est vide
   // et `statut_tms` encore `non_envoye` (§06.09 §3 pt 3) : la fiche réaffichait
-  // « Prestataire à attribuer » + « Envoyer à MTS-1 », comme si rien n'était
+  // « Transporteur à attribuer » + « Envoyer à MTS-1 », comme si rien n'était
   // parti. Elle doit dire la collecte envoyée et ne rouvrir le choix que sur
   // demande.
   // ──────────────────────────────────────────────────────────────────────────
@@ -783,10 +1162,11 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       type_tms: 'mts1',
     },
     collecte_tournees: [],
+    ordre_envoi: ORDRE_EN_FILE,
   };
 
   it(
-    'AG en file d’envoi : « Envoyée » en en-tête et au bloc, collecte dite envoyée au prestataire, ni carte ni bouton d’envoi',
+    'AG en file d’envoi : « Envoyée » en en-tête et au bloc, collecte dite envoyée au transporteur, ni carte ni bouton d’envoi',
     async () => {
       mockFetchPrestataire(collecteEnFileMts1);
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -814,13 +1194,639 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(screen.queryByText('Non envoyé')).toBeNull();
       // Ni choix du prestataire ni bouton d'envoi tant qu'on ne le demande pas.
       expect(screen.queryByRole('radiogroup')).toBeNull();
-      expect(screen.queryByText('Prestataire à attribuer')).toBeNull();
+      expect(screen.queryByText('Transporteur à attribuer')).toBeNull();
       expect(
         screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
       ).toBeNull();
       expect(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
       ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // État réel de l'ordre d'envoi (décision Val 2026-10-12, C6). L'envoi part en
+  // arrière-plan juste après le clic ; la route détail rend l'ordre de tête de
+  // la file (`ordre_envoi`). La fiche dit ce qu'il en est — en file, en échec
+  // avec reprise, abandonné — et se relit seule tant que l'envoi est en cours.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const ordreEnvoi = (over: Record<string, unknown> = {}) => ({
+    ...ORDRE_EN_FILE,
+    ...over,
+  });
+
+  // Sert la collecte par une fonction et compte ses lectures (GET de la fiche).
+  function mockLectures(servie: (lecture: number) => Record<string, unknown>) {
+    const compteur = { lectures: 0 };
+    const fetchMock = mockFetch() as unknown as ReturnType<typeof vi.fn>;
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(
+      (url: string, opts?: { method?: string; body?: string }) => {
+        if (url === '/api/v1/admin/collectes/c1' && !opts?.method) {
+          compteur.lectures += 1;
+          const collecte = servie(compteur.lectures);
+          return Promise.resolve({ ok: true, json: async () => collecte });
+        }
+        return base(url, opts);
+      },
+    );
+    return compteur;
+  }
+
+  it(
+    'M0.6/ordre_envoi_encart_en_file — ordre en file : collecte dite envoyée, départ annoncé dans les secondes qui suivent, plus de « 15 minutes »',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi(),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /Collecte envoyée à Strike/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /part vers MTS-1 dans les secondes qui suivent l.envoi ; à défaut, au prochain passage automatique/,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/15 minutes/)).toBeNull();
+      const ligne = screen.getByText('Statut TMS').parentElement!;
+      expect(within(ligne).getByText('Envoyée')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_echec_reprise — ordre en échec avec reprise : « Envoi en reprise », tentative comptée, date de la prochaine tentative et motif',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_reprise',
+          tentatives: 2,
+          prochaine_tentative_at: '2097-01-15T09:35:00Z',
+          erreur: '503 Service Unavailable',
+        }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(
+        within(sousLigne).getByText('Envoi en reprise'),
+      ).toBeInTheDocument();
+      expect(within(sousLigne).queryByText('Envoyée')).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /La collecte n.a pas encore été transmise à Strike \(tentative 2 sur 4\)/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      // 09:35 UTC = 10:35 à Paris un 15 janvier.
+      expect(
+        screen.getByText(
+          'Nouvelle tentative automatique le 15/01/2097 à 10:35.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Motif : 503 Service Unavailable'),
+      ).toBeInTheDocument();
+      const ligne = screen.getByText('Statut TMS').parentElement!;
+      expect(within(ligne).getByText('Envoi en reprise')).toBeInTheDocument();
+      // La collecte n'est plus dite « envoyée ».
+      expect(screen.queryByText(/Collecte envoyée à/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_echec_definitif — ordre abandonné : « Échec d’envoi », collecte dite non transmise, renvoi possible depuis la fiche',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        // Posé par la route quand l'ordre de tête est une création abandonnée.
+        envoi_abandonne: true,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_definitif',
+          tentatives: 4,
+          erreur: '400 Bad Request',
+        }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(sousLigne).getByText('Échec d’envoi')).toBeInTheDocument();
+
+      await ouvrirOnglet('Logistique');
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toMatch(
+        /La collecte n.est pas transmise à Strike : envoi abandonné après 4 tentatives\./,
+      );
+      // Val 2026-11-03 : l'abandon ne bloque plus, la fiche rouvre l'envoi.
+      expect(alerte.textContent).toMatch(
+        /Corrigez la cause si besoin, puis renvoyez la collecte depuis cette fiche\./,
+      );
+      expect(alerte.textContent).not.toMatch(/équipe technique/);
+      expect(alerte.textContent).toMatch(/Motif : 400 Bad Request/);
+      const ligne = screen.getByText('Statut TMS').parentElement!;
+      expect(within(ligne).getByText('Échec d’envoi')).toBeInTheDocument();
+      expect(screen.queryByText(/Collecte envoyée à/)).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Renvoyer à MTS-1' }),
+      ).toBeEnabled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_hors_file — commande déjà reçue par le transporteur : seul un échec est signalé, nommé par sa nature',
+    async () => {
+      const commandee = {
+        ...collecteEnFileMts1,
+        tms_reference: 'TOUR-77',
+        statut_tms: 'acceptee',
+      };
+
+      // Une modification encore en file : rien à signaler.
+      mockFetchPrestataire({
+        ...commandee,
+        ordre_envoi: ordreEnvoi({ nature: 'modification' }),
+      });
+      const premiere = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText('Statut TMS', undefined, ATTENTE_UI);
+      expect(screen.queryByText(/Collecte envoyée à/)).toBeNull();
+      expect(screen.queryByText(/transmise à Strike/)).toBeNull();
+      premiere.unmount();
+
+      // Une annulation abandonnée : le transporteur ne sait pas que c'est annulé.
+      mockFetchPrestataire({
+        ...commandee,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_definitif',
+          nature: 'annulation',
+          tentatives: 1,
+        }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toMatch(
+        /L’annulation de la collecte n.est pas transmise à Strike : envoi abandonné après 1 tentative\./,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_hors_file_creation — commande déjà reçue et ordre de création en échec : la collecte n’est pas dite « non transmise »',
+    async () => {
+      // Cas nominal de l'acceptation manuelle A Toutes! pendant une panne : la
+      // référence est enregistrée, l'ordre de création est encore en échec.
+      const acceptee = {
+        ...collecteEnFileMts1,
+        tms_reference: 'TOUR-77',
+        statut_tms: 'acceptee',
+      };
+
+      mockFetchPrestataire({
+        ...acceptee,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_reprise',
+          tentatives: 2,
+          prochaine_tentative_at: '2097-01-15T09:35:00Z',
+        }),
+      });
+      const premiere = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const reprise = await screen.findByText(
+        /Un ordre d.envoi à Strike est encore en reprise \(tentative 2 sur 4\), alors que la commande porte déjà une référence\./,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(reprise).toBeInTheDocument();
+      expect(screen.queryByText(/transmise à Strike/)).toBeNull();
+      premiere.unmount();
+
+      mockFetchPrestataire({
+        ...acceptee,
+        // La route le pose dès que l'ordre de tête est une création
+        // abandonnée, référence reçue ou non.
+        envoi_abandonne: true,
+        ordre_envoi: ordreEnvoi({ etat: 'echec_definitif', tentatives: 4 }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toMatch(
+        /Un ordre d.envoi à Strike a été abandonné après 4 tentatives, alors que la commande porte déjà une référence\./,
+      );
+      expect(alerte.textContent).toMatch(
+        /Il ne bloque pas les ordres suivants de cette collecte\./,
+      );
+      // Commande reçue : la fiche reste celle d'un envoi parti, sans renvoi
+      // proposé (Val 2026-11-03 ne rouvre l'envoi que si rien n'est arrivé).
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
+      expect(alerte.textContent).not.toMatch(/n.est pas transmise/);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_sans_reference — collecte annulée avant l’envoi, sans référence, ordre de création en échec : dite non transmise, jamais « porte déjà une référence »',
+    async () => {
+      // Hors file d'envoi (elle n'est plus à dispatcher) mais RIEN n'a été reçu
+      // par le transporteur.
+      const annulee = {
+        ...collecteEnFileMts1,
+        statut: 'annulee',
+        tms_reference: null,
+        statut_tms: 'non_envoye',
+      };
+
+      mockFetchPrestataire({
+        ...annulee,
+        ordre_envoi: ordreEnvoi({ etat: 'echec_reprise', tentatives: 2 }),
+      });
+      const premiere = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          /La collecte n.a pas encore été transmise à Strike \(tentative 2 sur 4\)/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/porte déjà une référence/)).toBeNull();
+      premiere.unmount();
+
+      mockFetchPrestataire({
+        ...annulee,
+        ordre_envoi: ordreEnvoi({ etat: 'echec_definitif', tentatives: 4 }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toMatch(
+        /La collecte n.est pas transmise à Strike : envoi abandonné après 4 tentatives\./,
+      );
+      expect(alerte.textContent).not.toMatch(/porte déjà une référence/);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_textes_limites — date de reprise déjà passée : pas de date affichée ; prestataire sans nom : « au transporteur »',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_reprise',
+          tentatives: 1,
+          prochaine_tentative_at: '2020-01-15T09:35:00Z',
+        }),
+      });
+      const premiere = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          'Nouvelle tentative au prochain passage automatique.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/15\/01\/2020/)).toBeNull();
+      premiere.unmount();
+
+      // Commande reçue, annulation abandonnée, prestataire que la route n'a pas su nommer.
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        tms_reference: 'TOUR-77',
+        statut_tms: 'acceptee',
+        prestataire_actuel: null,
+        ordre_envoi: ordreEnvoi({
+          etat: 'echec_definitif',
+          nature: 'annulation',
+          tentatives: 4,
+        }),
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const alerte = await screen.findByRole('alert', undefined, ATTENTE_UI);
+      expect(alerte.textContent).toMatch(
+        /L.annulation de la collecte n.est pas transmise au transporteur : envoi abandonné après 4 tentatives\./,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_relecture — la fiche se relit seule tant que l’envoi est en cours, affiche le statut de la commande dès qu’elle arrive, puis cesse de relire',
+    async () => {
+      // Lectures 1 et 2 : ordre en cours. Lecture 3 : la commande est reçue.
+      const compteur = mockLectures((lecture) =>
+        lecture >= 3
+          ? {
+              ...collecteEnFileMts1,
+              tms_reference: 'TOUR-77',
+              statut_tms: 'attribuee_en_attente_acceptation',
+              ordre_envoi: null,
+            }
+          : {
+              ...collecteEnFileMts1,
+              ordre_envoi: ordreEnvoi({ etat: 'en_cours', tentatives: 1 }),
+            },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      await ouvrirOnglet('Logistique');
+      await screen.findByText(
+        /Collecte envoyée à Strike/,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(compteur.lectures).toBe(1);
+
+      // Sans aucun geste : deux relectures (2 s chacune) plus tard, la commande
+      // est reçue (« Référence TMS » retirée de la fiche, décision Val
+      // 2026-10-27 : c'est l'encart qui disparaît).
+      await waitFor(
+        () => expect(screen.queryByText(/Collecte envoyée à/)).toBeNull(),
+        { timeout: 7_000 },
+      );
+      expect(screen.queryByText(/Collecte envoyée à/)).toBeNull();
+      expect(compteur.lectures).toBe(3);
+
+      // La commande est reçue : plus de relecture.
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+      expect(compteur.lectures).toBe(3);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_pas_de_relecture_en_echec — ordre en échec : la fiche ne se relit pas en boucle',
+    async () => {
+      const compteur = mockLectures(() => ({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi({ etat: 'echec_definitif', tentatives: 4 }),
+      }));
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      await ouvrirOnglet('Logistique');
+      await screen.findByRole('alert', undefined, ATTENTE_UI);
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+      expect(compteur.lectures).toBe(1);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_relecture_bornee — ordre qui reste en file : 15 relectures au plus, puis la fiche cesse de relire',
+    async () => {
+      const compteur = mockLectures(() => ({
+        ...collecteEnFileMts1,
+        ordre_envoi: ordreEnvoi(),
+      }));
+      // Horloge simulée qui suit l'horloge réelle (les attentes de rendu
+      // fonctionnent), et qu'on avance plus bas de 40 secondes, par pas de 2.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        render(<CollecteDetailPanel collecteId="c1" />);
+        await screen.findByTestId(
+          'fiche-admin-sous-ligne',
+          undefined,
+          ATTENTE_UI,
+        );
+        expect(compteur.lectures).toBe(1);
+
+        // Un pas par relecture : chaque relecture doit être rendue avant que la
+        // suivante ne soit programmée.
+        for (let pas = 0; pas < 20; pas++) {
+          await act(async () => {
+            await vi.advanceTimersByTimeAsync(2_000);
+          });
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(compteur.lectures).toBe(16);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Prestataire posé, mais aucun ordre dans la file ni référence reçue : rien
+  // n'est parti (ordre mis à l'écart sans envoi, par exemple). La fiche le dit
+  // et rouvre l'envoi, au lieu d'afficher « Envoyée » à jamais (décision Val
+  // 2026-10-20, C1).
+  it(
+    'M0.6/ordre_envoi_aucun_ordre_en_file — prestataire posé, aucun ordre en file ni référence : « Non envoyé », cartes et « Envoyer à MTS-1 », sans relecture',
+    async () => {
+      const compteur = mockLectures(() => ({
+        ...collecteEnFileMts1,
+        type: 'zero_dechet',
+        attributions_antgaspi: null,
+        ordre_envoi: null,
+      }));
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(sousLigne).getByText('Non envoyé')).toBeInTheDocument();
+      expect(within(sousLigne).queryByText('Envoyée')).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      const carte = await screen.findByRole(
+        'radio',
+        { name: /Strike/ },
+        ATTENTE_UI,
+      );
+      expect(carte).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByText('Transporteur à attribuer')).toBeInTheDocument();
+      expect(screen.queryByText(/Collecte envoyée/)).toBeNull();
+      const ligne = screen.getByText('Statut TMS').parentElement!;
+      expect(within(ligne).getByText('Non envoyé')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Changer de transporteur' }),
+      ).toBeNull();
+
+      // Rien en file : la fiche ne se relit pas.
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+      expect(compteur.lectures).toBe(1);
+
+      // L'envoi repart vers le transporteur en place, sans motif.
+      const bouton = screen.getByRole('button', { name: 'Envoyer à MTS-1' });
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+      await waitFor(() => {
+        const post = postDispatch(
+          globalThis.fetch as unknown as ReturnType<typeof vi.fn>,
+        );
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({});
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Même état en AG, chez un transporteur différent de la recommandation (top-1
+  // Strike) : le transporteur en place reste coché, aucun motif n'est demandé,
+  // l'envoi part vers lui à corps vide.
+  // Blocs fusionnés (décision Val 2026-10-27) : AG attribuée dont l'ordre est
+  // parti — pas de cartes d'office, « Modifier l'attribution » les rouvre.
+  // Le statut TMS posé par le transporteur arrive avant la référence (constaté
+  // le 2026-10-27 sur savr-dev) : la commande est déjà partie.
+  it(
+    'AG attribuée, statut TMS « À attribuer » sans référence encore : choix masqué, « Modifier l’attribution »',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        tms_reference: null,
+        statut_tms: 'a_attribuer',
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByRole(
+          'button',
+          { name: 'Modifier l’attribution' },
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('radio')).toBeNull();
+      expect(screen.queryByText('Transporteur à attribuer')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'AG validée, commande reçue : un seul bloc « Transporteur et Dispatch », cartes sur « Modifier l’attribution » seulement',
+    async () => {
+      mockFetchPrestataire({
+        ...collecteEnFileMts1,
+        statut: 'validee',
+        tms_reference: 'TOUR-9',
+        statut_tms: 'acceptee',
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const modifier = await screen.findByRole(
+        'button',
+        { name: 'Modifier l’attribution' },
+        ATTENTE_UI,
+      );
+      expect(screen.getByText('Transporteur et Dispatch')).toBeInTheDocument();
+      expect(screen.queryByText('Attribution AG')).toBeNull();
+      expect(screen.queryByRole('radio')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Changer de transporteur' }),
+      ).toBeNull();
+
+      fireEvent.click(modifier);
+      expect(
+        await screen.findByRole('radio', { name: /Strike/ }, ATTENTE_UI),
+      ).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Garder le transporteur actuel' }),
+      );
+      await waitFor(
+        () => expect(screen.queryByRole('radio')).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/ordre_envoi_aucun_ordre_en_file_ag — AG chez A Toutes!, aucun ordre en file ni référence : « Non envoyé », A Toutes! cochée, « Envoyer à A Toutes! » sans motif',
+    async () => {
+      const fetchMock = mockFetchPrestataire({
+        ...collecteAg,
+        prestataire_logistique_id: 'presta-atoutes',
+        prestataire_actuel: {
+          transporteur_id: 't-atoutes',
+          nom: 'A Toutes!',
+          type_tms: 'a_toutes',
+        },
+        attributions_antgaspi: {
+          ...collecteAg.attributions_antgaspi,
+          mode_validation: 'manuel_override',
+          valide_at: '2026-10-01T10:00:00Z',
+          transporteurs: {
+            id: 't-atoutes',
+            nom: 'A Toutes!',
+            type_tms: 'a_toutes',
+          },
+        },
+        collecte_tournees: [],
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      const sousLigne = await screen.findByTestId(
+        'fiche-admin-sous-ligne',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(sousLigne).getByText('Non envoyé')).toBeInTheDocument();
+      expect(within(sousLigne).queryByText('Envoyée')).toBeNull();
+
+      await ouvrirOnglet('Logistique');
+      const carte = await screen.findByRole(
+        'radio',
+        { name: /A Toutes!/ },
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(carte).toHaveAttribute('aria-checked', 'true'),
+        ATTENTE_UI,
+      );
+      expect(screen.getByRole('radio', { name: /Strike/ })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
+      expect(screen.queryByText(/Collecte envoyée/)).toBeNull();
+      expect(screen.queryByLabelText(/Motif override/)).toBeNull();
+
+      const bouton = screen.getByRole('button', {
+        name: 'Envoyer à A Toutes!',
+      });
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+      await waitFor(() => {
+        const post = postDispatch(fetchMock);
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({});
+      }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );
@@ -828,17 +1834,13 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   // Statut affiché Admin (décision Val 2026-10-07) : « Créée » tant que la
   // demande n'est pas partie, « Programmée » dès que l'Admin l'a envoyée — sans
   // attendre le passage du worker (badge « Envoyée » ci-dessus).
+  // Pastille de statut de l'en-tête (variante B, décision Val 2026-10-27).
   function etapeCourante(): string | null {
-    return (
-      within(screen.getByRole('list', { name: 'Avancement de la collecte' }))
-        .getAllByRole('listitem')
-        .find((li) => li.getAttribute('aria-current') === 'step')
-        ?.textContent ?? null
-    );
+    return screen.getByTestId('statut-collecte-admin').textContent;
   }
 
   it(
-    'M0.6/statut_admin_programmee_apres_envoi — AG en file d’envoi : frise à l’étape « Programmée »',
+    'M0.6/statut_admin_programmee_apres_envoi — AG en file d’envoi : pastille « Programmée »',
     async () => {
       mockFetchPrestataire(collecteEnFileMts1);
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -853,7 +1855,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/statut_admin_creee_avant_envoi — collecte validée par le traiteur, rien d’envoyé : frise à l’étape « Créée »',
+    'M0.6/statut_admin_creee_avant_envoi — collecte validée par le traiteur, rien d’envoyé : pastille « Créée »',
     async () => {
       mockFetchPrestataire({
         ...collecteAg,
@@ -866,18 +1868,13 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         undefined,
         ATTENTE_UI,
       );
-      expect(etapeCourante()).toContain('Créée');
-      expect(
-        within(
-          screen.getByRole('list', { name: 'Avancement de la collecte' }),
-        ).getAllByRole('listitem'),
-      ).toHaveLength(6);
+      expect(etapeCourante()).toBe('Créée');
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'AG en file d’envoi : « Changer de prestataire » rouvre les cartes (titre « Changer de prestataire », actuel coché), « Garder le prestataire actuel » referme sans rien envoyer',
+    'AG en file d’envoi : « Changer de transporteur » rouvre les cartes (titre « Changer de transporteur », actuel coché), « Garder le transporteur actuel » referme sans rien envoyer',
     async () => {
       const fetchMock = mockFetchPrestataire(collecteEnFileMts1);
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -886,11 +1883,11 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(
         await screen.findByRole(
           'button',
-          { name: 'Changer de prestataire' },
+          { name: 'Modifier l’attribution' },
           ATTENTE_UI,
         ),
       );
-      expect(screen.getByText('Changer de prestataire')).toBeInTheDocument();
+      expect(screen.getByText('Changer de transporteur')).toBeInTheDocument();
       const carteStrike = await screen.findByRole(
         'radio',
         { name: /Strike/ },
@@ -910,12 +1907,12 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       ).toBeInTheDocument();
 
       fireEvent.click(
-        screen.getByRole('button', { name: 'Garder le prestataire actuel' }),
+        screen.getByRole('button', { name: 'Garder le transporteur actuel' }),
       );
       expect(screen.queryByRole('radiogroup')).toBeNull();
       // « Garder » a disparu à son tour : le focus revient sur « Changer ».
       expect(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
       ).toHaveFocus();
       expect(
         fetchMock.mock.calls.some(([u]) => String(u).includes('/dispatch')),
@@ -934,7 +1931,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(
         await screen.findByRole(
           'button',
-          { name: 'Changer de prestataire' },
+          { name: 'Modifier l’attribution' },
           ATTENTE_UI,
         ),
       );
@@ -965,20 +1962,20 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         });
       }, ATTENTE_UI);
       // Après le refetch, le bloc revient en lecture : plus de cartes, le
-      // bouton « Changer de prestataire » est de retour et reprend le focus
+      // bouton « Changer de transporteur » est de retour et reprend le focus
       // (le bouton d'envoi cliqué a disparu).
       await waitFor(
         () => expect(screen.queryByRole('radiogroup')).toBeNull(),
         ATTENTE_UI,
       );
       expect(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Modifier l’attribution' }),
       ).toHaveFocus();
     },
     ATTENTE_CAS_MS,
   );
 
-  // ZD (décision Val 2026-10-07, C1) : l'Admin choisit le prestataire sur la
+  // ZD (décision Val 2026-10-07, C1) : l'Admin choisit le transporteur sur la
   // fiche, comme pour l'AG, puis envoie. Avant, la fiche n'offrait aucun choix
   // en ZD et « Envoyer » émettait un ordre sans prestataire, que personne ne
   // recevait.
@@ -1026,7 +2023,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     );
 
   it(
-    'M0.6/dispatch_zd_choix_prestataire — ZD sans prestataire : cartes de choix sans « Recommandé », envoi impossible tant qu’aucune n’est cochée, puis POST avec le prestataire choisi et sans motif',
+    'M0.6/dispatch_zd_choix_prestataire — ZD sans prestataire : cartes de choix sans « Recommandé », envoi impossible tant qu’aucune n’est cochée, puis POST avec le transporteur choisi et sans motif',
     async () => {
       const fetchMock = mockFetchPrestataire(collecteZdSansPrestataire, {
         ok: true,
@@ -1061,11 +2058,13 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           .getAllByRole('radio')
           .every((r) => r.getAttribute('aria-checked') === 'false'),
       ).toBe(true);
-      // Rien à envoyer tant qu'aucun prestataire n'est choisi : bouton neutre
+      // Rien à envoyer tant qu'aucun transporteur n'est choisi : bouton neutre
       // et inactif, avec la consigne.
       expect(screen.getByRole('button', { name: 'Envoyer' })).toBeDisabled();
       expect(
-        screen.getByText(/Choisissez le prestataire qui réalisera la collecte/),
+        screen.getByText(
+          /Choisissez le transporteur qui réalisera la collecte/,
+        ),
       ).toBeInTheDocument();
 
       fireEvent.click(within(cartes).getByRole('radio', { name: /Marathon/ }));
@@ -1082,6 +2081,85 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           prestataire_logistique_id: 'presta-marathon',
         });
       }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Retour de Val du 2026-10-27 : besoin véhicule au choix du prestataire
+  // d'une ZD, plus de « Référence TMS », bloc « Chauffeur » encadré quand le
+  // contrôle d'accès attend des coordonnées.
+  it(
+    'ZD à envoyer : type et nombre de véhicules saisis partent avec l’envoi, sans « Référence TMS »',
+    async () => {
+      const fetchMock = mockFetchPrestataire(collecteZdSansPrestataire, {
+        ok: true,
+        data: transporteursZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const cartes = await screen.findByRole(
+        'radiogroup',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(screen.queryByText('Référence TMS')).toBeNull();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Ajouter un véhicule' }),
+      );
+      fireEvent.click(
+        screen.getByRole('combobox', { name: 'Type de véhicule souhaité' }),
+      );
+      fireEvent.click(screen.getByRole('option', { name: 'Fourgon' }));
+      fireEvent.click(within(cartes).getByRole('radio', { name: /Marathon/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Envoyer à MTS-1' }));
+
+      await waitFor(() => {
+        const post = postDispatch(fetchMock);
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+          prestataire_logistique_id: 'presta-marathon',
+          nb_camions_demande: 2,
+          type_vehicule_souhaite: 'fourgon',
+        });
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'bloc « Chauffeur » encadré quand le contrôle d’accès attend des coordonnées',
+    async () => {
+      mockFetchPrestataire(
+        { ...collecteZdSansPrestataire, controle_acces_requis: true },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const contenu = await screen.findByTestId(
+        'chauffeur-contenu',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(contenu.className).toContain('border-savr-warning');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'bloc « Chauffeur » sans encadré quand aucun contrôle d’accès n’est demandé',
+    async () => {
+      mockFetchPrestataire(
+        { ...collecteZdSansPrestataire, controle_acces_requis: false },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const contenu = await screen.findByTestId(
+        'chauffeur-contenu',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(contenu.className).not.toContain('border-savr-warning');
     },
     ATTENTE_CAS_MS,
   );
@@ -1134,7 +2212,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/dispatch_zd_envoyee_programmee — ZD dont le prestataire vient d’être choisi : « Envoyée », bloc en lecture, frise à « Programmée »',
+    'M0.6/dispatch_zd_envoyee_programmee — ZD dont le transporteur vient d’être choisi : « Envoyée », bloc en lecture, pastille « Programmée »',
     async () => {
       mockFetchPrestataire({
         ...collecteEnFileMts1,
@@ -1163,16 +2241,16 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
       ).toBeNull();
       expect(
-        screen.getByRole('button', { name: 'Changer de prestataire' }),
+        screen.getByRole('button', { name: 'Changer de transporteur' }),
       ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M0.6/dispatch_zd_commande_en_cours — ZD déjà commandée (référence reçue) : pas de choix de prestataire, « Renvoyer à MTS-1 » reste possible et part sans prestataire',
+    'M0.6/dispatch_zd_commande_en_cours — ZD déjà commandée (référence reçue) : ni choix de prestataire ni bouton d’envoi (décision Val 2026-10-27)',
     async () => {
-      const fetchMock = mockFetchPrestataire(
+      mockFetchPrestataire(
         {
           ...collecteEnFileMts1,
           type: 'zero_dechet',
@@ -1185,18 +2263,120 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
+      expect(
+        await screen.findByText('Transporteur actuel', {}, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
+      expect(screen.queryByRole('radiogroup')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Changer de transporteur' }),
+      ).toBeNull();
+      // Plus de badge du mode d'envoi à côté du prestataire actuel.
+      expect(screen.queryByText('Envoi MTS-1')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each([
+    [
+      'acceptée sans référence (donnée sans commande lisible)',
+      { statut: 'validee', statut_tms: 'acceptee', tms_reference: null },
+    ],
+    [
+      'À attribuer, référence reçue',
+      { statut_tms: 'a_attribuer', tms_reference: 'TOUR-78' },
+    ],
+  ])(
+    'M0.6/dispatch_zd_commande_en_cours — ZD %s : pas de bouton d’envoi',
+    async (_cas, champs) => {
+      mockFetchPrestataire(
+        {
+          ...collecteEnFileMts1,
+          type: 'zero_dechet',
+          attributions_antgaspi: null,
+          ...champs,
+        },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText('Transporteur actuel', {}, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer)( à|$)/ }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/dispatch_zd_commande_en_cours — ZD commandée puis modifiée par le client : « Renvoyer à MTS-1 » revient et part sans prestataire',
+    async () => {
+      const fetchMock = mockFetchPrestataire(
+        {
+          ...collecteEnFileMts1,
+          type: 'zero_dechet',
+          attributions_antgaspi: null,
+          statut_tms: 'attribuee_en_attente_acceptation',
+          tms_reference: 'TOUR-77',
+          dirty_tms: true,
+        },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
       const bouton = await screen.findByRole(
         'button',
         { name: 'Renvoyer à MTS-1' },
         ATTENTE_UI,
       );
       expect(bouton).toBeEnabled();
-      // Changer de prestataire ne ferait que modifier la commande chez
-      // l'actuel : ni cartes ni bouton de changement.
+      fireEvent.click(bouton);
+      await waitFor(() => {
+        const post = postDispatch(fetchMock);
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({});
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Arbitrage Val 2026-10-09 : le drapeau « modifiée sans renvoi » s'arme dès le
+  // clic d'envoi. Tant que la commande est en file, la fiche n'offrait que
+  // « Changer de transporteur » : le filtre se serait rempli sans moyen de le
+  // vider.
+  it(
+    'M0.6/dirty_tms_apres_envoi — ZD en file d’envoi modifiée par le client : « Renvoyer à MTS-1 » s’affiche à côté de « Changer de transporteur » et part sans prestataire',
+    async () => {
+      const fetchMock = mockFetchPrestataire(
+        {
+          ...collecteEnFileMts1,
+          type: 'zero_dechet',
+          attributions_antgaspi: null,
+          dirty_tms: true,
+        },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      const bouton = await screen.findByRole(
+        'button',
+        { name: 'Renvoyer à MTS-1' },
+        ATTENTE_UI,
+      );
+      expect(bouton).toBeEnabled();
+      // Le bloc reste en lecture : pas de cartes, et le changement de
+      // prestataire reste offert.
       expect(screen.queryByRole('radiogroup')).toBeNull();
       expect(
-        screen.queryByRole('button', { name: 'Changer de prestataire' }),
-      ).toBeNull();
+        screen.getByRole('button', { name: 'Changer de transporteur' }),
+      ).toBeInTheDocument();
       fireEvent.click(bouton);
 
       await waitFor(() => {
@@ -1204,6 +2384,61 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect(post).toBeTruthy();
         expect(JSON.parse((post![1] as { body: string }).body)).toEqual({});
       }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/dirty_tms_apres_envoi — ZD en file d’envoi non modifiée : pas de bouton de renvoi',
+    async () => {
+      mockFetchPrestataire(
+        {
+          ...collecteEnFileMts1,
+          type: 'zero_dechet',
+          attributions_antgaspi: null,
+          dirty_tms: false,
+        },
+        { ok: true, data: transporteursZd },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByRole(
+          'button',
+          { name: 'Changer de transporteur' },
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^(Envoyer|Renvoyer) à/ }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — ZD « Créée » : ni « Transporteur actuel » ni « Statut TMS » (rien n’est parti, décision Val 2026-10-27)',
+    async () => {
+      mockFetchPrestataire(collecteZdSansPrestataire, {
+        ok: true,
+        data: transporteursZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      expect(
+        await screen.findByText(
+          'Transporteur & Dispatch',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('statut-collecte-admin')).toHaveTextContent(
+        /^Créée$/,
+      );
+      expect(screen.queryByText('Transporteur actuel')).toBeNull();
+      expect(screen.queryByText('Statut TMS')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -1227,7 +2462,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/dispatch_zd_changement_motif — ZD : changer un prestataire déjà posé exige un motif (≥ 5 car.), transmis au dispatch',
+    'M0.6/dispatch_zd_changement_motif — ZD : changer un transporteur déjà posé exige un motif (≥ 5 car.), transmis au dispatch',
     async () => {
       const fetchMock = mockFetchPrestataire(
         {
@@ -1243,7 +2478,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(
         await screen.findByRole(
           'button',
-          { name: 'Changer de prestataire' },
+          { name: 'Changer de transporteur' },
           ATTENTE_UI,
         ),
       );
@@ -1253,7 +2488,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       const bouton = screen.getByRole('button', { name: 'Envoyer à MTS-1' });
       expect(bouton).toBeDisabled();
       fireEvent.change(
-        screen.getByLabelText(/Motif du changement de prestataire/),
+        screen.getByLabelText(/Motif du changement de transporteur/),
         { target: { value: 'Strike indisponible ce soir' } },
       );
       expect(bouton).toBeEnabled();
@@ -1299,19 +2534,19 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       mockFetchPrestataire(collecte);
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
-      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+      await screen.findByText('Transporteur actuel', undefined, ATTENTE_UI);
 
       expect(screen.queryByText(/Collecte envoyée/)).toBeNull();
       expect(screen.queryByText('Envoyée')).toBeNull();
       expect(
-        screen.queryByRole('button', { name: 'Changer de prestataire' }),
+        screen.queryByRole('button', { name: 'Changer de transporteur' }),
       ).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'AG attribuée à un transporteur sans pont prestataire (par mail) : il est le prestataire actuel, sa carte reste cochée malgré la reco',
+    'AG attribuée à un transporteur sans pont prestataire (par mail) : il est le transporteur actuel, sa carte reste cochée malgré la reco',
     async () => {
       // `prestataire_logistique_id` reste NULL pour ces transporteurs : la route
       // sert le transporteur de l'attribution validée (arbitrage Val 2026-10-01).
@@ -1349,10 +2584,10 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       await ouvrirOnglet('Logistique');
       const ligne = (
-        await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI)
+        await screen.findByText('Transporteur actuel', undefined, ATTENTE_UI)
       ).parentElement!;
       expect(within(ligne).getByText('Transports Dupont')).toBeInTheDocument();
-      expect(screen.queryByText('Aucun prestataire attribué')).toBeNull();
+      expect(screen.queryByText('Aucun transporteur attribué')).toBeNull();
 
       // La reco (top-1 = Strike) est affichée mais ne prend PAS la main sur une
       // collecte déjà attribuée : un clic sur le bouton d'envoi la ré-attribuerait.
@@ -1414,6 +2649,17 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(
         options.find((o) => o.getAttribute('data-value') === 'programmee'),
       ).toHaveTextContent('Créée / Programmée');
+      // M0.6/forcer_statut_sans_excedent_distinct — `realisee` et
+      // `realisee_sans_collecte` s'affichent « Réalisée » partout ailleurs
+      // (décision Val 2026-10-09) : ici le choix doit dire lequel on pose.
+      expect(
+        options.find((o) => o.getAttribute('data-value') === 'realisee'),
+      ).toHaveTextContent(/^Réalisée$/);
+      expect(
+        options.find(
+          (o) => o.getAttribute('data-value') === 'realisee_sans_collecte',
+        ),
+      ).toHaveTextContent(/^Réalisée — sans excédent$/);
       fireEvent.click(
         screen
           .getAllByRole('option')
@@ -1451,18 +2697,27 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   it(
     'M0.6 — rend type d’événement (libelle), tournée (statut) et facture (factures.statut)',
     async () => {
-      mockFetch();
+      // Type de LA collecte (lot B1) ; l'événement porte la copie d'une autre
+      // collecte (sa n°1), qui ne doit jamais s'afficher à sa place.
+      mockFetch({
+        ...collecteAg,
+        evenements: {
+          ...collecteAg.evenements,
+          types_evenements: { libelle: 'Dîner assis' },
+        },
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
 
-      // types_evenements.libelle (onglet Informations, ouvert par défaut)
+      // type_evenement.libelle (onglet Informations, ouvert par défaut)
       expect(
         await screen.findByText('Cocktail apéritif', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      // tournees.statut (onglet Logistique — liste multi-camions), libellé FR (R-UI-0 B2)
+      expect(screen.queryByText('Dîner assis')).toBeNull();
+      // Liste des tournées retirée de l'onglet Logistique (décision Val
+      // 2026-10-27) : plus de statut de tournée affiché.
       await ouvrirOnglet('Logistique');
-      expect(
-        await screen.findByText('Planifiée', undefined, ATTENTE_UI),
-      ).toBeInTheDocument();
+      await screen.findByText('Transporteur actuel', undefined, ATTENTE_UI);
+      expect(screen.queryByText('Planifiée')).toBeNull();
       // factures_collectes → factures.statut (onglet Documents), libellé FR (R-UI-0 B2)
       await ouvrirOnglet('Documents');
       expect(
@@ -1478,7 +2733,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       const fetchMock = mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
-      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+      await screen.findByText('Transporteur actuel', undefined, ATTENTE_UI);
 
       // Bouton « Modifier » à côté de Nb camions (statut programmee = éditable).
       fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
@@ -1541,13 +2796,18 @@ const baseAg = {
   },
   attributions_antgaspi: {
     id: 'attr1',
-    mode_validation: 'manuel',
+    mode_validation: 'manuel_top1',
     valide_at: '2026-05-01T10:00:00Z',
     volume_repas_realise: 42,
     associations: { nom: 'Les Restos du Cœur' },
     transporteurs: { nom: 'A Toutes!' },
   },
   prestataire_logistique_id: null,
+  pax: 80,
+  // Type d'événement de LA collecte (lot B1, décision Val 2026-10-23), servi
+  // par le GET Admin (`type_evenement:types_evenements!type_evenement_id`).
+  type_evenement_id: 't1',
+  type_evenement: { libelle: 'Cocktail apéritif' },
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
@@ -1555,6 +2815,7 @@ const baseAg = {
     organisations: { raison_sociale: 'Traiteur Beta' },
     client_organisateur: { raison_sociale: 'Org Cliente SA' },
     lieux: { nom: 'Pavillon', ville: 'Paris', adresse_acces: '1 rue X' },
+    // Copie de la collecte n°1, tenue par la base : jamais affichée.
     types_evenements: { libelle: 'Cocktail apéritif' },
   },
   collecte_flux: [],
@@ -1571,6 +2832,7 @@ const documentsAg = {
     regenere_at: '2026-05-12T09:00:00Z',
     consulte_par_user_at: null,
     pdf_url: 'rapports/r1.pdf',
+    disponible: true,
   },
   bordereau: null,
   attestation: {
@@ -1648,15 +2910,52 @@ function installMock(opts: {
   const collecte = opts.collecte ?? baseAg;
   const documents = opts.documents ?? documentsAg;
   const audit = opts.audit ?? auditAg;
+  // Rapport ZD fabriqué au clic : le PDF reçu est « enregistré » sans navigation
+  // (jsdom n'implémente ni les URL d'objet ni le téléchargement).
+  Object.assign(URL, {
+    createObjectURL: vi.fn(() => 'blob:rapport'),
+    revokeObjectURL: vi.fn(),
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   const fetchMock = vi.fn(
     (url: string, init?: { method?: string; body?: unknown }) => {
       const method = init?.method ?? 'GET';
       const ok = (json: unknown, status = 200) =>
         Promise.resolve({ ok: status < 400, status, json: async () => json });
 
+      // Rapport de recyclage ZD fabriqué au clic (POST /rapport-rse) : le PDF.
+      if (url.endsWith('/rapport-rse') && method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition':
+              'attachment; filename="rapport-recyclage-2026-05-10.pdf"',
+          }),
+          blob: async () => new Blob(['%PDF']),
+        });
+      }
       // Régénération PDF (POST /documents/<type>/regenerate)
       if (url.includes('/documents/') && method === 'POST') {
         return ok({ job_id: 'job-1', type: 'x' }, 202);
+      }
+      // Radar du bilan : options de la barre « Comparer avec », puis repère parc.
+      if (url.includes('/benchmark/filtres')) {
+        return ok({
+          data: {
+            lieux: [{ id: 'l1', nom: 'Pavillon' }],
+            traiteurs: [{ id: 'tr1', nom: 'Traiteur Beta' }],
+            types: [{ id: 't1', libelle: 'Cocktail apéritif' }],
+          },
+        });
+      }
+      if (url.includes('/benchmark?')) {
+        return ok({
+          data: {
+            flux: { biodechet: { ratio_user: 0.25, benchmark_kg_pax: 0.3 } },
+          },
+        });
       }
       if (url.endsWith('/documents')) return ok(documents);
       if (url.endsWith('/audit')) return ok(audit);
@@ -1679,52 +2978,472 @@ function installMock(opts: {
   return fetchMock;
 }
 
+// Valeur d'un item du résumé « Attribution AG » : le <dd> qui suit le <dt> du
+// libellé, cherché dans le <dl> du résumé (l'onglet Logistique en porte d'autres).
+function valeurResumeAttribution(libelle: string): HTMLElement {
+  const resume = screen
+    .getByText('Association retenue')
+    .closest('dl') as HTMLElement;
+  return within(resume).getByText(libelle).nextElementSibling as HTMLElement;
+}
+
 describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA-07)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
+  // Appel de régénération attendu pour un type de document donné.
+  const regenerationDemandee = (
+    fetchMock: ReturnType<typeof installMock>,
+    type: string,
+  ): boolean =>
+    fetchMock.mock.calls.some(
+      (c) =>
+        typeof c[0] === 'string' &&
+        (c[0] as string).includes(`/documents/${type}/regenerate`) &&
+        (c[1] as { method?: string } | undefined)?.method === 'POST',
+    );
+
   it(
-    'M0.6 — Bloc 3 Documents : rapport RSE + attestation AG affichés ; le bouton Régénérer appelle l’endpoint de régénération',
+    'M0.6 — Bloc 3 Documents : collecte AG avec excédents, une seule ligne Rapport de don (attestation) ; Régénérer demande l’attestation',
     async () => {
+      // La fixture porte aussi une ligne de rapport : elle n'est pas affichée.
       const fetchMock = installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
 
-      // Bloc Documents rendu + rapport + attestation (AG).
       expect(
-        await screen.findByText('Rapport RSE', undefined, ATTENTE_UI),
+        await screen.findByText('Rapport de don', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(screen.getByText('Attestation de don')).toBeInTheDocument();
+      expect(screen.getAllByText('Rapport de don')).toHaveLength(1);
       expect(screen.getByText('ATT-DON-2026-00001')).toBeInTheDocument();
+      expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      expect(screen.queryByText('Attestation de don')).not.toBeInTheDocument();
+      expect(screen.queryByTitle(/Rapport régénéré/)).not.toBeInTheDocument();
 
-      // Régénérer le rapport → POST /documents/rapport-recyclage-zd/regenerate.
+      // Deux boutons seulement sur l'onglet : ceux de cette ligne.
       const regenBtns = screen.getAllByRole('button', { name: /Régénérer/ });
+      expect(regenBtns).toHaveLength(1);
       fireEvent.click(regenBtns[0]!);
-      await waitFor(() => {
-        const call = fetchMock.mock.calls.find(
-          (c) =>
-            typeof c[0] === 'string' &&
-            (c[0] as string).includes(
-              '/documents/rapport-recyclage-zd/regenerate',
-            ) &&
-            (c[1] as { method?: string } | undefined)?.method === 'POST',
-        );
-        expect(call).toBeTruthy();
-      }, ATTENTE_UI);
+      await waitFor(
+        () =>
+          expect(regenerationDemandee(fetchMock, 'attestation-don')).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(regenerationDemandee(fetchMock, 'rapport-recyclage-zd')).toBe(
+        false,
+      );
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale',
+    'M0.6 — Bloc 3 Documents : collecte ZD, Rapport RSE fabriqué au clic (plus de Régénérer) et Bordereau ZD régénérable',
     async () => {
-      installMock({});
+      const fetchMock = installMock({
+        collecte: baseZd,
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+
+      expect(
+        await screen.findByText('Rapport RSE', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Bordereau ZD')).toBeInTheDocument();
+      expect(screen.queryByText('Rapport de don')).not.toBeInTheDocument();
+
+      // Un seul « Régénérer » : celui du bordereau.
+      expect(screen.getAllByRole('button', { name: /Régénérer/ })).toHaveLength(
+        1,
+      );
+      fireEvent.click(telechargerRapport());
+      await waitFor(
+        () =>
+          expect(corpsRapport(fetchMock)).toEqual([
+            { options: { benchmark: false } },
+          ]),
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(URL.createObjectURL).toHaveBeenCalledTimes(1),
+        ATTENTE_UI,
+      );
+      expect(regenerationDemandee(fetchMock, 'rapport-recyclage-zd')).toBe(
+        false,
+      );
+      // Plus de téléchargement d'un fichier stocké pour le rapport ZD.
+      expect(
+        fetchMock.mock.calls.some((c) =>
+          String(c[0]).includes('/rapports-rse/'),
+        ),
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Corps envoyés à la régénération d'un type de document, dans l'ordre.
+  const corpsRegeneration = (
+    fetchMock: ReturnType<typeof installMock>,
+    type: string,
+  ): unknown[] =>
+    fetchMock.mock.calls
+      .filter(
+        (c) =>
+          typeof c[0] === 'string' &&
+          (c[0] as string).includes(`/documents/${type}/regenerate`),
+      )
+      .map((c) => {
+        const body = (c[1] as { body?: string } | undefined)?.body;
+        return body === undefined ? undefined : JSON.parse(body);
+      });
+  const caseRadar = () =>
+    screen.getByRole('checkbox', {
+      name: 'Inclure le radar de comparaison dans le rapport',
+    });
+  // Corps des rapports ZD demandés (POST …/rapport-rse), dans l'ordre.
+  const corpsRapport = (fetchMock: ReturnType<typeof installMock>): unknown[] =>
+    fetchMock.mock.calls
+      .filter((c) => c[0] === '/api/v1/admin/collectes/c1/rapport-rse')
+      .map((c) => JSON.parse((c[1] as { body: string }).body));
+  // « Télécharger » de la ligne « Rapport RSE » (fabrique le rapport ZD).
+  const telechargerRapport = () =>
+    within(
+      screen.getByText('Rapport RSE').closest('div')!.parentElement!,
+    ).getByRole('button', { name: /Télécharger/ });
+
+  it(
+    'M0.6 — Bloc 3 : rapport de recyclage ZD, l’Admin choisit la version — case décochée à l’ouverture, le bouton Télécharger envoie le choix',
+    async () => {
+      const fetchMock = installMock({
+        collecte: baseZd,
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+
+      expect(caseRadar().getAttribute('aria-checked')).toBe('false');
+      fireEvent.click(telechargerRapport());
+      await waitFor(
+        () =>
+          expect(corpsRapport(fetchMock)).toEqual([
+            { options: { benchmark: false } },
+          ]),
+        ATTENTE_UI,
+      );
+
+      fireEvent.click(caseRadar());
+      expect(caseRadar().getAttribute('aria-checked')).toBe('true');
+      await waitFor(
+        () => expect(telechargerRapport()).toBeEnabled(),
+        ATTENTE_UI,
+      );
+      fireEvent.click(telechargerRapport());
+      await waitFor(
+        () =>
+          expect(corpsRapport(fetchMock)[1]).toEqual({
+            options: { benchmark: true },
+          }),
+        ATTENTE_UI,
+      );
+      // Aucun filtre n'est envoyé : ils sont choisis côté serveur.
+      expect(JSON.stringify(corpsRapport(fetchMock))).not.toContain(
+        'benchmark_filters',
+      );
+
+      // Le bordereau, lui, se régénère sans corps.
+      fireEvent.click(screen.getByRole('button', { name: /Régénérer/ }));
+      await waitFor(
+        () =>
+          expect(corpsRegeneration(fetchMock, 'bordereau-zd')).toEqual([
+            undefined,
+          ]),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : case décochée même si le client a déjà fait un rapport avec radar (rien n’est stocké) ; aucune case hors rapport de recyclage',
+    async () => {
+      installMock({
+        collecte: baseZd,
+        documents: {
+          ...documentsZd,
+          rapport: {
+            ...documentsZd.rapport,
+            consulte_par_user_at: '2026-05-12T08:00:00Z',
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      expect(caseRadar().getAttribute('aria-checked')).toBe('false');
+      // Premier téléchargement par un client : affiché à l'équipe Savr.
+      expect(
+        screen.getByText(/^Téléchargé par le client le /),
+      ).toBeInTheDocument();
+
+      // Collecte AG : pas de rapport de recyclage, donc pas de case.
+      document.body.innerHTML = '';
+      const fetchAg = installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
+      expect(
+        screen.queryByTestId('option-rapport-radar-admin'),
+      ).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /Régénérer/ }));
+      await waitFor(
+        () =>
+          expect(corpsRegeneration(fetchAg, 'attestation-don')).toEqual([
+            undefined,
+          ]),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : picto « régénéré » sur le rapport de don « sans excédent » régénéré, jamais sur le rapport ZD fabriqué au clic',
+    async () => {
+      installMock({
+        collecte: { ...baseAg, statut: 'realisee_sans_collecte' },
+        documents: { ...documentsAg, attestation: null },
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
       // rapport.version = 2 + regenere_at → picto ⟳ avec title « Rapport régénéré ».
       expect(
         await screen.findByTitle(/Rapport régénéré/, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
+
+      document.body.innerHTML = '';
+      installMock({ collecte: baseZd, documents: documentsZd });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      expect(screen.queryByTitle(/Rapport régénéré/)).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Document pas encore produit : un seul texte, quel que soit le statut de la
+  // collecte (décision Val 2026-10-09). Lu SOUS le libellé de sa ligne, jamais en
+  // pleine page ; « Télécharger » et « Régénérer » restent grisés.
+  // Une collecte AG n'a qu'UNE ligne de document, nommée « Rapport de don »
+  // (décision Val 2026-10-09), jamais de ligne « Rapport RSE ».
+  const sansDocument = {
+    rapport: null,
+    bordereau: null,
+    attestation: null,
+    photos: [],
+  };
+  const TEXTE_DOCUMENT_A_VENIR = 'Généré sous 48h après la collecte';
+  const ligneDocument = (libelle: string): HTMLElement =>
+    screen.getByText(libelle).parentElement as HTMLElement;
+  const boutonsDeLaLigne = (libelle: string): HTMLElement[] =>
+    within(ligneDocument(libelle).parentElement as HTMLElement).getAllByRole(
+      'button',
+    );
+
+  it.each([
+    ['AG réalisée', baseAg, ['Rapport de don']],
+    ['ZD réalisée', baseZd, ['Rapport RSE', 'Bordereau ZD']],
+    [
+      'AG pas encore réalisée',
+      { ...baseAg, statut: 'validee' },
+      ['Rapport de don'],
+    ],
+    [
+      'ZD annulée',
+      { ...baseZd, statut: 'annulee' },
+      ['Rapport RSE', 'Bordereau ZD'],
+    ],
+  ])(
+    'M0.6 — Bloc 3 : document absent, collecte %s : texte unique sous chaque ligne, boutons grisés',
+    async (_cas, collecte, libelles) => {
+      installMock({ collecte, documents: sansDocument });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText(libelles.at(-1)!, undefined, ATTENTE_UI);
+
+      for (const libelle of libelles) {
+        expect(
+          within(ligneDocument(libelle)).getByText(TEXTE_DOCUMENT_A_VENIR),
+        ).toBeInTheDocument();
+        const boutons = boutonsDeLaLigne(libelle);
+        // Rapport ZD fabriqué au clic : pas de « Régénérer » (Val 2026-10-16).
+        expect(boutons.map((b) => b.textContent)).toEqual(
+          libelle === 'Rapport RSE'
+            ? ['Télécharger']
+            : ['Télécharger', 'Régénérer'],
+        );
+        for (const bouton of boutons) expect(bouton).toBeDisabled();
+      }
+      expect(screen.getAllByText(TEXTE_DOCUMENT_A_VENIR)).toHaveLength(
+        libelles.length,
+      );
+      expect(screen.queryByText(/Non encore généré/)).not.toBeInTheDocument();
+      if (!libelles.includes('Rapport RSE')) {
+        expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Val 2026-11-04 : une collecte ZD réalisée sans pesée n'a ni rapport de
+  // recyclage ni radar (le bilan n'apparaît qu'avec ses chiffres).
+  it(
+    'M0.6 — Bloc 3 : collecte ZD réalisée sans pesée : rapport non téléchargeable, aucun radar proposé',
+    async () => {
+      installMock({
+        collecte: { ...baseZd, statut: 'realisee', collecte_flux: [] },
+        documents: sansDocument,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      for (const bouton of boutonsDeLaLigne('Rapport RSE'))
+        expect(bouton).toBeDisabled();
+      expect(
+        screen.queryByRole('checkbox', {
+          name: 'Inclure le radar de comparaison dans le rapport',
+        }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : collecte AG avec excédents, rapport en base sans PDF : aucune ligne Rapport RSE',
+    async () => {
+      // Ce qu'ont laissé d'anciens batchs AG : une ligne rapports_rse, jamais de PDF.
+      installMock({
+        collecte: { ...baseAg, statut: 'cloturee' },
+        documents: {
+          ...documentsAg,
+          rapport: {
+            ...documentsAg.rapport,
+            version: 1,
+            genere_at: null,
+            regenere_at: null,
+            pdf_url: null,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('ATT-DON-2026-00001', undefined, ATTENTE_UI);
+
+      expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('En attente de génération'),
+      ).not.toBeInTheDocument();
+      // Seule ligne de document : le rapport de don, téléchargeable.
+      expect(screen.getAllByText('Rapport de don')).toHaveLength(1);
+      const [telecharger] = boutonsDeLaLigne('Rapport de don');
+      expect(telecharger).toBeEnabled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : collecte AG sans excédents, une seule ligne Rapport de don servie par le rapport sans excédent',
+    async () => {
+      const fetchMock = installMock({
+        collecte: { ...baseAg, statut: 'realisee_sans_collecte' },
+        documents: {
+          ...sansDocument,
+          rapport: {
+            id: 'r-sans',
+            version: 1,
+            disponible_a: '2026-05-11T06:00:00Z',
+            genere_at: '2026-05-11T06:00:00Z',
+            regenere_at: null,
+            consulte_par_user_at: null,
+            pdf_url: 'rapports/r-sans.pdf',
+            disponible: true,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
+
+      // Une seule ligne, sous le même nom que pour une collecte avec excédents.
+      expect(screen.getAllByText('Rapport de don')).toHaveLength(1);
+      expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      expect(
+        within(ligneDocument('Rapport de don')).getByText('Disponible'),
+      ).toBeInTheDocument();
+
+      // Télécharger sert le rapport ; Régénérer demande SON type de document.
+      const [telecharger, regenerer] = boutonsDeLaLigne('Rapport de don');
+      fireEvent.click(telecharger!);
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(
+              (c) => c[0] === '/api/v1/admin/rapports-rse/r-sans/download',
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      fireEvent.click(regenerer!);
+      await waitFor(
+        () =>
+          expect(
+            regenerationDemandee(fetchMock, 'rapport-evenement-sans-excedent'),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(regenerationDemandee(fetchMock, 'rapport-recyclage-zd')).toBe(
+        false,
+      );
+      expect(regenerationDemandee(fetchMock, 'attestation-don')).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : collecte AG sans excédents, rapport pas encore produit : texte unique sous Rapport de don',
+    async () => {
+      installMock({
+        collecte: { ...baseAg, statut: 'realisee_sans_collecte' },
+        documents: sansDocument,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
+
+      expect(screen.getAllByText('Rapport de don')).toHaveLength(1);
+      expect(
+        within(ligneDocument('Rapport de don')).getByText(
+          TEXTE_DOCUMENT_A_VENIR,
+        ),
+      ).toBeInTheDocument();
+      for (const bouton of boutonsDeLaLigne('Rapport de don')) {
+        expect(bouton).toBeDisabled();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : document présent : le texte du document absent ne s’affiche pas',
+    async () => {
+      installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('ATT-DON-2026-00001', undefined, ATTENTE_UI);
+
+      expect(
+        screen.queryByText(TEXTE_DOCUMENT_A_VENIR),
+      ).not.toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -1734,18 +3453,47 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   it(
     'M0.6 — Bloc 5 Attribution AG : association + transporteur retenus (attribution intégrée à la fiche, plus de stub « algo V2 »)',
     async () => {
-      installMock({});
+      installMock({
+        collecte: {
+          ...baseAg,
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            // Valeur réelle de l'enum, et instant où le jour de Paris (2 mai,
+            // 00 h 30) n'est plus celui d'UTC (1er mai, 22 h 30).
+            mode_validation: 'manuel_override',
+            valide_at: '2026-05-01T22:30:00Z',
+          },
+        },
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
 
       expect(
-        await screen.findByText('Attribution AG', undefined, ATTENTE_UI),
+        await screen.findByText(
+          'Transporteur et Dispatch',
+          undefined,
+          ATTENTE_UI,
+        ),
       ).toBeInTheDocument();
-      // Association + transporteur retenus (embed attributions_antgaspi).
-      expect(screen.getAllByText('Les Restos du Cœur').length).toBeGreaterThan(
-        0,
+      // Association retenue (embed attributions_antgaspi), lue
+      // sous leur libellé : l'en-tête de la fiche porte aussi le nom de
+      // l'association, il ne prouve rien du résumé.
+      expect(valeurResumeAttribution('Association retenue')).toHaveTextContent(
+        /^Les Restos du Cœur$/,
       );
-      expect(screen.getByText('A Toutes!')).toBeInTheDocument();
+      // « Transporteur retenu » retiré du bloc fusionné (doublon de
+      // « Transporteur actuel », décision Val 2026-10-27).
+      expect(screen.queryByText('Transporteur retenu')).toBeNull();
+      // Plus de ligne « Validation » (décision Val 2026-10-27).
+      expect(screen.queryByText('Validation')).toBeNull();
+      expect(screen.queryByText(/manuel_override/)).toBeNull();
+      // Volumes : estimé (collecte) ; réalisé (attribution) une fois réalisée.
+      expect(
+        valeurResumeAttribution('Volume de repas estimés'),
+      ).toHaveTextContent(/^50$/);
+      expect(
+        valeurResumeAttribution('Volume de repas réalisés'),
+      ).toHaveTextContent(/^42$/);
       // L'attribution se fait dans la fiche (décision Val 2026-10-01) : plus de
       // lien vers un écran dédié.
       expect(
@@ -1755,6 +3503,245 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         screen.queryByText(/algo V2.*Non disponible en V1/),
       ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Val 2026-11-04 : l'Admin corrige les pesées ZD à tout moment, même après
+  // la clôture (le bordereau est refait juste après).
+  it(
+    'M0.6/pesees_zd_cloturee_modifiables — collecte ZD clôturée : « Éditer les pesées » actif, plus de renvoi vers un avoir',
+    async () => {
+      mockFetch({
+        ...collecteAg,
+        type: 'zero_dechet',
+        statut: 'cloturee',
+        attributions_antgaspi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const bouton = await screen.findByRole(
+        'button',
+        { name: 'Éditer les pesées' },
+        ATTENTE_UI,
+      );
+      expect(bouton).toBeEnabled();
+      expect(screen.queryByText(/édition via avoir/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Poids des denrées AG noté à la main par l'équipe Savr (§06.09 §5) : le
+  // nombre de repas en est calculé en base, il reste en lecture seule.
+  it(
+    'M0.6/poids_ag_saisie_admin — 1re saisie du poids sans motif, envoyée à la route /poids',
+    async () => {
+      const fetchMock = installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText(
+        'Transporteur et Dispatch',
+        undefined,
+        ATTENTE_UI,
+      );
+
+      const poids = valeurResumeAttribution('Poids collecté');
+      expect(
+        within(poids).getByTestId('poids-collecte-valeur'),
+      ).toHaveTextContent(/^—$/);
+      // Le nombre de repas ne se saisit pas : seul le poids a un bouton.
+      expect(
+        within(valeurResumeAttribution('Volume de repas réalisés')).queryByRole(
+          'button',
+        ),
+      ).toBeNull();
+
+      fireEvent.click(within(poids).getByRole('button', { name: 'Modifier' }));
+      const champ = await screen.findByLabelText(
+        /Poids des denrées collectées/,
+        undefined,
+        ATTENTE_UI,
+      );
+      // 1re saisie : pas de motif demandé.
+      expect(screen.queryByLabelText(/Motif de la correction/)).toBeNull();
+      fireEvent.change(champ, { target: { value: '18.9' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          ([url, init]) =>
+            String(url).endsWith('/attributions-ag/c1/poids') &&
+            init?.method === 'PATCH',
+        );
+        expect(patch).toBeDefined();
+        expect(JSON.parse(String(patch?.[1]?.body))).toEqual({
+          poids_repas_kg: 18.9,
+          motif: '',
+        });
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/poids_ag_correction_admin — corriger un poids déjà posé exige un motif',
+    async () => {
+      installMock({
+        collecte: {
+          ...baseAg,
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            poids_repas_kg: 18.9,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText(
+        'Transporteur et Dispatch',
+        undefined,
+        ATTENTE_UI,
+      );
+
+      const poids = valeurResumeAttribution('Poids collecté');
+      expect(
+        within(poids).getByTestId('poids-collecte-valeur'),
+      ).toHaveTextContent(/^18,9\s?kg$/);
+      fireEvent.click(within(poids).getByRole('button', { name: 'Modifier' }));
+      const champ = await screen.findByLabelText(
+        /Poids des denrées collectées/,
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(champ).toHaveValue(18.9);
+      fireEvent.change(champ, { target: { value: '20' } });
+      const enregistrer = screen.getByRole('button', { name: 'Enregistrer' });
+      expect(enregistrer).toBeDisabled();
+      fireEvent.change(screen.getByLabelText(/Motif de la correction/), {
+        target: { value: 'Pesée relue sur les photos' },
+      });
+      expect(enregistrer).toBeEnabled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/poids_ag_erreur_route — refus de la route affiché dans la fenêtre, qui reste ouverte',
+    async () => {
+      const fetchMock = installMock({});
+      const defaut = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(
+        (url: string, init?: { method?: string; body?: unknown }) =>
+          url.endsWith('/poids') && init?.method === 'PATCH'
+            ? Promise.resolve({
+                ok: false,
+                status: 422,
+                json: async () => ({ error: 'Motif requis pour corriger' }),
+              })
+            : defaut(url, init),
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText(
+        'Transporteur et Dispatch',
+        undefined,
+        ATTENTE_UI,
+      );
+
+      fireEvent.click(
+        within(valeurResumeAttribution('Poids collecté')).getByRole('button', {
+          name: 'Modifier',
+        }),
+      );
+      const champ = await screen.findByLabelText(
+        /Poids des denrées collectées/,
+        undefined,
+        ATTENTE_UI,
+      );
+      fireEvent.change(champ, { target: { value: '12' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      expect(
+        await screen.findByText(
+          'Motif requis pour corriger',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(/Poids des denrées collectées/),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // « Sans excédent » se lit là où se lisent les repas d'une collecte AG, pas
+  // dans son statut (décision Val 2026-10-09).
+  it(
+    'M0.6/fiche_sans_excedent_volume_repas — AG sans excédent : pastille « Réalisée », « Sans excédent » à la place du volume réalisé',
+    async () => {
+      installMock({
+        collecte: {
+          ...baseAg,
+          statut: 'realisee_sans_collecte',
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            volume_repas_realise: null,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText(
+        'Transporteur et Dispatch',
+        undefined,
+        ATTENTE_UI,
+      );
+
+      expect(
+        valeurResumeAttribution('Volume de repas réalisés'),
+      ).toHaveTextContent(/^Sans excédent$/);
+      // Sans excédent : aucun poids à noter.
+      expect(screen.queryByText('Poids collecté')).toBeNull();
+      const pastille = screen.getByTestId('statut-collecte-admin');
+      expect(pastille).toHaveTextContent(/^Réalisée$/);
+      expect(pastille).not.toHaveTextContent(/exc[ée]dent/i);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 5 Attribution AG programmée : ni ligne « Validation » ni volume réalisé, seulement les repas estimés',
+    async () => {
+      // Association retenue mais attribution non datée : la colonne `valide_at`
+      // est nullable (§04), le résumé le dit au lieu d'afficher un mode sans date.
+      installMock({
+        collecte: {
+          ...baseAg,
+          statut: 'programmee',
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            mode_validation: 'manuel_top1',
+            valide_at: null,
+            volume_repas_realise: null,
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findByText(
+        'Transporteur et Dispatch',
+        undefined,
+        ATTENTE_UI,
+      );
+
+      expect(screen.queryByText('Validation')).toBeNull();
+      expect(screen.queryByText('En attente de validation')).toBeNull();
+      expect(
+        valeurResumeAttribution('Volume de repas estimés'),
+      ).toHaveTextContent(/^50$/);
+      expect(screen.queryByText('Volume de repas réalisés')).toBeNull();
+      expect(screen.queryByText('Poids collecté')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -1779,15 +3766,34 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
+    'Documents : ligne « Logo du client » branchée sur la route Admin (Val 2026-10-30)',
+    async () => {
+      installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      const ligne = await screen.findByTestId(
+        'logo-client-rapport',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(ligne.querySelector('img')!.getAttribute('src')).toBe(
+        '/api/v1/admin/collectes/c1/logo-client?v=0',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos',
     async () => {
       const fetchMock = installMock({});
       const { container } = render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
 
+      // Champ des photos (l'onglet porte aussi celui du logo du client).
       const input = container.querySelector(
-        'input[type="file"]',
+        '#collecte-import-photo',
       ) as HTMLInputElement;
       const file = new File(['x'], 'photo.png', { type: 'image/png' });
       fireEvent.change(input, { target: { files: [file] } });
@@ -1802,6 +3808,95 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         expect(call).toBeTruthy();
         expect((call![1] as { body?: unknown }).body instanceof FormData).toBe(
           true,
+        );
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Décision Val 2026-11-03 : collecte A Toutes! = choix parmi les photos du
+  // livreur, plus d'import depuis l'ordinateur.
+  it(
+    'M0.6 — Bloc 3 A Toutes! : « Importer des photos » ouvre le choix des photos du livreur et importe les seules cochées',
+    async () => {
+      const ID_A = 'a'.repeat(64);
+      const ID_B = 'b'.repeat(64);
+      const fetchMock = installMock({
+        collecte: {
+          ...baseAg,
+          prestataire_actuel: {
+            transporteur_id: 't-atoutes',
+            nom: 'A Toutes!',
+            type_tms: 'a_toutes',
+          },
+        },
+      });
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((url, init) => {
+        if (String(url).endsWith('/photos/transporteur')) {
+          const post = init?.method === 'POST';
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () =>
+              post
+                ? { importees: 1, deja_importees: 0, echecs: 0 }
+                : {
+                    photos: [
+                      {
+                        id: ID_A,
+                        url: 'https://s3.exemple.test/a.jpg',
+                        prise_le: null,
+                        course: 1,
+                        deja_importee: false,
+                      },
+                      {
+                        id: ID_B,
+                        url: 'https://s3.exemple.test/b.jpg',
+                        prise_le: null,
+                        course: 1,
+                        deja_importee: true,
+                      },
+                    ],
+                  },
+          });
+        }
+        return base(url, init);
+      });
+      const { container } = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
+
+      // Plus de sélecteur de fichier pour les photos.
+      expect(container.querySelector('#collecte-import-photo')).toBeNull();
+      fireEvent.click(
+        screen.getByRole('button', { name: /Importer des photos/ }),
+      );
+
+      const dialogue = await screen.findByRole(
+        'dialog',
+        {
+          name: 'Photos du livreur',
+        },
+        ATTENTE_UI,
+      );
+      await within(dialogue).findByText('Déjà importée', undefined, ATTENTE_UI);
+      const cases = within(dialogue).getAllByRole('checkbox');
+      expect(cases[1]).toBeDisabled();
+      fireEvent.click(cases[0]!);
+      fireEvent.click(
+        within(dialogue).getByRole('button', { name: 'Importer 1 photo' }),
+      );
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          ([u, i]) =>
+            String(u).endsWith('/photos/transporteur') &&
+            (i as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        expect(JSON.parse(String((post![1] as { body: string }).body))).toEqual(
+          { ids: [ID_A] },
         );
       }, ATTENTE_UI);
     },
@@ -1928,8 +4023,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       ).toBeInTheDocument();
       expect(screen.getByText('BSAV-2026-00001')).toBeInTheDocument();
       expect(screen.getByText(/Statut : emis/)).toBeInTheDocument();
-      // Une collecte ZD n'a pas d'attestation de don (bloc AG masqué).
-      expect(screen.queryByText('Attestation de don')).not.toBeInTheDocument();
+      // Une collecte ZD n'a pas de rapport de don (ligne AG masquée).
+      expect(screen.queryByText('Rapport de don')).not.toBeInTheDocument();
       // Ni de Bloc 4/5 AG.
       expect(screen.queryByText('Pack AG')).not.toBeInTheDocument();
       expect(screen.queryByText('Attribution AG')).not.toBeInTheDocument();
@@ -1955,7 +4050,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       const { container } = render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
       expect(screen.getByText('Photos (1)')).toBeInTheDocument();
       const img = container.querySelector(
         'img[alt="Photo collecte"]',
@@ -1982,7 +4077,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       // Formulaire intégré (décision Val 2026-10-01) : la n°1 est la carte
       // « Recommandée » avec ses scores ; les autres sont dans la liste.
       expect(
-        await screen.findByText('3,2 km', undefined, ATTENTE_UI),
+        await screen.findByText(/^3,2 km · capacité/, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
       expect(screen.queryAllByRole('link', { name: 'Choisir' })).toHaveLength(
@@ -2004,12 +4099,20 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
           notes_internes: 'Client exigeant',
           // Surcharge per-collecte : prime sur la référence `lieux`.
           lieu_overrides: { acces_details: 'Badge au PC sécurité' },
-          evenements: {
-            ...baseAg.evenements,
+          // Contacts de LA collecte (lot B1, embed `collecte_contacts`) ;
+          // l'événement porte ceux de sa collecte n°1, jamais affichés ici.
+          contacts: {
             contact_principal_nom: 'Alice Martin',
             contact_principal_telephone: '06 11 22 33 44',
             contact_secours_nom: null,
             contact_secours_telephone: null,
+          },
+          evenements: {
+            ...baseAg.evenements,
+            contact_principal_nom: 'Bruno Copie',
+            contact_principal_telephone: '01 00 00 00 00',
+            contact_secours_nom: 'Chloé Copie',
+            contact_secours_telephone: '01 99 99 99 99',
             lieux: {
               nom: 'Pavillon',
               ville: 'Paris',
@@ -2037,12 +4140,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       const infos = screen.getByRole('tabpanel');
       // Événement : traiteur, pax, client final (client organisateur résolu).
       expect(within(infos).getByText('Traiteur Beta')).toBeInTheDocument();
-      expect(within(infos).getByText(/jusqu.à 80/)).toBeInTheDocument();
+      expect(within(infos).getByText(/^80/)).toBeInTheDocument();
       expect(within(infos).getByText('Org Cliente SA')).toBeInTheDocument();
       expect(within(infos).queryByText('Client Fallback')).toBeNull();
       expect(within(infos).getByText(/19:00/)).toBeInTheDocument();
       // Lieu : détails + badge de surcharge.
-      expect(within(infos).getByText('75017 Paris')).toBeInTheDocument();
+      expect(within(infos).getByText(/75017 Paris$/)).toBeInTheDocument();
       expect(within(infos).getByText('Difficile')).toBeInTheDocument();
       expect(within(infos).getByText('Fourgon')).toBeInTheDocument();
       expect(within(infos).getByText('Pas avant 22h')).toBeInTheDocument();
@@ -2056,12 +4159,18 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(within(infos).queryByText('Code 1234')).toBeNull();
       expect(within(infos).getByText('Sonner deux fois')).toBeInTheDocument();
       expect(within(infos).getByText('Client exigeant')).toBeInTheDocument();
-      // Contacts : principal appelable, secours absent.
+      // Contacts : principal appelable, secours absent — ceux de la collecte,
+      // jamais la copie de l'événement.
       expect(within(infos).getByText('Alice Martin')).toBeInTheDocument();
       expect(
         within(infos).getByRole('link', { name: '06 11 22 33 44' }),
       ).toHaveAttribute('href', 'tel:0611223344');
-      expect(within(infos).getByText('Non renseigné')).toBeInTheDocument();
+      // Secours absent : le bouton d'ajout de la variante B, qui ouvre la
+      // fenêtre des contacts.
+      expect(
+        within(infos).getByTestId('action-ajouter-contact-secours'),
+      ).toHaveTextContent('Ajouter un contact de secours');
+      expect(within(infos).queryByText(/Bruno Copie|Chloé Copie/)).toBeNull();
       // Les coordonnées chauffeur ont quitté l'onglet Informations pour le bloc
       // « Chauffeur » de l'onglet Logistique (décision Val 2026-10-02).
       expect(within(infos).queryByText(/Informations chauffeur/)).toBeNull();
@@ -2097,7 +4206,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         await within(infos).findByText('Code 1234', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(within(infos).getByText('75017 Paris')).toBeInTheDocument();
+      expect(within(infos).getByText(/75017 Paris$/)).toBeInTheDocument();
       expect(
         within(infos).queryByText('Modifié pour cette collecte'),
       ).toBeNull();
@@ -2138,7 +4247,11 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
-      await screen.findByText('Attribution AG', undefined, ATTENTE_UI);
+      await screen.findByText(
+        'Transporteur et Dispatch',
+        undefined,
+        ATTENTE_UI,
+      );
       await waitFor(
         () =>
           expect(
@@ -2149,9 +4262,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         ATTENTE_UI,
       );
       expect(screen.queryByRole('link', { name: 'Choisir' })).toBeNull();
-      // Attribution validée : le résumé + le bloc dispatch (renvoi / changement
-      // de prestataire), jamais le formulaire d'attribution intégré.
-      expect(screen.getByText('Prestataire & Dispatch')).toBeInTheDocument();
+      // Attribution validée : un seul bloc (résumé + dispatch), jamais le
+      // formulaire d'attribution intégré.
+      expect(screen.getByText('Transporteur et Dispatch')).toBeInTheDocument();
       expect(
         screen.queryByLabelText('Type de véhicule souhaité'),
       ).not.toBeInTheDocument();
@@ -2160,7 +4273,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'Grand en-tête AG (décision Val 2026-10-01) : badge, réf., lieu, date · heure, pax, traiteur, ville, prestataire, association — sans colonne résumé',
+    'Grand en-tête AG (décision Val 2026-10-01) : badge sans réf. (Val 2026-11-03), lieu, date · heure, pax, traiteur, ville, prestataire, association — sans colonne résumé',
     async () => {
       installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -2173,23 +4286,31 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(
         within(enTete).getByTestId('badge-type-collecte'),
       ).toHaveTextContent('Anti-Gaspi');
-      expect(within(enTete).getByText('Réf. TMS-9')).toBeInTheDocument();
+      // Plus de référence en en-tête (Val 2026-11-03) : elle ne sert pas
+      // l'utilisateur.
+      expect(within(enTete).queryByText(/Réf\./)).toBeNull();
+      expect(within(enTete).queryByText(/TMS-9/)).toBeNull();
+      // Titre = nom de l'événement, lieu et client dessous (variante B,
+      // décision Val 2026-10-27).
       expect(
-        within(enTete).getByRole('heading', { name: 'Pavillon' }),
+        within(enTete).getByRole('heading', { name: 'Cocktail AG' }),
       ).toBeInTheDocument();
-      expect(sousLigne).toHaveTextContent('Dimanche 10 mai 2026 · 19:00');
-      expect(sousLigne).toHaveTextContent("jusqu'à 80 pax");
+      expect(within(enTete).getByText(/^Pavillon/)).toBeInTheDocument();
+      expect(sousLigne).toHaveTextContent('Dimanche 10 mai 2026');
+      expect(sousLigne).toHaveTextContent('19:00');
+      expect(sousLigne).toHaveTextContent('80 pax');
+      expect(sousLigne).not.toHaveTextContent(/jusqu/);
       expect(sousLigne).toHaveTextContent('Traiteur Beta');
       expect(sousLigne).toHaveTextContent('Paris');
-      expect(sousLigne).toHaveTextContent('Prestataire non attribué');
+      expect(sousLigne).toHaveTextContent('Transporteur non attribué');
       // Statut TMS en badge coloré (pas en texte brut).
       expect(within(sousLigne).getByText('Acceptée presta').className).toMatch(
         /success/,
       );
       expect(sousLigne).toHaveTextContent('Les Restos du Cœur');
-      // Frise compacte dans l'en-tête ; plus de colonne résumé.
+      // Pastille de statut dans l'en-tête (variante B) ; plus de colonne résumé.
       expect(
-        within(enTete).getByRole('list', { name: 'Avancement de la collecte' }),
+        within(enTete).getByTestId('statut-collecte-admin'),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole('complementary', { name: 'Résumé de la collecte' }),
@@ -2213,7 +4334,10 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   it(
     'Grand en-tête ZD : badge Zéro Déchet, pas de ligne association ; « dirty TMS » en sur-titre',
     async () => {
-      installMock({ collecte: { ...baseZd, dirty_tms: true } });
+      // Collecte encore à réaliser : le badge ne s'affiche que là (cf. plus bas).
+      installMock({
+        collecte: { ...baseZd, statut: 'validee', dirty_tms: true },
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
       const sousLigne = await screen.findByTestId(
         'fiche-admin-sous-ligne',
@@ -2233,6 +4357,19 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
+  // Une collecte terminée n'a plus rien à renvoyer : même prédicat que la
+  // pastille « Modifiées sans renvoi TMS » (lib/collectes-chips).
+  it.each(['realisee', 'cloturee', 'annulee'])(
+    'M0.6/dirty_tms_apres_envoi — collecte %s au drapeau encore levé : pas de badge « Modifiée — renvoi requis »',
+    async (statut) => {
+      installMock({ collecte: { ...baseZd, statut, dirty_tms: true } });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await screen.findByTestId('fiche-admin-sous-ligne', {}, ATTENTE_UI);
+      expect(screen.queryByText('Modifiée — renvoi requis')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'M0.6 — onLoaded remonte le titre accessible « Collecte … jusqu’à N pax »',
     async () => {
@@ -2243,6 +4380,331 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       const arg = onLoaded.mock.calls.at(-1)?.[0] as { title: string };
       expect(arg.title).toContain('Collecte Anti-Gaspi');
       expect(arg.title).toContain("jusqu'à 80\u00a0pax"); // fmtPax : espace insécable
+    },
+    ATTENTE_CAS_MS,
+  );
+  // Onglet Documents : le bilan vu par le client (fiche traiteur « Bilan &
+  // documents »), radar et barre « Comparer avec » compris — décision Val
+  // 2026-10-16. Les filtres réglés sont ceux du rapport régénéré avec radar.
+  const zdCloturee = {
+    ...baseZd,
+    statut: 'cloturee',
+    taux_recyclage: 62.5,
+    co2_evite_kg: 140,
+    realisee_at: '2026-05-10T23:00:00Z',
+    // Type de LA collecte (lot B1) : filtre du radar par défaut ; l'événement
+    // porte celui de sa collecte n°1, ici un autre.
+    type_evenement_id: 't1',
+    // Pax de LA collecte (lot C1, C4 du 2026-10-20) : 800 ⇒ taille L, « Pesée
+    // par pax » sur 800 ; l'événement (deux soirées) en compte 1 500 (XL).
+    pax: 800,
+    evenements: { ...baseZd.evenements, pax: 1500, type_evenement_id: 't9' },
+    collecte_flux: [
+      {
+        flux_id: 'f1',
+        poids_reel_kg: 120,
+        flux_dechets: { code: 'biodechet', nom: 'Biodéchets' },
+      },
+      {
+        flux_id: 'f2',
+        poids_reel_kg: 80,
+        flux_dechets: { code: 'verre', nom: 'Verre' },
+      },
+    ],
+  };
+  const urlsAppelees = (fetchMock: ReturnType<typeof installMock>) =>
+    fetchMock.mock.calls.map((c) => String(c[0]));
+  // Le radar de l'onglet est chargé : ses filtres sont ceux qu'on enverra.
+  async function ouvrirDocumentsAvecRadar(
+    fetchMock: ReturnType<typeof installMock>,
+  ): Promise<void> {
+    await ouvrirOnglet('Documents');
+    await waitFor(() => {
+      if (!urlsAppelees(fetchMock).some((u) => u.includes('/benchmark?')))
+        throw new Error('radar non chargé');
+    }, ATTENTE_UI);
+    await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+  }
+
+  it(
+    'M0.6/documents_bilan_client_zd — collecte ZD clôturée : chiffres clés, répartition et radar « Comparer avec » du client, au-dessus des documents',
+    async () => {
+      const fetchMock = installMock({
+        collecte: zdCloturee,
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocumentsAvecRadar(fetchMock);
+
+      const kpi = screen.getByTestId('kpi-zd');
+      expect(within(kpi).getByText('Poids total collecté')).toBeInTheDocument();
+      expect(within(kpi).getByText('200')).toBeInTheDocument();
+      expect(within(kpi).getByText('Taux de recyclage')).toBeInTheDocument();
+      expect(within(kpi).getByText('62,5')).toBeInTheDocument();
+      // CO₂ évité figé (décision Val 2026-10-20), jamais le bilan net.
+      expect(within(kpi).getByText('CO₂ évité')).toBeInTheDocument();
+      expect(within(kpi).getByText('140')).toBeInTheDocument();
+      expect(kpi.textContent).not.toContain('(net)');
+      const radar = screen.getByTestId('bloc-3-zd-fiche');
+      expect(
+        within(radar).getByText(
+          'Votre collecte face aux événements comparables',
+        ),
+      ).toBeInTheDocument();
+      expect(within(radar).getByText('Comparer avec')).toBeInTheDocument();
+      // Fiche collecte : jamais de filtre « Traiteurs », ni d'avertissement
+      // « comparaison à soi-même » (l'Admin n'a pas de lieux à lui).
+      expect(
+        within(radar).queryByTestId('benchmark-filter-traiteurs'),
+      ).toBeNull();
+      // Un lieu coché déclencherait l'avertissement chez un client.
+      fireEvent.click(within(radar).getByTestId('benchmark-filter-lieux'));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Pavillon' }));
+      await waitFor(
+        () =>
+          expect(
+            urlsAppelees(fetchMock).some((u) => u.includes('lieu_ids=l1')),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+      expect(screen.queryByTestId('benchmark-comparaison-soi')).toBeNull();
+      // Bilan AVANT la carte des documents.
+      expect(
+        kpi.compareDocumentPosition(screen.getByText('Bordereau ZD')) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+
+      // Radar de la collecte lu sur la route Admin, ouvert sur son segment
+      // (type + taille) ; options de la barre = celles du radar Admin.
+      const urls = urlsAppelees(fetchMock);
+      const radarUrl = urls.find((u) => u.includes('/benchmark?'))!;
+      expect(radarUrl.startsWith('/api/v1/admin/collectes/c1/benchmark?')).toBe(
+        true,
+      );
+      const qs = new URLSearchParams(radarUrl.split('?')[1]);
+      expect(qs.get('type_evenement_ids')).toBe('t1');
+      expect(qs.get('taille_evenement_codes')).toBe('L');
+      expect(urls).toContain(
+        '/api/v1/admin/dashboard-client/benchmark/filtres',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_regeneration_filtres_radar — case cochée : Télécharger envoie les filtres réglés sur le radar de l’onglet, un filtre changé part avec la demande suivante',
+    async () => {
+      const fetchMock = installMock({
+        collecte: zdCloturee,
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocumentsAvecRadar(fetchMock);
+      expect(
+        screen.getByText(
+          'Le radar du rapport reprend les filtres de comparaison réglés ci-dessus.',
+        ),
+      ).toBeInTheDocument();
+
+      fireEvent.click(caseRadar());
+      const regenRapport = telechargerRapport;
+      await waitFor(() => expect(regenRapport()).toBeEnabled(), ATTENTE_UI);
+      fireEvent.click(regenRapport());
+      await waitFor(
+        () =>
+          expect(corpsRapport(fetchMock)).toEqual([
+            {
+              options: { benchmark: true },
+              benchmark_filters: {
+                lieu_ids: [],
+                type_evenement_ids: ['t1'],
+                taille_evenement_codes: ['L'],
+              },
+            },
+          ]),
+        ATTENTE_UI,
+      );
+
+      // La case reste cochée (rien n'est stocké) : l'Admin choisit d'autres
+      // filtres, la demande suivante les porte.
+      expect(caseRadar().getAttribute('aria-checked')).toBe('true');
+      fireEvent.click(screen.getByTestId('benchmark-filter-taille'));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'M (500-749)' }));
+      await waitFor(() => expect(regenRapport()).toBeEnabled(), ATTENTE_UI);
+      fireEvent.click(regenRapport());
+      await waitFor(
+        () =>
+          expect(corpsRapport(fetchMock)[1]).toMatchObject({
+            options: { benchmark: true },
+            benchmark_filters: { taille_evenement_codes: ['L', 'M'] },
+          }),
+        ATTENTE_UI,
+      );
+
+      // Case décochée : version sans radar, aucun filtre envoyé.
+      fireEvent.click(caseRadar());
+      expect(caseRadar().getAttribute('aria-checked')).toBe('false');
+      await waitFor(() => expect(regenRapport()).toBeEnabled(), ATTENTE_UI);
+      fireEvent.click(regenRapport());
+      await waitFor(
+        () =>
+          expect(corpsRapport(fetchMock)[2]).toEqual({
+            options: { benchmark: false },
+          }),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_regeneration_radar_retire — statut forcé avant la réalisation après réglage du radar : le rapport avec radar part sans benchmark_filters (repli serveur annoncé à l’écran)',
+    async () => {
+      const collecte = { ...zdCloturee };
+      const fetchMock = installMock({ collecte, documents: documentsZd });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocumentsAvecRadar(fetchMock);
+
+      // Forçage du statut : la fiche relue n'est plus réalisée (`realisee` porte
+      // désormais son bilan, Val 2026-11-04), le radar part.
+      collecte.statut = 'en_cours';
+      fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
+      const dialog = screen
+        .getByText('Forcer le statut de la collecte')
+        .closest('div') as HTMLElement;
+      fireEvent.click(
+        within(dialog).getByRole('combobox', { name: 'Nouveau statut *' }),
+      );
+      fireEvent.click(
+        screen
+          .getAllByRole('option')
+          .find((o) => o.getAttribute('data-value') === 'en_cours')!,
+      );
+      fireEvent.change(within(dialog).getByLabelText(/^Motif \(≥ 10/), {
+        target: { value: 'Pesée à reprendre avant clôture' },
+      });
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: /Confirmer le forçage/ }),
+      );
+      await screen.findByTestId('bandeau-bilan-attente', {}, ATTENTE_UI);
+      expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
+      expect(
+        screen.getByText(
+          'Comparaison aux événements de même type et de même taille.',
+        ),
+      ).toBeInTheDocument();
+
+      fireEvent.click(caseRadar());
+      fireEvent.click(telechargerRapport());
+      await waitFor(
+        () =>
+          expect(corpsRapport(fetchMock)).toEqual([
+            { options: { benchmark: true } },
+          ]),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_radar_retour_onglet — retour sur l’onglet Documents : la barre reprend les filtres réglés, le rapport les porte',
+    async () => {
+      const fetchMock = installMock({
+        collecte: zdCloturee,
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirDocumentsAvecRadar(fetchMock);
+      fireEvent.click(screen.getByTestId('benchmark-filter-taille'));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'M (500-749)' }));
+      await waitFor(
+        () =>
+          expect(
+            urlsAppelees(fetchMock).some((u) =>
+              u.includes('taille_evenement_codes=L%2CM'),
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+
+      await ouvrirOnglet('Historique');
+      await ouvrirOnglet('Documents');
+      await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
+      fireEvent.click(caseRadar());
+      fireEvent.click(telechargerRapport());
+      await waitFor(
+        () =>
+          expect(corpsRapport(fetchMock)[0]).toMatchObject({
+            options: { benchmark: true },
+            benchmark_filters: { taille_evenement_codes: ['L', 'M'] },
+          }),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_bilan_client_ag — collecte AG clôturée : repas donnés, CO₂ évité et association bénéficiaire, sans radar',
+    async () => {
+      const fetchMock = installMock({
+        collecte: {
+          ...baseAg,
+          statut: 'cloturee',
+          co2_evite_kg: 105,
+          attributions_antgaspi: {
+            ...baseAg.attributions_antgaspi,
+            associations: {
+              nom: 'Les Restos du Cœur',
+              ville: 'Paris',
+              description_rapport_impact: 'Aide alimentaire depuis 1985.',
+            },
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      const kpi = await screen.findByTestId('kpi-ag', {}, ATTENTE_UI);
+      expect(within(kpi).getByText('Repas donnés')).toBeInTheDocument();
+      expect(within(kpi).getByText('42')).toBeInTheDocument();
+      expect(within(kpi).getByText('105')).toBeInTheDocument();
+      const asso = screen.getByTestId('bloc-association');
+      expect(within(asso).getByText('Les Restos du Cœur')).toBeInTheDocument();
+      expect(within(asso).getByText('Paris')).toBeInTheDocument();
+      expect(
+        within(asso).getByText('Aide alimentaire depuis 1985.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
+      expect(
+        urlsAppelees(fetchMock).some((u) => u.includes('/benchmark')),
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6/documents_bilan_client_attente — collecte pas encore clôturée : bandeau « bilan disponible après la collecte » et blocs estompés ; annulée : aucun bilan, documents conservés',
+    async () => {
+      installMock({ collecte: baseZd, documents: documentsZd });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      expect(
+        await screen.findByTestId('bandeau-bilan-attente', {}, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('bilan-estompe')).toBeInTheDocument();
+      expect(screen.queryByTestId('bloc-3-zd-fiche')).toBeNull();
+
+      document.body.innerHTML = '';
+      installMock({
+        collecte: { ...baseZd, statut: 'annulee' },
+        documents: documentsZd,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Bordereau ZD', undefined, ATTENTE_UI);
+      expect(screen.queryByTestId('bandeau-bilan-attente')).toBeNull();
+      expect(screen.queryByTestId('kpi-zd')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -2423,7 +4885,7 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
       mockFetchAcceptation(collecte);
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Logistique');
-      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+      await screen.findByText('Transporteur actuel', undefined, ATTENTE_UI);
 
       expect(
         screen.queryByRole('button', { name: 'Acceptation manuelle' }),
@@ -2462,9 +4924,9 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
   };
 
   it(
-    'sans tournée ni prestataire : une ligne « Camion » en attente, saisie impossible (« Attribuez d’abord un prestataire »)',
+    'sans tournée ni prestataire : une ligne « Camion » en attente, saisie impossible (« Attribuez d’abord un transporteur »)',
     async () => {
-      // Un camion demandé (N = 1), aucune tournée, aucun prestataire posé :
+      // Un camion demandé (N = 1), aucune tournée, aucun transporteur posé :
       // la ligne existe (C2 Val 2026-10-06) mais la tournée ne peut pas être
       // créée sans prestataire (tournees.prestataire_logistique_id NOT NULL).
       mockFetch({ ...collecteAg, collecte_tournees: [] });
@@ -2480,11 +4942,12 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
         within(bloc).getByRole('heading', { name: 'Chauffeur' }),
       ).toBeInTheDocument();
       expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(1);
+      // Phrase retirée (décision Val 2026-10-27).
       expect(
-        within(bloc).getByText(/Attribuez d’abord un prestataire/),
-      ).toBeInTheDocument();
+        within(bloc).queryByText(/Attribuez d’abord un transporteur/),
+      ).toBeNull();
       expect(
-        within(bloc).getByText(/Tournée pas encore créée par le prestataire/),
+        within(bloc).getByText(/Tournée pas encore créée par le transporteur/),
       ).toBeInTheDocument();
       // Chauffeur, plaque, téléphone : trois « En attente », aucune saisie.
       expect(within(bloc).getAllByText('En attente')).toHaveLength(3);
@@ -2517,10 +4980,8 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
         undefined,
         ATTENTE_UI,
       )) as HTMLElement;
-      // Le canal nommé : MTS-1 (jamais « du prestataire » générique).
-      expect(
-        screen.getByText(/remontent automatiquement de MTS-1/),
-      ).toBeInTheDocument();
+      // Phrase sur la remontée automatique retirée (décision Val 2026-10-27).
+      expect(screen.queryByText(/remontent automatiquement/)).toBeNull();
       expect(within(bloc).getByText('Paul Martin')).toBeInTheDocument();
       expect(within(bloc).getByText('AB-123-CD')).toBeInTheDocument();
       expect(
@@ -2753,7 +5214,7 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
   );
 
   it(
-    'erreur à l’enregistrement (le prestataire a créé la tournée du camion 2 entre-temps) : message affiché, fiche rechargée, la saisie se rattache à la tournée créée — nom saisi conservé, plaque remontée reprise',
+    'erreur à l’enregistrement (le transporteur a créé la tournée du camion 2 entre-temps) : message affiché, fiche rechargée, la saisie se rattache à la tournée créée — nom saisi conservé, plaque remontée reprise',
     async () => {
       const avant = {
         ...collecteAg,
@@ -2793,7 +5254,7 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
           if (url.endsWith('/infos-acces') && opts?.method === 'PATCH') {
             patchs += 1;
             if (patchs === 1) {
-              // Le rang 2 vient d'être pris par le prestataire.
+              // Le rang 2 vient d'être pris par le transporteur.
               fiche = apres;
               return Promise.resolve({
                 ok: false,
@@ -2825,7 +5286,7 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
       // Erreur affichée, formulaire toujours ouvert, fiche rechargée : la
-      // plaque remontée par le prestataire apparaît dans le champ laissé vide.
+      // plaque remontée par le transporteur apparaît dans le champ laissé vide.
       expect(
         await screen.findByText(/rechargez la fiche/, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
@@ -2892,9 +5353,11 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
       expect(within(bloc).getAllByTestId('camion-chauffeur')).toHaveLength(2);
       expect(within(bloc).getByText('Camion 2')).toBeInTheDocument();
       expect(
-        within(bloc).getByText(/Tournée pas encore créée par le prestataire/),
+        within(bloc).getByText(/Tournée pas encore créée par le transporteur/),
       ).toBeInTheDocument();
-      expect(screen.queryByText(/Attribuez d’abord un prestataire/)).toBeNull();
+      expect(
+        screen.queryByText(/Attribuez d’abord un transporteur/),
+      ).toBeNull();
 
       fireEvent.click(
         screen.getByRole('button', { name: 'Modifier les coordonnées' }),
@@ -2992,6 +5455,326 @@ describe('M0.6 — onglet Logistique : bloc Chauffeur', () => {
           chauffeur_telephone: '0612345678',
         });
       }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// ============================================================================
+// Refonte du formulaire, lot B1 (décisions Val 2026-10-23, B1-Q1 et B1-Q3) : le
+// type d'événement et les contacts sont ceux de LA collecte ; l'équipe Savr les
+// modifie dans une fenêtre, sans motif (PATCH /api/v1/admin/collectes/:id).
+// ============================================================================
+describe('M1.2 / fiche Admin — type d’événement et contacts de la collecte (lot B1)', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const TITRE = "Modifier le type d'événement et les contacts";
+  const URL_FICHE = '/api/v1/admin/collectes/c1';
+  const TYPES = [
+    { id: 't1', libelle: 'Cocktail apéritif' },
+    { id: 't2', libelle: 'Dîner assis' },
+  ];
+  const AVANT = {
+    ...collecteAg,
+    // PostgREST peut rendre l'embed 1–1 en tableau : la fiche le lit aussi.
+    contacts: [
+      {
+        contact_principal_nom: 'Alice Martin',
+        contact_principal_telephone: '06 11 22 33 44',
+        contact_secours_nom: null,
+        contact_secours_telephone: null,
+      },
+    ],
+  };
+  const APRES = {
+    ...AVANT,
+    type_evenement_id: 't2',
+    type_evenement: { libelle: 'Dîner assis' },
+    contacts: [
+      {
+        contact_principal_nom: 'Alice Martin',
+        contact_principal_telephone: '07 00 00 00 01',
+        contact_secours_nom: 'Léa Secours',
+        contact_secours_telephone: '07 00 00 00 02',
+      },
+    ],
+  };
+
+  // Faux serveur : après un PATCH accepté, la fiche relue rend `APRES`.
+  function monter(
+    reponsePatch: { ok: boolean; status: number; corps: unknown } = {
+      ok: true,
+      status: 200,
+      corps: {},
+    },
+    initiale: object = AVANT,
+  ) {
+    let courante: object = initiale;
+    const parDefaut = mockFetch(() => courante).getMockImplementation()!;
+    const fetchMock = vi.fn(
+      (
+        url: string,
+        opts?: { method?: string; body?: string },
+      ): Promise<unknown> => {
+        if (url === '/api/v1/programmation/types-evenements')
+          return Promise.resolve({ ok: true, json: async () => TYPES });
+        if (url === URL_FICHE && opts?.method === 'PATCH') {
+          if (reponsePatch.ok) courante = APRES;
+          return Promise.resolve({
+            ok: reponsePatch.ok,
+            status: reponsePatch.status,
+            json: async () => reponsePatch.corps,
+          });
+        }
+        return parDefaut(url, opts);
+      },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const patchs = () =>
+      fetchMock.mock.calls
+        .filter(([u, o]) => u === URL_FICHE && o?.method === 'PATCH')
+        .map(([, o]) => JSON.parse(String(o!.body)) as Record<string, unknown>);
+    const lectures = () =>
+      fetchMock.mock.calls.filter(
+        ([u, o]) => u === URL_FICHE && (o?.method ?? 'GET') === 'GET',
+      ).length;
+    const typesCharges = () =>
+      fetchMock.mock.calls.some(
+        ([u]) => u === '/api/v1/programmation/types-evenements',
+      );
+    render(<CollecteDetailPanel collecteId="c1" />);
+    return { patchs, lectures, typesCharges };
+  }
+
+  async function ouvrir(bouton: string): Promise<HTMLElement> {
+    fireEvent.click(
+      await screen.findByRole('button', { name: bouton }, ATTENTE_UI),
+    );
+    return screen.findByRole('dialog', { name: TITRE }, ATTENTE_UI);
+  }
+
+  const champ = (dialog: HTMLElement, id: string) =>
+    dialog.querySelector<HTMLInputElement>(id)!;
+
+  it(
+    'M1.2/type_contacts_par_collecte — fiche Admin : boutons « Modifier » du type et des contacts, fenêtre pré-remplie avec ceux de la collecte',
+    async () => {
+      monter();
+      const infos = await screen.findByRole('tabpanel', undefined, ATTENTE_UI);
+      await within(infos).findByText(
+        'Cocktail apéritif',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(within(infos).getByText('Alice Martin')).toBeInTheDocument();
+      expect(
+        within(infos).getByRole('button', {
+          name: "Modifier le type d'événement",
+        }),
+      ).toBeInTheDocument();
+
+      for (const bouton of [
+        "Modifier le type d'événement",
+        'Modifier les contacts',
+      ]) {
+        const dialog = await ouvrir(bouton);
+        expect(champ(dialog, '#infos-type')).toHaveTextContent(
+          'Cocktail apéritif',
+        );
+        expect(champ(dialog, '#infos-cp-nom')).toHaveValue('Alice Martin');
+        expect(champ(dialog, '#infos-cp-tel')).toHaveValue('06 11 22 33 44');
+        expect(champ(dialog, '#infos-cs-nom')).toHaveValue('');
+        expect(champ(dialog, '#infos-cs-tel')).toHaveValue('');
+        // Aucun motif demandé.
+        expect(within(dialog).queryByLabelText(/Motif/)).toBeNull();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Retour' }));
+        await waitFor(
+          () =>
+            expect(screen.queryByRole('dialog', { name: TITRE })).toBeNull(),
+          ATTENTE_UI,
+        );
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each(['realisee', 'cloturee', 'annulee'])(
+    'M1.2/type_contacts_par_collecte — fiche Admin : « Modifier » reste offert sur une collecte %s (correction interne)',
+    async (statut) => {
+      monter(undefined, { ...AVANT, statut });
+      const infos = await screen.findByRole('tabpanel', undefined, ATTENTE_UI);
+      await within(infos).findByText(
+        'Cocktail apéritif',
+        undefined,
+        ATTENTE_UI,
+      );
+      const dialog = await ouvrir('Modifier les contacts');
+      expect(champ(dialog, '#infos-cp-nom')).toHaveValue('Alice Martin');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/type_contacts_par_collecte — fiche Admin : la fenêtre envoie les seuls champs modifiés, sans motif, puis la fiche est relue',
+    async () => {
+      const { patchs, lectures, typesCharges } = monter();
+      const dialog = await ouvrir('Modifier les contacts');
+      await waitFor(() => expect(typesCharges()).toBe(true), ATTENTE_UI);
+
+      fireEvent.click(champ(dialog, '#infos-type'));
+      fireEvent.click(
+        await screen.findByRole('option', { name: 'Dîner assis' }, ATTENTE_UI),
+      );
+      fireEvent.change(champ(dialog, '#infos-cp-tel'), {
+        target: { value: '07 00 00 00 01' },
+      });
+      fireEvent.change(champ(dialog, '#infos-cs-nom'), {
+        target: { value: 'Léa Secours' },
+      });
+      fireEvent.change(champ(dialog, '#infos-cs-tel'), {
+        target: { value: '07 00 00 00 02' },
+      });
+      const lecturesAvant = lectures();
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Enregistrer' }),
+      );
+
+      // Seuls les champs modifiés, et aucun motif.
+      await waitFor(
+        () =>
+          expect(patchs()).toEqual([
+            {
+              type_evenement_id: 't2',
+              contact_principal_telephone: '07 00 00 00 01',
+              contact_secours_nom: 'Léa Secours',
+              contact_secours_telephone: '07 00 00 00 02',
+            },
+          ]),
+        ATTENTE_UI,
+      );
+      // Fiche relue, fenêtre fermée, nouvelles valeurs affichées.
+      await waitFor(
+        () => expect(screen.queryByRole('dialog', { name: TITRE })).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(lectures()).toBeGreaterThan(lecturesAvant);
+      const infos = screen.getByRole('tabpanel');
+      expect(
+        await within(infos).findByText('Dîner assis', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(within(infos).queryByText('Cocktail apéritif')).toBeNull();
+      expect(within(infos).getByText('Léa Secours')).toBeInTheDocument();
+      expect(
+        within(infos).getByRole('link', { name: '07 00 00 00 01' }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Le nom et le téléphone de secours se modifient ensemble (décision Val
+  // 2026-10-30) : changer le seul nom envoie aussi le téléphone affiché.
+  it(
+    'M1.2/type_contacts_par_collecte — fiche Admin : seul le nom de secours change, le nom et le téléphone partent ensemble',
+    async () => {
+      const AVEC_SECOURS = {
+        ...AVANT,
+        contacts: [
+          {
+            ...AVANT.contacts[0],
+            contact_secours_nom: 'Léa Secours',
+            contact_secours_telephone: '07 00 00 00 03',
+          },
+        ],
+      };
+      const { patchs } = monter(undefined, AVEC_SECOURS);
+      const dialog = await ouvrir('Modifier les contacts');
+      fireEvent.change(champ(dialog, '#infos-cs-nom'), {
+        target: { value: 'Noé Blanc' },
+      });
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Enregistrer' }),
+      );
+      await waitFor(
+        () =>
+          expect(patchs()).toEqual([
+            {
+              contact_secours_nom: 'Noé Blanc',
+              contact_secours_telephone: '07 00 00 00 03',
+            },
+          ]),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/type_contacts_par_collecte — fiche Admin : rien de modifié, la fenêtre se ferme sans requête',
+    async () => {
+      const { patchs } = monter();
+      const dialog = await ouvrir("Modifier le type d'événement");
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Enregistrer' }),
+      );
+      await waitFor(
+        () => expect(screen.queryByRole('dialog', { name: TITRE })).toBeNull(),
+        ATTENTE_UI,
+      );
+      expect(patchs()).toEqual([]);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each([
+    ['nom', '#infos-cp-nom'],
+    ['téléphone', '#infos-cp-tel'],
+  ])(
+    'M1.2/type_contacts_par_collecte — fiche Admin : contact principal sans %s, « Enregistrer » désactivé, rien n’est envoyé',
+    async (_cas, id) => {
+      const { patchs } = monter();
+      const dialog = await ouvrir('Modifier les contacts');
+      const enregistrer = within(dialog).getByRole('button', {
+        name: 'Enregistrer',
+      });
+      expect(enregistrer).toBeEnabled();
+      fireEvent.change(champ(dialog, id), { target: { value: '  ' } });
+      expect(enregistrer).toBeDisabled();
+      fireEvent.click(enregistrer);
+      expect(patchs()).toEqual([]);
+      expect(screen.getByRole('dialog', { name: TITRE })).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M1.2/type_contacts_par_collecte — fiche Admin : refus de la route, message affiché, fenêtre ouverte, fiche inchangée',
+    async () => {
+      const { patchs, lectures } = monter({
+        ok: false,
+        status: 422,
+        corps: {
+          error: 'Le contact principal et son téléphone sont obligatoires.',
+        },
+      });
+      const dialog = await ouvrir('Modifier les contacts');
+      fireEvent.change(champ(dialog, '#infos-cp-nom'), {
+        target: { value: 'Marie Durand' },
+      });
+      const lecturesAvant = lectures();
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Enregistrer' }),
+      );
+      expect(
+        await within(dialog).findByText(
+          'Le contact principal et son téléphone sont obligatoires.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(patchs()).toEqual([{ contact_principal_nom: 'Marie Durand' }]);
+      expect(screen.getByRole('dialog', { name: TITRE })).toBeInTheDocument();
+      expect(lectures()).toBe(lecturesAvant);
     },
     ATTENTE_CAS_MS,
   );

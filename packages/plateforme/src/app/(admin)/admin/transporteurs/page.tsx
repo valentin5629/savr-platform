@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Truck, Plus, Pencil } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { PencilSimpleIcon, PlusIcon, TruckIcon } from '@/components/ui/icones';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { FilterBar } from '@/components/ui/filter-bar';
@@ -9,6 +9,7 @@ import { FiltreCoches, FiltreRecherche } from '@/components/ui/filtre-en-ligne';
 import { valeurUnique } from '@/lib/filtre-csv';
 import { compteurResultats } from '@/lib/compteur-resultats';
 import { Badge } from '@/components/ui/badge';
+import { BadgesLigne } from '@/components/ui/badges-ligne';
 import { ActifBadge } from '@/components/ui/actif-badge';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { OPTIONS_FILTRE_ACTIF } from '@/lib/libelles/actif';
@@ -27,7 +28,6 @@ import {
 import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import {
   TransporteurModal,
-  type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
 import { PageHero } from '@/components/ui/page-hero';
@@ -79,25 +79,6 @@ export default function TransporteursPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transporteur | null>(null);
-  const [prestataires, setPrestataires] = useState<PrestataireOption[] | null>(
-    null,
-  ); // null = non chargé ou en échec (≠ référentiel vide)
-
-  const fetchPrestataires = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/admin/prestataires');
-      if (!res.ok) return;
-      const json = (await res.json()) as { data: PrestataireOption[] };
-      setPrestataires(json.data);
-    } catch {
-      // Réseau : la modale signale la liste indisponible (prestataires null).
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchPrestataires();
-  }, [fetchPrestataires]);
-
   function openEdit(row: Transporteur) {
     setEditing(row);
     setModalOpen(true);
@@ -127,19 +108,15 @@ export default function TransporteursPage() {
     {
       key: 'types_vehicules',
       header: 'Véhicule(s)',
-      render: (row) => (
-        <div className="flex flex-wrap gap-1">
-          {row.types_vehicules && row.types_vehicules.length > 0 ? (
-            row.types_vehicules.map((v) => (
-              <Badge key={v} variant="neutral" dot={false}>
-                {VEHICULE_LABEL[v] ?? v}
-              </Badge>
-            ))
-          ) : (
-            <span className="text-savr-neutral-400">—</span>
-          )}
-        </div>
-      ),
+      render: (row) =>
+        row.types_vehicules && row.types_vehicules.length > 0 ? (
+          <BadgesLigne
+            libelles={row.types_vehicules.map((v) => VEHICULE_LABEL[v] ?? v)}
+            dot={false}
+          />
+        ) : (
+          <span className="text-savr-neutral-400">—</span>
+        ),
     },
     {
       key: 'type_tms',
@@ -185,7 +162,7 @@ export default function TransporteursPage() {
               openEdit(row);
             }}
           >
-            <Pencil />
+            <PencilSimpleIcon />
           </IconButton>
         </div>
       ),
@@ -196,10 +173,10 @@ export default function TransporteursPage() {
     <div className="space-y-6">
       <PageHero
         title="Transporteurs"
-        icon={<Truck className="h-6 w-6 text-savr-primary-200" />}
+        icon={<TruckIcon className="h-6 w-6" />}
         actions={
           <Button variant="accent" onClick={openCreate}>
-            <Plus />
+            <PlusIcon />
             Nouveau transporteur
           </Button>
         }
@@ -244,7 +221,7 @@ export default function TransporteursPage() {
         onRecharger={recharger}
         empty={
           <EmptyState
-            icon={<Truck className="h-8 w-8" />}
+            icon={<TruckIcon className="h-8 w-8" />}
             title="Aucun transporteur"
             description="Créez le premier transporteur."
           />
@@ -264,12 +241,7 @@ export default function TransporteursPage() {
         open={modalOpen}
         transporteur={editing}
         onClose={() => setModalOpen(false)}
-        onSaved={() => {
-          recharger();
-          // Un rattachement change les prestataires à griser.
-          void fetchPrestataires();
-        }}
-        prestataires={prestataires}
+        onSaved={recharger}
       />
     </div>
   );

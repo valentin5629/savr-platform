@@ -68,10 +68,16 @@ function fakeSupabase(resolve: Resolveur = () => undefined) {
         q.filtres[k] = v;
         return chain;
       },
-      in: () => chain,
+      // Statuts multiples (realisee|cloturee depuis le 2026-11-04) : clé jointe.
+      in: (k: string, v: unknown) => {
+        if (k === 'statut' && Array.isArray(v)) q.filtres[k] = v.join('|');
+        return chain;
+      },
       not: () => chain,
       lte: () => chain,
+      gt: () => chain,
       order: () => chain,
+      limit: () => chain,
       single: settle,
       maybeSingle: settle,
       then: (f: (v: unknown) => unknown, r?: (e: unknown) => unknown) =>
@@ -160,12 +166,12 @@ const CAS_SELECTION = [
   {
     module: 'M1.6',
     jobName: 'bordereaux_rapports_batch',
-    selection: 'zero_dechet/cloturee',
+    selection: 'zero_dechet/realisee|cloturee',
   },
   {
     module: 'M2.4',
     jobName: 'attestations_batch',
-    selection: 'anti_gaspi/cloturee',
+    selection: 'anti_gaspi/realisee|cloturee',
   },
   {
     module: 'M2.4',
@@ -201,7 +207,10 @@ for (const cas of CAS_SELECTION) {
       expect(alertes[0]!.titre).toBe('Job cron critique échoué');
       expect(alertes[0]!.metadata?.job_name).toBe(cas.jobName);
       expect(alertes[0]!.metadata?.etape).toBe('selection');
-      expect(alertes[0]!.message).toContain('more than one relationship');
+      // Le code, pas le message de la base : les batchs sont aussi appelés depuis
+      // des routes Admin (check-api-error-leak) ; le message reste au journal.
+      expect(alertes[0]!.message).toContain('PGRST201');
+      expect(alertes[0]!.message).not.toContain('more than one relationship');
 
       // Isolation : les deux autres sous-batchs ne sont pas contaminés.
       for (const autre of JOBS.filter((j) => j !== cas.jobName)) {
@@ -239,7 +248,7 @@ const ERREUR_DB = { message: 'connection timeout', code: '57014' };
 describe('M1.6 / batch ZD — lecture bordereaux existants en échec', () => {
   it('fatal etape=selection, aucun INSERT', async () => {
     const sb = fakeSupabase((q) => {
-      if (cleSelection(q) === 'zero_dechet/cloturee')
+      if (cleSelection(q) === 'zero_dechet/realisee|cloturee')
         return { data: [{ id: 'col-1', evenement_id: 'ev-1' }] };
       if (q.table === 'bordereaux_savr' && q.op === 'select')
         return { data: null, error: ERREUR_DB };
@@ -258,7 +267,7 @@ describe('M1.6 / batch ZD — lecture bordereaux existants en échec', () => {
 describe('M2.4 / batch AG — lecture attestations existantes en échec', () => {
   it('fatal etape=selection, aucun INSERT (pas d’attestation fiscale en double)', async () => {
     const sb = fakeSupabase((q) => {
-      if (cleSelection(q) === 'anti_gaspi/cloturee')
+      if (cleSelection(q) === 'anti_gaspi/realisee|cloturee')
         return {
           data: [
             {
@@ -330,6 +339,8 @@ function collecteSansExcedent(id: string) {
 }
 
 /** Sous-batch sans-excédent : INSERT rapports_rse en échec pour les ids `enEchec`. */
+// `ids` dans l'ordre croissant, comme la base les rend : la sélection est triée
+// par id, et une page dans le désordre est refusée (lib/pdf/selection-par-pages).
 function resolveurSansExcedent(ids: string[], enEchec: string[]): Resolveur {
   return (q) => {
     if (cleSelection(q) === 'anti_gaspi/realisee_sans_collecte')
@@ -353,7 +364,7 @@ function warnsCollecte(): Log[] {
 describe('M2.4 / batch sans-excédent — échec partiel par collecte', () => {
   it('1 collecte KO sur 2 : pas de fatal, warn avec collecte_id, l’autre produite', async () => {
     const sb = fakeSupabase(
-      resolveurSansExcedent(['col-ok', 'col-ko'], ['col-ko']),
+      resolveurSansExcedent(['col-ko', 'col-ok'], ['col-ko']),
     );
 
     const result = await runBatchSansExcedent(sb as never);
@@ -397,7 +408,7 @@ describe('M2.4 / batch sans-excédent — toutes les collectes tentées en éche
 describe('M2.4 / cron batch-pdf-j1 — échec partiel via la route', () => {
   it('completed(nb_traite=1, nb_errors=1), 200, aucune alerte', async () => {
     courant = fakeSupabase(
-      resolveurSansExcedent(['col-ok', 'col-ko'], ['col-ko']),
+      resolveurSansExcedent(['col-ko', 'col-ok'], ['col-ko']),
     );
 
     const res = await appelerCron();

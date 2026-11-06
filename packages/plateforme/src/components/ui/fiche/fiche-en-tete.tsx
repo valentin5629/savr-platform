@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
+import { type Icone } from '@/components/ui/icones';
 import { cn } from '@/lib/utils';
 import { Text } from '@/components/ui/text';
 
@@ -22,7 +22,7 @@ export function FicheEnTete({
   titre: string;
   /** Consigne courte (création). */
   description?: string;
-  infos?: { icon: LucideIcon; texte: React.ReactNode }[];
+  infos?: { icon: Icone; texte: React.ReactNode }[];
   infosTestId?: string;
   statut?: React.ReactNode;
   /** Statut large (frise des fiches collecte) : à droite du sur-titre sur
@@ -57,14 +57,14 @@ export function FicheEnTete({
           {titre}
         </h3>
         {description && (
-          <p className="col-span-full text-[15px] text-savr-neutral-700">
+          <p className="col-span-full text-md text-savr-neutral-700">
             {description}
           </p>
         )}
         {infos.length > 0 && (
           <p
             data-testid={infosTestId}
-            className="col-span-full flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-savr-neutral-700"
+            className="col-span-full flex flex-wrap items-center gap-x-4 gap-y-1 text-md text-savr-neutral-700"
           >
             {infos.map(({ icon: Icon, texte }, i) => (
               <span key={i} className="inline-flex items-center gap-1.5">

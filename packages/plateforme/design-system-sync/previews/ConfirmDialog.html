@@ -7,6 +7,6 @@ h(function(){const [o,setO]=React.useState(true);return h('div',null,h(S.Button,
   h(S.ConfirmDialog,{open:o,title:'Annuler la collecte ?',confirmLabel:'Annuler la collecte',cancelLabel:'Retour',
     motif:{label:'Motif de l’annulation',minLength:10,placeholder:'10 caractères minimum'},
     onConfirm:()=>setO(false),onCancel:()=>setO(false)},
-    'Une annulation à moins de 12 h débite un crédit du pack AG.'))})
+    'Une annulation à moins de 4 h débite un crédit du pack AG.'))})
 );
 </script>

@@ -2,7 +2,7 @@
 
 import { fmtEuro, fmtPax, fmtKgAuto } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
-import { libelleStatutTournee } from '@/lib/libelles/tournee';
+import { libelleTypePack } from '@/lib/libelles/pack';
 import {
   useCallback,
   useEffect,
@@ -11,27 +11,24 @@ import {
   type MutableRefObject,
 } from 'react';
 import {
-  Truck,
-  Send,
-  AlertTriangle,
-  Settings2,
-  FileText,
-  Download,
-  RotateCw,
-  History,
-  PhoneCall,
-  MapPin,
-  Scale,
-  HeartHandshake,
-  CalendarDays,
-  DoorOpen,
-  Users,
-  Building2,
-  UserRound,
-} from 'lucide-react';
+  ArrowClockwiseIcon,
+  BuildingsIcon,
+  CalendarDotsIcon,
+  ClockIcon,
+  DownloadSimpleIcon,
+  HandshakeIcon,
+  MapPinIcon,
+  PaperPlaneTiltIcon,
+  PhoneCallIcon,
+  PlusCircleIcon,
+  SlidersHorizontalIcon,
+  TruckIcon,
+  UsersIcon,
+  WarningIcon,
+} from '@/components/ui/icones';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
@@ -43,7 +40,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/modal';
 import { Timeline, TimelineItem } from '@/components/ui/timeline';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -53,8 +50,17 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { CollecteStatutFrise } from './collecte-statut-frise';
+import type { IssueInfosAcces } from '@/lib/infos-acces/notify';
+import type { SuiviEmailInfosAcces } from '@/lib/infos-acces/suivi-email';
+import { CollecteStatutPastille } from './collecte-statut-pastille';
 import { AttributionAgForm } from './attribution-ag-form';
+import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
+import {
+  ChampsBesoinVehicule,
+  NB_VEHICULES_MAX,
+  TYPES_VEHICULE_OPTIONS,
+  nbVehiculesValide,
+} from './champs-besoin-vehicule';
 import {
   DIFFICULTE_LABEL,
   DIFFICULTE_VARIANT,
@@ -66,35 +72,48 @@ import {
   CHAMPS_LIEU_SURCHARGEABLES,
 } from '@savr/adapters/src/lieu-overrides.js';
 import {
+  LIBELLE_SANS_EXCEDENT,
   statutCollecteDisplay,
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
 import { FLUX_ZD } from '@/lib/libelles/flux';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
-import { estADispatcher } from '@/lib/collectes-chips';
+import { PAX_COLLECTE_MAX } from '@/lib/pax-collecte-borne';
+import { paxSaisiValide } from '@/lib/programmation/cartes-saisie';
+import { estModifieeSansRenvoi, estNonEnvoyee } from '@/lib/collectes-chips';
+import { TENTATIVES_MAX_ORDRE, type OrdreEnvoi } from '@/lib/ordre-envoi';
+import {
+  formatDateParis,
+  formatHeureParis,
+} from '@savr/shared/src/temps/index.js';
 import {
   envoiAutomatique,
   libelleCanalEnvoi,
   libelleDispatch,
   libelleTypeTms,
 } from '@/lib/type-tms-labels';
-import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
-  ContactLigne,
   dateLongueCapitalisee,
   TelephoneLien,
 } from '@/components/collecte/fiche-blocs';
-import { SectionHeader } from '@/components/ui/section-header';
-import { InfoItem } from '@/components/ui/info-item';
 import {
-  EnTeteMention,
-  FicheEnTete,
-} from '@/components/ui/fiche/fiche-en-tete';
+  AjoutContactSecours,
+  CarteContact,
+  GRILLE_3,
+} from '@/components/collecte/fiche-collecte-client-onglets';
+import { InfoItem } from '@/components/ui/info-item';
 import { FicheCorps, FichePied } from '@/components/ui/fiche/fiche-modal';
+import {
+  FicheGrandEnTete,
+  FicheOnglet,
+  FicheOnglets,
+  FicheRepere,
+} from '@/components/ui/fiche/fiche-grand-en-tete';
+import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { TypeCollecteBadge } from '@/components/ui/type-collecte-badge';
 import { libelleTypeCollecte } from '@/lib/libelles/type-collecte';
-import { refCourteCollecte } from '@/lib/collecte-ref';
+import { ROUTES } from '@/lib/routes';
 import type { FicheCollecteMeta } from '@/components/collecte/fiche-collecte-modal-cadre';
 import { Text } from '@/components/ui/text';
 import { FormActions } from '@/components/ui/form-actions';
@@ -102,8 +121,19 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ChoiceCard } from '@/components/ui/choice-card';
 import { FileButton } from '@/components/ui/file-button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { telechargerRapportRecyclage } from '@/lib/collectes/rapport-telechargement-client';
 import { Label } from '@/components/ui/label';
+import { UploadSimpleIcon } from '@/components/ui/icones';
+import { PhotosTransporteurModal } from './photos-transporteur-modal';
+import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
+import { STATUTS_ANNULES } from '@/lib/collectes/fiche-client-types';
 import { MAX_PHOTOS_CLIENT } from '@/lib/collectes/photos-client';
+import {
+  BilanCollecte,
+  useRadarFiche,
+  type BilanFiche,
+} from '@/components/collecte/fiche-collecte-client-bilan';
+import { tailleBracket } from '@/lib/dashboard-kpi';
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -149,6 +179,11 @@ interface RecoAlgo {
   transporteur: { id: string; nom: string; type_tms: string } | null;
   no_asso: boolean;
   no_prestataire: boolean;
+  // Services au choix par type de transporteur (A Toutes!, Val 2026-11-03).
+  services_par_type_tms?: Record<
+    string,
+    { branche: string; libelle: string }[]
+  >;
 }
 
 // Statuts DB proposés au forçage manuel (RM-08). `brouillon` n'y est pas : un
@@ -180,8 +215,24 @@ interface LieuDetail {
   contraintes_horaires?: string | null;
 }
 
+interface ContactsCollecteDetail {
+  contact_principal_nom: string | null;
+  contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
+}
+
+// PostgREST rend l'embed 1–1 en objet ; le tableau reste accepté.
+function contactsDe(
+  v: ContactsCollecteDetail | ContactsCollecteDetail[] | null | undefined,
+): ContactsCollecteDetail | null {
+  if (!v) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
 interface CollecteDetail {
   id: string;
+  evenement_id: string;
   type: 'zero_dechet' | 'anti_gaspi';
   statut: string;
   statut_tms: string;
@@ -196,10 +247,18 @@ interface CollecteDetail {
   type_vehicule_souhaite?: string | null;
   controle_acces_requis: boolean;
   infos_acces_email_envoye_at: string | null;
+  // État réel de l'email « infos d'accès », lu dans le journal des emails par
+  // GET /admin/collectes/[id] (null si la collecte n'exige pas de contrôle d'accès).
+  infos_acces_email?: SuiviEmailInfosAcces | null;
   notes_internes: string | null;
   informations_supplementaires: string | null;
   motif_override_prestataire: string | null;
   annulee_cote_savr: boolean;
+  // Bilan de l'onglet Documents (valeurs figées à la clôture).
+  taux_recyclage?: number | null;
+  co2_evite_kg?: number | null;
+  realisee_at?: string | null;
+  aucun_repas_motif?: string | null;
   pack_antgaspi_id: string | null;
   packs_antgaspi: {
     id: string;
@@ -207,13 +266,31 @@ interface CollecteDetail {
     credits_restants: number;
     statut: string;
   } | null;
+  // Collecte AG sans pack rattachable après coup au pack actif de son organisation
+  // (décision Val 2026-10-16) — null si elle ne l'est pas ; `pack_actif` null tant
+  // que le client n'a pas de pack actif.
+  rattachement_pack?: {
+    pack_actif: {
+      id: string;
+      type_pack: string;
+      credits_initiaux: number;
+      credits_restants: number;
+    } | null;
+  } | null;
   // Attribution AG (Bloc 5) — asso/transporteur retenus + volume réalisé (§06.06 l.249).
   attributions_antgaspi: {
     id: string;
     mode_validation: string;
+    // Branche retenue : désigne le service du transporteur (A Toutes!).
+    branche_attribution?: string | null;
     valide_at: string | null;
     volume_repas_realise: number | null;
-    associations: { nom: string } | null;
+    poids_repas_kg?: number | null;
+    associations: {
+      nom: string;
+      ville?: string | null;
+      description_rapport_impact?: string | null;
+    } | null;
     transporteurs: { nom: string } | null;
   } | null;
   prestataire_logistique_id: string | null;
@@ -226,12 +303,27 @@ interface CollecteDetail {
     nom: string;
     type_tms: string | null;
   } | null;
+  // Ordre de tête de la collecte dans la file d'envoi au prestataire, lu par la
+  // route détail (`lib/ordre-envoi`) ; null quand plus rien n'est en file.
+  ordre_envoi?: OrdreEnvoi | null;
+  /** Ordre de création abandonné : statut affiché « Créée ». */
+  envoi_abandonne?: boolean;
   // Surcharge per-collecte du lieu (§04 `collectes.lieu_overrides`) : prime sur
   // la référence `lieux` pour cette collecte seulement.
   lieu_overrides?: Record<string, unknown> | null;
+  // Nombre de convives de la collecte (décision Val 2026-10-20) ; celui de
+  // l'événement en est calculé (somme des jours) : jamais affiché à sa place.
+  pax: number;
+  // Type d'événement et contacts de LA collecte (refonte du formulaire, lot B1,
+  // décision Val 2026-10-23) ; l'événement n'en garde qu'une copie.
+  type_evenement_id?: string | null;
+  type_evenement?: { libelle: string } | null;
+  contacts?: ContactsCollecteDetail | ContactsCollecteDetail[] | null;
   evenements: {
+    id: string;
     nom_evenement: string | null;
     pax: number;
+    type_evenement_id?: string | null;
     nom_client_organisateur: string | null;
     contact_principal_nom?: string | null;
     contact_principal_telephone?: string | null;
@@ -286,6 +378,8 @@ interface RapportDoc {
   regenere_at: string | null;
   consulte_par_user_at: string | null;
   pdf_url: string | null;
+  /** Téléchargeable maintenant (fin d'embargo ; rapport ZD fabriqué au clic). */
+  disponible: boolean;
 }
 interface BordereauDoc {
   id: string;
@@ -317,6 +411,10 @@ interface DocumentsData {
   photos: PhotoItem[];
 }
 
+// Ligne d'un document (rapport, bordereau, rapport de don) qui n'existe pas encore :
+// un seul texte, quel que soit le statut de la collecte (décision Val 2026-10-09).
+const DOCUMENT_A_VENIR = 'Généré sous 48h après la collecte';
+
 // Bloc 7 — Historique + audit log (GET /[id]/audit).
 interface AuditEntry {
   id: string;
@@ -330,7 +428,15 @@ interface AuditEntry {
 }
 
 // Types de document PDF régénérables (aligné @savr/shared PDF_DOCUMENT_TYPES).
-type PdfType = 'rapport-recyclage-zd' | 'bordereau-zd' | 'attestation-don';
+type PdfType =
+  | 'rapport-recyclage-zd'
+  | 'rapport-evenement-sans-excedent'
+  | 'bordereau-zd'
+  | 'attestation-don';
+
+function Vide({ children = '—' }: { children?: React.ReactNode }) {
+  return <span className="text-savr-neutral-400">{children}</span>;
+}
 
 function DifficulteBadge({ valeur }: { valeur?: string | null }) {
   if (!valeur) return <>—</>;
@@ -407,6 +513,134 @@ function CarteChoix({
         </Text>
       </span>
     </ChoiceCard>
+  );
+}
+
+// Relecture automatique de la fiche pendant l'envoi : toutes les 2 secondes,
+// 15 fois au plus (30 secondes).
+const RELECTURE_MS = 2_000;
+const RELECTURES_MAX = 15;
+
+// Ordre en file d'envoi : le dispatch a posé le prestataire chez un adapter, un
+// ordre attend dans la file et la commande n'est pas encore revenue avec sa
+// référence (détail au point d'usage).
+function ordreEnFile(collecte: CollecteDetail): boolean {
+  return (
+    collecte.prestataire_logistique_id != null &&
+    envoiAutomatique(collecte.prestataire_actuel?.type_tms) &&
+    estNonEnvoyee(collecte) &&
+    collecte.ordre_envoi != null
+  );
+}
+
+const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+
+// Encart du bloc « Prestataire & Dispatch » : ce qu'il est advenu de l'ordre
+// envoyé au prestataire (décision Val 2026-10-12, C6).
+//
+// Collecte en file d'envoi (pas encore de référence TMS) :
+//   · ordre en file ou en cours → la collecte est dite envoyée ;
+//   · ordre en échec, une reprise est planifiée → on dit quand ;
+//   · ordre abandonné → on dit que rien n'est transmis, et quoi faire : il ne
+//     bloque plus les ordres suivants (Val 2026-11-03), l'Admin renvoie depuis
+//     la fiche (création), ou prévient le prestataire (modification,
+//     annulation).
+//
+// Hors file d'envoi (référence déjà enregistrée, ou collecte qui n'est plus à
+// dispatcher : annulée, en cours…) : seul un échec est signalé.
+//   · modification ou annulation en échec → c'est elle qui n'est pas passée ;
+//   · ordre de CRÉATION en échec ALORS QU'une référence est enregistrée → la
+//     collecte, elle, EST transmise (acceptation manuelle A Toutes! pendant
+//     une panne, ou véhicule supplémentaire non commandé) : on dit seulement
+//     qu'un ordre reste en échec, et qu'abandonné il retient les suivants ;
+//   · ordre de création en échec SANS référence (collecte annulée avant
+//     l'envoi, par exemple) → la collecte n'est pas transmise, on le dit.
+function EncartOrdreEnvoi({
+  ordre,
+  enFile,
+  referenceRecue,
+  prestataire,
+  canal,
+}: {
+  ordre: OrdreEnvoi | null;
+  enFile: boolean;
+  /** Une référence TMS est enregistrée sur la collecte. */
+  referenceRecue: boolean;
+  prestataire: string | undefined;
+  canal: string | null;
+}) {
+  const enEchec =
+    ordre?.etat === 'echec_reprise' || ordre?.etat === 'echec_definitif';
+  if (!enFile && !enEchec) return null;
+
+  const aPrestataire = prestataire ? `à ${prestataire}` : 'au transporteur';
+  if (!ordre || !enEchec) {
+    return (
+      <AlertBar variant="info">
+        <span>
+          Collecte envoyée {aPrestataire}
+          {aPrestataire.endsWith('!') ? '' : '.'}{' '}
+          <span className="font-normal">
+            La commande part vers {canal ?? 'le transporteur'} dans les secondes
+            qui suivent l’envoi ; à défaut, au prochain passage automatique. Le
+            statut « Attente acceptation presta » s’affichera ici dès sa prise
+            en compte.
+          </span>
+        </span>
+      </AlertBar>
+    );
+  }
+
+  const abandonne = ordre.etat === 'echec_definitif';
+  const tentatives = abandonne
+    ? `après ${pluriel(ordre.tentatives, 'tentative')}`
+    : `tentative ${ordre.tentatives} sur ${TENTATIVES_MAX_ORDRE}`;
+  // Une date de reprise déjà passée ne s'affiche pas : l'ordre attend le
+  // prochain passage.
+  const reprise =
+    ordre.prochaine_tentative_at &&
+    Date.parse(ordre.prochaine_tentative_at) > Date.now()
+      ? `Nouvelle tentative automatique le ${formatDateParis(ordre.prochaine_tentative_at)} à ${formatHeureParis(ordre.prochaine_tentative_at)}.`
+      : 'Nouvelle tentative au prochain passage automatique.';
+  const motif = ordre.erreur ? (
+    <span className="mt-1 block font-normal">Motif : {ordre.erreur}</span>
+  ) : null;
+
+  let constat: string;
+  let suite: string;
+  if (referenceRecue && ordre.nature === 'creation') {
+    constat = abandonne
+      ? `Un ordre d’envoi ${aPrestataire} a été abandonné ${tentatives}, alors que la commande porte déjà une référence.`
+      : `Un ordre d’envoi ${aPrestataire} est encore en reprise (${tentatives}), alors que la commande porte déjà une référence.`;
+    suite = abandonne
+      ? 'Il ne bloque pas les ordres suivants de cette collecte.'
+      : reprise;
+  } else {
+    const objet =
+      ordre.nature === 'modification'
+        ? 'La modification de la collecte'
+        : ordre.nature === 'annulation'
+          ? 'L’annulation de la collecte'
+          : 'La collecte';
+    constat = abandonne
+      ? `${objet} n’est pas transmise ${aPrestataire} : envoi abandonné ${tentatives}.`
+      : `${objet} n’a pas encore été transmise ${aPrestataire} (${tentatives}).`;
+    suite = abandonne
+      ? ordre.nature === 'modification'
+        ? 'Prévenez le transporteur, ou modifiez de nouveau la collecte pour renvoyer son état complet.'
+        : ordre.nature === 'annulation'
+          ? 'Prévenez le transporteur : il n’est pas averti de l’annulation.'
+          : 'Corrigez la cause si besoin, puis renvoyez la collecte depuis cette fiche.'
+      : reprise;
+  }
+
+  return (
+    <AlertBar variant={abandonne ? 'err' : 'warn'}>
+      <span>
+        {constat} <span className="font-normal">{suite}</span>
+        {motif}
+      </span>
+    </AlertBar>
   );
 }
 
@@ -537,6 +771,15 @@ export function CollecteDetailPanel({
   const [annulerCreditError, setAnnulerCreditError] = useState<string | null>(
     null,
   );
+  const [rattacherPackModal, setRattacherPackModal] = useState(false);
+  const [rattacherPackSubmitting, setRattacherPackSubmitting] = useState(false);
+  const [rattacherPackError, setRattacherPackError] = useState<string | null>(
+    null,
+  );
+  // Facture unitaire déjà numérotée au moment du rattachement (partie chez
+  // Pennylane, ou rejetée et revenue en brouillon avec son numéro) : jamais
+  // retirée, l'Admin la corrige ou émet l'avoir (arbitrage Val 2026-10-16).
+  const [factureNumerotee, setFactureNumerotee] = useState(false);
   // Édition manuelle des pesées ZD (Bloc 3)
   const [editPesees, setEditPesees] = useState(false);
   const [peseesInput, setPeseesInput] = useState<Record<string, string>>({});
@@ -559,11 +802,18 @@ export function CollecteDetailPanel({
   >({});
   const [infosAccesSaving, setInfosAccesSaving] = useState(false);
   const [infosAccesError, setInfosAccesError] = useState<string | null>(null);
+  const [renvoiEmailEnCours, setRenvoiEmailEnCours] = useState(false);
   // Succès de l'enregistrement des infos d'accès = toast (R-UI-1 H1).
   const { toast } = useToast();
   // Bloc 0 — dispatch prestataire (BOA-06)
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [selectedTransporteurId, setSelectedTransporteurId] = useState('');
+  // Besoin véhicule saisi au choix du prestataire (décision Val 2026-10-27) :
+  // null = non touché, la valeur de la collecte s'affiche et rien n'est envoyé.
+  const [typeVehiculeSaisi, setTypeVehiculeSaisi] = useState<string | null>(
+    null,
+  );
+  const [nbVehiculesSaisi, setNbVehiculesSaisi] = useState<string | null>(null);
   // Ordre en file d'envoi : les cartes prestataire et le bouton d'envoi ne
   // reviennent que sur demande explicite (« Changer de prestataire »).
   const [changerPrestataire, setChangerPrestataire] = useState(false);
@@ -584,6 +834,8 @@ export function CollecteDetailPanel({
     }
   }, [changerPrestataire]);
   const [motifOverride, setMotifOverride] = useState('');
+  // Service du transporteur visé, quand la branche retenue n'en désigne aucun.
+  const [serviceDispatch, setServiceDispatch] = useState('');
   const [reco, setReco] = useState<RecoAlgo | null>(null);
   // RM-08 — forçage manuel du statut
   const [forceStatutModal, setForceStatutModal] = useState(false);
@@ -596,6 +848,34 @@ export function CollecteDetailPanel({
   const [nbCamionsValue, setNbCamionsValue] = useState('1');
   const [nbCamionsSubmitting, setNbCamionsSubmitting] = useState(false);
   const [nbCamionsError, setNbCamionsError] = useState<string | null>(null);
+  // Nombre de pax de la collecte, modifié par l'équipe Savr avec un motif
+  // (décision Val 2026-10-21, §05 R_pax_collecte).
+  const [paxModal, setPaxModal] = useState(false);
+  const [paxValue, setPaxValue] = useState('');
+  const [paxMotif, setPaxMotif] = useState('');
+  const [paxSubmitting, setPaxSubmitting] = useState(false);
+  const [paxError, setPaxError] = useState<string | null>(null);
+  // Type d'événement et contacts de la collecte, modifiés par l'équipe Savr
+  // sans motif (décisions Val 2026-10-23, B1-Q1 et B1-Q3).
+  const [infosModal, setInfosModal] = useState(false);
+  // Poids des denrées AG, noté à la main par l'équipe Savr (§06.09 §5) : le
+  // nombre de repas réalisés en est calculé en base ; motif obligatoire pour
+  // corriger un poids déjà posé.
+  const [poidsModal, setPoidsModal] = useState(false);
+  const [poidsValeur, setPoidsValeur] = useState('');
+  const [poidsMotif, setPoidsMotif] = useState('');
+  const [poidsSubmitting, setPoidsSubmitting] = useState(false);
+  const [poidsError, setPoidsError] = useState<string | null>(null);
+  const [infosType, setInfosType] = useState('');
+  const [infosCpNom, setInfosCpNom] = useState('');
+  const [infosCpTel, setInfosCpTel] = useState('');
+  const [infosCsNom, setInfosCsNom] = useState('');
+  const [infosCsTel, setInfosCsTel] = useState('');
+  const [infosSubmitting, setInfosSubmitting] = useState(false);
+  const [infosError, setInfosError] = useState<string | null>(null);
+  const [typesEvenement, setTypesEvenement] = useState<
+    Array<{ id: string; libelle: string }>
+  >([]);
   // §06.06 §3 Bloc 0 — acceptation manuelle Everest (A Toutes! indisponible).
   const [acceptationModal, setAcceptationModal] = useState(false);
   const [acceptationSaisie, setAcceptationSaisie] = useState({
@@ -611,11 +891,39 @@ export function CollecteDetailPanel({
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [regenerating, setRegenerating] = useState<PdfType | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
+  // Rapport de recyclage ZD : avec ou sans le radar de comparaison, au choix de
+  // celui qui le télécharge ; la case part décochée.
+  const [avecRadar, setAvecRadar] = useState(false);
+  const [fabrication, setFabrication] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  // Photos du livreur relues chez A Toutes! (décision Val 2026-11-03).
+  const [photosLivreurModal, setPhotosLivreurModal] = useState(false);
   const [photoEnCours, setPhotoEnCours] = useState<string | null>(null);
   const nbPhotosClient = (documents?.photos ?? []).filter(
     (p) => p.visible_client,
   ).length;
+  // Documents d'une collecte AG : UNE seule ligne, toujours nommée « Rapport de
+  // don » (décision Val 2026-10-09). Deux PDF distincts derrière ce nom :
+  //   - avec excédents : l'attestation de don (attestations_don) ;
+  //   - sans excédents (`realisee_sans_collecte`) : le rapport « Événement sans
+  //     excédent alimentaire », porté par rapports_rse comme le rapport ZD.
+  // La ligne du rapport sert donc la collecte ZD (« Rapport RSE ») et la collecte
+  // AG sans excédents (« Rapport de don ») ; jamais une collecte AG avec don.
+  const agSansExcedent =
+    collecte?.type === 'anti_gaspi' &&
+    collecte.statut === 'realisee_sans_collecte';
+  const afficherRapport = collecte?.type === 'zero_dechet' || agSansExcedent;
+  const typeRapport: PdfType = agSansExcedent
+    ? 'rapport-evenement-sans-excedent'
+    : 'rapport-recyclage-zd';
+  // Radar du bilan de l'onglet Documents (celui de la fiche client, décision Val
+  // 2026-10-16) : ses filtres sont ceux du rapport régénéré avec radar.
+  const radar = useRadarFiche(
+    `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/benchmark`,
+    collecte,
+  );
+  // Radar à l'écran : seul cas où les filtres de la barre font foi pour le rapport.
+  const choixRadarPossible = radar.visible && !radar.indisponible;
 
   const refetch = useCallback(async () => {
     const updated = await fetch(
@@ -648,7 +956,33 @@ export function CollecteDetailPanel({
     void refetchAudit();
   }, [refetchDocuments, refetchAudit]);
 
-  // Régénération d'un PDF (§06.06 l.283-284) — ré-enqueue jobs_pdf côté serveur.
+  // Rapport de recyclage ZD fabriqué au clic, avec ou sans le radar de l'onglet
+  // (décision Val 2026-10-16). Sans radar à l'écran, le serveur compare au
+  // segment de la collecte.
+  const telechargerRapportZd = async () => {
+    setDocError(null);
+    setFabrication(true);
+    const erreur = await telechargerRapportRecyclage(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/rapport-rse`,
+      {
+        options: { benchmark: avecRadar },
+        ...(avecRadar && choixRadarPossible && radar.filtres
+          ? {
+              benchmark_filters: {
+                lieu_ids: radar.filtres.lieu_ids,
+                type_evenement_ids: radar.filtres.type_evenement_ids,
+                taille_evenement_codes: radar.filtres.taille_evenement_codes,
+              },
+            }
+          : {}),
+      },
+    );
+    setFabrication(false);
+    setDocError(erreur);
+  };
+
+  // Régénération d'un PDF stocké (§06.06 l.283-284) — ré-enqueue jobs_pdf côté
+  // serveur : bordereau, attestation, rapport « sans excédent ».
   const handleRegenerate = async (type: PdfType) => {
     setRegenerating(type);
     setDocError(null);
@@ -741,6 +1075,29 @@ export function CollecteDetailPanel({
       .catch(() => setError('Erreur chargement'))
       .finally(() => setLoading(false));
   }, [collecteId]);
+
+  // Relecture automatique (décision Val 2026-10-12, C6) : l'envoi part en
+  // arrière-plan juste après le clic, la référence TMS arrive quelques secondes
+  // plus tard. Tant que l'ordre est en file ou en cours, la fiche se relit
+  // seule — un nombre borné de fois : au-delà, on rouvre la fiche.
+  const [relecturesRestantes, setRelecturesRestantes] =
+    useState(RELECTURES_MAX);
+  useEffect(() => {
+    setRelecturesRestantes(RELECTURES_MAX);
+  }, [collecteId]);
+  const envoiEnVol =
+    collecte != null &&
+    ordreEnFile(collecte) &&
+    collecte.ordre_envoi?.etat !== 'echec_reprise' &&
+    collecte.ordre_envoi?.etat !== 'echec_definitif';
+  useEffect(() => {
+    if (!envoiEnVol || relecturesRestantes <= 0) return;
+    const minuterie = setTimeout(() => {
+      setRelecturesRestantes((n) => n - 1);
+      void refetch();
+    }, RELECTURE_MS);
+    return () => clearTimeout(minuterie);
+  }, [envoiEnVol, relecturesRestantes, refetch]);
 
   // Référentiel transporteurs actifs — sélecteur prestataire Bloc 0.
   useEffect(() => {
@@ -845,6 +1202,36 @@ export function CollecteDetailPanel({
     setAnnulerCreditSubmitting(false);
   };
 
+  const handleRattacherPack = async () => {
+    setRattacherPackSubmitting(true);
+    setRattacherPackError(null);
+    try {
+      const res = await fetch(
+        `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/rattacher-pack`,
+        { method: 'POST' },
+      );
+      const corps = (await res.json().catch(() => ({}))) as {
+        facture_numerotee?: boolean;
+        error?: string;
+      };
+      if (!res.ok) {
+        setRattacherPackError(corps.error ?? 'Rattachement impossible.');
+        return;
+      }
+      setFactureNumerotee(corps.facture_numerotee === true);
+      setRattacherPackModal(false);
+      const updated = await fetch(
+        `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      );
+      if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
+      void refetchAudit();
+    } catch {
+      setRattacherPackError('Rattachement impossible : réseau indisponible.');
+    } finally {
+      setRattacherPackSubmitting(false);
+    }
+  };
+
   const handleDispatch = async () => {
     setDispatching(true);
     setDispatchError(null);
@@ -853,6 +1240,31 @@ export function CollecteDetailPanel({
     // idempotente.
     const selected = transporteurs.find((t) => t.id === selectedTransporteurId);
     const body: Record<string, unknown> = {};
+    // Besoin véhicule : seulement les champs modifiés, écrits avant l'envoi.
+    if (besoinEditable && collecte) {
+      if (
+        nbVehiculesSaisi !== null &&
+        Number(nbVehiculesSaisi) !== collecte.nb_camions_demande
+      ) {
+        if (!nbVehiculesValide(nbVehiculesSaisi)) {
+          setDispatchError(
+            `Nombre de véhicules invalide (entier entre 1 et ${NB_VEHICULES_MAX})`,
+          );
+          setDispatching(false);
+          return;
+        }
+        body.nb_camions_demande = Number(nbVehiculesSaisi);
+      }
+      if (
+        typeVehiculeSaisi !== null &&
+        typeVehiculeSaisi !== (collecte.type_vehicule_souhaite ?? '')
+      ) {
+        body.type_vehicule_souhaite = typeVehiculeSaisi || null;
+      }
+    }
+    if (serviceDispatchRequis) {
+      body.branche_attribution = serviceDispatch;
+    }
     if (selected?.prestataire_logistique_id) {
       body.prestataire_logistique_id = selected.prestataire_logistique_id;
       if (motifOverride.trim()) {
@@ -869,8 +1281,12 @@ export function CollecteDetailPanel({
     );
     if (res.ok) {
       await refetch();
+      setRelecturesRestantes(RELECTURES_MAX);
       setSelectedTransporteurId('');
       setMotifOverride('');
+      setServiceDispatch('');
+      setTypeVehiculeSaisi(null);
+      setNbVehiculesSaisi(null);
       // Mode « changer » ouvert → il se referme : rendre le focus au bouton
       // « Changer de prestataire » plutôt que de le perdre en haut de page.
       retourFocusChangerRef.current = changerPrestataire;
@@ -933,6 +1349,100 @@ export function CollecteDetailPanel({
     setNbCamionsSubmitting(false);
   };
 
+  // Pax de la collecte : la route valide l'entier (1 à 100 000) et le motif
+  // (≥ 10 car.), et trace le motif dans l'audit.
+  const handleModifierPax = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPaxSubmitting(true);
+    setPaxError(null);
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pax: Number(paxValue), motif: paxMotif }),
+      },
+    );
+    if (res.ok) {
+      await refetch();
+      setPaxModal(false);
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setPaxError(body.error ?? 'Modification impossible');
+    }
+    setPaxSubmitting(false);
+  };
+
+  // Type d'événement et contacts : seuls les champs modifiés partent ; la route
+  // les valide (contact principal jamais vide, type du référentiel) et trace la
+  // modification dans l'audit.
+  const ouvrirInfosCollecte = () => {
+    if (!collecte) return;
+    const ct = contactsDe(collecte.contacts);
+    setInfosType(collecte.type_evenement_id ?? '');
+    setInfosCpNom(ct?.contact_principal_nom ?? '');
+    setInfosCpTel(ct?.contact_principal_telephone ?? '');
+    setInfosCsNom(ct?.contact_secours_nom ?? '');
+    setInfosCsTel(ct?.contact_secours_telephone ?? '');
+    setInfosError(null);
+    setInfosModal(true);
+    if (typesEvenement.length === 0) {
+      void fetch('/api/v1/programmation/types-evenements')
+        .then((r) => (r.ok ? r.json() : []))
+        .then((j: unknown) =>
+          setTypesEvenement(
+            Array.isArray(j)
+              ? (j as Array<{ id: string; libelle: string }>)
+              : [],
+          ),
+        )
+        .catch(() => setTypesEvenement([]));
+    }
+  };
+
+  const handleModifierInfos = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!collecte) return;
+    const ct = contactsDe(collecte.contacts);
+    const maj: Record<string, unknown> = {};
+    if (infosType && infosType !== (collecte.type_evenement_id ?? ''))
+      maj.type_evenement_id = infosType;
+    if (infosCpNom !== (ct?.contact_principal_nom ?? ''))
+      maj.contact_principal_nom = infosCpNom;
+    if (infosCpTel !== (ct?.contact_principal_telephone ?? ''))
+      maj.contact_principal_telephone = infosCpTel;
+    // Nom et téléphone de secours partent ensemble (la route l'exige).
+    if (
+      infosCsNom !== (ct?.contact_secours_nom ?? '') ||
+      infosCsTel !== (ct?.contact_secours_telephone ?? '')
+    ) {
+      maj.contact_secours_nom = infosCsNom;
+      maj.contact_secours_telephone = infosCsTel;
+    }
+    if (Object.keys(maj).length === 0) {
+      setInfosModal(false);
+      return;
+    }
+    setInfosSubmitting(true);
+    setInfosError(null);
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(maj),
+      },
+    );
+    if (res.ok) {
+      await refetch();
+      setInfosModal(false);
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setInfosError(body.error ?? 'Modification impossible');
+    }
+    setInfosSubmitting(false);
+  };
+
   // §06.06 §3 Bloc 0 — la référence de mission est OBLIGATOIRE : elle est écrite
   // comme au dispatch normal (tournée + référence TMS), ce qui sort la collecte
   // des « non transmises » et rend l'annulation possible.
@@ -953,6 +1463,53 @@ export function CollecteDetailPanel({
       setAcceptationError(body.error ?? 'Enregistrement impossible');
     }
     setAcceptationSubmitting(false);
+  };
+
+  const openPoidsModal = () => {
+    const actuel = collecte?.attributions_antgaspi?.poids_repas_kg;
+    setPoidsValeur(actuel != null ? String(actuel) : '');
+    setPoidsMotif('');
+    setPoidsError(null);
+    setPoidsModal(true);
+  };
+
+  const handleSavePoids = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPoidsSubmitting(true);
+    setPoidsError(null);
+    try {
+      const res = await fetch(
+        `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/poids`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            poids_repas_kg: Number(poidsValeur.replace(',', '.')),
+            motif: poidsMotif,
+          }),
+        },
+      );
+      if (res.ok) {
+        // Repas recalculés, rapport de don refait, ligne d'audit : les trois
+        // onglets se relisent.
+        await refetch();
+        void refetchDocuments();
+        void refetchAudit();
+        setPoidsModal(false);
+      } else {
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setPoidsError(body.error ?? 'Enregistrement impossible');
+        // Un poids posé entre-temps rend le motif obligatoire : la fiche se
+        // relit pour faire apparaître le champ.
+        if (res.status === 422) await refetch();
+      }
+    } catch {
+      setPoidsError('Enregistrement impossible : vérifiez votre connexion.');
+    } finally {
+      setPoidsSubmitting(false);
+    }
   };
 
   const openEditPesees = () => {
@@ -1060,17 +1617,37 @@ export function CollecteDetailPanel({
       },
     );
     if (res.ok) {
-      const body = (await res.json()) as { email_envoye: boolean };
+      const body = (await res.json()) as {
+        email_envoye: boolean;
+        email?: IssueInfosAcces;
+      };
       const updated = await fetch(
         `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
       );
       if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
-      toast({
-        title: body.email_envoye
-          ? 'Infos enregistrées — email récapitulatif envoyé au programmateur.'
-          : 'Infos enregistrées.',
-        variant: 'success',
-      });
+      // Le message dit ce qu'il est advenu de l'email, pas seulement de la saisie.
+      const issue = body.email ?? (body.email_envoye ? 'envoye' : 'sans_objet');
+      toast(
+        issue === 'envoye'
+          ? {
+              title:
+                'Infos enregistrées — email récapitulatif envoyé au programmateur.',
+              variant: 'success',
+            }
+          : issue === 'en_reprise'
+            ? {
+                title:
+                  'Infos enregistrées. L’email au programmateur n’est pas parti : une nouvelle tentative aura lieu automatiquement.',
+                variant: 'warning',
+              }
+            : issue === 'non_envoye'
+              ? {
+                  title:
+                    'Infos enregistrées. L’email au programmateur n’a pas pu être envoyé.',
+                  variant: 'warning',
+                }
+              : { title: 'Infos enregistrées.', variant: 'success' },
+      );
       setEditInfosAcces(false);
     } else {
       const body = (await res.json().catch(() => null)) as {
@@ -1095,6 +1672,53 @@ export function CollecteDetailPanel({
     setInfosAccesSaving(false);
   };
 
+  // Renvoi de l'email « infos d'accès » à la demande (email non remis, ou
+  // coordonnées changées depuis l'envoi) — décision Val 2026-10-08.
+  const handleRenvoiEmailInfosAcces = async () => {
+    setRenvoiEmailEnCours(true);
+    setInfosAccesError(null);
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/infos-acces/renvoi`,
+      { method: 'POST' },
+    );
+    const body = (await res.json().catch(() => null)) as {
+      email?: IssueInfosAcces;
+      error?: string;
+    } | null;
+    if (res.ok) {
+      const issue = body?.email ?? 'sans_objet';
+      toast(
+        issue === 'envoye'
+          ? { title: 'Email envoyé au programmateur.', variant: 'success' }
+          : issue === 'en_reprise'
+            ? {
+                title:
+                  'L’email n’est pas parti : une nouvelle tentative aura lieu automatiquement.',
+                variant: 'warning',
+              }
+            : issue === 'non_envoye'
+              ? {
+                  title: 'L’email au programmateur n’a pas pu être envoyé.',
+                  variant: 'warning',
+                }
+              : {
+                  title:
+                    'Aucun email n’est parti. Vérifiez que le nom et le téléphone du chauffeur sont renseignés pour chaque camion.',
+                  variant: 'warning',
+                },
+      );
+    } else {
+      setInfosAccesError(body?.error ?? 'Renvoi impossible.');
+    }
+    // Dans tous les cas la fiche est rechargée : l'état affiché est celui du
+    // journal des emails, pas celui que ce clic espérait.
+    const updated = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+    );
+    if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
+    setRenvoiEmailEnCours(false);
+  };
+
   // Remonte le titre accessible au cadre modale dès que la collecte est chargée
   // (« Collecte AG · … · jusqu'à N pax », lu par les lecteurs d'écran).
   useEffect(() => {
@@ -1107,16 +1731,21 @@ export function CollecteDetailPanel({
       : '';
     const lieu = collecte.evenements.lieux;
     onLoaded?.({
-      title: `Collecte ${libelleTypeCollecte(collecte.type)} · ${d}${h} · ${collecte.evenements.organisations.raison_sociale} · ${lieu.nom} (${lieu.ville}) · jusqu'à ${fmtPax(collecte.evenements.pax)}`,
+      title: `Collecte ${libelleTypeCollecte(collecte.type)} · ${d}${h} · ${collecte.evenements.organisations.raison_sociale} · ${lieu.nom} (${lieu.ville}) · jusqu'à ${fmtPax(collecte.pax)}`,
     });
   }, [collecte, onLoaded]);
 
   // Miroir de l'état « sous-modale ouverte » pour le wrapper modale (garde Escape).
   const anySubModalOpen =
     annulerCreditModal ||
+    rattacherPackModal ||
     forceStatutModal ||
     nbCamionsModal ||
-    acceptationModal;
+    paxModal ||
+    infosModal ||
+    poidsModal ||
+    acceptationModal ||
+    photosLivreurModal;
   if (blockCloseRef) blockCloseRef.current = anySubModalOpen;
 
   if (loading) {
@@ -1137,6 +1766,47 @@ export function CollecteDetailPanel({
   }
 
   const isTerminal = STATUTS_TERMINAUX.includes(collecte.statut);
+  // Bilan de l'onglet Documents, sous la forme de la fiche client : mêmes
+  // valeurs figées, pesées sommées par flux, repas donnés et association de
+  // l'attribution AG.
+  const attribution = collecte.attributions_antgaspi;
+  const bilan: BilanFiche = {
+    id: collecte.id,
+    type: collecte.type,
+    statut: collecte.statut,
+    date_collecte: collecte.date_collecte,
+    taux_recyclage: collecte.taux_recyclage ?? null,
+    co2_evite_kg: collecte.co2_evite_kg ?? null,
+    realisee_at: collecte.realisee_at ?? null,
+    aucun_repas_motif: collecte.aucun_repas_motif ?? null,
+    // Taille et convives de LA collecte (lot C1, C4 du 2026-10-20) : badge,
+    // radar par défaut, « Repas par pax » et « Pesée par pax ».
+    taille_bracket:
+      collecte.pax != null && collecte.pax > 0
+        ? tailleBracket(collecte.pax)
+        : null,
+    // Type d'événement de LA collecte (lot B1) : filtre du radar par défaut.
+    type_evenement_id: collecte.type_evenement_id ?? null,
+    pax: collecte.pax ?? null,
+    bilan_flux: collecte.collecte_flux.reduce<Record<string, number>>(
+      (acc, cf) => {
+        const code = cf.flux_dechets?.code;
+        if (code && cf.poids_reel_kg != null)
+          acc[code] = (acc[code] ?? 0) + Number(cf.poids_reel_kg);
+        return acc;
+      },
+      {},
+    ),
+    repas_donnes: attribution?.volume_repas_realise ?? null,
+    association: attribution?.associations
+      ? {
+          nom: attribution.associations.nom,
+          ville: attribution.associations.ville ?? null,
+          description:
+            attribution.associations.description_rapport_impact ?? null,
+        }
+      : null,
+  };
   // AG sans attribution : le formulaire d'attribution (association, besoin
   // véhicule, prestataire — décision Val 2026-10-01) remplace le bloc dispatch,
   // dont il est l'unique point d'entrée : « Valider et envoyer » = la décision de
@@ -1204,6 +1874,25 @@ export function CollecteDetailPanel({
         collecte.statut_tms !== 'rejetee_par_prestataire'));
   const overrideMotifManquant =
     overrideActif && motifOverride.trim().length < 5;
+  // AG envoyée à un transporteur qui distingue ses services (A Toutes!) alors
+  // que la branche retenue n'en désigne aucun (Marathon par exemple) : l'Admin
+  // choisit le service avant l'envoi (décision Val 2026-11-03). Sans lui,
+  // l'envoi échouait en définitif (vécu le 2026-11-02).
+  const typeTmsVise =
+    selectedTransporteur?.type_tms ?? currentTransporteur?.type_tms ?? null;
+  const servicesVise =
+    (collecte.type === 'anti_gaspi' &&
+      collecte.attributions_antgaspi != null &&
+      typeTmsVise &&
+      reco?.services_par_type_tms?.[typeTmsVise]) ||
+    [];
+  const serviceDispatchRequis =
+    servicesVise.length > 0 &&
+    !servicesVise.some(
+      (sv) =>
+        sv.branche === collecte.attributions_antgaspi?.branche_attribution,
+    );
+  const serviceDispatchManquant = serviceDispatchRequis && !serviceDispatch;
   // Acceptation manuelle : collecte chez A Toutes!, non terminale, sans
   // référence de mission encore enregistrée (sinon elle est déjà « transmise »).
   const acceptationManuellePossible =
@@ -1213,8 +1902,9 @@ export function CollecteDetailPanel({
   // Ordre en file d'envoi (décision Val 2026-10-02, C1) : collecte dont le
   // dispatch (validation d'attribution AG, choix du prestataire ZD) a posé le
   // prestataire chez un adapter (MTS-1 / A Toutes!) et dont la
-  // commande n'est pas encore partie (le worker outbox tourne toutes les 15 min :
-  // `tms_reference` vide, `statut_tms` encore « non envoyé » — §06.09 §3 pt 3).
+  // commande n'est pas encore revenue avec sa référence (l'ordre part au clic,
+  // le passage planifié du worker n'est plus que le filet : `tms_reference`
+  // vide, `statut_tms` encore « non envoyé » — §06.09 §3 pt 3).
   // À ce stade la fiche DIT la collecte envoyée et ne rouvre le choix du
   // prestataire que sur demande : avant, elle réaffichait « Prestataire à
   // attribuer » + « Envoyer », comme si rien n'était parti.
@@ -1225,17 +1915,143 @@ export function CollecteDetailPanel({
   // Val 2026-10-07) : seul le dispatch en pose un, avec son ordre en file.
   // Transporteurs manuels (mail / téléphone / autre) exclus : rien ne part
   // automatiquement pour eux.
-  // « À dispatcher » au sens canonique (§11 §1.1, `estADispatcher` : non envoyée,
-  // sans référence, programmée ou validée) — mais l'ordre est déjà en file.
-  const ordreEnFileEnvoi =
-    collecte.prestataire_logistique_id != null &&
-    envoiAutomatique(currentTransporteur?.type_tms) &&
-    estADispatcher(collecte);
-  const dispatchEnLecture = ordreEnFileEnvoi && !changerPrestataire;
+  // Jamais envoyée (`estNonEnvoyee`, première branche de « à dispatcher »
+  // §11 §1.1 : non envoyée, sans référence, programmée ou validée) — mais l'ordre est déjà en file.
+  // Et un ordre doit réellement attendre dans la file (`ordre_envoi` non nul) :
+  // sans ordre dans la file ni référence, aucun envoi n'est enregistré (ordre mis
+  // à l'écart sans envoi, par exemple). La fiche dit alors « Non envoyé » et
+  // rouvre les cartes et l'envoi, au lieu d'afficher « Envoyée » à jamais
+  // (décision Val 2026-10-20, C1). Exceptions connues : un ordre de création
+  // résolu à la main (commande passée hors de l'application), et le rejeu
+  // A Toutes! qui retrouve sa mission sans réécrire la référence de la collecte.
+  const ordreEnFileEnvoi = ordreEnFile(collecte);
+  // État réel de l'ordre de tête, lu dans la file (décision Val 2026-10-12, C6).
+  const ordreEnvoi = collecte.ordre_envoi ?? null;
+  // Création abandonnée : elle ne bloque plus rien (Val 2026-11-03), la fiche
+  // rouvre le choix du prestataire et l'envoi pour la renvoyer. Seulement si
+  // rien n'est arrivé chez le prestataire (même garde que « Créée »,
+  // lib/statut-collecte-admin) : une commande acceptée à la main pendant une
+  // panne porte une référence, et sa fiche reste celle d'un envoi parti.
+  const creationAbandonnee =
+    !!collecte.envoi_abandonne &&
+    collecte.statut_tms === 'non_envoye' &&
+    !collecte.tms_reference;
+  const dispatchEnLecture =
+    ordreEnFileEnvoi && !changerPrestataire && !creationAbandonnee;
+  // AG attribuée : le choix du prestataire ne s'ouvre que sur « Modifier
+  // l'attribution » (décision Val 2026-10-27).
+  const agAttribuee = collecte.type === 'anti_gaspi' && !attributionManquante;
+  // Seulement une fois l'ordre parti (en file, référence reçue, ou statut TMS
+  // posé par le prestataire — il arrive avant la référence) : une AG attribuée
+  // dont rien n'est parti, ou rejetée par son prestataire, garde ses cartes et
+  // son envoi directs.
+  const envoiParti =
+    collecte.statut_tms !== 'rejetee_par_prestataire' &&
+    !creationAbandonnee &&
+    (ordreEnFileEnvoi ||
+      !!collecte.tms_reference ||
+      collecte.statut_tms !== 'non_envoye');
+  // Choix rouvert par « Modifier l'attribution » (titre « Changer de
+  // prestataire », bouton « Garder le prestataire actuel »).
+  const choixMasqueSansClic = agAttribuee && envoiParti;
+  const choixMasque = choixMasqueSansClic && !changerPrestataire;
+  // ZD dont la commande est partie : plus de bouton d'envoi, sauf modifiée
+  // depuis l'envoi ou refusée par le transporteur (décision Val 2026-10-27).
+  const envoiZdParti = estZd && envoiParti && !changerPrestataire;
+  // Besoin véhicule modifiable avec l'envoi d'une ZD (décision Val
+  // 2026-10-27 ; l'AG le saisit à l'attribution) : mêmes gardes que la route
+  // (collecte encore à attribuer, choix du prestataire ouvert).
+  const besoinEditable =
+    estZd &&
+    !isTerminal &&
+    !dispatchEnLecture &&
+    !choixPrestataireZdFerme &&
+    ['programmee', 'rejetee_par_prestataire'].includes(collecte.statut);
   // Même prestataire, ordre déjà en file (ou référence TMS reçue) → « Renvoyer ».
   const renvoi =
     !!collecte.tms_reference || (ordreEnFileEnvoi && !selectedTransporteurId);
   const canalEnvoi = libelleCanalEnvoi(currentTransporteur?.type_tms);
+  // En file d'envoi, « Non envoyé » (valeur brute de l'enum) tromperait l'Ops :
+  // l'ordre est parti côté Plateforme. Affichage dérivé, l'enum DB ne change pas.
+  // Un ordre en échec le dit : « Envoyée » laisserait croire que tout suit son
+  // cours (décision Val 2026-10-12, C6 — remplace « la fiche reste Envoyée »).
+  const statutTms = !ordreEnFileEnvoi
+    ? statutTmsDisplay(collecte.statut_tms)
+    : ordreEnvoi?.etat === 'echec_definitif'
+      ? { label: 'Échec d’envoi', variant: 'error' as const }
+      : ordreEnvoi?.etat === 'echec_reprise'
+        ? { label: 'Envoi en reprise', variant: 'warning' as const }
+        : { label: 'Envoyée', variant: 'info' as const };
+  // Affichage Admin « Créée » : le traiteur a validé, rien n'est parti.
+  const estCreee = statutCollecteAdmin(collecte) === 'creee';
+  // « Créée » parce que l'envoi est abandonné : il est parti, et a échoué.
+  const rienParti = estCreee && !collecte.envoi_abandonne;
+  const repasRealisesConnus = [
+    'realisee',
+    'realisee_sans_collecte',
+    'cloturee',
+  ].includes(collecte.statut);
+  // Champs du bloc « Prestataire & Dispatch », posés dans la grille selon le
+  // type (AG attribuée en trois colonnes, sinon deux).
+  // Sans badge du mode d'envoi : doublon de l'en-tête et du statut TMS
+  // (décision Val 2026-10-27).
+  const champPrestataireActuel = (
+    <InfoItem label="Transporteur actuel">
+      {currentTransporteur?.nom ?? (
+        <span className="text-savr-neutral-400">
+          {libelleSansNom ?? 'Aucun transporteur attribué'}
+        </span>
+      )}
+    </InfoItem>
+  );
+  const champStatutTms = (
+    <InfoItem label="Statut TMS">
+      <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
+      {collecte.statut_tms_at && (
+        <Text as="span" variant="faint" className="ml-1">
+          (
+          {new Date(collecte.statut_tms_at).toLocaleString('fr-FR', {
+            timeZone: 'Europe/Paris',
+          })}
+          )
+        </Text>
+      )}
+    </InfoItem>
+  );
+  const champTypeVehicule = (
+    <InfoItem label="Type de véhicule souhaité">
+      {TYPES_VEHICULE_OPTIONS.find(
+        (t) => t.value === collecte.type_vehicule_souhaite,
+      )?.label ?? 'Non précisé'}
+    </InfoItem>
+  );
+  const champNbVehicules = (
+    <InfoItem
+      label="Nombre de véhicules"
+      valueClassName="flex items-center gap-2"
+    >
+      {collecte.nb_camions_demande}
+      {nbCamionsEditable && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setNbCamionsValue(String(collecte.nb_camions_demande));
+            setNbCamionsError(null);
+            setNbCamionsModal(true);
+          }}
+        >
+          Modifier
+        </Button>
+      )}
+    </InfoItem>
+  );
+  const champMotifOverride = collecte.motif_override_prestataire ? (
+    <InfoItem label="Motif override" className="col-span-full">
+      {collecte.motif_override_prestataire}
+    </InfoItem>
+  ) : null;
   // Bloc « Chauffeur » : une ligne par camion demandé (cf. rangsChauffeurDe).
   const tourneeParRang = new Map(
     collecte.collecte_tournees.map((ct) => [ct.rang, ct] as const),
@@ -1256,13 +2072,40 @@ export function CollecteDetailPanel({
   const aideChauffeur =
     rangsChauffeur.length === 0
       ? 'Aucune tournée enregistrée pour cette collecte.'
-      : !saisieChauffeurPossible
-        ? 'Attribuez d’abord un prestataire : les coordonnées se saisissent ensuite camion par camion.'
-        : collecte.controle_acces_requis
-          ? null
-          : canalEnvoi
-            ? `Les coordonnées remontent automatiquement de ${canalEnvoi} dès l’affectation du chauffeur ; complétez-les si elles manquent.`
-            : 'Coordonnées à saisir par l’équipe Ops.';
+      : // Phrases sur la saisie retirées (décision Val 2026-10-27) ; reste
+        // la consigne d'un transporteur manuel (rien ne remonte seul).
+        saisieChauffeurPossible &&
+          !collecte.controle_acces_requis &&
+          !canalEnvoi
+        ? 'Coordonnées à saisir par l’équipe Ops.'
+        : null;
+  // Email « infos d'accès » : l'état vient du journal des emails (servi par la
+  // fiche). Sans lui (réponse antérieure au suivi), repli sur le tampon.
+  const suiviEmailAcces: SuiviEmailInfosAcces = collecte.infos_acces_email ?? {
+    etat: collecte.infos_acces_email_envoye_at ? 'envoye' : 'a_envoyer',
+    date: collecte.infos_acces_email_envoye_at,
+    tentative: null,
+    motif: null,
+  };
+  // Même règle que l'envoi automatique : nom + téléphone pour chaque camion.
+  const coordonneesCompletes =
+    rangsChauffeur.length > 0 &&
+    rangsChauffeur.every((rang) => {
+      const t = tourneeParRang.get(rang)?.tournees;
+      return !!t?.chauffeur_nom?.trim() && !!t?.chauffeur_telephone?.trim();
+    });
+  // Contrôle d'accès demandé, collecte encore à réaliser, coordonnées
+  // incomplètes : le bloc « Chauffeur » est encadré (décision Val 2026-10-27).
+  const chauffeurACompleter =
+    collecte.controle_acces_requis && !isTerminal && !coordonneesCompletes;
+  // Jamais pendant une reprise automatique : le renvoi ferait partir deux emails.
+  const renvoiEmailPossible =
+    collecte.controle_acces_requis &&
+    !isTerminal &&
+    !editInfosAcces &&
+    (suiviEmailAcces.etat === 'envoye' ||
+      suiviEmailAcces.etat === 'non_remis' ||
+      (suiviEmailAcces.etat === 'a_envoyer' && coordonneesCompletes));
   const cleSaisie = (rang: number): string => cleSaisieDe(collecte, rang);
   const referenceSaisie = acceptationSaisie.reference_mission.trim();
   const acceptationIncomplete =
@@ -1306,240 +2149,280 @@ export function CollecteDetailPanel({
   );
   const lieu = applyLieuOverrides(collecte.evenements.lieux, overrides);
 
-  // En file d'envoi, « Non envoyé » (valeur brute de l'enum) tromperait l'Ops :
-  // l'ordre est parti côté Plateforme. Affichage dérivé, l'enum DB ne change pas.
-  const statutTms = ordreEnFileEnvoi
-    ? { label: 'Envoyée', variant: 'info' as const }
-    : statutTmsDisplay(collecte.statut_tms);
+  // Variante B de la fiche client (décision Val 2026-10-27) : titre = nom de
+  // l'événement, le lieu effectif à défaut ; dessous, le lieu (s'il n'est pas
+  // déjà le titre) et le client final.
+  const clientFinal =
+    collecte.evenements.client_organisateur?.raison_sociale ??
+    collecte.evenements.nom_client_organisateur ??
+    null;
+  const titre = collecte.evenements.nom_evenement?.trim() || lieu.nom;
+  const sousTitre = [titre === lieu.nom ? null : lieu.nom, clientFinal]
+    .map((v) => v?.trim())
+    .filter(Boolean)
+    .join(' · ');
+  const contacts = contactsDe(collecte.contacts);
+  const avecSecours = Boolean(
+    contacts?.contact_secours_nom?.trim() ||
+    contacts?.contact_secours_telephone?.trim(),
+  );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      {/* Grand en-tête commun aux fiches (décision Val 2026-10-01) : il remplace
-          le titre-résumé de la modale, la colonne résumé (C1) et la frise
-          pleine largeur (C2) ; « dirty TMS » en sur-titre. */}
-      <FicheEnTete
+    <Tabs defaultValue="informations" className="flex h-full min-h-0 flex-col">
+      {/* En-tête de la variante B (décision Val 2026-10-27) : sur-titre (type,
+          « dirty TMS » ; plus de référence, Val 2026-11-03), titre et
+          pastille de statut, ligne d'infos à pictos, onglets soulignés ; seul
+          le corps défile. */}
+      <FicheGrandEnTete
         surtitre={
           <>
             <TypeCollecteBadge type={collecte.type} forme="plein" />
-            <EnTeteMention>Réf. {refCourteCollecte(collecte)}</EnTeteMention>
-            {collecte.dirty_tms && (
+            {estModifieeSansRenvoi(collecte) && (
               <Badge variant="warning" className="flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" />
+                <WarningIcon className="h-3 w-3" />
                 Modifiée — renvoi requis
               </Badge>
             )}
           </>
         }
-        titre={lieu.nom}
-        infosTestId="fiche-admin-sous-ligne"
-        infos={[
-          {
-            icon: CalendarDays,
-            texte: `${dateLongueCapitalisee(collecte.date_collecte)}${heureCollecte ? ` · ${heureCollecte}` : ''}`,
-          },
-          {
-            icon: Users,
-            texte: `jusqu'à ${fmtPax(collecte.evenements.pax)}`,
-          },
-          {
-            icon: Building2,
-            texte: collecte.evenements.organisations.raison_sociale,
-          },
-          { icon: MapPin, texte: lieu.ville },
-          {
-            icon: Truck,
-            // Le badge garde la couleur du statut TMS (rejet, erreur) visible
-            // sans ouvrir l'onglet Logistique.
-            texte: (
+        titre={titre}
+        sousTitre={sousTitre || undefined}
+        statut={
+          <CollecteStatutPastille statut={statutCollecteAdmin(collecte)} />
+        }
+        reperesTestId="fiche-admin-sous-ligne"
+        reperes={
+          <>
+            <FicheRepere icon={CalendarDotsIcon}>
+              {dateLongueCapitalisee(collecte.date_collecte)}
+            </FicheRepere>
+            {heureCollecte && (
+              <FicheRepere icon={ClockIcon}>{heureCollecte}</FicheRepere>
+            )}
+            <FicheRepere icon={UsersIcon}>{fmtPax(collecte.pax)}</FicheRepere>
+            <FicheRepere icon={BuildingsIcon}>
+              {collecte.evenements.organisations.raison_sociale}
+            </FicheRepere>
+            {lieu.ville && (
+              <FicheRepere icon={MapPinIcon}>{lieu.ville}</FicheRepere>
+            )}
+            {/* Le badge garde la couleur du statut TMS (rejet, erreur) visible
+                sans ouvrir l'onglet Logistique. */}
+            <FicheRepere icon={TruckIcon}>
               <span className="inline-flex flex-wrap items-center gap-2">
                 {currentTransporteur?.nom ??
                   libelleSansNom ??
-                  'Prestataire non attribué'}
+                  'Transporteur non attribué'}
                 <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
               </span>
-            ),
-          },
-          ...(collecte.type === 'anti_gaspi'
-            ? [
-                {
-                  icon: HeartHandshake,
-                  texte:
-                    collecte.attributions_antgaspi?.associations?.nom ??
-                    'Association en attente d’attribution',
-                },
-              ]
-            : []),
-        ]}
-        statut={<CollecteStatutFrise statut={statutCollecteAdmin(collecte)} />}
-        statutLarge
+            </FicheRepere>
+            {collecte.type === 'anti_gaspi' && (
+              <FicheRepere icon={HandshakeIcon}>
+                {collecte.attributions_antgaspi?.associations?.nom ??
+                  'Association en attente d’attribution'}
+              </FicheRepere>
+            )}
+          </>
+        }
+        onglets={
+          <FicheOnglets aria-label="Sections de la fiche collecte">
+            <FicheOnglet value="informations">Informations</FicheOnglet>
+            <FicheOnglet value="logistique">Logistique</FicheOnglet>
+            <FicheOnglet value="documents">Documents</FicheOnglet>
+            <FicheOnglet value="historique">Historique</FicheOnglet>
+          </FicheOnglets>
+        }
       />
 
-      {/* Onglets seuls, sans colonne : même barre horizontale que les autres
-          fiches, fixe au défilement du corps. */}
-      <FicheCorps>
-        <Tabs defaultValue="informations">
-          <TabsList
-            aria-label="Sections de la fiche collecte"
-            className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white"
-          >
-            <TabsTrigger value="informations" className="px-3 sm:px-4">
-              Informations
-            </TabsTrigger>
-            <TabsTrigger value="logistique" className="px-3 sm:px-4">
-              Logistique
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="px-3 sm:px-4">
-              Documents
-            </TabsTrigger>
-            <TabsTrigger value="historique" className="px-3 sm:px-4">
-              Historique
-            </TabsTrigger>
-          </TabsList>
+      <FicheCorps className="pb-3 pt-5 md:px-12">
+        <TabsContent value="informations" className="mt-0">
+          {/* Variante B (décision Val 2026-10-27) : une section par ligne,
+                libellé à gauche, champs sur trois colonnes. Contenu Admin
+                inchangé (§06.06 §3 onglet Informations). */}
+          <FicheSection titre="Événement" data-testid="bloc-evenement">
+            <dl className={GRILLE_3}>
+              <InfoItem label="Client final">
+                {clientFinal ?? <Vide />}
+              </InfoItem>
+              <InfoItem label="Date et heure de collecte">
+                {dateCollecteLongue}
+                {heureCollecte ? ` · ${heureCollecte}` : ''}
+              </InfoItem>
+              <InfoItem
+                label="Nombre de pax"
+                valueClassName="flex items-center gap-2"
+              >
+                {collecte.pax}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Modifier le nombre de pax"
+                  onClick={() => {
+                    // Pax inconnu (0, reprise Bubble) : champ vide.
+                    setPaxValue(collecte.pax > 0 ? String(collecte.pax) : '');
+                    setPaxMotif('');
+                    setPaxError(null);
+                    setPaxModal(true);
+                  }}
+                >
+                  Modifier
+                </Button>
+              </InfoItem>
+              <InfoItem
+                label="Type d'événement"
+                valueClassName="flex flex-wrap items-center gap-2"
+              >
+                {collecte.type_evenement?.libelle ?? <Vide />}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Modifier le type d'événement"
+                  onClick={ouvrirInfosCollecte}
+                >
+                  Modifier
+                </Button>
+              </InfoItem>
+              <InfoItem label="Traiteur">
+                {collecte.evenements.organisations.raison_sociale}
+              </InfoItem>
+              {collecte.type === 'anti_gaspi' && (
+                <InfoItem label="Volume repas estimé">
+                  {collecte.volume_estime_repas ?? '—'}
+                </InfoItem>
+              )}
+            </dl>
+          </FicheSection>
 
-          <TabsContent value="informations" className="space-y-4">
-            <Card padding="md" className="space-y-4">
-              <SectionHeader icon={CalendarDays} title="Événement" />
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                <InfoItem label="Date et heure de collecte">
-                  {dateCollecteLongue}
-                  {heureCollecte ? ` · ${heureCollecte}` : ''}
-                </InfoItem>
-                <InfoItem label="Traiteur">
-                  {collecte.evenements.organisations.raison_sociale}
-                </InfoItem>
-                <InfoItem label="Nombre de pax">
-                  jusqu&apos;à {collecte.evenements.pax}
-                </InfoItem>
-                {/* Client final = client organisateur, distinct du traiteur. */}
-                <InfoItem label="Client final">
-                  {collecte.evenements.client_organisateur?.raison_sociale ??
-                    collecte.evenements.nom_client_organisateur ??
-                    '—'}
-                </InfoItem>
-                <InfoItem label="Type d'événement">
-                  {collecte.evenements.types_evenements?.libelle ?? '—'}
-                </InfoItem>
-                {collecte.evenements.nom_evenement && (
-                  <InfoItem label="Nom de l'événement">
-                    {collecte.evenements.nom_evenement}
-                  </InfoItem>
-                )}
-                {collecte.type === 'anti_gaspi' && (
-                  <InfoItem label="Volume repas estimé">
-                    {collecte.volume_estime_repas ?? '—'}
-                  </InfoItem>
-                )}
-              </dl>
-            </Card>
-
-            {/* Lieu effectif = référence `lieux` + surcharge de cette collecte
+          {/* Lieu effectif = référence `lieux` + surcharge de cette collecte
                 (`lieu_overrides`, §04 : le lieu officiel n'est jamais modifié). */}
-            <Card padding="md" className="space-y-4">
-              <SectionHeader
-                icon={MapPin}
-                title="Lieu"
-                action={
-                  lieuSurcharge ? (
-                    <Badge variant="info">Modifié pour cette collecte</Badge>
-                  ) : undefined
-                }
-              />
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                <InfoItem label="Nom">{lieu.nom}</InfoItem>
-                <InfoItem label="Adresse">
-                  {lieu.adresse_acces}
-                  <span className="block text-savr-neutral-600">
-                    {[lieu.code_postal, lieu.ville].filter(Boolean).join(' ')}
+          <FicheSection
+            titre="Lieu et accès"
+            data-testid="bloc-lieu"
+            action={
+              lieuSurcharge ? (
+                <Badge variant="info">Modifié pour cette collecte</Badge>
+              ) : undefined
+            }
+          >
+            <dl className={GRILLE_3}>
+              <InfoItem label="Adresse">
+                {lieu.nom}
+                <span className="block font-normal text-savr-neutral-600">
+                  {[lieu.adresse_acces, lieu.code_postal, lieu.ville]
+                    .filter(Boolean)
+                    .join(' ')}
+                </span>
+              </InfoItem>
+              <InfoItem label="Accès office">
+                <DifficulteBadge valeur={lieu.acces_office} />
+              </InfoItem>
+              <InfoItem label="Stationnement">
+                <DifficulteBadge valeur={lieu.stationnement} />
+              </InfoItem>
+              <InfoItem label="Véhicule max">
+                {lieu.type_vehicule_max
+                  ? (VEHICULE_LABEL[lieu.type_vehicule_max] ??
+                    lieu.type_vehicule_max)
+                  : '—'}
+              </InfoItem>
+              <InfoItem label="Contrôle d'accès">
+                {collecte.controle_acces_requis ? 'Oui' : 'Non'}
+              </InfoItem>
+              {lieu.contraintes_horaires && (
+                <InfoItem label="Contraintes horaires">
+                  {lieu.contraintes_horaires}
+                </InfoItem>
+              )}
+              <InfoItem
+                variant="texte"
+                label="Accès au lieu (badge, code, interphone, gardien…)"
+                className="sm:col-span-2 lg:col-span-3"
+              >
+                {lieu.acces_details ? (
+                  <span className="whitespace-pre-line">
+                    {lieu.acces_details}
+                  </span>
+                ) : (
+                  <Vide>Aucune instruction renseignée</Vide>
+                )}
+              </InfoItem>
+              {collecte.informations_supplementaires && (
+                <InfoItem
+                  variant="texte"
+                  label="Informations supplémentaires"
+                  className="sm:col-span-2 lg:col-span-3"
+                >
+                  <span className="whitespace-pre-line">
+                    {collecte.informations_supplementaires}
                   </span>
                 </InfoItem>
-                <InfoItem label="Accès office">
-                  <DifficulteBadge valeur={lieu.acces_office} />
+              )}
+              {collecte.notes_internes && (
+                <InfoItem
+                  variant="texte"
+                  label="Notes internes Savr"
+                  className="sm:col-span-2 lg:col-span-3"
+                >
+                  <span className="whitespace-pre-line">
+                    {collecte.notes_internes}
+                  </span>
                 </InfoItem>
-                <InfoItem label="Stationnement">
-                  <DifficulteBadge valeur={lieu.stationnement} />
-                </InfoItem>
-                <InfoItem label="Véhicule max">
-                  {lieu.type_vehicule_max
-                    ? (VEHICULE_LABEL[lieu.type_vehicule_max] ??
-                      lieu.type_vehicule_max)
-                    : '—'}
-                </InfoItem>
-                <InfoItem label="Contrôle d'accès">
-                  {collecte.controle_acces_requis ? 'Oui' : 'Non'}
-                </InfoItem>
-                {lieu.contraintes_horaires && (
-                  <InfoItem label="Contraintes horaires" pleineLargeur>
-                    {lieu.contraintes_horaires}
-                  </InfoItem>
-                )}
-              </dl>
-            </Card>
+              )}
+            </dl>
+          </FicheSection>
 
-            <Card padding="md" className="space-y-4">
-              <SectionHeader icon={DoorOpen} title="Instructions d'accès" />
-              <dl className="space-y-3 text-sm">
-                <InfoItem label="Accès au lieu (badge, code, interphone, gardien…)">
-                  {lieu.acces_details ? (
-                    <span className="whitespace-pre-line">
-                      {lieu.acces_details}
-                    </span>
-                  ) : (
-                    <span className="text-savr-neutral-400">
-                      Aucune instruction renseignée
-                    </span>
-                  )}
-                </InfoItem>
-                {collecte.informations_supplementaires && (
-                  <InfoItem label="Informations supplémentaires">
-                    <span className="whitespace-pre-line">
-                      {collecte.informations_supplementaires}
-                    </span>
-                  </InfoItem>
-                )}
-                {collecte.notes_internes && (
-                  <InfoItem label="Notes internes Savr">
-                    <span className="whitespace-pre-line">
-                      {collecte.notes_internes}
-                    </span>
-                  </InfoItem>
-                )}
-              </dl>
-            </Card>
+          <FicheSection
+            titre="Contacts sur place"
+            data-testid="bloc-contacts"
+            action={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Modifier les contacts"
+                onClick={ouvrirInfosCollecte}
+                className="-ml-3"
+              >
+                Modifier
+              </Button>
+            }
+          >
+            <div className={GRILLE_3}>
+              <CarteContact
+                nom={contacts?.contact_principal_nom}
+                telephone={contacts?.contact_principal_telephone}
+                role="Contact principal"
+              />
+              {/* Contact de secours : sa carte s'il est renseigné, sinon le
+                    bouton d'ajout de la fiche client (ouvre la fenêtre des
+                    contacts). */}
+              {avecSecours ? (
+                <CarteContact
+                  nom={contacts?.contact_secours_nom}
+                  telephone={contacts?.contact_secours_telephone}
+                  role="Contact de secours"
+                />
+              ) : (
+                <AjoutContactSecours onClick={ouvrirInfosCollecte} />
+              )}
+            </div>
+          </FicheSection>
+        </TabsContent>
 
-            <Card padding="md" className="space-y-4">
-              <SectionHeader icon={Users} title="Contacts" />
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                <InfoItem label="Contact principal">
-                  <ContactLigne
-                    nom={collecte.evenements.contact_principal_nom}
-                    telephone={collecte.evenements.contact_principal_telephone}
-                  />
-                </InfoItem>
-                <InfoItem label="Contact de secours">
-                  <ContactLigne
-                    nom={collecte.evenements.contact_secours_nom}
-                    telephone={collecte.evenements.contact_secours_telephone}
-                  />
-                </InfoItem>
-              </dl>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="logistique" className="space-y-4">
-            {/* AG sans attribution : formulaire intégré (décision Val 2026-10-01) —
+        <TabsContent value="logistique" className="mt-0">
+          {/* AG sans attribution : formulaire intégré (décision Val 2026-10-01) —
             association d'abord (son adresse est le point de livraison), besoin
             véhicule, prestataire, un seul bouton « Valider et envoyer ». */}
-            {attributionManquante && collecte.statut === 'programmee' && (
-              <Card padding="md" className="space-y-4">
-                <SectionHeader
-                  icon={HeartHandshake}
-                  title="Attribution & dispatch"
-                />
+          {attributionManquante && collecte.statut === 'programmee' && (
+            <FicheSection titre="Attribution & dispatch">
+              <div className="min-w-0 space-y-4">
                 <AttributionAgForm
                   collecteId={collecte.id}
                   collecte={{
                     volume_estime_repas: collecte.volume_estime_repas ?? null,
-                    pax: collecte.evenements.pax ?? null,
+                    pax: collecte.pax,
                     date_collecte: collecte.date_collecte,
                     heure_collecte: collecte.heure_collecte,
                     nb_camions_demande: collecte.nb_camions_demande,
@@ -1555,151 +2438,149 @@ export function CollecteDetailPanel({
                     void refetch();
                   }}
                 />
-              </Card>
-            )}
-            {/* AG sans attribution hors `programmee` (brouillon, annulation
+              </div>
+            </FicheSection>
+          )}
+          {/* AG sans attribution hors `programmee` (brouillon, annulation
             demandée…) : la validation d'attribution est impossible (§06.09 §3,
             RPC P0043) — consigne plutôt qu'un formulaire qui échouerait. */}
-            {attributionManquante &&
-              collecte.statut !== 'programmee' &&
-              !isTerminal && (
-                <Card padding="md" className="space-y-4">
-                  <SectionHeader
-                    icon={HeartHandshake}
-                    title="Attribution & dispatch"
-                  />
+          {attributionManquante &&
+            collecte.statut !== 'programmee' &&
+            !isTerminal && (
+              <FicheSection titre="Attribution & dispatch">
+                <div className="min-w-0 space-y-4">
                   <AlertBar variant="warn">
-                    L&apos;attribution (association, prestataire) n&apos;est
+                    L&apos;attribution (association, transporteur) n&apos;est
                     possible qu&apos;au statut «{' '}
                     {statutCollecteDisplay('creee', 'admin').label} » — statut
                     actuel : « {statutCollecteDisplay(collecte.statut).label} ».
                   </AlertBar>
-                </Card>
-              )}
-            {/* AG attribuée : résumé de l'attribution AVANT « Prestataire &
-            Dispatch » (décision Val 2026-10-01). */}
-            {collecte.type === 'anti_gaspi' && !attributionManquante && (
-              <Card padding="md" className="space-y-4">
-                <SectionHeader icon={HeartHandshake} title="Attribution AG" />
-                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                  <InfoItem label="Association retenue">
-                    {collecte.attributions_antgaspi?.associations?.nom ?? (
-                      <span className="text-savr-neutral-400">
-                        Aucune (en attente d’attribution)
-                      </span>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Transporteur retenu">
-                    {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
-                      <span className="text-savr-neutral-400">—</span>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Validation">
-                    {collecte.attributions_antgaspi?.valide_at ? (
-                      <>
-                        {collecte.attributions_antgaspi.mode_validation} —{' '}
-                        {new Date(
-                          collecte.attributions_antgaspi.valide_at,
-                        ).toLocaleDateString('fr-FR', {
-                          timeZone: 'Europe/Paris',
-                        })}
-                      </>
-                    ) : (
-                      <Badge variant="warning">En attente de validation</Badge>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Volume repas (estimé / réalisé)">
-                    {collecte.volume_estime_repas ?? '—'} /{' '}
-                    {collecte.attributions_antgaspi?.volume_repas_realise ??
-                      '—'}
-                  </InfoItem>
-                </dl>
-              </Card>
+                </div>
+              </FicheSection>
             )}
-            {!(attributionManquante && !isTerminal) && (
-              <Card padding="md" className="space-y-4">
-                <SectionHeader icon={Truck} title="Prestataire & Dispatch" />
+          {!(attributionManquante && !isTerminal) && (
+            <FicheSection
+              titre={
+                agAttribuee
+                  ? 'Transporteur et Dispatch'
+                  : 'Transporteur & Dispatch'
+              }
+            >
+              <div className="min-w-0 space-y-4">
                 {dispatchError && (
                   <AlertBar variant="err">{dispatchError}</AlertBar>
                 )}
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  <InfoItem
-                    label="Prestataire actuel"
-                    valueClassName="flex items-center gap-2"
-                  >
-                    {currentTransporteur?.nom ?? (
-                      <span className="text-savr-neutral-400">
-                        {libelleSansNom ?? 'Aucun prestataire attribué'}
-                      </span>
-                    )}
-                    {currentTransporteur?.type_tms && (
-                      <Badge size="sm" variant="neutral">
-                        {libelleTypeTms(currentTransporteur.type_tms)}
-                      </Badge>
-                    )}
-                  </InfoItem>
-                  <InfoItem label="Statut TMS">
-                    <Badge variant={statutTms.variant}>{statutTms.label}</Badge>
-                    {collecte.statut_tms_at && (
-                      <Text as="span" variant="faint" className="ml-1">
-                        (
-                        {new Date(collecte.statut_tms_at).toLocaleString(
-                          'fr-FR',
-                          {
-                            timeZone: 'Europe/Paris',
-                          },
+                {agAttribuee ? (
+                  // AG attribuée : un seul bloc en trois colonnes (décision Val
+                  // 2026-10-27) — prestataire et besoin véhicule, attribution,
+                  // statut TMS ; « Modifier l'attribution » rouvre le choix du
+                  // prestataire.
+                  <>
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+                      <div className="space-y-3">
+                        {champPrestataireActuel}
+                        {champTypeVehicule}
+                        {champNbVehicules}
+                      </div>
+                      <div className="space-y-3">
+                        <InfoItem label="Association retenue">
+                          {collecte.attributions_antgaspi?.associations
+                            ?.nom ?? (
+                            <span className="text-savr-neutral-400">
+                              Aucune (en attente d’attribution)
+                            </span>
+                          )}
+                        </InfoItem>
+                        <InfoItem label="Volume de repas estimés">
+                          {collecte.volume_estime_repas ?? '—'}
+                        </InfoItem>
+                        {repasRealisesConnus &&
+                          collecte.statut !== 'realisee_sans_collecte' && (
+                            <InfoItem label="Poids collecté">
+                              <span className="flex flex-wrap items-center gap-3">
+                                <span data-testid="poids-collecte-valeur">
+                                  {collecte.attributions_antgaspi
+                                    ?.poids_repas_kg != null
+                                    ? fmtKgAuto(
+                                        collecte.attributions_antgaspi
+                                          .poids_repas_kg,
+                                      )
+                                    : '—'}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={openPoidsModal}
+                                >
+                                  Modifier
+                                </Button>
+                              </span>
+                            </InfoItem>
+                          )}
+                        {repasRealisesConnus && (
+                          <InfoItem label="Volume de repas réalisés">
+                            {collecte.statut === 'realisee_sans_collecte'
+                              ? LIBELLE_SANS_EXCEDENT
+                              : (collecte.attributions_antgaspi
+                                  ?.volume_repas_realise ?? '—')}
+                          </InfoItem>
                         )}
-                        )
-                      </Text>
+                      </div>
+                      <div className="space-y-3">{champStatutTms}</div>
+                      {champMotifOverride}
+                    </dl>
+                    {!isTerminal && envoiParti && !changerPrestataire && (
+                      <div>
+                        <Button
+                          ref={changerPrestataireBtnRef}
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setChangerPrestataire(true)}
+                        >
+                          Modifier l’attribution
+                        </Button>
+                      </div>
                     )}
-                  </InfoItem>
-                  <InfoItem label="Référence TMS" valueClassName="font-mono">
-                    {collecte.tms_reference ?? '—'}
-                  </InfoItem>
-                  <InfoItem
-                    label="Nb camions"
-                    valueClassName="flex items-center gap-2"
-                  >
-                    {collecte.nb_camions_demande}
-                    {nbCamionsEditable && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setNbCamionsValue(
-                            String(collecte.nb_camions_demande),
-                          );
-                          setNbCamionsError(null);
-                          setNbCamionsModal(true);
-                        }}
-                      >
-                        Modifier
-                      </Button>
+                  </>
+                ) : (
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                    {/* « Créée » : rien n'est parti, ni prestataire ni statut
+                        TMS à lire (décision Val 2026-10-27) — sauf envoi
+                        abandonné, dont l'échec reste lisible (2026-11-02). */}
+                    {!rienParti && champPrestataireActuel}
+                    {!rienParti && champStatutTms}
+                    {/* Besoin véhicule en lecture quand il ne part plus avec
+                        l'envoi (décision Val 2026-10-27 ; « Référence TMS »
+                        retirée, idem). */}
+                    {!besoinEditable && (
+                      <>
+                        {champTypeVehicule}
+                        {champNbVehicules}
+                      </>
                     )}
-                  </InfoItem>
-                  {collecte.motif_override_prestataire && (
-                    <InfoItem label="Motif override" className="col-span-2">
-                      {collecte.motif_override_prestataire}
-                    </InfoItem>
-                  )}
-                </dl>
-
-                {ordreEnFileEnvoi && (
-                  <AlertBar variant="info">
-                    <span>
-                      Collecte envoyée à {currentTransporteur?.nom}
-                      {currentTransporteur?.nom?.endsWith('!') ? '' : '.'}{' '}
-                      <span className="font-normal">
-                        La commande part automatiquement vers {canalEnvoi}{' '}
-                        (prochain passage sous 15 minutes, reprises automatiques
-                        en cas d&apos;erreur) : la référence TMS et le statut «
-                        Attente acceptation presta » s&apos;afficheront ici dès
-                        sa prise en compte.
-                      </span>
-                    </span>
-                  </AlertBar>
+                    {champMotifOverride}
+                  </dl>
                 )}
+                {besoinEditable && (
+                  <ChampsBesoinVehicule
+                    typeVehicule={
+                      typeVehiculeSaisi ?? collecte.type_vehicule_souhaite ?? ''
+                    }
+                    onTypeVehicule={setTypeVehiculeSaisi}
+                    nbVehicules={
+                      nbVehiculesSaisi ?? String(collecte.nb_camions_demande)
+                    }
+                    onNbVehicules={setNbVehiculesSaisi}
+                  />
+                )}
+
+                <EncartOrdreEnvoi
+                  ordre={ordreEnvoi}
+                  enFile={ordreEnFileEnvoi}
+                  referenceRecue={!!collecte.tms_reference}
+                  prestataire={currentTransporteur?.nom}
+                  canal={canalEnvoi}
+                />
 
                 {/* Choix du prestataire — §06.06 §3, en cartes cochables (décision
             Val C3). AG : la reco algo est présélectionnée et marquée
@@ -1708,7 +2589,8 @@ export function CollecteDetailPanel({
             demande pas à changer de prestataire. */}
                 {!isTerminal &&
                   !dispatchEnLecture &&
-                  !choixPrestataireZdFerme && (
+                  !choixPrestataireZdFerme &&
+                  !choixMasque && (
                     <div
                       ref={dispatchChoixRef}
                       className="space-y-3 border-t border-savr-neutral-100 pt-4"
@@ -1718,13 +2600,13 @@ export function CollecteDetailPanel({
                         className="font-semibold"
                         id="dispatch-transporteur-label"
                       >
-                        {ordreEnFileEnvoi
-                          ? 'Changer de prestataire'
-                          : 'Prestataire à attribuer'}
+                        {ordreEnFileEnvoi || choixMasqueSansClic
+                          ? 'Changer de transporteur'
+                          : 'Transporteur à attribuer'}
                       </Text>
                       {prestataireAChoisir && (
                         <Text variant="hint">
-                          Choisissez le prestataire qui réalisera la collecte,
+                          Choisissez le transporteur qui réalisera la collecte,
                           puis envoyez.
                         </Text>
                       )}
@@ -1759,11 +2641,12 @@ export function CollecteDetailPanel({
                                   coche || (aucuneCarteCochee && i === 0)
                                 }
                                 // Re-choisir le prestataire actuel = le conserver ('').
-                                onSelect={() =>
+                                onSelect={() => {
                                   setSelectedTransporteurId(
                                     estActuel ? '' : t.id,
-                                  )
-                                }
+                                  );
+                                  setServiceDispatch('');
+                                }}
                                 titre={t.nom}
                                 detail={libelleTypeTms(t.type_tms)}
                                 badges={
@@ -1787,8 +2670,8 @@ export function CollecteDetailPanel({
                         <FormField
                           label={
                             changementPrestataireZd
-                              ? 'Motif du changement de prestataire (≥ 5 car.)'
-                              : 'Motif override (≥ 5 car. — prestataire ≠ reco algo)'
+                              ? 'Motif du changement de transporteur (≥ 5 car.)'
+                              : 'Motif override (≥ 5 car. — transporteur ≠ reco algo)'
                           }
                           htmlFor="dispatch-motif"
                           required
@@ -1801,14 +2684,37 @@ export function CollecteDetailPanel({
                             onChange={(e) => setMotifOverride(e.target.value)}
                             placeholder={
                               changementPrestataireZd
-                                ? 'Raison du changement de prestataire…'
-                                : "Raison du choix d'un prestataire différent de la recommandation…"
+                                ? 'Raison du changement de transporteur…'
+                                : "Raison du choix d'un transporteur différent de la recommandation…"
                             }
                           />
                         </FormField>
                       )}
                     </div>
                   )}
+
+                {!isTerminal && !dispatchEnLecture && serviceDispatchRequis && (
+                  <FormField
+                    label="Service du transporteur"
+                    htmlFor="dispatch-service"
+                    required
+                  >
+                    <Combobox
+                      id="dispatch-service"
+                      searchable={false}
+                      required
+                      options={[
+                        { value: '', label: 'Choisir un service…' },
+                        ...servicesVise.map((sv) => ({
+                          value: sv.branche,
+                          label: sv.libelle,
+                        })),
+                      ]}
+                      value={serviceDispatch}
+                      onChange={setServiceDispatch}
+                    />
+                  </FormField>
+                )}
 
                 {/* Bouton d'envoi TMS forké par type_tms (+ acceptation manuelle
               A Toutes! quand Everest est indisponible, §06.06 §3 Bloc 0) */}
@@ -1827,101 +2733,98 @@ export function CollecteDetailPanel({
                         setAcceptationModal(true);
                       }}
                     >
-                      <PhoneCall />
+                      <PhoneCallIcon />
                       Acceptation manuelle
                     </Button>
                   )}
                   {dispatchEnLecture ? (
                     // Ordre en file d'envoi : pas de bouton primaire d'envoi (il
-                    // est déjà parti) — seule action : rouvrir le choix du
+                    // est déjà parti), sauf si la collecte a été modifiée
+                    // depuis — « Renvoyer » vide alors le drapeau (arbitrage Val
+                    // 2026-10-09). Autre action : rouvrir le choix du
                     // prestataire.
-                    <Button
-                      ref={changerPrestataireBtnRef}
-                      variant="secondary"
-                      onClick={() => setChangerPrestataire(true)}
-                    >
-                      <Truck />
-                      Changer de prestataire
-                    </Button>
-                  ) : (
                     <>
-                      {ordreEnFileEnvoi && (
+                      {!agAttribuee && (
                         <Button
-                          variant="ghost"
-                          onClick={() => {
-                            retourFocusChangerRef.current = true;
-                            setChangerPrestataire(false);
-                            setSelectedTransporteurId('');
-                            setMotifOverride('');
-                          }}
+                          ref={changerPrestataireBtnRef}
+                          variant="secondary"
+                          onClick={() => setChangerPrestataire(true)}
                         >
-                          Garder le prestataire actuel
+                          <TruckIcon />
+                          Changer de transporteur
                         </Button>
                       )}
-                      <Button
-                        disabled={
-                          isTerminal ||
-                          overrideMotifManquant ||
-                          prestataireAChoisir
-                        }
-                        onClick={() => void handleDispatch()}
-                        loading={dispatching}
-                        loadingText="Envoi…"
-                      >
-                        <Send />{' '}
-                        {prestataireAChoisir
-                          ? 'Envoyer'
-                          : libelleDispatch(forkTypeTms, renvoi)}
-                      </Button>
+                      {estModifieeSansRenvoi(collecte) && (
+                        <Button
+                          onClick={() => void handleDispatch()}
+                          loading={dispatching}
+                          loadingText="Envoi…"
+                        >
+                          <PaperPlaneTiltIcon />{' '}
+                          {libelleDispatch(forkTypeTms, true)}
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {changerPrestataire &&
+                        (ordreEnFileEnvoi || choixMasqueSansClic) && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              retourFocusChangerRef.current = true;
+                              setChangerPrestataire(false);
+                              setSelectedTransporteurId('');
+                              setMotifOverride('');
+                            }}
+                          >
+                            Garder le transporteur actuel
+                          </Button>
+                        )}
+                      {((!choixMasque && !envoiZdParti) ||
+                        estModifieeSansRenvoi(collecte)) && (
+                        <Button
+                          disabled={
+                            isTerminal ||
+                            overrideMotifManquant ||
+                            serviceDispatchManquant ||
+                            prestataireAChoisir
+                          }
+                          onClick={() => void handleDispatch()}
+                          loading={dispatching}
+                          loadingText="Envoi…"
+                        >
+                          <PaperPlaneTiltIcon />{' '}
+                          {prestataireAChoisir
+                            ? 'Envoyer'
+                            : libelleDispatch(forkTypeTms, renvoi)}
+                        </Button>
+                      )}
                     </>
                   )}
                 </div>
-
-                {/* Tournées (multi-camions) */}
-                {collecte.collecte_tournees.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Text variant="body" className="font-medium">
-                        Tournées
-                      </Text>
-                      <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
-                    </div>
-                    <div className="space-y-1">
-                      {collecte.collecte_tournees.map((ct) => (
-                        <div
-                          key={ct.rang}
-                          className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded-savr-sm px-3 py-2"
-                        >
-                          <span className="font-medium">Camion {ct.rang}</span>
-                          <Badge variant="neutral">
-                            {libelleStatutTournee(ct.tournees.statut)}
-                          </Badge>
-                          <Text as="span" variant="hint" className="font-mono">
-                            {ct.tournees.external_ref_commande ?? '—'}
-                          </Text>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </Card>
-            )}
-            {/* Chauffeur(s) par camion — même bloc que la fiche client (§06.04
+              </div>
+            </FicheSection>
+          )}
+          {/* Chauffeur(s) par camion — même bloc que la fiche client (§06.04
             « Logistique », décision Val 2026-10-02) : nom, plaque, téléphone
             remontés automatiquement du prestataire (MTS-1 : référentiel carrier
             au polling ; A Toutes! : coursier du webhook Everest), complétés par
             l'Admin si besoin (contrôle d'accès, transporteur manuel). Remplace
             la card « Informations chauffeur » de l'onglet Informations. */}
-            <Card
-              padding="md"
-              className="space-y-4"
-              data-testid="bloc-chauffeur"
-            >
-              <SectionHeader
-                icon={UserRound}
-                title={titreChauffeur}
-                action={
-                  !editInfosAcces && saisieChauffeurPossible ? (
+          <FicheSection
+            titre={titreChauffeur}
+            data-testid="bloc-chauffeur"
+            action={
+              collecte.collecte_tournees.length > 0 ||
+              (!editInfosAcces && saisieChauffeurPossible) ? (
+                <>
+                  {/* Picto « plaque TMS » (§11) : déplacé ici avec le retrait
+                      de la liste des tournées (décision Val 2026-10-27). */}
+                  {collecte.collecte_tournees.length > 0 && (
+                    <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
+                  )}
+                  {!editInfosAcces && saisieChauffeurPossible && (
                     <Button
                       size="sm"
                       variant="secondary"
@@ -1929,9 +2832,21 @@ export function CollecteDetailPanel({
                     >
                       Modifier les coordonnées
                     </Button>
-                  ) : undefined
-                }
-              />
+                  )}
+                </>
+              ) : undefined
+            }
+          >
+            {/* Contrôle d'accès demandé et coordonnées incomplètes : bloc
+                encadré pour qu'il se voie (décision Val 2026-10-27). */}
+            <div
+              data-testid="chauffeur-contenu"
+              className={cn(
+                'min-w-0 space-y-4',
+                chauffeurACompleter &&
+                  'rounded-savr-lg border-2 border-savr-warning bg-savr-warning-subtle p-4',
+              )}
+            >
               {collecte.controle_acces_requis && (
                 <>
                   <Text>
@@ -1940,25 +2855,72 @@ export function CollecteDetailPanel({
                     chaque camion — un email récapitulatif est envoyé au
                     programmateur dès que toutes les tournées sont complètes.
                   </Text>
-                  {collecte.infos_acces_email_envoye_at ? (
-                    <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
-                      <Send className="h-4 w-4 shrink-0" />
-                      Email envoyé au programmateur le{' '}
-                      {new Date(
-                        collecte.infos_acces_email_envoye_at,
-                      ).toLocaleDateString('fr-FR', {
-                        timeZone: 'Europe/Paris',
-                      })}
+                  <div data-testid="etat-email-infos-acces">
+                    {suiviEmailAcces.etat === 'envoye' && (
+                      <div className="flex items-center gap-2 text-sm font-medium text-savr-success-strong">
+                        <PaperPlaneTiltIcon className="h-4 w-4 shrink-0" />
+                        Email envoyé au programmateur
+                        {suiviEmailAcces.date &&
+                          ` le ${new Date(
+                            suiviEmailAcces.date,
+                          ).toLocaleDateString('fr-FR', {
+                            timeZone: 'Europe/Paris',
+                          })}`}
+                      </div>
+                    )}
+                    {suiviEmailAcces.etat === 'en_reprise' && (
+                      <AlertBar variant="warn" icon={<ArrowClockwiseIcon />}>
+                        L’email au programmateur n’est pas encore parti.{' '}
+                        <span className="font-normal">
+                          Une nouvelle tentative a lieu automatiquement
+                          {suiviEmailAcces.tentative
+                            ? ` (${suiviEmailAcces.tentative} tentative${
+                                suiviEmailAcces.tentative > 1 ? 's' : ''
+                              } sur 4 en échec)`
+                            : ''}
+                          . Si la collecte est proche, transmettez les
+                          coordonnées par téléphone.
+                        </span>
+                      </AlertBar>
+                    )}
+                    {suiviEmailAcces.etat === 'non_remis' && (
+                      <AlertBar variant="err" icon={<WarningIcon />}>
+                        {suiviEmailAcces.motif === 'adresse_refusee'
+                          ? 'L’email n’a pas été remis : la messagerie du programmateur l’a refusé.'
+                          : 'L’email n’a pas pu être envoyé au programmateur (4 tentatives en échec).'}{' '}
+                        <span className="font-normal">
+                          {suiviEmailAcces.motif === 'adresse_refusee'
+                            ? 'Vérifiez son adresse, puis renvoyez l’email ou transmettez les coordonnées par téléphone.'
+                            : 'Renvoyez-le ou transmettez les coordonnées par téléphone.'}
+                        </span>
+                      </AlertBar>
+                    )}
+                    {suiviEmailAcces.etat === 'a_envoyer' && (
+                      <Text
+                        as="div"
+                        tone="soft"
+                        className="flex items-center gap-2"
+                      >
+                        <WarningIcon className="h-4 w-4 shrink-0 text-savr-warning-strong" />
+                        {coordonneesCompletes
+                          ? 'Coordonnées complètes : l’email n’a pas encore été envoyé au programmateur.'
+                          : 'En attente : infos à compléter avant envoi de l’email.'}
+                      </Text>
+                    )}
+                  </div>
+                  {renvoiEmailPossible && (
+                    <div>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={renvoiEmailEnCours}
+                        onClick={() => void handleRenvoiEmailInfosAcces()}
+                      >
+                        {suiviEmailAcces.etat === 'a_envoyer'
+                          ? 'Envoyer l’email'
+                          : 'Renvoyer l’email'}
+                      </Button>
                     </div>
-                  ) : (
-                    <Text
-                      as="div"
-                      tone="soft"
-                      className="flex items-center gap-2"
-                    >
-                      <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
-                      En attente : infos à compléter avant envoi de l’email.
-                    </Text>
                   )}
                 </>
               )}
@@ -1986,7 +2948,7 @@ export function CollecteDetailPanel({
                         )}
                         {t === null && (
                           <Text variant="hint" tone="soft" className="mb-1.5">
-                            Tournée pas encore créée par le prestataire — la
+                            Tournée pas encore créée par le transporteur — la
                             saisie la crée.
                           </Text>
                         )}
@@ -2129,29 +3091,27 @@ export function CollecteDetailPanel({
                   />
                 </form>
               )}
-            </Card>
-            {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
-            {collecte.type === 'zero_dechet' && (
-              <Card padding="md" className="space-y-4">
-                <SectionHeader
-                  icon={Scale}
-                  title="Pesées ZD"
-                  action={
-                    !editPesees && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={collecte.statut === 'cloturee'}
-                        onClick={openEditPesees}
-                      >
-                        {collecte.statut === 'cloturee'
-                          ? 'Clôturée — édition via avoir'
-                          : 'Éditer les pesées'}
-                      </Button>
-                    )
-                  }
-                />
-
+            </div>
+          </FicheSection>
+          {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
+          {collecte.type === 'zero_dechet' && (
+            <FicheSection
+              titre="Pesées ZD"
+              action={
+                !editPesees && (
+                  // Modifiable à tout moment, même après la clôture (Val
+                  // 2026-11-04) : le bordereau est refait juste après.
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={openEditPesees}
+                  >
+                    Éditer les pesées
+                  </Button>
+                )
+              }
+            >
+              <div className="min-w-0 space-y-4">
                 {!editPesees ? (
                   <Table>
                     <TableHeader>
@@ -2248,83 +3208,157 @@ export function CollecteDetailPanel({
                     />
                   </form>
                 )}
-              </Card>
-            )}
-          </TabsContent>
+              </div>
+            </FicheSection>
+          )}
+        </TabsContent>
 
-          <TabsContent value="documents">
-            {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
-            <Card padding="md" className="space-y-4">
-              <SectionHeader icon={FileText} title="Documents" />
+        <TabsContent value="documents" className="mt-0 space-y-3">
+          {/* Bilan vu par le client, radar et barre « Comparer avec » compris
+                (décision Val 2026-10-16). */}
+          <BilanCollecte
+            c={bilan}
+            radar={radar}
+            barre={{
+              filtresEndpoint:
+                '/api/v1/admin/dashboard-client/benchmark/filtres',
+              avertissementComparaisonSoi: false,
+            }}
+          />
+          {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
+          <FicheSection titre="Documents">
+            <div className="min-w-0 space-y-4">
               {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
               <div className="divide-y divide-savr-neutral-100">
-                {/* Rapport RSE (ZD + AG) */}
-                <div className="flex items-center gap-3 py-3">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium flex items-center gap-2">
-                      Rapport RSE
-                      {documents?.rapport &&
-                        (documents.rapport.version > 1 ||
-                          documents.rapport.regenere_at) && (
-                          <span
-                            title={`Rapport régénéré${
-                              documents.rapport.regenere_at
-                                ? ` — mis à jour le ${new Date(
-                                    documents.rapport.regenere_at,
-                                  ).toLocaleDateString('fr-FR', {
-                                    timeZone: 'Europe/Paris',
-                                  })}`
-                                : ''
-                            }`}
-                            className="inline-flex items-center text-savr-primary-600"
+                {/* Logo du client imprimé sur les rapports (Val 2026-10-30) :
+                      avant le téléchargement, sauf sur une collecte annulée. */}
+                {collecte && !STATUTS_ANNULES.includes(collecte.statut) && (
+                  <LogoClientRapport
+                    id="admin-logo-client"
+                    endpoint={`/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/logo-client`}
+                  />
+                )}
+                {/* Rapport : « Rapport RSE » (ZD) ou « Rapport de don » (AG sans excédents) */}
+                {afficherRapport && (
+                  <div className="flex flex-wrap items-center gap-3 py-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        {agSansExcedent ? 'Rapport de don' : 'Rapport RSE'}
+                        {agSansExcedent &&
+                          documents?.rapport &&
+                          (documents.rapport.version > 1 ||
+                            documents.rapport.regenere_at) && (
+                            <span
+                              title={`Rapport régénéré${
+                                documents.rapport.regenere_at
+                                  ? ` — mis à jour le ${new Date(
+                                      documents.rapport.regenere_at,
+                                    ).toLocaleDateString('fr-FR', {
+                                      timeZone: 'Europe/Paris',
+                                    })}`
+                                  : ''
+                              }`}
+                              className="inline-flex items-center text-savr-primary-600"
+                            >
+                              <ArrowClockwiseIcon className="h-3.5 w-3.5" />
+                            </span>
+                          )}
+                      </p>
+                      <Text variant="hint">
+                        {!documents?.rapport
+                          ? DOCUMENT_A_VENIR
+                          : !documents.rapport.disponible
+                            ? agSansExcedent
+                              ? 'En attente de génération'
+                              : `Disponible le ${new Date(
+                                  documents.rapport.disponible_a ?? '',
+                                ).toLocaleDateString('fr-FR', {
+                                  timeZone: 'Europe/Paris',
+                                })}`
+                            : documents.rapport.consulte_par_user_at
+                              ? `Téléchargé par le client le ${new Date(
+                                  documents.rapport.consulte_par_user_at,
+                                ).toLocaleDateString('fr-FR', {
+                                  timeZone: 'Europe/Paris',
+                                })}`
+                              : 'Disponible'}
+                      </Text>
+                    </div>
+                    {agSansExcedent ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={!documents?.rapport?.disponible}
+                          onClick={() =>
+                            documents?.rapport &&
+                            void handleDownload(
+                              `/api/v1/admin/rapports-rse/${encodeURIComponent(documents.rapport.id)}/download`,
+                            )
+                          }
+                        >
+                          <DownloadSimpleIcon />
+                          Télécharger
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!documents?.rapport}
+                          loading={regenerating === typeRapport}
+                          loadingText="Régénérer"
+                          onClick={() => void handleRegenerate(typeRapport)}
+                        >
+                          <ArrowClockwiseIcon />
+                          Régénérer
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        // Radar demandé : on attend les filtres de l'onglet (sans
+                        // eux, le rapport ne comparerait pas à ce qu'il affiche).
+                        disabled={
+                          !documents?.rapport?.disponible ||
+                          (avecRadar && choixRadarPossible && !radar.filtres)
+                        }
+                        loading={fabrication}
+                        loadingText="Préparation du PDF…"
+                        onClick={() => void telechargerRapportZd()}
+                      >
+                        <DownloadSimpleIcon />
+                        Télécharger
+                      </Button>
+                    )}
+                    {/* Version du rapport de recyclage : avec ou sans radar (ZD). */}
+                    {typeRapport === 'rapport-recyclage-zd' &&
+                      documents?.rapport?.disponible && (
+                        <div
+                          className="basis-full"
+                          data-testid="option-rapport-radar-admin"
+                        >
+                          <Label
+                            variant="choice"
+                            htmlFor="rapport-avec-radar-admin"
+                            className="flex items-center gap-2"
                           >
-                            <RotateCw className="h-3.5 w-3.5" />
-                          </span>
-                        )}
-                    </p>
-                    <Text variant="hint">
-                      {!documents?.rapport
-                        ? 'Non encore généré'
-                        : !documents.rapport.genere_at
-                          ? 'En attente de génération'
-                          : documents.rapport.consulte_par_user_at
-                            ? `Consulté le ${new Date(
-                                documents.rapport.consulte_par_user_at,
-                              ).toLocaleDateString('fr-FR', {
-                                timeZone: 'Europe/Paris',
-                              })}`
-                            : 'Disponible'}
-                    </Text>
+                            <Checkbox
+                              id="rapport-avec-radar-admin"
+                              checked={avecRadar}
+                              onCheckedChange={(v) => setAvecRadar(v === true)}
+                            />
+                            Inclure le radar de comparaison dans le rapport
+                          </Label>
+                          <Text variant="hint" className="mt-1">
+                            {choixRadarPossible
+                              ? 'Le radar du rapport reprend les filtres de comparaison réglés ci-dessus.'
+                              : 'Comparaison aux événements de même type et de même taille.'}
+                          </Text>
+                        </div>
+                      )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={!documents?.rapport?.genere_at}
-                    onClick={() =>
-                      documents?.rapport &&
-                      void handleDownload(
-                        `/api/v1/admin/rapports-rse/${encodeURIComponent(documents.rapport.id)}/download`,
-                      )
-                    }
-                  >
-                    <Download />
-                    Télécharger
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!documents?.rapport}
-                    loading={regenerating === 'rapport-recyclage-zd'}
-                    loadingText="Régénérer"
-                    onClick={() =>
-                      void handleRegenerate('rapport-recyclage-zd')
-                    }
-                  >
-                    <RotateCw />
-                    Régénérer
-                  </Button>
-                </div>
+                )}
 
                 {/* Bordereau ZD (ZD only) */}
                 {collecte.type === 'zero_dechet' && (
@@ -2345,7 +3379,7 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {documents?.bordereau
                           ? `Statut : ${documents.bordereau.statut}`
-                          : 'Non encore généré'}
+                          : DOCUMENT_A_VENIR}
                       </Text>
                     </div>
                     <Button
@@ -2359,7 +3393,7 @@ export function CollecteDetailPanel({
                         )
                       }
                     >
-                      <Download />
+                      <DownloadSimpleIcon />
                       Télécharger
                     </Button>
                     <Button
@@ -2370,18 +3404,18 @@ export function CollecteDetailPanel({
                       loadingText="Régénérer"
                       onClick={() => void handleRegenerate('bordereau-zd')}
                     >
-                      <RotateCw />
+                      <ArrowClockwiseIcon />
                       Régénérer
                     </Button>
                   </div>
                 )}
 
-                {/* Attestation de don (AG only) */}
-                {collecte.type === 'anti_gaspi' && (
+                {/* Rapport de don d'une collecte AG avec excédents = l'attestation de don */}
+                {collecte.type === 'anti_gaspi' && !agSansExcedent && (
                   <div className="flex items-center gap-3 py-3">
                     <div className="flex-1">
                       <p className="text-sm font-medium">
-                        Attestation de don
+                        Rapport de don
                         {documents?.attestation?.numero && (
                           <Text
                             as="span"
@@ -2395,7 +3429,7 @@ export function CollecteDetailPanel({
                       <Text variant="hint">
                         {documents?.attestation
                           ? `Statut : ${documents.attestation.statut}`
-                          : 'Non encore générée'}
+                          : DOCUMENT_A_VENIR}
                       </Text>
                     </div>
                     <Button
@@ -2409,7 +3443,7 @@ export function CollecteDetailPanel({
                         )
                       }
                     >
-                      <Download />
+                      <DownloadSimpleIcon />
                       Télécharger
                     </Button>
                     <Button
@@ -2420,7 +3454,7 @@ export function CollecteDetailPanel({
                       loadingText="Régénérer"
                       onClick={() => void handleRegenerate('attestation-don')}
                     >
-                      <RotateCw />
+                      <ArrowClockwiseIcon />
                       Régénérer
                     </Button>
                   </div>
@@ -2480,7 +3514,36 @@ export function CollecteDetailPanel({
                       Crédit annulé côté Savr
                     </Badge>
                   )}
+                  {collecte.rattachement_pack && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={!collecte.rattachement_pack.pack_actif}
+                      onClick={() => {
+                        setRattacherPackError(null);
+                        setRattacherPackModal(true);
+                      }}
+                    >
+                      Rattacher au pack
+                    </Button>
+                  )}
                 </div>
+                {collecte.rattachement_pack &&
+                  !collecte.rattachement_pack.pack_actif && (
+                    <Text variant="hint">
+                      {/* Une annulée n'est pas facturée automatiquement. */}
+                      {collecte.statut === 'annulee'
+                        ? "Aucun pack Anti-Gaspi actif pour ce client : rattachement possible dès qu'il en aura un."
+                        : "Aucun pack Anti-Gaspi actif pour ce client : la collecte reste facturée à l'unité."}
+                    </Text>
+                  )}
+                {factureNumerotee && (
+                  <AlertBar variant="warn">
+                    La facture unitaire de cette collecte est déjà numérotée
+                    (partie chez Pennylane, ou rejetée) : elle n&apos;a pas été
+                    retirée, émettez un avoir ou corrigez-la.
+                  </AlertBar>
+                )}
               </div>
 
               {/* Galerie photos + import */}
@@ -2489,17 +3552,31 @@ export function CollecteDetailPanel({
                   <Text variant="body" className="font-medium">
                     Photos ({documents?.photos?.length ?? 0})
                   </Text>
-                  <FileButton
-                    id="collecte-import-photo"
-                    variant="link"
-                    accept="image/png,image/jpeg,image/webp"
-                    loading={photoUploading}
-                    loadingText="Import…"
-                    onFile={(f) => void handleImportPhoto(f)}
-                    className="h-auto gap-1 px-0 font-normal sm:h-auto"
-                  >
-                    Importer des photos
-                  </FileButton>
+                  {/* A Toutes! : on choisit parmi les photos du livreur, plus
+                      d'import depuis l'ordinateur (décision Val 2026-11-03).
+                      Autres transporteurs : import depuis l'ordinateur. */}
+                  {collecte.prestataire_actuel?.type_tms === 'a_toutes' ? (
+                    <Button
+                      variant="link"
+                      onClick={() => setPhotosLivreurModal(true)}
+                      className="h-auto gap-1 px-0 font-normal sm:h-auto"
+                    >
+                      <UploadSimpleIcon aria-hidden="true" />
+                      Importer des photos
+                    </Button>
+                  ) : (
+                    <FileButton
+                      id="collecte-import-photo"
+                      variant="link"
+                      accept="image/png,image/jpeg,image/webp"
+                      loading={photoUploading}
+                      loadingText="Import…"
+                      onFile={(f) => void handleImportPhoto(f)}
+                      className="h-auto gap-1 px-0 font-normal sm:h-auto"
+                    >
+                      Importer des photos
+                    </FileButton>
+                  )}
                 </div>
                 {documents?.photos && documents.photos.length > 0 ? (
                   <>
@@ -2553,13 +3630,14 @@ export function CollecteDetailPanel({
                   />
                 )}
               </div>
-            </Card>
-          </TabsContent>
+            </div>
+          </FicheSection>
+        </TabsContent>
 
-          <TabsContent value="historique">
-            {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
-            <Card padding="md" className="space-y-4">
-              <SectionHeader icon={History} title="Historique & audit" />
+        <TabsContent value="historique" className="mt-0">
+          {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
+          <FicheSection titre="Historique & audit">
+            <div className="min-w-0 space-y-4">
               {audit.length === 0 ? (
                 <EmptyState
                   size="inline"
@@ -2605,16 +3683,37 @@ export function CollecteDetailPanel({
                   })}
                 </Timeline>
               )}
-            </Card>
-          </TabsContent>
-        </Tabs>
+            </div>
+          </FicheSection>
+        </TabsContent>
       </FicheCorps>
 
-      {/* Pied d'actions (cadre commun des fiches) — RM-08 forçage manuel du
-          statut (motif obligatoire). */}
-      <FichePied>
+      {/* Pied d'actions (cadre commun des fiches) — ajout d'une collecte à
+          l'événement (programmation de support, sur tout événement confirmé,
+          décision Val 2026-10-21 ; pas depuis un brouillon) et RM-08 forçage
+          manuel du statut (motif obligatoire). */}
+      <FichePied className="gap-3 border-savr-sable-200 px-5 py-4 sm:px-6 md:px-12">
+        {collecte.statut !== 'brouillon' && (
+          <Button
+            asChild
+            variant="sable"
+            size="pilule"
+            data-testid="action-ajouter-collecte"
+            // Libellé long : il passe à la ligne sur un téléphone au lieu de
+            // déborder du pied de la fiche.
+            className="max-sm:h-auto max-sm:min-h-11 max-sm:whitespace-normal max-sm:text-center"
+          >
+            <Link
+              href={ROUTES.programmer.ajouterCollecte(collecte.evenement_id)}
+            >
+              <PlusCircleIcon />
+              Ajouter une collecte à cet événement
+            </Link>
+          </Button>
+        )}
         <Button
-          variant="secondary"
+          variant="sable"
+          size="pilule"
           onClick={() => {
             // Statut courant pré-sélectionné, sauf s'il n'est pas proposé
             // (brouillon ouvert par son adresse) : aucun choix par défaut.
@@ -2626,7 +3725,7 @@ export function CollecteDetailPanel({
             setForceStatutModal(true);
           }}
         >
-          <Settings2 />
+          <SlidersHorizontalIcon />
           Forcer le statut
         </Button>
       </FichePied>
@@ -2661,6 +3760,106 @@ export function CollecteDetailPanel({
         </Text>
       </ConfirmDialog>
 
+      {/* Modale — Rattacher au pack (décision Val 2026-10-16) */}
+      <ConfirmDialog
+        open={rattacherPackModal}
+        title="Rattacher la collecte au pack"
+        confirmLabel="Rattacher"
+        cancelLabel="Retour"
+        variant="primary"
+        loading={rattacherPackSubmitting}
+        loadingText="Rattachement…"
+        error={rattacherPackError}
+        onConfirm={() => void handleRattacherPack()}
+        onCancel={() => setRattacherPackModal(false)}
+      >
+        {collecte.rattachement_pack?.pack_actif && (
+          <Text>
+            Un crédit du pack actif du client sera décompté :{' '}
+            <strong>
+              {libelleTypePack(collecte.rattachement_pack.pack_actif.type_pack)}
+            </strong>{' '}
+            — {collecte.rattachement_pack.pack_actif.credits_restants} crédit
+            {collecte.rattachement_pack.pack_actif.credits_restants !== 1
+              ? 's'
+              : ''}{' '}
+            restant
+            {collecte.rattachement_pack.pack_actif.credits_restants !== 1
+              ? 's'
+              : ''}
+            . Si la facture unitaire de la collecte est encore en brouillon sans
+            numéro, elle est retirée ; si elle est déjà numérotée (partie chez
+            Pennylane, ou rejetée), elle reste en place et il faudra émettre un
+            avoir ou la corriger.
+          </Text>
+        )}
+      </ConfirmDialog>
+
+      {/* Modale — Poids collecté AG (§06.09 §5) */}
+      <Modal
+        open={poidsModal}
+        title="Poids collecté"
+        onClose={() => setPoidsModal(false)}
+      >
+        {poidsError && (
+          <AlertBar variant="err" className="mb-4">
+            {poidsError}
+          </AlertBar>
+        )}
+        <form onSubmit={(e) => void handleSavePoids(e)} className="space-y-4">
+          <Text>
+            Le nombre de repas réalisés est calculé à partir de ce poids. Si ce
+            nombre change, le rapport de don déjà produit est refait et le CO₂e
+            évité recalculé.
+          </Text>
+          <FormField
+            label="Poids des denrées collectées (kg)"
+            htmlFor="poids-collecte-input"
+            required
+          >
+            <Input
+              id="poids-collecte-input"
+              type="number"
+              inputMode="decimal"
+              min={0.1}
+              step={0.1}
+              value={poidsValeur}
+              onChange={(e) => setPoidsValeur(e.target.value)}
+              required
+            />
+          </FormField>
+          {collecte.attributions_antgaspi?.poids_repas_kg != null && (
+            <FormField
+              label="Motif de la correction (≥ 10 caractères)"
+              htmlFor="poids-collecte-motif"
+              required
+            >
+              <Textarea
+                id="poids-collecte-motif"
+                value={poidsMotif}
+                onChange={(e) => setPoidsMotif(e.target.value)}
+                rows={3}
+                minLength={10}
+                required
+              />
+            </FormField>
+          )}
+          <FormActions
+            cancel={{ label: 'Retour', onClick: () => setPoidsModal(false) }}
+            submit={{
+              label: 'Enregistrer',
+              disabled:
+                !(Number(poidsValeur.replace(',', '.')) > 0) ||
+                (collecte.attributions_antgaspi?.poids_repas_kg != null &&
+                  poidsMotif.trim().length < 10),
+            }}
+            loading={poidsSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
+        </form>
+      </Modal>
+
       {/* Modale — Forcer le statut (RM-08) */}
       <Modal
         open={forceStatutModal}
@@ -2689,13 +3888,17 @@ export function CollecteDetailPanel({
               onChange={setForceStatutValue}
               required
               // Le forçage pose un statut DB : `programmee` s'affichera
-              // « Créée » ou « Programmée » selon que la demande est partie.
+              // « Créée » ou « Programmée » selon que la demande est partie ;
+              // `realisee` et `realisee_sans_collecte` s'affichent tous deux
+              // « Réalisée », le choix doit donc dire lequel on pose.
               options={STATUTS_FORCABLES.map((s) => ({
                 value: s,
                 label:
                   s === 'programmee'
                     ? `${statutCollecteDisplay('creee', 'admin').label} / ${statutCollecteDisplay('programmee', 'admin').label}`
-                    : statutCollecteDisplay(s, 'admin').label,
+                    : s === 'realisee_sans_collecte'
+                      ? `${statutCollecteDisplay(s, 'admin').label} — ${LIBELLE_SANS_EXCEDENT.toLowerCase()}`
+                      : statutCollecteDisplay(s, 'admin').label,
               }))}
             />
           </FormField>
@@ -2731,6 +3934,17 @@ export function CollecteDetailPanel({
       </Modal>
 
       {/* Modale — Acceptation manuelle mission Everest (§06.06 §3 Bloc 0) */}
+      <PhotosTransporteurModal
+        open={photosLivreurModal}
+        collecteId={collecteId}
+        onClose={() => setPhotosLivreurModal(false)}
+        onImported={async (message) => {
+          toast({ title: message });
+          await refetchDocuments();
+          await refetchAudit();
+        }}
+      />
+
       <Modal
         open={acceptationModal}
         title="Acceptation manuelle — A Toutes!"
@@ -2833,6 +4047,169 @@ export function CollecteDetailPanel({
         </form>
       </Modal>
 
+      {/* Modale — Modifier le nombre de pax (décision Val 2026-10-21) */}
+      <Modal
+        open={paxModal}
+        title="Modifier le nombre de pax"
+        onClose={() => setPaxModal(false)}
+      >
+        {paxError && (
+          <AlertBar variant="err" className="mb-4">
+            {paxError}
+          </AlertBar>
+        )}
+        <form onSubmit={(e) => void handleModifierPax(e)} className="space-y-4">
+          <Text>
+            Le nombre de pax de l&apos;événement est recalculé. Si une commande
+            existe déjà chez le transporteur, la modification lui est envoyée,
+            sauf pour une collecte réalisée, clôturée ou annulée. L&apos;action
+            est tracée dans l&apos;audit (motif obligatoire).
+          </Text>
+          <FormField label="Nombre de pax" htmlFor="pax-input" required>
+            <Input
+              id="pax-input"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={PAX_COLLECTE_MAX}
+              step={1}
+              value={paxValue}
+              onChange={(e) => setPaxValue(e.target.value)}
+              className="w-32"
+              required
+            />
+          </FormField>
+          <FormField
+            label="Motif (≥ 10 caractères)"
+            htmlFor="pax-motif"
+            required
+          >
+            <Textarea
+              id="pax-motif"
+              value={paxMotif}
+              onChange={(e) => setPaxMotif(e.target.value)}
+              rows={3}
+              minLength={10}
+              required
+            />
+          </FormField>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setPaxModal(false),
+            }}
+            submit={{
+              label: 'Enregistrer',
+              disabled:
+                !paxSaisiValide(paxValue) || paxMotif.trim().length < 10,
+            }}
+            loading={paxSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
+        </form>
+      </Modal>
+
+      {/* Modale — Type d'événement et contacts de la collecte (lot B1) */}
+      <Modal
+        open={infosModal}
+        title="Modifier le type d'événement et les contacts"
+        onClose={() => setInfosModal(false)}
+      >
+        {infosError && (
+          <AlertBar variant="err" className="mb-4">
+            {infosError}
+          </AlertBar>
+        )}
+        <form
+          onSubmit={(e) => void handleModifierInfos(e)}
+          className="space-y-4"
+        >
+          <Text>
+            Ces informations sont celles de cette collecte. Si une commande
+            existe déjà chez le transporteur, un changement de contact lui est
+            envoyé, sauf pour une collecte réalisée, clôturée ou annulée. Le
+            type d&apos;événement ne lui est pas transmis. L&apos;action est
+            tracée dans l&apos;audit.
+          </Text>
+          <FormField label="Type d'événement" htmlFor="infos-type" required>
+            <Combobox
+              id="infos-type"
+              icon={null}
+              placeholder="Choisir un type"
+              searchPlaceholder="Rechercher un type…"
+              options={
+                typesEvenement.length === 0 && infosType
+                  ? [
+                      {
+                        value: infosType,
+                        label: collecte?.type_evenement?.libelle ?? '—',
+                      },
+                    ]
+                  : typesEvenement.map((t) => ({
+                      value: t.id,
+                      label: t.libelle,
+                    }))
+              }
+              value={infosType}
+              onChange={setInfosType}
+            />
+          </FormField>
+          <FormGrid>
+            <FormField
+              label="Contact principal"
+              htmlFor="infos-cp-nom"
+              required
+            >
+              <Input
+                id="infos-cp-nom"
+                value={infosCpNom}
+                onChange={(e) => setInfosCpNom(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="Téléphone" htmlFor="infos-cp-tel" required>
+              <Input
+                id="infos-cp-tel"
+                value={infosCpTel}
+                onChange={(e) => setInfosCpTel(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="Contact de secours" htmlFor="infos-cs-nom">
+              <Input
+                id="infos-cs-nom"
+                value={infosCsNom}
+                onChange={(e) => setInfosCsNom(e.target.value)}
+              />
+            </FormField>
+            <FormField label="Téléphone de secours" htmlFor="infos-cs-tel">
+              <Input
+                id="infos-cs-tel"
+                value={infosCsTel}
+                onChange={(e) => setInfosCsTel(e.target.value)}
+              />
+            </FormField>
+          </FormGrid>
+          <FormActions
+            cancel={{
+              label: 'Retour',
+              onClick: () => setInfosModal(false),
+            }}
+            submit={{
+              label: 'Enregistrer',
+              disabled:
+                infosCpNom.trim() === '' ||
+                infosCpTel.trim() === '' ||
+                infosType === '',
+            }}
+            loading={infosSubmitting}
+            loadingText="Enregistrement…"
+            bordered
+          />
+        </form>
+      </Modal>
+
       {/* Modale — Modifier N camions (multi-camions MTS-1, RM-02) */}
       <Modal
         open={nbCamionsModal}
@@ -2886,6 +4263,9 @@ export function CollecteDetailPanel({
           />
         </form>
       </Modal>
-    </div>
+    </Tabs>
   );
 }
+
+// Onglets de la variante B : soulignés en bleu nuit, plus espacés. Quatre
+// onglets Admin : soulignés aussi sur téléphone (la barre défile).

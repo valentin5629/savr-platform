@@ -68,12 +68,14 @@ function makeSupabase(opts: MockOpts) {
       opts.prestataireLogistiqueId === undefined
         ? PRESTA_ID
         : opts.prestataireLogistiqueId,
+    contacts: {
+      contact_principal_nom: 'Alice',
+      contact_principal_telephone: '+33600000001',
+      contact_secours_nom: null,
+      contact_secours_telephone: null,
+    },
     evenement: [
       {
-        contact_principal_nom: 'Alice',
-        contact_principal_telephone: '+33600000001',
-        contact_secours_nom: null,
-        contact_secours_telephone: null,
         lieux: [
           {
             id: 'lieu-001',

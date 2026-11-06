@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, createSupabaseServerClient } from '@/lib/api-auth.js';
 import { loadKpiTraiteur, LoaderError } from '@/lib/dashboards/loaders.js';
+import { lireFiltresGlobaux } from '@/lib/dashboards/kpi-collectes.js';
 
 /**
  * GET /api/v1/dashboards/kpi-traiteur — Bloc 1 (KPIs) + N-1 + facteurs/méthode CO₂.
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       to: searchParams.get('to'),
       type: searchParams.get('type'),
       compare: searchParams.get('compare'),
+      filtres: lireFiltresGlobaux(searchParams),
     });
     return NextResponse.json(result, {
       headers: { 'Cache-Control': 'private, max-age=60' },

@@ -8,7 +8,7 @@
     "G5": "Aucune FK vers tms.* — tournees.external_ref_commande / tms_reference (neutre TMS-Ready)"
   },
   "scenarios": [
-    "photo téléchargée → upload R2 + ligne shared.fichiers (bucket collectes)",
+    "photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement)",
     "upload R2 KO → aucune ligne shared.fichiers (pas d'orpheline)"
   ],
   "deliverables": [
@@ -24,17 +24,17 @@
       "id": "M1.5b-sync-nominal",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "M1.5b-1 / poll nominal VALIDATED → statut_tms=\"acceptee\", pesées upsertées, photo uploadée",
+      "test": "M1.5b-1 / poll nominal, tournée acceptée par le transporteur → statut_tms=\"acceptee\", pesées upsertées, photo uploadée",
       "statut": "implemented",
-      "libelle": "sync nominal : customerOrderStatus → statut_tms + upsert pesées (pesees_tournees) + photos"
+      "libelle": "sync nominal : refus de la commande et attribution de sa tournée → statut_tms (cf. M1.5b-acceptee-transporteur) + upsert pesées (pesees_tournees, lues sur l'arrêt d'enlèvement de la commande) + photos (lues dans le détail du tour). La preuve sur la forme réelle du fil est portée par le livrable M1.5b-pesees-photos-forme-reelle."
     },
     {
       "id": "M1.5b-dedup-inbox",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "M1.5b-2 / même ordre même statut → claim inbox retourne rien → skip complet",
+      "test": "M1.5b-2 / même ordre même statut → statut non rejoué, tour relu quand même",
       "statut": "implemented",
-      "libelle": "idempotence entrante : dédup via integrations_inbox (claim ON CONFLICT DO NOTHING)"
+      "libelle": "idempotence entrante : un statut de commande déjà traité (clé integrations_inbox) n'est pas rejoué ; le tour, lui, est relu à chaque passage"
     },
     {
       "id": "M1.5b-en-cours",
@@ -72,17 +72,25 @@
       "id": "M1.5b-photo-404",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "M1.5b-7 / photo 404 → log PHOTO_DOWNLOAD_FAILED, poll continue (pas d'exception)",
+      "test": "M1.5b-7 / photo absente → log PHOTO_DOWNLOAD_FAILED, poll continue (pas d'exception)",
       "statut": "implemented",
-      "libelle": "photo 404 → log non bloquant, retentée au poll suivant (pas d'orpheline)"
+      "libelle": "photo absente (corps vide rendu par MTS-1, ou 404) → log non bloquant, retentée au passage suivant (pas d'orpheline) ; pas d'alerte « photo manquante » pour l'instant (décision Val 2026-10-14 : l'équipe Savr vérifie à la main)"
     },
     {
       "id": "M1.5b-photo-entity-type",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:796",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:808",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule + collectes-documents-photos.m0-6.test.ts « photo remontée par le transporteur listée avec les imports manuels »",
       "statut": "implemented",
       "libelle": "photo MTS-1 rangée dans shared.fichiers sous entity_type='plateforme.collectes' (table propriétaire, liste C1 des 9 entity_type) : même valeur que l'import manuel Admin, lue par la galerie de la fiche collecte Admin et par shared.f_fichier_visible ; dédup inchangée (clé de stockage seule)"
+    },
+    {
+      "id": "M1.5b-photo-cle-opaque",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:518",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (clePhoto)",
+      "test": "M1.5b-photo-cle-opaque / la clé ne porte aucun identifiant du transporteur + photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement) + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule",
+      "statut": "implemented",
+      "libelle": "Photo remontée par le transporteur stockée dans le bucket de l'environnement sous photos/collectes/<collecteId>/<sha256(tourId, stopId, photoId)>.jpg (décisions Val 2026-10-07 — _Divergences/M1.6_20261007_stockage-r2-par-environnement.md ; le CDC §08 §3bis.7 l.504 fixe la clé de dédup (tourId, stopId, photoId) mais ni le bucket ni la forme de la clé de stockage). La clé ne montre plus les identifiants de tournée, d'arrêt et de photo du logiciel du transporteur aux clients qui lisent la ligne shared.fichiers (§09 C1) ; elle est déterministe (la dédup cherche la clé) et ne porte que le triplet, lu dans l'adresse de la photo : l'hôte et le début du chemin peuvent changer sans que la clé change. L'ancien bucket codé en dur `collectes` n'existait pas chez Cloudflare (404 mesuré le 2026-10-07)."
     },
     {
       "id": "M1.5b-ordre-sans-tournee",
@@ -110,24 +118,124 @@
     },
     {
       "id": "BL-P1-OUTBOX-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:487",
-      "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "claim entrant atomique : conflit concurrent → skip (upsert ignoreDuplicates) ; erreur ≠23505 propagée [adapter.m1-5b.test.ts]",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:501",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (reserverStatut)",
+      "test": "M1.5b/releve_reservation_statut_insert + clé déjà posée (23505) et statut traité → statut non rejoué + clé déjà posée (23505) mais statut NON traité (crash-recovery A4-A2) → REJOUE + erreur DB ≠ 23505 sur le claim → propagée + M1.5b/releve_base_reservation_doublon + M1.5b/releve_base_on_conflict_refuse",
       "statut": "implemented",
-      "libelle": "claim integrations_inbox via upsert ON CONFLICT (source,event_id_externe) DO NOTHING (ignoreDuplicates) + propagation des erreurs ≠23505 — plus de check-then-act .insert() ni de 23505 avalée masquant un échec"
+      "libelle": "Réservation atomique du statut d'une commande dans integrations_inbox par INSERT nu : l'index unique arbitre (un seul de deux passages concurrents insère, l'autre reçoit 23505), toute autre erreur remonte. Remplace l'upsert ON CONFLICT (source, event_id_externe) : l'index est partiel et PostgreSQL ne l'infère pas sans son prédicat (42P10 mesuré le 2026-10-13 sur la base locale, en SQL et par l'API) — écrite ainsi, la réservation échouait pour chaque commande sur une base réelle et rien n'était relevé, ce que la base simulée des tests ne montrait pas. Preuve sur une vraie base : supabase/tests/releve_mts1_ecritures_base.test.sql."
     },
     {
       "id": "BL-P1-API-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:321",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:319",
       "artefact": "packages/adapters/src/mts1/client.ts, packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque_immatriculation + chauffeur_nom [adapter.m1-5b.test.ts]",
       "statut": "implemented",
       "libelle": "MTS-1 résolution plaque/chauffeur (as-built §6) : getCarrier() (GET /v3/carrier, cache instance) + processTourDetails matche vehicleShareableCode→numberPlate et transporterUserShareableCode→firstname+lastname → peuple tournees.plaque_immatriculation/chauffeur_nom/plaque_saisie_at (idempotent ; téléphone non exposé par l'API → NULL)."
+    },
+    {
+      "id": "M1.5b-photo-aucun-repas-lecture-equipe-savr",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:808",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/M1.5_20261007_photo-aucun-repas-visibilite.md",
+      "libelle": "Photo du lieu « aucun repas » (`collectes.aucun_repas_photo_url`) réservée à l'équipe Savr : un rôle client ne doit pas la lire, `admin_savr` et `ops_savr` la lisent (arbitrage Val 2026-10-07, scénario 09 `photo_aucun_repas_lecture_equipe_savr_seule`). NON LIVRÉ au sync du 2026-10-09 : la colonne reste lisible par `authenticated` sur `plateforme.collectes` et par la vue `v_collectes_gestionnaire_lieux`. Lot de fermeture à livrer (liste blanche de colonnes ; fermeture d'accès, donc GO reviewer-rls-securite et preuve pgTAP par rôle)."
+    },
+    {
+      "id": "M1.5b-releve-recherche-forme-reelle",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:498",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (sync : fenêtre du cron convertie en jours comptés à Paris ; processOrder : customerOrderId et customerOrderStatus ; processTourDetails : réponse de tour sans stops tolérée), packages/adapters/src/mts1/client.ts (getCarrier : tableau nu)",
+      "test": "M1.5b/releve_fenetre_en_jours_paris + M1.5b/releve_fil_statut_relaye + M1.5b/releve_fil_recherche_en_echec + M1.5b/releve_tour_sans_arrets + M1.5b/releve_fil_referentiel_transporteurs + M1.5b/releve_fil_referentiel_forme",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_mts1-recherche-commandes-contrat-mesure.md",
+      "libelle": "Relève entrante : remontée des STATUTS alignée sur le contrat mesuré le 2026-10-13, pour les commandes que la fenêtre du cron demande (fenêtre : livrable M1.5b-releve-fenetre-trois-jours). La recherche part en jours yyyy-MM-dd comptés à Paris (les instants ISO répondaient 500 à chaque passage), la réponse est lue comme un tableau nu, la commande par customerOrderId / customerOrderStatus (lus sous id / status, la clé de dédup valait la même chose pour toutes les commandes), GET /v3/carrier comme un tableau nu (lu sous { carriers }, la résolution de la plaque levait avant le statut terminal), et la réponse sans stops que rend MTS-1 pour un tour qu'il ne connaît pas ne bloque plus le statut terminal de la commande."
+    },
+    {
+      "id": "M1.5b-pesees-photos-forme-reelle",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:499",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (arretEnlevement, identifiantPhoto, processTourDetails, relevePesees, processPhotos), packages/adapters/src/mts1/client.ts (downloadPhoto ; getPhotos retiré), packages/adapters/src/mts1/mock.ts (Mts1Tour, Mts1TourStop, Mts1StopStuff, Mts1StopPhoto), fixtures/api/mts1/tours_*.json et pesees_photos.json",
+      "test": "M1.5b/releve_fil_pesees_enlevement_seul + M1.5b/releve_fil_depot_avant_enlevement + M1.5b/releve_fil_don_alimentaire_ignore + M1.5b/releve_fil_flux_repete + M1.5b/releve_fil_poids_absent_ou_nul + M1.5b/releve_fil_deux_commandes_meme_tour + M1.5b/releve_tour_enregistre_a_defaut + M1.5b/releve_pesee_non_ecrite + M1.5b/releve_fil_photos_detail_du_tour + M1.5b/releve_fil_photo_absente_ou_illisible + M1.5b/releve_fil_photo_autre_commande + M1.5b/releve_photo_adresse_inattendue + M1.5b/releve_photos_apres_fin_de_mission + M1.5b/releve_fil_photo_arret_commun + M1.5b/releve_fil_photo_dedup_en_echec + M1.5b/releve_fil_photo_enregistrement_en_echec + M1.5b/releve_fil_entrees_vides + M1.5b/photo_fil_cle_et_base64 + M1.5b/photo_fil_binaire + M1.5b/photo_fil_absente + M1.5b/photo_fil_corps_lent + M1.5b/photo_fil_plafond + M1.5b/photo_fil_illisible + M1.5b/photo_fil_refus + M1.5b/photo_fil_hors_connecteur + M1.5b/photo_fil_erreur_sans_cle + M1.5b/releve_base_upsert_pesee + M1.5b/releve_base_explain_voit_42p10",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261014_mts1-releve-pesees-photos-livree.md",
+      "libelle": "Pesées et photos lues sur la forme réelle du détail d'un tour (mesurée le 2026-10-13 sur le compte de démonstration ; le compte de production n'a pas été interrogé). Pesées : stops[].stuffs[].quantityAfterPickup, sur l'arrêt d'enlèvement (stopType CUSTOMER_ORDER) qui nomme la commande, et lui seul — les stuffs sont répétés sur l'arrêt de dépôt, et un tour peut porter plusieurs commandes (décision Val 2026-10-13 ; champ mesuré sur un seul tour de déchets terminé, non recoupé avec Bubble). Une valeur absente ou à 0 n'écrit aucune pesée (décision Val 2026-10-13). Le tour lu est celui que la commande désigne (currentTour.tourId), à défaut celui de l'envoi. Photos : stops[].photos[].downloadUrl des arrêts qui ne servent que la commande, enlèvement et dépôt (un dépôt commun à plusieurs commandes est écarté), relevées en dernier, à chaque passage, après le traitement de la fin de mission ; identifiant = dernier segment de l'adresse, qui doit avoir la forme mesurée ; téléchargement avec la clé d'API, vers le seul connecteur, lecture bornée à 30 s et 15 Mo, et décodage du corps (le JPEG écrit en base64) ; une recherche de doublon en échec ne télécharge rien, un enregistrement en échec est tracé ; corps vide = photo absente, retentée. La route GET /v3/tours/{id}/photos, qui n'existe pas, n'est plus appelée. Le don d'une collecte AG n'est ni une pesée ni un stuff inconnu (§06.09). L'upsert des pesées n'est prouvé sur une vraie base que par l'inférence de sa contrainte (EXPLAIN, pgTAP) : aucune pesée n'a été écrite sur une vraie base."
+    },
+    {
+      "id": "M1.5b-releve-tour-chaque-passage",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:503",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (processOrder étape 4, relevePesees, premiereFois, agregerCollecte)",
+      "test": "M1.5b/releve_tour_relu_a_chaque_passage + M1.5b/releve_pesee_hors_seuil_une_fois + M1.5b/releve_pesee_corrigee_avant_cloture + M1.5b/releve_divergence_post_cloture_une_fois + M1.5b-2 / même ordre même statut → statut non rejoué, tour relu quand même",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261014_mts1-releve-pesees-photos-livree.md",
+      "libelle": "Le détail du tour est relu à chaque passage de la relève, que le statut de la commande ait changé ou non (§08 §3bis.7, décision Val 2026-10-13) : une pesée nouvelle ou corrigée écrase la précédente tant que la collecte n'est pas clôturée, une pesée inchangée n'écrit rien et ne lève aucune alerte. Sur une collecte réalisée, une pesée modifiée fait recalculer les poids de la collecte (agrégation). Sur une collecte clôturée, rien n'est écrit et la divergence (poids distant différent du poids local, ou sans poids local) est signalée une fois par valeur, par une trace et une alerte."
+    },
+    {
+      "id": "M1.5b-releve-fin-de-mission-arret",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:466",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (processOrder étape 5, processTourDetails)",
+      "test": "M1.5b/releve_fin_de_mission_sur_arret + M1.5b/releve_fin_sur_arret_bornee + M1.5b/releve_fin_par_statut_inchangee + M1.5b/releve_fin_par_statut_partial + M1.5b/releve_refus_deja_traite + M1.5b/releve_tournee_non_ecrite",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261014_mts1-releve-pesees-photos-livree.md",
+      "libelle": "Fin de mission d'un camion (décision Val 2026-10-13) : la tournée passe « terminée » et la collecte est agrégée quand la commande est OK ou PARTIAL (inchangé), ou quand son arrêt d'enlèvement porte customerOrderProgressionStatus = FINISHED, quel que soit son statut — mesuré sur les 3 tours terminés du compte de démonstration : commande OK une fois, VALIDATED une fois, ARCHIVED une fois. La fin lue sur l'arrêt ne joue que pour une collecte en cours d'exécution et ne recouvre jamais un refus (CANCELED, KO)."
+    },
+    {
+      "id": "M1.5b-releve-fenetre-trois-jours",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:494",
+      "artefact": "packages/plateforme/src/app/api/cron/polling-mts1/route.ts",
+      "test": "M1.5b/releve_fenetre_trois_jours + M1.5b/releve_une_fois_par_compte",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261014_mts1-releve-pesees-photos-livree.md",
+      "libelle": "Fenêtre de la relève : de maintenant − 3 jours à maintenant + 48 h (décision Val 2026-10-13 ; 2 h de recul avant). La recherche MTS-1 comparant des jours entiers, une commande du jour J n'était plus demandée après 2 h du matin à J+1. Une relève par type de prestataire et par passage, non une par transporteur : MTS-1 est un seul compte."
+    },
+    {
+      "id": "M1.5b-notifications-mts1-enregistrement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:358",
+      "artefact": "packages/plateforme/src/app/api/webhooks/mts1/[[...chemin]]/route.ts (POST : jeton partagé MTS1_WEBHOOK_TOKEN comparé en temps constant, en-tête X-Mts1-Webhook-Token ou Authorization ; refus de tout sans jeton configuré, chaque refus journalisé sans le jeton ; enregistrement dans integrations_inbox sous source 'mts1_notification', type lu dans le chemin, empreinte chemin + contenu ; aucune autre table touchée)",
+      "test": "M1.5b/notifications_mts1_non_configurees + M1.5b/notifications_mts1_jeton_refuse + M1.5b/notifications_mts1_enregistree + M1.5b/notifications_mts1_sans_effet_metier + M1.5b/notifications_mts1_rejeu + M1.5b/notifications_mts1_taille + M1.5b/notifications_mts1_structure",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_notifications-mts1-et-sens-acceptee.md",
+      "libelle": "Notifications MTS-1, étape 1 (décisions Val 2026-10-12, C7 voie A, et 2026-10-13) : la Plateforme expose un point d'entrée qui ENREGISTRE les notifications poussées par MTS-1, sans aucun effet sur les collectes ni les tournées, pour mesurer leur contenu réel sur le compte de démonstration avant d'écrire le traitement. Inerte tant que le jeton n'est pas posé. Remplace, pour cette étape, la décision du 2026-06-05 « pas de webhook entrant en V1 »."
+    },
+    {
+      "id": "M1.5b-acceptee-transporteur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:472",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (MTS1_STATUS_TO_TMS : le statut de la commande ne vaut plus acceptation ; NIVEAU_ATTRIBUTION, suivreAttribution, niveauAttribution, niveauDesCamions, noterAttribution)",
+      "test": "M1.5b/attribution_tournee_proposee + M1.5b/attribution_tournee_acceptee + M1.5b/attribution_commande_validee_tournee_proposee + M1.5b/attribution_a_attribuer + M1.5b/attribution_etat_inconnu + M1.5b/attribution_garde + M1.5b/attribution_reacceptation_requise + M1.5b/attribution_commande_deplacee + M1.5b/attribution_multi_camions_un_seul_accepte + M1.5b/attribution_multi_camions_tous_acceptes + M1.5b/attribution_multi_camions_un_hors_tournee + M1.5b/attribution_multi_camions_mission_finie + M1.5b/attribution_hors_garde_non_notee + M1.5b/collecte_hors_mts1",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261013_notifications-mts1-et-sens-acceptee.md",
+      "libelle": "« Acceptée » = le transporteur a accepté la tournée (décision Val 2026-10-13, conforme au §08 §3bis.6). La relève lit l'attribution sur la tournée que désigne la commande (currentTour.tourId) : aucune tournée ou TO_BE_DISPATCHED → a_attribuer, PROPOSED → attribuee_en_attente_acceptation, ACCEPTED ou COMPLETED → acceptee ; toute autre valeur → rien de conclu, trace unique. Une commande VALIDATED ne vaut plus acceptation. Une collecte à plusieurs camions n'est acceptée que quand tous le sont, les autres camions étant relus chez MTS-1 (décision Val 2026-10-15, C47). Écrite au changement d'état seulement (dernier état par commande dans integrations_inbox) : une réacceptation requise (§08) tient tant que MTS-1 ne montre rien de nouveau. Seulement sur une collecte programmée ou validée, encore confiée à un transporteur MTS-1, depuis un statut de l'attribution ; hors de ces gardes, rien n'est écrit ni noté. Livré par la relève ; le traitement des notifications (étape 2) appliquera la même lecture."
+    },
+    {
+      "id": "M1.5b-transporteur-suivi-console",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md:46",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (suivreTransporteur ; findTourneeByOrderId rend le rang, le transporteur de la tournée et celui de la collecte)",
+      "test": "M1.5b/transporteur_suivi + M1.5b/transporteur_suivi_rang_2 + M1.5b/transporteur_inconnu + M1.5b/transporteur_code_partage + M1.5b/transporteur_hors_mts1 + M1.5b/transporteur_hors_execution + M1.5b/transporteur_tournee_non_envoyee + M1.5b/collecte_hors_mts1",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M1.5_20261015_mts1-commande-seule-tournees-admin.md",
+      "libelle": "Transporteur choisi par l'Admin dans la console MTS-1 (décision Val 2026-10-15, C46 : la plateforme suit MTS-1) : dispatch.carrierShareableCode de la tournée, rapproché de transporteurs.code_transporteur_mts1 parmi les transporteurs MTS-1, est reporté sur la ligne tournees du camion et, pour le rang 1, sur la collecte (collecte en cours d'exécution et encore confiée à un transporteur MTS-1 seulement : une collecte confiée depuis par mail ou à A Toutes! n'est jamais ramenée chez MTS-1). Code illisible, inconnu ou porté par plusieurs transporteurs : rien n'est changé, alerte Admin transporteur_mts1_inconnu. Tournée pas encore envoyée : rien à faire."
+    },
+    {
+      "id": "M1.5b-acceptation-commande-demarree",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:472",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/SYNC_20261020_patches-non-appliques.md",
+      "libelle": "Acceptation déduite du démarrage de la commande : le §08 §3bis.6 dit que `customerOrderProgressionStatus = STARTED` (la tournée a démarré) vaut aussi acceptation. Non codé : la relève (NIVEAU_ATTRIBUTION de packages/adapters/src/mts1/adapter.ts, PR #574) ne conclut l'acceptation que du statut de dispatch de la tournée (ACCEPTED, COMPLETED) ; seules les valeurs NOT_STARTED et FINISHED de la progression ont été mesurées. Question posée à Val au sync du 2026-10-20 : coder la règle, ou la retirer du CDC."
+    },
+    {
+      "id": "M1.5b-notifications-mts1-traitement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:358",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/M1.5_20261013_notifications-mts1-et-sens-acceptee.md",
+      "libelle": "Notifications MTS-1, étape 2 (décision Val 2026-10-12, voie A ; §08 §3bis.3 « Entrant ») : la notification est un signal, l'état est relu chez MTS-1 avant toute écriture. Non codée : seule l'étape 1 (enregistrement sans effet métier, M1.5b-notifications-mts1-enregistrement) est livrée ; la relève de 15 min reste le seul chemin qui modifie les collectes."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "81b4328dfe14fa1e73ab8c37697f0222d02d73b73b74dfb6584e3f2fb0bd0518",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "7be7044a89db52c4d5322d9d1301dc883ec705ec64c0c45fca6da863f725d6c7",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9b2486cfd6af6c76f1c910f89640bdb2fa64fdd1a620b476bc515f3d8f6e5863"
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "1feba8e10b9a8c5d7065cfb3ab584be8c33e9913a4ea64f5558ac66344373597",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "61267fa23e3119d403e0fcd711c943f4f192f83091a81dbe945d86f392ee4594",
+    "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md": "760800aa1c0b318f4322548e88712312a10ea71a854be1c9363a43e657438e7d"
   }
 }

@@ -41,7 +41,7 @@ BEGIN PERFORM set_config('role', 'postgres', true); PERFORM set_config('request.
 
 -- Requêtes EXACTES des chemins applicatifs (fiche + route download)
 CREATE OR REPLACE FUNCTION q_att(p uuid) RETURNS int LANGUAGE sql AS $$
-  SELECT count(*)::int FROM (SELECT id, eligible_at, pdf_url FROM plateforme.attestations_don WHERE collecte_id = p ORDER BY version DESC LIMIT 1) s $$;
+  SELECT count(*)::int FROM (SELECT id, numero, eligible_at, pdf_url FROM plateforme.attestations_don WHERE collecte_id = p ORDER BY version DESC LIMIT 1) s $$;
 CREATE OR REPLACE FUNCTION q_rr(p uuid) RETURNS int LANGUAGE sql AS $$
   SELECT count(*)::int FROM (SELECT id, disponible_a, genere_at, regenere_at, pdf_url FROM plateforme.rapports_rse WHERE collecte_id = p ORDER BY version DESC LIMIT 1) s $$;
 CREATE OR REPLACE FUNCTION q_col(p uuid) RETURNS int LANGUAGE sql AS $$

@@ -61,10 +61,8 @@ export * from '@/components/ui/heading';
 export * from '@/components/ui/info-item';
 export * from '@/components/ui/list-footer';
 export * from '@/components/ui/loading-state';
-export * from '@/components/ui/page-header';
 export * from '@/components/ui/radio-group';
 export * from '@/components/ui/section-header';
-export * from '@/components/ui/sparkline';
 export * from '@/components/ui/text';
 export * from '@/components/ui/text-link';
 export * from '@/components/ui/toggle-chip';
@@ -73,10 +71,10 @@ export * from '@/components/ui/type-collecte-badge';
 export { SavrLogoMark } from '@/components/layout/savr-logo';
 export { ChartCard } from '@/components/dashboards/charts/cockpit/ChartCard';
 export { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList';
-export { ContactLigne, TelephoneLien } from '@/components/collecte/fiche-blocs';
+export { TelephoneLien } from '@/components/collecte/fiche-blocs';
 export { ToggleTypeCollecte } from '@/components/collecte/toggle-type-collecte';
-export { CollecteStatutFrise } from '@/components/admin/collecte-statut-frise';
-export { FriseStatutClient } from '@/components/collecte/frise-statut-client';
+export { CollecteStatutPastille } from '@/components/admin/collecte-statut-pastille';
+export { StatutCollecteClient } from '@/components/collecte/statut-collecte-client';
 export { FriseEtapes } from '@/components/collecte/frise-etapes';
 export { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 export { AuthCard, AuthPage } from '@/components/auth/auth-card';
@@ -84,37 +82,5 @@ export { EmptyDashboardState } from '@/components/dashboards/EmptyDashboardState
 export { DashboardFilterBar } from '@/components/dashboards/DashboardFilterBar';
 export { ParcMultiSelects } from '@/components/dashboards/ParcMultiSelects';
 export { cn } from '@/lib/utils';
-// Icônes lucide utilisées par les aperçus (sous-ensemble : la bibliothèque entière pèserait ~1,5 Mo).
-export {
-  AlertTriangle,
-  ArrowRight,
-  Building2,
-  Calendar as CalendarIcon,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Download,
-  Filter,
-  HandHeart,
-  Inbox,
-  Info,
-  Leaf,
-  Loader2,
-  Mail,
-  MapPin,
-  MoreHorizontal,
-  Package,
-  Pencil,
-  Phone,
-  Plus,
-  Recycle,
-  Scale,
-  Search,
-  Settings,
-  Trash2,
-  Truck,
-  User,
-  UtensilsCrossed,
-  X,
-} from 'lucide-react';
+// Icônes de la plateforme (famille unique Phosphor, ~95 icônes : components/ui/icones).
+export * from '@/components/ui/icones';

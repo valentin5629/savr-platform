@@ -34,7 +34,7 @@ export interface SectionCgu {
 }
 
 /** Version du texte ci-dessous. Doit rester égale à `CGU_VERSION_COURANTE`. */
-export const CGU_TEXTE_VERSION = 'v1';
+export const CGU_TEXTE_VERSION = 'v2';
 
 export const CGU_SECTIONS: SectionCgu[] = [
   {
@@ -513,7 +513,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Collecte et tri', gras: true },
           {
             texte:
-              " : SAVR ou son Prestataire se présente sur le Point de Collecte à l'heure convenue pour collecter les Déchets préalablement triés par flux (verre, carton, biodéchets, emballages, déchet résiduel) et les peser. La pesée est effectuée par flux, au moyen d'une balance de terrain. Les résultats de pesée sont transmis à la Plateforme via le TMS Savr.",
+              " : SAVR ou son Prestataire se présente sur le Point de Collecte à l'heure convenue pour collecter les Déchets préalablement triés par flux (verre, carton, biodéchets, emballages, déchet résiduel) et les peser. La pesée est effectuée par flux, au moyen d'une balance de terrain. Les résultats de pesée sont transmis à la Plateforme par le Prestataire.",
             gras: false,
           },
         ],
@@ -535,7 +535,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Documents réglementaires', gras: true },
           {
             texte:
-              " : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte (batch quotidien), sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.",
+              " : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.",
             gras: false,
           },
         ],
@@ -561,7 +561,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Enlèvement et acheminement', gras: true },
           {
             texte:
-              " : SAVR ou son Prestataire se présente sur le Point de Collecte pour retirer les Excédents déclarés par le Client, dans un délai n'excédant pas 30 minutes après l'heure prévue de la Collecte, et les livre à l'Association sélectionnée dans des conditions permettant le respect de la chaîne du froid.",
+              " : SAVR ou son Prestataire se présente sur le Point de Collecte pour retirer les Excédents déclarés par le Client, en s'efforçant d'y être au plus tard 30 minutes après l'heure prévue de la Collecte, et les livre à l'Association sélectionnée dans des conditions permettant le respect de la chaîne du froid.",
             gras: false,
           },
         ],
@@ -769,17 +769,6 @@ export const CGU_SECTIONS: SectionCgu[] = [
           },
         ],
       },
-      {
-        type: 'p',
-        segments: [
-          { texte: '6.6. Propriété intellectuelle.', gras: true },
-          {
-            texte:
-              " Le Client s'engage à respecter les droits de propriété intellectuelle de SAVR sur la Plateforme, l'Espace Client et l'Algorithme. Aucune disposition du Contrat ne saurait être interprétée comme une cession de ces droits.",
-            gras: false,
-          },
-        ],
-      },
     ],
   },
   {
@@ -791,12 +780,13 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Délai.', gras: true },
           { texte: " Le Client dispose d'un délai de ", gras: false },
           {
-            texte: '48 heures à compter de la réception du Rapport RSE',
+            texte:
+              '48 heures à compter de la mise à disposition du document de la Collecte (Bordereau, Rapport RSE ou Rapport de don) dans son Espace Client',
             gras: true,
           },
           {
             texte:
-              ' pour contester une pesée depuis son Espace Client. Passé ce délai, la pesée est réputée acceptée définitivement.',
+              " pour contester une pesée, par email à l'adresse louis@gosavr.io. Passé ce délai, la pesée est réputée acceptée définitivement.",
             gras: false,
           },
         ],
@@ -815,7 +805,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
         type: 'p',
         segments: [
           {
-            texte: '1. La collecte passe au statut « en réexamen ».',
+            texte: '1. SAVR instruit la contestation avec le Prestataire.',
             gras: false,
           },
         ],
@@ -825,7 +815,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
         segments: [
           {
             texte:
-              "2. L'Admin Savr instruit la contestation avec le Prestataire logistique.",
+              "2. En cas de correction validée : SAVR corrige la pesée, les documents de la Collecte (Bordereau, Rapport RSE, Rapport de don) sont régénérés, et si une facture a déjà été émise, un avoir est émis suivi d'une nouvelle facture rectificative.",
             gras: false,
           },
         ],
@@ -835,17 +825,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
         segments: [
           {
             texte:
-              "3. En cas de correction validée : le Bordereau est régénéré (version incrémentée, ancien PDF archivé), le Rapport RSE est mis à jour, et si une facture a déjà été émise, un avoir est émis suivi d'une nouvelle facture rectificative.",
-            gras: false,
-          },
-        ],
-      },
-      {
-        type: 'p',
-        segments: [
-          {
-            texte:
-              '4. En cas de rejet de la contestation : le Client est notifié avec les justificatifs correspondants.',
+              '3. En cas de rejet de la contestation : le Client en est informé, avec les justificatifs correspondants.',
             gras: false,
           },
         ],
@@ -876,7 +856,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Déchets (ZD).', gras: true },
           {
             texte:
-              " La responsabilité des Déchets est transférée de SAVR au Client jusqu'à la prise de possession par SAVR ou son Prestataire sur le Point de Collecte. À partir de la prise de possession, SAVR supporte la responsabilité du transport et de la destination de valorisation.",
+              " Le Client reste responsable des Déchets jusqu'à leur prise de possession par SAVR ou son Prestataire sur le Point de Collecte. À partir de la prise de possession, SAVR supporte la responsabilité du transport et de la destination de valorisation.",
             gras: false,
           },
         ],
@@ -940,7 +920,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
         segments: [
           {
             texte:
-              "Le Contrat prend effet à compter de la création du Compte Utilisateur, qui vaut acceptation des présentes CGU. Il est conclu pour une durée indéterminée, sauf résiliation dans les conditions de l'article 16.",
+              "Le Contrat prend effet à compter de la création du Compte Utilisateur, qui vaut acceptation des présentes CGU. Il est conclu pour une durée indéterminée, sauf résiliation dans les conditions de l'article 18.",
             gras: false,
           },
         ],
@@ -967,7 +947,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: "12.2. Délai d'émission des factures.", gras: true },
           {
             texte:
-              " SAVR ne prend aucun engagement contractuel sur le délai d'émission de la facture. La génération du brouillon de facture est automatisée après chaque Collecte ; son envoi dépend de la validation par l'équipe SAVR.",
+              " SAVR ne prend aucun engagement contractuel sur le délai d'émission de la facture.",
             gras: false,
           },
         ],
@@ -978,7 +958,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: '12.3. Révision des tarifs.', gras: true },
           {
             texte:
-              " SAVR garantit ses tarifs pour une durée d'un an. Les tarifs révisés sont notifiés au Client deux mois avant leur entrée en vigueur et donnent lieu à la signature d'un avenant. Le Client qui refuse la modification tarifaire peut résilier le Contrat dans les conditions de l'article 16.2.",
+              " SAVR garantit ses tarifs pour une durée d'un an. Les tarifs révisés sont notifiés au Client deux mois avant leur entrée en vigueur et donnent lieu à la signature d'un avenant. Le Client qui refuse la modification tarifaire peut résilier le Contrat dans les conditions de l'article 18.2.",
             gras: false,
           },
         ],
@@ -1000,7 +980,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: '12.5. Incidents de paiement.', gras: true },
           {
             texte:
-              " Tout retard de paiement à l'échéance entraîne, sans mise en demeure, l'application de pénalités de retard égales à trois fois le taux d'intérêt légal, exigibles le lendemain de la date d'échéance. En cas de défaut de paiement 15 jours après l'envoi d'une mise en demeure, SAVR peut suspendre les Collectes en cours, refuser de nouvelles Demandes, et résilier le Contrat dans les conditions de l'article 16.3.",
+              " Tout retard de paiement à l'échéance entraîne, sans mise en demeure, l'application de pénalités de retard égales à trois fois le taux d'intérêt légal, exigibles le lendemain de la date d'échéance. En cas de défaut de paiement 15 jours après l'envoi d'une mise en demeure, SAVR peut suspendre les Collectes en cours, refuser de nouvelles Demandes, et résilier le Contrat dans les conditions de l'article 18.3.",
             gras: false,
           },
         ],
@@ -1343,7 +1323,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: '24.5. Sous-traitants ultérieurs.', gras: true },
           {
             texte:
-              " SAVR peut recourir à des sous-traitants ultérieurs pour l'hébergement des données (Supabase, hébergé sur serveurs AWS EU) et l'envoi des emails transactionnels (Resend). Ces sous-traitants sont soumis aux mêmes obligations de protection des données.",
+              " SAVR peut recourir à des sous-traitants ultérieurs pour l'hébergement de la Plateforme et des données (Vercel, Supabase, Cloudflare, Railway), l'envoi des emails transactionnels (Resend), le suivi des erreurs (Sentry), les alertes internes (Slack) et la facturation (Pennylane). La base de données est hébergée à Paris. Ces sous-traitants sont soumis aux mêmes obligations de protection des données.",
             gras: false,
           },
         ],
@@ -1354,7 +1334,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: '24.6. Transferts hors UE.', gras: true },
           {
             texte:
-              " SAVR ne transfère pas de données à caractère personnel en dehors de l'Espace Économique Européen sans garanties appropriées.",
+              " Certains sous-traitants ultérieurs, ou leurs propres sous-traitants, peuvent traiter des données à caractère personnel en dehors de l'Espace Économique Européen, notamment aux États-Unis. Ces transferts reposent sur les garanties prévues par le RGPD (clauses contractuelles types de la Commission européenne ou Data Privacy Framework).",
             gras: false,
           },
         ],
@@ -1376,7 +1356,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: '24.8. Conservation.', gras: true },
           {
             texte:
-              ' Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Rapports de don à valeur réglementaire). Les données personnelles non soumises à obligation légale sont anonymisées dans les 12 mois suivant la résiliation du Contrat.',
+              ' Les données sont conservées pendant la durée du Contrat, puis pour les durées légales applicables (10 ans pour les données comptables, 5 ans pour les Bordereaux et Rapports de don à valeur réglementaire). Après la résiliation du Contrat, les données personnelles non soumises à obligation légale sont anonymisées sur simple demande adressée à gestion@gosavr.io.',
             gras: false,
           },
         ],
@@ -1481,7 +1461,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Annexe 1', gras: true },
           {
             texte:
-              ' : Grille tarifaire ZD et AG (à joindre — voir paramétrage Plateforme)',
+              ' : Grille tarifaire ZD et AG — les tarifs applicables sont ceux affichés dans la Plateforme à la date de programmation de chaque Collecte.',
             gras: false,
           },
         ],

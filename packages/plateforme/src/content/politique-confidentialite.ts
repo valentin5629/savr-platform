@@ -5,12 +5,12 @@
 // bases légales : tableau §15 3.2. Durées : celles que la plateforme applique
 // réellement (aucune purge des contacts ni des comptes n'existe) ; les écarts
 // au §15 3.2 sont tracés dans `_Divergences/SECU-RGPD_20261105_politique-
-// confidentialite.md`. Même format que les CGU (`cgu-v1.ts`) : segments
+// confidentialite.md`. Même format que les CGU (`cgu-texte.ts`) : segments
 // {texte, gras}, jamais de HTML.
 //
 // Modifier ce texte = mettre à jour `POLITIQUE_CONFIDENTIALITE_MISE_A_JOUR`.
 
-import type { BlocCgu, SectionCgu } from './cgu-v1';
+import type { BlocCgu, SectionCgu } from './cgu-texte';
 
 export const POLITIQUE_CONFIDENTIALITE_MISE_A_JOUR = '5 novembre 2026';
 

@@ -333,7 +333,7 @@
     {
       "id": "M0.4-mot-de-passe-oublie-resend",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:94-98",
-      "artefact": "packages/plateforme/src/app/api/auth/reset-password/route.ts (generateLink recovery + sendEmail reset_password après la réponse, toujours 200, domaine du lien = NEXT_PUBLIC_APP_URL seule) + packages/plateforme/src/lib/reset-password-rate-limit.ts (3/h par email, 10/h par IP) + packages/plateforme/src/app/api/auth/reset-password/confirm/route.ts (token_hash + type=recovery → verifyOtp) + supabase/migrations/20261106180000_plateforme_reset_password_resend.sql",
+      "artefact": "packages/plateforme/src/app/api/auth/reset-password/route.ts (generateLink recovery + sendEmail reset_password après la réponse, toujours 200, domaine du lien = NEXT_PUBLIC_APP_URL seule) + packages/plateforme/src/lib/reset-password-rate-limit.ts (3/h par email, 10/h par IP) + packages/plateforme/src/app/api/auth/reset-password/confirm/route.ts (token_hash + type=recovery → verifyOtp) + supabase/migrations/20261106200000_plateforme_reset_password_resend.sql",
       "test": "packages/plateforme/tests/api/auth/reset-password-confirm.test.ts « demande de réinitialisation » + packages/plateforme/tests/api/auth/reset-password-confirm.test.ts « route d'échange du lien envoyé par Resend (token_hash) » + packages/plateforme/tests/api/auth/liens-email-absolus.test.ts « lien du mot de passe oublié : domaine de la configuration seule »",
       "statut": "implemented",
       "libelle": "Mot de passe oublié : email envoyé par Resend (gabarit reset_password), plafond 3 demandes par heure et par email, lien de la configuration seule (décision Val 2026-11-06)"

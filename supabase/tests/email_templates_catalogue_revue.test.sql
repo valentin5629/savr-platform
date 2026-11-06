@@ -6,7 +6,7 @@
 -- actif (variables déclarées, blocs conditionnels, signature).
 -- admin_demande_annulation désactivé ensuite (annulation cliente directe, Val
 -- 2026-11-02, migration 20261103090000). reset_password réactivé : son email part
--- par Resend (Val 2026-11-06, migration 20261106180000) : 19 actifs, 14 désactivés.
+-- par Resend (Val 2026-11-06, migration 20261106200000) : 19 actifs, 14 désactivés.
 -- =============================================================================
 
 BEGIN;

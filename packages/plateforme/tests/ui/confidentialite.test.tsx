@@ -58,7 +58,16 @@ describe('/confidentialite : contenu exigé par le CDC §15 3.4', () => {
     expect(texte).toContain(
       'puis 5 ans après sa fermeture ou la fin de la relation commerciale',
     );
+    expect(texte).toContain(
+      'Vous pouvez demander leur anonymisation plus tôt, après la fermeture du compte',
+    );
+    expect(texte).toContain(
+      'Elles sont conservées pendant la relation commerciale, puis 5 ans après sa fin',
+    );
     expect(texte).toContain('les pièces comptables sont conservées 10 ans');
+    expect(texte).toContain(
+      'prochaines programmations, pendant la relation commerciale puis 5 ans après sa fin',
+    );
     expect(texte).toContain('Ils sont conservés 10 ans après la collecte');
     expect(texte).toContain(
       "Sur la fiche de l'événement, ils sont conservés 5 ans après la collecte",

@@ -31,11 +31,16 @@ export function AuthPage({ children }: { children: React.ReactNode }) {
         className="mb-8 h-12 w-auto text-savr-accent-500"
       />
       {children}
-      {/* Politique de confidentialité : lisible depuis tous les écrans
-          d'authentification (CDC §15, 3.4). */}
-      <TextLink href={ROUTES.confidentialite} touch className="mt-8 text-sm">
-        Politique de confidentialité
-      </TextLink>
+      {/* Politique de confidentialité (CDC §15, 3.4) et mentions légales :
+          lisibles depuis tous les écrans d'authentification. */}
+      <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2">
+        <TextLink href={ROUTES.confidentialite} touch className="text-sm">
+          Politique de confidentialité
+        </TextLink>
+        <TextLink href={ROUTES.mentionsLegales} touch className="text-sm">
+          Mentions légales
+        </TextLink>
+      </div>
     </main>
   );
 }

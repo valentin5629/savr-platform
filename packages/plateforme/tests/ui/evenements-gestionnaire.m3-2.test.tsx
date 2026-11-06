@@ -1995,6 +1995,12 @@ describe('M3.2 / fiche Événement — modifier et annuler dans la carte (Val 20
         ATTENTE_UI,
       );
       expect(within(liste).getAllByRole('listitem')).toHaveLength(2);
+      // Plusieurs collectes : texte au pluriel (Val 2026-11-06).
+      expect(
+        screen.getByText(
+          'Les collectes de cet événement seront annulées immédiatement. Nous prévenons notre équipe logistique.',
+        ),
+      ).toBeInTheDocument();
       // c2 (Anti-Gaspi, lointaine) : crédit rendu.
       expect(screen.getByTestId('mention-credit-ag')).toBeInTheDocument();
       fireEvent.click(

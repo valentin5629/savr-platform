@@ -5,7 +5,7 @@
 // tableau de segments {texte, gras}, donc aucune injection possible.
 
 import type { ReactNode } from 'react';
-import type { BlocCgu, SectionCgu } from '@/content/cgu-v1';
+import type { BlocCgu, SectionCgu } from '@/content/cgu-texte';
 import { Heading } from '@/components/ui/heading';
 import { PageHero } from '@/components/ui/page-hero';
 import { Text } from '@/components/ui/text';

@@ -65,7 +65,10 @@ import {
 import { Chauffeurs } from '@/components/collecte/fiche-collecte-client-onglets';
 import { FicheCollecteClientModal } from '@/components/collecte/fiche-collecte-client-modal';
 import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
-import { AnnulationCollecteDialog } from '@/components/collecte/annulation-collecte-dialog';
+import {
+  AnnulationCollecteDialog,
+  MOTIF_ANNULATION_CLIENT,
+} from '@/components/collecte/annulation-collecte-dialog';
 import { ConfirmationModificationCollecte } from '@/components/collecte/confirmation-modification-collecte';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
@@ -1476,14 +1479,14 @@ function AnnulationEvenementDialog({
       variant="destructive"
       loading={loading}
       error={error}
-      motif={{ label: 'Motif' }}
+      motif={MOTIF_ANNULATION_CLIENT}
       onConfirm={onConfirm}
       onCancel={onCancel}
     >
       <Text>
         {collectes.length > 1
-          ? 'Ces collectes seront annulées immédiatement. Nous prévenons notre équipe logistique.'
-          : 'Cette collecte sera annulée immédiatement. Nous prévenons notre équipe logistique.'}
+          ? 'Les collectes de cet événement seront annulées immédiatement. Nous prévenons notre équipe logistique.'
+          : 'La collecte de cet événement sera annulée immédiatement. Nous prévenons notre équipe logistique.'}
       </Text>
       <ul
         className="list-disc space-y-1 pl-5 text-sm text-savr-neutral-700"

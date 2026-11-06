@@ -210,6 +210,11 @@ describe('middleware — comportement', () => {
     expect(createServerClient).not.toHaveBeenCalled();
   });
 
+  it('mentions légales sans session → lisibles (LCEN, art. 6-III)', async () => {
+    passe(await middleware(req('/mentions-legales')));
+    expect(createServerClient).not.toHaveBeenCalled();
+  });
+
   it('callback d’impersonation sans session → pas de redirection (validé par son OTP)', async () => {
     const res = await middleware(
       req('/auth/impersonate-callback?token_hash=t&type=magiclink'),
@@ -361,6 +366,11 @@ describe('middleware — code de vérification', () => {
     expect(isPublicPath('/confidentialite')).toBe(true);
     expect(isPublicPath('/confidentialite-x')).toBe(false);
     expect(isPublicPath('/confidentialitex')).toBe(false);
+  });
+
+  it('mentions légales : chemin exact public, jamais un préfixe de chaîne', () => {
+    expect(isPublicPath('/mentions-legales')).toBe(true);
+    expect(isPublicPath('/mentions-legales-x')).toBe(false);
   });
 });
 

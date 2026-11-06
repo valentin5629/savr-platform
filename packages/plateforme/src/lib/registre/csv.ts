@@ -109,7 +109,7 @@ interface Etablissement {
 // sur le lieu, massifie à son entrepôt, puis le site de traitement du flux
 // reçoit le déchet. Le transporteur affiché est Savr — choix provisoire, la
 // question du nom du prestataire attend le juriste — à l'adresse de son siège
-// social (la même que dans content/cgu-v1.ts), et non à celle de l'entrepôt.
+// social (la même que dans content/cgu-texte.ts), et non à celle de l'entrepôt.
 const TRANSPORTEUR: Etablissement = {
   nom: 'Savr',
   voie: '50 rue des Moines',

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { AlertBar } from './alert-bar';
+import { Combobox } from './combobox';
 import { FormActions } from './form-actions';
 import { FormField } from './form-field';
 import { Modal } from './modal';
@@ -13,13 +14,22 @@ import { Textarea } from './textarea';
 // modales de confirmation recopiées. Structure §5.9 (Modal : focus-trap, Esc,
 // overlay) ; actions = `FormActions` (« Retour » puis l'action, à droite).
 // `motif` ajoute un champ texte (facultatif ou obligatoire avec longueur
-// minimale) dont la valeur est passée à `onConfirm`.
+// minimale) dont la valeur est passée à `onConfirm`. Avec `choix`, le motif se
+// choisit dans une liste ; l'option `autre` ouvre un champ texte pour le
+// préciser. Valeur passée : l'option choisie, ou la précision saisie (à
+// défaut, le libellé de `autre`).
 export interface ConfirmMotif {
   label: string;
   /** Longueur minimale ; 0 ou absent = facultatif. */
   minLength?: number;
   placeholder?: string;
   rows?: number;
+  /** Motif choisi dans une liste (facultatif : aucun choix = chaîne vide). */
+  choix?: {
+    options: readonly string[];
+    /** Option qui ouvre le champ texte de précision. */
+    autre: string;
+  };
 }
 
 export interface ConfirmDialogProps {
@@ -55,12 +65,34 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps): React.ReactElement {
   const [valeurMotif, setValeurMotif] = React.useState('');
+  const [choixMotif, setChoixMotif] = React.useState('');
   const id = React.useId();
   React.useEffect(() => {
-    if (!open) setValeurMotif('');
+    if (!open) {
+      setValeurMotif('');
+      setChoixMotif('');
+    }
   }, [open]);
-  const minLength = motif?.minLength ?? 0;
+  const choix = motif?.choix;
+  const autre = !!choix && choixMotif === choix.autre;
+  const minLength = choix ? 0 : (motif?.minLength ?? 0);
   const motifOk = !motif || valeurMotif.trim().length >= minLength;
+  const motifEnvoye = !choix
+    ? valeurMotif.trim()
+    : autre
+      ? valeurMotif.trim() || choix.autre
+      : choixMotif;
+  const champTexte = (
+    <Textarea
+      id={`${id}-motif${choix ? '-precision' : ''}`}
+      rows={motif?.rows ?? 3}
+      value={valeurMotif}
+      onChange={(e) => setValeurMotif(e.target.value)}
+      minLength={minLength || undefined}
+      required={minLength > 0}
+      placeholder={motif?.placeholder}
+    />
+  );
 
   return (
     <Modal open={open} title={title} onClose={onCancel}>
@@ -69,7 +101,7 @@ export function ConfirmDialog({
         onSubmit={(e) => {
           e.preventDefault();
           if (!motifOk) return;
-          onConfirm(valeurMotif.trim());
+          onConfirm(motifEnvoye);
         }}
       >
         {error && <AlertBar variant="err">{error}</AlertBar>}
@@ -78,7 +110,37 @@ export function ConfirmDialog({
         ) : (
           children
         )}
-        {motif && (
+        {motif && choix && (
+          <>
+            <FormField
+              label={`${motif.label} (facultatif)`}
+              htmlFor={`${id}-motif`}
+            >
+              <Combobox
+                id={`${id}-motif`}
+                icon={null}
+                searchable={false}
+                placeholder="Choisir un motif"
+                options={choix.options.map((o) => ({ value: o, label: o }))}
+                value={choixMotif}
+                onChange={(v) => {
+                  setChoixMotif(v);
+                  if (v !== choix.autre) setValeurMotif('');
+                }}
+                data-testid="motif-choix"
+              />
+            </FormField>
+            {autre && (
+              <FormField
+                label="Précisez le motif"
+                htmlFor={`${id}-motif-precision`}
+              >
+                {champTexte}
+              </FormField>
+            )}
+          </>
+        )}
+        {motif && !choix && (
           <FormField
             label={
               minLength > 0
@@ -88,15 +150,7 @@ export function ConfirmDialog({
             htmlFor={`${id}-motif`}
             required={minLength > 0}
           >
-            <Textarea
-              id={`${id}-motif`}
-              rows={motif.rows ?? 3}
-              value={valeurMotif}
-              onChange={(e) => setValeurMotif(e.target.value)}
-              minLength={minLength || undefined}
-              required={minLength > 0}
-              placeholder={motif.placeholder}
-            />
+            {champTexte}
           </FormField>
         )}
         <FormActions

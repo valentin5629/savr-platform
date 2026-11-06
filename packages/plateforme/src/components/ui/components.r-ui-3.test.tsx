@@ -296,6 +296,59 @@ describe('ConfirmDialog — confirmation destructive avec motif', () => {
 });
 
 describe('AnnulationCollecteDialog — une seule modale liste + fiche', () => {
+  it('motif choisi dans la liste ; « Autre motif » ouvre un champ pour le préciser (Val 2026-11-06)', () => {
+    const onConfirm = vi.fn();
+    const { rerender } = render(
+      <AnnulationCollecteDialog
+        open
+        antiGaspi={false}
+        dateCollecte="2097-12-31"
+        heureCollecte="10:00:00"
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+      />,
+    );
+    const liste = screen.getByLabelText('Motif (facultatif)');
+    fireEvent.click(liste);
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Erreur de création',
+      'Événement annulé',
+      'Autre motif',
+    ]);
+    fireEvent.click(screen.getByRole('option', { name: 'Erreur de création' }));
+    expect(screen.queryByLabelText('Précisez le motif')).toBeNull();
+    const confirmer = () =>
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Confirmer l’annulation' }),
+      );
+    confirmer();
+    expect(onConfirm).toHaveBeenLastCalledWith('Erreur de création');
+
+    fireEvent.click(liste);
+    fireEvent.click(screen.getByRole('option', { name: 'Autre motif' }));
+    confirmer();
+    expect(onConfirm).toHaveBeenLastCalledWith('Autre motif');
+    fireEvent.change(screen.getByLabelText('Précisez le motif'), {
+      target: { value: '  Salle indisponible  ' },
+    });
+    confirmer();
+    expect(onConfirm).toHaveBeenLastCalledWith('Salle indisponible');
+
+    // Fermée puis rouverte : plus aucun motif choisi.
+    const props = {
+      antiGaspi: false,
+      dateCollecte: '2097-12-31',
+      heureCollecte: '10:00:00',
+      onConfirm,
+      onCancel: vi.fn(),
+    };
+    rerender(<AnnulationCollecteDialog open={false} {...props} />);
+    rerender(<AnnulationCollecteDialog open {...props} />);
+    expect(screen.queryByLabelText('Précisez le motif')).toBeNull();
+    confirmer();
+    expect(onConfirm).toHaveBeenLastCalledWith('');
+  });
+
   it('AG : mention crédit rendu ; motif facultatif transmis ; plus de variante « demande » (Val 2026-11-01)', () => {
     const onConfirm = vi.fn();
     render(

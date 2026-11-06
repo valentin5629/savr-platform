@@ -12,7 +12,7 @@ import { CO2, WHITE } from './palette';
 //     annoncer une compensation ; 3 équivalences (km voiture, repas de bœuf,
 //     foyers) ;
 //   - `ag` : « évité SEUL en V1 » (§05 Règles métier R_co2_ag l.587, §11 l.163) :
-//     le facteur FAO estime l'empreinte moyenne d'un repas sauvé, sans induit ni
+//     le facteur (repas moyen, Base Carbone ADEME) compte un repas évité par repas donné, sans induit ni
 //     bilan net (V2) ; 2 équivalences (« foyers » est énergie-dépendant → sans
 //     objet pour l'AG).
 // Composant purement présentationnel (props → rendu, aucune donnée serveur),
@@ -149,7 +149,7 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
       {/* Note bas */}
       <div className="mt-4 text-xs" style={{ color: CO2.labelFaint }}>
         {ag
-          ? "Empreinte carbone moyenne d'un repas sauvé du gaspillage (méthode FAO). Évité seul en V1 — aucun bilan net n'est annoncé. Incertitude ± 50 %."
+          ? "Empreinte carbone d'un repas moyen (Base Carbone ADEME), évitée par chaque repas donné. Évité seul en V1 — aucun bilan net n'est annoncé. Incertitude ± 50 %."
           : "Incertitude ADEME ± 50 %. L'évité et l'induit ne sont jamais soustraits pour annoncer une compensation."}
       </div>
     </div>

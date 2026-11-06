@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 
 // Co2MethodePanelAg — variante ANTI-GASPI (allégée) de la méthode de calcul CO₂.
 // Le CO₂ AG est « évité seul en V1 » (§05 R_co2_ag, §11 l.163) : une formule
-// UNIQUE par repas (facteur FAO figé × repas donnés), sans induit / net / énergie
+// UNIQUE par repas (facteur figé × repas donnés), sans induit / net / énergie
 // ni tableau de facteurs par matière (ceux-ci sont ZD, méthode ABC ADEME). Purement
 // présentationnel : le facteur par repas est lu côté serveur (service_role) dans
 // `plateforme.parametres_facteurs_co2_ag` (repli 2,5 kg CO₂e/repas, FAO 2023).
@@ -57,9 +57,9 @@ export function Co2MethodePanelAg({
         Comment ce chiffre est-il calculé ?
       </h4>
       <Text className="mt-0.5">
-        Méthode FAO. Chaque repas sauvé du gaspillage évite une empreinte
-        carbone moyenne, figée à la clôture de chaque collecte, puis additionnée
-        sur la période filtrée.
+        Base Carbone ADEME. Chaque repas donné évite la production d'un repas
+        moyen, dont l'empreinte carbone est figée à la clôture de chaque
+        collecte, puis additionnée sur la période filtrée.
       </Text>
 
       <div className="mt-4 flex flex-col gap-3">

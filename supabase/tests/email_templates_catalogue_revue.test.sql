@@ -5,7 +5,8 @@
 -- partent encore, lesquels sont désactivés, et la cohérence de chaque gabarit
 -- actif (variables déclarées, blocs conditionnels, signature).
 -- admin_demande_annulation désactivé ensuite (annulation cliente directe, Val
--- 2026-11-02, migration 20261103090000) : 18 actifs, 15 désactivés (CDC §06.02).
+-- 2026-11-02, migration 20261103090000). reset_password réactivé : son email part
+-- par Resend (Val 2026-11-06, migration 20261106150000) : 19 actifs, 14 désactivés.
 -- =============================================================================
 
 BEGIN;
@@ -20,9 +21,10 @@ SELECT is(
     'ag_attribution_association','annulation_collecte','attestation_don_disponible',
     'bienvenue_organisation','collecte_modifiee_tiers','collecte_programmee',
     'collecte_programmee_tiers','infos_acces_collecte','invitation_utilisateur',
-    'rapport_disponible','siret_verification_echec','verification_email'
+    'rapport_disponible','reset_password','siret_verification_echec',
+    'verification_email'
   ]::text[],
-  'les 18 gabarits actifs sont exactement ceux du catalogue §06.02'
+  'les 19 gabarits actifs sont exactement ceux du catalogue §06.02'
 );
 
 SELECT is(
@@ -32,9 +34,9 @@ SELECT is(
     'ag_a_toutes_indispo','ag_attribution_transporteur','alerte_ops_collecte_non_transmise',
     'alerte_ops_pesee_anormale','attribution_association','attribution_transporteur',
     'avoir_emis','collecte_realisee','confirmation_collecte','facture_emise',
-    'facture_relance_j15','pack_ag_active','rappel_collecte_j3','reset_password'
+    'facture_relance_j15','pack_ag_active','rappel_collecte_j3'
   ]::text[],
-  'les 15 gabarits écartés sont désactivés (pas supprimés)'
+  'les 14 gabarits écartés sont désactivés (pas supprimés)'
 );
 
 -- Toute variable citée (objet ou corps) est déclarée, et inversement.

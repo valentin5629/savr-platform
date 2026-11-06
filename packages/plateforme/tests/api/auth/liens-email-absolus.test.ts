@@ -17,17 +17,22 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { logger } from '@savr/shared/src/logger/index.js';
+import { sendEmail } from '@savr/shared/src/email/index.js';
 import { NextRequest } from 'next/server';
+import { _resetDemandesReinitialisation } from '@/lib/reset-password-rate-limit.js';
 
-const mockResetPasswordForEmail = vi.fn();
 const mockGenerateLink = vi.fn();
+// L'email « mot de passe oublié » part après la réponse (`after`) : les tâches
+// sont gardées ici et attendues par le test.
+const tachesApresReponse: Array<Promise<void>> = [];
+vi.mock('next/server', async (original) => ({
+  ...(await original<typeof import('next/server')>()),
+  after: (tache: () => Promise<void>) => {
+    tachesApresReponse.push(tache());
+  },
+}));
 const mockCreateUser = vi.fn();
 
-vi.mock('@supabase/ssr', () => ({
-  createServerClient: () => ({
-    auth: { resetPasswordForEmail: mockResetPasswordForEmail },
-  }),
-}));
 vi.mock('next/headers', () => ({
   cookies: () => Promise.resolve({ getAll: () => [] }),
 }));
@@ -54,8 +59,26 @@ const ENV_ORIGINE = process.env.NEXT_PUBLIC_APP_URL;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockResetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
+  tachesApresReponse.length = 0;
+  _resetDemandesReinitialisation();
+  mockGenerateLink.mockResolvedValue({
+    data: {
+      properties: { hashed_token: 'jeton-haché' },
+      user: { id: 'u-1', email: 'marie@traiteur.fr' },
+    },
+    error: null,
+  });
 });
+
+/** Lien du seul email « mot de passe oublié » parti, sans sa query (le jeton). */
+async function lienReset(): Promise<string> {
+  await Promise.all(tachesApresReponse);
+  expect(vi.mocked(sendEmail)).toHaveBeenCalledTimes(1);
+  const [slug, , variables] = vi.mocked(sendEmail).mock.calls[0]!;
+  expect(slug).toBe('reset_password');
+  const lien = new URL(variables['lien_reset']!);
+  return `${lien.origin}${lien.pathname}`;
+}
 
 afterEach(() => {
   if (ENV_ORIGINE === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
@@ -70,80 +93,49 @@ function reqSur(origine: string, body: unknown): NextRequest {
   });
 }
 
-describe('M0.4 — les liens envoyés par email sont toujours absolus', () => {
-  it("SANS NEXT_PUBLIC_APP_URL, le redirectTo reste absolu (c'est LE cas qui a cassé la prod dev)", async () => {
-    delete process.env.NEXT_PUBLIC_APP_URL;
-    const { POST } = await import('@/app/api/auth/reset-password/route.js');
-    await POST(
-      reqSur('https://dev.app.gosavr.io', { email: 'marie@traiteur.fr' }),
-    );
+const CHEMIN = '/api/auth/reset-password/confirm';
 
-    expect(mockResetPasswordForEmail).toHaveBeenCalledTimes(1);
-    const [, options] = mockResetPasswordForEmail.mock.calls[0] as [
-      string,
-      { redirectTo: string },
-    ];
+/** urlApplication sur une requête reçue à `origine`. */
+async function urlSur(origine: string, chemin = CHEMIN): Promise<string> {
+  const { urlApplication } = await import('@/lib/url-application.js');
+  return urlApplication(reqSur(origine, {}), chemin);
+}
+
+describe('M0.4 — les liens envoyés par email sont toujours absolus', () => {
+  it("SANS NEXT_PUBLIC_APP_URL, le lien reste absolu (c'est LE cas qui a cassé la prod dev)", async () => {
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    const url = await urlSur('https://dev.app.gosavr.io');
     // Avant le correctif, cette valeur était « /api/auth/reset-password/confirm ».
-    expect(options.redirectTo).toBe(
+    expect(url).toBe(
       'https://dev.app.gosavr.io/api/auth/reset-password/confirm',
     );
-    expect(options.redirectTo.startsWith('https://')).toBe(true);
   });
 
   it('AVEC NEXT_PUBLIC_APP_URL, le domaine canonique gagne sur celui de la requête', async () => {
     process.env.NEXT_PUBLIC_APP_URL = 'https://app.gosavr.io';
-    const { POST } = await import('@/app/api/auth/reset-password/route.js');
     // Appel reçu par un alias de déploiement : l'email doit pointer vers le
     // domaine officiel, pas vers l'alias.
-    await POST(
-      reqSur('https://savr-platform-git-dev.vercel.app', {
-        email: 'marie@traiteur.fr',
-      }),
-    );
-
-    const [, options] = mockResetPasswordForEmail.mock.calls[0] as [
-      string,
-      { redirectTo: string },
-    ];
-    expect(options.redirectTo).toBe(
+    expect(await urlSur('https://savr-platform-git-dev.vercel.app')).toBe(
       'https://app.gosavr.io/api/auth/reset-password/confirm',
     );
   });
 
   it('une variable vide ou blanche est traitée comme absente, pas comme un domaine', async () => {
     process.env.NEXT_PUBLIC_APP_URL = '   ';
-    const { POST } = await import('@/app/api/auth/reset-password/route.js');
-    await POST(
-      reqSur('https://dev.app.gosavr.io', { email: 'marie@traiteur.fr' }),
-    );
-
-    const [, options] = mockResetPasswordForEmail.mock.calls[0] as [
-      string,
-      { redirectTo: string },
-    ];
-    expect(options.redirectTo).toBe(
+    expect(await urlSur('https://dev.app.gosavr.io')).toBe(
       'https://dev.app.gosavr.io/api/auth/reset-password/confirm',
     );
   });
 
-  it('une variable MAL FORMÉE (sans schéma) ne fait pas tomber la route', async () => {
+  it('une variable MAL FORMÉE (sans schéma) ne fait pas lever : repli sur la requête', async () => {
     // `new URL('/x', 'app.gosavr.io')` lève : une base sans schéma n'est pas une
-    // URL. Sans filet, une variable mal saisie ferait un 500 sur « mot de passe
-    // oublié » — une panne plus dure que celle que ce lot corrige.
+    // URL. Sans filet, une variable mal saisie ferait un 500.
     process.env.NEXT_PUBLIC_APP_URL = 'app.gosavr.io';
-    const { POST } = await import('@/app/api/auth/reset-password/route.js');
-    const res = await POST(
-      reqSur('https://dev.app.gosavr.io', { email: 'marie@traiteur.fr' }),
-    );
-
-    expect(res.status).toBe(200);
-    const [, options] = mockResetPasswordForEmail.mock.calls[0] as [
-      string,
-      { redirectTo: string },
-    ];
-    expect(options.redirectTo).toBe(
+    const capture = vi.spyOn(logger, 'error').mockImplementation(() => {});
+    expect(await urlSur('https://dev.app.gosavr.io')).toBe(
       'https://dev.app.gosavr.io/api/auth/reset-password/confirm',
     );
+    capture.mockRestore();
   });
 
   it('le log de secours ne recopie JAMAIS la query (elle porte token_hash / jeton)', async () => {
@@ -172,15 +164,48 @@ describe('M0.4 — les liens envoyés par email sont toujours absolus', () => {
 
   it('en local, le port est conservé', async () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
-    const { POST } = await import('@/app/api/auth/reset-password/route.js');
-    await POST(reqSur('http://localhost:3001', { email: 'marie@traiteur.fr' }));
-
-    const [, options] = mockResetPasswordForEmail.mock.calls[0] as [
-      string,
-      { redirectTo: string },
-    ];
-    expect(options.redirectTo).toBe(
+    expect(await urlSur('http://localhost:3001')).toBe(
       'http://localhost:3001/api/auth/reset-password/confirm',
     );
   });
+});
+
+// Le lien « mot de passe oublié » ouvre une session sur le compte : son domaine
+// vient de la SEULE configuration, jamais de la requête (en-tête Host forgé).
+describe('lien du mot de passe oublié : domaine de la configuration seule', () => {
+  it('AVEC NEXT_PUBLIC_APP_URL : lien absolu sur le domaine canonique, même reçu par un alias', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.gosavr.io';
+    const { POST } = await import('@/app/api/auth/reset-password/route.js');
+    await POST(
+      reqSur('https://savr-platform-git-dev.vercel.app', {
+        email: 'marie@traiteur.fr',
+      }),
+    );
+    expect(await lienReset()).toBe(
+      'https://app.gosavr.io/api/auth/reset-password/confirm',
+    );
+  });
+
+  it.each([
+    ['absente', undefined],
+    ['blanche', '   '],
+    ['mal formée', 'app.gosavr.io'],
+  ])(
+    'variable %s : réponse 200, aucun lien fabriqué, aucun email',
+    async (_cas, valeur) => {
+      if (valeur === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+      else process.env.NEXT_PUBLIC_APP_URL = valeur;
+      const capture = vi.spyOn(logger, 'error').mockImplementation(() => {});
+      const { POST } = await import('@/app/api/auth/reset-password/route.js');
+      const res = await POST(
+        reqSur('https://domaine-tiers.example', { email: 'marie@traiteur.fr' }),
+      );
+      await Promise.all(tachesApresReponse);
+
+      expect(res.status).toBe(200);
+      expect(mockGenerateLink).not.toHaveBeenCalled();
+      expect(vi.mocked(sendEmail)).not.toHaveBeenCalled();
+      capture.mockRestore();
+    },
+  );
 });

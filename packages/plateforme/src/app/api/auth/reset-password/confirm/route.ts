@@ -1,19 +1,16 @@
 // GET /api/auth/reset-password/confirm — cible du lien de l'email de
-// réinitialisation (template `supabase/templates/recovery.html`, variable GoTrue
-// `{{ .ConfirmationURL }}` → `/auth/v1/verify` → redirection ici).
+// réinitialisation. Seule une route (pas un composant serveur) peut écrire les
+// cookies de session ; la page `/reset-password/confirm` ne porte que le
+// formulaire, une fois la session de récupération posée.
 //
-// Pourquoi une route API et non directement la page : `@supabase/ssr` impose
-// `flowType: 'pkce'` (createServerClient.js l.33), donc GoTrue redirige avec un
-// `?code=` qu'il faut ÉCHANGER contre une session — et seule une route (ou un
-// middleware) peut écrire les cookies de session, pas un composant serveur.
-// Même schéma que `auth/verify-email`. La page `/reset-password/confirm` ne porte
-// que le formulaire, une fois la session de récupération posée.
-//
-// ⚠ Limite inhérente au PKCE : le `code_verifier` est un cookie posé sur le
-// navigateur qui a DEMANDÉ le lien. Ouvrir l'email dans un autre navigateur
-// (webview d'une app mail sur iOS, par exemple) fait échouer l'échange. Ce cas
-// n'est pas une impasse : on renvoie sur `/reset-password` avec un motif affiché
-// et la possibilité de redemander un lien.
+// Deux formes de lien :
+//   - `?token_hash=…&type=recovery` : lien envoyé par Resend depuis le
+//     2026-11-06 (`api/auth/reset-password/route.ts`), échangé par `verifyOtp`
+//     comme `auth/verify-email`. Il marche dans n'importe quel navigateur.
+//   - `?code=…` : lien de l'ancien envoi par Supabase Auth (flux PKCE). Gardé une
+//     release pour les liens déjà partis (valables 1 h). Le `code_verifier` est un
+//     cookie du navigateur qui a demandé le lien : ouvert ailleurs, l'échange
+//     échoue et l'on renvoie sur `/reset-password` avec un motif.
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
@@ -27,9 +24,12 @@ import { ROUTES } from '@/lib/routes';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const code = req.nextUrl.searchParams.get('code');
+  const tokenHash = req.nextUrl.searchParams.get('token_hash');
+  const type = req.nextUrl.searchParams.get('type');
+  const lienJeton = tokenHash !== null && type === 'recovery';
 
-  // Lien tronqué / recopié à la main / déjà consommé par GoTrue.
-  if (!code) {
+  // Lien tronqué / recopié à la main / déjà consommé.
+  if (!lienJeton && !code) {
     return NextResponse.redirect(
       new URL('/reset-password?error=lien_invalide', req.url),
     );
@@ -55,10 +55,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     },
   );
 
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  const { data, error } = lienJeton
+    ? await supabase.auth.verifyOtp({
+        token_hash: tokenHash as string,
+        type: 'recovery',
+      })
+    : await supabase.auth.exchangeCodeForSession(code!);
   if (error) {
-    // Lien expiré (1 h, `[auth.email].otp_expiry`), déjà utilisé, ou ouvert dans
-    // un autre navigateur que celui de la demande (cf. limite PKCE ci-dessus).
+    // Lien expiré (1 h), déjà utilisé, ou — ancien lien — ouvert dans un autre
+    // navigateur que celui de la demande (cf. limite PKCE ci-dessus).
     return NextResponse.redirect(
       new URL('/reset-password?error=lien_invalide', req.url),
     );

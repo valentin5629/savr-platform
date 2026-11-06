@@ -485,7 +485,7 @@ export default function ParametresCo2Page() {
           <FormField
             label="Facteur CO₂ évité (kg CO₂e / repas)"
             htmlFor="co2-facteur-ag"
-            hint="Source FAO"
+            hint="Source Base Carbone ADEME (repas moyen)"
             className="max-w-xs"
           >
             <Input

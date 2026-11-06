@@ -604,9 +604,9 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
       const boite = screen.getByRole('dialog', {
         name: 'Annuler la collecte',
       });
-      fireEvent.change(within(boite).getByLabelText('Motif (facultatif)'), {
-        target: { value: 'Événement reporté' },
-      });
+      // Motif choisi dans la liste (Val 2026-11-06).
+      fireEvent.click(within(boite).getByLabelText('Motif (facultatif)'));
+      fireEvent.click(screen.getByRole('option', { name: 'Événement annulé' }));
       fireEvent.click(
         within(boite).getByRole('button', { name: 'Confirmer l’annulation' }),
       );
@@ -624,7 +624,7 @@ describe('M1.2 / refonte_formulaire — page de confirmation : « Annuler la col
       );
       expect(post?.[0]).toBe(route);
       expect(JSON.parse(String(post?.[1]?.body))).toEqual({
-        motif: 'Événement reporté',
+        motif: 'Événement annulé',
       });
       expect(
         fetchMock.mock.calls.filter(([url]) => url === ROUTE_EVENEMENT),

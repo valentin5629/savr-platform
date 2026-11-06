@@ -76,7 +76,7 @@ describe('M0.11 / INSEE/VIES — teardown', () => {
     expect(await verifySiret('12345678901234')).toBe('verifie');
 
     restore();
-    // Sans mock actif, verifySiret() appellerait l'API réelle (pas de token en test → down)
+    // Sans mock actif, verifySiret() appellerait l'API réelle (pas de clé en test → down)
     expect(await verifySiret('12345678901234')).toBe('down');
   });
 

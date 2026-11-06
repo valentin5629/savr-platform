@@ -259,7 +259,7 @@ describe('M0.9 — filtrage Sentry : breadcrumbs', () => {
     const siret = ['732', '829', '320', '00074'].join('');
     const b = filtrerBreadcrumb({
       data: {
-        url: `https://api.insee.fr/entreprises/sirene/V3.11/siret/${siret}`,
+        url: `https://api.insee.fr/api-sirene/3.11/siret/${siret}`,
       },
     });
     expect(b.data?.['url']).toBe('https://api.insee.fr/[Filtered]');

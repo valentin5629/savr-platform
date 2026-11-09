@@ -400,7 +400,7 @@ export function TraiteurDashboardClient({
                 remplace « Marge générée », divergence §06.04 tracée). Cliquable :
                 ouvre la modale « Impact carbone » (héros + méthode de calcul). */}
               <StatCard
-                label="CO₂ évité"
+                label="CO₂e évité estimé"
                 value={co2Masse.value}
                 unit={uniteCo2(co2Masse.unit)}
                 dotColor={KPI_DOT.green}
@@ -542,7 +542,7 @@ export function TraiteurDashboardClient({
                 cliquable → modale « Impact carbone » (héros + méthode AG) UNIQUEMENT
                 si Σ co2_evite > 0. Aucune navigation (invariant R24 préservé). */}
               <StatCard
-                label="CO₂ évité"
+                label="CO₂e évité estimé"
                 value={co2Masse.value}
                 unit={uniteCo2(co2Masse.unit)}
                 dotColor={KPI_DOT.green}

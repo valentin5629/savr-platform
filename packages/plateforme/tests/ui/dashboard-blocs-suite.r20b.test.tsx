@@ -380,7 +380,9 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       // mais elle ouvre la modale « Détail de l'impact carbone » (méthode de
       // calcul) — pas une navigation. Les autres cartes restent non interactives.
       expect(screen.queryByText("Détail de l'impact carbone")).toBeNull();
-      fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /CO₂e évité estimé/ }),
+      );
       expect(
         await screen.findByText(
           "Détail de l'impact carbone",
@@ -408,7 +410,11 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
         await screen.findByRole('radio', { name: 'Anti-Gaspi' }, ATTENTE_UI),
       );
       fireEvent.click(
-        await screen.findByRole('button', { name: /CO₂ évité/ }, ATTENTE_UI),
+        await screen.findByRole(
+          'button',
+          { name: /CO₂e évité estimé/ },
+          ATTENTE_UI,
+        ),
       );
       expect(
         await screen.findByText(
@@ -423,7 +429,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
         screen.getByText(/Comment ce chiffre est-il calculé/),
       ).toBeInTheDocument();
       expect(
-        screen.getByText(/Impact carbone · dons anti-gaspi/),
+        screen.getByText(/Émissions évitées estimées · dons anti-gaspi/),
       ).toBeInTheDocument();
       expect(screen.queryByText(/Facteurs d'émission par matière/)).toBeNull();
       expect(
@@ -456,7 +462,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       await waitFor(
         () =>
           expect(
-            screen.queryByRole('button', { name: /CO₂ évité/ }),
+            screen.queryByRole('button', { name: /CO₂e évité estimé/ }),
           ).toBeNull(),
         ATTENTE_UI,
       );

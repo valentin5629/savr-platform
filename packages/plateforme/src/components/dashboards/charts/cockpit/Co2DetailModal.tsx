@@ -30,9 +30,8 @@ function frDate(iso?: string): string {
 // et client (Admin), ouverte au clic sur la carte KPI CO₂ évité (R-UI-5, G4 —
 // ex-4 instances recopiées, ZD + AG × 2 dashboards). Période analysée, héros CO₂
 // (grandeurs figées) puis méthode de calcul et variables utilisées :
-//   - `zero_dechet` : héros ABC complet + méthode ADEME par flux ;
-//   - `anti_gaspi`  : héros allégé (évité seul) + méthode par repas (facteur FAO
-//     figé × repas donnés).
+//   - `zero_dechet` : évité estimé + induit à part + méthode par flux ;
+//   - `anti_gaspi`  : évité estimé seul + méthode par repas.
 export function Co2DetailModal({
   open,
   onClose,
@@ -99,9 +98,10 @@ export function Co2DetailModal({
             <Co2HeroCard
               eviteKg={co2.eviteKg}
               induitKg={co2.induitKg}
-              netKg={co2.netKg}
-              energiePrimaireKwh={co2.energieKwh}
-              equivalences={equivalences}
+              equivalences={{
+                kmVoiture: equivalences.kmVoiture,
+                repasBoeuf: equivalences.repasBoeuf,
+              }}
             />
             <Co2MethodePanel
               forfait={co2Methode?.forfait ?? { km: 50, fe_camion: 2.1 }}

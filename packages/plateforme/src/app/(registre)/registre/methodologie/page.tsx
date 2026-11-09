@@ -36,10 +36,9 @@ export default function MethodologiePage() {
             Le taux de recyclage d&apos;une collecte est calculé par filière de
             valorisation : pour chaque flux pesé (biodéchets, emballages,
             cartons, verre, déchet résiduel), le poids réel est multiplié par le
-            taux de captation de sa filière (source ADEME / Citeo), puis
-            rapporté au poids total collecté. Le taux affiché au registre est
-            figé au moment de la clôture de la collecte (snapshot non
-            rétroactif).
+            taux de captation retenu par Savr pour sa filière, puis rapporté au
+            poids total collecté. Le taux est recalculé à chaque correction de
+            poids, y compris après la clôture de la collecte.
           </p>
         </section>
 

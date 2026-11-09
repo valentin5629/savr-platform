@@ -741,7 +741,7 @@ describe('M3.1 / pop-up — onglet Bilan & documents', () => {
       expect(t).toMatch(/870\s*kg/);
       expect(t).toMatch(/312\s*kg\sCO₂e/);
       // CO₂ évité figé (décision Val 2026-10-20), jamais le bilan net.
-      expect(t).toMatch(/CO₂ évité\s*312/);
+      expect(t).toMatch(/CO₂e évité estimé\s*312/);
       expect(t).not.toContain('(net)');
       expect(t).toMatch(/78,4\s*%/);
       // 870 kg / 4 200 pax de LA collecte = 207 g (lot C1) — l'événement, de

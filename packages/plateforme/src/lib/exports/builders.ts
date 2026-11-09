@@ -747,10 +747,15 @@ export async function buildImpactRseExport(
       header: 'CO2 induit (kg)',
       value: (r) => formatPoidsKg(r.co2_induit_kg as number),
     },
-    {
-      header: 'CO2 net (kg)',
-      value: (r) => formatPoidsKg(r.co2_net_kg as number),
-    },
+    // Le bilan net ne sort que dans l'export de l'équipe Savr (Val 2026-11-09).
+    ...(ctx.isStaff
+      ? ([
+          {
+            header: 'CO2 net (kg)',
+            value: (r) => formatPoidsKg(r.co2_net_kg as number),
+          },
+        ] satisfies CsvColumn<Row>[])
+      : []),
     {
       header: 'Énergie primaire évitée (kWh)',
       value: (r) => formatNombreFr(r.energie_primaire_evitee_kwh as number),

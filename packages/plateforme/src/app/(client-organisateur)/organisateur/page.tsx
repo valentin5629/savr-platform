@@ -20,7 +20,9 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { KPI_DOT } from '@/components/dashboards/charts/cockpit/palette';
 import { PageHero } from '@/components/ui/page-hero';
 import { SquaresFourIcon } from '@/components/ui/icones';
-import { fmtInt, fmtDec, fmtMasse, uniteCo2 } from '@/lib/format';
+import { fmtDec, fmtMasse, uniteCo2 } from '@/lib/format';
+import { Text } from '@/components/ui/text';
+import { MENTION_CO2_EVITE } from '@/lib/co2-mention';
 import { ROUTES } from '@/lib/routes';
 
 // §11 §7 — Dashboard client_organisateur : impact RSE, lecture seule.
@@ -68,7 +70,6 @@ export default function ClientOrganisateurDashboardPage() {
   const [ytd, setYtd] = useState<KpiRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState(false);
-  const [showAbc, setShowAbc] = useState(false);
 
   // Options de la barre : Lieux, Traiteurs, Type et Taille d'événement (décision
   // Val du 2026-10-30, au-delà du « filtre période » du §11 §7).
@@ -127,9 +128,6 @@ export default function ClientOrganisateurDashboardPage() {
   const tonnage = sum(rows, (r) => r.tonnage_kg);
   const repas = sum(rows, (r) => r.nb_repas_donnes);
   const co2Evite = sum(rows, (r) => r.co2_evite_kg);
-  const co2Induit = sum(rows, (r) => r.co2_induit_kg);
-  const co2Net = sum(rows, (r) => r.co2_net_kg);
-  const energie = sum(rows, (r) => r.energie_primaire_evitee_kwh);
   const tauxNum = sum(
     rows,
     (r) => (r.taux_recyclage_pondere ?? 0) * (r.tonnage_kg ?? 0),
@@ -150,8 +148,7 @@ export default function ClientOrganisateurDashboardPage() {
       <Card data-testid="organisateur-bandeau-ytd">
         <CardHeader>
           <CardTitle>
-            Synthèse {new Date().getFullYear()} — à communiquer dans votre
-            rapport RSE / bilan carbone
+            Synthèse {new Date().getFullYear()} de votre impact RSE
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -162,21 +159,24 @@ export default function ClientOrganisateurDashboardPage() {
               dotColor={KPI_DOT.navy}
             />
             <StatCard
-              label="CO₂e évité (total)"
+              label="CO₂e évité estimé"
               value={<Co2Display kg={ytdCo2Evite} />}
               dotColor={KPI_DOT.green}
             />
             <StatCard
-              label="Déchets détournés (ZD)"
+              label="Déchets collectés (ZD)"
               value={<TonnageDisplay kg={ytdKgZd} />}
               dotColor={KPI_DOT.navy2}
             />
             <StatCard
-              label="Repas détournés (AG)"
+              label="Repas donnés (AG)"
               value={ytdRepasAg}
               dotColor={KPI_DOT.accent}
             />
           </div>
+          <Text variant="hint" tone="faint">
+            {MENTION_CO2_EVITE}
+          </Text>
           <Button variant="ghost" asChild>
             <a href={ROUTES.organisateur.documents}>
               Voir mes rapports d’impact PDF
@@ -205,75 +205,36 @@ export default function ClientOrganisateurDashboardPage() {
       ) : nbCollectes === 0 ? (
         <EmptyDashboardState />
       ) : tab === 'zero_dechet' ? (
-        <>
-          <div
-            className="grid grid-cols-2 gap-4 lg:grid-cols-4"
-            data-testid="organisateur-kpi-zd"
-          >
-            {/* Les cadrans mesurent l'impact réalisé : le lien ouvre les
+        <div
+          className="grid grid-cols-2 gap-4 lg:grid-cols-4"
+          data-testid="organisateur-kpi-zd"
+        >
+          {/* Les cadrans mesurent l'impact réalisé : le lien ouvre les
                 collectes passées (décision Val 2026-10-19). */}
-            <StatCard
-              label="Événements ZD"
-              value={nbEvenements}
-              dotColor={KPI_DOT.navy}
-              href={`${ROUTES.organisateur.collectes}?onglet=passees&type=zero_dechet`}
-            />
-            <StatCard
-              label="Déchets détournés"
-              value={<TonnageDisplay kg={tonnage} />}
-              dotColor={KPI_DOT.navy2}
-            />
-            <StatCard
-              label="Taux de recyclage"
-              value={taux != null ? fmtTaux(taux) : '—'}
-              unit={taux != null ? '%' : undefined}
-              dotColor={KPI_DOT.green}
-            />
-            {/* CO₂ évité en headline (§11 §7, refonte 2026-06-04 Sujet 3) */}
-            <StatCard
-              label="CO₂ évité"
-              value={<Co2Display kg={co2Evite} />}
-              dotColor={KPI_DOT.green}
-            />
-          </div>
-
-          {/* Règle ABC — induit + net + énergie primaire en détail repliable */}
-          <Card>
-            <CardHeader>
-              <Button
-                variant="ghost"
-                onClick={() => setShowAbc((v) => !v)}
-                aria-expanded={showAbc}
-                className="-mx-2 h-auto w-[calc(100%+1rem)] justify-between px-2 py-1 text-left text-inherit sm:h-auto"
-              >
-                <CardTitle>Détail du bilan carbone (règle ABC)</CardTitle>
-                <span aria-hidden>{showAbc ? '▲' : '▼'}</span>
-              </Button>
-            </CardHeader>
-            {showAbc && (
-              <CardContent
-                className="grid grid-cols-1 gap-4 md:grid-cols-3"
-                data-testid="organisateur-co2-abc"
-              >
-                <StatCard
-                  label="CO₂ induit (A)"
-                  value={<Co2Display kg={co2Induit} />}
-                  dotColor={KPI_DOT.navy3}
-                />
-                <StatCard
-                  label="CO₂ net"
-                  value={<Co2Display kg={co2Net} />}
-                  dotColor={KPI_DOT.navy3}
-                />
-                <StatCard
-                  label="Énergie primaire évitée"
-                  value={`${fmtInt(energie)} kWh`}
-                  dotColor={KPI_DOT.navy3}
-                />
-              </CardContent>
-            )}
-          </Card>
-        </>
+          <StatCard
+            label="Événements ZD"
+            value={nbEvenements}
+            dotColor={KPI_DOT.navy}
+            href={`${ROUTES.organisateur.collectes}?onglet=passees&type=zero_dechet`}
+          />
+          <StatCard
+            label="Déchets collectés"
+            value={<TonnageDisplay kg={tonnage} />}
+            dotColor={KPI_DOT.navy2}
+          />
+          <StatCard
+            label="Taux de recyclage"
+            value={taux != null ? fmtTaux(taux) : '—'}
+            unit={taux != null ? '%' : undefined}
+            dotColor={KPI_DOT.green}
+          />
+          {/* CO₂ évité en headline (§11 §7, refonte 2026-06-04 Sujet 3) */}
+          <StatCard
+            label="CO₂e évité estimé"
+            value={<Co2Display kg={co2Evite} />}
+            dotColor={KPI_DOT.green}
+          />
+        </div>
       ) : (
         <div
           className="grid grid-cols-2 gap-4 lg:grid-cols-4"
@@ -286,12 +247,12 @@ export default function ClientOrganisateurDashboardPage() {
             href={`${ROUTES.organisateur.collectes}?onglet=passees&type=anti_gaspi`}
           />
           <StatCard
-            label="Repas détournés"
+            label="Repas donnés"
             value={repas}
             dotColor={KPI_DOT.accent}
           />
           <StatCard
-            label="CO₂e évité"
+            label="CO₂e évité estimé"
             value={<Co2Display kg={co2Evite} />}
             dotColor={KPI_DOT.green}
           />

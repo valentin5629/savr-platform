@@ -58,8 +58,9 @@ export function Co2MethodePanelAg({
       </h4>
       <Text className="mt-0.5">
         Base Carbone ADEME. Chaque repas donné évite la production d'un repas
-        moyen, dont l'empreinte carbone est figée à la clôture de chaque
-        collecte, puis additionnée sur la période filtrée.
+        moyen. Le nombre de repas est estimé à partir du poids donné. Chaque
+        collecte garde le facteur en vigueur à son calcul, puis les collectes
+        sont additionnées sur la période filtrée.
       </Text>
 
       <div className="mt-4 flex flex-col gap-3">
@@ -73,11 +74,14 @@ export function Co2MethodePanelAg({
           seul »).
         </Formule>
         <Formule titre="Application sur la période">
-          {fmtInt(repasDonnes)} repas × {fmtDec(facteurParRepas, 2)}{' '}
-          kg&nbsp;CO₂e/repas ={' '}
+          {fmtInt(repasDonnes)} repas donnés,{' '}
           <b className="text-savr-neutral-800">
             {evite.value}&nbsp;{uniteCo2(evite.unit)}
-          </b>
+          </b>{' '}
+          évités
+          {repasDonnes > 0
+            ? `, soit en moyenne ${fmtDec(eviteKg / repasDonnes, 2)} kg\u00a0CO₂e par repas`
+            : ''}
           .
         </Formule>
         <Formule titre="Équivalences pédagogiques">
@@ -88,8 +92,9 @@ export function Co2MethodePanelAg({
       </div>
 
       <Text variant="hint" tone="faint" className="mt-4">
-        Facteur d'émission : {fmtDec(facteurParRepas, 2)} kg&nbsp;CO₂e par repas
-        {source ? ` — ${source}` : ''}.
+        Facteur en vigueur : {fmtDec(facteurParRepas, 2)} kg&nbsp;CO₂e par repas
+        {source ? ` — ${source}` : ''}. Les collectes calculées avant le 6
+        novembre 2026 gardent l'estimation FAO de 2,5 kg&nbsp;CO₂e par repas.
       </Text>
     </section>
   );

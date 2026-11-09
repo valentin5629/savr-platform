@@ -6,7 +6,8 @@
 --                       « kg CO₂e évités »          → « kg CO₂e évités (estimation) »
 --   verification_email  « les déchets sont triés et recyclés » → les déchets triés
 --                       sont collectés, pesés et envoyés vers leur filière
---   invitation_compte   « recyclage des déchets » → « collecte des déchets triés »
+--   invitation_utilisateur « ainsi que la collecte et le recyclage des déchets »
+--                       → « (Anti-Gaspi) et collecte des déchets triés (Zéro Déchet) »
 --
 -- Portée : remplacement ciblé dans corps_html (replace), aucune structure, aucun
 -- droit. Idempotent : un rejeu ne trouve plus l'ancien texte et ne change rien.
@@ -32,12 +33,14 @@ SET corps_html = replace(corps_html,
     updated_at = now()
 WHERE corps_html LIKE '%les déchets sont triés et recyclés%';
 
+-- Texte posé par 20261029150000 (avec un double espace après « associations »).
 UPDATE plateforme.email_templates
-SET corps_html = replace(corps_html,
-      'recyclage des déchets (Zéro Déchet)',
-      'collecte des déchets triés (Zéro Déchet)'),
+SET corps_html = regexp_replace(corps_html,
+      'associations\s+ainsi que la collecte et le recyclage des déchets\.',
+      'associations (Anti-Gaspi) et collecte des déchets triés (Zéro Déchet).'),
     updated_at = now()
-WHERE corps_html LIKE '%recyclage des déchets (Zéro Déchet)%';
+WHERE code = 'invitation_utilisateur'
+  AND corps_html LIKE '%ainsi que la collecte et le recyclage des déchets.%';
 
 DO $$
 DECLARE n_ancien int; n_nouveau int;
@@ -45,12 +48,16 @@ BEGIN
   SELECT count(*) INTO n_ancien FROM plateforme.email_templates
    WHERE corps_html LIKE '%déchets détournés%'
       OR corps_html LIKE '%triés et recyclés%'
-      OR corps_html LIKE '%recyclage des déchets (Zéro Déchet)%';
+      OR corps_html LIKE '%recyclage des déchets%';
   SELECT count(*) INTO n_nouveau FROM plateforme.email_templates
-   WHERE code = 'rapport_disponible' AND actif
-     AND corps_html LIKE '%kg de déchets collectés%'
-     AND corps_html LIKE '%kg CO₂e évités (estimation)%';
-  IF n_ancien > 0 OR n_nouveau <> 1 THEN
-    RAISE EXCEPTION 'emails allégations CO₂ : % gabarit(s) gardent l''ancien texte, % rapport_disponible à jour (attendu 0 et 1)', n_ancien, n_nouveau;
+   WHERE (code = 'rapport_disponible' AND actif
+          AND corps_html LIKE '%kg de déchets collectés%'
+          AND corps_html LIKE '%kg CO₂e évités (estimation)%')
+      OR (code = 'verification_email'
+          AND corps_html LIKE '%déchets triés sont collectés, pesés%')
+      OR (code = 'invitation_utilisateur'
+          AND corps_html LIKE '%et collecte des déchets triés (Zéro Déchet).%');
+  IF n_ancien > 0 OR n_nouveau <> 3 THEN
+    RAISE EXCEPTION 'emails allégations CO₂ : % gabarit(s) gardent l''ancien texte, % gabarit(s) à jour (attendu 0 et 3)', n_ancien, n_nouveau;
   END IF;
 END $$;

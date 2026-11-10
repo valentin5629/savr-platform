@@ -185,13 +185,13 @@ Val (et potentiellement Louis à terme). Accès complet à toutes les fonctions 
 - Configurer les accès : attribuer des lieux à un gestionnaire, des traiteurs à une agence
 - Piloter les revenus et coûts (dashboard finance)
 - Gérer la tarification et les packs clients
-- Superviser les intégrations API (Pennylane, Everest/A Toutes!, TMS Savr)
+- Superviser les intégrations API (Pennylane, Everest/A Toute!, TMS Savr)
 - Gérer les utilisateurs de toutes les organisations
 
 ### Cas d'usage critiques (spécifiques Admin)
 1. **Validation algo Anti-Gaspi** : reçoit une notification → voit la recommandation (assoc + transporteur + score de confiance) → valide ou modifie → email automatique envoyé
 2. **Onboarding nouveau client traiteur** : crée l'organisation → invite le Manager → configure la tarification
-3. **Pilotage financier** : dashboard revenus (factures Savr émises, packs consommés, impayés) vs. coûts (logistique Strike, Veolia, Marathon, A Toutes!)
+3. **Pilotage financier** : dashboard revenus (factures Savr émises, packs consommés, impayés) vs. coûts (logistique Strike, Veolia, Marathon, A Toute!)
 4. **Configuration d'un profil gestionnaire de lieux** : crée le compte Viparis → attribue manuellement les 15 lieux → définit les droits
 5. **Impersonation** : se "met dans la peau" d'un utilisateur (commercial, manager, gestionnaire, agence, client organisateur) pour voir exactement ce que lui voit. Utile pour le support, la QA et la résolution d'incidents. Action loguée dans `audit_log` avec `impersonated_by` + `impersonated_user_id` + horodatage
 6. **Dashboard global style gestionnaire** : vue transverse multi-clients style "gestionnaire de lieux" sur tout le parc Savr (tonnage par lieu, par traiteur, par flux, CO₂e, taux de recyclage *(ZD uniquement)*), filtrable par période et entité

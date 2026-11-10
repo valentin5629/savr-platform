@@ -740,9 +740,9 @@ Codes regroupés par module (liste extractable exhaustive à partir des modules 
 | `m14_everest_mission_cancel_failed` | warning | M14 | Annulation mission Everest échec final W3 — risque double-dispatch, Ops appel manuel — propagation M14 2026-04-25 |
 | `m14_everest_webhook_signature_invalid` | warning | M14 | Token webhook entrant invalide (filet sécurité M14 D6) W2 — surveillance attaque potentielle — propagation M14 2026-04-25 |
 | `m14_everest_webhook_unknown_mission` | warning | M14 | Webhook reçu pour `mission_id` inconnu en DB W2 — propagation M14 2026-04-25 |
-| `m14_everest_mission_failed` | critical | M14 | Webhook `mission_failed` reçu W2 — incident terrain à investiguer avec A Toutes! et chauffeur — propagation M14 2026-04-25 |
-| `m14_everest_mission_cancelled_externally` | critical | M14 | Webhook `mission_cancelled` non initié par TMS W2 — A Toutes! a annulé chez eux, Ops contact urgent — propagation M14 2026-04-25 |
-| `m14_everest_mission_late` | warning | M14 | Webhook `mission_late` reçu W2 — retard chauffeur A Toutes! signalé Ops — propagation M14 2026-04-25. **Seedé `active = false` V1** (sobriété M14 2026-04-30 A_M14_07 — risque bruit, seuil Everest non confirmé Q4. À activer V1.1 si seuil utile). |
+| `m14_everest_mission_failed` | critical | M14 | Webhook `mission_failed` reçu W2 — incident terrain à investiguer avec A Toute! et chauffeur — propagation M14 2026-04-25 |
+| `m14_everest_mission_cancelled_externally` | critical | M14 | Webhook `mission_cancelled` non initié par TMS W2 — A Toute! a annulé chez eux, Ops contact urgent — propagation M14 2026-04-25 |
+| `m14_everest_mission_late` | warning | M14 | Webhook `mission_late` reçu W2 — retard chauffeur A Toute! signalé Ops — propagation M14 2026-04-25. **Seedé `active = false` V1** (sobriété M14 2026-04-30 A_M14_07 — risque bruit, seuil Everest non confirmé Q4. À activer V1.1 si seuil utile). |
 | `integration_ocr_mistral_down` | warning | transverse | OCR Mistral indisponible |
 | `integration_resend_email_failed` | critical | transverse | Email Resend échec (fallback in-app) |
 | `integration_pennylane_down` | warning | transverse | API Pennylane indisponible — **seedé `active = false` V1** (intégration Pennylane = V2, code ne peut pas se déclencher en V1 ; activer V1.1+ à la mise en place Pennylane TMS) |

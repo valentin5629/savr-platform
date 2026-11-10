@@ -30,7 +30,7 @@ const CLE_LABELS: Record<string, string> = {
   regle_ag_seuil_pax_velo: 'Seuil PAX grand volume',
   regle_ag_seuil_h2_minutes: 'Seuil délai express (min)',
   poids_par_repas_kg: 'Poids par repas (kg)',
-  a_toutes_indisponible: 'A Toutes! indisponible',
+  a_toutes_indisponible: 'A Toute! indisponible',
   everest_codes_postaux: 'Codes postaux Everest',
 };
 

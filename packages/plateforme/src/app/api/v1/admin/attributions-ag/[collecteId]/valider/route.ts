@@ -85,7 +85,7 @@ async function postHandler(
   const refusBesoin = refusBesoinVehicule(body);
   if (refusBesoin) return refusBesoin;
 
-  // Transporteur qui distingue ses services (A Toutes!) : la branche doit en
+  // Transporteur qui distingue ses services (A Toute!) : la branche doit en
   // désigner un. L'Admin le choisit quand il force ce transporteur (décision
   // Val 2026-11-03) ; sans lui, l'envoi échouait en définitif (2026-11-02).
   {

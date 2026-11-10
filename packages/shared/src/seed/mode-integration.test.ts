@@ -1,4 +1,4 @@
-// Mode d'intégration des prestataires seedés : A Toutes! = Everest, comme en production
+// Mode d'intégration des prestataires seedés : A Toute! = Everest, comme en production
 // (relevé 2026-10-14 : le seed le posait à « mts1 » pour tous).
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { modeIntegrationSeed } from './codes-mts1.js';
 
 describe('seed / mode d’intégration des prestataires', () => {
-  it('A Toutes! passe par Everest', () => {
+  it('A Toute! passe par Everest', () => {
     expect(modeIntegrationSeed('ATOUTES')).toBe('everest');
   });
 

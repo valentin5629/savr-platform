@@ -56,7 +56,7 @@ const ATTRIBUTION = {
     contact_email: 'asso@example.org',
   },
   transporteurs: {
-    nom: 'A Toutes!',
+    nom: 'A Toute!',
     contact_email: 'transp@example.org',
     type_tms: 'a_toutes',
   },

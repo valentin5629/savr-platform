@@ -145,7 +145,7 @@ SELECT throws_ok(
 -- ── A2 : cas nominal ─────────────────────────────────────────────────────────
 SELECT lives_ok(
   $$ SELECT plateforme.fn_accepter_mission_everest_manuelle(
-       'e5a40000-0000-0000-0000-0000000000c1'::uuid, 'EVR-TEL-001', 'Mathieu (A Toutes!)',
+       'e5a40000-0000-0000-0000-0000000000c1'::uuid, 'EVR-TEL-001', 'Mathieu (A Toute!)',
        'e5a40000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', 'Appel 20h', '20:05') $$,
   'A2 acceptation avec reference -> succes');
 
@@ -159,7 +159,7 @@ SELECT results_eq(
             manual_acceptance_by_user_id
        FROM plateforme.everest_missions
       WHERE tournee_id = 'e5a40000-0000-0000-0000-0000000000a2'::uuid $$,
-  $$ VALUES ('created_manually'::text, 'EVR-TEL-001'::text, 'Mathieu (A Toutes!)'::text,
+  $$ VALUES ('created_manually'::text, 'EVR-TEL-001'::text, 'Mathieu (A Toute!)'::text,
              'e5a40000-0000-0000-0000-0000000000a1'::uuid) $$,
   'A2b everest_missions : created_manually + everest_mission_id + tracabilite Ops');
 
@@ -202,7 +202,7 @@ SELECT is(
 -- ── A5 : rejeu meme reference = no-op ; reference differente = refus ─────────
 SELECT is(
   plateforme.fn_accepter_mission_everest_manuelle(
-    'e5a40000-0000-0000-0000-0000000000c1'::uuid, 'EVR-TEL-001', 'Mathieu (A Toutes!)',
+    'e5a40000-0000-0000-0000-0000000000c1'::uuid, 'EVR-TEL-001', 'Mathieu (A Toute!)',
        'e5a40000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL)->>'rejeu',
   'true', 'A5 rejeu avec la meme reference -> no-op idempotent');
 
@@ -263,7 +263,7 @@ SELECT throws_ok(
   $$ SELECT plateforme.fn_accepter_mission_everest_manuelle(
        'e5a40000-0000-0000-0000-0000000000c5'::uuid, 'EVR-TEL-005', 'Mathieu',
        'e5a40000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
-  'P0003', 'La collecte n''est pas attribuée à A Toutes! : dispatchez-la d''abord vers ce transporteur.',
+  'P0003', 'La collecte n''est pas attribuée à A Toute! : dispatchez-la d''abord vers ce transporteur.',
   'A8b collecte dispatchee chez un camion -> refus');
 
 SELECT throws_ok(

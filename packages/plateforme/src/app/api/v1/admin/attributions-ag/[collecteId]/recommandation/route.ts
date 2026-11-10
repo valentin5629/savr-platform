@@ -33,7 +33,7 @@ async function getHandler(
     }
 
     // Services au choix quand l'Admin force un transporteur qui en distingue
-    // (A Toutes!, décision Val 2026-11-03) : l'écran ne connaît pas les
+    // (A Toute!, décision Val 2026-11-03) : l'écran ne connaît pas les
     // prestataires, il lit la liste ici.
     return NextResponse.json({
       data: { ...result, services_par_type_tms: servicesParTypeTms() },

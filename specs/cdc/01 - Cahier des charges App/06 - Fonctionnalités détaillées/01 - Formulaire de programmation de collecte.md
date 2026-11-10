@@ -174,7 +174,7 @@ Référentiel autocomplete depuis `contacts_traiteurs` (scoped organisation). Ni
 - Traiteur **coche** alors que `lieux.controle_acces_requis_default = false` → **update lieu** à `true` (impacte tous les futurs traiteurs).
 - Traiteur **décoche** alors que `lieux.controle_acces_requis_default = true` → **PAS d'update lieu** (les collectes de l'événement portent `false`, le lieu reste `true` pour les futurs). Downgrade = acte Admin uniquement.
 
-**Cas vélo cargo A Toutes! (AG uniquement)** : si `controle_acces_requis = true` ET une collecte AG vélo cargo est générée (prestataire `integration_externe='everest'` + véhicule vélo cargo) → **message UX inline** sur la carte de la collecte AG (écran 2, étape 3) : "Vélo cargo — pas de plaque possible. La demande sera transmise mais le manager n'aura pas de plaque à saisir." Soumission autorisée. Côté TMS, le trigger `validate_tournee_controle_acces` autorise la validation via exception explicite sur le critère plaque (chauffeur reste obligatoire).
+**Cas vélo cargo A Toute! (AG uniquement)** : si `controle_acces_requis = true` ET une collecte AG vélo cargo est générée (prestataire `integration_externe='everest'` + véhicule vélo cargo) → **message UX inline** sur la carte de la collecte AG (écran 2, étape 3) : "Vélo cargo — pas de plaque possible. La demande sera transmise mais le manager n'aura pas de plaque à saisir." Soumission autorisée. Côté TMS, le trigger `validate_tournee_controle_acces` autorise la validation via exception explicite sur le critère plaque (chauffeur reste obligatoire).
 
 **Action** : bouton « Continuer » (fin de l'écran 1) → écran 2 (étape 3).
 

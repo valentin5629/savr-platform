@@ -494,10 +494,10 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
     expect(res.status).toBe(422);
   });
 
-  // Décision Val 2026-11-03 : quand l'Admin force A Toutes!, il choisit le
-  // service ; une branche Marathon ne désigne aucun service A Toutes! (le cas
+  // Décision Val 2026-11-03 : quand l'Admin force A Toute!, il choisit le
+  // service ; une branche Marathon ne désigne aucun service A Toute! (le cas
   // du 2026-11-02 finissait en échec d'envoi définitif).
-  it('M2.3/valider_service_a_toutes — A Toutes! forcé avec une branche Marathon → 422, rien n’est validé', async () => {
+  it('M2.3/valider_service_a_toutes — A Toute! forcé avec une branche Marathon → 422, rien n’est validé', async () => {
     mockRpc.mockClear();
     mockSupabaseChain.limit.mockResolvedValueOnce({
       data: [{ type_tms: 'a_toutes' }],
@@ -526,7 +526,7 @@ describe('M2.3 / POST /attributions-ag/:id/valider', () => {
     );
   });
 
-  it('M2.3/valider_service_a_toutes — A Toutes! forcé avec le service choisi → validé, la branche choisie est rangée', async () => {
+  it('M2.3/valider_service_a_toutes — A Toute! forcé avec le service choisi → validé, la branche choisie est rangée', async () => {
     mockRpc.mockResolvedValue({
       data: {
         ok: true,

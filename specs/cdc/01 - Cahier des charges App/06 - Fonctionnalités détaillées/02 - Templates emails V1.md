@@ -167,7 +167,7 @@ L'équipe Savr
 
 ## 7. Email plaque d'immatriculation chauffeur **Retiré V1 (propagation Q10 M05 2026-04-24)**
 
-**Retiré V1 (propagation Q10 M05 2026-04-24)** — suppression totale de la notification client "plaque chauffeur T+3h". La plaque reste saisie côté TMS (bloquante checklist pré-départ M05 pour véhicules motorisés, non bloquante pour vélos cargo A Toutes!) pour traçabilité interne, registre transport, audit M08 rapprochement factures. Webhook S7 `tms/plaque-saisie` conservé côté contrat API pour log Plateforme + monitoring Admin, sans trigger Resend. Si le besoin client réapparaît, à reconsidérer V1.1 avec un template dédié et un opt-in par organisation (pas par collecte). Contenu historique préservé ci-dessous pour traçabilité.
+**Retiré V1 (propagation Q10 M05 2026-04-24)** — suppression totale de la notification client "plaque chauffeur T+3h". La plaque reste saisie côté TMS (bloquante checklist pré-départ M05 pour véhicules motorisés, non bloquante pour vélos cargo A Toute!) pour traçabilité interne, registre transport, audit M08 rapprochement factures. Webhook S7 `tms/plaque-saisie` conservé côté contrat API pour log Plateforme + monitoring Admin, sans trigger Resend. Si le besoin client réapparaît, à reconsidérer V1.1 avec un template dédié et un opt-in par organisation (pas par collecte). Contenu historique préservé ci-dessous pour traçabilité.
 
 
 
@@ -452,7 +452,7 @@ L'équipe Savr
 
 **Slug** : `ag_attribution_transporteur`
 **Destinataire** : adresse de contact du transporteur (`transporteurs.email_contact`)
-**Déclencheur** : validation de l'attribution par Admin Savr (ou auto-accept), uniquement si transporteur != A Toutes!
+**Déclencheur** : validation de l'attribution par Admin Savr (ou auto-accept), uniquement si transporteur != A Toute!
 **Objet** : Mission de transport Anti-Gaspi — {{date_collecte}}
 
 ```
@@ -481,19 +481,19 @@ L'équipe Savr
 
 ---
 
-## 18ter. Email Ops Savr — A Toutes! marqué indisponible *(ajout 2026-05-09)* **Désactivé (revue des emails, Val 2026-10-29)**
+## 18ter. Email Ops Savr — A Toute! marqué indisponible *(ajout 2026-05-09)* **Désactivé (revue des emails, Val 2026-10-29)**
 
 **Motif** : aucun code ne l'envoie. Gabarit désactivé (`actif = false`, migration `20261029150000`). Contenu historique conservé ci-dessous.
 
 **Slug** : `ag_a_toutes_indispo`
 **Destinataire** : Ops Savr (`ops@gosavr.io` ou alias configurable)
 **Déclencheur** : bascule du flag `parametres_algo.a_toutes_indisponible` de `false` à `true` par un Admin Savr (cf. [[09 - Flux algo attribution AG (Admin)#7.2. Règles d'attribution transporteur IDF — branches §2.3|§09 §7.2]]). Toutes les nouvelles attributions IDF jour basculent vers Marathon (branche `ag_velo_fallback_marathon`). Email envoyé une fois à la bascule (pas de répétition).
-**Objet** : `[AG IDF] A Toutes! marqué indisponible — bascule Marathon active`
+**Objet** : `[AG IDF] A Toute! marqué indisponible — bascule Marathon active`
 
 ```
 Bonjour,
 
-L'Admin Savr {{admin_nom}} a marqué A Toutes! comme indisponible à {{horodatage}}.
+L'Admin Savr {{admin_nom}} a marqué A Toute! comme indisponible à {{horodatage}}.
 
 Motif : {{motif}}
 
@@ -503,7 +503,7 @@ Effet immédiat sur les nouvelles attributions AG en Île-de-France :
 
 Les attributions déjà validées ne sont pas recalculées.
 
-Pensez à rebasculer le flag à `false` une fois A Toutes! redevenu opérationnel (Back-office → Paramètres → Algorithme AG).
+Pensez à rebasculer le flag à `false` une fois A Toute! redevenu opérationnel (Back-office → Paramètres → Algorithme AG).
 
 L'équipe Savr
 ```

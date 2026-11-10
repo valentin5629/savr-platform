@@ -32,7 +32,7 @@
 | 7. Migration | 2 | INSERT migration ne déclenche pas T1 (F5), idempotence re-run import |
 | **TOTAL** | **48** | |
 
-> **Révision 2026-06-07 (session seed-fixtures, mapping zones réel)** : garde zone tarifaire A Toutes! ajoutée (§05 R1.3 + algo §4.6 `is_zone_tarifaire_atoutes`, mapping départemental 75/92/93/94 seed §04). 47→48 scénarios.
+> **Révision 2026-06-07 (session seed-fixtures, mapping zones réel)** : garde zone tarifaire A Toute! ajoutée (§05 R1.3 + algo §4.6 `is_zone_tarifaire_atoutes`, mapping départemental 75/92/93/94 seed §04). 47→48 scénarios.
 
 **8 specs floues détectées et soldées 2026-06-07** (4 tranchées Val, 2 par reco, 1 dette purgée, 1 reco notée). Voir section finale.
 
@@ -165,13 +165,13 @@ Scénario : alerte_aucun_prestataire_resolue_auto_creation_presta_couvrant
 ## Catégorie 2 — Cas limites métier
 
 ```gherkin
-# Source : §05 R1.3 garde zone tarifaire A Toutes! (nouveau 2026-06-07, arbitrage Val — grande couronne hors mapping 75/92/93/94)
+# Source : §05 R1.3 garde zone tarifaire A Toute! (nouveau 2026-06-07, arbitrage Val — grande couronne hors mapping 75/92/93/94)
 # Couche : db
 # Priorité : P1-critique
 Scénario : garde_zone_atoutes_grande_couronne_fallback_marathon
   Étant donné une collecte AG 300 pax, lieu code postal 78140 (Vélizy — IDF mais hors zones_codes_postaux_mapping), jour, < 600 pax
   Quand T1 s'exécute
-  Alors A Toutes! n'est jamais suggéré (is_zone_tarifaire_atoutes = false, même si everest_is_handled_address = true)
+  Alors A Toute! n'est jamais suggéré (is_zone_tarifaire_atoutes = false, même si everest_is_handled_address = true)
   Et suggestion_branche_r1_code = 'ag_velo_fallback_marathon'
 ```
 
@@ -318,7 +318,7 @@ Scénario : erreur_ag_nuit_marathon_inactif_aucun_prestataire
   Étant donné marathon statut='suspendu' et une collecte AG 22:00 IDF
   Quand T1 s'exécute
   Alors suggestion_branche_r1_code = 'aucun_prestataire' avec reason='ag_nuit_marathon_exclu'
-  Et A Toutes! n'est PAS suggéré (fermé la nuit, pas de backup V1)
+  Et A Toute! n'est PAS suggéré (fermé la nuit, pas de backup V1)
 ```
 
 ```gherkin
@@ -579,7 +579,7 @@ Scénario : cross_e1_ingestion_produit_suggestion_avant_affichage_dispatch
 # Couche : db
 # Priorité : P1-critique
 Scénario : cross_everest_service_id_target_consomme_par_m14
-  Étant donné une collecte suggérée 'ag_velo_express' (everest_service_id_target=75) validée par Ops vers A Toutes!
+  Étant donné une collecte suggérée 'ag_velo_express' (everest_service_id_target=75) validée par Ops vers A Toute!
   Quand M14 W1 étape 2 construit la commande Everest
   Alors le service utilisé est 75 lu depuis everest_service_id_target (aucun re-calcul de fenêtre last-minute dans M14)
 ```

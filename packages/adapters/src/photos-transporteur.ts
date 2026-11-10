@@ -1,5 +1,5 @@
 // Photos prises par le livreur, relues chez le transporteur (décision Val
-// 2026-11-03). Seul A Toutes! les expose aujourd'hui : l'Admin les voit dans la
+// 2026-11-03). Seul A Toute! les expose aujourd'hui : l'Admin les voit dans la
 // fiche collecte et importe celles qu'il garde. MTS-1 n'est pas concerné, ses
 // photos arrivent seules à la relève (`sync`).
 //

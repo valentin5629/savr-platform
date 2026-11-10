@@ -3,7 +3,7 @@
  * Lit les matrices CSV committées (fixtures/data/), ne les génère pas.
  *
  * Périmètre : plateforme.* + shared.* (jamais tms.*). GATE EVEREST : zéro
- * mission Everest ; A Toutes! existe en référentiel mais ne sert aucune
+ * mission Everest ; A Toute! existe en référentiel mais ne sert aucune
  * collecte (bascule fallback MTS-1 au go-live).
  *
  * Le référentiel (types_evenements, flux_dechets, grilles, packs, templates…)
@@ -614,7 +614,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     ['id'],
   );
 
-  // ── Prestataires + transporteurs (4 + A Toutes! gate) ─────────────────────
+  // ── Prestataires + transporteurs (4 + A Toute! gate) ─────────────────────
   await upsert(
     client,
     'shared.prestataires',
@@ -628,7 +628,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         siret(90),
         'transnor',
       ),
-      prest('prest_a_toutes', 'A Toutes!', 'ATOUTES', siret(95), 'a_toutes'),
+      prest('prest_a_toutes', 'A Toute!', 'ATOUTES', siret(95), 'a_toutes'),
     ],
     ['id'],
   );
@@ -674,7 +674,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       ),
       transp(
         'transp_a_toutes',
-        'A Toutes!',
+        'A Toute!',
         '111111111',
         '3 Rue du Vélo',
         '75011',

@@ -19,14 +19,14 @@ Conséquences sur M07 :
 
 Voir [[../08 - Contrat API Plateforme-TMS#Addendum 2026-05-01 — Revue sobriété §08 Bloc A]].
 **Persona principal** : Admin TMS (paramétrage grilles + supervision) + Ops Savr (consultation + ajustements + export)
-**Dépend de** : [[M04 - Gestion des tournées]] (clôture = déclencheur calcul), [[M06 - Référentiel prestataires]] (grilles tarifaires saisies en M06 E7), [[M12 - Attribution transporteur]] (prestataire = source grille), [[M14 - Intégration Everest (A Toutes!)]] (coût Everest rapproché)
+**Dépend de** : [[M04 - Gestion des tournées]] (clôture = déclencheur calcul), [[M06 - Référentiel prestataires]] (grilles tarifaires saisies en M06 E7), [[M12 - Attribution transporteur]] (prestataire = source grille), [[M14 - Intégration Everest (A Toute!)]] (coût Everest rapproché)
 **Bloque** : [[M08 - Facturation prestataires]] (rapprochement facture = coût TMS comme référence)
 
 ---
 
 ## 1. Objectif métier
 
-Calculer automatiquement le coût HT de chaque tournée à la clôture, en appliquant la grille tarifaire négociée (Strike, Marathon, A Toutes!, prestataires province). Répartir ce coût par collecte. **Exposer en lecture cross-schema** vers la Plateforme via vue `plateforme.v_courses_logistiques` *(remplace ex-webhook S6, revue sobriété 2026-05-01 A2)* pour calcul marge événement. Permettre ajustements manuels Ops (cas litige négocié) et pilotage mensuel (dashboard + export CSV).
+Calculer automatiquement le coût HT de chaque tournée à la clôture, en appliquant la grille tarifaire négociée (Strike, Marathon, A Toute!, prestataires province). Répartir ce coût par collecte. **Exposer en lecture cross-schema** vers la Plateforme via vue `plateforme.v_courses_logistiques` *(remplace ex-webhook S6, revue sobriété 2026-05-01 A2)* pour calcul marge événement. Permettre ajustements manuels Ops (cas litige négocié) et pilotage mensuel (dashboard + export CSV).
 
 **Frontière claire** :
 - **M07 calcule** : coût théorique TMS à la clôture tournée (source de vérité interne).
@@ -70,7 +70,7 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 
 ### 2.3 Manager prestataire (lecture seule)
 
-- **Contexte** : bureau prestataire (Strike/Marathon/A Toutes!)
+- **Contexte** : bureau prestataire (Strike/Marathon/A Toute!)
 - **Besoins** : lire sa propre grille active (M03 portail), pas de visibilité sur les autres
 - **Contraintes** : isolation RLS stricte (`prestataire_id = auth.user_prestataire_id()`)
 - **Fréquence** : occasionnel (consultation pour vérification)
@@ -197,7 +197,7 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 - `nb_personnes_facturation` (1 ou 2)
 - Palier appliqué (si `vacations_paliers`) : ex "0h-4h, 1 vacation"
 - Zone appliquée (si grille matricielle) : ex "Zone 1 Paris"
-- `type_course` (si A Toutes! vélo) : `complete` ou `incomplete`
+- `type_course` (si A Toute! vélo) : `complete` ou `incomplete`
 - **Détail JSON formaté** : `cout_detail` rendu en tableau lisible (pas de JSON brut) — chaque clé = ligne avec libellé human-readable + valeur
 - `cout_calcule_ht` en gras
 
@@ -497,10 +497,10 @@ Renvois explicites vers `[[../05 - Règles métier TMS|§05]]` (pas de duplicati
 
 - **R2.1 Algorithme général** → cf. §05 R2.1. Utilisé par W1.
 - **R2.2 Formule `vacations_paliers`** → cf. §05 R2.2. Strike (grilles réelles 2026-06-07 : Marathon reclassé `forfait_fixe` → R2.5 ; dépassement par heure entamée, supplément équipage double 31,25 €/h sur dépassement seul). Paliers JSON configurables.
-- **R2.3 Formule `grille_matricielle_zone_type_course`** → cf. §05 R2.3. A Toutes! vélo. Avec précision 2026-04-24 : `type_course = incomplete` uniquement si `tarif_sans_collecte_applicable = true` dans la grille (défaut false pour Strike/Marathon).
-- **R2.4 Formule `grille_matricielle_zone`** → cf. §05 R2.4. **Aucune grille V1** (arbitrage Val 2026-06-07 — camion A Toutes! = R2.6 manuel/Everest ; formule conservée au catalogue).
+- **R2.3 Formule `grille_matricielle_zone_type_course`** → cf. §05 R2.3. A Toute! vélo. Avec précision 2026-04-24 : `type_course = incomplete` uniquement si `tarif_sans_collecte_applicable = true` dans la grille (défaut false pour Strike/Marathon).
+- **R2.4 Formule `grille_matricielle_zone`** → cf. §05 R2.4. **Aucune grille V1** (arbitrage Val 2026-06-07 — camion A Toute! = R2.6 manuel/Everest ; formule conservée au catalogue).
 - **R2.5 Formules `forfait_km` / `forfait_fixe`** → cf. §05 R2.5. Prestataires province + **Marathon IDF (`forfait_fixe` 100 €/tournée — grille réelle 2026-06-07)**.
-- **R2.6 Cas sans grille** → cf. §05 R2.6. **Refondu revue sobriété §05 2026-05-01 D2** : cas impossible par construction (R_M06.X grille obligatoire à création prestataire). Si déclenché → exception SQL bloquante. **Exception assumée V1 (arbitrage Val 2026-06-07)** : courses **camion A Toutes!** — aucune grille camion n'existe (seule la grille vélo est instanciée) → saisie manuelle Ops (§05 R2.6), pas une exception SQL.
+- **R2.6 Cas sans grille** → cf. §05 R2.6. **Refondu revue sobriété §05 2026-05-01 D2** : cas impossible par construction (R_M06.X grille obligatoire à création prestataire). Si déclenché → exception SQL bloquante. **Exception assumée V1 (arbitrage Val 2026-06-07)** : courses **camion A Toute!** — aucune grille camion n'existe (seule la grille vélo est instanciée) → saisie manuelle Ops (§05 R2.6), pas une exception SQL.
 - **R2.7 Annulation — règle authoritative `[[../05 - Règles métier TMS|§05 R2.7]]`** (seuil 3h, sobriété C3 2026-04-30, ex-1h) :
   - **Annulation ≥ 3h avant `heure_planifiee_debut`** : `cout_calcule_ht = 0`, règle uniforme tous prestataires
   - **Annulation < 3h avant `heure_planifiee_debut`** (ou après) : vacation facturée (formule normale sur durée minimale palier ou durée réelle si chauffeur mobilisé)
@@ -515,8 +515,8 @@ Renvois explicites vers `[[../05 - Règles métier TMS|§05]]` (pas de duplicati
 - **R2.10 Flag `tarif_sans_collecte_applicable`** (décision C 2026-04-24) — inchangée :
   - Ajouté dans `parametres_formule` des formules `vacations_paliers` et `grille_matricielle_zone`
   - Déjà natif dans `grille_matricielle_zone_type_course` via `type_course`
-  - Défaut `false` (Strike, Marathon, province, A Toutes! camion)
-  - `true` pour A Toutes! vélo (géré via `type_course = incomplete`)
+  - Défaut `false` (Strike, Marathon, province, A Toute! camion)
+  - `true` pour A Toute! vélo (géré via `type_course = incomplete`)
 
 ---
 
@@ -666,7 +666,7 @@ Transitions autorisées :
 - [[M11 - Alerting transverse]] — codes alertes M07 (**3 codes V1**, source authoritative M11 : `m07_horaires_manquants` critical, `m07_duree_nulle` warning, `m07_ajustement_pendant_facturation` critical ; retiré §05 D2, retiré A2 2026-05-01 — S6 supprimé)
 - [[M12 - Attribution transporteur]] — `prestataire_id` choisi = source grille lookup
 - [[M13 - Administration TMS]] — paramètres `m07.*` (le namespace existe toujours mais sans `seuil_validation_ajustement_pourcent` ni `alerte_expiration_grille_jours`)
-- [[M14 - Intégration Everest (A Toutes!)]] — `everest_missions.cout_everest_ht` comparatif audit
+- [[M14 - Intégration Everest (A Toute!)]] — `everest_missions.cout_everest_ht` comparatif audit
 
 ### Cross-CDC (Plateforme)
 - [[01 - Cahier des charges App/04 - Data Model|§04 Plateforme]] — vue `v_courses_logistiques` *(ex-table `courses_logistiques` migrée en vue cross-schema 2026-05-01 A2)* (colonnes exposées : `cout_final_ht`, `cout_reparti_ht`, `cout_ajuste`, `version_paiement` = alias de `push_s6_version`, `snapshot_cout_detail`)

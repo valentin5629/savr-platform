@@ -139,7 +139,7 @@ Note : E10 (M03 manager) existe déjà dans M03 W10, pas redéfini ici.
 - Bouton ligne : "Relance notée" (UPSERT `tms.relances_facture_log` — table légère append-only `prestataire_id`, `periode`, `relance_at`, `relance_par_user_id`, `commentaire?`). Aucune notification automatique.
 
 **Règles métier** :
-- Filtre prestataires : `statut = 'actif'` ET `integration_externe IS NULL OR != 'everest'` (les A Toutes! sont facturés via Everest, pas via le portail prestataire — cf. M14).
+- Filtre prestataires : `statut = 'actif'` ET `integration_externe IS NULL OR != 'everest'` (les A Toute! sont facturés via Everest, pas via le portail prestataire — cf. M14).
 - Pas de cron, pas d'INSERT alerte M11, pas d'email auto.
 - Suppression auto de la ligne dès qu'une facture est uploadée pour la période.
 
@@ -473,7 +473,7 @@ Déclenché par trigger DB `trg_m08_rapprocher` AFTER INSERT sur `factures_prest
      AND statut = 'terminee'
      AND cout_final_verrouille = false
    ```
-2. Check cas A Toutes! ou autre : si au moins une tournée dans la période a `cout_final_ht IS NULL` (grille absente) → statut `rapprochement_manuel_requis`, alerte Ops "Tournée(s) sans coût calculé, vérification manuelle requise" (N2).
+2. Check cas A Toute! ou autre : si au moins une tournée dans la période a `cout_final_ht IS NULL` (grille absente) → statut `rapprochement_manuel_requis`, alerte Ops "Tournée(s) sans coût calculé, vérification manuelle requise" (N2).
 3. UPDATE `factures_prestataires.montant_ht_calcule_tms`.
 4. **Logique zéro tolérance** (D4 + revue sobriété §05 2026-05-01 D1) :
    - Si `montant_ht_prestataire = montant_ht_calcule_tms` (match exact centime) :
@@ -657,7 +657,7 @@ V1 supprimé : Val/Louis exportent CSV E5 ou E1 à la demande quand ils veulent 
 | EC1 | OCR rate un champ required | Blocage upload. Ops/Manager doit compléter manuellement avant submit (D3). |
 | EC2 | Facture hors période tournées (prestataire facture mais aucune tournée réalisée sur la période) | `montant_ht_calcule_tms = 0`, `ecart_ht = montant_facture`, statut `ecart_detecte`. Notification "Aucune tournée TMS trouvée sur la période facturée, vérifier la cohérence". Contestation probable par Ops. |
 | EC3 | Prestataire archivé en cours de période | Si des tournées restent dans la période avant archivage : rapprochement normal. Si prestataire archivé après upload d'une facture : upload Ops reste possible (source `factures_prestataires.prestataire_id` FK vers archive), validation normale. Aucun nouveau upload manager possible (session révoquée). |
-| EC4 | Tournée avec `cout_final_ht IS NULL` dans la période (A Toutes! grille absente) | W3 détecte → statut `rapprochement_manuel_requis`, exclusion de la tournée du `montant_ht_calcule_tms`, alerte Ops N2. Ops doit intervenir (saisir grille M07 puis re-trigger rapprochement via E2 bouton `Re-rapprocher`) ou valider manuellement l'écart (W5 motif). **Bouton `Re-rapprocher` disponible uniquement si `statut_rapprochement = 'rapprochement_manuel_requis'`** (arbitrage Val 2026-06-06 — garde server-side ; pas de re-rapprochement sur `valide`/`ecart_detecte`). |
+| EC4 | Tournée avec `cout_final_ht IS NULL` dans la période (A Toute! grille absente) | W3 détecte → statut `rapprochement_manuel_requis`, exclusion de la tournée du `montant_ht_calcule_tms`, alerte Ops N2. Ops doit intervenir (saisir grille M07 puis re-trigger rapprochement via E2 bouton `Re-rapprocher`) ou valider manuellement l'écart (W5 motif). **Bouton `Re-rapprocher` disponible uniquement si `statut_rapprochement = 'rapprochement_manuel_requis'`** (arbitrage Val 2026-06-06 — garde server-side ; pas de re-rapprochement sur `valide`/`ecart_detecte`). |
 | EC5 | Tournée annulée dans la période | Exclue automatiquement (`statut != 'terminee'`). |
 | EC6 | Contestation alors qu'une autre facture est déjà validée sur la même période | Possible (plusieurs factures/mois autorisées D12). Les tournées déjà verrouillées par l'autre facture restent verrouillées. Ne concerne que les tournées non verrouillées à la date de rapprochement. |
 | EC7 | Déverrouillage alors que nouvelle facture déjà uploadée pour la même période | Bloqué : Admin doit d'abord statuer sur la nouvelle facture (valider ou contester). Message : "Une autre facture `:numero` est en cours de traitement sur cette période. Traiter en priorité." |
@@ -772,9 +772,9 @@ Warning affiché si upload d'une 2e facture même mois : "Ce prestataire a déj�
 
 Motivation : certains prestataires province peuvent facturer plusieurs vacations séparément.
 
-### R_M08.8 — Tournées A Toutes! sans coût = rapprochement manuel
+### R_M08.8 — Tournées A Toute! sans coût = rapprochement manuel
 
-Si au moins une tournée dans la période a `cout_final_ht IS NULL` (grille absente, typique A Toutes! V1) :
+Si au moins une tournée dans la période a `cout_final_ht IS NULL` (grille absente, typique A Toute! V1) :
 - Statut intermédiaire `rapprochement_manuel_requis`.
 - Exclusion de la tournée du calcul `montant_ht_calcule_tms`.
 - Notification Ops N2.
@@ -819,12 +819,12 @@ Toutes les actions sur `factures_prestataires` (INSERT, UPDATE statut, validatio
 
 | # | Décision | Alternatives écartées | Justification |
 |---|----------|----------------------|---------------|
-| D1 | **A Toutes! dans M08 V1 avec rapprochement manuel si grille absente** | Hors M08 V1 (traitement email direct Pennylane) | Unification UX Ops, audit unifié, éviter double système. Grille A Toutes! à saisir dans seed data onboarding. |
+| D1 | **A Toute! dans M08 V1 avec rapprochement manuel si grille absente** | Hors M08 V1 (traitement email direct Pennylane) | Unification UX Ops, audit unifié, éviter double système. Grille A Toute! à saisir dans seed data onboarding. |
 | D2 | **Écran dédié E3 Upload Ops pour prestataires province (emails)** | Upload via M06 E5 onglet factures | Centralisation M08 (1 seul endroit factures), Ops ne jongle pas entre modules. |
 | D3 | **OCR pré-remplit, blocage upload tant que champs required incomplets** | INSERT en mode draft `en_attente_saisie` | Éviter dette de factures incomplètes. Audit propre (INSERT = facture complète). |
 | D4 | **Zéro tolérance — match exact obligatoire** | Seuils 10€ + 2% cumulatifs | Intégrité financière stricte + pratique FR avoir obligatoire. Workflow binaire **`valide` direct (auto-validation match exact, refondu revue sobriété §05 2026-05-01 D1) / `ecart_detecte`**. **Impact rétroactif** : retrait `seuil_tolerance_ht/pct` de §04 + refonte §05 R3. |
 | D5 | **Pas de paliers de seuil (suppression `ecart_critique`)** | Palier warning/critique 20% | Cohérence D4 zéro tolérance, UX Ops simplifiée. Alerting via `m08.seuil_alerte_validation_manuelle_ht` (100€) pour validations manuelles atypiques, pas pour l'écart brut. |
-| D6 | **Ops ET Admin peuvent valider (toutes factures)** | Ops si auto OK, Admin si écart | Simplicité Ops en pic de charge (validation manuelle fréquente si A Toutes! ou EC atypiques), seuil d'alerte 100€ suffit pour tracer écarts importants. Admin peut toujours déverrouiller a posteriori. |
+| D6 | **Ops ET Admin peuvent valider (toutes factures)** | Ops si auto OK, Admin si écart | Simplicité Ops en pic de charge (validation manuelle fréquente si A Toute! ou EC atypiques), seuil d'alerte 100€ suffit pour tracer écarts importants. Admin peut toujours déverrouiller a posteriori. |
 | D7 | **Rectification = nouveau numéro obligatoire (avoir + nouvelle facture)** | Même numéro avec `version_facture int` | Aligne pratique comptable FR standard, trace claire Pennylane, zéro ambiguïté audit. |
 | D8 | **`facture_corrigee_id` self-ref FK dans `factures_prestataires`** | Table séparée `factures_rectifications_log` | Self-ref plus simple, requête intuitive ("quelle facture rectifie quoi"). |
 | D9 | **Règlement V1 saisie manuelle (bouton + date), V2 API Pennylane** | Import CSV relevé bancaire V1 | V1 low-tech, pas de dépendance API Pennylane v2 stabilisée. V2 aligné avec généralisation Plateforme ↔ Pennylane. |
@@ -1168,6 +1168,6 @@ Garde : `(motif_contestation IS NOT NULL AND char_length(motif_contestation) >= 
 3. **IBAN prestataire** : Pennylane gère probablement les RIB côté Pennylane. À confirmer. Si TMS stocke IBAN = section RGPD à traiter (§15).
 4. **Alerting contestation > 60j** : M11 W ?. À intégrer lors de la rédaction M11.
 5. **Dashboard DSO** : définition précise DSO (jour upload → jour règlement ou jour validation → jour règlement ?). V1 : **jour validation → jour règlement** (plus aligné convention gestion).
-6. **Double devise** : uniquement EUR V1. V2 si prestataire international (A Toutes! belgique, prestataire allemand). Hors périmètre V1.
+6. **Double devise** : uniquement EUR V1. V2 si prestataire international (A Toute! belgique, prestataire allemand). Hors périmètre V1.
 7. **Facturation intracommunautaire / TVA spéciale** : uniquement TVA FR standard V1 (20% ou exonération). V2 si besoin.
 8. **Annulation règlement après saisie** : cas Ops saisit règlement par erreur → correction possible uniquement via W9 déverrouillage Admin (cohérent R_M08.6).

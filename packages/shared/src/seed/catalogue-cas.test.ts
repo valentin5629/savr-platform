@@ -24,7 +24,7 @@ describe('catalogue-cas — forme', () => {
     expect(lot.some((c) => c.traiteur === 'org_tr_nomad')).toBe(false);
   });
 
-  it('SEED-CAS-4 — aucune collecte servie par A Toutes! (Everest)', () => {
+  it('SEED-CAS-4 — aucune collecte servie par A Toute! (Everest)', () => {
     expect(JSON.stringify(lot)).not.toContain('a_toutes');
   });
 });

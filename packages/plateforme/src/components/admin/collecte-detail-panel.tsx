@@ -154,7 +154,7 @@ interface Transporteur {
 // le prestataire sur la fiche). Relié à un prestataire — c'est lui que le
 // dispatch pose sur la collecte (une AG garde en repli le transporteur de son
 // attribution) — et, quand le référentiel le renseigne, prenant les ZD. Jamais
-// A Toutes! : son envoi exige l'association destinataire d'une AG, une ZD y
+// A Toute! : son envoi exige l'association destinataire d'une AG, une ZD y
 // finirait en échec définitif.
 function proposableEnZd(t: Transporteur): boolean {
   return (
@@ -179,7 +179,7 @@ interface RecoAlgo {
   transporteur: { id: string; nom: string; type_tms: string } | null;
   no_asso: boolean;
   no_prestataire: boolean;
-  // Services au choix par type de transporteur (A Toutes!, Val 2026-11-03).
+  // Services au choix par type de transporteur (A Toute!, Val 2026-11-03).
   services_par_type_tms?: Record<
     string,
     { branche: string; libelle: string }[]
@@ -281,7 +281,7 @@ interface CollecteDetail {
   attributions_antgaspi: {
     id: string;
     mode_validation: string;
-    // Branche retenue : désigne le service du transporteur (A Toutes!).
+    // Branche retenue : désigne le service du transporteur (A Toute!).
     branche_attribution?: string | null;
     valide_at: string | null;
     volume_repas_realise: number | null;
@@ -550,7 +550,7 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
 // dispatcher : annulée, en cours…) : seul un échec est signalé.
 //   · modification ou annulation en échec → c'est elle qui n'est pas passée ;
 //   · ordre de CRÉATION en échec ALORS QU'une référence est enregistrée → la
-//     collecte, elle, EST transmise (acceptation manuelle A Toutes! pendant
+//     collecte, elle, EST transmise (acceptation manuelle A Toute! pendant
 //     une panne, ou véhicule supplémentaire non commandé) : on dit seulement
 //     qu'un ordre reste en échec, et qu'abandonné il retient les suivants ;
 //   · ordre de création en échec SANS référence (collecte annulée avant
@@ -876,7 +876,7 @@ export function CollecteDetailPanel({
   const [typesEvenement, setTypesEvenement] = useState<
     Array<{ id: string; libelle: string }>
   >([]);
-  // §06.06 §3 Bloc 0 — acceptation manuelle Everest (A Toutes! indisponible).
+  // §06.06 §3 Bloc 0 — acceptation manuelle Everest (A Toute! indisponible).
   const [acceptationModal, setAcceptationModal] = useState(false);
   const [acceptationSaisie, setAcceptationSaisie] = useState({
     reference_mission: '',
@@ -896,7 +896,7 @@ export function CollecteDetailPanel({
   const [avecRadar, setAvecRadar] = useState(false);
   const [fabrication, setFabrication] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
-  // Photos du livreur relues chez A Toutes! (décision Val 2026-11-03).
+  // Photos du livreur relues chez A Toute! (décision Val 2026-11-03).
   const [photosLivreurModal, setPhotosLivreurModal] = useState(false);
   const [photoEnCours, setPhotoEnCours] = useState<string | null>(null);
   const nbPhotosClient = (documents?.photos ?? []).filter(
@@ -1874,7 +1874,7 @@ export function CollecteDetailPanel({
         collecte.statut_tms !== 'rejetee_par_prestataire'));
   const overrideMotifManquant =
     overrideActif && motifOverride.trim().length < 5;
-  // AG envoyée à un transporteur qui distingue ses services (A Toutes!) alors
+  // AG envoyée à un transporteur qui distingue ses services (A Toute!) alors
   // que la branche retenue n'en désigne aucun (Marathon par exemple) : l'Admin
   // choisit le service avant l'envoi (décision Val 2026-11-03). Sans lui,
   // l'envoi échouait en définitif (vécu le 2026-11-02).
@@ -1893,7 +1893,7 @@ export function CollecteDetailPanel({
         sv.branche === collecte.attributions_antgaspi?.branche_attribution,
     );
   const serviceDispatchManquant = serviceDispatchRequis && !serviceDispatch;
-  // Acceptation manuelle : collecte chez A Toutes!, non terminale, sans
+  // Acceptation manuelle : collecte chez A Toute!, non terminale, sans
   // référence de mission encore enregistrée (sinon elle est déjà « transmise »).
   const acceptationManuellePossible =
     !isTerminal &&
@@ -1901,7 +1901,7 @@ export function CollecteDetailPanel({
     !collecte.tms_reference;
   // Ordre en file d'envoi (décision Val 2026-10-02, C1) : collecte dont le
   // dispatch (validation d'attribution AG, choix du prestataire ZD) a posé le
-  // prestataire chez un adapter (MTS-1 / A Toutes!) et dont la
+  // prestataire chez un adapter (MTS-1 / A Toute!) et dont la
   // commande n'est pas encore revenue avec sa référence (l'ordre part au clic,
   // le passage planifié du worker n'est plus que le filet : `tms_reference`
   // vide, `statut_tms` encore « non envoyé » — §06.09 §3 pt 3).
@@ -1923,7 +1923,7 @@ export function CollecteDetailPanel({
   // rouvre les cartes et l'envoi, au lieu d'afficher « Envoyée » à jamais
   // (décision Val 2026-10-20, C1). Exceptions connues : un ordre de création
   // résolu à la main (commande passée hors de l'application), et le rejeu
-  // A Toutes! qui retrouve sa mission sans réécrire la référence de la collecte.
+  // A Toute! qui retrouve sa mission sans réécrire la référence de la collecte.
   const ordreEnFileEnvoi = ordreEnFile(collecte);
   // État réel de l'ordre de tête, lu dans la file (décision Val 2026-10-12, C6).
   const ordreEnvoi = collecte.ordre_envoi ?? null;
@@ -2717,7 +2717,7 @@ export function CollecteDetailPanel({
                 )}
 
                 {/* Bouton d'envoi TMS forké par type_tms (+ acceptation manuelle
-              A Toutes! quand Everest est indisponible, §06.06 §3 Bloc 0) */}
+              A Toute! quand Everest est indisponible, §06.06 §3 Bloc 0) */}
                 <div className="flex flex-wrap justify-end gap-2">
                   {acceptationManuellePossible && (
                     <Button
@@ -2809,7 +2809,7 @@ export function CollecteDetailPanel({
           {/* Chauffeur(s) par camion — même bloc que la fiche client (§06.04
             « Logistique », décision Val 2026-10-02) : nom, plaque, téléphone
             remontés automatiquement du prestataire (MTS-1 : référentiel carrier
-            au polling ; A Toutes! : coursier du webhook Everest), complétés par
+            au polling ; A Toute! : coursier du webhook Everest), complétés par
             l'Admin si besoin (contrôle d'accès, transporteur manuel). Remplace
             la card « Informations chauffeur » de l'onglet Informations. */}
           <FicheSection
@@ -3552,7 +3552,7 @@ export function CollecteDetailPanel({
                   <Text variant="body" className="font-medium">
                     Photos ({documents?.photos?.length ?? 0})
                   </Text>
-                  {/* A Toutes! : on choisit parmi les photos du livreur, plus
+                  {/* A Toute! : on choisit parmi les photos du livreur, plus
                       d'import depuis l'ordinateur (décision Val 2026-11-03).
                       Autres transporteurs : import depuis l'ordinateur. */}
                   {collecte.prestataire_actuel?.type_tms === 'a_toutes' ? (
@@ -3947,7 +3947,7 @@ export function CollecteDetailPanel({
 
       <Modal
         open={acceptationModal}
-        title="Acceptation manuelle — A Toutes!"
+        title="Acceptation manuelle — A Toute!"
         onClose={() => setAcceptationModal(false)}
       >
         {acceptationError && (
@@ -3961,11 +3961,11 @@ export function CollecteDetailPanel({
         >
           <Text>
             À utiliser quand Everest est indisponible et que la course a été
-            calée par téléphone avec A Toutes!. La référence de mission permet
+            calée par téléphone avec A Toute!. La référence de mission permet
             ensuite de renvoyer une modification ou d&apos;annuler la course.
           </Text>
           <FormField
-            label="Référence de mission communiquée par A Toutes!"
+            label="Référence de mission communiquée par A Toute!"
             htmlFor="acceptation-reference"
             required
             hint="Sans espace, 64 caractères maximum."
@@ -3986,7 +3986,7 @@ export function CollecteDetailPanel({
             />
           </FormField>
           <FormField
-            label="Contact joint chez A Toutes!"
+            label="Contact joint chez A Toute!"
             htmlFor="acceptation-contact"
             required
           >

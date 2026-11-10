@@ -117,7 +117,7 @@ const transporteurs = [
   },
   {
     id: 't-atoutes',
-    nom: 'A Toutes!',
+    nom: 'A Toute!',
     type_tms: 'a_toutes',
     prestataire_logistique_id: 'presta-atoutes',
     actif: true,
@@ -258,7 +258,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       expect(carteStrike).toHaveAttribute('aria-checked', 'true');
       expect(within(carteStrike).getByText('Recommandé')).toBeInTheDocument();
-      expect(screen.getByRole('radio', { name: /A Toutes!/ })).toHaveAttribute(
+      expect(screen.getByRole('radio', { name: /A Toute!/ })).toHaveAttribute(
         'aria-checked',
         'false',
       );
@@ -468,15 +468,15 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     prestataire_logistique_id: 'presta-atoutes',
     prestataire_actuel: {
       transporteur_id: 't-atoutes',
-      nom: 'A Toutes!',
+      nom: 'A Toute!',
       type_tms: 'a_toutes',
     },
   };
 
-  // Cas vécu le 2026-11-02, après #725 : création abandonnée chez A Toutes! sur
+  // Cas vécu le 2026-11-02, après #725 : création abandonnée chez A Toute! sur
   // une branche Marathon. La fiche rouvre l'envoi ET demande le service.
   it(
-    'M0.6/dispatch_service_a_toutes — création abandonnée chez A Toutes! sur une branche Marathon : service demandé avant « Renvoyer »',
+    'M0.6/dispatch_service_a_toutes — création abandonnée chez A Toute! sur une branche Marathon : service demandé avant « Renvoyer »',
     async () => {
       const fetchMock = mockFetch({
         ...chezATouts,
@@ -497,7 +497,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       const renvoyer = await screen.findByRole(
         'button',
-        { name: /^Renvoyer à A Toutes!/ },
+        { name: /^Renvoyer à A Toute!/ },
         ATTENTE_UI,
       );
       const service = await screen.findByRole(
@@ -527,7 +527,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'branche déjà A Toutes! (attribution recommandée vers A Toutes!) : aucun service demandé',
+    'branche déjà A Toute! (attribution recommandée vers A Toute!) : aucun service demandé',
     async () => {
       const fetchMock = mockFetch({
         ...chezATouts,
@@ -542,7 +542,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       await screen.findByRole(
         'button',
-        { name: /^(Envoyer|Renvoyer) à A Toutes!/ },
+        { name: /^(Envoyer|Renvoyer) à A Toute!/ },
         ATTENTE_UI,
       );
       await waitFor(
@@ -562,10 +562,10 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   // Même décision, depuis le bloc d'envoi d'une AG déjà attribuée (branche
-  // Marathon) : choisir la carte A Toutes! fait demander le service, envoyé
+  // Marathon) : choisir la carte A Toute! fait demander le service, envoyé
   // avec l'ordre comme branche retenue.
   it(
-    'M0.6/dispatch_service_a_toutes — AG attribuée sur une branche Marathon, carte A Toutes! cochée : service demandé avant l’envoi',
+    'M0.6/dispatch_service_a_toutes — AG attribuée sur une branche Marathon, carte A Toute! cochée : service demandé avant l’envoi',
     async () => {
       const fetchMock = mockFetch({
         ...collecteAg,
@@ -607,7 +607,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       await ouvrirOnglet('Logistique');
 
       fireEvent.click(
-        await screen.findByRole('radio', { name: /A Toutes!/ }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: /A Toute!/ }, ATTENTE_UI),
       );
       fireEvent.change(
         await screen.findByLabelText(/Motif override/, undefined, ATTENTE_UI),
@@ -617,7 +617,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       const envoyer = await screen.findByRole(
         'button',
-        { name: /^Envoyer à A Toutes!/ },
+        { name: /^Envoyer à A Toute!/ },
         ATTENTE_UI,
       );
       expect(envoyer).toBeDisabled();
@@ -646,11 +646,11 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     ATTENTE_CAS_MS,
   );
 
-  // Décision Val 2026-11-03 : A Toutes! forcé alors que la branche calculée
+  // Décision Val 2026-11-03 : A Toute! forcé alors que la branche calculée
   // (Marathon) ne désigne aucun de ses services → l'Admin choisit le service,
   // qui part comme branche retenue (cas du 2026-11-02 : échec d'envoi).
   it(
-    'M0.6/attribution_service_a_toutes — A Toutes! forcé sur une branche Marathon : service demandé, puis envoyé comme branche',
+    'M0.6/attribution_service_a_toutes — A Toute! forcé sur une branche Marathon : service demandé, puis envoyé comme branche',
     async () => {
       const fetchMock = mockFetch({
         ...collecteAg,
@@ -697,7 +697,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
       fireEvent.click(screen.getByRole('combobox', { name: 'Transporteur' }));
       fireEvent.click(
-        await screen.findByRole('option', { name: 'A Toutes!' }, ATTENTE_UI),
+        await screen.findByRole('option', { name: 'A Toute!' }, ATTENTE_UI),
       );
       fireEvent.click(screen.getByRole('combobox', { name: 'Motif' }));
       fireEvent.click(
@@ -705,7 +705,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       const valider = await screen.findByRole(
         'button',
-        { name: /^Valider et envoyer à A Toutes!/ },
+        { name: /^Valider et envoyer à A Toute!/ },
         ATTENTE_UI,
       );
       expect(valider).toBeDisabled();
@@ -739,7 +739,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   it(
     'M0.6 — attribution validée sur un autre transporteur : le bloc dispatch coche l’actuel, jamais le recommandé',
     async () => {
-      // Avant : AG sans attribution. Après validation : attribuée à A Toutes!
+      // Avant : AG sans attribution. Après validation : attribuée à A Toute!
       // (≠ reco Strike). Le bloc dispatch qui prend la relève ne doit pas
       // présélectionner Strike — un clic renverrait la collecte au mauvais
       // prestataire, sans motif.
@@ -755,7 +755,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       fireEvent.click(selectTransp);
       fireEvent.click(
-        await screen.findByRole('option', { name: 'A Toutes!' }, ATTENTE_UI),
+        await screen.findByRole('option', { name: 'A Toute!' }, ATTENTE_UI),
       );
       fireEvent.click(screen.getByRole('combobox', { name: 'Motif' }));
       fireEvent.click(
@@ -763,7 +763,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       const valider = await screen.findByRole(
         'button',
-        { name: /^Valider et envoyer à A Toutes!/ },
+        { name: /^Valider et envoyer à A Toute!/ },
         ATTENTE_UI,
       );
       await waitFor(() => expect(valider).not.toBeDisabled(), ATTENTE_UI);
@@ -772,7 +772,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         prestataire_logistique_id: 'presta-atoutes',
         prestataire_actuel: {
           transporteur_id: 't-atoutes',
-          nom: 'A Toutes!',
+          nom: 'A Toute!',
           type_tms: 'a_toutes',
         },
         ordre_envoi: ORDRE_EN_FILE,
@@ -784,7 +784,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           associations: { nom: 'Les Restos du Cœur' },
           transporteurs: {
             id: 't-atoutes',
-            nom: 'A Toutes!',
+            nom: 'A Toute!',
             type_tms: 'a_toutes',
           },
         },
@@ -792,12 +792,12 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(valider);
 
       // Après refetch : l'ordre est en file d'envoi → la fiche dit la collecte
-      // envoyée à A Toutes!, sans carte ni bouton d'envoi (décision Val
+      // envoyée à A Toute!, sans carte ni bouton d'envoi (décision Val
       // 2026-10-02, C1). « Changer de transporteur » rouvre les cartes : « Actuel »
-      // = A Toutes! cochée, bouton forké sur A Toutes!, rien vers le recommandé.
+      // = A Toute! cochée, bouton forké sur A Toute!, rien vers le recommandé.
       expect(
         await screen.findByText(
-          /Collecte envoyée à A Toutes!/,
+          /Collecte envoyée à A Toute!/,
           undefined,
           ATTENTE_UI,
         ),
@@ -811,7 +811,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       const carteAToutes = await screen.findByRole(
         'radio',
-        { name: /A Toutes!/ },
+        { name: /A Toute!/ },
         ATTENTE_UI,
       );
       await waitFor(
@@ -824,7 +824,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       // Même prestataire, ordre déjà en file : c'est un renvoi, pas un envoi.
       expect(
-        screen.getByRole('button', { name: /Renvoyer à A Toutes!/ }),
+        screen.getByRole('button', { name: /Renvoyer à A Toute!/ }),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole('button', { name: /MTS-1/ }),
@@ -869,7 +869,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6 — choix ≠ top-1 algo → bouton A Toutes! + motif override obligatoire (≥ 5)',
+    'M0.6 — choix ≠ top-1 algo → bouton A Toute! + motif override obligatoire (≥ 5)',
     async () => {
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -881,11 +881,11 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ATTENTE_UI,
       );
 
-      // Choisir A Toutes! (≠ top-1 Strike) → override → motif obligatoire.
-      fireEvent.click(screen.getByRole('radio', { name: /A Toutes!/ }));
+      // Choisir A Toute! (≠ top-1 Strike) → override → motif obligatoire.
+      fireEvent.click(screen.getByRole('radio', { name: /A Toute!/ }));
 
       const bouton = screen.getByRole('button', {
-        name: /Envoyer à A Toutes!/,
+        name: /Envoyer à A Toute!/,
       });
       const motif = screen.getByLabelText(/Motif override/);
       expect(motif).toBeInTheDocument();
@@ -1044,7 +1044,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           prestataire_logistique_id: 'presta-atoutes',
           prestataire_actuel: {
             transporteur_id: 't-atoutes',
-            nom: 'A Toutes!',
+            nom: 'A Toute!',
             type_tms: 'a_toutes',
           },
           collecte_tournees: [],
@@ -1054,13 +1054,13 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       render(<CollecteDetailPanel collecteId="c1" />);
 
       expect(
-        (await screen.findAllByText('A Toutes!', undefined, ATTENTE_UI)).length,
+        (await screen.findAllByText('A Toute!', undefined, ATTENTE_UI)).length,
       ).toBeGreaterThan(0);
       expect(screen.queryByText(NON_ATTRIBUE)).toBeNull();
 
       await ouvrirOnglet('Logistique');
       // `type_tms` lu sur le transporteur actuel, sans la liste : l'acceptation
-      // manuelle (réservée à A Toutes!) reste offerte.
+      // manuelle (réservée à A Toute!) reste offerte.
       expect(
         await screen.findByRole(
           'button',
@@ -1113,7 +1113,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         prestataire_logistique_id: 'presta-atoutes',
         prestataire_actuel: {
           transporteur_id: 't-atoutes',
-          nom: 'A Toutes!',
+          nom: 'A Toute!',
           type_tms: 'a_toutes',
         },
         ordre_envoi: ORDRE_EN_FILE,
@@ -1131,7 +1131,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       );
       const carte = await screen.findByRole(
         'radio',
-        { name: /A Toutes!/ },
+        { name: /A Toute!/ },
         ATTENTE_UI,
       );
       expect(carte).toHaveAttribute('aria-checked', 'true');
@@ -1399,7 +1399,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   it(
     'M0.6/ordre_envoi_hors_file_creation — commande déjà reçue et ordre de création en échec : la collecte n’est pas dite « non transmise »',
     async () => {
-      // Cas nominal de l'acceptation manuelle A Toutes! pendant une panne : la
+      // Cas nominal de l'acceptation manuelle A Toute! pendant une panne : la
       // référence est enregistrée, l'ordre de création est encore en échec.
       const acceptee = {
         ...collecteEnFileMts1,
@@ -1767,14 +1767,14 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/ordre_envoi_aucun_ordre_en_file_ag — AG chez A Toutes!, aucun ordre en file ni référence : « Non envoyé », A Toutes! cochée, « Envoyer à A Toutes! » sans motif',
+    'M0.6/ordre_envoi_aucun_ordre_en_file_ag — AG chez A Toute!, aucun ordre en file ni référence : « Non envoyé », A Toute! cochée, « Envoyer à A Toute! » sans motif',
     async () => {
       const fetchMock = mockFetchPrestataire({
         ...collecteAg,
         prestataire_logistique_id: 'presta-atoutes',
         prestataire_actuel: {
           transporteur_id: 't-atoutes',
-          nom: 'A Toutes!',
+          nom: 'A Toute!',
           type_tms: 'a_toutes',
         },
         attributions_antgaspi: {
@@ -1783,7 +1783,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           valide_at: '2026-10-01T10:00:00Z',
           transporteurs: {
             id: 't-atoutes',
-            nom: 'A Toutes!',
+            nom: 'A Toute!',
             type_tms: 'a_toutes',
           },
         },
@@ -1803,7 +1803,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       await ouvrirOnglet('Logistique');
       const carte = await screen.findByRole(
         'radio',
-        { name: /A Toutes!/ },
+        { name: /A Toute!/ },
         ATTENTE_UI,
       );
       await waitFor(
@@ -1818,7 +1818,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(screen.queryByLabelText(/Motif override/)).toBeNull();
 
       const bouton = screen.getByRole('button', {
-        name: 'Envoyer à A Toutes!',
+        name: 'Envoyer à A Toute!',
       });
       expect(bouton).toBeEnabled();
       fireEvent.click(bouton);
@@ -1901,9 +1901,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(
         screen.getByRole('button', { name: 'Renvoyer à MTS-1' }),
       ).toBeInTheDocument();
-      fireEvent.click(screen.getByRole('radio', { name: /A Toutes!/ }));
+      fireEvent.click(screen.getByRole('radio', { name: /A Toute!/ }));
       expect(
-        screen.getByRole('button', { name: 'Envoyer à A Toutes!' }),
+        screen.getByRole('button', { name: 'Envoyer à A Toute!' }),
       ).toBeInTheDocument();
 
       fireEvent.click(
@@ -1935,12 +1935,12 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           ATTENTE_UI,
         ),
       );
-      // A Toutes! ≠ reco Strike → motif obligatoire, puis envoi chez A Toutes!.
+      // A Toute! ≠ reco Strike → motif obligatoire, puis envoi chez A Toute!.
       fireEvent.click(
-        await screen.findByRole('radio', { name: /A Toutes!/ }, ATTENTE_UI),
+        await screen.findByRole('radio', { name: /A Toute!/ }, ATTENTE_UI),
       );
       const bouton = screen.getByRole('button', {
-        name: 'Envoyer à A Toutes!',
+        name: 'Envoyer à A Toute!',
       });
       expect(bouton).toBeDisabled();
       fireEvent.change(screen.getByLabelText(/Motif override/), {
@@ -2045,11 +2045,11 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect.stringContaining('Strike'),
         expect.stringContaining('Marathon'),
       ]);
-      // A Toutes! n'est jamais proposée sur une ZD : son envoi exige
+      // A Toute! n'est jamais proposée sur une ZD : son envoi exige
       // l'association destinataire d'une AG (l'ordre finirait en échec
       // définitif et bloquerait les envois suivants de la collecte).
       expect(
-        within(cartes).queryByRole('radio', { name: /A Toutes!/ }),
+        within(cartes).queryByRole('radio', { name: /A Toute!/ }),
       ).toBeNull();
       // Pas d'algorithme en ZD : aucune carte recommandée ni présélectionnée.
       expect(within(cartes).queryByText('Recommandé')).toBeNull();
@@ -2800,7 +2800,7 @@ const baseAg = {
     valide_at: '2026-05-01T10:00:00Z',
     volume_repas_realise: 42,
     associations: { nom: 'Les Restos du Cœur' },
-    transporteurs: { nom: 'A Toutes!' },
+    transporteurs: { nom: 'A Toute!' },
   },
   prestataire_logistique_id: null,
   pax: 80,
@@ -3814,10 +3814,10 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
-  // Décision Val 2026-11-03 : collecte A Toutes! = choix parmi les photos du
+  // Décision Val 2026-11-03 : collecte A Toute! = choix parmi les photos du
   // livreur, plus d'import depuis l'ordinateur.
   it(
-    'M0.6 — Bloc 3 A Toutes! : « Importer des photos » ouvre le choix des photos du livreur et importe les seules cochées',
+    'M0.6 — Bloc 3 A Toute! : « Importer des photos » ouvre le choix des photos du livreur et importe les seules cochées',
     async () => {
       const ID_A = 'a'.repeat(64);
       const ID_B = 'b'.repeat(64);
@@ -3826,7 +3826,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
           ...baseAg,
           prestataire_actuel: {
             transporteur_id: 't-atoutes',
-            nom: 'A Toutes!',
+            nom: 'A Toute!',
             type_tms: 'a_toutes',
           },
         },
@@ -4225,7 +4225,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         { name: /Strike/ },
         ATTENTE_UI,
       );
-      const aToutes = screen.getByRole('radio', { name: /A Toutes!/ });
+      const aToutes = screen.getByRole('radio', { name: /A Toute!/ });
       // Strike (recommandé, coché) = seul focalisable au clavier.
       expect(strike).toHaveAttribute('tabindex', '0');
       expect(aToutes).toHaveAttribute('tabindex', '-1');
@@ -4711,7 +4711,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 });
 
 // ============================================================================
-// §06.06 §3 Bloc 0 — acceptation manuelle d'une mission Everest (A Toutes!
+// §06.06 §3 Bloc 0 — acceptation manuelle d'une mission Everest (A Toute!
 // indisponible, arbitrage Val 2026-09-16) : la référence de mission est
 // OBLIGATOIRE dans la modale, comme dans la route.
 // ============================================================================
@@ -4721,7 +4721,7 @@ const collecteAToutes = {
   prestataire_logistique_id: 'presta-atoutes',
   prestataire_actuel: {
     transporteur_id: 't-atoutes',
-    nom: 'A Toutes!',
+    nom: 'A Toute!',
     type_tms: 'a_toutes',
   },
   collecte_tournees: [],
@@ -4760,7 +4760,7 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it(
-    'collecte A Toutes! non transmise : la modale exige référence ET contact, puis POST la saisie',
+    'collecte A Toute! non transmise : la modale exige référence ET contact, puis POST la saisie',
     async () => {
       const fetchMock = mockFetchAcceptation(collecteAToutes);
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -4778,10 +4778,10 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
         name: "Enregistrer l'acceptation",
       });
       const reference = within(dialog).getByLabelText(
-        /Référence de mission communiquée par A Toutes!/,
+        /Référence de mission communiquée par A Toute!/,
       );
       const contact = within(dialog).getByLabelText(
-        /Contact joint chez A Toutes!/,
+        /Contact joint chez A Toute!/,
       );
 
       // Contact seul : la référence manque → bouton désactivé.

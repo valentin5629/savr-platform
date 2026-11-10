@@ -1385,7 +1385,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       }
     }
     // La collecte ne suit que si elle est encore confiée à un transporteur MTS-1 :
-    // confiée depuis à un autre prestataire (par mail, A Toutes!), une commande
+    // confiée depuis à un autre prestataire (par mail, A Toute!), une commande
     // MTS-1 restée vivante ne doit pas la ramener chez MTS-1 (la modification
     // suivante partirait vers MTS-1 et y commanderait un camion).
     const mts1 = [...(await this.prestatairesMts1())];

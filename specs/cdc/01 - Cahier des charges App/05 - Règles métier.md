@@ -62,7 +62,7 @@ Pour chaque collecte Anti-Gaspi programmée, l'algorithme recommande une associa
 
 ### Sélection — Transporteur province (refonte 2026-05-09)
 
-**Périmètre** : sélection transporteur AG **hors Île-de-France**. En IDF, ce sont les règles dur 3 branches qui s'appliquent (cf. ci-dessous). A Toutes! et Marathon sont modélisés dans `transporteurs` (refonte 2026-05-09).
+**Périmètre** : sélection transporteur AG **hors Île-de-France**. En IDF, ce sont les règles dur 3 branches qui s'appliquent (cf. ci-dessous). A Toute! et Marathon sont modélisés dans `transporteurs` (refonte 2026-05-09).
 
 **Filtres binaires d'éligibilité** :
 
@@ -86,7 +86,7 @@ Pour chaque collecte Anti-Gaspi programmée, l'algorithme recommande une associa
 
 > **Source de vérité unique de la règle métier**. [[06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin)#2.3. Règles d'attribution transporteur AG — Île-de-France|§06.09 §2.3]] décrit le **workflow d'écran Admin** correspondant.
 
-Logique figée alignée sur les contrats opérationnels A Toutes! (vélo cargo IDF jour) et Marathon (nuit / grosses collectes). Un scoring générique distance + véhicule produirait des recommandations contractuelles invalides → règles dur IDF, scoring uniquement pour la province.
+Logique figée alignée sur les contrats opérationnels A Toute! (vélo cargo IDF jour) et Marathon (nuit / grosses collectes). Un scoring générique distance + véhicule produirait des recommandations contractuelles invalides → règles dur IDF, scoring uniquement pour la province.
 
 **Inputs lus par la règle** :
 - `lieux.region = 'IDF'` (déclencheur du basculement règles dur, sinon scoring province ci-dessus)
@@ -101,21 +101,21 @@ Logique figée alignée sur les contrats opérationnels A Toutes! (vélo cargo I
 #### Branche 1 — Plage horaire nuit (Marathon)
 - **Condition** : `heure_collecte < regle_ag_plage_velo_debut` (défaut 07:00) OU `heure_collecte ≥ regle_ag_plage_velo_fin` (défaut 20:00)
 - **Résultat** : `transporteur_id = Marathon`, `branche_attribution = 'ag_marathon_nuit'`
-- **Backup V1** : aucun (A Toutes! fermé la nuit). Si Marathon exclu → `branche_attribution = 'aucun_prestataire'`, alerte Admin Savr.
+- **Backup V1** : aucun (A Toute! fermé la nuit). Si Marathon exclu → `branche_attribution = 'aucun_prestataire'`, alerte Admin Savr.
 
 #### Branche 2 — Grand événement jour (Marathon)
 - **Condition** : plage jour ET `collectes.pax ≥ regle_ag_seuil_pax_velo` (défaut 600)
 - **Résultat** : `transporteur_id = Marathon`, `branche_attribution = 'ag_marathon_volume'`
-- **Backup** : si Marathon exclu, A Toutes! camion (service Everest) si toutes les conditions remplies — plage horaire jour active (mêmes bornes que vélo, décision 2026-05-09) + `a_toutes_indisponible = false` + adresse couverte Everest. Si OK → `ag_marathon_volume_backup_camion`. Sinon → `aucun_prestataire`.
+- **Backup** : si Marathon exclu, A Toute! camion (service Everest) si toutes les conditions remplies — plage horaire jour active (mêmes bornes que vélo, décision 2026-05-09) + `a_toutes_indisponible = false` + adresse couverte Everest. Si OK → `ag_marathon_volume_backup_camion`. Sinon → `aucun_prestataire`.
 
-#### Branche 3 — AG vélo jour (A Toutes! par défaut)
+#### Branche 3 — AG vélo jour (A Toute! par défaut)
 - **Condition** : plage jour ET `collectes.pax < regle_ag_seuil_pax_velo`
-- **Sous-branche selon délai** : délai `< regle_ag_seuil_h2_minutes` (défaut 90 min) → A Toutes! vélo express (Everest **74**, corrigé 2026-06-15 ex-75) `ag_velo_express` ; sinon → A Toutes! vélo programmé (Everest 71) `ag_velo_programme`.
+- **Sous-branche selon délai** : délai `< regle_ag_seuil_h2_minutes` (défaut 90 min) → A Toute! vélo express (Everest **74**, corrigé 2026-06-15 ex-75) `ag_velo_express` ; sinon → A Toute! vélo programmé (Everest 71) `ag_velo_programme`.
 - **Bascules** : `a_toutes_indisponible = true` OU adresse hors zone Everest → Marathon `ag_velo_fallback_marathon`. Si Marathon aussi exclu → `aucun_prestataire`.
 
 #### Branche 4 — Camion express last-minute Everest *(DIV-3, décision Val 2026-06-15)*
 - **Condition** : plage jour ET `collectes.pax ≥ regle_ag_seuil_pax_velo` ET Marathon exclu/indisponible ET `a_toutes_indisponible = false` ET adresse couverte Everest ET délai `< regle_ag_seuil_h2_minutes`
-- **Résultat** : `transporteur_id = A Toutes!`, service Everest **77** (camion express), `branche_attribution = 'ag_everest_camion_express'`
+- **Résultat** : `transporteur_id = A Toute!`, service Everest **77** (camion express), `branche_attribution = 'ag_everest_camion_express'`
 - **Usage** : last-minute camion quand Marathon ne peut pas répondre. Distinct de `ag_marathon_volume_backup_camion` (service 91, hors last-minute).
 - **Fallback** : `a_toutes_indisponible = true` aussi → `aucun_prestataire`, alerte Admin.
 
@@ -126,10 +126,10 @@ Logique figée alignée sur les contrats opérationnels A Toutes! (vélo cargo I
 **Source de vérité paramètres** : Plateforme `parametres_algo` V1+V2. Le TMS V2 lit (jamais n'écrit) — voir §06.09 §7.2 et §04 `parametres_algo`. Application TMS dans [[../02 - Cahier des charges TMS/06 - Fonctionnalités détaillées/M12 - Attribution transporteur|M12 §4]].
 
 **Cascade orchestration** (cf. §06.09 §3) :
-- V1 sans TMS : appel direct API Everest (A Toutes!) ou MTS-1 (Marathon, province) depuis la Plateforme.
+- V1 sans TMS : appel direct API Everest (A Toute!) ou MTS-1 (Marathon, province) depuis la Plateforme.
 - V2 avec TMS : webhook E2 vers TMS Savr → TMS lit `parametres_algo` Plateforme et ré-applique M12 → orchestre Everest/dispatch interne → statut remonté via webhook S2.
 
-#### Grille tarifaire A Toutes! (Vélo Frais) — V1 2026-04-28
+#### Grille tarifaire A Toute! (Vélo Frais) — V1 2026-04-28
 
 | Type de course | Zone | Programmé H+2 | Express >1.5h |
 |----------------|------|--------------|---------------|
@@ -358,7 +358,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 ### Collecte manquée par le prestataire logistique
 
-**Définition** : le prestataire (Strike, Marathon, transporteur province, A Toutes!) ne s'est pas présenté ou n'a pas pu effectuer la collecte pour une raison qui lui est imputable (retard, panne, oubli, erreur de programmation).
+**Définition** : le prestataire (Strike, Marathon, transporteur province, A Toute!) ne s'est pas présenté ou n'a pas pu effectuer la collecte pour une raison qui lui est imputable (retard, panne, oubli, erreur de programmation).
 
 **Règles** *(modélisation révisée audit sobriété §04 2026-05-25 D1 — statut `manquee` supprimé)* :
 - `collectes.statut` = `annulee` + `incident_imputable_a` = `'prestataire'` + `motif_incident` renseigné (ex : "Prestataire non présenté"). Le no-show prestataire n'a plus de statut dédié : il est porté par l'annulation imputable.
@@ -791,7 +791,7 @@ ORDER BY (COALESCE(SUM(fc.montant_ht), 0)) DESC;
 
 | Rang | Valeur enum | Description |
 |------|-------------|-------------|
-| 1 | `velo_cargo` | Vélo cargo (A Toutes! IDF) |
+| 1 | `velo_cargo` | Vélo cargo (A Toute! IDF) |
 | 2 | `camionnette` | Camionnette |
 | 3 | `fourgon` | Fourgon |
 | 4 | `vul` | Véhicule utilitaire léger |

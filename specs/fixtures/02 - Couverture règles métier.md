@@ -176,7 +176,7 @@ Convention d'ID : slugs déterministes (cf. [[05 - Spec d'injection]]). `★` = 
 | R1.2 AG : enum suggestion 9 valeurs (canonique `ag_marathon_volume_backup_camion`, + `ag_velo_fallback_marathon`) | `suggestions_attribution_log` couvrant les 9 valeurs | demo (4 ★) |
 | R1.2 AG province proximité (`ag_province_proximite`) | `ctms_ag_rouen` → `prest_transnormandie` | ★ |
 | Garde ZD province (F7 M12) | `ctms_zd_rouen_garde` (pas de suggestion Strike) | demo |
-| Garde zone tarifaire A Toutes! (R1.3, arbitrage Val 2026-06-07 — grande couronne hors 75/92/93/94) | `ctms_ag_velizy_78` (lieu 78140 → fallback `ag_velo_fallback_marathon`, jamais A Toutes!) | demo |
+| Garde zone tarifaire A Toute! (R1.3, arbitrage Val 2026-06-07 — grande couronne hors 75/92/93/94) | `ctms_ag_velizy_78` (lieu 78140 → fallback `ag_velo_fallback_marathon`, jamais A Toute!) | demo |
 | Mapping zones réel : 75 → paris, 92/93/94 → communes_limitrophes (préfixe département) | `zones_codes_postaux_mapping` seed §04 (réel, plus de calibration) | ★ |
 | Cache `nb_collectes_6_mois_cache` (F6 M12) | valeurs seedées cohérentes avec la timeline | ★ |
 | R1.4 Alerte acceptation sans réponse 48 h/3 h (M02) | `ctms_attribuee_stale` (attribuée J-3 sans réponse) + alerte `m02_acceptation_sans_reponse` | ★ |
@@ -191,16 +191,16 @@ Convention d'ID : slugs déterministes (cf. [[05 - Spec d'injection]]). `★` = 
 | Règle | Objet fixture | Dataset |
 |---|---|---|
 | R2.2 `vacations_paliers` réelle Strike : vacation 4 h (240/300 €), dépassement /heure entamée (60/75 €), équipage double +31,25 €/h **sur dépassement seul** | `grille_strike_16m3` ★ / `grille_strike_20m3` + `tournee_strike_6h` (= 360 €, cas de référence Val) + `tournee_strike_double_equipage` | ★ |
-| R2.3 `grille_matricielle_zone_type_course` réelle A Toutes! vélo — 8 cellules (Paris/limitrophes × programme/express × complète/incomplète) | `grille_atoutes_velo` + 1 tournée par mode (`tournee_atoutes_programme` ★, `tournee_atoutes_express` demo) | ★ |
+| R2.3 `grille_matricielle_zone_type_course` réelle A Toute! vélo — 8 cellules (Paris/limitrophes × programme/express × complète/incomplète) | `grille_atoutes_velo` + 1 tournée par mode (`tournee_atoutes_programme` ★, `tournee_atoutes_express` demo) | ★ |
 | Seuil express `m07.atoutes_express_seuil_minutes` (**90** — confirmé Val 2026-06-07) | tournée attribuée H-1 → cellule express | demo |
-| R2.4 `grille_matricielle_zone` — **aucune grille V1** (arbitrage Val : pas de grille camion A Toutes!) | aucun objet (test négatif : formule au catalogue, zéro grille l'instanciant) | — |
+| R2.4 `grille_matricielle_zone` — **aucune grille V1** (arbitrage Val : pas de grille camion A Toute!) | aucun objet (test négatif : formule au catalogue, zéro grille l'instanciant) | — |
 | R2.5 `forfait_fixe` réel Marathon : **100 €/tournée** (répartition collecte_tournees divise) | `grille_marathon_forfait` ★ + `tournee_marathon_2collectes` (50 €/collecte réparti) | ★ |
 | R2.5 `forfait_km` (province, synthétique — presta fictif) | `grille_transnor_km` ★ / `grille_transnor_fixe_expiree` | ★/demo |
-| R2.6 sans grille = manuel V1 (camion A Toutes!) | `tournee_atoutes_camion_manuelle` (coût saisi Ops) | demo |
+| R2.6 sans grille = manuel V1 (camion A Toute!) | `tournee_atoutes_camion_manuelle` (coût saisi Ops) | demo |
 | R2.7 annulation seuil 3 h (facturée < 3 h / non > 3 h) | `tournee_annulee_h2` + `tournee_annulee_h5` | ★ |
 | R2.7bis annulation pendant `en_cours` = vacation facturée (annulation niveau collecte, EC6 M07) | `tournee_encours_collecte_annulee` | ★ |
 | R2.8 figement post-clôture + anti-rétroactivité (grille versionnée EXCLUDE) | `grille_strike_16m3_v2` (succession sans chevauchement) + tournées historiques `cout_calcule_ht` figé ≠ recalcul grille courante | ★ |
-| R2.10 flag `tarif_sans_collecte_applicable` (incomplète = 50 %) | `grille_atoutes_velo` (flag true — porté par A Toutes!, pas Strike) | ★ |
+| R2.10 flag `tarif_sans_collecte_applicable` (incomplète = 50 %) | `grille_atoutes_velo` (flag true — porté par A Toute!, pas Strike) | ★ |
 | Trigger compagnon recalc horaires (`trg_m07_recalc_on_horaires`, #1 M07) | `tournee_horaires_modifies` | ★ |
 | Arrondi FLOOR (#4 M07) | montants seedés à décimales non triviales | ★ |
 | Ajustement W2 + log append-only | `ajustement_w2_01` | ★ |

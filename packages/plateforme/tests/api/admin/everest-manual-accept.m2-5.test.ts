@@ -2,7 +2,7 @@
  * Acceptation manuelle d'une mission Everest (failover Ops, Everest indisponible).
  *
  * §06.06 §3 Bloc 0 (arbitrage Val 2026-09-16) : la référence de mission
- * communiquée par A Toutes! est OBLIGATOIRE et s'écrit comme au dispatch normal.
+ * communiquée par A Toute! est OBLIGATOIRE et s'écrit comme au dispatch normal.
  * Toutes les écritures passent par `fn_accepter_mission_everest_manuelle`
  * (transactionnelle) — la sémantique DB (tournée Everest visée, référence posée,
  * gate d'émission ouvert, atomicité, unicité) est prouvée par pgTAP dans
@@ -68,7 +68,7 @@ function postReq(body: unknown): NextRequest {
 const SAISIE = {
   collecte_id: COLLECTE,
   reference_mission: 'EVR-TEL-001',
-  contact_joint: 'Mathieu (A Toutes!)',
+  contact_joint: 'Mathieu (A Toute!)',
   heure_appel: '20:05',
   commentaire: 'Everest en 503 depuis 19h',
 };
@@ -199,7 +199,7 @@ describe('M2.5 — acceptation manuelle : une seule RPC transactionnelle', () =>
         args: {
           p_collecte_id: COLLECTE,
           p_reference: 'EVR-TEL-001',
-          p_contact: 'Mathieu (A Toutes!)',
+          p_contact: 'Mathieu (A Toute!)',
           p_commentaire: undefined,
           p_heure_appel: '20:05',
           p_user_id: 'ops-1',
@@ -229,7 +229,7 @@ describe('M2.5 — acceptation manuelle : refus de la RPC traduits sans fuite', 
     'Cette référence de mission est déjà enregistrée sur une autre collecte. Vérifiez la saisie.',
     // Départ `rejetee_par_prestataire` (migration 20260916180000, pgTAP
     // everest_acceptation_manuelle_plans R3).
-    'A Toutes! a refusé cette collecte : une acceptation manuelle ne peut pas remplacer ce refus. Réattribuez la collecte.',
+    'A Toute! a refusé cette collecte : une acceptation manuelle ne peut pas remplacer ce refus. Réattribuez la collecte.',
   ])('P0003 « %s » → 409, libellé transmis tel quel', async (libelle) => {
     rpcResult = { data: null, error: { code: 'P0003', message: libelle } };
     const r = await post(SAISIE);
@@ -253,7 +253,7 @@ describe('M2.5 — acceptation manuelle : refus de la RPC traduits sans fuite', 
     expect(JSON.stringify(r.body)).not.toContain('uniq_');
   });
 
-  it('P0002 (collecte ou tournée A Toutes! introuvable) → 404 neutre', async () => {
+  it('P0002 (collecte ou tournée A Toute! introuvable) → 404 neutre', async () => {
     rpcResult = {
       data: null,
       error: { code: 'P0002', message: 'tournee_everest_introuvable' },
@@ -261,7 +261,7 @@ describe('M2.5 — acceptation manuelle : refus de la RPC traduits sans fuite', 
     const r = await post(SAISIE);
 
     expect(r.status).toBe(404);
-    expect(r.body['error']).toBe('Collecte ou tournée A Toutes! introuvable.');
+    expect(r.body['error']).toBe('Collecte ou tournée A Toute! introuvable.');
   });
 
   it('erreur inattendue → 500 générique', async () => {

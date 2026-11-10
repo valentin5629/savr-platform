@@ -97,3 +97,24 @@ describe('Programmation / Lieu créé — région déduite du code postal', () =
     );
   });
 });
+
+describe('Programmation / Lieu créé — véhicule max limité aux gabarits (Val 2026-11-10)', () => {
+  it('un gabarit du seul véhicule souhaité → 422, aucun lieu créé', async () => {
+    const { POST } = await import('@/app/api/v1/programmation/lieux/route.js');
+    const res = await POST(
+      new NextRequest('http://localhost/api/v1/programmation/lieux', {
+        method: 'POST',
+        body: JSON.stringify({
+          nom: 'Bureau',
+          adresse_acces: '1 rue de Bezons',
+          code_postal: '92400',
+          ville: 'Courbevoie',
+          type_vehicule_max: 'camion_16m3',
+        }),
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+});

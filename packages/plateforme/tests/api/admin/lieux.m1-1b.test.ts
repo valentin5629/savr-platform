@@ -177,6 +177,35 @@ describe('M1.1b / Lieux / Création', () => {
     expect(res.status).toBe(422);
   });
 
+  it('lieux/create — un gabarit du seul véhicule souhaité en véhicule max → 422, rien n’est écrit (Val 2026-11-10)', async () => {
+    setupAuth('admin_savr');
+    const { POST } = await import('@/app/api/v1/admin/lieux/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/lieux', {
+        nom: 'Lieu',
+        adresse_acces: '1 rue de la Paix',
+        code_postal: '75001',
+        ville: 'Paris',
+        type_vehicule_max: 'camion_20m3',
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+
+  it('lieux/patch — véhicule max hors gabarits → 422, rien n’est écrit', async () => {
+    setupAuth('admin_savr');
+    const { PATCH } = await import('@/app/api/v1/admin/lieux/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/lieux/lieu-1', {
+        type_vehicule_max: 'camion_frigo',
+      }),
+      { params: Promise.resolve({ id: 'lieu-1' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
   it('M1.1b/lieux/create — 201 avec tous les champs', async () => {
     setupAuth('admin_savr');
     const newLieu = {

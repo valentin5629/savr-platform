@@ -11,6 +11,10 @@ import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { regionDepuisCodePostal } from '@/lib/lieux/region-code-postal.js';
 import { urlApplication } from '@/lib/url-application.js';
+import {
+  estGabaritLieuTransporteur,
+  MESSAGE_GABARIT_INVALIDE,
+} from '@/lib/lieux-labels';
 
 // Colonnes proposées par l'autocomplétion — sous-ensemble de la liste blanche
 // `v_lieux_clients` (les champs admin-only restent hors de portée côté client).
@@ -211,6 +215,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!nom || !adresse_acces || !code_postal || !ville) {
     return NextResponse.json(
       { error: 'Champs obligatoires : nom, adresse_acces, code_postal, ville' },
+      { status: 422 },
+    );
+  }
+
+  if (
+    body.type_vehicule_max != null &&
+    !estGabaritLieuTransporteur(body.type_vehicule_max)
+  ) {
+    return NextResponse.json(
+      { error: MESSAGE_GABARIT_INVALIDE },
       { status: 422 },
     );
   }

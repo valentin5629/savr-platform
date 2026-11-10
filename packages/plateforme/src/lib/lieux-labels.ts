@@ -55,3 +55,15 @@ export const GABARITS_LIEU_TRANSPORTEUR = [
   'vul',
   'poids_lourd',
 ] as const satisfies readonly Enums['type_vehicule'][];
+
+/** Valeur admise pour `lieux.type_vehicule_max`. */
+export function estGabaritLieuTransporteur(v: unknown): boolean {
+  return (GABARITS_LIEU_TRANSPORTEUR as readonly unknown[]).includes(v);
+}
+
+/** Valeur admise pour `transporteurs.types_vehicules` (tableau de gabarits). */
+export function sontGabaritsLieuTransporteur(v: unknown): boolean {
+  return Array.isArray(v) && v.every(estGabaritLieuTransporteur);
+}
+
+export const MESSAGE_GABARIT_INVALIDE = `Type de véhicule invalide (attendu : ${GABARITS_LIEU_TRANSPORTEUR.join(', ')})`;

@@ -8,6 +8,10 @@ import { lireGestionnaireLieu } from '@/lib/admin/gestionnaire-lieu.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { estCodeSiteViparis } from '@/lib/viparis/codes.js';
 import { regionLieu } from '@/lib/lieux/region-code-postal.js';
+import {
+  estGabaritLieuTransporteur,
+  MESSAGE_GABARIT_INVALIDE,
+} from '@/lib/lieux-labels';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -116,6 +120,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         error:
           'Champs obligatoires manquants : nom, adresse_acces, code_postal, ville, type_vehicule_max',
       },
+      { status: 422 },
+    );
+  }
+
+  // Échelle de taille de l'algorithme AG : jamais un gabarit du seul véhicule souhaité.
+  if (!estGabaritLieuTransporteur(type_vehicule_max)) {
+    return NextResponse.json(
+      { error: MESSAGE_GABARIT_INVALIDE },
       { status: 422 },
     );
   }

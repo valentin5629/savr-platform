@@ -4,6 +4,10 @@ import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { COLONNES_IMMUABLES } from '@/lib/transporteur-lien-prestataire.js';
+import {
+  sontGabaritsLieuTransporteur,
+  MESSAGE_GABARIT_INVALIDE,
+} from '@/lib/lieux-labels';
 
 export async function GET(
   req: NextRequest,
@@ -97,6 +101,16 @@ export async function PATCH(
   const updates = Object.fromEntries(
     Object.entries(body).filter(([k]) => ALLOWED_FIELDS.includes(k)),
   );
+
+  if (
+    updates.types_vehicules !== undefined &&
+    !sontGabaritsLieuTransporteur(updates.types_vehicules)
+  ) {
+    return NextResponse.json(
+      { error: MESSAGE_GABARIT_INVALIDE },
+      { status: 422 },
+    );
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(

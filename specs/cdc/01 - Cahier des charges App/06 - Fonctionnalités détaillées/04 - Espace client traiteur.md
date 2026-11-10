@@ -582,7 +582,7 @@ Le bloc s'affiche dans la fiche collecte uniquement si `collectes.controle_acces
 
 **Cas multi-camions (refonte 2026-05-25)** : une collecte volumineuse peut être servie par N tournées (relation N↔N via `collecte_tournees`). Le bloc affiche alors **une ligne par tournée** : `<plaque> (<type véhicule>) — Chauffeur : <nom>`, avec l'état (En attente / Communiqué / Modification en cours) calculé **par tournée**. En-tête "N véhicules prévus" si la collecte a plus d'une tournée. Cas standard (1 tournée) = une seule ligne, affichage inchangé.
 
-**Cas vélo cargo A Toutes! (AG)** : si la collecte est attribuée à A Toutes! avec véhicule = vélo cargo, le bloc affiche un message dédié : "Vélo cargo — pas de plaque communiquée. Chauffeur : <nom>" (le nom chauffeur reste affiché si disponible, la plaque est masquée avec mention explicite).
+**Cas vélo cargo A Toute! (AG)** : si la collecte est attribuée à A Toute! avec véhicule = vélo cargo, le bloc affiche un message dédié : "Vélo cargo — pas de plaque communiquée. Chauffeur : <nom>" (le nom chauffeur reste affiché si disponible, la plaque est masquée avec mention explicite).
 
 **Permissions** :
 - `traiteur_manager` : voit toujours si collecte de son organisation

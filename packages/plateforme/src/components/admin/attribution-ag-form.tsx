@@ -70,7 +70,7 @@ export interface AlgoResult {
   delai_minutes: number;
   nb_pax: number;
   /**
-   * Services au choix par type de transporteur (A Toutes!), quand l'Admin le
+   * Services au choix par type de transporteur (A Toute!), quand l'Admin le
    * force et que la branche calculée n'en désigne aucun (Val 2026-11-03).
    */
   services_par_type_tms?: Record<
@@ -132,7 +132,7 @@ const MOTIFS_OVERRIDE: { code: string; libelle: string }[] = [
   },
   {
     code: 'a_toutes_indispo_locale',
-    libelle: 'A Toutes! indisponible localement',
+    libelle: 'A Toute! indisponible localement',
   },
   {
     code: 'proximite_acceptable',
@@ -471,7 +471,7 @@ export function AttributionAgForm({
   const selectedTranspTypeTms =
     optionsTransp.find((t) => t.id === selectedTransp)?.type_tms ?? null;
 
-  // A Toutes! forcé sur une branche qui ne désigne aucun de ses services
+  // A Toute! forcé sur une branche qui ne désigne aucun de ses services
   // (Marathon par exemple) : l'Admin choisit le service (décision Val
   // 2026-11-03). Sinon l'envoi échouait en définitif.
   const servicesTransp =

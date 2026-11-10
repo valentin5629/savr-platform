@@ -2,7 +2,7 @@
 
 **Date de fork** : 2026-06-05
 **Source archive** : `01 - Cahier des charges App _ ARCHIVE V1+V2 2026-06-05/`
-**Périmètre V1** : Plateforme Savr branchée sur **MTS-1 (API V3, dispatch Strike/Marathon)** + **Everest (A Toutes!, vélo cargo)** comme couches logistiques. Le **Savr TMS natif** (CDC `02 - Cahier des charges TMS/`) est intégralement reporté en **V2** (cutover TMS).
+**Périmètre V1** : Plateforme Savr branchée sur **MTS-1 (API V3, dispatch Strike/Marathon)** + **Everest (A Toute!, vélo cargo)** comme couches logistiques. Le **Savr TMS natif** (CDC `02 - Cahier des charges TMS/`) est intégralement reporté en **V2** (cutover TMS).
 
 > Ce document compile les décisions de périmètre déjà prises dans le CDC (Index, §16 Roadmap, §03 Périmètre, §01 Vision). Il n'invente rien : il fige la frontière V1 et liste ce qui est développé / coupé / adapté.
 
@@ -61,10 +61,10 @@ Tous les modules documentés §01→§15, soit :
 
 | Module | Modification V1 vs CDC complet | Détail |
 |---|---|---|
-| **Intégration logistique (§16 Phase 5/10, §08)** | Le « TMS Savr » cible du contrat §08 n'existe pas en V1. La Plateforme parle à **MTS-1 (= MyTroopers, API V3)** pour Strike/Marathon + **Everest** (A Toutes!), **derrière l'abstraction `logistique_provider`**. ⚠ **En V1 l'adapter MTS-1 fonctionne en POLLING** (cron qui interroge `GET /v3/customerOrders`, `GET /v3/tours/{id}`, télécharge les photos) — il **n'implémente PAS** le contrat webhook S1-S11 du §08, qui est la **cible V2** (TMS Savr natif, event-driven). L'adapter écrit dans les **mêmes tables Plateforme** que le TMS V2 alimentera. | cf. `Adapter MTS-1 (MyTroopers) — relevé as-built Bubble` ; `Frontière TMS-Ready V1.md` garde-fous 2 & 3 ; §08 §3bis (corrigé) |
+| **Intégration logistique (§16 Phase 5/10, §08)** | Le « TMS Savr » cible du contrat §08 n'existe pas en V1. La Plateforme parle à **MTS-1 (= MyTroopers, API V3)** pour Strike/Marathon + **Everest** (A Toute!), **derrière l'abstraction `logistique_provider`**. ⚠ **En V1 l'adapter MTS-1 fonctionne en POLLING** (cron qui interroge `GET /v3/customerOrders`, `GET /v3/tours/{id}`, télécharge les photos) — il **n'implémente PAS** le contrat webhook S1-S11 du §08, qui est la **cible V2** (TMS Savr natif, event-driven). L'adapter écrit dans les **mêmes tables Plateforme** que le TMS V2 alimentera. | cf. `Adapter MTS-1 (MyTroopers) — relevé as-built Bubble` ; `Frontière TMS-Ready V1.md` garde-fous 2 & 3 ; §08 §3bis (corrigé) |
 | **Pilotage `statut_tms` (Index, §05)** | En V1, la **Plateforme** pilote `statut_tms` (dérivé des webhooks MTS-1 V3 traduits par l'adapter). En V2, le TMS Savr pilotera via les webhooks du contrat natif. | trigger `fn_sync_statut_collecte_from_tms` conservé |
 | **Multi-camions ZD (Sujet 1, §04)** | Concept interne TMS → en V1 MTS-1 gère le dispatch terrain. Substrat data `collecte_tournees` N↔N **conservé** (schéma figé), mais alimenté via l'adapter MTS-1 (1 ordre = 1 course en nominal). | non-destructif V2 |
-| **Multi-vélo AG gros volume (§06.09)** | V1 = **manuel** : Savr crée 1 course Everest, A Toutes! duplique la flotte côté Everest. V2 = split auto côté TMS. | 0 data model V1 |
+| **Multi-vélo AG gros volume (§06.09)** | V1 = **manuel** : Savr crée 1 course Everest, A Toute! duplique la flotte côté Everest. V2 = split auto côté TMS. | 0 data model V1 |
 | **Code transporteur MTS-1 (Index, §08)** | Champ `transporteurs.code_transporteur_mts1` + règle `R_code_mts1_requis` actifs V1 uniquement (pont vers MTS-1). Neutralisés au cutover V2. | external ref logistique neutre (garde-fou 5) |
 
 ---

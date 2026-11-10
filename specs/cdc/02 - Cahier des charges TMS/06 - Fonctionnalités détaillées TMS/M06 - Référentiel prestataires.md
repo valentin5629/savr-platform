@@ -221,7 +221,7 @@ Bouton `+ Nouvelle grille tarifaire` (Admin TMS) → ouvre E7 en création.
 
 4. **Activité**
    - `type_prestation` (checkboxes ZD / AG, au moins 1 cochée)
-   - `rayon_intervention_km` (nombre, nullable — seed à null pour Strike/Marathon/A Toutes!, valeur pour province)
+   - `rayon_intervention_km` (nombre, nullable — seed à null pour Strike/Marathon/A Toute!, valeur pour province)
 
 5. **Portail self-service**
    - `has_portail_self_service` (toggle, default false) — tooltip "Active M03 pour les managers de ce prestataire"
@@ -787,6 +787,6 @@ brouillon ─[clique "Publier"]─→ actif ─[clique "Clôturer" OU date_fin_v
 - [[M04 - Gestion des tournées]] — consommateur véhicules + chauffeurs
 - [[M03 - Portail prestataire self-service]] — miroir self-service Manager (à spécifier)
 - [[M07 - Pilotage financier logistique]] — consommateur grilles tarifaires
-- [[M14 - Intégration Everest (A Toutes!)]] — consommateur `everest_client_id`
+- [[M14 - Intégration Everest (A Toute!)]] — consommateur `everest_client_id`
 - [[../../01 - Cahier des charges App/04 - Data Model]] — `shared.prestataires` (lecture cross-schema Plateforme)
 - [[../../01 - Cahier des charges App/09 - Authentification et permissions]] — policies lecture cross-schema

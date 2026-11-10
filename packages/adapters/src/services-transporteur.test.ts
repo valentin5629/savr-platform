@@ -5,7 +5,7 @@ import { BRANCHE_TO_SERVICE } from './everest/adapter.js';
 import { brancheCompatible, servicesAuChoix } from './services-transporteur.js';
 
 describe('services au choix du transporteur forcé', () => {
-  it('A Toutes! : exactement les branches que son adapter sait envoyer', () => {
+  it('A Toute! : exactement les branches que son adapter sait envoyer', () => {
     expect(
       servicesAuChoix('a_toutes')
         .map((s) => s.branche)
@@ -13,7 +13,7 @@ describe('services au choix du transporteur forcé', () => {
     ).toEqual(Object.keys(BRANCHE_TO_SERVICE).sort());
   });
 
-  it("une branche Marathon n'est pas un service A Toutes! (cas du 2026-11-02)", () => {
+  it("une branche Marathon n'est pas un service A Toute! (cas du 2026-11-02)", () => {
     expect(brancheCompatible('a_toutes', 'ag_marathon_volume')).toBe(false);
     expect(brancheCompatible('a_toutes', null)).toBe(false);
     expect(brancheCompatible('a_toutes', 'ag_velo_programme')).toBe(true);

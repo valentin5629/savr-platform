@@ -24,7 +24,7 @@ Le Savr TMS est un des **deux fronts Next.js** (`tms.gosavr.io`) du monorepo Sav
 [Cloudflare R2] ← photos audit M05, PDFs factures OCR archivés, exports
 [Supabase Storage] ← docs chauffeurs légers (permis, visites médicales)
 [Mistral OCR] ← extraction factures prestataires
-[Everest (A Toutes!)] ← saisie terrain logistique (intégration TMS-only)
+[Everest (A Toute!)] ← saisie terrain logistique (intégration TMS-only)
 ```
 
 **Principe directeur** : mêmes services managés que la Plateforme, mêmes patterns. Le TMS hérite de toute l'infra (monorepo, Turborepo, Vercel, Supabase, Sentry, Better Uptime, Cloudflare R2). Seules les spécificités TMS (OCR factures, intégration Everest, app mobile chauffeur PWA) apportent des briques additionnelles.
@@ -66,7 +66,7 @@ Mêmes principes que Plateforme (voir [[../01 - Cahier des charges App/07 - Arch
 **Isolation cross-schemas** : voir [[04 - Data Model TMS#Addendum architectural 2026-04-23]].
 
 **Seed dev** : script `packages/tms/supabase/seed.tms.sql` peuple :
-- 3 prestataires principaux (Strike, Marathon, A Toutes!) + 5 prestataires province fictifs
+- 3 prestataires principaux (Strike, Marathon, A Toute!) + 5 prestataires province fictifs
 - 10 chauffeurs, 8 véhicules, 3 équipiers
 - Catalogue types véhicules, types contenants, formules tarifaires
 - 20 collectes TMS dans états variés (attribuee, en_cours, realisee, etc.)
@@ -149,7 +149,7 @@ Tous les autres cas (webhooks entrants, crons métier M01/M02/M07/M08, OCR, int�
 | Endpoint | Hébergement | Déclencheur | Rôle |
 |---|---|---|---|
 | `POST /api/webhooks/plateforme/*` | Vercel | Webhooks entrants Plateforme (collecte créée, modifiée, annulée, lieu MAJ, prestataire MAJ) | Validation HMAC, écriture `tms.integrations_inbox`, traitement asynchrone |
-| `POST /api/webhooks/everest/*` | Vercel | Webhooks Everest (A Toutes!) | Réception confirmations A Toutes! si API Everest disponible (V1 = workflow manuel Ops) |
+| `POST /api/webhooks/everest/*` | Vercel | Webhooks Everest (A Toute!) | Réception confirmations A Toute! si API Everest disponible (V1 = workflow manuel Ops) |
 | `on-tournee-cout-update` | Vercel (Trigger DB) | UPDATE `tms.tournees.cout_final_ht` ou `push_s6_version` *(noms corrigés audit 2026-05-26 A2 — ex `cout_total_centimes`/`version_paiement` inexistants sur la table)* | **Nouveau revue sobriété 2026-05-01 A2** — appelle `plateforme.fn_recalc_marge_tournee(tournee_id)` cross-schema (remplace ex-webhook S6) |
 | `POST /api/ocr/process` | Vercel | Upload facture prestataire par Ops | Appel Mistral OCR, préremplissage formulaire |
 | `on-collecte-realisee` | Vercel (API Route) | Transition statut `en_cours` → `realisee` | Calcul `courses_logistiques`, push webhook `collecte-terminee` vers Plateforme |
@@ -200,19 +200,19 @@ Décision atelier 2026-04-23 : **PWA en V1**, React Native reporté V1.1+.
 
 ---
 
-## 8. Intégration Everest (A Toutes!) — TMS-only
+## 8. Intégration Everest (A Toute!) — TMS-only
 
 Décision actée (§ CDC Plateforme 9.3.4) : Everest est rattaché au TMS, pas à la Plateforme.
 
 ### 8.1 V1
 
-- **Aucune API Everest** disponible côté A Toutes! (hypothèse actuelle).
+- **Aucune API Everest** disponible côté A Toute! (hypothèse actuelle).
 - Workflow manuel Ops : indisponibilité déclarée dans `tms.parametres_tms.toutes_disponibilite_statut`.
-- Validation terrain par A Toutes! sur leur propre outil Everest, remontée manuelle à Ops.
+- Validation terrain par A Toute! sur leur propre outil Everest, remontée manuelle à Ops.
 
 ### 8.2 V2
 
-- Si A Toutes! ouvre API Everest : webhook entrant `POST /api/webhooks/everest/collecte-confirmee` déjà pré-spécifié.
+- Si A Toute! ouvre API Everest : webhook entrant `POST /api/webhooks/everest/collecte-confirmee` déjà pré-spécifié.
 - Endpoint TMS prêt à recevoir, policies RLS déjà prévues.
 
 ---
@@ -315,7 +315,7 @@ Mutualisé avec Plateforme (Supabase Vault + Vercel env vars). Secrets spécifiq
 | `PLATEFORME_WEBHOOK_SECRET` (HMAC) | Signature webhooks sortants vers Plateforme | Annuel | Vault + M13 E5 |
 | `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` | Upload/download Cloudflare R2 (buckets TMS) | Annuel | Vault + M13 E5 |
 | `MISTRAL_OCR_API_KEY` | OCR factures prestataires | À la rotation Mistral | Vault + M13 E5 |
-| `everest_client_id` + `everest_client_secret` | Intégration A Toutes! Everest | Sur demande Everest | Vault + M13 E5 |
+| `everest_client_id` + `everest_client_secret` | Intégration A Toute! Everest | Sur demande Everest | Vault + M13 E5 |
 | `pennylane_api_token_v2` | Export factures Pennylane M08 | 90j | Vault + M13 E5 |
 | `strike_webhook_signing_key` | Validation webhook Strike M01 | 12 mois | Vault + M13 E5 |
 | `marathon_webhook_signing_key` | Validation webhook Marathon M01 | 12 mois | Vault + M13 E5 |
@@ -404,7 +404,7 @@ Issu de [[06 - Fonctionnalités détaillées TMS/M14 - Intégration Everest]] (V
 | `POST /api/internal/m14/missions/create` | Internal (worker queue) | `service_role` | Push création mission Everest (W1) — appelé par worker depuis trigger DB `trg_m14_push_mission` enqueue | `everest_missions` (source de vérité unique post revue sobriété §04 2026-04-30 A6 — colonnes miroir `tournees.everest_mission_id` / `collectes_tms.everest_mission_id` supprimées), `integrations_logs`, `audit_logs` |
 | `POST /api/internal/m14/missions/cancel` | Internal (worker queue) | `service_role` | Annule mission Everest (W3) — appelé par worker depuis trigger DB `trg_m14_cascade_cancel` ou bouton Admin E1/E2 | `everest_missions`, `integrations_logs`, `audit_logs` |
 | `POST /api/internal/m14/missions/manual_accept` | Internal | `ops_savr` | Failover acceptation manuelle Ops (W4) — appelé depuis E4 modal | `everest_missions` (4 colonnes manual_*), `collectes_tms.statut_dispatch = acceptee`, `audit_logs` |
-| `POST /api/internal/m14/test_connection` | Internal | `admin_tms` | Test connexion Everest (W8) — appelé depuis fiche M06 prestataire A Toutes! ou M13 E6 tab Everest (sobriété 2026-04-30 A_M14_03 — 2 entrées validées) | `tms.integrations_logs(system='everest', type_event='m14_ping')` (revue sobriété §04 2026-04-30 A3 — colonnes `last_everest_ping_*` supprimées V1, vue dérivée `tms.vue_prestataires_everest_status` lit `integrations_logs`), `audit_logs` |
+| `POST /api/internal/m14/test_connection` | Internal | `admin_tms` | Test connexion Everest (W8) — appelé depuis fiche M06 prestataire A Toute! ou M13 E6 tab Everest (sobriété 2026-04-30 A_M14_03 — 2 entrées validées) | `tms.integrations_logs(system='everest', type_event='m14_ping')` (revue sobriété §04 2026-04-30 A3 — colonnes `last_everest_ping_*` supprimées V1, vue dérivée `tms.vue_prestataires_everest_status` lit `integrations_logs`), `audit_logs` |
 | `POST /api/webhooks/everest` | **Public** | aucun (validation token header `X-Webhook-Token`) | Réception webhook Everest entrant (W2) — endpoint exposé Internet | `integrations_inbox`, `integrations_logs`, `everest_missions` |
 
 **Note sobriété 2026-04-30 A_M14_04** : route `POST /api/internal/m14/missions/replay/:inbox_id` (W7 Admin replay event `echec_final`) supprimée. Cas extrêmement rare (cible <1% webhooks). Admin replay via SQL direct sur Supabase Studio si besoin (`UPDATE tms.integrations_inbox SET status='pending' WHERE id=$inbox_id` + ré-exécution worker manuelle). Cf. runbook §15.

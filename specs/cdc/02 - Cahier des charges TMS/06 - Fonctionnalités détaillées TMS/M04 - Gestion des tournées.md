@@ -97,7 +97,7 @@ La tournée est l'**unité d'exécution** du TMS. Elle lie 1 vacation (1 camion 
 - Voit la tournée en bloc dès création côté TMS (via webhook S3 miroir Plateforme → portail)
 - Accepte les collectes **individuellement** (pas la tournée en bloc) — flux M02 inchangé
 - Assigne chauffeur + véhicule (+ équipier optionnel) **au niveau tournée** (1 saisie pour N collectes)
-- Périmètre V1 : Strike, Marathon, A Toutes! uniquement (province gérée par Ops)
+- Périmètre V1 : Strike, Marathon, A Toute! uniquement (province gérée par Ops)
 
 ### Admin TMS (Val, Louis)
 - Accès complet. Seul acteur autorisé à :
@@ -210,7 +210,7 @@ Bloc tournée :
 
 Bloc validation :
 - Contrôle 1 : toutes les collectes sélectionnées doivent avoir le même `prestataire_id`. Sinon erreur bloquante "Impossible : prestataires différents sur la sélection".
-- Contrôle 2 : si `type_tournee=ag_velo` et N > 1 → erreur bloquante "Tournée vélo A Toutes! limitée à 1 collecte" (D8). *(Bloque N **collectes** sur 1 vélo. N'empêche **pas** le multi-vélo « 1 collecte = N vélos » : chaque tournée sœur est créée avec 1 seule collecte via « + Ajouter un vélo », cf. E1bis — généralisation 2026-05-29.)*
+- Contrôle 2 : si `type_tournee=ag_velo` et N > 1 → erreur bloquante "Tournée vélo A Toute! limitée à 1 collecte" (D8). *(Bloque N **collectes** sur 1 vélo. N'empêche **pas** le multi-vélo « 1 collecte = N vélos » : chaque tournée sœur est créée avec 1 seule collecte via « + Ajouter un vélo », cf. E1bis — généralisation 2026-05-29.)*
 - Contrôle 3 : fenêtre opérationnelle prévisionnelle valide (`heure_planifiee_fin > heure_planifiee_debut`).
 
 Bouton principal "Créer la tournée" → création `tournees` + **insertion des lignes `collecte_tournees`** (1 par collecte sélectionnée, avec `ordre_dans_tournee` = ordre de sélection) *(propagation multi-camions 2026-05-25 — ex `collectes_tms.tournee_id` retiré)* + webhook S3 émis (avec `collecte_ids[]`) + toast succès "Tournée T#<id> créée · 3 collectes · Strike · mardi 18h-22h · Manager notifié" (propagation revue sobriété 2026-04-29 : suppression mention nom tournée).
@@ -219,20 +219,20 @@ Bouton principal "Créer la tournée" → création `tournees` + **insertion des
 
 ### E1bis — Multi-véhicules : plusieurs tournées pour une collecte (refonte 2026-05-25, arbitrage 3b ; **généralisé vélo AG 2026-05-29**)
 
-**Problème** : une grosse collecte dépasse la capacité d'un seul véhicule → l'Ops doit la confier à **N véhicules = N tournées**. Deux cas concrets : une grosse collecte ZD (ex. 3000 pax) répartie sur N camions ; **une collecte AG dont le volume de repas dépasse la capacité d'un vélo cargo réfrigéré A Toutes! → N vélos** (généralisation 2026-05-29). Le découpage est **interne au TMS** (l'Ops/dispatch décide selon le volume réel) ; la Plateforme ne commande jamais un nombre de véhicules.
+**Problème** : une grosse collecte dépasse la capacité d'un seul véhicule → l'Ops doit la confier à **N véhicules = N tournées**. Deux cas concrets : une grosse collecte ZD (ex. 3000 pax) répartie sur N camions ; **une collecte AG dont le volume de repas dépasse la capacité d'un vélo cargo réfrigéré A Toute! → N vélos** (généralisation 2026-05-29). Le découpage est **interne au TMS** (l'Ops/dispatch décide selon le volume réel) ; la Plateforme ne commande jamais un nombre de véhicules.
 
 **Affordance "Ajouter un véhicule"** : sur la fiche collecte (E3 d'une tournée la contenant, et dans le drawer collecte M02), bouton **"+ Ajouter un véhicule"** *(libellé contextuel selon `type_tournee` : « + Ajouter un camion » pour ZD/AG camion, « + Ajouter un vélo » pour AG vélo — généralisation 2026-05-29, ex « + Ajouter un camion »)* qui :
 - crée une **nouvelle tournée sœur** (même prestataire) pré-remplie avec cette collecte (nouvelle ligne `collecte_tournees`),
 - ouvre E1 pour compléter chauffeur/véhicule/fenêtre de cette tournée additionnelle,
 - **réutilisable autant de fois que nécessaire** (N véhicules illimité).
 
-**Véhicules hétérogènes** : chaque tournée garde son propre véhicule/type/chauffeur/plaque — les N véhicules d'une collecte peuvent être de **types différents** (ex. 1 fourgon + 2 poids lourds en ZD). Aucune contrainte d'homogénéité. *(Pour le vélo AG, les N tournées sœurs sont toutes `ag_velo` même prestataire A Toutes! — homogènes en pratique car le multi-vélo ne se déclenche que sur un manque de capacité vélo.)*
+**Véhicules hétérogènes** : chaque tournée garde son propre véhicule/type/chauffeur/plaque — les N véhicules d'une collecte peuvent être de **types différents** (ex. 1 fourgon + 2 poids lourds en ZD). Aucune contrainte d'homogénéité. *(Pour le vélo AG, les N tournées sœurs sont toutes `ag_velo` même prestataire A Toute! — homogènes en pratique car le multi-vélo ne se déclenche que sur un manque de capacité vélo.)*
 
 **Conséquence sur la sélection au dispatch** : une collecte déjà rattachée à une (ou N) tournée(s) peut être **re-sélectionnée** pour être ajoutée à une tournée supplémentaire (le filtre d'exclusion de W1/§dispatch ne s'applique qu'à la **première** affectation ; l'ajout de véhicules passe par "+ Ajouter un véhicule" ou par sélection explicite "voir aussi collectes en tournée").
 
 **Pesées & clôture** : chaque véhicule (tournée) pèse **sa portion** de la collecte (`pesees` par `tournee_id`) et son chauffeur clôture **sa** tournée. La collecte passe `realisee` quand **toutes** ses tournées sont `terminee` (dérivation R6.1, trigger `fn_derive_statut_collecte_multi_tournees`), déclenchant **un seul** S5 terminal avec les pesées des N véhicules sommées par flux (ZD) ou en `don_alimentaire` total (AG). Coût : chaque tournée répartit son coût sur ses collectes (`collecte_tournees.cout_reparti_centimes`), le coût total de la collecte = somme de ses parts.
 
-**Multi-vélo AG — multi-facturation & Everest (2026-05-29)** : sur le vélo A Toutes!, chaque tournée sœur = **une mission Everest distincte** (`tms.everest_missions`, 1 ligne par tournée, même `collecte_tms_id`). A Toutes! facturant **par course/coursier**, N vélos = N missions = **N courses facturées** pour la même collecte (cohérent avec la justif d'origine de D8). L'acceptation Everest se fait mission par mission ; la collecte passe `acceptee` dès la **1re** mission dispatchée (les suivantes = no-op idempotent, cf. M14 W2 + R_M14.3). L'annulation de la collecte annule **toutes** ses missions vélo actives (cascade M14 W3, cf. R_M14.7). Détail technique : M14 §«Granularité Everest».
+**Multi-vélo AG — multi-facturation & Everest (2026-05-29)** : sur le vélo A Toute!, chaque tournée sœur = **une mission Everest distincte** (`tms.everest_missions`, 1 ligne par tournée, même `collecte_tms_id`). A Toute! facturant **par course/coursier**, N vélos = N missions = **N courses facturées** pour la même collecte (cohérent avec la justif d'origine de D8). L'acceptation Everest se fait mission par mission ; la collecte passe `acceptee` dès la **1re** mission dispatchée (les suivantes = no-op idempotent, cf. M14 W2 + R_M14.3). L'annulation de la collecte annule **toutes** ses missions vélo actives (cascade M14 W3, cf. R_M14.7). Détail technique : M14 §«Granularité Everest».
 
 **Distinction avec D8 (deux axes orthogonaux)** : D8 interdit **N collectes sur 1 vélo** (« 1 vélo = 1 collecte ») — toujours en vigueur. Le multi-vélo ci-dessus est l'axe **inverse** (« 1 collecte = N vélos ») : chaque tournée vélo ne porte toujours qu'**une seule** collecte (D8 respecté), on autorise juste cette collecte à figurer sur N tournées vélo sœurs. Les deux règles sont compatibles.
 
@@ -591,7 +591,7 @@ Plus de saisie plaque chauffeur → plus de cas de divergence terrain/référent
 
 ### C6 — Tentative d'ajout d'une **deuxième collecte** sur une tournée ag_velo déjà avec 1 collecte
 
-**Comportement** : blocage bouton "Ajouter collecte" avec message "Tournée vélo A Toutes! limitée à 1 collecte" (D8). Ops doit créer une nouvelle tournée pour la collecte supplémentaire.
+**Comportement** : blocage bouton "Ajouter collecte" avec message "Tournée vélo A Toute! limitée à 1 collecte" (D8). Ops doit créer une nouvelle tournée pour la collecte supplémentaire.
 
 *(À ne pas confondre avec le multi-vélo : si Ops veut affecter **un deuxième vélo à la même collecte** — volume dépassant la capacité d'un vélo — il utilise « + Ajouter un vélo » sur la fiche collecte (E1bis), qui crée une tournée sœur avec cette unique collecte. C6 ne bloque que l'ajout d'une **autre** collecte sur un vélo donné — généralisation 2026-05-29.)*
 
@@ -661,7 +661,7 @@ M04 émet 5 alertes automatiques (propagation 2026-06-04 : suppression `plaque_d
 Paramètres M04 configurables par Admin TMS via `parametres_tms` :
 - Seuils géoloc, inactivité, délai assignation, etc. (cf. §11)
 
-### M14 — Intégration Everest (A Toutes!)
+### M14 — Intégration Everest (A Toute!)
 Une tournée `type_tournee IN (ag_velo, ag_camion)` est doublée d'une ou plusieurs lignes `everest_missions`. Synchronisation fine spec dans M14. **Source de vérité unique : `tms.everest_missions(everest_mission_id UNIQUE, tournee_id, collecte_tms_id)`** — colonnes miroir `tournees.everest_mission_id` et `collectes_tms.everest_mission_id` retirées V1 (revue sobriété §04 2026-04-30 A6). Si `ag_camion` → `everest_missions.tournee_id` posé. Si `ag_velo` → `everest_missions.collecte_tms_id` posé. Lookup via JOIN sur `everest_missions`.
 
 ---
@@ -741,7 +741,7 @@ Tous dans `parametres_tms.parametres` (JSONB) :
 
 9. **D8 — Tournée AG vélo multi-collectes** : Option A. 1 collecte strict. Contrainte bloquante au dispatch (E1 + W2). Justif : volume faible, zéro gain financier (tarif Everest par mission), cohérent `everest_missions`. **Toujours en vigueur.** 2026-04-23. ⚠️ **Ne pas confondre avec D8bis ci-dessous.**
 
-9bis. **D8bis — Multi-vélo AG (1 collecte = N vélos)** : ouvert (généralisation 2026-05-29, arbitrages Val 2026-05-29). Axe **orthogonal** à D8 : une collecte AG dont le volume dépasse la capacité d'un vélo cargo réfrigéré peut être servie par **N vélos A Toutes! = N tournées sœurs**, chacune portant cette unique collecte (D8 respecté). Réutilise intégralement la mécanique multi-camions ZD (table `collecte_tournees` N↔N, dérivation statut R6.1, coût `cout_reparti_centimes`, S5 terminal unique). Découpage **interne TMS décidé par l'Ops au dispatch** (M12 inchangé, pas de split auto — V2 si retour terrain). Affordance « + Ajouter un vélo » (E1bis). **Multi-facturation** : N missions Everest = N courses facturées (cohérent tarif A Toutes! par course). Acceptation = 1re mission dispatchée (idempotent). Annulation collecte = cascade sur les N missions (M14 W3). Marqué **V2** (le TMS V1 ship avec 1 collecte = 1 vélo ; mécanique figée maintenant car héritée gratuitement du multi-camions).
+9bis. **D8bis — Multi-vélo AG (1 collecte = N vélos)** : ouvert (généralisation 2026-05-29, arbitrages Val 2026-05-29). Axe **orthogonal** à D8 : une collecte AG dont le volume dépasse la capacité d'un vélo cargo réfrigéré peut être servie par **N vélos A Toute! = N tournées sœurs**, chacune portant cette unique collecte (D8 respecté). Réutilise intégralement la mécanique multi-camions ZD (table `collecte_tournees` N↔N, dérivation statut R6.1, coût `cout_reparti_centimes`, S5 terminal unique). Découpage **interne TMS décidé par l'Ops au dispatch** (M12 inchangé, pas de split auto — V2 si retour terrain). Affordance « + Ajouter un vélo » (E1bis). **Multi-facturation** : N missions Everest = N courses facturées (cohérent tarif A Toute! par course). Acceptation = 1re mission dispatchée (idempotent). Annulation collecte = cascade sur les N missions (M14 W3). Marqué **V2** (le TMS V1 ship avec 1 collecte = 1 vélo ; mécanique figée maintenant car héritée gratuitement du multi-camions).
 
 10. **** — **Décision caduque (email plaque T+3h retiré V1, Q10 2026-04-24 ; webhook S7 chauffeur retiré 2026-06-04)**. La plaque pour contrôle d'accès est désormais pré-saisie par le manager en M03 E4 (S7 émis par le manager, pas par le chauffeur). Plus d'email de communication plaque côté Plateforme V1. 2026-04-23.
 

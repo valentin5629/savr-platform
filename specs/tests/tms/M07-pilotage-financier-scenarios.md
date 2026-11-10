@@ -20,7 +20,7 @@
 
 | Catégorie | Nb scénarios | Couverture estimée |
 |-----------|-------------|-------------------|
-| 1 — Happy path | 9 | W1 calcul auto (formules instanciées + mode express + camion A Toutes! manuel), répartition collecte, ajustement W2, dashboard E1 |
+| 1 — Happy path | 9 | W1 calcul auto (formules instanciées + mode express + camion A Toute! manuel), répartition collecte, ajustement W2, dashboard E1 |
 | 2 — Cas limites métier | 10 | **Grilles réelles 2026-06-07** : paliers Strike 16/20 m³ (borne 4h, heure entamée ceil, cas de référence 6h = 360 €), équipage double sur dépassement seul, Marathon forfait_fixe 100 €/tournée, annulation seuil 3h, zone multi-site, type_course incomplete |
 | 3 — Cas d'erreur métier | 9 | Ajustement négatif/identique/motif court, durée nulle, horaires manquants + recalcul auto (#1), seed formule sans implémentation (#5), ajustement tournée verrouillée, rétroactivité grille |
 | 4 — Isolation RLS | 8 | Chauffeur masquage coût, Manager presta cross-presta, écriture grille admin_tms only, ajustements_couts_log append-only |
@@ -30,7 +30,7 @@
 | **TOTAL** | **48** | |
 
 > **Arbitrages Val 2026-06-06 — les 5 specs floues sont TRANCHÉES et propagées** (§04 + M07). Détail en fin de fichier.
-> **Révision 2026-06-07 (session seed-fixtures)** : grilles réelles intégrées (§05 R2.2-R2.5). Cat. 2 révisée : Strike = 2 grilles 16/20 m³, dépassement par **heure entamée (ceil)**, équipage double +31,25 €/h **sur dépassement seul** ; **Marathon reclassé `forfait_fixe` 100 €/tournée** (scénario tranches 4h supprimé) ; A Toutes! vélo = 8 cellules réelles (3e dimension mode programme/express, seuil `m07.atoutes_express_seuil_minutes`), camion A Toutes! = saisie manuelle (aucune grille). 46→48 scénarios.
+> **Révision 2026-06-07 (session seed-fixtures)** : grilles réelles intégrées (§05 R2.2-R2.5). Cat. 2 révisée : Strike = 2 grilles 16/20 m³, dépassement par **heure entamée (ceil)**, équipage double +31,25 €/h **sur dépassement seul** ; **Marathon reclassé `forfait_fixe` 100 €/tournée** (scénario tranches 4h supprimé) ; A Toute! vélo = 8 cellules réelles (3e dimension mode programme/express, seuil `m07.atoutes_express_seuil_minutes`), camion A Toute! = saisie manuelle (aucune grille). 46→48 scénarios.
 
 ---
 
@@ -75,7 +75,7 @@ Scénario : calcul_auto_vacations_paliers_strike_5h_prolongation
 # Priorité : P1-critique
 
 Scénario : calcul_auto_matricielle_zone_type_course_atoutes_velo_complete
-  Étant donné une tournée A Toutes! vélo desservant un lieu en zone Paris, attribuée la veille (mode = programme, délai > m07.atoutes_express_seuil_minutes)
+  Étant donné une tournée A Toute! vélo desservant un lieu en zone Paris, attribuée la veille (mode = programme, délai > m07.atoutes_express_seuil_minutes)
   Et une collecte rattachée en statut_operationnel = "realisee" avec poids_net total = 42 kg (> 0)
   Et la grille réelle "grille_matricielle_zone_type_course" avec cellule (Paris, programme, complete) = 38€
   Quand la tournée passe à "terminee"
@@ -90,21 +90,21 @@ Scénario : calcul_auto_matricielle_zone_type_course_atoutes_velo_complete
 # Priorité : P2-important
 
 Scénario : matricielle_atoutes_velo_mode_express
-  Étant donné une tournée A Toutes! vélo desservant un lieu en zone Communes limitrophes
-  Et une attribution de la course à A Toutes! 60 minutes avant heure_planifiee_debut (< m07.atoutes_express_seuil_minutes = 90, confirmé Val 2026-06-07)
+  Étant donné une tournée A Toute! vélo desservant un lieu en zone Communes limitrophes
+  Et une attribution de la course à A Toute! 60 minutes avant heure_planifiee_debut (< m07.atoutes_express_seuil_minutes = 90, confirmé Val 2026-06-07)
   Et une collecte realisee avec poids_net total > 0
   Quand la tournée passe à "terminee"
   Alors mode = "express" et cout_calcule_ht = 75.00 (cellule express/complete/limitrophes)
 ```
 
 ```gherkin
-# Source : §05 R2.4 (aucune grille V1) + R2.6 — révisé arbitrage Val 2026-06-07 (pas de grille camion A Toutes!)
+# Source : §05 R2.4 (aucune grille V1) + R2.6 — révisé arbitrage Val 2026-06-07 (pas de grille camion A Toute!)
 # Couche : db
 # Priorité : P1-critique
 
 Scénario : atoutes_camion_sans_grille_saisie_manuelle
-  Étant donné une tournée A Toutes! camion desservant un lieu Zone 2
-  Et aucune grille camion A Toutes! active (arbitrage Val 2026-06-07 — formule grille_matricielle_zone au catalogue sans instance)
+  Étant donné une tournée A Toute! camion desservant un lieu Zone 2
+  Et aucune grille camion A Toute! active (arbitrage Val 2026-06-07 — formule grille_matricielle_zone au catalogue sans instance)
   Quand la tournée passe à "terminee" avec durée réelle 2h30
   Alors aucun coût n'est calculé automatiquement
   Et Ops Savr peut saisir le coût manuellement (source = saisie_manuelle, §05 R2.6 — pas d'exception SQL pour ce cas assumé)
@@ -157,7 +157,7 @@ Scénario : ajustement_manuel_ops_savr_nominal
 # Priorité : P3-nominal
 
 Scénario : dashboard_e1_charge_widgets_a_la_volee
-  Étant donné un jeu de tournées clôturées sur le mois en cours pour Strike, Marathon et A Toutes!
+  Étant donné un jeu de tournées clôturées sur le mois en cours pour Strike, Marathon et A Toute!
   Et un utilisateur ops_savr connecté
   Quand il charge GET /tms/finance/dashboard
   Alors W1 retourne SUM(cout_final_ht) du mois en cours + variation vs N-1
@@ -271,7 +271,7 @@ Scénario : annulation_2h59_avant_facturee
 # Priorité : P2-important
 
 Scénario : zone_multi_site_prend_la_plus_haute
-  Étant donné une tournée A Toutes! vélo (mode programme) avec lieu de chargement zone Paris et lieu de livraison zone Communes limitrophes
+  Étant donné une tournée A Toute! vélo (mode programme) avec lieu de chargement zone Paris et lieu de livraison zone Communes limitrophes
   Et la grille réelle avec cellules (Paris, programme, complete) = 38€ et (Communes limitrophes, programme, complete) = 51€
   Quand la zone est déterminée (regle_zone_multi_site = zone_la_plus_haute)
   Alors la zone retenue = Communes limitrophes
@@ -284,7 +284,7 @@ Scénario : zone_multi_site_prend_la_plus_haute
 # Priorité : P2-important
 
 Scénario : atoutes_velo_realisee_sans_collecte_type_incomplete
-  Étant donné une tournée A Toutes! vélo (mode programme, zone Paris) dont toutes les collectes sont en statut_operationnel = "realisee_sans_collecte" (AG)
+  Étant donné une tournée A Toute! vélo (mode programme, zone Paris) dont toutes les collectes sont en statut_operationnel = "realisee_sans_collecte" (AG)
   Et la grille réelle avec cellule (Paris, programme, incomplete) = 19,00€
   Quand le calcul s'exécute
   Alors type_course = "incomplete"
@@ -694,7 +694,7 @@ Scénario : push_s6_version_incremente_a_chaque_recalcul
 ## Scénarios hors scope (à générer en V1.1 ou autre session)
 
 - **Catégorie 7 — Migration MTS-1** : import des grilles tarifaires historiques + coûts de tournées MTS-1 vers `grilles_tarifaires_prestataires` / `tournees`. Hors scope de cette session (traité par la skill `cdc-migration-data`, cohérent avec M01–M06).
-- **R2.6 saisie manuelle coût Everest absent** : cas exceptionnel A Toutes! sans grille TMS (`source = saisie_manuelle` côté Plateforme). Dépend du module M14 / contrat Plateforme — à tester en session cross-CDC.
+- **R2.6 saisie manuelle coût Everest absent** : cas exceptionnel A Toute! sans grille TMS (`source = saisie_manuelle` côté Plateforme). Dépend du module M14 / contrat Plateforme — à tester en session cross-CDC.
 - **Export CSV E9/W7** : génération sync, cap 5000 lignes, format Pennylane — P3, à couvrir une fois le format colonnes Pennylane figé (Q2 ouverte).
 - **Drill-down coût par événement** (Q4 ouverte) : non tranché V1 vs V1.1.
 - **Trigger de validation `formules_catalogue` AFTER INSERT** (Q5 ouverte, "à arbitrer avec frère") : vérification existence `tms.m07_compute_<code>` au seed — voir specs floues #5 ci-dessous.

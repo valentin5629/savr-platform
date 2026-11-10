@@ -152,7 +152,7 @@ Les dashboards traiteur_manager et traiteur_commercial.
 - Affichage résultat algo AG dans back-office Admin
 - Validation/modification attribution par Admin
 - Auto-accept par combinaison (association + type événement)
-- Envoi de l'ordre de collecte au Savr TMS (webhook Plateforme → TMS). Le TMS se charge de transmettre à Everest pour A Toutes!. La spécification de l'intégration Everest est dans le CDC TMS.
+- Envoi de l'ordre de collecte au Savr TMS (webhook Plateforme → TMS). Le TMS se charge de transmettre à Everest pour A Toute!. La spécification de l'intégration Everest est dans le CDC TMS.
 
 **Jalon** : une collecte AG programmée déclenche l'algo, l'Admin voit les 3 associations recommandées et peut valider, l'ordre est transmis au Savr TMS pour exécution logistique.
 
@@ -199,7 +199,7 @@ L'estimation dépend du rythme de validation de Val entre chaque sprint. En spri
 
 - Tous les modules documentés dans les sections 01 à 15
 - 6 profils utilisateur (admin_savr, traiteur_manager, traiteur_commercial, agence, gestionnaire_lieux, client_organisateur)
-- Intégrations : TMS Savr, Pennylane v2, Everest (A Toutes!), Resend
+- Intégrations : TMS Savr, Pennylane v2, Everest (A Toute!), Resend
 - PDFs : bordereau ZD, rapport de recyclage, attestation de don AG
 - Exports CSV pour tous les profils
 - Migration complète depuis Bubble (historique intégral)

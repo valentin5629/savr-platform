@@ -331,7 +331,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
 
-  it('M0.6/dispatch_zd_a_toutes_refuse — A Toutes! choisie pour une ZD : 422, aucun ordre émis (son envoi exige une association AG)', async () => {
+  it('M0.6/dispatch_zd_a_toutes_refuse — A Toute! choisie pour une ZD : 422, aucun ordre émis (son envoi exige une association AG)', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce(collecteZd(null));
     transporteur({ type_tms: 'a_toutes', actif: true });
@@ -340,7 +340,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
 
     expect(res.status).toBe(422);
     expect(((await res.json()) as { error: string }).error).toMatch(
-      /A Toutes! ne prend pas en charge les collectes Zéro Déchet/,
+      /A Toute! ne prend pas en charge les collectes Zéro Déchet/,
     );
     expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
@@ -555,7 +555,7 @@ describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
   });
 });
 
-// Décision Val 2026-11-03 : AG envoyée à A Toutes! alors que la branche retenue
+// Décision Val 2026-11-03 : AG envoyée à A Toute! alors que la branche retenue
 // (Marathon) ne désigne aucun de ses services → l'Admin choisit le service,
 // rangé comme branche retenue avant l'ordre d'envoi (cas du 2026-11-02).
 describe('M0.6 / Dispatch AG / service du transporteur forcé', () => {
@@ -587,7 +587,7 @@ describe('M0.6 / Dispatch AG / service du transporteur forcé', () => {
     mockSupabaseChain.limit.mockResolvedValueOnce({
       data: [{ type_tms: 'a_toutes' }],
       error: null,
-    } as never); // transporteur visé = A Toutes!
+    } as never); // transporteur visé = A Toute!
     mockSupabaseChain.rpc.mockResolvedValueOnce({
       data: {
         transporteur: { id: 't-marathon', nom: 'Marathon', type_tms: 'mts1' },
@@ -670,7 +670,7 @@ describe('M0.6 / Dispatch AG / service du transporteur forcé', () => {
 
   it('ops_savr : le choix du service est refusé (403), rien n’est écrit ni envoyé', async () => {
     setupAuth('ops_savr');
-    // Renvoi au transporteur actuel (A Toutes!), sans forçage : seul le service
+    // Renvoi au transporteur actuel (A Toute!), sans forçage : seul le service
     // est en jeu (aucun appel à l'algorithme).
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: { ...collecteAg, prestataire_logistique_id: 'presta-atoutes' },

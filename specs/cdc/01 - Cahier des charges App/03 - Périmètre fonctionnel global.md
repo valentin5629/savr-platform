@@ -35,7 +35,7 @@ Base de données propriétaire Savr des entités permanentes. Condition de la qu
 
 - **Lieux** : nom, adresse, accès (badge, interphone, code, contact), contraintes (horaires, flux autorisés, volumes max, parking véhicule Savr), photos, historique des collectes
 - **Traiteurs** : nom, contacts, tarification applicable, packs actifs, commerciaux associés
-- **Prestataires logistiques** : Strike (déchets), Marathon (alimentaire nuit), A Toutes! (alimentaire journée IDF)
+- **Prestataires logistiques** : Strike (déchets), Marathon (alimentaire nuit), A Toute! (alimentaire journée IDF)
 - **Associations Anti-Gaspi** : nom, localisation, capacité max (nb bénéficiaires), horaires d'ouverture, types d'aliments acceptés, zone géographique couverte, contact, date de dernière vérification
 - **Transporteurs Anti-Gaspi** : nom, zones couvertes (IDF / province), véhicules disponibles (vélo cargo, camionnette réfrigérée, etc.), capacité, contacts, tarification, date de dernière vérification
 - **Flux de déchets** : 5 flux V1 (post-refonte 2026-05-02) — biodéchets, emballages, carton, verre, déchet résiduel — avec unités de mesure et exutoires associés. Enum fermée V1 (cf. [[04 - Data Model#Table : `flux_dechets`]])
@@ -105,7 +105,7 @@ Dashboard de pilotage des revenus et coûts, visible uniquement par Admin Savr.
 - Revenus : factures émises (par client, par mois, par type de prestation), packs vendus vs. consommés (PCA), impayés
 - **Sources tarifs prestataires** :
   - **Strike, Marathon** : tarification récupérée côté **TMS Savr** (table `courses_logistiques`) — source de vérité pour les ZD
-  - **A Toutes!** : tarification remontée via le Savr TMS (qui gère l'intégration avec Everest) — import manuel dans pilotage V1, intégration auto V2 si l'API Everest est exposée au moment du build
+  - **A Toute!** : tarification remontée via le Savr TMS (qui gère l'intégration avec Everest) — import manuel dans pilotage V1, intégration auto V2 si l'API Everest est exposée au moment du build
   - **Autres prestataires ponctuels** : gestion côté du prestataire, import manuel dans pilotage V1
 - Coûts exutoires Veolia : saisie manuelle V1 (V2 auto-import Gmail)
 - Marge brute par collecte, par client, par période
@@ -186,13 +186,13 @@ Un user Ops Savr peut avoir 2 profils (Plateforme + TMS) avec même email Google
 
 ---
 
-### Module 10 — Intégration A Toutes! (API Everest) `MVP`
+### Module 10 — Intégration A Toute! (API Everest) `MVP`
 
-Envoi automatique des ordres de collecte Anti-Gaspi journée IDF vers A Toutes!.
+Envoi automatique des ordres de collecte Anti-Gaspi journée IDF vers A Toute!.
 
 - Déclenchement après validation ops Savr de l'attribution
 - Données transmises : adresse événement, créneau, volume estimé, contact traiteur
-- Réception du statut de confirmation côté A Toutes!
+- Réception du statut de confirmation côté A Toute!
 - En cas d'échec API : notification Admin Savr pour traitement manuel
 
 **Interface concernée** : Admin Savr (supervision)
@@ -332,9 +332,9 @@ Portail où les associations se créent un compte, renseignent leurs information
 
 ---
 
-### Module 18 — Fallback Everest / Intégration alternative A Toutes! `V3`
+### Module 18 — Fallback Everest / Intégration alternative A Toute! `V3`
 
-Plan de sortie de la dépendance Everest si A Toutes! change de TMS.
+Plan de sortie de la dépendance Everest si A Toute! change de TMS.
 
 ---
 
@@ -342,7 +342,7 @@ Plan de sortie de la dépendance Everest si A Toutes! change de TMS.
 
 | Priorité | Modules |
 |----------|---------|
-| **MVP** | 1 Événements, 2 Référentiel, 3 Algo Anti-Gaspi, 4 Rapports RSE, 5 Facturation/Packs, 6 Pilotage financier, 7 Dashboards, 8 Emailing, 9 Intégration TMS, 10 Intégration A Toutes!, 11 Onboarding, 20 Traçabilité réglementaire |
+| **MVP** | 1 Événements, 2 Référentiel, 3 Algo Anti-Gaspi, 4 Rapports RSE, 5 Facturation/Packs, 6 Pilotage financier, 7 Dashboards, 8 Emailing, 9 Intégration TMS, 10 Intégration A Toute!, 11 Onboarding, 20 Traçabilité réglementaire |
 | **V2** | 12 Benchmarks clients, 13 Citeo, 14 App mobile, 15 Multi-langues, 16 Signature élec., 19 Import brief + Impact enrichi |
 | **V3** | 17 Marketplace assocs, 18 Fallback Everest |
 
@@ -355,7 +355,7 @@ Plan de sortie de la dépendance Everest si A Toutes! change de TMS.
 - **App mobile Plateforme** : V2 (TMS Savr a son app mobile en V1)
 - **Reporting Citeo** : V2 par défaut
 - **Stockage PDF** : Cloudflare R2 confirmé pour la V1
-- **Pilotage financier V1 limité** : revenus collectes + coûts logistiques directs (Strike, Marathon, A Toutes!) uniquement. Coûts Veolia exclus du V1 (factures mensuelles avec relevés de passage → saisie manuelle trop lourde). Connexion Gmail pour auto-import coûts Veolia → V2.
+- **Pilotage financier V1 limité** : revenus collectes + coûts logistiques directs (Strike, Marathon, A Toute!) uniquement. Coûts Veolia exclus du V1 (factures mensuelles avec relevés de passage → saisie manuelle trop lourde). Connexion Gmail pour auto-import coûts Veolia → V2.
 - **Commentaires internes** : champ commentaire libre ajouté sur les collectes ET sur les lieux (pour notes opérationnelles ops Savr). MVP.
 - **Référentiel lieux enrichi** : la base de données lieux doit contenir toutes les spécificités opérationnelles (accès, contraintes, contacts, horaires, historique incidents). Ces données doivent être accessibles au TMS Savr via l'API. Ce n'est pas au traiteur de les saisir — pré-remplissage automatique dans le formulaire de programmation. Données gérées exclusivement par Admin Savr. **MVP.**
 - **Import brief + Mesure d'impact enrichie** : V2. Structure data **non créée en V1** (audit sobriété §04 2026-05-25, A1 — ajout en V2 par migration, spec conservée en référence). Gating V2 = construction du référentiel d'impact propriétaire. Orientation retenue : **recrutement interne** (chargé projet environnemental, 45-60k€/an chargé).
@@ -370,7 +370,7 @@ Plan de sortie de la dépendance Everest si A Toutes! change de TMS.
 
 _Aucune — module stabilisé pour V1. (2026-04-28)_
 
-**Clôturé** : Everest expose bien les tarifs réels. Grille tarifaire A Toutes! (prestataire Vélo Frais) documentée dans §05 Règles métier. (2026-04-28)
+**Clôturé** : Everest expose bien les tarifs réels. Grille tarifaire A Toute! (prestataire Vélo Frais) documentée dans §05 Règles métier. (2026-04-28)
 
 ## Liens
 

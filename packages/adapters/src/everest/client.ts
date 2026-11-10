@@ -1,9 +1,9 @@
 // Client HTTP Everest — sortant (M2.5).
 //
-// Auth : un jeton fixe par compte A Toutes!, lu dans EVEREST_API_TOKEN (compte
+// Auth : un jeton fixe par compte A Toute!, lu dans EVEREST_API_TOKEN (compte
 // « SAVR » en production, « SAVR TEST » ailleurs) et envoyé en Bearer. Le client
 // n'appelle JAMAIS POST /auth : chaque appel y crée un jeton et révoque le
-// précédent (réponse d'Everest relayée par A Toutes!, 2026-10-19). Sur Vercel,
+// précédent (réponse d'Everest relayée par A Toute!, 2026-10-19). Sur Vercel,
 // chaque serveur qui démarrait s'authentifiait et coupait le jeton des autres.
 // Jeton absent ou refusé (401) : un réglage à corriger, pas un refus du
 // transporteur → erreur passagère (le worker retente à ses paliers) + alerte
@@ -37,7 +37,7 @@ import type {
 import { verifierEcheance } from '../echeance-passage.js';
 import { _getEverestHandlers } from './mock.js';
 
-/** Le jeton du compte A Toutes! de cet environnement, ou null s'il n'est pas posé. */
+/** Le jeton du compte A Toute! de cet environnement, ou null s'il n'est pas posé. */
 export function lireJetonEverest(): string | null {
   const jeton = process.env['EVEREST_API_TOKEN']?.trim();
   return jeton ? jeton : null;
@@ -108,7 +108,7 @@ interface MissionEverest {
 }
 
 // Catégorie de l'étape courante. Une étape porte au plus un drapeau sur le
-// compte A Toutes! (POST /statuses, 2026-11-03) ; l'ordre ne sert que si une
+// compte A Toute! (POST /statuses, 2026-11-03) ; l'ordre ne sert que si une
 // réponse en portait plusieurs : la fin de course prime sur la progression.
 function etapeMission(m: MissionEverest): EtapeMissionEverest | null {
   if (m.is_cancel === true) return 'annulee';
@@ -240,7 +240,7 @@ export class EverestClient {
       titre: statut === null ? 'Jeton Everest absent' : 'Jeton Everest refusé',
       message:
         `Everest ${operation} non abouti : jeton ${constat}. Poser dans ` +
-        "EVEREST_API_TOKEN le jeton du compte A Toutes! de l'environnement " +
+        "EVEREST_API_TOKEN le jeton du compte A Toute! de l'environnement " +
         '(SAVR en production, SAVR TEST ailleurs). Ne jamais appeler ' +
         '/api/auth : chaque appel révoque le jeton en cours.',
       metadata: {
@@ -612,7 +612,7 @@ export class EverestClient {
           `Everest photo : taille ${contenu.length} refusée`,
         );
       }
-      // Le stockage d'A Toutes! sert ses photos en `application/octet-stream`
+      // Le stockage d'A Toute! sert ses photos en `application/octet-stream`
       // (mesuré le 2026-11-03) : le format se lit sur les premiers octets.
       const contentType = formatImage(contenu);
       if (!contentType) {

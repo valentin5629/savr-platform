@@ -39,7 +39,7 @@ function lireEnv(): Env {
   }
 }
 
-/** Mode d'intégration d'un prestataire seedé : A Toutes! passe par Everest, comme en production. */
+/** Mode d'intégration d'un prestataire seedé : A Toute! passe par Everest, comme en production. */
 export function modeIntegrationSeed(codePrestataire: string): string {
   return codePrestataire === 'ATOUTES' ? 'everest' : 'mts1';
 }

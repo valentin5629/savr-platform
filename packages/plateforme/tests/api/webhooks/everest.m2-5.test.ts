@@ -27,7 +27,7 @@ let mockCollecteRow: unknown = null;
 let mockAuditRow: unknown = null;
 
 // Mission courante (arbitrage Val 2026-09-17). Par défaut la mission de l'event
-// EST la mission courante : collecte attribuée à un transporteur A Toutes! et
+// EST la mission courante : collecte attribuée à un transporteur A Toute! et
 // tournée portant la référence de l'event (`mockRefTournee` undefined).
 const PRESTA_EVEREST = 'presta-a-toutes';
 let lastMissionId = '';
@@ -454,7 +454,7 @@ describe('M2.5 / webhook Everest — déduplication inbox', () => {
 
 describe('M2.5 / webhook Everest — event_type mission_dispatched', () => {
   // mission_dispatched relit la mission sur l'API Everest (coursier) : le mock
-  // est OBLIGATOIRE ici, sinon le test appelle le vrai serveur A Toutes!.
+  // est OBLIGATOIRE ici, sinon le test appelle le vrai serveur A Toute!.
   let mockState: ReturnType<typeof setupEverestMock>;
 
   beforeEach(() => {
@@ -1606,7 +1606,7 @@ describe('M2.5 / webhook Everest — échec d’écriture de l’état métier',
 
 describe('M2.5 / webhook Everest — rejeu d’un event non traité', () => {
   // Toute notification relit la mission : le mock est OBLIGATOIRE ici, sinon
-  // le test appelle le vrai serveur A Toutes!.
+  // le test appelle le vrai serveur A Toute!.
   beforeEach(() => {
     setupEverestMock();
   });
@@ -1691,7 +1691,7 @@ describe('M2.5 / webhook Everest — rejeu d’un event non traité', () => {
 
 // ─── Mission courante + gardes dans le WHERE (arbitrage Val 2026-09-17) ─────────
 // Un event ne touche la collecte que si sa mission est la mission courante :
-// collecte attribuée à un transporteur A Toutes! ET tournée liée portant la
+// collecte attribuée à un transporteur A Toute! ET tournée liée portant la
 // référence de l'event. Sinon : mission à jour, collecte intacte, trace ; alerte
 // Ops si un vélo est encore actif (dispatched / pickedup). Chaque UPDATE
 // `collectes` porte sa garde : 0 ligne modifiée = no-op, sans alerte.
@@ -2288,7 +2288,7 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
     expect(missionLive?.['payload_latest_update']).toEqual({ nouvelle: true });
   });
 
-  it('mission réécrite par une réattribution A Toutes! → A Toutes! pendant l’event → l’ancienne n’écrase pas la nouvelle', async () => {
+  it('mission réécrite par une réattribution A Toute! → A Toute! pendant l’event → l’ancienne n’écrase pas la nouvelle', async () => {
     // La ligne `everest_missions` est unique par tournée : le re-dispatch la
     // réécrit avec la nouvelle mission entre la lecture et l'écriture de l'event.
     apresLectureMission = (live) => {
@@ -2313,7 +2313,7 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
   });
 });
 
-// ─── Notification réelle A Toutes! : event `mission_status` ────────────────────
+// ─── Notification réelle A Toute! : event `mission_status` ────────────────────
 // Mesuré le 2026-11-03 sur le compte de test : `event` vaut TOUJOURS
 // `mission_status`, l'étape est dans `status_slug`. La route relit la mission et
 // choisit le traitement sur la catégorie de l'étape relue (jamais sur le payload).
@@ -2702,7 +2702,7 @@ describe('M2.5 / webhook Everest — notification réelle `mission_status`', () 
       expect(collecteEcriteAvec('statut_tms', 'acceptee')).toBe(true);
     });
 
-    it('tournée sans référence de course (pas encore créée chez A Toutes!) → pas acceptée', async () => {
+    it('tournée sans référence de course (pas encore créée chez A Toute!) → pas acceptée', async () => {
       mockRefsTourneesCollecte = ['EVR-MS', null];
       mockState.details.set('EVR-MS', detail('affectee'));
       await POST(notification('mission-acceptee'));

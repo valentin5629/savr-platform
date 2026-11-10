@@ -17,7 +17,7 @@
 //
 // Mission courante (arbitrage Val 2026-09-17) : `everest_missions.collecte_id`
 // n'est pas unique et une réattribution vers un autre transporteur n'annule pas
-// la course A Toutes! en V1. Un event ne touche donc la collecte que si sa
+// la course A Toute! en V1. Un event ne touche donc la collecte que si sa
 // mission est la mission courante (cf. `lireCollecte`) ; sinon la mission est
 // mise à jour, la collecte non, et un vélo encore actif est alerté (risque de
 // double passage, M14 EC11). Chaque UPDATE `collectes` porte sa garde dans le
@@ -60,7 +60,7 @@ function mapEverestStatut(apiStatus: string, fallback: string): string {
 // BL-P1-API-04 (d) — « course sans marchandise » (CLAUDE.md §7, gate Everest
 // levée 2026-06-15). Lue sur la mission RE-FETCHÉE (jamais sur le payload non
 // signé, BL-P0-07) : par son code d'étape (`status`), relevé sur le compte
-// A Toutes! le 2026-11-03 (POST /statuses : `pas-de-commande` « Rien à
+// A Toute! le 2026-11-03 (POST /statuses : `pas-de-commande` « Rien à
 // récupérer », `client-absent-marchandise-refusee` « Client Absent »), à défaut
 // par les libellés d'origine. Une collecte AG passe alors realisee_sans_collecte
 // (§05, AG only) ; le motif est le libellé relu.
@@ -88,13 +88,13 @@ type DetailMission = Awaited<ReturnType<typeof fetchEverestMissionDetails>>;
 
 // Motif fixe d'une relecture en échec : il part dans une alerte in-app, jamais
 // le texte d'erreur brut de l'API (tracé à part dans le journal serveur).
-const MESSAGE_RELECTURE_KO = 'relecture de la course A Toutes! impossible';
+const MESSAGE_RELECTURE_KO = 'relecture de la course A Toute! impossible';
 
-// Notification A Toutes! réelle (mesuré le 2026-11-03 sur le compte de test) :
+// Notification A Toute! réelle (mesuré le 2026-11-03 sur le compte de test) :
 // `event` vaut toujours `mission_status`, l'étape est dans `status_slug`. Le
 // signal est relu sur l'API, et la catégorie de l'étape relue choisit le
 // traitement (mêmes traitements que les noms du swagger, gardés).
-// Noms d'event du swagger 1.291.1, jamais envoyés par A Toutes! (mesuré le
+// Noms d'event du swagger 1.291.1, jamais envoyés par A Toute! (mesuré le
 // 2026-11-03) : reçus, ils sont traités comme `mission_status`, jamais crus.
 const NOMS_SWAGGER = new Set([
   'mission_dispatched',
@@ -193,9 +193,9 @@ async function echecEtatMetier(
   await supabase
     .rpc('f_upsert_alerte_admin', {
       p_code: 'everest_webhook_non_enregistre',
-      p_titre: 'Événement A Toutes! non enregistré',
+      p_titre: 'Événement A Toute! non enregistré',
       p_message:
-        `L'événement A Toutes! de la course ${echec.missionId} n'a pas pu être enregistré : ${echec.quoi} ` +
+        `L'événement A Toute! de la course ${echec.missionId} n'a pas pu être enregistré : ${echec.quoi} ` +
         `(${error.message}). L'état affiché de la collecte ne reflète pas le transporteur ; ` +
         `l'événement reste non traité et sera rejoué s'il est renvoyé.`,
       p_entity_type: 'collectes',
@@ -441,7 +441,7 @@ async function handleEventType(
   const now = new Date().toISOString();
 
   // Écriture de la mission : un refus (CHECK, blip PostgREST) lève. Gardée par
-  // la référence de l'event : une réattribution A Toutes! → A Toutes! réécrit
+  // la référence de l'event : une réattribution A Toute! → A Toute! réécrit
   // la même ligne (unique par tournée) avec la NOUVELLE mission, qu'un event de
   // l'ancienne lu juste avant ne doit pas écraser (0 ligne = no-op).
   const majMission = async (
@@ -483,7 +483,7 @@ async function handleEventType(
             evenement: 'mission_status_relecture',
             collecteId: mission.collecte_id,
             missionId,
-            quoi: 'relecture de la course sur l’API A Toutes!',
+            quoi: 'relecture de la course sur l’API A Toute!',
           },
         );
       });
@@ -508,7 +508,7 @@ async function handleEventType(
           'mission_status',
         );
       }
-      // Coursier relu à chaque étape (Val 2026-11-03) : A Toutes! ne le donne
+      // Coursier relu à chaque étape (Val 2026-11-03) : A Toute! ne le donne
       // souvent qu'à la première étape terrain, pas à l'affectation.
       // Best-effort : l'état métier est déjà écrit, un échec ici n'est que tracé.
       if (traitement !== 'mission_dispatched') {
@@ -529,8 +529,8 @@ async function handleEventType(
     }
 
     case 'mission_dispatched': {
-      // Acceptation nominale A Toutes! (M14 R_M14.1bis, adapté V1)
-      // A Toutes! n'a pas de portail M03 — assignment coursier = acceptation.
+      // Acceptation nominale A Toute! (M14 R_M14.1bis, adapté V1)
+      // A Toute! n'a pas de portail M03 — assignment coursier = acceptation.
       const updates: Record<string, unknown> = {
         statut_everest: 'assigned',
         derniere_sync_at: now,
@@ -665,7 +665,7 @@ async function handleEventType(
             evenement: 'mission_terminee_relecture',
             collecteId: mission.collecte_id,
             missionId,
-            quoi: 'relecture de la course terminée sur l’API A Toutes!',
+            quoi: 'relecture de la course terminée sur l’API A Toute!',
           },
         );
       }
@@ -949,7 +949,7 @@ type CollecteLue =
 /**
  * État de la collecte de la mission, et « la mission de l'event est-elle la
  * mission courante de la collecte ? » (arbitrage Val 2026-09-17) :
- *   • la collecte est attribuée à un transporteur A Toutes!
+ *   • la collecte est attribuée à un transporteur A Toute!
  *     (`collectes.prestataire_logistique_id` → `transporteurs.type_tms`) ;
  *   • la tournée de la mission est liée à la collecte (`collecte_tournees`) ;
  *   • cette tournée porte la référence de CETTE mission
@@ -1071,10 +1071,10 @@ async function signalerMissionHorsAttribution(
 
   const { error } = await supabase.rpc('f_upsert_alerte_admin', {
     p_code: 'everest_mission_hors_attribution',
-    p_titre: 'Course A Toutes! active sur une collecte réattribuée',
+    p_titre: 'Course A Toute! active sur une collecte réattribuée',
     p_message:
-      `A Toutes! signale que ${veloActif} sur la course ${missionId}, qui n'est plus la course attribuée ` +
-      `à la collecte ${mission.collecte_id}. Risque de double passage : contacter A Toutes! pour annuler cette course.`,
+      `A Toute! signale que ${veloActif} sur la course ${missionId}, qui n'est plus la course attribuée ` +
+      `à la collecte ${mission.collecte_id}. Risque de double passage : contacter A Toute! pour annuler cette course.`,
     p_entity_type: 'collectes',
     p_entity_id: mission.collecte_id,
   });
@@ -1247,7 +1247,7 @@ async function rejeterSiPreAcceptation(
 }
 
 /**
- * Acceptation d'une collecte A Toutes! : elle n'est `acceptee` que quand toutes
+ * Acceptation d'une collecte A Toute! : elle n'est `acceptee` que quand toutes
  * ses courses ont un coursier affecté (multi-vélos, Val 2026-11-03, même règle
  * que MTS-1). La course de l'event compte comme affectée : l'appelant est un
  * signal d'affectation, d'enlèvement ou de fin. Les autres courses sont lues
@@ -1376,7 +1376,7 @@ async function cloreCourse(
     await alerteApresTransition(supabase, {
       p_code: 'collecte_partiellement_servie',
       p_titre: 'Collecte partiellement servie',
-      p_message: `Une course A Toutes! (${missionId}) n'a pas pu collecter ; la collecte est réalisée sur les autres courses.`,
+      p_message: `Une course A Toute! (${missionId}) n'a pas pu collecter ; la collecte est réalisée sur les autres courses.`,
       p_entity_type: 'collectes',
       p_entity_id: mission.collecte_id,
     });

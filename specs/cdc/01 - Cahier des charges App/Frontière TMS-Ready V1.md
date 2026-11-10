@@ -57,7 +57,7 @@
 **Conséquence code** :
 - Toute logique business référence `logistique_provider`, **jamais** `mts1_client` ni `everest_client`
 - Le swap V1 → V2 = changer une **factory / variable d'env**, rien d'autre dans le code métier
-- Sélection du provider par `transporteurs.type_tms` — **valeurs réelles de l'enum (corrigé 2026-06-10, alignement §04/DDL cible ; ex « mts1/everest » erroné)** : `mts1` (Strike/Marathon → adapter_mts1), `a_toutes` (Everest, A Toutes! vélo cargo → adapter_everest, **V1.1** gate 2026-06-08), `autre` (dispatch manuel email/téléphone → provider no-op `manual`, aucun appel API)
+- Sélection du provider par `transporteurs.type_tms` — **valeurs réelles de l'enum (corrigé 2026-06-10, alignement §04/DDL cible ; ex « mts1/everest » erroné)** : `mts1` (Strike/Marathon → adapter_mts1), `a_toutes` (Everest, A Toute! vélo cargo → adapter_everest, **V1.1** gate 2026-06-08), `autre` (dispatch manuel email/téléphone → provider no-op `manual`, aucun appel API)
 
 **Check de validation** : `grep` dans le code → **aucune référence directe** à `mts1`, `everest`, `mytroopers` ou `customerOrders` hors du module `packages/adapters/` (câblé : `check-coupling.sh` + allowlist + job CI `anti-coupling`). Règle d'allowlist *(précisée 2026-06-10)* : labels UI, valeurs d'enum DB, noms de logs = tolérés ; **logique conditionnelle métier par provider = interdit** (doit passer par l'interface).
 

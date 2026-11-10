@@ -1,7 +1,7 @@
 /**
- * Photos du livreur relues chez A Toutes! (décision Val 2026-11-03) : listage
+ * Photos du livreur relues chez A Toute! (décision Val 2026-11-03) : listage
  * pour l'Admin et import des photos cochées, non visibles du client.
- * Forme des médias = celle mesurée sur le compte A Toutes! le 2026-11-03.
+ * Forme des médias = celle mesurée sur le compte A Toute! le 2026-11-03.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -155,7 +155,7 @@ describe('listerPhotosTransporteur', () => {
     }
   });
 
-  it('un transporteur autre qu’A Toutes! : pas pris en charge, aucun appel', async () => {
+  it('un transporteur autre qu’A Toute! : pas pris en charge, aucun appel', async () => {
     etat.typeTms = 'mts1';
     const r = await listerPhotosTransporteur(fauxSupabase(etat), COLLECTE, 'c');
     expect(r).toEqual({ pris_en_charge: false });

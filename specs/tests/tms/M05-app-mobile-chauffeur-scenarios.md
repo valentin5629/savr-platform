@@ -12,7 +12,7 @@
 > Les tests P1-critique sont bloquants CI. Les tests P2 et P3 sont non-bloquants V1.
 > Ne pas démarrer le développement du module sans avoir écrit les tests P1 d'abord.
 >
-> **Conventions de données** : prestataires réels — Strike (ZD camion frigo motorisé), Marathon (AG camion frigo), A Toutes! (AG vélo cargo + camion backup, intégration Everest). Traiteurs : Kaspia, Kardamome. Chauffeurs : `chauffeur_strike_1`, `chauffeur_marathon_1`, `chauffeur_atoutes_velo_1`.
+> **Conventions de données** : prestataires réels — Strike (ZD camion frigo motorisé), Marathon (AG camion frigo), A Toute! (AG vélo cargo + camion backup, intégration Everest). Traiteurs : Kaspia, Kardamome. Chauffeurs : `chauffeur_strike_1`, `chauffeur_marathon_1`, `chauffeur_atoutes_velo_1`.
 > **Auth** : email + password (argon2 Supabase), 8 car min, device binding 1 device actif chauffeur (index unique partiel `auth_sessions_tms`), session 30j rolling, rate limit 5 tentatives/15min/IP, reset via magic link 30 min, bootstrap sans password initial.
 > **Cycle de vie collecte (statut_operationnel)** : `planifiee` → `en_route` → `arrivee` → `en_cours` → `realisee` / `realisee_sans_collecte` (AG-only) / `echec_acces` / `incident`. Multi-camions : collecte `realisee` **dérivée** quand toutes ses tournées sont `terminee` (R6.1).
 > **Statut tournée (R6.2, 5 valeurs)** : `planifiee`, `acceptee`, `en_cours`, `terminee`, `annulee`.

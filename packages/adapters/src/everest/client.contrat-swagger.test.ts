@@ -173,7 +173,7 @@ describe('EverestClient — contrat du swagger Everest', () => {
     });
   });
 
-  it('M2.5/everest_contrat_get_etape — catégorie de l’étape lue sur les drapeaux is_* (compte A Toutes!, 2026-11-03), la fin de course prime', async () => {
+  it('M2.5/everest_contrat_get_etape — catégorie de l’étape lue sur les drapeaux is_* (compte A Toute!, 2026-11-03), la fin de course prime', async () => {
     const cas: Array<[Record<string, boolean>, string | null]> = [
       [{ is_dispatch: true }, 'affectee'],
       [{ is_pickup: true }, 'enlevee'],
@@ -294,7 +294,7 @@ describe('EverestClient — contrat du swagger Everest', () => {
 
   it('M2.5/everest_contrat_photo_telechargee — GET de l’adresse publique SANS le jeton, sans redirection', async () => {
     fetchMock.mockResolvedValueOnce(
-      // Type générique servi par le stockage d'A Toutes! (2026-11-03) : le
+      // Type générique servi par le stockage d'A Toute! (2026-11-03) : le
       // format se lit sur les octets.
       new Response(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]), {
         status: 200,

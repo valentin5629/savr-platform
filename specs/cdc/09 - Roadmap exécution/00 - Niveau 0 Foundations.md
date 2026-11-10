@@ -91,7 +91,7 @@ Ordre interne : 0.1 → 0.2 → 0.3 → 0.4 → 0.5 → 0.6 (gate qualité) → 
 ### Module 0.7 — Seed minimal + demo
 
 - **Objectif** : jeux de données injectables `seed_minimal` + `seed_demo`, commandes pnpm, refus en prod.
-- **À coder** : scripts `pnpm seed:minimal` / `pnpm seed:demo` (cf. `05 - Fixtures/`, grilles réelles Strike/Marathon/A Toutes!) ; garde `NODE_ENV=production` → refus.
+- **À coder** : scripts `pnpm seed:minimal` / `pnpm seed:demo` (cf. `05 - Fixtures/`, grilles réelles Strike/Marathon/A Toute!) ; garde `NODE_ENV=production` → refus.
 - **Définition de fini** : `pnpm seed:demo` peuple un dev vierge sans erreur, refus en prod, données conformes au catalogue Fixtures.
 - **/goal** : `Le module 0.7 est terminé quand pnpm seed:demo s'exécute sans erreur sur une DB dev vierge ET un test confirme le refus si NODE_ENV=production ET les volumétries correspondent au catalogue Fixtures.`
 - **Budget** : 300k (M).

@@ -497,7 +497,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M0.8-43 — fiche collecte client : aucune référence en en-tête (BL-P3-03, Val 2026-11-03)",
       "statut": "implemented",
-      "libelle": "BL-P3-03 — Fiche collecte traiteur : plus aucune référence en en-tête (ex-sous-titre référence courte retiré, décision Val 2026-11-03 : elle ne sert pas l'utilisateur ; fiche de divergence M3.1_20261103) + tooltip méthode UE 2019/1004 sur le taux (§06.04 l.381/l.422). Le message vélo cargo A Toutes! a été retiré le 2026-09-29 (bloc Logistique réduit à chauffeur + plaque + téléphone, cf. M3.1-fiche-popup-logistique ; plaque « Sans objet (vélo cargo) »)."
+      "libelle": "BL-P3-03 — Fiche collecte traiteur : plus aucune référence en en-tête (ex-sous-titre référence courte retiré, décision Val 2026-11-03 : elle ne sert pas l'utilisateur ; fiche de divergence M3.1_20261103) + tooltip méthode UE 2019/1004 sur le taux (§06.04 l.381/l.422). Le message vélo cargo A Toute! a été retiré le 2026-09-29 (bloc Logistique réduit à chauffeur + plaque + téléphone, cf. M3.1-fiche-popup-logistique ; plaque « Sans objet (vélo cargo) »)."
     },
     {
       "id": "BL-P3-04",
@@ -624,14 +624,14 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "454cf1fef34eda6c8f510d347b1d5b2d580c6d90febf31d0bdacabe33bf322a3",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8217fcbe55eb780c79fa1cee886dd961b880ec5f1656e36d78526975ef0d9001",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "35e0f8c5158b80fdcabeffea0cdb6efe5513941ad81bc7d52f00455cd16ad5cc",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "1bd6a37c1ff937a32f2e10ab68e05027fcafd18f615cf63e1b525232fa67184c",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3b3b4ebba18cfe5ef58baa1c73dd618d031c3b41d8a1494d28cbf18780f81a80",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "d5b6f644aa60e3d7ca36d414cdec3c06d0a954545705e865b8e06f935929f678",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "316d5f3d7e8b2a4c3ed80e09f4a3a62a8a9e175ac28b87c2a94a476090e6e65c",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "e1552e56d158079110623c481a7c78342f57ebba0116bced222bc657ef81a8e6",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "61267fa23e3119d403e0fcd711c943f4f192f83091a81dbe945d86f392ee4594",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "c957507b8789dd429a600c8b84a11e336625486cd6d28ee3b6c0fe0b161ae26b",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "87c1aab8f65c3c441dde53838d9a377ca73bb9ba2fded8568fba0c4c3f4e84e9",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "f00f20f9682e9e8d4db52204b3814cbff5cdf5a467bf8205db90a9083531bc20",
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "c644989ef4f9ce490f7eb8fe4897e06e57bc506d458a1b876a8a8224896cdeaf"
   }

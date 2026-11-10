@@ -951,7 +951,7 @@ async function fetchLieu(
 function toCollecte(row: CollecteRow, transporteur: Transporteur): Collecte {
   const entree = row.entree_commentaire;
   // Plusieurs véhicules sans type précisé : le transporteur les nomme
-  // (« 2 vélos prévus … » chez A Toutes!, décision Val 2026-11-03).
+  // (« 2 vélos prévus … » chez A Toute!, décision Val 2026-11-03).
   const commentaires = composerCommentairesTransporteur({
     ...entree,
     vehicule: entree.vehicule

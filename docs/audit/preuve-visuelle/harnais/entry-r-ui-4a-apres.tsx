@@ -12,7 +12,7 @@ type Row = { id: string; nom: string; ville: string };
 const rows: Row[] = [
   { id: '1', nom: 'Strike', ville: 'Paris' },
   { id: '2', nom: 'Marathon', ville: 'Pantin' },
-  { id: '3', nom: 'A Toutes!', ville: 'Montreuil' },
+  { id: '3', nom: 'A Toute!', ville: 'Montreuil' },
 ];
 const columns: ColumnDef<Row, unknown>[] = [
   { id: 'nom', header: 'Nom', accessorFn: (r) => r.nom },

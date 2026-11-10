@@ -37,7 +37,7 @@ Vue de pilotage opérationnel Savr — exclusivement orientée actions à mener.
 **Bloc 3 — Section Coûts** — 🔒 **DESCOPÉ V1.1 (décision Val 2026-06-10, challenge Frontière TMS-Ready)** : ce bloc lit `v_courses_logistiques`, vue sur `tms.tournees ⋈ tms.collecte_tournees` — schéma `tms.*` non créé en V1, coûts non exposés par l'API MTS-1 (extract CSV = V2). **Aucun élément de ce bloc n'est développé en V1** (pas de stub, pas de chiffres à zéro). Le pilotage coûts/marge V1 reste hors plateforme (DAF / savr-data-query). Le bloc revient avec le TMS natif (ou une saisie coûts V1.1). Spec conservée telle quelle ci-dessous :
 
 - Coûts logistiques totaux (`v_courses_logistiques` — somme des tournées ; pour une collecte multi-camions, somme des parts de coût de ses N tournées, cf. [[04 - Data Model#Vue : `v_courses_logistiques`]])
-- Split par prestataire (Strike, Marathon, A Toutes!, province)
+- Split par prestataire (Strike, Marathon, A Toute!, province)
 - Coûts moyens par collecte par type (ZD / AG)
 - Marge brute (CA − coûts logistiques) par collecte et agrégée
 - Alerte visuelle sur les collectes à marge négative

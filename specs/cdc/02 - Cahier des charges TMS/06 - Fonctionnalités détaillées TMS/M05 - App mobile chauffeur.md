@@ -1,6 +1,6 @@
 # M05 — App mobile chauffeur (PWA offline-first)
 
-**Persona principal** : Chauffeur prestataire (Strike, Marathon, A Toutes!) — 30+ profils terrain à V1
+**Persona principal** : Chauffeur prestataire (Strike, Marathon, A Toute!) — 30+ profils terrain à V1
 **Contexte d'usage** : smartphone personnel ou pro (Android Chrome 100+ Android 10+ / iOS Safari 16.4+ — propagation §12 D2 2026-04-27), conditions terrain dégradées (4G faible, sous-sols parking, extérieur soleil, mains chargées)
 
 ---
@@ -67,7 +67,7 @@ M05 est l'**interface terrain unique** du chauffeur prestataire. Elle pilote l'e
 - Âge 25-55 ans
 - Smartphone personnel **Android 10+ Chrome 100+ ou iPhone iOS 16.4+ Safari** (alignement §12 D2 2026-04-27, parc 2026 ≥ 64 Go, ~95% du parc couvert + Web Push robuste). Note : Android 8-9 et iOS < 16.4 = message d'erreur au login + invitation à appeler Ops (Web Push absent ou fragile).
 - Digital-low à digital-medium : SMS quotidien, WhatsApp, Waze, pas de power user
-- Chauffeur poids lourd (Strike, Marathon camions frigo) ou cycliste (A Toutes! vélo cargo)
+- Chauffeur poids lourd (Strike, Marathon camions frigo) ou cycliste (A Toute! vélo cargo)
 - 1 à 3 tournées par jour, 3 à 10 collectes par tournée (moyenne 5)
 - Français courant (V1 FR uniquement, D15/bis Vision)
 
@@ -82,7 +82,7 @@ M05 est l'**interface terrain unique** du chauffeur prestataire. Elle pilote l'e
 
 1. **Chauffeur Strike matin** (camion 20 m³, 5 collectes ZD école + centre affaires) : prend connaissance tournée à 5h45, checklist véhicule 6h, tournée 6h-11h, retour entrepôt Savr, clôture GPS
 2. **Chauffeur Marathon soir** (camion 12 m³, 3 collectes AG congrès) : attribution tournée la veille 18h, rappel H-30 à 18h30, collecte 19h-23h, dernière livraison asso 23h30
-3. **Cycliste A Toutes! midi** (vélo cargo, 1 collecte AG traiteur) : pas de plaque (D10), checklist allégée (EPI vélo), course unique, rapide
+3. **Cycliste A Toute! midi** (vélo cargo, 1 collecte AG traiteur) : pas de plaque (D10), checklist allégée (EPI vélo), course unique, rapide
 4. **Chauffeur Strike enchaînement matin+AM** (2 tournées même jour) : accueil = liste chronologique des 2 tournées (D19)
 
 ### Non-personas V1
@@ -253,7 +253,7 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 **Layout camion AG (camion frigo AG)** :
 - Plus de checklist (l'unique item « Plaque » est retiré) : E2 → E4 direct (skip E3), comme le vélo cargo. **Retiré V1 (propagation M05 2026-06-04 — suppression saisie plaque terrain)**
 
-**Layout vélo cargo (A Toutes!)** :
+**Layout vélo cargo (A Toute!)** :
 - Pas de checklist : E2 → E4 direct (skip E3)
 
 **Règles** :
@@ -542,7 +542,7 @@ Douze workflows couvrent les parcours opérationnels M05. **W13 confirmation pas
 
 : saisie plaque chauffeur, UPDATE `plaque_saisie_terrain`, webhook S7 côté chauffeur (déjà strikethrough C3), alerte plaque ≠ référentiel. *(Étape 8-bis confirmation Veolia déjà supprimée revue sobriété 2026-04-30 A1.)*
 
-**Cas camion AG motorisé + vélo cargo (A Toutes!)** :
+**Cas camion AG motorisé + vélo cargo (A Toute!)** :
 - Skip total écran E3 : transition directe E2 → E4 au clic "Démarrer tournée" (UPDATE `statut=en_cours`, `heure_reelle_debut`, S3, audit — transition `acceptee` → `en_cours`)
 - Pas de checklist
 
@@ -600,7 +600,7 @@ Douze workflows couvrent les parcours opérationnels M05. **W13 confirmation pas
 - Dialog : motif obligatoire (dropdown `client_annule`, `pas_de_surplus`, `autre`) + commentaire
 - UPDATE `collectes_tms.statut_operationnel=realisee_sans_collecte` + INSERT `pesees` avec `source=ag_sans_collecte` poids 0
 - Webhook S5 `collecte-terminee` émis (poids 0, `source=ag_sans_collecte`)
-- **Si `prestataire.integration_externe = 'everest'` (A Toutes!)** : → **Retiré V1 (revue sobriété §05 2026-05-01 A5)** — W5 reporté V1.1 (Q1 endpoint Everest non confirmé). V1 = webhook S5 émis vers Plateforme normalement + **Ops appelle A Toutes! manuellement** au moment de la clôture `realisee_sans_collecte`. La mission Everest reste `in_progress` jusqu'au prochain webhook entrant Everest (W2 `mission_finished`/`mission_cancelled`).
+- **Si `prestataire.integration_externe = 'everest'` (A Toute!)** : → **Retiré V1 (revue sobriété §05 2026-05-01 A5)** — W5 reporté V1.1 (Q1 endpoint Everest non confirmé). V1 = webhook S5 émis vers Plateforme normalement + **Ops appelle A Toute! manuellement** au moment de la clôture `realisee_sans_collecte`. La mission Everest reste `in_progress` jusqu'au prochain webhook entrant Everest (W2 `mission_finished`/`mission_cancelled`).
 - Retour E4
 
 ### W7 — Signalement incident / accès refusé
@@ -835,7 +835,7 @@ M05 émet 5 alertes automatiques (revue sobriété M05 E9 2026-04-30 : suppressi
 ### M13 — Administration TMS
 Paramètres M05 configurables par Admin TMS (cf. §11).
 
-### M14 — Intégration Everest (A Toutes!)
+### M14 — Intégration Everest (A Toute!)
 Les collectes AG vélo sont exécutées via M05 avec parcours allégé (checklist EPI vélo, pas de plaque). Everest missions synchronisées par M14.
 
 ---
@@ -1021,7 +1021,7 @@ Les 20 arbitrages tranchés session 2026-04-24.
 
 19. **D18 — Bouton appel direct** : traiteur + Ops Savr (option a). Justif : traiteur = résolution immédiate (accès, quantité), Ops = escalade, réduit MTTR incident terrain, audit log capture les appels.
 
-20. **D19 — Enchaînement 2 tournées/jour** : accueil liste chronologique toutes tournées (option a). Justif : visibilité = sérénité chauffeur, cas réel (Strike matin + A Toutes! AM avec ~30 prestataires), évite surprises mi-journée.
+20. **D19 — Enchaînement 2 tournées/jour** : accueil liste chronologique toutes tournées (option a). Justif : visibilité = sérénité chauffeur, cas réel (Strike matin + A Toute! AM avec ~30 prestataires), évite surprises mi-journée.
 
 **Catégorie Sécurité (propagation §12 2026-04-27)**
 

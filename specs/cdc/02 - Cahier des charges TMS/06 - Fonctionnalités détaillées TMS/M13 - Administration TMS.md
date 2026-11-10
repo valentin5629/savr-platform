@@ -344,7 +344,7 @@ Hors périmètre M13 (navigation vers modules existants) :
 
 **Propagation M14 (2026-04-25 + sobriété 2026-04-30)** : tab Everest dans E6 (granularité **call API**, vs `/everest` métier qui compte des **missions**, cf. clarification scope sobriété 2026-04-30 C_M14_01) :
 
-- **Section santé API** : lit la **vue dérivée `tms.vue_prestataires_everest_status`** (revue sobriété §04 2026-04-30 A3 — colonnes `last_everest_ping_at/status` supprimées V1, info dérivée de `integrations_logs(system='everest', type_event='m14_ping')`) du prestataire A Toutes! + bouton "Test connexion Everest" (déclenche M14 W8). Bandeau "incident actif" si `m14_everest_auth_failed` ou `m14_everest_timeout` non-acquittés.
+- **Section santé API** : lit la **vue dérivée `tms.vue_prestataires_everest_status`** (revue sobriété §04 2026-04-30 A3 — colonnes `last_everest_ping_at/status` supprimées V1, info dérivée de `integrations_logs(system='everest', type_event='m14_ping')`) du prestataire A Toute! + bouton "Test connexion Everest" (déclenche M14 W8). Bandeau "incident actif" si `m14_everest_auth_failed` ou `m14_everest_timeout` non-acquittés.
 - **Section latence** *(sobriété M13 B2 2026-04-30)* : **p95 global 24h** sur tous les appels Everest (`PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms)` sur `integrations_logs WHERE system='everest' AND direction='outbound' AND created_at >= now()-1d`). Les p50/p99 et la ventilation par endpoint sont dégagés V1 — disponibles via Supabase Studio si investigation fine nécessaire.
 - **Section taux d'erreurs** : taux 2xx/4xx/5xx par endpoint 7j + taux retry effectifs + taux échec final (post-retry).
 - **Section audit webhooks 7j** (absorbé ex-M14 E3, sobriété 2026-04-30 A_M14_05) : table lecture seule des webhooks Everest reçus 7j (timestamp, event_type, signature OK/KO, mission_id, client_ref, statut traitement, action TMS, retry count, dernière erreur). Filtres event_type + statut signature. Action "Voir payload" (modal JSON). KPIs synthétiques : total webhooks reçus 7j, taux signature invalide, taux event_type inconnu. **Pas de bouton "Replay"** (sobriété 2026-04-30 A_M14_04 — Admin replay via SQL direct sur Supabase Studio si cas exceptionnel).
@@ -403,7 +403,7 @@ Page métier `/everest` (M14 E1, E2, E4) accessible Ops + Admin pour le drilldow
 
 ### E7 — Wizard onboarding prestataire
 
-**Pourquoi un wizard** : créer un prestataire actif end-to-end (Strike, Marathon, A Toutes!) demande :
+**Pourquoi un wizard** : créer un prestataire actif end-to-end (Strike, Marathon, A Toute!) demande :
 1. Création `shared.prestataires` (M06)
 2. Création first user `manager_prestataire` (M03)
 3. Activation portail self-service (flag `prestataire.portail_actif = true`)
@@ -437,7 +437,7 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 #### E7.3 — Étape 3 : First manager + magic link *(ex-E7.2 ; renuméroté revue sobriété §05 2026-05-01 D2)*
 
 **Champs** :
-- Nom + prénom manager · Email · Téléphone · Activation portail self-service (toggle, default ON pour Strike/Marathon/A Toutes!, OFF pour province).
+- Nom + prénom manager · Email · Téléphone · Activation portail self-service (toggle, default ON pour Strike/Marathon/A Toute!, OFF pour province).
 - Si toggle OFF → étape skipped, prestataire géré uniquement via Ops Savr (M02, pas de portail).
 - Si toggle ON → INSERT `users_tms` rôle `manager_prestataire` `statut='en_attente_premiere_connexion'`, génère magic link, envoie email (template `manager_first_login` M11).
 

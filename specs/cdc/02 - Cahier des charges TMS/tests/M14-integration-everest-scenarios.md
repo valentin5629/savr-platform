@@ -1,4 +1,4 @@
-# Scénarios de test — M14 Intégration Everest (A Toutes!)
+# Scénarios de test — M14 Intégration Everest (A Toute!)
 
 **Source CDC** : §06/M14 (W1-W4, W6, W8, R_M14.1-R_M14.7, EC1-EC12) + §04 (`everest_missions`, `trg_m14_cascade_cancel`, params `m14_*`) + §08 (S1) + §09 (§18/§18bis, T_M14.1-5)
 **Généré le** : 2026-06-07
@@ -21,13 +21,13 @@
 | 1. Happy path | 9 | W1 (71/75/91), W2 (dispatched/pickedup/finished), W3, W4, W8 |
 | 2. Cas limites métier | 8 | Multi-vélo N missions, idempotence push, no-op camion, retry post-échec |
 | 3. Cas d'erreur métier | 14 | EC1-EC9, EC11, EC12 + token webhook + 4xx/5xx/401 |
-| 4. Isolation RLS | 6 | T_M14.1-3 + manager A Toutes! + routes API par rôle |
+| 4. Isolation RLS | 6 | T_M14.1-3 + manager A Toute! + routes API par rôle |
 | 5. Idempotence/états | 8 | R_M14.5 dedup, CHECK created_manually, no-op terminaux, T_M14.4 |
 | 6. Cross-app (S1) | 4 | Émission S1 (schéma Ajv, multi-vélo, effet Plateforme, enveloppe) |
 | 7. Migration | 1 | Webhook mission ère-Bubble pendant double run (Q5) |
 | **TOTAL** | **50** | |
 
-**Note cat. 6** : M14 ne consomme aucun endpoint E1-E6 et n'émet qu'un seul webhook S (S1, cas A Toutes!). Le webhook **entrant** `/api/webhooks/everest` est un contrat externe Everest (hors contrat §08 Plateforme↔TMS) — couvert en cat. 1/3/5.
+**Note cat. 6** : M14 ne consomme aucun endpoint E1-E6 et n'émet qu'un seul webhook S (S1, cas A Toute!). Le webhook **entrant** `/api/webhooks/everest` est un contrat externe Everest (hors contrat §08 Plateforme↔TMS) — couvert en cat. 1/3/5.
 **Note cat. 7** : aucune donnée `everest_missions` n'est migrée depuis MTS-1/Bubble (Q5 hypothèse : Bubble garde les missions en cours, TMS prend les nouvelles à T0). 1 seul scénario de frontière.
 
 ---
@@ -40,7 +40,7 @@
 # Priorité : P1-critique
 
 Scénario : push_mission_velo_standard_creation_ok
-  Étant donné une collecte AG Kaspia attribuée à A Toutes! (`statut_dispatch` passe à 'attribuee_en_attente_acceptation')
+  Étant donné une collecte AG Kaspia attribuée à A Toute! (`statut_dispatch` passe à 'attribuee_en_attente_acceptation')
     Et `collectes_tms.everest_service_id_target = 71` (posé par M12)
     Et une tournée vélo T1 liée à la collecte via `collecte_tournees`
     Et le mock Everest répond 200 avec `mission_id = 'EVR-1001'`
@@ -68,7 +68,7 @@ Scénario : push_mission_velo_express_75_sans_recalcul
 # Priorité : P1-critique
 
 Scénario : push_mission_camion_backup_91_collecte_tms_id_null
-  Étant donné une tournée camion Marathon-backup A Toutes! avec 3 collectes liées et `everest_service_id_target = 91`
+  Étant donné une tournée camion Marathon-backup A Toute! avec 3 collectes liées et `everest_service_id_target = 91`
   Quand W1 s'exécute pour cette tournée
   Alors UNE SEULE mission Everest est créée : `tournee_id = <tournée.id>`, `collecte_tms_id IS NULL`, `client_ref = <tournée.id>`
 ```
@@ -133,7 +133,7 @@ Scénario : cascade_cancel_rejet_prestataire
 Scénario : failover_acceptation_manuelle_ops
   Étant donné une mission `statut_everest = 'creation_failed'` (Everest down)
     Et Ops connecté sur E1
-  Quand Ops clique "Marquer accepté manuellement", saisit "Contact joint = Julie (A Toutes!)" (≥ 3 car.) et confirme
+  Quand Ops clique "Marquer accepté manuellement", saisit "Contact joint = Julie (A Toute!)" (≥ 3 car.) et confirme
   Alors `statut_everest = 'created_manually'`, `manual_acceptance_at/by_user_id/contact` posés (CHECK §04 satisfait)
     Et `audit_logs` contient une ligne `acteur_type='user'` avec le diff complet
     Et `collectes_tms.statut_dispatch = 'acceptee'` (arbitrage FLOUE #2 — pas de colonne `accepted_by_ops_user_id`, l'acteur est tracé par audit_logs)
@@ -146,7 +146,7 @@ Scénario : failover_acceptation_manuelle_ops
 # Priorité : P3-nominal
 
 Scénario : test_connexion_everest_ok
-  Étant donné Admin TMS sur la fiche prestataire A Toutes! (M06)
+  Étant donné Admin TMS sur la fiche prestataire A Toute! (M06)
     Et le mock Everest `/availabilities` répond 200
   Quand Admin clique "Test connexion Everest"
   Alors `integrations_logs` reçoit 1 ligne `type_event='m14_ping'`, `statut='succes'`, `duree_ms` posé
@@ -312,7 +312,7 @@ Scénario : cancel_echec_alerte_warning_bandeau_double_dispatch
   Quand W3 s'exécute
   Alors alerte `m14_everest_mission_cancel_failed` warning créée
     Et la mission reste dans son statut actif
-    Et M02 affiche un bandeau permanent sur la collecte tant que `statut_everest IN ('created','assigned','in_progress')` ET `prestataire_id != A Toutes!`
+    Et M02 affiche un bandeau permanent sur la collecte tant que `statut_everest IN ('created','assigned','in_progress')` ET `prestataire_id != A Toute!`
 ```
 
 ```gherkin
@@ -426,7 +426,7 @@ Scénario : test_connexion_echec_alerte_timeout
 
 Scénario : manager_strike_deny_missions_atoutes
   Étant donné un manager prestataire Strike authentifié
-  Quand il SELECT `tms.everest_missions` (missions A Toutes!)
+  Quand il SELECT `tms.everest_missions` (missions A Toute!)
   Alors 0 ligne retournée
 ```
 
@@ -436,7 +436,7 @@ Scénario : manager_strike_deny_missions_atoutes
 # Priorité : P1-critique
 
 Scénario : chauffeur_atoutes_deny_everest_missions
-  Étant donné un chauffeur A Toutes! authentifié
+  Étant donné un chauffeur A Toute! authentifié
   Quand il SELECT `tms.everest_missions`
   Alors 0 ligne (rôle `chauffeur` exclu des policies)
 ```
@@ -447,7 +447,7 @@ Scénario : chauffeur_atoutes_deny_everest_missions
 # Priorité : P1-critique
 
 Scénario : manager_atoutes_read_ses_missions
-  Étant donné un manager prestataire A Toutes! authentifié et 1 mission liée à une tournée A Toutes!
+  Étant donné un manager prestataire A Toute! authentifié et 1 mission liée à une tournée A Toute!
   Quand il SELECT `tms.everest_missions`
   Alors il voit cette mission (y compris `manual_acceptance_contact`, §18bis)
     -- Prédicat tranché FLOUE #1 : `tournee_id IN (SELECT id FROM tms.tournees WHERE prestataire_id = auth.user_prestataire_id())`
@@ -459,7 +459,7 @@ Scénario : manager_atoutes_read_ses_missions
 # Priorité : P1-critique
 
 Scénario : manager_atoutes_deny_update
-  Étant donné un manager A Toutes! authentifié
+  Étant donné un manager A Toute! authentifié
   Quand il tente UPDATE `everest_missions.statut_everest = 'completed'` sur sa propre mission
   Alors 0 ligne affectée (aucune policy UPDATE pour manager)
 ```
@@ -602,7 +602,7 @@ Scénario : s1_everest_payload_conforme_schema
 Scénario : s1_effet_plateforme_statut_tms
   Quand la Plateforme reçoit le S1 (HMAC valide, X-API-Version 2026.04)
   Alors `plateforme.collectes.statut_tms = 'acceptee'` + `statut_tms_at` posé
-    Et la Plateforme accepte les nulls A Toutes! sans erreur de validation
+    Et la Plateforme accepte les nulls A Toute! sans erreur de validation
 ```
 
 ```gherkin

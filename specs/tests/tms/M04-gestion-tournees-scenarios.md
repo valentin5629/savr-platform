@@ -12,7 +12,7 @@
 > Les tests P1-critique sont bloquants CI. Les tests P2 et P3 sont non-bloquants V1.
 > Ne pas démarrer le développement du module sans avoir écrit les tests P1 d'abord.
 >
-> **Conventions de données** : prestataires réels — Strike (ZD camion, `vacations_paliers`), Marathon (AG, `vacations_paliers` tranches 4h), A Toutes! (AG vélo `grille_matricielle_zone_type_course` + camion `grille_matricielle_zone`, intégration Everest). Traiteurs : Kaspia, Kardamome. Statut tournée (5 valeurs, R6.2) : `planifiee`, `acceptee`, `en_cours`, `terminee`, `annulee`. Statut dispatch collecte (6 valeurs) : `a_attribuer`, `attribuee_en_attente_acceptation`, `acceptee`, `en_attente_execution`, `rejetee_par_prestataire`, `annulee_par_traiteur`. Statut opérationnel collecte : `planifiee`, `en_cours`, `realisee`, `realisee_sans_collecte`, `incident`. Relation collecte↔tournée = **N↔N** via `tms.collecte_tournees` (ordre + coût réparti portés par la liaison). Coût en € HT. Seuil géoloc clôture = 300 m (`m04_seuil_distance_cloture_metres`). Seuil annulation sans facturation = 180 min (`m07.delai_annulation_sans_facturation_minutes`).
+> **Conventions de données** : prestataires réels — Strike (ZD camion, `vacations_paliers`), Marathon (AG, `vacations_paliers` tranches 4h), A Toute! (AG vélo `grille_matricielle_zone_type_course` + camion `grille_matricielle_zone`, intégration Everest). Traiteurs : Kaspia, Kardamome. Statut tournée (5 valeurs, R6.2) : `planifiee`, `acceptee`, `en_cours`, `terminee`, `annulee`. Statut dispatch collecte (6 valeurs) : `a_attribuer`, `attribuee_en_attente_acceptation`, `acceptee`, `en_attente_execution`, `rejetee_par_prestataire`, `annulee_par_traiteur`. Statut opérationnel collecte : `planifiee`, `en_cours`, `realisee`, `realisee_sans_collecte`, `incident`. Relation collecte↔tournée = **N↔N** via `tms.collecte_tournees` (ordre + coût réparti portés par la liaison). Coût en € HT. Seuil géoloc clôture = 300 m (`m04_seuil_distance_cloture_metres`). Seuil annulation sans facturation = 180 min (`m07.delai_annulation_sans_facturation_minutes`).
 
 ---
 
@@ -255,9 +255,9 @@ Scénario : creation_tournee_fenetre_fin_avant_debut_bloquee
 # Priorité : P1-critique
 
 Scénario : tournee_ag_velo_limitee_une_collecte
-  Étant donné 2 collectes A Toutes! vélo sélectionnées au dispatch
+  Étant donné 2 collectes A Toute! vélo sélectionnées au dispatch
   Quand l'Ops tente de créer une tournée type_tournee='ag_velo' avec N=2
-  Alors le Contrôle 2 échoue avec "Tournée vélo A Toutes! limitée à 1 collecte" (D8)
+  Alors le Contrôle 2 échoue avec "Tournée vélo A Toute! limitée à 1 collecte" (D8)
   Et le multi-vélo "1 collecte = N vélos" reste possible via "+ Ajouter un vélo" (tournées sœurs à 1 collecte chacune)
 ```
 
@@ -295,7 +295,7 @@ Scénario : tournee_toutes_collectes_sans_collecte_facturation_selon_flag
   Étant donné une tournée Strike terminée dont toutes les collectes sont 'realisee_sans_collecte' et grille avec tarif_sans_collecte_applicable=false (seed Strike)
   Quand fn_m07_calc_cost s'exécute
   Alors la vacation est facturée normalement (cout_calcule_ht > 0)
-  Et si tarif_sans_collecte_applicable=true (cas A Toutes! camion configuré) alors cout_calcule_ht=0
+  Et si tarif_sans_collecte_applicable=true (cas A Toute! camion configuré) alors cout_calcule_ht=0
 ```
 
 ---
@@ -396,7 +396,7 @@ Scénario : retrait_collecte_demarree_interdit
 Scénario : rls_ops_savr_voit_toutes_tournees
   Étant donné un user rôle 'ops_savr' (app_domain='tms')
   Quand il lit tms.tournees
-  Alors il voit toutes les tournées (Strike ET Marathon ET A Toutes!) et peut agir (W1, W2, W6, W7, W8, W9)
+  Alors il voit toutes les tournées (Strike ET Marathon ET A Toute!) et peut agir (W1, W2, W6, W7, W8, W9)
 ```
 
 ```gherkin
@@ -716,7 +716,7 @@ Scénario : replay_cloture_post_forcee_no_overwrite
 - **W6 remplacement véhicule/chauffeur en cours** : P2, scénario nominal simple (UPDATE vehicule_id + alerte M11 'remplacement_vehicule_chauffeur_en_cours' + S3). À ajouter si temps.
 - **Alertes C8/C11/C4 (GPS indisponible, tournée sans chauffeur J-1 17h, tournée vide)** : edge cases d'alerting M11, P3.
 - **Multi-vélo AG (1 collecte = N vélos)** : marqué V2 dans D8bis (le TMS V1 ship 1 collecte = 1 vélo). Mécanique multi-camions héritée, scénario de dérivation couvert par `collecte_realisee_quand_toutes_tournees_soeurs_terminee`.
-- **Intégration Everest (everest_missions, A Toutes!)** : portée par M14, testée là-bas.
+- **Intégration Everest (everest_missions, A Toute!)** : portée par M14, testée là-bas.
 
 ---
 

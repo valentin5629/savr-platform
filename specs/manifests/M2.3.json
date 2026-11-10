@@ -55,11 +55,11 @@
   "branches_idf": [
     "ag_marathon_nuit — heure < 07:00 ou >= 20:00",
     "ag_marathon_volume — nb_pax >= 600 (jour)",
-    "ag_velo_programme — nb_pax < 600, A Toutes! dispo, délai >= 90 min (service Everest 71)",
-    "ag_velo_express — nb_pax < 600, A Toutes! dispo, délai < 90 min (service Everest 74)",
-    "ag_velo_fallback_marathon — nb_pax < 600, A Toutes! indisponible",
-    "ag_marathon_volume_backup_camion — volume >= 600, Marathon absent, A Toutes! dispo",
-    "ag_everest_camion_express — volume >= 600, Marathon absent, A Toutes! dispo, délai < 90 min (service 77)",
+    "ag_velo_programme — nb_pax < 600, A Toute! dispo, délai >= 90 min (service Everest 71)",
+    "ag_velo_express — nb_pax < 600, A Toute! dispo, délai < 90 min (service Everest 74)",
+    "ag_velo_fallback_marathon — nb_pax < 600, A Toute! indisponible",
+    "ag_marathon_volume_backup_camion — volume >= 600, Marathon absent, A Toute! dispo",
+    "ag_everest_camion_express — volume >= 600, Marathon absent, A Toute! dispo, délai < 90 min (service 77)",
     "ag_province_proximite — province, tri distance + nb_collectes_6_mois_cache"
   ],
   "parametres_algo_ag": [
@@ -74,7 +74,7 @@
   "scenarios": [
     "heure nuit (22:00) → branche ag_marathon_nuit",
     "600 pax exactement (seuil) → branche ag_marathon_volume",
-    "599 pax + A Toutes! dispo → branche vélo (programme ou express selon délai)",
+    "599 pax + A Toute! dispo → branche vélo (programme ou express selon délai)",
     "a_toutes_indisponible=true → branche ag_velo_fallback_marathon",
     "heure 07:00 exactement = début plage = JOUR (pas nuit)",
     "heure 20:00 exactement = fin plage = NUIT",
@@ -133,9 +133,9 @@
       "id": "M2.3-03",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
       "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
-      "test": "599 pax + A Toutes! dispo → branche vélo (programme ou express selon délai)",
+      "test": "599 pax + A Toute! dispo → branche vélo (programme ou express selon délai)",
       "statut": "implemented",
-      "libelle": "599 pax + A Toutes! dispo → branche vélo (programme ou express selon délai)"
+      "libelle": "599 pax + A Toute! dispo → branche vélo (programme ou express selon délai)"
     },
     {
       "id": "M2.3-04",
@@ -398,8 +398,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "71a5aff3d68f1e2cd3712add634d51f0ddc97f94d758c1a2f2d36edcf5474cad",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "5129aa28dc9794a842f435362a1103998993507bd90e45787125ab474413aecd"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c3e83ae82b87b9a2b1490321e617f63dda47bea50de2c5ff30b2dd1e8f0d8e8d",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8217fcbe55eb780c79fa1cee886dd961b880ec5f1656e36d78526975ef0d9001",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "104248528cfe319a1e59fa0a28eb98ed128399f2398d598e8c71ec2542dea0d8"
   }
 }

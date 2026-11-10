@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
 
-// ─── Saisie de l'acceptation manuelle d'une mission A Toutes! ────────────────
+// ─── Saisie de l'acceptation manuelle d'une mission A Toute! ────────────────
 //
 // §06.06 §3 Bloc 0 (arbitrage Val 2026-09-16) : quand l'API du vélo-cargo est
 // indisponible, Ops cale la course par téléphone et saisit :
-//   · la RÉFÉRENCE DE MISSION communiquée par A Toutes! — obligatoire, écrite
+//   · la RÉFÉRENCE DE MISSION communiquée par A Toute! — obligatoire, écrite
 //     dans `tournees.external_ref_commande` comme au dispatch normal ;
 //   · le contact joint — obligatoire (la contrainte `created_manually` l’exige,
 //     M14 §04 « texte libre obligatoire si created_manually ») ;
 //   · l'heure d'appel et un commentaire — facultatifs.
 //
-// La référence n'a pas de format documenté côté A Toutes! (le client API la lit
+// La référence n'a pas de format documenté côté A Toute! (le client API la lit
 // en `String(raw.mission_id ?? raw.id)`). On ne présume donc pas d'alphabet : on
 // refuse seulement ce qui ne peut PAS être un identifiant — blancs internes,
 // caractères de contrôle ou de format invisibles, demi-surrogate. Elle repart telle quelle comme
@@ -51,7 +51,7 @@ type Champ = keyof AcceptationManuelle;
 
 const LIBELLES: Record<Champ, string> = {
   collecte_id: 'collecte inconnue',
-  reference_mission: `référence de mission A Toutes! obligatoire (sans espace, ${BORNES_ACCEPTATION_MANUELLE.reference_mission} caractères max)`,
+  reference_mission: `référence de mission A Toute! obligatoire (sans espace, ${BORNES_ACCEPTATION_MANUELLE.reference_mission} caractères max)`,
   contact_joint: `contact joint obligatoire (${BORNES_ACCEPTATION_MANUELLE.contact_joint} caractères max, une ligne)`,
   commentaire: `commentaire trop long (${BORNES_ACCEPTATION_MANUELLE.commentaire} caractères max)`,
   heure_appel: 'heure d’appel au format HH:MM',

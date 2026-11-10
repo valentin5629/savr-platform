@@ -53,7 +53,7 @@
 
 ### Transporteurs / prestataires (`transporteurs` + `shared.prestataires`)
 
-`prest_strike` ★ (IDF, ~~vélo cargo~~ **camions 16/20 m³** — corrigé grilles réelles 2026-06-07, le vélo cargo = A Toutes!), `prest_marathon` ★ (IDF, camion), `prest_transnormandie` ★ (province Rouen, fictif, `code_mts1` renseigné), `prest_sans_code_mts1` (demo — couvre R_code_mts1_requis en négatif). Casting complet (+ A Toutes!) : cf. volet TMS ci-dessous.
+`prest_strike` ★ (IDF, ~~vélo cargo~~ **camions 16/20 m³** — corrigé grilles réelles 2026-06-07, le vélo cargo = A Toute!), `prest_marathon` ★ (IDF, camion), `prest_transnormandie` ★ (province Rouen, fictif, `code_mts1` renseigné), `prest_sans_code_mts1` (demo — couvre R_code_mts1_requis en négatif). Casting complet (+ A Toute!) : cf. volet TMS ci-dessous.
 
 ### Lieux Viparis (liste officielle 2026 — 100 %, `seed_demo`)
 
@@ -129,7 +129,7 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 
 1. **Miroir 1:1** : chaque collecte App des 12 mois `seed_demo` a sa `collectes_tms` (+ tournée, pesées, coûts, factures prestataires). Cohérence cross-schema totale, dashboards M07/M08 alimentés sur 12 mois.
 2. **Mutualisation ~1,3 collecte/tournée IDF** → ~370 tournées `seed_demo` (majorité mono-collecte, ~80 doubles).
-3. **Casting prestataires élargi à A Toutes!** (réel) pour couvrir les 5 formules catalogue (R2.2 → R2.6).
+3. **Casting prestataires élargi à A Toute!** (réel) pour couvrir les 5 formules catalogue (R2.2 → R2.6).
 4. **Lot migration M13** : petit lot `seed_demo` sous `migration_mode_active` avec `factures_prestataires.migration_test = true` (couvre cat.7 M09/M10/M13 : consolidation D4, purge J+30).
 5. Mêmes principes que l'App : noms d'entreprises réels, **personnes/chauffeurs 100 % fictifs**, déterminisme total (uuid v5, `SEED_REF_DATE = 2026-06-01`), 2 datasets.
 
@@ -139,7 +139,7 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 |---|---|---|---|
 | `prest_strike` ★ | Strike | IDF, **camions 16 + 20 m³** | `vacations_paliers` (R2.2) — **2 grilles réelles** : 240 €/vacation 4 h + 60 €/h entamée (16 m³), 300 € + 75 €/h (20 m³), équipage double +31,25 €/h entamée **sur dépassement seul** ; param attribution `'strike'` + `zd_idf_strike` |
 | `prest_marathon` ★ | Marathon | IDF, camion | **`forfait_fixe` réel : 100 €/tournée** (reclassé depuis vacations, R2.5) ; backup volume AG (`ag_marathon_volume_backup_camion`) ; SIREN/désactivation ops (F3 §06.06) |
-| `prest_atoutes` | A Toutes! | IDF, **vélo cargo (Vélo Frais)** | `grille_matricielle_zone_type_course` (R2.3) **réelle, 8 cellules** (2 zones × programme/express × complète/incomplète, 38→75 €, incomplète = 50 % → flag R2.10) + 1 course camion **manuelle sans grille** (R2.6 — pas de grille camion, arbitrage Val) |
+| `prest_atoutes` | A Toute! | IDF, **vélo cargo (Vélo Frais)** | `grille_matricielle_zone_type_course` (R2.3) **réelle, 8 cellules** (2 zones × programme/express × complète/incomplète, 38→75 €, incomplète = 50 % → flag R2.10) + 1 course camion **manuelle sans grille** (R2.6 — pas de grille camion, arbitrage Val) |
 | `prest_transnormandie` ★ | Transnormandie (fictif) | Province Rouen, camion | `forfait_km` actif + 1 grille `forfait_fixe` **expirée** (réactivation tolérée, M06 #2) ; création province via `fn_create_prestataire_province` |
 | `prest_onboarding` | fictif | `en_onboarding` | Wizard E7 grille bloquante (M13 F1), transition W5, tolérance province actif sans grille (M06 #4 — écart conscient) |
 
@@ -148,7 +148,7 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 ## Chauffeurs, véhicules, users TMS
 
 - **`chauffeurs`** : 11 demo / 4 ★ — tous fictifs. Dont : 1 chauffeur Marathon **2 camions le même jour** (R6.1), 1 chauffeur avec **changement de device** (binding `auth_sessions_tms`), 1 désactivé.
-- **`vehicules`** : 9 demo / 4 ★ — vélos cargo A Toutes! (**plaque libre**, exception trigger contrôle d'accès M03, S7 `plaque=null`), camions Strike 16 m³ + 20 m³ (1 grille réelle chacun), camion Marathon, camion A Toutes! (sans grille → manuel R2.6), camion Transnormandie, 1 archivé.
+- **`vehicules`** : 9 demo / 4 ★ — vélos cargo A Toute! (**plaque libre**, exception trigger contrôle d'accès M03, S7 `plaque=null`), camions Strike 16 m³ + 20 m³ (1 grille réelle chacun), camion Marathon, camion A Toute! (sans grille → manuel R2.6), camion Transnormandie, 1 archivé.
 - **`types_vehicules`** : seed V1 (M03 Q11) + 1 doublon à fusionner via `merger_type_vehicule` (demo).
 - **`users_tms`** : 7 ★ / 16 demo — 1 admin_tms, 2 ops, 1 manager par prestataire (cross-presta RLS), chauffeurs liés.
 
@@ -174,7 +174,7 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 | `passages_veolia` | 2 | ~55 | hebdo ; états 4 ; 1 créé **a posteriori** (R5.8) ; 1 annulé avec motif |
 | `incidents` | 2 | 14 | terrain chauffeur + Ops ; `photos text[]` |
 | `formules_catalogue` | 5 (seed) | idem | validation au seed `trg_formules_catalogue_impl_check` |
-| `grilles_tarifaires_prestataires` | 3 | 7 | **grilles réelles 2026-06-07** : Strike 16 m³ ★ + 20 m³ (vacations), Marathon forfait 100 €/tournée ★, A Toutes! vélo 8 cellules (flag R2.10) ; + Transnormandie `forfait_km` ★ (synthétique, presta fictif), 1 expirée, 1 **versionnée** (anti-rétroactivité R2.8, EXCLUDE) |
+| `grilles_tarifaires_prestataires` | 3 | 7 | **grilles réelles 2026-06-07** : Strike 16 m³ ★ + 20 m³ (vacations), Marathon forfait 100 €/tournée ★, A Toute! vélo 8 cellules (flag R2.10) ; + Transnormandie `forfait_km` ★ (synthétique, presta fictif), 1 expirée, 1 **versionnée** (anti-rétroactivité R2.8, EXCLUDE) |
 | `ajustements_couts_log` | 1 | 4 | W2, append-only |
 | `factures_prestataires` | 3 | ~40 + 2 | mensuelles par presta ; + 2 `migration_test = true` (lot M13) |
 | `suggestions_attribution_log` | 4 | ~60 | enum 9 valeurs M12 représentées |

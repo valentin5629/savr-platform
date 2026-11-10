@@ -175,7 +175,7 @@ describe('R-UI-2 — lib/libelles : sources uniques C2-C11', () => {
   it('C10/C11 lieux et type TMS : sources uniques', () => {
     expect(DIFFICULTE_LABEL.tres_difficile).toBe('Très difficile');
     expect(VEHICULE_LABEL.vul).toBe('VUL');
-    expect(libelleCourtTypeTms('a_toutes')).toBe('A Toutes!');
+    expect(libelleCourtTypeTms('a_toutes')).toBe('A Toute!');
     expect(libelleCourtTypeTms('par_mail')).toBe('Par mail');
     expect(libelleCourtTypeTms(null)).toBe('—');
     expect(libelleCourtTypeTms('x')).toBe('x');

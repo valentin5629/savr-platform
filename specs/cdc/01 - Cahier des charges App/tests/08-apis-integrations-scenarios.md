@@ -142,7 +142,7 @@ Scénario : adapter_ignore_tournee_autre_provider
 # Priorité : P2-important
 
 Scénario : contact_secours_et_alerte_anticipee_lieu
-  Étant donné une collecte AG servie par A Toutes! avec un contact de secours renseigné
+  Étant donné une collecte AG servie par A Toute! avec un contact de secours renseigné
   Quand le payload Everest est composé
   Alors pickup.contact porte le contact PRINCIPAL (nom + telephone)
   Et notes ouvre par « Contact de secours : {nom} — {telephone} »
@@ -1187,7 +1187,7 @@ Scénario : mts1_chaine_polling_complete
 # Priorité : P1-critique
 
 Scénario : everest_mission_dispatched_coursier_relu_api_propage_tournee
-  Étant donné une collecte AG attribuée à A Toutes! dont la tournée porte external_ref_commande = mission_id (mission courante)
+  Étant donné une collecte AG attribuée à A Toute! dont la tournée porte external_ref_commande = mission_id (mission courante)
     Et la tournée porte déjà chauffeur_nom = "Saisie Ops" et chauffeur_telephone = "0600000000" (saisie Admin)
     Et Everest envoie un webhook mission_dispatched dont le payload annonce coursier_nom = "Faux Payload"
     Et le re-fetch de la mission sur l'API Everest retourne le coursier "Léa Martin", sans téléphone
@@ -1391,7 +1391,7 @@ Scénario : siret_vide_plusieurs_entites_autorise
 # Source : §08 §3bis.8 « Règles de composition du payload E2 » — Côté Everest (décision Val 2026-10-30, validée 2026-11-02)
 # Couche : adapter
 # Priorité : P1-critique
-# ⚠ POST /missions/update (swagger 1.294.1) jamais appelé en conditions réelles : à faire confirmer par A Toutes! (Mathieu) avant la mise en production
+# ⚠ POST /missions/update (swagger 1.294.1) jamais appelé en conditions réelles : à faire confirmer par A Toute! (Mathieu) avant la mise en production
 
 Plan du scénario : e2_everest_modification_mission
   Étant donné une collecte AG transmise à Everest avec 2 missions (rangs 1 et 2), dont <etat_missions>
@@ -1413,7 +1413,7 @@ Scénario : e2_everest_collecte_jamais_transmise_noop
 Scénario : e2_everest_refus_4xx_definitif_5xx_retente
   Étant donné une collecte AG avec 2 missions ouvertes
   Quand Everest répond 400 sur la mission 1 et 200 sur la mission 2
-  Alors la mission 2 est modifiée, l'ordre sort en échec définitif avec la raison donnée par A Toutes!, et la collecte n'est pas rejetée
+  Alors la mission 2 est modifiée, l'ordre sort en échec définitif avec la raison donnée par A Toute!, et la collecte n'est pas rejetée
   Quand Everest répond 503 ou ne répond pas
   Alors l'ordre est retenté (renvoyer les mêmes valeurs ne change rien)
 
@@ -1422,7 +1422,7 @@ Scénario : e2_everest_contact_association_vide_et_nombre_vehicules
   Quand l'E2 est envoyé
   Alors le contact d'arrivée part vide, jamais omis, et ni service_id ni client_ref ne sont envoyés
   Quand le nombre de véhicules de la collecte passe de 1 à 2
-  Alors aucune mission n'est créée par POST /missions/update et une alerte Ops canal info est levée (à traiter à la main chez A Toutes!)
+  Alors aucune mission n'est créée par POST /missions/update et une alerte Ops canal info est levée (à traiter à la main chez A Toute!)
 ```
 
 ---
@@ -1433,5 +1433,5 @@ Scénario : e2_everest_contact_association_vide_et_nombre_vehicules
 - Webhook Pennylane `invoice.paid` — différé V1.1 (revue sobriété §08 B1)
 - Endpoint `GET /v3/extract/activitysheet` MTS-1 (rapprochement coûts logistiques) — V2 seulement
 - Endpoint SSO cross-app `has-profile` — supprimé V1 (sobriété Bloc A A1)
-- Rate limiting Everest : nombre exact de req/min à valider avec A Toutes! avant dev
+- Rate limiting Everest : nombre exact de req/min à valider avec A Toute! avant dev
 - Export CSV `GET /admin/dashboard/revenus-organisations.csv` — scénarios format (encoding, headers CSV)

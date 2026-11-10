@@ -61,6 +61,7 @@ describe('écran du code — activation', () => {
         <FormulaireCodeVerification
           mode="activation"
           suite="/admin/collectes"
+          equipeSavr
         />,
       );
 
@@ -94,7 +95,13 @@ describe('écran du code — activation', () => {
       fetchMock.mockResolvedValue(
         reponse(502, { error: 'Activation impossible pour le moment.' }),
       );
-      render(<FormulaireCodeVerification mode="activation" suite="/admin" />);
+      render(
+        <FormulaireCodeVerification
+          mode="activation"
+          suite="/admin"
+          equipeSavr
+        />,
+      );
       expect(
         await screen.findByText(
           'Activation impossible pour le moment.',
@@ -118,7 +125,7 @@ describe('écran du code — saisie', () => {
     async () => {
       fetchMock.mockResolvedValue(reponse(422, { error: 'Code incorrect.' }));
       const { container } = render(
-        <FormulaireCodeVerification mode="saisie" suite="/admin" />,
+        <FormulaireCodeVerification mode="saisie" suite="/admin" equipeSavr />,
       );
       saisir(container, '000000');
       expect(
@@ -136,7 +143,9 @@ describe('écran du code — saisie', () => {
     '« Se déconnecter » ferme la session puis renvoie à la connexion',
     async () => {
       fetchMock.mockResolvedValue(reponse(200, { success: true }));
-      render(<FormulaireCodeVerification mode="saisie" suite="/admin" />);
+      render(
+        <FormulaireCodeVerification mode="saisie" suite="/admin" equipeSavr />,
+      );
       fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
       await waitFor(
         () => expect(push).toHaveBeenCalledWith('/login'),
@@ -145,6 +154,54 @@ describe('écran du code — saisie', () => {
       expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', {
         method: 'POST',
       });
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
+// Utilisateur d'une organisation qui exige le code (VIPARIS, Val 2026-11-10) :
+// textes sans « équipe Savr », réinitialisation demandée à l'équipe Savr.
+describe('écran du code — utilisateur d’un client', () => {
+  it(
+    'activation : le texte parle de son compte, pas de l’équipe Savr',
+    async () => {
+      fetchMock.mockResolvedValue(reponse(502, { error: 'Indisponible.' }));
+      render(
+        <FormulaireCodeVerification
+          mode="activation"
+          suite="/gestionnaire"
+          equipeSavr={false}
+        />,
+      );
+      expect(
+        await screen.findByText(
+          'Votre compte est protégé par un code à 6 chiffres, demandé à chaque nouvelle connexion.',
+          {},
+          ATTENTE_UI,
+        ),
+      ).toBeTruthy();
+      expect(screen.queryByText(/équipe Savr sont protégés/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'saisie : téléphone perdu → demander à l’équipe Savr',
+    async () => {
+      render(
+        <FormulaireCodeVerification
+          mode="saisie"
+          suite="/gestionnaire"
+          equipeSavr={false}
+        />,
+      );
+      expect(
+        await screen.findByText(
+          'Téléphone perdu ou changé ? Demandez à l’équipe Savr de réinitialiser votre code.',
+          {},
+          ATTENTE_UI,
+        ),
+      ).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );

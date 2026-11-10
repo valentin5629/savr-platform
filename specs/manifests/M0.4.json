@@ -378,6 +378,33 @@
       "statut": "implemented",
       "libelle": "La base refuse toute lecture et écriture à une session admin_savr ou ops_savr sans code de vérification (aal différent de aal2) dont le compte a activé son code, y compris par l'API Supabase en direct ; sans code activé (dev, local, CI, production avant la première connexion), rien ne change (décision Val 2026-11-04, questionnaire VIPARIS IAM1)",
       "ref_divergence": "_Divergences/SECU-RLS_20261104_code-verification-base.md"
+    },
+    {
+      "id": "M0.4-code-verification-organisation-base",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:137",
+      "artefact": "supabase/migrations/20261110200000_plateforme_code_verification_organisation.sql (colonne organisations.code_verification_obligatoire, faux par défaut, hors listes blanches SELECT et UPDATE de authenticated ; claim code_verification_obligatoire posé par fn_custom_access_token pour une organisation cochée seule ; plateforme.f_code_verification_ok étendue à ces sessions hors impersonation)",
+      "test": "supabase/tests/SECU__code_verification_organisation.test.sql (1-4 la case, ni lisible ni modifiable par authenticated ; 5-9 le hook ; 10-18 la règle cas par cas ; 19-24 de bout en bout sur organisations) + supabase/tests/SECU__admin_only_cols_insert.test.sql (cas 20, matrice d'écriture)",
+      "statut": "implemented",
+      "libelle": "Code de vérification exigé par une organisation cochée par l'Admin (VIPARIS) : la base refuse toute lecture et écriture à une session de ses utilisateurs sans code dont le compte a activé son code, hors session impersonée (décision Val 2026-11-10, questionnaire VIPARIS IAM3, pas de SAML)",
+      "ref_divergence": "_Divergences/SECU-AUTH_20261110_code-verification-organisation-viparis.md"
+    },
+    {
+      "id": "M0.4-code-verification-organisation-application",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:31",
+      "artefact": "packages/plateforme/src/lib/code-verification.ts (exigeCodeVerification et codeVerificationManquant lisent les claims : équipe Savr, ou claim code_verification_obligatoire à true hors impersonation) + ses appelants (middleware, getVerifiedClaims, gardes de page, santé, mot de passe oublié) + packages/plateforme/src/app/code-verification/ (textes client) + packages/plateforme/src/app/api/auth/code-verification/*",
+      "test": "packages/plateforme/src/lib/code-verification.test.ts « exigeCodeVerification » « codeVerificationManquant » + packages/plateforme/tests/securite/middleware-actif.test.ts « middleware — code de vérification » + packages/plateforme/tests/api/auth/get-verified-claims.test.ts + packages/plateforme/tests/securite/code-verification-pages.test.ts + packages/plateforme/tests/api/auth/code-verification.test.ts + packages/plateforme/tests/ui/code-verification.test.tsx « écran du code — utilisateur d’un client »",
+      "statut": "implemented",
+      "libelle": "Les utilisateurs d'une organisation qui exige le code passent par l'écran du code (activation puis saisie) en production, comme l'équipe Savr ; une session impersonée n'y est pas soumise",
+      "ref_divergence": "_Divergences/SECU-AUTH_20261110_code-verification-organisation-viparis.md"
+    },
+    {
+      "id": "M0.4-code-verification-organisation-admin",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:31",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts (champ code_verification_obligatoire : admin_savr seul, booléen, changement tracé dans audit_log code_verification_organisation) + packages/plateforme/src/app/(admin)/admin/clients/[id]/carte-code-verification.tsx + packages/plateforme/src/app/(admin)/admin/clients/[id]/page.tsx (colonne « Code de vérification » de l'onglet Utilisateurs) + packages/plateforme/src/components/admin/dialogue-reinitialisation-code.tsx + packages/plateforme/src/app/api/v1/admin/users/[id]/code-verification/route.ts (utilisateur d'une organisation qui exige le code)",
+      "test": "packages/plateforme/tests/api/admin/organisations-code-verification.test.ts + packages/plateforme/tests/ui/carte-code-verification.test.tsx + packages/plateforme/tests/ui/fiche-organisation-admin-edition.test.tsx + packages/plateforme/tests/api/admin/users-code-verification.test.ts",
+      "statut": "à-vérifier",
+      "libelle": "Fiche client Admin : case « Code de vérification » (Exiger / Ne plus l'exiger) et réinitialisation du code d'un utilisateur, rendu à vérifier par Val sur l'aperçu (GO-VISUAL)",
+      "ref_divergence": "_Divergences/SECU-AUTH_20261110_code-verification-organisation-viparis.md"
     }
   ],
   "cdc_source_hash": {

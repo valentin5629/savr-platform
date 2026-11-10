@@ -48,7 +48,7 @@ export const POST = withApiTrace(
     const supabase = createSupabaseServerClient();
     const session = await lireSessionCodeVerification(supabase);
     if (!session) return refus('Non autorisé', 401);
-    if (!exigeCodeVerification(session.role)) {
+    if (!exigeCodeVerification(session.claims)) {
       return refus(
         'Aucun code de vérification n’est demandé pour ce compte.',
         403,

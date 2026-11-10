@@ -34,7 +34,7 @@ export const POST = withApiTrace(
     if (!session) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
-    if (!exigeCodeVerification(session.role)) {
+    if (!exigeCodeVerification(session.claims)) {
       return NextResponse.json(
         { error: 'Aucun code de vérification n’est demandé pour ce compte.' },
         { status: 403 },

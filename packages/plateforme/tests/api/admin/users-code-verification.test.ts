@@ -1,10 +1,12 @@
 /**
  * DELETE /api/v1/admin/users/[id]/code-verification — réinitialisation du code
- * de vérification d'un membre de l'équipe Savr (téléphone perdu ou changé).
+ * de vérification d'un membre de l'équipe Savr, ou d'un utilisateur d'une
+ * organisation qui exige le code (téléphone perdu ou changé).
  *
  * Épinglé : admin_savr seul et avec code passé, jamais sur son propre compte,
- * seulement un compte de l'équipe Savr, facteurs TOTP retirés, trace audit_log
- * (auteur = l'administrateur, ligne = le compte réinitialisé).
+ * seulement un compte soumis au code (équipe Savr, organisation qui l'exige),
+ * facteurs TOTP retirés, trace audit_log (auteur = l'administrateur, ligne = le
+ * compte réinitialisé).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -183,10 +185,74 @@ describe('réinitialisation du code de vérification', () => {
     expect(mockListFactors).not.toHaveBeenCalled();
   });
 
-  it('compte client → 422, rien retiré (aucun code pour les clients)', async () => {
+  it('compte client d’une organisation qui n’exige pas le code → 422, rien retiré', async () => {
     connecte('admin_savr');
-    mockSingle.mockResolvedValue({
-      data: { id: CIBLE, email: 'chef@traiteur.fr', role: 'traiteur_manager' },
+    mockSingle
+      .mockResolvedValueOnce({
+        data: {
+          id: CIBLE,
+          role: 'traiteur_manager',
+          organisation_id: 'org-t',
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { code_verification_obligatoire: false },
+        error: null,
+      });
+    expect((await reinitialiser()).status).toBe(422);
+    expect(fromAppele).toEqual(['users', 'organisations']);
+    expect(mockListFactors).not.toHaveBeenCalled();
+  });
+
+  // Organisation qui exige le code (VIPARIS, Val 2026-11-10).
+  it('compte client d’une organisation qui exige le code → facteurs retirés, trace audit_log', async () => {
+    connecte('admin_savr');
+    mockSingle
+      .mockResolvedValueOnce({
+        data: {
+          id: CIBLE,
+          role: 'gestionnaire_lieux',
+          organisation_id: 'org-v',
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { code_verification_obligatoire: true },
+        error: null,
+      });
+    const res = await reinitialiser();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ facteurs_retires: 2 });
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'code_verification_reinitialise',
+        record_id: CIBLE,
+        user_id: 'admin-1',
+      }),
+    );
+  });
+
+  it('organisation illisible → 502, rien retiré', async () => {
+    connecte('admin_savr');
+    mockSingle
+      .mockResolvedValueOnce({
+        data: {
+          id: CIBLE,
+          role: 'gestionnaire_lieux',
+          organisation_id: 'org-v',
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: null, error: { code: 'XX000' } });
+    expect((await reinitialiser()).status).toBe(502);
+    expect(mockListFactors).not.toHaveBeenCalled();
+  });
+
+  it('compte client sans organisation → 422, rien retiré', async () => {
+    connecte('admin_savr');
+    mockSingle.mockResolvedValueOnce({
+      data: { id: CIBLE, role: 'traiteur_manager', organisation_id: null },
       error: null,
     });
     expect((await reinitialiser()).status).toBe(422);

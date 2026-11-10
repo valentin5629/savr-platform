@@ -8,14 +8,15 @@ type User = NonNullable<
 
 /**
  * Session lue par l'écran et les routes du code de vérification
- * (`lib/code-verification.ts`). Ils doivent accepter une session de l'équipe
- * Savr qui n'a pas encore passé le code : ils n'utilisent donc pas
+ * (`lib/code-verification.ts`). Ils doivent accepter une session soumise au
+ * code qui ne l'a pas encore passé : ils n'utilisent donc pas
  * `getVerifiedClaims`, qui la refuse.
  */
 export interface SessionCodeVerification {
   user: User;
   role: string | undefined;
-  aal: unknown;
+  /** Claims du jeton, pour `exigeCodeVerification` et `codeVerificationManquant`. */
+  claims: Record<string, unknown>;
 }
 
 /** `null` sans session valide auprès de GoTrue (`getUser()`). */
@@ -36,6 +37,6 @@ export async function lireSessionCodeVerification(
   return {
     user,
     role: typeof role === 'string' ? role : undefined,
-    aal: claims['aal'],
+    claims,
   };
 }

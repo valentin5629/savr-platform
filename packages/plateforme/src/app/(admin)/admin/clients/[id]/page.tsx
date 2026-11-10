@@ -62,6 +62,8 @@ import {
   type EntiteFacturation,
 } from './modale-entite-facturation';
 import { CarteDomainesEmail, type DomaineEmail } from './carte-domaines-email';
+import { CarteCodeVerification } from './carte-code-verification';
+import { DialogueReinitialisationCode } from '@/components/admin/dialogue-reinitialisation-code';
 import { Heading } from '@/components/ui/heading';
 import { SectionHeader } from '@/components/ui/section-header';
 import { InfoItem } from '@/components/ui/info-item';
@@ -83,6 +85,7 @@ interface OrgDetail {
   logo_url: string | null;
   tarif_refacture_pax_zd: number | null;
   grille_tarifaire_zd_id: string | null;
+  code_verification_obligatoire: boolean;
   entites_facturation: (EntiteFacturation & {
     siret_verification: string;
     actif: boolean;
@@ -149,7 +152,7 @@ type PackRow = OrgDetail['packs_antgaspi'][number];
 
 // Utilisateurs et packs sont embarqués dans la fiche organisation (route
 // détail sans pagination) : listes complètes → tri navigateur.
-const COLONNES_USERS: ColumnDef<UserRow, unknown>[] = [
+const COLONNES_USERS_BASE: ColumnDef<UserRow, unknown>[] = [
   {
     id: 'nom',
     header: 'Nom',
@@ -183,6 +186,32 @@ const COLONNES_USERS: ColumnDef<UserRow, unknown>[] = [
     cell: ({ row: { original: u } }) => <ActifBadge actif={u.actif} />,
   },
 ];
+
+// Colonne « Code de vérification » : client qui exige le code, vue par
+// admin_savr seul (seul habilité à le réinitialiser, téléphone perdu ou changé).
+function colonnesUsers(
+  onReinitialiser?: (u: UserRow) => void,
+): ColumnDef<UserRow, unknown>[] {
+  if (!onReinitialiser) return COLONNES_USERS_BASE;
+  return [
+    ...COLONNES_USERS_BASE,
+    {
+      id: 'code_verification',
+      header: 'Code de vérification',
+      enableSorting: false,
+      cell: ({ row: { original: u } }) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onReinitialiser(u)}
+          aria-label={`Réinitialiser le code de vérification de ${u.prenom} ${u.nom}`}
+        >
+          Réinitialiser
+        </Button>
+      ),
+    },
+  ];
+}
 
 const COLONNES_PACKS: ColumnDef<PackRow, unknown>[] = [
   {
@@ -250,6 +279,7 @@ export default function ClientFichePage({
     EntiteFacturation | null | undefined
   >(undefined);
   const [modal, setModal] = useState<ModalType>(null);
+  const [aReinitialiser, setAReinitialiser] = useState<UserRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -550,6 +580,13 @@ export default function ClientFichePage({
               domaines={org.organisations_domaines_email}
               onChange={() => void refreshOrg()}
             />
+
+            <CarteCodeVerification
+              organisationId={id}
+              exige={org.code_verification_obligatoire}
+              peutModifier={canEditAdminOnly}
+              onChange={() => void refreshOrg()}
+            />
           </div>
         </TabsContent>
 
@@ -575,11 +612,19 @@ export default function ClientFichePage({
             ) : (
               <DataGrid
                 columnsToggle={false}
-                columns={COLONNES_USERS}
+                columns={colonnesUsers(
+                  org.code_verification_obligatoire && canEditAdminOnly
+                    ? (u) => setAReinitialiser(u)
+                    : undefined,
+                )}
                 data={org.users}
                 getRowId={(u) => u.id}
               />
             )}
+            <DialogueReinitialisationCode
+              utilisateur={aReinitialiser}
+              onFermer={() => setAReinitialiser(null)}
+            />
           </Card>
         </TabsContent>
 

@@ -41,15 +41,27 @@ function makeJwt(claims: Record<string, unknown>): string {
 
 type Facteur = { id: string; factor_type: string; status: string };
 
-function connecte(role: string, factors: Facteur[] = [], aal = 'aal1') {
+function connecte(
+  role: string,
+  factors: Facteur[] = [],
+  aal = 'aal1',
+  autresClaims: Record<string, unknown> = {},
+) {
   mockGetUser.mockResolvedValue({
     data: { user: { id: 'u-1', factors } },
     error: null,
   });
   mockGetSession.mockResolvedValue({
-    data: { session: { access_token: makeJwt({ user_role: role, aal }) } },
+    data: {
+      session: {
+        access_token: makeJwt({ user_role: role, aal, ...autresClaims }),
+      },
+    },
   });
 }
+
+// Organisation qui exige le code (VIPARIS, Val 2026-11-10) : claim du hook.
+const VIPARIS = { code_verification_obligatoire: true };
 
 const ACTIF: Facteur = {
   id: 'f-actif',
@@ -118,7 +130,7 @@ describe('activation du code', () => {
   });
 
   it.each(['traiteur_manager', 'client_organisateur', 'agence'])(
-    'client %s → 403, rien créé (aucun code pour les clients)',
+    'client %s sans claim d’organisation → 403, rien créé',
     async (role) => {
       connecte(role);
       expect((await activation()).status).toBe(403);
@@ -163,6 +175,21 @@ describe('activation du code', () => {
     expect((await activation()).status).toBe(200);
   });
 
+  it('client d’une organisation qui exige le code → activation possible', async () => {
+    connecte('gestionnaire_lieux', [], 'aal1', VIPARIS);
+    expect((await activation()).status).toBe(200);
+    expect(mockEnroll).toHaveBeenCalled();
+  });
+
+  it('client d’une organisation qui exige le code, session impersonée → 403, rien créé', async () => {
+    connecte('gestionnaire_lieux', [], 'aal1', {
+      ...VIPARIS,
+      impersonator_id: 'b2c3d4e5-0000-0000-0000-000000000001',
+    });
+    expect((await activation()).status).toBe(403);
+    expect(mockEnroll).not.toHaveBeenCalled();
+  });
+
   it('échec Supabase → 502 sans texte tiers', async () => {
     connecte('admin_savr');
     mockEnroll.mockResolvedValue({
@@ -197,10 +224,18 @@ describe('saisie du code', () => {
     expect(mockChallengeAndVerify).not.toHaveBeenCalled();
   });
 
-  it('client → 403, aucune vérification', async () => {
+  it('client sans claim d’organisation → 403, aucune vérification', async () => {
     connecte('gestionnaire_lieux', [ACTIF]);
     expect((await verification({ code: '123456' })).status).toBe(403);
     expect(mockChallengeAndVerify).not.toHaveBeenCalled();
+  });
+
+  it('client d’une organisation qui exige le code → son code est vérifié', async () => {
+    connecte('gestionnaire_lieux', [ACTIF], 'aal1', VIPARIS);
+    expect((await verification({ code: '123456' })).status).toBe(200);
+    expect(mockChallengeAndVerify).toHaveBeenCalledWith(
+      expect.objectContaining({ factorId: 'f-actif', code: '123456' }),
+    );
   });
 
   it('code actif : c’est LUI qui est vérifié, le factor_id du client est ignoré', async () => {

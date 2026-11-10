@@ -111,8 +111,7 @@ export default async function SanteSystemePage() {
   const role = claims['user_role'] as string | undefined;
   if (!isStaff(role)) redirect(ROUTES.interdit);
   // Équipe Savr sans code de vérification sur cette session (lib/code-verification.ts).
-  if (codeVerificationManquant(role, claims['aal']))
-    redirect(ROUTES.codeVerification);
+  if (codeVerificationManquant(claims)) redirect(ROUTES.codeVerification);
 
   const data = await fetchOpsData();
 

@@ -1,6 +1,7 @@
 /**
- * Code de vérification de l'équipe Savr (lib/code-verification.ts) — points de
- * contrôle hors middleware et hors getVerifiedClaims :
+ * Code de vérification (lib/code-verification.ts : équipe Savr, et utilisateurs
+ * d'une organisation qui l'exige) — points de contrôle hors middleware et hors
+ * getVerifiedClaims :
  *  - gardes de page (`lib/page-auth.ts`), défense en profondeur du middleware ;
  *  - routes de santé qui lisent elles-mêmes le rôle (`api/health/*`) ;
  *  - l'écran du code (`app/code-verification/page.tsx`) : qui il accepte, où il
@@ -37,7 +38,12 @@ function makeJwt(claims: Record<string, unknown>): string {
 }
 
 type Facteur = { id: string; factor_type: string; status: string };
-function connecte(role: string, aal: string, factors: Facteur[] = []) {
+function connecte(
+  role: string,
+  aal: string,
+  factors: Facteur[] = [],
+  autresClaims: Record<string, unknown> = {},
+) {
   mockGetUser.mockResolvedValue({
     data: { user: { id: 'u-1', email: 'a@gosavr.io', factors } },
     error: null,
@@ -49,11 +55,15 @@ function connecte(role: string, aal: string, factors: Facteur[] = []) {
           user_role: role,
           aal,
           organisation_id: 'org-1',
+          ...autresClaims,
         }),
       },
     },
   });
 }
+
+// Organisation qui exige le code (VIPARIS, Val 2026-11-10) : claim du hook.
+const VIPARIS = { code_verification_obligatoire: true };
 
 async function cibleRedirection(p: Promise<unknown>): Promise<string | null> {
   try {
@@ -119,6 +129,22 @@ describe('gardes de page', () => {
       'traiteur_manager',
     );
   });
+
+  it('requirePageSession : client d’une organisation qui exige le code, sans code → écran du code', async () => {
+    connecte('gestionnaire_lieux', 'aal1', [], VIPARIS);
+    const { requirePageSession } = await import('@/lib/page-auth.js');
+    expect(
+      await cibleRedirection(requirePageSession(['gestionnaire_lieux'])),
+    ).toBe('/code-verification');
+  });
+
+  it('requirePageSession : même client avec code → page rendue', async () => {
+    connecte('gestionnaire_lieux', 'aal2', [], VIPARIS);
+    const { requirePageSession } = await import('@/lib/page-auth.js');
+    expect((await requirePageSession(['gestionnaire_lieux'])).role).toBe(
+      'gestionnaire_lieux',
+    );
+  });
 });
 
 describe('routes de santé réservées à l’équipe Savr', () => {
@@ -147,7 +173,11 @@ describe('écran du code de vérification', () => {
   // Props du formulaire rendu : <AuthPage><FormulaireCodeVerification …/></AuthPage>.
   async function formulaire(next?: string) {
     const el = (await page(next)) as {
-      props: { children: { props: { mode: string; suite: string } } };
+      props: {
+        children: {
+          props: { mode: string; suite: string; equipeSavr: boolean };
+        };
+      };
     };
     return el.props.children.props;
   }
@@ -196,7 +226,35 @@ describe('écran du code de vérification', () => {
     expect(await formulaire('/admin')).toEqual({
       mode: 'activation',
       suite: '/admin',
+      equipeSavr: true,
     });
+  });
+
+  it('client d’une organisation qui exige le code, sans code actif → activation, textes client', async () => {
+    connecte('gestionnaire_lieux', 'aal1', [], VIPARIS);
+    expect(await formulaire('/gestionnaire')).toEqual({
+      mode: 'activation',
+      suite: '/gestionnaire',
+      equipeSavr: false,
+    });
+  });
+
+  it('client d’une organisation qui exige le code, avec code actif → saisie', async () => {
+    connecte(
+      'gestionnaire_lieux',
+      'aal1',
+      [{ id: 'f-1', factor_type: 'totp', status: 'verified' }],
+      VIPARIS,
+    );
+    expect((await formulaire('/gestionnaire')).mode).toBe('saisie');
+  });
+
+  it('client d’une organisation qui exige le code, session impersonée → page demandée', async () => {
+    connecte('gestionnaire_lieux', 'aal1', [], {
+      ...VIPARIS,
+      impersonator_id: 'b2c3d4e5-0000-0000-0000-000000000001',
+    });
+    expect(await cibleRedirection(page('/gestionnaire'))).toBe('/gestionnaire');
   });
 
   it('admin avec code actif → saisie', async () => {

@@ -200,6 +200,94 @@ describe('Fiche organisation Admin — édition', () => {
     ATTENTE_CAS_MS,
   );
 
+  // Code de vérification exigé (VIPARIS, Val 2026-11-10) : carte dans
+  // « Informations légales », réinitialisation par utilisateur dans l'onglet
+  // « Utilisateurs », seulement si le client exige le code.
+  it(
+    'Client qui exige le code : carte « Exigé », bouton « Réinitialiser » par utilisateur, DELETE après confirmation',
+    async () => {
+      fetchMock.mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              ...ORG,
+              code_verification_obligatoire: true,
+              users: [
+                {
+                  id: 'u-1',
+                  prenom: 'Lou',
+                  nom: 'Gestion',
+                  email: 'lou@arep.fr',
+                  role: 'gestionnaire_lieux',
+                  actif: true,
+                },
+              ],
+            }),
+        } as Response),
+      );
+      await ouvrir();
+      expect(screen.getByText('Exigé')).toBeTruthy();
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Utilisateurs' }));
+      const boutons = await screen.findAllByRole(
+        'button',
+        { name: 'Réinitialiser le code de vérification de Lou Gestion' },
+        ATTENTE_UI,
+      );
+      fireEvent.click(boutons[0]!);
+      expect(appels('DELETE')).toHaveLength(0);
+      const confirmer = await screen.findAllByRole(
+        'button',
+        { name: 'Réinitialiser' },
+        ATTENTE_UI,
+      );
+      fireEvent.click(confirmer[confirmer.length - 1]!);
+      await waitFor(() => expect(appels('DELETE')).toHaveLength(1), ATTENTE_UI);
+      expect(appels('DELETE')[0]![0]).toBe(
+        '/api/v1/admin/users/u-1/code-verification',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'Client qui n’exige pas le code : carte « Non exigé », aucune réinitialisation',
+    async () => {
+      fetchMock.mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              ...ORG,
+              code_verification_obligatoire: false,
+              users: [
+                {
+                  id: 'u-1',
+                  prenom: 'Lou',
+                  nom: 'Gestion',
+                  email: 'lou@arep.fr',
+                  role: 'gestionnaire_lieux',
+                  actif: true,
+                },
+              ],
+            }),
+        } as Response),
+      );
+      await ouvrir();
+      expect(screen.getByText('Non exigé')).toBeTruthy();
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Utilisateurs' }));
+      await screen.findAllByText('lou@arep.fr', undefined, ATTENTE_UI);
+      expect(
+        screen.queryAllByRole('button', {
+          name: 'Réinitialiser le code de vérification de Lou Gestion',
+        }),
+      ).toHaveLength(0);
+    },
+    ATTENTE_CAS_MS,
+  );
+
   it(
     'Client organisateur : ni ajout ni vérification de domaine',
     async () => {

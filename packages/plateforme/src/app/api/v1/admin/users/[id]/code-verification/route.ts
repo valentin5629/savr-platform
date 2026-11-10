@@ -1,7 +1,8 @@
 // DELETE /api/v1/admin/users/[id]/code-verification — réinitialise le code de
-// vérification d'un membre de l'équipe Savr (téléphone perdu ou changé) : retire
-// ses facteurs TOTP. À sa prochaine connexion, il active un nouveau code (QR
-// code). Ses sessions déjà ouvertes ne sont pas fermées.
+// vérification d'un membre de l'équipe Savr, ou d'un utilisateur d'une
+// organisation qui exige le code (téléphone perdu ou changé) : retire ses
+// facteurs TOTP. À sa prochaine connexion, il active un nouveau code (QR code).
+// Ses sessions déjà ouvertes ne sont pas fermées.
 //
 // Réservé à `admin_savr` (avec code en production, cf. getVerifiedClaims), jamais sur
 // son propre compte : la procédure suppose un autre administrateur. Tracé dans
@@ -29,7 +30,7 @@ export const DELETE = withApiTrace(
     const supabase = createAdminSupabaseClient();
     const { data: cible, error } = await supabase
       .from('users')
-      .select('id, role')
+      .select('id, role, organisation_id')
       .eq('id', id)
       .single();
     if (error || !cible) {
@@ -51,10 +52,25 @@ export const DELETE = withApiTrace(
         { status: 422 },
       );
     }
-    // Compte de l'équipe Savr, en production comme ailleurs : hors production
-    // le code n'est pas demandé, mais un facteur activé lors d'un essai doit
-    // pouvoir être retiré.
-    if (!isStaff(cible.role)) {
+    // Compte soumis au code (équipe Savr, ou organisation qui l'exige), en
+    // production comme ailleurs : hors production le code n'est pas demandé,
+    // mais un facteur activé lors d'un essai doit pouvoir être retiré.
+    let soumisAuCode = isStaff(cible.role);
+    if (!soumisAuCode && cible.organisation_id) {
+      const { data: org, error: orgError } = await supabase
+        .from('organisations')
+        .select('code_verification_obligatoire')
+        .eq('id', cible.organisation_id)
+        .single();
+      if (orgError) {
+        return NextResponse.json(
+          { error: 'Réinitialisation impossible pour le moment.' },
+          { status: 502 },
+        );
+      }
+      soumisAuCode = org?.code_verification_obligatoire === true;
+    }
+    if (!soumisAuCode) {
       return NextResponse.json(
         { error: 'Ce compte n’utilise pas de code de vérification.' },
         { status: 422 },

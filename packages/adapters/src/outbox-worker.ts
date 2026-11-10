@@ -804,10 +804,8 @@ async function fetchCollecte(
         nom: contacts.contact_secours_nom,
         telephone: contacts.contact_secours_telephone,
       },
-      vehicule:
-        raw.type === 'anti_gaspi'
-          ? { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande }
-          : null,
+      // AG et ZD (Val 2026-11-10 ; la ZD n'en recevait rien avant).
+      vehicule: { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande },
       livraison: association
         ? {
             instructionsAcces: association.instructions_acces,

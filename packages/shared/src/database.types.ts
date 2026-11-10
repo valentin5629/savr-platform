@@ -5652,6 +5652,9 @@ export type Database = {
         | "fourgon"
         | "vul"
         | "poids_lourd"
+        | "camion_frigo"
+        | "camion_16m3"
+        | "camion_20m3"
       unite_mesure: "kg" | "litre" | "bac"
       user_role:
         | "admin_savr"
@@ -6073,6 +6076,9 @@ export const Constants = {
         "fourgon",
         "vul",
         "poids_lourd",
+        "camion_frigo",
+        "camion_16m3",
+        "camion_20m3",
       ],
       unite_mesure: ["kg", "litre", "bac"],
       user_role: [

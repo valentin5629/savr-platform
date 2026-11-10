@@ -58,7 +58,6 @@ import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 import {
   ChampsBesoinVehicule,
   NB_VEHICULES_MAX,
-  TYPES_VEHICULE_OPTIONS,
   nbVehiculesValide,
 } from './champs-besoin-vehicule';
 import {
@@ -2020,9 +2019,9 @@ export function CollecteDetailPanel({
   );
   const champTypeVehicule = (
     <InfoItem label="Type de véhicule souhaité">
-      {TYPES_VEHICULE_OPTIONS.find(
-        (t) => t.value === collecte.type_vehicule_souhaite,
-      )?.label ?? 'Non précisé'}
+      {(collecte.type_vehicule_souhaite &&
+        VEHICULE_LABEL[collecte.type_vehicule_souhaite]) ||
+        'Non précisé'}
     </InfoItem>
   );
   const champNbVehicules = (

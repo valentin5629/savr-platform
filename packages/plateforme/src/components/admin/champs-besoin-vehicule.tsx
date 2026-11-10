@@ -5,20 +5,33 @@ import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
 import { IconButton } from '@/components/ui/icon-button';
+import { VEHICULE_LABEL } from '@/lib/lieux-labels';
 
 // Besoin véhicule saisi avant l'envoi au prestataire (décision Val
 // 2026-10-01) : type souhaité + nombre de véhicules. Attribution AG et choix
 // du prestataire d'une ZD (décision Val 2026-10-27).
 
-// Enum plateforme.type_vehicule (lieux.type_vehicule_max, tournees.type_vehicule,
-// collectes.type_vehicule_souhaite).
+// Véhicules proposés (décision Val 2026-11-10), valeurs de l'enum
+// plateforme.type_vehicule. Une collecte qui porte un ancien type le garde
+// dans le menu tant qu'il n'est pas changé.
 export const TYPES_VEHICULE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'velo_cargo', label: 'Vélo cargo' },
-  { value: 'camionnette', label: 'Camionnette' },
-  { value: 'fourgon', label: 'Fourgon' },
-  { value: 'vul', label: 'VUL' },
-  { value: 'poids_lourd', label: 'Poids lourd' },
-];
+  'velo_cargo',
+  'camion_frigo',
+  'camion_16m3',
+  'camion_20m3',
+].map((value) => ({ value, label: VEHICULE_LABEL[value] ?? value }));
+
+function optionsVehicule(actuel: string) {
+  const ancien =
+    actuel && !TYPES_VEHICULE_OPTIONS.some((o) => o.value === actuel)
+      ? [{ value: actuel, label: VEHICULE_LABEL[actuel] ?? actuel }]
+      : [];
+  return [
+    { value: '', label: 'Non précisé' },
+    ...TYPES_VEHICULE_OPTIONS,
+    ...ancien,
+  ];
+}
 
 export const NB_VEHICULES_MAX = 20;
 
@@ -58,10 +71,7 @@ export function ChampsBesoinVehicule({
           icon={null}
           searchable={false}
           placeholder="Non précisé"
-          options={[
-            { value: '', label: 'Non précisé' },
-            ...TYPES_VEHICULE_OPTIONS,
-          ]}
+          options={optionsVehicule(typeVehicule)}
           value={typeVehicule}
           onChange={onTypeVehicule}
         />

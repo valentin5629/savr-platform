@@ -2109,7 +2109,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(
         screen.getByRole('combobox', { name: 'Type de véhicule souhaité' }),
       );
-      fireEvent.click(screen.getByRole('option', { name: 'Fourgon' }));
+      fireEvent.click(screen.getByRole('option', { name: 'Camion 16 m³' }));
       fireEvent.click(within(cartes).getByRole('radio', { name: /Marathon/ }));
       fireEvent.click(screen.getByRole('button', { name: 'Envoyer à MTS-1' }));
 
@@ -2119,7 +2119,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
           prestataire_logistique_id: 'presta-marathon',
           nb_camions_demande: 2,
-          type_vehicule_souhaite: 'fourgon',
+          type_vehicule_souhaite: 'camion_16m3',
         });
       }, ATTENTE_UI);
     },

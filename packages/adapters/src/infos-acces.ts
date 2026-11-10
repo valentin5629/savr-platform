@@ -4,6 +4,7 @@
 //
 //   Commentaire de la mission :
 //     Veuillez peser et prendre de belles photos de ce que vous récupérez svp
+//     Véhicule souhaité : camion 20 m³  (un seul véhicule, type précisé, Val 2026-11-10)
 //     2 vélos prévus pour cette collecte, veuillez vous coordonner pour les
 //     appels au traiteur                (seulement s'il y a plusieurs véhicules)
 //
@@ -25,8 +26,8 @@
 // réunis, sous « Départ : » et « Arrivée : » (texte `unique`).
 //
 // Ne partent plus (Val, 2026-11-03) : traiteur, nombre de pax, contraintes
-// horaires, accès office, flux acceptés, véhicule souhaité d'une collecte à un
-// seul véhicule.
+// horaires, accès office, flux acceptés. Le véhicule souhaité d'une collecte à
+// un seul véhicule repart depuis le 2026-11-10 (Val), en ZD comme en AG.
 //
 // Chaque valeur tient sur UNE ligne (`valeurLigne` replie toute rupture de
 // ligne) : aucune saisie ne peut donc forger une ligne lue comme composée par
@@ -163,6 +164,21 @@ const PLURIEL_VEHICULE: Record<string, { nom: string; feminin: boolean }> = {
   fourgon: { nom: 'fourgons', feminin: false },
   vul: { nom: 'VUL', feminin: false },
   poids_lourd: { nom: 'poids lourds', feminin: false },
+  camion_frigo: { nom: 'camions frigo', feminin: false },
+  camion_16m3: { nom: 'camions 16 m³', feminin: false },
+  camion_20m3: { nom: 'camions 20 m³', feminin: false },
+};
+
+// Singulier, pour « Véhicule souhaité : … » (un seul véhicule).
+const SINGULIER_VEHICULE: Record<string, string> = {
+  velo_cargo: 'vélo cargo',
+  camionnette: 'camionnette',
+  fourgon: 'fourgon',
+  vul: 'VUL',
+  poids_lourd: 'poids lourd',
+  camion_frigo: 'camion frigo',
+  camion_16m3: 'camion 16 m³',
+  camion_20m3: 'camion 20 m³',
 };
 
 // Sans type précisé par l'Admin : le véhicule habituel du prestataire.
@@ -172,16 +188,20 @@ const PLURIEL_PAR_PRESTATAIRE: Record<string, string> = {
 };
 
 /**
- * Phrase des véhicules multiples (décision Val 2026-11-03), composée UNE fois
- * puis envoyée à l'identique sur chaque commande : « 2 vélos prévus pour cette
- * collecte, veuillez vous coordonner pour les appels au traiteur ». Rien pour
- * un seul véhicule.
+ * Phrase des véhicules, composée UNE fois puis envoyée à l'identique sur chaque
+ * commande. Plusieurs véhicules (Val 2026-11-03) : « 2 vélos prévus pour cette
+ * collecte, veuillez vous coordonner pour les appels au traiteur ». Un seul
+ * véhicule au type précisé (Val 2026-11-10) : « Véhicule souhaité : camion
+ * 20 m³ » ; sans type, rien.
  */
 function phraseVehicules(vehicule: VehiculeSouhaite | null): string {
   if (!vehicule) return '';
   const nombre = Number.isInteger(vehicule.nombre) ? vehicule.nombre : 1;
-  if (nombre <= 1) return '';
   const type = uneLigne(vehicule.type, LIMITE_TYPE_VEHICULE);
+  if (nombre <= 1) {
+    const nomSeul = SINGULIER_VEHICULE[type] || type;
+    return nomSeul ? `Véhicule souhaité : ${nomSeul}` : '';
+  }
   const connu = PLURIEL_VEHICULE[type];
   const nom =
     connu?.nom ||
@@ -223,7 +243,7 @@ export interface EntreeCommentaire {
   readonly contact: ContactCommentaire;
   /** Contact 2 de l'adresse de départ (contact de secours). */
   readonly contactSecours: ContactCommentaire;
-  /** Besoin véhicule de l'attribution AG, `null` en ZD. */
+  /** Besoin véhicule saisi par l'Admin (AG et ZD). */
   readonly vehicule: VehiculeSouhaite | null;
   /** Adresse d'arrivée d'une collecte AG (l'association), `null` sinon. */
   readonly livraison: {

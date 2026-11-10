@@ -24,7 +24,11 @@ import {
 import { FichePastille } from '@/components/ui/fiche/fiche-pastille';
 import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import { FicheCorps, FicheModal } from '@/components/ui/fiche/fiche-modal';
-import { DIFFICULTE_LABEL, VEHICULE_LABEL } from '@/lib/lieux-labels';
+import {
+  DIFFICULTE_LABEL,
+  GABARITS_LIEU_TRANSPORTEUR,
+  VEHICULE_LABEL,
+} from '@/lib/lieux-labels';
 import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification';
 import { estSiren } from '@savr/shared/src/validation/index.js';
 import { CODES_SITE_VIPARIS } from '@/lib/viparis/codes';
@@ -165,9 +169,10 @@ const OPTIONS_CODE_SITE_VIPARIS = [
   ...CODES_SITE_VIPARIS.map((c) => ({ value: c, label: c })),
 ];
 
-const OPTIONS_VEHICULE = Object.entries(VEHICULE_LABEL).map(
-  ([value, label]) => ({ value, label }),
-);
+const OPTIONS_VEHICULE = GABARITS_LIEU_TRANSPORTEUR.map((value) => ({
+  value,
+  label: VEHICULE_LABEL[value] ?? value,
+}));
 
 // Libellés de l'historique (onglet Activité) — mêmes intitulés que le formulaire.
 const LIBELLE_ACTION: Record<string, string> = {

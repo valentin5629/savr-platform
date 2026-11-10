@@ -28,11 +28,30 @@ export const DIFFICULTE_VARIANT: Record<
   tres_difficile: 'error',
 } satisfies Record<Enums['acces_difficulte'], 'success' | 'warning' | 'error'>;
 
-/** `plateforme.type_vehicule_enum` — `type_vehicule_max`, `type_vehicule`. */
+/**
+ * `plateforme.type_vehicule` — libellé de toute valeur (`type_vehicule_max`,
+ * `types_vehicules`, `type_vehicule`, `type_vehicule_souhaite`).
+ */
 export const VEHICULE_LABEL: Record<string, string> = {
   velo_cargo: 'Vélo cargo',
   camionnette: 'Camionnette',
   fourgon: 'Fourgon',
   vul: 'VUL',
   poids_lourd: 'Poids lourd',
+  camion_frigo: 'Camion frigo',
+  camion_16m3: 'Camion 16 m³',
+  camion_20m3: 'Camion 20 m³',
 } satisfies Record<Enums['type_vehicule'], string>;
+
+/**
+ * Gabarits proposés pour un lieu (véhicule max) et un transporteur : l'échelle
+ * de taille de l'algorithme AG. Les gabarits du véhicule souhaité (Val
+ * 2026-11-10) n'y entrent pas.
+ */
+export const GABARITS_LIEU_TRANSPORTEUR = [
+  'velo_cargo',
+  'camionnette',
+  'fourgon',
+  'vul',
+  'poids_lourd',
+] as const satisfies readonly Enums['type_vehicule'][];

@@ -214,7 +214,8 @@ describe('Transporteurs / gabarits déjà portés par la fiche', () => {
       }),
       { params: Promise.resolve({ id: 'tr-1' }) },
     );
-    expect(garde.status).not.toBe(422);
+    expect(garde.status).toBe(200);
+    expect(mockSupabaseChain.update).toHaveBeenCalledTimes(1);
     const ajout = await PATCH(
       makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
         types_vehicules: ['camion_ancien', 'camion_20m3'],
@@ -222,6 +223,7 @@ describe('Transporteurs / gabarits déjà portés par la fiche', () => {
       { params: Promise.resolve({ id: 'tr-1' }) },
     );
     expect(ajout.status).toBe(422);
+    expect(mockSupabaseChain.update).toHaveBeenCalledTimes(1);
   });
 });
 

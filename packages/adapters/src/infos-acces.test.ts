@@ -44,6 +44,7 @@ const LIEU_COMPLET: Lieu = {
 const SANS_CONTACT = { nom: null, telephone: null };
 
 const VIDE: EntreeCommentaire = {
+  typeCollecte: 'anti_gaspi',
   lieu: LIEU_NU,
   informationsSupplementaires: null,
   contact: SANS_CONTACT,
@@ -53,6 +54,7 @@ const VIDE: EntreeCommentaire = {
 };
 
 const COMPLET: EntreeCommentaire = {
+  typeCollecte: 'anti_gaspi',
   lieu: LIEU_COMPLET,
   informationsSupplementaires: 'Rentrer par la cuisine',
   contact: { nom: 'Alice Martin', telephone: '+33600000001' },
@@ -135,6 +137,19 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
       composer({ contactSecours: { nom: null, telephone: '+33600000002' } })
         .depart,
     ).toBe(['- Contact 2 : +33600000002', URGENCE].join('\n'));
+  });
+
+  it('ZD : pas de consigne pesée/photos, AG seulement (Val 2026-11-10)', () => {
+    expect(composer({ typeCollecte: 'zero_dechet' }).general).toBe('');
+    expect(
+      composer({
+        typeCollecte: 'zero_dechet',
+        vehicule: { type: 'camion_20m3_simple', nombre: 1, typeTms: 'mts1' },
+      }).general,
+    ).toBe('Véhicule souhaité : camion 20 m³ simple');
+    expect(composer({ typeCollecte: 'zero_dechet' }).unique).not.toContain(
+      CONSIGNE_PESEE_PHOTOS,
+    );
   });
 
   it('un seul véhicule sans type : aucune phrase', () => {
@@ -264,6 +279,7 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
     for (const n of [0, 300, 600, 1000, 5000]) {
       const long = 'x'.repeat(n);
       const c = composerCommentairesTransporteur({
+        typeCollecte: 'anti_gaspi',
         lieu: { ...LIEU_COMPLET, acces_details: long },
         informationsSupplementaires: long,
         contact: { nom: long, telephone: long },

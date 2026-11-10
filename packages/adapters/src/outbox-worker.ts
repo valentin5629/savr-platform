@@ -795,6 +795,7 @@ async function fetchCollecte(
     // contact de secours (arbitrage Val 2026-09-14) et le véhicule souhaité
     // n'ont aucun champ natif MTS-1/Everest en V1.
     entree_commentaire: {
+      typeCollecte: raw.type as 'anti_gaspi' | 'zero_dechet',
       lieu,
       informationsSupplementaires: raw.informations_supplementaires,
       contact: {

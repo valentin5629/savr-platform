@@ -4,6 +4,7 @@
 //
 //   Commentaire de la mission :
 //     Veuillez peser et prendre de belles photos de ce que vous récupérez svp
+//                                       (AG seulement, Val 2026-11-10)
 //     Véhicule souhaité : camion 20 m³ simple  (un seul véhicule, type précisé, Val 2026-11-10)
 //     2 vélos prévus pour cette collecte, veuillez vous coordonner pour les
 //     appels au traiteur                (seulement s'il y a plusieurs véhicules)
@@ -250,6 +251,8 @@ export interface ContactCommentaire {
 
 /** Ce que les commentaires au transporteur rassemblent. */
 export interface EntreeCommentaire {
+  /** Type de collecte : la consigne pesée/photos ne part qu'en AG (Val 2026-11-10). */
+  readonly typeCollecte: 'anti_gaspi' | 'zero_dechet';
   /**
    * Lieu **FUSIONNÉ** (sortie de `applyLieuOverrides`), jamais le lieu officiel :
    * les corrections saisies par collecte sont précisément ce qui doit atteindre
@@ -360,7 +363,9 @@ export function composerCommentairesTransporteur(
 ): CommentairesTransporteur {
   const general: Bloc = {
     lignes: [
-      { valeur: CONSIGNE_PESEE_PHOTOS },
+      {
+        valeur: e.typeCollecte === 'anti_gaspi' ? CONSIGNE_PESEE_PHOTOS : '',
+      },
       { valeur: phraseVehicules(e.vehicule) },
     ],
   };

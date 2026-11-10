@@ -1665,6 +1665,7 @@ describe('M1.5 / commentaires au transporteur → champs Everest', () => {
       brancheAttribution: 'ag_velo_programme',
     });
     const c = composerCommentairesTransporteur({
+      typeCollecte: 'anti_gaspi',
       lieu: LIEU_ACCES,
       informationsSupplementaires: 'Demander Karim à la plonge',
       contact: { nom: 'Alice Martin', telephone: '+33600000001' },
@@ -1718,6 +1719,21 @@ describe('M1.5 / commentaires au transporteur → champs Everest', () => {
         'Veuillez peser et prendre de belles photos de ce que vous récupérez svp',
       address_start_comment: '',
       address_end_comment: '',
+    });
+  });
+
+  it('ZD sans commentaire composé : aucune consigne pesée/photos (AG seulement, Val 2026-11-10)', async () => {
+    const { payloads } = setupEverestMock();
+    await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
+    ).dispatchCollecte(
+      { ...COLLECTE_AG, type: 'zero_dechet', commentaire_general: '   ' },
+      1,
+    );
+
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      comment: '',
     });
   });
 });

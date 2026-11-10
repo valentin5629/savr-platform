@@ -14,17 +14,21 @@
 --    et 20260918100000), qui ne peut donc ni la lire ni la décocher.
 -- 2. Le hook du jeton (fn_custom_access_token) ajoute le claim
 --    `code_verification_obligatoire: true` aux utilisateurs d'une organisation
---    cochée, et à eux seuls. Corps repris À L'IDENTIQUE de 20260701120000, un
---    seul ajout. Le claim suit la case au rafraîchissement suivant du jeton
---    (une heure au plus).
+--    cochée, et à eux seuls. Le claim suit la case au rafraîchissement suivant
+--    du jeton (une heure au plus). Corps repris de 20260701120000, avec deux
+--    ajouts : ce claim, et le claim `impersonator_id` réservé à la seule
+--    session ouverte par l'Admin (`app_metadata.impersonation_session_id` égal
+--    au `session_id` du jeton). Avant, toute session du compte impersoné
+--    pendant l'heure en héritait ; l'exemption du code ci-dessous l'aurait
+--    étendue à une vraie connexion de l'utilisateur.
 -- 3. plateforme.f_code_verification_ok() : la règle de la base vaut aussi pour
 --    ces sessions. Faux, et seulement alors, pour une session sans code (aal
 --    différent de aal2) dont le compte a un code activé, si elle est de
 --    l'équipe Savr (inchangé) ou porte le claim ci-dessus hors impersonation.
 --    Session impersonée (claim impersonator_id, posé par le seul hook depuis
---    app_metadata, écrit par le serveur) : l'administrateur a passé son propre
---    code pour la lancer, la règle ne la bloque pas (même exception côté
---    application). Les policies, fonctions et vues qui appellent la règle
+--    app_metadata, écrit par le serveur, pour la seule session ouverte par
+--    l'Admin) : l'administrateur a passé son propre code pour la lancer, la
+--    règle ne la bloque pas (même exception côté application). Les policies, fonctions et vues qui appellent la règle
 --    (migration 20261104200000) n'ont pas à changer.
 --
 -- Fermant (CLAUDE.md §12-2bis) : aucun droit ajouté. La colonne vaut faux par
@@ -59,6 +63,7 @@ DECLARE
   v_claims       jsonb;
   v_impersonator text;
   v_imp_expires  text;
+  v_imp_session  text;
 BEGIN
   v_user_id := (event->>'user_id')::uuid;
 
@@ -93,13 +98,22 @@ BEGIN
   END IF;
 
   -- Impersonation (BL-P1-AUTH-01) : expose `impersonator_id` en claim top-level
-  -- si la session porte le flag app_metadata et que la fenêtre 1h n'est pas
-  -- expirée. `app_metadata` est fourni par GoTrue dans `event->'claims'`.
+  -- si le compte porte le flag app_metadata, que la fenêtre 1h n'est pas
+  -- expirée ET que le jeton est celui de la session ouverte par l'Admin
+  -- (`impersonation_session_id`, posé par /auth/impersonate-callback ; ajout
+  -- 2026-11-10). Sans cette dernière condition, toute autre session du compte
+  -- pendant l'heure (une vraie connexion de l'utilisateur) héritait du claim :
+  -- écritures imputées à l'Admin, et code de vérification de l'organisation
+  -- non demandé. `app_metadata` et `session_id` sont fournis par GoTrue dans
+  -- `event->'claims'`.
   v_impersonator := event->'claims'->'app_metadata'->>'impersonator_id';
   v_imp_expires  := event->'claims'->'app_metadata'->>'impersonation_expires_at';
+  v_imp_session  := event->'claims'->'app_metadata'->>'impersonation_session_id';
   IF v_impersonator IS NOT NULL
      AND v_imp_expires IS NOT NULL
      AND v_imp_expires::timestamptz > now()
+     AND v_imp_session IS NOT NULL
+     AND v_imp_session = event->'claims'->>'session_id'
   THEN
     v_claims := v_claims || jsonb_build_object('impersonator_id', v_impersonator);
   END IF;

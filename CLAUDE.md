@@ -65,7 +65,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 ### Hors scope V1 (NE PAS développer, ne pas anticiper)
 - **TMS natif Savr** (tout `02 - Cahier des charges TMS/` = V2) : app chauffeur M05, dispatch M02/M12, portail prestataire M03, tournées, pesées natives.
 - Modules App reportés : benchmark client (M12 UI), reporting REP/Citeo (M13, V1.1), app native (M14), multi-langues (M15), signature électronique (M16), import brief IA (M19, 6 tables non créées).
-- 2FA des clients (V1.1 ; celle de l'équipe Savr est livrée, cf. §2), SSO SAML (V2, archi anticipée), Trackdéchets (V2), lien partage public rapport (V1.1), QR vérif PDF (V1.1), export PDF registre formaté (V1.1), UI édition templates emails (V1.1), coûts Veolia auto (V2), scoring prestataires (V2), multi-régions (V2), notifs in-app/SMS (V1.1), archivage > 3 ans (V2).
+- 2FA des clients (V1.1 ; celle de l'équipe Savr et celle des utilisateurs d'une organisation cochée par l'Admin, VIPARIS, sont livrées, cf. §2), SSO SAML (V2, archi anticipée ; VIPARIS : code de vérification à la place), Trackdéchets (V2), lien partage public rapport (V1.1), QR vérif PDF (V1.1), export PDF registre formaté (V1.1), UI édition templates emails (V1.1), coûts Veolia auto (V2), scoring prestataires (V2), multi-régions (V2), notifs in-app/SMS (V1.1), archivage > 3 ans (V2).
 
 ## 3bis. Frontière TMS-Ready V1 — 5 garde-fous BLOQUANTS
 

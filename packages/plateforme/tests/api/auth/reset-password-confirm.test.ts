@@ -249,9 +249,12 @@ describe('lien de réinitialisation et code de vérification', () => {
   const session = (
     role: string,
     factors: Array<{ id: string; factor_type: string; status: string }>,
+    autresClaims: Record<string, unknown> = {},
   ) => ({
     data: {
-      session: { access_token: jeton({ user_role: role, aal: 'aal1' }) },
+      session: {
+        access_token: jeton({ user_role: role, aal: 'aal1', ...autresClaims }),
+      },
       user: { id: 'u-1', factors },
     },
     error: null,
@@ -303,7 +306,22 @@ describe('lien de réinitialisation et code de vérification', () => {
     );
   });
 
-  it('client → formulaire directement (aucun code pour les clients)', async () => {
+  // Organisation qui exige le code (VIPARIS, Val 2026-11-10) : claim du hook.
+  it('client d’une organisation qui exige le code, code actif → écran du code, puis retour au formulaire', async () => {
+    mockVerifyOtp.mockResolvedValue(
+      session('gestionnaire_lieux', [ACTIF], {
+        code_verification_obligatoire: true,
+      }),
+    );
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?token_hash=jeton&type=recovery'));
+    const location = new URL(res.headers.get('location')!);
+    expect(location.pathname).toBe('/code-verification');
+    expect(location.searchParams.get('next')).toBe('/reset-password/confirm');
+  });
+
+  it('client sans claim d’organisation → formulaire directement (aucun code pour lui)', async () => {
     mockExchangeCodeForSession.mockResolvedValue(
       session('traiteur_manager', [ACTIF]),
     );

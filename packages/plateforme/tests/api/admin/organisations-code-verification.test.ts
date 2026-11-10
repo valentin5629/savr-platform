@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 // organisations : select … eq … single (valeur avant) puis update … select … single
 const orgChain = {
@@ -132,6 +133,28 @@ describe('Organisations / code de vérification exigé', () => {
       200,
     );
     expect(auditInsert).not.toHaveBeenCalled();
+  });
+
+  it('trace audit_log en échec : enregistrement conservé (200), échec journalisé', async () => {
+    const erreurLog = vi.spyOn(logger, 'error').mockImplementation(() => {});
+    auditInsert.mockResolvedValue({ data: null, error: { code: 'XX000' } });
+    orgChain.single
+      .mockResolvedValueOnce({
+        data: { code_verification_obligatoire: false },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { id: 'org-1', code_verification_obligatoire: true },
+        error: null,
+      });
+    expect((await patch({ code_verification_obligatoire: true })).status).toBe(
+      200,
+    );
+    expect(erreurLog).toHaveBeenCalledWith(
+      'admin.organisations.code_verification.audit_echec',
+      expect.objectContaining({ organisation_id: 'org-1', code: 'XX000' }),
+    );
+    erreurLog.mockRestore();
   });
 
   it('ops_savr → 403, rien écrit', async () => {

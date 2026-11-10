@@ -9,8 +9,9 @@
 -- Oracle :
 --   1-4   la case : colonne NOT NULL, faux par défaut ; ni lisible ni modifiable
 --         par authenticated (le client ne peut pas la décocher) ;
---   5-9   le hook du jeton : claim posé pour l'organisation cochée seule, à côté
---         des claims existants et de l'impersonation ;
+--   5-9 bis le hook du jeton : claim posé pour l'organisation cochée seule, à
+--         côté des claims existants ; impersonation réservée à la session
+--         ouverte par l'Admin (une autre session du compte reste soumise au code) ;
 --   10-18 la règle de la base, cas par cas (jamais NULL) ;
 --   19-24 de bout en bout sur plateforme.organisations, sous authenticated :
 --         l'utilisateur de l'organisation cochée, code activé, ne lit ni
@@ -23,7 +24,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(24);
+SELECT plan(25);
 
 -- Identifiants ----------------------------------------------------------------
 -- V = organisation cochée (gestionnaire de lieux) ; W = organisation non cochée ;
@@ -184,12 +185,27 @@ SELECT is(
      FROM (SELECT plateforme.fn_custom_access_token(jsonb_build_object(
              'user_id', test_cvo_id('UV'),
              'claims', jsonb_build_object('sub', test_cvo_id('UV'), 'role', 'authenticated',
+               'session_id', '5e550000-0000-0000-0000-0000000000aa',
                'app_metadata', jsonb_build_object(
                  'impersonator_id', 'adm00000-0000-0000-0000-0000000000aa',
-                 'impersonation_expires_at', '2999-01-01T00:00:00Z'))))
+                 'impersonation_expires_at', '2999-01-01T00:00:00Z',
+                 'impersonation_session_id', '5e550000-0000-0000-0000-0000000000aa'))))
              -> 'claims' AS c) x),
   'adm00000-0000-0000-0000-0000000000aa|true',
-  '9. hook : impersonation toujours posée à côté du claim de l''organisation');
+  '9. hook : impersonation posée sur la session ouverte par l''Admin, à côté du claim de l''organisation');
+SELECT is(
+  (SELECT coalesce(c ->> 'impersonator_id', 'absent') || '|' || (c ->> 'code_verification_obligatoire')
+     FROM (SELECT plateforme.fn_custom_access_token(jsonb_build_object(
+             'user_id', test_cvo_id('UV'),
+             'claims', jsonb_build_object('sub', test_cvo_id('UV'), 'role', 'authenticated',
+               'session_id', '5e550000-0000-0000-0000-0000000000bb',
+               'app_metadata', jsonb_build_object(
+                 'impersonator_id', 'adm00000-0000-0000-0000-0000000000aa',
+                 'impersonation_expires_at', '2999-01-01T00:00:00Z',
+                 'impersonation_session_id', '5e550000-0000-0000-0000-0000000000aa'))))
+             -> 'claims' AS c) x),
+  'absent|true',
+  '9 bis. hook : autre session du compte pendant l''impersonation → pas d''impersonator_id, le code reste exigé');
 
 -- =============================================================================
 -- 10-18 — la règle de la base, cas par cas

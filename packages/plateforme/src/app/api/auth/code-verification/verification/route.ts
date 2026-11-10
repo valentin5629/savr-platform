@@ -1,5 +1,6 @@
 // POST /api/auth/code-verification/verification — vérifie le code à 6 chiffres
-// d'un compte de l'équipe Savr. Réussi, la session passe au niveau `aal2`
+// d'un compte soumis au code (équipe Savr, utilisateur d'une organisation qui
+// l'exige). Réussi, la session passe au niveau `aal2`
 // (nouveaux cookies posés sur cette réponse) jusqu'à sa fin : le code n'est plus
 // redemandé avant la prochaine session. Règle : lib/code-verification.ts.
 //

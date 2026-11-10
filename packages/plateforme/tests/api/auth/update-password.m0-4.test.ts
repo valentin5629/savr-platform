@@ -115,7 +115,7 @@ describe('update-password : un lien d’invitation encore valable devient caduc'
 // Code de vérification de l'équipe Savr (lib/code-verification.ts) : un compte
 // qui a déjà un code ne change son mot de passe qu'une fois le code saisi sur
 // cette session — un lien « mot de passe oublié » seul ne suffit pas.
-describe('update-password : code de vérification de l’équipe Savr', () => {
+describe('update-password : code de vérification (équipe Savr, organisation qui l’exige)', () => {
   // Code demandé en production seulement (lib/code-verification.ts).
   beforeEach(() => vi.stubEnv('VERCEL_ENV', 'production'));
   afterEach(() => vi.unstubAllEnvs());
@@ -123,15 +123,26 @@ describe('update-password : code de vérification de l’équipe Savr', () => {
   const ACTIF = { id: 'f-1', factor_type: 'totp', status: 'verified' };
   const jeton = (claims: Record<string, unknown>) =>
     `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
-  function connecte(role: string, aal: string, factors = [ACTIF]) {
+  function connecte(
+    role: string,
+    aal: string,
+    factors = [ACTIF],
+    autresClaims: Record<string, unknown> = {},
+  ) {
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'u-1', factors } },
       error: null,
     });
     mockGetSession.mockResolvedValue({
-      data: { session: { access_token: jeton({ user_role: role, aal }) } },
+      data: {
+        session: {
+          access_token: jeton({ user_role: role, aal, ...autresClaims }),
+        },
+      },
     });
   }
+  // Organisation qui exige le code (VIPARIS, Val 2026-11-10) : claim du hook.
+  const VIPARIS = { code_verification_obligatoire: true };
 
   it('admin avec code actif, session sans code (aal1) → 403, mot de passe inchangé', async () => {
     connecte('admin_savr', 'aal1');
@@ -159,6 +170,29 @@ describe('update-password : code de vérification de l’équipe Savr', () => {
 
   it('admin sans code actif (premier mot de passe) → 200, le code viendra à l’entrée dans l’application', async () => {
     connecte('admin_savr', 'aal1', []);
+    const { POST } = await import('@/app/api/auth/update-password/route.js');
+    const res = await POST(makeReq({ mot_de_passe: 'SavrTest2026!' }));
+    expect(res.status).toBe(200);
+  });
+
+  it('client d’une organisation qui exige le code, code actif, session sans code (aal1) → 403, mot de passe inchangé', async () => {
+    connecte('gestionnaire_lieux', 'aal1', [ACTIF], VIPARIS);
+    const { POST } = await import('@/app/api/auth/update-password/route.js');
+    const res = await POST(makeReq({ mot_de_passe: 'SavrTest2026!' }));
+    expect(res.status).toBe(403);
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it('client d’une organisation qui exige le code, code saisi (aal2) → 200', async () => {
+    connecte('gestionnaire_lieux', 'aal2', [ACTIF], VIPARIS);
+    const { POST } = await import('@/app/api/auth/update-password/route.js');
+    const res = await POST(makeReq({ mot_de_passe: 'SavrTest2026!' }));
+    expect(res.status).toBe(200);
+    expect(mockUpdateUser).toHaveBeenCalled();
+  });
+
+  it('client sans claim d’organisation, facteur présent, aal1 → 200 (aucun code pour lui)', async () => {
+    connecte('gestionnaire_lieux', 'aal1', [ACTIF]);
     const { POST } = await import('@/app/api/auth/update-password/route.js');
     const res = await POST(makeReq({ mot_de_passe: 'SavrTest2026!' }));
     expect(res.status).toBe(200);

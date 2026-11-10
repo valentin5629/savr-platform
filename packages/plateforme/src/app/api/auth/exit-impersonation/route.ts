@@ -43,7 +43,11 @@ export async function POST(_req: NextRequest): Promise<NextResponse> {
   try {
     const admin = createAdminSupabaseClient();
     await admin.auth.admin.updateUserById(user.id, {
-      app_metadata: { impersonator_id: null, impersonation_expires_at: null },
+      app_metadata: {
+        impersonator_id: null,
+        impersonation_expires_at: null,
+        impersonation_session_id: null,
+      },
     });
   } catch {
     // Purge best-effort : la fenêtre 1h côté hook borne déjà le flag résiduel.

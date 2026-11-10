@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError, writeError } from '@/lib/api-helpers.js';
 import {
@@ -285,7 +286,9 @@ export async function PATCH(
     codeChange &&
     ancienCode !== updatePayload.code_verification_obligatoire
   ) {
-    await supabase.from('audit_log').insert({
+    // Changement d'une exigence de sécurité : un échec de la trace est
+    // journalisé (même règle que la réinitialisation du code).
+    const { error: auditError } = await supabase.from('audit_log').insert({
       action: 'code_verification_organisation',
       table_name: 'organisations',
       record_id: id,
@@ -297,6 +300,13 @@ export async function PATCH(
           updatePayload.code_verification_obligatoire,
       },
     });
+    if (auditError) {
+      logger.error('admin.organisations.code_verification.audit_echec', {
+        by_user: auth.ctx.userId,
+        organisation_id: id,
+        code: auditError.code ?? null,
+      });
+    }
   }
 
   return NextResponse.json(org);

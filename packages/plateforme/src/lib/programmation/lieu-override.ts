@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { GABARITS_LIEU_TRANSPORTEUR } from '@/lib/lieux-labels';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -20,14 +21,8 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 /** `plateforme.difficulte_acces_enum` — colonnes `stationnement`, `acces_office`. */
 const DIFFICULTE_ACCES = ['facile', 'difficile', 'tres_difficile'] as const;
 
-/** `plateforme.type_vehicule_enum` — colonne `type_vehicule_max`. */
-const TYPE_VEHICULE = [
-  'velo_cargo',
-  'camionnette',
-  'fourgon',
-  'vul',
-  'poids_lourd',
-] as const;
+/** Colonne `type_vehicule_max` : les gabarits du lieu, jamais ceux du seul véhicule souhaité. */
+const TYPE_VEHICULE = GABARITS_LIEU_TRANSPORTEUR;
 
 /**
  * Postgres REFUSE `\u0000` dans un `jsonb` (22P05). Sans ce filtre, une chaîne

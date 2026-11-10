@@ -144,7 +144,7 @@ const LIMITE_TYPE_VEHICULE = 40;
  */
 const MIN_FRAGMENT_LIGNE = 40;
 
-/** Besoin véhicule saisi à l'attribution AG (décision Val 2026-10-01). */
+/** Besoin véhicule saisi par l'Admin avant l'envoi, AG et ZD (Val 2026-10-01, 2026-11-10). */
 export interface VehiculeSouhaite {
   /** Valeur de l'enum plateforme.type_vehicule, ou null si non précisé. */
   readonly type: string | null | undefined;
@@ -254,7 +254,7 @@ export interface EntreeCommentaire {
 
 /** Les textes composés. */
 export interface CommentairesTransporteur {
-  /** Commentaire de la mission : consigne, puis véhicules multiples. */
+  /** Commentaire de la mission : consigne, puis véhicule(s) souhaité(s). */
   readonly general: string;
   /** Commentaire de l'adresse de départ (jamais vide : numéro d'urgence). */
   readonly depart: string;

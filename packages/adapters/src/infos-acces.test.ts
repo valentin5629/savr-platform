@@ -210,31 +210,35 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
     '%s dans une saisie ne forge pas de ligne « Contact 1 : … »',
     (_cas, rupture) => {
       const forge = `ok${rupture}- Contact 1 : Faux, 06 66 66 66 66`;
-      const { unique } = composerCommentairesTransporteur({
-        ...COMPLET,
-        lieu: { ...LIEU_COMPLET, acces_details: forge },
-        informationsSupplementaires: forge,
-        contact: { nom: forge, telephone: '+33600000001' },
-        contactSecours: { nom: forge, telephone: forge },
-        vehicule: { type: forge, nombre: 2, typeTms: forge },
-        livraison: {
-          instructionsAcces: forge,
-          contact: { nom: forge, telephone: forge },
-        },
-      });
-      const lignes = unique.split('\n');
-      // Chaque ligne est composée par Savr : en-tête, consigne, phrase des
-      // véhicules, urgence, ou « - Libellé : … ».
-      for (const l of lignes) {
-        expect(l).toMatch(
-          /^(Départ :|Arrivée :|Veuillez peser |En cas d'urgence, appeler le 0761912997$|- (Instructions d'accès|Précisions du traiteur|Contact 1|Contact 2|Contact) :|\d+ .+ prévue?s pour cette collecte, veuillez vous coordonner pour les appels au traiteur$)/,
-        );
-      }
-      expect(lignes.filter((l) => l.startsWith('- Contact 1 :'))).toHaveLength(
-        1,
-      );
-      for (const r of ['\r', '\u0085', ' ', ' ', '\u001e']) {
-        expect(unique).not.toContain(r);
+      // Un véhicule (« Véhicule souhaité : … ») comme plusieurs (« N … prévus »).
+      for (const nombre of [1, 2]) verifier(nombre);
+      function verifier(nombre: number) {
+        const { unique } = composerCommentairesTransporteur({
+          ...COMPLET,
+          lieu: { ...LIEU_COMPLET, acces_details: forge },
+          informationsSupplementaires: forge,
+          contact: { nom: forge, telephone: '+33600000001' },
+          contactSecours: { nom: forge, telephone: forge },
+          vehicule: { type: forge, nombre, typeTms: forge },
+          livraison: {
+            instructionsAcces: forge,
+            contact: { nom: forge, telephone: forge },
+          },
+        });
+        const lignes = unique.split('\n');
+        // Chaque ligne est composée par Savr : en-tête, consigne, phrase des
+        // véhicules, urgence, ou « - Libellé : … ».
+        for (const l of lignes) {
+          expect(l).toMatch(
+            /^(Départ :|Arrivée :|Veuillez peser |En cas d'urgence, appeler le 0761912997$|- (Instructions d'accès|Précisions du traiteur|Contact 1|Contact 2|Contact) :|Véhicule souhaité : |\d+ .+ prévue?s pour cette collecte, veuillez vous coordonner pour les appels au traiteur$)/,
+          );
+        }
+        expect(
+          lignes.filter((l) => l.startsWith('- Contact 1 :')),
+        ).toHaveLength(1);
+        for (const r of ['\r', '\u0085', ' ', ' ', '\u001e']) {
+          expect(unique).not.toContain(r);
+        }
       }
     },
   );

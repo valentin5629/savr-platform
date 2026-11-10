@@ -102,16 +102,6 @@ export async function PATCH(
     Object.entries(body).filter(([k]) => ALLOWED_FIELDS.includes(k)),
   );
 
-  if (
-    updates.types_vehicules !== undefined &&
-    !sontGabaritsLieuTransporteur(updates.types_vehicules)
-  ) {
-    return NextResponse.json(
-      { error: MESSAGE_GABARIT_INVALIDE },
-      { status: 422 },
-    );
-  }
-
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
       { error: 'Aucun champ modifiable fourni' },
@@ -131,6 +121,23 @@ export async function PATCH(
       { error: 'Transporteur introuvable' },
       { status: 404 },
     );
+  }
+
+  // Gabarits : seule une valeur AJOUTÉE est jugée. Une valeur déjà portée par
+  // la fiche (écrite avant la garde) ne bloque pas son enregistrement.
+  if (updates.types_vehicules !== undefined) {
+    const deja = (before as { types_vehicules?: unknown }).types_vehicules;
+    const ajoutees = Array.isArray(updates.types_vehicules)
+      ? updates.types_vehicules.filter(
+          (v) => !(Array.isArray(deja) && deja.includes(v)),
+        )
+      : updates.types_vehicules;
+    if (!sontGabaritsLieuTransporteur(ajoutees)) {
+      return NextResponse.json(
+        { error: MESSAGE_GABARIT_INVALIDE },
+        { status: 422 },
+      );
+    }
   }
 
   const typeTms = (before as { type_tms: string }).type_tms;

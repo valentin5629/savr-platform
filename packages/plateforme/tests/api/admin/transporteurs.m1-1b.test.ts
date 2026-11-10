@@ -189,6 +189,42 @@ describe('Transporteurs / gabarits (échelle de l’algorithme AG, Val 2026-11-1
   });
 });
 
+describe('Transporteurs / gabarits déjà portés par la fiche', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSupabaseChain.single.mockReset();
+  });
+
+  it('patch — une valeur hors gabarit déjà enregistrée ne bloque pas la fiche ; seule une valeur ajoutée est refusée', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValue({
+      data: {
+        id: 'tr-1',
+        type_tms: 'autre',
+        nom: 'Test',
+        types_vehicules: ['camion_ancien', 'fourgon'],
+      },
+      error: null,
+    });
+    const { PATCH } =
+      await import('@/app/api/v1/admin/transporteurs/[id]/route.js');
+    const garde = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
+        types_vehicules: ['camion_ancien', 'fourgon', 'vul'],
+      }),
+      { params: Promise.resolve({ id: 'tr-1' }) },
+    );
+    expect(garde.status).not.toBe(422);
+    const ajout = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
+        types_vehicules: ['camion_ancien', 'camion_20m3'],
+      }),
+      { params: Promise.resolve({ id: 'tr-1' }) },
+    );
+    expect(ajout.status).toBe(422);
+  });
+});
+
 describe('M1.1b / Transporteurs / Modification', () => {
   beforeEach(() => {
     vi.clearAllMocks();

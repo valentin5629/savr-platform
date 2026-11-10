@@ -283,8 +283,8 @@
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md": "c0d762959e79e1a034e48b8dfef78eb74370357956a6d9cfdea099bf4c379410",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/02 - Logs techniques.md": "3dece20b7d1f1f553c618abfc5b36096d967bf6ba2f8e68d982a8e83cc7ed054",
-    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "67536ff643130ed80eeae822fd0a46c108ddda9e05630f29ed06bcff7cb33032",
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "bb1b5909a595db4e4b4567bedc8d200e7dc874089b468a8a105bb76f74330925",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "5106e46cfcd6f9197dc77196b058005b1b06486808d4269081c393e692cfc22e",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "1feba8e10b9a8c5d7065cfb3ab584be8c33e9913a4ea64f5558ac66344373597"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "266fe118486696e76f0897311924ae78fe2d2a5eee39a37aa1816fd0ca995db1"
   }
 }

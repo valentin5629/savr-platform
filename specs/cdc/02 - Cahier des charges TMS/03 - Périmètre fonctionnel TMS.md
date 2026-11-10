@@ -13,7 +13,7 @@ Le Savr TMS est organisé en **16 modules fonctionnels** : 14 en V1 (livraison m
 |---|--------|-------|-------------|
 | M01 | Réception ordres de collecte | Webhook Plateforme → TMS | Fondation |
 | M02 | Dispatch Ops Savr | Attribution collectes → prestataires | Fondation |
-| M03 | Portail prestataire self-service | Strike, Marathon, A Toutes! uniquement | Fondation |
+| M03 | Portail prestataire self-service | Strike, Marathon, A Toute! uniquement | Fondation |
 | M04 | Gestion des tournées (vacations) | Regroupement + calcul coût | Fondation |
 | M05 | App mobile chauffeur | Saisie terrain, ZD + AG | Fondation |
 | M06 | Référentiel prestataires | 30+ prestataires, chauffeurs, véhicules, tarifs | Fondation |
@@ -24,7 +24,7 @@ Le Savr TMS est organisé en **16 modules fonctionnels** : 14 en V1 (livraison m
 | M11 | Alerting transverse | `alerte_emit` + catalogue configurable + dashboard Ops + email critical | Cœur métier |
 | M12 | Attribution transporteur | Règles auto + validation manuelle | Cœur métier |
 | M13 | Administration TMS | Paramétrage, audit log, RGPD | Fondation |
-| M14 | Intégration Everest (A Toutes!) | TMS ↔ Everest ↔ Plateforme | Cœur métier |
+| M14 | Intégration Everest (A Toute!) | TMS ↔ Everest ↔ Plateforme | Cœur métier |
 | M15 | Optimisation tournées (routing) | Algorithme TSP ordre collectes | **V2** |
 | M16 | BSD Trackdéchets | Bordereaux dématérialisés réglementaires | **V2** |
 
@@ -78,7 +78,7 @@ Interface principale de l'équipe opérations Savr pour attribuer les collectes 
 **Workflow d'attribution V1** :
 1. Le TMS affiche la suggestion automatique (M12)
 2. Ops valide la suggestion ou choisit un autre prestataire (override)
-3. Le TMS envoie la collecte au prestataire (webhook vers portail prestataire M03, ou Everest pour A Toutes! M14)
+3. Le TMS envoie la collecte au prestataire (webhook vers portail prestataire M03, ou Everest pour A Toute! M14)
 4. Statut `collectes_tms.statut_dispatch` : `a_attribuer` → `attribuee_en_attente_acceptation` (propagation A1 2026-04-25)
 5. Le prestataire accepte/refuse (M03) → `statut_dispatch` → `acceptee` (puis `en_attente_execution` post-assignation chauffeur+véhicule) ou `rejetee_par_prestataire`
 6. Si refus : retour Ops manuel — Ops réattribue via M02 (auto-relance hybride 4h supprimée revue sobriété 2026-04-29)
@@ -122,7 +122,7 @@ Cette règle garantit :
 
 
 ### Rôle
-Interface dédiée aux **3 prestataires principaux** (Strike, Marathon, A Toutes!) pour accepter les collectes attribuées, gérer leur parc (chauffeurs, véhicules, types de véhicules), consulter leurs revenus et déposer leurs factures. Les prestataires province sont gérés par Ops Savr (hors portail V1).
+Interface dédiée aux **3 prestataires principaux** (Strike, Marathon, A Toute!) pour accepter les collectes attribuées, gérer leur parc (chauffeurs, véhicules, types de véhicules), consulter leurs revenus et déposer leurs factures. Les prestataires province sont gérés par Ops Savr (hors portail V1).
 
 ### Fonctionnement V1 (synthèse — détail complet dans fichier M03)
 
@@ -148,7 +148,7 @@ Interface dédiée aux **3 prestataires principaux** (Strike, Marathon, A Toutes
 **Contrôle d'accès conditionnel (D8 propagation CDC Plateforme — renommé 2026-05-03, sémantique étendue plaque + nom chauffeur)** :
 - Toggle `controle_acces_requis_default` niveau `plateforme.lieux` (cf. [[../01 - Cahier des charges App/04 - Data Model]]) — ex `plaque_requise_default`
 - Saisi une fois au niveau événement (formulaire §06.01) puis copié sur chaque `plateforme.collectes.controle_acces_requis` à l'INSERT (override per-collecte possible) — ex `plaque_requise`
-- Si `controle_acces_requis=true` → le manager doit saisir **la plaque ET affecter un chauffeur** avant validation tournée (blocage trigger `validate_tournee_controle_acces`, ex `tournee_plaque_requise`). **Exception A Toutes! vélo cargo** : la plaque n'est pas exigée, mais le chauffeur reste obligatoire dans tous les cas.
+- Si `controle_acces_requis=true` → le manager doit saisir **la plaque ET affecter un chauffeur** avant validation tournée (blocage trigger `validate_tournee_controle_acces`, ex `tournee_plaque_requise`). **Exception A Toute! vélo cargo** : la plaque n'est pas exigée, mais le chauffeur reste obligatoire dans tous les cas.
 - Si `controle_acces_requis=false` → saisie plaque optionnelle manager (le chauffeur peut renseigner en M05 E3 début de tournée)
 
 **Gestion du parc** :
@@ -168,7 +168,7 @@ Interface dédiée aux **3 prestataires principaux** (Strike, Marathon, A Toutes
 - Rapprochement auto déclenché après upload (M08)
 
 **Multi-tenant RLS strict** :
-- Strike ne voit jamais les données de Marathon ni A Toutes! ni prestataires province
+- Strike ne voit jamais les données de Marathon ni A Toute! ni prestataires province
 - Politique unifiée `shared.prestataires` (§09 cross-schema RLS)
 - Tests pgTAP bloquants CI (100% policies)
 
@@ -182,7 +182,7 @@ Retournement méthode d'auth chauffeur M05 (magic link → email+password) — u
 - **Manager** : multi-device illimité / **Chauffeur** : 1 device actif (D12 M05 conservé)
 
 ### Périmètre V1
-Portail self-service web pour Strike, Marathon, A Toutes! uniquement. Les 30 prestataires province sont gérés par Ops Savr (M02).
+Portail self-service web pour Strike, Marathon, A Toute! uniquement. Les 30 prestataires province sont gérés par Ops Savr (M02).
 
 ### Références détaillées
 - [[06 - Fonctionnalités détaillées TMS/M03 - Portail prestataire self-service]] — 16 sections, 16 décisions, 12 workflows, 14 edge cases
@@ -249,7 +249,7 @@ Interface terrain unique du chauffeur prestataire. PWA offline-first (Android Ch
 
 **Écrans V1** (10) : E1 login → E2 accueil (tournées du jour + J+1 chronologique, D19) → E3 checklist pré-départ bloquante → E4 liste collectes tournée active → E5 détail collecte ZD/AG → E6 pesée auto-tare → E7 signature AG + équivalent repas → E8 clôture GPS → E9 signalement rapide → E10 historique 30j.
 
-**Checklist pré-départ** (R_M05.1) : EPI, véhicule, plaque obligatoire sauf vélo cargo (D10). Vélo cargo A Toutes! : checklist allégée, pas de plaque.
+**Checklist pré-départ** (R_M05.1) : EPI, véhicule, plaque obligatoire sauf vélo cargo (D10). Vélo cargo A Toute! : checklist allégée, pas de plaque.
 
 **Pesées auto-tare** (D7/D8/D9) : dropdown contenant à chaque pesée (peut varier au sein d'une même collecte), tare auto snapshot `types_contenants.tare_kg`, override manuel avec motif obligatoire (R_M05.4), contenant `sans_contenant` pour pesée sac direct (R_M05.5). Paramétrable Admin TMS M13.
 
@@ -280,7 +280,7 @@ PWA V1 installable (add to home screen Android/iOS). App native reportée V2 sel
 ## M06 — Référentiel prestataires
 
 ### Rôle
-Source de vérité TMS sur les prestataires logistiques, leurs chauffeurs, leurs véhicules et leurs grilles tarifaires. Environ 30 prestataires actifs (Strike, Marathon, A Toutes! + prestataires province).
+Source de vérité TMS sur les prestataires logistiques, leurs chauffeurs, leurs véhicules et leurs grilles tarifaires. Environ 30 prestataires actifs (Strike, Marathon, A Toute! + prestataires province).
 
 ### Données d'un prestataire
 
@@ -299,8 +299,8 @@ Source de vérité TMS sur les prestataires logistiques, leurs chauffeurs, leurs
 | `rayon_intervention_km` | entier | Prestataires province uniquement |
 | `statut` | enum | `actif` \| `suspendu` \| `archive` |
 | `date_fin_contrat` | date | NULL sauf pendant suspension 30j (trigger cron J+30) |
-| `has_portail_self_service` | bool | true pour Strike, Marathon, A Toutes! |
-| `integration_externe` | enum | `aucune` \| `everest` (A Toutes! uniquement) |
+| `has_portail_self_service` | bool | true pour Strike, Marathon, A Toute! |
+| `integration_externe` | enum | `aucune` \| `everest` (A Toute! uniquement) |
 | `everest_client_id` | text | NULL sauf `integration_externe=everest` |
 | `commentaire_interne` | texte | Libre Ops |
 
@@ -418,9 +418,9 @@ coût_total  = n_vacations × 100€
 
 Pas d'heures sup partielles chez Marathon : toute heure entamée au-delà d'une tranche de 4h déclenche une vacation complète supplémentaire.
 
-**A Toutes!** (vélo cargo + camion frigo, via Everest) :
+**A Toute!** (vélo cargo + camion frigo, via Everest) :
 
-**Grille tarifaire vélo A Toutes! (tarifs HT négociés Savr)** :
+**Grille tarifaire vélo A Toute! (tarifs HT négociés Savr)** :
 
 | Service | ID Everest | Course complète — Paris | Course complète — Communes limitrophes | Course incomplète — Paris | Course incomplète — Communes limitrophes |
 |---------|-----------|------------------------|----------------------------------------|---------------------------|------------------------------------------|
@@ -432,24 +432,24 @@ Pas d'heures sup partielles chez Marathon : toute heure entamée au-delà d'une 
 
 **Conséquence UX app mobile (M05)** : lors d'une collecte AG avec pesée = 0 kg, l'app doit proposer une confirmation explicite "Aucun repas à collecter" → le TMS applique automatiquement le tarif "course incomplète" et signale l'événement à Ops Savr (anomalie à documenter).
 
-**Grille tarifaire camion A Toutes! (service ID 91, tarifs HT — backup Marathon)** :
+**Grille tarifaire camion A Toute! (service ID 91, tarifs HT — backup Marathon)** :
 
 | Service | Zone 1 (Paris + limitrophes) | Zone 2 (92/93/94 hors limitrophes) | Zone 3 (91/78/95/77) |
 |---------|------------------------------|-------------------------------------|----------------------|
 | Camion Frais – Programmé H+4, créneau 30 min (ID 91) | 90 € | 145 € | 190 € |
 
-Tarifs fixes indépendants du temps passé (pas d'heures sup camion A Toutes!).
+Tarifs fixes indépendants du temps passé (pas d'heures sup camion A Toute!).
 
-**Règle zone A Toutes!** : si le lieu de chargement OU de livraison est en zone supérieure, le tarif de la zone la plus haute s'applique.
+**Règle zone A Toute!** : si le lieu de chargement OU de livraison est en zone supérieure, le tarif de la zone la plus haute s'applique.
 
-**Frais fixes A Toutes!** : frais de dispatch mensuel (159 €) **non applicables à Savr** — exclus du pilotage financier.
+**Frais fixes A Toute!** : frais de dispatch mensuel (159 €) **non applicables à Savr** — exclus du pilotage financier.
 
-**Zones A Toutes!** :
+**Zones A Toute!** :
 - Zone 1 : Paris intra-muros (1er–20e) + communes limitrophes listées dans la grille (Issy, Vanves, Montrouge, Clichy, Neuilly, Boulogne, Levallois, Malakoff, Montreuil, Bagnolet, Les Lilas, Pantin, Aubervilliers, Saint-Ouen, Le Pré-Saint-Gervais, Saint-Mandé, Gentilly, Le Kremlin-Bicêtre, Ivry, Vincennes, Charenton)
 - Zone 2 : reste du 92, 93, 94
 - Zone 3 : 91, 78, 95, 77
 
-**Calcul coût A Toutes! dans le TMS** :
+**Calcul coût A Toute! dans le TMS** :
 
 - **Vélo** : tarif en base TMS (grille négociée Savr). Le TMS détermine :
   1. La zone (Paris vs Communes limitrophes) depuis le code postal du lieu — lookup table en base
@@ -529,7 +529,7 @@ Centraliser la réception des factures prestataires, automatiser le rapprochemen
 **V1 rédigée 2026-04-24** — cf. [[06 - Fonctionnalités détaillées TMS/M08 - Facturation prestataires]].
 
 **Upload factures** :
-- Via portail prestataire self-service M03 W10 (Strike, Marathon, A Toutes!, province avec manager actif) — upload PDF direct + OCR Mistral préremplit montants
+- Via portail prestataire self-service M03 W10 (Strike, Marathon, A Toute!, province avec manager actif) — upload PDF direct + OCR Mistral préremplit montants
 - Pour prestataires province sans portail : upload par Ops Savr via M08 E3 (réception email → upload manuel, OCR préremplit)
 - À l'upload : notification email automatique Ops + Admin TMS (N1/N3)
 
@@ -538,7 +538,7 @@ Centraliser la réception des factures prestataires, automatiser le rapprochemen
 2. Comparaison au centime près :
    - `montant_ht_prestataire = montant_ht_calcule_tms` → **`valide` direct (auto-validation, refondu D1 2026-05-01)** + verrouillage tournées + audit_log + N1 informative
    - Tout écart (même 0,01€) → `ecart_detecte` → W5 validation manuelle avec motif OU W6 contestation
-3. Au moins une tournée `cout_final_ht IS NULL` (A Toutes! grille absente) → `rapprochement_manuel_requis` → Ops saisit grille M07 puis re-rapproche
+3. Au moins une tournée `cout_final_ht IS NULL` (A Toute! grille absente) → `rapprochement_manuel_requis` → Ops saisit grille M07 puis re-rapproche
 4. → **étape supprimée V1** (validation auto match exact)
 5. Contestation → prestataire émet avoir + nouvelle facture avec numéro différent (D7), ancienne passe `remplacee_par_avoir`
 6. Déverrouillage Admin TMS (W9) possible post-validation avec motif ≥ 30 car
@@ -769,16 +769,16 @@ Suggérer automatiquement le bon prestataire pour chaque collecte selon des règ
 
 | Condition | Prestataire suggéré | Service Everest | Raison |
 |-----------|--------------------|-----------------|---------| 
-| 7h–20h ET < 600 pax ET H+2 min | A Toutes! vélo | ID 71 (36,8€) | Vélo cargo frais, tarif optimal |
-| 7h–20h ET < 600 pax ET last-minute (<1,5h) | A Toutes! vélo express | ID 75 (55,2€) | Délai incompatible avec H+2 |
+| 7h–20h ET < 600 pax ET H+2 min | A Toute! vélo | ID 71 (36,8€) | Vélo cargo frais, tarif optimal |
+| 7h–20h ET < 600 pax ET last-minute (<1,5h) | A Toute! vélo express | ID 75 (55,2€) | Délai incompatible avec H+2 |
 | 7h–20h ET ≥ 600 pax | Marathon (camion frigo) | — | Volume trop important pour vélo |
-| 7h–20h ET ≥ 600 pax ET Marathon indisponible | A Toutes! camion | ID 91 (grille zonée) | Backup Marathon |
-| Après 23h (quelle que soit la taille) | Marathon | — | A Toutes! indisponible la nuit |
+| 7h–20h ET ≥ 600 pax ET Marathon indisponible | A Toute! camion | ID 91 (grille zonée) | Backup Marathon |
+| Après 23h (quelle que soit la taille) | Marathon | — | A Toute! indisponible la nuit |
 | Province | Prestataire province le plus proche | — | Voir règles province ci-dessous |
 
-**Détection last-minute A Toutes!** : si `heure_collecte − heure_actuelle_dispatch < 1h30`, le TMS sélectionne automatiquement le service ID 75 (Express) au lieu du ID 71 (Programmé H+2). Le surcoût (+18,4€) est documenté dans l'audit log.
+**Détection last-minute A Toute!** : si `heure_collecte − heure_actuelle_dispatch < 1h30`, le TMS sélectionne automatiquement le service ID 75 (Express) au lieu du ID 71 (Programmé H+2). Le surcoût (+18,4€) est documenté dans l'audit log.
 
-**Vérification couverture A Toutes! via Everest** : avant de sélectionner A Toutes!, le TMS peut appeler `POST /is-handled-address` (API Everest) pour confirmer que l'adresse est dans la zone de chalandise. Si non couverte → fallback Marathon.
+**Vérification couverture A Toute! via Everest** : avant de sélectionner A Toute!, le TMS peut appeler `POST /is-handled-address` (API Everest) pour confirmer que l'adresse est dans la zone de chalandise. Si non couverte → fallback Marathon.
 
 **Règles province** :
 1. Filtrer les prestataires avec `type_prestation` incluant le type de collecte (ZD ou AG) ET `rayon_intervention_km` > 0
@@ -819,7 +819,7 @@ Interface réservée aux admins (Val + Louis) pour configurer le TMS, paramétre
 
 **Onboarding prestataire** :
 - Formulaire de création : nom, SIRET, contact, email, téléphone, adresse, type de prestation, véhicules, grille tarifaire, coords GPS, rayon d'intervention (km)
-- Activation portail self-service (Strike, Marathon, A Toutes! uniquement)
+- Activation portail self-service (Strike, Marathon, A Toute! uniquement)
 - Envoi magic link initial au manager prestataire
 
 **Audit log** :
@@ -844,23 +844,23 @@ Interface réservée aux admins (Val + Louis) pour configurer le TMS, paramétre
 
 ---
 
-## M14 — Intégration Everest (A Toutes!)
+## M14 — Intégration Everest (A Toute!)
 
 ### Rôle
-Relayer les ordres de collecte AG vers le système propriétaire d'A Toutes! (Everest) et recevoir les confirmations d'acceptation. Déjà live côté Bubble — à migrer vers le TMS Savr.
+Relayer les ordres de collecte AG vers le système propriétaire d'A Toute! (Everest) et recevoir les confirmations d'acceptation. Déjà live côté Bubble — à migrer vers le TMS Savr.
 
 ### Flux complet
 
 ```
 Plateforme (collecte AG validée)
   → webhook Plateforme → TMS (M01)
-    → TMS identifie prestataire = A Toutes! (M12)
+    → TMS identifie prestataire = A Toute! (M12)
       → TMS pousse l'ordre à Everest (POST Everest API)
-        → A Toutes! valide dans Everest
+        → A Toute! valide dans Everest
           → Everest retourne statut au TMS (webhook Everest → TMS)
             → TMS met à jour statut collecte (`acceptee` ou `refusee`)
               → TMS pousse webhook vers Plateforme (M01 flux retour)
-                → Chauffeur A Toutes! exécute via app mobile TMS Savr (M05)
+                → Chauffeur A Toute! exécute via app mobile TMS Savr (M05)
 ```
 
 ### API Everest — références techniques
@@ -892,7 +892,7 @@ Plateforme (collecte AG validée)
 
 | Événement Everest | Signification | Action TMS |
 |-------------------|--------------|------------|
-| `mission_dispatched` | Chauffeur assigné par A Toutes! | MAJ statut collecte : `en_preparation` |
+| `mission_dispatched` | Chauffeur assigné par A Toute! | MAJ statut collecte : `en_preparation` |
 | `mission_pickedup` | Collecte démarrée (chauffeur parti) | MAJ statut : `en_cours` |
 | `mission_finished` / `mission_success` | Collecte + livraison terminées | MAJ statut : `realisee` → webhook TMS → Plateforme |
 | `mission_failed` | Collecte échouée | Alerte Ops Savr + statut : `incident` |
@@ -903,12 +903,12 @@ Plateforme (collecte AG validée)
 
 ### Failover Everest indisponible
 - Alerte Ops Savr immédiate (email + dashboard M11)
-- Ops contacte A Toutes! directement par téléphone
+- Ops contacte A Toute! directement par téléphone
 - Confirmation manuelle de l'acceptation saisie dans le TMS (statut `acceptee_manuellement`)
 - Logging de l'incident dans `integrations_logs`
 
 ### Périmètre V1
-Migration du contrat Bubble ↔ Everest vers le TMS + supervision Ops + alerting transverse. Pas de refonte du contrat API Everest. Les chauffeurs A Toutes! utilisent l'app mobile TMS Savr pour la saisie terrain (pas l'interface Everest).
+Migration du contrat Bubble ↔ Everest vers le TMS + supervision Ops + alerting transverse. Pas de refonte du contrat API Everest. Les chauffeurs A Toute! utilisent l'app mobile TMS Savr pour la saisie terrain (pas l'interface Everest).
 
 ### Statut V1 — V1 rédigée 2026-04-25, revue sobriété appliquée 2026-04-30
 
@@ -960,7 +960,7 @@ Stock et Veolia :
   M09 Stock matériel + M10 Exutoires Veolia
 
 Intégration externe :
-  M14 Everest (A Toutes!)
+  M14 Everest (A Toute!)
 ```
 
 ---
@@ -968,21 +968,21 @@ Intégration externe :
 ## Décisions prises
 
 - **14 modules V1 + 2 modules V2** — structure validée 2026-04-22
-- **Portail self-service V1** : Strike, Marathon, A Toutes! uniquement. Les ~30 prestataires province sont gérés par Ops Savr (M02 dispatch + M05 app mobile chauffeur pour la saisie terrain) — 2026-04-22
+- **Portail self-service V1** : Strike, Marathon, A Toute! uniquement. Les ~30 prestataires province sont gérés par Ops Savr (M02 dispatch + M05 app mobile chauffeur pour la saisie terrain) — 2026-04-22
 - **GPS lieux** : géocodage automatique côté Plateforme depuis l'adresse du lieu. Coords incluses dans le payload webhook Plateforme → TMS. Le TMS ne géocode pas — 2026-04-22
-- **Formulaire MTS-1 simplifié** : les champs "Process de création de collecte" et "Type de TMS" de MTS-1 ne sont pas repris tels quels. Le process est déterminé par le type de prestataire (Everest pour A Toutes!, portail direct pour Strike/Marathon, manuel pour province) — 2026-04-22
-- **Attribution transporteur V1** : suggestion automatique + validation manuelle Ops. Règles : ZD→Strike, AG journée ≤600pax→A Toutes!, AG nuit ou >600pax→Marathon, province→le plus proche par rayon GPS — 2026-04-22
+- **Formulaire MTS-1 simplifié** : les champs "Process de création de collecte" et "Type de TMS" de MTS-1 ne sont pas repris tels quels. Le process est déterminé par le type de prestataire (Everest pour A Toute!, portail direct pour Strike/Marathon, manuel pour province) — 2026-04-22
+- **Attribution transporteur V1** : suggestion automatique + validation manuelle Ops. Règles : ZD→Strike, AG journée ≤600pax→A Toute!, AG nuit ou >600pax→Marathon, province→le plus proche par rayon GPS — 2026-04-22
 - **Architecture M12 générique** : la règle "ZD = Strike" n'est pas codée en dur, configurable pour permettre l'ajout d'autres prestataires ZD sans refactoring — 2026-04-22
 - **M08 rapprochement — Option A V1** : saisie manuelle du montant facturé + calcul auto de l'écart vs coût théorique. OCR automatique reporté V2 — 2026-04-22
 - **M15 routing** : reporté V2, déclencheur = volume > 50 collectes/jour — 2026-04-22
 - **M16 BSD Trackdéchets** : reporté V2, risque amende assumé par Val, validation juriste RSE recommandée — 2026-04-22
 - **App mobile V1** : PWA (Progressive Web App) — permet l'installation sur écran d'accueil sans passer par un store. App native iOS/Android reportée V2 selon retours terrain — 2026-04-22
 - **Strike — vacation facturée dans tous les cas** : même collecte ZD avec 0 kg (rolls vides, départ annulé post-démarrage chauffeur). Pas de "course incomplète" côté ZD/Strike — 2026-04-22
-- **Conditions d'annulation uniformes** : annulation Savr **avant** l'heure de début de créneau → 0 € facturé (Strike, Marathon, A Toutes!). Annulation après démarrage → vacation facturée. Règle à câbler dans le workflow annulation TMS (M02 + M04) : si `statut_tournee = en_cours` au moment de l'annulation → alerte Ops, coût généré — 2026-04-22
-- **Grille vélo A Toutes! (tarifs négociés Savr HT)** : 2 dimensions — zone (Paris / Communes limitrophes) × type de course (complète / incomplète). Course incomplète = 0 kg collecté, déclaration explicite chauffeur sur app mobile, tarif ~50% — 2026-04-22
-- **Camion A Toutes! (ID 91)** : tarif fixe par zone (90€/145€/190€), indépendant du temps passé. Frais dispatch 159€/mois non applicables à Savr — 2026-04-22
+- **Conditions d'annulation uniformes** : annulation Savr **avant** l'heure de début de créneau → 0 € facturé (Strike, Marathon, A Toute!). Annulation après démarrage → vacation facturée. Règle à câbler dans le workflow annulation TMS (M02 + M04) : si `statut_tournee = en_cours` au moment de l'annulation → alerte Ops, coût généré — 2026-04-22
+- **Grille vélo A Toute! (tarifs négociés Savr HT)** : 2 dimensions — zone (Paris / Communes limitrophes) × type de course (complète / incomplète). Course incomplète = 0 kg collecté, déclaration explicite chauffeur sur app mobile, tarif ~50% — 2026-04-22
+- **Camion A Toute! (ID 91)** : tarif fixe par zone (90€/145€/190€), indépendant du temps passé. Frais dispatch 159€/mois non applicables à Savr — 2026-04-22
 - **API Everest** : auth Bearer token, création mission via `POST /missions/create` (service_id + adresses + start_date + client_ref=collecte_id), annulation via `POST /missions/cancel` avant heure prévue. 7 webhooks mappés vers TMS — 2026-04-22
-- **Bouton "Aucun repas à collecter" (M05, AG uniquement)** : flow dédié avec photo du lieu + commentaire obligatoires. Déclenche tarif "course incomplète" A Toutes!, statut `realisee_sans_collecte`, pesée = 0 kg pushée à la Plateforme. Strike non concerné (vacation toujours facturée) — 2026-04-22
+- **Bouton "Aucun repas à collecter" (M05, AG uniquement)** : flow dédié avec photo du lieu + commentaire obligatoires. Déclenche tarif "course incomplète" A Toute!, statut `realisee_sans_collecte`, pesée = 0 kg pushée à la Plateforme. Strike non concerné (vacation toujours facturée) — 2026-04-22
 - **Remontée "Aucun repas à collecter" Plateforme** : le motif + la photo sont visibles dans l'historique des collectes du tableau de bord traiteur côté Plateforme (badge + motif + photo). En parallèle, alerte interne Ops Savr (M11). Dépendance à câbler dans le CDC Plateforme §03 (historique traiteur) et §08 (payload S5 `collecte-terminee` batch étendu avec `source=ag_sans_collecte`, `motif_chauffeur` et `photo_url` dans `pesees[]`) — 2026-04-22 / aligné M05 propagation 2026-04-24
 - **Pas de garde-fou automatique V1 sur le bouton "Aucun repas à collecter"** : un chauffeur peut l'utiliser librement. Le contrôle se fait a posteriori via le widget Ops M11 "Taux Aucun repas / chauffeur" (fenêtre 30/60/90 jours, drill-down collecte, export CSV) — 2026-04-22
 
@@ -999,8 +999,8 @@ Intégration externe :
 8. — **Résolu revue sobriété 2026-04-25 (A6)** : Slack dégagé V1 entièrement (infra dormante retirée).
 9. **Score fiabilité prestataire** — prévu en V2 pour M12 (tri secondaire province). Implique de définir dès V1 les métriques à collecter (taux d'acceptation, retards, incidents).
 10. **Frais de dispatch 159€** — ✅ Non applicables à Savr. Exclus du pilotage financier — 2026-04-22.
-11. **Tarif A Toutes! camion ID 91** — ✅ Grille PDF applicable, tarif fixe par zone (90€/145€/190€), indépendant du temps — 2026-04-22.
-12. **Conditions d'annulation prestataires** — ✅ Règle uniforme : si Savr annule une collecte **avant l'heure prévue de début de créneau** → pas de facturation par le prestataire (Strike, Marathon, A Toutes!). Si annulation après le début du créneau (chauffeur déjà mobilisé) → vacation facturée — 2026-04-22.
+11. **Tarif A Toute! camion ID 91** — ✅ Grille PDF applicable, tarif fixe par zone (90€/145€/190€), indépendant du temps — 2026-04-22.
+12. **Conditions d'annulation prestataires** — ✅ Règle uniforme : si Savr annule une collecte **avant l'heure prévue de début de créneau** → pas de facturation par le prestataire (Strike, Marathon, A Toute!). Si annulation après le début du créneau (chauffeur déjà mobilisé) → vacation facturée — 2026-04-22.
 13. **Strike — vacation facturée dans tous les cas** — ✅ Même si rien à collecter (rolls vides, collecte ZD annulée après départ chauffeur), la vacation Strike est facturée. Pas de tarif "course incomplète" côté ZD. Le TMS calcule le coût sur la durée réelle de présence — 2026-04-22.
 10. **Tares des contenants** — valeurs nécessaires pour M05 auto-tare (voir §01 Question 1). À confirmer avec fournisseurs.
 14. **Affichage "Aucun repas à collecter" côté Plateforme** — à intégrer dans le CDC Plateforme §03 (tableau de bord traiteur → historique des collectes) + §08 (payload S5 `collecte-terminee` avec `source=ag_sans_collecte`, `motif_chauffeur`, `photo_url` dans `pesees[]`). Rappel : Ops Savr doit aussi voir le motif dans l'admin Plateforme (vue collecte côté commercial). Aligné M05 propagation 2026-04-24.

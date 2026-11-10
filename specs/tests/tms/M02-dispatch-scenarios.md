@@ -12,7 +12,7 @@
 > Les tests P1-critique sont bloquants CI. Les tests P2 et P3 sont non-bloquants V1.
 > Ne pas démarrer le développement du module sans avoir écrit les tests P1 d'abord.
 >
-> **Conventions de données** : prestataires réels — Strike (ZD), Marathon (AG volume/nuit), A Toutes! (AG vélo, intégration Everest, pas de portail M03). Traiteurs : Kaspia, Kardamome. Statuts dispatch TMS (6 valeurs) : `a_attribuer`, `attribuee_en_attente_acceptation`, `acceptee`, `en_attente_execution`, `rejetee_par_prestataire`, `annulee_par_traiteur`. `rejetee_par_tms` est Plateforme-only (après S11), pas un statut dispatch TMS.
+> **Conventions de données** : prestataires réels — Strike (ZD), Marathon (AG volume/nuit), A Toute! (AG vélo, intégration Everest, pas de portail M03). Traiteurs : Kaspia, Kardamome. Statuts dispatch TMS (6 valeurs) : `a_attribuer`, `attribuee_en_attente_acceptation`, `acceptee`, `en_attente_execution`, `rejetee_par_prestataire`, `annulee_par_traiteur`. `rejetee_par_tms` est Plateforme-only (après S11), pas un statut dispatch TMS.
 
 ---
 
@@ -285,8 +285,8 @@ Scénario : doublon_chauffeur_choix_explicite
 Scénario : everest_down_skip_a_toutes_bascule_marathon
   Étant donné parametres_tms.toutes_disponibilite_statut = 'indisponible'
   Quand M12 calcule la suggestion pour une collecte AG vélo jour
-  Alors A Toutes! (branches 1/2/backup) est skippé et la bascule Marathon est proposée (ag_velo_fallback_marathon)
-  Et un bandeau E1 warning "A Toutes! indisponible — report Marathon auto" s'affiche
+  Alors A Toute! (branches 1/2/backup) est skippé et la bascule Marathon est proposée (ag_velo_fallback_marathon)
+  Et un bandeau E1 warning "A Toute! indisponible — report Marathon auto" s'affiche
 ```
 
 ```gherkin
@@ -584,7 +584,7 @@ Scénario : unicite_partielle_plateforme_collecte_id
 
 - **Catégorie 7 — Migration (Bubble + MTS-1 → Supabase)** : non couverte par M02. Le module porte le dispatch runtime, pas la migration. À générer via `cdc-migration-data` + scénarios sur `04 - Migration/05 - Checks reconciliation.md` (côté TMS : §13 Migration MTS-1).
 - **Réception E1 — validation payload incomplet / DLQ / Idempotency / heure_collecte rétrograde** : couverts en profondeur par les scénarios **M01** (réception ordres). M02 ne teste ici que la conséquence (apparition en `a_attribuer`).
-- **Acceptation A Toutes! dérivée du webhook Everest `mission_dispatched`** : logique portée par **M14** (intégration Everest) + M12. M02 ne teste que l'effet aval (passage `acceptee` + S1, alerte W6 si pas de `mission_dispatched`).
+- **Acceptation A Toute! dérivée du webhook Everest `mission_dispatched`** : logique portée par **M14** (intégration Everest) + M12. M02 ne teste que l'effet aval (passage `acceptee` + S1, alerte W6 si pas de `mission_dispatched`).
 - **Permis de conduire upload obligatoire en E5** : tranché V1.1 (warning visuel non bloquant en V1).
 - **Raccourcis clavier, bulk actions, digest notifications** : reportés V1.1.
 

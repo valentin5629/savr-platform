@@ -386,7 +386,7 @@ describe('MTS-1 — rang refusé puis réattribué', () => {
 
 // ─── Everest ──────────────────────────────────────────────────────────────────
 
-describe('A Toutes! — mission refusée puis réattribuée', () => {
+describe('A Toute! — mission refusée puis réattribuée', () => {
   afterEach(() => _setEverestHandlers(null));
 
   it('E1 : nouvelle mission sur la tournée réinitialisée, aucune seconde tournée', async () => {

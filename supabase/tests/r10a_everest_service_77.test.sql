@@ -51,7 +51,7 @@ VALUES (
 );
 
 INSERT INTO shared.prestataires (id, nom, code, mode_integration)
-VALUES ('fa770001-0000-0000-0000-000000000001'::uuid, 'A Toutes! 77', 'a-toutes-r10a', 'api');
+VALUES ('fa770001-0000-0000-0000-000000000001'::uuid, 'A Toute! 77', 'a-toutes-r10a', 'api');
 
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, type_vehicule, prestataire_logistique_id, statut)
 VALUES

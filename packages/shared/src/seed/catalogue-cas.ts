@@ -14,7 +14,7 @@
  * du seed. Déterministe à ancre égale, aucun tirage aléatoire.
  *
  * Volontairement absent :
- * - A Toutes! (Everest) : une collecte servie par lui pourrait partir chez
+ * - A Toute! (Everest) : une collecte servie par lui pourrait partir chez
  *   Everest depuis dev au premier clic d'envoi ; à décider à part.
  * - « Rapport non consulté » : ce filtre lit les rapports PDF, que le seed ne
  *   sème jamais (cf. documents-non-semes) ; `pnpm documents:dev` les fabrique.

@@ -11,7 +11,7 @@ h(function(){const [o,setO]=React.useState(true);return h('div',null,h(S.Button,
       infos:[{icon:S.CalendarDotsIcon,texte:'Jeudi 1er octobre 2026 · 22:00'},{icon:S.MapPinIcon,texte:'[Adresse, 92100 Boulogne]'}]}),
     h(S.FicheCorps,null,h(S.Tabs,{defaultValue:'infos'},
       h(S.TabsList,null,h(S.OngletAvecErreurs,{value:'infos',nbErreurs:0},'Informations'),h(S.OngletAvecErreurs,{value:'asso',nbErreurs:1},'Association')),
-      h(S.TabsContent,{value:'infos'},h('dl',{className:'grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2'},h(S.InfoItem,{label:'Convives'},'180 pax'),h(S.InfoItem,{label:'Transporteur'},'[A Toutes!]'))),
+      h(S.TabsContent,{value:'infos'},h('dl',{className:'grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2'},h(S.InfoItem,{label:'Convives'},'180 pax'),h(S.InfoItem,{label:'Transporteur'},'[A Toute!]'))),
       h(S.TabsContent,{value:'asso'},h(S.Text,{variant:'muted'},'1 champ à corriger.'))))))})
 );
 </script>

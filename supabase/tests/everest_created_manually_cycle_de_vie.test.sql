@@ -103,10 +103,10 @@ SELECT is(
   2, 'B0 avant acceptation : missions creation_failed, aucun champ manual_acceptance_* pose par les fixtures');
 
 SELECT plateforme.fn_accepter_mission_everest_manuelle(
-  'e5c70000-0000-0000-0000-0000000000c1'::uuid, 'EVR-CYC-001', 'Mathieu (A Toutes!)',
+  'e5c70000-0000-0000-0000-0000000000c1'::uuid, 'EVR-CYC-001', 'Mathieu (A Toute!)',
   'e5c70000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL);
 SELECT plateforme.fn_accepter_mission_everest_manuelle(
-  'e5c70000-0000-0000-0000-0000000000c2'::uuid, 'EVR-CYC-002', 'Mathieu (A Toutes!)',
+  'e5c70000-0000-0000-0000-0000000000c2'::uuid, 'EVR-CYC-002', 'Mathieu (A Toute!)',
   'e5c70000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL);
 
 SELECT is(
@@ -115,7 +115,7 @@ SELECT is(
        AND statut_everest = 'created_manually'
        AND manual_acceptance_at IS NOT NULL
        AND manual_acceptance_by_user_id = 'e5c70000-0000-0000-0000-0000000000a1'::uuid
-       AND manual_acceptance_contact = 'Mathieu (A Toutes!)'),
+       AND manual_acceptance_contact = 'Mathieu (A Toute!)'),
   2, 'B1 la RPC pose created_manually avec les 3 champs de tracabilite');
 
 -- Instantané de l'audit, pour prouver qu'il n'est ni effacé ni réécrit.

@@ -292,7 +292,7 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
       error: null,
     });
     reponses.set('plateforme.transporteurs', {
-      data: { id: 't-1', nom: 'A Toutes!', type_tms: 'a_toutes' },
+      data: { id: 't-1', nom: 'A Toute!', type_tms: 'a_toutes' },
       error: null,
     });
 
@@ -300,7 +300,7 @@ describe('M0.6 — GET admin/collectes/[id] : prestataire actuel', () => {
 
     expect((await res.json()).prestataire_actuel).toEqual({
       transporteur_id: 't-1',
-      nom: 'A Toutes!',
+      nom: 'A Toute!',
       type_tms: 'a_toutes',
     });
   });

@@ -20,7 +20,7 @@ describe('M0.8-60 — Picto plaque TMS : vert ssi toutes les tournées ont leur 
     expect(plaqueTmsComplete([t('AB-123-CD'), t('EF-456-GH')])).toBe(true);
     expect(plaqueTmsComplete([t('AB-123-CD'), t(null)])).toBe(false); // une manque
     expect(plaqueTmsComplete([t(null)])).toBe(false);
-    // Vélo cargo (A Toutes!) : pas de plaque attendue → complet.
+    // Vélo cargo (A Toute!) : pas de plaque attendue → complet.
     expect(plaqueTmsComplete([t(null, 'velo_cargo')])).toBe(true);
     expect(plaqueTmsComplete([t('AB-123-CD'), t(null, 'velo_cargo')])).toBe(
       true,

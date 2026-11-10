@@ -151,7 +151,7 @@ export interface VehiculeSouhaite {
   readonly nombre: number;
   /**
    * `transporteurs.type_tms` du prestataire : nomme les véhicules quand l'Admin
-   * n'a pas précisé de type (« vélos » chez A Toutes!, « camions » chez MTS-1).
+   * n'a pas précisé de type (« vélos » chez A Toute!, « camions » chez MTS-1).
    */
   readonly typeTms?: string | null | undefined;
 }

@@ -1,7 +1,7 @@
 // Jeton Everest fixe, chemin réseau réel (aucun handler injecté).
 //
 // Chaque appel à POST /auth crée un jeton et révoque le précédent (réponse
-// d'Everest relayée par A Toutes!, 2026-10-19). Le client lit donc un jeton fixe
+// d'Everest relayée par A Toute!, 2026-10-19). Le client lit donc un jeton fixe
 // dans EVEREST_API_TOKEN et n'appelle jamais /auth. Un jeton absent ou refusé
 // est un réglage à corriger : erreur passagère + alerte Slack critique.
 // Les valeurs de jeton ci-dessous sont inventées.

@@ -103,7 +103,7 @@ Scénario : creation_chauffeur_envoie_magic_link
 # Priorité : P2-important
 
 Scénario : creation_vehicule_avec_nouveau_type_utilisable_immediatement
-  Étant donné un manager A Toutes! connecté sur E8
+  Étant donné un manager A Toute! connecté sur E8
   Quand il crée un véhicule plaque "AB-123-CD" et crée un nouveau modèle "12m3 hayon" catégorie "vul"
   Alors une ligne types_vehicules est créée avec valide_ops = false, actif = true, cree_par = manager_id, categorie_plateforme = "vul"
   Et le véhicule est créé immédiatement avec ce type (pas de blocage)

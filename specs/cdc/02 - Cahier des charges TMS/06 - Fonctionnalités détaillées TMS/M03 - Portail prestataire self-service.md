@@ -1,6 +1,6 @@
 # M03 — Portail prestataire self-service
 
-**Persona principal** : Manager prestataire (Strike, Marathon, A Toutes!)
+**Persona principal** : Manager prestataire (Strike, Marathon, A Toute!)
 **Contexte d'usage** : web responsive (desktop bureau + mobile), usage pluriquotidien (acceptation collectes), hebdomadaire (gestion parc), mensuel (facturation).
 
 ---
@@ -11,7 +11,7 @@
 
 ## 1. Objectif métier
 
-Portail **self-service** dédié aux **3 prestataires principaux Savr** (Strike, Marathon, A Toutes!) pour :
+Portail **self-service** dédié aux **3 prestataires principaux Savr** (Strike, Marathon, A Toute!) pour :
 
 - **Accepter ou refuser** les collectes que Ops Savr leur attribue (M02 dispatch)
 - **Assigner** un chauffeur + un véhicule (+ équipier si tournée à 2 personnes) avant exécution par M05
@@ -284,7 +284,7 @@ Statuts complets alignés §04 TMS `collectes_tms.statut_dispatch` (enum 6 valeu
 - Si aucun véhicule existant : lien "Créer un véhicule" → E8
 - **Optionnel par défaut** : le manager peut renseigner le véhicule à titre indicatif (utile pour le coût M07 / sélection capacité). La saisie plaque chauffeur terrain M05 E3 a été **supprimée V1** (arbitrage Val 2026-06-04) — il ne reste qu'**une seule plaque**, celle pré-saisie par le manager ici. Si le véhicule n'est pas renseigné et `controle_acces_requis=false`, aucune plaque n'est enregistrée pour la tournée.
 - **Obligatoire si `controle_acces_requis=true`** sur au moins 1 collecte de la tournée (R_M03.4 + R_M04.CONTROLE_ACCES — restauré 2026-05-01 audit cohérence inter-CDC, **étendu 2026-05-03 refonte formulaire §06.01 Plateforme : flag unique plaque + nom chauffeur**) : le manager **doit** sélectionner un véhicule (qui porte la plaque, recopiée dans `tournees.plaque_preassignee_manager`) **ET** affecter un chauffeur (Section 2 — `tournees.chauffeur_id`, source du nom chauffeur transmis au traiteur via webhook S7) avant de valider la tournée. Trigger `validate_tournee_controle_acces` bloque la transition `tournees.statut = planifiee → acceptee` si plaque OU chauffeur_id manquant.
-- **Exception A Toutes! vélo cargo** : si toutes les collectes de la tournée sont sur prestataire `integration_externe='everest'` ET véhicule type `velo_cargo` → trigger autorise la validation tournée même si une collecte a `controle_acces_requis=true` (sur le critère plaque uniquement). Affichage UI : "Vélo cargo — pas de plaque applicable, validation libre". **Le chauffeur reste obligatoire** dans tous les cas (le nom chauffeur est requis pour le contrôle d'accès même en vélo cargo).
+- **Exception A Toute! vélo cargo** : si toutes les collectes de la tournée sont sur prestataire `integration_externe='everest'` ET véhicule type `velo_cargo` → trigger autorise la validation tournée même si une collecte a `controle_acces_requis=true` (sur le critère plaque uniquement). Affichage UI : "Vélo cargo — pas de plaque applicable, validation libre". **Le chauffeur reste obligatoire** dans tous les cas (le nom chauffeur est requis pour le contrôle d'accès même en vélo cargo).
 
 **Section 4 — Équipier** (visible uniquement si `nb_personnes_facturation = 2`)
 - Select autocomplete depuis `chauffeurs` du prestataire
@@ -293,7 +293,7 @@ Statuts complets alignés §04 TMS `collectes_tms.statut_dispatch` (enum 6 valeu
 
 **Section 5 — Validation** (révisée propagation revue sobriété M05 2026-04-29 — **partiellement annulée 2026-05-01 audit cohérence inter-CDC**)
 - Bouton `Valider l'assignation`
-- Validation client : chauffeur obligatoire (toujours), **véhicule obligatoire si au moins 1 collecte de la tournée a `controle_acces_requis=true`** (sauf exception A Toutes! vélo cargo où la plaque est libre — le chauffeur reste obligatoire), véhicule optionnel sinon, équipier si nb=2
+- Validation client : chauffeur obligatoire (toujours), **véhicule obligatoire si au moins 1 collecte de la tournée a `controle_acces_requis=true`** (sauf exception A Toute! vélo cargo où la plaque est libre — le chauffeur reste obligatoire), véhicule optionnel sinon, équipier si nb=2
 - Sur submit : UPDATE `tournees` côté TMS → trigger `validate_tournee_controle_acces` (R_M04.CONTROLE_ACCES) vérifie cohérence plaque + chauffeur → si OK, collecte passe `acceptee` → `en_attente_execution` + émission webhook S7 `plaque-saisie` vers Plateforme (payload enrichi 2026-05-03 : `plaque + chauffeur_nom` → alimente `tournees.plaque_immatriculation` + `tournees.chauffeur_nom`)
 - **Si validation TMS rejet** (plaque OU chauffeur manquant hors exception vélo cargo) : message erreur UI "Saisir plaque (véhicule) ET chauffeur avant validation — au moins 1 collecte de la tournée requiert le contrôle d'accès (demande commercial traiteur)"
 
@@ -407,7 +407,7 @@ Si manager clique "+ Créer un nouveau modèle" :
 - Colonnes : date, lieu principal, nb collectes dans tournée, chauffeur, durée réelle, revenu calculé (€)
 - Clic ligne → drill-down collectes de la tournée (modale latérale avec pesées par flux + **termes de la rémunération prestataire détaillés**, lus depuis `tournees.cout_detail` (snapshot grille figé à la clôture, R2.8) selon la formule de la grille du prestataire — tranché QO#2 2026-06-05). Exemples selon la formule (§05 R2) :
   - `vacations_paliers` (camion) : « Durée tournée 5h10 → palier 4-8h = 1 vacation × 280 € HT = 280 € » (+ heures supplémentaires si dépassement palier)
-  - `grille_matricielle_zone_type_course` (A Toutes! vélo) : « Zone Paris intra × course standard = 45 € HT »
+  - `grille_matricielle_zone_type_course` (A Toute! vélo) : « Zone Paris intra × course standard = 45 € HT »
   - `forfait_km` (province) : « Forfait base 90 € + (62 km − 50 km inclus) × 0,80 €/km = 99,60 € HT »
 
   Transparence cohérente D14 : c'est la grille de rémunération du prestataire lui-même, aucune fuite de marge Savr ni de tarif facturé au traiteur.
@@ -902,7 +902,7 @@ Tous endpoints protégés par middleware JWT + RLS `prestataire_id` + rate limit
 
 ## 14. Questions ouvertes
 
-1. **Seed initial types véhicules** : Val a donné 4 types (`20m3 hayon`, `16m3`, `6m3`, `Vélo cargo frigo`). À enrichir avec les types réellement utilisés par Strike/Marathon/A Toutes! actuels (migration MTS-1).
+1. **Seed initial types véhicules** : Val a donné 4 types (`20m3 hayon`, `16m3`, `6m3`, `Vélo cargo frigo`). À enrichir avec les types réellement utilisés par Strike/Marathon/A Toute! actuels (migration MTS-1).
 2. — **TRANCHÉ QO#2 2026-06-05 : termes de la rémunération prestataire détaillés**, lus depuis `tournees.cout_detail` (snapshot grille figé à la clôture, R2.8) selon la formule de la grille du prestataire (§05 R2 : vacations_paliers / matricielle zone / forfait km|fixe). Le coût prestataire = sa grille de rémunération (vacations, forfait, cellule zone), **PAS le poids de déchet ni l'équivalent repas**. Les pesées sont affichées séparément (info opérationnelle). Transparence cohérente D14, pas de fuite de marge. Voir E9 Section 3 + W11 step 3.
 3. **Template emails et notifications push** : rédaction finale à valider (V1 suffit templates génériques, affinage post-UX test).
 4. — **TRANCHÉ QO#4 2026-06-05 : email pré-rempli vers Ops** (réf collecte/tournée + montant), pas de formulaire structuré ni d'entité contestation en base V1. Formulaire tracé reporté V1.1. Voir E3 Section 6 + W11 step 4.

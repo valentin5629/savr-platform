@@ -138,13 +138,13 @@ Six écrans V1, tous desktop-first (revue sobriété 2026-04-29 — fusion E2/E3
 
 1. **Header** : ID collecte (copy-clipboard), badge type ZD/AG, statut dispatch, statut op
 2. **Contexte événement** (read-only, source Plateforme) : événement, date, `heure_collecte`, nb_pax, lieu (adresse + accès), traiteur, contact client, commentaire événement, **nb rolls suggérés** (ZD uniquement, calcul auto M09 R4.4 par paliers pax — affichage lecture seule au moment du dispatch, pas d'override Ops, propagation revue sobriété M05 2026-04-29)
-3. **Suggestion attribution** (M12) : prestataire proposé + branche R1 appliquée (ex: "R1.2 branche 1 — Vélo A Toutes! — pax 450 < 600 et heure de collecte à H+3h30")
+3. **Suggestion attribution** (M12) : prestataire proposé + branche R1 appliquée (ex: "R1.2 branche 1 — Vélo A Toute! — pax 450 < 600 et heure de collecte à H+3h30")
 4. **Attribution** :
    - Si `a_attribuer` : bouton primaire "Attribuer" (ouvre E4)
    - Si `attribuee_en_attente_acceptation` : nom prestataire + bouton "Réattribuer" (secondaire)
    - Si `acceptee` / `en_attente_execution` : nom prestataire + chauffeur + véhicule + plaque (si saisie)
    - Si `rejetee_par_prestataire` : prestataire + motif refus (saisi par manager côté M03) + bouton "Réattribuer"
-5. **Tournée(s) associée(s)** (si existe) : **liste** des tournées rattachées à la collecte (via `collecte_tournees`) + lien M04 par tournée + autres collectes de chaque tournée. **Bouton "+ Ajouter un véhicule"** *(multi-camions 2026-05-25, arbitrage 3b ; généralisé vélo AG 2026-05-29 — libellé contextuel « camion » ZD/AG camion, « vélo » AG vélo selon `type_tournee`)* : crée une tournée sœur (même prestataire) pré-remplie avec cette collecte et ouvre M04 E1 ; réutilisable autant de fois que nécessaire (N véhicules, types différents possibles en ZD). Cas usage : grosse collecte ZD (ex. 3000 pax) servie par plusieurs camions ; **collecte AG dont le volume de repas dépasse la capacité d'un vélo cargo A Toutes! → N vélos** (cf. M04 E1bis / D8bis, V2).
+5. **Tournée(s) associée(s)** (si existe) : **liste** des tournées rattachées à la collecte (via `collecte_tournees`) + lien M04 par tournée + autres collectes de chaque tournée. **Bouton "+ Ajouter un véhicule"** *(multi-camions 2026-05-25, arbitrage 3b ; généralisé vélo AG 2026-05-29 — libellé contextuel « camion » ZD/AG camion, « vélo » AG vélo selon `type_tournee`)* : crée une tournée sœur (même prestataire) pré-remplie avec cette collecte et ouvre M04 E1 ; réutilisable autant de fois que nécessaire (N véhicules, types différents possibles en ZD). Cas usage : grosse collecte ZD (ex. 3000 pax) servie par plusieurs camions ; **collecte AG dont le volume de repas dépasse la capacité d'un vélo cargo A Toute! → N vélos** (cf. M04 E1bis / D8bis, V2).
 6. **Bouton "Synchroniser snapshot pour cette collecte"** *(override ponctuel — sobriété M01 A_M01_05 2026-04-30)* : visible si alerte `m02_lieu_snapshot_divergent` active. Action **par collecte uniquement** (pas de sync batch lieu→toutes futures, retiré V1). Confirmation modale + audit `SNAPSHOT_SYNC`
 7. **Historique** : audit log filtré sur cette collecte (acteur, action, timestamp, diff) — lecture des `audit_logs` génériques (pas d'enrichissement motif override)
 8. **Actions secondaires** : Annuler collecte, Marquer en incident (→ M11), Copier lien Plateforme (Admin Savr)
@@ -169,7 +169,7 @@ Six écrans V1, tous desktop-first (revue sobriété 2026-04-29 — fusion E2/E3
    - Override manuel : select depuis référentiel `prestataires` actifs + toggle "Inclure province"
    - Au clic "Attribuer" : INSERT `suggestions_attribution_log` (suggestion calculée + branche R1) sans enrichissement override (revue sobriété 2026-04-29)
 3. **Confirmation** :
-   - Si prestataire self-service (Strike, Marathon, A Toutes!) : bouton primaire "Attribuer" → statut `attribuee_en_attente_acceptation`, en attente d'acceptation. **Acceptation selon le prestataire** : Strike/Marathon → manager clique "Accepter" dans le portail M03 → `acceptee` + webhook S1. **A Toutes! (Everest, pas de portail M03)** → l'acceptation est dérivée du webhook Everest `mission_dispatched` (assignation coursier) qui mute `acceptee` + émet S1 (M14 W2 / R_M14.1bis, arbitrage Val 2026-05-29) ; en cas d'Everest down, failover Ops manuel (M14 W4).
+   - Si prestataire self-service (Strike, Marathon, A Toute!) : bouton primaire "Attribuer" → statut `attribuee_en_attente_acceptation`, en attente d'acceptation. **Acceptation selon le prestataire** : Strike/Marathon → manager clique "Accepter" dans le portail M03 → `acceptee` + webhook S1. **A Toute! (Everest, pas de portail M03)** → l'acceptation est dérivée du webhook Everest `mission_dispatched` (assignation coursier) qui mute `acceptee` + émet S1 (M14 W2 / R_M14.1bis, arbitrage Val 2026-05-29) ; en cas d'Everest down, failover Ops manuel (M14 W4).
    - Si prestataire province : bouton primaire "Confirmer manuellement" → redirige vers E5 (formulaire province)
 
 ---
@@ -255,9 +255,9 @@ Six écrans V1, tous desktop-first (revue sobriété 2026-04-29 — fusion E2/E3
 6. Système (propagation A1 2026-04-25 — alignement enum statut_dispatch 6 valeurs) :
    - UPDATE `collectes_tms.statut_dispatch = 'attribuee_en_attente_acceptation'`, `prestataire_id`, `attribuee_par_user_id`, `attribuee_at`
    - INSERT `audit_logs` (table=`collectes_tms`, action=`ATTRIBUTION`, diff=`{before:..., after:...}`) — sans enrichissement motif override (revue sobriété 2026-04-29)
-   - **Si `prestataire.integration_externe = 'everest'` (A Toutes!)** : trigger DB `trg_m14_push_mission` enqueue worker `m14_create_mission` (M14 W1, R_M14.1, propagation 2026-04-25). Push asynchrone non-bloquant pour transaction M02.
+   - **Si `prestataire.integration_externe = 'everest'` (A Toute!)** : trigger DB `trg_m14_push_mission` enqueue worker `m14_create_mission` (M14 W1, R_M14.1, propagation 2026-04-25). Push asynchrone non-bloquant pour transaction M02.
    - Notification email manager prestataire (M03) + push app si connecté
-   - **Pour A Toutes! pas de notification M03** (utilisent Everest côté manager)
+   - **Pour A Toute! pas de notification M03** (utilisent Everest côté manager)
 7. Prestataire reçoit notification, va sur M03, accepte/refuse
 8. Webhook S1 `tms/collecte-acceptee` ou S2 `tms/collecte-refusee` push Plateforme
 
@@ -324,7 +324,7 @@ Ops ouvre E3, clique "Réattribuer" sur une collecte `statut_dispatch IN ('attri
 
 **Résolution** : auto-dismiss dès que la collecte sort de `attribuee_en_attente_acceptation` (acceptée S1, refusée S2, réattribuée W5, annulée W4). Debounce M11 5 min natif.
 
-**Couverture A Toutes! (Everest)** : l'acceptation A Toutes! étant dérivée du webhook `mission_dispatched` (pas de portail M03), l'alerte s'applique à l'identique — pas de `mission_dispatched` dans le délai = alerte.
+**Couverture A Toute! (Everest)** : l'acceptation A Toute! étant dérivée du webhook `mission_dispatched` (pas de portail M03), l'alerte s'applique à l'identique — pas de `mission_dispatched` dans le délai = alerte.
 
 **Note** : les seuils (48h proximité / 48h lointaine / 3h proche) et la criticité sont paramétrables (`parametres_tms` namespace `m02` + catalogue M11). Calibrables à l'usage sans redéploiement.
 
@@ -393,10 +393,10 @@ Ops ouvre E3, clique "Réattribuer" sur une collecte `statut_dispatch IN ('attri
 - Création **directe par l'Ops** via `tms.fn_create_prestataire_province(...)` (`SECURITY DEFINER`) — mini-wizard M06 (nom, SIRET, contact, zone couverte), pas de validation Admin préalable (QO#5 tranché 2026-06-05)
 - Validation doublon par SIRET puis par `(nom_normalisé, ville)` (intégrée à la fonction)
 
-### 7.7 — Everest down (A Toutes! indisponible)
+### 7.7 — Everest down (A Toute! indisponible)
 - `parametres_tms.toutes_disponibilite_statut` = `indisponible` (toggle manuel Ops V1, API Everest V2)
-- Suggestion M12 skip A Toutes! branche 1/2 backup, bascule Marathon
-- Bandeau E1 warning "A Toutes! indisponible — report Marathon auto"
+- Suggestion M12 skip A Toute! branche 1/2 backup, bascule Marathon
+- Bandeau E1 warning "A Toute! indisponible — report Marathon auto"
 
 ### 7.8 — Collecte de dernière minute créée hors horaires ouvrés (nuit/weekend)
 - Email immédiat à Ops (revue sobriété 2026-04-29 — push navigateur supprimé)

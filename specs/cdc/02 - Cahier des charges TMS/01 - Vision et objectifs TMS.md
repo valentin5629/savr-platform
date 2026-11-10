@@ -90,7 +90,7 @@ Un TMS propriétaire permet de construire **exactement** ce dont le métier Savr
 | Création collecte (brouillon, validée, programmée) | X | | Programmée par traiteur/Admin dans la Plateforme |
 | Annulation collecte | X | | Admin Savr uniquement |
 | Envoi ordre au transporteur | | X | Push Plateforme → TMS, puis TMS gère acceptation |
-| Acceptation / refus par prestataire | | X | Strike / Marathon / A Toutes! dans le TMS |
+| Acceptation / refus par prestataire | | X | Strike / Marathon / A Toute! dans le TMS |
 | Constitution tournée (groupement collectes) | | X | Ops Savr ou prestataire dans le TMS |
 | Saisie plaque, chauffeur, véhicule | | X | Saisie terrain par le chauffeur |
 | Saisie pesées + photos | | X | App mobile chauffeur |
@@ -163,10 +163,10 @@ Conséquence du choix "100% transporteurs dans le TMS" : **Everest est intégré
 Traiteur programme collecte AG jour → Plateforme
   → Plateforme pousse l'ordre au TMS (webhook)
     → TMS pousse l'ordre à Everest (nouvelle intégration TMS)
-      → A Toutes! valide dans Everest
+      → A Toute! valide dans Everest
         → Everest retourne le statut au TMS (webhook Everest → TMS)
           → TMS remonte à la Plateforme (webhook TMS → Plateforme)
-            → Chauffeur A Toutes! exécute via l'app mobile TMS Savr
+            → Chauffeur A Toute! exécute via l'app mobile TMS Savr
 ```
 
 **Impact CDC Plateforme** : suppression de la section "API Plateforme ↔ Everest" dans `01 - Cahier des charges App/08 - APIs et intégrations.md`. Voir Question ouverte 6.
@@ -192,7 +192,7 @@ Le TMS est utilisé par **4 personas distincts** aux attentes et contraintes tr�
 - **Hardware** : desktop uniquement
 - **Granularité droits V1** : aucune — tous les admins ont tous les droits. À revoir si 3ème admin recruté à 12-18 mois
 
-### Persona 3 — Manager prestataire (Strike, Marathon, A Toutes!)
+### Persona 3 — Manager prestataire (Strike, Marathon, A Toute!)
 - **Identité** : responsable opérationnel chez le prestataire, 1-3 personnes par prestataire
 - **Objectifs** : piloter ses opérations Savr, valider collectes attribuées, gérer parc (véhicules + chauffeurs), suivre revenus, déposer factures
 - **Tâches principales (portail self-service web)** :
@@ -208,7 +208,7 @@ Le TMS est utilisé par **4 personas distincts** aux attentes et contraintes tr�
 - **Multi-tenant RLS** : manager ne voit QUE ses propres données. Isolation stricte entre prestataires
 
 ### Persona 4 — Chauffeur
-- **Identité** : conducteur employé du prestataire (camion Strike/Marathon, ou vélo-cargo A Toutes!), français uniquement V1
+- **Identité** : conducteur employé du prestataire (camion Strike/Marathon, ou vélo-cargo A Toute!), français uniquement V1
 - **Objectifs** : exécuter sa tournée, remonter les infos terrain, éviter les erreurs de saisie
 - **Contexte** : 2 parcours distincts selon le type de collecte — **ZD** (5 flux, pesée entrepôt) et **AG** (1 flux don alimentaire, pesée sur place, livraison directe assos)
 - **Fréquence** : quotidienne, intensive pendant tournées
@@ -264,7 +264,7 @@ Le TMS est utilisé par **4 personas distincts** aux attentes et contraintes tr�
 
 **Reliquat non livré AG** : cas non géré V1 (Val assume "ça n'arrive pas"). À revoir V1.1 si retour terrain différent.
 
-**Cas "Aucun repas à collecter" (AG)** : sous-flow dédié si le traiteur n'a finalement rien à donner (événement annulé en interne, pas de surplus, etc.). Flow bloquant : photo du lieu + commentaire obligatoire. Clôture la collecte en statut `realisee_sans_collecte` (pesée = 0 kg pushée Plateforme, tarif "course incomplète" A Toutes! auto-appliqué par M07, Strike facture la vacation complète quoi qu'il arrive). Alerte Ops Savr pour documentation côté Commercial Savr. Détail complet en §03 M05.
+**Cas "Aucun repas à collecter" (AG)** : sous-flow dédié si le traiteur n'a finalement rien à donner (événement annulé en interne, pas de surplus, etc.). Flow bloquant : photo du lieu + commentaire obligatoire. Clôture la collecte en statut `realisee_sans_collecte` (pesée = 0 kg pushée Plateforme, tarif "course incomplète" A Toute! auto-appliqué par M07, Strike facture la vacation complète quoi qu'il arrive). Alerte Ops Savr pour documentation côté Commercial Savr. Détail complet en §03 M05.
 
 #### Module signalements rapides (toutes tournées)
 
@@ -490,9 +490,9 @@ Le bottleneck n'est pas le code (Claude Code accélère 5-10x). Ce sont : les d�
 - **Grille tarifaire Strike V1** : camion 16m3 = 220€/vacation (4h), camion 20m3 = 300€/vacation (4h), équipier = 125€/vacation (pré-déclaré, ajustable a posteriori). Mécanique : 0-4h = tarif de base ; 4h-6h = heures sup 31,25€/h × nb_personnes (chauffeur seul = 1, + équipier = 2) ; >6h = nouvelle vacation de 4h, mécanique repart à 0. Tous les seuils paramétrables Admin TMS — 2026-04-22
 - **Grille tarifaire Marathon V1** : 100€/vacation (4h). Tout dépassement de 4h déclenche une vacation supplémentaire complète (100€). Pas d'heures sup partielles. Paramétrable Admin TMS — 2026-04-22
 - **Ajustement durée vacation a posteriori** : le TMS doit permettre de corriger la durée réelle d'une vacation après la course (base de recalcul automatique du coût) — 2026-04-21
-- **100% des transporteurs dans le TMS V1** (Strike, Marathon, A Toutes!) : saisie terrain (poids, photos, plaque) centralisée dans le TMS pour uniformité des données — 2026-04-21
-- **Intégration Everest rattachée au TMS, pas à la Plateforme** : la Plateforme envoie l'ordre au TMS, le TMS pousse vers Everest, A Toutes! valide dans Everest, Everest retourne le statut au TMS, le TMS remonte vers la Plateforme. Simplifie le flux Plateforme ↔ TMS et supprime l'intégration Plateforme ↔ Everest du CDC Plateforme — 2026-04-21
-- **App mobile chauffeur unifiée** : une seule app mobile pour tous les transporteurs (camion Strike, camion Marathon, vélo cargo A Toutes!). Pas de variantes V1 — 2026-04-21
+- **100% des transporteurs dans le TMS V1** (Strike, Marathon, A Toute!) : saisie terrain (poids, photos, plaque) centralisée dans le TMS pour uniformité des données — 2026-04-21
+- **Intégration Everest rattachée au TMS, pas à la Plateforme** : la Plateforme envoie l'ordre au TMS, le TMS pousse vers Everest, A Toute! valide dans Everest, Everest retourne le statut au TMS, le TMS remonte vers la Plateforme. Simplifie le flux Plateforme ↔ TMS et supprime l'intégration Plateforme ↔ Everest du CDC Plateforme — 2026-04-21
+- **App mobile chauffeur unifiée** : une seule app mobile pour tous les transporteurs (camion Strike, camion Marathon, vélo cargo A Toute!). Pas de variantes V1 — 2026-04-21
 - **Synchronisation bidirectionnelle Plateforme ↔ TMS (prestataires)** : option permissive retenue. Tous les champs prestataire éditables depuis les 2 apps, stratégie last-write-wins + log d'audit. Révision V2 possible si conflits récurrents — 2026-04-21
 - **Géolocalisation temps réel chauffeur V1** via l'app mobile TMS (geolocation API). Prérequis d'activation : consentement RGPD chauffeur + accord prestataire — 2026-04-21
 - **Temps de tournée capturé** : horodatage début (prise en main par le chauffeur) et horodatage fin (dernière saisie effectuée). Durée = base pour calcul dépassement vacation 4h et pilotage productivité. Aligné avec `tournees.heure_debut_reelle` / `heure_fin_reelle` côté Plateforme — 2026-04-21
@@ -558,7 +558,7 @@ Le bottleneck n'est pas le code (Claude Code accélère 5-10x). Ce sont : les d�
 4. **3ème type de camion Strike (V2)** : type et tarif encore inconnus. Architecture Data Model doit permettre l'ajout sans migration lourde.
 5. — **Résolu 2026-04-22**. Décision Option A : `courses_logistiques.tournee_id UNIQUE` (côté Plateforme). Coût porté par la tournée, réparti au prorata du nombre de collectes (`cout_par_collecte_ht = cout_ht / nb_collectes_tournee`). MAJ §04 Plateforme + §05 Plateforme + §04 TMS effectuées.
 6. **MAJ CDC Plateforme — suppression intégration directe Plateforme ↔ Everest** : traitée 2026-04-21 (10 edits sur 6 fichiers du CDC Plateforme). Section à archiver dans cette liste.
-7. **Consentement RGPD chauffeur + accord prestataire** (géoloc V1) : modalités à définir. Options : opt-in à l'activation du compte, clause type dans le contrat prestataire Strike/Marathon/A Toutes!, coupure individuelle par chauffeur. À traiter en §15 Sécurité et conformité TMS.
+7. **Consentement RGPD chauffeur + accord prestataire** (géoloc V1) : modalités à définir. Options : opt-in à l'activation du compte, clause type dans le contrat prestataire Strike/Marathon/A Toute!, coupure individuelle par chauffeur. À traiter en §15 Sécurité et conformité TMS.
 8. **Règles d'attribution transporteur** : V1 doit permettre règles pré-définies (suggestion + éventuelle attribution auto) + override admin. Critères pressentis : zone géographique, disponibilité, type de prestation (ZD/AG), coût attendu, fiabilité. À spécifier en §5 Règles métier TMS.
 9. **Date d'échéance licence MTS-1** : inconnue. **Action Val prioritaire** — conditionne tout le planning V1. Impact : délai go-live V1 = échéance − 1 mois (double-run).
 10. **Baselines opérationnelles V1** : marge logistique % par événement, délai dispatch → assignation chauffeur, délai collecte → facture prestataire reçue. À mesurer à l'onboarding TMS (pas de cible chiffrée préalable). Cibles quantifiées à fixer après 3 mois d'usage.

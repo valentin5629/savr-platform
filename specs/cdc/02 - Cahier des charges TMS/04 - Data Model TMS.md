@@ -387,7 +387,7 @@ L'enum `statut_everest` existant (`created`, `assigned`, `in_progress`, `complet
 | Valeur ajoutée | Quand | Workflow |
 |----------------|-------|----------|
 | `creation_failed` | Push création échec post-retry W1 | Statut transitoire en attente W4 acceptation manuelle Ops |
-| `created_manually` | W4 acceptation manuelle Ops après appel téléphone A Toutes! | Reprend cycle normal `assigned` → `in_progress` → `completed` (via M05 + webhooks) |
+| `created_manually` | W4 acceptation manuelle Ops après appel téléphone A Toute! | Reprend cycle normal `assigned` → `in_progress` → `completed` (via M05 + webhooks) |
 | `completed_incomplete` | W5 notification course incomplète AG OK (Everest a accusé réception) | Terminal, équivalent `completed` mais sémantique distincte pour rapprochement M08 |
 | `cancelled_externally` | W2 webhook `mission_cancelled` reçu mais sans audit_log TMS-initiated | Terminal, requiert investigation Ops (alerte critical) |
 
@@ -399,7 +399,7 @@ L'enum `statut_everest` existant (`created`, `assigned`, `in_progress`, `complet
 |---------|------|-------------|-------------|
 | `manual_acceptance_at` | timestamptz | nullable | Horodatage W4 acceptation manuelle Ops |
 | `manual_acceptance_by_user_id` | uuid | FK `users_tms(id)`, nullable | Ops qui a saisi |
-| `manual_acceptance_contact` | text | nullable | Contact A Toutes! joint au téléphone (texte libre obligatoire si `created_manually`) |
+| `manual_acceptance_contact` | text | nullable | Contact A Toute! joint au téléphone (texte libre obligatoire si `created_manually`) |
 | `manual_acceptance_commentaire` | text | nullable | Note Ops (optionnel) |
 
 **Index ajouté** : `(statut_everest, derniere_sync_at DESC) WHERE statut_everest IN ('creation_failed','cancelled_externally','failed')` pour dashboard E1 alertes.
@@ -468,7 +468,7 @@ Trigger `AFTER UPDATE on tms.collectes_tms` qui enqueue **un job `m14_cancel_mis
   END LOOP;
   ```
 
-**Implémentation** : un `pg_notify('m14_cancel_queue', …)` par mission active, consumé par worker Next.js. *(Multi-vélo : N notifications = N annulations de courses A Toutes!.)*
+**Implémentation** : un `pg_notify('m14_cancel_queue', …)` par mission active, consumé par worker Next.js. *(Multi-vélo : N notifications = N annulations de courses A Toute!.)*
 
 **Idempotence** : worker check `everest_missions.statut_everest IN ('cancelled','completed','completed_incomplete','failed','cancelled_externally')` avant appel API (par `everest_mission_id` du payload).
 
@@ -814,18 +814,18 @@ Ajout dans `schema_parametres` JSON Schema des formules `vacations_paliers` et `
     "tarif_sans_collecte_applicable": {
       "type": "boolean",
       "default": false,
-      "description": "Si true, tournée avec toutes collectes 'realisee_sans_collecte' → coût 0€ (cas A Toutes! camion). Si false (défaut), vacation facturée normalement."
+      "description": "Si true, tournée avec toutes collectes 'realisee_sans_collecte' → coût 0€ (cas A Toute! camion). Si false (défaut), vacation facturée normalement."
     }
   }
 }
 ```
 
-**Nota** : la formule `grille_matricielle_zone_type_course` (A Toutes! vélo) gère nativement ce cas via `type_course = incomplete` (tarif réduit ~50%). Pas de flag nécessaire.
+**Nota** : la formule `grille_matricielle_zone_type_course` (A Toute! vélo) gère nativement ce cas via `type_course = incomplete` (tarif réduit ~50%). Pas de flag nécessaire.
 
 **Seed V1** :
 - `vacations_paliers` (Strike, Marathon, province) : `tarif_sans_collecte_applicable = false`
-- `grille_matricielle_zone` (A Toutes! camion) : `tarif_sans_collecte_applicable = false` (vacation facturée si chauffeur mobilisé)
-- `grille_matricielle_zone_type_course` (A Toutes! vélo) : N/A (géré par `type_course`)
+- `grille_matricielle_zone` (A Toute! camion) : `tarif_sans_collecte_applicable = false` (vacation facturée si chauffeur mobilisé)
+- `grille_matricielle_zone_type_course` (A Toute! vélo) : N/A (géré par `type_course`)
 
 ### 4. `parametres_tms` — namespace `m07` (2 paramètres — +1 grilles réelles 2026-06-07, simplifié sobriété 2026-04-30)
 
@@ -835,7 +835,7 @@ Ajout dans `schema_parametres` JSON Schema des formules `vacations_paliers` et `
 | `m07.atoutes_express_seuil_minutes` | integer | `90` | `admin_tms` |
 
 `m07.delai_annulation_sans_facturation_minutes` : seuil annulation uniforme tous prestataires (R2.7 §05 authoritative). Default `180` (3h, sobriété C3 2026-04-30 ex-`60`).
-`m07.atoutes_express_seuil_minutes` : détermination du mode `express` vs `programme` de la grille A Toutes! (R2.3 §05, 3e dimension — grilles réelles + arbitrage Val 2026-06-07). Express si délai attribution → heure planifiée < seuil. **Seed `90` (confirmé Val 2026-06-07 : express = course commandée moins de 1 h 30 avant la collecte — cohérent avec le libellé grille « Express >1.5h »).**
+`m07.atoutes_express_seuil_minutes` : détermination du mode `express` vs `programme` de la grille A Toute! (R2.3 §05, 3e dimension — grilles réelles + arbitrage Val 2026-06-07). Express si délai attribution → heure planifiée < seuil. **Seed `90` (confirmé Val 2026-06-07 : express = course commandée moins de 1 h 30 avant la collecte — cohérent avec le libellé grille « Express >1.5h »).**
 
 ### 5. Nouvelle fonction SQL `tms.m07_compute(grille_id uuid, tournee_id uuid) RETURNS (cout_ht numeric, detail jsonb)`
 
@@ -1260,7 +1260,7 @@ Cf. spec complète §06 M12 §4.3.
 
 **Impact cross-schema** : colonne ajoutée à la table `shared.prestataires` — propagation à consigner également côté [[../01 - Cahier des charges App/04 - Data Model]].
 
-**Contrainte d'immutabilité du champ `code`** (décision Q1 2026-04-24) : `shared.prestataires.code` est **immuable post-création**. Implémentation par trigger `BEFORE UPDATE` qui rejette toute modification du champ avec `RAISE EXCEPTION 'shared.prestataires.code immuable. Renommage = soft delete + recréation avec nouveau code.'`. Justification : le code est la clé de résolution dans `resolve_prestataire_by_code()` utilisée par toutes les branches R1 (Strike, Marathon, A Toutes!). Toute modification casserait rétroactivement les références dans les paramètres JSON et `suggestions_attribution_log.detail.prestataires_exclus`. Renommage opérationnel = workflow M06 "soft delete + recréation". Valable `strike`, `marathon`, `a_toutes` et tous codes prestataires province.
+**Contrainte d'immutabilité du champ `code`** (décision Q1 2026-04-24) : `shared.prestataires.code` est **immuable post-création**. Implémentation par trigger `BEFORE UPDATE` qui rejette toute modification du champ avec `RAISE EXCEPTION 'shared.prestataires.code immuable. Renommage = soft delete + recréation avec nouveau code.'`. Justification : le code est la clé de résolution dans `resolve_prestataire_by_code()` utilisée par toutes les branches R1 (Strike, Marathon, A Toute!). Toute modification casserait rétroactivement les références dans les paramètres JSON et `suggestions_attribution_log.detail.prestataires_exclus`. Renommage opérationnel = workflow M06 "soft delete + recréation". Valable `strike`, `marathon`, `a_toutes` et tous codes prestataires province.
 
 ### 5. `parametres_tms.attribution` — paramètres résiduels (refonte audit cohérence A1+A4 2026-05-09)
 
@@ -1642,14 +1642,14 @@ La table `tms.prestataires` décrite ci-après **est migrée vers `shared.presta
 | `adresse_siege` | jsonb | | 2 | `{rue, code_postal, ville, pays}` |
 | `contact_operationnel` | jsonb | | TMS | `{nom, email, telephone}` — propagation M06 2026-04-24 |
 | `contact_facturation` | jsonb | | TMS | `{nom, email, telephone}` — propagation M06 2026-04-24 |
-| `rayon_intervention_km` | integer | | TMS | NULL pour Strike/Marathon/A Toutes! (couverture fixe), renseigné pour province |
+| `rayon_intervention_km` | integer | | TMS | NULL pour Strike/Marathon/A Toute! (couverture fixe), renseigné pour province |
 | `coords_siege_lat` | numeric(9,6) | | TMS | M12 calcul distance haversine |
 | `coords_siege_lng` | numeric(9,6) | | TMS | Idem |
 | `integration_externe` | text | | TMS | `aucune` \| `everest` |
 | `everest_client_id` | text | | TMS | NULL sauf `integration_externe=everest` |
 | `statut` | text | NOT NULL, default `actif` | 2 | `actif` \| `suspendu` \| `archive` |
 | `date_fin_contrat` | date | | TMS | Date d'archivage programmée (NULL sauf suspension 30j). Propagation M06 2026-04-24 |
-| `has_portail_self_service` | boolean | NOT NULL, default false | TMS | true uniquement Strike, Marathon, A Toutes! V1 |
+| `has_portail_self_service` | boolean | NOT NULL, default false | TMS | true uniquement Strike, Marathon, A Toute! V1 |
 | `commentaire_interne` | text | | 2 | Notes Ops Savr |
 | `created_at`, `updated_at` | timestamptz | NOT NULL | — | |
 | `deleted_at` | timestamptz | | — | Soft delete audit |
@@ -1797,7 +1797,7 @@ Source : M06 Référentiel prestataires + M13 Admin TMS + M05 app mobile chauffe
 
 > ⚠ **Cette table est migrée vers `shared.prestataires`** (cf. addendum seconde salve en tête de document). Les colonnes ci-dessous servent de **base de référence** pour le schéma `shared.prestataires` (fusionné avec `plateforme.prestataires_logistiques`). Les colonnes `plateforme_prestataire_id`, `sync_occurred_at`, `sync_last_event_id` disparaissent — il n'y a plus qu'une seule table, donc plus de miroir ni de sync. Toutes les FK internes TMS (`chauffeurs.prestataire_id`, `vehicules.prestataire_id`, `collectes_tms.prestataire_id`, `tournees.prestataire_id`, `factures_prestataires.prestataire_id`, `grilles_tarifaires_prestataires.prestataire_id`, `users_tms.prestataire_id`) pointent désormais sur `shared.prestataires.id` (seule FK cross-schema autorisée avec `shared.fichiers`).
 
-Référentiel des entreprises logistiques partenaires (Strike, Marathon, A Toutes! + ~30 prestataires province).
+Référentiel des entreprises logistiques partenaires (Strike, Marathon, A Toute! + ~30 prestataires province).
 
 | Colonne | Type | Contraintes | Description |
 |---------|------|-------------|-------------|
@@ -1809,14 +1809,14 @@ Référentiel des entreprises logistiques partenaires (Strike, Marathon, A Toute
 | `contact_operationnel` | jsonb | | `{ nom, email, telephone }` — contact ops quotidien (propagation M06 2026-04-24) |
 | `contact_facturation` | jsonb | | `{ nom, email, telephone }` — contact facturation (peut être identique à opérationnel via copie physique côté UI M06) |
 | `type_prestation` | text[] | NOT NULL | Enum values : `zd`, `ag` — un prestataire peut faire les 2 |
-| `rayon_intervention_km` | integer | | NULL pour Strike/Marathon/A Toutes! (couverture fixe), renseigné pour province |
+| `rayon_intervention_km` | integer | | NULL pour Strike/Marathon/A Toute! (couverture fixe), renseigné pour province |
 | `coords_siege_lat` | numeric(9,6) | | Pour M12 calcul distance haversine |
 | `coords_siege_lng` | numeric(9,6) | | Idem |
-| `integration_externe` | text | | Enum `aucune`, `everest` — `everest` = A Toutes! uniquement |
+| `integration_externe` | text | | Enum `aucune`, `everest` — `everest` = A Toute! uniquement |
 | `everest_client_id` | text | | NULL sauf si `integration_externe = everest` |
 | `statut` | text | NOT NULL, default `actif` | Enum `actif`, `suspendu`, `archive` |
 | `date_fin_contrat` | date | | Date d'archivage effective programmée (propagation M06 2026-04-24). NULL sauf pendant suspension 30j. Trigger cron journalier : passe `statut='archive'` quand `date_fin_contrat <= today` |
-| `has_portail_self_service` | boolean | NOT NULL, default false | true uniquement pour Strike, Marathon, A Toutes! V1 |
+| `has_portail_self_service` | boolean | NOT NULL, default false | true uniquement pour Strike, Marathon, A Toute! V1 |
 | `commentaire_interne` | text | | Notes Ops Savr |
 | `sync_occurred_at` | timestamptz | | Horodatage dernière sync Plateforme |
 | `sync_last_event_id` | uuid | | Dernier event_id appliqué |
@@ -1868,7 +1868,7 @@ Lecture par UI M06 fiche prestataire + M13 E6 santé API. Pas de cache : la vue 
 
 ### Table : `users_tms`
 
-Utilisateurs du TMS : Ops Savr, Admin TMS, Managers prestataires (Strike/Marathon/A Toutes!), Chauffeurs. Reliés à Supabase Auth (1:1 sur `auth.users.id`).
+Utilisateurs du TMS : Ops Savr, Admin TMS, Managers prestataires (Strike/Marathon/A Toute!), Chauffeurs. Reliés à Supabase Auth (1:1 sur `auth.users.id`).
 
 | Colonne | Type | Contraintes | Description |
 |---------|------|-------------|-------------|
@@ -1919,7 +1919,7 @@ Le flag `peut_conduire` distingue les chauffeurs (true) des équipiers purs Stri
 | `permis_url` | text | | Path Supabase Storage, bucket `chauffeurs-documents` |
 | `piece_identite_url` | text | | Idem, RGPD suppression sur demande (M06) |
 | `vehicule_prefere_id` | uuid | FK `vehicules(id)`, nullable | Pré-sélection UI dispatch (chauffeurs uniquement) |
-| `zones_preferees` | text[] | | Codes postaux ou zones A Toutes! (ex: `['75001', '75002', 'zone1']`) |
+| `zones_preferees` | text[] | | Codes postaux ou zones A Toute! (ex: `['75001', '75002', 'zone1']`) |
 | `statut` | text | NOT NULL, default `actif` | Enum `actif`, `suspendu`, `archive` |
 | `commentaire_interne` | text | | Notes manager |
 | `created_at` | timestamptz | NOT NULL, default `now()` | |
@@ -1998,7 +1998,7 @@ GRANT SELECT ON plateforme.v_tms_types_vehicules_categories
 
 ### Table : `vehicules`
 
-Parc des prestataires (camions Strike, camion Marathon, vélos-cargo A Toutes!, camion A Toutes! ID 91, flotte prestataires province).
+Parc des prestataires (camions Strike, camion Marathon, vélos-cargo A Toute!, camion A Toute! ID 91, flotte prestataires province).
 
 | Colonne | Type | Contraintes | Description |
 |---------|------|-------------|-------------|
@@ -2079,7 +2079,7 @@ Miroir enrichi des collectes côté TMS (Option A validée : duplication champs 
 | `contact_secours_nom` | text | nullable | **Propagation A2 audit cohérence 2026-04-28** — contact de secours si principal injoignable. Optionnel. **S'applique ZD ET AG (propagation revue sobriété M05 2026-04-29).** |
 | `contact_secours_telephone` | text | nullable | **Propagation A2 audit cohérence 2026-04-28** — numéro de secours. Format E.164 recommandé. **S'applique ZD ET AG (propagation revue sobriété M05 2026-04-29).** |
 | `last_occurred_at` | timestamptz | NOT NULL, default `now()` | **M01 D18 (seconde salve 2026-04-23)** — horodatage du dernier event appliqué. Skip out-of-order si event entrant `occurred_at ≤ last_occurred_at` |
-| `controle_acces_requis` | boolean | NOT NULL, default `false` | **M03 2026-04-24 (D8) — restauré 2026-05-01 — renommé 2026-05-03 (refonte formulaire §06.01 Plateforme : flag unique plaque + nom chauffeur)** — miroir `plateforme.collectes.controle_acces_requis` reçu via E1 (ex `plaque_requise`). Le traiteur demande la plaque ET le nom du chauffeur pour contrôle d'accès site (sites Viparis, sécurisés) → manager prestataire **doit** pré-saisir les deux en M03 E4 (plaque saisie sur la tournée + chauffeur affecté via `tournees.chauffeur_id`) → trigger `validate_tournee_controle_acces` (ex `validate_tournee_plaque_requise`) bloque validation tournée si une collecte de la tournée a `controle_acces_requis=true` ET (`tournees.plaque_preassignee_manager IS NULL` OU `tournees.chauffeur_id IS NULL`) (R_M03.4 + R_M04.CONTROLE_ACCES). **Exception A Toutes! vélo cargo** : trigger autorise validation tournée même si `controle_acces_requis=true`, manager vélo cargo n'a pas de plaque à saisir (cas remonté au formulaire programmation Plateforme via message UX "Vélo cargo — pas de plaque possible"). Le nom chauffeur reste requis dans tous les cas si `controle_acces_requis=true`. |
+| `controle_acces_requis` | boolean | NOT NULL, default `false` | **M03 2026-04-24 (D8) — restauré 2026-05-01 — renommé 2026-05-03 (refonte formulaire §06.01 Plateforme : flag unique plaque + nom chauffeur)** — miroir `plateforme.collectes.controle_acces_requis` reçu via E1 (ex `plaque_requise`). Le traiteur demande la plaque ET le nom du chauffeur pour contrôle d'accès site (sites Viparis, sécurisés) → manager prestataire **doit** pré-saisir les deux en M03 E4 (plaque saisie sur la tournée + chauffeur affecté via `tournees.chauffeur_id`) → trigger `validate_tournee_controle_acces` (ex `validate_tournee_plaque_requise`) bloque validation tournée si une collecte de la tournée a `controle_acces_requis=true` ET (`tournees.plaque_preassignee_manager IS NULL` OU `tournees.chauffeur_id IS NULL`) (R_M03.4 + R_M04.CONTROLE_ACCES). **Exception A Toute! vélo cargo** : trigger autorise validation tournée même si `controle_acces_requis=true`, manager vélo cargo n'a pas de plaque à saisir (cas remonté au formulaire programmation Plateforme via message UX "Vélo cargo — pas de plaque possible"). Le nom chauffeur reste requis dans tous les cas si `controle_acces_requis=true`. |
 | `informations_supplementaires` | text | nullable, max 1000 car. | **Ajout 2026-05-06 (refonte formulaire §06.01 §2.a Plateforme)** — miroir `plateforme.collectes.informations_supplementaires` reçu via E1. Texte libre saisi par le programmeur (ex: "Sonner interphone B au RDC", "Quai N°2 fermé le lundi"). Affiché côté TMS en M01 (réception manager prestataire), M03 (dispatch), M05 (tournée chauffeur app mobile). Patchable via E2 (push silencieux, pas de réacceptation). |
 | `association_snapshot` | jsonb | nullable (AG uniquement) | **Ajout 2026-05-29 (arbitrage Val — intégration association au flux V2)** — destination de livraison des excédents pour une collecte **AG**. Photo figée de l'association bénéficiaire attribuée + validée côté Plateforme (algo §06.09 + validation Admin), reçue via **E2** lors de la cascade `attribution_validee` (V2). Composition : `{association_id, nom, adresse, code_postal, ville, coordonnees_gps {lat,lng}, contact {nom, telephone}, horaires_ouverture}`. NULL pour les collectes ZD (pas de don) et tant que l'attribution AG n'a pas été validée. **Affiché chauffeur en M05 E7** (pré-rempli, lecture par défaut, override libre possible si refus/réorientation terrain). En cas de ré-attribution association (refus asso côté Plateforme), nouvel E2 → snapshot mis à jour. Push silencieux côté M01 (pas de réacceptation transporteur — la destination de livraison n'affecte pas l'acceptation de la course). |
 | | | | **Déplacé sur `collecte_tournees.cout_reparti_centimes` (propagation multi-camions 2026-05-25)** — avec N↔N, une collecte reçoit une quote-part **par tournée** qui la sert (1 camion mutualisé OU N camions sur une grosse collecte). Le coût total logistique d'une collecte = `SUM(collecte_tournees.cout_reparti_centimes)` sur ses tournées. La répartition par tournée (`FLOOR(cout_ht × 100 / nb_collectes_de_la_tournée)`, dernière collecte = reste) reste calculée par `trg_m07_calc_cost`, mais écrite sur la ligne de liaison. Sert au M08 rapprochement par collecte (détail par camion conservé). |
@@ -2109,7 +2109,7 @@ Regroupement logistique : 1 tournée = 1 camion. Relation **N↔N avec `collecte
 | `chauffeur_id` | uuid | FK `chauffeurs(id)`, nullable | Affecté au dispatch. Nullable avant dispatch. |
 | `equipier_id` | uuid | FK `chauffeurs(id)`, nullable | Chauffeur avec `peut_conduire=false` ou autre chauffeur (Strike équipier). NULL si tournée solo |
 | `vehicule_id` | uuid | FK `vehicules(id)`, nullable | Véhicule prévu de la tournée |
-| `plaque_preassignee_manager` | text | nullable | **Propagation M03 2026-04-24 — restauré 2026-05-01 — renommage trigger 2026-05-03 (refonte formulaire §06.01 Plateforme)** : plaque saisie par le manager prestataire en M03 E4 quand au moins une collecte de la tournée a `controle_acces_requis=true` (ex `plaque_requise`). Déclenche webhook S7 `tms/plaque-saisie` vers Plateforme (payload enrichi 2026-05-03 : `plaque` + `chauffeur_nom` lus depuis cette colonne + jointure `chauffeurs.nom_complet` via `tournees.chauffeur_id`). Trigger `validate_tournee_controle_acces` (ex `validate_tournee_plaque_requise`, R_M03.4 + R_M04.CONTROLE_ACCES) bloque transition `tournees.statut → acceptee` si plaque OU chauffeur_id manquant (sauf exception A Toutes! vélo cargo : seul chauffeur_id requis). |
+| `plaque_preassignee_manager` | text | nullable | **Propagation M03 2026-04-24 — restauré 2026-05-01 — renommage trigger 2026-05-03 (refonte formulaire §06.01 Plateforme)** : plaque saisie par le manager prestataire en M03 E4 quand au moins une collecte de la tournée a `controle_acces_requis=true` (ex `plaque_requise`). Déclenche webhook S7 `tms/plaque-saisie` vers Plateforme (payload enrichi 2026-05-03 : `plaque` + `chauffeur_nom` lus depuis cette colonne + jointure `chauffeurs.nom_complet` via `tournees.chauffeur_id`). Trigger `validate_tournee_controle_acces` (ex `validate_tournee_plaque_requise`, R_M03.4 + R_M04.CONTROLE_ACCES) bloque transition `tournees.statut → acceptee` si plaque OU chauffeur_id manquant (sauf exception A Toute! vélo cargo : seul chauffeur_id requis). |
 | `plaque_preassignee_par_user_id` | uuid | FK `users_tms(id)`, nullable | **Restauré 2026-05-01** — user manager prestataire ayant saisi la plaque (audit M03 E4). |
 | `plaque_preassignee_at` | timestamptz | nullable | **Restauré 2026-05-01** — timestamp saisie plaque manager (= timestamp émission webhook S7). |
 | `grille_tarifaire_id` | uuid | FK `grilles_tarifaires_prestataires(id)`, nullable | Détermine la formule M07. Dérivée au dispatch à partir de `(prestataire_id, vehicule.type_vehicule_id, date_planifiee)` avec matching sur `date_debut_validite/date_fin_validite`. Éditable par Ops pour overrides exceptionnels |
@@ -2161,7 +2161,7 @@ Les seuils horaires (4h, 6h, 8h...) sont dans le JSON, pas dans le code. Si Stri
 
 **RLS** : Ops Savr / Admin TMS → tout. Manager prestataire → `prestataire_id = current_user.prestataire_id`. Chauffeur → tournées où `chauffeur_id OR equipier_id = current_user.chauffeur_id`.
 
-**Trigger `trg_validate_tournee_controle_acces` (BEFORE UPDATE on `tms.tournees`)** — restauré 2026-05-01 — renommé 2026-05-03 (refonte formulaire §06.01 Plateforme : flag unique `controle_acces_requis` couvrant plaque + nom chauffeur, ex `plaque_requise`). Bloque la transition `OLD.statut = 'planifiee' AND NEW.statut = 'acceptee'` si au moins une `tms.collectes_tms` rattachée à la tournée a `controle_acces_requis = true` ET (`NEW.plaque_preassignee_manager IS NULL` OU `NEW.chauffeur_id IS NULL`). Exception : pas de blocage sur le critère plaque si toutes les `collectes_tms` de la tournée ont `prestataire.integration_externe = 'everest'` ET `vehicule.type_vehicule_id IN (SELECT id FROM types_vehicules WHERE categorie = 'velo')` *(corrigé 2026-06-11, audit data model — ex-`'velo_cargo'`, valeur inexistante dans l'enum `categorie`)* (cas A Toutes! vélo cargo, pas de plaque attribuable) — mais le `chauffeur_id` reste obligatoire dans tous les cas. Sert R_M03.4 + R_M04.CONTROLE_ACCES (cf. [[../05 - Règles métier TMS|§05]]).
+**Trigger `trg_validate_tournee_controle_acces` (BEFORE UPDATE on `tms.tournees`)** — restauré 2026-05-01 — renommé 2026-05-03 (refonte formulaire §06.01 Plateforme : flag unique `controle_acces_requis` couvrant plaque + nom chauffeur, ex `plaque_requise`). Bloque la transition `OLD.statut = 'planifiee' AND NEW.statut = 'acceptee'` si au moins une `tms.collectes_tms` rattachée à la tournée a `controle_acces_requis = true` ET (`NEW.plaque_preassignee_manager IS NULL` OU `NEW.chauffeur_id IS NULL`). Exception : pas de blocage sur le critère plaque si toutes les `collectes_tms` de la tournée ont `prestataire.integration_externe = 'everest'` ET `vehicule.type_vehicule_id IN (SELECT id FROM types_vehicules WHERE categorie = 'velo')` *(corrigé 2026-06-11, audit data model — ex-`'velo_cargo'`, valeur inexistante dans l'enum `categorie`)* (cas A Toute! vélo cargo, pas de plaque attribuable) — mais le `chauffeur_id` reste obligatoire dans tous les cas. Sert R_M03.4 + R_M04.CONTROLE_ACCES (cf. [[../05 - Règles métier TMS|§05]]).
 
 ```sql
 CREATE OR REPLACE FUNCTION tms.fn_validate_tournee_controle_acces()
@@ -2184,7 +2184,7 @@ BEGIN
         RAISE EXCEPTION 'Validation tournée bloquée — chauffeur requis (contrôle d''accès). Affecter un chauffeur en M03 E4 avant validation.';
       END IF;
 
-      -- La plaque est requise sauf exception vélo cargo A Toutes!
+      -- La plaque est requise sauf exception vélo cargo A Toute!
       IF NEW.plaque_preassignee_manager IS NULL THEN
         SELECT COUNT(*) INTO total_collectes FROM tms.collecte_tournees WHERE tournee_id = NEW.id;
         SELECT COUNT(*) INTO velo_cargo_count
@@ -2195,10 +2195,10 @@ BEGIN
           JOIN tms.types_vehicules tv ON tv.id = v.type_vehicule_id
           WHERE ct.tournee_id = NEW.id
             AND p.integration_externe = 'everest'
-            AND tv.categorie = 'velo'; -- corrigé 2026-06-11 (audit data model) : l'enum types_vehicules.categorie est camion|fourgon|velo|autre — l'ex-valeur 'velo_cargo' ne matchait jamais (exception vélo morte → tournées A Toutes! bloquées sur la plaque)
+            AND tv.categorie = 'velo'; -- corrigé 2026-06-11 (audit data model) : l'enum types_vehicules.categorie est camion|fourgon|velo|autre — l'ex-valeur 'velo_cargo' ne matchait jamais (exception vélo morte → tournées A Toute! bloquées sur la plaque)
 
         IF velo_cargo_count = total_collectes THEN
-          RETURN NEW; -- Exception A Toutes! vélo cargo : pas de plaque mais chauffeur déjà validé ci-dessus
+          RETURN NEW; -- Exception A Toute! vélo cargo : pas de plaque mais chauffeur déjà validé ci-dessus
         END IF;
 
         RAISE EXCEPTION 'Validation tournée bloquée — plaque manager requise (contrôle d''accès). Saisir la plaque en M03 E4 avant validation.';
@@ -2219,7 +2219,7 @@ CREATE TRIGGER trg_validate_tournee_controle_acces
 
 ### Table : `collecte_tournees`
 
-**Nouvelle entité V1 (refonte multi-camions 2026-05-25)**. Table de liaison **N↔N** entre `collectes_tms` et `tournees`. Remplace l'ancien lien `collectes_tms.tournee_id` singulier (retiré) et accueille les colonnes `ordre_dans_tournee` + `cout_reparti_centimes` (qui dépendent du couple collecte×tournée). Miroir de `plateforme.collecte_tournees` côté Plateforme. Couvre la **mutualisation** (1 tournée → N collectes) ET le **multi-camions** (1 collecte → N tournées). Alimentée au dispatch (M02 W1 + bouton "Ajouter un véhicule" M04, libellé contextuel camion/vélo — généralisé vélo AG 2026-05-29) et poussée à la Plateforme via S3 `tournee-upsert` (liste des `collecte_id` par tournée). Couvre aussi le **multi-vélo AG** (1 collecte AG → N vélos A Toutes!, V2).
+**Nouvelle entité V1 (refonte multi-camions 2026-05-25)**. Table de liaison **N↔N** entre `collectes_tms` et `tournees`. Remplace l'ancien lien `collectes_tms.tournee_id` singulier (retiré) et accueille les colonnes `ordre_dans_tournee` + `cout_reparti_centimes` (qui dépendent du couple collecte×tournée). Miroir de `plateforme.collecte_tournees` côté Plateforme. Couvre la **mutualisation** (1 tournée → N collectes) ET le **multi-camions** (1 collecte → N tournées). Alimentée au dispatch (M02 W1 + bouton "Ajouter un véhicule" M04, libellé contextuel camion/vélo — généralisé vélo AG 2026-05-29) et poussée à la Plateforme via S3 `tournee-upsert` (liste des `collecte_id` par tournée). Couvre aussi le **multi-vélo AG** (1 collecte AG → N vélos A Toute!, V2).
 
 | Colonne | Type | Contraintes | Description |
 |---------|------|-------------|-------------|
@@ -2559,8 +2559,8 @@ Catalogue des formules de calcul disponibles dans le TMS. Paramétrable par Ops 
 
 **Seed V1** (5 formules — détail des schémas ci-dessous en section "Formules supportées") :
 - `vacations_paliers` — "Vacations à paliers (Strike/Marathon/province horaires)"
-- `grille_matricielle_zone_type_course` — "Grille matricielle zone × type de course (A Toutes! vélo)"
-- `grille_matricielle_zone` — "Grille matricielle par zone (A Toutes! camion)"
+- `grille_matricielle_zone_type_course` — "Grille matricielle zone × type de course (A Toute! vélo)"
+- `grille_matricielle_zone` — "Grille matricielle par zone (A Toute! camion)"
 - `forfait_km` — "Forfait + km supplémentaires (prestataires province)"
 - `forfait_fixe` — "Forfait fixe (prestataires province)"
 
@@ -2570,14 +2570,14 @@ Catalogue des formules de calcul disponibles dans le TMS. Paramétrable par Ops 
 
 ### Table : `grilles_tarifaires_prestataires`
 
-**Table unifiée** (décision Val 2026-04-22, fusion) : pilote aussi bien les formules de calcul paramétrées (Strike, Marathon, prestataires province avec coûts horaires) que les grilles matricielles à lookup (A Toutes! vélo zone × type_course, A Toutes! camion zone). Chaque ligne = 1 grille applicable à un prestataire pour un type de véhicule donné, sur une période de validité donnée.
+**Table unifiée** (décision Val 2026-04-22, fusion) : pilote aussi bien les formules de calcul paramétrées (Strike, Marathon, prestataires province avec coûts horaires) que les grilles matricielles à lookup (A Toute! vélo zone × type_course, A Toute! camion zone). Chaque ligne = 1 grille applicable à un prestataire pour un type de véhicule donné, sur une période de validité donnée.
 
 | Colonne | Type | Contraintes | Description |
 |---------|------|-------------|-------------|
 | `id` | uuid | PK, default `gen_random_uuid()` | |
 | `prestataire_id` | uuid | FK `prestataires(id)`, NOT NULL | |
 | `type_vehicule_id` | uuid | FK `types_vehicules(id)`, nullable | NULL = grille valable pour tous les véhicules du prestataire |
-| `libelle` | text | NOT NULL | Affichage UI (ex: "Strike — Camion 20m³ — 2026", "A Toutes! — Vélo — grille v2") |
+| `libelle` | text | NOT NULL | Affichage UI (ex: "Strike — Camion 20m³ — 2026", "A Toute! — Vélo — grille v2") |
 | `formule_id` | uuid | FK `formules_catalogue(id)`, NOT NULL | Référence le catalogue des formules disponibles |
 | `parametres_formule` | jsonb | NOT NULL | Contenu variable selon `formules_catalogue.code`, validé contre `formules_catalogue.schema_parametres` **côté application (Zod)** — schéma détaillé ci-dessous. DB : `NOT NULL` seul (revue sobriété M06 2026-06-05 B3 — plus de fonction de validation JSON Schema en base) |
 | `date_debut_validite` | date | NOT NULL | Première date où la grille s'applique |
@@ -2656,7 +2656,7 @@ Lecture M07 :
 
 **Évolution sans code** : si Strike renégocie en 2027 et passe à des paliers de 5h/8h, l'Admin modifie le tableau JSON via UI M13 → calcul mis à jour immédiatement, sans redéploiement.
 
-**2. `grille_matricielle_zone_type_course`** (A Toutes! vélo)
+**2. `grille_matricielle_zone_type_course`** (A Toute! vélo)
 
 ```json
 {
@@ -2671,7 +2671,7 @@ Lecture M07 :
 }
 ```
 
-**3. `grille_matricielle_zone`** (A Toutes! camion ID 91)
+**3. `grille_matricielle_zone`** (A Toute! camion ID 91)
 
 ```json
 {
@@ -2706,13 +2706,13 @@ Lecture M07 :
 
 #### Zones applicables
 
-Les zones (`zone_1`, `zone_2`, etc.) sont définies dans `parametres_tms` niveau 5 (table de correspondance code postal → zone, éditable par Ops Savr). Cf. §03 M07 règles A Toutes!.
+Les zones (`zone_1`, `zone_2`, etc.) sont définies dans `parametres_tms` niveau 5 (table de correspondance code postal → zone, éditable par Ops Savr). Cf. §03 M07 règles A Toute!.
 
 ---
 
 ### Table : `factures_prestataires`
 
-Factures reçues des prestataires logistiques (upload PDF via portail self-service Strike/Marathon/A Toutes! ou Ops Savr pour province). Rapprochement auto avec `tournees.cout_calcule_ht` au sein de la période facturée.
+Factures reçues des prestataires logistiques (upload PDF via portail self-service Strike/Marathon/A Toute! ou Ops Savr pour province). Rapprochement auto avec `tournees.cout_calcule_ht` au sein de la période facturée.
 
 | Colonne | Type | Contraintes | Description |
 |---------|------|-------------|-------------|
@@ -2961,7 +2961,7 @@ Source de vérité des paramètres globaux du TMS éditables par Ops Savr / Admi
 - `regle_zd_prestataire_prioritaire_code` : `strike` (F2 2026-06-07)
 - Tous les autres (`regle_ag_seuil_pax_velo`, `regle_ag_plage_velo_debut/fin`, `regle_ag_seuil_h2_minutes` = **90**, `a_toutes_indisponible`, `everest_codes_postaux`, `poids_par_repas_kg`) vivent dans `plateforme.parametres_algo` — source de vérité unique, cf. addendum M12 §5.
 
-*Namespace `zones`* (A Toutes!) — **seed réel figé 2026-06-07 (arbitrage Val : « communes limitrophes » = petite couronne entière, mapping par département)** :
+*Namespace `zones`* (A Toute!) — **seed réel figé 2026-06-07 (arbitrage Val : « communes limitrophes » = petite couronne entière, mapping par département)** :
 - `zones_codes_postaux_mapping` : jsonb — lookup par **préfixe département** (2 premiers caractères du code postal), plus de liste de communes à maintenir :
   ```json
   {
@@ -2971,7 +2971,7 @@ Source de vérité des paramètres globaux du TMS éditables par Ops Savr / Admi
     "94": "communes_limitrophes"
   }
   ```
-  Préfixe absent du mapping = **hors zone** → A Toutes! exclu de la suggestion M12 (garde, cf. §05 R1.3) ; si attribution forcée par Ops → coût en saisie manuelle (§05 R2.6).
+  Préfixe absent du mapping = **hors zone** → A Toute! exclu de la suggestion M12 (garde, cf. §05 R1.3) ; si attribution forcée par Ops → coût en saisie manuelle (§05 R2.6).
   ⚠ **Couverture ≠ pricing (clarifié 2026-06-11, audit data model, aligné arbitrage Val)** : la **couverture opérationnelle** Everest est pilotée exclusivement par `plateforme.parametres_algo.everest_codes_postaux` = `['75','92','93']` (source de vérité unique). Le « 94 » de ce mapping est une **zone de pricing** (grille réelle « petite couronne », figée 2026-06-07) — sa présence n'étend **pas** la couverture : un lieu en 94 reste hors suggestion Everest tant que `everest_codes_postaux` ne l'inclut pas. Étendre la couverture = modifier les **deux** paramètres.
 - `zones_ordre_priorite` : jsonb `["paris", "communes_limitrophes"]` — ordre croissant pour `regle_zone_multi_site = zone_la_plus_haute` (R2.3 : chargement + livraison → zone la plus haute = `communes_limitrophes`).
 - supprimée 2026-06-07 — jamais en vigueur, remplacée par le mapping départemental ci-dessus (grille réelle 2 zones).
@@ -3128,7 +3128,7 @@ Déduplication des events entrants (anti-replay **7 jours** — revue sobriété
 
 ### Table : `everest_missions`
 
-Mapping 1:1 ↔ N entre tournées TMS et missions Everest (A Toutes!). Permet de pousser une tournée TMS vers Everest (création mission) et de recevoir les updates d'Everest (affectation coursier, statut, preuve de course). Cf. §03 M14.
+Mapping 1:1 ↔ N entre tournées TMS et missions Everest (A Toute!). Permet de pousser une tournée TMS vers Everest (création mission) et de recevoir les updates d'Everest (affectation coursier, statut, preuve de course). Cf. §03 M14.
 
 | Colonne | Type | Contraintes | Description |
 |---------|------|-------------|-------------|
@@ -3149,7 +3149,7 @@ Mapping 1:1 ↔ N entre tournées TMS et missions Everest (A Toutes!). Permet de
 | `push_create_at` | timestamptz | | Horodatage création mission (POST `/missions`) |
 | `manual_acceptance_at` | timestamptz | nullable | **Propagation M14 2026-04-25** — Horodatage W4 acceptation manuelle Ops |
 | `manual_acceptance_by_user_id` | uuid | FK `users_tms(id)`, nullable | **Propagation M14 2026-04-25** — Ops qui a saisi |
-| `manual_acceptance_contact` | text | nullable | **Propagation M14 2026-04-25** — Contact A Toutes! joint au téléphone (obligatoire si `created_manually`) |
+| `manual_acceptance_contact` | text | nullable | **Propagation M14 2026-04-25** — Contact A Toute! joint au téléphone (obligatoire si `created_manually`) |
 | `manual_acceptance_commentaire` | text | nullable | **Propagation M14 2026-04-25** — Note Ops (optionnel) |
 | `derniere_sync_at` | timestamptz | NOT NULL | Dernière maj (reçue ou poussée) |
 | `created_at` | timestamptz | NOT NULL, default `now()` | |
@@ -3161,13 +3161,13 @@ Mapping 1:1 ↔ N entre tournées TMS et missions Everest (A Toutes!). Permet de
 
 **CHECK constraint** (test-scenarios M14 2026-06-07, floue #3 tranchée Val) : `((statut_everest IN ('creation_failed','created_manually')) OR everest_mission_id IS NOT NULL)` — seuls les états sans réponse Everest (échec création W1, acceptation manuelle W4 pré-dispatch) peuvent avoir `everest_mission_id` NULL.
 
-**RLS** : Ops Savr / Admin TMS → tout. Manager A Toutes! → missions liées à ses tournées (`tournees.prestataire_id = current_user.prestataire_id`). Autres → pas d'accès.
+**RLS** : Ops Savr / Admin TMS → tout. Manager A Toute! → missions liées à ses tournées (`tournees.prestataire_id = current_user.prestataire_id`). Autres → pas d'accès.
 
 **Décisions** :
-- **Granularité 1 collecte = 1 mission vélo** (V1) : une tournée A Toutes! vélo contient typiquement 1 collecte (créneau serré, vélo unique). Si le dispatch groupe plusieurs collectes sur un même vélo (improbable V1), une mission par collecte facilite le suivi et la facturation.
-- **Granularité 1 tournée = 1 mission camion** (V1) : camion A Toutes! ID 91 peut regrouper N collectes, une seule mission Everest.
-- **Source de vérité coût** : `tournees.cout_calcule_ht` prime sur `cout_everest_ht`. `cout_everest_ht` conservé pour audit et rapprochement facture A Toutes!.
-- **Statut chauffeur app TMS** : les chauffeurs A Toutes! utilisent l'app mobile TMS (saisie pesée, photo, rolls). Ils ne voient pas Everest.
+- **Granularité 1 collecte = 1 mission vélo** (V1) : une tournée A Toute! vélo contient typiquement 1 collecte (créneau serré, vélo unique). Si le dispatch groupe plusieurs collectes sur un même vélo (improbable V1), une mission par collecte facilite le suivi et la facturation.
+- **Granularité 1 tournée = 1 mission camion** (V1) : camion A Toute! ID 91 peut regrouper N collectes, une seule mission Everest.
+- **Source de vérité coût** : `tournees.cout_calcule_ht` prime sur `cout_everest_ht`. `cout_everest_ht` conservé pour audit et rapprochement facture A Toute!.
+- **Statut chauffeur app TMS** : les chauffeurs A Toute! utilisent l'app mobile TMS (saisie pesée, photo, rolls). Ils ne voient pas Everest.
 
 ---
 
@@ -3218,7 +3218,7 @@ L'isolation repose sur `users_tms.prestataire_id` et `users_tms.roles[]`. Un pre
 
 Suite de tests SQL dédiée (cf. §15 Sécurité TMS) :
 - Un manager Strike ne peut pas lire un `tournees.id` Marathon (tentative explicite → 0 lignes).
-- Un chauffeur A Toutes! ne peut pas lire une `pesees` d'une tournée qui n'est pas la sienne.
+- Un chauffeur A Toute! ne peut pas lire une `pesees` d'une tournée qui n'est pas la sienne.
 - Un Ops Savr peut lire + modifier toutes les tables sauf `audit_logs`.
 
 ---
@@ -3298,7 +3298,7 @@ BRIN sur `audit_logs.created_at` + `integrations_logs.created_at` (partitioning 
 4. → **Résolu (arbitrage Val 2026-06-07, résidu purgé 2026-06-11)** : seed réel figé par préfixe département (`75` = paris ; `92`/`93`/`94` = communes_limitrophes), grille réelle 2 zones — cf. namespace `zones` Niveau 5 (+ clarification couverture ≠ pricing 2026-06-11).
 5. **Test volumétrie partitioning `audit_logs`** — hypothèse V1 : ~50 000 mutations/mois. À vérifier dès go-live, ajuster partition mensuelle → hebdo si dépassement.
 6. — **Tranché 2026-06-03 (arbitrage Val, option a)** : pas de rapprochement partiel natif V1. Règle V1 = **1 facture = 1 période de facturation sans chevauchement** avec une période déjà facturée (R3.8 §05). Le mécanisme de verrouillage existant garantit déjà l'absence de double comptage : R3.2 ne somme que les tournées `terminee` **ET `cout_final_verrouille = false`** — les tournées déjà rapprochées/facturées (verrouillées par une facture antérieure) sont automatiquement exclues du montant TMS d'une nouvelle facture. Si une facture à cheval produit un écart, elle tombe en `ecart_detecte` / `rapprochement_manuel_requis` (enum existant) → Ops tranche. **Aucune nouvelle colonne, aucun moteur de partiel.** Documenté §05 R3.8 + M08 (pas §08, qui couvre le contrat Plateforme↔TMS, pas la facturation prestataire interne). Rapprochement partiel/ligne-à-ligne réévaluable V1.1 si volume × 5.
-7. **Everest webhook entrant statut mission** — à confirmer avec docs Everest si A Toutes! déclenche une mise à jour push (webhook) ou si c'est du polling côté TMS.
+7. **Everest webhook entrant statut mission** — à confirmer avec docs Everest si A Toute! déclenche une mise à jour push (webhook) ou si c'est du polling côté TMS.
 8. **Cumul rôle `manager_prestataire` + `ops_savr`** — cas de figure rare mais possible (employé Savr qui pilote aussi un prestataire). Règle RLS : toujours prendre le rôle le plus large (`ops_savr`). À confirmer §09 Auth.
 9. → **Caduc (purgé 2026-06-11)** : la table a été remplacée par la vue `v_courses_logistiques` (grain couple collecte×tournée, `tournee_id` non unique — contrat figé 2026-05-26), **non créée en V1** (décision Val 2026-06-10). Plus rien à propager.
 

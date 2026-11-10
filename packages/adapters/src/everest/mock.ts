@@ -44,7 +44,7 @@ export interface EverestMissionDetail {
 
 /**
  * Photo prise par le coursier, lue dans `medias` de la mission relue (forme
- * mesurée sur le compte A Toutes! le 2026-11-03 : `id` numérique, `type`
+ * mesurée sur le compte A Toute! le 2026-11-03 : `id` numérique, `type`
  * `photo`, `src` adresse publique, `date` en secondes). Les autres médias
  * (signatures…) ne sont pas des photos de la collecte.
  */
@@ -58,7 +58,7 @@ export interface PhotoMissionEverest {
 /**
  * Catégorie d'une étape Everest, d'après les drapeaux de la mission relue
  * (`is_cancel`, `is_fail`, `is_success`, `is_pickup`, `is_dispatch`, lus sur
- * le compte A Toutes! le 2026-11-03). `null` = étape sans catégorie (mission
+ * le compte A Toute! le 2026-11-03). `null` = étape sans catégorie (mission
  * créée, coursier arrivé à destination…).
  */
 export type EtapeMissionEverest =

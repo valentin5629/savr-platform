@@ -117,7 +117,7 @@ Scénario : dashboard_admin_bloc_couts_et_marge
   Étant donné une collecte ZD facturée 600 € HT et un coût logistique agrégé de 180 € HT dans `v_courses_logistiques`
   Quand l'admin_savr consulte le Bloc 3 Coûts
   Alors la marge brute affichée pour la collecte = 420,00 €
-  Et le split par prestataire (Strike / Marathon / A Toutes! / province) somme exactement le total des coûts
+  Et le split par prestataire (Strike / Marathon / A Toute! / province) somme exactement le total des coûts
 ```
 
 ```gherkin

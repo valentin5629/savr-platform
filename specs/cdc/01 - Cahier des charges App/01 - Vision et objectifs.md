@@ -183,7 +183,7 @@ KPIs opérationnels dès la mise en production :
 - **Province inclus en V1** : 100% des associations et transporteurs, IDF + province.
 - **Référentiel Savr associations + transporteurs** : Savr tient le référentiel (données propriétaires), pas d'intégration web externe. Onboarding manuel de chaque assoc/transporteur. 
 - **Algorithme d'attribution Anti-Gaspi** : recommandation automatique (lieu, type d'événement, capacité assoc/transporteur, horaires) + validation humaine ops Savr obligatoire avant envoi. Notification email automatique à l'assoc/transporteur une fois sélectionnés.
-- **A Toutes! prestataire anti-gaspi en V1** : prestataire IDF journée. Les ordres de collecte sont envoyés par la Plateforme au Savr TMS, qui gère la communication avec Everest (système propriétaire A Toutes!) et pilote l'exécution terrain. Les chauffeurs A Toutes! utilisent l'app mobile Savr TMS pour la saisie terrain (poids, photos). Voir [[02 - Cahier des charges TMS/01 - Vision et objectifs TMS]] pour les détails de l'intégration Everest.
+- **A Toute! prestataire anti-gaspi en V1** : prestataire IDF journée. Les ordres de collecte sont envoyés par la Plateforme au Savr TMS, qui gère la communication avec Everest (système propriétaire A Toute!) et pilote l'exécution terrain. Les chauffeurs A Toute! utilisent l'app mobile Savr TMS pour la saisie terrain (poids, photos). Voir [[02 - Cahier des charges TMS/01 - Vision et objectifs TMS]] pour les détails de l'intégration Everest.
 - **Suivi packs Anti-Gaspi par client** : comptabilité précise (solde, consommation, historique) dès V1.
 - **Suivi financier complet** : revenus (Plateforme) + coûts logistiques (TMS) agrégés.
 - **Traçabilité réglementaire V1** : registre chronologique des déchets interne Savr, accessible à tous les profils espace client (filtrage RLS sur événements associés). Bordereaux Savr émis automatiquement à la clôture de chaque collecte ZD (mentionnant exutoires Veolia, transporteur, poids, code déchet européen). Attestations de don aux associations pour les collectes AG éligibles (document type 2041-GE, défiscalisation 60%). Méthodologie statique PDF accessible. Pas d'intégration Trackdéchets en V1 — renvoi vers Veolia en cas d'audit sur les BSD officiels.
@@ -206,9 +206,9 @@ KPIs opérationnels dès la mise en production :
 
 **Décision** : TMS V1 = app mobile natif (chauffeurs terrain) + interface web (manager Savr/prestataires bureau). Deux UX, une API TMS centralisée.
 
-### Décision 8 — Gestion de A Toutes! via le Savr TMS (révision 2026-04-21)
+### Décision 8 — Gestion de A Toute! via le Savr TMS (révision 2026-04-21)
 
-**Décision** : l'intégration avec Everest (système propriétaire A Toutes!) est gérée par le Savr TMS, pas par la Plateforme. La Plateforme envoie les ordres au TMS, qui transmet à Everest et remonte les statuts. En cas d'indisponibilité TMS > 30 min : bascule commandes manuelles Admin Savr (email structuré au prestataire).
+**Décision** : l'intégration avec Everest (système propriétaire A Toute!) est gérée par le Savr TMS, pas par la Plateforme. La Plateforme envoie les ordres au TMS, qui transmet à Everest et remonte les statuts. En cas d'indisponibilité TMS > 30 min : bascule commandes manuelles Admin Savr (email structuré au prestataire).
 
 **Implication** : contrat API Plateforme ↔ TMS bien documenté. Le risque lié à Everest est porté par le CDC TMS.
 

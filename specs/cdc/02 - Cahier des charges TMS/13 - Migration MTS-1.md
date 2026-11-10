@@ -52,7 +52,7 @@
 - ~30 collectes AG / mois
 - ~30 collectes ZD / mois
 - Total ~60 collectes / mois sur la fenêtre double-run
-- ~30 prestataires actifs à seeder (Strike, Marathon, ~28 prestataires province + A Toutes!)
+- ~30 prestataires actifs à seeder (Strike, Marathon, ~28 prestataires province + A Toute!)
 - ~50-80 chauffeurs actifs à seeder
 - ~30-50 véhicules actifs à seeder
 - ~5-10 grilles tarifaires en cours
@@ -153,7 +153,7 @@ Ajout dans `parametres_tms` namespace racine (cf. §04 propagation §13) :
    - Strike (priorité 1)
    - Marathon (priorité 1)
    - ~28 prestataires province (priorité 2)
-   - A Toutes! (priorité 1, intégration Everest M14 à activer en parallèle)
+   - A Toute! (priorité 1, intégration Everest M14 à activer en parallèle)
 3. **Pour chaque prestataire** : checklist seed M06 stricte 16 champs obligatoires :
    - Identité : raison sociale, SIRET, adresse siège, contacts opérationnel + facturation
    - Coordonnées siège (lat/lng, rayon intervention)
@@ -227,7 +227,7 @@ Ajout dans `parametres_tms` namespace racine (cf. §04 propagation §13) :
 **Acteurs et rôles** :
 - **Clients (traiteurs)** : continuent leur process habituel sur Bubble. **Aucune duplication côté client.** Ils ne savent pas que la nouvelle Plateforme existe (sauf comm marketing).
 - **Val** : duplique manuellement la saisie côté nouvelle Plateforme à la place des clients. ~60 collectes / mois × ~5-10 min / collecte = 8-25h sur le mois.
-- **Prestataires (Strike, Marathon, A Toutes!, province)** : valident sur MTS-1 (production légale) **ET** sur TMS Savr (shadow). Double-saisie acceptation, plaque, chauffeur.
+- **Prestataires (Strike, Marathon, A Toute!, province)** : valident sur MTS-1 (production légale) **ET** sur TMS Savr (shadow). Double-saisie acceptation, plaque, chauffeur.
 - **Chauffeurs** : utilisent l'app MTS-1 (production légale) **ET** l'app PWA TMS Savr (shadow). Double-saisie pesées, photos, statut collecte.
 - **Ops Savr** : pilote MTS-1 en production normale. Consulte TMS Savr en lecture pour vérification cohérence.
 
@@ -251,7 +251,7 @@ Ajout dans `parametres_tms` namespace racine (cf. §04 propagation §13) :
 **Owner** : Val.
 
 **Pré-requis J+30 matin** :
-1. Confirmer que toutes les factures Strike/Marathon/A Toutes! du mois M (mois de bascule) ont été reçues et réglées via MTS-1 (paiement effectif vérifié).
+1. Confirmer que toutes les factures Strike/Marathon/A Toute! du mois M (mois de bascule) ont été reçues et réglées via MTS-1 (paiement effectif vérifié).
 2. Confirmer que tous les prestataires sont à l'aise avec TMS Savr (retro hebdo W5 OK).
 3. Confirmer que Bubble n'a pas de collecte en cours (pas de collecte programmée future via Bubble).
 
@@ -341,9 +341,9 @@ Critères mesurables, validés par Val à J-1 (soir). 12 critères, tous doivent
 
 - [ ] **A1** Tous les prestataires V1 actifs sont saisis dans M06, statut `actif`. ≥30 prestataires.
 - [ ] **A2** Strike + Marathon ont au moins 1 grille tarifaire `active = true` valide à J0 (date_debut ≤ J0, date_fin null ou > J+30).
-- [ ] **A3** Chaque prestataire majeur (Strike, Marathon, A Toutes!) a au moins 1 chauffeur actif et 1 véhicule actif rattaché.
+- [ ] **A3** Chaque prestataire majeur (Strike, Marathon, A Toute!) a au moins 1 chauffeur actif et 1 véhicule actif rattaché.
 - [ ] **A4** Lieux logistiques principaux enrichis (rayon, accès, parking) sur 80% des prestataires.
-- [ ] **A5** Onboarding A Toutes! Everest M14 : `everest_client_id` saisi + ping API testé OK.
+- [ ] **A5** Onboarding A Toute! Everest M14 : `everest_client_id` saisi + ping API testé OK.
 
 ### Catégorie B — Configuration TMS (3 critères)
 
@@ -467,7 +467,7 @@ Même format que Strike.
 - **Justification** : maximum de tests réels prestataires/chauffeurs avec filet de sécurité Bubble/MTS-1. Coût opérationnel concentré sur Val + double-saisie prestataires (acceptable pour 1 mois).
 
 ### D3 — 0 reprise factures héritées
-- **Décision** : factures Strike/Marathon/A Toutes! émises avant J+30 réglées via MTS-1 archive uniquement. Aucune saisie OCR M08 dans le TMS pour ces factures.
+- **Décision** : factures Strike/Marathon/A Toute! émises avant J+30 réglées via MTS-1 archive uniquement. Aucune saisie OCR M08 dans le TMS pour ces factures.
 - **Alternatives écartées** : factures en cours OCR (b), 6 mois OCR (c), mix (d).
 - **Justification** : simplicité maximale. Continuité paiements via MTS-1, audit fiscal couvert par MTS-1 archive 5 ans.
 

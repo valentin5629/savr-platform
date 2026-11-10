@@ -121,7 +121,7 @@ describe('Écran Mon pack Anti-Gaspi', () => {
         undefined,
         ATTENTE_UI,
       );
-      expect(screen.getByText('crédits restants')).toBeTruthy();
+      expect(screen.getByText('restants')).toBeTruthy();
       expect(lignes).toHaveLength(3);
       const [actif, epuise, annule] = lignes as [
         HTMLElement,

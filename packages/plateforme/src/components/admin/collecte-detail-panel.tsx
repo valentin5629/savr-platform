@@ -2562,6 +2562,7 @@ export function CollecteDetailPanel({
                 )}
                 {besoinEditable && (
                   <ChampsBesoinVehicule
+                    typeCollecte={collecte.type}
                     typeVehicule={
                       typeVehiculeSaisi ?? collecte.type_vehicule_souhaite ?? ''
                     }

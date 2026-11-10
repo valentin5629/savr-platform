@@ -632,6 +632,7 @@ export function AttributionAgForm({
               )}
             </FormGrid>
             <ChampsBesoinVehicule
+              typeCollecte="anti_gaspi"
               typeVehicule={typeVehicule}
               onTypeVehicule={(v) => {
                 typeToucheRef.current = true;

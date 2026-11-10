@@ -109,7 +109,7 @@ describe('Programmation / Lieu créé — véhicule max limité aux gabarits (Va
           adresse_acces: '1 rue de Bezons',
           code_postal: '92400',
           ville: 'Courbevoie',
-          type_vehicule_max: 'camion_16m3',
+          type_vehicule_max: 'camion_16m3_double',
         }),
         headers: { 'content-type': 'application/json' },
       }),

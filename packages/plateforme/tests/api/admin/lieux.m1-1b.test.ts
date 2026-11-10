@@ -186,7 +186,7 @@ describe('M1.1b / Lieux / Création', () => {
         adresse_acces: '1 rue de la Paix',
         code_postal: '75001',
         ville: 'Paris',
-        type_vehicule_max: 'camion_20m3',
+        type_vehicule_max: 'camion_20m3_simple',
       }),
     );
     expect(res.status).toBe(422);

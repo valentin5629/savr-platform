@@ -147,11 +147,14 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
   it('un seul véhicule au type précisé : « Véhicule souhaité : … » suit la consigne (Val 2026-11-10)', () => {
     const ligne = (type: string) =>
       composer({ vehicule: { type, nombre: 1, typeTms: 'mts1' } }).general;
-    expect(ligne('camion_20m3')).toBe(
-      `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : camion 20 m³`,
+    expect(ligne('camion_20m3_simple')).toBe(
+      `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : camion 20 m³ simple`,
     );
-    expect(ligne('camion_16m3')).toBe(
-      `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : camion 16 m³`,
+    expect(ligne('camion_16m3_double')).toBe(
+      `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : camion 16 m³ double`,
+    );
+    expect(ligne('camionnette_frigo')).toBe(
+      `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : camionnette frigo`,
     );
     expect(ligne('camion_frigo')).toBe(
       `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : camion frigo`,
@@ -181,9 +184,12 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
     expect(phrase({ type: 'camionnette', nombre: 2, typeTms: 'mts1' })).toBe(
       `2 camionnettes prévues${suite}`,
     );
-    expect(phrase({ type: 'camion_20m3', nombre: 2, typeTms: 'mts1' })).toBe(
-      `2 camions 20 m³ prévus${suite}`,
-    );
+    expect(
+      phrase({ type: 'camion_20m3_double', nombre: 2, typeTms: 'mts1' }),
+    ).toBe(`2 camions 20 m³ double prévus${suite}`);
+    expect(
+      phrase({ type: 'camionnette_frigo', nombre: 2, typeTms: 'mts1' }),
+    ).toBe(`2 camionnettes frigo prévues${suite}`);
     expect(phrase({ type: 'camion_frigo', nombre: 3, typeTms: 'mts1' })).toBe(
       `3 camions frigo prévus${suite}`,
     );

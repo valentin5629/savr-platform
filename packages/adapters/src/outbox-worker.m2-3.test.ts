@@ -859,7 +859,7 @@ describe('M1.5 / commentaires au transporteur composés par le worker — les 2 
       typeTms: 'mts1',
       prestataireLogistiqueId: PRESTA_ID,
       typeCollecte: 'zero_dechet',
-      typeVehiculeSouhaite: 'camion_20m3',
+      typeVehiculeSouhaite: 'camion_20m3_simple',
       nbCamions: 2,
     });
     await runOutboxWorker(supabase);
@@ -871,7 +871,7 @@ describe('M1.5 / commentaires au transporteur composés par le worker — les 2 
         informations_supplementaires: string | null;
       };
       expect(collecte.informations_supplementaires ?? '').toContain(
-        '2 camions 20 m³ prévus pour cette collecte',
+        '2 camions 20 m³ simple prévus pour cette collecte',
       );
     }
   });

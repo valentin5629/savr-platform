@@ -38,9 +38,12 @@ export const VEHICULE_LABEL: Record<string, string> = {
   fourgon: 'Fourgon',
   vul: 'VUL',
   poids_lourd: 'Poids lourd',
+  camionnette_frigo: 'Camionnette frigo',
   camion_frigo: 'Camion frigo',
-  camion_16m3: 'Camion 16 m³',
-  camion_20m3: 'Camion 20 m³',
+  camion_16m3_simple: '16 m³ simple',
+  camion_16m3_double: '16 m³ double',
+  camion_20m3_simple: '20 m³ simple',
+  camion_20m3_double: '20 m³ double',
 } satisfies Record<Enums['type_vehicule'], string>;
 
 /**

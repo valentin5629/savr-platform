@@ -156,13 +156,13 @@ describe('Transporteurs / gabarits (échelle de l’algorithme AG, Val 2026-11-1
     mockSupabaseChain.single.mockReset();
   });
 
-  it('create — un gabarit du seul véhicule souhaité (camion_20m3) → 422, rien n’est écrit', async () => {
+  it('create — un gabarit du seul véhicule souhaité (camion_20m3_simple) → 422, rien n’est écrit', async () => {
     setupAuth('admin_savr');
     const { POST } = await import('@/app/api/v1/admin/transporteurs/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/admin/transporteurs', {
         ...BASE_TRANSPORTEUR,
-        types_vehicules: ['poids_lourd', 'camion_20m3'],
+        types_vehicules: ['poids_lourd', 'camion_20m3_simple'],
         type_tms: 'autre',
       }),
     );
@@ -218,7 +218,7 @@ describe('Transporteurs / gabarits déjà portés par la fiche', () => {
     expect(mockSupabaseChain.update).toHaveBeenCalledTimes(1);
     const ajout = await PATCH(
       makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
-        types_vehicules: ['camion_ancien', 'camion_20m3'],
+        types_vehicules: ['camion_ancien', 'camion_20m3_simple'],
       }),
       { params: Promise.resolve({ id: 'tr-1' }) },
     );

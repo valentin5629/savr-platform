@@ -4,7 +4,7 @@
 //
 //   Commentaire de la mission :
 //     Veuillez peser et prendre de belles photos de ce que vous récupérez svp
-//     Véhicule souhaité : camion 20 m³  (un seul véhicule, type précisé, Val 2026-11-10)
+//     Véhicule souhaité : camion 20 m³ simple  (un seul véhicule, type précisé, Val 2026-11-10)
 //     2 vélos prévus pour cette collecte, veuillez vous coordonner pour les
 //     appels au traiteur                (seulement s'il y a plusieurs véhicules)
 //
@@ -168,19 +168,34 @@ const NOMS_VEHICULE: Record<
   fourgon: { seul: 'fourgon', pluriel: 'fourgons', feminin: false },
   vul: { seul: 'VUL', pluriel: 'VUL', feminin: false },
   poids_lourd: { seul: 'poids lourd', pluriel: 'poids lourds', feminin: false },
+  camionnette_frigo: {
+    seul: 'camionnette frigo',
+    pluriel: 'camionnettes frigo',
+    feminin: true,
+  },
   camion_frigo: {
     seul: 'camion frigo',
     pluriel: 'camions frigo',
     feminin: false,
   },
-  camion_16m3: {
-    seul: 'camion 16 m³',
-    pluriel: 'camions 16 m³',
+  camion_16m3_simple: {
+    seul: 'camion 16 m³ simple',
+    pluriel: 'camions 16 m³ simple',
     feminin: false,
   },
-  camion_20m3: {
-    seul: 'camion 20 m³',
-    pluriel: 'camions 20 m³',
+  camion_16m3_double: {
+    seul: 'camion 16 m³ double',
+    pluriel: 'camions 16 m³ double',
+    feminin: false,
+  },
+  camion_20m3_simple: {
+    seul: 'camion 20 m³ simple',
+    pluriel: 'camions 20 m³ simple',
+    feminin: false,
+  },
+  camion_20m3_double: {
+    seul: 'camion 20 m³ double',
+    pluriel: 'camions 20 m³ double',
     feminin: false,
   },
 };
@@ -196,7 +211,7 @@ const PLURIEL_PAR_PRESTATAIRE: Record<string, string> = {
  * commande. Plusieurs véhicules (Val 2026-11-03) : « 2 vélos prévus pour cette
  * collecte, veuillez vous coordonner pour les appels au traiteur ». Un seul
  * véhicule au type précisé (Val 2026-11-10) : « Véhicule souhaité : camion
- * 20 m³ » ; sans type, rien.
+ * 20 m³ simple » ; sans type, rien.
  */
 function phraseVehicules(vehicule: VehiculeSouhaite | null): string {
   if (!vehicule) return '';

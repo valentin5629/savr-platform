@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { fmtInt, fmtMasse } from './fmt';
 import { CO2, WHITE } from './palette';
-import { MENTION_CO2_EVITE } from '@/lib/co2-mention';
+import { LIEN_METHODE_CO2, MENTION_CO2_EVITE } from '@/lib/co2-mention';
+import { ROUTES } from '@/lib/routes';
 
 // Co2HeroCard — bloc héros à FOND NAVY (PAS ChartCard) présentant le CO₂e
 // ÉVITÉ ESTIMÉ (décisions Val 2026-11-09) : jamais de bilan net, ni d'énergie
@@ -121,7 +122,15 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
 
       {/* Note bas */}
       <div className="mt-4 text-xs" style={{ color: CO2.labelFaint }}>
-        {MENTION_CO2_EVITE}
+        {MENTION_CO2_EVITE}{' '}
+        <a
+          href={ROUTES.methodeCo2}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2"
+        >
+          {LIEN_METHODE_CO2}
+        </a>
       </div>
     </div>
   );

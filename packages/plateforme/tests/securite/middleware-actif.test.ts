@@ -210,6 +210,11 @@ describe('middleware — comportement', () => {
     expect(createServerClient).not.toHaveBeenCalled();
   });
 
+  it('méthode CO₂ sans session → lisible (Val 2026-11-10)', async () => {
+    passe(await middleware(req('/methode-co2')));
+    expect(createServerClient).not.toHaveBeenCalled();
+  });
+
   it('mentions légales sans session → lisibles (LCEN, art. 6-III)', async () => {
     passe(await middleware(req('/mentions-legales')));
     expect(createServerClient).not.toHaveBeenCalled();
@@ -366,6 +371,12 @@ describe('middleware — code de vérification', () => {
     expect(isPublicPath('/confidentialite')).toBe(true);
     expect(isPublicPath('/confidentialite-x')).toBe(false);
     expect(isPublicPath('/confidentialitex')).toBe(false);
+  });
+
+  it('méthode CO₂ : chemin exact public, jamais un préfixe de chaîne', () => {
+    expect(isPublicPath('/methode-co2')).toBe(true);
+    expect(isPublicPath('/methode-co2-x')).toBe(false);
+    expect(isPublicPath('/methode-co2x')).toBe(false);
   });
 
   it('mentions légales : chemin exact public, jamais un préfixe de chaîne', () => {

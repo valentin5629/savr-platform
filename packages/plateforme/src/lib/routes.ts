@@ -129,6 +129,8 @@ export const ROUTES = {
   confidentialite: '/confidentialite',
   // Mentions légales : publiques (LCEN, art. 6-III).
   mentionsLegales: '/mentions-legales',
+  // Méthode de calcul du CO₂ : publique, liée sous chaque CO₂e évité (Val 2026-11-10).
+  methodeCo2: '/methode-co2',
   interdit: '/403',
 
   registre: REG,

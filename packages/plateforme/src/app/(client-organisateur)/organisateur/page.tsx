@@ -22,7 +22,8 @@ import { PageHero } from '@/components/ui/page-hero';
 import { SquaresFourIcon } from '@/components/ui/icones';
 import { fmtDec, fmtMasse, uniteCo2 } from '@/lib/format';
 import { Text } from '@/components/ui/text';
-import { MENTION_CO2_EVITE } from '@/lib/co2-mention';
+import { LIEN_METHODE_CO2, MENTION_CO2_EVITE } from '@/lib/co2-mention';
+import { TextLink } from '@/components/ui/text-link';
 import { ROUTES } from '@/lib/routes';
 
 // §11 §7 — Dashboard client_organisateur : impact RSE, lecture seule.
@@ -175,7 +176,15 @@ export default function ClientOrganisateurDashboardPage() {
             />
           </div>
           <Text variant="hint" tone="faint">
-            {MENTION_CO2_EVITE}
+            {MENTION_CO2_EVITE}{' '}
+            <TextLink
+              external
+              href={ROUTES.methodeCo2}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {LIEN_METHODE_CO2}
+            </TextLink>
           </Text>
           <Button variant="ghost" asChild>
             <a href={ROUTES.organisateur.documents}>

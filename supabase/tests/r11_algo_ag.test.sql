@@ -90,7 +90,7 @@ INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integratio
 VALUES ('b1000000-0000-0000-0000-000000000057'::uuid, 'ProvBadVeh R11', 'PROVBAD_R11', ARRAY['ag'], 'mts1', '888888888012345', 'actif', 0)
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
-VALUES ('b1000000-0000-0000-0000-000000000047'::uuid, 'ProvBadVeh R11', '888888888', '3 Quai', '76000', 'Rouen', 'mts1', true, 'BV', 'bv@t.test', '0600000008', ARRAY['camion_16m3'], 49.4431, 1.0993, 'b1000000-0000-0000-0000-000000000057'::uuid);
+VALUES ('b1000000-0000-0000-0000-000000000047'::uuid, 'ProvBadVeh R11', '888888888', '3 Quai', '76000', 'Rouen', 'mts1', true, 'BV', 'bv@t.test', '0600000008', ARRAY['fusee'], 49.4431, 1.0993, 'b1000000-0000-0000-0000-000000000057'::uuid);
 
 -- Associations : 1 province (Rouen) + 2 IDF (A = la plus proche, B = config auto-accept différente)
 INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, capacite_max_beneficiaires, actif, description_rapport_impact, latitude, longitude)

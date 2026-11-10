@@ -773,8 +773,9 @@ async function fetchCollecte(
   // Véhicule souhaité par l'Admin (migration 20261001213000) : lu à part et
   // tolérant à l'ABSENCE de la colonne — le code peut être déployé avant la
   // migration sans transformer chaque event en « collecte introuvable » → dead.
-  // N véhicules = N commandes (décision Val 2026-10-01) ; plusieurs véhicules
-  // = « N vélos prévus … » dans le commentaire (Val 2026-11-03, infos-acces.ts).
+  // N véhicules = N commandes (décision Val 2026-10-01). Dans le commentaire,
+  // AG et ZD : « Véhicule souhaité : … » pour un véhicule, « N vélos prévus … »
+  // pour plusieurs (Val 2026-11-03 et 2026-11-10, infos-acces.ts).
   const typeVehiculeSouhaite = await lireTypeVehiculeSouhaite(supabase, raw.id);
 
   return {
@@ -791,9 +792,10 @@ async function fetchCollecte(
     // par `toCollecte`, donc une seule fois pour les deux adapters (garde-fou
     // 2), et à partir du lieu FUSIONNÉ — le lieu officiel retransmettrait
     // précisément l'erreur corrigée par #304. Les instructions d'accès, le nom du
-    // contact de secours (arbitrage Val 2026-09-14) et les véhicules multiples
+    // contact de secours (arbitrage Val 2026-09-14) et le véhicule souhaité
     // n'ont aucun champ natif MTS-1/Everest en V1.
     entree_commentaire: {
+      typeCollecte: raw.type as 'anti_gaspi' | 'zero_dechet',
       lieu,
       informationsSupplementaires: raw.informations_supplementaires,
       contact: {
@@ -804,10 +806,8 @@ async function fetchCollecte(
         nom: contacts.contact_secours_nom,
         telephone: contacts.contact_secours_telephone,
       },
-      vehicule:
-        raw.type === 'anti_gaspi'
-          ? { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande }
-          : null,
+      // AG et ZD (Val 2026-11-10 ; la ZD n'en recevait rien avant).
+      vehicule: { type: typeVehiculeSouhaite, nombre: raw.nb_camions_demande },
       livraison: association
         ? {
             instructionsAcces: association.instructions_acces,

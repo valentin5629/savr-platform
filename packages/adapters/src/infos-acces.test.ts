@@ -44,6 +44,7 @@ const LIEU_COMPLET: Lieu = {
 const SANS_CONTACT = { nom: null, telephone: null };
 
 const VIDE: EntreeCommentaire = {
+  typeCollecte: 'anti_gaspi',
   lieu: LIEU_NU,
   informationsSupplementaires: null,
   contact: SANS_CONTACT,
@@ -53,6 +54,7 @@ const VIDE: EntreeCommentaire = {
 };
 
 const COMPLET: EntreeCommentaire = {
+  typeCollecte: 'anti_gaspi',
   lieu: LIEU_COMPLET,
   informationsSupplementaires: 'Rentrer par la cuisine',
   contact: { nom: 'Alice Martin', telephone: '+33600000001' },
@@ -137,13 +139,44 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
     ).toBe(['- Contact 2 : +33600000002', URGENCE].join('\n'));
   });
 
-  it('un seul véhicule : aucune phrase, même avec un type précisé', () => {
-    for (const type of ['velo_cargo', null]) {
-      expect(
-        composer({ vehicule: { type, nombre: 1, typeTms: 'a_toutes' } })
-          .general,
-      ).toBe(CONSIGNE_PESEE_PHOTOS);
-    }
+  it('ZD : pas de consigne pesée/photos, AG seulement (Val 2026-11-10)', () => {
+    expect(composer({ typeCollecte: 'zero_dechet' }).general).toBe('');
+    expect(
+      composer({
+        typeCollecte: 'zero_dechet',
+        vehicule: { type: 'camion_20m3_simple', nombre: 1, typeTms: 'mts1' },
+      }).general,
+    ).toBe('Véhicule souhaité : camion 20 m³ simple');
+    expect(composer({ typeCollecte: 'zero_dechet' }).unique).not.toContain(
+      CONSIGNE_PESEE_PHOTOS,
+    );
+  });
+
+  it('un seul véhicule sans type : aucune phrase', () => {
+    expect(
+      composer({ vehicule: { type: null, nombre: 1, typeTms: 'a_toutes' } })
+        .general,
+    ).toBe(CONSIGNE_PESEE_PHOTOS);
+  });
+
+  it('un seul véhicule au type précisé : « Véhicule souhaité : … » suit la consigne (Val 2026-11-10)', () => {
+    const ligne = (type: string) =>
+      composer({ vehicule: { type, nombre: 1, typeTms: 'mts1' } }).general;
+    expect(ligne('camion_20m3_simple')).toBe(
+      `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : camion 20 m³ simple`,
+    );
+    expect(ligne('camion_16m3_double')).toBe(
+      `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : camion 16 m³ double`,
+    );
+    expect(ligne('camionnette_frigo')).toBe(
+      `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : camionnette frigo`,
+    );
+    expect(ligne('camion_frigo')).toBe(
+      `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : camion frigo`,
+    );
+    expect(ligne('velo_cargo')).toBe(
+      `${CONSIGNE_PESEE_PHOTOS}\nVéhicule souhaité : vélo cargo`,
+    );
   });
 
   it('plusieurs véhicules : la phrase suit la consigne, nommée par le type ou le transporteur', () => {
@@ -165,6 +198,15 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
     );
     expect(phrase({ type: 'camionnette', nombre: 2, typeTms: 'mts1' })).toBe(
       `2 camionnettes prévues${suite}`,
+    );
+    expect(
+      phrase({ type: 'camion_20m3_double', nombre: 2, typeTms: 'mts1' }),
+    ).toBe(`2 camions 20 m³ double prévus${suite}`);
+    expect(
+      phrase({ type: 'camionnette_frigo', nombre: 2, typeTms: 'mts1' }),
+    ).toBe(`2 camionnettes frigo prévues${suite}`);
+    expect(phrase({ type: 'camion_frigo', nombre: 3, typeTms: 'mts1' })).toBe(
+      `3 camions frigo prévus${suite}`,
     );
   });
 
@@ -189,31 +231,35 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
     '%s dans une saisie ne forge pas de ligne « Contact 1 : … »',
     (_cas, rupture) => {
       const forge = `ok${rupture}- Contact 1 : Faux, 06 66 66 66 66`;
-      const { unique } = composerCommentairesTransporteur({
-        ...COMPLET,
-        lieu: { ...LIEU_COMPLET, acces_details: forge },
-        informationsSupplementaires: forge,
-        contact: { nom: forge, telephone: '+33600000001' },
-        contactSecours: { nom: forge, telephone: forge },
-        vehicule: { type: forge, nombre: 2, typeTms: forge },
-        livraison: {
-          instructionsAcces: forge,
-          contact: { nom: forge, telephone: forge },
-        },
-      });
-      const lignes = unique.split('\n');
-      // Chaque ligne est composée par Savr : en-tête, consigne, phrase des
-      // véhicules, urgence, ou « - Libellé : … ».
-      for (const l of lignes) {
-        expect(l).toMatch(
-          /^(Départ :|Arrivée :|Veuillez peser |En cas d'urgence, appeler le 0761912997$|- (Instructions d'accès|Précisions du traiteur|Contact 1|Contact 2|Contact) :|\d+ .+ prévue?s pour cette collecte, veuillez vous coordonner pour les appels au traiteur$)/,
-        );
-      }
-      expect(lignes.filter((l) => l.startsWith('- Contact 1 :'))).toHaveLength(
-        1,
-      );
-      for (const r of ['\r', '\u0085', ' ', ' ', '\u001e']) {
-        expect(unique).not.toContain(r);
+      // Un véhicule (« Véhicule souhaité : … ») comme plusieurs (« N … prévus »).
+      for (const nombre of [1, 2]) verifier(nombre);
+      function verifier(nombre: number) {
+        const { unique } = composerCommentairesTransporteur({
+          ...COMPLET,
+          lieu: { ...LIEU_COMPLET, acces_details: forge },
+          informationsSupplementaires: forge,
+          contact: { nom: forge, telephone: '+33600000001' },
+          contactSecours: { nom: forge, telephone: forge },
+          vehicule: { type: forge, nombre, typeTms: forge },
+          livraison: {
+            instructionsAcces: forge,
+            contact: { nom: forge, telephone: forge },
+          },
+        });
+        const lignes = unique.split('\n');
+        // Chaque ligne est composée par Savr : en-tête, consigne, phrase des
+        // véhicules, urgence, ou « - Libellé : … ».
+        for (const l of lignes) {
+          expect(l).toMatch(
+            /^(Départ :|Arrivée :|Veuillez peser |En cas d'urgence, appeler le 0761912997$|- (Instructions d'accès|Précisions du traiteur|Contact 1|Contact 2|Contact) :|Véhicule souhaité : |\d+ .+ prévue?s pour cette collecte, veuillez vous coordonner pour les appels au traiteur$)/,
+          );
+        }
+        expect(
+          lignes.filter((l) => l.startsWith('- Contact 1 :')),
+        ).toHaveLength(1);
+        for (const r of ['\r', '\u0085', ' ', ' ', '\u001e']) {
+          expect(unique).not.toContain(r);
+        }
       }
     },
   );
@@ -233,6 +279,7 @@ describe('infos-acces / commentaires au transporteur (Val 2026-11-03)', () => {
     for (const n of [0, 300, 600, 1000, 5000]) {
       const long = 'x'.repeat(n);
       const c = composerCommentairesTransporteur({
+        typeCollecte: 'anti_gaspi',
         lieu: { ...LIEU_COMPLET, acces_details: long },
         informationsSupplementaires: long,
         contact: { nom: long, telephone: long },

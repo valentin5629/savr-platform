@@ -851,7 +851,7 @@ describe('M1.5 / commentaires au transporteur composés par le worker — les 2 
     },
   );
 
-  it('M2.3 / worker — collecte ZD avec N véhicules : aucune ligne « Véhicule souhaité » (besoin véhicule = attribution AG seule)', async () => {
+  it('worker — collecte ZD : le véhicule souhaité part comme en AG (Val 2026-11-10)', async () => {
     const spy = vi
       .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
       .mockResolvedValue('noop_no_remote');
@@ -859,20 +859,21 @@ describe('M1.5 / commentaires au transporteur composés par le worker — les 2 
       typeTms: 'mts1',
       prestataireLogistiqueId: PRESTA_ID,
       typeCollecte: 'zero_dechet',
-      typeVehiculeSouhaite: 'camionnette',
+      typeVehiculeSouhaite: 'camion_20m3_simple',
       nbCamions: 2,
     });
     await runOutboxWorker(supabase);
 
-    // N rangs = N commandes, ZD comme AG — mais la ligne véhicule est une donnée
-    // de l'attribution AG : jamais fabriquée pour une ZD.
+    // N rangs = N commandes, chacune portant la même phrase.
     expect(spy).toHaveBeenCalledTimes(2);
-    const collecte = spy.mock.calls[0]![0] as {
-      informations_supplementaires: string | null;
-    };
-    expect(collecte.informations_supplementaires ?? '').not.toMatch(
-      /Véhicule souhaité|prévu/,
-    );
+    for (const appel of spy.mock.calls) {
+      const collecte = appel[0] as {
+        informations_supplementaires: string | null;
+      };
+      expect(collecte.informations_supplementaires ?? '').toContain(
+        '2 camions 20 m³ simple prévus pour cette collecte',
+      );
+    }
   });
 
   it('M2.3 / worker — colonne type_vehicule_souhaite illisible (migration non appliquée) → dispatch sans la ligne, jamais dead', async () => {

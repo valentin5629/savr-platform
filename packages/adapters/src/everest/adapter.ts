@@ -553,7 +553,10 @@ export class AdapterEverest implements LogistiqueProvider {
             address_end_tel: collecte.association_contact_telephone,
           }
         : {}),
-      comment: general || CONSIGNE_PESEE_PHOTOS,
+      // Consigne pesée/photos : AG seulement (Val 2026-11-10).
+      comment:
+        general ||
+        (collecte.type === 'anti_gaspi' ? CONSIGNE_PESEE_PHOTOS : ''),
     };
   }
 

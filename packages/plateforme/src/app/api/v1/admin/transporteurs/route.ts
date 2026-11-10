@@ -7,6 +7,10 @@ import { serverError } from '@/lib/api-helpers.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { listeCsv, parmi } from '@/lib/filtre-csv.js';
 import { Constants } from '@savr/shared/src/database.types.js';
+import {
+  sontGabaritsLieuTransporteur,
+  MESSAGE_GABARIT_INVALIDE,
+} from '@/lib/lieux-labels';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -88,6 +92,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   ) {
     return NextResponse.json(
       { error: 'Champs obligatoires manquants' },
+      { status: 422 },
+    );
+  }
+
+  if (!sontGabaritsLieuTransporteur(types_vehicules)) {
+    return NextResponse.json(
+      { error: MESSAGE_GABARIT_INVALIDE },
       { status: 422 },
     );
   }

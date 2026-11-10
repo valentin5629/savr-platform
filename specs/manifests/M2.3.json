@@ -74,7 +74,7 @@
   "scenarios": [
     "heure nuit (22:00) → branche ag_marathon_nuit",
     "600 pax exactement (seuil) → branche ag_marathon_volume",
-    "599 pax + A Toute! dispo → branche vélo (programme ou express selon délai)",
+    "599 pax + A Toutes! dispo → branche vélo (programme ou express selon délai)",
     "a_toutes_indisponible=true → branche ag_velo_fallback_marathon",
     "heure 07:00 exactement = début plage = JOUR (pas nuit)",
     "heure 20:00 exactement = fin plage = NUIT",
@@ -133,9 +133,9 @@
       "id": "M2.3-03",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
       "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
-      "test": "599 pax + A Toute! dispo → branche vélo (programme ou express selon délai)",
+      "test": "599 pax + A Toutes! dispo → branche vélo (programme ou express selon délai)",
       "statut": "implemented",
-      "libelle": "599 pax + A Toute! dispo → branche vélo (programme ou express selon délai)"
+      "libelle": "599 pax + A Toutes! dispo → branche vélo (programme ou express selon délai)"
     },
     {
       "id": "M2.3-04",

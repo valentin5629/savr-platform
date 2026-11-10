@@ -50,6 +50,8 @@ const PUBLIC_PREFIXES = [
   ROUTES.confidentialite,
   // Mentions légales : lisibles sans compte (LCEN, art. 6-III).
   ROUTES.mentionsLegales,
+  // Méthode CO₂ : lisible sans compte, liée depuis les écrans et les rapports.
+  ROUTES.methodeCo2,
   ROUTES.interdit,
   // Pages de smoke-test de composants (dev-only, présentationnel, sans donnée
   // sensible) — délibérément hors du gating /admin/* réservé admin_savr/ops_savr.

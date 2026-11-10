@@ -201,6 +201,18 @@ describe('M3.4 / organisateur — déclinaison Cockpit', () => {
       expect(
         screen.getByText(/ne se déduisent pas d’un bilan carbone/),
       ).toBeInTheDocument();
+      // Périmètre et lien vers la méthode publique (Val 2026-11-10, guide
+      // anti-greenwashing Climeet : un chiffre dit sur quoi il porte).
+      expect(
+        screen.getByText(
+          /Elle porte sur les déchets et excédents collectés par Savr/,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen
+          .getByRole('link', { name: 'Voir la méthode' })
+          .getAttribute('href'),
+      ).toBe('/methode-co2');
       expect(screen.queryByText(/à communiquer dans votre/)).toBeNull();
       expect(screen.queryByText(/Détail du bilan carbone/)).toBeNull();
       expect(screen.queryByText('CO₂ net')).toBeNull();

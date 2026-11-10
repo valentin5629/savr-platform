@@ -301,6 +301,13 @@ it('Co2HeroCard — met en avant l’évité estimé, induit à part, sans bilan
   expect(
     screen.getByText(/ne se déduisent pas d’un bilan carbone/),
   ).toBeInTheDocument();
+  // Périmètre + lien vers la méthode publique (Val 2026-11-10).
+  expect(
+    screen.getByText(/porte sur les déchets et excédents collectés par Savr/),
+  ).toBeInTheDocument();
+  const lien = screen.getByRole('link', { name: 'Voir la méthode' });
+  expect(lien.getAttribute('href')).toBe('/methode-co2');
+  expect(lien.getAttribute('target')).toBe('_blank');
   expect(screen.queryByText(/Bilan net/)).toBeNull();
   expect(screen.queryByText(/foyers/)).toBeNull();
   expect(screen.getByText(/km en voiture/)).toBeInTheDocument();

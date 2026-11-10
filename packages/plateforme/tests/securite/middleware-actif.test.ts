@@ -356,12 +356,47 @@ describe('middleware — code de vérification', () => {
     ['gestionnaire_lieux', '/gestionnaire'],
     ['client_organisateur', '/organisateur'],
   ])(
-    'client %s sans code (aal1) sur %s → autorisé (aucun code pour les clients)',
+    'client %s sans code (aal1) sur %s → autorisé (pas de claim d’organisation : aucun code)',
     async (role, path) => {
       connecte({ user_role: role, aal: 'aal1' });
       passe(await middleware(req(path)));
     },
   );
+
+  // Organisation qui exige le code (VIPARIS, Val 2026-11-10) : claim du hook.
+  it.each([
+    ['gestionnaire_lieux', '/gestionnaire'],
+    ['traiteur_manager', '/traiteur'],
+  ])(
+    'client %s d’une organisation qui exige le code, sans code, sur %s → 307 /code-verification',
+    async (role, path) => {
+      connecte({
+        user_role: role,
+        aal: 'aal1',
+        code_verification_obligatoire: true,
+      });
+      versCode(await middleware(req(path)), path);
+    },
+  );
+
+  it('client d’une organisation qui exige le code, avec code → autorisé', async () => {
+    connecte({
+      user_role: 'gestionnaire_lieux',
+      aal: 'aal2',
+      code_verification_obligatoire: true,
+    });
+    passe(await middleware(req('/gestionnaire')));
+  });
+
+  it('client d’une organisation qui exige le code, session impersonée → autorisé', async () => {
+    connecte({
+      user_role: 'gestionnaire_lieux',
+      aal: 'aal1',
+      code_verification_obligatoire: true,
+      impersonator_id: 'b2c3d4e5-0000-0000-0000-000000000001',
+    });
+    passe(await middleware(req('/gestionnaire')));
+  });
 
   it('écran du code hors des pages publiques', () => {
     expect(isPublicPath('/code-verification')).toBe(false);

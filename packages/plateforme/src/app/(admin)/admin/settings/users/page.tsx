@@ -10,8 +10,7 @@ import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useUserId, useUserRole } from '@/lib/use-user-role';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { useToast } from '@/components/ui/toast';
+import { DialogueReinitialisationCode } from '@/components/admin/dialogue-reinitialisation-code';
 import { InviteUserModal } from './invite-user-modal';
 import { PageHero } from '@/components/ui/page-hero';
 import { TextLink } from '@/components/ui/text-link';
@@ -98,48 +97,7 @@ export default function SettingsUsersPage() {
   const [page, setPage] = useState(1);
   const role = useUserRole();
   const moi = useUserId();
-  const { toast } = useToast();
   const [aReinitialiser, setAReinitialiser] = useState<StaffUser | null>(null);
-  const [reinitEnCours, setReinitEnCours] = useState(false);
-  const [reinitErreur, setReinitErreur] = useState<string | null>(null);
-
-  async function reinitialiser() {
-    if (!aReinitialiser) return;
-    setReinitEnCours(true);
-    setReinitErreur(null);
-    try {
-      const res = await fetch(
-        `/api/v1/admin/users/${encodeURIComponent(aReinitialiser.id)}/code-verification`,
-        { method: 'DELETE' },
-      );
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        setReinitErreur(data.error ?? 'Réinitialisation impossible.');
-        return;
-      }
-      const { facteurs_retires } = (await res.json().catch(() => ({}))) as {
-        facteurs_retires?: number;
-      };
-      toast(
-        facteurs_retires === 0
-          ? {
-              title: `${aReinitialiser.prenom} ${aReinitialiser.nom} n’avait pas encore de code : son activation sera demandée à sa prochaine connexion.`,
-              variant: 'info',
-            }
-          : {
-              title: `Code de vérification de ${aReinitialiser.prenom} ${aReinitialiser.nom} réinitialisé.`,
-              variant: 'success',
-            },
-      );
-      setAReinitialiser(null);
-    } catch {
-      setReinitErreur('Réinitialisation impossible. Vérifiez votre connexion.');
-    } finally {
-      setReinitEnCours(false);
-    }
-  }
   // Un seul appel paginé (R-UI-4a, E5) : avant, deux appels par rôle plafonnés
   // à 50 lignes chacun, concaténés et re-triés — au-delà, les membres manquaient
   // sans que le compteur (somme des totaux) ne le dise.
@@ -193,10 +151,7 @@ export default function SettingsUsersPage() {
           role === 'admin_savr'
             ? {
                 moi,
-                onReinitialiser: (row) => {
-                  setReinitErreur(null);
-                  setAReinitialiser(row);
-                },
+                onReinitialiser: (row) => setAReinitialiser(row),
               }
             : undefined,
         )}
@@ -215,22 +170,10 @@ export default function SettingsUsersPage() {
       />
       <ListFooter total={total} page={page} onPageChange={setPage} />
 
-      <ConfirmDialog
-        open={aReinitialiser !== null}
-        title="Réinitialiser le code de vérification"
-        confirmLabel="Réinitialiser"
-        cancelLabel="Annuler"
-        variant="destructive"
-        loading={reinitEnCours}
-        loadingText="Réinitialisation…"
-        error={reinitErreur}
-        onConfirm={() => void reinitialiser()}
-        onCancel={() => setAReinitialiser(null)}
-      >
-        À sa prochaine connexion, {aReinitialiser?.prenom} {aReinitialiser?.nom}{' '}
-        devra activer un nouveau code en scannant un QR code avec son téléphone.
-        Ses connexions déjà ouvertes restent actives.
-      </ConfirmDialog>
+      <DialogueReinitialisationCode
+        utilisateur={aReinitialiser}
+        onFermer={() => setAReinitialiser(null)}
+      />
     </div>
   );
 }

@@ -365,7 +365,7 @@ SELECT test_as_superuser();
 --       • liste blanche GRANT INSERT (création shadow agence, cas 16) ;
 --       • éditable par le client sur sa propre fiche (GRANT UPDATE M3.1, cas 17) ;
 --       • serveur/staff seulement (ni INSERT ni UPDATE pour `authenticated`).
---     Une 19e colonne fait rougir ce test : il faut alors TRANCHER son régime, puis
+--     Une 20e colonne fait rougir ce test : il faut alors TRANCHER son régime, puis
 --     l'ajouter ici (et aux GRANT si elle est ouverte au client).
 SELECT is(
   (SELECT array_agg(column_name::text ORDER BY column_name)
@@ -374,6 +374,7 @@ SELECT is(
   ARRAY[
     'actif',                     -- serveur/staff (+ garde de valeur du trigger)
     'adresse',                   -- client : UPDATE seul (M3.1)
+    'code_verification_obligatoire', -- serveur/staff (Admin seul, 20261110200000 ; défaut faux, ne peut que restreindre)
     'created_at',                -- serveur seul (fermé 20260915100000)
     'cree_par_organisation_id',  -- INSERT shadow, épinglée par le WITH CHECK de la policy
     'email_principal',           -- client : UPDATE seul
@@ -391,7 +392,7 @@ SELECT is(
     'type',                      -- INSERT shadow, épinglée par le WITH CHECK
     'updated_at'                 -- client : UPDATE seul (M3.1)
   ],
-  'organisations : aucune colonne ajoutée hors matrice d''écriture (18 colonnes tranchées)'
+  'organisations : aucune colonne ajoutée hors matrice d''écriture (19 colonnes tranchées)'
 );
 
 -- 21. ops_savr non plus ne crée pas d'organisation (aucune policy INSERT ops) — les

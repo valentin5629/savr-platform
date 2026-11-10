@@ -428,6 +428,76 @@ describe('authAccountError — libellé de repli contextuel', () => {
   });
 });
 
+// ── Mot de passe connu des fuites (protection HaveIBeenPwned de Supabase Auth) ─
+describe('authAccountError — mot de passe connu des fuites', () => {
+  const FUITE = {
+    error:
+      'Ce mot de passe figure dans une fuite de données connue. Choisissez-en un autre.',
+  };
+  const TROP_FAIBLE = {
+    error: 'Mot de passe trop faible (10 caractères minimum).',
+  };
+  const MESSAGE_PWNED =
+    'Password is known to be weak and easy to guess, please choose a different one.';
+
+  it('raison `pwned` seule : le libellé dit « fuite », pas « 10 caractères »', async () => {
+    const { authAccountError } = await import('@/lib/api-helpers.js');
+    const res = authAccountError(
+      { code: 'weak_password', message: MESSAGE_PWNED, reasons: ['pwned'] },
+      'auth.update_password',
+      'Modification du mot de passe impossible.',
+    );
+    expect(res.status).toBe(422);
+    const corps = await res.text();
+    expect(JSON.parse(corps)).toEqual(FUITE);
+    expect(corps).not.toContain('known to be weak');
+  });
+
+  it('création de compte (fonction d’administration) : même libellé', async () => {
+    const { authAccountError } = await import('@/lib/api-helpers.js');
+    const res = authAccountError(
+      { code: 'weak_password', message: MESSAGE_PWNED, reasons: ['pwned'] },
+      'auth.signup.create_compte',
+    );
+    expect((await res.json()) as unknown).toEqual(FUITE);
+  });
+
+  it('longueur ET fuite : la règle de longueur est annoncée en premier', async () => {
+    const { authAccountError } = await import('@/lib/api-helpers.js');
+    const res = authAccountError(
+      {
+        code: 'weak_password',
+        message: `Password should be at least 10 characters. ${MESSAGE_PWNED}`,
+        reasons: ['length', 'pwned'],
+      },
+      'auth.update_password',
+    );
+    expect((await res.json()) as unknown).toEqual(TROP_FAIBLE);
+  });
+
+  it('sans liste de raisons : le message GoTrue sert de repli de détection', async () => {
+    const { authAccountError } = await import('@/lib/api-helpers.js');
+    const res = authAccountError(
+      { code: 'weak_password', message: MESSAGE_PWNED },
+      'auth.update_password',
+    );
+    expect((await res.json()) as unknown).toEqual(FUITE);
+  });
+
+  it('mot de passe trop court, sans fuite : libellé inchangé', async () => {
+    const { authAccountError } = await import('@/lib/api-helpers.js');
+    const res = authAccountError(
+      {
+        code: 'weak_password',
+        message: 'Password should be at least 10 characters.',
+        reasons: ['length'],
+      },
+      'auth.update_password',
+    );
+    expect((await res.json()) as unknown).toEqual(TROP_FAIBLE);
+  });
+});
+
 // ── §15 : le repli de sérialisation ne fait pas entrer de PII dans les logs ──
 describe('messageErreur — repli sans details/hint', () => {
   it('un objet sans `message` est sérialisé SANS details ni hint', async () => {

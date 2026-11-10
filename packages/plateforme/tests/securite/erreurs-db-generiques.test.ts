@@ -475,6 +475,31 @@ describe('authAccountError — mot de passe connu des fuites', () => {
     expect((await res.json()) as unknown).toEqual(TROP_FAIBLE);
   });
 
+  it('caractères exigés ET fuite : la règle de caractères est annoncée', async () => {
+    const { authAccountError } = await import('@/lib/api-helpers.js');
+    const res = authAccountError(
+      {
+        code: 'weak_password',
+        message: `Password should contain at least one character of each: 0123456789. ${MESSAGE_PWNED}`,
+        reasons: ['characters', 'pwned'],
+      },
+      'auth.update_password',
+    );
+    expect((await res.json()) as unknown).toEqual(TROP_FAIBLE);
+  });
+
+  it('sans liste de raisons, longueur ET fuite : la règle de longueur l’emporte', async () => {
+    const { authAccountError } = await import('@/lib/api-helpers.js');
+    const res = authAccountError(
+      {
+        code: 'weak_password',
+        message: `Password should be at least 10 characters. ${MESSAGE_PWNED}`,
+      },
+      'auth.update_password',
+    );
+    expect((await res.json()) as unknown).toEqual(TROP_FAIBLE);
+  });
+
   it('sans liste de raisons : le message GoTrue sert de repli de détection', async () => {
     const { authAccountError } = await import('@/lib/api-helpers.js');
     const res = authAccountError(

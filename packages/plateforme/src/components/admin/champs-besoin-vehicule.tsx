@@ -14,7 +14,7 @@ import { VEHICULE_LABEL } from '@/lib/lieux-labels';
 // Véhicules proposés (décision Val 2026-11-10), valeurs de l'enum
 // plateforme.type_vehicule. Une collecte qui porte un ancien type le garde
 // dans le menu tant qu'il n'est pas changé.
-export const TYPES_VEHICULE_OPTIONS: { value: string; label: string }[] = [
+const TYPES_VEHICULE_OPTIONS: { value: string; label: string }[] = [
   'velo_cargo',
   'camion_frigo',
   'camion_16m3',

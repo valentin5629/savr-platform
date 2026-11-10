@@ -21,9 +21,6 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 /** `plateforme.difficulte_acces_enum` — colonnes `stationnement`, `acces_office`. */
 const DIFFICULTE_ACCES = ['facile', 'difficile', 'tres_difficile'] as const;
 
-/** Colonne `type_vehicule_max` : les gabarits du lieu, jamais ceux du seul véhicule souhaité. */
-const TYPE_VEHICULE = GABARITS_LIEU_TRANSPORTEUR;
-
 /**
  * Postgres REFUSE `\u0000` dans un `jsonb` (22P05). Sans ce filtre, une chaîne
  * porteuse d'un caractère de contrôle traverse la validation, casse à l'INSERT et
@@ -73,7 +70,7 @@ const CHAMPS_LIEU_OVERRIDABLES: Record<string, RegleChamp> = {
   contraintes_horaires: { kind: 'texte', max: 500, obligatoire: false },
   stationnement: { kind: 'enum', valeurs: DIFFICULTE_ACCES },
   acces_office: { kind: 'enum', valeurs: DIFFICULTE_ACCES },
-  type_vehicule_max: { kind: 'enum', valeurs: TYPE_VEHICULE },
+  type_vehicule_max: { kind: 'enum', valeurs: GABARITS_LIEU_TRANSPORTEUR },
   flux_autorises: { kind: 'liste_texte', maxItems: 20, maxParItem: 64 },
 };
 

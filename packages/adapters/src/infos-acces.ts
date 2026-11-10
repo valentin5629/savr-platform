@@ -157,28 +157,32 @@ export interface VehiculeSouhaite {
   readonly typeTms?: string | null | undefined;
 }
 
-// Pluriel et accord, pour « N … prévu(e)s pour cette collecte ».
-const PLURIEL_VEHICULE: Record<string, { nom: string; feminin: boolean }> = {
-  velo_cargo: { nom: 'vélos cargo', feminin: false },
-  camionnette: { nom: 'camionnettes', feminin: true },
-  fourgon: { nom: 'fourgons', feminin: false },
-  vul: { nom: 'VUL', feminin: false },
-  poids_lourd: { nom: 'poids lourds', feminin: false },
-  camion_frigo: { nom: 'camions frigo', feminin: false },
-  camion_16m3: { nom: 'camions 16 m³', feminin: false },
-  camion_20m3: { nom: 'camions 20 m³', feminin: false },
-};
-
-// Singulier, pour « Véhicule souhaité : … » (un seul véhicule).
-const SINGULIER_VEHICULE: Record<string, string> = {
-  velo_cargo: 'vélo cargo',
-  camionnette: 'camionnette',
-  fourgon: 'fourgon',
-  vul: 'VUL',
-  poids_lourd: 'poids lourd',
-  camion_frigo: 'camion frigo',
-  camion_16m3: 'camion 16 m³',
-  camion_20m3: 'camion 20 m³',
+// Noms des véhicules : seul (« Véhicule souhaité : … ») et au pluriel avec
+// accord (« N … prévu(e)s pour cette collecte »).
+const NOMS_VEHICULE: Record<
+  string,
+  { seul: string; pluriel: string; feminin: boolean }
+> = {
+  velo_cargo: { seul: 'vélo cargo', pluriel: 'vélos cargo', feminin: false },
+  camionnette: { seul: 'camionnette', pluriel: 'camionnettes', feminin: true },
+  fourgon: { seul: 'fourgon', pluriel: 'fourgons', feminin: false },
+  vul: { seul: 'VUL', pluriel: 'VUL', feminin: false },
+  poids_lourd: { seul: 'poids lourd', pluriel: 'poids lourds', feminin: false },
+  camion_frigo: {
+    seul: 'camion frigo',
+    pluriel: 'camions frigo',
+    feminin: false,
+  },
+  camion_16m3: {
+    seul: 'camion 16 m³',
+    pluriel: 'camions 16 m³',
+    feminin: false,
+  },
+  camion_20m3: {
+    seul: 'camion 20 m³',
+    pluriel: 'camions 20 m³',
+    feminin: false,
+  },
 };
 
 // Sans type précisé par l'Admin : le véhicule habituel du prestataire.
@@ -199,12 +203,12 @@ function phraseVehicules(vehicule: VehiculeSouhaite | null): string {
   const nombre = Number.isInteger(vehicule.nombre) ? vehicule.nombre : 1;
   const type = uneLigne(vehicule.type, LIMITE_TYPE_VEHICULE);
   if (nombre <= 1) {
-    const nomSeul = SINGULIER_VEHICULE[type] || type;
+    const nomSeul = NOMS_VEHICULE[type]?.seul || type;
     return nomSeul ? `Véhicule souhaité : ${nomSeul}` : '';
   }
-  const connu = PLURIEL_VEHICULE[type];
+  const connu = NOMS_VEHICULE[type];
   const nom =
-    connu?.nom ||
+    connu?.pluriel ||
     type ||
     PLURIEL_PAR_PRESTATAIRE[valeurLigne(vehicule.typeTms)] ||
     'véhicules';

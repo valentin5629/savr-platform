@@ -203,10 +203,9 @@ describe('M3.1 / liste traiteur — rapport réservé au donneur d’ordre (D12)
   it('M3.1/liste_rapport_reserve_donneur_ordre — AG programmée par un tiers : réservée ; propre AG, ZD et sans-excédent : téléchargeables', async () => {
     rls.results.collectes = {
       data: [
+        // Rangées par identifiant, comme la base les rend (lecture par pages).
         ligne('ag-agence', 'anti_gaspi', 'cloturee', 'org-agence'),
         ligne('ag-propre', 'anti_gaspi', 'cloturee', 'org-1'),
-        // Rapport RSE ZD servi au traiteur opérationnel (rr_select).
-        ligne('zd-agence', 'zero_dechet', 'cloturee', 'org-agence'),
         // Sans excédent : pas d'attestation, rapport RSE « Événement sans
         // excédent alimentaire » (rapports_rse).
         ligne(
@@ -215,6 +214,8 @@ describe('M3.1 / liste traiteur — rapport réservé au donneur d’ordre (D12)
           'realisee_sans_collecte',
           'org-agence',
         ),
+        // Rapport RSE ZD servi au traiteur opérationnel (rr_select).
+        ligne('zd-agence', 'zero_dechet', 'cloturee', 'org-agence'),
       ],
       error: null,
     };

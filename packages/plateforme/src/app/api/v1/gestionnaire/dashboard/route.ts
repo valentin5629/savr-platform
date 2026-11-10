@@ -15,8 +15,16 @@ import {
   kgParPaxParFluxFrom,
   type BlocsCollecteRow,
 } from '@/lib/dashboards/loaders.js';
+import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
+
+/** Collecte lue pour les KPI : ce que cette route en lit elle-même. */
+interface CollecteLue {
+  id: string;
+  pax: number | null;
+  evenements: unknown;
+}
 
 // GET /api/v1/gestionnaire/dashboard
 // KPI 4 cartes (onglet ZD ou AG) + pack actif.
@@ -56,8 +64,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ data: { kpis: nullKpis(type), pack: null } });
   }
 
-  // Collectes cloturees sur le périmètre
-  const lireCollectes = async () => {
+  // Collectes cloturees sur le périmètre, lues page après page (`lireParPages`) :
+  // une réponse est amputée à 1 000 lignes sans erreur, les KPI porteraient
+  // alors sur une partie des collectes.
+  const lirePage = (apresId: string | null) => {
     let q = supabase
       .from('collectes')
       .select(
@@ -80,15 +90,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
     // 2026-10-22, lot C1 Q3 du 2026-10-24 « Collecte, dès C1 »).
     if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
-    return q;
+    if (apresId) q = q.gt('id', apresId);
+    return q.order('id', { ascending: true }).limit(TAILLE_PAGE);
   };
 
   const { data: collectes, error } = typeIllisible
     ? { data: [], error: null }
-    : await lireCollectes();
+    : await lireParPages<CollecteLue>(lirePage);
   if (error) return serverError(error, 'gestionnaire.dashboard.list');
 
-  const rows = (collectes ?? []).filter((c) => {
+  const rows = collectes.filter((c) => {
     const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
     if (!evt) return false;
     if (tailleEvts.length > 0) {

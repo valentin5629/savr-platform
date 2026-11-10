@@ -36,6 +36,7 @@ function makeChain() {
     'lte',
     'neq',
     'order',
+    'limit',
     'ilike',
     'update',
     'insert',

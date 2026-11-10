@@ -14,12 +14,15 @@ import {
   creneauDeLaVue,
   lireVueCollectes,
 } from '@/lib/collectes/vue-temporelle.js';
+import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
 // GET /api/v1/agence/collectes — liste des collectes de l'agence (§06.11, réplique
 // §06.04 §3). Périmètre donneur d'ordre : la RLS (col_select → f_collecte_visible)
-// scope sur evenements.organisation_id = agence. Tri date décroissante.
+// scope sur evenements.organisation_id = agence. Tri date décroissante. La liste
+// est lue page après page (`lireParPages`) : une réponse est amputée à 1 000
+// lignes sans erreur, les collectes les plus anciennes manquaient alors.
 //
 // Mêmes filtres que la liste traiteur (§06.04 §3 « Filtres disponibles »), lus
 // par la même fonction (lireFiltresListeCollectes) :
@@ -41,9 +44,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const vue = lireVueCollectes(searchParams.get('vue'));
   const filtres = lireFiltresListeCollectes(searchParams);
 
-  let query = supabase
-    .from('collectes')
-    .select(
+  // Un seul « maintenant » pour toutes les pages de la vue.
+  const maintenant = new Date();
+  const lirePage = (apresId: string | null) => {
+    let query = supabase.from('collectes').select(
       `id, type, statut, statut_tms, date_collecte, heure_collecte, pax,
        informations_completes, taux_recyclage, co2_evite_kg, realisee_at,
        collecte_flux(poids_reel_kg),
@@ -53,30 +57,44 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
          nom_evenement, nom_client_organisateur,
          lieux!lieu_id(id, nom, adresse_acces, code_postal, ville)
        )`,
-    )
-    .order('date_collecte', { ascending: false });
-
-  if (type === 'zero_dechet' || type === 'anti_gaspi') {
-    query = query.eq('type', type);
-  }
-  if (filtres.statuts.length > 0) query = query.in('statut', filtres.statuts);
-  if (from) query = query.gte('date_collecte', from);
-  if (to) query = query.lte('date_collecte', to);
-  // Vue « à venir / passées » : rangée au créneau, à la minute (Val 2026-11-03).
-  if (vue) query = query.or(creneauDeLaVue(vue, new Date()));
-  if (filtres.lieuIds.length > 0)
-    query = query.in('evenements.lieu_id', filtres.lieuIds);
-  if (filtres.clients.length > 0)
-    query = query.filter(
-      'evenements.nom_client_organisateur',
-      'in',
-      inTextes(filtres.clients),
     );
-  if (filtres.informationsCompletes !== null)
-    query = query.eq('informations_completes', filtres.informationsCompletes);
 
-  const { data, error } = await query;
-  if (error) return serverError(error, 'agence.collectes.list');
+    if (type === 'zero_dechet' || type === 'anti_gaspi') {
+      query = query.eq('type', type);
+    }
+    if (filtres.statuts.length > 0) query = query.in('statut', filtres.statuts);
+    if (from) query = query.gte('date_collecte', from);
+    if (to) query = query.lte('date_collecte', to);
+    // Vue « à venir / passées » : rangée au créneau, à la minute (Val 2026-11-03).
+    if (vue) query = query.or(creneauDeLaVue(vue, maintenant));
+    if (filtres.lieuIds.length > 0)
+      query = query.in('evenements.lieu_id', filtres.lieuIds);
+    if (filtres.clients.length > 0)
+      query = query.filter(
+        'evenements.nom_client_organisateur',
+        'in',
+        inTextes(filtres.clients),
+      );
+    if (filtres.informationsCompletes !== null)
+      query = query.eq('informations_completes', filtres.informationsCompletes);
+    if (apresId) query = query.gt('id', apresId);
+    return query.order('id', { ascending: true }).limit(TAILLE_PAGE);
+  };
+
+  const lu = await lireParPages<{ id: string; date_collecte: string }>(
+    lirePage,
+  );
+  if (lu.error) return serverError(lu.error, 'agence.collectes.list');
+  // Date décroissante ; l'identifiant départage les collectes d'un même jour.
+  const data = lu.data.sort((a, b) =>
+    a.date_collecte === b.date_collecte
+      ? a.id < b.id
+        ? 1
+        : -1
+      : a.date_collecte < b.date_collecte
+        ? 1
+        : -1,
+  );
 
   return NextResponse.json({
     data: enrichirLignesCollectes(data, auth.ctx.organisationId),

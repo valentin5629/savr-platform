@@ -23,7 +23,7 @@ function makeSupabase(results: Record<string, Res>) {
     rec('from', [t]);
     return chain;
   };
-  for (const m of ['select', 'eq', 'in', 'gte', 'lte', 'order']) {
+  for (const m of ['select', 'eq', 'in', 'gte', 'lte', 'order', 'limit']) {
     chain[m] = (...a: unknown[]) => {
       rec(m, a);
       return chain;
@@ -167,8 +167,9 @@ describe('M3.5 / synthèse PDF — snapshot §12 §1.6', () => {
     const { client, calls } = makeSupabase({
       collectes: {
         data: [
-          { ...ZD_COLLECTE, id: 'c-s', pax: 300, evenements: soirees },
+          // Rangées par identifiant, comme la base les rend (lecture par pages).
           { ...ZD_COLLECTE, id: 'c-m', pax: 600, evenements: soirees },
+          { ...ZD_COLLECTE, id: 'c-s', pax: 300, evenements: soirees },
         ],
         error: null,
       },

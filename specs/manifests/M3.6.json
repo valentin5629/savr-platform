@@ -181,6 +181,14 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-3-pax-cumuls-dashboards.md",
       "libelle": "Dashboard Client Admin : KPI, blocs et ligne « Vous » du radar au pax des collectes, collecte à 0 convive écartée des ratios (lot 3, décisions Val Q1 à Q5 du 2026-10-25) — la même formule que la ligne de référence (lot C1, Q4) : les deux lignes du radar ne diffèrent plus que par leur périmètre."
+    },
+    {
+      "id": "M3.6-dashboard-client-collectes-par-pages",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:135",
+      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (loadAdminDashboardClient : collectes clôturées lues par lireParPages)",
+      "test": "M3.6 / Dashboard Client Admin au-delà du plafond",
+      "statut": "implemented",
+      "libelle": "Dashboard Client Admin au-delà de 1 000 collectes clôturées : elles sont lues page après page (lireParPages) ; KPI, CO₂ évité, évolution et classements portent sur toutes. Une page en échec fait échouer le chargement."
     }
   ],
   "cdc_source_hash": {

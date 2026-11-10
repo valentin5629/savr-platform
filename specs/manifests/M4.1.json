@@ -200,6 +200,14 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M4.1_20261103_export-evenements-code-site-viparis.md",
       "libelle": "Export Événements (demande Val 2026-11-03) : colonne « Code site VIPARIS » juste après « Lieu » (code site du lieu de l'événement, vide hors VIPARIS), lue en service_role avec le code affaire, en une lecture par lot de 100 événements lus sous la RLS du demandeur."
+    },
+    {
+      "id": "M4.1-exports-complets-au-dela-plafonds",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:366",
+      "artefact": "packages/plateforme/src/lib/exports/builders.ts (buildImpactRseExport, buildPeseesExport, buildFacturesExport, buildPacksAgExport, buildAssociationsAgExport : lireParTranches, tri terminé par id) + packages/plateforme/src/lib/exports/shared.ts (resolveRepas, resolveTraiteurNoms : lireParLots ; pour un client, f_volume_repas_realise par vagues de 20 appels)",
+      "test": "packages/plateforme/tests/api/exports/exports-au-dela-plafond.test.ts",
+      "statut": "implemented",
+      "libelle": "Exports Impact RSE, Pesées par flux, Factures, Packs AG et Associations complets au-delà de 1 000 lignes : lus par tranches jusqu'au total annoncé par la requête, comme l'export Collectes. Repas AG et noms des traiteurs lus par lots d'identifiants (un filtre de 402 identifiants faisait échouer la lecture, 390 passaient : mesure en tête de packages/plateforme/src/lib/pdf/selection-par-pages.ts) ; une lecture ou un appel en échec fait échouer l'export."
     }
   ],
   "cdc_source_hash": {

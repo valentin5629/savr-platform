@@ -2815,6 +2815,7 @@ export type Database = {
         Row: {
           actif: boolean
           adresse: string | null
+          code_verification_obligatoire: boolean
           created_at: string
           cree_par_organisation_id: string | null
           email_principal: string | null
@@ -2835,6 +2836,7 @@ export type Database = {
         Insert: {
           actif?: boolean
           adresse?: string | null
+          code_verification_obligatoire?: boolean
           created_at?: string
           cree_par_organisation_id?: string | null
           email_principal?: string | null
@@ -2855,6 +2857,7 @@ export type Database = {
         Update: {
           actif?: boolean
           adresse?: string | null
+          code_verification_obligatoire?: boolean
           created_at?: string
           cree_par_organisation_id?: string | null
           email_principal?: string | null

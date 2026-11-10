@@ -66,22 +66,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Équipe Savr qui a déjà un code de vérification : le mot de passe ne change
-  // qu'une fois le code saisi sur cette session (lib/code-verification.ts). Un
-  // lien « mot de passe oublié » seul ne suffit donc pas. Sans code activé
-  // (premier mot de passe, code réinitialisé), rien ne change : le code sera
-  // demandé juste après, à l'entrée dans l'application.
+  // Compte soumis au code qui en a déjà un (équipe Savr, organisation qui
+  // l'exige) : le mot de passe ne change qu'une fois le code saisi sur cette
+  // session (lib/code-verification.ts). Un lien « mot de passe oublié » seul ne
+  // suffit donc pas. Sans code activé (premier mot de passe, code réinitialisé),
+  // rien ne change : le code sera demandé juste après, à l'entrée dans
+  // l'application.
   if (facteursTotp(user.factors).verifies.length > 0) {
     const {
       data: { session },
     } = await supabase.auth.getSession();
     const claims = claimsJeton(session?.access_token);
-    if (
-      codeVerificationManquant(
-        claims['user_role'] as string | undefined,
-        claims['aal'],
-      )
-    ) {
+    if (codeVerificationManquant(claims)) {
       return NextResponse.json(
         {
           error:

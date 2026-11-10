@@ -69,16 +69,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Équipe Savr qui a déjà un code de vérification : écran du code d'abord,
-  // puis retour au formulaire (`api/auth/update-password` refuse sans lui). On
-  // ne change que la cible : les cookies de session restent sur la réponse.
+  // Compte soumis au code qui en a déjà un (équipe Savr, organisation qui
+  // l'exige) : écran du code d'abord, puis retour au formulaire
+  // (`api/auth/update-password` refuse sans lui). On ne change que la cible :
+  // les cookies de session restent sur la réponse.
   const claims = claimsJeton(data?.session?.access_token);
   if (
     facteursTotp(data?.user?.factors).verifies.length > 0 &&
-    codeVerificationManquant(
-      claims['user_role'] as string | undefined,
-      claims['aal'],
-    )
+    codeVerificationManquant(claims)
   ) {
     const codeUrl = new URL(ROUTES.codeVerification, req.url);
     codeUrl.searchParams.set('next', '/reset-password/confirm');

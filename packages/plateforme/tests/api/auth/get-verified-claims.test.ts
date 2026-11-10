@@ -253,7 +253,71 @@ describe('api-auth — code de vérification de l’équipe Savr', () => {
     expect((await requireAdmin(req())).error?.status).toBe(401);
   });
 
-  it('client en aal1 → accepté (aucun code pour les clients)', async () => {
+  // Organisation qui exige le code (VIPARIS, Val 2026-11-10) : claim du hook.
+  it('getClaims : client d’une organisation qui exige le code, en aal1 → 401', async () => {
+    mockGetClaims.mockResolvedValue({
+      data: {
+        claims: {
+          sub: 'v-1',
+          user_role: 'gestionnaire_lieux',
+          organisation_id: 'org-v',
+          aal: 'aal1',
+          code_verification_obligatoire: true,
+        },
+      },
+      error: null,
+    });
+    const { requireUser } = await import('@/lib/api-auth.js');
+    expect(
+      (await requireUser(req(), ['gestionnaire_lieux'])).error?.status,
+    ).toBe(401);
+  });
+
+  it('repli getUser : client d’une organisation qui exige le code, en aal1 → 401 aussi', async () => {
+    mockGetClaims.mockRejectedValue(new Error('JWKS injoignable'));
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'v-1' } },
+      error: null,
+    });
+    mockGetSession.mockResolvedValue({
+      data: {
+        session: {
+          access_token: makeJwt({
+            user_role: 'gestionnaire_lieux',
+            organisation_id: 'org-v',
+            aal: 'aal1',
+            code_verification_obligatoire: true,
+          }),
+        },
+      },
+      error: null,
+    });
+    const { requireUser } = await import('@/lib/api-auth.js');
+    expect(
+      (await requireUser(req(), ['gestionnaire_lieux'])).error?.status,
+    ).toBe(401);
+  });
+
+  it('getClaims : client d’une organisation qui exige le code, en aal2 → accepté', async () => {
+    mockGetClaims.mockResolvedValue({
+      data: {
+        claims: {
+          sub: 'v-1',
+          user_role: 'gestionnaire_lieux',
+          organisation_id: 'org-v',
+          aal: 'aal2',
+          code_verification_obligatoire: true,
+        },
+      },
+      error: null,
+    });
+    const { requireUser } = await import('@/lib/api-auth.js');
+    const res = await requireUser(req(), ['gestionnaire_lieux']);
+    expect(res.error).toBeUndefined();
+    expect(res.ctx?.userId).toBe('v-1');
+  });
+
+  it('client en aal1 → accepté (pas de claim d’organisation : aucun code)', async () => {
     mockGetClaims.mockResolvedValue({
       data: {
         claims: {

@@ -24,6 +24,7 @@ import {
   CLE_IMPERSONATION_EN_ATTENTE,
   verifierImpersonation,
 } from '@/lib/impersonation.js';
+import { claimsJeton } from '@/lib/claims-jeton';
 import { ROUTES } from '@/lib/routes';
 
 const IMPERSONATION_TTL_MS = 60 * 60 * 1000; // 1h (§09 §7)
@@ -100,6 +101,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return refuser();
   }
 
+  // Session ouverte par verifyOtp : le hook ne pose `impersonator_id` que sur
+  // elle (`impersonation_session_id`, 2026-11-10). Une autre session du compte
+  // pendant l'heure (vraie connexion de l'utilisateur) n'en hérite pas : ni
+  // écriture imputée à l'Admin, ni exemption du code de vérification.
+  const sessionId = claimsJeton(data.session?.access_token)['session_id'];
+  if (typeof sessionId !== 'string' || sessionId === '') return refuser();
+
   // Poser le flag impersonation (fenêtre 1h) ET consommer l'entrée en attente
   // dans la même écriture : le lien ne sert qu'une fois.
   const expiresAt = new Date(Date.now() + IMPERSONATION_TTL_MS).toISOString();
@@ -109,6 +117,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       app_metadata: {
         impersonator_id: impersonatorId,
         impersonation_expires_at: expiresAt,
+        impersonation_session_id: sessionId,
         [CLE_IMPERSONATION_EN_ATTENTE]: null,
       },
     },
@@ -122,7 +131,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (refreshError) {
     await admin.auth.admin
       .updateUserById(data.user.id, {
-        app_metadata: { impersonator_id: null, impersonation_expires_at: null },
+        app_metadata: {
+          impersonator_id: null,
+          impersonation_expires_at: null,
+          impersonation_session_id: null,
+        },
       })
       .catch(() => undefined);
     return refuser();

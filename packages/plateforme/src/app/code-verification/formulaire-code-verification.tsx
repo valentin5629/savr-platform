@@ -38,9 +38,12 @@ function grouper(secret: string): string {
 export function FormulaireCodeVerification({
   mode,
   suite,
+  equipeSavr,
 }: {
   mode: ModeCodeVerification;
   suite: string;
+  /** Équipe Savr : un autre administrateur réinitialise le code ; sinon l'équipe Savr. */
+  equipeSavr: boolean;
 }) {
   const router = useRouter();
   const [activation, setActivation] = useState<Activation | null>(null);
@@ -124,7 +127,9 @@ export function FormulaireCodeVerification({
       htmlFor="code-verification"
       hint={
         mode === 'saisie'
-          ? 'Téléphone perdu ou changé ? Demandez à un autre administrateur Savr de réinitialiser votre code.'
+          ? equipeSavr
+            ? 'Téléphone perdu ou changé ? Demandez à un autre administrateur Savr de réinitialiser votre code.'
+            : 'Téléphone perdu ou changé ? Demandez à l’équipe Savr de réinitialiser votre code.'
           : undefined
       }
     >
@@ -180,7 +185,11 @@ export function FormulaireCodeVerification({
   return (
     <AuthCard
       titre="Activez votre code de vérification"
-      description="Les comptes de l’équipe Savr sont protégés par un code à 6 chiffres, demandé à chaque nouvelle connexion."
+      description={
+        equipeSavr
+          ? 'Les comptes de l’équipe Savr sont protégés par un code à 6 chiffres, demandé à chaque nouvelle connexion.'
+          : 'Votre compte est protégé par un code à 6 chiffres, demandé à chaque nouvelle connexion.'
+      }
       onSubmit={activation ? (e) => void valider(e) : undefined}
       pied={
         activation ? (

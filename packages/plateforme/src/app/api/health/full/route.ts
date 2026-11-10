@@ -60,7 +60,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 });
     }
     // Équipe Savr sans code de vérification sur cette session (lib/code-verification.ts).
-    if (codeVerificationManquant(role, claims['aal'])) {
+    if (codeVerificationManquant(claims)) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
   }

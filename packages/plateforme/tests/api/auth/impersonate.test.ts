@@ -76,11 +76,21 @@ function lien(params: Record<string, string>): string {
   }).toString()}`;
 }
 
+// Session ouverte par verifyOtp : son `session_id` lie le claim
+// impersonator_id à elle seule (hook, 2026-11-10).
+const SESSION_IMPERSONEE = 'sess-impersonee-1';
+
 /** verifyOtp établit la session de CIBLE, dont l'app_metadata est `appMetadata`. */
-function sessionCible(appMetadata: Record<string, unknown>): void {
+function sessionCible(
+  appMetadata: Record<string, unknown>,
+  sessionId: string | null = SESSION_IMPERSONEE,
+): void {
   mockVerifyOtp.mockResolvedValue({
     data: {
       user: { id: CIBLE, email: 'cible@x.fr', app_metadata: appMetadata },
+      session: {
+        access_token: jwt(sessionId === null ? {} : { session_id: sessionId }),
+      },
     },
     error: null,
   });
@@ -122,11 +132,25 @@ describe('M0.4 — impersonate callback (BL-P1-AUTH-01)', () => {
       app_metadata: {
         impersonator_id: ADMIN,
         impersonation_expires_at: expect.any(String),
+        impersonation_session_id: SESSION_IMPERSONEE,
         [CLE_IMPERSONATION_EN_ATTENTE]: null,
       },
     });
     expect(mockRefreshSession).toHaveBeenCalled();
     expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('M0.4 — jeton de la session sans session_id → refus, aucun app_metadata (le claim ne serait lié à aucune session)', async () => {
+    const { jeton, enAttente } = preparerImpersonation(ADMIN, CIBLE);
+    sessionCible({ [CLE_IMPERSONATION_EN_ATTENTE]: enAttente }, null);
+
+    const res = await callback(lien({ impersonator: ADMIN, jeton }));
+
+    expect(res.headers.get('location')).toContain(
+      '/login?error=impersonation_echouee',
+    );
+    aucunImpersonatorPose();
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 
   it('M0.4 — poignée de main réelle : le lien émis par /impersoner est accepté par le callback', async () => {
@@ -301,7 +325,11 @@ describe('M0.4 — impersonate callback (BL-P1-AUTH-01)', () => {
       '/login?error=impersonation_echouee',
     );
     expect(mockUpdateUserById).toHaveBeenLastCalledWith(CIBLE, {
-      app_metadata: { impersonator_id: null, impersonation_expires_at: null },
+      app_metadata: {
+        impersonator_id: null,
+        impersonation_expires_at: null,
+        impersonation_session_id: null,
+      },
     });
   });
 
@@ -348,7 +376,11 @@ describe('M0.4 — exit impersonation (BL-P1-AUTH-01)', () => {
     expect(mockUpdateUserById).toHaveBeenCalledWith(
       'cible-1',
       expect.objectContaining({
-        app_metadata: expect.objectContaining({ impersonator_id: null }),
+        app_metadata: {
+          impersonator_id: null,
+          impersonation_expires_at: null,
+          impersonation_session_id: null,
+        },
       }),
     );
     expect(mockSignOut).toHaveBeenCalled();

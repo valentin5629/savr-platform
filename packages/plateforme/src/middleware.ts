@@ -159,14 +159,14 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     return redirect(new URL(ROUTES.interdit, req.url));
   }
 
-  // Équipe Savr sans code de vérification sur cette session → écran du code
-  // (lib/code-verification.ts). Placé AVANT le contrôle de rôle : l'Admin passe
-  // le code avant tout, y compris avant un 403. L'écran du code lui-même reste
-  // atteignable (sinon boucle) ; il exige une session, d'où sa place ici et non
-  // dans PUBLIC_PREFIXES.
+  // Session soumise au code de vérification (équipe Savr, organisation qui
+  // l'exige) sans code → écran du code (lib/code-verification.ts). Placé AVANT
+  // le contrôle de rôle : le code passe avant tout, y compris avant un 403.
+  // L'écran du code lui-même reste atteignable (sinon boucle) ; il exige une
+  // session, d'où sa place ici et non dans PUBLIC_PREFIXES.
   if (
     pathname !== ROUTES.codeVerification &&
-    codeVerificationManquant(role, claims['aal'])
+    codeVerificationManquant(claims)
   ) {
     const codeUrl = req.nextUrl.clone();
     codeUrl.pathname = ROUTES.codeVerification;

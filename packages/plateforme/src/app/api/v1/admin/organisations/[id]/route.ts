@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError, writeError } from '@/lib/api-helpers.js';
 import {
@@ -33,7 +34,7 @@ export async function GET(
       `
       id, nom, raison_sociale, type, siret, email_principal, telephone, adresse,
       actif, logo_url, est_shadow, tarif_refacture_pax_zd, grille_tarifaire_zd_id,
-      cree_par_organisation_id, created_at, updated_at,
+      code_verification_obligatoire, cree_par_organisation_id, created_at, updated_at,
       entites_facturation(id, raison_sociale, siret, siret_verification, tva_intracom, tva_verification, entite_par_defaut, adresse_facturation, code_postal, ville, email_facturation, contact_compta_nom, actif),
       organisations_domaines_email(id, domaine, verifie_at),
       users(id, prenom, nom, email, role, actif, derniere_connexion),
@@ -78,6 +79,17 @@ export async function PATCH(
   }
   // grille_tarifaire_zd_id = admin-only
   if ('grille_tarifaire_zd_id' in body && auth.ctx.role !== 'admin_savr') {
+    return NextResponse.json(
+      { error: 'Action réservée admin Savr' },
+      { status: 403 },
+    );
+  }
+  // code_verification_obligatoire = admin-only (lib/code-verification.ts :
+  // code exigé des utilisateurs de l'organisation, VIPARIS, Val 2026-11-10).
+  if (
+    'code_verification_obligatoire' in body &&
+    auth.ctx.role !== 'admin_savr'
+  ) {
     return NextResponse.json(
       { error: 'Action réservée admin Savr' },
       { status: 403 },
@@ -140,6 +152,19 @@ export async function PATCH(
     if (body.grille_tarifaire_zd_id !== undefined) {
       updatePayload.grille_tarifaire_zd_id = body.grille_tarifaire_zd_id;
     }
+    if (body.code_verification_obligatoire !== undefined) {
+      if (typeof body.code_verification_obligatoire !== 'boolean') {
+        return NextResponse.json(
+          {
+            error: 'code_verification_obligatoire invalide (vrai ou faux)',
+            champs_invalides: ['code_verification_obligatoire'],
+          },
+          { status: 422 },
+        );
+      }
+      updatePayload.code_verification_obligatoire =
+        body.code_verification_obligatoire;
+    }
   }
 
   if (Object.keys(updatePayload).length === 0) {
@@ -201,7 +226,8 @@ export async function PATCH(
   }
 
   // §07/06 tarif_refacture_pax_zd_update — capture l'ancienne valeur AVANT l'UPDATE.
-  // Seule mutation d'organisation auditée (§2) ; les autres champs (raison_sociale,
+  // Mutations d'organisation auditées : ce tarif (§2) et le code de vérification
+  // exigé (écriture de sécurité, 2026-11-10) ; les autres champs (raison_sociale,
   // siret, adresse…) ne sont PAS au catalogue → pas d'audit.
   const tarifChange = updatePayload.tarif_refacture_pax_zd !== undefined;
   let ancienTarif: number | null = null;
@@ -215,12 +241,26 @@ export async function PATCH(
       (prev as { tarif_refacture_pax_zd: number | null } | null)
         ?.tarif_refacture_pax_zd ?? null;
   }
+  const codeChange = updatePayload.code_verification_obligatoire !== undefined;
+  let ancienCode: boolean | null = null;
+  if (codeChange) {
+    const { data: prev } = await supabase
+      .from('organisations')
+      .select('code_verification_obligatoire')
+      .eq('id', id)
+      .single();
+    ancienCode =
+      (prev as { code_verification_obligatoire: boolean } | null)
+        ?.code_verification_obligatoire ?? null;
+  }
 
   const { data: org, error } = await supabase
     .from('organisations')
     .update(updatePayload)
     .eq('id', id)
-    .select('id, raison_sociale, type, actif, tarif_refacture_pax_zd')
+    .select(
+      'id, raison_sociale, type, actif, tarif_refacture_pax_zd, code_verification_obligatoire',
+    )
     .single();
 
   if (error) {
@@ -241,6 +281,32 @@ export async function PATCH(
         tarif_refacture_pax_zd: updatePayload.tarif_refacture_pax_zd,
       },
     });
+  }
+  if (
+    codeChange &&
+    ancienCode !== updatePayload.code_verification_obligatoire
+  ) {
+    // Changement d'une exigence de sécurité : un échec de la trace est
+    // journalisé (même règle que la réinitialisation du code).
+    const { error: auditError } = await supabase.from('audit_log').insert({
+      action: 'code_verification_organisation',
+      table_name: 'organisations',
+      record_id: id,
+      user_id: auth.ctx.userId,
+      role: auth.ctx.role,
+      old_values: { code_verification_obligatoire: ancienCode },
+      new_values: {
+        code_verification_obligatoire:
+          updatePayload.code_verification_obligatoire,
+      },
+    });
+    if (auditError) {
+      logger.error('admin.organisations.code_verification.audit_echec', {
+        by_user: auth.ctx.userId,
+        organisation_id: id,
+        code: auditError.code ?? null,
+      });
+    }
   }
 
   return NextResponse.json(org);

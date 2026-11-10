@@ -10,6 +10,7 @@ import {
 import type { AnyRole } from '@/lib/api-auth.js';
 import { ROLES_STAFF } from '@/lib/roles';
 import { erreurInterne } from '@/lib/api-helpers.js';
+import { lireParLots } from '@/lib/pdf/selection-par-pages.js';
 
 // ---------------------------------------------------------------------------
 // Entités exportables (transverse D, §12 §2) + matrice d'autorisation par rôle.
@@ -140,6 +141,9 @@ export function heureCourte(t: unknown): string {
  * Résout les noms des traiteurs via la vue whitelist `v_referentiel_traiteurs`
  * (SECURITY DEFINER, sûre cross-org — la jointure directe `organisations` est
  * RLS self-only et renverrait null pour les rôles tiers).
+ * Lus par lots : une seule requête `in(id, …)` échoue au-delà de quelques
+ * centaines de traiteurs, et la colonne « Traiteur » sortait alors vide sans
+ * erreur. Une lecture en échec fait échouer l'export.
  */
 export async function resolveTraiteurNoms(
   supabase: SupabaseClient,
@@ -147,26 +151,29 @@ export async function resolveTraiteurNoms(
 ): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const uniques = [...new Set(ids.filter((v): v is string => !!v))];
-  if (uniques.length === 0) return out;
-  const { data } = await supabase
-    .from('v_referentiel_traiteurs')
-    .select('id, nom')
-    .in('id', uniques);
-  for (const t of (data ?? []) as Record<string, unknown>[]) {
-    // Libellé unique porté par la vue (20260922080000).
-    out.set(t.id as string, t.nom as string);
-  }
+  const lu = await lireParLots<{ id: string; nom: string }>(uniques, (lot) =>
+    supabase.from('v_referentiel_traiteurs').select('id, nom').in('id', lot),
+  );
+  if (lu.error) throw erreurInterne(lu.error, 'exports.builders');
+  // Libellé unique porté par la vue (20260922080000).
+  for (const t of lu.data) out.set(t.id, t.nom);
   return out;
 }
+
+// Appels simultanés à `f_volume_repas_realise` (un par collecte AG d'un client).
+const REPAS_PAR_VAGUE = 20;
 
 /**
  * Résout les repas détournés (AG) par collecte.
  *  - Client : via le helper SECURITY DEFINER C-1-safe `f_volume_repas_realise`
  *    (la jointure directe `attributions_antgaspi` est RLS-filtrée à 0 pour le
- *    client organisateur).
+ *    client organisateur), un appel par collecte, par vagues.
  *  - Staff (service_role) : lecture directe `attributions_antgaspi` (RLS
- *    bypassée). Le helper renverrait 0 sous service_role car `auth.jwt()` est
- *    nul → `f_collecte_visible` faux.
+ *    bypassée), par lots d'identifiants. Le helper renverrait 0 sous
+ *    service_role car `auth.jwt()` est nul → `f_collecte_visible` faux.
+ * Une seule requête `in(collecte_id, …)` échoue au-delà de quelques centaines
+ * de collectes AG, et les repas sortaient alors vides ou à 0 sans erreur. Une
+ * lecture en échec fait échouer l'export.
  */
 export async function resolveRepas(
   supabase: SupabaseClient,
@@ -175,28 +182,38 @@ export async function resolveRepas(
 ): Promise<Map<string, number>> {
   const out = new Map<string, number>();
   const ids = [...new Set(agCollecteIds.filter((v): v is string => !!v))];
-  if (ids.length === 0) return out;
 
   if (isStaff) {
-    const { data } = await supabase
-      .from('attributions_antgaspi')
-      .select('collecte_id, volume_repas_realise')
-      .in('collecte_id', ids);
-    for (const a of (data ?? []) as Record<string, unknown>[]) {
-      const cid = a.collecte_id as string;
-      out.set(cid, (out.get(cid) ?? 0) + Number(a.volume_repas_realise ?? 0));
-    }
+    const lu = await lireParLots<{
+      collecte_id: string;
+      volume_repas_realise: number | null;
+    }>(ids, (lot) =>
+      supabase
+        .from('attributions_antgaspi')
+        .select('collecte_id, volume_repas_realise')
+        .in('collecte_id', lot),
+    );
+    if (lu.error) throw erreurInterne(lu.error, 'exports.builders');
+    for (const a of lu.data)
+      out.set(
+        a.collecte_id,
+        (out.get(a.collecte_id) ?? 0) + Number(a.volume_repas_realise ?? 0),
+      );
     return out;
   }
 
-  await Promise.all(
-    ids.map(async (id) => {
-      const { data } = await supabase.rpc('f_volume_repas_realise', {
-        p_collecte_id: id,
-      });
-      if (data != null) out.set(id, Number(data));
-    }),
-  );
+  for (let i = 0; i < ids.length; i += REPAS_PAR_VAGUE) {
+    const vague = ids.slice(i, i + REPAS_PAR_VAGUE);
+    const reponses = await Promise.all(
+      vague.map((id) =>
+        supabase.rpc('f_volume_repas_realise', { p_collecte_id: id }),
+      ),
+    );
+    reponses.forEach(({ data, error }, rang) => {
+      if (error) throw erreurInterne(error, 'exports.builders');
+      if (data != null) out.set(vague[rang]!, Number(data));
+    });
+  }
   return out;
 }
 

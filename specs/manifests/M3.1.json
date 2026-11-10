@@ -1140,6 +1140,22 @@
       "statut": "à-vérifier",
       "ref_divergence": "_Divergences/M3.1_20261028_radar-style-unique.md",
       "libelle": "Tous les radars de comparaison reprennent le bloc de la fiche collecte variante B (Val 2026-10-28) : tableaux de bord traiteur, agence, gestionnaire de lieux, Dashboard Client Admin et fiche événement du gestionnaire. Répartition des tonnages et radar sur la même ligne ; radar renommé « Vos tonnages face aux événements comparables » sur les tableaux de bord (« Tonnages du périmètre face aux événements comparables » côté Admin) ; série en orange remplie, moyenne en pointillés bleu nuit, légende sous le radar ; filtres du repère en pastilles empilées à droite, nommées « Types », « Tailles », « Lieux », « Traiteurs » sans sélection (case de tête « Tous » cochée par défaut, décochée dès qu’une valeur est cochée, y compris pour les listes rattachées du gestionnaire, ex-« Tout le parc Savr ») ; liste des écarts lue par les lecteurs d’écran, valeurs au survol. Libellés de série : « Vos collectes », « Cet événement », « Périmètre sélectionné », « Votre collecte ». Le radar du rapport PDF n’est pas concerné par ce lot. GO-VISUAL en attente (validation Val)."
+    },
+    {
+      "id": "M3.1-listes-collectes-par-pages",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:330",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/route.ts + packages/plateforme/src/app/api/v1/agence/collectes/route.ts + packages/plateforme/src/app/api/v1/organisateur/collectes/route.ts (lireParPages ; heure du filtre de vue prise une fois par requête ; rangement final par date décroissante puis identifiant ; organisateur : repas par resolveRepas)",
+      "test": "M3.1 / M3.3 / M3.4 — listes Collectes au-delà du plafond",
+      "statut": "implemented",
+      "libelle": "Listes Collectes du traiteur, de l'agence et du client organisateur au-delà de 1 000 collectes : lues page après page (lireParPages), toutes rendues, rangées par date décroissante. Client organisateur : repas lus par vagues d'appels, un appel en échec rend une erreur, pas des repas absents. Le filtre de vue garde la même heure sur toutes les pages d'une requête."
+    },
+    {
+      "id": "M3.1-synthese-filtres-par-pages",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:208",
+      "artefact": "packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/filtres/route.ts (événements lus par lireParPages)",
+      "test": "M3.1 / filtres de la synthèse au-delà du plafond",
+      "statut": "implemented",
+      "libelle": "Filtres de la synthèse PDF au-delà de 1 000 événements : les commerciaux et les clients organisateurs proposés sont tirés de tous les événements du périmètre, lus page après page (lireParPages)."
     }
   ],
   "cdc_source_hash": {

@@ -19,6 +19,7 @@ import { logger } from '@savr/shared/src/logger/index.js';
 import { messageErreur } from '@/lib/api-helpers.js';
 import { FLUX_ZD_CODES } from '@/lib/libelles/flux.js';
 import { estUuid } from '@/lib/filtre-csv.js';
+import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
 import { aDesConvives, paxCumules, ratioParPax } from '@/lib/dashboard-kpi.js';
 import {
   createSupabaseServerClient,
@@ -440,38 +441,47 @@ export async function loadEvolution(
     perimetreLieuIds = lieuFilter;
   }
 
-  let q = supabase
-    .from('collectes')
-    .select(
-      `id, type, taux_recyclage, date_collecte, pax,
-       evenements!inner(id, lieu_id, organisation_id, type_evenement_id,
-         traiteur_operationnel_organisation_id),
-       collecte_flux(poids_reel_kg, flux_dechets(code)),
-       ${embedRepasAg(ctx.role)}`,
-    )
-    .eq('statut', 'cloturee')
-    .eq('type', type);
+  // Lues page après page (`lireParPages`) : une réponse est amputée à 1 000
+  // lignes sans erreur, la série porterait alors sur une partie des collectes.
+  const lirePage = (apresId: string | null) => {
+    let q = supabase
+      .from('collectes')
+      .select(
+        `id, type, taux_recyclage, date_collecte, pax,
+         evenements!inner(id, lieu_id, organisation_id, type_evenement_id,
+           traiteur_operationnel_organisation_id),
+         collecte_flux(poids_reel_kg, flux_dechets(code)),
+         ${embedRepasAg(ctx.role)}`,
+      )
+      .eq('statut', 'cloturee')
+      .eq('type', type);
 
-  if (isGestionnaire) {
-    q = q.in('evenements.lieu_id', perimetreLieuIds);
-    if (traiteurIds.length > 0)
-      q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
-  } else {
-    q = q.eq('evenements.organisation_id', ctx.organisationId);
-    if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
-    if (clientNoms.length > 0)
-      q = q.in('evenements.nom_client_organisateur', clientNoms);
-  }
-  if (from) q = q.gte('date_collecte', from);
-  if (to) q = q.lte('date_collecte', to);
-  // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
-  // 2026-10-22, Q3 du 2026-10-24 « Collecte, dès C1 »).
-  if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
+    if (isGestionnaire) {
+      q = q.in('evenements.lieu_id', perimetreLieuIds);
+      if (traiteurIds.length > 0)
+        q = q.in(
+          'evenements.traiteur_operationnel_organisation_id',
+          traiteurIds,
+        );
+    } else {
+      q = q.eq('evenements.organisation_id', ctx.organisationId);
+      if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
+      if (clientNoms.length > 0)
+        q = q.in('evenements.nom_client_organisateur', clientNoms);
+    }
+    if (from) q = q.gte('date_collecte', from);
+    if (to) q = q.lte('date_collecte', to);
+    // Type et taille d'événement : ceux de la COLLECTE (décisions Val C3 du
+    // 2026-10-22, Q3 du 2026-10-24 « Collecte, dès C1 »).
+    if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
+    if (apresId) q = q.gt('id', apresId);
+    return q.order('id', { ascending: true }).limit(TAILLE_PAGE);
+  };
 
-  const { data, error } = await q;
-  if (error) throw loaderDbError(error, 'dashboards.evolution');
+  const lu = await lireParPages<EvoCollecteRow>(lirePage);
+  if (lu.error) throw loaderDbError(lu.error, 'dashboards.evolution');
 
-  const rows = ((data ?? []) as unknown as EvoCollecteRow[]).filter((c) => {
+  const rows = lu.data.filter((c) => {
     const evt = firstOf(c.evenements);
     if (!evt) return false;
     if (tailleEvts.length > 0) {
@@ -1054,21 +1064,25 @@ export async function loadBlocs(
            traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
          ${embedAttributionsAg(role)}`;
 
-  let qHist = supabase
-    .from('collectes')
-    .select(selectHistorique)
-    .eq('statut', 'cloturee')
-    .eq('type', type);
-  qHist = scoped(qHist);
-  if (from) qHist = qHist.gte('date_collecte', from);
-  if (to) qHist = qHist.lte('date_collecte', to);
+  // Lu page après page : au-delà de 1 000 collectes, les Top listes seraient
+  // calculées sur une partie de l'historique, sans erreur.
+  const lireHistorique = (apresId: string | null) => {
+    let q = supabase
+      .from('collectes')
+      .select(selectHistorique)
+      .eq('statut', 'cloturee')
+      .eq('type', type);
+    q = scoped(q);
+    if (from) q = q.gte('date_collecte', from);
+    if (to) q = q.lte('date_collecte', to);
+    if (apresId) q = q.gt('id', apresId);
+    return q.order('id', { ascending: true }).limit(TAILLE_PAGE);
+  };
 
-  const { data: histData, error: histErr } = await qHist;
-  if (histErr) throw loaderDbError(histErr, 'dashboards.blocs.hist_err');
+  const hist = await lireParPages<BlocsCollecteRow>(lireHistorique);
+  if (hist.error) throw loaderDbError(hist.error, 'dashboards.blocs.hist_err');
 
-  const histRows = ((histData ?? []) as unknown as BlocsCollecteRow[]).filter(
-    (c) => tailleOk(c),
-  );
+  const histRows = hist.data.filter((c) => tailleOk(c));
 
   const topLieux = topLieuxFrom(histRows, type);
 
@@ -1134,32 +1148,36 @@ export async function loadMargeAttente(
   // Événement joint seulement quand un filtre le demande : sans filtre, le
   // décompte reste celui d'avant (collectes lisibles sous RLS).
   const parEvenement = lieuIds.length > 0 || filtres.clientNoms.length > 0;
-  let q = supabase
-    .from('collectes')
-    .select(
-      `id, date_collecte, pax, factures_collectes(facture_id, factures(statut))${
-        parEvenement
-          ? ', evenements!inner(lieu_id, nom_client_organisateur)'
-          : ''
-      }`,
-    )
-    .eq('type', 'zero_dechet')
-    .eq('statut', 'cloturee');
-  if (from) q = q.gte('date_collecte', from);
-  if (to) q = q.lte('date_collecte', to);
-  if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
-  if (filtres.clientNoms.length > 0)
-    q = q.in('evenements.nom_client_organisateur', filtres.clientNoms);
-  if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
+  // Lues page après page : le décompte porte sur toutes les collectes.
+  const lirePage = (apresId: string | null) => {
+    let q = supabase
+      .from('collectes')
+      .select(
+        `id, date_collecte, pax, factures_collectes(facture_id, factures(statut))${
+          parEvenement
+            ? ', evenements!inner(lieu_id, nom_client_organisateur)'
+            : ''
+        }`,
+      )
+      .eq('type', 'zero_dechet')
+      .eq('statut', 'cloturee');
+    if (from) q = q.gte('date_collecte', from);
+    if (to) q = q.lte('date_collecte', to);
+    if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
+    if (filtres.clientNoms.length > 0)
+      q = q.in('evenements.nom_client_organisateur', filtres.clientNoms);
+    if (typeEvtIds.length > 0) q = q.in('type_evenement_id', typeEvtIds);
+    if (apresId) q = q.gt('id', apresId);
+    return q.order('id', { ascending: true }).limit(TAILLE_PAGE);
+  };
 
-  const { data: lues, error } = await q;
-  if (error) throw loaderDbError(error, 'dashboards.marge_attente');
-  const data = (
-    (lues ?? []) as unknown as {
-      pax: number | null;
-      factures_collectes: unknown;
-    }[]
-  ).filter(
+  const lues = await lireParPages<{
+    id: string;
+    pax: number | null;
+    factures_collectes: unknown;
+  }>(lirePage);
+  if (lues.error) throw loaderDbError(lues.error, 'dashboards.marge_attente');
+  const data = lues.data.filter(
     (c) =>
       filtres.tailleEvts.length === 0 ||
       filtres.tailleEvts.includes(tailleBracket(c.pax ?? 0)),
@@ -1357,19 +1375,28 @@ export async function loadFiltresParcGestionnaire(
   since24m.setMonth(since24m.getMonth() - 24);
   const since24mStr = jourParis(since24m);
 
-  const { data: collectes, error: erreurCollectes } = await supabase
-    .from('collectes')
-    .select(
-      `id,
-       evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
-         organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom))`,
-    )
-    .in('evenements.lieu_id', lieuIds)
-    .gte('date_collecte', since24mStr);
-  if (erreurCollectes) throw loaderDbError(erreurCollectes, EVENEMENT);
+  // Lues page après page : au-delà de 1 000 collectes sur le parc, un traiteur
+  // manquerait à la liste sans erreur.
+  const collectes = await lireParPages<{ id: string; evenements: unknown }>(
+    (apresId) => {
+      const q = supabase
+        .from('collectes')
+        .select(
+          `id,
+           evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
+             organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom))`,
+        )
+        .in('evenements.lieu_id', lieuIds)
+        .gte('date_collecte', since24mStr);
+      return (apresId ? q.gt('id', apresId) : q)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    },
+  );
+  if (collectes.error) throw loaderDbError(collectes.error, EVENEMENT);
 
   const traiteurMap = new Map<string, string>();
-  for (const c of collectes ?? []) {
+  for (const c of collectes.data) {
     const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
     const orgs = (
       evt as unknown as { organisations?: { id: string; nom: string } }

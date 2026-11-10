@@ -17,7 +17,9 @@ type Result = { data: unknown; error: unknown; count?: number };
 function makeChain() {
   const queue: Result[] = [];
   const calls: Record<string, unknown[][]> = {};
-  const next = (): Result => queue.shift() ?? { data: [], error: null };
+  // `count` : total annoncé à une lecture par tranches (exports), 0 ligne ici.
+  const next = (): Result =>
+    queue.shift() ?? { data: [], error: null, count: 0 };
   const chain: Record<string, unknown> = { __calls: calls };
   for (const m of [
     'from',

@@ -184,20 +184,21 @@ describe('M3.6 / Dashboard Client / filtres type et taille', () => {
     const evt = { id: 'e1', lieu_id: LIEU1, pax: 900, organisation_id: T1 };
     queryResult = {
       data: [
-        {
-          id: 'c-s',
-          pax: 300,
-          taux_recyclage: 80,
-          evenements: evt,
-          collecte_flux: [{ poids_reel_kg: 50 }],
-          attributions_antgaspi: [],
-        },
+        // Rangées par identifiant, comme la base les rend (lecture par pages).
         {
           id: 'c-m',
           pax: 600,
           taux_recyclage: 80,
           evenements: evt,
           collecte_flux: [{ poids_reel_kg: 150 }],
+          attributions_antgaspi: [],
+        },
+        {
+          id: 'c-s',
+          pax: 300,
+          taux_recyclage: 80,
+          evenements: evt,
+          collecte_flux: [{ poids_reel_kg: 50 }],
           attributions_antgaspi: [],
         },
       ],

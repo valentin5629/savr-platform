@@ -14,6 +14,7 @@ import {
   creneauDeLaVue,
   lireVueCollectes,
 } from '@/lib/collectes/vue-temporelle.js';
+import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -23,7 +24,9 @@ const TRAITEUR_ROLES: ClientRole[] = [
 // GET /api/v1/traiteur/collectes — liste des collectes de l'orga (§06.04 §3).
 // La RLS (col_select) garantit le cloisonnement : toutes les collectes de l'orga
 // (lecture alignée manager pour le commercial — révision 2026-05-29) + collectes
-// où le traiteur est opérationnel. Tri date décroissante.
+// où le traiteur est opérationnel. Tri date décroissante. La liste est lue page
+// après page (`lireParPages`) : une réponse est amputée à 1 000 lignes sans
+// erreur, les collectes les plus anciennes manquaient alors à l'écran.
 //
 // Filtres §06.04 §3 « Filtres disponibles » (BL-P2-14, volet filtres) :
 //   type (sélecteur ZD/AG) · statut (multi) · période (from/to) · lieu_ids
@@ -75,44 +78,59 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ? `${selectBase}, attributions_antgaspi!inner(association_id, volume_repas_realise)`
     : `${selectBase}, attributions_antgaspi(volume_repas_realise)`;
 
-  let query = supabase
-    .from('collectes')
-    .select(select)
-    .order('date_collecte', { ascending: false });
+  // Un seul « maintenant » pour toutes les pages de la vue.
+  const maintenant = new Date();
+  const lirePage = (apresId: string | null) => {
+    let query = supabase.from('collectes').select(select);
 
-  if (type === 'zero_dechet' || type === 'anti_gaspi') {
-    query = query.eq('type', type);
-  }
-  if (filtres.statuts.length > 0) query = query.in('statut', filtres.statuts);
-  if (from) query = query.gte('date_collecte', from);
-  if (to) query = query.lte('date_collecte', to);
-  // Vue « à venir / passées » : rangée au créneau, à la minute (Val 2026-11-03).
-  if (vue) query = query.or(creneauDeLaVue(vue, new Date()));
-  if (filtres.lieuIds.length > 0)
-    query = query.in('evenements.lieu_id', filtres.lieuIds);
-  if (commercialId) query = query.eq('evenements.created_by', commercialId);
-  if (perimetre === 'organisation')
-    query = query.eq('evenements.organisation_id', auth.ctx.organisationId);
-  if (associationId)
-    query = query.eq('attributions_antgaspi.association_id', associationId);
-  // « Client Organisateur » : keyé sur le NOM (evenements.nom_client_organisateur),
-  // obligatoire à la confirmation d'une programmation, et non sur
-  // client_organisateur_organisation_id qui est un rattachement réservé Admin
-  // (NULL sur les événements programmés par un traiteur) — cf. route /filtres.
-  if (filtres.clients.length > 0)
-    query = query.filter(
-      'evenements.nom_client_organisateur',
-      'in',
-      inTextes(filtres.clients),
-    );
-  if (filtres.informationsCompletes !== null)
-    query = query.eq('informations_completes', filtres.informationsCompletes);
-  // « Programmée par » : organisations ayant programmé l'événement.
-  if (filtres.programmeePar.length > 0)
-    query = query.in('evenements.organisation_id', filtres.programmeePar);
+    if (type === 'zero_dechet' || type === 'anti_gaspi') {
+      query = query.eq('type', type);
+    }
+    if (filtres.statuts.length > 0) query = query.in('statut', filtres.statuts);
+    if (from) query = query.gte('date_collecte', from);
+    if (to) query = query.lte('date_collecte', to);
+    // Vue « à venir / passées » : rangée au créneau, à la minute (Val 2026-11-03).
+    if (vue) query = query.or(creneauDeLaVue(vue, maintenant));
+    if (filtres.lieuIds.length > 0)
+      query = query.in('evenements.lieu_id', filtres.lieuIds);
+    if (commercialId) query = query.eq('evenements.created_by', commercialId);
+    if (perimetre === 'organisation')
+      query = query.eq('evenements.organisation_id', auth.ctx.organisationId);
+    if (associationId)
+      query = query.eq('attributions_antgaspi.association_id', associationId);
+    // « Client Organisateur » : keyé sur le NOM (evenements.nom_client_organisateur),
+    // obligatoire à la confirmation d'une programmation, et non sur
+    // client_organisateur_organisation_id qui est un rattachement réservé Admin
+    // (NULL sur les événements programmés par un traiteur) — cf. route /filtres.
+    if (filtres.clients.length > 0)
+      query = query.filter(
+        'evenements.nom_client_organisateur',
+        'in',
+        inTextes(filtres.clients),
+      );
+    if (filtres.informationsCompletes !== null)
+      query = query.eq('informations_completes', filtres.informationsCompletes);
+    // « Programmée par » : organisations ayant programmé l'événement.
+    if (filtres.programmeePar.length > 0)
+      query = query.in('evenements.organisation_id', filtres.programmeePar);
+    if (apresId) query = query.gt('id', apresId);
+    return query.order('id', { ascending: true }).limit(TAILLE_PAGE);
+  };
 
-  const { data, error } = await query;
-  if (error) return serverError(error, 'traiteur.collectes.list');
+  const lu = await lireParPages<{ id: string; date_collecte: string }>(
+    lirePage,
+  );
+  if (lu.error) return serverError(lu.error, 'traiteur.collectes.list');
+  // Date décroissante ; l'identifiant départage les collectes d'un même jour.
+  const data = lu.data.sort((a, b) =>
+    a.date_collecte === b.date_collecte
+      ? a.id < b.id
+        ? 1
+        : -1
+      : a.date_collecte < b.date_collecte
+        ? 1
+        : -1,
+  );
 
   // Champs calculés (programmée par tiers, rapport réservé, résultats) : calcul
   // commun avec la liste agence (§06.11 = §06.04 à l'identique).

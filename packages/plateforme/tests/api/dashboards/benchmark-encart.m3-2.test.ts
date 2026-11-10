@@ -31,7 +31,8 @@ const tables: Record<string, unknown[]> = {};
 const tablesEnErreur = new Set<string>();
 function lecture(table: string, rows: unknown[]) {
   const q: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'in', 'gte', 'order']) q[m] = () => q;
+  for (const m of ['select', 'eq', 'in', 'gte', 'order', 'limit'])
+    q[m] = () => q;
   q.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
     Promise.resolve(
       tablesEnErreur.has(table)

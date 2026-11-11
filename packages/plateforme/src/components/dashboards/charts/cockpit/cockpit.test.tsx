@@ -324,6 +324,27 @@ it('PackAgRing — badge « Pack épuisé » à 0', () => {
   expect(screen.getByText(/Pack épuisé/)).toBeInTheDocument();
 });
 
+it('PackAgRing — « N collectes restantes sur M » et une case par crédit (Val 2026-11-10/11)', () => {
+  const { container } = render(
+    <PackAgRing creditsInitiaux={12} creditsRestants={4} />,
+  );
+  expect(screen.getByText('collectes restantes sur 12')).toBeInTheDocument();
+  expect(screen.queryByText(/consommé/)).toBeNull();
+  expect(screen.queryByText('restants')).toBeNull();
+  expect(container.querySelectorAll('[data-case-credit]')).toHaveLength(12);
+  expect(
+    container.querySelectorAll('[data-case-credit="restant"]'),
+  ).toHaveLength(4);
+});
+
+it('PackAgRing — au-delà de 20 crédits, barre continue sans cases', () => {
+  const { container } = render(
+    <PackAgRing creditsInitiaux={21} creditsRestants={1} />,
+  );
+  expect(container.querySelectorAll('[data-case-credit]')).toHaveLength(0);
+  expect(screen.getByText('collecte restante sur 21')).toBeInTheDocument();
+});
+
 it('EvolutionAgChart — rend des barres repas + la courbe ratio', () => {
   const { container } = render(
     <EvolutionAgChart series={ag} granularite="mois" />,

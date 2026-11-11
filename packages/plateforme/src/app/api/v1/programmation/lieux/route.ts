@@ -8,6 +8,7 @@ import {
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
 import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
+import { estUuid } from '@/lib/filtre-csv.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { regionDepuisCodePostal } from '@/lib/lieux/region-code-postal.js';
 import { urlApplication } from '@/lib/url-application.js';
@@ -82,9 +83,11 @@ function filtreRecherche<T extends { or: (f: string) => T }>(
 //    La RLS ne peut PAS servir ce cas : pour un admin, `lieux_clients_select`
 //    ne s'applique pas (garde `f_app_role() <> ALL(admin_savr, ops_savr)`) et
 //    `lieux_admin` lui donnerait TOUS les lieux, au lieu du périmètre de l'org
-//    cible. Le filtre reste donc transcrit, et doit rester aligné sur la policy
-//    — verrouillé par le cliquet pgTAP `lieux_clients_select_cliquet.test.sql`,
-//    qui casse si la policy change sans que ce chemin suive.
+//    cible. Le périmètre reste donc transcrit, côté BASE : la fonction
+//    `f_lieux_visibles_organisation` (migration 20261111100000), tenue alignée
+//    sur la policy par le cliquet pgTAP `lieux_clients_select_cliquet.test.sql`
+//    et comparée à la lecture sous RLS, rôle par rôle, par
+//    `programmation_lieux_visibles_organisation.test.sql`.
 //    Enjeu d'ERGONOMIE, pas de sécurité : l'admin lit déjà tous les lieux.
 //    Sans org cible → 0 résultat (comme un traiteur vierge).
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -119,85 +122,40 @@ async function lieuxDuDemandeur(q: string): Promise<NextResponse> {
   );
 }
 
-// Admin support : « les lieux que verrait l'organisation cible ». Transcription
-// des branches de `lieux_clients_select` qui sont EFFECTIVES pour les rôles
-// atteignant cette route (cf. PROGRAMMATION_ROLES).
+// Admin support : « les lieux que verrait l'organisation cible ».
 //
-// La branche « client organisateur » n'est volontairement PAS transcrite : elle
-// n'ajoute aucun lieu pour ces rôles. Attention au motif exact — son
-// sous-SELECT PEUT rendre des lignes (mesuré : `gestionnaire_lieux` et
-// `traiteur_manager`). Les policies de `evenements` sont PERMISSIVE, donc
-// OR'ées : la garde de rôle de `evt_client_orga_select` n'empêche pas une
-// policy voisine de rendre le même événement. Ce qui est vrai, c'est que tout
-// `lieu_id` atteint par cette branche est DÉJÀ couvert par les branches 1, 2
-// ou 4 — `evt_*_select` ne donne à ces rôles que `organisation_id = self`,
-// `lieu_id ∈ mes lieux rattachés`, ou `traiteur_operationnel = self`.
-// Équivalence des ensembles RLS ⇄ transcription mesurée sur les 4 rôles
-// (0 écart dans les deux sens). L'ajouter rendrait l'admin PLUS large que sa
-// cible.
+// Le périmètre est calculé par la base : `f_lieux_visibles_organisation` rend
+// les lieux rattachés à l'organisation, ceux des événements qu'elle a
+// programmés et, pour un traiteur, ceux des événements qu'elle opère
+// (transcription des branches de `lieux_clients_select`, motifs et limites dans
+// la migration 20261111100000). La route lui applique ensuite les mêmes
+// filtres que sur le chemin client : lieu actif, terme saisi, tri par nom,
+// 20 lignes.
+//
+// Avant, la route relisait ici tous les événements de l'organisation puis
+// passait tous ses lieux dans un seul `.in('id', …)`. L'API de données ampute
+// une réponse à 1 000 lignes sans erreur et refuse un filtre de quelques
+// centaines d'identifiants (mesures : lib/pdf/selection-par-pages.ts) : au-delà,
+// des lieux manquaient dans les propositions, ou la recherche échouait. Les
+// erreurs de ces lectures n'étaient pas lues non plus.
+//
+// Un identifiant mal formé est traité comme une organisation inconnue (aucun
+// lieu) : la base refuserait de le lire comme un uuid, ce n'est pas une panne.
 async function lieuxDeLOrgCible(
   orgId: string | null,
   q: string,
 ): Promise<NextResponse> {
-  if (!orgId) return NextResponse.json([]);
-
-  const supabase = createAdminSupabaseClient();
-
-  const [
-    { data: org },
-    { data: orgLieux },
-    { data: evtLieux },
-    { data: opLieux },
-  ] = await Promise.all([
-    supabase.from('organisations').select('type').eq('id', orgId).maybeSingle(),
-    // Branche 1 — lieu rattaché à l'organisation.
-    supabase
-      .from('organisations_lieux')
-      .select('lieu_id')
-      .eq('organisation_id', orgId),
-    // Branche 2 — lieu d'un événement que l'organisation a programmé.
-    supabase
-      .from('evenements')
-      .select('lieu_id')
-      .eq('organisation_id', orgId)
-      .not('lieu_id', 'is', null),
-    // Branche 4 — lieu d'un événement que l'organisation OPÈRE.
-    supabase
-      .from('evenements')
-      .select('lieu_id')
-      .eq('traiteur_operationnel_organisation_id', orgId)
-      .not('lieu_id', 'is', null),
-  ]);
-
-  const ids = new Set<string>();
-  for (const r of orgLieux ?? []) ids.add((r as { lieu_id: string }).lieu_id);
-  for (const r of evtLieux ?? []) ids.add((r as { lieu_id: string }).lieu_id);
-
-  // La policy garde la branche 4 par le rôle (traiteur_manager /
-  // traiteur_commercial). Côté admin la cible est une ORGANISATION, pas un
-  // utilisateur : on approxime la garde de rôle par le type d'organisation.
-  // APPROXIMATION ASSUMÉE, pas un invariant : aucun CHECK ni trigger ne lie
-  // `users.role` à `organisations.type` (vérifié — le seul trigger sur `users`
-  // est `trg_users_block_role_escalation`). C'est une convention de données.
-  // Si elle était prise en défaut, l'effet serait une sur- ou sous-proposition
-  // dans cette liste — jamais une fuite : l'admin lit déjà tous les lieux.
-  if ((org as { type?: string } | null)?.type === 'traiteur') {
-    for (const r of opLieux ?? []) ids.add((r as { lieu_id: string }).lieu_id);
-  }
-
-  const uniqueIds = [...ids].filter(Boolean);
-  if (uniqueIds.length === 0) return NextResponse.json([]);
+  if (!orgId || !estUuid(orgId)) return NextResponse.json([]);
 
   const { data, error } = await filtreRecherche(
-    supabase
-      .from('lieux')
-      .select(COLONNES_LIEU)
-      .eq('actif', true)
-      .in('id', uniqueIds)
-      .order('nom')
-      .limit(20),
+    createAdminSupabaseClient()
+      .rpc('f_lieux_visibles_organisation', { p_organisation_id: orgId })
+      .eq('actif', true),
     q,
-  );
+  )
+    .select(COLONNES_LIEU)
+    .order('nom')
+    .limit(20);
 
   if (error) return serverError(error, 'programmation.lieux.list');
   return avecCodeSiteViparis(

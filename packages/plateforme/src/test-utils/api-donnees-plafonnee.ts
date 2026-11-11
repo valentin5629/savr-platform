@@ -13,6 +13,13 @@
  * `filter` sont consignés sans rien écarter : au test de ne poser dans la table
  * que les lignes du périmètre. Les fonctions SQL appelées par `.rpc()` sont
  * fournies par le test (`rpcs`).
+ *
+ * Une fonction qui rend des lignes se filtre, se trie et se borne comme une
+ * table (`.rpc(…).eq(…).order(…).limit(…)`) : le banc applique ces maillons à ce
+ * que rend la fonction du test, et ampute la réponse au même plafond (mesuré le
+ * 2026-11-11 sur PostgREST 14.12 : 1 100 lignes rendues par une fonction, 1 000
+ * servies sans limite, HTTP 206 ; les filtres jouent avant le plafond). Ces
+ * lectures sont consignées sous le nom `rpc.<fonction>`.
  */
 export type Ligne = Record<string, unknown>;
 export type Erreur = { message: string; code?: string };
@@ -34,7 +41,8 @@ export interface Lecture {
   rendues: number;
 }
 
-type Reponse = { data: unknown; error: Erreur | null; count: number | null };
+/** `count` : le total demandé par `select(…, { count: 'exact' })`, sinon null ; absent d'une valeur seule rendue par une fonction. */
+type Reponse = { data: unknown; error: Erreur | null; count?: number | null };
 
 /** null et undefined en dernier, comme `nullsFirst: false`. */
 function comparer(a: unknown, b: unknown): number {
@@ -59,7 +67,16 @@ export function creerApiPlafonnee(tables: Record<string, Ligne[]> = {}) {
   };
   let rpcEnCours = 0;
 
-  const from = (table: string) => {
+  /**
+   * Requête filtrable sur des lignes : celles d'une table, ou celles que rend
+   * une fonction. `source` rend les lignes à filtrer, ou une réponse toute faite
+   * (panne, valeur seule) ; `resoudre` dit quand la requête s'exécute.
+   */
+  const requeteSur = (
+    table: string,
+    source: () => Ligne[] | Reponse,
+    resoudre: (executer: () => Reponse) => Promise<Reponse>,
+  ) => {
     const lecture: Lecture = {
       table,
       colonnes: '*',
@@ -78,17 +95,15 @@ export function creerApiPlafonnee(tables: Record<string, Ligne[]> = {}) {
     const deLaTable = (colonne: string) => !colonne.includes('.');
 
     const executer = (): Reponse => {
-      const panne = api.pannes[table];
-      if (panne) return { data: null, error: panne, count: null };
+      const lu = source();
+      if (!Array.isArray(lu)) return lu;
       if (listeTropLongue)
         return {
           data: null,
           error: { message: 'TypeError: fetch failed' },
           count: null,
         };
-      let lignes = (api.tables[table] ?? []).filter((l) =>
-        predicats.every((p) => p(l)),
-      );
+      let lignes = lu.filter((l) => predicats.every((p) => p(l)));
       if (tris.length > 0)
         lignes = [...lignes].sort((a, b) => {
           for (const { colonne, croissant } of tris) {
@@ -107,7 +122,10 @@ export function creerApiPlafonnee(tables: Record<string, Ligne[]> = {}) {
       );
       lecture.rendues = page.length;
       return {
-        data: page.map((l) => ({ ...l })),
+        // Copie des lignes ; une fonction peut aussi rendre des valeurs nues.
+        data: page.map((l) =>
+          l !== null && typeof l === 'object' ? { ...l } : l,
+        ),
         error: null,
         count: avecTotal ? lignes.length : null,
       };
@@ -174,7 +192,7 @@ export function creerApiPlafonnee(tables: Record<string, Ligne[]> = {}) {
         return requete;
       },
       maybeSingle: async () => {
-        const r = executer();
+        const r = await resoudre(executer);
         return r.error
           ? r
           : { data: (r.data as Ligne[])[0] ?? null, error: null, count: null };
@@ -182,23 +200,49 @@ export function creerApiPlafonnee(tables: Record<string, Ligne[]> = {}) {
       then: (
         siOk: (r: Reponse) => unknown,
         siKo?: (e: unknown) => unknown,
-      ): Promise<unknown> => Promise.resolve(executer()).then(siOk, siKo),
+      ): Promise<unknown> => resoudre(executer).then(siOk, siKo),
     };
     return requete;
   };
 
-  const rpc = async (nom: string, args: Ligne = {}) => {
+  const from = (table: string) =>
+    requeteSur(
+      table,
+      () => {
+        const panne = api.pannes[table];
+        return panne
+          ? { data: null, error: panne, count: null }
+          : (api.tables[table] ?? []);
+      },
+      // Exécutée à l'instant où la requête est attendue.
+      (executer) => Promise.resolve(executer()),
+    );
+
+  const rpc = (nom: string, args: Ligne = {}) => {
     api.appelsRpc.push({ nom, args });
     rpcEnCours++;
     api.rpcSimultanesMax = Math.max(api.rpcSimultanesMax, rpcEnCours);
-    // Un tour de boucle : les appels lancés ensemble se chevauchent.
-    await new Promise((fini) => setTimeout(fini, 0));
-    rpcEnCours--;
-    const panne = api.pannes[`rpc.${nom}`];
-    if (panne) return { data: null, error: panne };
-    const fonction = api.rpcs[nom];
-    if (!fonction) throw new Error(`rpc non prévue par le test : ${nom}`);
-    return { data: fonction(args) ?? null, error: null };
+    // Un tour de boucle : les appels lancés ensemble se chevauchent. L'appel est
+    // compté dès qu'il est lancé ; les maillons posés à sa suite (`.eq`,
+    // `.limit`…) le sont avant ce tour, donc avant l'exécution.
+    const fini = new Promise<void>((tour) => setTimeout(tour, 0)).then(() => {
+      rpcEnCours--;
+    });
+    return requeteSur(
+      `rpc.${nom}`,
+      () => {
+        const panne = api.pannes[`rpc.${nom}`];
+        if (panne) return { data: null, error: panne };
+        const fonction = api.rpcs[nom];
+        if (!fonction) throw new Error(`rpc non prévue par le test : ${nom}`);
+        const rendu = fonction(args) ?? null;
+        // Une valeur seule (nombre, booléen, objet) est rendue telle quelle.
+        return Array.isArray(rendu)
+          ? (rendu as Ligne[])
+          : { data: rendu, error: null };
+      },
+      (executer) => fini.then(executer),
+    );
   };
 
   api.client = { from, rpc };

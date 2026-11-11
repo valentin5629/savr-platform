@@ -111,7 +111,8 @@ INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_v
   ('c1ea0003-0000-0000-0000-000000000003'::uuid, 'CC Lieu desactive',       '3 r', '75003', 'Paris', 'fourgon', false);
 
 -- ── Fixtures du régime « branche 3 » (client organisateur, événement daté) ──
--- Objet : PINER l'innocuité de son omission du miroir admin (cf. route.ts). Elle
+-- Objet : PINER l'innocuité de son omission du miroir admin (la fonction
+-- `plateforme.f_lieux_visibles_organisation`, migration 20261111100000). Elle
 -- repose sur deux régimes DIFFÉRENTS selon le rôle — si l'un des deux change, ces
 -- asserts rougissent avant que le miroir ne devienne faux.
 INSERT INTO plateforme.organisations (id, nom, type, siret, actif, est_shadow) VALUES
@@ -267,7 +268,8 @@ SELECT throws_ok(
 );
 
 -- ── 5. Branche 3 : pourquoi son omission du miroir admin est sans effet ──────
--- La justification écrite dans route.ts tient à DEUX régimes distincts. Ces asserts
+-- La justification écrite dans la migration de la fonction
+-- `f_lieux_visibles_organisation` tient à DEUX régimes distincts. Ces asserts
 -- les pinent : si `evt_agence_select` / `evt_gestionnaire_select` ou la branche 1
 -- bougeaient, ils rougiraient AVANT que le miroir admin ne devienne faux.
 

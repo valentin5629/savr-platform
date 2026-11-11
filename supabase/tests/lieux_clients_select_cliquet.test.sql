@@ -11,8 +11,10 @@
 --   • admin support (`?organisation_id=`) → lecture en service_role : la RLS
 --                    ne peut PAS servir ce cas (pour un admin la policy ne
 --                    s'applique pas, `lieux_admin` rendrait TOUS les lieux au
---                    lieu du périmètre de l'organisation cible). Ce chemin
---                    transcrit donc les branches de la policy à la main.
+--                    lieu du périmètre de l'organisation cible). Les branches
+--                    de la policy sont donc transcrites à la main, dans la
+--                    fonction `plateforme.f_lieux_visibles_organisation`
+--                    (migration 20261111100000 ; avant elle, dans la route).
 --
 -- Ce fichier est le garde-fou de cette transcription : il CASSE dès que le
 -- prédicat de la policy change, pour forcer la question « le chemin admin de
@@ -26,9 +28,11 @@
 --        SELECT pg_get_expr(polqual, polrelid) FROM pg_policy
 --         WHERE polname = 'lieux_clients_select';
 --   2. Décider si la branche ajoutée/modifiée doit valoir aussi pour l'admin
---      support, et mettre à jour `lieuxDeLOrgCible()` dans
---      packages/plateforme/src/app/api/v1/programmation/lieux/route.ts
---      (+ son test Vitest) en conséquence. Une branche peut légitimement ne
+--      support, et mettre à jour la fonction
+--      `plateforme.f_lieux_visibles_organisation` par une nouvelle migration
+--      (+ son test `programmation_lieux_visibles_organisation.test.sql`, dont
+--      les asserts 18 à 22 comparent la fonction à la lecture sous RLS et
+--      rougissent tant qu'elle n'a pas suivi). Une branche peut légitimement ne
 --      PAS être transcrite — c'est le cas de « client organisateur ». Le bon
 --      critère n'est PAS « la branche est gardée par un rôle absent d'ici » :
 --      les policies de `evenements` sont PERMISSIVE, donc OR'ées, et son

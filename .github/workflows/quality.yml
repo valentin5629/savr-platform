@@ -371,8 +371,11 @@ jobs:
   # Build distinct de `build` : les NEXT_PUBLIC_* sont figées dans le bundle au
   # build, il faut celles du serveur local. Seul Chromium est installé (navigateur
   # par défaut du projet Playwright). Sauté comme `build` (scripts/ci-perimetre.sh).
+  # Runner figé : `ubuntu-latest` est passé à Ubuntu 26.04 en novembre 2026, et
+  # Playwright 1.60 refuse d'y installer Chromium (« does not support chromium on
+  # ubuntu26.04-x64 », PR #771). Revenir à ubuntu-latest quand Playwright le prendra.
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 2 } # commit de fusion + sa base : fichiers de la PR

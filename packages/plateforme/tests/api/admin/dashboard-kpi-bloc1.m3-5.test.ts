@@ -64,6 +64,7 @@ function makeRecordingChain() {
   Object.assign(chain, {
     select: () => chain,
     order: () => chain,
+    limit: () => chain,
     eq: (col: string, val: unknown) => recordType(col, val),
     neq: () => chain,
     in: (col: string, val: unknown) => recordType(col, val),

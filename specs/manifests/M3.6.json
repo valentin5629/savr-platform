@@ -189,6 +189,14 @@
       "test": "M3.6 / Dashboard Client Admin au-delà du plafond",
       "statut": "implemented",
       "libelle": "Dashboard Client Admin au-delà de 1 000 collectes clôturées : elles sont lues page après page (lireParPages) ; KPI, CO₂ évité, évolution et classements portent sur toutes. Une page en échec fait échouer le chargement."
+    },
+    {
+      "id": "M3.6-benchmark-filtres-par-pages",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:141",
+      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (loadAdminBenchmarkFiltres : lieux et traiteurs actifs lus par lireParPages, triés par nom dans l'application)",
+      "test": "M3.6 / filtres du benchmark Admin au-delà du plafond",
+      "statut": "implemented",
+      "libelle": "Encart « Comparer avec » du Dashboard Client Admin au-delà de 1 000 lieux ou traiteurs actifs : toutes les options sont proposées, triées par nom ; une page en échec fait échouer le chargement."
     }
   ],
   "cdc_source_hash": {

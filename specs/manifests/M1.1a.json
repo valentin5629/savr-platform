@@ -196,7 +196,7 @@
     },
     {
       "id": "M1.1a-25",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:736",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:747",
       "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
       "test": "M1.1a/orgas/grille-tarifaire-admin-only",
       "statut": "implemented",
@@ -348,7 +348,7 @@
     },
     {
       "id": "M1.1a-orgas-creation-champs-obligatoires",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:702",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:712",
       "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/route.ts",
       "test": "M1.1a/orgas/creation — 422 + champs_invalides",
       "statut": "implemented",
@@ -356,7 +356,7 @@
     },
     {
       "id": "M1.1a-logo-fiche-proxy",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:731",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:741",
       "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/page.tsx",
       "test": "M1.1a/logo_fiche_client_admin_par_proxy",
       "statut": "implemented",
@@ -364,7 +364,7 @@
     },
     {
       "id": "M1.1a-clients-filtres-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:697",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:707",
       "artefact": "packages/plateforme/src/app/(admin)/admin/clients/page.tsx (Type / Statut en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/admin/organisations/route.ts (types CSV en liste blanche organisation_type ; l'ancien type lu comme une liste d'un élément) + packages/plateforme/src/lib/filtre-csv.ts",
       "test": "M1.1a — Type : 2 types + M1.1a — Statut : Actifs + M1.1a/orgas_liste_types_csv + M1.1a/orgas_liste_types_hors_enum_ecartes + M1.1a/orgas_liste_type_mono_conserve + M1.1a/orgas_liste_types_prioritaire_sur_mono + M1.1a — une réponse plus ancienne arrivée en dernier",
       "statut": "à-vérifier",
@@ -372,7 +372,7 @@
     },
     {
       "id": "M1.1a-fiche-informations-legales-modifiables",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:731",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:741",
       "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/modale-informations-legales.tsx (bouton « Modifier » de la carte Informations légales, sur PATCH /api/v1/admin/organisations/[id] existant)",
       "test": "Modifier les informations légales : formulaire pré-rempli, PATCH de la fiche",
       "statut": "implemented",
@@ -380,7 +380,7 @@
     },
     {
       "id": "M1.1a-fiche-domaines-email-ajout-verification",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:730",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:740",
       "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/carte-domaines-email.tsx + packages/plateforme/src/app/api/v1/admin/organisations/[id]/domaines-email/route.ts (POST) + packages/plateforme/src/app/api/v1/admin/organisations/[id]/domaines-email/[domaineId]/route.ts (PATCH verifie, DELETE) + packages/plateforme/src/app/api/auth/signup/route.ts (aucun rattachement au domaine d'un client organisateur) + packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts (type → client_organisateur refusé tant qu'un domaine est rattaché)",
       "test": "201 : domaine normalisé, rattaché à l’organisation de l’URL, vérifié d’emblée, audité + 422 domaine public (gmail.com), aucun INSERT + PATCH verifie=false : retire la vérification, bornée à l’organisation, auditée + DELETE borné à l’organisation, audité ; 404 hors organisation + Domaines : statut affiché, ajout par POST, vérification par PATCH + 422 client organisateur (jamais en libre-service), aucun INSERT + PATCH verifie=true refusé (422) pour un client organisateur, aucun UPDATE + Client organisateur : ni ajout ni vérification de domaine + le domaine vérifié d’un CLIENT ORGANISATEUR ne rattache personne (jamais de libre-service) + 422 passage en client organisateur tant qu’un domaine est rattaché, sans UPDATE",
       "statut": "implemented",
@@ -388,7 +388,7 @@
     },
     {
       "id": "M1.1a-fiche-entites-facturation-admin",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:731",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:741",
       "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/modale-entite-facturation.tsx + packages/plateforme/src/app/api/v1/admin/organisations/[id]/entites-facturation/route.ts (POST) + packages/plateforme/src/app/api/v1/admin/organisations/[id]/entites-facturation/[entiteId]/route.ts (PATCH)",
       "test": "201 : organisation de l’URL, SIRET sans espaces vérifié INSEE, par défaut = autres dé-flaguées dans l’organisation + 404 si l’entité n’est pas dans cette organisation, aucune écriture + Entités de facturation : modification par PATCH de l’entité, ajout par POST + par défaut : les autres entités de CETTE organisation perdent le drapeau, sauf la cible + par défaut refusé (422) sur une entité désactivée, aucune écriture",
       "statut": "implemented",
@@ -396,6 +396,6 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "e1552e56d158079110623c481a7c78342f57ebba0116bced222bc657ef81a8e6"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "5940e760167b0faa92c73319a80494b5538ffbefe91d35330cbf992981dcb8cd"
   }
 }

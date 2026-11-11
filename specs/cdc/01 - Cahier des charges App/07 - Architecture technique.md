@@ -165,8 +165,8 @@ Supabase est le cœur de l'architecture : base de données, authentification, st
 | | | | **❌ Webhook V2 (TMS natif).** En V1, la même logique métier (bordereau/attestation, PDF, brouillon Pennylane, badge `realisee_sans_collecte`) est déclenchée **par le cron de polling** quand il détecte l'état terminal MTS-1 — pas par un endpoint entrant. La logique décrite reste valide, le déclencheur change. |
 | `on-pack-ag-epuise` | Vercel (trigger DB → webhook) | Trigger DB sur `plateforme.packs_antgaspi` | Notif Admin (la programmation AG reste possible : facturation à l'unité) |
 | `on-statut-collecte-change` | Vercel (trigger DB → webhook) | Trigger DB sur `plateforme.collectes.statut` | Dispatch emails transactionnels via Resend |
-| `scheduler-attestations` | Vercel Cron | J+1 6h | Batch génération attestations de don AG |
-| `scheduler-bordereaux` | Vercel Cron | J+1 6h | Batch génération bordereaux ZD |
+| `scheduler-attestations` | Vercel Cron | toutes les 15 min | Batch génération attestations de don AG (dès que le poids est saisi) |
+| `scheduler-bordereaux` | Vercel Cron | toutes les 15 min | Batch génération bordereaux ZD (dès que les pesées sont là) |
 | `purge-geoloc` | **pg_cron Supabase** (exception) | Cron quotidien | Purge géoloc > 30j en local DB (évite aller-retour réseau sur grosses DELETE) |
 
 **Kill switches** : 3 bools dans `tms.parametres_tms` permettent la coupure instantanée sans revert Git : `integration_plateforme_active`, `polling_e6_active`, `ocr_factures_active`. Coupure via UI Admin en 30 sec.
@@ -200,8 +200,8 @@ API Route / batch Vercel Cron (J+1 6h)           ← corrigé 2026-06-10 (ex « 
 
 | Template | Déclenché par | Dossier de destination (bucket de l'environnement) |
 |---|---|---|
-| Bordereau de pesée ZD | Batch J+1 6h | `bordereaux/` |
-| Attestation de don AG | Batch J+1 6h | `attestations/` |
+| Bordereau de pesée ZD | Dès que les pesées sont là | `bordereaux/` |
+| Attestation de don AG | Dès que le poids est saisi | `attestations/` |
 | Rapport de recyclage | Demande manuelle ou auto J+1 | `rapports/` |
 
 ### Résilience

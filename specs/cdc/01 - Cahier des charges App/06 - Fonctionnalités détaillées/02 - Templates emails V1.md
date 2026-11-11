@@ -138,6 +138,7 @@ L'équipe Savr
 ## 6. Email rapport post-collecte disponible
 
 **Slug** : `rapport_disponible`
+**Déclencheur** : clôture de la collecte ZD (48 h après la collecte) dont le bordereau est émis ; un seul envoi par collecte (décision Val 2026-11-04).
 **Destinataire** : programmeur de la collecte — adresse résolue sur **`organisations.email_principal`** de l'organisation programmatrice *(précisé 2026-09-14 : `evenements.contact_principal_email` n'existe pas en V1)*
 
 > ⚠ **Écart seed → code à corriger (divergence M1.6, tranché Val 2026-09-14)** : la base a été seedée avec le slug **`bordereau_disponible`**, que **rien n'appelle** ; le batch ZD envoie `rapport_disponible`, qui **n'existe dans aucune migration** → `TEMPLATE_NOT_FOUND`, **aucun email de rapport ZD n'est jamais parti**. Correctif retenu : `UPDATE plateforme.email_templates SET code = 'rapport_disponible' WHERE code = 'bordereau_disponible'` (dev + prod), alignement de `packages/shared/src/seed/constants.ts`, et **alignement des variables envoyées par `batch-pdf-j1.ts` sur celles listées ci-dessous** (il envoyait `nom_evenement` / `date_evenement`, absents du template → `sendEmail` refuserait l'envoi pour variables manquantes, contrôle §08 §4). **Le CDC fait foi, c'est le seed qui diverge.**
@@ -149,8 +150,8 @@ Bonjour{{#if prenom}} {{prenom}}{{/if}},
 La collecte Zéro Déchet de votre événement{{#if nom_evenement}} « {{nom_evenement}} »{{/if}} du {{date_collecte}}{{#if lieu_nom}} au {{lieu_nom}}{{/if}} est terminée et ses pesées sont validées. Son rapport de recyclage est prêt.
 
 En résumé :
-— {{poids_total}} kg de déchets détournés
-— {{co2_evite}} kg CO₂e évités
+— {{poids_total}} kg de déchets collectés
+— {{co2_evite}} kg CO₂e évités (estimation)
 — Taux de recyclage : {{taux_recyclage}} %
 
 Avant de télécharger le rapport en PDF, vous pouvez y ajouter une comparaison avec les autres événements Savr : pratique pour le partager avec votre client ou l'intégrer à votre bilan RSE. Le bordereau, justificatif des pesées, est disponible au même endroit.
@@ -274,7 +275,7 @@ L'équipe Savr
 **Destinataire** : user demandeur
 **Objet** : Réinitialisez votre mot de passe Savr
 
-> **Délivrance : GoTrue-native** (lien magique signé par Supabase, cf. [[09 - Authentification et permissions#Récupération de mot de passe]]). Le contenu brandé est porté par le _recovery template_ GoTrue (`supabase/config.toml [auth.email.template.recovery]` + `supabase/templates/recovery.html`), **PAS** par le pipeline Resend/`email_templates`. **Limitation GoTrue** : la variable `{{prenom}}` ci-dessous n'est **pas injectée** (GoTrue ne l'expose pas) → l'email réel n'est **pas personnalisé au prénom** (« Bonjour, » sans prénom). Seule variable réellement disponible = le lien de réinitialisation (`{{ .ConfirmationURL }}` côté GoTrue). La ligne `email_templates` (slug `reset_password`) est un **reflet catalogue documentaire**, jamais envoyée (migration `20260710120000` : renomme le code seed `reinitialisation_mot_de_passe` → `reset_password`). **Désactivée** (`actif = false`) par la revue des emails (Val 2026-10-29, migration `20261029150000`) : elle ne compte plus parmi les gabarits actifs.
+> **Délivrance : Resend** (décision Val 2026-11-06, migration `20261106200000`). Supabase fabrique le lien (`auth.admin.generateLink`, type `recovery`) ; la plateforme l'envoie avec ce gabarit, comme l'inscription et l'invitation. Avant, Supabase l'envoyait lui-même depuis son expéditeur par défaut, qui ne livre qu'aux membres de l'équipe du projet. Le lien vise `/api/auth/reset-password/confirm?token_hash=…&type=recovery`, sur le domaine de `NEXT_PUBLIC_APP_URL`. Gabarit `reset_password` **actif**.
 
 ```
 Bonjour {{prenom}},
@@ -290,7 +291,7 @@ Si vous n'êtes pas à l'origine de cette demande, ignorez cet email — rien n'
 L'équipe Savr
 ```
 
-**Variables** : `prenom` *(non injecté — délivrance GoTrue-native, cf. note ci-dessus)*, `lien_reset` *(→ `{{ .ConfirmationURL }}` GoTrue)*
+**Variables** : `prenom` *(vide si inconnu : salutation « Bonjour, »)*, `lien_reset`
 
 ---
 
@@ -303,7 +304,7 @@ L'équipe Savr
 ```
 Bonjour {{prenom}},
 
-Merci pour votre inscription sur Savr, la plateforme qui organise la collecte des surplus de vos événements : les repas non servis sont donnés à des associations (Anti-Gaspi), les déchets sont triés et recyclés (Zéro Déchet).
+Merci pour votre inscription sur Savr, la plateforme qui organise la collecte des surplus de vos événements : les repas non servis sont donnés à des associations (Anti-Gaspi), les déchets triés sont collectés, pesés et envoyés vers leur filière de traitement (Zéro Déchet).
 
 Pour activer votre compte, confirmez votre adresse email :
 
@@ -428,7 +429,7 @@ Bonjour{{#if prenom}} {{prenom}}{{/if}},
 
 Vous êtes invité(e) à rejoindre l'espace de {{organisation_nom}} sur Savr.
 
-Savr est la plateforme qu'utilise votre organisation pour programmer et suivre la collecte des surplus de ses événements : don des repas non servis à des associations ainsi que la collecte et le recyclage des déchets.
+Savr est la plateforme qu'utilise votre organisation pour programmer et suivre la collecte des surplus de ses événements : don des repas non servis à des associations (Anti-Gaspi) et collecte des déchets triés (Zéro Déchet).
 
 Pour accéder à votre espace, choisissez votre mot de passe :
 
@@ -731,7 +732,7 @@ L'équipe Savr
 
 **Slug** : `attestation_don_disponible`
 **Destinataire** : `organisations.email_principal` de l'organisation programmatrice (décision Val 2026-09-14)
-**Déclencheur** : émission de l'attestation de don AG au batch J+1 6h.
+**Déclencheur** : clôture de la collecte AG (48 h après la collecte) dont le rapport de don est émis, ou émission du rapport de don après la clôture ; un seul envoi par collecte (décision Val 2026-11-04). Même règle pour l'email 6 `rapport_disponible` (ZD, bordereau émis).
 **Objet** : Votre rapport de don est disponible — {{nom_evenement}}
 
 ```
@@ -785,8 +786,8 @@ L'équipe Savr
 - **+3 templates ajoutés 2026-06-07 (F2 tranchée Val, session test-scenarios)** : 20. `collecte_programmee_tiers` · 21. `collecte_modifiee_tiers` *(modification + annulation par tiers, variable `type_changement`)* · 22. `admin_collecte_annulee`. Ils soldent l'écart matrice §05 §9 (règle 2026-05-07 tiers + destinataire Admin annulation) ↔ templates. **Total V1 = 19 templates actifs.**
 - **+1 template ajouté 2026-07-15 (divergence PLAQUES, décision Val)** : 23. `infos_acces_collecte` — réintroduction V1 de la notification client des infos d'accès chauffeur (nom + téléphone + accompagnant), déclenchée à complétude par tournée, destinataire `evenements.created_by`. **Total V1 = 21 templates actifs** (20 slugs seed listés + `infos_acces_collecte`). *(NB : le compteur historique « 19 » ci-dessus est un résidu non recompté ; le seed §tests liste 20 slugs → 21 après ajout. Recompter en dev via `SELECT count(*) WHERE actif=true`.)*
 - **Recompte 2026-11-02 (annulation cliente directe, décision Val)** : `admin_demande_annulation` est **désactivé** (`actif = false`, ligne conservée). Le seed réel porte 22 slugs actifs avant cette décision (les 21 ci-dessus + `attestation_don_disponible`, régularisé le 2026-09-14 — l'écart 19 / 20 / 21 / 22 des compteurs successifs venait de recomptes partiels). **Total V1 = 21 templates actifs** (22 − 1), liste exacte : scénario `seed_templates_complet_et_exact` (tests §06.02). *(Compteur remplacé par le catalogue ci-dessous.)*
-- **Catalogue après la revue des emails (Val 2026-10-26 → 29, migrations `20261029150000` et `20261029200000`) puis l'annulation cliente directe (Val 2026-11-02) — fait foi, remplace les listes et compteurs ci-dessus. Total V1 = 18 gabarits actifs, 15 désactivés (33 lignes en base)** : `admin_collecte_annulee` (22) · `admin_demande_ajout_lieu` (13) · `admin_demande_renouvellement_pack` (14) · `admin_incident_collecte` (10) · `admin_modification_collecte_traiteur` (19) · `admin_pack_ag_etat` (9) · `ag_attribution_association` (16) · `annulation_collecte` (5) · `attestation_don_disponible` (26) · `bienvenue_organisation` (1) · `collecte_modifiee_tiers` (21) · `collecte_programmee` (3) · `collecte_programmee_tiers` (20) · `infos_acces_collecte` (23) · `invitation_utilisateur` (17) · `rapport_disponible` (6) · `siret_verification_echec` (25) · `verification_email` (12).
-  - **15 gabarits désactivés** (`actif = false`, lignes conservées, migrations non destructives ; un gabarit inactif n'est plus envoyé) : `admin_demande_annulation` (24 — annulation cliente directe, Val 2026-11-02) · `ag_attribution_transporteur` (18 — la mission arrive au transporteur par l'outil du prestataire logistique ou par l'équipe Savr, décision Val 2026-10-28) · `ag_a_toutes_indispo` (18ter) · `reset_password` (11 — délivré par Supabase, cf. §11) · et 11 lignes de seed qu'aucun code n'envoie, absentes de ce catalogue : `alerte_ops_collecte_non_transmise`, `alerte_ops_pesee_anormale`, `attribution_association`, `attribution_transporteur`, `avoir_emis`, `collecte_realisee`, `confirmation_collecte`, `facture_emise`, `facture_relance_j15`, `pack_ag_active`, `rappel_collecte_j3`.
+- **Catalogue après la revue des emails (Val 2026-10-26 → 29, migrations `20261029150000` et `20261029200000`), l'annulation cliente directe (Val 2026-11-02) puis l'envoi par Resend de « mot de passe oublié » (Val 2026-11-06, migration `20261106200000`) — fait foi, remplace les listes et compteurs ci-dessus. Total V1 = 19 gabarits actifs, 14 désactivés (33 lignes en base)** : `admin_collecte_annulee` (22) · `admin_demande_ajout_lieu` (13) · `admin_demande_renouvellement_pack` (14) · `admin_incident_collecte` (10) · `admin_modification_collecte_traiteur` (19) · `admin_pack_ag_etat` (9) · `ag_attribution_association` (16) · `annulation_collecte` (5) · `attestation_don_disponible` (26) · `bienvenue_organisation` (1) · `collecte_modifiee_tiers` (21) · `collecte_programmee` (3) · `collecte_programmee_tiers` (20) · `infos_acces_collecte` (23) · `invitation_utilisateur` (17) · `rapport_disponible` (6) · `reset_password` (11) · `siret_verification_echec` (25) · `verification_email` (12).
+  - **14 gabarits désactivés** (`actif = false`, lignes conservées, migrations non destructives ; un gabarit inactif n'est plus envoyé) : `admin_demande_annulation` (24 — annulation cliente directe, Val 2026-11-02) · `ag_attribution_transporteur` (18 — la mission arrive au transporteur par l'outil du prestataire logistique ou par l'équipe Savr, décision Val 2026-10-28) · `ag_a_toutes_indispo` (18ter) · et 11 lignes de seed qu'aucun code n'envoie, absentes de ce catalogue : `alerte_ops_collecte_non_transmise`, `alerte_ops_pesee_anormale`, `attribution_association`, `attribution_transporteur`, `avoir_emis`, `collecte_realisee`, `confirmation_collecte`, `facture_emise`, `facture_relance_j15`, `pack_ag_active`, `rappel_collecte_j3`.
   - Slugs anciens du catalogue sans ligne en base : `bienvenue` (= `bienvenue_organisation`), `collecte_annulee` (= `annulation_collecte`). `collecte_modifiee` (§4) est retiré du catalogue (aucun gabarit, jamais envoyé — Val 2026-11-02).
   - Les destinataires « tous les `admin_savr` » des templates 9, 10, 13, 14, 22 et 24 se lisent « boîte de contact `contact@gosavr.io` » (comme le template 19, décision Val 2026-10-08).
   - Verrou pgTAP `supabase/tests/email_templates_catalogue_revue.test.sql` : écrit pour 19 actifs / 14 inactifs (revue des emails) ; il doit compter 18 actifs / 15 inactifs une fois `admin_demande_annulation` désactivé (dette code, à vérifier dans la PR de l'annulation directe).

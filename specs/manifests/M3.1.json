@@ -363,9 +363,9 @@
       "id": "BL-P1-TRAIT-05",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:20-29",
       "artefact": "packages/plateforme/src/lib/nav-config.ts",
-      "test": "M3.1/nav_traiteur_manager_5_entrees_sans_registre",
+      "test": "M3.1/nav_traiteur_manager_4_entrees_sans_registre",
       "statut": "implemented",
-      "libelle": "Nav traiteur = 4 entrées V1, 5 depuis l'ajout d'« Événements » sous « Collectes » (décision Val 2026-10-29), plus « Mon pack Anti-Gaspi » après « Paramètres » depuis le 2026-11-02 (décision Val, _Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md) ; Registre réglementaire retiré des 2 rôles traiteur, conservé gestionnaire/organisateur",
+      "libelle": "Nav traiteur = 4 entrées V1, 5 depuis l'ajout d'« Événements » sous « Collectes » (décision Val 2026-10-29), plus « Mon pack Anti-Gaspi » après « Paramètres » depuis le 2026-11-02 (décision Val, _Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md) ; Registre réglementaire retiré des 2 rôles traiteur, conservé gestionnaire/organisateur. Depuis le 2026-11-05 (décision Val, _Divergences/NAV-CLIENTS_20261105_menu-sans-collectes.md) : Dashboard · Événements · Paramètres · Mon pack Anti-Gaspi ; « Collectes » sort du menu (pages joignables hors menu, « Événements » allumée sur elles)",
       "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {
@@ -382,7 +382,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_get_augmente",
       "statut": "implemented",
-      "libelle": "Fiche collecte : bloc Logistique (chauffeur + plaque + téléphone par camion — ex-« Contrôle d'accès », élargi 2026-09-29, cf. M3.1-fiche-popup-logistique), downloads rapport RSE (route traiteur + embargo H+24) et facture, modale d'annulation + motif"
+      "libelle": "Fiche collecte : bloc Logistique (chauffeur + plaque + téléphone par camion — ex-« Contrôle d'accès », élargi 2026-09-29, cf. M3.1-fiche-popup-logistique), downloads rapport RSE (route traiteur + garde disponible_a, instant d'émission depuis le 2026-11-04, ex embargo H+24) et facture, modale d'annulation + motif"
     },
     {
       "id": "BL-P1-TRAIT-04",
@@ -398,7 +398,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/card_traiteur_champs",
       "statut": "implemented",
-      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet FILTRES livré en R25a (cf. M3.1-liste-filtres). Volet AGENCE livré le 2026-09-30 (revue écran E2E) : même composant ListeCollectesClient, cf. M3.3-liste-onglets-etat. Onglets remplacés le 2026-10-19 par les vues « Collectes à venir » / « Collectes passées » rangées par date (décision Val), cf. M3.1-liste-tri-date-decroissante."
+      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet FILTRES livré en R25a (cf. M3.1-liste-filtres). Volet AGENCE livré le 2026-09-30 (revue écran E2E) : même composant ListeCollectesClient, cf. M3.3-liste-onglets-etat. Onglets remplacés le 2026-10-19 par les vues « Collectes à venir » / « Collectes passées » rangées par date (décision Val), cf. M3.1-liste-tri-date-decroissante. Depuis le 2026-11-03, les deux vues sont tranchées au créneau, à la minute, et non plus au jour (livrable M3.1-vues-collectes-a-la-minute)."
     },
     {
       "id": "M3.1-liste-carte-simplifiee",
@@ -599,7 +599,7 @@
       "artefact": "packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCard.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanel.tsx + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts + packages/plateforme/src/lib/dashboards/cockpit-derive.ts",
       "test": "M3.1/dash_cockpit_co2_equivalences_facteurs_ademe",
       "statut": "implemented",
-      "libelle": "CO₂ ZD (ajout au-delà de §06.04, décisions Val 2026-07-10 puis 2026-07-13 — cf. _Divergences M3.1_20260710 + M3.1_20260713, type ambigu). La carte KPI « CO₂ évité » (remplace « Marge générée », Val 2026-07-13) affiche co2_evite_kg figé de v_kpi_traiteur (jamais recalculé, §11 l.185). Le héros CO₂ + la méthode de calcul (Co2MethodePanel : formules ABC + tableau facteurs par flux + forfait + équivalences, via co2_methode/parametres_facteurs_co2 en service_role) s'ouvrent dans une MODALE au clic sur la carte, UNIQUEMENT si Σ co2_evite > 0 (garde « masqué si 0 »). Équivalences km voiture / repas bœuf / foyers depuis parametres_co2_divers (repli 0,218/7/4500). ZD only (AG = évité seul V1, §11 l.163)."
+      "libelle": "CO₂ ZD (ajout au-delà de §06.04, décisions Val 2026-07-10 puis 2026-07-13 — cf. _Divergences M3.1_20260710 + M3.1_20260713, type ambigu). La carte KPI « CO₂ évité » (remplace « Marge générée », Val 2026-07-13) affiche co2_evite_kg de v_kpi_traiteur (§11 l.185 ; recalculé à chaque correction de poids d'une collecte réalisée ou clôturée depuis le 2026-11-04). Le héros CO₂ + la méthode de calcul (Co2MethodePanel : formules ABC + tableau facteurs par flux + forfait + équivalences, via co2_methode/parametres_facteurs_co2 en service_role) s'ouvrent dans une MODALE au clic sur la carte, UNIQUEMENT si Σ co2_evite > 0 (garde « masqué si 0 »). Équivalences km voiture / repas bœuf (« foyers » retiré le 2026-11-09, _Divergences/M3_20261109_co2-allegations-ecrans-emails.md) depuis parametres_co2_divers (repli 0,218/7/4500). ZD only (AG = évité seul V1, §11 l.163)."
     },
     {
       "id": "M3.1-cockpit-co2-ag",
@@ -607,7 +607,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCardAg.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanelAg.tsx + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts",
       "test": "M3.1/dash_cockpit_co2_ag_carte_modale",
       "statut": "implemented",
-      "libelle": "CO₂ ANTI-GASPI (ajout au-delà de §06.04, décision Val 2026-07-13 — cf. _Divergences M3.1_20260713_kpi_co2_traiteur_ag, type ambigu). L'onglet AG passe de 4 à 5 cartes KPI (lg:grid-cols-5) : 5e carte « CO₂ évité » affichant co2_evite_kg figé de v_kpi_traiteur (§11 l.185, sommé aussi sur les collectes anti_gaspi). Cliquable UNIQUEMENT si Σ co2_evite > 0 → ouvre une MODALE « Détail de l'impact carbone » (aucune navigation — invariant R24 préservé). Contenu AG = héros ALLÉGÉ (Co2HeroCardAg : évité SEUL, §05 R_co2_ag l.587 / §11 l.163, sans induit/net/énergie ni tableau par matière) + méthode par repas (Co2MethodePanelAg : repas donnés × facteur FAO figé). Facteur AG (2,5 kgCO₂e/repas, FAO 2023) exposé par kpi-traiteur (co2_methode.ag, service_role parametres_facteurs_co2_ag, best-effort). Équivalences km voiture / repas bœuf (foyers = énergie → sans objet AG). §06.04 l.106 interdit une carte marge AG → ajout d'une 5e carte, pas un remplacement."
+      "libelle": "CO₂ ANTI-GASPI (ajout au-delà de §06.04, décision Val 2026-07-13 — cf. _Divergences M3.1_20260713_kpi_co2_traiteur_ag, type ambigu). L'onglet AG passe de 4 à 5 cartes KPI (lg:grid-cols-5) : 5e carte « CO₂ évité » affichant co2_evite_kg figé de v_kpi_traiteur (§11 l.185, sommé aussi sur les collectes anti_gaspi). Cliquable UNIQUEMENT si Σ co2_evite > 0 → ouvre une MODALE « Détail de l'impact carbone » (aucune navigation — invariant R24 préservé). Contenu AG = héros ALLÉGÉ (Co2HeroCardAg : évité SEUL, §05 R_co2_ag l.587 / §11 l.163, sans induit/net/énergie ni tableau par matière) + méthode par repas (Co2MethodePanelAg : repas donnés × facteur FAO figé). Facteur AG (2,5 kgCO₂e/repas, FAO 2023) exposé par kpi-traiteur (co2_methode.ag, service_role parametres_facteurs_co2_ag, best-effort). Équivalences km voiture / repas bœuf (foyers = énergie → sans objet AG). §06.04 l.106 interdit une carte marge AG → ajout d'une 5e carte, pas un remplacement. Depuis le 2026-11-06 (_Divergences/M4.3_20261106_facteurs-co2-base-carbone.md) : facteur Base Carbone ADEME 2,04 kgCO₂e par repas ; chaque collecte garde le facteur de son calcul (2,5 FAO avant)."
     },
     {
       "id": "M3.1-cockpit-kpi-sparkline-n1",
@@ -635,7 +635,7 @@
     },
     {
       "id": "M3.1-lieux-select-traiteur-operationnel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:293",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:297",
       "artefact": "supabase/migrations/20260921140000_plateforme_lieux_select_traiteur_operationnel.sql",
       "test": "supabase/tests/lieux_traiteur_operationnel.test.sql",
       "statut": "implemented",
@@ -663,11 +663,12 @@
       "artefact": "packages/plateforme/src/lib/collectes/vue-temporelle.ts (creneauDeLaVue, periodeDeLaVue jourPartage) + routes GET /api/v1/{traiteur,agence,organisateur,gestionnaire}/collectes + packages/plateforme/src/lib/collectes-admin.ts + packages/plateforme/src/lib/exports/builders.ts",
       "test": "vue_temporelle/creneau_a_la_minute + vue_temporelle/jour_partage_collectes + vue_a_la_minute/route_traiteur + vue_a_la_minute/route_agence + vue_a_la_minute/route_organisateur + vue_a_la_minute/route_gestionnaire + vue_a_la_minute/admin + vue_a_la_minute/export_client",
       "statut": "implemented",
-      "libelle": "Vues « Collectes à venir / passées » tranchées au créneau, à la minute (décision Val 2026-11-03, remplace le rangement au jour du 2026-10-19) : une collecte du jour passe dans « passées » dès que date_collecte + heure_collecte (heure de Paris) est dépassé — à 15h16, 15h15 est passée, 15h16 à venir. La page envoie `vue` et une période où aujourd'hui appartient aux deux vues ; la route pose `.or(creneauDeLaVue(vue, now))` sur son horloge. Listes Admin, traiteur, agence, gestionnaire de lieux, client organisateur et export CSV. Inchangés : pastilles d'action « à venir » de l'Admin (sans `vue`, retards gardés) et liste Événements (rangée au jour). Fiche de divergence M3.1_20261103 (CDC encore au jour)."
+      "ref_divergence": "_Divergences/M3.1_20261103_vues-collectes-a-la-minute.md",
+      "libelle": "Vues « Collectes à venir / passées » tranchées au créneau, à la minute (décision Val 2026-11-03, remplace le rangement au jour du 2026-10-19) : une collecte du jour passe dans « passées » dès que date_collecte + heure_collecte (heure de Paris) est dépassé — à 15h16, 15h15 est passée, 15h16 à venir. La page envoie `vue` et une période où aujourd'hui appartient aux deux vues ; la route pose `.or(creneauDeLaVue(vue, now))` sur son horloge. Listes Admin, traiteur, agence, gestionnaire de lieux, client organisateur et export CSV. Inchangés : pastilles d'action « à venir » de l'Admin (sans `vue`, retards gardés) et liste Événements (rangée au jour). Fiche de divergence M3.1_20261103 (CDC aligné au sync du 2026-11-11)."
     },
     {
       "id": "M3.1-lieux-autocomplete-preuve-comportement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:290-295",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:294-299",
       "artefact": "supabase/tests/programmation_lieux_autocompletion.test.sql",
       "test": "lieux_autocompletion_comportement_sous_rls — le traiteur opérationnel se voit proposer le lieu, le concurrent non",
       "statut": "implemented",
@@ -699,7 +700,7 @@
     },
     {
       "id": "M3.1-fiche-benchmark-colonnes-canoniques",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2194-2235",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2196-2237",
       "artefact": "supabase/migrations/20260922100000_plateforme_benchmark_single_collecte_colonnes_canoniques.sql",
       "test": "M3.1/fiche_bloc3_ratio_et_repere",
       "statut": "implemented",
@@ -707,7 +708,7 @@
     },
     {
       "id": "M3.1-fiche-etats-systeme-ds",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:425-446",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:427-448",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_ui_erreur_reessayer",
       "statut": "implemented",
@@ -803,7 +804,7 @@
     },
     {
       "id": "M3.1-fiche-get-sans-notes-ni-prestataire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1540",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1541",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/fiche_get_sans_notes_ni_prestataire",
       "statut": "implemented",
@@ -827,7 +828,7 @@
     },
     {
       "id": "M3.1-edition-notes-internes-fermee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1540",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1541",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/agence/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts, packages/plateforme/src/components/collecte/editer-collecte-form.tsx",
       "test": "M3.1/edition_notes_internes_refusee",
       "statut": "implemented",
@@ -871,7 +872,7 @@
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/fiche_popup_bilan_zd_realisee + M3.1/fiche_ui_bloc3_masque_en_ag",
       "statut": "implemented",
-      "libelle": "Bilan & documents ZD (collecte « Réalisée » côté client = cloturee) : 4 KPI (Poids total collecté, CO₂ évité — `co2_evite_kg` figé, décision Val 2026-10-20 : la carte « CO₂ évité net » affichait le bilan net induit − évité sous le libellé « évité » ; le bilan net reste au Rapport RSE —, Taux de recyclage figé + tooltip UE, Pesée par pax en g), donut TonnagesDonut réutilisé, document « Rapport RSE » seul (bordereau intégré au PDF). Pesées par flux : M3.1/fiche_get_bilan_flux_zd. Retour visuel Val 2026-09-30 : donut et légende sur la même ligne (TonnagesDonut disposition=\"ligne\", repli en colonne sous 640px ; dashboards inchangés) et valeur des cartes KPI sur une seule ligne (chiffre + unité plus petite, insécable) — M3.1/fiche_popup_kpi_une_ligne_donut_en_ligne. Lot C1 (2026-10-24) : « Pesée par pax » (et « Repas par pax » de l'AG) se divisent par le pax de LA collecte, jamais par le total de l'événement (fixture : collecte 4 200, événement 8 400)."
+      "libelle": "Bilan & documents ZD (collecte « Réalisée » côté client = realisee ou cloturee depuis le 2026-11-04, _Divergences/M1.6_20261104_documents-des-poids.md) : 4 KPI (Poids total collecté, CO₂ évité — `co2_evite_kg` figé, décision Val 2026-10-20 : la carte « CO₂ évité net » affichait le bilan net induit − évité sous le libellé « évité » ; le bilan net reste au Rapport RSE —, Taux de recyclage figé + tooltip UE, Pesée par pax en g), donut TonnagesDonut réutilisé, document « Rapport RSE » seul (bordereau intégré au PDF). Pesées par flux : M3.1/fiche_get_bilan_flux_zd. Retour visuel Val 2026-09-30 : donut et légende sur la même ligne (TonnagesDonut disposition=\"ligne\", repli en colonne sous 640px ; dashboards inchangés) et valeur des cartes KPI sur une seule ligne (chiffre + unité plus petite, insécable) — M3.1/fiche_popup_kpi_une_ligne_donut_en_ligne. Lot C1 (2026-10-24) : « Pesée par pax » (et « Repas par pax » de l'AG) se divisent par le pax de LA collecte, jamais par le total de l'événement (fixture : collecte 4 200, événement 8 400)."
     },
     {
       "id": "M3.1-popup-client-radar-filtres-ligne",
@@ -911,11 +912,11 @@
       "artefact": "packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.1/fiche_popup_telechargement_rapport",
       "statut": "implemented",
-      "libelle": "Téléchargement du rapport depuis la fiche, route de l'espace courant : logique commune extraite de la route traiteur (RLS de la collecte d'abord, embargo H+24 serveur) — documents lus sous la RLS de l'utilisateur pour les trois espaces (le service-role historique du traiteur est retiré, D12 arbitrage Val 2026-09-30)."
+      "libelle": "Téléchargement du rapport depuis la fiche, route de l'espace courant : logique commune extraite de la route traiteur (RLS de la collecte d'abord, garde serveur disponible_a (instant d'émission depuis le 2026-11-04, ex embargo H+24)) — documents lus sous la RLS de l'utilisateur pour les trois espaces (le service-role historique du traiteur est retiré, D12 arbitrage Val 2026-09-30)."
     },
     {
       "id": "M3.1-popup-attestation-donneur-ordre-reservee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:268",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:272",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_get_attestation_donneur_ordre_reservee",
       "statut": "implemented",
@@ -927,7 +928,7 @@
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client-types.ts, packages/plateforme/src/lib/collectes/fiche-client.ts",
       "test": "M3.1/rapport_etat_echeance_h24",
       "statut": "implemented",
-      "libelle": "Ligne document du Bilan (rapport RSE ZD, rapport de don AG, « Événement sans excédent ») — arbitrage Val 2026-09-30 : état calculé par le SERVEUR (règle pure etatRapport) et servi dans rapport_etat ∈ {reserve, disponible, en_preparation, a_venir} ; l'écran n'affiche que le libellé (LIBELLE_ETAT_RAPPORT), aucune date recalculée côté client. Échéance = embargo H+24 (realisee_at + 24 h, bascule exacte testée) ; « réservé » (D12) puis « disponible » priment ; collecte terminée sans realisee_at (historique) = en_preparation. Documents toujours lus sous la RLS de l'utilisateur, aucune lecture ajoutée. Cas API : M3.1/fiche_get_rapport_etat_disponible, M3.1/fiche_get_rapport_etat_reserve."
+      "libelle": "Ligne document du Bilan (rapport RSE ZD, rapport de don AG, « Événement sans excédent ») — arbitrage Val 2026-09-30 : état calculé par le SERVEUR (règle pure etatRapport) et servi dans rapport_etat ∈ {reserve, disponible, en_preparation, a_venir} ; l'écran n'affiche que le libellé (LIBELLE_ETAT_RAPPORT), aucune date recalculée côté client. Sans document, le libellé d'attente « à venir » bascule en « en préparation » 24 h après realisee_at (bascule exacte testée) ; depuis le 2026-11-04 (_Divergences/M1.6_20261104_documents-des-poids.md) un document émis est « disponible » aussitôt, sans attendre cette échéance ; « réservé » (D12) puis « disponible » priment ; collecte terminée sans realisee_at (historique) = en_preparation. Documents toujours lus sous la RLS de l'utilisateur, aucune lecture ajoutée. Cas API : M3.1/fiche_get_rapport_etat_disponible, M3.1/fiche_get_rapport_etat_reserve."
     },
     {
       "id": "M3.1-popup-document-a-venir",
@@ -955,7 +956,7 @@
     },
     {
       "id": "M3.1-liste-rapport-reserve-picto",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:437",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:439",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/liste_rapport_reserve_donneur_ordre_picto_retire",
       "statut": "implemented",
@@ -963,7 +964,7 @@
     },
     {
       "id": "M3.1-liste-rapport-reserve-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:437",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:439",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -971,7 +972,7 @@
     },
     {
       "id": "M3.1-popup-client-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:400",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:402",
       "artefact": "packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx, packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1011,7 +1012,7 @@
     },
     {
       "id": "M3.1-liste-colonne-client-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:372",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:374",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1035,7 +1036,7 @@
     },
     {
       "id": "M3.1-liste-menu-actions-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:437",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:439",
       "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1059,7 +1060,7 @@
     },
     {
       "id": "M3.1-email-modification-contenu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:515",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:516",
       "artefact": "packages/plateforme/src/lib/collectes/email-modification.ts, packages/plateforme/src/lib/collectes/urgence-modification.ts, supabase/migrations/20261009160000_plateforme_email_modification_collecte_avant_apres.sql, supabase/migrations/20261009190000_plateforme_email_modification_collecte_lieu_lien.sql",
       "test": "M3.1/email_modification_rendu",
       "statut": "implemented",
@@ -1116,7 +1117,7 @@
     },
     {
       "id": "M3.1-marge-zd-pax-collectes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:634",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:636",
       "artefact": "supabase/migrations/20261025230000_plateforme_v_kpi_traiteur_pax_collecte.sql (v_kpi_traiteur.marge_zd_ht)",
       "test": "supabase/tests/v_kpi_traiteur_pax_collecte.test.sql « L3-VUE-9 : marge de mars » + supabase/tests/m3_5_kpi_views_rls.test.sql « T3 : marge ZD »",
       "statut": "implemented",
@@ -1159,12 +1160,12 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c3e83ae82b87b9a2b1490321e617f63dda47bea50de2c5ff30b2dd1e8f0d8e8d",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8217fcbe55eb780c79fa1cee886dd961b880ec5f1656e36d78526975ef0d9001",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "959bfb8b3cf89a8881c1b0e8b372bbe8a798c3bce2fcca334973fa14c23befbc",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "35e0f8c5158b80fdcabeffea0cdb6efe5513941ad81bc7d52f00455cd16ad5cc",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "316d5f3d7e8b2a4c3ed80e09f4a3a62a8a9e175ac28b87c2a94a476090e6e65c",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "61267fa23e3119d403e0fcd711c943f4f192f83091a81dbe945d86f392ee4594",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "c957507b8789dd429a600c8b84a11e336625486cd6d28ee3b6c0fe0b161ae26b"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "34d83ae54048a0ffadb80ace6175cc5a3cd0bbf9710544f21a780949457afd97",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "208d5ae0e0c7d1241081a77727f91d5825f62ea5a7294b869a19e23ec57173f1",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "91b17a8401a9c1c878b793c58420719d9453a33fc7661f1b9b73f2cd703d7574",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "df488c17cba483f028f5251958f7c6d1808d95086f630a3903bb7acdfeec53b5",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "8141ddcee2b121871dd2417bd3b200d424d7eb6ceb2a3861438f3e88ecad6d72",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "fb8024c0a2c6d9a9d1fd1eb17748f1a02959f1dfee4bbdc6c96e77b6227e5d3a",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "3308fe45eac93a047d85d6d44e04f6995a23940375b5a79c3761612911632e38"
   }
 }

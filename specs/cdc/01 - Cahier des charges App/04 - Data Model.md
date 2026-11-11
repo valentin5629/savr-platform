@@ -234,14 +234,14 @@ Une ligne par filière. **Granularité Niveau 1 (MVP)** : 4 lignes globales Savr
 | `created_at` | timestamptz | NOT NULL | |
 | `updated_at` | timestamptz | NOT NULL | |
 
-**Seed V1 (4 lignes — moyennes nationales)** :
+**Seed V1 (4 lignes — taux retenus par Savr, décision Val 2026-11-06)** :
 
 | code_filiere | nom_filiere | taux_captation | source_donnee |
 |--------------|-------------|----------------|---------------|
-| `verre` | Verre | 0.9600 | Citeo 2023 |
-| `carton` | Carton | 0.9000 | Citeo 2023 |
-| `biodechet` | Biodéchets | 0.8700 | ADEME ITOM 2017 |
-| `emballage` | Emballages | 0.7700 | Citeo 2023 (moyenne centres de tri) |
+| `verre` | Verre | 0.9500 | Taux retenu par Savr (décision Val 2026-11-06) |
+| `carton` | Carton | 0.9000 | Taux retenu par Savr (décision Val 2026-11-06) |
+| `biodechet` | Biodéchets | 0.8500 | Taux retenu par Savr (décision Val 2026-11-06) ; méthanisation comptée comme recyclage : directive 2008/98/CE art. 11 bis §4 (dir. UE 2018/851) |
+| `emballage` | Emballages | 0.6000 | Taux retenu par Savr (décision Val 2026-11-06) |
 
 **Cible V2** : valeurs spécifiques par prestataire/filière issues des bordereaux recycleur final (ajout colonne `prestataire_id` FK → `shared.prestataires`).
 
@@ -325,7 +325,7 @@ Modélisation des **équivalents CO₂** affichés sur les rapports RSE et dashb
 
 ### 1. Périmètre et principes
 
-- **ZD** (5 flux : verre, carton, biodéchet, emballage, dechet_residuel) traité dans cet addendum. Le **CO₂ AG (repas détournés)** est traité en **extension AG — addendum bis 2026-06-04 ci-dessous** (facteur unique 2,5 kgCO₂e/repas FAO, même pattern table versionnée + snapshot, affiché sur attestations de don + dashboard AG).
+- **ZD** (5 flux : verre, carton, biodéchet, emballage, dechet_residuel) traité dans cet addendum. Le **CO₂ AG (repas détournés)** est traité en **extension AG — addendum bis 2026-06-04 ci-dessous** (facteur unique 2,04 kgCO₂e/repas, Base Carbone ADEME, même pattern table versionnée + snapshot, affiché sur attestations de don + dashboard AG).
 - **Trois grandeurs par collecte** : émissions **induites** (collecte + traitement), émissions **évitées** (substitution matière/énergie/engrais), **net** = induites − évitées. **Règle ABC** : les évitées se présentent sur une **ligne séparée**, jamais soustraites pour afficher une « compensation ». + **énergie primaire évitée** (kWh, recyclage vs vierge).
 - **Biodéchet = méthanisation** (filière Savr) : évité 77 kgCO₂e/t (44 énergie + 33 digestat, Base Carbone).
 - **Emballage = agrégat dérivé d'un mix paramétrable** : pas de FE propre, `FE_emballage = Σ(part_matériau × FE_matériau)` recalculé par trigger depuis `parametres_mix_emballages`.
@@ -398,7 +398,7 @@ Extension du modèle CO₂ aux collectes **Anti-Gaspi** (don de repas). Même pa
 
 - **Périmètre** : collectes `type = anti_gaspi`. Métrique = **émissions évitées par le don** (denrées consommables sauvées du gaspillage). **Pas d'induit/net en V1** (le don est un bénéfice ; arbitrage Val 3a). **V2** : induit + évité + net intégrant le transport (distance + type de véhicule, via le hook TMS — même canal que la surcouche km réels ZD).
 - **Unité = par repas** (`volume_repas_realise`, unité canonique AG déjà affichée sur attestation + dashboard ; arbitrage 1a).
-- **Facteur V1 = 2,5 kgCO₂e évités par repas** (source **FAO**, standard du secteur anti-gaspi).
+- **Facteur V1 = 2,04 kgCO₂e évités par repas** (source **Base Carbone ADEME**, Repas moyen, ID 20682 ; décision Val 2026-11-06, ex 2,5 FAO).
 
 ```
 co2_evite_kg (AG) = collectes → attributions_antgaspi.volume_repas_realise × parametres_facteurs_co2_ag.facteur_co2_evite_par_repas_kg
@@ -410,7 +410,7 @@ co2_evite_kg (AG) = collectes → attributions_antgaspi.volume_repas_realise × 
 
 ### 3. Déclencheur et figement
 
-Même trigger DB que ZD, **branche `type = anti_gaspi`** : à la transition `collectes.statut → cloturee` (moment où `volume_repas_realise` est figé), calcul de `co2_evite_kg` + snapshot AG. **Séquencement batch J+1 (précisé 2026-06-11, audit data model — sans cet ordre, l'attestation pouvait être rendue avec un CO₂ NULL)** : le batch J+1 6h (1) passe la collecte à `cloturee` — le trigger CO₂/taux s'exécute **dans cette transaction** — puis (2) enqueue le job `jobs_pdf` de l'attestation, dont le `payload` snapshot lit `co2_evite_kg` déjà figé. Le PDF n'est jamais généré avant la clôture ; jamais d'attestation au stade `realisee`. Recalcul si `volume_repas_realise` corrigé a posteriori (cohérent avec la **régénération automatique de l'attestation**, §12 §1.3) → facteur du moment du recalcul. `realisee_sans_collecte` (aucun repas) → `co2_evite_kg = 0`.
+Même calcul que ZD, **branche `type = anti_gaspi`** : à chaque changement de `volume_repas_realise` d'une collecte réalisée ou clôturée (trigger `trg_co2_ag_repas`), et à la transition `collectes.statut → cloturee`, calcul de `co2_evite_kg` + snapshot AG (décision Val 2026-11-04). ZD : à chaque écriture de `collecte_flux` d'une collecte réalisée ou clôturée (`trg_co2_zd_pesees`), au passage à `realisee` et à la clôture. L'attestation est émise dès que le poids est saisi, au stade `realisee` : le CO₂ est déjà calculé dans la transaction de la saisie. Recalcul si `volume_repas_realise` corrigé a posteriori (cohérent avec la **régénération automatique de l'attestation**, §12 §1.3) → facteur du moment du recalcul. `realisee_sans_collecte` (aucun repas) → `co2_evite_kg = 0`.
 
 ### 4. Table (définition complète plus bas)
 
@@ -590,6 +590,7 @@ Entité générique pour tous les types de clients et partenaires externes.
 | `tarif_refacture_pax_zd` | numeric(10, 2) | NOT NULL, DEFAULT 1.50, CHECK (>= 0) | **Ajout 2026-05-07** — Tarif refacturé par couvert (€) sur les collectes ZD au client final du traiteur. Sert au calcul du KPI **Marge générée** dashboard traiteur ZD ([[06 - Fonctionnalités détaillées/04 - Espace client traiteur#KPI Marge générée]]). Édition Admin Savr only via §06.06 Back-office. Audit_log sur changement. Champ pertinent uniquement pour `type='traiteur'` (autres types : valeur défaut 1.50 ignorée côté UI). |
 | `grille_tarifaire_zd_id` | uuid | FK → grilles_tarifaires_zd, NULL | **Ajout 2026-05-26 (refonte tarification ZD)** — Grille tarifaire ZD du catalogue affectée à cette organisation (cf. `grilles_tarifaires_zd`). `NULL` = la grille marquée `est_defaut=true` s'applique (grille publique standard par paliers). Permet de ranger un client sur une autre méthode standard (ex. forfait + variable) sans toucher au formulaire ni au prix affiché (cf. Sujet 5 — tarif non affiché). Édition Admin Savr only via §06.06. Pertinent pour `type='traiteur'` (assiette de facturation ZD = le programmateur). |
 | `mode_facturation_zd` | enum | NOT NULL, DEFAULT `par_collecte` | **Ajout 2026-06-14 (décision Val — correction trou data model)** — Préférence de facturation ZD : `par_collecte` = 1 brouillon par collecte ZD cloturée (défaut) \| `mensuelle` = collectes ZD du mois agrégées en 1 brouillon mensuel par traiteur. Configurable par Admin Savr via §06.06. Pertinent pour `type='traiteur'` uniquement. **Le batch J+1 lit cette colonne pour décider du mode de génération du brouillon.** Migration : toutes les organisations existantes héritent de `par_collecte`. |
+| `code_verification_obligatoire` | boolean | NOT NULL, DEFAULT false | **Ajout 2026-11-10 (décision Val — questionnaire VIPARIS IAM3, à la place du SAML)** — Vrai : le code de vérification (TOTP) est exigé de tous les utilisateurs de l'organisation, en production. Cochée par l'Admin Savr seul via §06.06 (audit_log `code_verification_organisation`) ; ni lue ni écrite par les clients. Porté dans le jeton par le claim `code_verification_obligatoire` (cf. [[09 - Authentification et permissions]] §4). |
 | `created_at` | timestamptz | NOT NULL | |
 | `updated_at` | timestamptz | NOT NULL | |
 
@@ -858,11 +859,11 @@ Base de données propriétaire de tous les lieux d'événement. Référentiel in
 | `ville` | text | NOT NULL | |
 | `latitude` | float | | Pour le calcul de distance algo Anti-Gaspi |
 | `longitude` | float | | |
-| `region` | enum | | `idf` \| `province` |
+| `region` | enum | | `idf` \| `province`. Remplie à la création depuis le code postal si elle n'est pas saisie (75, 77, 78, 91, 92, 93, 94, 95 → `idf`, tout autre → `province`) ; une région saisie n'est jamais écrasée *(choix C1, Val 2026-11-03)* |
 | `acces_details` | text | | **RW Admin Savr + RW TMS Ops/Admin (column-level GRANT, propagation A2 audit cohérence 2026-04-28)** — "Carnet d'accès terrain" partagé : badge, code, interphone, contact gardien, **digicode/bip parking** (ex-`code_acces` addendum), **notes stationnement texte libre** (ex-`parking` addendum). Toute mise à jour est tracée dans `audit_log` standard. |
 | `acces_office` | enum nullable | | **Refonte 2026-05-08** — enum `facile` \| `difficile` \| `tres_difficile` (ex texte libre). Difficulté d'accès à l'office/cuisine/zone récupération déchets. Migration via UI Admin V1.1 (file de normalisation lieux) — en attendant : NULL par défaut, ressaisie manuelle Admin lieu par lieu. RW Admin Savr + RW TMS Ops/Admin. Notes terrain horaires/ascenseur → `acces_details`. |
 | `stationnement` | enum nullable | | **Refonte 2026-05-08** — enum `facile` \| `difficile` \| `tres_difficile` (ex enum 4 valeurs "type d'emplacement" `parking_dedie/quai_livraison/stationnement_rue/zone_livraison_courte` post-revue sobriété §08 Bloc D 2026-05-01 D4). **Changement de nature** : type d'emplacement → difficulté d'accès. Pas de migration depuis Bubble — nouveau référentiel à ressaisir lieu par lieu post-migration. RW Admin Savr. Notes texte libre stationnement → `acces_details`. |
-| `type_vehicule_max` | enum | NOT NULL | **Refonte 2026-05-08** — `velo_cargo` \| `camionnette` \| `fourgon` \| `vul` \| `poids_lourd` (ex `vl/camion_16m3/camion_20m3/camion_30m3`). Aligné sur `transporteurs.types_vehicules` — hiérarchie unique du plus petit au plus gros. Sémantique : capacité max acceptée par le lieu, tous les véhicules ≤ max sont compatibles (cf. [[05 - Règles métier#R_compatibilite_vehicule_lieu]]). Migration manuelle Admin (ressaisie lieu par lieu post-migration). |
+| `type_vehicule_max` | enum | NOT NULL | **Refonte 2026-05-08** — `velo_cargo` \| `camionnette` \| `fourgon` \| `vul` \| `poids_lourd` (ex `vl/camion_16m3/camion_20m3/camion_30m3`). Aligné sur `transporteurs.types_vehicules` — hiérarchie unique du plus petit au plus gros. Sémantique : capacité max acceptée par le lieu, tous les véhicules ≤ max sont compatibles (cf. [[05 - Règles métier#R_compatibilite_vehicule_lieu]]). Migration manuelle Admin (ressaisie lieu par lieu post-migration). Les 6 valeurs ajoutées à l'enum le 2026-11-10 (`camionnette_frigo`, `camion_frigo`, `camion_16m3_simple`, `camion_16m3_double`, `camion_20m3_simple`, `camion_20m3_double`) servent au seul véhicule souhaité d'une collecte : seules les 5 premières valeurs sont admises ici, refus 422 par l'API (option A, décision Val 2026-11-10 ; CHECK en base à ajouter, dette code). |
 | `contraintes_horaires` | text | | Plages horaires autorisées pour la collecte. RW Admin Savr (info commerciale). |
 | `flux_autorises` | text[] | | Liste des flux acceptés sur ce lieu |
 | `volume_max_bacs` | integer | | Nombre max de bacs 1100L acceptés |
@@ -1112,14 +1113,14 @@ Référentiel des **taux de captation par filière** utilisés pour le calcul du
 | `created_at` | timestamptz | NOT NULL | |
 | `updated_at` | timestamptz | NOT NULL | |
 
-**Seed V1 (4 lignes — moyennes nationales)** :
+**Seed V1 (4 lignes — taux retenus par Savr, décision Val 2026-11-06)** :
 
 | code_filiere | nom_filiere | taux_captation | prestataire | source_donnee |
 |--------------|-------------|----------------|-------------|---------------|
-| `verre` | Verre | 0.9600 | Citeo | Citeo 2023 |
-| `carton` | Carton | 0.9000 | Citeo | Citeo 2023 |
-| `biodechet` | Biodéchets | 0.8700 | Veolia/A Toute! | ADEME ITOM 2017 |
-| `emballage` | Emballages | 0.7700 | Citeo | Citeo 2023 (moyenne centres de tri) |
+| `verre` | Verre | 0.9500 | Veolia | Taux retenu par Savr (décision Val 2026-11-06) |
+| `carton` | Carton | 0.9000 | Paprec | Taux retenu par Savr (décision Val 2026-11-06) |
+| `biodechet` | Biodéchets | 0.8500 | Veolia | Taux retenu par Savr (décision Val 2026-11-06) ; méthanisation comptée comme recyclage : directive 2008/98/CE art. 11 bis §4 (dir. UE 2018/851) |
+| `emballage` | Emballages | 0.6000 | Citeo | Taux retenu par Savr (décision Val 2026-11-06) |
 
 **Cible V2** : valeurs spécifiques par prestataire/filière issues des bordereaux recycleur final. Ajout d'une colonne `prestataire_id` FK → `shared.prestataires` + index composite `(code_filiere, prestataire_id, actif)`.
 
@@ -1183,11 +1184,11 @@ Référentiel des **facteurs d'émission CO₂ par flux** (induit + évité + é
 
 | code_flux | nom_flux | fe_induit_kg_t | fe_evite_kg_t | energie_primaire_evitee_kwh_t | source_donnee |
 |-----------|----------|----------------|---------------|-------------------------------|---------------|
-| `verre` | Verre | 639.00 | 1158.00 | 4000.00 | Base Empreinte V23.6 / FEDEREC 2017 |
-| `carton` | Carton | 670.00 | 390.00 | 10098.00 | Base Empreinte V23.6 / FEDEREC 2017 |
-| `biodechet` | Biodéchets (méthanisation) | 40.00 | 77.00 | 0.00 | Base Carbone (44 énergie + 33 digestat) |
-| `emballage` | Emballages ménagers (mix) | 539.75 | 1187.70 | 7000.00 | Dérivé `parametres_mix_emballages` (Σ part × FE du mix ci-dessous, arrondi à 2 décimales) ; énergie = estimation agrégée provisoire |
-| `dechet_residuel` | Déchet résiduel (OMR) | 380.00 | 180.00 | 0.00 | Base Empreinte V23.6 / MODECOM 2017 / ITOM 2014 |
+| `verre` | Verre | 639.00 | 1158.00 | 4000.00 | Base Carbone ADEME V23.6 · Emballages Verre Recyclage (34472/34473) ; énergie non revue |
+| `carton` | Carton | 992.00 | 379.00 | 10098.00 | Base Carbone ADEME V23.6 · Emballages Carton Recyclage (34480/34481) ; énergie non revue |
+| `biodechet` | Biodéchets (méthanisation) | 173.00 | 12.00 | 0.00 | Base Carbone ADEME V23.6 · Déchets de cuisine Méthanisation (34636/34637) |
+| `emballage` | Emballages ménagers (mix) | 715.13 | 920.56 | 7000.00 | Dérivé `parametres_mix_emballages` (Base Carbone ADEME ; Σ part × FE du mix ci-dessous, arrondi à 2 décimales ; 30 % de refus, décision Val 2026-11-06) ; énergie = estimation agrégée provisoire |
+| `dechet_residuel` | Déchet résiduel (OMR) | 374.00 | 212.00 | 0.00 | Base Carbone ADEME V23.6 · OMR Incinération (34650/34651) |
 
 **Note `emballage`** : `fe_induit_kg_t` + `fe_evite_kg_t` sont **maintenus par trigger** `fn_recompute_emballage_fe` (recalcul `Σ part×FE` à chaque modif du mix) — non éditables à la main. `energie_primaire_evitee_kwh_t` reste **éditable manuellement** (estimation agrégée provisoire ; décomposition par sous-flux en V1.1 quand les données FEDEREC énergie par matériau seront disponibles).
 
@@ -1243,15 +1244,15 @@ Composition du flux emballages par matériau, **éditable Admin**. Le FE agrég�
 
 | code_materiau | nom_materiau | part_pct | fe_induit_kg_t | fe_evite_kg_t | source |
 |---------------|--------------|----------|----------------|---------------|--------|
-| `carton_papier` | Carton-papier | 60.00 | 670.00 | 390.00 | FEDEREC 2017/2023 |
-| `pet` | PET | 20.00 | 400.00 | 1400.00 | FEDEREC 2017/2023 |
-| `pehd` | PEhd | 10.00 | 350.00 | 1200.00 | FEDEREC 2017/2023 |
-| `acier` | Acier | 3.00 | 75.00 | 1600.00 | FEDEREC ; SNFBM/Empac |
-| `alu` | Aluminium | 5.00 | 200.00 | 10000.00 | FEDEREC ; Metal Packaging Europe |
-| `briques` | Briques alimentaires | 1.00 | 670.00 | 390.00 | Citeo / Alliance Carton Nature |
-| `autres` | Autres / refus (→ OMR) | 1.00 | 380.00 | 180.00 | Base Carbone OMR |
+| `carton_papier` | Carton-papier | 42.42 | 992.00 | 379.00 | Base Carbone ADEME · Emballages Carton Recyclage (34480/34481) |
+| `pet` | PET | 14.14 | 662.00 | 1741.00 | Base Carbone ADEME · Emballages PET bouteilles Recyclage (34492/34493) |
+| `pehd` | PEhd | 7.07 | 434.00 | 1442.00 | Base Carbone ADEME · Emballages PE bouteilles Recyclage (34522/34523) |
+| `acier` | Acier | 2.12 | 938.00 | 2211.00 | Base Carbone ADEME · approché : Déchets du bâtiment Métaux ferreux fin de vie moyenne |
+| `alu` | Aluminium | 3.54 | 873.00 | 8432.00 | Base Carbone ADEME · Emballages Aluminium Recyclage (34460/34461) |
+| `briques` | Briques alimentaires | 0.71 | 992.00 | 379.00 | Base Carbone ADEME · approché : Emballages Carton Recyclage (34480/34481) |
+| `autres` | Autres / refus (→ OMR) | 30.00 | 374.00 | 212.00 | Base Carbone ADEME · OMR Incinération (34650/34651) |
 
-→ Agrégat : induit +540 / évité −1 188 kgCO₂e/t. **L'aluminium (5 % du mix) = 42 % du bénéfice évité** : paramètre le plus sensible, à fiabiliser via bordereaux de tri prestataires.
+→ Agrégat : induit +715 / évité −921 kgCO₂e/t (Base Carbone ADEME ; 30 % de refus de tri, les six matériaux recyclables réduits dans la même proportion, décision Val 2026-11-06 ; ex +540 / −1 188 puis +856 / −1 214). **L'aluminium (3,5 % du mix) = 32 % du bénéfice évité** : paramètre le plus sensible. Parts à mettre à jour par des études de caractérisation régulières des bacs.
 
 **Validation** : trigger `BEFORE INSERT/UPDATE` rejette si `Σ part_pct (actifs) ≠ 100` (tolérance 0,05).
 **Trigger recalcul** : `AFTER INSERT/UPDATE/DELETE` → `fn_recompute_emballage_fe` met à jour la ligne `emballage` de `parametres_facteurs_co2` (`fe_induit`/`fe_evite` = Σ part×FE) + INSERT `parametres_mix_emballages_history`.
@@ -1284,10 +1285,10 @@ Paramètres CO₂ secondaires (forfait collecte V1 + équivalences pédagogiques
 
 | cle | valeur | unite | description |
 |-----|--------|-------|-------------|
-| `km_collecte_aller_retour` | 15 | km | Distance forfaitaire collecte (V1 ; km réels TMS en V2) — 15 km, décision Val 2026-10-20 (valeur provisoire, ex 50 km) |
-| `fe_camion_benne_kg_km` | 2.1 | kgCO₂e/km | FE benne 26 t gazole (Base Carbone V23) |
-| `equiv_km_voiture_kgco2` | 0.218 | kgCO₂e/km | Équivalence 1 km voiture thermique |
-| `equiv_repas_boeuf_kgco2` | 7 | kgCO₂e | Équivalence 1 repas avec bœuf |
+| `km_collecte_aller_retour` | 25 | km | Distance forfaitaire collecte (V1 ; km réels TMS en V2) — 25 km, décision Val 2026-11-06 (ex 15 km, décision Val 2026-10-20) |
+| `fe_camion_benne_kg_km` | 0.4 | kgCO₂e/km | FE IVECO 20m3 Diesel 2024 — camion 20 m³ 3,5 t diesel, décision Val 2026-11-06 (ex 2,1, benne 26 t gazole Base Carbone V23) |
+| `equiv_km_voiture_kgco2` | 0.256 | kgCO₂e/km | Voiture motorisation moyenne 2023 (Base Carbone 43791) |
+| `equiv_repas_boeuf_kgco2` | 7.26 | kgCO₂e | Repas avec bœuf (Base Carbone 20689) |
 | `equiv_foyer_elec_kwh_an` | 4500 | kWh/an | Conso élec annuelle foyer FR (ADEME) |
 
 **RLS** : Lecture `admin_savr` + `ops_savr` ; Écriture `admin_savr` (log `audit_log` à chaque modif).
@@ -1303,13 +1304,13 @@ Facteur d'émission évitée par repas donné (Anti-Gaspi). 1 ligne V1. **AG-onl
 | `id` | uuid | PK | |
 | `cle` | text | NOT NULL, UNIQUE | `facteur_co2_evite_par_repas_kg` (V1 : 1 seule ligne ; extensible si segmentation V2) |
 | `facteur_co2_evite_par_repas_kg` | decimal(8,4) | NOT NULL, CHECK ≥ 0 | kgCO₂e évités par repas donné |
-| `source_donnee` | text | | Référence (ex: "FAO — 2,5 kgCO₂e/repas") |
+| `source_donnee` | text | | Référence (ex: "Base Carbone ADEME V23.6 · Repas moyen (20682)") |
 | `commentaire` | text | | Notes Admin |
 | `actif` | boolean | NOT NULL, défaut `true` | |
 | `date_maj` | timestamptz | NOT NULL | |
 | `created_at` / `updated_at` | timestamptz | NOT NULL | |
 
-**Seed V1 (1 ligne)** : `facteur_co2_evite_par_repas_kg = 2.5000`, `source_donnee = "FAO (2,5 kgCO₂e/repas) — standard secteur anti-gaspi"`.
+**Seed V1 (1 ligne)** : `facteur_co2_evite_par_repas_kg = 2.0400`, `source_donnee = "Base Carbone ADEME V23.6 · Repas moyen (20682)"` (décision Val 2026-11-06 : un repas donné évite la production d'un repas moyen ; ex 2,5 FAO, facteur par kg d'aliment).
 
 **RLS** : Lecture `admin_savr` + `ops_savr` ; Écriture `admin_savr` uniquement ; autres rôles via snapshot `collectes.co2_facteurs_snapshot` (AG). **Trigger DB** : `AFTER UPDATE` → INSERT `parametres_facteurs_co2_ag_history` si `facteur_co2_evite_par_repas_kg` change.
 
@@ -1417,7 +1418,7 @@ Référentiel des transporteurs Anti-Gaspi (IDF + province, tous prestataires co
 | `ville` | text | NOT NULL | **Ajout 2026-05-08** |
 | `latitude` | float | | **Ajout 2026-05-08** — Géocodage automatique adresse (Algolia Places ou équivalent) |
 | `longitude` | float | | **Ajout 2026-05-08** |
-| `types_vehicules` | text[] | NOT NULL, length ≥ 1 | **Refonte 2026-05-08** — Multi-valeurs parmi `velo_cargo / camionnette / fourgon / vul / poids_lourd`. Hiérarchie alignée sur `lieux.type_vehicule_max` (du plus petit au plus gros). Sert à la règle [[05 - Règles métier#R_compatibilite_vehicule_lieu]]. Au moins une valeur requise. |
+| `types_vehicules` | text[] | NOT NULL, length ≥ 1 | **Refonte 2026-05-08** — Multi-valeurs parmi `velo_cargo / camionnette / fourgon / vul / poids_lourd`. Hiérarchie alignée sur `lieux.type_vehicule_max` (du plus petit au plus gros). Sert à la règle [[05 - Règles métier#R_compatibilite_vehicule_lieu]]. Au moins une valeur requise. Les 6 valeurs ajoutées à l'enum le 2026-11-10 (`camionnette_frigo`, `camion_frigo`, `camion_16m3_simple`, `camion_16m3_double`, `camion_20m3_simple`, `camion_20m3_double`) servent au seul véhicule souhaité d'une collecte : seules les 5 premières valeurs sont admises ici, refus 422 par l'API (option A, décision Val 2026-11-10 ; CHECK en base à ajouter, dette code). |
 | `types_collecte` | text[] | NULL autorisé (optionnel, cf. §06.06 §6 « Type(s) de collecte ») | **Ajout R17b 2026-07-02** — Flux gérés par le transporteur, multi-valeurs parmi `anti_gaspi` / `zero_dechet`. |
 | `type_tms` | enum | NOT NULL | **Ajout 2026-05-08** — Enum `mts1` / `a_toutes` / `autre` / `par_mail` / `par_telephone` (**ajout R17b 2026-07-02** — `par_mail`/`par_telephone` = transporteurs hors TMS routés `provider_manual`, validation manuelle Admin). Détermine le mode de dispatch + le bouton affiché en Bloc 0 Attribution Prestataire §06 §3 (Envoyer à MTS-1 / Envoyer à A Toute! / Manuel email+téléphone). **IMMUABLE après création (2026-09-16, arbitrage Val)** : un transporteur garde le même type de TMS jusqu'au TMS Savr natif ; le changer rouvrirait la fuite inter-provider et rendrait silencieuses les E2/E3 des collectes en cours. Trigger `trg_transporteur_cols_immuables`. Fusionne les ex-champs `process_creation_collecte`, `process_creation_collecte_detail`, `type_tms` jamais physiquement créés en DB Bubble. |
 | `prestataire_logistique_id` | uuid | FK → **`shared.prestataires`**, NULL, UNIQUE | **Ajout 2026-09-16 — V1 only (décision Val 2026-06-25 option B, R5 ; documenté par la divergence M1.1b_20260916)** — pont entre le référentiel transporteur Plateforme et l'identité prestataire côté provider. **C'est la marque de provider que lisent les adapters** pour ne traiter que leurs propres tournées (cf. [[Interface logistique_provider V1]] Cloisonnement par provider) : un transporteur `mts1` ou `a_toutes` sans ce lien est **inopérant** — 100 % de ses événements partent en file d'erreur. **Requis si `type_tms ∈ {mts1, a_toutes}`, posé par la base** : à l'insertion d'un transporteur de ces types arrivé sans lien, le trigger `trg_transporteur_prestataire_auto` (`BEFORE INSERT`, `SECURITY INVOKER`) crée la fiche `shared.prestataires` (nom du transporteur, `type_prestation` copié de `types_collecte`, `code` unique dérivé du nom) et pose le lien dans la même transaction ; un lien fourni est respecté *(décision Val 2026-10-16, divergence M1.1b_20261016_transporteur-prestataire-auto)*. UNIQUE : un prestataire n'admet qu'un transporteur. **IMMUABLE après création** (trigger `trg_transporteur_cols_immuables`, au même titre que `type_tms`) — pour en changer, créer un nouveau transporteur. Déprécié V2 (le TMS natif résout ce lien). |
@@ -1503,7 +1504,7 @@ Contacts sur place d'UNE collecte (1–1 avec `collectes`). Table à part pour q
 | `collecte_id` | uuid | PK, FK → collectes ON DELETE CASCADE | La collecte |
 | `contact_principal_nom` | text | NOT NULL, 120 car. max, mono-ligne, non vide | Contact principal sur place ; transmis au transporteur (`contact` MTS-1, `pickup.contact` Everest) |
 | `contact_principal_telephone` | text | NOT NULL, 40 car. max, non vide | |
-| `contact_secours_nom` | text | NULL, 120 car. max, mono-ligne | Contact de secours (téléphone en `phoneAlternatives` MTS-1, nom dans le commentaire). Nom et téléphone obligatoires ensemble à la confirmation (pas au brouillon) et jamais vidés en modification (décision Val 2026-10-30, précisée 2026-11-02, contrôle applicatif) ; colonnes nullables : brouillons et collectes antérieures |
+| `contact_secours_nom` | text | NULL, 120 car. max, mono-ligne | Contact de secours (téléphone en `phoneAlternatives` MTS-1 ; nom et téléphone dans le commentaire de l'adresse de départ, ligne « Contact 2 »). Nom et téléphone obligatoires ensemble à la confirmation (pas au brouillon) et jamais vidés en modification (décision Val 2026-10-30, précisée 2026-11-02, contrôle applicatif) ; colonnes nullables : brouillons et collectes antérieures |
 | `contact_secours_telephone` | text | NULL, 40 car. max | Téléphone du contact de secours : obligatoire avec `contact_secours_nom` à la confirmation (pas au brouillon), jamais vidé en modification, nom et téléphone envoyés ensemble (décision Val 2026-10-30, précisée 2026-11-02, contrôle applicatif) ; nullable : brouillons et collectes antérieures |
 | `created_at` / `updated_at` | timestamptz | NOT NULL | |
 
@@ -1546,11 +1547,12 @@ Une collecte = une intervention physique d'un type donné (zéro-déchet OU anti
 | `motif_override_prestataire` | text | NULL | **Ajout 2026-05-07** — Motif renseigné par Admin si le prestataire choisi pour une AG ≠ top 1 algo recommandé. Audit_log automatique. Champ obligatoire UI quand override (validation côté front + endpoint S7 dispatch manuel §06 §3 Bloc 0). Voir [[06 - Fonctionnalités détaillées/06 - Back-office Admin Savr]] §3 Bloc 0 Attribution Prestataire. |
 | `annulee_cote_savr_motif` | text | | Obligatoire si `annulee_cote_savr = true` — raison de l'annulation côté Savr |
 | `annulation_demandee_at` | timestamptz | NULL | **Ajout 2026-10-15 (décision Val)** — Instant du dernier passage en `statut = annulation_demandee` (demande d'annulation du client, à confirmer par l'Admin). Posé par le déclencheur `trg_horodater_annulation_demandee`. Le délai d'annulation tardive (§05 §4bis) se mesure à cet instant quand l'Admin confirme. Plus posée pour une nouvelle annulation depuis le 2026-11-01 (annulation cliente directe, décision Val) : ne subsiste que pour les collectes déjà en `annulation_demandee`. |
+| `annulation_tardive` | boolean | NULL | **Ajout 2026-11-03 (décision Val)** — Posé par le déclencheur `trg_marquer_annulation_tardive` au passage à `statut = annulee` : `true` = annulée moins de 4 h avant le créneau (heure de Paris, strict ; instant de référence = `annulation_demandee_at` pour une demande confirmée par l'Admin, sinon l'instant de l'annulation), imputable au client ou sans incident (§05 « Annulation last minute par le client ») ; `false` = autre annulation, dont celles depuis `brouillon`, `rejetee_par_prestataire` ou un statut réalisé ; `NULL` = non annulée, ou annulée avant le 2026-11-03 (non reconstituable). Lue par les Revenus du Dashboard Admin (§11 §1.1 Bloc 2). AG et ZD. |
 | `historique_partiel` | boolean | NOT NULL, défaut `false` | **Ajout 2026-06-07 (F3 session test-scenarios §06.03)** — `true` si collecte historique Bubble migrée avec données incomplètes (exutoire, pesée ou association manquante, cf. §13 Migration). Posé exclusivement par le script de migration. Le statut reste `cloturee` (pas de 10e valeur d'enum). Badge « Historique partiel » au registre réglementaire + mention sur la ligne. Jamais `true` pour une collecte née sur la nouvelle app. |
 | `taux_recyclage` | decimal(5,2) | NULL | **Ajout 2026-05-06** — Pourcentage calculé à la clôture collecte (ex: 78.42). NULL tant que `statut ≠ cloturee` ou si total pesées 5 flux = 0. **ZD uniquement** (NULL pour AG). Calculé via trigger DB à partir de `collecte_flux.poids_reel_kg` × `parametres_taux_recyclage.taux_captation` actifs (formule à captation, cf. addendum 2026-05-06 §2). |
 | `caps_appliques` | jsonb | NULL | **Ajout 2026-05-06** — Snapshot des taux de captation appliqués au moment du calcul. Format `{"verre": 0.96, "carton": 0.90, "biodechet": 0.87, "emballage": 0.77, "version_parametres_at": "<timestamp>"}`. Garantit que toute modification ultérieure des taux n'affecte ni le taux figé sur la collecte ni le PDF Rapport RSE déjà généré. ZD uniquement, NULL pour AG. |
 | `co2_induit_kg` | decimal(10,2) | NULL | **Ajout 2026-06-04 (Sujet 3)** — Émissions CO₂ induites (collecte + traitement) figées à la clôture. NULL si `statut ≠ cloturee`, total pesées = 0, ou AG. Cf. addendum 2026-06-04. |
-| `co2_evite_kg` | decimal(10,2) | NULL | **Ajout 2026-06-04 (Sujet 3)** — Émissions CO₂ évitées, valeur positive (signe − à l'affichage), ligne séparée règle ABC. **ZD** = substitution + valorisation (Σ flux) ; **AG** = `volume_repas_realise × facteur FAO` (addendum bis 2026-06-04). Discriminé par `type`. |
+| `co2_evite_kg` | decimal(10,2) | NULL | **Ajout 2026-06-04 (Sujet 3)** — Émissions CO₂ évitées, valeur positive (signe − à l'affichage), ligne séparée règle ABC. **ZD** = substitution + valorisation (Σ flux) ; **AG** = `volume_repas_realise × facteur par repas (Base Carbone ADEME)` (addendum bis 2026-06-04). Discriminé par `type`. |
 | `co2_net_kg` | decimal(10,2) | NULL | **Ajout 2026-06-04 (Sujet 3)** — `co2_induit_kg − co2_evite_kg`. Présenté en ligne séparée (jamais comme compensation). ZD uniquement. |
 | `energie_primaire_evitee_kwh` | decimal(12,2) | NULL | **Ajout 2026-06-04 (Sujet 3)** — Énergie primaire évitée par recyclage (kWh). ZD uniquement. |
 | `co2_facteurs_snapshot` | jsonb | NULL | **Ajout 2026-06-04 (Sujet 3)** — Snapshot complet figé à la clôture, garantit la reproductibilité du document. **ZD** : `{ "type":"zero_dechet", "facteurs": {<flux>: {induit, evite, energie}}, "mix_emballages": {...}, "equivalences": {...}, "forfait_collecte": {km, fe_camion}, "version_parametres_at": "<ts>" }`. **AG** (addendum bis 2026-06-04) : `{ "type":"anti_gaspi", "facteur_co2_evite_par_repas_kg": 2.5, "volume_repas_realise": <n>, "equivalences": {km_voiture}, "version_parametres_at": "<ts>" }`. |
@@ -1619,7 +1621,7 @@ Résultat de l'algorithme d'attribution pour une collecte anti-gaspi.
 | `collecte_id` | uuid | FK → collectes, NOT NULL, UNIQUE | 1 attribution par collecte |
 | `association_id` | uuid | FK → associations, NOT NULL | Association sélectionnée |
 | `transporteur_id` | uuid | FK → transporteurs, NOT NULL pour AG | Transporteur sélectionné (Marathon, A Toute!, ou transporteur province). **Refonte 2026-05-09** : A Toute! est désormais modélisé dans `transporteurs` (n'apparaît jamais dans `associations`). Plus de cas `transporteur_id = null`. |
-| `branche_attribution` | text | NOT NULL | **Ajouté 2026-05-09 (intégration règles M12 IDF dans §06.09 §2.3)**. Valeurs canoniques : `ag_marathon_nuit`, `ag_marathon_volume`, `ag_marathon_volume_backup_camion`, `ag_velo_express`, `ag_velo_programme`, `ag_velo_fallback_marathon`, `aucun_prestataire`, `ag_province_proximite` (= hors IDF, tri distance §05 R2 — **résidu `province` corrigé audit cohérence 2026-06-07**, canonique A3 2026-05-09 aligné §05 L83 + §06.09 + §08 + TMS M12). Note : l'enum TMS M12 compte une 9e valeur `zd_idf_strike` (branche ZD, TMS V2 only — jamais produite par l'algo AG Plateforme §06.09). **Ajout 2026-06-07 (Phase 10 migration-data, tranché Val)** : valeur `migration_bubble` — posée exclusivement par le script de migration sur les attributions AG historiques Bubble (asso/transporteur connus, branche d'algo inexistante à l'époque). Jamais produite par l'algo §06.09. Cf. [[../../04 - Migration/02 - Mappings/08 - evenements + collectes + flux + attributions]]. |
+| `branche_attribution` | text | NOT NULL | **Ajouté 2026-05-09 (intégration règles M12 IDF dans §06.09 §2.3)**. Branche **retenue** : celle calculée par l'algorithme, ou, quand l'Admin force A Toute! sur une branche qui ne désigne aucun de ses services, le service qu'il choisit (`ag_velo_programme`, `ag_velo_express`, `ag_marathon_volume_backup_camion`, `ag_everest_camion_express` — décision Val 2026-11-03, cf. [[06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin)]] « Service du transporteur forcé »). Valeurs canoniques : `ag_marathon_nuit`, `ag_marathon_volume`, `ag_marathon_volume_backup_camion`, `ag_velo_express`, `ag_velo_programme`, `ag_velo_fallback_marathon`, `aucun_prestataire`, `ag_province_proximite` (= hors IDF, tri distance §05 R2 — **résidu `province` corrigé audit cohérence 2026-06-07**, canonique A3 2026-05-09 aligné §05 L83 + §06.09 + §08 + TMS M12). Note : l'enum TMS M12 compte une 9e valeur `zd_idf_strike` (branche ZD, TMS V2 only — jamais produite par l'algo AG Plateforme §06.09). **Ajout 2026-06-07 (Phase 10 migration-data, tranché Val)** : valeur `migration_bubble` — posée exclusivement par le script de migration sur les attributions AG historiques Bubble (asso/transporteur connus, branche d'algo inexistante à l'époque). Jamais produite par l'algo §06.09. Cf. [[../../04 - Migration/02 - Mappings/08 - evenements + collectes + flux + attributions]]. |
 | `confirmation_transporteur` | jsonb | NULL avant retour prestataire | **Ajouté 2026-05-09**. Réponse Everest/MTS-1 (V1 appel direct Plateforme) ou TMS Savr (V2 webhook S2) : `{ statut, reference_externe, recu_at, brut }`. Source de vérité statut transport. |
 | `mode_validation` | enum | NOT NULL | **Refonte 2026-05-09 sobriété D2** : remplace ex-bool `recommandation_auto`. Valeurs : `manuel_top1` (Admin valide reco top 1) / `manuel_override` (Admin choisit autre + motif) / `auto_accept` (zéro humain). |
 | `valide_par` | uuid | FK → users | Admin Savr qui a validé (NULL si `mode_validation = 'auto_accept'`) |
@@ -1944,11 +1946,11 @@ Compteurs de numérotation fiscale gapless (§06.08 §7). Une ligne par couple s
 | `collecte_id` | uuid | FK → collectes | Si rapport par collecte (null si rapport événement global) |
 | `version` | integer | NOT NULL, défaut 1 | Incrémenté à chaque régénération manuelle |
 | `pdf_url` | text | | URL Cloudflare R2 |
-| `genere_at` | timestamptz | | Date/heure de la génération initiale (automatique batch J+1 6h) |
+| `genere_at` | timestamptz | | Date/heure de la génération initiale (automatique, dès que les poids sont là) |
 | `genere_par` | enum | | `automatique` \| `manuel` |
 | `regenere_at` | timestamptz | | Date/heure de la dernière régénération manuelle (null si jamais régénéré) |
 | `regenere_par_user_id` | uuid | FK → users | Utilisateur ayant déclenché la dernière régénération (null si non régénéré) |
-| `disponible_a` | timestamptz | NOT NULL | H+24 après `collectes.realisee_at` — rapport non accessible avant cette date (embargo). **Corrigé 2026-05-25 (C1)** : ex-réf fantôme `collectes.fin_at` (inexistante) remplacée par `collectes.realisee_at` (timestamptz du passage à `realisee`). |
+| `disponible_a` | timestamptz | NOT NULL | Instant d'émission (décision Val 2026-11-04, ex-H+24 après `collectes.realisee_at`) — rapport non accessible avant cette date. **Corrigé 2026-05-25 (C1)** : ex-réf fantôme `collectes.fin_at` (inexistante) remplacée par `collectes.realisee_at` (timestamptz du passage à `realisee`). |
 | `envoye_client` | boolean | défaut `false` | |
 | `envoye_at` | timestamptz | | |
 | `consulte_par_user_at` | timestamptz | | Horodatage de la première consultation du rapport par le user programmeur (affiché en back-office Admin comme indicateur "rapport consulté") |
@@ -1959,7 +1961,7 @@ Compteurs de numérotation fiscale gapless (§06.08 §7). Une ligne par couple s
 
 ---
 
-**RLS (audit RLS V1 2026-06-05)** : lecture org-scoped via `evenement_id` (organisation programmatrice / traiteur opérationnel / client organisateur / gestionnaire du lieu) ; l'embargo H+24 (`disponible_a`) reste un contrôle **applicatif**, pas RLS. Écriture système (batch J+1) + `admin_savr` (régénération). Cf. [[09 - Authentification et permissions#A8 — `rapports_rse`]].
+**RLS (audit RLS V1 2026-06-05)** : lecture org-scoped via `evenement_id` (organisation programmatrice / traiteur opérationnel / client organisateur / gestionnaire du lieu) ; la disponibilité (`disponible_a`) reste un contrôle **applicatif**, pas RLS. Écriture système (batch des documents) + `admin_savr` (régénération). Cf. [[09 - Authentification et permissions#A8 — `rapports_rse`]].
 
 > **Rapport « sans excédent » (tranché 2026-06-07, F1 lot ⑫ test-scenarios)** : le PDF « Événement sans excédent alimentaire » ([[12 - Reporting et exports]] §1.3-bis) est porté par une **ligne `rapports_rse` standard** — pas de colonne discriminante (cohérent retrait `type_rapport` A1). Particularité : `disponible_a = genere_at` (génération immédiate au webhook S5 `realisee_sans_collecte`, pas d'embargo H+24). Référence fichier : `shared.fichiers` `entity_type = 'plateforme.rapports_rse'` (liste des 9 inchangée).
 >
@@ -2497,12 +2499,12 @@ La validation d'une attribution AG insère, dans la même transaction, **deux** 
   - **Anti-chevauchement** : il n'y a **plus de verrou global de run** — deux invocations concurrentes du worker sont inoffensives par construction (le claim atomique est l'exclusion mutuelle, à la ligne près).
   - **Envoi immédiat au clic (décision Val 2026-10-12)** : le cron de 15 min n'est plus le seul déclencheur. Après toute mutation qui met un ordre de collecte en file — envoi et validation d'attribution (Admin), création, modification, annulation et incident (Admin et espaces clients), modification d'un événement, acceptation automatique AG —, la route lance, après sa réponse, un passage du worker **borné à la collecte touchée** (une collecte après l'autre quand il y en a plusieurs) : claim dédié `fn_claim_outbox_collecte(p_collecte_id)` (`SECURITY DEFINER`, `EXECUTE` réservé à `service_role` — retiré à `authenticated`, `anon` et `PUBLIC`, comme `fn_claim_outbox_batch` ; mêmes règles que le claim du lot : head-of-line, `next_retry_at`, visibilité `txid`, `attempts` au claim, bail de 2 min ; 0 ou 1 event par appel). **Ce passage ne lance pas le reaper** : seul le cron libère un claim expiré, pour qu'un clic ne reprenne jamais l'event d'un passage encore vivant. Bornes : 5 events, aucun nouveau claim après 40 s, une seconde tentative 1 s plus tard si le premier claim est vide. **Bornes de la tâche (décision Val 2026-10-13)** : avant tout claim, la tâche lit dans `outbox_events` lesquelles de ses collectes ont un event `pending` ou `failed` (une lecture, 50 collectes consultées au plus) et ne lance aucun passage pour les autres ; elle traite au plus 10 collectes et n'en commence plus 40 s après son départ (lectures comprises). Ce qui n'est pas traité reste en file pour le cron (log technique `outbox.envoi_immediat.laisse_au_passage_planifie`). Lecture impossible, réponse illisible ou au plafond de lignes de l'API : les collectes sont traitées quand même, sous les mêmes plafonds (log `outbox.envoi_immediat.file_illisible`). Les identifiants sont comparés sous leur forme standard. La route déclare `maxDuration = 60`. **Mesuré le 2026-10-12 sur des aperçus Vercel (PR #555)** : cette borne n'arrête pas à elle seule une tâche `after()` quand une autre invocation tourne dans le même processus (Fluid Compute) — son code continue au-delà de 60 s ; un serveur local ne l'applique pas du tout. Règle confirmée par Val le même jour, livrée le 2026-10-13 (PR #557) : le passage est borné dans le code par une échéance vérifiée avant chaque appel au prestataire (cf. la puce « Durée de vie d'un passage » proposée par la fiche `M1.5_20261012_passage-borne-par-echeance`). Un échec de ce passage n'est jamais remonté à l'utilisateur : l'event reste en file, le cron l'envoie. Logs techniques (hors catalogue des logs business) : `outbox.envoi_immediat`, `outbox.envoi_immediat.echec`, `outbox.envoi_immediat.non_programme`. L'event `lieu.champ_critique_modifie` (E5) reste au cron.
 - **Ordering** : consommation par `seq` croissant (jamais `created_at`).
-- **Head-of-line blocking PAR AGRÉGAT** : tant qu'un event d'une collecte est `failed`/`dead` (non consommé), **bloquer tous les events suivants de CETTE collecte** (les autres collectes/lieux continuent). Empêche que MTS-1 reçoive une `collecte.modifiee` (E2) d'une collecte dont la `collecte.creee` (E1) n'est jamais arrivée. Concrètement : pour un `aggregate_id` donné, ne consommer la ligne `seq` N+1 que si toutes les lignes `seq ≤ N` du même agrégat sont `consumed`.
+- **Head-of-line blocking PAR AGRÉGAT** : tant qu'un event d'une collecte peut encore partir (`pending`, `processing`, `failed`), **bloquer tous les events suivants de CETTE collecte** (les autres collectes/lieux continuent). Concrètement : pour un `aggregate_id` donné, ne consommer la ligne `seq` N+1 que si toutes les lignes `seq ≤ N` du même agrégat sont `consumed` ou `dead`. **Un event abandonné (`dead`) ne bloque pas** *(décision Val 2026-11-03, remplace « `failed`/`dead` bloquent »)* : il reste en base avec son erreur et son alerte DLQ ; l'Admin corrige la cause et renvoie depuis la fiche collecte (nouvel event). Un event abandonné après une erreur ambiguë (`requires_reconciliation = true`) transmet ce drapeau à l'event suivant de son agrégat (rendu par la réservation) : réconciliation avant tout re-POST, jamais de double commande. Un E2 qui suit un E1 abandonné ne fait rien chez le prestataire (pas de `external_ref_commande` → no-op `noop_no_remote`) ; un E3 abandonné laisse le transporteur non prévenu : l'alerte critique et la fiche le signalent, l'Admin le prévient.
 - **Retry** : **3 paliers 5 min / 1h / 24h** via `next_retry_at`, incrément `attempts` à chaque échec *(tranché Val 2026-06-10, challenge Frontière — remplace « backoff exponentiel » : politique unique alignée §08 §3bis.9 + contrat §08 V2 + retry Pennylane/PDF)*. Après le 3e échec → `status = 'dead'`.
 - **DLQ** : après le 3e échec (4 tentatives au total) → `status = 'dead'` + `dead_at = now()` → **alerte Slack `#savr-alerts-critique`** (une ligne en DLQ = collecte non transmise au transporteur = camion absent ; cf. [[07 - Observabilité/03 - Alertes]]). Jamais d'échec silencieux.
 - **Alerte anticipée collecte imminente (ajout 2026-06-10, challenge logistique+onboarding)** : si l'event concerne une collecte dont `date_collecte < now() + interval '24h'` **ET** `attempts ≥ 2` → **alerte Slack `#savr-alerts-critique` immédiate, sans attendre la DLQ**. Motif : avec les paliers 5 min / 1 h / 24 h, une panne MTS-1 de 2 h à J-0 laisse l'échec silencieux entre le palier 1 h et le palier 24 h alors que la collecte est le soir même (camion absent). Cf. [[07 - Observabilité/03 - Alertes]].
   **⚠ Extension aux events `lieu` (2026-09-16, arbitrage Val — divergence OBS_20260915_alerte-anticipee-events-lieu)** : le prédicat ci-dessus était écrit autour d'une collecte (il lit `collectes.date_collecte`), et le code en tirait un garde `if (aggregate_type !== 'collecte') return`. **E5 `lieu.champ_critique_modifie` porte `aggregate_type = 'lieu'`** : c'était le seul event outbox que l'alerte anticipée ne voyait jamais — ~25 h de silence (3 paliers complets) avant la seule alerte DLQ. Désormais, pour un event `aggregate_type='lieu'`, la **date de référence** est la **plus proche `date_collecte` parmi les collectes futures non terminales du lieu** (jointure `evenements.lieu_id`, déjà écrite dans `AdapterMts1.updateLieu`). Même seuil (`attempts ≥ 2` ET date < now()+24h), même canal. Cas couvert : l'Admin corrige une adresse à 17 h, une collecte s'y tient le soir même, l'E5 échoue en boucle — le camion partirait à l'ancienne adresse sans que personne soit prévenu à temps.
-- **Déblocage DLQ V1 (ajout 2026-06-10, challenge Frontière — le head-of-line fait qu'un event `dead` bloque PERMANENTEMENT tous les events suivants de son agrégat ; ex. E1 dead → E3 annulation jamais poussée → camion envoyé sur collecte annulée)** : procédure admin (SQL `SERVICE_ROLE`, tracée `audit_log`), 3 issues exclusives : **(a) re-queue** — l'erreur amont est corrigée (donnée invalide, MTS-1 rétabli) → `status='pending'`, `next_retry_at=now()`, `attempts=0` (le `seq` original est conservé, l'ordre reste garanti) ; **(b) skip motivé** — l'event est devenu sans objet (ex. E2 d'une collecte depuis annulée) → `status='dead'` conservé + `consumed_at=now()`, `consumer='admin_skip'`, motif dans `last_error` (l'agrégat se débloque) ; **(c) résolution manuelle MTS-1** — l'action a été faite à la main côté MTS-1 (commande créée par Ops) → marquer `consumed` + renseigner `external_ref_commande` sur la tournée pour réaligner la corrélation. Cette procédure est à recopier dans `RUNBOOK_INCIDENT.md` du repo (section « DLQ outbox »). Le **replay outillé** (UI M13) reste V2.
+- **Déblocage DLQ V1 (ajout 2026-06-10, challenge Frontière ; depuis la décision Val du 2026-11-03 un event `dead` ne bloque plus son agrégat, la procédure ne sert plus qu'à reprendre ou clore un event abandonné sans passer par la fiche)** : procédure admin (SQL `SERVICE_ROLE`, tracée `audit_log`), 3 issues exclusives : **(a) re-queue** — l'erreur amont est corrigée (donnée invalide, MTS-1 rétabli) → `status='pending'`, `next_retry_at=now()`, `attempts=0` (le `seq` original est conservé, l'ordre reste garanti) ; **(b) skip motivé** — l'event est devenu sans objet (ex. E2 d'une collecte depuis annulée) → `status='dead'` conservé + `consumed_at=now()`, `consumer='admin_skip'`, motif dans `last_error` (la fiche collecte cesse de l'afficher) ; **(c) résolution manuelle MTS-1** — l'action a été faite à la main côté MTS-1 (commande créée par Ops) → marquer `consumed` + renseigner `external_ref_commande` sur la tournée pour réaligner la corrélation. Cette procédure est à recopier dans `RUNBOOK_INCIDENT.md` du repo (section « DLQ outbox »). Le **replay outillé** (UI M13) reste V2.
 - **Idempotence côté réception MTS-1 — TRANCHÉE (Val 2026-06-11, revue adversariale)** : `POST /v3/customerOrders` est **présumé NON idempotent** (la confirmation éditeur reste souhaitable mais le design n'en dépend plus). Conséquences obligatoires : (1) **commit par rang** — après chaque 201, la ligne `tournees` (`external_ref_commande`) est commitée immédiatement, avant le rang suivant, jamais « tout à la fin » ; (2) re-POST autorisé uniquement sur erreur typée `TRANSIENT` (5xx/réseau avec échec certain) ; (3) timeout ambigu OU reprise post-crash (`requires_reconciliation`) → **réconciliation §08 §3bis.9 AVANT tout re-POST** (scan `minDate/maxDate` + match `orderNumber=reference-{rang}` côté Savr — le plan B sans filtre `?orderNumber` est codé dès V1, Q3bis-5 non bloquante).
 - **Sémantique no-op (ajout 2026-06-11, R8)** : E2/E3 consommés sur une collecte **sans aucune** `external_ref_commande` (E1 skippé en DLQ issue b, ou jamais parti) = **no-op succès** : `consumed_at=now()`, `consumer='noop_no_remote'`, log info. Jamais d'erreur ni de retry sur un agrégat sans existence distante.
 

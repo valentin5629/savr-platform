@@ -76,9 +76,9 @@ Règles :
 | `facture.emise` | info | `facture_id, org_id, numero, montant_ttc` | Validation Admin → Pennylane |
 | `facture.payee` | info | `facture_id, montant_paye, mode` | Polling Pennylane J+1 |
 | `facture.avoir_created` | warn | `facture_id, avoir_id, montant` | Émission avoir |
-| `attestation.generee` | info | `attestation_id, collecte_id, mention_fiscale(bool)` *(AG)* | Batch J+1 6h |
-| `bordereau.genere` | info | `bordereau_id, collecte_id` *(ZD)* | Batch J+1 6h |
-| `rapport_recyclage.genere` | info | `rapport_id, collecte_id` *(ZD)* | Batch J+1 6h |
+| `attestation.generee` | info | `attestation_id, collecte_id, mention_fiscale(bool)` *(AG)* | Batch des documents |
+| `bordereau.genere` | info | `bordereau_id, collecte_id` *(ZD)* | Batch des documents |
+| `rapport_recyclage.genere` | info | `rapport_id, collecte_id` *(ZD)* | Batch des documents |
 | `pdf.job_failed` | error | `job_id, type_doc, collecte_id, retry_count` | File `jobs_pdf` (Railway) |
 
 ### Auth / sécurité
@@ -87,6 +87,10 @@ Règles :
 | `auth.login_success` | info | `user_id, ip, role` | Auth |
 | `auth.login_failed` | warn | `email_hash, ip, reason` | Auth (→ alerte bruteforce, cf. `03`) |
 | `auth.impersonation_started` | warn | `impersonator_id, target_user, by_role` | Mode impersonation §09 (⚠ aussi audit_log) |
+| `auth.code_verification_activation_demandee` *(ajout 2026-11-04)* | info | `user_id` | Code de vérification (équipe Savr, ou organisation qui l'exige) : QR code affiché |
+| `auth.code_verification_ok` *(ajout 2026-11-04)* | info | `user_id, activation` | Code de vérification accepté (première activation ou saisie) |
+| `auth.code_verification_echec` *(ajout 2026-11-04)* | warn | `user_id, ip, activation, code` | Code de vérification refusé (log seul, aucune alerte V1) |
+| `auth.code_verification_reinitialise` *(ajout 2026-11-04)* | warn | `by_user, target_user, facteurs_retires` | Réinitialisation par un autre `admin_savr` (⚠ aussi audit_log) |
 | `api.external.called` | info | `service(pennylane\|everest\|mts1\|resend\|mistral), endpoint, latency_ms, http_status` | Tout appel sortant |
 | `api.external.failed` | error | `service, endpoint, error_code, retry_count` | Échec appel sortant (→ alerte, cf. `03`) |
 | `email.envoi_ignore` *(ajout 2026-10-07)* | warn | `raison, detail, vercel_env` | Transport email — envoi non émis hors production sans `EMAIL_REDIRECT_TO` (§08 §4) |

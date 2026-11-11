@@ -230,10 +230,10 @@
     {
       "id": "BL-P1-RM-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:259",
-      "artefact": "supabase/migrations/20260702000000_plateforme_r16a_cloture_embargo.sql (fn_cloturer_collectes_embargo), packages/plateforme/src/app/api/cron/cloture-embargo/route.ts, packages/plateforme/vercel.json",
+      "artefact": "supabase/migrations/20260702000000_plateforme_r16a_cloture_embargo.sql (fn_cloturer_collectes_embargo), packages/plateforme/src/app/api/cron/cloture-embargo/route.ts, packages/plateforme/vercel.json, supabase/migrations/20261104120000_plateforme_documents_des_poids.sql (48 h depuis le 2026-11-04)",
       "test": "supabase/tests/r16a_machine_etats.test.sql (RM-01 : realisee+H+24→cloturee ; <H+24 reste realisee ; realisee_sans_collecte exclu) ; M1.8/RM-01 — cron appelle fn_cloturer_collectes_embargo et renvoie nb_traite",
       "statut": "implemented",
-      "libelle": "Clôture automatique realisee → cloturee après embargo H+24 (cron cloture-embargo + fn_cloturer_collectes_embargo). Divergence §05 l.244 « immédiate » tracée _Divergences/M1.4_20260702.md"
+      "libelle": "Clôture automatique realisee → cloturee après embargo H+24 (cron cloture-embargo + fn_cloturer_collectes_embargo). Divergence §05 l.244 « immédiate » tracée _Divergences/M1.4_20260702.md Depuis le 2026-11-04 (décision Val, _Divergences/M1.6_20261104_documents-des-poids.md) : clôture à realisee_at + 48 h."
     },
     {
       "id": "BL-P1-RM-02",
@@ -293,8 +293,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c3e83ae82b87b9a2b1490321e617f63dda47bea50de2c5ff30b2dd1e8f0d8e8d",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8217fcbe55eb780c79fa1cee886dd961b880ec5f1656e36d78526975ef0d9001",
-    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "5106e46cfcd6f9197dc77196b058005b1b06486808d4269081c393e692cfc22e"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "34d83ae54048a0ffadb80ace6175cc5a3cd0bbf9710544f21a780949457afd97",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "208d5ae0e0c7d1241081a77727f91d5825f62ea5a7294b869a19e23ec57173f1",
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "b2378a8d3e0a4542259615e26ad5d1449591e43d212e03ca7f5bdc86128438f4"
   }
 }

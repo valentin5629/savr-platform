@@ -77,13 +77,14 @@ Ces tests pgTAP cross-schema sont dans le **périmètre critique V1 bloquant** (
 
 - **Supabase Auth** (built-in, email + password V1)
 - **SSO SAML anticipé dans l'archi V1** : les claims JWT sont pensés pour être provisionnés par un IdP externe (Okta, Azure AD, Google Workspace) sans refonte data. `auth.providers` extensible côté Supabase (activable en V2 au besoin d'un gros client comme Sodexo/Compass, sans migration).
-- Pas de 2FA V1 (ajoutée V2 pour profils Admin Savr et Manager, priorité time-to-market V1)
+- **2FA V1 pour l'équipe Savr** *(décision Val 2026-11-04, cf. [[15 - Sécurité et conformité]] §2.1)* : code de vérification TOTP obligatoire pour `admin_savr` et `ops_savr` en production, une fois par session ; aucun code pour les rôles clients en V1 (Manager compris), sauf les utilisateurs d'une organisation cochée par l'Admin *(VIPARIS, décision Val 2026-11-10, cf. [[15 - Sécurité et conformité]] §2.1)*. 2FA des autres clients : V1.1.
 - **Claim JWT `app_domain`** ajouté V1 (retournement atelier 2026-04-23) pour cloisonner users Plateforme vs TMS dans la même table `auth.users`.
 
 ### Règles de mot de passe
 
 - 10 caractères minimum
 - 1 majuscule + 1 chiffre + 1 caractère spécial obligatoires
+- Mot de passe connu des fuites publiques refusé à la création et à la modification (protection HaveIBeenPwned de Supabase Auth, réglage de la console activé sur `savr-prod` et `savr-dev`, Val 2026-11-10) ; message affiché : « Ce mot de passe figure dans une fuite de données connue. Choisissez-en un autre. » La connexion n'est jamais bloquée.
 - Pas de reset sans accès email (lien magique signé par Supabase)
 - **Session JWT : 1 heure** d'expiration confirmé (Val). Refresh token valide 30 jours. Pas de session plus courte pour Admin en V1.
 
@@ -94,8 +95,9 @@ Obligatoire à l'inscription. Un compte non vérifié ne peut pas programmer de 
 ### Récupération de mot de passe
 
 - Lien magique envoyé par email, valide 1 heure
+- **Compte soumis au code de vérification qui en a un** *(ajout 2026-11-04 : équipe Savr ; depuis le 2026-11-10, aussi les utilisateurs d'une organisation cochée par l'Admin)* : le lien ouvre d'abord l'écran du code (à défaut, le formulaire refuse le nouveau mot de passe tant que le code n'est pas saisi) ; le nouveau mot de passe n'est accepté qu'une fois le code saisi sur cette session (un lien reçu par email ne suffit pas à changer le mot de passe dans l'application, ni à lire ou écrire en base : la base refuse aussi une session sans code, cf. §3 « Règle du code de vérification de l'équipe Savr »). Sans code actif (premier mot de passe, code réinitialisé), le parcours est inchangé et le code est activé juste après, à l'entrée dans l'application.
 - Rate limit : 3 demandes max par heure par email
-- Contenu de l'email brandé Savr via le _recovery template_ GoTrue (`supabase/config.toml [auth.email.template.recovery]` + `supabase/templates/recovery.html`), cf. [[02 - Templates emails V1#11. Email récupération mot de passe]] tpl 11. Email non personnalisé au prénom (GoTrue n'expose pas `{{prenom}}`).
+- Lien fabriqué par Supabase (`auth.admin.generateLink`, type `recovery`), email envoyé par Resend avec le gabarit `reset_password`, cf. [[02 - Templates emails V1#11. Email récupération mot de passe]] tpl 11 (décision Val 2026-11-06 : l'expéditeur par défaut de Supabase ne livre qu'à l'équipe du projet). Email personnalisé au prénom quand il est connu. Réponse toujours identique, que l'adresse existe ou non ; plafond complété de 10 demandes par heure par adresse IP.
 
 ---
 
@@ -135,6 +137,8 @@ Rôle retiré : `gestionnaire_lieux_commandeur` (besoin métier initial couvert 
 ## 3. Matrice RLS (Row Level Security) Supabase
 
 Principe : chaque table sensible a une policy qui filtre les lignes visibles selon le rôle et l'ID user.
+
+> **Règle du code de vérification de l'équipe Savr (décision Val 2026-11-04, questionnaire VIPARIS IAM1)** : chaque table de `plateforme` et `shared` porte en plus la policy **restrictive** `code_verification_equipe_savr` (`FOR ALL TO authenticated`, `USING` et `WITH CHECK` = `plateforme.f_code_verification_ok()`). La règle est fausse, et seulement alors, pour un jeton `admin_savr` ou `ops_savr`, ou portant le claim `code_verification_obligatoire` hors session impersonée *(organisation cochée par l'Admin, 2026-11-10)*, dont le niveau n'est pas `aal2` et dont le compte a un code de vérification activé (facteur vérifié dans `auth.mfa_factors`), ou qui n'a pas de titulaire : une telle session ne lit ni n'écrit rien, même par l'API Supabase en direct. Une policy restrictive ne peut que retirer des droits : elle ne modifie aucune ligne des matrices ci-dessous. Les fonctions `SECURITY DEFINER` et les vues `security_invoker = false` ouvertes à `authenticated` appellent la même règle (exceptions : `health_ping`, qui rend une constante, et `f_code_verification_active`, qui sert la règle). **Toute nouvelle table, fonction ou vue de ce type la porte** (cliquet pgTAP `SECU__code_verification_base`). Sans code activé (environnements de développement, où l'application ne demande pas le code ; production avant la première connexion d'un membre), rien ne change.
 
 > **Règle staff canonique (F2 test-scenarios §09 lot ⑪, tranché Val 2026-06-07)** : partout où une matrice ci-dessous indique `admin_savr ALL` sans ligne `ops_savr`, la lecture est **staff** — le prédicat SELECT canonique est `auth.jwt()->>'role' IN ('admin_savr','ops_savr')`, centralisé dans le helper :
 >
@@ -470,8 +474,10 @@ Synthèse des permissions Ops Savr appliquées au back-office (détail écran pa
 | | **Créer une organisation** *(ajout 2026-09-16 — arbitrage Val, divergence M1.1_20260915_creation-organisation-admin : la route `POST /api/v1/admin/organisations` existait sans ligne de matrice)* | **Oui** | **Oui** |
 | | Modifier infos générales (logo, contacts) | Oui | Oui |
 | | Modifier `tarif_refacture_pax_zd` | **Oui** | **Non** |
+| | Exiger le code de vérification (`code_verification_obligatoire`) *(ajout 2026-11-10)* | **Oui** | **Non** (lecture) |
+| | Réinitialiser le code de vérification d'un utilisateur de l'organisation *(ajout 2026-11-10)* | **Oui** | **Non** |
 | | *(retiré V1 — F6 2026-06-07, fusion = script SQL hors UI, cf. §06.06 §8)* | — | — |
-> **Création d'organisation — périmètre du payload** *(2026-09-16)* : `POST /api/v1/admin/organisations` accepte une **allowlist fermée de 7 colonnes d'identité** — `nom`, `raison_sociale`, `type`, `siret`, `email_principal`, `telephone`, `adresse` — sous cliquet de test (ensemble EXACT). Les champs **admin-only** (`tarif_refacture_pax_zd`, `grille_tarifaire_zd_id`, `notes_internes`) et les champs **système** (`est_shadow`, `cree_par_organisation_id`, `actif`, `id`) ne sont **pas saisissables à la création** : ils relèvent de la fiche (édition, où la matrice ci-dessus s'applique) ou du flux shadow §06.01. `ops_savr` ne peut donc rien poser ici qu'il ne pourrait déjà poser via le PATCH de la fiche.
+> **Création d'organisation — périmètre du payload** *(2026-09-16)* : `POST /api/v1/admin/organisations` accepte une **allowlist fermée de 7 colonnes d'identité** — `nom`, `raison_sociale`, `type`, `siret`, `email_principal`, `telephone`, `adresse` — sous cliquet de test (ensemble EXACT). Les champs **admin-only** (`tarif_refacture_pax_zd`, `grille_tarifaire_zd_id`, `notes_internes`, `code_verification_obligatoire` *(2026-11-10)*) et les champs **système** (`est_shadow`, `cree_par_organisation_id`, `actif`, `id`) ne sont **pas saisissables à la création** : ils relèvent de la fiche (édition, où la matrice ci-dessus s'applique) ou du flux shadow §06.01. `ops_savr` ne peut donc rien poser ici qu'il ne pourrait déjà poser via le PATCH de la fiche.
 >
 > ⚠ La route tourne sous `service_role` (RLS bypassée) et le trigger anti-escalade `trg_block_org_staff_cols_insert` **exempte** l'appelant sous `service_role` (`f_app_role()` renvoie NULL) : **seule la garde applicative `requireStaff` + l'allowlist décident**.
 >
@@ -691,7 +697,7 @@ CREATE POLICY aa_write_ops_poids ON plateforme.attributions_antgaspi FOR UPDATE
 
 ### A8 — `rapports_rse`
 
-Org-scoped via événement. Lecture par l'organisation de l'événement (l'embargo H+24 `disponible_a` est un contrôle **applicatif**, pas RLS). Écriture système (batch J+1) + Admin (régénération).
+Org-scoped via événement. Lecture par l'organisation de l'événement (la disponibilité `disponible_a` est un contrôle **applicatif**, pas RLS). Écriture système (batch des documents) + Admin (régénération).
 
 > **Téléchargement du rapport de recyclage (décision Val 2026-10-16, remplace la régénération manuelle étendue le 2026-10-02)** : le rapport est fabriqué au clic par une **Next.js API Route** qui lit la collecte puis le rapport sous l'identité du demandeur (policy A8 `rr_select`) pour un utilisateur client, puis les données mesurées en service-role ; l'équipe Savr passe par la route Admin (`requireStaff`), qui lit en service-role ; seule `consulte_par_user_at` est posée (service-role), cf. [[04 - Data Model]]. La policy `rr_write_admin` ci-dessous reste **inchangée** — aucune écriture client directe. Test P1 bloquant CI : téléchargement d'un rapport d'une autre organisation → 403, rien n'est fabriqué.
 
@@ -973,11 +979,12 @@ Toute fonction `SECURITY DEFINER` exposée par PostgREST court-circuite la RLS d
   "role": "traiteur_manager",
   "organisation_id": "org-uuid",
   "organisation_type": "traiteur | agence | gestionnaire_lieux",
+  "code_verification_obligatoire": true,
   "exp": 1234567890
 }
 ```
 
-Les policies RLS lisent ces claims via `auth.jwt()->>'claim_name'`.
+Les policies RLS lisent ces claims via `auth.jwt()->>'claim_name'`. `code_verification_obligatoire` *(ajout 2026-11-10)* n'est posé que pour les utilisateurs d'une organisation qui exige le code de vérification (`organisations.code_verification_obligatoire`), absent pour tous les autres.
 
 ---
 
@@ -1012,7 +1019,9 @@ Un Admin Savr peut "se mettre à la place" d'un utilisateur pour debug ou suppor
 - Génère un JWT signé avec `role = user.role` + `organisation_id = user.organisation_id` + `impersonator_id = admin.id`
 - Un bandeau orange permanent signale la session impersonation dans l'UI (cf. [[15 - Sécurité et conformité]] §2.3)
 - Toutes les actions effectuées sont loggées dans `audit_log` avec `user_id = user.id` ET `impersonator_id = admin.id`
-- Fin de session : retour auto au compte Admin après 1h ou bouton "Quitter l'impersonation"
+- Le claim `impersonator_id` n'est porté que par la session ouverte par l'Admin *(2026-11-10)* : le callback d'impersonation enregistre son `session_id` (`app_metadata.impersonation_session_id`) et le hook du jeton ne pose le claim que pour ce `session_id`. Une autre session du compte pendant l'heure (vraie connexion de l'utilisateur) n'en hérite pas : ses actions ne sont pas imputées à l'Admin.
+- Utilisateur d'une organisation qui exige le code de vérification *(2026-11-10)* : la session impersonée n'est pas soumise au code (l'Admin a passé le sien pour la lancer) ; une session impersonée de l'équipe Savr reste soumise au code.
+- Fin de session : retour auto au compte Admin après 1h ou bouton "Quitter l'impersonation" (retour = reconnexion de l'Admin sur son compte : mot de passe puis code de vérification, *précision 2026-11-04*)
 
 ---
 
@@ -1037,7 +1046,7 @@ Deux niveaux possibles, dans cet ordre :
 
 ## Décisions prises
 
-- **Supabase Auth** pour V1 (email + password). 2FA reportée V2.
+- **Supabase Auth** pour V1 (email + password), plus un code de vérification TOTP pour l'équipe Savr (décision Val 2026-11-04) et pour les utilisateurs d'une organisation cochée par l'Admin (VIPARIS, décision Val 2026-11-10).
 - **Session JWT 1h** confirmée (pas de session plus courte pour Admin en V1), refresh 30j
 - **6 rôles V1** *(sobriété 2026-06-03 D1 — `lieu_independant` fusionné dans `gestionnaire_lieux`)* : admin_savr, traiteur_manager, traiteur_commercial, agence, gestionnaire_lieux (inclut les lieux autonomes mono-site), **client_organisateur** (nouveau)
 - **Rôle `gestionnaire_lieux_commandeur` retiré** (remplacé par table `tarifs_negocie`, ex `tarifs_zd_par_gestionnaire`)
@@ -1052,7 +1061,7 @@ Deux niveaux possibles, dans cet ordre :
 - **Policies fiches shadow (2026-05-07)** : INSERT `organisations` `est_shadow=true type='traiteur'` ouvert au rôle `agence` uniquement (pas gestionnaire). Cycle de vie shadow géré par Admin Savr (promotion / fusion / suppression).
 - **Lecture pack AG ouverte aux 3 types (2026-05-07)** : SELECT `packs_antgaspi` `organisation_id = self` pour traiteur_manager + agence + gestionnaire_lieux (+ traiteur_commercial : reco validée Val 2026-11-02, dette code migration d'élargissement + GO reviewer-rls-securite). INSERT reste Admin only (négociation commerciale).
 - **Middlewares applicatifs** en complément pour règles métier (compliance orga, email vérifié)
-- **JWT enrichi** avec claims custom (role, organisation_id, organisation_type, impersonator_id)
+- **JWT enrichi** avec claims custom (role, organisation_id, organisation_type, impersonator_id, code_verification_obligatoire *(2026-11-10)*)
 - **Audit trail** systématique sur tables critiques + tournees
 - **Lot ⑪ RLS transverse (test-scenarios 2026-06-07, 4 décisions Val)** : F1 policy `cf_update_staff` sur `collecte_flux` (édition pesées admin+ops, INSERT reste SERVICE_ROLE) ; F2 règle staff canonique (SELECT `admin_savr ALL` ⇒ staff via `f_is_staff()`, écritures = matrice étendue fait foi) ; F3 garde `f_collecte_editable` étendue aux UPDATE `evenements` de traiteur_manager + agence (cohérence 4 rôles clients) ; F4 `users` SELECT org-wide pour traiteur_commercial (Bloc 7 Top 5 §11 servi en direct, exposition email/téléphone collègues assumée, UPDATE reste self).
 

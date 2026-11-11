@@ -373,7 +373,7 @@
       "artefact": "packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/app/api/v1/agence/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.3/rapport_download_agence",
       "statut": "implemented",
-      "libelle": "Téléchargement du rapport de la collecte depuis la fiche — manquant côté agence jusqu'ici (la liste affichait « Disponible » sans lien) ; embargo H+24 serveur ; documents lus sous la RLS de l'agence (rr_select / att_traiteur_select), jamais en service-role — revue sécurité 2026-09-29 ; cloisonnement : M3.3/rapport_download_agence_cloisonnement."
+      "libelle": "Téléchargement du rapport de la collecte depuis la fiche — manquant côté agence jusqu'ici (la liste affichait « Disponible » sans lien) ; garde serveur disponible_a (instant d'émission depuis le 2026-11-04, ex embargo H+24) ; documents lus sous la RLS de l'agence (rr_select / att_traiteur_select), jamais en service-role — revue sécurité 2026-09-29 ; cloisonnement : M3.3/rapport_download_agence_cloisonnement."
     },
     {
       "id": "M3.3-popup-radar-agence",
@@ -413,7 +413,7 @@
       "artefact": "packages/plateforme/src/app/(agence)/agence/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.3/liste_agence_vues_a_venir_passees",
       "statut": "implemented",
-      "libelle": "Liste Collectes agence = liste traiteur (§06.11 l.57 « vue liste identique au §06.04 ») : vues « Collectes à venir » / « Collectes passées » rangées par date (décision Val 2026-10-19 ; avant : onglets Programmées / Historique par état) + sélecteur ZD / AG + barre de filtres, via le composant COMMUN ListeCollectesClient (la page agence en était une copie figée d'avant la refonte §06.04 2026-07-05 — revue écran E2E 2026-09-30). Décision Val 2026-10-19 : les onglets par état deviennent les vues « Collectes à venir » (défaut, date croissante) / « Collectes passées » (date décroissante), rangées par DATE de collecte quel que soit le statut (aujourd'hui compte dans « à venir ») ; le filtre Statut propose tous les statuts dans les deux vues (lib/collectes/vue-temporelle)."
+      "libelle": "Liste Collectes agence = liste traiteur (§06.11 l.57 « vue liste identique au §06.04 ») : vues « Collectes à venir » / « Collectes passées » rangées par date (décision Val 2026-10-19 ; avant : onglets Programmées / Historique par état) + sélecteur ZD / AG + barre de filtres, via le composant COMMUN ListeCollectesClient (la page agence en était une copie figée d'avant la refonte §06.04 2026-07-05 — revue écran E2E 2026-09-30). Décision Val 2026-10-19 : les onglets par état deviennent les vues « Collectes à venir » (défaut, date croissante) / « Collectes passées » (date décroissante), rangées par DATE de collecte quel que soit le statut (aujourd'hui compte dans « à venir ») ; le filtre Statut propose tous les statuts dans les deux vues (lib/collectes/vue-temporelle). Depuis le 2026-11-03, les deux vues sont tranchées au créneau, à la minute, et non plus au jour (livrable M3.1-vues-collectes-a-la-minute)."
     },
     {
       "id": "M3.3-liste-actions-ligne",
@@ -473,7 +473,7 @@
     },
     {
       "id": "M3.3-liste-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:372",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:374",
       "artefact": "packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -530,7 +530,7 @@
     },
     {
       "id": "M3.3-kpi-cartes-pax-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:109",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:110",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx (cartes kg/pax moyen, Repas/pax moyen) + packages/plateforme/src/lib/dashboards/cockpit-derive.ts (aggregateKpis)",
       "test": "Lot3/agence_carte_kg_par_pax_collectes_a_convives",
       "statut": "implemented",
@@ -541,16 +541,16 @@
       "id": "M3.3-navigation-evenements",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:40-44",
       "artefact": "packages/plateforme/src/lib/nav-config.ts",
-      "test": "M3.3/navigation_agence_5_entrees_sans_registre",
+      "test": "M3.3/navigation_agence_4_entrees_sans_registre",
       "statut": "implemented",
-      "libelle": "Navigation agence (§06.11, réplique §06.04 §1) : Dashboard · Collectes · Événements · Paramètres · Mon pack Anti-Gaspi (Val 2026-11-02, _Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md), sans Registre / Rapports RSE ; « Événements » sous « Collectes » depuis le 2026-10-29 (décision Val, liste commune à tous les rôles). Couvre le scénario 06.11 navigation_agence_4_entrees_sans_registre, à renommer en _5_entrees (fiche de divergence).",
+      "libelle": "Navigation agence (§06.11, réplique §06.04 §1) : Dashboard · Événements · Paramètres · Mon pack Anti-Gaspi (« Collectes » sortie du menu le 2026-11-05, _Divergences/NAV-CLIENTS_20261105_menu-sans-collectes.md) (Val 2026-11-02, _Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md), sans Registre / Rapports RSE ; « Événements » sous « Collectes » depuis le 2026-10-29 (décision Val, liste commune à tous les rôles). Couvre le scénario 06.11 navigation_agence_4_entrees_sans_registre (de nouveau 4 entrées depuis le 2026-11-05).",
       "ref_divergence": "_Divergences/M3.2_20261029_liste-evenements-tous-roles.md"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "316d5f3d7e8b2a4c3ed80e09f4a3a62a8a9e175ac28b87c2a94a476090e6e65c",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "4482c9a343f5aadb36a4c9f139d30333f6a24eebb74d1c9a89c3e62c95018e34",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "c957507b8789dd429a600c8b84a11e336625486cd6d28ee3b6c0fe0b161ae26b",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "f00f20f9682e9e8d4db52204b3814cbff5cdf5a467bf8205db90a9083531bc20"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "8141ddcee2b121871dd2417bd3b200d424d7eb6ceb2a3861438f3e88ecad6d72",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "1387a6bc96b2279b8b3820eecb2094c515ee8d8139ccbb8bf86510cd04da26fd",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "3308fe45eac93a047d85d6d44e04f6995a23940375b5a79c3761612911632e38",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "d2739591c4a1caad4fcb181d46ceea184e2cdc20918001c3b9d884033c8473a2"
   }
 }

@@ -65,6 +65,11 @@ const GATES: { key: string; cmd: string[] }[] = [
   // Primitives components/ui exportées mais montées nulle part (compteur séparé
   // de `orphan-components` : la dette DS tolérée ne masque pas un bloc oublié).
   { key: 'orphan-ui', cmd: ['check:orphan-ui'] },
+  // Anti-récidive « lecture de lignes sans borne » (PR #772) : l'API de données
+  // ampute une réponse à 1 000 lignes sans erreur. Baseline = les lectures déjà
+  // là ; toute NOUVELLE lecture sans borne visible (règle en tête de
+  // `scripts/check-lectures-sans-borne.ts`) fait monter le compteur.
+  { key: 'lectures-sans-borne', cmd: ['check:lectures-sans-borne'] },
 ];
 
 function runGate(cmd: string[]): number | null {

@@ -74,8 +74,10 @@
  *     ne bouge pas ;
  *   – ce que font les aides de la liste `AIDES` : il leur fait confiance, leurs
  *     propres tests les tiennent ;
- *   – les fonctions de base appelées par `.rpc(…)`, les listes écrites dans un
- *     filtre en texte (`.or('id.in.(…)')`), les listes `.in(…)` des écritures ;
+ *   – une fonction de base appelée par `.rpc(…)` sans `.select(colonnes)`
+ *     derrière elle (avec, l'appel est compté comme une autre lecture) ;
+ *   – les listes écrites dans un filtre en texte (`.or('id.in.(…)')`), les
+ *     listes `.in(…)` des écritures ;
  *   – un `.select()` SANS argument écrit ailleurs que sur un `.from(…)` (requête
  *     rangée dans une variable avant d'être lue) : il ne se distingue pas du
  *     `select()` d'un champ de saisie. Aucun sur l'arbre du 2026-11-11 ;
@@ -122,7 +124,7 @@ const SRC = 'packages/plateforme/src';
  * Racines lues → nombre de lectures qu'on doit AU MOINS y voir. Second filet,
  * grossier : la liste des fichiers est d'abord recoupée (cf. `fichiers`), ce
  * plancher n'arrête que la disparition d'un pan entier de lectures. Il laisse
- * passer tout ce qui tient dans sa marge : 488, 29 et 6 lectures vues le
+ * passer tout ce qui tient dans sa marge : 484, 29 et 6 lectures vues le
  * 2026-11-11. Si des lectures ont réellement disparu, baisser le plancher.
  */
 const RACINES: Record<string, number> = {
@@ -750,13 +752,15 @@ function tableDe(lecture: ts.CallExpression): ts.Expression | null {
 }
 
 /**
- * Un `.select(…)` qui lit des lignes. Les 523 lectures du dépôt ont la forme
- * `….from(table).select(…)` (inventaire du 2026-11-11 : aucune autre). Un
- * `.select` qui suit une écriture (`.insert(…).select()`) rend ce qu'elle vient
- * d'écrire : ce n'est pas une lecture de liste. Tout autre APPEL `x.select(…)`
- * ou `x['select'](…)` — `.from(…)` rangé dans une variable, enveloppe maison —
- * est compté dès qu'il nomme ses colonnes, pour qu'une façon nouvelle d'écrire
- * une lecture ne rende pas le gate aveugle ; sans argument, ce peut être le
+ * Un `.select(…)` qui lit des lignes. Sur les 519 lectures du dépôt, 518 ont la
+ * forme `….from(table).select(…)` (inventaire du 2026-11-11). Un `.select` qui
+ * suit une écriture (`.insert(…).select()`) rend ce qu'elle vient d'écrire : ce
+ * n'est pas une lecture de liste. Tout autre APPEL `x.select(…)` ou
+ * `x['select'](…)` — `.from(…)` rangé dans une variable, enveloppe maison,
+ * résultat d'un `.rpc(…)` (la 519e lecture, entrée avec la PR #775 :
+ * `packages/plateforme/src/app/api/v1/programmation/lieux/route.ts`) — est
+ * compté dès qu'il nomme ses colonnes, pour qu'une façon nouvelle d'écrire une
+ * lecture ne rende pas le gate aveugle ; sans argument, ce peut être le
  * `select()` d'un champ de saisie. Un `.select` détaché (`.bind`, déstructuré)
  * n'est pas un appel de cette forme : il n'est pas vu.
  */

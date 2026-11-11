@@ -42,6 +42,7 @@ function makeClient() {
       gte: note('gte'),
       lte: note('lte'),
       order: () => c,
+      limit: () => c,
       then: (resolve: (v: Result) => unknown) => resolve(res()),
     };
     return c;
@@ -92,19 +93,8 @@ describe('M3.3 / liste agence — route liste', () => {
   it('M3.3/liste_agence_resultats — résultats agrégés comme le traiteur, embeds masqués', async () => {
     rls.results.collectes = {
       data: [
-        {
-          id: 'c-zd',
-          type: 'zero_dechet',
-          statut: 'cloturee',
-          taux_recyclage: 73.8,
-          co2_evite_kg: 48.9,
-          collecte_flux: [{ poids_reel_kg: 60 }, { poids_reel_kg: 40 }],
-          attributions_antgaspi: [],
-          evenements: {
-            organisation_id: 'org-agence',
-            traiteur_operationnel_organisation_id: 'org-traiteur',
-          },
-        },
+        // Rangées par identifiant, comme la base les rend (lecture par pages) ;
+        // la route les rend du plus grand au plus petit pour une même date.
         {
           id: 'c-ag',
           type: 'anti_gaspi',
@@ -113,6 +103,19 @@ describe('M3.3 / liste agence — route liste', () => {
           co2_evite_kg: 70,
           collecte_flux: [],
           attributions_antgaspi: { volume_repas_realise: 28 },
+          evenements: {
+            organisation_id: 'org-agence',
+            traiteur_operationnel_organisation_id: 'org-traiteur',
+          },
+        },
+        {
+          id: 'c-zd',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          taux_recyclage: 73.8,
+          co2_evite_kg: 48.9,
+          collecte_flux: [{ poids_reel_kg: 60 }, { poids_reel_kg: 40 }],
+          attributions_antgaspi: [],
           evenements: {
             organisation_id: 'org-agence',
             traiteur_operationnel_organisation_id: 'org-traiteur',

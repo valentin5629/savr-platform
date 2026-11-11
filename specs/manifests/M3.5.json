@@ -156,6 +156,14 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M3.5_20261103_montant-prestation-hors-facturation.md + _Divergences/M3.5_20261103_annulation-tardive-revenus.md",
       "libelle": "Montant de la prestation, facturée ou non (Val 2026-11-03) : liste Admin Collectes (colonne « Montant ») et section Revenus du Dashboard Admin (graphe et tableau). ZD = tarif de la grille de l'organisation programmatrice (sinon grille par défaut) au pax de la collecte, moins la plus forte remise éligible ; AG = prix du pack réellement débité (collectes.pack_antgaspi_id), sinon tarif unitaire public moins la remise AG. Revenus = collectes programmées et réalisées (programmee, validee, en_cours, realisee, realisee_sans_collecte, cloturee), au mois de la collecte ; aucune facture lue. Période par défaut du graphe et du tableau : depuis le 1er du mois il y a 11 mois, sans borne de fin, pour que les collectes programmées à venir comptent (Val 2026-11-03). Plus les annulations tardives (statut annulee et collectes.annulation_tardive = true : moins de 4 h avant le créneau, heure de Paris, imputables au client ou sans incident), au montant plein, nombres et montants ; marque posée au passage à annulee depuis le 2026-11-03, annulations antérieures non comptées."
+    },
+    {
+      "id": "M3.5-dashboards-collectes-par-pages",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:48",
+      "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadEvolution, loadBlocs, loadMargeAttente, loadFiltresParcGestionnaire : lireParPages) + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (fetchScopedRows : lireParPages)",
+      "test": "M3.5 / dashboards clients au-delà du plafond",
+      "statut": "implemented",
+      "libelle": "Dashboards des espaces clients au-delà de 1 000 collectes : évolution, Top listes, badge « en attente de facturation », filtres du parc du gestionnaire et synthèse PDF lisent les collectes page après page (lireParPages) et portent sur toutes. Synthèse PDF : une page en échec fait échouer le rapport."
     }
   ],
   "cdc_source_hash": {

@@ -1656,6 +1656,22 @@
       "artefact": "supabase/migrations/20261102150000_plateforme_codes_viparis.sql (v_registre_dechets) + packages/plateforme/src/lib/registre/csv.ts",
       "test": "M4.2/export_csv_ligne_par_flux + supabase/tests/codes_viparis.test.sql",
       "libelle": "Export CSV du registre : colonnes « Code site VIPARIS » et « Code affaire VIPARIS » juste après « Lieu » (23 colonnes), vides hors VIPARIS, pour tous les rôles qui ont accès au registre."
+    },
+    {
+      "id": "M3.2-gestionnaire-collectes-par-pages",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:45",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/lieux/route.ts (collectes lues par lireParPages)",
+      "test": "M3.2 / gestionnaire au-delà du plafond",
+      "statut": "implemented",
+      "libelle": "Espace gestionnaire au-delà de 1 000 collectes : KPI du dashboard, cumuls 12 mois de la liste Traiteurs et indicateurs 12 mois de la liste Lieux lisent les collectes page après page (lireParPages) et portent sur toutes. Liste Lieux : une lecture des collectes en échec rend une erreur, pas des indicateurs à 0."
+    },
+    {
+      "id": "M3.2-mon-pack-ag-collectes-par-pages",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73",
+      "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts (collectes rattachées lues par lireParPages, journal lu par lireParLots)",
+      "test": "M3.2 / Mon pack Anti-Gaspi au-delà des plafonds",
+      "statut": "implemented",
+      "libelle": "Mon pack Anti-Gaspi au-delà de 1 000 collectes rattachées : les collectes des packs de l'organisation sont lues page après page (lireParPages) ; le journal qui départage les annulations tardives est lu par lots d'identifiants (lireParLots). Test : 1 300 collectes rattachées et 450 annulations tardives, toutes rendues."
     }
   ],
   "cdc_source_hash": {

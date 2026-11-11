@@ -27,7 +27,7 @@ chain.from = (t: string) => {
   rec('from', [t]);
   return chain;
 };
-for (const m of ['select', 'eq', 'in', 'not', 'order']) {
+for (const m of ['select', 'eq', 'in', 'not', 'order', 'limit']) {
   chain[m] = (...a: unknown[]) => {
     rec(m, a);
     return chain;

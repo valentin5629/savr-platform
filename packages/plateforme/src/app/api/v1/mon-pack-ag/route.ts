@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, type ClientRole } from '@/lib/api-auth.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { serverError } from '@/lib/api-helpers.js';
+import {
+  lireParLots,
+  lireParPages,
+  TAILLE_PAGE,
+} from '@/lib/pdf/selection-par-pages.js';
 
 // Onglet « Mon pack Anti-Gaspi » de tous les espaces client (Val 2026-11-02) :
 // l'Admin n'y a pas accès.
@@ -146,15 +151,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Collectes AG rattachées à un pack DE L'ORGANISATION de l'appelant. Le
   // gestionnaire voit aussi les collectes des traiteurs tiers sur ses lieux,
-  // rattachées à LEUR pack : elles n'y figurent pas.
+  // rattachées à LEUR pack : elles n'y figurent pas. Lues page après page
+  // (`lireParPages`) : une réponse est amputée à 1 000 lignes sans erreur.
   const lire = (statuts: string[]) =>
-    service
-      .from('collectes')
-      .select(CONSOMMATION_COLS)
-      .eq('type', 'anti_gaspi')
-      .in('statut', statuts)
-      .eq('packs_antgaspi.organisation_id', organisationId)
-      .order('date_collecte', { ascending: false });
+    lireParPages<ConsommationRow>((apresId) => {
+      const q = service
+        .from('collectes')
+        .select(CONSOMMATION_COLS)
+        .eq('type', 'anti_gaspi')
+        .in('statut', statuts)
+        .eq('packs_antgaspi.organisation_id', organisationId);
+      return (apresId ? q.gt('id', apresId) : q)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    });
 
   const consommation: ConsommationRow[] = [];
   if (packs.length > 0) {
@@ -164,11 +174,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // porte pas (facturée à l'unité) et n'est donc pas listée, sauf si l'Admin
     // la rattache ensuite à un pack de l'organisation. Une annulation à temps
     // rend le crédit et retire le pack ; une refusée par le prestataire aussi.
-    // Sans plafond : l'écran range les collectes par pack, un plafond global
-    // viderait les packs les plus anciens. Volume borné par l'organisation :
-    // chaque rattachement à un pack décompte normalement un crédit (le seed
-    // démo, lui, en rattache plus que ses crédits).
-    const { data: realisees, error: consoErr } = await lire([
+    // Toutes lues : l'écran range les collectes par pack, une lecture amputée
+    // viderait des packs.
+    const realisees = await lire([
       ...STATUTS_A_VENIR,
       'realisee',
       'realisee_sans_collecte',
@@ -176,7 +184,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ]);
     // Une liste vide est un état normal (pack jamais débité) : une lecture en
     // échec ne doit pas s'y confondre.
-    if (consoErr) return serverError(consoErr, 'mon_pack_ag.consommation');
+    if (realisees.error)
+      return serverError(realisees.error, 'mon_pack_ag.consommation');
 
     // Annulées : seule une annulation tardive garde son crédit. Avant le
     // 2026-11-02, le pack était posé dès l'attribution (réservation) : une
@@ -186,51 +195,52 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // trg_pack_debit_annulation_tardive (pack en `record_id`, collecte en
     // `old_values`) et, pour une annulée tardive rattachée après coup par
     // l'Admin, celle de rpc_rattacher_collecte_pack (collecte en `record_id`).
-    const { data: annulees, error: annuleesErr } = await lire(['annulee']);
-    if (annuleesErr)
-      return serverError(annuleesErr, 'mon_pack_ag.consommation');
+    const annulees = await lire(['annulee']);
+    if (annulees.error)
+      return serverError(annulees.error, 'mon_pack_ag.consommation');
 
-    const candidates = (annulees ?? []) as unknown as ConsommationRow[];
+    const candidates = annulees.data;
     let debitees: ConsommationRow[] = [];
     if (candidates.length > 0) {
       // Le journal ne porte que sur les packs des collectes lues ci-dessus pour
       // l'organisation, et ne sert qu'à garder ou écarter ces mêmes collectes :
-      // aucune valeur du journal ne part dans la réponse.
+      // aucune valeur du journal ne part dans la réponse. Lu par lots
+      // d'identifiants (`lireParLots`) : un filtre `in` trop long échoue.
       const packIds = [...new Set(candidates.map((c) => c.packs_antgaspi.id))];
       const [debitsLus, rattachementsLus] = await Promise.all([
-        service
-          .from('audit_log')
-          .select('old_values')
-          .eq('table_name', 'packs_antgaspi')
-          .eq('action', 'pack_debite_annulation_tardive')
-          .in('record_id', packIds),
-        service
-          .from('audit_log')
-          .select('record_id')
-          .eq('table_name', 'collectes')
-          .eq('action', 'pack_rattache_collecte')
-          .in(
-            'record_id',
-            candidates.map((c) => c.id),
-          ),
+        lireParLots<{ old_values: { collecte_id?: string } | null }>(
+          packIds,
+          (lot) =>
+            service
+              .from('audit_log')
+              .select('old_values')
+              .eq('table_name', 'packs_antgaspi')
+              .eq('action', 'pack_debite_annulation_tardive')
+              .in('record_id', lot),
+        ),
+        lireParLots<{ record_id: string }>(
+          candidates.map((c) => c.id),
+          (lot) =>
+            service
+              .from('audit_log')
+              .select('record_id')
+              .eq('table_name', 'collectes')
+              .eq('action', 'pack_rattache_collecte')
+              .in('record_id', lot),
+        ),
       ]);
       const erreurAudit = debitsLus.error ?? rattachementsLus.error;
       if (erreurAudit)
         return serverError(erreurAudit, 'mon_pack_ag.consommation');
 
       const tracees = new Set([
-        ...(debitsLus.data ?? []).map(
-          (d) => (d.old_values as { collecte_id?: string } | null)?.collecte_id,
-        ),
-        ...(rattachementsLus.data ?? []).map((r) => r.record_id),
+        ...debitsLus.data.map((d) => d.old_values?.collecte_id),
+        ...rattachementsLus.data.map((r) => r.record_id),
       ]);
       debitees = candidates.filter((c) => tracees.has(c.id));
     }
 
-    consommation.push(
-      ...((realisees ?? []) as unknown as ConsommationRow[]),
-      ...debitees,
-    );
+    consommation.push(...realisees.data, ...debitees);
   }
 
   return NextResponse.json({

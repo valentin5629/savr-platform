@@ -7,8 +7,17 @@ import {
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { decalerMois } from '@/lib/periodes-raccourcis';
 import { serverError } from '@/lib/api-helpers.js';
+import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
+
+/** Collecte clôturée d'un lieu du parc, telle que cette route la lit. */
+interface CollecteLue {
+  id: string;
+  type: string;
+  evenements: unknown;
+  collecte_flux: { poids_reel_kg: number | null }[] | null;
+}
 
 // GET /api/v1/gestionnaire/lieux
 // Liste des lieux de l'organisation via v_lieux_clients (masque les champs admin-only).
@@ -40,29 +49,38 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // 12 derniers mois en jours parisiens (R-UI-7, J6).
   const sinceStr = decalerMois(jourParis(new Date()), -12);
 
-  const { data: collecteAgg } = await supabase
-    .from('collectes')
-    .select(
-      `id, type, statut,
-       evenements!inner(lieu_id),
-       collecte_flux(poids_reel_kg)`,
-    )
-    .eq('statut', 'cloturee')
-    .gte('date_collecte', sinceStr)
-    .in('evenements.lieu_id', lieuIds);
+  // Lues page après page (`lireParPages`) : une réponse est amputée à 1 000
+  // lignes sans erreur. Une lecture en échec rend une erreur, jamais des
+  // indicateurs à 0.
+  const collecteAgg = await lireParPages<CollecteLue>((apresId) => {
+    const q = supabase
+      .from('collectes')
+      .select(
+        `id, type, statut,
+         evenements!inner(lieu_id),
+         collecte_flux(poids_reel_kg)`,
+      )
+      .eq('statut', 'cloturee')
+      .gte('date_collecte', sinceStr)
+      .in('evenements.lieu_id', lieuIds);
+    return (apresId ? q.gt('id', apresId) : q)
+      .order('id', { ascending: true })
+      .limit(TAILLE_PAGE);
+  });
+  if (collecteAgg.error)
+    return serverError(collecteAgg.error, 'gestionnaire.lieux.indicateurs');
 
   // Agréger par lieu
   const byLieu = new Map<string, { nb: number; tonnage: number }>();
-  for (const c of collecteAgg ?? []) {
+  for (const c of collecteAgg.data) {
     const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
     const lieuId = (evt as { lieu_id?: string })?.lieu_id;
     if (!lieuId) continue;
     const cur = byLieu.get(lieuId) ?? { nb: 0, tonnage: 0 };
     cur.nb += 1;
     if (c.type === 'zero_dechet') {
-      const flux = Array.isArray(c.collecte_flux) ? c.collecte_flux : [];
-      cur.tonnage += flux.reduce(
-        (s, f) => s + ((f as { poids_reel_kg?: number }).poids_reel_kg ?? 0),
+      cur.tonnage += (c.collecte_flux ?? []).reduce(
+        (s, f) => s + (f.poids_reel_kg ?? 0),
         0,
       );
     }

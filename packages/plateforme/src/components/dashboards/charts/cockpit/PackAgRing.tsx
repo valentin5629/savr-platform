@@ -28,7 +28,6 @@ export function PackAgRing({
   const entree = useEntreeGraphique<HTMLDivElement>('pack-ag');
   // Le grand chiffre monte de 0 à sa valeur pendant l'entrée de la jauge.
   const restantsAnimes = useCompteur(creditsRestants, entree.phase);
-  const consommes = Math.max(0, creditsInitiaux - creditsRestants);
   const pctRestant =
     creditsInitiaux > 0 ? creditsRestants / creditsInitiaux : 0;
   const pctFill = Math.max(0, Math.min(1, pctRestant)) * 100;
@@ -62,26 +61,19 @@ export function PackAgRing({
 
   return (
     <Card variant="elevated" padding="lg">
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-md font-extrabold text-savr-neutral-900">
-            Mon pack Anti-Gaspi
-          </div>
-          <Text as="div" className="mt-0.5">
-            <span className="font-extrabold tabular-nums text-savr-neutral-800">
-              {fmtInt(consommes)}
-            </span>
-            {` ${consommes > 1 ? 'crédits consommés' : 'crédit consommé'} sur ${fmtInt(creditsInitiaux)}`}
-          </Text>
+      <div className="mb-4 min-w-0">
+        <div className="text-md font-extrabold text-savr-neutral-900">
+          Mon pack Anti-Gaspi
         </div>
-        <div className="shrink-0 text-right">
+        {/* Restant mis en avant à gauche, une seule phrase (Val 2026-11-11). */}
+        <Text as="div" className="mt-1 flex items-baseline gap-2">
           <span className="text-kpi font-black leading-none tabular-nums text-savr-neutral-900">
             {fmtInt(restantsAnimes)}
           </span>
-          <div className="mt-0.5 text-3xs font-bold uppercase tracking-[0.08em] text-savr-neutral-400">
-            {creditsRestants > 1 ? 'restants' : 'restant'}
-          </div>
-        </div>
+          <span>
+            {`${creditsRestants > 1 ? 'collectes restantes' : 'collecte restante'} sur ${fmtInt(creditsInitiaux)}`}
+          </span>
+        </Text>
       </div>
 
       {/* Une case par crédit (petits packs), sinon barre continue. */}
